@@ -18,57 +18,6 @@ module time_mod
   public :: update_TVD_RK4
   public :: save_old_solution
   !
- !real(wp), parameter :: o = zero
- !!
- !! Classic N stage Runge-Kutta coefficients
- !!
- !real(wp), parameter, dimension(4,4,4) :: &
- !alphaRK = reshape( &
- !                      ! 1-Stage Coefficients
- !     (/ONE ,o,o,o,o, o  ,o,o, o  ,o,  o   ,o, o  , o  , o  , o  ,   &
- !                      ! 2-Stage Coefficients
- !       HALF,o,o,o,o,ONE ,o,o, o  ,o,  o   ,o, o  , o  , o  , o  ,   &
- !                      ! 3-Stage Coefficients
- !       ONE3,o,o,o,o,TWO3,o,o,ONE4,o,THREE4,o, o  , o  , o  , o  ,   &
- !                      ! 4-Stage Coefficients
- !       HALF,o,o,o,o,HALF,o,o, o  ,o, ONE  ,o,ONE6,ONE3,ONE3,ONE6/), &
- !     (/4,4,4/) )
- !!
- !! TVD 4th-order/5-stage Runge-Kutta coefficients
- !!
- !real(wp), parameter, dimension(1:2,1:5) :: &
- !  betaRK_TVD = reshape( (/ 0.00000000000000_wp,0.39175222700395_wp, &
- !                           0.00000000000000_wp,0.36841059262959_wp, &
- !                           0.00000000000000_wp,0.25189177424738_wp, &
- !                           0.00000000000000_wp,0.54497475021237_wp, &
- !                           0.08460416338212_wp,0.22600748319395_wp  /), &
- !                        (/2,5/) )
- !!
- !real(wp), parameter, dimension(1:3,1:5) :: &
- !  alphaRK_TVD = reshape( &
- !       (/ 1.00000000000000_wp,0.00000000000000_wp,0.0_wp, &
- !          0.44437049406734_wp,0.55562950593266_wp,0.0_wp, &
- !          0.62010185138540_wp,0.37989814861460_wp,0.0_wp, &
- !          0.17807995410773_wp,0.82192004589227_wp,0.0_wp, &
- !          0.00683325884039_wp,0.34833675773694_wp,1.0_wp  /), &
- !       (/3,5/) )
- !!
- !real(wp), parameter, dimension(1:5) :: gammaRK_TVD = (/ 0.00000000000000_wp, &
- !                                                        0.51723167208978_wp, &
- !                                                        0.12759831133288_wp, &
- !                                                        0.00000000000000_wp, &
- !                                                        0.00000000000000_wp /)
- !!
- !character(len=100), save :: iter_out_fmt
- !!
- !real(wp), save, allocatable :: ave(:)
- !!
- !type :: time_ave_var_t
- !  integer, allocatable :: idx(:)
- !end type time_ave_var_t
- !!
- !type(time_ave_var_t), save, allocatable :: time_ave_var(:)
-  !
   interface write_array
     module procedure write_1d_array, write_2d_array, write_3d_array
   end interface write_array
@@ -102,11 +51,9 @@ continue
     call get_current_cfl
     !
     if (Timestep_Type == Global_Cell_Timestep) then
-      call get_cell_global_timestep_gpu(dtmin)
-     !call get_cell_timestep(dtmin)
+      call get_cell_global_timestep(dtmin)
     else if (Timestep_Type == Local_Cell_Timestep) then
-      call get_cell_local_timestep_gpu(dtmin)
-     !call get_cell_timestep(dtmin)
+      call get_cell_local_timestep(dtmin)
     end if
     !
   else if (abs(Timestep_Type) == Point_Timestep) then
@@ -115,10 +62,8 @@ continue
     !
     if (Timestep_Type == Global_Point_Timestep) then
       call get_point_global_timestep(dtmin)
-     !call get_point_timestep(dtmin)
     else if (Timestep_Type == Local_Point_Timestep) then
       call get_point_local_timestep(dtmin)
-     !call get_point_timestep(dtmin)
     end if
     !
   end if
@@ -220,7 +165,7 @@ end subroutine get_constant_timestep
 !
 !###############################################################################
 !
-subroutine get_cell_global_timestep_gpu(dtmin)
+subroutine get_cell_global_timestep(dtmin)
   !
   !.. Use Statements ..
   use geovar, only : nfbnd,nface,n_solpts
@@ -256,7 +201,7 @@ subroutine get_cell_global_timestep_gpu(dtmin)
   integer, parameter :: make_p_plus_one = 0
  !integer, parameter :: make_p_plus_one = 1
   !
-  character(len=*), parameter :: pname = "get_cell_global_timestep_gpu"
+  character(len=*), parameter :: pname = "get_cell_global_timestep"
   !
 continue
   !
@@ -284,9 +229,9 @@ continue
     end do
   end if
   !
-  call invs_eigenvalue_gpu(n1,n2,faceusp_array,facenrm,eigni,dsf)
- !call invs_eigenvalue_gpu(n1,n2,faceusp_array(:,:,1),facenrm,eigni(:,1),dsf)
- !call invs_eigenvalue_gpu(n1,n2,faceusp_array(:,:,2),facenrm,eigni(:,2),dsf)
+  call invs_eigenvalue(n1,n2,faceusp_array,facenrm,eigni,dsf)
+ !call invs_eigenvalue(n1,n2,faceusp_array(:,:,1),facenrm,eigni(:,1),dsf)
+ !call invs_eigenvalue(n1,n2,faceusp_array(:,:,2),facenrm,eigni(:,2),dsf)
   !
   dtmin = huge(zero)
   !
@@ -398,11 +343,11 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine get_cell_global_timestep_gpu
+end subroutine get_cell_global_timestep
 !
 !###############################################################################
 !
-subroutine get_cell_local_timestep_gpu(dtmin)
+subroutine get_cell_local_timestep(dtmin)
   !
   !.. Use Statements ..
   use geovar, only : nfbnd,nface,ncell
@@ -439,7 +384,7 @@ subroutine get_cell_local_timestep_gpu(dtmin)
   integer, parameter :: make_p_plus_one = 0
  !integer, parameter :: make_p_plus_one = 1
   !
-  character(len=*), parameter :: pname = "get_cell_local_timestep_gpu"
+  character(len=*), parameter :: pname = "get_cell_local_timestep"
   !
 continue
   !
@@ -467,9 +412,9 @@ continue
     end do
   end if
   !
-  call invs_eigenvalue_gpu(n1,n2,faceusp_array,facenrm,eigni,dsf)
- !call invs_eigenvalue_gpu(n1,n2,faceusp_array(:,:,1),facenrm,eigni(:,1),dsf)
- !call invs_eigenvalue_gpu(n1,n2,faceusp_array(:,:,2),facenrm,eigni(:,2),dsf)
+  call invs_eigenvalue(n1,n2,faceusp_array,facenrm,eigni,dsf)
+ !call invs_eigenvalue(n1,n2,faceusp_array(:,:,1),facenrm,eigni(:,1),dsf)
+ !call invs_eigenvalue(n1,n2,faceusp_array(:,:,2),facenrm,eigni(:,2),dsf)
   !
   dtmin = huge(zero)
   !$ACC PARALLEL LOOP
@@ -601,11 +546,11 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine get_cell_local_timestep_gpu
+end subroutine get_cell_local_timestep
 !
 !###############################################################################
 !
-pure subroutine invs_eigenvalue_gpu(n1,n2,face_cv,facenrm,eigni,ds)
+pure subroutine invs_eigenvalue(n1,n2,face_cv,facenrm,eigni,ds)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -622,18 +567,18 @@ continue
   nr = size(facenrm,dim=1)
   !
   if (nr == 3) then
-    call invs_eigenvalue_gpu_3d(n1,n2,face_cv,facenrm,eigni,ds)
+    call invs_eigenvalue_3d(n1,n2,face_cv,facenrm,eigni,ds)
   else if (nr == 2) then
-    call invs_eigenvalue_gpu_2d(n1,n2,face_cv,facenrm,eigni,ds)
+    call invs_eigenvalue_2d(n1,n2,face_cv,facenrm,eigni,ds)
   else
-    call invs_eigenvalue_gpu_nd(n1,n2,face_cv,facenrm,eigni,ds)
+    call invs_eigenvalue_nd(n1,n2,face_cv,facenrm,eigni,ds)
   end if
   !
-end subroutine invs_eigenvalue_gpu
+end subroutine invs_eigenvalue
 !
 !###############################################################################
 !
-pure subroutine invs_eigenvalue_gpu_3d(n1,n2,face_cv,facenrm,eigni,ds)
+pure subroutine invs_eigenvalue_3d(n1,n2,face_cv,facenrm,eigni,ds)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -721,11 +666,11 @@ continue
     !
   end do
   !
-end subroutine invs_eigenvalue_gpu_3d
+end subroutine invs_eigenvalue_3d
 !
 !###############################################################################
 !
-pure subroutine invs_eigenvalue_gpu_2d(n1,n2,face_cv,facenrm,eigni,ds)
+pure subroutine invs_eigenvalue_2d(n1,n2,face_cv,facenrm,eigni,ds)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -809,11 +754,11 @@ continue
     !
   end do
   !
-end subroutine invs_eigenvalue_gpu_2d
+end subroutine invs_eigenvalue_2d
 !
 !###############################################################################
 !
-pure subroutine invs_eigenvalue_gpu_nd(n1,n2,face_cv,facenrm,eigni,ds)
+pure subroutine invs_eigenvalue_nd(n1,n2,face_cv,facenrm,eigni,ds)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -1005,243 +950,7 @@ continue
     !
   end if
   !
-end subroutine invs_eigenvalue_gpu_nd
-!
-!###############################################################################
-!
-subroutine get_cell_timestep(dtmin)
-  !
-  !.. Use Statements ..
-  use order_mod, only : n_order,maxSP,geom_solpts
-  !
-  use geovar, only : nr,nfbnd,nface
-  use geovar, only : face,cell,fp
-  !
-  use ovar, only : gam,Timestep_Type,time_ref,Final_Time,time,CFL
-  use ovar, only : governing_equations
-  use ovar, only : this_is_final_timestep
-  !
-  use metrics_mod, only : facenrm,metrics_dt,facejac
-  !
-  use flowvar, only : dtsp
-  use flowvar, only : faceusp_array
-  !
-  !.. Formal Arguments ..
-  real(wp), intent(out) :: dtmin
-  !
-  !.. Local Scalars ..
-  integer  :: nf,kf,sf,m
-  integer  :: l1,l2,npl
-  integer  :: r1,r2,npr
-  integer  :: face_geom,face_order,nfp,f0
-  integer  :: host_cell,host_geom,host_order
-  integer  :: left_cell,left_geom,left_order
-  integer  :: right_cell,right_geom,right_order
-  real(wp) :: ds,eigni,eignv,pp1sq
-  real(wp) :: dsl,vell,al,jacl,dtl,mul,hl
-  real(wp) :: dsr,velr,ar,jacr,dtr,mur,hr
-  real(wp) :: psql,psqr
-  !
-  !.. Local Arrays ..
-  real(wp) :: vl(1:nq)
-  real(wp) :: vr(1:nq)
-  !
-  integer, parameter :: make_p_plus_one = 0
- !integer, parameter :: make_p_plus_one = 1
-  !
-  logical(lk), parameter :: use_sqrt = true
- !logical(lk), parameter :: use_sqrt = fals
-  !
-  integer, parameter :: lsf = 1
-  integer, parameter :: rsf = 2
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "get_cell_timestep"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  mul = zero
-  mur = zero
-  !
-  dtmin = huge(zero)
-  dtsp(:) = dtmin
-  !
-  do nf = 1,nfbnd
-    !
-    host_cell = face(nf)%left%cell ! left cell on face
-    !
-    host_geom  = cell(host_cell)%geom  ! host cell geometry
-    host_order = cell(host_cell)%order ! host cell order
-    !
-    l1 = cell(host_cell)%beg_sp ! beginning index for sol-pts in left cell
-    l2 = cell(host_cell)%end_sp ! ending    index for sol-pts in left cell
-    npl = l2-l1+1               ! number of solution points in left cell
-    !
-    face_geom = face(nf)%geom   ! geometry of the current face
-    face_order = face(nf)%order ! order    of the current face
-    !
-    psql = real( (host_order+make_p_plus_one)**2 , kind=wp )
-    !
-    f0 = face(nf)%beg_fp - 1
-    nfp = face(nf)%end_fp - f0
-    !
-    do kf = 1,nfp
-      !
-      ! Get the primitive variables at this face point
-      !
-      vl(1:nq) = usp2v_sp( faceusp_array(f0+kf,1:nq,lsf) )
-      !
-      if (governing_equations == NavierStokes_Eqns) then
-        mul = viscosity_pv_sp( vl(1:nq) )
-      end if
-      !
-      ds = norm2( facenrm(1:nr,f0+kf) )
-      dsl = ds * cl(host_geom) ! face length/area for left cell
-      !
-      ! Normal velocity at this flux point
-      !
-     !vell = dot( vl(nmb:nme) , unit_vector(facenrm(1:nr,f0+kf)) )
-      vell = selfdot( vl(nmb:nme) )
-      if (use_sqrt) vell = sqrt(vell)
-      !
-      ! Speed of sound at this face
-      !
-      al = max( gam*vl(nee)/vl(nec) , rndoff )
-      if (use_sqrt) al = sqrt(al)
-      !
-      hl = half * dsl / facejac(f0+kf,1)
-      !
-      eigni = abs(vell) + al
-      eignv = psql * hl * mul
-      !
-      ! Compute the timestep for this flux point
-      !
-      dtl = min( dtsp(l1) , CFL / (psql * hl * (eigni + eignv)) )
-      !
-      ! Store the minimum timestep for this cell in the location
-      ! of the first solution point for this cell
-      !
-      dtsp(l1:l2) = dtl
-      !
-      dtmin = min( dtmin , dtl )
-      !
-    end do
-    !
-  end do
-  !
-  do nf = nfbnd+1,nface
-    !
-    left_cell  = face(nf)%left%cell  ! left  cell on face
-    right_cell = face(nf)%right%cell ! right cell on face
-    !
-    left_geom  = cell(left_cell)%geom  ! left cell geometry
-    left_order = cell(left_cell)%order ! left cell order
-    !
-    l1 = cell(left_cell)%beg_sp ! beginning index for sol-pts in left  cell
-    l2 = cell(left_cell)%end_sp ! ending    index for sol-pts in left cell
-    npl = l2-l1+1               ! number of solution points in left  cell
-    !
-    right_geom  = cell(right_cell)%geom  ! right cell geometry
-    right_order = cell(right_cell)%order ! right cell order
-    !
-    r1 = cell(right_cell)%beg_sp ! beginning index for sol-pts in right cell
-    r2 = cell(right_cell)%end_sp ! ending    index for sol-pts in right cell
-    npr = r2-r1+1                ! number of solution points in right cell
-    !
-    face_geom = face(nf)%geom   ! geometry of the current face
-    face_order = face(nf)%order ! order    of the current face
-    !
-    psql = real( (left_order +make_p_plus_one)**2 , kind=wp )
-    psqr = real( (right_order+make_p_plus_one)**2 , kind=wp )
-    !
-    f0 = face(nf)%beg_fp - 1
-    nfp = face(nf)%end_fp - f0
-    !
-    do kf = 1,nfp
-      !
-      ! Get the primitive variables at this face point
-      !
-      vl(1:nq) = usp2v_sp( faceusp_array(f0+kf,1:nq,lsf) )
-      vr(1:nq) = usp2v_sp( faceusp_array(f0+kf,1:nq,rsf) )
-      !
-      if (governing_equations == NavierStokes_Eqns) then
-        mul = viscosity_pv_sp( vl(1:nq) )
-        mur = viscosity_pv_sp( vr(1:nq) )
-      end if
-      !
-      ds = norm2( facenrm(1:nr,f0+kf) )
-      dsl = ds * cl(left_geom) ! face length/area for left  cell
-      dsr = ds * cl(right_geom) ! face length/area for right cell
-      !
-      ! Normal velocity at this flux point
-      !
-     !vell = dot( vl(nmb:nme) , unit_vector(facenrm(1:nr,f0+kf)) )
-     !velr = dot( vr(nmb:nme) , unit_vector(facenrm(1:nr,f0+kf)) )
-      vell = selfdot( vl(nmb:nme) )
-      if (use_sqrt) vell = sqrt(vell)
-      velr = selfdot( vr(nmb:nme) )
-      if (use_sqrt) velr = sqrt(velr)
-      !
-      ! Speed of sound at this face
-      !
-      al = max( gam*vl(nee)/vl(nec) , rndoff )
-      if (use_sqrt) al = sqrt(al)
-      ar = max( gam*vr(nee)/vr(nec) , rndoff )
-      if (use_sqrt) ar = sqrt(ar)
-      !
-      hl = half * dsl / facejac(f0+kf,1)
-      hr = half * dsr / facejac(f0+kf,2)
-      !
-      eigni = max( abs(vell) + al , abs(velr) + ar )
-      eignv = max( psql * hl * mul , psqr * hr * mur )
-      !
-      ! Compute the timestep for this flux point
-      !
-      dtl = min( dtsp(l1) , CFL / (psql * hl * (eigni + eignv) ) )
-      dtr = min( dtsp(r1) , CFL / (psqr * hr * (eigni + eignv) ) )
-      !
-      ! Store the minimum timestep for all solution points in both cells
-      !
-      dtsp(l1:l2) = dtl
-      dtsp(r1:r2) = dtr
-      !
-      dtmin = min( dtmin , dtl , dtr )
-      !
-    end do
-    !
-  end do
-  !
-  ! Get the minimum timestep across all processors
-  !
-  if (ncpu > 1) then
-    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
-                       MPI_MIN,MPI_COMM_WORLD,mpierr)
-  end if
-  !
-  ! Limit the local timesteps if using a global timestepping
-  !
-  if (Timestep_Type == Global_Cell_Timestep) then
-    !
-    ! Set all time step sizes to the global minimum timestep
-    !
-    dtsp(:) = dtmin
-    !
-  end if
-  !
-  ! Make sure the timestep size doesnt make the final time exceed Final_Time
-  !
-  if (Final_Time > zero) then
-    if (time + dtmin > Final_Time/time_ref + eps9) then
-      dtsp(:) = Final_Time/time_ref - time
-      this_is_final_timestep = true
-    end if
-  end if
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine get_cell_timestep
+end subroutine invs_eigenvalue_nd
 !
 !###############################################################################
 !
@@ -1553,403 +1262,6 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_point_local_timestep
-!
-!###############################################################################
-!
-subroutine get_point_timestep(dtmin)
-  !
-  !.. Use Statements ..
-  use geovar,      only : nr,n_solpts
-  use ovar,        only : gam,time_ref,Final_Time,time,CFL,Timestep_Type
-  use ovar,        only : this_is_final_timestep
-  use metrics_mod, only : time_metrics
-  use flowvar,     only : usp,dtsp
-  !
-  !.. Formal Arguments ..
-  real(wp), intent(out) :: dtmin
-  !
-  !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: da,dx,dy,dz,dtpt,dtc
-  real(wp) :: rho,velx,vely,velz,rhoe
-  real(wp) :: rho_inv,q2,pres,aspd,gm1
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "get_point_timestep"
-  !
- !integer, parameter :: make_p_plus_one = 0
-  integer, parameter :: make_p_plus_one = 1
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  gm1 = gam - one
-  !
-  dtmin = huge(zero)
-  !
-  if (nr == 3) then
-    !
-    !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,time_metrics,dtsp)
-    do n = 1,n_solpts
-      !
-      dx = time_metrics(1,n)
-      dy = time_metrics(2,n)
-      dz = time_metrics(3,n)
-      da = time_metrics(4,n)
-      !
-      rho = usp(n,nec)
-      !
-      rho_inv = one/rho
-      !
-      velx = usp(n,nmx)*rho_inv
-      vely = usp(n,nmy)*rho_inv
-      velz = usp(n,nmz)*rho_inv
-      !
-      rhoe = usp(n,nee)
-      !
-      q2 = velx*velx + vely*vely + velz*velz
-      !
-      pres = gm1*(rhoe - half*rho*q2)
-      !
-      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
-      dtc = abs(velx)*dx + abs(vely)*dy + abs(velz)*dz + aspd*da
-      !
-      dtpt = CFL/dtc
-      !
-      dtmin = min( dtpt , dtmin )
-      !
-      dtsp(n) = dtpt
-      !
-    end do
-    !
-  else if (nr == 2) then
-    !
-    !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,time_metrics,dtsp)
-    do n = 1,n_solpts
-      !
-      dx = time_metrics(1,n)
-      dy = time_metrics(2,n)
-      da = time_metrics(3,n)
-      !
-      rho = usp(n,nec)
-      !
-      rho_inv = one/rho
-      !
-      velx = usp(n,nmx)*rho_inv
-      vely = usp(n,nmy)*rho_inv
-      !
-      rhoe = usp(n,nee)
-      !
-      q2 = velx*velx + vely*vely
-      !
-      pres = gm1*(rhoe - half*rho*q2)
-      !
-      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
-      dtc = abs(velx)*dx + abs(vely)*dy + aspd*da
-      !
-      dtpt = CFL/dtc
-      !
-      dtmin = min( dtpt , dtmin )
-      !
-      dtsp(n) = dtpt
-      !
-    end do
-    !
-  else
-    !
-    !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,time_metrics,dtsp)
-    do n = 1,n_solpts
-      !
-      dx = time_metrics(1,n)
-      da = time_metrics(2,n)
-      !
-      rho = usp(n,nec)
-      !
-      rho_inv = one/rho
-      !
-      velx = usp(n,nmx)*rho_inv
-      !
-      rhoe = usp(n,nee)
-      !
-      pres = gm1*(rhoe - half*rho*velx*velx)
-      !
-      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
-      dtc = abs(velx)*dx + aspd*da
-      !
-      dtpt = CFL/dtc
-      !
-      dtmin = min( dtpt , dtmin )
-      !
-      dtsp(n) = dtpt
-      !
-    end do
-    !
-  end if
-  !
-  !$ACC UPDATE SELF(dtmin)
-  !
-  ! Get the minimum timestep across all processors
-  !
-  if (ncpu > 1) then
-    ! Update the value of dtmin on the CPU
-    !$ACC UPDATE SELF(dtmin)
-    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
-                       MPI_MIN,MPI_COMM_WORLD,mpierr)
-    ! Update the value of dtmin on the GPU
-    !$ACC UPDATE DEVICE(dtmin)
-  end if
-  !
-  ! Limit the local timesteps if using a global timestepping
-  !
-  if (Timestep_Type == Global_Point_Timestep) then
-    !
-    ! Make sure the timestep size doesnt make the final time exceed Final_Time
-    !
-    if (Final_Time > zero) then
-      if (time + dtmin > Final_Time/time_ref + eps9) then
-        dtmin = Final_Time/time_ref - time
-       !dtsp(:) = Final_Time/time_ref - time
-        this_is_final_timestep = true
-      end if
-    end if
-    !
-    ! Set all time step sizes to the minimum timestep
-    !
-    !$ACC PARALLEL LOOP PRESENT(dtsp)
-    do n = 1,n_solpts
-      dtsp(n) = dtmin
-    end do
-    !
-  end if
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine get_point_timestep
-!
-!###############################################################################
-!
-subroutine get_point_timestep_old(dtmin)
-  !
-  !.. Use Statements ..
-  use geovar,  only : nr,ncell,cell
-  use ovar,    only : gam,time_ref,Final_Time,time,CFL,Timestep_Type
-  use ovar,    only : this_is_final_timestep
-  use ovar,    only : governing_equations
-  use metrics_mod,  only : metrics_dt
-  use flowvar, only : usp,dtsp
-  !
-  !.. Formal Arguments ..
-  real(wp), intent(out) :: dtmin
-  !
-  !.. Local Scalars ..
-  integer  :: n,nc,k,n1,n2,np
-  integer  :: this_geom,this_order
-  real(wp) :: dtpt,dtc,eigni,eignv
-  real(wp) :: vmag,aspd,psq,visc
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:nr) :: vel
-  real(wp), dimension(1:nq) :: pv
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "get_point_timestep_old"
-  !
- !integer, parameter :: make_p_plus_one = 0
-  integer, parameter :: make_p_plus_one = 1
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  dtmin = huge(zero)
-  !
-  visc = zero
-  !
-  do nc = 1,ncell
-    !
-    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
-    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
-    np = n2-n1+1         ! number of sol-pts in this cell
-    !
-    this_geom = cell(nc)%geom   ! geometry type of this cell
-    this_order = cell(nc)%order ! solution order of this cell
-    !
-    psq = real( (this_order+make_p_plus_one)**2 , kind=wp )
-    !
-    dtc = CFL * two / psq
-    !
-    do k = 1,np
-      !
-      n = k + n1-1
-      !
-      pv(1:nq) = usp2v_sp( usp(n,1:nq) )
-      !
-      if (governing_equations == NavierStokes_Eqns) then
-        visc = viscosity_cv_sp( usp(n,1:nq) )
-      end if
-      !
-      vel(1:nr) = matmul( metrics_dt(nc)%met(k,1:nr,1:nr) , pv(nmb:nme) )
-      !
-      vmag = norm2(vel)
-      !
-      aspd = sqrt( max( gam*pv(nee)/pv(nec) , rndoff ) )
-      !
-      eigni = vmag + aspd
-      !
-      eignv = psq * visc
-      !
-      dtpt = dtc / (eigni + eignv)
-      !
-      dtmin = min( dtpt , dtmin )
-      !
-      dtsp(n) = dtpt
-      !
-    end do
-    !
-  end do
-  !
-  ! Get the minimum timestep across all processors
-  !
-  if (ncpu > 1) then
-    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
-                       MPI_MIN,MPI_COMM_WORLD,mpierr)
-  end if
-  !
-  ! Limit the local timesteps if using a global timestepping
-  !
-  if (Timestep_Type == Global_Point_Timestep) then
-    !
-    ! Set all time step sizes to the minimum timestep
-    !
-    dtsp(:) = dtmin
-    !
-    ! Make sure the timestep size doesnt make the final time exceed Final_Time
-    !
-    if (Final_Time > zero) then
-      if (time + dtmin > Final_Time/time_ref + eps9) then
-        dtsp(:) = Final_Time/time_ref - time
-        this_is_final_timestep = true
-      end if
-    end if
-    !
-  end if
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine get_point_timestep_old
-!
-!###############################################################################
-!
-subroutine old_get_point_timestep(dtmin)
-  !
-  !.. Use Statements ..
-  use order_mod,  only : n_order
-  use geovar,  only : nr,ncell,cell
-  use ovar,    only : gam,time_ref,Final_Time,time,CFL,Timestep_Type
-  use ovar,    only : this_is_final_timestep
-  use metrics_mod,  only : metrics_dt
-  use flowvar, only : usp,dtsp
-  !
-  !.. Formal Arguments ..
-  real(wp), intent(out) :: dtmin
-  !
-  !.. Local Scalars ..
-  integer  :: k,n,nc,n1,n2
-  real(wp) :: dtpt,gm1,dtc,eign
-  real(wp) :: dxdr,dydr,dxds,dyds
-  real(wp) :: rho,vx,vy,pres,aspd
-  real(wp) :: alfa,beta,gama
-  !
-  real(wp) :: vel(1:nr)
-  real(wp) :: met(1:nr,1:nr)
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "old_get_point_timestep"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  gm1 = gam - one
-  !
-  dtmin = huge(zero)
-  !
-  dtc = CFL * two / real( (n_order+1)**2 , kind=wp )
-  !
-  do nc = 1,ncell
-    !
-    n1 = cell(nc)%beg_sp
-    n2 = cell(nc)%end_sp
-    !
-    do n = n1,n2
-      !
-      k = n-n1+1
-      !
-      met(1:nr,1:nr) = invert_matrix(metrics_dt(nc)%met(k,1:nr,1:nr))
-      dxdr = met(1,1)
-      dydr = met(2,1)
-      dxds = met(1,2)
-      dyds = met(2,1)
-      !
-      rho  = usp(n,nec)
-      vel  = usp(n,nmb:nme)/rho
-      pres = gm1 * (usp(n,nee) - half*rho*selfdot(vel))
-      !
-      aspd = sqrt( max( gam*pres/rho , rndoff ) )
-      !
-      alfa = abs( vel(1)*dydr - vel(2)*dxdr )
-      beta = abs( vel(1)*dyds - vel(2)*dxds )
-      !
-      gama = aspd*sqrt(dxdr**2 + dydr**2 + dxds**2 + dyds**2)
-      !
-      eign = alfa + beta + gama
-      !
-      dtpt = dtc * metrics_dt(nc)%jac(k) / eign
-      !
-      dtmin = min( dtpt , dtmin )
-      !
-      dtsp(n) = dtpt
-      !
-    end do
-    !
-  end do
-  !
-  ! Get the minimum timestep across all processors
-  !
-  if (ncpu > 1) then
-    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
-                       MPI_MIN,MPI_COMM_WORLD,mpierr)
-  end if
-  !
-  ! Limit the local timesteps if using a global timestepping
-  !
-  if (Timestep_Type == Global_Point_Timestep) then
-    !
-    ! Set all time step sizes to the minimum timestep
-    !
-    dtsp(:) = dtmin
-    !
-    ! Make sure the timestep size doesnt make the final time exceed Final_Time
-    !
-    if (Final_Time > zero) then
-      if (time + dtmin > Final_Time/time_ref + eps9) then
-        dtsp(:) = Final_Time/time_ref - time
-        this_is_final_timestep = true
-      end if
-    end if
-    !
-  end if
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine old_get_point_timestep
 !
 !###############################################################################
 !
