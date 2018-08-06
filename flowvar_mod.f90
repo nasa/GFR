@@ -129,18 +129,24 @@ module flowvar
   ! FACEDUSP_ARRAY : conservative variable gradients at the interface flx-pts
   !
   real(wp), public, save, allocatable :: faceusp_array(:,:,:)
+  !$ACC DECLARE CREATE(faceusp_array)
   real(wp), public, save, allocatable :: facedusp_array(:,:,:,:)
+  !$ACC DECLARE CREATE(facedusp_array)
   !
   ! FACEFLX  : flux normal to cell faces at each interface flux point
   !
   real(wp), public, save, allocatable :: faceflx(:,:)
+  !$ACC DECLARE CREATE(faceflx)
   !
-  !$ACC DECLARE CREATE(faceusp_array,facedusp_array,faceflx)
+  ! FACEXYZ_ARRAY  : coordinates of the interface flux points
   !
   real(wp), public, save, allocatable :: facexyz_array(:,:)
-  !
   !$ACC DECLARE CREATE(facexyz_array)
   !
+  ! FACEGPSP : gas properties at the interface flux points
+  !
+  real(wp), public, save, allocatable :: facegpsp(:,:,:)
+  !$ACC DECLARE CREATE(facegpsp)
   !
   ! NE1D_T : Derived type containing a 1D array for storing edge/node
   !          solutions for a processor
@@ -419,6 +425,16 @@ continue
       call alloc_error(pname,"facedusp_array",1,__LINE__,__FILE__, &
                        ierr,error_message)
       !$ACC UPDATE DEVICE(facedusp_array)
+    end if
+    !
+    if (ncs > 0) then
+      if (.not. allocated(facegpsp)) then
+        allocate ( facegpsp(1:n_solpts,1:ng,1:2) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"facegpsp",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+        !$ACC UPDATE DEVICE(facegpsp)
+      end if
     end if
     !
     !
@@ -1234,6 +1250,15 @@ continue
     write (iou,2) array_name,array%get_units()
   else
     write (iou,7) "faceflx"
+  end if
+  if (allocated(facegpsp)) then
+    call array%set( storage_size(facegpsp,kind=inttype) , &
+                            size(facegpsp,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "facegpsp"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "facegpsp"
   end if
   !
   total = total%get_units()
