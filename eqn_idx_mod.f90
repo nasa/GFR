@@ -12,9 +12,12 @@ module eqn_idx
   public :: create_equation_indices
   !
   ! NCS : number of chemical species
+  ! NCR : number of chemical reactions
   !
   integer, public, protected, save :: ncs
   !$ACC DECLARE CREATE(ncs)
+  integer, public, protected, save :: ncr
+  !$ACC DECLARE CREATE(ncr)
   !
   ! NCB : index for first species continuity equation
   ! NCE : index for last  species continuity equation
@@ -182,7 +185,8 @@ continue
   if (itestcase == Reacting_Backstep) then
     ncs = 2
   else if (itestcase == Diffusion_Flame) then
-    ncs = 2
+    ncs = 6
+    ncr = 3
   end if
   !
   ! Continuity equations
