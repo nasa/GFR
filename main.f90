@@ -26,6 +26,7 @@ program GFR_main
   use ovar, only : governing_equations,visc_flux_method
   use ovar, only : results_interval,iter_out_interval
   use ovar, only : restart_interval,output_interval
+  use ovar, only : is_at_output_frequency
   use ovar, only : dump_memory_usage,mms_opt
   use ovar, only : gfr_cpu_time,this_is_final_timestep
   use ovar, only : write_TaylorGreen_8s_solution
@@ -191,6 +192,7 @@ program GFR_main
   logical(lk)  :: completed_initial_cgns_output
   logical(lk)  :: exit_main_loop
   logical(lk)  :: walltime_expiring
+  logical(lk)  :: output_solution
   !
   logical(ldk) :: request_stop
   logical(ldk) :: request_restart
@@ -1147,24 +1149,38 @@ continue
       !
     end if
     !
-    ! Output the restart file at specified step interval
-    !
-    if (restart_interval > 0 .and. .not.request_restart) then
-      if (mod(itcur,restart_interval)==0 .and. iter/=num_timesteps) then
-        call write_restart_file(itcur)
+    if (iter /= num_timesteps) then
+      !
+      ! Output the restart file at specified step interval
+      !
+      if (restart_interval > 0 .and. .not.request_restart) then
+        if (mod(itcur,restart_interval) == 0) then
+          call write_restart_file(itcur)
+        end if
       end if
-    end if
-    !
-    ! Output the solution at the specified interval
-    !
-    if (output_interval > 0 .and. .not.request_solution) then
-      if (mod(itcur,output_interval)==0 .and. iter/=num_timesteps) then
+      !
+      ! Output the solution at the specified interval
+      !
+      output_solution = fals
+      if (output_interval > 0 .and. .not.request_solution) then
+        if (mod(itcur,output_interval) == 0) then
+          output_solution = true
+        end if
+      end if
+      !
+      if (is_at_output_frequency) then
+        output_solution = true
+        is_at_output_frequency = fals
+      end if
+      !
+      if (output_solution) then
         if (continuous_output) then
           call new_write_parallel_cgns
         else
           call write_parallel_cgns(CGNS_action)
         end if
       end if
+      !
     end if
     !
     if (itestcase == Taylor_Green_Vortex) then

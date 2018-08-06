@@ -765,12 +765,16 @@ continue
       end if
     end if
     !
-    if (output_interval == 0) then
-      output_interval = num_timesteps/50
-    else if (output_interval < 0) then
-      output_interval = num_timesteps/abs(output_interval)
+    if (output_frequency > zero) then
+      output_interval = num_timesteps+1
+    else
+      if (output_interval == 0) then
+        output_interval = num_timesteps/50
+      else if (output_interval < 0) then
+        output_interval = num_timesteps/abs(output_interval)
+      end if
+      output_interval = max(output_interval,1)
     end if
-    output_interval = max(output_interval,1)
     !
     if (iter_out_interval == 0) then
       iter_out_interval = 1

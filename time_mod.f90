@@ -81,6 +81,7 @@ subroutine get_dtsp(dtmin)
   !
   !.. Use Statements ..
   use ovar, only : Timestep_Type,d_t,itestcase,Final_Time
+  use ovar, only : output_frequency
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
@@ -125,6 +126,14 @@ continue
   if (itestcase == Taylor_Green_Vortex) then
     call check_tstar_for_TaylorGreen(dtmin)
   end if
+  !
+  ! Check to see if we need to output a new
+  ! solution file based on output_frequency
+  !
+  if (output_frequency > zero) then
+    call check_output_frequency(dtmin)
+  end if
+  !
   !
   ! Make sure the timestep size doesnt make the final time exceed Final_Time
   !
@@ -2022,6 +2031,81 @@ continue
   end if
   !
 end subroutine check_tstar_for_TaylorGreen
+!
+!###############################################################################
+!
+subroutine check_output_frequency(dtmin)
+  !
+  !.. Use Statements ..
+  use geovar,  only : n_solpts
+  use flowvar, only : dtsp
+  use ovar,    only : time,time_ref,time_scaling_factor
+  use ovar,    only : output_frequency,is_at_output_frequency
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer  :: n,old_int,new_int
+  real(wp) :: old_time,new_time
+  !
+  !.. Local Parameters ..
+  logical(lk), parameter :: update_dtmin_for_output_frequency = fals
+ !logical(lk), parameter :: update_dtmin_for_output_frequency = true
+  !
+continue
+  !
+  old_time = time*time_ref*time_scaling_factor
+  new_time = old_time + dtmin*time_ref*time_scaling_factor
+  !
+  ! Number of output frequency intervals that have
+  ! been completed at the end of the previous timestep.
+  !
+  old_int = floor( old_time/output_frequency )
+  !
+  ! Number of output frequency intervals that will have
+  ! been completed after finishing the current timestep.
+  !
+  new_int = floor( new_time/output_frequency )
+  !
+  ! If the number of output frequency intervals completed increases
+  ! after completing the current timestep, set the logical flag that
+  ! tells the main loop to output a new solution file.
+  !
+  if (new_int > old_int) then
+    is_at_output_frequency = true
+  end if
+  !
+  ! NOTE: WITHOUT ALTERING DTMIN, WE ARE ASSUMING THAT THE TIMESTEP SIZE IS
+  !       SUFFICIENTLY SMALL ENOUGH SUCH THAT THE SOLUTION TIME AT THE END OF
+  !       THE CURRENT TIMESTEP IS VERY NEARLY CLOSE (OR CLOSE ENOUGH) TO A
+  !       MULTPLE OF THE OUTPUT FREQUENCY.
+  !
+  !       SHOULD WE ALTER DTMIN (AND THUS THE DTSP ARRAY) SO THAT THE SOLUTION
+  !       TIME AT THE END OF THE CURRENT TIMESTEP IS ACTUALLY AT A MULTIPLE OF
+  !       THE OUTPUT FREQUENCY?
+  !
+  if (update_dtmin_for_output_frequency) then
+    !
+    if (is_at_output_frequency) then
+      !
+      new_time = output_frequency*real(new_int,kind=wp)
+      !
+      ! Nondimensionalize new_time to match time and dtmin
+      !
+      dtmin = time - new_time/time_ref/time_scaling_factor
+      !$ACC UPDATE DEVICE(dtmin)
+      !
+      !$ACC PARALLEL LOOP PRESENT(dtsp)
+      do n = 1,n_solpts
+        dtsp(n) = dtmin
+      end do
+      !
+    end if
+    !
+  end if
+  !
+end subroutine check_output_frequency
 !
 !###############################################################################
 !

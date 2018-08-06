@@ -201,6 +201,7 @@ module ovar
   ! SOLUTION OUTPUT OPTIONS
   character(len=:), public, save, allocatable :: output_dir
   integer,            public, save :: output_interval   = -5
+  real(wp),           public, save :: output_frequency  = -1.0_wp
   logical(lk),        public, save :: continuous_output = fals
   integer,            public, save :: loc_output_pts    = Equi_Distant_Points
   !
@@ -440,6 +441,8 @@ module ovar
   integer, public, save, allocatable :: all_cpu_num(:)
   !
   integer,  public, save :: Total_Periods
+  !
+  logical(lk),  public, save :: is_at_output_frequency = fals
   !
   logical(lk),  public, save :: write_TaylorGreen_8s_solution = fals
   logical(lk),  public, save :: write_TaylorGreen_full_solution = fals
@@ -758,7 +761,7 @@ module input_namelist_mod
   use ovar,      only : load_restart_file, restart_interval, restart_file
   use ovar,      only : restart_output_uses_host_roots
   use ovar,      only : iter_out_interval, results_interval
-  use ovar,      only : output_dir, output_interval
+  use ovar,      only : output_dir, output_interval, output_frequency
   use ovar,      only : continuous_output
   use ovar,      only : postproc_debug_grid
   use ovar,      only : output_bnd_profiles,sub_inflow_method
@@ -878,7 +881,7 @@ module input_namelist_mod
   namelist / input / iter_out_interval, results_interval
   ! SOLUTION OUTPUT OPTIONS
   namelist / input / output_dir, output_interval, continuous_output, &
-                     output_order, loc_output_pts
+                     output_order, loc_output_pts, output_frequency
   ! GOVERNING EQUATIONS
   namelist / input / governing_equations, turbulence_model
   ! NONDIMENSIONAL REFERENCE CONDITIONS
