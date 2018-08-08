@@ -184,7 +184,10 @@ continue
   ncs = 0
   if (itestcase == Reacting_Backstep) then
     ncs = 2
-  else if (itestcase == Diffusion_Flame) then
+  else if (itestcase == H2_2D_Diffusion_Flame) then
+    ncs = 7
+    ncr = 7
+  else if (itestcase == CH4_3D_Diffusion_Flame) then
     ncs = 6
     ncr = 3
   end if
