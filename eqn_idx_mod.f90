@@ -164,6 +164,7 @@ subroutine create_equation_indices(num_dim,itestcase)
   !.. Use Statements ..
   use ovar, only : governing_equations
   use ovar, only : turbulence_model
+  use ovar, only : disable_chemical_reactions
   !
   !.. Formal Arguments ..
   integer, intent(in) :: num_dim
@@ -182,6 +183,7 @@ continue
   end if
   !
   ncs = 0
+  ncr = 0
   if (itestcase == Reacting_Backstep) then
     ncs = 2
   else if (itestcase == H2_2D_Diffusion_Flame) then
@@ -190,6 +192,10 @@ continue
   else if (itestcase == CH4_3D_Diffusion_Flame) then
     ncs = 6
     ncr = 3
+  end if
+  !
+  if (disable_chemical_reactions) then
+    ncr = 0
   end if
   !
   ! Continuity equations

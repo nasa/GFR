@@ -206,8 +206,9 @@ module ovar
   integer,            public, save :: loc_output_pts    = Equi_Distant_Points
   !
   ! GOVERNING EQUATIONS
-  integer, public, save :: governing_equations = NavierStokes_Eqns
-  integer, public, save :: turbulence_model    = laminar_flow
+  integer,     public, save :: governing_equations        = NavierStokes_Eqns
+  integer,     public, save :: turbulence_model           = laminar_flow
+  logical(lk), public, save :: disable_chemical_reactions = fals
   !
   ! NONDIMENSIONAL REFERENCE CONDITIONS
   real(wp), public, save :: machref =  0.4_wp
@@ -758,6 +759,7 @@ module input_namelist_mod
   use ovar,      only : all_points, metis_option, use_old_restart_format
   use ovar,      only : mms_opt, mms_init, mms_output_solution
   use ovar,      only : itestcase, jet_init_func, governing_equations
+  use ovar,      only : disable_chemical_reactions
   use ovar,      only : load_restart_file, restart_interval, restart_file
   use ovar,      only : restart_output_uses_host_roots
   use ovar,      only : iter_out_interval, results_interval
@@ -883,7 +885,8 @@ module input_namelist_mod
   namelist / input / output_dir, output_interval, continuous_output, &
                      output_order, loc_output_pts, output_frequency
   ! GOVERNING EQUATIONS
-  namelist / input / governing_equations, turbulence_model
+  namelist / input / governing_equations, turbulence_model, &
+                     disable_chemical_reactions
   ! NONDIMENSIONAL REFERENCE CONDITIONS
   namelist / input / machref, reyref, gam
   ! TOTAL REFERENCE CONDITIONS
