@@ -254,7 +254,27 @@ continue
   ntk = ngov(1,4)
   ntl = ngov(2,4)
   !
-  !$ACC UPDATE DEVICE(nq,ncs,ncb,nce,nec,nmx,nmy,nmz,nee,nmb,nme,ntk,ntl)
+  ! Update the indices for the thermodynamic and transport gas properties
+  !
+  npres = 1
+  ntemp = 2
+  ng = 2
+  !
+  if (governing_equations == NavierStokes_Eqns) then
+    nvisc = ng + 1
+    ncond = ng + 2
+    ng = ncond
+  end if
+  !
+  if (ncs > 0) then
+    ngamm = ng + 1
+    nenth = ng + 2
+    ncp   = ng + 3
+    ng = ncp
+  end if
+  !
+  !$ACC UPDATE DEVICE(nq,nec,nmx,nmy,nmz,nee,nmb,nme,ntk,ntl)
+  !$ACC UPDATE DEVICE(ncs,ncb,nce,ng,npres,ntemp,nvisc,ncond,ngamm,nenth,ncp)
   !
 end subroutine create_equation_indices
 !
