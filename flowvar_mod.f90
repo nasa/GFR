@@ -231,7 +231,7 @@ contains
 subroutine allocate_flowvar_arrays()
   !
   !.. Use Statements ..
-  use eqn_idx,   only : nq,ng,ncs
+  use eqn_idx,   only : nq,ng
   use geovar,    only : nr,n_solpts,n_totpts
   use geovar,    only : nfbnd,nface,face
   use geovar,    only : nnode,nedge,edge
@@ -425,14 +425,12 @@ continue
       !$ACC UPDATE DEVICE(facedusp_array)
     end if
     !
-    if (ncs > 0) then
-      if (.not. allocated(facegpsp)) then
-        allocate ( facegpsp(1:n_solpts,1:ng,1:2) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"facegpsp",1,__LINE__,__FILE__, &
-                         ierr,error_message)
-        !$ACC UPDATE DEVICE(facegpsp)
-      end if
+    if (.not. allocated(facegpsp)) then
+      allocate ( facegpsp(1:n_solpts,1:ng,1:2) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"facegpsp",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !$ACC UPDATE DEVICE(facegpsp)
     end if
     !
     !
