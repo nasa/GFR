@@ -527,7 +527,14 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(FUNDIR)/sort.f90 \
                           mpi_defs.h
 
-$(OBJDIR)/species_mod.o : species_mod.f90
+$(OBJDIR)/species_mod.o : species_mod.f90 \
+                $(OBJDIR)/kind_types.o \
+                $(OBJDIR)/eqn_idx_mod.o
+
+$(OBJDIR)/thermo_mod.o : thermo_mod.f90 \
+               $(OBJDIR)/kind_types.o \
+               $(OBJDIR)/eqn_idx_mod.o \
+               $(OBJDIR)/ovar_mod.o
 
 $(OBJDIR)/time_mod.o : time_mod.f90 \
              $(OBJDIR)/kind_types.o \
@@ -541,9 +548,18 @@ $(OBJDIR)/time_mod.o : time_mod.f90 \
              $(OBJDIR)/limiters.o \
              $(OBJDIR)/projection_mod.o \
              $(OBJDIR)/gpu_mod.o \
+             $(OBJDIR)/thermo_mod.o \
+             $(OBJDIR)/transport_mod.o \
              $(FUNDIR)/usp2v.f90 \
              $(FUNDIR)/viscosity.f90 \
              $(FUNDIR)/debug_timer.f90
+
+$(OBJDIR)/transport_mod.o : transport_mod.f90 \
+                  $(OBJDIR)/kind_types.o \
+                  $(OBJDIR)/eqn_idx_mod.o \
+                  $(OBJDIR)/ovar_mod.o \
+                  $(OBJDIR)/gpu_mod.o \
+                  $(OBJDIR)/thermo_mod.o
 
 $(OBJDIR)/triangle.o : triangle.f90 \
              $(OBJDIR)/kind_types.o \

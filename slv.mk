@@ -129,6 +129,8 @@ OBJS := $(OBJDIR)/kind_types.o \
 	$(OBJDIR)/interpsolvar_mod.o \
 	$(OBJDIR)/interpsol_mod.o \
 	$(OBJDIR)/species_mod.o \
+	$(OBJDIR)/thermo_mod.o \
+	$(OBJDIR)/transport_mod.o \
 	$(OBJDIR)/mydebug_mod.o
 
 
