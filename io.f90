@@ -259,6 +259,8 @@ subroutine read_nml_input_file(input_fname,input_mode)
   use ovar,   only : Period_Timesteps,Period_Time
   use ovar,   only : Grid_Length
   use ovar,   only : LDG_beta,LDG_tau
+  use ovar,   only : marker_c1,marker_c2,marker_dpsi
+  use ovar,   only : Default_Marker_c1
   !
   use quadrature_mod, only : init_geom_quadrature_rules
   use quadrature_mod, only : init_face_quadrature_rules
@@ -277,7 +279,7 @@ subroutine read_nml_input_file(input_fname,input_mode)
   real(wp) :: real_Total_Periods
   real(wp) :: aoa_radians
   real(wp) :: cfl_sum,cfl_time
-  real(wp) :: xmin,xmax
+  real(wp) :: xmin,xmax,psi0
   !
   !.. Local Arrays ..
   character(len=80), dimension(12) :: input_text
@@ -493,6 +495,42 @@ continue
   if (Resolution_Marker_Variable <= 0 .or. Resolution_Marker_Variable > nq) then
     Resolution_Marker_Variable = nec
   end if
+  !
+  if (Limiter_Marker_c1   > zero) marker_c1   = Limiter_Marker_c1
+  if (Limiter_Marker_c2   > zero) marker_c2   = Limiter_Marker_c2
+  if (Limiter_Marker_dpsi > zero) marker_dpsi = Limiter_Marker_dpsi
+  !
+  if (Limiter_Marker_Max < zero .and. Limiter_Marker_Min > zero) then
+    Limiter_Marker_Min = Limiter_Marker_Max - two*marker_dpsi
+  else if (Limiter_Marker_Min < zero .and. Limiter_Marker_Max > zero) then
+    Limiter_Marker_Max = Limiter_Marker_Min + two*marker_dpsi
+  end if
+  !
+  if (all([Limiter_Marker_Min,Limiter_Marker_Max] < zero)) then
+    !
+    marker_dpsi = half*abs(Limiter_Marker_Min-Limiter_Marker_Max)
+    !
+    if (marker_c1 /= Default_Marker_c1) then
+      marker_c2 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c1) / &
+                   log10(real(n_order,kind=wp))
+    else
+      marker_c1 = -one*(Limiter_Marker_Min + &
+                        marker_dpsi + marker_c2*log10(real(n_order,kind=wp)))
+    end if
+    !
+  end if
+  !
+  if (mypnum == glb_root) then
+    psi0 = -one*(marker_c1 + marker_c2*log10(real(n_order,kind=wp)))
+    write (iout,30) marker_c1,marker_c2,marker_dpsi, &
+                    psi0-marker_dpsi,psi0,psi0+marker_dpsi
+  end if
+  30 format (/,2x,"marker_c1   = ",f11.6,/, &
+               2x,"marker_c2   = ",f11.6,/, &
+               2x,"marker_dpsi = ",f11.6,//, &
+               2x,"psi0 - dpsi = ",f11.6,/, &
+               2x,"psi0        = ",f11.6,/, &
+               2x,"psi0 + dpsi = ",f11.6,/)
   !
   ! Make sure the number of RK stages is correct for some RK types
   !

@@ -1271,6 +1271,9 @@ pure subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
   use metrics_mod,    only : wtdjac
   use filter_mod,     only : filter
   use quadrature_mod, only : std_elem
+  use ovar,           only : dpsi => marker_dpsi
+  use ovar,           only : c1 => marker_c1
+  use ovar,           only : c2 => marker_c2
   !
   !.. Formal Arguments ..
   real(wp),     intent(in) :: usp(:,:)
@@ -1290,9 +1293,9 @@ pure subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_resolution_marker"
-  real(wp),         parameter :: dpsi = half
-  real(wp),         parameter :: c1 = four
-  real(wp),         parameter :: c2 = 4.25_wp
+ !real(wp),         parameter :: dpsi = half
+ !real(wp),         parameter :: c1 = four
+ !real(wp),         parameter :: c2 = 4.25_wp
   !
 continue
   !

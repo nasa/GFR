@@ -267,6 +267,13 @@ module ovar
   integer, public, save :: Limiter_Option             = 0
   integer, public, save :: Resolution_Marker_Variable = 0
   !
+  ! LIMITER MARKER SENSITIVITY OPTIONS
+  real(wp), public, save :: Limiter_Marker_Min  =  1.0_wp
+  real(wp), public, save :: Limiter_Marker_Max  =  1.0_wp
+  real(wp), public, save :: Limiter_Marker_c1   = -1.0_wp
+  real(wp), public, save :: Limiter_Marker_c2   = -1.0_wp
+  real(wp), public, save :: Limiter_Marker_dpsi = -1.0_wp
+  !
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
   integer, public, save :: Filtering_Interval = 0
   integer, public, save :: Limiting_Interval  = 0
@@ -361,6 +368,10 @@ module ovar
   ! ####   Non-Input Variables   ####
   ! #################################
   !
+  real(wp), public, parameter :: Default_Marker_dpsi = 0.5_wp
+  real(wp), public, parameter :: Default_Marker_c1   = 4.0_wp
+  real(wp), public, parameter :: Default_Marker_c2   = 4.25_wp
+  !
  !integer, public, parameter :: dflux_opt = project_derivatives
   integer, public, parameter :: dflux_opt = derivative_of_proj_fluxes
   !
@@ -415,6 +426,10 @@ module ovar
   integer,  public, save :: itrst = 0
   real(wp), public, save :: tmrst = zero
   real(wp), public, save :: dtrst = zero
+  !
+  real(wp), public, save :: marker_dpsi = Default_Marker_dpsi                     
+  real(wp), public, save :: marker_c1   = Default_Marker_c1                       
+  real(wp), public, save :: marker_c2   = Default_Marker_c2
   !
   real(wp), public, save, allocatable, dimension(:) :: cv_in
   real(wp), public, save, allocatable, dimension(:) :: pv_in
@@ -781,6 +796,9 @@ module input_namelist_mod
   use ovar,      only : Filter_Alpha,  Limiter_Filter_Alpha
   use ovar,      only : Filter_eps,    Limiter_Filter_eps
   use ovar,      only : Limiter_Option, Resolution_Marker_Variable
+  use ovar,      only : Limiter_Marker_Min, Limiter_Marker_Max
+  use ovar,      only : Limiter_Marker_dpsi
+  use ovar,      only : Limiter_Marker_c1, Limiter_Marker_c2
   use ovar,      only : Filtering_Interval, Limiting_Interval
   use ovar,      only : loc_output_pts, loc_init_pts, loc_error_pts
   use ovar,      only : vortex_bigR, vortex_bigGam
@@ -912,6 +930,10 @@ module input_namelist_mod
                      Limiter_Filter_eps
   ! LIMITER OPTIONS
   namelist / input / Limiter_Option, Resolution_Marker_Variable
+  ! LIMITER MARKER SENSITIVITY OPTIONS
+  namelist / input / Limiter_Marker_Min, Limiter_Marker_Max, &
+                     Limiter_Marker_c1, Limiter_Marker_c2, &
+                     Limiter_Marker_dpsi
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
   namelist / input / Filtering_Interval, Limiting_Interval
   ! OUTPUT THE STATISTICS OF THE LIMITER
