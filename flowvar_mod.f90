@@ -267,12 +267,10 @@ continue
   call alloc_error(pname,"dusp",1,__LINE__,__FILE__,ierr,error_message)
   !$ACC UPDATE DEVICE(dusp)
   !
-  if (ncs > 0) then
-    allocate ( gpsp(1:n_solpts,1:ng) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"gpsp",1,__LINE__,__FILE__,ierr,error_message)
-    !$ACC UPDATE DEVICE(gpsp)
-  end if
+  allocate ( gpsp(1:n_solpts,1:ng) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"gpsp",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(gpsp)
   !
   ! If we are only time averaging restart files, we dont need any of
   ! these other arrays so return out of here
