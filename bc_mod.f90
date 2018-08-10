@@ -56,16 +56,19 @@ subroutine get_faceusp_bc(exit_error)
   ! to compute the boundary states based on the face boundary condition.
   !
   !.. Use Statements ..
-  use metrics_mod,  only : facenrm
-  use flowvar,      only : faceusp_array
-  use flowvar,      only : facexyz_array
-  use geovar,       only : bc_grps
-  use ovar,         only : bc_in,itcur
-  use ovar,         only : output_bface_array
+  use metrics_mod,   only : facenrm
+  use flowvar,       only : faceusp_array
+  use flowvar,       only : facexyz_array
+  use flowvar,       only : facegpsp
+  use geovar,        only : bc_grps,n_bnd_flxpts
+  use ovar,          only : bc_in,itcur
+  use ovar,          only : output_bface_array
 !#define DEBUG_BC_GROUPS
 #ifdef DEBUG_BC_GROUPS
-  use geovar,       only : n_wall_flxpts,n_bnd_flxpts,n_flxpts,n_solpts
+  use geovar,        only : n_wall_flxpts,n_bnd_flxpts,n_flxpts,n_solpts
 #endif
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
   !
   !.. Optional Arguments ..
   integer, optional, intent(out) :: exit_error
@@ -91,6 +94,15 @@ continue
   if (first_output) then
     if (output_bface_array) call output_bface
   end if
+  !
+  ! First, update the thermodynamic and transport gas properties for the
+  ! interior flux points of the boundary faces
+  !
+  n1 = 1
+  n2 = n_bnd_flxpts
+  !
+  call update_thermo_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1))
+  call update_transport_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1))
   !
   ! Loop over the boundary face groups and compute the conservative variables
   ! at the boundary flux points based on the face boundary condition.
