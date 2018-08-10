@@ -59,6 +59,8 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/interpolation_mod.o \
            $(OBJDIR)/gpu_mod.o \
            $(OBJDIR)/mms_mod.o \
+	   $(OBJDIR)/thermo_mod.o \
+	   $(OBJDIR)/transport_mod.o \
            $(FUNDIR)/debug_timer.f90 \
                      mpi_defs.h
 
@@ -175,6 +177,8 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/upwind_flux_mod.o \
          $(OBJDIR)/projection_mod.o \
          $(OBJDIR)/typesgen_mod.o \
+	 $(OBJDIR)/thermo_mod.o \
+	 $(OBJDIR)/transport_mod.o \
          $(FUNDIR)/debug_timer.f90 \
          $(FUNDIR)/check_for_bad_number.f90
 
