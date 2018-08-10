@@ -616,42 +616,35 @@ continue
   !$ACC DATA CREATE(aspd)
   !
   if (ncs > 0) then
-    !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp,aspd)
-    do n = n1,n2
-      !
-      rho_inv = one/face_cv(n,nec,1)
-      pres = face_gp(n,npres,1)
-      gamm = face_gp(n,ngamm,1)
-      !
-      aspd(n,1) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
-      !
-      rho_inv = one/face_cv(n,nec,2)
-      pres = face_gp(n,npres,2)
-      gamm = face_gp(n,ngamm,2)
-      !
-      aspd(n,2) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
-      !
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp,aspd)
+    do i = 1,2
+      do n = n1,n2
+        !
+        rho_inv = one/face_cv(n,nec,i)
+        pres = face_gp(n,npres,i)
+        gamm = face_gp(n,ngamm,i)
+        !
+        aspd(n,i) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
+        !
+      end do
     end do
   else
-    !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp,aspd)
-    do n = n1,n2
-      !
-      rho_inv = one/face_cv(n,nec,1)
-      pres = face_gp(n,npres,1)
-      !
-      aspd(n,1) = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
-      rho_inv = one/face_cv(n,nec,2)
-      pres = face_gp(n,npres,2)
-      !
-      aspd(n,2) = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp,aspd)
+    do i = 1,2
+      do n = n1,n2
+        !
+        rho_inv = one/face_cv(n,nec,i)
+        pres = face_gp(n,npres,i)
+        !
+        aspd(n,i) = sqrt( max( gam*pres*rho_inv , rndoff ) )
+        !
+      end do
     end do
   end if
   !
   !
   !
-  !$ACC PARALLEL LOOP PRESENT(face_cv,facenrm,eigni,ds)
+  !$ACC PARALLEL LOOP PRESENT(face_cv,facenrm,aspd,eigni,ds)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -734,40 +727,33 @@ continue
   !$ACC DATA CREATE(aspd)
   !
   if (ncs > 0) then
-    !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp,aspd)
-    do n = n1,n2
-      !
-      rho_inv = one/face_cv(n,nec,1)
-      pres = face_gp(n,npres,1)
-      gamm = face_gp(n,ngamm,1)
-      !
-      aspd(n,1) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
-      !
-      rho_inv = one/face_cv(n,nec,2)
-      pres = face_gp(n,npres,2)
-      gamm = face_gp(n,ngamm,2)
-      !
-      aspd(n,2) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
-      !
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp,aspd)
+    do i = 1,2
+      do n = n1,n2
+        !
+        rho_inv = one/face_cv(n,nec,i)
+        pres = face_gp(n,npres,i)
+        gamm = face_gp(n,ngamm,i)
+        !
+        aspd(n,i) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
+        !
+      end do
     end do
   else
-    !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp,aspd)
-    do n = n1,n2
-      !
-      rho_inv = one/face_cv(n,nec,1)
-      pres = face_gp(n,npres,1)
-      !
-      aspd(n,1) = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
-      rho_inv = one/face_cv(n,nec,2)
-      pres = face_gp(n,npres,2)
-      !
-      aspd(n,2) = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp,aspd)
+    do i = 1,2
+      do n = n1,n2
+        !
+        rho_inv = one/face_cv(n,nec,i)
+        pres = face_gp(n,npres,i)
+        !
+        aspd(n,i) = sqrt( max( gam*pres*rho_inv , rndoff ) )
+        !
+      end do
     end do
   end if
   !
-  !$ACC PARALLEL LOOP PRESENT(face_cv,facenrm,eigni,ds)
+  !$ACC PARALLEL LOOP PRESENT(face_cv,facenrm,aspd,eigni,ds)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -848,40 +834,33 @@ continue
   !$ACC DATA CREATE(aspd,unrm,vel)
   !
   if (ncs > 0) then
-    !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp,aspd)
-    do n = n1,n2
-      !
-      rho_inv = one/face_cv(n,nec,1)
-      pres = face_gp(n,npres,1)
-      gamm = face_gp(n,ngamm,1)
-      !
-      aspd(n,1) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
-      !
-      rho_inv = one/face_cv(n,nec,2)
-      pres = face_gp(n,npres,2)
-      gamm = face_gp(n,ngamm,2)
-      !
-      aspd(n,2) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
-      !
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp,aspd)
+    do i = 1,2
+      do n = n1,n2
+        !
+        rho_inv = one/face_cv(n,nec,i)
+        pres = face_gp(n,npres,i)
+        gamm = face_gp(n,ngamm,i)
+        !
+        aspd(n,i) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
+        !
+      end do
     end do
   else
-    !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp,aspd)
-    do n = n1,n2
-      !
-      rho_inv = one/face_cv(n,nec,1)
-      pres = face_gp(n,npres,1)
-      !
-      aspd(n,1) = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
-      rho_inv = one/face_cv(n,nec,2)
-      pres = face_gp(n,npres,2)
-      !
-      aspd(n,2) = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp,aspd)
+    do i = 1,2
+      do n = n1,n2
+        !
+        rho_inv = one/face_cv(n,nec,i)
+        pres = face_gp(n,npres,i)
+        !
+        aspd(n,i) = sqrt( max( gam*pres*rho_inv , rndoff ) )
+        !
+      end do
     end do
   end if
   !
-  !$ACC PARALLEL LOOP PRESENT(face_cv,facenrm,eigni,ds,unrm,vel)
+  !$ACC PARALLEL LOOP PRESENT(face_cv,facenrm,aspd,eigni,ds,unrm,vel)
   do n = n1,n2
     !
     ds(n) = norm2(facenrm(:,n))
