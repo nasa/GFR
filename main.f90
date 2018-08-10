@@ -1377,7 +1377,7 @@ contains
 !
 !###############################################################################
 !
-subroutine check_for_bad_number(line_num,newton_failures)
+subroutine check_for_bad_number(line_num,newton_failures,force_signaling)
   !
   !.. Use Statements ..
   use eqn_idx, only : nq
@@ -1393,6 +1393,7 @@ subroutine check_for_bad_number(line_num,newton_failures)
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: newton_failures
+  integer, optional, intent(in) :: force_signaling
   !
 #ifndef SPECIAL_FOR_GCC
   !
@@ -1405,6 +1406,8 @@ subroutine check_for_bad_number(line_num,newton_failures)
   character(len=300) :: divide_by_zero_error
   character(len=300) :: invalid_error
   character(len=300) :: newton_error
+  !
+  character(len=10000) :: output_message
   !
   !.. Local Arrays ..
   integer      :: bad_number_found(1:size(ieee_usual))
@@ -1420,12 +1423,21 @@ continue
   divide_by_zero_error = ""
   invalid_error = ""
   newton_error = ""
+  output_message = ""
   !
   ! First check to make sure that no floating-point exceptions are signaling
   !
   call ieee_get_flag(ieee_usual,signaling_exceptions)
   !
   bad_number_found = merge(1,0,signaling_exceptions)
+  !
+  if (present(force_signaling)) then
+    if (force_signaling > 0 .and. force_signaling <= size(ieee_usual)) then
+      bad_number_found(force_signaling) = 1
+    else if (force_signaling < 0) then
+      bad_number_found(:) = 1
+    end if
+  end if
   !
   if (ncpu > 1) then
     call mpi_allreduce(MPI_IN_PLACE,bad_number_found, &
@@ -1457,6 +1469,29 @@ continue
     ! usp so we can dump the solution and restart files before
     ! aborting the simulation
     !
+    if (mypnum == glb_root) then
+      !
+      write (error_message,200) itcur
+      output_message = reformat_string(error_message, &
+                                       line_length=70, &
+                                       leading_blanks=5)
+      !
+      write (iout,1) trim(output_message)
+      flush (iout)
+      !
+      write (error_message,201) trim(adjustl(overflow_error)), &
+                                trim(adjustl(divide_by_zero_error)), &
+                                trim(adjustl(invalid_error)), &
+                                trim(adjustl(newton_error))
+      output_message = reformat_string(error_message, &
+                                       line_length=53, &
+                                       leading_blanks=21)
+      !
+      write (iout,2) trim(adjustl(output_message))
+      flush (iout)
+      !
+    end if
+    !
     if (completed_initial_cgns_output) then
       if (allocated(usp) .and. allocated(uoldsp)) then
         !
@@ -1487,6 +1522,9 @@ continue
     call stop_gfr(stop_mpi,pname,line_num,__FILE__,error_message)
     !
   end if
+  ! 
+  1 format (//,1x,79("#"),//,5x,a,/)
+  2 format (5x,"ERROR MESSAGE: '",a,"'",//,1x,79("#"),//)
   !
   100 format ("A SIGNALING FLOATING POINT EXCEPTION WAS ", &
               "DETECTED AFTER UPDATING THE SOLUTION AFTER ", &
@@ -1500,6 +1538,12 @@ continue
   104 format (" FAILURES WERE DETECTED USING NEWTON'S METHOD", &
               " TO COMPUTE THE SUBSONIC INFLOW TEMPERATURE!", &
               "       newton_failures = ",i0)
+  !
+  200 format ("A SIGNALING FLOATING POINT EXCEPTION WAS ", &
+              "DETECTED AFTER UPDATING THE SOLUTION AFTER ", &
+              "TIME STEP # ",i0," !!! DUMPING SOLUTION AND ", &
+              "RESTART FILES FOR THE PREVIOUS TIME STEP!!!")
+  201 format (4(2x,a,:))
 #endif
   !
 end subroutine check_for_bad_number
