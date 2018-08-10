@@ -908,6 +908,7 @@ subroutine get_point_global_timestep(dtmin)
   use ovar,        only : gam,CFL
   use metrics_mod, only : time_metrics
   use flowvar,     only : usp,dtsp
+  use flowvar,     only : gpsp
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
@@ -915,8 +916,11 @@ subroutine get_point_global_timestep(dtmin)
   !.. Local Scalars ..
   integer  :: n
   real(wp) :: da,dx,dy,dz,dtpt,dtc
-  real(wp) :: rho,velx,vely,velz,rhoe
-  real(wp) :: rho_inv,q2,pres,aspd,gm1
+  real(wp) :: velx,vely,velz
+  real(wp) :: rho_inv,pres,gamm
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: aspd(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_point_global_timestep"
@@ -928,14 +932,40 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  gm1 = gam - one
+  allocate ( aspd(1:n_solpts) )
+  !$ACC DATA CREATE(aspd)
+  !
+  if (ncs > 0) then
+    !$ACC PARALLEL LOOP PRESENT(usp,gpsp,aspd)
+    do n = 1,n_solpts
+      !
+      rho_inv = one/usp(n,nec)
+      pres = gpsp(n,npres)
+      gamm = gpsp(n,ngamm)
+      !
+      aspd(n) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,gpsp,aspd)
+    do n = 1,n_solpts
+      !
+      rho_inv = one/usp(n,nec)
+      pres = gpsp(n,npres)
+      !
+      aspd(n) = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+    end do
+  end if
+  !
+  !
   !
   dtmin = huge(zero)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3) then ! this should also work for ncs > 0
     !
     !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    !$ACC&              PRESENT(usp,aspd,time_metrics,dtsp)
     do n = 1,n_solpts
       !
       dx = time_metrics(1,n)
@@ -943,23 +973,13 @@ continue
       dz = time_metrics(3,n)
       da = time_metrics(4,n)
       !
-      rho = usp(n,nec)
-      !
-      rho_inv = one/rho
+      rho_inv = one/usp(n,nec)
       !
       velx = usp(n,nmx)*rho_inv
       vely = usp(n,nmy)*rho_inv
       velz = usp(n,nmz)*rho_inv
       !
-      rhoe = usp(n,nee)
-      !
-      q2 = velx*velx + vely*vely + velz*velz
-      !
-      pres = gm1*(rhoe - half*rho*q2)
-      !
-      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
-      dtc = abs(velx)*dx + abs(vely)*dy + abs(velz)*dz + aspd*da
+      dtc = dx*abs(velx) + dy*abs(vely) + dz*abs(velz) + da*aspd(n)
       !
       dtpt = CFL/dtc
       !
@@ -969,32 +989,22 @@ continue
       !
     end do
     !
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2) then ! this should also work for ncs > 0
     !
     !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    !$ACC&              PRESENT(usp,aspd,time_metrics,dtsp)
     do n = 1,n_solpts
       !
       dx = time_metrics(1,n)
       dy = time_metrics(2,n)
       da = time_metrics(3,n)
       !
-      rho = usp(n,nec)
-      !
-      rho_inv = one/rho
+      rho_inv = one/usp(n,nec)
       !
       velx = usp(n,nmx)*rho_inv
       vely = usp(n,nmy)*rho_inv
       !
-      rhoe = usp(n,nee)
-      !
-      q2 = velx*velx + vely*vely
-      !
-      pres = gm1*(rhoe - half*rho*q2)
-      !
-      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
-      dtc = abs(velx)*dx + abs(vely)*dy + aspd*da
+      dtc = dx*abs(velx) + dy*abs(vely) + da*aspd(n)
       !
       dtpt = CFL/dtc
       !
@@ -1007,25 +1017,13 @@ continue
   else
     !
     !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    !$ACC&              PRESENT(usp,aspd,time_metrics,dtsp)
     do n = 1,n_solpts
       !
       dx = time_metrics(1,n)
       da = time_metrics(2,n)
       !
-      rho = usp(n,nec)
-      !
-      rho_inv = one/rho
-      !
-      velx = usp(n,nmx)*rho_inv
-      !
-      rhoe = usp(n,nee)
-      !
-      pres = gm1*(rhoe - half*rho*velx*velx)
-      !
-      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
-      dtc = abs(velx)*dx + aspd*da
+      dtc = dx*abs(usp(n,nmx))/usp(n,nec) + da*aspd(n)
       !
       dtpt = CFL/dtc
       !
@@ -1036,6 +1034,9 @@ continue
     end do
     !
   end if
+  !
+  !$ACC END DATA
+  deallocate ( aspd )
   !
   ! Get the minimum timestep across all processors
   !
@@ -1066,6 +1067,7 @@ subroutine get_point_local_timestep(dtmin)
   use ovar,        only : gam,CFL
   use metrics_mod, only : time_metrics
   use flowvar,     only : usp,dtsp
+  use flowvar,     only : gpsp
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
@@ -1073,8 +1075,11 @@ subroutine get_point_local_timestep(dtmin)
   !.. Local Scalars ..
   integer  :: n
   real(wp) :: da,dx,dy,dz,dtpt,dtc
-  real(wp) :: rho,velx,vely,velz,rhoe
-  real(wp) :: rho_inv,q2,pres,aspd,gm1
+  real(wp) :: velx,vely,velz
+  real(wp) :: rho_inv,pres,gamm
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: aspd(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_point_local_timestep"
@@ -1086,14 +1091,40 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  gm1 = gam - one
+  allocate ( aspd(1:n_solpts) )
+  !$ACC DATA CREATE(aspd)
+  !
+  if (ncs > 0) then
+    !$ACC PARALLEL LOOP PRESENT(usp,gpsp,aspd)
+    do n = 1,n_solpts
+      !
+      rho_inv = one/usp(n,nec)
+      pres = gpsp(n,npres)
+      gamm = gpsp(n,ngamm)
+      !
+      aspd(n) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,gpsp,aspd)
+    do n = 1,n_solpts
+      !
+      rho_inv = one/usp(n,nec)
+      pres = gpsp(n,npres)
+      !
+      aspd(n) = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+    end do
+  end if
+  !
+  !
   !
   dtmin = huge(zero)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3) then ! this should also work for ncs > 0
     !
     !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    !$ACC&              PRESENT(usp,aspd,time_metrics,dtsp)
     do n = 1,n_solpts
       !
       dx = time_metrics(1,n)
@@ -1101,23 +1132,13 @@ continue
       dz = time_metrics(3,n)
       da = time_metrics(4,n)
       !
-      rho = usp(n,nec)
-      !
-      rho_inv = one/rho
+      rho_inv = one/usp(n,nec)
       !
       velx = usp(n,nmx)*rho_inv
       vely = usp(n,nmy)*rho_inv
       velz = usp(n,nmz)*rho_inv
       !
-      rhoe = usp(n,nee)
-      !
-      q2 = velx*velx + vely*vely + velz*velz
-      !
-      pres = gm1*(rhoe - half*rho*q2)
-      !
-      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
-      dtc = abs(velx)*dx + abs(vely)*dy + abs(velz)*dz + aspd*da
+      dtc = dx*abs(velx) + dy*abs(vely) + dz*abs(velz) + da*aspd(n)
       !
       dtpt = CFL/dtc
       !
@@ -1127,32 +1148,22 @@ continue
       !
     end do
     !
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2) then ! this should also work for ncs > 0
     !
     !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    !$ACC&              PRESENT(usp,aspd,time_metrics,dtsp)
     do n = 1,n_solpts
       !
       dx = time_metrics(1,n)
       dy = time_metrics(2,n)
       da = time_metrics(3,n)
       !
-      rho = usp(n,nec)
-      !
-      rho_inv = one/rho
+      rho_inv = one/usp(n,nec)
       !
       velx = usp(n,nmx)*rho_inv
       vely = usp(n,nmy)*rho_inv
       !
-      rhoe = usp(n,nee)
-      !
-      q2 = velx*velx + vely*vely
-      !
-      pres = gm1*(rhoe - half*rho*q2)
-      !
-      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
-      dtc = abs(velx)*dx + abs(vely)*dy + aspd*da
+      dtc = dx*abs(velx) + dy*abs(vely) + da*aspd(n)
       !
       dtpt = CFL/dtc
       !
@@ -1165,25 +1176,13 @@ continue
   else
     !
     !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    !$ACC&              PRESENT(usp,aspd,time_metrics,dtsp)
     do n = 1,n_solpts
       !
       dx = time_metrics(1,n)
       da = time_metrics(2,n)
       !
-      rho = usp(n,nec)
-      !
-      rho_inv = one/rho
-      !
-      velx = usp(n,nmx)*rho_inv
-      !
-      rhoe = usp(n,nee)
-      !
-      pres = gm1*(rhoe - half*rho*velx*velx)
-      !
-      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
-      !
-      dtc = abs(velx)*dx + aspd*da
+      dtc = dx*abs(usp(n,nmx))/usp(n,nec) + da*aspd(n)
       !
       dtpt = CFL/dtc
       !
@@ -1194,6 +1193,9 @@ continue
     end do
     !
   end if
+  !
+  !$ACC END DATA
+  deallocate ( aspd )
   !
   ! Get the minimum timestep across all processors
   !
