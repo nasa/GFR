@@ -3832,10 +3832,4 @@ end subroutine write_3d_array
 !
 !###############################################################################
 !
-include "Functions/usp2v.f90"
-include "Functions/viscosity.f90"
-!include "Functions/temperature.f90"
-!
-!###############################################################################
-!
 end module time_mod

@@ -551,11 +551,8 @@ $(OBJDIR)/time_mod.o : time_mod.f90 \
              $(OBJDIR)/filter_mod.o \
              $(OBJDIR)/limiters.o \
              $(OBJDIR)/projection_mod.o \
-             $(OBJDIR)/gpu_mod.o \
              $(OBJDIR)/thermo_mod.o \
              $(OBJDIR)/transport_mod.o \
-             $(FUNDIR)/usp2v.f90 \
-             $(FUNDIR)/viscosity.f90 \
              $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/transport_mod.o : transport_mod.f90 \
