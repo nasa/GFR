@@ -52,10 +52,16 @@ contains
 subroutine interp_cv_to_flxpts(iter,nst)
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geovar,        only : nr,n_bnd_flxpts,n_flxpts
+  use flowvar,       only : faceusp_array,facegpsp
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: iter,nst
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "interp_cv_to_flxpts"
@@ -71,6 +77,15 @@ continue
   else
     call interp_cv_to_flxpts_nd
   end if
+  !
+  ! Update the thermodynamic and transport gas properties
+  ! at all the flux points of the interior faces
+  !
+  n1 = n_bnd_flxpts+1
+  n2 = n_flxpts
+  !
+  call update_thermo_properties(n1,n2,faceusp_array,facegpsp)
+  call update_transport_properties(n1,n2,faceusp_array,facegpsp)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -3988,7 +4003,13 @@ end subroutine visc_common_fluxes_interior_at_qdtpts
 subroutine get_invs_common_fluxes_bc()
   !
   !.. Use Statements ..
-  use geovar, only : using_quadrature
+  use geovar,        only : using_quadrature,n_bnd_flxpts
+  use flowvar,       only : faceusp_array,facegpsp
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_invs_common_fluxes_bc"
@@ -3996,6 +4017,15 @@ subroutine get_invs_common_fluxes_bc()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  ! First, update the thermodynamic and transport gas properties for the
+  ! exterior flux points of all the boundary faces
+  !
+  n1 = 1
+  n2 = n_bnd_flxpts
+  !
+  call update_thermo_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2))
+  call update_transport_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2))
   !
   if (using_quadrature) then
     call invs_common_fluxes_bc_at_qdtpts
