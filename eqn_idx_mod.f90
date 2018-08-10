@@ -264,6 +264,9 @@ continue
     nvisc = ng + 1
     ncond = ng + 2
     ng = ncond
+  else
+    nvisc = 0
+    ncond = 0
   end if
   !
   if (ncs > 0) then
@@ -271,6 +274,10 @@ continue
     nenth = ng + 2
     ncp   = ng + 3
     ng = ncp
+  else
+    ngamm = 0
+    nenth = 0
+    ncp = 0
   end if
   !
   !$ACC UPDATE DEVICE(nq,nec,nmx,nmy,nmz,nee,nmb,nme,ntk,ntl)
