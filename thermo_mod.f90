@@ -12,7 +12,7 @@ module thermo_mod
   private
   !
   public :: init_thermo_mod
-  public :: update_gas_properties
+  public :: update_thermo_properties
   !
   !
   real(wp), parameter :: runivl = 8314.5_wp
@@ -40,6 +40,16 @@ module thermo_mod
   integer, parameter :: Use_NCC_Coefficients = 2
   !
   integer, parameter :: Thermo_Coefficients = Use_NCC_Coefficients
+  !
+  !
+  ! #########################################
+  ! #####   MODULE GENERIC INTERFACES   #####
+  ! #########################################
+  !
+  interface update_thermo_properties
+    module procedure update_thermo_properties_sp, &
+                     update_thermo_properties_fp
+  end interface update_thermo_properties
   !
 contains
 !
@@ -155,7 +165,29 @@ end subroutine init_thermo_mod
 !
 !###############################################################################
 !
-subroutine update_gas_properties(n1,n2,cv,gp)
+subroutine update_thermo_properties_fp(n1,n2,cv,gp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp), intent(inout) :: cv(:,:,:)
+  real(wp), intent(inout) :: gp(:,:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_thermo_properties_fp"
+  !
+continue
+  !
+  call update_thermo_properties_sp(n1,n2,cv(:,:,1),gp(:,:,1))
+  if (all([size(cv,dim=3),size(gp,dim=3)] > 1)) then
+    call update_thermo_properties_sp(n1,n2,cv(:,:,2),gp(:,:,2))
+  end if
+  !
+end subroutine update_thermo_properties_fp
+!
+!###############################################################################
+!
+subroutine update_thermo_properties_sp(n1,n2,cv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -168,7 +200,7 @@ subroutine update_gas_properties(n1,n2,cv,gp)
   real(wp) :: rho
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "update_gas_properties"
+  character(len=*), parameter :: pname = "update_thermo_properties_sp"
   !
 continue
   !
@@ -265,7 +297,7 @@ continue
     end do
   end do
   !
-end subroutine update_gas_properties
+end subroutine update_thermo_properties_sp
 !
 !###############################################################################
 !
