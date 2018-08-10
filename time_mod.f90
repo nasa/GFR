@@ -1605,6 +1605,8 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  if (ncs > 0) return
+  !
   gm1 = gam - one
   rgas_inv = one / rgasref_nd
   gm1_over_2gmR = half*gm1*rgas_inv/gam
@@ -1620,7 +1622,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3) then
     !
     !$ACC PARALLEL LOOP PRESENT(usp) &
     !$ACC&              REDUCTION(+:num_min_limits,num_max_limits) &
@@ -1689,7 +1691,7 @@ continue
       !
     end do
     !
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2) then
     !
     !$ACC PARALLEL LOOP PRESENT(usp) &
     !$ACC&              REDUCTION(+:num_min_limits,num_max_limits) &
