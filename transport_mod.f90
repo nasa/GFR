@@ -32,6 +32,16 @@ module transport_mod
   integer, save :: cond_mix_model  = NCC_Method
   integer, save :: Transport_Model = CHEMKIN_Curve_Fit
   !
+  !
+  ! #########################################
+  ! #####   MODULE GENERIC INTERFACES   #####
+  ! #########################################
+  !
+  interface update_transport_properties
+    module procedure update_transport_properties_sp, &
+                     update_transport_properties_fp
+  end interface update_transport_properties
+  !
 contains
 !
 !###############################################################################
@@ -98,10 +108,33 @@ end subroutine init_transport_mod
 !
 !###############################################################################
 !
-subroutine update_transport_properties(n1,n2,cv,gp)
+subroutine update_transport_properties_fp(n1,n2,cv,gp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp), intent(inout) :: cv(:,:,:)
+  real(wp), intent(inout) :: gp(:,:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_transport_properties_fp"
+  !
+continue
+  !
+  call update_transport_properties_sp(n1,n2,cv(:,:,1),gp(:,:,1))
+  if (all([size(cv,dim=3),size(gp,dim=3)] > 1)) then
+    call update_transport_properties_sp(n1,n2,cv(:,:,2),gp(:,:,2))
+  end if
+  !
+end subroutine update_transport_properties_fp
+!
+!###############################################################################
+!
+subroutine update_transport_properties_sp(n1,n2,cv,gp)
   !
   !.. Use Statements ..
   use ovar,    only : Pr,cpref_nd
+  use ovar,    only : governing_equations
   use gpu_mod, only : viscosity_cv_gpu
   !
   !.. Formal Arguments ..
@@ -119,9 +152,11 @@ subroutine update_transport_properties(n1,n2,cv,gp)
   real(wp), allocatable :: rmci(:,:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "update_transport_properties"
+  character(len=*), parameter :: pname = "update_transport_properties_sp"
   !
 continue
+  !
+  if (governing_equations == Euler_Eqns) return
   !
   if (ncs > 0) then
     !
@@ -189,7 +224,7 @@ continue
     !
   end if
   !
-end subroutine update_transport_properties
+end subroutine update_transport_properties_sp
 !
 !###############################################################################
 !
