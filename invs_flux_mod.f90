@@ -3,7 +3,7 @@ module invs_flux_mod
   !.. Use Statements ..
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
-  use eqn_idx, only : ncs
+  use eqn_idx, only : ncs,npres,ngamm,ng
   !
   implicit none
   !
@@ -18,54 +18,11 @@ contains
 !
 !###############################################################################
 !
-pure subroutine invs_flx_cv(uu,dir,return_value)
-! !$ACC ROUTINE SEQ
-  !
-  use ovar, only : gam
-  use ovar, only : turb_is_on
-  use ovar, only : include_tke_in_energy
-  !
-  integer,  value,              intent(in) :: dir
-  real(wp), dimension(1:nq),    intent(in) :: uu
-  !
-  real(wp), dimension(1:nq), intent(inout) :: return_value
-  !
-  integer  :: n,meq
-  real(wp) :: pres,flxvel
-  !
-continue
-  !
- !meq = 0
-  return_value(1:nq) = zero
- !return_value(:) = zero
-  !
-  meq = nec + dir
-  !
-  flxvel = uu(meq)/uu(nec)
-  !
-  pres = (gam-one)*(uu(nee) - half*selfdot(uu(nmb:nme))/uu(nec))
-  !
-  return_value(1:nme) = flxvel * uu(1:nme)
-  return_value(meq) = return_value(meq) + pres
-  return_value(nee) = flxvel * (uu(nee) + pres)
-  !
-  if (turb_is_on) then
-    return_value(ntk) = flxvel * uu(ntk)
-    return_value(ntl) = flxvel * uu(ntl)
-    if (include_tke_in_energy) then
-      return_value(meq) = return_value(meq) - (gam-one)*uu(ntk)
-      return_value(nee) = return_value(nee) - (gam-one)*uu(ntk)*flxvel
-    end if
-  end if
-  !
-end subroutine invs_flx_cv
-!
-!###############################################################################
-!
-pure subroutine invs_flx_cv_gpu(usp,return_value)
+pure subroutine invs_flx_cv_gpu(usp,gpsp,return_value)
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: gpsp(:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
@@ -75,19 +32,19 @@ continue
   !
   nr = size(return_value,dim=2)
   !
-  if (nr == 3 .and. ncs == 0) then
-    call invs_flx_cv_gpu_3d(usp,return_value)
-  else if (nr == 2 .and. ncs == 0) then
-    call invs_flx_cv_gpu_2d(usp,return_value)
+  if (nr == 3) then      ! this should also work for ncs > 0
+    call invs_flx_cv_gpu_3d(usp,gpsp,return_value)
+  else if (nr == 2) then ! this should also work for ncs > 0
+    call invs_flx_cv_gpu_2d(usp,gpsp,return_value)
   else
-    call invs_flx_cv_gpu_nd(usp,return_value)
+    call invs_flx_cv_gpu_nd(usp,gpsp,return_value)
   end if
   !
 end subroutine invs_flx_cv_gpu
 !
 !###############################################################################
 !
-pure subroutine invs_flx_cv_gpu_3d(usp,return_value)
+pure subroutine invs_flx_cv_gpu_3d(usp,gpsp,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -96,23 +53,40 @@ pure subroutine invs_flx_cv_gpu_3d(usp,return_value)
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: gpsp(:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,np
-  real(wp) :: velx,vely,velz,q2,gm1
-  real(wp) :: rhou,rhov,rhow,rhoq2
+  integer  :: m,n,np
+  real(wp) :: velx,vely,velz,gm1
   real(wp) :: rho,rho_inv,rhoe,pres
-  real(wp) :: rhok,rhol,kflx
+  real(wp) :: rhok,rhol,kflx,mass_frac
   !
 continue
   !
   np = size(return_value,dim=1)
   gm1 = gam - one
   !
+  ! Species continuity equations
+  !
+  if (ncs > 0) then
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(return_value,usp)
+    do m = 1,ncs
+      do n = 1,np
+        !
+        mass_frac = usp(n,m)/usp(n,nec)
+        !
+        return_value(n,1,m) = mass_frac*usp(n,nmx)
+        return_value(n,2,m) = mass_frac*usp(n,nmy)
+        return_value(n,3,m) = mass_frac*usp(n,nmz)
+        !
+      end do
+    end do
+  end if
+  !
   ! Continuity equation
   !
-  !$ACC PARALLEL LOOP PRESENT(return_value,usp)
+  !$ACC PARALLEL LOOP PRESENT(return_value,usp,gpsp)
   do n = 1,np
     !
     rho = usp(n,nec)
@@ -123,9 +97,7 @@ continue
     velz = usp(n,nmz)*rho_inv
     rhoe = usp(n,nee)
     !
-    q2 = velx*velx + vely*vely + velz*velz
-    !
-    pres = gm1*(rhoe - half*rho*q2)
+    pres = gpsp(n,npres)
     !
     return_value(n,1,nec) = rho*velx
     return_value(n,2,nec) = rho*vely
@@ -172,13 +144,16 @@ continue
       !
     end do
     if (include_tke_in_energy) then
-      !$ACC PARALLEL LOOP PRESENT(return_value,usp)
+      !$ACC PARALLEL LOOP PRESENT(return_value,usp,gpsp)
       do n = 1,np
         !
         rho_inv = one/usp(n,nec)
         velx = usp(n,nmx)*rho_inv
         vely = usp(n,nmy)*rho_inv
         velz = usp(n,nmz)*rho_inv
+        if (ngamm > 0) then
+          gm1 = gpsp(n,ngamm) - one
+        end if
         kflx = gm1*usp(n,ntk)
         !
         return_value(n,1,nmx) = return_value(n,1,nmx) - kflx
@@ -197,7 +172,7 @@ end subroutine invs_flx_cv_gpu_3d
 !
 !###############################################################################
 !
-pure subroutine invs_flx_cv_gpu_2d(usp,return_value)
+pure subroutine invs_flx_cv_gpu_2d(usp,gpsp,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -206,23 +181,39 @@ pure subroutine invs_flx_cv_gpu_2d(usp,return_value)
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: gpsp(:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,np
-  real(wp) :: velx,vely,q2,gm1
-  real(wp) :: rhou,rhov,rhoq2
+  integer  :: m,n,np
+  real(wp) :: velx,vely,gm1
   real(wp) :: rho,rho_inv,rhoe,pres
-  real(wp) :: rhok,rhol,kflx
+  real(wp) :: rhok,rhol,kflx,mass_frac
   !
 continue
   !
   np = size(return_value,dim=1)
   gm1 = gam - one
   !
+  ! Species continuity equations
+  !
+  if (ncs > 0) then
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(return_value,usp)
+    do m = 1,ncs
+      do n = 1,np
+        !
+        mass_frac = usp(n,m)/usp(n,nec)
+        !
+        return_value(n,1,m) = mass_frac*usp(n,nmx)
+        return_value(n,2,m) = mass_frac*usp(n,nmy)
+        !
+      end do
+    end do
+  end if
+  !
   ! Continuity equation
   !
-  !$ACC PARALLEL LOOP PRESENT(return_value,usp)
+  !$ACC PARALLEL LOOP PRESENT(return_value,usp,gpsp)
   do n = 1,np
     !
     rho = usp(n,nec)
@@ -232,9 +223,7 @@ continue
     vely = usp(n,nmy)*rho_inv
     rhoe = usp(n,nee)
     !
-    q2 = velx*velx + vely*vely
-    !
-    pres = gm1*(rhoe - half*rho*q2)
+    pres = gpsp(n,npres)
     !
     return_value(n,1,nec) = rho*velx
     return_value(n,2,nec) = rho*vely
@@ -270,12 +259,15 @@ continue
       !
     end do
     if (include_tke_in_energy) then
-      !$ACC PARALLEL LOOP PRESENT(return_value,usp)
+      !$ACC PARALLEL LOOP PRESENT(return_value,usp,gpsp)
       do n = 1,np
         !
         rho_inv = one/usp(n,nec)
         velx = usp(n,nmx)*rho_inv
         vely = usp(n,nmy)*rho_inv
+        if (ngamm > 0) then
+          gm1 = gpsp(n,ngamm) - one
+        end if
         kflx = gm1*usp(n,ntk)
         !
         return_value(n,1,nmx) = return_value(n,1,nmx) - kflx
@@ -292,17 +284,18 @@ end subroutine invs_flx_cv_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine invs_flx_cv_gpu_nd(usp,return_value)
+pure subroutine invs_flx_cv_gpu_nd(usp,gpsp,return_value)
   !
   use ovar, only : gam
   use ovar, only : turb_is_on
   use ovar, only : include_tke_in_energy
   !
   real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: gpsp(:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
-  integer :: l,m,n,np,nr,meq
-  real(wp) :: pres,gm1,val,flxvel,q2
+  integer  :: l,m,n,np,nr,meq
+  real(wp) :: pres,gm1,val,flxvel
   !
 continue
   !
@@ -323,16 +316,11 @@ continue
   !
   ! Energy equation and pressure flux
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(return_value,usp)
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(return_value,usp,gpsp)
   do l = 1,nr
     do n = 1,np
       meq = nec + l
-      q2 = zero
-      !$ACC LOOP SEQ
-      do m = nmb,nme
-        q2 = q2 + usp(n,m)*usp(n,m)
-      end do
-      pres = gm1*(usp(n,nee) - half*q2/usp(n,nec))
+      pres = gpsp(n,npres)
       return_value(n,l,meq) = return_value(n,l,meq) + pres
       return_value(n,l,nee) = (usp(n,nee) + pres)*usp(n,meq)/usp(n,nec)
     end do
@@ -350,10 +338,13 @@ continue
       end do
     end do
     if (include_tke_in_energy) then
-      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(return_value,usp)
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(return_value,usp,gpsp)
       do l = 1,nr
         do n = 1,np
           meq = nec + l
+          if (ngamm > 0) then
+            gm1 = gpsp(n,ngamm) - one
+          end if
           val = gm1*usp(n,ntk)
           flxvel = usp(n,meq)/usp(n,nec)
           return_value(n,l,meq) = return_value(n,l,meq) - val
@@ -364,6 +355,254 @@ continue
   end if
   !
 end subroutine invs_flx_cv_gpu_nd
+!
+!###############################################################################
+!
+pure subroutine invs_wall_flx_gpu(n1,n2,facenrm,face_cv,face_gp,return_value)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  if (nr == 3) then      ! this should also work for ncs > 0
+    call invs_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,face_gp,return_value)
+  else if (nr == 2) then ! this should also work for ncs > 0
+    call invs_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,face_gp,return_value)
+  else
+    call invs_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,face_gp,return_value)
+  end if
+  !
+end subroutine invs_wall_flx_gpu
+!
+!###############################################################################
+!
+pure subroutine invs_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,face_gp,return_value)
+  !
+  !.. Use Statements ..
+  use ovar,   only : gam
+  use ovar,   only : include_tke_in_energy
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n
+  real(wp) :: gm1,kflx,pres
+  !
+continue
+  !
+  gm1 = gam - one
+  !
+  if (ncs > 0) then
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(return_value)
+    do m = 1,ncs
+      do n = n1,n2
+        return_value(n,m) = zero
+      end do
+    end do
+  end if
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
+  do n = n1,n2
+    !
+    pres = face_gp(n,npres,1)
+    !
+    return_value(n,nec) = zero
+    return_value(n,nmx) = facenrm(1,n)*pres
+    return_value(n,nmy) = facenrm(2,n)*pres
+    return_value(n,nmz) = facenrm(3,n)*pres
+    return_value(n,nee) = zero
+    !
+  end do
+  !
+  if (include_tke_in_energy) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
+    do n = n1,n2
+      if (ngamm > 0) then
+        gm1 = face_gp(n,ngamm,1) - one
+      end if
+      kflx = gm1*face_cv(n,ntk,1)
+      return_value(n,nmx) = return_value(n,nmx) - kflx*facenrm(1,n)
+      return_value(n,nmy) = return_value(n,nmy) - kflx*facenrm(2,n)
+      return_value(n,nmz) = return_value(n,nmz) - kflx*facenrm(3,n)
+    end do
+  end if
+  !
+end subroutine invs_wall_flx_gpu_3d
+!
+!###############################################################################
+!
+pure subroutine invs_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,face_gp,return_value)
+  !
+  !.. Use Statements ..
+  use ovar,   only : gam
+  use ovar,   only : include_tke_in_energy
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n
+  real(wp) :: gm1,pres,kflx
+  !
+continue
+  !
+  gm1 = gam - one
+  !
+  if (ncs > 0) then
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(return_value)
+    do m = 1,ncs
+      do n = n1,n2
+        return_value(n,m) = zero
+      end do
+    end do
+  end if
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
+  do n = n1,n2
+    !
+    pres = face_gp(n,npres,1)
+    !
+    return_value(n,nec) = zero
+    return_value(n,nmx) = facenrm(1,n)*pres
+    return_value(n,nmy) = facenrm(2,n)*pres
+    return_value(n,nee) = zero
+    !
+  end do
+  !
+  if (include_tke_in_energy) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
+    do n = n1,n2
+      if (ngamm > 0) then
+        gm1 = face_gp(n,ngamm,1) - one
+      end if
+      kflx = gm1*face_cv(n,ntk,1)
+      return_value(n,nmx) = return_value(n,nmx) - kflx*facenrm(1,n)
+      return_value(n,nmy) = return_value(n,nmy) - kflx*facenrm(2,n)
+    end do
+  end if
+  !
+end subroutine invs_wall_flx_gpu_2d
+!
+!###############################################################################
+!
+pure subroutine invs_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,face_gp,return_value)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : gam
+  use ovar,   only : include_tke_in_energy
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: l,m,n
+  real(wp) :: gm1,pres,kflx
+  !
+continue
+  !
+  gm1 = gam - one
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(return_value)
+  do m = 1,nq
+    do n = n1,n2
+      return_value(n,m) = zero
+    end do
+  end do
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
+  do n = n1,n2
+    !
+    pres = face_gp(n,npres,1)
+    !
+    !$ACC LOOP SEQ
+    do l = 1,nr
+      return_value(n,nec+l) = facenrm(l,n)*pres
+    end do
+    !
+  end do
+  !
+  if (include_tke_in_energy) then
+    !$ACC PARALLEL LOOP COLLAPSE(2) &
+    !$ACC&              PRESENT(facenrm,face_cv,face_gp,return_value)
+    do n = n1,n2
+      do l = 1,nr
+        if (ngamm > 0) then
+          gm1 = face_gp(n,ngamm,1) - one
+        end if
+        kflx = gm1*face_cv(n,ntk,1)
+        return_value(n,nec+l) = return_value(n,nec+l) - kflx*facenrm(l,n)
+      end do
+    end do
+  end if
+  !
+end subroutine invs_wall_flx_gpu_nd
+!
+!###############################################################################
+!
+pure subroutine invs_flx_cv(uu,gp,dir,return_value)
+! !$ACC ROUTINE SEQ
+  !
+  use ovar, only : gam
+  use ovar, only : turb_is_on
+  use ovar, only : include_tke_in_energy
+  !
+  integer,  value,              intent(in) :: dir
+  real(wp), dimension(1:nq),    intent(in) :: uu
+  real(wp), dimension(1:ng),    intent(in) :: gp
+  !
+  real(wp), dimension(1:nq), intent(inout) :: return_value
+  !
+  integer  :: n,meq
+  real(wp) :: flxvel
+  !
+continue
+  !
+ !meq = 0
+  return_value(1:nq) = zero
+ !return_value(:) = zero
+  !
+  meq = nec + dir
+  !
+  flxvel = uu(meq)/uu(nec)
+  !
+  return_value(1:nme) = flxvel * uu(1:nme)
+  return_value(meq) = return_value(meq) + gp(npres)
+  return_value(nee) = flxvel * (uu(nee) + gp(npres))
+  !
+  if (turb_is_on) then
+    return_value(ntk) = flxvel * uu(ntk)
+    return_value(ntl) = flxvel * uu(ntl)
+    if (include_tke_in_energy) then
+      return_value(meq) = return_value(meq) - (gam-one)*uu(ntk)
+      return_value(nee) = return_value(nee) - (gam-one)*uu(ntk)*flxvel
+    end if
+  end if
+  !
+end subroutine invs_flx_cv
 !
 !###############################################################################
 !
@@ -498,199 +737,6 @@ continue
   end if
   !
 end function invs_flx_jacobian_cv
-!
-!###############################################################################
-!
-pure subroutine invs_wall_flx_gpu(n1,n2,facenrm,face_cv,return_value)
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: facenrm(:,:)
-  real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp), intent(inout) :: return_value(:,:)
-  !
-  !.. Local Scalars ..
-  integer :: nr
-  !
-continue
-  !
-  nr = size(facenrm,dim=1)
-  !
-  if (nr == 3 .and. ncs == 0) then
-    call invs_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,return_value)
-  else if (nr == 2 .and. ncs == 0) then
-    call invs_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,return_value)
-  else
-    call invs_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,return_value)
-  end if
-  !
-end subroutine invs_wall_flx_gpu
-!
-!###############################################################################
-!
-pure subroutine invs_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,return_value)
-  !
-  !.. Use Statements ..
-  use ovar,   only : gam
-  use ovar,   only : include_tke_in_energy
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: facenrm(:,:)
-  real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp), intent(inout) :: return_value(:,:)
-  !
-  !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: gm1,rho,rhou,rhov,rhow,rhoe,rhok,rhoq2,pres
-  !
-continue
-  !
-  gm1 = gam - one
-  !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,return_value)
-  do n = n1,n2
-    !
-    rho  = face_cv(n,nec,1)
-    rhou = face_cv(n,nmx,1)
-    rhov = face_cv(n,nmy,1)
-    rhow = face_cv(n,nmz,1)
-    rhoe = face_cv(n,nee,1)
-    !
-    rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
-    !
-    pres = gm1*(rhoe - half*rhoq2/rho)
-    !
-    return_value(n,nec) = zero
-    return_value(n,nmx) = facenrm(1,n)*pres
-    return_value(n,nmy) = facenrm(2,n)*pres
-    return_value(n,nmz) = facenrm(3,n)*pres
-    return_value(n,nee) = zero
-    !
-  end do
-  !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,return_value)
-    do n = n1,n2
-      rhok = face_cv(n,ntk,1)
-      return_value(n,nmx) = return_value(n,nmx) - gm1*rhok*facenrm(1,n)
-      return_value(n,nmy) = return_value(n,nmy) - gm1*rhok*facenrm(2,n)
-      return_value(n,nmz) = return_value(n,nmz) - gm1*rhok*facenrm(3,n)
-    end do
-  end if
-  !
-end subroutine invs_wall_flx_gpu_3d
-!
-!###############################################################################
-!
-pure subroutine invs_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,return_value)
-  !
-  !.. Use Statements ..
-  use ovar,   only : gam
-  use ovar,   only : include_tke_in_energy
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: facenrm(:,:)
-  real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp), intent(inout) :: return_value(:,:)
-  !
-  !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: gm1,rho,rhou,rhov,rhoe,rhok,rhoq2,pres
-  !
-continue
-  !
-  gm1 = gam - one
-  !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,return_value)
-  do n = n1,n2
-    !
-    rho  = face_cv(n,nec,1)
-    rhou = face_cv(n,nmx,1)
-    rhov = face_cv(n,nmy,1)
-    rhoe = face_cv(n,nee,1)
-    !
-    rhoq2 = rhou*rhou + rhov*rhov
-    !
-    pres = gm1*(rhoe - half*rhoq2/rho)
-    !
-    return_value(n,nec) = zero
-    return_value(n,nmx) = facenrm(1,n)*pres
-    return_value(n,nmy) = facenrm(2,n)*pres
-    return_value(n,nee) = zero
-    !
-  end do
-  !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,return_value)
-    do n = n1,n2
-      rhok = face_cv(n,ntk,1)
-      return_value(n,nmx) = return_value(n,nmx) - gm1*rhok*facenrm(1,n)
-      return_value(n,nmy) = return_value(n,nmy) - gm1*rhok*facenrm(2,n)
-    end do
-  end if
-  !
-end subroutine invs_wall_flx_gpu_2d
-!
-!###############################################################################
-!
-pure subroutine invs_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,return_value)
-  !
-  !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : gam
-  use ovar,   only : include_tke_in_energy
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: facenrm(:,:)
-  real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp), intent(inout) :: return_value(:,:)
-  !
-  !.. Local Scalars ..
-  integer  :: l,m,n
-  real(wp) :: gm1,pres,rhoq2
-  !
-continue
-  !
-  gm1 = gam - one
-  !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,return_value)
-  do n = n1,n2
-    !
-    rhoq2 = zero
-    !$ACC LOOP SEQ
-    do m = nmb,nme
-      rhoq2 = rhoq2 + face_cv(n,m,1)*face_cv(n,m,1)
-    end do
-    !
-    pres = gm1*(face_cv(n,nee,1) - half*rhoq2/face_cv(n,nec,1))
-    !
-    !$ACC LOOP SEQ
-    do m = 1,nec
-      return_value(n,m) = zero
-    end do
-    !$ACC LOOP SEQ
-    do l = 1,nr
-      return_value(n,nec+l) = facenrm(l,n)*pres
-    end do
-    return_value(n,nee) = zero
-    !
-  end do
-  !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP COLLAPSE(2) &
-    !$ACC&              PRESENT(facenrm,face_cv,return_value)
-    do n = n1,n2
-      do l = 1,nr
-        return_value(n,nec+l) = return_value(n,nec+l) - &
-                                gm1*face_cv(n,ntk,1)*facenrm(l,n)
-      end do
-    end do
-  end if
-  !
-end subroutine invs_wall_flx_gpu_nd
 !
 !###############################################################################
 !
