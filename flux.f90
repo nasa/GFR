@@ -881,7 +881,7 @@ continue
       ! Viscous fluxes
       !
       if (governing_equations == NavierStokes_Eqns) then
-        call visc_flx_cv( usp(n,:) , dusp(n,:,:) , vflx )
+        call visc_flx_cv( usp(n,:) , gpsp(n,:) , dusp(n,:,:) , vflx )
       end if
       !
       ! Total fluxes
@@ -1098,7 +1098,7 @@ continue
   !
   if (governing_equations == NavierStokes_Eqns) then
     !
-    call visc_flx_cv_gpu( 1 , n_solpts , usp , dusp , vfluxes )
+    call visc_flx_cv_gpu( 1 , n_solpts , usp , gpsp , dusp , vfluxes )
     !
   else
     !
@@ -1375,7 +1375,7 @@ continue
   !
   if (governing_equations == NavierStokes_Eqns) then
     !
-    call visc_flx_cv_gpu( 1 , n_solpts , usp , dusp , vfluxes )
+    call visc_flx_cv_gpu( 1 , n_solpts , usp , gpsp , dusp , vfluxes )
     !
     !$ACC PARALLEL LOOP COLLAPSE(3) &
     !$ACC&              PRESENT(ifluxes,vfluxes)
@@ -1453,7 +1453,7 @@ continue
     !
     ! Compute the viscous fluxes at the quadrature points
     !
-    call visc_flx_cv_gpu( 1 , n_qdtpts , uqp , duqp , vflxqp )
+    call visc_flx_cv_gpu( 1 , n_qdtpts , uqp , gpqp , duqp , vflxqp )
     !
     ! Subtract the viscous fluxes from the inviscid fluxes to get
     ! the total flux at the quadrature points
@@ -3404,6 +3404,7 @@ subroutine correct_interface_flux_visc(time_step,rk_step)
   use correction_mod,    only : correct
   use flowvar,           only : residual
   use flowvar,           only : faceusp_array,facedusp_array
+  use flowvar,           only : facegpsp
   !
   use visc_flux_mod, only : common_visc_flx_cv
   use visc_flux_mod, only : visc_wall_flx_cv
@@ -3437,6 +3438,7 @@ subroutine correct_interface_flux_visc(time_step,rk_step)
   real(wp), dimension(1:nr,1:maxFP) :: rnrm
   real(wp), dimension(1:nq,1:maxFP) :: lflx,rflx
   real(wp), dimension(1:nq,1:maxFP) :: luqp,ruqp,fncq
+  real(wp), dimension(1:ng,1:maxFP) :: lgpqp,rgpqp
   real(wp), dimension(1:nr,1:nq,1:maxFP) :: lduqp,rduqp
   !
   !.. Local Parameters ..
@@ -3483,6 +3485,15 @@ continue
       end do
     end do
     !
+    do k = 1,nfp
+      do m = 1,ng
+        ! FP gas properties from left  cell on face
+        lgpqp(m,k) = facegpsp(f0+k,m,1)
+        ! FP gas properties from right cell on face
+        rgpqp(m,k) = facegpsp(f0+k,m,2)
+      end do
+    end do
+    !
     if (governing_equations == NavierStokes_Eqns) then
       do k = 1,nfp
         do m = 1,nq
@@ -3518,7 +3529,8 @@ continue
         ! Compute the viscous wall boundary flux
         !
         if (governing_equations == NavierStokes_Eqns) then
-          vflx(:) = visc_wall_flx_cv( unrm(:) , ruqp(:,k) , rduqp(:,:,k) )
+          vflx(:) = visc_wall_flx_cv( unrm(:) , ruqp(:,k) , &
+                                      rgpqp(:,k) , rduqp(:,:,k) )
         end if
         !
       else
@@ -3545,8 +3557,9 @@ continue
         ! Get the common viscous flux at the current flux point
         !
         if (governing_equations == NavierStokes_Eqns) then
-          vflx(:) = common_visc_flx_cv( unrm(:), luqp(:,k), lduqp(:,:,k), &
-                                                 ruqp(:,k), rduqp(:,:,k) )
+          vflx(:) = common_visc_flx_cv( unrm(:), &
+                                        luqp(:,k), lgpqp(:,k), lduqp(:,:,k), &
+                                        ruqp(:,k), rgpqp(:,k), rduqp(:,:,k) )
         end if
         !
       end if
@@ -3681,8 +3694,9 @@ continue
       ! Get the common viscous flux at the current flux point
       !
       if (governing_equations == NavierStokes_Eqns) then
-        vflx(:) = common_visc_flx_cv( unrm(:), luqp(:,k), lduqp(:,:,k), &
-                                               ruqp(:,k), rduqp(:,:,k) )
+        vflx(:) = common_visc_flx_cv( unrm(:), &
+                                      luqp(:,k), lgpqp(:,k), lduqp(:,:,k), &
+                                      ruqp(:,k), rgpqp(:,k), rduqp(:,:,k) )
       end if
       !
       ! Get the total common boundary flux at this flux point
@@ -3937,6 +3951,7 @@ subroutine visc_common_fluxes_interior_at_flxpts()
   use metrics_mod, only : facenrm
   use flowvar,     only : faceusp_array
   use flowvar,     only : facedusp_array
+  use flowvar,     only : facegpsp
   use flowvar,     only : faceflx
   !
   use visc_flux_mod, only : common_vflx_ave_fluxes_gpu
@@ -3955,7 +3970,7 @@ continue
   !
   if (visc_variables_to_ave == visc_interface_fluxes) then
     !
-    call common_vflx_ave_fluxes_gpu(n1,n2,facenrm,faceusp_array, &
+    call common_vflx_ave_fluxes_gpu(n1,n2,facenrm,faceusp_array,facegpsp, &
                                     facedusp_array,faceflx)
     !
   else ! visc_variables_to_ave == visc_solution_and_gradients
@@ -4003,7 +4018,7 @@ continue
   !
   if (visc_variables_to_ave == visc_interface_fluxes) then
     !
-    call common_vflx_ave_fluxes_gpu(n1,n2,facenrm_qdtpts,faceuqp, &
+    call common_vflx_ave_fluxes_gpu(n1,n2,facenrm_qdtpts,faceuqp,facegpqp, &
                                     faceduqp,flux_qdtpts)
     !
   else ! visc_variables_to_ave == visc_solution_and_gradients
@@ -4226,6 +4241,7 @@ subroutine visc_common_fluxes_bc_at_flxpts()
   use metrics_mod, only : facenrm
   use flowvar,     only : faceusp_array
   use flowvar,     only : facedusp_array
+  use flowvar,     only : facegpsp
   use flowvar,     only : faceflx
   !
   use visc_flux_mod, only : visc_wall_flx_gpu
@@ -4247,7 +4263,7 @@ continue
   !
   if (n2 >= n1) then
     !
-    call visc_wall_flx_gpu(n1,n2,facenrm,faceusp_array, &
+    call visc_wall_flx_gpu(n1,n2,facenrm,faceusp_array,facegpsp, &
                            facedusp_array,faceflx)
     !
   end if
@@ -4260,7 +4276,7 @@ continue
   !
   if (visc_variables_to_ave == visc_interface_fluxes) then
     !
-    call common_vflx_ave_fluxes_gpu(n1,n2,facenrm,faceusp_array, &
+    call common_vflx_ave_fluxes_gpu(n1,n2,facenrm,faceusp_array,facegpsp, &
                                     facedusp_array,faceflx)
     !
   else ! visc_variables_to_ave == visc_solution_and_gradients
@@ -4306,7 +4322,7 @@ continue
   !
   if (n2 >= n1) then
     !
-    call visc_wall_flx_gpu(n1,n2,facenrm_qdtpts,faceuqp, &
+    call visc_wall_flx_gpu(n1,n2,facenrm_qdtpts,faceuqp,facegpqp, &
                            faceduqp,flux_qdtpts)
     !
   end if
@@ -4316,7 +4332,7 @@ continue
   !
   if (visc_variables_to_ave == visc_interface_fluxes) then
     !
-    call common_vflx_ave_fluxes_gpu(n1,n2,facenrm_qdtpts,faceuqp, &
+    call common_vflx_ave_fluxes_gpu(n1,n2,facenrm_qdtpts,faceuqp,facegpqp, &
                                     faceduqp,flux_qdtpts)
     !
   else ! visc_variables_to_ave == visc_solution_and_gradients
