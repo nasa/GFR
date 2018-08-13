@@ -1,8 +1,8 @@
 module transport_mod
   !
   use module_kind_types
-  use eqn_idx, only : nec,ncs
-  use eqn_idx, only : ntemp,ncp,nvisc,ncond
+  use eqn_idx, only : nec,ncs,nq
+  use eqn_idx, only : ntemp,ncp,nvisc,ncond,ng
   !
   implicit none
   !
@@ -39,7 +39,8 @@ module transport_mod
   !
   interface update_transport_properties
     module procedure update_transport_properties_sp, &
-                     update_transport_properties_fp
+                     update_transport_properties_fp, &
+                     update_transport_properties_1p
   end interface update_transport_properties
   !
 contains
@@ -108,7 +109,43 @@ end subroutine init_transport_mod
 !
 !###############################################################################
 !
-subroutine update_transport_properties_fp(n1,n2,cv,gp)
+pure subroutine update_transport_properties_1p(n1,n2,cv_1p,gp_1p)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp), intent(inout) :: cv_1p(:)
+  real(wp), intent(inout) :: gp_1p(:)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: cv(:,:)
+  real(wp), allocatable :: gp(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_transport_properties_1p"
+  !
+continue
+  !
+  allocate ( cv(1:1,1:nq) , source=zero )
+  allocate ( gp(1:1,1:ng) , source=zero )
+  !
+  cv(1,1:nq) = cv_1p(1:nq)
+  gp(1,1:nq) = gp_1p(1:ng)
+  !$ACC DATA CREATE(cv,gp)
+  !
+  call update_transport_properties_sp(1,1,cv,gp)
+  !
+  gp_1p(1:ng) = gp(1,1:ng)
+  !
+  !$ACC END DATA
+  deallocate ( gp )
+  deallocate ( cv )
+  !
+end subroutine update_transport_properties_1p
+!
+!###############################################################################
+!
+pure subroutine update_transport_properties_fp(n1,n2,cv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -130,7 +167,7 @@ end subroutine update_transport_properties_fp
 !
 !###############################################################################
 !
-subroutine update_transport_properties_sp(n1,n2,cv,gp)
+pure subroutine update_transport_properties_sp(n1,n2,cv,gp)
   !
   !.. Use Statements ..
   use ovar,    only : Pr,cpref_nd
@@ -218,7 +255,7 @@ continue
     !
     ! Compute the viscosity for the calorically perfect gas
     !
-    call viscosity_cv_gpu(n1,n2,cv,gp(:,nvisc))
+    call compute_viscosity_cpg(n1,n2,gp(:,ntemp),gp(:,nvisc))
     !
     cp_divided_by_Pr = cpref_nd / Pr
     !
@@ -233,7 +270,41 @@ end subroutine update_transport_properties_sp
 !
 !###############################################################################
 !
-subroutine compute_mixture_viscosity(n1,n2,rmui,mole_frac,visc)
+pure subroutine compute_viscosity_cpg(n1,n2,t,visc)
+  !
+  !.. Use Statements ..
+  use ovar, only : rhoref,aref,tref
+  use ovar, only : suth_c1,suth_sref
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp),    intent(in) :: t(:)
+  real(wp), intent(inout) :: visc(:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: tdim,mudim,rhoaref_inv
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_viscosity_cpg"
+  !
+continue
+  !
+  rhoaref_inv = one / rhoref / aref
+  !
+  !$ACC PARALLEL LOOP PRESENT(t,visc)
+  do n = n1,n2
+    tdim = t(n)*tref
+    mudim = suth_c1 * tdim * sqrt(tdim) / (tdim + suth_sref)
+    visc(n) = mudim * rhoaref_inv
+  end do
+  !
+end subroutine compute_viscosity_cpg
+!
+!###############################################################################
+!
+pure subroutine compute_mixture_viscosity(n1,n2,rmui,mole_frac,visc)
   !
   !.. Use Statements ..
   use thermo_mod, only : wtmol
@@ -317,7 +388,7 @@ end subroutine compute_mixture_viscosity
 !
 !###############################################################################
 !
-subroutine compute_mixture_conductivity(n1,n2,rmci,mole_frac,cond,imodel)
+pure subroutine compute_mixture_conductivity(n1,n2,rmci,mole_frac,cond,imodel)
   !
   !.. Use Statements ..
   use thermo_mod, only : wtmol
@@ -421,7 +492,7 @@ end subroutine compute_mixture_conductivity
 !
 !###############################################################################
 !
-subroutine compute_mole_fractions(n1,n2,cv,mole_frac)
+pure subroutine compute_mole_fractions(n1,n2,cv,mole_frac)
   !
   !.. Use Statements ..
   use thermo_mod, only : wtmol
@@ -478,7 +549,7 @@ end subroutine compute_mole_fractions
 !
 !###############################################################################
 !
-subroutine compute_species_viscosities(n1,n2,t,rmui,imodel)
+pure subroutine compute_species_viscosities(n1,n2,t,rmui,imodel)
   !
   !.. Use Statements ..
   use ovar, only : tref
@@ -552,7 +623,7 @@ end subroutine compute_species_viscosities
 !
 !###############################################################################
 !
-subroutine compute_species_conductivities(n1,n2,t,rmci,imodel)
+pure subroutine compute_species_conductivities(n1,n2,t,rmci,imodel)
   !
   !.. Use Statements ..
   use ovar, only : tref
@@ -626,8 +697,8 @@ end subroutine compute_species_conductivities
 !
 !###############################################################################
 !
-subroutine mixture_transport_properties(imodel,t,rhoi,rmui,rmci,rmu,rmc, &
-                                        mixture_method)
+pure subroutine mixture_transport_properties(imodel,t,rhoi,rmui,rmci,rmu,rmc, &
+                                             mixture_method)
   !
   !.. Use Statements ..
   use thermo_mod, only : wtmol
