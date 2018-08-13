@@ -602,7 +602,7 @@ pure subroutine invs_eigenvalue_3d(n1,n2,face_cv,face_gp,facenrm,eigni,ds)
   real(wp), intent(inout) :: ds(:)
   !
   !.. Local Scalars ..
-  integer  :: n
+  integer  :: i,n
   real(wp) :: rho_inv,pres,gamm
   real(wp) :: velx,vely,velz,vface
   real(wp) :: rnx,rny,rnz,unx,uny,unz,dl
@@ -713,7 +713,7 @@ pure subroutine invs_eigenvalue_2d(n1,n2,face_cv,face_gp,facenrm,eigni,ds)
   real(wp), intent(inout) :: ds(:)
   !
   !.. Local Scalars ..
-  integer  :: n
+  integer  :: i,n
   real(wp) :: rho_inv,pres,gamm
   real(wp) :: velx,vely,vface
   real(wp) :: rnx,rny,unx,uny,dl
@@ -818,7 +818,7 @@ pure subroutine invs_eigenvalue_nd(n1,n2,face_cv,face_gp,facenrm,eigni,ds)
   real(wp), intent(inout) :: ds(:)
   !
   !.. Local Scalars ..
-  integer  :: n
+  integer  :: i,n
   real(wp) :: rho_inv,pres,gamm,vface
   !
   !.. Local Arrays ..
