@@ -5,7 +5,7 @@ module flux_mod
   !.. Use Statements ..
   use module_kind_types, global_debug_timer => debug_timer
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
-  use eqn_idx, only : ncs
+  use eqn_idx, only : ncs,ng
   !
   implicit none
   !
@@ -34,6 +34,7 @@ module flux_mod
   !$ACC DECLARE CREATE(face_jump)
   !
   real(wp), save, allocatable :: faceuqp(:,:,:)
+  real(wp), save, allocatable :: facegpqp(:,:,:)
   real(wp), save, allocatable :: faceduqp(:,:,:,:)
   real(wp), save, allocatable :: flux_qdtpts(:,:)
   !
@@ -801,7 +802,7 @@ subroutine flux_gradient_at_solpts_visc(time_step,rk_step)
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   use metrics_mod,       only : metrics_dt,facenrm
-  use flowvar,           only : usp,dusp,residual
+  use flowvar,           only : usp,gpsp,dusp,residual
   use ovar,              only : governing_equations
   use correction_mod,    only : correct
   !
@@ -873,7 +874,8 @@ continue
       !
 !    !!$ACC LOOP SEQ
       do l = 1,nr
-        call invs_flx_cv( usp(n,:) , l , iflx(:,l) ) ! l-directional flux
+        ! l-directional flux
+        call invs_flx_cv( usp(n,:) , gpsp(n,:) , l , iflx(:,l) )
       end do
       !
       ! Viscous fluxes
@@ -1032,7 +1034,7 @@ subroutine flux_gradient_at_solpts_visc_gpu(time_step,rk_step)
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   use metrics_mod,       only : metrics_array,jac,facenrm
-  use flowvar,           only : usp,dusp,residual
+  use flowvar,           only : usp,gpsp,dusp,residual
   use ovar,              only : governing_equations
   use correction_mod,    only : correct
   !
@@ -1092,7 +1094,7 @@ continue
   allocate ( vfluxes(1:n_solpts,1:nr,1:nq) )
   !$ACC DATA CREATE(tfluxes,ifluxes,vfluxes)
   !
-  call invs_flx_cv_gpu( usp , ifluxes )
+  call invs_flx_cv_gpu( usp , gpsp , ifluxes )
   !
   if (governing_equations == NavierStokes_Eqns) then
     !
@@ -1294,7 +1296,7 @@ subroutine flux_gradient_at_solpts(iter,nst)
   !.. Use Statements ..
   use geovar,  only : nr,n_solpts
   use geovar,  only : using_quadrature
-  use flowvar, only : usp,dusp
+  use flowvar, only : usp,gpsp,dusp
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iter,nst
@@ -1320,7 +1322,7 @@ continue
   if (using_quadrature) then
     call compute_fluxes_at_qdtpts(usp,dusp,ifluxes)
   else
-    call compute_fluxes_at_solpts(usp,dusp,ifluxes,vfluxes)
+    call compute_fluxes_at_solpts(usp,gpsp,dusp,ifluxes,vfluxes)
   end if
   !
   ! Transform the fluxes from physical to computation space. The viscous
@@ -1343,7 +1345,7 @@ end subroutine flux_gradient_at_solpts
 !
 !###############################################################################
 !
-subroutine compute_fluxes_at_solpts(usp,dusp,ifluxes,vfluxes)
+subroutine compute_fluxes_at_solpts(usp,gpsp,dusp,ifluxes,vfluxes)
   !
   !.. Use Statements ..
   use geovar,  only : nr,n_solpts
@@ -1354,6 +1356,7 @@ subroutine compute_fluxes_at_solpts(usp,dusp,ifluxes,vfluxes)
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: gpsp(:,:)
   real(wp),    intent(in) :: dusp(:,:,:)
   real(wp), intent(inout) :: ifluxes(:,:,:)
   real(wp), intent(inout) :: vfluxes(:,:,:)
@@ -1368,7 +1371,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call invs_flx_cv_gpu( usp , ifluxes )
+  call invs_flx_cv_gpu( usp , gpsp , ifluxes )
   !
   if (governing_equations == NavierStokes_Eqns) then
     !
@@ -1411,6 +1414,7 @@ subroutine compute_fluxes_at_qdtpts(usp,dusp,ifluxes)
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: uqp(:,:)
+  real(wp), allocatable :: gpqp(:,:)
   real(wp), allocatable :: duqp(:,:,:)
   real(wp), allocatable :: iflxqp(:,:,:)
   real(wp), allocatable :: vflxqp(:,:,:)
@@ -1423,17 +1427,18 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   allocate ( uqp(1:n_qdtpts,1:nq) )
+  allocate ( gpqp(1:n_qdtpts,1:ng) )
   allocate ( iflxqp(1:n_qdtpts,1:nr,1:nq) )
-  !$ACC ENTER DATA CREATE(uqp,iflxqp)
+  !$ACC ENTER DATA CREATE(uqp,gpqp,iflxqp)
   !
   ! Interpolate the conserved variables from the solution points
   ! to the quadrature points
   !
-  call interp_cv_to_qdtpts( usp , uqp )
+  call interp_cv_to_qdtpts( usp , uqp , gpqp )
   !
   ! Compute the inviscid fluxes at the quadrature points
   !
-  call invs_flx_cv_gpu( uqp , iflxqp )
+  call invs_flx_cv_gpu( uqp , gpqp , iflxqp )
   !
   if (governing_equations == NavierStokes_Eqns) then
     !
@@ -1469,7 +1474,8 @@ continue
     !
   end if
   !
-  !$ACC EXIT DATA DELETE(uqp)
+  !$ACC EXIT DATA DELETE(uqp,gpqp)
+  deallocate ( gpqp )
   deallocate ( uqp )
   !
   ! Project the total flux at the quadrature points to the solution polynomial
@@ -1486,14 +1492,20 @@ end subroutine compute_fluxes_at_qdtpts
 !
 !###############################################################################
 !
-subroutine interp_cv_to_qdtpts(usp,uqp)
+subroutine interp_cv_to_qdtpts(usp,uqp,gpqp)
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geovar,        only : nr
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: usp(:,:)
   real(wp), intent(inout) :: uqp(:,:)
+  real(wp), intent(inout) :: gpqp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "interp_cv_to_qdtpts"
@@ -1509,6 +1521,14 @@ continue
   else
     call interp_cv_to_qdtpts_nd(usp,uqp)
   end if
+  !
+  ! Update the thermodynamic and transport properties at the quadrature points
+  !
+  n1 = lbound(uqp,dim=1)
+  n2 = ubound(uqp,dim=1)
+  !
+  call update_thermo_properties(n1,n2,uqp,gpqp)
+  call update_transport_properties(n1,n2,uqp,gpqp)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -3845,15 +3865,16 @@ subroutine invs_common_fluxes_interior_at_qdtpts()
 continue
   !
   allocate ( faceuqp(1:n_flx_qdtpts,1:nq,1:2) )
+  allocate ( facegpqp(1:n_flx_qdtpts,1:ng,1:2) )
   allocate ( flux_qdtpts(1:n_flx_qdtpts,1:nq) )
-  !$ACC ENTER DATA CREATE(faceusp,flux_qdtpts)
+  !$ACC ENTER DATA CREATE(faceusp,facegpqp,flux_qdtpts)
   !
   ! Get the inviscid upwind flux at all of the interior flux points
   !
   nf1 = nfbnd+1
   nf2 = nface
   !
-  call interp_faceusp_to_faceuqp(nf1,nf2,faceusp_array,faceuqp)
+  call interp_faceusp_to_faceuqp(nf1,nf2,faceusp_array,faceuqp,facegpqp)
   !
   n1 = n_bnd_qdtpts+1
   n2 = n_flx_qdtpts
@@ -4046,6 +4067,7 @@ subroutine invs_common_fluxes_bc_at_flxpts()
   use ovar,        only : invs_flux_method
   use metrics_mod, only : facenrm
   use flowvar,     only : faceusp_array
+  use flowvar,     only : facegpsp
   use flowvar,     only : faceflx
   !
   use invs_flux_mod, only : invs_wall_flx_gpu
@@ -4070,7 +4092,7 @@ continue
   !
   if (n2 >= n1) then
     !
-    call invs_wall_flx_gpu(n1,n2,facenrm,faceusp_array,faceflx)
+    call invs_wall_flx_gpu(n1,n2,facenrm,faceusp_array,facegpsp,faceflx)
     !
   end if
   !
@@ -4132,14 +4154,14 @@ continue
   nf1 = 1
   nf2 = nfbnd
   !
-  call interp_faceusp_to_faceuqp(nf1,nf2,faceusp_array,faceuqp)
+  call interp_faceusp_to_faceuqp(nf1,nf2,faceusp_array,faceuqp,facegpqp)
   !
   n1 = 1
   n2 = n_wall_qdtpts
   !
   if (n2 >= n1) then
     !
-    call invs_wall_flx_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
+    call invs_wall_flx_gpu(n1,n2,facenrm_qdtpts,faceuqp,facegpqp,flux_qdtpts)
     !
   end if
   !
@@ -4311,10 +4333,11 @@ continue
   !
   call project_flux_qdtpts_to_faceflx(nf1,nf2,flux_qdtpts,faceflx)
   !
+  !$ACC EXIT DATA DELETE(faceduqp,flux_qdtpts,facegpqp,faceuqp)
   deallocate ( faceduqp )
   deallocate ( flux_qdtpts )
+  deallocate ( facegpqp )
   deallocate ( faceuqp )
-  !$ACC EXIT DATA DELETE(facedusp,flux_qdtpts,faceuqp)
   !
 end subroutine visc_common_fluxes_bc_at_qdtpts
 !
@@ -4585,19 +4608,25 @@ end subroutine project_flux_qdtpts_to_faceflx_nd
 !
 !###############################################################################
 !
-subroutine interp_faceusp_to_faceuqp(nf1,nf2,faceusp,faceuqp)
+subroutine interp_faceusp_to_faceuqp(nf1,nf2,faceusp,faceuqp,facegpqp)
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geovar,        only : nr,face
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nf1
   integer,     intent(in) :: nf2
   real(wp),    intent(in) :: faceusp(:,:,:)
   real(wp), intent(inout) :: faceuqp(:,:,:)
+  real(wp), intent(inout) :: facegpqp(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "interp_usp_to_qdtpts"
+  character(len=*), parameter :: pname = "interp_faceusp_to_faceuqp"
   !
 continue
   !
@@ -4610,6 +4639,14 @@ continue
   else
     call interp_faceusp_to_faceuqp_nd(nf1,nf2,faceusp,faceuqp)
   end if
+  !
+  ! Update the thermodynamic and transport properties at the quadrature points
+  !
+  n1 = face(nf1)%beg_qp
+  n2 = face(nf2)%end_qp
+  !
+  call update_thermo_properties(n1,n2,faceuqp,facegpqp)
+  call update_transport_properties(n1,n2,faceuqp,facegpqp)
   !
   call debug_timer(leaving_procedure,pname)
   !
