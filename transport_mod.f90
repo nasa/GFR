@@ -144,7 +144,8 @@ subroutine update_transport_properties_sp(n1,n2,cv,gp)
   real(wp), intent(inout) :: gp(:,:)
   !
   !.. Local Scalars ..
-  integer :: n
+  integer  :: n
+  integer  :: Pr_inv,cp_divided_by_Pr
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: xi(:,:)
@@ -201,9 +202,11 @@ continue
       !
     else
       !
+      Pr_inv = one / Pr
+      !
       !$ACC PARALLEL LOOP PRESENT(gp)
       do n = n1,n2
-        gp(n,ncond) = gp(n,nvisc) * gp(n,ncp) / Pr
+        gp(n,ncond) = gp(n,nvisc) * gp(n,ncp) * Pr_inv
       end do
       !
     end if
@@ -217,9 +220,11 @@ continue
     !
     call viscosity_cv_gpu(n1,n2,cv,gp(:,nvisc))
     !
+    cp_divided_by_Pr = cpref_nd / Pr
+    !
     !$ACC PARALLEL LOOP PRESENT(gp)
     do n = n1,n2
-      gp(n,ncond) = gp(n,nvisc) * cpref_nd / Pr
+      gp(n,ncond) = gp(n,nvisc) * cp_divided_by_Pr
     end do
     !
   end if
