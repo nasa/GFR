@@ -196,7 +196,7 @@ subroutine update_thermo_properties_sp(n1,n2,cv,gp)
   real(wp), intent(inout) :: gp(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,n,nr
+  integer  :: i,n
   real(wp) :: rho
   !
   !.. Local Parameters ..
@@ -204,12 +204,10 @@ subroutine update_thermo_properties_sp(n1,n2,cv,gp)
   !
 continue
   !
-  nr = nme-nmb+1
-  !
   ! 1. Update the mixture density by summing the species densities
   !    and convert the species densities to mass fractions
   !
-  if (ncs /= 0) then
+  if (ncs > 0) then
     !
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv)
     do i = 1,ncs
@@ -240,64 +238,167 @@ continue
       end do
     end do
     !
+    ! 2. Compute the internal energy. Temporarily store the internal energy
+    !    in the pressure location of gp.
+    !
+    call compute_internal_energy(n1,n2,cv,gp(:,npres))
+    !
+    ! 3. Compute the mixture gas constant. Temporarily store the mixture
+    !    gas constant in the gamma location of gp.
+    !
+    call compute_mixture_rgas(n1,n2,cv(:,1:ncs),gp(:,ngamm))
+    !
+    ! 4. Compute static temperature and gas variables using Newton iteration
+    !    NOTE: Currently, the gamma and pressure locations of gp respectively
+    !          contain the mixture gas constant and the internal energy.
+    !
+    call newton_solve_for_temperature(n1,n2,cv(:,1:ncs),gp(:,ngamm), &
+                                            gp(:,npres),gp(:,ntemp), &
+                                            gp(:,nenth),gp(:,ncp), &
+                                            dim_t_upon_entry=true, &
+                                            nondim_t_upon_return=true)
+    !
+    ! 5. Compute the static pressure
+    !    NOTE: The gamma location of gp currently
+    !          contains the mixture gas constant.
+    !
+    !$ACC PARALLEL LOOP PRESENT(gp,cv)
+    do n = n1,n2
+      gp(n,npres) = cv(n,nec) * gp(n,ngamm) * gp(n,ntemp)
+    end do
+    !
+    ! 6. Compute the ratio of the specific heats of the mixture.
+    !    NOTE: gp(:,ngamm) contains the mixture gas constant going into
+    !          compute_mixture_gamma, but returns containing the ratio of
+    !          the specific heats of the mixture.
+    !
+    call compute_mixture_gamma(n1,n2,gp(:,ncp),gp(:,ngamm))
+   !!
+   !! 7. Nondimensionalize temperature, pressure, enthalpy, cp
+   !!
+   !!$ACC PARALLEL LOOP PRESENT(gp)
+   !do n = n1,n2
+   !  gp(n,npres) = gp(n,npres) * rhoa2_inv
+   !  gp(n,ntemp) = gp(n,ntemp) * tref_inv
+   !  gp(n,nenth) = gp(n,nenth) * aref2_inv
+   !  gp(n,ncp)   = gp(n,ncp)   * cpref_inv
+   !end do
+    !
+    ! 9. Convert species mass fractions back to species densities
+    !
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv)
+    do i = 1,ncs
+      do n = n1,n2
+        cv(n,i) = cv(n,i)*cv(n,nec)
+      end do
+    end do
+    !
+  else
+    !
+    ! Compute the pressure and temperature of a calorically perfect gas
+    ! 
+    call update_thermo_cpg(n1,n2,cv,gp)
+    !
   end if
   !
-  ! 2. Compute the internal energy. Temporarily store the internal energy
-  !    in the pressure location of gp.
-  !
-  call compute_internal_energy(n1,n2,cv,gp(:,npres))
-  !
-  ! 3. Compute the mixture gas constant. Temporarily store the mixture
-  !    gas constant in the gamma location of gp.
-  !
-  call compute_mixture_rgas(n1,n2,cv(:,1:ncs),gp(:,ngamm))
-  !
-  ! 4. Compute static temperature and gas variables using Newton iteration
-  !    NOTE: Currently, the gamma and pressure locations of gp respectively
-  !          contain the mixture gas constant and the internal energy.
-  !
-  call newton_solve_for_temperature(n1,n2,cv(:,1:ncs),gp(:,ngamm), &
-                                          gp(:,npres),gp(:,ntemp), &
-                                          gp(:,nenth),gp(:,ncp), &
-                                          dim_t_upon_entry=true, &
-                                          nondim_t_upon_return=true)
-  !
-  ! 5. Compute the static pressure
-  !    NOTE: The gamma location of gp currently
-  !          contains the mixture gas constant.
-  !
-  !$ACC PARALLEL LOOP PRESENT(gp,cv)
-  do n = n1,n2
-    gp(n,npres) = cv(n,nec) * gp(n,ngamm) * gp(n,ntemp)
-  end do
-  !
-  ! 6. Compute the ratio of the specific heats of the mixture.
-  !    NOTE: gp(:,ngamm) contains the mixture gas constant going into
-  !          compute_mixture_gamma, but returns containing the ratio of
-  !          the specific heats of the mixture.
-  !
-  call compute_mixture_gamma(n1,n2,gp(:,ncp),gp(:,ngamm))
- !!
- !! 7. Nondimensionalize temperature, pressure, enthalpy, cp
- !!
- !!$ACC PARALLEL LOOP PRESENT(gp)
- !do n = n1,n2
- !  gp(n,npres) = gp(n,npres) * rhoa2_inv
- !  gp(n,ntemp) = gp(n,ntemp) * tref_inv
- !  gp(n,nenth) = gp(n,nenth) * aref2_inv
- !  gp(n,ncp)   = gp(n,ncp)   * cpref_inv
- !end do
-  !
-  ! 9. Convert species mass fractions back to species densities
-  !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv)
-  do i = 1,ncs
-    do n = n1,n2
-      cv(n,i) = cv(n,i)*cv(n,nec)
-    end do
-  end do
-  !
 end subroutine update_thermo_properties_sp
+!
+!###############################################################################
+!
+pure &
+subroutine update_thermo_cpg(n1,n2,cv,gp)
+  !
+  ! N1 : beginning solution point
+  ! N1 : ending    solution point
+  ! CV : conserved variables at points
+  ! GP : gas properties variables at points
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp),    intent(in) :: cv(:,:)
+  real(wp), intent(inout) :: gp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: gm1,rgasref_nd_inv
+  real(wp) :: rho,rhou,rhov,rhow,rhoe
+  real(wp) :: rho_inv,rhoq2,pres,temp
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_thermo_cpg"
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  gm1 = gam - one
+  rgasref_nd_inv = one/rgasref_nd
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(cv,gp)
+    do n = n1,n2
+      !
+      rho = cv(n,nec)
+      rho_inv = one/rho
+      !
+      rhou = cv(n,nmx)
+      rhov = cv(n,nmy)
+      rhow = cv(n,nmz)
+      rhoe = cv(n,nee)
+      !
+      rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+      !
+      pres = gm1*(rhoe - half*rhoq2*rho_inv)
+      temp = pres * rgasref_nd_inv * rho_inv
+      !
+      gp(n,npres) = pres
+      gp(n,ntemp) = temp
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(cv,gp)
+    do n = n1,n2
+      !
+      rho = cv(n,nec)
+      rho_inv = one/rho
+      !
+      rhou = cv(n,nmx)
+      rhov = cv(n,nmy)
+      rhoe = cv(n,nee)
+      !
+      rhoq2 = rhou*rhou + rhov*rhov
+      !
+      pres = gm1*(rhoe - half*rhoq2*rho_inv)
+      temp = pres * rgasref_nd_inv * rho_inv
+      !
+      gp(n,npres) = pres
+      gp(n,ntemp) = temp
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(cv,gp)
+    do n = n1,n2
+      !
+      rho = cv(n,nec)
+      rho_inv = one/rho
+      !
+      rhou = cv(n,nmx)
+      rhoe = cv(n,nee)
+      !
+      pres = gm1*(rhoe - half*rhou*rhou*rho_inv)
+      temp = pres * rgasref_nd_inv * rho_inv
+      !
+      gp(n,npres) = pres
+      gp(n,ntemp) = temp
+      !
+    end do
+  end if
+  !
+end subroutine update_thermo_cpg
 !
 !###############################################################################
 !
