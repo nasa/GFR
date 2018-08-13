@@ -3,9 +3,9 @@ module thermo_mod
   !.. Use Statements ..
   use module_kind_types
   !
-  use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee
+  use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
   use eqn_idx, only : ncs
-  use eqn_idx, only : npres,ntemp,ncp,ngamm,nenth
+  use eqn_idx, only : npres,ntemp,ncp,ngamm,nenth,ng
   !
   implicit none
   !
@@ -48,7 +48,8 @@ module thermo_mod
   !
   interface update_thermo_properties
     module procedure update_thermo_properties_sp, &
-                     update_thermo_properties_fp
+                     update_thermo_properties_fp, &
+                     update_thermo_properties_1p
   end interface update_thermo_properties
   !
 contains
@@ -165,7 +166,43 @@ end subroutine init_thermo_mod
 !
 !###############################################################################
 !
-subroutine update_thermo_properties_fp(n1,n2,cv,gp)
+pure subroutine update_thermo_properties_1p(n1,n2,cv_1p,gp_1p)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp), intent(inout) :: cv_1p(:)
+  real(wp), intent(inout) :: gp_1p(:)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: cv(:,:)
+  real(wp), allocatable :: gp(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_thermo_properties_1p"
+  !
+continue
+  !
+  allocate ( cv(1:1,1:nq) , source=zero )
+  allocate ( gp(1:1,1:ng) , source=zero )
+  !
+  cv(1,1:nq) = cv_1p(1:nq)
+  gp(1,1:nq) = gp_1p(1:ng)
+  !$ACC DATA CREATE(cv,gp)
+  !
+  call update_thermo_properties_sp(1,1,cv,gp)
+  !
+  gp_1p(1:ng) = gp(1,1:ng)
+  !
+  !$ACC END DATA
+  deallocate ( gp )
+  deallocate ( cv )
+  !
+end subroutine update_thermo_properties_1p
+!
+!###############################################################################
+!
+pure subroutine update_thermo_properties_fp(n1,n2,cv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -187,7 +224,7 @@ end subroutine update_thermo_properties_fp
 !
 !###############################################################################
 !
-subroutine update_thermo_properties_sp(n1,n2,cv,gp)
+pure subroutine update_thermo_properties_sp(n1,n2,cv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -196,8 +233,8 @@ subroutine update_thermo_properties_sp(n1,n2,cv,gp)
   real(wp), intent(inout) :: gp(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,n
-  real(wp) :: rho
+  integer  :: i,n,num_newton_errors
+  real(wp) :: rho,max_newton_error
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "update_thermo_properties_sp"
@@ -255,6 +292,8 @@ continue
     call newton_solve_for_temperature(n1,n2,cv(:,1:ncs),gp(:,ngamm), &
                                             gp(:,npres),gp(:,ntemp), &
                                             gp(:,nenth),gp(:,ncp), &
+                                            num_newton_errors, &
+                                            max_newton_error, &
                                             dim_t_upon_entry=true, &
                                             nondim_t_upon_return=true)
     !
@@ -471,8 +510,9 @@ end subroutine compute_mixture_rgas
 !
 !###############################################################################
 !
-!pure &
+pure &
 subroutine newton_solve_for_temperature(n1,n2,mass_frac,rmix,eint,t,h,cp, &
+                                        ndnc,dtmx, &
                                         dim_t_upon_entry,nondim_t_upon_return)
   !
   !.. Use Statements ..
@@ -487,14 +527,16 @@ subroutine newton_solve_for_temperature(n1,n2,mass_frac,rmix,eint,t,h,cp, &
   real(wp), intent(inout) :: t(:)
   real(wp), intent(inout) :: h(:)
   real(wp), intent(inout) :: cp(:)
+  integer,  intent(inout) :: ndnc
+  real(wp), intent(inout) :: dtmx
   !
   !.. Optional Arguments
   logical(lk), optional, intent(in) :: dim_t_upon_entry
   logical(lk), optional, intent(in) :: nondim_t_upon_return
   !
   !.. Local Scalars ..
-  integer  :: k,n,ndnc
-  real(wp) :: func,dfunc,dtemp,dterr,dtmx
+  integer  :: k,n
+  real(wp) :: func,dfunc,dtemp,dterr
   real(wp) :: tmin_nd,tmax_nd
   !
   !.. Local Parameters ..
@@ -555,9 +597,9 @@ continue
       exit newton_iteration
     end if
     !
-    if (k == newton_iter) then
-      write (iout,100) ndnc,dtmx
-    end if
+   !if (k == newton_iter) then
+   !  write (iout,100) ndnc,dtmx
+   !end if
     !
   end do newton_iteration
   !
