@@ -13,6 +13,7 @@ module thermo_mod
   !
   public :: init_thermo_mod
   public :: update_thermo_properties
+  public :: compute_species_enthalpy
   !
   !
   real(wp), parameter :: runivl = 8314.5_wp
@@ -752,6 +753,72 @@ continue
   deallocate ( intrvl )
   !
 end subroutine compute_mixture_enthalpy
+!
+!###############################################################################
+!
+pure &
+subroutine compute_species_enthalpy(n1,n2,t,hsi)
+  !
+  !.. Use Statements ..
+  use ovar, only : aref,tref
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp),    intent(in) :: t(:)
+  real(wp), intent(inout) :: hsi(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,n,ni
+  real(wp) :: ts,aref2_inv
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: intrvl(:,:)
+  !
+continue
+  !
+  aref2_inv = one/aref/aref
+  !
+  allocate ( intrvl(n1:n2,1:ncs) , source=1 )
+  !$ACC DATA CREATE(intrvl)
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_interval)
+  do i = 1,ncs
+    do n = n1,n2
+      if (t(n) > temperature_interval(i)) then
+        intrvl(n,i) = 2
+      end if
+    end do
+  end do
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(intrvl,t,enth_coef,hsi)
+  do i = 1,ncs
+    do n = n1,n2
+      !
+      ni = intrvl(n,i)
+      ts = t(n)*tref
+      !
+      hsi(n,i) = enth_coef(6,ni,i) + &
+                 ts*(enth_coef(1,ni,i) + &
+                     ts*(enth_coef(2,ni,i) + &
+                         ts*(enth_coef(3,ni,i) + &
+                             ts*(enth_coef(4,ni,i) + &
+                                 ts*(enth_coef(5,ni,i))))))
+      !
+    end do
+  end do
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(hsi)
+  do i = 1,ncs
+    do n = n1,n2
+      hsi(n,i) = hsi(n,i)*aref2_inv
+    end do
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( intrvl )
+  !
+end subroutine compute_species_enthalpy
 !
 !###############################################################################
 !
