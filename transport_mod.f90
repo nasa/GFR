@@ -172,7 +172,6 @@ pure subroutine update_transport_properties_sp(n1,n2,cv,gp)
   !.. Use Statements ..
   use ovar,    only : Pr,cpref_nd
   use ovar,    only : governing_equations
-  use gpu_mod, only : viscosity_cv_gpu
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
