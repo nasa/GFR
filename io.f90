@@ -490,6 +490,12 @@ continue
   call init_face_quadrature_rules
   call check_for_bad_number(__LINE__,__FILE__)
   !
+  ! Change the upwind method to LDFSS if using gas mixture
+  !
+  if (ncs > 0) then
+    invs_flux_method = invs_flux_LDFSS
+  end if
+  !
   ! Make sure the variable index for the resolution marker is valid
   !
   if (Resolution_Marker_Variable <= 0 .or. Resolution_Marker_Variable > nq) then
