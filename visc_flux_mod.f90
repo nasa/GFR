@@ -553,9 +553,6 @@ end subroutine visc_wall_flx_gpu
 pure subroutine visc_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                                      return_value)
   !
-  !.. Use Statements ..
-  use gpu_mod, only : viscosity_cv_gpu
-  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
@@ -658,9 +655,6 @@ end subroutine visc_wall_flx_gpu_3d
 pure subroutine visc_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                                      return_value)
   !
-  !.. Use Statements ..
-  use gpu_mod, only : viscosity_cv_gpu
-  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
@@ -745,9 +739,6 @@ end subroutine visc_wall_flx_gpu_2d
 !
 pure subroutine visc_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                                      return_value)
-  !
-  !.. Use Statements ..
-  use gpu_mod, only : viscosity_cv_gpu
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
