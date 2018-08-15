@@ -3,7 +3,7 @@ module visc_flux_mod
   !.. Use Statements ..
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
-  use eqn_idx, only : ncs,nvisc,ncond,ng
+  use eqn_idx, only : ncs,ntemp,nvisc,ncond,ng
   !
   implicit none
   !
@@ -60,7 +60,9 @@ end subroutine visc_flx_cv_gpu
 pure subroutine visc_flx_cv_gpu_3d(n1,n2,cv,gp,dcvdx,return_value)
   !
   !.. Use Statements ..
-  use gpu_mod, only : grad_cv_to_grad_pv_gpu
+  use ovar,       only : schmidt_lam
+  use gpu_mod,    only : grad_cv_to_grad_pv_gpu
+  use thermo_mod, only : compute_species_enthalpy
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -70,7 +72,7 @@ pure subroutine visc_flx_cv_gpu_3d(n1,n2,cv,gp,dcvdx,return_value)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,np
+  integer  :: i,n,np
   real(wp) :: mvsc,mcdt
   real(wp) :: rho_inv,ave_ext_rate
   real(wp) :: dudx,dudy,dudz
@@ -78,8 +80,11 @@ pure subroutine visc_flx_cv_gpu_3d(n1,n2,cv,gp,dcvdx,return_value)
   real(wp) :: dwdx,dwdy,dwdz
   real(wp) :: tauxx,tauyy,tauzz
   real(wp) :: tauxy,tauxz,tauyz
+  real(wp) :: val,hi,dsdx,dsdy,dsdz
+  real(wp) :: schmidt_lam_inv
   !
   !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: hsi(:,:)
   real(wp), allocatable :: dpvdx(:,:,:)
   !
 continue
@@ -87,7 +92,7 @@ continue
   np = size(return_value,dim=1)
   !
   allocate ( dpvdx(1:np,1:3,1:nq) )
-  !$ACC DATA CREATE(dpvdx)
+  !$ACC ENTER DATA CREATE(dpvdx)
   !
   ! Compute the gradients of the primitive variables
   !
@@ -159,7 +164,43 @@ continue
     !
   end do
   !
-  !$ACC END DATA
+  if (ncs > 0) then
+    !
+    allocate ( hsi(1:np,1:ncs) )
+    !$ACC ENTER DATA CREATE(hsi)
+    !
+    call compute_species_enthalpy(n1,n2,gp(:,ntemp),hsi)
+    !
+    schmidt_lam_inv = one / schmidt_lam
+    !
+    do i = 1,ncs
+      !
+      !$ACC PARALLEL LOOP PRESENT(hsi,gp,dpvdx,return_value)
+      do n = n1,n2
+        !
+        val = gp(n,nvisc) * schmidt_lam_inv
+        hi = hsi(n,i)
+        !
+        dsdx = val*dpvdx(n,1,i)
+        dsdy = val*dpvdx(n,2,i)
+        dsdz = val*dpvdx(n,3,i)
+        !
+        return_value(n,1,i) = dsdx
+        return_value(n,2,i) = dsdy
+        return_value(n,3,i) = dsdz
+        !
+        return_value(n,1,nee) = return_value(n,1,nee) + hi*dsdx
+        return_value(n,2,nee) = return_value(n,2,nee) + hi*dsdy
+        return_value(n,3,nee) = return_value(n,3,nee) + hi*dsdz
+        !
+      end do
+      !
+    end do
+    !
+  end if
+  !
+  !$ACC EXIT DATA DELETE(hsi,dpvdx)
+  deallocate ( hsi )
   deallocate ( dpvdx )
   !
 end subroutine visc_flx_cv_gpu_3d
@@ -169,7 +210,9 @@ end subroutine visc_flx_cv_gpu_3d
 pure subroutine visc_flx_cv_gpu_2d(n1,n2,cv,gp,dcvdx,return_value)
   !
   !.. Use Statements ..
-  use gpu_mod, only : grad_cv_to_grad_pv_gpu
+  use ovar,       only : schmidt_lam
+  use gpu_mod,    only : grad_cv_to_grad_pv_gpu
+  use thermo_mod, only : compute_species_enthalpy
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -179,14 +222,17 @@ pure subroutine visc_flx_cv_gpu_2d(n1,n2,cv,gp,dcvdx,return_value)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,np
+  integer  :: i,n,np
   real(wp) :: mvsc,mcdt
   real(wp) :: rho_inv,ave_ext_rate
   real(wp) :: dudx,dudy
   real(wp) :: dvdx,dvdy
   real(wp) :: tauxx,tauyy,tauxy
+  real(wp) :: val,hi,dsdx,dsdy
+  real(wp) :: schmidt_lam_inv
   !
   !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: hsi(:,:)
   real(wp), allocatable :: dpvdx(:,:,:)
   !
 continue
@@ -194,7 +240,7 @@ continue
   np = size(return_value,dim=1)
   !
   allocate ( dpvdx(1:np,1:2,1:nq) )
-  !$ACC DATA CREATE(dpvdx)
+  !$ACC ENTER DATA CREATE(dpvdx)
   !
   ! Compute the gradients of the primitive variables
   !
@@ -243,7 +289,40 @@ continue
     !
   end do
   !
-  !$ACC END DATA
+  if (ncs > 0) then
+    !
+    allocate ( hsi(1:np,1:ncs) )
+    !$ACC ENTER DATA CREATE(hsi)
+    !
+    call compute_species_enthalpy(n1,n2,gp(:,ntemp),hsi)
+    !
+    schmidt_lam_inv = one / schmidt_lam
+    !
+    do i = 1,ncs
+      !
+      !$ACC PARALLEL LOOP PRESENT(hsi,gp,dpvdx,return_value)
+      do n = n1,n2
+        !
+        val = gp(n,nvisc) * schmidt_lam_inv
+        hi = hsi(n,i)
+        !
+        dsdx = val*dpvdx(n,1,i)
+        dsdy = val*dpvdx(n,2,i)
+        !
+        return_value(n,1,i) = dsdx
+        return_value(n,2,i) = dsdy
+        !
+        return_value(n,1,nee) = return_value(n,1,nee) + hi*dsdx
+        return_value(n,2,nee) = return_value(n,2,nee) + hi*dsdy
+        !
+      end do
+      !
+    end do
+    !
+  end if
+  !
+  !$ACC EXIT DATA DELETE(hsi,dpvdx)
+  deallocate ( hsi )
   deallocate ( dpvdx )
   !
 end subroutine visc_flx_cv_gpu_2d
@@ -253,7 +332,9 @@ end subroutine visc_flx_cv_gpu_2d
 pure subroutine visc_flx_cv_gpu_1d(n1,n2,cv,gp,dcvdx,return_value)
   !
   !.. Use Statements ..
-  use gpu_mod, only : grad_cv_to_grad_pv_gpu
+  use ovar,       only : schmidt_lam
+  use gpu_mod,    only : grad_cv_to_grad_pv_gpu
+  use thermo_mod, only : compute_species_enthalpy
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -263,10 +344,12 @@ pure subroutine visc_flx_cv_gpu_1d(n1,n2,cv,gp,dcvdx,return_value)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,np
-  real(wp) :: tauxx
+  integer  :: i,n,np
+  real(wp) :: tauxx,dsdx
+  real(wp) :: schmidt_lam_inv
   !
   !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: hsi(:,:)
   real(wp), allocatable :: dpvdx(:,:,:)
   !
 continue
@@ -274,7 +357,7 @@ continue
   np = size(return_value,dim=1)
   !
   allocate ( dpvdx(1:np,1:1,1:nq) )
-  !$ACC DATA CREATE(dpvdx)
+  !$ACC ENTER DATA CREATE(dpvdx)
   !
   ! Get the gradients of the primitive variables using the
   ! gradients of the conservative variables and the product rule
@@ -302,9 +385,35 @@ continue
                           + tauxx*cv(n,nmx)/cv(n,nec)
     !
   end do
+  !
+  if (ncs > 0) then
+    !
+    allocate ( hsi(1:np,1:ncs) )
+    !$ACC ENTER DATA CREATE(hsi)
+    !
+    call compute_species_enthalpy(n1,n2,gp(:,ntemp),hsi)
+    !
+    schmidt_lam_inv = one / schmidt_lam
+    !
+    do i = 1,ncs
+      !
+      !$ACC PARALLEL LOOP PRESENT(hsi,gp,dpvdx,return_value)
+      do n = n1,n2
+        !
+        dsdx = gp(n,nvisc)*schmidt_lam_inv*dpvdx(n,1,i)
+        !
+        return_value(n,1,i) = dsdx
+        !
+        return_value(n,1,nee) = return_value(n,1,nee) + hsi(n,i)*dsdx
+        !
+      end do
+      !
+    end do
+    !
   end if
   !
-  !$ACC END DATA
+  !$ACC EXIT DATA DELETE(hsi,dpvdx)
+  deallocate ( hsi )
   deallocate ( dpvdx )
   !
 end subroutine visc_flx_cv_gpu_1d
