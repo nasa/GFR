@@ -244,6 +244,10 @@ module ovar
   real(wp), public, save :: Pr  = 0.72_wp
   real(wp), public, save :: Prt = 0.72_wp
   !
+  ! LAMINAR AND TURBULENT SCHMIDT NUMBERS
+  real(wp), public, save :: schmidt_lam  = 0.72_wp
+  real(wp), public, save :: schmidt_turb = 0.72_wp
+  !
   ! SUTHERLANDS LAW COEFFICIENTS
   real(wp), public, save :: suth_muref = 1.716e-5_wp
   real(wp), public, save :: suth_Tref  = 273.0_wp
@@ -783,6 +787,7 @@ module input_namelist_mod
   use ovar,      only : postproc_debug_grid
   use ovar,      only : output_bnd_profiles,sub_inflow_method
   use ovar,      only : machref, reyref, gam, Pr, Prt
+  use ovar,      only : schmidt_lam, schmidt_turb
   use ovar,      only : ptotref, ttotref, ptot2p_ratio
   use ovar,      only : rhoref, tref, pref, rgasref
   use ovar,      only : turbulence_model, tinref, tvrref
@@ -919,6 +924,8 @@ module input_namelist_mod
   namelist / input / alpha_aoaref, beta_aoaref
   ! LAMINAR AND TURBULENT PRANDTL NUMBERS
   namelist / input / Pr, Prt
+  ! LAMINAR AND TURBULENT SCHMIDT NUMBERS
+  namelist / input / schmidt_lam, schmidt_turb
   ! SUTHERLANDS LAW COEFFICIENTS
   namelist / input / suth_muref, suth_Tref, suth_Sref
   ! FILTER OPTIONS
