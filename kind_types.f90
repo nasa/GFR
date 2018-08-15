@@ -533,6 +533,7 @@ module module_kind_types
   integer, parameter :: invs_flux_HLLC         = 2
   integer, parameter :: invs_flux_LDFSS        = 3
   integer, parameter :: invs_flux_Rotated_RHLL = 4
+  integer, parameter :: invs_flux_AUSM_Plus    = 5
   !
   integer, parameter :: visc_flux_BR1 = 1
   integer, parameter :: visc_flux_BR2 = 2
