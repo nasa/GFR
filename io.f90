@@ -6,6 +6,7 @@ module io_mod
   use module_kind_types
   use module_cgns_types
   use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
+  use eqn_idx, only : ncs
   !
   implicit none
   !
