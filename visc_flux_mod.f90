@@ -50,7 +50,7 @@ continue
   else if (nr == 2) then
     call visc_flx_cv_gpu_2d(n1,n2,cv,gp,dcvdx,return_value)
   else
-    call visc_flx_cv_gpu_nd(n1,n2,cv,gp,dcvdx,return_value)
+    call visc_flx_cv_gpu_1d(n1,n2,cv,gp,dcvdx,return_value)
   end if
   !
 end subroutine visc_flx_cv_gpu
@@ -250,7 +250,7 @@ end subroutine visc_flx_cv_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine visc_flx_cv_gpu_nd(n1,n2,cv,gp,dcvdx,return_value)
+pure subroutine visc_flx_cv_gpu_1d(n1,n2,cv,gp,dcvdx,return_value)
   !
   !.. Use Statements ..
   use gpu_mod, only : grad_cv_to_grad_pv_gpu
@@ -263,14 +263,8 @@ pure subroutine visc_flx_cv_gpu_nd(n1,n2,cv,gp,dcvdx,return_value)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,np,nr
-  real(wp) :: mvsc,mcdt
-  real(wp) :: rho_inv,ave_ext_rate
-  real(wp) :: dudx,dudy,dudz
-  real(wp) :: dvdx,dvdy,dvdz
-  real(wp) :: dwdx,dwdy,dwdz
-  real(wp) :: tauxx,tauyy,tauzz
-  real(wp) :: tauxy,tauxz,tauyz
+  integer  :: n,np
+  real(wp) :: tauxx
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: dpvdx(:,:,:)
@@ -278,9 +272,8 @@ pure subroutine visc_flx_cv_gpu_nd(n1,n2,cv,gp,dcvdx,return_value)
 continue
   !
   np = size(return_value,dim=1)
-  nr = size(return_value,dim=2)
   !
-  allocate ( dpvdx(1:np,1:nr,1:nq) )
+  allocate ( dpvdx(1:np,1:1,1:nq) )
   !$ACC DATA CREATE(dpvdx)
   !
   ! Get the gradients of the primitive variables using the
@@ -290,141 +283,31 @@ continue
   !
   ! Density flux is zero
   !
-  if (nr == 3) then
-    !$ACC PARALLEL LOOP PRESENT(cv,gp,return_value,dpvdx)
-    do n = n1,n2
-      !
-      mvsc = gp(n,nvisc)
-      mcdt = gp(n,ncond)
-      !
-      dudx = mvsc * dpvdx(n,1,nmx)
-      dudy = mvsc * dpvdx(n,2,nmx)
-      dudz = mvsc * dpvdx(n,3,nmx)
-      !
-      dvdx = mvsc * dpvdx(n,1,nmy)
-      dvdy = mvsc * dpvdx(n,2,nmy)
-      dvdz = mvsc * dpvdx(n,3,nmy)
-      !
-      dwdx = mvsc * dpvdx(n,1,nmz)
-      dwdy = mvsc * dpvdx(n,2,nmz)
-      dwdz = mvsc * dpvdx(n,3,nmz)
-      !
-      ave_ext_rate = two3 * (dudx + dvdy + dwdz)
-      !
-      tauxx = dudx + dudx - ave_ext_rate
-      tauyy = dvdy + dvdy - ave_ext_rate
-      tauzz = dwdz + dwdz - ave_ext_rate
-      !
-      tauxy = dvdx + dudy
-      tauxz = dwdx + dudz
-      tauyz = dwdy + dvdz
-      !
-      ! Density flux is zero
-      !
-      return_value(n,1,nec) = zero
-      return_value(n,2,nec) = zero
-      return_value(n,3,nec) = zero
-      !
-      ! Momentum equations
-      !
-      return_value(n,1,nmx) = tauxx
-      return_value(n,2,nmx) = tauxy
-      return_value(n,3,nmx) = tauxz
-      !
-      return_value(n,1,nmy) = tauxy
-      return_value(n,2,nmy) = tauyy
-      return_value(n,3,nmy) = tauyz
-      !
-      return_value(n,1,nmz) = tauxz
-      return_value(n,2,nmz) = tauyz
-      return_value(n,3,nmz) = tauzz
-      !
-      ! Energy Equation
-      !
-      rho_inv = one/cv(n,nec)
-      !
-      return_value(n,1,nee) = mcdt*dpvdx(n,1,nee) + rho_inv*cv(n,nmx)*tauxx &
-                                                  + rho_inv*cv(n,nmy)*tauxy &
-                                                  + rho_inv*cv(n,nmz)*tauxz
-      !
-      return_value(n,2,nee) = mcdt*dpvdx(n,2,nee) + rho_inv*cv(n,nmx)*tauxy &
-                                                  + rho_inv*cv(n,nmy)*tauyy &
-                                                  + rho_inv*cv(n,nmz)*tauyz
-      !
-      return_value(n,3,nee) = mcdt*dpvdx(n,3,nee) + rho_inv*cv(n,nmx)*tauxz &
-                                                  + rho_inv*cv(n,nmy)*tauyz &
-                                                  + rho_inv*cv(n,nmz)*tauzz
-      !
-    end do
-  else if (nr == 2) then
-    !$ACC PARALLEL LOOP PRESENT(cv,gp,return_value,dpvdx)
-    do n = n1,n2
-      !
-      mvsc = gp(n,nvisc)
-      mcdt = gp(n,ncond)
-      !
-      dudx = mvsc * dpvdx(n,1,nmx)
-      dudy = mvsc * dpvdx(n,2,nmx)
-      !
-      dvdx = mvsc * dpvdx(n,1,nmy)
-      dvdy = mvsc * dpvdx(n,2,nmy)
-      !
-      ave_ext_rate = two3 * (dudx + dvdy)
-      !
-      tauxx = dudx + dudx - ave_ext_rate
-      tauyy = dvdy + dvdy - ave_ext_rate
-      tauxy = dvdx + dudy
-      !
-      ! Density flux is zero
-      !
-      return_value(n,1,nec) = zero
-      return_value(n,2,nec) = zero
-      !
-      ! Momentum equations
-      !
-      return_value(n,1,nmx) = tauxx
-      return_value(n,2,nmx) = tauxy
-      !
-      return_value(n,1,nmy) = tauxy
-      return_value(n,2,nmy) = tauyy
-      !
-      ! Energy Equation
-      !
-      rho_inv = one/cv(n,nec)
-      !
-      return_value(n,1,nee) = mcdt*dpvdx(n,1,nee) + rho_inv*cv(n,nmx)*tauxx &
-                                                  + rho_inv*cv(n,nmy)*tauxy
-      !
-      return_value(n,2,nee) = mcdt*dpvdx(n,2,nee) + rho_inv*cv(n,nmx)*tauxy &
-                                                  + rho_inv*cv(n,nmy)*tauyy
-      !
-    end do
-  else
-    !$ACC PARALLEL LOOP PRESENT(cv,gp,return_value,dpvdx)
-    do n = n1,n2
-      !
-      tauxx = two * two3 * gp(n,nvisc) * dpvdx(n,1,nmx)
-      !
-      ! Density flux is zero
-      !
-      return_value(n,1,nec) = zero
-      !
-      ! Momentum equation
-      !
-      return_value(n,1,nmx) = tauxx
-      !
-      ! Energy Equation
-      !
-      return_value(n,1,nee) = gp(n,ncond)*dpvdx(n,1,nee) &
-                            + tauxx*cv(n,nmx)/cv(n,nec)
-      !
-    end do
+  !$ACC PARALLEL LOOP PRESENT(cv,gp,return_value,dpvdx)
+  do n = n1,n2
+    !
+    tauxx = two * two3 * gp(n,nvisc) * dpvdx(n,1,nmx)
+    !
+    ! Density flux is zero
+    !
+    return_value(n,1,nec) = zero
+    !
+    ! Momentum equation
+    !
+    return_value(n,1,nmx) = tauxx
+    !
+    ! Energy Equation
+    !
+    return_value(n,1,nee) = gp(n,ncond)*dpvdx(n,1,nee) &
+                          + tauxx*cv(n,nmx)/cv(n,nec)
+    !
+  end do
   end if
   !
   !$ACC END DATA
   deallocate ( dpvdx )
   !
-end subroutine visc_flx_cv_gpu_nd
+end subroutine visc_flx_cv_gpu_1d
 !
 !###############################################################################
 !
@@ -1560,12 +1443,12 @@ continue
   !
   ! Get the left viscous fluxes
   !
-  call visc_flx_cv_gpu_nd(n1,n2,face_cv(:,:,1),face_gp(:,:,1), &
+  call visc_flx_cv_gpu_1d(n1,n2,face_cv(:,:,1),face_gp(:,:,1), &
                           face_dcvdx(:,:,:,1),lvflx)
   !
   ! Get the right viscous fluxes
   !
-  call visc_flx_cv_gpu_nd(n1,n2,face_cv(:,:,2),face_gp(:,:,2), &
+  call visc_flx_cv_gpu_1d(n1,n2,face_cv(:,:,2),face_gp(:,:,2), &
                           face_dcvdx(:,:,:,2),rvflx)
   !
   ! Use the LDG method to compute the common viscous flux vector
@@ -2237,7 +2120,7 @@ continue
   ! Compute the common viscous flux vector using
   ! the common solution and common gradient
   !
-  call visc_flx_cv_gpu_nd(n1,n2,com_cv,com_gp,com_dcvdx,com_vflx)
+  call visc_flx_cv_gpu_1d(n1,n2,com_cv,com_gp,com_dcvdx,com_vflx)
   !
   ! Subtract the common viscous fluxes from the common
   ! inviscid fluxes already stored within return_value
