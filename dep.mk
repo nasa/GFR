@@ -216,7 +216,8 @@ $(OBJDIR)/gmsh_mod.o : gmsh_mod.f90 \
 $(OBJDIR)/gpu_mod.o : gpu_mod.f90 \
             $(OBJDIR)/kind_types.o \
             $(OBJDIR)/eqn_idx_mod.o \
-            $(OBJDIR)/ovar_mod.o
+            $(OBJDIR)/ovar_mod.o \
+            $(OBJDIR)/thermo_mod.o
 
 $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/kind_types.o \
