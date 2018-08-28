@@ -3,6 +3,7 @@ module gpu_mod
   !.. Use Statements ..
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
+  use eqn_idx, only : ncs,ntemp,ngamm,ncp
   !
   implicit none
   !
@@ -1080,12 +1081,13 @@ end subroutine tvsp2u_gpu_inout_nd
 !
 !###############################################################################
 !
-pure subroutine grad_cv_to_grad_pv_gpu(n1,n2,tusp,tdcvdx,return_value)
+pure subroutine grad_cv_to_grad_pv_gpu(n1,n2,usp,gpsp,dcvdx,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: tusp(:,:)
-  real(wp),    intent(in) :: tdcvdx(:,:,:)
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: gpsp(:,:)
+  real(wp),    intent(in) :: dcvdx(:,:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
@@ -1093,31 +1095,39 @@ pure subroutine grad_cv_to_grad_pv_gpu(n1,n2,tusp,tdcvdx,return_value)
   !
 continue
   !
-  nr = size(tdcvdx,dim=2)
+  nr = size(dcvdx,dim=2)
   !
   if (nr == 3) then
-    call grad_cv_to_grad_pv_gpu_3d(n1,n2,tusp,tdcvdx,return_value)
+    call grad_cv_to_grad_pv_cpg_3d(n1,n2,usp,dcvdx,return_value)
   else if (nr == 2) then
-    call grad_cv_to_grad_pv_gpu_2d(n1,n2,tusp,tdcvdx,return_value)
+    call grad_cv_to_grad_pv_cpg_2d(n1,n2,usp,dcvdx,return_value)
   else
-    call grad_cv_to_grad_pv_gpu_nd(n1,n2,tusp,tdcvdx,return_value)
+    call grad_cv_to_grad_pv_cpg_1d(n1,n2,usp,dcvdx,return_value)
+  end if
+  !
+  if (ncs > 0) then
+    if (nr == 3) then
+      call adjust_temp_gradient_for_tpg_3d(n1,n2,usp,gpsp,dcvdx,return_value)
+    else if (nr == 2) then
+      call adjust_temp_gradient_for_tpg_2d(n1,n2,usp,gpsp,dcvdx,return_value)
+    else
+      call adjust_temp_gradient_for_tpg_1d(n1,n2,usp,gpsp,dcvdx,return_value)
+    end if
   end if
   !
 end subroutine grad_cv_to_grad_pv_gpu
 !
 !###############################################################################
 !
-pure subroutine grad_cv_to_grad_pv_gpu_3d(n1,n2,tusp,tdcvdx,return_value)
-  !
-  ! This routine computes the discontinuous gradient at each solution point
+pure subroutine grad_cv_to_grad_pv_cpg_3d(n1,n2,usp,dcvdx,return_value)
   !
   !.. Use Statements ..
   use ovar, only : rgasref_nd,gam
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: tusp(:,:)
-  real(wp),    intent(in) :: tdcvdx(:,:,:)
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: dcvdx(:,:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
@@ -1130,21 +1140,21 @@ continue
   !
   cv_inv = (gam - one) / rgasref_nd
   !
-  ! Using the chain rule:
+  ! Using the product rule:
   !
   ! 1. Copy the density gradient
   ! 2. Compute the velocity gradients (nmx,nmy,nmz)
   ! 3. Compute the total energy gradient and store in the
   !    location for the temperature gradient (nee)
   !
-  !$ACC PARALLEL LOOP PRESENT(tusp,tdcvdx,return_value)
+  !$ACC PARALLEL LOOP PRESENT(usp,dcvdx,return_value)
   do n = n1,n2
     !
-    rho_inv = one/tusp(n,nec)
+    rho_inv = one/usp(n,nec)
     !
-    decdx = tdcvdx(n,1,nec)
-    decdy = tdcvdx(n,2,nec)
-    decdz = tdcvdx(n,3,nec)
+    decdx = dcvdx(n,1,nec)
+    decdy = dcvdx(n,2,nec)
+    decdz = dcvdx(n,3,nec)
     !
     return_value(n,1,nec) = decdx
     return_value(n,2,nec) = decdy
@@ -1154,24 +1164,24 @@ continue
     decdy = decdy*rho_inv*rho_inv
     decdz = decdz*rho_inv*rho_inv
     !
-    return_value(n,1,nmx) = rho_inv*tdcvdx(n,1,nmx) - decdx*tusp(n,nmx)
-    return_value(n,2,nmx) = rho_inv*tdcvdx(n,2,nmx) - decdy*tusp(n,nmx)
-    return_value(n,3,nmx) = rho_inv*tdcvdx(n,3,nmx) - decdz*tusp(n,nmx)
+    return_value(n,1,nmx) = rho_inv*dcvdx(n,1,nmx) - decdx*usp(n,nmx)
+    return_value(n,2,nmx) = rho_inv*dcvdx(n,2,nmx) - decdy*usp(n,nmx)
+    return_value(n,3,nmx) = rho_inv*dcvdx(n,3,nmx) - decdz*usp(n,nmx)
     !
-    return_value(n,1,nmy) = rho_inv*tdcvdx(n,1,nmy) - decdx*tusp(n,nmy)
-    return_value(n,2,nmy) = rho_inv*tdcvdx(n,2,nmy) - decdy*tusp(n,nmy)
-    return_value(n,3,nmy) = rho_inv*tdcvdx(n,3,nmy) - decdz*tusp(n,nmy)
+    return_value(n,1,nmy) = rho_inv*dcvdx(n,1,nmy) - decdx*usp(n,nmy)
+    return_value(n,2,nmy) = rho_inv*dcvdx(n,2,nmy) - decdy*usp(n,nmy)
+    return_value(n,3,nmy) = rho_inv*dcvdx(n,3,nmy) - decdz*usp(n,nmy)
     !
-    return_value(n,1,nmz) = rho_inv*tdcvdx(n,1,nmz) - decdx*tusp(n,nmz)
-    return_value(n,2,nmz) = rho_inv*tdcvdx(n,2,nmz) - decdy*tusp(n,nmz)
-    return_value(n,3,nmz) = rho_inv*tdcvdx(n,3,nmz) - decdz*tusp(n,nmz)
+    return_value(n,1,nmz) = rho_inv*dcvdx(n,1,nmz) - decdx*usp(n,nmz)
+    return_value(n,2,nmz) = rho_inv*dcvdx(n,2,nmz) - decdy*usp(n,nmz)
+    return_value(n,3,nmz) = rho_inv*dcvdx(n,3,nmz) - decdz*usp(n,nmz)
     !
-    return_value(n,1,nee) = rho_inv*tdcvdx(n,1,nee) - decdx*tusp(n,nee)
-    return_value(n,2,nee) = rho_inv*tdcvdx(n,2,nee) - decdy*tusp(n,nee)
-    return_value(n,3,nee) = rho_inv*tdcvdx(n,3,nee) - decdz*tusp(n,nee)
+    return_value(n,1,nee) = rho_inv*dcvdx(n,1,nee) - decdx*usp(n,nee)
+    return_value(n,2,nee) = rho_inv*dcvdx(n,2,nee) - decdy*usp(n,nee)
+    return_value(n,3,nee) = rho_inv*dcvdx(n,3,nee) - decdz*usp(n,nee)
     !
-   !return_value(n,l,m) = rho_inv*tdcvdx(n,l,m) - &
-   !                      rho_inv*tdcvdx(n,l,nec)*tusp(n,m)
+   !return_value(n,l,m) = rho_inv*dcvdx(n,l,m) - &
+   !                      rho_inv*dcvdx(n,l,nec)*usp(n,m)
     !
   end do
   !
@@ -1180,25 +1190,25 @@ continue
   ! Now use the velocity gradients to subtract the gradient of
   ! kinetic-energy-per-unit-mass from the total energy gradient.
   !
-  !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
+  !$ACC PARALLEL LOOP PRESENT(usp,return_value)
   do n = n1,n2
     !
-    rho_inv = one/tusp(n,nec)
+    rho_inv = one/usp(n,nec)
     !
     return_value(n,1,nee) = return_value(n,1,nee) &
-                          - return_value(n,1,nmx)*tusp(n,nmx)*rho_inv &
-                          - return_value(n,1,nmy)*tusp(n,nmy)*rho_inv &
-                          - return_value(n,1,nmz)*tusp(n,nmz)*rho_inv
+                          - return_value(n,1,nmx)*usp(n,nmx)*rho_inv &
+                          - return_value(n,1,nmy)*usp(n,nmy)*rho_inv &
+                          - return_value(n,1,nmz)*usp(n,nmz)*rho_inv
     !
     return_value(n,2,nee) = return_value(n,2,nee) &
-                          - return_value(n,2,nmx)*tusp(n,nmx)*rho_inv &
-                          - return_value(n,2,nmy)*tusp(n,nmy)*rho_inv &
-                          - return_value(n,2,nmz)*tusp(n,nmz)*rho_inv
+                          - return_value(n,2,nmx)*usp(n,nmx)*rho_inv &
+                          - return_value(n,2,nmy)*usp(n,nmy)*rho_inv &
+                          - return_value(n,2,nmz)*usp(n,nmz)*rho_inv
     !
     return_value(n,3,nee) = return_value(n,3,nee) &
-                          - return_value(n,3,nmx)*tusp(n,nmx)*rho_inv &
-                          - return_value(n,3,nmy)*tusp(n,nmy)*rho_inv &
-                          - return_value(n,3,nmz)*tusp(n,nmz)*rho_inv
+                          - return_value(n,3,nmx)*usp(n,nmx)*rho_inv &
+                          - return_value(n,3,nmy)*usp(n,nmy)*rho_inv &
+                          - return_value(n,3,nmz)*usp(n,nmz)*rho_inv
     !
   end do
   !
@@ -1212,21 +1222,19 @@ continue
     return_value(n,3,nee) = return_value(n,3,nee) * cv_inv
   end do
   !
-end subroutine grad_cv_to_grad_pv_gpu_3d
+end subroutine grad_cv_to_grad_pv_cpg_3d
 !
 !###############################################################################
 !
-pure subroutine grad_cv_to_grad_pv_gpu_2d(n1,n2,tusp,tdcvdx,return_value)
-  !
-  ! This routine computes the discontinuous gradient at each solution point
+pure subroutine grad_cv_to_grad_pv_cpg_2d(n1,n2,usp,dcvdx,return_value)
   !
   !.. Use Statements ..
   use ovar, only : rgasref_nd,gam
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: tusp(:,:)
-  real(wp),    intent(in) :: tdcvdx(:,:,:)
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: dcvdx(:,:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
@@ -1239,40 +1247,40 @@ continue
   !
   ! Copy the density gradient
   !
-  !$ACC PARALLEL LOOP PRESENT(tdcvdx,return_value)
+  !$ACC PARALLEL LOOP PRESENT(dcvdx,return_value)
   do n = n1,n2
-    return_value(n,1,nec) = tdcvdx(n,1,nec)
-    return_value(n,2,nec) = tdcvdx(n,2,nec)
+    return_value(n,1,nec) = dcvdx(n,1,nec)
+    return_value(n,2,nec) = dcvdx(n,2,nec)
   end do
   !
-  ! Using the chain rule:
+  ! Using the product rule:
   !
   ! 1. Compute the velocity gradients (nmx,nmy)
   ! 2. Compute the total energy gradient and store in the
   !    location for the temperature gradient (nee)
   !
-  !$ACC PARALLEL LOOP PRESENT(tusp,tdcvdx,return_value)
+  !$ACC PARALLEL LOOP PRESENT(usp,dcvdx,return_value)
   do n = n1,n2
     !
-    rho_inv = one/tusp(n,nec)
+    rho_inv = one/usp(n,nec)
     !
-    return_value(n,1,nmx) = rho_inv*tdcvdx(n,1,nmx) &
-                          - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmx)*rho_inv
-    return_value(n,2,nmx) = rho_inv*tdcvdx(n,2,nmx) &
-                          - rho_inv*tdcvdx(n,2,nec)*tusp(n,nmx)*rho_inv
+    return_value(n,1,nmx) = rho_inv*dcvdx(n,1,nmx) &
+                          - rho_inv*dcvdx(n,1,nec)*usp(n,nmx)*rho_inv
+    return_value(n,2,nmx) = rho_inv*dcvdx(n,2,nmx) &
+                          - rho_inv*dcvdx(n,2,nec)*usp(n,nmx)*rho_inv
     !
-    return_value(n,1,nmy) = rho_inv*tdcvdx(n,1,nmy) &
-                          - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmy)*rho_inv
-    return_value(n,2,nmy) = rho_inv*tdcvdx(n,2,nmy) &
-                          - rho_inv*tdcvdx(n,2,nec)*tusp(n,nmy)*rho_inv
+    return_value(n,1,nmy) = rho_inv*dcvdx(n,1,nmy) &
+                          - rho_inv*dcvdx(n,1,nec)*usp(n,nmy)*rho_inv
+    return_value(n,2,nmy) = rho_inv*dcvdx(n,2,nmy) &
+                          - rho_inv*dcvdx(n,2,nec)*usp(n,nmy)*rho_inv
     !
-    return_value(n,1,nee) = rho_inv*tdcvdx(n,1,nee) &
-                          - rho_inv*tdcvdx(n,1,nec)*tusp(n,nee)*rho_inv
-    return_value(n,2,nee) = rho_inv*tdcvdx(n,2,nee) &
-                          - rho_inv*tdcvdx(n,2,nec)*tusp(n,nee)*rho_inv
+    return_value(n,1,nee) = rho_inv*dcvdx(n,1,nee) &
+                          - rho_inv*dcvdx(n,1,nec)*usp(n,nee)*rho_inv
+    return_value(n,2,nee) = rho_inv*dcvdx(n,2,nee) &
+                          - rho_inv*dcvdx(n,2,nec)*usp(n,nee)*rho_inv
     !
-   !return_value(n,l,m) = rho_inv*tdcvdx(n,l,m) - &
-   !                      rho_inv*tdcvdx(n,l,nec)*tusp(n,m)
+   !return_value(n,l,m) = rho_inv*dcvdx(n,l,m) - &
+   !                      rho_inv*dcvdx(n,l,nec)*usp(n,m)
     !
   end do
   !
@@ -1281,18 +1289,18 @@ continue
   ! Now use the velocity gradients to subtract the gradient of
   ! kinetic-energy-per-unit-mass from the total energy gradient.
   !
-  !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
+  !$ACC PARALLEL LOOP PRESENT(usp,return_value)
   do n = n1,n2
     !
-    rho_inv = one/tusp(n,nec)
+    rho_inv = one/usp(n,nec)
     !
     return_value(n,1,nee) = return_value(n,1,nee) &
-                          - return_value(n,1,nmx)*tusp(n,nmx)*rho_inv &
-                          - return_value(n,1,nmy)*tusp(n,nmy)*rho_inv
+                          - return_value(n,1,nmx)*usp(n,nmx)*rho_inv &
+                          - return_value(n,1,nmy)*usp(n,nmy)*rho_inv
     !
     return_value(n,2,nee) = return_value(n,2,nee) &
-                          - return_value(n,2,nmx)*tusp(n,nmx)*rho_inv &
-                          - return_value(n,2,nmy)*tusp(n,nmy)*rho_inv
+                          - return_value(n,2,nmx)*usp(n,nmx)*rho_inv &
+                          - return_value(n,2,nmy)*usp(n,nmy)*rho_inv
     !
   end do
   !
@@ -1305,132 +1313,54 @@ continue
     return_value(n,2,nee) = return_value(n,2,nee) * cv_inv
   end do
   !
-end subroutine grad_cv_to_grad_pv_gpu_2d
+end subroutine grad_cv_to_grad_pv_cpg_2d
 !
 !###############################################################################
 !
-pure subroutine grad_cv_to_grad_pv_gpu_nd(n1,n2,tusp,tdcvdx,return_value)
-  !
-  ! This routine computes the discontinuous gradient at each solution point
+pure subroutine grad_cv_to_grad_pv_cpg_1d(n1,n2,usp,dcvdx,return_value)
   !
   !.. Use Statements ..
   use ovar, only : rgasref_nd,gam
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: tusp(:,:)
-  real(wp),    intent(in) :: tdcvdx(:,:,:)
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: dcvdx(:,:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,nr
+  integer  :: n
   real(wp) :: cv_inv,rho_inv
   !
 continue
-  !
-  nr = size(tdcvdx,dim=2)
   !
   cv_inv = (gam - one) / rgasref_nd
   !
   ! Copy the density gradient
   !
-  if (nr == 3) then
-    !$ACC PARALLEL LOOP PRESENT(tdcvdx,return_value)
-    do n = n1,n2
-      return_value(n,1,nec) = tdcvdx(n,1,nec)
-      return_value(n,2,nec) = tdcvdx(n,2,nec)
-      return_value(n,3,nec) = tdcvdx(n,3,nec)
-    end do
-  else if (nr == 2) then
-    !$ACC PARALLEL LOOP PRESENT(tdcvdx,return_value)
-    do n = n1,n2
-      return_value(n,1,nec) = tdcvdx(n,1,nec)
-      return_value(n,2,nec) = tdcvdx(n,2,nec)
-    end do
-  else
-    !$ACC PARALLEL LOOP PRESENT(tdcvdx,return_value)
-    do n = n1,n2
-      return_value(n,1,nec) = tdcvdx(n,1,nec)
-    end do
-  end if
+  !$ACC PARALLEL LOOP PRESENT(dcvdx,return_value)
+  do n = n1,n2
+    return_value(n,1,nec) = dcvdx(n,1,nec)
+  end do
   !
-  ! Using the chain rule:
+  ! Using the product rule:
   !
   ! 1. Compute the velocity gradients (m = 2,nq-1)
   ! 2. Compute the total energy gradient and store in the
   !    location for the temperature gradient (m = nq)
   !
-  if (nr == 3) then
-    !$ACC PARALLEL LOOP PRESENT(tusp,tdcvdx,return_value)
-    do n = n1,n2
-      !
-      rho_inv = one/tusp(n,nec)
-      !
-      return_value(n,1,nmx) = rho_inv*tdcvdx(n,1,nmx) &
-                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmx)*rho_inv
-      return_value(n,2,nmx) = rho_inv*tdcvdx(n,2,nmx) &
-                            - rho_inv*tdcvdx(n,2,nec)*tusp(n,nmx)*rho_inv
-      return_value(n,3,nmx) = rho_inv*tdcvdx(n,3,nmx) &
-                            - rho_inv*tdcvdx(n,3,nec)*tusp(n,nmx)*rho_inv
-      !
-      return_value(n,1,nmy) = rho_inv*tdcvdx(n,1,nmy) &
-                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmy)*rho_inv
-      return_value(n,2,nmy) = rho_inv*tdcvdx(n,2,nmy) &
-                            - rho_inv*tdcvdx(n,2,nec)*tusp(n,nmy)*rho_inv
-      return_value(n,3,nmy) = rho_inv*tdcvdx(n,3,nmy) &
-                            - rho_inv*tdcvdx(n,3,nec)*tusp(n,nmy)*rho_inv
-      !
-      return_value(n,1,nmz) = rho_inv*tdcvdx(n,1,nmz) &
-                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmz)*rho_inv
-      return_value(n,2,nmz) = rho_inv*tdcvdx(n,2,nmz) &
-                            - rho_inv*tdcvdx(n,2,nec)*tusp(n,nmz)*rho_inv
-      return_value(n,3,nmz) = rho_inv*tdcvdx(n,3,nmz) &
-                            - rho_inv*tdcvdx(n,3,nec)*tusp(n,nmz)*rho_inv
-      !
-      return_value(n,1,nee) = rho_inv*tdcvdx(n,1,nee) &
-                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nee)*rho_inv
-      return_value(n,2,nee) = rho_inv*tdcvdx(n,2,nee) &
-                            - rho_inv*tdcvdx(n,2,nec)*tusp(n,nee)*rho_inv
-      return_value(n,3,nee) = rho_inv*tdcvdx(n,3,nee) &
-                            - rho_inv*tdcvdx(n,3,nec)*tusp(n,nee)*rho_inv
-      !
-    end do
-  else if (nr == 2) then
-    !$ACC PARALLEL LOOP PRESENT(tusp,tdcvdx,return_value)
-    do n = n1,n2
-      !
-      rho_inv = one/tusp(n,nec)
-      !
-      return_value(n,1,nmx) = rho_inv*tdcvdx(n,1,nmx) &
-                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmx)*rho_inv
-      return_value(n,2,nmx) = rho_inv*tdcvdx(n,2,nmx) &
-                            - rho_inv*tdcvdx(n,2,nec)*tusp(n,nmx)*rho_inv
-      !
-      return_value(n,1,nmy) = rho_inv*tdcvdx(n,1,nmy) &
-                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmy)*rho_inv
-      return_value(n,2,nmy) = rho_inv*tdcvdx(n,2,nmy) &
-                            - rho_inv*tdcvdx(n,2,nec)*tusp(n,nmy)*rho_inv
-      !
-      return_value(n,1,nee) = rho_inv*tdcvdx(n,1,nee) &
-                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nee)*rho_inv
-      return_value(n,2,nee) = rho_inv*tdcvdx(n,2,nee) &
-                            - rho_inv*tdcvdx(n,2,nec)*tusp(n,nee)*rho_inv
-      !
-    end do
-  else
-    !$ACC PARALLEL LOOP PRESENT(tusp,tdcvdx,return_value)
-    do n = n1,n2
-      !
-      rho_inv = one/tusp(n,nec)
-      !
-      return_value(n,1,nmx) = rho_inv*tdcvdx(n,1,nmx) &
-                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmx)*rho_inv
-      !
-      return_value(n,1,nee) = rho_inv*tdcvdx(n,1,nee) &
-                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nee)*rho_inv
-      !
-    end do
-  end if
+  !$ACC PARALLEL LOOP PRESENT(usp,dcvdx,return_value)
+  do n = n1,n2
+    !
+    rho_inv = one/usp(n,nec)
+    !
+    return_value(n,1,nmx) = rho_inv*dcvdx(n,1,nmx) &
+                          - rho_inv*dcvdx(n,1,nec)*usp(n,nmx)*rho_inv
+    !
+    return_value(n,1,nee) = rho_inv*dcvdx(n,1,nee) &
+                          - rho_inv*dcvdx(n,1,nec)*usp(n,nee)*rho_inv
+    !
+  end do
   !
   ! The location for the temperature gradient currently contains
   ! the total energy gradient from the previous loop.
@@ -1438,75 +1368,426 @@ continue
   ! kinetic-energy-per-unit-mass from the total energy gradient.
   !
   !
-  if (nr == 3) then
-    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
-    do n = n1,n2
-      !
-      rho_inv = one/tusp(n,nec)
-      !
-      return_value(n,1,nee) = return_value(n,1,nee) &
-                            - return_value(n,1,nmx)*tusp(n,nmx)*rho_inv &
-                            - return_value(n,1,nmy)*tusp(n,nmy)*rho_inv &
-                            - return_value(n,1,nmz)*tusp(n,nmz)*rho_inv
-      !
-      return_value(n,2,nee) = return_value(n,2,nee) &
-                            - return_value(n,2,nmx)*tusp(n,nmx)*rho_inv &
-                            - return_value(n,2,nmy)*tusp(n,nmy)*rho_inv &
-                            - return_value(n,2,nmz)*tusp(n,nmz)*rho_inv
-      !
-      return_value(n,3,nee) = return_value(n,3,nee) &
-                            - return_value(n,3,nmx)*tusp(n,nmx)*rho_inv &
-                            - return_value(n,3,nmy)*tusp(n,nmy)*rho_inv &
-                            - return_value(n,3,nmz)*tusp(n,nmz)*rho_inv
-      !
-    end do
-  else if (nr == 2) then
-    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
-    do n = n1,n2
-      !
-      rho_inv = one/tusp(n,nec)
-      !
-      return_value(n,1,nee) = return_value(n,1,nee) &
-                            - return_value(n,1,nmx)*tusp(n,nmx)*rho_inv &
-                            - return_value(n,1,nmy)*tusp(n,nmy)*rho_inv
-      !
-      return_value(n,2,nee) = return_value(n,2,nee) &
-                            - return_value(n,2,nmx)*tusp(n,nmx)*rho_inv &
-                            - return_value(n,2,nmy)*tusp(n,nmy)*rho_inv
-      !
-    end do
-  else
-    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
-    do n = n1,n2
-      return_value(n,1,nee) = return_value(n,1,nee) &
-                            - return_value(n,1,nmx)*tusp(n,nmx)/tusp(n,nec)
-    end do
-  end if
+  !$ACC PARALLEL LOOP PRESENT(usp,return_value)
+  do n = n1,n2
+    return_value(n,1,nee) = return_value(n,1,nee) &
+                          - return_value(n,1,nmx)*usp(n,nmx)/usp(n,nec)
+  end do
   !
   ! Finish computing the temperature gradient by dividing through by
   ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
   !
-  if (nr == 3) then
-    !$ACC PARALLEL LOOP PRESENT(return_value)
-    do n = n1,n2
-      return_value(n,1,nee) = return_value(n,1,nee) * cv_inv
-      return_value(n,2,nee) = return_value(n,2,nee) * cv_inv
-      return_value(n,3,nee) = return_value(n,3,nee) * cv_inv
-    end do
-  else if (nr == 2) then
-    !$ACC PARALLEL LOOP PRESENT(return_value)
-    do n = n1,n2
-      return_value(n,1,nee) = return_value(n,1,nee) * cv_inv
-      return_value(n,2,nee) = return_value(n,2,nee) * cv_inv
-    end do
-  else
-    !$ACC PARALLEL LOOP PRESENT(return_value)
-    do n = n1,n2
-      return_value(n,1,nee) = return_value(n,1,nee) * cv_inv
-    end do
-  end if
+  !$ACC PARALLEL LOOP PRESENT(return_value)
+  do n = n1,n2
+    return_value(n,1,nee) = return_value(n,1,nee) * cv_inv
+  end do
   !
-end subroutine grad_cv_to_grad_pv_gpu_nd
+end subroutine grad_cv_to_grad_pv_cpg_1d
+!
+!###############################################################################
+!
+pure subroutine adjust_temp_gradient_for_tpg_3d(n1,n2,usp,gpsp,dcvdx, &
+                                                return_value)
+  !
+  !.. Use Statements ..
+  use ovar,       only : rgasref_nd,gam
+  use thermo_mod, only : rspec
+  use thermo_mod, only : compute_species_cp
+  use thermo_mod, only : compute_mixture_dcpdt
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: gpsp(:,:)
+  real(wp),    intent(in) :: dcvdx(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n,np
+  real(wp) :: rho_inv,mass_frac
+  real(wp) :: decdx,decdy,decdz,dtdx,dtdy,dtdz
+  real(wp) :: val,valx,valy,valz
+  real(wp) :: temp,gamm,cp
+  real(wp) :: constant_cv,coeff
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: dcpdt(:)
+  real(wp), allocatable :: cpi(:,:)
+  !
+continue
+  !
+  np = size(usp,dim=1)
+  !
+  constant_cv = rgasref_nd / (gam - one)
+  !
+  allocate ( cpi(1:np,1:ncs) )
+  allocate ( dcpdt(1:np) )
+  !$ACC DATA CREATE(cpi,dcpdt)
+  !
+  ! The location for the temperature gradient currently contains the temperature
+  ! gradient based on a constant 'specific heat at constant volume', i.e.,
+  ! constant gamma and Cp. For a gas mixture, gamma and Cp vary w-r-t mass
+  ! fractions and temperature so we need to correct the temperature gradient
+  ! accordingly.
+  !
+  ! Using the product rule:
+  !
+  ! 1. Compute the species mass fraction gradients. Also compute the species
+  !    mass fractions which will be needed to compute d(Cp)/dT.
+  !    NOTE: Temporarily store the species mass fractions in cpi
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,cpi,dcvdx,return_value)
+  do m = 1,ncs
+    do n = n1,n2
+      !
+      rho_inv = one/usp(n,nec)
+      !
+      mass_frac = usp(n,m)*rho_inv
+      !
+      cpi(n,m) = mass_frac
+      !
+      decdx = dcvdx(n,1,nec)*rho_inv
+      decdy = dcvdx(n,2,nec)*rho_inv
+      decdz = dcvdx(n,3,nec)*rho_inv
+      !
+      return_value(n,1,m) = rho_inv*dcvdx(n,1,m) - decdx*mass_frac
+      return_value(n,2,m) = rho_inv*dcvdx(n,2,m) - decdy*mass_frac
+      return_value(n,3,m) = rho_inv*dcvdx(n,3,m) - decdz*mass_frac
+      !
+    end do
+  end do
+  !
+  ! 2. Compute the derivative of the mixture Cp w-r-t temperature: d(Cp)/dT.
+  !    NOTE: The species mass fractions are temporarily being stored in cpi.
+  !
+  call compute_mixture_dcpdt(n1,n2,cpi,gpsp(:,ntemp),dcpdt)
+  !
+  ! 3. Compute the species Cp.
+  ! NOTE: cpi currently contains the species mass fractions. These are not
+  !       needed in compute_species_cp, so the species mass fractions in
+  !       cpi will simply be overwritten by the species Cp.
+  !
+  call compute_species_cp(n1,n2,gpsp(:,ntemp),cpi)
+  !
+  ! 4. Compute the temperature gradients of a thermally perfect gas mixture
+  !
+  !$ACC PARALLEL LOOP PRESENT(rspec,cpi,dcpdt,gpsp,return_value)
+  do n = n1,n2
+    !
+    ! Compute the leading coefficient for the temperature gradient. For a
+    ! calorically perfect gas, this coefficient is 1/Cv; for a thermally
+    ! perfect gas mixture, this coefficient is:
+    !          1                      1                       gamma
+    !  ----------------- = ----------------------- = -----------------------
+    !  Cv + T*[d(Cp)/dT]   Cp/gamma + T*[d(Cp)/dT]   Cp + gamma*T*[d(Cp)/dT]
+    !
+    temp = gpsp(n,ntemp)
+    gamm = gpsp(n,ngamm)
+    cp   = gpsp(n,ncp)
+    !
+    coeff = gamm / (cp + gamm*temp*dcpdt(n))
+    !
+    ! Compute the contribution to the temperature gradient
+    ! from the species mass fractions gradients.
+    !
+    valx = zero
+    valy = zero
+    valz = zero
+    !
+    !$ACC LOOP SEQ REDUCTION(+:valx,valy,valz)
+    do m = 1,ncs
+      val = rspec(m) - cpi(n,m)
+      valx = valx + val*return_value(n,1,m)
+      valy = valy + val*return_value(n,2,m)
+      valz = valz + val*return_value(n,3,m)
+    end do
+    !
+    ! Multiply the previously computed temperature gradients by the constant
+    ! Cv used in the grad_cv_to_grad_pv_cpg_[321]d subroutines.
+    !
+    dtdx = return_value(n,1,nee)*constant_cv
+    dtdy = return_value(n,2,nee)*constant_cv
+    dtdz = return_value(n,3,nee)*constant_cv
+    !
+    ! Add the contributions of the species mass fraction gradients to the
+    ! temperature gradient and then scale it by the proper leading coefficient
+    ! computed above.
+    !
+    return_value(n,1,nee) = coeff*(dtdx + temp*valx)
+    return_value(n,2,nee) = coeff*(dtdx + temp*valy)
+    return_value(n,3,nee) = coeff*(dtdx + temp*valz)
+    !
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( dcpdt )
+  deallocate ( cpi )
+  !
+end subroutine adjust_temp_gradient_for_tpg_3d
+!
+!###############################################################################
+!
+pure subroutine adjust_temp_gradient_for_tpg_2d(n1,n2,usp,gpsp,dcvdx, &
+                                                return_value)
+  !
+  !.. Use Statements ..
+  use ovar,       only : rgasref_nd,gam
+  use thermo_mod, only : rspec
+  use thermo_mod, only : compute_species_cp
+  use thermo_mod, only : compute_mixture_dcpdt
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: gpsp(:,:)
+  real(wp),    intent(in) :: dcvdx(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n,np
+  real(wp) :: rho_inv,mass_frac
+  real(wp) :: decdx,decdy,dtdx,dtdy
+  real(wp) :: val,valx,valy
+  real(wp) :: temp,gamm,cp
+  real(wp) :: constant_cv,coeff
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: dcpdt(:)
+  real(wp), allocatable :: cpi(:,:)
+  !
+continue
+  !
+  np = size(usp,dim=1)
+  !
+  constant_cv = rgasref_nd / (gam - one)
+  !
+  allocate ( cpi(1:np,1:ncs) )
+  allocate ( dcpdt(1:np) )
+  !$ACC DATA CREATE(cpi,dcpdt)
+  !
+  ! The location for the temperature gradient currently contains the temperature
+  ! gradient based on a constant 'specific heat at constant volume', i.e.,
+  ! constant gamma and Cp. For a gas mixture, gamma and Cp vary w-r-t mass
+  ! fractions and temperature so we need to correct the temperature gradient
+  ! accordingly.
+  !
+  ! Using the product rule:
+  !
+  ! 1. Compute the species mass fraction gradients. Also compute the species
+  !    mass fractions which will be needed to compute d(Cp)/dT.
+  !    NOTE: Temporarily store the species mass fractions in cpi
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,cpi,dcvdx,return_value)
+  do m = 1,ncs
+    do n = n1,n2
+      !
+      rho_inv = one/usp(n,nec)
+      !
+      mass_frac = usp(n,m)*rho_inv
+      !
+      cpi(n,m) = mass_frac
+      !
+      decdx = dcvdx(n,1,nec)*rho_inv
+      decdy = dcvdx(n,2,nec)*rho_inv
+      !
+      return_value(n,1,m) = rho_inv*dcvdx(n,1,m) - decdx*mass_frac
+      return_value(n,2,m) = rho_inv*dcvdx(n,2,m) - decdy*mass_frac
+      !
+    end do
+  end do
+  !
+  ! 2. Compute the derivative of the mixture Cp w-r-t temperature: d(Cp)/dT.
+  !    NOTE: The species mass fractions are temporarily being stored in cpi.
+  !
+  call compute_mixture_dcpdt(n1,n2,cpi,gpsp(:,ntemp),dcpdt)
+  !
+  ! 3. Compute the species Cp.
+  ! NOTE: cpi currently contains the species mass fractions. These are not
+  !       needed in compute_species_cp, so the species mass fractions in
+  !       cpi will simply be overwritten by the species Cp.
+  !
+  call compute_species_cp(n1,n2,gpsp(:,ntemp),cpi)
+  !
+  ! 4. Compute the temperature gradients of a thermally perfect gas mixture
+  !
+  !$ACC PARALLEL LOOP PRESENT(rspec,cpi,dcpdt,gpsp,return_value)
+  do n = n1,n2
+    !
+    ! Compute the leading coefficient for the temperature gradient. For a
+    ! calorically perfect gas, this coefficient is 1/Cv; for a thermally
+    ! perfect gas mixture, this coefficient is:
+    !          1                      1                       gamma
+    !  ----------------- = ----------------------- = -----------------------
+    !  Cv + T*[d(Cp)/dT]   Cp/gamma + T*[d(Cp)/dT]   Cp + gamma*T*[d(Cp)/dT]
+    !
+    temp = gpsp(n,ntemp)
+    gamm = gpsp(n,ngamm)
+    cp   = gpsp(n,ncp)
+    !
+    coeff = gamm / (cp + gamm*temp*dcpdt(n))
+    !
+    ! Compute the contribution to the temperature gradient
+    ! from the species mass fractions gradients.
+    !
+    valx = zero
+    valy = zero
+    !
+    !$ACC LOOP SEQ REDUCTION(+:valx,valy)
+    do m = 1,ncs
+      val = rspec(m) - cpi(n,m)
+      valx = valx + val*return_value(n,1,m)
+      valy = valy + val*return_value(n,2,m)
+    end do
+    !
+    ! Multiply the previously computed temperature gradients by the constant
+    ! Cv used in the grad_cv_to_grad_pv_cpg_[321]d subroutines.
+    !
+    dtdx = return_value(n,1,nee)*constant_cv
+    dtdy = return_value(n,2,nee)*constant_cv
+    !
+    ! Add the contributions of the species mass fraction gradients to the
+    ! temperature gradient and then scale it by the proper leading coefficient
+    ! computed above.
+    !
+    return_value(n,1,nee) = coeff*(dtdx + temp*valx)
+    return_value(n,2,nee) = coeff*(dtdx + temp*valy)
+    !
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( dcpdt )
+  deallocate ( cpi )
+  !
+end subroutine adjust_temp_gradient_for_tpg_2d
+!
+!###############################################################################
+!
+pure subroutine adjust_temp_gradient_for_tpg_1d(n1,n2,usp,gpsp,dcvdx, &
+                                                return_value)
+  !
+  !.. Use Statements ..
+  use ovar,       only : rgasref_nd,gam
+  use thermo_mod, only : rspec
+  use thermo_mod, only : compute_species_cp
+  use thermo_mod, only : compute_mixture_dcpdt
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: gpsp(:,:)
+  real(wp),    intent(in) :: dcvdx(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n,np
+  real(wp) :: rho_inv,mass_frac
+  real(wp) :: decdx,dtdx
+  real(wp) :: val,valx
+  real(wp) :: temp,gamm,cp
+  real(wp) :: constant_cv,coeff
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: dcpdt(:)
+  real(wp), allocatable :: cpi(:,:)
+  !
+continue
+  !
+  np = size(usp,dim=1)
+  !
+  constant_cv = rgasref_nd / (gam - one)
+  !
+  allocate ( cpi(1:np,1:ncs) )
+  allocate ( dcpdt(1:np) )
+  !$ACC DATA CREATE(cpi,dcpdt)
+  !
+  ! The location for the temperature gradient currently contains the temperature
+  ! gradient based on a constant 'specific heat at constant volume', i.e.,
+  ! constant gamma and Cp. For a gas mixture, gamma and Cp vary w-r-t mass
+  ! fractions and temperature so we need to correct the temperature gradient
+  ! accordingly.
+  !
+  ! Using the product rule:
+  !
+  ! 1. Compute the species mass fraction gradients. Also compute the species
+  !    mass fractions which will be needed to compute d(Cp)/dT.
+  !    NOTE: Temporarily store the species mass fractions in cpi
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,cpi,dcvdx,return_value)
+  do m = 1,ncs
+    do n = n1,n2
+      !
+      rho_inv = one/usp(n,nec)
+      !
+      mass_frac = usp(n,m)*rho_inv
+      !
+      cpi(n,m) = mass_frac
+      !
+      decdx = dcvdx(n,1,nec)*rho_inv
+      !
+      return_value(n,1,m) = rho_inv*dcvdx(n,1,m) - decdx*mass_frac
+      !
+    end do
+  end do
+  !
+  ! 2. Compute the derivative of the mixture Cp w-r-t temperature: d(Cp)/dT.
+  !    NOTE: The species mass fractions are temporarily being stored in cpi.
+  !
+  call compute_mixture_dcpdt(n1,n2,cpi,gpsp(:,ntemp),dcpdt)
+  !
+  ! 3. Compute the species Cp.
+  ! NOTE: cpi currently contains the species mass fractions. These are not
+  !       needed in compute_species_cp, so the species mass fractions in
+  !       cpi will simply be overwritten by the species Cp.
+  !
+  call compute_species_cp(n1,n2,gpsp(:,ntemp),cpi)
+  !
+  ! 4. Compute the temperature gradients of a thermally perfect gas mixture
+  !
+  !$ACC PARALLEL LOOP PRESENT(rspec,cpi,dcpdt,gpsp,return_value)
+  do n = n1,n2
+    !
+    ! Compute the leading coefficient for the temperature gradient. For a
+    ! calorically perfect gas, this coefficient is 1/Cv; for a thermally
+    ! perfect gas mixture, this coefficient is:
+    !          1                      1                       gamma
+    !  ----------------- = ----------------------- = -----------------------
+    !  Cv + T*[d(Cp)/dT]   Cp/gamma + T*[d(Cp)/dT]   Cp + gamma*T*[d(Cp)/dT]
+    !
+    temp = gpsp(n,ntemp)
+    gamm = gpsp(n,ngamm)
+    cp   = gpsp(n,ncp)
+    !
+    coeff = gamm / (cp + gamm*temp*dcpdt(n))
+    !
+    ! Compute the contribution to the temperature gradient
+    ! from the species mass fractions gradients.
+    !
+    valx = zero
+    !
+    !$ACC LOOP SEQ REDUCTION(+:valx)
+    do m = 1,ncs
+      val = rspec(m) - cpi(n,m)
+      valx = valx + val*return_value(n,1,m)
+    end do
+    !
+    ! Multiply the previously computed temperature gradients by the constant
+    ! Cv used in the grad_cv_to_grad_pv_cpg_[321]d subroutines.
+    !
+    dtdx = return_value(n,1,nee)*constant_cv
+    !
+    ! Add the contributions of the species mass fraction gradients to the
+    ! temperature gradient and then scale it by the proper leading coefficient
+    ! computed above.
+    !
+    return_value(n,1,nee) = coeff*(dtdx + temp*valx)
+    !
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( dcpdt )
+  deallocate ( cpi )
+  !
+end subroutine adjust_temp_gradient_for_tpg_1d
 !
 !###############################################################################
 !

@@ -344,6 +344,7 @@ subroutine get_facedusp_bc
   use metrics_mod,  only : facenrm
   use flowvar,      only : faceusp_array
   use flowvar,      only : facedusp_array
+  use flowvar,      only : facegpsp
   !
   !.. Local Scalars ..
   integer :: i,n1,n2,bc_type
@@ -389,6 +390,7 @@ continue
         !
         call get_bc_slip_wall_gradient(n1,n2,facenrm, &
                                        faceusp_array(:,:,1), &
+                                       facegpsp(:,:,1), &
                                        facedusp_array)
         !
       else
@@ -7792,7 +7794,7 @@ continue
   ! This means pre-converting the conservative variable gradients to
   ! primitive variable gradients.
   !
-  ! Using the chain rule,convert the momentum gradients to velocity gradients
+  ! Using the product rule,convert the momentum gradients to velocity gradients
   !
   !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
   do n = n1,n2
@@ -7874,7 +7876,7 @@ continue
   ! This means pre-converting the conservative variable gradients to
   ! primitive variable gradients.
   !
-  ! Using the chain rule,convert the momentum gradients to velocity gradients
+  ! Using the product rule,convert the momentum gradients to velocity gradients
   !
   !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
   do n = n1,n2
@@ -7960,7 +7962,7 @@ continue
   ! This means pre-converting the conservative variable gradients to
   ! primitive variable gradients.
   !
-  ! Using the chain rule,convert the momentum gradients to velocity gradients
+  ! Using the product rule,convert the momentum gradients to velocity gradients
   !
   if (nr == 3) then
     !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
@@ -8127,7 +8129,7 @@ continue
   ! This means pre-converting the conservative variable gradients to
   ! primitive variable gradients.
   !
-  ! Using the chain rule:
+  ! Using the product rule:
   !
   ! 1. Compute the velocity gradients (m = 2,nq-1)
   ! 2. Compute the total energy gradient and store in the
@@ -8255,7 +8257,7 @@ continue
   ! This means pre-converting the conservative variable gradients to
   ! primitive variable gradients.
   !
-  ! Using the chain rule:
+  ! Using the product rule:
   !
   ! 1. Compute the velocity gradients (m = 2,nq-1)
   ! 2. Compute the total energy gradient and store in the
@@ -8378,7 +8380,7 @@ continue
   ! This means pre-converting the conservative variable gradients to
   ! primitive variable gradients.
   !
-  ! Using the chain rule:
+  ! Using the product rule:
   !
   ! 1. Compute the velocity gradients (m = 2,nq-1)
   ! 2. Compute the total energy gradient and store in the
@@ -8535,7 +8537,8 @@ end subroutine get_bc_wall_gradient_nd
 !
 !###############################################################################
 !
-pure subroutine get_bc_slip_wall_gradient(n1,n2,facenrm,face_cv,face_dcvdx)
+pure subroutine get_bc_slip_wall_gradient(n1,n2,facenrm,face_cv,face_gp, &
+                                          face_dcvdx)
   !
   ! #####################################################
   ! #####################################################
@@ -8554,6 +8557,7 @@ pure subroutine get_bc_slip_wall_gradient(n1,n2,facenrm,face_cv,face_dcvdx)
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:)
+  real(wp),    intent(in) :: face_gp(:,:)
   real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
   !
   !.. Local Scalars ..
@@ -8572,7 +8576,7 @@ continue
   !
   ! Convert the interior host cell conservative gradients to primitive
   !
-  call grad_cv_to_grad_pv_gpu(n1,n2,face_cv,face_dcvdx(:,:,:,1),dpvdx)
+  call grad_cv_to_grad_pv_gpu(n1,n2,face_cv,face_gp,face_dcvdx(:,:,:,1),dpvdx)
   !
   ! Get the primitive variable gradients at the ghost cell flux points
   !

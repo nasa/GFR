@@ -96,7 +96,7 @@ continue
   !
   ! Compute the gradients of the primitive variables
   !
-  call grad_cv_to_grad_pv_gpu(n1,n2,cv,dcvdx,dpvdx)
+  call grad_cv_to_grad_pv_gpu(n1,n2,cv,gp,dcvdx,dpvdx)
   !
   !$ACC PARALLEL LOOP PRESENT(cv,gp,return_value,dpvdx)
   do n = n1,n2
@@ -244,7 +244,7 @@ continue
   !
   ! Compute the gradients of the primitive variables
   !
-  call grad_cv_to_grad_pv_gpu(n1,n2,cv,dcvdx,dpvdx)
+  call grad_cv_to_grad_pv_gpu(n1,n2,cv,gp,dcvdx,dpvdx)
   !
   !$ACC PARALLEL LOOP PRESENT(cv,gp,return_value,dpvdx)
   do n = n1,n2
@@ -362,7 +362,7 @@ continue
   ! Get the gradients of the primitive variables using the
   ! gradients of the conservative variables and the product rule
   !
-  call grad_cv_to_grad_pv_gpu(n1,n2,cv,dcvdx,dpvdx)
+  call grad_cv_to_grad_pv_gpu(n1,n2,cv,gp,dcvdx,dpvdx)
   !
   ! Density flux is zero
   !

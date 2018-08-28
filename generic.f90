@@ -2498,7 +2498,7 @@ subroutine compute_TaylorGreen_KEDR_gpu(iter,dtmin)
   use ovar, only : time,time_ref
   use ovar, only : VortexGrid_DOF
   use ovar, only : iter_out_interval
-  use flowvar, only : usp,dusp
+  use flowvar, only : usp,dusp,gpsp
   use quadrature_mod, only : std_elem
   use metrics_mod, only : wtdjac
   use gpu_mod, only : grad_cv_to_grad_pv_gpu
@@ -2646,7 +2646,7 @@ continue
   !
   !$ACC DATA CREATE(tvsp,tdpvdx)
   !
-  call grad_cv_to_grad_pv_gpu(1,n_solpts,usp,dusp,tdpvdx)
+  call grad_cv_to_grad_pv_gpu(1,n_solpts,usp,gpsp,dusp,tdpvdx)
   !
   call tusp2v_gpu(1,n_solpts,usp,tvsp)
   !
