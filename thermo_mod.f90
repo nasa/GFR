@@ -14,6 +14,8 @@ module thermo_mod
   public :: init_thermo_mod
   public :: update_thermo_properties
   public :: compute_species_enthalpy
+  public :: compute_species_cp
+  public :: compute_mixture_dcpdt
   !
   !
   real(wp), parameter :: runivl = 8314.5_wp
@@ -26,7 +28,7 @@ module thermo_mod
   !
   character(len=16), public, protected, save, allocatable :: species_name(:)
   !
-  real(wp), protected, save, allocatable :: rspec(:)
+  real(wp), public, protected, save, allocatable :: rspec(:)
   !
   real(wp), protected, save, allocatable :: cp_coef(:,:,:)
   real(wp), protected, save, allocatable :: enth_coef(:,:,:)
@@ -885,6 +887,147 @@ continue
   deallocate ( intrvl )
   !
 end subroutine compute_mixture_cp
+!
+!###############################################################################
+!
+pure &
+subroutine compute_species_cp(n1,n2,t,cpi)
+  !
+  !.. Use Statements ..
+  use ovar, only : aref,tref
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp),    intent(in) :: t(:)
+  real(wp), intent(inout) :: cpi(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,n,ni
+  real(wp) :: ts,tda2
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: intrvl(:,:)
+  !
+continue
+  !
+  tda2 = tref/aref/aref
+  !
+  allocate ( intrvl(n1:n2,1:ncs) , source=1 )
+  !$ACC DATA CREATE(intrvl)
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_interval)
+  do i = 1,ncs
+    do n = n1,n2
+      if (t(n) > temperature_interval(i)) then
+        intrvl(n,i) = 2
+      end if
+    end do
+  end do
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(intrvl,t,cp_coef,cpi)
+  do i = 1,ncs
+    do n = n1,n2
+      !
+      ni = intrvl(n,i)
+      ts = t(n)*tref
+      !
+      cpi(n,i) = cp_coef(1,ni,i) + &
+                 ts*(cp_coef(2,ni,i) + &
+                     ts*(cp_coef(3,ni,i) + &
+                         ts*(cp_coef(4,ni,i) + &
+                             ts*(cp_coef(5,ni,i)))))
+      !
+    end do
+  end do
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cpi)
+  do i = 1,ncs
+    do n = n1,n2
+      cpi(n,i) = cpi(n,i)*tda2
+    end do
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( intrvl )
+  !
+end subroutine compute_species_cp
+!
+!###############################################################################
+!
+pure &
+subroutine compute_mixture_dcpdt(n1,n2,mass_frac,t,dcpdt)
+  !
+  ! Computes the following sum for points n1 to n2:
+  !
+  !       NCS
+  !     ------
+  !     \                         d [Cp(i)]
+  !      \     MassFraction(i) * -----------
+  !      /                           dT
+  !     /
+  !     ------
+  !       i=1
+  !
+  !.. Use Statements ..
+  use ovar, only : aref,tref
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp),    intent(in) :: mass_frac(:,:)
+  real(wp),    intent(in) :: t(:)
+  real(wp), intent(inout) :: dcpdt(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,n,ni
+  real(wp) :: dcpidt,ts,aref2_inv
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: intrvl(:,:)
+  !
+continue
+  !
+  aref2_inv = one/aref/aref
+  !
+  allocate ( intrvl(n1:n2,1:ncs) , source=1 )
+  !$ACC DATA CREATE(intrvl)
+  !
+  !$ACC PARALLEL LOOP PRESENT(dcpdt)
+  do n = n1,n2
+    dcpdt(n) = zero
+  end do
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_interval)
+  do i = 1,ncs
+    do n = n1,n2
+      if (t(n) > temperature_interval(i)) then
+        intrvl(n,i) = 2
+      end if
+    end do
+  end do
+  !
+  do i = 1,ncs
+    !$ACC PARALLEL LOOP PRESENT(mass_frac,intrvl,t,cp_coef,dcpdt)
+    do n = n1,n2
+      !
+      ni = intrvl(n,i)
+      ts = t(n)*tref
+      !
+      dcpidt = cp_coef(2,ni,i) + &
+               ts*(cp_coef(3,ni,i)*two + &
+                   ts*(cp_coef(4,ni,i)*three + &
+                       ts*(cp_coef(5,ni,i)*four)))
+      !
+      dcpdt(n) = dcpdt(n) + mass_frac(n,i)*dcpidt*aref2_inv
+      !
+    end do
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( intrvl )
+  !
+end subroutine compute_mixture_dcpdt
 !
 !###############################################################################
 !
