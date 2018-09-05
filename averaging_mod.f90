@@ -2,6 +2,7 @@ module averaging_mod
   !
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ntk,ntl
+  use eqn_idx, only : npres,ntemp
   !
   implicit none
   !
@@ -277,7 +278,7 @@ subroutine update_time_ave()
   !
   !.. Use Statements ..
   use geovar,  only : xyz,n_solpts
-  use flowvar, only : usp,uavesp
+  use flowvar, only : usp,gpsp,uavesp
   use ovar,    only : time,prev_ave_time
   use ovar,    only : ave_start_time,saved_ave_time
   !
@@ -349,10 +350,12 @@ continue
     end if
     !
     ! Primitive variables
-    ave_var(1:nq) = usp2v_sp( usp(n,1:nq) )
+    ave_var(nec) = usp(n,nec)
+    ave_var(nmb:nme) = usp(n,nmb:nme)/usp(n,nec)
+    ave_var(nee) = gpsp(n,npres)
     !
     ! Temperature
-    ave_var(nq+1) = temperature_pv_sp( ave_var(1:nq) )
+    ave_var(nq+1) = gpsp(n,ntemp)
     !
     ! Radial    instantaneous velocity
     ave_var(nq+2) = st*ave_var(nm2) + ct*ave_var(nm1)
@@ -669,11 +672,6 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine deallocate_solver_arrays
-!
-!###############################################################################
-!
-include "Functions/usp2v.f90"
-include "Functions/temperature.f90"
 !
 !###############################################################################
 !

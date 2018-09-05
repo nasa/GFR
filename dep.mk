@@ -44,9 +44,7 @@ $(OBJDIR)/averaging_mod.o : averaging_mod.f90 \
                   $(OBJDIR)/flowvar_mod.o \
                   $(OBJDIR)/io.o \
                   $(OBJDIR)/restart_mod.o \
-                  $(OBJDIR)/metrics.o \
-                  $(FUNDIR)/temperature.f90 \
-                  $(FUNDIR)/usp2v.f90
+                  $(OBJDIR)/metrics.o
 
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/kind_types.o \
