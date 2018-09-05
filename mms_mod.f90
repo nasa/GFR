@@ -371,7 +371,7 @@ pure function mms_solution_at_xyz(xyz,return_nondim,return_cv) &
   ! Function to evaluate the exact MMS solution at a set of coordinates
   !
   !.. Use Statements ..
-  use ovar, only : rhoref,aref
+  use ovar, only : rhoref,aref,gam
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: xyz
@@ -385,6 +385,7 @@ pure function mms_solution_at_xyz(xyz,return_nondim,return_cv) &
   !
   !.. Local Scalars ..
   real(wp) :: x,y,z
+  real(wp) :: rho,vx,vy,vz,pres,q2
   !
 continue
   !
@@ -444,7 +445,49 @@ continue
   !
   if (present(return_cv)) then
     if (return_cv) then
-      return_value(1:nq) = vsp2u_sp( return_value(1:nq) )
+      !
+      if (size(xyz) == 3) then
+        !
+        rho  = return_value(nec)
+        vx   = return_value(nmx)
+        vy   = return_value(nmy)
+        vz   = return_value(nmz)
+        pres = return_value(nee)
+        !
+        q2 = vx*vx + vy*vy + vz*vz
+        !
+        return_value(nec) = rho
+        return_value(nmx) = rho*vx
+        return_value(nmy) = rho*vy
+        return_value(nmz) = rho*vz
+        return_value(nee) = pres/(gam-one) + half*rho*q2
+        !
+      else if (size(xyz) == 2) then
+        !
+        rho  = return_value(nec)
+        vx   = return_value(nmx)
+        vy   = return_value(nmy)
+        pres = return_value(nee)
+        !
+        q2 = vx*vx + vy*vy
+        !
+        return_value(nec) = rho
+        return_value(nmx) = rho*vx
+        return_value(nmy) = rho*vy
+        return_value(nee) = pres/(gam-one) + half*rho*q2
+        !
+      else
+        !
+        rho  = return_value(nec)
+        vx   = return_value(nmx)
+        pres = return_value(nee)
+        !
+        return_value(nec) = rho
+        return_value(nmx) = rho*vx
+        return_value(nee) = pres/(gam-one) + half*rho*vx*vx
+        !
+      end if
+      !
     end if
   end if
   !
@@ -2027,10 +2070,6 @@ continue
   ! Finished applying source terms for the method of manufactured solutions
   !
 end subroutine mms_src
-!
-!###############################################################################
-!
-include "Functions/vsp2u.f90"
 !
 !###############################################################################
 !

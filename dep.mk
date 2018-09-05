@@ -384,8 +384,7 @@ $(OBJDIR)/mms_mod.o : mms_mod.f90 \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/metrics.o \
-            $(OBJDIR)/gpu_mod.o \
-            $(FUNDIR)/vsp2u.f90
+            $(OBJDIR)/gpu_mod.o
 
 $(OBJDIR)/mycpu.o : $(FUNDIR)/mycpu.c
 
