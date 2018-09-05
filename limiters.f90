@@ -4,7 +4,7 @@ module module_limiters
   use module_kind_types, global_debug_timer => debug_timer
   !
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
-  use eqn_idx, only : ncs
+  use eqn_idx, only : ncs,npres
   !
   implicit none
   !
@@ -1261,19 +1261,12 @@ end subroutine resolution_indicator
 !
 !###############################################################################
 !
-pure subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
+ pure &
+subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
                                           marker,scaled_marker)
   !
   !.. Use Statements ..
-  use order_mod,      only : maxSP
-  use geovar,         only : n_solpts,ncell,cell
-  use ovar,           only : Resolution_Marker_Variable
-  use metrics_mod,    only : wtdjac
-  use filter_mod,     only : filter
-  use quadrature_mod, only : std_elem
-  use ovar,           only : dpsi => marker_dpsi
-  use ovar,           only : c1 => marker_c1
-  use ovar,           only : c2 => marker_c2
+  use ovar, only : Resolution_Marker_Variable
   !
   !.. Formal Arguments ..
   real(wp),     intent(in) :: usp(:,:)
@@ -1283,25 +1276,234 @@ pure subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
   real(wp),  intent(inout) :: scaled_marker(:)
   !
   !.. Local Scalars ..
-  integer  :: i,k,n,nc,np,n0,n1,n2,nvar
-  integer  :: this_geom,this_order,order
-  real(wp) :: l2_n,l2_d,var_d,var_n
-  real(wp) :: a,val,l10_marker,psi0
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: var_pm1(:)
+  integer  :: nr,nvar
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_resolution_marker"
- !real(wp),         parameter :: dpsi = half
- !real(wp),         parameter :: c1 = four
- !real(wp),         parameter :: c2 = 4.25_wp
   !
 continue
   !
-  nvar = Resolution_Marker_Variable
+  nr = nme-nmb+1
   !
-  allocate ( var_pm1(1:n_solpts) )
+  if (Resolution_Marker_Variable > 0) then
+    nvar = ncs + Resolution_Marker_Variable
+  else
+    nvar = 0
+  end if
+  !
+  if (nvar == 0) then
+    if (nr == 3 .and. ncs == 0) then
+      call compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
+    else if (nr == 2 .and. ncs == 0) then
+      call compute_resolution_marker_2d(usp,skip_cell,cutoff_order,marker)
+    else
+      call compute_resolution_marker_nd(usp,skip_cell,cutoff_order,marker)
+    end if
+  else
+    call compute_resolution_marker_1var(usp(:,nvar),skip_cell, &
+                                        cutoff_order,marker)
+  end if
+  !
+  ! Compute the scaled resolution marker
+  !
+  call compute_scaled_marker(skip_cell,marker,scaled_marker)
+  !
+end subroutine compute_resolution_marker
+!
+!###############################################################################
+!
+ pure &
+subroutine compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
+  !
+  !.. Use Statements ..
+  use order_mod,      only : maxSP
+  use geovar,         only : n_solpts,ncell,cell
+  use filter_mod,     only : filter
+  use quadrature_mod, only : std_elem
+  !
+  !.. Formal Arguments ..
+  real(wp),     intent(in) :: usp(:,:)
+  logical(ldk), intent(in) :: skip_cell(:)
+  integer,      intent(in) :: cutoff_order(:)
+  real(wp),  intent(inout) :: marker(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order,order
+  real(wp) :: a,wt
+  real(wp) :: val_ec,l2n_ec,l2d_ec,vn_ec,vd_ec,mark_ec
+  real(wp) :: val_mx,l2n_mx,l2d_mx,vn_mx,vd_mx,mark_mx
+  real(wp) :: val_my,l2n_my,l2d_my,vn_my,vd_my,mark_my
+  real(wp) :: val_mz,l2n_mz,l2d_mz,vn_mz,vd_mz,mark_mz
+  real(wp) :: val_ee,l2n_ee,l2d_ee,vn_ee,vd_ee,mark_ee
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp) :: var_p(1:maxSP,1:nq)
+  real(wp) :: var_pm1(1:maxSP,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_resolution_marker_3d"
+  !
+continue
+  !
+  ! Compute u_hat, the degree-(P-1) solution of density at the sol-pts
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,filter,std_elem) &
+  !$ACC&              PRESENT(usp,marker,skip_cell,cutoff_order) &
+  !$ACC&              PRIVATE(var_p,var_pm1)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index of sol-pts for this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts for this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      var_p(n,nec) = usp(n0+n,nec)
+      var_p(n,nmx) = usp(n0+n,nmx)
+      var_p(n,nmy) = usp(n0+n,nmy)
+      var_p(n,nmz) = usp(n0+n,nmz)
+      var_p(n,nee) = usp(n0+n,nee)
+    end do
+    !
+    if (skip_cell(nc)) then
+      !
+      !$ACC LOOP VECTOR
+      do n = 1,np
+        var_pm1(n,nec) = var_p(n,nec)
+        var_pm1(n,nmx) = var_p(n,nmx)
+        var_pm1(n,nmy) = var_p(n,nmy)
+        var_pm1(n,nmz) = var_p(n,nmz)
+        var_pm1(n,nee) = var_p(n,nee)
+      end do
+      !
+    else
+      !
+      order = cutoff_order(nc) ! cutoff order for the filter
+      !
+      !$ACC LOOP VECTOR
+      do n = 1,np
+        !
+        val_ec = zero
+        val_mx = zero
+        val_my = zero
+        val_mz = zero
+        val_ee = zero
+        !
+        do i = filter(this_geom,this_order)%cutoff(order)%col_ptr(n)+1, &
+               filter(this_geom,this_order)%cutoff(order)%col_ptr(n+1)
+          !
+          k = filter(this_geom,this_order)%cutoff(order)%col_idx(i)
+          a = filter(this_geom,this_order)%cutoff(order)%col_val(i)
+          !
+          val_ec = val_ec + a * var_p(k,nec)
+          val_mx = val_mx + a * var_p(k,nmx)
+          val_my = val_my + a * var_p(k,nmy)
+          val_mz = val_mz + a * var_p(k,nmz)
+          val_ee = val_ee + a * var_p(k,nee)
+          !
+        end do
+        !
+        var_pm1(n,nec) = val_ec
+        var_pm1(n,nmx) = val_mx
+        var_pm1(n,nmy) = val_my
+        var_pm1(n,nmz) = val_mz
+        var_pm1(n,nee) = val_ee
+        !
+      end do
+      !
+    end if
+    !
+    l2n_ec = zero ; l2d_ec = zero
+    l2n_mx = zero ; l2d_mx = zero
+    l2n_my = zero ; l2d_my = zero
+    l2n_mz = zero ; l2d_mz = zero
+    l2n_ee = zero ; l2d_ee = zero
+    !
+    !$ACC LOOP VECTOR REDUCTION(+:l2n_ec,l2d_ec) &
+    !$ACC&            REDUCTION(+:l2n_mx,l2d_mx) &
+    !$ACC&            REDUCTION(+:l2n_my,l2d_my) &
+    !$ACC&            REDUCTION(+:l2n_mz,l2d_mz) &
+    !$ACC&            REDUCTION(+:l2n_ee,l2d_ee)
+    do n = 1,np
+      !
+      vd_ec = var_p(n,nec)             ! denominator is: var[P]
+      vd_mx = var_p(n,nmx)             ! denominator is: var[P]
+      vd_my = var_p(n,nmy)             ! denominator is: var[P]
+      vd_mz = var_p(n,nmz)             ! denominator is: var[P]
+      vd_ee = var_p(n,nee)             ! denominator is: var[P]
+      !
+      vn_ec = vd_ec - var_pm1(n,nec) ! numerator   is: var[P] - var[P-1]
+      vn_mx = vd_mx - var_pm1(n,nmx) ! numerator   is: var[P] - var[P-1]
+      vn_my = vd_my - var_pm1(n,nmy) ! numerator   is: var[P] - var[P-1]
+      vn_mz = vd_mz - var_pm1(n,nmz) ! numerator   is: var[P] - var[P-1]
+      vn_ee = vd_ee - var_pm1(n,nee) ! numerator   is: var[P] - var[P-1]
+      !
+      wt = std_elem(this_geom,this_order)%wts(n)
+      !
+      l2n_ec = l2n_ec + vn_ec*vn_ec*wt
+      l2n_mx = l2n_mx + vn_mx*vn_mx*wt
+      l2n_my = l2n_my + vn_my*vn_my*wt
+      l2n_mz = l2n_mz + vn_mz*vn_mz*wt
+      l2n_ee = l2n_ee + vn_ee*vn_ee*wt
+      !
+      l2d_ec = l2d_ec + vd_ec*vd_ec*wt
+      l2d_mx = l2d_mx + vd_mx*vd_mx*wt
+      l2d_my = l2d_my + vd_my*vd_my*wt
+      l2d_mz = l2d_mz + vd_mz*vd_mz*wt
+      l2d_ee = l2d_ee + vd_ee*vd_ee*wt
+      !
+    end do
+    !
+    mark_ec = l2n_ec / max(l2d_ec,rndoff)
+    mark_mx = l2n_mx / max(l2d_mx,rndoff)
+    mark_my = l2n_my / max(l2d_my,rndoff)
+    mark_mz = l2n_mz / max(l2d_mz,rndoff)
+    mark_ee = l2n_ee / max(l2d_ee,rndoff)
+    !
+    marker(nc) = max(mark_ec,mark_mx,mark_my,mark_mz,mark_ee)
+    !
+  end do
+  !
+end subroutine compute_resolution_marker_3d
+!
+!###############################################################################
+!
+pure subroutine compute_resolution_marker_2d(usp,skip_cell,cutoff_order,marker)
+  !
+  !.. Use Statements ..
+  use geovar,         only : n_solpts,ncell,cell
+  use filter_mod,     only : filter
+  use quadrature_mod, only : std_elem
+  !
+  !.. Formal Arguments ..
+  real(wp),     intent(in) :: usp(:,:)
+  logical(ldk), intent(in) :: skip_cell(:)
+  integer,      intent(in) :: cutoff_order(:)
+  real(wp),  intent(inout) :: marker(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order,order
+  real(wp) :: a,wt
+  real(wp) :: val_ec,l2n_ec,l2d_ec,vn_ec,vd_ec,mark_ec
+  real(wp) :: val_mx,l2n_mx,l2d_mx,vn_mx,vd_mx,mark_mx
+  real(wp) :: val_my,l2n_my,l2d_my,vn_my,vd_my,mark_my
+  real(wp) :: val_ee,l2n_ee,l2d_ee,vn_ee,vd_ee,mark_ee
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: var_pm1(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_resolution_marker_2d"
+  !
+continue
+  !
+  allocate ( var_pm1(1:n_solpts,1:nq) )
   !$ACC DATA CREATE(var_pm1)
   !
   ! Compute u_hat, the degree-(P-1) solution of density at the sol-pts
@@ -1320,7 +1522,10 @@ continue
       !
       !$ACC LOOP VECTOR
       do n = 1,np
-        var_pm1(n0+n) = usp(n0+n,nvar)
+        var_pm1(n0+n,nec) = usp(n0+n,nec)
+        var_pm1(n0+n,nmx) = usp(n0+n,nmx)
+        var_pm1(n0+n,nmy) = usp(n0+n,nmy)
+        var_pm1(n0+n,nee) = usp(n0+n,nee)
       end do
       !
     else
@@ -1333,7 +1538,10 @@ continue
       !$ACC LOOP VECTOR
       do n = 1,np
         !
-        val = zero
+        val_ec = zero
+        val_mx = zero
+        val_my = zero
+        val_ee = zero
         !
         do i = filter(this_geom,this_order)%cutoff(order)%col_ptr(n)+1, &
                filter(this_geom,this_order)%cutoff(order)%col_ptr(n+1)
@@ -1341,11 +1549,17 @@ continue
           k = filter(this_geom,this_order)%cutoff(order)%col_idx(i)
           a = filter(this_geom,this_order)%cutoff(order)%col_val(i)
           !
-          val = val + a * usp(n0+k,nvar)
+          val_ec = val_ec + a * usp(n0+k,nec)
+          val_mx = val_mx + a * usp(n0+k,nmx)
+          val_my = val_my + a * usp(n0+k,nmy)
+          val_ee = val_ee + a * usp(n0+k,nee)
           !
         end do
         !
-        var_pm1(n0+n) = val
+        var_pm1(n0+n,nec) = val_ec
+        var_pm1(n0+n,nmx) = val_mx
+        var_pm1(n0+n,nmy) = val_my
+        var_pm1(n0+n,nee) = val_ee
         !
       end do
       !
@@ -1366,29 +1580,338 @@ continue
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
     !
+    l2n_ec = zero ; l2d_ec = zero
+    l2n_mx = zero ; l2d_mx = zero
+    l2n_my = zero ; l2d_my = zero
+    l2n_ee = zero ; l2d_ee = zero
+    !
+    !$ACC LOOP VECTOR REDUCTION(+:l2n_ec,l2d_ec) &
+    !$ACC&            REDUCTION(+:l2n_mx,l2d_mx) &
+    !$ACC&            REDUCTION(+:l2n_my,l2d_my) &
+    !$ACC&            REDUCTION(+:l2n_ee,l2d_ee)
+    do n = 1,np
+      !
+      vd_ec = usp(n0+n,nec)             ! denominator is: var[P]
+      vd_mx = usp(n0+n,nmx)             ! denominator is: var[P]
+      vd_my = usp(n0+n,nmy)             ! denominator is: var[P]
+      vd_ee = usp(n0+n,nee)             ! denominator is: var[P]
+      !
+      vn_ec = vd_ec - var_pm1(n0+n,nec) ! numerator   is: var[P] - var[P-1]
+      vn_mx = vd_mx - var_pm1(n0+n,nmx) ! numerator   is: var[P] - var[P-1]
+      vn_my = vd_my - var_pm1(n0+n,nmy) ! numerator   is: var[P] - var[P-1]
+      vn_ee = vd_ee - var_pm1(n0+n,nee) ! numerator   is: var[P] - var[P-1]
+      !
+      wt = std_elem(this_geom,this_order)%wts(n)
+      !
+      l2n_ec = l2n_ec + vn_ec*vn_ec*wt
+      l2n_mx = l2n_mx + vn_mx*vn_mx*wt
+      l2n_my = l2n_my + vn_my*vn_my*wt
+      l2n_ee = l2n_ee + vn_ee*vn_ee*wt
+      !
+      l2d_ec = l2d_ec + vd_ec*vd_ec*wt
+      l2d_mx = l2d_mx + vd_mx*vd_mx*wt
+      l2d_my = l2d_my + vd_my*vd_my*wt
+      l2d_ee = l2d_ee + vd_ee*vd_ee*wt
+      !
+    end do
+    !
+    mark_ec = l2n_ec / max(l2d_ec,rndoff)
+    mark_mx = l2n_mx / max(l2d_mx,rndoff)
+    mark_my = l2n_my / max(l2d_my,rndoff)
+    mark_ee = l2n_ee / max(l2d_ee,rndoff)
+    !
+    marker(nc) = max(mark_ec,mark_mx,mark_my,mark_ee)
+    !
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( var_pm1 )
+  !
+end subroutine compute_resolution_marker_2d
+!
+!###############################################################################
+!
+pure subroutine compute_resolution_marker_nd(usp,skip_cell,cutoff_order,marker)
+  !
+  !.. Use Statements ..
+  use order_mod,      only : maxSP
+  use geovar,         only : n_solpts,ncell,cell
+  use filter_mod,     only : filter
+  use quadrature_mod, only : std_elem
+  !
+  !.. Formal Arguments ..
+  real(wp),     intent(in) :: usp(:,:)
+  logical(ldk), intent(in) :: skip_cell(:)
+  integer,      intent(in) :: cutoff_order(:)
+  real(wp),  intent(inout) :: marker(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,m,n,nc,np,n0
+  integer  :: this_geom,this_order,order
+  real(wp) :: a,wt,mark
+  real(wp) :: val,l2_n,l2_d,vd,vn
+  !
+  !.. Local Arrays ..
+  real(wp) :: val_n(1:maxSP,1:nq)
+  real(wp) :: val_d(1:maxSP,1:nq)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: var_pm1(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_resolution_marker_nd"
+  !
+continue
+  !
+  allocate ( var_pm1(1:n_solpts,1:nq) )
+  !$ACC DATA CREATE(var_pm1)
+  !
+  ! Compute u_hat, the degree-(P-1) solution of density at the sol-pts
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,filter) &
+  !$ACC&              PRESENT(usp,skip_cell,cutoff_order) &
+  !$ACC&              PRESENT(var_pm1)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index of sol-pts for this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts for this cell
+    !
+    if (skip_cell(nc)) then
+      !
+      !$ACC LOOP VECTOR COLLAPSE(2)
+      do m = 1,nq
+        do n = 1,np
+          var_pm1(n0+n,m) = usp(n0+n,m)
+        end do
+      end do
+      !
+    else
+      !
+      this_geom = cell(nc)%geom   ! geometry type of this cell
+      this_order = cell(nc)%order ! solution order of this cell
+      !
+      order = cutoff_order(nc) ! cutoff order for the filter
+      !
+      !$ACC LOOP VECTOR COLLAPSE(2)
+      do n = 1,np
+        do m = 1,nq
+          !
+          val = zero
+          !
+          do i = filter(this_geom,this_order)%cutoff(order)%col_ptr(n)+1, &
+                 filter(this_geom,this_order)%cutoff(order)%col_ptr(n+1)
+            !
+            k = filter(this_geom,this_order)%cutoff(order)%col_idx(i)
+            a = filter(this_geom,this_order)%cutoff(order)%col_val(i)
+            !
+            val = val + a * usp(n0+k,m)
+            !
+          end do
+          !
+          var_pm1(n0+n,m) = val
+          !
+        end do
+      end do
+      !
+    end if
+    !
+  end do
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,std_elem) &
+  !$ACC&              PRESENT(usp,marker) &
+  !$ACC&              PRESENT(var_pm1) &
+  !$ACC&              PRIVATE(val_n,val_d)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index of sol-pts for this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts for this cell
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    !$ACC LOOP VECTOR COLLAPSE(2) 
+    do m = 1,nq
+      do n = 1,np
+        !
+        val = usp(n0+n,m)
+        !
+        val_d(n,m) = val                   ! denominator is: var[P]
+        val_n(n,m) = val - var_pm1(n0+n,m) ! numerator   is: var[P] - var[P-1]
+        !
+      end do
+    end do
+    !
+    mark = -huge(zero)
+    !
+    do m = 1,nq
+      !
+      l2_n = zero
+      l2_d = zero
+      !
+      !$ACC LOOP VECTOR REDUCTION(+:l2_n,l2_d)
+      do n = 1,np
+        !
+        vn = val_n(n,m)
+        vd = val_d(n,m)
+        !
+        wt = std_elem(this_geom,this_order)%wts(n)
+        !
+        l2_n = l2_n + vn*vn*wt
+        l2_d = l2_d + vd*vd*wt
+        !
+      end do
+      !
+      mark = max( mark , l2_n/max(l2_d,rndoff) )
+      !
+    end do
+    !
+    marker(nc) = mark
+    !
+  end do
+  !
+  !
+  !$ACC END DATA
+  deallocate ( var_pm1 )
+  !
+end subroutine compute_resolution_marker_nd
+!
+!###############################################################################
+!
+pure subroutine compute_resolution_marker_1var(var,skip_cell, &
+                                               cutoff_order,marker)
+  !
+  !.. Use Statements ..
+  use order_mod,      only : maxSP
+  use geovar,         only : n_solpts,ncell,cell
+  use filter_mod,     only : filter
+  use quadrature_mod, only : std_elem
+  !
+  !.. Formal Arguments ..
+  real(wp),     intent(in) :: var(:)
+  logical(ldk), intent(in) :: skip_cell(:)
+  integer,      intent(in) :: cutoff_order(:)
+  real(wp),  intent(inout) :: marker(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order,order
+  real(wp) :: l2_n,l2_d,var_d,var_n
+  real(wp) :: a,val
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp) :: var_p(1:maxSP)
+  real(wp) :: var_pm1(1:maxSP)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_resolution_marker_1var"
+  !
+continue
+  !
+  ! Compute u_hat, the degree-(P-1) solution of density at the sol-pts
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,filter,std_elem) &
+  !$ACC&              PRESENT(var,marker,skip_cell,cutoff_order) &
+  !$ACC&              PRIVATE(var_p,var_pm1)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index of sol-pts for this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts for this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      var_p(n) = var(n0+n)
+    end do
+    !
+    if (skip_cell(nc)) then
+      !
+      !$ACC LOOP VECTOR
+      do n = 1,np
+        var_pm1(n) = var_p(n)
+      end do
+      !
+    else
+      !
+      order = cutoff_order(nc) ! cutoff order for the filter
+      !
+      !$ACC LOOP VECTOR
+      do n = 1,np
+        !
+        val = zero
+        !
+        do i = filter(this_geom,this_order)%cutoff(order)%col_ptr(n)+1, &
+               filter(this_geom,this_order)%cutoff(order)%col_ptr(n+1)
+          !
+          k = filter(this_geom,this_order)%cutoff(order)%col_idx(i)
+          a = filter(this_geom,this_order)%cutoff(order)%col_val(i)
+          !
+          val = val + a * var_p(k)
+          !
+        end do
+        !
+        var_pm1(n) = val
+        !
+      end do
+      !
+    end if
+    !
     l2_n = zero ! numerator   for resolution indicator
     l2_d = zero ! denominator for resolution indicator
     !
     !$ACC LOOP VECTOR REDUCTION(+:l2_n,l2_d)
     do n = 1,np
       !
-      var_d = usp(n0+n,nvar)        ! denominator var is: var[P]
-      var_n = var_d - var_pm1(n0+n) ! numerator   var is: var[P] - var[P-1]
+      var_d = var_p(n)           ! denominator var is: var[P]
+      var_n = var_d - var_pm1(n) ! numerator   var is: var[P] - var[P-1]
       !
       l2_n = l2_n + var_n*var_n*std_elem(this_geom,this_order)%wts(n)
       l2_d = l2_d + var_d*var_d*std_elem(this_geom,this_order)%wts(n)
       !
     end do
     !
-    marker(nc) = l2_n / l2_d
+    marker(nc) = l2_n / max(l2_d,rndoff)
     !
   end do
+  !
+end subroutine compute_resolution_marker_1var
+!
+!###############################################################################
+!
+pure subroutine compute_scaled_marker(skip_cell,marker,scaled_marker)
+  !
+  !.. Use Statements ..
+  use geovar, only : ncell,cell
+  use ovar,   only : dpsi => marker_dpsi
+  use ovar,   only : c1 => marker_c1
+  use ovar,   only : c2 => marker_c2
+  !
+  !.. Formal Arguments ..
+  logical(ldk), intent(in) :: skip_cell(:)
+  real(wp),  intent(inout) :: marker(:)
+  real(wp),  intent(inout) :: scaled_marker(:)
+  !
+  !.. Local Scalars ..
+  integer  :: nc
+  real(wp) :: l10_marker,psi0
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_scaled_marker"
+  !
+continue
   !
   ! Compute the log10 of marker and scaled_marker. For any skipped cells,
   ! set marker and scaled_marker to values that will prevent them from
   ! being marked as troubled cells.
   !
-  !$ACC PARALLEL LOOP PRESENT(skip_cell,cutoff_order,marker,scaled_marker)
+  !$ACC PARALLEL LOOP PRESENT(skip_cell,marker,scaled_marker)
   do nc = 1,ncell
     !
     if (skip_cell(nc)) then
@@ -1401,7 +1924,6 @@ continue
       l10_marker = log10( max( marker(nc) , rndoff ) )
       !
       psi0 = -one*(c1 + c2*log10(real(cell(nc)%order,kind=wp)))
-     !psi0 = -one*(c1 + c2*log10(real(cutoff_order(nc),kind=wp)))
       !
       if (l10_marker <= psi0-dpsi) then
         scaled_marker(nc) = zero
@@ -1417,10 +1939,7 @@ continue
     !
   end do
   !
-  !$ACC END DATA
-  deallocate ( var_pm1 )
-  !
-end subroutine compute_resolution_marker
+end subroutine compute_scaled_marker
 !
 !###############################################################################
 !
@@ -1696,241 +2215,12 @@ end subroutine res_ind_apply_proj_nd
 !
 !###############################################################################
 !
-subroutine resolution_indicator_old(apply_projection,troubled_cell, &
-                                    orders_to_cutoff)
-  !
-  !.. Use Statements ..
-  use geovar,         only : ncell,cell
-  use order_mod,      only : maxSP,p_order,n_order
-  use flowvar,        only : usp
-  use metrics_mod,    only : wtdjac
-  use filter_mod,     only : filter
-  use projection_mod, only : projct
-  use quadrature_mod, only : std_elem
-  !
-  !.. Optional Arguments ..
-  logical(lk),  optional,    intent(in) :: apply_projection
-  logical(ldk), optional, intent(inout) :: troubled_cell(:)
-  integer,      optional,    intent(in) :: orders_to_cutoff
-  !
-  !.. Local Scalars ..
-  integer  :: i,k,m,n,nc,n1,n2,np,ierr
-  integer  :: this_geom,this_order
-  integer  :: ord_mlt,ord_add
-  integer  :: cutoff_order,order
-  real(wp) :: a,val,l2_p,l2_pm1,psi0
-  !
-  !.. Local Arrays ..
-  real(wp) :: rho_p(1:maxSP)
-  real(wp) :: rho_pm1(1:maxSP)
-  real(wp) :: tusp(1:maxSP,1:nq)
-  real(wp) :: usp_check(1:nq,1:maxSP)
-  real(wp) :: usp_copy(1:nq,1:maxSP)
-  integer  :: nlim(0:n_order)
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "resolution_indicator_old"
-  real(wp),         parameter :: dpsi = half
-  real(wp),         parameter :: c1 = four
-  real(wp),         parameter :: c2 = 4.25_wp
-  !
-continue
-  !
-  if (.not. allocated(marker)) then
-    allocate ( marker(1:ncell) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"marker",1,__LINE__,__FILE__,ierr,error_message)
-    !$ACC UPDATE DEVICE(marker)
-  end if
-  !
-  if (.not. allocated(scaled_marker)) then
-    allocate ( scaled_marker(1:ncell) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"scaled_marker",1,__LINE__,__FILE__, &
-                     ierr,error_message)
-    !$ACC UPDATE DEVICE(scaled_marker)
-  end if
-  !
-  if (p_order < n_order) then
-    ord_mlt = 0
-    ord_add = p_order
-  else
-    ord_mlt = 1
-   !ord_add = 0
-    ord_add = -1
-  end if
-  !
-  do nc = 1,ncell
-    !
-    if (present(troubled_cell)) then
-      if (.not. troubled_cell(nc)) then
-        marker(nc) = -two*ten
-        scaled_marker(nc) = zero
-        cycle
-      end if
-    end if
-    !
-    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
-    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
-    np = n2-n1+1         ! number of sol-pts in this cell
-    !
-    this_geom = cell(nc)%geom   ! geometry type of this cell
-    this_order = cell(nc)%order ! solution order of this cell
-    !
-    cutoff_order = ord_mlt*this_order + ord_add
-    if (present(orders_to_cutoff)) then
-      cutoff_order = cutoff_order-orders_to_cutoff+1
-   !  write (iout,'(*(2x,i0))') this_order,cutoff_order,orders_to_cutoff
-   !else
-   !  write (iout,'(*(2x,i0))') this_order,cutoff_order
-    end if
-    !
-    ! Copy u, the degree-P polynomial solution of density at the solution points
-    !
-    rho_p(1:np) = usp(n1:n2,nec)
-    !
-    ! Compute u_hat, the degree-(P-1) polynomial solution
-    ! of density at the solution points
-    !
-    do n = 1,np
-      !
-      val = zero
-      !
-      do i = filter(this_geom,this_order)%cutoff(cutoff_order)%col_ptr(n)+1, &
-             filter(this_geom,this_order)%cutoff(cutoff_order)%col_ptr(n+1)
-        !
-        k = filter(this_geom,this_order)%cutoff(cutoff_order)%col_idx(i)
-        a = filter(this_geom,this_order)%cutoff(cutoff_order)%col_val(i)
-        !
-        val = val + a * usp(n1-1+k,nec)
-        !
-      end do
-      !
-      rho_pm1(n) = val
-      !
-    end do
-    !
-    ! Compute u - u_hat
-    !
-    rho_pm1(1:np) = rho_p(1:np) - rho_pm1(1:np)
-    !
-    ! Compute the L2 inner product of the two polynomials
-    !
-   !l2_pm1 = sum( rho_pm1(1:np) * rho_pm1(1:np) * wtdjac(n1:n2) )
-    l2_pm1 = sum( rho_pm1(1:np) * rho_pm1(1:np) * &
-                  std_elem(this_geom,this_order)%wts(1:np) )
-    l2_pm1 = max(l2_pm1,rndoff)
-    !
-   !l2_p = sum( rho_p(1:np) * rho_p(1:np) * wtdjac(n1:n2) )
-    l2_p = sum( rho_p(1:np) * rho_p(1:np) * &
-                std_elem(this_geom,this_order)%wts(1:np) )
-    !
-   !marker(nc) = log10( l2_pm1 / l2_p )
-    marker(nc) = log10( max( l2_pm1/l2_p , rndoff ) )
-    !
-    psi0 = -one*(c1 + c2*log10(real(cutoff_order,kind=wp)))
-    !
-    if (marker(nc) <= psi0-dpsi) then
-      scaled_marker(nc) = zero
-    else if (marker(nc) >= psi0+dpsi) then
-      scaled_marker(nc) = one
-    else
-      scaled_marker(nc) = half*(one + sin(half*pi*(marker(nc)-psi0)/dpsi))
-    end if
-    !
-  end do
-  !
-  if (present(troubled_cell)) then
-    troubled_cell(:) = (scaled_marker(:) >= 1.0e-8_wp)
-  end if
-  !
-  if (present(apply_projection)) then
-    if (apply_projection) then
-      !
-      nlim(:) = 0
-      !
-      do nc = 1,ncell
-        !
-        if (present(troubled_cell)) then
-          if (.not. troubled_cell(nc)) cycle
-        end if
-        !
-        n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
-        n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
-        np = n2-n1+1         ! number of sol-pts in this cell
-        !
-        this_geom = cell(nc)%geom   ! geometry type of this cell
-        this_order = cell(nc)%order ! solution order of this cell
-        !
-        order = int( real(this_order,kind=wp)*(one-scaled_marker(nc)) )
-        order = max(1,min(this_order,order))
-        !
-        if (order < this_order) then
-          !
-          nlim(order) = nlim(order) + 1
-          !
-          ! Store the transpose of usp for this cell to reduce cache misses
-          !
-          do k = 1,np
-            do m = 1,nq
-              tusp(k,m) = usp(n1-1+k,m)
-            end do
-          end do
-          !
-          ! Project the solution down to proj_order
-          ! at each solution point of this cell
-          !
-          do m = 1,nq
-            do n = 1,np
-              !
-              val = zero
-              !
-              do i = projct(this_geom,this_order)%limiter(order)%row_ptr(n)+1, &
-                     projct(this_geom,this_order)%limiter(order)%row_ptr(n+1)
-                !
-                k = projct(this_geom,this_order)%limiter(order)%row_idx(i)
-                a = projct(this_geom,this_order)%limiter(order)%row_val(i)
-                !
-                val = val + a * tusp(k,m)
-                !
-              end do
-              !
-              usp(n1-1+n,m) = val
-              !
-            end do
-          end do
-          !
-        end if
-        !
-      end do
-      !
-#ifdef DEBUG_ON
-      if (ncpu > 1) then
-        call mpi_allreduce(MPI_IN_PLACE,nlim,size(nlim,kind=int_mpi), &
-                           mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
-      end if
-      if (mypnum == 0) then
-        do n = lbound(nlim,dim=1),ubound(nlim,dim=1)
-          if (nlim(n) > 0) write (iout,1) nlim(n),n
-        end do
-      end if
-#endif
-      !
-    end if
-  end if
-  !
-  1 format (8x,i8," Cells limited to P",i0)
-  !
-end subroutine resolution_indicator_old
-!
-!###############################################################################
-!
 subroutine jump_indicator(troubled_cell)
   !
   !.. Use Statements ..
   use geovar,         only : nr,n_flxpts,ncell,cell,nface,face
   use quadrature_mod, only : std_elem
-  use flowvar,        only : faceusp_array
+  use flowvar,        only : facegpsp
   use metrics_mod,    only : facenrm
   !
   !.. Optional Arguments ..
@@ -1941,9 +2231,9 @@ subroutine jump_indicator(troubled_cell)
   integer  :: num_cell_faces
   integer  :: this_geom,face_geom,face_order
   real(wp) :: ds,rnx,rny,rnz,val,psi0
+  real(wp) :: pres_l,pres_r,p_jump
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: p_jump_fp(:)
   real(wp), allocatable :: pres_jump(:)
   !
   !.. Local Parameters ..
@@ -1969,16 +2259,13 @@ continue
     !$ACC UPDATE DEVICE(scaled_marker)
   end if
   !
-  allocate ( p_jump_fp(1:n_flxpts) )
   allocate ( pres_jump(1:nface) )
-  !$ACC DATA CREATE(p_jump_fp,pres_jump)
-  !
-  call compute_pressure_jump(faceusp_array,p_jump_fp)
+  !$ACC DATA CREATE(pres_jump)
   !
   if (nr == 3) then
     !$ACC PARALLEL LOOP GANG &
     !$ACC&              VECTOR_LENGTH(32) &
-    !$ACC&              PRESENT(face,p_jump_fp,pres_jump,std_elem)
+    !$ACC&              PRESENT(face,facegpsp,pres_jump,std_elem)
     do nf = 1,nface
       !
       face_geom = face(nf)%geom  ! geometry of face
@@ -1997,7 +2284,12 @@ continue
         rnz = facenrm(3,f0+k)
         ds = sqrt(rnx*rnx + rny*rny + rnz*rnz)
         !
-        val = val + ds*p_jump_fp(f0+k)*std_elem(face_geom,face_order)%wts(k)
+        pres_l = facegpsp(f0+k,npres,1)
+        pres_r = facegpsp(f0+k,npres,2)
+        !
+        p_jump = two * abs(pres_l - pres_r) / (pres_l + pres_r)
+        !
+        val = val + ds*p_jump*std_elem(face_geom,face_order)%wts(k)
         !
       end do
       !
@@ -2007,7 +2299,7 @@ continue
   else if (nr == 2) then
     !$ACC PARALLEL LOOP GANG &
     !$ACC&              VECTOR_LENGTH(32) &
-    !$ACC&              PRESENT(face,p_jump_fp,pres_jump,std_elem)
+    !$ACC&              PRESENT(face,facegpsp,pres_jump,std_elem)
     do nf = 1,nface
       !
       face_geom = face(nf)%geom  ! geometry of face
@@ -2025,7 +2317,12 @@ continue
         rny = facenrm(2,f0+k)
         ds = sqrt(rnx*rnx + rny*rny)
         !
-        val = val + ds*p_jump_fp(f0+k)*std_elem(face_geom,face_order)%wts(k)
+        pres_l = facegpsp(f0+k,npres,1)
+        pres_r = facegpsp(f0+k,npres,2)
+        !
+        p_jump = two * abs(pres_l - pres_r) / (pres_l + pres_r)
+        !
+        val = val + ds*p_jump*std_elem(face_geom,face_order)%wts(k)
         !
       end do
       !
@@ -2035,7 +2332,7 @@ continue
   else
     !$ACC PARALLEL LOOP GANG &
     !$ACC&              VECTOR_LENGTH(32) &
-    !$ACC&              PRESENT(face,p_jump_fp,pres_jump,std_elem)
+    !$ACC&              PRESENT(face,facegpsp,pres_jump,std_elem)
     do nf = 1,nface
       !
       face_geom = face(nf)%geom  ! geometry of face
@@ -2051,7 +2348,12 @@ continue
         !
         ds = abs(facenrm(1,f0+k))
         !
-        val = val + ds*p_jump_fp(f0+k)*std_elem(face_geom,face_order)%wts(k)
+        pres_l = facegpsp(f0+k,npres,1)
+        pres_r = facegpsp(f0+k,npres,2)
+        !
+        p_jump = two * abs(pres_l - pres_r) / (pres_l + pres_r)
+        !
+        val = val + ds*p_jump*std_elem(face_geom,face_order)%wts(k)
         !
       end do
       !
@@ -2084,7 +2386,6 @@ continue
   !
   !$ACC END DATA
   deallocate ( pres_jump )
-  deallocate ( p_jump_fp )
   !
   !$ACC PARALLEL LOOP PRESENT(marker)
   do nc = 1,ncell
@@ -2115,198 +2416,6 @@ continue
   end if
   !
 end subroutine jump_indicator
-!
-!###############################################################################
-!
-subroutine compute_pressure_jump(face_cv,pres_jump)
-  !
-  !.. Formal Arguments ..
-  real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp), intent(inout) :: pres_jump(:)
-  !
-  !.. Local Scalars ..
-  integer :: nr
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "compute_pressure_jump"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  nr = nme-nmb+1
-  !
-  if (nr == 3 .and. ncs == 0) then
-    call compute_pressure_jump_3d(face_cv,pres_jump)
-  else if (nr == 2 .and. ncs == 0) then
-    call compute_pressure_jump_2d(face_cv,pres_jump)
-  else
-    call compute_pressure_jump_nd(face_cv,pres_jump)
-  end if
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine compute_pressure_jump
-!
-!###############################################################################
-!
-pure subroutine compute_pressure_jump_3d(face_cv,pres_jump)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam
-  !
-  !.. Formal Arguments ..
-  real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp), intent(inout) :: pres_jump(:)
-  !
-  !.. Local Scalars ..
-  integer  :: k,np
-  real(wp) :: gm1
-  real(wp) :: rho_l,rhou_l,rhov_l,rhow_l,rhoe_l,rhoq2_l,pres_l
-  real(wp) :: rho_r,rhou_r,rhov_r,rhow_r,rhoe_r,rhoq2_r,pres_r
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "compute_pressure_jump_3d"
-  !
-continue
-  !
-  np = size(pres_jump)
-  !
-  gm1 = gam-one
-  !
-  !$ACC PARALLEL LOOP PRESENT(face_cv,pres_jump)
-  do k = 1,np
-    !
-    rho_l = face_cv(k,nec,1)
-    rhou_l = face_cv(k,nmx,1)
-    rhov_l = face_cv(k,nmy,1)
-    rhow_l = face_cv(k,nmz,1)
-    rhoe_l = face_cv(k,nee,1)
-    !
-    rhoq2_l = rhou_l*rhou_l + rhov_l*rhov_l + rhow_l*rhow_l
-    !
-    pres_l = gm1*(rhoe_l - half*rhoq2_l/rho_l)
-    !
-    rho_r = face_cv(k,nec,2)
-    rhou_r = face_cv(k,nmx,2)
-    rhov_r = face_cv(k,nmy,2)
-    rhow_r = face_cv(k,nmz,2)
-    rhoe_r = face_cv(k,nee,2)
-    !
-    rhoq2_r = rhou_r*rhou_r + rhov_r*rhov_r + rhow_r*rhow_r
-    !
-    pres_r = gm1*(rhoe_r - half*rhoq2_r/rho_r)
-    !
-    pres_jump(k) = two * abs(pres_l - pres_r) / (pres_l + pres_r)
-    !
-  end do
-  !
-end subroutine compute_pressure_jump_3d
-!
-!###############################################################################
-!
-pure subroutine compute_pressure_jump_2d(face_cv,pres_jump)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam
-  !
-  !.. Formal Arguments ..
-  real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp), intent(inout) :: pres_jump(:)
-  !
-  !.. Local Scalars ..
-  integer  :: k,np
-  real(wp) :: gm1
-  real(wp) :: rho_l,rhou_l,rhov_l,rhoe_l,rhoq2_l,pres_l
-  real(wp) :: rho_r,rhou_r,rhov_r,rhoe_r,rhoq2_r,pres_r
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "compute_pressure_jump_2d"
-  !
-continue
-  !
-  np = size(pres_jump)
-  !
-  gm1 = gam-one
-  !
-  !$ACC PARALLEL LOOP PRESENT(face_cv,pres_jump)
-  do k = 1,np
-    !
-    rho_l = face_cv(k,nec,1)
-    rhou_l = face_cv(k,nmx,1)
-    rhov_l = face_cv(k,nmy,1)
-    rhoe_l = face_cv(k,nee,1)
-    !
-    rhoq2_l = rhou_l*rhou_l + rhov_l*rhov_l
-    !
-    pres_l = gm1*(rhoe_l - half*rhoq2_l/rho_l)
-    !
-    rho_r = face_cv(k,nec,2)
-    rhou_r = face_cv(k,nmx,2)
-    rhov_r = face_cv(k,nmy,2)
-    rhoe_r = face_cv(k,nee,2)
-    !
-    rhoq2_r = rhou_r*rhou_r + rhov_r*rhov_r
-    !
-    pres_r = gm1*(rhoe_r - half*rhoq2_r/rho_r)
-    !
-    pres_jump(k) = two * abs(pres_l - pres_r) / (pres_l + pres_r)
-    !
-  end do
-  !
-end subroutine compute_pressure_jump_2d
-!
-!###############################################################################
-!
-pure subroutine compute_pressure_jump_nd(face_cv,pres_jump)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam
-  !
-  !.. Formal Arguments ..
-  real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp), intent(inout) :: pres_jump(:)
-  !
-  !.. Local Scalars ..
-  integer  :: k,m,np
-  real(wp) :: gm1
-  real(wp) :: rho_l,rhoq_l,rhoe_l,pres_l
-  real(wp) :: rho_r,rhoq_r,rhoe_r,pres_r
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "compute_pressure_jump_nd"
-  !
-continue
-  !
-  np = size(pres_jump)
-  !
-  gm1 = gam-one
-  !
-  !$ACC PARALLEL LOOP PRESENT(face_cv,pres_jump)
-  do k = 1,np
-    !
-    rho_l = face_cv(k,nec,1)
-    rhoe_l = face_cv(k,nee,1)
-    !
-    rho_r = face_cv(k,nec,2)
-    rhoe_r = face_cv(k,nee,2)
-    !
-    rhoq_l = zero
-    rhoq_r = zero
-    !$ACC LOOP SEQ REDUCTION(+:rhoq_l,rhoq_r)
-    do m = nmb,nme
-      rhoq_l = rhoq_l + face_cv(k,m,1)*face_cv(k,m,1)
-      rhoq_r = rhoq_r + face_cv(k,m,2)*face_cv(k,m,2)
-    end do
-    !
-    pres_l = gm1*(rhoe_l - half*rhoq_l/rho_l)
-    pres_r = gm1*(rhoe_r - half*rhoq_r/rho_r)
-    !
-    pres_jump(k) = two * abs(pres_l - pres_r) / (pres_l + pres_r)
-    !
-  end do
-  !
-end subroutine compute_pressure_jump_nd
 !
 !###############################################################################
 !

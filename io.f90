@@ -507,7 +507,7 @@ continue
   !
   ! Make sure the variable index for the resolution marker is valid
   !
-  if (Resolution_Marker_Variable <= 0 .or. Resolution_Marker_Variable > nq) then
+  if (Resolution_Marker_Variable < 0 .or. Resolution_Marker_Variable > nq) then
     Resolution_Marker_Variable = nec
   end if
   !
