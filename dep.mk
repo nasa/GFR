@@ -355,7 +355,6 @@ $(OBJDIR)/limiters.o : limiters.f90 \
              $(OBJDIR)/projection_mod.o \
              $(OBJDIR)/filter_mod.o \
              $(OBJDIR)/quadrature_mod.o \
-             $(FUNDIR)/pressure.f90 \
              $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/mappings.o : mappings.f90 \
