@@ -3813,12 +3813,10 @@ subroutine invs_common_fluxes_interior_at_flxpts()
   use ovar,        only : invs_flux_method
   use metrics_mod, only : facenrm
   use flowvar,     only : faceusp_array
+  use flowvar,     only : facegpsp
   use flowvar,     only : faceflx
   !
-  use upwind_flux_mod, only : roe_upwind_flux_gpu
-  use upwind_flux_mod, only : hllc_upwind_flux_gpu
-  use upwind_flux_mod, only : ldfss_upwind_flux_gpu
-  use upwind_flux_mod, only : rotated_rhll_upwind_flux_gpu
+  use upwind_flux_mod, only : upwind_flux_gpu
   !
   !.. Local Scalars ..
   integer :: n1,n2
@@ -3833,23 +3831,7 @@ continue
   n1 = n_bnd_flxpts+1
   n2 = n_flxpts
   !
-  if (invs_flux_method == invs_flux_ROE) then
-    !
-    call roe_upwind_flux_gpu(n1,n2,facenrm,faceusp_array,faceflx)
-    !
-  else if (invs_flux_method == invs_flux_HLLC) then
-    !
-    call hllc_upwind_flux_gpu(n1,n2,facenrm,faceusp_array,faceflx)
-    !
-  else if (invs_flux_method == invs_flux_LDFSS) then
-    !
-    call ldfss_upwind_flux_gpu(n1,n2,facenrm,faceusp_array,faceflx)
-    !
-  else if (invs_flux_method == invs_flux_Rotated_RHLL) then
-    !
-    call rotated_rhll_upwind_flux_gpu(n1,n2,facenrm,faceusp_array,faceflx)
-    !
-  end if
+  call upwind_flux_gpu(n1,n2,facenrm,faceusp_array,facegpsp,faceflx)
   !
 end subroutine invs_common_fluxes_interior_at_flxpts
 !
@@ -3865,10 +3847,7 @@ subroutine invs_common_fluxes_interior_at_qdtpts()
   use flowvar,     only : faceusp_array
   use flowvar,     only : faceflx
   !
-  use upwind_flux_mod, only : roe_upwind_flux_gpu
-  use upwind_flux_mod, only : hllc_upwind_flux_gpu
-  use upwind_flux_mod, only : ldfss_upwind_flux_gpu
-  use upwind_flux_mod, only : rotated_rhll_upwind_flux_gpu
+  use upwind_flux_mod, only : upwind_flux_gpu
   !
   !.. Local Scalars ..
   integer :: n1,n2,nf1,nf2
@@ -3893,23 +3872,7 @@ continue
   n1 = n_bnd_qdtpts+1
   n2 = n_flx_qdtpts
   !
-  if (invs_flux_method == invs_flux_ROE) then
-    !
-    call roe_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
-    !
-  else if (invs_flux_method == invs_flux_HLLC) then
-    !
-    call hllc_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
-    !
-  else if (invs_flux_method == invs_flux_LDFSS) then
-    !
-    call ldfss_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
-    !
-  else if (invs_flux_method == invs_flux_Rotated_RHLL) then
-    !
-    call rotated_rhll_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
-    !
-  end if
+  call upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,facegpqp,flux_qdtpts)
   !
   if (combine_common_flux_projections == Separate_All_Projections) then
     call project_flux_qdtpts_to_faceflx(nf1,nf2,flux_qdtpts,faceflx)
@@ -4087,10 +4050,7 @@ subroutine invs_common_fluxes_bc_at_flxpts()
   !
   use invs_flux_mod, only : invs_wall_flx_gpu
   !
-  use upwind_flux_mod, only : roe_upwind_flux_gpu
-  use upwind_flux_mod, only : hllc_upwind_flux_gpu
-  use upwind_flux_mod, only : ldfss_upwind_flux_gpu
-  use upwind_flux_mod, only : rotated_rhll_upwind_flux_gpu
+  use upwind_flux_mod, only : upwind_flux_gpu
   !
   !.. Local Scalars ..
   integer :: n1,n2
@@ -4117,23 +4077,7 @@ continue
   n1 = n_wall_flxpts+1
   n2 = n_bnd_flxpts
   !
-  if (invs_flux_method == invs_flux_ROE) then
-    !
-    call roe_upwind_flux_gpu(n1,n2,facenrm,faceusp_array,faceflx)
-    !
-  else if (invs_flux_method == invs_flux_HLLC) then
-    !
-    call hllc_upwind_flux_gpu(n1,n2,facenrm,faceusp_array,faceflx)
-    !
-  else if (invs_flux_method == invs_flux_LDFSS) then
-    !
-    call ldfss_upwind_flux_gpu(n1,n2,facenrm,faceusp_array,faceflx)
-    !
-  else if (invs_flux_method == invs_flux_Rotated_RHLL) then
-    !
-    call rotated_rhll_upwind_flux_gpu(n1,n2,facenrm,faceusp_array,faceflx)
-    !
-  end if
+  call upwind_flux_gpu(n1,n2,facenrm,faceusp_array,facegpsp,faceflx)
   !
 end subroutine invs_common_fluxes_bc_at_flxpts
 !
@@ -4151,10 +4095,7 @@ subroutine invs_common_fluxes_bc_at_qdtpts()
   !
   use invs_flux_mod, only : invs_wall_flx_gpu
   !
-  use upwind_flux_mod, only : roe_upwind_flux_gpu
-  use upwind_flux_mod, only : hllc_upwind_flux_gpu
-  use upwind_flux_mod, only : ldfss_upwind_flux_gpu
-  use upwind_flux_mod, only : rotated_rhll_upwind_flux_gpu
+  use upwind_flux_mod, only : upwind_flux_gpu
   !
   !.. Local Scalars ..
   integer :: n1,n2,nf1,nf2
@@ -4183,23 +4124,7 @@ continue
   n1 = n_wall_qdtpts+1
   n2 = n_bnd_qdtpts
   !
-  if (invs_flux_method == invs_flux_ROE) then
-    !
-    call roe_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
-    !
-  else if (invs_flux_method == invs_flux_HLLC) then
-    !
-    call hllc_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
-    !
-  else if (invs_flux_method == invs_flux_LDFSS) then
-    !
-    call ldfss_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
-    !
-  else if (invs_flux_method == invs_flux_Rotated_RHLL) then
-    !
-    call rotated_rhll_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
-    !
-  end if
+  call upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,facegpqp,flux_qdtpts)
   !
   if (combine_common_flux_projections == Separate_All_Projections) then
     call project_flux_qdtpts_to_faceflx(nf1,nf2,flux_qdtpts,faceflx)
