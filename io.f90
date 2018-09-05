@@ -494,7 +494,15 @@ continue
   ! Change the upwind method to LDFSS if using gas mixture
   !
   if (ncs > 0) then
-    invs_flux_method = invs_flux_LDFSS
+    if (invs_flux_method /= invs_flux_ROE  .and. &
+        invs_flux_method /= invs_flux_HLLC .and. &
+        invs_flux_method /= invs_flux_LDFSS) then
+      invs_flux_method = invs_flux_ROE
+      if (mypnum == glb_root) then
+        write (iout,102)
+        flush (iout)
+      end if
+    end if
   end if
   !
   ! Make sure the variable index for the resolution marker is valid
@@ -877,6 +885,13 @@ continue
      "   THE SAME. THESE PROCEDURES WILL NEED TO BE UPDATED IN ORDER",/, &
      "   TO ALLOW FOR THIS CAPABILITY.",/, &
      "***************************** ERROR *****************************",/)
+  102 format (/, &
+      " ************************** WARNING!!!! **************************",//, &
+      "  AN INVALID INVISCID FLUX SCHEME FOR A GAS MIXTURE WAS REQUESTED",/, &
+      "  BY THE INPUT FILE. THE VALID UPWINDING INVISCID FLUX SCHEMES",/, &
+      "  FOR A GAS MIXTURE ARE THE ROE, HLLC, OR LDFSS SCHEMES.",//, &
+      "    THE INVISCID FLUX SCHEME HAS BEEN RESET TO THE ROE SCHEME.",//, &
+      " ************************** WARNING!!!! *************************",/)
   103 format (/, &
      " ********************* WARNING!!! *********************",/, &
      "  IT APPEARS THE FINAL TIME DOES NOT CORRESPOND TO THE",/, &
