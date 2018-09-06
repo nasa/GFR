@@ -20,6 +20,11 @@ module gpu_mod
     module procedure tvsp2u_gpu_rv, tvsp2u_gpu_inout
   end interface tvsp2u_gpu
   !
+  interface grad_cv_to_grad_pv_gpu
+    module procedure grad_cv_to_grad_pv_gpu, &
+                     grad_cv_to_grad_pv_sp
+  end interface grad_cv_to_grad_pv_gpu
+  !
 contains
 !
 !###############################################################################
@@ -1078,6 +1083,51 @@ continue
   end if
   !
 end subroutine tvsp2u_gpu_inout_nd
+!
+!###############################################################################
+!
+pure subroutine grad_cv_to_grad_pv_sp(uin,gpin,dcvdxin,return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: uin(:)
+  real(wp),    intent(in) :: gpin(:)
+  real(wp),    intent(in) :: dcvdxin(:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: l,m
+  !
+  !.. Local Arrays ..
+  real(wp) :: usp(1:1,1:size(uin))
+  real(wp) :: gpsp(1:1,1:size(gpin))
+  real(wp) :: dcvdx(1:1,1:size(dcvdxin,dim=1),1:size(dcvdxin,dim=2))
+  real(wp) :: dpvdx(1:1,1:size(dcvdxin,dim=1),1:size(dcvdxin,dim=2))
+  !
+continue
+  !
+  do m = 1,size(uin)
+    usp(1,m) = uin(m)
+  end do
+  !
+  do m = 1,size(gpin)
+    gpsp(1,m) = gpin(m)
+  end do
+  !
+  do m = 1,size(dcvdxin,dim=2)
+    do l = 1,size(dcvdxin,dim=1)
+      dcvdx(1,l,m) = dcvdxin(l,m)
+    end do
+  end do
+  !
+  call grad_cv_to_grad_pv_gpu(1,1,usp,gpsp,dcvdx,dpvdx)
+  !
+  do m = 1,size(dpvdx,dim=2)
+    do l = 1,size(dpvdx,dim=1)
+      return_value(l,m) = dpvdx(1,l,m)
+    end do
+  end do
+  !
+end subroutine grad_cv_to_grad_pv_sp
 !
 !###############################################################################
 !
