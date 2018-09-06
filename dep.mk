@@ -193,11 +193,6 @@ $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/interpolation_mod.o \
             $(OBJDIR)/gpu_mod.o \
             $(OBJDIR)/mms_mod.o \
-            $(FUNDIR)/entropy.f90 \
-            $(FUNDIR)/pressure.f90 \
-            $(FUNDIR)/vortex.f90 \
-            $(FUNDIR)/grad_cv_to_grad_pv.f90 \
-            $(FUNDIR)/usp2v.f90 \
             $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/geovar_mod.o : geovar_mod.f90 \

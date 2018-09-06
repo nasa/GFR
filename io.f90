@@ -21,7 +21,6 @@ module io_mod
   public :: write_final_error
   public :: write_parallel_cgns
   public :: write_residual_file
-  public :: write_residual_file_gpu
   public :: check_face_flux_point_orderings
   public :: check_cell_flux_point_orderings
   public :: test_communication
@@ -6143,135 +6142,6 @@ end subroutine write_final_error
 subroutine write_residual_file(iflag,icount)
   !
   use geovar,    only : nr,n_global_solpts
-  use ovar,      only : work_units,uverr1,total_volume
-  use ovar,      only : time,time_ref,time_scaling_factor
-  use ovar,      only : output_time_averaging,ave_start_time
-  use order_mod, only : p_order
-  !
-  !.. Formal Arguments ..
-  integer, intent(in) :: iflag
-  integer, intent(in) :: icount
-  !
-  !.. Local Scalars ..
-  integer  :: i,ierr
-  real(wp) :: comp_cost,small_num
-  character(len=25) :: suffix
-  !
-  !.. Local Saved Scalars ..
-  integer,     save :: iores
-  logical(lk), save :: file_is_opened = fals
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:nq+1) :: u2,v2
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "write_residual_file"
-  character(len=*), parameter :: fname = "residual.dat"
-  character(len=*), parameter :: uvw(1:3) = ["u","v","w"]
- !logical(lk),      parameter :: write_work_units = true
-  logical(lk),      parameter :: write_work_units = fals
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  ! Open the results file only if iflag is +1
-  !
-  if (.not. file_is_opened) then
-    !
-    open (newunit=iores,file=fname,status="replace",action="write", &
-                        iostat=ierr,iomsg=error_message)
-    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
-    !
-    write (iores,1)
-    !
-    suffix = '",'
-    if (output_time_averaging) suffix = '<sub>ave</sub>",'
-   !if (output_time_averaging) suffix = "<sub>ave</sub>" // trim(suffix)
-    !
-    write (iores,2) "<greek>r</greek>" // trim(suffix)
-    do i = 1,nr
-      write (iores,3) "<greek>r</greek>" // uvw(i) // trim(suffix)
-    end do
-    write (iores,2) "Energy" // trim(suffix)
-    write (iores,2) "Entropy" // trim(suffix)
-    write (iores,2) "T" // trim(suffix)
-    do i = 1,nr
-      write (iores,2) uvw(i) // trim(suffix)
-    end do
-    write (iores,2) "p" // trim(suffix)
-    write (iores,2) "||V||" // trim(suffix)
-    if (write_work_units) then
-      write (iores,2) "Work units",'"'
-    else
-      write (iores,2) "Time",'"'
-    end if
-    !
-    write (iores,4) p_order, one/sqrt(real(n_global_solpts,kind=wp))
-    !
-    file_is_opened = true
-    !
-  end if
-  !
-  if (write_work_units) then
-    comp_cost = log10(merge(work_units,one,work_units > zero))
-  else
-    comp_cost = time*time_ref*time_scaling_factor
-    if (output_time_averaging) then
-      comp_cost = comp_cost - ave_start_time*time_ref*time_scaling_factor
-    end if
-  end if
-  !
-  small_num = epsilon(zero)/total_volume
-  !
-  ! L1 Norm
- !u2(:) = merge( uverr1(:,1,1) , epsilon(zero)/two , uverr1(:,1,1)>zero )
- !v2(:) = merge( uverr1(:,1,2) , epsilon(zero)/two , uverr1(:,1,2)>zero )
-  ! L2 Norm
-  u2(:) = merge( uverr1(:,2,1) , small_num , uverr1(:,2,1)>zero )
-  v2(:) = merge( uverr1(:,2,2) , small_num , uverr1(:,2,2)>zero )
-  ! Infinity Norm
- !u2(:) = merge( uverr1(:,3,1) , epsilon(zero)/two , uverr1(:,3,1)>zero )
- !v2(:) = merge( uverr1(:,3,2) , epsilon(zero)/two , uverr1(:,3,2)>zero )
- !!
- !u2(:) = uverr1(:,2,1)
- !v2(:) = uverr1(:,2,2)
- !!
- !where (u2 <= zero) u2 = one
- !where (v2 <= zero) v2 = one
-  !
-  write (iores,5) icount,(log10(u2(i)),i=1,nq+1), &
-                         (log10(v2(i)),i=1,nq+1), &
-                         comp_cost
-  flush (iores)
-  !
-  ! Close the results file only if iflag is -1
-  !
-  if (iflag == -1) then
-    close (iores,iostat=ierr,iomsg=error_message)
-    call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-  ! Format Statements
-  !
-  1 format ('VARIABLES= "Timestep",')
-  2 format ('"',a,a)
-  3 format ('"',a,a,a)
-  4 format ('Zone T="Residual Error"',/, &
-            'AUXDATA order="',i0,'"',/, &
-            'AUXDATA h="',f10.6,'"')
-  5 format (i10,100(es17.9))
- !5 format (i10,*(es17.9))
-  !
-end subroutine write_residual_file
-!
-!###############################################################################
-!
-subroutine write_residual_file_gpu(iflag,icount)
-  !
-  use geovar,    only : nr,n_global_solpts
   use ovar,      only : work_units,uverr,total_volume
   use ovar,      only : time,time_ref,time_scaling_factor
   use ovar,      only : output_time_averaging,ave_start_time
@@ -6294,7 +6164,7 @@ subroutine write_residual_file_gpu(iflag,icount)
   real(wp), dimension(1:nq+1) :: u2,v2
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "write_residual_file_gpu"
+  character(len=*), parameter :: pname = "write_residual_file"
   character(len=*), parameter :: fname = "residual.dat"
   character(len=*), parameter :: uvw(1:3) = ["u","v","w"]
  !logical(lk),      parameter :: write_work_units = true
@@ -6392,7 +6262,7 @@ continue
   5 format (i10,100(es17.9))
  !5 format (i10,*(es17.9))
   !
-end subroutine write_residual_file_gpu
+end subroutine write_residual_file
 !
 !###############################################################################
 !

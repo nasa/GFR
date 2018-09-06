@@ -58,7 +58,6 @@ program GFR_main
   use io_mod, only : write_final_error
   use io_mod, only : write_parallel_cgns
   use io_mod, only : write_residual_file
-  use io_mod, only : write_residual_file_gpu
   use io_mod, only : test_communication
   use io_mod, only : check_face_flux_point_orderings
   use io_mod, only : check_cell_flux_point_orderings
@@ -103,12 +102,9 @@ program GFR_main
   !
   use generic_mod, only : init_generic_mod
   use generic_mod, only : write_iter_stats
-  use generic_mod, only : write_iter_stats_gpu
   use generic_mod, only : getmaxent
   use generic_mod, only : compute_residual_error
-  use generic_mod, only : compute_residual_error_gpu
   use generic_mod, only : compute_TaylorGreen_KEDR
-  use generic_mod, only : compute_TaylorGreen_KEDR_gpu
   !
   use time_mod, only : get_dtsp
   use time_mod, only : rresi
@@ -627,8 +623,7 @@ continue
     call check_for_bad_number(__LINE__)
     !
     if (itestcase == Taylor_Green_Vortex) then
-      call compute_TaylorGreen_KEDR_gpu(0,zero)
-     !call compute_TaylorGreen_KEDR(0,zero)
+      call compute_TaylorGreen_KEDR(0,zero)
       if (dump_memory_usage) then
         call memory_pause("initial TGV KEDR evaluation","dumping memory usage")
       else
@@ -877,15 +872,13 @@ continue
       !
       ! Compute the residual error
       !
-      call compute_residual_error_gpu
-     !call compute_residual_error
+      call compute_residual_error
       !
       if (mod(iter,iter_out_interval) == 0 .or. this_is_final_timestep) then
         !
         ! Output the density residual error to stdout
         !
-        call write_iter_stats_gpu(walltime_expiring,exit_main_loop)
-       !call write_iter_stats(walltime_expiring,exit_main_loop)
+        call write_iter_stats(walltime_expiring,exit_main_loop)
         !
         ! Exit the main loop if the convergence criteria were met
         !
@@ -899,8 +892,7 @@ continue
         !
         call gfr_cpu_time(1)
         !
-        if (mypnum == glb_root) call write_residual_file_gpu(0,itcur)
-       !if (mypnum == glb_root) call write_residual_file(0,itcur)
+        if (mypnum == glb_root) call write_residual_file(0,itcur)
         !
       end if
       !
@@ -1206,8 +1198,7 @@ continue
     ! different the kinetic energy dissipation rates
     !
     if (itestcase == Taylor_Green_Vortex .and. iter/=num_timesteps) then
-      call compute_TaylorGreen_KEDR_gpu(iter,dtmin)
-     !call compute_TaylorGreen_KEDR(iter,dtmin)
+      call compute_TaylorGreen_KEDR(iter,dtmin)
     end if
     !
 #ifdef PAUSE_BETWEEN_ITERATIONS
@@ -1255,8 +1246,7 @@ continue
   !
   if (num_timesteps > 0) then
     if (itestcase == Taylor_Green_Vortex) then
-      call compute_TaylorGreen_KEDR_gpu(-completed_timesteps,dtmin)
-     !call compute_TaylorGreen_KEDR(-completed_timesteps,dtmin)
+      call compute_TaylorGreen_KEDR(-completed_timesteps,dtmin)
     end if
   end if
   !
@@ -1270,8 +1260,7 @@ continue
   !
   if (.not. ignore_errors) then
     !
-    call compute_residual_error_gpu
-   !call compute_residual_error
+    call compute_residual_error
     !
     ! Get min and max entropy value and location
     call getmaxent
@@ -1288,8 +1277,7 @@ continue
       call gfr_cpu_time(-1)
       !
       call write_final_error
-      call write_residual_file_gpu(-1,itcur)
-     !call write_residual_file(-1,itcur)
+      call write_residual_file(-1,itcur)
       !
     end if
     !
