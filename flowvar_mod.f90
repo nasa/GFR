@@ -114,6 +114,7 @@ module flowvar
   end type face_vec
   !
   ! FACEUSP_DT  : conservative variables at the interface flux points
+  ! FACEGPSP_DT : gas properties at the interface flux points
   ! FACEDUSP_DT : conservative variable gradients at the interface flux points
   ! FACEXYZ_DT  : coordinates of the flux points on the boundary faces
   !
@@ -122,6 +123,7 @@ module flowvar
   ! facexyz_dt(1:nface)%v(1:nr,1:n_sp1de)
   !
   type(face_var), public, save, allocatable, dimension(:) :: faceusp_dt
+  type(face_var), public, save, allocatable, dimension(:) :: facegpsp_dt
   type(face_vec), public, save, allocatable, dimension(:) :: facedusp_dt
   type(face_xyz), public, save, allocatable, dimension(:) :: facexyz_dt
   !
@@ -192,6 +194,11 @@ module flowvar
   !
   type(ne1d_t), public, save, allocatable, dimension(:) :: nodeusp_dt
   !
+  ! NODEGPSP_DT : gas properties at the nodes
+  !                   nodegpsp_dt(1:nnode)%v(1:ng)
+  !
+  type(ne1d_t), public, save, allocatable, dimension(:) :: nodegpsp_dt
+  !
   ! NODEDUSP_DT : conservative variable gradients at the nodes
   !                   nodedusp_dt(1:nnode)%v(1:nr,1:nq)
   !
@@ -201,6 +208,11 @@ module flowvar
   !                   edgeusp_dt(1:nedge)%v(1:nq,1:n_sp1de)
   !
   type(ne2d_t), public, save, allocatable, dimension(:) :: edgeusp_dt
+  !
+  ! EDGEGPSP_DT : gas properties at the edge points
+  !                   edgegpsp_dt(1:nedge)%v(1:ng,1:n_sp1de)
+  !
+  type(ne2d_t), public, save, allocatable, dimension(:) :: edgegpsp_dt
   !
   ! EDGEDUSP_DT : conservative variable gradients at the edge points
   !                   edgedusp_dt(1:nedge)%v(1:nr,1:nq,1:n_sp1de)
@@ -223,6 +235,13 @@ module flowvar
                      alloc_face_var_dt_components, &
                      alloc_face_vec_dt_components
   end interface alloc_face_dt_components
+  !
+  interface alloc_ne_dt_components
+    module procedure alloc_node_var_dt_components, &
+                     alloc_node_vec_dt_components, &
+                     alloc_edge_var_dt_components, &
+                     alloc_edge_vec_dt_components
+  end interface alloc_ne_dt_components
   !
 contains
 !
@@ -371,6 +390,24 @@ continue
       call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
       !
+      if (.not. allocated(faceusp_dt)) then
+        allocate ( faceusp_dt(1:nface) , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"faceusp_dt",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+      !
+      if (.not. allocated(facegpsp_dt)) then
+        allocate ( facegpsp_dt(1:nface) , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"facegpsp_dt",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+      !
+      if (.not. allocated(facedusp_dt)) then
+        allocate ( facedusp_dt(1:nface) , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"facedusp_dt",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+      !
     else if (mms_opt /= 0) then
       !
       ! If using MMS but not using continuous output, facexyz_dt only needs
@@ -394,6 +431,10 @@ continue
     !
     if (allocated(faceusp_dt)) then
       call alloc_face_dt_components(faceusp_dt,nfpts,"faceusp_dt")
+    end if
+    !
+    if (allocated(facegpsp_dt)) then
+      call alloc_face_dt_components(facegpsp_dt,nfpts,"facegpsp_dt",num_var=ng)
     end if
     !
     if (allocated(facedusp_dt)) then
@@ -426,7 +467,7 @@ continue
     end if
     !
     if (.not. allocated(facegpsp)) then
-      allocate ( facegpsp(1:n_solpts,1:ng,1:2) , source=zero , &
+      allocate ( facegpsp(1:nfpts,1:ng,1:2) , source=zero , &
                  stat=ierr , errmsg=error_message )
       call alloc_error(pname,"facegpsp",1,__LINE__,__FILE__, &
                        ierr,error_message)
@@ -447,8 +488,8 @@ continue
       !
     end if
     !
-    ! If using continuous output, allocate the nodeusp_dt, nodedusp_dt,
-    ! edgeusp_dt, and edgedusp_dt arrays
+    ! If using continuous output, allocate the facegpsp_dt, nodeusp_dt,
+    ! nodegpsp_dt, nodedusp_dt, edgeusp_dt, edgegpsp_dt, and edgedusp_dt arrays
     !
     !##########################################################################
     !##########################################################################
@@ -466,13 +507,15 @@ continue
       call alloc_error(pname,"nodeusp_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
       !
-      do nn = 1,nnode
-        allocate ( nodeusp_dt(nn)%v(1:nq) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) "nodeusp_dt",nn
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
-      end do
+      call alloc_ne_dt_components(nodeusp_dt,"nodeusp_dt")
+      !
+      ! Allocate the nodegpsp_dt array and its data components
+      !
+      allocate ( nodegpsp_dt(1:nnode) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"nodegpsp_dt",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      call alloc_ne_dt_components(nodegpsp_dt,"nodegpsp_dt",num_var=ng)
       !
       ! Allocate the nodedusp_dt array and its data components
       !
@@ -480,13 +523,7 @@ continue
       call alloc_error(pname,"nodedusp_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
       !
-      do nn = 1,nnode
-        allocate ( nodedusp_dt(nn)%v(1:nr,1:nq) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) "nodedusp_dt",nn
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
-      end do
+      call alloc_ne_dt_components(nodedusp_dt,"nodedusp_dt")
       !
       ! Allocate the edgeusp_dt array and its data components
       !
@@ -494,17 +531,15 @@ continue
       call alloc_error(pname,"edgeusp_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
       !
-      do ne = 1,nedge
-        !
-        nepts = geom_solpts(Geom_Edge,edge(ne)%order)
-        !
-        allocate ( edgeusp_dt(ne)%v(1:nq,1:nepts) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) "edgeusp_dt",ne
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
-        !
-      end do
+      call alloc_ne_dt_components(edgeusp_dt,nepts,"edgeusp_dt")
+      !
+      ! Allocate the edgegpsp_dt array and its data components
+      !
+      allocate ( edgegpsp_dt(1:nedge) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"edgegpsp_dt",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      call alloc_ne_dt_components(edgegpsp_dt,nepts,"edgegpsp_dt",num_var=ng)
       !
       ! Allocate the edgedusp_dt array and its data components
       !
@@ -512,17 +547,7 @@ continue
       call alloc_error(pname,"edgedusp_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
       !
-      do ne = 1,nedge
-        !
-        nepts = geom_solpts(Geom_Edge,edge(ne)%order)
-        !
-        allocate ( edgedusp_dt(ne)%v(1:nr,1:nq,1:nepts) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) "edgedusp_dt",ne
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
-        !
-      end do
+      call alloc_ne_dt_components(edgedusp_dt,nepts,"edgedusp_dt")
       !
       ! Allocate the edgexyz_dt array and its data components
       !
@@ -530,17 +555,7 @@ continue
       call alloc_error(pname,"edgexyz_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
       !
-      do ne = 1,nedge
-        !
-        nepts = geom_solpts(Geom_Edge,edge(ne)%order)
-        !
-        allocate ( edgexyz_dt(ne)%v(1:nr,1:nepts) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) "edgexyz_dt",ne
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
-        !
-      end do
+      call alloc_ne_dt_components(edgexyz_dt,nepts,"edgexyz_dt",num_var=nr)
       !
     end if
     !
@@ -572,7 +587,7 @@ end subroutine allocate_flowvar_arrays
 !
 !###############################################################################
 !
-subroutine alloc_face_xyz_dt_components(array,npts,aname)
+subroutine alloc_face_xyz_dt_components(array,npts,aname,num_var)
   !
   !.. Use Statements ..
   use geovar,    only : nr,face
@@ -583,8 +598,11 @@ subroutine alloc_face_xyz_dt_components(array,npts,aname)
   integer,        intent(inout) :: npts
   character(len=*),  intent(in) :: aname
   !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: num_var
+  !
   !.. Local Scalars ..
-  integer :: nf,nfp,ierr
+  integer :: nf,nfp,nvar,ierr
   integer :: face_geom,face_order
   !
   character(len=200) :: array_name
@@ -593,6 +611,11 @@ subroutine alloc_face_xyz_dt_components(array,npts,aname)
   character(len=*), parameter :: pname = "alloc_face_xyz_dt_components"
   !
 continue
+  !
+  nvar = nr
+  if (present(num_var)) then
+    nvar = num_var
+  end if
   !
   npts = 0
   !
@@ -605,7 +628,7 @@ continue
     !
     npts = npts + nfp
     !
-    allocate ( array(nf)%v(1:nr,1:nfp) , source=zero , &
+    allocate ( array(nf)%v(1:nvar,1:nfp) , source=zero , &
                stat=ierr , errmsg=error_message )
     write (array_name,1) trim(adjustl(aname)),nf
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
@@ -621,7 +644,7 @@ end subroutine alloc_face_xyz_dt_components
 !
 !###############################################################################
 !
-subroutine alloc_face_var_dt_components(array,npts,aname)
+subroutine alloc_face_var_dt_components(array,npts,aname,num_var)
   !
   !.. Use Statements ..
   use eqn_idx,   only : nq
@@ -633,8 +656,11 @@ subroutine alloc_face_var_dt_components(array,npts,aname)
   integer,        intent(inout) :: npts
   character(len=*),  intent(in) :: aname
   !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: num_var
+  !
   !.. Local Scalars ..
-  integer :: nf,nfp,ierr
+  integer :: nf,nfp,nvar,ierr
   integer :: face_geom,face_order
   !
   character(len=200) :: array_name
@@ -643,6 +669,11 @@ subroutine alloc_face_var_dt_components(array,npts,aname)
   character(len=*), parameter :: pname = "alloc_face_var_dt_components"
   !
 continue
+  !
+  nvar = nq
+  if (present(num_var)) then
+    nvar = num_var
+  end if
   !
   npts = 0
   !
@@ -655,7 +686,7 @@ continue
     !
     npts = npts + nfp
     !
-    allocate ( array(nf)%v(1:nq,1:nfp,1:2) , source=zero , &
+    allocate ( array(nf)%v(1:nvar,1:nfp,1:2) , source=zero , &
                stat=ierr , errmsg=error_message )
     write (array_name,1) trim(adjustl(aname)),nf
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
@@ -671,7 +702,7 @@ end subroutine alloc_face_var_dt_components
 !
 !###############################################################################
 !
-subroutine alloc_face_vec_dt_components(array,npts,aname)
+subroutine alloc_face_vec_dt_components(array,npts,aname,num_var)
   !
   !.. Use Statements ..
   use eqn_idx,   only : nq
@@ -683,8 +714,11 @@ subroutine alloc_face_vec_dt_components(array,npts,aname)
   integer,        intent(inout) :: npts
   character(len=*),  intent(in) :: aname
   !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: num_var
+  !
   !.. Local Scalars ..
-  integer :: nf,nfp,ierr
+  integer :: nf,nfp,nvar,ierr
   integer :: face_geom,face_order
   !
   character(len=200) :: array_name
@@ -693,6 +727,11 @@ subroutine alloc_face_vec_dt_components(array,npts,aname)
   character(len=*), parameter :: pname = "alloc_face_vec_dt_components"
   !
 continue
+  !
+  nvar = nq
+  if (present(num_var)) then
+    nvar = num_var
+  end if
   !
   npts = 0
   !
@@ -705,7 +744,7 @@ continue
     !
     npts = npts + nfp
     !
-    allocate ( array(nf)%v(1:nr,1:nq,1:nfp,1:2) , source=zero , &
+    allocate ( array(nf)%v(1:nr,1:nvar,1:nfp,1:2) , source=zero , &
                stat=ierr , errmsg=error_message )
     write (array_name,1) trim(adjustl(aname)),nf
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
@@ -718,6 +757,206 @@ continue
   1 format (a,"(",i0,")%v")
   !
 end subroutine alloc_face_vec_dt_components
+!
+!###############################################################################
+!
+subroutine alloc_node_var_dt_components(array,aname,num_var)
+  !
+  !.. Use Statements ..
+  use eqn_idx, only : nq
+  !
+  !.. Formal Arguments ..
+  type(ne1d_t),  intent(inout) :: array(:)
+  character(len=*), intent(in) :: aname
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: num_var
+  !
+  !.. Local Scalars ..
+  integer :: nn,nvar,ierr
+  !
+  character(len=200) :: array_name
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "alloc_node_var_dt_components"
+  !
+continue
+  !
+  nvar = nq
+  if (present(num_var)) then
+    nvar = num_var
+  end if
+  !
+  do nn = lbound(array,dim=1),ubound(array,dim=1)
+    !
+    allocate ( array(nn)%v(1:nvar) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) trim(adjustl(aname)),nn
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
+    !
+  end do
+  !
+  ! Format Statements
+  !
+  1 format (a,"(",i0,")%v")
+  !
+end subroutine alloc_node_var_dt_components
+!
+!###############################################################################
+!
+subroutine alloc_node_vec_dt_components(array,aname,num_var)
+  !
+  !.. Use Statements ..
+  use eqn_idx, only : nq
+  use geovar,  only : nr
+  !
+  !.. Formal Arguments ..
+  type(ne2d_t),  intent(inout) :: array(:)
+  character(len=*), intent(in) :: aname
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: num_var
+  !
+  !.. Local Scalars ..
+  integer :: nn,nvar,ierr
+  !
+  character(len=200) :: array_name
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "alloc_node_vec_dt_components"
+  !
+continue
+  !
+  nvar = nq
+  if (present(num_var)) then
+    nvar = num_var
+  end if
+  !
+  do nn = lbound(array,dim=1),ubound(array,dim=1)
+    !
+    allocate ( array(nn)%v(1:nr,1:nvar) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) trim(adjustl(aname)),nn
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
+    !
+  end do
+  !
+  ! Format Statements
+  !
+  1 format (a,"(",i0,")%v")
+  !
+end subroutine alloc_node_vec_dt_components
+!
+!###############################################################################
+!
+subroutine alloc_edge_var_dt_components(array,npts,aname,num_var)
+  !
+  !.. Use Statements ..
+  use eqn_idx,   only : nq
+  use geovar,    only : edge
+  use order_mod, only : geom_solpts
+  !
+  !.. Formal Arguments ..
+  type(ne2d_t),  intent(inout) :: array(:)
+  integer,       intent(inout) :: npts
+  character(len=*), intent(in) :: aname
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: num_var
+  !
+  !.. Local Scalars ..
+  integer :: ne,nepts,nvar,ierr
+  !
+  character(len=200) :: array_name
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "alloc_edge_var_dt_components"
+  !
+continue
+  !
+  nvar = nq
+  if (present(num_var)) then
+    nvar = num_var
+  end if
+  !
+  npts = 0
+  !
+  do ne = lbound(array,dim=1),ubound(array,dim=1)
+    !
+    nepts = geom_solpts(Geom_Edge,edge(ne)%order)
+    !
+    npts = npts + nepts
+    !
+    allocate ( array(ne)%v(1:nvar,1:nepts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) trim(adjustl(aname)),ne
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
+    !
+  end do
+  !
+  ! Format Statements
+  !
+  1 format (a,"(",i0,")%v")
+  !
+end subroutine alloc_edge_var_dt_components
+!
+!###############################################################################
+!
+subroutine alloc_edge_vec_dt_components(array,npts,aname,num_var)
+  !
+  !.. Use Statements ..
+  use eqn_idx,   only : nq
+  use geovar,    only : nr
+  use geovar,    only : edge
+  use order_mod, only : geom_solpts
+  !
+  !.. Formal Arguments ..
+  type(ne3d_t),  intent(inout) :: array(:)
+  integer,       intent(inout) :: npts
+  character(len=*), intent(in) :: aname
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: num_var
+  !
+  !.. Local Scalars ..
+  integer :: ne,nepts,nvar,ierr
+  !
+  character(len=200) :: array_name
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "alloc_edge_vec_dt_components"
+  !
+continue
+  !
+  nvar = nq
+  if (present(num_var)) then
+    nvar = num_var
+  end if
+  !
+  npts = 0
+  !
+  do ne = lbound(array,dim=1),ubound(array,dim=1)
+    !
+    nepts = geom_solpts(Geom_Edge,edge(ne)%order)
+    !
+    npts = npts + nepts
+    !
+    allocate ( array(ne)%v(1:nr,1:nvar,1:nepts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) trim(adjustl(aname)),ne
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
+    !
+  end do
+  !
+  ! Format Statements
+  !
+  1 format (a,"(",i0,")%v")
+  !
+end subroutine alloc_edge_vec_dt_components
 !
 !###############################################################################
 !###############################################################################
