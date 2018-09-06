@@ -590,6 +590,5 @@ $(OBJDIR)/visc_flux_mod.o : visc_flux_mod.f90 \
          $(OBJDIR)/ovar_mod.o \
          $(OBJDIR)/gpu_mod.o \
 	 $(OBJDIR)/thermo_mod.o \
-	 $(OBJDIR)/transport_mod.o \
-         $(FUNDIR)/grad_cv_to_grad_pv.f90
+	 $(OBJDIR)/transport_mod.o
 

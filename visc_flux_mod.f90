@@ -423,7 +423,8 @@ end subroutine visc_flx_cv_gpu_1d
 pure function visc_flx_cv1(uu,gp,dcvdx) result(return_value)
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geovar,  only : nr
+  use gpu_mod, only : grad_cv_to_grad_pv_gpu
   !
   !.. Formal Arguments ..
   real(wp), dimension(1:nq),      intent(in) :: uu
@@ -452,7 +453,7 @@ continue
   ! Get the gradients of the primitive variables using the
   ! gradients of the conservative variables and the product rule
   !
-  dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp(uu,dcvdx)
+  call grad_cv_to_grad_pv_gpu(uu,gp,dcvdx,dpvdx)
   !
   ! Get the velocity vector
   !
@@ -506,7 +507,8 @@ pure subroutine visc_flx_cv(uu,gp,dcvdx,return_value)
 ! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geovar,  only : nr
+  use gpu_mod, only : grad_cv_to_grad_pv_gpu
   !
   !.. Formal Arguments ..
   real(wp), dimension(1:nq),      intent(in) :: uu
@@ -536,8 +538,7 @@ continue
   ! Get the gradients of the primitive variables using the
   ! gradients of the conservative variables and the product rule
   !
- !dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp_sub(uu,dcvdx)
-  call grad_cv_to_grad_pv_sp_sub(uu,dcvdx,dpvdx)
+  call grad_cv_to_grad_pv_gpu(uu,gp,dcvdx,dpvdx)
   !
   ! Get the velocity vector
   !
@@ -2581,10 +2582,6 @@ continue
   end if
   !
 end function common_visc_flx_cv
-!
-!###############################################################################
-!
-include "Functions/grad_cv_to_grad_pv.f90"
 !
 !###############################################################################
 !
