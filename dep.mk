@@ -487,12 +487,10 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(OBJDIR)/interpolation_mod.o \
                  $(OBJDIR)/parallel.o \
                  $(OBJDIR)/connectivity.o \
+                 $(OBJDIR)/thermo_mod.o \
+                 $(OBJDIR)/transport_mod.o \
+                 $(OBJDIR)/gpu_mod.o \
                  $(FUNDIR)/last.f90 \
-                 $(FUNDIR)/pressure.f90 \
-                 $(FUNDIR)/temperature.f90 \
-                 $(FUNDIR)/mach_number.f90 \
-                 $(FUNDIR)/entropy.f90 \
-                 $(FUNDIR)/grad_cv_to_grad_pv.f90 \
                  $(FUNDIR)/cell_solpts.f90
 
 

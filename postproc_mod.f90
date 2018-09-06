@@ -4,6 +4,7 @@ module postprocessor_mod
   use module_kind_types
   use module_cgns_types
   use eqn_idx, only : nq,nec,nmx,nmy,nmz,nee,nmb,nme
+  use eqn_idx, only : ng,npres,ntemp,ngamm
   !
   implicit none
   !
@@ -914,10 +915,10 @@ subroutine collect_solution_for_output(var)
   !
   !.. Use Statements ..
   use geovar,  only : ncell,cell
-  use flowvar, only : usp,dusp
-  use flowvar, only : faceusp_dt,facedusp_dt
-  use flowvar, only : nodeusp_dt,nodedusp_dt
-  use flowvar, only : edgeusp_dt,edgedusp_dt
+  use flowvar, only : usp,gpsp,dusp
+  use flowvar, only : faceusp_dt,facegpsp_dt,facedusp_dt
+  use flowvar, only : nodeusp_dt,nodegpsp_dt,nodedusp_dt
+  use flowvar, only : edgeusp_dt,edgegpsp_dt,edgedusp_dt
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(out) :: var
@@ -937,6 +938,8 @@ continue
   !
   call get_edge_and_node_solutions
   !
+  call pp_update_gas_properties
+  !
   !
   cell_loop: do nc = 1,ncell
     !
@@ -947,7 +950,7 @@ continue
       !
       l = output_sol_pts(n)
       !
-      var(:,l) = compute_output_variables(usp(n,:),dusp(n,:,:))
+      var(:,l) = compute_output_variables(usp(n,:),gpsp(n,:),dusp(n,:,:))
       !
     end do
     !
@@ -964,6 +967,7 @@ continue
       l = output_face_pts(nf)%out_idx(k)
       !
       var(:,l) = compute_output_variables(faceusp_dt(face_idx)%v(:,k,1), &
+                                         facegpsp_dt(face_idx)%v(:,k,1), &
                                          facedusp_dt(face_idx)%v(:,:,k,1))
       !
     end do
@@ -981,6 +985,7 @@ continue
       l = output_edge_pts(ne)%out_idx(k)
       !
       var(:,l) = compute_output_variables(edgeusp_dt(edge_idx)%v(:,k), &
+                                         edgegpsp_dt(edge_idx)%v(:,k), &
                                          edgedusp_dt(edge_idx)%v(:,:,k))
       !
     end do
@@ -996,6 +1001,7 @@ continue
     l = output_node_pts(nn)%out_idx
     !
     var(:,l) = compute_output_variables(nodeusp_dt(node_idx)%v(:), &
+                                       nodegpsp_dt(node_idx)%v(:), &
                                        nodedusp_dt(node_idx)%v(:,:))
     !
   end do node_loop
@@ -1006,17 +1012,238 @@ end subroutine collect_solution_for_output
 !
 !###############################################################################
 !
+subroutine pp_update_gas_properties()
+  !
+  !.. Use Statements ..
+  use order_mod, only : geom_solpts
+  use geovar,    only : face,edge
+  use geovar,    only : n_solpts,n_flxpts
+  use flowvar,   only : usp,gpsp
+  use flowvar,   only : faceusp_dt,facegpsp_dt
+  use flowvar,   only : edgeusp_dt,edgegpsp_dt
+  use flowvar,   only : nodeusp_dt,nodegpsp_dt
+  !
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
+  !
+  !.. Local Scalars ..
+  integer  :: nf,ne,nn,n0,np,k,m,ierr
+  integer  :: n_edgpts,n_nodpts
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: utmp(:,:)
+  real(wp), allocatable :: gptmp(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "pp_update_gas_properties"
+  !
+continue
+  !
+  ! Count the total number of edge points
+  !
+  n_edgpts = 0
+  do ne = 1,size(edgeusp_dt)
+    n_edgpts = n_edgpts + size(edgeusp_dt(ne)%v,dim=2)
+  end do
+  !
+  n_nodpts = size(nodeusp_dt)
+  !
+  ! 1. Update the gas properties for the interior solution points
+  !
+  call update_thermo_properties(1,n_solpts,usp,gpsp)
+  call update_transport_properties(1,n_solpts,usp,gpsp)
+  !
+  ! 2. Update the gas properties for the face points
+  !
+  ! Allocate utmp and gptmp for all the face points
+  !
+  if (allocated(utmp)) then
+    deallocate ( utmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"utmp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(gptmp)) then
+    deallocate ( gptmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"gptmp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( utmp(1:n_flxpts,1:nq) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"utmp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( gptmp(1:n_flxpts,1:ng) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"gptmp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Copy faceusp_dt and facegpsp_dt into utmp and gptmp
+  !
+  do nf = 1,size(faceusp_dt)
+    n0 = face(nf)%beg_fp - 1
+    np = face(nf)%end_fp - n0
+    do k = 1,np
+      do m = 1,nq
+        utmp(n0+k,m) = faceusp_dt(nf)%v(m,k,1)
+      end do
+      do m = 1,ng
+        gptmp(n0+k,m) = facegpsp_dt(nf)%v(m,k,1)
+      end do
+    end do
+  end do
+  !
+  ! Use utmp to update the gas properties in gptmp
+  !
+  call update_thermo_properties(1,n_flxpts,utmp,gptmp)
+  call update_transport_properties(1,n_flxpts,utmp,gptmp)
+  !
+  ! Copy the gas properties in gptmp back into facegpsp_dt
+  !
+  do nf = 1,size(faceusp_dt)
+    n0 = face(nf)%beg_fp - 1
+    np = face(nf)%end_fp - n0
+    do m = 1,ng
+      do k = 1,np
+        facegpsp_dt(nf)%v(m,k,1) = gptmp(n0+k,m)
+      end do
+    end do
+  end do
+  !
+  ! 3. Update the gas properties for the edge points
+  !
+  ! Allocate utmp and gptmp for all the edge points
+  !
+  if (allocated(utmp)) then
+    deallocate ( utmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"utmp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(gptmp)) then
+    deallocate ( gptmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"gptmp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( utmp(1:n_edgpts,1:nq) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"utmp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( gptmp(1:n_edgpts,1:ng) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"gptmp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Copy edgeusp_dt and edgegpsp_dt into utmp and gptmp
+  !
+  np = 0
+  do ne = 1,size(edgeusp_dt)
+    n0 = n0 + np
+    np = geom_solpts(Geom_Edge,edge(ne)%order)
+    do k = 1,np
+      do m = 1,nq
+        utmp(n0+k,m) = edgeusp_dt(ne)%v(m,k)
+      end do
+      do m = 1,ng
+        gptmp(n0+k,m) = edgegpsp_dt(ne)%v(m,k)
+      end do
+    end do
+  end do
+  !
+  ! Use utmp to update the gas properties in gptmp
+  !
+  call update_thermo_properties(1,n_edgpts,utmp,gptmp)
+  call update_transport_properties(1,n_edgpts,utmp,gptmp)
+  !
+  ! Copy the gas properties in gptmp back into edgegpsp_dt
+  !
+  np = 0
+  do ne = 1,size(edgeusp_dt)
+    n0 = n0 + np
+    np = geom_solpts(Geom_Edge,edge(ne)%order)
+    do m = 1,ng
+      do k = 1,np
+        edgegpsp_dt(ne)%v(m,k) = gptmp(n0+k,m)
+      end do
+    end do
+  end do
+  !
+  ! 4. Update the gas properties for the node points
+  !
+  ! Allocate utmp and gptmp for all the node points
+  !
+  if (allocated(utmp)) then
+    deallocate ( utmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"utmp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(gptmp)) then
+    deallocate ( gptmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"gptmp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( utmp(1:n_nodpts,1:nq) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"utmp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( gptmp(1:n_nodpts,1:ng) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"gptmp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Copy nodeusp_dt and nodegpsp_dt into utmp and gptmp
+  !
+  do nn = 1,size(nodeusp_dt)
+    do m = 1,nq
+      utmp(nn,m) = nodeusp_dt(nn)%v(m)
+    end do
+    do m = 1,ng
+      gptmp(nn,m) = nodegpsp_dt(nn)%v(m)
+    end do
+  end do
+  !
+  ! Use utmp to update the gas properties in gptmp
+  !
+  call update_thermo_properties(1,n_nodpts,utmp,gptmp)
+  call update_transport_properties(1,n_nodpts,utmp,gptmp)
+  !
+  ! Copy the gas properties in gptmp back into nodegpsp_dt
+  !
+  do nn = 1,size(nodeusp_dt)
+    do m = 1,ng
+      nodegpsp_dt(nn)%v(m) = gptmp(nn,m)
+    end do
+  end do
+  !
+  ! Deallocate utmp and gptmp before leaving
+  !
+  if (allocated(utmp)) then
+    deallocate ( utmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"utmp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(gptmp)) then
+    deallocate ( gptmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"gptmp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+end subroutine pp_update_gas_properties
+!
+!###############################################################################
+!
 subroutine get_face_solutions
   !
   !.. Use Statements ..
-  use geovar,    only : nfbnd,nface
-  use flowvar,   only : faceusp_dt,facedusp_dt
+  use geovar,    only : n_bnd_flxpts,n_flxpts
+  use flowvar,   only : faceusp_array,facegpsp
   !
   use module_bc, only : get_faceusp_bc
   use module_bc, only : get_facedusp_bc
   !
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
+  !
+  use parallel_mod, only : exchange_faceusp
+  use parallel_mod, only : wait_faceusp
+  use parallel_mod, only : exchange_facedusp
+  use parallel_mod, only : wait_facedusp
+  !
   !.. Local Scalars ..
-  integer :: nf
+  integer :: n1,n2
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_face_solutions"
@@ -1025,41 +1252,49 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-#ifdef SPECIAL_FOR_PGI
-  call faceusp_dt%zero_face_var
-  call facedusp_dt%zero_face_vec
-#else
-  call faceusp_dt%zero
-  call facedusp_dt%zero
-#endif
-  !
   call pp_interp_cv_to_flxpts
+  !
+  ! Update the thermodynamic and transport gas properties
+  ! at all the flux points of the interior faces
+  !
+  n1 = n_bnd_flxpts+1
+  n2 = n_flxpts
+  !
+  call update_thermo_properties(n1,n2,faceusp_array,facegpsp)
+  call update_transport_properties(n1,n2,faceusp_array,facegpsp)
+  !
+  ! Exchange the left and right states for faces on communication boundaries
+  !
+  if (ncpu > 1) then
+    call exchange_faceusp
+    call wait_faceusp
+  end if
   !
   call get_faceusp_bc
   !
-  do nf = 1,nfbnd
-    faceusp_dt(nf)%v(:,:,1) = faceusp_dt(nf)%v(:,:,2)
-  end do
+  ! Update the thermodynamic and transport gas properties for
+  ! all the exterior flux points of all the boundary faces
+  ! NOTE: This was done for the interior flux points
+  !       of all boundary faces within get_faceusp_bc
   !
-  do nf = nfbnd+1,nface
-    faceusp_dt(nf)%v(:,:,1) = half * (faceusp_dt(nf)%v(:,:,1) + &
-                                      faceusp_dt(nf)%v(:,:,2))
-  end do
+  n1 = 1
+  n2 = n_bnd_flxpts
   !
-  !
+  call update_thermo_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2))
+  call update_transport_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2))
   !
   call pp_interp_dusp_to_flxpts
   !
+  ! Exchange the left and right gradients for faces on communication boundaries
+  !
+  if (ncpu > 1) then
+    call exchange_facedusp
+    call wait_facedusp
+  end if
+  !
   call get_facedusp_bc
   !
-  do nf = 1,nfbnd
-    facedusp_dt(nf)%v(:,:,:,1) = facedusp_dt(nf)%v(:,:,:,2)
-  end do
-  !
-  do nf = nfbnd+1,nface
-    facedusp_dt(nf)%v(:,:,:,1) = half * (facedusp_dt(nf)%v(:,:,:,1) + &
-                                      facedusp_dt(nf)%v(:,:,:,2))
-  end do
+  call copy_and_average_face_arrays_to_dt
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1067,27 +1302,182 @@ end subroutine get_face_solutions
 !
 !###############################################################################
 !
-subroutine pp_interp_cv_to_flxpts()
+subroutine copy_and_average_face_arrays_to_dt()
   !
-  use order_mod,         only : maxSP,geom_solpts
-  use geovar,            only : ncell,cell,fp
-  use interpolation_mod, only : interp
-  use flowvar,           only : usp,faceusp_dt
+  !.. Use Statements ..
+  use geovar,    only : nfbnd,bface,nface,face,n_flxpts
+  use flowvar,   only : faceusp_dt,faceusp_array
+  use flowvar,   only : facegpsp_dt,facegpsp
+  use flowvar,   only : facedusp_dt,facedusp_array
   !
-  use parallel_mod,      only : exchange_faceusp_dt
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
   !
   !.. Local Scalars ..
-  integer :: i,j,n,nc,n0,k,m
-  integer :: nf,kf,lf,sf
-  integer :: this_geom,this_order
-  integer :: face_geom,face_order
-  real(wp) :: a
-  !
-  !.. Local Arrays ..
-  real(wp) :: face_cv(1:nq)
+  integer  :: n1,n2,nf,f0,nfp,k,l,m
+  real(wp) :: val
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "pp_interp_cv_to_flxpts"
+  character(len=*), parameter :: pname = "copy_and_average_face_arrays_to_dt"
+  !
+continue
+  !
+  ! Zero out the component arrays in the face derived types
+  !
+#ifdef SPECIAL_FOR_PGI
+  call faceusp_dt%zero_face_var
+  call facegpsp_dt%zero_face_var
+  call facedusp_dt%zero_face_vec
+#else
+  call faceusp_dt%zero
+  call facegpsp_dt%zero
+  call facedusp_dt%zero
+#endif
+  !
+  ! Compute a common state for all boundary flux points based
+  ! on the type of boundary condition for the boundary face
+  !
+  do nf = 1,nfbnd
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    if (any(bface(1,nf) == bc_comm)) then
+      !
+      ! Average left and right states and gradients for
+      ! exterior communication and periodic boundary faces
+      !
+      do m = 1,size(faceusp_array,dim=2)
+        do k = 1,nfp
+          !
+          val = half*(faceusp_array(f0+k,m,1) + faceusp_array(f0+k,m,2))
+          faceusp_array(f0+k,m,1) = val
+          faceusp_array(f0+k,m,2) = val
+          faceusp_dt(nf)%v(m,k,1) = val
+          faceusp_dt(nf)%v(m,k,2) = val
+          !
+          do l = 1,size(facedusp_array,dim=2)
+            val = half*(facedusp_array(f0+k,l,m,1) + facedusp_array(f0+k,l,m,2))
+            facedusp_array(f0+k,l,m,1) = val
+            facedusp_array(f0+k,l,m,2) = val
+            facedusp_dt(nf)%v(l,m,k,1) = val
+            facedusp_dt(nf)%v(l,m,k,2) = val
+          end do
+          !
+        end do
+      end do
+      !
+    else
+      !
+      ! Use the right (exterior) state for exterior
+      ! boundary faces with physical boundary conditions
+      !
+      do m = 1,size(faceusp_array,dim=2)
+        do k = 1,nfp
+          !
+          val = faceusp_array(f0+k,m,2)
+          faceusp_array(f0+k,m,1) = val
+          faceusp_array(f0+k,m,2) = val
+          faceusp_dt(nf)%v(m,k,1) = val
+          faceusp_dt(nf)%v(m,k,2) = val
+          !
+          do l = 1,size(facedusp_array,dim=2)
+            val = facedusp_array(f0+k,l,m,2)
+            facedusp_array(f0+k,l,m,1) = val
+            facedusp_array(f0+k,l,m,2) = val
+            facedusp_dt(nf)%v(l,m,k,1) = val
+            facedusp_dt(nf)%v(l,m,k,2) = val
+          end do
+          !
+        end do
+      end do
+      !
+    end if
+    !
+  end do
+  !
+  ! Average left and right states and gradients for interior faces
+  !
+  do nf = nfbnd+1,nface
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    do m = 1,size(faceusp_array,dim=2)
+      do k = 1,nfp
+        !
+        val = half*(faceusp_array(f0+k,m,1) + faceusp_array(f0+k,m,2))
+        faceusp_array(f0+k,m,1) = val
+        faceusp_array(f0+k,m,2) = val
+        faceusp_dt(nf)%v(m,k,1) = val
+        faceusp_dt(nf)%v(m,k,2) = val
+        !
+        do l = 1,size(facedusp_array,dim=2)
+          val = half*(facedusp_array(f0+k,l,m,1) + facedusp_array(f0+k,l,m,2))
+          facedusp_array(f0+k,l,m,1) = val
+          facedusp_array(f0+k,l,m,2) = val
+          facedusp_dt(nf)%v(l,m,k,1) = val
+          facedusp_dt(nf)%v(l,m,k,2) = val
+        end do
+        !
+      end do
+    end do
+    !
+  end do
+  !
+  ! Update the gas properties using the newly updated faceusp_array
+  !
+  n1 = 1
+  n2 = n_flxpts
+  !
+  call update_thermo_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1))
+  call update_transport_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1))
+  !
+  ! Copy the updated gas properties to facegpsp_dt
+  !
+  do nf = 1,nface
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    do m = 1,size(facegpsp,dim=2)
+      do k = 1,nfp
+        val = facegpsp(f0+k,m,1)
+        facegpsp(f0+k,m,1) = val
+        facegpsp(f0+k,m,2) = val
+        facegpsp_dt(nf)%v(m,k,1) = val
+        facegpsp_dt(nf)%v(m,k,2) = val
+      end do
+    end do
+    !
+  end do
+  !
+end subroutine copy_and_average_face_arrays_to_dt
+!
+!###############################################################################
+!
+subroutine pp_interp_cv_to_flxpts()
+  !
+  use order_mod,         only : maxSP,maxFP
+  use geovar,            only : ncell,cell,face,fp
+  use interpolation_mod, only : interp
+  use flowvar,           only : usp
+  use flowvar,           only : faceusp_array
+  !
+  !.. Local Scalars ..
+  integer  :: n,nc,n0,n1,n2,k,m,f0
+  integer  :: nf,kf,lf,sf,i,j,nfp
+  integer  :: this_geom,this_order
+  integer  :: face_geom,face_order
+  integer  :: fp_offset,face_rot
+  integer  :: num_cell_faces
+  real(wp) :: a,val
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:maxFP) :: fpidx
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "pp_interp_cv_to_flxpts_nd"
   !
 continue
   !
@@ -1105,7 +1495,9 @@ continue
     !
     ! Loop over the faces of this cell
     !
-    do n = 1,size(cell(nc)%face)
+    num_cell_faces = size(cell(nc)%face)
+    !
+    do n = 1,num_cell_faces
       !
       nf = cell(nc)%face(n)%idx  ! index of the current face
       sf = cell(nc)%face(n)%side ! side of face that cell nc is on
@@ -1113,39 +1505,42 @@ continue
       face_geom = cell(nc)%face(n)%geom   ! geom  of current face
       face_order = cell(nc)%face(n)%order ! order of current face
       !
-      do kf = 1,geom_solpts(face_geom,face_order)
-        !
-        ! kf: index of the flx-pt local to this face
-        ! lf: index of flx-pt within interp%mat
-        lf = cell(nc)%face(n)%fp_offset + fp%geord(face_geom,face_order)% &
-                                          rot(cell(nc)%face(n)%rotation)% &
-                                          pts(kf)
-        !
-        face_cv(1:nq) = zero
-        !
-        do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
-               interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+      fp_offset = cell(nc)%face(n)%fp_offset
+      face_rot = cell(nc)%face(n)%rotation
+      !
+      f0 = face(nf)%beg_fp - 1
+      nfp = face(nf)%end_fp - f0
+      fpidx(1:nfp) = fp_offset + fp%geord(face_geom,face_order)% &
+                                    rot(face_rot)%pts(1:nfp)
+      !
+      do kf = 1,nfp
+        do m = 1,nq
           !
-          j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
-          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+          ! kf: index of the flx-pt local to this face
+          ! lf: index of flx-pt within interp%mat
           !
-          do m = 1,nq
-            face_cv(m) = face_cv(m) + a * usp(n0+j,m)
+          lf = fpidx(kf)
+          val = zero
+          !
+          do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1,&
+                 interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+            !
+            j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+            a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+            !
+            val = val + a * usp(n0+j,m)
+            !
           end do
           !
+          faceusp_array(f0+kf,m,sf) = val
+          !
         end do
-        !
-        faceusp_dt(nf)%v(1:nq,kf,sf) = face_cv(1:nq)
         !
       end do
       !
     end do
     !
   end do
-  !
-  ! Exchange the left and right states for faces on communication boundaries
-  !
-  if (ncpu > 1) call exchange_faceusp_dt(faceusp_dt)
   !
 end subroutine pp_interp_cv_to_flxpts
 !
@@ -1153,22 +1548,25 @@ end subroutine pp_interp_cv_to_flxpts
 !
 subroutine pp_interp_dusp_to_flxpts()
   !
-  use order_mod,         only : maxSP,geom_solpts
-  use geovar,            only : nr,ncell,cell,fp
+  !.. Use Statements ..
+  use order_mod,         only : maxFP
+  use geovar,            only : nr,ncell,cell,face,fp
   use interpolation_mod, only : interp
-  use flowvar,           only : dusp,facedusp_dt
-  !
-  use parallel_mod,      only : exchange_facedusp_dt
+  use flowvar,           only : dusp,facedusp_array
   !
   !.. Local Scalars ..
-  integer :: i,j,n,nc,n0,k,l,m
-  integer :: nf,kf,lf,sf
-  integer :: this_geom,this_order
-  integer :: face_geom,face_order
-  real(wp) :: a
+  integer  :: n,nc,n0,k,l,m,f0
+  integer  :: nf,kf,lf,sf,i,j,nfp
+  integer  :: this_geom,this_order
+  integer  :: face_geom,face_order
+  integer  :: fp_offset,face_rot
+  real(wp) :: a,val
   !
   !.. Local Arrays ..
-  real(wp) :: face_dcvdx(1:nr,1:nq)
+  integer, dimension(1:maxFP) :: fpidx
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "pp_interp_dusp_to_flxpts"
   !
 continue
   !
@@ -1194,41 +1592,47 @@ continue
       face_geom = cell(nc)%face(n)%geom   ! geom  of current face
       face_order = cell(nc)%face(n)%order ! order of current face
       !
-      do kf = 1,geom_solpts(face_geom,face_order)
+      fp_offset = cell(nc)%face(n)%fp_offset
+      face_rot = cell(nc)%face(n)%rotation
+      !
+      f0 = face(nf)%beg_fp - 1
+      nfp = face(nf)%end_fp - f0
+      fpidx(1:nfp) = fp_offset + fp%geord(face_geom,face_order)% &
+                                    rot(face_rot)%pts(1:nfp)
+      !
+      do kf = 1,nfp
         !
         ! kf: index of the flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
-        lf = cell(nc)%face(n)%fp_offset + fp%geord(face_geom,face_order)% &
-                                          rot(cell(nc)%face(n)%rotation)% &
-                                          pts(kf)
         !
-        face_dcvdx(1:nr,1:nq) = zero
-        !
-        do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
-               interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
-          !
-          j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
-          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
-          !
-          do m = 1,nq
-            do l = 1,nr
-              face_dcvdx(l,m) = face_dcvdx(l,m) + a * dusp(n0+j,l,m)
+        do m = 1,nq
+          do l = 1,nr
+            !
+            lf = fpidx(kf)
+            val = zero
+            !
+            do i = interp(this_geom,this_order)% &
+                             toFace(face_order)%row_ptr(lf)+1, &
+                   interp(this_geom,this_order)% &
+                             toFace(face_order)%row_ptr(lf+1)
+              !
+              j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+              a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+              !
+              val = val + a * dusp(n0+j,l,m)
+              !
             end do
+            !
+            facedusp_array(f0+kf,l,m,sf) = val
+            !
           end do
-          !
         end do
-        !
-        facedusp_dt(nf)%v(1:nr,1:nq,kf,sf) = face_dcvdx(1:nr,1:nq)
         !
       end do
       !
     end do
     !
   end do
-  !
-  ! Exchange the left and right states for faces on communication boundaries
-  !
-  if (ncpu > 1) call exchange_facedusp_dt(facedusp_dt)
   !
 end subroutine pp_interp_dusp_to_flxpts
 !
@@ -2803,11 +3207,12 @@ end function plot_func_type_equals
 !
 !###############################################################################
 !
-pure function compute_output_variables(upt,dupt) result(return_value)
+pure function compute_output_variables(upt,gppt,dupt) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:),   intent(in) :: upt
-  real(wp), dimension(:,:), intent(in) :: dupt
+  real(wp), intent(in) :: upt(:)
+  real(wp), intent(in) :: gppt(:)
+  real(wp), intent(in) :: dupt(:,:)
   !
   !.. Function Result ..
   real(wp) :: return_value(1:size(plot_var))
@@ -2818,26 +3223,30 @@ pure function compute_output_variables(upt,dupt) result(return_value)
 continue
   !
   do i = 1,size(plot_var)
-    return_value(i) = compute_output_variable(upt,dupt,plot_var(i))
+    return_value(i) = compute_output_variable(upt,gppt,dupt,plot_var(i))
   end do
   !
 end function compute_output_variables
 !
 !###############################################################################
 !
-pure function compute_output_variable(upt,dupt,plot_variable) &
+pure function compute_output_variable(upt,gppt,dupt,plot_variable) &
                                result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : rhoref,aref,tref,time_ref
+  use ovar, only : rhoref,aref,tref,time_ref,gam,pref_nd,itestcase
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:),   intent(in) :: upt
-  real(wp), dimension(:,:), intent(in) :: dupt
-  type(plot_func_t),        intent(in) :: plot_variable
+  real(wp),          intent(in) :: upt(:)
+  real(wp),          intent(in) :: gppt(:)
+  real(wp),          intent(in) :: dupt(:,:)
+  type(plot_func_t), intent(in) :: plot_variable
   !
   !.. Function Result ..
   real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  real(wp) :: gamm
   !
 continue
   !
@@ -2871,11 +3280,11 @@ continue
     !
   else if (plot_variable == plot_static_pressure) then
     !
-    return_value = pressure_cv_sp( upt )              * rhoref * aref * aref
+    return_value = gppt(npres)                        * rhoref * aref * aref
     !
   else if (plot_variable == plot_static_temperature) then
     !
-    return_value = temperature_cv_sp( upt )           * tref
+    return_value = gppt(ntemp)                        * tref
     !
   else if (plot_variable == plot_total_energy) then
     !
@@ -2883,23 +3292,33 @@ continue
     !
   else if (plot_variable == plot_mach_number) then
     !
-    return_value = mach_number_cv_sp( upt )
+    gamm = gam
+    if (ngamm > 0) gamm = gppt(ngamm)
+    !
+    return_value = norm2(upt(nmb:nme)) / sqrt( upt(nec)*gamm*gppt(npres) )
     !
   else if (plot_variable == plot_entropy) then
     !
-    return_value = entropy_cv_sp( upt )
+    gamm = gam
+    if (ngamm > 0) gamm = gppt(ngamm)
+    !
+    if (itestcase == Inviscid_Gaussian_Bump) then
+      return_value = (gppt(npres)/pref_nd) / (upt(nec)**gamm)
+    else
+      return_value = log(gppt(npres)) - gamm*log(upt(nec))
+    end if
     !
   else if (plot_variable == plot_vorticity_x) then
     !
-    return_value = vorticity_dusp( upt , dupt , 1 )   / time_ref
+    return_value = vorticity_dusp( upt , gppt , dupt , 1 )   / time_ref
     !
   else if (plot_variable == plot_vorticity_y) then
     !
-    return_value = vorticity_dusp( upt , dupt , 2 )   / time_ref
+    return_value = vorticity_dusp( upt , gppt , dupt , 2 )   / time_ref
     !
   else if (plot_variable == plot_vorticity_z) then
     !
-    return_value = vorticity_dusp( upt , dupt , 3 )   / time_ref
+    return_value = vorticity_dusp( upt , gppt , dupt , 3 )   / time_ref
     !
   else if (plot_variable == plot_grad_density(1)) then
     !
@@ -4122,11 +4541,14 @@ end subroutine find_cells_on_each_face
 !
 !###############################################################################
 !
-pure function vorticity_dusp(cv,dcvdx,dir) result(return_value)
+pure function vorticity_dusp(cv,gp,dcvdx,dir) result(return_value)
   !
-  integer,                  intent(in) :: dir
-  real(wp), dimension(:),   intent(in) :: cv
-  real(wp), dimension(:,:), intent(in) :: dcvdx
+  use gpu_mod, only : grad_cv_to_grad_pv_gpu
+  !
+  integer,  intent(in) :: dir
+  real(wp), intent(in) :: cv(:)
+  real(wp), intent(in) :: gp(:)
+  real(wp), intent(in) :: dcvdx(:,:)
   !
   real(wp) :: return_value
   !
@@ -4134,7 +4556,7 @@ pure function vorticity_dusp(cv,dcvdx,dir) result(return_value)
   integer :: i,j,n1,n2
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(dcvdx,dim=1),1:size(dcvdx,dim=2)) :: dpvdx
+  real(wp) :: dpvdx(1:size(dcvdx,dim=1),1:size(dcvdx,dim=2))
   !
   !.. Local Parameters ..
   integer, parameter, dimension(3) :: idx = [2,3,1]
@@ -4148,7 +4570,8 @@ continue
   i = idx(dir)
   j = jdx(dir)
   !
-  dpvdx(1:n1,1:n2) =  grad_cv_to_grad_pv_sp( cv(:) , dcvdx(:,:) )
+  call grad_cv_to_grad_pv_gpu( cv , gp , dcvdx , dpvdx )
+  !
   return_value = dpvdx(i,nmb-1+j) - dpvdx(j,nmb-1+i)
   !
 end function vorticity_dusp
@@ -4426,11 +4849,6 @@ end subroutine write_cell_points
 !###############################################################################
 !
 include "Functions/last.f90"
-include "Functions/pressure.f90"
-include "Functions/temperature.f90"
-include "Functions/mach_number.f90"
-include "Functions/entropy.f90"
-include "Functions/grad_cv_to_grad_pv.f90"
 include "Functions/cell_solpts.f90"
 !
 !###############################################################################
