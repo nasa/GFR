@@ -71,12 +71,10 @@ $(OBJDIR)/bnd_profiles_mod.o : bnd_profiles_mod.f90 \
                      $(OBJDIR)/flowvar_mod.o \
                      $(OBJDIR)/quadrature_mod.o \
                      $(OBJDIR)/interpolation_mod.o \
-                     $(FUNDIR)/grad_cv_to_grad_pv.f90 \
-                     $(FUNDIR)/normal_streamwise_velocity_gradient.f90 \
-                     $(FUNDIR)/bc_string_to_integer.f90 \
-                     $(FUNDIR)/temperature.f90 \
-                     $(FUNDIR)/viscosity.f90 \
-                     $(FUNDIR)/usp2v.f90
+                     $(OBJDIR)/gpu_mod.o \
+                     $(OBJDIR)/thermo_mod.o \
+                     $(OBJDIR)/transport_mod.o \
+                     $(FUNDIR)/bc_string_to_integer.f90
 
 $(OBJDIR)/cgns_mod.o : cgns_mod.f90 \
              $(OBJDIR)/kind_types.o \

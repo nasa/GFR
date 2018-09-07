@@ -2,6 +2,7 @@ module bnd_profiles_mod
   !
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
+  use eqn_idx, only : ncs,npres,ntemp,nvisc,ng
   !
   implicit none
   !
@@ -88,6 +89,11 @@ subroutine compute_bnd_profiles
   use interpolation_mod, only : interp
   use interpolation_mod, only : outerp,outerp_mv_mult
   !
+  use gpu_mod,           only : grad_cv_to_grad_pv_gpu
+  !
+  use thermo_mod,        only : update_thermo_properties
+  use transport_mod,     only : update_transport_properties
+  !
   !.. Local Scalars ..
   integer :: i,j,k,l,m,n,nf,np,n1,n2,kf,kl,f0
   integer :: host_cell,host_geom,host_order
@@ -111,6 +117,7 @@ subroutine compute_bnd_profiles
   real(wp), dimension(1:nr) :: xyz_fp
   real(wp), dimension(1:nq) :: cvfp
   real(wp), dimension(1:nq) :: pvfp
+  real(wp), dimension(1:nq) :: gpfp
   real(wp), dimension(1:nr,1:nq) :: dcvdx
   real(wp), dimension(1:nr,1:nq) :: dpvdx
   real(wp), dimension(1:maxSP,1:nq) :: tusp
@@ -218,15 +225,20 @@ continue
           end do
         end do
         !
+        call update_thermo_properties(1,1,cvfp,gpfp)
+        call update_transport_properties(1,1,cvfp,gpfp)
+        !
         ! Compute the primitive variables and their
         ! gradients at the current flux point
         !
-        pvfp(1:nq) = usp2v_sp( cvfp(1:nq) )
-        dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp( cvfp(1:nq) , &
-                                                  dcvdx(1:nr,1:nq) )
+        pvfp(1:ncs) = cvfp(1:ncs) / cvfp(nec)
+        pvfp(nmb:nme) = cvfp(nmb:nme) / cvfp(nec)
+        pvfp(nee) = gpfp(npres)
         !
-        temp = temperature_pv_sp(pvfp)
-        visc = viscosity_pv_sp(pvfp)
+        call grad_cv_to_grad_pv_gpu(cvfp,gpfp,dcvdx,dpvdx)
+        !
+        temp = gpfp(ntemp)
+        visc = gpfp(nvisc)
         !
         pvfp(nec) = pvfp(nec) * rhoref
         pvfp(nmb:nme) = pvfp(nmb:nme) * aref
@@ -1130,11 +1142,7 @@ end subroutine bnd_profiles_memory_usage
 !
 !###############################################################################
 !
-include "Functions/usp2v.f90"
-include "Functions/grad_cv_to_grad_pv.f90"
-include "Functions/temperature.f90"
-include "Functions/viscosity.f90"
-include "Functions/normal_streamwise_velocity_gradient.f90"
+!include "Functions/normal_streamwise_velocity_gradient.f90"
 include "Functions/bc_string_to_integer.f90"
 !
 !###############################################################################
