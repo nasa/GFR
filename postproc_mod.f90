@@ -1131,6 +1131,7 @@ continue
   !
   ! Copy edgeusp_dt and edgegpsp_dt into utmp and gptmp
   !
+  n0 = 0
   np = 0
   do ne = 1,size(edgeusp_dt)
     n0 = n0 + np
@@ -1152,6 +1153,7 @@ continue
   !
   ! Copy the gas properties in gptmp back into edgegpsp_dt
   !
+  n0 = 0
   np = 0
   do ne = 1,size(edgeusp_dt)
     n0 = n0 + np
