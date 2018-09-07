@@ -6,7 +6,7 @@ module io_mod
   use module_kind_types
   use module_cgns_types
   use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
-  use eqn_idx, only : ncs
+  use eqn_idx, only : ncs,npres,ntemp,nvisc,ngamm,ng
   !
   implicit none
   !
@@ -82,7 +82,8 @@ module io_mod
   !
   interface interpolate_for_output
     module procedure interpolate_for_output_1d, &
-                     interpolate_for_output_2d
+                     interpolate_for_output_2d, &
+                     interpolate_for_output_3d
   end interface interpolate_for_output
   !
   ! Module variables used for debugging
@@ -402,7 +403,7 @@ continue
   end if
   !
   ! Allow for the use of the variable all_orders to make
-  ! solution_order (n_order), projection_order (p_order), 
+  ! solution_order (n_order), projection_order (p_order),
   ! and quadrature_order (q_order) all the same value without
   ! having to explicitly specify each one individually.
   !
@@ -4466,7 +4467,7 @@ subroutine adjust_for_same_dimension_ghost_cells()
   use ovar,   only : Grid_Min,Grid_Max,Grid_Length
   !
   !.. Local Scalars ..
-  integer  :: g1,g2,i,h1,h2,nf,ng,ni,np
+  integer  :: g1,g2,i,h1,h2,nf,nn,ni,np
   integer  :: ghost_cell,host_cell,host_geom,inode,host_side
   integer  :: pf,p1,p2
   integer  :: ni1,ni2,ierr
@@ -4742,7 +4743,7 @@ continue
         ! Ghost node 3 for triangle
         !
         ni = nodes_of_cell( h1 + mod(host_side+1,host_geom) )
-        ng = nodes_of_cell( g1 + 2 )
+        nn = nodes_of_cell( g1 + 2 )
         !
         ! Store the coordinates for node ni
         !
@@ -4750,7 +4751,7 @@ continue
         !
         ! Get the coordinates of ghost node 3
         !
-        xyz_nodes(:,ng) = merge(rotate(xyz_h1(:),xyz_h2(:),xyz_ni(:)), &
+        xyz_nodes(:,nn) = merge(rotate(xyz_h1(:),xyz_h2(:),xyz_ni(:)), &
                                 reflect(xyz_ni(:),ptf,rnrm), &
                                 rotation == 1)
         !
@@ -4758,7 +4759,7 @@ continue
         !
         ! Ghost node 3 for quadrilateral
         !
-        ng = nodes_of_cell( g1 + 2 )
+        nn = nodes_of_cell( g1 + 2 )
         ni = nodes_of_cell( h1 + &
                             mod(host_side+2-max(0,min(1,rotation)),host_geom) )
         !
@@ -4768,13 +4769,13 @@ continue
         !
         ! Get the coordinates of ghost node 3
         !
-        xyz_nodes(:,ng) = merge(rotate(xyz_h1(:),xyz_h2(:),xyz_ni(:)), &
+        xyz_nodes(:,nn) = merge(rotate(xyz_h1(:),xyz_h2(:),xyz_ni(:)), &
                                 reflect(xyz_ni(:),ptf,rnrm), &
                                 rotation == 1)
         !
         ! Ghost node 4 for quadrilateral
         !
-        ng = nodes_of_cell( g1 + 3 )
+        nn = nodes_of_cell( g1 + 3 )
         ni = nodes_of_cell( h1 + &
                             mod(host_side+1+max(0,min(1,rotation)),host_geom) )
         !
@@ -4784,7 +4785,7 @@ continue
         !
         ! Get the coordinates of ghost node 4
         !
-        xyz_nodes(:,ng) = merge(rotate(xyz_h1(:),xyz_h2(:),xyz_ni(:)), &
+        xyz_nodes(:,nn) = merge(rotate(xyz_h1(:),xyz_h2(:),xyz_ni(:)), &
                                 reflect(xyz_ni(:),ptf,rnrm), &
                                 rotation == 1)
         !
@@ -4896,10 +4897,10 @@ continue
      !!
      !do i = nfnods+1,pcnods
      !  !
-     !  ng = nodes_of_cell( g1 + i-1 )
+     !  nn = nodes_of_cell( g1 + i-1 )
      !  np = nodes_of_cell( p1 + mod(periodic_side+i-2,pcnods) )
      !  !
-     !  xyz_nodes(:,ng) = xyz_nodes(:,np) + ds1(:)
+     !  xyz_nodes(:,nn) = xyz_nodes(:,np) + ds1(:)
      !  !
      !end do
       !
@@ -6752,7 +6753,7 @@ continue
   !
   ! Allocate the temporary variable arrays
   !
-  allocate ( vartmp(1:n_solpts) , source=zero , &
+  allocate ( vartmp(1:n_my_output_pts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
   !
@@ -6766,14 +6767,12 @@ continue
   !
   do n = 1,nr
     !
-    ! Save the current coordinate to the local array vartmp
-    !
-    vartmp(1:n_solpts) = xyz(n,1:n_solpts)
-    !
     ! Interpolate vartmp to the desired output locations and
     ! convert to the real type required for the CGNS file.
     !
-    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
+    call interpolate_for_output( xyz(n,1:n_solpts) , vartmp )
+    !
+    var(:) = real( vartmp , kind(var) )
     !
     ! Reset the queue.
     !
@@ -6894,21 +6893,16 @@ end subroutine write_parallel_cgns_grid_file
 subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,n_solpts,ncell,cell
-  use ovar,    only : aref,rhoref,time_ref,tref
-  use ovar,    only : pref,machref,itestcase,bc_in
-  use ovar,    only : interpolate_before_output_variable
-  use ovar,    only : governing_equations
+  use geovar,  only : nr,n_solpts
+  use ovar,    only : itestcase,governing_equations
   use ovar,    only : profile_io_cgns,profile_io_cgns_subs
-  use ovar,    only : Limiter_Option
   use ovar,    only : max_wall_time => max_cgns_wall_time
-  use flowvar, only : usp,dusp,dtsp
+  use flowvar, only : usp,gpsp,dusp
   !
-  use metrics_mod, only : time_metrics,metrics_array,jac
+  use metrics_mod, only : time_metrics
   !
-  use module_limiters, only : marker,scaled_marker
-  use module_limiters, only : resolution_indicator
-  use module_limiters, only : jump_indicator
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: sol_file
@@ -7002,8 +6996,8 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   real(CRT), allocatable :: var(:)
   real(wp),  allocatable :: vartmp(:)
   real(wp),  allocatable :: interp_usp(:,:)
+  real(wp),  allocatable :: interp_gpsp(:,:)
   real(wp),  allocatable :: interp_dusp(:,:,:)
-  real(wp),  allocatable :: marker_tmp(:)
   !
 continue
   !
@@ -7141,6 +7135,10 @@ continue
     deallocate ( interp_usp , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"interp_usp",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  if (allocated(interp_gpsp)) then
+    deallocate ( interp_gpsp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"interp_gpsp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
   if (allocated(interp_dusp)) then
     deallocate ( interp_dusp , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"interp_dusp",2,__LINE__,__FILE__,ierr,error_message)
@@ -7165,13 +7163,29 @@ continue
   ! #####   WRITING FIELD VARIABLES   #####
   ! #######################################
   !
+  npts = n_my_output_pts
+  !
+  allocate ( vartmp(1:npts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( interp_usp(1:npts,1:nq) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"interp_usp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( interp_dusp(1:npts,1:nr,1:nq) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"interp_dusp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  !
+  !
+  call interpolate_for_output( usp , interp_usp )
+  !
+  if (allocated(dusp)) then
+    call interpolate_for_output( dusp , interp_dusp )
+  end if
+  !
   if (check_gradients) then
-    !
-    npts = n_solpts
-    !
-    allocate ( vartmp(1:npts) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
     !
     ! ################################################
     ! #####   WRITING GRADIENT FIELD VARIABLES   #####
@@ -7227,10 +7241,10 @@ continue
         !
         n = (m-nec)*nr + l
         !
-        vartmp(1:npts) = grad_of_selected_pv(l,m,usp(:,1:n_solpts), &
-                                              dusp(:,:,1:n_solpts))
+        vartmp(1:npts) = grad_of_selected_pv(l,m,interp_usp(1:npts,:), &
+                                                interp_dusp(1:npts,:,:))
         !
-        var(:) = real( interpolate_for_output(vartmp) , kind(var) )
+        var(:) = real( vartmp , kind(var) )
         !
         ! Reset the queue.
         !
@@ -7258,50 +7272,6 @@ continue
     end do grad_eqn
     !
   else
-    !
-    if (interpolate_before_output_variable) then
-      npts = n_my_output_pts
-    else
-      npts = n_solpts
-    end if
-    !
-    allocate ( vartmp(1:npts) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    allocate ( interp_usp(1:nq,1:npts) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interp_usp",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    allocate ( interp_dusp(1:nr,1:nq,1:npts) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interp_dusp",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    ! Copy the solution and gradients into interp_usp and interp_dusp
-    !
-    if (interpolate_before_output_variable) then
-      !
-      ! Interpolate the conservative variables for output
-      !
-      interp_usp(1:nq,1:npts) = interpolate_for_output( usp(1:nq,1:n_solpts) )
-      !
-      if (allocated(dusp)) then
-        do l = 1,nq
-          interp_dusp(1:nr,l,1:npts) = &
-                   interpolate_for_output( dusp(1:nr,l,1:n_solpts) )
-        end do
-      !else, already initialized to zero during above allocation
-      end if
-      !
-    else
-      !
-      interp_usp(1:nq,1:npts) = usp(1:nq,1:n_solpts)
-      if (allocated(dusp)) then
-        interp_dusp(1:nr,1:nq,1:npts) = dusp(1:nr,1:nq,1:n_solpts)
-      !else, already initialized to zero during above allocation
-      end if
-      !
-    end if
     !
     ! ################################################
     ! #####   WRITING SOLUTION FIELD VARIABLES   #####
@@ -7478,13 +7448,6 @@ continue
         call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
         !
-        if (.not. allocated(marker_tmp)) then
-          allocate ( marker_tmp(1:n_solpts) , source=zero , &
-                     stat=ierr , errmsg=error_message )
-          call alloc_error(pname,"marker_tmp",1,__LINE__,__FILE__, &
-                           ierr,error_message)
-        end if
-        !
       else if (trim(char_sname(l)) == "JumpMarker") then
         n = n + 1
         varname = trim(char_sname(l))
@@ -7508,13 +7471,6 @@ continue
                         "Write node: Solution variable",n)
         call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
-        !
-        if (.not. allocated(marker_tmp)) then
-          allocate ( marker_tmp(1:n_solpts) , source=zero , &
-                     stat=ierr , errmsg=error_message )
-          call alloc_error(pname,"marker_tmp",1,__LINE__,__FILE__, &
-                           ierr,error_message)
-        end if
         !
       else if (trim(char_sname(l)) == "CoMetrics") then
      !  do m = 1,nr
@@ -7600,224 +7556,25 @@ continue
       end if
     end do
     !
+    !
+    !
+    allocate ( interp_gpsp(1:npts,1:ng) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"interp_gpsp",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    if (allocated(gpsp)) then
+      call update_thermo_properties(1,npts,interp_usp,interp_gpsp)
+      call update_transport_properties(1,npts,interp_usp,interp_gpsp)
+    end if
+    !
     ! Now create the output data and write it to the CGNS file in parallel
     !
     n = 0
     do l = 1,size(char_sname)
       !
-      select case (trim(char_sname(l)))
-        case ("Density") ! Density
-          n = n + 1
-          vartmp(1:npts) = interp_usp(nec,1:npts)
-          vartmp(:) = vartmp * rhoref
-          if (itestcase == Freestream_Preservation) vartmp(:) = vartmp - rhoref
-          call cgns_write_field_parallel
-        case ("Momentum") ! Momentum
-          do m = nmb,nme
-            n = n + 1
-            vartmp(1:npts) = interp_usp(m,1:npts)
-            vartmp(:) = vartmp * rhoref * aref
-            call cgns_write_field_parallel
-          end do
-        case ("Energy") ! Energy
-          n = n + 1
-          vartmp(1:npts) = interp_usp(nee,1:npts)
-          vartmp(:) = vartmp * rhoref * aref * aref
-          call cgns_write_field_parallel
-        case ("GradDensity") ! GradDensity
-          do m = 1,nr
-            n = n + 1
-            vartmp(1:npts) = interp_dusp(m,nec,1:npts)
-            vartmp(:) = vartmp * rhoref
-            call cgns_write_field_parallel
-          end do
-        case ("GradMomentum") ! GradMomentum
-          do m = nmb,nme
-            do k = 1,nr
-              n = n + 1
-              vartmp(1:npts) = interp_dusp(k,m,1:npts)
-              vartmp(:) = vartmp * rhoref * aref
-              call cgns_write_field_parallel
-            end do
-          end do
-        case ("GradEnergy") ! GradEnergy
-          do m = 1,nr
-            n = n + 1
-            vartmp(1:npts) = interp_dusp(m,nee,1:npts)
-            vartmp(:) = vartmp * rhoref * aref * aref
-            call cgns_write_field_parallel
-          end do
-        case ("Velocity") ! Velocity
-          do m = nmb,nme
-            n = n + 1
-            vartmp(1:npts) = interp_usp(m,1:npts) / &
-                             interp_usp(nec,1:npts)
-            vartmp(:) = vartmp * aref
-            if (itestcase == Freestream_Preservation) then
-              if (m == nmb) vartmp(:) = vartmp - aref*machref
-            end if
-            call cgns_write_field_parallel
-          end do
-        case ("Pressure") ! Pressure
-          n = n + 1
-          vartmp(:) = pressure_cv( interp_usp )
-          vartmp(:) = vartmp * rhoref * aref * aref
-          if (itestcase == Freestream_Preservation) vartmp(:) = vartmp - pref
-          call cgns_write_field_parallel
-        case ("P0") ! Total Pressure
-          n = n + 1
-          vartmp(:) = total_pressure_cv( interp_usp )
-          vartmp(:) = vartmp * rhoref * aref * aref
-          call cgns_write_field_parallel
-        case ("Mach") ! Mach number
-          n = n + 1
-          vartmp(:) = mach_number_cv( interp_usp )
-          if (itestcase == Freestream_Preservation) vartmp(:) = vartmp - machref
-          call cgns_write_field_parallel
-        case ("Entropy") ! Entropy
-          n = n + 1
-          if (itestcase == Inviscid_Gaussian_Bump) then
-            vartmp(:) = entropy_cv( interp_usp , log_opt=fals , &
-                                    use_pref_nd=true )
-            vartmp(:) = abs( one - vartmp(:) )
-          else
-            vartmp(:) = entropy_cv( interp_usp )
-          end if
-          call cgns_write_field_parallel
-        case ("Temperature") ! Temperature
-          n = n + 1
-          vartmp(:) = temperature_cv( interp_usp )
-          vartmp(:) = vartmp * tref
-          if (itestcase == Freestream_Preservation) vartmp(:) = vartmp - tref
-          call cgns_write_field_parallel
-        case ("T0") ! Total Temperature
-          n = n + 1
-          vartmp(:) = total_temperature_cv( interp_usp )
-          vartmp(:) = vartmp * tref
-          call cgns_write_field_parallel
-        case ("Viscosity") ! Viscosity
-          if (governing_equations == NavierStokes_Eqns) then
-            n = n + 1
-            vartmp(:) = viscosity_cv( interp_usp )
-            vartmp(:) = vartmp * rhoref * aref
-            call cgns_write_field_parallel
-          end if
-        case ("Vorticity") ! Vorticity
-         !vartmp = entropy_cv( interp_usp )
-          do m = 1,nr
-            n = n + 1
-            k = merge(m,3,nr==3)
-            vartmp(:) = vorticity_dusp( interp_usp , interp_dusp , k )
-            vartmp(:) = vartmp / time_ref
-            call cgns_write_field_parallel
-            if (nr < 3) exit
-          end do
-        case ("ResolutionMarker")
-          !
-          if (Limiter_Option >= 0 .or. &
-              .not. allocated(marker) .or. &
-              .not. allocated(scaled_marker)) then
-            call resolution_indicator(apply_projection=fals)
-          end if
-          !
-          n = n + 1
-          do nc = 1,ncell
-            marker_tmp(cell(nc)%beg_sp:cell(nc)%end_sp) = marker(nc)
-          end do
-          if (interpolate_before_output_variable) then
-            vartmp(1:npts) = interpolate_for_output( marker_tmp(1:n_solpts) )
-          else
-            vartmp(1:npts) = marker_tmp(1:n_solpts)
-          end if
-          call cgns_write_field_parallel
-          !
-          n = n + 1
-          do nc = 1,ncell
-            marker_tmp(cell(nc)%beg_sp:cell(nc)%end_sp) = scaled_marker(nc)
-          end do
-          if (interpolate_before_output_variable) then
-            vartmp(1:npts) = interpolate_for_output( marker_tmp(1:n_solpts) )
-          else
-            vartmp(1:npts) = marker_tmp(1:n_solpts)
-          end if
-          call cgns_write_field_parallel
-          !
-        case ("JumpMarker")
-          !
-          if (Limiter_Option <= 1 .or. &
-              .not. allocated(marker) .or. &
-              .not. allocated(scaled_marker)) then
-            call jump_indicator
-          end if
-          !
-          n = n + 1
-          do nc = 1,ncell
-            marker_tmp(cell(nc)%beg_sp:cell(nc)%end_sp) = marker(nc)
-          end do
-          if (interpolate_before_output_variable) then
-            vartmp(1:npts) = interpolate_for_output( marker_tmp(1:n_solpts) )
-          else
-            vartmp(1:npts) = marker_tmp(1:n_solpts)
-          end if
-          call cgns_write_field_parallel
-          !
-          n = n + 1
-          do nc = 1,ncell
-            marker_tmp(cell(nc)%beg_sp:cell(nc)%end_sp) = scaled_marker(nc)
-          end do
-          if (interpolate_before_output_variable) then
-            vartmp(1:npts) = interpolate_for_output( marker_tmp(1:n_solpts) )
-          else
-            vartmp(1:npts) = marker_tmp(1:n_solpts)
-          end if
-          call cgns_write_field_parallel
-          !
-        case ("Partition")
-          n = n + 1
-          do nc = 1,ncell
-            vartmp(cell(nc)%beg_sp:cell(nc)%end_sp) = mypnum+1
-          end do
-          call cgns_write_field_parallel
-        case ("Timestep")
-          n = n + 1
-          vartmp(:) = interpolate_for_output( dtsp(1:n_solpts) )
-          vartmp(:) = vartmp(:) * time_ref
-          call cgns_write_field_parallel
-        case ("CoMetrics")
-         !do m = 1,nr
-         !  do i = 1,nr
-         !    n = n + 1
-         !    vartmp(:) = interpolate_for_output(metrics_array(1:n_solpts,m,i))
-         !    call cgns_write_field_parallel
-         !  end do
-         !end do
-        case ("ContraMetrics")
-          do m = 1,nr
-            do i = 1,nr
-              n = n + 1
-              vartmp(1:n_solpts) = jac(1:n_solpts)*metrics_array(1:n_solpts,m,i)
-              vartmp(:) = interpolate_for_output(vartmp(1:n_solpts))
-              call cgns_write_field_parallel
-            end do
-          end do
-        case ("TimeMetrics")
-          if (allocated(time_metrics)) then
-            do m = 1,nr
-              n = n + 1
-              vartmp(:) = one/time_metrics(m,1:n_solpts)
-              vartmp(:) = interpolate_for_output( vartmp(1:n_solpts) )
-              call cgns_write_field_parallel
-            end do
-            n = n + 1
-            vartmp(:) = interpolate_for_output( time_metrics(nr+1,1:n_solpts) )
-            vartmp(:) = vartmp(:) * time_ref
-            call cgns_write_field_parallel
-          end if
-        case default
-          n = n + 1
-          vartmp(1:n_solpts) = interp_usp(1,1:n_solpts)
-          call cgns_write_field_parallel
-      end select
+      call output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s(n), &
+                           cgns_sol_file,char_sname(l),n, &
+                           interp_usp,interp_gpsp,interp_dusp,vartmp,var)
       !
     end do
     !
@@ -7856,10 +7613,6 @@ continue
     deallocate ( interp_dusp , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"interp_dusp",2,__LINE__,__FILE__,ierr,error_message)
   end if
-  if (allocated(marker_tmp)) then
-    deallocate ( marker_tmp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"marker_tmp",2,__LINE__,__FILE__,ierr,error_message)
-  end if
   if (allocated(isvar_s)) then
     deallocate ( isvar_s , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"isvar_s",2,__LINE__,__FILE__,ierr,error_message)
@@ -7888,6 +7641,603 @@ continue
             5x,"Wall time taken to write the file '",a, &
             "' = ",f12.6," seconds",/)
   !
+end subroutine write_parallel_cgns_solution_file
+!
+!###############################################################################
+!
+subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,ivar_s, &
+                           cgns_sol_file,vname,nv, &
+                           cv,gp,dcvdx,vartmp,var)
+  !
+  !.. Use Statements ..
+  use geovar,  only : nr,n_solpts,ncell,cell
+  use ovar,    only : aref,rhoref,time_ref,tref
+  use ovar,    only : gam,pref,pref_nd,machref
+  use ovar,    only : itestcase,governing_equations
+  use ovar,    only : profile_io_cgns_subs
+  use ovar,    only : Limiter_Option
+  use flowvar, only : dtsp
+  !
+  use metrics_mod, only : time_metrics,metrics_array,jac
+  !
+  use module_limiters, only : marker,scaled_marker
+  use module_limiters, only : resolution_indicator
+  use module_limiters, only : jump_indicator
+  !
+  !.. Formal Arguments ..
+  integer(CBT),     intent(in) :: ifile_s
+  integer(CBT),     intent(in) :: ibase_s
+  integer(CBT),     intent(in) :: izone_s
+  integer(CBT),     intent(in) :: isol_s
+  integer(CBT),     intent(in) :: ivar_s
+  character(len=*), intent(in) :: cgns_sol_file
+  character(len=*), intent(in) :: vname
+  integer,       intent(inout) :: nv
+  real(wp),         intent(in) :: cv(:,:)
+  real(wp),         intent(in) :: gp(:,:)
+  real(wp),         intent(in) :: dcvdx(:,:,:)
+  real(wp),      intent(inout) :: vartmp(:)
+  real(CRT),     intent(inout) :: var(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,l,m,n,nc,np,n0,npts,ierr
+  integer  :: nmi,nmj,l_comp,l_phys
+  real(wp) :: freestream_ref,rhoa,rhoa2,time_ref_inv
+  real(wp) :: rho_inv,vx,vy,vz,a2,q2
+  real(wp) :: gamm,gm1,gam_over_gm1,mach,pres,temp
+  real(wp) :: mi,mj,drhodi,drhodj,dmjdi,dmidj
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: vartmp_at_sp(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_variable"
+  !
+continue
+  !
+  npts = size(vartmp)
+  !
+  freestream_ref = zero
+  rhoa = rhoref*aref
+  rhoa2 = rhoa*aref
+  !
+  ! Pre-load vartmp with Mach number if the current variable
+  ! is Mach number, total pressure, or total temperature.
+  !
+  select case (trim(adjustl(vname)))
+    !
+    case ("Mach","P0","T0")
+      !
+      if (ngamm > 0) then
+        do n = 1,npts
+          vartmp(n) = gp(n,ngamm)
+        end do
+      else
+        do n = 1,npts
+          vartmp(n) = gam
+        end do
+      end if
+      !
+      if (nr == 3) then
+        do n = 1,npts
+          rho_inv = one/cv(n,nec)
+          vx = cv(n,nmx)*rho_inv
+          vy = cv(n,nmy)*rho_inv
+          vz = cv(n,nmz)*rho_inv
+          a2 = vartmp(n)*gp(n,npres)*rho_inv
+          q2 = vx*vx + vy*vy + vz*vz
+          vartmp(n) = sqrt( q2 / a2 ) - freestream_ref
+        end do
+      else if (nr == 2) then
+        do n = 1,npts
+          rho_inv = one/cv(n,nec)
+          vx = cv(n,nmx)*rho_inv
+          vy = cv(n,nmy)*rho_inv
+          a2 = vartmp(n)*gp(n,npres)*rho_inv
+          q2 = vx*vx + vy*vy
+          vartmp(n) = sqrt( q2 / a2 ) - freestream_ref
+        end do
+      else
+        do n = 1,npts
+          rho_inv = one/cv(n,nec)
+          vx = cv(n,nmx)*rho_inv
+          a2 = vartmp(n)*gp(n,npres)*rho_inv
+          vartmp(n) = sqrt( vx*vx / a2 ) - freestream_ref
+        end do
+      end if
+      !
+  end select
+  !
+  ! Compute the current output variable and write it to the CGNS file
+  !
+  select case (trim(adjustl(vname)))
+    !
+    case ("Density") ! Density
+      !
+      nv = nv + 1
+      !
+      if (itestcase == Freestream_Preservation) freestream_ref = rhoref
+      !
+      do n = 1,npts
+        vartmp(n) = cv(n,nec) * rhoref - freestream_ref
+      end do
+      !
+      call cgns_write_field_parallel
+      !
+    case ("Momentum") ! Momentum
+      !
+      do m = nmb,nme
+        !
+        nv = nv + 1
+        !
+        do n = 1,npts
+          vartmp(n) = cv(n,m) * rhoa
+        end do
+        !
+        call cgns_write_field_parallel
+        !
+      end do
+      !
+    case ("Energy") ! Energy
+      !
+      nv = nv + 1
+      !
+      do n = 1,npts
+        vartmp(n) = cv(n,nee) * rhoa2
+      end do
+      !
+      call cgns_write_field_parallel
+      !
+    case ("GradDensity") ! GradDensity
+      !
+      do l = 1,nr
+        !
+        nv = nv + 1
+        !
+        do n = 1,npts
+          vartmp(n) = dcvdx(n,l,nec) * rhoref
+        end do
+        !
+        call cgns_write_field_parallel
+        !
+      end do
+      !
+    case ("GradMomentum") ! GradMomentum
+      !
+      do m = nmb,nme
+        do l = 1,nr
+          !
+          nv = nv + 1
+          !
+          do n = 1,npts
+            vartmp(n) = dcvdx(n,l,m) * rhoa
+          end do
+          !
+          call cgns_write_field_parallel
+          !
+        end do
+      end do
+      !
+    case ("GradEnergy") ! GradEnergy
+      !
+      do l = 1,nr
+        !
+        nv = nv + 1
+        !
+        do n = 1,npts
+          vartmp(n) = dcvdx(n,l,nee) * rhoa2
+        end do
+        !
+        call cgns_write_field_parallel
+        !
+      end do
+      !
+    case ("Velocity") ! Velocity
+      !
+      do m = nmb,nme
+        !
+        nv = nv + 1
+        !
+        if (itestcase == Freestream_Preservation) then
+          freestream_ref = merge( aref*machref , zero , m==nmb )
+        end if
+        !
+        do n = 1,npts
+          vartmp(n) = cv(n,m)/cv(n,nec) * aref - freestream_ref
+        end do
+        !
+        call cgns_write_field_parallel
+        !
+      end do
+      !
+    case ("Pressure") ! Pressure
+      !
+      nv = nv + 1
+      !
+      if (itestcase == Freestream_Preservation) freestream_ref = pref
+      !
+      do n = 1,npts
+        vartmp(n) = gp(n,npres) * rhoa2 - freestream_ref
+      end do
+      !
+      call cgns_write_field_parallel
+      !
+    case ("P0") ! Total Pressure
+      !
+      nv = nv + 1
+      !
+      ! NOTE: vartmp has been pre-loaded with the Mach number
+      !
+      if (ngamm > 0) then
+        do n = 1,npts
+          mach = vartmp(n)
+          pres = gp(n,npres) * rhoa2
+          gamm = gp(n,ngamm)
+          gm1 = gamm - one
+          gam_over_gm1 = gamm / gm1
+          vartmp(n) = pres*( (one + half*gm1*mach*mach)**gam_over_gm1 )
+        end do
+      else
+        gm1 = gam - one
+        gam_over_gm1 = gam / gm1
+        do n = 1,npts
+          mach = vartmp(n)
+          pres = gp(n,npres) * rhoa2
+          vartmp(n) = pres*( (one + half*gm1*mach*mach)**gam_over_gm1 )
+        end do
+      end if
+      !
+      call cgns_write_field_parallel
+      !
+    case ("Mach") ! Mach number
+      !
+      nv = nv + 1
+      !
+      ! NOTE: vartmp has been pre-loaded with the Mach number
+      !
+      if (itestcase == Freestream_Preservation) then
+        do n = 1,npts
+          vartmp(n) = vartmp(n) - machref
+        end do
+      end if
+      !
+      call cgns_write_field_parallel
+      !
+    case ("Entropy") ! Entropy
+      !
+      nv = nv + 1
+      !
+      if (ngamm > 0) then
+        do n = 1,npts
+          vartmp(n) = gp(n,ngamm)
+        end do
+      else
+        do n = 1,npts
+          vartmp(n) = gam
+        end do
+      end if
+      !
+      if (itestcase == Inviscid_Gaussian_Bump) then
+        do n = 1,npts
+          gamm = vartmp(n)
+          vartmp(n) = abs( one - ((gp(n,npres)/pref_nd) / (cv(n,nec)**gamm)) )
+        end do
+      else
+        do n = 1,npts
+          gamm = vartmp(n)
+          vartmp(n) = log(gp(n,npres)) - gamm*log(cv(n,nec))
+        end do
+      end if
+      !
+      call cgns_write_field_parallel
+      !
+    case ("Temperature") ! Temperature
+      !
+      nv = nv + 1
+      !
+      if (itestcase == Freestream_Preservation) freestream_ref = tref
+      !
+      do n = 1,npts
+        vartmp(n) = gp(n,ntemp) * tref - freestream_ref
+      end do
+      !
+      call cgns_write_field_parallel
+      !
+    case ("T0") ! Total Temperature
+      !
+      nv = nv + 1
+      !
+      ! NOTE: vartmp has been pre-loaded with the Mach number
+      !
+      if (ngamm > 0) then
+        do n = 1,npts
+          mach = vartmp(n)
+          temp = gp(n,ntemp) * tref
+          gm1 = gp(n,ngamm) - one
+          vartmp(n) = temp*(one + half*gm1*mach*mach)
+        end do
+      else
+        gm1 = gam - one
+        do n = 1,npts
+          mach = vartmp(n)
+          temp = gp(n,ntemp) * tref
+          vartmp(n) = temp*(one + half*gm1*mach*mach)
+        end do
+      end if
+      !
+      call cgns_write_field_parallel
+      !
+    case ("Viscosity") ! Viscosity
+      !
+      if (governing_equations == NavierStokes_Eqns) then
+        !
+        nv = nv + 1
+        !
+        do n = 1,npts
+          vartmp(n) = gp(n,nvisc) * rhoa
+        end do
+        !
+        call cgns_write_field_parallel
+        !
+      end if
+      !
+    case ("Vorticity") ! Vorticity
+      !
+      time_ref_inv = one/time_ref
+      !
+      vorticity_loop: &
+      do l = 1,nr
+        !
+        nv = nv + 1
+        !
+        i = (l+1) - ( (l+1)/4 )*3
+        j = (l+2) - ( (l+2)/4 )*3
+        !
+        nmi = nmb-1+i
+        nmj = nmb-1+j
+        !
+        do n = 1,npts
+          !
+          rho_inv = one/cv(n,nec)
+          !
+          mi = cv(n,mi)
+          mj = cv(n,mj)
+          !
+          drhodi = dcvdx(n,i,nec) * time_ref_inv
+          drhodj = dcvdx(n,j,nec) * time_ref_inv
+          dmjdi = dcvdx(n,i,mj) * time_ref_inv
+          dmidj = dcvdx(n,j,mi) * time_ref_inv
+          !
+          vartmp(n) = rho_inv*( (dmjdi-dmidj) - rho_inv*(mj*drhodi-mi*drhodj) )
+          !
+        end do
+        !
+        call cgns_write_field_parallel
+        !
+        if (nr < 3) exit vorticity_loop
+        !
+      end do vorticity_loop
+      !
+    case ("ResolutionMarker")
+      !
+      if (.not. allocated(vartmp_at_sp)) then
+        allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+      !
+      ! Compute the resolution marker if it has yet to be computed
+      !
+      if (Limiter_Option >= 0 .or. &
+          .not. allocated(marker) .or. &
+          .not. allocated(scaled_marker)) then
+        call resolution_indicator(apply_projection=fals)
+      end if
+      !
+      ! Actual resolution marker value
+      !
+      nv = nv + 1
+      !
+      do nc = 1,ncell
+        n0 = cell(nc)%beg_sp - 1
+        np = cell(nc)%end_sp - n0
+        do n = 1,np
+          vartmp_at_sp(n0+n) = marker(nc)
+        end do
+      end do
+      !
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      call cgns_write_field_parallel
+      !
+      ! Scaled resolution marker value
+      !
+      nv = nv + 1
+      !
+      do nc = 1,ncell
+        n0 = cell(nc)%beg_sp - 1
+        np = cell(nc)%end_sp - n0
+        do n = 1,np
+          vartmp_at_sp(n0+n) = scaled_marker(nc)
+        end do
+      end do
+      !
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      call cgns_write_field_parallel
+      !
+    case ("JumpMarker")
+      !
+      allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      ! Compute the pressure jump marker if it has yet to be computed
+      !
+      if (Limiter_Option <= 1 .or. &
+          .not. allocated(marker) .or. &
+          .not. allocated(scaled_marker)) then
+        call jump_indicator
+      end if
+      !
+      ! Actual pressure jump marker value
+      !
+      nv = nv + 1
+      !
+      do nc = 1,ncell
+        n0 = cell(nc)%beg_sp - 1
+        np = cell(nc)%end_sp - n0
+        do n = 1,np
+          vartmp_at_sp(n0+n) = marker(nc)
+        end do
+      end do
+      !
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      call cgns_write_field_parallel
+      !
+      ! Scaled pressure jump marker value
+      !
+      nv = nv + 1
+      !
+      do nc = 1,ncell
+        n0 = cell(nc)%beg_sp - 1
+        np = cell(nc)%end_sp - n0
+        do n = 1,np
+          vartmp_at_sp(n0+n) = scaled_marker(nc)
+        end do
+      end do
+      !
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      call cgns_write_field_parallel
+      !
+    case ("Partition")
+      !
+      allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      nv = nv + 1
+      !
+      do n = 1,n_solpts
+        vartmp_at_sp(n) = mypnum+1
+      end do
+      !
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      call cgns_write_field_parallel
+      !
+    case ("Timestep")
+      !
+      nv = nv + 1
+      !
+      call interpolate_for_output( dtsp(1:n_solpts) , vartmp , nondim=time_ref )
+      !
+      call cgns_write_field_parallel
+      !
+    case ("CoMetrics")
+     !!
+     !allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+     !           stat=ierr , errmsg=error_message )
+     !call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+     !                 ierr,error_message)
+     !!
+     !do l_phys = 1,nr
+     !  do l_comp = 1,nr
+     !    !
+     !    nv = nv + 1
+     !    !
+     !    do n = 1,n_solpts
+     !      vartmp_at_sp(n) = metrics_array(n,l_phys,l_comp)
+     !    end do
+     !    !
+     !    call interpolate_for_output( vartmp_at_sp , vartmp )
+     !    !
+     !    call cgns_write_field_parallel
+     !    !
+     !  end do
+     !end do
+     !!
+    case ("ContraMetrics")
+      !
+      allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      do l_comp = 1,nr
+        do l_phys = 1,nr
+          !
+          nv = nv + 1
+          !
+          do n = 1,n_solpts
+            vartmp_at_sp(n) = jac(n)*metrics_array(n,l_comp,l_phys)
+          end do
+          !
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          !
+          call cgns_write_field_parallel
+          !
+        end do
+      end do
+      !
+    case ("TimeMetrics")
+      !
+      allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      if (allocated(time_metrics)) then
+        !
+        do l = 1,nr
+          !
+          nv = nv + 1
+          !
+          do n = 1,n_solpts
+            vartmp_at_sp(n) = one/time_metrics(l,n)
+          end do
+          !
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          !
+          call cgns_write_field_parallel
+          !
+        end do
+        !
+        nv = nv + 1
+        !
+        do n = 1,n_solpts
+          vartmp_at_sp(n) = time_metrics(nr+1,n) * time_ref
+        end do
+        !
+        call interpolate_for_output( vartmp_at_sp , vartmp )
+        !
+        call cgns_write_field_parallel
+        !
+      end if
+      !
+    case default
+      !
+      nv = nv + 1
+      !
+      do n = 1,npts
+        vartmp(n) = cv(n,nec) * rhoref
+      end do
+      !
+      call cgns_write_field_parallel
+      !
+  end select
+  !
+  if (allocated(vartmp_at_sp)) then
+    deallocate ( vartmp_at_sp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vartmp_at_sp",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
   !-----------------------------------------------------------------------------
   !
   contains
@@ -7896,7 +8246,7 @@ continue
   !
   !-----------------------------------------------------------------------------
   !
-end subroutine write_parallel_cgns_solution_file
+end subroutine output_variable
 !
 !###############################################################################
 !
@@ -7905,13 +8255,12 @@ subroutine write_parallel_cgns_time_ave_file()
   !.. Use Statements ..
   use geovar,  only : nr,n_solpts
   use ovar,    only : aref,rhoref,tref,tkeref,tlsref
-  use ovar,    only : interpolate_before_output_variable
   use ovar,    only : profile_io_cgns,profile_io_cgns_subs
   use ovar,    only : max_wall_time => max_time_ave_cgns_wall_time
   use flowvar, only : uavesp,time_ave_variables
   !
   !.. Local Scalars ..
-  integer :: l,n,naq,ierr
+  integer :: l,nv,naq,ierr
   !
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
@@ -7924,7 +8273,7 @@ subroutine write_parallel_cgns_time_ave_file()
   character(len=170)   :: cgns_sol_file
   character(len=300)   :: link_path
   !
-  integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
+  integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s,ivar_s
   !
   !.. Local Allocatable Arrays ..
   integer(CBT), allocatable :: isvar_s(:)
@@ -8052,46 +8401,46 @@ continue
   !
   ! Create data nodes for the time-averaged solution variables
   !
-  do n = 1,naq
+  do nv = 1,naq
     !
     vmult = ""
     varname = ""
-    do l = 1,len_trim(time_ave_variables(n))
-      ta_char = uppercase( time_ave_variables(n)(l:l) )
+    do l = 1,len_trim(time_ave_variables(nv))
+      ta_char = uppercase( time_ave_variables(nv)(l:l) )
       select case (ta_char)
         case ("D")
           varname = trim(adjustl(varname)) // trim(vmult) // "Rho"
-          var_dim(n) = var_dim(n) * rhoref
+          var_dim(nv) = var_dim(nv) * rhoref
         case ("X")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vx"
-          var_dim(n) = var_dim(n) * aref
+          var_dim(nv) = var_dim(nv) * aref
         case ("Y")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vy"
-          var_dim(n) = var_dim(n) * aref
+          var_dim(nv) = var_dim(nv) * aref
         case ("Z")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vz"
-          var_dim(n) = var_dim(n) * aref
+          var_dim(nv) = var_dim(nv) * aref
         case ("E")
           varname = trim(adjustl(varname)) // trim(vmult) // "E"
-          var_dim(n) = var_dim(n) * rhoref * aref * aref
+          var_dim(nv) = var_dim(nv) * rhoref * aref * aref
         case ("P")
           varname = trim(adjustl(varname)) // trim(vmult) // "P"
-          var_dim(n) = var_dim(n) * rhoref * aref * aref
+          var_dim(nv) = var_dim(nv) * rhoref * aref * aref
         case ("T")
           varname = trim(adjustl(varname)) // trim(vmult) // "T"
-          var_dim(n) = var_dim(n) * tref
+          var_dim(nv) = var_dim(nv) * tref
         case ("R")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vr"
-          var_dim(n) = var_dim(n) * aref
+          var_dim(nv) = var_dim(nv) * aref
         case ("F")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vf"
-          var_dim(n) = var_dim(n) * aref
+          var_dim(nv) = var_dim(nv) * aref
         case ("K")
           varname = trim(adjustl(varname)) // trim(vmult) // "TKE"
-          var_dim(n) = var_dim(n) * tkeref
+          var_dim(nv) = var_dim(nv) * tkeref
         case ("W")
           varname = trim(adjustl(varname)) // trim(vmult) // "TLS"
-          var_dim(n) = var_dim(n) * tlsref
+          var_dim(nv) = var_dim(nv) * tlsref
       end select
       vmult = "*"
     end do
@@ -8099,10 +8448,10 @@ continue
     call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_field_write_f")
     call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,CGNS_KIND_REAL, &
-                           trim(adjustl(varname)),isvar_s(n),cgierr)
+                           trim(adjustl(varname)),isvar_s(nv),cgierr)
     call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                     cgierr,__LINE__,__FILE__, &
-                    "Write node: Time-averaged variable",n)
+                    "Write node: Time-averaged variable",nv)
     call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_field_write_f")
     !
@@ -8111,17 +8460,33 @@ continue
   ! Preallocate var for writing variables in the correct precision
   ! to the CGNS file
   !
-  if (.not. allocated(var)) then
-    allocate ( var(1:n_my_output_pts) , source=real(0,CRT) , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(vartmp)) then
+    deallocate ( vartmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vartmp",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  !
+  if (allocated(var)) then
+    deallocate ( var , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"var",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( vartmp(1:n_my_output_pts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( var(1:n_my_output_pts) , source=real(0,CRT) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Now create the output data and write it to the CGNS file in parallel
   !
-  do n = 1,naq
+  do nv = 1,naq
     !
-    vartmp = uavesp(1:n_solpts,n) * var_dim(n) ! F2003 AUTO-REALLOCATION
+    call interpolate_for_output( uavesp(1:n_solpts,nv) , &
+                                 vartmp , nondim=var_dim(nv) )
+   !vartmp = uavesp(1:n_solpts,nv) * var_dim(nv) ! F2003 AUTO-REALLOCATION
+    !
+    ivar_s = isvar_s(nv)
     !
     call cgns_write_field_parallel
     !
@@ -9117,10 +9482,13 @@ subroutine get_vort_face_solution(my_vort_faces,vorticity)
   integer :: this_face,face_geom,face_order
   integer :: host_cell,host_geom,host_order
   real(wp) :: a
+  real(wp) :: rho_inv,vx,vy,vz
+  real(wp) :: decdx,dmydx,dmzdx
+  real(wp) :: decdy,dmxdy,dmzdy
+  real(wp) :: decdz,dmxdz,dmydz
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr) :: vort_vec
-  real(wp), dimension(1:nr,1:nq) :: dpvdx
   real(wp), dimension(1:nq,1:maxFP) :: cvfp
   real(wp), dimension(1:maxFP,1:nq) :: cv_tmp
   real(wp), dimension(1:nr,1:nq,1:maxFP) :: dcvdx
@@ -9216,16 +9584,30 @@ continue
     !
     do k = 1,nfp
       !
-      ! Compute the derivatives of the primitive variables
+      ! Compute the vorticity vector at this face point using the
+      ! gradients of the momentums and the product rule
       !
-      dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp( cvfp(1:nq,k) , &
-                                                dcvdx(1:nr,1:nq,k) )
+      rho_inv = one/cvfp(nec,k)
+      vx = cvfp(nmx,k)*rho_inv
+      vy = cvfp(nmy,k)*rho_inv
+      vz = cvfp(nmz,k)*rho_inv
       !
-      ! Compute the vorticity vector at this face point
+      decdx = dcvdx(1,nec,k)
+      decdy = dcvdx(2,nec,k)
+      decdz = dcvdx(3,nec,k)
       !
-      vort_vec(1) = dpvdx(2,nmz) - dpvdx(3,nmy)
-      vort_vec(2) = dpvdx(3,nmx) - dpvdx(1,nmz)
-      vort_vec(3) = dpvdx(1,nmy) - dpvdx(2,nmx)
+      dmxdy = dcvdx(2,nmx,k)
+      dmxdz = dcvdx(3,nmx,k)
+      !
+      dmydx = dcvdx(1,nmy,k)
+      dmydz = dcvdx(3,nmy,k)
+      !
+      dmzdx = dcvdx(1,nmz,k)
+      dmzdy = dcvdx(2,nmz,k)
+      !
+      vort_vec(1) = rho_inv*( (dmzdy-dmydz) - (vz*decdy-vy*decdz) )
+      vort_vec(2) = rho_inv*( (dmxdz-dmzdx) - (vx*decdz-vz*decdx) )
+      vort_vec(3) = rho_inv*( (dmydx-dmxdy) - (vy*decdx-vx*decdy) )
       !
       ! Compute the magnitude of the vorticity vector
       ! NOTE: Dont forget to adjust the nondimensionalization of the
@@ -9313,288 +9695,276 @@ end function grad_of_selected_pv
 !
 !###############################################################################
 !
-pure function interpolate_for_output_1d(array) result(return_value)
-  !
-  !... calculates d(utd)/dt
+pure subroutine interpolate_for_output_1d(array,return_value,nondim)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts,n_global_solpts
-  use geovar,  only : ncell,n_global_cell,cell
-  use geovar,  only : global_pinc_ptr
-  use geovar,  only : global_cell_geom
-  use geovar,  only : global_cell_order
-  !
-  use interpolation_mod, only : outerp,outerp_mv_mult
+  use geovar,            only : ncell,cell
+  use interpolation_mod, only : outerp
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: array
+  real(wp),    intent(in) :: array(:)
+  real(wp), intent(inout) :: return_value(:)
   !
-  !.. Function Return Value ..
-  real(wp), dimension(1:n_my_output_pts) :: return_value
+  !.. Optional Arguments ..
+  real(wp), optional, intent(in) :: nondim
   !
   !.. Local Scalars ..
-  integer :: i1,i2,nc,n1,n2,np,n
-  integer :: this_geom,this_order
+  integer  :: i,k,n,k0,kp,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,val
   !
 continue
   !
-  ! Interpolate the data depending on if we are working on
-  ! a local or global data array.
+  ! Interpolate the data
   !
-  i2 = 0
+  k0 = 0
+  kp = 0
   !
-  if (size(array) == n_global_solpts) then
+  do nc = 1,ncell
     !
-    do nc = 1,n_global_cell
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+    !
+    k0 = k0 + kp
+    !
+    if (allocated(outerp(this_geom,this_order)%output)) then
       !
-      this_geom = global_cell_geom(nc)
-      this_order = global_cell_order(nc)
+      kp = size(outerp(this_geom,this_order)%output%mat,dim=1)
       !
-      n1 = global_pinc_ptr(nc)+1
-      n2 = global_pinc_ptr(nc+1)
-      np = n2-n1+1
+      do k = 1,kp
+        !
+        val = zero
+        !
+        do i = outerp(this_geom,this_order)%output%col_ptr(k)+1, &
+               outerp(this_geom,this_order)%output%col_ptr(k+1)
+          !
+          n = outerp(this_geom,this_order)%output%col_idx(i)
+          a = outerp(this_geom,this_order)%output%col_val(i)
+          !
+          val = val + a * array(n0+n)
+          !
+        end do
+        !
+        return_value(k0+k) = val
+        !
+      end do
       !
-      if (allocated(outerp(this_geom,this_order)%output)) then
-        i1 = i2 + 1
-        i2 = i2 + size(outerp(this_geom,this_order)%output%mat,dim=1)
-        call outerp_mv_mult( outerp(this_geom,this_order)%output , &
-                             array(n1:n2) , return_value(i1:i2) )
-      else
-        i1 = i2 + 1
-        i2 = i2 + np
-        return_value(i1:i2) = array(n1:n2)
-      end if
+    else
       !
+      kp = np
+      !
+      do n = 1,np
+        return_value(n0+n) = array(n0+n)
+      end do
+      !
+    end if
+    !
+  end do
+  !
+  ! Dimensionalize the variable if the nondimensionalization factor is present
+  !
+  if (present(nondim)) then
+    do n = 1,size(return_value)
+      return_value(n) = return_value(n) * nondim
     end do
-    !
-  else
-    !
-    do nc = 1,ncell
-      !
-      this_geom = cell(nc)%geom
-      this_order = cell(nc)%order
-      !
-      n1 = cell(nc)%beg_sp
-      n2 = cell(nc)%end_sp
-      np = n2-n1+1
-      !
-      if (allocated(outerp(this_geom,this_order)%output)) then
-        i1 = i2 + 1
-        i2 = i2 + size(outerp(this_geom,this_order)%output%mat,dim=1)
-        call outerp_mv_mult( outerp(this_geom,this_order)%output , &
-                             array(n1:n2) , return_value(i1:i2) )
-      else
-        i1 = i2 + 1
-        i2 = i2 + np
-        return_value(i1:i2) = array(n1:n2)
-      end if
-      !
-    end do
-    !
   end if
   !
-end function interpolate_for_output_1d
+end subroutine interpolate_for_output_1d
 !
 !###############################################################################
 !
-pure function interpolate_for_output_2d(array) result(return_value)
-  !
-  !... calculates d(utd)/dt
+pure subroutine interpolate_for_output_2d(array,return_value,nondim)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts,n_global_solpts
-  use geovar,  only : ncell,n_global_cell,cell
-  use geovar,  only : global_pinc_ptr
-  use geovar,  only : global_cell_geom
-  use geovar,  only : global_cell_order
-  !
-  use interpolation_mod, only : outerp,outerp_mv_mult
+  use geovar,            only : ncell,cell
+  use interpolation_mod, only : outerp
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: array
+  real(wp),    intent(in) :: array(:,:)
+  real(wp), intent(inout) :: return_value(:,:)
   !
-  !.. Function Return Value ..
-  real(wp) :: return_value( 1:size(array,dim=1) , 1:n_my_output_pts )
+  !.. Optional Arguments ..
+  real(wp), optional, intent(in) :: nondim
   !
   !.. Local Scalars ..
-  integer :: i1,i2,nc,n1,n2,np,n,npts,nvar,m
-  integer :: this_geom,this_order
+  integer  :: i,k,m,n,k0,kp,nc,np,n0,nvar
+  integer  :: this_geom,this_order
+  real(wp) :: a,val
   !
 continue
   !
-  nvar = size(array,dim=1)
-  npts = size(array,dim=2)
+  nvar = size(array,dim=2)
   !
-  ! Interpolate the data depending on if we are working on
-  ! a local or global data array.
+  ! Interpolate the data
   !
-  i2 = 0
+  k0 = 0
+  kp = 0
   !
-  if (npts == n_global_solpts) then
+  do nc = 1,ncell
     !
-    do nc = 1,n_global_cell
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+    !
+    k0 = k0 + kp
+    !
+    if (allocated(outerp(this_geom,this_order)%output)) then
       !
-      this_geom = global_cell_geom(nc)
-      this_order = global_cell_order(nc)
+      kp = size(outerp(this_geom,this_order)%output%mat,dim=1)
       !
-      n1 = global_pinc_ptr(nc)+1
-      n2 = global_pinc_ptr(nc+1)
-      np = n2-n1+1
-      !
-      if (allocated(outerp(this_geom,this_order)%output)) then
-        i1 = i2 + 1
-        i2 = i2 + size(outerp(this_geom,this_order)%output%mat,dim=1)
-        do m = 1,nvar
-          call outerp_mv_mult( outerp(this_geom,this_order)%output , &
-                               array(m,n1:n2) , return_value(m,i1:i2) )
-        end do
-      else
-        i1 = i2 + 1
-        i2 = i2 + np
-        do n = n1,n2
-          do m = 1,nvar
-            return_value(m,i1+n-n1) = array(m,n)
+      do m = 1,nvar
+        do k = 1,kp
+          !
+          val = zero
+          !
+          do i = outerp(this_geom,this_order)%output%col_ptr(k)+1, &
+                 outerp(this_geom,this_order)%output%col_ptr(k+1)
+            !
+            n = outerp(this_geom,this_order)%output%col_idx(i)
+            a = outerp(this_geom,this_order)%output%col_val(i)
+            !
+            val = val + a * array(n0+n,m)
+            !
           end do
+          !
+          return_value(k0+k,m) = val
+          !
         end do
-      end if
+      end do
       !
+    else
+      !
+      kp = np
+      !
+      do m = 1,nvar
+        do n = 1,np
+          return_value(k0+n,m) = array(n0+n,m)
+        end do
+      end do
+      !
+    end if
+    !
+  end do
+  !
+  ! Dimensionalize the variables if the nondimensionalization factor is present
+  !
+  if (present(nondim)) then
+    do m = 1,size(return_value,dim=2)
+      do n = 1,size(return_value,dim=1)
+        return_value(n,m) = return_value(n,m) * nondim
+      end do
     end do
-    !
-  else
-    !
-    do nc = 1,ncell
-      !
-      this_geom = cell(nc)%geom
-      this_order = cell(nc)%order
-      !
-      n1 = cell(nc)%beg_sp
-      n2 = cell(nc)%end_sp
-      np = n2-n1+1
-      !
-      if (allocated(outerp(this_geom,this_order)%output)) then
-        i1 = i2 + 1
-        i2 = i2 + size(outerp(this_geom,this_order)%output%mat,dim=1)
-        do m = 1,nvar
-          call outerp_mv_mult( outerp(this_geom,this_order)%output , &
-                               array(m,n1:n2) , return_value(m,i1:i2) )
-        end do
-      else
-        i1 = i2 + 1
-        i2 = i2 + np
-        do n = n1,n2
-          do m = 1,nvar
-            return_value(m,i1+n-n1) = array(m,n)
-          end do
-        end do
-      end if
-      !
-    end do
-    !
   end if
   !
-end function interpolate_for_output_2d
+end subroutine interpolate_for_output_2d
 !
 !###############################################################################
 !
-pure function vorticity_dusp(cv,dcvdx,dir) result(return_value)
-  !
-  integer,                    intent(in) :: dir
-  real(wp), dimension(:,:),   intent(in) :: cv
-  real(wp), dimension(:,:,:), intent(in) :: dcvdx
-  !
-  real(wp), dimension(1:size(dcvdx,dim=3)) :: return_value
-  !
-  !.. Local Scalars ..
-  integer :: i,j,k,n1,n2
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:size(dcvdx,dim=1),1:size(dcvdx,dim=2)) :: dpvdx
-  !
-  !.. Local Parameters ..
-  integer, parameter, dimension(3) :: idx = [2,3,1]
-  integer, parameter, dimension(3) :: jdx = [3,1,2]
-  !
-continue
-  !
-  n1 = size(dcvdx,dim=1)
-  n2 = size(dcvdx,dim=2)
-  !
-  i = idx(dir)
-  j = jdx(dir)
-  !
-  do k = 1,size(dcvdx,dim=3)
-    dpvdx(1:n1,1:n2) =  grad_cv_to_grad_pv_sp( cv(:,k) , dcvdx(:,:,k) )
-    return_value(k) = dpvdx(i,nmb-1+j) - dpvdx(j,nmb-1+i)
-  end do
-  !
-end function vorticity_dusp
-!
-!###############################################################################
-!
-pure function total_temperature_cv(uu) result(return_value)
+pure subroutine interpolate_for_output_3d(array,return_value,nondim)
   !
   !.. Use Statements ..
-  use ovar, only : gam
+  use geovar,            only : ncell,cell
+  use interpolation_mod, only : outerp
   !
   !.. Formal Arguments ..
-  real(wp), intent(in) :: uu(:,:)
+  real(wp),    intent(in) :: array(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:,:)
   !
-  !.. Function Result ..
-  real(wp) :: return_value(1:size(uu,dim=2))
+  !.. Optional Arguments ..
+  real(wp), optional, intent(in) :: nondim
   !
   !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: mach,temp
+  integer  :: i,l,k,m,n,k0,kp,nc,np,n0,nvar,ndim
+  integer  :: this_geom,this_order
+  real(wp) :: a,val
   !
 continue
   !
-  do n = 1,size(uu,dim=2)
-    temp = temperature_cv_sp( uu(:,n) )
-    mach = mach_number_cv_sp( uu(:,n) )
-    return_value(n) = temp*(one + half*(gam-one)*mach*mach)
+  ndim = size(array,dim=2)
+  nvar = size(array,dim=3)
+  !
+  ! Interpolate the data
+  !
+  k0 = 0
+  kp = 0
+  !
+  do nc = 1,ncell
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+    !
+    k0 = k0 + kp
+    !
+    if (allocated(outerp(this_geom,this_order)%output)) then
+      !
+      kp = size(outerp(this_geom,this_order)%output%mat,dim=1)
+      !
+      do m = 1,nvar
+        do l = 1,ndim
+          do k = 1,kp
+            !
+            val = zero
+            !
+            do i = outerp(this_geom,this_order)%output%col_ptr(k)+1, &
+                   outerp(this_geom,this_order)%output%col_ptr(k+1)
+              !
+              n = outerp(this_geom,this_order)%output%col_idx(i)
+              a = outerp(this_geom,this_order)%output%col_val(i)
+              !
+              val = val + a * array(n0+n,l,m)
+              !
+            end do
+            !
+            return_value(k0+k,l,m) = val
+            !
+          end do
+        end do
+      end do
+      !
+    else
+      !
+      kp = np
+      !
+      do m = 1,nvar
+        do l = 1,ndim
+          do n = 1,np
+            return_value(k0+n,l,m) = array(n0+n,l,m)
+          end do
+        end do
+      end do
+      !
+    end if
+    !
   end do
   !
-end function total_temperature_cv
-!
-!###############################################################################
-!
-pure function total_pressure_cv(uu) result(return_value)
+  ! Dimensionalize the variables if the nondimensionalization factor is present
   !
-  !.. Use Statements ..
-  use ovar, only : gam
+  if (present(nondim)) then
+    do m = 1,size(return_value,dim=3)
+      do l = 1,size(return_value,dim=2)
+        do n = 1,size(return_value,dim=1)
+          return_value(n,l,m) = return_value(n,l,m) * nondim
+        end do
+      end do
+    end do
+  end if
   !
-  !.. Formal Arguments ..
-  real(wp), intent(in) :: uu(:,:)
-  !
-  !.. Function Result ..
-  real(wp) :: return_value(1:size(uu,dim=2))
-  !
-  !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: mach,pres
-  !
-continue
-  !
-  do n = 1,size(uu,dim=2)
-    pres = pressure_cv_sp( uu(:,n) )
-    mach = mach_number_cv_sp( uu(:,n) )
-    return_value(n) = pres*( (one + half*(gam-one)*mach*mach)**(gam/(gam-one)) )
-  end do
-  !
-end function total_pressure_cv
+end subroutine interpolate_for_output_3d
 !
 !###############################################################################
 !
 include "Functions/last.f90"
 include "Functions/bc_priority.f90"
-include "Functions/entropy.f90"
-include "Functions/pressure.f90"
-include "Functions/viscosity.f90"
-include "Functions/temperature.f90"
-include "Functions/mach_number.f90"
 include "Functions/cell_vol.f90"
 include "Functions/bc_string_to_integer.f90"
-include "Functions/grad_cv_to_grad_pv.f90"
 #include "Functions/check_for_bad_number.f90"
 !
 !###############################################################################

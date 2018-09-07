@@ -6,11 +6,7 @@
     !
   continue
     !
-    if (interpolate_before_output_variable) then
-      var = real( vartmp , kind(var) )
-    else
-      var(:) = real( interpolate_for_output(vartmp) , kind(var) )
-    end if
+    var(:) = real( vartmp , kind(var) )
     !
     ! Perform some quick modifications to make sure all values in var
     ! are valid before writing to the CGNS file
@@ -33,10 +29,10 @@
     !
     call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_field_write_data_f")
-    call cgp_field_write_data_f(ifile_s,ibase_s,izone_s,isol_s,isvar_s(n), &
+    call cgp_field_write_data_f(ifile_s,ibase_s,izone_s,isol_s,ivar_s, &
                                 my_pts_beg,my_pts_end,var,cgierr)
     call cgns_error(pname,cgns_sol_file,"cgp_field_write_data_f", &
-                    cgierr,__LINE__,__FILE__,"Write data: Solution variable",n)
+                    cgierr,__LINE__,__FILE__,"Write data: Solution variable",nv)
     call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_field_write_data_f")
     !
