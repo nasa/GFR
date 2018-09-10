@@ -4,7 +4,7 @@ module time_mod
   !
   use module_kind_types, global_debug_timer => debug_timer
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
-  use eqn_idx, only : ncs,npres,nvisc,ngamm
+  use eqn_idx, only : ncs,npres,ntemp,nvisc,ngamm
   !
   implicit none
   !
@@ -1574,7 +1574,7 @@ end subroutine rresi
 !
 !###############################################################################
 !
-subroutine check_total_temperature(np,usp,nst)
+subroutine check_total_temperature(np,usp,gpsp,nst)
   !
   !.. Use Statements ..
   use ovar, only : gam,rgasref_nd,tref,tmin,tmax
@@ -1585,6 +1585,7 @@ subroutine check_total_temperature(np,usp,nst)
   integer,     intent(in) :: np
   integer,     intent(in) :: nst
   real(wp), intent(inout) :: usp(:,:)
+  real(wp), intent(inout) :: gpsp(:,:)
   !
   !.. Local Scalars ..
   integer  :: n,nr,loc_ttmin,loc_ttmax
@@ -1624,7 +1625,7 @@ continue
   !
   if (nr == 3) then
     !
-    !$ACC PARALLEL LOOP PRESENT(usp) &
+    !$ACC PARALLEL LOOP PRESENT(usp,gpsp) &
     !$ACC&              REDUCTION(+:num_min_limits,num_max_limits) &
     !$ACC&              REDUCTION(max:ttmax) &
     !$ACC&              REDUCTION(min:ttmin)
@@ -1640,11 +1641,10 @@ continue
       !
       q2 = velx*velx + vely*vely + velz*velz
       !
-      pres = gm1*(usp(n,nee) - half*rho*q2)
+      pres = gpsp(n,npres)
+      temp = gpsp(n,ntemp)
       !
       a2 = max( gam*pres*rho_inv , rndoff )
-      !
-      temp = pres*rho_inv*rgas_inv
       !
       total_temp = temp*(one + half*gm1*q2/a2)
       !
@@ -1657,43 +1657,30 @@ continue
       end if
       !
       if (total_temp > tmax_lim) then
-        !
         total_temp = tmax_lim
-        !
-        temp = total_temp - q2*gm1_over_2gmR
-        !
+        num_max_limits = num_max_limits + 1
+      else if (total_temp < tmin_lim) then
+        total_temp = tmin_lim
+        num_min_limits = num_min_limits + 1
+      end if
+      !
+      temp = total_temp - q2*gm1_over_2gmR
+      gpsp(n,ntemp) = temp
+      !
 !#define APPLY_TTOTAL_LIMIT_TO_PRESSURE
 #ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
-        pres = rho*rgasref_nd*temp
-        usp(n,nee) = pres/gm1 + half*rho*q2
+      pres = rho*rgasref_nd*temp
+      usp(n,nee) = pres/gm1 + half*rho*q2
+      gpsp(n,npres) = pres
 #else
-        usp(n,nec) = rgas_inv*pres/temp
+      usp(n,nec) = rgas_inv*pres/temp
 #endif
-        !
-        num_max_limits = num_max_limits + 1
-        !
-      else if (total_temp < tmin_lim) then
-        !
-        total_temp = tmin_lim
-        !
-        temp = total_temp - q2*gm1_over_2gmR
-        !
-#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
-        pres = rho*rgasref_nd*temp
-        usp(n,nee) = pres/gm1 + half*rho*q2
-#else
-        usp(n,nec) = rgas_inv*pres/temp
-#endif
-        !
-        num_min_limits = num_min_limits + 1
-        !
-      end if
       !
     end do
     !
   else if (nr == 2) then
     !
-    !$ACC PARALLEL LOOP PRESENT(usp) &
+    !$ACC PARALLEL LOOP PRESENT(usp,gpsp) &
     !$ACC&              REDUCTION(+:num_min_limits,num_max_limits) &
     !$ACC&              REDUCTION(max:ttmax) &
     !$ACC&              REDUCTION(min:ttmin)
@@ -1708,11 +1695,10 @@ continue
       !
       q2 = velx*velx + vely*vely
       !
-      pres = gm1*(usp(n,nee) - half*rho*q2)
+      pres = gpsp(n,npres)
+      temp = gpsp(n,ntemp)
       !
       a2 = max( gam*pres*rho_inv , rndoff )
-      !
-      temp = pres*rho_inv*rgas_inv
       !
       total_temp = temp*(one + half*gm1*q2/a2)
       !
@@ -1725,42 +1711,29 @@ continue
       end if
       !
       if (total_temp > tmax_lim) then
-        !
         total_temp = tmax_lim
-        !
-        temp = total_temp - q2*gm1_over_2gmR
-        !
-#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
-        pres = rho*rgasref_nd*temp
-        usp(n,nee) = pres/gm1 + half*rho*q2
-#else
-        usp(n,nec) = rgas_inv*pres/temp
-#endif
-        !
         num_max_limits = num_max_limits + 1
-        !
       else if (total_temp < tmin_lim) then
-        !
         total_temp = tmin_lim
-        !
-        temp = total_temp - q2*gm1_over_2gmR
-        !
-#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
-        pres = rho*rgasref_nd*temp
-        usp(n,nee) = pres/gm1 + half*rho*q2
-#else
-        usp(n,nec) = rgas_inv*pres/temp
-#endif
-        !
         num_min_limits = num_min_limits + 1
-        !
       end if
+      !
+      temp = total_temp - q2*gm1_over_2gmR
+      gpsp(n,ntemp) = temp
+      !
+#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
+      pres = rho*rgasref_nd*temp
+      usp(n,nee) = pres/gm1 + half*rho*q2
+      gpsp(n,npres) = pres
+#else
+      usp(n,nec) = rgas_inv*pres/temp
+#endif
       !
     end do
     !
   else
     !
-    !$ACC PARALLEL LOOP PRESENT(usp) &
+    !$ACC PARALLEL LOOP PRESENT(usp,gpsp) &
     !$ACC&              REDUCTION(+:num_min_limits,num_max_limits) &
     !$ACC&              REDUCTION(max:ttmax) &
     !$ACC&              REDUCTION(min:ttmin)
@@ -1774,11 +1747,10 @@ continue
       !
       q2 = velx*velx
       !
-      pres = gm1*(usp(n,nee) - half*rho*q2)
+      pres = gpsp(n,npres)
+      temp = gpsp(n,ntemp)
       !
       a2 = max( gam*pres*rho_inv , rndoff )
-      !
-      temp = pres*rho_inv*rgas_inv
       !
       total_temp = temp*(one + half*gm1*q2/a2)
       !
@@ -1791,36 +1763,23 @@ continue
       end if
       !
       if (total_temp > tmax_lim) then
-        !
         total_temp = tmax_lim
-        !
-        temp = total_temp - q2*gm1_over_2gmR
-        !
-#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
-        pres = rho*rgasref_nd*temp
-        usp(n,nee) = pres/gm1 + half*rho*q2
-#else
-        usp(n,nec) = rgas_inv*pres/temp
-#endif
-        !
         num_max_limits = num_max_limits + 1
-        !
       else if (total_temp < tmin_lim) then
-        !
         total_temp = tmin_lim
-        !
-        temp = total_temp - q2*gm1_over_2gmR
-        !
-#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
-        pres = rho*rgasref_nd*temp
-        usp(n,nee) = pres/gm1 + half*rho*q2
-#else
-        usp(n,nec) = rgas_inv*pres/temp
-#endif
-        !
         num_min_limits = num_min_limits + 1
-        !
       end if
+      !
+      temp = total_temp - q2*gm1_over_2gmR
+      gpsp(n,ntemp) = temp
+      !
+#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
+      pres = rho*rgasref_nd*temp
+      usp(n,nee) = pres/gm1 + half*rho*q2
+      gpsp(n,npres) = pres
+#else
+      usp(n,nec) = rgas_inv*pres/temp
+#endif
       !
     end do
     !
@@ -1951,7 +1910,8 @@ continue
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call check_total_temperature(n_solpts,usp,nst)
+    call update_thermo_properties(1,n_solpts,usp,gpsp)
+    call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
   ! Apply filtering or limiting to stabilize the solution
@@ -1960,10 +1920,8 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  if (allocated(gpsp)) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp)
-    call update_transport_properties(1,n_solpts,usp,gpsp)
-  end if
+  call update_thermo_properties(1,n_solpts,usp,gpsp)
+  call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -2426,7 +2384,8 @@ continue
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call check_total_temperature(n_solpts,usp,nst)
+    call update_thermo_properties(1,n_solpts,usp,gpsp)
+    call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
   ! Apply filtering or limiting to stabilize the solution
@@ -2435,10 +2394,8 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  if (allocated(gpsp)) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp)
-    call update_transport_properties(1,n_solpts,usp,gpsp)
-  end if
+  call update_thermo_properties(1,n_solpts,usp,gpsp)
+  call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -2581,7 +2538,8 @@ continue
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call check_total_temperature(n_solpts,usp,nst)
+    call update_thermo_properties(1,n_solpts,usp,gpsp)
+    call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
   ! Apply filtering or limiting to stabilize the solution
@@ -2590,10 +2548,8 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  if (allocated(gpsp)) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp)
-    call update_transport_properties(1,n_solpts,usp,gpsp)
-  end if
+  call update_thermo_properties(1,n_solpts,usp,gpsp)
+  call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -2790,7 +2746,8 @@ continue
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call check_total_temperature(n_solpts,usp,nst)
+    call update_thermo_properties(1,n_solpts,usp,gpsp)
+    call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
   ! Apply filtering or limiting to stabilize the solution
@@ -2799,10 +2756,8 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  if (allocated(gpsp)) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp)
-    call update_transport_properties(1,n_solpts,usp,gpsp)
-  end if
+  call update_thermo_properties(1,n_solpts,usp,gpsp)
+  call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -3236,7 +3191,8 @@ continue
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call check_total_temperature(n_solpts,usp,nst)
+    call update_thermo_properties(1,n_solpts,usp,gpsp)
+    call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
   ! Apply filtering or limiting to stabilize the solution
@@ -3245,10 +3201,8 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  if (allocated(gpsp)) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp)
-    call update_transport_properties(1,n_solpts,usp,gpsp)
-  end if
+  call update_thermo_properties(1,n_solpts,usp,gpsp)
+  call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
   !
