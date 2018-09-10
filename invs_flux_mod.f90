@@ -18,11 +18,12 @@ contains
 !
 !###############################################################################
 !
-pure subroutine invs_flx_cv_gpu(usp,gpsp,return_value)
+!pure &
+subroutine invs_flx_cv_gpu(usp,gpsp,return_value)
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: usp(:,:)
-  real(wp),    intent(in) :: gpsp(:,:)
+  real(wp), intent(inout) :: gpsp(:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
@@ -44,16 +45,21 @@ end subroutine invs_flx_cv_gpu
 !
 !###############################################################################
 !
-pure subroutine invs_flx_cv_gpu_3d(usp,gpsp,return_value)
+!pure &
+subroutine invs_flx_cv_gpu_3d(usp,gpsp,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam
   use ovar, only : turb_is_on
   use ovar, only : include_tke_in_energy
   !
+  use eqn_idx, only : aux_gamma
+  use eqn_idx, only : aux_var_is_not_gamma
+  use eqn_idx, only : set_auxiliary_variable
+  !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: usp(:,:)
-  real(wp),    intent(in) :: gpsp(:,:)
+  real(wp), intent(inout) :: gpsp(:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
@@ -144,6 +150,13 @@ continue
       !
     end do
     if (include_tke_in_energy) then
+      if ( aux_var_is_not_gamma() ) then
+        !$ACC PARALLEL LOOP PRESENT(gpsp)
+        do n = 1,np
+          gpsp(n,ngamm) = gam
+        end do
+        call set_auxiliary_variable(aux_gamma)
+      end if
       !$ACC PARALLEL LOOP PRESENT(return_value,usp,gpsp)
       do n = 1,np
         !
@@ -151,9 +164,7 @@ continue
         velx = usp(n,nmx)*rho_inv
         vely = usp(n,nmy)*rho_inv
         velz = usp(n,nmz)*rho_inv
-        if (ngamm > 0) then
-          gm1 = gpsp(n,ngamm) - one
-        end if
+        gm1 = gpsp(n,ngamm) - one
         kflx = gm1*usp(n,ntk)
         !
         return_value(n,1,nmx) = return_value(n,1,nmx) - kflx
@@ -172,16 +183,21 @@ end subroutine invs_flx_cv_gpu_3d
 !
 !###############################################################################
 !
-pure subroutine invs_flx_cv_gpu_2d(usp,gpsp,return_value)
+!pure &
+subroutine invs_flx_cv_gpu_2d(usp,gpsp,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam
   use ovar, only : turb_is_on
   use ovar, only : include_tke_in_energy
   !
+  use eqn_idx, only : aux_gamma
+  use eqn_idx, only : aux_var_is_not_gamma
+  use eqn_idx, only : set_auxiliary_variable
+  !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: usp(:,:)
-  real(wp),    intent(in) :: gpsp(:,:)
+  real(wp), intent(inout) :: gpsp(:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
@@ -259,15 +275,20 @@ continue
       !
     end do
     if (include_tke_in_energy) then
+      if ( aux_var_is_not_gamma() ) then
+        !$ACC PARALLEL LOOP PRESENT(gpsp)
+        do n = 1,np
+          gpsp(n,ngamm) = gam
+        end do
+        call set_auxiliary_variable(aux_gamma)
+      end if
       !$ACC PARALLEL LOOP PRESENT(return_value,usp,gpsp)
       do n = 1,np
         !
         rho_inv = one/usp(n,nec)
         velx = usp(n,nmx)*rho_inv
         vely = usp(n,nmy)*rho_inv
-        if (ngamm > 0) then
-          gm1 = gpsp(n,ngamm) - one
-        end if
+        gm1 = gpsp(n,ngamm) - one
         kflx = gm1*usp(n,ntk)
         !
         return_value(n,1,nmx) = return_value(n,1,nmx) - kflx
@@ -284,14 +305,19 @@ end subroutine invs_flx_cv_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine invs_flx_cv_gpu_nd(usp,gpsp,return_value)
+!pure &
+subroutine invs_flx_cv_gpu_nd(usp,gpsp,return_value)
   !
   use ovar, only : gam
   use ovar, only : turb_is_on
   use ovar, only : include_tke_in_energy
   !
+  use eqn_idx, only : aux_gamma
+  use eqn_idx, only : aux_var_is_not_gamma
+  use eqn_idx, only : set_auxiliary_variable
+  !
   real(wp),    intent(in) :: usp(:,:)
-  real(wp),    intent(in) :: gpsp(:,:)
+  real(wp), intent(inout) :: gpsp(:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   integer  :: l,m,n,np,nr,meq
@@ -338,13 +364,18 @@ continue
       end do
     end do
     if (include_tke_in_energy) then
+      if ( aux_var_is_not_gamma() ) then
+        !$ACC PARALLEL LOOP PRESENT(gpsp)
+        do n = 1,np
+          gpsp(n,ngamm) = gam
+        end do
+        call set_auxiliary_variable(aux_gamma)
+      end if
       !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(return_value,usp,gpsp)
       do l = 1,nr
         do n = 1,np
           meq = nec + l
-          if (ngamm > 0) then
-            gm1 = gpsp(n,ngamm) - one
-          end if
+          gm1 = gpsp(n,ngamm) - one
           val = gm1*usp(n,ntk)
           flxvel = usp(n,meq)/usp(n,nec)
           return_value(n,l,meq) = return_value(n,l,meq) - val
@@ -358,13 +389,14 @@ end subroutine invs_flx_cv_gpu_nd
 !
 !###############################################################################
 !
-pure subroutine invs_wall_flx_gpu(n1,n2,facenrm,face_cv,face_gp,return_value)
+!pure &
+subroutine invs_wall_flx_gpu(n1,n2,facenrm,face_cv,face_gp,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: face_gp(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
@@ -386,17 +418,22 @@ end subroutine invs_wall_flx_gpu
 !
 !###############################################################################
 !
-pure subroutine invs_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,face_gp,return_value)
+!pure &
+subroutine invs_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,face_gp,return_value)
   !
   !.. Use Statements ..
-  use ovar,   only : gam
-  use ovar,   only : include_tke_in_energy
+  use ovar, only : gam
+  use ovar, only : include_tke_in_energy
+  !
+  use eqn_idx, only : aux_gamma
+  use eqn_idx, only : aux_var_is_not_gamma
+  use eqn_idx, only : set_auxiliary_variable
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: face_gp(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
@@ -430,11 +467,16 @@ continue
   end do
   !
   if (include_tke_in_energy) then
+    if ( aux_var_is_not_gamma() ) then
+      !$ACC PARALLEL LOOP PRESENT(face_gp)
+      do n = n1,n2
+        face_gp(n,ngamm,1) = gam
+      end do
+      call set_auxiliary_variable(aux_gamma)
+    end if
     !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
     do n = n1,n2
-      if (ngamm > 0) then
-        gm1 = face_gp(n,ngamm,1) - one
-      end if
+      gm1 = face_gp(n,ngamm,1) - one
       kflx = gm1*face_cv(n,ntk,1)
       return_value(n,nmx) = return_value(n,nmx) - kflx*facenrm(1,n)
       return_value(n,nmy) = return_value(n,nmy) - kflx*facenrm(2,n)
@@ -446,17 +488,22 @@ end subroutine invs_wall_flx_gpu_3d
 !
 !###############################################################################
 !
-pure subroutine invs_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,face_gp,return_value)
+!pure &
+subroutine invs_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,face_gp,return_value)
   !
   !.. Use Statements ..
-  use ovar,   only : gam
-  use ovar,   only : include_tke_in_energy
+  use ovar, only : gam
+  use ovar, only : include_tke_in_energy
+  !
+  use eqn_idx, only : aux_gamma
+  use eqn_idx, only : aux_var_is_not_gamma
+  use eqn_idx, only : set_auxiliary_variable
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: face_gp(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
@@ -489,11 +536,16 @@ continue
   end do
   !
   if (include_tke_in_energy) then
+    if ( aux_var_is_not_gamma() ) then
+      !$ACC PARALLEL LOOP PRESENT(face_gp)
+      do n = n1,n2
+        face_gp(n,ngamm,1) = gam
+      end do
+      call set_auxiliary_variable(aux_gamma)
+    end if
     !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
     do n = n1,n2
-      if (ngamm > 0) then
-        gm1 = face_gp(n,ngamm,1) - one
-      end if
+      gm1 = face_gp(n,ngamm,1) - one
       kflx = gm1*face_cv(n,ntk,1)
       return_value(n,nmx) = return_value(n,nmx) - kflx*facenrm(1,n)
       return_value(n,nmy) = return_value(n,nmy) - kflx*facenrm(2,n)
@@ -504,18 +556,23 @@ end subroutine invs_wall_flx_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine invs_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,face_gp,return_value)
+!pure &
+subroutine invs_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,face_gp,return_value)
   !
   !.. Use Statements ..
   use geovar, only : nr
   use ovar,   only : gam
   use ovar,   only : include_tke_in_energy
   !
+  use eqn_idx, only : aux_gamma
+  use eqn_idx, only : aux_var_is_not_gamma
+  use eqn_idx, only : set_auxiliary_variable
+  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: face_gp(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
@@ -546,13 +603,18 @@ continue
   end do
   !
   if (include_tke_in_energy) then
+    if ( aux_var_is_not_gamma() ) then
+      !$ACC PARALLEL LOOP PRESENT(face_gp)
+      do n = n1,n2
+        face_gp(n,ngamm,1) = gam
+      end do
+      call set_auxiliary_variable(aux_gamma)
+    end if
     !$ACC PARALLEL LOOP COLLAPSE(2) &
     !$ACC&              PRESENT(facenrm,face_cv,face_gp,return_value)
     do n = n1,n2
       do l = 1,nr
-        if (ngamm > 0) then
-          gm1 = face_gp(n,ngamm,1) - one
-        end if
+        gm1 = face_gp(n,ngamm,1) - one
         kflx = gm1*face_cv(n,ntk,1)
         return_value(n,nec+l) = return_value(n,nec+l) - kflx*facenrm(l,n)
       end do

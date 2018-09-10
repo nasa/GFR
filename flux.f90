@@ -1356,7 +1356,7 @@ subroutine compute_fluxes_at_solpts(usp,gpsp,dusp,ifluxes,vfluxes)
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: usp(:,:)
-  real(wp),    intent(in) :: gpsp(:,:)
+  real(wp), intent(inout) :: gpsp(:,:)
   real(wp),    intent(in) :: dusp(:,:,:)
   real(wp), intent(inout) :: ifluxes(:,:,:)
   real(wp), intent(inout) :: vfluxes(:,:,:)

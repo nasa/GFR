@@ -3236,7 +3236,8 @@ pure function compute_output_variable(upt,gppt,dupt,plot_variable) &
                                result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : rhoref,aref,tref,time_ref,gam,pref_nd,itestcase
+  use eqn_idx, only : aux_var_is_not_gamma
+  use ovar,    only : rhoref,aref,tref,time_ref,gam,pref_nd,itestcase
   !
   !.. Formal Arguments ..
   real(wp),          intent(in) :: upt(:)
@@ -3294,15 +3295,13 @@ continue
     !
   else if (plot_variable == plot_mach_number) then
     !
-    gamm = gam
-    if (ngamm > 0) gamm = gppt(ngamm)
+    gamm = merge( gam , gppt(ngamm) , aux_var_is_not_gamma() )
     !
     return_value = norm2(upt(nmb:nme)) / sqrt( upt(nec)*gamm*gppt(npres) )
     !
   else if (plot_variable == plot_entropy) then
     !
-    gamm = gam
-    if (ngamm > 0) gamm = gppt(ngamm)
+    gamm = merge( gam , gppt(ngamm) , aux_var_is_not_gamma() )
     !
     if (itestcase == Inviscid_Gaussian_Bump) then
       return_value = (gppt(npres)/pref_nd) / (upt(nec)**gamm)

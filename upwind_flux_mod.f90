@@ -26,7 +26,8 @@ contains
 !
 !###############################################################################
 !
-pure subroutine upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp,return_value)
+!pure &
+subroutine upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp,return_value)
   !
   !.. Use Statements ..
   use ovar, only : invs_flux_method
@@ -35,7 +36,7 @@ pure subroutine upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp,return_value)
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: face_gp(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
@@ -100,27 +101,30 @@ end subroutine upwind_flux_gpu
 !
 !###############################################################################
 !
-pure subroutine roe_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
+!pure &
+subroutine roe_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
                                     lflux,rflux,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam
   !
+  use eqn_idx, only : aux_gamma,aux_enthalpy
+  use eqn_idx, only : aux_var_is_not_gamma
+  use eqn_idx, only : aux_var_is_not_enthalpy
+  use eqn_idx, only : set_auxiliary_variable
+  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: face_gp(:,:,:)
   real(wp), intent(inout) :: lflux(:)
   real(wp), intent(inout) :: rflux(:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,nr,np
+  integer  :: i,n,nr,np
   real(wp) :: gam_over_gm1
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: enth(:,:)
   !
   !.. Local Parameters ..
  !logical(lk), parameter :: use_new_roe_subs = true
@@ -131,51 +135,45 @@ continue
   nr = size(facenrm,dim=1)
   np = size(face_cv,dim=1)
   !
-  ! If needed, create the temporary enth array and temporarily store the ratio
-  ! of specific heats (gamma) for the left and right states in the lflux and
+  ! Store the static enthalpy for the left and right states in the lflux and
   ! rflux arrays, respectively. After returning from roe_upwind_flux_tpg_*,
   ! the gammas stored in lflux and rflux will be replaced with the left and
   ! right fluxes for the species continuity equations.
   !
   if (use_new_roe_subs .or. ncs > 0) then
     !
-    allocate ( enth(1:np,1:2) )
-    !$ACC ENTER DATA CREATE(enth)
+    ! Move enthalpy into the auxiliary gas property variable spot
     !
-    if (ncs > 0) then
-      !
-      ! Copy static enthalpy and gamma from the face_gp array
-      !
-      !$ACC PARALLEL LOOP PRESENT(face_gp,enth,lflux,rflux)
-      do n = n1,n2
-        !
-        lflux(n)  = face_gp(n,ngamm,1)
-        enth(n,1) = face_gp(n,nenth,1)
-        !
-        rflux(n)  = face_gp(n,ngamm,2)
-        enth(n,2) = face_gp(n,nenth,2)
-        !
-      end do
-      !
-    else
-      !
-      ! Copy the constant gamma into lflux and rflux, and compute
-      ! the static enthalpy for this calorically perfect gas.
-      !
+    if ( aux_var_is_not_enthalpy() ) then
       gam_over_gm1 = gam / (gam - one)
-      !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp,enth,lflux,rflux)
-      do n = n1,n2
-        !
-        lflux(n)  = gam
-        enth(n,1) = gam_over_gm1*face_gp(n,npres,1)/face_cv(n,nec,1)
-        !
-        rflux(n)  = gam
-        enth(n,2) = gam_over_gm1*face_gp(n,npres,2)/face_cv(n,nec,2)
-        !
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp)
+      do i = 1,2
+        do n = n1,n2
+          face_gp(n,nenth,i) = gam_over_gm1*face_gp(n,npres,i)/face_cv(n,nec,i)
+        end do
       end do
-      !
+      call set_auxiliary_variable(aux_enthalpy)
     end if
     !
+    ! Copy the static enthalpy into lflux and rflux
+    !
+    !$ACC PARALLEL LOOP PRESENT(face_gp,lflux,rflux)
+    do n = n1,n2
+      lflux(n) = face_gp(n,nenth,1)
+      rflux(n) = face_gp(n,nenth,2)
+    end do
+    !
+    ! Move gamma into the auxiliary gas property variable spot
+    !
+    if ( aux_var_is_not_gamma() ) then
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
+      do i = 1,2
+        do n = n1,n2
+          face_gp(n,ngamm,i) = gam
+        end do
+      end do
+      call set_auxiliary_variable(aux_gamma)
+    end if
     !
   end if
   !
@@ -186,13 +184,13 @@ continue
     !
     if (nr == 3) then
       call roe_upwind_flux_tpg_3d(n1,n2,facenrm,face_cv,face_gp, &
-                                  enth,lflux,rflux,return_value)
+                                  lflux,rflux,return_value)
     else if (nr == 2) then
       call roe_upwind_flux_tpg_2d(n1,n2,facenrm,face_cv,face_gp, &
-                                  enth,lflux,rflux,return_value)
+                                  lflux,rflux,return_value)
     else
       call roe_upwind_flux_tpg_1d(n1,n2,facenrm,face_cv,face_gp, &
-                                  enth,lflux,rflux,return_value)
+                                  lflux,rflux,return_value)
     end if
     !
   else
@@ -204,13 +202,13 @@ continue
       !
       if (nr == 3) then
         call roe_upwind_flux_tpg_3d(n1,n2,facenrm,face_cv,face_gp, &
-                                    enth,lflux,rflux,return_value)
+                                    lflux,rflux,return_value)
       else if (nr == 2) then
         call roe_upwind_flux_tpg_2d(n1,n2,facenrm,face_cv,face_gp, &
-                                    enth,lflux,rflux,return_value)
+                                    lflux,rflux,return_value)
       else
         call roe_upwind_flux_tpg_1d(n1,n2,facenrm,face_cv,face_gp, &
-                                    enth,lflux,rflux,return_value)
+                                    lflux,rflux,return_value)
       end if
       !
     else
@@ -230,49 +228,45 @@ continue
     !
   end if
   !
-  if (allocated(enth)) then
-    !$ACC EXIT DATA
-    deallocate ( enth )
-  end if
-  !
 end subroutine roe_upwind_flux_gpu
 !
 !###############################################################################
 !
-pure subroutine hllc_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
+!pure &
+subroutine hllc_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
                                      lflux,rflux,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam
   !
+  use eqn_idx, only : aux_gamma
+  use eqn_idx, only : aux_var_is_not_gamma
+  use eqn_idx, only : set_auxiliary_variable
+  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: face_gp(:,:,:)
   real(wp), intent(inout) :: lflux(:)
   real(wp), intent(inout) :: rflux(:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,nr
+  integer :: i,n,nr
   !
 continue
   !
   nr = size(facenrm,dim=1)
   !
-  if (ncs > 0) then
-    !$ACC PARALLEL LOOP PRESENT(face_gp,lflux,rflux)
-    do n = n1,n2
-      lflux(n) = face_gp(n,ngamm,1)
-      rflux(n) = face_gp(n,ngamm,2)
+  if ( aux_var_is_not_gamma() ) then
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
+    do i = 1,2
+      do n = n1,n2
+        face_gp(n,ngamm,i) = gam
+      end do
     end do
-  else
-    !$ACC PARALLEL LOOP PRESENT(face_gp,lflux,rflux)
-    do n = n1,n2
-      lflux(n) = gam
-      rflux(n) = gam
-    end do
+    call set_auxiliary_variable(aux_gamma)
   end if
   !
   if (nr == 3) then
@@ -290,96 +284,93 @@ end subroutine hllc_upwind_flux_gpu
 !
 !###############################################################################
 !
-pure subroutine ldfss_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
+!pure &
+subroutine ldfss_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
                                       lflux,rflux,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam
   !
+  use eqn_idx, only : aux_gamma,aux_enthalpy
+  use eqn_idx, only : aux_var_is_not_gamma
+  use eqn_idx, only : aux_var_is_not_enthalpy
+  use eqn_idx, only : set_auxiliary_variable
+  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: face_gp(:,:,:)
   real(wp), intent(inout) :: lflux(:)
   real(wp), intent(inout) :: rflux(:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,np,nr
+  integer  :: i,n,np,nr
   real(wp) :: rho_inv,al,ar
   real(wp) :: gam_over_gm1,pres,gamm
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: aspd(:)
   !
 continue
   !
   nr = size(facenrm,dim=1)
   np = size(face_cv,dim=1)
   !
-  allocate ( aspd(1:np) )
-  !$ACC ENTER DATA CREATE(aspd)
+  ! Move gamma into the auxiliary gas property variable spot
   !
-  ! Temporarily store the static enthalpy in lflux and rflux and compute the
-  ! common speed of sound. After returning from ldfss_upwind_flux_gpu_*,
-  ! the static enthalpies stored in lflux and rflux will be replaced with the
-  ! left and right fluxes for the species continuity equations.
-  !
-  if (ncs > 0) then
-    !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp,aspd,lflux,rflux)
-    do n = n1,n2
-      !
-      rho_inv = one/face_cv(n,nec,1)
-      pres = face_gp(n,npres,1)
-      gamm = face_gp(n,ngamm,1)
-      lflux(n) = face_gp(n,nenth,1)
-      al = sqrt(max(gamm*pres*rho_inv,rndoff))
-      !
-      rho_inv = one/face_cv(n,nec,2)
-      pres = face_gp(n,npres,2)
-      gamm = face_gp(n,ngamm,2)
-      rflux(n) = face_gp(n,nenth,2)
-      ar = sqrt(max(gamm*pres*rho_inv,rndoff))
-      !
-      aspd(n) = half*(al + ar)
-      !
+  if ( aux_var_is_not_gamma() ) then
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
+    do i = 1,2
+      do n = n1,n2
+        face_gp(n,ngamm,i) = gam
+      end do
     end do
-  else
+    call set_auxiliary_variable(aux_gamma)
+  end if
+  !
+  ! Compute the common speed of sound and store in lflux
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp,lflux)
+  do n = n1,n2
+    !
+    rho_inv = one/face_cv(n,nec,1)
+    pres = face_gp(n,npres,1)
+    gamm = face_gp(n,ngamm,1)
+    al = sqrt(max(gamm*pres*rho_inv,rndoff))
+    !
+    rho_inv = one/face_cv(n,nec,2)
+    pres = face_gp(n,npres,2)
+    gamm = face_gp(n,ngamm,2)
+    ar = sqrt(max(gamm*pres*rho_inv,rndoff))
+    !
+    lflux(n) = half*(al + ar)
+    !
+  end do
+  !
+  ! Move enthalpy into the auxiliary gas property variable spot
+  !
+  if ( aux_var_is_not_enthalpy() ) then
     gam_over_gm1 = gam / (gam - one)
-    !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp,aspd,lflux,rflux)
-    do n = n1,n2
-      !
-      rho_inv = one/face_cv(n,nec,1)
-      pres = face_gp(n,npres,1)
-      lflux(n) = gam_over_gm1 * pres * rho_inv
-      al = sqrt(max(gam*pres*rho_inv,rndoff))
-      !
-      rho_inv = one/face_cv(n,nec,2)
-      pres = face_gp(n,npres,2)
-      rflux(n) = gam_over_gm1 * pres * rho_inv
-      ar = sqrt(max(gam*pres*rho_inv,rndoff))
-      !
-      aspd(n) = half*(al + ar)
-      !
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
+    do i = 1,2
+      do n = n1,n2
+        face_gp(n,nenth,i) = gam_over_gm1*face_gp(n,npres,i)/face_cv(n,nec,i)
+      end do
     end do
+    call set_auxiliary_variable(aux_enthalpy)
   end if
   !
   ! Compute the upwind flux using LDFSS
   !
   if (nr == 3) then
     call ldfss_upwind_flux_gpu_3d(n1,n2,facenrm,face_cv,face_gp, &
-                                  aspd,lflux,rflux,return_value)
+                                  lflux,rflux,return_value)
   else if (nr == 2) then
     call ldfss_upwind_flux_gpu_2d(n1,n2,facenrm,face_cv,face_gp, &
-                                  aspd,lflux,rflux,return_value)
+                                  lflux,rflux,return_value)
   else
     call ldfss_upwind_flux_gpu_1d(n1,n2,facenrm,face_cv,face_gp, &
-                                  aspd,lflux,rflux,return_value)
+                                  lflux,rflux,return_value)
   end if
-  !
-  !$ACC EXIT DATA
-  deallocate ( aspd )
   !
 end subroutine ldfss_upwind_flux_gpu
 !
@@ -781,7 +772,7 @@ end subroutine roe_upwind_flux_cpg_1d
 !###############################################################################
 !
 pure subroutine roe_upwind_flux_tpg_3d(n1,n2,facenrm,face_cv,face_gp, &
-                                       enth,lflux,rflux,return_value)
+                                       lflux,rflux,return_value)
   !
   ! Routine to calculate the upwind flux difference splitting using the
   ! approximate Riemann solver of Roe for a mixture of gases in 3D
@@ -792,7 +783,6 @@ pure subroutine roe_upwind_flux_tpg_3d(n1,n2,facenrm,face_cv,face_gp, &
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
-  real(wp),    intent(in) :: enth(:,:)
   real(wp), intent(inout) :: lflux(:)
   real(wp), intent(inout) :: rflux(:)
   real(wp), intent(inout) :: return_value(:,:)
@@ -815,7 +805,7 @@ pure subroutine roe_upwind_flux_tpg_3d(n1,n2,facenrm,face_cv,face_gp, &
 continue
   !
   !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp) &
-  !$ACC&              PRESENT(enth,lflux,rflux,return_value)
+  !$ACC&              PRESENT(lflux,rflux,return_value)
   do n = n1,n2
     !
     ! Cell face area
@@ -837,8 +827,8 @@ continue
     vzl = face_cv(n,nmz,1)*rl_inv
     etotl = face_cv(n,nee,1)
     presl = face_gp(n,npres,1)
-    gaml = lflux(n)
-    hl = enth(n,1)
+    gaml = face_gp(n,ngamm,1)
+    hl = lflux(n)
     !
     vnl = vxl*unx + vyl*uny + vzl*unz
     h0l = hl + half*(vxl*vxl+vyl*vyl+vzl*vzl)
@@ -853,8 +843,8 @@ continue
     vzr = face_cv(n,nmz,2)*rr_inv
     etotr = face_cv(n,nee,2)
     presr = face_gp(n,npres,2)
-    gamr = rflux(n)
-    hr = enth(n,2)
+    gamr = face_gp(n,ngamm,2)
+    hr = rflux(n)
     !
     vnr = vxr*unx + vyr*uny + vzr*unz
     h0r = hr + half*(vxr*vxr+vyr*vyr+vzr*vzr)
@@ -977,7 +967,7 @@ end subroutine roe_upwind_flux_tpg_3d
 !###############################################################################
 !
 pure subroutine roe_upwind_flux_tpg_2d(n1,n2,facenrm,face_cv,face_gp, &
-                                       enth,lflux,rflux,return_value)
+                                       lflux,rflux,return_value)
   !
   ! Routine to calculate the upwind flux difference splitting using the
   ! approximate Riemann solver of Roe for a mixture of gases in 2D
@@ -988,7 +978,6 @@ pure subroutine roe_upwind_flux_tpg_2d(n1,n2,facenrm,face_cv,face_gp, &
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
-  real(wp),    intent(in) :: enth(:,:)
   real(wp), intent(inout) :: lflux(:)
   real(wp), intent(inout) :: rflux(:)
   real(wp), intent(inout) :: return_value(:,:)
@@ -1011,7 +1000,7 @@ pure subroutine roe_upwind_flux_tpg_2d(n1,n2,facenrm,face_cv,face_gp, &
 continue
   !
   !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp) &
-  !$ACC&              PRESENT(enth,lflux,rflux,return_value)
+  !$ACC&              PRESENT(lflux,rflux,return_value)
   do n = n1,n2
     !
     ! Cell face area
@@ -1030,8 +1019,8 @@ continue
     vyl = face_cv(n,nmy,1)*rl_inv
     etotl = face_cv(n,nee,1)
     presl = face_gp(n,npres,1)
-    gaml = lflux(n)
-    hl = enth(n,1)
+    gaml = face_gp(n,ngamm,1)
+    hl = lflux(n)
     !
     vnl = vxl*unx + vyl*uny
     h0l = hl + half*(vxl*vxl+vyl*vyl)
@@ -1045,8 +1034,8 @@ continue
     vyr = face_cv(n,nmy,2)*rr_inv
     etotr = face_cv(n,nee,2)
     presr = face_gp(n,npres,2)
-    gamr = rflux(n)
-    hr = enth(n,2)
+    gamr = face_gp(n,ngamm,2)
+    hr = rflux(n)
     !
     vnr = vxr*unx + vyr*uny
     h0r = hr + half*(vxr*vxr+vyr*vyr)
@@ -1162,7 +1151,7 @@ end subroutine roe_upwind_flux_tpg_2d
 !###############################################################################
 !
 pure subroutine roe_upwind_flux_tpg_1d(n1,n2,facenrm,face_cv,face_gp, &
-                                       enth,lflux,rflux,return_value)
+                                       lflux,rflux,return_value)
   !
   ! Routine to calculate the upwind flux difference splitting using the
   ! approximate Riemann solver of Roe for a mixture of gases in 1D
@@ -1173,7 +1162,6 @@ pure subroutine roe_upwind_flux_tpg_1d(n1,n2,facenrm,face_cv,face_gp, &
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
-  real(wp),    intent(in) :: enth(:,:)
   real(wp), intent(inout) :: lflux(:)
   real(wp), intent(inout) :: rflux(:)
   real(wp), intent(inout) :: return_value(:,:)
@@ -1196,7 +1184,7 @@ pure subroutine roe_upwind_flux_tpg_1d(n1,n2,facenrm,face_cv,face_gp, &
 continue
   !
   !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp) &
-  !$ACC&              PRESENT(enth,lflux,rflux,return_value)
+  !$ACC&              PRESENT(lflux,rflux,return_value)
   do n = n1,n2
     !
     ! Cell face area
@@ -1212,8 +1200,8 @@ continue
     vxl = face_cv(n,nmx,1)*rl_inv
     etotl = face_cv(n,nee,1)
     presl = face_gp(n,npres,1)
-    gaml = lflux(n)
-    hl = enth(n,1)
+    gaml = face_gp(n,ngamm,1)
+    hl = lflux(n)
     !
     vnl = vxl*unx
     h0l = hl + half*vxl*vxl
@@ -1226,8 +1214,8 @@ continue
     vxr = face_cv(n,nmx,2)*rr_inv
     etotr = face_cv(n,nee,2)
     presr = face_gp(n,npres,2)
-    gamr = rflux(n)
-    hr = enth(n,2)
+    gamr = face_gp(n,ngamm,2)
+    hr = rflux(n)
     !
     vnr = vxr*unx
     h0r = hr + half*vxr*vxr
@@ -1395,7 +1383,7 @@ continue
     vzl    = face_cv(n,nmz,1)*rl_inv
     etotl  = face_cv(n,nee,1)
     presl  = face_gp(n,npres,1)
-    gaml   = lflux(n)
+    gaml   = face_gp(n,ngamm,1)
     !
     rr     = face_cv(n,nec,2)
     rr_inv = one/rl
@@ -1404,7 +1392,7 @@ continue
     vzr    = face_cv(n,nmz,2)*rr_inv
     etotr  = face_cv(n,nee,2)
     presr  = face_gp(n,npres,2)
-    gamr   = rflux(n)
+    gamr   = face_gp(n,ngamm,2)
     !
     ! Left(-) state variables
     !
@@ -1670,7 +1658,7 @@ continue
     vyl    = face_cv(n,nmy,1)*rl_inv
     etotl  = face_cv(n,nee,1)
     presl  = face_gp(n,npres,1)
-    gaml   = lflux(n)
+    gaml   = face_gp(n,ngamm,1)
     !
     rr     = face_cv(n,nec,2)
     rr_inv = one/rl
@@ -1678,7 +1666,7 @@ continue
     vyr    = face_cv(n,nmy,2)*rr_inv
     etotr  = face_cv(n,nee,2)
     presr  = face_gp(n,npres,2)
-    gamr   = rflux(n)
+    gamr   = face_gp(n,ngamm,2)
     !
     ! Left(-) state variables
     !
@@ -1930,14 +1918,14 @@ continue
     vxl    = face_cv(n,nmx,1)*rl_inv
     etotl  = face_cv(n,nee,1)
     presl  = face_gp(n,npres,1)
-    gaml   = lflux(n)
+    gaml   = face_gp(n,ngamm,1)
     !
     rr     = face_cv(n,nec,2)
     rr_inv = one/rl
     vxr    = face_cv(n,nmx,2)*rr_inv
     etotr  = face_cv(n,nee,2)
     presr  = face_gp(n,npres,2)
-    gamr   = rflux(n)
+    gamr   = face_gp(n,ngamm,2)
     !
     ! Left(-) state variables
     !
@@ -2123,14 +2111,13 @@ end subroutine hllc_upwind_flux_gpu_1d
 !###############################################################################
 !
 pure subroutine ldfss_upwind_flux_gpu_3d(n1,n2,facenrm,face_cv,face_gp, &
-                                         aspd,lflux,rflux,return_value)
+                                         lflux,rflux,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
-  real(wp),    intent(in) :: aspd(:)
   real(wp), intent(inout) :: lflux(:)
   real(wp), intent(inout) :: rflux(:)
   real(wp), intent(inout) :: return_value(:,:)
@@ -2151,7 +2138,7 @@ continue
   !
   !$ACC PARALLEL LOOP GANG WORKER VECTOR &
   !$ACC&              PRESENT(facenrm,face_cv,face_gp) &
-  !$ACC&              PRESENT(aspd,lflux,rflux,return_value)
+  !$ACC&              PRESENT(lflux,rflux,return_value)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -2168,7 +2155,7 @@ continue
     vyl = face_cv(n,nmy,1)*rl_inv
     vzl = face_cv(n,nmz,1)*rl_inv
     presl = face_gp(n,npres,1)
-    h0l = lflux(n) + half*(vxl*vxl+vyl*vyl+vzl*vzl)
+    h0l = face_gp(n,nenth,1) + half*(vxl*vxl+vyl*vyl+vzl*vzl)
     vnl = vxl*unx + vyl*uny + vzl*unz
     !
     rr = face_cv(n,nec,2)
@@ -2177,10 +2164,10 @@ continue
     vyr = face_cv(n,nmy,2)*rr_inv
     vzr = face_cv(n,nmz,2)*rr_inv
     presr = face_gp(n,npres,2)
-    h0r = rflux(n) + half*(vxr*vxr+vyr*vyr+vzr*vzr)
+    h0r = face_gp(n,nenth,2) + half*(vxr*vxr+vyr*vyr+vzr*vzr)
     vnr = vxr*unx + vyr*uny + vzr*unz
     !
-    ahalf = aspd(n)
+    ahalf = lflux(n)
     !
     mach_l = vnl/ahalf
     mach_r = vnr/ahalf
@@ -2232,14 +2219,13 @@ end subroutine ldfss_upwind_flux_gpu_3d
 !###############################################################################
 !
 pure subroutine ldfss_upwind_flux_gpu_2d(n1,n2,facenrm,face_cv,face_gp, &
-                                         aspd,lflux,rflux,return_value)
+                                         lflux,rflux,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
-  real(wp),    intent(in) :: aspd(:)
   real(wp), intent(inout) :: lflux(:)
   real(wp), intent(inout) :: rflux(:)
   real(wp), intent(inout) :: return_value(:,:)
@@ -2260,7 +2246,7 @@ continue
   !
   !$ACC PARALLEL LOOP GANG WORKER VECTOR &
   !$ACC&              PRESENT(facenrm,face_cv,face_gp) &
-  !$ACC&              PRESENT(aspd,lflux,rflux,return_value)
+  !$ACC&              PRESENT(lflux,rflux,return_value)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -2274,7 +2260,7 @@ continue
     vxl = face_cv(n,nmx,1)*rl_inv
     vyl = face_cv(n,nmy,1)*rl_inv
     presl = face_gp(n,npres,1)
-    h0l = lflux(n) + half*(vxl*vxl+vyl*vyl)
+    h0l = face_gp(n,nenth,1) + half*(vxl*vxl+vyl*vyl)
     vnl = vxl*unx + vyl*uny
     !
     rr = face_cv(n,nec,2)
@@ -2282,10 +2268,10 @@ continue
     vxr = face_cv(n,nmx,2)*rr_inv
     vyr = face_cv(n,nmy,2)*rr_inv
     presr = face_gp(n,npres,2)
-    h0r = rflux(n) + half*(vxr*vxr+vyr*vyr)
+    h0r = face_gp(n,nenth,2) + half*(vxr*vxr+vyr*vyr)
     vnr = vxr*unx + vyr*uny
     !
-    ahalf = aspd(n)
+    ahalf = lflux(n)
     !
     mach_l = vnl/ahalf
     mach_r = vnr/ahalf
@@ -2336,14 +2322,13 @@ end subroutine ldfss_upwind_flux_gpu_2d
 !###############################################################################
 !
 pure subroutine ldfss_upwind_flux_gpu_1d(n1,n2,facenrm,face_cv,face_gp, &
-                                         aspd,lflux,rflux,return_value)
+                                         lflux,rflux,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
-  real(wp),    intent(in) :: aspd(:)
   real(wp), intent(inout) :: lflux(:)
   real(wp), intent(inout) :: rflux(:)
   real(wp), intent(inout) :: return_value(:,:)
@@ -2364,7 +2349,7 @@ continue
   !
   !$ACC PARALLEL LOOP GANG WORKER VECTOR &
   !$ACC&              PRESENT(facenrm,face_cv,face_gp) &
-  !$ACC&              PRESENT(aspd,lflux,rflux,return_value)
+  !$ACC&              PRESENT(lflux,rflux,return_value)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -2374,14 +2359,14 @@ continue
     rl = face_cv(n,nec,1)
     vxl = face_cv(n,nmx,1)/rl
     presl = face_gp(n,npres,1)
-    h0l = lflux(n) + half*vxl*vxl
+    h0l = face_gp(n,nenth,1) + half*vxl*vxl
     !
     rr = face_cv(n,nec,2)
     vxr = face_cv(n,nmx,2)/rr
     presr = face_gp(n,npres,2)
-    h0r = rflux(n) + half*vxr*vxr
+    h0r = face_gp(n,nenth,2) + half*vxr*vxr
     !
-    ahalf = aspd(n)
+    ahalf = lflux(n)
     !
     mach_l = vxl*unx/ahalf
     mach_r = vxr*unx/ahalf

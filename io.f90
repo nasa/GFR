@@ -7658,6 +7658,10 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,ivar_s, &
   use ovar,    only : Limiter_Option
   use flowvar, only : dtsp
   !
+  use eqn_idx, only : aux_gamma
+  use eqn_idx, only : aux_var_is_not_gamma
+  use eqn_idx, only : set_auxiliary_variable
+  !
   use metrics_mod, only : time_metrics,metrics_array,jac
   !
   use module_limiters, only : marker,scaled_marker
@@ -7674,7 +7678,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,ivar_s, &
   character(len=*), intent(in) :: vname
   integer,       intent(inout) :: nv
   real(wp),         intent(in) :: cv(:,:)
-  real(wp),         intent(in) :: gp(:,:)
+  real(wp),      intent(inout) :: gp(:,:)
   real(wp),         intent(in) :: dcvdx(:,:,:)
   real(wp),      intent(inout) :: vartmp(:)
   real(CRT),     intent(inout) :: var(:)
@@ -7683,7 +7687,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,ivar_s, &
   integer  :: i,j,l,m,n,nc,np,n0,npts,ierr
   integer  :: nmi,nmj,l_comp,l_phys
   real(wp) :: freestream_ref,rhoa,rhoa2,time_ref_inv
-  real(wp) :: rho_inv,vx,vy,vz,a2,q2
+  real(wp) :: rho_inv,vx,vy,vz,a2,q2,s
   real(wp) :: gamm,gm1,gam_over_gm1,mach,pres,temp
   real(wp) :: mi,mj,drhodi,drhodj,dmjdi,dmidj
   !
@@ -7708,14 +7712,11 @@ continue
     !
     case ("Mach","P0","T0")
       !
-      if (ngamm > 0) then
+      if ( aux_var_is_not_gamma() ) then
         do n = 1,npts
-          vartmp(n) = gp(n,ngamm)
+          gp(n,ngamm) = gam
         end do
-      else
-        do n = 1,npts
-          vartmp(n) = gam
-        end do
+        call set_auxiliary_variable(aux_gamma)
       end if
       !
       if (nr == 3) then
@@ -7724,7 +7725,7 @@ continue
           vx = cv(n,nmx)*rho_inv
           vy = cv(n,nmy)*rho_inv
           vz = cv(n,nmz)*rho_inv
-          a2 = vartmp(n)*gp(n,npres)*rho_inv
+          a2 = gp(n,ngamm)*gp(n,npres)*rho_inv
           q2 = vx*vx + vy*vy + vz*vz
           vartmp(n) = sqrt( q2 / a2 ) - freestream_ref
         end do
@@ -7733,7 +7734,7 @@ continue
           rho_inv = one/cv(n,nec)
           vx = cv(n,nmx)*rho_inv
           vy = cv(n,nmy)*rho_inv
-          a2 = vartmp(n)*gp(n,npres)*rho_inv
+          a2 = gp(n,ngamm)*gp(n,npres)*rho_inv
           q2 = vx*vx + vy*vy
           vartmp(n) = sqrt( q2 / a2 ) - freestream_ref
         end do
@@ -7741,7 +7742,7 @@ continue
         do n = 1,npts
           rho_inv = one/cv(n,nec)
           vx = cv(n,nmx)*rho_inv
-          a2 = vartmp(n)*gp(n,npres)*rho_inv
+          a2 = gp(n,ngamm)*gp(n,npres)*rho_inv
           vartmp(n) = sqrt( vx*vx / a2 ) - freestream_ref
         end do
       end if
@@ -7866,26 +7867,17 @@ continue
       !
       nv = nv + 1
       !
-      ! NOTE: vartmp has been pre-loaded with the Mach number
+      ! NOTE: vartmp has been pre-loaded with the Mach number, and the auxiliary
+      !       variable in gp has already been switched to gamma
       !
-      if (ngamm > 0) then
-        do n = 1,npts
-          mach = vartmp(n)
-          pres = gp(n,npres) * rhoa2
-          gamm = gp(n,ngamm)
-          gm1 = gamm - one
-          gam_over_gm1 = gamm / gm1
-          vartmp(n) = pres*( (one + half*gm1*mach*mach)**gam_over_gm1 )
-        end do
-      else
-        gm1 = gam - one
-        gam_over_gm1 = gam / gm1
-        do n = 1,npts
-          mach = vartmp(n)
-          pres = gp(n,npres) * rhoa2
-          vartmp(n) = pres*( (one + half*gm1*mach*mach)**gam_over_gm1 )
-        end do
-      end if
+      do n = 1,npts
+        mach = vartmp(n)
+        pres = gp(n,npres) * rhoa2
+        gamm = gp(n,ngamm)
+        gm1 = gamm - one
+        gam_over_gm1 = gamm / gm1
+        vartmp(n) = pres*( (one + half*gm1*mach*mach)**gam_over_gm1 )
+      end do
       !
       call cgns_write_field_parallel
       !
@@ -7907,25 +7899,21 @@ continue
       !
       nv = nv + 1
       !
-      if (ngamm > 0) then
+      if ( aux_var_is_not_gamma() ) then
         do n = 1,npts
-          vartmp(n) = gp(n,ngamm)
+          gp(n,ngamm) = gam
         end do
-      else
-        do n = 1,npts
-          vartmp(n) = gam
-        end do
+        call set_auxiliary_variable(aux_gamma)
       end if
       !
       if (itestcase == Inviscid_Gaussian_Bump) then
         do n = 1,npts
-          gamm = vartmp(n)
-          vartmp(n) = abs( one - ((gp(n,npres)/pref_nd) / (cv(n,nec)**gamm)) )
+          s = (gp(n,npres)/pref_nd) / (cv(n,nec)**gp(n,ngamm))
+          vartmp(n) = abs( one - s )
         end do
       else
         do n = 1,npts
-          gamm = vartmp(n)
-          vartmp(n) = log(gp(n,npres)) - gamm*log(cv(n,nec))
+          vartmp(n) = log(gp(n,npres)) - gp(n,ngamm)*log(cv(n,nec))
         end do
       end if
       !
@@ -7947,23 +7935,15 @@ continue
       !
       nv = nv + 1
       !
-      ! NOTE: vartmp has been pre-loaded with the Mach number
+      ! NOTE: vartmp has been pre-loaded with the Mach number, and the auxiliary
+      !       variable in gp has already been switched to gamma
       !
-      if (ngamm > 0) then
-        do n = 1,npts
-          mach = vartmp(n)
-          temp = gp(n,ntemp) * tref
-          gm1 = gp(n,ngamm) - one
-          vartmp(n) = temp*(one + half*gm1*mach*mach)
-        end do
-      else
-        gm1 = gam - one
-        do n = 1,npts
-          mach = vartmp(n)
-          temp = gp(n,ntemp) * tref
-          vartmp(n) = temp*(one + half*gm1*mach*mach)
-        end do
-      end if
+      do n = 1,npts
+        mach = vartmp(n)
+        temp = gp(n,ntemp) * tref
+        gm1 = gp(n,ngamm) - one
+        vartmp(n) = temp*(one + half*gm1*mach*mach)
+      end do
       !
       call cgns_write_field_parallel
       !
