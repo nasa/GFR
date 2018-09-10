@@ -74,6 +74,7 @@ module ovar
   type, public :: bc_in_t
     real(wp), allocatable :: cv(:)
     real(wp), allocatable :: pv(:)
+    real(wp), allocatable :: gp(:)
     real(wp) :: wall_temperature = -one
     type(relaxation_t) :: relax
     integer :: bc_input_idx
@@ -533,6 +534,12 @@ continue
         m1 = lbound(bc_in(i)%pv,dim=1)
         m2 = ubound(bc_in(i)%pv,dim=1)
         !$ACC ENTER DATA COPYIN(bc_in(i)%pv(m1:m2))
+      end if
+      if (allocated(bc_in(i)%gp)) then
+        !$ACC ENTER DATA COPYIN(bc_in(i)%gp)
+        m1 = lbound(bc_in(i)%gp,dim=1)
+        m2 = ubound(bc_in(i)%gp,dim=1)
+        !$ACC ENTER DATA COPYIN(bc_in(i)%gp(m1:m2))
       end if
       !$ACC ENTER DATA COPYIN(bc_in(i)%relax)
     end do
