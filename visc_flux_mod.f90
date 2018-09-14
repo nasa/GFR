@@ -669,6 +669,10 @@ end subroutine visc_wall_flx_gpu
 pure subroutine visc_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                                      return_value)
   !
+  !.. Use Statements ..
+  use ovar,       only : schmidt_lam
+  use thermo_mod, only : compute_species_enthalpy
+  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
@@ -678,14 +682,20 @@ pure subroutine visc_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n
+  integer  :: m,n,np
   real(wp) :: rho_inv,mvsc,mcdt,ave_ext_rate,tflux
   real(wp) :: tauxx,tauyy,tauzz,tauxy,tauxz,tauyz
   real(wp) :: rnx,velx,dudx,dvdx,dwdx,dtdx,tflx_x,uflux
   real(wp) :: rny,vely,dudy,dvdy,dwdy,dtdy,tflx_y,vflux
   real(wp) :: rnz,velz,dudz,dvdz,dwdz,dtdz,tflx_z,wflux
+  real(wp) :: val,dsdx,dsdy,dsdz,sflux,schmidt_lam_inv
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: hsi(:,:)
   !
 continue
+  !
+  np = size(return_value,dim=1)
   !
   ! For slip wall: all gradients /= zero
   !                uwall /= zero
@@ -764,12 +774,53 @@ continue
     !
   end do
   !
+  ! Compute the viscous fluxes for the species continuity equations
+  ! and include their contributions to the energy equation.
+  !
+  if (ncs > 0) then
+    !
+    allocate ( hsi(1:np,1:ncs) )
+    !$ACC ENTER DATA CREATE(hsi)
+    !
+    call compute_species_enthalpy(n1,n2,face_gp(:,ntemp,2),hsi)
+    !
+    schmidt_lam_inv = one / schmidt_lam
+    !
+    do m = 1,ncs
+      !
+      !$ACC PARALLEL LOOP PRESENT(facenrm,hsi,face_gp,face_dcvdx,return_value)
+      do n = n1,n2
+        !
+        val = face_gp(n,nvisc,2) * schmidt_lam_inv
+        !
+        dsdx = val*face_dcvdx(n,1,m,2)*facenrm(1,n)
+        dsdy = val*face_dcvdx(n,2,m,2)*facenrm(2,n)
+        dsdz = val*face_dcvdx(n,3,m,2)*facenrm(3,n)
+        !
+        sflux = dsdx + dsdy + dsdz
+        !
+        return_value(n,m)   = return_value(n,m)   - sflux
+        return_value(n,nee) = return_value(n,nee) - sflux*hsi(n,m)
+        !
+      end do
+      !
+    end do
+    !
+    !$ACC EXIT DATA DELETE(hsi)
+    deallocate ( hsi )
+    !
+  end if
+  !
 end subroutine visc_wall_flx_gpu_3d
 !
 !###############################################################################
 !
 pure subroutine visc_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                                      return_value)
+  !
+  !.. Use Statements ..
+  use ovar,       only : schmidt_lam
+  use thermo_mod, only : compute_species_enthalpy
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -780,13 +831,19 @@ pure subroutine visc_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n
+  integer  :: m,n,np
   real(wp) :: rho_inv,mvsc,mcdt,ave_ext_rate,tflux
   real(wp) :: tauxx,tauyy,tauxy
   real(wp) :: rnx,velx,dudx,dvdx,dwdx,dtdx,tflx_x,uflux
   real(wp) :: rny,vely,dudy,dvdy,dwdy,dtdy,tflx_y,vflux
+  real(wp) :: val,dsdx,dsdy,sflux,schmidt_lam_inv
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: hsi(:,:)
   !
 continue
+  !
+  np = size(return_value,dim=1)
   !
   ! For slip wall: all gradients /= zero
   !                uwall /= zero
@@ -849,12 +906,52 @@ continue
     !
   end do
   !
+  ! Compute the viscous fluxes for the species continuity equations
+  ! and include their contributions to the energy equation.
+  !
+  if (ncs > 0) then
+    !
+    allocate ( hsi(1:np,1:ncs) )
+    !$ACC ENTER DATA CREATE(hsi)
+    !
+    call compute_species_enthalpy(n1,n2,face_gp(:,ntemp,2),hsi)
+    !
+    schmidt_lam_inv = one / schmidt_lam
+    !
+    do m = 1,ncs
+      !
+      !$ACC PARALLEL LOOP PRESENT(facenrm,hsi,face_gp,face_dcvdx,return_value)
+      do n = n1,n2
+        !
+        val = face_gp(n,nvisc,2) * schmidt_lam_inv
+        !
+        dsdx = val*face_dcvdx(n,1,m,2)*facenrm(1,n)
+        dsdy = val*face_dcvdx(n,2,m,2)*facenrm(2,n)
+        !
+        sflux = dsdx + dsdy
+        !
+        return_value(n,m)   = return_value(n,m)   - sflux
+        return_value(n,nee) = return_value(n,nee) - sflux*hsi(n,m)
+        !
+      end do
+      !
+    end do
+    !
+    !$ACC EXIT DATA DELETE(hsi)
+    deallocate ( hsi )
+    !
+  end if
+  !
 end subroutine visc_wall_flx_gpu_2d
 !
 !###############################################################################
 !
 pure subroutine visc_wall_flx_gpu_1d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                                      return_value)
+  !
+  !.. Use Statements ..
+  use ovar,       only : schmidt_lam
+  use thermo_mod, only : compute_species_enthalpy
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -865,12 +962,17 @@ pure subroutine visc_wall_flx_gpu_1d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n
+  integer  :: m,n,np
   real(wp) :: mvsc,mcdt,tflux,tauxx
   real(wp) :: rnx,velx,dudx,dtdx,tflx_x,uflux
+  real(wp) :: val,sflux,schmidt_lam_inv
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: hsi(:,:)
   !
 continue
   !
+  np = size(return_value,dim=1)
   !
   ! For slip wall: all gradients /= zero
   !                uwall /= zero
@@ -915,6 +1017,39 @@ continue
     return_value(n,nee) = return_value(n,nee) - tflux
     !
   end do
+  !
+  ! Compute the viscous fluxes for the species continuity equations
+  ! and include their contributions to the energy equation.
+  !
+  if (ncs > 0) then
+    !
+    allocate ( hsi(1:np,1:ncs) )
+    !$ACC ENTER DATA CREATE(hsi)
+    !
+    call compute_species_enthalpy(n1,n2,face_gp(:,ntemp,2),hsi)
+    !
+    schmidt_lam_inv = one / schmidt_lam
+    !
+    do m = 1,ncs
+      !
+      !$ACC PARALLEL LOOP PRESENT(facenrm,hsi,face_gp,face_dcvdx,return_value)
+      do n = n1,n2
+        !
+        val = face_gp(n,nvisc,2) * schmidt_lam_inv
+        !
+        sflux = val*face_dcvdx(n,1,m,2)*facenrm(1,n)
+        !
+        return_value(n,m)   = return_value(n,m)   - sflux
+        return_value(n,nee) = return_value(n,nee) - sflux*hsi(n,m)
+        !
+      end do
+      !
+    end do
+    !
+    !$ACC EXIT DATA DELETE(hsi)
+    deallocate ( hsi )
+    !
+  end if
   !
 end subroutine visc_wall_flx_gpu_1d
 !
