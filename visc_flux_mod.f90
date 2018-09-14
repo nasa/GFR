@@ -72,7 +72,7 @@ pure subroutine visc_flx_cv_gpu_3d(n1,n2,cv,gp,dcvdx,return_value)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,n,np
+  integer  :: m,n,np
   real(wp) :: mvsc,mcdt
   real(wp) :: rho_inv,ave_ext_rate
   real(wp) :: dudx,dudy,dudz
@@ -173,21 +173,21 @@ continue
     !
     schmidt_lam_inv = one / schmidt_lam
     !
-    do i = 1,ncs
+    do m = 1,ncs
       !
       !$ACC PARALLEL LOOP PRESENT(hsi,gp,dpvdx,return_value)
       do n = n1,n2
         !
         val = gp(n,nvisc) * schmidt_lam_inv
-        hi = hsi(n,i)
+        hi = hsi(n,m)
         !
-        dsdx = val*dpvdx(n,1,i)
-        dsdy = val*dpvdx(n,2,i)
-        dsdz = val*dpvdx(n,3,i)
+        dsdx = val*dpvdx(n,1,m)
+        dsdy = val*dpvdx(n,2,m)
+        dsdz = val*dpvdx(n,3,m)
         !
-        return_value(n,1,i) = dsdx
-        return_value(n,2,i) = dsdy
-        return_value(n,3,i) = dsdz
+        return_value(n,1,m) = dsdx
+        return_value(n,2,m) = dsdy
+        return_value(n,3,m) = dsdz
         !
         return_value(n,1,nee) = return_value(n,1,nee) + hi*dsdx
         return_value(n,2,nee) = return_value(n,2,nee) + hi*dsdy
@@ -197,10 +197,12 @@ continue
       !
     end do
     !
+    !$ACC EXIT DATA DELETE(hsi)
+    deallocate ( hsi )
+    !
   end if
   !
-  !$ACC EXIT DATA DELETE(hsi,dpvdx)
-  deallocate ( hsi )
+  !$ACC EXIT DATA DELETE(dpvdx)
   deallocate ( dpvdx )
   !
 end subroutine visc_flx_cv_gpu_3d
@@ -222,7 +224,7 @@ pure subroutine visc_flx_cv_gpu_2d(n1,n2,cv,gp,dcvdx,return_value)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,n,np
+  integer  :: m,n,np
   real(wp) :: mvsc,mcdt
   real(wp) :: rho_inv,ave_ext_rate
   real(wp) :: dudx,dudy
@@ -298,19 +300,19 @@ continue
     !
     schmidt_lam_inv = one / schmidt_lam
     !
-    do i = 1,ncs
+    do m = 1,ncs
       !
       !$ACC PARALLEL LOOP PRESENT(hsi,gp,dpvdx,return_value)
       do n = n1,n2
         !
         val = gp(n,nvisc) * schmidt_lam_inv
-        hi = hsi(n,i)
+        hi = hsi(n,m)
         !
-        dsdx = val*dpvdx(n,1,i)
-        dsdy = val*dpvdx(n,2,i)
+        dsdx = val*dpvdx(n,1,m)
+        dsdy = val*dpvdx(n,2,m)
         !
-        return_value(n,1,i) = dsdx
-        return_value(n,2,i) = dsdy
+        return_value(n,1,m) = dsdx
+        return_value(n,2,m) = dsdy
         !
         return_value(n,1,nee) = return_value(n,1,nee) + hi*dsdx
         return_value(n,2,nee) = return_value(n,2,nee) + hi*dsdy
@@ -319,10 +321,12 @@ continue
       !
     end do
     !
+    !$ACC EXIT DATA DELETE(hsi)
+    deallocate ( hsi )
+    !
   end if
   !
-  !$ACC EXIT DATA DELETE(hsi,dpvdx)
-  deallocate ( hsi )
+  !$ACC EXIT DATA DELETE(dpvdx)
   deallocate ( dpvdx )
   !
 end subroutine visc_flx_cv_gpu_2d
@@ -344,7 +348,7 @@ pure subroutine visc_flx_cv_gpu_1d(n1,n2,cv,gp,dcvdx,return_value)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,n,np
+  integer  :: m,n,np
   real(wp) :: tauxx,dsdx
   real(wp) :: schmidt_lam_inv
   !
@@ -395,25 +399,27 @@ continue
     !
     schmidt_lam_inv = one / schmidt_lam
     !
-    do i = 1,ncs
+    do m = 1,ncs
       !
       !$ACC PARALLEL LOOP PRESENT(hsi,gp,dpvdx,return_value)
       do n = n1,n2
         !
-        dsdx = gp(n,nvisc)*schmidt_lam_inv*dpvdx(n,1,i)
+        dsdx = gp(n,nvisc)*schmidt_lam_inv*dpvdx(n,1,m)
         !
-        return_value(n,1,i) = dsdx
+        return_value(n,1,m) = dsdx
         !
-        return_value(n,1,nee) = return_value(n,1,nee) + hsi(n,i)*dsdx
+        return_value(n,1,nee) = return_value(n,1,nee) + hsi(n,m)*dsdx
         !
       end do
       !
     end do
     !
+    !$ACC EXIT DATA DELETE(hsi)
+    deallocate ( hsi )
+    !
   end if
   !
-  !$ACC EXIT DATA DELETE(hsi,dpvdx)
-  deallocate ( hsi )
+  !$ACC EXIT DATA DELETE(dpvdx)
   deallocate ( dpvdx )
   !
 end subroutine visc_flx_cv_gpu_1d
@@ -652,7 +658,7 @@ continue
     call visc_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                               return_value)
   else
-    call visc_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
+    call visc_wall_flx_gpu_1d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                               return_value)
   end if
   !
@@ -847,7 +853,7 @@ end subroutine visc_wall_flx_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine visc_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
+pure subroutine visc_wall_flx_gpu_1d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                                      return_value)
   !
   !.. Formal Arguments ..
@@ -859,16 +865,12 @@ pure subroutine visc_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,nr
-  real(wp) :: rho_inv,mvsc,mcdt,ave_ext_rate,tflux
-  real(wp) :: tauxx,tauyy,tauzz,tauxy,tauxz,tauyz
-  real(wp) :: rnx,velx,dudx,dvdx,dwdx,dtdx,tflx_x,uflux
-  real(wp) :: rny,vely,dudy,dvdy,dwdy,dtdy,tflx_y,vflux
-  real(wp) :: rnz,velz,dudz,dvdz,dwdz,dtdz,tflx_z,wflux
+  integer  :: n
+  real(wp) :: mvsc,mcdt,tflux,tauxx
+  real(wp) :: rnx,velx,dudx,dtdx,tflx_x,uflux
   !
 continue
   !
-  nr = size(face_dcvdx,dim=2)
   !
   ! For slip wall: all gradients /= zero
   !                uwall /= zero
@@ -883,158 +885,38 @@ continue
   ! Initialize the viscous fluxes to zero.
   ! NOTE: This takes care of the continuity equation
   !
-  if (nr == 3) then
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,face_dcvdx,return_value)
+  do n = n1,n2
     !
-    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,face_dcvdx,return_value)
-    do n = n1,n2
-      !
-      rnx = facenrm(1,n)
-      rny = facenrm(2,n)
-      rnz = facenrm(3,n)
-      !
-      rho_inv = one/face_cv(n,nec,2)
-      !
-      velx = face_cv(n,nmx,2)*rho_inv
-      vely = face_cv(n,nmy,2)*rho_inv
-      velz = face_cv(n,nmz,2)*rho_inv
-      !
-      mvsc = face_gp(n,nvisc,2)
-      mcdt = face_gp(n,ncond,2)
-      !
-      ! NOTE: FOR WALL BCs, THE GRADIENTS STORED IN FACE_DCVDX(:,:,2)
-      !       ARE ACTUALLY THE PRIMITVE VARIABLE GRADIENTS
-      !
-      dudx = mvsc * face_dcvdx(n,1,nmx,2)
-      dudy = mvsc * face_dcvdx(n,2,nmx,2)
-      dudz = mvsc * face_dcvdx(n,3,nmx,2)
-      !
-      dvdx = mvsc * face_dcvdx(n,1,nmy,2)
-      dvdy = mvsc * face_dcvdx(n,2,nmy,2)
-      dvdz = mvsc * face_dcvdx(n,3,nmy,2)
-      !
-      dwdx = mvsc * face_dcvdx(n,1,nmz,2)
-      dwdy = mvsc * face_dcvdx(n,2,nmz,2)
-      dwdz = mvsc * face_dcvdx(n,3,nmz,2)
-      !
-      dtdx = mcdt * face_dcvdx(n,1,nee,2)
-      dtdy = mcdt * face_dcvdx(n,2,nee,2)
-      dtdz = mcdt * face_dcvdx(n,3,nee,2)
-      !
-      ave_ext_rate = two3 * (dudx + dvdy + dwdz)
-      !
-      tauxx = dudx + dudx - ave_ext_rate
-      tauyy = dvdy + dvdy - ave_ext_rate
-      tauzz = dwdz + dwdz - ave_ext_rate
-      !
-      tauxy = dvdx + dudy
-      tauxz = dwdx + dudz
-      tauyz = dwdy + dvdz
-      !
-      tflx_x = dtdx + velx*tauxx + vely*tauxy + velz*tauxz
-      tflx_y = dtdy + velx*tauxy + vely*tauyy + velz*tauyz
-      tflx_z = dtdz + velx*tauxz + vely*tauyz + velz*tauzz
-      !
-      uflux = rnx*tauxx  + rny*tauxy  + rnz*tauxz
-      vflux = rnx*tauxy  + rny*tauyy  + rnz*tauyz
-      wflux = rnx*tauxz  + rny*tauyz  + rnz*tauzz
-      tflux = rnx*tflx_x + rny*tflx_y + rnz*tflx_z
-      !
-      ! Subtract the normal viscous flux from the
-      ! inviscid flux already stored in return_value
-      !
-      return_value(n,nmx) = return_value(n,nmx) - uflux
-      return_value(n,nmy) = return_value(n,nmy) - vflux
-      return_value(n,nmz) = return_value(n,nmz) - wflux
-      return_value(n,nee) = return_value(n,nee) - tflux
-      !
-    end do
+    rnx = facenrm(1,n)
     !
-  else if (nr == 2) then
+    velx = face_cv(n,nmx,2)/face_cv(n,nec,2)
     !
-    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,face_dcvdx,return_value)
-    do n = n1,n2
-      !
-      rnx = facenrm(1,n)
-      rny = facenrm(2,n)
-      !
-      rho_inv = one/face_cv(n,nec,2)
-      !
-      velx = face_cv(n,nmx,2)*rho_inv
-      vely = face_cv(n,nmy,2)*rho_inv
-      !
-      mvsc = face_gp(n,nvisc,2)
-      mcdt = face_gp(n,ncond,2)
-      !
-      ! NOTE: FOR WALL BCs, THE GRADIENTS STORED IN FACE_DCVDX(:,:,2)
-      !       ARE ACTUALLY THE PRIMITVE VARIABLE GRADIENTS
-      !
-      dudx = mvsc * face_dcvdx(n,1,nmx,2)
-      dudy = mvsc * face_dcvdx(n,2,nmx,2)
-      !
-      dvdx = mvsc * face_dcvdx(n,1,nmy,2)
-      dvdy = mvsc * face_dcvdx(n,2,nmy,2)
-      !
-      dtdx = mcdt * face_dcvdx(n,1,nee,2)
-      dtdy = mcdt * face_dcvdx(n,2,nee,2)
-      !
-      ave_ext_rate = two3 * (dudx + dvdy)
-      !
-      tauxx = dudx + dudx - ave_ext_rate
-      tauyy = dvdy + dvdy - ave_ext_rate
-      tauxy = dvdx + dudy
-      !
-      tflx_x = dtdx + velx*tauxx + vely*tauxy
-      tflx_y = dtdy + velx*tauxy + vely*tauyy
-      !
-      uflux = rnx*tauxx  + rny*tauxy
-      vflux = rnx*tauxy  + rny*tauyy
-      tflux = rnx*tflx_x + rny*tflx_y
-      !
-      ! Subtract the normal viscous flux from the
-      ! inviscid flux already stored in return_value
-      !
-      return_value(n,nmx) = return_value(n,nmx) - uflux
-      return_value(n,nmy) = return_value(n,nmy) - vflux
-      return_value(n,nee) = return_value(n,nee) - tflux
-      !
-    end do
+    mvsc = face_gp(n,nvisc,2)
+    mcdt = face_gp(n,ncond,2)
     !
-  else
+    ! NOTE: FOR WALL BCs, THE GRADIENTS STORED IN FACE_DCVDX(:,:,2)
+    !       ARE ACTUALLY THE PRIMITVE VARIABLE GRADIENTS
     !
-    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,face_dcvdx,return_value)
-    do n = n1,n2
-      !
-      rnx = facenrm(1,n)
-      !
-      velx = face_cv(n,nmx,2)/face_cv(n,nec,2)
-      !
-      mvsc = face_gp(n,nvisc,2)
-      mcdt = face_gp(n,ncond,2)
-      !
-      ! NOTE: FOR WALL BCs, THE GRADIENTS STORED IN FACE_DCVDX(:,:,2)
-      !       ARE ACTUALLY THE PRIMITVE VARIABLE GRADIENTS
-      !
-      dudx = mvsc * face_dcvdx(n,1,nmx,2)
-      dtdx = mcdt * face_dcvdx(n,1,nee,2)
-      !
-      tauxx = two * two3 * dudx
-      !
-      tflx_x = dtdx + velx*tauxx
-      !
-      uflux = rnx*tauxx
-      tflux = rnx*tflx_x
-      !
-      ! Subtract the normal viscous flux from the
-      ! inviscid flux already stored in return_value
-      !
-      return_value(n,nmx) = return_value(n,nmx) - uflux
-      return_value(n,nee) = return_value(n,nee) - tflux
-      !
-    end do
+    dudx = mvsc * face_dcvdx(n,1,nmx,2)
+    dtdx = mcdt * face_dcvdx(n,1,nee,2)
     !
-  end if
+    tauxx = two * two3 * dudx
+    !
+    tflx_x = dtdx + velx*tauxx
+    !
+    uflux = rnx*tauxx
+    tflux = rnx*tflx_x
+    !
+    ! Subtract the normal viscous flux from the
+    ! inviscid flux already stored in return_value
+    !
+    return_value(n,nmx) = return_value(n,nmx) - uflux
+    return_value(n,nee) = return_value(n,nee) - tflux
+    !
+  end do
   !
-end subroutine visc_wall_flx_gpu_nd
+end subroutine visc_wall_flx_gpu_1d
 !
 !###############################################################################
 !
@@ -1268,7 +1150,7 @@ continue
     call common_vflx_ave_fluxes_gpu_2d(n1,n2,facenrm,face_cv,face_gp, &
                                        face_dcvdx,return_value)
   else
-    call common_vflx_ave_fluxes_gpu_nd(n1,n2,facenrm,face_cv,face_gp, &
+    call common_vflx_ave_fluxes_gpu_1d(n1,n2,facenrm,face_cv,face_gp, &
                                        face_dcvdx,return_value)
   end if
   !
@@ -1504,7 +1386,7 @@ end subroutine common_vflx_ave_fluxes_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine common_vflx_ave_fluxes_gpu_nd(n1,n2,facenrm,face_cv,face_gp, &
+pure subroutine common_vflx_ave_fluxes_gpu_1d(n1,n2,facenrm,face_cv,face_gp, &
                                               face_dcvdx,return_value)
   !
   !.. Use Statements ..
@@ -1519,14 +1401,9 @@ pure subroutine common_vflx_ave_fluxes_gpu_nd(n1,n2,facenrm,face_cv,face_gp, &
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,m,np,nr
-  real(wp) :: rnx,rny,rnz
-  real(wp) :: unx,uny,unz
-  real(wp) :: lcv,lfx,lfy,lfz
-  real(wp) :: rcv,rfx,rfy,rfz
-  real(wp) :: vavex,vavey,vavez
-  real(wp) :: ds,vjump,penalty,vflux
-  real(wp) :: vflx_x,vflx_y,vflx_z
+  integer  :: n,m,np
+  real(wp) :: rnx,lcv,lfx,rcv,rfx,vavex
+  real(wp) :: vjump,penalty,vflux,vflx_x
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: lvflx(:,:,:)
@@ -1535,10 +1412,9 @@ pure subroutine common_vflx_ave_fluxes_gpu_nd(n1,n2,facenrm,face_cv,face_gp, &
 continue
   !
   np = size(face_dcvdx,dim=1)
-  nr = size(face_dcvdx,dim=2)
   !
-  allocate ( lvflx(1:np,1:nr,1:nq) )
-  allocate ( rvflx(1:np,1:nr,1:nq) )
+  allocate ( lvflx(1:np,1:1,1:nq) )
+  allocate ( rvflx(1:np,1:1,1:nq) )
   !
   !$ACC DATA CREATE(lvflx,rvflx)
   !
@@ -1554,179 +1430,57 @@ continue
   !
   ! Use the LDG method to compute the common viscous flux vector
   !
-  if (nr == 3) then
-    !
-    !$ACC PARALLEL LOOP COLLAPSE(2) &
-    !$ACC&              PRESENT(facenrm,face_cv,return_value,lvflx,rvflx)
-    do m = 1,nq
-      do n = n1,n2
-        !
-        rnx = facenrm(1,n)
-        rny = facenrm(2,n)
-        rnz = facenrm(3,n)
-        ds = sqrt(rnx*rnx + rny*rny + rnz*rnz)
-        unx = rnx/ds
-        uny = rny/ds
-        unz = rnz/ds
-        !
-        lcv = face_cv(n,m,1)
-        rcv = face_cv(n,m,2)
-        !
-        lfx = lvflx(n,1,m)
-        lfy = lvflx(n,2,m)
-        lfz = lvflx(n,3,m)
-        !
-        rfx = rvflx(n,1,m)
-        rfy = rvflx(n,2,m)
-        rfz = rvflx(n,3,m)
-        !
-        ! Compute the common averaging terms by applying the
-        ! averaging operator {{.}} to the viscous flux vectors
-        !
-        vavex = half*(lfx + rfx)
-        vavey = half*(lfy + rfy)
-        vavez = half*(lfz + rfz)
-        !
-        ! Compute the common jump term by applying the differencing (jump)
-        ! operator [[.]] to the interface viscous flux vectors
-        !
-        vjump = unx*(lfx-rfx) + uny*(lfy-rfy) + unz*(lfz-rfz)
-        !
-        ! Compute the penalty term (simply the differencing (jump)
-        ! operator [[.]] applied to the interface solutions)
-        !
-        penalty = LDG_tau*(rcv-lcv)
-        !
-        ! Compute the directional common interface viscous fluxes
-        !
-        vflx_x = vavex + LDG_beta(1)*vjump + penalty*unx
-        vflx_y = vavey + LDG_beta(2)*vjump + penalty*uny
-        vflx_z = vavez + LDG_beta(3)*vjump + penalty*unz
-        !
-        ! Use area face normals to compute the final common
-        ! viscous flux normal to the face at this flux point
-        !
-        vflux = rnx*vflx_x + rny*vflx_y + rnz*vflx_z
-        !
-        ! Subtract the common viscous flux from the common
-        ! inviscid flux already stored within return_value
-        !
-        return_value(n,m) = return_value(n,m) - vflux
-        !
-      end do
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              PRESENT(facenrm,face_cv,return_value,lvflx,rvflx)
+  do m = 1,nq
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      !
+      lcv = face_cv(n,m,1)
+      rcv = face_cv(n,m,2)
+      !
+      lfx = lvflx(n,1,m)
+      !
+      rfx = rvflx(n,1,m)
+      !
+      ! Compute the common averaging terms by applying the
+      ! averaging operator {{.}} to the viscous flux vectors
+      !
+      vavex = half*(lfx + rfx)
+      !
+      ! Compute the common jump term by applying the differencing (jump)
+      ! operator [[.]] to the interface viscous flux vectors
+      !
+      vjump = rnx*(lfx-rfx)
+      !
+      ! Compute the penalty term (simply the differencing (jump)
+      ! operator [[.]] applied to the interface solutions)
+      !
+      penalty = LDG_tau*(rcv-lcv)
+      !
+      ! Compute the directional common interface viscous fluxes
+      !
+      vflx_x = vavex + LDG_beta(1)*vjump + penalty*rnx
+      !
+      ! Use area face normals to compute the final common
+      ! viscous flux normal to the face at this flux point
+      !
+      vflux = rnx*vflx_x
+      !
+      ! Subtract the common viscous flux from the common
+      ! inviscid flux already stored within return_value
+      !
+      return_value(n,m) = return_value(n,m) - vflux
+      !
     end do
-    !
-  else if (nr == 2) then
-    !
-    !$ACC PARALLEL LOOP COLLAPSE(2) &
-    !$ACC&              PRESENT(facenrm,face_cv,return_value,lvflx,rvflx)
-    do m = 1,nq
-      do n = n1,n2
-        !
-        rnx = facenrm(1,n)
-        rny = facenrm(2,n)
-        ds = sqrt(rnx*rnx + rny*rny)
-        unx = rnx/ds
-        uny = rny/ds
-        !
-        lcv = face_cv(n,m,1)
-        rcv = face_cv(n,m,2)
-        !
-        lfx = lvflx(n,1,m)
-        lfy = lvflx(n,2,m)
-        !
-        rfx = rvflx(n,1,m)
-        rfy = rvflx(n,2,m)
-        !
-        ! Compute the common averaging terms by applying the
-        ! averaging operator {{.}} to the viscous flux vectors
-        !
-        vavex = half*(lfx + rfx)
-        vavey = half*(lfy + rfy)
-        !
-        ! Compute the common jump term by applying the differencing (jump)
-        ! operator [[.]] to the interface viscous flux vectors
-        !
-        vjump = unx*(lfx-rfx) + uny*(lfy-rfy)
-        !
-        ! Compute the penalty term (simply the differencing (jump)
-        ! operator [[.]] applied to the interface solutions)
-        !
-        penalty = LDG_tau*(rcv-lcv)
-        !
-        ! Compute the directional common interface viscous fluxes
-        !
-        vflx_x = vavex + LDG_beta(1)*vjump + penalty*unx
-        vflx_y = vavey + LDG_beta(2)*vjump + penalty*uny
-        !
-        ! Use area face normals to compute the final common
-        ! viscous flux normal to the face at this flux point
-        !
-        vflux = rnx*vflx_x + rny*vflx_y
-        !
-        ! Subtract the common viscous flux from the common
-        ! inviscid flux already stored within return_value
-        !
-        return_value(n,m) = return_value(n,m) - vflux
-        !
-      end do
-    end do
-    !
-  else
-    !
-    !$ACC PARALLEL LOOP COLLAPSE(2) &
-    !$ACC&              PRESENT(facenrm,face_cv,return_value,lvflx,rvflx)
-    do m = 1,nq
-      do n = n1,n2
-        !
-        rnx = facenrm(1,n)
-        !
-        lcv = face_cv(n,m,1)
-        rcv = face_cv(n,m,2)
-        !
-        lfx = lvflx(n,1,m)
-        !
-        rfx = rvflx(n,1,m)
-        !
-        ! Compute the common averaging terms by applying the
-        ! averaging operator {{.}} to the viscous flux vectors
-        !
-        vavex = half*(lfx + rfx)
-        !
-        ! Compute the common jump term by applying the differencing (jump)
-        ! operator [[.]] to the interface viscous flux vectors
-        !
-        vjump = rnx*(lfx-rfx)
-        !
-        ! Compute the penalty term (simply the differencing (jump)
-        ! operator [[.]] applied to the interface solutions)
-        !
-        penalty = LDG_tau*(rcv-lcv)
-        !
-        ! Compute the directional common interface viscous fluxes
-        !
-        vflx_x = vavex + LDG_beta(1)*vjump + penalty*rnx
-        !
-        ! Use area face normals to compute the final common
-        ! viscous flux normal to the face at this flux point
-        !
-        vflux = rnx*vflx_x
-        !
-        ! Subtract the common viscous flux from the common
-        ! inviscid flux already stored within return_value
-        !
-        return_value(n,m) = return_value(n,m) - vflux
-        !
-      end do
-    end do
-    !
-  end if
+  end do
   !
   !$ACC END DATA
   deallocate ( rvflx )
   deallocate ( lvflx )
   !
-end subroutine common_vflx_ave_fluxes_gpu_nd
+end subroutine common_vflx_ave_fluxes_gpu_1d
 !
 !###############################################################################
 !
@@ -1754,7 +1508,7 @@ continue
     call common_vflx_ave_sol_and_grad_gpu_2d(n1,n2,facenrm,face_cv, &
                                              face_dcvdx,return_value)
   else
-    call common_vflx_ave_sol_and_grad_gpu_nd(n1,n2,facenrm,face_cv, &
+    call common_vflx_ave_sol_and_grad_gpu_1d(n1,n2,facenrm,face_cv, &
                                              face_dcvdx,return_value)
   end if
   !
@@ -2026,7 +1780,7 @@ end subroutine common_vflx_ave_sol_and_grad_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine common_vflx_ave_sol_and_grad_gpu_nd(n1,n2,facenrm,face_cv, &
+pure subroutine common_vflx_ave_sol_and_grad_gpu_1d(n1,n2,facenrm,face_cv, &
                                                     face_dcvdx,return_value)
   !
   !.. Use Statements ..
@@ -2042,11 +1796,9 @@ pure subroutine common_vflx_ave_sol_and_grad_gpu_nd(n1,n2,facenrm,face_cv, &
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,m,np,nr
-  real(wp) :: vflux,ds,lcv,rcv,vjump,penalty
-  real(wp) :: rnx,unx,ldx,rdx,vavex
-  real(wp) :: rny,uny,ldy,rdy,vavey
-  real(wp) :: rnz,unz,ldz,rdz,vavez
+  integer  :: n,m,np
+  real(wp) :: lcv,rcv,vjump,penalty
+  real(wp) :: rnx,ldx,rdx,vavex
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: com_cv(:,:)
@@ -2057,160 +1809,51 @@ pure subroutine common_vflx_ave_sol_and_grad_gpu_nd(n1,n2,facenrm,face_cv, &
 continue
   !
   np = size(face_dcvdx,dim=1)
-  nr = size(face_dcvdx,dim=2)
   !
   allocate ( com_cv(1:np,1:nq) )
   allocate ( com_gp(1:np,1:ng) )
-  allocate ( com_dcvdx(1:np,1:nr,1:nq) )
-  allocate ( com_vflx(1:np,1:nr,1:nq) )
+  allocate ( com_dcvdx(1:np,1:1,1:nq) )
+  allocate ( com_vflx(1:np,1:1,1:nq) )
   !
   !$ACC DATA CREATE(com_cv,com_gp,com_dcvdx,com_vflx)
   !
-  if (nr == 3) then
-    !
-    !$ACC PARALLEL LOOP COLLAPSE(2) &
-    !$ACC&              PRESENT(facenrm,face_cv,face_dcvdx,com_cv,com_dcvdx)
-    do m = 1,nq
-      do n = n1,n2
-        !
-        rnx = facenrm(1,n)
-        rny = facenrm(2,n)
-        rnz = facenrm(3,n)
-        ds = sqrt(rnx*rnx + rny*rny + rnz*rnz)
-        unx = rnx/ds
-        uny = rny/ds
-        unz = rnz/ds
-        !
-        lcv = face_cv(n,m,1)
-        rcv = face_cv(n,m,2)
-        !
-        ldx = face_dcvdx(n,1,m,1)
-        ldy = face_dcvdx(n,2,m,1)
-        ldz = face_dcvdx(n,3,m,1)
-        !
-        rdx = face_dcvdx(n,1,m,2)
-        rdy = face_dcvdx(n,2,m,2)
-        rdz = face_dcvdx(n,3,m,2)
-        !
-        ! Get the common solution at the interface using a simple average
-        !
-        com_cv(n,m) = half*(lcv + rcv)
-        !
-        ! Apply the averaging operator {{.}} to the gradients
-        !
-        vavex = half*(ldx + rdx)
-        vavey = half*(ldy + rdy)
-        vavez = half*(ldz + rdz)
-        !
-        ! Compute the common jump term by applying the
-        ! differencing (jump) operator [[.]] to the gradients
-        !
-        vjump = unx*(ldx-rdx) + uny*(ldy-rdy) + unz*(ldz-rdz)
-        !
-        ! Compute the penalty term (simply the differencing (jump)
-        ! operator [[.]] applied to the interface solutions)
-        !
-        penalty = LDG_tau*(rcv-lcv)
-        !
-        ! Finally, compute the directional common interface gradients
-        !
-        com_dcvdx(n,1,m) = vavex + LDG_beta(1)*vjump + penalty*unx
-        com_dcvdx(n,2,m) = vavey + LDG_beta(2)*vjump + penalty*uny
-        com_dcvdx(n,3,m) = vavez + LDG_beta(3)*vjump + penalty*unz
-        !
-      end do
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              PRESENT(facenrm,face_cv,face_dcvdx,com_cv,com_dcvdx)
+  do m = 1,nq
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      !
+      lcv = face_cv(n,m,1)
+      rcv = face_cv(n,m,2)
+      !
+      ldx = face_dcvdx(n,1,m,1)
+      rdx = face_dcvdx(n,1,m,2)
+      !
+      ! Get the common solution at the interface using a simple average
+      !
+      com_cv(n,m) = half*(lcv + rcv)
+      !
+      ! Apply the averaging operator {{.}} to the gradients
+      !
+      vavex = half*(ldx + rdx)
+      !
+      ! Compute the common jump term by applying the
+      ! differencing (jump) operator [[.]] to the gradients
+      !
+      vjump = rnx*(ldx-rdx)
+      !
+      ! Compute the penalty term (simply the differencing (jump)
+      ! operator [[.]] applied to the interface solutions)
+      !
+      penalty = LDG_tau*(rcv-lcv)
+      !
+      ! Finally, compute the directional common interface gradients
+      !
+      com_dcvdx(n,1,m) = vavex + LDG_beta(1)*vjump + penalty*rnx
+      !
     end do
-    !
-  else if (nr == 2) then
-    !
-    !$ACC PARALLEL LOOP COLLAPSE(2) &
-    !$ACC&              PRESENT(facenrm,face_cv,face_dcvdx,com_cv,com_dcvdx)
-    do m = 1,nq
-      do n = n1,n2
-        !
-        rnx = facenrm(1,n)
-        rny = facenrm(2,n)
-        ds = sqrt(rnx*rnx + rny*rny)
-        unx = rnx/ds
-        uny = rny/ds
-        !
-        lcv = face_cv(n,m,1)
-        rcv = face_cv(n,m,2)
-        !
-        ldx = face_dcvdx(n,1,m,1)
-        ldy = face_dcvdx(n,2,m,1)
-        !
-        rdx = face_dcvdx(n,1,m,2)
-        rdy = face_dcvdx(n,2,m,2)
-        !
-        ! Get the common solution at the interface using a simple average
-        !
-        com_cv(n,m) = half*(lcv + rcv)
-        !
-        ! Apply the averaging operator {{.}} to the gradients
-        !
-        vavex = half*(ldx + rdx)
-        vavey = half*(ldy + rdy)
-        !
-        ! Compute the common jump term by applying the
-        ! differencing (jump) operator [[.]] to the gradients
-        !
-        vjump = unx*(ldx-rdx) + uny*(ldy-rdy)
-        !
-        ! Compute the penalty term (simply the differencing (jump)
-        ! operator [[.]] applied to the interface solutions)
-        !
-        penalty = LDG_tau*(rcv-lcv)
-        !
-        ! Finally, compute the directional common interface gradients
-        !
-        com_dcvdx(n,1,m) = vavex + LDG_beta(1)*vjump + penalty*unx
-        com_dcvdx(n,2,m) = vavey + LDG_beta(2)*vjump + penalty*uny
-        !
-      end do
-    end do
-    !
-  else
-    !
-    !$ACC PARALLEL LOOP COLLAPSE(2) &
-    !$ACC&              PRESENT(facenrm,face_cv,face_dcvdx,com_cv,com_dcvdx)
-    do m = 1,nq
-      do n = n1,n2
-        !
-        rnx = facenrm(1,n)
-        !
-        lcv = face_cv(n,m,1)
-        rcv = face_cv(n,m,2)
-        !
-        ldx = face_dcvdx(n,1,m,1)
-        rdx = face_dcvdx(n,1,m,2)
-        !
-        ! Get the common solution at the interface using a simple average
-        !
-        com_cv(n,m) = half*(lcv + rcv)
-        !
-        ! Apply the averaging operator {{.}} to the gradients
-        !
-        vavex = half*(ldx + rdx)
-        !
-        ! Compute the common jump term by applying the
-        ! differencing (jump) operator [[.]] to the gradients
-        !
-        vjump = rnx*(ldx-rdx)
-        !
-        ! Compute the penalty term (simply the differencing (jump)
-        ! operator [[.]] applied to the interface solutions)
-        !
-        penalty = LDG_tau*(rcv-lcv)
-        !
-        ! Finally, compute the directional common interface gradients
-        !
-        com_dcvdx(n,1,m) = vavex + LDG_beta(1)*vjump + penalty*rnx
-        !
-      end do
-    end do
-    !
-  end if
+  end do
   !
   ! Update the common thermodynamic and transport properties from
   ! the common solution
@@ -2226,66 +1869,20 @@ continue
   ! Subtract the common viscous fluxes from the common
   ! inviscid fluxes already stored within return_value
   !
-  if (nr == 3) then
-    !
-    !$ACC PARALLEL LOOP COLLAPSE(2) &
-    !$ACC&              PRESENT(facenrm,return_value,com_vflx)
-    do m = 1,nq
-      do n = n1,n2
-        !
-        ! Use area face normals to compute the final common
-        ! viscous flux normal to the face at this flux point
-        !
-        vflux = facenrm(1,n)*com_vflx(n,1,m) &
-              + facenrm(2,n)*com_vflx(n,2,m) &
-              + facenrm(3,n)*com_vflx(n,3,m)
-        !
-        ! Subtract the common viscous flux from the common
-        ! inviscid flux already stored within return_value
-        !
-        return_value(n,m) = return_value(n,m) - vflux
-        !
-      end do
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              PRESENT(facenrm,return_value,com_vflx)
+  do m = 1,nq
+    do n = n1,n2
+      !
+      ! Use area face normals to compute the final common
+      ! viscous flux normal to the face at this flux point
+      ! and subtract it from the common inviscid flux
+      ! already stored within return_value
+      !
+      return_value(n,m) = return_value(n,m) - facenrm(1,n)*com_vflx(n,1,m)
+      !
     end do
-    !
-  else if (nr == 2) then
-    !
-    !$ACC PARALLEL LOOP COLLAPSE(2) &
-    !$ACC&              PRESENT(facenrm,return_value,com_vflx)
-    do m = 1,nq
-      do n = n1,n2
-        !
-        ! Use area face normals to compute the final common
-        ! viscous flux normal to the face at this flux point
-        !
-        vflux = facenrm(1,n)*com_vflx(n,1,m) + facenrm(2,n)*com_vflx(n,2,m)
-        !
-        ! Subtract the common viscous flux from the common
-        ! inviscid flux already stored within return_value
-        !
-        return_value(n,m) = return_value(n,m) - vflux
-        !
-      end do
-    end do
-    !
-  else
-    !
-    !$ACC PARALLEL LOOP COLLAPSE(2) &
-    !$ACC&              PRESENT(facenrm,return_value,com_vflx)
-    do m = 1,nq
-      do n = n1,n2
-        !
-        ! Use area face normals to compute the final common
-        ! viscous flux normal to the face at this flux point
-        ! and subtract it from the common inviscid flux
-        ! already stored within return_value
-        !
-        return_value(n,m) = return_value(n,m) - facenrm(1,n)*com_vflx(n,1,m)
-        !
-      end do
-    end do
-    !
-  end if
+  end do
   !
   !$ACC END DATA
   deallocate ( com_vflx )
@@ -2293,7 +1890,7 @@ continue
   deallocate ( com_gp )
   deallocate ( com_cv )
   !
-end subroutine common_vflx_ave_sol_and_grad_gpu_nd
+end subroutine common_vflx_ave_sol_and_grad_gpu_1d
 !
 !###############################################################################
 !
