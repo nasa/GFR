@@ -1615,8 +1615,8 @@ continue
   num_min_limits = 0
   num_max_limits = 0
   !
-  ttmin = tmax/tref
-  ttmax = tmin/tref
+  ttmin = tmax/tref ! initialize ttmin to the largest  possible temperature
+  ttmax = tmin/tref ! initialize ttmax to the smallest possible temperature
   !
   tmin_lim = ideal_total_temperature*(one - limit_total_temperature)
   tmax_lim = ideal_total_temperature*(one + limit_total_temperature)
