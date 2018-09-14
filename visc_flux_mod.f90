@@ -2419,8 +2419,8 @@ continue
       end do
     end do
     !
-    call update_thermo_properties(1,1,ucom,gpcom)
-    call update_transport_properties(1,1,ucom,gpcom)
+    call update_thermo_properties(ucom,gpcom)
+    call update_transport_properties(ucom,gpcom)
     !
     ! Compute the common viscous flux vector using
     ! the common solution and common gradient
@@ -2564,8 +2564,8 @@ continue
       end do
     end do
     !
-    call update_thermo_properties(1,1,ucom,gpcom)
-    call update_transport_properties(1,1,ucom,gpcom)
+    call update_thermo_properties(ucom,gpcom)
+    call update_transport_properties(ucom,gpcom)
     !
     ! Compute the common viscous flux vector using
     ! the common solution and common gradient

@@ -109,11 +109,9 @@ end subroutine init_transport_mod
 !
 !###############################################################################
 !
-pure subroutine update_transport_properties_1p(n1,n2,cv_1p,gp_1p)
+pure subroutine update_transport_properties_1p(cv_1p,gp_1p)
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: n1
-  integer,     intent(in) :: n2
   real(wp), intent(inout) :: cv_1p(:)
   real(wp), intent(inout) :: gp_1p(:)
   !

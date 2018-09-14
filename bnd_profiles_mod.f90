@@ -225,8 +225,8 @@ continue
           end do
         end do
         !
-        call update_thermo_properties(1,1,cvfp,gpfp)
-        call update_transport_properties(1,1,cvfp,gpfp)
+        call update_thermo_properties(cvfp,gpfp)
+        call update_transport_properties(cvfp,gpfp)
         !
         ! Compute the primitive variables and their
         ! gradients at the current flux point
