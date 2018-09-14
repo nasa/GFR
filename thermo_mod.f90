@@ -33,7 +33,7 @@ module thermo_mod
   real(wp), protected, save, allocatable :: cp_coef(:,:,:)
   real(wp), protected, save, allocatable :: enth_coef(:,:,:)
   !
-  real(wp), protected, save, allocatable :: temperature_interval(:)
+  real(wp), protected, save :: temperature_switch
   !
   real(wp), protected, save, allocatable :: mass_frac_ref(:)
   !
@@ -134,11 +134,6 @@ continue
   !
   allocate ( wtmol(1:ncs) , source=zero , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"wtmol",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( temperature_interval(1:ncs) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"temperature_interval",1,__LINE__,__FILE__, &
-                   ierr,error_message)
   !
   allocate ( t_limit(1:2,1:ncs) , source=zero , &
              stat=ierr , errmsg=error_message )
@@ -721,10 +716,10 @@ continue
     h(n) = zero
   end do
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_interval)
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
   do i = 1,ncs
     do n = n1,n2
-      if (t(n) > temperature_interval(i)) then
+      if (t(n) > temperature_switch) then
         intrvl(n,i) = 2
       end if
     end do
@@ -782,10 +777,10 @@ continue
   allocate ( intrvl(n1:n2,1:ncs) , source=1 )
   !$ACC DATA CREATE(intrvl)
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_interval)
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_switch)
   do i = 1,ncs
     do n = n1,n2
-      if (t(n) > temperature_interval(i)) then
+      if (t(n) > temperature_switch) then
         intrvl(n,i) = 2
       end if
     end do
@@ -854,10 +849,10 @@ continue
     cp(n) = zero
   end do
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_interval)
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_switch)
   do i = 1,ncs
     do n = n1,n2
-      if (t(n) > temperature_interval(i)) then
+      if (t(n) > temperature_switch) then
         intrvl(n,i) = 2
       end if
     end do
@@ -914,10 +909,10 @@ continue
   allocate ( intrvl(n1:n2,1:ncs) , source=1 )
   !$ACC DATA CREATE(intrvl)
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_interval)
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_switch)
   do i = 1,ncs
     do n = n1,n2
-      if (t(n) > temperature_interval(i)) then
+      if (t(n) > temperature_switch) then
         intrvl(n,i) = 2
       end if
     end do
@@ -996,10 +991,10 @@ continue
     dcpdt(n) = zero
   end do
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_interval)
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_switch)
   do i = 1,ncs
     do n = n1,n2
-      if (t(n) > temperature_interval(i)) then
+      if (t(n) > temperature_switch) then
         intrvl(n,i) = 2
       end if
     end do
@@ -1034,8 +1029,9 @@ subroutine hardwired_NCC_coefficients
   !.. Use Statements ..
   use ovar, only : tref
   !
+  real(wp), parameter :: NCC_interval_switch = 1000.0_wp
+  !
   real(wp), parameter :: CO2_wtmol = 44.00995_wp
-  real(wp), parameter :: CO2_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: CO2_cp(1:6,1:2) = reshape( [ 0.02275724e+02_wp, &
                                                       0.09922072e-01_wp, &
@@ -1053,7 +1049,6 @@ subroutine hardwired_NCC_coefficients
   !
   !
   real(wp), parameter :: CO_wtmol = 28.01055_wp
-  real(wp), parameter :: CO_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: CO_cp(1:6,1:2) = reshape( [ 0.03262451e+02_wp, &
                                                      0.15119409e-02_wp, &
@@ -1071,7 +1066,6 @@ subroutine hardwired_NCC_coefficients
   !
   !
   real(wp), parameter :: H2O_wtmol = 18.01534_wp
-  real(wp), parameter :: H2O_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: H2O_cp(1:6,1:2) = reshape( [ 0.03386842e+02_wp, &
                                                       0.03474982e-01_wp, &
@@ -1089,7 +1083,6 @@ subroutine hardwired_NCC_coefficients
   !
   !
   real(wp), parameter :: CH4_wtmol = 16.04303_wp
-  real(wp), parameter :: CH4_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: CH4_cp(1:6,1:2) = reshape( [ 0.07787415e+01_wp, &
                                                       0.01747668e+00_wp, &
@@ -1107,7 +1100,6 @@ subroutine hardwired_NCC_coefficients
   !
   !
   real(wp), parameter :: N2_wtmol = 28.01340_wp
-  real(wp), parameter :: N2_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: N2_cp(1:6,1:2) = reshape( [ 0.03298677e+02_wp, &
                                                      0.14082404e-02_wp, &
@@ -1125,7 +1117,6 @@ subroutine hardwired_NCC_coefficients
   !
   !
   real(wp), parameter :: O2_wtmol = 31.99880_wp
-  real(wp), parameter :: O2_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: O2_cp(1:6,1:2) = reshape( [ 0.03212936e+02_wp, &
                                                      0.11274864e-02_wp, &
@@ -1142,7 +1133,6 @@ subroutine hardwired_NCC_coefficients
                                                    [6,2] )
   !
   real(wp), parameter :: H_wtmol = 1.0079400_wp
-  real(wp), parameter :: H_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: H_cp(1:6,1:2) = reshape( [ 0.02500000E+02_wp, &
                                                     zero, &
@@ -1159,7 +1149,6 @@ subroutine hardwired_NCC_coefficients
                                                   [6,2] )
   !
   real(wp), parameter :: H2_wtmol = 2.0158800_wp
-  real(wp), parameter :: H2_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: H2_cp(1:6,1:2) = reshape( [ 0.02991423E+02_wp, &
                                                      0.07000644E-02_wp, &
@@ -1176,7 +1165,6 @@ subroutine hardwired_NCC_coefficients
                                                    [6,2] )
   !
   real(wp), parameter :: O_wtmol = 15.9994000_wp
-  real(wp), parameter :: O_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: O_cp(1:6,1:2) = reshape( [ 0.02542059E+02_wp, &
                                                    -0.02755061E-03_wp, &
@@ -1193,7 +1181,6 @@ subroutine hardwired_NCC_coefficients
                                                   [6,2] )
   !
   real(wp), parameter :: OH_wtmol = 17.0073400_wp
-  real(wp), parameter :: OH_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: OH_cp(1:6,1:2) = reshape( [ 0.02882730E+02_wp, &
                                                      0.10139743E-02_wp, &
@@ -1230,61 +1217,51 @@ continue
         !
         wtmol(i) = CO2_wtmol
         ncc_cp(1:6,1:2,i) = CO2_cp(1:6,1:2)
-        temperature_interval(i) = CO2_tmp_int
         !
       case ("CO")
         !
         wtmol(i) = CO_wtmol
         ncc_cp(1:6,1:2,i) = CO_cp(1:6,1:2)
-        temperature_interval(i) = CO_tmp_int
         !
       case ("H2O")
         !
         wtmol(i) = H2O_wtmol
         ncc_cp(1:6,1:2,i) = H2O_cp(1:6,1:2)
-        temperature_interval(i) = H2O_tmp_int
         !
       case ("CH4")
         !
         wtmol(i) = CH4_wtmol
         ncc_cp(1:6,1:2,i) = CH4_cp(1:6,1:2)
-        temperature_interval(i) = CH4_tmp_int
         !
       case ("N2")
         !
         wtmol(i) = N2_wtmol
         ncc_cp(1:6,1:2,i) = N2_cp(1:6,1:2)
-        temperature_interval(i) = N2_tmp_int
         !
       case ("O2")
         !
         wtmol(i) = O2_wtmol
         ncc_cp(1:6,1:2,i) = O2_cp(1:6,1:2)
-        temperature_interval(i) = O2_tmp_int
         !
       case ("H")
         !
         wtmol(i) = H_wtmol
         ncc_cp(1:6,1:2,i) = H_cp(1:6,1:2)
-        temperature_interval(i) = H_tmp_int
         !
       case ("H2")
         !
         wtmol(i) = H2_wtmol
         ncc_cp(1:6,1:2,i) = H2_cp(1:6,1:2)
-        temperature_interval(i) = H2_tmp_int
         !
       case ("O")
         !
         wtmol(i) = O_wtmol
         ncc_cp(1:6,1:2,i) = O_cp(1:6,1:2)
-        temperature_interval(i) = O_tmp_int
         !
       case ("OH")
         !
         wtmol(i) = OH_wtmol
         ncc_cp(1:6,1:2,i) = OH_cp(1:6,1:2)
-        temperature_interval(i) = OH_tmp_int
         !
     end select
     !
@@ -1313,9 +1290,7 @@ continue
     end do
   end do
   !
-  do n = 1,ncs
-    temperature_interval(n) = temperature_interval(n)/tref
-  end do
+  temperature_switch = NCC_interval_switch/tref
   !
   deallocate ( ncc_cp )
   !
@@ -1328,8 +1303,9 @@ subroutine hardwired_VULCAN_coefficients
   !.. Use Statements ..
   use ovar, only : tref
   !
+  real(wp), parameter :: vul_interval_switch = 1000.0_wp
+  !
   real(wp), parameter :: CO2_wtmol = 44.0095000_wp
-  real(wp), parameter :: CO2_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: CO2_cp(1:7,1:2) = reshape( [ 2.25257700E+00_wp, &
                                                       9.82353535E-03_wp, &
@@ -1351,7 +1327,6 @@ subroutine hardwired_VULCAN_coefficients
   ! Transport data fit from 300 K to 1500 K  Svehla,1994.
   !
   real(wp), parameter :: CO_wtmol = 28.0101000_wp
-  real(wp), parameter :: CO_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: CO_cp(1:7,1:2) = reshape( [ 3.64231417E+00_wp, &
                                                     -1.13846700E-03_wp, &
@@ -1373,7 +1348,6 @@ subroutine hardwired_VULCAN_coefficients
   ! Transport data fit from 300 K to 1500 K  Sengers & Watson,1986, Svehla,1994.
   !
   real(wp), parameter :: H2O_wtmol = 18.0152800_wp
-  real(wp), parameter :: H2O_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: H2O_cp(1:7,1:2) = reshape( [ 4.21338451E+00_wp, &
                                                      -2.13843352E-03_wp, &
@@ -1395,7 +1369,6 @@ subroutine hardwired_VULCAN_coefficients
   ! Transport data fit from 300 K to 1500 K  Boushehri,1987, Svehla,1994.
   !
   real(wp), parameter :: CH4_wtmol = 16.0424600_wp
-  real(wp), parameter :: CH4_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: CH4_cp(1:7,1:2) = reshape( [ 5.02395784E+00_wp, &
                                                      -1.25330563E-02_wp, &
@@ -1417,7 +1390,6 @@ subroutine hardwired_VULCAN_coefficients
   ! Transport data fit from 300 K to 1500 K  Boushehri,1987, Svehla,1994.
   !
   real(wp), parameter :: N2_wtmol = 28.0134000_wp
-  real(wp), parameter :: N2_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: N2_cp(1:7,1:2) = reshape( [ 3.57565174E+00_wp, &
                                                     -5.08294729E-04_wp, &
@@ -1439,7 +1411,6 @@ subroutine hardwired_VULCAN_coefficients
   ! Transport data fit from 300 K to 1500 K  Boushehri,1987, Svehla,1994.
   !
   real(wp), parameter :: O2_wtmol = 31.9988000_wp
-  real(wp), parameter :: O2_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: O2_cp(1:7,1:2) = reshape( [ 3.80103438E+00_wp, &
                                                     -3.14189698E-03_wp, &
@@ -1458,7 +1429,6 @@ subroutine hardwired_VULCAN_coefficients
                                                     [7,2] )
   !
   real(wp), parameter :: H_wtmol = 1.0079400_wp
-  real(wp), parameter :: H_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: H_cp(1:7,1:2) = reshape( [ 2.50000000E+00_wp, &
                                                     zero, &
@@ -1477,7 +1447,6 @@ subroutine hardwired_VULCAN_coefficients
                                                   [7,2] )
   !
   real(wp), parameter :: H2_wtmol = 2.0158800_wp
-  real(wp), parameter :: H2_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: H2_cp(1:7,1:2) = reshape( [ 2.50571195E+00_wp, &
                                                      6.60361016E-03_wp, &
@@ -1496,7 +1465,6 @@ subroutine hardwired_VULCAN_coefficients
                                                    [7,2] )
   !
   real(wp), parameter :: O_wtmol = 15.9994000_wp
-  real(wp), parameter :: O_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: O_cp(1:7,1:2) = reshape( [ 3.06486352E+00_wp, &
                                                    -2.40286593E-03_wp, &
@@ -1515,7 +1483,6 @@ subroutine hardwired_VULCAN_coefficients
                                                   [7,2] )
   !
   real(wp), parameter :: OH_wtmol = 17.0073400_wp
-  real(wp), parameter :: OH_tmp_int = 1000.0_wp
   !
   real(wp), parameter :: OH_cp(1:7,1:2) = reshape( [ 3.93471682E+00_wp, &
                                                     -1.92496370E-03_wp, &
@@ -1554,61 +1521,51 @@ continue
         !
         wtmol(i) = CO2_wtmol
         vul_cp(1:7,1:2,i) = CO2_cp(1:7,1:2)
-        temperature_interval(i) = CO2_tmp_int
         !
       case ("CO")
         !
         wtmol(i) = CO_wtmol
         vul_cp(1:7,1:2,i) = CO_cp(1:7,1:2)
-        temperature_interval(i) = CO_tmp_int
         !
       case ("H2O")
         !
         wtmol(i) = H2O_wtmol
         vul_cp(1:7,1:2,i) = H2O_cp(1:7,1:2)
-        temperature_interval(i) = H2O_tmp_int
         !
       case ("CH4")
         !
         wtmol(i) = CH4_wtmol
         vul_cp(1:7,1:2,i) = CH4_cp(1:7,1:2)
-        temperature_interval(i) = CH4_tmp_int
         !
       case ("N2")
         !
         wtmol(i) = N2_wtmol
         vul_cp(1:7,1:2,i) = N2_cp(1:7,1:2)
-        temperature_interval(i) = N2_tmp_int
         !
       case ("O2")
         !
         wtmol(i) = O2_wtmol
         vul_cp(1:7,1:2,i) = O2_cp(1:7,1:2)
-        temperature_interval(i) = O2_tmp_int
         !
       case ("H")
         !
         wtmol(i) = H_wtmol
         vul_cp(1:7,1:2,i) = H_cp(1:7,1:2)
-        temperature_interval(i) = H_tmp_int
         !
       case ("H2")
         !
         wtmol(i) = H2_wtmol
         vul_cp(1:7,1:2,i) = H2_cp(1:7,1:2)
-        temperature_interval(i) = H2_tmp_int
         !
       case ("O")
         !
         wtmol(i) = O_wtmol
         vul_cp(1:7,1:2,i) = O_cp(1:7,1:2)
-        temperature_interval(i) = O_tmp_int
         !
       case ("OH")
         !
         wtmol(i) = OH_wtmol
         vul_cp(1:7,1:2,i) = OH_cp(1:7,1:2)
-        temperature_interval(i) = OH_tmp_int
         !
     end select
     !
@@ -1637,9 +1594,7 @@ continue
     end do
   end do
   !
-  do n = 1,ncs
-    temperature_interval(n) = temperature_interval(n)/tref
-  end do
+  temperature_switch = vul_interval_switch/tref
   !
   deallocate ( vul_cp )
   !
