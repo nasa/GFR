@@ -13,9 +13,13 @@ module thermo_mod
   !
   public :: init_thermo_mod
   public :: update_thermo_properties
+  public :: compute_mixture_enthalpy
   public :: compute_species_enthalpy
+  public :: compute_mixture_cp
   public :: compute_species_cp
   public :: compute_mixture_dcpdt
+  public :: compute_mixture_gamma
+  public :: compute_mixture_rgas
   !
   !
   real(wp), parameter :: runivl = 8314.5_wp
@@ -54,6 +58,36 @@ module thermo_mod
                      update_thermo_properties_fp, &
                      update_thermo_properties_1p
   end interface update_thermo_properties
+  !
+  interface compute_mixture_enthalpy
+    module procedure compute_mixture_enthalpy_sp, &
+                     compute_mixture_enthalpy_1p
+  end interface compute_mixture_enthalpy
+  !
+  interface compute_species_enthalpy
+    module procedure compute_species_enthalpy_sp, &
+                     compute_species_enthalpy_1p
+  end interface compute_species_enthalpy
+  !
+  interface compute_mixture_cp
+    module procedure compute_mixture_cp_sp, &
+                     compute_mixture_cp_1p
+  end interface compute_mixture_cp
+  !
+  interface compute_species_cp
+    module procedure compute_species_cp_sp, &
+                     compute_species_cp_1p
+  end interface compute_species_cp
+  !
+  interface compute_mixture_gamma
+    module procedure compute_mixture_gamma_sp, &
+                     compute_mixture_gamma_1p
+  end interface compute_mixture_gamma
+  !
+  interface compute_mixture_rgas
+    module procedure compute_mixture_rgas_sp, &
+                     compute_mixture_rgas_1p
+  end interface compute_mixture_rgas
   !
 contains
 !
@@ -438,7 +472,7 @@ end subroutine update_thermo_cpg
 !###############################################################################
 !
 pure &
-subroutine compute_mixture_gamma(n1,n2,cp,gam)
+subroutine compute_mixture_gamma_sp(n1,n2,cp,gam)
   !
   ! N1  : beginning solution point
   ! N1  : ending    solution point
@@ -456,7 +490,7 @@ subroutine compute_mixture_gamma(n1,n2,cp,gam)
   integer :: n
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "compute_mixture_gamma"
+  character(len=*), parameter :: pname = "compute_mixture_gamma_sp"
   !
 continue
   !
@@ -465,12 +499,34 @@ continue
     gam(n) = cp(n) / (cp(n)-gam(n))
   end do
   !
-end subroutine compute_mixture_gamma
+end subroutine compute_mixture_gamma_sp
 !
 !###############################################################################
 !
 pure &
-subroutine compute_mixture_rgas(n1,n2,mass_frac,rmix)
+subroutine compute_mixture_gamma_1p(cp,gam)
+  !
+  ! CP  : mixture specific heat at constant pressure
+  ! GAM : in  - mixture gas constant
+  !       out - ratio of the specific heats for the mixture
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: cp
+  real(wp), intent(inout) :: gam
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_mixture_gamma_1p"
+  !
+continue
+  !
+  gam = cp / (cp-gam)
+  !
+end subroutine compute_mixture_gamma_1p
+!
+!###############################################################################
+!
+pure &
+subroutine compute_mixture_rgas_sp(n1,n2,mass_frac,rmix)
   !
   !.. Use Statements ..
   use ovar, only : aref,tref
@@ -486,7 +542,7 @@ subroutine compute_mixture_rgas(n1,n2,mass_frac,rmix)
   real(wp) :: rsum,tda2
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "compute_mixture_rgas"
+  character(len=*), parameter :: pname = "compute_mixture_rgas_sp"
   !
 continue
   !
@@ -502,7 +558,28 @@ continue
     rmix(n) = rsum*tda2
   end do
   !
-end subroutine compute_mixture_rgas
+end subroutine compute_mixture_rgas_sp
+!
+!###############################################################################
+!
+pure &
+subroutine compute_mixture_rgas_1p(mass_frac,rmix)
+  !
+  !.. Use Statements ..
+  use ovar, only : aref,tref
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: mass_frac(:)
+  real(wp), intent(inout) :: rmix
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_mixture_rgas_1p"
+  !
+continue
+  !
+  rmix = dot_product( rspec(1:ncs) , mass_frac(1:ncs) ) * tref/aref/aref
+  !
+end subroutine compute_mixture_rgas_1p
 !
 !###############################################################################
 !
@@ -685,7 +762,7 @@ end subroutine compute_internal_energy
 !###############################################################################
 !
 pure &
-subroutine compute_mixture_enthalpy(n1,n2,mass_frac,t,h)
+subroutine compute_mixture_enthalpy_sp(n1,n2,mass_frac,t,h)
   !
   !.. Use Statements ..
   use ovar, only : aref,tref
@@ -747,12 +824,53 @@ continue
   !$ACC END DATA
   deallocate ( intrvl )
   !
-end subroutine compute_mixture_enthalpy
+end subroutine compute_mixture_enthalpy_sp
 !
 !###############################################################################
 !
 pure &
-subroutine compute_species_enthalpy(n1,n2,t,hsi)
+subroutine compute_mixture_enthalpy_1p(mass_frac,t,h)
+  !
+  !.. Use Statements ..
+  use ovar, only : aref,tref
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: mass_frac(:)
+  real(wp),    intent(in) :: t
+  real(wp), intent(inout) :: h
+  !
+  !.. Local Scalars ..
+  integer  :: i,ni
+  real(wp) :: hi,ts,aref2_inv
+  !
+continue
+  !
+  aref2_inv = one/aref/aref
+  !
+  h = zero
+  !
+  do i = 1,ncs
+    !
+    ni = merge( 1 , 2 , t <= temperature_switch )
+    ts = t*tref
+    !
+    hi = enth_coef(6,ni,i) + &
+         ts*(enth_coef(1,ni,i) + &
+             ts*(enth_coef(2,ni,i) + &
+                 ts*(enth_coef(3,ni,i) + &
+                     ts*(enth_coef(4,ni,i) + &
+                         ts*(enth_coef(5,ni,i))))))
+    !
+    h = h + mass_frac(i)*hi*aref2_inv
+    !
+  end do
+  !
+end subroutine compute_mixture_enthalpy_1p
+!
+!###############################################################################
+!
+pure &
+subroutine compute_species_enthalpy_sp(n1,n2,t,hsi)
   !
   !.. Use Statements ..
   use ovar, only : aref,tref
@@ -813,12 +931,52 @@ continue
   !$ACC END DATA
   deallocate ( intrvl )
   !
-end subroutine compute_species_enthalpy
+end subroutine compute_species_enthalpy_sp
 !
 !###############################################################################
 !
 pure &
-subroutine compute_mixture_cp(n1,n2,mass_frac,t,cp)
+subroutine compute_species_enthalpy_1p(t,hsi)
+  !
+  !.. Use Statements ..
+  use ovar, only : aref,tref
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: t
+  real(wp), intent(inout) :: hsi(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,ni
+  real(wp) :: ts,aref2_inv
+  !
+continue
+  !
+  aref2_inv = one/aref/aref
+  !
+  do i = 1,ncs
+    !
+    ni = merge( 1 , 2 , t <= temperature_switch )
+    ts = t*tref
+    !
+    hsi(i) = enth_coef(6,ni,i) + &
+             ts*(enth_coef(1,ni,i) + &
+                 ts*(enth_coef(2,ni,i) + &
+                     ts*(enth_coef(3,ni,i) + &
+                         ts*(enth_coef(4,ni,i) + &
+                             ts*(enth_coef(5,ni,i))))))
+    !
+  end do
+  !
+  do i = 1,ncs
+    hsi(i) = hsi(i)*aref2_inv
+  end do
+  !
+end subroutine compute_species_enthalpy_1p
+!
+!###############################################################################
+!
+pure &
+subroutine compute_mixture_cp_sp(n1,n2,mass_frac,t,cp)
   !
   !.. Use Statements ..
   use ovar, only : aref,tref
@@ -879,12 +1037,52 @@ continue
   !$ACC END DATA
   deallocate ( intrvl )
   !
-end subroutine compute_mixture_cp
+end subroutine compute_mixture_cp_sp
 !
 !###############################################################################
 !
 pure &
-subroutine compute_species_cp(n1,n2,t,cpi)
+subroutine compute_mixture_cp_1p(mass_frac,t,cp)
+  !
+  !.. Use Statements ..
+  use ovar, only : aref,tref
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: mass_frac(:)
+  real(wp),    intent(in) :: t
+  real(wp), intent(inout) :: cp
+  !
+  !.. Local Scalars ..
+  integer  :: i,ni
+  real(wp) :: cpi,ts,tda2
+  !
+continue
+  !
+  tda2 = tref/aref/aref
+  !
+  cp = zero
+  !
+  do i = 1,ncs
+    !
+    ni = merge( 1 , 2 , t <= temperature_switch )
+    ts = t*tref
+    !
+    cpi = cp_coef(1,ni,i) + &
+          ts*(cp_coef(2,ni,i) + &
+              ts*(cp_coef(3,ni,i) + &
+                  ts*(cp_coef(4,ni,i) + &
+                      ts*(cp_coef(5,ni,i)))))
+    !
+    cp = cp + mass_frac(i)*cpi*tda2
+    !
+  end do
+  !
+end subroutine compute_mixture_cp_1p
+!
+!###############################################################################
+!
+pure &
+subroutine compute_species_cp_sp(n1,n2,t,cpi)
   !
   !.. Use Statements ..
   use ovar, only : aref,tref
@@ -944,7 +1142,46 @@ continue
   !$ACC END DATA
   deallocate ( intrvl )
   !
-end subroutine compute_species_cp
+end subroutine compute_species_cp_sp
+!
+!###############################################################################
+!
+pure &
+subroutine compute_species_cp_1p(t,cpi)
+  !
+  !.. Use Statements ..
+  use ovar, only : aref,tref
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: t
+  real(wp), intent(inout) :: cpi(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,ni
+  real(wp) :: ts,tda2
+  !
+continue
+  !
+  tda2 = tref/aref/aref
+  !
+  do i = 1,ncs
+    !
+    ni = merge( 1 , 2 , t <= temperature_switch )
+    ts = t*tref
+    !
+    cpi(i) = cp_coef(1,ni,i) + &
+             ts*(cp_coef(2,ni,i) + &
+                 ts*(cp_coef(3,ni,i) + &
+                     ts*(cp_coef(4,ni,i) + &
+                         ts*(cp_coef(5,ni,i)))))
+    !
+  end do
+  !
+  do i = 1,ncs
+    cpi(i) = cpi(i)*tda2
+  end do
+  !
+end subroutine compute_species_cp_1p
 !
 !###############################################################################
 !
