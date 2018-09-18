@@ -90,6 +90,11 @@ module thermo_mod
                      compute_mixture_rgas_1p
   end interface compute_mixture_rgas
   !
+  interface compute_cp_over_temp_integral
+    module procedure compute_cp_over_temp_integral_sp, &
+                     compute_cp_over_temp_integral_1p
+  end interface compute_cp_over_temp_integral
+  !
 contains
 !
 !###############################################################################
@@ -379,7 +384,7 @@ pure &
 subroutine update_thermo_cpg(n1,n2,cv,gp)
   !
   ! N1 : beginning solution point
-  ! N1 : ending    solution point
+  ! N2 : ending    solution point
   ! CV : conserved variables at points
   ! GP : gas properties variables at points
   !
@@ -476,7 +481,7 @@ pure &
 subroutine compute_mixture_gamma_sp(n1,n2,cp,gam)
   !
   ! N1  : beginning solution point
-  ! N1  : ending    solution point
+  ! N2  : ending    solution point
   ! CP  : mixture specific heat at constant pressure
   ! GAM : in  - mixture gas constant
   !       out - ratio of the specific heats for the mixture
@@ -1262,7 +1267,9 @@ end subroutine compute_mixture_dcpdt
 !
 !###############################################################################
 !
-subroutine compute_cp_over_temp_integral(n1,n2,mass_frac,return_value,temp,ttot)
+pure &
+subroutine compute_cp_over_temp_integral_sp(n1,n2,mass_frac, &
+                                            return_value,temp,ttot)
   !
   ! Routine to compute the integral required for calculating total pressure
   ! for a mixture of gases in thermal equilibrium using the Gordon and
@@ -1512,7 +1519,134 @@ continue
   ! for a mixture of gases in thermal equilibrium using the Gordon and
   ! McBride curve fits
   !
-end subroutine compute_cp_over_temp_integral
+end subroutine compute_cp_over_temp_integral_sp
+!
+!###############################################################################
+!
+pure &
+subroutine compute_cp_over_temp_integral_1p(mass_frac,return_value,temp,ttot)
+  !
+  ! Routine to compute the integral required for calculating total pressure
+  ! for a mixture of gases in thermal equilibrium using the Gordon and
+  ! McBride curve fits
+  !
+  ! NPTS : no. of points at which to calculate
+  ! M  : species no.
+  ! MASS_FRAC  : species mass fraction
+  ! TTOT : total temperature
+  ! TEMP : static temperature
+  ! RETURN_VALUE : Final intergral of Cp/T summed over all species
+  !
+  !.. Use Statements ..
+  use ovar, only : aref,tref
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: mass_frac(:)
+  real(wp),    intent(in) :: ttot
+  real(wp),    intent(in) :: temp
+  real(wp), intent(inout) :: return_value
+  !
+  !.. Local Scalars ..
+  integer  :: m
+  real(wp) :: tbl,tel,ccl,cel,cbl,al,bl,cl,dl,el
+  real(wp) :: tbh,teh,cch,ceh,cbh,ah,bh,ch,dh,eh
+  real(wp) :: tda2
+  !
+  !.. Local Parameters ..
+  real(wp), parameter :: three2 = three/two
+  real(wp), parameter :: four3  = four/three
+  real(wp), parameter :: five4  = five/four
+  !
+continue
+  !
+  tda2 = tref/aref/aref
+  !
+  return_value = zero
+  !
+  do m = 1,ncs
+    !
+    al = enth_coef(1,1,m)
+    bl = enth_coef(2,1,m)*two
+    cl = enth_coef(3,1,m)*three2
+    dl = enth_coef(4,1,m)*four3
+    el = enth_coef(5,1,m)*five4
+    !
+    ah = enth_coef(1,2,m)
+    bh = enth_coef(2,2,m)*two
+    ch = enth_coef(3,2,m)*three2
+    dh = enth_coef(4,2,m)*four3
+    eh = enth_coef(5,2,m)*five4
+    !
+    if (ttot <= temperature_switch) then
+      !
+      ! Static and total temperature are both smaller than temperature switch
+      ! NOTE: We need to dimensionalize the temperatures because
+      !       the curve fits require dimensional temperature.
+      !
+      tbl = temp*tref
+      tel = ttot*tref
+      !
+      ccl = log(tel/tbl)*al
+      !
+      cel = tel*(bl + tel*(cl + tel*(dl + tel*el)))
+      cbl = tbl*(bl + tbl*(cl + tbl*(dl + tbl*el)))
+      !
+      return_value = return_value + mass_frac(m)*(ccl + cel - cbl)
+      !
+    else if (temp > temperature_switch) then
+      !
+      ! Static and total temperature are both larger than temperature switch
+      ! NOTE: We need to dimensionalize the temperatures because
+      !       the curve fits require dimensional temperature.
+      !
+      tbh = temp*tref
+      teh = ttot*tref
+      !
+      cch = log(teh/tbh)*ah
+      !
+      ceh = teh*(bh + teh*(ch + teh*(dh + teh*eh)))
+      cbh = tbh*(bh + tbh*(ch + tbh*(dh + tbh*eh)))
+      !
+      return_value = return_value + mass_frac(m)*(cch + ceh - cbh)
+      !
+    else
+      !
+      ! Static temperature is smaller than temperature switch and
+      ! total temperature is larger than temperature switch
+      ! NOTE: We need to dimensionalize the temperatures because
+      !       the curve fits require dimensional temperature.
+      !
+      tbl = temp*tref
+      tel = temperature_switch*tref
+      !
+      ccl = log(tel/tbl)*al
+      !
+      cel = tel*(bl + tel*(cl + tel*(dl + tel*el)))
+      cbl = tbl*(bl + tbl*(cl + tbl*(dl + tbl*el)))
+      !
+      tbh = temperature_switch*tref
+      teh = ttot*tref
+      !
+      cch = log(teh/tbh)*ah
+      !
+      ceh = teh*(bh + teh*(ch + teh*(dh + teh*eh)))
+      cbh = tbh*(bh + tbh*(ch + tbh*(dh + tbh*eh)))
+      !
+      return_value = return_value + mass_frac(m)*((ccl+cel-cbl) + (cch+ceh-cbh))
+      !
+    end if
+    !
+  end do
+  !
+  ! Non-dimensionalize return_value
+  !
+  return_value = return_value * tda2
+  !
+  ! Finished computing the integral required for calculating total pressure
+  ! for a mixture of gases in thermal equilibrium using the Gordon and
+  ! McBride curve fits
+  !
+end subroutine compute_cp_over_temp_integral_1p
 !
 !###############################################################################
 !
