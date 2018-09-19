@@ -8,6 +8,7 @@ include system_variables.mk
 OBJDIR = objects/$(BUILDDIR)
 MODDIR = modules/$(BUILDDIR)
 FUNDIR = Functions
+BCDIR = BC_Modules
 
 vpath %.o $(OBJDIR)
 vpath %.f90 ./
@@ -114,24 +115,39 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/postproc_mod.o \
         $(OBJDIR)/pbs_mod.o \
         $(OBJDIR)/cpu_info_mod.o \
-	$(OBJDIR)/averaging_mod.o \
-	$(OBJDIR)/gpu_mod.o \
-	$(OBJDIR)/invs_flux_mod.o \
-	$(OBJDIR)/visc_flux_mod.o \
-	$(OBJDIR)/upwind_flux_mod.o \
-	$(OBJDIR)/plot3dio_mod.o \
-	$(OBJDIR)/octstat_mod.o \
-	$(OBJDIR)/octroot_mod.o \
-	$(OBJDIR)/octedat_mod.o \
-	$(OBJDIR)/octnode_mod.o \
-	$(OBJDIR)/octtree_mod.o \
-	$(OBJDIR)/octedat_facexyz_mod.o \
-	$(OBJDIR)/interpsolvar_mod.o \
-	$(OBJDIR)/interpsol_mod.o \
-	$(OBJDIR)/species_mod.o \
-	$(OBJDIR)/thermo_mod.o \
-	$(OBJDIR)/transport_mod.o \
-	$(OBJDIR)/mydebug_mod.o
+        $(OBJDIR)/averaging_mod.o \
+        $(OBJDIR)/gpu_mod.o \
+        $(OBJDIR)/invs_flux_mod.o \
+        $(OBJDIR)/visc_flux_mod.o \
+        $(OBJDIR)/upwind_flux_mod.o \
+        $(OBJDIR)/plot3dio_mod.o \
+        $(OBJDIR)/octstat_mod.o \
+        $(OBJDIR)/octroot_mod.o \
+        $(OBJDIR)/octedat_mod.o \
+        $(OBJDIR)/octnode_mod.o \
+        $(OBJDIR)/octtree_mod.o \
+        $(OBJDIR)/octedat_facexyz_mod.o \
+        $(OBJDIR)/interpsolvar_mod.o \
+        $(OBJDIR)/interpsol_mod.o \
+        $(OBJDIR)/species_mod.o \
+        $(OBJDIR)/thermo_mod.o \
+        $(OBJDIR)/transport_mod.o \
+        $(OBJDIR)/mydebug_mod.o \
+        $(OBJDIR)/bc_adiabatic_wall_mod.o \
+        $(OBJDIR)/bc_fixed_mod.o \
+        $(OBJDIR)/bc_flowthrough_grad_mod.o \
+        $(OBJDIR)/bc_gen_free_mod.o \
+        $(OBJDIR)/bc_gen_in_mod.o \
+        $(OBJDIR)/bc_gen_out_mod.o \
+        $(OBJDIR)/bc_isothermal_wall_mod.o \
+        $(OBJDIR)/bc_mms_mod.o \
+        $(OBJDIR)/bc_periodic_mod.o \
+        $(OBJDIR)/bc_relax_mod.o \
+        $(OBJDIR)/bc_riemann_mod.o \
+        $(OBJDIR)/bc_slip_wall_mod.o \
+        $(OBJDIR)/bc_sub_in_mod.o \
+        $(OBJDIR)/bc_sub_out_mod.o \
+        $(OBJDIR)/bc_sup_out_mod.o
 
 
 HighlightName := | /bin/grep -hi --color '[^ ]\+\.\(f[0-9]*\|c\)\>'

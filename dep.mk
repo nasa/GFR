@@ -49,16 +49,26 @@ $(OBJDIR)/averaging_mod.o : averaging_mod.f90 \
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/kind_types.o \
            $(OBJDIR)/eqn_idx_mod.o \
-           $(OBJDIR)/order_mod.o \
            $(OBJDIR)/geovar_mod.o \
            $(OBJDIR)/ovar_mod.o \
-           $(OBJDIR)/metrics.o \
            $(OBJDIR)/flowvar_mod.o \
-           $(OBJDIR)/interpolation_mod.o \
-           $(OBJDIR)/gpu_mod.o \
-           $(OBJDIR)/mms_mod.o \
-	   $(OBJDIR)/thermo_mod.o \
-	   $(OBJDIR)/transport_mod.o \
+           $(OBJDIR)/metrics.o \
+           $(OBJDIR)/thermo_mod.o \
+           $(OBJDIR)/transport_mod.o \
+           $(OBJDIR)/bc_adiabatic_wall_mod.o \
+           $(OBJDIR)/bc_fixed_mod.o \
+           $(OBJDIR)/bc_flowthrough_grad_mod.o \
+           $(OBJDIR)/bc_gen_free_mod.o \
+           $(OBJDIR)/bc_gen_in_mod.o \
+           $(OBJDIR)/bc_gen_out_mod.o \
+           $(OBJDIR)/bc_isothermal_wall_mod.o \
+           $(OBJDIR)/bc_mms_mod.o \
+           $(OBJDIR)/bc_periodic_mod.o \
+           $(OBJDIR)/bc_riemann_mod.o \
+           $(OBJDIR)/bc_slip_wall_mod.o \
+           $(OBJDIR)/bc_sub_in_mod.o \
+           $(OBJDIR)/bc_sub_out_mod.o \
+           $(OBJDIR)/bc_sup_out_mod.o \
            $(FUNDIR)/debug_timer.f90 \
                      mpi_defs.h
 
@@ -173,8 +183,8 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/upwind_flux_mod.o \
          $(OBJDIR)/projection_mod.o \
          $(OBJDIR)/typesgen_mod.o \
-	 $(OBJDIR)/thermo_mod.o \
-	 $(OBJDIR)/transport_mod.o \
+         $(OBJDIR)/thermo_mod.o \
+         $(OBJDIR)/transport_mod.o \
          $(FUNDIR)/debug_timer.f90 \
          $(FUNDIR)/check_for_bad_number.f90
 
@@ -260,7 +270,7 @@ $(OBJDIR)/interpsol_mod.o : interpsol_mod.f90 \
                   $(OBJDIR)/octedat_facexyz_mod.o \
                   $(OBJDIR)/octtree_mod.o \
                   $(OBJDIR)/mydebug_mod.o \
-		  $(FUNDIR)/debug_timer.f90
+                  $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/interpsolvar_mod.o : interpsolvar_mod.f90 \
                      $(OBJDIR)/kind_types.o \
@@ -398,7 +408,7 @@ $(OBJDIR)/octnode_mod.o : octnode_mod.f90 \
                 $(OBJDIR)/octedat_mod.o \
                 $(OBJDIR)/octroot_mod.o \
                 $(OBJDIR)/octstat_mod.o \
-		$(FUNDIR)/debug_timer.f90
+                $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/octroot_mod.o : octroot_mod.f90 \
                 $(OBJDIR)/octstat_mod.o
@@ -412,7 +422,7 @@ $(OBJDIR)/octtree_mod.o : octtree_mod.f90 \
                 $(OBJDIR)/octnode_mod.o \
                 $(OBJDIR)/octroot_mod.o \
                 $(OBJDIR)/octstat_mod.o \
-		$(FUNDIR)/debug_timer.f90
+                $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/order_mod.o : order_mod.f90 \
               $(OBJDIR)/kind_types.o \
@@ -574,6 +584,98 @@ $(OBJDIR)/visc_flux_mod.o : visc_flux_mod.f90 \
          $(OBJDIR)/geovar_mod.o \
          $(OBJDIR)/ovar_mod.o \
          $(OBJDIR)/gpu_mod.o \
-	 $(OBJDIR)/thermo_mod.o \
-	 $(OBJDIR)/transport_mod.o
+         $(OBJDIR)/thermo_mod.o \
+         $(OBJDIR)/transport_mod.o
+
+$(OBJDIR)/bc_adiabatic_wall_mod.o : $(BCDIR)/bc_adiabatic_wall_mod.f90 \
+                          $(OBJDIR)/kind_types.o \
+                          $(OBJDIR)/eqn_idx_mod.o \
+                          $(OBJDIR)/ovar_mod.o \
+                          $(OBJDIR)/gpu_mod.o \
+                          $(OBJDIR)/thermo_mod.o
+
+$(OBJDIR)/bc_fixed_mod.o : $(BCDIR)/bc_fixed_mod.f90 \
+                 $(OBJDIR)/kind_types.o \
+                 $(OBJDIR)/eqn_idx_mod.o
+
+$(OBJDIR)/bc_flowthrough_grad_mod.o : $(BCDIR)/bc_flowthrough_grad_mod.f90 \
+                            $(OBJDIR)/kind_types.o \
+                            $(OBJDIR)/eqn_idx_mod.o
+
+$(OBJDIR)/bc_gen_free_mod.o : $(BCDIR)/bc_gen_free_mod.f90 \
+                    $(OBJDIR)/kind_types.o \
+                    $(OBJDIR)/eqn_idx_mod.o \
+                    $(OBJDIR)/ovar_mod.o \
+                    $(OBJDIR)/thermo_mod.o \
+                    $(OBJDIR)/bc_relax_mod.o
+
+$(OBJDIR)/bc_gen_in_mod.o : $(BCDIR)/bc_gen_in_mod.f90 \
+                  $(OBJDIR)/kind_types.o \
+                  $(OBJDIR)/eqn_idx_mod.o \
+                  $(OBJDIR)/ovar_mod.o \
+                  $(OBJDIR)/thermo_mod.o \
+                  $(OBJDIR)/bc_relax_mod.o
+
+$(OBJDIR)/bc_gen_out_mod.o : $(BCDIR)/bc_gen_out_mod.f90 \
+                   $(OBJDIR)/kind_types.o \
+                   $(OBJDIR)/eqn_idx_mod.o \
+                   $(OBJDIR)/ovar_mod.o \
+                   $(OBJDIR)/bc_relax_mod.o
+
+$(OBJDIR)/bc_isothermal_wall_mod.o : $(BCDIR)/bc_isothermal_wall_mod.f90 \
+                           $(OBJDIR)/kind_types.o \
+                           $(OBJDIR)/eqn_idx_mod.o \
+                           $(OBJDIR)/ovar_mod.o \
+                           $(OBJDIR)/gpu_mod.o \
+                           $(OBJDIR)/thermo_mod.o
+
+$(OBJDIR)/bc_mms_mod.o : $(BCDIR)/bc_mms_mod.f90 \
+               $(OBJDIR)/kind_types.o \
+               $(OBJDIR)/eqn_idx_mod.o \
+               $(OBJDIR)/ovar_mod.o \
+               $(OBJDIR)/mms_mod.o
+
+$(OBJDIR)/bc_periodic_mod.o : $(BCDIR)/bc_periodic_mod.f90 \
+                    $(OBJDIR)/kind_types.o \
+                    $(OBJDIR)/eqn_idx_mod.o
+
+$(OBJDIR)/bc_relax_mod.o : $(BCDIR)/bc_relax_mod.f90 \
+                 $(OBJDIR)/kind_types.o \
+                 $(OBJDIR)/eqn_idx_mod.o \
+                 $(OBJDIR)/ovar_mod.o \
+                 $(OBJDIR)/thermo_mod.o \
+                 $(OBJDIR)/transport_mod.o
+
+$(OBJDIR)/bc_riemann_mod.o : $(BCDIR)/bc_riemann_mod.f90 \
+                   $(OBJDIR)/kind_types.o \
+                   $(OBJDIR)/eqn_idx_mod.o \
+                   $(OBJDIR)/ovar_mod.o \
+                   $(OBJDIR)/bc_relax_mod.o
+
+$(OBJDIR)/bc_slip_wall_mod.o : $(BCDIR)/bc_slip_wall_mod.f90 \
+                     $(OBJDIR)/kind_types.o \
+                     $(OBJDIR)/eqn_idx_mod.o \
+                     $(OBJDIR)/ovar_mod.o \
+                     $(OBJDIR)/gpu_mod.o
+
+$(OBJDIR)/bc_sub_in_mod.o : $(BCDIR)/bc_sub_in_mod.f90 \
+                  $(OBJDIR)/kind_types.o \
+                  $(OBJDIR)/eqn_idx_mod.o \
+                  $(OBJDIR)/order_mod.o \
+                  $(OBJDIR)/geovar_mod.o \
+                  $(OBJDIR)/ovar_mod.o \
+                  $(OBJDIR)/interpolation_mod.o \
+                  $(OBJDIR)/thermo_mod.o \
+                  $(OBJDIR)/transport_mod.o \
+                  $(OBJDIR)/bc_relax_mod.o
+
+$(OBJDIR)/bc_sub_out_mod.o : $(BCDIR)/bc_sub_out_mod.f90 \
+                   $(OBJDIR)/kind_types.o \
+                   $(OBJDIR)/eqn_idx_mod.o \
+                   $(OBJDIR)/ovar_mod.o \
+                   $(OBJDIR)/bc_relax_mod.o
+
+$(OBJDIR)/bc_sup_out_mod.o : $(BCDIR)/bc_sup_out_mod.f90 \
+                   $(OBJDIR)/kind_types.o \
+                   $(OBJDIR)/eqn_idx_mod.o
 
