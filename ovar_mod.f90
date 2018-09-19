@@ -431,8 +431,8 @@ module ovar
   real(wp), public, save :: tmrst = zero
   real(wp), public, save :: dtrst = zero
   !
-  real(wp), public, save :: marker_dpsi = Default_Marker_dpsi                     
-  real(wp), public, save :: marker_c1   = Default_Marker_c1                       
+  real(wp), public, save :: marker_dpsi = Default_Marker_dpsi
+  real(wp), public, save :: marker_c1   = Default_Marker_c1
   real(wp), public, save :: marker_c2   = Default_Marker_c2
   !
   real(wp), public, save, allocatable, dimension(:) :: cv_in
@@ -1046,7 +1046,8 @@ continue
   !
   allocate ( character(len=default_len) :: interpto_gridfile , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"interpto_gridfile",1,__LINE__,__FILE__,ierr,error_message)
+  call alloc_error(pname,"interpto_gridfile",1,__LINE__,__FILE__, &
+                   ierr,error_message)
   !
   allocate ( character(len=default_len) :: interpto_plot3d_cutfile , &
              stat=ierr , errmsg=error_message )
@@ -1142,7 +1143,7 @@ subroutine resize_namelist_allocatables
 continue
   !
   ! Reallocate bc_input to the actual size needed for the inputs
-  ! 
+  !
   n = 0
   do i = 1,size(bc_input)
     if (bc_input(i)%is_not_default()) then
@@ -1152,7 +1153,7 @@ continue
   !
   allocate ( tmp_bc_input(1:n) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"tmp_bc_input",1,__LINE__,__FILE__,ierr,error_message)
-  ! 
+  !
   n = 0
   do i = 1,size(bc_input)
     if (bc_input(i)%is_not_default()) then
