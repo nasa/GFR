@@ -2,6 +2,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/kind_types.o \
          $(OBJDIR)/eqn_idx_mod.o \
          $(OBJDIR)/pbs_mod.o \
+	 $(OBJDIR)/order_mod.o \
          $(OBJDIR)/geovar_mod.o \
          $(OBJDIR)/ovar_mod.o \
          $(OBJDIR)/flowvar_mod.o \
@@ -198,7 +199,6 @@ $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/metrics.o \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/quadrature_mod.o \
-            $(OBJDIR)/interpolation_mod.o \
             $(OBJDIR)/gpu_mod.o \
             $(OBJDIR)/mms_mod.o \
             $(FUNDIR)/debug_timer.f90
@@ -268,6 +268,7 @@ $(OBJDIR)/interpsol_mod.o : interpsol_mod.f90 \
                   $(OBJDIR)/interpsolvar_mod.o \
                   $(OBJDIR)/metrics.o \
                   $(OBJDIR)/octedat_facexyz_mod.o \
+                  $(OBJDIR)/octstat_mod.o \
                   $(OBJDIR)/octtree_mod.o \
                   $(OBJDIR)/mydebug_mod.o \
                   $(FUNDIR)/debug_timer.f90
@@ -301,6 +302,8 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/initialize.o \
        $(OBJDIR)/restart_mod.o \
        $(OBJDIR)/limiters.o \
+       $(OBJDIR)/thermo_mod.o \
+       $(OBJDIR)/transport_mod.o \
        $(FUNDIR)/last.f90 \
        $(FUNDIR)/bc_priority.f90 \
        $(FUNDIR)/cell_vol.f90 \
@@ -396,7 +399,8 @@ $(OBJDIR)/octedat_facexyz_mod.o : octedat_facexyz_mod.f90 \
                         $(OBJDIR)/kind_types.o \
                         $(OBJDIR)/geovar_mod.o \
                         $(OBJDIR)/flowvar_mod.o \
-                        $(OBJDIR)/octedat_mod.o
+                        $(OBJDIR)/octedat_mod.o \
+			$(OBJDIR)/octstat_mod.o
 
 $(OBJDIR)/octedat_mod.o : octedat_mod.f90 \
                 $(OBJDIR)/kind_types.o \
@@ -407,8 +411,7 @@ $(OBJDIR)/octnode_mod.o : octnode_mod.f90 \
                 $(OBJDIR)/geovar_mod.o \
                 $(OBJDIR)/octedat_mod.o \
                 $(OBJDIR)/octroot_mod.o \
-                $(OBJDIR)/octstat_mod.o \
-                $(FUNDIR)/debug_timer.f90
+                $(OBJDIR)/octstat_mod.o
 
 $(OBJDIR)/octroot_mod.o : octroot_mod.f90 \
                 $(OBJDIR)/octstat_mod.o
@@ -430,8 +433,7 @@ $(OBJDIR)/order_mod.o : order_mod.f90 \
 
 $(OBJDIR)/ovar_mod.o : ovar_mod.f90 \
              $(OBJDIR)/kind_types.o \
-             $(OBJDIR)/cgnstypes_mod.o \
-             $(OBJDIR)/order_mod.o
+             $(OBJDIR)/cgnstypes_mod.o
 
 $(OBJDIR)/parallel.o : parallel.f90 \
              $(OBJDIR)/kind_types.o \
@@ -551,7 +553,6 @@ $(OBJDIR)/transport_mod.o : transport_mod.f90 \
                   $(OBJDIR)/kind_types.o \
                   $(OBJDIR)/eqn_idx_mod.o \
                   $(OBJDIR)/ovar_mod.o \
-                  $(OBJDIR)/gpu_mod.o \
                   $(OBJDIR)/thermo_mod.o
 
 $(OBJDIR)/triangle.o : triangle.f90 \
@@ -666,7 +667,6 @@ $(OBJDIR)/bc_sub_in_mod.o : $(BCDIR)/bc_sub_in_mod.f90 \
                   $(OBJDIR)/ovar_mod.o \
                   $(OBJDIR)/interpolation_mod.o \
                   $(OBJDIR)/thermo_mod.o \
-                  $(OBJDIR)/transport_mod.o \
                   $(OBJDIR)/bc_relax_mod.o
 
 $(OBJDIR)/bc_sub_out_mod.o : $(BCDIR)/bc_sub_out_mod.f90 \
