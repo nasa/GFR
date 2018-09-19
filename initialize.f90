@@ -601,6 +601,16 @@ continue
         return_value(k,:) = jet_profile2(nozzle_len,xyz(1,k),bc_in(0)%pv(:))
       end do
       !
+    else if (init_cond == 4) then
+      !
+      nozzle_len = merge(9.875_wp,7.74_wp,itestcase > 0)
+      !
+      do k = 1,np
+        return_value(k,:) = jet_profile4(nozzle_len,xyz(1,k), &
+                                         bc_in(0)%pv(:), &
+                                         bc_in(1)%pv(:))
+      end do
+      !
     else if (init_cond == 3) then
       !
       nozzle_len = merge(9.875_wp,7.74_wp,itestcase > 0)
@@ -859,6 +869,104 @@ continue
   return_value(:) = vsp2u_sp( return_value(:) )
   !
 end function jet_profile2
+!
+!###############################################################################
+!
+pure function jet_profile4(nozzle_len,x,fs_pv,bc_pv) result(return_value)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : gam,grid_scaling_factor,rgasref_nd
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: nozzle_len
+  real(wp), intent(in) :: x
+  real(wp), intent(in) :: fs_pv(:)
+  real(wp), intent(in) :: bc_pv(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(fs_pv))
+  !
+  !.. Local Scalars ..
+  real(wp) :: gm1,gam_over_gm1,xbeg,func
+  real(wp) :: aspd_bc,mach_bc,temp_bc,ttot_bc,ptot_bc
+  real(wp) :: aspd_fs,mach_fs,mach_init,total_cond
+  real(wp) :: temp_init,pres_init,rho_init,vel_init
+  real(wp) :: pres,rho,vel,mach,aspd
+  !
+  !.. Local Arrays ..
+  real(wp) :: dir(1:nr)
+  !
+continue
+  !
+  ! Initialize to the free-stream primitive variables
+  !
+  return_value(:) = fs_pv(:)
+  !
+  ! If within the nozzle, initialize the velocity mach number to
+  ! a minimum of 0.05 at the inflow plane and use the error function
+  ! to smoothly transition this to the free-stream mach number within
+  ! the interior of the nozzle.
+  !
+  if (x < zero) then
+    !
+    gm1 = gam - one
+    gam_over_gm1 = gam / gm1
+    !
+    aspd_fs = sqrt(max(gam*fs_pv(nee)/fs_pv(nec),rndoff))
+    mach_fs = norm2(fs_pv(nmb:nme)) / aspd_fs
+    !
+    aspd_bc = sqrt(max(gam*bc_pv(nee)/bc_pv(nec),rndoff))
+    mach_bc = norm2(bc_pv(nmb:nme)) / aspd_bc
+    !
+    total_cond = one + half*gm1*mach_bc*mach_bc
+    !
+    temp_bc = bc_pv(nee)/bc_pv(nec)/rgasref_nd
+    ttot_bc = temp_bc*total_cond
+    ptot_bc = bc_pv(nee) * total_cond**gam_over_gm1
+    !
+    mach_init = 0.05_wp
+    !
+    total_cond = one + half*gm1*mach*mach
+    !
+    temp_init = ttot_bc / total_cond
+    pres_init = ptot_bc / (total_cond**gam_over_gm1)
+    rho_init  = pres_init / temp_init / rgasref_nd
+    vel_init  = mach_init*aspd_bc
+    !
+    dir(:) = unit_vector( bc_pv(nmb:nme) )
+    !
+    xbeg = nozzle_len*grid_scaling_factor
+    !
+    if (x <= -xbeg) then
+      !
+      return_value(nec)     = rho_init
+      return_value(nmb:nme) = vel_init*dir(:)
+      return_value(nee)     = pres_init
+      !
+    else
+      !
+      func = half * (one - erf((ten/xbeg)*abs(x)-seven))
+      !
+      rho  = func*fs_pv(nec) + (one-func)*rho_init
+      pres = func*fs_pv(nee) + (one-func)*pres_init
+      mach = func*mach_fs    + (one-func)*mach_init
+      !
+      aspd = sqrt(max(gam*pres/rho,rndoff))
+      !
+      vel = mach*aspd
+      !
+      return_value(nec)     = rho
+      return_value(nmb:nme) = vel*dir(:)
+      return_value(nee)     = pres
+      !
+    end if
+    !
+  end if
+  !
+  return_value(:) = vsp2u_sp( return_value(:) )
+  !
+end function jet_profile4
 !
 !###############################################################################
 !
