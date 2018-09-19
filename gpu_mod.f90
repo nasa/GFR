@@ -3,7 +3,7 @@ module gpu_mod
   !.. Use Statements ..
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
-  use eqn_idx, only : ncs,ntemp,ngamm,ncp
+  use eqn_idx, only : ncs,ntemp,ngamm,nenth,ncp
   !
   implicit none
   !
@@ -15,10 +15,6 @@ module gpu_mod
   public :: tvsp2u_gpu
   public :: grad_cv_to_grad_pv_gpu
   public :: vortex_solution_gpu
-  !
-  interface tvsp2u_gpu
-    module procedure tvsp2u_gpu_rv, tvsp2u_gpu_inout
-  end interface tvsp2u_gpu
   !
   interface grad_cv_to_grad_pv_gpu
     module procedure grad_cv_to_grad_pv_gpu, &
@@ -688,402 +684,395 @@ continue
 end subroutine vsp2u_gpu_nd
 !
 !###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !
-pure subroutine tvsp2u_gpu_rv(n1,n2,tvsp,return_value)
+pure subroutine tvsp2u_gpu(n1,n2,pv,gp)
+  !
+  !.. Use Statements ..
+  use ovar, only : include_tke_in_energy
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: tvsp(:,:)
-  real(wp), intent(inout) :: return_value(:,:)
+  real(wp), intent(inout) :: pv(:,:)
+  real(wp), intent(inout) :: gp(:,:)
   !
   !.. Local Scalars ..
-  integer :: nr
+  integer  :: n
+  real(wp) :: rho,rhoe,tke,tls
   !
 continue
+  !
+  if (ncs > 0) then
+    !
+    ! Convert the primitive variables for a thermally
+    ! perfect gas mixture to conserved variables.
+    !
+    call tvsp2u_gpu_tpg(n1,n2,pv,gp)
+    !
+  else
+    !
+    ! Convert the primitive variables for a calorically
+    ! perfect gas to conserved variables.
+    !
+    call tvsp2u_gpu_cpg(n1,n2,pv)
+    !
+  end if
+  !
+  ! Convert the turbulence primitive variables to conserved variables and
+  ! add the turbulence kinetic energy contribution to the total energy.
+  !
+  if (include_tke_in_energy) then
+    !$ACC PARALLEL LOOP PRESENT(pv)
+    do n = n1,n2
+      rho = pv(n,nec)
+      rho = pv(n,nee)
+      tke = pv(n,ntk)
+      tls = pv(n,ntl)
+      pv(n,nee) = rhoe + rho*tke
+      pv(n,ntk) = rho*tke
+      pv(n,ntl) = rho*tls
+    end do
+  end if
+  !
+end subroutine tvsp2u_gpu
+!
+!###############################################################################
+!
+pure subroutine tvsp2u_gpu_tpg(n1,n2,pv,gp)
+  !
+  !.. Use Statements ..
+  use thermo_mod, only : compute_mixture_rgas
+  use thermo_mod, only : compute_mixture_enthalpy
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: pv(:,:)
+  real(wp), intent(inout) :: gp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: m,n,nr
+  !
+continue
+  !
+  ! For a gas mixture, we have everything we need to compute the
+  ! conserved variables except for total energy which requires
+  ! the static enthalpy. To compute the static enthalpy, we need to:
+  !   1) Compute mixture gas constant from species mass fractions.
+  !   2) Compute static temperature from static density,
+  !      static pressure, and mixture gas constant.
+  !   3) Compute static enthalpy from static temperature
+  !      and species mass fractions.
+  ! 
+  ! Compute the new mixture gas constant using
+  ! the updated species mass fractions.
+  !
+  call compute_mixture_rgas(n1,n2,pv(:,1:ncs),gp(:,ngamm))
+  !
+  ! Compute the new static temperature using the updated
+  ! static density, static pressure, and mixture gas constant.
+  !
+  !$ACC PARALLEL LOOP PRESENT(pv,gp)
+  do n = n1,n2
+    gp(n,ntemp) = pv(n,nee) / (pv(n,nec)*gp(n,ngamm))
+  end do
+  !
+  ! Compute the new static enthalpy using the updated
+  ! mass fractions and static temperature.
+  !
+  call compute_mixture_enthalpy(n1,n2,pv(:,1:ncs),gp(:,ntemp),gp(:,nenth))
+  !
+  ! Convert the updated mass fractions to species densities.
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(pv)
+  do m = 1,ncs
+    do n = n1,n2
+      pv(n,m) = pv(n,m)*pv(n,nec)
+    end do
+  end do
+  !
+  ! Finally, convert the primitive variables to conserved variables,
+  ! excluding the species equations which were converted to species
+  ! densities in the above loop.
   !
   nr = nme-nmb+1
   !
   if (nr == 3) then
-    call tvsp2u_gpu_rv_3d(n1,n2,tvsp,return_value)
+    call tvsp2u_gpu_tpg_3d(n1,n2,pv,gp)
   else if (nr == 2) then
-    call tvsp2u_gpu_rv_2d(n1,n2,tvsp,return_value)
+    call tvsp2u_gpu_tpg_2d(n1,n2,pv,gp)
   else
-    call tvsp2u_gpu_rv_nd(n1,n2,tvsp,return_value)
+    call tvsp2u_gpu_tpg_1d(n1,n2,pv,gp)
   end if
   !
-end subroutine tvsp2u_gpu_rv
+end subroutine tvsp2u_gpu_tpg
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_rv_3d(n1,n2,tvsp,return_value)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam, include_tke_in_energy
+pure subroutine tvsp2u_gpu_tpg_3d(n1,n2,pv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: tvsp(:,:)
-  real(wp), intent(inout) :: return_value(:,:)
+  real(wp), intent(inout) :: pv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: gm1_inv,q2,rho,velx,vely,velz,pres,tke,tls
+  real(wp) :: rho,vx,vy,vz,q2,pres,enth
   !
 continue
   !
-  gm1_inv = one/(gam-one)
+  ! Convert the primitive variables to conserved variables.
   !
-  !$ACC PARALLEL LOOP PRESENT(tvsp,return_value)
+  !$ACC PARALLEL LOOP PRESENT(pv,gp)
   do n = n1,n2
     !
-    rho = tvsp(n,nec)
-    velx = tvsp(n,nmx)
-    vely = tvsp(n,nmy)
-    velz = tvsp(n,nmz)
-    pres = tvsp(n,nee)
+    rho  = pv(n,nec)
+    vx   = pv(n,nmx)
+    vy   = pv(n,nmy)
+    vz   = pv(n,nmz)
+    pres = pv(n,nee)
     !
-    q2 = velx*velx + vely*vely + velz*velz
+    enth = gp(n,nenth)
     !
-    return_value(n,nec) = rho
-    return_value(n,nmx) = rho*velx
-    return_value(n,nmy) = rho*vely
-    return_value(n,nmz) = rho*velz
-    return_value(n,nee) = pres*gm1_inv + half*rho*q2
+    q2 = vx*vx + vy*vy + vz*vz
+    !
+   !pv(n,nec) = rho ! NOT NEEDED, WASTE OF FLOATING POINT OPERATIONS
+    pv(n,nmx) = rho*vx
+    pv(n,nmy) = rho*vy
+    pv(n,nmz) = rho*vz
+    pv(n,nee) = rho*enth - pres + half*rho*q2
     !
   end do
   !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP PRESENT(tvsp,return_value)
-    do n = n1,n2
-      rho = tvsp(n,nec)
-      tke = tvsp(n,ntk)
-      tls = tvsp(n,ntl)
-      return_value(n,ntk) = rho*tke
-      return_value(n,ntl) = rho*tls
-      return_value(n,nee) = return_value(n,nee) + rho*tke
-    end do
-  end if
-  !
-end subroutine tvsp2u_gpu_rv_3d
+end subroutine tvsp2u_gpu_tpg_3d
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_rv_2d(n1,n2,tvsp,return_value)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam, include_tke_in_energy
+pure subroutine tvsp2u_gpu_tpg_2d(n1,n2,pv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: tvsp(:,:)
-  real(wp), intent(inout) :: return_value(:,:)
+  real(wp), intent(inout) :: pv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: gm1_inv,q2,rho,velx,vely,pres,tke,tls
+  real(wp) :: rho,vx,vy,q2,pres,enth
   !
 continue
   !
-  gm1_inv = one/(gam-one)
+  ! Convert the primitive variables to conserved variables.
   !
-  !$ACC PARALLEL LOOP PRESENT(tvsp,return_value)
+  !$ACC PARALLEL LOOP PRESENT(pv,gp)
   do n = n1,n2
     !
-    rho = tvsp(n,nec)
-    velx = tvsp(n,nmx)
-    vely = tvsp(n,nmy)
-    pres = tvsp(n,nee)
+    rho  = pv(n,nec)
+    vx   = pv(n,nmx)
+    vy   = pv(n,nmy)
+    pres = pv(n,nee)
     !
-    q2 = velx*velx + vely*vely
+    enth = gp(n,nenth)
     !
-    return_value(n,nec) = rho
-    return_value(n,nmx) = rho*velx
-    return_value(n,nmy) = rho*vely
-    return_value(n,nee) = pres*gm1_inv + half*rho*q2
+    q2 = vx*vx + vy*vy
+    !
+   !pv(n,nec) = rho ! NOT NEEDED, WASTE OF FLOATING POINT OPERATIONS
+    pv(n,nmx) = rho*vx
+    pv(n,nmy) = rho*vy
+    pv(n,nee) = rho*enth - pres + half*rho*q2
     !
   end do
   !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP PRESENT(tvsp,return_value)
-    do n = n1,n2
-      rho = tvsp(n,nec)
-      tke = tvsp(n,ntk)
-      tls = tvsp(n,ntl)
-      return_value(n,ntk) = rho*tke
-      return_value(n,ntl) = rho*tls
-      return_value(n,nee) = return_value(n,nee) + rho*tke
-    end do
-  end if
-  !
-end subroutine tvsp2u_gpu_rv_2d
+end subroutine tvsp2u_gpu_tpg_2d
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_rv_nd(n1,n2,tvsp,return_value)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam, include_tke_in_energy
+pure subroutine tvsp2u_gpu_tpg_1d(n1,n2,pv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: tvsp(:,:)
-  real(wp), intent(inout) :: return_value(:,:)
-  !
-  !.. Local Scalars ..
-  integer  :: m,n
-  real(wp) :: gm1_inv,q2,rho,tke,tls
-  !
-continue
-  !
-  gm1_inv = one/(gam-one)
-  !
-  !$ACC PARALLEL LOOP PRESENT(tvsp,return_value)
-  do n = n1,n2
-    !
-    rho = tvsp(n,nec)
-    !
-    q2 = zero
-    !$ACC LOOP SEQ
-    do m = nmb,nme
-      q2 = q2 + tvsp(n,m)*tvsp(n,m)
-    end do
-    !
-    return_value(n,nec)     = rho
-    return_value(n,nmb:nme) = rho*tvsp(n,nmb:nme)
-    return_value(n,nee)     = tvsp(n,nee)*gm1_inv + half*rho*q2
-    !
-  end do
-  !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP PRESENT(tvsp,return_value)
-    do n = n1,n2
-      rho = tvsp(n,nec)
-      tke = tvsp(n,ntk)
-      tls = tvsp(n,ntl)
-      return_value(n,ntk) = rho*tke
-      return_value(n,ntl) = rho*tls
-      return_value(n,nee) = return_value(n,nee) + rho*tke
-    end do
-  end if
-  !
-end subroutine tvsp2u_gpu_rv_nd
-!
-!###############################################################################
-!
-pure subroutine tvsp2u_gpu_inout(n1,n2,tvsp)
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp), intent(inout) :: tvsp(:,:)
-  !
-  !.. Local Scalars ..
-  integer :: nr
-  !
-continue
-  !
-  nr = nme-nmb+1
-  !
-  if (nr == 3) then
-    call tvsp2u_gpu_inout_3d(n1,n2,tvsp)
-  else if (nr == 2) then
-    call tvsp2u_gpu_inout_2d(n1,n2,tvsp)
-  else
-    call tvsp2u_gpu_inout_nd(n1,n2,tvsp)
-  end if
-  !
-end subroutine tvsp2u_gpu_inout
-!
-!###############################################################################
-!
-pure subroutine tvsp2u_gpu_inout_3d(n1,n2,tvsp)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam, include_tke_in_energy
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp), intent(inout) :: tvsp(:,:)
+  real(wp), intent(inout) :: pv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: gm1_inv,q2,rho,rhoe,velx,vely,velz,pres,tke,tls
+  real(wp) :: rho,vx,pres,enth
   !
 continue
   !
-  gm1_inv = one/(gam-one)
+  ! Convert the primitive variables to conserved variables.
   !
-  !$ACC PARALLEL LOOP PRESENT(tvsp)
+  !$ACC PARALLEL LOOP PRESENT(pv,gp)
   do n = n1,n2
     !
-    rho = tvsp(n,nec)
-    velx = tvsp(n,nmx)
-    vely = tvsp(n,nmy)
-    velz = tvsp(n,nmz)
-    pres = tvsp(n,nee)
+    rho  = pv(n,nec)
+    vx   = pv(n,nmx)
+    pres = pv(n,nee)
     !
-    q2 = velx*velx + vely*vely + velz*velz
+    enth = gp(n,nenth)
     !
-    tvsp(n,nec) = rho
-    tvsp(n,nmx) = rho*velx
-    tvsp(n,nmy) = rho*vely
-    tvsp(n,nmz) = rho*velz
-    tvsp(n,nee) = pres*gm1_inv + half*rho*q2
+   !pv(n,nec) = rho ! NOT NEEDED, WASTE OF FLOATING POINT OPERATIONS
+    pv(n,nmx) = rho*vx
+    pv(n,nee) = rho*enth - pres + half*rho*vx*vx
     !
   end do
   !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP PRESENT(tvsp)
-    do n = n1,n2
-      rho  = tvsp(n,nec)
-      rhoe = tvsp(n,nee)
-      tke  = tvsp(n,ntk)
-      tls  = tvsp(n,ntl)
-      tvsp(n,ntk) = rho*tke
-      tvsp(n,ntl) = rho*tls
-      tvsp(n,nee) = rhoe + rho*tke
-    end do
-  end if
-  !
-end subroutine tvsp2u_gpu_inout_3d
+end subroutine tvsp2u_gpu_tpg_1d
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_inout_2d(n1,n2,tvsp)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam, include_tke_in_energy
+pure subroutine tvsp2u_gpu_cpg(n1,n2,pv)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp), intent(inout) :: tvsp(:,:)
-  !
-  !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: gm1_inv,q2,rho,rhoe,velx,vely,pres,tke,tls
-  !
-continue
-  !
-  gm1_inv = one/(gam-one)
-  !
-  !$ACC PARALLEL LOOP PRESENT(tvsp)
-  do n = n1,n2
-    !
-    rho = tvsp(n,nec)
-    velx = tvsp(n,nmx)
-    vely = tvsp(n,nmy)
-    pres = tvsp(n,nee)
-    !
-    q2 = velx*velx + vely*vely
-    !
-    tvsp(n,nec) = rho
-    tvsp(n,nmx) = rho*velx
-    tvsp(n,nmy) = rho*vely
-    tvsp(n,nee) = pres*gm1_inv + half*rho*q2
-    !
-  end do
-  !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP PRESENT(tvsp)
-    do n = n1,n2
-      rho  = tvsp(n,nec)
-      rhoe = tvsp(n,nee)
-      tke  = tvsp(n,ntk)
-      tls  = tvsp(n,ntl)
-      tvsp(n,ntk) = rho*tke
-      tvsp(n,ntl) = rho*tls
-      tvsp(n,nee) = rhoe + rho*tke
-    end do
-  end if
-  !
-end subroutine tvsp2u_gpu_inout_2d
-!
-!###############################################################################
-!
-pure subroutine tvsp2u_gpu_inout_nd(n1,n2,tvsp)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam, include_tke_in_energy
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp), intent(inout) :: tvsp(:,:)
+  real(wp), intent(inout) :: pv(:,:)
   !
   !.. Local Scalars ..
   integer  :: n,nr
-  real(wp) :: gm1_inv,q2,rho,rhoe,velx,vely,velz,pres,tke,tls
+  real(wp) :: rho,rhoe,tke,tls
   !
 continue
   !
   nr = nme-nmb+1
   !
+  if (nr == 3) then
+    call tvsp2u_gpu_cpg_3d(n1,n2,pv)
+  else if (nr == 2) then
+    call tvsp2u_gpu_cpg_2d(n1,n2,pv)
+  else
+    call tvsp2u_gpu_cpg_1d(n1,n2,pv)
+  end if
+  !
+end subroutine tvsp2u_gpu_cpg
+!
+!###############################################################################
+!
+pure subroutine tvsp2u_gpu_cpg_3d(n1,n2,pv)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: pv(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1_inv,q2,rho,vx,vy,vz,pres
+  !
+continue
+  !
   gm1_inv = one/(gam-one)
   !
-  if (nr == 3) then
-    !$ACC PARALLEL LOOP PRESENT(tvsp)
-    do n = n1,n2
-      !
-      rho = tvsp(n,nec)
-      velx = tvsp(n,nmx)
-      vely = tvsp(n,nmy)
-      velz = tvsp(n,nmz)
-      pres = tvsp(n,nee)
-      !
-      q2 = velx*velx + vely*vely + velz*velz
-      !
-     !tvsp(n,nec) = rho
-      tvsp(n,nmx) = rho*velx
-      tvsp(n,nmy) = rho*vely
-      tvsp(n,nmz) = rho*velz
-      tvsp(n,nee) = pres*gm1_inv + half*rho*q2
-      !
-    end do
-  else if (nr == 2) then
-    !$ACC PARALLEL LOOP PRESENT(tvsp)
-    do n = n1,n2
-      !
-      rho = tvsp(n,nec)
-      velx = tvsp(n,nmx)
-      vely = tvsp(n,nmy)
-      pres = tvsp(n,nee)
-      !
-      q2 = velx*velx + vely*vely
-      !
-     !tvsp(n,nec) = rho
-      tvsp(n,nmx) = rho*velx
-      tvsp(n,nmy) = rho*vely
-      tvsp(n,nee) = pres*gm1_inv + half*rho*q2
-      !
-    end do
-  else
-    !$ACC PARALLEL LOOP PRESENT(tvsp)
-    do n = n1,n2
-      !
-      rho = tvsp(n,nec)
-      velx = tvsp(n,nmx)
-      pres = tvsp(n,nee)
-      !
-     !tvsp(n,nec) = rho
-      tvsp(n,nmx) = rho*velx
-      tvsp(n,nee) = pres*gm1_inv + half*rho*velx*velx
-      !
-    end do
-  end if
+  !$ACC PARALLEL LOOP PRESENT(pv)
+  do n = n1,n2
+    !
+    rho  = pv(n,nec)
+    vx   = pv(n,nmx)
+    vy   = pv(n,nmy)
+    vz   = pv(n,nmz)
+    pres = pv(n,nee)
+    !
+    q2 = vx*vx + vy*vy + vz*vz
+    !
+   !pv(n,nec) = rho ! NOT NEEDED, WASTE OF FLOATING POINT OPERATIONS
+    pv(n,nmx) = rho*vx
+    pv(n,nmy) = rho*vy
+    pv(n,nmz) = rho*vz
+    pv(n,nee) = pres*gm1_inv + half*rho*q2
+    !
+  end do
   !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP PRESENT(tvsp)
-    do n = n1,n2
-      rho  = tvsp(n,nec)
-      rhoe = tvsp(n,nee)
-      tke  = tvsp(n,ntk)
-      tls  = tvsp(n,ntl)
-      tvsp(n,ntk) = rho*tke
-      tvsp(n,ntl) = rho*tls
-      tvsp(n,nee) = rhoe + rho*tke
-    end do
-  end if
-  !
-end subroutine tvsp2u_gpu_inout_nd
+end subroutine tvsp2u_gpu_cpg_3d
 !
+!###############################################################################
+!
+pure subroutine tvsp2u_gpu_cpg_2d(n1,n2,pv)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: pv(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1_inv,q2,rho,vx,vy,pres
+  !
+continue
+  !
+  gm1_inv = one/(gam-one)
+  !
+  !$ACC PARALLEL LOOP PRESENT(pv)
+  do n = n1,n2
+    !
+    rho  = pv(n,nec)
+    vx   = pv(n,nmx)
+    vy   = pv(n,nmy)
+    pres = pv(n,nee)
+    !
+    q2 = vx*vx + vy*vy
+    !
+   !pv(n,nec) = rho ! NOT NEEDED, WASTE OF FLOATING POINT OPERATIONS
+    pv(n,nmx) = rho*vx
+    pv(n,nmy) = rho*vy
+    pv(n,nee) = pres*gm1_inv + half*rho*q2
+    !
+  end do
+  !
+end subroutine tvsp2u_gpu_cpg_2d
+!
+!###############################################################################
+!
+pure subroutine tvsp2u_gpu_cpg_1d(n1,n2,pv)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: pv(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1_inv,rho,vx,pres
+  !
+continue
+  !
+  gm1_inv = one/(gam-one)
+  !
+  !$ACC PARALLEL LOOP PRESENT(pv)
+  do n = n1,n2
+    !
+    rho  = pv(n,nec)
+    vx   = pv(n,nmx)
+    pres = pv(n,nee)
+    !
+   !pv(n,nec) = rho ! NOT NEEDED, WASTE OF FLOATING POINT OPERATIONS
+    pv(n,nmx) = rho*vx
+    pv(n,nee) = pres*gm1_inv + half*rho*vx*vx
+    !
+  end do
+  !
+end subroutine tvsp2u_gpu_cpg_1d
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !###############################################################################
 !
 pure subroutine grad_cv_to_grad_pv_sp(uin,gpin,dcvdxin,return_value)
@@ -1840,6 +1829,15 @@ continue
 end subroutine adjust_temp_gradient_for_tpg_1d
 !
 !###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !
 pure subroutine vortex_solution_gpu(n1,n2,xyz,return_value)
   !
@@ -1859,7 +1857,7 @@ pure subroutine vortex_solution_gpu(n1,n2,xyz,return_value)
   real(wp) :: gm1,gm1_inv,gam_over_gm1
   real(wp) :: rhoref_inv,aref_inv,rhoa2_inv,tref_inv
   real(wp) :: vx_ref,vy_ref
-  real(wp) :: x,y,a,du,dv,dT,vx,vy,vz,temp,rho,pres
+  real(wp) :: x,y,a,du,dv,dT,vx,vy,vz,q2,temp,rho,pres
   !
   logical(lk) :: running_vortex_problem
   !
@@ -1933,6 +1931,8 @@ continue
     !
   end do
   !
+  ! Set the z-velocity to the reference z-velocity if this is 3D
+  !
   if (nr == 3) then
     vz = velref(3)*aref_inv
     !$ACC PARALLEL LOOP PRESENT(return_value)
@@ -1941,7 +1941,43 @@ continue
     end do
   end if
   !
-  call tvsp2u_gpu(n1,n2,return_value)
+  ! Convert primitive variables to conserved variables
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(return_value)
+    do n = n1,n2
+      !
+      rho  = return_value(n,nec)
+      vx   = return_value(n,nmx)
+      vy   = return_value(n,nmy)
+      vz   = return_value(n,nmz)
+      pres = return_value(n,nee)
+      !
+      q2 = vx*vx + vy*vy + vz*vz
+      !
+      return_value(n,nmx) = rho*vx
+      return_value(n,nmy) = rho*vy
+      return_value(n,nmz) = rho*vz
+      return_value(n,nee) = pres*gm1_inv + half*rho*q2
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(return_value)
+    do n = n1,n2
+      !
+      rho  = return_value(n,nec)
+      vx   = return_value(n,nmx)
+      vy   = return_value(n,nmy)
+      pres = return_value(n,nee)
+      !
+      q2 = vx*vx + vy*vy
+      !
+      return_value(n,nmx) = rho*vx
+      return_value(n,nmy) = rho*vy
+      return_value(n,nee) = pres*gm1_inv + half*rho*q2
+      !
+    end do
+  end if
   !
 end subroutine vortex_solution_gpu
 !

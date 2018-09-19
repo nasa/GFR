@@ -6,6 +6,7 @@ module mms_mod
   !.. Use Statements ..
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
+  use eqn_idx, only : ng
   !
   implicit none
   !
@@ -509,7 +510,7 @@ pure subroutine mms_solution_at_xyz_gpu(n1,n2,xyz,pv,return_nondim,return_cv)
   logical(lk), optional, intent(in) :: return_cv
   !
   !.. Local Scalars ..
-  integer  :: nr
+  integer :: nr
   !
 continue
   !
@@ -548,6 +549,9 @@ pure subroutine mms_solution_at_xyz_gpu_3d(n1,n2,xyz,pv,return_nondim,return_cv)
   integer  :: n
   real(wp) :: x,y,z
   real(wp) :: rhoref_inv,aref_inv,rhoa2_inv
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: gp(:,:)
   !
 continue
   !
@@ -613,7 +617,11 @@ continue
   !
   if (present(return_cv)) then
     if (return_cv) then
-      call tvsp2u_gpu(n1,n2,pv)
+      allocate ( gp(1:size(pv,dim=1),1:ng) )
+      !$ACC DATA CREATE(gp)
+      call tvsp2u_gpu(n1,n2,pv,gp)
+      !$ACC END DATA
+      deallocate ( gp )
     end if
   end if
   !
@@ -642,6 +650,9 @@ pure subroutine mms_solution_at_xyz_gpu_2d(n1,n2,xyz,pv,return_nondim,return_cv)
   integer  :: n
   real(wp) :: x,y,z
   real(wp) :: rhoref_inv,aref_inv,rhoa2_inv
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: gp(:,:)
   !
 continue
   !
@@ -700,7 +711,11 @@ continue
   !
   if (present(return_cv)) then
     if (return_cv) then
-      call tvsp2u_gpu(n1,n2,pv)
+      allocate ( gp(1:size(pv,dim=1),1:ng) )
+      !$ACC DATA CREATE(gp)
+      call tvsp2u_gpu(n1,n2,pv,gp)
+      !$ACC END DATA
+      deallocate ( gp )
     end if
   end if
   !
@@ -729,6 +744,9 @@ pure subroutine mms_solution_at_xyz_gpu_1d(n1,n2,xyz,pv,return_nondim,return_cv)
   integer  :: n
   real(wp) :: x,y,z
   real(wp) :: rhoref_inv,aref_inv,rhoa2_inv
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: gp(:,:)
   !
 continue
   !
@@ -779,7 +797,11 @@ continue
   !
   if (present(return_cv)) then
     if (return_cv) then
-      call tvsp2u_gpu(n1,n2,pv)
+      allocate ( gp(1:size(pv,dim=1),1:ng) )
+      !$ACC DATA CREATE(gp)
+      call tvsp2u_gpu(n1,n2,pv,gp)
+      !$ACC END DATA
+      deallocate ( gp )
     end if
   end if
   !
