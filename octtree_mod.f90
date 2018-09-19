@@ -186,7 +186,7 @@ continue
   !     call octnode_addxyz(octtree%octnode,octtree%octroot,k,istat)
   !     if (istat /= OCT_STATUS_OK) return
   !   end do
-  ! However, we 
+  ! However, we
   ! call ed_data%octtree_fill(octtree,
   !
 end subroutine octtree_init

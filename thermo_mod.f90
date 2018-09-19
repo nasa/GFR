@@ -371,7 +371,7 @@ continue
   else
     !
     ! Compute the pressure and temperature of a calorically perfect gas
-    ! 
+    !
     call update_thermo_cpg(n1,n2,cv,gp)
     !
   end if
@@ -1319,7 +1319,7 @@ continue
   do n = n1,n2
     !
     val = zero
-    !  
+    !
     if (ttot(n) <= temperature_switch) then
       !
       ! Static and total temperature are both smaller than temperature switch

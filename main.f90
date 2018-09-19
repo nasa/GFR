@@ -300,7 +300,7 @@ continue
       if ( if_interpto_newgrid() ) then
         ! We will be interpolating the sol from one grid to another.
         ! Data for the destination grid to be used with interpolation
-        ! has just been loaded into the normal global arrays.  
+        ! has just been loaded into the normal global arrays.
         !
         ! Allocate the solution array, which would normally be done
         ! during initialization.
@@ -1510,7 +1510,7 @@ continue
     call stop_gfr(stop_mpi,pname,line_num,__FILE__,error_message)
     !
   end if
-  ! 
+  !
   1 format (//,1x,79("#"),//,5x,a,/)
   2 format (5x,"ERROR MESSAGE: '",a,"'",//,1x,79("#"),//)
   !

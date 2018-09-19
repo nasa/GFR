@@ -1733,7 +1733,7 @@ continue
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
     !
-    !$ACC LOOP VECTOR COLLAPSE(2) 
+    !$ACC LOOP VECTOR COLLAPSE(2)
     do m = 1,nq
       do n = 1,np
         !
