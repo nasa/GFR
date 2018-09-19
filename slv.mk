@@ -213,7 +213,7 @@ debug: CFLAG = -O0 -g
 debug: all
 
 .PHONY: deplist
-deplist: FCBASE += -gen-dep=deplist.txt
+deplist: FCBASE += -gen-dep=deplist.mk
 deplist: debug
 
 .PHONY: all

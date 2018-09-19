@@ -391,10 +391,10 @@ link-to-haswell:
 .PHONY: deplist
 deplist:
 	make -f slv.mk "EXECUTABLE=debug_gfr" "BUILDDIR=debug" clean
-	$(MAKE) $(MAKEOPT) -B -f slv.mk "EXECUTABLE=debug_gfr" \
-	                                "BUILDDIR=debug" \
-				        "FCADD=$(FCADD)" \
-				        deplist
+	make $(MAKEOPT) -B -f slv.mk "EXECUTABLE=debug_gfr" \
+	                             "BUILDDIR=debug" \
+				     "FCADD=$(FCADD)" \
+				     deplist
 	@echo "-----------------------------------------------------"
 
 .PHONY: systeminfo
