@@ -3,16 +3,14 @@ module gpu_mod
   !.. Use Statements ..
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
-  use eqn_idx, only : ncs,ntemp,ngamm,nenth,ncp
+  use eqn_idx, only : ncs,npres,ntemp,ngamm,nenth,ncp
   !
   implicit none
   !
   private
   !
-  public :: usp2v_gpu
-  public :: tusp2v_gpu
-  public :: vsp2u_gpu
-  public :: tvsp2u_gpu
+  public :: cv2pv_gpu
+  public :: pv2cv_gpu
   public :: grad_cv_to_grad_pv_gpu
   public :: vortex_solution_gpu
   !
@@ -25,663 +23,154 @@ contains
 !
 !###############################################################################
 !
-pure subroutine usp2v_gpu(n1,n2,usp,return_value,swap_t_for_rho)
+pure subroutine cv2pv_gpu(n1,n2,cv,gp,return_value,swap_t_for_rho)
+  !
+  !.. Use Statements ..
+  use ovar, only : turb_is_on
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: cv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: swap_t_for_rho
   !
   !.. Local Scalars ..
-  integer :: nr
+  integer  :: m,n,nr
+  real(wp) :: rho_inv
   !
 continue
   !
   nr = nme-nmb+1
   !
   if (nr == 3) then
-    call usp2v_gpu_3d(n1,n2,usp,return_value,swap_t_for_rho)
+    call cv2pv_gpu_3d(n1,n2,cv,gp,return_value)
   else if (nr == 2) then
-    call usp2v_gpu_2d(n1,n2,usp,return_value,swap_t_for_rho)
+    call cv2pv_gpu_2d(n1,n2,cv,gp,return_value)
   else
-    call usp2v_gpu_nd(n1,n2,usp,return_value,swap_t_for_rho)
+    call cv2pv_gpu_1d(n1,n2,cv,gp,return_value)
   end if
   !
-end subroutine usp2v_gpu
-!
-!###############################################################################
-!
-pure subroutine usp2v_gpu_3d(n1,n2,usp,return_value,swap_t_for_rho)
+  if (ncs > 0) then
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv,return_value)
+    do m = 1,ncs
+      do n = n1,n2
+        return_value(n,m) = cv(n,m)/cv(n,nec)
+      end do
+    end do
+  end if
   !
-  !.. Use Statements ..
-  use ovar, only : gam,rgasref_nd,include_tke_in_energy
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: usp(:,:)
-  real(wp), intent(inout) :: return_value(:,:)
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: swap_t_for_rho
-  !
-  !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: gm1,rgasref_nd_inv
-  real(wp) :: rho,rho_inv,velx,vely,velz,rhoe,q2,pres
-  !
-continue
-  !
-  gm1 = gam - one
-  rgasref_nd_inv = one/rgasref_nd
-  !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(usp,return_value)
-  do n = n1,n2
-    !
-    rho = usp(nec,n)
-    rho_inv = one/rho
-    !
-    velx = usp(nmx,n)*rho_inv
-    vely = usp(nmy,n)*rho_inv
-    velz = usp(nmz,n)*rho_inv
-    rhoe = usp(nee,n)
-    !
-    q2 = velx*velx + vely*vely + velz*velz
-    !
-    pres = gm1*(rhoe - half*rho*q2)
-    !
-    return_value(nec,n) = rho
-    return_value(nmx,n) = velx
-    return_value(nmy,n) = vely
-    return_value(nmz,n) = velz
-    return_value(nee,n) = pres
-    !
-  end do
-  !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-    !$ACC&              PRESENT(usp,return_value)
+  if (turb_is_on) then
+    !$ACC PARALLEL LOOP PRESENT(cv,return_value)
     do n = n1,n2
-      rho_inv = one/usp(nec,n)
-      return_value(nee,n) = return_value(nee,n) - gm1*usp(ntk,n)
-      return_value(ntk,n) = usp(ntk,n)*rho_inv
-      return_value(ntl,n) = usp(ntl,n)*rho_inv
+      rho_inv = one/cv(n,nec)
+      return_value(n,ntk) = cv(n,ntk)*rho_inv
+      return_value(n,ntl) = cv(n,ntl)*rho_inv
     end do
   end if
   !
   if (present(swap_t_for_rho)) then
     if (swap_t_for_rho) then
-      !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-      !$ACC&              PRESENT(return_value)
+      !$ACC PARALLEL LOOP PRESENT(gp,return_value)
       do n = n1,n2
-        rho = return_value(nec,n)
-        pres = return_value(nee,n)
-        return_value(nec,n) = pres * rgasref_nd_inv / rho
+        return_value(n,nec) = gp(n,ntemp)
       end do
     end if
   end if
   !
-end subroutine usp2v_gpu_3d
+end subroutine cv2pv_gpu
 !
 !###############################################################################
 !
-pure subroutine usp2v_gpu_2d(n1,n2,usp,return_value,swap_t_for_rho)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam,rgasref_nd,include_tke_in_energy
+pure subroutine cv2pv_gpu_3d(n1,n2,cv,gp,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: usp(:,:)
-  real(wp), intent(inout) :: return_value(:,:)
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: swap_t_for_rho
-  !
-  !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: gm1,rgasref_nd_inv
-  real(wp) :: rho,rho_inv,velx,vely,rhoe,q2,pres
-  !
-continue
-  !
-  gm1 = gam - one
-  rgasref_nd_inv = one/rgasref_nd
-  !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(usp,return_value)
-  do n = n1,n2
-    !
-    rho = usp(nec,n)
-    rho_inv = one/rho
-    !
-    velx = usp(nmx,n)*rho_inv
-    vely = usp(nmy,n)*rho_inv
-    rhoe = usp(nee,n)
-    !
-    q2 = velx*velx + vely*vely
-    !
-    pres = gm1*(rhoe - half*rho*q2)
-    !
-    return_value(nec,n) = rho
-    return_value(nmx,n) = velx
-    return_value(nmy,n) = vely
-    return_value(nee,n) = pres
-    !
-  end do
-  !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-    !$ACC&              PRESENT(usp,return_value)
-    do n = n1,n2
-      rho_inv = one/usp(nec,n)
-      return_value(nee,n) = return_value(nee,n) - gm1*usp(ntk,n)
-      return_value(ntk,n) = usp(ntk,n)*rho_inv
-      return_value(ntl,n) = usp(ntl,n)*rho_inv
-    end do
-  end if
-  !
-  if (present(swap_t_for_rho)) then
-    if (swap_t_for_rho) then
-      !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-      !$ACC&              PRESENT(return_value)
-      do n = n1,n2
-        rho = return_value(nec,n)
-        pres = return_value(nee,n)
-        return_value(nec,n) = pres * rgasref_nd_inv / rho
-      end do
-    end if
-  end if
-  !
-end subroutine usp2v_gpu_2d
-!
-!###############################################################################
-!
-pure subroutine usp2v_gpu_nd(n1,n2,usp,return_value,swap_t_for_rho)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam,rgasref_nd,include_tke_in_energy
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: usp(:,:)
-  real(wp), intent(inout) :: return_value(:,:)
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: swap_t_for_rho
-  !
-  !.. Local Scalars ..
-  integer  :: m,n
-  real(wp) :: gm1,rgasref_nd_inv
-  real(wp) :: rho,rho_inv,velx,vely,velz,rhoe,rhoq2,pres
-  !
-continue
-  !
-  gm1 = gam - one
-  rgasref_nd_inv = one/rgasref_nd
-  !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(usp,return_value)
-  do n = n1,n2
-    !
-    rhoq2 = zero
-    !$ACC LOOP SEQ
-    do m = nmb,nme
-      rhoq2 = rhoq2 + usp(m,n)*usp(m,n)
-    end do
-    !
-    return_value(nec,n)     = usp(nec,n)
-    return_value(nmb:nme,n) = usp(nmb:nme,n)/usp(nec,n)
-    return_value(nee,n)     = gm1 * (usp(nee,n) - half*rhoq2/usp(nec,n))
-    !
-  end do
-  !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-    !$ACC&              PRESENT(usp,return_value)
-    do n = n1,n2
-      rho_inv = one/usp(nec,n)
-      return_value(nee,n) = return_value(nee,n) - gm1*usp(ntk,n)
-      return_value(ntk,n) = usp(ntk,n)*rho_inv
-      return_value(ntl,n) = usp(ntl,n)*rho_inv
-    end do
-  end if
-  !
-  if (present(swap_t_for_rho)) then
-    if (swap_t_for_rho) then
-      !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-      !$ACC&              PRESENT(return_value)
-      do n = n1,n2
-        rho = return_value(nec,n)
-        pres = return_value(nee,n)
-        return_value(nec,n) = pres * rgasref_nd_inv / rho
-      end do
-    end if
-  end if
-  !
-end subroutine usp2v_gpu_nd
-!
-!###############################################################################
-!
-pure subroutine tusp2v_gpu(n1,n2,tusp,return_value,swap_t_for_rho)
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: tusp(:,:)
-  real(wp), intent(inout) :: return_value(:,:)
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: swap_t_for_rho
-  !
-  !.. Local Scalars ..
-  integer :: nr
-  !
-continue
-  !
-  nr = nme-nmb+1
-  !
-  if (nr == 3) then
-    call tusp2v_gpu_3d(n1,n2,tusp,return_value,swap_t_for_rho)
-  else if (nr == 2) then
-    call tusp2v_gpu_2d(n1,n2,tusp,return_value,swap_t_for_rho)
-  else
-    call tusp2v_gpu_nd(n1,n2,tusp,return_value,swap_t_for_rho)
-  end if
-  !
-end subroutine tusp2v_gpu
-!
-!###############################################################################
-!
-pure subroutine tusp2v_gpu_3d(n1,n2,tusp,return_value,swap_t_for_rho)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam,rgasref_nd,include_tke_in_energy
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: tusp(:,:)
-  real(wp), intent(inout) :: return_value(:,:)
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: swap_t_for_rho
-  !
-  !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: gm1,rgasref_nd_inv
-  real(wp) :: rho,rho_inv,velx,vely,velz,rhoe,q2,pres
-  !
-continue
-  !
-  gm1 = gam - one
-  rgasref_nd_inv = one/rgasref_nd
-  !
-  !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
-  do n = n1,n2
-    !
-    rho = tusp(n,nec)
-    rho_inv = one/rho
-    !
-    velx = tusp(n,nmx)*rho_inv
-    vely = tusp(n,nmy)*rho_inv
-    velz = tusp(n,nmz)*rho_inv
-    rhoe = tusp(n,nee)
-    !
-    q2 = velx*velx + vely*vely + velz*velz
-    !
-    pres = gm1*(rhoe - half*rho*q2)
-    !
-    return_value(n,nec) = rho
-    return_value(n,nmx) = velx
-    return_value(n,nmy) = vely
-    return_value(n,nmz) = velz
-    return_value(n,nee) = pres
-    !
-  end do
-  !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
-    do n = n1,n2
-      rho_inv = one/tusp(n,nec)
-      return_value(n,nee) = return_value(n,nee) - gm1*tusp(n,ntk)
-      return_value(n,ntk) = tusp(n,ntk)*rho_inv
-      return_value(n,ntl) = tusp(n,ntl)*rho_inv
-    end do
-  end if
-  !
-  if (present(swap_t_for_rho)) then
-    if (swap_t_for_rho) then
-      !$ACC PARALLEL LOOP PRESENT(return_value)
-      do n = n1,n2
-        rho = return_value(n,nec)
-        pres = return_value(n,nee)
-        return_value(n,nec) = pres * rgasref_nd_inv / rho
-      end do
-    end if
-  end if
-  !
-end subroutine tusp2v_gpu_3d
-!
-!###############################################################################
-!
-pure subroutine tusp2v_gpu_2d(n1,n2,tusp,return_value,swap_t_for_rho)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam,rgasref_nd,include_tke_in_energy
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: tusp(:,:)
-  real(wp), intent(inout) :: return_value(:,:)
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: swap_t_for_rho
-  !
-  !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: gm1,rgasref_nd_inv
-  real(wp) :: rho,rho_inv,velx,vely,rhoe,q2,pres
-  !
-continue
-  !
-  gm1 = gam - one
-  rgasref_nd_inv = one/rgasref_nd
-  !
-  !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
-  do n = n1,n2
-    !
-    rho = tusp(n,nec)
-    rho_inv = one/rho
-    !
-    velx = tusp(n,nmx)*rho_inv
-    vely = tusp(n,nmy)*rho_inv
-    rhoe = tusp(n,nee)
-    !
-    q2 = velx*velx + vely*vely
-    !
-    pres = gm1*(rhoe - half*rho*q2)
-    !
-    return_value(n,nec) = rho
-    return_value(n,nmx) = velx
-    return_value(n,nmy) = vely
-    return_value(n,nee) = pres
-    !
-  end do
-  !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
-    do n = n1,n2
-      rho_inv = one/tusp(n,nec)
-      return_value(n,nee) = return_value(n,nee) - gm1*tusp(n,ntk)
-      return_value(n,ntk) = tusp(n,ntk)*rho_inv
-      return_value(n,ntl) = tusp(n,ntl)*rho_inv
-    end do
-  end if
-  !
-  if (present(swap_t_for_rho)) then
-    if (swap_t_for_rho) then
-      !$ACC PARALLEL LOOP PRESENT(return_value)
-      do n = n1,n2
-        rho = return_value(n,nec)
-        pres = return_value(n,nee)
-        return_value(n,nec) = pres * rgasref_nd_inv / rho
-      end do
-    end if
-  end if
-  !
-end subroutine tusp2v_gpu_2d
-!
-!###############################################################################
-!
-pure subroutine tusp2v_gpu_nd(n1,n2,tusp,return_value,swap_t_for_rho)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam,rgasref_nd,include_tke_in_energy
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: tusp(:,:)
-  real(wp), intent(inout) :: return_value(:,:)
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: swap_t_for_rho
-  !
-  !.. Local Scalars ..
-  integer  :: m,n
-  real(wp) :: gm1,rgasref_nd_inv
-  real(wp) :: rho,rho_inv,rhoq2,pres
-  !
-continue
-  !
-  gm1 = gam - one
-  rgasref_nd_inv = one/rgasref_nd
-  !
-  !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
-  do n = n1,n2
-    !
-    rhoq2 = zero
-    !$ACC LOOP SEQ
-    do m = nmb,nme
-      rhoq2 = rhoq2 + tusp(n,m)*tusp(n,m)
-    end do
-    !
-    return_value(n,nec)     = tusp(n,nec)
-    return_value(n,nmb:nme) = tusp(n,nmb:nme)/tusp(n,nec)
-    return_value(n,nee)     = gm1 * (tusp(n,nee) - half*rhoq2/tusp(n,nec))
-    !
-  end do
-  !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
-    do n = n1,n2
-      rho_inv = one/tusp(n,nec)
-      return_value(n,nee) = return_value(n,nee) - gm1*tusp(n,ntk)
-      return_value(n,ntk) = tusp(n,ntk)*rho_inv
-      return_value(n,ntl) = tusp(n,ntl)*rho_inv
-    end do
-  end if
-  !
-  if (present(swap_t_for_rho)) then
-    if (swap_t_for_rho) then
-      !$ACC PARALLEL LOOP PRESENT(return_value)
-      do n = n1,n2
-        rho = return_value(n,nec)
-        pres = return_value(n,nee)
-        return_value(n,nec) = pres * rgasref_nd_inv / rho
-      end do
-    end if
-  end if
-  !
-end subroutine tusp2v_gpu_nd
-!
-!###############################################################################
-!
-pure subroutine vsp2u_gpu(n1,n2,vsp,return_value)
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: vsp(:,:)
-  real(wp), intent(inout) :: return_value(:,:)
-  !
-  !.. Local Scalars ..
-  integer :: nr
-  !
-continue
-  !
-  nr = nme-nmb+1
-  !
-  if (nr == 3) then
-    call vsp2u_gpu_3d(n1,n2,vsp,return_value)
-  else if (nr == 2) then
-    call vsp2u_gpu_2d(n1,n2,vsp,return_value)
-  else
-    call vsp2u_gpu_nd(n1,n2,vsp,return_value)
-  end if
-  !
-end subroutine vsp2u_gpu
-!
-!###############################################################################
-!
-pure subroutine vsp2u_gpu_3d(n1,n2,vsp,return_value)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam, include_tke_in_energy
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: vsp(:,:)
+  real(wp),    intent(in) :: cv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: gm1_inv,q2,rho,velx,vely,velz,pres,tke,tls
+  real(wp) :: rho_inv
   !
 continue
   !
-  gm1_inv = one/(gam-one)
-  !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(vsp,return_value)
+  !$ACC PARALLEL LOOP PRESENT(cv,gp,return_value)
   do n = n1,n2
     !
-    rho = vsp(nec,n)
-    velx = vsp(nmx,n)
-    vely = vsp(nmy,n)
-    velz = vsp(nmz,n)
-    pres = vsp(nee,n)
+    rho_inv = one/cv(n,nec)
     !
-    q2 = velx*velx + vely*vely + velz*velz
-    !
-    return_value(nec,n) = rho
-    return_value(nmx,n) = rho*velx
-    return_value(nmy,n) = rho*vely
-    return_value(nmz,n) = rho*velz
-    return_value(nee,n) = pres*gm1_inv + half*rho*q2
+    return_value(n,nec) = cv(n,nec)
+    return_value(n,nmx) = cv(n,nmx)*rho_inv
+    return_value(n,nmy) = cv(n,nmy)*rho_inv
+    return_value(n,nmz) = cv(n,nmz)*rho_inv
+    return_value(n,nee) = gp(n,npres)
     !
   end do
   !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-    !$ACC&              PRESENT(vsp,return_value)
-    do n = n1,n2
-      rho = vsp(nec,n)
-      tke = vsp(ntk,n)
-      tls = vsp(ntl,n)
-      return_value(ntk,n) = rho*tke
-      return_value(ntl,n) = rho*tls
-      return_value(nee,n) = return_value(nee,n) + rho*tke
-    end do
-  end if
-  !
-end subroutine vsp2u_gpu_3d
+end subroutine cv2pv_gpu_3d
 !
 !###############################################################################
 !
-pure subroutine vsp2u_gpu_2d(n1,n2,vsp,return_value)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam, include_tke_in_energy
+pure subroutine cv2pv_gpu_2d(n1,n2,cv,gp,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: vsp(:,:)
+  real(wp),    intent(in) :: cv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: gm1_inv,q2,rho,velx,vely,pres,tke,tls
+  real(wp) :: rho_inv
   !
 continue
   !
-  gm1_inv = one/(gam-one)
-  !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(vsp,return_value)
+  !$ACC PARALLEL LOOP PRESENT(cv,gp,return_value)
   do n = n1,n2
     !
-    rho = vsp(nec,n)
-    velx = vsp(nmx,n)
-    vely = vsp(nmy,n)
-    pres = vsp(nee,n)
+    rho_inv = one/cv(n,nec)
     !
-    q2 = velx*velx + vely*vely
-    !
-    return_value(nec,n) = rho
-    return_value(nmx,n) = rho*velx
-    return_value(nmy,n) = rho*vely
-    return_value(nee,n) = pres*gm1_inv + half*rho*q2
+    return_value(n,nec) = cv(n,nec)
+    return_value(n,nmx) = cv(n,nmx)*rho_inv
+    return_value(n,nmy) = cv(n,nmy)*rho_inv
+    return_value(n,nee) = gp(n,npres)
     !
   end do
   !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-    !$ACC&              PRESENT(vsp,return_value)
-    do n = n1,n2
-      rho = vsp(nec,n)
-      tke = vsp(ntk,n)
-      tls = vsp(ntl,n)
-      return_value(ntk,n) = rho*tke
-      return_value(ntl,n) = rho*tls
-      return_value(nee,n) = return_value(nee,n) + rho*tke
-    end do
-  end if
-  !
-end subroutine vsp2u_gpu_2d
+end subroutine cv2pv_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine vsp2u_gpu_nd(n1,n2,vsp,return_value)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam, include_tke_in_energy
+pure subroutine cv2pv_gpu_1d(n1,n2,cv,gp,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: vsp(:,:)
+  real(wp),    intent(in) :: cv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: m,n
-  real(wp) :: gm1_inv,q2,rho,tke,tls
+  integer  :: n
+  real(wp) :: rho_inv
   !
 continue
   !
-  gm1_inv = one/(gam-one)
-  !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(vsp,return_value)
+  !$ACC PARALLEL LOOP PRESENT(cv,gp,return_value)
   do n = n1,n2
     !
-    rho = vsp(nec,n)
+    rho_inv = one/cv(n,nec)
     !
-    q2 = zero
-    !$ACC LOOP SEQ
-    do m = nmb,nme
-      q2 = q2 + vsp(m,n)*vsp(m,n)
-    end do
-    !
-    return_value(nec,n)     = rho
-    return_value(nmb:nme,n) = rho*vsp(nmb:nme,n)
-    return_value(nee,n)     = vsp(nee,n)*gm1_inv + half*rho*q2
+    return_value(n,nec) = cv(n,nec)
+    return_value(n,nmx) = cv(n,nmx)*rho_inv
+    return_value(n,nee) = gp(n,npres)
     !
   end do
   !
-  if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-    !$ACC&              PRESENT(vsp,return_value)
-    do n = n1,n2
-      rho = vsp(nec,n)
-      tke = vsp(ntk,n)
-      tls = vsp(ntl,n)
-      return_value(ntk,n) = rho*tke
-      return_value(ntl,n) = rho*tls
-      return_value(nee,n) = return_value(nee,n) + rho*tke
-    end do
-  end if
-  !
-end subroutine vsp2u_gpu_nd
+end subroutine cv2pv_gpu_1d
 !
 !###############################################################################
 !###############################################################################
@@ -694,7 +183,7 @@ end subroutine vsp2u_gpu_nd
 !###############################################################################
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu(n1,n2,pv,gp)
+pure subroutine pv2cv_gpu(n1,n2,pv,gp)
   !
   !.. Use Statements ..
   use ovar, only : include_tke_in_energy
@@ -715,14 +204,14 @@ continue
     ! Convert the primitive variables for a thermally
     ! perfect gas mixture to conserved variables.
     !
-    call tvsp2u_gpu_tpg(n1,n2,pv,gp)
+    call pv2cv_gpu_tpg(n1,n2,pv,gp)
     !
   else
     !
     ! Convert the primitive variables for a calorically
     ! perfect gas to conserved variables.
     !
-    call tvsp2u_gpu_cpg(n1,n2,pv)
+    call pv2cv_gpu_cpg(n1,n2,pv)
     !
   end if
   !
@@ -742,11 +231,11 @@ continue
     end do
   end if
   !
-end subroutine tvsp2u_gpu
+end subroutine pv2cv_gpu
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_tpg(n1,n2,pv,gp)
+pure subroutine pv2cv_gpu_tpg(n1,n2,pv,gp)
   !
   !.. Use Statements ..
   use thermo_mod, only : compute_mixture_rgas
@@ -805,18 +294,18 @@ continue
   nr = nme-nmb+1
   !
   if (nr == 3) then
-    call tvsp2u_gpu_tpg_3d(n1,n2,pv,gp)
+    call pv2cv_gpu_tpg_3d(n1,n2,pv,gp)
   else if (nr == 2) then
-    call tvsp2u_gpu_tpg_2d(n1,n2,pv,gp)
+    call pv2cv_gpu_tpg_2d(n1,n2,pv,gp)
   else
-    call tvsp2u_gpu_tpg_1d(n1,n2,pv,gp)
+    call pv2cv_gpu_tpg_1d(n1,n2,pv,gp)
   end if
   !
-end subroutine tvsp2u_gpu_tpg
+end subroutine pv2cv_gpu_tpg
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_tpg_3d(n1,n2,pv,gp)
+pure subroutine pv2cv_gpu_tpg_3d(n1,n2,pv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -852,11 +341,11 @@ continue
     !
   end do
   !
-end subroutine tvsp2u_gpu_tpg_3d
+end subroutine pv2cv_gpu_tpg_3d
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_tpg_2d(n1,n2,pv,gp)
+pure subroutine pv2cv_gpu_tpg_2d(n1,n2,pv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -890,11 +379,11 @@ continue
     !
   end do
   !
-end subroutine tvsp2u_gpu_tpg_2d
+end subroutine pv2cv_gpu_tpg_2d
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_tpg_1d(n1,n2,pv,gp)
+pure subroutine pv2cv_gpu_tpg_1d(n1,n2,pv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -924,11 +413,11 @@ continue
     !
   end do
   !
-end subroutine tvsp2u_gpu_tpg_1d
+end subroutine pv2cv_gpu_tpg_1d
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_cpg(n1,n2,pv)
+pure subroutine pv2cv_gpu_cpg(n1,n2,pv)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -943,18 +432,18 @@ continue
   nr = nme-nmb+1
   !
   if (nr == 3) then
-    call tvsp2u_gpu_cpg_3d(n1,n2,pv)
+    call pv2cv_gpu_cpg_3d(n1,n2,pv)
   else if (nr == 2) then
-    call tvsp2u_gpu_cpg_2d(n1,n2,pv)
+    call pv2cv_gpu_cpg_2d(n1,n2,pv)
   else
-    call tvsp2u_gpu_cpg_1d(n1,n2,pv)
+    call pv2cv_gpu_cpg_1d(n1,n2,pv)
   end if
   !
-end subroutine tvsp2u_gpu_cpg
+end subroutine pv2cv_gpu_cpg
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_cpg_3d(n1,n2,pv)
+pure subroutine pv2cv_gpu_cpg_3d(n1,n2,pv)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -990,11 +479,11 @@ continue
     !
   end do
   !
-end subroutine tvsp2u_gpu_cpg_3d
+end subroutine pv2cv_gpu_cpg_3d
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_cpg_2d(n1,n2,pv)
+pure subroutine pv2cv_gpu_cpg_2d(n1,n2,pv)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -1028,11 +517,11 @@ continue
     !
   end do
   !
-end subroutine tvsp2u_gpu_cpg_2d
+end subroutine pv2cv_gpu_cpg_2d
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_cpg_1d(n1,n2,pv)
+pure subroutine pv2cv_gpu_cpg_1d(n1,n2,pv)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -1062,7 +551,7 @@ continue
     !
   end do
   !
-end subroutine tvsp2u_gpu_cpg_1d
+end subroutine pv2cv_gpu_cpg_1d
 !
 !###############################################################################
 !###############################################################################

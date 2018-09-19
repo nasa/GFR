@@ -534,7 +534,7 @@ pure subroutine mms_solution_at_xyz_gpu_3d(n1,n2,xyz,pv,return_nondim,return_cv)
   !
   !.. Use Statements ..
   use ovar,    only : rhoref,aref
-  use gpu_mod, only : tvsp2u_gpu
+  use gpu_mod, only : pv2cv_gpu
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -619,7 +619,7 @@ continue
     if (return_cv) then
       allocate ( gp(1:size(pv,dim=1),1:ng) )
       !$ACC DATA CREATE(gp)
-      call tvsp2u_gpu(n1,n2,pv,gp)
+      call pv2cv_gpu(n1,n2,pv,gp)
       !$ACC END DATA
       deallocate ( gp )
     end if
@@ -635,7 +635,7 @@ pure subroutine mms_solution_at_xyz_gpu_2d(n1,n2,xyz,pv,return_nondim,return_cv)
   !
   !.. Use Statements ..
   use ovar,    only : rhoref,aref
-  use gpu_mod, only : tvsp2u_gpu
+  use gpu_mod, only : pv2cv_gpu
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -713,7 +713,7 @@ continue
     if (return_cv) then
       allocate ( gp(1:size(pv,dim=1),1:ng) )
       !$ACC DATA CREATE(gp)
-      call tvsp2u_gpu(n1,n2,pv,gp)
+      call pv2cv_gpu(n1,n2,pv,gp)
       !$ACC END DATA
       deallocate ( gp )
     end if
@@ -729,7 +729,7 @@ pure subroutine mms_solution_at_xyz_gpu_1d(n1,n2,xyz,pv,return_nondim,return_cv)
   !
   !.. Use Statements ..
   use ovar,    only : rhoref,aref
-  use gpu_mod, only : tvsp2u_gpu
+  use gpu_mod, only : pv2cv_gpu
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -799,7 +799,7 @@ continue
     if (return_cv) then
       allocate ( gp(1:size(pv,dim=1),1:ng) )
       !$ACC DATA CREATE(gp)
-      call tvsp2u_gpu(n1,n2,pv,gp)
+      call pv2cv_gpu(n1,n2,pv,gp)
       !$ACC END DATA
       deallocate ( gp )
     end if

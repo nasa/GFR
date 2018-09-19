@@ -35,7 +35,7 @@ pure subroutine get_bc_isothermal_wall_solution(n1,n2,face_cv,face_gp, &
   !.. Use Statements ..
   use ovar, only : rgasref_nd
   !
-  use gpu_mod,    only : tvsp2u_gpu
+  use gpu_mod,    only : pv2cv_gpu
   use thermo_mod, only : compute_mixture_rgas
   !
   !.. Formal Arguments ..
@@ -94,7 +94,7 @@ continue
   ! The above subroutines will return the boundary condition states as
   ! primitive variables. These need to be converted to conservative variables.
   !
-  call tvsp2u_gpu(n1,n2,face_cv(:,:,2),face_gp(:,:,2))
+  call pv2cv_gpu(n1,n2,face_cv(:,:,2),face_gp(:,:,2))
   !
 end subroutine get_bc_isothermal_wall_solution
 !

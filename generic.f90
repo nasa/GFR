@@ -4,7 +4,7 @@ module generic_mod
   !
   use module_kind_types, global_debug_timer => debug_timer
   use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
-  use eqn_idx, only : ncs,ncb,nce
+  use eqn_idx, only : ncs,ncb,nce,npres
   !
   implicit none
   !
@@ -1793,7 +1793,6 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   use quadrature_mod, only : std_elem
   use metrics_mod, only : wtdjac
   use gpu_mod, only : grad_cv_to_grad_pv_gpu
-  use gpu_mod, only : tusp2v_gpu
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: iter
@@ -1822,7 +1821,6 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   logical(lk), save :: needs_initialization = true
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: tvsp(:,:)
   real(wp), allocatable :: tdpvdx(:,:,:)
   !
   !.. Local Parameters ..
@@ -1932,14 +1930,11 @@ continue
     !
   end if
   !
-  allocate ( tvsp(1:n_solpts,1:nq) )
   allocate ( tdpvdx(1:n_solpts,1:nr,1:nq) )
   !
-  !$ACC DATA CREATE(tvsp,tdpvdx)
+  !$ACC DATA CREATE(tdpvdx)
   !
   call grad_cv_to_grad_pv_gpu(1,n_solpts,usp,gpsp,dusp,tdpvdx)
-  !
-  call tusp2v_gpu(1,n_solpts,usp,tvsp)
   !
   !######################################################
   !######################################################
@@ -1960,10 +1955,10 @@ continue
   sum_kedr_4 = zero
   !
   !$ACC PARALLEL LOOP REDUCTION(+:sum_kedr_1,sum_kedr_2) &
-  !$ACC&              PRESENT(wtdjac,tvsp,tdpvdx)
+  !$ACC&              PRESENT(wtdjac,usp,tdpvdx)
   do n = 1,n_solpts
     !
-    rho = tvsp(n,nec)
+    rho = usp(n,nec)
     !
     dudx = tdpvdx(n,1,nmx)
     dudy = tdpvdx(n,2,nmx)
@@ -1998,14 +1993,17 @@ continue
   end do
   !
   !$ACC PARALLEL LOOP REDUCTION(+:sum_kedr_3,sum_kedr_4) &
-  !$ACC&              PRESENT(wtdjac,tvsp,tdpvdx)
+  !$ACC&              PRESENT(wtdjac,usp,gpsp,tdpvdx)
   do n = 1,n_solpts
     !
-    rho  = tvsp(n,nec)
-    velx = tvsp(n,nmx)
-    vely = tvsp(n,nmy)
-    velz = tvsp(n,nmz)
-    pres = tvsp(n,nee)
+    rho = usp(n,nec)
+    rho_inv = one/rho
+    !
+    velx = usp(n,nmx)*rho_inv
+    vely = usp(n,nmy)*rho_inv
+    velz = usp(n,nmz)*rho_inv
+    !
+    pres = gpsp(n,npres)
     !
     q2 = velx*velx + vely*vely + velz*velz
     !
@@ -2029,7 +2027,6 @@ continue
   !
   !$ACC END DATA
   deallocate ( tdpvdx )
-  deallocate ( tvsp )
   !
   ! Store the current nondimensional time step
   !
