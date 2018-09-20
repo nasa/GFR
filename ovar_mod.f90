@@ -435,8 +435,9 @@ module ovar
   real(wp), public, save :: marker_c1   = Default_Marker_c1
   real(wp), public, save :: marker_c2   = Default_Marker_c2
   !
-  real(wp), public, save, allocatable, dimension(:) :: cv_in
-  real(wp), public, save, allocatable, dimension(:) :: pv_in
+  real(wp), public, save, allocatable :: cv_in(:)
+  real(wp), public, save, allocatable :: pv_in(:)
+  real(wp), public, save, allocatable :: gp_in(:)
   !
   real(wp), public, save :: iso_wall_temp = 300.0_wp
   !
@@ -725,6 +726,15 @@ continue
     write (iou,2) array_name,array%get_units()
   else
     write (iou,7) "pv_in"
+  end if
+  if (allocated(gp_in)) then
+    call array%set( storage_size(gp_in,kind=inttype) , &
+                            size(gp_in,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "gp_in"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "gp_in"
   end if
   if (allocated(uverr)) then
     call array%set( storage_size(uverr,kind=inttype) , &
