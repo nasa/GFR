@@ -1826,9 +1826,6 @@ subroutine initialize_reference
   use ovar,   only : rgasref,rgasref_nd
   use ovar,   only : cpref,cpref_nd,reyref
   use ovar,   only : cv_in,pv_in,machref
-  use ovar,   only : ttotref,ttotref_nd
-  use ovar,   only : ptotref,ptotref_nd
-  use ovar,   only : ptot2p_ratio
   use ovar,   only : suth_Sref,suth_Tref
   use ovar,   only : alpha_aoaref,beta_aoaref
   use ovar,   only : itestcase,Lref
@@ -2021,27 +2018,6 @@ continue
   pv_in(nmb:nme) = pv_in(nmb:nme) / aref
   pv_in(nee)     = pv_in(nee) / rhoa2
   !
-  ! Total pressure and temperature
-  !
-  if (ptot2p_ratio < zero) then
-    !
-    total_cond = one + half*(gam-one)*machref*machref
-    !
-    ttotref = tref * total_cond
-    ptotref = pref * (total_cond**gam_over_gm1)
-    !
-    ptot2p_ratio = ptotref/pref
-    !
-  else
-    !
-    ttotref = tref * (ptot2p_ratio**gm1_over_gam)
-    ptotref = pref * ptot2p_ratio
-    !
-  end if
-  !
-  ttotref_nd = ttotref / tref
-  ptotref_nd = ptotref / rhoa2
-  !
   tmin = 10.0_wp
   tmax = 15000.0_wp
   !
@@ -2058,7 +2034,7 @@ continue
   call initialize_turbulence
   !
   !$ACC UPDATE DEVICE(aref,rhoref,tref,tmin,tmax, &
-  !$ACC&              gam,rgasref_nd,cpref_nd,ptotref_nd, &
+  !$ACC&              gam,rgasref_nd,cpref_nd, &
   !$ACC&              ideal_total_temperature, &
   !$ACC&              limit_total_temperature)
   !

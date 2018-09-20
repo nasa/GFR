@@ -217,11 +217,6 @@ module ovar
   ! reyref default evaluates to 8.7319053606e+6
   real(wp), public, save :: gam     =  1.4_wp
   !
-  ! TOTAL REFERENCE CONDITIONS
-  real(wp), public, save :: ptotref      = -1.0_wp
-  real(wp), public, save :: ttotref      = -1.0_wp
-  real(wp), public, save :: ptot2p_ratio = -1.0_wp
-  !
   ! REALIZABLE TOTAL TEMPERATURE LIMITER
   real(wp), public, save :: ideal_total_temperature = -1.0_wp
   real(wp), public, save :: limit_total_temperature = 0.2_wp
@@ -391,8 +386,6 @@ module ovar
   real(wp), public, save, dimension(3) :: velref
   !
   real(wp), public, save :: pref_nd
-  real(wp), public, save :: ptotref_nd
-  real(wp), public, save :: ttotref_nd
   real(wp), public, save :: rgasref_nd
   real(wp), public, save :: muref_nd
   real(wp), public, save :: cpref_nd
@@ -499,7 +492,7 @@ module ovar
   !$ACC DECLARE CREATE(walls_are_exact,sub_inflow_method, &
   !$ACC&               turb_is_on,include_tke_in_energy, &
   !$ACC&               time,itcur,gam,pr,aref,rhoref,tref,tmin,tmax, &
-  !$ACC&               cpref_nd,ptotref_nd,rgasref_nd, &
+  !$ACC&               cpref_nd,rgasref_nd, &
   !$ACC&               suth_Tref,suth_Sref,suth_muref,suth_c1, &
   !$ACC&               LDG_beta,LDG_tau,visc_variables_to_ave, &
   !$ACC&               ideal_total_temperature,limit_total_temperature, &
@@ -803,7 +796,6 @@ module input_namelist_mod
   use ovar,      only : output_bnd_profiles,sub_inflow_method
   use ovar,      only : machref, reyref, gam, Pr, Prt
   use ovar,      only : schmidt_lam, schmidt_turb
-  use ovar,      only : ptotref, ttotref, ptot2p_ratio
   use ovar,      only : rhoref, tref, pref, rgasref
   use ovar,      only : turbulence_model, tinref, tvrref
   use ovar,      only : alpha_aoaref, beta_aoaref
@@ -926,8 +918,6 @@ module input_namelist_mod
                      disable_chemical_reactions
   ! NONDIMENSIONAL REFERENCE CONDITIONS
   namelist / input / machref, reyref, gam
-  ! TOTAL REFERENCE CONDITIONS
-  namelist / input / ptotref, ttotref, ptot2p_ratio
   ! REALIZABLE TOTAL TEMPERATURE LIMITER
   namelist / input / ideal_total_temperature, limit_total_temperature
   ! REFERENCE CONDITIONS
