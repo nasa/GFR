@@ -43,62 +43,125 @@ module transport_mod
                      update_transport_properties_1p
   end interface update_transport_properties
   !
+  interface compute_viscosity_cpg
+    module procedure compute_viscosity_cpg_sp, &
+                     compute_viscosity_cpg_1p
+  end interface compute_viscosity_cpg
+  !
 contains
 !
 !###############################################################################
 !
-subroutine init_transport_mod()
+subroutine init_transport_mod(cv,gp)
   !
   !.. Use Statements ..
   use ovar, only : itestcase
+  use ovar, only : governing_equations
+  use ovar, only : suth_Tref,suth_Sref
+  use ovar, only : suth_muref,suth_c1
+  use ovar, only : muref,muref_nd,reyref
+  use ovar, only : rhoref,aref,machref,tref
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: cv(:)
+  real(wp), intent(inout) :: gp(:)
   !
   !.. Local Scalars ..
-  integer :: ierr
+  integer  :: ierr
+  real(wp) :: muref_scale,tref_scale
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_transport_mod"
   !
 continue
   !
-  if (itestcase == CH4_3D_Diffusion_Flame) then
-    cond_mix_model = NCC_Method
-    Transport_Model = CHEMKIN_Curve_Fit
-  else if (itestcase == Reacting_Backstep) then
-    cond_mix_model = NCC_Method
-    Transport_Model = CHEMKIN_Curve_Fit
-  else if (itestcase == H2_2D_Diffusion_Flame) then
-    cond_mix_model = Wassiljewas_Formula
-    Transport_Model = Sutherlands_Law
+  if (governing_equations == NavierStokes_Eqns) then
+    !
+    if (ncs > 0) then
+      !
+      if (itestcase == CH4_3D_Diffusion_Flame) then
+        cond_mix_model = NCC_Method
+        Transport_Model = CHEMKIN_Curve_Fit
+      else if (itestcase == Reacting_Backstep) then
+        cond_mix_model = NCC_Method
+        Transport_Model = CHEMKIN_Curve_Fit
+      else if (itestcase == H2_2D_Diffusion_Flame) then
+        cond_mix_model = Wassiljewas_Formula
+        Transport_Model = Sutherlands_Law
+      end if
+      !
+      if (Transport_Model == CHEMKIN_Curve_Fit) then
+        nmvc = 4
+        nmcc = 4
+      else if (Transport_Model == Sutherlands_Law) then
+        nmvc = 3
+        nmcc = 3
+      end if
+      !
+      allocate ( visc_coef(1:nmvc,1:ncs) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"visc_coef",1,__LINE__,__FILE__,ierr,error_message)
+      !
+      allocate ( cond_coef(1:nmcc,1:ncs) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"cond_coef",1,__LINE__,__FILE__,ierr,error_message)
+      !
+      if (Transport_Model == CHEMKIN_Curve_Fit) then
+        !
+        visc_temp_min = 10.0_wp
+        cond_temp_min = 10.0_wp
+        !
+        call hardwired_Sutherlands_coefficients
+        !
+      else if (Transport_Model == Sutherlands_Law) then
+        !
+        call hardwired_CHEMKIN_coefficients
+        !
+      end if
+      !
+    else
+      !
+      muref_scale = (one + suth_Sref/suth_Tref) / sqrt(suth_Tref)
+      !
+      if (reyref <= zero) then
+        !
+        suth_c1 = suth_muref * muref_scale
+        !
+        call compute_viscosity_cpg(gp(ntemp),muref_nd)
+        !
+        muref = muref_nd * rhoref * aref
+        !
+        ! NOTE: reciprocal returns 0 if muref is 0, and 1/muref otherwise.
+        reyref = rhoref * machref * aref * reciprocal( muref )
+        !
+      else
+        !
+        muref = rhoref * machref * aref / reyref
+        !
+        muref_nd = muref / (rhoref * aref)
+        !
+        tref_scale = tref * sqrt(tref) / (tref + suth_Sref)
+        !
+        suth_muref = muref / muref_scale / tref_scale
+        !
+        suth_c1 = suth_muref * muref_scale
+        !
+      end if
+      !
+    end if
+    !
+    call update_transport_properties(cv,gp)
+    !
+  else
+    !
+    muref = zero
+    muref_nd = zero
+    suth_c1 = zero
+    reyref = zero
+    !
   end if
   !
-  if (Transport_Model == CHEMKIN_Curve_Fit) then
-    nmvc = 4
-    nmcc = 4
-  else if (Transport_Model == Sutherlands_Law) then
-    nmvc = 3
-    nmcc = 3
-  end if
-  !
-  allocate ( visc_coef(1:nmvc,1:ncs) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"visc_coef",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( cond_coef(1:nmcc,1:ncs) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cond_coef",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  if (Transport_Model == CHEMKIN_Curve_Fit) then
-    !
-    visc_temp_min = 10.0_wp
-    cond_temp_min = 10.0_wp
-    !
-    call hardwired_Sutherlands_coefficients
-    !
-  else if (Transport_Model == Sutherlands_Law) then
-    !
-    call hardwired_CHEMKIN_coefficients
-    !
-  end if
+  !$ACC UPDATE DEVICE(suth_Tref,suth_Sref,suth_muref,suth_c1)
   !
 end subroutine init_transport_mod
 !
@@ -107,7 +170,7 @@ end subroutine init_transport_mod
 pure subroutine update_transport_properties_1p(cv_1p,gp_1p)
   !
   !.. Formal Arguments ..
-  real(wp), intent(inout) :: cv_1p(:)
+  real(wp),    intent(in) :: cv_1p(:)
   real(wp), intent(inout) :: gp_1p(:)
   !
   !.. Local Allocatable Arrays ..
@@ -143,7 +206,7 @@ pure subroutine update_transport_properties_fp(n1,n2,cv,gp)
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
   integer,     intent(in) :: n2
-  real(wp), intent(inout) :: cv(:,:,:)
+  real(wp),    intent(in) :: cv(:,:,:)
   real(wp), intent(inout) :: gp(:,:,:)
   !
   !.. Local Parameters ..
@@ -169,7 +232,7 @@ pure subroutine update_transport_properties_sp(n1,n2,cv,gp)
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
   integer,     intent(in) :: n2
-  real(wp), intent(inout) :: cv(:,:)
+  real(wp),    intent(in) :: cv(:,:)
   real(wp), intent(inout) :: gp(:,:)
   !
   !.. Local Scalars ..
@@ -262,7 +325,7 @@ end subroutine update_transport_properties_sp
 !
 !###############################################################################
 !
-pure subroutine compute_viscosity_cpg(n1,n2,t,visc)
+pure subroutine compute_viscosity_cpg_sp(n1,n2,t,visc)
   !
   !.. Use Statements ..
   use ovar, only : rhoref,aref,tref
@@ -279,7 +342,7 @@ pure subroutine compute_viscosity_cpg(n1,n2,t,visc)
   real(wp) :: tdim,mudim,rhoaref_inv
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "compute_viscosity_cpg"
+  character(len=*), parameter :: pname = "compute_viscosity_cpg_sp"
   !
 continue
   !
@@ -292,7 +355,33 @@ continue
     visc(n) = mudim * rhoaref_inv
   end do
   !
-end subroutine compute_viscosity_cpg
+end subroutine compute_viscosity_cpg_sp
+!
+!###############################################################################
+!
+pure subroutine compute_viscosity_cpg_1p(t,visc)
+  !
+  !.. Use Statements ..
+  use ovar, only : rhoref,aref,tref
+  use ovar, only : suth_c1,suth_sref
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: t
+  real(wp), intent(inout) :: visc
+  !
+  !.. Local Scalars ..
+  real(wp) :: tdim,mudim
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_viscosity_cpg_1p"
+  !
+continue
+  !
+  tdim = t*tref
+  mudim = suth_c1 * tdim * sqrt(tdim) / (tdim + suth_sref)
+  visc = mudim / rhoref / aref
+  !
+end subroutine compute_viscosity_cpg_1p
 !
 !###############################################################################
 !
