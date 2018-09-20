@@ -17,8 +17,8 @@ module transport_mod
   real(wp), allocatable, save :: visc_coef(:,:)
   real(wp), allocatable, save :: cond_coef(:,:)
   !
-  real(wp), allocatable, save :: visc_temp_min(:)
-  real(wp), allocatable, save :: cond_temp_min(:)
+  real(wp), save :: visc_temp_min = 10.0_wp
+  real(wp), save :: cond_temp_min = 10.0_wp
   !
   integer, parameter :: CHEMKIN_Curve_Fit = 1
   integer, parameter :: Sutherlands_Law = 2
@@ -89,13 +89,8 @@ continue
   !
   if (Transport_Model == CHEMKIN_Curve_Fit) then
     !
-    allocate ( visc_temp_min(1:ncs) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"visc_temp_min",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    allocate ( cond_temp_min(1:ncs) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"cond_temp_min",1,__LINE__,__FILE__,ierr,error_message)
+    visc_temp_min = 10.0_wp
+    cond_temp_min = 10.0_wp
     !
     call hardwired_Sutherlands_coefficients
     !
@@ -595,13 +590,13 @@ continue
     !
     ! ChemKin fit
     !
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(visc_coef,t,rmui,visc_temp_min)
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(visc_coef,t,rmui)
     do i = 1,ncs
       do n = n1,n2
         !
         tdim = t(n)*tref
         !
-        logt = log(max(tdim,visc_temp_min(i)))
+        logt = log(max(tdim,visc_temp_min))
         !
         a1 = visc_coef(1,i)
         a2 = visc_coef(2,i)
@@ -669,13 +664,13 @@ continue
     !
     ! ChemKin fit
     !
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cond_coef,t,rmci,cond_temp_min)
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cond_coef,t,rmci)
     do i = 1,ncs
       do n = n1,n2
         !
         tdim = t(n)*tref
         !
-        logt = log(max(tdim,cond_temp_min(i)))
+        logt = log(max(tdim,cond_temp_min))
         !
         a1 = cond_coef(1,i)
         a2 = cond_coef(2,i)
@@ -1106,71 +1101,51 @@ continue
         !
         visc_coef(1:4,i) = CO2_visc(1:4)
         cond_coef(1:4,i) = CO2_cond(1:4)
-        visc_temp_min(i) = CO2_visc_temp_min
-        cond_temp_min(i) = CO2_cond_temp_min
         !
       case ("CO")
         !
         visc_coef(1:4,i) = CO_visc(1:4)
         cond_coef(1:4,i) = CO_cond(1:4)
-        visc_temp_min(i) = CO_visc_temp_min
-        cond_temp_min(i) = CO_cond_temp_min
         !
       case ("H2O")
         !
         visc_coef(1:4,i) = H2O_visc(1:4)
         cond_coef(1:4,i) = H2O_cond(1:4)
-        visc_temp_min(i) = H2O_visc_temp_min
-        cond_temp_min(i) = H2O_cond_temp_min
         !
       case ("CH4")
         !
         visc_coef(1:4,i) = CH4_visc(1:4)
         cond_coef(1:4,i) = CH4_cond(1:4)
-        visc_temp_min(i) = CH4_visc_temp_min
-        cond_temp_min(i) = CH4_cond_temp_min
         !
       case ("N2")
         !
         visc_coef(1:4,i) = N2_visc(1:4)
         cond_coef(1:4,i) = N2_cond(1:4)
-        visc_temp_min(i) = N2_visc_temp_min
-        cond_temp_min(i) = N2_cond_temp_min
         !
       case ("O2")
         !
         visc_coef(1:4,i) = O2_visc(1:4)
         cond_coef(1:4,i) = O2_cond(1:4)
-        visc_temp_min(i) = O2_visc_temp_min
-        cond_temp_min(i) = O2_cond_temp_min
         !
       case ("H")
         !
         visc_coef(1:4,i) = H_visc(1:4)
         cond_coef(1:4,i) = H_cond(1:4)
-        visc_temp_min(i) = H_visc_temp_min
-        cond_temp_min(i) = H_cond_temp_min
         !
       case ("H2")
         !
         visc_coef(1:4,i) = H2_visc(1:4)
         cond_coef(1:4,i) = H2_cond(1:4)
-        visc_temp_min(i) = H2_visc_temp_min
-        cond_temp_min(i) = H2_cond_temp_min
         !
       case ("O")
         !
         visc_coef(1:4,i) = O_visc(1:4)
         cond_coef(1:4,i) = O_cond(1:4)
-        visc_temp_min(i) = O_visc_temp_min
-        cond_temp_min(i) = O_cond_temp_min
         !
       case ("OH")
         !
         visc_coef(1:4,i) = OH_visc(1:4)
         cond_coef(1:4,i) = OH_cond(1:4)
-        visc_temp_min(i) = OH_visc_temp_min
-        cond_temp_min(i) = OH_cond_temp_min
         !
     end select
     !
