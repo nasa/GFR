@@ -428,9 +428,9 @@ module ovar
   real(wp), public, save :: marker_c1   = Default_Marker_c1
   real(wp), public, save :: marker_c2   = Default_Marker_c2
   !
-  real(wp), public, save, allocatable :: cv_in(:)
-  real(wp), public, save, allocatable :: pv_in(:)
-  real(wp), public, save, allocatable :: gp_in(:)
+  real(wp), public, save, allocatable :: cv_ref(:)
+  real(wp), public, save, allocatable :: pv_ref(:)
+  real(wp), public, save, allocatable :: gp_ref(:)
   !
   real(wp), public, save :: iso_wall_temp = 300.0_wp
   !
@@ -702,32 +702,32 @@ continue
   !
   write (iou,1)
   !
-  if (allocated(cv_in)) then
-    call array%set( storage_size(cv_in,kind=inttype) , &
-                            size(cv_in,kind=inttype) )
+  if (allocated(cv_ref)) then
+    call array%set( storage_size(cv_ref,kind=inttype) , &
+                            size(cv_ref,kind=inttype) )
     call total%add(array)
-    write (array_name,5) "cv_in"
+    write (array_name,5) "cv_ref"
     write (iou,2) array_name,array%get_units()
   else
-    write (iou,7) "cv_in"
+    write (iou,7) "cv_ref"
   end if
-  if (allocated(pv_in)) then
-    call array%set( storage_size(pv_in,kind=inttype) , &
-                            size(pv_in,kind=inttype) )
+  if (allocated(pv_ref)) then
+    call array%set( storage_size(pv_ref,kind=inttype) , &
+                            size(pv_ref,kind=inttype) )
     call total%add(array)
-    write (array_name,5) "pv_in"
+    write (array_name,5) "pv_ref"
     write (iou,2) array_name,array%get_units()
   else
-    write (iou,7) "pv_in"
+    write (iou,7) "pv_ref"
   end if
-  if (allocated(gp_in)) then
-    call array%set( storage_size(gp_in,kind=inttype) , &
-                            size(gp_in,kind=inttype) )
+  if (allocated(gp_ref)) then
+    call array%set( storage_size(gp_ref,kind=inttype) , &
+                            size(gp_ref,kind=inttype) )
     call total%add(array)
-    write (array_name,5) "gp_in"
+    write (array_name,5) "gp_ref"
     write (iou,2) array_name,array%get_units()
   else
-    write (iou,7) "gp_in"
+    write (iou,7) "gp_ref"
   end if
   if (allocated(uverr)) then
     call array%set( storage_size(uverr,kind=inttype) , &

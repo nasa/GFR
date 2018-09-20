@@ -30,7 +30,6 @@ subroutine initialize_flow()
   use geovar, only : nr,n_solpts,ncell,cell,xyz,grid
   !
   use ovar, only : rhoref,aref,itestcase
-  use ovar, only : cv_in
   use ovar, only : load_restart_file,d_t,constant_dt,itcur,time
   use ovar, only : init_tstar,time_ref,time_scaling_factor
   use ovar, only : dtrst,itrst,tmrst
@@ -1825,7 +1824,7 @@ subroutine initialize_reference
   use ovar,   only : pref,pref_nd,tmin,tmax
   use ovar,   only : rgasref,rgasref_nd
   use ovar,   only : cpref,cpref_nd,reyref
-  use ovar,   only : cv_in,pv_in,machref
+  use ovar,   only : cv_ref,pv_ref,machref
   use ovar,   only : suth_Sref,suth_Tref
   use ovar,   only : alpha_aoaref,beta_aoaref
   use ovar,   only : itestcase,Lref
@@ -1834,7 +1833,7 @@ subroutine initialize_reference
   !
   !.. Local Scalars ..
   integer  :: ierr
-  real(wp) :: rhoa,rhoa2,tda2
+  real(wp) :: rhoa,rhoa2,tda2,q2
   real(wp) :: gam_over_gm1
   real(wp) :: gm1_over_gam
   real(wp) :: total_cond
@@ -1976,23 +1975,25 @@ continue
   !
   ! Allocate the free stream inflow arrays
   !
-  allocate ( cv_in(1:nq) , source=zero , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cv_in",1,__LINE__,__FILE__,ierr, &
+  allocate ( cv_ref(1:nq) , source=zero , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cv_ref",1,__LINE__,__FILE__,ierr, &
                    error_message,skip_alloc_pause)
-  allocate ( pv_in(1:nq) , source=zero , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"pv_in",1,__LINE__,__FILE__,ierr, &
+  allocate ( pv_ref(1:nq) , source=zero , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"pv_ref",1,__LINE__,__FILE__,ierr, &
                    error_message,skip_alloc_pause)
   !
   ! Initialize the inflow boundary conditions to the reference conditions
   ! NOTE: This is hard-wired for 2D and needs to be generalized for 3D
   !
-  pv_in(nec) = rhoref
-  pv_in(nmb:nme) = velref
-  pv_in(nee) = pref
+  pv_ref(nec) = rhoref
+  pv_ref(nmb:nme) = velref
+  pv_ref(nee) = pref
   !
-  cv_in(nec) = pv_in(nec)
-  cv_in(nmb:nme) = pv_in(nec) * pv_in(nmb:nme)
-  cv_in(nee) = pv_in(nee)/(gam-one) + half*pv_in(nec)*selfdot(pv_in(nmb:nme))
+  q2 = dot_product( pv_ref(nmb:nme) , pv_ref(nmb:nme) )
+  !
+  cv_ref(nec) = pv_ref(nec)
+  cv_ref(nmb:nme) = pv_ref(nec) * pv_ref(nmb:nme)
+  cv_ref(nee) = pv_ref(nee)/(gam-one) + half*pv_ref(nec)*q2
   !
   ! Nondimensional reference velocities
   velref_nd = velref / aref
@@ -2010,13 +2011,13 @@ continue
   !
   ! Finally, nondimensionalize the inflow boundary conditions
   !
-  cv_in(nec)     = cv_in(nec) / rhoref
-  cv_in(nmb:nme) = cv_in(nmb:nme) / rhoa
-  cv_in(nee)     = cv_in(nee) / rhoa2
+  cv_ref(nec)     = cv_ref(nec) / rhoref
+  cv_ref(nmb:nme) = cv_ref(nmb:nme) / rhoa
+  cv_ref(nee)     = cv_ref(nee) / rhoa2
   !
-  pv_in(nec)     = pv_in(nec) / rhoref
-  pv_in(nmb:nme) = pv_in(nmb:nme) / aref
-  pv_in(nee)     = pv_in(nee) / rhoa2
+  pv_ref(nec)     = pv_ref(nec) / rhoref
+  pv_ref(nmb:nme) = pv_ref(nmb:nme) / aref
+  pv_ref(nee)     = pv_ref(nee) / rhoa2
   !
   tmin = 10.0_wp
   tmax = 15000.0_wp
@@ -2062,7 +2063,7 @@ subroutine initialize_viscosity
   !
   !.. Use Statements ..
   use ovar, only : muref, muref_nd, reyref
-  use ovar, only : pv_in, rhoref, aref, machref, tref
+  use ovar, only : pv_ref, rhoref, aref, machref, tref
   use ovar, only : suth_muref, suth_c1
   use ovar, only : suth_Tref, suth_Sref
   !
@@ -2082,7 +2083,7 @@ continue
     !
     suth_c1 = suth_muref * muref_scale
     !
-    muref_nd = viscosity_pv_sp(pv_in)
+    muref_nd = viscosity_pv_sp(pv_ref)
     muref    = muref_nd * rhoref * aref
     !
     reyref = rhoref * machref * aref * reciprocal( muref )
@@ -2117,7 +2118,7 @@ subroutine initialize_turbulence()
   use ovar, only : tvrref, tinref
   use ovar, only : rhoref, muref
   use ovar, only : aref, machref
-  use ovar, only : cv_in, pv_in
+  use ovar, only : cv_ref, pv_ref
   use ovar, only : turbulence_model
   use ovar, only : turb_is_on
   use ovar, only : include_tke_in_energy
@@ -2155,16 +2156,16 @@ continue
     !
     ! Set the turbulence conserved variables inflow conditions
     !
-    cv_in(ntk) = cv_in(nec) * tkeref_nd
-    cv_in(ntl) = cv_in(nec) * tlsref_nd
+    cv_ref(ntk) = cv_ref(nec) * tkeref_nd
+    cv_ref(ntl) = cv_ref(nec) * tlsref_nd
     !
     ! Add the tke contribution to the energy equation
     !
-    cv_in(nee) = cv_in(nee) + cv_in(ntk)
+    cv_ref(nee) = cv_ref(nee) + cv_ref(ntk)
     !
     ! Recompute the primitive variable inflow conditions
     !
-    pv_in(1:nq) =  usp2v_sp( cv_in(1:nq) )
+    pv_ref(1:nq) =  usp2v_sp( cv_ref(1:nq) )
     !
   end if
   !
