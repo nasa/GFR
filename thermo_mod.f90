@@ -569,7 +569,7 @@ end subroutine compute_mixture_rgas_sp
 !###############################################################################
 !
 pure &
-subroutine compute_mixture_rgas_1p(mass_frac,rmix)
+subroutine compute_mixture_rgas_1p(mass_frac,rmix,dimensional)
   !
   !.. Use Statements ..
   use ovar, only : aref,tref
@@ -578,12 +578,27 @@ subroutine compute_mixture_rgas_1p(mass_frac,rmix)
   real(wp),    intent(in) :: mass_frac(:)
   real(wp), intent(inout) :: rmix
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Local Scalars ..
+  logical(lk) :: nondim
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_mixture_rgas_1p"
   !
 continue
   !
-  rmix = dot_product( rspec(1:ncs) , mass_frac(1:ncs) ) * tref/aref/aref
+  nondim = true
+  if (present(dimensional)) then
+    nondim = (.not. dimensional)
+  end if
+  !
+  rmix = dot_product( rspec(1:ncs) , mass_frac(1:ncs) )
+  !
+  if (nondim) then
+    rmix = rmix * tref/aref/aref
+  end if
   !
 end subroutine compute_mixture_rgas_1p
 !
@@ -835,7 +850,7 @@ end subroutine compute_mixture_enthalpy_sp
 !###############################################################################
 !
 pure &
-subroutine compute_mixture_enthalpy_1p(mass_frac,t,h)
+subroutine compute_mixture_enthalpy_1p(mass_frac,t,h,dimensional)
   !
   !.. Use Statements ..
   use ovar, only : aref,tref
@@ -845,11 +860,30 @@ subroutine compute_mixture_enthalpy_1p(mass_frac,t,h)
   real(wp),    intent(in) :: t
   real(wp), intent(inout) :: h
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
   !.. Local Scalars ..
-  integer  :: m,ni
-  real(wp) :: hi,ts,aref2_inv
+  logical(lk) :: nondim
+  integer     :: m,ni
+  real(wp)    :: hi,ts,aref2_inv,tdim,tswd
   !
 continue
+  !
+  nondim = true
+  if (present(dimensional)) then
+    nondim = (.not. dimensional)
+  end if
+  !
+  if (nondim) then
+    aref2_inv = one/aref/aref
+    tdim = tref
+    tswd = one
+  else
+    aref2_inv = one
+    tdim = one
+    tswd = tref
+  end if
   !
   aref2_inv = one/aref/aref
   !
@@ -857,8 +891,8 @@ continue
   !
   do m = 1,ncs
     !
-    ni = merge( 1 , 2 , t <= temperature_switch )
-    ts = t*tref
+    ni = merge( 1 , 2 , t <= temperature_switch*tswd )
+    ts = t*tdim
     !
     hi = enth_coef(6,ni,m) + &
          ts*(enth_coef(1,ni,m) + &
@@ -1048,7 +1082,7 @@ end subroutine compute_mixture_cp_sp
 !###############################################################################
 !
 pure &
-subroutine compute_mixture_cp_1p(mass_frac,t,cp)
+subroutine compute_mixture_cp_1p(mass_frac,t,cp,dimensional)
   !
   !.. Use Statements ..
   use ovar, only : aref,tref
@@ -1058,20 +1092,37 @@ subroutine compute_mixture_cp_1p(mass_frac,t,cp)
   real(wp),    intent(in) :: t
   real(wp), intent(inout) :: cp
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
   !.. Local Scalars ..
-  integer  :: m,ni
-  real(wp) :: cpi,ts,tda2
+  logical(lk) :: nondim
+  integer     :: m,ni
+  real(wp)    :: cpi,ts,tda2,tdim,tswd
   !
 continue
   !
-  tda2 = tref/aref/aref
+  nondim = true
+  if (present(dimensional)) then
+    nondim = (.not. dimensional)
+  end if
+  !
+  if (nondim) then
+    tda2 = tref/aref/aref
+    tdim = tref
+    tswd = one
+  else
+    tda2 = one
+    tdim = one
+    tswd = tref
+  end if
   !
   cp = zero
   !
   do m = 1,ncs
     !
-    ni = merge( 1 , 2 , t <= temperature_switch )
-    ts = t*tref
+    ni = merge( 1 , 2 , t <= temperature_switch*tswd )
+    ts = t*tdim
     !
     cpi = cp_coef(1,ni,m) + &
           ts*(cp_coef(2,ni,m) + &
