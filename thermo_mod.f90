@@ -25,6 +25,8 @@ module thermo_mod
   !
   real(wp), parameter :: runivl = 8314.5_wp
   !
+  real(wp), parameter :: cp_air_wtmol = 28.9651159_wp
+  !
   integer, protected :: ncpc = 5
   !
   !
@@ -99,106 +101,234 @@ contains
 !
 !###############################################################################
 !
-subroutine init_thermo_mod()
+subroutine init_thermo_mod(cv,pv,gp)
   !
   !.. Use Statements ..
   use ovar, only : itestcase
+  use ovar, only : rgasref,gam,rhoref,pref,tref,cpref
+  use ovar, only : aref,uref,machref,velref,velref_nd
+  use ovar, only : alpha_aoaref,beta_aoaref
+  use ovar, only : pref_nd,rgasref_nd,cpref_nd
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: cv(:)
+  real(wp), intent(inout) :: pv(:)
+  real(wp), intent(inout) :: gp(:)
   !
   !.. Local Scalars ..
-  integer  :: m,ierr
-  real(wp) :: mf_sum
+  integer  :: ierr,m,nr
+  real(wp) :: mf_sum,href,href_nd,q2,temp,pres_check
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_thermo_mod"
   !
 continue
   !
-  allocate ( species_name(1:ncs) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"species_name",1,__LINE__,__FILE__,ierr,error_message)
+  nr = nme-nmb+1
   !
-  allocate ( mass_frac_ref(1:ncs) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"mass_frac_ref",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  if (itestcase == CH4_3D_Diffusion_Flame) then
+  if (ncs > 0) then
     !
-    species_name(1) = "CO2"
-    species_name(2) = "CO"
-    species_name(3) = "H2O"
-    species_name(4) = "CH4"
-    species_name(5) = "N2"
-    species_name(6) = "O2"
+    allocate ( species_name(1:ncs) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"species_name",1,__LINE__,__FILE__, &
+                     ierr,error_message)
     !
-    mass_frac_ref(1) = zero   ! CO2
-    mass_frac_ref(2) = zero   ! CO
-    mass_frac_ref(3) = zero   ! H2O
-    mass_frac_ref(4) = 0.1_wp ! CH4
-    mass_frac_ref(5) = 0.7_wp ! N2
-    mass_frac_ref(6) = 0.2_wp ! O2
+    allocate ( mass_frac_ref(1:ncs) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"mass_frac_ref",1,__LINE__,__FILE__, &
+                     ierr,error_message)
     !
-  else if (itestcase == H2_2D_Diffusion_Flame) then
+    if (itestcase == CH4_3D_Diffusion_Flame) then
+      !
+      species_name(1) = "CO2"
+      species_name(2) = "CO"
+      species_name(3) = "H2O"
+      species_name(4) = "CH4"
+      species_name(5) = "N2"
+      species_name(6) = "O2"
+      !
+      mass_frac_ref(1) = zero   ! CO2
+      mass_frac_ref(2) = zero   ! CO
+      mass_frac_ref(3) = zero   ! H2O
+      mass_frac_ref(4) = 0.1_wp ! CH4
+      mass_frac_ref(5) = 0.7_wp ! N2
+      mass_frac_ref(6) = 0.2_wp ! O2
+      !
+    else if (itestcase == H2_2D_Diffusion_Flame) then
+      !
+      species_name(1) = "N2"
+      species_name(2) = "O"
+      species_name(3) = "OH"
+      species_name(4) = "O2"
+      species_name(5) = "H"
+      species_name(6) = "H2"
+      species_name(7) = "H2O"
+      !
+      mass_frac_ref(1) = 0.7686_wp ! N2
+      mass_frac_ref(2) = zero      ! O
+      mass_frac_ref(3) = zero      ! OH
+      mass_frac_ref(4) = 0.2314_wp ! O2
+      mass_frac_ref(5) = zero      ! H
+      mass_frac_ref(6) = zero      ! H2
+      mass_frac_ref(7) = zero      ! H2O
+      !
+    else if (itestcase == Reacting_Backstep) then
+      !
+      species_name(1) = "N2"
+      species_name(2) = "O2"
+      !
+      mass_frac_ref(1) = 0.7686 ! N2
+      mass_frac_ref(2) = 0.2314 ! O2
+      !
+    end if
     !
-    species_name(1) = "N2"
-    species_name(2) = "O"
-    species_name(3) = "OH"
-    species_name(4) = "O2"
-    species_name(5) = "H"
-    species_name(6) = "H2"
-    species_name(7) = "H2O"
+    ! Make sure the reference mass fractions sum to 1
     !
-    mass_frac_ref(1) = 0.7686_wp ! N2
-    mass_frac_ref(2) = zero      ! O
-    mass_frac_ref(3) = zero      ! OH
-    mass_frac_ref(4) = 0.2314_wp ! O2
-    mass_frac_ref(5) = zero      ! H
-    mass_frac_ref(6) = zero      ! H2
-    mass_frac_ref(7) = zero      ! H2O
+    mf_sum = sum( mass_frac_ref(1:ncs) )
+    do m = 1,ncs
+      mass_frac_ref(m) = mass_frac_ref(m) / mf_sum
+    end do
     !
-  else if (itestcase == Reacting_Backstep) then
+    ! Allocate the remaining arrays for species thermodynamic properties
     !
-    species_name(1) = "N2"
-    species_name(2) = "O2"
+    allocate ( wtmol(1:ncs) , source=zero , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"wtmol",1,__LINE__,__FILE__,ierr,error_message)
     !
-    mass_frac_ref(1) = 0.7686 ! N2
-    mass_frac_ref(2) = 0.2314 ! O2
+    allocate ( t_limit(1:2,1:ncs) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"t_limit",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( rspec(1:ncs) , source=zero , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"rspec",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ncpc = 5
+    !
+    allocate ( cp_coef(1:ncpc,1:2,1:ncs) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cp_coef",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( enth_coef(1:ncpc+1,1:2,1:ncs) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"enth_coef",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Fill the arrays with the species thermodynamic properties
+    !
+    if (Thermo_Coefficients == Use_NCC_Coefficients) then
+      call hardwired_NCC_coefficients
+    else if (Thermo_Coefficients == Use_Vulcan_Coefficients) then
+      call hardwired_VULCAN_coefficients
+    end if
+    !
+    do m = 1,ncs
+      pv(m) = mass_frac_ref(m)
+    end do
+    !
+    call compute_mixture_rgas(pv(1:ncs),rgasref,dimensional=true)
+    !
+  else
+    !
+    gam = 1.4_wp
+    rgasref = runivl / cp_air_wtmol
     !
   end if
   !
-  ! Make sure the reference mass fractions sum to 1
+  ! Set up the base reference conditions based
+  ! on the input flow reference conditions
   !
-  mf_sum = sum( mass_frac_ref(1:ncs) )
-  do m = 1,ncs
-    mass_frac_ref(m) = mass_frac_ref(m) / mf_sum
-  end do
+  ! Check the reference conditions for consistency
   !
-  ! Allocate the remaining arrays for species thermodynamic properties
-  !
-  allocate ( wtmol(1:ncs) , source=zero , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"wtmol",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( t_limit(1:2,1:ncs) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"t_limit",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( rspec(1:ncs) , source=zero , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"rspec",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ncpc = 5
-  !
-  allocate ( cp_coef(1:ncpc,1:2,1:ncs) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cp_coef",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( enth_coef(1:ncpc+1,1:2,1:ncs) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"enth_coef",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Fill the arrays with the species thermodynamic properties
-  !
-  if (Thermo_Coefficients == Use_NCC_Coefficients) then
-    call hardwired_NCC_coefficients
-  else if (Thermo_Coefficients == Use_Vulcan_Coefficients) then
-    call hardwired_VULCAN_coefficients
+  if (rhoref < zero) then
+    rhoref = pref/(rgasref*tref)
+  else if (pref < zero) then
+    pref = rhoref*rgasref*tref
+  else if (tref < zero) then
+    tref = pref/(rgasref*rhoref)
+  else
+    pres_check = rhoref*rgasref*tref
+    if (abs(pres_check-pref) > eps6) then
+     !write (iout,102) pref,pres_check
+      write (error_message,100) pref,pres_check
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
   end if
+  !
+  if (ncs > 0) then
+    !
+    temperature_switch = temperature_switch/tref
+    !
+    temp = tref
+    !
+    call compute_mixture_cp(pv(1:ncs),temp,cpref,dimensional=true)
+    !
+    gam = rgasref
+    call compute_mixture_gamma(cpref,gam)
+    !
+    call compute_mixture_enthalpy(pv(1:ncs),temp,href,dimensional=true)
+    !
+  else
+    !
+    cpref = rgasref * gam/(gam-one)
+    href = cpref*tref
+    !
+  end if
+  !
+  ! Compute the velocity reference conditions
+  !
+  aref = sqrt( max( gam*rgasref*tref , rndoff ) )
+  !
+  uref = machref * aref
+  velref(1) = uref * cos(beta_aoaref  * degrees2radians) * &
+                     cos(alpha_aoaref * degrees2radians)
+  velref(2) = uref * cos(beta_aoaref  * degrees2radians) * &
+                     sin(alpha_aoaref * degrees2radians)
+  velref(3) = uref * sin(beta_aoaref  * degrees2radians)
+  !
+  ! Get the nondimensional reference conditions
+  !
+  ! Nondimensional reference velocities
+  velref_nd = velref / aref
+  ! Nondimensional reference pressure
+  pref_nd = pref / (rhoref*aref*aref)
+  ! Nondimensional reference gas constant
+  rgasref_nd = rgasref * tref/(aref*aref)
+  ! Nondimensional reference specific heat at constant pressure
+  cpref_nd = cpref * tref/(aref*aref)
+  ! Nondimensional reference static enthalpy
+  href_nd = href / (aref*aref)
+  !
+  ! Set the cv, pv, and gp arrays
+  !
+  pv(nec)     = rhoref / rhoref
+  pv(nmb:nme) = velref_nd(1:nr)
+  pv(nee)     = pref_nd
+  !
+  gp(npres) = pref_nd
+  gp(ntemp) = tref / tref
+  !
+  q2 = dot_product( pv(nmb:nme) , pv(nmb:nme) )
+  !
+  cv(nec)     = pv(nec)
+  cv(nmb:nme) = pv(nec)*pv(nmb:nme)
+  cv(nee)     = pv(nec)*href_nd - pref_nd + half*pv(nec)*q2
+  !
+  if (ncs > 0) then
+    !
+    do m = 1,ncs
+      cv(m) = pv(m)*pv(nec)
+    end do
+    !
+    gp(ngamm) = gam
+    gp(nenth) = href_nd
+    gp(ncp)   = cpref_nd
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  100 format ( &
+     " Free-stream conditions in the input file are not consistent!",/, &
+     " Reference pressure given    : ",es14.6,/, &
+     " Reference pressure computed : ",es14.6,/, &
+     " Please correct the input file or set one of density, pressure,", &
+     " and temperature to a negative value so it is explicitly computed.")
   !
 end subroutine init_thermo_mod
 !
@@ -1703,9 +1833,6 @@ end subroutine compute_cp_over_temp_integral_1p
 !
 subroutine hardwired_NCC_coefficients
   !
-  !.. Use Statements ..
-  use ovar, only : tref
-  !
   real(wp), parameter :: NCC_interval_switch = 1000.0_wp
   !
   real(wp), parameter :: CO2_wtmol = 44.00995_wp
@@ -1967,7 +2094,7 @@ continue
     end do
   end do
   !
-  temperature_switch = NCC_interval_switch/tref
+  temperature_switch = NCC_interval_switch
   !
   deallocate ( ncc_cp )
   !
@@ -1976,9 +2103,6 @@ end subroutine hardwired_NCC_coefficients
 !###############################################################################
 !
 subroutine hardwired_VULCAN_coefficients
-  !
-  !.. Use Statements ..
-  use ovar, only : tref
   !
   real(wp), parameter :: vul_interval_switch = 1000.0_wp
   !
@@ -2271,7 +2395,7 @@ continue
     end do
   end do
   !
-  temperature_switch = vul_interval_switch/tref
+  temperature_switch = vul_interval_switch
   !
   deallocate ( vul_cp )
   !
