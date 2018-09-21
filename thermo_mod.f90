@@ -105,7 +105,7 @@ subroutine init_thermo_mod()
   use ovar, only : itestcase
   !
   !.. Local Scalars ..
-  integer  :: i,ierr
+  integer  :: m,ierr
   real(wp) :: mf_sum
   !
   !.. Local Parameters ..
@@ -166,8 +166,8 @@ continue
   ! Make sure the reference mass fractions sum to 1
   !
   mf_sum = sum( mass_frac_ref(1:ncs) )
-  do i = 1,ncs
-    mass_frac_ref(i) = mass_frac_ref(i) / mf_sum
+  do m = 1,ncs
+    mass_frac_ref(m) = mass_frac_ref(m) / mf_sum
   end do
   !
   ! Allocate the remaining arrays for species thermodynamic properties
@@ -269,7 +269,7 @@ pure subroutine update_thermo_properties_sp(n1,n2,cv,gp)
   real(wp), intent(inout) :: gp(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,n,num_newton_errors
+  integer  :: m,n,num_newton_errors
   real(wp) :: rho,max_newton_error
   !
   !.. Local Parameters ..
@@ -283,9 +283,9 @@ continue
   if (ncs > 0) then
     !
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv)
-    do i = 1,ncs
+    do m = 1,ncs
       do n = n1,n2
-        cv(n,i) = max(cv(n,i),zero)
+        cv(n,m) = max(cv(n,m),zero)
       end do
     end do
     !
@@ -298,16 +298,16 @@ continue
     do n = n1,n2
       rho = zero
       !$ACC LOOP SEQ REDUCTION(+:rho)
-      do i = 1,ncs
-        rho = rho + cv(n,i)
+      do m = 1,ncs
+        rho = rho + cv(n,m)
       end do
       cv(n,nec) = rho
     end do
     !
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv)
-    do i = 1,ncs
+    do m = 1,ncs
       do n = n1,n2
-        cv(n,i) = cv(n,i)/cv(n,nec)
+        cv(n,m) = cv(n,m)/cv(n,nec)
       end do
     end do
     !
@@ -362,9 +362,9 @@ continue
     ! 9. Convert species mass fractions back to species densities
     !
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv)
-    do i = 1,ncs
+    do m = 1,ncs
       do n = n1,n2
-        cv(n,i) = cv(n,i)*cv(n,nec)
+        cv(n,m) = cv(n,m)*cv(n,nec)
       end do
     end do
     !
@@ -544,7 +544,7 @@ subroutine compute_mixture_rgas_sp(n1,n2,mass_frac,rmix)
   real(wp), intent(inout) :: rmix(:)
   !
   !.. Local Scalars ..
-  integer  :: i,n
+  integer  :: m,n
   real(wp) :: rsum,tda2
   !
   !.. Local Parameters ..
@@ -558,8 +558,8 @@ continue
   do n = n1,n2
     rsum = zero
     !$ACC LOOP SEQ REDUCTION(+:rsum)
-    do i = 1,ncs
-      rsum = rsum + rspec(i)*mass_frac(n,i)
+    do m = 1,ncs
+      rsum = rsum + rspec(m)*mass_frac(n,m)
     end do
     rmix(n) = rsum*tda2
   end do
@@ -781,7 +781,7 @@ subroutine compute_mixture_enthalpy_sp(n1,n2,mass_frac,t,h)
   real(wp), intent(inout) :: h(:)
   !
   !.. Local Scalars ..
-  integer  :: i,n,ni
+  integer  :: m,n,ni
   real(wp) :: hi,ts,aref2_inv
   !
   !.. Local Allocatable Arrays ..
@@ -800,29 +800,29 @@ continue
   end do
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
-  do i = 1,ncs
+  do m = 1,ncs
     do n = n1,n2
       if (t(n) > temperature_switch) then
-        intrvl(n,i) = 2
+        intrvl(n,m) = 2
       end if
     end do
   end do
   !
-  do i = 1,ncs
+  do m = 1,ncs
     !$ACC PARALLEL LOOP PRESENT(mass_frac,intrvl,t,enth_coef,h)
     do n = n1,n2
       !
-      ni = intrvl(n,i)
+      ni = intrvl(n,m)
       ts = t(n)*tref
       !
-      hi = enth_coef(6,ni,i) + &
-           ts*(enth_coef(1,ni,i) + &
-               ts*(enth_coef(2,ni,i) + &
-                   ts*(enth_coef(3,ni,i) + &
-                       ts*(enth_coef(4,ni,i) + &
-                           ts*(enth_coef(5,ni,i))))))
+      hi = enth_coef(6,ni,m) + &
+           ts*(enth_coef(1,ni,m) + &
+               ts*(enth_coef(2,ni,m) + &
+                   ts*(enth_coef(3,ni,m) + &
+                       ts*(enth_coef(4,ni,m) + &
+                           ts*(enth_coef(5,ni,m))))))
       !
-      h(n) = h(n) + mass_frac(n,i)*hi*aref2_inv
+      h(n) = h(n) + mass_frac(n,m)*hi*aref2_inv
       !
     end do
   end do
@@ -846,7 +846,7 @@ subroutine compute_mixture_enthalpy_1p(mass_frac,t,h)
   real(wp), intent(inout) :: h
   !
   !.. Local Scalars ..
-  integer  :: i,ni
+  integer  :: m,ni
   real(wp) :: hi,ts,aref2_inv
   !
 continue
@@ -855,19 +855,19 @@ continue
   !
   h = zero
   !
-  do i = 1,ncs
+  do m = 1,ncs
     !
     ni = merge( 1 , 2 , t <= temperature_switch )
     ts = t*tref
     !
-    hi = enth_coef(6,ni,i) + &
-         ts*(enth_coef(1,ni,i) + &
-             ts*(enth_coef(2,ni,i) + &
-                 ts*(enth_coef(3,ni,i) + &
-                     ts*(enth_coef(4,ni,i) + &
-                         ts*(enth_coef(5,ni,i))))))
+    hi = enth_coef(6,ni,m) + &
+         ts*(enth_coef(1,ni,m) + &
+             ts*(enth_coef(2,ni,m) + &
+                 ts*(enth_coef(3,ni,m) + &
+                     ts*(enth_coef(4,ni,m) + &
+                         ts*(enth_coef(5,ni,m))))))
     !
-    h = h + mass_frac(i)*hi*aref2_inv
+    h = h + mass_frac(m)*hi*aref2_inv
     !
   end do
   !
@@ -888,7 +888,7 @@ subroutine compute_species_enthalpy_sp(n1,n2,t,hsi)
   real(wp), intent(inout) :: hsi(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,n,ni
+  integer  :: m,n,ni
   real(wp) :: ts,aref2_inv
   !
   !.. Local Allocatable Arrays ..
@@ -902,35 +902,35 @@ continue
   !$ACC DATA CREATE(intrvl)
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_switch)
-  do i = 1,ncs
+  do m = 1,ncs
     do n = n1,n2
       if (t(n) > temperature_switch) then
-        intrvl(n,i) = 2
+        intrvl(n,m) = 2
       end if
     end do
   end do
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(intrvl,t,enth_coef,hsi)
-  do i = 1,ncs
+  do m = 1,ncs
     do n = n1,n2
       !
-      ni = intrvl(n,i)
+      ni = intrvl(n,m)
       ts = t(n)*tref
       !
-      hsi(n,i) = enth_coef(6,ni,i) + &
-                 ts*(enth_coef(1,ni,i) + &
-                     ts*(enth_coef(2,ni,i) + &
-                         ts*(enth_coef(3,ni,i) + &
-                             ts*(enth_coef(4,ni,i) + &
-                                 ts*(enth_coef(5,ni,i))))))
+      hsi(n,m) = enth_coef(6,ni,m) + &
+                 ts*(enth_coef(1,ni,m) + &
+                     ts*(enth_coef(2,ni,m) + &
+                         ts*(enth_coef(3,ni,m) + &
+                             ts*(enth_coef(4,ni,m) + &
+                                 ts*(enth_coef(5,ni,m))))))
       !
     end do
   end do
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(hsi)
-  do i = 1,ncs
+  do m = 1,ncs
     do n = n1,n2
-      hsi(n,i) = hsi(n,i)*aref2_inv
+      hsi(n,m) = hsi(n,m)*aref2_inv
     end do
   end do
   !
@@ -952,29 +952,29 @@ subroutine compute_species_enthalpy_1p(t,hsi)
   real(wp), intent(inout) :: hsi(:)
   !
   !.. Local Scalars ..
-  integer  :: i,ni
+  integer  :: m,ni
   real(wp) :: ts,aref2_inv
   !
 continue
   !
   aref2_inv = one/aref/aref
   !
-  do i = 1,ncs
+  do m = 1,ncs
     !
     ni = merge( 1 , 2 , t <= temperature_switch )
     ts = t*tref
     !
-    hsi(i) = enth_coef(6,ni,i) + &
-             ts*(enth_coef(1,ni,i) + &
-                 ts*(enth_coef(2,ni,i) + &
-                     ts*(enth_coef(3,ni,i) + &
-                         ts*(enth_coef(4,ni,i) + &
-                             ts*(enth_coef(5,ni,i))))))
+    hsi(m) = enth_coef(6,ni,m) + &
+             ts*(enth_coef(1,ni,m) + &
+                 ts*(enth_coef(2,ni,m) + &
+                     ts*(enth_coef(3,ni,m) + &
+                         ts*(enth_coef(4,ni,m) + &
+                             ts*(enth_coef(5,ni,m))))))
     !
   end do
   !
-  do i = 1,ncs
-    hsi(i) = hsi(i)*aref2_inv
+  do m = 1,ncs
+    hsi(m) = hsi(m)*aref2_inv
   end do
   !
 end subroutine compute_species_enthalpy_1p
@@ -995,7 +995,7 @@ subroutine compute_mixture_cp_sp(n1,n2,mass_frac,t,cp)
   real(wp), intent(inout) :: cp(:)
   !
   !.. Local Scalars ..
-  integer  :: i,n,ni
+  integer  :: m,n,ni
   real(wp) :: cpi,ts,tda2
   !
   !.. Local Allocatable Arrays ..
@@ -1014,28 +1014,28 @@ continue
   end do
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_switch)
-  do i = 1,ncs
+  do m = 1,ncs
     do n = n1,n2
       if (t(n) > temperature_switch) then
-        intrvl(n,i) = 2
+        intrvl(n,m) = 2
       end if
     end do
   end do
   !
-  do i = 1,ncs
+  do m = 1,ncs
     !$ACC PARALLEL LOOP PRESENT(mass_frac,intrvl,t,cp_coef,cp)
     do n = n1,n2
       !
-      ni = intrvl(n,i)
+      ni = intrvl(n,m)
       ts = t(n)*tref
       !
-      cpi = cp_coef(1,ni,i) + &
-            ts*(cp_coef(2,ni,i) + &
-                ts*(cp_coef(3,ni,i) + &
-                    ts*(cp_coef(4,ni,i) + &
-                        ts*(cp_coef(5,ni,i)))))
+      cpi = cp_coef(1,ni,m) + &
+            ts*(cp_coef(2,ni,m) + &
+                ts*(cp_coef(3,ni,m) + &
+                    ts*(cp_coef(4,ni,m) + &
+                        ts*(cp_coef(5,ni,m)))))
       !
-      cp(n) = cp(n) + mass_frac(n,i)*cpi*tda2
+      cp(n) = cp(n) + mass_frac(n,m)*cpi*tda2
       !
     end do
   end do
@@ -1059,7 +1059,7 @@ subroutine compute_mixture_cp_1p(mass_frac,t,cp)
   real(wp), intent(inout) :: cp
   !
   !.. Local Scalars ..
-  integer  :: i,ni
+  integer  :: m,ni
   real(wp) :: cpi,ts,tda2
   !
 continue
@@ -1068,18 +1068,18 @@ continue
   !
   cp = zero
   !
-  do i = 1,ncs
+  do m = 1,ncs
     !
     ni = merge( 1 , 2 , t <= temperature_switch )
     ts = t*tref
     !
-    cpi = cp_coef(1,ni,i) + &
-          ts*(cp_coef(2,ni,i) + &
-              ts*(cp_coef(3,ni,i) + &
-                  ts*(cp_coef(4,ni,i) + &
-                      ts*(cp_coef(5,ni,i)))))
+    cpi = cp_coef(1,ni,m) + &
+          ts*(cp_coef(2,ni,m) + &
+              ts*(cp_coef(3,ni,m) + &
+                  ts*(cp_coef(4,ni,m) + &
+                      ts*(cp_coef(5,ni,m)))))
     !
-    cp = cp + mass_frac(i)*cpi*tda2
+    cp = cp + mass_frac(m)*cpi*tda2
     !
   end do
   !
@@ -1100,7 +1100,7 @@ subroutine compute_species_cp_sp(n1,n2,t,cpi)
   real(wp), intent(inout) :: cpi(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,n,ni
+  integer  :: m,n,ni
   real(wp) :: ts,tda2
   !
   !.. Local Allocatable Arrays ..
@@ -1114,34 +1114,34 @@ continue
   !$ACC DATA CREATE(intrvl)
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_switch)
-  do i = 1,ncs
+  do m = 1,ncs
     do n = n1,n2
       if (t(n) > temperature_switch) then
-        intrvl(n,i) = 2
+        intrvl(n,m) = 2
       end if
     end do
   end do
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(intrvl,t,cp_coef,cpi)
-  do i = 1,ncs
+  do m = 1,ncs
     do n = n1,n2
       !
-      ni = intrvl(n,i)
+      ni = intrvl(n,m)
       ts = t(n)*tref
       !
-      cpi(n,i) = cp_coef(1,ni,i) + &
-                 ts*(cp_coef(2,ni,i) + &
-                     ts*(cp_coef(3,ni,i) + &
-                         ts*(cp_coef(4,ni,i) + &
-                             ts*(cp_coef(5,ni,i)))))
+      cpi(n,m) = cp_coef(1,ni,m) + &
+                 ts*(cp_coef(2,ni,m) + &
+                     ts*(cp_coef(3,ni,m) + &
+                         ts*(cp_coef(4,ni,m) + &
+                             ts*(cp_coef(5,ni,m)))))
       !
     end do
   end do
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cpi)
-  do i = 1,ncs
+  do m = 1,ncs
     do n = n1,n2
-      cpi(n,i) = cpi(n,i)*tda2
+      cpi(n,m) = cpi(n,m)*tda2
     end do
   end do
   !
@@ -1163,28 +1163,28 @@ subroutine compute_species_cp_1p(t,cpi)
   real(wp), intent(inout) :: cpi(:)
   !
   !.. Local Scalars ..
-  integer  :: i,ni
+  integer  :: m,ni
   real(wp) :: ts,tda2
   !
 continue
   !
   tda2 = tref/aref/aref
   !
-  do i = 1,ncs
+  do m = 1,ncs
     !
     ni = merge( 1 , 2 , t <= temperature_switch )
     ts = t*tref
     !
-    cpi(i) = cp_coef(1,ni,i) + &
-             ts*(cp_coef(2,ni,i) + &
-                 ts*(cp_coef(3,ni,i) + &
-                     ts*(cp_coef(4,ni,i) + &
-                         ts*(cp_coef(5,ni,i)))))
+    cpi(m) = cp_coef(1,ni,m) + &
+             ts*(cp_coef(2,ni,m) + &
+                 ts*(cp_coef(3,ni,m) + &
+                     ts*(cp_coef(4,ni,m) + &
+                         ts*(cp_coef(5,ni,m)))))
     !
   end do
   !
-  do i = 1,ncs
-    cpi(i) = cpi(i)*tda2
+  do m = 1,ncs
+    cpi(m) = cpi(m)*tda2
   end do
   !
 end subroutine compute_species_cp_1p
@@ -1198,12 +1198,12 @@ subroutine compute_mixture_dcpdt(n1,n2,mass_frac,t,dcpdt)
   !
   !       NCS
   !     ------
-  !     \                         d [Cp(i)]
-  !      \     MassFraction(i) * -----------
+  !     \                         d [Cp(m)]
+  !      \     MassFraction(m) * -----------
   !      /                           dT
   !     /
   !     ------
-  !       i=1
+  !       m=1
   !
   !.. Use Statements ..
   use ovar, only : aref,tref
@@ -1216,7 +1216,7 @@ subroutine compute_mixture_dcpdt(n1,n2,mass_frac,t,dcpdt)
   real(wp), intent(inout) :: dcpdt(:)
   !
   !.. Local Scalars ..
-  integer  :: i,n,ni
+  integer  :: m,n,ni
   real(wp) :: dcpidt,ts,aref2_inv
   !
   !.. Local Allocatable Arrays ..
@@ -1235,27 +1235,27 @@ continue
   end do
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_switch)
-  do i = 1,ncs
+  do m = 1,ncs
     do n = n1,n2
       if (t(n) > temperature_switch) then
-        intrvl(n,i) = 2
+        intrvl(n,m) = 2
       end if
     end do
   end do
   !
-  do i = 1,ncs
+  do m = 1,ncs
     !$ACC PARALLEL LOOP PRESENT(mass_frac,intrvl,t,cp_coef,dcpdt)
     do n = n1,n2
       !
-      ni = intrvl(n,i)
+      ni = intrvl(n,m)
       ts = t(n)*tref
       !
-      dcpidt = cp_coef(2,ni,i) + &
-               ts*(cp_coef(3,ni,i)*two + &
-                   ts*(cp_coef(4,ni,i)*three + &
-                       ts*(cp_coef(5,ni,i)*four)))
+      dcpidt = cp_coef(2,ni,m) + &
+               ts*(cp_coef(3,ni,m)*two + &
+                   ts*(cp_coef(4,ni,m)*three + &
+                       ts*(cp_coef(5,ni,m)*four)))
       !
-      dcpdt(n) = dcpdt(n) + mass_frac(n,i)*dcpidt*aref2_inv
+      dcpdt(n) = dcpdt(n) + mass_frac(n,m)*dcpidt*aref2_inv
       !
     end do
   end do
@@ -1822,7 +1822,7 @@ subroutine hardwired_NCC_coefficients
                                                      0.03606781E+05_wp] , &
                                                    [6,2] )
   !
-  integer  :: i,j,n,ncoef
+  integer  :: i,j,m,ncoef
   real(wp) :: denom
   !
   character(len=len(species_name)) :: species
@@ -1833,86 +1833,86 @@ continue
   !
   allocate ( ncc_cp(1:6,1:2,1:ncs) , source=zero )
   !
-  do i = 1,ncs
+  do m = 1,ncs
     !
-    species = uppercase( trim(adjustl(species_name(i))) )
+    species = uppercase( trim(adjustl(species_name(m))) )
     !
     select case (trim(adjustl(species)))
       !
       case ("CO2")
         !
-        wtmol(i) = CO2_wtmol
-        ncc_cp(1:6,1:2,i) = CO2_cp(1:6,1:2)
+        wtmol(m) = CO2_wtmol
+        ncc_cp(1:6,1:2,m) = CO2_cp(1:6,1:2)
         !
       case ("CO")
         !
-        wtmol(i) = CO_wtmol
-        ncc_cp(1:6,1:2,i) = CO_cp(1:6,1:2)
+        wtmol(m) = CO_wtmol
+        ncc_cp(1:6,1:2,m) = CO_cp(1:6,1:2)
         !
       case ("H2O")
         !
-        wtmol(i) = H2O_wtmol
-        ncc_cp(1:6,1:2,i) = H2O_cp(1:6,1:2)
+        wtmol(m) = H2O_wtmol
+        ncc_cp(1:6,1:2,m) = H2O_cp(1:6,1:2)
         !
       case ("CH4")
         !
-        wtmol(i) = CH4_wtmol
-        ncc_cp(1:6,1:2,i) = CH4_cp(1:6,1:2)
+        wtmol(m) = CH4_wtmol
+        ncc_cp(1:6,1:2,m) = CH4_cp(1:6,1:2)
         !
       case ("N2")
         !
-        wtmol(i) = N2_wtmol
-        ncc_cp(1:6,1:2,i) = N2_cp(1:6,1:2)
+        wtmol(m) = N2_wtmol
+        ncc_cp(1:6,1:2,m) = N2_cp(1:6,1:2)
         !
       case ("O2")
         !
-        wtmol(i) = O2_wtmol
-        ncc_cp(1:6,1:2,i) = O2_cp(1:6,1:2)
+        wtmol(m) = O2_wtmol
+        ncc_cp(1:6,1:2,m) = O2_cp(1:6,1:2)
         !
       case ("H")
         !
-        wtmol(i) = H_wtmol
-        ncc_cp(1:6,1:2,i) = H_cp(1:6,1:2)
+        wtmol(m) = H_wtmol
+        ncc_cp(1:6,1:2,m) = H_cp(1:6,1:2)
         !
       case ("H2")
         !
-        wtmol(i) = H2_wtmol
-        ncc_cp(1:6,1:2,i) = H2_cp(1:6,1:2)
+        wtmol(m) = H2_wtmol
+        ncc_cp(1:6,1:2,m) = H2_cp(1:6,1:2)
         !
       case ("O")
         !
-        wtmol(i) = O_wtmol
-        ncc_cp(1:6,1:2,i) = O_cp(1:6,1:2)
+        wtmol(m) = O_wtmol
+        ncc_cp(1:6,1:2,m) = O_cp(1:6,1:2)
         !
       case ("OH")
         !
-        wtmol(i) = OH_wtmol
-        ncc_cp(1:6,1:2,i) = OH_cp(1:6,1:2)
+        wtmol(m) = OH_wtmol
+        ncc_cp(1:6,1:2,m) = OH_cp(1:6,1:2)
         !
     end select
     !
   end do
   !
-  do n = 1,ncs
-    rspec(n) = runivl / wtmol(n)
+  do m = 1,ncs
+    rspec(m) = runivl / wtmol(m)
   end do
   !
-  do n = 1,ncs
+  do m = 1,ncs
     do i = 1,size(ncc_cp,dim=2)
       do j = 1,ncpc
-        cp_coef(j,i,n) = ncc_cp(j,i,n) * rspec(n)
+        cp_coef(j,i,m) = ncc_cp(j,i,m) * rspec(m)
       end do
     end do
   end do
   !
-  do n = 1,ncs
+  do m = 1,ncs
     do i = 1,size(ncc_cp,dim=2)
       do j = 1,ncpc
         ncoef = j + min(6-(ncpc+1),0)
         denom = max(real(ncoef,kind=wp),one)
-        enth_coef(j,i,n) = ncc_cp(j,i,n) * rspec(n) / denom
+        enth_coef(j,i,m) = ncc_cp(j,i,m) * rspec(m) / denom
       end do
-      enth_coef(ncpc+1,i,n) = ncc_cp(ncpc+1,i,n) * rspec(n)
+      enth_coef(ncpc+1,i,m) = ncc_cp(ncpc+1,i,m) * rspec(m)
     end do
   end do
   !
@@ -2126,7 +2126,7 @@ subroutine hardwired_VULCAN_coefficients
                                                      5.87244494E+00_wp] , &
                                                    [7,2] )
   !
-  integer  :: i,j,n,ncoef
+  integer  :: i,j,m,ncoef
   real(wp) :: denom
   !
   character(len=len(species_name)) :: species
@@ -2137,86 +2137,86 @@ continue
   !
   allocate ( vul_cp(1:7,1:2,1:ncs) , source=zero )
   !
-  do i = 1,ncs
+  do m = 1,ncs
     !
-    species = uppercase( trim(adjustl(species_name(i))) )
+    species = uppercase( trim(adjustl(species_name(m))) )
     !
     select case (trim(adjustl(species)))
       !
       case ("CO2")
         !
-        wtmol(i) = CO2_wtmol
-        vul_cp(1:7,1:2,i) = CO2_cp(1:7,1:2)
+        wtmol(m) = CO2_wtmol
+        vul_cp(1:7,1:2,m) = CO2_cp(1:7,1:2)
         !
       case ("CO")
         !
-        wtmol(i) = CO_wtmol
-        vul_cp(1:7,1:2,i) = CO_cp(1:7,1:2)
+        wtmol(m) = CO_wtmol
+        vul_cp(1:7,1:2,m) = CO_cp(1:7,1:2)
         !
       case ("H2O")
         !
-        wtmol(i) = H2O_wtmol
-        vul_cp(1:7,1:2,i) = H2O_cp(1:7,1:2)
+        wtmol(m) = H2O_wtmol
+        vul_cp(1:7,1:2,m) = H2O_cp(1:7,1:2)
         !
       case ("CH4")
         !
-        wtmol(i) = CH4_wtmol
-        vul_cp(1:7,1:2,i) = CH4_cp(1:7,1:2)
+        wtmol(m) = CH4_wtmol
+        vul_cp(1:7,1:2,m) = CH4_cp(1:7,1:2)
         !
       case ("N2")
         !
-        wtmol(i) = N2_wtmol
-        vul_cp(1:7,1:2,i) = N2_cp(1:7,1:2)
+        wtmol(m) = N2_wtmol
+        vul_cp(1:7,1:2,m) = N2_cp(1:7,1:2)
         !
       case ("O2")
         !
-        wtmol(i) = O2_wtmol
-        vul_cp(1:7,1:2,i) = O2_cp(1:7,1:2)
+        wtmol(m) = O2_wtmol
+        vul_cp(1:7,1:2,m) = O2_cp(1:7,1:2)
         !
       case ("H")
         !
-        wtmol(i) = H_wtmol
-        vul_cp(1:7,1:2,i) = H_cp(1:7,1:2)
+        wtmol(m) = H_wtmol
+        vul_cp(1:7,1:2,m) = H_cp(1:7,1:2)
         !
       case ("H2")
         !
-        wtmol(i) = H2_wtmol
-        vul_cp(1:7,1:2,i) = H2_cp(1:7,1:2)
+        wtmol(m) = H2_wtmol
+        vul_cp(1:7,1:2,m) = H2_cp(1:7,1:2)
         !
       case ("O")
         !
-        wtmol(i) = O_wtmol
-        vul_cp(1:7,1:2,i) = O_cp(1:7,1:2)
+        wtmol(m) = O_wtmol
+        vul_cp(1:7,1:2,m) = O_cp(1:7,1:2)
         !
       case ("OH")
         !
-        wtmol(i) = OH_wtmol
-        vul_cp(1:7,1:2,i) = OH_cp(1:7,1:2)
+        wtmol(m) = OH_wtmol
+        vul_cp(1:7,1:2,m) = OH_cp(1:7,1:2)
         !
     end select
     !
   end do
   !
-  do n = 1,ncs
-    rspec(n) = runivl / wtmol(n)
+  do m = 1,ncs
+    rspec(m) = runivl / wtmol(m)
   end do
   !
-  do n = 1,ncs
+  do m = 1,ncs
     do i = 1,size(vul_cp,dim=2)
       do j = 1,ncpc
-        cp_coef(j,i,n) = vul_cp(j,i,n) * rspec(n)
+        cp_coef(j,i,m) = vul_cp(j,i,m) * rspec(m)
       end do
     end do
   end do
   !
-  do n = 1,ncs
+  do m = 1,ncs
     do i = 1,size(vul_cp,dim=2)
       do j = 1,ncpc
         ncoef = j + min(6-(ncpc+1),0)
         denom = max(real(ncoef,kind=wp),one)
-        enth_coef(j,i,n) = vul_cp(j,i,n) * rspec(n) / denom
+        enth_coef(j,i,m) = vul_cp(j,i,m) * rspec(m) / denom
       end do
-      enth_coef(ncpc+1,i,n) = vul_cp(ncpc+1,i,n) * rspec(n)
+      enth_coef(ncpc+1,i,m) = vul_cp(ncpc+1,i,m) * rspec(m)
     end do
   end do
   !
