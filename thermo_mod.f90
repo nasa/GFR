@@ -84,7 +84,8 @@ module thermo_mod
   !
   interface compute_mixture_gamma
     module procedure compute_mixture_gamma_sp, &
-                     compute_mixture_gamma_1p
+                     compute_mixture_gamma_1p, &
+                     compute_mixture_gamma_from_temp_1p
   end interface compute_mixture_gamma
   !
   interface compute_mixture_rgas
@@ -658,6 +659,39 @@ continue
   gam = cp / (cp-gam)
   !
 end subroutine compute_mixture_gamma_1p
+!
+!###############################################################################
+!
+pure &
+subroutine compute_mixture_gamma_from_temp_1p(mass_frac,temp,gam,dimensional)
+  !
+  ! CP  : mixture specific heat at constant pressure
+  ! GAM : in  - mixture gas constant
+  !       out - ratio of the specific heats for the mixture
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: mass_frac(:)
+  real(wp),    intent(in) :: temp
+  real(wp), intent(inout) :: gam
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Local Scalars ..
+  real(wp) :: cp,rgas
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_mixture_gamma_1p"
+  !
+continue
+  !
+  call compute_mixture_rgas(mass_frac,rgas,dimensional)
+  !
+  call compute_mixture_cp(mass_frac,temp,cp,dimensional)
+  !
+  gam = cp / (cp-rgas)
+  !
+end subroutine compute_mixture_gamma_from_temp_1p
 !
 !###############################################################################
 !
