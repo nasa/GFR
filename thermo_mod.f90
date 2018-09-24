@@ -110,6 +110,7 @@ subroutine init_thermo_mod(cv,pv,gp)
   use ovar, only : aref,uref,machref,velref,velref_nd
   use ovar, only : alpha_aoaref,beta_aoaref
   use ovar, only : pref_nd,rgasref_nd,cpref_nd
+  use ovar, only : bc_input
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: cv(:)
@@ -117,8 +118,17 @@ subroutine init_thermo_mod(cv,pv,gp)
   real(wp), intent(inout) :: gp(:)
   !
   !.. Local Scalars ..
-  integer  :: ierr,m,nr
+  integer  :: ics,ierr,m,n,nr
   real(wp) :: mf_sum,href,href_nd,q2,temp,pres_check
+#ifdef ALLOCATABLE_MASS_FRAC
+  !
+  logical(lk) :: error_found
+  !
+  character(len=50) :: array_name
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: tmp_mass_frac(:)
+#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_thermo_mod"
@@ -322,7 +332,94 @@ continue
     !
   end if
   !
+  ! Make sure that the mass_frac component of bc_input makes sense
+  !
+  if (ncs > 0) then
+    !
+#ifdef ALLOCATABLE_MASS_FRAC
+    error_found = fals
+    do n = 1,size(bc_input)
+      if (.not. allocated(bc_input(n)%mass_frac)) then
+        error_found = true
+        if (mypnum == glb_root) write (iout,101) n
+      else
+        ics = size(bc_input(n)%mass_frac)
+        if (ics < ncs) then
+          error_found = true
+          if (mypnum == glb_root) write (iout,102) n,n,ics,ncs
+        else if (ics > ncs) then
+          if (any(bc_input(n)%mass_frac(ncs+1:ics) > zero)) then
+            error_found = true
+            if (mypnum == glb_root) write (iout,103) n,ics,ncs
+          else
+            tmp_mass_frac = bc_input(n)%mass_frac(1:ncs) ! F2003 AUTO-REALLOC
+            bc_input(n)%mass_frac = tmp_mass_frac(1:ncs) ! F2003 AUTO-REALLOC
+          end if
+       !else if (ics == ncs) then ! this is ideal, do nothing
+        end if
+      end if
+    end do
+    flush (iout)
+    !
+    if (error_found) then
+      write (error_message,104)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+#endif
+    !
+    ! Make sure the values of the mass fractions make sense
+    !
+    do n = 1,size(bc_input)
+      !
+      ! Make sure all mass fractions are greater than or equal to zero
+      !
+      do m = 1,ncs
+        bc_input(n)%mass_frac(m) = max( bc_input(n)%mass_frac(m) , zero )
+      end do
+      !
+      ! Adjust the mass fractions if they do not sum to one
+      !
+      if (abs(sum(bc_input(n)%mass_frac(:))-one) > eps6) then
+        if (sum(bc_input(n)%mass_frac(:)) < eps1) then
+          ! Set the mass fractions to the reference mass fractions
+          ! if the sum is close to zero (i.e., < 0.1)
+          do m = 1,ncs
+            bc_input(n)%mass_frac(m) = mass_frac_ref(m)
+          end do
+        else
+          ! Make sure the mass fractions sum to one if
+          ! the sum is not close to zero (i.e., >= 0.1)
+          mf_sum = sum(bc_input(n)%mass_frac(:))
+          do m = 1,ncs
+            bc_input(n)%mass_frac(m) = bc_input(n)%mass_frac(m) / mf_sum
+          end do
+        end if
+      end if
+      !
+    end do
+    !
+  else
+    !
+    ! Deallocate the mass_frac arrays if this is a calorically perfect gas
+    !
+    do n = 1,size(bc_input)
+#ifdef ALLOCATABLE_MASS_FRAC
+      if (allocated(bc_input(n)%mass_frac)) then
+        deallocate ( bc_input(n)%mass_frac , stat=ierr , errmsg=error_message )
+        write (array_name,1) n
+        call alloc_error(pname,array_name,2,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+#else
+      bc_input(n)%mass_frac(:) = zero
+#endif
+    end do
+    !
+  end if
+  !
   ! Format Statements
+  !
+  1 format ("bc_input(",i0,")%mass_frac")
   !
   100 format ( &
      " Free-stream conditions in the input file are not consistent!",/, &
@@ -330,6 +427,22 @@ continue
      " Reference pressure computed : ",es14.6,/, &
      " Please correct the input file or set one of density, pressure,", &
      " and temperature to a negative value so it is explicitly computed.")
+  101 format (/,4x,"ERROR: bc_input(",i0,")%mass_frac is not allocated",/, &
+                4x,"        when it needs to be!!!",/)
+  102 format (/,4x,"ERROR: bc_input(",i0,")%mass_frac has been allocated",/, &
+                4x,"       to a size smaller than the number of chemical",/, &
+                4x,"       species present for the current simulation!!!",/, &
+                4x,"          size(bc_input(",i0,")%mass_frac = ",i0,/, &
+                4x,"               number of chemical species = ",i0,/)
+  103 format (/,4x,"ERROR: bc_input(",i0,")%mass_frac has been allocated",/, &
+                4x,"       to a size larger than the number of chemical",/, &
+                4x,"       species present for the current simulation,",/, &
+                4x,"       and the mass fraction is non-zero for one of",/, &
+                4x,"       the species larger than the number of chemical",/, &
+                4x,"       species.",/, &
+                4x,"          size(bc_input(",i0,")%mass_frac = ",i0,/, &
+                4x,"               number of chemical species = ",i0,/)
+  104 format ("ERROR FOUND WITH THE MASS_FRAC COMPONENT OF BC_INPUT!!!")
   !
 end subroutine init_thermo_mod
 !

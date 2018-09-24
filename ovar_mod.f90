@@ -62,12 +62,25 @@ module ovar
     real(wp) :: beta_aoa   = zero
     real(wp) :: wall_temp  = -one
     !
+#ifdef ALLOCATABLE_MASS_FRAC
+    real(wp), allocatable :: mass_frac(:)
+#else
+    real(wp) :: mass_frac(7) = zero
+#endif
+    !
     type(relaxation_t) :: relax
     !
   contains
     !
     procedure :: is_not_default
     procedure :: has_default_flow_conditions
+  !!procedure, private :: write_bc_input_t
+  !!procedure, private :: read_bc_input_t
+    !
+#ifndef DISABLE_DTIO
+  !!generic :: write(formatted) => write_bc_input_t
+  !!generic :: read(formatted) => read_bc_input_t
+#endif
     !
   end type bc_input_t
   !
@@ -594,9 +607,80 @@ continue
   if (abs(this%relax%time -zero) > eps6) return
   if (    this%relax%iter        /=   0) return
   !
+#ifdef ALLOCATABLE_MASS_FRAC
+  if (allocated(this%mass_frac)) then
+    if (any(this%mass_frac(:) > zero)) return
+  end if
+#else
+  if (any(this%mass_frac(:) > zero)) return
+#endif
+  !
   return_value = true
   !
 end function has_default_flow_conditions
+!
+!###############################################################################
+!
+!!subroutine write_bc_input_t(dtv,iunit,iotype,vlist,my_iostat,my_iomsg)
+!!  !
+!!  !.. Passed Argument from Invoking Object ..
+!!  class(bc_input_t), intent(in) :: dtv
+!!  integer, intent(in) :: iunit
+!!  character(len=*), intent(in) :: iotype
+!!  integer, intent(in) :: vlist(:)
+!!  integer, intent(out) :: my_iostat
+!!  character(len=*), intent(inout) :: my_iomsg
+!!  !
+!!  integer :: m
+!!  !
+!!continue
+!!  !
+!!  write (iunit,1,iostat=my_iostat,iomsg=my_iomsg) &
+!!    dtv%t_static, &
+!!    dtv%p_static, &
+!!    dtv%rho_static, &
+!!    dtv%mach, &
+!!    dtv%vx, &
+!!    dtv%vy, &
+!!    dtv%vz, &
+!!    dtv%t_total, &
+!!    dtv%p_total, &
+!!    dtv%rho_total, &
+!!    dtv%alpha_aoa, &
+!!    dtv%beta_aoa, &
+!!    dtv%wall_temp, &
+!!    dtv%relax%value, &
+!!    dtv%relax%time, &
+!!    dtv%relax%iter
+!!#ifdef ALLOCATABLE_MASS_FRAC
+!!  if (allocated(dtv%mass_frac)) then
+!!    write (iunit,2,iostat=my_iostat,iomsg=my_iomsg) &
+!!      (m,dtv%mass_frac(m), m=1,size(dtv%mass_frac))
+!!  end if
+!!#else
+!!  write (iunit,2,iostat=my_iostat,iomsg=my_iomsg) &
+!!    (m,dtv%mass_frac(m), m=1,size(dtv%mass_frac))
+!!#endif
+!!  !
+!!  1 format ("t_static     = ",es14.6,/, &
+!!            "p_static     = ",es14.6,/, &
+!!            "rho_static     = ",es14.6,/, &
+!!            "mach     = ",es14.6,/, &
+!!            "vx     = ",es14.6,/, &
+!!            "vy     = ",es14.6,/, &
+!!            "vz     = ",es14.6,/, &
+!!            "t_total     = ",es14.6,/, &
+!!            "p_total     = ",es14.6,/, &
+!!            "rho_total     = ",es14.6,/, &
+!!            "alpha_aoa     = ",es14.6,/, &
+!!            "beta_aoa     = ",es14.6,/, &
+!!            "wall_temp     = ",es14.6,/, &
+!!            "relax%value     = ",es14.6,/, &
+!!            "relax%time     = ",es14.6,/, &
+!!            "relax%iter     = ",es14.6,/)
+!!  2 format (100("mass_frac(",i0,") = ",es14.6,:,/))
+!!  !
+!!end subroutine write_bc_input_t
 !
 !###############################################################################
 !
@@ -1011,15 +1095,17 @@ contains
 subroutine allocate_namelist_variables
   !
   !.. Use Statements ..
-  use module_kind_types, only : alloc_error,error_message
+  use module_kind_types, only : zero,alloc_error,error_message
   !
   !.. Local Scalars ..
-  integer :: ierr
+  integer :: n,ierr
   character(len=20) :: blanks
+  character(len=50) :: array_name
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "allocate_namelist_variables"
   integer, parameter :: default_len = 150
+  integer, parameter :: max_ncs = 7
   !
 continue
   !
@@ -1027,6 +1113,17 @@ continue
   !
   allocate ( bc_input(1:20) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bc_input",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Allocate the mass_frac component of bc_input before reading the namelist
+  !
+#ifdef ALLOCATABLE_MASS_FRAC
+  do n = 1,size(bc_input)
+    allocate ( bc_input(n)%mass_frac(1:max_ncs) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,2) n
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+  end do
+#endif
   !
   ! Allocate all the character input variables
   !
@@ -1120,6 +1217,7 @@ continue
   time_ave_file(1:7) = "out.ave"
   !
   1 format ('(',i0,'x)')
+  2 format ("bc_input(",i0,")%mass_frac")
   !
 end subroutine allocate_namelist_variables
 !
