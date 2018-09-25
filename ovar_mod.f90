@@ -684,6 +684,52 @@ end function has_default_flow_conditions
 !
 !###############################################################################
 !
+!!subroutine read_bc_input_t(dtv,iunit,iotype,vlist,my_iostat,my_iomsg)
+!!  !
+!!  !.. Passed Argument from Invoking Object ..
+!!  class(bc_input_t), intent(inout) :: dtv
+!!  integer, intent(in) :: iunit
+!!  character(len=*), intent(in) :: iotype
+!!  integer, intent(in) :: vlist(:)
+!!  integer, intent(out) :: my_iostat
+!!  character(len=*), intent(inout) :: my_iomsg
+!!  !
+!!  integer :: m,ierr
+!!  !
+!!  !.. Local Parameters ..
+!!  integer, parameter :: max_ncs = 7
+!!  !
+!!continue
+!!  !
+!!  read (iunit,*,iostat=my_iostat,iomsg=my_iomsg) &
+!!    dtv%t_static, &
+!!    dtv%p_static, &
+!!    dtv%rho_static, &
+!!    dtv%mach, &
+!!    dtv%vx, &
+!!    dtv%vy, &
+!!    dtv%vz, &
+!!    dtv%t_total, &
+!!    dtv%p_total, &
+!!    dtv%rho_total, &
+!!    dtv%alpha_aoa, &
+!!    dtv%beta_aoa, &
+!!    dtv%wall_temp, &
+!!    dtv%relax%value, &
+!!    dtv%relax%time, &
+!!    dtv%relax%iter
+!!#ifdef ALLOCATABLE_MASS_FRAC
+!!  if (.not.allocated(dtv%mass_frac)) then
+!!    allocate ( dtv%mass_frac(1:max_ncs) , source=zero )
+!!  end if
+!!#endif
+!!  read (iunit,*,iostat=my_iostat,iomsg=my_iomsg) &
+!!                                  (dtv%mass_frac(m), m=1,size(dtv%mass_frac))
+!!  !
+!!end subroutine read_bc_input_t
+!
+!###############################################################################
+!
 pure &
 function if_interpto_newgrid() result(return_value)
   !
