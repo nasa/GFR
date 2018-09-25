@@ -235,14 +235,12 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/projection_mod.o \
                $(OBJDIR)/interpolation_mod.o \
                $(OBJDIR)/derivatives_mod.o \
+               $(OBJDIR)/thermo_mod.o \
+               $(OBJDIR)/transport_mod.o \
                $(FUNDIR)/vortex.f90 \
                $(FUNDIR)/taylor_green.f90 \
                $(FUNDIR)/smc000_interior_wall_radius.f90 \
-               $(FUNDIR)/arn2_interior_wall_radius.f90 \
-               $(FUNDIR)/usp2v.f90 \
-               $(FUNDIR)/vsp2u.f90 \
-               $(FUNDIR)/temperature.f90 \
-               $(FUNDIR)/viscosity.f90
+               $(FUNDIR)/arn2_interior_wall_radius.f90
 
 $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(OBJDIR)/kind_types.o \

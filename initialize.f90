@@ -5,7 +5,7 @@ module initialization_mod
   !
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
-  use eqn_idx, only : ncs
+  use eqn_idx, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ng
   !
   implicit none
   !
@@ -40,12 +40,9 @@ subroutine initialize_flow()
   use ovar, only : rgasref_nd,cpref_nd
   use ovar, only : adjust_cfl_cycles
   use ovar, only : solution_file, solution_format
- !use ovar, only : output_time_averaging
   !
   use flowvar, only : usp,uoldsp
   use flowvar, only : allocate_flowvar_arrays
-  !
- !use mappings_mod, only : mapping
   !
   use order_mod, only : maxpts
   !
@@ -55,8 +52,6 @@ subroutine initialize_flow()
   use projection_mod, only : project_to_porder
   !
   use interpolation_mod, only : outerp
-  !
- !use averaging_mod, only : initialize_time_ave
   !
   !.. Local Scalars ..
   integer :: n,n0,n1,n2,np,l,l1,l2,m
@@ -69,8 +64,6 @@ subroutine initialize_flow()
   character(len=200) :: array_name
   !
   !.. Local Allocatable Arrays ..
- !real(wp), allocatable :: elem_usp(:,:)
- !real(wp), allocatable :: elem_sol(:,:)
   real(wp), allocatable :: xyz_init(:,:)
   type(matrix), allocatable, target :: outerp_inv(:,:)
   !
@@ -86,10 +79,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
- !!
- !! Initialize the bc_in array
- !!
- !call create_bc_in
+  !
+  ! Initialization of the bc_in array has been
+  ! moved to subroutine read_grid_file.
   !
   ! Initialize all local pointers to disassociated
   !
@@ -154,95 +146,6 @@ continue
   else if (grid_sol_is_available) then
     !
     ! THIS SECTION OF CODE WAS MOVED INTO MAPPINGS_MOD SO DO NOTHING!
-    !
-   !! A solution was read in with the grid file.
-   !! Map it to the proper points, similar to get_solution_points().
-   !!
-   !if ( .not. allocated(mapping) ) then
-   !  write (error_message,101)
-   !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-   !end if
-   !!
-   !do this_cell = 1,ncell
-   !  !
-   !  this_geom = cell(this_cell)%geom
-   !  this_order = cell(this_cell)%order
-   !  !
-   !  n0 = cell(this_cell)%beg_sp - 1
-   !  np = cell(this_cell)%end_sp - n0
-   !  !
-   !  mesh_order = grid%elem(this_cell)%prop%order
-   !  !
-   !  ! USING F2003 AUTO-REALLOCATION
-   !  elem_sol = grid%sol(1:nq, grid%elem(this_cell)%pts(:) )
-   !  !
-   !  ! Assign a local pointer to the mapping
-   !  ! matrix as an alias to simplify the code
-   !  !
-   !  if (grid%elem(this_cell)%prop%family == Edge_Defined) then
-   !    this_map => mapping(this_geom,this_order)%EdgeDefOrder(mesh_order)
-   !  else if (grid%elem(this_cell)%prop%family == Face_Defined) then
-   !    this_map => mapping(this_geom,this_order)%FaceDefOrder(mesh_order)
-   !  else
-   !    this_map => mapping(this_geom,this_order)%MeshOrder(mesh_order)
-   !  end if
-   !  !
-   !  ! Perform the mapping.
-   !  !
-   !  ! USING F2003 AUTO-REALLOCATION
-   !  elem_usp = matmul( elem_sol(:,:) , this_map%mat(:,:) )
-   !  !
-   !  ! Copy the transposed solution back into usp
-   !  ! NOTE: elem_usp should be sized elem_usp(1:nq,1:np)
-   !  ! NOTE: grid%sol is expected to be dimensional and in metric units,
-   !  !       and thus elem_sol and elem_usp should also be dimensional and
-   !  !       in metrics units. While we are copying the transpose of elem_usp
-   !  !       into usp, nondimensionalize the flow variables.
-   !  !
-   !  if (nr == 3) then
-   !    do n = 1,np
-   !      usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
-   !      usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
-   !      usp(n0+n,nmy) = elem_usp(nmy,n) * rhoa_inv
-   !      usp(n0+n,nmz) = elem_usp(nmz,n) * rhoa_inv
-   !      usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
-   !    end do
-   !  else if (nr == 2) then
-   !    do n = 1,np
-   !      usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
-   !      usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
-   !      usp(n0+n,nmy) = elem_usp(nmy,n) * rhoa_inv
-   !      usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
-   !    end do
-   !  else
-   !    do n = 1,np
-   !      usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
-   !      usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
-   !      usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
-   !    end do
-   !  end if
-   ! !usp(n1:n2,1:nq) = transpose( elem_usp(:,:) )
-   !  !
-   !  if (associated(this_map)) this_map => null()
-   !  !
-   !end do
-   !!
-   !! Done with the mapping array.
-   !!
-   !deallocate( mapping , stat=ierr , errmsg=error_message )
-   !call alloc_error(pname,"mapping",2,__LINE__,__FILE__,ierr,error_message)
-   !!
-   !! Deallocate the local arrays
-   !!
-   !if (allocated(elem_sol)) then
-   !  deallocate ( elem_sol , stat=ierr , errmsg=error_message )
-   !  call alloc_error(pname,"elem_sol",2,__LINE__,__FILE__,ierr,error_message)
-   !end if
-   !!
-   !if (allocated(elem_usp)) then
-   !  deallocate ( elem_usp , stat=ierr , errmsg=error_message )
-   !  call alloc_error(pname,"elem_usp",2,__LINE__,__FILE__,ierr,error_message)
-   !end if
     !
   else
     !
@@ -385,12 +288,7 @@ continue
   !
   call create_restart_fname_formats
   !
-  ! Initialize the time-averaging information if outputting
-  ! time-averaged variables to solution/restart files
-  !
- !if (output_time_averaging) then
- !  call initialize_time_ave
- !end if
+  ! Initialization of time-averaging has been moved to the main program
   !
   ! Initialize the CFL cycles
   !
@@ -690,6 +588,9 @@ end function initial_conditions
 !
 pure function jet_profile(r,r0,div,fs_pv,bc_pv) result(return_value)
   !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
   !.. Formal Arguments ..
   real(wp), intent(in) :: r
   real(wp), intent(in) :: r0
@@ -701,7 +602,7 @@ pure function jet_profile(r,r0,div,fs_pv,bc_pv) result(return_value)
   real(wp) :: return_value(1:size(fs_pv))
   !
   !.. Local Scalars ..
-  real(wp) :: func
+  real(wp) :: func,rho,pres,q2
   !
 continue
  !!
@@ -744,7 +645,13 @@ continue
  !return_value(nmz) = zero
   return_value(nee) = fs_pv(nee)
   !
-  return_value(:) = vsp2u_sp( return_value(:) )
+  rho = return_value(nec)
+  pres = return_value(nee)
+  !
+  q2 = dot_product( return_value(nmb:nme) , return_value(nmb:nme) )
+  !
+  return_value(nmb:nme) = return_value(nmb:nme)*rho
+  return_value(nee) = pres/(gam-one) + half*rho*q2
   !
 end function jet_profile
 !
@@ -770,7 +677,7 @@ pure function jet_profile3(nozzle_len,x,r,r0,div,bc_pv,fs_pv) &
   real(wp) :: return_value(1:size(fs_pv))
   !
   !.. Local Scalars ..
-  real(wp) :: xbeg,func,xfunc,rfunc
+  real(wp) :: xbeg,func,xfunc,rfunc,rho,pres,q2
   !
   !.. Local Arrays ..
   real(wp) :: vel(1:nr)
@@ -801,7 +708,13 @@ continue
     !
   end if
   !
-  return_value(:) = vsp2u_sp( return_value(:) )
+  rho = return_value(nec)
+  pres = return_value(nee)
+  !
+  q2 = dot_product( return_value(nmb:nme) , return_value(nmb:nme) )
+  !
+  return_value(nmb:nme) = return_value(nmb:nme)*rho
+  return_value(nee) = pres/(gam-one) + half*rho*q2
   !
 end function jet_profile3
 !
@@ -822,7 +735,7 @@ pure function jet_profile2(nozzle_len,x,fs_pv) result(return_value)
   real(wp) :: return_value(1:size(fs_pv))
   !
   !.. Local Scalars ..
-  real(wp) :: aspd,mach,xbeg,func
+  real(wp) :: aspd,mach,xbeg,func,rho,pres,q2
   !
   !.. Local Arrays ..
   real(wp) :: vel(1:nr)
@@ -865,7 +778,13 @@ continue
     !
   end if
   !
-  return_value(:) = vsp2u_sp( return_value(:) )
+  rho = return_value(nec)
+  pres = return_value(nee)
+  !
+  q2 = dot_product( return_value(nmb:nme) , return_value(nmb:nme) )
+  !
+  return_value(nmb:nme) = return_value(nmb:nme)*rho
+  return_value(nee) = pres/(gam-one) + half*rho*q2
   !
 end function jet_profile2
 !
@@ -891,12 +810,14 @@ pure function jet_profile4(nozzle_len,x,fs_pv,bc_pv) result(return_value)
   real(wp) :: aspd_bc,mach_bc,temp_bc,ttot_bc,ptot_bc
   real(wp) :: aspd_fs,mach_fs,mach_init,total_cond
   real(wp) :: temp_init,pres_init,rho_init,vel_init
-  real(wp) :: pres,rho,vel,mach,aspd
+  real(wp) :: pres,rho,vel,mach,aspd,q2
   !
   !.. Local Arrays ..
   real(wp) :: dir(1:nr)
   !
 continue
+  !
+  gm1 = gam - one
   !
   ! Initialize to the free-stream primitive variables
   !
@@ -909,7 +830,6 @@ continue
   !
   if (x < zero) then
     !
-    gm1 = gam - one
     gam_over_gm1 = gam / gm1
     !
     aspd_fs = sqrt(max(gam*fs_pv(nee)/fs_pv(nec),rndoff))
@@ -963,7 +883,13 @@ continue
     !
   end if
   !
-  return_value(:) = vsp2u_sp( return_value(:) )
+  rho = return_value(nec)
+  pres = return_value(nee)
+  !
+  q2 = dot_product( return_value(nmb:nme) , return_value(nmb:nme) )
+  !
+  return_value(nmb:nme) = return_value(nmb:nme)*rho
+  return_value(nee) = pres/gm1 + half*rho*q2
   !
 end function jet_profile4
 !
@@ -1041,6 +967,9 @@ end subroutine find_elem_for_initial_jet_profile
 pure &
 function initialize_cylinder(xyz,fs_pv) result(return_value)
   !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xyz(:)
   real(wp), intent(in) :: fs_pv(:)
@@ -1049,7 +978,8 @@ function initialize_cylinder(xyz,fs_pv) result(return_value)
   real(wp) :: return_value(1:size(fs_pv))
   !
   !.. Local Scalars ..
-  real(wp) :: a,b,c,u,v,w,rho,pres
+  real(wp) :: a,b,c
+  real(wp) :: rho,vx,vy,vz,q2,pres
   real(wp) :: r,theta,uinf
   !
   !.. Local Parameters ..
@@ -1065,14 +995,14 @@ continue
   !
   rho  = fs_pv(nec)
   uinf = fs_pv(nmx)
-  u    = uinf
-  v    = fs_pv(nmy)
-  w    = fs_pv(nmz)
+  vx   = uinf
+  vy   = fs_pv(nmy)
+  vz   = fs_pv(nmz)
   pres = fs_pv(nee)
   !
   if (r < three2) then
     !
-    u = uinf * cylinder_function(r,one,half)
+    vx = uinf * cylinder_function(r,one,half)
     !
     a = sin( halfpi * xyz(3) )
     !
@@ -1088,18 +1018,18 @@ continue
       c = one - cylinder_function(theta,three*halfpi,halfpi)
     end if
     !
-    v = sig * uinf * b * c
-    w = sig * uinf * b * a*a
+    vy = sig * uinf * b * c
+    vz = sig * uinf * b * a*a
     !
   end if
   !
-  return_value(nec) = rho
-  return_value(nmx) = u
-  return_value(nmy) = v
-  return_value(nmz) = w
-  return_value(nee) = pres
+  q2 = vx*vx + vy*vy + vz*vz
   !
-  return_value(:) = vsp2u_sp( return_value(:) )
+  return_value(nec) = rho
+  return_value(nmx) = rho*vx
+  return_value(nmy) = rho*vy
+  return_value(nmz) = rho*vz
+  return_value(nee) = pres/(gam-one) + half*rho*q2
   !
 end function initialize_cylinder
 !
@@ -1142,14 +1072,16 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (.not. allocated(dusp)) return
-  !
-  if (nr == 3 .and. ncs == 0) then
-    call initialize_dusp_3d
-  else if (nr == 2 .and. ncs == 0) then
-    call initialize_dusp_2d
-  else
-    call initialize_dusp_nd
+  if (allocated(dusp)) then
+    !
+    if (nr == 3 .and. ncs == 0) then
+      call initialize_dusp_3d
+    else if (nr == 2 .and. ncs == 0) then
+      call initialize_dusp_2d
+    else
+      call initialize_dusp_nd
+    end if
+    !
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -1400,11 +1332,11 @@ subroutine initialize_dusp_nd()
   ! This routine computes the discontinuous gradient at each solution point
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,  only : nr,ncell,cell
-  use metrics_mod,  only : metrics_array
+  use order_mod,       only : maxSP
+  use geovar,          only : nr,ncell,cell
+  use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
-  use flowvar, only : usp,dusp
+  use flowvar,         only : usp,dusp
   !
   !.. Local Scalars ..
   integer  :: i,j,k,l,ll,m,n,nc,np,n0
@@ -1505,125 +1437,6 @@ continue
   end do
   !
 end subroutine initialize_dusp_nd
-!
-!###############################################################################
-!
-subroutine initialize_dusp_old()
-  !
-  ! This routine computes the discontinuous gradient at each solution point
-  !
-  !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,  only : nr,ncell,cell
-  use metrics_mod,  only : metrics_array
-  use derivatives_mod, only : deriv
-  use flowvar, only : usp,dusp
-  !
-  !.. Local Scalars ..
-  integer  :: i,j,k,l,ll,m,n,nc,np,n0
-  integer  :: this_geom,this_order
-  real(wp) :: a,val
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:nr) :: dudr
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "initialize_dusp_old"
-  !
- !logical(lk), parameter :: use_conservative_form = true
-  logical(lk), parameter :: use_conservative_form = fals
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  if (.not. allocated(dusp)) return
-  !
-  ! Loop over the cells and get the derivative of
-  ! the primitive variables at each solution point
-  !
-  do nc = 1,ncell
-    !
-    n0 = cell(nc)%beg_sp - 1
-    np = cell(nc)%end_sp - n0
-    !
-    this_geom = cell(nc)%geom
-    this_order = cell(nc)%order
-    !
-    ! Compute the gradient of the conservative variables at each solution point
-    !
-    do k = 1,np
-      !
-      n = n0+k ! total index of solution point on current partition
-      !
-      do m = 1,nq
-        !
-        if (use_conservative_form) then
-          !
-          do l = 1,nr
-            !
-            val = zero
-            do ll = 1,nr
-              do i = deriv(this_geom,this_order)%d(ll)%row_ptr(k)+1, &
-                     deriv(this_geom,this_order)%d(ll)%row_ptr(k+1)
-                !
-                j = deriv(this_geom,this_order)%d(ll)%row_idx(i)
-                a = deriv(this_geom,this_order)%d(ll)%row_val(i)
-                !
-                val = val + a*usp(n0+j,m)*metrics_array(n0+j,ll,l)
-                !
-              end do
-            end do
-            !
-            dusp(n,l,m) = val
-            !
-           !dudr(1) = deriv(this_geom,this_order)%d(1)% &
-           !          dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,1,l) )
-           !dudr(2) = deriv(this_geom,this_order)%d(2)% &
-           !          dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,2,l) )
-           !dudr(3) = deriv(this_geom,this_order)%d(3)% &
-           !          dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,3,l) )
-           !!
-           !dusp(n,l,m) = sum(dudr)!* jacobian(n)
-            !
-          end do
-          !
-        else
-          !
-          ! Compute the derivatives in r-s space
-          !
-          do l = 1,nr
-            val = zero
-            do i = deriv(this_geom,this_order)%d(l)%row_ptr(k)+1, &
-                   deriv(this_geom,this_order)%d(l)%row_ptr(k+1)
-              !
-              j = deriv(this_geom,this_order)%d(l)%row_idx(i)
-              a = deriv(this_geom,this_order)%d(l)%row_val(i)
-              !
-              val = val + a*usp(n0+j,m)
-              !
-            end do
-            dudr(l) = val
-          end do
-         !dudr(1:nr) = deriv(this_geom,this_order)%grad( k , tusp(1:np,m) )
-          !
-          ! Transform the derivatives back to x-y space
-          !
-          do l = 1,nr
-            dusp(n,l,m) = dot( dudr(1:nr) , metrics_array(n,1:nr,l) )
-          end do
-          !
-        end if
-        !
-      end do
-      !
-    end do
-    !
-  end do
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine initialize_dusp_old
 !
 !###############################################################################
 !
@@ -1819,24 +1632,25 @@ end subroutine get_face_and_edge_point_coordinates
 subroutine initialize_reference
   !
   !.. Use Statements ..
-  use ovar,   only : rhoref,aref,tref,gam
-  use ovar,   only : velref,velref_nd,uref
-  use ovar,   only : pref,pref_nd,tmin,tmax
-  use ovar,   only : rgasref,rgasref_nd
-  use ovar,   only : cpref,cpref_nd,reyref
-  use ovar,   only : cv_ref,pv_ref,machref
+  use ovar,   only : gam,tmin,tmax
+  use ovar,   only : rhoref,aref,tref,pref
+  use ovar,   only : machref,reyref
+  use ovar,   only : rgasref_nd,cpref_nd
+  use ovar,   only : cv_ref,pv_ref,gp_ref
   use ovar,   only : suth_Sref,suth_Tref
   use ovar,   only : alpha_aoaref,beta_aoaref
   use ovar,   only : itestcase,Lref
   use ovar,   only : ideal_total_temperature
   use ovar,   only : limit_total_temperature
   !
+  use thermo_mod,    only : init_thermo_mod
+  use transport_mod, only : init_transport_mod
+  !
   !.. Local Scalars ..
   integer  :: ierr
   real(wp) :: rhoa,rhoa2,tda2,q2
   real(wp) :: gam_over_gm1
   real(wp) :: gm1_over_gam
-  real(wp) :: total_cond
   real(wp) :: pres_check
   !
   !.. Local Parameters ..
@@ -1846,132 +1660,8 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  ! Set up the base reference conditions
-  !
-  if (any(itestcase == Advec_Problems) .or. &
-      abs(itestcase) == Shu_Vortex .or. &
-      itestcase == -Vortex_Transport) then
-    !
-    ! Set up the base reference conditions for different
-    ! versions of the isentropic Euler vortex problem
-    !
-    ! Set some reference conditions common to all of these vortex problems
-    !
-    beta_aoaref = zero
-    velref(:) = zero
-    !
-    if (itestcase == -Shu_Vortex) then
-      !
-      ! Stationary vortex problem
-      !
-      alpha_aoaref = 90.0_wp
-      itestcase = abs(itestcase)
-      !
-    else if (itestcase == -Vortex_Transport) then
-      !
-      ! Alteration to make the Shu case propagate in the
-      ! y-direction only instead of in both x and y directions
-      !
-      alpha_aoaref = 90.0_wp
-      velref(2) = one
-      itestcase = Shu_Vortex
-      !
-    else
-      !
-      ! Original Shu vortex problem with diagonal propagation
-      !
-      alpha_aoaref = 45.0_wp
-      velref(1) = one
-      velref(2) = one
-      !
-    end if
-    !
-    machref = one/sqrt(gam)
-    aref = one
-    uref = one
-    rhoref = one
-    pref = one
-    tref = one
-    rgasref = one
-    !
-  else if (itestcase == Taylor_Green_Vortex) then
-    !
-    ! If Lref is negative, the grid was not created on the fly and
-    ! we need to add code to compute Lref and make sure the input
-    ! grid is valid for the Taylor-Green vortex problem
-    !
-    if (Lref <= zero) then
-      write (error_message,101)
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-    end if
-    !
-    ! Set up the base reference conditions for the Taylor-Green Vortex problem
-    !
-    alpha_aoaref = zero
-    beta_aoaref = zero
-    !
-    gam = 1.4_wp
-    tref = 300.0_wp ! (K)
-    pref = 101325.0_wp ! (Pa)
-    ! ( universal gas constant / molecular weight of air )
-    rgasref = 8314.34_wp / 28.9651159_wp ! (J)/(kg*K)
-    rhoref = pref / rgasref / tref ! (kg/m^3) ~ 1.17663794
-    !
-    aref = sqrt( gam*pref/rhoref ) ! (m/s) ~ 347.2169357
-    machref = 0.1_wp
-    uref = aref * machref ! (m/s) ~ 34.72169357
-    velref(1) = uref
-    velref(2) = zero
-    velref(3) = zero
-    !
-    if (reyref <= zero) then
-      reyref = 1600.0_wp
-    end if
-    !
-    suth_Sref = 110.5556_wp
-    suth_Tref = 273.111_wp
-    !
-  else
-    !
-    ! Set up the base reference conditions based
-    ! on the input flow reference conditions
-    !
-    ! Check the reference conditions for consistency
-    !
-    if (rhoref < zero) then
-      rhoref = pref/(rgasref*tref)
-    else if (pref < zero) then
-      pref = rhoref*rgasref*tref
-    else if (tref < zero) then
-      tref = pref/(rgasref*rhoref)
-    else
-      pres_check = rhoref*rgasref*tref
-      if (abs(pres_check-pref) > eps6) then
-       !write (iout,102) pref,pres_check
-        write (error_message,102) pref,pres_check
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-      end if
-    end if
-    !
-    ! Compute some of the remaining reference conditions
-    !
-    aref = sqrt( gam * pref / rhoref )
-    uref = machref * aref
-    velref(1) = uref * cos(beta_aoaref  * degrees2radians) * &
-                       cos(alpha_aoaref * degrees2radians)
-    velref(2) = uref * cos(beta_aoaref  * degrees2radians) * &
-                       sin(alpha_aoaref * degrees2radians)
-    velref(3) = uref * sin(beta_aoaref  * degrees2radians)
-    !
-  end if
-  !
-  ! Pre-compute some reference constants that will be used
-  !
-  rhoa = rhoref * aref
-  rhoa2 = rhoa * aref
-  tda2 = tref / aref / aref
-  gam_over_gm1 = gam / (gam-one)
-  gm1_over_gam = one / gam_over_gm1
+  tmin = 10.0_wp
+  tmax = 15000.0_wp
   !
   ! Allocate the free stream inflow arrays
   !
@@ -1981,58 +1671,80 @@ continue
   allocate ( pv_ref(1:nq) , source=zero , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"pv_ref",1,__LINE__,__FILE__,ierr, &
                    error_message,skip_alloc_pause)
+  allocate ( gp_ref(1:ng) , source=zero , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"gp_ref",1,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
   !
-  ! Initialize the inflow boundary conditions to the reference conditions
-  ! NOTE: This is hard-wired for 2D and needs to be generalized for 3D
+  ! Set up the base reference conditions
   !
-  pv_ref(nec) = rhoref
-  pv_ref(nmb:nme) = velref
-  pv_ref(nee) = pref
-  !
-  q2 = dot_product( pv_ref(nmb:nme) , pv_ref(nmb:nme) )
-  !
-  cv_ref(nec) = pv_ref(nec)
-  cv_ref(nmb:nme) = pv_ref(nec) * pv_ref(nmb:nme)
-  cv_ref(nee) = pv_ref(nee)/(gam-one) + half*pv_ref(nec)*q2
-  !
-  ! Nondimensional reference velocities
-  velref_nd = velref / aref
-  !
-  ! Nondimensional reference pressure
-  pref_nd = pref / rhoa2
-  !
-  ! Nondimensional reference gas constant
-  rgasref_nd = rgasref * tda2
-  !
-  ! Dimensional reference specific heat at constant pressure
-  cpref    = rgasref * gam / (gam - one)
-  ! Nondimensional reference specific heat at constant pressure
-  cpref_nd = cpref * tda2
-  !
-  ! Finally, nondimensionalize the inflow boundary conditions
-  !
-  cv_ref(nec)     = cv_ref(nec) / rhoref
-  cv_ref(nmb:nme) = cv_ref(nmb:nme) / rhoa
-  cv_ref(nee)     = cv_ref(nee) / rhoa2
-  !
-  pv_ref(nec)     = pv_ref(nec) / rhoref
-  pv_ref(nmb:nme) = pv_ref(nmb:nme) / aref
-  pv_ref(nee)     = pv_ref(nee) / rhoa2
-  !
-  tmin = 10.0_wp
-  tmax = 15000.0_wp
+  if (any(itestcase == Advec_Problems) .or. &
+      abs(itestcase) == Shu_Vortex .or. &
+      itestcase == -Vortex_Transport) then
+    !
+    ! Set up the base reference conditions for different
+    ! versions of the isentropic Euler vortex problem
+    ! NOTE: This also sets the values of the following variables in ovar:
+    !             rgasref, gam, rhoref, pref, tref, cpref, aref,
+    !             uref, machref, velref, alpha_aoaref, beta_aoaref,
+    !             velref_nd, pref_nd, rgasref_nd, and cpref_nd
+    !
+    call initialize_vortex_problem(cv_ref,pv_ref,gp_ref)
+    !
+  else
+    !
+    if (itestcase == Taylor_Green_Vortex) then
+      !
+      ! If Lref is negative, the grid was not created on the fly and
+      ! we need to add code to compute Lref and make sure the input
+      ! grid is valid for the Taylor-Green vortex problem
+      !
+      if (Lref <= zero) then
+        write (error_message,101)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      end if
+      !
+      ! Set up the base reference conditions for the Taylor-Green Vortex problem
+      !
+      alpha_aoaref = zero
+      beta_aoaref = zero
+      !
+      tref = 300.0_wp ! (K)
+      pref = 101325.0_wp ! (Pa)
+      rhoref = -one
+      !
+      machref = 0.1_wp
+      !
+      if (reyref <= zero) then
+        reyref = 1600.0_wp
+      end if
+      !
+      suth_Sref = 110.5556_wp
+      suth_Tref = 273.111_wp
+      !
+    end if
+    !
+    ! Initialize the thermodynamic gas properties module and 
+    ! compute the reference conditions for the gas properties.
+    ! NOTE: This also sets the values of the following variables in ovar:
+    !          rgasref, gam, rhoref, pref, tref, cpref, aref, uref,
+    !          velref, velref_nd, pref_nd, rgasref_nd, and cpref_nd
+    !
+    call init_thermo_mod(cv_ref,pv_ref,gp_ref)
+    !
+  end if
   !
   if (ideal_total_temperature > zero) then
     ideal_total_temperature = ideal_total_temperature / tref
   end if
   !
-  ! Initialize the viscosity reference conditions
+  ! Initialize the transport module and compute
+  ! the transport reference conditions
   !
-  call initialize_viscosity
+  call init_transport_mod(cv_ref,gp_ref)
   !
   ! Initialize the turbulence reference conditions
   !
-  call initialize_turbulence
+  call initialize_turbulence(cv_ref,pv_ref,gp_ref)
   !
   !$ACC UPDATE DEVICE(aref,rhoref,tref,tmin,tmax, &
   !$ACC&              gam,rgasref_nd,cpref_nd, &
@@ -2048,69 +1760,110 @@ continue
      " generated on the fly and seems to be input from a grid file. Code", &
      " still needs to be added to compute Lref and make sure the input", &
      " grid is valid for the Taylor-Green vortex problem.")
-  102 format ( &
-     " Free-stream conditions in the input file are not consistent!",/, &
-     " Reference pressure given    : ",es14.6,/, &
-     " Reference pressure computed : ",es14.6,/, &
-     " Please correct the input file or set one of density, pressure,", &
-     " and temperature to a negative value so it is explicitly computed.")
   !
 end subroutine initialize_reference
 !
 !###############################################################################
 !
-subroutine initialize_viscosity
+subroutine initialize_vortex_problem(cv,pv,gp)
   !
   !.. Use Statements ..
-  use ovar, only : muref, muref_nd, reyref
-  use ovar, only : pv_ref, rhoref, aref, machref, tref
-  use ovar, only : suth_muref, suth_c1
-  use ovar, only : suth_Tref, suth_Sref
+  use ovar, only : rhoref,aref,tref,gam
+  use ovar, only : velref,velref_nd,uref
+  use ovar, only : pref,pref_nd,machref
+  use ovar, only : rgasref,rgasref_nd
+  use ovar, only : cpref,cpref_nd
+  use ovar, only : alpha_aoaref,beta_aoaref
+  use ovar, only : itestcase
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: cv(:)
+  real(wp), intent(inout) :: pv(:)
+  real(wp), intent(inout) :: gp(:)
   !
   !.. Local Scalars ..
-  real(wp) :: muref_scale,tref_scale
+  real(wp) :: q2
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "initialize_viscosity"
+  character(len=*), parameter :: pname = "initialize_vortex_problem"
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+  ! Set up the base reference conditions for different
+  ! versions of the isentropic Euler vortex problem
   !
-  muref_scale = (one + suth_Sref/suth_Tref) / sqrt(suth_Tref)
+  ! Set some reference conditions common to all of these vortex problems
   !
-  if (reyref <= zero) then
+  beta_aoaref = zero
+  velref(:) = zero
+  !
+  if (itestcase == -Shu_Vortex) then
     !
-    suth_c1 = suth_muref * muref_scale
+    ! Stationary vortex problem
     !
-    muref_nd = viscosity_pv_sp(pv_ref)
-    muref    = muref_nd * rhoref * aref
+    alpha_aoaref = 90.0_wp
+    itestcase = abs(itestcase)
     !
-    reyref = rhoref * machref * aref * reciprocal( muref )
+  else if (itestcase == -Vortex_Transport) then
+    !
+    ! Alteration to make the Shu case propagate in the
+    ! y-direction only instead of in both x and y directions
+    !
+    alpha_aoaref = 90.0_wp
+    velref(2) = one
+    itestcase = Shu_Vortex
     !
   else
     !
-    muref = rhoref * machref * aref / reyref
+    ! Original Shu vortex problem with diagonal propagation
     !
-    muref_nd = muref / (rhoref * aref)
-    !
-    tref_scale = tref * sqrt(tref) / (tref + suth_Sref)
-    !
-    suth_muref = muref / muref_scale / tref_scale
-    !
-    suth_c1 = suth_muref * muref_scale
+    alpha_aoaref = 45.0_wp
+    velref(1) = one
+    velref(2) = one
     !
   end if
   !
-  !$ACC UPDATE DEVICE(suth_Tref,suth_Sref,suth_muref,suth_c1)
+  gam = 1.4_wp
+  machref = one/sqrt(gam)
+  aref = one
+  uref = one
+  rhoref = one
+  pref = one
+  tref = one
+  rgasref = one
   !
-  call debug_timer(leaving_procedure,pname)
+  pv(nec)     = rhoref / rhoref
+  pv(nmb:nme) = velref / aref
+  pv(nee)     = pref   / (rhoref*aref*aref)
   !
-end subroutine initialize_viscosity
+  q2 = dot_product( pv(nmb:nme) , pv(nmb:nme) )
+  !
+  cv(nec)     = pv(nec)
+  cv(nmb:nme) = pv(nec)*pv(nmb:nme)
+  cv(nee)     = pv(nee)/(gam-one) + half*pv(nec)*q2
+  !
+  gp(npres) = pv(nee)
+  gp(ntemp) = tref / tref
+  !
+  ! Nondimensional reference velocities
+  velref_nd = velref / aref
+  !
+  ! Nondimensional reference pressure
+  pref_nd = pref / (rhoref*aref*aref)
+  !
+  ! Nondimensional reference gas constant
+  rgasref_nd = rgasref * tref / (aref*aref)
+  !
+  ! Dimensional reference specific heat at constant pressure
+  cpref = rgasref * gam / (gam - one)
+  ! Nondimensional reference specific heat at constant pressure
+  cpref_nd = cpref * tref / (aref*aref)
+  !
+end subroutine initialize_vortex_problem
 !
 !###############################################################################
 !
-subroutine initialize_turbulence()
+subroutine initialize_turbulence(cv,pv,gp)
   !
   !.. Use Statements ..
   use ovar, only : tkeref, tkeref_nd
@@ -2118,10 +1871,19 @@ subroutine initialize_turbulence()
   use ovar, only : tvrref, tinref
   use ovar, only : rhoref, muref
   use ovar, only : aref, machref
-  use ovar, only : cv_ref, pv_ref
   use ovar, only : turbulence_model
   use ovar, only : turb_is_on
   use ovar, only : include_tke_in_energy
+  !
+  use thermo_mod, only : update_thermo_properties
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: cv(:)
+  real(wp), intent(inout) :: pv(:)
+  real(wp), intent(inout) :: gp(:)
+  !
+  !.. Local Scalars ..
+  integer :: m
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_turbulence"
@@ -2156,16 +1918,45 @@ continue
     !
     ! Set the turbulence conserved variables inflow conditions
     !
-    cv_ref(ntk) = cv_ref(nec) * tkeref_nd
-    cv_ref(ntl) = cv_ref(nec) * tlsref_nd
+    cv(ntk) = cv(nec) * tkeref_nd
+    cv(ntl) = cv(nec) * tlsref_nd
     !
     ! Add the tke contribution to the energy equation
     !
-    cv_ref(nee) = cv_ref(nee) + cv_ref(ntk)
+    cv(nee) = cv(nee) + cv(ntk)
+    !
+    gp(:) = zero ! initialize all of gp to zero
+    !
+    ! Create the gas properties array from the conserved variables
+    ! NOTE: Initialize the temperature location of the gas properties array
+    !       to nondimensional tref (i.e., tref_nd = tref/tref = 1). This is
+    !       needed if using a thermally perfect gas mixture, because we need
+    !       an initial guess for temperature when using Newtons method to
+    !       solve for temperature.
+    !
+    gp(ntemp) = one ! tref/tref
+    !
+    call update_thermo_properties(cv,gp)
     !
     ! Recompute the primitive variable inflow conditions
     !
-    pv_ref(1:nq) =  usp2v_sp( cv_ref(1:nq) )
+    if (ncs > 0) then
+      do m = 1,ncs
+        pv(m) = cv(m)/cv(nec)  ! Species continuity equations
+      end do
+    end if
+    !
+    pv(nec) = cv(nec)          ! Copy density from cv
+    !
+    do m = nmb,nme
+      pv(m) = cv(m)/cv(nec)    ! Momentum equations
+    end do
+    !
+    pv(nee) = gp(npres)        ! Copy pressure from gp array
+    !
+    do m = nee+1,nq
+      pv(m) = cv(m)/cv(nec)    ! Turbulence equations
+    end do
     !
   end if
   !
@@ -2184,11 +1975,16 @@ subroutine create_bc_in
   use ovar,   only : bc_input,bc_in,bc_names
   use ovar,   only : tmin,tmax,tref,pref,rgasref
   use ovar,   only : velref,rhoref,aref,gam
+  use ovar,   only : cv_ref,pv_ref,gp_ref
+  use ovar,   only : governing_equations
+  !
+  use thermo_mod, only : compute_mixture_rgas
+  use thermo_mod, only : compute_mixture_gamma
   !
   !.. Local Scalars ..
-  integer     :: i,ii,n,nf,nbc,ierr
-  real(wp)    :: r,p,t,r0,p0,t0,mach,aspd,visc,reyn
-  real(wp)    :: alpha,beta,rhoa2,total_cond
+  integer     :: i,ii,m,n,nf,nbc,ierr
+  real(wp)    :: r,p,t,r0,p0,t0,mach,aspd,visc,reyn,rgas,gamm
+  real(wp)    :: alpha,beta,total_cond
   real(wp)    :: gm1,gam_over_gm1,one_over_gm1
   logical(lk) :: static_is_set
   logical(lk) :: total_is_set
@@ -2199,8 +1995,10 @@ subroutine create_bc_in
   !
   !.. Local Arrays ..
   real(wp) :: vel(1:nr)
-  real(wp) :: pv(1:nq)
   real(wp) :: cv(1:nq)
+  real(wp) :: pv(1:nq)
+  real(wp) :: gp(1:ng)
+  real(wp) :: mass_frac(1:ncs)
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable :: bc_list(:)
@@ -2214,11 +2012,6 @@ continue
     return
   end if
   !
-  rhoa2 = rhoref * aref * aref
-  gm1 = gam - one
-  one_over_gm1 = one / gm1
-  gam_over_gm1 = gam*one_over_gm1
-  !
   ! Find any boundary conditions that were set in the
   ! input namelist file using the bc_input array
   !
@@ -2226,10 +2019,12 @@ continue
     !
     bc_input(n)%name = adjustl(bc_input(n)%name)
     !
-    if (len_trim(bc_input(n)%name) > 0) then
+   !if (len_trim(bc_input(n)%name) > 0) then
+    if ( bc_input(n)%is_not_default() ) then
       if (.not. allocated(bc_list)) then
-        allocate ( bc_list(1:1) , source=n , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"bc_list",1,__LINE__,__FILE__,ierr,error_message)
+        bc_list = [ n ] ! Using F2003 auto-reallocation
+       !allocate ( bc_list(1:1) , source=n , stat=ierr , errmsg=error_message )
+       !call alloc_error(pname,"bc_list",1,__LINE__,__FILE__,ierr,error_message)
       else
         bc_list = [ bc_list , n ] ! Using F2003 auto-reallocation
       end if
@@ -2245,14 +2040,9 @@ continue
   !
   ! Set the reference boundary conditions
   !
-  pv(nec) = rhoref / rhoref
-  pv(nmb:nme) = velref(:) / aref
-  pv(nee) = pref / rhoa2
-  !
-  cv(:) = vsp2u_sp(pv)
-  !
-  bc_in(0)%pv = pv(:) ! Using F2003 auto-reallocation
-  bc_in(0)%cv = cv(:) ! Using F2003 auto-reallocation
+  bc_in(0)%cv = cv_ref(:) ! Using F2003 auto-reallocation
+  bc_in(0)%pv = pv_ref(:) ! Using F2003 auto-reallocation
+  bc_in(0)%gp = gp_ref(:) ! Using F2003 auto-reallocation
   !
   ! Set the other boundary conditions
   !
@@ -2266,6 +2056,11 @@ continue
     !
     if ( bc_input(n)%has_default_flow_conditions() ) then
       !
+      ! This boundary condition has all the default flow conditions
+      ! but it contains a non-zero-length name or specified BC type.
+      ! Set the flow conditions for this boundary to the reference
+      ! flow conditions.
+      !
       if (mypnum == glb_root) then
         write (iout,2) i,trim(adjustl(bc_input(n)%name)), &
           trim(adjustl(bc_integer_to_string(bc_input(n)%set_bc_value)))
@@ -2273,8 +2068,9 @@ continue
       !
       ! Set the boundary conditions for this BC to the reference conditions
       !
-      bc_in(i)%pv = bc_in(0)%pv(:) ! Using F2003 auto-reallocation
       bc_in(i)%cv = bc_in(0)%cv(:) ! Using F2003 auto-reallocation
+      bc_in(i)%pv = bc_in(0)%pv(:) ! Using F2003 auto-reallocation
+      bc_in(i)%gp = bc_in(0)%gp(:) ! Using F2003 auto-reallocation
       !
     else
       !
@@ -2293,10 +2089,23 @@ continue
       bc_in(i)%relax%time = max(bc_input(n)%relax%time,zero)
       bc_in(i)%relax%iter = max(bc_input(n)%relax%iter,0)
       !
+      ! Set the flow conditions for this BC depending on whether
+      ! or not a wall temperature has been specified for this BC.
+      !
       if ( (bc_input(n)%wall_temp >= tmin) .and. &
            (bc_input(n)%wall_temp <= tmax) ) then
         !
+        ! A wall temperature has been specified for this BC
+        ! NOTE: The only values likely to be used for an isothermal wall
+        !       boundary condition are:
+        !              bc_in(i)%wall_temperature
+        !              bc_in(i)%pv(nmb:nme)
+        !       All other quantities will come from the interior.
+        !
         bc_in(i)%wall_temperature = bc_input(n)%wall_temp/tref
+        !
+        ! Copy the velocity for this BC into the temporary array vel(:)
+        ! and nondimensionalize the temporary array.
         !
         if (size(vel) == 1) then
           vel(:) = [ bc_input(n)%vx ]
@@ -2305,17 +2114,44 @@ continue
         else if (size(vel) == 3) then
           vel(:) = [ bc_input(n)%vx , bc_input(n)%vy , bc_input(n)%vz ]
         end if
+        vel(:) = vel(:) / aref
         !
-        pv(nec) = bc_in(0)%pv(nec)
-        pv(nmb:nme) = vel(1:nr) / aref
-        pv(nee) = bc_in(0)%pv(nee)
+        ! Compute the flow conditions for this BC using the reference static
+        ! density, the reference static pressure, the specified BC velocity,
+        ! and the specified BC wall temperature.
         !
-        cv(:) = vsp2u_sp(pv)
+        r = bc_in(0)%pv(nec)
+        p = bc_in(0)%gp(npres)
         !
-        bc_in(i)%pv = pv(:) ! USING F2003 AUTO-REALLOCATION
+        if (ncs > 0) then
+          do m = 1,ncs
+            pv(m) = bc_in(0)%pv(m)
+          end do
+        end if
+        !
+        pv(nec) = r
+        pv(nmb:nme) = vel(1:nr)
+        pv(nee) = p
+        !
+        gp(npres) = p
+        gp(ntemp) = bc_in(i)%wall_temperature
+        !
+        call compute_flow_conditions_from_pvt(cv,pv,gp)
+        !
         bc_in(i)%cv = cv(:) ! USING F2003 AUTO-REALLOCATION
+        bc_in(i)%pv = pv(:) ! USING F2003 AUTO-REALLOCATION
+        bc_in(i)%gp = gp(:) ! USING F2003 AUTO-REALLOCATION
         !
       else
+        !
+        if (ncs > 0) then
+          mass_frac(1:ncs) = bc_input(n)%mass_frac(1:ncs)
+          call compute_mixture_rgas(mass_frac,rgas,dimensional=true)
+          gamm = -one
+        else
+          gamm = gam
+          rgas = rgasref
+        end if
         !
         r = bc_input(n)%rho_static
         p = bc_input(n)%p_static
@@ -2339,67 +2175,135 @@ continue
         !
         iterate_bc_conditions: do ii = 1,5
           !
+          ! The Mach number has been set if:   0 < mach < 25
           mach_is_set = ( abs(mach) < five*five .and. mach > zero )
+          ! The velocity has been set if:   |vel| > 0
           vel_is_set  = ( norm2(vel) > zero )
           !
-          call igl(r,p,t,static_is_set,n)
-         !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+          call igl(rgas,r,p,t,static_is_set,n)
+         !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+         !                        vel,mach,alpha,beta, &
          !                        static_is_set,total_is_set, &
          !                        vel_is_set,mach_is_set,"igl(r,p,t)")
-          call igl(r0,p0,t0,total_is_set,n)
-         !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+          !
+          if (gamm <= zero) then
+            if (t > tmin) then
+              call compute_mixture_gamma(mass_frac,t,gamm,dimensional=true)
+            end if
+          end if
+          !
+          call igl(rgas,r0,p0,t0,total_is_set,n)
+         !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+         !                        vel,mach,alpha,beta, &
          !                        static_is_set,total_is_set, &
          !                        vel_is_set,mach_is_set,"igl(r0,p0,t0)")
           !
-          call mach_total_pres(p,p0,mach,mach_is_set,n)
-         !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-         !                        static_is_set,total_is_set, &
-         !                        vel_is_set,mach_is_set,"mach_total_pres")
-          call mach_total_temp(t,t0,mach,mach_is_set,n)
-         !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-         !                        static_is_set,total_is_set, &
-         !                        vel_is_set,mach_is_set,"mach_total_temp")
-          call mach_total_dens(r,r0,mach,mach_is_set,n)
-         !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-         !                        static_is_set,total_is_set, &
-         !                        vel_is_set,mach_is_set,"mach_total_dens")
+          if (gamm > zero) then
+            !
+            call mach_total_pres(gamm,p,p0,mach,mach_is_set,n)
+           !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+           !                        vel,mach,alpha,beta, &
+           !                        static_is_set,total_is_set, &
+           !                        vel_is_set,mach_is_set,"mach_total_pres")
+            !
+            call mach_total_temp(gamm,t,t0,mach,mach_is_set,n)
+           !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+           !                        vel,mach,alpha,beta, &
+           !                        static_is_set,total_is_set, &
+           !                        vel_is_set,mach_is_set,"mach_total_temp")
+            !
+            call mach_total_dens(gamm,r,r0,mach,mach_is_set,n)
+           !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+           !                        vel,mach,alpha,beta, &
+           !                        static_is_set,total_is_set, &
+           !                        vel_is_set,mach_is_set,"mach_total_dens")
+            !
+          else if (t0 > zero .and. mach_is_set) then
+            !
+            call mach_total_temp_tpg(mass_frac,rgas,gamm,t,t0,mach)
+            !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+            !                        vel,mach,alpha,beta, &
+            !                        static_is_set,total_is_set, &
+            !                        vel_is_set,mach_is_set, &
+            !                        "mach_total_temp_tpg")
+            !
+          end if
           !
-          call vel_from_static(r,p,t,vel,mach,alpha,beta,vel_is_set,mach_is_set)
-         !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+          if (gamm <= zero) then
+            if (t > tmin) then
+              call compute_mixture_gamma(mass_frac,t,gamm,dimensional=true)
+            end if
+          end if
+          !
+          call vel_from_static(gamm,rgas,r,p,t,vel,mach,alpha,beta, &
+                               vel_is_set,mach_is_set)
+         !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+         !                        vel,mach,alpha,beta, &
          !                        static_is_set,total_is_set, &
          !                        vel_is_set,mach_is_set,"vel_from_static")
+          !
+          if (gamm <= zero) then
+            if (t > tmin) then
+              call compute_mixture_gamma(mass_frac,t,gamm,dimensional=true)
+            end if
+          end if
           !
           if (static_is_set .and. vel_is_set) exit iterate_bc_conditions
           !
           if (ii == 5) then
             write (error_message,1) n
+            call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+                                    vel,mach,alpha,beta, &
+                                    static_is_set,total_is_set, &
+                                    vel_is_set,mach_is_set, &
+                                    "Reached max BC iterations!")
             call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           end if
           !
         end do iterate_bc_conditions
         !
+        if (ncs > 0) then
+          do m = 1,ncs
+            pv(m) = mass_frac(m)
+          end do
+        end if
+        !
         pv(nec) = r
         pv(nmb:nme) = vel
         pv(nee) = p
         !
-        call check_bc_input(bc_input(n),pv,n)
+        gp(npres) = p
+        gp(ntemp) = t
+        !
+        call compute_flow_conditions_from_pvt(cv,pv,gp,dimensional=true)
+        !
+        call check_bc_input(bc_input(n),pv,gp,n)
         !
         pv(nec) = pv(nec) / rhoref
         pv(nmb:nme) = pv(nmb:nme) / aref
-        pv(nee) = pv(nee) / rhoa2
+        pv(nee) = pv(nee) / (rhoref*aref*aref)
         !
-        cv(:) = vsp2u_sp(pv)
+        gp(npres) = gp(npres) / (rhoref*aref*aref)
+        gp(ntemp) = gp(ntemp) / tref
         !
-        bc_in(i)%pv = pv(:) ! Using F2003 auto-reallocation
+        call compute_flow_conditions_from_pvt(cv,pv,gp)
+        !
         bc_in(i)%cv = cv(:) ! Using F2003 auto-reallocation
+        bc_in(i)%pv = pv(:) ! Using F2003 auto-reallocation
+        bc_in(i)%gp = gp(:) ! Using F2003 auto-reallocation
         !
         if (mypnum == glb_root) then
           !
-          r = bc_in(i)%pv(nec)*rhoref
-          p = bc_in(i)%pv(nee)*rhoa2
-          t = temperature_pv_sp(bc_in(i)%pv)*tref
+          r = bc_in(i)%cv(nec) * rhoref
+          p = bc_in(i)%gp(npres) * rhoref*aref*aref
+          t = bc_in(i)%gp(ntemp) * tref
+          gamm = bc_in(i)%gp(ngamm)
           !
-          aspd = sqrt(gam*rgasref*t)
+          gm1 = gamm - one
+          one_over_gm1 = one / gm1
+          gam_over_gm1 = gamm / gm1
+          !
+          aspd = sqrt(gamm*p/r)
           mach = aref*norm2(bc_in(i)%pv(nmb:nme)) / aspd
           !
           total_cond = one + half*gm1*mach*mach
@@ -2421,9 +2325,12 @@ continue
           alpha = alpha * radians2degrees
           beta = beta * radians2degrees
           !
-          visc = viscosity_pv_sp( [r,vel,p] )
-          !
-          reyn = norm2(vel)*r/visc
+          visc = zero
+          reyn = zero
+          if (governing_equations == NavierStokes_Eqns) then
+            visc = bc_in(i)%gp(nvisc) * rhoref*aref
+            reyn = norm2(vel)*r/visc
+          end if
           !
           write (iout,4) r,(bc_in(i)%pv(ii)*aref,ii=nmb,nme)
           write (iout,5) p,t,mach,aspd,r0,p0,t0,alpha,beta,visc,reyn
@@ -2508,27 +2415,23 @@ subroutine write_bc_conditions
   !.. Use Statements ..
   use geovar, only : nr,bface
   use ovar,   only : bc_input,bc_in
-  use ovar,   only : tmin,tmax,tref,rgasref
-  use ovar,   only : rhoref,aref,gam
+  use ovar,   only : tmin,tmax,tref
+  use ovar,   only : rhoref,aref
+  use ovar,   only : governing_equations
   !
   !.. Local Scalars ..
   integer     :: i,ii,nf,bc_type
-  real(wp)    :: r,p,t,r0,p0,t0,mach,aspd,visc,reyn
-  real(wp)    :: alpha,beta,rhoa2,total_cond
+  real(wp)    :: r,p,t,r0,p0,t0,mach,aspd,visc,reyn,gamm
+  real(wp)    :: alpha,beta,total_cond
   real(wp)    :: gm1,gam_over_gm1,one_over_gm1
   !
   !.. Local Arrays ..
   real(wp) :: vel(1:nr)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "create_bc_in"
+  character(len=*), parameter :: pname = "write_bc_conditions"
   !
 continue
-  !
-  rhoa2 = rhoref * aref * aref
-  gm1 = gam - one
-  one_over_gm1 = one / gm1
-  gam_over_gm1 = gam*one_over_gm1
   !
   ! Output all the boundary conditions
   !
@@ -2558,20 +2461,25 @@ continue
       if ( (bc_in(i)%wall_temperature*tref >= tmin) .and. &
            (bc_in(i)%wall_temperature*tref <= tmax) ) then
         !
-        vel(1:nr) = bc_in(i)%pv(nmb:nme)*aref
+        vel(1:nr) = bc_in(i)%pv(nmb:nme) * aref
         !
-        write (iout,3) bc_in(i)%wall_temperature*tref, &
+        write (iout,3) bc_in(i)%wall_temperature * tref, &
                        (vel(ii),ii=1,nr)
         !
       else
         !
-        r = bc_in(i)%pv(nec)*rhoref
-        p = bc_in(i)%pv(nee)*rhoa2
-        t = temperature_pv_sp(bc_in(i)%pv)*tref
+        r = bc_in(i)%cv(nec) * rhoref
+        p = bc_in(i)%gp(npres) * rhoref*aref*aref
+        t = bc_in(i)%gp(ntemp) * tref
+        gamm = bc_in(i)%gp(ngamm)
         !
-        vel(1:nr) = bc_in(i)%pv(nmb:nme)*aref
+        gm1 = gamm - one
+        one_over_gm1 = one / gm1
+        gam_over_gm1 = gamm / gm1
         !
-        aspd = sqrt(gam*rgasref*t)
+        vel(1:nr) = bc_in(i)%pv(nmb:nme) * aref
+        !
+        aspd = sqrt(gamm*p/r)
         mach = aref*norm2(bc_in(i)%pv(nmb:nme)) / aspd
         !
         total_cond = one + half*gm1*mach*mach
@@ -2591,9 +2499,12 @@ continue
         alpha = alpha * radians2degrees
         beta = beta * radians2degrees
         !
-        visc = viscosity_pv_sp( [r,vel,p] )
-        !
-        reyn = norm2(vel)*r/visc
+        visc = zero
+        reyn = zero
+        if (governing_equations == NavierStokes_Eqns) then
+          visc = bc_in(i)%gp(nvisc) * rhoref*aref
+          reyn = norm2(vel)*r/visc
+        end if
         !
         write (iout,4) r,(vel(ii),ii=1,nr)
         write (iout,5) p,t,mach,aspd,r0,p0,t0,alpha,beta,visc,reyn
@@ -2660,16 +2571,13 @@ end subroutine write_bc_conditions
 !
 !###############################################################################
 !
-subroutine dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+subroutine dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
                               static_is_set,total_is_set, &
                               vel_is_set,mach_is_set,string)
   !
-  !.. Use Statements ..
-  use ovar, only : gam
-  !
   !.. Formal Arguments ..
   integer,          intent(in) :: ii
-  real(wp),         intent(in) :: r,r0,p,p0,t,t0
+  real(wp),         intent(in) :: gamm,rgas,r,r0,p,p0,t,t0
   real(wp),         intent(in) :: mach,alpha,beta
   real(wp),         intent(in) :: vel(:)
   logical(lk),      intent(in) :: static_is_set,total_is_set
@@ -2684,9 +2592,9 @@ continue
   if (mypnum /= glb_root) return
   !
   write (iout,1) trim(adjustl(string)),ii, &
-                 r,p,t,static_is_set, &
+                 rgas,r,p,t,static_is_set, &
                  r0,p0,t0,total_is_set, &
-                 sqrt(merge(gam*p/r,zero,gam*p/r>zero)), &
+                 sqrt(merge(gamm*p/r,zero,gamm*p/r>zero)), &
                  mach,mach_is_set
   write (iout,2) (vel(i),i=1,size(vel))
   write (iout,3) alpha,beta,vel_is_set
@@ -2697,6 +2605,7 @@ continue
   1 format (/, &
             3x,"Dumping variables at location '",a, &
                "' for BC iteration # ",i0,/, &
+            5x,"Gas Constant          = ",es14.6,/, &
             5x,"Static Density        = ",es14.6,/, &
             5x,"Static Pressure       = ",es14.6,/, &
             5x,"Static Temperature    = ",es14.6,/, &
@@ -2719,21 +2628,21 @@ end subroutine dump_bc_conditions
 !
 !###############################################################################
 !
-subroutine check_bc_input(bc,pv,n)
+subroutine check_bc_input(bc,pv,gp,n)
   !
   !.. Use Statements ..
   use geovar, only : nr
-  use ovar,   only : rgasref,gam
   use ovar,   only : bc_input_t
   !
   !.. Formal Arguments ..
   type(bc_input_t), intent(in) :: bc
   real(wp),         intent(in) :: pv(:)
+  real(wp),         intent(in) :: gp(:)
   integer,          intent(in) :: n
   !
   !.. Local Scalars ..
   real(wp)    :: r,p,t,r0,p0,t0,vmag,bc_vel,mach,a,alpha,beta
-  real(wp)    :: gm1,one_over_gm1,gam_over_gm1,err_tol
+  real(wp)    :: gamm,gm1,one_over_gm1,gam_over_gm1,err_tol
   real(wp)    :: total_cond
   logical(lk) :: errors_found
   !
@@ -2748,17 +2657,21 @@ continue
   errors_found = fals
   err_tol = eps6
   !
-  gm1 = gam - one
-  one_over_gm1 = one / gm1
-  gam_over_gm1 = gam / gm1
   !
   r = pv(nec)
   vel(:) = pv(nmb:nme)
   vmag = norm2(vel)
-  p = pv(nee)
-  t = p / (rgasref*r)
-  a = sqrt(gam*rgasref*t)
+  !
+  p = gp(npres)
+  t = gp(ntemp)
+  gamm = gp(ngamm)
+  !
+  a = sqrt(gamm*p/r)
   mach = vmag/a
+  !
+  gm1 = gamm - one
+  one_over_gm1 = one / gm1
+  gam_over_gm1 = gamm / gm1
   !
   total_cond = one + half*gm1*mach*mach
   r0 = r * (total_cond**one_over_gm1)
@@ -2956,13 +2869,11 @@ end subroutine check_bc_input
 !
 !###############################################################################
 !
-subroutine vel_from_static(r,p,t,vel,mach,alpha,beta,vel_is_set,mach_is_set)
-  !
-  !.. Use Statements ..
-  use ovar, only : rgasref,gam
+subroutine vel_from_static(gamm,rgas,r,p,t,vel,mach,alpha,beta, &
+                           vel_is_set,mach_is_set)
   !
   !.. Formal Arguments ..
-  real(wp),       intent(in) :: r,p,t
+  real(wp),       intent(in) :: gamm,rgas,r,p,t
   real(wp),    intent(inout) :: vel(:)
   real(wp),    intent(inout) :: mach
   real(wp),    intent(inout) :: alpha
@@ -2979,10 +2890,10 @@ subroutine vel_from_static(r,p,t,vel,mach,alpha,beta,vel_is_set,mach_is_set)
 continue
   !
   aspd = -huge(zero)
-  if (t > zero) then
-    aspd = sqrt(gam*rgasref*t)
-  else if (r > zero .and. p > zero) then
-    aspd = sqrt(gam*p/r)
+  if (t > zero .and. gamm > zero) then
+    aspd = sqrt(gamm*rgas*t)
+  else if (r > zero .and. p > zero .and. gamm > zero) then
+    aspd = sqrt(gamm*p/r)
   else if (vel_is_set .and. mach_is_set) then
     aspd = norm2(vel) / mach
   end if
@@ -3014,12 +2925,10 @@ end subroutine vel_from_static
 !
 !###############################################################################
 !
-subroutine mach_total_temp(t,t0,mach,mach_is_set,n)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam
+subroutine mach_total_temp(gamm,t,t0,mach,mach_is_set,n)
   !
   !.. Formal Arguments ..
+  real(wp),       intent(in) :: gamm
   real(wp),    intent(inout) :: t,t0
   real(wp),    intent(inout) :: mach
   logical(lk), intent(inout) :: mach_is_set
@@ -3035,7 +2944,7 @@ subroutine mach_total_temp(t,t0,mach,mach_is_set,n)
   !
 continue
   !
-  gm1 = gam - one
+  gm1 = gamm - one
   !
   if (t > zero .and. t0 > zero) then
     !
@@ -3080,12 +2989,83 @@ end subroutine mach_total_temp
 !
 !###############################################################################
 !
-subroutine mach_total_pres(p,p0,mach,mach_is_set,n)
+subroutine mach_total_temp_tpg(mass_frac,rgas,gamm,t,t0,mach)
   !
   !.. Use Statements ..
-  use ovar, only : gam
+  use ovar, only : tmin,tmax
+  !
+  use thermo_mod, only : compute_mixture_enthalpy
+  use thermo_mod, only : compute_mixture_cp
+  use thermo_mod, only : compute_mixture_gamma
   !
   !.. Formal Arguments ..
+  real(wp),    intent(in) :: mass_frac(:)
+  real(wp),    intent(in) :: rgas,t0,mach
+  real(wp), intent(inout) :: gamm
+  real(wp), intent(inout) :: t
+  !
+  !.. Local Scalars ..
+  integer  :: k
+  real(wp) :: h0,h,cp
+  real(wp) :: func,dfunc,dtemp,dterr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "mach_total_temp_tpg"
+  !
+  integer,  parameter :: newton_iter = 100
+  real(wp), parameter :: conv_temp = eps6
+  !
+continue
+  !
+  ! Compute total enthalpy
+  !
+  call compute_mixture_enthalpy(mass_frac,t0,h0,dimensional=true)
+  !
+  ! Use the total temperature to get an initial guess for gamma
+  !
+  call compute_mixture_gamma(mass_frac,t0,gamm,dimensional=true)
+  !
+  t = t0 / (one + half*(gamm-one)*mach*mach)
+  !
+  ! Compute the static temperature using Newtons method
+  !
+  newton_iteration: &
+  do k = 1,newton_iter
+    !
+    call compute_mixture_enthalpy(mass_frac,t,h,dimensional=true)
+    !
+    call compute_mixture_cp(mass_frac,t,cp,dimensional=true)
+    !
+    gamm = rgas
+    call compute_mixture_gamma(cp,gamm)
+    !
+    func = h0 - h - half*gamm*rgas*t*mach*mach
+    dfunc = cp + half*gamm*rgas*mach*mach
+    !
+    dtemp = func/dfunc
+    !
+    t = min( tmax , max( t-dtemp , tmin ) )
+    !
+    dterr = abs(dtemp) / t
+    !
+    if (dterr < conv_temp) then
+      exit newton_iteration
+    end if
+    !
+  end do newton_iteration
+  !
+  ! Update the mixture gamma using the final temperature
+  !
+  call compute_mixture_gamma(mass_frac,t,gamm,dimensional=true)
+  !
+end subroutine mach_total_temp_tpg
+!
+!###############################################################################
+!
+subroutine mach_total_pres(gamm,p,p0,mach,mach_is_set,n)
+  !
+  !.. Formal Arguments ..
+  real(wp),       intent(in) :: gamm
   real(wp),    intent(inout) :: p,p0
   real(wp),    intent(inout) :: mach
   logical(lk), intent(inout) :: mach_is_set
@@ -3102,11 +3082,11 @@ subroutine mach_total_pres(p,p0,mach,mach_is_set,n)
   !
 continue
   !
-  gm1 = gam - one
+  gm1 = gamm - one
   !
   if (p > zero .and. p0 > zero) then
     !
-    gm1_over_gam = gm1 / gam
+    gm1_over_gam = gm1 / gamm
     two_over_gm1 = two / gm1
     !
     pratio = (p0/p)**gm1_over_gam
@@ -3126,7 +3106,7 @@ continue
   else
     !
     if (mach_is_set) then
-      gam_over_gm1 = gam / gm1
+      gam_over_gm1 = gamm / gm1
       total_cond = (one + half*gm1*mach*mach)**gam_over_gm1
       if (p > zero) then
         p0 = p * total_cond
@@ -3149,12 +3129,10 @@ end subroutine mach_total_pres
 !
 !###############################################################################
 !
-subroutine mach_total_dens(r,r0,mach,mach_is_set,n)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam
+subroutine mach_total_dens(gamm,r,r0,mach,mach_is_set,n)
   !
   !.. Formal Arguments ..
+  real(wp),       intent(in) :: gamm
   real(wp),    intent(inout) :: r,r0
   real(wp),    intent(inout) :: mach
   logical(lk), intent(inout) :: mach_is_set
@@ -3170,7 +3148,7 @@ subroutine mach_total_dens(r,r0,mach,mach_is_set,n)
   !
 continue
   !
-  gm1 = gam - one
+  gm1 = gamm - one
   !
   if (r > zero .and. r0 > zero) then
     !
@@ -3215,12 +3193,10 @@ end subroutine mach_total_dens
 !
 !###############################################################################
 !
-subroutine igl(rho,pres,temp,success,n)
-  !
-  !.. Use Statements ..
-  use ovar, only : rgasref
+subroutine igl(rgas,rho,pres,temp,success,n)
   !
   !.. Formal Arguments ..
+  real(wp),       intent(in) :: rgas
   real(wp),    intent(inout) :: rho
   real(wp),    intent(inout) :: pres
   real(wp),    intent(inout) :: temp
@@ -3241,7 +3217,7 @@ continue
     !
     if ( rho > zero .and. pres > zero .and. temp > zero ) then
       !
-      pres_check = rho * rgasref * temp
+      pres_check = rho * rgas * temp
       !
       if (abs(pres_check-pres) > eps6) then
         write (error_message,1) n,pres,pres_check
@@ -3249,11 +3225,11 @@ continue
       end if
       !
     else if ( rho < zero .and. pres > zero .and. temp > zero ) then
-      rho = pres / (rgasref * temp)
+      rho = pres / (rgas * temp)
     else if ( pres < zero .and. rho > zero .and. temp > zero ) then
-      pres = rho * rgasref * temp
+      pres = rho * rgas * temp
     else if ( temp < zero .and. rho > zero .and. pres > zero ) then
-      temp = pres / (rgasref * rho)
+      temp = pres / (rgas * rho)
     end if
     !
     success = true
@@ -3273,12 +3249,96 @@ end subroutine igl
 !
 !###############################################################################
 !
+subroutine compute_flow_conditions_from_pvt(cv,pv,gp,dimensional)
+  !
+  ! Given pressure, velocity, and temperature (and species mass fractions if
+  ! this is a thermally perfect gas mixture), compute the remaining flow
+  ! variables in the cv, pv, and gp arrays.
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,cpref,cpref_nd
+  use ovar, only : rgasref,rgasref_nd
+  !
+  use thermo_mod,    only : compute_mixture_rgas
+  use thermo_mod,    only : compute_mixture_gamma
+  use thermo_mod,    only : compute_mixture_enthalpy
+  use thermo_mod,    only : compute_mixture_cp
+  use transport_mod, only : update_transport_properties
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: cv(:)
+  real(wp), intent(inout) :: pv(:)
+  real(wp), intent(inout) :: gp(:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Local Scalars ..
+  integer  :: m
+  real(wp) :: rho,q2,pres,temp,enth,cp,rgas
+  !
+continue
+  !
+  pres = gp(npres)
+  temp = gp(ntemp)
+  !
+  q2 = dot_product( pv(nmb:nme) , pv(nmb:nme) )
+  !
+  if (ncs > 0) then
+    !
+    call compute_mixture_rgas(pv(1:ncs),rgas,dimensional)
+    !
+    rho = pres / (rgas*temp)
+    !
+    do m = 1,ncs
+      cv(m) = rho*pv(m)
+    end do
+    !
+    call compute_mixture_enthalpy(pv(1:ncs),temp,gp(nenth),dimensional)
+    call compute_mixture_cp(pv(1:ncs),temp,gp(ncp),dimensional)
+    !
+    gp(ngamm) = rgas
+    call compute_mixture_gamma(gp(ncp),gp(ngamm))
+    !
+    enth = gp(nenth)
+    !
+  else
+    !
+    rgas = rgasref_nd
+    cp = cpref_nd
+    !
+    if (present(dimensional)) then
+      if (dimensional) then
+        rgas = rgasref
+        cp = cpref
+      end if
+    end if
+    !
+    rho = pres / (rgas*temp)
+    !
+    enth = cp*temp
+    !
+  end if
+  !
+  cv(nec) = rho
+  cv(nmb:nme) = rho*pv(nmb:nme)
+  cv(nee) = rho*enth - pres + half*rho*q2
+  !
+  pv(nec) = rho
+  pv(nee) = pres
+  !
+  call update_transport_properties(cv,gp)
+  !
+  if (ncs == 0) then
+    gp(ngamm) = gam
+  end if
+  !
+end subroutine compute_flow_conditions_from_pvt
+!
+!###############################################################################
+!
 include "Functions/vortex.f90"
 include "Functions/taylor_green.f90"
-include "Functions/usp2v.f90"
-include "Functions/vsp2u.f90"
-include "Functions/viscosity.f90"
-include "Functions/temperature.f90"
 include "Functions/smc000_interior_wall_radius.f90"
 include "Functions/arn2_interior_wall_radius.f90"
 !
