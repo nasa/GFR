@@ -7572,7 +7572,7 @@ continue
     n = 0
     do l = 1,size(char_sname)
       !
-      call output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s(n), &
+      call output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
                            cgns_sol_file,char_sname(l),n, &
                            interp_usp,interp_gpsp,interp_dusp,vartmp,var)
       !
@@ -7645,7 +7645,7 @@ end subroutine write_parallel_cgns_solution_file
 !
 !###############################################################################
 !
-subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,ivar_s, &
+subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
                            cgns_sol_file,vname,nv, &
                            cv,gp,dcvdx,vartmp,var)
   !
@@ -7673,7 +7673,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,ivar_s, &
   integer(CBT),     intent(in) :: ibase_s
   integer(CBT),     intent(in) :: izone_s
   integer(CBT),     intent(in) :: isol_s
-  integer(CBT),     intent(in) :: ivar_s
+  integer(CBT),     intent(in) :: isvar_s(:)
   character(len=*), intent(in) :: cgns_sol_file
   character(len=*), intent(in) :: vname
   integer,       intent(inout) :: nv
@@ -7686,10 +7686,13 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,ivar_s, &
   !.. Local Scalars ..
   integer  :: i,j,l,m,n,nc,np,n0,npts,ierr
   integer  :: nmi,nmj,l_comp,l_phys
+  integer  :: this_order,limit_order
   real(wp) :: freestream_ref,rhoa,rhoa2,time_ref_inv
   real(wp) :: rho_inv,vx,vy,vz,a2,q2,s
   real(wp) :: gamm,gm1,gam_over_gm1,mach,pres,temp
   real(wp) :: mi,mj,drhodi,drhodj,dmjdi,dmidj
+  !
+  integer(CBT) :: ivar_s
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: vartmp_at_sp(:)
@@ -7756,6 +7759,7 @@ continue
     case ("Density") ! Density
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       if (itestcase == Freestream_Preservation) freestream_ref = rhoref
       !
@@ -7770,6 +7774,7 @@ continue
       do m = nmb,nme
         !
         nv = nv + 1
+        ivar_s = isvar_s(nv)
         !
         do n = 1,npts
           vartmp(n) = cv(n,m) * rhoa
@@ -7782,6 +7787,7 @@ continue
     case ("Energy") ! Energy
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       do n = 1,npts
         vartmp(n) = cv(n,nee) * rhoa2
@@ -7794,6 +7800,7 @@ continue
       do l = 1,nr
         !
         nv = nv + 1
+        ivar_s = isvar_s(nv)
         !
         do n = 1,npts
           vartmp(n) = dcvdx(n,l,nec) * rhoref
@@ -7809,6 +7816,7 @@ continue
         do l = 1,nr
           !
           nv = nv + 1
+          ivar_s = isvar_s(nv)
           !
           do n = 1,npts
             vartmp(n) = dcvdx(n,l,m) * rhoa
@@ -7824,6 +7832,7 @@ continue
       do l = 1,nr
         !
         nv = nv + 1
+        ivar_s = isvar_s(nv)
         !
         do n = 1,npts
           vartmp(n) = dcvdx(n,l,nee) * rhoa2
@@ -7838,6 +7847,7 @@ continue
       do m = nmb,nme
         !
         nv = nv + 1
+        ivar_s = isvar_s(nv)
         !
         if (itestcase == Freestream_Preservation) then
           freestream_ref = merge( aref*machref , zero , m==nmb )
@@ -7854,6 +7864,7 @@ continue
     case ("Pressure") ! Pressure
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       if (itestcase == Freestream_Preservation) freestream_ref = pref
       !
@@ -7866,6 +7877,7 @@ continue
     case ("P0") ! Total Pressure
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       ! NOTE: vartmp has been pre-loaded with the Mach number, and the auxiliary
       !       variable in gp has already been switched to gamma
@@ -7884,6 +7896,7 @@ continue
     case ("Mach") ! Mach number
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       ! NOTE: vartmp has been pre-loaded with the Mach number
       !
@@ -7898,6 +7911,7 @@ continue
     case ("Entropy") ! Entropy
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       if ( aux_var_is_not_gamma() ) then
         do n = 1,npts
@@ -7922,6 +7936,7 @@ continue
     case ("Temperature") ! Temperature
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       if (itestcase == Freestream_Preservation) freestream_ref = tref
       !
@@ -7934,6 +7949,7 @@ continue
     case ("T0") ! Total Temperature
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       ! NOTE: vartmp has been pre-loaded with the Mach number, and the auxiliary
       !       variable in gp has already been switched to gamma
@@ -7952,6 +7968,7 @@ continue
       if (governing_equations == NavierStokes_Eqns) then
         !
         nv = nv + 1
+        ivar_s = isvar_s(nv)
         !
         do n = 1,npts
           vartmp(n) = gp(n,nvisc) * rhoa
@@ -7969,6 +7986,7 @@ continue
       do l = 1,nr
         !
         nv = nv + 1
+        ivar_s = isvar_s(nv)
         !
         i = (l+1) - ( (l+1)/4 )*3
         j = (l+2) - ( (l+2)/4 )*3
@@ -8018,6 +8036,7 @@ continue
       ! Actual resolution marker value
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       do nc = 1,ncell
         n0 = cell(nc)%beg_sp - 1
@@ -8034,14 +8053,29 @@ continue
       ! Scaled resolution marker value
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
-      do nc = 1,ncell
-        n0 = cell(nc)%beg_sp - 1
-        np = cell(nc)%end_sp - n0
-        do n = 1,np
-          vartmp_at_sp(n0+n) = scaled_marker(nc)
+      if (Limiter_Option <= -1) then
+        do nc = 1,ncell
+          n0 = cell(nc)%beg_sp - 1
+          np = cell(nc)%end_sp - n0
+          this_order = cell(nc)%order
+          limit_order = int( real(this_order,kind=wp) * &
+                             (one-scaled_marker(nc)) )
+          limit_order = max(1,min(this_order,limit_order))
+          do n = 1,np
+            vartmp_at_sp(n0+n) = limit_order
+          end do
         end do
-      end do
+      else
+        do nc = 1,ncell
+          n0 = cell(nc)%beg_sp - 1
+          np = cell(nc)%end_sp - n0
+          do n = 1,np
+            vartmp_at_sp(n0+n) = scaled_marker(nc)
+          end do
+        end do
+      end if
       !
       call interpolate_for_output( vartmp_at_sp , vartmp )
       !
@@ -8065,6 +8099,7 @@ continue
       ! Actual pressure jump marker value
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       do nc = 1,ncell
         n0 = cell(nc)%beg_sp - 1
@@ -8081,6 +8116,7 @@ continue
       ! Scaled pressure jump marker value
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       do nc = 1,ncell
         n0 = cell(nc)%beg_sp - 1
@@ -8102,6 +8138,7 @@ continue
                        ierr,error_message)
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       do n = 1,n_solpts
         vartmp_at_sp(n) = mypnum+1
@@ -8114,6 +8151,7 @@ continue
     case ("Timestep")
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       call interpolate_for_output( dtsp(1:n_solpts) , vartmp , nondim=time_ref )
       !
@@ -8130,6 +8168,7 @@ continue
      !  do l_comp = 1,nr
      !    !
      !    nv = nv + 1
+     !    ivar_s = isvar_s(nv)
      !    !
      !    do n = 1,n_solpts
      !      vartmp_at_sp(n) = metrics_array(n,l_phys,l_comp)
@@ -8153,6 +8192,7 @@ continue
         do l_phys = 1,nr
           !
           nv = nv + 1
+          ivar_s = isvar_s(nv)
           !
           do n = 1,n_solpts
             vartmp_at_sp(n) = jac(n)*metrics_array(n,l_comp,l_phys)
@@ -8177,6 +8217,7 @@ continue
         do l = 1,nr
           !
           nv = nv + 1
+          ivar_s = isvar_s(nv)
           !
           do n = 1,n_solpts
             vartmp_at_sp(n) = one/time_metrics(l,n)
@@ -8189,6 +8230,7 @@ continue
         end do
         !
         nv = nv + 1
+        ivar_s = isvar_s(nv)
         !
         do n = 1,n_solpts
           vartmp_at_sp(n) = time_metrics(nr+1,n) * time_ref
@@ -8203,6 +8245,7 @@ continue
     case default
       !
       nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       do n = 1,npts
         vartmp(n) = cv(n,nec) * rhoref
