@@ -313,6 +313,7 @@ continue
   !
   gp(npres) = pref_nd
   gp(ntemp) = tref / tref
+  gp(ngamm) = gam
   !
   q2 = dot_product( pv(nmb:nme) , pv(nmb:nme) )
   !
@@ -326,7 +327,6 @@ continue
       cv(m) = pv(m)*pv(nec)
     end do
     !
-    gp(ngamm) = gam
     gp(nenth) = href_nd
     gp(ncp)   = cpref_nd
     !
@@ -422,9 +422,9 @@ continue
   1 format ("bc_input(",i0,")%mass_frac")
   !
   100 format ( &
-     " Free-stream conditions in the input file are not consistent!",/, &
-     " Reference pressure given    : ",es14.6,/, &
-     " Reference pressure computed : ",es14.6,/, &
+     " Free-stream conditions in the input file are not consistent!",'/&', &
+     " Reference pressure given    : ",es14.6,'/&', &
+     " Reference pressure computed : ",es14.6,'/&', &
      " Please correct the input file or set one of density, pressure,", &
      " and temperature to a negative value so it is explicitly computed.")
   101 format (/,4x,"ERROR: bc_input(",i0,")%mass_frac is not allocated",/, &
@@ -978,11 +978,12 @@ continue
   !
   100 format (/, &
    1x,64("*"),/, &
-   1x,5("*"),7x,"NEWTON ITERATIONTO SOLVE FOR THE STATIC",t61,5("*"),/, &
+   1x,5("*"),7x,"NEWTON ITERATION TO SOLVE FOR THE STATIC",t61,5("*"),/, &
    1x,5("*"),4x,"TEMPERATURE OF A GAS MIXTURE DID NOT CONVERGE!",t61,5("*"),/, &
    1x,5("*"),7x,"NUMBER OF UNCONVERGED POINTS = ",i0,t61,5("*"),/, &
-   1x,5("*"),7x,"MAXIMUM ERROR IN TEMPERATURE = ",es13.6,t61,5("*"),/)
-  !
+   1x,5("*"),7x,"MAXIMUM ERROR IN TEMPERATURE = ",es13.6,t61,5("*"),/, &
+   1x,64("*"),/)
+   !
 end subroutine newton_solve_for_temperature
 !
 !###############################################################################
