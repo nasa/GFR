@@ -5,7 +5,7 @@ module initialization_mod
   !
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
-  use eqn_idx, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ng
+  use eqn_idx, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ncond,ng
   !
   implicit none
   !
@@ -29,15 +29,11 @@ subroutine initialize_flow()
   !
   use geovar, only : nr,n_solpts,ncell,cell,xyz,grid
   !
+  use ovar, only : bc_in
   use ovar, only : rhoref,aref,itestcase
   use ovar, only : load_restart_file,d_t,constant_dt,itcur,time
   use ovar, only : init_tstar,time_ref,time_scaling_factor
   use ovar, only : dtrst,itrst,tmrst
-  use ovar, only : rhoref,pref,tref,gam,rgasref,cpref
-  use ovar, only : aref,machref,velref,uref,muref,reyref
-  use ovar, only : alpha_aoaref,beta_aoaref
-  use ovar, only : pref_nd,velref_nd,muref_nd
-  use ovar, only : rgasref_nd,cpref_nd
   use ovar, only : adjust_cfl_cycles
   use ovar, only : solution_file, solution_format
   !
@@ -319,31 +315,16 @@ continue
   !
   ! Output the boundary conditions
   !
-  call write_bc_conditions
+  call write_bc_conditions(ibc_beg=1,ibc_end=ubound(bc_in,dim=1), &
+                           dimensional=true)
   !
   ! Output the free-stream conditions
   !
-  if (mypnum == glb_root) then
-    if (all(itestcase /= [Density_Transport,Entropy_Transport])) then
-      !
-      write (iout,10) rhoref,pref,tref,machref,aref,velref(1)
-      if (nr >= 2) write (iout,11) velref(2)
-      if (nr == 3) write (iout,12) velref(3)
-      write (iout,13) alpha_aoaref,beta_aoaref,gam,rgasref,cpref,muref,reyref
-      !
-      write (iout,20) rhoref/rhoref,pref_nd,tref/tref,aref/aref,velref_nd(1)
-      if (nr >= 2) write (iout,21) velref_nd(2)
-      if (nr == 3) write (iout,22) velref_nd(3)
-      write (iout,23) rgasref_nd,cpref_nd,muref_nd
-      !
-    else
-      !
-      write (iout,30) rhoref,pref,tref,machref,uref/machref, &
-                      velref(1),velref(2),alpha_aoaref,beta_aoaref,gam, &
-                      rgasref,muref,reyref
-      !
-    end if
-    !
+  if (any(itestcase == Advec_Problems)) then
+    call write_linear_advec_ref_conditions
+  else
+    call write_bc_conditions(ibc_end=0,dimensional=true)
+    call write_bc_conditions(ibc_end=0,dimensional=fals)
   end if
   !
   ! Deallocate local arrays and disassociate local pointers before leaving
@@ -371,57 +352,6 @@ continue
   ! Format Statements
   !
   1 format ("outerp_inv(",a,",",i0,")%mat")
-  !
-  10 format (/, &
-             " Dimensional Free-stream conditions",/, &
-             " Density          = ",es14.6," kg/m^3",/, &
-             " Pressure         = ",es14.6," N/m^2",/, &
-             " Temperature      = ",es14.6," K",/, &
-             " Mach Number      = ",es14.6,/, &
-             " Speed of Sound   = ",es14.6," m/s",/, &
-             " X-Velocity       = ",es14.6," m/s")
-  11 format (" Y-Velocity       = ",es14.6," m/s")
-  12 format (" Z-Velocity       = ",es14.6," m/s")
-  13 format (" Alpha A.o.Attack = ",es14.6," degrees"/, &
-             " Beta  A.o.Attack = ",es14.6," degrees"/, &
-             " Gamma            = ",es14.6,/, &
-             " Gas Constant     = ",es14.6," J/(kg*K)",/, &
-             " Cp               = ",es14.6," J/(kg*K)",/, &
-             " Viscosity        = ",es14.6," kg/(m*s)",/, &
-             " Reynolds #       = ",es14.6,/)
-  !
-  20 format (/, &
-             " Non-dimensional Free-stream conditions",/, &
-             " Density         = ",es14.6,/, &
-             " Pressure        = ",es14.6,/, &
-             " Temperature     = ",es14.6,/, &
-             " Speed of Sound  = ",es14.6,/, &
-             " X-Velocity      = ",es14.6)
-  21 format (" Y-Velocity      = ",es14.6)
-  22 format (" Z-Velocity      = ",es14.6)
-  23 format (" Gas Constant    = ",es14.6,/, &
-             " Cp              = ",es14.6,/, &
-             " Viscosity       = ",es14.6,/)
-  !
-  30 format (/, &
-             " The density vortex transport problem is being",/, &
-             " used to model the linear 2D advection equation.",//, &
-             " The Non-dimensional Free-stream conditions are",/, &
-             " Density          = ",es14.6,/, &
-             " Pressure         = ",es14.6,/, &
-             " Temperature      = ",es14.6,/, &
-             " Mach Number      = ",es14.6,/, &
-             " Speed of Sound   = ",es14.6,/, &
-             " X-Velocity       = ",es14.6,/, &
-             " Y-Velocity       = ",es14.6,/, &
-             " Alpha A.o.Attack = ",es14.6," degrees"/, &
-             " Beta  A.o.Attack = ",es14.6," degrees"/, &
-             " Gamma            = ",es14.6,/, &
-             " Gas Constant     = ",es14.6,/)
-  !
-  101 format (/, &
-     " Internal Error:  The mapping array is not allocated.",/, &
-     "                  Please contact a developer to fix this.")
   !
 end subroutine initialize_flow
 !
@@ -1844,6 +1774,7 @@ continue
   !
   gp(npres) = pv(nee)
   gp(ntemp) = tref / tref
+  gp(ngamm) = gam
   !
   ! Nondimensional reference velocities
   velref_nd = velref / aref
@@ -1973,10 +1904,9 @@ subroutine create_bc_in
   !.. Use Statements ..
   use geovar, only : nr,bface
   use ovar,   only : bc_input,bc_in,bc_names
-  use ovar,   only : tmin,tmax,tref,pref,rgasref
-  use ovar,   only : velref,rhoref,aref,gam
+  use ovar,   only : tmin,tmax,tref,rgasref
+  use ovar,   only : rhoref,aref,gam
   use ovar,   only : cv_ref,pv_ref,gp_ref
-  use ovar,   only : governing_equations
   !
   use thermo_mod, only : compute_mixture_rgas
   use thermo_mod, only : compute_mixture_gamma
@@ -2061,10 +1991,12 @@ continue
       ! Set the flow conditions for this boundary to the reference
       ! flow conditions.
       !
+#ifdef DEBUG_ON
       if (mypnum == glb_root) then
-        write (iout,2) i,trim(adjustl(bc_input(n)%name)), &
+        write (iout,1) i,trim(adjustl(bc_input(n)%name)), &
           trim(adjustl(bc_integer_to_string(bc_input(n)%set_bc_value)))
       end if
+#endif
       !
       ! Set the boundary conditions for this BC to the reference conditions
       !
@@ -2078,10 +2010,6 @@ continue
       total_is_set = fals
       mach_is_set = fals
       vel_is_set = fals
-      !
-      if (mypnum == glb_root) then
-        write (iout,3) i,trim(adjustl(bc_input(n)%name))
-      end if
       !
       ! Copy over the relaxation information
       !
@@ -2251,7 +2179,7 @@ continue
           if (static_is_set .and. vel_is_set) exit iterate_bc_conditions
           !
           if (ii == 5) then
-            write (error_message,1) n
+            write (error_message,2) n
             call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
                                     vel,mach,alpha,beta, &
                                     static_is_set,total_is_set, &
@@ -2292,55 +2220,11 @@ continue
         bc_in(i)%pv = pv(:) ! Using F2003 auto-reallocation
         bc_in(i)%gp = gp(:) ! Using F2003 auto-reallocation
         !
-        if (mypnum == glb_root) then
-          !
-          r = bc_in(i)%cv(nec) * rhoref
-          p = bc_in(i)%gp(npres) * rhoref*aref*aref
-          t = bc_in(i)%gp(ntemp) * tref
-          gamm = bc_in(i)%gp(ngamm)
-          !
-          gm1 = gamm - one
-          one_over_gm1 = one / gm1
-          gam_over_gm1 = gamm / gm1
-          !
-          aspd = sqrt(gamm*p/r)
-          mach = aref*norm2(bc_in(i)%pv(nmb:nme)) / aspd
-          !
-          total_cond = one + half*gm1*mach*mach
-          !
-          r0 = r * total_cond**one_over_gm1
-          p0 = p * total_cond**gam_over_gm1
-          t0 = t * total_cond
-          !
-          alpha = zero
-          beta = zero
-          if (nr >= 2) then
-            alpha = atan2(bc_in(i)%pv(nmy),bc_in(i)%pv(nmx))
-            if (nr == 3) then
-              if (norm2(bc_in(i)%pv(nmb:nme)) > zero) then
-                beta = asin(bc_in(i)%pv(nmz)/norm2(bc_in(i)%pv(nmb:nme)))
-              end if
-            end if
-          end if
-          alpha = alpha * radians2degrees
-          beta = beta * radians2degrees
-          !
-          visc = zero
-          reyn = zero
-          if (governing_equations == NavierStokes_Eqns) then
-            visc = bc_in(i)%gp(nvisc) * rhoref*aref
-            reyn = norm2(vel)*r/visc
-          end if
-          !
-          write (iout,4) r,(bc_in(i)%pv(ii)*aref,ii=nmb,nme)
-          write (iout,5) p,t,mach,aspd,r0,p0,t0,alpha,beta,visc,reyn
-          !
-        end if
-        !
       end if
       !
     end if
     !
+#ifdef DEBUG_ON
     ii = 0
     bface_loop: do nf = 1,size(bface,dim=2)
       !
@@ -2369,12 +2253,8 @@ continue
       !
     end do bface_loop
     !
-   !call mpi_allreduce(MPI_IN_PLACE,ii,1_int_mpi,mpi_inttyp, &
-   !                   MPI_SUM,MPI_COMM_WORLD,mpierr)
-    !
-    if (mypnum == glb_root) then
-      write (iout,6) ii
-    end if
+    call write_bc_conditions(ibc_end=i,dimensional=true,num_bc_faces=ii)
+#endif
     !
   end do
   !
@@ -2385,129 +2265,252 @@ continue
   !
   ! Format Statements
   !
-  1 format ("Error iterating on BC # ",i0," !!!")
-  2 format (/," Setting boundary condition for BC # ",i0," - '",a,"'",/, &
+  1 format (/," Setting boundary condition for BC # ",i0," - '",a,"'",/, &
               "    to ",a)
-  3 format (/," Flow conditions for BC # ",i0," - '",a,"'")
-  4 format (4x,"Static Density        = ",es14.6," kg/m^3",/, &
-            4x,"X-velocity            = ",es14.6," m/s",:,/, &
-            4x,"Y-velocity            = ",es14.6," m/s",:,/, &
-            4x,"Z-velocity            = ",es14.6," m/s")
-  5 format (4x,"Static Pressure       = ",es14.6," N/m^2",/, &
-            4x,"Static Temperature    = ",es14.6," K",/, &
-            4x,"Mach Number           = ",es14.6,/, &
-            4x,"Speed of Sound        = ",es14.6," m/s",/, &
-            4x,"Total Density         = ",es14.6," kg/m^3",/, &
-            4x,"Total Pressure        = ",es14.6," N/m^2",/, &
-            4x,"Total Temperature     = ",es14.6," K",/, &
-            4x,"Alpha Angle of Attack = ",es14.6," degrees",/, &
-            4x,"Beta  Angle of Attack = ",es14.6," degrees",/, &
-            4x,"Viscosity             = ",es14.6," kg/(m*s)",/, &
-            4x,"Reynolds #            = ",es14.6,/)
-  6 format (4x,"Number of boundary faces for this BC = ",i0)
+  2 format ("Error iterating on BC # ",i0," !!!")
   !
 end subroutine create_bc_in
 !
 !###############################################################################
 !
-subroutine write_bc_conditions
+subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   !
   !.. Use Statements ..
-  use geovar, only : nr,bface
-  use ovar,   only : bc_input,bc_in
-  use ovar,   only : tmin,tmax,tref
-  use ovar,   only : rhoref,aref
-  use ovar,   only : governing_equations
+  use geovar,     only : nr,bface
+  use ovar,       only : bc_input,bc_in
+  use ovar,       only : tmin,tmax,tref
+  use ovar,       only : rhoref,aref,cpref_nd
+  use ovar,       only : governing_equations
+  use thermo_mod, only : species_name
+  !
+  !.. Optional Arguments ..
+  integer,     optional, intent(in) :: ibc_beg
+  integer,     optional, intent(in) :: ibc_end
+  logical(lk), optional, intent(in) :: dimensional
+  integer,     optional, intent(in) :: num_bc_faces
   !
   !.. Local Scalars ..
-  integer     :: i,ii,nf,bc_type
-  real(wp)    :: r,p,t,r0,p0,t0,mach,aspd,visc,reyn,gamm
-  real(wp)    :: alpha,beta,total_cond
+  integer     :: this_bc,ii,m,nf,bc_type,bc_beg,bc_end,bc_idx
+  real(wp)    :: r,p,t,h,r0,p0,t0,h0,mach,aspd,visc,cond,reyn
+  real(wp)    :: vmag,alpha,beta,total_cond,gamm,rgas,cp
   real(wp)    :: gm1,gam_over_gm1,one_over_gm1
+  real(wp)    :: rdim,adim,tdim
+  !
+  character(len=5)  :: cdim
+  character(len=10) :: r_units,t_units,p_units,v_units,h_units
+  character(len=10) :: cp_units,visc_units,cond_units
+  !
+  character(len=2000) :: isowall_fmt,rhovel_fmt
+  character(len=2000) :: thermo_fmt,transport_fmt
+  character(len=2000) :: species_fmt,tmp_fmt
   !
   !.. Local Arrays ..
   real(wp) :: vel(1:nr)
+  real(wp) :: mass_frac(1:ncs)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_bc_conditions"
   !
 continue
   !
-  ! Output all the boundary conditions
+  ! Determine whether to output dimensional or nondimensional quantities for
+  ! each boundary condition based on the optional argument 'dimensional'.
   !
-  do i = lbound(bc_in,dim=1),ubound(bc_in,dim=1)
+  rdim = rhoref
+  adim = aref
+  tdim = tref
+  !
+  cdim = "D"
+  t_units = "K"
+  v_units = "m/s"
+  r_units = "kg/m^3"
+  p_units = "N/m^2"
+  visc_units = "kg/(m*s)"
+  cond_units = "W/(m*K)"
+  cp_units = "J/(kg*K)"
+  h_units = "J/kg"
+  !
+  if (present(dimensional)) then
+    if (.not. dimensional) then
+      !
+      rdim = one
+      adim = one
+      tdim = one
+      !
+      cdim = "Non-d"
+      t_units = ""
+      v_units = ""
+      r_units = ""
+      p_units = ""
+      visc_units = ""
+      cond_units = ""
+      cp_units = ""
+      h_units = ""
+      !
+    end if
+  end if
+  !
+  ! Create the format strings
+  !
+  write (isowall_fmt,103) t_units,v_units,v_units,v_units
+  write (rhovel_fmt,104) r_units,v_units,v_units,v_units
+  write (thermo_fmt,105) p_units,t_units,h_units,v_units,r_units, &
+                         p_units,t_units,h_units,cp_units,cp_units
+  write (transport_fmt,106) visc_units,cond_units
+  !
+  if (ncs > 0) then
+    !
+    write (tmp_fmt,107) (trim(adjustl(species_name(m))), m=1,ncs)
+    species_fmt = trim(adjustl(tmp_fmt))
+    !
+    write (tmp_fmt,108) trim(adjustl(species_fmt))
+    species_fmt = trim(adjustl(tmp_fmt))
+    !
+  end if
+  !
+  ! Determine what boundary conditions from bc_in to output
+  ! NOTE: If only one of ibc_beg and ibc_end is present:
+  !            bc_beg = bc_end = value of whichever one is present
+  !       If both ibc_beg and ibc_end are present:
+  !            bc_beg = ibc_beg
+  !            bc_end = ibc_end
+  !       If neither ibc_beg or ibc_end are present:
+  !            bc_beg = lbound(bc_in,dim=1)
+  !            bc_end = ubound(bc_in,dim=1)
+  !
+  bc_beg = -1
+  bc_end = -1
+  !
+  if (present(ibc_beg)) then
+    bc_beg = ibc_beg
+  end if
+  !
+  if (present(ibc_end)) then
+    bc_end = ibc_end
+  end if
+  !
+  if (all([bc_beg,bc_end] < 0)) then
+    bc_beg = lbound(bc_in,dim=1)
+    bc_end = ubound(bc_in,dim=1)
+  else if (bc_beg < 0) then
+    bc_beg = bc_end
+  else if (bc_end < 0) then
+    bc_end = bc_beg
+  end if
+  !
+  ! Output the boundary condition(s)
+  !
+  do this_bc = bc_beg,bc_end
     !
     if (mypnum == glb_root) then
       !
-      if (i == 0) then
-        write (iout,1)
+      ! Write out the header for this boundary condition
+      !
+      if (this_bc == 0) then
+        !
+        write (iout,1) trim(adjustl(cdim))
+        !
       else
         !
         bc_type_loop: do nf = 1,size(bface,dim=2)
           if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) then
             cycle bc_type_loop
           end if
-          if (bface(6,nf) == i) then
+          if (bface(6,nf) == this_bc) then
             bc_type = bface(1,nf)
             exit bc_type_loop
           end if
         end do bc_type_loop
         !
-        write (iout,2) i,trim(adjustl(bc_input(bc_in(i)%bc_input_idx)%name)), &
-                         trim(adjustl(bc_integer_to_string(bc_type)))
+        bc_idx = bc_in(this_bc)%bc_input_idx
+        !
+        write (iout,2) trim(adjustl(cdim)), this_bc, &
+                       trim(adjustl(bc_input(bc_idx)%name)), &
+                       trim(adjustl(bc_integer_to_string(bc_type)))
         !
       end if
       !
-      if ( (bc_in(i)%wall_temperature*tref >= tmin) .and. &
-           (bc_in(i)%wall_temperature*tref <= tmax) ) then
+      ! Write out the flow conditions for this boundary condition
+      !
+      if ( (bc_in(this_bc)%wall_temperature*tref >= tmin) .and. &
+           (bc_in(this_bc)%wall_temperature*tref <= tmax) ) then
         !
-        vel(1:nr) = bc_in(i)%pv(nmb:nme) * aref
+        vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
         !
-        write (iout,3) bc_in(i)%wall_temperature * tref, &
-                       (vel(ii),ii=1,nr)
+        t = bc_in(this_bc)%wall_temperature * tdim
+        !
+        write (iout,isowall_fmt) t,(vel(ii),ii=1,nr)
         !
       else
         !
-        r = bc_in(i)%cv(nec) * rhoref
-        p = bc_in(i)%gp(npres) * rhoref*aref*aref
-        t = bc_in(i)%gp(ntemp) * tref
-        gamm = bc_in(i)%gp(ngamm)
+        r = bc_in(this_bc)%cv(nec) * rdim
+        p = bc_in(this_bc)%gp(npres) * rdim*adim*adim
+        t = bc_in(this_bc)%gp(ntemp) * tdim
+        gamm = bc_in(this_bc)%gp(ngamm)
         !
         gm1 = gamm - one
         one_over_gm1 = one / gm1
         gam_over_gm1 = gamm / gm1
         !
-        vel(1:nr) = bc_in(i)%pv(nmb:nme) * aref
+        if (ncs > 0) then
+          !
+          do m = 1,ncs
+            mass_frac(m) = bc_in(this_bc)%pv(m)
+          end do
+          !
+          h = bc_in(this_bc)%gp(nenth) * adim*adim
+          cp = bc_in(this_bc)%gp(ncp) * adim*adim/tdim
+          !
+        else
+          !
+          cp = cpref_nd * adim*adim/tdim
+          h = cp*t * adim*adim
+          !
+        end if
+        !
+        rgas = cp*gm1/gamm
+        !
+        vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
+        vmag = norm2(vel(1:nr))
         !
         aspd = sqrt(gamm*p/r)
-        mach = aref*norm2(bc_in(i)%pv(nmb:nme)) / aspd
+        mach = vmag/aspd
         !
         total_cond = one + half*gm1*mach*mach
         !
         r0 = r * total_cond**one_over_gm1
         p0 = p * total_cond**gam_over_gm1
         t0 = t * total_cond
+        h0 = h + half*vmag*vmag
         !
         alpha = zero
         beta = zero
         if (nr >= 2) then
-          alpha = atan2(bc_in(i)%pv(nmy),bc_in(i)%pv(nmx))
+          alpha = atan2(bc_in(this_bc)%pv(nmy),bc_in(this_bc)%pv(nmx))
           if (nr == 3) then
-            beta = asin(bc_in(i)%pv(nmz)/norm2(bc_in(i)%pv(nmb:nme)))
+            beta = asin(bc_in(this_bc)%pv(nmz)/(vmag/adim))
           end if
         end if
         alpha = alpha * radians2degrees
         beta = beta * radians2degrees
         !
-        visc = zero
-        reyn = zero
-        if (governing_equations == NavierStokes_Eqns) then
-          visc = bc_in(i)%gp(nvisc) * rhoref*aref
-          reyn = norm2(vel)*r/visc
+        if (ncs > 0) then
+          write (iout,species_fmt) (mass_frac(m),m=1,ncs)
         end if
         !
-        write (iout,4) r,(vel(ii),ii=1,nr)
-        write (iout,5) p,t,mach,aspd,r0,p0,t0,alpha,beta,visc,reyn
+        write (iout,rhovel_fmt) r,(vel(ii),ii=1,nr)
+        write (iout,thermo_fmt) p,t,h,gamm,mach,aspd, &
+                                r0,p0,t0,h0,cp,rgas,alpha,beta
+        !
+        if (governing_equations == NavierStokes_Eqns) then
+          !
+          visc = bc_in(this_bc)%gp(nvisc) * rdim*adim
+          cond = bc_in(this_bc)%gp(ncond) * rdim*adim*adim*adim/tdim
+          reyn = vmag*r/visc
+          !
+          write (iout,transport_fmt) visc,cond,reyn
+          !
+        end if
         !
       end if
       !
@@ -2515,22 +2518,30 @@ continue
       !
     end if
     !
-    ii = 0
-    bface_loop: do nf = 1,size(bface,dim=2)
+    if (present(num_bc_faces)) then
       !
-      if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
+      ii = num_bc_faces
       !
-      if (bface(6,nf) == i) then
-        ii = ii + 1
-      end if
+    else
       !
-    end do bface_loop
-    !
-    call mpi_allreduce(MPI_IN_PLACE,ii,1_int_mpi,mpi_inttyp, &
-                       MPI_SUM,MPI_COMM_WORLD,mpierr)
+      ii = 0
+      bface_loop: do nf = 1,size(bface,dim=2)
+        !
+        if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
+        !
+        if (bface(6,nf) == this_bc) then
+          ii = ii + 1
+        end if
+        !
+      end do bface_loop
+      !
+      call mpi_allreduce(MPI_IN_PLACE,ii,1_int_mpi,mpi_inttyp, &
+                         MPI_SUM,MPI_COMM_WORLD,mpierr)
+      !
+    end if
     !
     if (mypnum == glb_root) then
-      write (iout,6) ii
+      write (iout,7) ii
       flush (iout)
     end if
     !
@@ -2543,31 +2554,123 @@ continue
   !
   ! Format Statements
   !
-  1 format (/," Flow conditions for BC # 0 - Reference/Freestream BCs")
-  2 format (/," Flow conditions for BC # ",i0," - '",a,"'",/, &
+  103 format ('(4x,"Wall Temperature",t27,"= ",es14.6,"',a,'",/,', &
+               '4x,"X-velocity",t27,"= ",es14.6,"',a,'",/,:,', &
+               '4x,"Y-velocity",t27,"= ",es14.6,"',a,'",/,:,', &
+               '4x,"Z-velocity",t27,"= ",es14.6,"',a,'",/)')
+  104 format ('(4x,"Static Density",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"X-velocity",t27,"= ",es14.6,"',a,'",:,/,' &
+               '4x,"Y-velocity",t27,"= ",es14.6,"',a,'",:,/,' &
+               '4x,"Z-velocity",t27,"= ",es14.6,"',a,'")')
+  105 format ('(4x,"Static Pressure",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"Static Temperature",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"Static Enthalpy",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"Gamma",t27,"= ",es14.6,/,' &
+               '4x,"Mach Number",t27,"= ",es14.6,/,' &
+               '4x,"Speed of Sound",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"Total Density",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"Total Pressure",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"Total Temperature",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"Total Enthalpy",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"Cp",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"Gas Constant",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"Alpha Angle of Attack",t27,"= ",es14.6," degrees",/,' &
+               '4x,"Beta  Angle of Attack",t27,"= ",es14.6," degrees")')
+  106 format ('(4x,"Molecular Viscosity",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"Thermal Conductivity",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"Reynolds #",t27,"= ",es14.6,/)')
+  107 format (100('4x,"',a,' Mass Fraction",t27,"= ",es14.6',:,',/,'))
+  108 format ('(',a,')')
+  !
+  1 format (/,a,"imensional flow conditions for BC # 0 - ", &
+                "Reference/Freestream BCs")
+  2 format (/,a,"imensional flow conditions for BC # ",i0, &
+                " - '",a,"'",/, &
               4x,"BC Type = ",a)
-  3 format (4x,"Wall Temperature      = ",es14.6," K",/, &
-            4x,"X-velocity            = ",es14.6," m/s",/,:, &
-            4x,"Y-velocity            = ",es14.6," m/s",/,:, &
-            4x,"Z-velocity            = ",es14.6," m/s",/)
-  4 format (4x,"Static Density        = ",es14.6," kg/m^3",/, &
-            4x,"X-velocity            = ",es14.6," m/s",:,/, &
-            4x,"Y-velocity            = ",es14.6," m/s",:,/, &
-            4x,"Z-velocity            = ",es14.6," m/s")
-  5 format (4x,"Static Pressure       = ",es14.6," N/m^2",/, &
-            4x,"Static Temperature    = ",es14.6," K",/, &
-            4x,"Mach Number           = ",es14.6,/, &
-            4x,"Speed of Sound        = ",es14.6," m/s",/, &
-            4x,"Total Density         = ",es14.6," kg/m^3",/, &
-            4x,"Total Pressure        = ",es14.6," N/m^2",/, &
-            4x,"Total Temperature     = ",es14.6," K",/, &
-            4x,"Alpha Angle of Attack = ",es14.6," degrees",/, &
-            4x,"Beta  Angle of Attack = ",es14.6," degrees",/, &
-            4x,"Viscosity             = ",es14.6," kg/(m*s)",/, &
-            4x,"Reynolds #            = ",es14.6,/)
-  6 format (4x,"Number of boundary faces for this BC = ",i0)
+ !3 format (4x,"Wall Temperature      = ",es14.6," K",/, &
+ !          4x,"X-velocity            = ",es14.6," m/s",/,:, &
+ !          4x,"Y-velocity            = ",es14.6," m/s",/,:, &
+ !          4x,"Z-velocity            = ",es14.6," m/s",/)
+ !4 format (4x,"Static Density        = ",es14.6," kg/m^3",/, &
+ !          4x,"X-velocity            = ",es14.6," m/s",:,/, &
+ !          4x,"Y-velocity            = ",es14.6," m/s",:,/, &
+ !          4x,"Z-velocity            = ",es14.6," m/s")
+ !5 format (4x,"Static Pressure       = ",es14.6," N/m^2",/, &
+ !          4x,"Static Temperature    = ",es14.6," K",/, &
+ !          4x,"Mach Number           = ",es14.6,/, &
+ !          4x,"Speed of Sound        = ",es14.6," m/s",/, &
+ !          4x,"Total Density         = ",es14.6," kg/m^3",/, &
+ !          4x,"Total Pressure        = ",es14.6," N/m^2",/, &
+ !          4x,"Total Temperature     = ",es14.6," K",/, &
+ !          4x,"Alpha Angle of Attack = ",es14.6," degrees",/, &
+ !          4x,"Beta  Angle of Attack = ",es14.6," degrees",/, &
+ !          4x,"Viscosity             = ",es14.6," kg/(m*s)",/, &
+ !          4x,"Reynolds #            = ",es14.6,/)
+  7 format (4x,"Number of boundary faces for this BC = ",i0)
   !
 end subroutine write_bc_conditions
+!
+!###############################################################################
+!
+subroutine write_linear_advec_ref_conditions
+  !
+  !.. Use Statements ..
+  use ovar, only : bc_in
+  use ovar, only : gam,rgasref,alpha_aoaref
+  !
+  !.. Local Scalars ..
+  real(wp) :: r,p,t,mach,aspd,alpha
+  !
+  !.. Local Arrays ..
+  real(wp) :: vel(1:2)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_linear_advec_ref_conditions"
+  !
+continue
+  !
+  r = bc_in(0)%cv(nec)
+  p = bc_in(0)%gp(npres)
+  t = bc_in(0)%gp(ntemp)
+  !
+  vel(1) = bc_in(0)%pv(nmx)
+  vel(2) = bc_in(0)%pv(nmy)
+  !
+  aspd = sqrt(gam*p/r)
+  mach = norm2(vel)/aspd
+  !
+  alpha = alpha_aoaref
+  !
+  if (mypnum == glb_root) then
+    !
+    write (iout,1) r,p,t,mach,aspd,vel(1),vel(2),alpha,zero,gam,rgasref
+    flush (iout)
+    !
+  end if
+  !
+  if (ncpu > 1) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  ! Format Statements
+  !
+  1 format (/, &
+            " The density vortex transport problem is being",/, &
+            " used to model the linear 2D advection equation.",//, &
+            " The Non-dimensional Free-stream conditions are",/, &
+            " Density          = ",es14.6,/, &
+            " Pressure         = ",es14.6,/, &
+            " Temperature      = ",es14.6,/, &
+            " Mach Number      = ",es14.6,/, &
+            " Speed of Sound   = ",es14.6,/, &
+            " X-Velocity       = ",es14.6,/, &
+            " Y-Velocity       = ",es14.6,/, &
+            " Alpha A.o.Attack = ",es14.6," degrees"/, &
+            " Beta  A.o.Attack = ",es14.6," degrees"/, &
+            " Gamma            = ",es14.6,/, &
+            " Gas Constant     = ",es14.6,/)
+  !
+end subroutine write_linear_advec_ref_conditions
 !
 !###############################################################################
 !
