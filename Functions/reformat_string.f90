@@ -10,7 +10,7 @@ pure function reformat_string(input_strng,line_length,leading_blanks) &
   character(len=len(input_strng)) :: return_value
   !
  !integer :: j
-  integer :: n,last_space,max_strng_len
+  integer :: l,m,n,last_space,max_strng_len
   integer :: llen,nblanks
   character(len=len(input_strng)) :: strng
   character(len=100) :: frmt
@@ -43,25 +43,40 @@ continue
     max_strng_len = len_trim(strng)
    !write (*,3) "max_strng_len",max_strng_len
     !
-    ! Maximum value between first space character and line length, limited
-    ! to the length of the what is left of strng (this is in case the
-    ! interval 1:llen does not contain a space character)
+    n = index(strng,"/&")
     !
-    n = min( max_strng_len , max(llen,scan(strng," ")) )
-   !write (*,3) "n",n
-    !
-    ! Location of last space character on interval 1:n
-    !
-    last_space = scan(strng(1:n)," ",back=true)
-   !write (*,3) "last_space",last_space
-    !
-    ! Make sure that we keep the same value for 'n' if the interval 1:n
-    ! contains no spaces or 'n' is the same as the length of what is left of
-    ! strng.
-    !
-    n = merge( n , last_space , last_space==0 .or. n==max_strng_len )
-   !write (*,3) "n using last_space",n,"len(substrng)",len_trim(strng(1:n))
-   !write (*,4) trim(strng(1:n))
+    if (n == 0) then
+      !
+      ! Maximum value between first space character and line length, limited
+      ! to the length of the what is left of strng (this is in case the
+      ! interval 1:llen does not contain a space character)
+      !
+      n = min( max_strng_len , max(llen,scan(strng," ")) )
+     !write (*,3) "n",n
+      !
+      ! Location of last space character on interval 1:n
+      !
+      last_space = scan(strng(1:n)," ",back=true)
+     !write (*,3) "last_space",last_space
+      !
+      ! Make sure that we keep the same value for 'n' if the interval 1:n
+      ! contains no spaces or 'n' is the same as the length of what is left of
+      ! strng.
+      !
+      n = merge( n , last_space , last_space==0 .or. n==max_strng_len )
+     !write (*,3) "n using last_space",n,"len(substrng)",len_trim(strng(1:n))
+     !write (*,4) trim(strng(1:n))
+      !
+      l = n
+      m = n+1
+      !
+    else
+      !
+      l = n+1
+      m = n+2 ! first character after occurance of '/&'
+      n = n-1 ! last character before occurance of '/&'
+      !
+    end if
     !
     if (len_trim(return_value) == 0)then
       write (return_value,fmt=trim(frmt)) trim(strng(1:n))
@@ -70,9 +85,9 @@ continue
                                           trim(strng(1:n))
     end if
     !
-    if (len_trim(strng) == n) exit interval_loop
+    if (len_trim(strng) == l) exit interval_loop
     !
-    strng = adjustl(strng(n+1:max_strng_len))
+    strng = adjustl(strng(m:max_strng_len))
     !
   end do interval_loop
   !
