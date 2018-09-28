@@ -2995,15 +2995,17 @@ continue
   !
   lfbnd = size(bface,dim=2)
   !
+!#define DEBUG_BC_GROUPS
+#ifdef DEBUG_BC_GROUPS
   if (mypnum == glb_root) then
     write (iout,*) "num_bc_grps = ",num_bc_grps
     flush (iout)
   end if
+#endif
   !
   allocate ( bc_grps(1:num_bc_grps) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bc_grps",1,__LINE__,__FILE__,ierr,error_message)
   !
-!#define DEBUG_BC_GROUPS
 #ifdef DEBUG_BC_GROUPS
   p1 = count(bface(1,:) == bc_cpu_bnd)
   p2 = count(bface(1,:) == bc_periodic)
