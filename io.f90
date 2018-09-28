@@ -6916,6 +6916,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   real(wp) :: cgns_wall_time
   !
   logical(lk) :: need_vorticity
+  logical(lk) :: need_entropy
   !
   character(len=CGLEN) :: varname
   character(len=CGLEN) :: sect_name
@@ -7030,6 +7031,21 @@ continue
     end do one_pass_loop
   end if
   !
+  ! Make sure entropy is one of the variables that will be
+  ! output if running any of the isentropic vortex problems.
+  !
+  need_entropy = fals
+  if (any(itestcase == Transport_Problems)) then
+    entropy_check: do nc = 1,1
+      do n = 1,size(char_sdefault)
+        if (adjustl(trim(char_sdefault(n))) == "Entropy") then
+          exit entropy_check
+        end if
+      end do
+      need_entropy = true
+    end do entropy_check
+  end if
+  !
  !char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
  !if (need_vorticity) then
  !  ! USING F2003 AUTO-REALLOCATION
@@ -7043,11 +7059,20 @@ continue
     ! USING F2003 AUTO-REALLOCATION
     char_sname = [ character(len=n) :: char_sname , "Vorticity" ]
   end if
+  if (need_entropy) then
+    n = max( len("Entropy") , len(char_sdefault) )
+    ! USING F2003 AUTO-REALLOCATION
+    char_sname = [ character(len=n) :: char_sname , "Entropy" ]
+  end if
 #else
   char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
   if (need_vorticity) then
     ! USING F2003 AUTO-REALLOCATION
     char_sname = [ char_sname , "Vorticity" ]
+  end if
+  if (need_entropy) then
+    ! USING F2003 AUTO-REALLOCATION
+    char_sname = [ char_sname , "Entropy" ]
   end if
 #endif
   !
