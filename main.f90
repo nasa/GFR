@@ -16,6 +16,8 @@ program GFR_main
   use geovar, only : move_bcgrps_to_device
   use geovar, only : move_cellmap_to_device
   use geovar, only : cell
+  use geovar, only : n_flxpts,n_bnd_flxpts,n_wall_flxpts
+  use geovar, only : n_qdtpts,n_flx_qdtpts,n_bnd_qdtpts,n_wall_qdtpts
   !
   use eqn_idx, only : nq
   !
@@ -276,15 +278,15 @@ continue
     ! Get the coordinates of the solution points within each grid cell
     !
 !-DEBUG_BEG:
-    call mydebug(pname,__LINE__,__FILE__)
-    write(iout,*) 'DEBUG[Euler]:  Calling get_solution_points next.'
-    flush(iout)
+!!!!call mydebug(pname,__LINE__,__FILE__)
+!!!!write(iout,*) 'DEBUG[Euler]:  Calling get_solution_points next.'
+!!!!flush(iout)
 !-DEBUG_END:
     call get_solution_points
 !-DEBUG_BEG:
-    write(iout,*) 'DEBUG[Euler]:  Back from get_solution_points.'
-    flush(iout)
-    call mydebug(pname,__LINE__,__FILE__)
+!!!!write(iout,*) 'DEBUG[Euler]:  Back from get_solution_points.'
+!!!!flush(iout)
+!!!!call mydebug(pname,__LINE__,__FILE__)
 !-DEBUG_END:
     call memory_pause("getting the solution points","getting grid connectivity")
     call check_for_bad_number(__LINE__)
@@ -400,7 +402,10 @@ continue
   !
   if (mypnum == glb_root) then
     write (iout,11) n_global_cell, n_global_node, n_global_fbnd, &
-                    n_global_solpts, total_volume, &
+                    n_global_solpts, &
+                    n_solpts,n_flxpts,n_bnd_flxpts,n_wall_flxpts, &
+                    n_qdtpts,n_flx_qdtpts,n_bnd_qdtpts,n_wall_qdtpts, &
+                    total_volume, &
                     (solpts_edge(k), k=1,size(solpts_edge))
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -684,12 +689,17 @@ continue
     !
     ! Store a copy of the solution from the previous time step
     !
-    call save_old_solution
+    call save_old_solution                !; call check_for_bad_number(__LINE__)
     !
     ! Loop over the Runge-Kutta stages
     !
     rk_loop: do nst = 1,num_rk_stages
       !
+    !!if (mypnum == glb_root) then
+    !!  write (iout,810) nst,num_rk_stages
+    !!  flush (iout)
+    !!  810 format (2x,"Runge Kutta stage ",i0," of ",i0)
+    !!end if
       Apply_Filter = (Filtering_Interval == 0)
       Apply_Limiter = (Limiting_Interval == 0)
       if (nst == num_rk_stages) then
@@ -700,138 +710,138 @@ continue
           Apply_Limiter = (mod(iter,Limiting_Interval) == 0)
         end if
       end if
-#define NEW_FLUX_REARRANGEMENT
-#ifdef NEW_FLUX_REARRANGEMENT
-      call interp_cv_to_flxpts(iter,nst)   ! call check_for_bad_number(__LINE__)
+!!#define NEW_FLUX_REARRANGEMENT
+!!#ifdef NEW_FLUX_REARRANGEMENT
+      call interp_cv_to_flxpts(iter,nst)  !; call check_for_bad_number(__LINE__)
       !
       if (ncpu > 1) then
-        call exchange_faceusp              ! call check_for_bad_number(__LINE__)
+        call exchange_faceusp             !; call check_for_bad_number(__LINE__)
 #ifdef IMMEDIATE_WAIT_FOR_MPI
-        call wait_faceusp           ! ; call check_for_bad_number(__LINE__)
+        call wait_faceusp                 !; call check_for_bad_number(__LINE__)
 #endif
       end if
       !
       if (governing_equations == NavierStokes_Eqns) then
         call discontinuous_gradient_at_solpts
-                                           ! call check_for_bad_number(__LINE__)
-      end if
-      !
-      call get_faceusp_bc(newton_failures) ! call check_for_bad_number(__LINE__)
-      call check_for_bad_number(__LINE__,newton_failures)
-      !
-      call get_invs_common_fluxes_interior
-                                           ! call check_for_bad_number(__LINE__)
-      !
-      if (ncpu > 1) then
-#ifndef IMMEDIATE_WAIT_FOR_MPI
-        call wait_faceusp                  ! call check_for_bad_number(__LINE__)
-#endif
-      end if
-      !
-      if (governing_equations == NavierStokes_Eqns) then
-        if (visc_flux_method == visc_flux_BR2) then
-         !call correct_gradients_br2
-          call correct_gradients_br2_gpu   ! call check_for_bad_number(__LINE__)
-        else
-          call correct_gradients_at_solpts_gpu
-                                           ! call check_for_bad_number(__LINE__)
-         !call correct_gradients_at_solpts ! call check_for_bad_number(__LINE__)
-          call interp_dusp_to_flxpts       ! call check_for_bad_number(__LINE__)
-        end if
-        if (ncpu > 1) then
-          call exchange_facedusp           ! call check_for_bad_number(__LINE__)
-#ifdef IMMEDIATE_WAIT_FOR_MPI
-          call wait_facedusp           ! ; call check_for_bad_number(__LINE__)
-#endif
-        end if
-        call get_facedusp_bc               ! call check_for_bad_number(__LINE__)
-        call get_visc_common_fluxes_interior
-                                           ! call check_for_bad_number(__LINE__)
-      end if
-      !
-      call get_invs_common_fluxes_bc       ! call check_for_bad_number(__LINE__)
-      !
-      if (governing_equations == NavierStokes_Eqns) then
-        if (ncpu > 1) then
-#ifndef IMMEDIATE_WAIT_FOR_MPI
-          call wait_facedusp               ! call check_for_bad_number(__LINE__)
-#endif
-        end if
-        call get_visc_common_fluxes_bc     ! call check_for_bad_number(__LINE__)
-      end if
-      !
-      call flux_gradient_at_solpts(iter,nst)
-                                           ! call check_for_bad_number(__LINE__)
-#else
-      !
-      call interp_cv_to_flxpts(iter,nst)
-      !
-      if (ncpu > 1) then
-        call exchange_faceusp
-#ifdef IMMEDIATE_WAIT_FOR_MPI
-        call wait_faceusp           ! ; call check_for_bad_number(__LINE__)
-#endif
+                                          !  call check_for_bad_number(__LINE__)
       end if
       !
       call get_faceusp_bc(newton_failures)
       call check_for_bad_number(__LINE__,newton_failures)
       !
-#ifndef IMMEDIATE_WAIT_FOR_MPI
-      if (ncpu > 1) call wait_faceusp
-#endif
+      call get_invs_common_fluxes_interior
+                                          !  call check_for_bad_number(__LINE__)
       !
-     !if (nst == 1) call get_dtsp(dtmin)
-      !
-      if (governing_equations == NavierStokes_Eqns) then
-        !
-        call discontinuous_gradient_at_solpts
-        !
-        if (visc_flux_method == visc_flux_BR2) then
-         !call correct_gradients_br2
-          call correct_gradients_br2_gpu
-        else if (visc_flux_method /= visc_flux_BR2) then
-          call correct_gradients_at_solpts
-          call interp_dusp_to_flxpts
-        end if
-        !
-        if (ncpu > 1) then
-          call exchange_facedusp
-#ifdef IMMEDIATE_WAIT_FOR_MPI
-          call wait_facedusp           ! ; call check_for_bad_number(__LINE__)
-#endif
-        end if
-        !
-        call get_facedusp_bc
-        !
+      if (ncpu > 1) then
 #ifndef IMMEDIATE_WAIT_FOR_MPI
-        if (ncpu > 1) call wait_facedusp
+        call wait_faceusp                 !; call check_for_bad_number(__LINE__)
 #endif
-        !
       end if
       !
-     !call flux_gradient_at_solpts_visc(iter,nst)
-      call flux_gradient_at_solpts_visc_gpu(iter,nst)
-      call correct_interface_flux_visc(iter,nst)
+      if (governing_equations == NavierStokes_Eqns) then
+        if (visc_flux_method == visc_flux_BR2) then
+         !call correct_gradients_br2
+          call correct_gradients_br2_gpu  !; call check_for_bad_number(__LINE__)
+        else
+          call correct_gradients_at_solpts_gpu
+                                          !  call check_for_bad_number(__LINE__)
+         !call correct_gradients_at_solpts ! call check_for_bad_number(__LINE__)
+          call interp_dusp_to_flxpts      !; call check_for_bad_number(__LINE__)
+        end if
+        if (ncpu > 1) then
+          call exchange_facedusp          !; call check_for_bad_number(__LINE__)
+#ifdef IMMEDIATE_WAIT_FOR_MPI
+          call wait_facedusp              !; call check_for_bad_number(__LINE__)
 #endif
+        end if
+        call get_facedusp_bc              !; call check_for_bad_number(__LINE__)
+        call get_visc_common_fluxes_interior
+                                          !  call check_for_bad_number(__LINE__)
+      end if
+      !
+      call get_invs_common_fluxes_bc      !; call check_for_bad_number(__LINE__)
+      !
+      if (governing_equations == NavierStokes_Eqns) then
+        if (ncpu > 1) then
+#ifndef IMMEDIATE_WAIT_FOR_MPI
+          call wait_facedusp              !; call check_for_bad_number(__LINE__)
+#endif
+        end if
+        call get_visc_common_fluxes_bc    !; call check_for_bad_number(__LINE__)
+      end if
+      !
+      call flux_gradient_at_solpts(iter,nst)
+                                          !  call check_for_bad_number(__LINE__)
+!!#else
+!!      !
+!!      call interp_cv_to_flxpts(iter,nst)
+!!      !
+!!      if (ncpu > 1) then
+!!        call exchange_faceusp
+!!#ifdef IMMEDIATE_WAIT_FOR_MPI
+!!        call wait_faceusp           ! ; call check_for_bad_number(__LINE__)
+!!#endif
+!!      end if
+!!      !
+!!      call get_faceusp_bc(newton_failures)
+!!      call check_for_bad_number(__LINE__,newton_failures)
+!!      !
+!!#ifndef IMMEDIATE_WAIT_FOR_MPI
+!!      if (ncpu > 1) call wait_faceusp
+!!#endif
+!!      !
+!!     !if (nst == 1) call get_dtsp(dtmin)
+!!      !
+!!      if (governing_equations == NavierStokes_Eqns) then
+!!        !
+!!        call discontinuous_gradient_at_solpts
+!!        !
+!!        if (visc_flux_method == visc_flux_BR2) then
+!!         !call correct_gradients_br2
+!!          call correct_gradients_br2_gpu
+!!        else if (visc_flux_method /= visc_flux_BR2) then
+!!          call correct_gradients_at_solpts
+!!          call interp_dusp_to_flxpts
+!!        end if
+!!        !
+!!        if (ncpu > 1) then
+!!          call exchange_facedusp
+!!#ifdef IMMEDIATE_WAIT_FOR_MPI
+!!          call wait_facedusp           ! ; call check_for_bad_number(__LINE__)
+!!#endif
+!!        end if
+!!        !
+!!        call get_facedusp_bc
+!!        !
+!!#ifndef IMMEDIATE_WAIT_FOR_MPI
+!!        if (ncpu > 1) call wait_facedusp
+!!#endif
+!!        !
+!!      end if
+!!      !
+!!     !call flux_gradient_at_solpts_visc(iter,nst)
+!!      call flux_gradient_at_solpts_visc_gpu(iter,nst)
+!!      call correct_interface_flux_visc(iter,nst)
+!!#endif
       !
       ! Compute the source terms for the method of manufactured solutions (MMS)
       !
       if (mms_opt /= 0) then
-        call mms_src
+        call mms_src                      !; call check_for_bad_number(__LINE__)
       end if
       !
       ! Compute the source terms for the channel flow
       !
       if (itestcase == Channel_Flow) then
-        call channel_source
+        call channel_source               !; call check_for_bad_number(__LINE__)
       end if
       !
       ! Compute the final residual for each solution point
       !
-      call rresi(iter,nst)
+      call rresi(iter,nst)                !; call check_for_bad_number(__LINE__)
       !
       if (nst == 1) then
-        call get_dtsp(dtmin)
+        call get_dtsp(dtmin)              !; call check_for_bad_number(__LINE__)
       end if
       !
       ! Store residual in rssprk(:,:,nst) and update the solutions in usp
@@ -847,6 +857,7 @@ continue
       else if (Runge_Kutta_Scheme == CK4_RK) then
         call update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
       end if
+     !call check_for_bad_number(__LINE__)
       !
     end do rk_loop
     !
@@ -1294,13 +1305,18 @@ continue
   !
   !
   !
-  10 format (/,' For Processor ',i0,/,'------------------',/, &
-               '  ncell = ',i0,'  nnode = ',i0,'  nfbnd = ',i0, &
-               '  nface = ',i0,'  nDOF = ',i0,/, &
-               '  Partition Volume = ',f13.6)
-  11 format (/,' For the Global Grid ',/,'---------------------',/, &
+  11 format (/,'  For the Global Grid ',/, &
+               ' ---------------------',/, &
                '  ncell = ',i0,'  nnode = ',i0, &
-               '  nfbnd = ',i0,'  nDOF = ',i0,/, &
+               '  nfbnd = ',i0,'  nDOF = ',i0,//, &
+               '  n_solpts      = ',i0,/, &
+               '  n_flxpts      = ',i0,/, &
+               '  n_bnd_flxpts  = ',i0,/, &
+               '  n_wall_flxpts = ',i0,//, &
+               '  n_qdtpts      = ',i0,/, &
+               '  n_flx_qdtpts  = ',i0,/, &
+               '  n_bnd_qdtpts  = ',i0,/, &
+               '  n_wall_qdtpts = ',i0,//, &
                '  Total Grid Volume = ',f13.6,/, &
                '  1D Solution Points = ',100(6f9.5,:,/,23x))
   !
