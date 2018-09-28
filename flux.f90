@@ -2536,6 +2536,34 @@ continue
     !
   end do
   !
+!#define DEBUG_FLUXES_AND_RESIDUAL
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  block
+    !
+    use ovar, only : itcur
+    integer :: io,l,m,n
+    character(len=30) :: fname
+    !
+    write (fname,1) "phys_fluxes",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,np
+      write (io,2) n,((tfluxes(n,l,m), l=1,2), m=nec,nee)
+    end do
+    close (io)
+    !
+    write (fname,1) "comp_fluxes",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,np
+      write (io,2) n,((rfluxes(n,l,m), l=1,2), m=nec,nee)
+    end do
+    close (io)
+    !
+    1 format (a,".",i0,".dat")
+    2 format (i7,2x,20es14.6)
+    !
+  end block
+#endif
+  !
 end subroutine transform_fluxes_2d
 !
 !###############################################################################
@@ -2820,6 +2848,26 @@ continue
     end do
     !
   end do
+  !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  block
+    !
+    use ovar, only : itcur
+    integer :: io,m,n
+    character(len=20) :: fname
+    !
+    write (fname,1) itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,cell(ncell)%end_sp
+      write (io,2) n,(residual(n,m), m=nec,nee)
+    end do
+    close (io)
+    !
+    1 format ("residual.",i0,".dat")
+    2 format (i7,2x,10es18.10)
+    !
+  end block
+#endif
   !
 end subroutine compute_flux_divergence_2d
 !
@@ -3152,10 +3200,19 @@ subroutine add_flux_correction_2d(tfluxes)
   !.. Local Arrays ..
   integer :: fpidx(1:maxFP)
   !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  !.. Local Arrays ..
+  real(wp) :: flux_correction(1:size(residual,dim=1),1:size(residual,dim=2))
+#endif
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "add_flux_correction_2d"
   !
 continue
+  !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  flux_correction(:,:) = zero
+#endif
   !
   !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
   !$ACC&                   PRESENT(correct) &
@@ -3266,6 +3323,13 @@ continue
           residual(n0+n,nmy) = residual(n0+n,nmy) + a*flx_my
           residual(n0+n,nee) = residual(n0+n,nee) + a*flx_ee
           !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+          flux_correction(n0+n,nec) = flux_correction(n0+n,nec) + a*flx_ec
+          flux_correction(n0+n,nmx) = flux_correction(n0+n,nmx) + a*flx_mx
+          flux_correction(n0+n,nmy) = flux_correction(n0+n,nmy) + a*flx_my
+          flux_correction(n0+n,nee) = flux_correction(n0+n,nee) + a*flx_ee
+#endif
+          !
         end do
         !
       end do pts_on_face
@@ -3273,6 +3337,48 @@ continue
     end do faces_of_cell
     !
   end do cell_loop
+  !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  block
+    !
+    use ovar, only : itcur
+    integer :: io,n,m
+    character(len=30) :: fname
+    !
+    write (fname,1) "residual_corr",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,cell(ncell)%end_sp
+      write (io,2) n,(residual(n,m), m=nec,nee)
+    end do
+    close (io)
+    !
+    write (fname,1) "face_flux",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,size(faceflx,dim=1)
+      write (io,2) n,(faceflx(n,m), m=nec,nee)
+    end do
+    close (io)
+    !
+    write (fname,1) "flux_correction",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,cell(ncell)%end_sp
+      write (io,2) n,(flux_correction(n,m), m=nec,nee)
+    end do
+    close (io)
+    !
+    if (itcur == 1) then
+      open (newunit=io,file="facenrm.dat",status="replace",action="write")
+      do n = 1,size(facenrm,dim=2)
+        write (io,2) n,(facenrm(m,n), m=1,2)
+      end do
+      close (io)
+    end if
+    !
+    1 format (a,".",i0,".dat")
+    2 format (i7,2x,10es18.10)
+    !
+  end block
+#endif
   !
 end subroutine add_flux_correction_2d
 !
@@ -3833,6 +3939,40 @@ continue
   !
   call upwind_flux_gpu(n1,n2,facenrm,faceusp_array,facegpsp,faceflx)
   !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  block
+    !
+    use ovar, only : itcur
+    integer :: io,n,m
+    character(len=30) :: fname
+    !
+    write (fname,1) "faceflx",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,size(faceflx,dim=1)
+      write (io,2) n,(faceflx(n,m), m=nec,nee)
+    end do
+    close(io)
+    !
+    write (fname,1) "faceusp_L",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,size(faceusp_array,dim=1)
+      write (io,2) n,(faceusp_array(n,m,1), m=nec,nee)
+    end do
+    close(io)
+    !
+    write (fname,1) "faceusp_R",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,size(faceusp_array,dim=1)
+      write (io,2) n,(faceusp_array(n,m,2), m=nec,nee)
+    end do
+    close(io)
+    !
+    1 format (a,"_in.",i0,".dat")
+    2 format (i7,2x,10es18.10)
+    !
+  end block
+#endif
+  !
 end subroutine invs_common_fluxes_interior_at_flxpts
 !
 !###############################################################################
@@ -4078,6 +4218,40 @@ continue
   n2 = n_bnd_flxpts
   !
   call upwind_flux_gpu(n1,n2,facenrm,faceusp_array,facegpsp,faceflx)
+  !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  block
+    !
+    use ovar, only : itcur
+    integer :: io,n,m
+    character(len=30) :: fname
+    !
+    write (fname,1) "faceflx",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,size(faceflx,dim=1)
+      write (io,2) n,(faceflx(n,m), m=nec,nee)
+    end do
+    close(io)
+    !
+    write (fname,1) "faceusp_L",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,size(faceusp_array,dim=1)
+      write (io,2) n,(faceusp_array(n,m,1), m=nec,nee)
+    end do
+    close(io)
+    !
+    write (fname,1) "faceusp_R",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,size(faceusp_array,dim=1)
+      write (io,2) n,(faceusp_array(n,m,2), m=nec,nee)
+    end do
+    close(io)
+    !
+    1 format (a,"_bc.",i0,".dat")
+    2 format (i7,2x,10es18.10)
+    !
+  end block
+#endif
   !
 end subroutine invs_common_fluxes_bc_at_flxpts
 !
