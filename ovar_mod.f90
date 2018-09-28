@@ -239,6 +239,7 @@ module ovar
   ! rhoref default evaluates to 1.160833478437518_wp
   real(wp), public, save :: tref    =    300.0_wp
   real(wp), public, save :: pref    = 100000.0_wp
+  real(wp), public, save :: rgasref =     -1.0_wp
   !
   ! REFERENCE TURBULENCE CONDITIONS
   real(wp), public, save :: tinref = 0.0_wp
@@ -398,7 +399,7 @@ module ovar
   real(wp), public, save, dimension(3) :: velref
   !
   real(wp), public, save :: pref_nd
-  real(wp), public, save :: rgasref
+ !real(wp), public, save :: rgasref
   real(wp), public, save :: rgasref_nd
   real(wp), public, save :: muref_nd
   real(wp), public, save :: cpref_nd
@@ -926,7 +927,7 @@ module input_namelist_mod
   use ovar,      only : output_bnd_profiles,sub_inflow_method
   use ovar,      only : machref, reyref, gam, Pr, Prt
   use ovar,      only : schmidt_lam, schmidt_turb
-  use ovar,      only : rhoref, tref, pref
+  use ovar,      only : rhoref, tref, pref, rgasref
   use ovar,      only : turbulence_model, tinref, tvrref
   use ovar,      only : alpha_aoaref, beta_aoaref
   use ovar,      only : profile_io_all,profile_io_restart
@@ -1051,7 +1052,7 @@ module input_namelist_mod
   ! REALIZABLE TOTAL TEMPERATURE LIMITER
   namelist / input / ideal_total_temperature, limit_total_temperature
   ! REFERENCE CONDITIONS
-  namelist / input / rhoref, tref, pref
+  namelist / input / rhoref, tref, pref, rgasref
   ! REFERENCE TURBULENCE CONDITIONS
   namelist / input / tinref, tvrref
   ! REFERENCE ANGLES OF ATTACK

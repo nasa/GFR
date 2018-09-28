@@ -237,7 +237,9 @@ continue
   else
     !
     gam = 1.4_wp
-    rgasref = runivl / cp_air_wtmol
+    if (rgasref <= zero) then
+      rgasref = runivl / cp_air_wtmol
+    end if
     !
   end if
   !
