@@ -805,11 +805,13 @@ subroutine plot3dio_sp_read_header_form(unit,file,form, &
   character(len=*) ,intent(out) :: iomsg
 
   !.. Local Variables ..
-  integer(i4) nblk_i4
-  integer nblk
-  integer l,n,ndim
-  integer ierr
-
+  integer(i4) :: nblk_i4
+  integer :: nblk
+  integer :: l,n,ndim
+  integer :: ierr
+  integer(i4) :: i1,i2,i3
+  character(len=1000) :: text
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "plot3dio_sp_read_header_form"
   integer :: huge_nblk = 100000
@@ -820,15 +822,73 @@ continue
 
   iostat = 0  ! Assume no error until proven otherwise.
   iomsg  = ''
-
+  !
+  nblk = 0
+  !
   if ( form == 'FORMATTED' ) then
     read (dim,'(i1)') ndim
-    if ( mgrid == 'NO' ) then
-      nblk = 1
+    !
+    read (unit,'(a)',iostat=iostat,iomsg=iomsg) text
+    text = trim(adjustl(text))
+    !
+    if (mgrid == "YES") then
+      read (text,*,iostat=iostat,iomsg=iomsg) i1,i2
+      if (iostat == 0) then
+        iostat = 1
+        iomsg = "This does not appear to be a multi-block grid because&
+               & there are multiple values on the first line of the&
+               & grid file. For a multi-block file, the first line&
+               & should contain only a single value giving the total&
+               & number of blocks in the grid."
+      else
+        read (text,*,iostat=iostat,iomsg=iomsg) nblk_i4
+        if (iostat == 0) then
+          nblk = int(nblk_i4)
+        else
+          iostat = 1
+          iomsg = "There was an error reading the first line&
+                 & of the multi-block grid file."
+        end if
+      end if
     else
-      read (unit,*,iostat=iostat,iomsg=iomsg) nblk_i4
-      nblk = int(nblk_i4)
+      if (ndim == 3) then
+        read (text,*,iostat=iostat,iomsg=iomsg) i1,i2,i3
+        if (iostat == 0) then
+          nblk = 1
+          backspace (unit)
+        else
+          iostat = 1
+          iomsg = "There was an error reading the block dimensions of&
+                 & the 3D single-block grid file."
+        end if
+      else if (ndim == 2) then
+        read (text,*,iostat=iostat,iomsg=iomsg) i1,i2
+        if (iostat == 0) then
+          nblk = 1
+          backspace (unit)
+        else
+          iostat = 1
+          iomsg = "There was an error reading the block dimensions of&
+                 & the 2D single-block grid file."
+        end if
+      else if (ndim == 1) then
+        read (text,*,iostat=iostat,iomsg=iomsg) i1
+        if (iostat == 0) then
+          nblk = 1
+          backspace (unit)
+        else
+          iostat = 1
+          iomsg = "There was an error reading the block dimensions of&
+                 & the 1D single-block grid file."
+        end if
+      end if
     end if
+   !if ( mgrid == 'NO' ) then
+   !  nblk = 1
+   !else
+   !  read (unit,*,iostat=iostat,iomsg=iomsg) nblk_i4
+   !  nblk = int(nblk_i4)
+   !end if
     if ( iostat /= 0 ) then
       ! Already have iomsg from read command.
     else if ( nblk <= 0 ) then
@@ -1298,11 +1358,13 @@ subroutine plot3dio_dp_read_header_form(unit,file,form, &
   character(len=*) ,intent(out) :: iomsg
 
   !.. Local Variables ..
-  integer(i8) nblk_i8
-  integer nblk
-  integer l,n,ndim
-  integer ierr
-
+  integer(i8) :: nblk_i8
+  integer :: nblk
+  integer :: l,n,ndim
+  integer :: ierr
+  integer(i8) :: i1,i2,i3
+  character(len=1000) :: text
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "plot3dio_dp_read_header_form"
   integer :: huge_nblk = 100000
@@ -1313,15 +1375,73 @@ continue
 
   iostat = 0  ! Assume no error until proven otherwise.
   iomsg  = ''
-
+  !
+  nblk = 0
+  !
   if ( form == 'FORMATTED' ) then
     read (dim,'(i1)') ndim
-    if ( mgrid == 'NO' ) then
-      nblk = 1
+    !
+    read (unit,'(a)',iostat=iostat,iomsg=iomsg) text
+    text = trim(adjustl(text))
+    !
+    if (mgrid == "YES") then
+      read (text,*,iostat=iostat,iomsg=iomsg) i1,i2
+      if (iostat == 0) then
+        iostat = 1
+        iomsg = "This does not appear to be a multi-block grid because&
+               & there are multiple values on the first line of the&
+               & grid file. For a multi-block file, the first line&
+               & should contain only a single value giving the total&
+               & number of blocks in the grid."
+      else
+        read (text,*,iostat=iostat,iomsg=iomsg) nblk_i8
+        if (iostat == 0) then
+          nblk = int(nblk_i8)
+        else
+          iostat = 1
+          iomsg = "There was an error reading the first line&
+                 & of the multi-block grid file."
+        end if
+      end if
     else
-      read (unit,*,iostat=iostat,iomsg=iomsg) nblk_i8
-      nblk = int(nblk_i8)
+      if (ndim == 3) then
+        read (text,*,iostat=iostat,iomsg=iomsg) i1,i2,i3
+        if (iostat == 0) then
+          nblk = 1
+          backspace (unit)
+        else
+          iostat = 1
+          iomsg = "There was an error reading the block dimensions of&
+                 & the 3D single-block grid file."
+        end if
+      else if (ndim == 2) then
+        read (text,*,iostat=iostat,iomsg=iomsg) i1,i2
+        if (iostat == 0) then
+          nblk = 1
+          backspace (unit)
+        else
+          iostat = 1
+          iomsg = "There was an error reading the block dimensions of&
+                 & the 2D single-block grid file."
+        end if
+      else if (ndim == 1) then
+        read (text,*,iostat=iostat,iomsg=iomsg) i1
+        if (iostat == 0) then
+          nblk = 1
+          backspace (unit)
+        else
+          iostat = 1
+          iomsg = "There was an error reading the block dimensions of&
+                 & the 1D single-block grid file."
+        end if
+      end if
     end if
+   !if ( mgrid == 'NO' ) then
+   !  nblk = 1
+   !else
+   !  read (unit,*,iostat=iostat,iomsg=iomsg) nblk_i8
+   !  nblk = int(nblk_i8)
+   !end if
     if ( iostat /= 0 ) then
       ! Already have iomsg from read command.
     else if ( nblk <= 0 ) then
