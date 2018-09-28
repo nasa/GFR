@@ -37,7 +37,7 @@ subroutine initialize_flow()
   use ovar, only : adjust_cfl_cycles
   use ovar, only : solution_file, solution_format
   !
-  use flowvar, only : usp,uoldsp
+  use flowvar, only : usp,uoldsp,gpsp
   use flowvar, only : allocate_flowvar_arrays
   !
   use order_mod, only : maxpts
@@ -48,6 +48,9 @@ subroutine initialize_flow()
   use projection_mod, only : project_to_porder
   !
   use interpolation_mod, only : outerp
+  !
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
   !
   !.. Local Scalars ..
   integer :: n,n0,n1,n2,np,l,l1,l2,m
@@ -277,6 +280,11 @@ continue
     !
   end if
   !
+  ! Update the thermodynamics and transport properties at the solution points
+  !
+  call update_thermo_properties(1,n_solpts,usp,gpsp)
+  call update_transport_properties(1,n_solpts,usp,gpsp)
+  !
   init_tstar = time*time_ref*time_scaling_factor
   !
   ! Create the character format strings for the
@@ -327,6 +335,71 @@ continue
     call write_bc_conditions(ibc_end=0,dimensional=fals)
   end if
   !
+  ! Output the free-stream conditions
+  !
+!!block
+!!  !
+!!  use ovar, only : pref,tref,gam,rgasref,cpref
+!!  use ovar, only : machref,velref,uref,muref,reyref
+!!  use ovar, only : alpha_aoaref,beta_aoaref
+!!  use ovar, only : pref_nd,velref_nd,muref_nd
+!!  use ovar, only : rgasref_nd,cpref_nd
+!!  use gpu_mod, only : cv2pv_gpu
+!!  integer :: io,n,m
+!!  real(wp), allocatable :: vsp(:,:)
+!!  !
+!!  if (mypnum == glb_root) then
+!!    if (all(itestcase /= [Density_Transport,Entropy_Transport])) then
+!!      !
+!!      write (iout,10) rhoref,pref,tref,machref,aref,velref(1)
+!!      if (nr >= 2) write (iout,11) velref(2)
+!!      if (nr == 3) write (iout,12) velref(3)
+!!      write (iout,13) alpha_aoaref,beta_aoaref,gam,rgasref,cpref,muref,reyref
+!!      !
+!!      write (iout,20) rhoref/rhoref,pref_nd,tref/tref,aref/aref,velref_nd(1)
+!!      if (nr >= 2) write (iout,21) velref_nd(2)
+!!      if (nr == 3) write (iout,22) velref_nd(3)
+!!      write (iout,23) rgasref_nd,cpref_nd,muref_nd
+!!      !
+!!    else
+!!      !
+!!      write (iout,30) rhoref,pref,tref,machref,uref/machref, &
+!!                      velref(1),velref(2),alpha_aoaref,beta_aoaref,gam, &
+!!                      rgasref,muref,reyref
+!!      !
+!!    end if
+!!    !
+!!  end if
+!!  !
+!!  open (newunit=io,file="usp.init.dat",status="replace",action="write")
+!!  do n = 1,n_solpts
+!!    write (io,81) n,(usp(n,m),m=1,nq)
+!!  end do
+!!  close (io)
+!!  !
+!!  allocate ( vsp(1:n_solpts,1:nq) , source=zero )
+!!  call cv2pv_gpu(1,n_solpts,usp(1:n_solpts,1:nq),gpsp(1:n_solpts,1:nq), &
+!!                            vsp(1:n_solpts,1:nq))
+!!  open (newunit=io,file="vsp.init.dat",status="replace",action="write")
+!!  do n = 1,n_solpts
+!!    write (io,81) n,(vsp(n,m),m=1,nq)
+!!  end do
+!!  close (io)
+!!  deallocate ( vsp )
+!!  !
+!!  open (newunit=io,file="gpsp.init.dat",status="replace",action="write")
+!!  do n = 1,n_solpts
+!!    write (io,81) n,gpsp(n,npres),gpsp(n,ntemp),gpsp(n,nvisc),gpsp(n,ncond)
+!!  end do
+!!  close (io)
+!!  !
+!!  81 format (i5,2x,10es18.10)
+!!  !
+!!  !
+!!  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"After dumping usp.init.dat")
+!!  !
+!!end block
+  !
   ! Deallocate local arrays and disassociate local pointers before leaving
   !
   if (allocated(outerp_inv)) then
@@ -352,6 +425,53 @@ continue
   ! Format Statements
   !
   1 format ("outerp_inv(",a,",",i0,")%mat")
+!!!
+!!10 format (/, &
+!!           " Dimensional Free-stream conditions",/, &
+!!           " Density          = ",es14.6," kg/m^3",/, &
+!!           " Pressure         = ",es14.6," N/m^2",/, &
+!!           " Temperature      = ",es14.6," K",/, &
+!!           " Mach Number      = ",es14.6,/, &
+!!           " Speed of Sound   = ",es14.6," m/s",/, &
+!!           " X-Velocity       = ",es14.6," m/s")
+!!11 format (" Y-Velocity       = ",es14.6," m/s")
+!!12 format (" Z-Velocity       = ",es14.6," m/s")
+!!13 format (" Alpha A.o.Attack = ",es14.6," degrees"/, &
+!!           " Beta  A.o.Attack = ",es14.6," degrees"/, &
+!!           " Gamma            = ",es14.6,/, &
+!!           " Gas Constant     = ",es14.6," J/(kg*K)",/, &
+!!           " Cp               = ",es14.6," J/(kg*K)",/, &
+!!           " Viscosity        = ",es14.6," kg/(m*s)",/, &
+!!           " Reynolds #       = ",es14.6,/)
+!!!
+!!20 format (/, &
+!!           " Non-dimensional Free-stream conditions",/, &
+!!           " Density         = ",es14.6,/, &
+!!           " Pressure        = ",es14.6,/, &
+!!           " Temperature     = ",es14.6,/, &
+!!           " Speed of Sound  = ",es14.6,/, &
+!!           " X-Velocity      = ",es14.6)
+!!21 format (" Y-Velocity      = ",es14.6)
+!!22 format (" Z-Velocity      = ",es14.6)
+!!23 format (" Gas Constant    = ",es14.6,/, &
+!!           " Cp              = ",es14.6,/, &
+!!           " Viscosity       = ",es14.6,/)
+!!!
+!!30 format (/, &
+!!           " The density vortex transport problem is being",/, &
+!!           " used to model the linear 2D advection equation.",//, &
+!!           " The Non-dimensional Free-stream conditions are",/, &
+!!           " Density          = ",es14.6,/, &
+!!           " Pressure         = ",es14.6,/, &
+!!           " Temperature      = ",es14.6,/, &
+!!           " Mach Number      = ",es14.6,/, &
+!!           " Speed of Sound   = ",es14.6,/, &
+!!           " X-Velocity       = ",es14.6,/, &
+!!           " Y-Velocity       = ",es14.6,/, &
+!!           " Alpha A.o.Attack = ",es14.6," degrees"/, &
+!!           " Beta  A.o.Attack = ",es14.6," degrees"/, &
+!!           " Gamma            = ",es14.6,/, &
+!!           " Gas Constant     = ",es14.6,/)
   !
 end subroutine initialize_flow
 !
@@ -1653,7 +1773,7 @@ continue
       !
     end if
     !
-    ! Initialize the thermodynamic gas properties module and 
+    ! Initialize the thermodynamic gas properties module and
     ! compute the reference conditions for the gas properties.
     ! NOTE: This also sets the values of the following variables in ovar:
     !          rgasref, gam, rhoref, pref, tref, cpref, aref, uref,
@@ -2224,7 +2344,6 @@ continue
       !
     end if
     !
-#ifdef DEBUG_ON
     ii = 0
     bface_loop: do nf = 1,size(bface,dim=2)
       !
@@ -2253,6 +2372,7 @@ continue
       !
     end do bface_loop
     !
+#ifdef DEBUG_ON
     call write_bc_conditions(ibc_end=i,dimensional=true,num_bc_faces=ii)
 #endif
     !
@@ -2321,14 +2441,14 @@ continue
   tdim = tref
   !
   cdim = "D"
-  t_units = "K"
-  v_units = "m/s"
-  r_units = "kg/m^3"
-  p_units = "N/m^2"
-  visc_units = "kg/(m*s)"
-  cond_units = "W/(m*K)"
-  cp_units = "J/(kg*K)"
-  h_units = "J/kg"
+  t_units = " K"
+  v_units = " m/s"
+  r_units = " kg/m^3"
+  p_units = " N/m^2"
+  visc_units = " kg/(m*s)"
+  cond_units = " W/(m*K)"
+  cp_units = " J/(kg*K)"
+  h_units = " J/kg"
   !
   if (present(dimensional)) then
     if (.not. dimensional) then
@@ -2582,10 +2702,10 @@ continue
   107 format (100('4x,"',a,' Mass Fraction",t27,"= ",es14.6',:,',/,'))
   108 format ('(',a,')')
   !
-  1 format (/,a,"imensional flow conditions for BC # 0 - ", &
-                "Reference/Freestream BCs")
-  2 format (/,a,"imensional flow conditions for BC # ",i0, &
-                " - '",a,"'",/, &
+  1 format (/,2x,a,"imensional flow conditions for BC # 0 - ", &
+                   "Reference/Freestream BCs")
+  2 format (/,2x,a,"imensional flow conditions for BC # ",i0, &
+                   " - '",a,"'",/, &
               4x,"BC Type = ",a)
  !3 format (4x,"Wall Temperature      = ",es14.6," K",/, &
  !          4x,"X-velocity            = ",es14.6," m/s",/,:, &
