@@ -535,17 +535,17 @@ continue
     !
   end if
   !
-  if (mypnum == glb_root) then
-    psi0 = -one*(marker_c1 + marker_c2*log10(real(n_order,kind=wp)))
-    write (iout,30) marker_c1,marker_c2,marker_dpsi, &
-                    psi0-marker_dpsi,psi0,psi0+marker_dpsi
-  end if
-  30 format (/,2x,"marker_c1   = ",f11.6,/, &
-               2x,"marker_c2   = ",f11.6,/, &
-               2x,"marker_dpsi = ",f11.6,//, &
-               2x,"psi0 - dpsi = ",f11.6,/, &
-               2x,"psi0        = ",f11.6,/, &
-               2x,"psi0 + dpsi = ",f11.6,/)
+!!if (mypnum == glb_root) then
+!!  psi0 = -one*(marker_c1 + marker_c2*log10(real(n_order,kind=wp)))
+!!  write (iout,30) marker_c1,marker_c2,marker_dpsi, &
+!!                  psi0-marker_dpsi,psi0,psi0+marker_dpsi
+!!end if
+!!30 format (/,2x,"marker_c1   = ",f11.6,/, &
+!!             2x,"marker_c2   = ",f11.6,/, &
+!!             2x,"marker_dpsi = ",f11.6,//, &
+!!             2x,"psi0 - dpsi = ",f11.6,/, &
+!!             2x,"psi0        = ",f11.6,/, &
+!!             2x,"psi0 + dpsi = ",f11.6,/)
   !
   ! Make sure the number of RK stages is correct for some RK types
   !
