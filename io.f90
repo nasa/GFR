@@ -7998,13 +7998,13 @@ continue
           !
           rho_inv = one/cv(n,nec)
           !
-          mi = cv(n,mi)
-          mj = cv(n,mj)
+          mi = cv(n,nmi)
+          mj = cv(n,nmj)
           !
           drhodi = dcvdx(n,i,nec) * time_ref_inv
           drhodj = dcvdx(n,j,nec) * time_ref_inv
-          dmjdi = dcvdx(n,i,mj) * time_ref_inv
-          dmidj = dcvdx(n,j,mi) * time_ref_inv
+          dmjdi = dcvdx(n,i,nmj) * time_ref_inv
+          dmidj = dcvdx(n,j,nmi) * time_ref_inv
           !
           vartmp(n) = rho_inv*( (dmjdi-dmidj) - rho_inv*(mj*drhodi-mi*drhodj) )
           !
