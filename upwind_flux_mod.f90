@@ -467,6 +467,10 @@ pure subroutine roe_upwind_flux_cpg_3d(n1,n2,facenrm,face_cv,face_gp, &
   real(wp) :: dw1,hsr1,eta1,udw1,rvnl
   real(wp) :: dw4,hsr4,eta4,udw4,rvnr
   real(wp) :: ra_ec,ra_h0,ra_a2,ra_a,ra_q2,ra_vn
+!#define PROTECT_AGAINST_ATD_EQUAL_ZERO
+#ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
+  real(wp) :: atd2nz,atd2rt,atdnz,atdrt
+#endif
   !
 continue
   !
@@ -475,8 +479,7 @@ continue
   !
   gam_over_gm1 = gam / gm1
   !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp) &
-  !$ACC&              PRESENT(return_value)
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -522,9 +525,20 @@ continue
     ra_a  = sqrt(ra_a2)
     ra_vn = ra_mx*unx + ra_my*uny + ra_mz*unz
     !
+#ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
+    atd2nz = max(ra_a2,rndoff)
+    atdnz = max(ra_a,rndoff)
+    atd2rt = ra_a2 / atd2nz
+    atdrt = ra_a / atdnz
+#endif
+    !
     if (ra_vn >= zero) then
       !
+#ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
+      dw1  = half*((presr-presl)/atd2nz*atd2rt - (vnr-vnl)*ra_ec/atdnz*atdrt)
+#else
       dw1  = half*((presr-presl)/ra_a2 - (vnr-vnl)*ra_ec/ra_a)
+#endif
       hsr1 = -one4*gp1*dw1*ra_a/ra_ec
       eta1 = max(-abs(ra_vn-ra_a) + hsr1, zero)
       udw1 = dw1*(min(ra_vn-ra_a,zero) - half*eta1)
@@ -538,7 +552,11 @@ continue
       !
     else
       !
+#ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
+      dw4  = half*((presr-presl)/atd2nz*atd2rt + (vnr-vnl)*ra_ec/atdnz*atdrt)
+#else
       dw4  = half*((presr-presl)/ra_a2 + (vnr-vnl)*ra_ec/ra_a)
+#endif
       hsr4 = one4*gp1*dw4*ra_a/ra_ec
       eta4 = max(-abs(ra_vn+ra_a) + hsr4, zero)
       udw4 = dw4*(max(ra_vn+ra_a,zero) + half*eta4)
@@ -558,8 +576,8 @@ end subroutine roe_upwind_flux_cpg_3d
 !
 !###############################################################################
 !
-pure subroutine roe_upwind_flux_cpg_2d(n1,n2,facenrm,face_cv,face_gp, &
-                                       return_value)
+!pure &
+subroutine roe_upwind_flux_cpg_2d(n1,n2,facenrm,face_cv,face_gp,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -584,6 +602,9 @@ pure subroutine roe_upwind_flux_cpg_2d(n1,n2,facenrm,face_cv,face_gp, &
   real(wp) :: dw1,hsr1,eta1,udw1,rvnl
   real(wp) :: dw4,hsr4,eta4,udw4,rvnr
   real(wp) :: ra_ec,ra_h0,ra_a2,ra_a,ra_q2,ra_vn
+#ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
+  real(wp) :: atd2nz,atd2rt,atdnz,atdrt
+#endif
   !
 continue
   !
@@ -592,8 +613,7 @@ continue
   !
   gam_over_gm1 = gam / gm1
   !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp) &
-  !$ACC&              PRESENT(return_value)
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -634,9 +654,20 @@ continue
     ra_a  = sqrt(ra_a2)
     ra_vn = ra_mx*unx + ra_my*uny
     !
+#ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
+    atd2nz = max(ra_a2,rndoff)
+    atdnz = max(ra_a,rndoff)
+    atd2rt = ra_a2 / atd2nz
+    atdrt = ra_a / atdnz
+#endif
+    !
     if (ra_vn >= zero) then
       !
+#ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
+      dw1  = half*((presr-presl)/atd2nz*atd2rt - (vnr-vnl)*ra_ec/atdnz*atdrt)
+#else
       dw1  = half*((presr-presl)/ra_a2 - (vnr-vnl)*ra_ec/ra_a)
+#endif
       hsr1 = -one4*gp1*dw1*ra_a/ra_ec
       eta1 = max(-abs(ra_vn-ra_a) + hsr1, zero)
       udw1 = dw1*(min(ra_vn-ra_a,zero) - half*eta1)
@@ -649,7 +680,11 @@ continue
       !
     else
       !
+#ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
+      dw4  = half*((presr-presl)/atd2nz*atd2rt + (vnr-vnl)*ra_ec/atdnz*atdrt)
+#else
       dw4  = half*((presr-presl)/ra_a2 + (vnr-vnl)*ra_ec/ra_a)
+#endif
       hsr4 = one4*gp1*dw4*ra_a/ra_ec
       eta4 = max(-abs(ra_vn+ra_a) + hsr4, zero)
       udw4 = dw4*(max(ra_vn+ra_a,zero) + half*eta4)
@@ -661,6 +696,30 @@ continue
       return_value(n,nee) = ds*(h0r*rvnr - udw4*(ra_h0+ra_a*ra_vn)          )
       !
     end if
+!#define DEBUG_UPWIND_FLUXES
+#ifdef DEBUG_UPWIND_FLUXES
+    block
+      use ovar, only : itcur
+      write (200+itcur,1) n,return_value(n,nec),return_value(n,nmx), &
+                            return_value(n,nmy),return_value(n,nee)
+      write (210+itcur,1) n,rl,rl_inv,vxl,vyl,q2l,presl,h0l,vnl
+      write (220+itcur,1) n,rr,rr_inv,vxr,vyr,q2r,presr,h0r,vnr
+      write (230+itcur,1) n,ra_ec,betal,betar,ra_mx,ra_my, &
+                            ra_h0,ra_q2,ra_a2,ra_a,ra_vn
+#ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
+      write (240+itcur,1) n,atd2nz,atdnz,atd2rt,atdrt
+#endif
+      if (ra_vn >= zero) then
+        write (250+itcur,2) n,"ra_vn >= 0",dw1,hsr1,eta1,udw1,rvnl
+      else
+        write (250+itcur,2) n,"ra_vn <  0",dw4,hsr4,eta4,udw4,rvnr
+      end if
+      write (260+itcur,3) n,presr,presl,presr-presl,vnr,vnl,vnr-vnl
+      1 format (i6,2x,10es18.10)
+      2 format (i6,2x,a,2x,5es18.10)
+      3 format (i6,2x,6es23.15)
+    end block
+#endif
     !
   end do
   !
@@ -694,6 +753,9 @@ pure subroutine roe_upwind_flux_cpg_1d(n1,n2,facenrm,face_cv,face_gp, &
   real(wp) :: dw1,hsr1,eta1,udw1,rvnl
   real(wp) :: dw4,hsr4,eta4,udw4,rvnr
   real(wp) :: ra_ec,ra_h0,ra_a2,ra_a,ra_q2,ra_vn
+#ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
+  real(wp) :: atd2nz,atd2rt,atdnz,atdrt
+#endif
   !
 continue
   !
@@ -702,8 +764,7 @@ continue
   !
   gam_over_gm1 = gam / gm1
   !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp) &
-  !$ACC&              PRESENT(return_value)
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -739,9 +800,20 @@ continue
     ra_a  = sqrt(ra_a2)
     ra_vn = ra_mx*unx
     !
+#ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
+    atd2nz = max(ra_a2,rndoff)
+    atdnz = max(ra_a,rndoff)
+    atd2rt = ra_a2 / atd2nz
+    atdrt = ra_a / atdnz
+#endif
+    !
     if (ra_vn >= zero) then
       !
+#ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
+      dw1  = half*((presr-presl)/atd2nz*atd2rt - (vnr-vnl)*ra_ec/atdnz*atdrt)
+#else
       dw1  = half*((presr-presl)/ra_a2 - (vnr-vnl)*ra_ec/ra_a)
+#endif
       hsr1 = -one4*gp1*dw1*ra_a/ra_ec
       eta1 = max(-abs(ra_vn-ra_a) + hsr1, zero)
       udw1 = dw1*(min(ra_vn-ra_a,zero) - half*eta1)
@@ -753,7 +825,11 @@ continue
       !
     else
       !
+#ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
+      dw4  = half*((presr-presl)/atd2nz*atd2rt + (vnr-vnl)*ra_ec/atdnz*atdrt)
+#else
       dw4  = half*((presr-presl)/ra_a2 + (vnr-vnl)*ra_ec/ra_a)
+#endif
       hsr4 = one4*gp1*dw4*ra_a/ra_ec
       eta4 = max(-abs(ra_vn+ra_a) + hsr4, zero)
       udw4 = dw4*(max(ra_vn+ra_a,zero) + half*eta4)
