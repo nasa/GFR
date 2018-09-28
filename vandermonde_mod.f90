@@ -1,6 +1,6 @@
 module vandermonde_mod
   !
-#define PROFILE_ON
+!!!#define PROFILE_ON
   !
   !.. Use Statements ..
   use module_kind_types, global_debug_timer => debug_timer

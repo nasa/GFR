@@ -1,7 +1,7 @@
 module parallel_mod
   !
 #include <mpi_defs.h>
-#define PROFILE_ON
+!!!#define PROFILE_ON
   !
 #ifdef DEBUG_ON
 !!!#define DEBUG_PARALLEL

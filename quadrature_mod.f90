@@ -1,6 +1,6 @@
 module quadrature_mod
   !
-#define PROFILE_ON
+!!!#define PROFILE_ON
 !!!#define DISABLE_PURE
   !
   use module_kind_types, global_debug_timer => debug_timer
