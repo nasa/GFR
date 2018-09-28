@@ -49,10 +49,15 @@ subroutine compute_residual_error()
   use geovar,       only : nr,n_solpts,ncell,cell,cell_map
   use ovar,         only : total_volume,uverr
   use ovar,         only : use_async_for_error
+  use ovar,         only : itcur
+  use flowvar,      only : usp,uoldsp
   !
   !.. Local Scalars ..
   integer  :: k,l,m,n,nc,n1,n2,l1,l2,l3,e1,e2,e3
   real(wp) :: vol_inv
+  !
+  integer :: io
+  character(len=20) :: fname
   !
   !.. Local Arrays ..
  !real(wp), dimension(1:nq+1,1:5+nr,1:2)        :: error
@@ -87,9 +92,9 @@ continue
   l2 = min(2,nr)
   l3 = min(3,nr)
   !
-  e1 = size(uverr,dim=1)
-  e2 = size(uverr,dim=2)
-  e3 = size(uverr,dim=3)
+  e1 = size(uverr,dim=1) ! nq+1
+  e2 = size(uverr,dim=2) ! nr+5
+  e3 = size(uverr,dim=3) ! 2
   !
   allocate ( error(1:e1,1:e2,1:e3) , source=zero )
   allocate ( tunew(1:n_solpts,1:nq+1) , source=zero )
@@ -113,19 +118,71 @@ continue
   call get_unew_solpts_gpu(tunew)
   call get_uold_solpts_gpu(tuold)
   !
+!#define OUTPUT_U_ARRAYS
+#ifdef OUTPUT_U_ARRAYS
+  200 format (i7,2x,10es18.10)
+  201 format (a,".",i0,".dat")
+  !
+  if (itcur == 1) then
+    write (fname,201) "usp",0
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,n_solpts
+      write (io,200) n,(uoldsp(n,m),m=1,size(uoldsp,dim=2))
+    end do
+    close (io)
+  end if
+  !
+  write (fname,201) "usp",itcur
+  open (newunit=io,file=fname,status="replace",action="write")
+  do n = 1,n_solpts
+    write (io,200) n,(usp(n,m),m=1,size(usp,dim=2))
+  end do
+  close (io)
+  !
+  write (fname,201) "unew",itcur
+  open (newunit=io,file=fname,status="replace",action="write")
+  do n = 1,n_solpts
+    write (io,200) n,(tunew(n,m),m=1,size(tunew,dim=2))
+  end do
+  close (io)
+  !
+  write (fname,201) "uold",itcur
+  open (newunit=io,file=fname,status="replace",action="write")
+  do n = 1,n_solpts
+    write (io,200) n,(tuold(n,m),m=1,size(tuold,dim=2))
+  end do
+  close (io)
+#endif
+  !
   if (use_async_for_error) then
     call compute_error_gpu_async(tunew,tuold,error(:,:,1))
   else
-    call compute_error_gpu(tunew,tuold,error(:,:,1))
+    call compute_error_gpu(tunew,tuold,error(:,:,1),1)
   end if
   !
   call get_vnew_solpts_gpu(tunew)
   call get_vold_solpts_gpu(tuold)
   !
+#ifdef OUTPUT_U_ARRAYS
+  write (fname,201) "vnew",itcur
+  open (newunit=io,file=fname,status="replace",action="write")
+  do n = 1,n_solpts
+    write (io,200) n,(tunew(n,m),m=1,size(tunew,dim=2))
+  end do
+  close (io)
+  !
+  write (fname,201) "vold",itcur
+  open (newunit=io,file=fname,status="replace",action="write")
+  do n = 1,n_solpts
+    write (io,200) n,(tuold(n,m),m=1,size(tuold,dim=2))
+  end do
+  close (io)
+#endif
+  !
   if (use_async_for_error) then
     call compute_error_gpu_async(tunew,tuold,error(:,:,2))
   else
-    call compute_error_gpu(tunew,tuold,error(:,:,2))
+    call compute_error_gpu(tunew,tuold,error(:,:,2),2)
   end if
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) &
@@ -166,6 +223,23 @@ continue
     call mpi_allgather(error,    size(error,kind=int_mpi),mpi_flttyp, &
                        all_error,size(error,kind=int_mpi),mpi_flttyp, &
                        MPI_COMM_WORLD,mpierr)
+   !if (mypnum == glb_root) then
+   !  do l = 1,2
+   !    do m = 1,nq+1
+   !      write (150,150) (all_error(m,1,l,n), n=1,ncpu), &
+   !                      sum(all_error(m,2,l,:)) * vol_inv
+   !      write (151,150) (all_error(m,2,l,n), n=1,ncpu), &
+   !                      sqrt( sum(all_error(m,2,l,:)) * vol_inv )
+   !    end do
+   !    write (150,*)
+   !    write (151,*)
+   !  end do
+   !  write (150,*)
+   !  write (151,*)
+   !  150 format (20es14.6)
+   !  flush (150)
+   !  flush (151)
+   !end if
     !
     ! Finish computing the various error norms across all processors
     !
@@ -274,7 +348,7 @@ end subroutine compute_residual_error
 !
 !###############################################################################
 !
-subroutine compute_error_gpu(tunew,tuold,error)
+subroutine compute_error_gpu(tunew,tuold,error,cv_pv_switch)
   !
   !.. Use Statements ..
   use geovar,      only : nr,n_solpts,xyz
@@ -284,6 +358,7 @@ subroutine compute_error_gpu(tunew,tuold,error)
   real(wp),    intent(in) :: tunew(:,:)
   real(wp),    intent(in) :: tuold(:,:)
   real(wp), intent(inout) :: error(:,:)
+  integer,     intent(in) :: cv_pv_switch
   !
   !.. Local Scalars ..
   integer  :: k,m,n,l1,l2,l3
@@ -305,6 +380,14 @@ subroutine compute_error_gpu(tunew,tuold,error)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_error_gpu"
+  character(len=*), parameter :: cvar(6,3) = &
+      reshape( ["rho ","rhou","rhoE"," s  ","    ","    ", &
+                "rho ","rhou","rhov","rhoE"," s  ","    ", &
+                "rho ","rhou","rhov","rhow","rhoE"," s  "], shape(cvar) )
+  character(len=*), parameter :: pvar(6,3) = &
+      reshape( ["rho "," vx ","pres","vmag","    ","    ", &
+                "rho "," vx "," vy ","pres","vmag","    ", &
+                "rho "," vx "," vy "," vz ","pres","vmag"], shape(pvar) )
   !
 continue
   !
@@ -329,7 +412,12 @@ continue
       new_val = tunew(n,m)
       old_val = tuold(n,m)
       !
-      linf = abs( new_val - old_val )
+     !linf = abs( new_val - old_val )
+      if (m == nq+1 .and. cv_pv_switch == 2) then
+        linf = norm2( abs(tunew(n,nmb:nme) - tuold(n,nmb:nme)) )
+      else
+        linf = abs( tunew(n,m) - tuold(n,m) )
+      end if
       lone = linf*wtdjac(n)
       ltwo = linf*lone
       !
@@ -352,9 +440,14 @@ continue
    !k = maxloc(linf_error(1:n_solpts),dim=1)
     !
 #ifdef DEBUG_WRITE_ITER_OUT
-    write (iout,100) "lone_sum = ",lone_sum
-    write (iout,100) "ltwo_sum = ",ltwo_sum
-    100 format (a,es16.8)
+    if (cv_pv_switch == 1) then
+      write (iout,100) "lone_sum",cvar(m,nr),lone_sum
+      write (iout,100) "ltwo_sum",cvar(m,nr),ltwo_sum
+    else
+      write (iout,100) "lone_sum",pvar(m,nr),lone_sum
+      write (iout,100) "ltwo_sum",pvar(m,nr),ltwo_sum
+    end if
+    100 format (a,"(",a,") = ",es16.8)
 #endif
     error(m,1) = lone_sum
     error(m,2) = ltwo_sum
