@@ -259,7 +259,7 @@ continue
   !      static pressure, and mixture gas constant.
   !   3) Compute static enthalpy from static temperature
   !      and species mass fractions.
-  ! 
+  !
   ! Compute the new mixture gas constant using
   ! the updated species mass fractions.
   !
@@ -1328,12 +1328,18 @@ end subroutine adjust_temp_gradient_for_tpg_1d
 !###############################################################################
 !###############################################################################
 !
-pure subroutine vortex_solution_gpu(n1,n2,xyz,return_value)
+!#define DEBUG_VORTEX_SOLUTION
+#ifndef DEBUG_VORTEX_SOLUTION
+pure &
+#endif
+subroutine vortex_solution_gpu(n1,n2,xyz,return_value)
   !
   !.. Use Statements ..
   use ovar, only : velref,aref,uref,machref
   use ovar, only : gam,rhoref,tref,pref,itestcase
   use ovar, only : vortex_bigR,vortex_bigGam
+  use ovar, only : itcur,Period_Timesteps,Period_Time
+  use ovar, only : Grid_Length,Grid_min
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -1345,14 +1351,33 @@ pure subroutine vortex_solution_gpu(n1,n2,xyz,return_value)
   real(wp) :: c0,c1,c2,c3,c4,c5,bigR,bigGam
   real(wp) :: gm1,gm1_inv,gam_over_gm1
   real(wp) :: rhoref_inv,aref_inv,rhoa2_inv,tref_inv
-  real(wp) :: vx_ref,vy_ref
-  real(wp) :: x,y,a,du,dv,dT,vx,vy,vz,q2,temp,rho,pres
+  real(wp) :: vx_ref,vy_ref,delt_since_lastperiod
+  real(wp) :: a,du,dv,dT,vx,vy,vz,q2,temp,rho,pres
+  real(wp) :: x,y,dx,dy,xc,yc
   !
   logical(lk) :: running_vortex_problem
   !
 continue
   !
   nr = size(xyz,dim=1)
+  !
+  ! Compute the time that has elapsed since the start of the current period
+  !
+  delt_since_lastperiod = real(mod(itcur,Period_Timesteps),wp) &
+                        / real(Period_Timesteps,wp)
+  delt_since_lastperiod = delt_since_lastperiod * Period_Time
+  !
+  ! Find the x and y distances the vortex has
+  ! traveled since the start of the current period
+  !
+  dx = deltafun(velref(1)>eps3) * (velref(1)/aref) * delt_since_lastperiod
+  dy = deltafun(velref(2)>eps3) * (velref(2)/aref) * delt_since_lastperiod
+  !
+  ! Now translate these into a periodic domain
+  ! with the grid lengths for each direction
+  !
+  dx = mod(dx,Grid_Length(1))
+  dy = mod(dy,Grid_Length(2))
   !
   ! Some needed constants
   !
@@ -1389,11 +1414,39 @@ continue
   !
   c5 = gm1_inv * (one - deltafun(itestcase==Density_Transport))
   !
+#ifdef DEBUG_VORTEX_SOLUTION
+  write (iout,1) "dx",dx
+  write (iout,1) "dy",dy
+  write (iout,1) "delt",delt_since_lastperiod
+  write (iout,1) "gam",gam
+  write (iout,1) "rhoref",rhoref
+  write (iout,1) "aref",aref
+  write (iout,1) "vx_ref",vx_ref
+  write (iout,1) "vy_ref",vy_ref
+  write (iout,1) "tref",tref
+  write (iout,1) "rhoref_inv",rhoref_inv
+  write (iout,1) "aref_inv",aref_inv
+  write (iout,1) "rhoa2_inv",rhoa2_inv
+  write (iout,1) "tref_inv",tref_inv
+  write (iout,1) "bigR",bigR
+  write (iout,1) "bigGam",bigGam
+  write (iout,1) "c0",c0
+  write (iout,1) "c1",c1
+  write (iout,1) "c2",c2
+  write (iout,1) "c3",c3
+  write (iout,1) "c4",c4
+  write (iout,1) "c5",c5
+  1 format (2x,a,t12," = ",es14.6)
+#endif
+  !
   !$ACC PARALLEL LOOP PRESENT(xyz,return_value)
   do n = n1,n2
     !
-    x = xyz(1,n)
-    y = xyz(2,n)
+    xc = xyz(1,n)
+    yc = xyz(2,n)
+    !
+    x = xc - merge( dx , dx - Grid_Length(1) , xc - dx >= Grid_Min(1) )
+    y = yc - merge( dy , dy - Grid_Length(2) , yc - dy >= Grid_Min(2) )
     !
     a = c2*exp((one - x*x - y*y)*c1)
     !
@@ -1408,10 +1461,10 @@ continue
     vy = vy_ref + dv*c0
     temp = tref  + dT
     !
-    rho  = rhoref  * (temp*tref_inv)**(gm1_inv)
-    pres = c5*pref * (temp*tref_inv)**(gam_over_gm1)
+    rho  = rhoref * (temp*tref_inv)**(gm1_inv)
+    pres = pref   * (temp*tref_inv)**(gam_over_gm1)
     !
-    ! Evaluate the dimensional initial conditions using conserved variables
+    ! Store the nondimensional primitive variables in return_value
     !
     return_value(n,nec) = rho * rhoref_inv
     return_value(n,nmx) = vx * aref_inv
@@ -1447,7 +1500,7 @@ continue
       return_value(n,nmx) = rho*vx
       return_value(n,nmy) = rho*vy
       return_value(n,nmz) = rho*vz
-      return_value(n,nee) = pres*gm1_inv + half*rho*q2
+      return_value(n,nee) = pres*c5 + half*rho*q2
       !
     end do
   else
@@ -1463,67 +1516,12 @@ continue
       !
       return_value(n,nmx) = rho*vx
       return_value(n,nmy) = rho*vy
-      return_value(n,nee) = pres*gm1_inv + half*rho*q2
+      return_value(n,nee) = pres*c5 + half*rho*q2
       !
     end do
   end if
   !
 end subroutine vortex_solution_gpu
-!
-!###############################################################################
-!
-pure subroutine vortex_offset_gpu(xyz,return_value)
-  !
-  !.. Use Statements ..
-  use ovar, only : itcur,velref,aref
-  use ovar, only : Period_Timesteps,Period_Time
-  use ovar, only : Grid_Length,Grid_Min
-  !
-  !.. Formal Arguments ..
-  real(wp),    intent(in) :: xyz(:,:)
-  real(wp), intent(inout) :: return_value(:,:)
-  !
-  !.. Local Scalars ..
-  integer :: nr,np,l,k
-  real(wp) :: delt_since_lastperiod
-  !
-  !.. Local Arrays ..
-  real(wp) :: del(1:size(xyz,dim=1))
-  !
-continue
-  !
-  nr = size(xyz,dim=1)
-  np = size(xyz,dim=2)
-  !
-  ! Compute the time that has elapsed since the start of the current period
-  !
-  delt_since_lastperiod = real(mod(itcur,Period_Timesteps),wp) &
-                        / real(Period_Timesteps,wp)
-  delt_since_lastperiod = delt_since_lastperiod * Period_Time
-  !
-  ! Find the x and y distances the vortex has
-  ! traveled since the start of the current period
-  !
-  do l = 1,nr
-    del(l) = deltafun(velref(l)>eps3) * (velref(l)/aref) * delt_since_lastperiod
-  end do
-  !
-  ! Now translate these into a periodic domain
-  ! with the grid lengths for each direction
-  !
-  do l = 1,nr
-    del(l) = mod(del(l),Grid_Length(l))
-  end do
-  !
-  do k = 1,np
-    do l = 1,nr
-      return_value(l,k) = xyz(l,k) - merge( del(l) , &
-                                            del(l) - Grid_Length(l) , &
-                                            xyz(l,k) - del(l) >= Grid_Min(l) )
-    end do
-  end do
-  !
-end subroutine vortex_offset_gpu
 !
 !###############################################################################
 !
