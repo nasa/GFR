@@ -161,7 +161,7 @@ module ovar
   !
   ! TIME STEPPING INFORMATION
   integer,  public, save :: num_timesteps     = 25000
-  real(wp), public, save :: Final_Time        = 10.0_wp
+  real(wp), public, save :: Final_Time        = -10.0_wp
   real(wp), public, save :: constant_dt       = 1.0e-6_wp
   integer,  public, save :: Timestep_Type     = Global_Cell_Timestep
   integer,  public, save :: minimum_timesteps = 100
