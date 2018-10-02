@@ -7792,7 +7792,7 @@ continue
         vartmp(n) = cv(n,nec) * rhoref - freestream_ref
       end do
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
     case ("Momentum") ! Momentum
       !
@@ -7805,7 +7805,7 @@ continue
           vartmp(n) = cv(n,m) * rhoa
         end do
         !
-        call cgns_write_field_parallel
+        call cgns_write_field_data
         !
       end do
       !
@@ -7818,7 +7818,7 @@ continue
         vartmp(n) = cv(n,nee) * rhoa2
       end do
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
     case ("GradDensity") ! GradDensity
       !
@@ -7831,7 +7831,7 @@ continue
           vartmp(n) = dcvdx(n,l,nec) * rhoref
         end do
         !
-        call cgns_write_field_parallel
+        call cgns_write_field_data
         !
       end do
       !
@@ -7847,7 +7847,7 @@ continue
             vartmp(n) = dcvdx(n,l,m) * rhoa
           end do
           !
-          call cgns_write_field_parallel
+          call cgns_write_field_data
           !
         end do
       end do
@@ -7863,7 +7863,7 @@ continue
           vartmp(n) = dcvdx(n,l,nee) * rhoa2
         end do
         !
-        call cgns_write_field_parallel
+        call cgns_write_field_data
         !
       end do
       !
@@ -7882,7 +7882,7 @@ continue
           vartmp(n) = cv(n,m)/cv(n,nec) * aref - freestream_ref
         end do
         !
-        call cgns_write_field_parallel
+        call cgns_write_field_data
         !
       end do
       !
@@ -7897,7 +7897,7 @@ continue
         vartmp(n) = gp(n,npres) * rhoa2 - freestream_ref
       end do
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
     case ("P0") ! Total Pressure
       !
@@ -7916,7 +7916,7 @@ continue
         vartmp(n) = pres*( (one + half*gm1*mach*mach)**gam_over_gm1 )
       end do
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
     case ("Mach") ! Mach number
       !
@@ -7931,7 +7931,7 @@ continue
         end do
       end if
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
     case ("Entropy") ! Entropy
       !
@@ -7956,7 +7956,7 @@ continue
         end do
       end if
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
     case ("Temperature") ! Temperature
       !
@@ -7969,7 +7969,7 @@ continue
         vartmp(n) = gp(n,ntemp) * tref - freestream_ref
       end do
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
     case ("T0") ! Total Temperature
       !
@@ -7986,7 +7986,7 @@ continue
         vartmp(n) = temp*(one + half*gm1*mach*mach)
       end do
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
     case ("Viscosity") ! Viscosity
       !
@@ -7999,7 +7999,7 @@ continue
           vartmp(n) = gp(n,nvisc) * rhoa
         end do
         !
-        call cgns_write_field_parallel
+        call cgns_write_field_data
         !
       end if
       !
@@ -8035,7 +8035,7 @@ continue
           !
         end do
         !
-        call cgns_write_field_parallel
+        call cgns_write_field_data
         !
         if (nr < 3) exit vorticity_loop
         !
@@ -8073,7 +8073,7 @@ continue
       !
       call interpolate_for_output( vartmp_at_sp , vartmp )
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
       ! Scaled resolution marker value
       !
@@ -8104,7 +8104,7 @@ continue
       !
       call interpolate_for_output( vartmp_at_sp , vartmp )
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
     case ("JumpMarker")
       !
@@ -8136,7 +8136,7 @@ continue
       !
       call interpolate_for_output( vartmp_at_sp , vartmp )
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
       ! Scaled pressure jump marker value
       !
@@ -8153,7 +8153,7 @@ continue
       !
       call interpolate_for_output( vartmp_at_sp , vartmp )
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
     case ("Partition")
       !
@@ -8171,7 +8171,7 @@ continue
       !
       call interpolate_for_output( vartmp_at_sp , vartmp )
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
     case ("Timestep")
       !
@@ -8180,7 +8180,7 @@ continue
       !
       call interpolate_for_output( dtsp(1:n_solpts) , vartmp , nondim=time_ref )
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
     case ("CoMetrics")
      !!
@@ -8201,7 +8201,7 @@ continue
      !    !
      !    call interpolate_for_output( vartmp_at_sp , vartmp )
      !    !
-     !    call cgns_write_field_parallel
+     !    call cgns_write_field_data
      !    !
      !  end do
      !end do
@@ -8225,7 +8225,7 @@ continue
           !
           call interpolate_for_output( vartmp_at_sp , vartmp )
           !
-          call cgns_write_field_parallel
+          call cgns_write_field_data
           !
         end do
       end do
@@ -8250,7 +8250,7 @@ continue
           !
           call interpolate_for_output( vartmp_at_sp , vartmp )
           !
-          call cgns_write_field_parallel
+          call cgns_write_field_data
           !
         end do
         !
@@ -8263,7 +8263,7 @@ continue
         !
         call interpolate_for_output( vartmp_at_sp , vartmp )
         !
-        call cgns_write_field_parallel
+        call cgns_write_field_data
         !
       end if
       !
@@ -8276,7 +8276,7 @@ continue
         vartmp(n) = cv(n,nec) * rhoref
       end do
       !
-      call cgns_write_field_parallel
+      call cgns_write_field_data
       !
   end select
   !
@@ -8290,7 +8290,7 @@ continue
   !
   contains
   !
-#include "Functions/cgns_write_field_parallel.f90"
+#include "Functions/cgns_write_field_data.f90"
   !
   !-----------------------------------------------------------------------------
   !
@@ -8536,7 +8536,7 @@ continue
     !
     ivar_s = isvar_s(nv)
     !
-    call cgns_write_field_parallel
+    call cgns_write_field_data
     !
   end do
   !
@@ -8601,7 +8601,7 @@ continue
   !
   contains
   !
-#include "Functions/cgns_write_field_parallel.f90"
+#include "Functions/cgns_write_field_data.f90"
   !
   !-----------------------------------------------------------------------------
   !

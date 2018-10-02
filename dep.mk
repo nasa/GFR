@@ -307,7 +307,7 @@ $(OBJDIR)/io.o : io.f90 \
        $(FUNDIR)/cell_vol.f90 \
        $(FUNDIR)/bc_string_to_integer.f90 \
        $(FUNDIR)/check_for_bad_number.f90 \
-       $(FUNDIR)/cgns_write_field_parallel.f90 \
+       $(FUNDIR)/cgns_write_field_data.f90 \
                  mpi_defs.h
 
 $(OBJDIR)/kind_types.o : kind_types.f90 \

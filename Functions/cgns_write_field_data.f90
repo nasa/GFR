@@ -1,4 +1,4 @@
-  subroutine cgns_write_field_parallel()
+  subroutine cgns_write_field_data()
     !
     ! This routine is placed here simply to prevent from having to place this
     ! whole chunk of code after each variable that needs to be written to the
@@ -41,4 +41,4 @@
     !
     call flush_cgns_queue(pname,cgns_sol_file)
     !
-  end subroutine cgns_write_field_parallel
+  end subroutine cgns_write_field_data
