@@ -3653,22 +3653,32 @@ subroutine remove_duplicate_nodes(sol_nodes)
   real(wp), allocatable, intent(inout) :: sol_nodes(:,:)
   !
   !.. Local Scalars ..
-  integer :: ip,ipcut,ip1,ip2,ip3,n,nc,ib1,ib2,ipn1,ipn2,ierr
-  integer :: new_pt,old_pt,duplicate_node,l
-  integer :: lpts_new,lpts_old
-  logical(lk) :: first_line_not_output
+  integer :: i,ip,ip1,ip2,ipn1,ipn2,ipcut,ierr
+  integer :: n,nc,new_pt,old_pt,duplicate_node
+  integer :: l,lpts_new,lpts_old
+  logical(lk) :: error_removing_nodes
+  logical(lk) :: no_changes
  !real(wp) :: diff
+  !
+  !.. Local Derived Types
+  type :: lpoin_t
+    integer :: idx = 0
+    integer, allocatable :: nodes(:)
+  end type lpoin_t
   !
   !.. Local Arrays ..
   real(wp) :: old_xyz(1:3)
   real(wp) :: new_xyz(1:3)
   !
   !.. Local Allocatable Arrays ..
-  integer,  allocatable :: lpoin(:)
-  integer,  allocatable :: new2old(:)
-  integer,  allocatable :: old2new(:)
-  real(wp), allocatable :: temp_sol(:,:)
-  real(wp), allocatable :: temp_xyz(:,:)
+  integer,       allocatable :: tmp_nodes(:)
+  integer,       allocatable :: lpoin(:)
+  integer,       allocatable :: new2old(:)
+  integer,       allocatable :: old2new(:)
+  real(wp),      allocatable :: temp_sol(:,:)
+  real(wp),      allocatable :: temp_xyz(:,:)
+  logical(lk),   allocatable :: msk(:)
+  type(lpoin_t), allocatable :: lpoin_dt(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "remove_duplicate_nodes"
@@ -3677,97 +3687,166 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  first_line_not_output = true
-  !
   ! Save the old number of grid nodes lpts_old
   !
   lpts_old = size(xyz_nodes,dim=2)
   !
-  ! Initialize lpoin
-  ! lpoin is defined as:
-  !    lpoin(ip) > 0  =>  ip is a keeper point
-  !    lpoin(ip) < 0  =>  ip is a duplicate point to be removed
-  !                       and abs(lpoin(ip)) is the keeper point for
-  !                       this duplicate.
+  ! Allocate the lpoin_dt derived type array needed for identifying
+  ! and removing duplicate nodes on cut boundaries.
   !
-  lpoin = intseq(1,lpts_old) ! USING F2003 AUTO-REALLOCATION
+  allocate ( lpoin_dt(1:lpts_old) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin_dt",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Remove the multiple defined points
+  ! Use the cut_info derived type to create the initial node lists
+  ! for all the nodes on cut boundaries.
   !
- !do n = ncut,1,-1
   do n = 1,ncut
     !
-    ! Two blocks associated with this cut
-    !
-    ib1 = cut_info(n)%side(1)%block
-    ib2 = cut_info(n)%side(2)%block
-    !
-    ! Number of grid points on this cut
-    !
     do ipcut = 1,cut_info(n)%points
-      !
-      ! Points on the right and left blocks
       !
       ip1 = cut_info(n)%nodes(1,ipcut)
       ip2 = cut_info(n)%nodes(2,ipcut)
       !
-      ! Point to the adjacent point
-      !
-      if (lpoin(ip2) > 0) then
-        !
-        if (lpoin(ip1) > 0) then
-          ! ip2 is a duplicate of ip1 so keep which ever one
-          ! is higher and have the other point to it
-          if (ip2 > ip1) then
-            lpoin(ip2) = -ip1
-          else
-            lpoin(ip1) = -ip2
-          end if
-        else
-          ! ip1 has already been marked as a duplicate
-          ! and already points to a keeper
-          lpoin(ip2) = lpoin(ip1)
-        end if
-        !
+      if (.not. allocated(lpoin_dt(ip1)%nodes)) then
+        lpoin_dt(ip1)%nodes = [ip1,ip2] ! F2003 AUTO-REALLOCATION
       else
-        !
-        ! Remove the point connected by more than 4 cells
-        !
-        ip3 = -lpoin(ip2)
-        if (ip3 == ip1) then
-          if (lpoin(ip1) > 0) then
-            lpoin(ip2) = -ip1
-          else
-            lpoin(ip2) = lpoin(ip1)
-          end if
-        else if (ip3 > ip1) then
-          if (lpoin(ip1) > 0) then
-            lpoin(ip3) = -ip1
-            lpoin(ip2) = -ip1
-          else ! lpoin(ip1) < 0
-           !if (lpoin(ip3) > 0) then
-           !  lpoin(ip1) = -ip3
-           !  lpoin(ip2) = -ip3
-           !else
-              lpoin(ip3) = lpoin(ip1)
-              lpoin(ip2) = lpoin(ip1)
-           !end if
-          end if
-        else
-          if (lpoin(ip3) > 0) then
-            lpoin(ip1) = -ip3
-            lpoin(ip2) = -ip3
-          else
-            lpoin(ip1) = lpoin(ip3)
-            lpoin(ip2) = lpoin(ip3)
-          end if
-        end if
-        !
+        ! If it has already been allocated, ip1 should already
+        ! exist in the list so we just need to add ip2.
+        tmp_nodes = [lpoin_dt(ip1)%nodes,ip2] ! F2003 AUTO-REALLOCATION
+        call move_alloc( from=tmp_nodes , to=lpoin_dt(ip1)%nodes )
+      end if
+      !
+      if (.not. allocated(lpoin_dt(ip2)%nodes)) then
+        lpoin_dt(ip2)%nodes = [ip2,ip1] ! F2003 AUTO-REALLOCATION
+      else
+        ! If it has already been allocated, ip2 should already
+        ! exist in the list so we just need to add ip1.
+        tmp_nodes = [lpoin_dt(ip2)%nodes,ip1] ! F2003 AUTO-REALLOCATION
+        call move_alloc( from=tmp_nodes , to=lpoin_dt(ip2)%nodes )
       end if
       !
     end do
     !
   end do
+  !
+  ! Set the initial index value for each node.
+  !
+  do n = 1,lpts_old
+    if (.not. allocated(lpoin_dt(n)%nodes)) then
+      lpoin_dt(n)%idx = n
+    else
+      lpoin_dt(n)%idx = minval(lpoin_dt(n)%nodes)
+    end if
+  end do
+  !
+  ! Allocate the mask array for marking duplicate nodes
+  !
+  allocate ( msk(1:lpts_old) , source=fals , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Continue updating the list of duplicate nodes for each of the nodes on the
+  ! cut boundaries until no new changes are made to the information in lpoin_dt
+  ! between the previous and current loop of the lpoin_dt_convergence loop.
+  !
+  lpoin_dt_convergence: &
+  do
+    !
+    ! Update the list of duplicate nodes for each of the nodes on cut boundaries
+    !
+    do n = 1,lpts_old
+      !
+      if (.not. allocated(lpoin_dt(n)%nodes)) cycle
+      !
+      ! For each of the nodes 'ip' that have already been found to be a
+      ! duplicate of the current node 'n', loop through the list of duplicate
+      ! nodes for node 'ip' and mark these nodes as also being duplicates of
+      ! the current node 'n'.
+      ! NOTE: Node 'n' should also be included within this list of duplicate
+      !       nodes for node 'n', so this loop will also remark all the
+      !       duplicate nodes that have already been found.
+      !
+      do l = 1,size(lpoin_dt(n)%nodes)
+        !
+        ! Extract the index for a node that has already been found to be
+        ! a duplicate of the current node.
+        !
+        ip = lpoin_dt(n)%nodes(l)
+        !
+        ! Loop through the list of duplicate nodes for node 'ip' and mark
+        ! these nodes as also being duplicates of the current node.
+        !
+        do i = 1,size(lpoin_dt(ip)%nodes)
+          msk( lpoin_dt(ip)%nodes(i) ) = true
+        end do
+        !
+      end do
+      !
+      ! Create a new list of all the marked duplicate nodes for the
+      ! current node using the pack function with the mask array.
+      ! 
+      ! F2003 AUTO-REALLOCATION
+      lpoin_dt(n)%nodes = pack( intseq(1,lpts_old) , msk(1:lpts_old) )
+      !
+      ! Reset all the marked nodes in msk to fals
+      !
+      do l = 1,size(lpoin_dt(n)%nodes)
+        msk( lpoin_dt(n)%nodes(l) ) = fals
+      end do
+      !
+    end do
+    !
+    no_changes = true
+    !
+    ! Check to see if any changes were made to the node lists by checking
+    ! the minimum value of the node list and comparing that to the previous
+    ! minimum value stored in idx.
+    !
+    do n = 1,lpts_old
+      !
+      if (.not. allocated(lpoin_dt(n)%nodes)) cycle
+      !
+      l = minval(lpoin_dt(n)%nodes)
+      if (lpoin_dt(n)%idx /= l) then
+        no_changes = fals
+        lpoin_dt(n)%idx = l
+      end if
+      !
+    end do
+    !
+    ! Exit the outer loop if no changes were made from the previous update.
+    !
+    if (no_changes) exit lpoin_dt_convergence
+    !
+  end do lpoin_dt_convergence
+  !
+  deallocate ( msk , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Make the index for all duplicate nodes negative
+  !
+  do n = 1,lpts_old
+    !
+    if (lpoin_dt(n)%idx /= n) then
+      lpoin_dt(n)%idx = -lpoin_dt(n)%idx
+    end if
+    !
+  end do
+  !
+  ! Create the lpoin array using lpoin_dt(:)%idx
+  !     lpoin is defined as:
+  !        lpoin(ip) > 0  =>  ip is a keeper point
+  !        lpoin(ip) < 0  =>  ip is a duplicate point to be removed
+  !                           and abs(lpoin(ip)) is the keeper point for
+  !                           this duplicate.
+  !
+  lpoin = lpoin_dt(1:lpts_old)%idx ! F2003 AUTO-REALLOCATION
+  !
+  ! Deallocate lpoin_dt
+  !
+  deallocate ( lpoin_dt , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin_dt",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Create the new2old and ol2new mapping arrays from lpoin
   !
   ! new2old(ip) = the old point number for a new point ip
   ! old2new(ip) = the new point number for a old point ip
@@ -3804,7 +3883,9 @@ continue
   !
   if (mypnum == glb_root) write (iout,1) lpts_old,lpts_new
   !
-  ! Check the consistency
+  ! Check the consistency of the node indices across each of the cut boundaries
+  !
+  error_removing_nodes = fals
   !
   do n = 1,ncut
     !
@@ -3820,24 +3901,42 @@ continue
       ipn2 = old2new(ip2)
       !
       if (any([ipn1,ipn2] == 0)) then
-        if (first_line_not_output) then
-          if (mypnum == glb_root) write (iout,2)
-          first_line_not_output = fals
+        !
+        if (.not. error_removing_nodes) then
+          if (mypnum == glb_root) write (iout,101)
+          error_removing_nodes = true
         end if
+        !
         if (mypnum == glb_root) then
-          write (iout,8) 1,n,ipcut,map1dto3d(ip1,1),ipn1
-          write (iout,8) 2,n,ipcut,map1dto3d(ip2,1),ipn2
+          write (iout,102) 1,n,ipcut,map1dto3d(ip1,1),ipn1
+          write (iout,102) 2,n,ipcut,map1dto3d(ip2,1),ipn2
         end if
+        !
       else if (ipn1 /= ipn2) then
-        if (first_line_not_output) then
-          if (mypnum == glb_root) write (iout,2)
-          first_line_not_output = fals
+        !
+        if (.not. error_removing_nodes) then
+          if (mypnum == glb_root) write (iout,101)
+          error_removing_nodes = true
         end if
-        if (mypnum == glb_root)  write (iout,9) n, ipcut, ip1, ip2, ipn1, ipn2
+        !
+        if (mypnum == glb_root) then
+          write (iout,103) ipcut, n, ip1, ip2, ipn1, ipn2
+        block
+          use geovar, only : nr
+          write (iout,104) 1,(xyz_nodes(l,ip1), l=1,nr)
+          write (iout,104) 2,(xyz_nodes(l,ip2), l=1,nr)
+          104 format (12x,"coordinates for ip",i1," : ",3(es14.6,:,","))
+        end block
+        end if
       end if
       !
     end do
   end do
+  !
+  if (error_removing_nodes) then
+    write (error_message,100)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
   !
  !new_xyz = zero
  !old_xyz = zero
@@ -3944,13 +4043,27 @@ continue
               " interfaces of the Plot3D grid:",/, &
               "      old nnode = ",i0,/, &
               "      new nnode = ",i0)
-  2 format (/," Error checking the consistency !!!!",/, &
-              "   n, ipcut, ip1, ip2, ipn1, ipn2")
   3 format (4i10)
   4 format (i8,i10,6e14.6)
-  8 format ("Zero found on side ",i1," of cut:", &
-            2x,i4,i8,2x,3i5," (",i0,") => ",i0)
-  9 format (i4,i8, 4i12)
+  !
+  100 format ("AN ERROR WAS DETECTED AFTER ATTEMPTING TO REMOVE DUPLICATE ", &
+              "NODES FROM THE CUT INTERFACES THAT CONNECT PLOT3D BLOCKS!!!!")
+  101 format (//, &
+   "######################################################################",/, &
+   "######################################################################",/, &
+   "###   AN ERROR WAS DETECTED AFTER ATTEMPTING TO REMOVE DUPLICATE   ###",/, &
+   "###  NODES FROM THE CUT INTERFACES THAT CONNECT PLOT3D BLOCKS!!!!  ###",/, &
+   "######################################################################",/, &
+   "######################################################################",//)
+  102 format (4x,"Zero found on side ",i1," of cut:", &
+              2x,i4,i8,2x,3i5," (",i0,") => ",i0)
+  103 format (4x,"Inconsistency in node index detected between ", &
+                 "a pair of duplicate nodes:",/, &
+              8x,"on node index ",i6," of cut # ",i0,/, &
+             12x,"old node index for left  block = ",i0,/, &
+             12x,"old node index for right block = ",i0,/, &
+             12x,"new node index for left  block = ",i0,/, &
+             12x,"new node index for right block = ",i0)
   !
 end subroutine remove_duplicate_nodes
 !
