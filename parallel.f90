@@ -390,21 +390,6 @@ continue
     call create_metis_dual_graph(cells_surr_cell,cells_surr_cell_ptr, &
                                  xadj,adjncy)
     !
-    ! Deallocate cells_surr_cell and cells_surr_cell_ptr since they
-    ! are no longer needed
-    !
-    if (allocated(cells_surr_cell)) then
-      deallocate ( cells_surr_cell , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"cells_surr_cell",2,__LINE__,__FILE__,ierr, &
-                       error_message)
-    end if
-    !
-    if (allocated(cells_surr_cell_ptr)) then
-      deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"cells_surr_cell_ptr",2,__LINE__,__FILE__,ierr, &
-                       error_message)
-    end if
-    !
     ! Allocate the epart array to store the cell partition numbers
     !
     allocate ( epart(1:lcell) , source=0_idx_t , &
@@ -424,13 +409,17 @@ continue
       call memory_pause("Before: calling partition_using_metis_4")
       call partition_using_metis_4(metis_option_requested,npart, &
                                    cell_geom,cell_order, &
-                                   xadj,adjncy,epart)
+                                   xadj,adjncy,epart, &
+                                   cells_surr_cell, &
+                                   cells_surr_cell_ptr)
       !
 #elif METIS_5
       !
       call memory_pause("Before: calling partition_using_metis_5")
       call partition_using_metis_5(metis_option_requested,npart, &
-                                   xadj,adjncy,epart)
+                                   xadj,adjncy,epart, &
+                                   cells_surr_cell, &
+                                   cells_surr_cell_ptr)
       !
 #else
       !
@@ -449,6 +438,21 @@ continue
     !
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  ! Deallocate cells_surr_cell and cells_surr_cell_ptr since they
+  ! are no longer needed
+  !
+  if (allocated(cells_surr_cell)) then
+    deallocate ( cells_surr_cell , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cells_surr_cell",2,__LINE__,__FILE__,ierr, &
+                     error_message)
+  end if
+  !
+  if (allocated(cells_surr_cell_ptr)) then
+    deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cells_surr_cell_ptr",2,__LINE__,__FILE__,ierr, &
+                     error_message)
+  end if
   !
   ! Deallocate no longer needed METIS arrays
   !
@@ -760,6 +764,7 @@ end subroutine partition_grid
 !###############################################################################
 !
 subroutine partition_into_quarters(nodes_of_cell,nodes_of_cell_ptr, &
+                                   cells_surr_cell,cells_surr_cell_ptr, &
                                    xyz_nodes,epart)
   !
   !.. Formal Arguments ..
@@ -767,6 +772,8 @@ subroutine partition_into_quarters(nodes_of_cell,nodes_of_cell_ptr, &
   integer,    intent(in) :: nodes_of_cell_ptr(:)
   real(wp),   intent(in) :: xyz_nodes(:,:)
   integer, intent(inout) :: epart(:)
+  integer,    intent(in) :: cells_surr_cell(:)
+  integer,    intent(in) :: cells_surr_cell_ptr(:)
   !
   !.. Local Scalars ..
   integer  :: nc,n1,n2
@@ -808,7 +815,10 @@ continue
     !
   end do
   !
-  call check_quality_of_partitioning(4,epart,passes_inspection)
+  call check_quality_of_partitioning(4,epart, &
+                                     cells_surr_cell, &
+                                     cells_surr_cell_ptr, &
+                                     passes_inspection)
   !
   if (.not. passes_inspection) then
     write (error_message,1000)
@@ -828,7 +838,8 @@ end subroutine partition_into_quarters
 !
 subroutine partition_using_metis_4(metis_option_requested,npart, &
                                    cell_geom,cell_order, &
-                                   xadj,adjncy,epart)
+                                   xadj,adjncy,epart, &
+                                   cells_surr_cell,cells_surr_cell_ptr)
   !
   !.. Use Statements ..
   use iso_c_binding, only : c_float
@@ -842,6 +853,8 @@ subroutine partition_using_metis_4(metis_option_requested,npart, &
   integer(idx_t),    intent(in) :: xadj(:)
   integer(idx_t),    intent(in) :: adjncy(:)
   integer(idx_t), intent(inout) :: epart(:)
+  integer,           intent(in) :: cells_surr_cell(:)
+  integer,           intent(in) :: cells_surr_cell_ptr(:)
   !
   !.. Local Scalars ..
   integer :: n,ip,ierr,lcell
@@ -984,6 +997,8 @@ continue
       !
      !if (mypnum == 0) then
         call check_quality_of_partitioning(npart,epart, &
+                                           cells_surr_cell, &
+                                           cells_surr_cell_ptr, &
                                            passes_inspection)
      !end if
       !
@@ -1046,7 +1061,8 @@ end subroutine partition_using_metis_4
 !###############################################################################
 !
 subroutine partition_using_metis_5(metis_option_requested,npart, &
-                                   xadj,adjncy,epart)
+                                   xadj,adjncy,epart, &
+                                   cells_surr_cell,cells_surr_cell_ptr)
   !
   !.. Formal Arguments ..
   integer,           intent(in) :: metis_option_requested
@@ -1054,6 +1070,8 @@ subroutine partition_using_metis_5(metis_option_requested,npart, &
   integer(idx_t),    intent(in) :: xadj(:)
   integer(idx_t),    intent(in) :: adjncy(:)
   integer(idx_t), intent(inout) :: epart(:)
+  integer,           intent(in) :: cells_surr_cell(:)
+  integer,           intent(in) :: cells_surr_cell_ptr(:)
   !
   !.. Local Scalars ..
   integer        :: n,ip,ierr,lcell,metis_option
@@ -1239,6 +1257,8 @@ continue
       !
      !if (mypnum == 0) then
         call check_quality_of_partitioning(npart,epart, &
+                                           cells_surr_cell, &
+                                           cells_surr_cell_ptr, &
                                            passes_inspection)
      !end if
       !
@@ -1622,15 +1642,22 @@ end subroutine create_grid_weights
 !
 !###############################################################################
 !
-subroutine check_quality_of_partitioning(npart,epart,passes_inspection)
+subroutine check_quality_of_partitioning(npart,epart, &
+                                         cells_surr_cell,cells_surr_cell_ptr, &
+                                         passes_inspection)
   !
   !.. Formal Arguments ..
   integer,        intent(in) :: npart
   integer(idx_t), intent(in) :: epart(:)
   logical(ldk),  intent(out) :: passes_inspection
+  integer,        intent(in) :: cells_surr_cell(:)
+  integer,        intent(in) :: cells_surr_cell_ptr(:)
   !
   !.. Local Scalars ..
-  integer :: n
+  integer :: n,nc,l,lcell,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  logical(lk), allocatable :: msk(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_quality_of_partitioning"
@@ -1658,6 +1685,55 @@ continue
   !############################################################################
   !############################################################################
   !
+#define ENABLE_CONTIGUITY_CHECK
+#ifdef ENABLE_CONTIGUITY_CHECK
+  if (passes_inspection) then
+    !
+    lcell = size(epart)
+    !
+    allocate ( msk(1:lcell) , source=true , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    do n = 1,npart
+      !
+      nc = 0
+      !
+      do l = 1,lcell
+        !
+        ! Mark all cells on this partition as not yet found (false) and
+        ! mark all other cells not on this partition as already found (true).
+        !
+        msk(l) = (epart(l) /= n)
+        !
+        ! Save the index for the first cell on this partition
+        !
+        if (.not. msk(l) .and. nc == 0) then
+          nc = l
+        end if
+        !
+      end do
+      !
+      ! Recursively mark all adjacent cells starting
+      ! with the first cell on this partition
+      !
+      call mark_adjacent_cells(nc,cells_surr_cell,cells_surr_cell_ptr,msk)
+      !
+      ! Check to make sure that all cells have been marked. If this is not
+      ! the case, the partition is not contiguous.
+      !
+      if (.not. all(msk(1:lcell))) then
+        write (iout,101) n
+        passes_inspection = .false.
+      end if
+      !
+    end do
+    !
+    deallocate ( msk , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+    !
+  end if
+#endif
+  !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format statements
@@ -1666,8 +1742,52 @@ continue
                ' partitioning of the elements. More than likely too many',/, &
                ' processors were used in the paritioning of this mesh.  ',/, &
                ' Please decrease number of processors and try again.    ',/)
+  101 format(/,' Error: The partition created by METIS for processor ',i0, &
+               ' appears to not be contiguous. More than likely too many',/, &
+               ' processors were used in the paritioning of this mesh.  ',/, &
+               ' Please decrease number of processors and try again.    ',/)
   !
 end subroutine check_quality_of_partitioning
+!
+!###############################################################################
+!
+recursive &
+subroutine mark_adjacent_cells(nc,cells_surr_cell,cells_surr_cell_ptr,msk)
+  !
+  !.. Formal Arguments ..
+  integer,        intent(in) :: nc
+  integer,        intent(in) :: cells_surr_cell(:)
+  integer,        intent(in) :: cells_surr_cell_ptr(:)
+  logical(lk), intent(inout) :: msk(:)
+  !
+  !.. Local Scalars ..
+  integer :: l,lc,l1,l2
+  !
+continue
+  !
+  l1 = cells_surr_cell_ptr(nc)+1
+  l2 = cells_surr_cell_ptr(nc+1)
+  !
+  do l = l1,l2
+    !
+    lc = cells_surr_cell(l)
+    !
+    ! If lc < 0, this is a boundary face, so go to the next adjacent cell
+    !
+    if (lc <= 0) cycle
+    !
+    ! If the cell 'lc' that is adjacent to the input cell 'nc' has not yet
+    ! been marked in the msk array, mark cell 'lc' and recursively call
+    ! mark_adjacent_cells to mark the cells adjacent to cell 'lc'.
+    !
+    if (.not. msk(lc)) then
+      msk(lc) = true
+      call mark_adjacent_cells(lc,cells_surr_cell,cells_surr_cell_ptr,msk)
+    end if
+    !
+  end do
+  !
+end subroutine mark_adjacent_cells
 !
 !###############################################################################
 !
