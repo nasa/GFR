@@ -447,6 +447,8 @@ module module_kind_types
                                           bc_symmetry, &
                                           bc_adiabatic_wall, &
                                           bc_isothermal_wall ]
+  integer, parameter :: bc_noslip_walls(1:2) = [ bc_adiabatic_wall, &
+                                                 bc_isothermal_wall ]
   !$ACC DECLARE COPYIN(bc_walls)
   !
   integer, parameter :: bc_heirarchy(1:18) = [ bc_isothermal_wall, &
@@ -487,6 +489,7 @@ module module_kind_types
   integer, parameter :: Reacting_Backstep       = 14
   integer, parameter :: H2_2D_Diffusion_Flame   = 15
   integer, parameter :: CH4_3D_Diffusion_Flame  = 16
+  integer, parameter :: N2_O2_Diffusion         = 17
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
                                                 Entropy_Transport ]
   integer, parameter :: Vortex_Problems(1:2) = [ Shu_Vortex, &
@@ -497,6 +500,9 @@ module module_kind_types
   integer, parameter :: Reacting_Flows(1:3) = [Reacting_Backstep, &
                                                H2_2D_Diffusion_Flame, &
                                                CH4_3D_Diffusion_Flame]
+  integer, parameter :: Dual_Stream_Mixing_Flows(1:2) = &
+                                          [H2_2D_Diffusion_Flame, &
+                                           N2_O2_Diffusion]
   !
   ! Location of 1D solution points
   integer, parameter :: Equi_Distant_Points     = 0
@@ -746,6 +752,7 @@ module module_kind_types
   integer(int_mpi), protected, save :: mpi_comm_world_val
   integer(int_mpi), protected, save :: mpi_comm_self_val
   !
+  integer(int_mpi), parameter :: dump_stack = int( 7 , kind=kind(dump_stack) )
   integer(int_mpi), parameter :: abort = int( 8 , kind=kind(abort) )
   integer(int_mpi), parameter :: stop_mpi = int( 9 , kind=kind(stop_mpi) )
   !
@@ -1986,7 +1993,8 @@ subroutine stop_gfr(iend,procedure_name,line_number,file_name, &
   character(len=*), optional, intent(in) :: optional_message
   !
   !.. Local Scalars ..
-  integer(int_mpi) :: iflag
+  real(wp) :: val
+  integer(int_mpi) :: iflag,io
   character(len=10000) :: strng
   character(len=10000) :: output_message
   !
@@ -2025,7 +2033,23 @@ continue
     !
     ! First finalize the overall MPI session before stopping execution
     !
-    if (ncpu == 1 .or. iflag == stop_mpi) then
+    if (iflag == dump_stack) then
+      !
+      ! Abort by performing an divide by zero
+      !
+      write (iout,3) mypnum
+      write (iout,4) trim(adjustl(procedure_name)),line_number, &
+                     trim(adjustl(file_name))
+      if (present(optional_message)) &
+        write (iout,5) trim(adjustl(output_message))
+      write (iout,6)
+      flush (iout)
+      open (newunit=io,file="ThisFileShouldNeverExist.EOF.read", &
+                       status="old",form="unformatted")
+      read (io) val
+      val = one/val
+      !
+    else if (ncpu == 1 .or. iflag == stop_mpi) then
       !
       if (mypnum == 0) then
         write (iout,2)
