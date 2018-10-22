@@ -495,6 +495,7 @@ subroutine filter_usp()
   !
   !.. Use Statements ..
   use flowvar, only : usp
+  use ovar,    only : force_nd_subroutines
   !
   !.. Local Scalars ..
   integer :: nr
@@ -510,9 +511,9 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call filter_usp_3d(usp)
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call filter_usp_2d(usp)
   else
     call filter_usp_nd(usp)

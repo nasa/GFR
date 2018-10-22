@@ -6,6 +6,8 @@ module module_limiters
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   use eqn_idx, only : ncs,npres
   !
+  use ovar, only : force_nd_subroutines
+  !
   implicit none
   !
   private
@@ -308,9 +310,9 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call apply_filter_limiter_to_usp_3d(troubled_cell,usp)
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call apply_filter_limiter_to_usp_2d(troubled_cell,usp)
   else
     call apply_filter_limiter_to_usp_nd(troubled_cell,usp)
@@ -622,9 +624,9 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call apply_projct_limiter_to_usp_3d(troubled_cell,usp,dropped_orders)
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call apply_projct_limiter_to_usp_2d(troubled_cell,usp,dropped_orders)
   else
     call apply_projct_limiter_to_usp_nd(troubled_cell,usp,dropped_orders)
@@ -1152,6 +1154,15 @@ continue
     end do
   end if
   !
+  ! Set skip_cell to true for any cells that lmtr_order equals zero
+  !
+  !$ACC PARALLEL LOOP PRESENT(lmtr_order,skip_cell)
+  do nc = 1,ncell
+    if (lmtr_order(nc) <= 0) then
+      skip_cell(nc) = .true.
+    end if
+  end do
+  !
   ! Use the resolution indicator to compute marker and scaled_marker
   !
   call compute_resolution_marker(usp,skip_cell,lmtr_order,marker,scaled_marker)
@@ -1240,9 +1251,9 @@ continue
       !
       nr = nme-nmb+1
       !
-      if (nr == 3 .and. ncs == 0) then
+      if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
         call res_ind_apply_proj_3d(usp,skip_cell,lmtr_order)
-      else if (nr == 2 .and. ncs == 0) then
+      else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
         call res_ind_apply_proj_2d(usp,skip_cell,lmtr_order)
       else
         call res_ind_apply_proj_nd(usp,skip_cell,lmtr_order)
@@ -1292,9 +1303,9 @@ continue
   end if
   !
   if (nvar == 0) then
-    if (nr == 3 .and. ncs == 0) then
+    if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
       call compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
-    else if (nr == 2 .and. ncs == 0) then
+    else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
       call compute_resolution_marker_2d(usp,skip_cell,cutoff_order,marker)
     else
       call compute_resolution_marker_nd(usp,skip_cell,cutoff_order,marker)
