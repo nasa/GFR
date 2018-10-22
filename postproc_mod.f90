@@ -4,7 +4,7 @@ module postprocessor_mod
   use module_kind_types
   use module_cgns_types
   use eqn_idx, only : nq,nec,nmx,nmy,nmz,nee,nmb,nme
-  use eqn_idx, only : ng,npres,ntemp,ngamm
+  use eqn_idx, only : ng,npres,ntemp,ngamm,ncs
   !
   implicit none
   !
@@ -1050,7 +1050,7 @@ continue
   !
   ! 1. Update the gas properties for the interior solution points
   !
-  call update_thermo_properties(1,n_solpts,usp,gpsp)
+  call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   ! 2. Update the gas properties for the face points
@@ -1092,7 +1092,7 @@ continue
   !
   ! Use utmp to update the gas properties in gptmp
   !
-  call update_thermo_properties(1,n_flxpts,utmp,gptmp)
+  call update_thermo_properties(1,n_flxpts,utmp,gptmp,loc="face")
   call update_transport_properties(1,n_flxpts,utmp,gptmp)
   !
   ! Copy the gas properties in gptmp back into facegpsp_dt
@@ -1282,7 +1282,8 @@ continue
   n1 = 1
   n2 = n_bnd_flxpts
   !
-  call update_thermo_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2))
+  call update_thermo_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2), &
+                                      loc="face")
   call update_transport_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2))
   !
   call pp_interp_dusp_to_flxpts
@@ -1432,7 +1433,8 @@ continue
   n1 = 1
   n2 = n_flxpts
   !
-  call update_thermo_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1))
+  call update_thermo_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1), &
+                                      loc="face")
   call update_transport_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1))
   !
   ! Copy the updated gas properties to facegpsp_dt
@@ -3236,7 +3238,6 @@ pure function compute_output_variable(upt,gppt,dupt,plot_variable) &
                                result(return_value)
   !
   !.. Use Statements ..
-  use eqn_idx, only : aux_var_is_not_gamma
   use ovar,    only : rhoref,aref,tref,time_ref,gam,pref_nd,itestcase
   !
   !.. Formal Arguments ..
@@ -3295,13 +3296,21 @@ continue
     !
   else if (plot_variable == plot_mach_number) then
     !
-    gamm = merge( gam , gppt(ngamm) , aux_var_is_not_gamma() )
+    if (ncs == 0) then
+      gamm = gam
+    else
+      gamm = gppt(ngamm)
+    end if
     !
     return_value = norm2(upt(nmb:nme)) / sqrt( upt(nec)*gamm*gppt(npres) )
     !
   else if (plot_variable == plot_entropy) then
     !
-    gamm = merge( gam , gppt(ngamm) , aux_var_is_not_gamma() )
+    if (ncs == 0) then
+      gamm = gam
+    else
+      gamm = gppt(ngamm)
+    end if
     !
     if (itestcase == Inviscid_Gaussian_Bump) then
       return_value = (gppt(npres)/pref_nd) / (upt(nec)**gamm)
