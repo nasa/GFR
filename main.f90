@@ -46,6 +46,7 @@ program GFR_main
   use ovar, only : convert_restart_to_cgns
   use ovar, only : start_averaging_timestep
   use ovar, only : start_averaging_tstar,init_tstar
+  use ovar, only : current_rk_stage
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
@@ -119,13 +120,13 @@ program GFR_main
   !
   use flux_mod, only : interp_cv_to_flxpts
   use flux_mod, only : interp_dusp_to_flxpts
-  use flux_mod, only : flux_gradient_at_solpts_visc
-  use flux_mod, only : flux_gradient_at_solpts_visc_gpu
-  use flux_mod, only : correct_interface_flux_visc
+!!use flux_mod, only : flux_gradient_at_solpts_visc
+!!use flux_mod, only : flux_gradient_at_solpts_visc_gpu
+!!use flux_mod, only : correct_interface_flux_visc
   use flux_mod, only : discontinuous_gradient_at_solpts
-  use flux_mod, only : correct_gradients_at_solpts
+!!use flux_mod, only : correct_gradients_at_solpts
   use flux_mod, only : correct_gradients_at_solpts_gpu
-  use flux_mod, only : correct_gradients_br2
+!!use flux_mod, only : correct_gradients_br2
   use flux_mod, only : correct_gradients_br2_gpu
   use flux_mod, only : flux_gradient_at_solpts
   use flux_mod, only : get_invs_common_fluxes_interior
@@ -676,6 +677,13 @@ continue
   call memory_pause("writing initial CGNS file","main iteration loop")
   call check_for_bad_number(__LINE__)
   !
+  ! Initialize uoldsp and gpoldsp if num_timesteps is zero
+  !
+  if (num_timesteps == 0) then
+    call save_old_solution
+    call check_for_bad_number(__LINE__)
+  end if
+  !
   ! Initialize the wall time
   !
   call gfr_cpu_time(0)
@@ -694,6 +702,8 @@ continue
     ! Loop over the Runge-Kutta stages
     !
     rk_loop: do nst = 1,num_rk_stages
+      !
+      current_rk_stage = nst
       !
     !!if (mypnum == glb_root) then
     !!  write (iout,810) nst,num_rk_stages
