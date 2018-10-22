@@ -15,7 +15,7 @@ contains
 !
 !###############################################################################
 !
-#ifndef DISABLE_PURE
+#ifdef DISABLE_FOR_GPU
 pure &
 #endif
 subroutine get_bc_generic_inflow_solution(n1,n2,facenrm,face_cv,face_gp, &

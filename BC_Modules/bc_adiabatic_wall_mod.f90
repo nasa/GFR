@@ -16,7 +16,7 @@ contains
 !
 !###############################################################################
 !
-#ifndef DISABLE_PURE
+#ifdef DISABLE_FOR_GPU
 pure &
 #endif
 subroutine get_bc_adiabatic_wall_solution(n1,n2,facenrm,face_cv,face_gp, &
@@ -101,7 +101,7 @@ end subroutine get_bc_adiabatic_wall_solution
 !
 !###############################################################################
 !
-#ifndef DISABLE_PURE
+#ifdef DISABLE_FOR_GPU
 pure &
 #endif
 subroutine get_bc_adiabatic_wall_solution_3d(n1,n2,facenrm,face_cv,face_gp, &
@@ -230,7 +230,7 @@ end subroutine get_bc_adiabatic_wall_solution_3d
 !
 !###############################################################################
 !
-#ifndef DISABLE_PURE
+#ifdef DISABLE_FOR_GPU
 pure &
 #endif
 subroutine get_bc_adiabatic_wall_solution_2d(n1,n2,facenrm,face_cv,face_gp, &
@@ -348,7 +348,7 @@ end subroutine get_bc_adiabatic_wall_solution_2d
 !
 !###############################################################################
 !
-#ifndef DISABLE_PURE
+#ifdef DISABLE_FOR_GPU
 pure &
 #endif
 subroutine get_bc_adiabatic_wall_solution_1d(n1,n2,facenrm,face_cv,face_gp, &

@@ -18,7 +18,7 @@ contains
 !
 !###############################################################################
 !
-#ifndef DISABLE_PURE
+#ifdef DISABLE_FOR_GPU
 pure &
 #endif
 subroutine get_relax_coefficient(relax,rlx)
@@ -53,7 +53,7 @@ end subroutine get_relax_coefficient
 !
 !###############################################################################
 !
-#ifndef DISABLE_PURE
+#ifdef DISABLE_FOR_GPU
 pure &
 #endif
 subroutine get_relaxed_cv_bc(relax,cv_fs,cv_bc,gp_bc, &
@@ -136,7 +136,7 @@ end subroutine get_relaxed_cv_bc
 !
 !###############################################################################
 !
-#ifndef DISABLE_PURE
+#ifdef DISABLE_FOR_GPU
 pure &
 #endif
 subroutine get_relaxed_pv_bc(relax,pv_fs,pv_bc, &
@@ -250,7 +250,7 @@ end subroutine get_relaxed_pv_bc
 !
 !###############################################################################
 !
-#ifndef DISABLE_PURE
+#ifdef DISABLE_FOR_GPU
 !#define DEBUG_RELAXED_TOTAL
 pure &
 #endif
