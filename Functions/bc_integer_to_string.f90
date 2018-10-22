@@ -2,7 +2,7 @@ elemental function bc_integer_to_string(ibc) result(return_value)
   !
   integer, intent(in) :: ibc
   !
-  character(len=28) :: return_value
+  character(len=50) :: return_value
   !
 continue
   !
@@ -54,7 +54,8 @@ continue
     case (bc_unknown)
       return_value = "unknown"
     case default
-      return_value = "BC_INTEGER_TO_STRING ERROR!!"
+      write (return_value,1) ibc
+      1 format ("BC_INTEGER_TO_STRING ERROR!! bc_value = ",i0)
   end select
   !
   return_value = uppercase(return_value)
