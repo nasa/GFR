@@ -64,8 +64,10 @@ module ovar
     !
 #ifdef ALLOCATABLE_MASS_FRAC
     real(wp), allocatable :: mass_frac(:)
+    character(len=10), allocatable :: species_name(:)
 #else
     real(wp) :: mass_frac(7) = zero
+    character(len=10) :: species_name(7) = ""
 #endif
     !
     type(relaxation_t) :: relax
@@ -91,6 +93,7 @@ module ovar
     real(wp) :: wall_temperature = -one
     type(relaxation_t) :: relax
     integer :: bc_input_idx
+    integer :: bc_type = bc_unknown
   end type bc_in_t
   !
   !
@@ -372,6 +375,9 @@ module ovar
   ! OPTION TO OUTPUT BOUNDARY CONDITIONS TO TECPLOT FILE
   logical(lk), public, save :: output_bface_array = fals
   !
+  logical(lk), public, save :: force_nd_subroutines = fals
+  real(wp),    public, save :: newton_rlx = 1.0_wp
+  !
   ! INPUT BOUNDARY CONDITIONS
   type(bc_input_t), public, allocatable :: bc_input(:)
   !
@@ -423,6 +429,7 @@ module ovar
   real(wp), public, save :: d_t
   real(wp), public, save :: time
   real(wp), public, save :: time_ref = 1.0_wp
+  integer,  public, save :: current_rk_stage = 1
   !
   real(wp),     public, save :: saved_ave_time = 0.0_wp
   real(wp),     public, save :: prev_ave_time = 0.0_wp
@@ -966,6 +973,7 @@ module input_namelist_mod
   use ovar,      only : ideal_total_temperature,limit_total_temperature
   use ovar,      only : output_limiter_statistics,output_filter_diagonals
   use ovar,      only : sem_profile_file
+  use ovar,      only : force_nd_subroutines, newton_rlx
   use module_cgns_types, only : cgns_use_queue
   !
   implicit none
@@ -981,6 +989,7 @@ module input_namelist_mod
   integer, save :: output_order = -3
   integer, save :: error_order = -3
   integer, save :: interpto_solution_order = 3
+  integer, save :: dmat_grad_temp_order = -1
   !
   ! ########################
   ! ###  Input Namelist  ###
@@ -1124,6 +1133,8 @@ module input_namelist_mod
   namelist / input / output_plot3d_to_tecplot
   ! OPTION TO OUTPUT CONTENTS OF BFACE ARRAY
   namelist / input / output_bface_array
+  !
+  namelist / input / force_nd_subroutines, dmat_grad_temp_order, newton_rlx
   ! INPUT BOUNDARY CONDITIONS
   namelist / input / bc_input
   !
@@ -1161,13 +1172,18 @@ continue
   allocate ( bc_input(1:20) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bc_input",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Allocate the mass_frac component of bc_input before reading the namelist
+  ! Allocate the mass_frac and species_name components
+  ! of bc_input before reading the namelist.
   !
 #ifdef ALLOCATABLE_MASS_FRAC
   do n = 1,size(bc_input)
     allocate ( bc_input(n)%mass_frac(1:max_ncs) , source=zero , &
                stat=ierr , errmsg=error_message )
-    write (array_name,2) n
+    write (array_name,2) n,"mass_frac"
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+    allocate ( bc_input(n)%species_name(1:max_ncs) , source="" , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,2) n,"species_name"
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
   end do
 #endif
@@ -1264,7 +1280,7 @@ continue
   time_ave_file(1:7) = "out.ave"
   !
   1 format ('(',i0,'x)')
-  2 format ("bc_input(",i0,")%mass_frac")
+  2 format ("bc_input(",i0,")%",a)
   !
 end subroutine allocate_namelist_variables
 !
