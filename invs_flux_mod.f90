@@ -53,10 +53,6 @@ subroutine invs_flx_cv_gpu_3d(usp,gpsp,return_value)
   use ovar, only : turb_is_on
   use ovar, only : include_tke_in_energy
   !
-  use eqn_idx, only : aux_gamma
-  use eqn_idx, only : aux_var_is_not_gamma
-  use eqn_idx, only : set_auxiliary_variable
-  !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: usp(:,:)
   real(wp), intent(inout) :: gpsp(:,:)
@@ -150,12 +146,11 @@ continue
       !
     end do
     if (include_tke_in_energy) then
-      if ( aux_var_is_not_gamma() ) then
+      if (ncs == 0) then
         !$ACC PARALLEL LOOP PRESENT(gpsp)
         do n = 1,np
           gpsp(n,ngamm) = gam
         end do
-        call set_auxiliary_variable(aux_gamma)
       end if
       !$ACC PARALLEL LOOP PRESENT(return_value,usp,gpsp)
       do n = 1,np
@@ -190,10 +185,6 @@ subroutine invs_flx_cv_gpu_2d(usp,gpsp,return_value)
   use ovar, only : gam
   use ovar, only : turb_is_on
   use ovar, only : include_tke_in_energy
-  !
-  use eqn_idx, only : aux_gamma
-  use eqn_idx, only : aux_var_is_not_gamma
-  use eqn_idx, only : set_auxiliary_variable
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: usp(:,:)
@@ -275,12 +266,11 @@ continue
       !
     end do
     if (include_tke_in_energy) then
-      if ( aux_var_is_not_gamma() ) then
+      if (ncs == 0) then
         !$ACC PARALLEL LOOP PRESENT(gpsp)
         do n = 1,np
           gpsp(n,ngamm) = gam
         end do
-        call set_auxiliary_variable(aux_gamma)
       end if
       !$ACC PARALLEL LOOP PRESENT(return_value,usp,gpsp)
       do n = 1,np
@@ -311,10 +301,6 @@ subroutine invs_flx_cv_gpu_nd(usp,gpsp,return_value)
   use ovar, only : gam
   use ovar, only : turb_is_on
   use ovar, only : include_tke_in_energy
-  !
-  use eqn_idx, only : aux_gamma
-  use eqn_idx, only : aux_var_is_not_gamma
-  use eqn_idx, only : set_auxiliary_variable
   !
   real(wp),    intent(in) :: usp(:,:)
   real(wp), intent(inout) :: gpsp(:,:)
@@ -364,12 +350,11 @@ continue
       end do
     end do
     if (include_tke_in_energy) then
-      if ( aux_var_is_not_gamma() ) then
+      if (ncs == 0) then
         !$ACC PARALLEL LOOP PRESENT(gpsp)
         do n = 1,np
           gpsp(n,ngamm) = gam
         end do
-        call set_auxiliary_variable(aux_gamma)
       end if
       !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(return_value,usp,gpsp)
       do l = 1,nr
@@ -425,10 +410,6 @@ subroutine invs_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,face_gp,return_value)
   use ovar, only : gam
   use ovar, only : include_tke_in_energy
   !
-  use eqn_idx, only : aux_gamma
-  use eqn_idx, only : aux_var_is_not_gamma
-  use eqn_idx, only : set_auxiliary_variable
-  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
@@ -467,12 +448,11 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    if ( aux_var_is_not_gamma() ) then
+    if (ncs == 0) then
       !$ACC PARALLEL LOOP PRESENT(face_gp)
       do n = n1,n2
         face_gp(n,ngamm,1) = gam
       end do
-      call set_auxiliary_variable(aux_gamma)
     end if
     !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
     do n = n1,n2
@@ -494,10 +474,6 @@ subroutine invs_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,face_gp,return_value)
   !.. Use Statements ..
   use ovar, only : gam
   use ovar, only : include_tke_in_energy
-  !
-  use eqn_idx, only : aux_gamma
-  use eqn_idx, only : aux_var_is_not_gamma
-  use eqn_idx, only : set_auxiliary_variable
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -536,12 +512,11 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    if ( aux_var_is_not_gamma() ) then
+    if (ncs == 0) then
       !$ACC PARALLEL LOOP PRESENT(face_gp)
       do n = n1,n2
         face_gp(n,ngamm,1) = gam
       end do
-      call set_auxiliary_variable(aux_gamma)
     end if
     !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
     do n = n1,n2
@@ -563,10 +538,6 @@ subroutine invs_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,face_gp,return_value)
   use geovar, only : nr
   use ovar,   only : gam
   use ovar,   only : include_tke_in_energy
-  !
-  use eqn_idx, only : aux_gamma
-  use eqn_idx, only : aux_var_is_not_gamma
-  use eqn_idx, only : set_auxiliary_variable
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -603,12 +574,11 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    if ( aux_var_is_not_gamma() ) then
+    if (ncs == 0) then
       !$ACC PARALLEL LOOP PRESENT(face_gp)
       do n = n1,n2
         face_gp(n,ngamm,1) = gam
       end do
-      call set_auxiliary_variable(aux_gamma)
     end if
     !$ACC PARALLEL LOOP COLLAPSE(2) &
     !$ACC&              PRESENT(facenrm,face_cv,face_gp,return_value)
