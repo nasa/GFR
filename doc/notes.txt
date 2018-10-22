@@ -10,6 +10,14 @@
 ################################################################################
 ################################################################################
 
+* The continuous_output functionality does not appear to work for 2D cases. I
+  think this is because it tries to create edge information for all the grid
+  cells. However, edges do not really exist for 2D since the cell edges are
+  treated as the cell faces. Basically this means: 
+    - for 3D we need cell,    face, edge, and node information
+    - for 2D we need cell,    face,       and node information
+    - for 1D we need cell and face                 information
+
 * For over-integrating face fluxes, the current method interpolates the already
   known conserved variables at the face flux points to the face quadrature
   points, then computes the face fluxes at the quadrature points, before
