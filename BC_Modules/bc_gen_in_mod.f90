@@ -15,7 +15,9 @@ contains
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_bc_generic_inflow_solution(n1,n2,facenrm,face_cv,face_gp, &
                                           pv_in,gp_in,pv_fs,gp_fs, &
                                           relax,newton_failures)

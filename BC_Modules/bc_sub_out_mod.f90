@@ -15,7 +15,9 @@ contains
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_bc_sub_outflow_solution(n1,n2,facenrm,face_cv,face_gp, &
                                              pv_in,gp_in,relax)
   !

@@ -2,7 +2,7 @@ module bc_relax_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nec,nmb,nme,nee
+  use eqn_idx, only : nec,nmb,nme,nee,nq
   use eqn_idx, only : ncs,npres,ntemp,ncp,ngamm,nenth,ng
   !
   implicit none
@@ -18,7 +18,9 @@ contains
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_relax_coefficient(relax,rlx)
   !
   !.. Use Statements ..
@@ -51,7 +53,9 @@ end subroutine get_relax_coefficient
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_relaxed_cv_bc(relax,cv_fs,cv_bc,gp_bc, &
                              cv_rlx,pv_rlx,gp_rlx,return_rlx)
   !
@@ -132,7 +136,9 @@ end subroutine get_relaxed_cv_bc
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_relaxed_pv_bc(relax,pv_fs,pv_bc, &
                              cv_rlx,pv_rlx,gp_rlx,return_rlx)
   !
@@ -244,7 +250,10 @@ end subroutine get_relaxed_pv_bc
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+!#define DEBUG_RELAXED_TOTAL
 pure &
+#endif
 subroutine get_relaxed_total_bc(relax,pv_fs,gp_fs,pv_bc,gp_bc, &
                                 cv_rlx,pv_rlx,gp_rlx,return_rlx)
   !
@@ -273,7 +282,7 @@ subroutine get_relaxed_total_bc(relax,pv_fs,gp_fs,pv_bc,gp_bc, &
   real(wp), optional, intent(inout) :: return_rlx
   !
   !.. Local Scalars ..
-  integer  :: m,k
+  integer  :: m,k,i
   real(wp) :: rlx,tmin_nd,tmax_nd
   real(wp) :: total_cond,rtot_rlx,ptot_rlx,ttot_rlx,htot_rlx
   real(wp) :: aspd_fs,mach_fs,rtot_fs,ptot_fs
@@ -309,12 +318,65 @@ continue
   else
     cv_bc(nee) = gp_bc(npres)/(gam-one) + half*pv_bc(nec)*q2
   end if
+#ifdef DEBUG_RELAXED_TOTAL
+  write (iout,2) (i,pv_bc(i),i=1,nq)
+  write (iout,3) (i,cv_bc(i),i=1,nq)
+  write (iout,4) (i,gp_bc(i),i=1,ng)
+  write (iout,1) "rlx",rlx
+  1 format (4x,a," = ",es14.6)
+  2 format (20(4x,"pv_bc(",i0,") = ",es14.6,:,/))
+  3 format (20(4x,"cv_bc(",i0,") = ",es14.6,:,/))
+  4 format (20(4x,"gp_bc(",i0,") = ",es14.6,:,/))
+#endif
+  !
+  ! Compute the inflow conditions
+  !
+  rho = pv_bc(nec)
+  pres = gp_bc(npres)
+  !
+  if (ncs > 0) then
+    gamm = gp_bc(ngamm)
+  else
+    gamm = gam
+  end if
+  !
+  gm1 = gamm - one
+  one_over_gm1 = one / gm1
+  gam_over_gm1 = gamm * one_over_gm1
+  !
+  aspd_bc = sqrt( max( gamm*pres/rho , rndoff ) )
+  !
+  q2 = dot_product( pv_bc(nmb:nme) , pv_bc(nmb:nme) )
+  !
+  dir_cos(nmb:nme) = pv_bc(nmb:nme)/sqrt(q2)
+  !
+  mach_bc = sqrt(q2) / aspd_bc
+  !
+  total_cond = one + half*gm1*mach_bc*mach_bc
+  !
+  rtot_bc = rho  * total_cond**one_over_gm1
+  ptot_bc = pres * total_cond**gam_over_gm1
+  !
+#ifdef DEBUG_RELAXED_TOTAL
+  write (iout,1) "gamm",gamm
+  write (iout,1) "aspd_bc",aspd_bc
+  write (iout,1) "pv_bc(nec)",pv_bc(nec)
+  write (iout,1) "pv_bc(nee)",pv_bc(nee)
+  write (iout,1) "gp_bc(npres)",gp_bc(npres)
+  write (iout,1) "total_cond",total_cond
+  write (iout,1) "rtot_bc",rtot_bc
+  write (iout,1) "ptot_bc",ptot_bc
+  5 format (20(4x,"   pv(",i0,") = ",es14.6,:,/))
+#endif
   !
   if (abs(rlx-one) < eps6) then
     !
     cv(:) = cv_bc(:)
     pv(:) = pv_bc(:)
     gp(:) = gp_bc(:)
+    !
+    ptot_rlx = ptot_bc
+    rtot_rlx = rtot_bc
     !
   else
     !
@@ -342,30 +404,16 @@ continue
     rtot_fs = pv_fs(nec) * total_cond**one_over_gm1
     ptot_fs = pv_fs(nee) * total_cond**gam_over_gm1
     !
-    ! Compute the inflow conditions
-    !
-    rho = pv_bc(nec)
-    pres = gp_bc(npres)
-    !
-    if (ncs > 0) then
-      gamm = gp_bc(ngamm)
-      gm1 = gamm - one
-      one_over_gm1 = one / gm1
-      gam_over_gm1 = gamm * one_over_gm1
-    end if
-    !
-    aspd_bc = sqrt( max( gamm*pres/rho , rndoff ) )
-    !
-    q2 = dot_product( pv_bc(nmb:nme) , pv_bc(nmb:nme) )
-    !
-    dir_cos(nmb:nme) = pv_bc(nmb:nme)/sqrt(q2)
-    !
-    mach_bc = sqrt(q2) / aspd_bc
-    !
-    total_cond = one + half*gm1*mach_bc*mach_bc
-    !
-    rtot_bc = rho  * total_cond**one_over_gm1
-    ptot_bc = pres * total_cond**gam_over_gm1
+#ifdef DEBUG_RELAXED_TOTAL
+    write (iout,1) "gamm",gamm
+    write (iout,1) "aspd_fs",aspd_fs
+    write (iout,1) "pv_fs(nec)",pv_fs(nec)
+    write (iout,1) "pv_fs(nee)",pv_fs(nee)
+    write (iout,1) "gp_fs(npres)",gp_fs(npres)
+    write (iout,1) "total_cond",total_cond
+    write (iout,1) "rtot_fs",rtot_fs
+    write (iout,1) "ptot_fs",ptot_fs
+#endif
     !
     ! Compute the relaxation boundary total density and total pressure
     !
@@ -477,6 +525,13 @@ continue
     end if
     !
   end if
+  !
+#ifdef DEBUG_RELAXED_TOTAL
+  write (iout,5) (i,pv(i), i=1,nq)
+  write (iout,1) "rtot_rlx",rtot_rlx
+  write (iout,1) "ptot_rlx",ptot_rlx
+ !write (iout,1) "ttot_rlx",ttot_rlx
+#endif
   !
   if (present(cv_rlx)) then
     cv_rlx(:) = cv(:)

@@ -2496,7 +2496,9 @@ end subroutine get_bc_sub_inflow_sol_cgp_v4_1d
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_bc_sub_inflow_sol_tpg_3d(n1,n2,facenrm,face_cv,face_gp, &
                                               pv_bc,newton_failures)
   !
@@ -2809,7 +2811,9 @@ end subroutine get_bc_sub_inflow_sol_tpg_3d
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_bc_sub_inflow_sol_tpg_2d(n1,n2,facenrm,face_cv,face_gp, &
                                               pv_bc,newton_failures)
   !
@@ -3116,7 +3120,9 @@ end subroutine get_bc_sub_inflow_sol_tpg_2d
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_bc_sub_inflow_sol_tpg_1d(n1,n2,facenrm,face_cv,face_gp, &
                                               pv_bc,newton_failures)
   !

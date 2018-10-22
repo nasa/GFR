@@ -16,7 +16,11 @@ contains
 !
 !###############################################################################
 !
-pure subroutine get_bc_adiabatic_wall_solution(n1,n2,face_cv,face_gp,pv_in)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_adiabatic_wall_solution(n1,n2,facenrm,face_cv,face_gp, &
+                                          relax,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -32,32 +36,42 @@ pure subroutine get_bc_adiabatic_wall_solution(n1,n2,face_cv,face_gp,pv_in)
   !
   !.. Use Statements ..
   use ovar, only : rgasref_nd
+  use ovar, only : relaxation_t
   !
   use gpu_mod,    only : pv2cv_gpu
   use thermo_mod, only : compute_mixture_rgas
   !
+  use bc_relax_mod, only : get_relax_coefficient
+  !
   !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  real(wp), intent(inout) :: face_cv(:,:,:)
-  real(wp), intent(inout) :: face_gp(:,:,:)
+  integer,            intent(in) :: n1,n2
+  real(wp),           intent(in) :: facenrm(:,:)
+  real(wp),        intent(inout) :: face_cv(:,:,:)
+  real(wp),        intent(inout) :: face_gp(:,:,:)
+  type(relaxation_t), intent(in) :: relax
   !
   !.. Optional Arguments ..
   real(wp), optional, intent(in) :: pv_in(:)
   !
   !.. Local Scalars ..
   integer  :: n,nr
-  real(wp) :: rho,pres,rgas
+  real(wp) :: rho,pres,rgas,rlx
   !
 continue
   !
   nr = nme-nmb+1
   !
+  call get_relax_coefficient(relax,rlx)
+  !
   if (nr == 3) then
-    call get_bc_adiabatic_wall_solution_3d(n1,n2,face_cv,face_gp,pv_in)
+    call get_bc_adiabatic_wall_solution_3d(n1,n2,facenrm, &
+                                           face_cv,face_gp,rlx,pv_in)
   else if (nr == 2) then
-    call get_bc_adiabatic_wall_solution_2d(n1,n2,face_cv,face_gp,pv_in)
+    call get_bc_adiabatic_wall_solution_2d(n1,n2,facenrm, &
+                                           face_cv,face_gp,rlx,pv_in)
   else
-    call get_bc_adiabatic_wall_solution_1d(n1,n2,face_cv,face_gp,pv_in)
+    call get_bc_adiabatic_wall_solution_1d(n1,n2,facenrm, &
+                                           face_cv,face_gp,rlx,pv_in)
   end if
   !
   if (ncs > 0) then
@@ -87,7 +101,11 @@ end subroutine get_bc_adiabatic_wall_solution
 !
 !###############################################################################
 !
-pure subroutine get_bc_adiabatic_wall_solution_3d(n1,n2,face_cv,face_gp,pv_in)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_adiabatic_wall_solution_3d(n1,n2,facenrm,face_cv,face_gp, &
+                                             rlx,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -106,21 +124,29 @@ pure subroutine get_bc_adiabatic_wall_solution_3d(n1,n2,face_cv,face_gp,pv_in)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp), intent(inout) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp),    intent(in) :: rlx
   !
   !.. Optional Arguments ..
   real(wp), optional, intent(in) :: pv_in(:)
   !
   !.. Local Scalars ..
   integer  :: m,n
-  real(wp) :: rho,rho_inv,vx,vy,vz
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: vx_slip,vx_noslip
+  real(wp) :: vy_slip,vy_noslip
+  real(wp) :: vz_slip,vz_noslip
+  real(wp) :: rho,rho_inv,vx,vy,vz,vn
   real(wp) :: wall_vx,wall_vy,wall_vz
   real(wp) :: velocity_const
   real(wp) :: moving_wall_const
+  real(wp) :: slip_const
   !
 continue
   !
+  slip_const = merge(one,two,walls_are_exact)
   velocity_const = merge(zero,-one,walls_are_exact)
   moving_wall_const = merge(one,two,walls_are_exact)
   !
@@ -133,22 +159,63 @@ continue
     wall_vz = pv_in(nmz)*moving_wall_const
   end if
   !
-  !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
-  do n = n1,n2
+  if (abs(one-rlx) > eps6) then
     !
-    rho  = face_cv(n,nec,1)
-    rho_inv = one/rho
-    vx = face_cv(n,nmx,1)*rho_inv
-    vy = face_cv(n,nmy,1)*rho_inv
-    vz = face_cv(n,nmz,1)*rho_inv
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp)
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      rnz = facenrm(3,n)
+      ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+      unx = rnx/ds
+      uny = rny/ds
+      unz = rnz/ds
+      !
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      vz = face_cv(n,nmz,1)*rho_inv
+      !
+      vn = vx*unx + vy*uny + vz*unz
+      !
+      vx_slip = vx - slip_const*vn*unx
+      vy_slip = vy - slip_const*vn*uny
+      vz_slip = vz - slip_const*vn*unz
+      !
+      vx_noslip = vx*velocity_const + wall_vx
+      vy_noslip = vy*velocity_const + wall_vy
+      vz_noslip = vz*velocity_const + wall_vz
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = vx_slip*(one-rlx) + vx_noslip*rlx
+      face_cv(n,nmy,2) = vy_slip*(one-rlx) + vy_noslip*rlx
+      face_cv(n,nmz,2) = vz_slip*(one-rlx) + vz_noslip*rlx
+      face_cv(n,nee,2) = face_gp(n,npres,1)
+      !
+    end do
     !
-    face_cv(n,nec,2) = rho
-    face_cv(n,nmx,2) = vx*velocity_const + wall_vx
-    face_cv(n,nmy,2) = vy*velocity_const + wall_vy
-    face_cv(n,nmz,2) = vz*velocity_const + wall_vz
-    face_cv(n,nee,2) = face_gp(n,npres,1)
+  else
     !
-  end do
+    !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
+    do n = n1,n2
+      !
+      rho  = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      vz = face_cv(n,nmz,1)*rho_inv
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = vx*velocity_const + wall_vx
+      face_cv(n,nmy,2) = vy*velocity_const + wall_vy
+      face_cv(n,nmz,2) = vz*velocity_const + wall_vz
+      face_cv(n,nee,2) = face_gp(n,npres,1)
+      !
+    end do
+    !
+  end if
   !
   if (ncs > 0) then
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv)
@@ -163,7 +230,11 @@ end subroutine get_bc_adiabatic_wall_solution_3d
 !
 !###############################################################################
 !
-pure subroutine get_bc_adiabatic_wall_solution_2d(n1,n2,face_cv,face_gp,pv_in)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_adiabatic_wall_solution_2d(n1,n2,facenrm,face_cv,face_gp, &
+                                             rlx,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -182,21 +253,28 @@ pure subroutine get_bc_adiabatic_wall_solution_2d(n1,n2,face_cv,face_gp,pv_in)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp), intent(inout) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp),    intent(in) :: rlx
   !
   !.. Optional Arguments ..
   real(wp), optional, intent(in) :: pv_in(:)
   !
   !.. Local Scalars ..
   integer  :: m,n
-  real(wp) :: rho,rho_inv,vx,vy
+  real(wp) :: ds,rnx,rny,unx,uny
+  real(wp) :: vx_slip,vx_noslip
+  real(wp) :: vy_slip,vy_noslip
+  real(wp) :: rho,rho_inv,vx,vy,vn
   real(wp) :: wall_vx,wall_vy
   real(wp) :: velocity_const
   real(wp) :: moving_wall_const
+  real(wp) :: slip_const
   !
 continue
   !
+  slip_const = merge(one,two,walls_are_exact)
   velocity_const = merge(zero,-one,walls_are_exact)
   moving_wall_const = merge(one,two,walls_are_exact)
   !
@@ -207,20 +285,55 @@ continue
     wall_vy = pv_in(nmy)*moving_wall_const
   end if
   !
-  !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
-  do n = n1,n2
+  if (abs(one-rlx) > eps6) then
     !
-    rho  = face_cv(n,nec,1)
-    rho_inv = one/rho
-    vx = face_cv(n,nmx,1)*rho_inv
-    vy = face_cv(n,nmy,1)*rho_inv
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp)
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      ds = sqrt( rnx*rnx + rny*rny )
+      unx = rnx/ds
+      uny = rny/ds
+      !
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      !
+      vn = vx*unx + vy*uny
+      !
+      vx_slip = vx - slip_const*vn*unx
+      vy_slip = vy - slip_const*vn*uny
+      !
+      vx_noslip = vx*velocity_const + wall_vx
+      vy_noslip = vy*velocity_const + wall_vy
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = vx_slip*(one-rlx) + vx_noslip*rlx
+      face_cv(n,nmy,2) = vy_slip*(one-rlx) + vy_noslip*rlx
+      face_cv(n,nee,2) = face_gp(n,npres,1)
+      !
+    end do
     !
-    face_cv(n,nec,2) = rho
-    face_cv(n,nmx,2) = vx*velocity_const + wall_vx
-    face_cv(n,nmy,2) = vy*velocity_const + wall_vy
-    face_cv(n,nee,2) = face_gp(n,npres,1)
+  else
     !
-  end do
+    !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
+    do n = n1,n2
+      !
+      rho  = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = vx*velocity_const + wall_vx
+      face_cv(n,nmy,2) = vy*velocity_const + wall_vy
+      face_cv(n,nee,2) = face_gp(n,npres,1)
+      !
+    end do
+    !
+  end if
   !
   if (ncs > 0) then
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv)
@@ -235,7 +348,11 @@ end subroutine get_bc_adiabatic_wall_solution_2d
 !
 !###############################################################################
 !
-pure subroutine get_bc_adiabatic_wall_solution_1d(n1,n2,face_cv,face_gp,pv_in)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_adiabatic_wall_solution_1d(n1,n2,facenrm,face_cv,face_gp, &
+                                             rlx,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -254,20 +371,27 @@ pure subroutine get_bc_adiabatic_wall_solution_1d(n1,n2,face_cv,face_gp,pv_in)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp), intent(inout) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp),    intent(in) :: rlx
   !
   !.. Optional Arguments ..
   real(wp), optional, intent(in) :: pv_in(:)
   !
   !.. Local Scalars ..
   integer  :: m,n
-  real(wp) :: rho,vx,wall_vx
+  real(wp) :: ds,rnx,unx
+  real(wp) :: vx_slip,vx_noslip
+  real(wp) :: rho,rho_inv,vx,vn
+  real(wp) :: wall_vx
   real(wp) :: velocity_const
   real(wp) :: moving_wall_const
+  real(wp) :: slip_const
   !
 continue
   !
+  slip_const = merge(one,two,walls_are_exact)
   velocity_const = merge(zero,-one,walls_are_exact)
   moving_wall_const = merge(one,two,walls_are_exact)
   !
@@ -276,17 +400,45 @@ continue
     wall_vx = pv_in(nmx)*moving_wall_const
   end if
   !
-  !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
-  do n = n1,n2
+  if (abs(one-rlx) > eps6) then
     !
-    rho = face_cv(n,nec,1)
-    vx = face_cv(n,nmx,1)/rho
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp)
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      ds = sqrt( rnx*rnx )
+      unx = rnx/ds
+      !
+      rho = face_cv(n,nec,1)
+      vx = face_cv(n,nmx,1)/rho
+      !
+      vn = vx*unx
+      !
+      vx_slip = vx - slip_const*vn*unx
+      !
+      vx_noslip = vx*velocity_const + wall_vx
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = vx_slip*(one-rlx) + vx_noslip*rlx
+      face_cv(n,nee,2) = face_gp(n,npres,1)
+      !
+    end do
     !
-    face_cv(n,nec,2) = rho
-    face_cv(n,nmx,2) = vx*velocity_const + wall_vx
-    face_cv(n,nee,2) = face_gp(n,npres,1)
+  else
     !
-  end do
+    !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
+    do n = n1,n2
+      !
+      rho = face_cv(n,nec,1)
+      vx = face_cv(n,nmx,1)/rho
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = vx*velocity_const + wall_vx
+      face_cv(n,nee,2) = face_gp(n,npres,1)
+      !
+    end do
+    !
+  end if
   !
   if (ncs > 0) then
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv)
