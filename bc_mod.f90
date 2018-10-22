@@ -116,7 +116,8 @@ continue
   n1 = 1
   n2 = n_bnd_flxpts
   !
-  call update_thermo_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1))
+  call update_thermo_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1), &
+                                      loc="face")
   call update_transport_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1))
   !
   ! Loop over the boundary face groups and compute the conservative variables
@@ -287,10 +288,14 @@ continue
         ! No-slip adiabatic wall
         !
         if (bc_idx /= 0) then
-          call get_bc_adiabatic_wall_solution(n1,n2,faceusp_array,facegpsp, &
+          call get_bc_adiabatic_wall_solution(n1,n2,facenrm, &
+                                              faceusp_array,facegpsp, &
+                                              bc_in(bc_idx)%relax, &
                                               bc_in(bc_idx)%pv)
         else
-          call get_bc_adiabatic_wall_solution(n1,n2,faceusp_array,facegpsp)
+          call get_bc_adiabatic_wall_solution(n1,n2,facenrm, &
+                                              faceusp_array,facegpsp, &
+                                              bc_in(bc_idx)%relax)
         end if
         !
       case (bc_isothermal_wall)
