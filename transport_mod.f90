@@ -68,12 +68,14 @@ subroutine init_transport_mod(cv,gp)
   !
   !.. Local Scalars ..
   integer  :: ierr
-  real(wp) :: muref_scale,tref_scale
+  real(wp) :: muref_scale,tref_scale,reyn
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_transport_mod"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   if (governing_equations == NavierStokes_Eqns) then
     !
@@ -88,14 +90,17 @@ continue
       else if (itestcase == H2_2D_Diffusion_Flame) then
         cond_mix_model = Wassiljewas_Formula
         Transport_Model = Sutherlands_Law
+      else if (itestcase == N2_O2_Diffusion) then
+        cond_mix_model = Wassiljewas_Formula
+        Transport_Model = Sutherlands_Law
       end if
       !
       if (Transport_Model == CHEMKIN_Curve_Fit) then
         nmvc = 4
         nmcc = 4
       else if (Transport_Model == Sutherlands_Law) then
-        nmvc = 3
-        nmcc = 3
+        nmvc = 2
+        nmcc = 2
       end if
       !
       allocate ( visc_coef(1:nmvc,1:ncs) , source=zero , &
@@ -111,11 +116,11 @@ continue
         visc_temp_min = 10.0_wp
         cond_temp_min = 10.0_wp
         !
-        call hardwired_Sutherlands_coefficients
+        call hardwired_CHEMKIN_coefficients
         !
       else if (Transport_Model == Sutherlands_Law) then
         !
-        call hardwired_CHEMKIN_coefficients
+        call hardwired_Sutherlands_coefficients
         !
       end if
       !
@@ -152,6 +157,24 @@ continue
     !
     call update_transport_properties(cv,gp)
     !
+    if (ncs > 0) then
+      !
+      muref_nd = gp(nvisc)
+      muref = muref_nd * rhoref * aref
+      !
+      reyn = rhoref * machref * aref / muref
+      !
+      if (reyref <= zero) then
+        reyref = reyn
+      else
+        if (abs(reyref-reyn) > eps6) then
+          write (error_message,100) reyref,reyn
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        end if
+      end if
+      !
+    end if
+    !
   else
     !
     muref = zero
@@ -162,6 +185,17 @@ continue
   end if
   !
   !$ACC UPDATE DEVICE(suth_Tref,suth_Sref,suth_muref,suth_c1)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  100 format ( &
+     " Free-stream conditions in the input file are not consistent!",'/&', &
+     " Reference Reynolds number given    : ",es14.6,'/&', &
+     " Reference Reynolds number computed : ",es14.6,'/&', &
+     " Please correct the input file or set the reference Reynolds number", &
+     " in the input file to a negative value so it is explicitly computed.")
   !
 end subroutine init_transport_mod
 !
@@ -599,6 +633,11 @@ continue
   allocate ( inv_mole_sum(n1:n2) , source=zero )
   !$ACC DATA CREATE(inv_mole_sum)
   !
+  ! NOTE: IT DOES NOT MATTER WHETHER THE SPECIES VALUES CONTAINED
+  !       IN cv(:,1:ncs) ARE THE SPECIES DENSITIES OR THE SPECIES
+  !       MASS FRACTIONS. EITHER WAY, THIS ALGORITHM WILL CORRECTLY
+  !       COMPUTE THE MOLE FRACTIONS FOR THE GAS MIXTURE.
+  !
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv,wtmol,mole_frac)
   do i = 1,ncs
     do n = n1,n2
@@ -633,7 +672,7 @@ end subroutine compute_mole_fractions
 pure subroutine compute_species_viscosities(n1,n2,t,rmui,imodel)
   !
   !.. Use Statements ..
-  use ovar, only : tref
+  use ovar, only : rhoref,aref,tref
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -645,10 +684,11 @@ pure subroutine compute_species_viscosities(n1,n2,t,rmui,imodel)
   !.. Local Scalars ..
   integer  :: i,n
   real(wp) :: logt,a1,a2,a3,a4
-  real(wp) :: rmu0,t0,s0,tot0,tdim
+  real(wp) :: tnd,c1_suth,s_suth
+  real(wp) :: tdim,viscref_inv
   !
   !.. Local Parameters ..
-  real(wp), parameter :: chemkin_cgs_to_si = 1.0e-1_wp
+  real(wp), parameter :: chemkin_cgs_to_mks = 1.0e-1_wp
   !
 continue
   !
@@ -660,17 +700,12 @@ continue
     do i = 1,ncs
       do n = n1,n2
         !
-        tdim = t(n)*tref
+        tnd = t(n) ! non-dimensional temperature
         !
-        rmu0 = visc_coef(1,i)
-        t0   = visc_coef(2,i)
-        s0   = visc_coef(3,i)
+        c1_suth = visc_coef(1,i) ! non-dimensional Sutherland constants
+        s_suth  = visc_coef(2,i) ! non-dimensional Sutherland constants
         !
-        rmu0 = rmu0 * (t0+s0)
-        !
-        tot0 = tdim / t0
-        !
-        rmui(n,i) = rmu0 * tot0 * sqrt(tot0) / (tdim+s0)
+        rmui(n,i) = c1_suth * tnd * sqrt(tnd) / (tnd + s_suth)
         !
       end do
     end do
@@ -679,21 +714,29 @@ continue
     !
     ! ChemKin fit
     !
+    ! Constant to convert the curve fit results from
+    ! CGS (centimeters-grams-seconds) units to
+    ! SI/MKS (meters-kilograms-seconds) units,
+    ! and non-dimensionalize the MKS results.
+    !
+    viscref_inv = chemkin_cgs_to_mks / rhoref / aref
+    !
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(visc_coef,t,rmui)
     do i = 1,ncs
       do n = n1,n2
         !
-        tdim = t(n)*tref
+        tdim = max( t(n)*tref , visc_temp_min ) ! dimensional temperature
         !
-        logt = log(max(tdim,visc_temp_min))
+        logt = log(tdim)
         !
-        a1 = visc_coef(1,i)
-        a2 = visc_coef(2,i)
-        a3 = visc_coef(3,i)
-        a4 = visc_coef(4,i)
+        a1 = visc_coef(1,i) ! ChemKin coefficients.
+        a2 = visc_coef(2,i) ! I have no idea what the dimensions of
+        a3 = visc_coef(3,i) ! these are, but the curve fit requires
+        a4 = visc_coef(4,i) ! dimensional temperature as input.
         !
-        rmui(n,i) = chemkin_cgs_to_si * &
-                    exp(a1 + logt*(a2 + logt*(a3 + logt*a4)))
+       !rmui(n,i) = chemkin_cgs_to_mks * &
+       !            exp(a1 + logt*(a2 + logt*(a3 + logt*a4)))
+        rmui(n,i) = viscref_inv * exp(a1 + logt*(a2 + logt*(a3 + logt*a4)))
         !
       end do
     end do
@@ -707,7 +750,7 @@ end subroutine compute_species_viscosities
 pure subroutine compute_species_conductivities(n1,n2,t,rmci,imodel)
   !
   !.. Use Statements ..
-  use ovar, only : tref
+  use ovar, only : rhoref,aref,tref
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -719,10 +762,11 @@ pure subroutine compute_species_conductivities(n1,n2,t,rmci,imodel)
   !.. Local Scalars ..
   integer  :: i,n
   real(wp) :: logt,a1,a2,a3,a4
-  real(wp) :: rmc0,t0,s0,tot0,tdim
+  real(wp) :: tnd,c1_suth,s_suth
+  real(wp) :: tdim,condref_inv
   !
   !.. Local Parameters ..
-  real(wp), parameter :: chemkin_cgs_to_si = 1.0e-5_wp
+  real(wp), parameter :: chemkin_cgs_to_mks = 1.0e-5_wp
   !
 continue
   !
@@ -734,17 +778,12 @@ continue
     do i = 1,ncs
       do n = n1,n2
         !
-        tdim = t(n)*tref
+        tnd = t(n) ! non-dimensional temperature
         !
-        rmc0 = cond_coef(1,i)
-        t0   = cond_coef(2,i)
-        s0   = cond_coef(3,i)
+        c1_suth = cond_coef(1,i) ! non-dimensional Sutherland constants
+        s_suth  = cond_coef(2,i) ! non-dimensional Sutherland constants
         !
-        rmc0 = rmc0 * (t0+s0)
-        !
-        tot0 = tdim / t0
-        !
-        rmci(n,i) = rmc0 * tot0 * sqrt(tot0) / (tdim+s0)
+        rmci(n,i) = c1_suth * tnd * sqrt(tnd) / (tnd + s_suth)
         !
       end do
     end do
@@ -753,21 +792,29 @@ continue
     !
     ! ChemKin fit
     !
+    ! Constant to convert the curve fit results from
+    ! CGS (centimeters-grams-seconds) units to
+    ! SI/MKS (meters-kilograms-seconds) units,
+    ! and non-dimensionalize the MKS results.
+    !
+    condref_inv = chemkin_cgs_to_mks * tref/(rhoref*aref*aref*aref)
+    !
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cond_coef,t,rmci)
     do i = 1,ncs
       do n = n1,n2
         !
-        tdim = t(n)*tref
+        tdim = max( t(n)*tref , cond_temp_min ) ! dimensional temperature
         !
-        logt = log(max(tdim,cond_temp_min))
+        logt = log(tdim)
         !
-        a1 = cond_coef(1,i)
-        a2 = cond_coef(2,i)
-        a3 = cond_coef(3,i)
-        a4 = cond_coef(4,i)
+        a1 = cond_coef(1,i) ! ChemKin coefficients.
+        a2 = cond_coef(2,i) ! I have no idea what the dimensions of
+        a3 = cond_coef(3,i) ! these are, but the curve fit requires
+        a4 = cond_coef(4,i) ! dimensional temperature as input.
         !
-        rmci(n,i) = chemkin_cgs_to_si * &
-                    exp(a1 + logt*(a2 + logt*(a3 + logt*a4)))
+       !rmci(n,i) = chemkin_cgs_to_mks * &
+       !            exp(a1 + logt*(a2 + logt*(a3 + logt*a4)))
+        rmci(n,i) = condref_inv * exp(a1 + logt*(a2 + logt*(a3 + logt*a4)))
         !
       end do
     end do
@@ -1178,7 +1225,12 @@ subroutine hardwired_CHEMKIN_coefficients
   !
   character(len=len(species_name)) :: species
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "hardwired_CHEMKIN_coefficients"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   do i = 1,ncs
     !
@@ -1240,6 +1292,8 @@ continue
     !
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine hardwired_CHEMKIN_coefficients
 !
 !###############################################################################
@@ -1247,6 +1301,7 @@ end subroutine hardwired_CHEMKIN_coefficients
 subroutine hardwired_Sutherlands_coefficients
   !
   !.. Use Statements ..
+  use ovar,       only : rhoref,aref,tref
   use thermo_mod, only : species_name
   !
   !======================================================================
@@ -1341,11 +1396,22 @@ subroutine hardwired_Sutherlands_coefficients
                                          3.00000000E+02_wp, &
                                          1.49774296E+02_wp]
   !
-  integer :: i
+  integer  :: i
+  real(wp) :: mu_suth,k_suth,t_suth,s_suth
+  real(wp) :: tref_inv,viscref_inv,condref_inv
   !
   character(len=len(species_name)) :: species
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "hardwired_Sutherlands_coefficients"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  tref_inv = one / tref
+  viscref_inv = one / rhoref / aref
+  condref_inv = tref / (rhoref*aref*aref*aref)
   !
   do i = 1,ncs
     !
@@ -1355,57 +1421,169 @@ continue
       !
       case ("CO2")
         !
-        visc_coef(1:3,i) = CO2_visc(1:3)
-        cond_coef(1:3,i) = CO2_cond(1:3)
+        mu_suth = CO2_visc(1) * viscref_inv
+        t_suth  = CO2_visc(2) * tref_inv
+        s_suth  = CO2_visc(3) * tref_inv
+        !
+        visc_coef(1,i) = mu_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        visc_coef(2,i) = s_suth
+        !
+        k_suth = CO2_cond(1) * condref_inv
+        t_suth = CO2_cond(2) * tref_inv
+        s_suth = CO2_cond(3) * tref_inv
+        !
+        cond_coef(1,i) = k_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        cond_coef(2,i) = s_suth
         !
       case ("CO")
         !
-        visc_coef(1:3,i) = CO_visc(1:3)
-        cond_coef(1:3,i) = CO_cond(1:3)
+        mu_suth = CO_visc(1) * viscref_inv
+        t_suth  = CO_visc(2) * tref_inv
+        s_suth  = CO_visc(3) * tref_inv
+        !
+        visc_coef(1,i) = mu_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        visc_coef(2,i) = s_suth
+        !
+        k_suth = CO_cond(1) * condref_inv
+        t_suth = CO_cond(2) * tref_inv
+        s_suth = CO_cond(3) * tref_inv
+        !
+        cond_coef(1,i) = k_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        cond_coef(2,i) = s_suth
         !
       case ("H2O")
         !
-        visc_coef(1:3,i) = H2O_visc(1:3)
-        cond_coef(1:3,i) = H2O_cond(1:3)
+        mu_suth = H2O_visc(1) * viscref_inv
+        t_suth  = H2O_visc(2) * tref_inv
+        s_suth  = H2O_visc(3) * tref_inv
+        !
+        visc_coef(1,i) = mu_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        visc_coef(2,i) = s_suth
+        !
+        k_suth = H2O_cond(1) * condref_inv
+        t_suth = H2O_cond(2) * tref_inv
+        s_suth = H2O_cond(3) * tref_inv
+        !
+        cond_coef(1,i) = k_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        cond_coef(2,i) = s_suth
         !
       case ("CH4")
         !
-        visc_coef(1:3,i) = CH4_visc(1:3)
-        cond_coef(1:3,i) = CH4_cond(1:3)
+        mu_suth = CH4_visc(1) * viscref_inv
+        t_suth  = CH4_visc(2) * tref_inv
+        s_suth  = CH4_visc(3) * tref_inv
+        !
+        visc_coef(1,i) = mu_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        visc_coef(2,i) = s_suth
+        !
+        k_suth = CH4_cond(1) * condref_inv
+        t_suth = CH4_cond(2) * tref_inv
+        s_suth = CH4_cond(3) * tref_inv
+        !
+        cond_coef(1,i) = k_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        cond_coef(2,i) = s_suth
         !
       case ("N2")
         !
-        visc_coef(1:3,i) = N2_visc(1:3)
-        cond_coef(1:3,i) = N2_cond(1:3)
+        mu_suth = N2_visc(1) * viscref_inv
+        t_suth  = N2_visc(2) * tref_inv
+        s_suth  = N2_visc(3) * tref_inv
+        !
+        visc_coef(1,i) = mu_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        visc_coef(2,i) = s_suth
+        !
+        k_suth = N2_cond(1) * condref_inv
+        t_suth = N2_cond(2) * tref_inv
+        s_suth = N2_cond(3) * tref_inv
+        !
+        cond_coef(1,i) = k_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        cond_coef(2,i) = s_suth
         !
       case ("O2")
         !
-        visc_coef(1:3,i) = O2_visc(1:3)
-        cond_coef(1:3,i) = O2_cond(1:3)
+        mu_suth = O2_visc(1) * viscref_inv
+        t_suth  = O2_visc(2) * tref_inv
+        s_suth  = O2_visc(3) * tref_inv
+        !
+        visc_coef(1,i) = mu_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        visc_coef(2,i) = s_suth
+        !
+        k_suth = O2_cond(1) * condref_inv
+        t_suth = O2_cond(2) * tref_inv
+        s_suth = O2_cond(3) * tref_inv
+        !
+        cond_coef(1,i) = k_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        cond_coef(2,i) = s_suth
         !
       case ("H")
         !
-        visc_coef(1:3,i) = H_visc(1:3)
-        cond_coef(1:3,i) = H_cond(1:3)
+        mu_suth = H_visc(1) * viscref_inv
+        t_suth  = H_visc(2) * tref_inv
+        s_suth  = H_visc(3) * tref_inv
+        !
+        visc_coef(1,i) = mu_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        visc_coef(2,i) = s_suth
+        !
+        k_suth = H_cond(1) * condref_inv
+        t_suth = H_cond(2) * tref_inv
+        s_suth = H_cond(3) * tref_inv
+        !
+        cond_coef(1,i) = k_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        cond_coef(2,i) = s_suth
         !
       case ("H2")
         !
-        visc_coef(1:3,i) = H2_visc(1:3)
-        cond_coef(1:3,i) = H2_cond(1:3)
+        mu_suth = H2_visc(1) * viscref_inv
+        t_suth  = H2_visc(2) * tref_inv
+        s_suth  = H2_visc(3) * tref_inv
+        !
+        visc_coef(1,i) = mu_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        visc_coef(2,i) = s_suth
+        !
+        k_suth = H2_cond(1) * condref_inv
+        t_suth = H2_cond(2) * tref_inv
+        s_suth = H2_cond(3) * tref_inv
+        !
+        cond_coef(1,i) = k_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        cond_coef(2,i) = s_suth
         !
       case ("O")
         !
-        visc_coef(1:3,i) = O_visc(1:3)
-        cond_coef(1:3,i) = O_cond(1:3)
+        mu_suth = O_visc(1) * viscref_inv
+        t_suth  = O_visc(2) * tref_inv
+        s_suth  = O_visc(3) * tref_inv
+        !
+        visc_coef(1,i) = mu_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        visc_coef(2,i) = s_suth
+        !
+        k_suth = O_cond(1) * condref_inv
+        t_suth = O_cond(2) * tref_inv
+        s_suth = O_cond(3) * tref_inv
+        !
+        cond_coef(1,i) = k_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        cond_coef(2,i) = s_suth
         !
       case ("OH")
         !
-        visc_coef(1:3,i) = OH_visc(1:3)
-        cond_coef(1:3,i) = OH_cond(1:3)
+        mu_suth = OH_visc(1) * viscref_inv
+        t_suth  = OH_visc(2) * tref_inv
+        s_suth  = OH_visc(3) * tref_inv
+        !
+        visc_coef(1,i) = mu_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        visc_coef(2,i) = s_suth
+        !
+        k_suth = OH_cond(1) * condref_inv
+        t_suth = OH_cond(2) * tref_inv
+        s_suth = OH_cond(3) * tref_inv
+        !
+        cond_coef(1,i) = k_suth * (one + s_suth/t_suth) / sqrt(t_suth)
+        cond_coef(2,i) = s_suth
         !
     end select
     !
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine hardwired_Sutherlands_coefficients
 !

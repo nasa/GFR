@@ -18,6 +18,7 @@ module thermo_mod
   public :: compute_mixture_cp
   public :: compute_species_cp
   public :: compute_mixture_dcpdt
+  public :: compute_species_dcpdt
   public :: compute_mixture_gamma
   public :: compute_mixture_rgas
   public :: compute_cp_over_temp_integral
@@ -44,12 +45,16 @@ module thermo_mod
   !
   real(wp), protected, save, allocatable :: mass_frac_ref(:)
   !
-  real(wp), protected, save, allocatable :: t_limit(:,:)
-  !
   integer, parameter :: Use_VULCAN_Coefficients = 1
   integer, parameter :: Use_NCC_Coefficients = 2
   !
-  integer, parameter :: Thermo_Coefficients = Use_NCC_Coefficients
+ !integer, parameter :: Thermo_Coefficients = Use_NCC_Coefficients
+  integer, parameter :: Thermo_Coefficients = Use_Vulcan_Coefficients
+  !
+  logical(lk), save :: file_is_opened = fals
+  integer, save :: last_itcur_output = 0
+  integer, save :: last_rk_stage_output = 0
+  integer, save :: io = 3682
   !
   !
   ! #########################################
@@ -110,7 +115,7 @@ subroutine init_thermo_mod(cv,pv,gp)
   use ovar, only : aref,uref,machref,velref,velref_nd
   use ovar, only : alpha_aoaref,beta_aoaref
   use ovar, only : pref_nd,rgasref_nd,cpref_nd
-  use ovar, only : bc_input
+  use ovar, only : bc_input,disable_chemical_reactions
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: cv(:)
@@ -118,22 +123,28 @@ subroutine init_thermo_mod(cv,pv,gp)
   real(wp), intent(inout) :: gp(:)
   !
   !.. Local Scalars ..
-  integer  :: ics,ierr,m,n,nr
+  integer  :: ics,jcs,ierr,m,n,nr
   real(wp) :: mf_sum,href,href_nd,q2,temp,pres_check
-#ifdef ALLOCATABLE_MASS_FRAC
+  real(wp) :: tdim,aref2_inv
   !
+  character(len=10) :: this_species,input_species
+  !
+#ifdef ALLOCATABLE_MASS_FRAC
   logical(lk) :: error_found
   !
   character(len=50) :: array_name
+#endif
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: tmp_mass_frac(:)
-#endif
+  real(wp),         allocatable :: tmp_mass_frac(:)
+  character(len=:), allocatable :: species_list(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_thermo_mod"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   nr = nme-nmb+1
   !
@@ -149,37 +160,65 @@ continue
     !
     if (itestcase == CH4_3D_Diffusion_Flame) then
       !
-      species_name(1) = "CO2"
-      species_name(2) = "CO"
-      species_name(3) = "H2O"
-      species_name(4) = "CH4"
-      species_name(5) = "N2"
-      species_name(6) = "O2"
-      !
-      mass_frac_ref(1) = zero   ! CO2
-      mass_frac_ref(2) = zero   ! CO
-      mass_frac_ref(3) = zero   ! H2O
-      mass_frac_ref(4) = 0.1_wp ! CH4
-      mass_frac_ref(5) = 0.7_wp ! N2
-      mass_frac_ref(6) = 0.2_wp ! O2
+      if (disable_chemical_reactions) then
+        !
+        species_name(1) = "CH4"
+        species_name(2) = "N2"
+        species_name(3) = "O2"
+        !
+        mass_frac_ref(1) = 0.1_wp ! CH4
+        mass_frac_ref(2) = 0.7_wp ! N2
+        mass_frac_ref(3) = 0.2_wp ! O2
+        !
+      else
+        !
+        species_name(1) = "CO2"
+        species_name(2) = "CO"
+        species_name(3) = "H2O"
+        species_name(4) = "CH4"
+        species_name(5) = "N2"
+        species_name(6) = "O2"
+        !
+        mass_frac_ref(1) = zero   ! CO2
+        mass_frac_ref(2) = zero   ! CO
+        mass_frac_ref(3) = zero   ! H2O
+        mass_frac_ref(4) = 0.1_wp ! CH4
+        mass_frac_ref(5) = 0.7_wp ! N2
+        mass_frac_ref(6) = 0.2_wp ! O2
+        !
+      end if
       !
     else if (itestcase == H2_2D_Diffusion_Flame) then
       !
-      species_name(1) = "N2"
-      species_name(2) = "O"
-      species_name(3) = "OH"
-      species_name(4) = "O2"
-      species_name(5) = "H"
-      species_name(6) = "H2"
-      species_name(7) = "H2O"
-      !
-      mass_frac_ref(1) = 0.7686_wp ! N2
-      mass_frac_ref(2) = zero      ! O
-      mass_frac_ref(3) = zero      ! OH
-      mass_frac_ref(4) = 0.2314_wp ! O2
-      mass_frac_ref(5) = zero      ! H
-      mass_frac_ref(6) = zero      ! H2
-      mass_frac_ref(7) = zero      ! H2O
+      if (disable_chemical_reactions) then
+        !
+        species_name(1) = "H2"
+        species_name(2) = "O2"
+        species_name(3) = "N2"
+        !
+        mass_frac_ref(1) = zero      ! H2
+        mass_frac_ref(2) = 0.2314_wp ! O2
+        mass_frac_ref(3) = 0.7686_wp ! N2
+        !
+      else
+        !
+        species_name(1) = "H2"
+        species_name(2) = "O2"
+        species_name(3) = "H2O"
+        species_name(4) = "OH"
+        species_name(5) = "H"
+        species_name(6) = "O"
+        species_name(7) = "N2"
+        !
+        mass_frac_ref(1) = zero      ! H2
+        mass_frac_ref(2) = 0.2314_wp ! O2
+        mass_frac_ref(3) = zero      ! H2O
+        mass_frac_ref(4) = zero      ! OH
+        mass_frac_ref(5) = zero      ! H
+        mass_frac_ref(6) = zero      ! O
+        mass_frac_ref(7) = 0.7686_wp ! N2
+        !
+      end if
       !
     else if (itestcase == Reacting_Backstep) then
       !
@@ -188,6 +227,14 @@ continue
       !
       mass_frac_ref(1) = 0.7686 ! N2
       mass_frac_ref(2) = 0.2314 ! O2
+      !
+    else if (itestcase == N2_O2_Diffusion) then
+      !
+      species_name(1) = "N2"
+      species_name(2) = "O2"
+      !
+      mass_frac_ref(1) = 1.0_wp ! N2
+      mass_frac_ref(2) = 0.0_wp ! O2
       !
     end if
     !
@@ -202,10 +249,6 @@ continue
     !
     allocate ( wtmol(1:ncs) , source=zero , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"wtmol",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    allocate ( t_limit(1:2,1:ncs) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"t_limit",1,__LINE__,__FILE__,ierr,error_message)
     !
     allocate ( rspec(1:ncs) , source=zero , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"rspec",1,__LINE__,__FILE__,ierr,error_message)
@@ -232,7 +275,11 @@ continue
       pv(m) = mass_frac_ref(m)
     end do
     !
-    call compute_mixture_rgas(pv(1:ncs),rgasref,dimensional=true)
+    ! NOTE: The rspec array has not been non-dimensionalized yet, so the
+    !       following call to compute_mixture_rgas will return a dimensional
+    !       value for rgasref.
+    !
+    call compute_mixture_rgas(pv(1:ncs),rgasref)
     !
   else
     !
@@ -265,16 +312,14 @@ continue
   !
   if (ncs > 0) then
     !
-    temperature_switch = temperature_switch/tref
-    !
     temp = tref
     !
-    call compute_mixture_cp(pv(1:ncs),temp,cpref,dimensional=true)
+    call compute_mixture_cpref(pv(1:ncs),temp,cpref)
     !
     gam = rgasref
     call compute_mixture_gamma(cpref,gam)
     !
-    call compute_mixture_enthalpy(pv(1:ncs),temp,href,dimensional=true)
+    call compute_mixture_href(pv(1:ncs),temp,href)
     !
   else
     !
@@ -332,6 +377,40 @@ continue
     gp(nenth) = href_nd
     gp(ncp)   = cpref_nd
     !
+    ! Non-dimensionalize temperature_switch, rspec, cp_coef, and enth_coef
+    !
+    temperature_switch = temperature_switch/tref
+    !
+    aref2_inv = one/aref/aref
+    !
+    do ics = 1,ncs
+      rspec(ics) = rspec(ics) * tref*aref2_inv
+    end do
+    !
+    do ics = 1,ncs
+      do n = 1,size(cp_coef,dim=2)
+        tdim = one
+        do m = 1,ncpc
+          tdim = tdim*tref
+          cp_coef(m,n,ics) = cp_coef(m,n,ics) * tdim * aref2_inv
+        end do
+      end do
+    end do
+    !
+    do ics = 1,ncs
+      do n = 1,size(enth_coef,dim=2)
+        !
+        enth_coef(ncpc+1,n,ics) = enth_coef(ncpc+1,n,ics) * aref2_inv
+        !
+        tdim = one
+        do m = 1,ncpc
+          tdim = tdim*tref
+          enth_coef(m,n,ics) = enth_coef(m,n,ics) * tdim * aref2_inv
+        end do
+        !
+      end do
+    end do
+    !
   end if
   !
   ! Make sure that the mass_frac component of bc_input makes sense
@@ -369,9 +448,75 @@ continue
     end if
 #endif
     !
+    ! Reorder the mass fractions information in bc_input so that it
+    ! matches the order of the chemical species defined above.
+    !
+    do n = 1,size(bc_input)
+      !
+      ! Save the mass fractions and accompanying species names that
+      ! were input for this boundary condition into temporary arrays.
+      !
+      tmp_mass_frac = bc_input(n)%mass_frac   ! F2003 AUTO-REALLOCATION
+      species_list = bc_input(n)%species_name ! F2003 AUTO-REALLOCATION
+      !
+      ! Loop over the chemical species defined above for this simulation.
+      !
+      do ics = 1,ncs
+        !
+        this_species = uppercase( trim(adjustl(species_name(ics))) )
+        !
+        ! Default the current species mass fraction to zero for this
+        ! boundary condition in case no mass fraction was provided
+        ! in the input file.
+        !
+        bc_input(n)%mass_frac(ics) = zero
+        bc_input(n)%species_name(ics) = this_species
+        !
+        ! Loop through the species given for this boundary condition in
+        ! the input file to find one that matches the current species.
+        ! NOTE: If no matches are found, we've already set the mass
+        !       fraction for this species to zero.
+        !
+        input_loop: &
+        do jcs = 1,size(tmp_mass_frac)
+          !
+          ! Extract the name of the species that accompanies the
+          ! input mass fraction.
+          !
+          input_species = uppercase( trim(adjustl(species_list(jcs))) )
+          !
+          if (input_species == this_species) then
+            !
+            ! We found a match, so assign the input mass fraction back into
+            ! the mass_frac component of bc_input for this boundary condition.
+            !
+            bc_input(n)%mass_frac(ics) = tmp_mass_frac(jcs)
+            exit input_loop
+            !
+          end if
+          !
+        end do input_loop
+        !
+      end do
+      !
+      ! Zero out the mass fractions and delete the species names from
+      ! bc_input(n)%mass_frac(ncs+1:) and bc_input(n)%species_name(ncs+1:).
+      !
+      do ics = ncs+1,size(bc_input(n)%mass_frac)
+        bc_input(n)%mass_frac(ics) = zero
+      end do
+      !
+      do ics = ncs+1,size(bc_input(n)%species_name)
+        bc_input(n)%species_name(ics) = ""
+      end do
+      !
+    end do
+    !
     ! Make sure the values of the mass fractions make sense
     !
     do n = 1,size(bc_input)
+      !
+      if ( bc_input(n)%has_default_flow_conditions() ) cycle
       !
       ! Make sure all mass fractions are greater than or equal to zero
       !
@@ -419,6 +564,8 @@ continue
     !
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format ("bc_input(",i0,")%mass_frac")
@@ -450,7 +597,8 @@ end subroutine init_thermo_mod
 !
 !###############################################################################
 !
-pure subroutine update_thermo_properties_1p(cv_1p,gp_1p)
+!pure &
+subroutine update_thermo_properties_1p(cv_1p,gp_1p)
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: cv_1p(:)
@@ -472,7 +620,7 @@ continue
   gp(1,1:nq) = gp_1p(1:ng)
   !$ACC DATA CREATE(cv,gp)
   !
-  call update_thermo_properties_sp(1,1,cv,gp)
+  call update_thermo_properties_sp(1,1,cv,gp,loc="node")
   !
   gp_1p(1:ng) = gp(1,1:ng)
   !
@@ -484,7 +632,8 @@ end subroutine update_thermo_properties_1p
 !
 !###############################################################################
 !
-pure subroutine update_thermo_properties_fp(n1,n2,cv,gp)
+!pure &
+subroutine update_thermo_properties_fp(n1,n2,cv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -497,22 +646,26 @@ pure subroutine update_thermo_properties_fp(n1,n2,cv,gp)
   !
 continue
   !
-  call update_thermo_properties_sp(n1,n2,cv(:,:,1),gp(:,:,1))
+  call update_thermo_properties_sp(n1,n2,cv(:,:,1),gp(:,:,1),loc="face")
   if (all([size(cv,dim=3),size(gp,dim=3)] > 1)) then
-    call update_thermo_properties_sp(n1,n2,cv(:,:,2),gp(:,:,2))
+    call update_thermo_properties_sp(n1,n2,cv(:,:,2),gp(:,:,2),loc="face")
   end if
   !
 end subroutine update_thermo_properties_fp
 !
 !###############################################################################
 !
-pure subroutine update_thermo_properties_sp(n1,n2,cv,gp)
+!pure &
+subroutine update_thermo_properties_sp(n1,n2,cv,gp,loc)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
   integer,     intent(in) :: n2
   real(wp), intent(inout) :: cv(:,:)
   real(wp), intent(inout) :: gp(:,:)
+  !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: loc
   !
   !.. Local Scalars ..
   integer  :: m,n,num_newton_errors
@@ -560,7 +713,7 @@ continue
     ! 2. Compute the internal energy. Temporarily store the internal energy
     !    in the pressure location of gp.
     !
-    call compute_internal_energy(n1,n2,cv,gp(:,npres))
+   !call compute_internal_energy(n1,n2,cv,gp(:,npres))
     !
     ! 3. Compute the mixture gas constant. Temporarily store the mixture
     !    gas constant in the gamma location of gp.
@@ -571,11 +724,12 @@ continue
     !    NOTE: Currently, the gamma and pressure locations of gp respectively
     !          contain the mixture gas constant and the internal energy.
     !
-    call newton_solve_for_temperature(n1,n2,cv(:,1:ncs),gp(:,ngamm), &
+    call newton_solve_for_temperature(n1,n2,cv,gp(:,ngamm), &
                                             gp(:,npres),gp(:,ntemp), &
                                             gp(:,nenth),gp(:,ncp), &
                                             num_newton_errors, &
                                             max_newton_error, &
+                                            loc=loc, &
                                             dim_t_upon_entry=true, &
                                             nondim_t_upon_return=true)
     !
@@ -678,6 +832,7 @@ continue
       !
       gp(n,npres) = pres
       gp(n,ntemp) = temp
+      gp(n,ngamm) = gam
       !
     end do
   else if (nr == 2) then
@@ -698,6 +853,7 @@ continue
       !
       gp(n,npres) = pres
       gp(n,ntemp) = temp
+      gp(n,ngamm) = gam
       !
     end do
   else
@@ -715,6 +871,7 @@ continue
       !
       gp(n,npres) = pres
       gp(n,ntemp) = temp
+      gp(n,ngamm) = gam
       !
     end do
   end if
@@ -811,7 +968,7 @@ end subroutine compute_mixture_gamma_from_temp_1p
 !###############################################################################
 !
 pure &
-subroutine compute_mixture_rgas_sp(n1,n2,mass_frac,rmix)
+subroutine compute_mixture_rgas_sp(n1,n2,mass_frac,rmix,dimensional)
   !
   !.. Use Statements ..
   use ovar, only : aref,tref
@@ -822,16 +979,17 @@ subroutine compute_mixture_rgas_sp(n1,n2,mass_frac,rmix)
   real(wp),    intent(in) :: mass_frac(:,:)
   real(wp), intent(inout) :: rmix(:)
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
   !.. Local Scalars ..
   integer  :: m,n
-  real(wp) :: rsum,tda2
+  real(wp) :: rsum,rmix_dim
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_mixture_rgas_sp"
   !
 continue
-  !
-  tda2 = tref/aref/aref
   !
   !$ACC PARALLEL LOOP PRESENT(mass_frac,rmix,rspec)
   do n = n1,n2
@@ -840,8 +998,18 @@ continue
     do m = 1,ncs
       rsum = rsum + rspec(m)*mass_frac(n,m)
     end do
-    rmix(n) = rsum*tda2
+    rmix(n) = rsum
   end do
+  !
+  if (present(dimensional)) then
+    if (dimensional) then
+      rmix_dim = aref*aref/tref
+      !$ACC PARALLEL LOOP PRESENT(rmix)
+      do n = n1,n2
+        rmix(n) = rmix(n) * rmix_dim
+      end do
+    end if
+  end if
   !
 end subroutine compute_mixture_rgas_sp
 !
@@ -860,43 +1028,38 @@ subroutine compute_mixture_rgas_1p(mass_frac,rmix,dimensional)
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: dimensional
   !
-  !.. Local Scalars ..
-  logical(lk) :: nondim
-  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_mixture_rgas_1p"
   !
 continue
   !
-  nondim = true
-  if (present(dimensional)) then
-    nondim = (.not. dimensional)
-  end if
-  !
   rmix = dot_product( rspec(1:ncs) , mass_frac(1:ncs) )
   !
-  if (nondim) then
-    rmix = rmix * tref/aref/aref
+  if (present(dimensional)) then
+    if (dimensional) then
+      rmix = rmix * aref*aref/tref
+    end if
   end if
   !
 end subroutine compute_mixture_rgas_1p
 !
 !###############################################################################
 !
-pure &
-subroutine newton_solve_for_temperature(n1,n2,mass_frac,rmix,eint,t,h,cp, &
-                                        ndnc,dtmx, &
+!pure &
+subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
+                                        ndnc,dtmx,loc, &
                                         dim_t_upon_entry,nondim_t_upon_return)
   !
   !.. Use Statements ..
   use ovar, only : tref,tmin,tmax
+  use ovar, only : newton_rlx
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
   integer,     intent(in) :: n2
-  real(wp),    intent(in) :: mass_frac(:,:)
+  real(wp),    intent(in) :: cv(:,:) ! mass fractions and conserved variables
   real(wp),    intent(in) :: rmix(:)
-  real(wp),    intent(in) :: eint(:)
+  real(wp),    intent(in) :: p(:)
   real(wp), intent(inout) :: t(:)
   real(wp), intent(inout) :: h(:)
   real(wp), intent(inout) :: cp(:)
@@ -904,13 +1067,17 @@ subroutine newton_solve_for_temperature(n1,n2,mass_frac,rmix,eint,t,h,cp, &
   real(wp), intent(inout) :: dtmx
   !
   !.. Optional Arguments
-  logical(lk), optional, intent(in) :: dim_t_upon_entry
-  logical(lk), optional, intent(in) :: nondim_t_upon_return
+  character(len=*), optional, intent(in) :: loc
+  logical(lk),      optional, intent(in) :: dim_t_upon_entry
+  logical(lk),      optional, intent(in) :: nondim_t_upon_return
   !
   !.. Local Scalars ..
   integer  :: k,n
   real(wp) :: func,dfunc,dtemp,dterr
   real(wp) :: tmin_nd,tmax_nd
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: eint(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "newton_solve_for_temperature"
@@ -922,16 +1089,41 @@ subroutine newton_solve_for_temperature(n1,n2,mass_frac,rmix,eint,t,h,cp, &
  !real(wp), parameter :: conv_temp = eps8  ! VULCAN if ref. Mach > 0.01
  !real(wp), parameter :: conv_temp = eps12 ! VULCAN if ref. Mach <= 0.01
   !
+#define DEBUG_TEMPERATURE_NEWTON_SOLVE
+#ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
+  real(wp),    allocatable :: dtemp_save(:,:,:)
+  logical(lk), allocatable :: did_not_converge(:)
+  integer,     allocatable :: ndnc_save(:)
+  real(wp),    allocatable :: dtmx_save(:)
+#endif
+  !
 continue
   !
   tmin_nd = tmin / tref
   tmax_nd = tmax / tref
   !
+  ! Reset the temperature to the reference temperature wherever
+  ! the temperature is less-than tmin_nd or greater-than tmax_nd.
+  !
+  where ( t(:) < tmin_nd ) t(:) = one
+  where ( t(:) > tmax_nd ) t(:) = one
+  !
+  allocate ( eint(1:size(t)) , source=zero )
+  !
+  call compute_internal_energy(n1,n2,cv,eint)
+  !
   ! Compute initial static enthalpy and specific heat of the mixture
   !
-  call compute_mixture_enthalpy(n1,n2,mass_frac,t,h)
+  call compute_mixture_enthalpy(n1,n2,cv(:,1:ncs),t,h)
   !
-  call compute_mixture_cp(n1,n2,mass_frac,t,cp)
+  call compute_mixture_cp(n1,n2,cv(:,1:ncs),t,cp)
+  !
+#ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
+  allocate ( did_not_converge(n1:n2) , source=fals )
+  allocate ( dtemp_save(n1:n2,1:8,1:newton_iter) , source=zero )
+  allocate ( ndnc_save(1:newton_iter) , source=0 )
+  allocate ( dtmx_save(1:newton_iter) , source=zero )
+#endif
   !
   ! Compute the temperature using Newton solve
   !
@@ -948,21 +1140,52 @@ continue
       !
       dtemp = func/dfunc
       !
+#ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
+      dtemp_save(n,1,k) = h(n)
+      dtemp_save(n,2,k) = cp(n)
+      dtemp_save(n,3,k) = func
+      dtemp_save(n,4,k) = dfunc
+      dtemp_save(n,5,k) = dtemp
+      dtemp_save(n,6,k) = t(n)
+#endif
+      !
       t(n) = min( tmax_nd , max(tmin_nd,t(n)-dtemp) )
       !
       dterr = abs(dtemp) / t(n)
       !
+#ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
+      dtemp_save(n,7,k) = t(n)
+      dtemp_save(n,8,k) = dterr
+      if (any( [ abs(t(n)-tmin_nd) , abs(t(n)-tmax_nd) ] <= eps9 )) then
+        ! Set dtemp_save(n,7,k) to the negative value of the updated temperature
+        ! if the updated temperature was bounded by tmin_dt or tmax_dt.
+        dtemp_save(n,7,k) = -t(n)
+      end if
+#endif
+      !
       if (dterr > dtmx) dtmx = dterr
       !
-      if (dterr > conv_temp) ndnc = ndnc + 1
+      if (dterr > conv_temp) then
+        ndnc = ndnc + 1
+#ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
+        did_not_converge(n) = true
+      else
+        did_not_converge(n) = fals
+#endif
+      end if
       !
     end do
     !
+#ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
+    ndnc_save(k) = ndnc
+    dtmx_save(k) = dtmx
+#endif
+    !
     ! Update the static enthalpy and specific heat of the mixture
     !
-    call compute_mixture_enthalpy(n1,n2,mass_frac,t,h)
+    call compute_mixture_enthalpy(n1,n2,cv(:,1:ncs),t,h)
     !
-    call compute_mixture_cp(n1,n2,mass_frac,t,cp)
+    call compute_mixture_cp(n1,n2,cv(:,1:ncs),t,cp)
     !
     ! Check for convergence
     !
@@ -970,11 +1193,144 @@ continue
       exit newton_iteration
     end if
     !
-   !if (k == newton_iter) then
-   !  write (iout,100) ndnc,dtmx
-   !end if
+    if (k == newton_iter) then
+#ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
+    block
+      use geovar, only : nr,xyz
+      use flowvar, only : facexyz_array
+      use ovar, only : itcur,current_rk_stage,aref,rhoref
+      character(len=50) :: fname
+      integer :: i,j,m,n,ierr
+      real(wp) :: vx,vy,vz,q2
+      character(len=1), parameter :: cxyz(1:3) = ["X","Y","Z"]
+      if (.not. file_is_opened) then
+        write (fname,6) mypnum
+        open (newunit=io,file=trim(adjustl(fname)),status="replace", &
+                         action="write",form="formatted",iostat=ierr)
+        file_is_opened = true
+      end if
+      do n = n1,n2
+        if (did_not_converge(n)) then
+          if (last_itcur_output /= itcur) then
+            write (io,10) itcur
+            last_itcur_output = itcur
+          end if
+          if (last_rk_stage_output /= current_rk_stage) then
+            write (io,11) current_rk_stage
+            last_rk_stage_output = current_rk_stage
+          end if
+          write (io,1) "n",n
+          write (io,1) "n1",n1
+          write (io,1) "n2",n2
+          if (present(loc)) then
+            if (trim(adjustl(loc)) == "cell") then
+              if (n >= lbound(xyz,dim=2) .and. n <= ubound(xyz,dim=2)) then
+                do j = 1,nr
+                  write (io,7) "S",cxyz(j),xyz(j,n)
+                end do
+              end if
+            else if (trim(adjustl(loc)) == "face") then
+              if (allocated(facexyz_array)) then
+                if (n >= lbound(facexyz_array,dim=2) .and. &
+                    n <= ubound(facexyz_array,dim=2)) then
+                  do j = 1,nr
+                    write (io,7) "F",cxyz(j),facexyz_array(j,n)
+                  end do
+                end if
+              end if
+            end if
+          end if
+          !
+          vy = zero ; vz = zero
+          vx = cv(n,nmx)/cv(n,nec)
+          if (nr >= 2) vy = cv(n,nmy)/cv(n,nec)
+          if (nr == 3) vz = cv(n,nmz)/cv(n,nec)
+          q2 = vx*vx + vy*vy + vz*vz
+          !
+          write (io,2) "rmix",rmix(n),rmix(n)*aref*aref/tref
+          write (io,2) "eint",eint(n),eint(n)*rhoref*aref*aref
+          write (io,2) "rho",cv(n,nec),cv(n,nec)*rhoref
+          write (io,2) "vx",vx,vx*aref
+          if (nr >= 2) &
+          write (io,2) "vy",vy,vy*aref
+          if (nr == 3) &
+          write (io,2) "vz",vz,vz*aref
+          write (io,2) "q^2",q2,q2*aref*aref
+          write (io,2) "rhoE",cv(n,nee),cv(n,nee)*rhoref*aref*aref
+          write (io,2) "pres",p(n),p(n)*rhoref*aref*aref
+          write (io,2) "t_beg",dtemp_save(n,6,1), &
+                               dtemp_save(n,6,1)*tref
+          write (io,2) "h_beg",dtemp_save(n,1,1), &
+                               dtemp_save(n,1,1)*aref*aref
+          write (io,2) "cp_beg",dtemp_save(n,2,1), &
+                                dtemp_save(n,2,1)*aref*aref/tref
+          write (io,2) "t_end",t(n),t(n)*tref
+          write (io,2) "h_end",h(n),h(n)*aref*aref
+          write (io,2) "cp_end",cp(n),cp(n)*aref*aref/tref
+          do m = 1,ncs
+            write (io,3) trim(adjustl(species_name(m))),cv(n,m)
+          end do
+          do m = 1,ncs
+            !
+            if (cv(n,m) <= eps6) cycle
+            !
+            write (io,20) trim(adjustl(species_name(m))),"enthalpy"
+            write (io,21) 0, (enth_coef(6,i,m), i=1,size(enth_coef,dim=2))
+            do j = 1,ncpc
+              write (io,21) j, (enth_coef(j,i,m), i=1,size(enth_coef,dim=2))
+            end do
+            !
+            write (io,20) trim(adjustl(species_name(m))),"cp"
+            do j = 1,ncpc
+              write (io,21) j-1, (cp_coef(j,i,m), i=1,size(cp_coef,dim=2))
+            end do
+            !
+            write (io,20) trim(adjustl(species_name(m))),"d(cp)/dT"
+            do j = 2,ncpc
+              write (io,21) j-2, &
+                (real(j-1,kind=wp)*cp_coef(j,i,m), i=1,size(cp_coef,dim=2))
+            end do
+            !
+          end do
+          do j = 1,size(dtemp_save,dim=3)
+            if (j == 1) write (io,4)
+            if (j == size(dtemp_save,dim=3)) then
+              write (io,5) j,(dtemp_save(n,i,j), i=1,size(dtemp_save,dim=2)),"-"
+            else
+              write (io,5) j,(dtemp_save(n,i,j), i=1,size(dtemp_save,dim=2))
+            end if
+          end do
+          flush (io)
+  1 format (4x,a,t20," = ",i0)
+  2 format (4x,a,t20," = ",es23.15," ; ",es23.15)
+  3 format (4x,a," mass frac",t20," = ",es23.15)
+  4 format (/,101("-"),/, &
+              4x,"VALUES AFFECTED BY EACH NEWTON ITERATION",/, &
+              101("-"),/, &
+              1x,"Iter",8x,"enth",13x,"cp",12x,"func",12x,"dfunc", &
+              11x,"dtemp",9x,"temp_beg",8x,"temp_end",8x,"temp_err",/, &
+              101("-"))
+  5 format (2x,i3,8(2x,es14.6),:,/,100("-"),a,/)
+  6 format ("newton_temp_errors.CPU-",i0,".log")
+  7 format (4x,"(",a1,"P) ",a1,t20," = ",es23.15)
+  !
+  10 format (/,2(101("#"),/), 20x,"TIME STEP # ",i0, /,2(101("#"),/))
+  11 format (/,  101("="),/ , 10x, "RK STAGE # ",i0, /,  101("="),/ )
+  20 format (/,4x,a," curve fit coefficients")
+  21 format (6x,"T^",i0," coefficient : ",es23.15,2x,es23.15)
+
+        end if
+      end do
+    end block
+#endif
+      write (iout,100) ndnc,dtmx
+    end if
     !
   end do newton_iteration
+  !
+  if (allocated(eint)) then
+    deallocate ( eint )
+  end if
   !
   ! Format Statements
   !
@@ -1062,11 +1418,10 @@ end subroutine compute_internal_energy
 !
 !###############################################################################
 !
+!#define MIXTURES_CALL_SPECIES_SUBS
+#ifdef MIXTURES_CALL_SPECIES_SUBS
 pure &
-subroutine compute_mixture_enthalpy_sp(n1,n2,mass_frac,t,h)
-  !
-  !.. Use Statements ..
-  use ovar, only : aref,tref
+subroutine compute_mixture_enthalpy_sp(n1,n2,mass_frac,t,h,dimensional)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -1075,16 +1430,98 @@ subroutine compute_mixture_enthalpy_sp(n1,n2,mass_frac,t,h)
   real(wp),    intent(in) :: t(:)
   real(wp), intent(inout) :: h(:)
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Local Scalars ..
+  integer :: m,n
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: hsi(:,:)
+  !
+continue
+  !
+ !allocate ( hsi , mold=mass_frac , source=zero )
+  allocate ( hsi , mold=mass_frac )
+  !$ACC DATA CREATE(hsi)
+  !
+  call compute_species_enthalpy(n1,n2,t,hsi,dimensional)
+  !
+  !$ACC PARALLEL LOOP PRESENT(mass_frac,hsi,h)
+  do n = n1,n2
+    h(n) = mass_frac(n,1)*hsi(n,1)
+  end do
+  !
+  do m = 2,ncs
+    !$ACC PARALLEL LOOP PRESENT(mass_frac,hsi,h)
+    do n = n1,n2
+      h(n) = h(n) + mass_frac(n,m)*hsi(n,m)
+    end do
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( hsi )
+  !
+end subroutine compute_mixture_enthalpy_sp
+!
+!###############################################################################
+!
+pure &
+subroutine compute_mixture_enthalpy_1p(mass_frac,t,h,dimensional)
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: mass_frac(:)
+  real(wp),    intent(in) :: t
+  real(wp), intent(inout) :: h
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Local Scalars ..
+  integer :: m
+  !
+  !.. Local Arrays ..
+  real(wp) :: hsi(1:ncs)
+  !
+continue
+  !
+  h = zero
+  !
+  call compute_species_enthalpy(t,hsi,dimensional)
+  !
+  do m = 1,ncs
+    h = h + mass_frac(m)*hsi(m)
+  end do
+  !
+end subroutine compute_mixture_enthalpy_1p
+!
+!###############################################################################
+!
+#else
+pure &
+subroutine compute_mixture_enthalpy_sp(n1,n2,mass_frac,t,h,dimensional)
+  !
+  !.. Use Statements ..
+  use ovar, only : aref
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp),    intent(in) :: mass_frac(:,:)
+  real(wp),    intent(in) :: t(:)
+  real(wp), intent(inout) :: h(:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
   !.. Local Scalars ..
   integer  :: m,n,ni
-  real(wp) :: hi,ts,aref2_inv
+  real(wp) :: hi,ts,h_dim
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable :: intrvl(:,:)
   !
 continue
-  !
-  aref2_inv = one/aref/aref
   !
   allocate ( intrvl(n1:n2,1:ncs) , source=1 )
   !$ACC DATA CREATE(intrvl)
@@ -1108,7 +1545,7 @@ continue
     do n = n1,n2
       !
       ni = intrvl(n,m)
-      ts = t(n)*tref
+      ts = t(n)
       !
       hi = enth_coef(6,ni,m) + &
            ts*(enth_coef(1,ni,m) + &
@@ -1117,13 +1554,23 @@ continue
                        ts*(enth_coef(4,ni,m) + &
                            ts*(enth_coef(5,ni,m))))))
       !
-      h(n) = h(n) + mass_frac(n,m)*hi*aref2_inv
+      h(n) = h(n) + mass_frac(n,m)*hi
       !
     end do
   end do
   !
   !$ACC END DATA
   deallocate ( intrvl )
+  !
+  if (present(dimensional)) then
+    if (dimensional) then
+      h_dim = aref*aref
+      !$ACC PARALLEL LOOP PRESENT(h)
+      do n = n1,n2
+        h(n) = h(n)*h_dim
+      end do
+    end if
+  end if
   !
 end subroutine compute_mixture_enthalpy_sp
 !
@@ -1133,7 +1580,7 @@ pure &
 subroutine compute_mixture_enthalpy_1p(mass_frac,t,h,dimensional)
   !
   !.. Use Statements ..
-  use ovar, only : aref,tref
+  use ovar, only : aref
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: mass_frac(:)
@@ -1144,56 +1591,44 @@ subroutine compute_mixture_enthalpy_1p(mass_frac,t,h,dimensional)
   logical(lk), optional, intent(in) :: dimensional
   !
   !.. Local Scalars ..
-  logical(lk) :: nondim
-  integer     :: m,ni
-  real(wp)    :: hi,ts,aref2_inv,tdim,tswd
+  integer  :: m,ni
+  real(wp) :: hi
   !
 continue
-  !
-  nondim = true
-  if (present(dimensional)) then
-    nondim = (.not. dimensional)
-  end if
-  !
-  if (nondim) then
-    aref2_inv = one/aref/aref
-    tdim = tref
-    tswd = one
-  else
-    aref2_inv = one
-    tdim = one
-    tswd = tref
-  end if
-  !
-  aref2_inv = one/aref/aref
   !
   h = zero
   !
   do m = 1,ncs
     !
-    ni = merge( 1 , 2 , t <= temperature_switch*tswd )
-    ts = t*tdim
+    ni = merge( 1 , 2 , t <= temperature_switch )
     !
     hi = enth_coef(6,ni,m) + &
-         ts*(enth_coef(1,ni,m) + &
-             ts*(enth_coef(2,ni,m) + &
-                 ts*(enth_coef(3,ni,m) + &
-                     ts*(enth_coef(4,ni,m) + &
-                         ts*(enth_coef(5,ni,m))))))
+         t*(enth_coef(1,ni,m) + &
+             t*(enth_coef(2,ni,m) + &
+                 t*(enth_coef(3,ni,m) + &
+                     t*(enth_coef(4,ni,m) + &
+                         t*(enth_coef(5,ni,m))))))
     !
-    h = h + mass_frac(m)*hi*aref2_inv
+    h = h + mass_frac(m)*hi
     !
   end do
+  !
+  if (present(dimensional)) then
+    if (dimensional) then
+      h = h*aref*aref
+    end if
+  end if
   !
 end subroutine compute_mixture_enthalpy_1p
 !
 !###############################################################################
 !
+#endif
 pure &
-subroutine compute_species_enthalpy_sp(n1,n2,t,hsi)
+subroutine compute_species_enthalpy_sp(n1,n2,t,hsi,dimensional)
   !
   !.. Use Statements ..
-  use ovar, only : aref,tref
+  use ovar, only : aref
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -1201,21 +1636,22 @@ subroutine compute_species_enthalpy_sp(n1,n2,t,hsi)
   real(wp),    intent(in) :: t(:)
   real(wp), intent(inout) :: hsi(:,:)
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
   !.. Local Scalars ..
   integer  :: m,n,ni
-  real(wp) :: ts,aref2_inv
+  real(wp) :: ts,h_dim
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable :: intrvl(:,:)
   !
 continue
   !
-  aref2_inv = one/aref/aref
-  !
   allocate ( intrvl(n1:n2,1:ncs) , source=1 )
   !$ACC DATA CREATE(intrvl)
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_switch)
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
   do m = 1,ncs
     do n = n1,n2
       if (t(n) > temperature_switch) then
@@ -1229,7 +1665,7 @@ continue
     do n = n1,n2
       !
       ni = intrvl(n,m)
-      ts = t(n)*tref
+      ts = t(n)
       !
       hsi(n,m) = enth_coef(6,ni,m) + &
                  ts*(enth_coef(1,ni,m) + &
@@ -1241,62 +1677,195 @@ continue
     end do
   end do
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(hsi)
-  do m = 1,ncs
-    do n = n1,n2
-      hsi(n,m) = hsi(n,m)*aref2_inv
-    end do
-  end do
-  !
   !$ACC END DATA
   deallocate ( intrvl )
+  !
+  if (present(dimensional)) then
+    if (dimensional) then
+      h_dim = aref*aref
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(hsi)
+      do m = 1,ncs
+        do n = n1,n2
+          hsi(n,m) = hsi(n,m)*h_dim
+        end do
+      end do
+    end if
+  end if
   !
 end subroutine compute_species_enthalpy_sp
 !
 !###############################################################################
 !
 pure &
-subroutine compute_species_enthalpy_1p(t,hsi)
+subroutine compute_species_enthalpy_1p(t,hsi,dimensional)
   !
   !.. Use Statements ..
-  use ovar, only : aref,tref
+  use ovar, only : aref
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: t
   real(wp), intent(inout) :: hsi(:)
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
   !.. Local Scalars ..
   integer  :: m,ni
-  real(wp) :: ts,aref2_inv
+  real(wp) :: h_dim
   !
 continue
-  !
-  aref2_inv = one/aref/aref
   !
   do m = 1,ncs
     !
     ni = merge( 1 , 2 , t <= temperature_switch )
-    ts = t*tref
     !
     hsi(m) = enth_coef(6,ni,m) + &
-             ts*(enth_coef(1,ni,m) + &
-                 ts*(enth_coef(2,ni,m) + &
-                     ts*(enth_coef(3,ni,m) + &
-                         ts*(enth_coef(4,ni,m) + &
-                             ts*(enth_coef(5,ni,m))))))
+             t*(enth_coef(1,ni,m) + &
+                 t*(enth_coef(2,ni,m) + &
+                     t*(enth_coef(3,ni,m) + &
+                         t*(enth_coef(4,ni,m) + &
+                             t*(enth_coef(5,ni,m))))))
     !
   end do
   !
-  do m = 1,ncs
-    hsi(m) = hsi(m)*aref2_inv
-  end do
+  if (present(dimensional)) then
+    if (dimensional) then
+      h_dim = aref*aref
+      do m = 1,ncs
+        hsi(m) = hsi(m)*h_dim
+      end do
+    end if
+  end if
   !
 end subroutine compute_species_enthalpy_1p
 !
 !###############################################################################
 !
 pure &
-subroutine compute_mixture_cp_sp(n1,n2,mass_frac,t,cp)
+subroutine compute_mixture_href(mass_frac,t,h)
+  !
+  ! NOTE: This version is different from the others in
+  !       that the input temperature (dummy argument 't'), the
+  !       module variable temperature_switch, and the module array
+  !       enth_coef are assumed have dimensional values.
+  !
+  !       The other subroutines that compute either species or
+  !       mixture enthalpy assume that the input temperature,
+  !       temperature_switch, and enth_coef are all non-dimensional.
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: mass_frac(:)
+  real(wp),    intent(in) :: t
+  real(wp), intent(inout) :: h
+  !
+  !.. Local Scalars ..
+  integer  :: m,ni
+  real(wp) :: hi
+  !
+continue
+  !
+  h = zero
+  !
+  do m = 1,ncs
+    !
+    ni = merge( 1 , 2 , t <= temperature_switch )
+    !
+    hi = enth_coef(6,ni,m) + &
+         t*(enth_coef(1,ni,m) + &
+             t*(enth_coef(2,ni,m) + &
+                 t*(enth_coef(3,ni,m) + &
+                     t*(enth_coef(4,ni,m) + &
+                         t*(enth_coef(5,ni,m))))))
+    !
+    h = h + mass_frac(m)*hi
+    !
+  end do
+  !
+end subroutine compute_mixture_href
+!
+!###############################################################################
+!
+#ifdef MIXTURES_CALL_SPECIES_SUBS
+pure &
+subroutine compute_mixture_cp_sp(n1,n2,mass_frac,t,cp,dimensional)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp),    intent(in) :: mass_frac(:,:)
+  real(wp),    intent(in) :: t(:)
+  real(wp), intent(inout) :: cp(:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Local Scalars ..
+  integer :: m,n
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: cpi(:,:)
+  !
+continue
+  !
+ !allocate ( cpi , mold=mass_frac , source=zero )
+  allocate ( cpi , mold=mass_frac )
+  !$ACC DATA CREATE(cpi)
+  !
+  call compute_species_cp(n1,n2,t,cpi,dimensional)
+  !
+  !$ACC PARALLEL LOOP PRESENT(mass_frac,cpi,cp)
+  do n = n1,n2
+    cp(n) = mass_frac(n,1)*cpi(n,1)
+  end do
+  !
+  do m = 2,ncs
+    !$ACC PARALLEL LOOP PRESENT(mass_frac,cpi,cp)
+    do n = n1,n2
+      cp(n) = cp(n) + mass_frac(n,m)*cpi(n,m)
+    end do
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( cpi )
+  !
+end subroutine compute_mixture_cp_sp
+!
+!###############################################################################
+!
+pure &
+subroutine compute_mixture_cp_1p(mass_frac,t,cp,dimensional)
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: mass_frac(:)
+  real(wp),    intent(in) :: t
+  real(wp), intent(inout) :: cp
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Local Scalars ..
+  integer :: m
+  !
+  !.. Local Arrays ..
+  real(wp) :: cpi(1:ncs)
+  !
+continue
+  !
+  cp = zero
+  !
+  call compute_species_cp(t,cpi,dimensional)
+  !
+  do m = 1,ncs
+    cp = cp + mass_frac(m)*cpi(m)
+  end do
+  !
+end subroutine compute_mixture_cp_1p
+!
+!###############################################################################
+!
+#else
+pure &
+subroutine compute_mixture_cp_sp(n1,n2,mass_frac,t,cp,dimensional)
   !
   !.. Use Statements ..
   use ovar, only : aref,tref
@@ -1308,16 +1877,17 @@ subroutine compute_mixture_cp_sp(n1,n2,mass_frac,t,cp)
   real(wp),    intent(in) :: t(:)
   real(wp), intent(inout) :: cp(:)
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
   !.. Local Scalars ..
   integer  :: m,n,ni
-  real(wp) :: cpi,ts,tda2
+  real(wp) :: cpi,ts,cp_dim
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable :: intrvl(:,:)
   !
 continue
-  !
-  tda2 = tref/aref/aref
   !
   allocate ( intrvl(n1:n2,1:ncs) , source=1 )
   !$ACC DATA CREATE(intrvl)
@@ -1327,7 +1897,7 @@ continue
     cp(n) = zero
   end do
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_switch)
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
   do m = 1,ncs
     do n = n1,n2
       if (t(n) > temperature_switch) then
@@ -1341,7 +1911,7 @@ continue
     do n = n1,n2
       !
       ni = intrvl(n,m)
-      ts = t(n)*tref
+      ts = t(n)
       !
       cpi = cp_coef(1,ni,m) + &
             ts*(cp_coef(2,ni,m) + &
@@ -1349,13 +1919,23 @@ continue
                     ts*(cp_coef(4,ni,m) + &
                         ts*(cp_coef(5,ni,m)))))
       !
-      cp(n) = cp(n) + mass_frac(n,m)*cpi*tda2
+      cp(n) = cp(n) + mass_frac(n,m)*cpi
       !
     end do
   end do
   !
   !$ACC END DATA
   deallocate ( intrvl )
+  !
+  if (present(dimensional)) then
+    if (dimensional) then
+      cp_dim = aref*aref/tref
+      !$ACC PARALLEL LOOP PRESENT(cp)
+      do n = n1,n2
+        cp(n) = cp(n)*cp_dim
+      end do
+    end if
+  end if
   !
 end subroutine compute_mixture_cp_sp
 !
@@ -1376,50 +1956,40 @@ subroutine compute_mixture_cp_1p(mass_frac,t,cp,dimensional)
   logical(lk), optional, intent(in) :: dimensional
   !
   !.. Local Scalars ..
-  logical(lk) :: nondim
-  integer     :: m,ni
-  real(wp)    :: cpi,ts,tda2,tdim,tswd
+  integer  :: m,ni
+  real(wp) :: cpi
   !
 continue
-  !
-  nondim = true
-  if (present(dimensional)) then
-    nondim = (.not. dimensional)
-  end if
-  !
-  if (nondim) then
-    tda2 = tref/aref/aref
-    tdim = tref
-    tswd = one
-  else
-    tda2 = one
-    tdim = one
-    tswd = tref
-  end if
   !
   cp = zero
   !
   do m = 1,ncs
     !
-    ni = merge( 1 , 2 , t <= temperature_switch*tswd )
-    ts = t*tdim
+    ni = merge( 1 , 2 , t <= temperature_switch )
     !
     cpi = cp_coef(1,ni,m) + &
-          ts*(cp_coef(2,ni,m) + &
-              ts*(cp_coef(3,ni,m) + &
-                  ts*(cp_coef(4,ni,m) + &
-                      ts*(cp_coef(5,ni,m)))))
+          t*(cp_coef(2,ni,m) + &
+              t*(cp_coef(3,ni,m) + &
+                  t*(cp_coef(4,ni,m) + &
+                      t*(cp_coef(5,ni,m)))))
     !
-    cp = cp + mass_frac(m)*cpi*tda2
+    cp = cp + mass_frac(m)*cpi
     !
   end do
+  !
+  if (present(dimensional)) then
+    if (dimensional) then
+      cp = cp * aref*aref/tref
+    end if
+  end if
   !
 end subroutine compute_mixture_cp_1p
 !
 !###############################################################################
 !
+#endif
 pure &
-subroutine compute_species_cp_sp(n1,n2,t,cpi)
+subroutine compute_species_cp_sp(n1,n2,t,cpi,dimensional)
   !
   !.. Use Statements ..
   use ovar, only : aref,tref
@@ -1430,21 +2000,22 @@ subroutine compute_species_cp_sp(n1,n2,t,cpi)
   real(wp),    intent(in) :: t(:)
   real(wp), intent(inout) :: cpi(:,:)
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
   !.. Local Scalars ..
   integer  :: m,n,ni
-  real(wp) :: ts,tda2
+  real(wp) :: ts,cp_dim
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable :: intrvl(:,:)
   !
 continue
   !
-  tda2 = tref/aref/aref
-  !
   allocate ( intrvl(n1:n2,1:ncs) , source=1 )
   !$ACC DATA CREATE(intrvl)
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_switch)
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
   do m = 1,ncs
     do n = n1,n2
       if (t(n) > temperature_switch) then
@@ -1458,7 +2029,7 @@ continue
     do n = n1,n2
       !
       ni = intrvl(n,m)
-      ts = t(n)*tref
+      ts = t(n)
       !
       cpi(n,m) = cp_coef(1,ni,m) + &
                  ts*(cp_coef(2,ni,m) + &
@@ -1469,12 +2040,17 @@ continue
     end do
   end do
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cpi)
-  do m = 1,ncs
-    do n = n1,n2
-      cpi(n,m) = cpi(n,m)*tda2
-    end do
-  end do
+  if (present(dimensional)) then
+    if (dimensional) then
+      cp_dim = aref*aref/tref
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cpi)
+      do m = 1,ncs
+        do n = n1,n2
+          cpi(n,m) = cpi(n,m)*cp_dim
+        end do
+      end do
+    end if
+  end if
   !
   !$ACC END DATA
   deallocate ( intrvl )
@@ -1484,7 +2060,7 @@ end subroutine compute_species_cp_sp
 !###############################################################################
 !
 pure &
-subroutine compute_species_cp_1p(t,cpi)
+subroutine compute_species_cp_1p(t,cpi,dimensional)
   !
   !.. Use Statements ..
   use ovar, only : aref,tref
@@ -1493,32 +2069,81 @@ subroutine compute_species_cp_1p(t,cpi)
   real(wp),    intent(in) :: t
   real(wp), intent(inout) :: cpi(:)
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
   !.. Local Scalars ..
   integer  :: m,ni
-  real(wp) :: ts,tda2
+  real(wp) :: cp_dim
   !
 continue
-  !
-  tda2 = tref/aref/aref
   !
   do m = 1,ncs
     !
     ni = merge( 1 , 2 , t <= temperature_switch )
-    ts = t*tref
     !
     cpi(m) = cp_coef(1,ni,m) + &
-             ts*(cp_coef(2,ni,m) + &
-                 ts*(cp_coef(3,ni,m) + &
-                     ts*(cp_coef(4,ni,m) + &
-                         ts*(cp_coef(5,ni,m)))))
+             t*(cp_coef(2,ni,m) + &
+                 t*(cp_coef(3,ni,m) + &
+                     t*(cp_coef(4,ni,m) + &
+                         t*(cp_coef(5,ni,m)))))
     !
   end do
   !
-  do m = 1,ncs
-    cpi(m) = cpi(m)*tda2
-  end do
+  !
+  if (present(dimensional)) then
+    if (dimensional) then
+      cp_dim = aref*aref/tref
+      do m = 1,ncs
+        cpi(m) = cpi(m)*cp_dim
+      end do
+    end if
+  end if
   !
 end subroutine compute_species_cp_1p
+!
+!###############################################################################
+!
+pure &
+subroutine compute_mixture_cpref(mass_frac,t,cp)
+  !
+  ! NOTE: This version is different from the others in
+  !       that the input temperature (dummy argument 't'), the
+  !       module variable temperature_switch, and the module array
+  !       cp_coef are assumed have dimensional values.
+  !
+  !       The other subroutines that compute either species or
+  !       mixture Cp assume that the input temperature,
+  !       temperature_switch, and cp_coef are all non-dimensional.
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: mass_frac(:)
+  real(wp),    intent(in) :: t
+  real(wp), intent(inout) :: cp
+  !
+  !.. Local Scalars ..
+  integer  :: m,ni
+  real(wp) :: cpi
+  !
+continue
+  !
+  cp = zero
+  !
+  do m = 1,ncs
+    !
+    ni = merge( 1 , 2 , t <= temperature_switch )
+    !
+    cpi = cp_coef(1,ni,m) + &
+          t*(cp_coef(2,ni,m) + &
+              t*(cp_coef(3,ni,m) + &
+                  t*(cp_coef(4,ni,m) + &
+                      t*(cp_coef(5,ni,m)))))
+    !
+    cp = cp + mass_frac(m)*cpi
+    !
+  end do
+  !
+end subroutine compute_mixture_cpref
 !
 !###############################################################################
 !
@@ -1536,9 +2161,6 @@ subroutine compute_mixture_dcpdt(n1,n2,mass_frac,t,dcpdt)
   !     ------
   !       m=1
   !
-  !.. Use Statements ..
-  use ovar, only : aref,tref
-  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
   integer,     intent(in) :: n2
@@ -1548,14 +2170,12 @@ subroutine compute_mixture_dcpdt(n1,n2,mass_frac,t,dcpdt)
   !
   !.. Local Scalars ..
   integer  :: m,n,ni
-  real(wp) :: dcpidt,ts,aref2_inv
+  real(wp) :: dcpidt,ts
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable :: intrvl(:,:)
   !
 continue
-  !
-  aref2_inv = one/aref/aref
   !
   allocate ( intrvl(n1:n2,1:ncs) , source=1 )
   !$ACC DATA CREATE(intrvl)
@@ -1565,7 +2185,7 @@ continue
     dcpdt(n) = zero
   end do
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl,temperature_switch)
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
   do m = 1,ncs
     do n = n1,n2
       if (t(n) > temperature_switch) then
@@ -1579,14 +2199,14 @@ continue
     do n = n1,n2
       !
       ni = intrvl(n,m)
-      ts = t(n)*tref
+      ts = t(n)
       !
       dcpidt = cp_coef(2,ni,m) + &
                ts*(cp_coef(3,ni,m)*two + &
                    ts*(cp_coef(4,ni,m)*three + &
                        ts*(cp_coef(5,ni,m)*four)))
       !
-      dcpdt(n) = dcpdt(n) + mass_frac(n,m)*dcpidt*aref2_inv
+      dcpdt(n) = dcpdt(n) + mass_frac(n,m)*dcpidt
       !
     end do
   end do
@@ -1595,6 +2215,66 @@ continue
   deallocate ( intrvl )
   !
 end subroutine compute_mixture_dcpdt
+!
+!###############################################################################
+!
+pure &
+subroutine compute_species_dcpdt(n1,n2,t,dcpidt)
+  !
+  ! Computes the partial derivative of the species Cp w.r.t. temperature:
+  !
+  !             d [Cp(m)]
+  !   dcpidt = -----------
+  !                dT
+  !
+  ! for points n1 to n2.
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp),    intent(in) :: t(:)
+  real(wp), intent(inout) :: dcpidt(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n,ni
+  real(wp) :: ts
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: intrvl(:,:)
+  !
+continue
+  !
+  allocate ( intrvl(n1:n2,1:ncs) , source=1 )
+  !$ACC DATA CREATE(intrvl)
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
+  do m = 1,ncs
+    do n = n1,n2
+      if (t(n) > temperature_switch) then
+        intrvl(n,m) = 2
+      end if
+    end do
+  end do
+  !
+  do m = 1,ncs
+    !$ACC PARALLEL LOOP PRESENT(intrvl,t,cp_coef,dcpidt)
+    do n = n1,n2
+      !
+      ni = intrvl(n,m)
+      ts = t(n)
+      !
+      dcpidt(n,m) = cp_coef(2,ni,m) + &
+                    ts*(cp_coef(3,ni,m)*two + &
+                        ts*(cp_coef(4,ni,m)*three + &
+                            ts*(cp_coef(5,ni,m)*four)))
+      !
+    end do
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( intrvl )
+  !
+end subroutine compute_species_dcpdt
 !
 !###############################################################################
 !
@@ -1613,9 +2293,6 @@ subroutine compute_cp_over_temp_integral_sp(n1,n2,mass_frac, &
   ! TEMP : static temperature
   ! RETURN_VALUE : Final intergral of Cp/T summed over all species
   !
-  !.. Use Statements ..
-  use ovar, only : aref,tref
-  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
   integer,     intent(in) :: n2
@@ -1628,7 +2305,7 @@ subroutine compute_cp_over_temp_integral_sp(n1,n2,mass_frac, &
   integer  :: m,n
   real(wp) :: tbl,tel,ccl,cel,cbl,al,bl,cl,dl,el
   real(wp) :: tbh,teh,cch,ceh,cbh,ah,bh,ch,dh,eh
-  real(wp) :: val,tda2
+  real(wp) :: val
   !
   !.. Local Parameters ..
   real(wp), parameter :: three2 = three/two
@@ -1636,8 +2313,6 @@ subroutine compute_cp_over_temp_integral_sp(n1,n2,mass_frac, &
   real(wp), parameter :: five4  = five/four
   !
 continue
-  !
-  tda2 = tref/aref/aref
   !
   !$ACC PARALLEL LOOP PRESENT(return_value)
   do n = n1,n2
@@ -1657,8 +2332,8 @@ continue
       ! NOTE: We need to dimensionalize the temperatures because
       !       the curve fits require dimensional temperature.
       !
-      tbl = temp(n)*tref
-      tel = ttot(n)*tref
+      tbl = temp(n)
+      tel = ttot(n)
       !
       !$ACC LOOP SEQ
       do m = 1,ncs
@@ -1685,8 +2360,8 @@ continue
       ! NOTE: We need to dimensionalize the temperatures because
       !       the curve fits require dimensional temperature.
       !
-      tbh = temp(n)*tref
-      teh = ttot(n)*tref
+      tbh = temp(n)
+      teh = ttot(n)
       !
       !$ACC LOOP SEQ
       do m = 1,ncs
@@ -1714,11 +2389,11 @@ continue
       ! NOTE: We need to dimensionalize the temperatures because
       !       the curve fits require dimensional temperature.
       !
-      tbl = temp(n)*tref
-      tel = temperature_switch*tref
+      tbl = temp(n)
+      tel = temperature_switch
       !
-      tbh = temperature_switch*tref
-      teh = ttot(n)*tref
+      tbh = temperature_switch
+      teh = ttot(n)
       !
       !$ACC LOOP SEQ
       do m = 1,ncs
@@ -1753,7 +2428,7 @@ continue
       !
     end if
     !
-    return_value(n) = val*tda2
+    return_value(n) = val
     !
   end do
 #else
@@ -1780,8 +2455,8 @@ continue
         ! NOTE: We need to dimensionalize the temperatures because
         !       the curve fits require dimensional temperature.
         !
-        tbl = temp(n)*tref
-        tel = ttot(n)*tref
+        tbl = temp(n)
+        tel = ttot(n)
         !
         ccl = log(tel/tbl)*al
         !
@@ -1796,8 +2471,8 @@ continue
         ! NOTE: We need to dimensionalize the temperatures because
         !       the curve fits require dimensional temperature.
         !
-        tbh = temp(n)*tref
-        teh = ttot(n)*tref
+        tbh = temp(n)
+        teh = ttot(n)
         !
         cch = log(teh/tbh)*ah
         !
@@ -1813,16 +2488,16 @@ continue
         ! NOTE: We need to dimensionalize the temperatures because
         !       the curve fits require dimensional temperature.
         !
-        tbl = temp(n)*tref
-        tel = temperature_switch*tref
+        tbl = temp(n)
+        tel = temperature_switch
         !
         ccl = log(tel/tbl)*al
         !
         cel = tel*(bl + tel*(cl + tel*(dl + tel*el)))
         cbl = tbl*(bl + tbl*(cl + tbl*(dl + tbl*el)))
         !
-        tbh = temperature_switch*tref
-        teh = ttot(n)*tref
+        tbh = temperature_switch
+        teh = ttot(n)
         !
         cch = log(teh/tbh)*ah
         !
@@ -1836,13 +2511,6 @@ continue
       !
     end do
     !
-  end do
-  !
-  ! Non-dimensionalize return_value
-  !
-  !$ACC PARALLEL LOOP PRESENT(return_value)
-  do n = n1,n2
-    return_value(n) = return_value(n) * tda2
   end do
 #endif
   !
@@ -1868,9 +2536,6 @@ subroutine compute_cp_over_temp_integral_1p(mass_frac,return_value,temp,ttot)
   ! TEMP : static temperature
   ! RETURN_VALUE : Final intergral of Cp/T summed over all species
   !
-  !.. Use Statements ..
-  use ovar, only : aref,tref
-  !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: mass_frac(:)
   real(wp),    intent(in) :: ttot
@@ -1881,7 +2546,6 @@ subroutine compute_cp_over_temp_integral_1p(mass_frac,return_value,temp,ttot)
   integer  :: m
   real(wp) :: tbl,tel,ccl,cel,cbl,al,bl,cl,dl,el
   real(wp) :: tbh,teh,cch,ceh,cbh,ah,bh,ch,dh,eh
-  real(wp) :: tda2
   !
   !.. Local Parameters ..
   real(wp), parameter :: three2 = three/two
@@ -1889,8 +2553,6 @@ subroutine compute_cp_over_temp_integral_1p(mass_frac,return_value,temp,ttot)
   real(wp), parameter :: five4  = five/four
   !
 continue
-  !
-  tda2 = tref/aref/aref
   !
   return_value = zero
   !
@@ -1914,8 +2576,8 @@ continue
       ! NOTE: We need to dimensionalize the temperatures because
       !       the curve fits require dimensional temperature.
       !
-      tbl = temp*tref
-      tel = ttot*tref
+      tbl = temp
+      tel = ttot
       !
       ccl = log(tel/tbl)*al
       !
@@ -1930,8 +2592,8 @@ continue
       ! NOTE: We need to dimensionalize the temperatures because
       !       the curve fits require dimensional temperature.
       !
-      tbh = temp*tref
-      teh = ttot*tref
+      tbh = temp
+      teh = ttot
       !
       cch = log(teh/tbh)*ah
       !
@@ -1947,16 +2609,16 @@ continue
       ! NOTE: We need to dimensionalize the temperatures because
       !       the curve fits require dimensional temperature.
       !
-      tbl = temp*tref
-      tel = temperature_switch*tref
+      tbl = temp
+      tel = temperature_switch
       !
       ccl = log(tel/tbl)*al
       !
       cel = tel*(bl + tel*(cl + tel*(dl + tel*el)))
       cbl = tbl*(bl + tbl*(cl + tbl*(dl + tbl*el)))
       !
-      tbh = temperature_switch*tref
-      teh = ttot*tref
+      tbh = temperature_switch
+      teh = ttot
       !
       cch = log(teh/tbh)*ah
       !
@@ -1968,10 +2630,6 @@ continue
     end if
     !
   end do
-  !
-  ! Non-dimensionalize return_value
-  !
-  return_value = return_value * tda2
   !
   ! Finished computing the integral required for calculating total pressure
   ! for a mixture of gases in thermal equilibrium using the Gordon and
@@ -2104,18 +2762,18 @@ subroutine hardwired_NCC_coefficients
   !
   real(wp), parameter :: H2_wtmol = 2.0158800_wp
   !
-  real(wp), parameter :: H2_cp(1:6,1:2) = reshape( [ 0.02991423E+02_wp, &
-                                                     0.07000644E-02_wp, &
-                                                    -0.05633828E-06_wp, &
-                                                    -0.09231578E-10_wp, &
-                                                     0.15827519E-14_wp, &
-                                                    -0.08350340E+04_wp, &
-                                                     0.03298124E+02_wp, &
+  real(wp), parameter :: H2_cp(1:6,1:2) = reshape( [ 0.03298124E+02_wp, &
                                                      0.08249441E-02_wp, &
                                                     -0.08143015E-05_wp, &
                                                     -0.09475434E-09_wp, &
                                                      0.04134872E-11_wp, &
-                                                    -0.10125209E+04_wp] , &
+                                                    -0.10125209E+04_wp, &
+                                                     0.02991423E+02_wp, &
+                                                     0.07000644E-02_wp, &
+                                                    -0.05633828E-06_wp, &
+                                                    -0.09231578E-10_wp, &
+                                                     0.15827519E-14_wp, &
+                                                    -0.08350340E+04_wp] , &
                                                    [6,2] )
   !
   real(wp), parameter :: O_wtmol = 15.9994000_wp
@@ -2157,7 +2815,12 @@ subroutine hardwired_NCC_coefficients
   !
   real(wp), allocatable :: ncc_cp(:,:,:)
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "hardwired_NCC_coefficients"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   allocate ( ncc_cp(1:6,1:2,1:ncs) , source=zero )
   !
@@ -2247,6 +2910,8 @@ continue
   temperature_switch = NCC_interval_switch
   !
   deallocate ( ncc_cp )
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine hardwired_NCC_coefficients
 !
@@ -2458,7 +3123,12 @@ subroutine hardwired_VULCAN_coefficients
   !
   real(wp), allocatable :: vul_cp(:,:,:)
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "hardwired_VULCAN_coefficients"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   allocate ( vul_cp(1:7,1:2,1:ncs) , source=zero )
   !
@@ -2548,6 +3218,8 @@ continue
   temperature_switch = vul_interval_switch
   !
   deallocate ( vul_cp )
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine hardwired_VULCAN_coefficients
 !
