@@ -29,6 +29,7 @@ module order_mod
   integer, public, save :: q_order = 3
   integer, public, save :: o_order = -3
   integer, public, save :: e_order = -3
+  integer, public, save :: t_order = -1
   !
   integer, public, save :: n_min_geom
   integer, public, save :: n_max_geom
@@ -124,8 +125,8 @@ continue
     n_fp2dq = n_sp2dq
   end if
   !
-  n_min_order = min( n_order , p_order , q_order )
-  n_max_order = max( n_order , p_order , q_order )
+  n_min_order = min( n_order , p_order , q_order , t_order )
+  n_max_order = max( n_order , p_order , q_order , t_order )
   !
  !if (o_order > 0) then
  !  n_min_order = min( n_min_order , o_order )
