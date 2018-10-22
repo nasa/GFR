@@ -411,7 +411,7 @@ continue
           lmtr_omin = elem_order-1
         end if
       end if
-      lmtr_omin = min(lmtr_omin,p_order)
+      lmtr_omin = max( 0 , min(lmtr_omin,p_order) )
       !
       lmtr_omax = elem_order-1
       !

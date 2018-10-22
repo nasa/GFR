@@ -989,14 +989,7 @@ continue
       ! this combination of cell geometry and cell order
       !
       this_omin = this_order
-      this_omax = geom_mio(this_geom,this_order)
-      !
-      ! this_omax should not be smaller than this_omin. If for some reason
-      ! it is, cycle to the next order for this geometry. The array geom_mio
-      ! was initialized to -1 so this should also account for geometries that
-      ! were never found while creating the array.
-      !
-      if (this_omax < this_omin) cycle order_loop
+      this_omax = omax
       !
       ! Allocate the interp%toCell component of interp
       !
@@ -1075,6 +1068,19 @@ continue
         if (associated(solpts   )) solpts    => null()
         !
       end do cell_order_loop
+      !
+      ! Get the minimum and maximum interpolation order for
+      ! this combination of cell geometry and cell order
+      !
+      this_omin = this_order
+      this_omax = geom_mio(this_geom,this_order)
+      !
+      ! this_omax should not be smaller than this_omin. If for some reason
+      ! it is, cycle to the next order for this geometry. The array geom_mio
+      ! was initialized to -1 so this should also account for geometries that
+      ! were never found while creating the array.
+      !
+      if (this_omax < this_omin) cycle order_loop
       !
       ! Allocate the interp%toFace component of interp
       !
