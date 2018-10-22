@@ -609,7 +609,8 @@ end subroutine grad_cv_to_grad_pv_sp
 !
 !###############################################################################
 !
-pure subroutine grad_cv_to_grad_pv_gpu(n1,n2,usp,gpsp,dcvdx,return_value)
+pure subroutine grad_cv_to_grad_pv_gpu(n1,n2,usp,gpsp,dcvdx,return_value, &
+                                       output_variables)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -617,6 +618,9 @@ pure subroutine grad_cv_to_grad_pv_gpu(n1,n2,usp,gpsp,dcvdx,return_value)
   real(wp),    intent(in) :: gpsp(:,:)
   real(wp),    intent(in) :: dcvdx(:,:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
+  !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(inout) :: output_variables(:,:)
   !
   !.. Local Scalars ..
   integer  :: nr
@@ -634,12 +638,25 @@ continue
   end if
   !
   if (ncs > 0) then
-    if (nr == 3) then
-      call adjust_temp_gradient_for_tpg_3d(n1,n2,usp,gpsp,dcvdx,return_value)
-    else if (nr == 2) then
-      call adjust_temp_gradient_for_tpg_2d(n1,n2,usp,gpsp,dcvdx,return_value)
+    if (present(output_variables)) then
+      if (nr == 3) then
+        call adjust_temp_grad_for_tpg_3d(n1,n2,usp,gpsp,dcvdx,return_value, &
+                                         output_variables)
+      else if (nr == 2) then
+        call adjust_temp_grad_for_tpg_2d(n1,n2,usp,gpsp,dcvdx,return_value, &
+                                         output_variables)
+      else
+        call adjust_temp_grad_for_tpg_1d(n1,n2,usp,gpsp,dcvdx,return_value, &
+                                         output_variables)
+      end if
     else
-      call adjust_temp_gradient_for_tpg_1d(n1,n2,usp,gpsp,dcvdx,return_value)
+      if (nr == 3) then
+        call adjust_temp_gradient_for_tpg_3d(n1,n2,usp,gpsp,dcvdx,return_value)
+      else if (nr == 2) then
+        call adjust_temp_gradient_for_tpg_2d(n1,n2,usp,gpsp,dcvdx,return_value)
+      else
+        call adjust_temp_gradient_for_tpg_1d(n1,n2,usp,gpsp,dcvdx,return_value)
+      end if
     end if
   end if
   !
@@ -662,7 +679,6 @@ pure subroutine grad_cv_to_grad_pv_cpg_3d(n1,n2,usp,dcvdx,return_value)
   integer  :: n
   real(wp) :: cv_inv,rho_inv
   real(wp) :: decdx,decdy,decdz
-  real(wp) :: rho2_inv,a
   !
 continue
   !
@@ -1042,8 +1058,8 @@ continue
     ! computed above.
     !
     return_value(n,1,nee) = coeff*(dtdx + temp*valx)
-    return_value(n,2,nee) = coeff*(dtdx + temp*valy)
-    return_value(n,3,nee) = coeff*(dtdx + temp*valz)
+    return_value(n,2,nee) = coeff*(dtdy + temp*valy)
+    return_value(n,3,nee) = coeff*(dtdz + temp*valz)
     !
   end do
   !
@@ -1178,7 +1194,7 @@ continue
     ! computed above.
     !
     return_value(n,1,nee) = coeff*(dtdx + temp*valx)
-    return_value(n,2,nee) = coeff*(dtdx + temp*valy)
+    return_value(n,2,nee) = coeff*(dtdy + temp*valy)
     !
   end do
   !
@@ -1316,6 +1332,489 @@ continue
   deallocate ( cpi )
   !
 end subroutine adjust_temp_gradient_for_tpg_1d
+!
+!###############################################################################
+!
+pure subroutine adjust_temp_grad_for_tpg_3d(n1,n2,usp,gpsp,dcvdx, &
+                                            return_value,output_variables)
+  !
+  !.. Use Statements ..
+  use ovar,       only : rgasref_nd,gam
+  use thermo_mod, only : rspec
+  use thermo_mod, only : compute_species_cp
+  use thermo_mod, only : compute_species_dcpdt
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: gpsp(:,:)
+  real(wp),    intent(in) :: dcvdx(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:,:)
+  real(wp), intent(inout) :: output_variables(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n,np
+  real(wp) :: rho_inv,ymf
+  real(wp) :: decdx,decdy,decdz,dtdx,dtdy,dtdz
+  real(wp) :: val,valx,valy,valz
+  real(wp) :: temp,gamm,cp,dcpdt
+  real(wp) :: constant_cv,coeff,cv_inv
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: dcpidt(:,:)
+  real(wp), allocatable :: cpi(:,:)
+  real(wp), allocatable :: mass_frac(:,:)
+  !
+continue
+  !
+  np = size(usp,dim=1)
+  !
+  cv_inv = (gam - one) / rgasref_nd
+  constant_cv = rgasref_nd / (gam - one)
+  !
+  allocate ( mass_frac(1:np,1:ncs) )
+  allocate ( cpi(1:np,1:ncs) )
+  allocate ( dcpidt(1:np,1:ncs) )
+  !$ACC DATA CREATE(cpi,dcpidt)
+  !
+  ! The location for the temperature gradient currently contains the temperature
+  ! gradient based on a constant 'specific heat at constant volume', i.e.,
+  ! constant gamma and Cp. For a gas mixture, gamma and Cp vary w-r-t mass
+  ! fractions and temperature so we need to correct the temperature gradient
+  ! accordingly.
+  !
+  ! Using the product rule:
+  !
+  ! 1. Compute the species mass fraction gradients. Also compute the species
+  !    mass fractions which will be needed to compute d(Cp)/dT.
+  !    NOTE: Temporarily store the species mass fractions in cpi
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,cpi,dcvdx,return_value)
+  do m = 1,ncs
+    do n = n1,n2
+      !
+      rho_inv = one/usp(n,nec)
+      !
+      ymf = usp(n,m)*rho_inv
+      !
+      mass_frac(n,m) = ymf
+      !
+      decdx = dcvdx(n,1,nec)*rho_inv
+      decdy = dcvdx(n,2,nec)*rho_inv
+      decdz = dcvdx(n,3,nec)*rho_inv
+      !
+      return_value(n,1,m) = rho_inv*dcvdx(n,1,m) - decdx*ymf
+      return_value(n,2,m) = rho_inv*dcvdx(n,2,m) - decdy*ymf
+      return_value(n,3,m) = rho_inv*dcvdx(n,3,m) - decdz*ymf
+      !
+    end do
+  end do
+  !
+  ! 2. Compute the derivative of the mixture Cp w-r-t temperature: d(Cp)/dT.
+  !    NOTE: The species mass fractions are temporarily being stored in cpi.
+  !
+  call compute_species_dcpdt(n1,n2,gpsp(:,ntemp),dcpidt)
+  !
+  ! 3. Compute the species Cp.
+  ! NOTE: cpi currently contains the species mass fractions. These are not
+  !       needed in compute_species_cp, so the species mass fractions in
+  !       cpi will simply be overwritten by the species Cp.
+  !
+  call compute_species_cp(n1,n2,gpsp(:,ntemp),cpi)
+  !
+  ! 4. Compute the temperature gradients of a thermally perfect gas mixture
+  !
+  !$ACC PARALLEL LOOP PRESENT(rspec,cpi,dcpidt,gpsp,return_value)
+  do n = n1,n2
+    !
+    ! Multiply the previously computed temperature gradients by the constant
+    ! Cv used in the grad_cv_to_grad_pv_cpg_[321]d subroutines.
+    !
+    output_variables(n,1) = return_value(n,1,nee)
+    output_variables(n,2) = return_value(n,2,nee)
+    output_variables(n,3) = return_value(n,3,nee)
+    !
+    dtdx = return_value(n,1,nee)*constant_cv
+    dtdy = return_value(n,2,nee)*constant_cv
+    dtdz = return_value(n,3,nee)*constant_cv
+    !
+    ! Compute the leading coefficient for the temperature gradient. For a
+    ! calorically perfect gas, this coefficient is 1/Cv; for a thermally
+    ! perfect gas mixture, this coefficient is:
+    !          1                      1                       gamma
+    !  ----------------- = ----------------------- = -----------------------
+    !  Cv + T*[d(Cp)/dT]   Cp/gamma + T*[d(Cp)/dT]   Cp + gamma*T*[d(Cp)/dT]
+    !
+    temp = gpsp(n,ntemp)
+    gamm = gpsp(n,ngamm)
+    cp   = gpsp(n,ncp)
+    !
+    dcpdt = zero
+    do m = 1,ncs
+      dcpdt = dcpdt + mass_frac(n,m)*dcpidt(n,m)
+    end do
+    !
+    coeff = gamm / (cp + gamm*temp*dcpdt)
+    !
+    output_variables(n,3+2*ncs+1) = dcpdt
+    output_variables(n,3+2*ncs+2) = temp
+    output_variables(n,3+2*ncs+3) = cp
+    output_variables(n,3+2*ncs+4) = gamm
+    output_variables(n,3+2*ncs+5) = coeff
+    output_variables(n,3+2*ncs+6) = constant_cv
+    output_variables(n,3+2*ncs+7) = cv_inv
+    !
+    ! Compute the contribution to the temperature gradient
+    ! from the species mass fractions gradients.
+    !
+    valx = zero
+    valy = zero
+    valz = zero
+    !
+    !$ACC LOOP SEQ REDUCTION(+:valx,valy,valz)
+    do m = 1,ncs
+      !
+      val = rspec(m) - cpi(n,m)
+      valx = valx + val*return_value(n,1,m)
+      valy = valy + val*return_value(n,2,m)
+      valz = valz + val*return_value(n,3,m)
+      !
+      output_variables(n,3+m) = -val
+      output_variables(n,3+ncs+m) = dcpidt(n,m)
+      !
+    end do
+    !
+    ! Add the contributions of the species mass fraction gradients to the
+    ! temperature gradient and then scale it by the proper leading coefficient
+    ! computed above.
+    !
+    return_value(n,1,nee) = coeff*(dtdx + temp*valx)
+    return_value(n,2,nee) = coeff*(dtdy + temp*valy)
+    return_value(n,3,nee) = coeff*(dtdz + temp*valz)
+    !
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( dcpidt )
+  deallocate ( cpi )
+  deallocate ( mass_frac )
+  !
+end subroutine adjust_temp_grad_for_tpg_3d
+!
+!###############################################################################
+!
+pure subroutine adjust_temp_grad_for_tpg_2d(n1,n2,usp,gpsp,dcvdx, &
+                                            return_value,output_variables)
+  !
+  !.. Use Statements ..
+  use ovar,       only : rgasref_nd,gam
+  use thermo_mod, only : rspec
+  use thermo_mod, only : compute_species_cp
+  use thermo_mod, only : compute_species_dcpdt
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: gpsp(:,:)
+  real(wp),    intent(in) :: dcvdx(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:,:)
+  real(wp), intent(inout) :: output_variables(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n,np
+  real(wp) :: rho_inv,ymf
+  real(wp) :: decdx,decdy,dtdx,dtdy
+  real(wp) :: val,valx,valy
+  real(wp) :: temp,gamm,cp,dcpdt
+  real(wp) :: constant_cv,coeff,cv_inv
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: dcpidt(:,:)
+  real(wp), allocatable :: cpi(:,:)
+  real(wp), allocatable :: mass_frac(:,:)
+  !
+continue
+  !
+  np = size(usp,dim=1)
+  !
+  cv_inv = (gam - one) / rgasref_nd
+  constant_cv = rgasref_nd / (gam - one)
+  !
+  allocate ( mass_frac(1:np,1:ncs) )
+  allocate ( cpi(1:np,1:ncs) )
+  allocate ( dcpidt(1:np,1:ncs) )
+  !$ACC DATA CREATE(cpi,dcpidt)
+  !
+  ! The location for the temperature gradient currently contains the temperature
+  ! gradient based on a constant 'specific heat at constant volume', i.e.,
+  ! constant gamma and Cp. For a gas mixture, gamma and Cp vary w-r-t mass
+  ! fractions and temperature so we need to correct the temperature gradient
+  ! accordingly.
+  !
+  ! Using the product rule:
+  !
+  ! 1. Compute the species mass fraction gradients. Also compute the species
+  !    mass fractions which will be needed to compute d(Cp)/dT.
+  !    NOTE: Temporarily store the species mass fractions in cpi
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,cpi,dcvdx,return_value)
+  do m = 1,ncs
+    do n = n1,n2
+      !
+      rho_inv = one/usp(n,nec)
+      !
+      ymf = usp(n,m)*rho_inv
+      !
+      mass_frac(n,m) = ymf
+      !
+      decdx = dcvdx(n,1,nec)*rho_inv
+      decdy = dcvdx(n,2,nec)*rho_inv
+      !
+      return_value(n,1,m) = rho_inv*dcvdx(n,1,m) - decdx*ymf
+      return_value(n,2,m) = rho_inv*dcvdx(n,2,m) - decdy*ymf
+      !
+    end do
+  end do
+  !
+  ! 2. Compute the derivative of the mixture Cp w-r-t temperature: d(Cp)/dT.
+  !    NOTE: The species mass fractions are temporarily being stored in cpi.
+  !
+  call compute_species_dcpdt(n1,n2,gpsp(:,ntemp),dcpidt)
+  !
+  ! 3. Compute the species Cp.
+  ! NOTE: cpi currently contains the species mass fractions. These are not
+  !       needed in compute_species_cp, so the species mass fractions in
+  !       cpi will simply be overwritten by the species Cp.
+  !
+  call compute_species_cp(n1,n2,gpsp(:,ntemp),cpi)
+  !
+  ! 4. Compute the temperature gradients of a thermally perfect gas mixture
+  !
+  !$ACC PARALLEL LOOP PRESENT(rspec,cpi,dcpidt,gpsp,return_value)
+  do n = n1,n2
+    !
+    ! Multiply the previously computed temperature gradients by the constant
+    ! Cv used in the grad_cv_to_grad_pv_cpg_[321]d subroutines.
+    !
+    output_variables(n,1) = return_value(n,1,nee)
+    output_variables(n,2) = return_value(n,2,nee)
+    !
+    dtdx = return_value(n,1,nee)*constant_cv
+    dtdy = return_value(n,2,nee)*constant_cv
+    !
+    ! Compute the leading coefficient for the temperature gradient. For a
+    ! calorically perfect gas, this coefficient is 1/Cv; for a thermally
+    ! perfect gas mixture, this coefficient is:
+    !          1                      1                       gamma
+    !  ----------------- = ----------------------- = -----------------------
+    !  Cv + T*[d(Cp)/dT]   Cp/gamma + T*[d(Cp)/dT]   Cp + gamma*T*[d(Cp)/dT]
+    !
+    temp = gpsp(n,ntemp)
+    gamm = gpsp(n,ngamm)
+    cp   = gpsp(n,ncp)
+    !
+    dcpdt = zero
+    do m = 1,ncs
+      dcpdt = dcpdt + mass_frac(n,m)*dcpidt(n,m)
+    end do
+    !
+    coeff = gamm / (cp + gamm*temp*dcpdt)
+    !
+    output_variables(n,2+2*ncs+1) = dcpdt
+    output_variables(n,2+2*ncs+2) = temp
+    output_variables(n,2+2*ncs+3) = cp
+    output_variables(n,2+2*ncs+4) = gamm
+    output_variables(n,2+2*ncs+5) = coeff
+    output_variables(n,2+2*ncs+6) = constant_cv
+    output_variables(n,2+2*ncs+7) = cv_inv
+    !
+    ! Compute the contribution to the temperature gradient
+    ! from the species mass fractions gradients.
+    !
+    valx = zero
+    valy = zero
+    !
+    !$ACC LOOP SEQ REDUCTION(+:valx,valy,valz)
+    do m = 1,ncs
+      !
+      val = rspec(m) - cpi(n,m)
+      valx = valx + val*return_value(n,1,m)
+      valy = valy + val*return_value(n,2,m)
+      !
+      output_variables(n,2+m) = -val
+      output_variables(n,2+ncs+m) = dcpidt(n,m)
+      !
+    end do
+    !
+    ! Add the contributions of the species mass fraction gradients to the
+    ! temperature gradient and then scale it by the proper leading coefficient
+    ! computed above.
+    !
+    return_value(n,1,nee) = coeff*(dtdx + temp*valx)
+    return_value(n,2,nee) = coeff*(dtdy + temp*valy)
+    !
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( dcpidt )
+  deallocate ( cpi )
+  deallocate ( mass_frac )
+  !
+end subroutine adjust_temp_grad_for_tpg_2d
+!
+!###############################################################################
+!
+pure subroutine adjust_temp_grad_for_tpg_1d(n1,n2,usp,gpsp,dcvdx, &
+                                            return_value,output_variables)
+  !
+  !.. Use Statements ..
+  use ovar,       only : rgasref_nd,gam
+  use thermo_mod, only : rspec
+  use thermo_mod, only : compute_species_cp
+  use thermo_mod, only : compute_species_dcpdt
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: gpsp(:,:)
+  real(wp),    intent(in) :: dcvdx(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:,:)
+  real(wp), intent(inout) :: output_variables(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n,np
+  real(wp) :: rho_inv,ymf
+  real(wp) :: decdx,dtdx
+  real(wp) :: val,valx
+  real(wp) :: temp,gamm,cp,dcpdt
+  real(wp) :: constant_cv,coeff,cv_inv
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: dcpidt(:,:)
+  real(wp), allocatable :: cpi(:,:)
+  real(wp), allocatable :: mass_frac(:,:)
+  !
+continue
+  !
+  np = size(usp,dim=1)
+  !
+  cv_inv = (gam - one) / rgasref_nd
+  constant_cv = rgasref_nd / (gam - one)
+  !
+  allocate ( mass_frac(1:np,1:ncs) )
+  allocate ( cpi(1:np,1:ncs) )
+  allocate ( dcpidt(1:np,1:ncs) )
+  !$ACC DATA CREATE(cpi,dcpidt)
+  !
+  ! The location for the temperature gradient currently contains the temperature
+  ! gradient based on a constant 'specific heat at constant volume', i.e.,
+  ! constant gamma and Cp. For a gas mixture, gamma and Cp vary w-r-t mass
+  ! fractions and temperature so we need to correct the temperature gradient
+  ! accordingly.
+  !
+  ! Using the product rule:
+  !
+  ! 1. Compute the species mass fraction gradients. Also compute the species
+  !    mass fractions which will be needed to compute d(Cp)/dT.
+  !    NOTE: Temporarily store the species mass fractions in cpi
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,cpi,dcvdx,return_value)
+  do m = 1,ncs
+    do n = n1,n2
+      !
+      rho_inv = one/usp(n,nec)
+      !
+      ymf = usp(n,m)*rho_inv
+      !
+      mass_frac(n,m) = ymf
+      !
+      decdx = dcvdx(n,1,nec)*rho_inv
+      !
+      return_value(n,1,m) = rho_inv*dcvdx(n,1,m) - decdx*ymf
+      !
+    end do
+  end do
+  !
+  ! 2. Compute the derivative of the mixture Cp w-r-t temperature: d(Cp)/dT.
+  !    NOTE: The species mass fractions are temporarily being stored in cpi.
+  !
+  call compute_species_dcpdt(n1,n2,gpsp(:,ntemp),dcpidt)
+  !
+  ! 3. Compute the species Cp.
+  ! NOTE: cpi currently contains the species mass fractions. These are not
+  !       needed in compute_species_cp, so the species mass fractions in
+  !       cpi will simply be overwritten by the species Cp.
+  !
+  call compute_species_cp(n1,n2,gpsp(:,ntemp),cpi)
+  !
+  ! 4. Compute the temperature gradients of a thermally perfect gas mixture
+  !
+  !$ACC PARALLEL LOOP PRESENT(rspec,cpi,dcpidt,gpsp,return_value)
+  do n = n1,n2
+    !
+    ! Multiply the previously computed temperature gradients by the constant
+    ! Cv used in the grad_cv_to_grad_pv_cpg_[321]d subroutines.
+    !
+    output_variables(n,1) = return_value(n,1,nee)
+    !
+    dtdx = return_value(n,1,nee)*constant_cv
+    !
+    ! Compute the leading coefficient for the temperature gradient. For a
+    ! calorically perfect gas, this coefficient is 1/Cv; for a thermally
+    ! perfect gas mixture, this coefficient is:
+    !          1                      1                       gamma
+    !  ----------------- = ----------------------- = -----------------------
+    !  Cv + T*[d(Cp)/dT]   Cp/gamma + T*[d(Cp)/dT]   Cp + gamma*T*[d(Cp)/dT]
+    !
+    temp = gpsp(n,ntemp)
+    gamm = gpsp(n,ngamm)
+    cp   = gpsp(n,ncp)
+    !
+    dcpdt = zero
+    do m = 1,ncs
+      dcpdt = dcpdt + mass_frac(n,m)*dcpidt(n,m)
+    end do
+    !
+    coeff = gamm / (cp + gamm*temp*dcpdt)
+    !
+    output_variables(n,1+2*ncs+1) = dcpdt
+    output_variables(n,1+2*ncs+2) = temp
+    output_variables(n,1+2*ncs+3) = cp
+    output_variables(n,1+2*ncs+4) = gamm
+    output_variables(n,1+2*ncs+5) = coeff
+    output_variables(n,1+2*ncs+6) = constant_cv
+    output_variables(n,1+2*ncs+7) = cv_inv
+    !
+    ! Compute the contribution to the temperature gradient
+    ! from the species mass fractions gradients.
+    !
+    valx = zero
+    !
+    !$ACC LOOP SEQ REDUCTION(+:valx)
+    do m = 1,ncs
+      !
+      val = rspec(m) - cpi(n,m)
+      valx = valx + val*return_value(n,1,m)
+      !
+      output_variables(n,1+m) = -val
+      output_variables(n,1+ncs+m) = dcpidt(n,m)
+      !
+    end do
+    !
+    ! Add the contributions of the species mass fraction gradients to the
+    ! temperature gradient and then scale it by the proper leading coefficient
+    ! computed above.
+    !
+    return_value(n,1,nee) = coeff*(dtdx + temp*valx)
+    !
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( dcpidt )
+  deallocate ( cpi )
+  deallocate ( mass_frac )
+  !
+end subroutine adjust_temp_grad_for_tpg_1d
 !
 !###############################################################################
 !###############################################################################
