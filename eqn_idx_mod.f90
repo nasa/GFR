@@ -201,11 +201,24 @@ continue
   if (itestcase == Reacting_Backstep) then
     ncs = 2
   else if (itestcase == H2_2D_Diffusion_Flame) then
-    ncs = 7
-    ncr = 7
+    if (disable_chemical_reactions) then
+      ncs = 3
+      ncr = 0
+    else
+      ncs = 7
+      ncr = 7
+    end if
   else if (itestcase == CH4_3D_Diffusion_Flame) then
-    ncs = 6
-    ncr = 3
+    if (disable_chemical_reactions) then
+      ncs = 3
+      ncr = 0
+    else
+      ncs = 6
+      ncr = 3
+    end if
+  else if (itestcase == N2_O2_Diffusion) then
+    ncs = 2
+    ncr = 0
   end if
   !
   if (disable_chemical_reactions) then
@@ -272,24 +285,15 @@ continue
   !
   npres = 1
   ntemp = 2
-  ng = 2
-  !
-  if (governing_equations == NavierStokes_Eqns) then
-    nvisc = ng + 1
-    ncond = ng + 2
-    ng = ncond
-  else
-    nvisc = 0
-    ncond = 0
-  end if
+  ngamm = 3
+  ng = 3
   !
   if (ncs > 0) then
     !
-    ! For a gas mixture, we need to store gamma, enthalpy, and Cp
+    ! For a gas mixture, we also need to store enthalpy and Cp
     !
-    ngamm = ng + 1
-    nenth = ng + 2
-    ncp   = ng + 3
+    nenth = ng + 1
+    ncp   = ng + 2
     !
   else
     !
@@ -301,13 +305,23 @@ continue
     ! "auxiliary" variable, increase the number of gas properties variables by
     ! one and have ngamm, nenth, and ncp all point to the last variable.
     !
-    ngamm = ng + 1
-    nenth = ng + 1
-    ncp   = ng + 1
+    nenth = ngamm
+    ncp   = ngamm
     !
   end if
   !
   ng = ncp
+  !
+  ! Add indices for transport properties if necessary
+  !
+  if (governing_equations == NavierStokes_Eqns) then
+    nvisc = ng + 1
+    ncond = ng + 2
+    ng = ncond
+  else
+    nvisc = 0
+    ncond = 0
+  end if
   !
   !$ACC UPDATE DEVICE(nq,nec,nmx,nmy,nmz,nee,nmb,nme,ntk,ntl)
   !$ACC UPDATE DEVICE(ncs,ncb,nce,ng,npres,ntemp,nvisc,ncond,ngamm,nenth,ncp)
