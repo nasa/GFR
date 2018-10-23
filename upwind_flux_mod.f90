@@ -4107,7 +4107,7 @@ end function hllc_upwind_flux_cv
 !
 pure function ldfss_upwind_flux_cv(unrm,cvl,cvr) result(return_value)
   !
-  !... input unit normal unx,uny, edge length ds, rl,ul,vl,presl, rr,ur,vr,presr
+  !... input unit normal unx,uny, edge length ds, rl,ul,vl,pl, rr,ur,vr,pr
   !... output: f1,f2,f3,f4 : fluxes.
   !... Roe's flux with Osher's simple wave model (Huynh, SIAM J. Num. 1995)
   !
@@ -4121,8 +4121,8 @@ pure function ldfss_upwind_flux_cv(unrm,cvl,cvr) result(return_value)
   real(wp), dimension(1:nq) :: return_value
   !
   real(wp) :: gm1,ahalf
-  real(wp) :: rl,presl,hl,al,q2l
-  real(wp) :: rr,presr,hr,ar,q2r
+  real(wp) :: rl,pl,hl,al,q2l
+  real(wp) :: rr,pr,hr,ar,q2r
   real(wp) :: alpha_l,beta_l,mach_l,mstar_l
   real(wp) :: alpha_r,beta_r,mach_r,mstar_r
   real(wp) :: machp_half,uc_l,flux_l,pplus_l
@@ -4139,16 +4139,16 @@ continue
   rl = cvl(nec)
   vell = cvl(nmb:nme)/cvl(nec)
   q2l = selfdot(vell)
-  presl = gm1*(cvl(nee) - half*rl*q2l)
-  hl = half*q2l + gam/gm1 * presl/rl
-  al = sqrt(max(gam*presl/rl,rndoff))
+  pl = gm1*(cvl(nee) - half*rl*q2l)
+  hl = half*q2l + gam/gm1 * pl/rl
+  al = sqrt(max(gam*pl/rl,rndoff))
   !
   rr = cvr(nec)
   velr = cvr(nmb:nme)/cvr(nec)
   q2r = selfdot(velr)
-  presr = gm1*(cvr(nee) - half*rr*q2r)
-  hr = half*q2r + gam/gm1 * presr/rr
-  ar = sqrt(max(gam*presr/rr,rndoff))
+  pr = gm1*(cvr(nee) - half*rr*q2r)
+  hr = half*q2r + gam/gm1 * pr/rr
+  ar = sqrt(max(gam*pr/rr,rndoff))
   !
   ahalf = half*(al+ar)
   !
@@ -4168,11 +4168,11 @@ continue
   !
   mstar_half = one4*beta_l*beta_r*(m_half - one)**2
   !
-  del_p = presl - presr
-  sum_p = presl + presr
+  del_p = pl - pr
+  sum_p = pl + pr
   !
-  machp_half = mstar_half*(one - del_p/sum_p - two*abs(del_p)/presl)
-  machm_half = mstar_half*(one + del_p/sum_p - two*abs(del_p)/presr)
+  machp_half = mstar_half*(one - del_p/sum_p - two*abs(del_p)/pl)
+  machm_half = mstar_half*(one + del_p/sum_p - two*abs(del_p)/pr)
   !
   uc_l = ahalf*(alpha_l*(one+beta_l)*mach_l - beta_l*mstar_l - machp_half)
   uc_r = ahalf*(alpha_r*(one+beta_r)*mach_r - beta_r*mstar_r + machm_half)
@@ -4183,8 +4183,8 @@ continue
   pplus_l = one4 * (two-mach_l) * (mach_l+one)**2
   pplus_r = one4 * (two+mach_r) * (mach_r-one)**2
   !
-  p_net = presl*(alpha_l*(one+beta_l) - beta_l*pplus_l) + &
-          presr*(alpha_r*(one+beta_r) - beta_r*pplus_r)
+  p_net = pl*(alpha_l*(one+beta_l) - beta_l*pplus_l) + &
+          pr*(alpha_r*(one+beta_r) - beta_r*pplus_r)
   !
   return_value(nec)     = flux_l      + flux_r
   return_value(nmb:nme) = flux_l*vell + flux_r*velr + p_net*unrm
