@@ -2507,11 +2507,11 @@ subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   !
   character(len=5)  :: cdim
   character(len=10) :: r_units,t_units,p_units,v_units,h_units
-  character(len=10) :: cp_units,visc_units,cond_units
+  character(len=10) :: cp_units,visc_units,cond_units,q_units
   !
   character(len=2000) :: isowall_fmt,rhovel_fmt
   character(len=2000) :: thermo_fmt,transport_fmt
-  character(len=2000) :: species_fmt,tmp_fmt
+  character(len=2000) :: species_fmt,tmp_fmt,energy_fmt
   !
   !.. Local Arrays ..
   real(wp) :: vel(1:nr)
@@ -2540,6 +2540,7 @@ continue
   cond_units = " W/(m*K)"
   cp_units = " J/(kg*K)"
   h_units = " J/kg"
+  q_units = " m^2/s^2"
   !
   if (present(dimensional)) then
     if (.not. dimensional) then
@@ -2557,6 +2558,7 @@ continue
       cond_units = ""
       cp_units = ""
       h_units = ""
+      q_units = ""
       !
     end if
   end if
@@ -2568,6 +2570,7 @@ continue
   write (thermo_fmt,105) p_units,t_units,h_units,v_units,r_units, &
                          p_units,t_units,h_units,cp_units,cp_units
   write (transport_fmt,106) visc_units,cond_units
+  write (energy_fmt,109) p_units,p_units,p_units,p_units,q_units
   !
   if (ncs > 0) then
     !
@@ -2712,6 +2715,9 @@ continue
         write (iout,rhovel_fmt) r,(vel(ii),ii=1,nr)
         write (iout,thermo_fmt) p,t,h,gamm,mach,aspd, &
                                 r0,p0,t0,h0,cp,rgas,alpha,beta
+        write (iout,energy_fmt) r*h,p,half*r*vmag*vmag, &
+                                r*h-p+half*r*vmag*vmag, &
+                                vmag*vmag
         !
         if (governing_equations == NavierStokes_Eqns) then
           !
@@ -2794,6 +2800,11 @@ continue
                '4x,"Reynolds #",t27,"= ",es14.6,/)')
   107 format (100('4x,"',a,' Mass Fraction",t27,"= ",es14.6',:,',/,'))
   108 format ('(',a,')')
+  109 format ('(4x,"rho*h",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"Static Pressure",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"0.5*rho*q^2",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"rhoE",t27,"= ",es14.6,"',a,'",/,' &
+               '4x,"q^2",t27,"= ",es14.6,"',a,'")')
   !
   1 format (/,2x,a,"imensional flow conditions for BC # 0 - ", &
                    "Reference/Freestream BCs")
