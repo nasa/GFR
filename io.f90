@@ -6,7 +6,7 @@ module io_mod
   use module_kind_types
   use module_cgns_types
   use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
-  use eqn_idx, only : ncs,npres,ntemp,nvisc,ngamm,ng
+  use eqn_idx, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ncond,ng
   !
   implicit none
   !
@@ -7788,6 +7788,22 @@ continue
         n = n + 1
         if (trim(char_sname(k)) == "Energy") then
           varname = "EnergyStagnationDensity"
+        else if (trim(char_sname(k)) == "T0") then
+          varname = "TemperatureStagnation"
+        else if (trim(char_sname(k)) == "P0") then
+          varname = "PressureStagnation"
+        else if (trim(char_sname(k)) == "H0") then
+          varname = "EnthalpyStagnation"
+        else if (trim(char_sname(k)) == "Viscosity") then
+          varname = "ViscosityMolecular"
+        else if (trim(char_sname(k)) == "Conductivity") then
+          varname = "ThermalConductivity"
+        else if (trim(char_sname(k)) == "Cp") then
+          varname = "SpecificHeatPressure"
+        else if (trim(char_sname(k)) == "Gamma") then
+          varname = "SpecificHeatRatio"
+        else if (trim(char_sname(k)) == "Rgas") then
+          varname = "IdealGasConstant"
         else
           varname = trim(char_sname(k))
         end if
@@ -7909,6 +7925,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use geovar,  only : nr,n_solpts,ncell,cell
   use ovar,    only : aref,rhoref,time_ref,tref
   use ovar,    only : gam,pref,pref_nd,machref
+  use ovar,    only : rgasref,cpref,Pr
   use ovar,    only : itestcase,governing_equations
   use ovar,    only : profile_io_cgns_subs
   use ovar,    only : Limiter_Option
@@ -7925,6 +7942,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use module_limiters, only : jump_indicator
   !
   use thermo_mod, only : rspec
+  use thermo_mod, only : compute_mixture_rgas
   use thermo_mod, only : compute_species_enthalpy
   use thermo_mod, only : compute_species_cp
   !
@@ -7939,7 +7957,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   character(len=*), intent(in) :: cgns_sol_file
   character(len=*), intent(in) :: vname
   integer,       intent(inout) :: nv
-  real(wp),         intent(in) :: cv(:,:)
+  real(wp),      intent(inout) :: cv(:,:)
   real(wp),      intent(inout) :: gp(:,:)
   real(wp),         intent(in) :: dcvdx(:,:,:)
   real(wp),      intent(inout) :: vartmp(:)
@@ -7950,7 +7968,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   integer  :: nmi,nmj,l_comp,l_phys
   integer  :: this_order,limit_order
   real(wp) :: freestream_ref,rhoa,rhoa2,time_ref_inv
-  real(wp) :: cp_dim,dim_val
+  real(wp) :: cp_dim,cond_dim,dim_val
   real(wp) :: rho_inv,vx,vy,vz,a2,q2,s
   real(wp) :: gamm,gm1,gam_over_gm1,mach,pres,temp
   real(wp) :: mi,mj,drhodi,drhodj,dmjdi,dmidj
@@ -7973,6 +7991,7 @@ continue
   rhoa = rhoref*aref
   rhoa2 = rhoa*aref
   cp_dim = aref*aref/tref
+  cond_dim = rhoa*cp_dim
   !
   ! Pre-load vartmp with Mach number if the current variable
   ! is Mach number, total pressure, or total temperature.
@@ -7994,7 +8013,7 @@ continue
           vx = cv(n,nmx)*rho_inv
           vy = cv(n,nmy)*rho_inv
           vz = cv(n,nmz)*rho_inv
-          a2 = gp(n,ngamm)*gp(n,npres)*rho_inv
+          a2 = max( gp(n,ngamm)*gp(n,npres)*rho_inv , rndoff )
           q2 = vx*vx + vy*vy + vz*vz
           vartmp(n) = sqrt( q2 / a2 ) - freestream_ref
         end do
@@ -8003,7 +8022,7 @@ continue
           rho_inv = one/cv(n,nec)
           vx = cv(n,nmx)*rho_inv
           vy = cv(n,nmy)*rho_inv
-          a2 = gp(n,ngamm)*gp(n,npres)*rho_inv
+          a2 = max( gp(n,ngamm)*gp(n,npres)*rho_inv , rndoff )
           q2 = vx*vx + vy*vy
           vartmp(n) = sqrt( q2 / a2 ) - freestream_ref
         end do
@@ -8011,7 +8030,7 @@ continue
         do n = 1,npts
           rho_inv = one/cv(n,nec)
           vx = cv(n,nmx)*rho_inv
-          a2 = gp(n,ngamm)*gp(n,npres)*rho_inv
+          a2 = max( gp(n,ngamm)*gp(n,npres)*rho_inv , rndoff )
           vartmp(n) = sqrt( vx*vx / a2 ) - freestream_ref
         end do
       end if
@@ -8352,6 +8371,126 @@ continue
       !
       call cgns_write_field_data
       !!}}}
+    case ("Enthalpy") ! Enthalpy
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (ncs > 0) then
+        do n = 1,npts
+          vartmp(n) = gp(n,nenth) * aref*aref
+        end do
+      else
+        gam_over_gm1 = gam / (gam-one)
+        do n = 1,npts
+          vartmp(n) = gam_over_gm1*gp(n,npres)/cv(n,nec) * aref*aref
+        end do
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("H0") ! Total Enthalpy
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (ncs > 0) then
+        do n = 1,npts
+          vartmp(n) = gp(n,nenth) * aref*aref
+        end do
+      else
+        gam_over_gm1 = gam / (gam-one)
+        do n = 1,npts
+          vartmp(n) = gam_over_gm1*gp(n,npres)/cv(n,nec) * aref*aref
+        end do
+      end if
+      !
+      if (nr == 3) then
+        do n = 1,npts
+          rho_inv = one/cv(n,nec)
+          vx = cv(n,nmx)*rho_inv * aref
+          vy = cv(n,nmy)*rho_inv * aref
+          vz = cv(n,nmz)*rho_inv * aref
+          q2 = vx*vx + vy*vy + vz*vz
+          vartmp(n) = vartmp(n) + half*q2
+        end do
+      else if (nr == 2) then
+        do n = 1,npts
+          rho_inv = one/cv(n,nec)
+          vx = cv(n,nmx)*rho_inv * aref
+          vy = cv(n,nmy)*rho_inv * aref
+          q2 = vx*vx + vy*vy
+          vartmp(n) = vartmp(n) + half*q2
+        end do
+      else
+        do n = 1,npts
+          vx = cv(n,nmx)/cv(n,nec) * aref
+          vartmp(n) = vartmp(n) + half*vx*vx
+        end do
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("Rgas") ! Mixture gas constant
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (ncs > 0) then
+        do m = 1,ncs
+          do n = 1,npts
+            cv(n,m) = cv(n,m)/cv(n,nec)
+          end do
+        end do
+        call compute_mixture_rgas(1,npts,cv(1:npts,1:ncs),vartmp, &
+                                  dimensional=true)
+        do m = 1,ncs
+          do n = 1,npts
+            cv(n,m) = cv(n,m)*cv(n,nec)
+          end do
+        end do
+      else
+        do n = 1,npts
+          vartmp(n) = rgasref
+        end do
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("Gamma") ! Ratio of specific heats
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (ncs > 0) then
+        do n = 1,npts
+          vartmp(n) = gp(n,ngamm)
+        end do
+      else
+        do n = 1,npts
+          vartmp(n) = gam
+        end do
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("Cp") ! Specific heat at constant pressure
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (ncs > 0) then
+        do n = 1,npts
+          vartmp(n) = gp(n,ncp) * cp_dim
+        end do
+      else
+        do n = 1,npts
+          vartmp(n) = cpref
+        end do
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
     case ("Viscosity") ! Viscosity
       !!{{{
       if (governing_equations == NavierStokes_Eqns) then
@@ -8362,6 +8501,42 @@ continue
         do n = 1,npts
           vartmp(n) = gp(n,nvisc) * rhoa
         end do
+        !
+        call cgns_write_field_data
+        !
+      end if
+      !!}}}
+    case ("Conductivity") ! Conductivity
+      !!{{{
+      if (governing_equations == NavierStokes_Eqns) then
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,npts
+          vartmp(n) = gp(n,ncond) * cond_dim
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end if
+      !!}}}
+    case ("Prandtl") ! Mixture Prandtl number
+      !!{{{
+      if (governing_equations == NavierStokes_Eqns) then
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        if (ncs > 0) then
+          do n = 1,npts
+            vartmp(n) = gp(n,nvisc) * gp(n,ncp) / gp(n,ncond)
+          end do
+        else
+          do n = 1,npts
+            vartmp(n) = Pr
+          end do
+        end if
         !
         call cgns_write_field_data
         !
