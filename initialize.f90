@@ -497,7 +497,7 @@ function initial_conditions(xyz,init_cond) result(return_value)
   real(wp), dimension(1:size(xyz,dim=2),1:nq) :: return_value
   !
   !.. Local Scalars ..
-  integer  :: k,np,ierr
+  integer  :: ibc,k,m,np,ierr
   real(wp) :: div,dl,r,r0,nozzle_len
   !
   !.. Local Allocatable Arrays ..
@@ -622,6 +622,15 @@ continue
     !
     do k = 1,np
       return_value(k,:) = initialize_cylinder(xyz(:,k),bc_in(0)%pv(:))
+    end do
+    !
+  else if (any(abs(itestcase) == Dual_Stream_Mixing_Flows)) then
+    !
+    do k = 1,np
+      ibc = merge( 2 , 1 , xyz(2,k) > zero )
+      do m = 1,nq
+        return_value(k,m) = bc_in(ibc)%cv(m)
+      end do
     end do
     !
   else
