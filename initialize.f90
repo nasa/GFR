@@ -2035,17 +2035,18 @@ end subroutine initialize_turbulence
 subroutine create_bc_in
   !
   !.. Use Statements ..
-  use geovar, only : nr,bface
+  use geovar, only : nr,ncell,grid,bface
   use ovar,   only : bc_input,bc_in,bc_names
   use ovar,   only : tmin,tmax,tref,rgasref
   use ovar,   only : rhoref,aref,gam
   use ovar,   only : cv_ref,pv_ref,gp_ref
+  use ovar,   only : governing_equations
   !
   use thermo_mod, only : compute_mixture_rgas
   use thermo_mod, only : compute_mixture_gamma
   !
   !.. Local Scalars ..
-  integer     :: i,ii,m,n,nf,nbc,ierr
+  integer     :: i,ii,m,n,nc,nf,nbc,ierr
   real(wp)    :: r,p,t,r0,p0,t0,mach,aspd,visc,reyn,rgas,gamm
   real(wp)    :: alpha,beta,total_cond
   real(wp)    :: gm1,gam_over_gm1,one_over_gm1
@@ -2053,6 +2054,7 @@ subroutine create_bc_in
   logical(lk) :: total_is_set
   logical(lk) :: mach_is_set
   logical(lk) :: vel_is_set
+  logical(lk) :: face_was_reset_to_slip_wall
   !
   character(len=32) :: bcnam,bcinp
   !
@@ -2076,6 +2078,49 @@ continue
   end if
   !
   call debug_timer(entering_procedure,pname)
+  !
+  ! Change all no-slip wall boundary conditions to
+  ! slip walls if we are solving the Euler equations.
+  !
+  if (governing_equations == Euler_Eqns) then
+    !
+    face_was_reset_to_slip_wall = fals
+    !
+    if (allocated(grid)) then
+      if (allocated(grid%elem)) then
+        do nc = ncell+1,ubound(grid%elem,dim=1)
+          if (allocated(grid%elem(nc)%tags)) then
+            if (any(grid%elem(nc)%tags(1) == bc_noslip_walls)) then
+              grid%elem(nc)%tags(1) = bc_slip_wall
+              face_was_reset_to_slip_wall = true
+            end if
+          end if
+        end do
+      end if
+    end if
+    !
+    do nf = 1,size(bface,dim=2)
+      if (any(bface(1,nf) == bc_noslip_walls)) then
+        bface(1,nf) = bc_slip_wall
+        face_was_reset_to_slip_wall = true
+      end if
+    end do
+    !
+    do n = 1,size(bc_input)
+      if (any(bc_input(n)%set_bc_value == bc_noslip_walls)) then
+        bc_input(n)%set_bc_value = bc_slip_wall
+        face_was_reset_to_slip_wall = true
+      end if
+    end do
+    !
+    if (face_was_reset_to_slip_wall) then
+      if (mypnum == glb_root) then
+        write (iout,3)
+        flush (iout)
+      end if
+    end if
+    !
+  end if
   !
   ! Find any boundary conditions that were set in the
   ! input namelist file using the bc_input array
@@ -2407,6 +2452,15 @@ continue
   1 format (/," Setting boundary condition for BC # ",i0," - '",a,"'",/, &
               "    to ",a)
   2 format ("Error iterating on BC # ",i0," !!!")
+  3 format (/, &
+   2x,67("#"),/, &
+   2x,"###",26x,"WARNING!!",26x,"###",/, &
+   2x,"###  THE SIMULATION APPEARS TO BE SOLVING THE EULER EQUATIONS,  ###",/, &
+   2x,"###  BUT SOME BOUNDARY FACES WERE GIVEN NO-SLIP WALL BOUNDARY   ###",/, &
+   2x,"###  CONDITIONS. THE BOUNDARY CONDITIONS FOR THESE FACES HAVE   ###",/, &
+   2x,"###  BEEN RESET TO A SLIP WALL BOUNDARY CONDITION.              ###",/, &
+   2x,"###",26x,"WARNING!!",26x,"###",/, &
+   2x,67("#"),/)
   !
 end subroutine create_bc_in
 !
