@@ -142,42 +142,40 @@ continue
   !
   if (use_new_roe_subs .or. ncs > 0) then
     !
-    ! Move enthalpy into the auxiliary gas property variable spot
-    !
-    if ( aux_var_is_not_enthalpy() ) then
+    if (ncs > 0) then
+      !
+      ! Copy the static enthalpy into lflux and rflux
+      !
+      !$ACC PARALLEL LOOP PRESENT(face_gp,lflux,rflux)
+      do n = n1,n2
+        lflux(n) = face_gp(n,nenth,1)
+        rflux(n) = face_gp(n,nenth,2)
+      end do
+      !
+    else
+      !
+      ! Copy the static enthalpy into lflux and rflux
+      !
       gam_over_gm1 = gam / (gam - one)
-      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp)
-      do i = 1,2
-        do n = n1,n2
-          face_gp(n,nenth,i) = gam_over_gm1*face_gp(n,npres,i)/face_cv(n,nec,i)
-        end do
+      !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
+      do n = n1,n2
+        lflux(n) = gam_over_gm1*face_gp(n,npres,1)/face_cv(n,nec,1)
+        rflux(n) = gam_over_gm1*face_gp(n,npres,2)/face_cv(n,nec,2)
       end do
-      call set_auxiliary_variable(aux_enthalpy)
-    end if
-    !
-    ! Copy the static enthalpy into lflux and rflux
-    !
-    !$ACC PARALLEL LOOP PRESENT(face_gp,lflux,rflux)
-    do n = n1,n2
-      lflux(n) = face_gp(n,nenth,1)
-      rflux(n) = face_gp(n,nenth,2)
-    end do
-    !
-    ! Move gamma into the auxiliary gas property variable spot
-    !
-    if ( aux_var_is_not_gamma() ) then
-      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
-      do i = 1,2
-        do n = n1,n2
-          face_gp(n,ngamm,i) = gam
+      !
+      ! Move gamma into the auxiliary gas property variable spot
+      !
+      if ( aux_var_is_not_gamma() ) then
+        !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
+        do i = 1,2
+          do n = n1,n2
+            face_gp(n,ngamm,i) = gam
+          end do
         end do
-      end do
-      call set_auxiliary_variable(aux_gamma)
+        call set_auxiliary_variable(aux_gamma)
+      end if
+      !
     end if
-    !
-  end if
-  !
-  if (use_new_roe_subs) then
     !
     ! Use the new Roe upwinding subroutines regardless of whether or not
     ! this is a calorically perfect gas or a thermally perfect gas mixture.
@@ -195,35 +193,15 @@ continue
     !
   else
     !
-    if (ncs > 0) then
-      !
-      ! Use the new Roe upwinding subroutines only
-      ! if this is a thermally perfect gas mixture.
-      !
-      if (nr == 3) then
-        call roe_upwind_flux_tpg_3d(n1,n2,facenrm,face_cv,face_gp, &
-                                    lflux,rflux,return_value)
-      else if (nr == 2) then
-        call roe_upwind_flux_tpg_2d(n1,n2,facenrm,face_cv,face_gp, &
-                                    lflux,rflux,return_value)
-      else
-        call roe_upwind_flux_tpg_1d(n1,n2,facenrm,face_cv,face_gp, &
-                                    lflux,rflux,return_value)
-      end if
-      !
+    ! Use the old Roe upwinding subroutines only
+    ! if this is a calorically perfect gas.
+    !
+    if (nr == 3) then
+      call roe_upwind_flux_cpg_3d(n1,n2,facenrm,face_cv,face_gp,return_value)
+    else if (nr == 2) then
+      call roe_upwind_flux_cpg_2d(n1,n2,facenrm,face_cv,face_gp,return_value)
     else
-      !
-      ! Use the old Roe upwinding subroutines only
-      ! if this is a calorically perfect gas.
-      !
-      if (nr == 3) then
-        call roe_upwind_flux_cpg_3d(n1,n2,facenrm,face_cv,face_gp,return_value)
-      else if (nr == 2) then
-        call roe_upwind_flux_cpg_2d(n1,n2,facenrm,face_cv,face_gp,return_value)
-      else
-        call roe_upwind_flux_cpg_1d(n1,n2,facenrm,face_cv,face_gp,return_value)
-      end if
-      !
+      call roe_upwind_flux_cpg_1d(n1,n2,facenrm,face_cv,face_gp,return_value)
     end if
     !
   end if
