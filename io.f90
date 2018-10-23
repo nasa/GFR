@@ -6955,12 +6955,13 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   character(len=*), parameter :: pname = "write_parallel_cgns_solution_file"
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
   character(len=*), parameter :: char_ijk(1:3) = ["Xi  ","Eta ","Zeta"]
-  character(len=*), parameter :: char_sdefault(1:6) = ["Density         ", &
+  character(len=*), parameter :: char_sdefault(1:5) = ["Density         ", &
                                                        "Velocity        ", &
                                                        "Pressure        ", &
                                                        "Mach            ", &
-                                                       "Temperature     ", &
-                                                       "ResolutionMarker"]
+                                                       "Temperature     "]
+                                                      !"Temperature     ", &
+                                                      !"ResolutionMarker"]
  !character(len=*), parameter :: char_sdefault(1:10) = ["Density         ", &
  !                                                      "Velocity        ", &
  !                                                      "Pressure        ", &
