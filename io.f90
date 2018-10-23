@@ -6930,7 +6930,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   character(len=*), intent(in) :: tname
   !
   !.. Local Scalars ..
-  integer :: i,k,l,m,n,nc,npts,ierr
+  integer :: i,j,k,l,m,n,nc,npts,ierr
   !
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
@@ -6940,6 +6940,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   logical(lk) :: need_entropy
   !
   character(len=CGLEN) :: varname
+  character(len=CGLEN) :: varcheck
   character(len=CGLEN) :: sect_name
   character(len=170)   :: cgns_sol_file
   character(len=300)   :: link_path
@@ -6947,8 +6948,10 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !.. Local Allocatable Arrays ..
 #ifdef SPECIAL_FOR_INTEL
   character(len=:), allocatable :: char_sname(:)
+  character(len=:), allocatable :: char_sname_new(:)
 #else
   character(len=CGLEN), allocatable :: char_sname(:)
+  character(len=CGLEN), allocatable :: char_sname_new(:)
 #endif
   !
   !.. Local Parameters ..
@@ -7210,6 +7213,52 @@ continue
     end if
   end if
 #endif
+  !
+  ! Make sure there are no duplicate variables being output
+  !
+  allocate ( char_sname_new , source=char_sname )
+  !
+  n = 0
+  copy_loop: &
+  do i = 1,size(char_sname)
+    varcheck = uppercase( trim(adjustl(char_sname(i))) )
+    do j = 1,n
+      varname = uppercase( trim(adjustl(char_sname_new(j))) )
+      if (varname == varcheck) then
+        ! This variable already exists in char_sname_new, so dont add this
+        ! to char_sname_new and go on to the next variable in char_sname.
+        cycle copy_loop
+      end if
+    end do
+    n = n + 1
+    char_sname_new(n) = trim(adjustl(char_sname(i)))
+  end do copy_loop
+  !
+  ! Use move_alloc to over-write char_sname with char_sname_new
+  !
+  call move_alloc( from=char_sname_new , to=char_sname )
+  !
+  ! Put the output variables in order
+  !
+  allocate ( char_sname_new , source=char_sname )
+  !
+  n = 0
+  do i = 1,size(var_order)
+    varname = uppercase( trim(adjustl(var_order(i))) )
+    reorder_loop: &
+    do j = 1,size(char_sname)
+      varcheck = uppercase( trim(adjustl(char_sname(j))) )
+      if (varname == varcheck) then
+        n = n + 1
+        char_sname_new(n) = trim(adjustl(char_sname(j)))
+        exit reorder_loop
+      end if
+    end do reorder_loop
+  end do
+  !
+  ! Use move_alloc to over-write char_sname with char_sname_new
+  !
+  call move_alloc( from=char_sname_new , to=char_sname )
   !
   ! Get the name of the current solution file
   !
