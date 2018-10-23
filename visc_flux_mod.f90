@@ -1822,7 +1822,7 @@ continue
   ! Update the common thermodynamic and transport properties from
   ! the common solution
   !
-  call update_thermo_properties(n1,n2,com_cv,com_gp)
+  call update_thermo_properties(n1,n2,com_cv,com_gp,loc="face")
   call update_transport_properties(n1,n2,com_cv,com_gp)
   !
   ! Compute the common viscous flux vector using
@@ -1952,7 +1952,7 @@ continue
   ! Update the common thermodynamic and transport properties from
   ! the common solution
   !
-  call update_thermo_properties(n1,n2,com_cv,com_gp)
+  call update_thermo_properties(n1,n2,com_cv,com_gp,loc="face")
   call update_transport_properties(n1,n2,com_cv,com_gp)
   !
   ! Compute the common viscous flux vector using
@@ -2070,7 +2070,7 @@ continue
   ! Update the common thermodynamic and transport properties from
   ! the common solution
   !
-  call update_thermo_properties(n1,n2,com_cv,com_gp)
+  call update_thermo_properties(n1,n2,com_cv,com_gp,loc="face")
   call update_transport_properties(n1,n2,com_cv,com_gp)
   !
   ! Compute the common viscous flux vector using

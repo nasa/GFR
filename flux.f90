@@ -3435,7 +3435,8 @@ continue
   n1 = 1
   n2 = n_bnd_flxpts
   !
-  call update_thermo_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2))
+  call update_thermo_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2), &
+                                      loc="face")
   call update_transport_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2))
   !
   if (using_quadrature) then

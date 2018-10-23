@@ -1411,6 +1411,7 @@ end subroutine check_final_time
 subroutine save_old_solution()
   !
   !.. Use Statements ..
+  use ovar,    only : gam
   use flowvar, only : usp,uoldsp
   use flowvar, only : gpsp,gpoldsp
   !
@@ -1929,7 +1930,7 @@ continue
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp)
+    call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
     call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
@@ -1939,7 +1940,7 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  call update_thermo_properties(1,n_solpts,usp,gpsp)
+  call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
@@ -2403,7 +2404,7 @@ continue
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp)
+    call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
     call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
@@ -2413,7 +2414,7 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  call update_thermo_properties(1,n_solpts,usp,gpsp)
+  call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
@@ -2557,7 +2558,7 @@ continue
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp)
+    call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
     call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
@@ -2567,7 +2568,7 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  call update_thermo_properties(1,n_solpts,usp,gpsp)
+  call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
@@ -2765,7 +2766,7 @@ continue
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp)
+    call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
     call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
@@ -2775,7 +2776,7 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  call update_thermo_properties(1,n_solpts,usp,gpsp)
+  call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
@@ -3210,7 +3211,7 @@ continue
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp)
+    call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
     call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
@@ -3220,7 +3221,7 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  call update_thermo_properties(1,n_solpts,usp,gpsp)
+  call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)

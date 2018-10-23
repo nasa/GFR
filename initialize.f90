@@ -282,7 +282,7 @@ continue
   !
   ! Update the thermodynamics and transport properties at the solution points
   !
-  call update_thermo_properties(1,n_solpts,usp,gpsp)
+  call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   init_tstar = time*time_ref*time_scaling_factor
