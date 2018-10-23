@@ -7993,7 +7993,7 @@ continue
   select case (trim(adjustl(vname)))
     !
     case ("Density") ! Density
-      !
+      !!{{{
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
@@ -8004,9 +8004,9 @@ continue
       end do
       !
       call cgns_write_field_data
-      !
+      !!}}}
     case ("Momentum") ! Momentum
-      !
+      !!{{{
       do m = nmb,nme
         !
         nv = nv + 1
@@ -8019,9 +8019,9 @@ continue
         call cgns_write_field_data
         !
       end do
-      !
+      !!}}}
     case ("Energy") ! Energy
-      !
+      !!{{{
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
@@ -8030,9 +8030,9 @@ continue
       end do
       !
       call cgns_write_field_data
-      !
-    case ("GradDensity") ! GradDensity
-      !
+      !!}}}
+    case ("GradDensity") ! Density gradient
+      !!{{{
       do l = 1,nr
         !
         nv = nv + 1
@@ -8045,9 +8045,9 @@ continue
         call cgns_write_field_data
         !
       end do
-      !
-    case ("GradMomentum") ! GradMomentum
-      !
+      !!}}}
+    case ("GradMomentum") ! Momentum gradients
+      !!{{{
       do m = nmb,nme
         do l = 1,nr
           !
@@ -8062,9 +8062,9 @@ continue
           !
         end do
       end do
-      !
-    case ("GradEnergy") ! GradEnergy
-      !
+      !!}}}
+    case ("GradEnergy") ! Total energy gradient
+      !!{{{
       do l = 1,nr
         !
         nv = nv + 1
@@ -8077,9 +8077,9 @@ continue
         call cgns_write_field_data
         !
       end do
-      !
+      !!}}}
     case ("Velocity") ! Velocity
-      !
+      !!{{{
       do m = nmb,nme
         !
         nv = nv + 1
@@ -8096,9 +8096,9 @@ continue
         call cgns_write_field_data
         !
       end do
-      !
+      !!}}}
     case ("Pressure") ! Pressure
-      !
+      !!{{{
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
@@ -8109,9 +8109,9 @@ continue
       end do
       !
       call cgns_write_field_data
-      !
+      !!}}}
     case ("P0") ! Total Pressure
-      !
+      !!{{{
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
@@ -8128,9 +8128,9 @@ continue
       end do
       !
       call cgns_write_field_data
-      !
+      !!}}}
     case ("Mach") ! Mach number
-      !
+      !!{{{
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
@@ -8143,9 +8143,9 @@ continue
       end if
       !
       call cgns_write_field_data
-      !
+      !!}}}
     case ("Entropy") ! Entropy
-      !
+      !!{{{
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
@@ -8168,9 +8168,9 @@ continue
       end if
       !
       call cgns_write_field_data
-      !
+      !!}}}
     case ("Temperature") ! Temperature
-      !
+      !!{{{
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
@@ -8181,9 +8181,9 @@ continue
       end do
       !
       call cgns_write_field_data
-      !
+      !!}}}
     case ("T0") ! Total Temperature
-      !
+      !!{{{
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
@@ -8198,9 +8198,9 @@ continue
       end do
       !
       call cgns_write_field_data
-      !
+      !!}}}
     case ("Viscosity") ! Viscosity
-      !
+      !!{{{
       if (governing_equations == NavierStokes_Eqns) then
         !
         nv = nv + 1
@@ -8213,9 +8213,9 @@ continue
         call cgns_write_field_data
         !
       end if
-      !
+      !!}}}
     case ("Vorticity") ! Vorticity
-      !
+      !!{{{
       time_ref_inv = one/time_ref
       !
       vorticity_loop: &
@@ -8251,9 +8251,9 @@ continue
         if (nr < 3) exit vorticity_loop
         !
       end do vorticity_loop
-      !
+      !!}}}
     case ("ResolutionMarker")
-      !
+      !!{{{
       if (.not. allocated(vartmp_at_sp)) then
         allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
                    stat=ierr , errmsg=error_message )
@@ -8316,9 +8316,9 @@ continue
       call interpolate_for_output( vartmp_at_sp , vartmp )
       !
       call cgns_write_field_data
-      !
+      !!}}}
     case ("JumpMarker")
-      !
+      !!{{{
       allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
                  stat=ierr , errmsg=error_message )
       call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
@@ -8365,9 +8365,9 @@ continue
       call interpolate_for_output( vartmp_at_sp , vartmp )
       !
       call cgns_write_field_data
-      !
+      !!}}}
     case ("Partition")
-      !
+      !!{{{
       allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
                  stat=ierr , errmsg=error_message )
       call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
@@ -8383,18 +8383,18 @@ continue
       call interpolate_for_output( vartmp_at_sp , vartmp )
       !
       call cgns_write_field_data
-      !
+      !!}}}
     case ("Timestep")
-      !
+      !!{{{
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
       call interpolate_for_output( dtsp(1:n_solpts) , vartmp , nondim=time_ref )
       !
       call cgns_write_field_data
-      !
+      !!}}}
     case ("CoMetrics")
-     !!
+     !!!{{{
      !allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
      !           stat=ierr , errmsg=error_message )
      !call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
@@ -8416,9 +8416,9 @@ continue
      !    !
      !  end do
      !end do
-     !!
+     !!!}}}
     case ("ContraMetrics")
-      !
+      !!{{{
       allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
                  stat=ierr , errmsg=error_message )
       call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
@@ -8440,9 +8440,9 @@ continue
           !
         end do
       end do
-      !
+      !!}}}
     case ("TimeMetrics")
-      !
+      !!{{{
       allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
                  stat=ierr , errmsg=error_message )
       call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
@@ -8477,9 +8477,9 @@ continue
         call cgns_write_field_data
         !
       end if
-      !
+      !!}}}
     case default
-      !
+      !!{{{
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
@@ -8488,7 +8488,7 @@ continue
       end do
       !
       call cgns_write_field_data
-      !
+      !!}}}
   end select
   !
   if (allocated(vartmp_at_sp)) then
