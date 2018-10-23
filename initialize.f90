@@ -2290,65 +2290,81 @@ continue
           !
           call igl(rgas,r,p,t,static_is_set,n)
          !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-         !                        vel,mach,alpha,beta, &
+         !                        vel,mach,alpha,beta,mass_frac, &
          !                        static_is_set,total_is_set, &
-         !                        vel_is_set,mach_is_set,"igl(r,p,t)")
+         !                        vel_is_set,mach_is_set, &
+         !                        "after igl(r,p,t)")
           !
           if (gamm <= zero) then
             if (t > tmin) then
               call compute_mixture_gamma(mass_frac,t,gamm,dimensional=true)
+             !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+             !                        vel,mach,alpha,beta,mass_frac, &
+             !                        static_is_set,total_is_set, &
+             !                        vel_is_set,mach_is_set, &
+             !                        "after compute_mixture_gamma(1)")
             end if
           end if
           !
           call igl(rgas,r0,p0,t0,total_is_set,n)
          !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-         !                        vel,mach,alpha,beta, &
+         !                        vel,mach,alpha,beta,mass_frac, &
          !                        static_is_set,total_is_set, &
-         !                        vel_is_set,mach_is_set,"igl(r0,p0,t0)")
+         !                        vel_is_set,mach_is_set, &
+         !                        "after igl(r0,p0,t0)")
           !
           if (gamm > zero) then
             !
             call mach_total_pres(gamm,p,p0,mach,mach_is_set,n)
            !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-           !                        vel,mach,alpha,beta, &
+           !                        vel,mach,alpha,beta,mass_frac, &
            !                        static_is_set,total_is_set, &
-           !                        vel_is_set,mach_is_set,"mach_total_pres")
+           !                        vel_is_set,mach_is_set, &
+           !                        "after mach_total_pres")
             !
             call mach_total_temp(gamm,t,t0,mach,mach_is_set,n)
            !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-           !                        vel,mach,alpha,beta, &
+           !                        vel,mach,alpha,beta,mass_frac, &
            !                        static_is_set,total_is_set, &
-           !                        vel_is_set,mach_is_set,"mach_total_temp")
+           !                        vel_is_set,mach_is_set, &
+           !                        "after mach_total_temp")
             !
             call mach_total_dens(gamm,r,r0,mach,mach_is_set,n)
            !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-           !                        vel,mach,alpha,beta, &
+           !                        vel,mach,alpha,beta,mass_frac, &
            !                        static_is_set,total_is_set, &
-           !                        vel_is_set,mach_is_set,"mach_total_dens")
+           !                        vel_is_set,mach_is_set, &
+           !                        "after mach_total_dens")
             !
           else if (t0 > zero .and. mach_is_set) then
             !
             call mach_total_temp_tpg(mass_frac,rgas,gamm,t,t0,mach)
             !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-            !                        vel,mach,alpha,beta, &
+            !                        vel,mach,alpha,beta,mass_frac, &
             !                        static_is_set,total_is_set, &
             !                        vel_is_set,mach_is_set, &
-            !                        "mach_total_temp_tpg")
+            !                        "after mach_total_temp_tpg")
             !
           end if
           !
           if (gamm <= zero) then
             if (t > tmin) then
               call compute_mixture_gamma(mass_frac,t,gamm,dimensional=true)
+             !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+             !                        vel,mach,alpha,beta,mass_frac, &
+             !                        static_is_set,total_is_set, &
+             !                        vel_is_set,mach_is_set, &
+             !                        "after compute_mixture_gamma(2)")
             end if
           end if
           !
           call vel_from_static(gamm,rgas,r,p,t,vel,mach,alpha,beta, &
                                vel_is_set,mach_is_set)
          !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-         !                        vel,mach,alpha,beta, &
+         !                        vel,mach,alpha,beta,mass_frac, &
          !                        static_is_set,total_is_set, &
-         !                        vel_is_set,mach_is_set,"vel_from_static")
+         !                        vel_is_set,mach_is_set, &
+         !                        "after vel_from_static")
           !
           if (gamm <= zero) then
             if (t > tmin) then
@@ -2361,7 +2377,7 @@ continue
           if (ii == 5) then
             write (error_message,2) n
             call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-                                    vel,mach,alpha,beta, &
+                                    vel,mach,alpha,beta,mass_frac, &
                                     static_is_set,total_is_set, &
                                     vel_is_set,mach_is_set, &
                                     "Reached max BC iterations!")
@@ -2871,15 +2887,20 @@ end subroutine write_linear_advec_ref_conditions
 !
 !###############################################################################
 !
-subroutine dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+subroutine dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+                              vel,mach,alpha,beta,mass_frac, &
                               static_is_set,total_is_set, &
                               vel_is_set,mach_is_set,string)
+  !
+  !.. Use Statements ..
+  use thermo_mod, only : species_name
   !
   !.. Formal Arguments ..
   integer,          intent(in) :: ii
   real(wp),         intent(in) :: gamm,rgas,r,r0,p,p0,t,t0
   real(wp),         intent(in) :: mach,alpha,beta
   real(wp),         intent(in) :: vel(:)
+  real(wp),         intent(in) :: mass_frac(:)
   logical(lk),      intent(in) :: static_is_set,total_is_set
   logical(lk),      intent(in) :: vel_is_set,mach_is_set
   character(len=*), intent(in) :: string
@@ -2898,6 +2919,13 @@ continue
                  mach,mach_is_set
   write (iout,2) (vel(i),i=1,size(vel))
   write (iout,3) alpha,beta,vel_is_set
+  if (ncs > 0) then
+    do i = 1,ncs
+      write (iout,4) uppercase( trim(adjustl(species_name(i))) ), mass_frac(i)
+    end do
+  else
+    write (iout,*)
+  end if
   flush (iout)
   !
   ! Format Statements
@@ -2922,7 +2950,8 @@ continue
             5x,"Z-velocity            = ",es14.6)
   3 format (5x,"Alpha Angle of Attack = ",es14.6,/, &
             5x,"Beta  Angle of Attack = ",es14.6,/, &
-            5x,"vel_is_set            = ",l1,/)
+            5x,"vel_is_set            = ",l1)
+  4 format (5x,a," Mass Fraction",t28,"= ",es14.6)
   !
 end subroutine dump_bc_conditions
 !
