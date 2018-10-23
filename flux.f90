@@ -880,7 +880,38 @@ continue
   !
   if (governing_equations == NavierStokes_Eqns) then
     !
-    call visc_flx_cv_gpu( 1 , n_solpts , usp , gpsp , dusp , vfluxes )
+!#define DEBUG_FLUXES_AND_RESIDUAL
+    call visc_flx_cv_gpu( 1 , n_solpts , usp , gpsp , dusp , vfluxes &
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+                          , output_visc_fluxes=true &
+#endif
+                          )
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  block
+    !
+    use ovar, only : itcur
+    integer :: io,l,m,n
+    character(len=30) :: fname
+    !
+    write (fname,1) "invs_fluxes",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,n_solpts
+      write (io,2) n,((ifluxes(n,l,m), l=1,2), m=1,nq)
+    end do
+    close (io)
+    !
+    write (fname,1) "visc_fluxes",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,n_solpts
+      write (io,2) n,((vfluxes(n,l,m), l=1,2), m=1,nq)
+    end do
+    close (io)
+    !
+    1 format (a,".",i0,".dat")
+    2 format (i7,2x,20es14.6)
+    !
+  end block
+#endif
     !
     !$ACC PARALLEL LOOP COLLAPSE(3) &
     !$ACC&              PRESENT(ifluxes,vfluxes)
@@ -2041,7 +2072,6 @@ continue
     !
   end do
   !
-!#define DEBUG_FLUXES_AND_RESIDUAL
 #ifdef DEBUG_FLUXES_AND_RESIDUAL
   block
     !
@@ -2106,6 +2136,33 @@ continue
       end do
     end do
   end do
+  !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  block
+    !
+    use ovar, only : itcur
+    integer :: io,l,m,n
+    character(len=30) :: fname
+    !
+    write (fname,1) "phys_fluxes",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,np
+      write (io,2) n,((tfluxes(n,l,m), l=1,nr), m=1,nq)
+    end do
+    close (io)
+    !
+    write (fname,1) "comp_fluxes",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,np
+      write (io,2) n,((rfluxes(n,l,m), l=1,nr), m=1,nq)
+    end do
+    close (io)
+    !
+    1 format (a,".",i0,".dat")
+    2 format (i7,2x,20es14.6)
+    !
+  end block
+#endif
   !
 end subroutine transform_fluxes_nd
 !
@@ -2461,6 +2518,26 @@ continue
     end do
     !
   end do
+  !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  block
+    !
+    use ovar, only : itcur
+    integer :: io,m,n
+    character(len=20) :: fname
+    !
+    write (fname,1) itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,cell(ncell)%end_sp
+      write (io,2) n,(residual(n,m), m=1,nq)
+    end do
+    close (io)
+    !
+    1 format ("residual.",i0,".dat")
+    2 format (i7,2x,10es18.10)
+    !
+  end block
+#endif
   !
 end subroutine compute_flux_divergence_nd
 !
@@ -2916,10 +2993,19 @@ subroutine add_flux_correction_nd(tfluxes)
   !.. Local Arrays ..
   integer :: fpidx(1:maxFP)
   !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  !.. Local Arrays ..
+  real(wp) :: flux_correction(1:size(residual,dim=1),1:size(residual,dim=2))
+#endif
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "add_flux_correction_nd"
   !
 continue
+  !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  flux_correction(:,:) = zero
+#endif
   !
   !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
   !$ACC&                   PRESENT(correct) &
@@ -2992,6 +3078,9 @@ continue
             n = n0 + correct(this_geom,this_order)%row_idx(i)
             correct_n = correct(this_geom,this_order)%row_val(i) * fval * ds
             residual(n,m) = residual(n,m) + correct_n
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+            flux_correction(n,m) = flux_correction(n,m) + correct_n
+#endif
           end do
         end do
       end do
@@ -2999,6 +3088,48 @@ continue
     end do
     !
   end do
+  !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  block
+    !
+    use ovar, only : itcur
+    integer :: io,n,m
+    character(len=30) :: fname
+    !
+    write (fname,1) "residual_corr",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,cell(ncell)%end_sp
+      write (io,2) n,(residual(n,m), m=1,nq)
+    end do
+    close (io)
+    !
+    write (fname,1) "face_flux",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,size(faceflx,dim=1)
+      write (io,2) n,(faceflx(n,m), m=1,nq)
+    end do
+    close (io)
+    !
+    write (fname,1) "flux_correction",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,cell(ncell)%end_sp
+      write (io,2) n,(flux_correction(n,m), m=1,nq)
+    end do
+    close (io)
+    !
+    if (itcur == 1) then
+      open (newunit=io,file="facenrm.dat",status="replace",action="write")
+      do n = 1,size(facenrm,dim=2)
+        write (io,2) n,(facenrm(m,n), m=1,nr)
+      end do
+      close (io)
+    end if
+    !
+    1 format (a,".",i0,".dat")
+    2 format (i7,2x,10es18.10)
+    !
+  end block
+#endif
   !
 end subroutine add_flux_correction_nd
 !
