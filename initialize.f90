@@ -1848,6 +1848,8 @@ subroutine initialize_vortex_problem(cv,pv,gp)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Set up the base reference conditions for different
   ! versions of the isentropic Euler vortex problem
   !
@@ -1918,6 +1920,8 @@ continue
   cpref = rgasref * gam / (gam - one)
   ! Nondimensional reference specific heat at constant pressure
   cpref_nd = cpref * tref / (aref*aref)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine initialize_vortex_problem
 !
@@ -2070,6 +2074,8 @@ continue
   if (allocated(bc_in)) then
     return
   end if
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Find any boundary conditions that were set in the
   ! input namelist file using the bc_input array
@@ -2387,10 +2393,14 @@ continue
     !
   end do
   !
+  !
+  !
   if (ncpu > 1) then
     if (mypnum == glb_root) flush (iout)
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -2441,6 +2451,8 @@ subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   character(len=*), parameter :: pname = "write_bc_conditions"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Determine whether to output dimensional or nondimensional quantities for
   ! each boundary condition based on the optional argument 'dimensional'.
@@ -2681,6 +2693,8 @@ continue
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   103 format ('(4x,"Wall Temperature",t27,"= ",es14.6,"',a,'",/,', &
@@ -2886,6 +2900,8 @@ subroutine check_bc_input(bc,pv,gp,n)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   errors_found = fals
   err_tol = eps6
   !
@@ -3066,6 +3082,8 @@ continue
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1   format (5x,"Input       static temperature = ",es14.6,/, &
@@ -3121,6 +3139,8 @@ subroutine vel_from_static(gamm,rgas,r,p,t,vel,mach,alpha,beta, &
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   aspd = -huge(zero)
   if (t > zero .and. gamm > zero) then
     aspd = sqrt(gamm*rgas*t)
@@ -3153,6 +3173,8 @@ continue
     end if
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine vel_from_static
 !
 !###############################################################################
@@ -3175,6 +3197,8 @@ subroutine mach_total_temp(gamm,t,t0,mach,mach_is_set,n)
   character(len=*), parameter :: pname = "mach_total_temp"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   gm1 = gamm - one
   !
@@ -3208,6 +3232,8 @@ continue
     end if
     !
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -3248,6 +3274,8 @@ subroutine mach_total_temp_tpg(mass_frac,rgas,gamm,t,t0,mach)
   real(wp), parameter :: conv_temp = eps6
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Compute total enthalpy
   !
@@ -3290,6 +3318,8 @@ continue
   !
   call compute_mixture_gamma(mass_frac,t,gamm,dimensional=true)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine mach_total_temp_tpg
 !
 !###############################################################################
@@ -3313,6 +3343,8 @@ subroutine mach_total_pres(gamm,p,p0,mach,mach_is_set,n)
   character(len=*), parameter :: pname = "mach_total_pres"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   gm1 = gamm - one
   !
@@ -3349,6 +3381,8 @@ continue
     !
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format ( &
@@ -3379,6 +3413,8 @@ subroutine mach_total_dens(gamm,r,r0,mach,mach_is_set,n)
   character(len=*), parameter :: pname = "mach_total_dens"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   gm1 = gamm - one
   !
@@ -3413,6 +3449,8 @@ continue
     !
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format ( &
@@ -3443,6 +3481,8 @@ subroutine igl(rgas,rho,pres,temp,success,n)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   success = fals
   !
   if (count([rho,pres,temp] > zero) >= 2) then
@@ -3467,6 +3507,8 @@ continue
     success = true
     !
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -3509,7 +3551,12 @@ subroutine compute_flow_conditions_from_pvt(cv,pv,gp,dimensional)
   integer  :: m
   real(wp) :: rho,q2,pres,temp,enth,cp,rgas
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_flow_conditions_from_pvt"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   pres = gp(npres)
   temp = gp(ntemp)
@@ -3564,6 +3611,8 @@ continue
   if (ncs == 0) then
     gp(ngamm) = gam
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_flow_conditions_from_pvt
 !
