@@ -7556,6 +7556,14 @@ continue
         if (ncs > 0) then
           n = n + ncs
         end if
+      else if (trim(char_sname(l)) == "SpeciesEnthalpy") then
+        if (ncs > 0) then
+          n = n + ncs
+        end if
+      else if (trim(char_sname(l)) == "SpeciesCp") then
+        if (ncs > 0) then
+          n = n + ncs
+        end if
       else
         n = n + 1
       end if
@@ -7675,6 +7683,22 @@ continue
           do m = 1,ncs
             n = n + 1
             varname = "SpeciesDensity"//trim(adjustl(species_name(m)))
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
+        end if
+      else if (trim(char_sname(k)) == "SpeciesEnthalpy") then
+        if (ncs > 0) then
+          do m = 1,ncs
+            n = n + 1
+            varname = "SpeciesEnthalpy"//trim(adjustl(species_name(m)))
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
+        end if
+      else if (trim(char_sname(k)) == "SpeciesCp") then
+        if (ncs > 0) then
+          do m = 1,ncs
+            n = n + 1
+            varname = "SpeciesCp"//trim(adjustl(species_name(m)))
             call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
           end do
         end if
@@ -7818,6 +7842,10 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use module_limiters, only : resolution_indicator
   use module_limiters, only : jump_indicator
   !
+  use thermo_mod, only : rspec
+  use thermo_mod, only : compute_species_enthalpy
+  use thermo_mod, only : compute_species_cp
+  !
   !.. Formal Arguments ..
   integer(CBT),     intent(in) :: ifile_s
   integer(CBT),     intent(in) :: ibase_s
@@ -7838,6 +7866,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   integer  :: nmi,nmj,l_comp,l_phys
   integer  :: this_order,limit_order
   real(wp) :: freestream_ref,rhoa,rhoa2,time_ref_inv
+  real(wp) :: cp_dim,dim_val
   real(wp) :: rho_inv,vx,vy,vz,a2,q2,s
   real(wp) :: gamm,gm1,gam_over_gm1,mach,pres,temp
   real(wp) :: mi,mj,drhodi,drhodj,dmjdi,dmidj
@@ -7846,6 +7875,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: vartmp_at_sp(:)
+  real(wp), allocatable :: spcvar(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "output_variable"
@@ -7857,6 +7887,7 @@ continue
   freestream_ref = zero
   rhoa = rhoref*aref
   rhoa2 = rhoa*aref
+  cp_dim = aref*aref/tref
   !
   ! Pre-load vartmp with Mach number if the current variable
   ! is Mach number, total pressure, or total temperature.
@@ -7898,6 +7929,25 @@ continue
           a2 = gp(n,ngamm)*gp(n,npres)*rho_inv
           vartmp(n) = sqrt( vx*vx / a2 ) - freestream_ref
         end do
+      end if
+      !
+    case ("SpeciesEnthalpy","SpeciesCp","hi/RT","hi/R","cpi/R")
+      !
+      if (ncs > 0) then
+        !
+        allocate ( spcvar(1:npts,1:ncs) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"spcvar",1,__LINE__,__FILE__,ierr,error_message)
+        !
+        select case (trim(adjustl(vname)))
+          case ("SpeciesCp","cpi/R")
+            call compute_species_cp(1,npts,gp(1:npts,ntemp),spcvar, &
+                                    dimensional=true)
+          case default
+            call compute_species_enthalpy(1,npts,gp(1:npts,ntemp),spcvar, &
+                                          dimensional=true)
+        end select
+        !
       end if
       !
   end select
@@ -8156,6 +8206,86 @@ continue
         !
         call cgns_write_field_data
         !
+      end if
+      !!}}}
+    case ("SpeciesEnthalpy") ! Species enthalpies
+      !!{{{
+      if (ncs > 0) then
+        do m = 1,ncs
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          vartmp(1:npts) = spcvar(1:npts,m)
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end if
+      !!}}}
+    case ("SpeciesCp") ! Species specific heats at constant pressure
+      !!{{{
+      if (ncs > 0) then
+        do m = 1,ncs
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          vartmp(1:npts) = spcvar(1:npts,m)
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end if
+      !!}}}
+    case ("cpi/R") ! Species Cp / Species gas constant
+      !!{{{
+      if (ncs > 0) then
+        do m = 1,ncs
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          dim_val = one/(rspec(m)*cp_dim)
+          vartmp(1:npts) = spcvar(1:npts,m)*dim_val
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end if
+      !!}}}
+    case ("hi/RT") ! Species enthalpies / (Species gas constant * temperature)
+      !!{{{
+      if (ncs > 0) then
+        do m = 1,ncs
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          dim_val = rspec(m)*cp_dim*tref
+          do n = 1,npts
+            vartmp(n) = spcvar(n,m)/(gp(n,ntemp)*dim_val)
+          end do
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end if
+      !!}}}
+    case ("hi/R") ! Species enthalpies / Species gas constant
+      !!{{{
+      if (ncs > 0) then
+        do m = 1,ncs
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          dim_val = one/(rspec(m)*cp_dim)
+          vartmp(1:npts) = spcvar(1:npts,m)*dim_val
+          !
+          call cgns_write_field_data
+          !
+        end do
       end if
       !!}}}
     case ("Vorticity") ! Vorticity
@@ -8439,6 +8569,11 @@ continue
     deallocate ( vartmp_at_sp , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"vartmp_at_sp",2,__LINE__,__FILE__, &
                      ierr,error_message)
+  end if
+  !
+  if (allocated(spcvar)) then
+    deallocate ( spcvar , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"spcvar",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   !-----------------------------------------------------------------------------
