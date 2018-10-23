@@ -6147,6 +6147,7 @@ subroutine write_residual_file(iflag,icount)
   use ovar,      only : time,time_ref,time_scaling_factor
   use ovar,      only : output_time_averaging,ave_start_time
   use order_mod, only : p_order
+  use thermo_mod, only : species_name
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
@@ -6189,12 +6190,29 @@ continue
     if (output_time_averaging) suffix = '<sub>ave</sub>",'
    !if (output_time_averaging) suffix = "<sub>ave</sub>" // trim(suffix)
     !
+    if (ncs > 0) then
+      do i = 1,ncs
+        write (iores,2) "<greek>r</greek><sub>" // &
+                        trim(adjustl(species_name(i))) // &
+                        "</sub>" // trim(suffix)
+      end do
+    end if
+    !
     write (iores,2) "<greek>r</greek>" // trim(suffix)
     do i = 1,nr
       write (iores,3) "<greek>r</greek>" // uvw(i) // trim(suffix)
     end do
     write (iores,2) "Energy" // trim(suffix)
     write (iores,2) "Entropy" // trim(suffix)
+    !
+    if (ncs > 0) then
+      do i = 1,ncs
+        write (iores,2) "Y<sub>" // &
+                        trim(adjustl(species_name(i))) // &
+                        "</sub>" // trim(suffix)
+      end do
+    end if
+    !
     write (iores,2) "T" // trim(suffix)
     do i = 1,nr
       write (iores,2) uvw(i) // trim(suffix)
