@@ -77,8 +77,8 @@ subroutine compute_residual_error()
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: cell_for_sp(:)
-  real(wp), allocatable :: tunew(:,:)
-  real(wp), allocatable :: tuold(:,:)
+  real(wp), allocatable :: unew(:,:)
+  real(wp), allocatable :: uold(:,:)
   real(wp), allocatable :: error(:,:,:)
   !
   !.. Local Parameters ..
@@ -97,11 +97,11 @@ continue
   e3 = size(uverr,dim=3) ! 2
   !
   allocate ( error(1:e1,1:e2,1:e3) , source=zero )
-  allocate ( tunew(1:n_solpts,1:nq+1) , source=zero )
-  allocate ( tuold(1:n_solpts,1:nq+1) , source=zero )
+  allocate ( unew(1:n_solpts,1:nq+1) , source=zero )
+  allocate ( uold(1:n_solpts,1:nq+1) , source=zero )
   allocate ( cell_for_sp(1:n_solpts) , source=0 )
   !
-  !$ACC DATA CREATE(error,tunew,tuold,cell_for_sp)
+  !$ACC DATA CREATE(error,unew,uold,cell_for_sp)
   !
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              VECTOR_LENGTH(32) &
@@ -115,8 +115,8 @@ continue
     end do
   end do
   !
-  call get_unew_solpts_gpu(tunew)
-  call get_uold_solpts_gpu(tuold)
+  call get_unew_solpts_gpu(unew)
+  call get_uold_solpts_gpu(uold)
   !
 !#define OUTPUT_U_ARRAYS
 #ifdef OUTPUT_U_ARRAYS
@@ -142,47 +142,47 @@ continue
   write (fname,201) "unew",itcur
   open (newunit=io,file=fname,status="replace",action="write")
   do n = 1,n_solpts
-    write (io,200) n,(tunew(n,m),m=1,size(tunew,dim=2))
+    write (io,200) n,(unew(n,m),m=1,size(unew,dim=2))
   end do
   close (io)
   !
   write (fname,201) "uold",itcur
   open (newunit=io,file=fname,status="replace",action="write")
   do n = 1,n_solpts
-    write (io,200) n,(tuold(n,m),m=1,size(tuold,dim=2))
+    write (io,200) n,(uold(n,m),m=1,size(uold,dim=2))
   end do
   close (io)
 #endif
   !
   if (use_async_for_error) then
-    call compute_error_gpu_async(tunew,tuold,error(:,:,1))
+    call compute_error_gpu_async(unew,uold,error(:,:,1))
   else
-    call compute_error_gpu(tunew,tuold,error(:,:,1),1)
+    call compute_error_gpu(unew,uold,error(:,:,1),1)
   end if
   !
-  call get_vnew_solpts_gpu(tunew)
-  call get_vold_solpts_gpu(tuold)
+  call get_vnew_solpts_gpu(unew)
+  call get_vold_solpts_gpu(uold)
   !
 #ifdef OUTPUT_U_ARRAYS
   write (fname,201) "vnew",itcur
   open (newunit=io,file=fname,status="replace",action="write")
   do n = 1,n_solpts
-    write (io,200) n,(tunew(n,m),m=1,size(tunew,dim=2))
+    write (io,200) n,(unew(n,m),m=1,size(unew,dim=2))
   end do
   close (io)
   !
   write (fname,201) "vold",itcur
   open (newunit=io,file=fname,status="replace",action="write")
   do n = 1,n_solpts
-    write (io,200) n,(tuold(n,m),m=1,size(tuold,dim=2))
+    write (io,200) n,(uold(n,m),m=1,size(uold,dim=2))
   end do
   close (io)
 #endif
   !
   if (use_async_for_error) then
-    call compute_error_gpu_async(tunew,tuold,error(:,:,2))
+    call compute_error_gpu_async(unew,uold,error(:,:,2))
   else
-    call compute_error_gpu(tunew,tuold,error(:,:,2),2)
+    call compute_error_gpu(unew,uold,error(:,:,2),2)
   end if
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) &
@@ -324,8 +324,8 @@ continue
   !
   !$ACC END DATA
   deallocate ( cell_for_sp )
-  deallocate ( tuold )
-  deallocate ( tunew )
+  deallocate ( uold )
+  deallocate ( unew )
   deallocate ( error )
   !
 #ifdef DEBUG_WRITE_ITER_OUT
@@ -348,15 +348,15 @@ end subroutine compute_residual_error
 !
 !###############################################################################
 !
-subroutine compute_error_gpu(tunew,tuold,error,cv_pv_switch)
+subroutine compute_error_gpu(unew,uold,error,cv_pv_switch)
   !
   !.. Use Statements ..
   use geovar,      only : nr,n_solpts,xyz
   use metrics_mod, only : wtdjac
   !
   !.. Formal Arguments ..
-  real(wp),    intent(in) :: tunew(:,:)
-  real(wp),    intent(in) :: tuold(:,:)
+  real(wp),    intent(in) :: unew(:,:)
+  real(wp),    intent(in) :: uold(:,:)
   real(wp), intent(inout) :: error(:,:)
   integer,     intent(in) :: cv_pv_switch
   !
@@ -406,17 +406,17 @@ continue
     ltwo_sum = zero
     !
     !$ACC PARALLEL LOOP REDUCTION(+:lone_sum,ltwo_sum) &
-    !$ACC&              PRESENT(tunew,tuold,wtdjac,linf_error)
+    !$ACC&              PRESENT(unew,uold,wtdjac,linf_error)
     do n = 1,n_solpts
       !
-      new_val = tunew(n,m)
-      old_val = tuold(n,m)
+      new_val = unew(n,m)
+      old_val = uold(n,m)
       !
      !linf = abs( new_val - old_val )
       if (m == nq+1 .and. cv_pv_switch == 2) then
-        linf = norm2( abs(tunew(n,nmb:nme) - tuold(n,nmb:nme)) )
+        linf = norm2( abs(unew(n,nmb:nme) - uold(n,nmb:nme)) )
       else
-        linf = abs( tunew(n,m) - tuold(n,m) )
+        linf = abs( unew(n,m) - uold(n,m) )
       end if
       lone = linf*wtdjac(n)
       ltwo = linf*lone
@@ -470,15 +470,15 @@ end subroutine compute_error_gpu
 !
 !###############################################################################
 !
-subroutine compute_error_gpu_async(tunew,tuold,error)
+subroutine compute_error_gpu_async(unew,uold,error)
   !
   !.. Use Statements ..
   use geovar,      only : nr,n_solpts,xyz
   use metrics_mod, only : wtdjac
   !
   !.. Formal Arguments ..
-  real(wp),    intent(in) :: tunew(:,:)
-  real(wp),    intent(in) :: tuold(:,:)
+  real(wp),    intent(in) :: unew(:,:)
+  real(wp),    intent(in) :: uold(:,:)
   real(wp), intent(inout) :: error(:,:)
   !
   !.. Local Scalars ..
@@ -517,10 +517,10 @@ continue
   !$ACC DATA CREATE(linf_error,lone_sum,ltwo_sum)
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) &
-  !$ACC&              PRESENT(tunew,tuold,linf_error)
+  !$ACC&              PRESENT(unew,uold,linf_error)
   do m = 1,nq+1
     do n = 1,n_solpts
-      linf_error(n,m) = abs( tunew(n,m) - tuold(n,m) )
+      linf_error(n,m) = abs( unew(n,m) - uold(n,m) )
     end do
   end do
   !
@@ -599,7 +599,7 @@ end subroutine compute_error_gpu_async
 !
 !###############################################################################
 !
-subroutine get_unew_solpts_gpu(tunew)
+subroutine get_unew_solpts_gpu(unew)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
@@ -608,7 +608,7 @@ subroutine get_unew_solpts_gpu(tunew)
   use ovar,    only : output_time_averaging
   !
   !.. Formal Arguments ..
-  real(wp), intent(inout) :: tunew(:,:)
+  real(wp), intent(inout) :: unew(:,:)
   !
   !.. Local Scalars ..
   integer  :: m,n,nr
@@ -629,27 +629,27 @@ continue
   if (output_time_averaging) then
     !
     if (nr == 3 .and. ncs == 0) then
-      !$ACC PARALLEL LOOP PRESENT(uavesp,tunew)
+      !$ACC PARALLEL LOOP PRESENT(uavesp,unew)
       do n = 1,n_solpts
-        tunew(n,nec) = uavesp(n,nec)
-        tunew(n,nmx) = uavesp(n,nmx)
-        tunew(n,nmy) = uavesp(n,nmy)
-        tunew(n,nmz) = uavesp(n,nmz)
-        tunew(n,nee) = uavesp(n,nee)
+        unew(n,nec) = uavesp(n,nec)
+        unew(n,nmx) = uavesp(n,nmx)
+        unew(n,nmy) = uavesp(n,nmy)
+        unew(n,nmz) = uavesp(n,nmz)
+        unew(n,nee) = uavesp(n,nee)
       end do
     else if (nr == 2 .and. ncs == 0) then
-      !$ACC PARALLEL LOOP PRESENT(uavesp,tunew)
+      !$ACC PARALLEL LOOP PRESENT(uavesp,unew)
       do n = 1,n_solpts
-        tunew(n,nec) = uavesp(n,nec)
-        tunew(n,nmx) = uavesp(n,nmx)
-        tunew(n,nmy) = uavesp(n,nmy)
-        tunew(n,nee) = uavesp(n,nee)
+        unew(n,nec) = uavesp(n,nec)
+        unew(n,nmx) = uavesp(n,nmx)
+        unew(n,nmy) = uavesp(n,nmy)
+        unew(n,nee) = uavesp(n,nee)
       end do
     else
-      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uavesp,tunew)
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uavesp,unew)
       do m = 1,nq
         do n = 1,n_solpts
-          tunew(n,m) = uavesp(n,m)
+          unew(n,m) = uavesp(n,m)
         end do
       end do
     end if
@@ -657,27 +657,27 @@ continue
   else
     !
     if (nr == 3 .and. ncs == 0) then
-      !$ACC PARALLEL LOOP PRESENT(usp,tunew)
+      !$ACC PARALLEL LOOP PRESENT(usp,unew)
       do n = 1,n_solpts
-        tunew(n,nec) = usp(n,nec)
-        tunew(n,nmx) = usp(n,nmx)
-        tunew(n,nmy) = usp(n,nmy)
-        tunew(n,nmz) = usp(n,nmz)
-        tunew(n,nee) = usp(n,nee)
+        unew(n,nec) = usp(n,nec)
+        unew(n,nmx) = usp(n,nmx)
+        unew(n,nmy) = usp(n,nmy)
+        unew(n,nmz) = usp(n,nmz)
+        unew(n,nee) = usp(n,nee)
       end do
     else if (nr == 2 .and. ncs == 0) then
-      !$ACC PARALLEL LOOP PRESENT(usp,tunew)
+      !$ACC PARALLEL LOOP PRESENT(usp,unew)
       do n = 1,n_solpts
-        tunew(n,nec) = usp(n,nec)
-        tunew(n,nmx) = usp(n,nmx)
-        tunew(n,nmy) = usp(n,nmy)
-        tunew(n,nee) = usp(n,nee)
+        unew(n,nec) = usp(n,nec)
+        unew(n,nmx) = usp(n,nmx)
+        unew(n,nmy) = usp(n,nmy)
+        unew(n,nee) = usp(n,nee)
       end do
     else
-      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,tunew)
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,unew)
       do m = 1,nq
         do n = 1,n_solpts
-          tunew(n,m) = usp(n,m)
+          unew(n,m) = usp(n,m)
         end do
       end do
     end if
@@ -689,51 +689,51 @@ continue
     gm1_over_pref_nd = gm1 / pref_nd
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP PRESENT(tunew)
+      !$ACC PARALLEL LOOP PRESENT(unew)
       do n = 1,n_solpts
         !
-        rho  = tunew(n,nec)
-        rhou = tunew(n,nmx)
-        rhov = tunew(n,nmy)
-        rhow = tunew(n,nmz)
-        rhoe = tunew(n,nee)
+        rho  = unew(n,nec)
+        rhou = unew(n,nmx)
+        rhov = unew(n,nmy)
+        rhow = unew(n,nmz)
+        rhoe = unew(n,nee)
         !
         rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
         !
         pres = gm1_over_pref_nd * (rhoe - half*rhoq2/rho)
         !
-        tunew(n,nq+1) = pres / (rho**gam)
+        unew(n,nq+1) = pres / (rho**gam)
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP PRESENT(tunew)
+      !$ACC PARALLEL LOOP PRESENT(unew)
       do n = 1,n_solpts
         !
-        rho  = tunew(n,nec)
-        rhou = tunew(n,nmx)
-        rhov = tunew(n,nmy)
-        rhoe = tunew(n,nee)
+        rho  = unew(n,nec)
+        rhou = unew(n,nmx)
+        rhov = unew(n,nmy)
+        rhoe = unew(n,nee)
         !
         rhoq2 = rhou*rhou + rhov*rhov
         !
         pres = gm1_over_pref_nd * (rhoe - half*rhoq2/rho)
         !
-        tunew(n,nq+1) = pres / (rho**gam)
+        unew(n,nq+1) = pres / (rho**gam)
         !
       end do
     else
-      !$ACC PARALLEL LOOP PRESENT(tunew)
+      !$ACC PARALLEL LOOP PRESENT(unew)
       do n = 1,n_solpts
         !
-        rho  = tunew(n,nec)
-        rhou = tunew(n,nmx)
-        rhoe = tunew(n,nee)
+        rho  = unew(n,nec)
+        rhou = unew(n,nmx)
+        rhoe = unew(n,nee)
         !
         rhoq2 = rhou*rhou
         !
         pres = gm1_over_pref_nd * (rhoe - half*rhoq2/rho)
         !
-        tunew(n,nq+1) = pres / (rho**gam)
+        unew(n,nq+1) = pres / (rho**gam)
         !
       end do
     end if
@@ -741,51 +741,51 @@ continue
   else
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP PRESENT(tunew)
+      !$ACC PARALLEL LOOP PRESENT(unew)
       do n = 1,n_solpts
         !
-        rho  = tunew(n,nec)
-        rhou = tunew(n,nmx)
-        rhov = tunew(n,nmy)
-        rhow = tunew(n,nmz)
-        rhoe = tunew(n,nee)
+        rho  = unew(n,nec)
+        rhou = unew(n,nmx)
+        rhov = unew(n,nmy)
+        rhow = unew(n,nmz)
+        rhoe = unew(n,nee)
         !
         rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
         !
         pres = gm1 * (rhoe - half*rhoq2/rho)
         !
-        tunew(n,nq+1) = log(pres) - gam*log(rho)
+        unew(n,nq+1) = log(pres) - gam*log(rho)
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP PRESENT(tunew)
+      !$ACC PARALLEL LOOP PRESENT(unew)
       do n = 1,n_solpts
         !
-        rho  = tunew(n,nec)
-        rhou = tunew(n,nmx)
-        rhov = tunew(n,nmy)
-        rhoe = tunew(n,nee)
+        rho  = unew(n,nec)
+        rhou = unew(n,nmx)
+        rhov = unew(n,nmy)
+        rhoe = unew(n,nee)
         !
         rhoq2 = rhou*rhou + rhov*rhov
         !
         pres = gm1 * (rhoe - half*rhoq2/rho)
         !
-        tunew(n,nq+1) = log(pres) - gam*log(rho)
+        unew(n,nq+1) = log(pres) - gam*log(rho)
         !
       end do
     else
-      !$ACC PARALLEL LOOP PRESENT(tunew)
+      !$ACC PARALLEL LOOP PRESENT(unew)
       do n = 1,n_solpts
         !
-        rho  = tunew(n,nec)
-        rhou = tunew(n,nmx)
-        rhoe = tunew(n,nee)
+        rho  = unew(n,nec)
+        rhou = unew(n,nmx)
+        rhoe = unew(n,nee)
         !
         rhoq2 = rhou*rhou
         !
         pres = gm1 * (rhoe - half*rhoq2/rho)
         !
-        tunew(n,nq+1) = log(pres) - gam*log(rho)
+        unew(n,nq+1) = log(pres) - gam*log(rho)
         !
       end do
     end if
@@ -798,7 +798,7 @@ end subroutine get_unew_solpts_gpu
 !
 !###############################################################################
 !
-subroutine get_uold_solpts_gpu(tuold)
+subroutine get_uold_solpts_gpu(uold)
   !
   !.. Use Statements ..
   use ovar,    only : prev_ave_time,saved_ave_time,ave_start_time
@@ -810,7 +810,7 @@ subroutine get_uold_solpts_gpu(tuold)
   use gpu_mod, only : vortex_solution_gpu
   !
   !.. Formal Arguments ..
-  real(wp), intent(inout) :: tuold(:,:)
+  real(wp), intent(inout) :: uold(:,:)
   !
   !.. Local Scalars ..
   integer     :: m,n,nr
@@ -833,7 +833,7 @@ continue
     !
     ! Evaluate the exact analytical MMS solution at the error points
     !
-    call mms_solution_at_xyz_gpu(1,n_solpts,xyz,tuold, &
+    call mms_solution_at_xyz_gpu(1,n_solpts,xyz,uold, &
                                  return_nondim=true, &
                                  return_cv=true)
     !
@@ -841,35 +841,16 @@ continue
     !
     ! Evaluate the exact analytical solution to the vortex transport problem
     !
-    call vortex_solution_gpu(1,n_solpts,xyz,tuold)
+    call vortex_solution_gpu(1,n_solpts,xyz,uold)
     !
   else if (itestcase == Freestream_Preservation) then
     !
-    if (nr == 3) then
-      !$ACC PARALLEL LOOP PRESENT(bc_in,tuold)
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(bc_in,uold)
+    do m = 1,nq
       do n = 1,n_solpts
-        tuold(n,nec) = bc_in(0)%cv(nec)
-        tuold(n,nmx) = bc_in(0)%cv(nmx)
-        tuold(n,nmy) = bc_in(0)%cv(nmy)
-        tuold(n,nmz) = bc_in(0)%cv(nmz)
-        tuold(n,nee) = bc_in(0)%cv(nee)
+        uold(n,m) = bc_in(0)%cv(m)
       end do
-    else if (nr == 2) then
-      !$ACC PARALLEL LOOP PRESENT(bc_in,tuold)
-      do n = 1,n_solpts
-        tuold(n,nec) = bc_in(0)%cv(nec)
-        tuold(n,nmx) = bc_in(0)%cv(nmx)
-        tuold(n,nmy) = bc_in(0)%cv(nmy)
-        tuold(n,nee) = bc_in(0)%cv(nee)
-      end do
-    else
-      !$ACC PARALLEL LOOP PRESENT(bc_in,tuold)
-      do n = 1,n_solpts
-        tuold(n,nec) = bc_in(0)%cv(nec)
-        tuold(n,nmx) = bc_in(0)%cv(nmx)
-        tuold(n,nee) = bc_in(0)%cv(nee)
-      end do
-    end if
+    end do
     !
   else
     !
@@ -890,59 +871,21 @@ continue
       a = (prev_ave_time-saved_ave_time) / (saved_ave_time-ave_start_time)
       b = one - a
       !
-      if (nr == 3 .and. ncs == 0) then
-        !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tuold)
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,uavesp,uold)
+      do m = 1,nq
         do n = 1,n_solpts
-          tuold(n,nec) = b * uavesp(n,nec) - a * usp(n,nec)
-          tuold(n,nmx) = b * uavesp(n,nmx) - a * usp(n,nmx)
-          tuold(n,nmy) = b * uavesp(n,nmy) - a * usp(n,nmy)
-          tuold(n,nmz) = b * uavesp(n,nmz) - a * usp(n,nmz)
-          tuold(n,nee) = b * uavesp(n,nee) - a * usp(n,nee)
+          uold(n,m) = b * uavesp(n,m) - a * usp(n,m)
         end do
-      else if (nr == 2 .and. ncs == 0) then
-        !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tuold)
-        do n = 1,n_solpts
-          tuold(n,nec) = b * uavesp(n,nec) - a * usp(n,nec)
-          tuold(n,nmx) = b * uavesp(n,nmx) - a * usp(n,nmx)
-          tuold(n,nmy) = b * uavesp(n,nmy) - a * usp(n,nmy)
-          tuold(n,nee) = b * uavesp(n,nee) - a * usp(n,nee)
-        end do
-      else
-        !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tuold)
-        do m = 1,nq
-          do n = 1,n_solpts
-            tuold(n,m) = b * uavesp(n,m) - a * usp(n,m)
-          end do
-        end do
-      end if
+      end do
       !
     else
       !
-      if (nr == 3 .and. ncs == 0) then
-        !$ACC PARALLEL LOOP PRESENT(uoldsp,tuold)
+      !$ACC PARALLEL LOOP PRESENT(uoldsp,uold)
+      do m = 1,nq
         do n = 1,n_solpts
-          tuold(n,nec) = uoldsp(n,nec)
-          tuold(n,nmx) = uoldsp(n,nmx)
-          tuold(n,nmy) = uoldsp(n,nmy)
-          tuold(n,nmz) = uoldsp(n,nmz)
-          tuold(n,nee) = uoldsp(n,nee)
+          uold(n,m) = uoldsp(n,m)
         end do
-      else if (nr == 2 .and. ncs == 0) then
-        !$ACC PARALLEL LOOP PRESENT(uoldsp,tuold)
-        do n = 1,n_solpts
-          tuold(n,nec) = uoldsp(n,nec)
-          tuold(n,nmx) = uoldsp(n,nmx)
-          tuold(n,nmy) = uoldsp(n,nmy)
-          tuold(n,nee) = uoldsp(n,nee)
-        end do
-      else
-        !$ACC PARALLEL LOOP PRESENT(uoldsp,tuold)
-        do m = 1,nq
-          do n = 1,n_solpts
-            tuold(n,m) = uoldsp(n,m)
-          end do
-        end do
-      end if
+      end do
       !
     end if
     !
@@ -950,59 +893,59 @@ continue
   !
   if (itestcase == Inviscid_Gaussian_Bump) then
     !
-    !$ACC PARALLEL LOOP PRESENT(tuold)
+    !$ACC PARALLEL LOOP PRESENT(uold)
     do n = 1,n_solpts
-      tuold(n,nq+1) = one
+      uold(n,nq+1) = one
     end do
     !
   else
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP PRESENT(tuold)
+      !$ACC PARALLEL LOOP PRESENT(uold)
       do n = 1,n_solpts
         !
-        rho  = tuold(n,nec)
-        rhou = tuold(n,nmx)
-        rhov = tuold(n,nmy)
-        rhow = tuold(n,nmz)
-        rhoe = tuold(n,nee)
+        rho  = uold(n,nec)
+        rhou = uold(n,nmx)
+        rhov = uold(n,nmy)
+        rhow = uold(n,nmz)
+        rhoe = uold(n,nee)
         !
         rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
         !
         pres = gm1 * (rhoe - half*rhoq2/rho)
         !
-        tuold(n,nq+1) = log(pres) - gam*log(rho)
+        uold(n,nq+1) = log(pres) - gam*log(rho)
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP PRESENT(tuold)
+      !$ACC PARALLEL LOOP PRESENT(uold)
       do n = 1,n_solpts
         !
-        rho  = tuold(n,nec)
-        rhou = tuold(n,nmx)
-        rhov = tuold(n,nmy)
-        rhoe = tuold(n,nee)
+        rho  = uold(n,nec)
+        rhou = uold(n,nmx)
+        rhov = uold(n,nmy)
+        rhoe = uold(n,nee)
         !
         rhoq2 = rhou*rhou + rhov*rhov
         !
         pres = gm1 * (rhoe - half*rhoq2/rho)
         !
-        tuold(n,nq+1) = log(pres) - gam*log(rho)
+        uold(n,nq+1) = log(pres) - gam*log(rho)
         !
       end do
     else
-      !$ACC PARALLEL LOOP PRESENT(tuold)
+      !$ACC PARALLEL LOOP PRESENT(uold)
       do n = 1,n_solpts
         !
-        rho  = tuold(n,nec)
-        rhou = tuold(n,nmx)
-        rhoe = tuold(n,nee)
+        rho  = uold(n,nec)
+        rhou = uold(n,nmx)
+        rhoe = uold(n,nee)
         !
         rhoq2 = rhou*rhou
         !
         pres = gm1 * (rhoe - half*rhoq2/rho)
         !
-        tuold(n,nq+1) = log(pres) - gam*log(rho)
+        uold(n,nq+1) = log(pres) - gam*log(rho)
         !
       end do
     end if
@@ -1015,7 +958,7 @@ end subroutine get_uold_solpts_gpu
 !
 !###############################################################################
 !
-subroutine get_vnew_solpts_gpu(tvnew)
+subroutine get_vnew_solpts_gpu(vnew)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
@@ -1024,7 +967,7 @@ subroutine get_vnew_solpts_gpu(tvnew)
   use ovar,    only : output_time_averaging
   !
   !.. Formal Arguments ..
-  real(wp), intent(inout) :: tvnew(:,:)
+  real(wp), intent(inout) :: vnew(:,:)
   !
   !.. Local Scalars ..
   integer  :: m,n,nr
@@ -1048,54 +991,54 @@ continue
   !
   if (output_time_averaging) then
     if (nr == 3) then
-      !$ACC PARALLEL LOOP PRESENT(uavesp,tvnew)
+      !$ACC PARALLEL LOOP PRESENT(uavesp,vnew)
       do n = 1,n_solpts
         !
         velx = uavesp(n,nq+nmx)
         vely = uavesp(n,nq+nmy)
         velz = uavesp(n,nq+nmz)
         !
-        tvnew(n,nec) = uavesp(n,nq+nec)
-        tvnew(n,nmx) = velx
-        tvnew(n,nmy) = vely
-        tvnew(n,nmz) = velz
-        tvnew(n,nee) = uavesp(n,nq+nee)
-        tvnew(n,nq+1) = sqrt(velx*velx + vely*vely + velz*velz)
+        vnew(n,nec) = uavesp(n,nq+nec)
+        vnew(n,nmx) = velx
+        vnew(n,nmy) = vely
+        vnew(n,nmz) = velz
+        vnew(n,nee) = uavesp(n,nq+nee)
+        vnew(n,nq+1) = sqrt(velx*velx + vely*vely + velz*velz)
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP PRESENT(uavesp,tvnew)
+      !$ACC PARALLEL LOOP PRESENT(uavesp,vnew)
       do n = 1,n_solpts
         !
         velx = uavesp(n,nq+nmx)
         vely = uavesp(n,nq+nmy)
         !
-        tvnew(n,nec) = uavesp(n,nq+nec)
-        tvnew(n,nmx) = velx
-        tvnew(n,nmy) = vely
-        tvnew(n,nee) = uavesp(n,nq+nee)
-        tvnew(n,nq+1) = sqrt(velx*velx + vely*vely)
+        vnew(n,nec) = uavesp(n,nq+nec)
+        vnew(n,nmx) = velx
+        vnew(n,nmy) = vely
+        vnew(n,nee) = uavesp(n,nq+nee)
+        vnew(n,nq+1) = sqrt(velx*velx + vely*vely)
         !
       end do
     else
-      !$ACC PARALLEL LOOP PRESENT(uavesp,tvnew)
+      !$ACC PARALLEL LOOP PRESENT(uavesp,vnew)
       do n = 1,n_solpts
         !
         velx = uavesp(n,nq+nmx)
         !
-        tvnew(n,nec) = uavesp(n,nq+nec)
-        tvnew(n,nmx) = velx
-        tvnew(n,nee) = uavesp(n,nq+nee)
-        tvnew(n,nq+1) = sqrt(velx*velx)
+        vnew(n,nec) = uavesp(n,nq+nec)
+        vnew(n,nmx) = velx
+        vnew(n,nee) = uavesp(n,nq+nee)
+        vnew(n,nq+1) = sqrt(velx*velx)
         !
       end do
     end if
     !
     if (ncs > 0) then
-      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uavesp,tvnew)
-      do m = ncb,nce
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uavesp,vnew)
+      do m = 1,ncs
         do n = 1,n_solpts
-          tvnew(n,m) = uavesp(n,nq+m)
+          vnew(n,m) = uavesp(n,nq+m)
         end do
       end do
     end if
@@ -1105,87 +1048,87 @@ continue
     rgas_inv = one/rgasref_nd
     !
     ! Need to first convert species densities to mass fractions
-    ! before temperature is saved in the density location of tvnew
+    ! before temperature is saved in the density location of vnew
     !
     if (ncs > 0) then
-      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(tvnew)
-      do m = ncb,nce
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(vnew)
+      do m = 1,ncs
         do n = 1,n_solpts
-          tvnew(n,m) = tvnew(n,m)/tvnew(n,nec)
+          vnew(n,m) = vnew(n,m)/vnew(n,nec)
         end do
       end do
     end if
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP PRESENT(tvnew)
+      !$ACC PARALLEL LOOP PRESENT(vnew)
       do n = 1,n_solpts
         !
-        rho = tvnew(n,nec)
+        rho = vnew(n,nec)
         !
         rho_inv = one/rho
         !
-        velx = tvnew(n,nmx)*rho_inv
-        vely = tvnew(n,nmy)*rho_inv
-        velz = tvnew(n,nmz)*rho_inv
-        rhoe = tvnew(n,nee)
+        velx = vnew(n,nmx)*rho_inv
+        vely = vnew(n,nmy)*rho_inv
+        velz = vnew(n,nmz)*rho_inv
+        rhoe = vnew(n,nee)
         !
         q2 = velx*velx + vely*vely + velz*velz
         !
         pres = gm1 * (rhoe - half*rho*q2)
         temp = pres*rho_inv*rgas_inv
         !
-        tvnew(n,nec) = temp
-        tvnew(n,nmx) = velx
-        tvnew(n,nmy) = vely
-        tvnew(n,nmz) = velz
-        tvnew(n,nee) = pres
-        tvnew(n,nq+1) = sqrt(q2)
+        vnew(n,nec) = temp
+        vnew(n,nmx) = velx
+        vnew(n,nmy) = vely
+        vnew(n,nmz) = velz
+        vnew(n,nee) = pres
+        vnew(n,nq+1) = sqrt(q2)
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP PRESENT(tvnew)
+      !$ACC PARALLEL LOOP PRESENT(vnew)
       do n = 1,n_solpts
         !
-        rho = tvnew(n,nec)
+        rho = vnew(n,nec)
         !
         rho_inv = one/rho
         !
-        velx = tvnew(n,nmx)*rho_inv
-        vely = tvnew(n,nmy)*rho_inv
-        rhoe = tvnew(n,nee)
+        velx = vnew(n,nmx)*rho_inv
+        vely = vnew(n,nmy)*rho_inv
+        rhoe = vnew(n,nee)
         !
         q2 = velx*velx + vely*vely
         !
         pres = gm1 * (rhoe - half*rho*q2)
         temp = pres*rho_inv*rgas_inv
         !
-        tvnew(n,nec) = temp
-        tvnew(n,nmx) = velx
-        tvnew(n,nmy) = vely
-        tvnew(n,nee) = pres
-        tvnew(n,nq+1) = sqrt(q2)
+        vnew(n,nec) = temp
+        vnew(n,nmx) = velx
+        vnew(n,nmy) = vely
+        vnew(n,nee) = pres
+        vnew(n,nq+1) = sqrt(q2)
         !
       end do
     else
-      !$ACC PARALLEL LOOP PRESENT(tvnew)
+      !$ACC PARALLEL LOOP PRESENT(vnew)
       do n = 1,n_solpts
         !
-        rho = tvnew(n,nec)
+        rho = vnew(n,nec)
         !
         rho_inv = one/rho
         !
-        velx = tvnew(n,nmx)*rho_inv
-        rhoe = tvnew(n,nee)
+        velx = vnew(n,nmx)*rho_inv
+        rhoe = vnew(n,nee)
         !
         q2 = velx*velx
         !
         pres = gm1 * (rhoe - half*rho*q2)
         temp = pres*rho_inv*rgas_inv
         !
-        tvnew(n,nec) = temp
-        tvnew(n,nmx) = velx
-        tvnew(n,nee) = pres
-        tvnew(n,nq+1) = sqrt(q2)
+        vnew(n,nec) = temp
+        vnew(n,nmx) = velx
+        vnew(n,nee) = pres
+        vnew(n,nq+1) = sqrt(q2)
         !
       end do
     end if
@@ -1197,7 +1140,7 @@ end subroutine get_vnew_solpts_gpu
 !
 !###############################################################################
 !
-subroutine get_vold_solpts_gpu(tvold)
+subroutine get_vold_solpts_gpu(vold)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
@@ -1207,7 +1150,7 @@ subroutine get_vold_solpts_gpu(tvold)
   use ovar,    only : itcur,itrst,gam,rgasref_nd
   !
   !.. Formal Arguments ..
-  real(wp), intent(inout) :: tvold(:,:)
+  real(wp), intent(inout) :: vold(:,:)
   !
   !.. Local Scalars ..
   integer     :: m,n,nr
@@ -1249,19 +1192,19 @@ continue
     b = one - a
     !
     ! Need to first convert species densities to mass fractions
-    ! before temperature is saved in the density location of tvold
+    ! before temperature is saved in the density location of vold
     !
     if (ncs > 0) then
-      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,uavesp,tvold)
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,uavesp,vold)
       do m = ncb,nce
         do n = 1,n_solpts
-          tvold(n,m) = b * uavesp(n,nq+m) - a * usp(n,m)/usp(n,nec)
+          vold(n,m) = b * uavesp(n,nq+m) - a * usp(n,m)/usp(n,nec)
         end do
       end do
     end if
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tvold)
+      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,vold)
       do n = 1,n_solpts
         !
         rho = usp(n,nec)
@@ -1284,16 +1227,16 @@ continue
         !
         q2 = b * sqrt(velx*velx + vely*vely + velz*velz) - a * sqrt(q2)
         !
-        tvold(n,nec) = b * uavesp(n,nq+nec) - a * temp
-        tvold(n,nmx) = velx
-        tvold(n,nmy) = vely
-        tvold(n,nmz) = velz
-        tvold(n,nee) = b * uavesp(n,nq+nee) - a * pres
-        tvold(n,nq+1) = q2
+        vold(n,nec) = b * uavesp(n,nq+nec) - a * temp
+        vold(n,nmx) = velx
+        vold(n,nmy) = vely
+        vold(n,nmz) = velz
+        vold(n,nee) = b * uavesp(n,nq+nee) - a * pres
+        vold(n,nq+1) = q2
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tvold)
+      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,vold)
       do n = 1,n_solpts
         !
         rho = usp(n,nec)
@@ -1314,15 +1257,15 @@ continue
         !
         q2 = b * sqrt(velx*velx + vely*vely) - a * sqrt(q2)
         !
-        tvold(n,nec) = b * uavesp(n,nq+nec) - a * temp
-        tvold(n,nmx) = velx
-        tvold(n,nmy) = vely
-        tvold(n,nee) = b * uavesp(n,nq+nee) - a * pres
-        tvold(n,nq+1) = q2
+        vold(n,nec) = b * uavesp(n,nq+nec) - a * temp
+        vold(n,nmx) = velx
+        vold(n,nmy) = vely
+        vold(n,nee) = b * uavesp(n,nq+nee) - a * pres
+        vold(n,nq+1) = q2
         !
       end do
     else
-      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tvold)
+      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,vold)
       do n = 1,n_solpts
         !
         rho = usp(n,nec)
@@ -1341,10 +1284,10 @@ continue
         !
         q2 = b * sqrt(velx*velx) - a * sqrt(q2)
         !
-        tvold(n,nec) = b * uavesp(n,nq+nec) - a * temp
-        tvold(n,nmx) = velx
-        tvold(n,nee) = b * uavesp(n,nq+nee) - a * pres
-        tvold(n,nq+1) = q2
+        vold(n,nec) = b * uavesp(n,nq+nec) - a * temp
+        vold(n,nmx) = velx
+        vold(n,nee) = b * uavesp(n,nq+nee) - a * pres
+        vold(n,nq+1) = q2
         !
       end do
     end if
@@ -1352,87 +1295,87 @@ continue
   else
     !
     ! Need to first convert species densities to mass fractions
-    ! before temperature is saved in the density location of tvold
+    ! before temperature is saved in the density location of vold
     !
     if (ncs > 0) then
-      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(tvold)
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(vold)
       do m = ncb,nce
         do n = 1,n_solpts
-          tvold(n,m) = tvold(n,m) / tvold(n,nec)
+          vold(n,m) = vold(n,m) / vold(n,nec)
         end do
       end do
     end if
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP PRESENT(tvold)
+      !$ACC PARALLEL LOOP PRESENT(vold)
       do n = 1,n_solpts
         !
-        rho = tvold(n,nec)
+        rho = vold(n,nec)
         !
         rho_inv = one/rho
         !
-        velx = tvold(n,nmx)*rho_inv
-        vely = tvold(n,nmy)*rho_inv
-        velz = tvold(n,nmz)*rho_inv
-        rhoe = tvold(n,nee)
+        velx = vold(n,nmx)*rho_inv
+        vely = vold(n,nmy)*rho_inv
+        velz = vold(n,nmz)*rho_inv
+        rhoe = vold(n,nee)
         !
         q2 = velx*velx + vely*vely + velz*velz
         !
         pres = gm1 * (rhoe - half*rho*q2)
         temp = pres*rho_inv*rgas_inv
         !
-        tvold(n,nec) = temp
-        tvold(n,nmx) = velx
-        tvold(n,nmy) = vely
-        tvold(n,nmz) = velz
-        tvold(n,nee) = pres
-        tvold(n,nq+1) = sqrt(q2)
+        vold(n,nec) = temp
+        vold(n,nmx) = velx
+        vold(n,nmy) = vely
+        vold(n,nmz) = velz
+        vold(n,nee) = pres
+        vold(n,nq+1) = sqrt(q2)
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP PRESENT(tvold)
+      !$ACC PARALLEL LOOP PRESENT(vold)
       do n = 1,n_solpts
         !
-        rho = tvold(n,nec)
+        rho = vold(n,nec)
         !
         rho_inv = one/rho
         !
-        velx = tvold(n,nmx)*rho_inv
-        vely = tvold(n,nmy)*rho_inv
-        rhoe = tvold(n,nee)
+        velx = vold(n,nmx)*rho_inv
+        vely = vold(n,nmy)*rho_inv
+        rhoe = vold(n,nee)
         !
         q2 = velx*velx + vely*vely
         !
         pres = gm1 * (rhoe - half*rho*q2)
         temp = pres*rho_inv*rgas_inv
         !
-        tvold(n,nec) = temp
-        tvold(n,nmx) = velx
-        tvold(n,nmy) = vely
-        tvold(n,nee) = pres
-        tvold(n,nq+1) = sqrt(q2)
+        vold(n,nec) = temp
+        vold(n,nmx) = velx
+        vold(n,nmy) = vely
+        vold(n,nee) = pres
+        vold(n,nq+1) = sqrt(q2)
         !
       end do
     else
-      !$ACC PARALLEL LOOP PRESENT(tvold)
+      !$ACC PARALLEL LOOP PRESENT(vold)
       do n = 1,n_solpts
         !
-        rho = tvold(n,nec)
+        rho = vold(n,nec)
         !
         rho_inv = one/rho
         !
-        velx = tvold(n,nmx)*rho_inv
-        rhoe = tvold(n,nee)
+        velx = vold(n,nmx)*rho_inv
+        rhoe = vold(n,nee)
         !
         q2 = velx*velx
         !
         pres = gm1 * (rhoe - half*rho*q2)
         temp = pres*rho_inv*rgas_inv
         !
-        tvold(n,nec) = temp
-        tvold(n,nmx) = velx
-        tvold(n,nee) = pres
-        tvold(n,nq+1) = sqrt(q2)
+        vold(n,nec) = temp
+        vold(n,nmx) = velx
+        vold(n,nee) = pres
+        vold(n,nq+1) = sqrt(q2)
         !
       end do
     end if
