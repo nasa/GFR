@@ -6666,6 +6666,7 @@ subroutine write_parallel_cgns_grid_file()
   !.. Use Statements ..
   use geovar, only : nr,n_solpts,xyz
   use ovar,   only : profile_io_cgns,profile_io_cgns_subs
+  use ovar,   only : grid_scaling_factor
   !
   !.. Local Scalars ..
   integer :: n,ierr
@@ -6790,7 +6791,7 @@ continue
     !
     call interpolate_for_output( xyz(n,1:n_solpts) , vartmp )
     !
-    var(:) = real( vartmp , kind(var) )
+    var(:) = real( vartmp/grid_scaling_factor , kind(var) )
     !
     ! Reset the queue.
     !
