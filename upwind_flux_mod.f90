@@ -108,11 +108,6 @@ subroutine roe_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
   !.. Use Statements ..
   use ovar, only : gam
   !
-  use eqn_idx, only : aux_gamma,aux_enthalpy
-  use eqn_idx, only : aux_var_is_not_gamma
-  use eqn_idx, only : aux_var_is_not_enthalpy
-  use eqn_idx, only : set_auxiliary_variable
-  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
@@ -165,15 +160,12 @@ continue
       !
       ! Move gamma into the auxiliary gas property variable spot
       !
-      if ( aux_var_is_not_gamma() ) then
-        !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
-        do i = 1,2
-          do n = n1,n2
-            face_gp(n,ngamm,i) = gam
-          end do
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
+      do i = 1,2
+        do n = n1,n2
+          face_gp(n,ngamm,i) = gam
         end do
-        call set_auxiliary_variable(aux_gamma)
-      end if
+      end do
       !
     end if
     !
@@ -217,10 +209,6 @@ subroutine hllc_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
   !.. Use Statements ..
   use ovar, only : gam
   !
-  use eqn_idx, only : aux_gamma
-  use eqn_idx, only : aux_var_is_not_gamma
-  use eqn_idx, only : set_auxiliary_variable
-  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
@@ -237,14 +225,13 @@ continue
   !
   nr = size(facenrm,dim=1)
   !
-  if ( aux_var_is_not_gamma() ) then
+  if (ncs == 0) then
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
     do i = 1,2
       do n = n1,n2
         face_gp(n,ngamm,i) = gam
       end do
     end do
-    call set_auxiliary_variable(aux_gamma)
   end if
   !
   if (nr == 3) then
@@ -268,11 +255,6 @@ subroutine ldfss_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
   !
   !.. Use Statements ..
   use ovar, only : gam
-  !
-  use eqn_idx, only : aux_gamma,aux_enthalpy
-  use eqn_idx, only : aux_var_is_not_gamma
-  use eqn_idx, only : aux_var_is_not_enthalpy
-  use eqn_idx, only : set_auxiliary_variable
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -301,14 +283,13 @@ continue
     !
     ! Move gamma into the auxiliary gas property variable spot
     !
-    if ( aux_var_is_not_gamma() ) then
+    if (ncs == 0) then
       !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
       do i = 1,2
         do n = n1,n2
           face_gp(n,ngamm,i) = gam
         end do
       end do
-      call set_auxiliary_variable(aux_gamma)
     end if
     !
     ! Compute the common speed of sound and store in lflux
@@ -332,7 +313,7 @@ continue
     !
     ! Move enthalpy into the auxiliary gas property variable spot
     !
-    if ( aux_var_is_not_enthalpy() ) then
+    if (ncs == 0) then
       gam_over_gm1 = gam / (gam - one)
       !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
       do i = 1,2
@@ -340,7 +321,6 @@ continue
           face_gp(n,nenth,i) = gam_over_gm1*face_gp(n,npres,i)/face_cv(n,nec,i)
         end do
       end do
-      call set_auxiliary_variable(aux_enthalpy)
     end if
     !
     ! Compute the upwind flux using LDFSS

@@ -7999,10 +7999,6 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use ovar,    only : Limiter_Option
   use flowvar, only : dtsp
   !
-  use eqn_idx, only : aux_gamma
-  use eqn_idx, only : aux_var_is_not_gamma
-  use eqn_idx, only : set_auxiliary_variable
-  !
   use metrics_mod, only : time_metrics,metrics_array,jac
   !
   use module_limiters, only : marker,scaled_marker
@@ -8070,11 +8066,10 @@ continue
     !
     case ("Mach","P0","T0")
       !
-      if ( aux_var_is_not_gamma() ) then
+      if (ncs == 0) then
         do n = 1,npts
           gp(n,ngamm) = gam
         end do
-        call set_auxiliary_variable(aux_gamma)
       end if
       !
       if (nr == 3) then
@@ -8515,11 +8510,10 @@ continue
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
-      if ( aux_var_is_not_gamma() ) then
+      if (ncs == 0) then
         do n = 1,npts
           gp(n,ngamm) = gam
         end do
-        call set_auxiliary_variable(aux_gamma)
       end if
       !
       if (itestcase == Inviscid_Gaussian_Bump) then
