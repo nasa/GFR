@@ -325,6 +325,8 @@ continue
   !
   call write_bc_conditions(ibc_beg=1,ibc_end=ubound(bc_in,dim=1), &
                            dimensional=true)
+  call write_bc_conditions(ibc_beg=1,ibc_end=ubound(bc_in,dim=1), &
+                           dimensional=fals)
   !
   ! Output the free-stream conditions
   !
