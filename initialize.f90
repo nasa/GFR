@@ -2444,6 +2444,12 @@ continue
           bface(1,nf) = bc_input(n)%set_bc_value
         end if
         !
+        ! Save the boundary condition type to bc_in
+        !
+        if (bc_in(i)%bc_type == bc_unknown) then
+          bc_in(i)%bc_type = bface(1,nf)
+        end if
+        !
       end if
       !
     end do bface_loop
@@ -2625,18 +2631,23 @@ continue
         write (iout,1) trim(adjustl(cdim))
         !
       else
-        !
-        bc_type_loop: do nf = 1,size(bface,dim=2)
-          if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) then
-            cycle bc_type_loop
-          end if
-          if (bface(6,nf) == this_bc) then
-            bc_type = bface(1,nf)
-            exit bc_type_loop
-          end if
-        end do bc_type_loop
+       !!
+       !! FOR MULTIPLE MPI PROCESSES, THERE IS NO GUARANTEE THAT THE
+       !! THE GLOBAL ROOT PROCESS WILL HAVE A BOUNDARY FACE SUCH THAT
+       !!    bface(1,nf) == this_bc
+       !!
+       !bc_type_loop: do nf = 1,size(bface,dim=2)
+       !  if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) then
+       !    cycle bc_type_loop
+       !  end if
+       !  if (bface(6,nf) == this_bc) then
+       !    bc_type = bface(1,nf)
+       !    exit bc_type_loop
+       !  end if
+       !end do bc_type_loop
         !
         bc_idx = bc_in(this_bc)%bc_input_idx
+        bc_type = bc_in(this_bc)%bc_type
         !
         write (iout,2) trim(adjustl(cdim)), this_bc, &
                        trim(adjustl(bc_input(bc_idx)%name)), &
