@@ -10221,6 +10221,205 @@ end subroutine interpolate_for_output_3d
 !
 !###############################################################################
 !
+subroutine compute_dmatrix_grad_temperature(dtdx)
+  !
+  !.. Use Statements
+  use geovar,            only : nr,n_solpts,ncell,cell
+  use order_mod,         only : n_order,t_order,geom_solpts
+  use metrics_mod,       only : metrics_array
+  use interpolation_mod, only : interp
+  use derivatives_mod,   only : deriv
+  use projection_mod,    only : projct
+  use flowvar,           only : usp,gpsp
+  !
+  use thermo_mod, only : update_thermo_properties
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: dtdx(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,l,m,n,nc,np,n0
+  integer  :: this_geom,this_order
+  integer  :: nqp,num_qpts,q0,ierr
+  real(wp) :: a,t,val
+  !
+  !.. Local Arrays ..
+  real(wp) :: dtdi(1:3)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: cv_qp(:,:)
+  real(wp), allocatable :: gp_qp(:,:)
+  real(wp), allocatable :: temp(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_dmatrix_grad_temperature"
+  !
+continue
+  !
+  allocate ( temp(1:n_solpts) , source=zero , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  if (t_order <= n_order) then
+    !
+    do n = 1,n_solpts
+      temp(n) = gpsp(n,ntemp)
+    end do
+    !
+  else
+    !
+    ! 1. Interpolate conserved variables to quadrature points and compute
+    !    temperature at quadrature points
+    !
+    nqp = geom_solpts(cell(1)%geom,t_order)
+    num_qpts = ncell*nqp
+    !
+    allocate ( cv_qp(1:num_qpts,1:nq) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cv_qp",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( gp_qp(1:num_qpts,1:ng) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"gp_qp",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    !
+    !
+    q0 = 0
+    !
+    do nc = 1,ncell
+      !
+      n0 = cell(nc)%beg_sp - 1
+      !
+      this_geom = cell(nc)%geom   ! geometry type of this cell
+      this_order = cell(nc)%order ! solution order of this cell
+      !
+      ! Now interpolate the conserved variables from the solution points
+      ! to the quadrature points
+      !
+      do n = 1,nqp
+        do m = 1,nq
+          !
+          val = zero
+          !
+          do i = interp(this_geom,this_order)%toCell(t_order)%col_ptr(n)+1, &
+                 interp(this_geom,this_order)%toCell(t_order)%col_ptr(n+1)
+            !
+            j = interp(this_geom,this_order)%toCell(t_order)%col_idx(i)
+            a = interp(this_geom,this_order)%toCell(t_order)%col_val(i)
+            !
+            val = val + a * usp(n0+j,m)
+            !
+          end do
+          !
+          cv_qp(q0+n,m) = val
+          !
+        end do
+        !
+      end do
+      !
+      q0 = q0 + nqp
+      !
+    end do
+    !
+    call update_thermo_properties(1,num_qpts,cv_qp,gp_qp)
+    !
+    if (allocated(cv_qp)) then
+      deallocate ( cv_qp , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"cv_qp",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    ! 2. Project temperature at quadrature points to solution order polynomial
+    !    at solution points
+    !
+    q0 = 0
+    !
+    do nc = 1,ncell
+      !
+      n0 = cell(nc)%beg_sp - 1
+      np = cell(nc)%end_sp - n0
+      !
+      this_geom = cell(nc)%geom   ! geometry type of this cell
+      this_order = cell(nc)%order ! solution order of this cell
+      !
+      ! Now interpolate the derivatives of the conserved variables
+      ! from the solution points to the quadrature points
+      !
+      do n = 1,np
+        !
+        t = zero
+        !
+        do i = projct(this_geom,this_order)%CellOI(t_order)%row_ptr(n)+1, &
+               projct(this_geom,this_order)%CellOI(t_order)%row_ptr(n+1)
+          !
+          j = projct(this_geom,this_order)%CellOI(t_order)%row_idx(i)
+          a = projct(this_geom,this_order)%CellOI(t_order)%row_val(i)
+          !
+          t = t + a * gp_qp(q0+j,ntemp)
+          !
+        end do
+        !
+        temp(n0+n) = t
+        !
+      end do
+      !
+      q0 = q0 + nqp
+      !
+    end do
+    !
+    if (allocated(gp_qp)) then
+      deallocate ( gp_qp , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"gp_qp",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+  end if
+  !
+  ! 4. Use derivative matrices to compute gradient of temperature 
+  !    in computation space
+  !
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp-1  ! beginning index for solpts in cell nc
+    np = cell(nc)%end_sp-n0 ! number of solution points in this cell
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    ! Compute the gradient of the conservative variables at each solution point
+    !
+    do n = 1,np
+      !
+      do l = 1,nr
+        !
+        dtdi(l) = zero
+        !
+        do i = deriv(this_geom,this_order)%d(l)%row_ptr(n)+1, &
+               deriv(this_geom,this_order)%d(l)%row_ptr(n+1)
+          !
+          j = deriv(this_geom,this_order)%d(l)%row_idx(i)
+          a = deriv(this_geom,this_order)%d(l)%row_val(i)
+          !
+          dtdi(l) = dtdi(l) + a * temp(n0+j)
+          !
+        end do
+        !
+      end do
+      !
+      do l = 1,nr
+        dtdx(n0+n,l) = dot( dtdi(1:nr) , metrics_array(n0+n,1:nr,l) )
+      end do
+      !
+    end do
+    !
+  end do
+  !
+  if (allocated(temp)) then
+    deallocate ( temp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"temp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+end subroutine compute_dmatrix_grad_temperature
+!
+!###############################################################################
+!
 include "Functions/last.f90"
 include "Functions/bc_priority.f90"
 include "Functions/cell_vol.f90"
