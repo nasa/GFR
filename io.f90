@@ -6916,12 +6916,14 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   use ovar,    only : itestcase,governing_equations
   use ovar,    only : profile_io_cgns,profile_io_cgns_subs
   use ovar,    only : max_wall_time => max_cgns_wall_time
-  use flowvar, only : usp,gpsp,dusp
+  use flowvar, only : usp,dusp,gpsp
   !
   use metrics_mod, only : time_metrics
   !
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
+  !
+  use flux_mod, only : discontinuous_gradient_at_solpts
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: sol_file
@@ -7018,6 +7020,10 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   real(wp),  allocatable :: interp_usp(:,:)
   real(wp),  allocatable :: interp_gpsp(:,:)
   real(wp),  allocatable :: interp_dusp(:,:,:)
+  real(wp),  allocatable :: dusp_copy(:,:,:)
+  !
+ !logical(lk), parameter :: output_discontinuous_gradients = true
+  logical(lk), parameter :: output_discontinuous_gradients = fals
   !
 continue
   !
@@ -7226,7 +7232,34 @@ continue
   call interpolate_for_output( usp , interp_usp )
   !
   if (allocated(dusp)) then
+    !
+    if (output_discontinuous_gradients) then
+      !
+      ! Calling discontinuous_gradient_at_solpts will replace the
+      ! contents of dusp with the discontinuous gradient, so save
+      ! the contents of dusp in dusp_copy.
+      !
+      dusp_copy = dusp ! F2003 AUTOMATIC-REALLOCATION
+      !
+      call discontinuous_gradient_at_solpts()
+      !
+    end if
+    !
     call interpolate_for_output( dusp , interp_dusp )
+    !
+    if (output_discontinuous_gradients) then
+      !
+      ! Now that we have the discontinuous gradients in interp_dusp,
+      ! copy the original contents of dusp that were saved in dusp_copy
+      ! back into dusp, then deallocate dusp_copy.
+      !
+      dusp(:,:,:) = dusp_copy(:,:,:)
+      !
+      deallocate ( dusp_copy , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"dusp_copy",2,__LINE__,__FILE__,ierr,error_message)
+      !
+    end if
+    !
   end if
   !
   if (check_gradients) then

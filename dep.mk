@@ -302,6 +302,7 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/limiters.o \
        $(OBJDIR)/thermo_mod.o \
        $(OBJDIR)/transport_mod.o \
+       $(OBJDIR)/flux.o \
        $(FUNDIR)/last.f90 \
        $(FUNDIR)/bc_priority.f90 \
        $(FUNDIR)/cell_vol.f90 \
