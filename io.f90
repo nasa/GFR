@@ -7010,6 +7010,51 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
  !                                                     "Pressure ", &
  !                                                     "Vorticity" ]
   !
+  ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
+  !
+  character(len=*), parameter :: var_order(1:42) = ["Density             ", &
+                                                    "Momentum            ", &
+                                                    "Energy              ", &
+                                                    "Velocity            ", &
+                                                    "Pressure            ", &
+                                                    "Temperature         ", &
+                                                    "Mach                ", &
+                                                    "MassFractions       ", &
+                                                    "SpeciesDensities    ", &
+                                                    "Enthalpy            ", &
+                                                    "Cp                  ", &
+                                                    "Entropy             ", &
+                                                    "P0                  ", &
+                                                    "T0                  ", &
+                                                    "H0                  ", &
+                                                    "Viscosity           ", &
+                                                    "Conductivity        ", &
+                                                    "Prandtl             ", &
+                                                    "Gamma               ", &
+                                                    "Rgas                ", &
+                                                    "SpeciesEnthalpy     ", &
+                                                    "SpeciesCp           ", &
+                                                    "cpi/R               ", &
+                                                    "hi/RT               ", &
+                                                    "hi/R                ", &
+                                                    "GradSpeciesDensities", &
+                                                    "GradDensity         ", &
+                                                    "GradMomentum        ", &
+                                                    "GradEnergy          ", &
+                                                    "GradMassFractions   ", &
+                                                    "GradVelocity        ", &
+                                                    "Vorticity           ", &
+                                                    "GradTemperature     ", &
+                                                    "ResolutionMarker    ", &
+                                                    "JumpMarker          ", &
+                                                    "Timestep            ", &
+                                                    "Partition           ", &
+                                                    "ContraMetrics       ", &
+                                                    "TimeMetrics         ", &
+                                                    "dTdx_Breakdown      ", &
+                                                    "DmatTemperature     ", &
+                                                    "CoMetrics           "]
+  !
   !.. Local Scalars ..
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
   !
