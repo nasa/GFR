@@ -2,7 +2,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/kind_types.o \
          $(OBJDIR)/eqn_idx_mod.o \
          $(OBJDIR)/pbs_mod.o \
-	 $(OBJDIR)/order_mod.o \
+         $(OBJDIR)/order_mod.o \
          $(OBJDIR)/geovar_mod.o \
          $(OBJDIR)/ovar_mod.o \
          $(OBJDIR)/flowvar_mod.o \
@@ -399,7 +399,7 @@ $(OBJDIR)/octedat_facexyz_mod.o : octedat_facexyz_mod.f90 \
                         $(OBJDIR)/geovar_mod.o \
                         $(OBJDIR)/flowvar_mod.o \
                         $(OBJDIR)/octedat_mod.o \
-			$(OBJDIR)/octstat_mod.o
+                        $(OBJDIR)/octstat_mod.o
 
 $(OBJDIR)/octedat_mod.o : octedat_mod.f90 \
                 $(OBJDIR)/kind_types.o \
@@ -592,7 +592,8 @@ $(OBJDIR)/bc_adiabatic_wall_mod.o : $(BCDIR)/bc_adiabatic_wall_mod.f90 \
                           $(OBJDIR)/eqn_idx_mod.o \
                           $(OBJDIR)/ovar_mod.o \
                           $(OBJDIR)/gpu_mod.o \
-                          $(OBJDIR)/thermo_mod.o
+                          $(OBJDIR)/thermo_mod.o \
+                          $(OBJDIR)/bc_relax_mod.o
 
 $(OBJDIR)/bc_fixed_mod.o : $(BCDIR)/bc_fixed_mod.f90 \
                  $(OBJDIR)/kind_types.o \
