@@ -339,39 +339,13 @@ continue
   !
   ! Output the free-stream conditions
   !
+  call old_output_freestream_conditions
+  !
 !!block
 !!  !
-!!  use ovar, only : pref,tref,gam,rgasref,cpref
-!!  use ovar, only : machref,velref,uref,muref,reyref
-!!  use ovar, only : alpha_aoaref,beta_aoaref
-!!  use ovar, only : pref_nd,velref_nd,muref_nd
-!!  use ovar, only : rgasref_nd,cpref_nd
 !!  use gpu_mod, only : cv2pv_gpu
 !!  integer :: io,n,m
 !!  real(wp), allocatable :: vsp(:,:)
-!!  !
-!!  if (mypnum == glb_root) then
-!!    if (all(itestcase /= [Density_Transport,Entropy_Transport])) then
-!!      !
-!!      write (iout,10) rhoref,pref,tref,machref,aref,velref(1)
-!!      if (nr >= 2) write (iout,11) velref(2)
-!!      if (nr == 3) write (iout,12) velref(3)
-!!      write (iout,13) alpha_aoaref,beta_aoaref,gam,rgasref,cpref,muref,reyref
-!!      !
-!!      write (iout,20) rhoref/rhoref,pref_nd,tref/tref,aref/aref,velref_nd(1)
-!!      if (nr >= 2) write (iout,21) velref_nd(2)
-!!      if (nr == 3) write (iout,22) velref_nd(3)
-!!      write (iout,23) rgasref_nd,cpref_nd,muref_nd
-!!      !
-!!    else
-!!      !
-!!      write (iout,30) rhoref,pref,tref,machref,uref/machref, &
-!!                      velref(1),velref(2),alpha_aoaref,beta_aoaref,gam, &
-!!                      rgasref,muref,reyref
-!!      !
-!!    end if
-!!    !
-!!  end if
 !!  !
 !!  open (newunit=io,file="usp.init.dat",status="replace",action="write")
 !!  do n = 1,n_solpts
@@ -427,55 +401,96 @@ continue
   ! Format Statements
   !
   1 format ("outerp_inv(",a,",",i0,")%mat")
-!!!
-!!10 format (/, &
-!!           " Dimensional Free-stream conditions",/, &
-!!           " Density          = ",es14.6," kg/m^3",/, &
-!!           " Pressure         = ",es14.6," N/m^2",/, &
-!!           " Temperature      = ",es14.6," K",/, &
-!!           " Mach Number      = ",es14.6,/, &
-!!           " Speed of Sound   = ",es14.6," m/s",/, &
-!!           " X-Velocity       = ",es14.6," m/s")
-!!11 format (" Y-Velocity       = ",es14.6," m/s")
-!!12 format (" Z-Velocity       = ",es14.6," m/s")
-!!13 format (" Alpha A.o.Attack = ",es14.6," degrees"/, &
-!!           " Beta  A.o.Attack = ",es14.6," degrees"/, &
-!!           " Gamma            = ",es14.6,/, &
-!!           " Gas Constant     = ",es14.6," J/(kg*K)",/, &
-!!           " Cp               = ",es14.6," J/(kg*K)",/, &
-!!           " Viscosity        = ",es14.6," kg/(m*s)",/, &
-!!           " Reynolds #       = ",es14.6,/)
-!!!
-!!20 format (/, &
-!!           " Non-dimensional Free-stream conditions",/, &
-!!           " Density         = ",es14.6,/, &
-!!           " Pressure        = ",es14.6,/, &
-!!           " Temperature     = ",es14.6,/, &
-!!           " Speed of Sound  = ",es14.6,/, &
-!!           " X-Velocity      = ",es14.6)
-!!21 format (" Y-Velocity      = ",es14.6)
-!!22 format (" Z-Velocity      = ",es14.6)
-!!23 format (" Gas Constant    = ",es14.6,/, &
-!!           " Cp              = ",es14.6,/, &
-!!           " Viscosity       = ",es14.6,/)
-!!!
-!!30 format (/, &
-!!           " The density vortex transport problem is being",/, &
-!!           " used to model the linear 2D advection equation.",//, &
-!!           " The Non-dimensional Free-stream conditions are",/, &
-!!           " Density          = ",es14.6,/, &
-!!           " Pressure         = ",es14.6,/, &
-!!           " Temperature      = ",es14.6,/, &
-!!           " Mach Number      = ",es14.6,/, &
-!!           " Speed of Sound   = ",es14.6,/, &
-!!           " X-Velocity       = ",es14.6,/, &
-!!           " Y-Velocity       = ",es14.6,/, &
-!!           " Alpha A.o.Attack = ",es14.6," degrees"/, &
-!!           " Beta  A.o.Attack = ",es14.6," degrees"/, &
-!!           " Gamma            = ",es14.6,/, &
-!!           " Gas Constant     = ",es14.6,/)
   !
 end subroutine initialize_flow
+!
+!###############################################################################
+!
+subroutine old_output_freestream_conditions
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : itestcase
+  use ovar,   only : rhoref,aref
+  use ovar,   only : pref,tref,gam,rgasref,cpref
+  use ovar,   only : machref,velref,uref,muref,reyref
+  use ovar,   only : alpha_aoaref,beta_aoaref
+  use ovar,   only : pref_nd,velref_nd,muref_nd
+  use ovar,   only : rgasref_nd,cpref_nd
+  !
+continue
+  !
+  if (mypnum == glb_root) then
+    if (all(itestcase /= [Density_Transport,Entropy_Transport])) then
+      !
+      write (iout,10) rhoref,pref,tref,machref,aref,velref(1)
+      if (nr >= 2) write (iout,11) velref(2)
+      if (nr == 3) write (iout,12) velref(3)
+      write (iout,13) alpha_aoaref,beta_aoaref,gam,rgasref,cpref,muref,reyref
+      !
+      write (iout,20) rhoref/rhoref,pref_nd,tref/tref,aref/aref,velref_nd(1)
+      if (nr >= 2) write (iout,21) velref_nd(2)
+      if (nr == 3) write (iout,22) velref_nd(3)
+      write (iout,23) rgasref_nd,cpref_nd,muref_nd
+      !
+    else
+      !
+      write (iout,30) rhoref,pref,tref,machref,uref/machref, &
+                      velref(1),velref(2),alpha_aoaref,beta_aoaref,gam, &
+                      rgasref,muref,reyref
+      !
+    end if
+    !
+  end if
+  !
+  10 format (/, &
+             " Dimensional Free-stream conditions",/, &
+             " Density          = ",es14.6," kg/m^3",/, &
+             " Pressure         = ",es14.6," N/m^2",/, &
+             " Temperature      = ",es14.6," K",/, &
+             " Mach Number      = ",es14.6,/, &
+             " Speed of Sound   = ",es14.6," m/s",/, &
+             " X-Velocity       = ",es14.6," m/s")
+  11 format (" Y-Velocity       = ",es14.6," m/s")
+  12 format (" Z-Velocity       = ",es14.6," m/s")
+  13 format (" Alpha A.o.Attack = ",es14.6," degrees"/, &
+             " Beta  A.o.Attack = ",es14.6," degrees"/, &
+             " Gamma            = ",es14.6,/, &
+             " Gas Constant     = ",es14.6," J/(kg*K)",/, &
+             " Cp               = ",es14.6," J/(kg*K)",/, &
+             " Viscosity        = ",es14.6," kg/(m*s)",/, &
+             " Reynolds #       = ",es14.6,/)
+  !
+  20 format (/, &
+             " Non-dimensional Free-stream conditions",/, &
+             " Density         = ",es14.6,/, &
+             " Pressure        = ",es14.6,/, &
+             " Temperature     = ",es14.6,/, &
+             " Speed of Sound  = ",es14.6,/, &
+             " X-Velocity      = ",es14.6)
+  21 format (" Y-Velocity      = ",es14.6)
+  22 format (" Z-Velocity      = ",es14.6)
+  23 format (" Gas Constant    = ",es14.6,/, &
+             " Cp              = ",es14.6,/, &
+             " Viscosity       = ",es14.6,/)
+  !
+  30 format (/, &
+             " The density vortex transport problem is being",/, &
+             " used to model the linear 2D advection equation.",//, &
+             " The Non-dimensional Free-stream conditions are",/, &
+             " Density          = ",es14.6,/, &
+             " Pressure         = ",es14.6,/, &
+             " Temperature      = ",es14.6,/, &
+             " Mach Number      = ",es14.6,/, &
+             " Speed of Sound   = ",es14.6,/, &
+             " X-Velocity       = ",es14.6,/, &
+             " Y-Velocity       = ",es14.6,/, &
+             " Alpha A.o.Attack = ",es14.6," degrees"/, &
+             " Beta  A.o.Attack = ",es14.6," degrees"/, &
+             " Gamma            = ",es14.6,/, &
+             " Gas Constant     = ",es14.6,/)
+  !
+end subroutine old_output_freestream_conditions
 !
 !###############################################################################
 !
