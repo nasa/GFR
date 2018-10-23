@@ -7126,14 +7126,60 @@ continue
 #ifdef SPECIAL_FOR_INTEL
   char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
   if (need_vorticity) then
-    n = max( len("Vorticity") , len(char_sdefault) )
+    n = max( len("Vorticity") , len(char_sname) )
     ! USING F2003 AUTO-REALLOCATION
     char_sname = [ character(len=n) :: char_sname , "Vorticity" ]
   end if
   if (need_entropy) then
-    n = max( len("Entropy") , len(char_sdefault) )
+    n = max( len("Entropy") , len(char_sname) )
     ! USING F2003 AUTO-REALLOCATION
     char_sname = [ character(len=n) :: char_sname , "Entropy" ]
+  end if
+  if (ncs > 0) then
+    n = max( len("SpeciesDensities") , len(char_sname) )
+    ! USING F2003 AUTO-REALLOCATION
+    char_sname = [ character(len=n) :: char_sname , &
+                                       "MassFractions", &
+                                       "SpeciesDensities", &
+                                       "Enthalpy", &
+                                       "H0", &
+                                       "Gamma", &
+                                       "Cp", &
+                                       "Rgas"]
+   !n = max( len("dTdx_Breakdown") , len(char_sname) )
+   !! USING F2003 AUTO-REALLOCATION
+   !char_sname = [ character(len=n) :: char_sname , &
+   !                                   "dTdx_Breakdown"]
+   !n = max( len("GradSpeciesDensities") , len(char_sname) )
+   !! USING F2003 AUTO-REALLOCATION
+   !char_sname = [ character(len=n) :: char_sname , &
+   !                                   "GradMassFractions", &
+   !                                   "GradSpeciesDensities", &
+   !                                   "Momentum", &
+   !                                   "Energy", &
+   !                                   "GradDensity", &
+   !                                   "GradMomentum", &
+   !                                   "GradEnergy", &
+   !                                   "GradVelocity", &
+   !                                   "GradTemperature", &
+   !                                   "P0", &
+   !                                   "T0", &
+   !                                   "SpeciesEnthalpy", &
+   !                                   "SpeciesCp", &
+   !                                   "hi/RT", &
+   !                                   "hi/R", &
+   !                                   "cpi/R"]
+  end if
+  if (governing_equations == NavierStokes_Eqns) then
+    n = max( len("Conductivity") , len(char_sname) )
+    ! USING F2003 AUTO-REALLOCATION
+    char_sname = [ character(len=n) :: char_sname , &
+                                       "Viscosity", &
+                                       "Conductivity" ]
+    if (ncs > 0) then
+      char_sname = [ character(len=n) :: char_sname , &
+                                         "Prandtl" ]
+    end if
   end if
 #else
   char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
@@ -7144,6 +7190,24 @@ continue
   if (need_entropy) then
     ! USING F2003 AUTO-REALLOCATION
     char_sname = [ char_sname , "Entropy" ]
+  end if
+  if (ncs > 0) then
+    ! USING F2003 AUTO-REALLOCATION
+    char_sname = [ char_sname , "MassFractions" ]
+    char_sname = [ char_sname , "SpeciesDensities" ]
+    char_sname = [ char_sname , "Enthalpy" ]
+    char_sname = [ char_sname , "H0" ]
+    char_sname = [ char_sname , "Gamma" ]
+    char_sname = [ char_sname , "Cp" ]
+    char_sname = [ char_sname , "Rgas" ]
+  end if
+  if (governing_equations == NavierStokes_Eqns) then
+    ! USING F2003 AUTO-REALLOCATION
+    char_sname = [ char_sname , "Viscosity" ]
+    char_sname = [ char_sname , "Conductivity" ]
+    if (ncs > 0) then
+      char_sname = [ char_sname , "Prandtl" ]
+    end if
   end if
 #endif
   !
