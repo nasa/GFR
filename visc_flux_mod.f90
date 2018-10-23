@@ -633,8 +633,9 @@ end function normal_visc_flx_cv
 !
 !###############################################################################
 !
-pure subroutine visc_wall_flx_gpu(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
-                                  return_value)
+pure &
+subroutine visc_wall_flx_gpu(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
+                             return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -815,8 +816,9 @@ end subroutine visc_wall_flx_gpu_3d
 !
 !###############################################################################
 !
-pure subroutine visc_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
-                                     return_value)
+pure &
+subroutine visc_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
+                                return_value)
   !
   !.. Use Statements ..
   use ovar,       only : schmidt_lam
