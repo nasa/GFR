@@ -249,7 +249,7 @@ subroutine read_nml_input_file(input_fname,input_mode)
   !
   !.. Use Statements ..
   use order_mod, only : initialize_geom_solpts
-  use order_mod, only : n_order,p_order,q_order,o_order,e_order
+  use order_mod, only : n_order,p_order,q_order,o_order,e_order,t_order
   !
   use geovar, only : nr,using_quadrature,xyz_nodes
   !
@@ -420,6 +420,7 @@ continue
   q_order = quadrature_order
   o_order = output_order
   e_order = error_order
+  t_order = max(n_order,dmat_grad_temp_order)
   !
   ! Allow for the use of the variable all_points to make
   ! loc_solution_pts, loc_flux_pts, and loc_quadrature_pts all the same value
