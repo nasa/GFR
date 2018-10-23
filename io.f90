@@ -7670,10 +7670,19 @@ continue
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"interp_gpsp",1,__LINE__,__FILE__,ierr,error_message)
     !
-    if (allocated(gpsp)) then
-      call update_thermo_properties(1,npts,interp_usp,interp_gpsp)
-      call update_transport_properties(1,npts,interp_usp,interp_gpsp)
-    end if
+    ! Initialize interp_gpsp to the interpolated values of gpsp
+    ! Interpolate the values in gpsp to initialize interp_gpsp. We need to
+    ! initialize the temperature in interp_gpsp in case this is for a
+    ! thermally perfect gas mixture which needs an initial guess for
+    ! temperature when performing the Newton solve for temperature.
+    !
+    call interpolate_for_output( gpsp , interp_gpsp )
+    !
+    ! Now actually compute the updated thermodynamic and transport properties
+    ! based on the interpolated values of the conserved variables.
+    !
+    call update_thermo_properties(1,npts,interp_usp,interp_gpsp)
+    call update_transport_properties(1,npts,interp_usp,interp_gpsp)
     !
     ! Now create the output data and write it to the CGNS file in parallel
     !
