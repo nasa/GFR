@@ -4,7 +4,7 @@ module generic_mod
   !
   use module_kind_types, global_debug_timer => debug_timer
   use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
-  use eqn_idx, only : ncs,ncb,nce,npres
+  use eqn_idx, only : ncs,ncb,nce,npres,ntemp,ngamm
   !
   implicit none
   !
@@ -603,7 +603,7 @@ subroutine get_unew_solpts_gpu(unew)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use flowvar, only : usp,uavesp
+  use flowvar, only : usp,uavesp,gpsp
   use ovar,    only : itestcase,pref_nd,gam
   use ovar,    only : output_time_averaging
   !
@@ -612,8 +612,7 @@ subroutine get_unew_solpts_gpu(unew)
   !
   !.. Local Scalars ..
   integer  :: m,n,nr
-  real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2
-  real(wp) :: gm1,gm1_over_pref_nd,pres
+  real(wp) :: rho,pres,gamm
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_unew_solpts_gpu"
@@ -623,8 +622,6 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   nr = nme-nmb+1
-  !
-  gm1 = gam - one
   !
   if (output_time_averaging) then
     !
@@ -684,111 +681,38 @@ continue
     !
   end if
   !
+  if (ncs == 0) then
+    !$ACC PARALLEL LOOP PRESENT(gpsp)
+    do n = 1,n_solpts
+      gpsp(n,ngamm) = gam
+    end do
+  end if
+  !
   if (itestcase == Inviscid_Gaussian_Bump) then
     !
-    gm1_over_pref_nd = gm1 / pref_nd
-    !
-    if (nr == 3) then
-      !$ACC PARALLEL LOOP PRESENT(unew)
-      do n = 1,n_solpts
-        !
-        rho  = unew(n,nec)
-        rhou = unew(n,nmx)
-        rhov = unew(n,nmy)
-        rhow = unew(n,nmz)
-        rhoe = unew(n,nee)
-        !
-        rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
-        !
-        pres = gm1_over_pref_nd * (rhoe - half*rhoq2/rho)
-        !
-        unew(n,nq+1) = pres / (rho**gam)
-        !
-      end do
-    else if (nr == 2) then
-      !$ACC PARALLEL LOOP PRESENT(unew)
-      do n = 1,n_solpts
-        !
-        rho  = unew(n,nec)
-        rhou = unew(n,nmx)
-        rhov = unew(n,nmy)
-        rhoe = unew(n,nee)
-        !
-        rhoq2 = rhou*rhou + rhov*rhov
-        !
-        pres = gm1_over_pref_nd * (rhoe - half*rhoq2/rho)
-        !
-        unew(n,nq+1) = pres / (rho**gam)
-        !
-      end do
-    else
-      !$ACC PARALLEL LOOP PRESENT(unew)
-      do n = 1,n_solpts
-        !
-        rho  = unew(n,nec)
-        rhou = unew(n,nmx)
-        rhoe = unew(n,nee)
-        !
-        rhoq2 = rhou*rhou
-        !
-        pres = gm1_over_pref_nd * (rhoe - half*rhoq2/rho)
-        !
-        unew(n,nq+1) = pres / (rho**gam)
-        !
-      end do
-    end if
+    !$ACC PARALLEL LOOP PRESENT(usp,gpsp,unew)
+    do n = 1,n_solpts
+      !
+      rho  = usp(n,nec)
+      pres = gpsp(n,npres)/pref_nd
+      gamm = gpsp(n,ngamm)
+      !
+      unew(n,nq+1) = pres / (rho**gamm)
+      !
+    end do
     !
   else
     !
-    if (nr == 3) then
-      !$ACC PARALLEL LOOP PRESENT(unew)
-      do n = 1,n_solpts
-        !
-        rho  = unew(n,nec)
-        rhou = unew(n,nmx)
-        rhov = unew(n,nmy)
-        rhow = unew(n,nmz)
-        rhoe = unew(n,nee)
-        !
-        rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
-        !
-        pres = gm1 * (rhoe - half*rhoq2/rho)
-        !
-        unew(n,nq+1) = log(pres) - gam*log(rho)
-        !
-      end do
-    else if (nr == 2) then
-      !$ACC PARALLEL LOOP PRESENT(unew)
-      do n = 1,n_solpts
-        !
-        rho  = unew(n,nec)
-        rhou = unew(n,nmx)
-        rhov = unew(n,nmy)
-        rhoe = unew(n,nee)
-        !
-        rhoq2 = rhou*rhou + rhov*rhov
-        !
-        pres = gm1 * (rhoe - half*rhoq2/rho)
-        !
-        unew(n,nq+1) = log(pres) - gam*log(rho)
-        !
-      end do
-    else
-      !$ACC PARALLEL LOOP PRESENT(unew)
-      do n = 1,n_solpts
-        !
-        rho  = unew(n,nec)
-        rhou = unew(n,nmx)
-        rhoe = unew(n,nee)
-        !
-        rhoq2 = rhou*rhou
-        !
-        pres = gm1 * (rhoe - half*rhoq2/rho)
-        !
-        unew(n,nq+1) = log(pres) - gam*log(rho)
-        !
-      end do
-    end if
+    !$ACC PARALLEL LOOP PRESENT(usp,gpsp,unew)
+    do n = 1,n_solpts
+      !
+      rho = usp(n,nec)
+      pres = gpsp(n,npres)
+      gamm = gpsp(n,ngamm)
+      !
+      unew(n,nq+1) = log(pres) - gamm*log(rho)
+      !
+    end do
     !
   end if
   !
@@ -803,8 +727,8 @@ subroutine get_uold_solpts_gpu(uold)
   !.. Use Statements ..
   use ovar,    only : prev_ave_time,saved_ave_time,ave_start_time
   use ovar,    only : output_time_averaging,read_time_ave_restart
-  use ovar,    only : itcur,itrst,bc_in,itestcase,gam,mms_opt
-  use flowvar, only : usp,uoldsp,uavesp
+  use ovar,    only : itcur,itrst,bc_in,itestcase,mms_opt
+  use flowvar, only : usp,uoldsp,uavesp,gpoldsp
   use geovar,  only : n_solpts,xyz
   use mms_mod, only : mms_solution_at_xyz_gpu
   use gpu_mod, only : vortex_solution_gpu
@@ -814,8 +738,7 @@ subroutine get_uold_solpts_gpu(uold)
   !
   !.. Local Scalars ..
   integer     :: m,n,nr
-  real(wp)    :: a,b,gm1,pres,rhoq2
-  real(wp)    :: rho,rhou,rhov,rhow,rhoe
+  real(wp)    :: a,b,rho,pres,gamm
   logical(lk) :: use_uavesp
   !
   !.. Local Parameters ..
@@ -826,8 +749,6 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   nr = nme-nmb+1
-  !
-  gm1 = gam - one
   !
   if (mms_opt /= 0) then
     !
@@ -900,55 +821,16 @@ continue
     !
   else
     !
-    if (nr == 3) then
-      !$ACC PARALLEL LOOP PRESENT(uold)
-      do n = 1,n_solpts
-        !
-        rho  = uold(n,nec)
-        rhou = uold(n,nmx)
-        rhov = uold(n,nmy)
-        rhow = uold(n,nmz)
-        rhoe = uold(n,nee)
-        !
-        rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
-        !
-        pres = gm1 * (rhoe - half*rhoq2/rho)
-        !
-        uold(n,nq+1) = log(pres) - gam*log(rho)
-        !
-      end do
-    else if (nr == 2) then
-      !$ACC PARALLEL LOOP PRESENT(uold)
-      do n = 1,n_solpts
-        !
-        rho  = uold(n,nec)
-        rhou = uold(n,nmx)
-        rhov = uold(n,nmy)
-        rhoe = uold(n,nee)
-        !
-        rhoq2 = rhou*rhou + rhov*rhov
-        !
-        pres = gm1 * (rhoe - half*rhoq2/rho)
-        !
-        uold(n,nq+1) = log(pres) - gam*log(rho)
-        !
-      end do
-    else
-      !$ACC PARALLEL LOOP PRESENT(uold)
-      do n = 1,n_solpts
-        !
-        rho  = uold(n,nec)
-        rhou = uold(n,nmx)
-        rhoe = uold(n,nee)
-        !
-        rhoq2 = rhou*rhou
-        !
-        pres = gm1 * (rhoe - half*rhoq2/rho)
-        !
-        uold(n,nq+1) = log(pres) - gam*log(rho)
-        !
-      end do
-    end if
+    !$ACC PARALLEL LOOP PRESENT(uoldsp,gpoldsp,uold)
+    do n = 1,n_solpts
+      !
+      rho  = uoldsp(n,nec)
+      pres = gpoldsp(n,npres)
+      gamm = gpoldsp(n,ngamm)
+      !
+      uold(n,nq+1) = log(pres) - gamm*log(rho)
+      !
+    end do
     !
   end if
   !
@@ -962,8 +844,7 @@ subroutine get_vnew_solpts_gpu(vnew)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use flowvar, only : uavesp
-  use ovar,    only : gam,rgasref_nd
+  use flowvar, only : uavesp,gpsp
   use ovar,    only : output_time_averaging
   !
   !.. Formal Arguments ..
@@ -971,10 +852,7 @@ subroutine get_vnew_solpts_gpu(vnew)
   !
   !.. Local Scalars ..
   integer  :: m,n,nr
-  real(wp) :: velx,vely,velz,q2,rho,rho_inv
-  real(wp) :: rhoe,pres,temp,rgas_inv,gm1
-  !
-  real(wp) :: rhou,rhov,rhow,rhoq2,temp1,temp2
+  real(wp) :: velx,vely,velz,rho_inv,pres,temp
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_vnew_solpts_gpu"
@@ -984,8 +862,6 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   nr = nme-nmb+1
-  !
-  gm1 = gam - one
   !
   ! Get the primitive variables of the current solution at the error points
   !
@@ -1045,8 +921,6 @@ continue
     !
   else
     !
-    rgas_inv = one/rgasref_nd
-    !
     ! Need to first convert species densities to mass fractions
     ! before temperature is saved in the density location of vnew
     !
@@ -1060,75 +934,49 @@ continue
     end if
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP PRESENT(vnew)
+      !$ACC PARALLEL LOOP PRESENT(gpsp,vnew)
       do n = 1,n_solpts
         !
-        rho = vnew(n,nec)
-        !
-        rho_inv = one/rho
+        rho_inv = one/vnew(n,nec)
         !
         velx = vnew(n,nmx)*rho_inv
         vely = vnew(n,nmy)*rho_inv
         velz = vnew(n,nmz)*rho_inv
-        rhoe = vnew(n,nee)
         !
-        q2 = velx*velx + vely*vely + velz*velz
-        !
-        pres = gm1 * (rhoe - half*rho*q2)
-        temp = pres*rho_inv*rgas_inv
-        !
-        vnew(n,nec) = temp
+        vnew(n,nec) = gpsp(n,ntemp)
         vnew(n,nmx) = velx
         vnew(n,nmy) = vely
         vnew(n,nmz) = velz
-        vnew(n,nee) = pres
-        vnew(n,nq+1) = sqrt(q2)
+        vnew(n,nee) = gpsp(n,npres)
+        vnew(n,nq+1) = sqrt(velx*velx + vely*vely + velz*velz)
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP PRESENT(vnew)
+      !$ACC PARALLEL LOOP PRESENT(gpsp,vnew)
       do n = 1,n_solpts
         !
-        rho = vnew(n,nec)
-        !
-        rho_inv = one/rho
+        rho_inv = one/vnew(n,nec)
         !
         velx = vnew(n,nmx)*rho_inv
         vely = vnew(n,nmy)*rho_inv
-        rhoe = vnew(n,nee)
         !
-        q2 = velx*velx + vely*vely
-        !
-        pres = gm1 * (rhoe - half*rho*q2)
-        temp = pres*rho_inv*rgas_inv
-        !
-        vnew(n,nec) = temp
+        vnew(n,nec) = gpsp(n,ntemp)
         vnew(n,nmx) = velx
         vnew(n,nmy) = vely
-        vnew(n,nee) = pres
-        vnew(n,nq+1) = sqrt(q2)
+        vnew(n,nee) = gpsp(n,npres)
+        vnew(n,nq+1) = sqrt(velx*velx + vely*vely)
         !
       end do
     else
-      !$ACC PARALLEL LOOP PRESENT(vnew)
+      !$ACC PARALLEL LOOP PRESENT(gpsp,vnew)
       do n = 1,n_solpts
         !
-        rho = vnew(n,nec)
+        velx = vnew(n,nmx)/vnew(n,nec)
         !
-        rho_inv = one/rho
-        !
-        velx = vnew(n,nmx)*rho_inv
-        rhoe = vnew(n,nee)
-        !
-        q2 = velx*velx
-        !
-        pres = gm1 * (rhoe - half*rho*q2)
-        temp = pres*rho_inv*rgas_inv
-        !
-        vnew(n,nec) = temp
+        vnew(n,nec) = gpsp(n,ntemp)
         vnew(n,nmx) = velx
-        vnew(n,nee) = pres
-        vnew(n,nq+1) = sqrt(q2)
+        vnew(n,nee) = gpsp(n,npres)
+        vnew(n,nq+1) = abs(velx)
         !
       end do
     end if
@@ -1144,21 +992,18 @@ subroutine get_vold_solpts_gpu(vold)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use flowvar, only : usp,uavesp
+  use flowvar, only : usp,uavesp,gpsp,gpoldsp
   use ovar,    only : prev_ave_time,saved_ave_time,ave_start_time
   use ovar,    only : output_time_averaging,read_time_ave_restart
-  use ovar,    only : itcur,itrst,gam,rgasref_nd
+  use ovar,    only : itcur,itrst
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: vold(:,:)
   !
   !.. Local Scalars ..
   integer     :: m,n,nr
-  real(wp)    :: a,b,velx,vely,velz,q2,rho,rho_inv
-  real(wp)    :: rhoe,pres,temp,rgas_inv,gm1
+  real(wp)    :: a,b,velx,vely,velz,q2,rho_inv
   logical(lk) :: use_uavesp
-  !
-  real(wp) :: rhou,rhov,rhow,rhoq2,temp1,temp2
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_vold_solpts_gpu"
@@ -1168,9 +1013,6 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   nr = nme-nmb+1
-  !
-  gm1 = gam - one
-  rgas_inv = one/rgasref_nd
   !
   ! Get the primitive variables of the current solution at the error points
   !
@@ -1204,22 +1046,16 @@ continue
     end if
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,vold)
+      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,gpsp,vold)
       do n = 1,n_solpts
         !
-        rho = usp(n,nec)
-        !
-        rho_inv = one/rho
+        rho_inv = one/usp(n,nec)
         !
         velx = usp(n,nmx)*rho_inv
         vely = usp(n,nmy)*rho_inv
         velz = usp(n,nmz)*rho_inv
-        rhoe = usp(n,nee)
         !
         q2 = velx*velx + vely*vely + velz*velz
-        !
-        pres = gm1 * (rhoe - half*rho*q2)
-        temp = pres*rho_inv*rgas_inv
         !
         velx = b * uavesp(n,nq+nmx) - a * velx
         vely = b * uavesp(n,nq+nmy) - a * vely
@@ -1227,66 +1063,52 @@ continue
         !
         q2 = b * sqrt(velx*velx + vely*vely + velz*velz) - a * sqrt(q2)
         !
-        vold(n,nec) = b * uavesp(n,nq+nec) - a * temp
+        vold(n,nec) = b * uavesp(n,nq+nec) - a * gpsp(n,ntemp)
         vold(n,nmx) = velx
         vold(n,nmy) = vely
         vold(n,nmz) = velz
-        vold(n,nee) = b * uavesp(n,nq+nee) - a * pres
+        vold(n,nee) = b * uavesp(n,nq+nee) - a * gpsp(n,npres)
         vold(n,nq+1) = q2
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,vold)
+      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,gpsp,vold)
       do n = 1,n_solpts
         !
-        rho = usp(n,nec)
-        !
-        rho_inv = one/rho
+        rho_inv = one/usp(n,nec)
         !
         velx = usp(n,nmx)*rho_inv
         vely = usp(n,nmy)*rho_inv
-        rhoe = usp(n,nee)
         !
         q2 = velx*velx + vely*vely
-        !
-        pres = gm1 * (rhoe - half*rho*q2)
-        temp = pres*rho_inv*rgas_inv
         !
         velx = b * uavesp(n,nq+nmx) - a * velx
         vely = b * uavesp(n,nq+nmy) - a * vely
         !
         q2 = b * sqrt(velx*velx + vely*vely) - a * sqrt(q2)
         !
-        vold(n,nec) = b * uavesp(n,nq+nec) - a * temp
+        vold(n,nec) = b * uavesp(n,nq+nec) - a * gpsp(n,ntemp)
         vold(n,nmx) = velx
         vold(n,nmy) = vely
-        vold(n,nee) = b * uavesp(n,nq+nee) - a * pres
+        vold(n,nee) = b * uavesp(n,nq+nee) - a * gpsp(n,npres)
         vold(n,nq+1) = q2
         !
       end do
     else
-      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,vold)
+      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,gpsp,vold)
       do n = 1,n_solpts
         !
-        rho = usp(n,nec)
-        !
-        rho_inv = one/rho
-        !
-        velx = usp(n,nmx)*rho_inv
-        rhoe = usp(n,nee)
+        velx = usp(n,nmx)/usp(n,nec)
         !
         q2 = velx*velx
-        !
-        pres = gm1 * (rhoe - half*rho*q2)
-        temp = pres*rho_inv*rgas_inv
         !
         velx = b * uavesp(n,nq+nmx) - a * velx
         !
         q2 = b * sqrt(velx*velx) - a * sqrt(q2)
         !
-        vold(n,nec) = b * uavesp(n,nq+nec) - a * temp
+        vold(n,nec) = b * uavesp(n,nq+nec) - a * gpsp(n,ntemp)
         vold(n,nmx) = velx
-        vold(n,nee) = b * uavesp(n,nq+nee) - a * pres
+        vold(n,nee) = b * uavesp(n,nq+nee) - a * gpsp(n,npres)
         vold(n,nq+1) = q2
         !
       end do
@@ -1307,75 +1129,49 @@ continue
     end if
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP PRESENT(vold)
+      !$ACC PARALLEL LOOP PRESENT(vold,gpoldsp)
       do n = 1,n_solpts
         !
-        rho = vold(n,nec)
-        !
-        rho_inv = one/rho
+        rho_inv = one/vold(n,nec)
         !
         velx = vold(n,nmx)*rho_inv
         vely = vold(n,nmy)*rho_inv
         velz = vold(n,nmz)*rho_inv
-        rhoe = vold(n,nee)
         !
-        q2 = velx*velx + vely*vely + velz*velz
-        !
-        pres = gm1 * (rhoe - half*rho*q2)
-        temp = pres*rho_inv*rgas_inv
-        !
-        vold(n,nec) = temp
+        vold(n,nec) = gpoldsp(n,ntemp)
         vold(n,nmx) = velx
         vold(n,nmy) = vely
         vold(n,nmz) = velz
-        vold(n,nee) = pres
-        vold(n,nq+1) = sqrt(q2)
+        vold(n,nee) = gpoldsp(n,npres)
+        vold(n,nq+1) = sqrt(velx*velx + vely*vely + velz*velz)
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP PRESENT(vold)
+      !$ACC PARALLEL LOOP PRESENT(vold,gpoldsp)
       do n = 1,n_solpts
         !
-        rho = vold(n,nec)
-        !
-        rho_inv = one/rho
+        rho_inv = one/vold(n,nec)
         !
         velx = vold(n,nmx)*rho_inv
         vely = vold(n,nmy)*rho_inv
-        rhoe = vold(n,nee)
         !
-        q2 = velx*velx + vely*vely
-        !
-        pres = gm1 * (rhoe - half*rho*q2)
-        temp = pres*rho_inv*rgas_inv
-        !
-        vold(n,nec) = temp
+        vold(n,nec) = gpoldsp(n,ntemp)
         vold(n,nmx) = velx
         vold(n,nmy) = vely
-        vold(n,nee) = pres
-        vold(n,nq+1) = sqrt(q2)
+        vold(n,nee) = gpoldsp(n,npres)
+        vold(n,nq+1) = sqrt(velx*velx + vely*vely)
         !
       end do
     else
-      !$ACC PARALLEL LOOP PRESENT(vold)
+      !$ACC PARALLEL LOOP PRESENT(vold,gpoldsp)
       do n = 1,n_solpts
         !
-        rho = vold(n,nec)
+        velx = vold(n,nmx)/vold(n,nec)
         !
-        rho_inv = one/rho
-        !
-        velx = vold(n,nmx)*rho_inv
-        rhoe = vold(n,nee)
-        !
-        q2 = velx*velx
-        !
-        pres = gm1 * (rhoe - half*rho*q2)
-        temp = pres*rho_inv*rgas_inv
-        !
-        vold(n,nec) = temp
+        vold(n,nec) = gpoldsp(n,ntemp)
         vold(n,nmx) = velx
-        vold(n,nee) = pres
-        vold(n,nq+1) = sqrt(q2)
+        vold(n,nee) = gpoldsp(n,npres)
+        vold(n,nq+1) = abs(velx)
         !
       end do
     end if
