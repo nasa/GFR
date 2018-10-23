@@ -1412,6 +1412,7 @@ subroutine save_old_solution()
   !
   !.. Use Statements ..
   use flowvar, only : usp,uoldsp
+  use flowvar, only : gpsp,gpoldsp
   !
   !.. Local Scalars ..
   integer :: m,n,np,nr
@@ -1455,6 +1456,24 @@ continue
       do n = 1,np
         uoldsp(n,m) = usp(n,m)
       end do
+    end do
+  end if
+  !
+  !$ACC PARALLEL LOOP PRESENT(gpoldsp,gpsp)
+  do n = 1,np
+    gpoldsp(n,npres) = gpsp(n,npres)
+    gpoldsp(n,ntemp) = gpsp(n,ntemp)
+  end do
+  !
+  if (ncs > 0) then
+    !$ACC PARALLEL LOOP PRESENT(gpoldsp,gpsp)
+    do n = 1,np
+      gpoldsp(n,ngamm) = gpsp(n,ngamm)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(gpoldsp,gpsp)
+    do n = 1,np
+      gpoldsp(n,ngamm) = gam
     end do
   end if
   !
