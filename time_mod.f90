@@ -6,6 +6,8 @@ module time_mod
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   use eqn_idx, only : ncs,npres,ntemp,nvisc,ngamm
   !
+  use ovar, only : force_nd_subroutines
+  !
   implicit none
   !
   private
@@ -1434,7 +1436,7 @@ continue
  !    uoldsp(n,m) = usp(n,m)
  !  end do
  !end do
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(uoldsp,usp)
     do n = 1,np
       uoldsp(n,nec) = usp(n,nec)
@@ -1443,7 +1445,7 @@ continue
       uoldsp(n,nmz) = usp(n,nmz)
       uoldsp(n,nee) = usp(n,nee)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(uoldsp,usp)
     do n = 1,np
       uoldsp(n,nec) = usp(n,nec)
@@ -1514,7 +1516,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(jac,residual)
     do n = 1,n_solpts
       jac_inv = one/jac(n)
@@ -1524,7 +1526,7 @@ continue
       residual(n,nmz) = -residual(n,nmz)*jac_inv
       residual(n,nee) = -residual(n,nee)*jac_inv
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(jac,residual)
     do n = 1,n_solpts
       jac_inv = one/jac(n)
@@ -1553,7 +1555,7 @@ continue
   ! equation if running the density transport test case
   !
   if (itestcase == Density_Transport) then
-    if (nr == 3 .and. ncs == 0) then
+    if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
       !$ACC PARALLEL LOOP PRESENT(residual)
       do n = 1,n_solpts
         residual(n,nmx) = residual(n,nec)
@@ -1561,7 +1563,7 @@ continue
         residual(n,nmz) = residual(n,nec)
         residual(n,nee) = residual(n,nec)
       end do
-    else if (nr == 2 .and. ncs == 0) then
+    else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
       !$ACC PARALLEL LOOP PRESENT(residual)
       do n = 1,n_solpts
         residual(n,nmx) = residual(n,nec)
@@ -1971,7 +1973,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
     do n = 1,np
       !
@@ -1994,7 +1996,7 @@ continue
       rk_sum(n,nee) = sum_ee
       !
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
     do n = 1,np
       !
@@ -2056,7 +2058,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
     do n = 1,np
       !
@@ -2079,7 +2081,7 @@ continue
       rk_sum(n,nee) = sum_ee
       !
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
     do n = 1,np
       !
@@ -2141,7 +2143,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
     do n = 1,np
       !
@@ -2164,7 +2166,7 @@ continue
       rk_sum(n,nee) = sum_ee
       !
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
     do n = 1,np
       !
@@ -2226,7 +2228,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
     do n = 1,np
       !
@@ -2249,7 +2251,7 @@ continue
       rk_sum(n,nee) = sum_ee
       !
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
     do n = 1,np
       !
@@ -2311,7 +2313,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
     do n = 1,np
       !
@@ -2334,7 +2336,7 @@ continue
       rk_sum(n,nee) = sum_ee
       !
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
     do n = 1,np
       !
@@ -2441,7 +2443,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(residual,dtsp,usp)
     do n = 1,np
       usp(n,nec) = usp(n,nec) + dtsp(n)*residual(n,nec)
@@ -2450,7 +2452,7 @@ continue
       usp(n,nmz) = usp(n,nmz) + dtsp(n)*residual(n,nmz)
       usp(n,nee) = usp(n,nee) + dtsp(n)*residual(n,nee)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(residual,dtsp,usp)
     do n = 1,np
       usp(n,nec) = usp(n,nec) + dtsp(n)*residual(n,nec)
@@ -2492,7 +2494,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
     do n = 1,np
       usp(n,nec) = a * ( uoldsp(n,nec) + usp(n,nec) + dtsp(n)*residual(n,nec) )
@@ -2501,7 +2503,7 @@ continue
       usp(n,nmz) = a * ( uoldsp(n,nmz) + usp(n,nmz) + dtsp(n)*residual(n,nmz) )
       usp(n,nee) = a * ( uoldsp(n,nee) + usp(n,nee) + dtsp(n)*residual(n,nee) )
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
     do n = 1,np
       usp(n,nec) = a * ( uoldsp(n,nec) + usp(n,nec) + dtsp(n)*residual(n,nec) )
@@ -2595,7 +2597,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(residual,dtsp,usp)
     do n = 1,np
       usp(n,nec) = usp(n,nec) + dtsp(n)*residual(n,nec)
@@ -2604,7 +2606,7 @@ continue
       usp(n,nmz) = usp(n,nmz) + dtsp(n)*residual(n,nmz)
       usp(n,nee) = usp(n,nee) + dtsp(n)*residual(n,nee)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(residual,dtsp,usp)
     do n = 1,np
       usp(n,nec) = usp(n,nec) + dtsp(n)*residual(n,nec)
@@ -2647,7 +2649,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
     do n = 1,np
       usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + b*dtsp(n)*residual(n,nec)
@@ -2656,7 +2658,7 @@ continue
       usp(n,nmz) = a*uoldsp(n,nmz) + b*usp(n,nmz) + b*dtsp(n)*residual(n,nmz)
       usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + b*dtsp(n)*residual(n,nee)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
     do n = 1,np
       usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + b*dtsp(n)*residual(n,nec)
@@ -2699,7 +2701,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
     do n = 1,np
       usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + b*dtsp(n)*residual(n,nec)
@@ -2708,7 +2710,7 @@ continue
       usp(n,nmz) = a*uoldsp(n,nmz) + b*usp(n,nmz) + b*dtsp(n)*residual(n,nmz)
       usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + b*dtsp(n)*residual(n,nee)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
     do n = 1,np
       usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + b*dtsp(n)*residual(n,nec)
@@ -2806,7 +2808,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + c*dtsp(n)*residual(n,nec)
@@ -2815,7 +2817,7 @@ continue
       usp(n,nmz) = uoldsp(n,nmz) + c*dtsp(n)*residual(n,nmz)
       usp(n,nee) = uoldsp(n,nee) + c*dtsp(n)*residual(n,nee)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + c*dtsp(n)*residual(n,nec)
@@ -2859,7 +2861,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual)
     do n = 1,np
       usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + c*dtsp(n)*residual(n,nec)
@@ -2868,7 +2870,7 @@ continue
       usp(n,nmz) = a*uoldsp(n,nmz) + b*usp(n,nmz) + c*dtsp(n)*residual(n,nmz)
       usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + c*dtsp(n)*residual(n,nee)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual)
     do n = 1,np
       usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + c*dtsp(n)*residual(n,nec)
@@ -2916,7 +2918,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual,rk_sum)
     do n = 1,np
       !
@@ -2939,7 +2941,7 @@ continue
       rk_sum(n,nee) = d*stage2_ee + e*usp(n,nee)
       !
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual,rk_sum)
     do n = 1,np
       !
@@ -3003,7 +3005,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual,rk_sum)
     do n = 1,np
       !
@@ -3020,7 +3022,7 @@ continue
       rk_sum(n,nee) = rk_sum(n,nee) + d*dtsp(n)*residual(n,nee)
       !
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual,rk_sum)
     do n = 1,np
       !
@@ -3077,7 +3079,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,res,rk_sum)
     do n = 1,np
       !
@@ -3090,7 +3092,7 @@ continue
       usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + c*res(n,nee) + rk_sum(n,nee)
       !
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,res,rk_sum)
     do n = 1,np
       !
@@ -3152,7 +3154,7 @@ continue
   !
   ! Store the residual for this Runge-Kutta step in rssprk
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(residual,rssprk)
     do n = 1,n_solpts
       rssprk(n,nec,nst) = residual(n,nec)
@@ -3161,7 +3163,7 @@ continue
       rssprk(n,nmz,nst) = residual(n,nmz)
       rssprk(n,nee,nst) = residual(n,nee)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(residual,rssprk)
     do n = 1,n_solpts
       rssprk(n,nec,nst) = residual(n,nec)
@@ -3246,7 +3248,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,1)
@@ -3255,7 +3257,7 @@ continue
       usp(n,nmz) = uoldsp(n,nmz) + dtsp(n)*rssprk(n,nmz,1)
       usp(n,nee) = uoldsp(n,nee) + dtsp(n)*rssprk(n,nee,1)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,1)
@@ -3292,7 +3294,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,1)
@@ -3301,7 +3303,7 @@ continue
       usp(n,nmz) = uoldsp(n,nmz) + half*dtsp(n)*rssprk(n,nmz,1)
       usp(n,nee) = uoldsp(n,nee) + half*dtsp(n)*rssprk(n,nee,1)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,1)
@@ -3338,7 +3340,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,2)
@@ -3347,7 +3349,7 @@ continue
       usp(n,nmz) = uoldsp(n,nmz) + dtsp(n)*rssprk(n,nmz,2)
       usp(n,nee) = uoldsp(n,nee) + dtsp(n)*rssprk(n,nee,2)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,2)
@@ -3384,7 +3386,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + one3*dtsp(n)*rssprk(n,nec,1)
@@ -3393,7 +3395,7 @@ continue
       usp(n,nmz) = uoldsp(n,nmz) + one3*dtsp(n)*rssprk(n,nmz,1)
       usp(n,nee) = uoldsp(n,nee) + one3*dtsp(n)*rssprk(n,nee,1)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + one3*dtsp(n)*rssprk(n,nec,1)
@@ -3430,7 +3432,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + two3*dtsp(n)*rssprk(n,nec,2)
@@ -3439,7 +3441,7 @@ continue
       usp(n,nmz) = uoldsp(n,nmz) + two3*dtsp(n)*rssprk(n,nmz,2)
       usp(n,nee) = uoldsp(n,nee) + two3*dtsp(n)*rssprk(n,nee,2)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + two3*dtsp(n)*rssprk(n,nec,2)
@@ -3477,7 +3479,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       !
@@ -3491,7 +3493,7 @@ continue
       usp(n,nee) = uoldsp(n,nee) + c1*rssprk(n,nee,1) + c2*rssprk(n,nee,3)
       !
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       !
@@ -3538,7 +3540,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,1)
@@ -3547,7 +3549,7 @@ continue
       usp(n,nmz) = uoldsp(n,nmz) + half*dtsp(n)*rssprk(n,nmz,1)
       usp(n,nee) = uoldsp(n,nee) + half*dtsp(n)*rssprk(n,nee,1)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,1)
@@ -3584,7 +3586,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,2)
@@ -3593,7 +3595,7 @@ continue
       usp(n,nmz) = uoldsp(n,nmz) + half*dtsp(n)*rssprk(n,nmz,2)
       usp(n,nee) = uoldsp(n,nee) + half*dtsp(n)*rssprk(n,nee,2)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,2)
@@ -3630,7 +3632,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,3)
@@ -3639,7 +3641,7 @@ continue
       usp(n,nmz) = uoldsp(n,nmz) + dtsp(n)*rssprk(n,nmz,3)
       usp(n,nee) = uoldsp(n,nee) + dtsp(n)*rssprk(n,nee,3)
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,3)
@@ -3677,7 +3679,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       !
@@ -3696,7 +3698,7 @@ continue
                                  + c2*rssprk(n,nee,3) + c1*rssprk(n,nee,4)
       !
     end do
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
     do n = 1,np
       !

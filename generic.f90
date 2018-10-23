@@ -606,6 +606,7 @@ subroutine get_unew_solpts_gpu(unew)
   use flowvar, only : usp,uavesp,gpsp
   use ovar,    only : itestcase,pref_nd,gam
   use ovar,    only : output_time_averaging
+  use ovar,    only : force_nd_subroutines
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: unew(:,:)
@@ -625,7 +626,7 @@ continue
   !
   if (output_time_averaging) then
     !
-    if (nr == 3 .and. ncs == 0) then
+    if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
       !$ACC PARALLEL LOOP PRESENT(uavesp,unew)
       do n = 1,n_solpts
         unew(n,nec) = uavesp(n,nec)
@@ -634,7 +635,7 @@ continue
         unew(n,nmz) = uavesp(n,nmz)
         unew(n,nee) = uavesp(n,nee)
       end do
-    else if (nr == 2 .and. ncs == 0) then
+    else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
       !$ACC PARALLEL LOOP PRESENT(uavesp,unew)
       do n = 1,n_solpts
         unew(n,nec) = uavesp(n,nec)
@@ -653,7 +654,7 @@ continue
     !
   else
     !
-    if (nr == 3 .and. ncs == 0) then
+    if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
       !$ACC PARALLEL LOOP PRESENT(usp,unew)
       do n = 1,n_solpts
         unew(n,nec) = usp(n,nec)
@@ -662,7 +663,7 @@ continue
         unew(n,nmz) = usp(n,nmz)
         unew(n,nee) = usp(n,nee)
       end do
-    else if (nr == 2 .and. ncs == 0) then
+    else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
       !$ACC PARALLEL LOOP PRESENT(usp,unew)
       do n = 1,n_solpts
         unew(n,nec) = usp(n,nec)

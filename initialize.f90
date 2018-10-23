@@ -1140,6 +1140,7 @@ subroutine initialize_dusp()
   !.. Use Statements ..
   use geovar,  only : nr
   use flowvar, only : dusp
+  use ovar,    only : force_nd_subroutines
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_dusp"
@@ -1150,9 +1151,9 @@ continue
   !
   if (allocated(dusp)) then
     !
-    if (nr == 3 .and. ncs == 0) then
+    if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
       call initialize_dusp_3d
-    else if (nr == 2 .and. ncs == 0) then
+    else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
       call initialize_dusp_2d
     else
       call initialize_dusp_nd

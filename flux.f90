@@ -7,6 +7,8 @@ module flux_mod
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   use eqn_idx, only : ncs,ng
   !
+  use ovar,    only : force_nd_subroutines
+  !
   implicit none
   !
   private
@@ -74,9 +76,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call interp_cv_to_flxpts_3d(iter,nst)
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call interp_cv_to_flxpts_2d
   else
     call interp_cv_to_flxpts_nd
@@ -420,9 +422,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call interp_dusp_to_flxpts_3d
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call interp_dusp_to_flxpts_2d
   else
     call interp_dusp_to_flxpts_nd
@@ -1050,9 +1052,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call interp_cv_to_qdtpts_3d(usp,uqp)
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call interp_cv_to_qdtpts_2d(usp,uqp)
   else
     call interp_cv_to_qdtpts_nd(usp,uqp)
@@ -1309,9 +1311,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call interp_dusp_to_qdtpts_3d(dusp,duqp)
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call interp_dusp_to_qdtpts_2d(dusp,duqp)
   else
     call interp_dusp_to_qdtpts_nd(dusp,duqp)
@@ -1609,9 +1611,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call project_fluxes_to_solpts_3d(iflxqp,ifluxes)
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call project_fluxes_to_solpts_2d(iflxqp,ifluxes)
   else
     call project_fluxes_to_solpts_nd(iflxqp,ifluxes)
@@ -1911,9 +1913,9 @@ continue
   !
   nr = size(tfluxes,dim=2)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call transform_fluxes_3d(tfluxes,rfluxes)
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call transform_fluxes_2d(tfluxes,rfluxes)
   else
     call transform_fluxes_nd(tfluxes,rfluxes)
@@ -2189,9 +2191,9 @@ continue
   !
   nr = size(rfluxes,dim=2)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call compute_flux_divergence_3d(rfluxes,iter,nst)
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call compute_flux_divergence_2d(rfluxes)
   else
     call compute_flux_divergence_nd(rfluxes)
@@ -2563,9 +2565,9 @@ continue
   !
   nr = size(tfluxes,dim=2)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call add_flux_correction_3d(tfluxes)
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call add_flux_correction_2d(tfluxes)
   else
     call add_flux_correction_nd(tfluxes)
@@ -3749,9 +3751,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call project_flux_qdtpts_to_faceflx_3d(nf1,nf2,flxqp,flxfp)
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call project_flux_qdtpts_to_faceflx_2d(nf1,nf2,flxqp,flxfp)
   else
     call project_flux_qdtpts_to_faceflx_nd(nf1,nf2,flxqp,flxfp)
@@ -4020,9 +4022,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call interp_faceusp_to_faceuqp_3d(nf1,nf2,faceusp,faceuqp)
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call interp_faceusp_to_faceuqp_2d(nf1,nf2,faceusp,faceuqp)
   else
     call interp_faceusp_to_faceuqp_nd(nf1,nf2,faceusp,faceuqp)
@@ -4332,9 +4334,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call interp_facedusp_to_faceduqp_3d(nf1,nf2,facedusp,faceduqp)
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call interp_facedusp_to_faceduqp_2d(nf1,nf2,facedusp,faceduqp)
   else
     call interp_facedusp_to_faceduqp_nd(nf1,nf2,facedusp,faceduqp)
@@ -4739,9 +4741,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call discontinuous_gradient_at_solpts_3d
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call discontinuous_gradient_at_solpts_2d
   else
     call discontinuous_gradient_at_solpts_nd
@@ -5100,9 +5102,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call correct_gradients_at_solpts_gpu_3d
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call correct_gradients_at_solpts_gpu_2d
   else
     call correct_gradients_at_solpts_gpu_nd
@@ -5999,9 +6001,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (nr == 3 .and. ncs == 0) then
+  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call correct_gradients_br2_gpu_3d
-  else if (nr == 2 .and. ncs == 0) then
+  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
     call correct_gradients_br2_gpu_2d
   else
     call correct_gradients_br2_gpu_nd
