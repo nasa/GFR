@@ -41,6 +41,8 @@ module flowvar
   !
   real(wp), public, save, allocatable, dimension(:,:) :: uoldsp
   !$ACC DECLARE CREATE(uoldsp)
+  real(wp), public, save, allocatable, dimension(:,:) :: gpoldsp
+  !$ACC DECLARE CREATE(gpoldsp)
   real(wp), public, save, allocatable, dimension(:,:) :: residual
   !$ACC DECLARE CREATE(residual)
   !
@@ -250,7 +252,7 @@ contains
 subroutine allocate_flowvar_arrays()
   !
   !.. Use Statements ..
-  use eqn_idx,   only : nq,ng
+  use eqn_idx,   only : nq,ng,npres,ntemp,ngamm,ncs
   use geovar,    only : nr,n_solpts,n_totpts
   use geovar,    only : nfbnd,nface,face
   use geovar,    only : nnode,nedge,edge
@@ -296,6 +298,19 @@ continue
   !
   if (time_average_restart_files) return
   !
+  if (ncs > 0) then
+    if (allocated(facexyz_dt)) then
+      if (size(facexyz_dt) < nface) then
+        deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
+      end if
+    end if
+    if (.not. allocated(facexyz_dt)) then
+      allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__,ierr,error_message)
+    end if
+  end if
+  !
   !
   ! If we are only interpolating the solution to a new grid,
   ! then only need facexyz_dt before returning out of here.
@@ -311,8 +326,10 @@ continue
     ! The interpolation utility needs facexyz_array to
     ! be defined for both interior and boundary faces.
     !
-    allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__,ierr,error_message)
+    if (.not. allocated(facexyz_dt)) then
+      allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__,ierr,error_message)
+    end if
     !
     call alloc_face_dt_components(facexyz_dt,nfpts,"facexyz_dt")
     !
@@ -356,6 +373,12 @@ continue
   !$ACC UPDATE DEVICE(uoldsp)
   !
   !
+  allocate ( gpoldsp(1:n_solpts,1:max(ntemp,npres,ngamm)) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"gpoldsp",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(gpoldsp)
+  !
+  !
   if (convert_restart_to_cgns) then
     !
     nfpts = face(nface)%end_fp ! end fp index for last face
@@ -386,9 +409,11 @@ continue
       ! If using continuous output, facexyz_dt needs to be defined
       ! for both interior and boundary faces
       !
-      allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
-                       ierr,error_message)
+      if (.not. allocated(facexyz_dt)) then
+        allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
       !
       if (.not. allocated(faceusp_dt)) then
         allocate ( faceusp_dt(1:nface) , stat=ierr , errmsg=error_message )
@@ -413,9 +438,11 @@ continue
       ! If using MMS but not using continuous output, facexyz_dt only needs
       ! to be defined for the boundary faces
       !
-      allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
-                       ierr,error_message)
+      if (.not. allocated(facexyz_dt)) then
+        allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
       !
     end if
     !
@@ -1404,6 +1431,15 @@ continue
     write (iou,2) array_name,array%get_units()
   else
     write (iou,7) "uoldsp"
+  end if
+  if (allocated(gpoldsp)) then
+    call array%set( storage_size(gpoldsp,kind=inttype) , &
+                            size(gpoldsp,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "gpoldsp"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "gpoldsp"
   end if
   if (allocated(residual)) then
     call array%set( storage_size(residual,kind=inttype) , &
