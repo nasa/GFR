@@ -7536,6 +7536,8 @@ continue
         n = n + nr
       else if (trim(char_sname(l)) == "GradTemperature") then
         n = n + nr
+      else if (trim(char_sname(l)) == "DmatTemperature") then
+        n = n + nr
       else if (trim(char_sname(l)) == "GradMassFractions") then
         n = n + ncs*nr
       else if (trim(char_sname(l)) == "GradSpeciesDensities") then
@@ -7583,6 +7585,10 @@ continue
       else if (trim(char_sname(l)) == "hi/R") then
         if (ncs > 0) then
           n = n + ncs
+        end if
+      else if (trim(char_sname(l)) == "dTdx_Breakdown") then
+        if (ncs > 0) then
+          n = n + (2*nr + 2*ncs + 7 + ncs*nr)
         end if
       else
         n = n + 1
@@ -7784,6 +7790,68 @@ continue
             call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
           end do
         end if
+      else if (trim(char_sname(k)) == "dTdx_Breakdown") then
+        if (ncs > 0) then
+          do l = 1,nr
+            n = n + 1
+            varname = "CPG_dTd"//char_xyz(l)
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
+          do m = 1,ncs
+            n = n + 1
+            varname = "Cv("//trim(adjustl(species_name(m)))//")"
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
+          do m = 1,ncs
+            n = n + 1
+            varname = "dCp("//trim(adjustl(species_name(m)))//")dT"
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
+          !
+          n = n + 1
+          varname = "dCp(mix)dT"
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          !
+          n = n + 1
+          varname = "T_from_gradcv2gradpv"
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          !
+          n = n + 1
+          varname = "Cp(mix)"
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          !
+          n = n + 1
+          varname = "Gamma(Mix)"
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          !
+          n = n + 1
+          varname = "dTdx_lead_coefficient"
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          !
+          n = n + 1
+          varname = "CPG_constant_Cv"
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          !
+          n = n + 1
+          varname = "CPG_1_over_constant_Cv"
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          !
+          do l = 1,nr
+            n = n + 1
+            varname = "TPG_dTd"//char_xyz(l)
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
+          !
+          do m = 1,ncs
+            do l = 1,nr
+              n = n + 1
+              varname = "dY("//trim(adjustl(species_name(m)))// &
+                        ")d"//char_xyz(l)//"_from_dTd"//char_xyz(l)
+              call cgns_write_field_header(n,varname,isvar_s(n), &
+                                           __LINE__,__FILE__)
+            end do
+          end do
+        end if
       else
         n = n + 1
         if (trim(char_sname(k)) == "Energy") then
@@ -7965,7 +8033,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
   !.. Local Scalars ..
   integer  :: i,j,l,m,n,nc,np,n0,npts,ierr
-  integer  :: nmi,nmj,l_comp,l_phys
+  integer  :: nmi,nmj,l_comp,l_phys,nvar
   integer  :: this_order,limit_order
   real(wp) :: freestream_ref,rhoa,rhoa2,time_ref_inv
   real(wp) :: cp_dim,cond_dim,dim_val
@@ -7978,7 +8046,9 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: vartmp_at_sp(:)
   real(wp), allocatable :: spcvar(:,:)
+  real(wp), allocatable :: dtdx(:,:)
   real(wp), allocatable :: dpvdx(:,:,:)
+  real(wp), allocatable :: other_variables(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "output_variable"
@@ -8043,6 +8113,25 @@ continue
       !
       call grad_cv_to_grad_pv_gpu(1,npts,cv,gp,dcvdx,dpvdx)
       !
+    case ("dTdx_Breakdown")
+      !
+      if (ncs > 0) then
+        !
+        allocate ( dpvdx(1:npts,1:nr,1:nq) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"dpvdx",1,__LINE__,__FILE__,ierr,error_message)
+        !
+        nvar = nr + 2*ncs + 7
+        allocate ( other_variables(1:npts,1:nvar) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"other_variables",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+        !
+        call grad_cv_to_grad_pv_gpu(1,npts,cv,gp,dcvdx,dpvdx, &
+                                    output_variables=other_variables)
+        !
+      end if
+      !
     case ("SpeciesEnthalpy","SpeciesCp","hi/RT","hi/R","cpi/R")
       !
       if (ncs > 0) then
@@ -8067,6 +8156,29 @@ continue
   ! Compute the current output variable and write it to the CGNS file
   !
   select case (trim(adjustl(vname)))
+    !
+    ! #####################
+    ! ###  NEED TO ADD  ###
+    ! #####################
+    ! ---------------------
+    !   FOR GAS MIXTURES
+    ! ---------------------
+    ! sensible enthalpy
+    ! ---------------------
+    !   FOR CPG AND TPG
+    ! ---------------------
+    ! pitot pressure
+    ! strain rate
+    ! velocity divergence
+    !     div(vel) = du/dx + dv/dy + dw/dz
+    ! q-criterion
+    ! magnitude of vorticity
+    ! magnitude of strain rate
+    ! magnitude of density gradient
+    ! temperature gradient
+    ! magnitude of temperature gradient
+    ! pressure gradient
+    ! magnitude of pressure gradient
     !
     case ("Density") ! Density
       !!{{{
@@ -8249,6 +8361,88 @@ continue
         call cgns_write_field_data
         !
       end do
+      !!}}}
+    case ("dTdx_Breakdown") ! Breakdown of terms to compute dT/dx
+      !!{{{
+      if (ncs > 0) then
+        do m = 1,nvar
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          do n = 1,npts
+            vartmp(n) = other_variables(n,m)
+          end do
+          !
+          call cgns_write_field_data
+          !
+        end do
+        !
+        do l = 1,nr
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          do n = 1,npts
+            vartmp(n) = dpvdx(n,l,nee)
+          end do
+          !
+          call cgns_write_field_data
+          !
+        end do
+        !
+        do m = 1,ncs
+          do l = 1,nr
+            !
+            nv = nv + 1
+            ivar_s = isvar_s(nv)
+            !
+            do n = 1,npts
+              vartmp(n) = dpvdx(n,l,m)
+            end do
+            !
+            call cgns_write_field_data
+            !
+          end do
+        end do
+      end if
+      !!}}}
+    case ("DmatTemperature") ! Temperature gradient using derivative matrices
+      !!{{{
+      !
+      allocate ( dtdx(1:n_solpts,1:nr) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"dtdx",1,__LINE__,__FILE__,ierr,error_message)
+      !
+      call compute_dmatrix_grad_temperature(dtdx)
+      !
+      if (.not. allocated(vartmp_at_sp)) then
+        allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+      !
+      do l = 1,nr
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,n_solpts
+          vartmp_at_sp(n) = dtdx(n,l) * tref
+        end do
+        !
+        call interpolate_for_output( vartmp_at_sp , vartmp )
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !
+      if (allocated(dtdx)) then
+        deallocate ( dtdx , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"dtdx",2,__LINE__,__FILE__,ierr,error_message)
+      end if
+      !
       !!}}}
     case ("Velocity") ! Velocity
       !!{{{
@@ -8913,6 +9107,12 @@ continue
   if (allocated(spcvar)) then
     deallocate ( spcvar , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"spcvar",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(other_variables)) then
+    deallocate ( other_variables , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"other_variables",2,__LINE__,__FILE__, &
+                     ierr,error_message)
   end if
   !
   !-----------------------------------------------------------------------------
