@@ -7558,8 +7558,8 @@ continue
     ! Create data nodes for the solution variables
     !
     n = 0
-    do l = 1,size(char_sname)
-      if (trim(char_sname(l)) == "Velocity") then
+    do k = 1,size(char_sname)
+      if (trim(char_sname(k)) == "Velocity") then
         do m = 1,nr
           n = n + 1
           varname = "Velocity"//char_xyz(m)
@@ -7573,7 +7573,7 @@ continue
           call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
         end do
-      else if (trim(char_sname(l)) == "Vorticity") then
+      else if (trim(char_sname(k)) == "Vorticity") then
         do m = 1,nr
           n = n + 1
           varname = "Vorticity"//char_xyz(merge(m,3,nr==3))
@@ -7588,7 +7588,7 @@ continue
                           "cgp_field_write_f")
           if (nr < 3) exit
         end do
-      else if (trim(char_sname(l)) == "Momentum") then
+      else if (trim(char_sname(k)) == "Momentum") then
         do m = 1,nr
           n = n + 1
           varname = "Momentum"//char_xyz(m)
@@ -7602,10 +7602,10 @@ continue
           call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
         end do
-      else if (trim(char_sname(l)) == "GradDensity") then
-        do m = 1,nr
+      else if (trim(char_sname(k)) == "GradDensity") then
+        do l = 1,nr
           n = n + 1
-          varname = "DensityGradient"//char_xyz(m)
+          varname = "DensityGradient"//char_xyz(l)
           call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
@@ -7616,11 +7616,11 @@ continue
           call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
         end do
-      else if (trim(char_sname(l)) == "GradMomentum") then
+      else if (trim(char_sname(k)) == "GradMomentum") then
         do m = 1,nr
-          do k = 1,nr
+          do l = 1,nr
             n = n + 1
-            varname = "Momentum"//char_xyz(m)//"Gradient"//char_xyz(k)
+            varname = "Momentum"//char_xyz(m)//"Gradient"//char_xyz(l)
             call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                             "cgp_field_write_f")
             call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
@@ -7633,10 +7633,10 @@ continue
                             "cgp_field_write_f")
           end do
         end do
-      else if (trim(char_sname(l)) == "GradEnergy") then
-        do m = 1,nr
+      else if (trim(char_sname(k)) == "GradEnergy") then
+        do l = 1,nr
           n = n + 1
-          varname = "EnergyGradient"//char_xyz(m)
+          varname = "EnergyGradient"//char_xyz(l)
           call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
@@ -7647,10 +7647,10 @@ continue
           call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
         end do
-      else if (trim(char_sname(l)) == "Viscosity") then
+      else if (trim(char_sname(k)) == "Viscosity") then
         if (governing_equations == NavierStokes_Eqns) then
           n = n + 1
-          varname = trim(char_sname(l))
+          varname = trim(char_sname(k))
           call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
@@ -7661,9 +7661,9 @@ continue
           call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
         end if
-      else if (trim(char_sname(l)) == "ResolutionMarker") then
+      else if (trim(char_sname(k)) == "ResolutionMarker") then
         n = n + 1
-        varname = trim(char_sname(l))
+        varname = trim(char_sname(k))
         call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
         call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
@@ -7674,31 +7674,7 @@ continue
         call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
         n = n + 1
-        varname = "Scaled"//trim(char_sname(l))
-        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                        "cgp_field_write_f")
-        call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
-                               CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
-        call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
-                        cgierr,__LINE__,__FILE__, &
-                        "Write node: Solution variable",n)
-        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                        "cgp_field_write_f")
-        !
-      else if (trim(char_sname(l)) == "JumpMarker") then
-        n = n + 1
-        varname = trim(char_sname(l))
-        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                        "cgp_field_write_f")
-        call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
-                               CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
-        call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
-                        cgierr,__LINE__,__FILE__, &
-                        "Write node: Solution variable",n)
-        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                        "cgp_field_write_f")
-        n = n + 1
-        varname = "Scaled"//trim(char_sname(l))
+        varname = "Scaled"//trim(char_sname(k))
         call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
         call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
@@ -7709,7 +7685,31 @@ continue
         call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
         !
-      else if (trim(char_sname(l)) == "CoMetrics") then
+      else if (trim(char_sname(k)) == "JumpMarker") then
+        n = n + 1
+        varname = trim(char_sname(k))
+        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                        "cgp_field_write_f")
+        call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                               CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
+        call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                        cgierr,__LINE__,__FILE__, &
+                        "Write node: Solution variable",n)
+        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                        "cgp_field_write_f")
+        n = n + 1
+        varname = "Scaled"//trim(char_sname(k))
+        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                        "cgp_field_write_f")
+        call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                               CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
+        call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                        cgierr,__LINE__,__FILE__, &
+                        "Write node: Solution variable",n)
+        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                        "cgp_field_write_f")
+        !
+      else if (trim(char_sname(k)) == "CoMetrics") then
      !  do m = 1,nr
      !    do i = 1,nr
      !      n = n + 1
@@ -7727,7 +7727,7 @@ continue
      !                      "cgp_field_write_f")
      !    end do
      !  end do
-      else if (trim(char_sname(l)) == "ContraMetrics") then
+      else if (trim(char_sname(k)) == "ContraMetrics") then
         do m = 1,nr
           do i = 1,nr
             n = n + 1
@@ -7745,7 +7745,7 @@ continue
                             "cgp_field_write_f")
           end do
         end do
-      else if (trim(char_sname(l)) == "TimeMetrics") then
+      else if (trim(char_sname(k)) == "TimeMetrics") then
         if (allocated(time_metrics)) then
           do m = 1,nr
             n = n + 1
@@ -7776,10 +7776,10 @@ continue
         end if
       else
         n = n + 1
-        if (trim(char_sname(l)) == "Energy") then
+        if (trim(char_sname(k)) == "Energy") then
           varname = "EnergyStagnationDensity"
         else
-          varname = trim(char_sname(l))
+          varname = trim(char_sname(k))
         end if
         call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
