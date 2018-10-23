@@ -1331,7 +1331,8 @@ end function visc_wall_flx_cv
 !
 !###############################################################################
 !
-pure subroutine common_vflx_ave_fluxes_gpu(n1,n2,facenrm,face_cv,face_gp, &
+!pure &
+     subroutine common_vflx_ave_fluxes_gpu(n1,n2,facenrm,face_cv,face_gp, &
                                            face_dcvdx,return_value)
   !
   !.. Formal Arguments ..
@@ -1481,7 +1482,8 @@ end subroutine common_vflx_ave_fluxes_gpu_3d
 !
 !###############################################################################
 !
-pure subroutine common_vflx_ave_fluxes_gpu_2d(n1,n2,facenrm,face_cv,face_gp, &
+!pure &
+subroutine common_vflx_ave_fluxes_gpu_2d(n1,n2,facenrm,face_cv,face_gp, &
                                               face_dcvdx,return_value)
   !
   !.. Use Statements ..
@@ -1690,7 +1692,8 @@ end subroutine common_vflx_ave_fluxes_gpu_1d
 !
 !###############################################################################
 !
-pure subroutine common_vflx_ave_sol_and_grad_gpu(n1,n2,facenrm,face_cv, &
+!pure &
+     subroutine common_vflx_ave_sol_and_grad_gpu(n1,n2,facenrm,face_cv, &
                                                  face_dcvdx,return_value)
   !
   !.. Formal Arguments ..
@@ -1722,7 +1725,8 @@ end subroutine common_vflx_ave_sol_and_grad_gpu
 !
 !###############################################################################
 !
-pure subroutine common_vflx_ave_sol_and_grad_gpu_3d(n1,n2,facenrm,face_cv, &
+!pure &
+    subroutine common_vflx_ave_sol_and_grad_gpu_3d(n1,n2,facenrm,face_cv, &
                                                     face_dcvdx,return_value)
   !
   !.. Use Statements ..
@@ -1859,7 +1863,8 @@ end subroutine common_vflx_ave_sol_and_grad_gpu_3d
 !
 !###############################################################################
 !
-pure subroutine common_vflx_ave_sol_and_grad_gpu_2d(n1,n2,facenrm,face_cv, &
+!pure &
+subroutine common_vflx_ave_sol_and_grad_gpu_2d(n1,n2,facenrm,face_cv, &
                                                     face_dcvdx,return_value)
   !
   !.. Use Statements ..
@@ -1986,7 +1991,8 @@ end subroutine common_vflx_ave_sol_and_grad_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine common_vflx_ave_sol_and_grad_gpu_1d(n1,n2,facenrm,face_cv, &
+!pure &
+    subroutine common_vflx_ave_sol_and_grad_gpu_1d(n1,n2,facenrm,face_cv, &
                                                     face_dcvdx,return_value)
   !
   !.. Use Statements ..
@@ -2100,7 +2106,8 @@ end subroutine common_vflx_ave_sol_and_grad_gpu_1d
 !
 !###############################################################################
 !
-pure subroutine common_visc_flx_sub(unrm,ul,gpl,duldx,ur,gpr,durdx,return_value)
+!pure &
+    subroutine common_visc_flx_sub(unrm,ul,gpl,duldx,ur,gpr,durdx,return_value)
 ! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
@@ -2243,7 +2250,8 @@ end subroutine common_visc_flx_sub
 !
 !###############################################################################
 !
-pure function common_visc_flx_cv(unrm,ul,gpl,duldx,ur,gpr,durdx) &
+!pure &
+    function common_visc_flx_cv(unrm,ul,gpl,duldx,ur,gpr,durdx) &
                           result(return_value)
   !
   !.. Use Statements ..
