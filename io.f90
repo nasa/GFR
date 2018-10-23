@@ -7530,8 +7530,16 @@ continue
         n = n + nr
       else if (trim(char_sname(l)) == "GradMomentum") then
         n = n + nr*nr
+      else if (trim(char_sname(l)) == "GradVelocity") then
+        n = n + nr*nr
       else if (trim(char_sname(l)) == "GradEnergy") then
         n = n + nr
+      else if (trim(char_sname(l)) == "GradTemperature") then
+        n = n + nr
+      else if (trim(char_sname(l)) == "GradMassFractions") then
+        n = n + ncs*nr
+      else if (trim(char_sname(l)) == "GradSpeciesDensities") then
+        n = n + ncs*nr
       else if (trim(char_sname(l)) == "Viscosity") then
         if (governing_equations == NavierStokes_Eqns) then
           n = n + 1
@@ -7561,6 +7569,18 @@ continue
           n = n + ncs
         end if
       else if (trim(char_sname(l)) == "SpeciesCp") then
+        if (ncs > 0) then
+          n = n + ncs
+        end if
+      else if (trim(char_sname(l)) == "cpi/R") then
+        if (ncs > 0) then
+          n = n + ncs
+        end if
+      else if (trim(char_sname(l)) == "hi/RT") then
+        if (ncs > 0) then
+          n = n + ncs
+        end if
+      else if (trim(char_sname(l)) == "hi/R") then
         if (ncs > 0) then
           n = n + ncs
         end if
@@ -7609,11 +7629,49 @@ continue
             call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
           end do
         end do
+      else if (trim(char_sname(k)) == "GradVelocity") then
+        do m = 1,nr
+          do l = 1,nr
+            n = n + 1
+            varname = "Velocity"//char_xyz(m)//"Gradient"//char_xyz(l)
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
+        end do
       else if (trim(char_sname(k)) == "GradEnergy") then
         do l = 1,nr
           n = n + 1
           varname = "EnergyGradient"//char_xyz(l)
           call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      else if (trim(char_sname(k)) == "GradTemperature") then
+        do l = 1,nr
+          n = n + 1
+          varname = "TemperatureGradient"//char_xyz(l)
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      else if (trim(char_sname(k)) == "DmatTemperature") then
+        do l = 1,nr
+          n = n + 1
+          varname = "TemperatureDMatrix"//char_xyz(l)
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      else if (trim(char_sname(k)) == "GradMassFractions") then
+        do m = 1,ncs
+          do l = 1,nr
+            n = n + 1
+            varname = trim(adjustl(species_name(m))) // &
+                      "MassFractionGradient"//char_xyz(l)
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
+        end do
+      else if (trim(char_sname(k)) == "GradSpeciesDensities") then
+        do m = 1,ncs
+          do l = 1,nr
+            n = n + 1
+            varname = trim(adjustl(species_name(m))) // &
+                      "DensityGradient"//char_xyz(l)
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
         end do
       else if (trim(char_sname(k)) == "Viscosity") then
         if (governing_equations == NavierStokes_Eqns) then
@@ -7699,6 +7757,30 @@ continue
           do m = 1,ncs
             n = n + 1
             varname = "SpeciesCp"//trim(adjustl(species_name(m)))
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
+        end if
+      else if (trim(char_sname(k)) == "cpi/R") then
+        if (ncs > 0) then
+          do m = 1,ncs
+            n = n + 1
+            varname = "cpi_over_R_"//trim(adjustl(species_name(m)))
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
+        end if
+      else if (trim(char_sname(k)) == "hi/R") then
+        if (ncs > 0) then
+          do m = 1,ncs
+            n = n + 1
+            varname = "hi_over_R_"//trim(adjustl(species_name(m)))
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
+        end if
+      else if (trim(char_sname(k)) == "hi/RT") then
+        if (ncs > 0) then
+          do m = 1,ncs
+            n = n + 1
+            varname = "hi_over_RT_"//trim(adjustl(species_name(m)))
             call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
           end do
         end if
@@ -7846,6 +7928,8 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use thermo_mod, only : compute_species_enthalpy
   use thermo_mod, only : compute_species_cp
   !
+  use gpu_mod, only : grad_cv_to_grad_pv_gpu
+  !
   !.. Formal Arguments ..
   integer(CBT),     intent(in) :: ifile_s
   integer(CBT),     intent(in) :: ibase_s
@@ -7876,6 +7960,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: vartmp_at_sp(:)
   real(wp), allocatable :: spcvar(:,:)
+  real(wp), allocatable :: dpvdx(:,:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "output_variable"
@@ -7930,6 +8015,14 @@ continue
           vartmp(n) = sqrt( vx*vx / a2 ) - freestream_ref
         end do
       end if
+      !
+    case ("GradVelocity","GradTemperature","GradMassFractions")
+      !
+      allocate ( dpvdx(1:npts,1:nr,1:nq) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"dpvdx",1,__LINE__,__FILE__,ierr,error_message)
+      !
+      call grad_cv_to_grad_pv_gpu(1,npts,cv,gp,dcvdx,dpvdx)
       !
     case ("SpeciesEnthalpy","SpeciesCp","hi/RT","hi/R","cpi/R")
       !
@@ -8025,6 +8118,23 @@ continue
         !
       end do
       !!}}}
+    case ("GradSpeciesDensities") ! Species densities gradients
+      !!{{{
+      do m = 1,ncs
+        do l = 1,nr
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          do n = 1,npts
+            vartmp(n) = dcvdx(n,l,m) * rhoref
+          end do
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end do
+      !!}}}
     case ("GradDensity") ! Density gradient
       !!{{{
       do l = 1,nr
@@ -8066,6 +8176,55 @@ continue
         !
         do n = 1,npts
           vartmp(n) = dcvdx(n,l,nee) * rhoa2
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !!}}}
+    case ("GradMassFractions") ! Species mass fraction gradients
+      !!{{{
+      do m = 1,ncs
+        do l = 1,nr
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          do n = 1,npts
+            vartmp(n) = dpvdx(n,l,m)
+          end do
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end do
+      !!}}}
+    case ("GradVelocity") ! Velocity gradients
+      !!{{{
+      do m = nmb,nme
+        do l = 1,nr
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          do n = 1,npts
+            vartmp(n) = dpvdx(n,l,m) * aref
+          end do
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end do
+      !!}}}
+    case ("GradTemperature") ! Temperature gradient
+      !!{{{
+      do l = 1,nr
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,npts
+          vartmp(n) = dpvdx(n,l,nee) * tref
         end do
         !
         call cgns_write_field_data
@@ -8569,6 +8728,11 @@ continue
     deallocate ( vartmp_at_sp , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"vartmp_at_sp",2,__LINE__,__FILE__, &
                      ierr,error_message)
+  end if
+  !
+  if (allocated(dpvdx)) then
+    deallocate ( dpvdx , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"dpvdx",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(spcvar)) then
