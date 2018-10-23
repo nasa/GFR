@@ -310,66 +310,86 @@ subroutine ldfss_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
   real(wp) :: rho_inv,al,ar
   real(wp) :: gam_over_gm1,pres,gamm
   !
+  !.. Local Parameters ..
+ !logical(lk), parameter :: use_new_ldfss_subs = true
+  logical(lk), parameter :: use_new_ldfss_subs = fals
+  !
 continue
   !
   nr = size(facenrm,dim=1)
   np = size(face_cv,dim=1)
   !
-  ! Move gamma into the auxiliary gas property variable spot
-  !
-  if ( aux_var_is_not_gamma() ) then
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
-    do i = 1,2
-      do n = n1,n2
-        face_gp(n,ngamm,i) = gam
+  if (use_new_ldfss_subs .or. ncs > 0) then
+    !
+    ! Move gamma into the auxiliary gas property variable spot
+    !
+    if ( aux_var_is_not_gamma() ) then
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
+      do i = 1,2
+        do n = n1,n2
+          face_gp(n,ngamm,i) = gam
+        end do
       end do
+      call set_auxiliary_variable(aux_gamma)
+    end if
+    !
+    ! Compute the common speed of sound and store in lflux
+    !
+    !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp,lflux)
+    do n = n1,n2
+      !
+      rho_inv = one/face_cv(n,nec,1)
+      pres = face_gp(n,npres,1)
+      gamm = face_gp(n,ngamm,1)
+      al = sqrt(max(gamm*pres*rho_inv,rndoff))
+      !
+      rho_inv = one/face_cv(n,nec,2)
+      pres = face_gp(n,npres,2)
+      gamm = face_gp(n,ngamm,2)
+      ar = sqrt(max(gamm*pres*rho_inv,rndoff))
+      !
+      lflux(n) = half*(al + ar)
+      !
     end do
-    call set_auxiliary_variable(aux_gamma)
-  end if
-  !
-  ! Compute the common speed of sound and store in lflux
-  !
-  !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp,lflux)
-  do n = n1,n2
     !
-    rho_inv = one/face_cv(n,nec,1)
-    pres = face_gp(n,npres,1)
-    gamm = face_gp(n,ngamm,1)
-    al = sqrt(max(gamm*pres*rho_inv,rndoff))
+    ! Move enthalpy into the auxiliary gas property variable spot
     !
-    rho_inv = one/face_cv(n,nec,2)
-    pres = face_gp(n,npres,2)
-    gamm = face_gp(n,ngamm,2)
-    ar = sqrt(max(gamm*pres*rho_inv,rndoff))
-    !
-    lflux(n) = half*(al + ar)
-    !
-  end do
-  !
-  ! Move enthalpy into the auxiliary gas property variable spot
-  !
-  if ( aux_var_is_not_enthalpy() ) then
-    gam_over_gm1 = gam / (gam - one)
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
-    do i = 1,2
-      do n = n1,n2
-        face_gp(n,nenth,i) = gam_over_gm1*face_gp(n,npres,i)/face_cv(n,nec,i)
+    if ( aux_var_is_not_enthalpy() ) then
+      gam_over_gm1 = gam / (gam - one)
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
+      do i = 1,2
+        do n = n1,n2
+          face_gp(n,nenth,i) = gam_over_gm1*face_gp(n,npres,i)/face_cv(n,nec,i)
+        end do
       end do
-    end do
-    call set_auxiliary_variable(aux_enthalpy)
-  end if
-  !
-  ! Compute the upwind flux using LDFSS
-  !
-  if (nr == 3) then
-    call ldfss_upwind_flux_gpu_3d(n1,n2,facenrm,face_cv,face_gp, &
-                                  lflux,rflux,return_value)
-  else if (nr == 2) then
-    call ldfss_upwind_flux_gpu_2d(n1,n2,facenrm,face_cv,face_gp, &
-                                  lflux,rflux,return_value)
+      call set_auxiliary_variable(aux_enthalpy)
+    end if
+    !
+    ! Compute the upwind flux using LDFSS
+    !
+    if (nr == 3) then
+      call ldfss_upwind_flux_tpg_3d(n1,n2,facenrm,face_cv,face_gp, &
+                                    lflux,rflux,return_value)
+    else if (nr == 2) then
+      call ldfss_upwind_flux_tpg_2d(n1,n2,facenrm,face_cv,face_gp, &
+                                    lflux,rflux,return_value)
+    else
+      call ldfss_upwind_flux_tpg_1d(n1,n2,facenrm,face_cv,face_gp, &
+                                    lflux,rflux,return_value)
+    end if
+    !
   else
-    call ldfss_upwind_flux_gpu_1d(n1,n2,facenrm,face_cv,face_gp, &
-                                  lflux,rflux,return_value)
+    !
+    ! Compute the upwind flux using LDFSS
+    !
+    if (nr == 3) then
+      call ldfss_upwind_flux_cpg_3d(n1,n2,facenrm,face_cv,return_value)
+    else if (nr == 2) then
+      call ldfss_upwind_flux_cpg_2d(n1,n2,facenrm,face_cv,return_value)
+    else
+      call ldfss_upwind_flux_cpg_1d(n1,n2,facenrm,face_cv,return_value)
+    end if
+    !
   end if
   !
 end subroutine ldfss_upwind_flux_gpu
@@ -2186,7 +2206,7 @@ end subroutine hllc_upwind_flux_gpu_1d
 !
 !###############################################################################
 !
-pure subroutine ldfss_upwind_flux_gpu_3d(n1,n2,facenrm,face_cv,face_gp, &
+pure subroutine ldfss_upwind_flux_tpg_3d(n1,n2,facenrm,face_cv,face_gp, &
                                          lflux,rflux,return_value)
   !
   !.. Formal Arguments ..
@@ -2270,8 +2290,8 @@ continue
     uc_l = ahalf*(alpha_l*(one+beta_l)*mach_l - beta_l*mstar_l - machp_half)
     uc_r = ahalf*(alpha_r*(one+beta_r)*mach_r - beta_r*mstar_r + machm_half)
     !
-    flux_l = uc_l*rl
-    flux_r = uc_r*rr
+    flux_l = uc_l*rl*ds
+    flux_r = uc_r*rr*ds
     !
     pplus_l = one4 * (two-mach_l) * (mach_l+one)**2
     pplus_r = one4 * (two+mach_r) * (mach_r-one)**2
@@ -2280,9 +2300,9 @@ continue
             presr*(alpha_r*(one+beta_r) - beta_r*pplus_r)
     !
     return_value(n,nec) = flux_l     + flux_r
-    return_value(n,nmx) = flux_l*vxl + flux_r*vxr + p_net*unx
-    return_value(n,nmy) = flux_l*vyl + flux_r*vyr + p_net*uny
-    return_value(n,nmz) = flux_l*vzl + flux_r*vzr + p_net*unz
+    return_value(n,nmx) = flux_l*vxl + flux_r*vxr + p_net*rnx
+    return_value(n,nmy) = flux_l*vyl + flux_r*vyr + p_net*rny
+    return_value(n,nmz) = flux_l*vzl + flux_r*vzr + p_net*rnz
     return_value(n,nee) = flux_l*h0l + flux_r*h0r
     !
     lflux(n) = flux_l
@@ -2290,11 +2310,11 @@ continue
     !
   end do
   !
-end subroutine ldfss_upwind_flux_gpu_3d
+end subroutine ldfss_upwind_flux_tpg_3d
 !
 !###############################################################################
 !
-pure subroutine ldfss_upwind_flux_gpu_2d(n1,n2,facenrm,face_cv,face_gp, &
+pure subroutine ldfss_upwind_flux_tpg_2d(n1,n2,facenrm,face_cv,face_gp, &
                                          lflux,rflux,return_value)
   !
   !.. Formal Arguments ..
@@ -2374,8 +2394,8 @@ continue
     uc_l = ahalf*(alpha_l*(one+beta_l)*mach_l - beta_l*mstar_l - machp_half)
     uc_r = ahalf*(alpha_r*(one+beta_r)*mach_r - beta_r*mstar_r + machm_half)
     !
-    flux_l = uc_l*rl
-    flux_r = uc_r*rr
+    flux_l = uc_l*rl*ds
+    flux_r = uc_r*rr*ds
     !
     pplus_l = one4 * (two-mach_l) * (mach_l+one)**2
     pplus_r = one4 * (two+mach_r) * (mach_r-one)**2
@@ -2384,8 +2404,8 @@ continue
             presr*(alpha_r*(one+beta_r) - beta_r*pplus_r)
     !
     return_value(n,nec) = flux_l     + flux_r
-    return_value(n,nmx) = flux_l*vxl + flux_r*vxr + p_net*unx
-    return_value(n,nmy) = flux_l*vyl + flux_r*vyr + p_net*uny
+    return_value(n,nmx) = flux_l*vxl + flux_r*vxr + p_net*rnx
+    return_value(n,nmy) = flux_l*vyl + flux_r*vyr + p_net*rny
     return_value(n,nee) = flux_l*h0l + flux_r*h0r
     !
     lflux(n) = flux_l
@@ -2393,11 +2413,11 @@ continue
     !
   end do
   !
-end subroutine ldfss_upwind_flux_gpu_2d
+end subroutine ldfss_upwind_flux_tpg_2d
 !
 !###############################################################################
 !
-pure subroutine ldfss_upwind_flux_gpu_1d(n1,n2,facenrm,face_cv,face_gp, &
+pure subroutine ldfss_upwind_flux_tpg_1d(n1,n2,facenrm,face_cv,face_gp, &
                                          lflux,rflux,return_value)
   !
   !.. Formal Arguments ..
@@ -2469,8 +2489,8 @@ continue
     uc_l = ahalf*(alpha_l*(one+beta_l)*mach_l - beta_l*mstar_l - machp_half)
     uc_r = ahalf*(alpha_r*(one+beta_r)*mach_r - beta_r*mstar_r + machm_half)
     !
-    flux_l = uc_l*rl
-    flux_r = uc_r*rr
+    flux_l = uc_l*rl*ds
+    flux_r = uc_r*rr*ds
     !
     pplus_l = one4 * (two-mach_l) * (mach_l+one)**2
     pplus_r = one4 * (two+mach_r) * (mach_r-one)**2
@@ -2479,7 +2499,7 @@ continue
             presr*(alpha_r*(one+beta_r) - beta_r*pplus_r)
     !
     return_value(n,nec) = flux_l     + flux_r
-    return_value(n,nmx) = flux_l*vxl + flux_r*vxr + p_net*unx
+    return_value(n,nmx) = flux_l*vxl + flux_r*vxr + p_net*rnx
     return_value(n,nee) = flux_l*h0l + flux_r*h0r
     !
     lflux(n) = flux_l
@@ -2487,7 +2507,317 @@ continue
     !
   end do
   !
-end subroutine ldfss_upwind_flux_gpu_1d
+end subroutine ldfss_upwind_flux_tpg_1d
+!
+!###############################################################################
+!
+pure subroutine ldfss_upwind_flux_cpg_3d(n1,n2,facenrm,face_cv,return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,ds,unx,uny,unz,rnx,rny,rnz
+  real(wp) :: rl,rl_inv,vxl,vyl,vzl,vnl,presl,h0l,al,q2l
+  real(wp) :: rr,rr_inv,vxr,vyr,vzr,vnr,presr,h0r,ar,q2r
+  real(wp) :: alpha_l,beta_l,mach_l,mstar_l
+  real(wp) :: alpha_r,beta_r,mach_r,mstar_r
+  real(wp) :: machp_half,uc_l,flux_l,pplus_l
+  real(wp) :: machm_half,uc_r,flux_r,pplus_r
+  real(wp) :: m_half,mstar_half,ahalf
+  real(wp) :: del_p,sum_p,p_net
+  !
+continue
+  !
+  gm1 = gam - one
+  !
+  !$ACC PARALLEL LOOP GANG WORKER VECTOR &
+  !$ACC&              PRESENT(facenrm,face_cv,return_value)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    rnz = facenrm(3,n)
+    ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+    unx = rnx/ds
+    uny = rny/ds
+    unz = rnz/ds
+    !
+    rl = face_cv(n,nec,1)
+    rl_inv = one/rl
+    vxl = face_cv(n,nmx,1)*rl_inv
+    vyl = face_cv(n,nmy,1)*rl_inv
+    vzl = face_cv(n,nmz,1)*rl_inv
+    q2l = vxl*vxl + vyl*vyl + vzl*vzl
+    presl = gm1*(face_cv(n,nee,1) - half*rl*q2l)
+    h0l = half*q2l + gam/gm1 * presl/rl
+    vnl = vxl*unx + vyl*uny + vzl*unz
+    al = sqrt(max(gam*presl/rl,rndoff))
+    !
+    rr = face_cv(n,nec,2)
+    rr_inv = one/rr
+    vxr = face_cv(n,nmx,2)*rr_inv
+    vyr = face_cv(n,nmy,2)*rr_inv
+    vzr = face_cv(n,nmz,2)*rr_inv
+    q2r = vxr*vxr + vyr*vyr + vzr*vzr
+    presr = gm1*(face_cv(n,nee,2) - half*rr*q2r)
+    h0r = half*q2r + gam/gm1 * presr/rr
+    vnr = vxr*unx + vyr*uny + vzr*unz
+    ar = sqrt(max(gam*presr/rr,rndoff))
+    !
+    ahalf = half*(al+ar)
+    !
+    mach_l = vnl/ahalf
+    mach_r = vnr/ahalf
+    !
+    alpha_l = half*(one + sign(one,mach_l))
+    alpha_r = half*(one - sign(one,mach_r))
+    !
+    beta_l = -max( zero , one-real(int(abs(mach_l)),kind=wp) )
+    beta_r = -max( zero , one-real(int(abs(mach_r)),kind=wp) )
+    !
+    mstar_l =  one4*(mach_l + one)**2
+    mstar_r = -one4*(mach_r - one)**2
+    !
+    m_half = sqrt( half*(mstar_l**2 + mstar_r**2) )
+    !
+    mstar_half = one4*beta_l*beta_r*(m_half - one)**2
+    !
+    del_p = presl - presr
+    sum_p = presl + presr
+    !
+    machp_half = mstar_half*(one - del_p/sum_p - two*abs(del_p)/presl)
+    machm_half = mstar_half*(one + del_p/sum_p - two*abs(del_p)/presr)
+    !
+    uc_l = ahalf*(alpha_l*(one+beta_l)*mach_l - beta_l*mstar_l - machp_half)
+    uc_r = ahalf*(alpha_r*(one+beta_r)*mach_r - beta_r*mstar_r + machm_half)
+    !
+    flux_l = uc_l*rl*ds
+    flux_r = uc_r*rr*ds
+    !
+    pplus_l = one4 * (two-mach_l) * (mach_l+one)**2
+    pplus_r = one4 * (two+mach_r) * (mach_r-one)**2
+    !
+    p_net = presl*(alpha_l*(one+beta_l) - beta_l*pplus_l) + &
+            presr*(alpha_r*(one+beta_r) - beta_r*pplus_r)
+    !
+    return_value(n,nec) = flux_l     + flux_r
+    return_value(n,nmx) = flux_l*vxl + flux_r*vxr + p_net*rnx
+    return_value(n,nmy) = flux_l*vyl + flux_r*vyr + p_net*rny
+    return_value(n,nmz) = flux_l*vzl + flux_r*vzr + p_net*rnz
+    return_value(n,nee) = flux_l*h0l + flux_r*h0r
+    !
+  end do
+  !
+end subroutine ldfss_upwind_flux_cpg_3d
+!
+!###############################################################################
+!
+pure subroutine ldfss_upwind_flux_cpg_2d(n1,n2,facenrm,face_cv,return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,ds,unx,uny,rnx,rny
+  real(wp) :: rl,rl_inv,vxl,vyl,vnl,presl,h0l,al,q2l
+  real(wp) :: rr,rr_inv,vxr,vyr,vnr,presr,h0r,ar,q2r
+  real(wp) :: alpha_l,beta_l,mach_l,mstar_l
+  real(wp) :: alpha_r,beta_r,mach_r,mstar_r
+  real(wp) :: machp_half,uc_l,flux_l,pplus_l
+  real(wp) :: machm_half,uc_r,flux_r,pplus_r
+  real(wp) :: m_half,mstar_half,ahalf
+  real(wp) :: del_p,sum_p,p_net
+  !
+continue
+  !
+  gm1 = gam - one
+  !
+  !$ACC PARALLEL LOOP GANG WORKER VECTOR &
+  !$ACC&              PRESENT(facenrm,face_cv,return_value)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    ds = sqrt( rnx*rnx + rny*rny )
+    unx = rnx/ds
+    uny = rny/ds
+    !
+    rl = face_cv(n,nec,1)
+    rl_inv = one/rl
+    vxl = face_cv(n,nmx,1)*rl_inv
+    vyl = face_cv(n,nmy,1)*rl_inv
+    q2l = vxl*vxl + vyl*vyl
+    presl = gm1*(face_cv(n,nee,1) - half*rl*q2l)
+    h0l = half*q2l + gam/gm1 * presl/rl
+    vnl = vxl*unx + vyl*uny
+    al = sqrt(max(gam*presl/rl,rndoff))
+    !
+    rr = face_cv(n,nec,2)
+    rr_inv = one/rr
+    vxr = face_cv(n,nmx,2)*rr_inv
+    vyr = face_cv(n,nmy,2)*rr_inv
+    q2r = vxr*vxr + vyr*vyr
+    presr = gm1*(face_cv(n,nee,2) - half*rr*q2r)
+    h0r = half*q2r + gam/gm1 * presr/rr
+    vnr = vxr*unx + vyr*uny
+    ar = sqrt(max(gam*presr/rr,rndoff))
+    !
+    ahalf = half*(al+ar)
+    !
+    mach_l = vnl/ahalf
+    mach_r = vnr/ahalf
+    !
+    alpha_l = half*(one + sign(one,mach_l))
+    alpha_r = half*(one - sign(one,mach_r))
+    !
+    beta_l = -max( zero , one-real(int(abs(mach_l)),kind=wp) )
+    beta_r = -max( zero , one-real(int(abs(mach_r)),kind=wp) )
+    !
+    mstar_l =  one4*(mach_l + one)**2
+    mstar_r = -one4*(mach_r - one)**2
+    !
+    m_half = sqrt( half*(mstar_l**2 + mstar_r**2) )
+    !
+    mstar_half = one4*beta_l*beta_r*(m_half - one)**2
+    !
+    del_p = presl - presr
+    sum_p = presl + presr
+    !
+    machp_half = mstar_half*(one - del_p/sum_p - two*abs(del_p)/presl)
+    machm_half = mstar_half*(one + del_p/sum_p - two*abs(del_p)/presr)
+    !
+    uc_l = ahalf*(alpha_l*(one+beta_l)*mach_l - beta_l*mstar_l - machp_half)
+    uc_r = ahalf*(alpha_r*(one+beta_r)*mach_r - beta_r*mstar_r + machm_half)
+    !
+    flux_l = uc_l*rl*ds
+    flux_r = uc_r*rr*ds
+    !
+    pplus_l = one4 * (two-mach_l) * (mach_l+one)**2
+    pplus_r = one4 * (two+mach_r) * (mach_r-one)**2
+    !
+    p_net = presl*(alpha_l*(one+beta_l) - beta_l*pplus_l) + &
+            presr*(alpha_r*(one+beta_r) - beta_r*pplus_r)
+    !
+    return_value(n,nec) = flux_l     + flux_r
+    return_value(n,nmx) = flux_l*vxl + flux_r*vxr + p_net*rnx
+    return_value(n,nmy) = flux_l*vyl + flux_r*vyr + p_net*rny
+    return_value(n,nee) = flux_l*h0l + flux_r*h0r
+    !
+  end do
+  !
+end subroutine ldfss_upwind_flux_cpg_2d
+!
+!###############################################################################
+!
+pure subroutine ldfss_upwind_flux_cpg_1d(n1,n2,facenrm,face_cv,return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: ds,rnx,unx
+  real(wp) :: gm1,gam_over_gm1,ahalf
+  real(wp) :: rl,presl,h0l,al,vxl,rl_inv
+  real(wp) :: rr,presr,h0r,ar,vxr,rr_inv
+  real(wp) :: alpha_l,beta_l,mach_l,mstar_l
+  real(wp) :: alpha_r,beta_r,mach_r,mstar_r
+  real(wp) :: machp_half,uc_l,flux_l,pplus_l
+  real(wp) :: machm_half,uc_r,flux_r,pplus_r
+  real(wp) :: m_half,mstar_half
+  real(wp) :: del_p,sum_p,p_net
+  !
+continue
+  !
+  gm1 = gam - one
+  gam_over_gm1 = gam / gm1
+  !
+  !$ACC PARALLEL LOOP GANG WORKER VECTOR &
+  !$ACC&              PRESENT(facenrm,face_cv,return_value)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    ds = sqrt( rnx*rnx )
+    unx = rnx/ds
+    !
+    rl = face_cv(n,nec,1)
+    rl_inv = one/rl
+    vxl = face_cv(n,nmx,1)*rl_inv
+    presl = gm1*(face_cv(n,nee,1) - half*rl*vxl*vxl)
+    h0l = gam_over_gm1*presl*rl_inv + half*vxl*vxl
+    al = sqrt(max(gam*presl*rl_inv,rndoff))
+    !
+    rr = face_cv(n,nec,2)
+    rr_inv = one/rr
+    vxr = face_cv(n,nmx,2)*rr_inv
+    presr = gm1*(face_cv(n,nee,2) - half*rr*vxr*vxr)
+    h0r = gam_over_gm1*presr*rr_inv + half*vxr*vxr
+    ar = sqrt(max(gam*presr*rr_inv,rndoff))
+    !
+    ahalf = half*(al+ar)
+    !
+    mach_l = vxl*unx/ahalf
+    mach_r = vxr*unx/ahalf
+    !
+    alpha_l = half*(one + sign(one,mach_l))
+    alpha_r = half*(one - sign(one,mach_r))
+    !
+    beta_l = -max( zero , one-real(int(abs(mach_l)),kind=wp) )
+    beta_r = -max( zero , one-real(int(abs(mach_r)),kind=wp) )
+    !
+    mstar_l =  one4*(mach_l + one)**2
+    mstar_r = -one4*(mach_r - one)**2
+    !
+    m_half = sqrt( half*(mstar_l**2 + mstar_r**2) )
+    !
+    mstar_half = one4*beta_l*beta_r*(m_half - one)**2
+    !
+    del_p = presl - presr
+    sum_p = presl + presr
+    !
+    machp_half = mstar_half*(one - del_p/sum_p - two*abs(del_p)/presl)
+    machm_half = mstar_half*(one + del_p/sum_p - two*abs(del_p)/presr)
+    !
+    uc_l = ahalf*(alpha_l*(one+beta_l)*mach_l - beta_l*mstar_l - machp_half)
+    uc_r = ahalf*(alpha_r*(one+beta_r)*mach_r - beta_r*mstar_r + machm_half)
+    !
+    flux_l = uc_l*rl*ds
+    flux_r = uc_r*rr*ds
+    !
+    pplus_l = one4 * (two-mach_l) * (mach_l+one)**2
+    pplus_r = one4 * (two+mach_r) * (mach_r-one)**2
+    !
+    p_net = presl*(alpha_l*(one+beta_l) - beta_l*pplus_l) + &
+            presr*(alpha_r*(one+beta_r) - beta_r*pplus_r)
+    !
+    return_value(n,nec) = flux_l     + flux_r
+    return_value(n,nmx) = flux_l*vxl + flux_r*vxr + p_net*rnx
+    return_value(n,nee) = flux_l*h0l + flux_r*h0r
+    !
+  end do
+  !
+end subroutine ldfss_upwind_flux_cpg_1d
 !
 !###############################################################################
 !
