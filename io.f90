@@ -6921,6 +6921,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !
   use metrics_mod, only : time_metrics
   !
+  use thermo_mod,    only : species_name
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -7547,6 +7548,14 @@ continue
      !  n = n + nr*nr
       else if (trim(char_sname(l)) == "ContraMetrics") then
         n = n + nr*nr
+      else if (trim(char_sname(l)) == "MassFractions") then
+        if (ncs > 0) then
+          n = n + ncs
+        end if
+      else if (trim(char_sname(l)) == "SpeciesDensities") then
+        if (ncs > 0) then
+          n = n + ncs
+        end if
       else
         n = n + 1
       end if
@@ -7652,6 +7661,22 @@ continue
           n = n + 1
           varname = "Time Metric dA"
           call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end if
+      else if (trim(char_sname(k)) == "MassFractions") then
+        if (ncs > 0) then
+          do m = 1,ncs
+            n = n + 1
+            varname = "MassFraction"//trim(adjustl(species_name(m)))
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
+        end if
+      else if (trim(char_sname(k)) == "SpeciesDensities") then
+        if (ncs > 0) then
+          do m = 1,ncs
+            n = n + 1
+            varname = "SpeciesDensity"//trim(adjustl(species_name(m)))
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
         end if
       else
         n = n + 1
@@ -7919,6 +7944,36 @@ continue
       end do
       !
       call cgns_write_field_data
+      !!}}}
+    case ("SpeciesDensities") ! Species densities
+      !!{{{
+      do m = 1,ncs
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,npts
+          vartmp(n) = cv(n,m)
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !!}}}
+    case ("MassFractions") ! Species mass fractions
+      !!{{{
+      do m = 1,ncs
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,npts
+          vartmp(n) = cv(n,m)/cv(n,nec)
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end do
       !!}}}
     case ("GradDensity") ! Density gradient
       !!{{{
