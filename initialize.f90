@@ -2178,11 +2178,33 @@ continue
       end if
 #endif
       !
-      ! Set the boundary conditions for this BC to the reference conditions
+      if (any(bc_input(n)%set_bc_value == bc_walls)) then
+        !
+        ! Set the boundary conditions for this wall BC to the reference
+        ! density, pressure, temperature, and zero velocity
+        !
+        pv(1:nec) = bc_in(0)%pv(1:nec)
+        pv(nmb:nme) = zero
+        pv(nee) = bc_in(0)%pv(nee)
+        !
+        gp(npres) = bc_in(0)%gp(npres)
+        gp(ntemp) = bc_in(0)%gp(ntemp)
+        !
+        call compute_flow_conditions_from_pvt(cv,pv,gp)
+        !
+      else
+        !
+        ! Set the boundary conditions for this BC to the reference conditions
+        !
+        cv(:) = bc_in(0)%cv(:)
+        pv(:) = bc_in(0)%pv(:)
+        gp(:) = bc_in(0)%gp(:)
+        !
+      end if
       !
-      bc_in(i)%cv = bc_in(0)%cv(:) ! Using F2003 auto-reallocation
-      bc_in(i)%pv = bc_in(0)%pv(:) ! Using F2003 auto-reallocation
-      bc_in(i)%gp = bc_in(0)%gp(:) ! Using F2003 auto-reallocation
+      bc_in(i)%cv = cv(:) ! Using F2003 auto-reallocation
+      bc_in(i)%pv = pv(:) ! Using F2003 auto-reallocation
+      bc_in(i)%gp = gp(:) ! Using F2003 auto-reallocation
       !
     else
       !
