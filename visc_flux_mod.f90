@@ -29,7 +29,8 @@ contains
 !###############################################################################
 !###############################################################################
 !
-pure subroutine visc_flx_cv_gpu(n1,n2,cv,gp,dcvdx,return_value)
+!pure &
+subroutine visc_flx_cv_gpu(n1,n2,cv,gp,dcvdx,return_value,output_visc_fluxes)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -37,6 +38,8 @@ pure subroutine visc_flx_cv_gpu(n1,n2,cv,gp,dcvdx,return_value)
   real(wp),    intent(in) :: gp(:,:)
   real(wp),    intent(in) :: dcvdx(:,:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
+  !
+  logical(lk), optional, intent(in) :: output_visc_fluxes
   !
   !.. Local Scalars ..
   integer :: nr
@@ -48,7 +51,7 @@ continue
   if (nr == 3) then
     call visc_flx_cv_gpu_3d(n1,n2,cv,gp,dcvdx,return_value)
   else if (nr == 2) then
-    call visc_flx_cv_gpu_2d(n1,n2,cv,gp,dcvdx,return_value)
+    call visc_flx_cv_gpu_2d(n1,n2,cv,gp,dcvdx,return_value,output_visc_fluxes)
   else
     call visc_flx_cv_gpu_1d(n1,n2,cv,gp,dcvdx,return_value)
   end if
@@ -209,7 +212,8 @@ end subroutine visc_flx_cv_gpu_3d
 !
 !###############################################################################
 !
-pure subroutine visc_flx_cv_gpu_2d(n1,n2,cv,gp,dcvdx,return_value)
+!pure &
+subroutine visc_flx_cv_gpu_2d(n1,n2,cv,gp,dcvdx,return_value,output_visc_fluxes)
   !
   !.. Use Statements ..
   use ovar,       only : schmidt_lam
@@ -222,6 +226,8 @@ pure subroutine visc_flx_cv_gpu_2d(n1,n2,cv,gp,dcvdx,return_value)
   real(wp),    intent(in) :: gp(:,:)
   real(wp),    intent(in) :: dcvdx(:,:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
+  !
+  logical(lk), optional, intent(in) :: output_visc_fluxes
   !
   !.. Local Scalars ..
   integer  :: m,n,np
@@ -236,6 +242,7 @@ pure subroutine visc_flx_cv_gpu_2d(n1,n2,cv,gp,dcvdx,return_value)
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: hsi(:,:)
   real(wp), allocatable :: dpvdx(:,:,:)
+  real(wp), allocatable :: mixture_flux(:,:)
   !
 continue
   !
@@ -291,8 +298,34 @@ continue
     !
   end do
   !
+  if (present(output_visc_fluxes)) then
+    if (output_visc_fluxes) then
+      block
+        !
+        use ovar, only : itcur
+        use geovar, only : xyz
+        integer :: io,l,m,n
+        character(len=50) :: fname
+        !
+        write (fname,1) itcur
+        open (newunit=io,file=fname,status="replace",action="write")
+        do n = 1,size(return_value,dim=1)
+          write (io,2) n, (xyz(l,n), l=1,2), &
+                         ((return_value(n,l,m), l=1,2), m=nec,nee)
+        end do
+        close (io)
+        !
+        1 format ("base_visc_fluxes_at_sp.",i0,".dat")
+        2 format (i7,2x,10(2es14.6,:,","))
+        !
+      end block
+    end if
+  end if
+  !
   if (ncs > 0) then
     !
+    allocate ( mixture_flux(1:np,1:2) , source=zero )
+    !$ACC ENTER DATA CREATE(mixture_flux)
     allocate ( hsi(1:np,1:ncs) )
     !$ACC ENTER DATA CREATE(hsi)
     !
@@ -314,8 +347,11 @@ continue
         return_value(n,1,m) = dsdx
         return_value(n,2,m) = dsdy
         !
-        return_value(n,1,nee) = return_value(n,1,nee) + hi*dsdx
-        return_value(n,2,nee) = return_value(n,2,nee) + hi*dsdy
+        mixture_flux(n,1) = mixture_flux(n,1) + hi*dsdx
+        mixture_flux(n,2) = mixture_flux(n,2) + hi*dsdx
+        !
+       !return_value(n,1,nee) = return_value(n,1,nee) + hi*dsdx
+       !return_value(n,2,nee) = return_value(n,2,nee) + hi*dsdy
         !
       end do
       !
@@ -323,6 +359,39 @@ continue
     !
     !$ACC EXIT DATA DELETE(hsi)
     deallocate ( hsi )
+    !
+    if (present(output_visc_fluxes)) then
+      if (output_visc_fluxes) then
+        block
+          !
+          use ovar, only : itcur
+          use geovar, only : xyz
+          integer :: io,l,m,n
+          character(len=50) :: fname
+          !
+          write (fname,3) itcur
+          open (newunit=io,file=fname,status="replace",action="write")
+          do n = 1,size(return_value,dim=1)
+            write (io,4) n, (xyz(l,n), l=1,2), &
+                           ((return_value(n,l,m), l=1,2), m=1,ncs), &
+                            (mixture_flux(n,l), l=1,2)
+          end do
+          close (io)
+          3 format ("species_visc_fluxes_at_sp.",i0,".dat")
+          4 format (i7,2x,10(2es14.6,:,","))
+          !
+        end block
+      end if
+    end if
+    !
+    !$ACC PARALLEL LOOP PRESENT(return_value,mixture_flux)
+    do n = n1,n2
+      return_value(n,1,nee) = return_value(n,1,nee) + mixture_flux(n,1)
+      return_value(n,2,nee) = return_value(n,2,nee) + mixture_flux(n,2)
+    end do
+    !
+    !$ACC EXIT DATA DELETE(mixture_flux)
+    deallocate ( mixture_flux )
     !
   end if
   !
