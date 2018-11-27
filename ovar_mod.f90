@@ -225,7 +225,10 @@ module ovar
   ! GOVERNING EQUATIONS
   integer,     public, save :: governing_equations        = NavierStokes_Eqns
   integer,     public, save :: turbulence_model           = laminar_flow
+  !
+  ! CHEMICAL REACTION SOURCE TERMS
   logical(lk), public, save :: disable_chemical_reactions = fals
+  integer,     public, save :: semi_implicit_chemistry    = 0
   !
   ! NONDIMENSIONAL REFERENCE CONDITIONS
   real(wp), public, save :: machref =  0.4_wp
@@ -296,6 +299,7 @@ module ovar
   !
   ! OUTPUT THE STATISTICS OF THE LIMITER
   logical(lk), public, save :: output_limiter_statistics = fals
+  logical(lk), public, save :: output_marker_variables   = fals
   !
   ! OPTION TO OUTPUT FILTER DIAGONALS TO FILE
   logical(lk), public, save :: output_filter_diagonals = fals
@@ -925,7 +929,7 @@ module input_namelist_mod
   use ovar,      only : all_points, metis_option, use_old_restart_format
   use ovar,      only : mms_opt, mms_init, mms_output_solution
   use ovar,      only : itestcase, jet_init_func, governing_equations
-  use ovar,      only : disable_chemical_reactions
+  use ovar,      only : disable_chemical_reactions, semi_implicit_chemistry
   use ovar,      only : load_restart_file, restart_interval, restart_file
   use ovar,      only : restart_output_uses_host_roots
   use ovar,      only : iter_out_interval, results_interval
@@ -973,6 +977,7 @@ module input_namelist_mod
   use ovar,      only : use_async_for_error
   use ovar,      only : ideal_total_temperature,limit_total_temperature
   use ovar,      only : output_limiter_statistics,output_filter_diagonals
+  use ovar,      only : output_marker_variables
   use ovar,      only : sem_profile_file
   use ovar,      only : force_nd_subroutines, newton_rlx
   use ovar,      only : chemistry_sub_iterations
@@ -1056,8 +1061,9 @@ module input_namelist_mod
   namelist / input / output_dir, output_interval, continuous_output, &
                      output_order, loc_output_pts, output_frequency
   ! GOVERNING EQUATIONS
-  namelist / input / governing_equations, turbulence_model, &
-                     disable_chemical_reactions
+  namelist / input / governing_equations, turbulence_model
+  ! CHEMICAL REACTION SOURCE TERMS
+  namelist / input / disable_chemical_reactions, semi_implicit_chemistry
   ! NONDIMENSIONAL REFERENCE CONDITIONS
   namelist / input / machref, reyref, gam
   ! REALIZABLE TOTAL TEMPERATURE LIMITER
@@ -1090,7 +1096,7 @@ module input_namelist_mod
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
   namelist / input / Filtering_Interval, Limiting_Interval
   ! OUTPUT THE STATISTICS OF THE LIMITER
-  namelist / input / output_limiter_statistics
+  namelist / input / output_limiter_statistics, output_marker_variables
   ! OPTION TO OUTPUT FILTER DIAGONALS TO FILE
   namelist / input / output_filter_diagonals
   ! ISENTROPIC VORTEX CONSTANTS
