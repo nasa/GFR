@@ -388,6 +388,7 @@ module module_kind_types
   !
   real(wp), parameter :: rndoff  = epsilon(one)
   real(wp), parameter :: tny     = tiny(one)
+  real(wp), parameter :: exp_lim = real( int(log(huge(zero))) , kind=wp )
   !
   logical(lk), parameter :: true = .true.
   logical(lk), parameter :: fals = .false.
@@ -490,6 +491,7 @@ module module_kind_types
   integer, parameter :: H2_2D_Diffusion_Flame   = 15
   integer, parameter :: CH4_3D_Diffusion_Flame  = 16
   integer, parameter :: N2_O2_Diffusion         = 17
+  integer, parameter :: Compression_Corner      = 18
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
                                                 Entropy_Transport ]
   integer, parameter :: Vortex_Problems(1:2) = [ Shu_Vortex, &
@@ -497,9 +499,10 @@ module module_kind_types
   integer, parameter :: Transport_Problems(1:4) = [ Shu_Vortex, &
                                                     Vortex_Transport, &
                                                     Advec_Problems ]
-  integer, parameter :: Reacting_Flows(1:3) = [Reacting_Backstep, &
+  integer, parameter :: Reacting_Flows(1:4) = [Reacting_Backstep, &
                                                H2_2D_Diffusion_Flame, &
-                                               CH4_3D_Diffusion_Flame]
+                                               CH4_3D_Diffusion_Flame, &
+                                               Compression_Corner]
   integer, parameter :: Dual_Stream_Mixing_Flows(1:2) = &
                                           [H2_2D_Diffusion_Flame, &
                                            N2_O2_Diffusion]
@@ -1983,6 +1986,11 @@ end subroutine finalize_mpi_environment
 subroutine stop_gfr(iend,procedure_name,line_number,file_name, &
                       optional_message)
   !
+#ifdef SPECIAL_FOR_INTEL
+  !.. Use Statements ..
+  use ifcore, only : tracebackqq
+#endif
+  !
   !.. Formal Arguments ..
   integer,          intent(in) :: iend
   character(len=*), intent(in) :: procedure_name
@@ -2044,10 +2052,14 @@ continue
         write (iout,5) trim(adjustl(output_message))
       write (iout,6)
       flush (iout)
+#ifdef SPECIAL_FOR_INTEL
+      call tracebackqq()
+#else
       open (newunit=io,file="ThisFileShouldNeverExist.EOF.read", &
                        status="old",form="unformatted")
       read (io) val
       val = one/val
+#endif
       !
     else if (ncpu == 1 .or. iflag == stop_mpi) then
       !
@@ -2083,7 +2095,7 @@ continue
   !
   flush (iout)
   !
-  stop
+  stop 1
   !
   ! Format Statements
   !
