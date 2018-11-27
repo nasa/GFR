@@ -33,6 +33,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/gmsh_mod.o \
          $(OBJDIR)/cgns_mod.o \
          $(OBJDIR)/averaging_mod.o \
+         $(OBJDIR)/reactions_mod.o \
          $(OBJDIR)/cpu_info_mod.o \
          $(OBJDIR)/interpsol_mod.o \
          $(OBJDIR)/mydebug_mod.o
@@ -157,7 +158,7 @@ $(OBJDIR)/filter_mod.o : filter_mod.f90 \
                $(OBJDIR)/flowvar_mod.o \
                $(OBJDIR)/quadrature_mod.o \
                $(OBJDIR)/vandermonde_mod.o \
-               $(OBJDIR)/species_mod.o \
+               $(OBJDIR)/thermo_mod.o \
                $(FUNDIR)/solpts2order.f90 \
                $(FUNDIR)/debug_timer.f90
 
@@ -237,6 +238,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/derivatives_mod.o \
                $(OBJDIR)/thermo_mod.o \
                $(OBJDIR)/transport_mod.o \
+               $(OBJDIR)/reactions_mod.o \
                $(FUNDIR)/vortex.f90 \
                $(FUNDIR)/taylor_green.f90 \
                $(FUNDIR)/smc000_interior_wall_radius.f90 \
@@ -520,6 +522,7 @@ $(OBJDIR)/reactions_mod.o : reactions_mod.f90 \
              $(OBJDIR)/eqn_idx_mod.o \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/flowvar_mod.o \
+             $(OBJDIR)/metrics.o \
              $(OBJDIR)/thermo_mod.o
 
 $(OBJDIR)/restart_mod.o : restart_mod.f90 \
@@ -540,7 +543,8 @@ $(OBJDIR)/species_mod.o : species_mod.f90 \
 $(OBJDIR)/thermo_mod.o : thermo_mod.f90 \
                $(OBJDIR)/kind_types.o \
                $(OBJDIR)/eqn_idx_mod.o \
-               $(OBJDIR)/ovar_mod.o
+               $(OBJDIR)/ovar_mod.o \
+               $(OBJDIR)/flowvar_mod.o
 
 $(OBJDIR)/time_mod.o : time_mod.f90 \
              $(OBJDIR)/kind_types.o \
