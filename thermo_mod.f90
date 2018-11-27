@@ -598,11 +598,14 @@ end subroutine init_thermo_mod
 !###############################################################################
 !
 !pure &
-subroutine update_thermo_properties_1p(cv_1p,gp_1p)
+subroutine update_thermo_properties_1p(cv_1p,gp_1p,caller_name)
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: cv_1p(:)
   real(wp), intent(inout) :: gp_1p(:)
+  !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: caller_name
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: cv(:,:)
@@ -620,7 +623,7 @@ continue
   gp(1,1:nq) = gp_1p(1:ng)
   !$ACC DATA CREATE(cv,gp)
   !
-  call update_thermo_properties_sp(1,1,cv,gp,loc="node")
+  call update_thermo_properties_sp(1,1,cv,gp,loc="node",caller_name=caller_name)
   !
   gp_1p(1:ng) = gp(1,1:ng)
   !
@@ -633,7 +636,7 @@ end subroutine update_thermo_properties_1p
 !###############################################################################
 !
 !pure &
-subroutine update_thermo_properties_fp(n1,n2,cv,gp)
+subroutine update_thermo_properties_fp(n1,n2,cv,gp,caller_name)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -641,14 +644,21 @@ subroutine update_thermo_properties_fp(n1,n2,cv,gp)
   real(wp), intent(inout) :: cv(:,:,:)
   real(wp), intent(inout) :: gp(:,:,:)
   !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: caller_name
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "update_thermo_properties_fp"
   !
 continue
   !
-  call update_thermo_properties_sp(n1,n2,cv(:,:,1),gp(:,:,1),loc="face")
+  call update_thermo_properties_sp(n1,n2,cv(:,:,1),gp(:,:,1), &
+                                         loc="face", &
+                                         caller_name=caller_name)
   if (all([size(cv,dim=3),size(gp,dim=3)] > 1)) then
-    call update_thermo_properties_sp(n1,n2,cv(:,:,2),gp(:,:,2),loc="face")
+    call update_thermo_properties_sp(n1,n2,cv(:,:,2),gp(:,:,2), &
+                                           loc="face", &
+                                           caller_name=caller_name)
   end if
   !
 end subroutine update_thermo_properties_fp
@@ -656,7 +666,7 @@ end subroutine update_thermo_properties_fp
 !###############################################################################
 !
 !pure &
-subroutine update_thermo_properties_sp(n1,n2,cv,gp,loc)
+subroutine update_thermo_properties_sp(n1,n2,cv,gp,loc,caller_name)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -666,6 +676,7 @@ subroutine update_thermo_properties_sp(n1,n2,cv,gp,loc)
   !
   !.. Optional Arguments ..
   character(len=*), optional, intent(in) :: loc
+  character(len=*), optional, intent(in) :: caller_name
   !
   !.. Local Scalars ..
   integer  :: m,n,num_newton_errors
@@ -730,6 +741,7 @@ continue
                                             num_newton_errors, &
                                             max_newton_error, &
                                             loc=loc, &
+                                            caller_name=caller_name, &
                                             dim_t_upon_entry=true, &
                                             nondim_t_upon_return=true)
     !
@@ -1047,7 +1059,7 @@ end subroutine compute_mixture_rgas_1p
 !
 !pure &
 subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
-                                        ndnc,dtmx,loc, &
+                                        ndnc,dtmx,loc,caller_name, &
                                         dim_t_upon_entry,nondim_t_upon_return)
   !
   !.. Use Statements ..
@@ -1068,6 +1080,7 @@ subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
   !
   !.. Optional Arguments
   character(len=*), optional, intent(in) :: loc
+  character(len=*), optional, intent(in) :: caller_name
   logical(lk),      optional, intent(in) :: dim_t_upon_entry
   logical(lk),      optional, intent(in) :: nondim_t_upon_return
   !
