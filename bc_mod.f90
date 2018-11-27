@@ -117,7 +117,7 @@ continue
   n2 = n_bnd_flxpts
   !
   call update_thermo_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1), &
-                                      loc="face")
+                                      loc="face",caller_name=pname)
   call update_transport_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1))
   !
   ! Loop over the boundary face groups and compute the conservative variables

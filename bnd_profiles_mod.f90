@@ -225,7 +225,7 @@ continue
           end do
         end do
         !
-        call update_thermo_properties(cvfp,gpfp)
+        call update_thermo_properties(cvfp,gpfp,caller_name=pname)
         call update_transport_properties(cvfp,gpfp)
         !
         ! Compute the primitive variables and their

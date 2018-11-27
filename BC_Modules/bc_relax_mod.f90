@@ -86,6 +86,9 @@ subroutine get_relaxed_cv_bc(relax,cv_fs,cv_bc,gp_bc, &
   real(wp) :: pv(1:size(cv_bc))
   real(wp) :: gp(1:size(gp_bc))
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_relaxed_cv_bc"
+  !
 continue
   !
   ! Determine the relaxation coefficient
@@ -99,7 +102,7 @@ continue
   gp(npres) = gp_bc(npres)
   gp(ntemp) = gp_bc(ntemp)
   !
-  call update_thermo_properties(cv,gp)
+  call update_thermo_properties(cv,gp,caller_name=pname)
   call update_transport_properties(cv,gp)
   !
   if (ncs > 0) then
@@ -172,6 +175,9 @@ subroutine get_relaxed_pv_bc(relax,pv_fs,pv_bc, &
   real(wp) :: pv(1:size(pv_bc))
   real(wp) :: gp(1:ng)
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_relaxed_pv_bc"
+  !
 continue
   !
   ! Determine the relaxation coefficient
@@ -225,7 +231,7 @@ continue
   gp(npres) = pres
   gp(ntemp) = temp
   !
-  call update_thermo_properties(cv,gp)
+  call update_thermo_properties(cv,gp,caller_name=pname)
   call update_transport_properties(cv,gp)
   !
   if (present(cv_rlx)) then

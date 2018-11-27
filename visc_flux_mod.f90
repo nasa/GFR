@@ -1754,6 +1754,9 @@ end subroutine common_vflx_ave_sol_and_grad_gpu
   real(wp), allocatable :: com_dcvdx(:,:,:)
   real(wp), allocatable :: com_vflx(:,:,:)
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "common_vflx_ave_sol_and_grad_gpu_3d"
+  !
 continue
   !
   !
@@ -1822,7 +1825,8 @@ continue
   ! Update the common thermodynamic and transport properties from
   ! the common solution
   !
-  call update_thermo_properties(n1,n2,com_cv,com_gp,loc="face")
+  call update_thermo_properties(n1,n2,com_cv,com_gp, &
+                                loc="face",caller_name=pname)
   call update_transport_properties(n1,n2,com_cv,com_gp)
   !
   ! Compute the common viscous flux vector using
@@ -1891,6 +1895,9 @@ subroutine common_vflx_ave_sol_and_grad_gpu_2d(n1,n2,facenrm,face_cv, &
   real(wp), allocatable :: com_dcvdx(:,:,:)
   real(wp), allocatable :: com_vflx(:,:,:)
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "common_vflx_ave_sol_and_grad_gpu_2d"
+  !
 continue
   !
   np = size(face_dcvdx,dim=1)
@@ -1952,7 +1959,8 @@ continue
   ! Update the common thermodynamic and transport properties from
   ! the common solution
   !
-  call update_thermo_properties(n1,n2,com_cv,com_gp,loc="face")
+  call update_thermo_properties(n1,n2,com_cv,com_gp, &
+                                loc="face",caller_name=pname)
   call update_transport_properties(n1,n2,com_cv,com_gp)
   !
   ! Compute the common viscous flux vector using
@@ -2018,6 +2026,9 @@ end subroutine common_vflx_ave_sol_and_grad_gpu_2d
   real(wp), allocatable :: com_dcvdx(:,:,:)
   real(wp), allocatable :: com_vflx(:,:,:)
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "common_vflx_ave_sol_and_grad_gpu_1d"
+  !
 continue
   !
   np = size(face_dcvdx,dim=1)
@@ -2070,7 +2081,8 @@ continue
   ! Update the common thermodynamic and transport properties from
   ! the common solution
   !
-  call update_thermo_properties(n1,n2,com_cv,com_gp,loc="face")
+  call update_thermo_properties(n1,n2,com_cv,com_gp, &
+                                loc="face",caller_name=pname)
   call update_transport_properties(n1,n2,com_cv,com_gp)
   !
   ! Compute the common viscous flux vector using
@@ -2137,6 +2149,9 @@ end subroutine common_vflx_ave_sol_and_grad_gpu_1d
   real(wp), dimension(1:nr,1:nq) :: vflux
   real(wp), dimension(1:nq,1:nr) :: fvcom
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "common_visc_flx_sub"
+  !
 continue
   !
   if (visc_variables_to_ave == visc_interface_fluxes) then
@@ -2229,7 +2244,7 @@ continue
       end do
     end do
     !
-    call update_thermo_properties(ucom,gpcom)
+    call update_thermo_properties(ucom,gpcom,caller_name=pname)
     call update_transport_properties(ucom,gpcom)
     !
     ! Compute the common viscous flux vector using
@@ -2283,6 +2298,9 @@ end subroutine common_visc_flx_sub
   real(wp), dimension(1:nr,1:nq) :: vflux
   real(wp), dimension(1:nq,1:nr) :: fvcom
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "common_visc_flx_cv"
+  !
 continue
   !
   if (visc_variables_to_ave == visc_interface_fluxes) then
@@ -2375,7 +2393,7 @@ continue
       end do
     end do
     !
-    call update_thermo_properties(ucom,gpcom)
+    call update_thermo_properties(ucom,gpcom,caller_name=pname)
     call update_transport_properties(ucom,gpcom)
     !
     ! Compute the common viscous flux vector using

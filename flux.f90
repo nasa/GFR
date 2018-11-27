@@ -90,7 +90,7 @@ continue
   n1 = n_bnd_flxpts+1
   n2 = n_flxpts
   !
-  call update_thermo_properties(n1,n2,faceusp_array,facegpsp)
+  call update_thermo_properties(n1,n2,faceusp_array,facegpsp,caller_name=pname)
   call update_transport_properties(n1,n2,faceusp_array,facegpsp)
   !
   call debug_timer(leaving_procedure,pname)
@@ -1065,7 +1065,7 @@ continue
   n1 = lbound(uqp,dim=1)
   n2 = ubound(uqp,dim=1)
   !
-  call update_thermo_properties(n1,n2,uqp,gpqp)
+  call update_thermo_properties(n1,n2,uqp,gpqp,caller_name=pname)
   call update_transport_properties(n1,n2,uqp,gpqp)
   !
   call debug_timer(leaving_procedure,pname)
@@ -3438,7 +3438,7 @@ continue
   n2 = n_bnd_flxpts
   !
   call update_thermo_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2), &
-                                      loc="face")
+                                      loc="face",caller_name=pname)
   call update_transport_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2))
   !
   if (using_quadrature) then
@@ -4035,7 +4035,7 @@ continue
   n1 = face(nf1)%beg_qp
   n2 = face(nf2)%end_qp
   !
-  call update_thermo_properties(n1,n2,faceuqp,facegpqp)
+  call update_thermo_properties(n1,n2,faceuqp,facegpqp,caller_name=pname)
   call update_transport_properties(n1,n2,faceuqp,facegpqp)
   !
   call debug_timer(leaving_procedure,pname)

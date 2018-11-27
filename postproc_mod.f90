@@ -1050,7 +1050,8 @@ continue
   !
   ! 1. Update the gas properties for the interior solution points
   !
-  call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
+  call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                loc="cell",caller_name=pname)
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   ! 2. Update the gas properties for the face points
@@ -1092,7 +1093,8 @@ continue
   !
   ! Use utmp to update the gas properties in gptmp
   !
-  call update_thermo_properties(1,n_flxpts,utmp,gptmp,loc="face")
+  call update_thermo_properties(1,n_flxpts,utmp,gptmp, &
+                                loc="face",caller_name=pname)
   call update_transport_properties(1,n_flxpts,utmp,gptmp)
   !
   ! Copy the gas properties in gptmp back into facegpsp_dt
@@ -1148,7 +1150,7 @@ continue
   !
   ! Use utmp to update the gas properties in gptmp
   !
-  call update_thermo_properties(1,n_edgpts,utmp,gptmp)
+  call update_thermo_properties(1,n_edgpts,utmp,gptmp,caller_name=pname)
   call update_transport_properties(1,n_edgpts,utmp,gptmp)
   !
   ! Copy the gas properties in gptmp back into edgegpsp_dt
@@ -1200,7 +1202,7 @@ continue
   !
   ! Use utmp to update the gas properties in gptmp
   !
-  call update_thermo_properties(1,n_nodpts,utmp,gptmp)
+  call update_thermo_properties(1,n_nodpts,utmp,gptmp,caller_name=pname)
   call update_transport_properties(1,n_nodpts,utmp,gptmp)
   !
   ! Copy the gas properties in gptmp back into nodegpsp_dt
@@ -1262,7 +1264,7 @@ continue
   n1 = n_bnd_flxpts+1
   n2 = n_flxpts
   !
-  call update_thermo_properties(n1,n2,faceusp_array,facegpsp)
+  call update_thermo_properties(n1,n2,faceusp_array,facegpsp,caller_name=pname)
   call update_transport_properties(n1,n2,faceusp_array,facegpsp)
   !
   ! Exchange the left and right states for faces on communication boundaries
@@ -1283,7 +1285,7 @@ continue
   n2 = n_bnd_flxpts
   !
   call update_thermo_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2), &
-                                      loc="face")
+                                      loc="face",caller_name=pname)
   call update_transport_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2))
   !
   call pp_interp_dusp_to_flxpts
@@ -1434,7 +1436,7 @@ continue
   n2 = n_flxpts
   !
   call update_thermo_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1), &
-                                      loc="face")
+                                      loc="face",caller_name=pname)
   call update_transport_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1))
   !
   ! Copy the updated gas properties to facegpsp_dt
