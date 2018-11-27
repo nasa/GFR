@@ -1287,7 +1287,7 @@ subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
   real(wp),  intent(inout) :: scaled_marker(:)
   !
   !.. Local Scalars ..
-  integer  :: nr,nvar
+  integer :: nc,nr,nvar
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_resolution_marker"
@@ -1296,19 +1296,32 @@ continue
   !
   nr = nme-nmb+1
   !
+  !$ACC PARALLEL LOOP PRESENT(marker)
+  do nc = 1,size(marker)
+    marker(nc) = -huge(zero)
+  end do
+  !
   if (Resolution_Marker_Variable > 0) then
-    nvar = ncs + Resolution_Marker_Variable
+    nvar = Resolution_Marker_Variable
   else
     nvar = 0
   end if
   !
   if (nvar == 0) then
-    if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-      call compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
-    else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-      call compute_resolution_marker_2d(usp,skip_cell,cutoff_order,marker)
+    if (force_nd_subroutines) then
+      call compute_resolution_marker_nd(1,nq,usp,skip_cell,cutoff_order,marker)
     else
-      call compute_resolution_marker_nd(usp,skip_cell,cutoff_order,marker)
+      if (nr == 3) then
+        call compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
+      else if (nr == 2) then
+        call compute_resolution_marker_2d(usp,skip_cell,cutoff_order,marker)
+      else
+        call compute_resolution_marker_1d(usp,skip_cell,cutoff_order,marker)
+      end if
+      if (ncs > 0) then
+        call compute_resolution_marker_nd(1,ncs,usp,skip_cell, &
+                                          cutoff_order,marker)
+      end if
     end if
   else
     call compute_resolution_marker_1var(usp(:,nvar),skip_cell, &
@@ -1788,7 +1801,8 @@ end subroutine compute_resolution_marker_1d
 !
 !###############################################################################
 !
-pure subroutine compute_resolution_marker_nd(usp,skip_cell,cutoff_order,marker)
+pure subroutine compute_resolution_marker_nd(mbeg,mend,usp,skip_cell, &
+                                             cutoff_order,marker)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -1797,6 +1811,7 @@ pure subroutine compute_resolution_marker_nd(usp,skip_cell,cutoff_order,marker)
   use quadrature_mod, only : std_elem
   !
   !.. Formal Arguments ..
+  integer,      intent(in) :: mbeg,mend
   real(wp),     intent(in) :: usp(:,:)
   logical(ldk), intent(in) :: skip_cell(:)
   integer,      intent(in) :: cutoff_order(:)
@@ -1809,8 +1824,8 @@ pure subroutine compute_resolution_marker_nd(usp,skip_cell,cutoff_order,marker)
   real(wp) :: val,l2_n,l2_d,vd,vn
   !
   !.. Local Arrays ..
-  real(wp) :: val_n(1:maxSP,1:nq)
-  real(wp) :: val_d(1:maxSP,1:nq)
+  real(wp) :: val_n(1:maxSP,mbeg:mend)
+  real(wp) :: val_d(1:maxSP,mbeg:mend)
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: var_pm1(:,:)
@@ -1820,7 +1835,7 @@ pure subroutine compute_resolution_marker_nd(usp,skip_cell,cutoff_order,marker)
   !
 continue
   !
-  allocate ( var_pm1(1:n_solpts,1:nq) )
+  allocate ( var_pm1(1:n_solpts,mbeg:mend) )
   !$ACC DATA CREATE(var_pm1)
   !
   ! Compute u_hat, the degree-(P-1) solution of density at the sol-pts
@@ -1838,7 +1853,7 @@ continue
     if (skip_cell(nc)) then
       !
       !$ACC LOOP VECTOR COLLAPSE(2)
-      do m = 1,nq
+      do m = mbeg,mend
         do n = 1,np
           var_pm1(n0+n,m) = usp(n0+n,m)
         end do
@@ -1853,7 +1868,7 @@ continue
       !
       !$ACC LOOP VECTOR COLLAPSE(2)
       do n = 1,np
-        do m = 1,nq
+        do m = mbeg,mend
           !
           val = zero
           !
@@ -1891,7 +1906,7 @@ continue
     this_order = cell(nc)%order
     !
     !$ACC LOOP VECTOR COLLAPSE(2)
-    do m = 1,nq
+    do m = mbeg,mend
       do n = 1,np
         !
         val = usp(n0+n,m)
@@ -1904,7 +1919,7 @@ continue
     !
     mark = -huge(zero)
     !
-    do m = 1,nq
+    do m = mbeg,mend
       !
       l2_n = zero
       l2_d = zero
@@ -1926,7 +1941,7 @@ continue
       !
     end do
     !
-    marker(nc) = mark
+    marker(nc) = max(marker(nc),mark)
     !
   end do
   !
