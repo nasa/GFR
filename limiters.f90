@@ -201,22 +201,14 @@ end subroutine moment_limiter
 subroutine limit_by_projecting
   !
   !.. Use Statements ..
-  use order_mod,  only : maxpts,n_max_order
-  use geovar,     only : ncell,cell
-  use flowvar,    only : usp
-  use projection_mod, only : projct
-  use filter_mod, only : filter
-  use ovar, only : Limiter_Filter_Option
+  use order_mod, only : n_max_order
+  use flowvar,   only : usp
+  use ovar,      only : Limiter_Filter_Option
   !
   !.. Local Scalars ..
-  integer :: k,m,n1,n2,nc,np,ntc
-  integer :: this_geom,this_order
-  integer :: dropped_orders,proj_order
+  integer     :: ntc,dropped_orders
   logical(lk) :: there_are_no_troubles
   logical(lk) :: first_output
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:maxpts,1:nq) :: tusp
   !
 continue
   !
@@ -962,7 +954,8 @@ subroutine identify_troubled_cells(troubled_cell,dropped_orders, &
   !.. Local Scalars ..
   integer :: nc,proj_order
   integer :: orders_to_cutoff
-  integer :: ord_mlt,ord_add,actual_order
+  integer :: ord_mlt,ord_add
+  integer :: actual_order,adjusted_order
   !
   logical(lk) :: there_are_troubles
   !
@@ -981,7 +974,7 @@ continue
     !
     !$ACC PARALLEL LOOP PRESENT(troubled_cell)
     do nc = 1,ncell
-      troubled_cell(nc) = .false.
+      troubled_cell(nc) = .true.
     end do
     !
   end if
@@ -1023,7 +1016,11 @@ continue
     ! If the projection has reduced the solution to first order, mark
     ! this cell as no longer troubled and skip to the next cell
     !
-    if (actual_order-proj_order <= 1) then
+    adjusted_order = actual_order - proj_order
+    !
+   !if (adjusted_order <= 1) then
+    if (adjusted_order < 0 .or. &
+        (adjusted_order <= 1 .and. cell(nc)%order > 1)) then
       troubled_cell(nc) = .false.
       cycle
     end if
@@ -1138,6 +1135,11 @@ continue
         ord_add = 0
       end if
    !end if
+    if (Limiter_Option == 1) then
+      if (.not. present(orders_to_cutoff)) then
+        ord_add = 0
+      end if
+    end if
   end if
   !
   !$ACC PARALLEL LOOP PRESENT(cell,lmtr_order)
@@ -1158,7 +1160,8 @@ continue
   !
   !$ACC PARALLEL LOOP PRESENT(lmtr_order,skip_cell)
   do nc = 1,ncell
-    if (lmtr_order(nc) <= 0) then
+    if (lmtr_order(nc) < 0 .or. &
+        (lmtr_order(nc) == 0 .and. cell(nc)%order > 1)) then
       skip_cell(nc) = .true.
     end if
   end do
@@ -1170,9 +1173,10 @@ continue
   ! Update the troubled_cell indicator if it is present
   !
   if (present(troubled_cell)) then
-    !$ACC PARALLEL LOOP PRESENT(scaled_marker,troubled_cell)
+    !$ACC PARALLEL LOOP PRESENT(scaled_marker,troubled_cell,skip_cell)
     do nc = 1,ncell
       troubled_cell(nc) = (scaled_marker(nc) >= 1.0e-8_wp)
+      skip_cell(nc) = .not. troubled_cell(nc)
     end do
   end if
   !
@@ -1213,7 +1217,11 @@ continue
           lmtr_order(nc) = this_order
         else
           limit_order = int( real(this_order,kind=wp)*(one-scaled_marker(nc)) )
-          lmtr_order(nc) = max(1,min(this_order,limit_order))
+          if (this_order <= 1) then
+            lmtr_order(nc) = max(0,min(this_order,limit_order))
+          else
+            lmtr_order(nc) = max(1,min(this_order,limit_order))
+          end if
         end if
         !
         if (lmtr_order(nc) == this_order) then
