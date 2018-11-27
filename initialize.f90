@@ -282,7 +282,8 @@ continue
   !
   ! Update the thermodynamics and transport properties at the solution points
   !
-  call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
+  call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                loc="cell",caller_name=pname)
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   init_tstar = time*time_ref*time_scaling_factor
@@ -1722,6 +1723,7 @@ subroutine initialize_reference
   !
   use thermo_mod,    only : init_thermo_mod
   use transport_mod, only : init_transport_mod
+  use reactions_mod, only : init_reactions_mod
   !
   !.. Local Scalars ..
   integer  :: ierr
@@ -1807,6 +1809,10 @@ continue
     !          velref, velref_nd, pref_nd, rgasref_nd, and cpref_nd
     !
     call init_thermo_mod(cv_ref,pv_ref,gp_ref)
+    !
+    ! Initialize the reactions module
+    !
+    call init_reactions_mod
     !
   end if
   !
@@ -2018,7 +2024,7 @@ continue
     !
     gp(ntemp) = one ! tref/tref
     !
-    call update_thermo_properties(cv,gp)
+    call update_thermo_properties(cv,gp,caller_name=pname)
     !
     ! Recompute the primitive variable inflow conditions
     !
@@ -2065,7 +2071,7 @@ subroutine create_bc_in
   !
   !.. Local Scalars ..
   integer     :: i,ii,m,n,nc,nf,nbc,ierr
-  real(wp)    :: r,p,t,r0,p0,t0,mach,aspd,visc,reyn,rgas,gamm
+  real(wp)    :: r,p,t,tnd,r0,p0,t0,mach,aspd,visc,reyn,rgas,gamm
   real(wp)    :: alpha,beta,total_cond
   real(wp)    :: gm1,gam_over_gm1,one_over_gm1
   logical(lk) :: static_is_set
@@ -2329,86 +2335,89 @@ continue
           vel_is_set  = ( norm2(vel) > zero )
           !
           call igl(rgas,r,p,t,static_is_set,n)
-         !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-         !                        vel,mach,alpha,beta,mass_frac, &
-         !                        static_is_set,total_is_set, &
-         !                        vel_is_set,mach_is_set, &
-         !                        "after igl(r,p,t)")
+          call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+                                  vel,mach,alpha,beta,mass_frac, &
+                                  static_is_set,total_is_set, &
+                                  vel_is_set,mach_is_set, &
+                                  "after igl(r,p,t)")
           !
           if (gamm <= zero) then
             if (t > tmin) then
-              call compute_mixture_gamma(mass_frac,t,gamm,dimensional=true)
-             !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-             !                        vel,mach,alpha,beta,mass_frac, &
-             !                        static_is_set,total_is_set, &
-             !                        vel_is_set,mach_is_set, &
-             !                        "after compute_mixture_gamma(1)")
+              tnd = t/tref
+              call compute_mixture_gamma(mass_frac,tnd,gamm,dimensional=true)
+              call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+                                      vel,mach,alpha,beta,mass_frac, &
+                                      static_is_set,total_is_set, &
+                                      vel_is_set,mach_is_set, &
+                                      "after compute_mixture_gamma(1)")
             end if
           end if
           !
           call igl(rgas,r0,p0,t0,total_is_set,n)
-         !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-         !                        vel,mach,alpha,beta,mass_frac, &
-         !                        static_is_set,total_is_set, &
-         !                        vel_is_set,mach_is_set, &
-         !                        "after igl(r0,p0,t0)")
+          call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+                                  vel,mach,alpha,beta,mass_frac, &
+                                  static_is_set,total_is_set, &
+                                  vel_is_set,mach_is_set, &
+                                  "after igl(r0,p0,t0)")
           !
           if (gamm > zero) then
             !
             call mach_total_pres(gamm,p,p0,mach,mach_is_set,n)
-           !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-           !                        vel,mach,alpha,beta,mass_frac, &
-           !                        static_is_set,total_is_set, &
-           !                        vel_is_set,mach_is_set, &
-           !                        "after mach_total_pres")
+            call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+                                    vel,mach,alpha,beta,mass_frac, &
+                                    static_is_set,total_is_set, &
+                                    vel_is_set,mach_is_set, &
+                                    "after mach_total_pres")
             !
             call mach_total_temp(gamm,t,t0,mach,mach_is_set,n)
-           !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-           !                        vel,mach,alpha,beta,mass_frac, &
-           !                        static_is_set,total_is_set, &
-           !                        vel_is_set,mach_is_set, &
-           !                        "after mach_total_temp")
+            call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+                                    vel,mach,alpha,beta,mass_frac, &
+                                    static_is_set,total_is_set, &
+                                    vel_is_set,mach_is_set, &
+                                    "after mach_total_temp")
             !
             call mach_total_dens(gamm,r,r0,mach,mach_is_set,n)
-           !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-           !                        vel,mach,alpha,beta,mass_frac, &
-           !                        static_is_set,total_is_set, &
-           !                        vel_is_set,mach_is_set, &
-           !                        "after mach_total_dens")
+            call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+                                    vel,mach,alpha,beta,mass_frac, &
+                                    static_is_set,total_is_set, &
+                                    vel_is_set,mach_is_set, &
+                                    "after mach_total_dens")
             !
           else if (t0 > zero .and. mach_is_set) then
             !
             call mach_total_temp_tpg(mass_frac,rgas,gamm,t,t0,mach)
-            !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-            !                        vel,mach,alpha,beta,mass_frac, &
-            !                        static_is_set,total_is_set, &
-            !                        vel_is_set,mach_is_set, &
-            !                        "after mach_total_temp_tpg")
+            call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+                                    vel,mach,alpha,beta,mass_frac, &
+                                    static_is_set,total_is_set, &
+                                    vel_is_set,mach_is_set, &
+                                    "after mach_total_temp_tpg")
             !
           end if
           !
           if (gamm <= zero) then
             if (t > tmin) then
-              call compute_mixture_gamma(mass_frac,t,gamm,dimensional=true)
-             !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-             !                        vel,mach,alpha,beta,mass_frac, &
-             !                        static_is_set,total_is_set, &
-             !                        vel_is_set,mach_is_set, &
-             !                        "after compute_mixture_gamma(2)")
+              tnd = t/tref
+              call compute_mixture_gamma(mass_frac,tnd,gamm,dimensional=true)
+              call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+                                      vel,mach,alpha,beta,mass_frac, &
+                                      static_is_set,total_is_set, &
+                                      vel_is_set,mach_is_set, &
+                                      "after compute_mixture_gamma(2)")
             end if
           end if
           !
           call vel_from_static(gamm,rgas,r,p,t,vel,mach,alpha,beta, &
                                vel_is_set,mach_is_set)
-         !call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
-         !                        vel,mach,alpha,beta,mass_frac, &
-         !                        static_is_set,total_is_set, &
-         !                        vel_is_set,mach_is_set, &
-         !                        "after vel_from_static")
+          call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
+                                  vel,mach,alpha,beta,mass_frac, &
+                                  static_is_set,total_is_set, &
+                                  vel_is_set,mach_is_set, &
+                                  "after vel_from_static")
           !
           if (gamm <= zero) then
             if (t > tmin) then
-              call compute_mixture_gamma(mass_frac,t,gamm,dimensional=true)
+              tnd = t/tref
+              call compute_mixture_gamma(mass_frac,tnd,gamm,dimensional=true)
             end if
           end if
           !
@@ -2968,14 +2977,39 @@ subroutine dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
   character(len=*), intent(in) :: string
   !
   !.. Local Scalars ..
-  integer :: i
+  integer :: i,io
+  character(len=10) :: fname
+  integer, save :: output = -1
   !
 continue
   !
+#ifdef USE_DUMP_BC_CONDITIONS
+  !
   if (mypnum /= glb_root) return
   !
+ !output = output + 1
+ !!
+ !write (fname,"(i0,'.log')") output
+ !!
+ !open (newunit=io,file=fname,status="replace",action="write")
+ !write (io,1) trim(adjustl(string)),ii, &
+ !               gamm,rgas,r,p,t,static_is_set, &
+ !               r0,p0,t0,total_is_set, &
+ !               sqrt(merge(gamm*p/r,zero,gamm*p/r>zero)), &
+ !               mach,mach_is_set
+ !write (io,2) (vel(i),i=1,size(vel))
+ !write (io,3) alpha,beta,vel_is_set
+ !if (ncs > 0) then
+ !  do i = 1,ncs
+ !    write (io,4) uppercase( trim(adjustl(species_name(i))) ), mass_frac(i)
+ !  end do
+ !else
+ !  write (io,*)
+ !end if
+ !close (io)
+  !
   write (iout,1) trim(adjustl(string)),ii, &
-                 rgas,r,p,t,static_is_set, &
+                 gamm,rgas,r,p,t,static_is_set, &
                  r0,p0,t0,total_is_set, &
                  sqrt(merge(gamm*p/r,zero,gamm*p/r>zero)), &
                  mach,mach_is_set
@@ -2995,6 +3029,7 @@ continue
   1 format (/, &
             3x,"Dumping variables at location '",a, &
                "' for BC iteration # ",i0,/, &
+            5x,"Gamma                 = ",es14.6,/, &
             5x,"Gas Constant          = ",es14.6,/, &
             5x,"Static Density        = ",es14.6,/, &
             5x,"Static Pressure       = ",es14.6,/, &
@@ -3014,6 +3049,8 @@ continue
             5x,"Beta  Angle of Attack = ",es14.6,/, &
             5x,"vel_is_set            = ",l1)
   4 format (5x,a," Mass Fraction",t28,"= ",es14.6)
+  !
+#endif
   !
 end subroutine dump_bc_conditions
 !
@@ -3395,7 +3432,7 @@ end subroutine mach_total_temp
 subroutine mach_total_temp_tpg(mass_frac,rgas,gamm,t,t0,mach)
   !
   !.. Use Statements ..
-  use ovar, only : tmin,tmax
+  use ovar, only : tref,tmin,tmax
   !
   use thermo_mod, only : compute_mixture_enthalpy
   use thermo_mod, only : compute_mixture_cp
@@ -3410,6 +3447,7 @@ subroutine mach_total_temp_tpg(mass_frac,rgas,gamm,t,t0,mach)
   !.. Local Scalars ..
   integer  :: k
   real(wp) :: h0,h,cp
+  real(wp) :: t0_nd,t_nd
   real(wp) :: func,dfunc,dtemp,dterr
   !
   !.. Local Parameters ..
@@ -3424,11 +3462,12 @@ continue
   !
   ! Compute total enthalpy
   !
-  call compute_mixture_enthalpy(mass_frac,t0,h0,dimensional=true)
+  t0_nd = t0/tref
+  call compute_mixture_enthalpy(mass_frac,t0_nd,h0,dimensional=true)
   !
   ! Use the total temperature to get an initial guess for gamma
   !
-  call compute_mixture_gamma(mass_frac,t0,gamm,dimensional=true)
+  call compute_mixture_gamma(mass_frac,t0_nd,gamm,dimensional=true)
   !
   t = t0 / (one + half*(gamm-one)*mach*mach)
   !
@@ -3437,9 +3476,10 @@ continue
   newton_iteration: &
   do k = 1,newton_iter
     !
-    call compute_mixture_enthalpy(mass_frac,t,h,dimensional=true)
+    t_nd = t/tref
+    call compute_mixture_enthalpy(mass_frac,t_nd,h,dimensional=true)
     !
-    call compute_mixture_cp(mass_frac,t,cp,dimensional=true)
+    call compute_mixture_cp(mass_frac,t_nd,cp,dimensional=true)
     !
     gamm = rgas
     call compute_mixture_gamma(cp,gamm)
@@ -3461,7 +3501,8 @@ continue
   !
   ! Update the mixture gamma using the final temperature
   !
-  call compute_mixture_gamma(mass_frac,t,gamm,dimensional=true)
+  t_nd = t/tref
+  call compute_mixture_gamma(mass_frac,t_nd,gamm,dimensional=true)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -3675,7 +3716,7 @@ subroutine compute_flow_conditions_from_pvt(cv,pv,gp,dimensional)
   ! variables in the cv, pv, and gp arrays.
   !
   !.. Use Statements ..
-  use ovar, only : gam,cpref,cpref_nd
+  use ovar, only : gam,tref,cpref,cpref_nd
   use ovar, only : rgasref,rgasref_nd
   !
   use thermo_mod,    only : compute_mixture_rgas
@@ -3694,7 +3735,7 @@ subroutine compute_flow_conditions_from_pvt(cv,pv,gp,dimensional)
   !
   !.. Local Scalars ..
   integer  :: m
-  real(wp) :: rho,q2,pres,temp,enth,cp,rgas
+  real(wp) :: rho,q2,pres,temp,temp_nd,enth,cp,rgas
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_flow_conditions_from_pvt"
@@ -3718,8 +3759,15 @@ continue
       cv(m) = rho*pv(m)
     end do
     !
-    call compute_mixture_enthalpy(pv(1:ncs),temp,gp(nenth),dimensional)
-    call compute_mixture_cp(pv(1:ncs),temp,gp(ncp),dimensional)
+    temp_nd = temp
+    if (present(dimensional)) then
+      if (dimensional) then
+        temp_nd = temp/tref
+      end if
+    end if
+    !
+    call compute_mixture_enthalpy(pv(1:ncs),temp_nd,gp(nenth),dimensional)
+    call compute_mixture_cp(pv(1:ncs),temp_nd,gp(ncp),dimensional)
     !
     gp(ngamm) = rgas
     call compute_mixture_gamma(gp(ncp),gp(ngamm))
