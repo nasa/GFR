@@ -302,12 +302,14 @@ continue
     if (allocated(facexyz_dt)) then
       if (size(facexyz_dt) < nface) then
         deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
+        call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__, &
+                         ierr,error_message)
       end if
     end if
     if (.not. allocated(facexyz_dt)) then
       allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__,ierr,error_message)
+      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
+                       ierr,error_message)
     end if
   end if
   !
@@ -328,7 +330,8 @@ continue
     !
     if (.not. allocated(facexyz_dt)) then
       allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__,ierr,error_message)
+      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
+                       ierr,error_message)
     end if
     !
     call alloc_face_dt_components(facexyz_dt,nfpts,"facexyz_dt")
