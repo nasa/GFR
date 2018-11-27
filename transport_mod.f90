@@ -81,13 +81,16 @@ continue
     !
     if (ncs > 0) then
       !
-      if (itestcase == CH4_3D_Diffusion_Flame) then
+      if (abs(itestcase) == CH4_3D_Diffusion_Flame) then
         cond_mix_model = NCC_Method
         Transport_Model = CHEMKIN_Curve_Fit
       else if (itestcase == Reacting_Backstep) then
         cond_mix_model = NCC_Method
         Transport_Model = CHEMKIN_Curve_Fit
       else if (itestcase == H2_2D_Diffusion_Flame) then
+        cond_mix_model = Wassiljewas_Formula
+        Transport_Model = Sutherlands_Law
+      else if (itestcase == Compression_Corner) then
         cond_mix_model = Wassiljewas_Formula
         Transport_Model = Sutherlands_Law
       else if (itestcase == N2_O2_Diffusion) then
