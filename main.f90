@@ -135,6 +135,8 @@ program GFR_main
   use flux_mod, only : get_visc_common_fluxes_bc
   use flux_mod, only : init_cbias
   !
+  use reactions_mod, only : compute_wdot
+  !
   use parallel_mod, only : partition_grid
   use parallel_mod, only : create_serial_cell_map
   use parallel_mod, only : exchange_faceusp
@@ -845,6 +847,10 @@ continue
       if (itestcase == Channel_Flow) then
         call channel_source               !; call check_for_bad_number(__LINE__)
       end if
+      !
+      ! Compute the species source terms for chemically reacting flows
+      !
+      call compute_wdot(iter)             !; call check_for_bad_number(__LINE__)
       !
       ! Compute the final residual for each solution point
       !
