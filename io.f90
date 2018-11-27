@@ -508,8 +508,17 @@ continue
   !
   ! Make sure the variable index for the resolution marker is valid
   !
-  if (Resolution_Marker_Variable < 0 .or. Resolution_Marker_Variable > nq) then
-    Resolution_Marker_Variable = nec
+  ! Make sure it is non-negative
+  Resolution_Marker_Variable = max(0,Resolution_Marker_Variable)
+  ! Make sure it is one of the mean flow variables if greater than 0
+  if (Resolution_Marker_Variable > 0) then
+    if (Resolution_Marker_Variable > nr+2) then
+      ! If it is greater than the energy equation (nr+2), reset it to density
+      Resolution_Marker_Variable = nec
+    else
+      ! Otherwise, offset the variable by the number of species equations
+      Resolution_Marker_Variable = Resolution_Marker_Variable + ncs
+    end if
   end if
   !
   if (Limiter_Marker_c1   > zero) marker_c1   = Limiter_Marker_c1
@@ -6917,6 +6926,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   use ovar,    only : itestcase,governing_equations
   use ovar,    only : profile_io_cgns,profile_io_cgns_subs
   use ovar,    only : max_wall_time => max_cgns_wall_time
+  use ovar,    only : output_marker_variables,Resolution_Marker_Variable
   use flowvar, only : usp,dusp,gpsp
   !
   use metrics_mod, only : time_metrics
@@ -6960,8 +6970,9 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   character(len=*), parameter :: pname = "write_parallel_cgns_solution_file"
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
   character(len=*), parameter :: char_ijk(1:3) = ["Xi  ","Eta ","Zeta"]
-  character(len=*), parameter :: char_sdefault(1:5) = ["Density         ", &
+  character(len=*), parameter :: char_sdefault(1:6) = ["Density         ", &
                                                        "Velocity        ", &
+                                                       "Energy          ", &
                                                        "Pressure        ", &
                                                        "Mach            ", &
                                                        "Temperature     "]
@@ -7060,6 +7071,11 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
                                                     "DmatTemperature     ", &
                                                     "CoMetrics           "]
   !
+  ! Conserved Variables
+  character(len=*), parameter :: consv_var(1:3) = ["Density ", &
+                                                   "Momentum", &
+                                                   "Energy  "]
+  !
   !.. Local Scalars ..
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
   !
@@ -7140,6 +7156,27 @@ continue
     ! USING F2003 AUTO-REALLOCATION
     char_sname = [ character(len=n) :: char_sname , "Entropy" ]
   end if
+  if (output_marker_variables) then
+    n = max( len("ResolutionMarker") , len(char_sname) )
+    ! USING F2003 AUTO-REALLOCATION
+    char_sname = [ character(len=n) :: char_sname , "ResolutionMarker" ]
+    if (Resolution_Marker_Variable > 0) then
+      if (Resolution_Marker_Variable == nec) then
+        m = 1
+      else if (Resolution_Marker_Variable == nee) then
+        m = 3
+      else
+        m = 2
+      end if
+      n = max( len_trim(consv_var(m)) , len(char_sname) )
+      ! USING F2003 AUTO-REALLOCATION
+      char_sname = [ character(len=n) :: char_sname , trim(consv_var(m)) ]
+    else
+      n = max( len(consv_var) , len(char_sname) )
+      ! USING F2003 AUTO-REALLOCATION
+      char_sname = [ character(len=n) :: char_sname , consv_var ]
+    end if
+  end if
   if (ncs > 0) then
     n = max( len("SpeciesDensities") , len(char_sname) )
     ! USING F2003 AUTO-REALLOCATION
@@ -7196,6 +7233,24 @@ continue
     ! USING F2003 AUTO-REALLOCATION
     char_sname = [ char_sname , "Entropy" ]
   end if
+  if (output_marker_variables) then
+    ! USING F2003 AUTO-REALLOCATION
+    char_sname = [ char_sname , "ResolutionMarker" ]
+    if (Resolution_Marker_Variable > 0) then
+      if (Resolution_Marker_Variable == nec) then
+        m = 1
+      else if (Resolution_Marker_Variable == nee) then
+        m = 3
+      else
+        m = 2
+      end if
+      ! USING F2003 AUTO-REALLOCATION
+      char_sname = [ char_sname , trim(consv_var(m)) ]
+    else
+      ! USING F2003 AUTO-REALLOCATION
+      char_sname = [ char_sname , consv_var ]
+    end if
+  end if
   if (ncs > 0) then
     ! USING F2003 AUTO-REALLOCATION
     char_sname = [ char_sname , "MassFractions" ]
@@ -7235,6 +7290,11 @@ continue
     n = n + 1
     char_sname_new(n) = trim(adjustl(char_sname(i)))
   end do copy_loop
+  !
+  ! Use F2003 AUTO-REALLOCATION to cutoff the duplicate variables
+  ! still contained in char_sname_new(n+1:size(char_sname_new)).
+  !
+  char_sname_new = char_sname_new(1:n)
   !
   ! Use move_alloc to over-write char_sname with char_sname_new
   !
@@ -7896,7 +7956,8 @@ continue
     ! Now actually compute the updated thermodynamic and transport properties
     ! based on the interpolated values of the conserved variables.
     !
-    call update_thermo_properties(1,npts,interp_usp,interp_gpsp)
+    call update_thermo_properties(1,npts,interp_usp,interp_gpsp, &
+                                  caller_name=pname)
     call update_transport_properties(1,npts,interp_usp,interp_gpsp)
     !
     ! Now create the output data and write it to the CGNS file in parallel
@@ -10931,7 +10992,7 @@ continue
       !
     end do
     !
-    call update_thermo_properties(1,num_qpts,cv_qp,gp_qp)
+    call update_thermo_properties(1,num_qpts,cv_qp,gp_qp,caller_name=pname)
     !
     if (allocated(cv_qp)) then
       deallocate ( cv_qp , stat=ierr , errmsg=error_message )
