@@ -129,7 +129,6 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/octedat_facexyz_mod.o \
         $(OBJDIR)/interpsolvar_mod.o \
         $(OBJDIR)/interpsol_mod.o \
-        $(OBJDIR)/species_mod.o \
         $(OBJDIR)/thermo_mod.o \
         $(OBJDIR)/transport_mod.o \
         $(OBJDIR)/reactions_mod.o \
