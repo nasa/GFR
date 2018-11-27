@@ -1642,6 +1642,152 @@ end subroutine compute_resolution_marker_2d
 !
 !###############################################################################
 !
+pure subroutine compute_resolution_marker_1d(usp,skip_cell,cutoff_order,marker)
+  !
+  !.. Use Statements ..
+  use geovar,         only : n_solpts,ncell,cell
+  use filter_mod,     only : filter
+  use quadrature_mod, only : std_elem
+  !
+  !.. Formal Arguments ..
+  real(wp),     intent(in) :: usp(:,:)
+  logical(ldk), intent(in) :: skip_cell(:)
+  integer,      intent(in) :: cutoff_order(:)
+  real(wp),  intent(inout) :: marker(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order,order
+  real(wp) :: a,wt
+  real(wp) :: val_ec,l2n_ec,l2d_ec,vn_ec,vd_ec,mark_ec
+  real(wp) :: val_mx,l2n_mx,l2d_mx,vn_mx,vd_mx,mark_mx
+  real(wp) :: val_ee,l2n_ee,l2d_ee,vn_ee,vd_ee,mark_ee
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: var_pm1(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_resolution_marker_2d"
+  !
+continue
+  !
+  allocate ( var_pm1(1:n_solpts,1:nq) )
+  !$ACC DATA CREATE(var_pm1)
+  !
+  ! Compute u_hat, the degree-(P-1) solution of density at the sol-pts
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,filter) &
+  !$ACC&              PRESENT(usp,skip_cell,cutoff_order) &
+  !$ACC&              PRESENT(var_pm1)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index of sol-pts for this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts for this cell
+    !
+    if (skip_cell(nc)) then
+      !
+      !$ACC LOOP VECTOR
+      do n = 1,np
+        var_pm1(n0+n,nec) = usp(n0+n,nec)
+        var_pm1(n0+n,nmx) = usp(n0+n,nmx)
+        var_pm1(n0+n,nee) = usp(n0+n,nee)
+      end do
+      !
+    else
+      !
+      this_geom = cell(nc)%geom   ! geometry type of this cell
+      this_order = cell(nc)%order ! solution order of this cell
+      !
+      order = cutoff_order(nc) ! cutoff order for the filter
+      !
+      !$ACC LOOP VECTOR
+      do n = 1,np
+        !
+        val_ec = zero
+        val_mx = zero
+        val_ee = zero
+        !
+        do i = filter(this_geom,this_order)%cutoff(order)%col_ptr(n)+1, &
+               filter(this_geom,this_order)%cutoff(order)%col_ptr(n+1)
+          !
+          k = filter(this_geom,this_order)%cutoff(order)%col_idx(i)
+          a = filter(this_geom,this_order)%cutoff(order)%col_val(i)
+          !
+          val_ec = val_ec + a * usp(n0+k,nec)
+          val_mx = val_mx + a * usp(n0+k,nmx)
+          val_ee = val_ee + a * usp(n0+k,nee)
+          !
+        end do
+        !
+        var_pm1(n0+n,nec) = val_ec
+        var_pm1(n0+n,nmx) = val_mx
+        var_pm1(n0+n,nee) = val_ee
+        !
+      end do
+      !
+    end if
+    !
+  end do
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,std_elem) &
+  !$ACC&              PRESENT(usp,marker) &
+  !$ACC&              PRESENT(var_pm1)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index of sol-pts for this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts for this cell
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    l2n_ec = zero ; l2d_ec = zero
+    l2n_mx = zero ; l2d_mx = zero
+    l2n_ee = zero ; l2d_ee = zero
+    !
+    !$ACC LOOP VECTOR REDUCTION(+:l2n_ec,l2d_ec) &
+    !$ACC&            REDUCTION(+:l2n_mx,l2d_mx) &
+    !$ACC&            REDUCTION(+:l2n_ee,l2d_ee)
+    do n = 1,np
+      !
+      vd_ec = usp(n0+n,nec)             ! denominator is: var[P]
+      vd_mx = usp(n0+n,nmx)             ! denominator is: var[P]
+      vd_ee = usp(n0+n,nee)             ! denominator is: var[P]
+      !
+      vn_ec = vd_ec - var_pm1(n0+n,nec) ! numerator   is: var[P] - var[P-1]
+      vn_mx = vd_mx - var_pm1(n0+n,nmx) ! numerator   is: var[P] - var[P-1]
+      vn_ee = vd_ee - var_pm1(n0+n,nee) ! numerator   is: var[P] - var[P-1]
+      !
+      wt = std_elem(this_geom,this_order)%wts(n)
+      !
+      l2n_ec = l2n_ec + vn_ec*vn_ec*wt
+      l2n_mx = l2n_mx + vn_mx*vn_mx*wt
+      l2n_ee = l2n_ee + vn_ee*vn_ee*wt
+      !
+      l2d_ec = l2d_ec + vd_ec*vd_ec*wt
+      l2d_mx = l2d_mx + vd_mx*vd_mx*wt
+      l2d_ee = l2d_ee + vd_ee*vd_ee*wt
+      !
+    end do
+    !
+    mark_ec = l2n_ec / max(l2d_ec,rndoff)
+    mark_mx = l2n_mx / max(l2d_mx,rndoff)
+    mark_ee = l2n_ee / max(l2d_ee,rndoff)
+    !
+    marker(nc) = max(mark_ec,mark_mx,mark_ee)
+    !
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( var_pm1 )
+  !
+end subroutine compute_resolution_marker_1d
+!
+!###############################################################################
+!
 pure subroutine compute_resolution_marker_nd(usp,skip_cell,cutoff_order,marker)
   !
   !.. Use Statements ..
