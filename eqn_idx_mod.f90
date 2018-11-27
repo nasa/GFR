@@ -208,7 +208,15 @@ continue
       ncs = 7
       ncr = 7
     end if
-  else if (itestcase == CH4_3D_Diffusion_Flame) then
+  else if (itestcase == Compression_Corner) then
+    if (disable_chemical_reactions) then
+      ncs = 3
+      ncr = 0
+    else
+      ncs = 7
+      ncr = 7
+    end if
+  else if (abs(itestcase) == CH4_3D_Diffusion_Flame) then
     if (disable_chemical_reactions) then
       ncs = 3
       ncr = 0
@@ -324,7 +332,8 @@ continue
   end if
   !
   !$ACC UPDATE DEVICE(nq,nec,nmx,nmy,nmz,nee,nmb,nme,ntk,ntl)
-  !$ACC UPDATE DEVICE(ncs,ncb,nce,ng,npres,ntemp,nvisc,ncond,ngamm,nenth,ncp)
+  !$ACC UPDATE DEVICE(ncs,ncb,nce,ncr)
+  !$ACC UPDATE DEVICE(ng,npres,ntemp,nvisc,ncond,ngamm,nenth,ncp)
   !
 end subroutine create_equation_indices
 !
