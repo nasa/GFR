@@ -10,6 +10,30 @@
 ################################################################################
 ################################################################################
 
+* Possibly change npres and ntemp to parameters since there appears to be no
+  future situation where they would need to be changed from their respective
+  default values of 1 and 2.
+
+* For gas mixtures, instead of using the *_nd version of a subroutine, i.e.:
+      if (nr == 3 .and. ncs == 0) then
+        call ..._3d(...)
+      else if (nr == 2 .and. ncs == 0) then
+        call ..._2d(...)
+      else
+        call ..._nd(...)
+      end if
+  do the following:
+    1. Call the appropriate 2D or 3D version for the main flow equations.
+    2. Call the *_nd version for the species equations.
+        - To do this, add optional arguments to the *_nd subroutines to specify
+          the equation indices to loop over. If they aren't present, loop over
+          1 to nq.
+  This might improve performance for gas mixtures if the main flow equations use
+  the unrolled optimized subroutines, and only the species equations use the
+  older and slower loop based versions.
+  NOTE: SEE SUBROUTINE compute_resolution_marker IN limiters.f90 AS AN EXAMPLE
+        OF IMPLEMENTING THIS IDEA.
+
 * The continuous_output functionality does not appear to work for 2D cases. I
   think this is because it tries to create edge information for all the grid
   cells. However, edges do not really exist for 2D since the cell edges are
