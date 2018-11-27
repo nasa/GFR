@@ -13,8 +13,10 @@ module thermo_mod
   !
   public :: init_thermo_mod
   public :: update_thermo_properties
+  public :: update_mixture_density
   public :: compute_mixture_enthalpy
   public :: compute_species_enthalpy
+  public :: compute_species_energy
   public :: compute_mixture_cp
   public :: compute_species_cp
   public :: compute_mixture_dcpdt
@@ -76,6 +78,10 @@ module thermo_mod
     module procedure compute_species_enthalpy_sp, &
                      compute_species_enthalpy_1p
   end interface compute_species_enthalpy
+  !
+  interface compute_species_energy
+    module procedure compute_species_energy_sp
+  end interface compute_species_energy
   !
   interface compute_mixture_cp
     module procedure compute_mixture_cp_sp, &
@@ -692,27 +698,9 @@ continue
   !
   if (ncs > 0) then
     !
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv)
-    do m = 1,ncs
-      do n = n1,n2
-        cv(n,m) = max(cv(n,m),zero)
-      end do
-    end do
+    call update_mixture_density(n1,n2,cv)
     !
-    !$ACC PARALLEL LOOP PRESENT(cv)
-    do n = n1,n2
-      cv(n,nec) = zero
-    end do
-    !
-    !$ACC PARALLEL LOOP PRESENT(cv)
-    do n = n1,n2
-      rho = zero
-      !$ACC LOOP SEQ REDUCTION(+:rho)
-      do m = 1,ncs
-        rho = rho + cv(n,m)
-      end do
-      cv(n,nec) = rho
-    end do
+    ! Convert the species densities to mass fractions
     !
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv)
     do m = 1,ncs
@@ -889,6 +877,54 @@ continue
   end if
   !
 end subroutine update_thermo_cpg
+!
+!###############################################################################
+!
+pure &
+subroutine update_mixture_density(n1,n2,cv)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp), intent(inout) :: cv(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n
+  real(wp) :: rho
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_mixture_density"
+  !
+continue
+  !
+  ! Update the mixture density by summing the species densities
+  !
+  if (ncs > 0) then
+    !
+    ! Make sure the species densities are >= zero
+    !
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv)
+    do m = 1,ncs
+      do n = n1,n2
+        cv(n,m) = max(cv(n,m),zero)
+      end do
+    end do
+    !
+    ! Sum the species densities to get the mixture density
+    !
+    !$ACC PARALLEL LOOP PRESENT(cv)
+    do n = n1,n2
+      rho = zero
+      !$ACC LOOP SEQ REDUCTION(+:rho)
+      do m = 1,ncs
+        rho = rho + cv(n,m)
+      end do
+      cv(n,nec) = rho
+    end do
+    !
+  end if
+  !
+end subroutine update_mixture_density
 !
 !###############################################################################
 !
@@ -1795,6 +1831,81 @@ continue
   end do
   !
 end subroutine compute_mixture_href
+!
+!###############################################################################
+!
+pure &
+subroutine compute_species_energy_sp(n1,n2,t,esi,dimensional)
+  !
+  !.. Use Statements ..
+  use ovar, only : aref
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp),    intent(in) :: t(:)
+  real(wp), intent(inout) :: esi(:,:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Local Scalars ..
+  integer  :: m,n,ni
+  real(wp) :: ts,e_dim
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: intrvl(:)
+  !
+continue
+  !
+  allocate ( intrvl(n1:n2) , source=1 )
+  !$ACC DATA CREATE(intrvl)
+  !
+  !$ACC PARALLEL LOOP PRESENT(t,intrvl)
+  do n = n1,n2
+    if (t(n) > temperature_switch) then
+      intrvl(n) = 2
+    end if
+  end do
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(intrvl,t,enth_coef,esi,rspec)
+  do m = 1,ncs
+    do n = n1,n2
+      !
+      ni = intrvl(n)
+      ts = t(n)
+      !
+      esi(n,m) = enth_coef(6,ni,m) + &
+                 ts*(enth_coef(1,ni,m) + &
+                     ts*(enth_coef(2,ni,m) + &
+                         ts*(enth_coef(3,ni,m) + &
+                             ts*(enth_coef(4,ni,m) + &
+                                 ts*(enth_coef(5,ni,m))))))
+      !
+      ! esi currently contains the species enthalpy, now subtract
+      ! from that [species gas constant]*T to get the species energy.
+      !
+      esi(n,m) = esi(n,m) - rspec(m)*ts
+      !
+    end do
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( intrvl )
+  !
+  if (present(dimensional)) then
+    if (dimensional) then
+      e_dim = aref*aref
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(esi)
+      do m = 1,ncs
+        do n = n1,n2
+          esi(n,m) = esi(n,m)*e_dim
+        end do
+      end do
+    end if
+  end if
+  !
+end subroutine compute_species_energy_sp
 !
 !###############################################################################
 !
