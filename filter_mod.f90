@@ -701,7 +701,7 @@ pure subroutine filter_usp_nd(usp)
   use order_mod, only : maxSP
   use geovar,    only : ncell,cell
   !
-  use species_mod, only : compute_mixture_density
+  use thermo_mod, only : update_mixture_density
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: usp(:,:)
@@ -774,7 +774,7 @@ continue
     n1 = cell(1)%beg_sp
     n2 = cell(ncell)%end_sp
     !
-    call compute_mixture_density(n1,n2,usp)
+    call update_mixture_density(n1,n2,usp)
     !
   end if
   !
