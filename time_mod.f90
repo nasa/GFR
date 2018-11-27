@@ -1902,6 +1902,7 @@ subroutine update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
   use flowvar, only : rk_sum,residual,usp,dtsp,gpsp
   use ovar,    only : ideal_total_temperature
   !
+  use thermo_mod,    only : update_mixture_density
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -1929,10 +1930,20 @@ continue
     call update_CK_RK4_S5(n_solpts,dtsp,residual,usp,rk_sum)
   end if
   !
+  ! Update the mixture density if solving a gas mixture
+  ! NOTE: This will also be called first thing upon entering subroutine
+  !       update_thermo_properties. However, we need to make sure this
+  !       is done before calling stabilize_usp. It is a relatively simple
+  !       operation so the double work shouldnt amount to much additional
+  !       computational cost.
+  !
+  call update_mixture_density(1,n_solpts,usp)
+  !
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
+    call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                  loc="cell",caller_name=pname)
     call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
@@ -1942,7 +1953,8 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
+  call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                loc="cell",caller_name=pname)
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
@@ -2382,6 +2394,7 @@ subroutine update_TVD_RK2(nst,Apply_Filter,Apply_Limiter)
   use flowvar, only : residual,usp,uoldsp,dtsp,gpsp
   use ovar,    only : ideal_total_temperature
   !
+  use thermo_mod,    only : update_mixture_density
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -2403,10 +2416,20 @@ continue
     call update_TVD_RK2_S2(n_solpts,dtsp,uoldsp,residual,usp)
   end if
   !
+  ! Update the mixture density if solving a gas mixture
+  ! NOTE: This will also be called first thing upon entering subroutine
+  !       update_thermo_properties. However, we need to make sure this
+  !       is done before calling stabilize_usp. It is a relatively simple
+  !       operation so the double work shouldnt amount to much additional
+  !       computational cost.
+  !
+  call update_mixture_density(1,n_solpts,usp)
+  !
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
+    call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                  loc="cell",caller_name=pname)
     call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
@@ -2416,7 +2439,8 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
+  call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                loc="cell",caller_name=pname)
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
@@ -2531,6 +2555,7 @@ subroutine update_TVD_RK3(nst,Apply_Filter,Apply_Limiter,iter)
   use flowvar, only : residual,usp,uoldsp,dtsp,gpsp
   use ovar,    only : ideal_total_temperature
   !
+  use thermo_mod,    only : update_mixture_density
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -2557,10 +2582,20 @@ continue
     call update_TVD_RK3_S3(n_solpts,dtsp,uoldsp,residual,usp)
   end if
   !
+  ! Update the mixture density if solving a gas mixture
+  ! NOTE: This will also be called first thing upon entering subroutine
+  !       update_thermo_properties. However, we need to make sure this
+  !       is done before calling stabilize_usp. It is a relatively simple
+  !       operation so the double work shouldnt amount to much additional
+  !       computational cost.
+  !
+  call update_mixture_density(1,n_solpts,usp)
+  !
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
+    call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                  loc="cell",caller_name=pname)
     call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
@@ -2570,7 +2605,8 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
+  call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                loc="cell",caller_name=pname)
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
@@ -2738,6 +2774,7 @@ subroutine update_TVD_RK4(nst,Apply_Filter,Apply_Limiter)
   use flowvar, only : rssprk,residual,usp,uoldsp,rk_sum,dtsp,gpsp
   use ovar,    only : ideal_total_temperature
   !
+  use thermo_mod,    only : update_mixture_density
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -2765,10 +2802,20 @@ continue
     call update_TVD_RK4_S5(n_solpts,dtsp,uoldsp,residual,usp,rk_sum)
   end if
   !
+  ! Update the mixture density if solving a gas mixture
+  ! NOTE: This will also be called first thing upon entering subroutine
+  !       update_thermo_properties. However, we need to make sure this
+  !       is done before calling stabilize_usp. It is a relatively simple
+  !       operation so the double work shouldnt amount to much additional
+  !       computational cost.
+  !
+  call update_mixture_density(1,n_solpts,usp)
+  !
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
+    call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                  loc="cell",caller_name=pname)
     call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
@@ -2778,7 +2825,8 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
+  call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                loc="cell",caller_name=pname)
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
@@ -3132,6 +3180,7 @@ subroutine update_Classic_RK(nst,Apply_Filter,Apply_Limiter)
   use flowvar, only : rssprk,residual,usp,uoldsp,dtsp,gpsp
   use ovar,    only : ideal_total_temperature
   !
+  use thermo_mod,    only : update_mixture_density
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -3210,10 +3259,20 @@ continue
     end if
   end if
   !
+  ! Update the mixture density if solving a gas mixture
+  ! NOTE: This will also be called first thing upon entering subroutine
+  !       update_thermo_properties. However, we need to make sure this
+  !       is done before calling stabilize_usp. It is a relatively simple
+  !       operation so the double work shouldnt amount to much additional
+  !       computational cost.
+  !
+  call update_mixture_density(1,n_solpts,usp)
+  !
   ! Apply realizable total temperature limiter
   !
   if (ideal_total_temperature > zero) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
+    call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                  loc="cell",caller_name=pname)
     call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
@@ -3223,7 +3282,8 @@ continue
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
-  call update_thermo_properties(1,n_solpts,usp,gpsp,loc="cell")
+  call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                loc="cell",caller_name=pname)
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
