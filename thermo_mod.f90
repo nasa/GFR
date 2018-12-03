@@ -167,7 +167,7 @@ continue
     call alloc_error(pname,"mass_frac_ref",1,__LINE__,__FILE__, &
                      ierr,error_message)
     !
-    if (itestcase == CH4_3D_Diffusion_Flame) then
+    if (abs(itestcase) == CH4_3D_Diffusion_Flame) then
       !
       if (disable_chemical_reactions) then
         !
@@ -226,6 +226,38 @@ continue
         mass_frac_ref(5) = zero      ! H
         mass_frac_ref(6) = zero      ! O
         mass_frac_ref(7) = 0.7686_wp ! N2
+        !
+      end if
+      !
+    else if (itestcase == Compression_Corner) then
+      !
+      if (disable_chemical_reactions) then
+        !
+        species_name(1) = "O2"
+        species_name(2) = "H2"
+        species_name(3) = "N2"
+        !
+        mass_frac_ref(1) = 0.24_wp  ! O2
+        mass_frac_ref(2) = 0.005_wp ! H2
+        mass_frac_ref(3) = 0.755_wp ! N2
+        !
+      else
+        !
+        species_name(1) = "O2"
+        species_name(2) = "H2"
+        species_name(3) = "H2O"
+        species_name(4) = "OH"
+        species_name(5) = "O"
+        species_name(6) = "H"
+        species_name(7) = "N2"
+        !
+        mass_frac_ref(1) = 0.24_wp  ! O2
+        mass_frac_ref(2) = 0.005_wp ! H2
+        mass_frac_ref(3) = zero     ! H2O
+        mass_frac_ref(4) = zero     ! OH
+        mass_frac_ref(5) = zero     ! O
+        mass_frac_ref(6) = zero     ! H
+        mass_frac_ref(7) = 0.755_wp ! N2
         !
       end if
       !
