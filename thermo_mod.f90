@@ -1210,6 +1210,9 @@ subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
   !.. Use Statements ..
   use ovar, only : tref,tmin,tmax
   use ovar, only : newton_rlx
+#ifdef SPECIAL_FOR_INTEL
+  use ifcore, only : tracebackqq
+#endif
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -1485,7 +1488,17 @@ continue
       end do
     end block
 #endif
-      write (iout,100) ndnc,dtmx
+      if (present(caller_name)) then
+        write (iout,101) ndnc,dtmx,trim(adjustl(caller_name))
+#ifdef SPECIAL_FOR_INTEL
+        call tracebackqq(user_exit_code=-1)
+#endif
+      else
+        write (iout,100) ndnc,dtmx
+#ifdef SPECIAL_FOR_INTEL
+        call tracebackqq(user_exit_code=-1)
+#endif
+      end if
     end if
     !
   end do newton_iteration
@@ -1502,6 +1515,15 @@ continue
    1x,5("*"),4x,"TEMPERATURE OF A GAS MIXTURE DID NOT CONVERGE!",t61,5("*"),/, &
    1x,5("*"),7x,"NUMBER OF UNCONVERGED POINTS = ",i0,t61,5("*"),/, &
    1x,5("*"),7x,"MAXIMUM ERROR IN TEMPERATURE = ",es13.6,t61,5("*"),/, &
+   1x,64("*"),/)
+  !
+  101 format (/, &
+   1x,64("*"),/, &
+   1x,5("*"),7x,"NEWTON ITERATION TO SOLVE FOR THE STATIC",t61,5("*"),/, &
+   1x,5("*"),4x,"TEMPERATURE OF A GAS MIXTURE DID NOT CONVERGE!",t61,5("*"),/, &
+   1x,5("*"),7x,"NUMBER OF UNCONVERGED POINTS = ",i0,t61,5("*"),/, &
+   1x,5("*"),7x,"MAXIMUM ERROR IN TEMPERATURE = ",es13.6,t61,5("*"),/, &
+   1x,5("*"),7x,"CALLED FROM PROCEDURE = '",a,"'",/, &
    1x,64("*"),/)
    !
 end subroutine newton_solve_for_temperature
