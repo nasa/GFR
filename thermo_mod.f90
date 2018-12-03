@@ -45,7 +45,8 @@ module thermo_mod
   real(wp), protected, save, allocatable :: gbfe_coef(:,:,:)
   real(wp), protected, save, allocatable :: dgbfe_coef(:,:,:)
   !
-  real(wp), protected, save :: temperature_switch
+  real(wp), public, protected, save :: temperature_high
+  real(wp), public, protected, save :: temperature_low
   !
   real(wp), protected, save, allocatable :: mass_frac_ref(:)
   !
@@ -263,19 +264,19 @@ continue
     !
     ncpc = 5
     !
-    allocate ( cp_coef(1:ncpc,1:2,1:ncs) , source=zero , &
+    allocate ( cp_coef(1:ncpc,0:2,1:ncs) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"cp_coef",1,__LINE__,__FILE__,ierr,error_message)
     !
-    allocate ( enth_coef(1:ncpc+1,1:2,1:ncs) , source=zero , &
+    allocate ( enth_coef(1:ncpc+1,0:2,1:ncs) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"enth_coef",1,__LINE__,__FILE__,ierr,error_message)
     !
-    allocate ( gbfe_coef(1:ncpc+2,1:2,1:ncs) , source=zero , &
+    allocate ( gbfe_coef(1:ncpc+2,0:2,1:ncs) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"gbfe_coef",1,__LINE__,__FILE__,ierr,error_message)
     !
-    allocate ( dgbfe_coef(1:ncpc+1,1:2,1:ncs) , source=zero , &
+    allocate ( dgbfe_coef(1:ncpc+1,0:2,1:ncs) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"dgbfe_coef",1,__LINE__,__FILE__,ierr,error_message)
     !
@@ -393,10 +394,11 @@ continue
     gp(nenth) = href_nd
     gp(ncp)   = cpref_nd
     !
-    ! Non-dimensionalize temperature_switch, rspec,
+    ! Non-dimensionalize temperature_high, temperature_low, rspec,
     !                    cp_coef, enth_coef, gbfe_coef, and dgbfe_coef
     !
-    temperature_switch = temperature_switch/tref
+    temperature_low  = temperature_low /tref
+    temperature_high = temperature_high/tref
     !
     aref2_inv = one/aref/aref
     !
@@ -1397,20 +1399,24 @@ continue
             if (cv(n,m) <= eps6) cycle
             !
             write (io,20) trim(adjustl(species_name(m))),"enthalpy"
-            write (io,21) 0, (enth_coef(6,i,m), i=1,size(enth_coef,dim=2))
+            write (io,21) 0, (enth_coef(6,i,m), i=lbound(enth_coef,dim=2), &
+                                                  ubound(enth_coef,dim=2))
             do j = 1,ncpc
-              write (io,21) j, (enth_coef(j,i,m), i=1,size(enth_coef,dim=2))
+              write (io,21) j, (enth_coef(j,i,m), i=lbound(enth_coef,dim=2), &
+                                                    ubound(enth_coef,dim=2))
             end do
             !
             write (io,20) trim(adjustl(species_name(m))),"cp"
             do j = 1,ncpc
-              write (io,21) j-1, (cp_coef(j,i,m), i=1,size(cp_coef,dim=2))
+              write (io,21) j-1, (cp_coef(j,i,m), i=lbound(cp_coef,dim=2), &
+                                                    ubound(cp_coef,dim=2))
             end do
             !
             write (io,20) trim(adjustl(species_name(m))),"d(cp)/dT"
             do j = 2,ncpc
               write (io,21) j-2, &
-                (real(j-1,kind=wp)*cp_coef(j,i,m), i=1,size(cp_coef,dim=2))
+                (real(j-1,kind=wp)*cp_coef(j,i,m), i=lbound(cp_coef,dim=2), &
+                                                     ubound(cp_coef,dim=2))
             end do
             !
           end do
@@ -1439,7 +1445,7 @@ continue
   10 format (/,2(101("#"),/), 20x,"TIME STEP # ",i0, /,2(101("#"),/))
   11 format (/,  101("="),/ , 10x, "RK STAGE # ",i0, /,  101("="),/ )
   20 format (/,4x,a," curve fit coefficients")
-  21 format (6x,"T^",i0," coefficient : ",es23.15,2x,es23.15)
+  21 format (6x,"T^",i0," coefficient : ",5(es23.15,:,2x))
 
         end if
       end do
@@ -1656,7 +1662,7 @@ continue
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
   do m = 1,ncs
     do n = n1,n2
-      if (t(n) > temperature_switch) then
+      if (t(n) > temperature_high) then
         intrvl(n,m) = 2
       end if
     end do
@@ -1722,7 +1728,7 @@ continue
   !
   do m = 1,ncs
     !
-    ni = merge( 1 , 2 , t <= temperature_switch )
+    ni = merge( 1 , 2 , t <= temperature_high )
     !
     hi = enth_coef(6,ni,m) + &
          t*(enth_coef(1,ni,m) + &
@@ -1776,7 +1782,7 @@ continue
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
   do m = 1,ncs
     do n = n1,n2
-      if (t(n) > temperature_switch) then
+      if (t(n) > temperature_high) then
         intrvl(n,m) = 2
       end if
     end do
@@ -1839,7 +1845,7 @@ continue
   !
   do m = 1,ncs
     !
-    ni = merge( 1 , 2 , t <= temperature_switch )
+    ni = merge( 1 , 2 , t <= temperature_high )
     !
     hsi(m) = enth_coef(6,ni,m) + &
              t*(enth_coef(1,ni,m) + &
@@ -1868,12 +1874,12 @@ subroutine compute_mixture_href(mass_frac,t,h)
   !
   ! NOTE: This version is different from the others in
   !       that the input temperature (dummy argument 't'), the
-  !       module variable temperature_switch, and the module array
+  !       module variable temperature_high, and the module array
   !       enth_coef are assumed have dimensional values.
   !
   !       The other subroutines that compute either species or
   !       mixture enthalpy assume that the input temperature,
-  !       temperature_switch, and enth_coef are all non-dimensional.
+  !       temperature_high, and enth_coef are all non-dimensional.
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: mass_frac(:)
@@ -1890,7 +1896,7 @@ continue
   !
   do m = 1,ncs
     !
-    ni = merge( 1 , 2 , t <= temperature_switch )
+    ni = merge( 1 , 2 , t <= temperature_high )
     !
     hi = enth_coef(6,ni,m) + &
          t*(enth_coef(1,ni,m) + &
@@ -1936,7 +1942,7 @@ continue
   !
   !$ACC PARALLEL LOOP PRESENT(t,intrvl)
   do n = n1,n2
-    if (t(n) > temperature_switch) then
+    if (t(n) > temperature_high) then
       intrvl(n) = 2
     end if
   end do
@@ -2097,7 +2103,7 @@ continue
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
   do m = 1,ncs
     do n = n1,n2
-      if (t(n) > temperature_switch) then
+      if (t(n) > temperature_high) then
         intrvl(n,m) = 2
       end if
     end do
@@ -2162,7 +2168,7 @@ continue
   !
   do m = 1,ncs
     !
-    ni = merge( 1 , 2 , t <= temperature_switch )
+    ni = merge( 1 , 2 , t <= temperature_high )
     !
     cpi = cp_coef(1,ni,m) + &
           t*(cp_coef(2,ni,m) + &
@@ -2215,7 +2221,7 @@ continue
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
   do m = 1,ncs
     do n = n1,n2
-      if (t(n) > temperature_switch) then
+      if (t(n) > temperature_high) then
         intrvl(n,m) = 2
       end if
     end do
@@ -2277,7 +2283,7 @@ continue
   !
   do m = 1,ncs
     !
-    ni = merge( 1 , 2 , t <= temperature_switch )
+    ni = merge( 1 , 2 , t <= temperature_high )
     !
     cpi(m) = cp_coef(1,ni,m) + &
              t*(cp_coef(2,ni,m) + &
@@ -2306,12 +2312,12 @@ subroutine compute_mixture_cpref(mass_frac,t,cp)
   !
   ! NOTE: This version is different from the others in
   !       that the input temperature (dummy argument 't'), the
-  !       module variable temperature_switch, and the module array
+  !       module variable temperature_high, and the module array
   !       cp_coef are assumed have dimensional values.
   !
   !       The other subroutines that compute either species or
   !       mixture Cp assume that the input temperature,
-  !       temperature_switch, and cp_coef are all non-dimensional.
+  !       temperature_high, and cp_coef are all non-dimensional.
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: mass_frac(:)
@@ -2328,7 +2334,7 @@ continue
   !
   do m = 1,ncs
     !
-    ni = merge( 1 , 2 , t <= temperature_switch )
+    ni = merge( 1 , 2 , t <= temperature_high )
     !
     cpi = cp_coef(1,ni,m) + &
           t*(cp_coef(2,ni,m) + &
@@ -2385,7 +2391,7 @@ continue
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
   do m = 1,ncs
     do n = n1,n2
-      if (t(n) > temperature_switch) then
+      if (t(n) > temperature_high) then
         intrvl(n,m) = 2
       end if
     end do
@@ -2447,7 +2453,7 @@ continue
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
   do m = 1,ncs
     do n = n1,n2
-      if (t(n) > temperature_switch) then
+      if (t(n) > temperature_high) then
         intrvl(n,m) = 2
       end if
     end do
@@ -2523,7 +2529,7 @@ continue
     !
     val = zero
     !
-    if (ttot(n) <= temperature_switch) then
+    if (ttot(n) <= temperature_high) then
       !
       ! Static and total temperature are both smaller than temperature switch
       ! NOTE: We need to dimensionalize the temperatures because
@@ -2551,7 +2557,7 @@ continue
         !
       end do
       !
-    else if (temp(n) > temperature_switch) then
+    else if (temp(n) > temperature_high) then
       !
       ! Static and total temperature are both larger than temperature switch
       ! NOTE: We need to dimensionalize the temperatures because
@@ -2587,9 +2593,9 @@ continue
       !       the curve fits require dimensional temperature.
       !
       tbl = temp(n)
-      tel = temperature_switch
+      tel = temperature_high
       !
-      tbh = temperature_switch
+      tbh = temperature_high
       teh = ttot(n)
       !
       !$ACC LOOP SEQ
@@ -2646,7 +2652,7 @@ continue
     !$ACC PARALLEL LOOP PRESENT(ttot,temp,mass_frac,return_value)
     do n = n1,n2
       !
-      if (ttot(n) <= temperature_switch) then
+      if (ttot(n) <= temperature_high) then
         !
         ! Static and total temperature are both smaller than temperature switch
         ! NOTE: We need to dimensionalize the temperatures because
@@ -2662,7 +2668,7 @@ continue
         !
         return_value(n) = return_value(n) + mass_frac(n,m)*(ccl + cel - cbl)
         !
-      else if (temp(n) > temperature_switch) then
+      else if (temp(n) > temperature_high) then
         !
         ! Static and total temperature are both larger than temperature switch
         ! NOTE: We need to dimensionalize the temperatures because
@@ -2686,14 +2692,14 @@ continue
         !       the curve fits require dimensional temperature.
         !
         tbl = temp(n)
-        tel = temperature_switch
+        tel = temperature_high
         !
         ccl = log(tel/tbl)*al
         !
         cel = tel*(bl + tel*(cl + tel*(dl + tel*el)))
         cbl = tbl*(bl + tbl*(cl + tbl*(dl + tbl*el)))
         !
-        tbh = temperature_switch
+        tbh = temperature_high
         teh = ttot(n)
         !
         cch = log(teh/tbh)*ah
@@ -2767,7 +2773,7 @@ continue
     dh = enth_coef(4,2,m)*four3
     eh = enth_coef(5,2,m)*five4
     !
-    if (ttot <= temperature_switch) then
+    if (ttot <= temperature_high) then
       !
       ! Static and total temperature are both smaller than temperature switch
       ! NOTE: We need to dimensionalize the temperatures because
@@ -2783,7 +2789,7 @@ continue
       !
       return_value = return_value + mass_frac(m)*(ccl + cel - cbl)
       !
-    else if (temp > temperature_switch) then
+    else if (temp > temperature_high) then
       !
       ! Static and total temperature are both larger than temperature switch
       ! NOTE: We need to dimensionalize the temperatures because
@@ -2807,14 +2813,14 @@ continue
       !       the curve fits require dimensional temperature.
       !
       tbl = temp
-      tel = temperature_switch
+      tel = temperature_high
       !
       ccl = log(tel/tbl)*al
       !
       cel = tel*(bl + tel*(cl + tel*(dl + tel*el)))
       cbl = tbl*(bl + tbl*(cl + tbl*(dl + tbl*el)))
       !
-      tbh = temperature_switch
+      tbh = temperature_high
       teh = ttot
       !
       cch = log(teh/tbh)*ah
@@ -2833,6 +2839,143 @@ continue
   ! McBride curve fits
   !
 end subroutine compute_cp_over_temp_integral_1p
+!
+!###############################################################################
+!
+pure &
+subroutine compute_cp_low_temperature(cpi)
+  !
+  ! Routine to calculate the specific heat at constant pressure
+  ! of a species at the low temperature limit in order to form
+  ! the special low temperature coefficients.
+  !
+  ! NOTE: At the point this subroutine should be called, the temperature_low
+  !       variable should still be dimensional and the cp_coef array should
+  !       still contain coefficients for curve fits that require dimensional
+  !       temperature as input.
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: cpi(:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,ni
+  real(wp) :: t
+  !
+continue
+  !
+  ni = 1
+  !
+  t = temperature_low
+  !
+  do m = 1,ncs
+    !
+    cpi(m) = cp_coef(1,ni,m) + &
+             t*(cp_coef(2,ni,m) + &
+                 t*(cp_coef(3,ni,m) + &
+                     t*(cp_coef(4,ni,m) + &
+                         t*(cp_coef(5,ni,m)))))
+    !
+  end do
+  !
+end subroutine compute_cp_low_temperature
+!
+!###############################################################################
+!
+pure &
+subroutine compute_enthalpy_low_temperature(hsi)
+  !
+  ! Routine to calculate the enthalpy of a species at the low temperature
+  ! limit in order to form the special low temperature coefficients.
+  !
+  ! NOTE: At the point this subroutine should be called, the temperature_low
+  !       variable should still be dimensional and the enth_coef array should
+  !       still contain coefficients for curve fits that require dimensional
+  !       temperature as input.
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: hsi(:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,ni
+  real(wp) :: t
+  !
+continue
+  !
+  ni = 1
+  !
+  t = temperature_low
+  !
+  do m = 1,ncs
+    !
+    hsi(m) = enth_coef(6,ni,m) + &
+             t*(enth_coef(1,ni,m) + &
+                 t*(enth_coef(2,ni,m) + &
+                     t*(enth_coef(3,ni,m) + &
+                         t*(enth_coef(4,ni,m) + &
+                             t*(enth_coef(5,ni,m))))))
+    !
+  end do
+  !
+end subroutine compute_enthalpy_low_temperature
+!
+!###############################################################################
+!
+pure &
+subroutine compute_gbfe_low_temperature(gbfe)
+  !
+  ! Routine to calculate the Gibbs free energy of a
+  ! species at the low temperature limit in order to
+  ! form the special low temperature coefficients.
+  !
+  ! NOTE: At the point this subroutine should be called, the temperature_low
+  !       variable should still be dimensional and the gbfe_coef array should
+  !       still contain coefficients for curve fits that require dimensional
+  !       temperature as input.
+  !
+  ! GBFE : Gibbs free energy / (R*T)
+  !
+  !           -g(is)/(Ro*T) = -F(is)*T^-1 +
+  !                            H(is)      +
+  !                            B(is)*T    +
+  !                            C(is)*T^2  +
+  !                            D(is)*T^3  +
+  !                            E(is)*T^4  +
+  !                            A(is)*(ln(T)-1)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: gbfe(:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,ni
+  real(wp) :: ts,tlm1,tinv
+  !
+continue
+  !
+  ! Set the temperature interval to 1 since we want to evaluate the low
+  ! temperature curve fit at the low temperature limit
+  !
+  ni = 1
+  !
+  ! Compute the (-Gibbs free energy / (R*T)) for
+  ! each species using the NASA SP-3001 fit
+  !
+  ts = temperature_low
+  tlm1 = log(ts) - one
+  tinv = -one/ts
+  !
+  do m = 1,ncs
+      !
+      gbfe(m) = gbfe_coef(1,ni,m)*tlm1 &
+              + gbfe_coef(6,ni,m)*tinv &
+              + gbfe_coef(7,ni,m) &
+              + ts*(gbfe_coef(2,ni,m) + &
+                    ts*(gbfe_coef(3,ni,m) + &
+                        ts*(gbfe_coef(4,ni,m) + &
+                            ts*(gbfe_coef(5,ni,m)))))
+      !
+  end do
+  !
+end subroutine compute_gbfe_low_temperature
 !
 !###############################################################################
 !
@@ -3027,13 +3170,17 @@ subroutine hardwired_NCC_coefficients
                                                    [7,2] )
   !
   !.. Local Scalars ..
-  integer  :: i,j,m
+  integer  :: i,j,m,ni
+  real(wp) :: t,tlog
   !
   character(len=len(species_name)) :: species
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: ncc_cp(:,:,:)
   real(wp), allocatable :: tmp_coef(:)
+  real(wp), allocatable :: cpi(:)
+  real(wp), allocatable :: hsi(:)
+  real(wp), allocatable :: gbfe(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "hardwired_NCC_coefficients"
@@ -3152,8 +3299,74 @@ continue
     end do
   end do
   !
-  temperature_switch = NCC_interval_switch
+  temperature_low  = NCC_min_temperature
+  temperature_high = NCC_interval_switch
   !
+  ! Build special low temperature coefficients
+  ! for each of the thermodynamic curve fits
+  !
+  allocate ( cpi(1:ncs) , source=zero )
+  allocate ( hsi(1:ncs) , source=zero )
+  allocate ( gbfe(1:ncs) , source=zero )
+  !
+  call compute_cp_low_temperature(cpi)
+  call compute_enthalpy_low_temperature(hsi)
+  call compute_gbfe_low_temperature(gbfe)
+  !
+  ni = 0
+  !
+  t = temperature_low
+  tlog = log(t)
+  !
+  do m = 1,ncs
+    !
+    ! Null the coefficients for Cp(T)
+    !
+    do j = 1,size(cp_coef,dim=1)
+      cp_coef(j,ni,m) = zero
+    end do
+    !
+    ! Null coefficients for Hs(T)
+    !
+    do j = 1,size(enth_coef,dim=1)
+      enth_coef(j,ni,m) = zero
+    end do
+    !
+    ! Null coefficients for Gb(T)
+    !
+    do j = 1,size(gbfe_coef,dim=1)
+      gbfe_coef(j,ni,m) = zero
+    end do
+    !
+    ! Set coefficients for d/dT[Gb(T)] = coefficients from
+    ! low temperature interval of d/dT[Gb(T)]
+    !
+    do j = 1,size(dgbfe_coef,dim=1)
+      dgbfe_coef(j,ni,m) = dgbfe_coef(j,ni+1,m)
+    end do
+    !
+    ! Compute special low temperature coefficients for Cp(T) , Hs(T) , and Gb(T)
+    !
+    j = 1
+    !
+    cp_coef(j,ni,m) = cpi(m)
+    enth_coef(j,ni,m) = cpi(m)
+    gbfe_coef(j,ni,m) = cpi(m)/ rspec(m)
+    !
+    j = size(enth_coef,dim=1)
+    enth_coef(j,ni,m) = hsi(m)- cpi(m)*t
+    !
+    j = size(gbfe_coef,dim=1)-1
+    gbfe_coef(j,ni,m) = (hsi(m)-cpi(m)*t) / rspec(m)
+    !
+    j = size(gbfe_coef,dim=1)
+    gbfe_coef(j,ni,m) = gbfe(m) + (hsi(m)-cpi(m)*t*tlog) / (rspec(m)*t)
+    !
+  end do
+  !
+  if (allocated(gbfe)) deallocate ( gbfe )
+  if (allocated(hsi)) deallocate ( hsi )
+  if (allocated(cpi)) deallocate ( cpi )
   if (allocated(ncc_cp)) deallocate ( ncc_cp )
   if (allocated(tmp_coef)) deallocate ( tmp_coef )
   !
@@ -3364,13 +3577,17 @@ subroutine hardwired_VULCAN_coefficients
                                                    [7,2] )
   !
   !.. Local Scalars ..
-  integer  :: i,j,m
+  integer  :: i,j,m,ni
+  real(wp) :: t,tlog
   !
   character(len=len(species_name)) :: species
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: vul_cp(:,:,:)
   real(wp), allocatable :: tmp_coef(:)
+  real(wp), allocatable :: cpi(:)
+  real(wp), allocatable :: hsi(:)
+  real(wp), allocatable :: gbfe(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "hardwired_VULCAN_coefficients"
@@ -3489,8 +3706,113 @@ continue
     end do
   end do
   !
-  temperature_switch = vul_interval_switch
+  temperature_low  = vul_min_temperature
+  temperature_high = vul_interval_switch
   !
+  ! Build special low temperature coefficients
+  ! for each of the thermodynamic curve fits
+  !
+  allocate ( cpi(1:ncs) , source=zero )
+  allocate ( hsi(1:ncs) , source=zero )
+  allocate ( gbfe(1:ncs) , source=zero )
+  !
+  call compute_cp_low_temperature(cpi)
+  call compute_enthalpy_low_temperature(hsi)
+  call compute_gbfe_low_temperature(gbfe)
+  !
+  ni = 0
+  !
+  t = temperature_low
+  tlog = log(t)
+  !
+  do m = 1,ncs
+    !
+    ! Null the coefficients for Cp(T)
+    !
+    do j = 1,size(cp_coef,dim=1)
+      cp_coef(j,ni,m) = zero
+    end do
+    !
+    ! Null coefficients for Hs(T)
+    !
+    do j = 1,size(enth_coef,dim=1)
+      enth_coef(j,ni,m) = zero
+    end do
+    !
+    ! Null coefficients for Gb(T)
+    !
+    do j = 1,size(gbfe_coef,dim=1)
+      gbfe_coef(j,ni,m) = zero
+    end do
+    !
+    ! Set coefficients for d/dT[Gb(T)] = coefficients from
+    ! low temperature interval of d/dT[Gb(T)]
+    !
+    do j = 1,size(dgbfe_coef,dim=1)
+      dgbfe_coef(j,ni,m) = dgbfe_coef(j,ni+1,m)
+    end do
+    !
+    ! Compute special low temperature coefficients for Cp(T) , Hs(T) , and Gb(T)
+    !
+    j = 1
+    !
+    cp_coef(j,ni,m) = cpi(m)
+    enth_coef(j,ni,m) = cpi(m)
+    gbfe_coef(j,ni,m) = cpi(m)/ rspec(m)
+    !
+    j = size(enth_coef,dim=1)
+    enth_coef(j,ni,m) = hsi(m)- cpi(m)*t
+    !
+    j = size(gbfe_coef,dim=1)-1
+    gbfe_coef(j,ni,m) = (hsi(m)-cpi(m)*t) / rspec(m)
+    !
+    j = size(gbfe_coef,dim=1)
+    gbfe_coef(j,ni,m) = gbfe(m) + (hsi(m)-cpi(m)*t*tlog) / (rspec(m)*t)
+    !
+  end do
+  !
+#ifdef DEBUG_ON
+  if (mypnum == glb_root) then
+    do m = 1,ncs
+      !
+      write (610,50) trim(adjustl(species_name(m)))
+      !
+      write (610,53) "cpi ",cpi(m)
+      write (610,53) "hsi ",hsi(m)
+      write (610,53) "gpfe",gbfe(m)
+      !
+      write (610,52) "cp_coef"
+      do ni = lbound(cp_coef,dim=2),ubound(cp_coef,dim=2)
+        write (610,51) (cp_coef(j,ni,m), j=1,size(cp_coef,dim=1))
+      end do
+      !
+      write (610,52) "enth_coef"
+      do ni = lbound(enth_coef,dim=2),ubound(enth_coef,dim=2)
+        write (610,51) (enth_coef(j,ni,m), j=1,size(enth_coef,dim=1))
+      end do
+      !
+      write (610,52) "gbfe_coef"
+      do ni = lbound(gbfe_coef,dim=2),ubound(gbfe_coef,dim=2)
+        write (610,51) (gbfe_coef(j,ni,m), j=1,size(gbfe_coef,dim=1))
+      end do
+      !
+      write (610,52) "dgbfe_coef"
+      do ni = lbound(dgbfe_coef,dim=2),ubound(dgbfe_coef,dim=2)
+        write (610,51) (dgbfe_coef(j,ni,m), j=1,size(dgbfe_coef,dim=1))
+      end do
+      !
+    end do
+    flush (610)
+  end if
+  50 format (//,6x,a,/)
+  51 format (4x,10es14.6)
+  52 format (/,a,:," = ",es14.6)
+  53 format (a," = ",es14.6)
+#endif
+  !
+  if (allocated(gbfe)) deallocate ( gbfe )
+  if (allocated(hsi)) deallocate ( hsi )
+  if (allocated(cpi)) deallocate ( cpi )
   if (allocated(vul_cp)) deallocate ( vul_cp )
   if (allocated(tmp_coef)) deallocate ( tmp_coef )
   !
