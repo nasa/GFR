@@ -42,6 +42,8 @@ module thermo_mod
   !
   real(wp), protected, save, allocatable :: cp_coef(:,:,:)
   real(wp), protected, save, allocatable :: enth_coef(:,:,:)
+  real(wp), protected, save, allocatable :: gbfe_coef(:,:,:)
+  real(wp), protected, save, allocatable :: dgbfe_coef(:,:,:)
   !
   real(wp), protected, save :: temperature_switch
   !
@@ -269,6 +271,14 @@ continue
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"enth_coef",1,__LINE__,__FILE__,ierr,error_message)
     !
+    allocate ( gbfe_coef(1:ncpc+2,1:2,1:ncs) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"gbfe_coef",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( dgbfe_coef(1:ncpc+1,1:2,1:ncs) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"dgbfe_coef",1,__LINE__,__FILE__,ierr,error_message)
+    !
     ! Fill the arrays with the species thermodynamic properties
     !
     if (Thermo_Coefficients == Use_NCC_Coefficients) then
@@ -383,18 +393,23 @@ continue
     gp(nenth) = href_nd
     gp(ncp)   = cpref_nd
     !
-    ! Non-dimensionalize temperature_switch, rspec, cp_coef, and enth_coef
+    ! Non-dimensionalize temperature_switch, rspec,
+    !                    cp_coef, enth_coef, gbfe_coef, and dgbfe_coef
     !
     temperature_switch = temperature_switch/tref
     !
     aref2_inv = one/aref/aref
     !
+    ! Non-dimensionalize rspec
+    !
     do ics = 1,ncs
       rspec(ics) = rspec(ics) * tref*aref2_inv
     end do
     !
+    ! Non-dimensionalize cp_coef
+    !
     do ics = 1,ncs
-      do n = 1,size(cp_coef,dim=2)
+      do n = lbound(cp_coef,dim=2),ubound(cp_coef,dim=2)
         tdim = one
         do m = 1,ncpc
           tdim = tdim*tref
@@ -403,8 +418,10 @@ continue
       end do
     end do
     !
+    ! Non-dimensionalize enth_coef
+    !
     do ics = 1,ncs
-      do n = 1,size(enth_coef,dim=2)
+      do n = lbound(enth_coef,dim=2),ubound(enth_coef,dim=2)
         !
         enth_coef(ncpc+1,n,ics) = enth_coef(ncpc+1,n,ics) * aref2_inv
         !
@@ -416,6 +433,62 @@ continue
         !
       end do
     end do
+    !
+    ! Non-dimensionalize gbfe_coef
+    !
+    if (ncpc == 5) then
+      !
+      do ics = 1,ncs
+        do n = lbound(gbfe_coef,dim=2),ubound(gbfe_coef,dim=2)
+          !
+          ! NO NONDIMENSIONALIZATION NEEDED FOR gbfe_coef(1,:,:)
+          !
+          tdim = one
+          do m = 2,ncpc
+            tdim = tdim*tref
+            gbfe_coef(m,n,ics) = gbfe_coef(m,n,ics) * tdim
+          end do
+          !
+          gbfe_coef(6,n,ics) = gbfe_coef(6,n,ics) / tref
+          !
+          gbfe_coef(7,n,ics) = gbfe_coef(7,n,ics) + &
+                               gbfe_coef(1,n,ics)*(log(tref)-one)
+          !
+        end do
+      end do
+      !
+    end if
+    !
+    ! Non-dimensionalize dgbfe_coef
+    !
+    if (ncpc == 5) then
+      !
+      do ics = 1,ncs
+        do n = lbound(dgbfe_coef,dim=2),ubound(dgbfe_coef,dim=2)
+          !
+          ! NO NONDIMENSIONALIZATION NEEDED FOR dgbfe_coef(2,:,:)
+          !
+          tdim = one/(tref*tref)
+          !
+          dgbfe_coef(6,n,ics) = dgbfe_coef(6,n,ics) * tdim
+          !
+          do m = 1,ncpc
+            tdim = tdim*tref
+           !if (m == 2) cycle ! ensure there is no round off error
+            dgbfe_coef(m,n,ics) = dgbfe_coef(m,n,ics) * tdim
+          end do
+          !
+        ! dgbfe_coef(1,n,ics) = dgbfe_coef(1,n,ics) / tref
+        !!dgbfe_coef(2,n,ics) = dgbfe_coef(2,n,ics)
+        ! dgbfe_coef(3,n,ics) = dgbfe_coef(3,n,ics) * tref
+        ! dgbfe_coef(4,n,ics) = dgbfe_coef(4,n,ics) * tref * tref
+        ! dgbfe_coef(5,n,ics) = dgbfe_coef(5,n,ics) * tref * tref * tref
+        ! dgbfe_coef(6,n,ics) = dgbfe_coef(6,n,ics) / tref / tref
+          !
+        end do
+      end do
+      !
+    end if
     !
   end if
   !
@@ -2765,179 +2838,202 @@ end subroutine compute_cp_over_temp_integral_1p
 !
 subroutine hardwired_NCC_coefficients
   !
+  real(wp), parameter :: NCC_min_temperature = 300.0_wp
   real(wp), parameter :: NCC_interval_switch = 1000.0_wp
   !
   real(wp), parameter :: CO2_wtmol = 44.00995_wp
   !
-  real(wp), parameter :: CO2_cp(1:6,1:2) = reshape( [ 0.02275724e+02_wp, &
-                                                      0.09922072e-01_wp, &
-                                                     -0.10409113e-04_wp, &
-                                                      0.06866686e-07_wp, &
-                                                     -0.02117280e-10_wp, &
-                                                     -0.04837314e+06_wp, &
-                                                      0.04453623e+02_wp, &
-                                                      0.03140168e-01_wp, &
-                                                     -0.12784105e-05_wp, &
-                                                      0.02393996e-08_wp, &
-                                                     -0.16690333e-13_wp, &
-                                                     -0.04896696e+06_wp] , &
-                                                    [6,2] )
+  real(wp), parameter :: CO2_cp(1:7,1:2) = reshape( [ 0.02275724E+02_wp, &
+                                                      0.09922072E-01_wp, &
+                                                     -0.10409113E-04_wp, &
+                                                      0.06866686E-07_wp, &
+                                                     -0.02117280E-10_wp, &
+                                                     -0.04837314E+06_wp, &
+                                                      0.10188488E+02_wp, &
+                                                      0.04453623E+02_wp, &
+                                                      0.03140168E-01_wp, &
+                                                     -0.12784105E-05_wp, &
+                                                      0.02393996E-08_wp, &
+                                                     -0.16690333E-13_wp, &
+                                                     -0.04896696E+06_wp, &
+                                                     -0.09553959E+01_wp] , &
+                                                    [7,2] )
   !
   !
   real(wp), parameter :: CO_wtmol = 28.01055_wp
   !
-  real(wp), parameter :: CO_cp(1:6,1:2) = reshape( [ 0.03262451e+02_wp, &
-                                                     0.15119409e-02_wp, &
-                                                    -0.03881755e-04_wp, &
-                                                     0.05581944e-07_wp, &
-                                                    -0.02474951e-10_wp, &
-                                                    -0.14310539e+05_wp, &
-                                                     0.03025078e+02_wp, &
-                                                     0.14426885e-02_wp, &
-                                                    -0.05630827e-05_wp, &
-                                                     0.10185813e-09_wp, &
-                                                    -0.06910951e-13_wp, &
-                                                    -0.14268350e+05_wp] , &
-                                                   [6,2] )
+  real(wp), parameter :: CO_cp(1:7,1:2) = reshape( [ 0.03262451E+02_wp, &
+                                                     0.15119409E-02_wp, &
+                                                    -0.03881755E-04_wp, &
+                                                     0.05581944E-07_wp, &
+                                                    -0.02474951E-10_wp, &
+                                                    -0.14310539E+05_wp, &
+                                                     0.04848897E+02_wp, &
+                                                     0.03025078E+02_wp, &
+                                                     0.14426885E-02_wp, &
+                                                    -0.05630827E-05_wp, &
+                                                     0.10185813E-09_wp, &
+                                                    -0.06910951E-13_wp, &
+                                                    -0.14268350E+05_wp, &
+                                                     0.06108217E+02_wp] , &
+                                                   [7,2] )
   !
   !
   real(wp), parameter :: H2O_wtmol = 18.01534_wp
   !
-  real(wp), parameter :: H2O_cp(1:6,1:2) = reshape( [ 0.03386842e+02_wp, &
-                                                      0.03474982e-01_wp, &
-                                                     -0.06354696e-04_wp, &
-                                                      0.06968581e-07_wp, &
-                                                     -0.02506588e-10_wp, &
-                                                     -0.03020811e+06_wp, &
-                                                      0.02672145e+02_wp, &
-                                                      0.03056293e-01_wp, &
-                                                     -0.08730260e-05_wp, &
-                                                      0.12009964e-09_wp, &
-                                                     -0.06391618e-13_wp, &
-                                                     -0.02989921e+06_wp] , &
-                                                    [6,2] )
+  real(wp), parameter :: H2O_cp(1:7,1:2) = reshape( [ 0.03386842E+02_wp, &
+                                                      0.03474982E-01_wp, &
+                                                     -0.06354696E-04_wp, &
+                                                      0.06968581E-07_wp, &
+                                                     -0.02506588E-10_wp, &
+                                                     -0.03020811E+06_wp, &
+                                                      0.02590232E+02_wp, &
+                                                      0.02672145E+02_wp, &
+                                                      0.03056293E-01_wp, &
+                                                     -0.08730260E-05_wp, &
+                                                      0.12009964E-09_wp, &
+                                                     -0.06391618E-13_wp, &
+                                                     -0.02989921E+06_wp, &
+                                                      0.06862817E+02_wp] , &
+                                                    [7,2] )
   !
   !
   real(wp), parameter :: CH4_wtmol = 16.04303_wp
   !
-  real(wp), parameter :: CH4_cp(1:6,1:2) = reshape( [ 0.07787415e+01_wp, &
-                                                      0.01747668e+00_wp, &
-                                                     -0.02783409e-03_wp, &
-                                                      0.03049708e-06_wp, &
-                                                     -0.12239307e-10_wp, &
-                                                     -0.09825229e+05_wp, &
-                                                      0.01683478e+02_wp, &
-                                                      0.10237236e-01_wp, &
-                                                     -0.03875128e-04_wp, &
-                                                      0.06785585e-08_wp, &
-                                                     -0.04503423e-12_wp, &
-                                                     -0.10080787e+05_wp] , &
-                                                    [6,2] )
+  real(wp), parameter :: CH4_cp(1:7,1:2) = reshape( [ 0.07787415E+01_wp, &
+                                                      0.01747668E+00_wp, &
+                                                     -0.02783409E-03_wp, &
+                                                      0.03049708E-06_wp, &
+                                                     -0.12239307E-10_wp, &
+                                                     -0.09825229E+05_wp, &
+                                                      0.13722195E+02_wp, &
+                                                      0.01683478E+02_wp, &
+                                                      0.10237236E-01_wp, &
+                                                     -0.03875128E-04_wp, &
+                                                      0.06785585E-08_wp, &
+                                                     -0.04503423E-12_wp, &
+                                                     -0.10080787E+05_wp, &
+                                                      0.09623395E+02_wp] , &
+                                                    [7,2] )
   !
   !
   real(wp), parameter :: N2_wtmol = 28.01340_wp
   !
-  real(wp), parameter :: N2_cp(1:6,1:2) = reshape( [ 0.03298677e+02_wp, &
-                                                     0.14082404e-02_wp, &
-                                                    -0.03963222e-04_wp, &
-                                                     0.05641515e-07_wp, &
-                                                    -0.02444854e-10_wp, &
-                                                    -0.10208999e+04_wp, &
-                                                     0.02926640e+02_wp, &
-                                                     0.14879768e-02_wp, &
-                                                    -0.05684760e-05_wp, &
-                                                     0.10097038e-09_wp, &
-                                                    -0.06753351e-13_wp, &
-                                                    -0.09227977e+04_wp] , &
-                                                   [6,2] )
+  real(wp), parameter :: N2_cp(1:7,1:2) = reshape( [ 0.03298677E+02_wp, &
+                                                     0.14082404E-02_wp, &
+                                                    -0.03963222E-04_wp, &
+                                                     0.05641515E-07_wp, &
+                                                    -0.02444854E-10_wp, &
+                                                    -0.10208999E+04_wp, &
+                                                     0.03950372E+02_wp, &
+                                                     0.02926640E+02_wp, &
+                                                     0.14879768E-02_wp, &
+                                                    -0.05684760E-05_wp, &
+                                                     0.10097038E-09_wp, &
+                                                    -0.06753351E-13_wp, &
+                                                    -0.09227977E+04_wp, &
+                                                     0.05980528E+02_wp] , &
+                                                   [7,2] )
   !
   !
   real(wp), parameter :: O2_wtmol = 31.99880_wp
   !
-  real(wp), parameter :: O2_cp(1:6,1:2) = reshape( [ 0.03212936e+02_wp, &
-                                                     0.11274864e-02_wp, &
-                                                    -0.05756150e-05_wp, &
-                                                     0.13138773e-08_wp, &
-                                                    -0.08768554e-11_wp, &
-                                                    -0.10052490e+04_wp, &
-                                                     0.03697578e+02_wp, &
-                                                     0.06135197e-02_wp, &
-                                                    -0.12588420e-06_wp, &
-                                                     0.01775281e-09_wp, &
-                                                    -0.11364354e-14_wp, &
-                                                    -0.12339301e+04_wp] , &
-                                                   [6,2] )
+  real(wp), parameter :: O2_cp(1:7,1:2) = reshape( [ 0.03212936E+02_wp, &
+                                                     0.11274864E-02_wp, &
+                                                    -0.05756150E-05_wp, &
+                                                     0.13138773E-08_wp, &
+                                                    -0.08768554E-11_wp, &
+                                                    -0.10052490E+04_wp, &
+                                                     0.06034737E+02_wp, &
+                                                     0.03697578E+02_wp, &
+                                                     0.06135197E-02_wp, &
+                                                    -0.12588420E-06_wp, &
+                                                     0.01775281E-09_wp, &
+                                                    -0.11364354E-14_wp, &
+                                                    -0.12339301E+04_wp, &
+                                                     0.03189165E+02_wp] , &
+                                                   [7,2] )
   !
   real(wp), parameter :: H_wtmol = 1.0079400_wp
   !
-  real(wp), parameter :: H_cp(1:6,1:2) = reshape( [ 0.02500000E+02_wp, &
+  real(wp), parameter :: H_cp(1:7,1:2) = reshape( [ 0.02500000E+02_wp, &
                                                     zero, &
                                                     zero, &
                                                     zero, &
                                                     zero, &
                                                     0.02547162E+06_wp, &
+                                                   -0.04601176E+01_wp, &
                                                     0.02500000E+02_wp, &
                                                     zero, &
                                                     zero, &
                                                     zero, &
                                                     zero, &
-                                                    0.02547162E+06_wp] , &
-                                                  [6,2] )
+                                                    0.02547162E+06_wp, &
+                                                   -0.04601176E+01_wp] , &
+                                                  [7,2] )
   !
   real(wp), parameter :: H2_wtmol = 2.0158800_wp
   !
-  real(wp), parameter :: H2_cp(1:6,1:2) = reshape( [ 0.03298124E+02_wp, &
+  real(wp), parameter :: H2_cp(1:7,1:2) = reshape( [ 0.03298124E+02_wp, &
                                                      0.08249441E-02_wp, &
                                                     -0.08143015E-05_wp, &
                                                     -0.09475434E-09_wp, &
                                                      0.04134872E-11_wp, &
                                                     -0.10125209E+04_wp, &
+                                                    -0.03294094E+02_wp, &
                                                      0.02991423E+02_wp, &
                                                      0.07000644E-02_wp, &
                                                     -0.05633828E-06_wp, &
                                                     -0.09231578E-10_wp, &
                                                      0.15827519E-14_wp, &
-                                                    -0.08350340E+04_wp] , &
-                                                   [6,2] )
+                                                    -0.08350340E+04_wp, &
+                                                    -0.13551101E+01_wp] , &
+                                                   [7,2] )
   !
   real(wp), parameter :: O_wtmol = 15.9994000_wp
   !
-  real(wp), parameter :: O_cp(1:6,1:2) = reshape( [ 0.02542059E+02_wp, &
+  real(wp), parameter :: O_cp(1:7,1:2) = reshape( [ 0.02946428E+02_wp, &
+                                                   -0.16381665E-02_wp, &
+                                                    0.02421031E-04_wp, &
+                                                   -0.16028431E-08_wp, &
+                                                    0.03890696E-11_wp, &
+                                                    0.02914764E+06_wp, &
+                                                    0.02963995E+02_wp, &
+                                                    0.02542059E+02_wp, &
                                                    -0.02755061E-03_wp, &
                                                    -0.03102803E-07_wp, &
                                                     0.04551067E-10_wp, &
                                                    -0.04368051E-14_wp, &
                                                     0.02923080E+06_wp, &
-                                                    0.02946428E+02_wp, &
-                                                   -0.16381665E-02_wp, &
-                                                    0.02421031E-04_wp, &
-                                                   -0.16028431E-08_wp, &
-                                                    0.03890696E-11_wp, &
-                                                    0.02914764E+06_wp] , &
-                                                  [6,2] )
+                                                    0.04920308E+02_wp] , &
+                                                  [7,2] )
   !
   real(wp), parameter :: OH_wtmol = 17.0073400_wp
   !
-  real(wp), parameter :: OH_cp(1:6,1:2) = reshape( [ 0.02882730E+02_wp, &
+  real(wp), parameter :: OH_cp(1:7,1:2) = reshape( [ 0.03637266E+02_wp, &
+                                                     0.01850910E-02_wp, &
+                                                    -0.16761646E-05_wp, &
+                                                     0.02387202E-07_wp, &
+                                                    -0.08431442E-11_wp, &
+                                                     0.03606781E+05_wp, &
+                                                     0.13588605E+01_wp, &
+                                                     0.02882730E+02_wp, &
                                                      0.10139743E-02_wp, &
                                                     -0.02276877E-05_wp, &
                                                      0.02174683E-09_wp, &
                                                     -0.05126305E-14_wp, &
                                                      0.03886888E+05_wp, &
-                                                     0.03637266E+02_wp, &
-                                                     0.01850910E-02_wp, &
-                                                    -0.16761646E-05_wp, &
-                                                     0.02387202E-07_wp, &
-                                                    -0.08431442E-11_wp, &
-                                                     0.03606781E+05_wp] , &
-                                                   [6,2] )
+                                                     0.05595712E+02_wp] , &
+                                                   [7,2] )
   !
-  integer  :: i,j,m,ncoef
-  real(wp) :: denom
+  !.. Local Scalars ..
+  integer  :: i,j,m
   !
   character(len=len(species_name)) :: species
   !
+  !.. Local Allocatable Arrays ..
   real(wp), allocatable :: ncc_cp(:,:,:)
+  real(wp), allocatable :: tmp_coef(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "hardwired_NCC_coefficients"
@@ -2946,7 +3042,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  allocate ( ncc_cp(1:6,1:2,1:ncs) , source=zero )
+  allocate ( ncc_cp(1:7,1:2,1:ncs) , source=zero )
   !
   do m = 1,ncs
     !
@@ -2957,52 +3053,52 @@ continue
       case ("CO2")
         !
         wtmol(m) = CO2_wtmol
-        ncc_cp(1:6,1:2,m) = CO2_cp(1:6,1:2)
+        ncc_cp(1:7,1:2,m) = CO2_cp(1:7,1:2)
         !
       case ("CO")
         !
         wtmol(m) = CO_wtmol
-        ncc_cp(1:6,1:2,m) = CO_cp(1:6,1:2)
+        ncc_cp(1:7,1:2,m) = CO_cp(1:7,1:2)
         !
       case ("H2O")
         !
         wtmol(m) = H2O_wtmol
-        ncc_cp(1:6,1:2,m) = H2O_cp(1:6,1:2)
+        ncc_cp(1:7,1:2,m) = H2O_cp(1:7,1:2)
         !
       case ("CH4")
         !
         wtmol(m) = CH4_wtmol
-        ncc_cp(1:6,1:2,m) = CH4_cp(1:6,1:2)
+        ncc_cp(1:7,1:2,m) = CH4_cp(1:7,1:2)
         !
       case ("N2")
         !
         wtmol(m) = N2_wtmol
-        ncc_cp(1:6,1:2,m) = N2_cp(1:6,1:2)
+        ncc_cp(1:7,1:2,m) = N2_cp(1:7,1:2)
         !
       case ("O2")
         !
         wtmol(m) = O2_wtmol
-        ncc_cp(1:6,1:2,m) = O2_cp(1:6,1:2)
+        ncc_cp(1:7,1:2,m) = O2_cp(1:7,1:2)
         !
       case ("H")
         !
         wtmol(m) = H_wtmol
-        ncc_cp(1:6,1:2,m) = H_cp(1:6,1:2)
+        ncc_cp(1:7,1:2,m) = H_cp(1:7,1:2)
         !
       case ("H2")
         !
         wtmol(m) = H2_wtmol
-        ncc_cp(1:6,1:2,m) = H2_cp(1:6,1:2)
+        ncc_cp(1:7,1:2,m) = H2_cp(1:7,1:2)
         !
       case ("O")
         !
         wtmol(m) = O_wtmol
-        ncc_cp(1:6,1:2,m) = O_cp(1:6,1:2)
+        ncc_cp(1:7,1:2,m) = O_cp(1:7,1:2)
         !
       case ("OH")
         !
         wtmol(m) = OH_wtmol
-        ncc_cp(1:6,1:2,m) = OH_cp(1:6,1:2)
+        ncc_cp(1:7,1:2,m) = OH_cp(1:7,1:2)
         !
     end select
     !
@@ -3020,20 +3116,46 @@ continue
     end do
   end do
   !
+  if (ncpc == 5) then
+    tmp_coef = one / [one,two,three,four,five,one] ! F2003 AUTO-REALLOC
+  end if
+  !
   do m = 1,ncs
     do i = 1,size(ncc_cp,dim=2)
-      do j = 1,ncpc
-        ncoef = j + min(6-(ncpc+1),0)
-        denom = max(real(ncoef,kind=wp),one)
-        enth_coef(j,i,m) = ncc_cp(j,i,m) * rspec(m) / denom
+      do j = 1,ncpc+1
+        enth_coef(j,i,m) = ncc_cp(j,i,m) * rspec(m) * tmp_coef(j)
       end do
-      enth_coef(ncpc+1,i,m) = ncc_cp(ncpc+1,i,m) * rspec(m)
+    end do
+  end do
+  !
+  if (ncpc == 5) then
+    tmp_coef = one / [one,two,six,twelve,two*ten,one,one] ! F2003 AUTO-REALLOC
+  end if
+  !
+  do m = 1,ncs
+    do i = 1,size(ncc_cp,dim=2)
+      do j = 1,ncpc+2
+        gbfe_coef(j,i,m) = ncc_cp(j,i,m) * tmp_coef(j)
+      end do
+    end do
+  end do
+  !
+  if (ncpc == 5) then
+    tmp_coef = [one,one,two,three,four,one] ! F2003 AUTO-REALLOC
+  end if
+  !
+  do m = 1,ncs
+    do i = 1,size(ncc_cp,dim=2)
+      do j = 1,ncpc+1
+        dgbfe_coef(j,i,m) = gbfe_coef(j,i,m) * tmp_coef(j)
+      end do
     end do
   end do
   !
   temperature_switch = NCC_interval_switch
   !
-  deallocate ( ncc_cp )
+  if (allocated(ncc_cp)) deallocate ( ncc_cp )
+  if (allocated(tmp_coef)) deallocate ( tmp_coef )
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -3043,6 +3165,7 @@ end subroutine hardwired_NCC_coefficients
 !
 subroutine hardwired_VULCAN_coefficients
   !
+  real(wp), parameter :: vul_min_temperature = 300.0_wp
   real(wp), parameter :: vul_interval_switch = 1000.0_wp
   !
   real(wp), parameter :: CO2_wtmol = 44.0095000_wp
@@ -3240,12 +3363,14 @@ subroutine hardwired_VULCAN_coefficients
                                                      5.87244494E+00_wp] , &
                                                    [7,2] )
   !
-  integer  :: i,j,m,ncoef
-  real(wp) :: denom
+  !.. Local Scalars ..
+  integer  :: i,j,m
   !
   character(len=len(species_name)) :: species
   !
+  !.. Local Allocatable Arrays ..
   real(wp), allocatable :: vul_cp(:,:,:)
+  real(wp), allocatable :: tmp_coef(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "hardwired_VULCAN_coefficients"
@@ -3328,20 +3453,46 @@ continue
     end do
   end do
   !
+  if (ncpc == 5) then
+    tmp_coef = one / [one,two,three,four,five,one] ! F2003 AUTO-REALLOC
+  end if
+  !
   do m = 1,ncs
     do i = 1,size(vul_cp,dim=2)
-      do j = 1,ncpc
-        ncoef = j + min(6-(ncpc+1),0)
-        denom = max(real(ncoef,kind=wp),one)
-        enth_coef(j,i,m) = vul_cp(j,i,m) * rspec(m) / denom
+      do j = 1,ncpc+1
+        enth_coef(j,i,m) = vul_cp(j,i,m) * rspec(m) * tmp_coef(j)
       end do
-      enth_coef(ncpc+1,i,m) = vul_cp(ncpc+1,i,m) * rspec(m)
+    end do
+  end do
+  !
+  if (ncpc == 5) then
+    tmp_coef = one / [one,two,six,twelve,two*ten,one,one] ! F2003 AUTO-REALLOC
+  end if
+  !
+  do m = 1,ncs
+    do i = 1,size(vul_cp,dim=2)
+      do j = 1,ncpc+2
+        gbfe_coef(j,i,m) = vul_cp(j,i,m) * tmp_coef(j)
+      end do
+    end do
+  end do
+  !
+  if (ncpc == 5) then
+    tmp_coef = [one,one,two,three,four,one] ! F2003 AUTO-REALLOC
+  end if
+  !
+  do m = 1,ncs
+    do i = 1,size(vul_cp,dim=2)
+      do j = 1,ncpc+1
+        dgbfe_coef(j,i,m) = gbfe_coef(j,i,m) * tmp_coef(j)
+      end do
     end do
   end do
   !
   temperature_switch = vul_interval_switch
   !
-  deallocate ( vul_cp )
+  if (allocated(vul_cp)) deallocate ( vul_cp )
+  if (allocated(tmp_coef)) deallocate ( tmp_coef )
   !
   call debug_timer(leaving_procedure,pname)
   !
