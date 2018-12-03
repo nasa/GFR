@@ -1679,11 +1679,11 @@ subroutine compute_mixture_enthalpy_sp(n1,n2,mass_frac,t,h,dimensional)
   real(wp) :: hi,ts,h_dim
   !
   !.. Local Allocatable Arrays ..
-  integer, allocatable :: intrvl(:,:)
+  integer, allocatable :: intrvl(:)
   !
 continue
   !
-  allocate ( intrvl(n1:n2,1:ncs) , source=1 )
+  allocate ( intrvl(n1:n2) , source=1 )
   !$ACC DATA CREATE(intrvl)
   !
   !$ACC PARALLEL LOOP PRESENT(h)
@@ -1691,20 +1691,20 @@ continue
     h(n) = zero
   end do
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
-  do m = 1,ncs
-    do n = n1,n2
-      if (t(n) > temperature_high) then
-        intrvl(n,m) = 2
-      end if
-    end do
+  !$ACC PARALLEL LOOP PRESENT(t,intrvl)
+  do n = n1,n2
+    if (t(n) > temperature_high) then
+      intrvl(n) = 2
+    else if (t(n) < temperature_low) then
+      intrvl(n) = 0
+    end if
   end do
   !
   do m = 1,ncs
     !$ACC PARALLEL LOOP PRESENT(mass_frac,intrvl,t,enth_coef,h)
     do n = n1,n2
       !
-      ni = intrvl(n,m)
+      ni = intrvl(n)
       ts = t(n)
       !
       hi = enth_coef(6,ni,m) + &
@@ -1758,9 +1758,14 @@ continue
   !
   h = zero
   !
+  ni = 1
+  if (t > temperature_high) then
+    ni = 2
+  else if (t < temperature_low) then
+    ni = 0
+  end if
+  !
   do m = 1,ncs
-    !
-    ni = merge( 1 , 2 , t <= temperature_high )
     !
     hi = enth_coef(6,ni,m) + &
          t*(enth_coef(1,ni,m) + &
@@ -1804,27 +1809,27 @@ subroutine compute_species_enthalpy_sp(n1,n2,t,hsi,dimensional)
   real(wp) :: ts,h_dim
   !
   !.. Local Allocatable Arrays ..
-  integer, allocatable :: intrvl(:,:)
+  integer, allocatable :: intrvl(:)
   !
 continue
   !
-  allocate ( intrvl(n1:n2,1:ncs) , source=1 )
+  allocate ( intrvl(n1:n2) , source=1 )
   !$ACC DATA CREATE(intrvl)
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
-  do m = 1,ncs
-    do n = n1,n2
-      if (t(n) > temperature_high) then
-        intrvl(n,m) = 2
-      end if
-    end do
+  !$ACC PARALLEL LOOP PRESENT(t,intrvl)
+  do n = n1,n2
+    if (t(n) > temperature_high) then
+      intrvl(n) = 2
+    else if (t(n) < temperature_low) then
+      intrvl(n) = 0
+    end if
   end do
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(intrvl,t,enth_coef,hsi)
   do m = 1,ncs
     do n = n1,n2
       !
-      ni = intrvl(n,m)
+      ni = intrvl(n)
       ts = t(n)
       !
       hsi(n,m) = enth_coef(6,ni,m) + &
@@ -1875,9 +1880,14 @@ subroutine compute_species_enthalpy_1p(t,hsi,dimensional)
   !
 continue
   !
+  ni = 1
+  if (t > temperature_high) then
+    ni = 2
+  else if (t < temperature_low) then
+    ni = 0
+  end if
+  !
   do m = 1,ncs
-    !
-    ni = merge( 1 , 2 , t <= temperature_high )
     !
     hsi(m) = enth_coef(6,ni,m) + &
              t*(enth_coef(1,ni,m) + &
@@ -1926,9 +1936,14 @@ continue
   !
   h = zero
   !
+  ni = 1
+  if (t > temperature_high) then
+    ni = 2
+  else if (t < temperature_low) then
+    ni = 0
+  end if
+  !
   do m = 1,ncs
-    !
-    ni = merge( 1 , 2 , t <= temperature_high )
     !
     hi = enth_coef(6,ni,m) + &
          t*(enth_coef(1,ni,m) + &
@@ -1976,6 +1991,8 @@ continue
   do n = n1,n2
     if (t(n) > temperature_high) then
       intrvl(n) = 2
+    else if (t(n) < temperature_low) then
+      intrvl(n) = 0
     end if
   end do
   !
@@ -2120,11 +2137,11 @@ subroutine compute_mixture_cp_sp(n1,n2,mass_frac,t,cp,dimensional)
   real(wp) :: cpi,ts,cp_dim
   !
   !.. Local Allocatable Arrays ..
-  integer, allocatable :: intrvl(:,:)
+  integer, allocatable :: intrvl(:)
   !
 continue
   !
-  allocate ( intrvl(n1:n2,1:ncs) , source=1 )
+  allocate ( intrvl(n1:n2) , source=1 )
   !$ACC DATA CREATE(intrvl)
   !
   !$ACC PARALLEL LOOP PRESENT(cp)
@@ -2132,20 +2149,20 @@ continue
     cp(n) = zero
   end do
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
-  do m = 1,ncs
-    do n = n1,n2
-      if (t(n) > temperature_high) then
-        intrvl(n,m) = 2
-      end if
-    end do
+  !$ACC PARALLEL LOOP PRESENT(t,intrvl)
+  do n = n1,n2
+    if (t(n) > temperature_high) then
+      intrvl(n) = 2
+    else if (t(n) < temperature_low) then
+      intrvl(n) = 0
+    end if
   end do
   !
   do m = 1,ncs
     !$ACC PARALLEL LOOP PRESENT(mass_frac,intrvl,t,cp_coef,cp)
     do n = n1,n2
       !
-      ni = intrvl(n,m)
+      ni = intrvl(n)
       ts = t(n)
       !
       cpi = cp_coef(1,ni,m) + &
@@ -2198,9 +2215,14 @@ continue
   !
   cp = zero
   !
+  ni = 1
+  if (t > temperature_high) then
+    ni = 2
+  else if (t < temperature_low) then
+    ni = 0
+  end if
+  !
   do m = 1,ncs
-    !
-    ni = merge( 1 , 2 , t <= temperature_high )
     !
     cpi = cp_coef(1,ni,m) + &
           t*(cp_coef(2,ni,m) + &
@@ -2243,27 +2265,27 @@ subroutine compute_species_cp_sp(n1,n2,t,cpi,dimensional)
   real(wp) :: ts,cp_dim
   !
   !.. Local Allocatable Arrays ..
-  integer, allocatable :: intrvl(:,:)
+  integer, allocatable :: intrvl(:)
   !
 continue
   !
-  allocate ( intrvl(n1:n2,1:ncs) , source=1 )
+  allocate ( intrvl(n1:n2) , source=1 )
   !$ACC DATA CREATE(intrvl)
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
-  do m = 1,ncs
-    do n = n1,n2
-      if (t(n) > temperature_high) then
-        intrvl(n,m) = 2
-      end if
-    end do
+  !$ACC PARALLEL LOOP PRESENT(t,intrvl)
+  do n = n1,n2
+    if (t(n) > temperature_high) then
+      intrvl(n) = 2
+    else if (t(n) < temperature_low) then
+      intrvl(n) = 0
+    end if
   end do
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(intrvl,t,cp_coef,cpi)
   do m = 1,ncs
     do n = n1,n2
       !
-      ni = intrvl(n,m)
+      ni = intrvl(n)
       ts = t(n)
       !
       cpi(n,m) = cp_coef(1,ni,m) + &
@@ -2313,9 +2335,14 @@ subroutine compute_species_cp_1p(t,cpi,dimensional)
   !
 continue
   !
+  ni = 1
+  if (t > temperature_high) then
+    ni = 2
+  else if (t < temperature_low) then
+    ni = 0
+  end if
+  !
   do m = 1,ncs
-    !
-    ni = merge( 1 , 2 , t <= temperature_high )
     !
     cpi(m) = cp_coef(1,ni,m) + &
              t*(cp_coef(2,ni,m) + &
@@ -2364,9 +2391,14 @@ continue
   !
   cp = zero
   !
+  ni = 1
+  if (t > temperature_high) then
+    ni = 2
+  else if (t < temperature_low) then
+    ni = 0
+  end if
+  !
   do m = 1,ncs
-    !
-    ni = merge( 1 , 2 , t <= temperature_high )
     !
     cpi = cp_coef(1,ni,m) + &
           t*(cp_coef(2,ni,m) + &
@@ -2408,11 +2440,11 @@ subroutine compute_mixture_dcpdt(n1,n2,mass_frac,t,dcpdt)
   real(wp) :: dcpidt,ts
   !
   !.. Local Allocatable Arrays ..
-  integer, allocatable :: intrvl(:,:)
+  integer, allocatable :: intrvl(:)
   !
 continue
   !
-  allocate ( intrvl(n1:n2,1:ncs) , source=1 )
+  allocate ( intrvl(n1:n2) , source=1 )
   !$ACC DATA CREATE(intrvl)
   !
   !$ACC PARALLEL LOOP PRESENT(dcpdt)
@@ -2420,20 +2452,20 @@ continue
     dcpdt(n) = zero
   end do
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
-  do m = 1,ncs
-    do n = n1,n2
-      if (t(n) > temperature_high) then
-        intrvl(n,m) = 2
-      end if
-    end do
+  !$ACC PARALLEL LOOP PRESENT(t,intrvl)
+  do n = n1,n2
+    if (t(n) > temperature_high) then
+      intrvl(n) = 2
+    else if (t(n) < temperature_low) then
+      intrvl(n) = 0
+    end if
   end do
   !
   do m = 1,ncs
     !$ACC PARALLEL LOOP PRESENT(mass_frac,intrvl,t,cp_coef,dcpdt)
     do n = n1,n2
       !
-      ni = intrvl(n,m)
+      ni = intrvl(n)
       ts = t(n)
       !
       dcpidt = cp_coef(2,ni,m) + &
@@ -2475,27 +2507,27 @@ subroutine compute_species_dcpdt(n1,n2,t,dcpidt)
   real(wp) :: ts
   !
   !.. Local Allocatable Arrays ..
-  integer, allocatable :: intrvl(:,:)
+  integer, allocatable :: intrvl(:)
   !
 continue
   !
-  allocate ( intrvl(n1:n2,1:ncs) , source=1 )
+  allocate ( intrvl(n1:n2) , source=1 )
   !$ACC DATA CREATE(intrvl)
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(t,intrvl)
-  do m = 1,ncs
-    do n = n1,n2
-      if (t(n) > temperature_high) then
-        intrvl(n,m) = 2
-      end if
-    end do
+  !$ACC PARALLEL LOOP PRESENT(t,intrvl)
+  do n = n1,n2
+    if (t(n) > temperature_high) then
+      intrvl(n) = 2
+    else if (t(n) < temperature_low) then
+      intrvl(n) = 0
+    end if
   end do
   !
   do m = 1,ncs
     !$ACC PARALLEL LOOP PRESENT(intrvl,t,cp_coef,dcpidt)
     do n = n1,n2
       !
-      ni = intrvl(n,m)
+      ni = intrvl(n)
       ts = t(n)
       !
       dcpidt(n,m) = cp_coef(2,ni,m) + &
