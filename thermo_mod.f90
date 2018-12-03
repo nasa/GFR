@@ -4,7 +4,7 @@ module thermo_mod
   use module_kind_types
   !
   use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
-  use eqn_idx, only : ncs
+  use eqn_idx, only : ncs,ncr
   use eqn_idx, only : npres,ntemp,ncp,ngamm,nenth,ng
   !
   implicit none
@@ -24,6 +24,8 @@ module thermo_mod
   public :: compute_mixture_gamma
   public :: compute_mixture_rgas
   public :: compute_cp_over_temp_integral
+  public :: compute_gibbs_free_energy
+  public :: compute_dgbdt
   !
   !
   real(wp), parameter :: runivl = 8314.5_wp
@@ -2903,6 +2905,253 @@ continue
   ! McBride curve fits
   !
 end subroutine compute_cp_over_temp_integral_1p
+!
+!###############################################################################
+!
+pure &
+subroutine compute_gibbs_free_energy(n1,n2,t,gbfe)
+  !
+  ! Routine to calculate the Gibbs free energy of a specie
+  !
+  ! N1   : starting point
+  ! N2   : ending   point
+  ! T    : nondimensional static temperature
+  ! GBFE : Gibbs free energy / (R*T)
+  !
+  !
+  ! NOTE: The form is that of an assumed equilibrium model:
+  !
+  !       kb(ir,T) = kf(ir,T) / ke(ir,T)
+  !
+  !       and
+  !
+  !       ke(ir,T) = (Ro*T)**(-DSCSUM)*exp(-deltaG(ir)/(Ro*T))
+  !
+  !       where:
+  !
+  !           -deltaG(ir)/(Ro*T) = sum of the Gibbs free energy times
+  !                                the difference of the stoichiometic
+  !                                coeffifients
+  !
+  !                                 ns
+  !           -deltaG(ir)/(Ro*T) =  sum[-g(is)/(Ro*T)*(delsco(is,ir))]
+  !                                 is=1
+  !
+  !    IF USING A DIMENSIONAL TEMPERATURE (T)
+  !           -g(is)/(Ro*T) = -F(is)*T^-1 +
+  !                            H(is)      +
+  !                            B(is)*T    +
+  !                            C(is)*T^2  +
+  !                            D(is)*T^3  +
+  !                            E(is)*T^4  +
+  !                            A(is)*(ln(T)-1)
+  !
+  !    IF USING A NONDIMENSIONAL TEMPERATURE (T_nd)
+  !           -g(is)/(Ro*T) = -F_nd(is)*T_nd^-1 +
+  !                            H_nd(is)         +
+  !                            B_nd(is)*T_nd    +
+  !                            C_nd(is)*T_nd^2  +
+  !                            D_nd(is)*T_nd^3  +
+  !                            E_nd(is)*T_nd^4  +
+  !                            A_nd(is)*ln(T_nd)
+  !            where
+  !               F_nd(is) = F(is)*tref^-1
+  !               H_nd(is) = H(is) + A(is)*(ln(tref)-1)
+  !               B_nd(is) = B(is)*tref
+  !               C_nd(is) = C(is)*tref^2
+  !               D_nd(is) = D(is)*tref^3
+  !               E_nd(is) = E(is)*tref^4
+  !               A_nd(is) = A(is)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: t(:)
+  real(wp), intent(inout) :: gbfe(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n,ni
+  real(wp) :: ts,tlog,tinv
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: intrvl(:)
+  !
+continue
+  !
+  ! Compute the temperature interval for each point
+  !
+  allocate ( intrvl(n1:n2) , source=1 )
+  !
+  do n = n1,n2
+    if (t(n) > temperature_high) then
+      intrvl(n) = 2
+    else if (t(n) < temperature_low) then
+      intrvl(n) = 0
+    end if
+  end do
+  !
+  ! Compute the Gibbs free energy / (Runiv*T)
+  !
+  do m = 1,ncs
+    do n = n1,n2
+      !
+      ni = intrvl(n)
+      ts = t(n)
+      tlog = log(ts)
+      tinv = -one/ts
+      !
+      !   Compute the (-Gibbs free energy / (R*T)) using the NASA SP-3001 fit
+      !
+      gbfe(n,m) = gbfe_coef(1,ni,m)*tlog &
+                + gbfe_coef(6,ni,m)*tinv &
+                + gbfe_coef(7,ni,m) &
+                + ts*(gbfe_coef(2,ni,m) + &
+                      ts*(gbfe_coef(3,ni,m) + &
+                          ts*(gbfe_coef(4,ni,m) + &
+                              ts*(gbfe_coef(5,ni,m)))))
+      !
+    end do
+  end do
+  !
+  deallocate ( intrvl )
+  !
+end subroutine compute_gibbs_free_energy
+!
+!###############################################################################
+!
+pure subroutine compute_dgbdt(n1,n2,t,delsco,dgbdt,dimensional)
+  !
+  ! Routine to calculate the derivtive of the Gibbs free energy
+  ! of a specie with respect to temperature
+  !
+  ! N1     : starting point
+  ! N2     : ending   point
+  ! DELSCO : stoichiometric coefficient of the forward reaction -
+  !          stoichiometric coefficient of the backward reaction
+  ! T      : nondimensional static temperature
+  ! DGBDT  : derivative of Gibbs free energy / (R*T) w.r.t. T
+  !
+  ! NOTE: The form is that of an assumed equilibrium model:
+  !
+  !       kb(ir,T) = kf(ir,T) / ke(ir,T)
+  !
+  !       and
+  !
+  !       ke(ir,T) = (Ro*T)**(-DSCSUM)*exp(-deltaG(ir)/(Ro*T))
+  !
+  !       where:
+  !
+  !        d/dT[-deltaG(ir)/(Ro*T)] = sum of the Gibbs free energy times
+  !                                   the difference of the stoichiometic
+  !                                   coeffifients
+  !
+  !                                         ns
+  !        d/dT[-deltaG(ir)/(Ro*T)] =  d/dT{sum[-g(is)/(Ro*T)*(delsco(is,ir))]}
+  !                                         is=1
+  !
+  !    IF USING A DIMENSIONAL TEMPERATURE (T)
+  !        d/dT[-g(is)/(Ro*T)] = F(is)*T^-2 +
+  !                              A(is)*T^-1 +
+  !                              B(is)      +
+  !                              C(is)*T    +
+  !                              D(is)*T^2  +
+  !                              E(is)*T^3
+  !
+  !    IF USING A NONDIMENSIONAL TEMPERATURE (T_nd)
+  !        d/dT[-g(is)/(Ro*T)] = F_nd(is)*T_nd^-2 +
+  !                              A_nd(is)*T_nd^-1 +
+  !                              B_nd(is)         +
+  !                              C_nd(is)*T_nd    +
+  !                              D_nd(is)*T_nd^2  +
+  !                              E_nd(is)*T_nd^3
+  !            where
+  !               F_nd(is) = F(is)*tref^-2
+  !               A_nd(is) = A(is)*tref^-1
+  !               B_nd(is) = B(is)
+  !               C_nd(is) = C(is)*tref
+  !               D_nd(is) = D(is)*tref^2
+  !               E_nd(is) = E(is)*tref^3
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: t(:)
+  real(wp),    intent(in) :: delsco(:,:)
+  real(wp), intent(inout) :: dgbdt(:,:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Local Scalars ..
+  integer  :: ir,m,n,ni
+  real(wp) :: dgdt,ts,tinv,delta_stoich_coef
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: intrvl(:)
+  !
+continue
+  !
+  ! Initialize the derivative array
+  !
+  do ir = 1,ncr
+    do n = n1,n2
+      dgbdt(n,ir) = zero
+    end do
+  end do
+  !
+  ! Compute the temperature interval for each point
+  !
+  allocate ( intrvl(n1:n2) , source=1 )
+  !
+  do n = n1,n2
+    if (t(n) > temperature_high) then
+      intrvl(n) = 2
+    else if (t(n) < temperature_low) then
+      intrvl(n) = 0
+    end if
+  end do
+  !
+  ! Compute the derivative of [Gibbs free energy / (Runiv*T)] wrt T
+  ! for each chemical reaction.
+  !
+  do ir = 1,ncr
+    !
+    species_loop: &
+    do m = 1,ncs
+      !
+      delta_stoich_coef = delsco(m,ir)
+      !
+      ! If (forward stoich coef - backward stoich coef) is zero, there
+      ! is no point in evaluating dgdt just to multiply it by zero and
+      ! add it to dgbdt, so continue on to the next species.
+      !
+      if (abs(delta_stoich_coef) < rndoff) cycle species_loop
+      !
+      do n = n1,n2
+        !
+        ni = intrvl(n)
+        ts = t(n)
+        tinv = one/ts
+        !
+        !       Compute d/dT(-Gibbs free energy / (R*T)) from
+        !       a curve fit based on NASA SP-3001
+        !
+        dgdt = dgbfe_coef(2,ni,m) + &               ! B(ni)
+               tinv*(dgbfe_coef(1,ni,m) + &         ! A(ni)*T^-1
+                     tinv*dgbfe_coef(6,ni,m)) + &   ! F(ni)*T^-2
+               ts*(dgbfe_coef(3,ni,m) + &           ! C(ni)*T
+                   ts*(dgbfe_coef(4,ni,m) + &       ! D(ni)*T^2
+                       ts*(dgbfe_coef(5,ni,m))))    ! E(ni)*T^3
+        !
+        dgbdt(n,ir) = dgbdt(n,ir) + delta_stoich_coef*dgdt
+        !
+      end do
+      !
+    end do species_loop
+    !
+  end do
+  !
+  deallocate ( intrvl )
+  !
+end subroutine compute_dgbdt
 !
 !###############################################################################
 !
