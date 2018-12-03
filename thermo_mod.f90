@@ -2555,11 +2555,11 @@ subroutine compute_cp_over_temp_integral_sp(n1,n2,mass_frac, &
   ! for a mixture of gases in thermal equilibrium using the Gordon and
   ! McBride curve fits
   !
-  ! NPTS : no. of points at which to calculate
-  ! M  : species no.
-  ! MASS_FRAC  : species mass fraction
-  ! TTOT : total temperature
-  ! TEMP : static temperature
+  ! N1           : beginning point
+  ! N2           : ending    point
+  ! MASS_FRAC    : species mass fraction
+  ! TTOT         : total temperature
+  ! TEMP         : static temperature
   ! RETURN_VALUE : Final intergral of Cp/T summed over all species
   !
   !.. Formal Arguments ..
@@ -2572,9 +2572,10 @@ subroutine compute_cp_over_temp_integral_sp(n1,n2,mass_frac, &
   !
   !.. Local Scalars ..
   integer  :: m,n
-  real(wp) :: tbl,tel,ccl,cel,cbl,al,bl,cl,dl,el
-  real(wp) :: tbh,teh,cch,ceh,cbh,ah,bh,ch,dh,eh
-  real(wp) :: val
+  real(wp) :: tb0,te0,cc0,ce0,cb0,a0,b0,c0,d0,e0,cf0
+  real(wp) :: tb1,te1,cc1,ce1,cb1,a1,b1,c1,d1,e1,cf1
+  real(wp) :: tb2,te2,cc2,ce2,cb2,a2,b2,c2,d2,e2,cf2
+  real(wp) :: ts,tt
   !
   !.. Local Parameters ..
   real(wp), parameter :: three2 = three/two
@@ -2588,204 +2589,100 @@ continue
     return_value(n) = zero
   end do
   !
-!$define LOOP_PTS_THEN_SPECIES
-#ifdef LOOP_PTS_THEN_SPECIES
-  !$ACC PARALLEL LOOP PRESENT(ttot,temp,mass_frac,return_value,enth_coef)
-  do n = n1,n2
-    !
-    val = zero
-    !
-    if (ttot(n) <= temperature_high) then
-      !
-      ! Static and total temperature are both smaller than temperature switch
-      ! NOTE: We need to dimensionalize the temperatures because
-      !       the curve fits require dimensional temperature.
-      !
-      tbl = temp(n)
-      tel = ttot(n)
-      !
-      !$ACC LOOP SEQ
-      do m = 1,ncs
-        !
-        ccl = log(tel/tbl)*enth_coef(1,1,m)
-        !
-        cel = tel*(enth_coef(2,1,m)*two + &
-                  tel*(enth_coef(3,1,m)*three2 + &
-                      tel*(enth_coef(4,1,m)*four3 + &
-                          tel*(enth_coef(5,1,m)*five4))))
-        !
-        cbl = tbl*(enth_coef(2,1,m)*two + &
-                  tbl*(enth_coef(3,1,m)*three2 + &
-                      tbl*(enth_coef(4,1,m)*four3 + &
-                          tbl*(enth_coef(5,1,m)*five4))))
-        !
-        val = val + mass_frac(n,m)*(ccl + cel - cbl)
-        !
-      end do
-      !
-    else if (temp(n) > temperature_high) then
-      !
-      ! Static and total temperature are both larger than temperature switch
-      ! NOTE: We need to dimensionalize the temperatures because
-      !       the curve fits require dimensional temperature.
-      !
-      tbh = temp(n)
-      teh = ttot(n)
-      !
-      !$ACC LOOP SEQ
-      do m = 1,ncs
-        !
-        cch = log(teh/tbh)*enth_coef(1,2,m)
-        !
-        ceh = teh*(enth_coef(2,2,m)*two + &
-                  teh*(enth_coef(3,2,m)*three2 + &
-                      teh*(enth_coef(4,2,m)*four3 + &
-                          teh*(enth_coef(5,2,m)*five4))))
-        !
-        cbh = tbh*(enth_coef(2,2,m)*two + &
-                  tbh*(enth_coef(3,2,m)*three2 + &
-                      tbh*(enth_coef(4,2,m)*four3 + &
-                          tbh*(enth_coef(5,2,m)*five4))))
-        !
-        val = val + mass_frac(n,m)*(cch + ceh - cbh)
-        !
-      end do
-      !
-    else
-      !
-      ! Static temperature is smaller than temperature switch and
-      ! total temperature is larger than temperature switch
-      ! NOTE: We need to dimensionalize the temperatures because
-      !       the curve fits require dimensional temperature.
-      !
-      tbl = temp(n)
-      tel = temperature_high
-      !
-      tbh = temperature_high
-      teh = ttot(n)
-      !
-      !$ACC LOOP SEQ
-      do m = 1,ncs
-        !
-        ccl = log(tel/tbl)*enth_coef(1,1,m)
-        !
-        cel = tel*(enth_coef(2,1,m)*two + &
-                  tel*(enth_coef(3,1,m)*three2 + &
-                      tel*(enth_coef(4,1,m)*four3 + &
-                          tel*(enth_coef(5,1,m)*five4))))
-        !
-        cbl = tbl*(enth_coef(2,1,m)*two + &
-                  tbl*(enth_coef(3,1,m)*three2 + &
-                      tbl*(enth_coef(4,1,m)*four3 + &
-                          tbl*(enth_coef(5,1,m)*five4))))
-        !
-        cch = log(teh/tbh)*enth_coef(1,2,m)
-        !
-        ceh = teh*(enth_coef(2,2,m)*two + &
-                  teh*(enth_coef(3,2,m)*three2 + &
-                      teh*(enth_coef(4,2,m)*four3 + &
-                          teh*(enth_coef(5,2,m)*five4))))
-        !
-        cbh = tbh*(enth_coef(2,2,m)*two + &
-                  tbh*(enth_coef(3,2,m)*three2 + &
-                      tbh*(enth_coef(4,2,m)*four3 + &
-                          tbh*(enth_coef(5,2,m)*five4))))
-        !
-        val = val + mass_frac(n,m)*( (ccl+cch) + (cel+ceh) - (cbl+cbh) )
-        !
-      end do
-      !
-    end if
-    !
-    return_value(n) = val
-    !
-  end do
-#else
+  ! 6 POSSIBLE SCENARIOS
+  !
+  !   ------------------------------------------------
+  !   | SCENARIO |   NI=0    |   NI=1    |   NI=2    |
+  !   |----------|-----------|-----------|-----------|
+  !   |     1    | temp,ttot |           |           |
+  !   |     2    |   temp    |   ttot    |           |
+  !   |     3    |   temp    |           |   ttot    |
+  !   |     4    |           | temp,ttot |           |
+  !   |     5    |           |   temp    |   ttot    |
+  !   |     6    |           |           | temp,ttot |
+  !   ------------------------------------------------
+  !
   do m = 1,ncs
     !
-    al = enth_coef(1,1,m)
-    bl = enth_coef(2,1,m)*two
-    cl = enth_coef(3,1,m)*three2
-    dl = enth_coef(4,1,m)*four3
-    el = enth_coef(5,1,m)*five4
+    a0 = enth_coef(1,0,m)
+    b0 = enth_coef(2,0,m)*two
+    c0 = enth_coef(3,0,m)*three2
+    d0 = enth_coef(4,0,m)*four3
+    e0 = enth_coef(5,0,m)*five4
     !
-    ah = enth_coef(1,2,m)
-    bh = enth_coef(2,2,m)*two
-    ch = enth_coef(3,2,m)*three2
-    dh = enth_coef(4,2,m)*four3
-    eh = enth_coef(5,2,m)*five4
+    a1 = enth_coef(1,1,m)
+    b1 = enth_coef(2,1,m)*two
+    c1 = enth_coef(3,1,m)*three2
+    d1 = enth_coef(4,1,m)*four3
+    e1 = enth_coef(5,1,m)*five4
+    !
+    a2 = enth_coef(1,2,m)
+    b2 = enth_coef(2,2,m)*two
+    c2 = enth_coef(3,2,m)*three2
+    d2 = enth_coef(4,2,m)*four3
+    e2 = enth_coef(5,2,m)*five4
     !
     !$ACC PARALLEL LOOP PRESENT(ttot,temp,mass_frac,return_value)
     do n = n1,n2
       !
-      if (ttot(n) <= temperature_high) then
+      ts = temp(n)
+      tt = ttot(n)
+      !
+      ! Compute the contribution, if any, from the constant Cp curvefit interval
+      !
+      if (ts < temperature_low) then
         !
-        ! Static and total temperature are both smaller than temperature switch
-        ! NOTE: We need to dimensionalize the temperatures because
-        !       the curve fits require dimensional temperature.
+        tb0 = ts
+        te0 = min(tt,temperature_low)
         !
-        tbl = temp(n)
-        tel = ttot(n)
+        cc0 = log(te0/tb0)*a0
         !
-        ccl = log(tel/tbl)*al
+        ce0 = te0*(b0 + te0*(c0 + te0*(d0 + te0*e0)))
+        cb0 = tb0*(b0 + tb0*(c0 + tb0*(d0 + tb0*e0)))
         !
-        cel = tel*(bl + tel*(cl + tel*(dl + tel*el)))
-        cbl = tbl*(bl + tbl*(cl + tbl*(dl + tbl*el)))
-        !
-        return_value(n) = return_value(n) + mass_frac(n,m)*(ccl + cel - cbl)
-        !
-      else if (temp(n) > temperature_high) then
-        !
-        ! Static and total temperature are both larger than temperature switch
-        ! NOTE: We need to dimensionalize the temperatures because
-        !       the curve fits require dimensional temperature.
-        !
-        tbh = temp(n)
-        teh = ttot(n)
-        !
-        cch = log(teh/tbh)*ah
-        !
-        ceh = teh*(bh + teh*(ch + teh*(dh + teh*eh)))
-        cbh = tbh*(bh + tbh*(ch + tbh*(dh + tbh*eh)))
-        !
-        return_value(n) = return_value(n) + mass_frac(n,m)*(cch + ceh - cbh)
-        !
-      else
-        !
-        ! Static temperature is smaller than temperature switch and
-        ! total temperature is larger than temperature switch
-        ! NOTE: We need to dimensionalize the temperatures because
-        !       the curve fits require dimensional temperature.
-        !
-        tbl = temp(n)
-        tel = temperature_high
-        !
-        ccl = log(tel/tbl)*al
-        !
-        cel = tel*(bl + tel*(cl + tel*(dl + tel*el)))
-        cbl = tbl*(bl + tbl*(cl + tbl*(dl + tbl*el)))
-        !
-        tbh = temperature_high
-        teh = ttot(n)
-        !
-        cch = log(teh/tbh)*ah
-        !
-        ceh = teh*(bh + teh*(ch + teh*(dh + teh*eh)))
-        cbh = tbh*(bh + tbh*(ch + tbh*(dh + tbh*eh)))
-        !
-        return_value(n) = return_value(n) + mass_frac(n,m)*( (ccl+cel-cbl) + &
-                                                             (cch+ceh-cbh) )
+        cf0 = mass_frac(n,m)*(cc0 + ce0 - cb0)
         !
       end if
+      !
+      ! Compute the contribution, if any, from the
+      ! low temperature Cp curvefit interval
+      !
+      if (ts <= temperature_high .and. tt >= temperature_low) then
+        !
+        tb1 = max(ts,temperature_low)
+        te1 = min(tt,temperature_high)
+        !
+        cc1 = log(te1/tb1)*a1
+        !
+        ce1 = te1*(b1 + te1*(c1 + te1*(d1 + te1*e1)))
+        cb1 = tb1*(b1 + tb1*(c1 + tb1*(d1 + tb1*e1)))
+        !
+        cf1 = mass_frac(n,m)*(cc1 + ce1 - cb1)
+        !
+      end if
+      !
+      ! Compute the contribution, if any, from the
+      ! high temperature Cp curvefit interval
+      !
+      if (tt > temperature_high) then
+        !
+        tb2 = max(ts,temperature_high)
+        te2 = tt
+        !
+        cc2 = log(te2/tb2)*a2
+        !
+        ce2 = te2*(b2 + te2*(c2 + te2*(d2 + te2*e2)))
+        cb2 = tb2*(b2 + tb2*(c2 + tb2*(d2 + tb2*e2)))
+        !
+        cf2 = mass_frac(n,m)*(cc2 + ce2 - cb2)
+        !
+      end if
+      !
+      return_value(n) = return_value(n) + cf0 + cf1 + cf2
       !
     end do
     !
   end do
-#endif
-  !
-  ! Finished computing the integral required for calculating total pressure
-  ! for a mixture of gases in thermal equilibrium using the Gordon and
-  ! McBride curve fits
   !
 end subroutine compute_cp_over_temp_integral_sp
 !
@@ -2798,11 +2695,9 @@ subroutine compute_cp_over_temp_integral_1p(mass_frac,return_value,temp,ttot)
   ! for a mixture of gases in thermal equilibrium using the Gordon and
   ! McBride curve fits
   !
-  ! NPTS : no. of points at which to calculate
-  ! M  : species no.
-  ! MASS_FRAC  : species mass fraction
-  ! TTOT : total temperature
-  ! TEMP : static temperature
+  ! MASS_FRAC    : species mass fraction
+  ! TTOT         : total temperature
+  ! TEMP         : static temperature
   ! RETURN_VALUE : Final intergral of Cp/T summed over all species
   !
   !.. Formal Arguments ..
@@ -2813,8 +2708,10 @@ subroutine compute_cp_over_temp_integral_1p(mass_frac,return_value,temp,ttot)
   !
   !.. Local Scalars ..
   integer  :: m
-  real(wp) :: tbl,tel,ccl,cel,cbl,al,bl,cl,dl,el
-  real(wp) :: tbh,teh,cch,ceh,cbh,ah,bh,ch,dh,eh
+  real(wp) :: tb0,te0,cc0,ce0,cb0,a0,b0,c0,d0,e0,cf0
+  real(wp) :: tb1,te1,cc1,ce1,cb1,a1,b1,c1,d1,e1,cf1
+  real(wp) :: tb2,te2,cc2,ce2,cb2,a2,b2,c2,d2,e2,cf2
+  real(wp) :: ts,tt
   !
   !.. Local Parameters ..
   real(wp), parameter :: three2 = three/two
@@ -2825,84 +2722,99 @@ continue
   !
   return_value = zero
   !
+  ! 6 POSSIBLE SCENARIOS
+  !
+  !   ------------------------------------------------
+  !   | SCENARIO |   NI=0    |   NI=1    |   NI=2    |
+  !   |----------|-----------|-----------|-----------|
+  !   |     1    | temp,ttot |           |           |
+  !   |     2    |   temp    |   ttot    |           |
+  !   |     3    |   temp    |           |   ttot    |
+  !   |     4    |           | temp,ttot |           |
+  !   |     5    |           |   temp    |   ttot    |
+  !   |     6    |           |           | temp,ttot |
+  !   ------------------------------------------------
+  !
   do m = 1,ncs
     !
-    al = enth_coef(1,1,m)
-    bl = enth_coef(2,1,m)*two
-    cl = enth_coef(3,1,m)*three2
-    dl = enth_coef(4,1,m)*four3
-    el = enth_coef(5,1,m)*five4
+    a0 = enth_coef(1,0,m)
+    b0 = enth_coef(2,0,m)*two
+    c0 = enth_coef(3,0,m)*three2
+    d0 = enth_coef(4,0,m)*four3
+    e0 = enth_coef(5,0,m)*five4
     !
-    ah = enth_coef(1,2,m)
-    bh = enth_coef(2,2,m)*two
-    ch = enth_coef(3,2,m)*three2
-    dh = enth_coef(4,2,m)*four3
-    eh = enth_coef(5,2,m)*five4
+    a1 = enth_coef(1,1,m)
+    b1 = enth_coef(2,1,m)*two
+    c1 = enth_coef(3,1,m)*three2
+    d1 = enth_coef(4,1,m)*four3
+    e1 = enth_coef(5,1,m)*five4
     !
-    if (ttot <= temperature_high) then
+    a2 = enth_coef(1,2,m)
+    b2 = enth_coef(2,2,m)*two
+    c2 = enth_coef(3,2,m)*three2
+    d2 = enth_coef(4,2,m)*four3
+    e2 = enth_coef(5,2,m)*five4
+    !
+    cf0 = zero
+    cf1 = zero
+    cf2 = zero
+    !
+    ts = temp
+    tt = ttot
+    !
+    ! Compute the contribution, if any, from the constant Cp curvefit interval
+    !
+    if (ts < temperature_low) then
       !
-      ! Static and total temperature are both smaller than temperature switch
-      ! NOTE: We need to dimensionalize the temperatures because
-      !       the curve fits require dimensional temperature.
+      tb0 = ts
+      te0 = min(tt,temperature_low)
       !
-      tbl = temp
-      tel = ttot
+      cc0 = log(te0/tb0)*a0
       !
-      ccl = log(tel/tbl)*al
+      ce0 = te0*(b0 + te0*(c0 + te0*(d0 + te0*e0)))
+      cb0 = tb0*(b0 + tb0*(c0 + tb0*(d0 + tb0*e0)))
       !
-      cel = tel*(bl + tel*(cl + tel*(dl + tel*el)))
-      cbl = tbl*(bl + tbl*(cl + tbl*(dl + tbl*el)))
-      !
-      return_value = return_value + mass_frac(m)*(ccl + cel - cbl)
-      !
-    else if (temp > temperature_high) then
-      !
-      ! Static and total temperature are both larger than temperature switch
-      ! NOTE: We need to dimensionalize the temperatures because
-      !       the curve fits require dimensional temperature.
-      !
-      tbh = temp
-      teh = ttot
-      !
-      cch = log(teh/tbh)*ah
-      !
-      ceh = teh*(bh + teh*(ch + teh*(dh + teh*eh)))
-      cbh = tbh*(bh + tbh*(ch + tbh*(dh + tbh*eh)))
-      !
-      return_value = return_value + mass_frac(m)*(cch + ceh - cbh)
-      !
-    else
-      !
-      ! Static temperature is smaller than temperature switch and
-      ! total temperature is larger than temperature switch
-      ! NOTE: We need to dimensionalize the temperatures because
-      !       the curve fits require dimensional temperature.
-      !
-      tbl = temp
-      tel = temperature_high
-      !
-      ccl = log(tel/tbl)*al
-      !
-      cel = tel*(bl + tel*(cl + tel*(dl + tel*el)))
-      cbl = tbl*(bl + tbl*(cl + tbl*(dl + tbl*el)))
-      !
-      tbh = temperature_high
-      teh = ttot
-      !
-      cch = log(teh/tbh)*ah
-      !
-      ceh = teh*(bh + teh*(ch + teh*(dh + teh*eh)))
-      cbh = tbh*(bh + tbh*(ch + tbh*(dh + tbh*eh)))
-      !
-      return_value = return_value + mass_frac(m)*((ccl+cel-cbl) + (cch+ceh-cbh))
+      cf0 = mass_frac(m)*(cc0 + ce0 - cb0)
       !
     end if
     !
+    ! Compute the contribution, if any, from the
+    ! low temperature Cp curvefit interval
+    !
+    if (ts <= temperature_high .and. tt >= temperature_low) then
+      !
+      tb1 = max(ts,temperature_low)
+      te1 = min(tt,temperature_high)
+      !
+      cc1 = log(te1/tb1)*a1
+      !
+      ce1 = te1*(b1 + te1*(c1 + te1*(d1 + te1*e1)))
+      cb1 = tb1*(b1 + tb1*(c1 + tb1*(d1 + tb1*e1)))
+      !
+      cf1 = mass_frac(m)*(cc1 + ce1 - cb1)
+      !
+    end if
+    !
+    ! Compute the contribution, if any, from the
+    ! high temperature Cp curvefit interval
+    !
+    if (tt > temperature_high) then
+      !
+      tb2 = max(ts,temperature_high)
+      te2 = tt
+      !
+      cc2 = log(te2/tb2)*a2
+      !
+      ce2 = te2*(b2 + te2*(c2 + te2*(d2 + te2*e2)))
+      cb2 = tb2*(b2 + tb2*(c2 + tb2*(d2 + tb2*e2)))
+      !
+      cf2 = mass_frac(m)*(cc2 + ce2 - cb2)
+      !
+    end if
+    !
+    return_value = return_value + cf0 + cf1 + cf2
+    !
   end do
-  !
-  ! Finished computing the integral required for calculating total pressure
-  ! for a mixture of gases in thermal equilibrium using the Gordon and
-  ! McBride curve fits
   !
 end subroutine compute_cp_over_temp_integral_1p
 !
