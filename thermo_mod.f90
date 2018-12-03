@@ -28,7 +28,7 @@ module thermo_mod
   public :: compute_dgbdt
   !
   !
-  real(wp), parameter :: runivl = 8314.5_wp
+  real(wp), public, parameter :: runivl = 8314.5_wp
   !
   real(wp), parameter :: cp_air_wtmol = 28.9651159_wp
   !
