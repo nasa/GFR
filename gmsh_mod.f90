@@ -650,6 +650,8 @@ continue
       call read_gmsh_section_elementnodedata
     else if (section_header == "INTERPOLATIONSCHEME") then
       call read_gmsh_section_interpolationscheme
+    else if (section_header == "COMMENTS") then
+      call read_gmsh_section_comments
     else
       !
       ! The section header wasnt recognized so continue reading
@@ -2285,6 +2287,46 @@ continue
             "signifiying the end of the 'InterpolationScheme' section!")
   !
 end subroutine read_gmsh_section_interpolationscheme
+!
+!###############################################################################
+!
+subroutine read_gmsh_section_comments
+  !
+  !.. Local Scalars ..
+  logical(lk) :: end_of_file
+  character(len=80) :: text
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_gmsh_comments"
+  !
+continue
+  !
+  ! The code is not currently set up to read the gmsh
+  ! InterpolationScheme section. Continue reading the grid file
+  ! until the end of the InterpolationScheme section is found.
+  !
+  call find_gmsh_section(text,end_of_file)
+  !
+  if (text == "ENDCOMMENTS") then
+    return
+  else if (end_of_file) then
+    write (error_message,1)
+  else
+    write (error_message,2)
+  end if
+  !
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  !
+  ! Format Statements
+  !
+  1 format ("Pre-mature end-of-file while trying to read the ", &
+            "'Comments' section of the GMSH grid file!")
+  2 format ("While trying to read the 'Comments' section of the ", &
+            "GMSH grid file, an unknown and invalid section header was ", &
+            "found before the required '$EndComments' line ", &
+            "signifiying the end of the 'Comments' section!")
+  !
+end subroutine read_gmsh_section_comments
 !
 !###############################################################################
 !
