@@ -2483,7 +2483,7 @@ subroutine create_TaylorGreenVortex_grid()
   use ovar,      only : grid_format
   !
   !.. Local Scalars ..
-  integer :: nc,np,ierr,i,j,k,l,n
+  integer :: nc,np,ierr,i,j,k,l,n,n1,n2
   integer :: nf_min,nf_max
   real(r4) :: x,y,z,dl
   real(r4) :: rbas,radj,rval
@@ -2728,28 +2728,31 @@ continue
   do k = 1,nc
     do j = 1,nc
       !
-      nf_min = nf_min + 1
-      nf_max = nf_min + nc*nc
+      n1 = nf_min + 1
+      n2 = nf_min + 1 + nc*nc
       !
-      bface( 1,nf_min) = bc_periodic
-      bface( 2,nf_min) = map3dto1d(1 ,j,k,nc)
-      bface( 3,nf_min) = Geom_Hexa
-      bface( 4,nf_min) = HostFace3D(1)
-      bface( 5,nf_min) = nf_max
-      bface( 6,nf_min) = map3dto1d(nc,j,k,nc)
-      bface( 8,nf_min) = Geom_Hexa
-      bface( 9,nf_min) = HostFace3D(2)
-      bface(10,nf_min) = ncell + nf_min
+      bface( 1,n1) = bc_periodic
+      bface( 2,n1) = map3dto1d(1 ,j,k,nc)
+      bface( 3,n1) = Geom_Hexa
+      bface( 4,n1) = HostFace3D(1)
+      bface( 5,n1) = n2
+      bface( 6,n1) = map3dto1d(nc,j,k,nc)
+      bface( 8,n1) = Geom_Hexa
+      bface( 9,n1) = HostFace3D(2)
+      bface(10,n1) = ncell + n1
       !
-      bface( 1,nf_max) = bc_periodic
-      bface( 2,nf_max) = bface(6,nf_min)
-      bface( 3,nf_max) = bface(8,nf_min)
-      bface( 4,nf_max) = bface(9,nf_min)
-      bface( 5,nf_max) = nf_min
-      bface( 6,nf_max) = bface(2,nf_min)
-      bface( 8,nf_max) = bface(3,nf_min)
-      bface( 9,nf_max) = bface(4,nf_min)
-      bface(10,nf_max) = ncell + nf_max
+      bface( 1,n2) = bc_periodic
+      bface( 2,n2) = bface(6,n1)
+      bface( 3,n2) = bface(8,n1)
+      bface( 4,n2) = bface(9,n1)
+      bface( 5,n2) = n1
+      bface( 6,n2) = bface(2,n1)
+      bface( 8,n2) = bface(3,n1)
+      bface( 9,n2) = bface(4,n1)
+      bface(10,n2) = ncell + n2
+      !
+      nf_min = n1
+      nf_max = n2
       !
     end do
   end do
@@ -2759,28 +2762,31 @@ continue
   do k = 1,nc
     do i = 1,nc
       !
-      nf_min = nf_min + 1
-      nf_max = nf_min + nc*nc
+      n1 = nf_min + 1
+      n2 = nf_min + 1 + nc*nc
       !
-      bface( 1,nf_min) = bc_periodic
-      bface( 2,nf_min) = map3dto1d(i,1 ,k,nc)
-      bface( 3,nf_min) = Geom_Hexa
-      bface( 4,nf_min) = HostFace3D(3)
-      bface( 5,nf_min) = nf_max
-      bface( 6,nf_min) = map3dto1d(i,nc,k,nc)
-      bface( 8,nf_min) = Geom_Hexa
-      bface( 9,nf_min) = HostFace3D(4)
-      bface(10,nf_min) = ncell + nf_min
+      bface( 1,n1) = bc_periodic
+      bface( 2,n1) = map3dto1d(i,1 ,k,nc)
+      bface( 3,n1) = Geom_Hexa
+      bface( 4,n1) = HostFace3D(3)
+      bface( 5,n1) = n2
+      bface( 6,n1) = map3dto1d(i,nc,k,nc)
+      bface( 8,n1) = Geom_Hexa
+      bface( 9,n1) = HostFace3D(4)
+      bface(10,n1) = ncell + n1
       !
-      bface( 1,nf_max) = bc_periodic
-      bface( 2,nf_max) = bface(6,nf_min)
-      bface( 3,nf_max) = bface(8,nf_min)
-      bface( 4,nf_max) = bface(9,nf_min)
-      bface( 5,nf_max) = nf_min
-      bface( 6,nf_max) = bface(2,nf_min)
-      bface( 8,nf_max) = bface(3,nf_min)
-      bface( 9,nf_max) = bface(4,nf_min)
-      bface(10,nf_max) = ncell + nf_max
+      bface( 1,n2) = bc_periodic
+      bface( 2,n2) = bface(6,n1)
+      bface( 3,n2) = bface(8,n1)
+      bface( 4,n2) = bface(9,n1)
+      bface( 5,n2) = n1
+      bface( 6,n2) = bface(2,n1)
+      bface( 8,n2) = bface(3,n1)
+      bface( 9,n2) = bface(4,n1)
+      bface(10,n2) = ncell + n2
+      !
+      nf_min = n1
+      nf_max = n2
       !
     end do
   end do
@@ -2790,28 +2796,31 @@ continue
   do j = 1,nc
     do i = 1,nc
       !
-      nf_min = nf_min + 1
-      nf_max = nf_min + nc*nc
+      n1 = nf_min + 1
+      n2 = nf_min + 1 + nc*nc
       !
-      bface( 1,nf_min) = bc_periodic
-      bface( 2,nf_min) = map3dto1d(i,j,1 ,nc)
-      bface( 3,nf_min) = Geom_Hexa
-      bface( 4,nf_min) = HostFace3D(5)
-      bface( 5,nf_min) = nf_max
-      bface( 6,nf_min) = map3dto1d(i,j,nc,nc)
-      bface( 8,nf_min) = Geom_Hexa
-      bface( 9,nf_min) = HostFace3D(6)
-      bface(10,nf_min) = ncell + nf_min
+      bface( 1,n1) = bc_periodic
+      bface( 2,n1) = map3dto1d(i,j,1 ,nc)
+      bface( 3,n1) = Geom_Hexa
+      bface( 4,n1) = HostFace3D(5)
+      bface( 5,n1) = n2
+      bface( 6,n1) = map3dto1d(i,j,nc,nc)
+      bface( 8,n1) = Geom_Hexa
+      bface( 9,n1) = HostFace3D(6)
+      bface(10,n1) = ncell + n1
       !
-      bface( 1,nf_max) = bc_periodic
-      bface( 2,nf_max) = bface(6,nf_min)
-      bface( 3,nf_max) = bface(8,nf_min)
-      bface( 4,nf_max) = bface(9,nf_min)
-      bface( 5,nf_max) = nf_min
-      bface( 6,nf_max) = bface(2,nf_min)
-      bface( 8,nf_max) = bface(3,nf_min)
-      bface( 9,nf_max) = bface(4,nf_min)
-      bface(10,nf_max) = ncell + nf_max
+      bface( 1,n2) = bc_periodic
+      bface( 2,n2) = bface(6,n1)
+      bface( 3,n2) = bface(8,n1)
+      bface( 4,n2) = bface(9,n1)
+      bface( 5,n2) = n1
+      bface( 6,n2) = bface(2,n1)
+      bface( 8,n2) = bface(3,n1)
+      bface( 9,n2) = bface(4,n1)
+      bface(10,n2) = ncell + n2
+      !
+      nf_min = n1
+      nf_max = n2
       !
     end do
   end do
