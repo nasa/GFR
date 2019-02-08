@@ -2298,26 +2298,51 @@ continue
         !
       else
         !
+        if (any(bc_input(n)%set_bc_value == bc_walls)) then
+          !
+          ! Set the boundary conditions for this wall BC to the reference
+          ! density, pressure, temperature, and make the total conditions
+          ! and mach number negative.
+          !
+          if (ncs > 0) mass_frac(1:ncs) = bc_in(0)%pv(1:ncs)
+          !
+          r = bc_in(0)%pv(nec)
+          p = bc_in(0)%gp(npres)
+          t = bc_in(0)%gp(ntemp)
+          !
+          r0 = -one
+          p0 = -one
+          t0 = -one
+          !
+          mach = -one
+          alpha = zero
+          beta = zero
+          !
+        else
+          !
+          if (ncs > 0) mass_frac(1:ncs) = bc_input(n)%mass_frac(1:ncs)
+          !
+          r = bc_input(n)%rho_static
+          p = bc_input(n)%p_static
+          t = bc_input(n)%t_static
+          !
+          r0 = bc_input(n)%rho_total
+          p0 = bc_input(n)%p_total
+          t0 = bc_input(n)%t_total
+          !
+          mach  = bc_input(n)%mach
+          alpha = bc_input(n)%alpha_aoa
+          beta  = bc_input(n)%beta_aoa
+          !
+        end if
+        !
         if (ncs > 0) then
-          mass_frac(1:ncs) = bc_input(n)%mass_frac(1:ncs)
           call compute_mixture_rgas(mass_frac,rgas,dimensional=true)
           gamm = -one
         else
           gamm = gam
           rgas = rgasref
         end if
-        !
-        r = bc_input(n)%rho_static
-        p = bc_input(n)%p_static
-        t = bc_input(n)%t_static
-        !
-        r0 = bc_input(n)%rho_total
-        p0 = bc_input(n)%p_total
-        t0 = bc_input(n)%t_total
-        !
-        mach  = bc_input(n)%mach
-        alpha = bc_input(n)%alpha_aoa
-        beta  = bc_input(n)%beta_aoa
         !
         if (size(vel) == 1) then
           vel(:) = [ bc_input(n)%vx ]
@@ -2762,7 +2787,9 @@ continue
         if (nr >= 2) then
           alpha = atan2(bc_in(this_bc)%pv(nmy),bc_in(this_bc)%pv(nmx))
           if (nr == 3) then
-            beta = asin(bc_in(this_bc)%pv(nmz)/(vmag/adim))
+            if (vmag > eps6) then
+              beta = asin(bc_in(this_bc)%pv(nmz)/(vmag/adim))
+            end if
           end if
         end if
         alpha = alpha * radians2degrees
@@ -2983,6 +3010,9 @@ subroutine dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
   !
 continue
   !
+#ifdef DEBUG_ON
+!#define USE_DUMP_BC_CONDITIONS
+#endif
 #ifdef USE_DUMP_BC_CONDITIONS
   !
   if (mypnum /= glb_root) return
