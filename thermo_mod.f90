@@ -4019,6 +4019,7 @@ continue
   end do
   !
 #ifdef DEBUG_ON
+#ifdef DEBUG_THERMO_ON
   if (mypnum == glb_root) then
     do m = 1,ncs
       !
@@ -4055,6 +4056,7 @@ continue
   51 format (4x,10es14.6)
   52 format (/,a,:," = ",es14.6)
   53 format (a," = ",es14.6)
+#endif
 #endif
   !
   if (allocated(gbfe)) deallocate ( gbfe )
