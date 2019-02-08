@@ -609,6 +609,8 @@ subroutine read_gmsh_gridfile( gridfile )
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   meshformat_successful = fals
   nodes_successful = fals
   elements_successful = fals
@@ -711,6 +713,8 @@ continue
     call alloc_error(pname,"phys_grps",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format statements
   !
   1 format (a)
@@ -750,6 +754,8 @@ subroutine find_gmsh_section(text_out,end_of_file)
   !
 continue
   !
+ !call debug_timer(entering_procedure,pname)
+  !
   end_of_file = fals
   text_out = ""
   !
@@ -770,6 +776,8 @@ continue
     !
   end do
   !
+ !call debug_timer(leaving_procedure,pname)
+  !
   ! Return if successfully found a new section header
   !
   return
@@ -777,6 +785,7 @@ continue
   ! Read error continuation statements
   !
   100 end_of_file = true
+ !    call debug_timer(leaving_procedure,pname)
       return
   !
   101 if (mypnum == 0) write (iout,2) ierr
@@ -807,6 +816,8 @@ subroutine read_gmsh_section_meshformat
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Read the MeshFormat section of the GMSH grid file
   !
   read (iogmsh,*,iostat=ierr,end=100,err=101) gmsh_version_num, &
@@ -828,6 +839,7 @@ continue
   !
   if (text == "ENDMESHFORMAT") then
     meshformat_successful = true
+    call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
     if (mypnum == 0) write (iout,2)
@@ -892,6 +904,8 @@ subroutine read_gmsh_section_nodes
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Default the number of grid dimensions to 3D since GMSH grid files
   ! seem to always contain three coordinate values for each node.
   !
@@ -954,6 +968,7 @@ continue
   !
   if (text == "ENDNODES") then
     nodes_successful = true
+    call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
     if (mypnum == 0) write (iout,1)
@@ -1006,6 +1021,8 @@ subroutine read_gmsh_section_elements
   character(len=*), parameter :: pname = "read_gmsh_section_elements"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Read the Elements section of the GMSH grid file
   !
@@ -1113,6 +1130,7 @@ continue
   !
   if (text == "ENDELEMENTS") then
     elements_successful = true
+    call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
     if (mypnum == 0) write (iout,1)
@@ -1178,6 +1196,8 @@ subroutine read_gmsh_section_physicalnames
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Read the PhysicalNames section of the GMSH grid file
   !
   read (iogmsh,*,iostat=ierr,end=100,err=101) num_phys_grps
@@ -1214,6 +1234,7 @@ continue
   !
   if (text == "ENDPHYSICALNAMES") then
     physicalnames_successful = true
+    call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
     if (mypnum == 0) write (iout,1)
@@ -1298,6 +1319,8 @@ subroutine create_solver_geom_arrays_gmsh
   character(len=*), parameter :: pname = "create_solver_geom_arrays_gmsh"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   error_found = fals
   !
@@ -2014,6 +2037,8 @@ continue
     end if
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format (/,"************************ ERROR! **************************",/, &
@@ -2083,6 +2108,8 @@ subroutine read_gmsh_section_periodic
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! The code is not currently set up to read the gmsh
   ! Periodic section. Continue reading the grid file
   ! until the end of the Periodic section is found.
@@ -2090,6 +2117,7 @@ continue
   call find_gmsh_section(text,end_of_file)
   !
   if (text == "ENDPERIODIC") then
+    call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
     if (mypnum == 0) write (iout,1)
@@ -2127,6 +2155,8 @@ subroutine read_gmsh_section_nodedata
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! The code is not currently set up to read the gmsh
   ! NodeData section. Continue reading the grid file
   ! until the end of the NodeData section is found.
@@ -2134,6 +2164,7 @@ continue
   call find_gmsh_section(text,end_of_file)
   !
   if (text == "ENDNODEDATA") then
+    call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
     if (mypnum == 0) write (iout,1)
@@ -2171,6 +2202,8 @@ subroutine read_gmsh_section_elementdata
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! The code is not currently set up to read the gmsh
   ! ElementData section. Continue reading the grid file
   ! until the end of the ElementData section is found.
@@ -2178,6 +2211,7 @@ continue
   call find_gmsh_section(text,end_of_file)
   !
   if (text == "ENDELEMENTDATA") then
+    call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
     if (mypnum == 0) write (iout,1)
@@ -2215,6 +2249,8 @@ subroutine read_gmsh_section_elementnodedata
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! The code is not currently set up to read the gmsh
   ! ElementNodeData section. Continue reading the grid file
   ! until the end of the ElementNodeData section is found.
@@ -2222,6 +2258,7 @@ continue
   call find_gmsh_section(text,end_of_file)
   !
   if (text == "ENDELEMENTNODEDATA") then
+    call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
     if (mypnum == 0) write (iout,1)
@@ -2261,6 +2298,8 @@ subroutine read_gmsh_section_interpolationscheme
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! The code is not currently set up to read the gmsh
   ! InterpolationScheme section. Continue reading the grid file
   ! until the end of the InterpolationScheme section is found.
@@ -2268,6 +2307,7 @@ continue
   call find_gmsh_section(text,end_of_file)
   !
   if (text == "ENDINTERPOLATIONSCHEME") then
+    call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
     write (error_message,1)
@@ -2301,6 +2341,8 @@ subroutine read_gmsh_section_comments
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! The code is not currently set up to read the gmsh
   ! InterpolationScheme section. Continue reading the grid file
   ! until the end of the InterpolationScheme section is found.
@@ -2308,6 +2350,7 @@ continue
   call find_gmsh_section(text,end_of_file)
   !
   if (text == "ENDCOMMENTS") then
+    call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
     write (error_message,1)
