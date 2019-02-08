@@ -735,7 +735,7 @@ continue
   allocate ( gp(1:1,1:ng) , source=zero )
   !
   cv(1,1:nq) = cv_1p(1:nq)
-  gp(1,1:nq) = gp_1p(1:ng)
+  gp(1,1:ng) = gp_1p(1:ng)
   !$ACC DATA CREATE(cv,gp)
   !
   call update_thermo_properties_sp(1,1,cv,gp,loc="node",caller_name=caller_name)
@@ -2649,6 +2649,10 @@ continue
       !
       ts = temp(n)
       tt = ttot(n)
+      !
+      cf0 = zero
+      cf1 = zero
+      cf2 = zero
       !
       ! Compute the contribution, if any, from the constant Cp curvefit interval
       !
