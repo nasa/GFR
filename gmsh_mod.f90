@@ -1285,6 +1285,7 @@ subroutine create_solver_geom_arrays_gmsh
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
   use geovar, only : cell_geom,cell_order,xyz_nodes
   use ovar,   only : loc_solution_pts,loc_flux_pts
+  use ovar,   only : bc_names
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,ifa,nf,h1,h2,i,j,ie
@@ -1792,11 +1793,16 @@ continue
   allocate ( lpoin(1:npts) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"lpoin",1,__LINE__,__FILE__,ierr,error_message)
   !
+  allocate ( bc_names(1:size(bnd_grps)) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bc_names",1,__LINE__,__FILE__,ierr,error_message)
+  !
   ! Find the host cells for each boundary face
   !
   do i = 1,size(bnd_grps)
     !
     np = bnd_grps(i)
+    !
+    bc_names(i) = trim(adjustl(phys_grps(np)%phys_nam))
     !
     face_loop: do j = 1,size(phys_grps(np)%cells)
       !
