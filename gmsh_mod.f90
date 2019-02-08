@@ -669,23 +669,23 @@ continue
   !
   if ( .not. meshformat_successful ) then
     !
-    if (mypnum == glb_root) write (iout,2)
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+    write (error_message,2)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     !
   else if ( .not. nodes_successful ) then
     !
-    if (mypnum == glb_root) write (iout,3)
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+    write (error_message,3)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     !
   else if ( .not. elements_successful ) then
     !
-    if (mypnum == glb_root) write (iout,4)
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+    write (error_message,4)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     !
   else if ( .not. physicalnames_successful ) then
     !
-    if (mypnum == glb_root) write (iout,5)
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+    write (error_message,5)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     !
   else
     !
@@ -788,8 +788,8 @@ continue
  !    call debug_timer(leaving_procedure,pname)
       return
   !
-  101 if (mypnum == glb_root) write (iout,2) ierr
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  101 write (error_message,2) ierr
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Format Statements
   !
@@ -829,8 +829,8 @@ continue
   gmsh_version_num = gmsh_version_num * ten
   !
   if (nint(gmsh_version_num) /= 22) then
-    if (mypnum == glb_root) write (iout,1)
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+    write (error_message,1)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Return if the line marking the end of the MeshFormat section is found
@@ -842,20 +842,20 @@ continue
     call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
-    if (mypnum == glb_root) write (iout,2)
+    write (error_message,2)
   else
-    if (mypnum == glb_root) write (iout,3)
+    write (error_message,3)
   end if
   !
-  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Read error continuation statements
   !
-  100 if (mypnum == glb_root) write (iout,2) ierr
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  100 write (error_message,2) ierr
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
-  101 if (mypnum == glb_root) write (iout,4) ierr
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  101 write (error_message,4) ierr
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Format Statements
   !
@@ -971,20 +971,20 @@ continue
     call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
-    if (mypnum == glb_root) write (iout,1)
+    write (error_message,1)
   else
-    if (mypnum == glb_root) write (iout,2)
+    write (error_message,2)
   end if
   !
-  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Read error continuation statements
   !
-  100 if (mypnum == glb_root) write (iout,1) ierr
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  100 write (error_message,1) ierr
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
-  101 if (mypnum == glb_root) write (iout,3) ierr
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  101 write (error_message,3) ierr
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Format Statements
   !
@@ -1063,12 +1063,12 @@ continue
          (grid%elem(i)%prop%geom == Geom_Unknown) ) then
       !
       write (error_message,5) ntype
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       !
    !else if (grid%elem(i)%prop%family /= Complete) then
    !  !
    !  write (error_message,6) ntype
-   !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+   !  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
    !  !
     else if (grid%elem(i)%prop%warning) then
       !
@@ -1133,20 +1133,20 @@ continue
     call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
-    if (mypnum == glb_root) write (iout,1)
+    write (error_message,1)
   else
-    if (mypnum == glb_root) write (iout,2)
+    write (error_message,2)
   end if
   !
-  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Read error continuation statements
   !
-  100 if (mypnum == glb_root) write (iout,1) ierr
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  100 write (error_message,1) ierr
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
-  101 if (mypnum == glb_root) write (iout,3) ierr
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  101 write (error_message,3) ierr
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Format Statements
   !
@@ -1237,20 +1237,20 @@ continue
     call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
-    if (mypnum == glb_root) write (iout,1)
+    write (error_message,1)
   else
-    if (mypnum == glb_root) write (iout,2)
+    write (error_message,2)
   end if
   !
-  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Read error continuation statements
   !
-  100 if (mypnum == glb_root) write (iout,1) ierr
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  100 write (error_message,1) ierr
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
-  101 if (mypnum == glb_root) write (iout,3) ierr
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  101 write (error_message,3) ierr
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Format Statements
   !
@@ -1381,8 +1381,8 @@ continue
   ! Check that the total number of interior and boundary groups is correct
   !
   if ( igrps+bgrps+b0grps /= size(phys_grps) ) then
-    if (mypnum == glb_root) write (iout,1) igrps,bgrps,b0grps,size(phys_grps)
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+    write (error_message,1) igrps,bgrps,b0grps,size(phys_grps)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! #######
@@ -1436,12 +1436,8 @@ continue
   end do
   !
   if (n /= size(grid%elem) - b0cells) then
-    if (mypnum == glb_root) then
-      write (iout,4)
-      write (iout,9) size(grid%elem),b0cells,size(grid%elem)-b0cells,n
-      write (iout,4)
-    end if
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    write (error_message,9) size(grid%elem),b0cells,size(grid%elem)-b0cells,n
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Finally, use move_alloc to rebuild grid%elem with the new ordering
@@ -1484,7 +1480,7 @@ continue
     !
     if (n /= size(phys_grps) - b0grps) then
       write (error_message,10) size(phys_grps),b0grps,size(phys_grps)-b0grps,n
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     end if
     !
     ! Use move_alloc to rebuild phys_grps without any 0-D physical groups
@@ -1567,8 +1563,8 @@ continue
   ! Check that the number of interior cells and boundary faces are correct
   !
   if ( ncell+nfbnd /= size(grid%elem) ) then
-    if (mypnum == glb_root) write (iout,2) ncell,nfbnd,size(grid%elem)
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+    write (error_message,2) ncell,nfbnd,size(grid%elem)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! #######
@@ -2023,23 +2019,23 @@ continue
   ! If an error was found, kill the program
   !
   if (error_found) then
-    if (mypnum == glb_root) write (iout,4)
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+    write (error_message,4)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Make sure that Lobatto nodes are requested if the grid contains triangle
   ! elements since Gauss nodes is not currently set up for triangles.
   !
  !if (any(cell_geom == Geom_Tria)) then
- !  if (mypnum == glb_root) write (iout,8)
- !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+ !  write (error_message,8)
+ !  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
  !end if
   !
   if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
       loc_flux_pts /= Legendre_Gauss_Lobatto) then
     if (any(cell_geom == Geom_Tria)) then
-      if (mypnum == glb_root) write (iout,7)
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+      write (error_message,7)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     end if
   end if
   !
@@ -2126,12 +2122,12 @@ continue
     call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
-    if (mypnum == glb_root) write (iout,1)
+    write (error_message,1)
   else
-    if (mypnum == glb_root) write (iout,2)
+    write (error_message,2)
   end if
   !
-  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Format Statements
   !
@@ -2173,12 +2169,12 @@ continue
     call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
-    if (mypnum == glb_root) write (iout,1)
+    write (error_message,1)
   else
-    if (mypnum == glb_root) write (iout,2)
+    write (error_message,2)
   end if
   !
-  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Format Statements
   !
@@ -2220,12 +2216,12 @@ continue
     call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
-    if (mypnum == glb_root) write (iout,1)
+    write (error_message,1)
   else
-    if (mypnum == glb_root) write (iout,2)
+    write (error_message,2)
   end if
   !
-  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Format Statements
   !
@@ -2267,12 +2263,12 @@ continue
     call debug_timer(leaving_procedure,pname)
     return
   else if (end_of_file) then
-    if (mypnum == glb_root) write (iout,1)
+    write (error_message,1)
   else
-    if (mypnum == glb_root) write (iout,2)
+    write (error_message,2)
   end if
   !
-  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Format Statements
   !
@@ -2321,7 +2317,7 @@ continue
     write (error_message,2)
   end if
   !
-  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Format Statements
   !
@@ -2364,7 +2360,7 @@ continue
     write (error_message,2)
   end if
   !
-  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Format Statements
   !
