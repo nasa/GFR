@@ -2095,7 +2095,7 @@ continue
   !
   flush (iout)
   !
-  stop 1
+  stop
   !
   ! Format Statements
   !
