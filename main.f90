@@ -1058,6 +1058,12 @@ continue
             !
             cfl_tmp = [cfl,cfl_beg,cfl_end,real(cfl_cycles,kind=wp)]
             !
+            ! If we are adjusting the CFL cycling, automatically
+            ! write out a restart file of the solution before the
+            ! new CFL cycling takes effect.
+            !
+            request_restart = .true.
+            !
           end if
           !
           ! Check for a start time-averaging request
