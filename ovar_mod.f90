@@ -222,13 +222,28 @@ module ovar
   logical(lk),        public, save :: continuous_output = fals
   integer,            public, save :: loc_output_pts    = Equi_Distant_Points
   !
+  ! SELECTION OF OUTPUT VARIABLES IN THE CGNS SOLUTION FILES
+  logical(lk), public, save :: output_vorticity               = fals
+  logical(lk), public, save :: output_conserved_variables     = fals
+  logical(lk), public, save :: output_temperature             = fals
+  logical(lk), public, save :: output_thermo_variables        = fals
+  logical(lk), public, save :: output_gradients               = fals
+  logical(lk), public, save :: output_transport_variables     = fals
+  logical(lk), public, save :: output_stagnation_variables    = fals
+  logical(lk), public, save :: output_marker_variables        = fals
+  logical(lk), public, save :: output_species_mass_fractions  = true
+  logical(lk), public, save :: output_extra_species_variables = fals
+  logical(lk), public, save :: output_debug_species_variables = fals
+  logical(lk), public, save :: output_grdnt_species_variables = fals
+  !
   ! GOVERNING EQUATIONS
   integer,     public, save :: governing_equations        = NavierStokes_Eqns
   integer,     public, save :: turbulence_model           = laminar_flow
   !
   ! CHEMICAL REACTION SOURCE TERMS
-  logical(lk), public, save :: disable_chemical_reactions = fals
-  integer,     public, save :: semi_implicit_chemistry    = 0
+  logical(lk), public, save :: disable_chemical_reactions         = fals
+  integer,     public, save :: semi_implicit_chemistry            = 0
+  logical(lk), public, save :: traceback_unconverged_newton_temps = fals
   !
   ! NONDIMENSIONAL REFERENCE CONDITIONS
   real(wp), public, save :: machref =  0.4_wp
@@ -299,7 +314,6 @@ module ovar
   !
   ! OUTPUT THE STATISTICS OF THE LIMITER
   logical(lk), public, save :: output_limiter_statistics = fals
-  logical(lk), public, save :: output_marker_variables   = fals
   !
   ! OPTION TO OUTPUT FILTER DIAGONALS TO FILE
   logical(lk), public, save :: output_filter_diagonals = fals
@@ -930,6 +944,7 @@ module input_namelist_mod
   use ovar,      only : mms_opt, mms_init, mms_output_solution
   use ovar,      only : itestcase, jet_init_func, governing_equations
   use ovar,      only : disable_chemical_reactions, semi_implicit_chemistry
+  use ovar,      only : traceback_unconverged_newton_temps
   use ovar,      only : load_restart_file, restart_interval, restart_file
   use ovar,      only : restart_output_uses_host_roots
   use ovar,      only : iter_out_interval, results_interval
@@ -977,7 +992,18 @@ module input_namelist_mod
   use ovar,      only : use_async_for_error
   use ovar,      only : ideal_total_temperature,limit_total_temperature
   use ovar,      only : output_limiter_statistics,output_filter_diagonals
+  use ovar,      only : output_vorticity
+  use ovar,      only : output_conserved_variables
+  use ovar,      only : output_temperature
+  use ovar,      only : output_thermo_variables
+  use ovar,      only : output_gradients
+  use ovar,      only : output_transport_variables
+  use ovar,      only : output_stagnation_variables
   use ovar,      only : output_marker_variables
+  use ovar,      only : output_species_mass_fractions
+  use ovar,      only : output_extra_species_variables
+  use ovar,      only : output_debug_species_variables
+  use ovar,      only : output_grdnt_species_variables
   use ovar,      only : sem_profile_file
   use ovar,      only : force_nd_subroutines, newton_rlx
   use ovar,      only : chemistry_sub_iterations
@@ -1060,10 +1086,20 @@ module input_namelist_mod
   ! SOLUTION OUTPUT OPTIONS
   namelist / input / output_dir, output_interval, continuous_output, &
                      output_order, loc_output_pts, output_frequency
+  ! SELECTION OF OUTPUT VARIABLES IN THE CGNS SOLUTION FILES
+  namelist / input / output_vorticity, output_conserved_variables, &
+                     output_temperature, output_thermo_variables, &
+                     output_gradients, output_transport_variables, &
+                     output_stagnation_variables, output_marker_variables, &
+                     output_species_mass_fractions, &
+                     output_extra_species_variables, &
+                     output_debug_species_variables, &
+                     output_grdnt_species_variables
   ! GOVERNING EQUATIONS
   namelist / input / governing_equations, turbulence_model
   ! CHEMICAL REACTION SOURCE TERMS
-  namelist / input / disable_chemical_reactions, semi_implicit_chemistry
+  namelist / input / disable_chemical_reactions, semi_implicit_chemistry, &
+                     traceback_unconverged_newton_temps
   ! NONDIMENSIONAL REFERENCE CONDITIONS
   namelist / input / machref, reyref, gam
   ! REALIZABLE TOTAL TEMPERATURE LIMITER
@@ -1096,7 +1132,7 @@ module input_namelist_mod
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
   namelist / input / Filtering_Interval, Limiting_Interval
   ! OUTPUT THE STATISTICS OF THE LIMITER
-  namelist / input / output_limiter_statistics, output_marker_variables
+  namelist / input / output_limiter_statistics
   ! OPTION TO OUTPUT FILTER DIAGONALS TO FILE
   namelist / input / output_filter_diagonals
   ! ISENTROPIC VORTEX CONSTANTS

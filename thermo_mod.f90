@@ -1210,6 +1210,7 @@ subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
   !.. Use Statements ..
   use ovar, only : tref,tmin,tmax
   use ovar, only : newton_rlx
+  use ovar, only : traceback_unconverged_newton_temps
 #ifdef SPECIAL_FOR_INTEL
   use ifcore, only : tracebackqq
 #endif
@@ -1362,8 +1363,12 @@ continue
       use ovar, only : itcur,current_rk_stage,aref,rhoref
       character(len=50) :: fname
       integer :: i,j,m,n,ierr
-      real(wp) :: vx,vy,vz,q2
-      character(len=1), parameter :: cxyz(1:3) = ["X","Y","Z"]
+      real(wp) :: vx,vy,vz,q2,r,theta
+      character(len=5), parameter :: cxyz(1:5) = ["X    ", &
+                                                  "Y    ", &
+                                                  "Z    ", &
+                                                  "R    ", &
+                                                  "THETA"]
       if (.not. file_is_opened) then
         write (fname,6) mypnum
         open (newunit=io,file=trim(adjustl(fname)),status="replace", &
@@ -1389,6 +1394,12 @@ continue
                 do j = 1,nr
                   write (io,7) "S",cxyz(j),xyz(j,n)
                 end do
+                r = norm2(xyz(2:3,n))
+                theta = atan2(xyz(3,n),xyz(2,n))
+                if (theta < zero) theta = theta + two*pi
+                theta = theta*radians2degrees
+                write (io,7) "S",cxyz(4),r
+                write (io,7) "S",cxyz(5),theta
               end if
             else if (trim(adjustl(loc)) == "face") then
               if (allocated(facexyz_array)) then
@@ -1397,6 +1408,12 @@ continue
                   do j = 1,nr
                     write (io,7) "F",cxyz(j),facexyz_array(j,n)
                   end do
+                  r = norm2(facexyz_array(2:3,n))
+                  theta = atan2(facexyz_array(3,n),facexyz_array(2,n))
+                  if (theta < zero) theta = theta + two*pi
+                  theta = theta*radians2degrees
+                  write (io,7) "F",cxyz(4),r
+                  write (io,7) "F",cxyz(5),theta
                 end if
               end if
             end if
@@ -1477,7 +1494,7 @@ continue
               101("-"))
   5 format (2x,i3,8(2x,es14.6),:,/,100("-"),a,/)
   6 format ("newton_temp_errors.CPU-",i0,".log")
-  7 format (4x,"(",a1,"P) ",a1,t20," = ",es23.15)
+  7 format (4x,"(",a1,"P) ",a5,t20," = ",es23.15)
   !
   10 format (/,2(101("#"),/), 20x,"TIME STEP # ",i0, /,2(101("#"),/))
   11 format (/,  101("="),/ , 10x, "RK STAGE # ",i0, /,  101("="),/ )
@@ -1491,12 +1508,16 @@ continue
       if (present(caller_name)) then
         write (iout,101) ndnc,dtmx,trim(adjustl(caller_name))
 #ifdef SPECIAL_FOR_INTEL
-        call tracebackqq(user_exit_code=-1)
+        if (traceback_unconverged_newton_temps) then
+          call tracebackqq(user_exit_code=-1)
+        end if
 #endif
       else
         write (iout,100) ndnc,dtmx
 #ifdef SPECIAL_FOR_INTEL
-        call tracebackqq(user_exit_code=-1)
+        if (traceback_unconverged_newton_temps) then
+          call tracebackqq(user_exit_code=-1)
+        end if
 #endif
       end if
     end if

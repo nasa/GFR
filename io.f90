@@ -6932,10 +6932,9 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !
   !.. Use Statements ..
   use geovar,  only : nr,n_solpts
-  use ovar,    only : itestcase,governing_equations
+  use ovar,    only : governing_equations
   use ovar,    only : profile_io_cgns,profile_io_cgns_subs
   use ovar,    only : max_wall_time => max_cgns_wall_time
-  use ovar,    only : output_marker_variables,Resolution_Marker_Variable
   use flowvar, only : usp,dusp,gpsp
   !
   use metrics_mod, only : time_metrics
@@ -6951,17 +6950,13 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   character(len=*), intent(in) :: tname
   !
   !.. Local Scalars ..
-  integer :: i,j,k,l,m,n,nc,npts,ierr
+  integer :: i,k,l,m,n,nc,npts,ierr
   !
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
   real(wp) :: cgns_wall_time
   !
-  logical(lk) :: need_vorticity
-  logical(lk) :: need_entropy
-  !
   character(len=CGLEN) :: varname
-  character(len=CGLEN) :: varcheck
   character(len=CGLEN) :: sect_name
   character(len=170)   :: cgns_sol_file
   character(len=300)   :: link_path
@@ -6969,121 +6964,14 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !.. Local Allocatable Arrays ..
 #ifdef SPECIAL_FOR_INTEL
   character(len=:), allocatable :: char_sname(:)
-  character(len=:), allocatable :: char_sname_new(:)
 #else
   character(len=CGLEN), allocatable :: char_sname(:)
-  character(len=CGLEN), allocatable :: char_sname_new(:)
 #endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_solution_file"
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
   character(len=*), parameter :: char_ijk(1:3) = ["Xi  ","Eta ","Zeta"]
-  character(len=*), parameter :: char_sdefault(1:6) = ["Density         ", &
-                                                       "Velocity        ", &
-                                                       "Energy          ", &
-                                                       "Pressure        ", &
-                                                       "Mach            ", &
-                                                       "Temperature     "]
-                                                      !"Temperature     ", &
-                                                      !"ResolutionMarker"]
- !character(len=*), parameter :: char_sdefault(1:10) = ["Density         ", &
- !                                                      "Velocity        ", &
- !                                                      "Pressure        ", &
- !                                                      "Mach            ", &
- !                                                      "Temperature     ", &
- !                                                      "ResolutionMarker", &
- !                                                      "JumpMarker      ", &
- !                                                      "Timestep        ", &
- !                                                      "TimeMetrics     ", &
- !                                                      "ContraMetrics   "]
- !character(len=*), parameter :: char_sdefault(1:7) = ["Density         ", &
- !                                                     "Velocity        ", &
- !                                                     "Pressure        ", &
- !                                                     "Mach            ", &
- !                                                     "Temperature     ", &
- !                                                     "ResolutionMarker", &
- !                                                     "JumpMarker      "]
- !character(len=*), parameter :: char_sdefault(1:5) = ["Density    ", &
- !                                                     "Velocity   ", &
- !                                                     "Pressure   ", &
- !                                                     "Mach       ", &
- !                                                     "Temperature"]
- !character(len=*), parameter :: char_sdefault(1:6) = ["Density    ", &
- !                                                     "Velocity   ", &
- !                                                     "Pressure   ", &
- !                                                     "Mach       ", &
- !                                                     "Temperature", &
- !                                                     "Vorticity  "]
- !character(len=*), parameter :: char_sdefault(1:9) = ["Density    ", &
- !                                                     "Velocity   ", &
- !                                                     "Energy     ", &
- !                                                     "Pressure   ", &
- !                                                     "Vorticity  ", &
- !                                                     "Mach       ", &
- !                                                     "Entropy    ", &
- !                                                     "Viscosity  ", &
- !                                                     "Temperature"]
- !character(len=*), parameter :: char_sdefault(1:6) = ["Density     ", &
- !                                                     "Momentum    ", &
- !                                                     "Energy      ", &
- !                                                     "GradDensity ", &
- !                                                     "GradMomentum", &
- !                                                     "GradEnergy  "]
- !character(len=*), parameter :: char_sdefault(1:4) = ["Density  ", &
- !                                                     "Velocity ", &
- !                                                     "Pressure ", &
- !                                                     "Vorticity" ]
-  !
-  ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
-  !
-  character(len=*), parameter :: var_order(1:42) = ["Density             ", &
-                                                    "Momentum            ", &
-                                                    "Energy              ", &
-                                                    "Velocity            ", &
-                                                    "Pressure            ", &
-                                                    "Temperature         ", &
-                                                    "Mach                ", &
-                                                    "MassFractions       ", &
-                                                    "SpeciesDensities    ", &
-                                                    "Enthalpy            ", &
-                                                    "Cp                  ", &
-                                                    "Entropy             ", &
-                                                    "P0                  ", &
-                                                    "T0                  ", &
-                                                    "H0                  ", &
-                                                    "Viscosity           ", &
-                                                    "Conductivity        ", &
-                                                    "Prandtl             ", &
-                                                    "Gamma               ", &
-                                                    "Rgas                ", &
-                                                    "SpeciesEnthalpy     ", &
-                                                    "SpeciesCp           ", &
-                                                    "cpi/R               ", &
-                                                    "hi/RT               ", &
-                                                    "hi/R                ", &
-                                                    "GradSpeciesDensities", &
-                                                    "GradDensity         ", &
-                                                    "GradMomentum        ", &
-                                                    "GradEnergy          ", &
-                                                    "GradMassFractions   ", &
-                                                    "GradVelocity        ", &
-                                                    "Vorticity           ", &
-                                                    "GradTemperature     ", &
-                                                    "ResolutionMarker    ", &
-                                                    "JumpMarker          ", &
-                                                    "Timestep            ", &
-                                                    "Partition           ", &
-                                                    "ContraMetrics       ", &
-                                                    "TimeMetrics         ", &
-                                                    "dTdx_Breakdown      ", &
-                                                    "DmatTemperature     ", &
-                                                    "CoMetrics           "]
-  !
-  ! Conserved Variables
-  character(len=*), parameter :: consv_var(1:3) = ["Density ", &
-                                                   "Momentum", &
-                                                   "Energy  "]
   !
   !.. Local Scalars ..
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
@@ -7117,219 +7005,9 @@ continue
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
   end if
   !
-  ! Make sure vorticity is one of the variables that will
-  ! be output if running the Taylor-Green vortex problem.
+  ! Get the list of variables that will be written to the CGNS solution file
   !
-  need_vorticity = fals
-  if (itestcase == Taylor_Green_Vortex) then
-    one_pass_loop: do nc = 1,1
-      do n = 1,size(char_sdefault)
-        if (adjustl(trim(char_sdefault(n))) == "Vorticity") then
-          exit one_pass_loop
-        end if
-      end do
-      need_vorticity = true
-    end do one_pass_loop
-  end if
-  !
-  ! Make sure entropy is one of the variables that will be
-  ! output if running any of the isentropic vortex problems.
-  !
-  need_entropy = fals
-  if (any(itestcase == Transport_Problems)) then
-    entropy_check: do nc = 1,1
-      do n = 1,size(char_sdefault)
-        if (adjustl(trim(char_sdefault(n))) == "Entropy") then
-          exit entropy_check
-        end if
-      end do
-      need_entropy = true
-    end do entropy_check
-  end if
-  !
- !char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
- !if (need_vorticity) then
- !  ! USING F2003 AUTO-REALLOCATION
- !  char_sname = [ char_sname , "Vorticity" ]
- !end if
-  !
-#ifdef SPECIAL_FOR_INTEL
-  char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
-  if (need_vorticity) then
-    n = max( len("Vorticity") , len(char_sname) )
-    ! USING F2003 AUTO-REALLOCATION
-    char_sname = [ character(len=n) :: char_sname , "Vorticity" ]
-  end if
-  if (need_entropy) then
-    n = max( len("Entropy") , len(char_sname) )
-    ! USING F2003 AUTO-REALLOCATION
-    char_sname = [ character(len=n) :: char_sname , "Entropy" ]
-  end if
-  if (output_marker_variables) then
-    n = max( len("ResolutionMarker") , len(char_sname) )
-    ! USING F2003 AUTO-REALLOCATION
-    char_sname = [ character(len=n) :: char_sname , "ResolutionMarker" ]
-    if (Resolution_Marker_Variable > 0) then
-      if (Resolution_Marker_Variable == nec) then
-        m = 1
-      else if (Resolution_Marker_Variable == nee) then
-        m = 3
-      else
-        m = 2
-      end if
-      n = max( len_trim(consv_var(m)) , len(char_sname) )
-      ! USING F2003 AUTO-REALLOCATION
-      char_sname = [ character(len=n) :: char_sname , trim(consv_var(m)) ]
-    else
-      n = max( len(consv_var) , len(char_sname) )
-      ! USING F2003 AUTO-REALLOCATION
-      char_sname = [ character(len=n) :: char_sname , consv_var ]
-    end if
-  end if
-  if (ncs > 0) then
-    n = max( len("SpeciesDensities") , len(char_sname) )
-    ! USING F2003 AUTO-REALLOCATION
-    char_sname = [ character(len=n) :: char_sname , &
-                                       "MassFractions", &
-                                       "SpeciesDensities", &
-                                       "Enthalpy", &
-                                       "H0", &
-                                       "Gamma", &
-                                       "Cp", &
-                                       "Rgas"]
-   !n = max( len("dTdx_Breakdown") , len(char_sname) )
-   !! USING F2003 AUTO-REALLOCATION
-   !char_sname = [ character(len=n) :: char_sname , &
-   !                                   "dTdx_Breakdown"]
-   !n = max( len("GradSpeciesDensities") , len(char_sname) )
-   !! USING F2003 AUTO-REALLOCATION
-   !char_sname = [ character(len=n) :: char_sname , &
-   !                                   "GradMassFractions", &
-   !                                   "GradSpeciesDensities", &
-   !                                   "Momentum", &
-   !                                   "Energy", &
-   !                                   "GradDensity", &
-   !                                   "GradMomentum", &
-   !                                   "GradEnergy", &
-   !                                   "GradVelocity", &
-   !                                   "GradTemperature", &
-   !                                   "P0", &
-   !                                   "T0", &
-   !                                   "SpeciesEnthalpy", &
-   !                                   "SpeciesCp", &
-   !                                   "hi/RT", &
-   !                                   "hi/R", &
-   !                                   "cpi/R"]
-  end if
-  if (governing_equations == NavierStokes_Eqns) then
-    n = max( len("Conductivity") , len(char_sname) )
-    ! USING F2003 AUTO-REALLOCATION
-    char_sname = [ character(len=n) :: char_sname , &
-                                       "Viscosity", &
-                                       "Conductivity" ]
-    if (ncs > 0) then
-      char_sname = [ character(len=n) :: char_sname , &
-                                         "Prandtl" ]
-    end if
-  end if
-#else
-  char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
-  if (need_vorticity) then
-    ! USING F2003 AUTO-REALLOCATION
-    char_sname = [ char_sname , "Vorticity" ]
-  end if
-  if (need_entropy) then
-    ! USING F2003 AUTO-REALLOCATION
-    char_sname = [ char_sname , "Entropy" ]
-  end if
-  if (output_marker_variables) then
-    ! USING F2003 AUTO-REALLOCATION
-    char_sname = [ char_sname , "ResolutionMarker" ]
-    if (Resolution_Marker_Variable > 0) then
-      if (Resolution_Marker_Variable == nec) then
-        m = 1
-      else if (Resolution_Marker_Variable == nee) then
-        m = 3
-      else
-        m = 2
-      end if
-      ! USING F2003 AUTO-REALLOCATION
-      char_sname = [ char_sname , trim(consv_var(m)) ]
-    else
-      ! USING F2003 AUTO-REALLOCATION
-      char_sname = [ char_sname , consv_var ]
-    end if
-  end if
-  if (ncs > 0) then
-    ! USING F2003 AUTO-REALLOCATION
-    char_sname = [ char_sname , "MassFractions" ]
-    char_sname = [ char_sname , "SpeciesDensities" ]
-    char_sname = [ char_sname , "Enthalpy" ]
-    char_sname = [ char_sname , "H0" ]
-    char_sname = [ char_sname , "Gamma" ]
-    char_sname = [ char_sname , "Cp" ]
-    char_sname = [ char_sname , "Rgas" ]
-  end if
-  if (governing_equations == NavierStokes_Eqns) then
-    ! USING F2003 AUTO-REALLOCATION
-    char_sname = [ char_sname , "Viscosity" ]
-    char_sname = [ char_sname , "Conductivity" ]
-    if (ncs > 0) then
-      char_sname = [ char_sname , "Prandtl" ]
-    end if
-  end if
-#endif
-  !
-  ! Make sure there are no duplicate variables being output
-  !
-  allocate ( char_sname_new , source=char_sname )
-  !
-  n = 0
-  copy_loop: &
-  do i = 1,size(char_sname)
-    varcheck = uppercase( trim(adjustl(char_sname(i))) )
-    do j = 1,n
-      varname = uppercase( trim(adjustl(char_sname_new(j))) )
-      if (varname == varcheck) then
-        ! This variable already exists in char_sname_new, so dont add this
-        ! to char_sname_new and go on to the next variable in char_sname.
-        cycle copy_loop
-      end if
-    end do
-    n = n + 1
-    char_sname_new(n) = trim(adjustl(char_sname(i)))
-  end do copy_loop
-  !
-  ! Use F2003 AUTO-REALLOCATION to cutoff the duplicate variables
-  ! still contained in char_sname_new(n+1:size(char_sname_new)).
-  !
-  char_sname_new = char_sname_new(1:n)
-  !
-  ! Use move_alloc to over-write char_sname with char_sname_new
-  !
-  call move_alloc( from=char_sname_new , to=char_sname )
-  !
-  ! Put the output variables in order
-  !
-  allocate ( char_sname_new , source=char_sname )
-  !
-  n = 0
-  do i = 1,size(var_order)
-    varname = uppercase( trim(adjustl(var_order(i))) )
-    reorder_loop: &
-    do j = 1,size(char_sname)
-      varcheck = uppercase( trim(adjustl(char_sname(j))) )
-      if (varname == varcheck) then
-        n = n + 1
-        char_sname_new(n) = trim(adjustl(char_sname(j)))
-        exit reorder_loop
-      end if
-    end do reorder_loop
-  end do
-  !
-  ! Use move_alloc to over-write char_sname with char_sname_new
-  !
-  call move_alloc( from=char_sname_new , to=char_sname )
+  call get_cgns_sol_variables(char_sname)
   !
   ! Get the name of the current solution file
   !
@@ -9188,6 +8866,414 @@ continue
   !-----------------------------------------------------------------------------
   !
 end subroutine output_variable
+!
+!###############################################################################
+!
+subroutine get_cgns_sol_variables(variable_list)
+  !
+  !.. Use Statements ..
+  use ovar, only : itestcase,governing_equations
+  use ovar, only : output_vorticity
+  use ovar, only : output_conserved_variables
+  use ovar, only : output_temperature
+  use ovar, only : output_thermo_variables
+  use ovar, only : output_gradients
+  use ovar, only : output_transport_variables
+  use ovar, only : output_stagnation_variables
+  use ovar, only : output_marker_variables
+  use ovar, only : Resolution_Marker_Variable
+  use ovar, only : output_species_mass_fractions
+  use ovar, only : output_extra_species_variables
+  use ovar, only : output_debug_species_variables
+  use ovar, only : output_grdnt_species_variables
+  !
+  !.. Formal Arguments ..
+#ifdef SPECIAL_FOR_INTEL
+  character(len=:), allocatable, intent(out) :: variable_list(:)
+#else
+  character(len=CGLEN), allocatable, intent(out) :: variable_list(:)
+#endif
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n,m
+  !
+  character(len=CGLEN) :: varname
+  character(len=CGLEN) :: varcheck
+  !
+  !.. Local Allocatable Arrays ..
+#ifdef SPECIAL_FOR_INTEL
+  character(len=:), allocatable :: temp_variables(:)
+#else
+  character(len=CGLEN), allocatable :: temp_variables(:)
+#endif
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_cgns_sol_variables"
+  !
+  character(len=*), parameter :: default_list(1:4) = ["Density ", &
+                                                      "Velocity", &
+                                                      "Pressure", &
+                                                      "Mach    "]
+  !
+  ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
+  !
+  character(len=*), parameter :: var_order(1:42) = ["Density             ", &
+                                                    "Momentum            ", &
+                                                    "Energy              ", &
+                                                    "Velocity            ", &
+                                                    "Pressure            ", &
+                                                    "Temperature         ", &
+                                                    "Mach                ", &
+                                                    "MassFractions       ", &
+                                                    "SpeciesDensities    ", &
+                                                    "Enthalpy            ", &
+                                                    "Cp                  ", &
+                                                    "Entropy             ", &
+                                                    "P0                  ", &
+                                                    "T0                  ", &
+                                                    "H0                  ", &
+                                                    "Viscosity           ", &
+                                                    "Conductivity        ", &
+                                                    "Prandtl             ", &
+                                                    "Gamma               ", &
+                                                    "Rgas                ", &
+                                                    "SpeciesEnthalpy     ", &
+                                                    "SpeciesCp           ", &
+                                                    "cpi/R               ", &
+                                                    "hi/RT               ", &
+                                                    "hi/R                ", &
+                                                    "GradSpeciesDensities", &
+                                                    "GradDensity         ", &
+                                                    "GradMomentum        ", &
+                                                    "GradEnergy          ", &
+                                                    "GradMassFractions   ", &
+                                                    "GradVelocity        ", &
+                                                    "Vorticity           ", &
+                                                    "GradTemperature     ", &
+                                                    "ResolutionMarker    ", &
+                                                    "JumpMarker          ", &
+                                                    "Timestep            ", &
+                                                    "Partition           ", &
+                                                    "ContraMetrics       ", &
+                                                    "TimeMetrics         ", &
+                                                    "dTdx_Breakdown      ", &
+                                                    "DmatTemperature     ", &
+                                                    "CoMetrics           "]
+  !
+  ! Conserved Variables
+  character(len=*), parameter :: consv_var(1:3) = ["Density ", &
+                                                   "Momentum", &
+                                                   "Energy  "]
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Allocate variable_list to the default_list
+  !
+  call add_sol_variables(variable_list,default_list)
+  !
+  ! Make sure vorticity is one of the variables that will
+  ! be output if running the Taylor-Green vortex problem.
+  !
+  if (itestcase == Taylor_Green_Vortex .or. output_vorticity) then
+    call add_sol_variable(variable_list,"Vorticity")
+  end if
+  !
+  ! Make sure entropy is one of the variables that will be
+  ! output if running any of the isentropic vortex problems.
+  !
+  if (any(itestcase == Transport_Problems)) then
+    call add_sol_variable(variable_list,"Entropy")
+  end if
+  !
+  if (output_conserved_variables) then
+    call add_sol_variables(variable_list,consv_var)
+    if (ncs > 1) then
+      call add_sol_variable(variable_list,"SpeciesDensities")
+    end if
+  end if
+  !
+  if (output_temperature) then
+    call add_sol_variable(variable_list,"Temperature")
+  end if
+  !
+  if (output_thermo_variables) then
+    call add_sol_variable(variable_list,"Pressure")
+    call add_sol_variable(variable_list,"Temperature")
+    call add_sol_variable(variable_list,"Enthalpy")
+    call add_sol_variable(variable_list,"Cp")
+    call add_sol_variable(variable_list,"Entropy")
+  end if
+  !
+  if (output_stagnation_variables) then
+    call add_sol_variable(variable_list,"P0")
+    call add_sol_variable(variable_list,"T0")
+    call add_sol_variable(variable_list,"H0")
+  end if
+  !
+  ! Output the marker quantities if requested
+  !
+  if (output_marker_variables) then
+    call add_sol_variable(variable_list,"ResolutionMarker")
+    if (Resolution_Marker_Variable > 0) then
+      if (Resolution_Marker_Variable == nec .or. ncs > 1) then
+        m = 1
+      else if (Resolution_Marker_Variable == nee) then
+        m = 3
+      else
+        m = 2
+      end if
+      call add_sol_variable(variable_list,trim(consv_var(m)))
+    else
+      call add_sol_variables(variable_list,consv_var)
+    end if
+  end if
+  !
+  ! Add species mass fractions to the variable list if using a gas mixture.
+  ! Also output any other requested variables for gas mixtures.
+  !
+  if (ncs > 0) then
+    !
+    if (output_species_mass_fractions) then
+      call add_sol_variable(variable_list,"MassFractions")
+    end if
+    !
+    if (output_extra_species_variables) then
+      call add_sol_variable(variable_list,"SpeciesDensities")
+      call add_sol_variable(variable_list,"Enthalpy")
+      call add_sol_variable(variable_list,"H0")
+      call add_sol_variable(variable_list,"Gamma")
+      call add_sol_variable(variable_list,"Cp")
+      call add_sol_variable(variable_list,"Rgas")
+      call add_sol_variable(variable_list,"Momentum")
+      call add_sol_variable(variable_list,"Energy")
+      call add_sol_variable(variable_list,"P0")
+      call add_sol_variable(variable_list,"T0")
+    end if
+    !
+    if (output_grdnt_species_variables) then
+      call add_sol_variable(variable_list,"GradMassFractions")
+      call add_sol_variable(variable_list,"GradSpeciesDensities")
+      call add_sol_variable(variable_list,"GradDensity")
+      call add_sol_variable(variable_list,"GradMomentum")
+      call add_sol_variable(variable_list,"GradEnergy")
+      call add_sol_variable(variable_list,"GradVelocity")
+      call add_sol_variable(variable_list,"GradTemperature")
+    end if
+    !
+    if (output_debug_species_variables) then
+      call add_sol_variable(variable_list,"SpeciesEnthalpy")
+      call add_sol_variable(variable_list,"SpeciesCp")
+      call add_sol_variable(variable_list,"hi/RT")
+      call add_sol_variable(variable_list,"hi/R")
+      call add_sol_variable(variable_list,"cpi/R")
+      call add_sol_variable(variable_list,"dTdx_Breakdown")
+    end if
+    !
+  end if
+  !
+  ! Output transport properties if solving the Navier-Stokes equations
+  !
+  if (output_transport_variables) then
+    if (governing_equations == NavierStokes_Eqns) then
+      !
+      call add_sol_variable(variable_list,"Viscosity")
+      call add_sol_variable(variable_list,"Conductivity")
+      !
+      if (ncs > 0) then
+        if (output_extra_species_variables) then
+          call add_sol_variable(variable_list,"Prandtl")
+        end if
+      end if
+      !
+    end if
+  end if
+  !
+  ! If outputing gradients was requested, add the gradients of whatever
+  ! variables are in the variable list.
+  !
+  if (output_gradients) then
+    !
+    allocate ( temp_variables , source=variable_list )
+    !
+    do i = 1,size(temp_variables)
+      select case (uppercase(trim(adjustl(temp_variables(i)))))
+        case ("DENSITY")
+          call add_sol_variable(variable_list,"GradDensity")
+        case ("VELOCITY")
+          call add_sol_variable(variable_list,"GradVelocity")
+        case ("ENERGY")
+          call add_sol_variable(variable_list,"GradEnergy")
+        case ("TEMPERATURE")
+          call add_sol_variable(variable_list,"GradTemperature")
+        case ("MOMENTUM")
+          call add_sol_variable(variable_list,"GradMomentum")
+        case ("MASSFRACTIONS")
+          call add_sol_variable(variable_list,"GradMassFractions")
+        case ("SPECIESDENSITIES")
+          call add_sol_variable(variable_list,"GradSpeciesDensities")
+      end select
+    end do
+    !
+    deallocate ( temp_variables )
+    !
+  end if
+  !
+  ! Make sure there are no duplicate variables being output
+  !
+  allocate ( temp_variables , source=variable_list )
+  !
+  n = 0
+  copy_loop: &
+  do i = 1,size(variable_list)
+    varcheck = uppercase( trim(adjustl(variable_list(i))) )
+    do j = 1,n
+      varname = uppercase( trim(adjustl(temp_variables(j))) )
+      if (varname == varcheck) then
+        ! This variable already exists in temp_variables, so dont add this
+        ! to temp_variables and go on to the next variable in variable_list.
+        cycle copy_loop
+      end if
+    end do
+    n = n + 1
+    temp_variables(n) = trim(adjustl(variable_list(i)))
+  end do copy_loop
+  !
+  ! Use F2003 AUTO-REALLOCATION to cutoff the duplicate variables
+  ! still contained in temp_variables(n+1:size(temp_variables)).
+  !
+  temp_variables = temp_variables(1:n)
+  !
+  ! Use move_alloc to over-write variable_list with temp_variables
+  !
+  call move_alloc( from=temp_variables , to=variable_list )
+  !
+  ! Put the output variables in order
+  !
+  allocate ( temp_variables , source=variable_list )
+  !
+  n = 0
+  do i = 1,size(var_order)
+    varname = uppercase( trim(adjustl(var_order(i))) )
+    reorder_loop: &
+    do j = 1,size(variable_list)
+      varcheck = uppercase( trim(adjustl(variable_list(j))) )
+      if (varname == varcheck) then
+        n = n + 1
+        temp_variables(n) = trim(adjustl(variable_list(j)))
+        exit reorder_loop
+      end if
+    end do reorder_loop
+  end do
+  !
+  ! Use move_alloc to over-write variable_list with temp_variables
+  !
+  call move_alloc( from=temp_variables , to=variable_list )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_cgns_sol_variables
+!
+!###############################################################################
+!
+subroutine add_sol_variable(variable_list,new_variable)
+  !
+  !.. Formal Arguments ..
+  character(len=*),                     intent(in) :: new_variable
+#ifdef SPECIAL_FOR_INTEL
+  character(len=:),     allocatable, intent(inout) :: variable_list(:)
+#else
+  character(len=CGLEN), allocatable, intent(inout) :: variable_list(:)
+#endif
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "add_sol_variable"
+  !
+continue
+  !
+  if (.not. allocated(variable_list)) then
+    !
+#ifdef SPECIAL_FOR_INTEL
+    n = len_trim(adjustl(new_variable))
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ character(len=n) :: trim(adjustl(new_variable)) ]
+#else
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ adjustl(new_variable) ]
+#endif
+    !
+  else
+    !
+#ifdef SPECIAL_FOR_INTEL
+    n = max( len_trim(adjustl(new_variable)) , len(variable_list) )
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ character(len=n) :: variable_list , &
+                                          trim(adjustl(new_variable)) ]
+#else
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ variable_list , adjustl(new_variable) ]
+#endif
+    !
+  end if
+  !
+end subroutine add_sol_variable
+!
+!###############################################################################
+!
+subroutine add_sol_variables(variable_list,new_variables)
+  !
+  !.. Formal Arguments ..
+  character(len=*),                     intent(in) :: new_variables(:)
+#ifdef SPECIAL_FOR_INTEL
+  character(len=:),     allocatable, intent(inout) :: variable_list(:)
+#else
+  character(len=CGLEN), allocatable, intent(inout) :: variable_list(:)
+#endif
+  !
+  !.. Local Scalars ..
+  integer :: i,ibeg,n
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "add_sol_variables"
+  !
+continue
+  !
+  if (.not. allocated(variable_list)) then
+    !
+#ifdef SPECIAL_FOR_INTEL
+    n = len_trim(adjustl(new_variables(1)))
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ character(len=n) :: trim(adjustl(new_variables(1))) ]
+#else
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ adjustl(new_variables(1)) ]
+#endif
+    !
+    ibeg = 2
+    !
+  else
+    !
+    ibeg = 1
+    !
+  end if
+  !
+  do i = ibeg,size(new_variables)
+#ifdef SPECIAL_FOR_INTEL
+    n = max( len_trim(adjustl(new_variables(i))) , len(variable_list) )
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ character(len=n) :: variable_list , &
+                                          trim(adjustl(new_variables(i))) ]
+#else
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ variable_list , adjustl(new_variables(i)) ]
+#endif
+  end do
+  !
+end subroutine add_sol_variables
 !
 !###############################################################################
 !
