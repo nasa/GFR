@@ -177,9 +177,9 @@ continue
         species_name(2) = "N2"
         species_name(3) = "O2"
         !
-        mass_frac_ref(1) = 0.1_wp ! CH4
-        mass_frac_ref(2) = 0.7_wp ! N2
-        mass_frac_ref(3) = 0.2_wp ! O2
+        mass_frac_ref(1) = zero      ! CH4
+        mass_frac_ref(2) = 0.7686_wp ! N2
+        mass_frac_ref(3) = 0.2314_wp ! O2
         !
       else
         !
@@ -190,12 +190,12 @@ continue
         species_name(5) = "N2"
         species_name(6) = "O2"
         !
-        mass_frac_ref(1) = zero   ! CO2
-        mass_frac_ref(2) = zero   ! CO
-        mass_frac_ref(3) = zero   ! H2O
-        mass_frac_ref(4) = 0.1_wp ! CH4
-        mass_frac_ref(5) = 0.7_wp ! N2
-        mass_frac_ref(6) = 0.2_wp ! O2
+        mass_frac_ref(1) = zero      ! CO2
+        mass_frac_ref(2) = zero      ! CO
+        mass_frac_ref(3) = zero      ! H2O
+        mass_frac_ref(4) = zero      ! CH4
+        mass_frac_ref(5) = 0.7686_wp ! N2
+        mass_frac_ref(6) = 0.2314_wp ! O2
         !
       end if
       !
