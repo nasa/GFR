@@ -170,10 +170,11 @@ module ovar
   integer,  public, save :: minimum_timesteps = 100
   !
   ! CFL CONTROL VARIABLES
-  real(wp), public, save :: cfl        = 0.1_wp
-  real(wp), public, save :: cfl_beg    = 0.1_wp
-  real(wp), public, save :: cfl_end    = 0.1_wp
-  integer,  public, save :: cfl_cycles = 1
+  real(wp), public, save :: cfl            = 0.1_wp
+  real(wp), public, save :: cfl_beg        = 0.1_wp
+  real(wp), public, save :: cfl_end        = 0.1_wp
+  integer,  public, save :: cfl_cycles     = 1
+  integer,  public, save :: cfl_start_iter = 0
   !
   ! OVER-INTEGRATION OPTIONS
   integer, public, save :: loc_quadrature_pts              = Legendre_Gauss
@@ -244,6 +245,7 @@ module ovar
   logical(lk), public, save :: disable_chemical_reactions         = fals
   integer,     public, save :: semi_implicit_chemistry            = 0
   logical(lk), public, save :: traceback_unconverged_newton_temps = fals
+ !integer,     public, save :: reactions_start_iter               = 0
   !
   ! NONDIMENSIONAL REFERENCE CONDITIONS
   real(wp), public, save :: machref =  0.4_wp
@@ -938,13 +940,14 @@ module input_namelist_mod
   use ovar,      only : invs_flux_method, visc_flux_method
   use ovar,      only : visc_variables_to_ave, walls_are_exact
   use ovar,      only : num_timesteps, Final_Time, constant_dt
-  use ovar,      only : cfl, cfl_beg, cfl_end, cfl_cycles
+  use ovar,      only : cfl, cfl_beg, cfl_end, cfl_cycles, cfl_start_iter
   use ovar,      only : Timestep_Type, minimum_timesteps
   use ovar,      only : all_points, metis_option, use_old_restart_format
   use ovar,      only : mms_opt, mms_init, mms_output_solution
   use ovar,      only : itestcase, jet_init_func, governing_equations
   use ovar,      only : disable_chemical_reactions, semi_implicit_chemistry
   use ovar,      only : traceback_unconverged_newton_temps
+ !use ovar,      only : reactions_start_iter
   use ovar,      only : load_restart_file, restart_interval, restart_file
   use ovar,      only : restart_output_uses_host_roots
   use ovar,      only : iter_out_interval, results_interval
@@ -1059,7 +1062,7 @@ module input_namelist_mod
   namelist / input / num_timesteps, Final_Time, constant_dt, &
                      Timestep_Type, minimum_timesteps
   ! CFL CONTROL VARIABLES
-  namelist / input / cfl, cfl_beg, cfl_end, cfl_cycles
+  namelist / input / cfl, cfl_beg, cfl_end, cfl_cycles, cfl_start_iter
   ! OVER-INTEGRATION OPTIONS
   namelist / input / projection_order, quadrature_order, loc_quadrature_pts, &
                      combine_common_flux_projections
@@ -1100,6 +1103,8 @@ module input_namelist_mod
   ! CHEMICAL REACTION SOURCE TERMS
   namelist / input / disable_chemical_reactions, semi_implicit_chemistry, &
                      traceback_unconverged_newton_temps
+                    !traceback_unconverged_newton_temps, &
+                    !reactions_start_iter
   ! NONDIMENSIONAL REFERENCE CONDITIONS
   namelist / input / machref, reyref, gam
   ! REALIZABLE TOTAL TEMPERATURE LIMITER
@@ -1185,11 +1190,15 @@ module input_namelist_mod
   !
   ! CFL ADJUSTMENT NAMELIST
   !
-  namelist / cfl_adjustment / cfl, cfl_beg, cfl_end, cfl_cycles
+  namelist / cfl_adjustment / cfl, cfl_beg, cfl_end, cfl_cycles, cfl_start_iter
   !
   ! RESTART INTERUPTION NAMELIST
   !
   namelist / restart_interupt / restart_file
+ !!
+ !! START REACTIONS NAMELIST
+ !!
+ !namelist / start_reactions / reactions_start_iter
   !
 contains
 !

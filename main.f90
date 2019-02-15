@@ -35,7 +35,7 @@ program GFR_main
   use ovar, only : write_TaylorGreen_full_solution
   use ovar, only : continuous_output,completely_disable_cgns
   use ovar, only : check_flux_point_coordinates
-  use ovar, only : cfl,cfl_beg,cfl_end,cfl_cycles
+  use ovar, only : cfl,cfl_beg,cfl_end,cfl_cycles,cfl_start_iter
   use ovar, only : adjust_cfl_cycles
   use ovar, only : output_time_averaging,time_scaling_factor
   use ovar, only : time_average_restart_files,ave_start_time
@@ -194,6 +194,7 @@ program GFR_main
   logical(lk)  :: exit_main_loop
   logical(lk)  :: walltime_expiring
   logical(lk)  :: output_solution
+  logical(lk)  :: output_restart
   !
   logical(ldk) :: request_stop
   logical(ldk) :: request_restart
@@ -201,7 +202,8 @@ program GFR_main
   logical(ldk) :: request_cfl_adjustment
   logical(ldk) :: request_restart_interupt
   logical(ldk) :: request_time_ave
-  logical(ldk) :: request_array(1:6)
+  logical(ldk) :: request_reactions
+  logical(ldk) :: request_array(1:7)
   !
   logical(lk)  :: Apply_Filter
   logical(lk)  :: Apply_Limiter
@@ -209,7 +211,7 @@ program GFR_main
  !logical(lk), parameter :: ignore_errors = true
   logical(lk), parameter :: ignore_errors = fals
   !
-  real(wp) :: cfl_tmp(1:4)
+  real(wp) :: cfl_tmp(1:5)
   !
 continue
   !
@@ -219,6 +221,7 @@ continue
   request_time_ave = .false.
   request_restart_interupt = .false.
   request_cfl_adjustment = .false.
+  request_reactions = .false.
   request_stop = .false.
   completed_initial_cgns_output = fals
   !
@@ -1056,13 +1059,17 @@ continue
             read (i,nml=cfl_adjustment)
             close (i,status="delete",iostat=ierr)
             !
-            cfl_tmp = [cfl,cfl_beg,cfl_end,real(cfl_cycles,kind=wp)]
+            cfl_tmp = [cfl,cfl_beg,cfl_end, &
+                       real(cfl_cycles,kind=wp), &
+                       real(cfl_start_iter,kind=wp)]
             !
             ! If we are adjusting the CFL cycling, automatically
             ! write out a restart file of the solution before the
             ! new CFL cycling takes effect.
             !
-            request_restart = .true.
+            if (cfl_start_iter < itcur) then
+              request_restart = .true.
+            end if
             !
           end if
           !
@@ -1081,13 +1088,37 @@ continue
               write (iout,94)
             end if
             !
-            ! We dont care about the exit status here since we are
-            ! going to be stopping execution after this anyways
+            ! We dont care about the exit status here
             !
             open (newunit=i,file="START_TIME_AVERAGING",iostat=ierr)
             close (i,status="delete",iostat=ierr)
             !
           end if
+         !!
+         !! Check for a start reactions request
+         !!
+         !inquire (file="START_REACTIONS",exist=request_reactions)
+         !!
+         !! If reactions were requested, read the reactions namelist
+         !! to get the iteration to begin reactions
+         !!
+         !if (request_reactions) then
+         !  !
+         !  write (iout,96)
+         !  !
+         !  open (newunit=i,file="START_REACTIONS",iostat=ierr)
+         !  read (i,nml=start_reactions)
+         !  close (i,status="delete",iostat=ierr)
+         !  !
+         !  ! If we are starting chemical reactions, automatically
+         !  ! write out a restart file of the solution before the
+         !  ! reactions begin.
+         !  !
+         !  if (reactions_start_iter < itcur) then
+         !    request_restart = .true.
+         !  end if
+         !  !
+         !end if
          !!
          !! Check for a file requesting an interuption of the current
          !! simulation to restart it with a new restart file
@@ -1108,7 +1139,7 @@ continue
           !
           request_array(:) = [request_stop,request_restart,request_solution, &
                               request_cfl_adjustment,request_restart_interupt, &
-                              request_time_ave]
+                              request_time_ave,request_reactions]
           !
         end if
         !
@@ -1124,6 +1155,7 @@ continue
         request_cfl_adjustment = request_array(4)
         request_restart_interupt = request_array(5)
         request_time_ave = request_array(6)
+        request_reactions = request_array(7)
         !
         ! Exit if the STOP_GFR file was found
         !
@@ -1156,8 +1188,11 @@ continue
           cfl_beg = cfl_tmp(2)
           cfl_end = cfl_tmp(3)
           cfl_cycles = nint(cfl_tmp(4))
+          cfl_start_iter = nint(cfl_tmp(5))
           !
-          call adjust_cfl_cycles
+          if (cfl_start_iter < itcur) then
+            call adjust_cfl_cycles
+          end if
           !
         end if
         !
@@ -1176,12 +1211,25 @@ continue
     !
     if (iter /= num_timesteps) then
       !
+      ! If the current time step is equal to cfl_start_iter,
+      ! begin the adjustment of the CFL cycling
+      !
+      output_restart = fals
+      if (cfl_start_iter == itcur) then
+        call adjust_cfl_cycles
+        output_restart = true
+      end if
+      !
       ! Output the restart file at specified step interval
       !
       if (restart_interval > 0 .and. .not.request_restart) then
         if (mod(itcur,restart_interval) == 0) then
-          call write_restart_file(itcur)
+          output_restart = true
         end if
+      end if
+      !
+      if (output_restart .and. .not.request_restart) then
+        call write_restart_file(itcur)
       end if
       !
       ! Output the solution at the specified interval
@@ -1198,7 +1246,7 @@ continue
         is_at_output_frequency = fals
       end if
       !
-      if (output_solution) then
+      if (output_solution .and. .not.request_solution) then
         if (continuous_output) then
           call new_write_parallel_cgns
         else
