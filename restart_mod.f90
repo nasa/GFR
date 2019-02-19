@@ -328,7 +328,7 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
   !
   !.. Local Scalars ..
   integer :: l0,l1,l2,m,mbeg,mm,n,np,n0,n1,n2,ierr
-  integer :: sol_nq
+  integer :: sol_nq,ncs_diff
   integer :: inert_nq,inert_ncs
   integer :: restart_ip,restart_rp
   logical(lk) :: flip_sol_indices
@@ -734,21 +734,23 @@ continue
     ! species equations if the number of chemical species in the restart
     ! file matches the number of chemical species in the current simulation.
     !
+    ncs_diff = 0
     mbeg = 1
     if (ncs > 0 .and. restart_ncs /= ncs) then
+      ncs_diff = ncs - restart_ncs
       mbeg = restart_ncs + 1
     end if
     !
     if (flip_sol_indices) then
       do n = 1,np
         do m = mbeg,restart_nq
-          solution(n0+n,m) = rst_sol(m,l0+n)
+          solution(n0+n,m+ncs_diff) = rst_sol(m,l0+n)
         end do
       end do
     else
       do n = 1,np
         do m = mbeg,restart_nq
-          solution(m,n0+n) = rst_sol(m,l0+n)
+          solution(m+ncs_diff,n0+n) = rst_sol(m,l0+n)
         end do
       end do
     end if
