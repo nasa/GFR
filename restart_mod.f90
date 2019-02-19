@@ -4,7 +4,7 @@ module restart_mod
 !!!#define VERBOSE_RESTART
   !
   use module_kind_types
-  use eqn_idx, only : nq
+  use eqn_idx, only : nq,nec,ncs
   !
   use iso_fortran_env, only : int8,int16,int32,int64
   use iso_fortran_env, only : real32,real64,real128
@@ -311,9 +311,10 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
                               var_header,sol_is_transposed)
   !
   !.. Use Statements ..
-  use geovar, only : ncell,cell,n_solpts
-  use geovar, only : n_global_cell
-  use ovar,   only : time_average_restart_files
+  use geovar,     only : ncell,cell,n_solpts
+  use geovar,     only : n_global_cell
+  use ovar,       only : time_average_restart_files
+  use thermo_mod, only : inert_species_map
   !
   !.. Formal Arguments ..
   character(len=*),              intent(in   ) :: file_name
@@ -326,8 +327,9 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
   logical(lk),  optional,               intent(in) :: sol_is_transposed
   !
   !.. Local Scalars ..
-  integer :: l0,l1,l2,m,n,np,n0,n1,n2,ierr
+  integer :: l0,l1,l2,m,mbeg,mm,n,np,n0,n1,n2,ierr
   integer :: sol_nq
+  integer :: inert_nq,inert_ncs
   integer :: restart_ip,restart_rp
   logical(lk) :: flip_sol_indices
   !
@@ -338,7 +340,7 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
   integer(MPI_OFFSET_KIND) :: file_offset
   !
   integer :: solution_errors
-  integer :: restart_nq,restart_ncells
+  integer :: restart_nq,restart_ncs,restart_ncells
   integer :: n_header_int,n_header_real
   !
   integer :: inp_cell,inp_geom,inp_order
@@ -436,15 +438,36 @@ continue
   restart_nq = int( int_header(1) , kind=kind(restart_nq) )
   !
   if (allocated(solution)) then
+    !
     if (flip_sol_indices) then
       sol_nq = size(solution,dim=2)
     else
       sol_nq = size(solution,dim=1)
     end if
-    if (restart_nq /= sol_nq) then
+    !
+    if (ncs > 0) then
+      !
+      inert_ncs = size(inert_species_map)
+      inert_nq = (nq-nec+1) + inert_ncs
+      restart_ncs = restart_nq - (nq-nec+1)
+      !
+      if (all(restart_ncs /= [ncs,inert_ncs])) then
+        write (error_message,50) restart_ncs,ncs,inert_ncs
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      end if
+      !
+      if (all(restart_nq /= [sol_nq,inert_nq])) then
+        write (error_message,51) restart_nq,sol_nq,inert_nq
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      end if
+      !
+    else if (restart_nq /= sol_nq) then
+      !
       write (error_message,10) restart_nq,sol_nq
       call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      !
     end if
+    !
   end if
   !
   ! Extracted the total number of grid cells contained within the restart file
@@ -706,20 +729,63 @@ continue
       solution_errors = solution_errors + 1
     end if
     !
+    ! Copy over the restart solutions for the continuity, momentum, and
+    ! energy equations. Also copy over the restart solutions for the
+    ! species equations if the number of chemical species in the restart
+    ! file matches the number of chemical species in the current simulation.
+    !
+    mbeg = 1
+    if (ncs > 0 .and. restart_ncs /= ncs) then
+      mbeg = restart_ncs + 1
+    end if
+    !
     if (flip_sol_indices) then
       do n = 1,np
-        do m = 1,restart_nq
+        do m = mbeg,restart_nq
           solution(n0+n,m) = rst_sol(m,l0+n)
         end do
       end do
     else
       do n = 1,np
-        do m = 1,restart_nq
+        do m = mbeg,restart_nq
           solution(m,n0+n) = rst_sol(m,l0+n)
         end do
       end do
     end if
    !solution(:,n1:n2) = rst_sol(:,l1:l2)
+    !
+    ! Copy over the restart solutions for the species equations if 
+    ! the number of chemical species in the restart file does not
+    ! match the number of chemical species in the current simulation.
+    !
+    if (ncs > 0 .and. restart_ncs /= ncs) then
+      !
+      if (restart_ncs == inert_ncs) then
+        !
+        if (flip_sol_indices) then
+          do n = 1,np
+            do mm = 1,restart_ncs
+              m = inert_species_map(mm)
+              solution(n0+n,m) = rst_sol(mm,l0+n)
+            end do
+          end do
+        else
+          do n = 1,np
+            do mm = 1,restart_ncs
+              m = inert_species_map(mm)
+              solution(m,n0+n) = rst_sol(mm,l0+n)
+            end do
+          end do
+        end if
+        !
+      else
+        !
+        write (error_message,50) restart_ncs,ncs,inert_ncs
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        !
+      end if
+      !
+    end if
     !
   end do
   !
@@ -808,6 +874,16 @@ continue
              "is greater than the size of the real_header array.",/, &
              "        n_header_real = ",i0,/, &
              "    size(real_header) = ",i0)
+  !
+  50 format("The number of chemical species in the restart file does not ", &
+            "match the number of chemical species in the solution array: ", &
+            "restart_ncs=",i0, &
+            ", current_ncs=",i0, &
+            ", inert_ncs=",i0,".")
+  51 format("The number of variables in the restart file does not match the ", &
+            "number of variables in the solution array: restart_nq=",i0, &
+            ", current_nq=",i0, &
+            ", inert_nq=",i0,".")
   !
 end subroutine read_solution_file
 !
