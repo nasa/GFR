@@ -40,6 +40,8 @@ module thermo_mod
   !
   character(len=16), public, protected, save, allocatable :: species_name(:)
   !
+  integer, public, protected, save, allocatable :: inert_species_map(:)
+  !
   real(wp), public, protected, save, allocatable :: rspec(:)
   !
   real(wp), protected, save, allocatable :: cp_coef(:,:,:)
@@ -181,6 +183,8 @@ continue
         mass_frac_ref(2) = 0.7686_wp ! N2
         mass_frac_ref(3) = 0.2314_wp ! O2
         !
+        inert_species_map = [1,2,3] ! F2003 AUTO REALLOCATION
+        !
       else
         !
         species_name(1) = "CO2"
@@ -197,6 +201,14 @@ continue
         mass_frac_ref(5) = 0.7686_wp ! N2
         mass_frac_ref(6) = 0.2314_wp ! O2
         !
+        ! Create the map from inert species indices to
+        ! reacting species indices. This is needed if a
+        ! previous simulation was run with reactions turned off, 
+        ! and the new simulation is restarting with reactions
+        ! turned on.
+        !
+        inert_species_map = [4,5,6] ! F2003 AUTO REALLOCATION
+        !
       end if
       !
     else if (itestcase == H2_2D_Diffusion_Flame) then
@@ -210,6 +222,8 @@ continue
         mass_frac_ref(1) = zero      ! H2
         mass_frac_ref(2) = 0.2314_wp ! O2
         mass_frac_ref(3) = 0.7686_wp ! N2
+        !
+        inert_species_map = [1,2,3] ! F2003 AUTO REALLOCATION
         !
       else
         !
@@ -229,6 +243,14 @@ continue
         mass_frac_ref(6) = zero      ! O
         mass_frac_ref(7) = 0.7686_wp ! N2
         !
+        ! Create the map from inert species indices to
+        ! reacting species indices. This is needed if a
+        ! previous simulation was run with reactions turned off, 
+        ! and the new simulation is restarting with reactions
+        ! turned on.
+        !
+        inert_species_map = [1,2,7] ! F2003 AUTO REALLOCATION
+        !
       end if
       !
     else if (itestcase == Compression_Corner) then
@@ -242,6 +264,8 @@ continue
         mass_frac_ref(1) = 0.24_wp  ! O2
         mass_frac_ref(2) = 0.005_wp ! H2
         mass_frac_ref(3) = 0.755_wp ! N2
+        !
+        inert_species_map = [1,2,3] ! F2003 AUTO REALLOCATION
         !
       else
         !
@@ -261,6 +285,14 @@ continue
         mass_frac_ref(6) = zero     ! H
         mass_frac_ref(7) = 0.755_wp ! N2
         !
+        ! Create the map from inert species indices to
+        ! reacting species indices. This is needed if a
+        ! previous simulation was run with reactions turned off, 
+        ! and the new simulation is restarting with reactions
+        ! turned on.
+        !
+        inert_species_map = [1,2,7] ! F2003 AUTO REALLOCATION
+        !
       end if
       !
     else if (itestcase == Reacting_Backstep) then
@@ -271,6 +303,8 @@ continue
       mass_frac_ref(1) = 0.7686 ! N2
       mass_frac_ref(2) = 0.2314 ! O2
       !
+      inert_species_map = [1,2] ! F2003 AUTO REALLOCATION
+      !
     else if (itestcase == N2_O2_Diffusion) then
       !
       species_name(1) = "N2"
@@ -278,6 +312,8 @@ continue
       !
       mass_frac_ref(1) = 1.0_wp ! N2
       mass_frac_ref(2) = 0.0_wp ! O2
+      !
+      inert_species_map = [1,2] ! F2003 AUTO REALLOCATION
       !
     end if
     !
