@@ -56,6 +56,19 @@ module reactions_mod
   integer, save :: nO   = 0
   integer, save :: nH   = 0
   !
+  ! nHP : Hydrodgen product from CH4 reaction.
+  !
+  !       If using CH4 reaction mechanism, the CH4 reaction equation is either
+  !
+  !          2*CH4 + 1*O2 => 2*CO + 4*H2
+  !                      or
+  !          2*CH4 + 3*O2 => 2*CO + 4*H2O
+  !
+  !       If using the first  equation, nHP = nH2
+  !       If using the second equation, nHP = nH2O
+  !
+  integer, save :: nHP  = 0
+  !
   !
   !
   ! ###########################
@@ -133,6 +146,12 @@ continue
     !
     if (abs(itestcase) == CH4_3D_Diffusion_Flame) then
       !
+      if (nH2O /= 0 .and. nH2 == 0) then
+        nHP = nH2O
+      else if (nH2 /= 0 .and. nH2O == 0) then
+        nHP = nH2
+      end if
+      !
       !----------------------------------------
       ! Species:  CO2  CO  H2O  CH4  N2  O2
       !----------------------------------------
@@ -191,7 +210,7 @@ subroutine initialize_CH4_6x3_reactions
   !
   !.. Local Scalars ..
   integer  :: i,j,ir,ierr
-  real(wp) :: fwd_mwp,bwd_mwp,c1,val
+  real(wp) :: fwd_mwp,bwd_mwp,c1,c2,c3,val
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_CH4_6x3_reactions"
@@ -200,8 +219,10 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
- !c1 = one
-  c1 = half
+  c1 = one
+ !c1 = half
+  c2 = one/c1
+  c3 = c1
   !
   ! Allocate all the arrays needed for CH4 reactions
   !
@@ -259,8 +280,8 @@ continue
   !
   ir = 1
   !
-  fwd_arrh_coef(ir) = 1.0e+15_wp
-  fwd_actv_temp(ir) = 35000.0_wp
+  fwd_arrh_coef(ir) = 1.0e+15_wp * c2
+  fwd_actv_temp(ir) = 35000.0_wp * c3
   !
   bwd_arrh_coef(ir) = zero
   bwd_actv_temp(ir) = zero
@@ -268,11 +289,19 @@ continue
   fwd_exp(nCH4,ir) = 0.9_wp ! CH4
   fwd_exp(nO2 ,ir) = 1.1_wp ! O2
   !
-  fwd_stoich_coef(nCH4,ir) = two   * c1 ! CH4
-  fwd_stoich_coef(nO2 ,ir) = three * c1 ! O2
-  !
-  bwd_stoich_coef(nCO ,ir) = two   * c1 ! CO
-  bwd_stoich_coef(nH2O,ir) = four  * c1 ! H2O
+  if (nH2O == nHP) then
+    fwd_stoich_coef(nCH4,ir) = two   * c1 ! CH4
+    fwd_stoich_coef(nO2 ,ir) = three * c1 ! O2
+    !
+    bwd_stoich_coef(nCO ,ir) = two   * c1 ! CO
+    bwd_stoich_coef(nH2O,ir) = four  * c1 ! H2O
+  else if (nH2 == nHP) then
+    fwd_stoich_coef(nCH4,ir) = two   * c1 ! CH4
+    fwd_stoich_coef(nO2 ,ir) = one   * c1 ! O2
+    !
+    bwd_stoich_coef(nCO ,ir) = two   * c1 ! CO
+    bwd_stoich_coef(nH2 ,ir) = four  * c1 ! H2
+  end if
   !
   !##############################################
   !
@@ -280,8 +309,8 @@ continue
   !
   ir = 2
   !
-  fwd_arrh_coef(ir) = 4.0552e+10_wp
-  fwd_actv_temp(ir) = 77194.0_wp
+  fwd_arrh_coef(ir) = 4.0552e+10_wp * c2
+  fwd_actv_temp(ir) = 77194.0_wp * c3
   !
   bwd_arrh_coef(ir) = zero
   bwd_actv_temp(ir) = zero
@@ -299,8 +328,8 @@ continue
   !
   ir = 3
   !
-  fwd_arrh_coef(ir) = 1.0e+9_wp
-  fwd_actv_temp(ir) = 12000.0_wp
+  fwd_arrh_coef(ir) = 1.0e+9_wp * c2
+  fwd_actv_temp(ir) = 12000.0_wp * c3
   !
   bwd_arrh_coef(ir) = zero
   bwd_actv_temp(ir) = zero
@@ -383,15 +412,18 @@ subroutine initialize_CH4_6x3_Vulcan_reactions
   !
   !.. Local Scalars ..
   integer  :: m,ir,ierr
-  real(wp) :: c1
+  real(wp) :: c1,c2,c3
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_CH4_6x3_Vulcan_reactions"
   !
 continue
   !
- !c1 = one
-  c1 = half
+  c1 = one
+ !c1 = half
+  c2 = one/c1
+  c3 = c1
+ !c3 = one
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -428,18 +460,26 @@ continue
   !
   ir = 1
   !
-  scoerp(1,nCH4,ir) = two    * c1
-  scoerp(1,nO2 ,ir) = three  * c1
-  !
-  scoerp(2,nCO ,ir) = two    * c1
-  scoerp(2,nH2O,ir) = four   * c1
+  if (nH2O == nHP) then
+    scoerp(1,nCH4,ir) = two    * c1
+    scoerp(1,nO2 ,ir) = three  * c1
+    !
+    scoerp(2,nCO ,ir) = two    * c1
+    scoerp(2,nH2O,ir) = four   * c1
+  else if (nH2 == nHP) then
+    scoerp(1,nCH4,ir) = two    * c1
+    scoerp(1,nO2 ,ir) = one    * c1
+    !
+    scoerp(2,nCO ,ir) = two    * c1
+    scoerp(2,nH2 ,ir) = four   * c1
+  end if
   !
   fwd_exp(nCH4,ir) = 0.9_wp
   fwd_exp(nO2 ,ir) = 1.1_wp
   !
-  frcoef(1,ir) = 1.0e15_wp
+  frcoef(1,ir) = 1.0e15_wp * c2
   frcoef(2,ir) = zero
-  frcoef(3,ir) = 35000.0_wp
+  frcoef(3,ir) = 35000.0_wp * c3
   !
   !##############################################
   !
@@ -454,9 +494,9 @@ continue
   !
   fwd_exp(nCO2,ir) = one
   !
-  frcoef(1,ir) = 4.0552e10_wp
+  frcoef(1,ir) = 4.0552e10_wp * c2
   frcoef(2,ir) = zero
-  frcoef(3,ir) = 77194.0_wp
+  frcoef(3,ir) = 77194.0_wp * c3
   !
   !##############################################
   !
@@ -472,9 +512,9 @@ continue
   fwd_exp(nCO ,ir) = one
   fwd_exp(nO2 ,ir) = half
   !
-  frcoef(1,ir) = 1.0e9_wp
+  frcoef(1,ir) = 1.0e9_wp * c2
   frcoef(2,ir) = zero
-  frcoef(3,ir) = 12000.0_wp
+  frcoef(3,ir) = 12000.0_wp * c3
   !
   !##############################################
   !
@@ -870,7 +910,7 @@ continue
       domega = dt_chem * qf / (one + dt_chem*qref)
       !
       rhoi(n,nCO ) = max( zero , rhoi(n,nCO ) + stoich_coef(nCO ,ir)*domega )
-      rhoi(n,nH2O) = max( zero , rhoi(n,nH2O) + stoich_coef(nH2O,ir)*domega )
+      rhoi(n,nHP ) = max( zero , rhoi(n,nHP ) + stoich_coef(nHP ,ir)*domega )
       rhoi(n,nCH4) = max( zero , rhoi(n,nCH4) + stoich_coef(nCH4,ir)*domega )
       rhoi(n,nO2 ) = max( zero , rhoi(n,nO2 ) + stoich_coef(nO2 ,ir)*domega )
       !

@@ -189,6 +189,7 @@ continue
         !
         species_name(1) = "CO2"
         species_name(2) = "CO"
+       !species_name(3) = "H2"
         species_name(3) = "H2O"
         species_name(4) = "CH4"
         species_name(5) = "N2"
