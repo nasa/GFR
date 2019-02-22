@@ -6191,6 +6191,13 @@ subroutine write_residual_file(iflag,icount)
  !logical(lk),      parameter :: write_work_units = true
   logical(lk),      parameter :: write_work_units = fals
   !
+!#define OUTPUT_LINF_AND_L1_RESIDUALS
+#ifdef OUTPUT_LINF_AND_L1_RESIDUALS
+  integer, save :: io1,ioinf
+  character(len=*), parameter :: fname_linf = "residual.linf.dat"
+  character(len=*), parameter :: fname_l1 = "residual.l1.dat"
+#endif
+  !
 continue
   !
   call debug_timer(entering_procedure,pname)
@@ -6204,6 +6211,20 @@ continue
     call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
     !
     write (iores,1)
+    !
+#ifdef OUTPUT_LINF_AND_L1_RESIDUALS
+    open (newunit=ioinf,file=fname_linf,status="replace",action="write", &
+                        iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname_linf,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    write (ioinf,1)
+    !
+    open (newunit=io1,file=fname_l1,status="replace",action="write", &
+                        iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname_l1,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    write (io1,1)
+#endif
     !
     suffix = '",'
     if (output_time_averaging) suffix = '<sub>ave</sub>",'
@@ -6246,6 +6267,83 @@ continue
     !
     write (iores,4) p_order, one/sqrt(real(n_global_solpts,kind=wp))
     !
+#ifdef OUTPUT_LINF_AND_L1_RESIDUALS
+    if (ncs > 0) then
+      do i = 1,ncs
+        write (ioinf,2) "<greek>r</greek><sub>" // &
+                        trim(adjustl(species_name(i))) // &
+                        "</sub>" // trim(suffix)
+      end do
+    end if
+    !
+    write (ioinf,2) "<greek>r</greek>" // trim(suffix)
+    do i = 1,nr
+      write (ioinf,3) "<greek>r</greek>" // uvw(i) // trim(suffix)
+    end do
+    write (ioinf,2) "Energy" // trim(suffix)
+    write (ioinf,2) "Entropy" // trim(suffix)
+    !
+    if (ncs > 0) then
+      do i = 1,ncs
+        write (ioinf,2) "Y<sub>" // &
+                        trim(adjustl(species_name(i))) // &
+                        "</sub>" // trim(suffix)
+      end do
+    end if
+    !
+    write (ioinf,2) "T" // trim(suffix)
+    do i = 1,nr
+      write (ioinf,2) uvw(i) // trim(suffix)
+    end do
+    write (ioinf,2) "p" // trim(suffix)
+    write (ioinf,2) "||V||" // trim(suffix)
+    if (write_work_units) then
+      write (ioinf,2) "Work units",'"'
+    else
+      write (ioinf,2) "Time",'"'
+    end if
+    !
+    write (ioinf,4) p_order, one/sqrt(real(n_global_solpts,kind=wp))
+    !
+    if (ncs > 0) then
+      do i = 1,ncs
+        write (io1,2) "<greek>r</greek><sub>" // &
+                        trim(adjustl(species_name(i))) // &
+                        "</sub>" // trim(suffix)
+      end do
+    end if
+    !
+    write (io1,2) "<greek>r</greek>" // trim(suffix)
+    do i = 1,nr
+      write (io1,3) "<greek>r</greek>" // uvw(i) // trim(suffix)
+    end do
+    write (io1,2) "Energy" // trim(suffix)
+    write (io1,2) "Entropy" // trim(suffix)
+    !
+    if (ncs > 0) then
+      do i = 1,ncs
+        write (io1,2) "Y<sub>" // &
+                        trim(adjustl(species_name(i))) // &
+                        "</sub>" // trim(suffix)
+      end do
+    end if
+    !
+    write (io1,2) "T" // trim(suffix)
+    do i = 1,nr
+      write (io1,2) uvw(i) // trim(suffix)
+    end do
+    write (io1,2) "p" // trim(suffix)
+    write (io1,2) "||V||" // trim(suffix)
+    if (write_work_units) then
+      write (io1,2) "Work units",'"'
+    else
+      write (io1,2) "Time",'"'
+    end if
+    !
+    write (io1,4) p_order, one/sqrt(real(n_global_solpts,kind=wp))
+    !
+#endif
+    !
     file_is_opened = true
     !
   end if
@@ -6259,32 +6357,46 @@ continue
     end if
   end if
   !
-  ! L1 Norm
- !u2(:) = merge( uverr(:,1,1) , epsilon(zero)/two , uverr(:,1,1)>zero )
- !v2(:) = merge( uverr(:,1,2) , epsilon(zero)/two , uverr(:,1,2)>zero )
   ! L2 Norm
   u2(:) = merge( uverr(:,2,1) , epsilon(zero)/total_volume , uverr(:,2,1)>zero )
   v2(:) = merge( uverr(:,2,2) , epsilon(zero)/total_volume , uverr(:,2,2)>zero )
-  ! Infinity Norm
- !u2(:) = merge( uverr(:,3,1) , epsilon(zero)/two , uverr(:,3,1)>zero )
- !v2(:) = merge( uverr(:,3,2) , epsilon(zero)/two , uverr(:,3,2)>zero )
- !!
- !u2(:) = uverr(:,2,1)
- !v2(:) = uverr(:,2,2)
- !!
- !where (u2 <= zero) u2 = one
- !where (v2 <= zero) v2 = one
   !
   write (iores,5) icount,(log10(u2(i)),i=1,nq+1), &
                          (log10(v2(i)),i=1,nq+1), &
                          comp_cost
   flush (iores)
   !
+#ifdef OUTPUT_LINF_AND_L1_RESIDUALS
+  ! Infinity Norm
+  u2(:) = merge( uverr(:,3,1) , epsilon(zero)/total_volume , uverr(:,3,1)>zero )
+  v2(:) = merge( uverr(:,3,2) , epsilon(zero)/total_volume , uverr(:,3,2)>zero )
+  !
+  write (ioinf,5) icount,(log10(u2(i)),i=1,nq+1), &
+                         (log10(v2(i)),i=1,nq+1), &
+                         comp_cost
+  flush (ioinf)
+  !
+  ! L1 Norm
+  u2(:) = merge( uverr(:,1,1) , epsilon(zero)/total_volume , uverr(:,1,1)>zero )
+  v2(:) = merge( uverr(:,1,2) , epsilon(zero)/total_volume , uverr(:,1,2)>zero )
+  !
+  write (io1,5) icount,(log10(u2(i)),i=1,nq+1), &
+                       (log10(v2(i)),i=1,nq+1), &
+                       comp_cost
+  flush (io1)
+#endif
+  !
   ! Close the results file only if iflag is -1
   !
   if (iflag == -1) then
     close (iores,iostat=ierr,iomsg=error_message)
     call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+#ifdef OUTPUT_LINF_AND_L1_RESIDUALS
+    close (ioinf,iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname_linf,2,__LINE__,__FILE__,ierr,error_message)
+    close (io1,iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname_l1,2,__LINE__,__FILE__,ierr,error_message)
+#endif
   end if
   !
   call debug_timer(leaving_procedure,pname)
