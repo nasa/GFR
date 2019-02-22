@@ -3,7 +3,7 @@ module reactions_mod
   !.. Use Statements ..
   use module_kind_types
   !
-  use eqn_idx, only : nec,nq
+  use eqn_idx, only : nec,nee,nq
   use eqn_idx, only : ncs,ntemp,ngamm,ncp,ng
   use eqn_idx, only : ncr
   !
@@ -16,6 +16,9 @@ module reactions_mod
   !
   !
   logical(lk), save, allocatable :: nonreacting_species(:)
+  !
+  integer, save, allocatable :: reactant_species_list(:)
+  integer, save, allocatable :: product_species_list(:)
   !
   ! Reaction arrays for CH4
   !
@@ -166,6 +169,10 @@ continue
         call initialize_CH4_6x3_Vulcan_reactions
       end if
       !
+      ! Create the lists of reactant and product species
+      !
+      reactant_species_list = [nCH4,nO2,nN2] ! F2003 AUTO REALLOCATION
+      product_species_list  = [nCO2,nCO,nHP] ! F2003 AUTO REALLOCATION
       !
     else if ( itestcase == H2_2D_Diffusion_Flame .or. &
               itestcase == Compression_Corner ) then
@@ -183,6 +190,11 @@ continue
       !-----------------------------------------------
       !
       call initialize_H2_7x7_reactions
+      !
+      ! Create the lists of reactant and product species
+      !
+      reactant_species_list = [nO2,nH2,nN2] ! F2003 AUTO REALLOCATION
+      product_species_list  = [nOH,nH2O,nO,nH] ! F2003 AUTO REALLOCATION
       !
     else
       !
@@ -730,8 +742,10 @@ end subroutine initialize_H2_7x7_reactions
 subroutine compute_wdot(iter)
   !
   !.. Use Statements ..
-  use ovar,    only : itestcase
+  use ovar,    only : itestcase,itcur
   use ovar,    only : semi_implicit_chemistry
+  use ovar,    only : ignition_start_timestep
+  use ovar,    only : ignition_prod2reac_L2_ratio_goal
   use geovar,  only : n_solpts
   use flowvar, only : usp,gpsp,residual
   !
@@ -773,11 +787,133 @@ continue
       call compute_generic_wdot(n1,n2,usp,gpsp,residual)
     end if
     !
+    ! Compute the ignition source term for the energy equation
+    !
+    if (ignition_prod2reac_L2_ratio_goal > zero) then
+      if (itcur >= ignition_start_timestep) then
+        call compute_ignition_source(n1,n2,usp,gpsp,residual)
+      end if
+    end if
+    !
   end if
   !
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_wdot
+!
+!###############################################################################
+!
+subroutine compute_ignition_source(n1,n2,cv,gp,residual)
+  !
+  !======================================================================
+  !
+  !   Calculate the species source term (omega) for each species
+  !   For chemical integration, KIVA scheme is used.
+  !
+  !         Omega = (New_con - Old_con)/time-step
+  !
+  !      where New_con is the updated mass fraction.
+  !      where Old_con is the original mass fraction.
+  !======================================================================
+  !
+  use ovar,        only : uverr,cv_ref
+  use ovar,        only : ignition_start_timestep
+  use ovar,        only : ignition_prod2reac_L2_ratio_goal
+  use ovar,        only : ignition_source_magnitude
+  use ovar,        only : ignition_source_radius
+  use ovar,        only : ignition_source_location
+  use geovar,      only : xyz
+  use metrics_mod, only : jac
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: cv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
+  real(wp), intent(inout) :: residual(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: r,x,y,z
+  real(wp) :: p2r,energy_source
+  !
+  !.. Local Saved Scalars ..
+  real(wp), save :: ign_mag = zero
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_ignition_source"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (allocated(uverr)) then
+    !
+    ! Compute the ratio of [the sum of the product species L2 norms] to
+    ! [the sum of the reactant species L2 norms]
+    !
+    p2r = sum( uverr( product_species_list(:),2,2) ) / &
+          sum( uverr(reactant_species_list(:),2,2) )
+    !
+    ! If the above ratio is greater than the value of the input goal, we
+    ! will assume that ignition was successful and reactions are occurring.
+    ! Set the value of the input goal to a negative number so that ignition
+    ! source terms will no longer be computed.
+    !
+    if (p2r > ignition_prod2reac_L2_ratio_goal) then
+      ignition_prod2reac_L2_ratio_goal = -one
+      call debug_timer(leaving_procedure,pname)
+      return
+    end if
+    !
+  end if
+  !
+  ign_mag = ign_mag + ignition_source_magnitude * cv_ref(nee)
+  !
+  x = zero
+  y = zero
+  z = zero
+  !
+  do n = n1,n2
+    !
+    x = xyz(1,n) - ignition_source_location(1)
+    if (size(xyz,dim=1) >= 2) y = xyz(2,n) - ignition_source_location(2)
+    if (size(xyz,dim=1) == 3) z = xyz(3,n) - ignition_source_location(3)
+    !
+    r = sqrt( x*x + y*y + z*z )
+    !
+    energy_source = zero
+    !
+    if (ignition_source_radius < zero) then
+      !
+      if (r <= abs(ignition_source_radius)) then
+        !
+        r = r/abs(ignition_source_radius)
+        !
+        energy_source = ign_mag*exp(-36.0_wp*r*r)
+        !
+      end if
+      !
+    else if (ignition_source_radius > zero) then
+      !
+      energy_source = ign_mag
+      !
+      if (r >= ignition_source_radius) then
+        !
+        r = r/ignition_source_radius
+        !
+        energy_source = energy_source*exp(-36.0_wp*r*r)
+        !
+      end if
+      !
+    end if
+    !
+    residual(n,nee) = residual(n,nee) - energy_source*jac(n)
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_ignition_source
 !
 !###############################################################################
 !
