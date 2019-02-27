@@ -147,7 +147,8 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/bc_slip_wall_mod.o \
         $(OBJDIR)/bc_sub_in_mod.o \
         $(OBJDIR)/bc_sub_out_mod.o \
-        $(OBJDIR)/bc_sup_out_mod.o
+        $(OBJDIR)/bc_sup_out_mod.o \
+        $(OBJDIR)/tecio_mod.o
 
 
 HighlightName := | /bin/grep -hi --color '[^ ]\+\.\(f[0-9]*\|c\)\>'

@@ -689,3 +689,5 @@ $(OBJDIR)/bc_sup_out_mod.o : $(BCDIR)/bc_sup_out_mod.f90 \
                    $(OBJDIR)/kind_types.o \
                    $(OBJDIR)/eqn_idx_mod.o
 
+$(OBJDIR)/tecio_mod.o : tecio_mod.f90
+
