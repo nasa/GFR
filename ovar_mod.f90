@@ -238,8 +238,8 @@ module ovar
   logical(lk), public, save :: output_grdnt_species_variables = fals
   !
   ! GOVERNING EQUATIONS
-  integer,     public, save :: governing_equations        = NavierStokes_Eqns
-  integer,     public, save :: turbulence_model           = laminar_flow
+  integer, public, save :: governing_equations = NavierStokes_Eqns
+  integer, public, save :: turbulence_model    = laminar_flow
   !
   ! CHEMICAL REACTION SOURCE TERMS
   logical(lk), public, save :: disable_chemical_reactions         = fals
@@ -248,11 +248,18 @@ module ovar
  !integer,     public, save :: reactions_start_iter               = 0
   !
   ! IGNITION CONTROL SOURCE TERMS
-  integer,  public, save :: ignition_start_timestep          = 0
-  real(wp), public, save :: ignition_prod2reac_L2_ratio_goal = -1.0_wp
-  real(wp), public, save :: ignition_source_magnitude        = zero
-  real(wp), public, save :: ignition_source_radius           = zero
-  real(wp), public, save :: ignition_source_location(1:3)    = [zero,zero,zero]
+  integer,  public, save :: ignition_start_timestep = 0
+  real(wp), public, save :: &
+      ignition_prod2reac_L2_ratio_goal = -1.0_wp, &
+      ignition_max_temperature         = 1600.0_wp, &   ! [K]
+      ignition_spark_cap               = 1.0e+12_wp, &  ! [N/m^2]
+      ! if > zero, then
+      !   ignition_source_magnitude = delta temperature [K]
+      ! if < zero, then
+      !   abs(ignition_source_magnitude) = % of ref. total energy [no units]
+      ignition_source_magnitude        = 20.0_wp, &
+      ignition_source_radius           = zero, &
+      ignition_source_location(1:3)    = [zero,zero,zero]
   !
   ! NONDIMENSIONAL REFERENCE CONDITIONS
   real(wp), public, save :: machref =  0.4_wp
@@ -959,6 +966,8 @@ module input_namelist_mod
   use ovar,      only : ignition_start_timestep
   use ovar,      only : ignition_prod2reac_L2_ratio_goal
   use ovar,      only : ignition_source_magnitude
+  use ovar,      only : ignition_max_temperature
+  use ovar,      only : ignition_spark_cap
   use ovar,      only : ignition_source_radius
   use ovar,      only : ignition_source_location
   use ovar,      only : load_restart_file, restart_interval, restart_file
@@ -1123,7 +1132,10 @@ module input_namelist_mod
   ! IGNITION CONTROL SOURCE TERMS
   namelist / input / ignition_start_timestep, &
                      ignition_prod2reac_L2_ratio_goal, &
-                     ignition_source_magnitude, ignition_source_radius, &
+                     ignition_max_temperature, &
+                     ignition_spark_cap, &
+                     ignition_source_magnitude, &
+                     ignition_source_radius, &
                      ignition_source_location
   ! NONDIMENSIONAL REFERENCE CONDITIONS
   namelist / input / machref, reyref, gam
