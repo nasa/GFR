@@ -504,6 +504,7 @@ function initial_conditions(xyz,init_cond) result(return_value)
   use ovar, only : itestcase
   use ovar, only : mms_opt,mms_init
   use ovar, only : postproc_debug_grid
+  use ovar, only : jet_init_func
   use mms_mod, only : mms_solution_at_xyz
   use channel_mod, only : channel_initialization
   !
@@ -650,6 +651,32 @@ continue
         return_value(k,m) = bc_in(ibc)%cv(m)
       end do
     end do
+    !
+  else if (abs(itestcase) == CH4_3D_Diffusion_Flame) then
+    !
+    if (jet_init_func == 0) then
+      do k = 1,np
+        return_value(k,:) = bc_in(1)%cv(:)
+      end do
+    else if (jet_init_func == 1) then
+      do k = 1,np
+        if (xyz(1,k) >= zero) then
+          return_value(k,:) = bc_in(1)%cv(:)
+        else
+          ibc = merge( 2 , 1 , norm2(xyz(2:,k)) <= 0.03157_wp )
+          do m = 1,nq
+            return_value(k,m) = bc_in(ibc)%cv(m)
+          end do
+        end if
+      end do
+    else if (jet_init_func == 2) then
+      do k = 1,np
+        ibc = merge( 2 , 1 , norm2(xyz(2:,k)) <= 0.03157_wp )
+        do m = 1,nq
+          return_value(k,m) = bc_in(ibc)%cv(m)
+        end do
+      end do
+    end if
     !
   else
     !
