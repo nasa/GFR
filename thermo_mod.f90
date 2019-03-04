@@ -1248,6 +1248,7 @@ subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
   use ovar, only : tref,tmin,tmax
   use ovar, only : newton_rlx
   use ovar, only : traceback_unconverged_newton_temps
+  use ovar, only : ignore_thermo_newton_warnings
 #ifdef SPECIAL_FOR_INTEL
   use ifcore, only : tracebackqq
 #endif
@@ -1395,7 +1396,7 @@ continue
       exit newton_iteration
     end if
     !
-    if (k == newton_iter) then
+    if (dtmx <= conv_temp .or. k == newton_iter) then
 #ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
     block
       use geovar, only : nr,xyz
@@ -1548,21 +1549,24 @@ continue
       end do
     end block
 #endif
-      if (present(caller_name)) then
-        write (iout,101) ndnc,dtmx,trim(adjustl(caller_name))
+      if (.not. ignore_thermo_newton_warnings) then
+        if (present(caller_name)) then
+          write (iout,101) ndnc,dtmx,trim(adjustl(caller_name))
 #ifdef SPECIAL_FOR_INTEL
-        if (traceback_unconverged_newton_temps) then
-          call tracebackqq(user_exit_code=-1)
-        end if
+          if (traceback_unconverged_newton_temps) then
+            call tracebackqq(user_exit_code=-1)
+          end if
 #endif
-      else
-        write (iout,100) ndnc,dtmx
+        else
+          write (iout,100) ndnc,dtmx
 #ifdef SPECIAL_FOR_INTEL
-        if (traceback_unconverged_newton_temps) then
-          call tracebackqq(user_exit_code=-1)
-        end if
+          if (traceback_unconverged_newton_temps) then
+            call tracebackqq(user_exit_code=-1)
+          end if
 #endif
+        end if
       end if
+      exit newton_iteration
     end if
     !
   end do newton_iteration

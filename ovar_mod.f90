@@ -405,6 +405,7 @@ module ovar
   logical(lk), public, save :: force_nd_subroutines = fals
   real(wp),    public, save :: newton_rlx = 1.0_wp
   integer,     public, save :: chemistry_sub_iterations = -1
+  logical(lk), public, save :: ignore_thermo_newton_warnings = fals
   !
   ! INPUT BOUNDARY CONDITIONS
   type(bc_input_t), public, allocatable :: bc_input(:)
@@ -1022,6 +1023,7 @@ module input_namelist_mod
   use ovar,      only : sem_profile_file
   use ovar,      only : force_nd_subroutines, newton_rlx
   use ovar,      only : chemistry_sub_iterations
+  use ovar,      only : ignore_thermo_newton_warnings
   use module_cgns_types, only : cgns_use_queue
   !
   implicit none
@@ -1202,7 +1204,7 @@ module input_namelist_mod
   namelist / input / output_bface_array
   !
   namelist / input / force_nd_subroutines, dmat_grad_temp_order, newton_rlx, &
-                     chemistry_sub_iterations
+                     chemistry_sub_iterations, ignore_thermo_newton_warnings
   ! INPUT BOUNDARY CONDITIONS
   namelist / input / bc_input
   !
