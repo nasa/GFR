@@ -1275,6 +1275,9 @@ subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
   real(wp) :: func,dfunc,dtemp,dterr
   real(wp) :: tmin_nd,tmax_nd
   !
+  !.. Local Saved Scalars ..
+  logical(lk), save :: output_thermo_coef = true
+  !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: eint(:)
   !
@@ -1485,32 +1488,35 @@ continue
           do m = 1,ncs
             write (io,3) trim(adjustl(species_name(m))),cv(n,m)
           end do
-          do m = 1,ncs
-            !
-            if (cv(n,m) <= eps6) cycle
-            !
-            write (io,20) trim(adjustl(species_name(m))),"enthalpy"
-            write (io,21) 0, (enth_coef(6,i,m), i=lbound(enth_coef,dim=2), &
-                                                  ubound(enth_coef,dim=2))
-            do j = 1,ncpc
-              write (io,21) j, (enth_coef(j,i,m), i=lbound(enth_coef,dim=2), &
+          if (output_thermo_coef) then
+            do m = 1,ncs
+              !
+             !if (cv(n,m) <= eps6) cycle
+              !
+              write (io,20) trim(adjustl(species_name(m))),"enthalpy"
+              write (io,21) 0, (enth_coef(6,i,m), i=lbound(enth_coef,dim=2), &
                                                     ubound(enth_coef,dim=2))
+              do j = 1,ncpc
+                write (io,21) j, (enth_coef(j,i,m), i=lbound(enth_coef,dim=2), &
+                                                      ubound(enth_coef,dim=2))
+              end do
+              !
+              write (io,20) trim(adjustl(species_name(m))),"cp"
+              do j = 1,ncpc
+                write (io,21) j-1, (cp_coef(j,i,m), i=lbound(cp_coef,dim=2), &
+                                                      ubound(cp_coef,dim=2))
+              end do
+              !
+              write (io,20) trim(adjustl(species_name(m))),"d(cp)/dT"
+              do j = 2,ncpc
+                write (io,21) j-2, &
+                  (real(j-1,kind=wp)*cp_coef(j,i,m), i=lbound(cp_coef,dim=2), &
+                                                       ubound(cp_coef,dim=2))
+              end do
+              !
             end do
-            !
-            write (io,20) trim(adjustl(species_name(m))),"cp"
-            do j = 1,ncpc
-              write (io,21) j-1, (cp_coef(j,i,m), i=lbound(cp_coef,dim=2), &
-                                                    ubound(cp_coef,dim=2))
-            end do
-            !
-            write (io,20) trim(adjustl(species_name(m))),"d(cp)/dT"
-            do j = 2,ncpc
-              write (io,21) j-2, &
-                (real(j-1,kind=wp)*cp_coef(j,i,m), i=lbound(cp_coef,dim=2), &
-                                                     ubound(cp_coef,dim=2))
-            end do
-            !
-          end do
+            output_thermo_coef = fals
+          end if
           do j = 1,size(dtemp_save,dim=3)
             if (j == 1) write (io,4)
             if (j == size(dtemp_save,dim=3)) then
