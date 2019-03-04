@@ -746,6 +746,7 @@ subroutine compute_wdot(iter)
   use ovar,    only : semi_implicit_chemistry
   use ovar,    only : ignition_start_timestep
   use ovar,    only : ignition_prod2reac_L2_ratio_goal
+  use ovar,    only : ignition_source_magnitude
   use geovar,  only : n_solpts
   use flowvar, only : usp,gpsp,residual
   !
@@ -791,7 +792,11 @@ continue
     !
     if (ignition_prod2reac_L2_ratio_goal > zero) then
       if (itcur >= ignition_start_timestep) then
-        call compute_ignition_source(n1,n2,usp,gpsp,residual)
+        if (ignition_source_magnitude > zero) then
+          call compute_ignition_source_ncc(n1,n2,usp,gpsp,residual)
+        else
+          call compute_ignition_source(n1,n2,usp,gpsp,residual)
+        end if
       end if
     end if
     !
@@ -800,6 +805,237 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_wdot
+!
+!###############################################################################
+!
+subroutine compute_ignition_source_ncc(n1,n2,cv,gp,residual)
+  !
+  !======================================================================
+  !
+  !   Calculate the species source term (omega) for each species
+  !   For chemical integration, KIVA scheme is used.
+  !
+  !         Omega = (New_con - Old_con)/time-step
+  !
+  !      where New_con is the updated mass fraction.
+  !      where Old_con is the original mass fraction.
+  !======================================================================
+  !
+  use ovar,        only : uverr,cv_ref,itcur,rhoref,aref,tref
+  use ovar,        only : num_rk_stages
+  use ovar,        only : ignition_prod2reac_L2_ratio_goal
+  use ovar,        only : ignition_max_temperature
+  use ovar,        only : ignition_spark_cap
+  use ovar,        only : ignition_source_magnitude
+  use ovar,        only : ignition_source_radius
+  use ovar,        only : ignition_source_location
+  use geovar,      only : xyz
+  use flowvar,     only : dtsp
+  use metrics_mod, only : jac
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: cv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
+  real(wp), intent(inout) :: residual(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: r,x,y,z,spark
+  real(wp) :: p2r,energy_source
+  real(wp) :: products_L2_sum
+  real(wp) :: reactants_L2_sum
+  !
+  !.. Local Saved Scalars ..
+  logical(lk), save :: ignition_started = fals
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_ignition_source_ncc"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Perform some initializations if this is
+  ! the first time calling this procedure.
+  !
+  if (.not. ignition_started) then
+    !
+    ! If ignition_source_radius is zero, change
+    ! ignition_prod2reac_L2_ratio_goal to a negative
+    ! value to turn disable ignition.
+    !
+    if (ignition_source_radius == zero) then
+      ignition_prod2reac_L2_ratio_goal = -one
+      if (mypnum == glb_root) then
+        write (iout,3)
+      end if
+      call debug_timer(leaving_procedure,pname)
+      return
+    end if
+    !
+    ! Initialize the ignition input values
+    !
+    ignition_started = true
+    !
+    ignition_source_magnitude = ignition_source_magnitude / tref / &
+                                real(num_rk_stages,kind=wp)
+    ignition_max_temperature = ignition_max_temperature / tref
+    ignition_spark_cap = ignition_spark_cap / (rhoref*aref*aref)
+    !
+    if (mypnum == glb_root) then
+      write (iout,1) itcur
+    end if
+    !
+  end if
+  !
+  ! Check if the ratio of [the sum of the product species L2 norms] to
+  ! [the sum of the reactant species L2 norms] has met the input goal.
+  !
+  if (allocated(uverr)) then
+    !
+    ! Compute the ratio of [the sum of the product species L2 norms] to
+    ! [the sum of the reactant species L2 norms]
+    !
+    products_L2_sum  = sum( uverr( product_species_list(:),2,2) )
+    reactants_L2_sum = sum( uverr(reactant_species_list(:),2,2) )
+    !
+    if (reactants_L2_sum /= zero) then
+      p2r = products_L2_sum / reactants_L2_sum
+    else
+      p2r = zero
+    end if
+   !p2r = sum( uverr( product_species_list(:),2,2) ) / &
+   !      sum( uverr(reactant_species_list(:),2,2) )
+    !
+    ! If the above ratio is greater than the value of the input goal, we
+    ! will assume that ignition was successful and reactions are occurring.
+    ! Set the value of the input goal to a negative number so that ignition
+    ! source terms will no longer be computed.
+    !
+    if (p2r > ignition_prod2reac_L2_ratio_goal) then
+      ignition_prod2reac_L2_ratio_goal = -one
+      if (mypnum == glb_root) then
+        write (iout,2) itcur
+      end if
+      call debug_timer(leaving_procedure,pname)
+      return
+    end if
+    !
+  end if
+  !
+  x = zero
+  y = zero
+  z = zero
+  !
+  do n = n1,n2
+    !
+    x = xyz(1,n) - ignition_source_location(1)
+    if (size(xyz,dim=1) >= 2) y = xyz(2,n) - ignition_source_location(2)
+    if (size(xyz,dim=1) == 3) z = xyz(3,n) - ignition_source_location(3)
+    !
+    r = sqrt( x*x + y*y + z*z )
+    !
+    energy_source = zero
+    !
+    ! Compute the value of the energy source term, with the method used
+    ! depending on the value of the input ignition_source_radius.
+    !
+    if (ignition_source_radius < zero) then
+      !
+      ! If ignition_source_radius is less than zero, use a Gaussian function
+      ! based on radial distance from the input ignition location as the
+      ! magnitude of the energy source term. The input value of
+      ! ignition_source_radius should be approximately the radial distance from
+      ! the ignition location at which the Gaussian energy source term reaches
+      ! machine precision.
+      !
+      if (r <= abs(ignition_source_radius)) then
+        !
+        r = r/abs(ignition_source_radius)
+        !
+        spark = cv(n,nec) * gp(n,ncp) * ignition_source_magnitude
+        !
+        energy_source = min(spark,ignition_spark_cap)
+        !
+        energy_source = energy_source*exp(-36.0_wp*r*r)
+        !
+        ! If the temperature at this point is greater than the input maximum
+        ! ignition temperature, change ignition_prod2reac_L2_ratio_goal to
+        ! a negative value to turn off ignition.
+        !
+        if (gp(n,ntemp) >= ignition_max_temperature) then
+          ignition_prod2reac_L2_ratio_goal = -one
+        end if
+        !
+      end if
+      !
+      ! If the ignition_source_radius is greater than zero, every point that is
+      ! within the ignition_source_radius from the input ignition location will
+      ! get the full value of the energy source term based on the input value of
+      ! ignition_source_magnitude. The energy source term for all points outside
+      ! the ignition_source_radius from the input ignition location will be an
+      ! exponential decay based on radius.
+      !
+    else if (ignition_source_radius > zero) then
+      !
+      spark = cv(n,nec) * gp(n,ncp) * ignition_source_magnitude
+      !
+      energy_source = min(spark,ignition_spark_cap)
+      !
+      if (r >= ignition_source_radius) then
+        !
+        r = (r-ignition_source_radius) / ignition_source_radius
+        !
+        energy_source = energy_source*exp(-36.0_wp*r*r*r)
+        !
+      end if
+      !
+      ! If the temperature at this point is greater than the input maximum
+      ! ignition temperature, change ignition_prod2reac_L2_ratio_goal to
+      ! a negative value to turn off ignition.
+      !
+      if (gp(n,ntemp) >= ignition_max_temperature) then
+        ignition_prod2reac_L2_ratio_goal = -one
+      end if
+      !
+    end if
+    !
+    ! Add the ignition source term to the RHS of the energy equation
+    ! NOTE: We actually need to subtract it from the RHS because the
+    !       residual array will be multiplied by -1 at the end of the
+    !       current time stage/step before using it to update the
+    !       solution variables.
+    !
+    residual(n,nee) = residual(n,nee) - energy_source*jac(n)/dtsp(n)
+    !
+  end do
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,ignition_prod2reac_L2_ratio_goal, &
+                       1_int_mpi,mpi_flttyp,MPI_MIN,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  if (ignition_prod2reac_L2_ratio_goal < zero) then
+    if (mypnum == glb_root) then
+      write (iout,2) itcur
+    end if
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  1 format (//,2x,80("#"),//, &
+               6x,"STARTING IGNITION SOURCE TERM AT TIMESTEP # ",i0,//, &
+               2x,80("#"),//)
+  2 format (//,2x,80("#"),//, &
+               6x,"TURNING OFF IGNITION SOURCE TERM AT TIMESTEP # ",i0,//, &
+               2x,80("#"),//)
+  3 format (//,2x,80("#"),//, &
+               6x,"DISABLING THE IGNITION SOURCE TERM BECAUSE",/, &
+               6x,"THE IGNITION SOURCE TERM RADIUS IS ZERO!!",//, &
+               2x,80("#"),//)
+  !
+end subroutine compute_ignition_source_ncc
 !
 !###############################################################################
 !
@@ -816,13 +1052,15 @@ subroutine compute_ignition_source(n1,n2,cv,gp,residual)
   !      where Old_con is the original mass fraction.
   !======================================================================
   !
-  use ovar,        only : uverr,cv_ref
-  use ovar,        only : ignition_start_timestep
+  use ovar,        only : uverr,cv_ref,itcur,rhoref,aref,tref
   use ovar,        only : ignition_prod2reac_L2_ratio_goal
+  use ovar,        only : ignition_max_temperature
+  use ovar,        only : ignition_spark_cap
   use ovar,        only : ignition_source_magnitude
   use ovar,        only : ignition_source_radius
   use ovar,        only : ignition_source_location
   use geovar,      only : xyz
+  use flowvar,     only : dtsp
   use metrics_mod, only : jac
   !
   !.. Formal Arguments ..
@@ -833,11 +1071,14 @@ subroutine compute_ignition_source(n1,n2,cv,gp,residual)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: r,x,y,z
+  real(wp) :: r,x,y,z,spark
   real(wp) :: p2r,energy_source
+  real(wp) :: products_L2_sum
+  real(wp) :: reactants_L2_sum
   !
   !.. Local Saved Scalars ..
-  real(wp), save :: ign_mag = zero
+  real(wp),    save :: ign_mag = zero
+  logical(lk), save :: ignition_started = fals
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_ignition_source"
@@ -846,13 +1087,63 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  ! Perform some initializations if this is
+  ! the first time calling this procedure.
+  !
+  if (.not. ignition_started) then
+    !
+    ! If ignition_source_radius is zero, change
+    ! ignition_prod2reac_L2_ratio_goal to a negative
+    ! value to turn disable ignition.
+    !
+    if (ignition_source_radius == zero) then
+      ignition_prod2reac_L2_ratio_goal = -one
+      if (mypnum == glb_root) then
+        write (iout,3)
+      end if
+      call debug_timer(leaving_procedure,pname)
+      return
+    end if
+    !
+    ! Initialize the ignition input values
+    !
+    ignition_started = true
+    !
+    ignition_max_temperature = ignition_max_temperature / tref
+    ignition_spark_cap = ignition_spark_cap / (rhoref*aref*aref)
+    !
+    if (mypnum == glb_root) then
+      write (iout,1) itcur
+    end if
+    !
+  end if
+  !
+  ! Check if the ratio of [the sum of the product species L2 norms] to
+  ! [the sum of the reactant species L2 norms] has met the input goal.
+  !
+  !
+  if (.not. ignition_started) then
+    ignition_started = true
+    if (mypnum == glb_root) then
+      write (iout,1) itcur
+    end if
+  end if
+  !
   if (allocated(uverr)) then
     !
     ! Compute the ratio of [the sum of the product species L2 norms] to
     ! [the sum of the reactant species L2 norms]
     !
-    p2r = sum( uverr( product_species_list(:),2,2) ) / &
-          sum( uverr(reactant_species_list(:),2,2) )
+    products_L2_sum  = sum( uverr( product_species_list(:),2,2) )
+    reactants_L2_sum = sum( uverr(reactant_species_list(:),2,2) )
+    !
+    if (reactants_L2_sum /= zero) then
+      p2r = products_L2_sum / reactants_L2_sum
+    else
+      p2r = zero
+    end if
+   !p2r = sum( uverr( product_species_list(:),2,2) ) / &
+   !      sum( uverr(reactant_species_list(:),2,2) )
     !
     ! If the above ratio is greater than the value of the input goal, we
     ! will assume that ignition was successful and reactions are occurring.
@@ -861,13 +1152,18 @@ continue
     !
     if (p2r > ignition_prod2reac_L2_ratio_goal) then
       ignition_prod2reac_L2_ratio_goal = -one
+      if (mypnum == glb_root) then
+        write (iout,2) itcur
+      end if
       call debug_timer(leaving_procedure,pname)
       return
     end if
     !
   end if
   !
-  ign_mag = ign_mag + ignition_source_magnitude * cv_ref(nee)
+  ign_mag = ign_mag + abs(ignition_source_magnitude) * cv_ref(nee)
+  !
+  spark = min(ign_mag,ignition_spark_cap)
   !
   x = zero
   y = zero
@@ -885,33 +1181,91 @@ continue
     !
     if (ignition_source_radius < zero) then
       !
+      ! If ignition_source_radius is less than zero, use a Gaussian function
+      ! based on radial distance from the input ignition location as the
+      ! magnitude of the energy source term. The input value of
+      ! ignition_source_radius should be approximately the radial distance from
+      ! the ignition location at which the Gaussian energy source term reaches
+      ! machine precision.
+      !
       if (r <= abs(ignition_source_radius)) then
         !
         r = r/abs(ignition_source_radius)
         !
-        energy_source = ign_mag*exp(-36.0_wp*r*r)
+        energy_source = spark*exp(-36.0_wp*r*r)
+        !
+        ! If the temperature at this point is greater than the input maximum
+        ! ignition temperature, change ignition_prod2reac_L2_ratio_goal to
+        ! a negative value to turn off ignition.
+        !
+        if (gp(n,ntemp) >= ignition_max_temperature) then
+          ignition_prod2reac_L2_ratio_goal = -one
+        end if
         !
       end if
       !
+      ! If the ignition_source_radius is greater than zero, every point that is
+      ! within the ignition_source_radius from the input ignition location will
+      ! get the full value of the energy source term based on the input value of
+      ! ignition_source_magnitude. The energy source term for all points outside
+      ! the ignition_source_radius from the input ignition location will be an
+      ! exponential decay based on radius.
+      !
     else if (ignition_source_radius > zero) then
       !
-      energy_source = ign_mag
+      energy_source = spark
       !
       if (r >= ignition_source_radius) then
         !
-        r = r/ignition_source_radius
+        r = (r-ignition_source_radius)/ignition_source_radius
         !
-        energy_source = energy_source*exp(-36.0_wp*r*r)
+        energy_source = energy_source*exp(-36.0_wp*r*r*r)
         !
+      end if
+      !
+      ! If the temperature at this point is greater than the input maximum
+      ! ignition temperature, change ignition_prod2reac_L2_ratio_goal to
+      ! a negative value to turn off ignition.
+      !
+      if (gp(n,ntemp) >= ignition_max_temperature) then
+        ignition_prod2reac_L2_ratio_goal = -one
       end if
       !
     end if
     !
-    residual(n,nee) = residual(n,nee) - energy_source*jac(n)
+    ! Add the ignition source term to the RHS of the energy equation
+    ! NOTE: We actually need to subtract it from the RHS because the
+    !       residual array will be multiplied by -1 at the end of the
+    !       current time stage/step before using it to update the
+    !       solution variables.
+    !
+    residual(n,nee) = residual(n,nee) - energy_source*jac(n)/dtsp(n)
     !
   end do
   !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,ignition_prod2reac_L2_ratio_goal, &
+                       1_int_mpi,mpi_flttyp,MPI_MIN,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  if (ignition_prod2reac_L2_ratio_goal < zero) then
+    if (mypnum == glb_root) then
+      write (iout,2) itcur
+    end if
+  end if
+  !
   call debug_timer(leaving_procedure,pname)
+  !
+  1 format (//,2x,80("#"),//, &
+               6x,"STARTING IGNITION SOURCE TERM AT TIMESTEP # ",i0,//, &
+               2x,80("#"),//)
+  2 format (//,2x,80("#"),//, &
+               6x,"TURNING OFF IGNITION SOURCE TERM AT TIMESTEP # ",i0,//, &
+               2x,80("#"),//)
+  3 format (//,2x,80("#"),//, &
+               6x,"DISABLING THE IGNITION SOURCE TERM BECAUSE",/, &
+               6x,"THE IGNITION SOURCE TERM RADIUS IS ZERO!!",//, &
+               2x,80("#"),//)
   !
 end subroutine compute_ignition_source
 !
