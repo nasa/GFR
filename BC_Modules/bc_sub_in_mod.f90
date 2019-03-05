@@ -171,13 +171,13 @@ continue
         ! back out the inflow conserved variables at the boundary.
         !
         if (nr == 3) then
-          call get_bc_sub_inflow_sol_cgp_v4_3d(n1,n2,facenrm, &
+          call get_bc_sub_inflow_sol_cpg_v4_3d(n1,n2,facenrm, &
                                                face_cv,face_gp,pv_bc)
         else if (nr == 2) then
-          call get_bc_sub_inflow_sol_cgp_v4_2d(n1,n2,facenrm, &
+          call get_bc_sub_inflow_sol_cpg_v4_2d(n1,n2,facenrm, &
                                                face_cv,face_gp,pv_bc)
         else
-          call get_bc_sub_inflow_sol_cgp_v4_1d(n1,n2,facenrm, &
+          call get_bc_sub_inflow_sol_cpg_v4_1d(n1,n2,facenrm, &
                                                face_cv,face_gp,pv_bc)
         end if
         !
@@ -2161,7 +2161,7 @@ end subroutine get_bc_sub_inflow_sol_cpg_v3_1d
 !###############################################################################
 !
 pure &
-subroutine get_bc_sub_inflow_sol_cgp_v4_3d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
+subroutine get_bc_sub_inflow_sol_cpg_v4_3d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -2277,12 +2277,12 @@ continue
     !
   end do
   !
-end subroutine get_bc_sub_inflow_sol_cgp_v4_3d
+end subroutine get_bc_sub_inflow_sol_cpg_v4_3d
 !
 !###############################################################################
 !
 pure &
-subroutine get_bc_sub_inflow_sol_cgp_v4_2d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
+subroutine get_bc_sub_inflow_sol_cpg_v4_2d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -2389,12 +2389,12 @@ continue
     !
   end do
   !
-end subroutine get_bc_sub_inflow_sol_cgp_v4_2d
+end subroutine get_bc_sub_inflow_sol_cpg_v4_2d
 !
 !###############################################################################
 !
 pure &
-subroutine get_bc_sub_inflow_sol_cgp_v4_1d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
+subroutine get_bc_sub_inflow_sol_cpg_v4_1d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -2492,7 +2492,7 @@ continue
     !
   end do
   !
-end subroutine get_bc_sub_inflow_sol_cgp_v4_1d
+end subroutine get_bc_sub_inflow_sol_cpg_v4_1d
 !
 !###############################################################################
 !
