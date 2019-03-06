@@ -77,21 +77,38 @@ continue
   !
   if (ncs > 0) then
     !
-    ! Compute the subsonic inflow boundary conditions
-    ! for a thermally perfect gas mixture.
-    !
-    if (nr == 3) then
-      call get_bc_sub_inflow_sol_tpg_3d(n1,n2,facenrm, &
-                                        face_cv,face_gp,pv_bc, &
-                                        newton_failures)
-    else if (nr == 2) then
-      call get_bc_sub_inflow_sol_tpg_2d(n1,n2,facenrm, &
-                                        face_cv,face_gp,pv_bc, &
-                                        newton_failures)
+    if (sub_inflow_method == 2) then
+      !
+      ! This method uses the specified boundary condition density and
+      ! velocities, and extrapolates interior pressure to the boundary.
+      !
+      if (nr == 3) then
+        call get_bc_sub_inflow_sol_tpg_v2_3d(n1,n2,face_cv,face_gp,pv_in)
+      else if (nr == 2) then
+        call get_bc_sub_inflow_sol_tpg_v2_2d(n1,n2,face_cv,face_gp,pv_in)
+      else
+        call get_bc_sub_inflow_sol_tpg_v2_1d(n1,n2,face_cv,face_gp,pv_in)
+      end if
+      !
     else
-      call get_bc_sub_inflow_sol_tpg_1d(n1,n2,facenrm, &
-                                        face_cv,face_gp,pv_bc, &
-                                        newton_failures)
+      !
+      ! Compute the subsonic inflow boundary conditions
+      ! for a thermally perfect gas mixture.
+      !
+      if (nr == 3) then
+        call get_bc_sub_inflow_sol_tpg_3d(n1,n2,facenrm, &
+                                          face_cv,face_gp,pv_bc, &
+                                          newton_failures)
+      else if (nr == 2) then
+        call get_bc_sub_inflow_sol_tpg_2d(n1,n2,facenrm, &
+                                          face_cv,face_gp,pv_bc, &
+                                          newton_failures)
+      else
+        call get_bc_sub_inflow_sol_tpg_1d(n1,n2,facenrm, &
+                                          face_cv,face_gp,pv_bc, &
+                                          newton_failures)
+      end if
+      !
     end if
     !
   else
@@ -3420,6 +3437,324 @@ continue
   ! Finished setting subsonic inflow boundary conditions
   !
 end subroutine get_bc_sub_inflow_sol_tpg_1d
+!
+!###############################################################################
+!
+#ifdef DISABLE_FOR_GPU
+pure
+#endif
+subroutine get_bc_sub_inflow_sol_tpg_v2_3d(n1,n2,face_cv,face_gp,pv_bc)
+  !
+  ! Routine to set subsonic inflow boundary conditions for a thermally
+  ! perfect gas mixture on any subset of a block face. This version fixes
+  ! species densities and velocities to the flow conditions specified
+  ! for this boundary, and extrapolates pressure from the interior.
+  !
+  ! #######################################################################
+  ! #######################################################################
+  ! ##  Subsonic inflow boundary condition
+  ! ##    - Fix species densities to specified boundary species densities
+  ! ##    - Fix velocity to specified boundary velocity
+  ! ##    - Extrapolate pressure from the interior
+  ! #######################################################################
+  ! #######################################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  ! FACE_GP : Gas properties at the flux points
+  ! PV_BC   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use thermo_mod, only : compute_mixture_rgas
+  use thermo_mod, only : compute_mixture_enthalpy
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: pv_bc(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  real(wp), intent(inout) :: face_gp(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n
+  real(wp) :: rho_bc,vx_bc,vy_bc,vz_bc,ske_bc,rmix_bc
+  real(wp) :: rhoR_inv,pres,enth
+  !
+continue
+  !
+  ! Precompute the BC specified inflow conditions
+  !
+  rho_bc = pv_bc(nec)
+  vx_bc  = pv_bc(nmx)
+  vy_bc  = pv_bc(nmy)
+  vz_bc  = pv_bc(nmz)
+  ske_bc = half * rho_bc * (vx_bc*vx_bc + vy_bc*vy_bc + vz_bc*vz_bc)
+  !
+  call compute_mixture_rgas(pv_bc(1:ncs),rmix_bc)
+  !
+  ! Copy the BC specified inflow mass fractions
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,pv_bc)
+  do m = 1,ncs
+    do n = n1,n2
+      face_cv(n,m,2) = pv_bc(m)
+    end do
+  end do
+  !
+  ! Compute the boundary condition temperature from the BC specified
+  ! density and extrapolated interior pressure.
+  !
+  rhoR_inv = one / (rho_bc*rmix_bc)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_gp)
+  do n = n1,n2
+    !
+    pres = face_gp(n,npres,1)
+    !
+    face_gp(n,npres,2) = pres
+    face_gp(n,ntemp,2) = pres * rhoR_inv
+    !
+  end do
+  !
+  ! Compute the mixture enthalpy
+  !
+  call compute_mixture_enthalpy(n1,n2,face_cv(:,1:ncs,2), &
+                                face_gp(:,ntemp,2),face_gp(:,nenth,2))
+  !
+  ! Compute the remaining flow variables
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
+  do n = n1,n2
+    !
+    pres = face_gp(n,npres,2)
+    enth = face_gp(n,nenth,2)
+    !
+    face_cv(n,nec,2) = rho_bc
+    face_cv(n,nmx,2) = rho_bc*vx_bc
+    face_cv(n,nmy,2) = rho_bc*vy_bc
+    face_cv(n,nmz,2) = rho_bc*vz_bc
+    face_cv(n,nee,2) = rho_bc*enth - pres + ske_bc
+    !
+  end do
+  !
+  ! Convert the species mass fractions to species densities
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv)
+  do m = 1,ncs
+    do n = n1,n2
+      face_cv(n,m,2) = rho_bc*face_cv(n,m,2)
+    end do
+  end do
+  !
+end subroutine get_bc_sub_inflow_sol_tpg_v2_3d
+!
+!###############################################################################
+!
+#ifdef DISABLE_FOR_GPU
+pure
+#endif
+subroutine get_bc_sub_inflow_sol_tpg_v2_2d(n1,n2,face_cv,face_gp,pv_bc)
+  !
+  ! Routine to set subsonic inflow boundary conditions for a thermally
+  ! perfect gas mixture on any subset of a block face. This version fixes
+  ! species densities and velocities to the flow conditions specified
+  ! for this boundary, and extrapolates pressure from the interior.
+  !
+  ! #######################################################################
+  ! #######################################################################
+  ! ##  Subsonic inflow boundary condition
+  ! ##    - Fix species densities to specified boundary species densities
+  ! ##    - Fix velocity to specified boundary velocity
+  ! ##    - Extrapolate pressure from the interior
+  ! #######################################################################
+  ! #######################################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  ! FACE_GP : Gas properties at the flux points
+  ! PV_BC   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use thermo_mod, only : compute_mixture_rgas
+  use thermo_mod, only : compute_mixture_enthalpy
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: pv_bc(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  real(wp), intent(inout) :: face_gp(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n
+  real(wp) :: rho_bc,vx_bc,vy_bc,ske_bc,rmix_bc
+  real(wp) :: rhoR_inv,pres,enth
+  !
+continue
+  !
+  ! Precompute the BC specified inflow conditions
+  !
+  rho_bc = pv_bc(nec)
+  vx_bc  = pv_bc(nmx)
+  vy_bc  = pv_bc(nmy)
+  ske_bc = half * rho_bc * (vx_bc*vx_bc + vy_bc*vy_bc)
+  !
+  call compute_mixture_rgas(pv_bc(1:ncs),rmix_bc)
+  !
+  ! Copy the BC specified inflow mass fractions
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,pv_bc)
+  do m = 1,ncs
+    do n = n1,n2
+      face_cv(n,m,2) = pv_bc(m)
+    end do
+  end do
+  !
+  ! Compute the boundary condition temperature from the BC specified
+  ! density and extrapolated interior pressure.
+  !
+  rhoR_inv = one / (rho_bc*rmix_bc)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_gp)
+  do n = n1,n2
+    !
+    pres = face_gp(n,npres,1)
+    !
+    face_gp(n,npres,2) = pres
+    face_gp(n,ntemp,2) = pres * rhoR_inv
+    !
+  end do
+  !
+  ! Compute the mixture enthalpy
+  !
+  call compute_mixture_enthalpy(n1,n2,face_cv(:,1:ncs,2), &
+                                face_gp(:,ntemp,2),face_gp(:,nenth,2))
+  !
+  ! Compute the remaining flow variables
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
+  do n = n1,n2
+    !
+    pres = face_gp(n,npres,2)
+    enth = face_gp(n,nenth,2)
+    !
+    face_cv(n,nec,2) = rho_bc
+    face_cv(n,nmx,2) = rho_bc*vx_bc
+    face_cv(n,nmy,2) = rho_bc*vy_bc
+    face_cv(n,nee,2) = rho_bc*enth - pres + ske_bc
+    !
+  end do
+  !
+  ! Convert the species mass fractions to species densities
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv)
+  do m = 1,ncs
+    do n = n1,n2
+      face_cv(n,m,2) = rho_bc*face_cv(n,m,2)
+    end do
+  end do
+  !
+end subroutine get_bc_sub_inflow_sol_tpg_v2_2d
+!
+!###############################################################################
+!
+#ifdef DISABLE_FOR_GPU
+pure
+#endif
+subroutine get_bc_sub_inflow_sol_tpg_v2_1d(n1,n2,face_cv,face_gp,pv_bc)
+  !
+  ! Routine to set subsonic inflow boundary conditions for a thermally
+  ! perfect gas mixture on any subset of a block face. This version fixes
+  ! species densities and velocities to the flow conditions specified
+  ! for this boundary, and extrapolates pressure from the interior.
+  !
+  ! #######################################################################
+  ! #######################################################################
+  ! ##  Subsonic inflow boundary condition
+  ! ##    - Fix species densities to specified boundary species densities
+  ! ##    - Fix velocity to specified boundary velocity
+  ! ##    - Extrapolate pressure from the interior
+  ! #######################################################################
+  ! #######################################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  ! FACE_GP : Gas properties at the flux points
+  ! PV_BC   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use thermo_mod, only : compute_mixture_rgas
+  use thermo_mod, only : compute_mixture_enthalpy
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: pv_bc(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  real(wp), intent(inout) :: face_gp(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n
+  real(wp) :: rho_bc,vx_bc,ske_bc,rmix_bc
+  real(wp) :: rhoR_inv,pres,enth
+  !
+continue
+  !
+  ! Precompute the BC specified inflow conditions
+  !
+  rho_bc = pv_bc(nec)
+  vx_bc  = pv_bc(nmx)
+  ske_bc = half * rho_bc * vx_bc*vx_bc
+  !
+  call compute_mixture_rgas(pv_bc(1:ncs),rmix_bc)
+  !
+  ! Copy the BC specified inflow mass fractions
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,pv_bc)
+  do m = 1,ncs
+    do n = n1,n2
+      face_cv(n,m,2) = pv_bc(m)
+    end do
+  end do
+  !
+  ! Compute the boundary condition temperature from the BC specified
+  ! density and extrapolated interior pressure.
+  !
+  rhoR_inv = one / (rho_bc*rmix_bc)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_gp)
+  do n = n1,n2
+    !
+    pres = face_gp(n,npres,1)
+    !
+    face_gp(n,npres,2) = pres
+    face_gp(n,ntemp,2) = pres * rhoR_inv
+    !
+  end do
+  !
+  ! Compute the mixture enthalpy
+  !
+  call compute_mixture_enthalpy(n1,n2,face_cv(:,1:ncs,2), &
+                                face_gp(:,ntemp,2),face_gp(:,nenth,2))
+  !
+  ! Compute the remaining flow variables
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
+  do n = n1,n2
+    !
+    pres = face_gp(n,npres,2)
+    enth = face_gp(n,nenth,2)
+    !
+    face_cv(n,nec,2) = rho_bc
+    face_cv(n,nmx,2) = rho_bc*vx_bc
+    face_cv(n,nee,2) = rho_bc*enth - pres + ske_bc
+    !
+  end do
+  !
+  ! Convert the species mass fractions to species densities
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv)
+  do m = 1,ncs
+    do n = n1,n2
+      face_cv(n,m,2) = rho_bc*face_cv(n,m,2)
+    end do
+  end do
+  !
+end subroutine get_bc_sub_inflow_sol_tpg_v2_1d
 !
 !###############################################################################
 !
