@@ -10,7 +10,7 @@ module ovar
   use module_kind_types, only : visc_interface_fluxes
   use module_kind_types, only : laminar_flow
   use module_kind_types, only : one_work_unit
-  use module_kind_types, only : iout,zero,one,eps6
+  use module_kind_types, only : iout,zero,one,eps6,eps12
   use module_kind_types, only : mpi_wtime
   use module_kind_types, only : Correction_gDG
   use module_kind_types, only : bc_unknown
@@ -411,6 +411,7 @@ module ovar
   !
   logical(lk), public, save :: force_nd_subroutines = fals
   real(wp),    public, save :: newton_rlx = 1.0_wp
+  real(wp),    public, save :: conv_temp = eps12
   integer,     public, save :: chemistry_sub_iterations = -1
   logical(lk), public, save :: ignore_thermo_newton_warnings = fals
   !
@@ -1030,7 +1031,7 @@ module input_namelist_mod
   use ovar,      only : output_debug_species_variables
   use ovar,      only : output_grdnt_species_variables
   use ovar,      only : sem_profile_file
-  use ovar,      only : force_nd_subroutines, newton_rlx
+  use ovar,      only : force_nd_subroutines, newton_rlx, conv_temp
   use ovar,      only : chemistry_sub_iterations
   use ovar,      only : ignore_thermo_newton_warnings
   use module_cgns_types, only : cgns_use_queue
@@ -1215,7 +1216,8 @@ module input_namelist_mod
   ! OPTION TO OUTPUT CONTENTS OF BFACE ARRAY
   namelist / input / output_bface_array
   !
-  namelist / input / force_nd_subroutines, dmat_grad_temp_order, newton_rlx, &
+  namelist / input / force_nd_subroutines, dmat_grad_temp_order, &
+                     newton_rlx, conv_temp, &
                      chemistry_sub_iterations, ignore_thermo_newton_warnings
   ! INPUT BOUNDARY CONDITIONS
   namelist / input / bc_input
