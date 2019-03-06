@@ -1748,6 +1748,7 @@ subroutine create_solver_geom_arrays_cgns
   integer :: igrps,bgrps,b0grps,b0cells
   integer :: host_cell,host_geom,host_side
   integer :: npts,ncnods,nfnods,bnd_cell
+  real(wp) :: zmin,zmax
   logical(lk) :: error_found
   character(len=80) :: array_name
   !
@@ -1800,6 +1801,43 @@ continue
 #endif
   !
   ! Get the physical directional dimensions from the CGNS bases
+  !
+  nr = maxval( base(:)%phys_dim )
+  !
+  ! Check to make sure that the grid coordinates in the z direction are
+  ! not all the same value, which would mean this is actually a 2D grid
+  !
+  if (nr == 3) then
+    !
+    do n = 1,size(base)
+      if (allocated(base(n)%zone)) then
+        !
+        zmin = huge(zero)
+        zmax = -huge(zero)
+        !
+        do j = 1,size(base(n)%zone)
+          if (allocated(base(n)%zone(j)%grid)) then
+            do i = 1,size(base(n)%zone(j)%grid)
+              if (allocated(base(n)%zone(j)%grid(i)%coord)) then
+                if (size(base(n)%zone(j)%grid(i)%coord) >= 3) then
+                  zmin = min(zmin,minval(base(n)%zone(j)%grid(i)%coord(3)%x))
+                  zmax = max(zmax,maxval(base(n)%zone(j)%grid(i)%coord(3)%x))
+                end if
+              end if
+            end do
+          end if
+        end do
+        !
+        if (abs(zmax-zmin) < eps6) then
+          if (base(n)%cell_dim < 3) then
+            base(n)%phys_dim = 2
+          end if
+        end if
+        !
+      end if
+    end do
+    !
+  end if
   !
   nr = maxval( base(:)%phys_dim )
   !
