@@ -232,6 +232,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/mms_mod.o \
                $(OBJDIR)/channel_mod.o \
                $(OBJDIR)/metrics.o \
+               $(OBJDIR)/quadrature_mod.o \
                $(OBJDIR)/restart_mod.o \
                $(OBJDIR)/projection_mod.o \
                $(OBJDIR)/interpolation_mod.o \

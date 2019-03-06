@@ -2592,12 +2592,14 @@ end subroutine create_bc_in
 subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   !
   !.. Use Statements ..
-  use geovar,     only : nr,bface
-  use ovar,       only : bc_input,bc_in
-  use ovar,       only : tmin,tmax,tref
-  use ovar,       only : rhoref,aref,cpref_nd
-  use ovar,       only : governing_equations
-  use thermo_mod, only : species_name
+  use geovar,         only : nr,bface,face
+  use ovar,           only : bc_input,bc_in
+  use ovar,           only : tmin,tmax,tref
+  use ovar,           only : rhoref,aref,cpref_nd
+  use ovar,           only : governing_equations
+  use metrics_mod,    only : facenrm
+  use quadrature_mod, only : std_elem
+  use thermo_mod,     only : species_name
   !
   !.. Optional Arguments ..
   integer,     optional, intent(in) :: ibc_beg
@@ -2606,11 +2608,12 @@ subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   integer,     optional, intent(in) :: num_bc_faces
   !
   !.. Local Scalars ..
-  integer     :: this_bc,ii,m,nf,bc_type,bc_beg,bc_end,bc_idx
-  real(wp)    :: r,p,t,h,r0,p0,t0,h0,mach,aspd,visc,cond,reyn
-  real(wp)    :: vmag,alpha,beta,total_cond,gamm,rgas,cp
-  real(wp)    :: gm1,gam_over_gm1,one_over_gm1
-  real(wp)    :: rdim,adim,tdim
+  integer  :: ii,k,m,nf,nfp,f0
+  integer  :: this_bc,bc_type,bc_beg,bc_end,bc_idx
+  real(wp) :: r,p,t,h,r0,p0,t0,h0,mach,aspd,visc,cond,reyn
+  real(wp) :: vmag,alpha,beta,total_cond,gamm,rgas,cp
+  real(wp) :: gm1,gam_over_gm1,one_over_gm1
+  real(wp) :: rdim,adim,tdim,face_area
   !
   character(len=5)  :: cdim
   character(len=10) :: r_units,t_units,p_units,v_units,h_units
@@ -2856,12 +2859,21 @@ continue
     else
       !
       ii = 0
+      face_area = zero
       bface_loop: do nf = 1,size(bface,dim=2)
         !
         if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
         !
         if (bface(6,nf) == this_bc) then
           ii = ii + 1
+          if (allocated(face) .and. allocated(facenrm)) then
+            f0 = face(nf)%beg_fp - 1
+            nfp = face(nf)%end_fp - f0
+            do k = 1,nfp
+              face_area = face_area + norm2(facenrm(:,f0+k))* &
+                          std_elem( face(nf)%geom , face(nf)%order )%wts(k)
+            end do
+          end if
         end if
         !
       end do bface_loop
@@ -2869,10 +2881,14 @@ continue
       call mpi_allreduce(MPI_IN_PLACE,ii,1_int_mpi,mpi_inttyp, &
                          MPI_SUM,MPI_COMM_WORLD,mpierr)
       !
+      call mpi_allreduce(MPI_IN_PLACE,face_area,1_int_mpi,mpi_flttyp, &
+                         MPI_SUM,MPI_COMM_WORLD,mpierr)
+      !
     end if
     !
     if (mypnum == glb_root) then
       write (iout,7) ii
+      write (iout,8) face_area
       flush (iout)
     end if
     !
@@ -2945,6 +2961,7 @@ continue
  !          4x,"Viscosity             = ",es14.6," kg/(m*s)",/, &
  !          4x,"Reynolds #            = ",es14.6,/)
   7 format (4x,"Number of boundary faces for this BC = ",i0)
+  8 format (4x,"               Face area for this BC = ",es18.10)
   !
 end subroutine write_bc_conditions
 !
