@@ -3490,6 +3490,7 @@ subroutine mach_total_temp_tpg(mass_frac,rgas,gamm,t,t0,mach)
   !
   !.. Use Statements ..
   use ovar, only : tref,tmin,tmax
+  use ovar, only : conv_temp
   !
   use thermo_mod, only : compute_mixture_enthalpy
   use thermo_mod, only : compute_mixture_cp
@@ -3511,7 +3512,7 @@ subroutine mach_total_temp_tpg(mass_frac,rgas,gamm,t,t0,mach)
   character(len=*), parameter :: pname = "mach_total_temp_tpg"
   !
   integer,  parameter :: newton_iter = 100
-  real(wp), parameter :: conv_temp = eps6
+ !real(wp), parameter :: conv_temp = eps6
   !
 continue
   !

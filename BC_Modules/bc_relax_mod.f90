@@ -266,7 +266,7 @@ subroutine get_relaxed_total_bc(relax,pv_fs,gp_fs,pv_bc,gp_bc, &
   !.. Use Statements ..
   use ovar, only : relaxation_t
   use ovar, only : gam,rgasref_nd
-  use ovar, only : tref,tmin,tmax
+  use ovar, only : tref,tmin,tmax,conv_temp
   !
   use thermo_mod, only : compute_mixture_rgas
   use thermo_mod, only : compute_mixture_gamma
@@ -306,7 +306,7 @@ subroutine get_relaxed_total_bc(relax,pv_fs,gp_fs,pv_bc,gp_bc, &
   !
   !.. Local Parameters ..
   integer,  parameter :: newton_iter = 100
-  real(wp), parameter :: conv_temp = eps6
+ !real(wp), parameter :: conv_temp = eps6
   !
 continue
   !

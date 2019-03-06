@@ -1246,7 +1246,7 @@ subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
   !
   !.. Use Statements ..
   use ovar, only : tref,tmin,tmax
-  use ovar, only : newton_rlx
+  use ovar, only : newton_rlx,conv_temp
   use ovar, only : traceback_unconverged_newton_temps
   use ovar, only : ignore_thermo_newton_warnings
 #ifdef SPECIAL_FOR_INTEL
@@ -1288,7 +1288,7 @@ subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
   integer, parameter :: newton_iter = 20
   !
  !real(wp), parameter :: conv_temp = eps2  ! NCC code
-  real(wp), parameter :: conv_temp = eps6
+ !real(wp), parameter :: conv_temp = eps6
  !real(wp), parameter :: conv_temp = eps8  ! VULCAN if ref. Mach > 0.01
  !real(wp), parameter :: conv_temp = eps12 ! VULCAN if ref. Mach <= 0.01
   !

@@ -525,7 +525,7 @@ subroutine get_bc_gen_inflow_sol_tpg_3d(n1,n2,facenrm,face_cv,face_gp, &
   !                 pv_bc(nee)     = relaxed total pressure
   !
   !.. Use Statements ..
-  use ovar, only : tref,tmin,tmax
+  use ovar, only : tref,tmin,tmax,conv_temp
   !
   use thermo_mod, only : compute_mixture_gamma
   use thermo_mod, only : compute_mixture_rgas
@@ -559,7 +559,7 @@ subroutine get_bc_gen_inflow_sol_tpg_3d(n1,n2,facenrm,face_cv,face_gp, &
   !
   !.. Local Parameters ..
   integer,  parameter :: newton_iter = 100
-  real(wp), parameter :: conv_temp = eps6
+ !real(wp), parameter :: conv_temp = eps6
   !
 continue
   !
@@ -790,7 +790,7 @@ subroutine get_bc_gen_inflow_sol_tpg_2d(n1,n2,facenrm,face_cv,face_gp, &
   !                 pv_bc(nee)     = relaxed total pressure
   !
   !.. Use Statements ..
-  use ovar, only : tref,tmin,tmax
+  use ovar, only : tref,tmin,tmax,conv_temp
   !
   use thermo_mod, only : compute_mixture_gamma
   use thermo_mod, only : compute_mixture_rgas
@@ -824,7 +824,7 @@ subroutine get_bc_gen_inflow_sol_tpg_2d(n1,n2,facenrm,face_cv,face_gp, &
   !
   !.. Local Parameters ..
   integer,  parameter :: newton_iter = 100
-  real(wp), parameter :: conv_temp = eps6
+ !real(wp), parameter :: conv_temp = eps6
   !
 continue
   !
@@ -1049,7 +1049,7 @@ subroutine get_bc_gen_inflow_sol_tpg_1d(n1,n2,facenrm,face_cv,face_gp, &
   !                 pv_bc(nee)     = relaxed total pressure
   !
   !.. Use Statements ..
-  use ovar, only : tref,tmin,tmax
+  use ovar, only : tref,tmin,tmax,conv_temp
   !
   use thermo_mod, only : compute_mixture_gamma
   use thermo_mod, only : compute_mixture_rgas
@@ -1083,7 +1083,7 @@ subroutine get_bc_gen_inflow_sol_tpg_1d(n1,n2,facenrm,face_cv,face_gp, &
   !
   !.. Local Parameters ..
   integer,  parameter :: newton_iter = 100
-  real(wp), parameter :: conv_temp = eps6
+ !real(wp), parameter :: conv_temp = eps6
   !
 continue
   !
