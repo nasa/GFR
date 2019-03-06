@@ -190,7 +190,8 @@ westmere: OPTIM = $(OPTFLAG) $(WESOPT)
 westmere: optimize
 
 .PHONY: merope
-merope: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
+merope: OPTIM = $(OPTFLAG) $(WESOPT)
+#merope: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
 merope: optimize
 
 .PHONY: gpu-mm
