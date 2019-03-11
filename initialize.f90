@@ -2650,6 +2650,8 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  face_area = zero
+  !
   ! Determine whether to output dimensional or nondimensional quantities for
   ! each boundary condition based on the optional argument 'dimensional'.
   !
