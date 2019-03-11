@@ -106,13 +106,19 @@ continue
         nmcc = 2
       end if
       !
-      allocate ( visc_coef(1:nmvc,1:ncs) , source=zero , &
-                 stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"visc_coef",1,__LINE__,__FILE__,ierr,error_message)
+      if (.not. allocated(visc_coef)) then
+        allocate ( visc_coef(1:nmvc,1:ncs) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"visc_coef",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
       !
-      allocate ( cond_coef(1:nmcc,1:ncs) , source=zero , &
-                 stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"cond_coef",1,__LINE__,__FILE__,ierr,error_message)
+      if (.not. allocated(cond_coef)) then
+        allocate ( cond_coef(1:nmcc,1:ncs) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"cond_coef",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
       !
       if (Transport_Model == CHEMKIN_Curve_Fit) then
         !

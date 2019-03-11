@@ -142,10 +142,12 @@ continue
       !
     end do
     !
-    allocate ( nonreacting_species(1:ncs) , source=true , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"nonreacting_species",1,__LINE__,__FILE__, &
-                     ierr,error_message)
+    if (.not. allocated(nonreacting_species)) then
+      allocate ( nonreacting_species(1:ncs) , source=true , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"nonreacting_species",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
     !
     if (abs(itestcase) == CH4_3D_Diffusion_Flame) then
       !
@@ -238,49 +240,71 @@ continue
   !
   ! Allocate all the arrays needed for CH4 reactions
   !
-  allocate ( fwd_arrh_coef(1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fwd_arrh_coef",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(fwd_arrh_coef)) then
+    allocate ( fwd_arrh_coef(1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"fwd_arrh_coef",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
   !
-  allocate ( bwd_arrh_coef(1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bwd_arrh_coef",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  !
-  !
-  allocate ( fwd_actv_temp(1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fwd_actv_temp",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( bwd_actv_temp(1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bwd_actv_temp",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(bwd_arrh_coef)) then
+    allocate ( bwd_arrh_coef(1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bwd_arrh_coef",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
   !
   !
   !
-  allocate ( fwd_exp(1:ncs,1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fwd_exp",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(fwd_actv_temp)) then
+    allocate ( fwd_actv_temp(1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"fwd_actv_temp",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
   !
-  allocate ( bwd_exp(1:ncs,1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bwd_exp",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(bwd_actv_temp)) then
+    allocate ( bwd_actv_temp(1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bwd_actv_temp",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
   !
   !
   !
-  allocate ( fwd_stoich_coef(1:ncs,1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fwd_stoich_coef",1,__LINE__,__FILE__, &
+  if (.not. allocated(fwd_exp)) then
+    allocate ( fwd_exp(1:ncs,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"fwd_exp",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (.not. allocated(bwd_exp)) then
+    allocate ( bwd_exp(1:ncs,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bwd_exp",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  !
+  !
+  if (.not. allocated(fwd_stoich_coef)) then
+    allocate ( fwd_stoich_coef(1:ncs,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"fwd_stoich_coef",1,__LINE__,__FILE__, &
                    ierr,error_message)
+  end if
   !
-  allocate ( bwd_stoich_coef(1:ncs,1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bwd_stoich_coef",1,__LINE__,__FILE__, &
+  if (.not. allocated(bwd_stoich_coef)) then
+    allocate ( bwd_stoich_coef(1:ncs,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bwd_stoich_coef",1,__LINE__,__FILE__, &
                    ierr,error_message)
+  end if
   !
-  allocate ( stoich_coef(1:ncs,1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"stoich_coef",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(stoich_coef)) then
+    allocate ( stoich_coef(1:ncs,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"stoich_coef",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
   !##############################################
   !
@@ -442,25 +466,35 @@ continue
   ! Allocate all the arrays needed for H2 reactions
   ! NOTE: cbeffc is initialized to 1 instead of 0
   !
-  allocate ( frcoef(1:3,1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"frcoef",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(frcoef)) then
+    allocate ( frcoef(1:3,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"frcoef",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
-  allocate ( scoerp(1:2,1:ncs+1,1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"scoerp",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(scoerp)) then
+    allocate ( scoerp(1:2,1:ncs+1,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"scoerp",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
-  allocate ( fwd_exp(1:ncs,1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fwd_exp",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(fwd_exp)) then
+    allocate ( fwd_exp(1:ncs,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"fwd_exp",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
-  allocate ( bwd_exp(1:ncs,1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bwd_exp",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(bwd_exp)) then
+    allocate ( bwd_exp(1:ncs,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bwd_exp",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
-  allocate ( cbeffc(1:ncs,1:ncr) , source=one , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cbeffc",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(cbeffc)) then
+    allocate ( cbeffc(1:ncs,1:ncr) , source=one , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cbeffc",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
   !##############################################
   !
@@ -569,25 +603,35 @@ continue
   ! Allocate all the arrays needed for H2 reactions
   ! NOTE: cbeffc is initialized to 1 instead of 0
   !
-  allocate ( frcoef(1:3,1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"frcoef",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(frcoef)) then
+    allocate ( frcoef(1:3,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"frcoef",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
-  allocate ( scoerp(1:2,1:ncs+1,1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"scoerp",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(scoerp)) then
+    allocate ( scoerp(1:2,1:ncs+1,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"scoerp",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
-  allocate ( fwd_exp(1:ncs,1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fwd_exp",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(fwd_exp)) then
+    allocate ( fwd_exp(1:ncs,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"fwd_exp",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
-  allocate ( bwd_exp(1:ncs,1:ncr) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bwd_exp",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(bwd_exp)) then
+    allocate ( bwd_exp(1:ncs,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bwd_exp",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
-  allocate ( cbeffc(1:ncs,1:ncr) , source=one , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cbeffc",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(cbeffc)) then
+    allocate ( cbeffc(1:ncs,1:ncr) , source=one , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cbeffc",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
   !##############################################
   !

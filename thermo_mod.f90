@@ -163,13 +163,17 @@ continue
   !
   if (ncs > 0) then
     !
-    allocate ( species_name(1:ncs) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"species_name",1,__LINE__,__FILE__, &
-                     ierr,error_message)
+    if (.not. allocated(species_name)) then
+      allocate ( species_name(1:ncs) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"species_name",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
     !
-    allocate ( mass_frac_ref(1:ncs) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"mass_frac_ref",1,__LINE__,__FILE__, &
-                     ierr,error_message)
+    if (.not. allocated(mass_frac_ref)) then
+      allocate ( mass_frac_ref(1:ncs) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"mass_frac_ref",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
     !
     if (abs(itestcase) == CH4_3D_Diffusion_Flame) then
       !
@@ -327,29 +331,42 @@ continue
     !
     ! Allocate the remaining arrays for species thermodynamic properties
     !
-    allocate ( wtmol(1:ncs) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"wtmol",1,__LINE__,__FILE__,ierr,error_message)
+    if (.not. allocated(wtmol)) then
+      allocate ( wtmol(1:ncs) , source=zero , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"wtmol",1,__LINE__,__FILE__,ierr,error_message)
+    end if
     !
-    allocate ( rspec(1:ncs) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"rspec",1,__LINE__,__FILE__,ierr,error_message)
+    if (.not. allocated(rspec)) then
+      allocate ( rspec(1:ncs) , source=zero , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"rspec",1,__LINE__,__FILE__,ierr,error_message)
+    end if
     !
     ncpc = 5
     !
-    allocate ( cp_coef(1:ncpc,0:2,1:ncs) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"cp_coef",1,__LINE__,__FILE__,ierr,error_message)
+    if (.not. allocated(cp_coef)) then
+      allocate ( cp_coef(1:ncpc,0:2,1:ncs) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"cp_coef",1,__LINE__,__FILE__,ierr,error_message)
+    end if
     !
-    allocate ( enth_coef(1:ncpc+1,0:2,1:ncs) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"enth_coef",1,__LINE__,__FILE__,ierr,error_message)
+    if (.not. allocated(enth_coef)) then
+      allocate ( enth_coef(1:ncpc+1,0:2,1:ncs) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"enth_coef",1,__LINE__,__FILE__,ierr,error_message)
+    end if
     !
-    allocate ( gbfe_coef(1:ncpc+2,0:2,1:ncs) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"gbfe_coef",1,__LINE__,__FILE__,ierr,error_message)
+    if (.not. allocated(gbfe_coef)) then
+      allocate ( gbfe_coef(1:ncpc+2,0:2,1:ncs) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"gbfe_coef",1,__LINE__,__FILE__,ierr,error_message)
+    end if
     !
-    allocate ( dgbfe_coef(1:ncpc+1,0:2,1:ncs) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"dgbfe_coef",1,__LINE__,__FILE__,ierr,error_message)
+    if (.not. allocated(dgbfe_coef)) then
+      allocate ( dgbfe_coef(1:ncpc+1,0:2,1:ncs) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"dgbfe_coef",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
     !
     ! Fill the arrays with the species thermodynamic properties
     !

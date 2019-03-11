@@ -1771,6 +1771,22 @@ continue
   !
   ! Allocate the free stream inflow arrays
   !
+  if (allocated(cv_ref)) then
+    deallocate ( cv_ref , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cv_ref",2,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
+  end if
+  if (allocated(pv_ref)) then
+    deallocate ( pv_ref , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"pv_ref",2,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
+  end if
+  if (allocated(gp_ref)) then
+    deallocate ( gp_ref , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"gp_ref",2,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
+  end if
+  !
   allocate ( cv_ref(1:nq) , source=zero , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cv_ref",1,__LINE__,__FILE__,ierr, &
                    error_message,skip_alloc_pause)

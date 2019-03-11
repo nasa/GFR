@@ -1255,6 +1255,95 @@ subroutine allocate_namelist_variables
   !
 continue
   !
+  ! Make sure everything is deallocated first
+  !
+  if (allocated(bc_input)) then
+    deallocate ( bc_input , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bc_input",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(gridfile)) then
+    deallocate ( gridfile , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"gridfile",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(plot3d_cutfile)) then
+    deallocate ( plot3d_cutfile , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"plot3d_cutfile",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(plot3d_bcsfile)) then
+    deallocate ( plot3d_bcsfile , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"plot3d_bcsfile",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(interpto_gridfile)) then
+    deallocate ( interpto_gridfile , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"interpto_gridfile",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(interpto_plot3d_cutfile)) then
+    deallocate ( interpto_plot3d_cutfile , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"interpto_plot3d_cutfile",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(interpto_plot3d_bcsfile)) then
+    deallocate ( interpto_plot3d_bcsfile , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"interpto_plot3d_bcsfile",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(restart_file)) then
+    deallocate ( restart_file , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"restart_file",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(solution_file)) then
+    deallocate ( solution_file , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"solution_file",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(sem_profile_file)) then
+    deallocate ( sem_profile_file , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sem_profile_file",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(output_dir)) then
+    deallocate ( output_dir , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"output_dir",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(channel_init_file)) then
+    deallocate ( channel_init_file , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"channel_init_file",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(lustre_stripe_size)) then
+    deallocate ( lustre_stripe_size , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"lustre_stripe_size",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(time_ave_file)) then
+    deallocate ( time_ave_file , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"time_ave_file",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(restart_list_file)) then
+    deallocate ( restart_list_file , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"restart_list_file",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
   ! Allocate bc_input before reading the namelist
   !
   allocate ( bc_input(1:20) , stat=ierr , errmsg=error_message )
