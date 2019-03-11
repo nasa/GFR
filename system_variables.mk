@@ -29,6 +29,7 @@ HDF5DIR  := $(HDF5_ROOT)
 SZIPDIR  := $(SZIP_ROOT)
 CGNSDIR  := $(CGNS_ROOT)
 METISDIR := $(METIS_ROOT)
+TECDIR   := /home/sspiegel/Downloads/tecio/tecio/install
 
 # Fortran Preprocessor Definitions
 

@@ -25,6 +25,9 @@ CSFXFLG = .c
 HDF5LIB  := -lhdf5 -ldl -lz
 CGNSLIB  := -lcgns
 METISLIB := -lmetis
+ifdef TECDIR
+  TECLIB  := -lteciompi -lstdc++
+endif
 
 ifdef SZIPDIR
   SZIPLIB := -lsz
@@ -57,11 +60,11 @@ TARGET ?= $(HOSTARCH)
 FPP = $(FPPFLAG) $(METISFPP) $(PBSFPP) $(CGNSFPP) $(MPIFPP) $(MKLFPP) $(OTHERFPP)
 
 #INCDIR = $(sort $(CGNSDIR))
-LIBDIR = $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR))
+LIBDIR = $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR) $(TECDIR))
 
 FINC = $(foreach i,$(INCDIR),-I$(i)/include) -I./ $(MKLINC) $(OTHERINCDIR)
 FLIB = $(foreach i,$(LIBDIR),-L$(i)/lib) $(PBSDIR) $(OTHERLIBDIR)
-FLIB += $(MKLLIB) $(METISLIB) $(CGNSLIB) $(HDF5LIB) $(SZIPLIB) $(PBSLIB) $(OTHERLIB)
+FLIB += $(MKLLIB) $(METISLIB) $(CGNSLIB) $(HDF5LIB) $(SZIPLIB) $(PBSLIB) $(TECLIB) $(OTHERLIB)
 ifeq "$(COMPFAMILY)" "intel"
   FLIB += $(LAPACKLIB) $(BLASLIB)
 endif
