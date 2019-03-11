@@ -546,7 +546,7 @@ continue
   4 format (2x,"n, min, max = ")
   5 format (2x,a,t15," = ",i0)
   6 format (2x,"Called from subroutine ",a,", line ",i0," in file ",a)
-  7 format (2x,i1,2(2x,es14.6))
+  7 format (2x,i3,2(2x,es14.6))
   !
 end subroutine mydebug_g2
 !
