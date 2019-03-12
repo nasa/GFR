@@ -76,12 +76,24 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call interp_cv_to_flxpts_3d(iter,nst)
-  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call interp_cv_to_flxpts_2d
+  if (force_nd_subroutines) then
+    !
+    call interp_cv_to_flxpts_nd(1,nq)
+    !
   else
-    call interp_cv_to_flxpts_nd
+    !
+    if (nr == 3) then
+      call interp_cv_to_flxpts_3d(iter,nst)
+    else if (nr == 2) then
+      call interp_cv_to_flxpts_2d
+    else
+      call interp_cv_to_flxpts_1d
+    end if
+    !
+    if (ncs > 0) then
+      call interp_cv_to_flxpts_nd(1,ncs)
+    end if
+    !
   end if
   !
   ! Update the thermodynamic and transport gas properties
@@ -311,7 +323,104 @@ end subroutine interp_cv_to_flxpts_2d
 !
 !###############################################################################
 !
-subroutine interp_cv_to_flxpts_nd()
+subroutine interp_cv_to_flxpts_1d()
+  !
+  use geovar,            only : ncell,cell,fp
+  use interpolation_mod, only : interp
+  use flowvar,           only : usp
+  use geovar,            only : face
+  use flowvar,           only : faceusp_array
+  !
+  !.. Local Scalars ..
+  integer :: n,nc,n0,ncf,f0
+  integer :: nf,kf,lf,sf,i,j,nfp
+  integer :: this_geom,this_order
+  integer :: face_geom,face_order
+  integer :: fp_offset,face_rot
+  integer :: num_cell_faces
+  real(wp) :: a,face_ec,face_mx,face_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_cv_to_flxpts_1d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(faceusp_array) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(fp) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(usp) &
+  !$ACC&                   PRESENT(interp)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp-1
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    !
+    ! Now interpolate the interior solution gradients to the flux points
+    !
+    ! Loop over the faces of this cell
+    !
+    num_cell_faces = size(cell(nc)%face)
+    !
+    do ncf = 1,num_cell_faces
+      !
+      nf = cell(nc)%face(ncf)%idx  ! index of the current face
+      sf = cell(nc)%face(ncf)%side ! side of face that cell nc is on
+      !
+      face_geom = cell(nc)%face(ncf)%geom   ! geom  of current face
+      face_order = cell(nc)%face(ncf)%order ! order of current face
+      !
+      fp_offset = cell(nc)%face(ncf)%fp_offset
+      face_rot = cell(nc)%face(ncf)%rotation
+      !
+      f0 = face(nf)%beg_fp - 1
+      nfp = face(nf)%end_fp - f0
+      !
+      !$ACC LOOP VECTOR
+      do kf = 1,nfp
+        !
+        ! kf: index of the flx-pt local to this face
+        ! lf: index of flx-pt within interp%mat
+        !
+        lf = fp_offset + fp%geord(face_geom,face_order)%rot(face_rot)%pts(kf)
+        !
+        face_ec = zero
+        face_mx = zero
+        face_ee = zero
+        !
+        do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+               interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+          !
+          j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+          !
+          face_ec = face_ec + a * usp(n0+j,nec)
+          face_mx = face_mx + a * usp(n0+j,nmx)
+          face_ee = face_ee + a * usp(n0+j,nee)
+          !
+        end do
+        !
+        faceusp_array(f0+kf,nec,sf) = face_ec
+        faceusp_array(f0+kf,nmx,sf) = face_mx
+        faceusp_array(f0+kf,nee,sf) = face_ee
+        !
+      end do
+      !
+    end do
+    !
+  end do
+  !
+end subroutine interp_cv_to_flxpts_1d
+!
+!###############################################################################
+!
+subroutine interp_cv_to_flxpts_nd(mbeg,mend)
   !
   use order_mod,         only : maxSP,maxFP
   use geovar,            only : ncell,cell,fp
@@ -319,6 +428,9 @@ subroutine interp_cv_to_flxpts_nd()
   use flowvar,           only : usp
   use geovar,            only : face
   use flowvar,           only : faceusp_array
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: mbeg,mend
   !
   !.. Local Scalars ..
   integer  :: n,nc,n0,k,m,f0
@@ -379,7 +491,7 @@ continue
       !
       !$ACC LOOP VECTOR COLLAPSE(2)
       do kf = 1,nfp
-        do m = 1,nq
+        do m = mbeg,mend
           !
           ! kf: index of the flx-pt local to this face
           ! lf: index of flx-pt within interp%mat
@@ -1913,12 +2025,24 @@ continue
   !
   nr = size(tfluxes,dim=2)
   !
-  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call transform_fluxes_3d(tfluxes,rfluxes)
-  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call transform_fluxes_2d(tfluxes,rfluxes)
+  if (force_nd_subroutines) then
+    !
+    call transform_fluxes_nd(1,nq,tfluxes,rfluxes)
+    !
   else
-    call transform_fluxes_nd(tfluxes,rfluxes)
+    !
+    if (nr == 3) then
+      call transform_fluxes_3d(tfluxes,rfluxes)
+    else if (nr == 2) then
+      call transform_fluxes_2d(tfluxes,rfluxes)
+    else
+      call transform_fluxes_1d(tfluxes,rfluxes)
+    end if
+    !
+    if (ncs > 0) then
+      call transform_fluxes_nd(1,ncs,tfluxes,rfluxes)
+    end if
+    !
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -2105,12 +2229,75 @@ end subroutine transform_fluxes_2d
 !
 !###############################################################################
 !
-subroutine transform_fluxes_nd(tfluxes,rfluxes)
+subroutine transform_fluxes_1d(tfluxes,rfluxes)
   !
   !.. Use Statements ..
   use metrics_mod, only : metrics_array,jac
   !
   !.. Formal Arguments ..
+  real(wp),    intent(in) :: tfluxes(:,:,:)
+  real(wp), intent(inout) :: rfluxes(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,np
+  real(wp) :: d1dx
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "transform_fluxes_1d"
+  !
+continue
+  !
+  np = size(tfluxes,dim=1)
+  !
+  !$ACC PARALLEL LOOP PRESENT(tfluxes,rfluxes,jac,metrics_array)
+  do n = 1,np
+    !
+    d1dx = metrics_array(n,1,1)*jac(n)
+    !
+    rfluxes(n,1,nec) = tfluxes(n,1,nec)*d1dx
+    rfluxes(n,1,nmx) = tfluxes(n,1,nmx)*d1dx
+    rfluxes(n,1,nee) = tfluxes(n,1,nee)*d1dx
+    !
+  end do
+  !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  block
+    !
+    use ovar, only : itcur
+    integer :: io,l,m,n
+    character(len=30) :: fname
+    !
+    write (fname,1) "phys_fluxes",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,np
+      write (io,2) n,((tfluxes(n,l,m), l=1,1), m=nec,nee)
+    end do
+    close (io)
+    !
+    write (fname,1) "comp_fluxes",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,np
+      write (io,2) n,((rfluxes(n,l,m), l=1,1), m=nec,nee)
+    end do
+    close (io)
+    !
+    1 format (a,".",i0,".dat")
+    2 format (i7,2x,20es14.6)
+    !
+  end block
+#endif
+  !
+end subroutine transform_fluxes_1d
+!
+!###############################################################################
+!
+subroutine transform_fluxes_nd(mbeg,mend,tfluxes,rfluxes)
+  !
+  !.. Use Statements ..
+  use metrics_mod, only : metrics_array,jac
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: mbeg,mend
   real(wp),    intent(in) :: tfluxes(:,:,:)
   real(wp), intent(inout) :: rfluxes(:,:,:)
   !
@@ -2127,7 +2314,7 @@ continue
   nr = size(tfluxes,dim=2)
   !
   !$ACC LOOP VECTOR COLLAPSE(3)
-  do m = 1,nq
+  do m = mbeg,mend
     do l = 1,nr
       do k = 1,np
         val = zero
@@ -2149,14 +2336,14 @@ continue
     write (fname,1) "phys_fluxes",itcur
     open (newunit=io,file=fname,status="replace",action="write")
     do n = 1,np
-      write (io,2) n,((tfluxes(n,l,m), l=1,nr), m=1,nq)
+      write (io,2) n,((tfluxes(n,l,m), l=1,nr), m=mbeg,mend)
     end do
     close (io)
     !
     write (fname,1) "comp_fluxes",itcur
     open (newunit=io,file=fname,status="replace",action="write")
     do n = 1,np
-      write (io,2) n,((rfluxes(n,l,m), l=1,nr), m=1,nq)
+      write (io,2) n,((rfluxes(n,l,m), l=1,nr), m=mbeg,mend)
     end do
     close (io)
     !
@@ -2191,12 +2378,24 @@ continue
   !
   nr = size(rfluxes,dim=2)
   !
-  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call compute_flux_divergence_3d(rfluxes,iter,nst)
-  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call compute_flux_divergence_2d(rfluxes)
+  if (force_nd_subroutines) then
+    !
+    call compute_flux_divergence_nd(1,nq,rfluxes)
+    !
   else
-    call compute_flux_divergence_nd(rfluxes)
+    !
+    if (nr == 3) then
+      call compute_flux_divergence_3d(rfluxes,iter,nst)
+    else if (nr == 2) then
+      call compute_flux_divergence_2d(rfluxes)
+    else
+      call compute_flux_divergence_1d(rfluxes)
+    end if
+    !
+    if (ncs > 0) then
+      call compute_flux_divergence_nd(1,ncs,rfluxes)
+    end if
+    !
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -2437,7 +2636,102 @@ end subroutine compute_flux_divergence_2d
 !
 !###############################################################################
 !
-subroutine compute_flux_divergence_nd(rfluxes)
+subroutine compute_flux_divergence_1d(rfluxes)
+  !
+  !... this subroutine get derivative of fluxes (no interaction)
+  !... for each cell, get f, g, ftd, gtd at the solution points
+  !
+  !.. Use Statements ..
+  use order_mod,       only : maxSP
+  use geovar,          only : ncell,cell
+  use derivatives_mod, only : deriv
+  use flowvar,         only : residual
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: rfluxes(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,n0,np
+  integer  :: this_geom,this_order
+  real(wp) :: a,div_ec,div_mx,div_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_flux_divergence_1d"
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&                   PRESENT(deriv) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(residual) &
+  !$ACC&                   PRESENT(rfluxes)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    ! Compute the divergence of the discontinuous fluxes
+    !
+    !$ACC LOOP VECTOR
+    do k = 1,np
+      !
+      div_ec = zero
+      div_mx = zero
+      div_ee = zero
+      !
+      ! Add the flux divergence from the first computational
+      ! direction to the running divergence sums
+      !
+      do i = deriv(this_geom,this_order)%d(1)%row_ptr(k)+1, &
+             deriv(this_geom,this_order)%d(1)%row_ptr(k+1)
+        !
+        a = deriv(this_geom,this_order)%d(1)%row_val(i)
+        n = deriv(this_geom,this_order)%d(1)%row_idx(i)
+        !
+        div_ec = div_ec + a*rfluxes(n0+n,1,nec)
+        div_mx = div_mx + a*rfluxes(n0+n,1,nmx)
+        div_ee = div_ee + a*rfluxes(n0+n,1,nee)
+        !
+      end do
+      !
+      ! Save the flux divergence values to the RHS for solpt k
+      !
+      residual(n0+k,nec) = div_ec
+      residual(n0+k,nmx) = div_mx
+      residual(n0+k,nee) = div_ee
+      !
+    end do
+    !
+  end do
+  !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  block
+    !
+    use ovar, only : itcur
+    integer :: io,m,n
+    character(len=20) :: fname
+    !
+    write (fname,1) itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,cell(ncell)%end_sp
+      write (io,2) n,(residual(n,m), m=nec,nee)
+    end do
+    close (io)
+    !
+    1 format ("residual.",i0,".dat")
+    2 format (i7,2x,10es18.10)
+    !
+  end block
+#endif
+  !
+end subroutine compute_flux_divergence_1d
+!
+!###############################################################################
+!
+subroutine compute_flux_divergence_nd(mbeg,mend,rfluxes)
   !
   !... this subroutine get derivative of fluxes (no interaction)
   !... for each cell, get f, g, ftd, gtd at the solution points
@@ -2449,6 +2743,7 @@ subroutine compute_flux_divergence_nd(rfluxes)
   use flowvar,         only : residual
   !
   !.. Formal Arguments ..
+  integer,  intent(in) :: mbeg,mend
   real(wp), intent(in) :: rfluxes(:,:,:)
   !
   !.. Local Scalars ..
@@ -2479,7 +2774,7 @@ continue
     this_order = cell(nc)%order
     !
     !$ACC LOOP VECTOR COLLAPSE(3)
-    do m = 1,nq
+    do m = mbeg,mend
       do l = 1,nr
         do k = 1,np
           rflx(k,l,m) = rfluxes(n0+k,l,m)
@@ -2494,7 +2789,7 @@ continue
     !
     !$ACC LOOP VECTOR COLLAPSE(2)
     do k = 1,np
-      do m = 1,nq
+      do m = mbeg,mend
         !
         ! Compute the divergence of the discontinuous fluxes for solpt k
         !
@@ -2531,7 +2826,7 @@ continue
     write (fname,1) itcur
     open (newunit=io,file=fname,status="replace",action="write")
     do n = 1,cell(ncell)%end_sp
-      write (io,2) n,(residual(n,m), m=1,nq)
+      write (io,2) n,(residual(n,m), m=mbeg,mend)
     end do
     close (io)
     !
@@ -2565,12 +2860,24 @@ continue
   !
   nr = size(tfluxes,dim=2)
   !
-  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call add_flux_correction_3d(tfluxes)
-  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call add_flux_correction_2d(tfluxes)
+  if (force_nd_subroutines) then
+    !
+    call add_flux_correction_nd(1,nq,tfluxes)
+    !
   else
-    call add_flux_correction_nd(tfluxes)
+    !
+    if (nr == 3) then
+      call add_flux_correction_3d(tfluxes)
+    else if (nr == 2) then
+      call add_flux_correction_2d(tfluxes)
+    else
+      call add_flux_correction_1d(tfluxes)
+    end if
+    !
+    if (ncs > 0) then
+      call add_flux_correction_nd(1,ncs,tfluxes)
+    end if
+    !
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -2968,7 +3275,206 @@ end subroutine add_flux_correction_2d
 !
 !###############################################################################
 !
-subroutine add_flux_correction_nd(tfluxes)
+subroutine add_flux_correction_1d(tfluxes)
+  !
+  !... this subroutine get derivative of fluxes (no interaction)
+  !... for each cell, get f, g, ftd, gtd at the solution points
+  !
+  !.. Use Statements ..
+  use order_mod,         only : maxFP,geom_solpts
+  use geovar,            only : ncell,cell,fp,face
+  use interpolation_mod, only : interp
+  use metrics_mod,       only : facenrm
+  use flowvar,           only : residual,faceflx
+  use correction_mod,    only : correct
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: tfluxes(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,n,nc,n0,np,kf,lf,f0
+  integer  :: ncf,nfp,num_cell_faces
+  integer  :: this_geom,this_order
+  integer  :: face_geom,face_order
+  integer  :: fp_offset,face_rot
+  real(wp) :: flx_ec,flx_mx,flx_ee
+  real(wp) :: a,ds,rnx
+  !
+  !.. Local Arrays ..
+  integer :: fpidx(1:maxFP)
+  !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  !.. Local Arrays ..
+  real(wp) :: flux_correction(1:size(residual,dim=1),1:size(residual,dim=2))
+#endif
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "add_flux_correction_1d"
+  !
+continue
+  !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  flux_correction(:,:) = zero
+#endif
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(correct) &
+  !$ACC&                   PRESENT(fp) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(interp) &
+  !$ACC&                   PRESENT(residual) &
+  !$ACC&                   PRESENT(faceflx,facenrm,tfluxes) &
+  !$ACC&                   PRESENT(cl) &
+  !$ACC&                   PRIVATE(fpidx)
+  cell_loop: do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    ! Interpolate the fluxes to the interface flux points and dot this
+    ! interpolated vector with the face normal at each flux point
+    ! NOTE: We dont need to exchange this information for communication and
+    !       periodic boundary faces since this flux is only used within the
+    !       current cell.
+    !
+    ! Loop over the faces of this cell
+    num_cell_faces = size(cell(nc)%face)
+    !
+    faces_of_cell: do ncf = 1,num_cell_faces
+      !
+      ds = cl(this_geom) * merge( -one , one , cell(nc)%face(ncf)%side==1 )
+      !
+      face_geom = cell(nc)%face(ncf)%geom   ! geom  of current face
+      face_order = cell(nc)%face(ncf)%order ! order of current face
+      fp_offset = cell(nc)%face(ncf)%fp_offset
+      face_rot = cell(nc)%face(ncf)%rotation
+      !
+      nfp = geom_solpts(face_geom,face_order)
+      f0 = face( cell(nc)%face(ncf)%idx )%beg_fp-1
+      fpidx(1:nfp) = fp_offset + fp%geord(face_geom,face_order)% &
+                                    rot(face_rot)%pts(1:nfp)
+      !
+      !$ACC LOOP VECTOR
+      pts_on_face: do kf = 1,nfp
+        !
+        rnx = facenrm(1,f0+kf)
+        !
+        ! Initialize the interface flux values to the common interface flux
+        ! NOTE: We initialize it to negative so that we can do a positive
+        !       summation in the following loop. The sign of ds will make
+        !       sure the flux values are the correct sign when using them
+        !       to apply the correction to the interior solution points.
+        !
+        flx_ec = -faceflx(f0+kf,nec)
+        flx_mx = -faceflx(f0+kf,nmx)
+        flx_ee = -faceflx(f0+kf,nee)
+        !
+        lf = fpidx(kf)
+        !
+        ! Get the normal interior discontinuous flux at this flux point
+        !
+       !flx_ec = rnx*a1*tx1 + rnx*a2*tx2 + rnx*a3*tx3 + rnx*a4*tx4 &
+       !       + rny*a1*ty1 + rny*a2*ty2 + rny*a3*ty3 + rny*a4*ty4
+       !!
+       !flx_ec = rnx*a1*tx1 + rny*a1*ty1 &
+       !       + rnx*a2*tx2 + rny*a2*ty2 &
+       !       + rnx*a3*tx3 + rny*a3*ty3 &
+       !       + rnx*a4*tx4 + rny*a4*ty4
+       !!
+        do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+               interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+          !
+          n = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+          !
+          flx_ec = flx_ec + a*rnx*tfluxes(n0+n,1,nec)
+          flx_mx = flx_mx + a*rnx*tfluxes(n0+n,1,nmx)
+          flx_ee = flx_ee + a*rnx*tfluxes(n0+n,1,nee)
+          !
+        end do
+        !
+        flx_ec = ds*flx_ec
+        flx_mx = ds*flx_mx
+        flx_ee = ds*flx_ee
+        !
+        ! Add the correction from the interface flux to
+        ! the RHS for the points in the current cell
+        !
+        do i = correct(this_geom,this_order)%row_ptr(lf)+1, &
+               correct(this_geom,this_order)%row_ptr(lf+1)
+          !
+          n = correct(this_geom,this_order)%row_idx(i)
+          a = correct(this_geom,this_order)%row_val(i)
+          !
+          residual(n0+n,nec) = residual(n0+n,nec) + a*flx_ec
+          residual(n0+n,nmx) = residual(n0+n,nmx) + a*flx_mx
+          residual(n0+n,nee) = residual(n0+n,nee) + a*flx_ee
+          !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+          flux_correction(n0+n,nec) = flux_correction(n0+n,nec) + a*flx_ec
+          flux_correction(n0+n,nmx) = flux_correction(n0+n,nmx) + a*flx_mx
+          flux_correction(n0+n,nee) = flux_correction(n0+n,nee) + a*flx_ee
+#endif
+          !
+        end do
+        !
+      end do pts_on_face
+      !
+    end do faces_of_cell
+    !
+  end do cell_loop
+  !
+#ifdef DEBUG_FLUXES_AND_RESIDUAL
+  block
+    !
+    use ovar, only : itcur
+    integer :: io,n,m
+    character(len=30) :: fname
+    !
+    write (fname,1) "residual_corr",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,cell(ncell)%end_sp
+      write (io,2) n,(residual(n,m), m=nec,nee)
+    end do
+    close (io)
+    !
+    write (fname,1) "face_flux",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,size(faceflx,dim=1)
+      write (io,2) n,(faceflx(n,m), m=nec,nee)
+    end do
+    close (io)
+    !
+    write (fname,1) "flux_correction",itcur
+    open (newunit=io,file=fname,status="replace",action="write")
+    do n = 1,cell(ncell)%end_sp
+      write (io,2) n,(flux_correction(n,m), m=nec,nee)
+    end do
+    close (io)
+    !
+    if (itcur == 1) then
+      open (newunit=io,file="facenrm.dat",status="replace",action="write")
+      do n = 1,size(facenrm,dim=2)
+        write (io,2) n,(facenrm(m,n), m=1,1)
+      end do
+      close (io)
+    end if
+    !
+    1 format (a,".",i0,".dat")
+    2 format (i7,2x,10es18.10)
+    !
+  end block
+#endif
+  !
+end subroutine add_flux_correction_1d
+!
+!###############################################################################
+!
+subroutine add_flux_correction_nd(mbeg,mend,tfluxes)
   !
   !... this subroutine get derivative of fluxes (no interaction)
   !... for each cell, get f, g, ftd, gtd at the solution points
@@ -2982,6 +3488,7 @@ subroutine add_flux_correction_nd(tfluxes)
   use correction_mod,    only : correct
   !
   !.. Formal Arguments ..
+  integer,  intent(in) :: mbeg,mend
   real(wp), intent(in) :: tfluxes(:,:,:)
   !
   !.. Local Scalars ..
@@ -3054,7 +3561,7 @@ continue
       !
       !$ACC LOOP VECTOR COLLAPSE(2)
       do kf = 1,nfp
-        do m = 1,nq
+        do m = mbeg,mend
           fval = zero
           lf = fpidx(kf)
           ! Get the normal interior discontinuous flux at this flux point
@@ -3101,21 +3608,21 @@ continue
     write (fname,1) "residual_corr",itcur
     open (newunit=io,file=fname,status="replace",action="write")
     do n = 1,cell(ncell)%end_sp
-      write (io,2) n,(residual(n,m), m=1,nq)
+      write (io,2) n,(residual(n,m), m=mbeg,mend)
     end do
     close (io)
     !
     write (fname,1) "face_flux",itcur
     open (newunit=io,file=fname,status="replace",action="write")
     do n = 1,size(faceflx,dim=1)
-      write (io,2) n,(faceflx(n,m), m=1,nq)
+      write (io,2) n,(faceflx(n,m), m=mbeg,mend)
     end do
     close (io)
     !
     write (fname,1) "flux_correction",itcur
     open (newunit=io,file=fname,status="replace",action="write")
     do n = 1,cell(ncell)%end_sp
-      write (io,2) n,(flux_correction(n,m), m=1,nq)
+      write (io,2) n,(flux_correction(n,m), m=mbeg,mend)
     end do
     close (io)
     !
@@ -4741,12 +5248,24 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call discontinuous_gradient_at_solpts_3d
-  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call discontinuous_gradient_at_solpts_2d
+  if (force_nd_subroutines) then
+    !
+    call discontinuous_gradient_at_solpts_nd(1,nq)
+    !
   else
-    call discontinuous_gradient_at_solpts_nd
+    !
+    if (nr == 3) then
+      call discontinuous_gradient_at_solpts_3d
+    else if (nr == 2) then
+      call discontinuous_gradient_at_solpts_2d
+    else
+      call discontinuous_gradient_at_solpts_1d
+    end if
+    !
+    if (ncs > 0) then
+      call discontinuous_gradient_at_solpts_nd(1,ncs)
+    end if
+    !
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -5008,7 +5527,81 @@ end subroutine discontinuous_gradient_at_solpts_2d
 !
 !###############################################################################
 !
-subroutine discontinuous_gradient_at_solpts_nd()
+subroutine discontinuous_gradient_at_solpts_1d()
+  !
+  ! This routine computes the discontinuous gradient at each solution point
+  !
+  !.. Use Statements ..
+  use order_mod,       only : maxSP
+  use geovar,          only : ncell,cell
+  use metrics_mod,     only : metrics_array
+  use derivatives_mod, only : deriv
+  use flowvar,         only : usp,dusp
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n,nc,n0,np
+  integer :: this_geom,this_order
+  real(wp) :: a
+  real(wp) :: decdi,dmxdi,deedi,didx
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "discontinuous_gradient_at_solpts_1d"
+  !
+continue
+  !
+  ! Loop over the cells and get the derivative of
+  ! the primitive variables at each solution point
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(deriv) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(metrics_array) &
+  !$ACC&                   PRESENT(usp) &
+  !$ACC&                   PRESENT(dusp)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp-1  ! beginning index for solpts in cell nc
+    np = cell(nc)%end_sp-n0 ! number of solution points in this cell
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    ! Compute the gradient of the conservative variables at each solution point
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      !
+      decdi = zero
+      dmxdi = zero
+      deedi = zero
+      !
+      do i = deriv(this_geom,this_order)%d(1)%row_ptr(n)+1, &
+             deriv(this_geom,this_order)%d(1)%row_ptr(n+1)
+        !
+        j = deriv(this_geom,this_order)%d(1)%row_idx(i)
+        a = deriv(this_geom,this_order)%d(1)%row_val(i)
+        !
+        decdi = decdi + a * usp(n0+j,nec)
+        dmxdi = dmxdi + a * usp(n0+j,nmx)
+        deedi = deedi + a * usp(n0+j,nee)
+        !
+      end do
+      !
+      didx = metrics_array(n0+n,1,1)
+      !
+      dusp(n0+n,1,nec) = decdi*didx
+      dusp(n0+n,1,nmx) = dmxdi*didx
+      dusp(n0+n,1,nee) = deedi*didx
+      !
+    end do
+    !
+  end do
+  !
+end subroutine discontinuous_gradient_at_solpts_1d
+!
+!###############################################################################
+!
+subroutine discontinuous_gradient_at_solpts_nd(mbeg,mend)
   !
   ! This routine computes the discontinuous gradient at each solution point
   !
@@ -5019,6 +5612,9 @@ subroutine discontinuous_gradient_at_solpts_nd()
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
   use flowvar,         only : usp,dusp
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: mbeg,mend
   !
   !.. Local Scalars ..
   integer :: i,j,k,l,m,n,nc,n0,np
@@ -5057,7 +5653,7 @@ continue
     !
     !$ACC LOOP VECTOR COLLAPSE(3)
     do k = 1,np
-      do m = 1,nq
+      do m = mbeg,mend
         do l = 1,nr
           !
           val = zero
@@ -5077,7 +5673,7 @@ continue
     !
     !$ACC LOOP VECTOR COLLAPSE(3)
     do k = 1,np
-      do m = 1,nq
+      do m = mbeg,mend
         do l = 1,nr
           dusp(n0+k,l,m) = dot( dudr(1:nr,m,k) , metrics_array(n0+k,1:nr,l) )
         end do
@@ -6001,12 +6597,24 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call correct_gradients_br2_gpu_3d
-  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call correct_gradients_br2_gpu_2d
+  if (force_nd_subroutines) then
+    !
+    call correct_gradients_br2_gpu_nd(1,nq)
+    !
   else
-    call correct_gradients_br2_gpu_nd
+    !
+    if (nr == 3) then
+      call correct_gradients_br2_gpu_3d
+    else if (nr == 2) then
+      call correct_gradients_br2_gpu_2d
+    else
+      call correct_gradients_br2_gpu_1d
+    end if
+    !
+    if (ncs > 0) then
+      call correct_gradients_br2_gpu_nd(1,ncs)
+    end if
+    !
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -6652,7 +7260,223 @@ end subroutine correct_gradients_br2_gpu_2d
 !
 !###############################################################################
 !
-subroutine correct_gradients_br2_gpu_nd()
+subroutine correct_gradients_br2_gpu_1d()
+  !
+  use order_mod,         only : maxSP
+  use geovar,            only : n_flxpts,ncell,cell,fp,face
+  use metrics_mod,       only : jac,facenrm
+  use correction_mod,    only : correct
+  use flowvar,           only : dusp
+  use flowvar,           only : faceusp_array
+  use flowvar,           only : facedusp_array
+  use interpolation_mod, only : interp
+  !
+  !.. Local Scalars ..
+  integer :: i,n,nc,n1,n2,np,k,n0
+  integer :: nf,kf,lf,sf,ncf,nfp
+  integer :: this_geom,this_order
+  integer :: face_geom,face_order
+  integer :: fp_offset,face_rot
+  integer :: num_cell_faces
+  real(wp) :: a,rnx
+  real(wp) :: decdx,dmxdx,deedx
+  real(wp) :: cor_ec,cor_mx,cor_my,cor_ee
+  !
+  !.. Local Arrays ..
+  real(wp) :: face_corr(1:maxSP,1:2,1:2,1:nq)
+  !
+  integer :: array(1:1) ! DONT REMOVE THIS
+  !
+  integer  :: cf_f0(1:2)
+  integer  :: cf_sf(1:2)
+  integer  :: cf_nfp(1:2)
+  integer  :: cf_face_order(1:2)
+  integer  :: cf_face_geom(1:2)
+  integer  :: cf_fp_offset(1:2)
+  integer  :: cf_face_rot(1:2)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "correct_gradients_br2_gpu_1d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP &
+  !$ACC&              PRESENT(faceusp_array,cbias,face_jump)
+  do n = 1,n_flxpts
+    a = cbias(n)
+    face_jump(n,nec) = a*( faceusp_array(n,nec,2) - faceusp_array(n,nec,1) )
+    face_jump(n,nmx) = a*( faceusp_array(n,nmx,2) - faceusp_array(n,nmx,1) )
+    face_jump(n,nee) = a*( faceusp_array(n,nee,2) - faceusp_array(n,nee,1) )
+  end do
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              WORKER &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(facedusp_array,facenrm) &
+  !$ACC&              PRESENT(jac) &
+  !$ACC&              PRESENT(face) &
+  !$ACC&              PRESENT(cell) &
+  !$ACC&              PRESENT(fp) &
+  !$ACC&              PRESENT(correct) &
+  !$ACC&              PRESENT(interp) &
+  !$ACC&              PRESENT(dusp) &
+  !$ACC&              PRESENT(cl) &
+  !$ACC&              PRESENT(face_jump) &
+  !$ACC&              PRIVATE(face_corr,cf_f0,cf_sf, &
+  !$ACC&                      cf_face_geom,cf_fp_offset,cf_face_rot, &
+  !$ACC&                      cf_nfp,cf_face_order,array)
+  cell_loop: do nc = 1,ncell
+    !
+    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
+    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
+    np = n2-n1+1         ! number of sol-pts in this cell
+    n0 = n1-1
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    !
+    ! Now Interpolate the interior solution gradients to the flux points
+    !
+    num_cell_faces = size(cell(nc)%face)
+    !
+    do ncf = 1,num_cell_faces
+      !
+      nf = cell(nc)%face(ncf)%idx  ! index of the current face
+      !
+      cf_sf(ncf) = cell(nc)%face(ncf)%side ! side of face that cell nc is on
+      cf_face_geom(ncf) = cell(nc)%face(ncf)%geom   ! geom  of current face
+      cf_face_order(ncf) = cell(nc)%face(ncf)%order ! order of current face
+      cf_fp_offset(ncf) = cell(nc)%face(ncf)%fp_offset
+      cf_face_rot(ncf) = cell(nc)%face(ncf)%rotation
+      !
+      cf_f0(ncf) = face(nf)%beg_fp - 1
+      cf_nfp(ncf) = face(nf)%end_fp - cf_f0(ncf)
+      !
+    end do
+    !
+    !$ACC LOOP VECTOR COLLAPSE(2)
+    do ncf = 1,2
+      do n = 1,np
+        !
+        face_corr(n,ncf,1,nec) = zero
+        face_corr(n,ncf,1,nmx) = zero
+        face_corr(n,ncf,1,nee) = zero
+        !
+      end do
+    end do
+    !
+    ! Loop over the faces of this cell
+    cell_faces: do ncf = 1,num_cell_faces
+      !
+      ! kf: index of flx-pt local to this face
+      ! lf: index of flx-pt within interp%mat
+      !
+      ! Apply the jump correction to the interior discontinuous gradients
+      !
+      !$ACC LOOP VECTOR
+      face_points: do kf = 1,cf_nfp(ncf)
+        !
+        k = cf_f0(ncf) + kf
+        !
+        rnx = facenrm(1,k)
+        !
+        face_order = cf_face_order(ncf)
+        face_geom = cf_face_geom(ncf)
+        fp_offset = cf_fp_offset(ncf)
+        face_rot = cf_face_rot(ncf)
+        lf = fp_offset + fp%geord(face_geom,face_order)%rot(face_rot)%pts(kf)
+        !
+        !$ACC LOOP SEQ
+        do i = correct(this_geom,this_order)%row_ptr(lf)+1, &
+               correct(this_geom,this_order)%row_ptr(lf+1)
+          !
+          n = correct(this_geom,this_order)%row_idx(i)
+          a = correct(this_geom,this_order)%row_val(i)
+          !
+          cor_ec = a * face_jump(k,nec) * cl(this_geom) / jac(n0+n)
+          cor_mx = a * face_jump(k,nmx) * cl(this_geom) / jac(n0+n)
+          cor_ee = a * face_jump(k,nee) * cl(this_geom) / jac(n0+n)
+          !
+          face_corr(n,ncf,1,nec) = face_corr(n,ncf,1,nec) + cor_ec*rnx
+          face_corr(n,ncf,1,nmx) = face_corr(n,ncf,1,nmx) + cor_mx*rnx
+          face_corr(n,ncf,1,nee) = face_corr(n,ncf,1,nee) + cor_ee*rnx
+          !
+        end do
+        !
+      end do face_points
+    end do cell_faces
+    !
+    ! Interpolate the face corrected gradient from the interior solution
+    ! points to the interface flux points now that we are done with all
+    ! the flux points on the current face of the current cell.
+    !
+    cell_faces2: do ncf = 1,num_cell_faces
+      !
+      ! kf: index of flx-pt local to this face
+      ! lf: index of flx-pt within interp%mat
+      !
+      !$ACC LOOP VECTOR
+      interpolate_face: do kf = 1,cf_nfp(ncf)
+        !
+        k = cf_f0(ncf) + kf
+        sf = cf_sf(ncf)
+        face_order = cf_face_order(ncf)
+        face_geom = cf_face_geom(ncf)
+        fp_offset = cf_fp_offset(ncf)
+        face_rot = cf_face_rot(ncf)
+        lf = fp_offset + fp%geord(face_geom,face_order)%rot(face_rot)%pts(kf)
+        !
+        decdx = zero
+        dmxdx = zero
+        deedx = zero
+        !
+        do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+               interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+          !
+          n = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+          !
+          decdx = decdx + a * ( dusp(n0+n,1,nec) + face_corr(n,ncf,1,nec) )
+          dmxdx = dmxdx + a * ( dusp(n0+n,1,nmx) + face_corr(n,ncf,1,nmx) )
+          deedx = deedx + a * ( dusp(n0+n,1,nee) + face_corr(n,ncf,1,nee) )
+          !
+        end do
+        !
+        facedusp_array(k,1,nec,sf) = decdx
+        facedusp_array(k,1,nmx,sf) = dmxdx
+        facedusp_array(k,1,nee,sf) = deedx
+        !
+      end do interpolate_face
+      !
+    end do cell_faces2
+    !
+    ! Copy the total corrected gradient accounting for all cell faces
+    ! back into dusp
+    !
+    !$ACC LOOP VECTOR
+    do n = n1,n2
+      !
+      dusp(n,1,nec) = dusp(n,1,nec) &
+                    + face_corr(n-n0,1,1,nec) + face_corr(n-n0,2,1,nec)
+      !
+      dusp(n,1,nmx) = dusp(n,1,nmx) &
+                    + face_corr(n-n0,1,1,nmx) + face_corr(n-n0,2,1,nmx)
+      !
+      dusp(n,1,nee) = dusp(n,1,nee) &
+                    + face_corr(n-n0,1,1,nee) + face_corr(n-n0,2,1,nee)
+      !
+    end do
+    !
+  end do cell_loop
+  !
+end subroutine correct_gradients_br2_gpu_1d
+!
+!###############################################################################
+!
+subroutine correct_gradients_br2_gpu_nd(mbeg,mend)
   !
   use order_mod,         only : maxSP
   use geovar,            only : nr,n_flxpts,ncell,cell,fp,face
@@ -6662,6 +7486,9 @@ subroutine correct_gradients_br2_gpu_nd()
   use flowvar,           only : faceusp_array
   use flowvar,           only : facedusp_array
   use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: mbeg,mend
   !
   !.. Local Scalars ..
   integer :: i,n,nc,n1,n2,np,l,m,f0,k,n0
@@ -6695,7 +7522,7 @@ continue
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) &
   !$ACC&              PRESENT(faceusp_array,cbias,face_jump)
-  do m = 1,nq
+  do m = mbeg,mend
     do n = 1,n_flxpts
       face_jump(n,m) = cbias(n)*( faceusp_array(n,m,2) - faceusp_array(n,m,1) )
     end do
@@ -6758,7 +7585,7 @@ continue
       !
       !$ACC LOOP VECTOR COLLAPSE(3)
       face_points: do kf = 1,cf_nfp(ncf)
-        do m = 1,nq
+        do m = mbeg,mend
           do l = 1,nr
             !
             k = cf_f0(ncf) + kf
@@ -6799,7 +7626,7 @@ continue
       !
       !$ACC LOOP VECTOR COLLAPSE(3)
       interpolate_face: do kf = 1,cf_nfp(ncf)
-        do m = 1,nq
+        do m = mbeg,mend
           do l = 1,nr
             !
             f0 = cf_f0(ncf)
@@ -6837,7 +7664,7 @@ continue
     ! back into dusp
     !
     !$ACC LOOP VECTOR COLLAPSE(3)
-    do m = 1,nq
+    do m = mbeg,mend
       do l = 1,nr
         do n = n1,n2
           dusp(n,l,m) = dusp(n,l,m) &
