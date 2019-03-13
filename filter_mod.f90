@@ -516,12 +516,24 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call filter_usp_3d(usp)
-  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call filter_usp_2d(usp)
+  if (force_nd_subroutines) then
+    !
+    call filter_usp_nd(1,nq,usp)
+    !
   else
-    call filter_usp_nd(usp)
+    !
+    if (nr == 3) then
+      call filter_usp_3d(usp)
+    else if (nr == 2) then
+      call filter_usp_2d(usp)
+    else
+      call filter_usp_1d(usp)
+    end if
+    !
+    if (ncs > 0) then
+      call filter_usp_nd(1,ncs,usp)
+    end if
+    !
   end if
   !
 #ifdef DEBUG_ON
@@ -700,7 +712,85 @@ end subroutine filter_usp_2d
 !
 !###############################################################################
 !
-pure subroutine filter_usp_nd(usp)
+pure subroutine filter_usp_1d(usp)
+  !
+  !.. Use Statements ..
+  use order_mod, only : maxSP
+  use geovar,    only : ncell,cell
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,filt_ec,filt_mx,filt_ee
+  !
+  !.. Local Arrays ..
+  real(wp) :: unfiltered_usp(1:maxSP,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "filter_usp_1d"
+  !
+continue
+  !
+  ! Apply the filter to each cell
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,usp,filter) &
+  !$ACC&              PRIVATE(unfiltered_usp)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    ! Save the current, unfiltered solution into the unfiltered_usp array.
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      unfiltered_usp(n,nec) = usp(n0+n,nec)
+      unfiltered_usp(n,nmx) = usp(n0+n,nmx)
+      unfiltered_usp(n,nee) = usp(n0+n,nee)
+    end do
+    !
+    ! Filter the solution and save it back into the usp array.
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      !
+      filt_ec = zero
+      filt_mx = zero
+      filt_ee = zero
+      !
+      do i = filter(this_geom,this_order)%exponential%col_ptr(n)+1, &
+             filter(this_geom,this_order)%exponential%col_ptr(n+1)
+        !
+        k = filter(this_geom,this_order)%exponential%col_idx(i)
+        a = filter(this_geom,this_order)%exponential%col_val(i)
+        !
+        filt_ec = filt_ec + a * unfiltered_usp(k,nec)
+        filt_mx = filt_mx + a * unfiltered_usp(k,nmx)
+        filt_ee = filt_ee + a * unfiltered_usp(k,nee)
+        !
+      end do
+      !
+      usp(n0+n,nec) = filt_ec
+      usp(n0+n,nmx) = filt_mx
+      usp(n0+n,nee) = filt_ee
+      !
+    end do
+    !
+  end do
+  !
+end subroutine filter_usp_1d
+!
+!###############################################################################
+!
+pure subroutine filter_usp_nd(mbeg,mend,usp)
   !
   !.. Use Statements ..
   use order_mod, only : maxSP
@@ -709,6 +799,7 @@ pure subroutine filter_usp_nd(usp)
   use thermo_mod, only : update_mixture_density
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: mbeg,mend
   real(wp), intent(inout) :: usp(:,:)
   !
   !.. Local Scalars ..
@@ -741,7 +832,7 @@ continue
     ! Save the current, unfiltered solution into the unfiltered_usp array.
     !
     !$ACC LOOP VECTOR COLLAPSE(2)
-    do m = 1,nq
+    do m = mbeg,mend
       do n = 1,np
         unfiltered_usp(n,m) = usp(n0+n,m)
       end do
@@ -750,7 +841,7 @@ continue
     ! Filter the solution and save it back into the usp array.
     !
     !$ACC LOOP VECTOR COLLAPSE(2)
-    do m = 1,nq
+    do m = mbeg,mend
       do n = 1,np
         !
         val = zero

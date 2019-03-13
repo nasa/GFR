@@ -302,12 +302,24 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call apply_filter_limiter_to_usp_3d(troubled_cell,usp)
-  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call apply_filter_limiter_to_usp_2d(troubled_cell,usp)
+  if (force_nd_subroutines) then
+    !
+    call apply_filter_limiter_to_usp_nd(1,nq,troubled_cell,usp)
+    !
   else
-    call apply_filter_limiter_to_usp_nd(troubled_cell,usp)
+    !
+    if (nr == 3) then
+      call apply_filter_limiter_to_usp_3d(troubled_cell,usp)
+    else if (nr == 2) then
+      call apply_filter_limiter_to_usp_2d(troubled_cell,usp)
+    else
+      call apply_filter_limiter_to_usp_1d(troubled_cell,usp)
+    end if
+    !
+    if (ncs > 0) then
+      call apply_filter_limiter_to_usp_nd(1,ncs,troubled_cell,usp)
+    end if
+    !
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -407,7 +419,9 @@ continue
     !
     ! Unmark this cell as troubled because we only want to filter once
     !
-    troubled_cell(nc) = .false.
+    if (ncs == 0) then
+      troubled_cell(nc) = .false.
+    end if
     !
   end do filt_cell_loop
   !
@@ -502,7 +516,9 @@ continue
     !
     ! Unmark this cell as troubled because we only want to filter once
     !
-    troubled_cell(nc) = .false.
+    if (ncs == 0) then
+      troubled_cell(nc) = .false.
+    end if
     !
   end do filt_cell_loop
   !
@@ -510,7 +526,7 @@ end subroutine apply_filter_limiter_to_usp_2d
 !
 !###############################################################################
 !
-pure subroutine apply_filter_limiter_to_usp_nd(troubled_cell,usp)
+pure subroutine apply_filter_limiter_to_usp_1d(troubled_cell,usp)
   !
   !.. Use Statements ..
   use order_mod,  only : maxSP
@@ -518,6 +534,100 @@ pure subroutine apply_filter_limiter_to_usp_nd(troubled_cell,usp)
   use filter_mod, only : filter
   !
   !.. Formal Arguments ..
+  logical(ldk), intent(inout) :: troubled_cell(:)
+  real(wp),     intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,filt_ec,filt_mx,filt_ee
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_usp(1:maxSP,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "apply_filter_limiter_to_usp_1d"
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,usp,troubled_cell,filter) &
+  !$ACC&              PRIVATE(old_usp)
+  filt_cell_loop: do nc = 1,ncell
+    !
+    ! If the current cell is not troubled, skip to the next one
+    !
+    if (.not.troubled_cell(nc)) then
+      cycle filt_cell_loop
+    end if
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    ! Store a copy of usp for this cell because the individual
+    ! solutions at the solution points within the cell will be
+    ! altered during the projection computation.
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      old_usp(n,nec) = usp(n0+n,nec)
+      old_usp(n,nmx) = usp(n0+n,nmx)
+      old_usp(n,nee) = usp(n0+n,nee)
+    end do
+    !
+    ! Apply the filter limiter by multplying the filter
+    ! matrix with the solution in the current cell
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      !
+      filt_ec = zero
+      filt_mx = zero
+      filt_ee = zero
+      !
+      do i = filter(this_geom,this_order)%limiter%col_ptr(n)+1, &
+             filter(this_geom,this_order)%limiter%col_ptr(n+1)
+        !
+        k = filter(this_geom,this_order)%limiter%col_idx(i)
+        a = filter(this_geom,this_order)%limiter%col_val(i)
+        !
+        filt_ec = filt_ec + a * old_usp(k,nec)
+        filt_mx = filt_mx + a * old_usp(k,nmx)
+        filt_ee = filt_ee + a * old_usp(k,nee)
+        !
+      end do
+      !
+      usp(n0+n,nec) = filt_ec
+      usp(n0+n,nmx) = filt_mx
+      usp(n0+n,nee) = filt_ee
+      !
+    end do
+    !
+    ! Unmark this cell as troubled because we only want to filter once
+    !
+    if (ncs == 0) then
+      troubled_cell(nc) = .false.
+    end if
+    !
+  end do filt_cell_loop
+  !
+end subroutine apply_filter_limiter_to_usp_1d
+!
+!###############################################################################
+!
+pure subroutine apply_filter_limiter_to_usp_nd(mbeg,mend,troubled_cell,usp)
+  !
+  !.. Use Statements ..
+  use order_mod,  only : maxSP
+  use geovar,     only : ncell,cell
+  use filter_mod, only : filter
+  !
+  !.. Formal Arguments ..
+  integer,         intent(in) :: mbeg,mend
   logical(ldk), intent(inout) :: troubled_cell(:)
   real(wp),     intent(inout) :: usp(:,:)
   !
@@ -557,7 +667,7 @@ continue
     ! altered during the projection computation.
     !
     !$ACC LOOP VECTOR COLLAPSE(2)
-    do m = 1,nq
+    do m = mbeg,mend
       do n = 1,np
         old_usp(n,m) = usp(n0+n,m)
       end do
@@ -567,7 +677,7 @@ continue
     ! matrix with the solution in the current cell
     !
     !$ACC LOOP VECTOR COLLAPSE(2)
-    do m = 1,nq
+    do m = mbeg,mend
       do n = 1,np
         !
         val = zero
@@ -616,12 +726,25 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call apply_projct_limiter_to_usp_3d(troubled_cell,usp,dropped_orders)
-  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    call apply_projct_limiter_to_usp_2d(troubled_cell,usp,dropped_orders)
+  if (force_nd_subroutines) then
+    !
+    call apply_projct_limiter_to_usp_nd(1,nq,troubled_cell,usp,dropped_orders)
+    !
   else
-    call apply_projct_limiter_to_usp_nd(troubled_cell,usp,dropped_orders)
+    !
+    if (nr == 3) then
+      call apply_projct_limiter_to_usp_3d(troubled_cell,usp,dropped_orders)
+    else if (nr == 2) then
+      call apply_projct_limiter_to_usp_2d(troubled_cell,usp,dropped_orders)
+    else
+      call apply_projct_limiter_to_usp_1d(troubled_cell,usp,dropped_orders)
+    end if
+    !
+    if (ncs > 0) then
+      call apply_projct_limiter_to_usp_nd(1,ncs,troubled_cell,usp, &
+                                          dropped_orders)
+    end if
+    !
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -728,7 +851,7 @@ continue
     !
     ! Unmark this cell as troubled if proj_order is 0
     !
-    if (proj_order == 0) then
+    if (proj_order == 0 .and. ncs == 0) then
       troubled_cell(nc) = .false.
     end if
     !
@@ -832,7 +955,7 @@ continue
     !
     ! Unmark this cell as troubled if proj_order is 0
     !
-    if (proj_order == 0) then
+    if (proj_order == 0 .and. ncs == 0) then
       troubled_cell(nc) = .false.
     end if
     !
@@ -842,7 +965,7 @@ end subroutine apply_projct_limiter_to_usp_2d
 !
 !###############################################################################
 !
-pure subroutine apply_projct_limiter_to_usp_nd(troubled_cell,usp,dropped_orders)
+pure subroutine apply_projct_limiter_to_usp_1d(troubled_cell,usp,dropped_orders)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -850,6 +973,108 @@ pure subroutine apply_projct_limiter_to_usp_nd(troubled_cell,usp,dropped_orders)
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
+  integer,         intent(in) :: dropped_orders
+  logical(ldk), intent(inout) :: troubled_cell(:)
+  real(wp),     intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order
+  integer  :: proj_order
+  real(wp) :: a,plim_ec,plim_mx,plim_ee
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_usp(1:maxSP,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "apply_projct_limiter_to_usp_1d"
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,usp,troubled_cell,projct) &
+  !$ACC&              PRIVATE(old_usp)
+  proj_cell_loop: do nc = 1,ncell
+    !
+    ! If the current cell is not troubled, skip to the next one
+    !
+    if (.not.troubled_cell(nc)) then
+      cycle proj_cell_loop
+    end if
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    ! Logic in subroutine identify_troubled_cells
+    ! prevents this from becoming less than 0
+    !
+    proj_order = this_order - dropped_orders
+    !
+    ! Store a copy of usp for this cell because the individual
+    ! solutions at the solution points within the cell will be
+    ! altered during the projection computation.
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      old_usp(n,nec) = usp(n0+n,nec)
+      old_usp(n,nmx) = usp(n0+n,nmx)
+      old_usp(n,nee) = usp(n0+n,nee)
+    end do
+    !
+    ! Apply the projection limiter by multplying the projection
+    ! matrix with the solution in the current cell
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      !
+      plim_ec = zero
+      plim_mx = zero
+      plim_ee = zero
+      !
+      do i = projct(this_geom,this_order)%limiter(proj_order)%row_ptr(n)+1, &
+             projct(this_geom,this_order)%limiter(proj_order)%row_ptr(n+1)
+        !
+        k = projct(this_geom,this_order)%limiter(proj_order)%row_idx(i)
+        a = projct(this_geom,this_order)%limiter(proj_order)%row_val(i)
+        !
+        plim_ec = plim_ec + a * old_usp(k,nec)
+        plim_mx = plim_mx + a * old_usp(k,nmx)
+        plim_ee = plim_ee + a * old_usp(k,nee)
+        !
+      end do
+      !
+      usp(n0+n,nec) = plim_ec
+      usp(n0+n,nmx) = plim_mx
+      usp(n0+n,nee) = plim_ee
+      !
+    end do
+    !
+    ! Unmark this cell as troubled if proj_order is 0
+    !
+    if (proj_order == 0 .and. ncs == 0) then
+      troubled_cell(nc) = .false.
+    end if
+    !
+  end do proj_cell_loop
+  !
+end subroutine apply_projct_limiter_to_usp_1d
+!
+!###############################################################################
+!
+pure subroutine apply_projct_limiter_to_usp_nd(mbeg,mend,troubled_cell,usp, &
+                                               dropped_orders)
+  !
+  !.. Use Statements ..
+  use order_mod,      only : maxSP
+  use geovar,         only : ncell,cell
+  use projection_mod, only : projct
+  !
+  !.. Formal Arguments ..
+  integer,         intent(in) :: mbeg,mend
   integer,         intent(in) :: dropped_orders
   logical(ldk), intent(inout) :: troubled_cell(:)
   real(wp),     intent(inout) :: usp(:,:)
@@ -896,7 +1121,7 @@ continue
     ! altered during the projection computation.
     !
     !$ACC LOOP VECTOR COLLAPSE(2)
-    do m = 1,nq
+    do m = mbeg,mend
       do n = 1,np
         old_usp(n,m) = usp(n0+n,m)
       end do
@@ -906,7 +1131,7 @@ continue
     ! matrix with the solution in the current cell
     !
     !$ACC LOOP VECTOR COLLAPSE(2)
-    do m = 1,nq
+    do m = mbeg,mend
       do n = 1,np
         !
         val = zero
@@ -1259,12 +1484,24 @@ continue
       !
       nr = nme-nmb+1
       !
-      if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-        call res_ind_apply_proj_3d(usp,skip_cell,lmtr_order)
-      else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-        call res_ind_apply_proj_2d(usp,skip_cell,lmtr_order)
+      if (force_nd_subroutines) then
+        !
+        call res_ind_apply_proj_nd(1,nq,usp,skip_cell,lmtr_order)
+        !
       else
-        call res_ind_apply_proj_nd(usp,skip_cell,lmtr_order)
+        !
+        if (nr == 3) then
+          call res_ind_apply_proj_3d(usp,skip_cell,lmtr_order)
+        else if (nr == 2) then
+          call res_ind_apply_proj_2d(usp,skip_cell,lmtr_order)
+        else
+          call res_ind_apply_proj_1d(usp,skip_cell,lmtr_order)
+        end if
+        !
+        if (ncs > 0) then
+          call res_ind_apply_proj_nd(1,ncs,usp,skip_cell,lmtr_order)
+        end if
+        !
       end if
       !
     end if
@@ -1316,9 +1553,13 @@ continue
   end if
   !
   if (nvar == 0) then
+    !
     if (force_nd_subroutines) then
+      !
       call compute_resolution_marker_nd(1,nq,usp,skip_cell,cutoff_order,marker)
+      !
     else
+      !
       if (nr == 3) then
         call compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
       else if (nr == 2) then
@@ -1326,14 +1567,19 @@ continue
       else
         call compute_resolution_marker_1d(usp,skip_cell,cutoff_order,marker)
       end if
+      !
       if (ncs > 0) then
         call compute_resolution_marker_nd(1,ncs,usp,skip_cell, &
                                           cutoff_order,marker)
       end if
+      !
     end if
+    !
   else
+    !
     call compute_resolution_marker_1var(usp(:,nvar),skip_cell, &
                                         cutoff_order,marker)
+    !
   end if
   !
   ! Compute the scaled resolution marker
@@ -2311,7 +2557,7 @@ end subroutine res_ind_apply_proj_2d
 !
 !###############################################################################
 !
-pure subroutine res_ind_apply_proj_nd(usp,skip_cell,lmtr_order)
+pure subroutine res_ind_apply_proj_1d(usp,skip_cell,lmtr_order)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -2319,6 +2565,95 @@ pure subroutine res_ind_apply_proj_nd(usp,skip_cell,lmtr_order)
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
+  logical(ldk), intent(in) :: skip_cell(:)
+  integer,      intent(in) :: lmtr_order(:)
+  real(wp),  intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order,order
+  real(wp) :: a,plim_ec,plim_mx,plim_ee
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_usp(1:maxSP,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "res_ind_apply_proj_1d"
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,usp,skip_cell,lmtr_order,projct) &
+  !$ACC&              PRIVATE(old_usp)
+  limit_cell_loop: do nc = 1,ncell
+    !
+    if (skip_cell(nc)) then
+      cycle limit_cell_loop
+    end if
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index of sol-pts for this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts for this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    !
+    order = lmtr_order(nc) ! order to limit cell solution to
+    !
+    ! Store a copy of usp for this cell because the individual
+    ! solutions at the solution points within the cell will be
+    ! altered during the projection computation.
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      old_usp(n,nec) = usp(n0+n,nec)
+      old_usp(n,nmx) = usp(n0+n,nmx)
+      old_usp(n,nee) = usp(n0+n,nee)
+    end do
+    !
+    ! Apply the projection limiter by multplying the projection
+    ! matrix with the solution in the current cell
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      !
+      plim_ec = zero
+      plim_mx = zero
+      plim_ee = zero
+      !
+      do i = projct(this_geom,this_order)%limiter(order)%row_ptr(n)+1, &
+             projct(this_geom,this_order)%limiter(order)%row_ptr(n+1)
+        !
+        k = projct(this_geom,this_order)%limiter(order)%row_idx(i)
+        a = projct(this_geom,this_order)%limiter(order)%row_val(i)
+        !
+        plim_ec = plim_ec + a * old_usp(k,nec)
+        plim_mx = plim_mx + a * old_usp(k,nmx)
+        plim_ee = plim_ee + a * old_usp(k,nee)
+        !
+      end do
+      !
+      usp(n0+n,nec) = plim_ec
+      usp(n0+n,nmx) = plim_mx
+      usp(n0+n,nee) = plim_ee
+      !
+    end do
+    !
+  end do limit_cell_loop
+  !
+end subroutine res_ind_apply_proj_1d
+!
+!###############################################################################
+!
+pure subroutine res_ind_apply_proj_nd(mbeg,mend,usp,skip_cell,lmtr_order)
+  !
+  !.. Use Statements ..
+  use order_mod,      only : maxSP
+  use geovar,         only : ncell,cell
+  use projection_mod, only : projct
+  !
+  !.. Formal Arguments ..
+  integer,      intent(in) :: mbeg,mend
   logical(ldk), intent(in) :: skip_cell(:)
   integer,      intent(in) :: lmtr_order(:)
   real(wp),  intent(inout) :: usp(:,:)
@@ -2359,7 +2694,7 @@ continue
     ! altered during the projection computation.
     !
     !$ACC LOOP VECTOR COLLAPSE(2)
-    do m = 1,nq
+    do m = mbeg,mend
       do n = 1,np
         old_usp(n,m) = usp(n0+n,m)
       end do
@@ -2369,7 +2704,7 @@ continue
     ! matrix with the solution in the current cell
     !
     !$ACC LOOP VECTOR COLLAPSE(2)
-    do m = 1,nq
+    do m = mbeg,mend
       do n = 1,np
         !
         val = zero

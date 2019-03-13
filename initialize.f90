@@ -1155,12 +1155,24 @@ continue
   !
   if (allocated(dusp)) then
     !
-    if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-      call initialize_dusp_3d
-    else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-      call initialize_dusp_2d
+    if (force_nd_subroutines) then
+      !
+      call initialize_dusp_nd(1,nq)
+      !
     else
-      call initialize_dusp_nd
+      !
+      if (nr == 3) then
+        call initialize_dusp_3d
+      else if (nr == 2) then
+        call initialize_dusp_2d
+      else
+        call initialize_dusp_1d
+      end if
+      !
+      if (ncs > 0) then
+        call initialize_dusp_nd(1,ncs)
+      end if
+      !
     end if
     !
   end if
@@ -1408,7 +1420,73 @@ end subroutine initialize_dusp_2d
 !
 !###############################################################################
 !
-subroutine initialize_dusp_nd()
+subroutine initialize_dusp_1d()
+  !
+  ! This routine computes the discontinuous gradient at each solution point
+  !
+  !.. Use Statements ..
+  use geovar,          only : ncell,cell
+  use metrics_mod,     only : metrics_array
+  use derivatives_mod, only : deriv
+  use flowvar,         only : usp,dusp
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,n,nc,n0,np
+  integer  :: this_geom,this_order
+  real(wp) :: a
+  real(wp) :: decdi,dmxdi,deedi,didx
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_dusp_1d"
+  !
+continue
+  !
+  ! Loop over the cells and get the derivative of
+  ! the primitive variables at each solution point
+  !
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp-1  ! beginning index for solpts in cell nc
+    np = cell(nc)%end_sp-n0 ! number of solution points in this cell
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    ! Compute the gradient of the conservative variables at each solution point
+    !
+    do n = 1,np
+      !
+      decdi = zero
+      dmxdi = zero
+      deedi = zero
+      !
+      do i = deriv(this_geom,this_order)%d(1)%row_ptr(n)+1, &
+             deriv(this_geom,this_order)%d(1)%row_ptr(n+1)
+        !
+        j = deriv(this_geom,this_order)%d(1)%row_idx(i)
+        a = deriv(this_geom,this_order)%d(1)%row_val(i)
+        !
+        decdi = decdi + a * usp(n0+j,nec)
+        dmxdi = dmxdi + a * usp(n0+j,nmx)
+        deedi = deedi + a * usp(n0+j,nee)
+        !
+      end do
+      !
+      didx = metrics_array(n0+n,1,1)
+      !
+      dusp(n0+n,1,nec) = decdi*didx
+      dusp(n0+n,1,nmx) = dmxdi*didx
+      dusp(n0+n,1,nee) = deedi*didx
+      !
+    end do
+    !
+  end do
+  !
+end subroutine initialize_dusp_1d
+!
+!###############################################################################
+!
+subroutine initialize_dusp_nd(mbeg,mend)
   !
   ! This routine computes the discontinuous gradient at each solution point
   !
@@ -1418,6 +1496,9 @@ subroutine initialize_dusp_nd()
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
   use flowvar,         only : usp,dusp
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: mbeg,mend
   !
   !.. Local Scalars ..
   integer  :: i,j,k,l,ll,m,n,nc,np,n0
@@ -1452,7 +1533,7 @@ continue
       !
       n = n0+k ! total index of solution point on current partition
       !
-      do m = 1,nq
+      do m = mbeg,mend
         !
         if (use_conservative_form) then
           !
