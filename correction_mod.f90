@@ -35,7 +35,7 @@ module correction_mod
   !        this_order = cell(n)%order
   !        k = the flx-pt on a face of cell 'n' that is currently of interest
   !
-  type(matrix), public, save, target, allocatable :: correct(:,:)
+  type(matrix), public, save, allocatable :: correct(:,:)
   !
 contains
 !
@@ -58,12 +58,6 @@ subroutine init_correction_matrices()
   integer :: n,n1,n2,i
   character(len=200) :: array_name
   !
-  !.. Local Pointers ..
- !type(matrix), pointer :: this_correct
-  type(matrix), pointer :: this_correct
-  real(wp), pointer :: solpts(:,:)
-  real(wp), pointer :: cmat(:,:)
-  !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: edgpts(:)
   !
@@ -73,12 +67,6 @@ subroutine init_correction_matrices()
 continue
   !
   call debug_timer(entering_procedure,pname)
-  !
-  ! Initialize the local pointers to disassociated
-  !
-  this_correct => null()
-  solpts => null()
-  cmat => null()
   !
   gmin = n_min_geom
   gmax = n_max_geom
@@ -98,10 +86,6 @@ continue
     !
     order_loop: do this_order = omin,omax
       !
-      ! Assign local pointer as alias to simplify the code
-      !
-      this_correct => correct(this_geom,this_order)
-      !
       ! Get the number of solution points for this cell
       !
       nsolpts = geom_solpts(this_geom,this_order)
@@ -112,14 +96,11 @@ continue
       !
       ! Allocate the correction matrix
       !
-      allocate ( this_correct%mat(1:nsolpts,1:nflxpts) , &
+     !allocate ( this_correct%mat(1:nsolpts,1:nflxpts) , &
+      allocate ( correct(this_geom,this_order)%mat(1:nsolpts,1:nflxpts) , &
                  source=zero , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
-      ! Assign local pointers to these matrices as aliases to simplify the code
-      !
-      cmat => this_correct%mat
       !
       ! Compute the correction matrices depending on geometry type
       !
@@ -127,51 +108,44 @@ continue
         case (Geom_Edge)
           !
           edgpts = std_elem(this_geom,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
-         !solpts => std_elem(this_geom,this_order)%pts
           !
-          cmat(:,1) = CorrectionMatrix_Edge( edgpts )
-         !cmat(:,1) = CorrectionMatrix_Edge( solpts(1,:) )
-          cmat(:,2) = cmat(nsolpts:1:-1,1)
+          correct(this_geom,this_order)%mat(:,1) = &
+                     CorrectionMatrix_Edge( edgpts )
+          !
+          correct(this_geom,this_order)%mat(:,2) = &
+                     correct(this_geom,this_order)%mat(nsolpts:1:-1,1)
           !
         case (Geom_Tria)
           !
-          solpts => std_elem(this_geom,this_order)%pts
-          !
-          cmat = CorrectionMatrix_Tria( solpts )
+          correct(this_geom,this_order)%mat = &
+                     CorrectionMatrix_Tria( std_elem(this_geom,this_order)%pts )
           !
         case (Geom_Quad)
           !
           edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
-         !solpts => std_elem(Geom_Edge,this_order)%pts
           !
-          cmat = CorrectionMatrix_Quad( edgpts )
-         !cmat = CorrectionMatrix_Quad( solpts(1,:) )
+          correct(this_geom,this_order)%mat = CorrectionMatrix_Quad( edgpts )
           !
         case (Geom_Tetr)
           !
-          solpts => std_elem(this_geom,this_order)%pts
-          !
-          cmat = CorrectionMatrix_Tetr( solpts )
+          correct(this_geom,this_order)%mat = &
+                     CorrectionMatrix_Tetr( std_elem(this_geom,this_order)%pts )
           !
         case (Geom_Pyra)
           !
-          solpts => std_elem(this_geom,this_order)%pts
-          !
-          cmat = CorrectionMatrix_Pyra( solpts )
+          correct(this_geom,this_order)%mat = &
+                     CorrectionMatrix_Pyra( std_elem(this_geom,this_order)%pts )
           !
         case (Geom_Pris)
           !
-          solpts => std_elem(this_geom,this_order)%pts
-          !
-          cmat = CorrectionMatrix_Pris( solpts )
+          correct(this_geom,this_order)%mat = &
+                     CorrectionMatrix_Pris( std_elem(this_geom,this_order)%pts )
           !
         case (Geom_Hexa)
           !
           edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
-         !solpts => std_elem(Geom_Edge,this_order)%pts
           !
-          cmat = CorrectionMatrix_Hexa( edgpts )
-         !cmat = CorrectionMatrix_Hexa( solpts(1,:) )
+          correct(this_geom,this_order)%mat = CorrectionMatrix_Hexa( edgpts )
           !
         case default
           !
@@ -179,12 +153,6 @@ continue
           call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
       end select
-      !
-      ! Remove all associations of the local pointers before continuing
-      !
-      if (associated(this_correct)) this_correct => null()
-      if (associated(solpts   ))    solpts       => null()
-      if (associated(cmat     ))    cmat         => null()
       !
     end do order_loop
     !

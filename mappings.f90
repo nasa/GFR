@@ -144,9 +144,6 @@ subroutine parametrically_corrected_mapping()
   !
   character(len=200) :: array_name
   !
-  !.. Local Pointers ..
-  real(wp), pointer :: edge_pts(:)
-  !
   !.. Local Allocatable Scalars ..
   type(matrix), allocatable :: this_map
   !
@@ -154,6 +151,7 @@ subroutine parametrically_corrected_mapping()
   real(wp), allocatable :: elem_xyz(:,:)
   real(wp), allocatable :: elem_sol(:,:)
   real(wp), allocatable :: elem_usp(:,:)
+  real(wp), allocatable :: edge_pts(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "parametrically_corrected_mapping"
@@ -172,10 +170,6 @@ continue
   rhoref_inv = one / rhoref
   rhoa_inv = rhoref_inv / aref
   rhoa2_inv = rhoa_inv / aref
-  !
-  ! Initialize the local pointers
-  !
-  edge_pts => null()
   !
   ! We need to reset various grid size parameters in case partitioning
   ! was done for use with multiple processors. If only using with a
@@ -286,7 +280,7 @@ continue
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
     !
-    edge_pts => std_elem(Geom_Edge,this_order)%pts(1,:)
+    edge_pts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOCATION
     !
     ! This parametric mapping should only be used with Plot3D grids,
     ! so we only need to worry about structured grid elements.
@@ -311,8 +305,6 @@ continue
         call stop_gfr(abort,pname,__LINE__,__FILE__)
         !
     end select
-    !
-    if (associated(edge_pts)) edge_pts => null()
     !
     ! Now use the mapping matrix to map the coordinates of the points for the
     ! element provided by the grid file to the coordinates of the solution
@@ -448,13 +440,13 @@ subroutine assume_equidistant_mapping()
   !
   !.. Local Pointers ..
   type(matrix), pointer :: this_map
-  real(wp),     pointer :: edge_pts(:)
-  real(wp),     pointer :: tria_pts(:,:)
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: elem_xyz(:,:)
   real(wp), allocatable :: elem_sol(:,:)
   real(wp), allocatable :: elem_usp(:,:)
+  real(wp), allocatable :: edge_pts(:)
+  real(wp), allocatable :: tria_pts(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "assume_equidistant_mapping"
@@ -468,11 +460,6 @@ continue
   rhoref_inv = one / rhoref
   rhoa_inv = rhoref_inv / aref
   rhoa2_inv = rhoa_inv / aref
-  !
-  ! Initialize the local pointers
-  !
-  edge_pts => null()
-  tria_pts => null()
   !
   ! We need to reset various grid size parameters in case partitioning
   ! was done for use with multiple processors. If only using with a
@@ -627,8 +614,8 @@ continue
                  stat=ierr , errmsg=error_message )
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
-      edge_pts => std_elem(Geom_Edge,this_order)%pts(1,:)
-      tria_pts => std_elem(Geom_Tria,this_order)%pts
+      edge_pts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+      tria_pts = std_elem(Geom_Tria,this_order)%pts      ! F2003 AUTO-REALLOC
       !
       select case (this_geom)
         !
@@ -681,9 +668,6 @@ continue
           call stop_gfr(abort,pname,__LINE__,__FILE__)
           !
       end select
-      !
-      if (associated(edge_pts)) edge_pts => null()
-      if (associated(tria_pts)) tria_pts => null()
       !
     end if
     !

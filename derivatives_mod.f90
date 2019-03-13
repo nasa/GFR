@@ -62,12 +62,12 @@ module derivatives_mod
   !            i.e., (1,2,3) for (xi,eta,zeta) or (r,s,t)
   !        k = the solution point within cell 'n' that is currently of interest
   !
-  type(derivative_matrices), public, save, target, allocatable :: deriv(:,:)
+  type(derivative_matrices), public, save, allocatable :: deriv(:,:)
   !
   ! dqmat : same as deriv but gives the derivative matrices for the quadrature
   !         points
   !
-  type(derivative_matrices), public, save, target, allocatable :: dqmat(:,:)
+  type(derivative_matrices), public, save, allocatable :: dqmat(:,:)
   !
 contains
 !
@@ -241,23 +241,12 @@ subroutine init_derivative_matrices()
   character(len=200) :: array_name
   character(len=300) :: timer_message
   !
-  !.. Local Pointers ..
-  type(derivative_matrices), pointer :: this_dmat
-  real(wp), pointer :: solpts(:,:)
-  real(wp), pointer :: d1_mat(:,:)
-  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_derivative_matrices"
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
-  !
-  ! Initialize the local pointers to disassociated
-  !
-  this_dmat => null()
-  solpts    => null()
-  d1_mat    => null()
   !
   gmin = n_min_geom
   gmax = n_max_geom
@@ -285,13 +274,10 @@ continue
       100 format ("Geometry = ",a,"  ;  Order = ",i0)
       call debug_timer(start_timer,timer_message)
       !
-      ! Assign local pointer as alias to simplify the code
-      !
-      this_dmat => deriv(this_geom,this_order)
-      !
       ! Allocate the number of dimensional derivative matrices
       !
-      allocate ( this_dmat%d(1:ndim) , stat=ierr , errmsg=error_message )
+      allocate ( deriv(this_geom,this_order)%d(1:ndim) , &
+                 stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                        error_message,skip_alloc_pause)
@@ -301,43 +287,38 @@ continue
       select case (this_geom)
         case (Geom_Edge)
           !
-          this_dmat%d = Dmatrix_Edge( this_order , loc_solution_pts )
+          deriv(this_geom,this_order)%d = Dmatrix_Edge( this_order , &
+                                                        loc_solution_pts )
           !
         case (Geom_Tria)
           !
-          solpts => std_elem(this_geom,this_order)%pts
-          !
-          this_dmat%d = Dmatrix_Tria( solpts )
+          deriv(this_geom,this_order)%d = &
+                            Dmatrix_Tria( std_elem(this_geom,this_order)%pts )
           !
         case (Geom_Quad)
           !
-          d1_mat => deriv(Geom_Edge,this_order)%d(1)%mat
-          !
-          this_dmat%d = Dmatrix_Quad( d1_mat )
+          deriv(this_geom,this_order)%d = &
+                            Dmatrix_Quad( deriv(Geom_Edge,this_order)%d(1)%mat )
           !
         case (Geom_Tetr)
           !
-          solpts => std_elem(this_geom,this_order)%pts
-          !
-          this_dmat%d = Dmatrix_Tetr( solpts )
+          deriv(this_geom,this_order)%d = &
+                            Dmatrix_Tetr( std_elem(this_geom,this_order)%pts )
           !
         case (Geom_Pyra)
           !
-          solpts => std_elem(this_geom,this_order)%pts
-          !
-          this_dmat%d = Dmatrix_Pyra( solpts )
+          deriv(this_geom,this_order)%d = &
+                            Dmatrix_Pyra( std_elem(this_geom,this_order)%pts )
           !
         case (Geom_Pris)
           !
-          solpts => std_elem(this_geom,this_order)%pts
-          !
-          this_dmat%d = Dmatrix_Pris( solpts )
+          deriv(this_geom,this_order)%d = &
+                            Dmatrix_Pris( std_elem(this_geom,this_order)%pts )
           !
         case (Geom_Hexa)
           !
-          d1_mat => deriv(Geom_Edge,this_order)%d(1)%mat
-          !
-          this_dmat%d = Dmatrix_Hexa( d1_mat )
+          deriv(this_geom,this_order)%d = &
+                            Dmatrix_Hexa( deriv(Geom_Edge,this_order)%d(1)%mat )
           !
         case default
           !
@@ -346,11 +327,6 @@ continue
           !
       end select
       !
-      ! Remove all associations of the local pointers before continuing
-      !
-      if (associated(this_dmat)) this_dmat => null()
-      if (associated(solpts   )) solpts    => null()
-      if (associated(d1_mat   )) d1_mat    => null()
       call debug_timer(stop_timer,timer_message)
       call check_for_bad_number(__LINE__,__FILE__)
       !

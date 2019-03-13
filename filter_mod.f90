@@ -47,7 +47,7 @@ module filter_mod
   ! filter : filter matrices for all combinations of cell geometry and
   !          cell order that are possible in the current simulation
   !
-  type(filter_t), public, save, target, allocatable :: filter(:,:)
+  type(filter_t), public, save, allocatable :: filter(:,:)
   !
   ! Cutoff_Filter_Option : method used to compute the cutoff filter matrices
   !          = 1 : use a tensor product of the 1D filter with the filter cutoff
@@ -82,12 +82,6 @@ subroutine init_filter_matrices()
   character(len=200) :: array_name
   character(len=300) :: timer_message
   !
-  !.. Local Pointers ..
-  type(matrix), pointer :: filt
-  real(wp), pointer :: fmat(:,:)
-  real(wp), pointer :: vmat(:,:)
-  real(wp), pointer :: vmat_inv(:,:)
-  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_filter_matrices"
   character(len=*), parameter :: fname = "filter_diagonals.dat"
@@ -95,13 +89,6 @@ subroutine init_filter_matrices()
 continue
   !
   call debug_timer(entering_procedure,pname)
-  !
-  ! Initialize the local pointers to disassociated
-  !
-  filt => null()
-  fmat => null()
-  vmat => null()
-  vmat_inv => null()
   !
   if (output_filter_diagonals .and. mypnum == glb_root) then
     open (newunit=io,file=fname,status="replace",action="write", &
@@ -131,11 +118,6 @@ continue
       !
       npts = geom_solpts(this_geom,this_order)
       !
-      ! Assign local pointers as aliases to simplify the code
-      !
-      vmat => vand(this_geom,this_order)%modal2nodal%mat
-      vmat_inv => vand(this_geom,this_order)%nodal2modal%mat
-      !
       ! ###################################
       ! #####  1. Exponential Filter  #####
       ! ###################################
@@ -154,60 +136,68 @@ continue
         call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
                          ierr,error_message)
         !
-        ! Assign local pointers as aliases to simplify the code
-        !
-        filt => filter(this_geom,this_order)%exponential
-        !
         ! Allocate the exponential filter matrix
         !
-        allocate ( filt%mat(1:npts,1:npts) , &
+        allocate ( filter(this_geom,this_order)% &
+                                    exponential%mat(1:npts,1:npts) , &
                    source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"exponential%mat"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
                          ierr,error_message)
-        !
-        ! Assign local pointers as aliases to simplify the code
-        !
-        fmat => filt%mat
         !
         ! Compute the filter matrices depending on geometry type
         !
         select case (this_geom)
           case (Geom_Edge)
             !
-            fmat = FilterMatrix_Edge( vmat , vmat_inv )
+            filter(this_geom,this_order)%exponential%mat = &
+               FilterMatrix_Edge( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat )
             !
             if (output_filter_diagonals .and. mypnum == glb_root) then
               write (io,800) "Edge Standard Filter"
               if (Filter_Option == 0) write (io,802)
               do j = npts,1,-1
-                write (io,801) (fmat(i,j), i=1,npts)
+                write (io,801) (filter(this_geom,this_order)% &
+                                                 exponential%mat(i,j), i=1,npts)
               end do
             end if
             !
           case (Geom_Tria)
             !
-            fmat = FilterMatrix_Tria( vmat , vmat_inv )
+            filter(this_geom,this_order)%exponential%mat = &
+               FilterMatrix_Tria( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat )
             !
           case (Geom_Quad)
             !
-            fmat = FilterMatrix_Quad( vmat , vmat_inv )
+            filter(this_geom,this_order)%exponential%mat = &
+               FilterMatrix_Quad( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat )
             !
           case (Geom_Tetr)
             !
-            fmat = FilterMatrix_Tetr( vmat , vmat_inv )
+            filter(this_geom,this_order)%exponential%mat = &
+               FilterMatrix_Tetr( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat )
             !
           case (Geom_Pyra)
             !
-            fmat = FilterMatrix_Pyra( vmat , vmat_inv )
+            filter(this_geom,this_order)%exponential%mat = &
+               FilterMatrix_Pyra( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat )
             !
           case (Geom_Pris)
             !
-            fmat = FilterMatrix_Pris( vmat , vmat_inv )
+            filter(this_geom,this_order)%exponential%mat = &
+               FilterMatrix_Pris( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat )
             !
           case (Geom_Hexa)
             !
-            fmat = FilterMatrix_Hexa( vmat , vmat_inv )
+            filter(this_geom,this_order)%exponential%mat = &
+               FilterMatrix_Hexa( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat )
             !
           case default
             !
@@ -216,10 +206,6 @@ continue
             !
         end select
         !
-        ! Remove all associations of the local pointers before continuing
-        !
-        if (associated(fmat)) fmat => null()
-        if (associated(filt)) filt => null()
         call debug_timer(stop_timer,timer_message)
         !
       end if
@@ -242,21 +228,13 @@ continue
         call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
                          ierr,error_message)
         !
-        ! Assign local pointers as aliases to simplify the code
-        !
-        filt => filter(this_geom,this_order)%limiter
-        !
         ! Allocate the limiter filter matrix
         !
-        allocate ( filt%mat(1:npts,1:npts) , &
+        allocate ( filter(this_geom,this_order)%limiter%mat(1:npts,1:npts) , &
                    source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"limiter%mat"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
                          ierr,error_message)
-        !
-        ! Assign local pointers as aliases to simplify the code
-        !
-        fmat => filt%mat
         !
         ! Compute the filter matrices depending on geometry type
         !
@@ -265,43 +243,69 @@ continue
             !
             if (output_filter_diagonals .and. mypnum == glb_root) then
               !
-              fmat = FilterMatrix_Edge_with_output( vmat , vmat_inv , &
-                                                    cutoff_order=-1 )
+              filter(this_geom,this_order)%limiter%mat = &
+               FilterMatrix_Edge_with_output( vand(this_geom,this_order)% &
+                                                             modal2nodal%mat , &
+                                              vand(this_geom,this_order)% &
+                                                             nodal2modal%mat , &
+                                                   cutoff_order=-1 )
               write (io,800) "Edge Limiter Filter"
               if (Limiter_Filter_Option == 0) write (io,802)
               do j = npts,1,-1
-                write (io,801) (fmat(i,j), i=1,npts)
+                write (io,801) (filter(this_geom,this_order)% &
+                                                     limiter%mat(i,j), i=1,npts)
               end do
               !
             else
               !
-              fmat = FilterMatrix_Edge( vmat , vmat_inv , cutoff_order=-1 )
+              filter(this_geom,this_order)%limiter%mat = &
+               FilterMatrix_Edge( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat , &
+                                  cutoff_order=-1 )
               !
             end if
             !
           case (Geom_Tria)
             !
-            fmat = FilterMatrix_Tria( vmat , vmat_inv , cutoff_order=-1 )
+            filter(this_geom,this_order)%limiter%mat = &
+               FilterMatrix_Tria( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat , &
+                                  cutoff_order=-1 )
             !
           case (Geom_Quad)
             !
-            fmat = FilterMatrix_Quad( vmat , vmat_inv , cutoff_order=-1 )
+            filter(this_geom,this_order)%limiter%mat = &
+               FilterMatrix_Quad( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat , &
+                                  cutoff_order=-1 )
             !
           case (Geom_Tetr)
             !
-            fmat = FilterMatrix_Tetr( vmat , vmat_inv , cutoff_order=-1 )
+            filter(this_geom,this_order)%limiter%mat = &
+               FilterMatrix_Tetr( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat , &
+                                  cutoff_order=-1 )
             !
           case (Geom_Pyra)
             !
-            fmat = FilterMatrix_Pyra( vmat , vmat_inv , cutoff_order=-1 )
+            filter(this_geom,this_order)%limiter%mat = &
+               FilterMatrix_Pyra( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat , &
+                                  cutoff_order=-1 )
             !
           case (Geom_Pris)
             !
-            fmat = FilterMatrix_Pris( vmat , vmat_inv , cutoff_order=-1 )
+            filter(this_geom,this_order)%limiter%mat = &
+               FilterMatrix_Pris( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat , &
+                                  cutoff_order=-1 )
             !
           case (Geom_Hexa)
             !
-            fmat = FilterMatrix_Hexa( vmat , vmat_inv , cutoff_order=-1 )
+            filter(this_geom,this_order)%limiter%mat = &
+               FilterMatrix_Hexa( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat , &
+                                  cutoff_order=-1 )
             !
           case default
             !
@@ -310,10 +314,6 @@ continue
             !
         end select
         !
-        ! Remove all associations of the local pointers before continuing
-        !
-        if (associated(fmat)) fmat => null()
-        if (associated(filt)) filt => null()
         call debug_timer(stop_timer,timer_message)
         !
       end if
@@ -336,30 +336,27 @@ continue
                     "  ;  Cutoff Order = ",i0)
         call debug_timer(start_timer,timer_message)
         !
-        ! Assign local pointers as aliases to simplify the code
-        !
-        filt => filter(this_geom,this_order)%cutoff(cutoff_order)
-        !
         ! Allocate the cutoff filter matrix
         !
-        allocate ( filt%mat(1:npts,1:npts) , &
+        allocate ( filter(this_geom,this_order)% &
+                           cutoff(cutoff_order)%mat(1:npts,1:npts) , &
                    source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order, &
                              "cutoff",cutoff_order
         call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
                          ierr,error_message)
         !
-        ! Assign local pointers as aliases to simplify the code
-        !
-        fmat => filt%mat
-        !
         if (output_filter_diagonals .and. mypnum == glb_root) then
           if (cutoff_order == this_order .and. this_geom == Geom_Edge) then
-            fmat = FilterMatrix_Edge( vmat , vmat_inv , cutoff_order+1 )
+            filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
+               FilterMatrix_Edge( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat , &
+                                  cutoff_order+1 )
             write (io,800) "Edge Cutoff Filter",&
                            " for P-",this_order+1-(cutoff_order+1)
             do j = npts,1,-1
-              write (io,801) (fmat(i,j), i=1,npts)
+              write (io,801) (filter(this_geom,this_order)% &
+                                      cutoff(cutoff_order)%mat(i,j), i=1,npts)
             end do
           end if
         end if
@@ -369,40 +366,59 @@ continue
         select case (this_geom)
           case (Geom_Edge)
             !
-            fmat = FilterMatrix_Edge( vmat , vmat_inv , cutoff_order )
+            filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
+               FilterMatrix_Edge( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat , &
+                                  cutoff_order )
             !
             if (output_filter_diagonals .and. mypnum == glb_root) then
               write (io,800) "Edge Cutoff Filter",&
                              " for P-",this_order+1-cutoff_order
               do j = npts,1,-1
-                write (io,801) (fmat(i,j), i=1,npts)
+                write (io,801) (filter(this_geom,this_order)% &
+                                        cutoff(cutoff_order)%mat(i,j), i=1,npts)
               end do
             end if
             !
           case (Geom_Tria)
             !
-            fmat = FilterMatrix_Tria( vmat , vmat_inv , cutoff_order )
+            filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
+               FilterMatrix_Tria( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat , &
+                                  cutoff_order )
             !
           case (Geom_Quad)
             !
-            fmat = FilterMatrix_Quad( vmat , vmat_inv , cutoff_order )
+            filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
+               FilterMatrix_Quad( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat , &
+                                  cutoff_order )
             !
           case (Geom_Tetr)
             !
-            fmat = FilterMatrix_Tetr( vmat , vmat_inv , cutoff_order )
+            filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
+               FilterMatrix_Tetr( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat , &
+                                  cutoff_order )
             !
           case (Geom_Pyra)
             !
-            fmat = FilterMatrix_Pyra( vmat , vmat_inv , cutoff_order )
+            filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
+               FilterMatrix_Pyra( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat , &
+                                  cutoff_order )
             !
           case (Geom_Pris)
             !
-            fmat = FilterMatrix_Pris( vmat , vmat_inv , cutoff_order )
+            filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
+               FilterMatrix_Pris( vand(this_geom,this_order)%modal2nodal%mat , &
+                                  vand(this_geom,this_order)%nodal2modal%mat , &
+                                  cutoff_order )
             !
           case (Geom_Hexa)
             !
-            fmat = FilterMatrix_Hexa( &
-                                 vand(this_geom,this_order)%modal2nodal%mat , &
+            filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
+              FilterMatrix_Hexa( vand(this_geom,this_order)%modal2nodal%mat , &
                                  vand(this_geom,this_order)%nodal2modal%mat , &
                                  cutoff_order )
             !
@@ -413,20 +429,9 @@ continue
             !
         end select
         !
-        ! Remove all associations of the local pointers before continuing
-        !
-        if (associated(fmat)) fmat => null()
-        if (associated(filt)) filt => null()
         call debug_timer(stop_timer,timer_message)
         !
       end do cutoff_loop
-      !
-      ! Remove all associations of the local pointers before continuing
-      !
-      if (associated(fmat)) fmat => null()
-      if (associated(filt)) filt => null()
-      if (associated(vmat)) vmat => null()
-      if (associated(vmat_inv)) vmat_inv => null()
       !
     end do order_loop
     !

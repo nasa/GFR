@@ -96,7 +96,7 @@ module projection_mod
   !           this_order = face(nf)%order
   !           lower_order = reduced order desired
   !
-  type(projection_matrix), public, save, target, allocatable :: projct(:,:)
+  type(projection_matrix), public, save, allocatable :: projct(:,:)
   !
   integer, save :: current_elem_geom
   integer, save :: current_elem_order
@@ -146,21 +146,12 @@ subroutine init_projection_matrices()
   real(wp), allocatable :: bmat(:,:)
   real(wp), allocatable :: vmat(:,:)
   !
-  !.. Local Pointers ..
-  type(matrix),            pointer :: proj
-  type(projection_matrix), pointer :: this_projct
-  real(wp),                pointer :: pmat(:,:)
-  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_projection_matrices"
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
-  !
-  pmat        => null()
-  proj        => null()
-  this_projct => null()
   !
   gmin = n_min_geom
   gmax = n_max_geom
@@ -184,10 +175,6 @@ continue
       !
       current_elem_order = elem_order
       !
-      ! Assign local pointer as alias to simplify the code
-      !
-      this_projct => projct(this_geom,elem_order)
-      !
       ! Get the number of solution points for this cell
       !
       nsp = geom_solpts(this_geom,elem_order)
@@ -210,7 +197,7 @@ continue
       !
       ! Allocate the projct%CellOI component of projct
       !
-      allocate ( this_projct%CellOI(qdtr_omin:qdtr_omax) , &
+      allocate ( projct(this_geom,elem_order)%CellOI(qdtr_omin:qdtr_omax) , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),elem_order,"CellOI"
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
@@ -243,34 +230,25 @@ continue
         bmat(:,:) = Compute_Basis_Matrix(this_geom,cq_order, &
                                          basis_order=elem_order)
         !
-        ! Assign local pointer as alias to simplify the code
-        !
-        proj => this_projct%CellOI(cq_order)
-        !
         ! Allocate the projection matrix for this quadrature order
         ! NOTE : proj is actually the transpose of the projection matrix
         ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
         !        of the array and the function result are the same
         !
-        allocate ( proj%mat(1:ncqp,1:nsp) , source=zero , &
-                   stat=ierr , errmsg=error_message )
+        allocate ( projct(this_geom,elem_order)% &
+                               CellOI(cq_order)%mat(1:ncqp,1:nsp) , &
+                   source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),elem_order,"CellOI",cq_order
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message)
         !
-        ! Assign local pointer as alias to simplify the code
-        !
-        pmat => proj%mat
-        !
         ! Compute the projection matrix
         !
-        pmat(:,:) = Compute_Projection_Matrix( &
+        projct(this_geom,elem_order)%CellOI(cq_order)%mat(:,:) = &
+                  Compute_Projection_Matrix( &
                         basis=bmat, &
                         weights=std_elem(this_geom,cq_order)%wts, &
                         vand=vand(this_geom,elem_order)%modal2nodal%mat)
-        !
-        if (associated(pmat)) pmat => null()
-        if (associated(proj)) proj => null()
         !
         ! Deallocate bmat for the next cell quadrature order
         !
@@ -299,7 +277,7 @@ continue
         !
         ! Allocate the projct%FaceOI component of projct
         !
-        allocate ( this_projct%FaceOI(qdtr_omin:qdtr_omax) , &
+        allocate ( projct(this_geom,elem_order)%FaceOI(qdtr_omin:qdtr_omax) , &
                    stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),elem_order,"FaceOI"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
@@ -346,34 +324,25 @@ continue
                           this_geom,fq_order,basis_order=elem_order, &
                           nodal_points=face_elem(this_geom,fq_order)%pts)
           !
-          ! Assign local pointer as alias to simplify the code
-          !
-          proj => this_projct%FaceOI(fq_order)
-          !
           ! Allocate the projection matrix for this quadrature order
           ! NOTE : proj is actually the transpose of the projection matrix
           ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
           !        of the array and the function result are the same
           !
-          allocate ( proj%mat(1:nfqp,1:nfp) , source=zero , &
-                     stat=ierr , errmsg=error_message )
+          allocate ( projct(this_geom,elem_order)% &
+                                 FaceOI(fq_order)%mat(1:nfqp,1:nfp) , &
+                     source=zero , stat=ierr , errmsg=error_message )
           write (array_name,1) Geom_Name(this_geom),elem_order,"FaceOI",fq_order
           call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                            error_message)
           !
-          ! Assign local pointer as alias to simplify the code
-          !
-          pmat => proj%mat
-          !
           ! Compute the projection matrix
           !
-          pmat(:,:) = Compute_Projection_Matrix( &
+          projct(this_geom,elem_order)%FaceOI(fq_order)%mat(:,:) = &
+                    Compute_Projection_Matrix( &
                           basis=bmat, &
                           weights=face_elem(this_geom,fq_order)%wts, &
                           vand=vmat)
-          !
-          if (associated(pmat)) pmat => null()
-          if (associated(proj)) proj => null()
           !
           ! Deallocate bmat and vmat for the next face quadrature order
           !
@@ -417,7 +386,7 @@ continue
       !
       ! Allocate the projct%limiter component of projct
       !
-      allocate ( this_projct%limiter(lmtr_omin:lmtr_omax) , &
+      allocate ( projct(this_geom,elem_order)%limiter(lmtr_omin:lmtr_omax) , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),elem_order,"limiter"
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
@@ -458,35 +427,26 @@ continue
                     "  ;  lmtr_order = ",i0)
         call debug_timer(start_timer,timer_message)
         !
-        ! Assign local pointer as alias to simplify the code
-        !
-        proj => this_projct%limiter(lmtr_order)
-        !
         ! Allocate the projection matrix for this cell order
         ! NOTE : proj is actually the transpose of the projection matrix
         ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
         !        of the array and the function result are the same
         !
-        allocate ( proj%mat(1:nsp,1:nsp) , source=zero , &
-                   stat=ierr , errmsg=error_message )
+        allocate ( projct(this_geom,elem_order)% &
+                            limiter(lmtr_order)%mat(1:nsp,1:nsp) , &
+                   source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),elem_order, &
                              "limiter",lmtr_order
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message)
         !
-        ! Assign local pointer as alias to simplify the code
-        !
-        pmat => proj%mat
-        !
         ! Compute the projection matrices depending on geometry type
         !
-        pmat(:,:) = Compute_Projection_Matrix( &
+        projct(this_geom,elem_order)%limiter(lmtr_order)%mat(:,:) = &
+                  Compute_Projection_Matrix( &
                         basis=bmat, &
                         weights=std_elem(this_geom,elem_order)%wts)
         call debug_timer(stop_timer,timer_message)
-        !
-        if (associated(pmat)) pmat => null()
-        if (associated(proj)) proj => null()
         !
         ! Deallocate bmat for the next limiter order
         !
@@ -497,10 +457,6 @@ continue
         end if
         !
       end do cell_order_loop
-      !
-      if (associated(pmat       )) pmat        => null()
-      if (associated(proj       )) proj        => null()
-      if (associated(this_projct)) this_projct => null()
       !
     end do elem_order_loop
     !

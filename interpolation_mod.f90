@@ -54,7 +54,7 @@ module interpolation_mod
   !        k = if using toFace, the face solution point we are interpolating to
   !            if using toCell, the cell solution point we are interpolating to
   !
-  type(interpolation_matrix), public, save, target, allocatable :: interp(:,:)
+  type(interpolation_matrix), public, save, allocatable :: interp(:,:)
   !
   ! outerpolation_matrix : derived type that stores the "outerpolation" matrices
   !                        (short for "interpolation for output") which
@@ -82,7 +82,7 @@ module interpolation_mod
   !          points to a set of nodal points only meant for output and to
   !          visualize the solution.
   !
-  type(outerpolation_matrix), public, save, target, allocatable :: outerp(:,:)
+  type(outerpolation_matrix), public, save, allocatable :: outerp(:,:)
   !
   type :: spanning_vectors_t
     logical(lk) :: found = fals
@@ -132,9 +132,6 @@ subroutine interp_cell_sol_to_xyz(nc,xyz_pt,return_value)
   real(wp) :: del_abc(1:nr)
   real(wp) :: interp_mat(1:maxSP)
   !
-  !.. Local Pointers ..
-  real(wp), pointer :: solpts(:,:)
-  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "interp_cell_sol_to_xyz"
   !
@@ -143,10 +140,6 @@ subroutine interp_cell_sol_to_xyz(nc,xyz_pt,return_value)
   real(wp), parameter :: error_goal = eps6
   !
 continue
-  !
-  ! Initialize the local pointers to disassociated
-  !
-  solpts => null()
   !
   ! Information for the current cell
   !
@@ -262,11 +255,8 @@ continue
         !
       case (Geom_Tria)
         !
-        solpts => std_elem(this_geom,this_order)%pts
-        !
-        interp_mat(1:np) = InterpToPoint_Tria(solpts,comp_r)
-        !
-        if (associated(solpts)) solpts => null()
+        interp_mat(1:np) = &
+                   InterpToPoint_Tria(std_elem(this_geom,this_order)%pts,comp_r)
         !
       case (Geom_Quad)
         !
@@ -274,27 +264,18 @@ continue
         !
       case (Geom_Tetr)
         !
-        solpts => std_elem(this_geom,this_order)%pts
-        !
-        interp_mat(1:np) = InterpToPoint_Tetr(solpts,comp_r)
-        !
-        if (associated(solpts)) solpts => null()
+        interp_mat(1:np) = &
+                   InterpToPoint_Tetr(std_elem(this_geom,this_order)%pts,comp_r)
         !
       case (Geom_Pyra)
         !
-        solpts => std_elem(this_geom,this_order)%pts
-        !
-        interp_mat(1:np) = InterpToPoint_Pyra(solpts,comp_r)
-        !
-        if (associated(solpts)) solpts => null()
+        interp_mat(1:np) = &
+                   InterpToPoint_Pyra(std_elem(this_geom,this_order)%pts,comp_r)
         !
       case (Geom_Pris)
         !
-        solpts => std_elem(this_geom,this_order)%pts
-        !
-        interp_mat(1:np) = InterpToPoint_Pris(solpts,comp_r)
-        !
-        if (associated(solpts)) solpts => null()
+        interp_mat(1:np) = &
+                   InterpToPoint_Pris(std_elem(this_geom,this_order)%pts,comp_r)
         !
       case (Geom_Hexa)
         !
@@ -928,15 +909,6 @@ subroutine init_interpolation_matrices()
   integer :: nnodpts,node_order
   character(len=200) :: array_name
   !
-  !.. Local Pointers ..
-  type(interpolation_matrix), pointer :: this_interp
-  type(matrix), pointer :: this_cell
-  type(matrix), pointer :: this_face
-  type(matrix), pointer :: this_edge
-  type(matrix), pointer :: this_node
-  real(wp), pointer :: cell_mat(:,:)
-  real(wp), pointer :: solpts(:,:)
-  !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: edgpts(:)
   real(wp), allocatable :: flxpts(:)
@@ -948,16 +920,6 @@ subroutine init_interpolation_matrices()
 continue
   !
   call debug_timer(entering_procedure,pname)
-  !
-  ! Initialize the local pointers to disassociated
-  !
-  this_interp => null()
-  this_cell   => null()
-  this_face   => null()
-  this_edge   => null()
-  this_node   => null()
-  cell_mat    => null()
-  solpts      => null()
   !
   gmin = n_min_geom
   gmax = n_max_geom
@@ -977,10 +939,6 @@ continue
     !
     order_loop: do this_order = omin,omax
       !
-      ! Assign local pointer as alias to simplify the code
-      !
-      this_interp => interp(this_geom,this_order)
-      !
       ! Get the number of solution points for this cell
       !
       nsolpts = geom_solpts(this_geom,this_order)
@@ -993,7 +951,7 @@ continue
       !
       ! Allocate the interp%toCell component of interp
       !
-      allocate ( this_interp%toCell(this_omin:this_omax) , &
+      allocate ( interp(this_geom,this_order)%toCell(this_omin:this_omax) , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"toCell"
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
@@ -1003,24 +961,18 @@ continue
       !
       cell_order_loop: do cell_order = this_omin,this_omax
         !
-        ! Assign local pointers to these matrices
-        ! as aliases to simplify the code
-        !
-        this_cell => this_interp%toCell(cell_order)
-        !
         ! Get the number of volume points for this cell order
         !
         nvolpts = geom_solpts(this_geom,cell_order)
         !
         ! Allocate the interpolation matrix for this cell order
         !
-        allocate ( this_cell%mat(1:nvolpts,1:nsolpts) , &
+        allocate ( interp(this_geom,this_order)% &
+                             toCell(cell_order)%mat(1:nvolpts,1:nsolpts) , &
                    source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"toCell",cell_order
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message)
-        !
-        cell_mat => this_cell%mat
         !
         allocate ( pts(1:cell_order+1) , source=zero , &
                    stat=ierr , errmsg=error_message )
@@ -1050,7 +1002,8 @@ continue
         !
         ! Create the matrix to interpolate to quadrature points
         !
-        cell_mat(:,:) = InterpToCell(this_geom,this_order,nsolpts,nvolpts,pts)
+        interp(this_geom,this_order)%toCell(cell_order)%mat(:,:) = &
+                     InterpToCell(this_geom,this_order,nsolpts,nvolpts,pts)
         !
         ! Deallocate the pts array if needed
         !
@@ -1059,13 +1012,6 @@ continue
           call alloc_error(pname,"pts",2,__LINE__,__FILE__,ierr, &
                            error_message,skip_alloc_pause)
         end if
-        !
-        !
-        ! Remove all associations of the local pointers before continuing
-        !
-        if (associated(cell_mat )) cell_mat  => null()
-        if (associated(this_cell)) this_cell => null()
-        if (associated(solpts   )) solpts    => null()
         !
       end do cell_order_loop
       !
@@ -1084,7 +1030,7 @@ continue
       !
       ! Allocate the interp%toFace component of interp
       !
-      allocate ( this_interp%toFace(this_omin:this_omax) , &
+      allocate ( interp(this_geom,this_order)%toFace(this_omin:this_omax) , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"toFace"
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
@@ -1094,18 +1040,14 @@ continue
       !
       face_order_loop: do face_order = this_omin,this_omax
         !
-        ! Assign local pointers to these matrices
-        ! as aliases to simplify the code
-        !
-        this_face => this_interp%toFace(face_order)
-        !
         ! Get the number of face/flux points for this face order
         !
         nflxpts = geom_flxpts(this_geom,face_order)
         !
         ! Allocate the interpolation matrix for this face order
         !
-        allocate ( this_face%mat(1:nsolpts,1:nflxpts) , &
+        allocate ( interp(this_geom,this_order)% &
+                             toFace(face_order)%mat(1:nsolpts,1:nflxpts) , &
                    source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"toFace",face_order
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
@@ -1118,45 +1060,44 @@ continue
             !
             edgpts = std_elem(this_geom,this_order)%pts(1,:) ! F03 AUTO-REALLOC
             !
-            this_face%mat = InterpToFace_Edge( edgpts )
+            interp(this_geom,this_order)%toFace(face_order)%mat = &
+                    InterpToFace_Edge( edgpts )
             !
           case (Geom_Tria)
             !
-            solpts => std_elem(this_geom,this_order)%pts
-            !
-            this_face%mat = InterpToFace_Tria( solpts )
+            interp(this_geom,this_order)%toFace(face_order)%mat = &
+                    InterpToFace_Tria( std_elem(this_geom,this_order)%pts )
             !
           case (Geom_Quad)
             !
             edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
             flxpts = face_elem(Geom_Edge,face_order)%pts(1,:) ! F03 AUTO-REALLOC
             !
-            this_face%mat = InterpToFace_Quad( edgpts , flxpts )
+            interp(this_geom,this_order)%toFace(face_order)%mat = &
+                    InterpToFace_Quad( edgpts , flxpts )
             !
           case (Geom_Tetr)
             !
-            solpts => std_elem(this_geom,this_order)%pts
-            !
-            this_face%mat = InterpToFace_Tetr( solpts )
+            interp(this_geom,this_order)%toFace(face_order)%mat = &
+                    InterpToFace_Tetr( std_elem(this_geom,this_order)%pts )
             !
           case (Geom_Pyra)
             !
-            solpts => std_elem(this_geom,this_order)%pts
-            !
-            this_face%mat = InterpToFace_Pyra( solpts )
+            interp(this_geom,this_order)%toFace(face_order)%mat = &
+                    InterpToFace_Pyra( std_elem(this_geom,this_order)%pts )
             !
           case (Geom_Pris)
             !
-            solpts => std_elem(this_geom,this_order)%pts
-            !
-            this_face%mat = InterpToFace_Pris( solpts )
+            interp(this_geom,this_order)%toFace(face_order)%mat = &
+                    InterpToFace_Pris( std_elem(this_geom,this_order)%pts )
             !
           case (Geom_Hexa)
             !
             edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
             flxpts = face_elem(Geom_Edge,face_order)%pts(1,:) ! F03 AUTO-REALLOC
             !
-            this_face%mat = InterpToFace_Hexa( edgpts , flxpts )
+            interp(this_geom,this_order)%toFace(face_order)%mat = &
+                    InterpToFace_Hexa( edgpts , flxpts )
             !
           case default
             !
@@ -1165,16 +1106,11 @@ continue
             !
         end select
         !
-        ! Remove all associations of the local pointers before continuing
-        !
-        if (associated(this_face)) this_face => null()
-        if (associated(solpts   )) solpts    => null()
-        !
       end do face_order_loop
       !
       ! Allocate the interp%toEdge component of interp
       !
-      allocate ( this_interp%toEdge(this_omin:this_omax) , &
+      allocate ( interp(this_geom,this_order)%toEdge(this_omin:this_omax) , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"toEdge"
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
@@ -1193,14 +1129,10 @@ continue
         !
         if (nedgpts == 0) cycle edge_order_loop
         !
-        ! Assign local pointers to these matrices
-        ! as aliases to simplify the code
-        !
-        this_edge => this_interp%toEdge(edge_order)
-        !
         ! Allocate the interpolation matrix for this edge order
         !
-        allocate ( this_edge%mat(1:nsolpts,1:nedgpts) , &
+        allocate ( interp(this_geom,this_order)% &
+                             toEdge(edge_order)%mat(1:nsolpts,1:nedgpts) , &
                    source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"toEdge",edge_order
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
@@ -1211,28 +1143,26 @@ continue
         select case (this_geom)
           case (Geom_Tetr)
             !
-            solpts => std_elem(this_geom,this_order)%pts
-            !
-            this_edge%mat = InterpToEdge_Tetr( solpts )
+            interp(this_geom,this_order)%toEdge(edge_order)%mat = &
+                    InterpToEdge_Tetr( std_elem(this_geom,this_order)%pts )
             !
           case (Geom_Pyra)
             !
-            solpts => std_elem(this_geom,this_order)%pts
-            !
-            this_edge%mat = InterpToEdge_Pyra( solpts )
+            interp(this_geom,this_order)%toEdge(edge_order)%mat = &
+                    InterpToEdge_Pyra( std_elem(this_geom,this_order)%pts )
             !
           case (Geom_Pris)
             !
-            solpts => std_elem(this_geom,this_order)%pts
-            !
-            this_edge%mat = InterpToEdge_Pris( solpts )
+            interp(this_geom,this_order)%toEdge(edge_order)%mat = &
+                    InterpToEdge_Pris( std_elem(this_geom,this_order)%pts )
             !
           case (Geom_Hexa)
             !
             edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
             flxpts = face_elem(Geom_Edge,edge_order)%pts(1,:) ! F03 AUTO-REALLOC
             !
-            this_edge%mat = InterpToEdge_Hexa( edgpts , flxpts )
+            interp(this_geom,this_order)%toEdge(edge_order)%mat = &
+                    InterpToEdge_Hexa( edgpts , flxpts )
             !
           case default
             !
@@ -1240,11 +1170,6 @@ continue
             call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
             !
         end select
-        !
-        ! Remove all associations of the local pointers before continuing
-        !
-        if (associated(this_edge)) this_edge => null()
-        if (associated(solpts   )) solpts    => null()
         !
       end do edge_order_loop
       !
@@ -1259,15 +1184,11 @@ continue
         !
         ! Allocate the interp%toNode component of interp
         !
-        allocate ( this_interp%toNode , stat=ierr , errmsg=error_message )
+        allocate ( interp(this_geom,this_order)%toNode , &
+                   stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"toNode"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message)
-        !
-        ! Assign local pointers to these matrices
-        ! as aliases to simplify the code
-        !
-        this_node => this_interp%toNode
         !
         ! Get the number of nodes for this cell
         !
@@ -1275,7 +1196,8 @@ continue
         !
         ! Allocate the interpolation matrix for the nodes
         !
-        allocate ( this_node%mat(1:nsolpts,1:nnodpts) , &
+        allocate ( interp(this_geom,this_order)% &
+                                         toNode%mat(1:nsolpts,1:nnodpts) , &
                    source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"toNode%mat"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
@@ -1286,39 +1208,37 @@ continue
         select case (this_geom)
           case (Geom_Tria)
             !
-            solpts => std_elem(this_geom,this_order)%pts
-            !
-            this_node%mat = InterpToNode_Tria( solpts )
+            interp(this_geom,this_order)%toNode%mat = &
+                        InterpToNode_Tria( std_elem(this_geom,this_order)%pts )
             !
           case (Geom_Quad)
             !
             edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
             !
-            this_node%mat = InterpToNode_Quad( edgpts )
+            interp(this_geom,this_order)%toNode%mat = &
+                        InterpToNode_Quad( edgpts )
             !
           case (Geom_Tetr)
             !
-            solpts => std_elem(this_geom,this_order)%pts
-            !
-            this_node%mat = InterpToNode_Tetr( solpts )
+            interp(this_geom,this_order)%toNode%mat = &
+                        InterpToNode_Tetr( std_elem(this_geom,this_order)%pts )
             !
           case (Geom_Pyra)
             !
-            solpts => std_elem(this_geom,this_order)%pts
-            !
-            this_node%mat = InterpToNode_Pyra( solpts )
+            interp(this_geom,this_order)%toNode%mat = &
+                        InterpToNode_Pyra( std_elem(this_geom,this_order)%pts )
             !
           case (Geom_Pris)
             !
-            solpts => std_elem(this_geom,this_order)%pts
-            !
-            this_node%mat = InterpToNode_Pris( solpts )
+            interp(this_geom,this_order)%toNode%mat = &
+                        InterpToNode_Pris( std_elem(this_geom,this_order)%pts )
             !
           case (Geom_Hexa)
             !
             edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
             !
-            this_node%mat = InterpToNode_Hexa( edgpts )
+            interp(this_geom,this_order)%toNode%mat = &
+                        InterpToNode_Hexa( edgpts )
             !
           case default
             !
@@ -1327,16 +1247,7 @@ continue
             !
         end select
         !
-        ! Remove all associations of the local pointers before continuing
-        !
-        if (associated(solpts   )) solpts    => null()
-        if (associated(this_node)) this_node => null()
-        !
       end do node_loop
-      !
-      ! Remove all associations of the local pointers before continuing
-      !
-      if (associated(this_interp)) this_interp => null()
       !
     end do order_loop
     !
@@ -1403,12 +1314,6 @@ subroutine init_outerpolation_matrices()
   logical(lk) :: error_matrix_is_needed
   character(len=200) :: array_name
   !
-  !.. Local Pointers ..
-  type(outerpolation_matrix), pointer :: this_outerp
-  real(wp), pointer :: imat(:,:)
-  real(wp), pointer :: omat(:,:)
-  real(wp), pointer :: emat(:,:)
-  !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: pts(:)
   real(wp), allocatable :: wts(:)
@@ -1419,13 +1324,6 @@ subroutine init_outerpolation_matrices()
 continue
   !
   call debug_timer(entering_procedure,pname)
-  !
-  ! Initialize the local pointers to disassociated
-  !
-  this_outerp => null()
-  imat        => null()
-  omat        => null()
-  emat        => null()
   !
   gmin = n_min_geom
   gmax = n_max_geom
@@ -1480,10 +1378,6 @@ continue
     !
     order_loop: do this_order = omin,omax
       !
-      ! Assign local pointer as alias to simplify the code
-      !
-      this_outerp => outerp(this_geom,this_order)
-      !
       ! Get the number of solution points for this cell
       !
       npts = geom_solpts(this_geom,this_order)
@@ -1494,23 +1388,19 @@ continue
         !
         ! Allocate the init component of outerp
         !
-        allocate ( this_outerp%init , stat=ierr , errmsg=error_message )
+        allocate ( outerp(this_geom,this_order)%init , &
+                   stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"init"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
         !
         ! Allocate the mat component of outerp%init
         !
-        allocate ( this_outerp%init%mat(1:npts,1:npts) , source=zero , &
-                   stat=ierr , errmsg=error_message )
+        allocate ( outerp(this_geom,this_order)%init%mat(1:npts,1:npts) , &
+                   source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"init%mat"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
-        !
-        ! Assign local pointersto these matrices
-        ! as aliases to simplify the code
-        !
-        imat => this_outerp%init%mat
         !
         ! Get the 1D location of the initialization points
         !
@@ -1538,7 +1428,8 @@ continue
         !
         ! Create the initialization matrix
         !
-        imat(:,:) = InterpToCell(this_geom,this_order,npts,npts,pts)
+        outerp(this_geom,this_order)%init%mat(:,:) = &
+                        InterpToCell(this_geom,this_order,npts,npts,pts)
         !
       end if
       !
@@ -1564,23 +1455,19 @@ continue
         !
         ! Allocate the output component of outerp
         !
-        allocate ( this_outerp%output , stat=ierr , errmsg=error_message )
+        allocate ( outerp(this_geom,this_order)%output , &
+                   stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"output"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
         !
         ! Allocate the mat component of outerp%output
         !
-        allocate ( this_outerp%output%mat(1:opts,1:npts) , source=zero , &
-                   stat=ierr , errmsg=error_message )
+        allocate ( outerp(this_geom,this_order)%output%mat(1:opts,1:npts) , &
+                   source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"output%mat"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
-        !
-        ! Assign local pointersto these matrices
-        ! as aliases to simplify the code
-        !
-        omat => this_outerp%output%mat
         !
         ! Get the 1D location of the output points
         !
@@ -1613,7 +1500,8 @@ continue
         !
         ! Create the output matrix
         !
-        omat(:,:) = InterpToCell(this_geom,this_order,npts,opts,pts)
+        outerp(this_geom,this_order)%output%mat(:,:) = &
+                          InterpToCell(this_geom,this_order,npts,opts,pts)
         !
       end if
       !
@@ -1639,23 +1527,19 @@ continue
         !
         ! Allocate the error component of outerp
         !
-        allocate ( this_outerp%error , stat=ierr , errmsg=error_message )
+        allocate ( outerp(this_geom,this_order)%error , &
+                   stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"error"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
         !
         ! Allocate the mat component of outerp%error
         !
-        allocate ( this_outerp%error%mat(1:epts,1:npts) , source=zero , &
-                   stat=ierr , errmsg=error_message )
+        allocate ( outerp(this_geom,this_order)%error%mat(1:epts,1:npts) , &
+                   source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"error%mat"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
-        !
-        ! Assign local pointersto these matrices
-        ! as aliases to simplify the code
-        !
-        emat => this_outerp%error%mat
         !
         ! Get the 1D location of the error points
         ! and their corresponding quadrature weights
@@ -1689,19 +1573,21 @@ continue
         !
         ! Create the error matrix
         !
-        emat(:,:) = InterpToCell(this_geom,this_order,npts,epts,pts)
+        outerp(this_geom,this_order)%error%mat(:,:) = &
+                         InterpToCell(this_geom,this_order,npts,epts,pts)
         !
         ! Allocate the error_wts component of outerp
         !
-        allocate ( this_outerp%err_wts(1:epts) , source=zero , &
-                   stat=ierr , errmsg=error_message )
+        allocate ( outerp(this_geom,this_order)%err_wts(1:epts) , &
+                   source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"err_wts"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
         !
         ! Compute the error weights
         !
-        this_outerp%err_wts(:) = InterpWeights(this_geom,epts,wts)
+        outerp(this_geom,this_order)%err_wts(:) = &
+                                               InterpWeights(this_geom,epts,wts)
         !
       end if
       !
@@ -1718,13 +1604,6 @@ continue
         call alloc_error(pname,"wts",2,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
       end if
-      !
-      ! Remove all associations of the local pointers before continuing
-      !
-      if (associated(this_outerp)) this_outerp => null()
-      if (associated(imat       )) imat        => null()
-      if (associated(omat       )) omat        => null()
-      if (associated(emat       )) emat        => null()
       !
     end do order_loop
     !
@@ -1784,9 +1663,6 @@ function InterpToCell(this_geom,this_order,opts,npts,pts) result(return_value)
   !.. Function Result ..
   real(wp) :: return_value(1:npts,1:opts)
   !
-  !.. Local Pointers ..
-  real(wp), pointer :: solpts(:,:)
-  !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: edgpts(:)
   !
@@ -1801,10 +1677,8 @@ continue
     case (Geom_Edge)
       !
       edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
-     !solpts => std_elem(Geom_Edge,this_order)%pts
       !
       return_value(:,:) = InterpToCell_Edge( edgpts , pts )
-     !return_value(:,:) = InterpToCell_Edge( solpts(1,:) , pts )
       !
     case (Geom_Tria)
       !
@@ -1815,10 +1689,8 @@ continue
     case (Geom_Quad)
       !
       edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
-     !solpts => std_elem(Geom_Edge,this_order)%pts
       !
       return_value(:,:) = InterpToCell_Quad( edgpts , pts )
-     !return_value(:,:) = InterpToCell_Quad( solpts(1,:) , pts )
       !
     case (Geom_Tetr)
       !
@@ -1841,10 +1713,8 @@ continue
     case (Geom_Hexa)
       !
       edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
-     !solpts => std_elem(Geom_Edge,this_order)%pts
       !
       return_value(:,:) = InterpToCell_Hexa( edgpts , pts )
-     !return_value(:,:) = InterpToCell_Hexa( solpts(1,:) , pts )
       !
     case default
       !
@@ -1852,8 +1722,6 @@ continue
       call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       !
   end select
-  !
-  if (associated(solpts)) solpts => null()
   !
   ! Format Statements
   !

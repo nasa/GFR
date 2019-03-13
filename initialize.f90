@@ -63,13 +63,8 @@ subroutine initialize_flow()
   character(len=200) :: array_name
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: xyz_init(:,:)
-  type(matrix), allocatable, target :: outerp_inv(:,:)
-  !
-  !.. Local Pointers ..
-  type(matrix), pointer :: this_map
-  real(wp), pointer :: numer2init(:,:)
-  real(wp), pointer :: init2numer(:,:)
+  real(wp),     allocatable :: xyz_init(:,:)
+  type(matrix), allocatable :: outerp_inv(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_flow"
@@ -81,12 +76,6 @@ continue
   !
   ! Initialization of the bc_in array has been
   ! moved to subroutine read_grid_file.
-  !
-  ! Initialize all local pointers to disassociated
-  !
-  numer2init => null()
-  init2numer => null()
-  this_map => null()
   !
   ! Some constants from the free-stream conditions
   !
@@ -215,18 +204,14 @@ continue
         ! the initial conditions at the initialization points before
         ! interpolating it back to the solution points.
         !
-        ! Assign local pointer to this matrix as an alias to simplify the code
-        !
-        numer2init => outerp(this_geom,this_order)%init%mat
-        !
         ! Check if we have already created an inverse of this interpolation
         ! matrix. If we havent, allocate its location in outerp_inv and
         ! compute this inverse matrix.
         !
         if (.not. allocated(outerp_inv(this_geom,this_order)%mat)) then
           !
-          l1 = size(numer2init,dim=1)
-          l2 = size(numer2init,dim=2)
+          l1 = size(outerp(this_geom,this_order)%init%mat,dim=1)
+          l2 = size(outerp(this_geom,this_order)%init%mat,dim=2)
           !
           allocate ( outerp_inv(this_geom,this_order)%mat(1:l1,1:l2) , &
                      source=zero , stat=ierr , errmsg = error_message )
@@ -236,21 +221,19 @@ continue
           !
 #ifdef SPECIAL_FOR_INTEL
           outerp_inv(this_geom,this_order)%mat = &
-                                        invert_matrix_lapack95(numer2init)
+            invert_matrix_lapack95( outerp(this_geom,this_order)%init%mat )
 #else
-          outerp_inv(this_geom,this_order)%mat = invert_matrix(numer2init)
+          outerp_inv(this_geom,this_order)%mat = &
+            invert_matrix( outerp(this_geom,this_order)%init%mat )
 #endif
           !
         end if
         !
-        ! Assign local pointer to this matrix as an alias to simplify the code
-        !
-        init2numer => outerp_inv(this_geom,this_order)%mat
-        !
         ! Interpolate the cell solution points to the initialization points
         !
         do l = 1,nr
-          xyz_init(l,1:np) = matmul( numer2init , xyz(l,n1:n2) )
+          xyz_init(l,1:np) = matmul( outerp(this_geom,this_order)%init%mat , &
+                                     xyz(l,n1:n2) )
         end do
         !
         ! Evaluate the initial conditions at the initialization points
@@ -261,13 +244,9 @@ continue
         ! to the solution points
         !
         do m = 1,nq
-          usp(n1:n2,m) = matmul( init2numer , usp(n1:n2,m) )
+          usp(n1:n2,m) = matmul( outerp_inv(this_geom,this_order)%mat , &
+                                 usp(n1:n2,m) )
         end do
-        !
-        ! Disassociate all local pointers before continuing
-        !
-        if (associated(numer2init)) numer2init => null()
-        if (associated(init2numer)) init2numer => null()
         !
       end if
       !
@@ -377,7 +356,7 @@ continue
 !!  !
 !!end block
   !
-  ! Deallocate local arrays and disassociate local pointers before leaving
+  ! Deallocate local arrays before leaving
   !
   if (allocated(outerp_inv)) then
     deallocate ( outerp_inv , stat=ierr , errmsg=error_message )
@@ -388,9 +367,6 @@ continue
     deallocate ( xyz_init , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"xyz_init",2,__LINE__,__FILE__,ierr,error_message)
   end if
-  !
-  if (associated(numer2init)) numer2init => null()
-  if (associated(init2numer)) init2numer => null()
   !
   ! Create the facexyz and edgexyz arrays if
   ! using the continuous output option or MMS
