@@ -1472,7 +1472,8 @@ subroutine check_for_bad_number(line_num,newton_failures,force_signaling)
 #ifndef SPECIAL_FOR_GCC
   !
   !.. Local Scalars ..
-  integer :: n,m
+  integer  :: n,m
+  real(wp) :: out_time
   !
   logical(lk) :: error_found
   !
@@ -1587,7 +1588,8 @@ continue
       end if
     end if
     !
-    write (error_message,100) itcur, &
+    out_time = time*time_ref*time_scaling_factor
+    write (error_message,100) itcur,out_time, &
                               trim(adjustl(overflow_error)), &
                               trim(adjustl(divide_by_zero_error)), &
                               trim(adjustl(invalid_error)), &
@@ -1602,7 +1604,8 @@ continue
   !
   100 format ("A SIGNALING FLOATING POINT EXCEPTION WAS ", &
               "DETECTED AFTER UPDATING THE SOLUTION AFTER ", &
-              "TIME STEP # ",i0," !!! DUMPING SOLUTION AND ", &
+              "TIME STEP # ",i0," AT SOLUTION TIME ",es18.10, &
+              "!!! DUMPING SOLUTION AND ", &
               "RESTART FILES FOR THE PREVIOUS TIME STEP!!!", &
               4(2x,a,:))
   !
