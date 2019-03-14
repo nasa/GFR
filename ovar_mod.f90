@@ -110,11 +110,11 @@ module ovar
   ! #############################
   !
   ! GRID INFORMATION
-  integer,            public, save :: grid_format = Internally_Generated_Grid
+  integer,          public, save :: grid_format = Internally_Generated_Grid
   character(len=:), public, save, allocatable :: gridfile
   character(len=:), public, save, allocatable :: plot3d_cutfile
   character(len=:), public, save, allocatable :: plot3d_bcsfile
-  real(wp),           public, save :: grid_scaling_factor = 1.0_wp
+  real(wp),         public, save :: grid_scaling_factor = 1.0_wp
   !
   ! PLOT3D COARSENING OPTIONS
   integer, public, save :: plot3d_i_stride          = -1
@@ -128,11 +128,11 @@ module ovar
   ! will be interpolated onto.
   !
   ! INTERPOLATION UTILITY GRID INFORMATION
-  integer,            public, save :: interpto_grid_format      = Unknown_Format
+  integer,          public, save :: interpto_grid_format = Unknown_Format
   character(len=:), public, save, allocatable :: interpto_gridfile
   character(len=:), public, save, allocatable :: interpto_plot3d_cutfile
   character(len=:), public, save, allocatable :: interpto_plot3d_bcsfile
-  real(wp),           public, save :: interpto_grid_scaling_factor = 1.0_wp
+  real(wp),         public, save :: interpto_grid_scaling_factor = 1.0_wp
   !
   ! INTERPOLATION UTILITY PLOT3D COARSENING OPTIONS
   integer, public, save :: interpto_plot3d_i_stride          = -1
@@ -199,14 +199,14 @@ module ovar
   integer, public, save :: jet_init_func = 2
   !
   ! RESTART OPTIONS
-  logical(lk),        public, save :: load_restart_file              = fals
-  integer,            public, save :: restart_interval               = 0
-  logical(lk),        public, save :: use_old_restart_format         = fals
+  logical(lk),      public, save :: load_restart_file              = fals
+  integer,          public, save :: restart_interval               = 0
+  logical(lk),      public, save :: use_old_restart_format         = fals
   character(len=:), public, save, allocatable :: restart_file
-  logical(lk),        public, save :: restart_output_uses_host_roots = true
+  logical(lk),      public, save :: restart_output_uses_host_roots = true
   !
   ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
-  integer,            public, save :: solution_format = Unknown_Format
+  integer,          public, save :: solution_format = Unknown_Format
   character(len=:), public, save, allocatable :: solution_file
   !
   ! PROFILE FILE FOR SEM TURBULENCE INFLOW GENERATOR
@@ -218,10 +218,10 @@ module ovar
   !
   ! SOLUTION OUTPUT OPTIONS
   character(len=:), public, save, allocatable :: output_dir
-  integer,            public, save :: output_interval   = -5
-  real(wp),           public, save :: output_frequency  = -1.0_wp
-  logical(lk),        public, save :: continuous_output = fals
-  integer,            public, save :: loc_output_pts    = Equi_Distant_Points
+  integer,          public, save :: output_interval   = -5
+  real(wp),         public, save :: output_frequency  = -1.0_wp
+  logical(lk),      public, save :: continuous_output = fals
+  integer,          public, save :: loc_output_pts    = Equi_Distant_Points
   !
   ! SELECTION OF OUTPUT VARIABLES IN THE CGNS SOLUTION FILES
   logical(lk), public, save :: output_vorticity               = fals
@@ -248,7 +248,9 @@ module ovar
  !integer,     public, save :: reactions_start_iter               = 0
   !
   ! IGNITION CONTROL SOURCE TERMS
-  integer,  public, save :: ignition_start_timestep = 0
+  integer,  public, save :: &
+      ignition_start_timestep = 0, & ! timestep to begin ignition
+      ignition_duration = 1   ! number of timesteps to maintain max temperature
   real(wp), public, save :: &
       ignition_prod2reac_L2_ratio_goal = -1.0_wp, &
       ignition_max_temperature         = 1600.0_wp, &   ! [K]
@@ -345,9 +347,9 @@ module ovar
   integer,     public, save :: VortexGrid_perturb_percent = 30
   !
   ! CHANNEL FLOW PARAMETERS
-  real(wp),           public, save :: channel_body_force          = 0.0_wp
+  real(wp),         public, save :: channel_body_force          = 0.0_wp
   character(len=:), public, save, allocatable :: channel_init_file
-  logical(lk),        public, save :: channel_spatial_ave_restart = fals
+  logical(lk),      public, save :: channel_spatial_ave_restart = fals
   !
   ! OPTIONS FOR MODIFYING BC ALGORITHMS
   logical(lk), public, save :: walls_are_exact   = true
@@ -375,22 +377,22 @@ module ovar
   logical(lk), public, save :: use_unrolled_dot_products = true
   !
   ! LUSTRE FILE SYSTEM STRIPING PARAMETERS
-  integer,           public, save :: lustre_stripe_count = 64
+  integer,          public, save :: lustre_stripe_count = 64
   character(len=:), public, save, allocatable :: lustre_stripe_size
   !
   ! OPENACC INPUT OPTIONS
   logical(lk), public, save :: use_async_for_error = fals
   !
   ! TIME AVERAGING
-  logical(lk),        public, save :: output_time_averaging    = fals
+  logical(lk),      public, save :: output_time_averaging    = fals
   character(len=:), public, save, allocatable :: time_ave_file
-  real(wp),           public, save :: time_scaling_factor      = 1.0_wp
-  logical(lk),        public, save :: time_ave_vel_is_axisymm  = fals
-  integer,            public, save :: start_averaging_timestep = -1
-  real(wp),           public, save :: start_averaging_tstar    = -one
+  real(wp),         public, save :: time_scaling_factor      = 1.0_wp
+  logical(lk),      public, save :: time_ave_vel_is_axisymm  = fals
+  integer,          public, save :: start_averaging_timestep = -1
+  real(wp),         public, save :: start_averaging_tstar    = -one
   !
   ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
-  logical(lk),        public, save :: time_average_restart_files = fals
+  logical(lk),      public, save :: time_average_restart_files = fals
   character(len=:), public, save, allocatable :: restart_list_file
   !
   ! MEMORY USAGE
@@ -965,6 +967,7 @@ module input_namelist_mod
   use ovar,      only : traceback_unconverged_newton_temps
  !use ovar,      only : reactions_start_iter
   use ovar,      only : ignition_start_timestep
+  use ovar,      only : ignition_duration
   use ovar,      only : ignition_prod2reac_L2_ratio_goal
   use ovar,      only : ignition_source_magnitude
   use ovar,      only : ignition_max_temperature
@@ -1132,6 +1135,7 @@ module input_namelist_mod
   !
   ! IGNITION CONTROL SOURCE TERMS
   namelist / input / ignition_start_timestep, &
+                     ignition_duration, &
                      ignition_prod2reac_L2_ratio_goal, &
                      ignition_max_temperature, &
                      ignition_spark_cap, &
