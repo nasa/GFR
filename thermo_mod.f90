@@ -1309,7 +1309,7 @@ subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
  !real(wp), parameter :: conv_temp = eps8  ! VULCAN if ref. Mach > 0.01
  !real(wp), parameter :: conv_temp = eps12 ! VULCAN if ref. Mach <= 0.01
   !
-#define DEBUG_TEMPERATURE_NEWTON_SOLVE
+!#define DEBUG_TEMPERATURE_NEWTON_SOLVE
 #ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
   real(wp),    allocatable :: dtemp_save(:,:,:)
   logical(lk), allocatable :: did_not_converge(:)
@@ -1340,7 +1340,7 @@ continue
   !
 #ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
   allocate ( did_not_converge(n1:n2) , source=fals )
-  allocate ( dtemp_save(n1:n2,1:8,1:newton_iter) , source=zero )
+  allocate ( dtemp_save(1:8,n1:n2,1:newton_iter) )
   allocate ( ndnc_save(1:newton_iter) , source=0 )
   allocate ( dtmx_save(1:newton_iter) , source=zero )
 #endif
@@ -1361,12 +1361,12 @@ continue
       dtemp = func/dfunc
       !
 #ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
-      dtemp_save(n,1,k) = h(n)
-      dtemp_save(n,2,k) = cp(n)
-      dtemp_save(n,3,k) = func
-      dtemp_save(n,4,k) = dfunc
-      dtemp_save(n,5,k) = dtemp
-      dtemp_save(n,6,k) = t(n)
+      dtemp_save(1,n,k) = h(n)
+      dtemp_save(2,n,k) = cp(n)
+      dtemp_save(3,n,k) = func
+      dtemp_save(4,n,k) = dfunc
+      dtemp_save(5,n,k) = dtemp
+      dtemp_save(6,n,k) = t(n)
 #endif
       !
       t(n) = min( tmax_nd , max(tmin_nd,t(n)-dtemp) )
@@ -1374,12 +1374,12 @@ continue
       dterr = abs(dtemp) / t(n)
       !
 #ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
-      dtemp_save(n,7,k) = t(n)
-      dtemp_save(n,8,k) = dterr
+      dtemp_save(7,n,k) = t(n)
+      dtemp_save(8,n,k) = dterr
       if (any( [ abs(t(n)-tmin_nd) , abs(t(n)-tmax_nd) ] <= eps9 )) then
-        ! Set dtemp_save(n,7,k) to the negative value of the updated temperature
+        ! Set dtemp_save(7,n,k) to the negative value of the updated temperature
         ! if the updated temperature was bounded by tmin_dt or tmax_dt.
-        dtemp_save(n,7,k) = -t(n)
+        dtemp_save(7,n,k) = -t(n)
       end if
 #endif
       !
@@ -1494,12 +1494,12 @@ continue
           write (io,2) "q^2",q2,q2*aref*aref
           write (io,2) "rhoE",cv(n,nee),cv(n,nee)*rhoref*aref*aref
           write (io,2) "pres",p(n),p(n)*rhoref*aref*aref
-          write (io,2) "t_beg",dtemp_save(n,6,1), &
-                               dtemp_save(n,6,1)*tref
-          write (io,2) "h_beg",dtemp_save(n,1,1), &
-                               dtemp_save(n,1,1)*aref*aref
-          write (io,2) "cp_beg",dtemp_save(n,2,1), &
-                                dtemp_save(n,2,1)*aref*aref/tref
+          write (io,2) "t_beg",dtemp_save(6,n,1), &
+                               dtemp_save(6,n,1)*tref
+          write (io,2) "h_beg",dtemp_save(1,n,1), &
+                               dtemp_save(1,n,1)*aref*aref
+          write (io,2) "cp_beg",dtemp_save(2,n,1), &
+                                dtemp_save(2,n,1)*aref*aref/tref
           write (io,2) "t_end",t(n),t(n)*tref
           write (io,2) "h_end",h(n),h(n)*aref*aref
           write (io,2) "cp_end",cp(n),cp(n)*aref*aref/tref
@@ -1538,9 +1538,9 @@ continue
           do j = 1,size(dtemp_save,dim=3)
             if (j == 1) write (io,4)
             if (j == size(dtemp_save,dim=3)) then
-              write (io,5) j,(dtemp_save(n,i,j), i=1,size(dtemp_save,dim=2)),"-"
+              write (io,5) j,(dtemp_save(i,n,j), i=1,size(dtemp_save,dim=1)),"-"
             else
-              write (io,5) j,(dtemp_save(n,i,j), i=1,size(dtemp_save,dim=2))
+              write (io,5) j,(dtemp_save(i,n,j), i=1,size(dtemp_save,dim=1))
             end if
           end do
           flush (io)
