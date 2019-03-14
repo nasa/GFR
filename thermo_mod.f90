@@ -1396,16 +1396,38 @@ continue
       !
     end do
     !
-#ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
-    ndnc_save(k) = ndnc
-    dtmx_save(k) = dtmx
-#endif
-    !
     ! Update the static enthalpy and specific heat of the mixture
     !
     call compute_mixture_enthalpy(n1,n2,cv(:,1:ncs),t,h)
     !
     call compute_mixture_cp(n1,n2,cv(:,1:ncs),t,cp)
+    !
+    ! Add some special logic to prevent false positives for failing
+    ! to converge when the "not converged" temperature is still 
+    ! safely within the min/max temperature bounds.
+    ! NOTE: This is known to happen when the temperature is very close
+    !       to the temperature that seperates the curve fit intervals,
+    !       e.g., 1000 K if the curve fit intervals are 300 K to 1000 K
+    !       and 1000 K to 5000 K.
+    !
+    if (k == newton_iter) then
+      do n = n1,n2
+        if (did_not_converge(n)) then
+          if (t(n) > (tmin+ten)/tref .and. t(n) < (tmax-ten)/tref) then
+            ndnc = max(0,ndnc - 1)
+            did_not_converge(n) = fals
+          end if
+        end if
+      end do
+      if (all(.not. did_not_converge)) then
+        dtmx = half*conv_temp
+      end if
+    end if
+    !
+#ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
+    ndnc_save(k) = ndnc
+    dtmx_save(k) = dtmx
+#endif
     !
     ! Check for convergence
     !
