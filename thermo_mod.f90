@@ -1411,15 +1411,18 @@ continue
     !       and 1000 K to 5000 K.
     !
     if (k == newton_iter) then
+      ndnc = 0
       do n = n1,n2
-        if (did_not_converge(n)) then
-          if (t(n) > (tmin+ten)/tref .and. t(n) < (tmax-ten)/tref) then
-            ndnc = max(0,ndnc - 1)
-            did_not_converge(n) = fals
-          end if
+        if (any( [ abs(t(n)-tmin_nd) , abs(t(n)-tmax_nd) ] <= eps9 )) then
+          ndnc = ndnc + 1
+#ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
+          did_not_converge(n) = true
+        else
+          did_not_converge(n) = fals
+#endif
         end if
       end do
-      if (all(.not. did_not_converge)) then
+      if (ndnc == 0) then
         dtmx = half*conv_temp
       end if
     end if
