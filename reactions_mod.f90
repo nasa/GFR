@@ -894,6 +894,8 @@ subroutine compute_ignition_source_ncc(n1,n2,cv,gp,residual)
   !.. Local Saved Scalars ..
   logical(lk), save :: ignition_started = fals
   logical(lk), save :: ignition_reached_max_temp = fals
+  logical(lk), save :: ignition_output_max_temp = fals
+  integer,     save :: ignition_iter_max_temp = 0
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_ignition_source_ncc"
@@ -1068,7 +1070,16 @@ continue
   end if
   !
   if (ignition_reached_max_temp) then
-    ignition_duration = ignition_duration - 1
+    if (.not. ignition_output_max_temp) then
+      ignition_iter_max_temp = itcur
+      ignition_output_max_temp = true
+      if (mypnum == glb_root) then
+        write (iout,4) itcur
+      end if
+    end if
+    if (itcur == ignition_iter_max_temp+ignition_duration) then
+      ignition_duration = 0
+    end if
     if (ignition_duration == 0) then
       if (mypnum == glb_root) then
         write (iout,2) itcur
@@ -1087,6 +1098,9 @@ continue
   3 format (//,2x,80("#"),//, &
                6x,"DISABLING THE IGNITION SOURCE TERM BECAUSE",/, &
                6x,"THE IGNITION SOURCE TERM RADIUS IS ZERO!!",//, &
+               2x,80("#"),//)
+  4 format (//,2x,80("#"),//, &
+               6x,"REACHED IGNITION MAX TEMPERATURE AT TIMESTEP # ",i0,//, &
                2x,80("#"),//)
   !
 end subroutine compute_ignition_source_ncc
