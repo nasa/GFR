@@ -216,7 +216,8 @@ continue
       ncs = 7
       ncr = 7
     end if
-  else if (abs(itestcase) == CH4_3D_Diffusion_Flame) then
+  else if (abs(itestcase) == CH4_3D_Diffusion_Flame .or. &
+           abs(itestcase) == CH4_Flame_Speed_Test) then
     if (disable_chemical_reactions) then
       ncs = 3
       ncr = 0

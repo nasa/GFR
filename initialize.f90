@@ -654,6 +654,15 @@ continue
       end do
     end if
     !
+  else if (abs(itestcase) == CH4_Flame_Speed_Test) then
+    !
+    do k = 1,np
+      ibc = merge( 2 , 1 , xyz(1,k) >= 0.005_wp )
+      do m = 1,nq
+        return_value(k,m) = bc_in(ibc)%cv(m)
+      end do
+    end do
+    !
   else
     !
     do k = 1,np

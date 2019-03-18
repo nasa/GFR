@@ -175,7 +175,8 @@ continue
                        ierr,error_message)
     end if
     !
-    if (abs(itestcase) == CH4_3D_Diffusion_Flame) then
+    if (abs(itestcase) == CH4_3D_Diffusion_Flame .or. &
+        abs(itestcase) == CH4_Flame_Speed_Test) then
       !
       if (disable_chemical_reactions) then
         !

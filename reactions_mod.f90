@@ -149,7 +149,8 @@ continue
                        ierr,error_message)
     end if
     !
-    if (abs(itestcase) == CH4_3D_Diffusion_Flame) then
+    if (abs(itestcase) == CH4_3D_Diffusion_Flame .or. &
+        abs(itestcase) == CH4_Flame_Speed_Test) then
       !
       if (nH2O /= 0 .and. nH2 == 0) then
         nHP = nH2O
@@ -165,7 +166,7 @@ continue
       ! Reaction 3:  2CO  +  O2 => 2CO2
       !----------------------------------------
       !
-      if (itestcase == CH4_3D_Diffusion_Flame) then
+      if (itestcase > 0) then
         call initialize_CH4_6x3_reactions
       else
         call initialize_CH4_6x3_Vulcan_reactions
@@ -815,8 +816,9 @@ continue
     n1 = 1
     n2 = n_solpts
     !
-    if (abs(itestcase) == CH4_3D_Diffusion_Flame) then
-      if (itestcase == CH4_3D_Diffusion_Flame) then
+    if (abs(itestcase) == CH4_3D_Diffusion_Flame .or. &
+        abs(itestcase) == CH4_Flame_Speed_Test) then
+      if (itestcase > 0) then
         call compute_CH4_hardcoded_wdot(n1,n2,usp,gpsp,residual,iter)
       else
         call compute_H2_wdot(n1,n2,usp,gpsp,residual,iter)
@@ -2169,7 +2171,8 @@ continue
   ! Compute the backwards reaction rate coefficient
   ! using an equilibrium assumption
   !
-  if (abs(itestcase) /= CH4_3D_Diffusion_Flame) then
+  if (abs(itestcase) /= CH4_3D_Diffusion_Flame .and. &
+      abs(itestcase) /= CH4_Flame_Speed_Test) then
     call compute_equilibrium_rate(n1,n2,t,frrate,brrate)
   end if
   !

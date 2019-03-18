@@ -81,7 +81,8 @@ continue
     !
     if (ncs > 0) then
       !
-      if (abs(itestcase) == CH4_3D_Diffusion_Flame) then
+      if (abs(itestcase) == CH4_3D_Diffusion_Flame .or. &
+          abs(itestcase) == CH4_Flame_Speed_Test) then
         cond_mix_model = NCC_Method
         Transport_Model = CHEMKIN_Curve_Fit
       else if (itestcase == Reacting_Backstep) then
