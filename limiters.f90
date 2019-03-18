@@ -1442,7 +1442,7 @@ continue
           lmtr_order(nc) = this_order
         else
           limit_order = int( real(this_order,kind=wp)*(one-scaled_marker(nc)) )
-          if (this_order <= 1) then
+          if (this_order <= 1 .or. Limiter_Option == -2) then
             lmtr_order(nc) = max(0,min(this_order,limit_order))
           else
             lmtr_order(nc) = max(1,min(this_order,limit_order))
