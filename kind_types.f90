@@ -492,6 +492,7 @@ module module_kind_types
   integer, parameter :: CH4_3D_Diffusion_Flame  = 16
   integer, parameter :: N2_O2_Diffusion         = 17
   integer, parameter :: Compression_Corner      = 18
+  integer, parameter :: CH4_Flame_Speed_Test    = 19
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
                                                 Entropy_Transport ]
   integer, parameter :: Vortex_Problems(1:2) = [ Shu_Vortex, &
@@ -499,10 +500,11 @@ module module_kind_types
   integer, parameter :: Transport_Problems(1:4) = [ Shu_Vortex, &
                                                     Vortex_Transport, &
                                                     Advec_Problems ]
-  integer, parameter :: Reacting_Flows(1:4) = [Reacting_Backstep, &
+  integer, parameter :: Reacting_Flows(1:5) = [Reacting_Backstep, &
                                                H2_2D_Diffusion_Flame, &
                                                CH4_3D_Diffusion_Flame, &
-                                               Compression_Corner]
+                                               Compression_Corner, &
+                                               CH4_Flame_Speed_Test]
   integer, parameter :: Dual_Stream_Mixing_Flows(1:2) = &
                                           [H2_2D_Diffusion_Flame, &
                                            N2_O2_Diffusion]
