@@ -201,14 +201,18 @@ end subroutine moment_limiter
 subroutine limit_by_projecting
   !
   !.. Use Statements ..
-  use order_mod, only : n_max_order
+  use order_mod, only : n_max_order,n_order
   use flowvar,   only : usp
   use ovar,      only : Limiter_Filter_Option
+  use ovar,      only : output_limiter_statistics,nlim
   !
   !.. Local Scalars ..
-  integer     :: ntc,dropped_orders
+  integer     :: ntc,dropped_orders,ierr
   logical(lk) :: there_are_no_troubles
   logical(lk) :: first_output
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "limit_by_projecting"
   !
 continue
   !
@@ -224,6 +228,17 @@ continue
   call identify_troubled_cells(troubled_cell,init_troubled_cells, &
                                there_are_no_troubles)
   !
+  if (output_limiter_statistics) then
+    !
+    if (.not. allocated(nlim)) then
+      allocate ( nlim(0:n_order) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"nlim",1,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    nlim(:) = 0
+    !
+  end if
+  !
   ! If there are no troubled cells to begin with, just exit this subroutine
   !
   if (there_are_no_troubles) return
@@ -235,6 +250,13 @@ continue
     !
     ! Loop through the cells applying the projection limiter to
     ! any troubled cells.
+    !
+    ! Count the number of troubled cells for this projection order
+    ! if outputting the limiter statistics
+    !
+    if (output_limiter_statistics) then
+      nlim( max(0,n_order-dropped_orders) ) = count(troubled_cell)
+    end if
     !
 #ifdef PROFILE_ON
     ntc = count(troubled_cell)
