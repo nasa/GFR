@@ -7421,6 +7421,10 @@ continue
         if (ncs > 0) then
           n = n + ncs
         end if
+      else if (trim(char_sname(l)) == "MoleFractions") then
+        if (ncs > 0) then
+          n = n + ncs
+        end if
       else if (trim(char_sname(l)) == "SpeciesDensities") then
         if (ncs > 0) then
           n = n + ncs
@@ -7598,6 +7602,14 @@ continue
           do m = 1,ncs
             n = n + 1
             varname = "MassFraction"//trim(adjustl(species_name(m)))
+            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+          end do
+        end if
+      else if (trim(char_sname(k)) == "MoleFractions") then
+        if (ncs > 0) then
+          do m = 1,ncs
+            n = n + 1
+            varname = "MoleFraction"//trim(adjustl(species_name(m)))
             call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
           end do
         end if
@@ -7870,6 +7882,8 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use thermo_mod, only : compute_species_enthalpy
   use thermo_mod, only : compute_species_cp
   !
+  use transport_mod, only : compute_mole_fractions
+  !
   use gpu_mod, only : grad_cv_to_grad_pv_gpu
   !
   !.. Formal Arguments ..
@@ -8006,6 +8020,18 @@ continue
         !
       end if
       !
+    case ("MoleFractions")
+      !
+      if (ncs > 0) then
+        !
+        allocate ( spcvar(1:npts,1:ncs) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"spcvar",1,__LINE__,__FILE__,ierr,error_message)
+        !
+        call compute_mole_fractions(1,npts,cv,spcvar)
+        !
+      end if
+      !
   end select
   !
   ! Compute the current output variable and write it to the CGNS file
@@ -8099,6 +8125,19 @@ continue
         do n = 1,npts
           vartmp(n) = cv(n,m)/cv(n,nec)
         end do
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !!}}}
+    case ("MoleFractions") ! Species mole fractions
+      !!{{{
+      do m = 1,ncs
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        vartmp(1:npts) = spcvar(1:npts,m)
         !
         call cgns_write_field_data
         !
@@ -8995,6 +9034,7 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar, only : output_marker_variables
   use ovar, only : Resolution_Marker_Variable
   use ovar, only : output_species_mass_fractions
+  use ovar, only : output_species_mole_fractions
   use ovar, only : output_extra_species_variables
   use ovar, only : output_debug_species_variables
   use ovar, only : output_grdnt_species_variables
@@ -9029,7 +9069,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:42) = ["Density             ", &
+  character(len=*), parameter :: var_order(1:43) = ["Density             ", &
                                                     "Momentum            ", &
                                                     "Energy              ", &
                                                     "Velocity            ", &
@@ -9037,6 +9077,7 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "Temperature         ", &
                                                     "Mach                ", &
                                                     "MassFractions       ", &
+                                                    "MoleFractions       ", &
                                                     "SpeciesDensities    ", &
                                                     "Enthalpy            ", &
                                                     "Cp                  ", &
@@ -9149,6 +9190,10 @@ continue
     !
     if (output_species_mass_fractions) then
       call add_sol_variable(variable_list,"MassFractions")
+    end if
+    !
+    if (output_species_mole_fractions) then
+      call add_sol_variable(variable_list,"MoleFractions")
     end if
     !
     if (output_extra_species_variables) then
