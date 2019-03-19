@@ -233,6 +233,7 @@ module ovar
   logical(lk), public, save :: output_stagnation_variables    = fals
   logical(lk), public, save :: output_marker_variables        = fals
   logical(lk), public, save :: output_species_mass_fractions  = true
+  logical(lk), public, save :: output_species_mole_fractions  = fals
   logical(lk), public, save :: output_extra_species_variables = fals
   logical(lk), public, save :: output_debug_species_variables = fals
   logical(lk), public, save :: output_grdnt_species_variables = fals
@@ -345,6 +346,9 @@ module ovar
   integer,     public, save :: VortexGrid_DOF             = 48
   logical(lk), public, save :: VortexGrid_random_perturb  = fals
   integer,     public, save :: VortexGrid_perturb_percent = 30
+  !
+  ! FLAME SPEED TEST PARAMETERS
+  integer, public, save :: flame_speed_test_dof = 0
   !
   ! CHANNEL FLOW PARAMETERS
   real(wp),         public, save :: channel_body_force          = 0.0_wp
@@ -1008,6 +1012,7 @@ module input_namelist_mod
   use ovar,      only : use_unrolled_dot_products
   use ovar,      only : VortexGrid_DOF,VortexGrid_random_perturb
   use ovar,      only : VortexGrid_perturb_percent,VortexGrid_Lref
+  use ovar,      only : flame_speed_test_dof
   use ovar,      only : channel_body_force,channel_init_file
   use ovar,      only : channel_spatial_ave_restart
   use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
@@ -1030,6 +1035,7 @@ module input_namelist_mod
   use ovar,      only : output_stagnation_variables
   use ovar,      only : output_marker_variables
   use ovar,      only : output_species_mass_fractions
+  use ovar,      only : output_species_mole_fractions
   use ovar,      only : output_extra_species_variables
   use ovar,      only : output_debug_species_variables
   use ovar,      only : output_grdnt_species_variables
@@ -1122,6 +1128,7 @@ module input_namelist_mod
                      output_gradients, output_transport_variables, &
                      output_stagnation_variables, output_marker_variables, &
                      output_species_mass_fractions, &
+                     output_species_mole_fractions, &
                      output_extra_species_variables, &
                      output_debug_species_variables, &
                      output_grdnt_species_variables
@@ -1182,6 +1189,8 @@ module input_namelist_mod
   ! TAYLOR-GREEN VORTEX CONSTANTS
   namelist / input / VortexGrid_DOF, VortexGrid_random_perturb, &
                      VortexGrid_perturb_percent
+  ! FLAME SPEED TEST PARAMETERS
+  namelist / input / flame_speed_test_dof
   ! CHANNEL FLOW PARAMETERS
   namelist / input / channel_body_force, channel_init_file, &
                      channel_spatial_ave_restart
