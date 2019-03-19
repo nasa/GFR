@@ -1,3 +1,22 @@
+pure function length_edge(xyz_pts) result(return_value)
+  !
+  ! This function computes the area of a triangular element
+  ! from the Jacobian of the coordinates
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(1,2), intent(in) :: xyz_pts
+  !
+  !.. Function output ..
+  real(wp) :: return_value
+  !
+continue
+  !
+  return_value = abs( xyz_pts(1,2) - xyz_pts(1,1) )
+  !
+end function length_edge
+!
+!###############################################################################
+!
 pure function area_tria(xyz_pts) result(return_value)
   !
   ! This function computes the area of a triangular element
