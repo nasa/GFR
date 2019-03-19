@@ -1452,7 +1452,7 @@ subroutine read_grid_file()
   use module_plot3d,  only : read_plot3d_gridfile
   use quadrature_mod, only : find_valid_geometries
   use ovar,           only : use_bc_conflicts
-  use ovar,           only : itestcase,VortexGrid_DOF
+  use ovar,           only : itestcase
   use ovar,           only : postproc_debug_grid
   use ovar,           only : grid_format
   use ovar,           only : gridfile
@@ -3586,15 +3586,7 @@ continue
     n1 = nodes_of_cell_ptr(nc)+1
     n2 = nodes_of_cell_ptr(nc+1)
     np = n2-n1+1
-    save_n1 = n1
-    save_n2 = n2
-    ip(1:np) = nodes_of_cell(n1:n2)
-   !ip(0:np-1) = nodes_of_cell(n1:n2)
     !
-   !grid%elem(nc)%prop = prop_t(npts=np, &
-   !                            order=1, &
-   !                            geom=cell_geom(nc), &
-   !                            elem_type=cell_geom(nc))
     grid%elem(nc)%prop%npts = np
     grid%elem(nc)%prop%order = 1
     grid%elem(nc)%prop%geom = cell_geom(nc)
@@ -3604,35 +3596,6 @@ continue
     grid%elem(nc)%nodes = nodes_of_cell(n1:n2) ! USING F2003 AUTO-REALLOCATION
     !
     grid%elem(nc)%tags = [0,0] ! F2003 AUTO-REALLOCATION
-    !
-   !write (1000+mypnum,100) nc
-   !write (1000+mypnum,101) "  [n1,n2] ",n1,n2
-   !write (1000+mypnum,101) "prop%npts ",grid%elem(nc)%prop%npts
-   !write (1000+mypnum,101) "prop%order",grid%elem(nc)%prop%order
-   !write (1000+mypnum,102) "prop%geom ",Geom_Name(grid%elem(nc)%prop%geom)
-   !write (1000+mypnum,101) "lbound(pts)",lbound(grid%elem(nc)%pts,dim=1)
-   !write (1000+mypnum,101) "ubound(pts)",ubound(grid%elem(nc)%pts,dim=1)
-   !write (1000+mypnum,101) "  size(pts)",size(grid%elem(nc)%pts)
-   !write (1000+mypnum,101) "lbound(nodes)",lbound(grid%elem(nc)%nodes,dim=1)
-   !write (1000+mypnum,101) "ubound(nodes)",ubound(grid%elem(nc)%nodes,dim=1)
-   !write (1000+mypnum,101) "  size(nodes)",size(grid%elem(nc)%nodes)
-   !write (1000+mypnum,101) "lbound(tags)",lbound(grid%elem(nc)%tags,dim=1)
-   !write (1000+mypnum,101) "ubound(tags)",ubound(grid%elem(nc)%tags,dim=1)
-   !write (1000+mypnum,101) "  size(tags)",size(grid%elem(nc)%tags)
-   !flush (1000+mypnum)
-   !write (1000+mypnum,101) "     pts   ",(grid%elem(nc)%pts(n), &
-   !                                       n=lbound(grid%elem(nc)%pts,dim=1), &
-   !                                         ubound(grid%elem(nc)%pts,dim=1))
-   !write (1000+mypnum,101) "     nodes ",(grid%elem(nc)%nodes(n), &
-   !                                      n=lbound(grid%elem(nc)%nodes,dim=1), &
-   !                                        ubound(grid%elem(nc)%nodes,dim=1))
-   !write (1000+mypnum,101) "     tags  ",(grid%elem(nc)%tags(n), &
-   !                                       n=lbound(grid%elem(nc)%tags,dim=1), &
-   !                                         ubound(grid%elem(nc)%tags,dim=1))
-   !flush (1000+mypnum)
-   !100 format (/,5x,"GRID%ELEM(",i0,")")
-   !101 format (a," = ",100(i0,:,",",1x))
-   !102 format (a," = ",a)
     !
     grid%elem(nc) = reorder_linear_pts(grid%elem(nc))
     !
@@ -3652,17 +3615,10 @@ continue
     n1 = nodes_of_cell_ptr(host_cell)+1
     n2 = nodes_of_cell_ptr(host_cell+1)
     !
-    save_n1 = n1
-    save_n2 = n2
-    !
     ip(1:nfnods) = side_nodes(1:nfnods,host_side,host_geom)
     !
     face_geom = cell_face_geom(host_side,host_geom)
     !
-   !grid%elem(nc)%prop = prop_t(npts=nfnods, &
-   !                            order=1, &
-   !                            geom=face_geom, &
-   !                            elem_type=face_geom)
     grid%elem(nc)%prop%npts = nfnods
     grid%elem(nc)%prop%order = 1
     grid%elem(nc)%prop%geom = face_geom
@@ -3675,32 +3631,6 @@ continue
     grid%elem(nc)%host_cell = host_cell
     !
     grid%elem(nc)%tags = [bface(1,nf),0] ! F2003 AUTO-REALLOCATION
-    !
-   !write (1000+mypnum,100) nc
-   !write (1000+mypnum,101) "  [n1,n2] ",n1,n2
-   !write (1000+mypnum,101) "prop%npts ",grid%elem(nc)%prop%npts
-   !write (1000+mypnum,101) "prop%order",grid%elem(nc)%prop%order
-   !write (1000+mypnum,102) "prop%geom ",Geom_Name(grid%elem(nc)%prop%geom)
-   !write (1000+mypnum,101) "lbound(pts)",lbound(grid%elem(nc)%pts,dim=1)
-   !write (1000+mypnum,101) "ubound(pts)",ubound(grid%elem(nc)%pts,dim=1)
-   !write (1000+mypnum,101) "  size(pts)",size(grid%elem(nc)%pts)
-   !write (1000+mypnum,101) "lbound(nodes)",lbound(grid%elem(nc)%nodes,dim=1)
-   !write (1000+mypnum,101) "ubound(nodes)",ubound(grid%elem(nc)%nodes,dim=1)
-   !write (1000+mypnum,101) "  size(nodes)",size(grid%elem(nc)%nodes)
-   !write (1000+mypnum,101) "lbound(tags)",lbound(grid%elem(nc)%tags,dim=1)
-   !write (1000+mypnum,101) "ubound(tags)",ubound(grid%elem(nc)%tags,dim=1)
-   !write (1000+mypnum,101) "  size(tags)",size(grid%elem(nc)%tags)
-   !flush (1000+mypnum)
-   !write (1000+mypnum,101) "     pts   ",(grid%elem(nc)%pts(n), &
-   !                                       n=lbound(grid%elem(nc)%pts,dim=1), &
-   !                                         ubound(grid%elem(nc)%pts,dim=1))
-   !write (1000+mypnum,101) "     nodes ",(grid%elem(nc)%nodes(n), &
-   !                                      n=lbound(grid%elem(nc)%nodes,dim=1), &
-   !                                        ubound(grid%elem(nc)%nodes,dim=1))
-   !write (1000+mypnum,101) "     tags  ",(grid%elem(nc)%tags(n), &
-   !                                       n=lbound(grid%elem(nc)%tags,dim=1), &
-   !                                         ubound(grid%elem(nc)%tags,dim=1))
-   !flush (1000+mypnum)
     !
     grid%elem(nc) = reorder_linear_pts(grid%elem(nc))
     !
@@ -3739,35 +3669,6 @@ function reorder_linear_pts(elem,reverse) result(return_value)
   !
 continue
   !
- !write (2000+mypnum,100) current_cell
- !write (2000+mypnum,101) "  [n1,n2] ",save_n1,save_n2
- !write (2000+mypnum,101) "prop%npts ",elem%prop%npts
- !write (2000+mypnum,101) "prop%order",elem%prop%order
- !write (2000+mypnum,102) "prop%geom ",Geom_Name(elem%prop%geom)
- !write (2000+mypnum,101) "lbound(pts)",lbound(elem%pts,dim=1)
- !write (2000+mypnum,101) "ubound(pts)",ubound(elem%pts,dim=1)
- !write (2000+mypnum,101) "  size(pts)",size(elem%pts)
- !write (2000+mypnum,101) "lbound(nodes)",lbound(elem%nodes,dim=1)
- !write (2000+mypnum,101) "ubound(nodes)",ubound(elem%nodes,dim=1)
- !write (2000+mypnum,101) "  size(nodes)",size(elem%nodes)
- !write (2000+mypnum,101) "lbound(tags)",lbound(elem%tags,dim=1)
- !write (2000+mypnum,101) "ubound(tags)",ubound(elem%tags,dim=1)
- !write (2000+mypnum,101) "  size(tags)",size(elem%tags)
- !flush (2000+mypnum)
- !write (2000+mypnum,101) "     pts   ",(elem%pts(n), &
- !                                       n=lbound(elem%pts,dim=1), &
- !                                         ubound(elem%pts,dim=1))
- !write (2000+mypnum,101) "     nodes ",(elem%nodes(n), &
- !                                       n=lbound(elem%nodes,dim=1), &
- !                                         ubound(elem%nodes,dim=1))
- !write (2000+mypnum,101) "     tags  ",(elem%tags(n), &
- !                                       n=lbound(elem%tags,dim=1), &
- !                                         ubound(elem%tags,dim=1))
- !flush (2000+mypnum)
- !100 format (/,5x,"GRID%ELEM(",i0,")")
- !101 format (a," = ",100(i0,:,",",1x))
- !102 format (a," = ",a)
-  !
   n1 = lbound(elem%pts,dim=1)
   !
   return_value = elem
@@ -3792,32 +3693,6 @@ continue
         return_value%pts(:) = elem%pts( n1-1 + hexa(:) )
     end select
   end if
-  !
- !write (3000+mypnum,100) current_cell
- !write (3000+mypnum,101) "  [n1,n2] ",save_n1,save_n2
- !write (3000+mypnum,101) "prop%npts ",return_value%prop%npts
- !write (3000+mypnum,101) "prop%order",return_value%prop%order
- !write (3000+mypnum,102) "prop%geom ",Geom_Name(return_value%prop%geom)
- !write (3000+mypnum,101) "lbound(pts)",lbound(return_value%pts,dim=1)
- !write (3000+mypnum,101) "ubound(pts)",ubound(return_value%pts,dim=1)
- !write (3000+mypnum,101) "  size(pts)",size(return_value%pts)
- !write (3000+mypnum,101) "lbound(nodes)",lbound(return_value%nodes,dim=1)
- !write (3000+mypnum,101) "ubound(nodes)",ubound(return_value%nodes,dim=1)
- !write (3000+mypnum,101) "  size(nodes)",size(return_value%nodes)
- !write (3000+mypnum,101) "lbound(tags)",lbound(return_value%tags,dim=1)
- !write (3000+mypnum,101) "ubound(tags)",ubound(return_value%tags,dim=1)
- !write (3000+mypnum,101) "  size(tags)",size(return_value%tags)
- !flush (3000+mypnum)
- !write (3000+mypnum,101) "     pts   ",(return_value%pts(n), &
- !                                       n=lbound(return_value%pts,dim=1), &
- !                                         ubound(return_value%pts,dim=1))
- !write (3000+mypnum,101) "     nodes ",(return_value%nodes(n), &
- !                                       n=lbound(return_value%nodes,dim=1), &
- !                                         ubound(return_value%nodes,dim=1))
- !write (3000+mypnum,101) "     tags  ",(return_value%tags(n), &
- !                                       n=lbound(return_value%tags,dim=1), &
- !                                         ubound(return_value%tags,dim=1))
- !flush (3000+mypnum)
   !
 end function reorder_linear_pts
 !
