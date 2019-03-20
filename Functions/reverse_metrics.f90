@@ -22,38 +22,51 @@ continue
   n1 = size(metrics,dim=1)
   n2 = size(metrics,dim=2)
   !
-  ! Initialize d1 and d2 to zero in case the metrics array only
-  ! contains x,y information. If there is no z information, the
-  ! z component of these arrays will not be overwritten and will
-  ! remain zero. These z=zero components will make the vector
-  ! returned by the cross_product function below to be in only
-  ! the k direction.
-  !
-  met = zero
-  met(:,3) = one
-  !
-  met(1:n1,1:n2) = metrics
-  !
- !write (101,1) (ref(j),j=1,3)
- !do i = 1,3
- !  write (101,2) phys(i),(met(i,j),j=1,3)
- !end do
-  !
-  ! Load the metrics into the local vector arrays
-  !
-  rev_met(1,:) = cross_product( met(:,2) , met(:,3) )
-  rev_met(2,:) = cross_product( met(:,3) , met(:,1) )
-  rev_met(3,:) = cross_product( met(:,1) , met(:,2) )
-  !
- !write (102,1) (phys(j),j=1,3)
- !do i = 1,3
- !  write (102,2) ref(i),(rev_met(i,j),j=1,3)
- !end do
-  !
-  return_value = rev_met(1:n1,1:n2)
-  !
- !1 format (8x,*("/",a,:,11x))
- !2 format (a,*(es14.6))
+  if (n2 == 1) then
+    !
+    ! For 1D, set return_value to 1, because the inverse metrics are:
+    !    dxi/dx = 1/(dx/dxi) = 1/Jacobian
+    ! and we multiply the result of this function by 1/Jacobian when
+    ! returning to the metrics subroutines.
+    !
+    return_value(:,:) = one
+    !
+  else
+    !
+    ! Initialize d1 and d2 to zero in case the metrics array only
+    ! contains x,y information. If there is no z information, the
+    ! z component of these arrays will not be overwritten and will
+    ! remain zero. These z=zero components will make the vector
+    ! returned by the cross_product function below to be in only
+    ! the k direction.
+    !
+    met = zero
+    met(:,3) = one
+    !
+    met(1:n1,1:n2) = metrics
+    !
+   !write (101,1) (ref(j),j=1,3)
+   !do i = 1,3
+   !  write (101,2) phys(i),(met(i,j),j=1,3)
+   !end do
+    !
+    ! Load the metrics into the local vector arrays
+    !
+    rev_met(1,:) = cross_product( met(:,2) , met(:,3) )
+    rev_met(2,:) = cross_product( met(:,3) , met(:,1) )
+    rev_met(3,:) = cross_product( met(:,1) , met(:,2) )
+    !
+   !write (102,1) (phys(j),j=1,3)
+   !do i = 1,3
+   !  write (102,2) ref(i),(rev_met(i,j),j=1,3)
+   !end do
+    !
+    return_value = rev_met(1:n1,1:n2)
+    !
+   !1 format (8x,*("/",a,:,11x))
+   !2 format (a,*(es14.6))
+    !
+  end if
   !
 end function reverse_metrics_SP
 !
@@ -83,38 +96,51 @@ continue
   n1 = size(metrics,dim=1)
   n2 = size(metrics,dim=2)
   !
-  ! Initialize d1 and d2 to zero in case the metrics array only
-  ! contains x,y information. If there is no z information, the
-  ! z component of these arrays will not be overwritten and will
-  ! remain zero. These z=zero components will make the vector
-  ! returned by the cross_product function below to be in only
-  ! the k direction.
-  !
-  met = zero
-  met(:,3) = one
-  !
-  met(1:n1,1:n2) = metrics
-  !
- !write (101,1) (ref(j),j=1,3)
- !do i = 1,3
- !  write (101,2) phys(i),(met(i,j),j=1,3)
- !end do
-  !
-  ! Load the metrics into the local vector arrays
-  !
-  rev_met(1,:) = cross_product( met(:,2) , met(:,3) )
-  rev_met(2,:) = cross_product( met(:,3) , met(:,1) )
-  rev_met(3,:) = cross_product( met(:,1) , met(:,2) )
-  !
- !write (102,1) (phys(j),j=1,3)
- !do i = 1,3
- !  write (102,2) ref(i),(rev_met(i,j),j=1,3)
- !end do
-  !
-  return_value = rev_met(1:n1,1:n2)
-  !
- !1 format (8x,*("/",a,:,11x))
- !2 format (a,*(es14.6))
+  if (n2 == 1) then
+    !
+    ! For 1D, set return_value to 1, because the inverse metrics are:
+    !    dxi/dx = 1/(dx/dxi) = 1/Jacobian
+    ! and we multiply the result of this function by 1/Jacobian when
+    ! returning to the metrics subroutines.
+    !
+    return_value(:,:) = one
+    !
+  else
+    !
+    ! Initialize d1 and d2 to zero in case the metrics array only
+    ! contains x,y information. If there is no z information, the
+    ! z component of these arrays will not be overwritten and will
+    ! remain zero. These z=zero components will make the vector
+    ! returned by the cross_product function below to be in only
+    ! the k direction.
+    !
+    met = zero
+    met(:,3) = one
+    !
+    met(1:n1,1:n2) = metrics
+    !
+   !write (101,1) (ref(j),j=1,3)
+   !do i = 1,3
+   !  write (101,2) phys(i),(met(i,j),j=1,3)
+   !end do
+    !
+    ! Load the metrics into the local vector arrays
+    !
+    rev_met(1,:) = cross_product( met(:,2) , met(:,3) )
+    rev_met(2,:) = cross_product( met(:,3) , met(:,1) )
+    rev_met(3,:) = cross_product( met(:,1) , met(:,2) )
+    !
+   !write (102,1) (phys(j),j=1,3)
+   !do i = 1,3
+   !  write (102,2) ref(i),(rev_met(i,j),j=1,3)
+   !end do
+    !
+    return_value = rev_met(1:n1,1:n2)
+    !
+   !1 format (8x,*("/",a,:,11x))
+   !2 format (a,*(es14.6))
+    !
+  end if
   !
 end function reverse_metrics_DP
 !
@@ -144,38 +170,51 @@ continue
   n1 = size(metrics,dim=1)
   n2 = size(metrics,dim=2)
   !
-  ! Initialize d1 and d2 to zero in case the metrics array only
-  ! contains x,y information. If there is no z information, the
-  ! z component of these arrays will not be overwritten and will
-  ! remain zero. These z=zero components will make the vector
-  ! returned by the cross_product function below to be in only
-  ! the k direction.
-  !
-  met = zero
-  met(:,3) = one
-  !
-  met(1:n1,1:n2) = metrics
-  !
- !write (101,1) (ref(j),j=1,3)
- !do i = 1,3
- !  write (101,2) phys(i),(met(i,j),j=1,3)
- !end do
-  !
-  ! Load the metrics into the local vector arrays
-  !
-  rev_met(1,:) = cross_product( met(:,2) , met(:,3) )
-  rev_met(2,:) = cross_product( met(:,3) , met(:,1) )
-  rev_met(3,:) = cross_product( met(:,1) , met(:,2) )
-  !
- !write (102,1) (phys(j),j=1,3)
- !do i = 1,3
- !  write (102,2) ref(i),(rev_met(i,j),j=1,3)
- !end do
-  !
-  return_value = rev_met(1:n1,1:n2)
-  !
- !1 format (8x,*("/",a,:,11x))
- !2 format (a,*(es14.6))
+  if (n2 == 1) then
+    !
+    ! For 1D, set return_value to 1, because the inverse metrics are:
+    !    dxi/dx = 1/(dx/dxi) = 1/Jacobian
+    ! and we multiply the result of this function by 1/Jacobian when
+    ! returning to the metrics subroutines.
+    !
+    return_value(:,:) = one
+    !
+  else
+    !
+    ! Initialize d1 and d2 to zero in case the metrics array only
+    ! contains x,y information. If there is no z information, the
+    ! z component of these arrays will not be overwritten and will
+    ! remain zero. These z=zero components will make the vector
+    ! returned by the cross_product function below to be in only
+    ! the k direction.
+    !
+    met = zero
+    met(:,3) = one
+    !
+    met(1:n1,1:n2) = metrics
+    !
+   !write (101,1) (ref(j),j=1,3)
+   !do i = 1,3
+   !  write (101,2) phys(i),(met(i,j),j=1,3)
+   !end do
+    !
+    ! Load the metrics into the local vector arrays
+    !
+    rev_met(1,:) = cross_product( met(:,2) , met(:,3) )
+    rev_met(2,:) = cross_product( met(:,3) , met(:,1) )
+    rev_met(3,:) = cross_product( met(:,1) , met(:,2) )
+    !
+   !write (102,1) (phys(j),j=1,3)
+   !do i = 1,3
+   !  write (102,2) ref(i),(rev_met(i,j),j=1,3)
+   !end do
+    !
+    return_value = rev_met(1:n1,1:n2)
+    !
+   !1 format (8x,*("/",a,:,11x))
+   !2 format (a,*(es14.6))
+    !
+  end if
   !
 end function reverse_metrics_QP
 !
