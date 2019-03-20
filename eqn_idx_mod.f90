@@ -189,13 +189,6 @@ subroutine create_equation_indices(num_dim,itestcase)
   !
 continue
   !
-  if (num_dim == 1) then
-    !
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__, &
-                    "1D is currently not supported")
-    !
-  end if
-  !
   ncs = 0
   ncr = 0
   if (itestcase == Reacting_Backstep) then

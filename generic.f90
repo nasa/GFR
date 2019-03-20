@@ -1236,7 +1236,11 @@ continue
   !
   ! Coordinates Location of the max inf norm for entropy
   xentmax = uverr(nq+1,6,1)
-  yentmax = uverr(nq+1,7,1)
+  if (size(uverr,dim=2) >= 7) then
+    yentmax = uverr(nq+1,7,1)
+  else
+    yentmax = zero
+  end if
   !
   ! Maximum L2 norm of density for the current simulation
   rl2mx = max( rltwo , rl2mx )

@@ -615,7 +615,9 @@ continue
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       edge_pts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
-      tria_pts = std_elem(Geom_Tria,this_order)%pts      ! F2003 AUTO-REALLOC
+      if (nr > 1) then
+        tria_pts = std_elem(Geom_Tria,this_order)%pts      ! F2003 AUTO-REALLOC
+      end if
       !
       select case (this_geom)
         !

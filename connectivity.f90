@@ -696,8 +696,8 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  gmin = min(Geom_Edge,Geom_Tria,Geom_Quad)
-  gmax = max(Geom_Edge,Geom_Tria,Geom_Quad)
+  gmin = min(Geom_Node,Geom_Edge,Geom_Tria,Geom_Quad)
+  gmax = max(Geom_Node,Geom_Edge,Geom_Tria,Geom_Quad)
   !
   omin = n_min_order
   omax = n_max_order
@@ -713,7 +713,35 @@ continue
     !
     !######################################
     !######################################
-    !##########   1. Edge face   ##########
+    !##########   2. Node face   ##########
+    !######################################
+    !######################################
+    !
+    !
+    nep = 1
+    !
+    allocate ( fp%geord(Geom_Node,this_order)%rot(0:1) , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) "Geom_Node",this_order
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( fp%geord(Geom_Node,this_order)%rot(0)%pts(1:nep) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) "Geom_Node",this_order,0
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( fp%geord(Geom_Node,this_order)%rot(1)%pts(1:nep) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) "Geom_Node",this_order,1
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    fp%geord(Geom_Node,this_order)%rot(0)%pts(1) = 0
+    fp%geord(Geom_Node,this_order)%rot(1)%pts(1) = 0
+    !
+    !
+    !######################################
+    !######################################
+    !##########   2. Edge face   ##########
     !######################################
     !######################################
     !
@@ -727,7 +755,7 @@ continue
     !
     allocate ( fp%geord(Geom_Edge,this_order)%rot(0)%pts(1:nep) , source=0 , &
                stat=ierr , errmsg=error_message )
-    write (array_name,1) "Geom_Edge",this_order,1
+    write (array_name,1) "Geom_Edge",this_order,0
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
     !
     allocate ( fp%geord(Geom_Edge,this_order)%rot(1)%pts(1:nep) , source=0 , &
@@ -747,7 +775,7 @@ continue
     !
     !##########################################
     !##########################################
-    !##########   2. Triangle face   ##########
+    !##########   3. Triangle face   ##########
     !##########################################
     !##########################################
     !
@@ -772,7 +800,7 @@ continue
     !
     !###############################################
     !###############################################
-    !##########   3. Quadrilateral face   ##########
+    !##########   4. Quadrilateral face   ##########
     !###############################################
     !###############################################
     !

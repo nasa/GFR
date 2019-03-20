@@ -1478,12 +1478,16 @@ continue
                 do j = 1,nr
                   write (io,7) "S",cxyz(j),xyz(j,n)
                 end do
-                r = norm2(xyz(2:3,n))
-                theta = atan2(xyz(3,n),xyz(2,n))
-                if (theta < zero) theta = theta + two*pi
-                theta = theta*radians2degrees
-                write (io,7) "S",cxyz(4),r
-                write (io,7) "S",cxyz(5),theta
+                if (nr >= 2) then
+                  r = norm2(xyz(2:,n))
+                  write (io,7) "S",cxyz(4),r
+                  if (nr == 3) then
+                    theta = atan2(xyz(3,n),xyz(2,n))
+                    if (theta < zero) theta = theta + two*pi
+                    theta = theta*radians2degrees
+                    write (io,7) "S",cxyz(5),theta
+                  end if
+                end if
               end if
             else if (trim(adjustl(loc)) == "face") then
               if (allocated(facexyz_array)) then
@@ -1492,12 +1496,16 @@ continue
                   do j = 1,nr
                     write (io,7) "F",cxyz(j),facexyz_array(j,n)
                   end do
-                  r = norm2(facexyz_array(2:3,n))
-                  theta = atan2(facexyz_array(3,n),facexyz_array(2,n))
-                  if (theta < zero) theta = theta + two*pi
-                  theta = theta*radians2degrees
-                  write (io,7) "F",cxyz(4),r
-                  write (io,7) "F",cxyz(5),theta
+                  if (nr >= 2) then
+                    r = norm2(facexyz_array(2:,n))
+                    write (io,7) "F",cxyz(4),r
+                    if (nr == 3) then
+                      theta = atan2(facexyz_array(3,n),facexyz_array(2,n))
+                      if (theta < zero) theta = theta + two*pi
+                      theta = theta*radians2degrees
+                      write (io,7) "F",cxyz(5),theta
+                    end if
+                  end if
                 end if
               end if
             end if

@@ -2149,7 +2149,7 @@ subroutine create_flame_speed_test_grid()
   use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : cell_geom,cell_order
-  use ovar,      only : grid_format
+  use ovar,      only : grid_format,bc_names
   !
   !.. Local Scalars ..
   integer  :: n,nc,nf,np,ierr
@@ -2287,6 +2287,20 @@ continue
   bface( 8,nf) = 0      ! not used for physical boundary
   bface( 9,nf) = 0      ! not used for physical boundary
   bface(10,nf) = ncell + nf ! index of ghost cell/face
+  !
+  ! #######
+  ! #######
+  ! ## 3 ##
+  ! #######
+  ! #######
+  !
+  ! Create the bc_names array
+  !
+  allocate ( bc_names(1:2) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bc_names",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  bc_names(1) = "INFLOW"
+  bc_names(2) = "OUTFLOW"
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -4082,6 +4096,8 @@ continue
     cell_nodes(1:nr,1:np) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
     !
     select case (cell_geom(n))
+      case (Geom_Edge)
+        cell_vol = length_edge( cell_nodes(1:nr,1:np) )
       case (Geom_Quad)
         cell_vol = area_quad( cell_nodes(1:nr,1:np) )
       case (Geom_Tria)
@@ -4159,6 +4175,8 @@ continue
     cell_nodes(1:nr,1:np) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
     !
     select case (cell_geom(n))
+      case (Geom_Edge)
+        cell_vol = length_edge( cell_nodes(1:nr,1:np) )
       case (Geom_Quad)
         cell_vol = area_quad( cell_nodes(1:nr,1:np) )
       case (Geom_Tria)
@@ -6670,7 +6688,9 @@ continue
     !
     ! Create a link to the element connectivity in the grid file
     !
-    if (nr == 2) then
+    if (nr == 1) then
+      sect_name = "Edges"
+    else if (nr == 2) then
       sect_name = "Quadrilaterals"
     else if (nr == 3) then
       sect_name = "Hexahedrals"
@@ -6994,7 +7014,11 @@ continue
   !
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cgp_section_write_f")
-  if (nr == 2) then
+  if (nr == 1) then
+    call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Edges", &
+                             BAR_2,1_CST,n_total_output_cells, &
+                             0_CBT,isect_n,cgierr)
+  else if (nr == 2) then
     call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Quadrilaterals", &
                              QUAD_4,1_CST,n_total_output_cells, &
                              0_CBT,isect_n,cgierr)
@@ -7211,7 +7235,9 @@ continue
   !
   ! Create a link to the element connectivity in the grid file
   !
-  if (nr == 2) then
+  if (nr == 1) then
+    sect_name = "Edges"
+  else if (nr == 2) then
     sect_name = "Quadrilaterals"
   else if (nr == 3) then
     sect_name = "Hexahedrals"

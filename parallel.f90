@@ -2834,7 +2834,8 @@ continue
   do j = jbeg,jend
     do i = ibeg,iend
       do k = lbound(fp%geord(i,j)%rot,dim=1),ubound(fp%geord(i,j)%rot,dim=1)
-        if (any(fp%geord(i,j)%rot(k)%pts(:) /= 0)) then
+        if ((nr == 1 .and. i == Geom_Node .and. k > 0) .or. &
+            any(fp%geord(i,j)%rot(k)%pts(:) /= 0)) then
           n = n + 1
           fpidx(i,j,k) = n
         end if
@@ -2849,7 +2850,8 @@ continue
   do j = jbeg,jend
     do i = ibeg,iend
       do k = lbound(fp%geord(i,j)%rot,dim=1),ubound(fp%geord(i,j)%rot,dim=1)
-        if (any(fp%geord(i,j)%rot(k)%pts(:) /= 0)) then
+        if ((nr == 1 .and. i == Geom_Node .and. k > 0) .or. &
+            any(fp%geord(i,j)%rot(k)%pts(:) /= 0)) then
           !
           n = n + 1
           !

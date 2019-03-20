@@ -677,10 +677,12 @@ continue
       nfpts = nfpts + size(geofa(nf)%v,dim=2)
     end do
     !
-    open (newunit=inrm,file=fname,status="replace",action="write", &
-                       form="formatted",position="rewind",iostat=ierr, &
-                       iomsg=error_message)
-    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+    if (nr > 1) then
+      open (newunit=inrm,file=fname,status="replace",action="write", &
+                         form="formatted",position="rewind",iostat=ierr, &
+                         iomsg=error_message)
+      call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+    end if
     !
     if (nr == 2) then
       !
@@ -807,6 +809,11 @@ continue
         ! flux point is just the cross product of the two vectors in dvec
         !
         dvec(:,3) = cross_product( dvec(:,1) , dvec(:,2) )
+        !
+        if (face_geom == Geom_Node) then
+          dvec(1:nr,3) = one
+         !dvec(1:nr,3) = merge(one,-one,ncf==1)
+        end if
         !
         ! Zero/chop all the normals less than 10*roundoff
         !
@@ -990,7 +997,7 @@ continue
   !
   !
   !
-  if (output_face_normals) then
+  if (output_face_normals .and. nr > 1) then
     !
     do nf = 1,nface
       write (inrm,24) (ipface(l,nf),l=1,size(ipface,dim=1))
