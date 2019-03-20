@@ -93,7 +93,9 @@ end subroutine get_bc_sub_outflow_solution
 !
 !###############################################################################
 !
+#ifdef DISABLE_FOR_GPU
 pure &
+#endif
 subroutine get_bc_sub_outflow_solution_3d(n1,n2,facenrm,face_cv,face_gp, &
                                                 pv_bc,gp_bc,rlx)
   !
@@ -221,7 +223,9 @@ end subroutine get_bc_sub_outflow_solution_3d
 !
 !###############################################################################
 !
+#ifdef DISABLE_FOR_GPU
 pure &
+#endif
 subroutine get_bc_sub_outflow_solution_2d(n1,n2,facenrm,face_cv,face_gp, &
                                                 pv_bc,gp_bc,rlx)
   !
@@ -343,7 +347,9 @@ end subroutine get_bc_sub_outflow_solution_2d
 !
 !###############################################################################
 !
+#ifdef DISABLE_FOR_GPU
 pure &
+#endif
 subroutine get_bc_sub_outflow_solution_1d(n1,n2,facenrm,face_cv,face_gp, &
                                                 pv_bc,gp_bc,rlx)
   !
