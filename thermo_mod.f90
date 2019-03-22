@@ -28,7 +28,13 @@ module thermo_mod
   public :: compute_dgbdt
   !
   !
-  real(wp), public, parameter :: runivl = 8314.5_wp
+  ! RUNIVL : Universal gas constant
+  !          NOTE: This is normally given in J/(K*moles) [i.e., (kg*m^2)/(s^2)],
+  !                but we are using mJoules/(K*mol) [i.e., (g*m^2)/(s^2)].
+  !                This is because this is only really used with the molecular
+  !                weights of gas species which are given in [g/mole].
+  !
+  real(wp), public, parameter :: runivl = 8314.5_wp ! mJoules/(K*moles)
   !
   real(wp), parameter :: cp_air_wtmol = 28.9651159_wp
   !
