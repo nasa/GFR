@@ -903,6 +903,7 @@ subroutine create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
   use order_mod, only : geom_solpts
   use order_mod, only : find_geom_max_interp_order
   use geovar,    only : face_t,fp_t,n_flxpts,n_bnd_flxpts
+  use geovar,    only : n_phys_bnd_flxpts
   use geovar,    only : n_bnd_qdtpts,n_flx_qdtpts
   !
   !.. Formal Arguments ..
@@ -1303,6 +1304,10 @@ continue
     !
     fp_counter = fp_counter + nfp
     qp_counter = qp_counter + nqp
+    !
+    if (all(bface(1,nf) /= bc_comm)) then
+      n_phys_bnd_flxpts = fp_counter
+    end if
     !
   end do
   n_bnd_flxpts = fp_counter

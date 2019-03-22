@@ -29,12 +29,15 @@ module geovar
   !
   ! n_solpts : total number of solution points across all cells
   ! n_flxpts : total number of flux points across all cells
+  ! n_phys_bnd_flxpts : total number of flux points across all
+  !                     physical (non-communication) boundary faces
   ! n_bnd_flxpts : total number of flux points across all boundary faces
   ! n_wall_flxpts : total number of flux points for all wall boundary faces
   !
   integer, public, save :: n_solpts
   integer, public, save :: n_qdtpts
   integer, public, save :: n_flxpts
+  integer, public, save :: n_phys_bnd_flxpts
   integer, public, save :: n_bnd_flxpts
   integer, public, save :: n_wall_flxpts = 0
   !
