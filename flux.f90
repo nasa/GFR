@@ -58,9 +58,10 @@ contains
 subroutine interp_cv_to_flxpts(iter,nst)
   !
   !.. Use Statements ..
-  use geovar,        only : nr,n_bnd_flxpts,n_flxpts
+  use geovar,        only : nr,n_bnd_flxpts,n_phys_bnd_flxpts,n_flxpts
   use flowvar,       only : faceusp_array,facegpsp
   use thermo_mod,    only : update_thermo_properties
+  use thermo_mod,    only : update_mixture_density
   use transport_mod, only : update_transport_properties
   !
   !.. Optional Arguments ..
@@ -104,6 +105,21 @@ continue
   !
   call update_thermo_properties(n1,n2,faceusp_array,facegpsp,caller_name=pname)
   call update_transport_properties(n1,n2,faceusp_array,facegpsp)
+  !
+  ! We need to update the mixture density from interpolating the species
+  ! densities to the flux points in case the interpolation has caused
+  ! any of the species densities to become negative. This only needs to be
+  ! done for the communication boundary faces, since these interpolated
+  ! values will be sent to the adjacent partitions before they would otherwise
+  ! be updated by calling update_thermo_properties in subroutine get_faceusp.
+  ! This doesnt need to be done for the flux points of the interior faces
+  ! since the above call to update_thermo_properties also calls
+  ! update_mixture_density.
+  !
+  n1 = n_phys_bnd_flxpts+1
+  n2 = n_bnd_flxpts
+  !
+  call update_mixture_density(n1,n2,faceusp_array(:,:,1))
   !
   call debug_timer(leaving_procedure,pname)
   !
