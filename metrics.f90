@@ -615,7 +615,7 @@ subroutine compute_face_normals
   use order_mod,         only : geom_solpts
   use geovar,            only : ncell,cell,fp
   use geovar,            only : nfbnd,nface,face,n_flxpts
-  use geovar,            only : nr,xyz
+  use geovar,            only : nr,xyz,bface
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   !
@@ -886,6 +886,35 @@ continue
     deallocate ( geofa , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"geofa",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  !
+  if (output_face_normals .and. nr == 1) then
+    !
+    write (array_name,'("face_normals.1D.CPU-",i2.2,".dat")') mypnum
+    open (newunit=inrm,file=trim(adjustl(array_name)),status="replace", &
+                       action="write",form="formatted",position="rewind", &
+                       iostat=ierr,iomsg=error_message)
+    call io_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    do nf = 1,nface
+      !
+      f0 = face(nf)%beg_fp - 1
+      nfp = face(nf)%end_fp - f0
+      !
+      write (inrm,30) nf
+      do kf = 1,nfp
+        write (inrm,31) f0+kf,kf,(facenrm(l,f0+kf), l=1,nr)
+      end do
+      !
+    end do
+    write (inrm,30)
+    !
+    close (inrm,iostat=ierr,iomsg=error_message)
+    call io_error(pname,array_name,2,__LINE__,__FILE__,ierr,error_message)
+    !
+  end if
+  !
+  30 format (80("="),:,/,2x,"Face ",i0,/,80("-"))
+  31 format (4x," fp = ",i3,"; kf = ",i2,"; nrm = (",3(es14.6,")",:,tl1,","))
   !
   ! Create the interpolated jacobians at the face points
   !
