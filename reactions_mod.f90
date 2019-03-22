@@ -7,6 +7,8 @@ module reactions_mod
   use eqn_idx, only : ncs,ntemp,ngamm,ncp,ng
   use eqn_idx, only : ncr
   !
+  use thermo_mod, only : runivl_millijoules => runivl
+  !
   implicit none
   !
   private
@@ -80,6 +82,13 @@ module reactions_mod
   !
   real(wp), parameter :: dens_cgs_to_si = 1000.0_wp
   real(wp), parameter :: dens_si_to_cgs = one/dens_cgs_to_si
+  !
+  real(wp), parameter :: joules_per_calorie = 4.184_wp
+  real(wp), parameter :: calories_per_joule = one/joules_per_calorie
+  !
+  real(wp), parameter :: runivl_calories = runivl_millijoules &
+                                         * calories_per_joule &
+                                         / 1000.0_wp ! convert mJ to J
   !
 contains
 !
@@ -317,8 +326,8 @@ continue
   !
   ir = 1
   !
-  fwd_arrh_coef(ir) = 1.0e+15_wp * c2
-  fwd_actv_temp(ir) = 35000.0_wp * c3
+  fwd_arrh_coef(ir) = 1.0e+15_wp * c2 ! cgs units
+  fwd_actv_temp(ir) = 35000.0_wp * c3 ! [calories/mole]
   !
   bwd_arrh_coef(ir) = zero
   bwd_actv_temp(ir) = zero
@@ -346,8 +355,8 @@ continue
   !
   ir = 2
   !
-  fwd_arrh_coef(ir) = 4.0552e+10_wp * c2
-  fwd_actv_temp(ir) = 77194.0_wp * c3
+  fwd_arrh_coef(ir) = 4.0552e+10_wp * c2 ! cgs units
+  fwd_actv_temp(ir) = 77194.0_wp    * c3 ! [calories/mole]
   !
   bwd_arrh_coef(ir) = zero
   bwd_actv_temp(ir) = zero
@@ -365,8 +374,8 @@ continue
   !
   ir = 3
   !
-  fwd_arrh_coef(ir) = 1.0e+9_wp * c2
-  fwd_actv_temp(ir) = 12000.0_wp * c3
+  fwd_arrh_coef(ir) = 1.0e+9_wp  * c2 ! cgs units
+  fwd_actv_temp(ir) = 12000.0_wp * c3 ! [calories/mole]
   !
   bwd_arrh_coef(ir) = zero
   bwd_actv_temp(ir) = zero
@@ -409,10 +418,14 @@ continue
   end do
   !
   ! Nondimensionalize the activation temperatures
+  ! NOTE: Currently the activation temperatures are actually the
+  !       activation energies in calories/mole, so divide them by
+  !       the universal gas constant in calories/(mole*Kelvin) to
+  !       get the activation temperatures.
   !
   do j = 1,ncr
-    fwd_actv_temp(j) = fwd_actv_temp(j)/tref
-    bwd_actv_temp(j) = bwd_actv_temp(j)/tref
+    fwd_actv_temp(j) = fwd_actv_temp(j)/tref/runivl_calories
+    bwd_actv_temp(j) = bwd_actv_temp(j)/tref/runivl_calories
   end do
   !
   ! Compute the net stoichiometric coefficient of each species for each reaction
@@ -444,7 +457,6 @@ end subroutine initialize_CH4_6x3_reactions
 subroutine initialize_CH4_6x3_Vulcan_reactions
   !
   !.. Use Statements ..
-  use thermo_mod, only : runivl
   use thermo_mod, only : species_name
   !
   !.. Local Scalars ..
@@ -524,9 +536,9 @@ continue
   fwd_exp(nCH4,ir) = 0.9_wp
   fwd_exp(nO2 ,ir) = 1.1_wp
   !
-  frcoef(1,ir) = 1.0e15_wp * c2
+  frcoef(1,ir) = 1.0e15_wp  * c2 ! cgs units
   frcoef(2,ir) = zero
-  frcoef(3,ir) = 35000.0_wp * c3
+  frcoef(3,ir) = 35000.0_wp * c3 ! [calories/mole]
   !
   !##############################################
   !
@@ -541,9 +553,9 @@ continue
   !
   fwd_exp(nCO2,ir) = one
   !
-  frcoef(1,ir) = 4.0552e10_wp * c2
+  frcoef(1,ir) = 4.0552e10_wp * c2 ! cgs units
   frcoef(2,ir) = zero
-  frcoef(3,ir) = 77194.0_wp * c3
+  frcoef(3,ir) = 77194.0_wp   * c3 ! [calories/mole]
   !
   !##############################################
   !
@@ -559,14 +571,22 @@ continue
   fwd_exp(nCO ,ir) = one
   fwd_exp(nO2 ,ir) = half
   !
-  frcoef(1,ir) = 1.0e9_wp * c2
+  frcoef(1,ir) = 1.0e9_wp   * c2 ! cgs units
   frcoef(2,ir) = zero
-  frcoef(3,ir) = 12000.0_wp * c3
+  frcoef(3,ir) = 12000.0_wp * c3 ! [calories/mole]
   !
   !##############################################
   !
   do ir = 1,ncr
     frcoef(1,ir) = log( frcoef(1,ir) )
+  end do
+  !
+  ! Currently the activation temperature are actually the activation energies
+  ! in calories/mole, so divide them by the universal gas constant in
+  ! calories/(mole*Kelvin) to get the activation temperatures.
+  !
+  do ir = 1,ncr
+    frcoef(3,ir) = frcoef(3,ir)/runivl_calories
   end do
   !
   !##############################################
