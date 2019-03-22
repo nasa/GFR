@@ -184,9 +184,15 @@ continue
         species_name(2) = "N2"
         species_name(3) = "O2"
         !
-        mass_frac_ref(1) = zero      ! CH4
-        mass_frac_ref(2) = 0.7686_wp ! N2
-        mass_frac_ref(3) = 0.2314_wp ! O2
+        if (abs(itestcase) == CH4_Flame_Speed_Test) then
+          mass_frac_ref(1) = 0.055_wp  ! CH4
+          mass_frac_ref(2) = 0.724_wp  ! N2
+          mass_frac_ref(3) = 0.221_wp  ! O2
+        else
+          mass_frac_ref(1) = zero      ! CH4
+          mass_frac_ref(2) = 0.7686_wp ! N2
+          mass_frac_ref(3) = 0.2314_wp ! O2
+        end if
         !
         inert_species_map = [1,2,3] ! F2003 AUTO REALLOCATION
         !
@@ -203,9 +209,15 @@ continue
         mass_frac_ref(1) = zero      ! CO2
         mass_frac_ref(2) = zero      ! CO
         mass_frac_ref(3) = zero      ! H2O
-        mass_frac_ref(4) = zero      ! CH4
-        mass_frac_ref(5) = 0.7686_wp ! N2
-        mass_frac_ref(6) = 0.2314_wp ! O2
+        if (abs(itestcase) == CH4_Flame_Speed_Test) then
+          mass_frac_ref(4) = 0.055_wp  ! CH4
+          mass_frac_ref(5) = 0.724_wp  ! N2
+          mass_frac_ref(6) = 0.221_wp  ! O2
+        else
+          mass_frac_ref(4) = zero      ! CH4
+          mass_frac_ref(5) = 0.7686_wp ! N2
+          mass_frac_ref(6) = 0.2314_wp ! O2
+        end if
         !
         ! Create the map from inert species indices to
         ! reacting species indices. This is needed if a
@@ -1310,7 +1322,9 @@ subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
  !real(wp), parameter :: conv_temp = eps8  ! VULCAN if ref. Mach > 0.01
  !real(wp), parameter :: conv_temp = eps12 ! VULCAN if ref. Mach <= 0.01
   !
-!#define DEBUG_TEMPERATURE_NEWTON_SOLVE
+#ifdef DEBUG_ON
+#define DEBUG_TEMPERATURE_NEWTON_SOLVE
+#endif
 #ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
   real(wp),    allocatable :: dtemp_save(:,:,:)
   logical(lk), allocatable :: did_not_converge(:)
