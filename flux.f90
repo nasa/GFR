@@ -6685,8 +6685,22 @@ continue
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
   !
+ !!$OMP PARALLEL &
+ !!$OMP&         DEFAULT(SHARED) &
+ !!$OMP&         PRIVATE(n,a,nc,n1,n2,np,n0,this_geom,this_order, &
+ !!$OMP&                 num_cell_faces,cell_invjac,ncf,nf,cf_sf, &
+ !!$OMP&                 cf_face_geom,cf_face_order,cf_fp_offset, &
+ !!$OMP&                 cf_face_rot,cf_f0,cf_nfp,face_corr, &
+ !!$OMP&                 kf,k,rnx,rny,rnz,face_order,face_geom, &
+ !!$OMP&                 fp_offset,face_rot,lf,i,cor_ec,cor_mx, &
+ !!$OMP&                 cor_my,cor_mz,cor_ee,sf, &
+ !!$OMP&                 decdx,dmxdx,dmydx,dmzdx,deedx, &
+ !!$OMP&                 decdy,dmxdy,dmydy,dmzdy,deedy, &
+ !!$OMP&                 decdz,dmxdz,dmydz,dmzdz,deedz)
+  !
   !$ACC PARALLEL LOOP &
   !$ACC&              PRESENT(faceusp_array,cbias,face_jump)
+ !!$OMP DO
   do n = 1,n_flxpts
     a = cbias(n)
     face_jump(n,nec) = a*( faceusp_array(n,nec,2) - faceusp_array(n,nec,1) )
@@ -6695,6 +6709,7 @@ continue
     face_jump(n,nmz) = a*( faceusp_array(n,nmz,2) - faceusp_array(n,nmz,1) )
     face_jump(n,nee) = a*( faceusp_array(n,nee,2) - faceusp_array(n,nee,1) )
   end do
+ !!$OMP END DO
   !
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              VECTOR_LENGTH(32) &
@@ -6711,6 +6726,7 @@ continue
   !$ACC&              PRIVATE(face_corr,cf_f0,cf_sf,cell_invjac, &
   !$ACC&                      cf_face_geom,cf_fp_offset,cf_face_rot, &
   !$ACC&                      cf_nfp,cf_face_order,array)
+ !!$OMP DO
   cell_loop: do nc = 1,ncell
     !
     n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
@@ -6995,6 +7011,8 @@ continue
     end do
     !
   end do cell_loop
+ !!$OMP END DO
+ !!$OMP END PARALLEL
   !
 end subroutine correct_gradients_br2_gpu_3d
 !
@@ -7536,13 +7554,23 @@ continue
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
   !
+ !!$OMP PARALLEL &
+ !!$OMP&         DEFAULT(SHARED) &
+ !!$OMP&         PRIVATE(nc,n1,n2,np,n0,this_geom,this_order,num_cell_faces, &
+ !!$OMP&                 ncf,nf,cf_sf,cf_face_geom,cf_face_order, &
+ !!$OMP&                 cf_fp_offset,cf_face_rot,cf_f0,cf_nfp,face_corr, &
+ !!$OMP&                 kf,m,l,k,face_order,face_geom,fp_offset,face_rot, &
+ !!$OMP&                 lf,i,n,a,cor_m,f0,sf,val)
+  !
   !$ACC PARALLEL LOOP COLLAPSE(2) &
   !$ACC&              PRESENT(faceusp_array,cbias,face_jump)
+ !!$OMP DO
   do m = mbeg,mend
     do n = 1,n_flxpts
       face_jump(n,m) = cbias(n)*( faceusp_array(n,m,2) - faceusp_array(n,m,1) )
     end do
   end do
+ !!$OMP END DO
   !
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              WORKER &
@@ -7560,6 +7588,7 @@ continue
   !$ACC&              PRIVATE(face_corr,cf_f0,cf_sf, &
   !$ACC&                      cf_face_geom,cf_fp_offset,cf_face_rot, &
   !$ACC&                      cf_nfp,cf_face_order,array)
+ !!$OMP DO
   cell_loop: do nc = 1,ncell
     !
     n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
@@ -7692,6 +7721,8 @@ continue
     end do
     !
   end do cell_loop
+ !!$OMP END DO
+ !!$OMP END PARALLEL
   !
 end subroutine correct_gradients_br2_gpu_nd
 !
