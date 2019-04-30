@@ -2352,6 +2352,20 @@ continue
       bc_in(i)%relax%time = max(bc_input(n)%relax%time,zero)
       bc_in(i)%relax%iter = max(bc_input(n)%relax%iter,0)
       !
+      ! Copy over the SEM information
+      !
+      bc_in(i)%sem%length_scale = max(zero,bc_input(n)%sem%length_scale)
+      bc_in(i)%sem%convective_velocity = bc_input(n)%sem%convective_velocity
+      bc_in(i)%sem%profile_height = max(zero,bc_input(n)%sem%profile_height)
+      if (allocated(bc_input(n)%sem%profile_file)) then
+        bc_in(i)%sem%profile_file = trim(adjustl(bc_input(n)%sem%profile_file))
+      end if
+      bc_in(i)%sem%sub_in_bc_grp = bc_input(n)%sem%sub_in_bc_grp
+      !
+      ! Nondimensionalize the SEM convective velocity
+      !
+      bc_in(i)%sem%convective_velocity = bc_in(i)%sem%convective_velocity/aref
+      !
       ! Set the flow conditions for this BC depending on whether
       ! or not a wall temperature has been specified for this BC.
       !
