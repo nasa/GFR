@@ -46,7 +46,7 @@ module ovar
     real(wp) :: length_scale = zero
     real(wp) :: convective_velocity = zero
     real(wp) :: profile_height = zero
-    character(len=:), allocatable :: profile_file
+    character(len=150) :: profile_file = ""
     integer  :: sub_in_bc_grp = 0
   end type sem_bc_t
   !
@@ -671,9 +671,7 @@ continue
   !
   if (abs(this%sem%length_scale       ) > eps6) return
   if (abs(this%sem%convective_velocity) > eps6) return
-  if (allocated(this%sem%profile_file)) then
-    if (len_trim(adjustl(this%sem%profile_file)) > 0) return
-  end if
+  if (len_trim(adjustl(this%sem%profile_file)) > 0) return
   !
 #ifdef ALLOCATABLE_MASS_FRAC
   if (allocated(this%mass_frac)) then
@@ -1379,15 +1377,6 @@ continue
   allocate ( bc_input(1:20) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bc_input",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Allocate the profile_file component of the sem component of bc_input
-  !
-  do n = 1,size(bc_input)
-    allocate ( character(len=default_len) :: bc_input(n)%sem%profile_file , &
-               stat=ierr , errmsg=error_message )
-    write (array_name,2) n,"%sem%profile_file"
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-  end do
-  !
   ! Allocate the mass_frac and species_name components
   ! of bc_input before reading the namelist.
   !
@@ -1489,10 +1478,6 @@ continue
   write (lustre_stripe_size,blanks)
   write (time_ave_file,blanks)
   write (restart_list_file,blanks)
-  !
-  do n = 1,size(bc_input)
-    write (bc_input(n)%sem%profile_file,blanks)
-  end do
   !
   restart_file(1:7) = "out.rst"
   output_dir(1:1) = "."
