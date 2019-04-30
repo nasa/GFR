@@ -136,6 +136,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/thermo_mod.o \
         $(OBJDIR)/transport_mod.o \
         $(OBJDIR)/reactions_mod.o \
+        $(OBJDIR)/turb_inflow_mod.o \
         $(OBJDIR)/mydebug_mod.o \
         $(OBJDIR)/bc_adiabatic_wall_mod.o \
         $(OBJDIR)/bc_fixed_mod.o \
