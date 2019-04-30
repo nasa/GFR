@@ -448,6 +448,10 @@ module module_kind_types
                                           bc_symmetry, &
                                           bc_adiabatic_wall, &
                                           bc_isothermal_wall ]
+  integer, parameter :: bc_physical_walls(1:4) = [ bc_slip_wall, &
+                                                   bc_euler_wall, &
+                                                   bc_adiabatic_wall, &
+                                                   bc_isothermal_wall ]
   integer, parameter :: bc_noslip_walls(1:2) = [ bc_adiabatic_wall, &
                                                  bc_isothermal_wall ]
   !$ACC DECLARE COPYIN(bc_walls)
