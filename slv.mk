@@ -80,6 +80,7 @@ COBJS := $(OBJDIR)/mycpu.o \
 
 OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/main.o \
+        $(OBJDIR)/random_mod.o \
         $(OBJDIR)/order_mod.o \
         $(OBJDIR)/quadrature_mod.o \
         $(OBJDIR)/geovar_mod.o \

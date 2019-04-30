@@ -518,6 +518,9 @@ $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(FUNDIR)/check_for_bad_number.f90 \
                    $(FUNDIR)/debug_timer.f90
 
+$(OBJDIR)/random_mod.o : random_mod.f90 \
+             $(OBJDIR)/kind_types.o
+
 $(OBJDIR)/reactions_mod.o : reactions_mod.f90 \
              $(OBJDIR)/kind_types.o \
              $(OBJDIR)/eqn_idx_mod.o \
