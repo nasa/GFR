@@ -327,6 +327,7 @@ $(OBJDIR)/kind_types.o : kind_types.f90 \
                $(FUNDIR)/face_normal.f90 \
                $(FUNDIR)/findloc.f90 \
                $(FUNDIR)/ghost_nodes.f90 \
+               $(FUNDIR)/init_array.f90 \
                $(FUNDIR)/intseq.f90 \
                $(FUNDIR)/jacobians.f90 \
                $(FUNDIR)/matrix_ops.f90 \

@@ -861,6 +861,29 @@ module module_kind_types
   !
   !
   !
+  private :: init_array_i1_rank1,init_array_i1_rank2
+  private :: init_array_i2_rank1,init_array_i2_rank2
+  private :: init_array_i4_rank1,init_array_i4_rank2
+  private :: init_array_i8_rank1,init_array_i8_rank2
+  private :: init_array_r4_rank1,init_array_r4_rank2
+  private :: init_array_r8_rank1,init_array_r8_rank2
+  private :: init_array_r16_rank1,init_array_r16_rank2
+  !
+  interface init_array
+    module procedure init_array_i1_rank1, init_array_i1_rank2, &
+                     init_array_i2_rank1, init_array_i2_rank2, &
+                     init_array_i4_rank1, init_array_i4_rank2, &
+                     init_array_i8_rank1, init_array_i8_rank2, &
+                     init_array_r4_rank1, init_array_r4_rank2, &
+                     init_array_r8_rank1, init_array_r8_rank2, &
+                     init_array_lk_rank1, init_array_lk_rank2
+#ifndef DISABLE_QP
+    module procedure init_array_r16_rank1, init_array_r16_rank2
+#endif
+  end interface init_array
+  !
+  !
+  !
   private :: cross_product_SP,cross_product_DP,cross_product_QP
   !
   interface cross_product
@@ -2159,6 +2182,7 @@ end function geom_family_type_not_equal
 ! Include statements for functions that have a generic interface
 !
 #include "Functions/reallocate.f90"
+include "Functions/init_array.f90"
 include "Functions/cross_product.f90"
 include "Functions/deltafun.f90"
 include "Functions/norms.f90"
