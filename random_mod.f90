@@ -31,24 +31,33 @@ subroutine set_random_seed()
   !
 continue
   !
-  call random_seed( size=isize )
- !if (mypnum == glb_root) write (iout,*) 'isize = ',isize
-  iseed = spread(0,dim=1,ncopies=isize) ! F2003 AUTO-REALLOC
+  ! Only allocate and create the new random seed if the iseed array is
+  ! not yet allocated. If iseed is allocated, that means the random seed
+  ! was read in from the restart file. In that case, we just need to
+  ! call random_seed with the restart seed.
   !
-  if (mypnum == glb_root) then
+  if (.not. allocated(iseed)) then
     !
-    call date_and_time( values=date )
-    iclk = date(8)
-   !write (iout,*) 'iclk  = ',iclk
+    call random_seed( size=isize )
+   !if (mypnum == glb_root) write (iout,*) 'isize = ',isize
+    iseed = spread(0,dim=1,ncopies=isize) ! F2003 AUTO-REALLOC
     !
-    do i = 1,isize
-      iseed(i) = iclk**i
-    end do
+    if (mypnum == glb_root) then
+      !
+      call date_and_time( values=date )
+      iclk = date(8)
+     !write (iout,*) 'iclk  = ',iclk
+      !
+      do i = 1,isize
+        iseed(i) = iclk**i
+      end do
+      !
+    end if
+    !
+    call mpi_bcast(iseed,size(iseed,kind=int_mpi),mpi_inttyp, &
+                   glb_root,MPI_COMM_WORLD,mpierr)
     !
   end if
-  !
-  call mpi_bcast(iseed,size(iseed,kind=int_mpi),mpi_inttyp, &
-                 glb_root,MPI_COMM_WORLD,mpierr)
   !
   call random_seed( put=iseed )
   !
