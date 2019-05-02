@@ -2,7 +2,7 @@ module synthetic_eddy_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nee
+  use eqn_idx, only : nec,nmx,nmy,nmz,nee,ntemp
   !
   implicit none
   !
@@ -116,8 +116,10 @@ module synthetic_eddy_mod
   !                   SEM flux points, or just SEM points.
   !
   type :: sem_pts_t
-    ! BC_GRP : Boundary condition group these SEM points correspond to
-    integer :: bc_grp
+    ! BC_IDX : index within bc_in that these SEM points correspond to
+    integer :: bc_idx
+    ! GRP_IDX : index within bc_grps that these SEM points correspond to
+    integer :: grp_idx
     ! NUM_FP : Number of SEM points on this partition for this boundary
     !          condition group.
     integer :: num_fp = 0
@@ -223,8 +225,10 @@ module synthetic_eddy_mod
   type, public :: sem_box_t
     ! NUM_EDDIES : number of eddies in this SEM box
     integer :: num_eddies = 0
-    ! BC_GRP : BC group that corresponds to this SEM box
-    integer :: bc_grp = 0
+    ! BC_IDX : index within bc_in that corresponds to this SEM box
+    integer :: bc_idx = 0
+    ! GRP_IDX : index within bc_grps that corresponds to this SEM box
+    integer :: grp_idx = 0
     ! LENGTH_SCALE : turbulence length scale for this SEM box
     real(wp) :: length_scale
     ! CONVECTIVE_VELOCITY : velocity used to convect eddies in this SEM box
@@ -235,8 +239,11 @@ module synthetic_eddy_mod
     real(wp) :: boxmax(1:5)
     ! BOX_VOLUME : volume of this SEM box
     real(wp) :: box_volume
+    ! IS_CYLINDRICAL : logical flag indicating if the box extents are
+    !                  best defined in cylindrical coordinates
+    logical(lk) :: is_cylindrical = fals
     ! PROFILE : inflow profile related to this SEM box
-    type(sem_profile_t) :: profile
+    type(sem_profile_t), allocatable :: profile
     ! EDDY : information about each eddy in this SEM box
     type(eddy_t), allocatable :: eddy(:)
     !
@@ -250,8 +257,10 @@ module synthetic_eddy_mod
   !
   integer, parameter :: max_eddies = 5000
   !
-  logical(lk), parameter :: sem_box_is_cylindrical = fals
- !logical(lk), parameter :: sem_box_is_cylindrical = true
+  ! TREAT EDDY VOLUMES AS SPHERE-LIKE
+ !logical(lk), parameter :: eddy_volume_is_spherical = true
+  ! TREAT EDDY VOLUMES AS BOX-LIKE
+  logical(lk), parameter :: eddy_volume_is_spherical = fals
   !
   !#############################################################################
   !#############################################################################
@@ -374,7 +383,7 @@ continue
   !-----------------------------------------------------------------------
   !
   loop_over_my_sem_boxes: &
-  do sem_idx = 1,size(my_sem_pts)
+  do sem_idx = 1,num_sem_boxes
     !
     boxvol  = sem_box(sem_idx)%box_volume
    !lturb   = sem_box(sem_idx)%length_scale
@@ -532,11 +541,11 @@ continue
   ! Convect the eddies through the box
   !-----------------------------------------------------------------------
   !
-  allocate ( new_eddies(1:size(sem_box)) , stat=ierr , errmsg=error_message )
+  allocate ( new_eddies(1:num_sem_boxes) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"new_eddies",2,__LINE__,__FILE__,ierr,error_message)
   !
   loop_over_all_sem_boxes: &
-  do sem_idx = 1,size(sem_box)
+  do sem_idx = 1,num_sem_boxes
     !
     ! Get the axial location of the outflow plane of the current SEM box
     !
@@ -616,7 +625,7 @@ continue
   !-----------------------------------------------------------------------
   !
   loop_to_remove_old_eddies: &
-  do sem_idx = 1,size(new_eddies)
+  do sem_idx = 1,num_sem_boxes
     !
     do i = 1,new_eddies(sem_idx)%num_eddies
       !
@@ -690,11 +699,6 @@ subroutine generate_new_eddies(new_eddies,generate_at_xmin)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "generate_new_eddies"
   !
-  ! TREAT EDDY VOLUMES AS SPHERE-LIKE
- !logical(lk), parameter :: eddy_volume_is_spherical = true
-  ! TREAT EDDY VOLUMES AS BOX-LIKE
-  logical(lk), parameter :: eddy_volume_is_spherical = fals
-  !
 continue
   !
   x_coef = merge( zero , one , generate_at_xmin )
@@ -702,7 +706,7 @@ continue
   vol_coef = merge( (four/three)*pi , one , eddy_volume_is_spherical )
   !
   loop_over_sem_boxes: &
-  do sem_idx = 1,size(new_eddies)
+  do sem_idx = 1,num_sem_boxes
     !
     num_eddies = new_eddies(sem_idx)%num_eddies
     !
@@ -715,7 +719,7 @@ continue
     boxminx = sem_box(sem_idx)%boxmin(1)
     boxmaxx = sem_box(sem_idx)%boxmax(1)
     !
-    if (sem_box_is_cylindrical) then
+    if (sem_box(sem_idx)%is_cylindrical) then
       !
       boxminy = sem_box(sem_idx)%boxmin(4)
       boxminz = sem_box(sem_idx)%boxmin(5)
@@ -748,7 +752,7 @@ continue
       !
       ! Save the new random coordinates for the new eddy in sem_box
       !
-      if (sem_box_is_cylindrical) then
+      if (sem_box(sem_idx)%is_cylindrical) then
         sem_box(sem_idx)%eddy(eddy_idx)%x = x
         sem_box(sem_idx)%eddy(eddy_idx)%y = y*cos(z) ! y
         sem_box(sem_idx)%eddy(eddy_idx)%z = y*sin(z) ! z
@@ -822,8 +826,111 @@ continue
     end do loop_over_new_eddies_in_box
     !
   end do loop_over_sem_boxes
-    !
+  !
 end subroutine generate_new_eddies
+!
+!###############################################################################
+!
+subroutine initialize_eddy_lists()
+  !
+  !.. Local Scalars ..
+  integer  :: i,ierr,n,sem_idx,eddy_idx
+  real(wp) :: lturb,xe,ye,ze,xp,yp,zp,lx,ly,lz,ds
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_eddy_lists"
+  !
+continue
+  !
+  ! Make sure none of the sem_box(:)%eddy(:)%fp_list or
+  ! my_sem_pts(:)%sem_fp(:)%eddy_list allocatable arrays
+  ! are allocated.
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    do eddy_idx = 1,sem_box(sem_idx)%num_eddies
+      sem_box(sem_idx)%eddy(eddy_idx)%num_fp = 0
+      if (allocated(sem_box(sem_idx)%eddy(eddy_idx)%fp_list)) then
+        deallocate ( sem_box(sem_idx)%eddy(eddy_idx)%fp_list , stat=ierr )
+      end if
+    end do
+    !
+    do n = 1,my_sem_pts(sem_idx)%num_fp
+      my_sem_pts(sem_idx)%sem_fp(n)%num_eddies = 0
+      if (allocated(my_sem_pts(sem_idx)%sem_fp(n)%eddy_list)) then
+        deallocate ( my_sem_pts(sem_idx)%sem_fp(n)%eddy_list , stat=ierr )
+      end if
+    end do
+    !
+  end do
+  !
+  ! Now create all the eddy face-point-lists and face point eddy-lists
+  !
+  loop_over_boxes: &
+  do sem_idx = 1,num_sem_boxes
+    !
+    loop_over_eddies_in_box: &
+    do eddy_idx = 1,sem_box(sem_idx)%num_eddies
+      !
+      ! Get the coordinates for this eddy
+      !
+      xe = sem_box(sem_idx)%eddy(eddy_idx)%x
+      ye = sem_box(sem_idx)%eddy(eddy_idx)%y
+      ze = sem_box(sem_idx)%eddy(eddy_idx)%z
+      !
+      ! Get the directional length scales for this eddy
+      !
+      lx = one / sem_box(sem_idx)%eddy(eddy_idx)%x_frequency
+      ly = one / sem_box(sem_idx)%eddy(eddy_idx)%y_frequency
+      lz = one / sem_box(sem_idx)%eddy(eddy_idx)%z_frequency
+      !
+      lturb = max(lx,ly,lz)
+      !
+      loop_over_fp_in_box: &
+      do n = 1,my_sem_pts(sem_idx)%num_fp
+        !
+        ! Get the coordinates of this face point
+        !
+        xp = my_sem_pts(sem_idx)%sem_fp(n)%x
+        yp = my_sem_pts(sem_idx)%sem_fp(n)%y
+        zp = my_sem_pts(sem_idx)%sem_fp(n)%z
+        !
+        ! Get the minimum distance from this face point
+        ! to the line that will be traversed by the eddy.
+        ! NOTE: With the current assumptions that:
+        !         1) the SEM inflow boundary is a constant-x plane and
+        !         2) the eddy convective velocity is only in the x-direction, 
+        !       the minimum distance between the face point and the line
+        !       traversed by the eddy is simply the distance between the
+        !       face point and the eddy when the x-coordinate of the eddy is
+        !       equal to the x-coordinate of the face point, i.e., xe == xp.
+        !
+       !ds = hypot( yp-ye , zp-ze )
+        ds = norm2( [ yp-ye , zp-ze ] )
+       !ds = sqrt( (yp-ye)**2 + (zp-ze)**2 )
+       !ds = sqrt( (yp-ye)*(yp-ye) + (zp-ze)*(zp-ze) )
+        !
+        if (ds <= lturb) then
+          !
+          ! Add this face point to the list of face points affected by this eddy
+          !
+          call add_fp_to_eddy_fp_list(sem_box(sem_idx)%eddy(eddy_idx),n)
+          !
+          !
+          ! Add this eddy to the list of eddies affecting this face point
+          !
+          call add_eddy_to_fp_eddy_list(my_sem_pts(sem_idx)%sem_fp(n), &
+                                        eddy_idx)
+          !
+        end if
+        !
+      end do loop_over_fp_in_box
+      !
+    end do loop_over_eddies_in_box
+    !
+  end do loop_over_boxes
+  !
+end subroutine initialize_eddy_lists
 !
 !###############################################################################
 !
@@ -842,9 +949,7 @@ subroutine update_eddy_lists(new_eddies)
 continue
   !
   loop_to_add_new_eddies: &
-  do sem_idx = 1,size(new_eddies)
-    !
-    lturb = sem_box(sem_idx)%length_scale
+  do sem_idx = 1,num_sem_boxes
     !
     loop_over_new_eddies_in_box: &
     do i = 1,new_eddies(sem_idx)%num_eddies
@@ -929,7 +1034,7 @@ continue
   !
   if (.not. allocated(this%fp_list)) then
     ! Allocate fp_list to an initial array of 20 zeros
-    this%fp_list = spread(0,dim=1,ncopies=20) ! F2003 AUTO-REALLOC
+    this%fp_list = init_array(20,0) ! F2003 AUTO-REALLOC
     ! Initialize num_fp to zero
     this%num_fp = 0
   end if
@@ -942,7 +1047,7 @@ continue
     ! Use F2003 auto-reallocation to increase the size of fp_list
     ! by appending 20 more zeros to the end of the array
     ! F2003 AUTO-REALLOC
-    this%fp_list = [ this%fp_list , spread(0,dim=1,ncopies=20) ]
+    this%fp_list = [ this%fp_list , init_array(20,0) ]
   end if
   !
   ! Add the current face point to the list
@@ -969,7 +1074,7 @@ continue
   ! Delete/reset the old fp_list array by re-allocating
   ! it to an initial array of 20 zeros
   !
-  this%fp_list = spread(0,dim=1,ncopies=20) ! F2003 AUTO-REALLOC
+  this%fp_list = init_array(20,0) ! F2003 AUTO-REALLOC
   !
   ! Initialize num_fp to zero
   !
@@ -996,7 +1101,7 @@ continue
   !
   if (.not. allocated(this%eddy_list)) then
     ! Allocate eddy_list to an initial array of 20 zeros
-    this%eddy_list = spread(0,dim=1,ncopies=20) ! F2003 AUTO-REALLOC
+    this%eddy_list = init_array(20,0) ! F2003 AUTO-REALLOC
     ! Initialize num_eddies to zero
     this%num_eddies = 0
   end if
@@ -1009,7 +1114,7 @@ continue
     ! Use F2003 auto-reallocation to increase the size of eddy_list
     ! by appending 20 more zeros to the end of the array
     ! F2003 AUTO-REALLOC
-    this%eddy_list = [ this%eddy_list , spread(0,dim=1,ncopies=20) ]
+    this%eddy_list = [ this%eddy_list , init_array(20,0) ]
   end if
   !
   ! Add the current eddy to the list of eddies affecting this face point
@@ -1080,7 +1185,7 @@ continue
   !
   if (.not. allocated(this%eddy_list)) then
     ! Allocate eddy_list to an initial array of 20 zeros
-    this%eddy_list = spread(0,dim=1,ncopies=20) ! F2003 AUTO-REALLOC
+    this%eddy_list = init_array(20,0) ! F2003 AUTO-REALLOC
     ! Initialize num_eddies to zero
     this%num_eddies = 0
   end if
@@ -1096,7 +1201,7 @@ continue
     ! Use F2003 auto-reallocation to increase the size of eddy_list
     ! by appending 20 more zeros to the end of the array
     ! F2003 AUTO-REALLOC
-    this%eddy_list = [ this%eddy_list , spread(0,dim=1,ncopies=20) ]
+    this%eddy_list = [ this%eddy_list , init_array(20,0) ]
   end if
   !
   ! Add the current eddy to the list of new eddies for this SEM box
@@ -1138,8 +1243,7 @@ subroutine initialize_sem()
   integer  :: num_restart_sem_boxes
   real(wp) :: lturb,uconv
   !
-  logical(lk) :: sem_from_restart
-  !
+  character(len=50)  :: array_name
   character(len=100) :: fname
   !
   !.. Local Allocatable Arrays ..
@@ -1162,8 +1266,6 @@ continue
   !
   if (allocated(sem_box)) then
     !
-    sem_from_restart = true
-    !
     ! sem_box has already been allocated which means it was read in from the
     ! restart file. Check to make sure the number of SEM boxes in the restart
     ! file matches the number of SEM boxes specified in the input file
@@ -1177,8 +1279,6 @@ continue
     end if
     !
   else
-    !
-    sem_from_restart = fals
     !
     allocate ( sem_box(1:num_sem_boxes) )
     !
@@ -1204,18 +1304,18 @@ continue
       uconv = bc_in(bc_idx)%sem%convective_velocity
       fname = trim(adjustl(bc_in(bc_idx)%sem%profile_file))
       !
-      if (.not. sem_from_restart) then
-        sem_box(sem_idx)%bc_grp = grp_idx
-        sem_box(sem_idx)%length_scale = lturb
-        sem_box(sem_idx)%convective_velocity = uconv
-        sem_box(sem_idx)%profile%fname = trim(adjustl(fname))
-      end if
+      sem_box(sem_idx)%bc_idx = bc_idx
+      sem_box(sem_idx)%grp_idx = grp_idx
+      sem_box(sem_idx)%length_scale = lturb
+      sem_box(sem_idx)%convective_velocity = uconv
+      sem_box(sem_idx)%profile%fname = trim(adjustl(fname))
       !
       n1 = bc_grps(grp_idx)%beg_fp
       n2 = bc_grps(grp_idx)%end_fp
       np = n2-n1+1
       !
-      my_sem_pts(sem_idx)%bc_grp = grp_idx ! Index for this BC group
+      my_sem_pts(sem_idx)%bc_idx = bc_idx ! Index for this BC
+      my_sem_pts(sem_idx)%grp_idx = grp_idx ! Index for this BC group
       my_sem_pts(sem_idx)%num_fp = np      ! # of points in this SEM set
       !
       ! Allocate the SEM face points array
@@ -1244,7 +1344,12 @@ continue
   !   2) compute the volume of the box, and
   !   3) compute the number of eddies to use for the box.
   !
-  call get_size_of_sem_boxes(sem_from_restart)
+  call get_size_of_sem_boxes()
+  !
+  ! If the eddy information was read in from a restart file, check that the
+  ! location of the eddies are within the extents of their respective SEM box.
+  !
+  call check_restart_eddies()
   !
   ! Read in velocity profiles and Reynolds stresses
   !
@@ -1266,7 +1371,7 @@ continue
   allocate ( new_eddies(1:num_sem_boxes) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"new_eddies",1,__LINE__,__FILE__,ierr,error_message)
   !
-  do sem_idx = 1,size(new_eddies)
+  do sem_idx = 1,num_sem_boxes
     !
     num_eddies = sem_box(sem_idx)%num_eddies
     !
@@ -1304,15 +1409,15 @@ continue
   !
   call generate_new_eddies(new_eddies,generate_at_xmin=fals)
   !
-  ! Now update the face point eddy-lists and the 
-  ! eddy face-point-lists using new_eddies
-  !
-  call update_eddy_lists(new_eddies)
-  !
   ! Deallocate new_eddies since we no longer need it
   !
   deallocate ( new_eddies , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"new_eddies",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Now initialize the face point eddy-lists and the 
+  ! eddy face-point-lists using new_eddies
+  !
+  call initialize_eddy_lists()
   !
   ! Compute the distance to the nearest wall for each of the SEM face points
   !
@@ -1320,7 +1425,7 @@ continue
   !
   ! Finally, interpolate the profile data to the location of each face point
   !
-  do sem_idx = 1,size(sem_box)
+  do sem_idx = 1,num_sem_boxes
     !
     do n = 1,my_sem_pts(sem_idx)%num_fp
       !
@@ -1329,6 +1434,18 @@ continue
       !
     end do
     !
+  end do
+  !
+  ! Now that we have interpolated all the profile data to the SEM
+  ! face points, we no longer need the actual profile data so deallocate
+  ! all the sem_box(:)%profile components to free up that memory.
+  !
+  do sem_idx = 1,num_sem_boxes
+    if (allocated(sem_box(sem_idx)%profile)) then
+      deallocate ( sem_box(sem_idx)%profile , stat=ierr , errmsg=error_message )
+      write (array_name,'("sem_box(",i0,")%profile")') sem_idx
+      call alloc_error(pname,array_name,2,__LINE__,__FILE__,ierr,error_message)
+    end if
   end do
   !
   ! Format Statements
@@ -1385,7 +1502,7 @@ continue
   ! Finally, copy the computed wall distances into my_sem_pts
   !
   i = 0
-  do sem_idx = 1,size(my_sem_pts)
+  do sem_idx = 1,num_sem_boxes
     !
     do n = 1,my_sem_pts(sem_idx)%num_fp
       i = i + 1
@@ -1445,9 +1562,11 @@ continue
   !
   ! Gather the number of wall face points for each processor
   !
-  call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
-                     cpu_nums,1_int_mpi,MPI_INTEGER, &
-                     MPI_COMM_WORLD,mpierr)
+  if (ncpu > 1) then
+    call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+                       cpu_nums,1_int_mpi,MPI_INTEGER, &
+                       MPI_COMM_WORLD,mpierr)
+  end if
   !
   ! Allocate the xyz_wall array
   !
@@ -1493,9 +1612,11 @@ continue
   !
   ! Gather the face point coordinates from all processors
   !
-  call mpi_allgatherv(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
-                      xyz_wall,cpu_nums,cpu_disp,mpi_flttyp, &
-                      MPI_COMM_WORLD,mpierr)
+  if (ncpu > 1) then
+    call mpi_allgatherv(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+                        xyz_wall,cpu_nums,cpu_disp,mpi_flttyp, &
+                        MPI_COMM_WORLD,mpierr)
+  end if
   !
 end subroutine collect_wall_fp_coordinates
 !
@@ -1521,7 +1642,7 @@ continue
   call alloc_error(pname,"xyz_sem",1,__LINE__,__FILE__,ierr,error_message)
   !
   i = 0
-  do sem_idx = 1,size(my_sem_pts)
+  do sem_idx = 1,num_sem_boxes
     !
     do n = 1,my_sem_pts(sem_idx)%num_fp
       !
@@ -1695,10 +1816,7 @@ end subroutine interpolate_profile_data_to_fp
 !
 !###############################################################################
 !
-subroutine get_size_of_sem_boxes(sem_from_restart)
-  !
-  !.. Formal Arguments ..
-  logical(lk), intent(in) :: sem_from_restart
+subroutine get_size_of_sem_boxes()
   !
   !.. Local Scalars ..
   integer  :: ierr,n,num_eddies,sem_idx
@@ -1710,29 +1828,24 @@ subroutine get_size_of_sem_boxes(sem_from_restart)
   real(wp) :: tmin,tmax,t1,t2,t3,t4
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: boxmin(:,:)
-  real(wp), allocatable :: boxmax(:,:)
+  real(wp), allocatable :: box_size(:,:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_size_of_sem_boxes"
   !
 continue
   !
-  ! Allocate boxmin and boxmax to store the min/max extents
+  ! Allocate box_size to store the min/max extents
   ! (local to this partition/process) of the SEM boxes
   !
-  allocate ( boxmin(1:5,1:num_sem_boxes) , source=huge(zero) , &
+  allocate ( box_size(1:5,1:2,1:num_sem_boxes) , source=huge(zero) , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"boxmin",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( boxmax(1:5,1:num_sem_boxes) , source=-huge(zero) , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"boxmax",1,__LINE__,__FILE__,ierr,error_message)
+  call alloc_error(pname,"box_size",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Compute the min/max extents (local to this
   ! partition/process) of the SEM boxes
   !
-  do sem_idx = 1,size(my_sem_pts)
+  do sem_idx = 1,num_sem_boxes
     !
     lturb = sem_box(sem_idx)%length_scale
     !
@@ -1751,23 +1864,23 @@ continue
       zmin = z - lturb
       zmax = z + lturb
       !
-      boxmin(1,sem_idx) = min(xmin,boxmin(1,sem_idx))
-      boxmin(2,sem_idx) = min(ymin,boxmin(2,sem_idx))
-      boxmin(3,sem_idx) = min(zmin,boxmin(3,sem_idx))
+      box_size(1,1,sem_idx) = min(xmin,box_size(1,1,sem_idx))
+      box_size(2,1,sem_idx) = min(ymin,box_size(2,1,sem_idx))
+      box_size(3,1,sem_idx) = min(zmin,box_size(3,1,sem_idx))
       !
-      boxmax(1,sem_idx) = max(xmax,boxmax(1,sem_idx))
-      boxmax(2,sem_idx) = max(ymax,boxmax(2,sem_idx))
-      boxmax(3,sem_idx) = max(zmax,boxmax(3,sem_idx))
+      box_size(1,2,sem_idx) = max(xmax,box_size(1,2,sem_idx))
+      box_size(2,2,sem_idx) = max(ymax,box_size(2,2,sem_idx))
+      box_size(3,2,sem_idx) = max(zmax,box_size(3,2,sem_idx))
       !
     end do
     !
     ! Compute the r,theta min/max for the current box from the y,z min/max
     !
-    ymin = boxmin(2,sem_idx)
-    zmin = boxmin(3,sem_idx)
+    ymin = box_size(2,1,sem_idx)
+    zmin = box_size(3,1,sem_idx)
     !
-    ymax = boxmax(2,sem_idx)
-    zmax = boxmax(3,sem_idx)
+    ymax = box_size(2,2,sem_idx)
+    zmax = box_size(3,2,sem_idx)
     !
     r1 = sqrt( ymin*ymin + zmin*zmin )
     r2 = sqrt( ymax*ymax + zmin*zmin )
@@ -1803,56 +1916,55 @@ continue
     tmin = min(t1,t2,t3,t4)
     tmax = max(t1,t2,t3,t4)
     !
-    boxmin(4,sem_idx) = rmin
-    boxmin(5,sem_idx) = tmin
+    box_size(4,1,sem_idx) = rmin
+    box_size(5,1,sem_idx) = tmin
     !
-    boxmax(4,sem_idx) = rmax
-    boxmax(5,sem_idx) = tmax
+    box_size(4,2,sem_idx) = rmax
+    box_size(5,2,sem_idx) = tmax
     !
   end do
   !
-  ! Reduce the boxmin and boxmax arrays across all processes so that
-  ! every process has the true global min/max extents for each SEM box
+  ! Reduce the box_size array across all processes so that every
+  ! process has the true global min/max extents for each SEM box
   !
   if (ncpu > 1) then
-    call mpi_allreduce(MPI_IN_PLACE,boxmin,size(boxmin,kind=int_mpi), &
+    call mpi_allreduce(MPI_IN_PLACE,box_size,size(box_size,kind=int_mpi), &
                        mpi_flttyp,MPI_MIN,MPI_COMM_WORLD,mpierr)
-    call mpi_allreduce(MPI_IN_PLACE,boxmax,size(boxmax,kind=int_mpi), &
-                       mpi_flttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
   end if
   !
   ! Copy the global min/max extents for each SEM box into sem_box.
   ! Also compute the volume and the number of eddies for each box.
   !
-  do sem_idx = 1,size(sem_box)
+  do sem_idx = 1,num_sem_boxes
     !
     lturb = sem_box(sem_idx)%length_scale
     !
-    xmin = boxmin(1,sem_idx)
-    ymin = boxmin(2,sem_idx)
-    zmin = boxmin(3,sem_idx)
-    rmin = boxmin(4,sem_idx)
-    tmin = boxmin(5,sem_idx)
+    xmin = box_size(1,1,sem_idx)
+    ymin = box_size(2,1,sem_idx)
+    zmin = box_size(3,1,sem_idx)
+    rmin = box_size(4,1,sem_idx)
+    tmin = box_size(5,1,sem_idx)
     !
-    xmax = boxmax(1,sem_idx)
-    ymax = boxmax(2,sem_idx)
-    zmax = boxmax(3,sem_idx)
-    rmax = boxmax(4,sem_idx)
-    tmax = boxmax(5,sem_idx)
+    xmax = box_size(1,2,sem_idx)
+    ymax = box_size(2,2,sem_idx)
+    zmax = box_size(3,2,sem_idx)
+    rmax = box_size(4,2,sem_idx)
+    tmax = box_size(5,2,sem_idx)
     !
     ! Compute the volume of this SEM box
     !
-    if (sem_box_is_cylindrical) then
+    if (sem_box(sem_idx)%is_cylindrical) then
       box_volume = half*(xmax-xmin)*(tmax-tmin)*((rmax-rmin)**2)
     else
       box_volume = (xmax-xmin)*(ymax-ymin)*(zmax-zmin)
     end if
     !
     ! If the SEM eddies were not read in from a restart file,
+    ! i.e., sem_box(sem_idx)%eddy is not yet allocated,
     ! compute the number of eddies to use for this box based on the box
     ! volume and the turbulence length scale specified for this SEM box.
     !
-    if (.not. sem_from_restart) then
+    if (.not. allocated(sem_box(sem_idx)%eddy)) then
       !
       num_eddies = min( max_eddies , int( box_volume/(lturb**3) ) )
       !
@@ -1880,26 +1992,408 @@ continue
     !
   end do
   !
-  ! Deallocate boxmin and boxmax before we leave
+  ! Deallocate box_size before we leave
   !
-  deallocate ( boxmin , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"boxmin",2,__LINE__,__FILE__,ierr,error_message)
-  !
-  deallocate ( boxmax , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"boxmax",2,__LINE__,__FILE__,ierr,error_message)
+  deallocate ( box_size , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"box_size",2,__LINE__,__FILE__,ierr,error_message)
   !
 end subroutine get_size_of_sem_boxes
 !
 !###############################################################################
 !
+subroutine check_restart_eddies()
+  !
+  !.. Local Scalars ..
+  integer  :: ierr,n,sem_idx,eddy_idx
+  real(wp) :: vol_coef,eddy_vol,elx,ely,elz
+  !
+  logical(lk) :: error_found
+  !
+  !.. Local Arrays ..
+  real(wp) :: eddy_loc(1:3)
+  !
+  !.. Local Allocatable Arrays ..
+  integer,         allocatable :: num_bad_eddies(:)
+  real(wp),        allocatable :: box_min(:,:)
+  real(wp),        allocatable :: box_max(:,:)
+  real(wp),        allocatable :: eddy_min(:,:)
+  real(wp),        allocatable :: eddy_max(:,:)
+  logical(lk),     allocatable :: is_inside(:,:)
+  type(sem_box_t), allocatable :: tmp_sem_box(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_restart_eddies"
+  !
+continue
+  !
+  num_bad_eddies = init_array(num_sem_boxes,0) ! F2003 AUTO-REALLOC
+  !
+  box_min = init_array(3,num_sem_boxes, huge(zero)) ! F2003 AUTO-REALLOC
+  box_max = init_array(3,num_sem_boxes,-huge(zero)) ! F2003 AUTO-REALLOC
+  !
+  ! Compute the min/max extents (local to this
+  ! partition/process) of the SEM boxes
+  !
+  loop_over_sem_boxes: &
+  do sem_idx = 1,num_sem_boxes
+    !
+    ! Get the extents of the current SEM box
+    !
+    box_min(1,sem_idx) = sem_box(sem_idx)%boxmin(1)
+    box_max(1,sem_idx) = sem_box(sem_idx)%boxmax(1)
+    !
+    if (sem_box(sem_idx)%is_cylindrical) then
+      !
+      box_min(2,sem_idx) = sem_box(sem_idx)%boxmin(4)
+      box_min(3,sem_idx) = sem_box(sem_idx)%boxmin(5)
+      !
+      box_max(2,sem_idx) = sem_box(sem_idx)%boxmax(4)
+      box_max(3,sem_idx) = sem_box(sem_idx)%boxmax(5)
+      !
+    else
+      !
+      box_min(2,sem_idx) = sem_box(sem_idx)%boxmin(2)
+      box_min(3,sem_idx) = sem_box(sem_idx)%boxmin(3)
+      !
+      box_max(2,sem_idx) = sem_box(sem_idx)%boxmax(2)
+      box_max(3,sem_idx) = sem_box(sem_idx)%boxmax(3)
+      !
+    end if
+    !
+    if (.not. allocated(sem_box(sem_idx)%eddy)) cycle loop_over_sem_boxes
+    !
+    n = 0
+    !
+    loop_over_eddies: &
+    do eddy_idx = 1,sem_box(sem_idx)%num_eddies
+      !
+      eddy_loc(1) = sem_box(sem_idx)%eddy(eddy_idx)%x
+      !
+      if (sem_box(sem_idx)%is_cylindrical) then
+        eddy_loc(2) = sem_box(sem_idx)%eddy(eddy_idx)%r
+        eddy_loc(3) = sem_box(sem_idx)%eddy(eddy_idx)%t
+      else
+        eddy_loc(2) = sem_box(sem_idx)%eddy(eddy_idx)%y
+        eddy_loc(3) = sem_box(sem_idx)%eddy(eddy_idx)%z
+      end if
+      !
+      if (any(eddy_loc(1:3) < box_min(1:3,sem_idx)) .or. &
+          any(eddy_loc(1:3) > box_max(1:3,sem_idx))) then
+        n = n + 1
+      end if
+      !
+    end do loop_over_eddies
+    !
+    num_bad_eddies(sem_idx) = n
+    !
+  end do loop_over_sem_boxes
+  !
+  ! Check if there were any eddies that found outside their respective SEM box.
+  ! If any were found, write out a warning. Then, try to troubleshoot the boxes
+  ! to see if the restart SEM boxes and input SEM boxes might simply be out of
+  ! order. Finally, rearrange the restart SEM boxes if doing so matches them
+  ! up with the input SEM boxes.
+  !
+  if (sum(num_bad_eddies) > 0) then
+    !
+    ! Output a warning that some of the eddies read from the restart file
+    ! have been found to be outside of their respective SEM box.
+    !
+    if (mypnum == glb_root) then
+      write (iout,1)
+      do sem_idx = 1,num_sem_boxes
+        if (num_bad_eddies(sem_idx) > 0) then
+          write (iout,2) num_bad_eddies(sem_idx),sem_idx
+        end if
+      end do
+      write (iout,3)
+    end if
+    flush (iout)
+    !
+    ! Deallocate num_bad_eddies since it is no longer needed
+    !
+    if (allocated(num_bad_eddies)) then
+      deallocate ( num_bad_eddies , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"num_bad_eddies",2,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
+    !
+    ! Find the min/max extents of the eddy locations for each SEM box
+    !
+    eddy_min = init_array(3,num_sem_boxes, huge(zero)) ! F2003 AUTO-REALLOC
+    eddy_max = init_array(3,num_sem_boxes,-huge(zero)) ! F2003 AUTO-REALLOC
+    !
+    do sem_idx = 1,num_sem_boxes
+      !
+      if (.not. allocated(sem_box(sem_idx)%eddy)) then
+        !
+        ! If the eddy array is not allocated, just make the min/max extents
+        ! of the eddies equal to the box dimensions +/- 10**-6
+        !
+        eddy_min(1,sem_idx) = sem_box(sem_idx)%boxmin(1) + eps6
+        eddy_max(1,sem_idx) = sem_box(sem_idx)%boxmax(1) - eps6
+        !
+        if (sem_box(sem_idx)%is_cylindrical) then
+          !
+          eddy_min(2,sem_idx) = sem_box(sem_idx)%boxmin(4) + eps6
+          eddy_max(2,sem_idx) = sem_box(sem_idx)%boxmax(4) - eps6
+          !
+          eddy_min(3,sem_idx) = sem_box(sem_idx)%boxmin(5) + eps6
+          eddy_max(3,sem_idx) = sem_box(sem_idx)%boxmax(5) - eps6
+          !
+        else
+          !
+          eddy_min(2,sem_idx) = sem_box(sem_idx)%boxmin(2) + eps6
+          eddy_max(2,sem_idx) = sem_box(sem_idx)%boxmax(2) - eps6
+          !
+          eddy_min(3,sem_idx) = sem_box(sem_idx)%boxmin(3) + eps6
+          eddy_max(3,sem_idx) = sem_box(sem_idx)%boxmax(3) - eps6
+          !
+        end if
+        !
+      else
+        !
+        ! Get the minimum value of each of the coordinates
+        ! over all the eddies in this SEM box
+        !
+        eddy_min(1,sem_idx) = minval(sem_box(sem_idx)%eddy(:)%x)
+        !
+        if (sem_box(sem_idx)%is_cylindrical) then
+          eddy_min(2,sem_idx) = minval(sem_box(sem_idx)%eddy(:)%r)
+          eddy_min(3,sem_idx) = minval(sem_box(sem_idx)%eddy(:)%t)
+        else
+          eddy_min(2,sem_idx) = minval(sem_box(sem_idx)%eddy(:)%y)
+          eddy_min(3,sem_idx) = minval(sem_box(sem_idx)%eddy(:)%z)
+        end if
+        !
+        ! Get the maximum value of each of the coordinates
+        ! over all the eddies in this SEM box
+        !
+        eddy_max(1,sem_idx) = maxval(sem_box(sem_idx)%eddy(:)%x)
+        !
+        if (sem_box(sem_idx)%is_cylindrical) then
+          eddy_max(2,sem_idx) = maxval(sem_box(sem_idx)%eddy(:)%r)
+          eddy_max(3,sem_idx) = maxval(sem_box(sem_idx)%eddy(:)%t)
+        else
+          eddy_max(2,sem_idx) = maxval(sem_box(sem_idx)%eddy(:)%y)
+          eddy_max(3,sem_idx) = maxval(sem_box(sem_idx)%eddy(:)%z)
+        end if
+        !
+      end if
+      !
+    end do
+    !
+    ! Check the eddy extents against the SEM box extents to see if we can
+    ! rearrange the eddies to get a unique 1-1 matching of eddies to SEM boxes.
+    !
+    is_inside = init_array(num_sem_boxes,num_sem_boxes,fals)
+    !
+    do sem_idx = 1,num_sem_boxes
+      do eddy_idx = 1,num_sem_boxes
+        !
+        if (all(eddy_min(1:3,eddy_idx) >= box_min(1:3,sem_idx)) .and. &
+            all(eddy_max(1:3,eddy_idx) <= box_max(1:3,sem_idx))) then
+          is_inside(eddy_idx,sem_idx) = true
+        end if
+        !
+      end do
+    end do
+    !
+    ! Deallocate box_min, box_max, eddy_min, and eddy_max
+    ! since they are no longer needed
+    !
+    if (allocated(box_min)) then
+      deallocate ( box_min , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"box_min",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    if (allocated(box_max)) then
+      deallocate ( box_max , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"box_max",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    if (allocated(eddy_min)) then
+      deallocate ( eddy_min , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"eddy_min",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    if (allocated(eddy_max)) then
+      deallocate ( eddy_max , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"eddy_max",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    ! Check to make sure that each group of eddies was found to be in only
+    ! one SEM box, and that each SEM box only contains one group of eddies.
+    !
+    error_found = fals
+    !
+    ! Check to make sure at most one group
+    ! of eddies is contained by each SEM box
+    !
+    do sem_idx = 1,num_sem_boxes
+      n = count( is_inside(1:num_sem_boxes,sem_idx) )
+      ! NOTE: n IS allowed to be 0 here, which means that none of
+      !       the restart eddy groups is contained by this SEM box;
+      !       therefore, the eddies for this SEM box will need to
+      !       be initialized to new eddies.
+      if (n > 1) then
+        if (mypnum == glb_root) write (iout,10) sem_idx,n
+        error_found = true
+      end if
+    end do
+    !
+    ! Check to make sure that each group of
+    ! eddies is contained by only one SEM box.
+    !
+    do eddy_idx = 1,num_sem_boxes
+      n = count( is_inside(eddy_idx,1:num_sem_boxes) )
+      ! NOTE: n is NOT allowed to be 0 here, which would mean that the
+      !       current group of eddies from the restart file is not
+      !       contained by any of the current SEM boxes. Each group of
+      !       eddies from the restart file MUST be contained by one,
+      !       and only one, SEM box.
+      if (n /= 1) then
+        if (mypnum == glb_root) write (iout,11) eddy_idx,n
+        error_found = true
+      end if
+    end do
+    !
+    if (error_found) then
+      if (mypnum == glb_root) then
+        write (iout,12) (n, n=1,num_sem_boxes)
+        do sem_idx = 1,num_sem_boxes
+          write (iout,13) merge("SEM Box # ","          ",sem_idx==1), &
+                          sem_idx,(is_inside(n,sem_idx), n=1,num_sem_boxes)
+        end do
+        write (iout,'(//)')
+      end if
+      flush (iout)
+      write (error_message,14)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+    !
+    ! If we passed the previous tests, there is a 1-to-1 matching of SEM boxes
+    ! to groups of eddies. Shuffle the eddy components of the sem_box array
+    ! so that the groups of eddies are matched with their respective SEM box.
+    !
+    ! First create a duplicate of sem_box
+    ! NOTE: This will deep-copy everything within sem_box and its underlying
+    !       components over to tmp_sem_box.
+    !
+    tmp_sem_box = sem_box ! F2003 AUTO-REALLOC
+    !
+    shuffle_eddies: &
+    do sem_idx = 1,num_sem_boxes
+      !
+      ! Get the index for the group of eddies that matches this SEM box
+      ! NOTE: The sum function is used here on an integer sequence from
+      !       1 to num_sem_boxes, because the mask array should contain
+      !       only one true value thus simply making the sum equal to
+      !       the index of the first dimension of is_inside whose value
+      !       is true.
+      !
+      eddy_idx = sum( intseq(1,num_sem_boxes) , &
+                      mask=is_inside(1:num_sem_boxes,sem_idx) )
+      !
+      ! Use move_alloc to copy tmp_sem_box(eddy_idx)%eddy over to
+      ! sem_box(sem_idx)%eddy. This will do the following:
+      !   1. deallocate sem_box(sem_idx)%eddy if already allocated
+      !   2. allocate sem_box(sem_idx)%eddy to the same size as
+      !      tmp_sem_box(eddy_idx)%eddy
+      !   3. copy the contents of tmp_sem_box(eddy_idx)%eddy over to
+      !      sem_box(sem_idx)%eddy
+      !   4. deallocate tmp_sem_box(eddy_idx)
+      !
+      if (eddy_idx > 0) then
+        call move_alloc( from=tmp_sem_box(eddy_idx)%eddy , &
+                         to=sem_box(sem_idx)%eddy )
+      end if
+      !
+    end do shuffle_eddies
+    !
+  end if
+  !
+  ! Deallocate tmp_sem_box and is_inside because they are no longer needed.
+  !
+  if (allocated(tmp_sem_box)) then
+    deallocate ( tmp_sem_box , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"tmp_sem_box",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(is_inside)) then
+    deallocate ( is_inside , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"is_inside",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Finally, compute the volume of each eddy using the eddy frequencies
+  ! (i.e., one/length-scales) since this information is not read in
+  ! from the restart file.
+  !
+  vol_coef = merge( (four/three)*pi , one , eddy_volume_is_spherical )
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    if (.not. allocated(sem_box(sem_idx)%eddy)) cycle
+    !
+    do eddy_idx = 1,sem_box(sem_idx)%num_eddies
+      !
+      elx = one / sem_box(sem_idx)%eddy(eddy_idx)%x_frequency
+      ely = one / sem_box(sem_idx)%eddy(eddy_idx)%y_frequency
+      elz = one / sem_box(sem_idx)%eddy(eddy_idx)%z_frequency
+      !
+      eddy_vol = vol_coef*elx*ely*elz
+      !
+      sem_box(sem_idx)%eddy(eddy_idx)%volume = one / sqrt(eddy_vol)
+      !
+    end do
+    !
+  end do
+  !
+  ! Format Statements
+  !
+  1  format (/, &
+       2x,78("#"),/, &
+       2x,5("#"),26x, &
+         "!!! WARNING !!!",27x,5("#"),/, &
+       2x,5("#"),10x, &
+         "A MISMATCH WAS DETECTED BETWEEN THE LOCATION OF",11x,5("#"),/, &
+       2x,5("#"),10x, &
+         "THE RESTART EDDIES AND THE SEM BOUNDING BOXES!!!",10x,5("#"))
+  2  format (2x,5("#"),10x, &
+             i8," restart eddies are outside SEM box # ",i2,10x,5("#"))
+  3  format (2x,78("#"),/)
+  !
+  10 format (/,2x,"SEM box # ",i0," appears to contain ",i0," groups of ", &
+                  "restart eddies!")
+  11 format (/,2x,"Restart eddy group # ",i0," appears to be contained ", &
+                  "by ",i0," SEM boxes!")
+  12 format (//,20x,"Restart Eddy Group #",/, &
+                2x,"Contained by",6x,i2,100(2x,i2,:))
+  13 format (5x,a10,i2," [  ",l1,100(3x,l1," ]",:,tl2))
+  14 format ("ERROR!!! An error occurred while trying to create a 1-to-1 ", &
+             "matching between the groups of eddies read from the restart ", &
+             "file and the current set of SEM bounding boxes!")
+  !
+end subroutine check_restart_eddies
+!
+!###############################################################################
+!
 subroutine read_sem_profiles()
+  !
+  !.. Use Statements
+  use ovar, only : bc_in
   !
   !.. Local Scalars ..
   integer  :: i,ierr,io,n,npts,nvar,sem_idx
   real(wp) :: tau11,tau21,tau22,tau31,tau32,tau33
   real(wp) :: a11,a21,a22,a31,a32,a33
+  real(wp) :: ravg,vavg,wavg,tavg
   !
   logical(lk) :: profile_data_is_allocated
+  logical(lk) :: density_was_read
+  logical(lk) :: vy_was_read
+  logical(lk) :: vz_was_read
+  logical(lk) :: temperature_was_read
   !
   character(len=150) :: fname
   character(len=150) :: profile_variables
@@ -1926,7 +2420,12 @@ continue
   !
   ! We need to create the profile data, so read the data from the profile files.
   !
-  do sem_idx = 1,size(sem_box)
+  density_was_read = fals
+  vy_was_read = fals
+  vz_was_read = fals
+  temperature_was_read = fals
+  !
+  do sem_idx = 1,num_sem_boxes
     !
     fname = sem_box(sem_idx)%profile%fname
     !
@@ -1999,14 +2498,18 @@ continue
           sem_box(sem_idx)%profile%y(1:npts) = temp_data(i,1:npts)
           !
         case ("RHO","DENSITY")
+          density_was_read = true
           sem_box(sem_idx)%profile%ravg(1:npts) = temp_data(i,1:npts)
         case ("VX","U")
           sem_box(sem_idx)%profile%uavg(1:npts) = temp_data(i,1:npts)
         case ("VY","V")
+          vy_was_read = true
           sem_box(sem_idx)%profile%vavg(1:npts) = temp_data(i,1:npts)
         case ("VZ","W")
+          vz_was_read = true
           sem_box(sem_idx)%profile%wavg(1:npts) = temp_data(i,1:npts)
         case ("T","TEMPERATURE")
+          temperature_was_read = true
           sem_box(sem_idx)%profile%tavg(1:npts) = temp_data(i,1:npts)
           !
         case ("TAUXX","TAU11","RXX","R11")
@@ -2044,13 +2547,13 @@ continue
      !a11 = sqrt(abs(tau11))
       !
       a21 = tau21/(a11+rndoff)
-      a22 = sqrt(    tau22 -(a21**2))
-     !a22 = sqrt(abs(tau22)-(a21**2))
+      a22 = sqrt( max( zero ,     tau22 -(a21**2) ) )
+     !a22 = sqrt( max( zero , abs(tau22)-(a21**2) ) )
       !
       a31 = tau31/(a11+rndoff)
       a32 = (tau32-a21*a31)/(a22+rndoff)
-      a33 = sqrt(    tau33 -(a31**2)-(a32**2))
-     !a33 = sqrt(abs(tau33)-(a31**2)-(a32**2))
+      a33 = sqrt( max( zero ,     tau33 -(a31**2)-(a32**2) ) )
+     !a33 = sqrt( max( zero , abs(tau33)-(a31**2)-(a32**2) ) )
       !
       sem_box(sem_idx)%profile%a11(n) = a11
       sem_box(sem_idx)%profile%a21(n) = a21
@@ -2060,6 +2563,50 @@ continue
       sem_box(sem_idx)%profile%a33(n) = a33
       !
     end do
+    !
+    ! If the averaged density was not included in the profile
+    ! file, set the density for all points in the profile to
+    ! the density specified for this boundary condition.
+    !
+    if (.not. density_was_read) then
+      ravg = bc_in( sem_box(sem_idx)%bc_idx )%cv(nec)
+      do n = 1,npts
+        sem_box(sem_idx)%profile%ravg(n) = ravg
+      end do
+    end if
+    !
+    ! If the averaged y-velocity was not included in the profile
+    ! file, set the y-velocity for all points in the profile to
+    ! the y-velocity specified for this boundary condition.
+    !
+    if (.not. vy_was_read) then
+      vavg = bc_in( sem_box(sem_idx)%bc_idx )%pv(nmy)
+      do n = 1,npts
+        sem_box(sem_idx)%profile%vavg(n) = vavg
+      end do
+    end if
+    !
+    ! If the averaged z-velocity was not included in the profile
+    ! file, set the z-velocity for all points in the profile to
+    ! the z-velocity specified for this boundary condition.
+    !
+    if (.not. vz_was_read) then
+      wavg = bc_in( sem_box(sem_idx)%bc_idx )%pv(nmz)
+      do n = 1,npts
+        sem_box(sem_idx)%profile%wavg(n) = wavg
+      end do
+    end if
+    !
+    ! If the averaged temperature was not included in the profile
+    ! file, set the temperature for all points in the profile to
+    ! the temperature specified for this boundary condition.
+    !
+    if (.not. temperature_was_read) then
+      tavg = bc_in( sem_box(sem_idx)%bc_idx )%gp(ntemp)
+      do n = 1,npts
+        sem_box(sem_idx)%profile%tavg(n) = tavg
+      end do
+    end if
     !
   end do
   !
@@ -2184,7 +2731,16 @@ continue
   ! Check the allocation status of all the profile arrays
   ! for each of the SEM boxes.
   !
-  do sem_idx = 1,size(sem_box)
+  do sem_idx = 1,num_sem_boxes
+    !
+    ! Make sure that sem_box(sem_idx)%profile is allocated for this SEM box.
+    !
+    if (.not. allocated(sem_box(sem_idx)%profile)) then
+      allocate ( sem_box(sem_idx)%profile )
+    end if
+    !
+    ! Now check the allocation status of all the
+    ! component arrays of sem_box(sem_idx)%profile.
     !
     call check_array_alloc(sem_box(sem_idx)%profile%y, &
                            profile_data_is_allocated, &
@@ -2307,7 +2863,7 @@ subroutine output_details_of_sem_boxes()
   !
 continue
   !
-  do sem_idx = 1,size(sem_box)
+  do sem_idx = 1,num_sem_boxes
     write (iout,*)
     write (iout,1) sem_idx
     write (iout,*) 'Uconv     = ',sem_box(sem_idx)%convective_velocity*aref
@@ -2458,7 +3014,7 @@ continue
         !
         ! Allocate the array for reading in the wall distances
         !
-        y = spread(zero,dim=1,ncopies=npts) ! F2003 AUTO-REALLOC
+        y = init_array(npts,zero) ! F2003 AUTO-REALLOC
         !
         ! Read the wall distance of each SEM profile data point
         !
@@ -2497,12 +3053,14 @@ continue
     !
     npts = size(bc_input)
     !
-    y = spread(zero,dim=1,ncopies=npts) ! F2003 AUTO-REALLOC
+    y = init_array(npts,zero) ! F2003 AUTO-REALLOC
     !
   end if
   !
-  call mpi_bcast(y,size(y,kind=int_mpi),mpi_flttyp, &
-                 glb_root,MPI_COMM_WORLD,mpierr)
+  if (ncpu > 1) then
+    call mpi_bcast(y,size(y,kind=int_mpi),mpi_flttyp, &
+                   glb_root,MPI_COMM_WORLD,mpierr)
+  end if
   !
   ! All processes copy the maximum wall distances back into bc_input
   !
@@ -2560,6 +3118,16 @@ subroutine separate_sem_boundary_faces()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Make sure that there are SEM boundary conditions. If not,
+  ! dont do anything and just return to the calling procedure.
+  !
+  if (all(bface(1,:) /= bc_sem)) then
+    call debug_timer(leaving_procedure,pname)
+    return
+  end if
+  !
   ! First, read all the SEM profile files and extract the maximum profile
   ! height from each SEM profile.
   !
@@ -2569,7 +3137,7 @@ continue
   !
   if (i_am_host_root) then
     !
-    msk = spread(fals,dim=1,ncopies=nnode) ! F2003 AUTO-REALLOC
+    msk = init_array(nnode,fals) ! F2003 AUTO-REALLOC
     !
     do nf = 1,nfbnd
       if (any(bface(1,nf) == bc_physical_walls)) then
@@ -2587,8 +3155,10 @@ continue
   ! Broadcast the number of wall boundary nodes
   ! to all the non-host-root MPI processes
   !
-  call mpi_bcast(n_wall_pts,1_int_mpi,mpi_inttyp, &
-                 host_root,my_host_comm,mpierr)
+  if (ncpu > 1) then
+    call mpi_bcast(n_wall_pts,1_int_mpi,mpi_inttyp, &
+                   host_root,my_host_comm,mpierr)
+  end if
   !
   if (.not. allocated(xyz_wall)) then
     allocate ( xyz_wall(1:3,1:n_wall_pts) , source=zero , &
@@ -2601,14 +3171,16 @@ continue
   !       later in compute_sem_fp_wall_distance to compute the distance to
   !       the nearest wall for all boundary face points on SEM boundaries.
   !
-  call mpi_bcast(xyz_wall,size(xyz_wall,kind=int_mpi),mpi_flttyp, &
-                 host_root,my_host_comm,mpierr)
+  if (ncpu > 1) then
+    call mpi_bcast(xyz_wall,size(xyz_wall,kind=int_mpi),mpi_flttyp, &
+                   host_root,my_host_comm,mpierr)
+  end if
   !
   ! Find all the boundary nodes that are on SEM boundaries
   !
   if (i_am_host_root) then
     !
-    msk = spread(fals,dim=1,ncopies=nnode) ! F2003 AUTO-REALLOC
+    msk = init_array(nnode,fals) ! F2003 AUTO-REALLOC
     !
     do nf = 1,nfbnd
       if (bface(1,nf) == bc_sem) then
@@ -2754,8 +3326,10 @@ continue
   ! Broadcast the updated bface array to all the non-host-root MPI processes
   ! on each host.
   !
-  call mpi_bcast(bface,size(bface,kind=int_mpi),mpi_inttyp, &
-                 host_root,my_host_comm,mpierr)
+  if (ncpu > 1) then
+    call mpi_bcast(bface,size(bface,kind=int_mpi),mpi_inttyp, &
+                   host_root,my_host_comm,mpierr)
+  end if
   !
   ! Deallocate local arrays before leaving if still allocated
   !
@@ -2768,6 +3342,8 @@ continue
     deallocate ( node2sem , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"node2sem",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine separate_sem_boundary_faces
 !
