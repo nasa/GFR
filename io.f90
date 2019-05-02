@@ -1466,6 +1466,8 @@ subroutine read_grid_file()
   !
   use eqn_idx, only : create_equation_indices
   !
+  use synthetic_eddy_mod, only : separate_sem_boundary_faces
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_grid_file"
   !
@@ -1516,6 +1518,13 @@ continue
   !
   call initialize_reference
   call check_for_bad_number(__LINE__,__FILE__)
+  !
+  ! Before doing anything with the boundary conditions, check to see if
+  ! there are any SEM boundary conditions. If there are any, read in the
+  ! SEM profiles and separate any boundary faces outside of the profile
+  ! height into new subsonic inflow boundaries.
+  !
+  call separate_sem_boundary_faces
   !
   ! First, initialize the bc_in array
   ! NOTE: This will also fill bface(6,:) with the correct value

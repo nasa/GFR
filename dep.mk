@@ -305,6 +305,7 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/limiters.o \
        $(OBJDIR)/thermo_mod.o \
        $(OBJDIR)/transport_mod.o \
+       $(OBJDIR)/turb_inflow_mod.o \
        $(OBJDIR)/flux.o \
        $(OBJDIR)/gpu_mod.o \
        $(FUNDIR)/last.f90 \
