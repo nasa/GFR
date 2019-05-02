@@ -312,15 +312,15 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
   !
   !.. Use Statements ..
   use geovar,     only : ncell,cell,n_solpts
-  use geovar,     only : n_global_cell
+  use geovar,     only : n_global_cell,n_global_solpts
   use ovar,       only : time_average_restart_files
   use thermo_mod, only : inert_species_map
   !
   !.. Formal Arguments ..
-  character(len=*),              intent(in   ) :: file_name
-  integer(wip),     allocatable, intent(  out) :: int_header(:)
-  real(wp),         allocatable, intent(  out) :: real_header(:)
-  real(wp),         allocatable, intent(inout) :: solution(:,:)
+  character(len=*),          intent(in   ) :: file_name
+  integer(wip), allocatable, intent(  out) :: int_header(:)
+  real(wp),     allocatable, intent(  out) :: real_header(:)
+  real(wp),     allocatable, intent(inout) :: solution(:,:)
   !
   !.. Optional Arguments ..
   integer(wip), optional, allocatable, intent(out) :: var_header(:)
@@ -338,17 +338,19 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
   !.. Need to be MPI_OFFSET_KIND integers
   integer(MPI_OFFSET_KIND) :: file_disp
   integer(MPI_OFFSET_KIND) :: file_offset
+  integer(MPI_OFFSET_KIND) :: real_bytes
   !
   integer :: solution_errors
   integer :: restart_nq,restart_ncs,restart_ncells
   integer :: n_header_int,n_header_real
+  integer :: num_sem_boxes
   !
   integer :: inp_cell,inp_geom,inp_order
   integer :: this_cell,this_geom,this_order
   !
   !.. Local Allocatable Arrays ..
-  integer(wip),       allocatable :: ordered_geom(:)
-  real(wp),           allocatable :: rst_sol(:,:)
+  integer(wip), allocatable :: ordered_geom(:)
+  real(wp),     allocatable :: rst_sol(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_solution_file"
@@ -362,6 +364,7 @@ continue
     flip_sol_indices = sol_is_transposed
   end if
   !
+  num_sem_boxes = 0
   !
   solution_errors = 0
   !
@@ -485,6 +488,13 @@ continue
                                kind=kind(restart_solution_form) )
   !
   call check_restart_solution_form(restart_solution_form)
+  !
+  ! Check if there is restart information for
+  ! the synthetic inflow turbulence generators
+  !
+  if (size(int_header) >= 5) then
+    num_sem_boxes = max(0,int_header(5))
+  end if
   !
 ! ###################################
 ! ### Real part of restart header ###
@@ -661,7 +671,7 @@ continue
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
-  ! Set the file view to write the ordered_geom array to the restart file
+  ! Set the file view to to read in the solution restart data
   !
   call mpi_file_set_view(file_handle,file_disp,read_block_type, &
                          read_type, trim(adjustl(file_datarep)), &
@@ -690,6 +700,33 @@ continue
         write (error_message,23)
         call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end select
+  end if
+  !
+  ! Update the file displacement since we know the total number of
+  ! solution points, the number of variables per solution point, and
+  ! the byte-size of for each element of the solution array.
+  !
+  select case (restart_rp)
+    case (real32)  ; real_bytes = int(4,kind=MPI_OFFSET_KIND)
+    case (real64)  ; real_bytes = int(8,kind=MPI_OFFSET_KIND)
+    case (real128) ; real_bytes = int(16,kind=MPI_OFFSET_KIND)
+  end select
+  !
+  file_disp = file_disp + real_bytes * &
+                          int(int_header(1),kind=MPI_OFFSET_KIND) * &
+                          int(n_global_solpts,kind=MPI_OFFSET_KIND)
+  !
+  ! Update the file view to after all the solution data
+  !
+  call mpi_file_set_view(file_handle,file_disp,MPI_INTEGER, &
+                         MPI_INTEGER, trim(adjustl(file_datarep)), &
+                         file_info, mpierr)
+  !
+  ! Read in the restart information for the synthetic
+  ! inflow turbulence generators
+  !
+  if (num_sem_boxes > 0) then
+    call read_sem_restart(num_sem_boxes,file_handle)
   end if
   !
   ! Finally close the restart file
@@ -891,6 +928,223 @@ end subroutine read_solution_file
 !
 !###############################################################################
 !
+subroutine read_sem_restart(num_sem_boxes,file_handle)
+  !
+  !.. Use Statements
+  use random_mod,         only : iseed
+  use synthetic_eddy_mod, only : sem_box
+  !
+  !.. Formal Arguments ..
+  integer,         intent(in) :: num_sem_boxes
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  !
+  !.. Local Scalars ..
+  integer  :: restart_ip,restart_rp
+  integer  :: restart_size,num_eddies
+  integer  :: i,ierr,n,sem_idx
+  real(wp) :: x,y,z
+  !
+  character(len=50) :: array_name
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: num_eddies_in_box(:)
+  real(wp), allocatable :: eddy_data(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_sem_restart"
+  !
+continue
+  !
+  ! What needs to be read in:
+  !   1. integer type of random seed array
+  !   2. size of random seed array
+  !   3. random seed array
+  !   4. integer type of number of eddies in each box
+  !   5. number of eddies in each box
+  !   6. real type of eddy location data
+  !   7. x,y,z eddy location data
+  !         (one big array for all eddies across all SEM boxes)
+  !
+  ! #######
+  ! ## 1 ##
+  ! #######
+  !
+  ! Read the integer type of the random seed array
+  !
+  call mpi_file_read_all(file_handle,restart_ip,1_int_mpi, &
+                         MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+  !
+  ! #######
+  ! ## 2 ##
+  ! #######
+  !
+  ! Read the number of items in the random seed array
+  !
+  call mpi_file_read_all(file_handle,restart_size,1_int_mpi, &
+                         MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+  !
+  ! #######
+  ! ## 3 ##
+  ! #######
+  !
+  iseed = spread(0,dim=1,ncopies=restart_size) ! F2003 AUTO-REALLOC
+  !
+  ! Read the random seed array
+  !
+  select case (restart_ip)
+    case (int8)  ; call read_rstrt_file_i1(file_handle,iseed)
+    case (int16) ; call read_rstrt_file_i2(file_handle,iseed)
+    case (int32) ; call read_rstrt_file_i4(file_handle,iseed)
+    case (int64) ; call read_rstrt_file_i8(file_handle,iseed)
+    case default
+      write (error_message,1)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
+  !
+  ! #######
+  ! ## 4 ##
+  ! #######
+  !
+  ! Read the integer type of the array giving
+  ! the number of eddies in each SEM box
+  !
+  call mpi_file_read_all(file_handle,restart_ip,1_int_mpi, &
+                         MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+  !
+  ! #######
+  ! ## 5 ##
+  ! #######
+  !
+  ! Read the number of eddies in each SEM box
+  !
+  num_eddies_in_box = spread(0,dim=1,ncopies=num_sem_boxes) ! F2003 AUTO-REALLOC
+  !
+  select case (restart_ip)
+    case (int8)  ; call read_rstrt_file_i1(file_handle,num_eddies_in_box)
+    case (int16) ; call read_rstrt_file_i2(file_handle,num_eddies_in_box)
+    case (int32) ; call read_rstrt_file_i4(file_handle,num_eddies_in_box)
+    case (int64) ; call read_rstrt_file_i8(file_handle,num_eddies_in_box)
+    case default
+      write (error_message,2)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
+  !
+  ! #######
+  ! ## 6 ##
+  ! #######
+  !
+  ! Read the real type of the eddy data
+  !
+  call mpi_file_read_all(file_handle,restart_rp,1_int_mpi, &
+                         MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+  !
+  ! #######
+  ! ## 7 ##
+  ! #######
+  !
+  ! Read the eddy data for all eddies across all boxes
+  !
+  num_eddies = sum(num_eddies_in_box)
+  !
+  ! F2003 AUTO-REALLOC
+  eddy_data = reshape( spread(zero,dim=1,ncopies=9*num_eddies) , &
+                       [9,num_eddies] )
+  !
+  if (restart_rp == wp) then
+    call read_rstrt_file_wp(file_handle,eddy_data)
+  else
+    select case (restart_rp)
+      case (real32)  ; call read_rstrt_file_r4(file_handle,eddy_data)
+      case (real64)  ; call read_rstrt_file_r8(file_handle,eddy_data)
+      case (real128) ; call read_rstrt_file_r16(file_handle,eddy_data)
+      case default
+        write (error_message,3)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end select
+  end if
+  !
+  ! Then, loop over the SEM boxes and distribute the eddy data to the
+  ! respective SEM box
+  !
+  if (allocated(sem_box)) then
+    deallocate ( sem_box , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sem_box",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( sem_box(1:num_sem_boxes) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"sem_box",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  i = 0
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    num_eddies = num_eddies_in_box(sem_idx)
+    !
+    sem_box(sem_idx)%num_eddies = num_eddies
+    !
+    allocate ( sem_box(sem_idx)%eddy(1:num_eddies) , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,10) sem_idx
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    do n = 1,num_eddies
+      !
+      i = i + 1
+      !
+      x = eddy_data(1,i)
+      y = eddy_data(2,i)
+      z = eddy_data(3,i)
+      !
+      sem_box(sem_idx)%eddy(n)%x = x
+      sem_box(sem_idx)%eddy(n)%y = y
+      sem_box(sem_idx)%eddy(n)%z = z
+      sem_box(sem_idx)%eddy(n)%r = hypot(y,z)
+      if (all([y,z] == zero)) then
+        sem_box(sem_idx)%eddy(n)%t = zero
+      else
+        sem_box(sem_idx)%eddy(n)%t = atan2(z,y)
+      end if
+      !
+      sem_box(sem_idx)%eddy(n)%x_intensity = eddy_data(4,i)
+      sem_box(sem_idx)%eddy(n)%y_intensity = eddy_data(5,i)
+      sem_box(sem_idx)%eddy(n)%z_intensity = eddy_data(6,i)
+      !
+      sem_box(sem_idx)%eddy(n)%x_frequency = eddy_data(7,i)
+      sem_box(sem_idx)%eddy(n)%y_frequency = eddy_data(8,i)
+      sem_box(sem_idx)%eddy(n)%z_frequency = eddy_data(9,i)
+      !
+    end do
+    !
+  end do
+  !
+  ! Deallocate local arrays before leaving
+  !
+  if (allocated(num_eddies_in_box)) then
+    deallocate ( num_eddies_in_box , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"num_eddies_in_box",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(eddy_data)) then
+    deallocate ( eddy_data , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"eddy_data",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Format Statements
+  !
+  1 format ("Unknown integer type when trying to read the random seed ", &
+            "information from the SEM section of the restart file.")
+  2 format ("Unknown integer type when trying to read the number of eddies ", &
+            "in each SEM box from the SEM section of the restart file.")
+  3 format ("Unknown real type when trying to read the eddy data ", &
+            "from the SEM section of the restart file.")
+  !
+  10 format ("sem_box(",i0,")%eddy")
+  !
+end subroutine read_sem_restart
+!
+!###############################################################################
+!
 subroutine read_solution_file_serial(file_name,int_header,real_header, &
                                      solution,var_header,sol_is_transposed)
   !
@@ -918,6 +1172,7 @@ subroutine read_solution_file_serial(file_name,int_header,real_header, &
   integer :: solution_errors
   integer :: restart_nq,restart_ncells
   integer :: n_header_int,n_header_real
+  integer :: num_sem_boxes
   !
   integer :: inp_geom,inp_order
   integer :: this_cell,this_geom,this_order
@@ -938,6 +1193,7 @@ continue
     flip_sol_indices = sol_is_transposed
   end if
   !
+  num_sem_boxes = 0
   !
   solution_errors = 0
   !
@@ -1023,6 +1279,13 @@ continue
                                kind=kind(restart_solution_form) )
   !
   call check_restart_solution_form(restart_solution_form)
+  !
+  ! Check if there is restart information for
+  ! the synthetic inflow turbulence generators
+  !
+  if (size(int_header) >= 5) then
+    num_sem_boxes = max(0,int_header(5))
+  end if
   !
 ! ###################################
 ! ### Real part of restart header ###
@@ -1192,6 +1455,13 @@ continue
     end select
   end if
   !
+  ! Read in the restart information for the synthetic
+  ! inflow turbulence generators
+  !
+  if (num_sem_boxes > 0) then
+    call read_sem_restart_serial(num_sem_boxes,io)
+  end if
+  !
   ! Finally close the restart file
   !
   close (io,iostat=ierr,iomsg=error_message)
@@ -1318,6 +1588,219 @@ end subroutine read_solution_file_serial
 !
 !###############################################################################
 !
+subroutine read_sem_restart_serial(num_sem_boxes,io)
+  !
+  !.. Use Statements
+  use random_mod,         only : iseed
+  use synthetic_eddy_mod, only : sem_box
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: num_sem_boxes
+  integer, intent(in) :: io
+  !
+  !.. Local Scalars ..
+  integer  :: restart_ip,restart_rp
+  integer  :: restart_size,num_eddies
+  integer  :: i,ierr,n,sem_idx
+  real(wp) :: x,y,z
+  !
+  character(len=50) :: array_name
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: num_eddies_in_box(:)
+  real(wp), allocatable :: eddy_data(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_sem_restart_serial"
+  !
+continue
+  !
+  ! What needs to be read in:
+  !   1. integer type of random seed array
+  !   2. size of random seed array
+  !   3. random seed array
+  !   4. integer type of number of eddies in each box
+  !   5. number of eddies in each box
+  !   6. real type of eddy location data
+  !   7. x,y,z eddy location data
+  !         (one big array for all eddies across all SEM boxes)
+  !
+  ! #######
+  ! ## 1 ##
+  ! #######
+  !
+  ! Read the integer type of the random seed array
+  !
+  read (io,iostat=ierr) restart_ip
+  !
+  ! #######
+  ! ## 2 ##
+  ! #######
+  !
+  ! Read the number of items in the random seed array
+  !
+  read (io,iostat=ierr) restart_size
+  !
+  ! #######
+  ! ## 3 ##
+  ! #######
+  !
+  iseed = spread(0,dim=1,ncopies=restart_size) ! F2003 AUTO-REALLOC
+  !
+  ! Read the random seed array
+  !
+  select case (restart_ip)
+    case (int8)  ; call read_rstrt_file_serial_i1(io,iseed)
+    case (int16) ; call read_rstrt_file_serial_i2(io,iseed)
+    case (int32) ; call read_rstrt_file_serial_i4(io,iseed)
+    case (int64) ; call read_rstrt_file_serial_i8(io,iseed)
+    case default
+      write (error_message,1)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
+  !
+  ! #######
+  ! ## 4 ##
+  ! #######
+  !
+  ! Read the integer type of the array giving
+  ! the number of eddies in each SEM box
+  !
+  read (io,iostat=ierr) restart_ip
+  !
+  ! #######
+  ! ## 5 ##
+  ! #######
+  !
+  ! Read the number of eddies in each SEM box
+  !
+  num_eddies_in_box = spread(0,dim=1,ncopies=num_sem_boxes) ! F2003 AUTO-REALLOC
+  !
+  select case (restart_ip)
+    case (int8)  ; call read_rstrt_file_serial_i1(io,num_eddies_in_box)
+    case (int16) ; call read_rstrt_file_serial_i2(io,num_eddies_in_box)
+    case (int32) ; call read_rstrt_file_serial_i4(io,num_eddies_in_box)
+    case (int64) ; call read_rstrt_file_serial_i8(io,num_eddies_in_box)
+    case default
+      write (error_message,2)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
+  !
+  ! #######
+  ! ## 6 ##
+  ! #######
+  !
+  ! Read the real type of the eddy data
+  !
+  read (io,iostat=ierr) restart_rp
+  !
+  ! #######
+  ! ## 7 ##
+  ! #######
+  !
+  ! Read the eddy data for all eddies across all boxes
+  !
+  num_eddies = sum(num_eddies_in_box)
+  !
+  ! F2003 AUTO-REALLOC
+  eddy_data = reshape( spread(zero,dim=1,ncopies=9*num_eddies) , &
+                       [9,num_eddies] )
+  !
+  if (restart_rp == wp) then
+    call read_rstrt_file_serial_wp(io,eddy_data)
+  else
+    select case (restart_rp)
+      case (real32)  ; call read_rstrt_file_serial_r4(io,eddy_data)
+      case (real64)  ; call read_rstrt_file_serial_r8(io,eddy_data)
+      case (real128) ; call read_rstrt_file_serial_r16(io,eddy_data)
+      case default
+        write (error_message,3)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end select
+  end if
+  !
+  ! Then, loop over the SEM boxes and distribute the eddy data to the
+  ! respective SEM box
+  !
+  if (allocated(sem_box)) then
+    deallocate ( sem_box , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sem_box",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( sem_box(1:num_sem_boxes) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"sem_box",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  i = 0
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    num_eddies = num_eddies_in_box(sem_idx)
+    !
+    sem_box(sem_idx)%num_eddies = num_eddies
+    !
+    allocate ( sem_box(sem_idx)%eddy(1:num_eddies) , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,10) sem_idx
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    do n = 1,num_eddies
+      !
+      i = i + 1
+      !
+      x = eddy_data(1,i)
+      y = eddy_data(2,i)
+      z = eddy_data(3,i)
+      !
+      sem_box(sem_idx)%eddy(n)%x = x
+      sem_box(sem_idx)%eddy(n)%y = y
+      sem_box(sem_idx)%eddy(n)%z = z
+      sem_box(sem_idx)%eddy(n)%r = hypot(y,z)
+      if (all([y,z] == zero)) then
+        sem_box(sem_idx)%eddy(n)%t = zero
+      else
+        sem_box(sem_idx)%eddy(n)%t = atan2(z,y)
+      end if
+      !
+      sem_box(sem_idx)%eddy(n)%x_intensity = eddy_data(4,i)
+      sem_box(sem_idx)%eddy(n)%y_intensity = eddy_data(5,i)
+      sem_box(sem_idx)%eddy(n)%z_intensity = eddy_data(6,i)
+      !
+      sem_box(sem_idx)%eddy(n)%x_frequency = eddy_data(7,i)
+      sem_box(sem_idx)%eddy(n)%y_frequency = eddy_data(8,i)
+      sem_box(sem_idx)%eddy(n)%z_frequency = eddy_data(9,i)
+      !
+    end do
+    !
+  end do
+  !
+  ! Deallocate local arrays before leaving
+  !
+  if (allocated(num_eddies_in_box)) then
+    deallocate ( num_eddies_in_box , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"num_eddies_in_box",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(eddy_data)) then
+    deallocate ( eddy_data , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"eddy_data",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Format Statements
+  !
+  1 format ("Unknown integer type when trying to read the random seed ", &
+            "information from the SEM section of the restart file.")
+  2 format ("Unknown integer type when trying to read the number of eddies ", &
+            "in each SEM box from the SEM section of the restart file.")
+  3 format ("Unknown real type when trying to read the eddy data ", &
+            "from the SEM section of the restart file.")
+  !
+  10 format ("sem_box(",i0,")%eddy")
+  !
+end subroutine read_sem_restart_serial
+!
+!###############################################################################
+!
 subroutine read_restart_old_format(file_name,solution,sol_is_transposed)
   !
   !.. Use Statements ..
@@ -1413,18 +1896,19 @@ end subroutine read_restart_old_format
 subroutine write_restart_file(itnum)
   !
   !.. Use Statements ..
-  use geovar,       only : n_global_cell
-  use ovar,         only : itcur,time,d_t,rl2mx
-  use ovar,         only : loc_solution_pts
-  use ovar,         only : output_time_averaging
-  use ovar,         only : restart_output_uses_host_roots
-  use ovar,         only : max_restart_wall_time
-  use flowvar,      only : usp
+  use geovar,             only : n_global_cell
+  use ovar,               only : itcur,time,d_t,rl2mx
+  use ovar,               only : loc_solution_pts
+  use ovar,               only : output_time_averaging
+  use ovar,               only : restart_output_uses_host_roots
+  use ovar,               only : max_restart_wall_time
+  use flowvar,            only : usp
+  use synthetic_eddy_mod, only : sem_box
   !.. Use Statements for old restart files ..
-  use geovar,       only : n_global_totpts
-  use ovar,         only : use_old_restart_format
-  use flowvar,      only : global_usp
-  use parallel_mod, only : collect_global_solution
+  use geovar,             only : n_global_totpts
+  use ovar,               only : use_old_restart_format
+  use flowvar,            only : global_usp
+  use parallel_mod,       only : collect_global_solution
   !
   !.. Formal Arguments ..
   integer, intent(in) :: itnum
@@ -1446,7 +1930,7 @@ subroutine write_restart_file(itnum)
   _MPI_COMM_TYPE_, save :: restart_comm
   !
   !.. Local Arrays ..
-  integer(wip) :: int_header(1:4)
+  integer(wip) :: int_header(1:5)
   real(wp)     :: real_header(1:3)
   !
   !.. Local Allocatable Arrays ..
@@ -1594,7 +2078,8 @@ continue
     int_header = [ int(nq,kind=wip) , &
                    int(n_global_cell,kind=wip) , &
                    int(restart_solution_form,kind=wip) , &
-                   int(itcur,kind=wip) ]
+                   int(itcur,kind=wip) , &
+                   size(sem_box,kind=wip) ]
     !
     ! Store the time data into the real_header array
     !
@@ -1675,6 +2160,7 @@ subroutine write_solution_file(file_name,int_header,real_header,file_comm, &
                                sol_blktyp,max_wall_time,var_header,statfile)
   !
   !.. Use Statements ..
+  use geovar,  only : n_global_solpts
   use ovar,    only : lustre_stripe_factor
   use ovar,    only : lustre_stripe_unit
   use ovar,    only : restart_output_uses_host_roots
@@ -1698,12 +2184,15 @@ subroutine write_solution_file(file_name,int_header,real_header,file_comm, &
   !
   !.. Local Scalars ..
   integer      :: ios
+  integer      :: num_sem_boxes
   integer(wip) :: disp,isize
   !
   _MPI_FILE_TYPE_ :: file_handle
   _MPI_INFO_TYPE_ :: file_info
   integer(MPI_OFFSET_KIND) :: file_disp
   integer(MPI_OFFSET_KIND) :: file_offset
+  integer(MPI_OFFSET_KIND) :: int_bytes
+  integer(MPI_OFFSET_KIND) :: real_bytes
   integer(kind(MPI_MODE_WRONLY)) :: file_mode
   !
   real(wp) :: beg_wall_time
@@ -1719,6 +2208,14 @@ subroutine write_solution_file(file_name,int_header,real_header,file_comm, &
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  ! Check if there is restart information for
+  ! the synthetic inflow turbulence generators
+  !
+  num_sem_boxes = 0
+  if (size(int_header) >= 5) then
+    num_sem_boxes = int_header(5)
+  end if
   !
   call mpi_barrier(file_comm,mpierr)
   if (mypnum == glb_root) then
@@ -1895,7 +2392,9 @@ continue
   ! Update the file displacement since we know the total number of cells
   ! and that the elements of the array ordered_geom are 4-byte integers.
   !
-  file_disp = file_disp + int( 4*int_header(2) , kind=MPI_OFFSET_KIND )
+  int_bytes = storage_size(ordered_geom,kind=MPI_OFFSET_KIND) / &
+              int(8,kind=MPI_OFFSET_KIND)
+  file_disp = file_disp + int_bytes*int(int_header(2),kind=MPI_OFFSET_KIND)
   !
   ! Update the file view to after all the ordered_geom data
   !
@@ -1977,6 +2476,28 @@ continue
                             mpistat=istat, &
                             stat_strng="after writing solution")
   !
+  ! Update the file displacement since we know the total number of
+  ! solution points, the number of variables per solution point, and
+  ! the byte-size of for each element of the solution array.
+  !
+  real_bytes = storage_size(solution,kind=MPI_OFFSET_KIND) / &
+               int(8,kind=MPI_OFFSET_KIND)
+  file_disp = file_disp + real_bytes * &
+                          int(int_header(1),kind=MPI_OFFSET_KIND) * &
+                          int(n_global_solpts,kind=MPI_OFFSET_KIND)
+  !
+  ! Update the file view to after all the solution data
+  !
+  call mpi_file_set_view(file_handle,file_disp,MPI_INTEGER, &
+                         MPI_INTEGER, trim(adjustl(file_datarep)), &
+                         file_info, mpierr)
+  !
+  ! Write the synthetic inflow turbulence generator data to the restart file
+  !
+  if (num_sem_boxes > 0) then
+    call write_sem_restart(file_handle)
+  end if
+  !
   ! Finally close the restart file
   !
   call mpi_file_close(file_handle,mpierr)
@@ -2020,6 +2541,176 @@ end subroutine write_solution_file
 !
 !###############################################################################
 !
+subroutine write_sem_restart(file_handle)
+  !
+  !.. Use Statements
+  use random_mod,         only : get_random_seed,iseed
+  use synthetic_eddy_mod, only : sem_box
+  !
+  !.. Formal Arguments ..
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  !
+  !.. Local Scalars ..
+  integer(int_mpi) :: restart_ip,restart_rp
+  integer(int_mpi) :: restart_size
+  !
+  integer :: i,ierr,n,num_eddies,num_sem_boxes,sem_idx
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: num_eddies_in_box(:)
+  real(wp), allocatable :: eddy_data(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_sem_restart"
+  !
+continue
+  !
+  ! Get the current random seed to save to the restart file
+  !
+  call get_random_seed()
+  !
+  ! Collect all the eddy data into a single array
+  ! NOTE: ONLY THE GLOBAL ROOT PROCESS NEEDS TO DO THE REST OF THIS SUBROUTINE
+  !
+  if (mypnum == glb_root) then
+    !
+    num_sem_boxes = size(sem_box)
+    !
+    num_eddies_in_box = sem_box(:)%num_eddies ! F2003 AUTO-REALLOC
+    !
+    num_eddies = sum(num_eddies_in_box)
+    !
+    ! Collect all the eddy data into a single array
+    !
+    ! F2003 AUTO-REALLOC
+    eddy_data = reshape( spread(zero,dim=1,ncopies=9*num_eddies) , &
+                         [9,num_eddies] )
+    !
+    i = 0
+    !
+    do sem_idx = 1,num_sem_boxes
+      !
+      do n = 1,sem_box(sem_idx)%num_eddies
+        !
+        i = i + 1
+        !
+        eddy_data(1,i) = sem_box(sem_idx)%eddy(n)%x
+        eddy_data(2,i) = sem_box(sem_idx)%eddy(n)%y
+        eddy_data(3,i) = sem_box(sem_idx)%eddy(n)%z
+        !
+        eddy_data(4,i) = sem_box(sem_idx)%eddy(n)%x_intensity
+        eddy_data(5,i) = sem_box(sem_idx)%eddy(n)%y_intensity
+        eddy_data(6,i) = sem_box(sem_idx)%eddy(n)%z_intensity
+        !
+        eddy_data(7,i) = sem_box(sem_idx)%eddy(n)%x_frequency
+        eddy_data(8,i) = sem_box(sem_idx)%eddy(n)%y_frequency
+        eddy_data(9,i) = sem_box(sem_idx)%eddy(n)%z_frequency
+        !
+      end do
+      !
+    end do
+    !
+    ! What needs to be written to the restart file:
+    !   1. integer type of random seed array
+    !   2. size of random seed array
+    !   3. random seed array
+    !   4. integer type of number of eddies in each box
+    !   5. number of eddies in each box
+    !   6. real type of eddy location data
+    !   7. x,y,z eddy location data
+    !         (one big array for all eddies across all SEM boxes)
+    !
+    ! #######
+    ! ## 1 ##
+    ! #######
+    !
+    ! Write the integer type of the random seed array
+    !
+    restart_ip = kind(iseed)
+    call mpi_file_write(file_handle,restart_ip,1_int_mpi, &
+                        MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+    !
+    ! #######
+    ! ## 2 ##
+    ! #######
+    !
+    ! Write the number of items in the random seed array
+    !
+    restart_size = size(iseed,kind=int_mpi)
+    call mpi_file_write(file_handle,restart_size,1_int_mpi, &
+                        MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+    !
+    ! #######
+    ! ## 3 ##
+    ! #######
+    !
+    ! Write the random seed array
+    !
+    call mpi_file_write(file_handle,iseed,size(iseed,kind=int_mpi), &
+                        mpi_inttyp,MPI_STATUS_IGNORE,mpierr)
+    !
+    ! #######
+    ! ## 4 ##
+    ! #######
+    !
+    ! Write the integer type of the array giving
+    ! the number of eddies in each SEM box
+    !
+    restart_ip = kind(num_eddies_in_box)
+    call mpi_file_write(file_handle,restart_ip,1_int_mpi, &
+                        MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+    !
+    ! #######
+    ! ## 5 ##
+    ! #######
+    !
+    ! Write the number of eddies in each SEM box
+    !
+    call mpi_file_write(file_handle,num_eddies_in_box, &
+                        size(num_eddies_in_box,kind=int_mpi), &
+                        mpi_inttyp,MPI_STATUS_IGNORE,mpierr)
+    !
+    ! Deallocate num_eddies_in_box since it is no longer needed
+    !
+    if (allocated(num_eddies_in_box)) then
+      deallocate ( num_eddies_in_box , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"num_eddies_in_box",2,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
+    !
+    ! #######
+    ! ## 6 ##
+    ! #######
+    !
+    !
+    ! Write the real type of the eddy data
+    !
+    restart_rp = kind(eddy_data)
+    call mpi_file_write(file_handle,restart_rp,1_int_mpi, &
+                        MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+    !
+    ! #######
+    ! ## 7 ##
+    ! #######
+    !
+    ! Write the eddy data for all eddies across all boxes
+    !
+    call mpi_file_write(file_handle,eddy_data,size(eddy_data,kind=int_mpi), &
+                        mpi_flttyp,MPI_STATUS_IGNORE,mpierr)
+    !
+    ! Deallocate eddy_data before leaving
+    !
+    if (allocated(eddy_data)) then
+      deallocate ( eddy_data , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"eddy_data",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+  end if
+  !
+end subroutine write_sem_restart
+!
+!###############################################################################
+!
 subroutine write_solution_file_serial(file_name,int_header,real_header, &
                                       ordered_geom,solution,max_wall_time, &
                                       var_header)
@@ -2040,6 +2731,7 @@ subroutine write_solution_file_serial(file_name,int_header,real_header, &
   !
   !.. Local Scalars ..
   integer :: i,n,io,ierr
+  integer :: num_sem_boxes
   !
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
@@ -2051,6 +2743,14 @@ subroutine write_solution_file_serial(file_name,int_header,real_header, &
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  ! Check if there is restart information for
+  ! the synthetic inflow turbulence generators
+  !
+  num_sem_boxes = 0
+  if (size(int_header) >= 5) then
+    num_sem_boxes = int_header(5)
+  end if
   !
   write (iout,1)
   flush (iout)
@@ -2122,6 +2822,12 @@ continue
   write (io,iostat=ierr) ((solution(i,n), i=1,size(solution,dim=1)), &
                                           n=1,size(solution,dim=2))
   !
+  ! Write the synthetic inflow turbulence generator data to the restart file
+  !
+  if (num_sem_boxes > 0) then
+    call write_sem_restart_serial(io)
+  end if
+  !
   ! Finally close the restart file
   !
   close (io,iostat=ierr,iomsg=error_message)
@@ -2151,6 +2857,162 @@ continue
          10x,"(USING SERIAL-I/O)",/)
   !
 end subroutine write_solution_file_serial
+!
+!###############################################################################
+!
+subroutine write_sem_restart_serial(io)
+  !
+  !.. Use Statements
+  use random_mod,         only : get_random_seed,iseed
+  use synthetic_eddy_mod, only : sem_box
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: io
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr,n,num_eddies,num_sem_boxes,sem_idx
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: num_eddies_in_box(:)
+  real(wp), allocatable :: eddy_data(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_sem_restart_serial"
+  !
+continue
+  !
+  ! Get the current random seed to save to the restart file
+  !
+  call get_random_seed()
+  !
+  ! Collect all the eddy data into a single array
+  ! NOTE: ONLY THE GLOBAL ROOT PROCESS NEEDS TO DO THE REST OF THIS SUBROUTINE
+  !
+  if (mypnum == glb_root) then
+    !
+    num_sem_boxes = size(sem_box)
+    !
+    num_eddies_in_box = sem_box(:)%num_eddies ! F2003 AUTO-REALLOC
+    !
+    num_eddies = sum(num_eddies_in_box)
+    !
+    ! Collect all the eddy data into a single array
+    !
+    ! F2003 AUTO-REALLOC
+    eddy_data = reshape( spread(zero,dim=1,ncopies=9*num_eddies) , &
+                         [9,num_eddies] )
+    !
+    i = 0
+    !
+    do sem_idx = 1,num_sem_boxes
+      !
+      do n = 1,sem_box(sem_idx)%num_eddies
+        !
+        i = i + 1
+        !
+        eddy_data(1,i) = sem_box(sem_idx)%eddy(n)%x
+        eddy_data(2,i) = sem_box(sem_idx)%eddy(n)%y
+        eddy_data(3,i) = sem_box(sem_idx)%eddy(n)%z
+        !
+        eddy_data(4,i) = sem_box(sem_idx)%eddy(n)%x_intensity
+        eddy_data(5,i) = sem_box(sem_idx)%eddy(n)%y_intensity
+        eddy_data(6,i) = sem_box(sem_idx)%eddy(n)%z_intensity
+        !
+        eddy_data(7,i) = sem_box(sem_idx)%eddy(n)%x_frequency
+        eddy_data(8,i) = sem_box(sem_idx)%eddy(n)%y_frequency
+        eddy_data(9,i) = sem_box(sem_idx)%eddy(n)%z_frequency
+        !
+      end do
+      !
+    end do
+    !
+    ! What needs to be written to the restart file:
+    !   1. integer type of random seed array
+    !   2. size of random seed array
+    !   3. random seed array
+    !   4. integer type of number of eddies in each box
+    !   5. number of eddies in each box
+    !   6. real type of eddy location data
+    !   7. x,y,z eddy location data
+    !         (one big array for all eddies across all SEM boxes)
+    !
+    ! #######
+    ! ## 1 ##
+    ! #######
+    !
+    ! Write the integer type of the random seed array
+    !
+    write (io,iostat=ierr) kind(iseed)
+    !
+    ! #######
+    ! ## 2 ##
+    ! #######
+    !
+    ! Write the number of items in the random seed array
+    !
+    write (io,iostat=ierr) size(iseed,kind=int_mpi)
+    !
+    ! #######
+    ! ## 3 ##
+    ! #######
+    !
+    ! Write the random seed array
+    !
+    write (io,iostat=ierr) (iseed(i), i=1,size(iseed))
+    !
+    ! #######
+    ! ## 4 ##
+    ! #######
+    !
+    ! Write the integer type of the array giving
+    ! the number of eddies in each SEM box
+    !
+    write (io,iostat=ierr) kind(num_eddies_in_box)
+    !
+    ! #######
+    ! ## 5 ##
+    ! #######
+    !
+    ! Write the number of eddies in each SEM box
+    !
+    write (io,iostat=ierr) (num_eddies_in_box(i), i=1,size(num_eddies_in_box))
+    !
+    ! Deallocate num_eddies_in_box since it is no longer needed
+    !
+    if (allocated(num_eddies_in_box)) then
+      deallocate ( num_eddies_in_box , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"num_eddies_in_box",2,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
+    !
+    ! #######
+    ! ## 6 ##
+    ! #######
+    !
+    !
+    ! Write the real type of the eddy data
+    !
+    write (io,iostat=ierr) kind(eddy_data)
+    !
+    ! #######
+    ! ## 7 ##
+    ! #######
+    !
+    ! Write the eddy data for all eddies across all boxes
+    !
+    write (io,iostat=ierr) ((eddy_data(i,n), i=1,size(eddy_data,dim=1)), &
+                                             n=1,size(eddy_data,dim=2))
+    !
+    ! Deallocate eddy_data before leaving
+    !
+    if (allocated(eddy_data)) then
+      deallocate ( eddy_data , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"eddy_data",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+  end if
+  !
+end subroutine write_sem_restart_serial
 !
 !###############################################################################
 !
@@ -4368,7 +5230,9 @@ subroutine read_rstrt_file_r4_rank2(file_handle,real_data,read_block_type)
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:,:)
-  _MPI_DATA_TYPE_, intent(in) :: read_block_type
+  !
+  !.. Optional Arguments ..
+  _MPI_DATA_TYPE_, optional, intent(in) :: read_block_type
   !
   !.. Local Arrays ..
   real(real32) :: read_real(1:size(real_data,dim=1), &
@@ -4381,9 +5245,15 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,read_real, &
-                         size(read_real,dim=2,kind=int_mpi), &
-                         read_block_type,MPI_STATUS_IGNORE,mpierr)
+  if (present(read_block_type)) then
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(read_real,dim=2,kind=int_mpi), &
+                           read_block_type,MPI_STATUS_IGNORE,mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(read_real,dim=2,kind=int_mpi), &
+                           MPI_REAL4,MPI_STATUS_IGNORE,mpierr)
+  end if
   !
   real_data = real( read_real , kind=wp )
   !
@@ -4428,7 +5298,9 @@ subroutine read_rstrt_file_r8_rank2(file_handle,real_data,read_block_type)
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:,:)
-  _MPI_DATA_TYPE_, intent(in) :: read_block_type
+  !
+  !.. Optional Arguments ..
+  _MPI_DATA_TYPE_, optional, intent(in) :: read_block_type
   !
   !.. Local Arrays ..
   real(real64) :: read_real(1:size(real_data,dim=1), &
@@ -4441,9 +5313,15 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,read_real, &
-                         size(read_real,dim=2,kind=int_mpi), &
-                         read_block_type,MPI_STATUS_IGNORE,mpierr)
+  if (present(read_block_type)) then
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(read_real,dim=2,kind=int_mpi), &
+                           read_block_type,MPI_STATUS_IGNORE,mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(read_real,dim=2,kind=int_mpi), &
+                           MPI_REAL8,MPI_STATUS_IGNORE,mpierr)
+  end if
   !
   real_data = real( read_real , kind=wp )
   !
@@ -4488,7 +5366,9 @@ subroutine read_rstrt_file_r16_rank2(file_handle,real_data,read_block_type)
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:,:)
-  _MPI_DATA_TYPE_, intent(in) :: read_block_type
+  !
+  !.. Optional Arguments ..
+  _MPI_DATA_TYPE_, optional, intent(in) :: read_block_type
   !
   !.. Local Arrays ..
   real(max(real64,real128)) :: read_real(1:size(real_data,dim=1), &
@@ -4501,9 +5381,15 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,read_real, &
-                         size(read_real,dim=2,kind=int_mpi), &
-                         read_block_type,MPI_STATUS_IGNORE,mpierr)
+  if (present(read_block_type)) then
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(read_real,dim=2,kind=int_mpi), &
+                           read_block_type,MPI_STATUS_IGNORE,mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(read_real,dim=2,kind=int_mpi), &
+                           MPI_REAL16,MPI_STATUS_IGNORE,mpierr)
+  end if
   !
   real_data = real( read_real , kind=wp )
   !
@@ -4548,7 +5434,9 @@ subroutine read_rstrt_file_wp_rank2(file_handle,real_data,read_block_type)
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:,:)
-  _MPI_DATA_TYPE_, intent(in) :: read_block_type
+  !
+  !.. Optional Arguments ..
+  _MPI_DATA_TYPE_, optional, intent(in) :: read_block_type
   !
   !.. Local Arrays ..
   real(wp) :: read_real(1:size(real_data,dim=1), &
@@ -4561,9 +5449,15 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,read_real, &
-                         size(real_data,dim=2,kind=int_mpi), &
-                         read_block_type,MPI_STATUS_IGNORE,mpierr)
+  if (present(read_block_type)) then
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(real_data,dim=2,kind=int_mpi), &
+                           read_block_type,MPI_STATUS_IGNORE,mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(real_data,dim=2,kind=int_mpi), &
+                           mpi_flttyp,MPI_STATUS_IGNORE,mpierr)
+  end if
   !
   real_data = read_real
   !
