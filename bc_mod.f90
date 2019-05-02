@@ -64,10 +64,6 @@ subroutine get_faceusp_bc(exit_error)
   use geovar,        only : bc_grps,n_bnd_flxpts
   use ovar,          only : bc_in,itcur
   use ovar,          only : output_bface_array
-!#define DEBUG_BC_GROUPS
-#ifdef DEBUG_BC_GROUPS
-  use geovar,        only : n_wall_flxpts,n_bnd_flxpts,n_flxpts,n_solpts
-#endif
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -89,11 +85,11 @@ subroutine get_faceusp_bc(exit_error)
   integer, optional, intent(out) :: exit_error
   !
   !.. Local Scalars ..
-  integer :: i,j,n,m,n1,n2
+  integer :: grp_idx,n1,n2
   integer :: bc_idx,bc_type
   integer :: newton_failures
   !
-  !.. Local Saved Variables ..
+  !.. Local Saved Scalars ..
   logical(lk), save :: first_output = true
   !
   !.. Local Parameters ..
@@ -123,52 +119,20 @@ continue
   ! Loop over the boundary face groups and compute the conservative variables
   ! at the boundary flux points based on the face boundary condition.
   !
-#ifdef DEBUG_BC_GROUPS
-  if (first_output) then
-    write (mypnum+500,101) n_wall_flxpts,n_bnd_flxpts,n_flxpts,n_solpts
-    101 format (/,"In get_faceusp_bc:",//, &
-                  "n_wall_flxpts = ",i0,/, &
-                  " n_bnd_flxpts = ",i0,/, &
-                  "     n_flxpts = ",i0,/, &
-                  "     n_solpts = ",i0,/)
-    flush (mypnum+500)
-  end if
-#endif
-  do i = 1,size(bc_grps)
+  loop_over_boundary_groups: &
+  do grp_idx = 1,size(bc_grps)
     !
-    n1 = bc_grps(i)%beg_fp
-    n2 = bc_grps(i)%end_fp
+    n1 = bc_grps(grp_idx)%beg_fp ! beginning face point for this BC group
+    n2 = bc_grps(grp_idx)%end_fp ! ending    face point for this BC group
     !
-    bc_type = bc_grps(i)%bc_type
-    bc_idx = bc_grps(i)%bc_idx
+    bc_type = bc_grps(grp_idx)%bc_type ! BC for this group
+    bc_idx = bc_grps(grp_idx)%bc_idx   ! index within bc_in for this BC group
+    !
+!#define DEBUG_BC_GROUPS
 #ifdef DEBUG_BC_GROUPS
     if (first_output) then
-      write (mypnum+500,100) i,n1,i,n2,i,bc_type, &
-                             trim(adjustl(bc_integer_to_string(bc_type))), &
-                             i,bc_idx, &
-            bc_idx,bc_idx, &
-            lbound(bc_in(bc_idx)%cv,dim=1),ubound(bc_in(bc_idx)%cv,dim=1), &
-            bc_idx,bc_idx, &
-            lbound(bc_in(bc_idx)%pv,dim=1),ubound(bc_in(bc_idx)%pv,dim=1), &
-            lbound(facenrm,dim=1),ubound(facenrm,dim=1), &
-            lbound(facenrm,dim=2),ubound(facenrm,dim=2), &
-            lbound(faceusp_array,dim=1),ubound(faceusp_array,dim=1), &
-            lbound(faceusp_array,dim=2),ubound(faceusp_array,dim=2), &
-            lbound(faceusp_array,dim=3),ubound(faceusp_array,dim=3), &
-            bc_idx,(bc_in(bc_idx)%cv(j),j=1,nq), &
-            bc_idx,(bc_in(bc_idx)%pv(j),j=1,nq)
-      flush (mypnum+500)
-      100 format (/, &
-        "bc_grps(",i0,")%beg_fp  = ",i0,/, &
-        "bc_grps(",i0,")%end_fp  = ",i0,/, &
-        "bc_grps(",i0,")%bc_type = ",i0," (",a,")",/, &
-        "bc_grps(",i0,")%bc_idx  = ",i0,/, &
-        "dim(bc_in(",i0,")%cv) = bc_in(",i0,")%cv(",i0,":",i0,")",/, &
-        "dim(bc_in(",i0,")%pv) = bc_in(",i0,")%pv(",i0,":",i0,")",/, &
-        "dim(facenrm) = facenrm(",i0,":",i0,",",i0,":",i0,")",/, &
-        "dim(faceusp) = faceusp(",i0,":",i0,",",i0,":",i0,",",i0,":",i0,")",/, &
-        "bc_in(",i0,")%cv = ",5es14.6,/, &
-        "bc_in(",i0,")%pv = ",5es14.6)
+      call output_to_debug_bc_groups(grp_idx,bc_idx,bc_type,n1,n2, &
+                                     facenrm,faceusp_array)
     end if
 #endif
     !
@@ -316,7 +280,7 @@ continue
         ! Periodic boundary condition
         !
         call get_bc_periodic_solution(n1,n2,faceusp_array, &
-                                      bc_grps(i)%periodic_list)
+                                      bc_grps(grp_idx)%periodic_list)
         !
       case (bc_mms_dirichlet)
         !
@@ -336,6 +300,11 @@ continue
         !
         ! We dont need to do anything here for communication boundaries
         !
+      case (bc_sem)
+        !
+        ! We already set the SEM boundary conditions when calling subroutine sem
+        ! just before the current loop, so we dont need to do anything here.
+        !
       case default
         !
         ! This shouldn't be here and is an unknown boundary condition
@@ -345,12 +314,18 @@ continue
         !
     end select
     !
-  end do
+  end do loop_over_boundary_groups
+  !
+  ! Sum the total number of Newton failures across all MPI processes
   !
   if (ncpu > 1) then
     call mpi_allreduce(MPI_IN_PLACE,newton_failures,1_int_mpi, &
                        mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
   end if
+  !
+  ! Copy the number of Newton failures into exit error if the optional
+  ! argument is present; otherwise, write the number of Newton failures
+  ! to an error message and stop execution.
   !
   if (newton_failures > 0) then
     if (present(exit_error)) then
@@ -360,6 +335,9 @@ continue
       call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
+  !
+  ! Set first_output to false so that any BC debug output is
+  ! only written the first time this subroutine is called.
   !
   first_output = fals
   !
@@ -473,6 +451,13 @@ continue
       !
       call get_bc_periodic_gradient(n1,n2,facedusp_array, &
                                     bc_grps(i)%periodic_list)
+      !
+    else if (bc_type == bc_sem) then
+      !
+      ! For now, use the general flow-through boundary conditions for
+      ! getting the gradient boundary conditions for SEM boundaries.
+      !
+      call get_bc_flowthrough_gradient(n1,n2,facedusp_array)
       !
     else if (all(bc_type /= local_bc_ignore)) then
       !
@@ -602,6 +587,96 @@ continue
   3 format ('("bface.",i0.',i0,',".dat")')
   !
 end subroutine output_bface
+!
+!###############################################################################
+!
+subroutine output_to_debug_bc_groups(grp_idx,bc_idx,bc_type,beg_fp,end_fp, &
+                                     facenrm,faceusp_array)
+  !
+  !.. Use Statements ..
+  use geovar, only : n_solpts,n_flxpts,n_wall_flxpts,n_bnd_flxpts
+  use ovar,   only : bc_in
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: grp_idx
+  integer,  intent(in) :: bc_idx
+  integer,  intent(in) :: bc_type
+  integer,  intent(in) :: beg_fp
+  integer,  intent(in) :: end_fp
+  real(wp), intent(in) :: facenrm(:,:)
+  real(wp), intent(in) :: faceusp_array(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: m
+  !
+  !.. Local Saved Scalars ..
+  logical(lk), save :: very_first_output = true
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_to_debug_bc_groups"
+  !
+continue
+  !
+  if (very_first_output) then
+    write (mypnum+500,1) n_wall_flxpts,n_bnd_flxpts,n_flxpts,n_solpts
+    flush (mypnum+500)
+  end if
+  !
+  very_first_output = fals
+  !
+  write (mypnum+500,2) &
+        grp_idx, beg_fp, &
+        grp_idx, end_fp, &
+        grp_idx, bc_type, trim(adjustl(bc_integer_to_string(bc_type))), &
+        grp_idx, bc_idx, &
+        bc_idx, bc_idx, lbound(bc_in(bc_idx)%cv,dim=1), &
+                        ubound(bc_in(bc_idx)%cv,dim=1), &
+        bc_idx, bc_idx, lbound(bc_in(bc_idx)%pv,dim=1), &
+                        ubound(bc_in(bc_idx)%pv,dim=1), &
+        lbound(facenrm,dim=1), ubound(facenrm,dim=1), &
+        lbound(facenrm,dim=2), ubound(facenrm,dim=2), &
+        lbound(faceusp_array,dim=1), ubound(faceusp_array,dim=1), &
+        lbound(faceusp_array,dim=2), ubound(faceusp_array,dim=2), &
+        lbound(faceusp_array,dim=3), ubound(faceusp_array,dim=3)
+  !
+  if (nq < 10) then
+    write (mypnum+500,3) bc_idx, (m,bc_in(bc_idx)%cv(m), m=1,nq)
+    write (mypnum+500,4) bc_idx, (m,bc_in(bc_idx)%pv(m), m=1,nq)
+  else
+    write (mypnum+500,5) bc_idx, (m,bc_in(bc_idx)%cv(m), m=1,nq)
+    write (mypnum+500,6) bc_idx, (m,bc_in(bc_idx)%pv(m), m=1,nq)
+  end if
+  !
+  flush (mypnum+500)
+  !
+  ! Format Statements
+  !
+  1 format (/,"In get_faceusp_bc:",//, &
+              "n_wall_flxpts = ",i0,/, &
+              " n_bnd_flxpts = ",i0,/, &
+              "     n_flxpts = ",i0,/, &
+              "     n_solpts = ",i0,/)
+  !
+  2 format (/, &
+        "bc_grps(",i0,")%beg_fp  = ",i0,/, &
+        "bc_grps(",i0,")%end_fp  = ",i0,/, &
+        "bc_grps(",i0,")%bc_type = ",i0," (",a,")",/, &
+        "bc_grps(",i0,")%bc_idx  = ",i0,/, &
+        "dim(bc_in(",i0,")%cv) = bc_in(",i0,")%cv(",i0,":",i0,")",/, &
+        "dim(bc_in(",i0,")%pv) = bc_in(",i0,")%pv(",i0,":",i0,")",/, &
+        "dim(facenrm) = facenrm(",i0,":",i0,",",i0,":",i0,")",/, &
+        "dim(faceusp) = faceusp(",i0,":",i0,",",i0,":",i0,",",i0,":",i0,")")
+  !
+  3 format ("bc_in(",i2,")%cv(",i1,") = ",es14.6,/, &
+                   20(10x,"cv(",i1,") = ",es14.6,:,/))
+  4 format ("bc_in(",i2,")%pv(",i1,") = ",es14.6,/, &
+                   20(10x,"pv(",i1,") = ",es14.6,:,/))
+  5 format ("bc_in(",i2,")%cv(",i2,") = ",es14.6,/, &
+                   20(10x,"cv(",i2,") = ",es14.6,:,/))
+  6 format ("bc_in(",i2,")%pv(",i2,") = ",es14.6,/, &
+                   20(10x,"pv(",i2,") = ",es14.6,:,/))
+  !
+end subroutine output_to_debug_bc_groups
 !
 !###############################################################################
 !
