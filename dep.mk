@@ -57,6 +57,7 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/metrics.o \
            $(OBJDIR)/thermo_mod.o \
            $(OBJDIR)/transport_mod.o \
+           $(OBJDIR)/turb_inflow_mod.o \
            $(OBJDIR)/bc_adiabatic_wall_mod.o \
            $(OBJDIR)/bc_fixed_mod.o \
            $(OBJDIR)/bc_flowthrough_grad_mod.o \

@@ -67,6 +67,8 @@ subroutine get_faceusp_bc(exit_error)
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
+  use synthetic_eddy_mod, only : sem
+  !
   use bc_fixed_mod,            only : get_bc_fixed_solution
   use bc_riemann_mod,          only : get_bc_characteristic_solution
   use bc_gen_in_mod,           only : get_bc_generic_inflow_solution
@@ -115,6 +117,11 @@ continue
   call update_thermo_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1), &
                                       loc="face",caller_name=pname)
   call update_transport_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1))
+  !
+  ! Call the SEM turbulence inflow generator before looping
+  ! through bc_grps to set the boundary conditions
+  !
+  call sem(faceusp_array(:,:,2))
   !
   ! Loop over the boundary face groups and compute the conservative variables
   ! at the boundary flux points based on the face boundary condition.
