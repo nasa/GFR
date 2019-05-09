@@ -63,6 +63,7 @@ subroutine get_faceusp_bc(exit_error)
   use flowvar,       only : facegpsp
   use geovar,        only : bc_grps,n_bnd_flxpts
   use ovar,          only : bc_in,itcur
+  use ovar,          only : current_rk_stage
   use ovar,          only : output_bface_array
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
@@ -121,7 +122,9 @@ continue
   ! Call the SEM turbulence inflow generator before looping
   ! through bc_grps to set the boundary conditions
   !
-  call sem(faceusp_array(:,:,2))
+  if (current_rk_stage == 1) then
+    call sem(faceusp_array(:,:,2))
+  end if
   !
   ! Loop over the boundary face groups and compute the conservative variables
   ! at the boundary flux points based on the face boundary condition.
@@ -504,8 +507,6 @@ subroutine output_bface
   !
 continue
   !
-  myio = 1456 + mypnum
-  !
   do n = 1,size(bface,dim=2)
     do i = 1,size(bface,dim=1)
       temp_bface(i,n) = bface(i,n)
@@ -566,9 +567,9 @@ continue
   !
   ! Open the output file
   !
-  open (myio,file=trim(my_file),status="replace",action="write", &
-             form="formatted",position="rewind", &
-             iostat=ierr,iomsg=error_message)
+  open (newunit=myio,file=trim(my_file),status="replace",action="write", &
+                     form="formatted",position="rewind", &
+                     iostat=ierr,iomsg=error_message)
   call io_error(pname,trim(my_file),1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Output the bface array
