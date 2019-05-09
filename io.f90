@@ -7250,15 +7250,10 @@ continue
   !
   ! Open the CGNS solution file if iflag is 1
   !
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  write (iout,*) trim(adjustl(cgns_sol_file))
   call cgns_timer(start_cgns_file_timer,profile_io_cgns_subs,cgns_sol_file)
-  write (iout,*) "here 1"
   !
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
-  write (iout,*) "here 2"
   call cgp_open_f(cgns_sol_file,CG_MODE_WRITE,ifile_s,cgierr)
-  write (iout,*) "here 3"
   call io_error(pname,cgns_sol_file,1,__LINE__,__FILE__,cgierr)
   call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
   !
