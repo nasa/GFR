@@ -12,6 +12,7 @@ module module_cgns_types
   use module_kind_types, only : MPI_COMM_WORLD,mpierr
   use module_kind_types, only : mpi_barrier,mpi_wtime
   use module_kind_types, only : mypnum,glb_root,iout
+  use module_kind_types, only : dbg_mpi_frmt
 #ifdef CGNS_3_3
   use cgns
 #endif
