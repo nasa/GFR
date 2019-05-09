@@ -10,6 +10,7 @@ module synthetic_eddy_mod
   !
   public :: sem
   public :: separate_sem_boundary_faces
+  public :: output_sem_averages
   !
   !#############################################################################
   !#############################################################################
@@ -250,6 +251,25 @@ module synthetic_eddy_mod
   end type sem_box_t
   !
   !#############################################################################
+  !
+  type :: sem_fp_avg_t
+    real(wp) :: r,ru,rv,rw,e
+    real(wp) :: t,u,v,w,p
+    real(wp) :: uu,vv,ww,uv,uw,vw
+    real(wp) :: ut,vt,wt,rt
+    real(wp) :: ruu,rvv,rww,ruv,ruw,rvw
+    real(wp) :: rut,rvt,rwt
+  end type sem_fp_avg_t
+  !
+  type :: sem_avg_t
+    type(sem_fp_avg_t), allocatable :: fp_avg(:)
+  end type sem_avg_t
+  !
+  type(sem_avg_t), allocatable :: sem_avg(:)
+  !
+  real(wp), save :: sem_prev_ave_time = -one
+  !
+  !#############################################################################
   !#############################################################################
   !#############################################################################
   !
@@ -343,7 +363,7 @@ subroutine sem(cv)
   !
   !.. Local Scalars ..
   integer  :: i,k,n,ierr,sem_idx,eddy_idx,num_eddies
-  real(wp) :: ave,running_ave,time_scale
+  real(wp) :: ave,running_ave,time_scale,dt
   real(wp) :: c0,c1,eddy_vol,boxvol,lturb,dx,fsig,rgas_over_gm1
   real(wp) :: a11,a21,a22,a31,a32,a33,rho,temp,ravg,tavg,q2
   real(wp) :: x,epx,elx,eix,tfx,ufluc,ufluc2,uavg,vx
@@ -361,12 +381,40 @@ subroutine sem(cv)
  !logical(lk), parameter :: use_improved_SEM_normalization = true
   !
   real(wp), parameter :: sqrt32 = sqrt(three*half)
+  real(wp), parameter :: time_fraction = one5*one5
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   if (.not. sem_is_initialized) then
     call initialize_sem()
     sem_is_initialized = true
+  end if
+  !
+  if (num_sem_boxes < 1) then
+    call debug_timer(leaving_procedure,pname)
+    return
+  end if
+  !
+  ! Get the time step size for the synthetic eddies
+  !
+  dt = d_t
+  if (allocated(sem_avg) .and. dt <= eps12) then
+    !
+    ! If d_t is zero, make the time step size for the synthetic eddies
+    ! some random value, say 'a' such that eps6<=a<1, times a fraction
+    ! (defined by parameter time_fraction) of the minimum convective
+    ! time scale of all the SEM boxes.
+    !
+    call random_number(dt)
+    dt = max(eps6,dt)
+    !
+    time_scale = minval( sem_box(:)%length_scale / &
+                         sem_box(:)%convective_velocity )
+    !
+    dt = dt * time_scale * time_fraction
+    !
   end if
   !
   rgas_over_gm1 = rgasref_nd / (gam - one)
@@ -472,7 +520,7 @@ continue
       !
       if (use_improved_SEM_normalization) then
         !
-        c1 = d_t/time_scale
+        c1 = dt/time_scale
         !
         running_ave = c1*ave + (one-c1)*running_ave
         !
@@ -531,6 +579,10 @@ continue
     !
   end do loop_over_my_sem_boxes
   !
+  if (allocated(sem_avg)) then
+    call update_sem_ave(dt,cv)
+  end if
+  !
   ! ###########
   ! ###########
   ! ###  2  ###
@@ -553,7 +605,7 @@ continue
     !
     ! Get the axial distance traveled by the eddies over the past time step
     !
-    dx = sem_box(sem_idx)%convective_velocity * d_t
+    dx = sem_box(sem_idx)%convective_velocity * dt
     !
     ! Loop over the eddies in this SEM box
     !
@@ -675,7 +727,126 @@ continue
   deallocate ( new_eddies , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"new_eddies",2,__LINE__,__FILE__,ierr,error_message)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine sem
+!
+!###############################################################################
+!
+subroutine update_sem_ave(dt,cv)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd,itcur
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: dt
+  real(wp), intent(in) :: cv(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: k,n,sem_idx
+  real(wp) :: current_time,a,b
+  real(wp) :: u,v,w,q2,t,p,gm1,rgas_inv
+  real(wp) :: r,e,r_inv
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_sem_ave"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  gm1 = gam - one
+  rgas_inv = one / rgasref_nd
+  !
+  if (sem_prev_ave_time < zero) then
+    current_time = zero
+    a = zero
+    b = one
+  else
+    current_time = sem_prev_ave_time + dt
+    a = sem_prev_ave_time / current_time
+    b = one - a
+  end if
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    do n = 1,my_sem_pts(sem_idx)%num_fp
+      !
+      k = my_sem_pts(sem_idx)%sem_fp(n)%idx
+      !
+      r = cv(k,nec)
+      r_inv = one / r
+      !
+      u = cv(k,nmx) * r_inv
+      v = cv(k,nmy) * r_inv
+      w = cv(k,nmz) * r_inv
+      e = cv(k,nee)
+      !
+      q2 = u*u + v*v + w*w
+      !
+      p = gm1*(e - half*r*q2)
+      t = p * rgas_inv * r_inv
+      !
+      call update_sem_ave_fp(a,b,r,u,v,w,e,t,p, &
+                             sem_avg(sem_idx)%fp_avg(n))
+      !
+    end do
+    !
+  end do
+  !
+  ! Update the previous average time
+  !
+  sem_prev_ave_time = current_time
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine update_sem_ave
+!
+!###############################################################################
+!
+pure &
+subroutine update_sem_ave_fp(a,b,r,u,v,w,e,t,p,this)
+  !
+  !.. Formal Arguments ..
+  real(wp),              intent(in) :: a,b,r,u,v,w,e,t,p
+  type(sem_fp_avg_t), intent(inout) :: this
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_sem_ave_fp"
+  !
+continue
+  !
+  this%r   = a * this%r   + b * r 
+  this%ru  = a * this%ru  + b * r*u
+  this%rv  = a * this%rv  + b * r*v
+  this%rw  = a * this%rw  + b * r*w
+  this%e   = a * this%e   + b * e
+  this%t   = a * this%t   + b * t
+  this%u   = a * this%u   + b * u
+  this%v   = a * this%v   + b * v
+  this%w   = a * this%w   + b * w
+  this%p   = a * this%p   + b * p
+  this%uu  = a * this%uu  + b * u*u
+  this%vv  = a * this%vv  + b * v*v
+  this%ww  = a * this%ww  + b * w*w
+  this%uv  = a * this%uv  + b * u*v
+  this%uw  = a * this%uw  + b * u*w
+  this%vw  = a * this%vw  + b * v*w
+  this%ut  = a * this%ut  + b * u*t
+  this%vt  = a * this%vt  + b * v*t
+  this%wt  = a * this%wt  + b * w*t
+  this%rt  = a * this%rt  + b * r*t
+  this%ruu = a * this%ruu + b * r*u*u
+  this%rvv = a * this%rvv + b * r*v*v
+  this%rww = a * this%rww + b * r*w*w
+  this%ruv = a * this%ruv + b * r*u*v
+  this%ruw = a * this%ruw + b * r*u*w
+  this%rvw = a * this%rvw + b * r*v*w
+  this%rut = a * this%rut + b * r*u*t
+  this%rvt = a * this%rvt + b * r*v*t
+  this%rwt = a * this%rwt + b * r*w*t
+  !
+end subroutine update_sem_ave_fp
 !
 !###############################################################################
 !
@@ -700,6 +871,8 @@ subroutine generate_new_eddies(new_eddies,generate_at_xmin)
   character(len=*), parameter :: pname = "generate_new_eddies"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   x_coef = merge( zero , one , generate_at_xmin )
   !
@@ -827,6 +1000,8 @@ continue
     !
   end do loop_over_sem_boxes
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine generate_new_eddies
 !
 !###############################################################################
@@ -841,6 +1016,8 @@ subroutine initialize_eddy_lists()
   character(len=*), parameter :: pname = "initialize_eddy_lists"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Make sure none of the sem_box(:)%eddy(:)%fp_list or
   ! my_sem_pts(:)%sem_fp(:)%eddy_list allocatable arrays
@@ -930,6 +1107,8 @@ continue
     !
   end do loop_over_boxes
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine initialize_eddy_lists
 !
 !###############################################################################
@@ -947,6 +1126,8 @@ subroutine update_eddy_lists(new_eddies)
   character(len=*), parameter :: pname = "update_eddy_lists"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   loop_to_add_new_eddies: &
   do sem_idx = 1,num_sem_boxes
@@ -1012,6 +1193,8 @@ continue
     end do loop_over_new_eddies_in_box
     !
   end do loop_to_add_new_eddies
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine update_eddy_lists
 !
@@ -1232,7 +1415,7 @@ subroutine initialize_sem()
   !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
   !
   !.. Use Statements ..
-  use ovar,       only : bc_in
+  use ovar,       only : bc_in,average_sem_inflow_plane
   use geovar,     only : bc_grps
   use flowvar,    only : facexyz_array
   use random_mod, only : set_random_seed
@@ -1254,13 +1437,15 @@ subroutine initialize_sem()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Initialize the random number generator
   !
   call set_random_seed
   !
   ! Count the number of BC groups on this processor that are of the SEM type
   !
-  num_sem_boxes = count( bc_grps(:)%bc_type == bc_sem )
+  num_sem_boxes = count( bc_in(:)%bc_type == bc_sem )
   !
   ! Allocate the derived-type sem_box if needed.
   !
@@ -1291,12 +1476,15 @@ continue
   ! Find the SEM boundary conditions and use the BC specifications to
   ! begin populating the my_sem_pts and sem_box derived-types.
   !
+  ! Create all the SEM boxes.
+  ! NOTE: All MPI processes will contain all SEM boxes and their respective
+  !       eddies, and this information should be identical across all MPI
+  !       processes.
+  !
   sem_idx = 0
-  do grp_idx = 1,size(bc_grps)
+  do bc_idx = 1,ubound(bc_in,dim=1)
     !
-    if (bc_grps(grp_idx)%bc_type == bc_sem) then
-      !
-      bc_idx = bc_grps(grp_idx)%bc_idx
+    if (bc_in(bc_idx)%bc_type == bc_sem) then
       !
       sem_idx = sem_idx + 1
       !
@@ -1305,10 +1493,53 @@ continue
       fname = trim(adjustl(bc_in(bc_idx)%sem%profile_file))
       !
       sem_box(sem_idx)%bc_idx = bc_idx
-      sem_box(sem_idx)%grp_idx = grp_idx
       sem_box(sem_idx)%length_scale = lturb
       sem_box(sem_idx)%convective_velocity = uconv
+      !
+      if (.not. allocated(sem_box(sem_idx)%profile)) then
+        allocate ( sem_box(sem_idx)%profile )
+      end if
       sem_box(sem_idx)%profile%fname = trim(adjustl(fname))
+      !
+    end if
+    !
+  end do
+  !
+  ! Create my_sem_pts on each MPI process.
+  ! NOTE: Each element of this derived-type array represents a single SEM box,
+  !       and the information within each element is localized and unique to
+  !       each MPI process. If the current MPI process does not have any
+  !       boundary faces for a given SEM box, the array element respective to
+  !       that SEM box will be mostly empty.
+  !
+  create_my_sem_pts: &
+  do grp_idx = 1,size(bc_grps)
+    !
+    if (bc_grps(grp_idx)%bc_type == bc_sem) then
+      !
+      bc_idx = bc_grps(grp_idx)%bc_idx
+      !
+      find_sem_idx: &
+      do n = 1,num_sem_boxes
+        if (sem_box(n)%bc_idx == bc_idx) then
+          sem_idx = n
+          exit find_sem_idx
+        end if
+      end do find_sem_idx
+      !
+     !write (iout,90) grp_idx,bc_idx,sem_idx
+     !write (iout,91) trim(adjustl(fname))
+     !90 format (/,2x,"grp_idx = ",i0,/, &
+     !             2x," bc_idx = ",i0,/, &
+     !             2x,"sem_idx = ",i0)
+     !91 format (2x,"fname = '",a,"'",/)
+      !
+      ! Save this group index to the sem_box array
+      !
+      sem_box(sem_idx)%grp_idx = grp_idx
+      !
+      ! Save the beginning and ending SEM face point indices for
+      ! the BC group to my_sem_pts for the respective SEM box
       !
       n1 = bc_grps(grp_idx)%beg_fp
       n2 = bc_grps(grp_idx)%end_fp
@@ -1337,7 +1568,13 @@ continue
       !
     end if
     !
-  end do
+  end do create_my_sem_pts
+  !
+  ! Initialize the SEM averaging arrays if needed
+  !
+  if (average_sem_inflow_plane) then
+    call initialize_sem_avg()
+  end if
   !
   ! For each SEM box:
   !   1) get the min/max extents of the box,
@@ -1448,6 +1685,8 @@ continue
     end if
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format("ERROR!!! THE NUMBER OF SEM BOXES IN THE RESTART FILE ", &
@@ -1456,6 +1695,68 @@ continue
            "# of SEM boxes in the restart file = ",i4)
   !
 end subroutine initialize_sem
+!
+!###############################################################################
+!
+subroutine initialize_sem_avg()
+  !
+  !.. Local Scalars ..
+  integer :: n,nfp,sem_idx
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_sem_avg"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  allocate ( sem_avg(1:num_sem_boxes) )
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    nfp = my_sem_pts(sem_idx)%num_fp
+    !
+    allocate ( sem_avg(sem_idx)%fp_avg(1:nfp) )
+    !
+    do n = 1,nfp
+      !
+      sem_avg(sem_idx)%fp_avg(n)%r   = zero
+      sem_avg(sem_idx)%fp_avg(n)%ru  = zero
+      sem_avg(sem_idx)%fp_avg(n)%rv  = zero
+      sem_avg(sem_idx)%fp_avg(n)%rw  = zero
+      sem_avg(sem_idx)%fp_avg(n)%e   = zero
+      sem_avg(sem_idx)%fp_avg(n)%t   = zero
+      sem_avg(sem_idx)%fp_avg(n)%u   = zero
+      sem_avg(sem_idx)%fp_avg(n)%v   = zero
+      sem_avg(sem_idx)%fp_avg(n)%w   = zero
+      sem_avg(sem_idx)%fp_avg(n)%p   = zero
+      sem_avg(sem_idx)%fp_avg(n)%uu  = zero
+      sem_avg(sem_idx)%fp_avg(n)%vv  = zero
+      sem_avg(sem_idx)%fp_avg(n)%ww  = zero
+      sem_avg(sem_idx)%fp_avg(n)%uv  = zero
+      sem_avg(sem_idx)%fp_avg(n)%uw  = zero
+      sem_avg(sem_idx)%fp_avg(n)%vw  = zero
+      sem_avg(sem_idx)%fp_avg(n)%ut  = zero
+      sem_avg(sem_idx)%fp_avg(n)%vt  = zero
+      sem_avg(sem_idx)%fp_avg(n)%wt  = zero
+      sem_avg(sem_idx)%fp_avg(n)%rt  = zero
+      sem_avg(sem_idx)%fp_avg(n)%ruu = zero
+      sem_avg(sem_idx)%fp_avg(n)%rvv = zero
+      sem_avg(sem_idx)%fp_avg(n)%rww = zero
+      sem_avg(sem_idx)%fp_avg(n)%ruv = zero
+      sem_avg(sem_idx)%fp_avg(n)%ruw = zero
+      sem_avg(sem_idx)%fp_avg(n)%rvw = zero
+      sem_avg(sem_idx)%fp_avg(n)%rut = zero
+      sem_avg(sem_idx)%fp_avg(n)%rvt = zero
+      sem_avg(sem_idx)%fp_avg(n)%rwt = zero
+      !
+    end do
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine initialize_sem_avg
 !
 !###############################################################################
 !
@@ -1474,6 +1775,8 @@ subroutine compute_sem_fp_wall_distance()
   character(len=*), parameter :: pname = "compute_sem_fp_wall_distance"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! First, collect the coordinates of all the
   ! wall face points across all processors.
@@ -1516,6 +1819,8 @@ continue
   deallocate ( wall_distance , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"wall_distance",2,__LINE__,__FILE__,ierr,error_message)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine compute_sem_fp_wall_distance
 !
 !###############################################################################
@@ -1540,6 +1845,8 @@ subroutine collect_wall_fp_coordinates(xyz_wall)
   character(len=*), parameter :: pname = "collect_wall_fp_coordinates"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   cpu_nums = 0_int_mpi
   cpu_disp = 0_int_mpi
@@ -1618,6 +1925,8 @@ continue
                         MPI_COMM_WORLD,mpierr)
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine collect_wall_fp_coordinates
 !
 !###############################################################################
@@ -1634,6 +1943,8 @@ subroutine collect_sem_fp_coordinates(xyz_sem)
   character(len=*), parameter :: pname = "collect_sem_fp_coordinates"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   np = sum(my_sem_pts(:)%num_fp)
   !
@@ -1656,6 +1967,8 @@ continue
     !
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine collect_sem_fp_coordinates
 !
 !###############################################################################
@@ -1675,6 +1988,8 @@ subroutine brute_force_wall_distance(xyz_wall,xyz_sem,wall_distance)
   character(len=*), parameter :: pname = "brute_force_wall_distance"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   nwp = size(xyz_wall,dim=2)
   nfp = size(xyz_sem,dim=2)
@@ -1713,6 +2028,8 @@ continue
   end do
   !
   !$OMP END PARALLEL DO
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine brute_force_wall_distance
 !
@@ -1820,27 +2137,29 @@ subroutine get_size_of_sem_boxes()
   !
   !.. Local Scalars ..
   integer  :: ierr,n,num_eddies,sem_idx
-  real(wp) :: lturb,box_volume
+  real(wp) :: lturb,t_lturb,box_volume
   real(wp) :: xmin,xmax,x
   real(wp) :: ymin,ymax,y
   real(wp) :: zmin,zmax,z
-  real(wp) :: rmin,rmax,r1,r2,r3,r4
-  real(wp) :: tmin,tmax,t1,t2,t3,t4
+  real(wp) :: rmin,rmax,r
+  real(wp) :: tmin,tmax,t
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: box_size(:,:,:)
+  real(wp), allocatable :: box_min(:,:)
+  real(wp), allocatable :: box_max(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_size_of_sem_boxes"
   !
 continue
   !
-  ! Allocate box_size to store the min/max extents
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Allocate box_min and box_max to store the min/max extents
   ! (local to this partition/process) of the SEM boxes
   !
-  allocate ( box_size(1:5,1:2,1:num_sem_boxes) , source=huge(zero) , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"box_size",1,__LINE__,__FILE__,ierr,error_message)
+  box_min = init_array(5,num_sem_boxes, huge(zero)) ! F2003 AUTO-REALLOC
+  box_max = init_array(5,num_sem_boxes,-huge(zero)) ! F2003 AUTO-REALLOC
   !
   ! Compute the min/max extents (local to this
   ! partition/process) of the SEM boxes
@@ -1856,6 +2175,13 @@ continue
       x = my_sem_pts(sem_idx)%sem_fp(n)%x
       y = my_sem_pts(sem_idx)%sem_fp(n)%y
       z = my_sem_pts(sem_idx)%sem_fp(n)%z
+      r = hypot(y,z)
+      if (r == zero) then
+        t = zero
+      else
+        t = atan2( z , y )
+        if (t < zero) t = t + two*pi
+      end if
       !
       xmin = x - lturb
       xmax = x + lturb
@@ -1863,74 +2189,152 @@ continue
       ymax = y + lturb
       zmin = z - lturb
       zmax = z + lturb
+      rmin = r - lturb
+      rmax = r + lturb
       !
-      box_size(1,1,sem_idx) = min(xmin,box_size(1,1,sem_idx))
-      box_size(2,1,sem_idx) = min(ymin,box_size(2,1,sem_idx))
-      box_size(3,1,sem_idx) = min(zmin,box_size(3,1,sem_idx))
+      ! The turbulence length scale is an arclength for theta, so determine
+      ! the angle that corresponds to an arclength of lturb,
+      ! i.e. theta_length_scale = lturb/r
       !
-      box_size(1,2,sem_idx) = max(xmax,box_size(1,2,sem_idx))
-      box_size(2,2,sem_idx) = max(ymax,box_size(2,2,sem_idx))
-      box_size(3,2,sem_idx) = max(zmax,box_size(3,2,sem_idx))
+      if (r == zero) then
+        t_lturb = zero
+      else
+        t_lturb = lturb/r
+      end if
+      !
+      tmin = t - t_lturb
+      tmax = t + t_lturb
+      !
+      ! Make sure rmin, tmin, and tmax are realizable
+      !
+      rmin = max(zero,rmin)
+      tmin = max(zero,tmin)
+      tmax = min(two*pi,tmax)
+      !
+      box_min(1,sem_idx) = min(xmin,box_min(1,sem_idx))
+      box_min(2,sem_idx) = min(ymin,box_min(2,sem_idx))
+      box_min(3,sem_idx) = min(zmin,box_min(3,sem_idx))
+      box_min(4,sem_idx) = min(rmin,box_min(4,sem_idx))
+      box_min(5,sem_idx) = min(tmin,box_min(5,sem_idx))
+      !
+      box_max(1,sem_idx) = max(xmax,box_max(1,sem_idx))
+      box_max(2,sem_idx) = max(ymax,box_max(2,sem_idx))
+      box_max(3,sem_idx) = max(zmax,box_max(3,sem_idx))
+      box_max(4,sem_idx) = max(rmax,box_max(4,sem_idx))
+      box_max(5,sem_idx) = max(tmax,box_max(5,sem_idx))
       !
     end do
-    !
-    ! Compute the r,theta min/max for the current box from the y,z min/max
-    !
-    ymin = box_size(2,1,sem_idx)
-    zmin = box_size(3,1,sem_idx)
-    !
-    ymax = box_size(2,2,sem_idx)
-    zmax = box_size(3,2,sem_idx)
-    !
-    r1 = sqrt( ymin*ymin + zmin*zmin )
-    r2 = sqrt( ymax*ymax + zmin*zmin )
-    r3 = sqrt( ymin*ymin + zmax*zmax )
-    r4 = sqrt( ymax*ymax + zmax*zmax )
-    !
-    rmin = max( zero , min(r1,r2,r3,r3) )
-    rmax = max( zero , max(r1,r2,r3,r4) )
-    !
-    t1 = zero
-    t2 = zero
-    t3 = zero
-    t4 = zero
-    !
-    if (ymin /= zero .or. zmin /= zero) t1 = atan2( zmin , ymin )
-    if (ymax /= zero .or. zmin /= zero) t2 = atan2( zmin , ymax )
-    if (ymin /= zero .or. zmax /= zero) t3 = atan2( zmax , ymin )
-    if (ymax /= zero .or. zmax /= zero) t4 = atan2( zmax , ymax )
-    !
-    ! The atan2 function returns a value on the interval [-Pi,Pi].
-    ! Converting an angle from this interval to the interval [0,2*Pi]
-    ! simply requires adding 2*Pi to any angle value less than zero.
-    ! For example:
-    !    theta[-Pi,Pi] = -Pi    => theta[0,2*Pi] = Pi     = 180 degrees
-    !    theta[-Pi,Pi] = -Pi/2  => theta[0,2*Pi] = 3*Pi/2 = 270 degrees
-    !    theta[-Pi,Pi] = -0     => theta[0,2*Pi] = 2*Pi   = 360 degrees
-    !
-    if (t1 < zero) t1 = t1 + two*pi
-    if (t2 < zero) t2 = t2 + two*pi
-    if (t3 < zero) t3 = t3 + two*pi
-    if (t4 < zero) t4 = t4 + two*pi
-    !
-    tmin = min(t1,t2,t3,t4)
-    tmax = max(t1,t2,t3,t4)
-    !
-    box_size(4,1,sem_idx) = rmin
-    box_size(5,1,sem_idx) = tmin
-    !
-    box_size(4,2,sem_idx) = rmax
-    box_size(5,2,sem_idx) = tmax
+   !!
+   !! Compute the r,theta min/max for the current box from the y,z min/max
+   !!
+   !if (my_sem_pts(sem_idx)%num_fp > 0) then
+   !  !
+   !  ymin = box_min(2,sem_idx)
+   !  zmin = box_min(3,sem_idx)
+   !  !
+   !  ymax = box_max(2,sem_idx)
+   !  zmax = box_max(3,sem_idx)
+   !  !
+   !  r1 = hypot( ymin , zmin )
+   !  r2 = hypot( ymax , zmin )
+   !  r3 = hypot( ymin , zmax )
+   !  r4 = hypot( ymax , zmax )
+   !  !
+   ! !r1 = sqrt( ymin*ymin + zmin*zmin )
+   ! !r2 = sqrt( ymax*ymax + zmin*zmin )
+   ! !r3 = sqrt( ymin*ymin + zmax*zmax )
+   ! !r4 = sqrt( ymax*ymax + zmax*zmax )
+   !  !
+   !  rmin = max( zero , min(r1,r2,r3,r3) )
+   !  rmax = max( zero , max(r1,r2,r3,r4) )
+   !  !
+   !  t1 = zero
+   !  t2 = zero
+   !  t3 = zero
+   !  t4 = zero
+   !  !
+   !  if (ymin /= zero .or. zmin /= zero) t1 = atan2( zmin , ymin )
+   !  if (ymax /= zero .or. zmin /= zero) t2 = atan2( zmin , ymax )
+   !  if (ymin /= zero .or. zmax /= zero) t3 = atan2( zmax , ymin )
+   !  if (ymax /= zero .or. zmax /= zero) t4 = atan2( zmax , ymax )
+   !  !
+   !  ! The atan2 function returns a value on the interval [-Pi,Pi].
+   !  ! Converting an angle from this interval to the interval [0,2*Pi]
+   !  ! simply requires adding 2*Pi to any angle value less than zero.
+   !  ! For example:
+   !  !    theta[-Pi,Pi] = -Pi    => theta[0,2*Pi] = Pi     = 180 degrees
+   !  !    theta[-Pi,Pi] = -Pi/2  => theta[0,2*Pi] = 3*Pi/2 = 270 degrees
+   !  !    theta[-Pi,Pi] = -0     => theta[0,2*Pi] = 2*Pi   = 360 degrees
+   !  !
+   !  if (t1 < zero) t1 = t1 + two*pi
+   !  if (t2 < zero) t2 = t2 + two*pi
+   !  if (t3 < zero) t3 = t3 + two*pi
+   !  if (t4 < zero) t4 = t4 + two*pi
+   !  !
+   !  tmin = min(t1,t2,t3,t4)
+   !  tmax = max(t1,t2,t3,t4)
+   !  !
+   !  box_min(4,sem_idx) = rmin
+   !  box_min(5,sem_idx) = tmin
+   !  !
+   !  box_max(4,sem_idx) = rmax
+   !  box_max(5,sem_idx) = tmax
+   !  !
+   !end if
     !
   end do
   !
-  ! Reduce the box_size array across all processes so that every
-  ! process has the true global min/max extents for each SEM box
+  do n = 0,ncpu-1
+    if (mypnum == n) then
+      write (iout,*)
+      do sem_idx = 1,num_sem_boxes
+        write (iout,1) mypnum,sem_idx,"x",box_min(1,sem_idx),box_max(1,sem_idx)
+        write (iout,1) mypnum,sem_idx,"y",box_min(2,sem_idx),box_max(2,sem_idx)
+        write (iout,1) mypnum,sem_idx,"z",box_min(3,sem_idx),box_max(3,sem_idx)
+        write (iout,1) mypnum,sem_idx,"r",box_min(4,sem_idx),box_max(4,sem_idx)
+        write (iout,1) mypnum,sem_idx,"t",box_min(5,sem_idx),box_max(5,sem_idx)
+      end do
+    end if
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    flush (iout)
+  end do
+  if (mypnum == glb_root) write (iout,*)
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  flush (iout)
+  1 format (2x,"CPU #",i2," : SEM Box # ",i2, &
+            2x,a1,"[min,max] = [",es14.6,",",es14.6,"]")
+  !
+  ! Reduce the box_min and box_max arrays across all processes so that
+  ! every process has the true global min/max extents for each SEM box
   !
   if (ncpu > 1) then
-    call mpi_allreduce(MPI_IN_PLACE,box_size,size(box_size,kind=int_mpi), &
+    call mpi_allreduce(MPI_IN_PLACE,box_min,size(box_min,kind=int_mpi), &
                        mpi_flttyp,MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call mpi_allreduce(MPI_IN_PLACE,box_max,size(box_max,kind=int_mpi), &
+                       mpi_flttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
   end if
+  !
+  do n = 0,ncpu-1
+    if (mypnum == n) then
+      write (iout,*)
+      do sem_idx = 1,num_sem_boxes
+        write (iout,1) mypnum,sem_idx,"x",box_min(1,sem_idx),box_max(1,sem_idx)
+        write (iout,1) mypnum,sem_idx,"y",box_min(2,sem_idx),box_max(2,sem_idx)
+        write (iout,1) mypnum,sem_idx,"z",box_min(3,sem_idx),box_max(3,sem_idx)
+        write (iout,1) mypnum,sem_idx,"r",box_min(4,sem_idx),box_max(4,sem_idx)
+        write (iout,1) mypnum,sem_idx,"t",box_min(5,sem_idx),box_max(5,sem_idx)
+      end do
+    end if
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    flush (iout)
+  end do
+  if (mypnum == glb_root) write (iout,*)
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  flush (iout)
   !
   ! Copy the global min/max extents for each SEM box into sem_box.
   ! Also compute the volume and the number of eddies for each box.
@@ -1939,17 +2343,17 @@ continue
     !
     lturb = sem_box(sem_idx)%length_scale
     !
-    xmin = box_size(1,1,sem_idx)
-    ymin = box_size(2,1,sem_idx)
-    zmin = box_size(3,1,sem_idx)
-    rmin = box_size(4,1,sem_idx)
-    tmin = box_size(5,1,sem_idx)
+    xmin = box_min(1,sem_idx)
+    ymin = box_min(2,sem_idx)
+    zmin = box_min(3,sem_idx)
+    rmin = box_min(4,sem_idx)
+    tmin = box_min(5,sem_idx)
     !
-    xmax = box_size(1,2,sem_idx)
-    ymax = box_size(2,2,sem_idx)
-    zmax = box_size(3,2,sem_idx)
-    rmax = box_size(4,2,sem_idx)
-    tmax = box_size(5,2,sem_idx)
+    xmax = box_max(1,sem_idx)
+    ymax = box_max(2,sem_idx)
+    zmax = box_max(3,sem_idx)
+    rmax = box_max(4,sem_idx)
+    tmax = box_max(5,sem_idx)
     !
     ! Compute the volume of this SEM box
     !
@@ -1992,10 +2396,19 @@ continue
     !
   end do
   !
-  ! Deallocate box_size before we leave
+  ! Deallocate box_min and box_max before we leave
   !
-  deallocate ( box_size , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"box_size",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(box_min)) then
+    deallocate ( box_min , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"box_min",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(box_max)) then
+    deallocate ( box_max , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"box_max",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_size_of_sem_boxes
 !
@@ -2025,6 +2438,8 @@ subroutine check_restart_eddies()
   character(len=*), parameter :: pname = "check_restart_eddies"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   num_bad_eddies = init_array(num_sem_boxes,0) ! F2003 AUTO-REALLOC
   !
@@ -2349,6 +2764,8 @@ continue
     !
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1  format (/, &
@@ -2407,6 +2824,8 @@ subroutine read_sem_profiles()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! First, check to see if the profile data has already been allocated.
   ! If it has been allocated, it is assumed that the profile data also
   ! exists in these allocated arrays.
@@ -2416,7 +2835,10 @@ continue
   ! If the profile data has already been allocated, we do not need to read
   ! the data in so exit from this subroutine.
   !
-  if (profile_data_is_allocated) return
+  if (profile_data_is_allocated) then
+    call debug_timer(leaving_procedure,pname)
+    return
+  end if
   !
   ! We need to create the profile data, so read the data from the profile files.
   !
@@ -2532,6 +2954,10 @@ continue
     deallocate ( temp_data , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"temp_data",2,__LINE__,__FILE__,ierr,error_message)
     !
+    ! Nondimensionalize all the profile quantities
+    !
+    call nondimensionalize_sem_profile(sem_box(sem_idx)%profile)
+    !
     ! Compute the Reynolds stress tensor for the profile
     !
     do n = 1,npts
@@ -2610,7 +3036,54 @@ continue
     !
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine read_sem_profiles
+!
+!###############################################################################
+!
+pure &
+subroutine nondimensionalize_sem_profile(this)
+  !
+  !.. Use Statements ..
+  use ovar, only : rhoref,aref,tref
+  !
+  !.. Formal Arguments ..
+  type(sem_profile_t), intent(inout) :: this
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: rhoref_inv,aref_inv,tref_inv,aref2_inv
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "nondimensionalize_sem_profile"
+  !
+continue
+  !
+  rhoref_inv = one / rhoref
+  aref_inv   = one / aref
+  tref_inv   = one / tref
+  !
+  aref2_inv = aref_inv * aref_inv
+  !
+  do n = 1,this%npts
+    !
+    this%ravg(n) = this%ravg(n) * rhoref_inv
+    this%uavg(n) = this%uavg(n) * aref_inv
+    this%vavg(n) = this%vavg(n) * aref_inv
+    this%wavg(n) = this%wavg(n) * aref_inv
+    this%tavg(n) = this%tavg(n) * tref_inv
+    !
+    this%tau11(n) = this%tau11(n) * aref2_inv
+    this%tau21(n) = this%tau21(n) * aref2_inv
+    this%tau22(n) = this%tau22(n) * aref2_inv
+    this%tau31(n) = this%tau31(n) * aref2_inv
+    this%tau32(n) = this%tau32(n) * aref2_inv
+    this%tau33(n) = this%tau33(n) * aref2_inv
+    !
+  end do
+  !
+end subroutine nondimensionalize_sem_profile
 !
 !###############################################################################
 !
@@ -2639,6 +3112,8 @@ subroutine identify_profile_variables(text,variable_names)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   strng = trim(adjustl(text))
   !
   ! Replace all single quotes, double quotes, commas, and tabs with spaces
@@ -2649,7 +3124,7 @@ continue
     end if
   end do
   !
- !m = 0
+  m = 0
   !
   if (len_trim(strng) > 0) then
     is = 1
@@ -2661,18 +3136,28 @@ continue
         !
         find_end_of_word: do
           if (is == len_trim(strng)) then
-            nn = len(clist) - len(strng(ibeg:is))
-            ! F2003 AUTO-REALLOC
-            clist = [ clist , strng(ibeg:is) // repeat(" ",ncopies=nn) ]
-           !call reallocate( clist , m+1 )
-           !clist(m+1) = strng(ibeg:is)
+           !nn = len(clist) - len(strng(ibeg:is))
+           !if (.not. allocated(clist)) then
+           !  ! F2003 AUTO-REALLOC
+           !  clist = [ strng(ibeg:is) // repeat(" ",ncopies=nn) ]
+           !else
+           !  ! F2003 AUTO-REALLOC
+           !  clist = [ clist , strng(ibeg:is) // repeat(" ",ncopies=nn) ]
+           !end if
+            call reallocate( clist , m+1 )
+            clist(m+1) = strng(ibeg:is)
           else if (strng(is:is) == " ") then
-            nn = len(clist) - len(strng(ibeg:is-1))
-            ! F2003 AUTO-REALLOC
-            clist = [ clist , strng(ibeg:is-1) // repeat(" ",ncopies=nn) ]
-           !m = m + 1
-           !call reallocate( clist , m )
-           !clist(m) = strng(ibeg:is-1)
+           !nn = len(clist) - len(strng(ibeg:is-1))
+           !if (.not. allocated(clist)) then
+           !  ! F2003 AUTO-REALLOC
+           !  clist = [ strng(ibeg:is-1) // repeat(" ",ncopies=nn) ]
+           !else
+           !  ! F2003 AUTO-REALLOC
+           !  clist = [ clist , strng(ibeg:is-1) // repeat(" ",ncopies=nn) ]
+           !end if
+            m = m + 1
+            call reallocate( clist , m )
+            clist(m) = strng(ibeg:is-1)
             ibeg = is
             exit find_end_of_word
           end if
@@ -2706,6 +3191,8 @@ continue
   !
   deallocate ( clist , stat=ierr )
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine identify_profile_variables
 !
 !###############################################################################
@@ -2722,6 +3209,8 @@ subroutine check_sem_profile_allocations(profile_data_is_allocated)
   character(len=*), parameter :: pname = "check_sem_profile_allocations"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   profile_data_is_allocated = fals
   !
@@ -2812,6 +3301,8 @@ continue
     end if
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format ("ERROR!!! CHECKING THE SEM PROFILE DATA BEFORE ATTEMPTING ", &
@@ -2863,21 +3354,28 @@ subroutine output_details_of_sem_boxes()
   !
 continue
   !
-  do sem_idx = 1,num_sem_boxes
+  call debug_timer(entering_procedure,pname)
+  !
+  if (mypnum == glb_root) then
+    do sem_idx = 1,num_sem_boxes
+      write (iout,*)
+      write (iout,1) sem_idx
+      write (iout,*) 'Uconv     = ',sem_box(sem_idx)%convective_velocity*aref
+      write (iout,*) 'Lturb     = ',sem_box(sem_idx)%length_scale
+      write (iout,*) 'Neddies   = ',sem_box(sem_idx)%num_eddies
+      write (iout,*) 'Volbox    = ',sem_box(sem_idx)%box_volume
+      write (iout,*) 'Min x     = ',sem_box(sem_idx)%boxmin(1)
+      write (iout,*) 'Max x     = ',sem_box(sem_idx)%boxmax(1)
+      write (iout,*) 'Min y     = ',sem_box(sem_idx)%boxmin(2)
+      write (iout,*) 'Max y     = ',sem_box(sem_idx)%boxmax(2)
+      write (iout,*) 'Min z     = ',sem_box(sem_idx)%boxmin(3)
+      write (iout,*) 'Max z     = ',sem_box(sem_idx)%boxmax(3)
+    end do
     write (iout,*)
-    write (iout,1) sem_idx
-    write (iout,*) 'Uconv     = ',sem_box(sem_idx)%convective_velocity*aref
-    write (iout,*) 'Lturb     = ',sem_box(sem_idx)%length_scale
-    write (iout,*) 'Neddies   = ',sem_box(sem_idx)%num_eddies
-    write (iout,*) 'Volbox    = ',sem_box(sem_idx)%box_volume
-    write (iout,*) 'Min x     = ',sem_box(sem_idx)%boxmin(1)
-    write (iout,*) 'Max x     = ',sem_box(sem_idx)%boxmax(1)
-    write (iout,*) 'Min y     = ',sem_box(sem_idx)%boxmin(2)
-    write (iout,*) 'Max y     = ',sem_box(sem_idx)%boxmax(2)
-    write (iout,*) 'Min z     = ',sem_box(sem_idx)%boxmin(3)
-    write (iout,*) 'Max z     = ',sem_box(sem_idx)%boxmax(3)
-  end do
-  write (iout,*)
+  end if
+  flush (iout)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -2983,6 +3481,8 @@ subroutine get_sem_profile_heights()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Only have the global root processor extract the maximum heights
   !
   if (mypnum == glb_root) then
@@ -3073,6 +3573,8 @@ continue
   deallocate ( y , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"y",2,__LINE__,__FILE__,ierr,error_message)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine get_sem_profile_heights
 !
 !###############################################################################
@@ -3094,11 +3596,12 @@ subroutine separate_sem_boundary_faces()
   !
   !.. Use Statements ..
   use geovar, only : nfbnd,ncell,nnode
-  use geovar, only : bface,grid
-  use ovar,   only : bc_input,bc_input_t
+  use geovar, only : bface,grid,xyz_nodes
+  use ovar,   only : bc_input,bc_input_t,bc_names
+  use ovar,   only : output_bface_array
   !
   !.. Local Scalars ..
-  integer  :: i,ierr,n,nc,nf,nn,nbc,npts,bc_idx
+  integer  :: i,ierr,n,nc,nf,nn,nbc,nbcn,npts,bc_idx
   integer  :: n_sem_pts,n_sem_bc,n_wall_pts
   real(wp) :: profile_height
   !
@@ -3113,20 +3616,21 @@ subroutine separate_sem_boundary_faces()
   !
   type(bc_input_t), allocatable :: tmp_bc_input(:)
   !
+  character(len=len(bc_names)), allocatable :: tmp_bc_names(:)
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "separate_sem_boundary_faces"
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+  if (output_bface_array) call output_bface
   !
   ! Make sure that there are SEM boundary conditions. If not,
   ! dont do anything and just return to the calling procedure.
   !
-  if (all(bface(1,:) /= bc_sem)) then
-    call debug_timer(leaving_procedure,pname)
-    return
-  end if
+  if (all(bface(1,:) /= bc_sem)) return
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! First, read all the SEM profile files and extract the maximum profile
   ! height from each SEM profile.
@@ -3148,7 +3652,7 @@ continue
     n_wall_pts = count( msk(1:nnode) )
     !
     ! F2003 AUTO-REALLOC
-    xyz_wall = grid%xyz( 1:3 , pack(intseq(1,nnode),mask=msk(1:nnode)) )
+    xyz_wall = xyz_nodes( 1:3 , pack(intseq(1,nnode),mask=msk(1:nnode)) )
     !
   end if
   !
@@ -3195,7 +3699,7 @@ continue
                        mask=msk(1:nnode) , field=0 )
     !
     ! F2003 AUTO-REALLOC
-    xyz_sem = grid%xyz( 1:3 , sem2node(1:n_sem_pts) )
+    xyz_sem = xyz_nodes( 1:3 , sem2node(1:n_sem_pts) )
     !
     ! Compute the minimum wall distance for all
     ! the boundary nodes on SEM boundaries
@@ -3225,8 +3729,8 @@ continue
   ! inflow boundary conditions that are separated from each SEM boundary.
   !
   n_sem_bc = 0
-  do n = 1,size(bc_input)
-    if (len_trim(adjustl(bc_input(n)%sem%profile_file)) > 0) then
+  do bc_idx = 1,size(bc_input)
+    if (len_trim(adjustl(bc_input(bc_idx)%sem%profile_file)) > 0) then
       n_sem_bc = n_sem_bc + 1
     end if
   end do
@@ -3238,23 +3742,38 @@ continue
   !
   ! Copy bc_input into tmp_bc_input
   !
-  do n = 1,size(bc_input)
-    tmp_bc_input(n) = bc_input(n)
+  do bc_idx = 1,size(bc_input)
+    tmp_bc_input(bc_idx) = bc_input(bc_idx)
+  end do
+  !
+  nbcn = size(bc_names)
+  !
+  allocate ( tmp_bc_names(1:nbcn+n_sem_bc) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_bc_names",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Copy bc_names into tmp_bc_names
+  !
+  do bc_idx = 1,size(bc_names)
+    tmp_bc_names(bc_idx) = bc_names(bc_idx)
   end do
   !
   ! Create the separate subsonic inflow boundary condition for each SEM boundary
   !
   do bc_idx = 1,size(bc_input)
-    if (len_trim(adjustl(bc_input(n)%sem%profile_file)) > 0) then
+    if (len_trim(adjustl(bc_input(bc_idx)%sem%profile_file)) > 0) then
       !
       nbc = nbc + 1
+      nbcn = nbcn + 1
       !
       tmp_bc_input(nbc) = bc_input(bc_idx)
       tmp_bc_input(nbc)%set_bc_value = bc_sub_inflow
       tmp_bc_input(nbc)%name = trim(adjustl(bc_input(bc_idx)%name)) // &
                                " (Subsonic Inflow)"
       !
-      tmp_bc_input(bc_idx)%sem%sub_in_bc_grp = nbc
+      tmp_bc_input(bc_idx)%sem%sub_in_bc_idx = nbc
+      tmp_bc_input(bc_idx)%sem%sub_in_bc_grp = nbcn
+      !
+      tmp_bc_names(nbcn) = trim(adjustl(tmp_bc_input(nbc)%name))
       !
     end if
   end do
@@ -3263,11 +3782,21 @@ continue
   !
   call move_alloc( from=tmp_bc_input , to=bc_input )
   !
+  ! Transfer tmp_bc_names to bc_names
+  !
+  call move_alloc( from=tmp_bc_names , to=bc_names )
+  !
   ! Loop through the boundary faces to find all the boundary faces that are
   ! on an SEM boundary. Check the wall distance of every node for each SEM
   ! boundary face, and change the boundary condition for the boundary face
   ! to a subsonic inflow boundary condition if all the nodes are further from
   ! the nearest wall than the profile height of the SEM boundary profile.
+  !
+ !do bc_idx = 1,size(bc_input)
+ !  write (iout,91) bc_idx,bc_input(bc_idx)%sem%profile_height
+ !end do
+ !write (iout,*)
+ !91 format ("bc_input(",i2,")%sem%profile_height = ",es14.6)
   !
   if (i_am_host_root) then
     !
@@ -3278,9 +3807,11 @@ continue
       !
       nc = ncell + nf
       !
-      bc_idx = bface(5,nf)
+      bc_idx = bface(6,nf)
       !
       profile_height = bc_input(bc_idx)%sem%profile_height
+     !write (iout,92) nf,bc_idx,profile_height
+     !92 format ("nf = ",i4,"; bc_idx = ",i2,"; profile_height = ",es14.6)
       !
       one_pass_loop: &
       do i = 1,1
@@ -3310,6 +3841,7 @@ continue
         !
         bface(1,nf) = bc_sub_inflow
         bface(5,nf) = bc_input(bc_idx)%sem%sub_in_bc_grp
+        bface(6,nf) = bc_input(bc_idx)%sem%sub_in_bc_idx
         !
         if (allocated(grid%elem(nc)%tags)) then
           grid%elem(nc)%tags(1) = bc_sub_inflow
@@ -3346,6 +3878,874 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine separate_sem_boundary_faces
+!
+!###############################################################################
+!
+subroutine output_sem_averages()
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr,n,nvar,num_fp,num_total_sem_pts,sem_idx
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: num_sem_pts(:,:)
+  integer,  allocatable :: num_box_sem_pts(:)
+  integer,  allocatable :: num_my_sem_pts(:)
+  real(wp), allocatable :: my_ave_data(:,:)
+  real(wp), allocatable :: all_ave_data(:,:)
+  !
+  integer(int_mpi), allocatable :: counts(:)
+  integer(int_mpi), allocatable :: offset(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_sem_averages"
+  !
+continue
+  !
+  if (.not. allocated(sem_avg)) return
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Have each MPI process count the number of SEM face points it has
+  ! in each SEM box and save that to its location within num_sem_pts.
+  !
+  num_sem_pts = init_array(num_sem_boxes,ncpu,0) ! F2003 AUTO-REALLOC
+  !
+  do sem_idx = 1,num_sem_boxes
+    num_sem_pts(sem_idx,mypnum+1) = my_sem_pts(sem_idx)%num_fp
+  end do
+  !
+  ! Now gather the number of SEM face points for all MPI processes
+  !
+  if (ncpu > 1) then
+    call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+                       num_sem_pts,int(num_sem_boxes,kind=INT_MPI), &
+                       mpi_inttyp,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+#ifdef DEBUG_SEM
+  if (mypnum == glb_root) then
+    write (iout,*)
+  end if
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  do i = 0,ncpu-1
+    if (mypnum == i) then
+      do sem_idx = 1,num_sem_boxes
+        do n = 1,ncpu
+          write (iout,1) mypnum,sem_idx,n-1,num_sem_pts(sem_idx,n)
+        end do
+      end do
+    end if
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end do
+  1 format (2x,"CPU #",i2," : num_sem_pts(SEM BOX #",i0,",CPU #",i0,") = ",i0)
+#endif
+  !
+  ! Count the total number of SEM face points
+  ! in each box across all MPI processes.
+  !
+  num_box_sem_pts = sum(num_sem_pts,dim=2) ! F2003 AUTO-REALLOC
+  !
+#ifdef DEBUG_SEM
+  if (mypnum == glb_root) then
+    write (iout,*)
+  end if
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  do i = 0,ncpu-1
+    if (mypnum == i) then
+      do sem_idx = 1,num_sem_boxes
+        write (iout,2) mypnum,sem_idx,num_box_sem_pts(sem_idx)
+      end do
+    end if
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end do
+  2 format (2x,"CPU #",i2," : num_box_sem_pts(SEM BOX #",i0,") = ",i0)
+#endif
+  !
+  ! Count the total number of SEM face points
+  ! across all SEM boxes for each MPI process
+  !
+  num_my_sem_pts = sum(num_sem_pts,dim=1) ! F2003 AUTO-REALLOC
+  !
+#ifdef DEBUG_SEM
+  if (mypnum == glb_root) then
+    write (iout,*)
+  end if
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  do i = 0,ncpu-1
+    if (mypnum == i) then
+      do n = 1,ncpu
+        write (iout,3) mypnum,n-1,num_my_sem_pts(n)
+      end do
+    end if
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end do
+  3 format (2x,"CPU #",i2," : num_my_sem_pts(CPU #",i0,") = ",i0)
+#endif
+  !
+  ! Count the total number of SEM face points
+  ! across all SEM boxes and all MPI processes
+  !
+  num_total_sem_pts = sum(num_sem_pts)
+  !
+#ifdef DEBUG_SEM
+  if (mypnum == glb_root) then
+    write (iout,*)
+  end if
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  do i = 0,ncpu-1
+    if (mypnum == i) then
+      write (iout,4) mypnum,num_total_sem_pts
+    end if
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end do
+  4 format (2x,"CPU #",i2," : num_total_sem_pts = ",i0)
+#endif
+  !
+  ! Have all MPI processes fill collect all their SEM averaged values into
+  ! a local array.
+  !
+  nvar = 42
+  !
+  my_ave_data = init_array(nvar,num_my_sem_pts(mypnum+1),zero) ! F03 AUTO-REALOC
+  !
+  call copy_my_sem_ave_data(my_ave_data)
+  !
+  ! Gather all the SEM averaged values on global root process
+  !
+  if (ncpu > 1) then
+    !
+    ! Create the offset and counts for each MPI process
+    !
+    counts = int( nvar*num_my_sem_pts , kind=int_mpi ) ! F2003 AUTO-REALLOC
+    offset = init_array(ncpu,0_int_mpi) ! F2003 AUTO-REALLOC
+    !
+    do n = 2,ncpu
+      offset(n) = offset(n-1) + counts(n-1)
+    end do
+    !
+    ! Allocate the array to collect all the SEM averaged values
+    ! from all SEM face points across all MPI processes.
+    ! NOTE: Only the global root process will allocate this array to the actually
+    !       needed size; all other processes will allocate it such that there is
+    !       only a single SEM face point.
+    !
+    num_fp = merge( num_total_sem_pts , 1 , mypnum == glb_root )
+    !
+    all_ave_data = init_array(nvar,num_fp,zero) ! F2003 AUTO-REALLOC
+    !
+    call mpi_gatherv(my_ave_data,size(my_ave_data,kind=int_mpi),mpi_flttyp, &
+                     all_ave_data,counts,offset,mpi_flttyp, &
+                     glb_root,MPI_COMM_WORLD,mpierr)
+    !
+  else
+    !
+    ! For a single MPI process, simply move the
+    ! local data to the global data array
+    !
+    call move_alloc( from=my_ave_data , to=all_ave_data )
+    !
+  end if
+  !
+  ! Now have the global root process group all the SEM face points by
+  ! their respective SEM boxes so that the averaged data can be output.
+  !
+  if (mypnum == glb_root) then
+    !
+    call write_sem_ave_data(num_sem_pts,all_ave_data)
+    !
+  end if
+  !
+  ! Deallocate local arrays before leaving
+  !
+  if (allocated(all_ave_data)) then
+    deallocate ( all_ave_data , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"all_ave_data",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(my_ave_data)) then
+    deallocate ( my_ave_data , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"my_ave_data",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(counts)) then
+    deallocate ( counts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"counts",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(offset)) then
+    deallocate ( offset , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"offset",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(num_my_sem_pts)) then
+    deallocate ( num_my_sem_pts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"num_my_sem_pts",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(num_box_sem_pts)) then
+    deallocate ( num_box_sem_pts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"num_box_sem_pts",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(num_sem_pts)) then
+    deallocate ( num_sem_pts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"num_sem_pts",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Since only the global root is writing the SEM averages output file,
+  ! throw in an MPI barrier here just in case
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine output_sem_averages
+!
+!###############################################################################
+!
+subroutine write_sem_ave_data(num_sem_pts,all_ave_data)
+  !
+  !.. Use Statements ..
+  use ovar, only : rgasref_nd
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: num_sem_pts(:,:)
+  real(wp), intent(in) :: all_ave_data(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,io,ierr,m,n,n0,nvar,num_fp,sem_idx,cpu_idx
+  real(wp) :: y,z,r,u,v,w,e,t,p,ru,rv,rw,rt
+  real(wp) :: uu,vv,ww,uv,uw,vw,ut,vt,wt
+  real(wp) :: ruu,rvv,rww,ruv,ruw,rvw,rut,rvt,rwt
+  real(wp) :: er,eu,ev,ew,et,ep
+  real(wp) :: r11,r22,r33,r21,r31,r32
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: offset(:,:)
+  real(wp), allocatable :: this_ave(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_sem_ave_data"
+  !
+  character(len=*), parameter :: fname = "sem_ave_inflow.tec.dat"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nvar = 17
+  !
+  ! Create the offset array for each box on each MPI process
+  !
+  offset = init_array(ncpu,num_sem_boxes,0) ! F2003 AUTO-REALLOC
+  !
+  i = 0
+  do cpu_idx = 1,ncpu
+    do sem_idx = 1,num_sem_boxes
+      offset(cpu_idx,sem_idx) = i
+      i = i + num_sem_pts(sem_idx,cpu_idx)
+    end do
+  end do
+  !
+  ! Open the output file
+  !
+  open (newunit=io,file=fname,status="replace",action="write", &
+                   form="formatted",position="rewind", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Write the Tecplot header
+  !
+  write (io,1)
+  !
+  ! Loop over the SEM boxes and write the SEM averaged data for each
+  ! box into a separate Tecplot zone
+  !
+  loop_over_boxes: &
+  do sem_idx = 1,num_sem_boxes
+    !
+    num_fp = sum( num_sem_pts(sem_idx,:) )
+    !
+    ! Allocate the array to collect the averaged data for the current SEM box
+    !
+    this_ave = init_array(nvar,num_fp,zero) ! F2003 AUTO-REALLOC
+    !
+    !############################################################
+    !############################################################
+    !#####  OUTPUT THE AVERAGED SEM DATA TO A TECPLOT ZONE  #####
+    !############################################################
+    !############################################################
+    !
+    i = 0
+    !
+    loop_over_cpus_ave: &
+    do cpu_idx = 1,ncpu
+      !
+      n0 = offset(cpu_idx,sem_idx)
+      !
+      loop_over_cpu_pts_ave: &
+      do n = 1,num_sem_pts(sem_idx,cpu_idx)
+        !
+        i = i + 1
+        !
+        y   = all_ave_data( 1,n0+n)
+        z   = all_ave_data( 2,n0+n)
+        !
+        r   = all_ave_data( 3,n0+n)
+        ru  = all_ave_data( 4,n0+n)
+        rv  = all_ave_data( 5,n0+n)
+        rw  = all_ave_data( 6,n0+n)
+        e   = all_ave_data( 7,n0+n)
+        !
+        t   = all_ave_data( 8,n0+n)
+        u   = all_ave_data( 9,n0+n)
+        v   = all_ave_data(10,n0+n)
+        w   = all_ave_data(11,n0+n)
+        p   = all_ave_data(12,n0+n)
+        !
+        uu  = all_ave_data(13,n0+n)
+        vv  = all_ave_data(14,n0+n)
+        ww  = all_ave_data(15,n0+n)
+        uv  = all_ave_data(16,n0+n)
+        uw  = all_ave_data(17,n0+n)
+        vw  = all_ave_data(18,n0+n)
+        !
+        ut  = all_ave_data(19,n0+n)
+        vt  = all_ave_data(20,n0+n)
+        wt  = all_ave_data(21,n0+n)
+        rt  = all_ave_data(22,n0+n)
+        !
+        ruu = all_ave_data(23,n0+n)
+        rvv = all_ave_data(24,n0+n)
+        rww = all_ave_data(25,n0+n)
+        ruv = all_ave_data(26,n0+n)
+        ruw = all_ave_data(27,n0+n)
+        rvw = all_ave_data(28,n0+n)
+        !
+        rut = all_ave_data(29,n0+n)
+        rvt = all_ave_data(30,n0+n)
+        rwt = all_ave_data(31,n0+n)
+        !
+        this_ave( 1,i) = z
+        this_ave( 2,i) = y
+        !
+        this_ave( 3,i) = r
+        this_ave( 4,i) = u
+        this_ave( 5,i) = v
+        this_ave( 6,i) = w
+        this_ave( 7,i) = t
+        this_ave( 8,i) = p
+        !
+        this_ave( 9,i) = uu - u*u
+        this_ave(10,i) = vv - v*v
+        this_ave(11,i) = ww - w*w
+        this_ave(12,i) = uv - u*v
+        this_ave(13,i) = uw - u*w
+        this_ave(14,i) = vw - v*w
+        !
+        this_ave(15,i) = sqrt( max( zero , uu - u*u ) )
+        this_ave(16,i) = sqrt( max( zero , vv - v*v ) )
+        this_ave(17,i) = sqrt( max( zero , ww - w*w ) )
+        !
+      end do loop_over_cpu_pts_ave
+      !
+    end do loop_over_cpus_ave
+    !
+    ! Dimensionalize the averaged data
+    !
+    call dimensionalize_sem_ave(this_ave)
+    !
+    ! Write the zone header for this SEM box
+    !
+    write (io,2) sem_idx,"Averaged",num_fp
+    !
+    ! Write the SEM averaged data for this SEM box
+    !
+    do m = 1,nvar
+      write (io,3) (this_ave(m,i), i=1,num_fp)
+    end do
+    !
+    !############################################################
+    !############################################################
+    !#####  OUTPUT THE EXACT SEM PROFILE TO A TECPLOT ZONE  #####
+    !############################################################
+    !############################################################
+    !
+    i = 0
+    !
+    loop_over_cpus_prof: &
+    do cpu_idx = 1,ncpu
+      !
+      n0 = offset(cpu_idx,sem_idx)
+      !
+      loop_over_cpu_pts_prof: &
+      do n = 1,num_sem_pts(sem_idx,cpu_idx)
+        !
+        i = i + 1
+        !
+        y   = all_ave_data( 1,n0+n)
+        z   = all_ave_data( 2,n0+n)
+        !
+        r   = all_ave_data(32,n0+n)
+        u   = all_ave_data(33,n0+n)
+        v   = all_ave_data(34,n0+n)
+        w   = all_ave_data(35,n0+n)
+        t   = all_ave_data(36,n0+n)
+        p   = r*rgasref_nd*t
+        !
+        uu  = all_ave_data(37,n0+n)
+        vv  = all_ave_data(38,n0+n)
+        ww  = all_ave_data(39,n0+n)
+        uv  = all_ave_data(40,n0+n)
+        uw  = all_ave_data(41,n0+n)
+        vw  = all_ave_data(42,n0+n)
+        !
+        this_ave( 1,i) = z
+        this_ave( 2,i) = y
+        !
+        this_ave( 3,i) = r
+        this_ave( 4,i) = u
+        this_ave( 5,i) = v
+        this_ave( 6,i) = w
+        this_ave( 7,i) = t
+        this_ave( 8,i) = p
+        !
+        this_ave( 9,i) = uu
+        this_ave(10,i) = vv
+        this_ave(11,i) = ww
+        this_ave(12,i) = uv
+        this_ave(13,i) = uw
+        this_ave(14,i) = vw
+        !
+        this_ave(15,i) = sqrt( max( zero , uu ) )
+        this_ave(16,i) = sqrt( max( zero , vv ) )
+        this_ave(17,i) = sqrt( max( zero , ww ) )
+        !
+      end do loop_over_cpu_pts_prof
+      !
+    end do loop_over_cpus_prof
+    !
+    ! Dimensionalize the averaged data
+    !
+    call dimensionalize_sem_ave(this_ave)
+    !
+    ! Write the zone header for this SEM box
+    !
+    write (io,2) sem_idx,"Profile",num_fp
+    !
+    ! Write the SEM averaged data for this SEM box
+    !
+    do m = 1,nvar
+      write (io,3) (this_ave(m,i), i=1,num_fp)
+    end do
+    !
+    !##############################################################
+    !##############################################################
+    !#####   OUTPUT THE DIFFERENCE BETWEEN THE AVERAGED SEM   #####
+    !#####  DATA AND THE EXACT SEM PROFILE TO A TECPLOT ZONE  #####
+    !##############################################################
+    !##############################################################
+    !
+    i = 0
+    !
+    loop_over_cpus_diff: &
+    do cpu_idx = 1,ncpu
+      !
+      n0 = offset(cpu_idx,sem_idx)
+      !
+      loop_over_cpu_pts_diff: &
+      do n = 1,num_sem_pts(sem_idx,cpu_idx)
+        !
+        i = i + 1
+        !
+        y   = all_ave_data( 1,n0+n)
+        z   = all_ave_data( 2,n0+n)
+        !
+        r   = all_ave_data( 3,n0+n)
+        ru  = all_ave_data( 4,n0+n)
+        rv  = all_ave_data( 5,n0+n)
+        rw  = all_ave_data( 6,n0+n)
+        e   = all_ave_data( 7,n0+n)
+        !
+        t   = all_ave_data( 8,n0+n)
+        u   = all_ave_data( 9,n0+n)
+        v   = all_ave_data(10,n0+n)
+        w   = all_ave_data(11,n0+n)
+        p   = all_ave_data(12,n0+n)
+        !
+        uu  = all_ave_data(13,n0+n)
+        vv  = all_ave_data(14,n0+n)
+        ww  = all_ave_data(15,n0+n)
+        uv  = all_ave_data(16,n0+n)
+        uw  = all_ave_data(17,n0+n)
+        vw  = all_ave_data(18,n0+n)
+        !
+        er  = all_ave_data(32,n0+n)
+        eu  = all_ave_data(33,n0+n)
+        ev  = all_ave_data(34,n0+n)
+        ew  = all_ave_data(35,n0+n)
+        et  = all_ave_data(36,n0+n)
+        ep  = er*rgasref_nd*et
+        !
+        r11 = all_ave_data(37,n0+n)
+        r22 = all_ave_data(38,n0+n)
+        r33 = all_ave_data(39,n0+n)
+        r21 = all_ave_data(40,n0+n)
+        r31 = all_ave_data(41,n0+n)
+        r32 = all_ave_data(42,n0+n)
+        !
+        this_ave( 1,i) = z
+        this_ave( 2,i) = y
+        !
+        this_ave( 3,i) = r - er
+        this_ave( 4,i) = u - eu
+        this_ave( 5,i) = v - ev
+        this_ave( 6,i) = w - ew
+        this_ave( 7,i) = t - et
+        this_ave( 8,i) = p - ep
+        !
+        this_ave( 9,i) = (uu - u*u) - r11
+        this_ave(10,i) = (vv - v*v) - r22
+        this_ave(11,i) = (ww - w*w) - r33
+        this_ave(12,i) = (uv - u*v) - r21
+        this_ave(13,i) = (uw - u*w) - r31
+        this_ave(14,i) = (vw - v*w) - r32
+        !
+        this_ave(15,i) = sqrt(max( zero , uu - u*u )) - sqrt(max(zero,r11))
+        this_ave(16,i) = sqrt(max( zero , vv - v*v )) - sqrt(max(zero,r22))
+        this_ave(17,i) = sqrt(max( zero , ww - w*w )) - sqrt(max(zero,r33))
+        !
+      end do loop_over_cpu_pts_diff
+      !
+    end do loop_over_cpus_diff
+    !
+    ! Dimensionalize the averaged data
+    !
+    call dimensionalize_sem_ave(this_ave)
+    !
+    ! Write the zone header for this SEM box
+    !
+    write (io,2) sem_idx,"Averaged-Profile",num_fp
+    !
+    ! Write the SEM averaged data for this SEM box
+    !
+    do m = 1,nvar
+      write (io,3) (this_ave(m,i), i=1,num_fp)
+    end do
+    !
+  end do loop_over_boxes
+  !
+  ! Close the output file
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Deallocate local arrays before leaving
+  !
+  if (allocated(this_ave)) then
+    deallocate ( this_ave , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"this_ave",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(offset)) then
+    deallocate ( offset , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"offset",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ('VARIABLES = "Z"',/, &
+            '"Y"',/, &
+            '"<greek>r</greek>"',/, &
+            '"U"',/, &
+            '"V"',/, &
+            '"W"',/, &
+            '"T"',/, &
+            '"P"',/, &
+            '"u<math>\\034</math>u<math>\\034</math>" ',/, &
+            '"v<math>\\034</math>v<math>\\034</math>" ',/, &
+            '"w<math>\\034</math>w<math>\\034</math>" ',/, &
+            '"u<math>\\034</math>v<math>\\034</math>" ',/, &
+            '"u<math>\\034</math>w<math>\\034</math>" ',/, &
+            '"v<math>\\034</math>w<math>\\034</math>" ',/, &
+            '"u<math>\\034</math>" ',/, &
+            '"v<math>\\034</math>" ',/, &
+            '"w<math>\\034</math>" ')
+  2 format ('ZONE T="SEM BC #',i0,' (',a,')", I=',i0,', DATAPACKING=BLOCK')
+  3 format (6es14.6)
+  !
+end subroutine write_sem_ave_data
+!
+!###############################################################################
+!
+pure &
+subroutine copy_my_sem_ave_data(my_ave_data)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: my_ave_data(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,n,sem_idx
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "copy_my_sem_ave_data"
+  !
+continue
+  !
+  i = 0
+  do sem_idx = 1,num_sem_boxes
+    do n = 1,my_sem_pts(sem_idx)%num_fp
+      !
+      i = i + 1
+      !
+      my_ave_data( 1,i) = my_sem_pts(sem_idx)%sem_fp(n)%y
+      my_ave_data( 2,i) = my_sem_pts(sem_idx)%sem_fp(n)%z
+      !
+      my_ave_data( 3,i) = sem_avg(sem_idx)%fp_avg(n)%r
+      my_ave_data( 4,i) = sem_avg(sem_idx)%fp_avg(n)%ru
+      my_ave_data( 5,i) = sem_avg(sem_idx)%fp_avg(n)%rv
+      my_ave_data( 6,i) = sem_avg(sem_idx)%fp_avg(n)%rw
+      my_ave_data( 7,i) = sem_avg(sem_idx)%fp_avg(n)%e
+      !
+      my_ave_data( 8,i) = sem_avg(sem_idx)%fp_avg(n)%t
+      my_ave_data( 9,i) = sem_avg(sem_idx)%fp_avg(n)%u
+      my_ave_data(10,i) = sem_avg(sem_idx)%fp_avg(n)%v
+      my_ave_data(11,i) = sem_avg(sem_idx)%fp_avg(n)%w
+      my_ave_data(12,i) = sem_avg(sem_idx)%fp_avg(n)%p
+      !
+      my_ave_data(13,i) = sem_avg(sem_idx)%fp_avg(n)%uu
+      my_ave_data(14,i) = sem_avg(sem_idx)%fp_avg(n)%vv
+      my_ave_data(15,i) = sem_avg(sem_idx)%fp_avg(n)%ww
+      my_ave_data(16,i) = sem_avg(sem_idx)%fp_avg(n)%uv
+      my_ave_data(17,i) = sem_avg(sem_idx)%fp_avg(n)%uw
+      my_ave_data(18,i) = sem_avg(sem_idx)%fp_avg(n)%vw
+      !
+      my_ave_data(19,i) = sem_avg(sem_idx)%fp_avg(n)%ut
+      my_ave_data(20,i) = sem_avg(sem_idx)%fp_avg(n)%vt
+      my_ave_data(21,i) = sem_avg(sem_idx)%fp_avg(n)%wt
+      my_ave_data(22,i) = sem_avg(sem_idx)%fp_avg(n)%rt
+      !
+      my_ave_data(23,i) = sem_avg(sem_idx)%fp_avg(n)%ruu
+      my_ave_data(24,i) = sem_avg(sem_idx)%fp_avg(n)%rvv
+      my_ave_data(25,i) = sem_avg(sem_idx)%fp_avg(n)%rww
+      my_ave_data(26,i) = sem_avg(sem_idx)%fp_avg(n)%ruv
+      my_ave_data(27,i) = sem_avg(sem_idx)%fp_avg(n)%ruw
+      my_ave_data(28,i) = sem_avg(sem_idx)%fp_avg(n)%rvw
+      !
+      my_ave_data(29,i) = sem_avg(sem_idx)%fp_avg(n)%rut
+      my_ave_data(30,i) = sem_avg(sem_idx)%fp_avg(n)%rvt
+      my_ave_data(31,i) = sem_avg(sem_idx)%fp_avg(n)%rwt
+      !
+      my_ave_data(32,i) = my_sem_pts(sem_idx)%sem_fp(n)%ravg
+      my_ave_data(33,i) = my_sem_pts(sem_idx)%sem_fp(n)%uavg
+      my_ave_data(34,i) = my_sem_pts(sem_idx)%sem_fp(n)%vavg
+      my_ave_data(35,i) = my_sem_pts(sem_idx)%sem_fp(n)%wavg
+      my_ave_data(36,i) = my_sem_pts(sem_idx)%sem_fp(n)%tavg
+      !
+      my_ave_data(37,i) = my_sem_pts(sem_idx)%sem_fp(n)%r11
+      my_ave_data(38,i) = my_sem_pts(sem_idx)%sem_fp(n)%r22
+      my_ave_data(39,i) = my_sem_pts(sem_idx)%sem_fp(n)%r33
+      my_ave_data(40,i) = my_sem_pts(sem_idx)%sem_fp(n)%r21
+      my_ave_data(41,i) = my_sem_pts(sem_idx)%sem_fp(n)%r31
+      my_ave_data(42,i) = my_sem_pts(sem_idx)%sem_fp(n)%r32
+      !
+    end do
+  end do
+  !
+end subroutine copy_my_sem_ave_data
+!
+!###############################################################################
+!
+pure &
+subroutine dimensionalize_sem_ave(this_ave)
+  !
+  !.. Use Statements ..
+  use ovar, only : rhoref,aref,tref
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: this_ave(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,npts
+  real(wp) :: aref2,rhoa2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "dimensionalize_sem_ave"
+  !
+continue
+  !
+  npts = size(this_ave,dim=2)
+  !
+  aref2 = aref * aref
+  rhoa2 = rhoref * aref2
+  !
+  do n = 1,npts
+    !
+    this_ave( 3,n) = this_ave( 3,n) * rhoref
+    this_ave( 4,n) = this_ave( 4,n) * aref
+    this_ave( 5,n) = this_ave( 5,n) * aref
+    this_ave( 6,n) = this_ave( 6,n) * aref
+    this_ave( 7,n) = this_ave( 7,n) * tref
+    this_ave( 8,n) = this_ave( 8,n) * rhoa2
+    !
+    this_ave( 9,n) = this_ave( 9,n) * aref2
+    this_ave(10,n) = this_ave(10,n) * aref2
+    this_ave(11,n) = this_ave(11,n) * aref2
+    this_ave(12,n) = this_ave(12,n) * aref2
+    this_ave(13,n) = this_ave(13,n) * aref2
+    this_ave(14,n) = this_ave(14,n) * aref2
+    !
+    this_ave(15,n) = this_ave(15,n) * aref
+    this_ave(16,n) = this_ave(16,n) * aref
+    this_ave(17,n) = this_ave(17,n) * aref
+    !
+  end do
+  !
+end subroutine dimensionalize_sem_ave
+!
+!###############################################################################
+!
+subroutine output_bface
+  !
+  !.. Use Statements ..
+  use geovar, only : bface,face
+  !
+  !.. Local Scalars ..
+  integer :: i,ii,n,nf,maxint,myio,ierr
+  character(len=100) :: write_format
+  character(len=100) :: file_format
+  character(len=100) :: my_file
+  !
+  !.. Local Arrays ..
+  integer :: intlen(1:size(bface,dim=1)+1)
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: tmp_bface(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_bface"
+  !
+continue
+  !
+  tmp_bface = bface ! F2003 AUTO-REALLOC
+  !
+ !do nf = 1,size(bface,dim=2)
+ !  !
+ !  ii = huge(0)
+ !  do i = 1,size(bface,dim=2)
+ !    if (bface(1,i) < 0) cycle
+ !    if (bface(2,i) < ii) then
+ !      ii = bface(2,i)
+ !      n = i
+ !    end if
+ !  end do
+ ! !n = minloc(bface(2,:),dim=1,mask=bface(1,:)<0)
+ !  !
+ !  tmp_bface(:,nf) = bface(:,n)
+ !  bface(1,n) = -abs(bface(1,n))
+ !  write (iout,'("nf,n = ",i0,", ",i0,", ",i0)') nf,n,bface(2,n)
+ !  !
+ !end do
+ !!
+ !bface(1,:) = abs(bface(1,:))
+  !
+  ! Get the maximum length of the string containing the name of the BC types
+  !
+  intlen(1) = maxval( len_trim( bc_integer_to_string(tmp_bface(1,:)) ) )
+  !
+  do i = 1,size(intlen)-1
+    n = 1
+    maxint = maxval(tmp_bface(i,:))
+    check_bface_size: do
+      if (maxint/(10**n) == 0) then
+        intlen(i+1) = n+1
+        exit check_bface_size
+      else
+        n = n + 1
+        cycle check_bface_size
+      end if
+    end do check_bface_size
+  end do
+  !
+  ! Primary write of the format statement which has an unlimited
+  ! '*' repetition multiplier on the last quantity to allow for
+  ! an arbitrarily large number of values contained in intlen.
+  ! The ":" within the part that is unlimitedly repeated serves
+  ! to terminate the format statement at that point preventing
+  ! it from going back and adding on an extra ',3x,i' at the end.
+  !
+  write (write_format,1) (intlen(i),i=1,size(intlen))
+ !write (iout,'(a,a,a)') "write_format = '",trim(write_format),"'"
+  !
+  ! Finally, add on the parentheses to the format statement
+  !
+  write (write_format,2) trim(write_format)
+ !write (iout,'(a,a,a)') "write_format = '",trim(write_format),"'"
+  !
+  ! Get the number of digits of the integer for the number of cpus
+  !
+  n = 1
+  check_ncpu_size: do
+    if (ncpu/(10**n) == 0) then
+      write (file_format,3) n
+      exit check_ncpu_size
+    else
+      n = n + 1
+      cycle check_ncpu_size
+    end if
+  end do check_ncpu_size
+  !
+  ! Create the name of the output file
+  !
+  write (my_file,fmt=trim(file_format)) mypnum
+  !
+  ! Open the output file
+  !
+  open (newunit=myio,file=trim(my_file),status="replace",action="write", &
+                     form="formatted",position="rewind", &
+                     iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(my_file),1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Output the bface array
+  !
+  do n = 1,size(tmp_bface,dim=2)
+    write (myio,fmt=trim(write_format)) &
+                               trim(bc_integer_to_string(tmp_bface(1,n))), &
+                                   (tmp_bface(i,n),i=1,size(tmp_bface,dim=1))
+  end do
+  !
+  ! Close the output file
+  !
+  close (myio,iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(my_file),2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Format Statements
+  !
+  1 format ('a',i0,',i',i0,',": ",1x,i',i0,',1x,i',i0,',1x,i',i0, &
+            ',5x,1x,i',i0,',1x,i',i0,',1x,i',i0,',1x,i',i0,',1x,i',i0, &
+            100(',3x,i',i0,:))
+           !*(',3x,i',i0,:))
+  2 format ('(',a,')')
+  3 format ('("sem_bface.",i0.',i0,',".dat")')
+  !
+end subroutine output_bface
 !
 !###############################################################################
 !
