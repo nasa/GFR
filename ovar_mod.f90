@@ -220,8 +220,6 @@ module ovar
   integer,          public, save :: solution_format = Unknown_Format
   character(len=:), public, save, allocatable :: solution_file
   !
-  ! PROFILE FILE FOR SEM TURBULENCE INFLOW GENERATOR
-  character(len=:), public, save, allocatable :: sem_profile_file
   !
   ! STATISTICAL OUTPUT OPTIONS
   integer, public, save :: iter_out_interval = 1
@@ -1054,7 +1052,6 @@ module input_namelist_mod
   use ovar,      only : output_extra_species_variables
   use ovar,      only : output_debug_species_variables
   use ovar,      only : output_grdnt_species_variables
-  use ovar,      only : sem_profile_file
   use ovar,      only : force_nd_subroutines, newton_rlx, conv_temp
   use ovar,      only : chemistry_sub_iterations
   use ovar,      only : ignore_thermo_newton_warnings
@@ -1130,8 +1127,6 @@ module input_namelist_mod
                      restart_output_uses_host_roots
   ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
   namelist / input / solution_format, solution_file
-  ! PROFILE FILE FOR SEM TURBULENCE INFLOW GENERATOR
-  namelist / input / sem_profile_file
   ! STATISTICAL OUTPUT OPTIONS
   namelist / input / iter_out_interval, results_interval
   ! SOLUTION OUTPUT OPTIONS
@@ -1337,12 +1332,6 @@ continue
                      ierr,error_message)
   end if
   !
-  if (allocated(sem_profile_file)) then
-    deallocate ( sem_profile_file , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"sem_profile_file",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
   if (allocated(output_dir)) then
     deallocate ( output_dir , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"output_dir",2,__LINE__,__FILE__,ierr,error_message)
@@ -1432,11 +1421,6 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"solution_file",1,__LINE__,__FILE__,ierr,error_message)
   !
-  allocate ( character(len=default_len) :: sem_profile_file , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"sem_profile_file",1,__LINE__,__FILE__, &
-                   ierr,error_message)
-  !
   allocate ( character(len=default_len) :: output_dir , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"output_dir",1,__LINE__,__FILE__,ierr,error_message)
@@ -1472,7 +1456,6 @@ continue
   write (interpto_plot3d_bcsfile,blanks)
   write (restart_file,blanks)
   write (solution_file,blanks)
-  write (sem_profile_file,blanks)
   write (output_dir,blanks)
   write (channel_init_file,blanks)
   write (lustre_stripe_size,blanks)
@@ -1544,7 +1527,6 @@ continue
   interpto_plot3d_bcsfile = trim(adjustl(interpto_plot3d_bcsfile))
   restart_file = trim(adjustl(restart_file))
   solution_file = trim(adjustl(solution_file))
-  sem_profile_file = trim(adjustl(sem_profile_file))
   output_dir = trim(adjustl(output_dir))
   channel_init_file = trim(adjustl(channel_init_file))
   lustre_stripe_size = trim(adjustl(lustre_stripe_size))
