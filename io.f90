@@ -1508,7 +1508,6 @@ continue
     end if
   end if
   !
-  !
   ! Create the equation indices now that we know the dimension of the grid
   !
   call create_equation_indices(nr,itestcase)
@@ -1518,6 +1517,11 @@ continue
   !
   call initialize_reference
   call check_for_bad_number(__LINE__,__FILE__)
+  !
+  ! Alter bface due to the input boundary conditions
+  ! NOTE: This will apply the correct BC to bface(1,:) and fill bface(6,:)
+  !
+  call apply_bc_input_to_bface
   !
   ! Before doing anything with the boundary conditions, check to see if
   ! there are any SEM boundary conditions. If there are any, read in the
@@ -1575,6 +1579,59 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_grid_file
+!
+!###############################################################################
+!
+subroutine apply_bc_input_to_bface()
+  !
+  !.. Use Statements ..
+  use geovar, only : bface
+  use ovar,   only : bc_input,bc_names
+  !
+  !.. Local Scalars ..
+  integer :: n,nf
+  !
+  character(len=32) :: bcnam,bcinp
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "apply_bc_input_to_bface"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  do n = 1,size(bc_input)
+    !
+    bface_loop: do nf = 1,size(bface,dim=2)
+      !
+      if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
+      !
+      bcnam = trim(adjustl( uppercase( bc_names(bface(5,nf)) ) ))
+      bcinp = trim(adjustl( uppercase( bc_input(n)%name      ) ))
+      !
+      if (bcnam == bcinp) then
+        !
+        ! Save the index for this boundary condition
+        ! within the bc_in array to bface(6,:)
+        !
+        bface(6,nf) = n
+        !
+        ! Force the boundary condition to that specified in the input file
+        ! if the value of set_bc_value is not equal to bc_unknown
+        !
+        if (bc_input(n)%set_bc_value /= bc_unknown) then
+          bface(1,nf) = bc_input(n)%set_bc_value
+        end if
+        !
+      end if
+      !
+    end do bface_loop
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine apply_bc_input_to_bface
 !
 !###############################################################################
 !
@@ -7193,10 +7250,15 @@ continue
   !
   ! Open the CGNS solution file if iflag is 1
   !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  write (iout,*) trim(adjustl(cgns_sol_file))
   call cgns_timer(start_cgns_file_timer,profile_io_cgns_subs,cgns_sol_file)
+  write (iout,*) "here 1"
   !
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
+  write (iout,*) "here 2"
   call cgp_open_f(cgns_sol_file,CG_MODE_WRITE,ifile_s,cgierr)
+  write (iout,*) "here 3"
   call io_error(pname,cgns_sol_file,1,__LINE__,__FILE__,cgierr)
   call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
   !
