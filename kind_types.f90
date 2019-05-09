@@ -805,6 +805,9 @@ module module_kind_types
   ! working integer precision
   _MPI_DATA_TYPE_, protected, save :: mpi_inttyp
   !
+  character(len=*), parameter :: dbg_mpi_frmt = &
+                              '("CPU-",i0," : ",a," at line ",i0," in file ",a)'
+  !
   logical(lk), private, save :: random_is_initialized = fals
   !
   ! Definition of 1 Work Unit using TauBench Benchmark Test
