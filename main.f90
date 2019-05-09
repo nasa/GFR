@@ -165,6 +165,8 @@ program GFR_main
   use averaging_mod, only : update_time_ave
   use averaging_mod, only : average_restart_files
   !
+  use synthetic_eddy_mod, only : output_sem_averages
+  !
   use interpsol_mod, only : mv_global_to_grid2
   use interpsol_mod, only : mv_grid2_to_global
   use interpsol_mod, only : interpsol
@@ -1338,6 +1340,8 @@ continue
   else
     call write_parallel_cgns(close_CGNS)
   end if
+  !
+  call output_sem_averages()
   !
   if (.not. ignore_errors) then
     !
