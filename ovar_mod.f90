@@ -48,6 +48,7 @@ module ovar
     real(wp) :: profile_height = zero
     character(len=150) :: profile_file = ""
     integer  :: sub_in_bc_grp = 0
+    integer  :: sub_in_bc_idx = 0
   end type sem_bc_t
   !
   type, public :: bc_input_t
