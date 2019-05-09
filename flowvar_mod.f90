@@ -13,6 +13,7 @@ module flowvar
   use module_kind_types, only : skip_alloc_pause
   use module_kind_types, only : error_message
   use module_kind_types, only : Geom_Edge
+  use module_kind_types, only : bc_sem
   !
   implicit none
   !
@@ -254,7 +255,7 @@ subroutine allocate_flowvar_arrays()
   !.. Use Statements ..
   use eqn_idx,   only : nq,ng,npres,ntemp,ngamm,ncs
   use geovar,    only : nr,n_solpts,n_totpts
-  use geovar,    only : nfbnd,nface,face
+  use geovar,    only : nfbnd,nface,face,bface
   use geovar,    only : nnode,nedge,edge
   use order_mod, only : geom_solpts
   use ovar,      only : Runge_Kutta_Scheme,num_rk_stages,mms_opt
@@ -297,6 +298,14 @@ continue
   ! these other arrays so return out of here
   !
   if (time_average_restart_files) return
+  !
+  if (any(bface(1,:) == bc_sem)) then
+    if (.not. allocated(facexyz_dt)) then
+      allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
+  end if
   !
   if (ncs > 0) then
     if (allocated(facexyz_dt)) then
