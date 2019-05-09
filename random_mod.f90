@@ -80,12 +80,7 @@ continue
   !if (mypnum == glb_root) write (iout,*) 'isize = ',isize
   iseed = spread(0,dim=1,ncopies=isize) ! F2003 AUTO-REALLOC
   !
-  if (mypnum == glb_root) then
-    call random_seed( get=iseed )
-  end if
-  !
-  call mpi_bcast(iseed,size(iseed,kind=int_mpi),mpi_inttyp, &
-                 glb_root,MPI_COMM_WORLD,mpierr)
+  call random_seed( get=iseed )
   !
 end subroutine get_random_seed
 !
