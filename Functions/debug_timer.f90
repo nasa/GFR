@@ -33,7 +33,7 @@ subroutine debug_timer(time_flag,message,processor,part_num,acc,pid)
   !
 continue
   !
-  output_cpu = 0
+  output_cpu = glb_root
  !output_cpu = mypnum
   if (present(processor)) output_cpu = processor
   output_id = mypnum
