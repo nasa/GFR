@@ -220,6 +220,8 @@ module ovar
   integer,          public, save :: solution_format = Unknown_Format
   character(len=:), public, save, allocatable :: solution_file
   !
+  ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
+  logical(lk), public, save :: average_sem_inflow_plane = fals
   !
   ! STATISTICAL OUTPUT OPTIONS
   integer, public, save :: iter_out_interval = 1
@@ -1052,6 +1054,7 @@ module input_namelist_mod
   use ovar,      only : output_extra_species_variables
   use ovar,      only : output_debug_species_variables
   use ovar,      only : output_grdnt_species_variables
+  use ovar,      only : average_sem_inflow_plane
   use ovar,      only : force_nd_subroutines, newton_rlx, conv_temp
   use ovar,      only : chemistry_sub_iterations
   use ovar,      only : ignore_thermo_newton_warnings
@@ -1127,6 +1130,8 @@ module input_namelist_mod
                      restart_output_uses_host_roots
   ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
   namelist / input / solution_format, solution_file
+  ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
+  namelist / input / average_sem_inflow_plane
   ! STATISTICAL OUTPUT OPTIONS
   namelist / input / iter_out_interval, results_interval
   ! SOLUTION OUTPUT OPTIONS
