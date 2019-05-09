@@ -616,7 +616,9 @@ continue
       !
       edge_pts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
       if (nr > 1) then
-        tria_pts = std_elem(Geom_Tria,this_order)%pts      ! F2003 AUTO-REALLOC
+        if (allocated(std_elem(Geom_Tria,this_order)%pts)) then
+          tria_pts = std_elem(Geom_Tria,this_order)%pts  ! F2003 AUTO-REALLOC
+        end if
       end if
       !
       select case (this_geom)
