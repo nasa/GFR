@@ -221,6 +221,9 @@ module ovar
   integer,          public, save :: solution_format = Unknown_Format
   character(len=:), public, save, allocatable :: solution_file
   !
+  ! OPTIONS FOR SEM
+  logical(lk), public, save :: use_improved_SEM_normalization = fals
+  !
   ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
   logical(lk), public, save :: average_sem_inflow_plane = fals
   !
@@ -1055,6 +1058,7 @@ module input_namelist_mod
   use ovar,      only : output_extra_species_variables
   use ovar,      only : output_debug_species_variables
   use ovar,      only : output_grdnt_species_variables
+  use ovar,      only : use_improved_SEM_normalization
   use ovar,      only : average_sem_inflow_plane
   use ovar,      only : force_nd_subroutines, newton_rlx, conv_temp
   use ovar,      only : chemistry_sub_iterations
@@ -1131,6 +1135,8 @@ module input_namelist_mod
                      restart_output_uses_host_roots
   ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
   namelist / input / solution_format, solution_file
+  ! OPTIONS FOR SEM
+  namelist / input / use_improved_SEM_normalization
   ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
   namelist / input / average_sem_inflow_plane
   ! STATISTICAL OUTPUT OPTIONS
