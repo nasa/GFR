@@ -425,6 +425,49 @@ continue
   ! to the inflow velocity profile
   !-----------------------------------------------------------------------
   !
+#ifdef DEBUG_SEM_EDDY_INFO
+  do sem_idx = 1,num_sem_boxes
+    !
+    boxvol  = sem_box(sem_idx)%box_volume
+   !lturb   = sem_box(sem_idx)%length_scale
+    num_eddies = sem_box(sem_idx)%num_eddies
+    !
+    lturb = sem_box(sem_idx)%length_scale
+    !
+    c0 = boxvol/real(num_eddies,kind=wp)
+    !
+    do eddy_idx = 1,num_eddies
+      !
+      eix = sem_box(sem_idx)%eddy(eddy_idx)%x_intensity
+      eiy = sem_box(sem_idx)%eddy(eddy_idx)%y_intensity
+      eiz = sem_box(sem_idx)%eddy(eddy_idx)%z_intensity
+      !
+      elx = one/sem_box(sem_idx)%eddy(eddy_idx)%x_frequency
+      ely = one/sem_box(sem_idx)%eddy(eddy_idx)%y_frequency
+      elz = one/sem_box(sem_idx)%eddy(eddy_idx)%z_frequency
+      !
+      eddy_vol = sem_box(sem_idx)%eddy(eddy_idx)%volume
+      !
+      write (iout,61) sem_idx,eddy_idx, &
+                      boxvol,num_eddies,c0, &
+                      lturb,elx,ely,elz, &
+                      elx*ely*elz,one/(eddy_vol*eddy_vol), &
+                      eix,eiy,eiz
+      !
+    end do
+    !
+  end do
+  !
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"After writing eddy info.")
+  61 format ("SEM Box # ",i0,", Eddy # ",i4,/, &
+             2x,"Box volume = ",es14.6,/, &
+             2x,"num_eddies = ",i0,/, &
+             2x,"        c0 = ",es14.6,/, &
+             2x,"Length Scale [Box,Eddy-x,y,z]: ",4es14.6,/, &
+             2x,"Eddy Volume [l^3,eddy_vol]: ",2es14.6,/, &
+             2x,"Eddy Intensities [x,y,z]: ",3es14.6,/)
+#endif
+  !
   loop_over_my_sem_boxes: &
   do sem_idx = 1,num_sem_boxes
     !
