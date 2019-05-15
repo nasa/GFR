@@ -562,9 +562,15 @@ continue
         !
         running_ave = c1*ave + (one-c1)*running_ave
         !
-        ufluc2 = ufluc / sqrt(running_ave)
-        vfluc2 = vfluc / sqrt(running_ave)
-        wfluc2 = wfluc / sqrt(running_ave)
+        ufluc2 = zero
+        vfluc2 = zero
+        wfluc2 = zero
+        !
+        if (ufluc /= zero) ufluc2 = ufluc / sqrt(running_ave)
+        if (vfluc /= zero) vfluc2 = vfluc / sqrt(running_ave)
+        if (wfluc /= zero) wfluc2 = wfluc / sqrt(running_ave)
+        !
+        my_sem_pts(sem_idx)%sem_fp(n)%running_ave = running_ave
         !
       else
         !
