@@ -201,7 +201,7 @@ module synthetic_eddy_mod
     real(wp) :: y_frequency = zero
     real(wp) :: z_frequency = zero
     ! VOLUME : eddy effective volume
-    !          NOTE: The eddy volume is stored as [1/sqrt(eddy volume)] because
+    !          NOTE: The eddy volume is stored as [1/(eddy volume)] because
     !                that is the only way it appears in the equations in which
     !                it is used.
     real(wp) :: volume = zero
@@ -435,11 +435,11 @@ continue
     ! shape/tent function that can be factored out of the summation
     ! over the eddies.
    !!
-   !c0 = sqrt(boxvol*half*three)*half*three/(lturb**6)/real(num_eddies,kind=wp)
+   !c0 = boxvol*sqrt(half*three)*half*three/(lturb**6)/real(num_eddies,kind=wp)
     !
     ! Pre-compute the part from the normalization constant
     !
-    c0 = sqrt(boxvol)/real(num_eddies,kind=wp)
+    c0 = boxvol/real(num_eddies,kind=wp)
     !
     ! Loop through each face point on this SEM boundary and sum up the
     ! contributions of each eddy to the velocity fluctuation at that point
@@ -982,10 +982,9 @@ continue
       !
       eddy_vol = vol_coef*elx*ely*elz
       !
-      ! Store the eddy volume as the reciprocal
-      ! of the squareroot of the volume
+      ! Store the eddy volume as the reciprocal of the volume
       !
-      sem_box(sem_idx)%eddy(eddy_idx)%volume = one / sqrt(eddy_vol)
+      sem_box(sem_idx)%eddy(eddy_idx)%volume = one / eddy_vol
       !
     end do loop_over_new_eddies_in_box
     !
@@ -2755,7 +2754,7 @@ continue
       !
       eddy_vol = vol_coef*elx*ely*elz
       !
-      sem_box(sem_idx)%eddy(eddy_idx)%volume = one / sqrt(eddy_vol)
+      sem_box(sem_idx)%eddy(eddy_idx)%volume = one / eddy_vol
       !
     end do
     !
