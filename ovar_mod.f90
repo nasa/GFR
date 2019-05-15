@@ -43,6 +43,7 @@ module ovar
   end type relaxation_t
   !
   type, public :: sem_bc_t
+    logical(lk) :: is_cylindrical = fals
     real(wp) :: length_scale = zero
     real(wp) :: convective_velocity = zero
     real(wp) :: profile_height = zero
