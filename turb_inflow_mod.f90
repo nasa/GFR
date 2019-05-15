@@ -2376,6 +2376,8 @@ continue
     !
   end do
   !
+!#define OUTPUT_SEM_BOX_SIZES
+#ifdef OUTPUT_SEM_BOX_SIZES
   do n = 0,ncpu-1
     if (mypnum == n) then
       write (iout,*)
@@ -2397,6 +2399,7 @@ continue
   flush (iout)
   1 format (2x,"CPU #",i2," : SEM Box # ",i2, &
             2x,a1,"[min,max] = [",es14.6,",",es14.6,"]")
+#endif
   !
   ! Reduce the box_min and box_max arrays across all processes so that
   ! every process has the true global min/max extents for each SEM box
@@ -2408,6 +2411,7 @@ continue
                        mpi_flttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
   end if
   !
+#ifdef OUTPUT_SEM_BOX_SIZES
   do n = 0,ncpu-1
     if (mypnum == n) then
       write (iout,*)
@@ -2427,6 +2431,7 @@ continue
   flush (iout)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   flush (iout)
+#endif
   !
   ! Copy the global min/max extents for each SEM box into sem_box.
   ! Also compute the volume and the number of eddies for each box.
