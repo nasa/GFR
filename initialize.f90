@@ -665,6 +665,18 @@ continue
     !
   else
     !
+    ibc = init_cond
+    !
+#ifndef PBS_ENV
+    if (jet_init_func >= lbound(bc_in,dim=1)) then
+      if (jet_init_func <= ubound(bc_in,dim=1)) then
+        if (allocated(bc_in(jet_init_func)%cv)) then
+          ibc = jet_init_func
+        end if
+      end if
+    end if
+#endif
+    !
     do k = 1,np
       return_value(k,:) = bc_in(init_cond)%cv(:)
     end do
