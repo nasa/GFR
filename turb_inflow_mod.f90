@@ -11,6 +11,7 @@ module synthetic_eddy_mod
   public :: sem
   public :: separate_sem_boundary_faces
   public :: output_sem_averages
+  public :: dump_sem_data
   !
   !#############################################################################
   !#############################################################################
@@ -1445,6 +1446,7 @@ continue
   !
   ! Count the number of BC groups on this processor that are of the SEM type
   !
+  num_restart_sem_boxes = 0
   num_sem_boxes = count( bc_in(:)%bc_type == bc_sem )
   !
   ! Allocate the derived-type sem_box if needed.
@@ -1684,6 +1686,10 @@ continue
       call alloc_error(pname,array_name,2,__LINE__,__FILE__,ierr,error_message)
     end if
   end do
+  !
+  if (num_restart_sem_boxes > 0) then
+    call dump_sem_data("read")
+  end if
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -2395,6 +2401,7 @@ continue
     sem_box(sem_idx)%box_volume = box_volume
     !
   end do
+  call dump_sem_data("preread")
   !
   ! Deallocate box_min and box_max before we leave
   !
@@ -4619,6 +4626,113 @@ continue
   end do
   !
 end subroutine dimensionalize_sem_ave
+!
+!###############################################################################
+!
+subroutine dump_sem_data(cloc)
+  !
+  !.. Use Statements ..
+  use random_mod, only : iseed
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: cloc
+  !
+  !.. Local Scalars ..
+  integer  :: i,io,ierr,sem_idx,eddy_idx
+  !
+  character(len=50) :: fname
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "dump_sem_data"
+  !
+continue
+!!#define ENABLE_DUMP_SEM_DATA
+#ifdef ENABLE_DUMP_SEM_DATA
+  !
+  write (fname,1) cloc,mypnum
+  !
+  !
+  open (newunit=io,file=fname,status="replace",action="write", &
+                   form="formatted",position="rewind", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  write (io,4) (iseed(i), i=1,size(iseed))
+  write (io,5)
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    write (io,2) sem_idx, &
+                 sem_box(sem_idx)%num_eddies, &
+                 sem_box(sem_idx)%bc_idx, &
+                 sem_box(sem_idx)%grp_idx, &
+                 sem_box(sem_idx)%length_scale, &
+                 sem_box(sem_idx)%convective_velocity, &
+                 sem_box(sem_idx)%boxmin(1),sem_box(sem_idx)%boxmax(1), &
+                 sem_box(sem_idx)%boxmin(2),sem_box(sem_idx)%boxmax(2), &
+                 sem_box(sem_idx)%boxmin(3),sem_box(sem_idx)%boxmax(3), &
+                 sem_box(sem_idx)%boxmin(4),sem_box(sem_idx)%boxmax(4), &
+                 sem_box(sem_idx)%boxmin(5),sem_box(sem_idx)%boxmax(5), &
+                 sem_box(sem_idx)%box_volume, &
+                 sem_box(sem_idx)%is_cylindrical
+    !
+    do eddy_idx = 1,sem_box(sem_idx)%num_eddies
+      !
+      write (io,3) eddy_idx, &
+                   sem_box(sem_idx)%eddy(eddy_idx)%x, &
+                   sem_box(sem_idx)%eddy(eddy_idx)%y, &
+                   sem_box(sem_idx)%eddy(eddy_idx)%z, &
+                   sem_box(sem_idx)%eddy(eddy_idx)%r, &
+                   sem_box(sem_idx)%eddy(eddy_idx)%t, &
+                   sem_box(sem_idx)%eddy(eddy_idx)%x_intensity, &
+                   sem_box(sem_idx)%eddy(eddy_idx)%y_intensity, &
+                   sem_box(sem_idx)%eddy(eddy_idx)%z_intensity, &
+                   sem_box(sem_idx)%eddy(eddy_idx)%x_frequency, &
+                   sem_box(sem_idx)%eddy(eddy_idx)%y_frequency, &
+                   sem_box(sem_idx)%eddy(eddy_idx)%z_frequency, &
+                   sem_box(sem_idx)%eddy(eddy_idx)%volume
+      !
+    end do
+    !
+  end do
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Format Statements
+  !
+  1 format ("sem_dump.",a,".cpu-",i0,".dat")
+  2 format (/, 2x,"SEM Box # ",i0,/, &
+              13x,"num_eddies = ",i0,/, &
+              17x,"bc_idx = ",i0,/, &
+              16x,"grp_idx = ",i0,/, &
+              11x,"length_scale = ",es14.6,/, &
+               4x,"convective_velocity = ",es14.6,/, &
+              13x,"x[min,max] = [",es14.6,", ",es14.6,"]",/, &
+              13x,"y[min,max] = [",es14.6,", ",es14.6,"]",/, &
+              13x,"z[min,max] = [",es14.6,", ",es14.6,"]",/, &
+              13x,"r[min,max] = [",es14.6,", ",es14.6,"]",/, &
+              13x,"t[min,max] = [",es14.6,", ",es14.6,"]",/, &
+              13x,"box volume = ",es14.6,/, &
+              10x,"is cylindrical = ",l1)
+  3 format (/, 4x,"Eddy # ",i0,/, &
+              17x,"x = ",es14.6,/, &
+              17x,"y = ",es14.6,/, &
+              17x,"z = ",es14.6,/, &
+              17x,"r = ",es14.6,/, &
+              17x,"t = ",es14.6,/, &
+               7x,"x_intensity = ",es14.6,/, &
+               7x,"y_intensity = ",es14.6,/, &
+               7x,"z_intensity = ",es14.6,/, &
+               7x,"x_frequency = ",es14.6,/, &
+               7x,"y_frequency = ",es14.6,/, &
+               7x,"z_frequency = ",es14.6,/, &
+              12x,"volume = ",es14.6)
+  4 format (/,"Random seed = ",100(i0,:,", "))
+  5 format (//)
+  !
+#endif
+end subroutine dump_sem_data
 !
 !###############################################################################
 !

@@ -1904,6 +1904,7 @@ subroutine write_restart_file(itnum)
   use ovar,               only : max_restart_wall_time
   use flowvar,            only : usp
   use synthetic_eddy_mod, only : sem_box
+  use synthetic_eddy_mod, only : dump_sem_data
   !.. Use Statements for old restart files ..
   use geovar,             only : n_global_totpts
   use ovar,               only : use_old_restart_format
@@ -2101,6 +2102,9 @@ continue
                                         max_restart_wall_time)
       end if
       !
+    end if
+    if (size(sem_box) > 0) then
+      call dump_sem_data("write")
     end if
 !!!#ifdef DEBUG_ON
 #define USE_CREATE_SYMLINK
