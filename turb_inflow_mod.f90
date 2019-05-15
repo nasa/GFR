@@ -65,6 +65,10 @@ module synthetic_eddy_mod
     !     for the flux/face points for which we will never require their xyz
     !     coordinates.
     real(wp) :: x,y,z
+    ! SIN_THETA : value of sin(atan2(z,y)) for this SEM point
+    real(wp) :: sin_theta = zero
+    ! COS_THETA : value of cos(atan2(z,y)) for this SEM point
+    real(wp) :: cos_theta = zero
     ! RUNNING_AVE : Running average of the eddy concentration
     !               for this face point
     real(wp) :: running_ave = zero
@@ -1476,7 +1480,7 @@ subroutine initialize_sem()
   integer  :: ierr,k,n,np,n1,n2
   integer  :: sem_idx,grp_idx,bc_idx,num_eddies
   integer  :: num_restart_sem_boxes
-  real(wp) :: lturb,uconv
+  real(wp) :: lturb,uconv,x,y,z,theta
   !
   character(len=50)  :: array_name
   character(len=100) :: fname
@@ -1618,9 +1622,29 @@ continue
         !
         k = my_sem_pts(sem_idx)%sem_fp(n)%idx
         !
-        my_sem_pts(sem_idx)%sem_fp(n)%x = facexyz_array(1,k)
-        my_sem_pts(sem_idx)%sem_fp(n)%y = facexyz_array(2,k)
-        my_sem_pts(sem_idx)%sem_fp(n)%z = facexyz_array(3,k)
+        x = facexyz_array(1,k)
+        y = facexyz_array(2,k)
+        z = facexyz_array(3,k)
+        !
+        my_sem_pts(sem_idx)%sem_fp(n)%x = x
+        my_sem_pts(sem_idx)%sem_fp(n)%y = y
+        my_sem_pts(sem_idx)%sem_fp(n)%z = z
+        !
+        if (y /= zero .or. z /= zero) then
+          !
+          theta = atan2( z , y )
+          if (theta < zero) theta = theta + two*pi
+          !
+          my_sem_pts(sem_idx)%sem_fp(n)%sin_theta = sin(theta)
+          my_sem_pts(sem_idx)%sem_fp(n)%cos_theta = cos(theta)
+          !
+        else
+          !
+          my_sem_pts(sem_idx)%sem_fp(n)%sin_theta = zero
+          my_sem_pts(sem_idx)%sem_fp(n)%cos_theta = zero
+          !
+        end if
+        !
         !
 #ifdef ENABLE_OUTPUT_TIME_HISTORY
         allocate ( my_sem_pts(sem_idx)% &
