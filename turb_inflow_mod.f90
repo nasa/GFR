@@ -2521,8 +2521,8 @@ continue
     !
     ! Get the extents of the current SEM box
     !
-    box_min(1,sem_idx) = sem_box(sem_idx)%boxmin(1)
-    box_max(1,sem_idx) = sem_box(sem_idx)%boxmax(1)
+    box_min(1,sem_idx) = sem_box(sem_idx)%boxmin(1) - eps6
+    box_max(1,sem_idx) = sem_box(sem_idx)%boxmax(1) + eps6
     !
     if (sem_box(sem_idx)%is_cylindrical) then
       !
