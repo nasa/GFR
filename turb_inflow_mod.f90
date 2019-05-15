@@ -2,7 +2,7 @@ module synthetic_eddy_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nee,ntemp
+  use eqn_idx, only : nec,nmx,nmy,nmz,nee,nq,ntemp
   !
   implicit none
   !
@@ -100,6 +100,10 @@ module synthetic_eddy_mod
     real(wp) :: a31 = zero
     real(wp) :: a32 = zero
     real(wp) :: a33 = zero
+    !
+#ifdef ENABLE_OUTPUT_TIME_HISTORY
+    real(wp), allocatable :: time_history(:,:)
+#endif
   end type sem_fp_t
   !
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -565,6 +569,15 @@ continue
       cv(k,nmy) = rho*vy
       cv(k,nmz) = rho*vz
       cv(k,nee) = rho*( rgas_over_gm1*temp + half*q2 )
+      !
+#ifdef ENABLE_OUTPUT_TIME_HISTORY
+      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nec ,itcur) = rho
+      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmx ,itcur) = vx
+      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmy ,itcur) = vy
+      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmz ,itcur) = vy
+      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nee ,itcur) = cv(k,nee)
+      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nq+1,itcur) = temp
+#endif
       !
     end do loop_over_sem_pts
     !
@@ -1551,10 +1564,19 @@ continue
       ! Save the coordinates for each face point in this SEM set
       !
       do n = 1,my_sem_pts(sem_idx)%num_fp
+        !
         k = my_sem_pts(sem_idx)%sem_fp(n)%idx
+        !
         my_sem_pts(sem_idx)%sem_fp(n)%x = facexyz_array(1,k)
         my_sem_pts(sem_idx)%sem_fp(n)%y = facexyz_array(2,k)
         my_sem_pts(sem_idx)%sem_fp(n)%z = facexyz_array(3,k)
+        !
+#ifdef ENABLE_OUTPUT_TIME_HISTORY
+        allocate ( my_sem_pts(sem_idx)% &
+                             sem_fp(n)%time_history(1:nq+1,0:num_timesteps) , &
+                             source=zero )
+#endif
+        !
       end do
       !
     end if
@@ -4103,6 +4125,10 @@ continue
     call alloc_error(pname,"num_sem_pts",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  if (mypnum == glb_root) then
+    call output_sem_time_history()
+  end if
+  !
   ! Since only the global root is writing the SEM averages output file,
   ! throw in an MPI barrier here just in case
   !
@@ -4488,6 +4514,68 @@ continue
   3 format (6es14.6)
   !
 end subroutine write_sem_ave_data
+!
+!###############################################################################
+!
+subroutine output_sem_time_history()
+  !
+  !.. Use Statements ..
+  use ovar, only : num_timesteps,rhoref,aref,tref
+  !
+  !.. Local Scalars ..
+  integer  :: i,io,ierr,n,sem_idx
+  real(wp) :: r,u,v,w,e,t
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_sem_time_history"
+  character(len=*), parameter :: fname = "sem_fp_time_histories.tec.dat"
+  !
+continue
+#ifdef ENABLE_OUTPUT_TIME_HISTORY
+  !
+  open (newunit=io,file=fname,status="replace",action="write", &
+                   form="formatted",position="rewind", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  write (io,1)
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    do n = 1,my_sem_pts(sem_idx)%num_fp
+      !
+      write (io,2) sem_idx,n, &
+                   my_sem_pts(sem_idx)%sem_fp(n)%y, &
+                   my_sem_pts(sem_idx)%sem_fp(n)%z, &
+                   num_timesteps
+      !
+      do i = lbound(my_sem_pts(sem_idx)%sem_fp(n)%time_history,dim=2), &
+             ubound(my_sem_pts(sem_idx)%sem_fp(n)%time_history,dim=2)
+        !
+        r = my_sem_pts(sem_idx)%sem_fp(n)%time_history(nec,i)*rhoref
+        u = my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmx,i)*aref
+        v = my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmy,i)*aref
+        w = my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmz,i)*aref
+        e = my_sem_pts(sem_idx)%sem_fp(n)%time_history(nee,i)*rhoref*aref*aref
+        t = my_sem_pts(sem_idx)%sem_fp(n)%time_history(nq+1,i)*tref
+        !
+        write (io,3) i,r,u,v,w,e,t
+        !
+      end do
+      !
+    end do
+    !
+  end do
+  !
+  ! Format Statements
+  !
+  1 format ('VARIABLES = "Timestep" "rho" "u" "v" "w" "e" "T"')
+  2 format ('ZONE T="Box-',i0,',FP-',i0,': y=',f9.6,',z=',f9.6, &
+            '", I=',i0,", DATAPACKING=POINT")
+  3 format (i8,6es14.6)
+  !
+#endif
+end subroutine output_sem_time_history
 !
 !###############################################################################
 !
