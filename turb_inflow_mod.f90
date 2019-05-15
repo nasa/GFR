@@ -41,6 +41,16 @@ module synthetic_eddy_mod
   !
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !
+  ! WALL_T : Derived-type to store the location of a
+  !          wall point and distance to that point
+  !
+  type :: wall_t
+    real(wp) :: x,y,z
+    real(wp) :: distance = huge(zero)
+  end type wall_t
+  !
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  !
   ! SEM_FP_T : Derived-type to store the local SEM data for each SEM face point.
   !            This data includes
   !              - the index of the face point
@@ -76,8 +86,9 @@ module synthetic_eddy_mod
     integer :: num_eddies = 0
     ! EDDY_LIST : list of eddies that contribute to this SEM point
     integer, allocatable :: eddy_list(:)
-    ! WALL_DISTANCE : distance of this SEM point from the nearest wall
-    real(wp) :: wall_distance
+    ! WALL : derived type storing the location of the nearest
+    !        wall point and the distance to that point
+    type(wall_t) :: wall
     ! RAVG : averaged inflow density profile
     real(wp) :: ravg
     ! UAVG : averaged inflow velocity profile, x-direction
@@ -357,7 +368,7 @@ subroutine sem(cv)
   !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
   !
   !.. Use Statements ..
-  use ovar, only : d_t,gam,rgasref_nd
+  use ovar, only : d_t,gam,rgasref_nd,time_ref,itcur
   use ovar, only : use_improved_SEM_normalization
   !
   !.. Formal Arguments ..
@@ -414,6 +425,7 @@ continue
                          sem_box(:)%convective_velocity )
     !
     dt = dt * time_scale * time_fraction
+   !dt = dt * time_scale * time_fraction * time_ref
     !
   end if
   !
@@ -1490,7 +1502,7 @@ subroutine initialize_sem()
   !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
   !
   !.. Use Statements ..
-  use ovar,       only : bc_in,average_sem_inflow_plane
+  use ovar,       only : bc_in,average_sem_inflow_plane,num_timesteps
   use geovar,     only : bc_grps
   use flowvar,    only : facexyz_array
   use random_mod, only : set_random_seed
@@ -1879,8 +1891,8 @@ subroutine compute_sem_fp_wall_distance()
   !
   !.. Local Allocatable Arrays ..
  !real(wp), allocatable :: xyz_wall(:,:)
-  real(wp), allocatable :: xyz_sem(:,:)
-  real(wp), allocatable :: wall_distance(:)
+  real(wp),     allocatable :: xyz_sem(:,:)
+  type(wall_t), allocatable :: wall(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_sem_fp_wall_distance"
@@ -1903,7 +1915,7 @@ continue
   !
   ! Now, do a search for the minimum wall distance of each SEM face point
   !
-  call brute_force_wall_distance(xyz_wall,xyz_sem,wall_distance)
+  call brute_force_wall_distance(xyz_wall,xyz_sem,wall)
   !
   ! Deallocate xyz_wall and xyz_sem since they are no longer needed
   !
@@ -1920,15 +1932,15 @@ continue
     !
     do n = 1,my_sem_pts(sem_idx)%num_fp
       i = i + 1
-      my_sem_pts(sem_idx)%sem_fp(n)%wall_distance = wall_distance(i)
+      my_sem_pts(sem_idx)%sem_fp(n)%wall = wall(i)
     end do
     !
   end do
   !
-  ! Deallocate wall_distance since it is no longer needed
+  ! Deallocate wall since it is no longer needed
   !
-  deallocate ( wall_distance , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"wall_distance",2,__LINE__,__FILE__,ierr,error_message)
+  deallocate ( wall , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"wall",2,__LINE__,__FILE__,ierr,error_message)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -2084,12 +2096,12 @@ end subroutine collect_sem_fp_coordinates
 !
 !###############################################################################
 !
-subroutine brute_force_wall_distance(xyz_wall,xyz_sem,wall_distance)
+subroutine brute_force_wall_distance(xyz_wall,xyz_sem,wall)
   !
   !.. Formal Arguments ..
-  real(wp),               intent(in) :: xyz_wall(:,:)
-  real(wp),               intent(in) :: xyz_sem(:,:)
-  real(wp), allocatable, intent(out) :: wall_distance(:)
+  real(wp),                   intent(in) :: xyz_wall(:,:)
+  real(wp),                   intent(in) :: xyz_sem(:,:)
+  type(wall_t), allocatable, intent(out) :: wall(:)
   !
   !.. Local Scalars ..
   integer  :: i,ierr,n,nfp,nwp
@@ -2105,13 +2117,12 @@ continue
   nwp = size(xyz_wall,dim=2)
   nfp = size(xyz_sem,dim=2)
   !
-  allocate ( wall_distance(1:nfp) , source=huge(zero) , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"wall_distance",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( wall(1:nfp) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"wall",1,__LINE__,__FILE__,ierr,error_message)
   !
   !$OMP PARALLEL DO &
   !$OMP&         DEFAULT(NONE) &
-  !$OMP&         SHARED(nfp,nwp,xyz_sem,xyz_wall,wall_distance) &
+  !$OMP&         SHARED(nfp,nwp,xyz_sem,xyz_wall,wall) &
   !$OMP&         PRIVATE(n,i,xf,yf,zf,dx,dy,dz,dw2,dw2_min)
   !
   do n = 1,nfp
@@ -2130,11 +2141,16 @@ continue
       !
       dw2 = dx*dx + dy*dy + dz*dz
       !
-      dw2_min = min( dw2_min , dw2 )
+      if (dw2 < dw2_min) then
+        wall(n)%x = xyz_wall(1,i)
+        wall(n)%y = xyz_wall(2,i)
+        wall(n)%z = xyz_wall(3,i)
+        dw2_min = dw2
+      end if
       !
     end do
     !
-    wall_distance(n) = sqrt( dw2_min )
+    wall(n)%distance = sqrt( dw2_min )
     !
   end do
   !
@@ -2162,7 +2178,7 @@ subroutine interpolate_profile_data_to_fp(this,prof)
   !
 continue
   !
-  y = this%wall_distance
+  y = this%wall%distance
   !
   ! Find the indices of the profile data that
   ! bound the wall distance of this face point.
@@ -3727,8 +3743,8 @@ subroutine separate_sem_boundary_faces()
   real(wp) :: profile_height
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: xyz_sem(:,:)
-  real(wp), allocatable :: wall_distance(:)
+  real(wp),     allocatable :: xyz_sem(:,:)
+  type(wall_t), allocatable :: wall(:)
   !
   logical(lk), allocatable :: msk(:)
   !
@@ -3825,7 +3841,7 @@ continue
     ! Compute the minimum wall distance for all
     ! the boundary nodes on SEM boundaries
     !
-    call brute_force_wall_distance(xyz_wall,xyz_sem,wall_distance)
+    call brute_force_wall_distance(xyz_wall,xyz_sem,wall)
     !
   end if
   !
@@ -3942,7 +3958,7 @@ continue
           !
           ! Get the index for the current node of this boundary face
           ! relative to all other nodes on SEM boundary faces,
-          ! i.e., the index of this node within the array wall_distance
+          ! i.e., the index of this node within the array wall
           !
           nn = node2sem( grid%elem(nc)%nodes(n) )
           !
@@ -3951,7 +3967,7 @@ continue
           ! from the one-pass-loop so that the boundary conditions for
           ! this boundary face are unchanged and remain an SEM BC.
           !
-          if (wall_distance(nn) <= profile_height) exit one_pass_loop
+          if (wall(nn)%distance <= profile_height) exit one_pass_loop
           !
         end do node_loop
         !
@@ -3986,9 +4002,9 @@ continue
   !
   ! Deallocate local arrays before leaving if still allocated
   !
-  if (allocated(wall_distance)) then
-    deallocate ( wall_distance , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"wall_distance",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(wall)) then
+    deallocate ( wall , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"wall",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(node2sem)) then
