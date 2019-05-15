@@ -358,6 +358,7 @@ subroutine sem(cv)
   !
   !.. Use Statements ..
   use ovar, only : d_t,gam,rgasref_nd
+  use ovar, only : use_improved_SEM_normalization
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: cv(:,:)
@@ -377,9 +378,6 @@ subroutine sem(cv)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "sem"
-  !
-  logical(lk), parameter :: use_improved_SEM_normalization = fals
- !logical(lk), parameter :: use_improved_SEM_normalization = true
   !
   real(wp), parameter :: sqrt32 = sqrt(three*half)
   real(wp), parameter :: time_fraction = one5*one5
