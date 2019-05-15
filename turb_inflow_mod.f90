@@ -1549,6 +1549,8 @@ continue
       sem_box(sem_idx)%length_scale = lturb
       sem_box(sem_idx)%convective_velocity = uconv
       !
+      sem_box(sem_idx)%is_cylindrical = bc_in(bc_idx)%sem%is_cylindrical
+      !
       if (.not. allocated(sem_box(sem_idx)%profile)) then
         allocate ( sem_box(sem_idx)%profile )
       end if
