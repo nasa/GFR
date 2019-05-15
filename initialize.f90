@@ -2354,12 +2354,16 @@ continue
       !
       ! Copy over the SEM information
       !
-      bc_in(i)%sem%length_scale = max(zero,bc_input(n)%sem%length_scale)
-      bc_in(i)%sem%convective_velocity = bc_input(n)%sem%convective_velocity
-      bc_in(i)%sem%profile_height = max(zero,bc_input(n)%sem%profile_height)
-      bc_in(i)%sem%profile_file = trim(adjustl(bc_input(n)%sem%profile_file))
+      bc_in(i)%sem = bc_input(n)%sem
       !
-      bc_in(i)%sem%sub_in_bc_grp = bc_input(n)%sem%sub_in_bc_grp
+      ! Make sure certain SEM information is realizable
+      !
+      bc_in(i)%sem%length_scale = max(zero,bc_in(i)%sem%length_scale)
+      bc_in(i)%sem%profile_height = max(zero,bc_in(i)%sem%profile_height)
+      !
+      ! Trim the profile file character string
+      !
+      bc_in(i)%sem%profile_file = trim(adjustl(bc_in(i)%sem%profile_file))
       !
       ! Nondimensionalize the SEM convective velocity
       !
