@@ -42,7 +42,7 @@ module synthetic_eddy_mod
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !
   ! SEM_FP_T : Derived-type to store the local SEM data for each SEM face point.
-  !            This data includes 
+  !            This data includes
   !              - the index of the face point
   !              - the x,y,z coordinates of the face point
   !              - the list of eddies affecting the face point
@@ -65,14 +65,6 @@ module synthetic_eddy_mod
     !     for the flux/face points for which we will never require their xyz
     !     coordinates.
     real(wp) :: x,y,z
-   !! SKIP_THIS_FP : Logical flag to indicate that this SEM face point is
-   !!                outside the SEM inflow profile/boundary-layer, so it
-   !!                should be skipped when computing the SEM inflow
-   !!                conditions. The inflow conditions for these skipped
-   !!                points should be computed using a regular inflow BC
-   !!                once the SEM inflow conditions for the not-skipped
-   !!                points is completed.
-   !logical(lk) :: skip_this_fp = fals
     ! RUNNING_AVE : Running average of the eddy concentration
     !               for this face point
     real(wp) :: running_ave = zero
@@ -815,7 +807,7 @@ subroutine update_sem_ave_fp(a,b,r,u,v,w,e,t,p,this)
   !
 continue
   !
-  this%r   = a * this%r   + b * r 
+  this%r   = a * this%r   + b * r
   this%ru  = a * this%ru  + b * r*u
   this%rv  = a * this%rv  + b * r*v
   this%rw  = a * this%rw  + b * r*w
@@ -1075,7 +1067,7 @@ continue
         ! to the line that will be traversed by the eddy.
         ! NOTE: With the current assumptions that:
         !         1) the SEM inflow boundary is a constant-x plane and
-        !         2) the eddy convective velocity is only in the x-direction, 
+        !         2) the eddy convective velocity is only in the x-direction,
         !       the minimum distance between the face point and the line
         !       traversed by the eddy is simply the distance between the
         !       face point and the eddy when the x-coordinate of the eddy is
@@ -1162,7 +1154,7 @@ continue
         ! to the line that will be traversed by the eddy.
         ! NOTE: With the current assumptions that:
         !         1) the SEM inflow boundary is a constant-x plane and
-        !         2) the eddy convective velocity is only in the x-direction, 
+        !         2) the eddy convective velocity is only in the x-direction,
         !       the minimum distance between the face point and the line
         !       traversed by the eddy is simply the distance between the
         !       face point and the eddy when the x-coordinate of the eddy is
@@ -1651,7 +1643,7 @@ continue
   deallocate ( new_eddies , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"new_eddies",2,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Now initialize the face point eddy-lists and the 
+  ! Now initialize the face point eddy-lists and the
   ! eddy face-point-lists using new_eddies
   !
   call initialize_eddy_lists()
