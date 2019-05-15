@@ -541,6 +541,7 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/flowvar_mod.o \
                 $(OBJDIR)/parallel.o \
                 $(OBJDIR)/thermo_mod.o \
+                $(OBJDIR)/turb_inflow_mod.o \
                 $(FUNDIR)/cell_solpts.f90 \
                 $(FUNDIR)/sort.f90 \
                           mpi_defs.h
