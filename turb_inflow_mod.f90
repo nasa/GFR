@@ -371,6 +371,7 @@ subroutine sem(cv)
   real(wp) :: x,epx,elx,eix,tfx,ufluc,ufluc2,uavg,vx
   real(wp) :: y,epy,ely,eiy,tfy,vfluc,vfluc2,vavg,vy
   real(wp) :: z,epz,elz,eiz,tfz,wfluc,wfluc2,wavg,vz
+  real(wp) :: st,ct,vr,vt
   real(wp) :: boxmaxx,new_x
   !
   !.. Local Allocatable Arrays ..
@@ -604,8 +605,26 @@ continue
       tavg = my_sem_pts(sem_idx)%sem_fp(n)%tavg
       !
       vx = ufluc + uavg
-      vy = vfluc + vavg
-      vz = wfluc + wavg
+      !
+      if (sem_box(sem_idx)%is_cylindrical) then
+        !
+        ! Convert the velocities from cylindrical to Cartesian coordinates
+        !
+        st = my_sem_pts(sem_idx)%sem_fp(n)%sin_theta
+        ct = my_sem_pts(sem_idx)%sem_fp(n)%cos_theta
+        !
+        vr = vfluc + vavg ! radial velocity
+        vt = wfluc + wavg ! theta velocity
+        !
+        vy = ct*vr - st*vt ! y velocity
+        vz = st*vr + ct*vt ! z velocity
+        !
+      else
+        !
+        vy = vfluc + vavg
+        vz = wfluc + wavg
+        !
+      end if
       !
       q2 = vx*vx + vy*vy + vz*vz
       !
