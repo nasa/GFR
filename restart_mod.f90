@@ -5251,7 +5251,7 @@ continue
                            read_block_type,MPI_STATUS_IGNORE,mpierr)
   else
     call mpi_file_read_all(file_handle,read_real, &
-                           size(read_real,dim=2,kind=int_mpi), &
+                           size(read_real,kind=int_mpi), &
                            MPI_REAL4,MPI_STATUS_IGNORE,mpierr)
   end if
   !
@@ -5319,7 +5319,7 @@ continue
                            read_block_type,MPI_STATUS_IGNORE,mpierr)
   else
     call mpi_file_read_all(file_handle,read_real, &
-                           size(read_real,dim=2,kind=int_mpi), &
+                           size(read_real,kind=int_mpi), &
                            MPI_REAL8,MPI_STATUS_IGNORE,mpierr)
   end if
   !
@@ -5387,7 +5387,7 @@ continue
                            read_block_type,MPI_STATUS_IGNORE,mpierr)
   else
     call mpi_file_read_all(file_handle,read_real, &
-                           size(read_real,dim=2,kind=int_mpi), &
+                           size(read_real,kind=int_mpi), &
                            MPI_REAL16,MPI_STATUS_IGNORE,mpierr)
   end if
   !
@@ -5455,7 +5455,7 @@ continue
                            read_block_type,MPI_STATUS_IGNORE,mpierr)
   else
     call mpi_file_read_all(file_handle,read_real, &
-                           size(real_data,dim=2,kind=int_mpi), &
+                           size(real_data,kind=int_mpi), &
                            mpi_flttyp,MPI_STATUS_IGNORE,mpierr)
   end if
   !
