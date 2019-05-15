@@ -2985,6 +2985,10 @@ continue
         !
         case ("Y")
           sem_box(sem_idx)%profile%y(1:npts) = temp_data(i,1:npts)
+        !
+        case ("R")
+          sem_box(sem_idx)%is_cylindrical = true
+          sem_box(sem_idx)%profile%y(1:npts) = temp_data(i,1:npts)
           !
         case ("RHO","DENSITY")
           density_was_read = true
