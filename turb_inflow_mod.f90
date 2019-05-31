@@ -5059,6 +5059,30 @@ end subroutine output_bface
 !
 !###############################################################################
 !
+pure &
+subroutine yz_to_rt(y,z,r,t)
+  !
+  real(wp),    intent(in) :: y
+  real(wp),    intent(in) :: z
+  real(wp), intent(inout) :: r
+  real(wp), intent(inout) :: t
+  !
+continue
+  !
+  r = hypot(y,z)
+  !
+  if (r /= zero) then
+    t = atan2(z,y)
+    if (t < zero) t = t + two*pi
+    t = t*radians2degrees
+  else
+    t = zero
+  end if
+  !
+end subroutine yz_to_rt
+!
+!###############################################################################
+!
 end module synthetic_eddy_mod
 !
 !###############################################################################
