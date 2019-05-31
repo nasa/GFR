@@ -973,6 +973,7 @@ subroutine generate_new_eddies(new_eddies,generate_at_xmin,dt)
   real(wp) :: x,eix,elx,boxminx,boxmaxx,box_dx
   real(wp) :: y,eiy,ely,boxminy,boxmaxy,box_dy
   real(wp) :: z,eiz,elz,boxminz,boxmaxz,box_dz
+  real(wp) :: r,t,rmin2,rmax2
   !
   !.. Local Arrays ..
   real(wp) :: new_xyz(1:3)
@@ -1044,24 +1045,50 @@ continue
       call random_number(new_xyz)
       !
       x = boxminx + new_xyz(1)*box_dx + x_offset*(new_xyz(1)-one)
-      y = boxminy + new_xyz(2)*box_dy
-      z = boxminz + new_xyz(3)*box_dz
+      !
+      if (sem_box(sem_idx)%is_cylindrical) then
+        !
+        ! Random theta coordinate is same as x,y,z
+        !
+        t = boxminz + new_xyz(3)*box_dz
+        !
+        ! Random radial coordinate need to be handled a little differently.
+        ! Naively picking a random point between boxminy and boxmaxy, i.e.,
+        !     r = boxminy + new_xyz(2)*box_dy
+        ! will result in more eddies near boxminy and fewer eddies near boxmaxy.
+        ! To generate evenly distributed eddies within the SEM annulus box, we
+        ! need to get our "random" radius using the equation
+        !     r = sqrt( new_xyz(2)*(R2^2 + R1^2) + R1^2 )
+        ! where R2=boxmaxy and R1=boxminy.
+        !
+        rmin2 = boxminy*boxminy
+        rmax2 = boxmaxy*boxmaxy
+        !
+        r = sqrt( new_xyz(2)*(rmax2 - rmin2) + rmin2 )
+        !
+        ! Convert r and theta to y and z
+        !
+        y = r*cos(t)
+        z = r*sin(t)
+        !
+      else
+        !
+        y = boxminy + new_xyz(2)*box_dy
+        z = boxminz + new_xyz(3)*box_dz
+        !
+        ! Convert y and z to r and theta
+        !
+        call yz_to_rt(y,z,r,t)
+        !
+      end if
       !
       ! Save the new random coordinates for the new eddy in sem_box
       !
-      if (sem_box(sem_idx)%is_cylindrical) then
-        sem_box(sem_idx)%eddy(eddy_idx)%x = x
-        sem_box(sem_idx)%eddy(eddy_idx)%y = y*cos(z) ! y
-        sem_box(sem_idx)%eddy(eddy_idx)%z = y*sin(z) ! z
-        sem_box(sem_idx)%eddy(eddy_idx)%r = y        ! r
-        sem_box(sem_idx)%eddy(eddy_idx)%t = z        ! theta
-      else
-        sem_box(sem_idx)%eddy(eddy_idx)%x = x
-        sem_box(sem_idx)%eddy(eddy_idx)%y = y          ! y
-        sem_box(sem_idx)%eddy(eddy_idx)%z = z          ! z
-        sem_box(sem_idx)%eddy(eddy_idx)%r = hypot(y,z) ! r
-        sem_box(sem_idx)%eddy(eddy_idx)%t = atan2(z,y) ! theta
-      end if
+      sem_box(sem_idx)%eddy(eddy_idx)%x = x
+      sem_box(sem_idx)%eddy(eddy_idx)%y = y
+      sem_box(sem_idx)%eddy(eddy_idx)%z = z
+      sem_box(sem_idx)%eddy(eddy_idx)%r = r
+      sem_box(sem_idx)%eddy(eddy_idx)%t = t
       !
       ! Create new random intensities for the new eddy
       !
