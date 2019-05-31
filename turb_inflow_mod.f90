@@ -2023,14 +2023,16 @@ end subroutine compute_sem_fp_wall_distance
 subroutine collect_wall_fp_coordinates(xyz_wall)
   !
   !.. Use Statements ..
-  use geovar,  only : bc_grps
-  use flowvar, only : facexyz_array
+  use geovar,      only : bc_grps
+  use flowvar,     only : facexyz_array
+  use metrics_mod, only : facenrm
   !
   !.. Formal Arguments ..
   real(wp), allocatable, intent(out) :: xyz_wall(:,:)
   !
   !.. Local Scalars ..
-  integer :: i,ierr,n,np,n1,n2,grp_idx
+  integer  :: i,ierr,n,np,n1,n2,grp_idx
+  real(wp) :: rnx,rny,rnz,ds
   !
   !.. Local Arrays ..
   integer(INT_MPI) :: cpu_nums(1:ncpu)
@@ -2074,7 +2076,7 @@ continue
   !
   np = sum(cpu_nums)
   !
-  allocate ( xyz_wall(1:3,1:np) , source=zero , &
+  allocate ( xyz_wall(1:6,1:np) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"xyz_wall",1,__LINE__,__FILE__,ierr,error_message)
   !
@@ -2098,8 +2100,28 @@ continue
       n2 = bc_grps(grp_idx)%end_fp
       !
       do n = n1,n2
+        !
         i = i + 1
+        !
+        ! Copy the coordinates of this wall face point into xyz_wall.
+        !
         xyz_wall(1:3,i) = facexyz_array(1:3,n)
+        !
+        ! Copy the interior-pointing unit normal to the wall into xyz_wall.
+        ! However, facenrm contains the exterior-pointing area normal to the
+        ! wall, so we need to multiply each normal component by -1 and convert
+        ! to a unit normal.
+        !
+        rnx = -facenrm(1,n)
+        rny = -facenrm(2,n)
+        rnz = -facenrm(3,n)
+        !
+        ds = one/sqrt(rnx*rnx + rny*rny + rnz*rnz)
+        !
+        xyz_wall(4,i) = rnx*ds
+        xyz_wall(5,i) = rny*ds
+        xyz_wall(6,i) = rnz*ds
+        !
       end do
       !
     end if
