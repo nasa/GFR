@@ -2547,6 +2547,64 @@ end subroutine get_size_of_sem_boxes
 !
 !###############################################################################
 !
+subroutine recompute_sem_box_volume()
+  !
+  !.. Local Scalars ..
+  integer  :: sem_idx,num_eddies
+  real(wp) :: xmin,ymin,zmin,rmin,tmin
+  real(wp) :: xmax,ymax,zmax,rmax,tmax
+  real(wp) :: lturb,box_volume
+  !
+  ! Copy the global min/max extents for each SEM box into sem_box.
+  ! Also compute the volume and the number of eddies for each box.
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    lturb = sem_box(sem_idx)%length_scale
+    !
+    xmin = sem_box(sem_idx)%boxmin(1)
+    ymin = sem_box(sem_idx)%boxmin(2)
+    zmin = sem_box(sem_idx)%boxmin(3)
+    rmin = sem_box(sem_idx)%boxmin(4)
+    tmin = sem_box(sem_idx)%boxmin(5)
+    !
+    xmax = sem_box(sem_idx)%boxmax(1)
+    ymax = sem_box(sem_idx)%boxmax(2)
+    zmax = sem_box(sem_idx)%boxmax(3)
+    rmax = sem_box(sem_idx)%boxmax(4)
+    tmax = sem_box(sem_idx)%boxmax(5)
+    !
+    ! Compute the volume of this SEM box
+    !
+    if (sem_box(sem_idx)%is_cylindrical) then
+      box_volume = half*(xmax-xmin)*(tmax-tmin)*(rmax**2-rmin**2)
+    else
+      box_volume = (xmax-xmin)*(ymax-ymin)*(zmax-zmin)
+    end if
+    !
+    ! If the SEM eddies were not read in from a restart file,
+    ! i.e., sem_box(sem_idx)%eddy is not yet allocated,
+    ! compute the number of eddies to use for this box based on the box
+    ! volume and the turbulence length scale specified for this SEM box.
+    !
+    if (.not. allocated(sem_box(sem_idx)%eddy)) then
+      !
+      num_eddies = min( max_eddies , int( box_volume/(lturb**3) ) )
+      !
+      ! Save the number of eddies for this box into sem_box
+      !
+      sem_box(sem_idx)%num_eddies = num_eddies
+      !
+    end if
+    !
+    sem_box(sem_idx)%box_volume = box_volume
+    !
+  end do
+  !
+end subroutine recompute_sem_box_volume
+!
+!###############################################################################
+!
 subroutine check_restart_eddies()
   !
   !.. Local Scalars ..
