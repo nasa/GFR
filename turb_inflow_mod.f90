@@ -4694,6 +4694,630 @@ end subroutine write_sem_ave_data
 !
 !###############################################################################
 !
+subroutine collect_output_sem_connectivities(num_sem_pts)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd,bface,face
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: num_sem_pts(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,ierr,n,nvar,num_faces,num_total_sem_faces,sem_idx
+  integer :: grp_idx,bc_idx
+  integer :: n5,n6,nfp5,nfp6
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: num_sem_faces(:,:)
+  integer, allocatable :: num_box_sem_faces(:)
+  integer, allocatable :: num_my_sem_faces(:)
+  integer, allocatable :: my_ipelem(:,:)
+  integer, allocatable :: all_ipelem(:,:)
+  !
+  type(sem_conn_t), allocatable :: my_sem_conn(:)
+  !
+  integer(int_mpi), allocatable :: counts(:)
+  integer(int_mpi), allocatable :: offset(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "collect_output_sem_connectivities"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Have each MPI process count the number of SEM face points it has
+  ! in each SEM box and save that to its location within num_sem_faces.
+  !
+  num_sem_faces = init_array(num_sem_boxes,ncpu,0) ! F2003 AUTO-REALLOC
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+   !grp_idx = sem_box(sem_idx)%grp_idx
+    bc_idx = sem_box(sem_idx)%bc_idx
+    !
+   !n5 = count( bface(5,1:nfbnd) == grp_idx )
+   !n6 = count( bface(6,1:nfbnd) == bc_idx )
+   !!
+   !nfp5 = sum( (face(1:nfbnd)%order+1)**2 , mask=(bface(5,1:nfbnd) == grp_idx) )
+   !nfp6 = sum( (face(1:nfbnd)%order+1)**2 , mask=(bface(6,1:nfbnd) == bc_idx) )
+   !!
+   !if (n5 /= n6) then
+   !  write (iout,900) "sem_idx",sem_idx,"n5",n5,"n6",n6
+   !  call stop_gfr(abort,pname,__LINE__,__FILE__,"ERROR WITH SEM CONNECTIVITIES")
+   !else if (nfp5 /= nfp6) then
+   !  write (iout,900) "sem_idx",sem_idx,"nfp5",nfp5,"nfp6",nfp6
+   !  call stop_gfr(abort,pname,__LINE__,__FILE__,"ERROR WITH SEM CONNECTIVITIES")
+   !else if (nfp5 /= my_sem_pts(sem_idx)%num_fp) then
+   !  write (iout,900) "sem_idx",sem_idx,"nfp5",nfp5, &
+   !                   "my_sem_pts(sem_idx)%num_fp",my_sem_pts(sem_idx)%num_fp
+   !  call stop_gfr(abort,pname,__LINE__,__FILE__,"ERROR WITH SEM CONNECTIVITIES")
+   !end if
+   !900 format (/,3(2x,a," = ",i0,/))
+    !
+    num_faces = sum( face(1:nfbnd)%order**2 , &
+                     mask=(bface(6,1:nfbnd) == bc_idx .and. &
+                           bface(1,1:nfbnd) == bc_sem) )
+    !
+    num_sem_faces(sem_idx,mypnum+1) = num_faces
+    !
+  end do
+  !
+  ! Now gather the number of SEM face points for all MPI processes
+  !
+  if (ncpu > 1) then
+    call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+                       num_sem_faces,int(num_sem_boxes,kind=INT_MPI), &
+                       mpi_inttyp,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+!#define DEBUG_SEM_CONNECTIVITY
+#ifdef DEBUG_SEM_CONNECTIVITY
+  if (mypnum == glb_root) then
+    write (iout,*)
+  end if
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  do i = 0,ncpu-1
+    if (mypnum == i) then
+      do sem_idx = 1,num_sem_boxes
+        do n = 1,ncpu
+          write (iout,1) mypnum,sem_idx,n-1,num_sem_faces(sem_idx,n)
+        end do
+      end do
+    end if
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end do
+  1 format (2x,"CPU #",i2," : num_sem_faces(SEM BOX #",i0,",CPU #",i0,") = ",i0)
+#endif
+  !
+  ! Count the total number of SEM face points
+  ! in each box across all MPI processes.
+  !
+  num_box_sem_faces = sum(num_sem_faces,dim=2) ! F2003 AUTO-REALLOC
+  !
+#ifdef DEBUG_SEM_CONNECTIVITY
+  if (mypnum == glb_root) then
+    write (iout,*)
+  end if
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  do i = 0,ncpu-1
+    if (mypnum == i) then
+      do sem_idx = 1,num_sem_boxes
+        write (iout,2) mypnum,sem_idx,num_box_sem_faces(sem_idx)
+      end do
+    end if
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end do
+  2 format (2x,"CPU #",i2," : num_box_sem_faces(SEM BOX #",i0,") = ",i0)
+#endif
+  !
+  ! Count the total number of SEM face points
+  ! across all SEM boxes for each MPI process
+  !
+  num_my_sem_faces = sum(num_sem_faces,dim=1) ! F2003 AUTO-REALLOC
+  !
+#ifdef DEBUG_SEM_CONNECTIVITY
+  if (mypnum == glb_root) then
+    write (iout,*)
+  end if
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  do i = 0,ncpu-1
+    if (mypnum == i) then
+      do n = 1,ncpu
+        write (iout,3) mypnum,n-1,num_my_sem_faces(n)
+      end do
+    end if
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end do
+  3 format (2x,"CPU #",i2," : num_my_sem_faces(CPU #",i0,") = ",i0)
+#endif
+  !
+  ! Count the total number of SEM face points
+  ! across all SEM boxes and all MPI processes
+  !
+  num_total_sem_faces = sum(num_sem_faces)
+  !
+#ifdef DEBUG_SEM_CONNECTIVITY
+  if (mypnum == glb_root) then
+    write (iout,*)
+  end if
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  do i = 0,ncpu-1
+    if (mypnum == i) then
+      write (iout,4) mypnum,num_total_sem_faces
+    end if
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end do
+  4 format (2x,"CPU #",i2," : num_total_sem_faces = ",i0)
+#endif
+  !
+  ! Have all MPI processes collect all their SEM averaged values into
+  ! a local array.
+  !
+  call create_my_sem_connectivity(num_sem_faces,my_sem_conn)
+  !
+  my_ipelem = init_array(4,num_my_sem_faces(mypnum+1),0) ! F03 AUTO-REALOC
+  !
+  i = 0
+  do sem_idx = 1,num_sem_boxes
+    do n = 1,size(my_sem_conn(sem_idx)%ipelem,dim=2)
+      i = i + 1
+      do j = 1,size(my_sem_conn(sem_idx)%ipelem,dim=1)
+        my_ipelem(j,i) = my_sem_conn(sem_idx)%ipelem(j,n)
+      end do
+    end do
+  end do
+  !
+  ! Gather all the SEM averaged values on global root process
+  !
+  if (ncpu > 1) then
+    !
+    ! Create the offset and counts for each MPI process
+    !
+    counts = int( 4*num_my_sem_faces , kind=int_mpi ) ! F2003 AUTO-REALLOC
+    offset = init_array(ncpu,0_int_mpi) ! F2003 AUTO-REALLOC
+    !
+    do n = 2,ncpu
+      offset(n) = offset(n-1) + counts(n-1)
+    end do
+    !
+    ! Allocate the array to collect all the SEM averaged values
+    ! from all SEM face points across all MPI processes.
+    ! NOTE: Only the global root process will allocate this array to the actually
+    !       needed size; all other processes will allocate it such that there is
+    !       only a single SEM face point.
+    !
+    num_faces = merge( num_total_sem_faces , 1 , mypnum == glb_root )
+    !
+    all_ipelem = init_array(4,num_faces,0) ! F2003 AUTO-REALLOC
+    !
+    call mpi_gatherv(my_ipelem,size(my_ipelem,kind=int_mpi),mpi_inttyp, &
+                     all_ipelem,counts,offset,mpi_inttyp, &
+                     glb_root,MPI_COMM_WORLD,mpierr)
+    !
+  else
+    !
+    ! For a single MPI process, simply move the
+    ! local data to the global data array
+    !
+    call move_alloc( from=my_ipelem , to=all_ipelem )
+    !
+  end if
+  !
+  ! Now have the global root process group all the SEM face points by
+  ! their respective SEM boxes so that the averaged data can be output.
+  !
+  if (mypnum == glb_root) then
+    !
+    call create_all_sem_connectivity(num_sem_pts,num_sem_faces,all_ipelem)
+    !
+  end if
+  !
+  ! Deallocate local arrays before leaving
+  !
+  if (allocated(all_ipelem)) then
+    deallocate ( all_ipelem , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"all_ipelem",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(my_ipelem)) then
+    deallocate ( my_ipelem , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"my_ipelem",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(counts)) then
+    deallocate ( counts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"counts",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(offset)) then
+    deallocate ( offset , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"offset",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(num_my_sem_faces)) then
+    deallocate ( num_my_sem_faces , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"num_my_sem_faces",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(num_box_sem_faces)) then
+    deallocate ( num_box_sem_faces , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"num_box_sem_faces",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(num_sem_faces)) then
+    deallocate ( num_sem_faces , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"num_sem_faces",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Since only the global root is writing the SEM averages output file,
+  ! throw in an MPI barrier here just in case
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine collect_output_sem_connectivities
+!
+!###############################################################################
+!
+subroutine create_my_sem_connectivity(num_sem_faces,my_sem_conn)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd,bface,face,n_bnd_flxpts
+  !
+  !.. Formal Arguments ..
+  integer,                        intent(in) :: num_sem_faces(:,:)
+  type(sem_conn_t), allocatable, intent(out) :: my_sem_conn(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,k,n,nc,nf,f1,ierr
+  integer :: num_fp,num_faces
+  integer :: sem_idx,bc_idx,grp_idx,this_geom
+  integer :: this_order,min_order,max_order
+  !
+  !.. Local Derived Types ..
+  type :: conn_t
+    integer, allocatable :: conn(:,:)
+  end type conn_t
+  !
+  !.. Local Allocatable Arrays ..
+  integer,      allocatable :: ip2fp(:)
+  integer,      allocatable :: fp2ip(:)
+  type(conn_t), allocatable :: tria(:)
+  type(conn_t), allocatable :: quad(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_my_sem_connectivity"
+  !
+continue
+  !
+  !
+  !
+  min_order = minval( face(1:nfbnd)%order , dim=1 )
+  max_order = maxval( face(1:nfbnd)%order , dim=1 )
+  !
+  allocate ( tria(min_order:max_order) )
+  allocate ( quad(min_order:max_order) )
+  !
+  do this_order = min_order,max_order
+    call create_tria_connectivity(this_order,tria(this_order)%conn)
+    call create_quad_connectivity(this_order,quad(this_order)%conn)
+  end do
+  !
+  !
+  !
+  if (allocated(my_sem_conn)) then
+    deallocate ( my_sem_conn , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"my_sem_conn",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( my_sem_conn(1:num_sem_boxes) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"my_sem_conn",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    num_fp = my_sem_pts(sem_idx)%num_fp
+    num_faces = num_sem_faces(sem_idx,mypnum+1)
+    !
+    my_sem_conn(sem_idx)%ipelem = init_array(4,num_faces,0) ! F03 AUTO-REALLOC
+    !
+   !grp_idx = sem_box(sem_idx)%grp_idx
+    bc_idx = sem_box(sem_idx)%bc_idx
+    !
+    i = 0
+    !
+    do nf = 1,nfbnd
+      !
+      if (bface(1,nf) /= bc_sem) cycle
+      !
+     !if (bface(5,nf) /= grp_idx) cycle
+      if (bface(6,nf) /= bc_idx) cycle
+      !
+      f1 = face(nf)%beg_fp
+      !
+      this_geom = face(nf)%geom
+      this_order = face(nf)%order
+      nc = this_order*this_order
+      !
+      if (this_geom == Geom_Tria) then
+        do n = 1,nc
+          i = i + 1
+          my_sem_conn(sem_idx)%ipelem(:,i) = f1 + tria(this_order)%conn(:,n)
+        end do
+      else
+        do n = 1,nc
+          i = i + 1
+          my_sem_conn(sem_idx)%ipelem(:,i) = f1 + quad(this_order)%conn(:,n)
+        end do
+      end if
+      !
+    end do
+    !
+    ip2fp = init_array(num_fp,0)       ! F2003 AUTO-REALLOC
+    fp2ip = init_array(n_bnd_flxpts,0) ! F2003 AUTO-REALLOC
+    !
+    do n = 1,num_fp
+      k = my_sem_pts(sem_idx)%sem_fp(n)%idx
+      ip2fp(n) = k  ! 1 <= n <= num_fp
+      fp2ip(k) = n  ! 1 <= k <= n_bnd_flxpts
+    end do
+    !
+#ifdef DEBUG_SEM_CONNECTIVITY
+    k = 100*(sem_idx+2) + mypnum
+    do n = 1,num_fp
+      write (k,2) "ip2fp",n,ip2fp(n)
+    end do
+    !
+    k = 100*(sem_idx+4) + mypnum
+    do n = 1,n_bnd_flxpts
+      write (k,2) "fp2ip",n,fp2ip(n)
+    end do
+    !
+    do nf = 1,num_faces
+      write (sem_idx*100+mypnum,1) nf,(my_sem_conn(sem_idx)%ipelem(n,nf), &
+                                    n=1,size(my_sem_conn(sem_idx)%ipelem,dim=1))
+    end do
+    !
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    flush (100*(sem_idx+0)+mypnum)
+    flush (100*(sem_idx+2)+mypnum)
+    flush (100*(sem_idx+4)+mypnum)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    !
+    1 format (2x,i6,4x,4i6)
+    2 format (a,"(",i5,") = ",i0)
+#endif
+    !
+    do nf = 1,num_faces
+      do n = 1,size(my_sem_conn(sem_idx)%ipelem,dim=1)
+        k = my_sem_conn(sem_idx)%ipelem(n,nf)
+        my_sem_conn(sem_idx)%ipelem(n,nf) = fp2ip(k)
+      end do
+    end do
+    !
+  end do
+  !
+end subroutine create_my_sem_connectivity
+!
+!###############################################################################
+!
+subroutine create_all_sem_connectivity(num_sem_pts,num_sem_faces,all_ipelem)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: num_sem_pts(:,:)
+  integer, intent(in) :: num_sem_faces(:,:)
+  integer, intent(in) :: all_ipelem(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n,nf,np,n0,f0,ierr
+  integer :: num_faces,sem_idx,cpu_idx
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: np_offset(:,:)
+  integer, allocatable :: nf_offset(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_my_sem_connectivity"
+  !
+continue
+  !
+  if (allocated(sem_conn)) then
+    deallocate ( sem_conn , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sem_conn",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( sem_conn(1:num_sem_boxes) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"sem_conn",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  !
+  !
+  np_offset = init_array(ncpu,num_sem_boxes,0) ! F2003 AUTO-REALLOC
+  !
+  do sem_idx = 1,num_sem_boxes
+    np = 0
+    do cpu_idx = 1,ncpu
+      np_offset(cpu_idx,sem_idx) = np
+      np = np + num_sem_pts(sem_idx,cpu_idx)
+    end do
+  end do
+  !
+  !
+  !
+  nf_offset = init_array(ncpu,num_sem_boxes,0) ! F2003 AUTO-REALLOC
+  !
+  nf = 0
+  do cpu_idx = 1,ncpu
+    do sem_idx = 1,num_sem_boxes
+      nf_offset(cpu_idx,sem_idx) = nf
+      nf = nf + num_sem_faces(sem_idx,cpu_idx)
+    end do
+  end do
+  !
+  !
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    num_faces = sum( num_sem_faces(sem_idx,:) )
+    sem_conn(sem_idx)%ipelem = init_array(4,num_faces,0) ! F2003 AUTO-REALLOC
+    !
+    i = 0
+    !
+    do cpu_idx = 1,ncpu
+      !
+      n0 = nf_offset(cpu_idx,sem_idx)
+      f0 = np_offset(cpu_idx,sem_idx)
+      !
+      do nf = 1,num_sem_faces(sem_idx,cpu_idx)
+        !
+        i = i + 1
+        !
+        do j = 1,size(all_ipelem,dim=1)
+          sem_conn(sem_idx)%ipelem(j,i) = f0 + all_ipelem(j,n0+nf)
+        end do
+        !
+      end do
+      !
+    end do
+    !
+    if (i /= num_faces) then
+      write (iout,1) sem_idx,i,num_faces
+      flush (iout)
+    end if
+    !
+  end do
+  !
+  ! Format Statements
+  !
+  1 format (/,2x,"Error copying all_ipelem into ", &
+                 "sem_conn(",i0,")%ipelem while trying",/, &
+              2x,"to create connectivity for the SEM ", &
+                 "time-averaged boundary states!",/, &
+              9x,"number of SEM faces found = ",i0,/, &
+              6x,"number of SEM faces expected = ",i0,/)
+
+  !
+end subroutine create_all_sem_connectivity
+!
+!###############################################################################
+!
+subroutine create_tria_connectivity(no1d,conn)
+  !
+  !.. Formal Arguments ..
+  integer,               intent(in) :: no1d
+  integer, allocatable, intent(out) :: conn(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n,no2d
+  integer :: p1,p2,p3,p4
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: counter(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_tria_connectivity"
+  !
+continue
+  !
+  no2d = no1d*no1d
+  !
+  conn = init_array(4,no2d,0) ! F2003 AUTO-REALLOC
+  !
+  counter = init_array(no1d+1,no1d+1,0) ! F2003 AUTO-REALLOC
+  !
+  n = 0
+  do j = 1,no1d+1
+    do i = 1,no1d+2-j
+      n = n + 1
+      counter(j,i) = n
+    end do
+  end do
+  !
+  n = 0
+  do j = 1,no1d+1
+    do i = 1,no1d+1-j
+      !
+      p1 = counter(j,i)
+      p2 = counter(j,i+1)
+      p3 = counter(j+1,i)
+      p4 = counter(j+1,i+1)
+      !
+      n = n + 1
+      conn(1,n) = p1
+      conn(2,n) = p2
+      conn(3,n) = p3
+      conn(4,n) = p3
+      !
+      if (p4 /= 0) then
+        n = n + 1
+        conn(1,n) = p2
+        conn(2,n) = p4
+        conn(3,n) = p3
+        conn(4,n) = p3
+      end if
+      !
+    end do
+  end do
+  !
+  conn(:,:) = conn(:,:) - 1
+  !
+end subroutine create_tria_connectivity
+!
+!###############################################################################
+!
+subroutine create_quad_connectivity(no1d,conn)
+  !
+  !.. Formal Arguments ..
+  integer,               intent(in) :: no1d
+  integer, allocatable, intent(out) :: conn(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n,no2d
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_quad_connectivity"
+  !
+continue
+  !
+  no2d = no1d*no1d
+  !
+  conn = init_array(4,no2d,0) ! F2003 AUTO-REALLOC
+  !
+  n = 0
+  do j = 1,no1d
+    do i = 1,no1d
+      !
+      n = n + 1
+      conn(1,n) = (no1d+1)*(j-1) + i
+      conn(2,n) = (no1d+1)*(j-1) + i + 1
+      conn(3,n) = (no1d+1)*(j  ) + i + 1
+      conn(4,n) = (no1d+1)*(j  ) + i
+      !
+    end do
+  end do
+  !
+  conn(:,:) = conn(:,:) - 1
+  !
+end subroutine create_quad_connectivity
+!
+!###############################################################################
+!
 subroutine output_sem_time_history()
   !
   !.. Use Statements ..
