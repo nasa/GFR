@@ -54,6 +54,9 @@ module synthetic_eddy_mod
   !
   type :: wall_t
     real(wp) :: x,y,z
+    real(wp) :: xnrm = zero
+    real(wp) :: ynrm = zero
+    real(wp) :: znrm = zero
     real(wp) :: distance = huge(zero)
   end type wall_t
   !
