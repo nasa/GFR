@@ -834,7 +834,7 @@ end subroutine sem
 !
 !###############################################################################
 !
-subroutine update_sem_ave(dt,cv)
+subroutine update_sem_ave(dt,cv,alpha,beta)
   !
   !.. Use Statements ..
   use ovar, only : gam,rgasref_nd,itcur
@@ -842,6 +842,10 @@ subroutine update_sem_ave(dt,cv)
   !.. Formal Arguments ..
   real(wp), intent(in) :: dt
   real(wp), intent(in) :: cv(:,:)
+  !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(in) :: alpha
+  real(wp), optional, intent(in) :: beta
   !
   !.. Local Scalars ..
   integer  :: k,n,sem_idx
@@ -859,14 +863,19 @@ continue
   gm1 = gam - one
   rgas_inv = one / rgasref_nd
   !
-  if (sem_prev_ave_time < zero) then
-    current_time = zero
-    a = zero
-    b = one
+  if (present(alpha) .and. present(beta)) then
+    a = alpha
+    b = beta
   else
-    current_time = sem_prev_ave_time + dt
-    a = sem_prev_ave_time / current_time
-    b = one - a
+    if (sem_prev_ave_time < zero) then
+      current_time = zero
+      a = zero
+      b = one
+    else
+      current_time = sem_prev_ave_time + dt
+      a = sem_prev_ave_time / current_time
+      b = one - a
+    end if
   end if
   !
   do sem_idx = 1,num_sem_boxes
