@@ -658,7 +658,7 @@ continue
       my_sem_pts(sem_idx)%sem_fp(n)%time_history(nec ,itcur) = rho
       my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmx ,itcur) = vx
       my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmy ,itcur) = vy
-      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmz ,itcur) = vy
+      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmz ,itcur) = vz
       my_sem_pts(sem_idx)%sem_fp(n)%time_history(nee ,itcur) = cv(k,nee)
       my_sem_pts(sem_idx)%sem_fp(n)%time_history(nq+1,itcur) = temp
 #endif
