@@ -1778,6 +1778,11 @@ continue
   !
   call read_sem_profiles()
   !
+  ! Recompute the volume of the SEM boxes and the number of eddies for
+  ! each box if this is not a restart simulatino
+  !
+  call recompute_sem_box_volume()
+  !
   ! Write out parameters of the SEM boxes
   !
   call output_details_of_sem_boxes()
