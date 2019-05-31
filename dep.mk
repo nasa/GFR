@@ -539,6 +539,7 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/geovar_mod.o \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/flowvar_mod.o \
+		$(OBJDIR)/random_mod.o \
                 $(OBJDIR)/parallel.o \
                 $(OBJDIR)/thermo_mod.o \
                 $(OBJDIR)/turb_inflow_mod.o \
@@ -583,7 +584,8 @@ $(OBJDIR)/turb_inflow_mod.o : turb_inflow_mod.f90 \
                   $(OBJDIR)/eqn_idx_mod.o \
                   $(OBJDIR)/geovar_mod.o \
                   $(OBJDIR)/ovar_mod.o \
-                  $(OBJDIR)/flowvar_mod.o
+                  $(OBJDIR)/flowvar_mod.o \
+                  $(OBJDIR)/metrics.o
 
 $(OBJDIR)/typesgen_mod.o : typesgen_mod.f90 \
                  $(OBJDIR)/kind_types.o \
