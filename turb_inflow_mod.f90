@@ -757,7 +757,7 @@ continue
   !       so the argument 'generate_at_xmin' needs to be true.
   !-----------------------------------------------------------------------
   !
-  call generate_new_eddies(new_eddies,generate_at_xmin=true)
+  call generate_new_eddies(new_eddies,generate_at_xmin=true,dt=dt)
   !
   ! Now we need to update the face point eddy-lists and the
   ! eddy face-point-lists due to the "new eddies" created to
@@ -960,18 +960,19 @@ end subroutine update_sem_ave_fp
 !
 !###############################################################################
 !
-subroutine generate_new_eddies(new_eddies,generate_at_xmin)
+subroutine generate_new_eddies(new_eddies,generate_at_xmin,dt)
   !
   !.. Formal Arguments ..
   type(eddy_list_t), intent(in) :: new_eddies(:)
   logical(lk),       intent(in) :: generate_at_xmin
+  real(wp),          intent(in) :: dt
   !
   !.. Local Scalars ..
   integer  :: n,num_eddies,sem_idx,eddy_idx
-  real(wp) :: eddy_vol,x_coef,vol_coef
-  real(wp) :: x,eix,elx,boxminx,boxmaxx
-  real(wp) :: y,eiy,ely,boxminy,boxmaxy
-  real(wp) :: z,eiz,elz,boxminz,boxmaxz
+  real(wp) :: eddy_vol,x_coef,vol_coef,x_offset
+  real(wp) :: x,eix,elx,boxminx,boxmaxx,box_dx
+  real(wp) :: y,eiy,ely,boxminy,boxmaxy,box_dy
+  real(wp) :: z,eiz,elz,boxminz,boxmaxz,box_dz
   !
   !.. Local Arrays ..
   real(wp) :: new_xyz(1:3)
@@ -979,6 +980,13 @@ subroutine generate_new_eddies(new_eddies,generate_at_xmin)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "generate_new_eddies"
+  !
+  ! USE_X_OFFSET : constant to switch on/off the use of a tiny x-offset when
+  !                regenerating eddies that have left an SEM box so as to not
+  !                create "groups" of eddies that have the same x-location
+  !                and regenerate together.
+ !real(wp), parameter :: use_x_offset = zero
+  real(wp), parameter :: use_x_offset = one
   !
 continue
   !
@@ -992,6 +1000,8 @@ continue
   do sem_idx = 1,num_sem_boxes
     !
     num_eddies = new_eddies(sem_idx)%num_eddies
+    !
+    x_offset = half*dt*sem_box(sem_idx)%convective_velocity * use_x_offset
     !
     if (.not. allocated(sem_box(sem_idx)%eddy)) then
       allocate ( sem_box(sem_idx)%eddy(1:num_eddies) )
@@ -1020,6 +1030,10 @@ continue
       !
     end if
     !
+    box_dx = (boxmaxx - boxminx)*x_coef
+    box_dy =  boxmaxy - boxminy
+    box_dz =  boxmaxz - boxminz
+    !
     loop_over_new_eddies_in_box: &
     do n = 1,num_eddies
       !
@@ -1029,9 +1043,9 @@ continue
       !
       call random_number(new_xyz)
       !
-      x = boxminx + new_xyz(1)*(boxmaxx-boxminx)*x_coef
-      y = boxminy + new_xyz(2)*(boxmaxy-boxminy)
-      z = boxminz + new_xyz(3)*(boxmaxz-boxminz)
+      x = boxminx + new_xyz(1)*box_dx + x_offset*(new_xyz(1)-one)
+      y = boxminy + new_xyz(2)*box_dy
+      z = boxminz + new_xyz(3)*box_dz
       !
       ! Save the new random coordinates for the new eddy in sem_box
       !
@@ -1785,7 +1799,7 @@ continue
   !       the SEM box. Therefore, the argument 'generate_at_xmin'
   !       needs to be false.
   !
-  call generate_new_eddies(new_eddies,generate_at_xmin=fals)
+  call generate_new_eddies(new_eddies,generate_at_xmin=fals,dt=zero)
   !
   ! Deallocate new_eddies since we no longer need it
   !
