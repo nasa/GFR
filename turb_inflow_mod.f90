@@ -34,6 +34,14 @@ module synthetic_eddy_mod
   !
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !
+  type :: sem_conn_t
+    integer, allocatable :: ipelem(:,:)
+  end type sem_conn_t
+  !
+  type(sem_conn_t), allocatable :: sem_conn(:)
+  !
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  !
   type :: eddy_list_t
     integer :: num_eddies = 0
     integer, allocatable :: eddy_list(:)
