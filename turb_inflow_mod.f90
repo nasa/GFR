@@ -1574,7 +1574,7 @@ subroutine initialize_sem()
   integer  :: ierr,k,n,np,n1,n2
   integer  :: sem_idx,grp_idx,bc_idx,num_eddies
   integer  :: num_restart_sem_boxes
-  real(wp) :: lturb,uconv,x,y,z,theta
+  real(wp) :: lturb,uconv,x,y,z,r,t
   !
   character(len=50)  :: array_name
   character(len=100) :: fname
@@ -1720,23 +1720,27 @@ continue
         y = facexyz_array(2,k)
         z = facexyz_array(3,k)
         !
+        r = hypot(y,z)
+        !
+        if (r /= zero) then
+          t = atan2(z,y)
+          if (t < zero) t = t + two*pi
+        else
+          t = zero
+        end if
+        !
         my_sem_pts(sem_idx)%sem_fp(n)%x = x
         my_sem_pts(sem_idx)%sem_fp(n)%y = y
         my_sem_pts(sem_idx)%sem_fp(n)%z = z
+        my_sem_pts(sem_idx)%sem_fp(n)%r = r
+        my_sem_pts(sem_idx)%sem_fp(n)%t = t
         !
-        if (y /= zero .or. z /= zero) then
-          !
-          theta = atan2( z , y )
-          if (theta < zero) theta = theta + two*pi
-          !
-          my_sem_pts(sem_idx)%sem_fp(n)%sin_theta = sin(theta)
-          my_sem_pts(sem_idx)%sem_fp(n)%cos_theta = cos(theta)
-          !
+        if (r /= zero) then
+          my_sem_pts(sem_idx)%sem_fp(n)%sin_theta = sin(t)
+          my_sem_pts(sem_idx)%sem_fp(n)%cos_theta = cos(t)
         else
-          !
           my_sem_pts(sem_idx)%sem_fp(n)%sin_theta = zero
           my_sem_pts(sem_idx)%sem_fp(n)%cos_theta = zero
-          !
         end if
         !
         !
