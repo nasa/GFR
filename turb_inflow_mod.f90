@@ -287,7 +287,7 @@ module synthetic_eddy_mod
   !
   ! SEM PARAMETERS
   !
-  integer, parameter :: max_eddies = 5000
+  integer, parameter :: max_eddies = 50000
   !
   ! TREAT EDDY VOLUMES AS SPHERE-LIKE
  !logical(lk), parameter :: eddy_volume_is_spherical = true
