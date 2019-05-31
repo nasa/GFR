@@ -77,6 +77,8 @@ module synthetic_eddy_mod
     ! X : gives the x coordinate for this SEM point
     ! Y : gives the y coordinate for this SEM point
     ! Z : gives the z coordinate for this SEM point
+    ! R : gives the radial coordinate for this SEM point
+    ! T : gives the angular coordinate for this SEM point
     !     These components are to eliminate the need for storing the array
     !     facexyz_dt or facexyz_array, because those are only really needed
     !     for MMS [facexyz_array(1:nr,1:n_bnd_flxpts)] or for the continuous
@@ -85,7 +87,7 @@ module synthetic_eddy_mod
     !     for the SEM boundary conditions, so we dont want to waste memory
     !     for the flux/face points for which we will never require their xyz
     !     coordinates.
-    real(wp) :: x,y,z
+    real(wp) :: x,y,z,r,t
     ! SIN_THETA : value of sin(atan2(z,y)) for this SEM point
     real(wp) :: sin_theta = zero
     ! COS_THETA : value of cos(atan2(z,y)) for this SEM point
