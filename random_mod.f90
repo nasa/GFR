@@ -16,12 +16,15 @@ contains
 !
 !###############################################################################
 !
-subroutine set_random_seed()
+subroutine set_random_seed(seed)
   !
   !***********************************************************************
   ! Changes the seed in the random number generator to produce
   ! a different set of numbers
   !***********************************************************************
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: seed
   !
   !.. Local Scalars ..
   integer :: isize,iclk,i
@@ -40,22 +43,32 @@ continue
     !
     call random_seed( size=isize )
    !if (mypnum == glb_root) write (iout,*) 'isize = ',isize
-    iseed = spread(0,dim=1,ncopies=isize) ! F2003 AUTO-REALLOC
+    iseed = init_array(isize,0) ! F2003 AUTO-REALLOC
     !
-    if (mypnum == glb_root) then
-      !
-      call date_and_time( values=date )
-      iclk = date(8)
-     !write (iout,*) 'iclk  = ',iclk
+    if (present(seed)) then
       !
       do i = 1,isize
-        iseed(i) = iclk**i
+        iseed(i) = seed + i - 1
       end do
       !
+    else
+      !
+      if (mypnum == glb_root) then
+        !
+        call date_and_time( values=date )
+        iclk = date(8)
+       !write (iout,*) 'iclk  = ',iclk
+        !
+        do i = 1,isize
+          iseed(i) = iclk**i
+        end do
+        !
+      end if
+      !
+      call mpi_bcast(iseed,size(iseed,kind=int_mpi),mpi_inttyp, &
+                     glb_root,MPI_COMM_WORLD,mpierr)
+      !
     end if
-    !
-    call mpi_bcast(iseed,size(iseed,kind=int_mpi),mpi_inttyp, &
-                   glb_root,MPI_COMM_WORLD,mpierr)
     !
   end if
   !
@@ -78,7 +91,7 @@ continue
   !
   call random_seed( size=isize )
   !if (mypnum == glb_root) write (iout,*) 'isize = ',isize
-  iseed = spread(0,dim=1,ncopies=isize) ! F2003 AUTO-REALLOC
+  iseed = init_array(isize,0) ! F2003 AUTO-REALLOC
   !
   call random_seed( get=iseed )
   !
