@@ -2660,7 +2660,7 @@ continue
     ! Compute the volume of this SEM box
     !
     if (sem_box(sem_idx)%is_cylindrical) then
-      box_volume = half*(xmax-xmin)*(tmax-tmin)*((rmax-rmin)**2)
+      box_volume = half*(xmax-xmin)*(tmax-tmin)*(rmax**2-rmin**2)
     else
       box_volume = (xmax-xmin)*(ymax-ymin)*(zmax-zmin)
     end if
