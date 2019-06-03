@@ -3735,6 +3735,12 @@ continue
       write (iout,*) 'Max y     = ',sem_box(sem_idx)%boxmax(2)
       write (iout,*) 'Min z     = ',sem_box(sem_idx)%boxmin(3)
       write (iout,*) 'Max z     = ',sem_box(sem_idx)%boxmax(3)
+      if (sem_box(sem_idx)%is_cylindrical) then
+        write (iout,*) 'Min r     = ',sem_box(sem_idx)%boxmin(4)
+        write (iout,*) 'Max r     = ',sem_box(sem_idx)%boxmax(4)
+        write (iout,*) 'Min theta = ',sem_box(sem_idx)%boxmin(5)*radians2degrees
+        write (iout,*) 'Max theta = ',sem_box(sem_idx)%boxmax(5)*radians2degrees
+      end if
     end do
     write (iout,*)
   end if
