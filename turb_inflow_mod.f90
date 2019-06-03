@@ -2148,6 +2148,73 @@ end subroutine collect_wall_fp_coordinates
 !
 !###############################################################################
 !
+subroutine debug_normals()
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd,ncell,bface,face,grid
+  use flowvar, only : facexyz_array
+  !
+  !.. Local Scalars ..
+  integer  :: i,n,nc,nf
+  real(wp) :: x,y,z,r,t
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: pts(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "debug_normals"
+  !
+continue
+  !
+  do nf = 1,nfbnd
+    !
+    if (all(bface(1,nf) /= bc_walls)) cycle
+    !
+    nc = ncell + nf
+    !
+    pts = grid%elem(nc)%pts(:) ! F2003 AUTO-REALLOC
+    !
+    write (1000,1) nf
+    write (1001,1) nf
+    do n = 1,size(pts)
+      i = pts(n)
+      x = grid%xyz(1,i)
+      y = grid%xyz(2,i)
+      z = grid%xyz(3,i)
+      r = hypot(y,z)
+      if (r /= zero) then
+        t = atan2(z,y)
+        if (t < zero) t = t + two*pi
+        t = t * radians2degrees
+      else
+        t = zero
+      end if
+      write (1000,2) i,x,y,z,r,t
+    end do
+    do i = face(nf)%beg_fp,face(nf)%end_fp
+      x = facexyz_array(1,i)
+      y = facexyz_array(2,i)
+      z = facexyz_array(3,i)
+      r = hypot(y,z)
+      if (r /= zero) then
+        t = atan2(z,y)
+        if (t < zero) t = t + two*pi
+        t = t * radians2degrees
+      else
+        t = zero
+      end if
+      write (1001,2) i,x,y,z,r,t
+    end do
+    !
+  end do
+  !
+  1 format (/,2x,"BOUNDARY FACE ",i0)
+  2 format (4x,i6,4f15.10,f19.10)
+  !
+end subroutine debug_normals
+!
+!###############################################################################
+!
 subroutine collect_sem_fp_coordinates(xyz_sem)
   !
   !.. Formal Arguments ..
