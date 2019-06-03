@@ -4444,7 +4444,10 @@ continue
   ! Have all MPI processes collect all their SEM averaged values into
   ! a local array.
   !
-  nvar = 42
+  nvar = 43
+#ifdef ENABLE_OUTPUT_TIME_HISTORY
+  nvar = nvar + 6
+#endif
   !
   my_ave_data = init_array(nvar,num_my_sem_pts(mypnum+1),zero) ! F03 AUTO-REALOC
   !
@@ -4485,6 +4488,8 @@ continue
     call move_alloc( from=my_ave_data , to=all_ave_data )
     !
   end if
+  !
+  call  collect_output_sem_connectivities(num_sem_pts)
   !
   ! Now have the global root process group all the SEM face points by
   ! their respective SEM boxes so that the averaged data can be output.
@@ -4580,7 +4585,10 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  nvar = 17
+  nvar = 20
+#ifdef ENABLE_OUTPUT_TIME_HISTORY
+  nvar = nvar + 6
+#endif
   !
   ! Create the offset array for each box on each MPI process
   !
@@ -4694,6 +4702,21 @@ continue
         this_ave(16,i) = sqrt( max( zero , vv - v*v ) )
         this_ave(17,i) = sqrt( max( zero , ww - w*w ) )
         !
+        this_ave(18,i) = all_ave_data(43,n0+n)
+        !
+        call yz_to_rt(y,z,r,t)
+        this_ave(19,i) = r
+        this_ave(20,i) = t
+        !
+#ifdef ENABLE_OUTPUT_TIME_HISTORY
+        this_ave(21,i) = all_ave_data(44,n0+n)
+        this_ave(22,i) = all_ave_data(45,n0+n)
+        this_ave(23,i) = all_ave_data(46,n0+n)
+        this_ave(24,i) = all_ave_data(47,n0+n)
+        this_ave(25,i) = all_ave_data(48,n0+n)
+        this_ave(26,i) = all_ave_data(49,n0+n)
+#endif
+        !
       end do loop_over_cpu_pts_ave
       !
     end do loop_over_cpus_ave
@@ -4704,12 +4727,17 @@ continue
     !
     ! Write the zone header for this SEM box
     !
-    write (io,2) sem_idx,"Averaged",num_fp
+    write (io,2) sem_idx,"Averaged",num_fp,size(sem_conn(sem_idx)%ipelem,dim=2)
     !
     ! Write the SEM averaged data for this SEM box
     !
     do m = 1,nvar
       write (io,3) (this_ave(m,i), i=1,num_fp)
+    end do
+    !
+    do n = 1,size(sem_conn(sem_idx)%ipelem,dim=2)
+      write (io,4) (sem_conn(sem_idx)%ipelem(i,n), &
+                    i=1,size(sem_conn(sem_idx)%ipelem,dim=1))
     end do
     !
     !############################################################
@@ -4768,6 +4796,21 @@ continue
         this_ave(16,i) = sqrt( max( zero , vv ) )
         this_ave(17,i) = sqrt( max( zero , ww ) )
         !
+        this_ave(18,i) = all_ave_data(43,n0+n)
+        !
+        call yz_to_rt(y,z,r,t)
+        this_ave(19,i) = r
+        this_ave(20,i) = t
+        !
+#ifdef ENABLE_OUTPUT_TIME_HISTORY
+        this_ave(21,i) = all_ave_data(44,n0+n)
+        this_ave(22,i) = all_ave_data(45,n0+n)
+        this_ave(23,i) = all_ave_data(46,n0+n)
+        this_ave(24,i) = all_ave_data(47,n0+n)
+        this_ave(25,i) = all_ave_data(48,n0+n)
+        this_ave(26,i) = all_ave_data(49,n0+n)
+#endif
+        !
       end do loop_over_cpu_pts_prof
       !
     end do loop_over_cpus_prof
@@ -4778,12 +4821,17 @@ continue
     !
     ! Write the zone header for this SEM box
     !
-    write (io,2) sem_idx,"Profile",num_fp
+    write (io,2) sem_idx,"Profile",num_fp,size(sem_conn(sem_idx)%ipelem,dim=2)
     !
     ! Write the SEM averaged data for this SEM box
     !
     do m = 1,nvar
       write (io,3) (this_ave(m,i), i=1,num_fp)
+    end do
+    !
+    do n = 1,size(sem_conn(sem_idx)%ipelem,dim=2)
+      write (io,4) (sem_conn(sem_idx)%ipelem(i,n), &
+                    i=1,size(sem_conn(sem_idx)%ipelem,dim=1))
     end do
     !
     !##############################################################
@@ -4862,6 +4910,21 @@ continue
         this_ave(16,i) = sqrt(max( zero , vv - v*v )) - sqrt(max(zero,r22))
         this_ave(17,i) = sqrt(max( zero , ww - w*w )) - sqrt(max(zero,r33))
         !
+        this_ave(18,i) = all_ave_data(43,n0+n)
+        !
+        call yz_to_rt(y,z,r,t)
+        this_ave(19,i) = r
+        this_ave(20,i) = t
+        !
+#ifdef ENABLE_OUTPUT_TIME_HISTORY
+        this_ave(21,i) = all_ave_data(44,n0+n)
+        this_ave(22,i) = all_ave_data(45,n0+n)
+        this_ave(23,i) = all_ave_data(46,n0+n)
+        this_ave(24,i) = all_ave_data(47,n0+n)
+        this_ave(25,i) = all_ave_data(48,n0+n)
+        this_ave(26,i) = all_ave_data(49,n0+n)
+#endif
+        !
       end do loop_over_cpu_pts_diff
       !
     end do loop_over_cpus_diff
@@ -4872,12 +4935,18 @@ continue
     !
     ! Write the zone header for this SEM box
     !
-    write (io,2) sem_idx,"Averaged-Profile",num_fp
+    write (io,2) sem_idx,"Averaged-Profile",num_fp, &
+                 size(sem_conn(sem_idx)%ipelem,dim=2)
     !
     ! Write the SEM averaged data for this SEM box
     !
     do m = 1,nvar
       write (io,3) (this_ave(m,i), i=1,num_fp)
+    end do
+    !
+    do n = 1,size(sem_conn(sem_idx)%ipelem,dim=2)
+      write (io,4) (sem_conn(sem_idx)%ipelem(i,n), &
+                    i=1,size(sem_conn(sem_idx)%ipelem,dim=1))
     end do
     !
   end do loop_over_boxes
@@ -4911,17 +4980,35 @@ continue
             '"W"',/, &
             '"T"',/, &
             '"P"',/, &
-            '"u<math>\\034</math>u<math>\\034</math>" ',/, &
-            '"v<math>\\034</math>v<math>\\034</math>" ',/, &
-            '"w<math>\\034</math>w<math>\\034</math>" ',/, &
-            '"u<math>\\034</math>v<math>\\034</math>" ',/, &
-            '"u<math>\\034</math>w<math>\\034</math>" ',/, &
-            '"v<math>\\034</math>w<math>\\034</math>" ',/, &
-            '"u<math>\\034</math>" ',/, &
-            '"v<math>\\034</math>" ',/, &
-            '"w<math>\\034</math>" ')
-  2 format ('ZONE T="SEM BC #',i0,' (',a,')", I=',i0,', DATAPACKING=BLOCK')
+            '"u<math>\\034</math>u<math>\\034</math>"',/, &
+            '"v<math>\\034</math>v<math>\\034</math>"',/, &
+            '"w<math>\\034</math>w<math>\\034</math>"',/, &
+            '"u<math>\\034</math>v<math>\\034</math>"',/, &
+            '"u<math>\\034</math>w<math>\\034</math>"',/, &
+            '"v<math>\\034</math>w<math>\\034</math>"',/, &
+            '"u<math>\\034</math>"',/, &
+            '"v<math>\\034</math>"',/, &
+            '"w<math>\\034</math>"',/, &
+            '"Wall Distance"',/, &
+            '"Radius"',/, &
+            '"Theta"' &
+#ifdef ENABLE_OUTPUT_TIME_HISTORY
+         ,/,'"min(u-U)"',/ &
+            '"max(u-U)"',/ &
+            '"min(v-V)"',/ &
+            '"max(v-V)"',/ &
+            '"min(w-W)"',/ &
+            '"max(w-W)"' &
+#endif
+            )
+  2 format ('ZONE T="SEM BC #',i0,' (',a,')", N=',i0,', E=',i0, &
+#ifdef USE_DATAPACKING_POINT
+            ', DATAPACKING=POINT, ZONETYPE=FEQUADRILATERAL')
+#else
+            ', DATAPACKING=BLOCK, ZONETYPE=FEQUADRILATERAL')
+#endif
   3 format (6es14.6)
+  4 format (8i8)
   !
 end subroutine write_sem_ave_data
 !
@@ -5620,7 +5707,8 @@ subroutine copy_my_sem_ave_data(my_ave_data)
   real(wp), intent(inout) :: my_ave_data(:,:)
   !
   !.. Local Scalars ..
-  integer :: i,n,sem_idx
+  integer  :: i,n,sem_idx
+  real(wp) :: umin,umax,vmin,vmax,wmin,wmax
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "copy_my_sem_ave_data"
@@ -5684,6 +5772,27 @@ continue
       my_ave_data(41,i) = my_sem_pts(sem_idx)%sem_fp(n)%r31
       my_ave_data(42,i) = my_sem_pts(sem_idx)%sem_fp(n)%r32
       !
+      my_ave_data(43,i) = my_sem_pts(sem_idx)%sem_fp(n)%wall%distance
+      !
+#ifdef ENABLE_OUTPUT_TIME_HISTORY
+      !
+      umin = minval( my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmx,:) , dim=1 )
+      vmin = minval( my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmy,:) , dim=1 )
+      wmin = minval( my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmz,:) , dim=1 )
+      !
+      umax = maxval( my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmx,:) , dim=1 )
+      vmax = maxval( my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmy,:) , dim=1 )
+      wmax = maxval( my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmz,:) , dim=1 )
+      !
+      my_ave_data(44,i) = umin - my_ave_data(33,i)
+      my_ave_data(45,i) = umax - my_ave_data(33,i)
+      my_ave_data(46,i) = vmin - my_ave_data(34,i)
+      my_ave_data(47,i) = vmax - my_ave_data(34,i)
+      my_ave_data(48,i) = wmin - my_ave_data(35,i)
+      my_ave_data(49,i) = wmax - my_ave_data(35,i)
+      !
+#endif
+      !
     end do
   end do
   !
@@ -5733,6 +5842,15 @@ continue
     this_ave(15,n) = this_ave(15,n) * aref
     this_ave(16,n) = this_ave(16,n) * aref
     this_ave(17,n) = this_ave(17,n) * aref
+    !
+#ifdef ENABLE_OUTPUT_TIME_HISTORY
+    this_ave(21,n) = this_ave(21,n) * aref
+    this_ave(22,n) = this_ave(22,n) * aref
+    this_ave(23,n) = this_ave(23,n) * aref
+    this_ave(24,n) = this_ave(24,n) * aref
+    this_ave(25,n) = this_ave(25,n) * aref
+    this_ave(26,n) = this_ave(26,n) * aref
+#endif
     !
   end do
   !
