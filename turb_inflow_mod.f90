@@ -353,11 +353,6 @@ module synthetic_eddy_mod
   !
   type(sem_pts_t), save, allocatable :: my_sem_pts(:)
   !
-  ! XYZ_WALL : Array to store the xyz coordinates for all grid nodes located
-  !            on a wall boundary condition
-  !
-  real(wp), save, allocatable :: xyz_wall(:,:)
-  !
 contains
 !
 !###############################################################################
@@ -1962,7 +1957,7 @@ subroutine compute_sem_fp_wall_distance()
   real(wp) :: c1,c2,y,y1,y2
   !
   !.. Local Allocatable Arrays ..
- !real(wp), allocatable :: xyz_wall(:,:)
+  real(wp),     allocatable :: xyz_wall(:,:)
   real(wp),     allocatable :: xyz_sem(:,:)
   type(wall_t), allocatable :: wall(:)
   !
@@ -1976,9 +1971,7 @@ continue
   ! First, collect the coordinates of all the
   ! wall face points across all processors.
   !
-  if (.not. allocated(xyz_wall)) then
-    call collect_wall_fp_coordinates(xyz_wall)
-  end if
+  call collect_wall_fp_coordinates(xyz_wall)
   !
   ! Create an array containing the coordinates
   ! of all SEM face points on this processor.
