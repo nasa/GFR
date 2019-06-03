@@ -626,26 +626,8 @@ continue
       tavg = my_sem_pts(sem_idx)%sem_fp(n)%tavg
       !
       vx = ufluc + uavg
-      !
-      if (sem_box(sem_idx)%is_cylindrical) then
-        !
-        ! Convert the velocities from cylindrical to Cartesian coordinates
-        !
-        st = my_sem_pts(sem_idx)%sem_fp(n)%sin_theta
-        ct = my_sem_pts(sem_idx)%sem_fp(n)%cos_theta
-        !
-        vr = vfluc + vavg ! radial velocity
-        vt = wfluc + wavg ! theta velocity
-        !
-        vy = ct*vr - st*vt ! y velocity
-        vz = st*vr + ct*vt ! z velocity
-        !
-      else
-        !
-        vy = vfluc + vavg
-        vz = wfluc + wavg
-        !
-      end if
+      vy = vfluc + vavg
+      vz = wfluc + wavg
       !
       q2 = vx*vx + vy*vy + vz*vz
       !
@@ -1854,7 +1836,8 @@ continue
     do n = 1,my_sem_pts(sem_idx)%num_fp
       !
       call interpolate_profile_data_to_fp(my_sem_pts(sem_idx)%sem_fp(n), &
-                                          sem_box(sem_idx)%profile)
+                                          sem_box(sem_idx)%profile, &
+                                          sem_idx,n)
       !
     end do
     !
@@ -2327,15 +2310,37 @@ end subroutine brute_force_wall_distance
 !###############################################################################
 !
 pure &
-subroutine interpolate_profile_data_to_fp(this,prof)
+subroutine interpolate_profile_data_to_fp(this,prof,sem_idx,fp_idx)
   !
   !.. Formal Arguments ..
   type(sem_fp_t),   intent(inout) :: this
   type(sem_profile_t), intent(in) :: prof
+  integer,             intent(in) :: sem_idx
+  integer,             intent(in) :: fp_idx
   !
   !.. Local Scalars ..
-  integer  :: n,n1,n2
-  real(wp) :: c1,c2,y,y1,y2
+  integer  :: n,n1,n2,np
+  real(wp) :: unx,uny,unz,unx2,uny2,unz2
+  real(wp) :: c1,c2,c1i,c2i
+  real(wp) :: uu,vv,ww,y,y1,y2
+  real(wp) :: s11,s22,s33,s21,s31,s32
+  real(wp) :: v11,v12,v13
+  real(wp) :: v21,v22,v23
+  real(wp) :: v31,v32,v33
+  real(wp) :: t11,t12,t13,t14,t15,t16
+  real(wp) :: t21,t22,t23,t24,t25,t26
+  real(wp) :: t31,t32,t33,t34,t35,t36
+  real(wp) :: t41,t42,t43,t44,t45,t46
+  real(wp) :: t51,t52,t53,t54,t55,t56
+  real(wp) :: t61,t62,t63,t64,t65,t66
+  !
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: r(:),u(:),v(:),w(:),t(:)
+  real(wp), allocatable :: r11(:),r22(:),r33(:)
+  real(wp), allocatable :: r21(:),r31(:),r32(:)
+  real(wp), allocatable :: a11(:),a22(:),a33(:)
+  real(wp), allocatable :: a21(:),a31(:),a32(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "interpolate_profile_data_to_fp"
@@ -2344,12 +2349,141 @@ continue
   !
   y = this%wall%distance
   !
+  unx = this%wall%xnrm
+  uny = this%wall%ynrm
+  unz = this%wall%znrm
+  !
+  unx2 = unx*unx
+  uny2 = uny*uny
+  unz2 = unz*unz
+  !
+  c2 = uny*uny + unz*unz
+  c1 = sqrt(c2)
+  !
+  c2i = one / c2 ! normal should never be only in unx so this should be fine
+  c1i = one / c1
+  !
+  ! Create the coefficients for the vector transformation
+  !
+  v11 = c1           ; v12 = unx ; v13 =  zero
+  v21 = -unx*uny*c1i ; v22 = uny ; v23 = -unz*c1i
+  v31 = -unx*unz*c1i ; v32 = unz ; v33 =  uny*c1i
+  !
+  ! Create the coefficients for the tensor transformation
+  !
+  t11 = c2
+  t21 = unx2*uny2*c2i
+  t31 = unx2*unz2*c2i
+  t41 = -unx*uny
+  t51 = -unx*unz
+  t61 = unx2*uny*unz*c2i
+  !
+  t12 = unx2
+  t22 = uny2
+  t32 = unz2
+  t42 = unx*uny
+  t52 = unx*unz
+  t62 = uny*unz
+  !
+  t13 = zero
+  t23 = unz2*c2i
+  t33 = uny2*c2i
+  t43 = zero
+  t53 = zero
+  t63 = -uny*unz*c2i
+  !
+  t14 = two*c1*unx
+  t24 = -two*unx*uny2*c1i
+  t34 = -two*unx*unz2*c1i
+  t44 = c1*uny - unx2*uny*c1i
+  t54 = c1*unz - unx2*unz*c1i
+  t64 = -two*unx*uny*unz*c1i
+  !
+  t15 = zero
+  t25 =  two*unx*uny*unz*c2i
+  t35 = -two*unx*uny*unz*c2i
+  t45 = -unz
+  t55 =  uny
+ !t65 = unx*(unz2 - uny2)*c2i
+  t65 = -unx*uny2*c2i + unx*unz2*c2i
+  !
+  t16 = zero
+  t26 = -two*uny*unz*c1i
+  t36 =  two*uny*unz*c1i
+  t46 = -unx*unz*c1i
+  t56 =  unx*uny*c1i
+ !t66 = (uny2 - unz2)*c1i
+  t66 = uny2*c1i - unz2*c1i
+  !
+  ! First, initialize all the local allocatable arrays
+  !
+  np = prof%npts
+  !
+  r = prof%ravg(:)    ! F2003 AUTO-REALLOC
+  u = prof%uavg(:)    ! F2003 AUTO-REALLOC
+  v = prof%vavg(:)    ! F2003 AUTO-REALLOC
+  w = prof%wavg(:)    ! F2003 AUTO-REALLOC
+  t = prof%tavg(:)    ! F2003 AUTO-REALLOC
+  !
+  r11 = prof%tau11(:) ! F2003 AUTO-REALLOC
+  r22 = prof%tau22(:) ! F2003 AUTO-REALLOC
+  r33 = prof%tau33(:) ! F2003 AUTO-REALLOC
+  r21 = prof%tau21(:) ! F2003 AUTO-REALLOC
+  r31 = prof%tau31(:) ! F2003 AUTO-REALLOC
+  r32 = prof%tau32(:) ! F2003 AUTO-REALLOC
+  !
+  a11 = prof%a11(:)   ! F2003 AUTO-REALLOC
+  a22 = prof%a22(:)   ! F2003 AUTO-REALLOC
+  a33 = prof%a33(:)   ! F2003 AUTO-REALLOC
+  a21 = prof%a21(:)   ! F2003 AUTO-REALLOC
+  a31 = prof%a31(:)   ! F2003 AUTO-REALLOC
+  a32 = prof%a32(:)   ! F2003 AUTO-REALLOC
+  !
+  ! Use the interior-facing wall unit-normal to convert the profile velocity
+  ! vector and stress tensor from wall-aligned coordinates to Cartesian
+  ! coordinates.
+  !
+  do n = 1,np
+    !
+    uu = prof%uavg(n)
+    vv = prof%vavg(n)
+    ww = prof%wavg(n)
+    !
+    u(n) = uu*v11 + vv*v12 + ww*v13
+    v(n) = uu*v21 + vv*v22 + ww*v23
+    w(n) = uu*v31 + vv*v32 + ww*v33
+    !
+    s11 = prof%tau11(n)
+    s22 = prof%tau22(n)
+    s33 = prof%tau33(n)
+    s21 = prof%tau21(n)
+    s31 = prof%tau31(n)
+    s32 = prof%tau32(n)
+    !
+    r11(n) = t11*s11 + t12*s22 + t13*s33 + t14*s21 + t15*s31 + t16*s32
+    r22(n) = t21*s11 + t22*s22 + t23*s33 + t24*s21 + t25*s31 + t26*s32
+    r33(n) = t31*s11 + t32*s22 + t33*s33 + t34*s21 + t35*s31 + t36*s32
+    r21(n) = t41*s11 + t42*s22 + t43*s33 + t44*s21 + t45*s31 + t46*s32
+    r31(n) = t51*s11 + t52*s22 + t53*s33 + t54*s21 + t55*s31 + t56*s32
+    r32(n) = t61*s11 + t62*s22 + t63*s33 + t64*s21 + t65*s31 + t66*s32
+    !
+    a11(n) = sqrt( max( zero , r11(n) ) )
+    !
+    a21(n) = r21(n) / (a11(n)+rndoff)
+    a22(n) = sqrt( max( zero , r22(n) - (a21(n)**2) ) )
+    !
+    a31(n) = r31(n) / (a11(n)+rndoff)
+    a32(n) = (r32(n) - a21(n)*a31(n)) / (a22(n)+rndoff)
+    a33(n) = sqrt( max( zero , r33(n) - (a31(n)**2) -(a32(n)**2) ) )
+    !
+  end do
+  !
   ! Find the indices of the profile data that
   ! bound the wall distance of this face point.
   !
   n1 = 1
   n2 = 2
-  do n = 2,prof%npts
+  do n = 2,np
     if (prof%y(n) > y) exit
     n1 = n
     n2 = n+1
@@ -2358,33 +2492,20 @@ continue
   ! Compute the profile data at this face point depending on whether or not
   ! the index of the upper bound is greater than the sizes of the profile data.
   !
-  if (n2 > prof%npts) then
+  if (n2 > np) then
     !
     ! The index of the upper bound IS GREATER THAN the size of
     ! the profile data, so just set the profile data for the
     ! face point equal to the profile at the last data point.
     !
-    n = prof%npts
+    n1 = np
+    n2 = np
     !
-    this%ravg = prof%ravg(n)
-    this%uavg = prof%uavg(n)
-    this%vavg = prof%vavg(n)
-    this%wavg = prof%wavg(n)
-    this%tavg = prof%tavg(n)
+    y1 = prof%y(n1)
+    y2 = prof%y(n2)
     !
-    this%r11 = prof%tau11(n)
-    this%r21 = prof%tau21(n)
-    this%r22 = prof%tau22(n)
-    this%r31 = prof%tau31(n)
-    this%r32 = prof%tau32(n)
-    this%r33 = prof%tau33(n)
-    !
-    this%a11 = prof%a11(n)
-    this%a21 = prof%a21(n)
-    this%a22 = prof%a22(n)
-    this%a31 = prof%a31(n)
-    this%a32 = prof%a32(n)
-    this%a33 = prof%a33(n)
+    c1 = zero
+    c2 = one
     !
   else
     !
@@ -2398,27 +2519,27 @@ continue
     c1 = (y-y2)/(y2-y1)
     c2 = (y-y1)/(y2-y1)
     !
-    this%ravg = c2*prof%ravg(n2) - c1*prof%ravg(n1)
-    this%uavg = c2*prof%uavg(n2) - c1*prof%uavg(n1)
-    this%vavg = c2*prof%vavg(n2) - c1*prof%vavg(n1)
-    this%wavg = c2*prof%wavg(n2) - c1*prof%wavg(n1)
-    this%tavg = c2*prof%tavg(n2) - c1*prof%tavg(n1)
-    !
-    this%r11 = c2*prof%tau11(n2) - c1*prof%tau11(n1)
-    this%r21 = c2*prof%tau21(n2) - c1*prof%tau21(n1)
-    this%r22 = c2*prof%tau22(n2) - c1*prof%tau22(n1)
-    this%r31 = c2*prof%tau31(n2) - c1*prof%tau31(n1)
-    this%r32 = c2*prof%tau32(n2) - c1*prof%tau32(n1)
-    this%r33 = c2*prof%tau33(n2) - c1*prof%tau33(n1)
-    !
-    this%a11 = c2*prof%a11(n2) - c1*prof%a11(n1)
-    this%a21 = c2*prof%a21(n2) - c1*prof%a21(n1)
-    this%a22 = c2*prof%a22(n2) - c1*prof%a22(n1)
-    this%a31 = c2*prof%a31(n2) - c1*prof%a31(n1)
-    this%a32 = c2*prof%a32(n2) - c1*prof%a32(n1)
-    this%a33 = c2*prof%a33(n2) - c1*prof%a33(n1)
-    !
   end if
+  !
+  this%ravg = c2*r(n2) - c1*r(n1)
+  this%uavg = c2*u(n2) - c1*u(n1)
+  this%vavg = c2*v(n2) - c1*v(n1)
+  this%wavg = c2*w(n2) - c1*w(n1)
+  this%tavg = c2*t(n2) - c1*t(n1)
+  !
+  this%r11 = c2*r11(n2) - c1*r11(n1)
+  this%r21 = c2*r21(n2) - c1*r21(n1)
+  this%r22 = c2*r22(n2) - c1*r22(n1)
+  this%r31 = c2*r31(n2) - c1*r31(n1)
+  this%r32 = c2*r32(n2) - c1*r32(n1)
+  this%r33 = c2*r33(n2) - c1*r33(n1)
+  !
+  this%a11 = c2*a11(n2) - c1*a11(n1)
+  this%a21 = c2*a21(n2) - c1*a21(n1)
+  this%a22 = c2*a22(n2) - c1*a22(n1)
+  this%a31 = c2*a31(n2) - c1*a31(n1)
+  this%a32 = c2*a32(n2) - c1*a32(n1)
+  this%a33 = c2*a33(n2) - c1*a33(n1)
   !
 end subroutine interpolate_profile_data_to_fp
 !
