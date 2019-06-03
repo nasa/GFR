@@ -662,6 +662,13 @@ continue
     call update_sem_ave(dt,cv)
   end if
   !
+!#define TROUBLESHOOT_PROFILE_INTERPOLATION
+#ifdef TROUBLESHOOT_PROFILE_INTERPOLATION
+  call output_sem_averages()
+  error_message = "#define TROUBLESHOOT_PROFILE_INTERPOLATION"
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+#endif
+  !
   ! ###########
   ! ###########
   ! ###  2  ###
@@ -1569,7 +1576,11 @@ continue
   !
   ! Initialize the random number generator
   !
+#ifdef TROUBLESHOOT_PROFILE_INTERPOLATION
+  call set_random_seed(seed=1)
+#else
   call set_random_seed
+#endif
   !
   ! Count the number of BC groups on this processor that are of the SEM type
   !
@@ -2119,6 +2130,17 @@ continue
                         MPI_COMM_WORLD,mpierr)
   end if
   !
+#ifdef DEBUG_WALL_NORMALS
+  if (mypnum == glb_root) then
+    do n = 1,size(xyz_wall,dim=2)
+      write (200,10) xyz_wall(4,n),xyz_wall(5,n),xyz_wall(6,n)
+    end do
+  end if
+  10 format (3f15.10)
+  !
+  call debug_normals
+#endif
+  !
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine collect_wall_fp_coordinates
@@ -2309,8 +2331,18 @@ end subroutine brute_force_wall_distance
 !
 !###############################################################################
 !
+#ifdef TROUBLESHOOT_PROFILE_INTERPOLATION
+#define EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
+#endif
+#ifndef EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
 pure &
+#endif
 subroutine interpolate_profile_data_to_fp(this,prof,sem_idx,fp_idx)
+  !
+#ifdef EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
+  !.. Use Statements ..
+  use ovar, only : aref
+#endif
   !
   !.. Formal Arguments ..
   type(sem_fp_t),   intent(inout) :: this
@@ -2334,6 +2366,17 @@ subroutine interpolate_profile_data_to_fp(this,prof,sem_idx,fp_idx)
   real(wp) :: t51,t52,t53,t54,t55,t56
   real(wp) :: t61,t62,t63,t64,t65,t66
   !
+#ifdef EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
+  real(wp) :: radius,theta,aref2
+  integer  :: io,ierr
+  logical(lk) :: output_profile
+  integer, save :: nti = 0 ! top    (   0 < theta <  11.25 ) inside
+  integer, save :: nto = 0 ! top    (   0 < theta <  11.25 ) outside
+  integer, save :: nbi = 0 ! bottom ( 180 < theta < 191.25 ) inside
+  integer, save :: nbo = 0 ! bottom ( 180 < theta < 191.25 ) outside
+  integer, save :: ni1 = 0 ! sem_idx == 1
+  integer, save :: ni2 = 0 ! sem_idx == 2
+#endif
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: r(:),u(:),v(:),w(:),t(:)
@@ -2348,6 +2391,39 @@ subroutine interpolate_profile_data_to_fp(this,prof,sem_idx,fp_idx)
 continue
   !
   y = this%wall%distance
+  !
+#ifdef EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
+  call yz_to_rt(this%y,this%z,radius,theta)
+  !
+  io = 0
+  if (sem_idx == 1) then
+    ni1 = ni1 + 1
+    io = 10000 + ni1
+  else if (sem_idx == 2) then
+    ni2 = ni2 + 1
+    io = 20000 + ni2
+  end if
+ !if (theta < 11.25_wp) then
+ !  if (sem_idx == 1) then
+ !    nti = nti + 1
+ !    io = 600 + nti
+ !  else if (sem_idx == 2) then
+ !    nto = nto + 1
+ !    io = 800 + nto
+ !  end if
+ !else if (theta > 180.0_wp .and. theta < 191.25_wp) then
+ !  if (sem_idx == 1) then
+ !    nbi = nbi + 1
+ !    io = 700 + nbi
+ !  else if (sem_idx == 2) then
+ !    nbo = nbo + 1
+ !    io = 900 + nbo
+ !  end if
+ !end if
+  output_profile = (io /= 0)
+  !
+  aref2 = aref*aref
+#endif
   !
   unx = this%wall%xnrm
   uny = this%wall%ynrm
@@ -2414,6 +2490,42 @@ continue
   t56 =  unx*uny*c1i
  !t66 = (uny2 - unz2)*c1i
   t66 = uny2*c1i - unz2*c1i
+  !
+#ifdef EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
+  if (output_profile) then
+    !
+    write (io,1) "    y",this%y
+    write (io,1) "    z",this%z
+    write (io,4) "    r",radius,ten2*(radius-0.0125_wp)/(0.045_wp-0.0125_wp)
+   !write (io,1) "    r",radius
+    write (io,1) "theta",theta,""
+    write (io,1) "wall_distance",y,""
+    write (io,1) "unx",unx
+    write (io,1) "uny",uny
+    write (io,1) "unz",unz,""
+    write (io,1) "unx2",unx2
+    write (io,1) "uny2",uny2
+    write (io,1) "unz2",unz2,""
+    write (io,1) "c1",c1
+    write (io,1) "c2",c2
+    write (io,1) "c1i",c1i
+    write (io,1) "c2i",c2i,""
+    !
+    write (io,2) v11,v12,v13,v21,v22,v23,v31,v32,v33
+    !
+    write (io,3) t11,t12,t13,t14,t15,t16, &
+                 t21,t22,t23,t24,t25,t26, &
+                 t31,t32,t33,t34,t35,t36, &
+                 t41,t42,t43,t44,t45,t46, &
+                 t51,t52,t53,t54,t55,t56, &
+                 t61,t62,t63,t64,t65,t66
+    !
+  end if
+  1 format (2x,a," = ",f18.13,:,/,a)
+  2 format (2x,"Vector transformation matrix",/,3(4x,3f18.13,/))
+  3 format (2x,"Tensor transformation matrix",/,6(4x,6f18.13,/))
+  4 format (2x,a," = ",f18.13," ( ",f7.3," %)",:,/,a)
+#endif
   !
   ! First, initialize all the local allocatable arrays
   !
@@ -2540,6 +2652,105 @@ continue
   this%a31 = c2*a31(n2) - c1*a31(n1)
   this%a32 = c2*a32(n2) - c1*a32(n1)
   this%a33 = c2*a33(n2) - c1*a33(n1)
+  !
+#ifdef EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
+  if (output_profile) then
+    !
+    write (io,*)
+    write (io,30) "n1",n1
+    write (io,30) "n2",n2,""
+    !
+    write (io,31) "y1",y1
+    write (io,31) "y2",y2,""
+    !
+    write (io,31) "c1",c1
+    write (io,31) "c2",c2,""
+    !
+    write (io,32)
+    write (io,31) "  U",this%uavg*aref
+    write (io,31) "  V",this%vavg*aref
+    write (io,31) "  W",this%wavg*aref,""
+    !
+    write (io,33)
+    write (io,31) "  <UU>",this%r11*aref2
+    write (io,31) "  <VV>",this%r22*aref2
+    write (io,31) "  <WW>",this%r33*aref2
+    write (io,31) "  <UV>",this%r21*aref2
+    write (io,31) "  <UW>",this%r31*aref2
+    write (io,31) "  <VW>",this%r32*aref2,""
+    !
+    write (io,34)
+    write (io,31) "  A11",this%a11*aref
+    write (io,31) "  A22",this%a22*aref
+    write (io,31) "  A33",this%a33*aref
+    write (io,31) "  A21",this%a21*aref
+    write (io,31) "  A31",this%a31*aref
+    write (io,31) "  A32",this%a32*aref
+    write (io,*)
+    write (io,31) "  A11            ",(this%a11)*aref
+    write (io,31) "  A21 + A22      ",(this%a21+this%a22)*aref
+    write (io,31) "  A31 + A32 + A33",(this%a31+this%a32+this%a33)*aref,""
+    !
+!#define SUPER_EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
+#ifdef SUPER_EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
+    write (io,11) "Original"
+    do n = 1,np
+      write (io,21) n,prof%uavg(n)*aref,prof%vavg(n)*aref,prof%wavg(n)*aref
+    end do
+    !
+    write (io,12) "Original"
+    do n = 1,np
+      write (io,21) n,prof%tau11(n)*aref2,prof%tau22(n)*aref2,prof%tau33(n)*aref2, &
+                      prof%tau21(n)*aref2,prof%tau31(n)*aref2,prof%tau32(n)*aref2
+    end do
+    !
+    write (io,13) "Original"
+    do n = 1,np
+      write (io,21) n,prof%a11(n)*aref,prof%a22(n)*aref,prof%a33(n)*aref, &
+                      prof%a21(n)*aref,prof%a31(n)*aref,prof%a32(n)*aref
+    end do
+    !
+    write (io,11) "Transformed"
+    do n = 1,np
+      write (io,21) n,u(n)*aref,v(n)*aref,w(n)*aref
+    end do
+    !
+    write (io,12) "Transformed"
+    do n = 1,np
+      write (io,21) n,r11(n)*aref2,r22(n)*aref2,r33(n)*aref2, &
+                      r21(n)*aref2,r31(n)*aref2,r32(n)*aref2
+    end do
+    !
+    write (io,13) "Transformed"
+    do n = 1,np
+      write (io,21) n,a11(n)*aref,a22(n)*aref,a33(n)*aref, &
+                      a21(n)*aref,a31(n)*aref,a32(n)*aref
+    end do
+#endif
+    !
+  end if
+  !
+  11 format (/, &
+             2x,a," Velocity Profile",/, &
+             11x,"X-Velocity",3x,"Y-Velocity",3x,"Z-Velocity")
+  12 format (/, &
+             2x,a," Reynolds Stress Tensor Profile",/, &
+             14x,"<UU>",9x,"<VV>",9x,"<WW>",9x,"<UV>",9x,"<UW>",9x,"<VW>")
+  13 format (/, &
+             2x,a," Cholesky Decomposition of Reynolds Stress Tensor Profile",/, &
+             15x,"A11",10x,"A22",10x,"A33",10x,"A21",10x,"A31",10x,"A32")
+  !
+  21 format (3x,i4,2x,6f13.8)
+  !
+  30 format (2x,a," = ",i0,:,/,a)
+  31 format (2x,a," = ",f18.13,:,/,a)
+  32 format (2x,"Interpolated Transformed Velocity Profile")
+  33 format (2x,"Interpolated Transformed Reynolds Stress Tensor Profile")
+  34 format (2x,"Interpolated Transformed Cholesky Decomposition ", &
+                "of Reynolds Stress Tensor Profile")
+  !
+  close (unit=io,iostat=ierr)
+#endif
   !
 end subroutine interpolate_profile_data_to_fp
 !
