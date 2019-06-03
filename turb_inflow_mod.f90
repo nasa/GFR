@@ -129,6 +129,7 @@ module synthetic_eddy_mod
     real(wp) :: a32 = zero
     real(wp) :: a33 = zero
     !
+!#define ENABLE_OUTPUT_TIME_HISTORY
 #ifdef ENABLE_OUTPUT_TIME_HISTORY
     real(wp), allocatable :: time_history(:,:)
 #endif
@@ -2955,7 +2956,7 @@ continue
     ! Check the eddy extents against the SEM box extents to see if we can
     ! rearrange the eddies to get a unique 1-1 matching of eddies to SEM boxes.
     !
-    is_inside = init_array(num_sem_boxes,num_sem_boxes,fals)
+    is_inside = init_array(num_sem_boxes,num_sem_boxes,fals) ! F03 AUTO-REALLOC
     !
     do sem_idx = 1,num_sem_boxes
       do eddy_idx = 1,num_sem_boxes
@@ -4227,6 +4228,82 @@ continue
                    host_root,my_host_comm,mpierr)
   end if
   !
+  !#######################################################################
+  !#######################################################################
+  !
+  ! MIGHT NEED TO ADD CODE TO MAKE SURE THAT EACH NEW SUBSONIC BC ELEMENT
+  ! OF BC_INPUT AND BC_NAMES HAS AT LEAST ONE BOUNDARY FACE ASSOCIATED
+  ! WITH IT. IF THERE ARE NO BOUNDARY FACES ASSOCIATED WITH IT, DELETE
+  ! THAT ELEMENT FROM BC_INPUT AND BC_NAMES, SHRINK THE ARRAYS, AND MAKE
+  ! THE NECESSARY ADJUSTMENTS TO BFACE, BC_INPUT(:)%SEM%SUB_IN_BC_IDX,
+  ! BC_INPUT(:)%SEM%SUB_IN_BC_GRP, ETC.
+  !
+  ! HOWEVER, I THINK FOR NOW, JUST LEAVING THESE "EMPTY" ELEMENTS OF
+  ! BC_INPUT AND BC_NAMES (I.E., NO BOUNDARY FACES ARE ASSOCIATED WITH
+  ! THE ELEMENT) WILL NOT CREATE ANY PROBLEMS, AND THESE ELEMENTS WILL
+  ! JUST TAKE UP A NEGLIGIBLE AMOUNT OF MEMORY.
+  !
+ !tmp_bc_input = bc_input ! F2003 AUTO-REALLOC
+ !!
+ !bc_input_check: &
+ !do ibc = 1,nbc
+ !  !
+ !  if (len_trim(adjustl(bc_input(bc_idx)%sem%profile_file)) > 0) then
+ !    !
+ !    grp_idx = bc_input(ibc)%sem%sub_in_bc_grp
+ !    bc_idx  = bc_input(ibc)%sem%sub_in_bc_grp
+ !    !
+ !    do nf = 1,nfbnd
+ !      if (bface(1,nf) == bc_sub_inflow) then
+ !        if (bface(5,nf) == grp_idx) then
+ !          if (bface(6,nf) == bc_idx) then
+ !            cycle bc_input_check
+ !          end if
+ !        end if
+ !      end if
+ !    end do
+ !    !
+ !    ! Now do something if the above loop did not find any boundary faces
+ !    ! associated with the subsonic inflow group created for this SEM
+ !    ! boundary condition.
+ !    !
+ !    ...
+ !    !
+ !  end if
+ !  !
+ !end do bc_input_check
+ !!
+ !call move_alloc( from=tmp_bc_input , to=bc_input )
+ !!
+ !tmp_bc_names = bc_names ! F2003 AUTO-REALLOC
+ !!
+ !bc_names_check: &
+ !do ibcn = nbcn+1,size(bc_names)
+ !  !
+ !  cbcn = uppercase( trim(adjustl(bc_names(ibcn))) )
+ !  !
+ !  do bc_idx = 1,size(bc_input)
+ !    !
+ !    cbci = uppercase( trim(adjustl(bc_input(bc_idx)%name)) )
+ !    !
+ !    if (cbci == cbcn) then
+ !      cycle bc_names_check
+ !    end if
+ !    !
+ !  end do
+ !  !
+ !  ! Now do something if the above loop did not find a matching
+ !  ! bc_input(:)%name to the current element of bc_names
+ !  !
+ !  ...
+ !  !
+ !end do
+ !!
+ !call move_alloc( from=tmp_bc_names , to=bc_names )
+  !
+  !#######################################################################
+  !#######################################################################
+  !
   ! Deallocate local arrays before leaving if still allocated
   !
   if (allocated(wall)) then
@@ -4286,6 +4363,7 @@ continue
                        mpi_inttyp,MPI_COMM_WORLD,mpierr)
   end if
   !
+!#define DEBUG_SEM
 #ifdef DEBUG_SEM
   if (mypnum == glb_root) then
     write (iout,*)
@@ -4377,7 +4455,7 @@ continue
   4 format (2x,"CPU #",i2," : num_total_sem_pts = ",i0)
 #endif
   !
-  ! Have all MPI processes fill collect all their SEM averaged values into
+  ! Have all MPI processes collect all their SEM averaged values into
   ! a local array.
   !
   nvar = 42
