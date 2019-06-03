@@ -2303,10 +2303,19 @@ continue
       dw2 = dx*dx + dy*dy + dz*dz
       !
       if (dw2 < dw2_min) then
+        !
         wall(n)%x = xyz_wall(1,i)
         wall(n)%y = xyz_wall(2,i)
         wall(n)%z = xyz_wall(3,i)
+        !
+        if (size(xyz_wall,dim=1) >= 6) then
+          wall(n)%xnrm = xyz_wall(4,i)
+          wall(n)%ynrm = xyz_wall(5,i)
+          wall(n)%znrm = xyz_wall(6,i)
+        end if
+        !
         dw2_min = dw2
+        !
       end if
       !
     end do
