@@ -3966,11 +3966,16 @@ subroutine separate_sem_boundary_faces()
   use ovar,   only : output_bface_array
   !
   !.. Local Scalars ..
-  integer  :: i,ierr,n,nc,nf,nn,nbc,nbcn,npts,bc_idx
-  integer  :: n_sem_pts,n_sem_bc,n_wall_pts
+  integer  :: i,ierr,n,nc,nf,nn,npts,bc_idx,grp_idx
+  integer  :: ibc,nbc,ibcn,nbcn
+  integer  :: n_sem_pts,n_sem_bc
   real(wp) :: profile_height
   !
+  character(len=32) :: cbcn
+  character(len=32) :: cbci
+  !
   !.. Local Allocatable Arrays ..
+  real(wp),     allocatable :: xyz_wall(:,:)
   real(wp),     allocatable :: xyz_sem(:,:)
   type(wall_t), allocatable :: wall(:)
   !
@@ -4014,40 +4019,11 @@ continue
       end if
     end do
     !
-    n_wall_pts = count( msk(1:nnode) )
-    !
     ! F2003 AUTO-REALLOC
     xyz_wall = xyz_nodes( 1:3 , pack(intseq(1,nnode),mask=msk(1:nnode)) )
     !
-  end if
-  !
-  ! Broadcast the number of wall boundary nodes
-  ! to all the non-host-root MPI processes
-  !
-  if (ncpu > 1) then
-    call mpi_bcast(n_wall_pts,1_int_mpi,mpi_inttyp, &
-                   host_root,my_host_comm,mpierr)
-  end if
-  !
-  if (.not. allocated(xyz_wall)) then
-    allocate ( xyz_wall(1:3,1:n_wall_pts) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"xyz_wall",1,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  ! Broadcast the coordinates of all the grid nodes on wall BCs.
-  ! NOTE: All MPI processes need a copy of xyz_wall because it will be used
-  !       later in compute_sem_fp_wall_distance to compute the distance to
-  !       the nearest wall for all boundary face points on SEM boundaries.
-  !
-  if (ncpu > 1) then
-    call mpi_bcast(xyz_wall,size(xyz_wall,kind=int_mpi),mpi_flttyp, &
-                   host_root,my_host_comm,mpierr)
-  end if
-  !
-  ! Find all the boundary nodes that are on SEM boundaries
-  !
-  if (i_am_host_root) then
+    !
+    ! Reinitialize the msk array to false
     !
     msk = init_array(nnode,fals) ! F2003 AUTO-REALLOC
     !
@@ -4073,11 +4049,16 @@ continue
     !
   end if
   !
-  ! Deallocate msk, sem2node, and xyz_sem since they are no longer needed
+  ! Deallocate msk, xyz_wall, sem2node, xyz_sem since they are no longer needed
   !
   if (allocated(msk)) then
     deallocate ( msk , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(xyz_wall)) then
+    deallocate ( xyz_wall , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyz_wall",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(sem2node)) then
@@ -4122,23 +4103,28 @@ continue
     tmp_bc_names(bc_idx) = bc_names(bc_idx)
   end do
   !
+  ! Create the counters for the new elements of bc_input and bc_names
+  !
+  ibc = nbc
+  ibcn = nbcn
+  !
   ! Create the separate subsonic inflow boundary condition for each SEM boundary
   !
   do bc_idx = 1,size(bc_input)
     if (len_trim(adjustl(bc_input(bc_idx)%sem%profile_file)) > 0) then
       !
-      nbc = nbc + 1
-      nbcn = nbcn + 1
+      ibc = ibc + 1
+      ibcn = ibcn + 1
       !
-      tmp_bc_input(nbc) = bc_input(bc_idx)
-      tmp_bc_input(nbc)%set_bc_value = bc_sub_inflow
-      tmp_bc_input(nbc)%name = trim(adjustl(bc_input(bc_idx)%name)) // &
+      tmp_bc_input(ibc) = bc_input(bc_idx)
+      tmp_bc_input(ibc)%set_bc_value = bc_sub_inflow
+      tmp_bc_input(ibc)%name = trim(adjustl(bc_input(bc_idx)%name)) // &
                                " (Subsonic Inflow)"
       !
-      tmp_bc_input(bc_idx)%sem%sub_in_bc_idx = nbc
-      tmp_bc_input(bc_idx)%sem%sub_in_bc_grp = nbcn
+      tmp_bc_input(bc_idx)%sem%sub_in_bc_idx = ibc
+      tmp_bc_input(bc_idx)%sem%sub_in_bc_grp = ibcn
       !
-      tmp_bc_names(nbcn) = trim(adjustl(tmp_bc_input(nbc)%name))
+      tmp_bc_names(ibcn) = trim(adjustl(tmp_bc_input(ibc)%name))
       !
     end if
   end do
