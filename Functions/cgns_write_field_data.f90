@@ -4,7 +4,35 @@
     ! whole chunk of code after each variable that needs to be written to the
     ! CGNS file. Everything used here is inherited from the parent routine.
     !
+    !.. Local Scalars ..
+    integer :: n
+    !
+    !.. Local Parameters ..
+    ! ZERO_CRT : The value 0.0 in CRT precision, i.e. the precision
+    !            of real variables written to CGNS files.
+    real(CRT), parameter :: zero_CRT = 0.0_CRT
+    ! EPS_CRT : CRT machine precision/epsilon, which is the value closest to
+    !           zero that can be represented by a real in CRT precision.
+    real(CRT), parameter :: eps_CRT = epsilon(zero_CRT)
+    ! FTZ_CRT : This parameter contains the same value as eps_CRT but
+    !           represented in the regular real working precision (WP). All
+    !           working precision values less than or equal to the value of
+    !           this parameter will be flushed to zero (FTZ) to prevent any
+    !           floating point underflow exceptions from occurring.
+    real(wp), parameter :: ftz_CRT = real( eps_CRT , kind=wp )
+    !
   continue
+    !
+    ! Flush-to-zero all elements of the vartmp array which are smaller than
+    ! machine precision for the real precision used for writing to CGNS files.
+    !
+    if (CRT /= wp) then
+      where (abs(vartmp(:)) <= ftz_CRT) vartmp = zero
+    end if
+    !
+    ! Copy the vartmp array over to the var array, which
+    ! will convert the working precision data to the
+    ! real precision used for writing to CGNS files.
     !
     var(:) = real( vartmp , kind(var) )
     !
