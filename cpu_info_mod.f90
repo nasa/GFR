@@ -26,12 +26,12 @@ subroutine get_cpu_locality
   !.. Local Scalars ..
   integer :: l,n,i,i1,i2,ierr,num_hosts
   integer :: cores_per_cpu,host_cpu_num
-  integer :: num_cpus,max_cpus
+  integer :: num_cpus,max_cpus,num_cores
   integer :: min_cpu_num,my_new_cpu_num
   integer(INT_MPI) :: name_len
   integer(INT_MPI) :: color,key
   character(len=MPI_MAX_PROCESSOR_NAME) :: host_name
-  integer(c_int) :: cpu_num,num_cpus_c,max_cpus_c
+  integer(c_int) :: cpu_num,num_cores_c,max_cores_c
   integer(INT_MPI) :: host_size,cpu_size
   integer(INT_MPI) :: host_roots_size,cpu_roots_size
   integer(INT_MPI) :: host_roots_rank,cpu_roots_rank
@@ -44,6 +44,8 @@ subroutine get_cpu_locality
   character(len=MPI_MAX_PROCESSOR_NAME) :: all_host_name(1:ncpu)
   !
   type :: host_t
+    integer              :: num_cpus
+    integer              :: num_cores
     integer, allocatable :: mpi_num(:)
     integer, allocatable :: cpu_num(:)
     integer, allocatable :: new_cpu_num(:)
@@ -57,6 +59,8 @@ subroutine get_cpu_locality
   !
   type(host_t), allocatable :: host(:)
   !
+  integer, allocatable :: host_cores(:)
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_cpu_locality"
   !
@@ -68,16 +72,16 @@ subroutine get_cpu_locality
       integer(c_int) :: findmycpu
     end function findmycpu
     !
-   !function get_num_cpus_per_host() bind(c,name="get_num_cpus_per_host_")
-   !  use, intrinsic :: iso_c_binding, only : c_int
-   !  integer(c_int) :: get_num_cpus_per_host
-   !end function get_num_cpus_per_host
-   !!
-   !function get_max_cpus_per_host() bind(c,name="get_max_cpus_per_host_")
-   !  use, intrinsic :: iso_c_binding, only : c_int
-   !  integer(c_int) :: get_max_cpus_per_host
-   !end function get_max_cpus_per_host
-   !!
+    function get_num_cpus_per_host() bind(c,name="get_num_cpus_per_host_")
+      use, intrinsic :: iso_c_binding, only : c_int
+      integer(c_int) :: get_num_cpus_per_host
+    end function get_num_cpus_per_host
+    !
+    function get_max_cpus_per_host() bind(c,name="get_max_cpus_per_host_")
+      use, intrinsic :: iso_c_binding, only : c_int
+      integer(c_int) :: get_max_cpus_per_host
+    end function get_max_cpus_per_host
+    !
   end interface
   !
 continue
@@ -169,7 +173,13 @@ continue
     if (my_host_name == unique_hosts(n)) my_host_num = n
   end do
   !
+  !#####################################################################
+  !#####################################################################
+  !
   ! Get the CPU number of each process local to each host
+  !
+  !#####################################################################
+  !#####################################################################
   !
  !write (*,*) "b"
 #ifdef PBS_ENV
@@ -181,20 +191,6 @@ continue
 #ifdef DEBUG_COMMUNICATORS
   write (iout,100) "my_host_name",trim(adjustl(my_host_name)),__FILE__,__LINE__
   flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
- !!
- !num_cpus_c = get_num_cpus_per_host()
- !num_cpus = int(num_cpus_c,kind=kind(num_cpus))
-#ifdef DEBUG_COMMUNICATORS
- !write (iout,101) "num_cpus",num_cpus,__FILE__,__LINE__
- !flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
- !!
- !max_cpus_c = get_max_cpus_per_host()
- !max_cpus = int(max_cpus_c,kind=kind(max_cpus))
-#ifdef DEBUG_COMMUNICATORS
- !write (iout,101) "max_cpus",max_cpus,__FILE__,__LINE__
- !flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
   !
   ! Collect the local CPU numbers for all MPI processes
@@ -209,7 +205,13 @@ continue
   flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
   !
+  !#####################################################################
+  !#####################################################################
+  !
   ! Create a list of the MPI ranks and CPU numbers on each host
+  !
+  !#####################################################################
+  !#####################################################################
   !
  !allocate ( mpi_num_mask(1:ncpu) , source=fals , &
  !           stat=ierr , errmsg=error_message )
@@ -220,58 +222,16 @@ continue
   call alloc_error(pname,"host",1,__LINE__,__FILE__,ierr,error_message)
   !
   do n = 1,num_hosts
-   !!
-   !!######################################################################
-   !!                              METHOD 1
-   !!----------------------------------------------------------------------
-   !!||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-   !!VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
-   !!
-   !mpi_num_mask(:) = fals
-   !do i = 1,size(all_host_num)
-   !  if (all_host_num(i) == n) then
-   !    mpi_num_mask(i) = true
-   !  end if
-   !end do
-   !!
-   !! F2003 AUTO-REALLOCATION
-   !host(n)%mpi_num = pack( intseq(1,ncpu) , mask=mpi_num_mask )
-   !!
-   !!AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-   !!||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-   !!----------------------------------------------------------------------
-   !!######################################################################
-   !!
-   !!######################################################################
-   !!                              METHOD 2
-   !!----------------------------------------------------------------------
-   !!||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-   !!VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
-   !!
-   !mpi_num_mask(:) = ( all_host_num(:) == n )
-   !!
-   !! F2003 AUTO-REALLOCATION
-   !host(n)%mpi_num = pack( intseq(1,ncpu) , mask=mpi_num_mask )
-   !!
-   !!AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-   !!||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-   !!----------------------------------------------------------------------
-   !!######################################################################
     !
-    !######################################################################
-    !                              METHOD 3
-    !----------------------------------------------------------------------
-    !||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-    !VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
+#ifdef PBS_ENV
+    host(n)%num_cpus = 2
+#else
+    host(n)%num_cpus = 1
+#endif
     !
     ! F2003 AUTO-REALLOCATION
     ! NOTE: This will make the numbering in mpi_num go from 1 to ncpu
     host(n)%mpi_num = pack( intseq(1,ncpu) , mask=(all_host_num(:)==n) )
-    !
-    !AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    !||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-    !----------------------------------------------------------------------
-    !######################################################################
     !
     ! F2003 AUTO-REALLOCATION
     host(n)%cpu_num = all_cpu_num( host(n)%mpi_num )
@@ -312,7 +272,13 @@ continue
     end if
   end do
   !
+  !#####################################################################
+  !#####################################################################
+  !
   ! Create new communicators for all processes on each unique host
+  !
+  !#####################################################################
+  !#####################################################################
   !
   color = int(my_host_num,kind=INT_MPI)
 #ifdef DEBUG_COMMUNICATORS
@@ -345,16 +311,6 @@ continue
   flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
   !
-#ifdef PBS_ENV
- !cores_per_cpu = max( 1 , (maxval(all_cpu_num)+1) / 2 )
- !cores_per_cpu = max( 1 , size(host(my_host_num)%cpu_num) / 2 )
-  cores_per_cpu = max( 1 , host_size/2 )
-#else
- !cores_per_cpu = maxval(all_cpu_num)+1
- !cores_per_cpu = max( 1 , size(host(my_host_num)%cpu_num) )
-  cores_per_cpu = max( 1 , host_size )
-#endif
-  !
   allocate ( my_host_grp(1:host_size) , source=0_int_mpi , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"my_host_grp",1,__LINE__,__FILE__, &
@@ -372,75 +328,13 @@ continue
   flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
   !
-  ! Create new communicators for all processes on each physical cpu
-  !
-#ifdef DEBUG_COMMUNICATORS
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  do n = 1,ncpu
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-    if (mypnum == n-1) then
-      write (iout,101) "my_host_num",my_host_num,__FILE__,__LINE__
-      write (iout,101) "my_cpu_num",my_cpu_num,__FILE__,__LINE__
-      write (iout,101) "my_new_cpu_num",my_new_cpu_num,__FILE__,__LINE__
-      write (iout,101) "cores_per_cpu",cores_per_cpu,__FILE__,__LINE__
-      flush (iout)
-    end if
-    flush (iout)
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  end do
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
- !write (*,*) "c"
-  color = int( 2*(my_host_num-1) + my_host_rank/cores_per_cpu , kind=INT_MPI )
- !color = int( 2*(my_host_num-1) + my_new_cpu_num/cores_per_cpu , kind=INT_MPI )
-#ifdef DEBUG_COMMUNICATORS
-  write (iout,101) "mpi_comm_split(cpu,color)",color,__FILE__,__LINE__
-  flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
-  key = int(my_new_cpu_num,kind=INT_MPI)
- !key = int(my_cpu_num,kind=INT_MPI)
-#ifdef DEBUG_COMMUNICATORS
-  write (iout,101) "mpi_comm_split(cpu,key)",key,__FILE__,__LINE__
-  flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
-  call mpi_comm_split(MPI_COMM_WORLD,color,key,my_cpu_comm,mpierr)
-#ifdef DEBUG_COMMUNICATORS
-  write (iout,101) "mpi_comm_split(cpu,mpierr)",mpierr,__FILE__,__LINE__
-  flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
-  !
-  ! Get the total number of processes and the local rank
-  ! of this process within the my_cpu_comm communicator
-  !
-  call mpi_comm_size(my_cpu_comm,cpu_size,mpierr)
-#ifdef DEBUG_COMMUNICATORS
-  write (iout,101) "cpu_size",cpu_size,__FILE__,__LINE__
-  flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
-  call mpi_comm_rank(my_cpu_comm,my_cpu_rank,mpierr)
-#ifdef DEBUG_COMMUNICATORS
-  write (iout,101) "my_cpu_rank",my_cpu_rank,__FILE__,__LINE__
-  flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
-  !
-  allocate ( my_cpu_grp(1:cpu_size) , source=0_int_mpi , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_cpu_grp",1,__LINE__,__FILE__, &
-                   ierr,error_message,skip_alloc_pause)
-  !
-  ! Collect the global ranks of all the MPI processes included within
-  ! the my_cpu_comm communicator that the current process is a part of
-  !
-  call mpi_allgather(mypnum,1_int_mpi,MPI_INTEGER, &
-                     my_cpu_grp,1_int_mpi,MPI_INTEGER, &
-                     my_cpu_comm,mpierr)
-#ifdef DEBUG_COMMUNICATORS
-  write (iout,103) ("my_cpu_grp",n,my_cpu_grp(n), &
-                    __FILE__,__LINE__,n=1,size(my_cpu_grp))
-  flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
+  !#####################################################################
+  !#####################################################################
   !
   ! Create a new communicator for all the root processes on each unique host
+  !
+  !#####################################################################
+  !#####################################################################
   !
  !if (my_cpu_num == 0) then
  !  color = int(my_cpu_num,kind=INT_MPI)
@@ -534,16 +428,168 @@ continue
   flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
   !
+  !#####################################################################
+  !#####################################################################
+  !
+  ! Get the number of processor cores on each host
+  !
+  !#####################################################################
+  !#####################################################################
+  !
+  allocate ( host_cores(1:num_hosts) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"host_cores",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do n = 1,num_hosts
+    if (n == my_host_num) then
+      !
+      num_cores_c = get_num_cpus_per_host()
+      ! get_num_cpus_per_host returns number of hyper-threading cores,
+      ! so divide this by 2 since there are generally 2 threads per core.
+      num_cores = int(num_cores_c,kind=kind(num_cores)) / 2
+      !
+    ! num_cores_c = get_max_cpus_per_host()
+    ! num_cores = int(max_cpus_c,kind=kind(num_cores)) / 2
+!#ifdef DEBUG_COMMUNICATORS
+    ! write (iout,101) "num_cores",num_cores,__FILE__,__LINE__
+    ! flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
+!#endif
+      !
+      if (num_cores <= 0) then
+       !num_cores = max( 1 , (maxval(all_cpu_num)+1) )
+       !num_cores = max( 1 , size(host(my_host_num)%cpu_num) )
+        num_cores = max( 1 , host_size )
+      end if
+      !
+      host_cores(n) = num_cores
+      !
+    end if
+  end do
+  !
+  call mpi_allreduce(MPI_IN_PLACE,host_cores,size(host_cores,kind=int_mpi), &
+                     mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
+  !
+#ifdef DEBUG_COMMUNICATORS
+  write (iout,103) ("host_cores",n,host_cores(n),__FILE__,__LINE__, &
+                    n=1,size(host_cores))
+  flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
+  !
+  do n = 1,num_hosts
+    host(n)%num_cores = host_cores(n)
+  end do
+  !
+  deallocate ( host_cores , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"host_cores",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  !#####################################################################
+  !#####################################################################
+  !
+  ! Create new communicators for all processes on each physical cpu
+  !
+  !#####################################################################
+  !#####################################################################
+  !
+  cores_per_cpu = host(my_host_num)%num_cores / host(my_host_num)%num_cpus
+  cores_per_cpu = max(1,cores_per_cpu)
+#ifdef DEBUG_COMMUNICATORS
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  do n = 1,ncpu
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == n-1) then
+      write (iout,101) "my_host_num",my_host_num,__FILE__,__LINE__
+      write (iout,101) "my_cpu_num",my_cpu_num,__FILE__,__LINE__
+      write (iout,101) "my_new_cpu_num",my_new_cpu_num,__FILE__,__LINE__
+      write (iout,101) "cores_per_cpu",cores_per_cpu,__FILE__,__LINE__
+      flush (iout)
+    end if
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end do
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
+ !write (*,*) "c"
+  color = int( 2*(my_host_num-1) + my_host_rank/cores_per_cpu , kind=INT_MPI )
+#ifdef DEBUG_COMMUNICATORS
+  write (iout,101) "mpi_comm_split(cpu,color)",color,__FILE__,__LINE__
+  flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
+  key = int(my_new_cpu_num,kind=INT_MPI)
+ !key = int(my_cpu_num,kind=INT_MPI)
+#ifdef DEBUG_COMMUNICATORS
+  write (iout,101) "mpi_comm_split(cpu,key)",key,__FILE__,__LINE__
+  flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
+  call mpi_comm_split(MPI_COMM_WORLD,color,key,my_cpu_comm,mpierr)
+#ifdef DEBUG_COMMUNICATORS
+  write (iout,101) "mpi_comm_split(cpu,mpierr)",mpierr,__FILE__,__LINE__
+  flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
+  !
+  ! Get the total number of processes and the local rank
+  ! of this process within the my_cpu_comm communicator
+  !
+  call mpi_comm_size(my_cpu_comm,cpu_size,mpierr)
+#ifdef DEBUG_COMMUNICATORS
+  write (iout,101) "cpu_size",cpu_size,__FILE__,__LINE__
+  flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
+  call mpi_comm_rank(my_cpu_comm,my_cpu_rank,mpierr)
+#ifdef DEBUG_COMMUNICATORS
+  write (iout,101) "my_cpu_rank",my_cpu_rank,__FILE__,__LINE__
+  flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
+  !
+  allocate ( my_cpu_grp(1:cpu_size) , source=0_int_mpi , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"my_cpu_grp",1,__LINE__,__FILE__, &
+                   ierr,error_message,skip_alloc_pause)
+  !
+  ! Collect the global ranks of all the MPI processes included within
+  ! the my_cpu_comm communicator that the current process is a part of
+  !
+  call mpi_allgather(mypnum,1_int_mpi,MPI_INTEGER, &
+                     my_cpu_grp,1_int_mpi,MPI_INTEGER, &
+                     my_cpu_comm,mpierr)
+#ifdef DEBUG_COMMUNICATORS
+  write (iout,103) ("my_cpu_grp",n,my_cpu_grp(n), &
+                    __FILE__,__LINE__,n=1,size(my_cpu_grp))
+  flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
+  !
+  !#####################################################################
+  !#####################################################################
+  !
   ! Create a new communicator for all the root processes on each physical CPU
   !
- !if (any(my_cpu_num == [0,cores_per_cpu])) then
-  if (any(my_cpu_rank == [0,cores_per_cpu])) then
+  !#####################################################################
+  !#####################################################################
+  !
+  color = MPI_UNDEFINED
+  i_am_cpu_root = fals
+  !
+  min_cpu_num = minloc(host(my_host_num)%cpu_num,dim=1)
+  if (mypnum == host(my_host_num)%mpi_num(min_cpu_num)) then
     color = 1_int_mpi
     i_am_cpu_root = true
-  else
-    color = MPI_UNDEFINED
-    i_am_cpu_root = fals
   end if
+  !
+  min_cpu_num = minloc( host(my_host_num)%cpu_num , &
+                        mask=host(my_host_num)%cpu_num >= cores_per_cpu , &
+                        dim=1 )
+  if (mypnum == host(my_host_num)%mpi_num(min_cpu_num)) then
+    color = 1_int_mpi
+    i_am_cpu_root = true
+  end if
+  !
+!!if (any(my_cpu_num == [0,cores_per_cpu])) then
+! if (any(my_cpu_rank == [0,cores_per_cpu])) then
+!   color = 1_int_mpi
+!   i_am_cpu_root = true
+! else
+!   color = MPI_UNDEFINED
+!   i_am_cpu_root = fals
+! end if
 #ifdef DEBUG_COMMUNICATORS
   write (iout,104) "i_am_cpu_root",i_am_cpu_root,__FILE__,__LINE__
   flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -611,6 +657,20 @@ continue
   !
   call mpi_bcast(my_cpu_root,1_int_mpi,MPI_INTEGER, &
                  cpu_root,my_cpu_comm,mpierr)
+  !
+  !#####################################################################
+  !#####################################################################
+  !
+  do n = 1,ncpu
+    flush (iout)
+    do i = 1,ncpu
+      if (i /= n) then
+        flush (iout)
+      end if
+    end do
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end do
+  flush (iout)
   !
 #ifdef DEBUG_MPI_GROUPS
  !if (mypnum == 0) then
