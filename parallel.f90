@@ -4773,8 +4773,13 @@ continue
     ! Now localize the information for this face
     !
     ! local host cell
+#ifdef USE_INTRINSIC_FINDLOC
+    bface(2,loc_face) = findloc( cell_map(this_part)%loc_to_glb , &
+                                 bface(2,loc_face) , dim=1 )
+#else
     bface(2,loc_face) = findloc( cell_map(this_part)%loc_to_glb , &
                                  bface(2,loc_face) )
+#endif
     !
     if ( any(bface(1,loc_face) == bc_comm) ) then
       !
@@ -4782,8 +4787,13 @@ continue
       adj_cell = bface(6,loc_face)      ! connecting host cell
       adj_part = bface(7,loc_face) + 1  ! partition of connecting cell
       !
+#ifdef USE_INTRINSIC_FINDLOC
+      bface(5,loc_face) = findloc( face_map(adj_part)%loc_to_glb , adj_face , dim=1 )
+      bface(6,loc_face) = findloc( cell_map(adj_part)%loc_to_glb , adj_cell , dim=1 )
+#else
       bface(5,loc_face) = findloc( face_map(adj_part)%loc_to_glb , adj_face)
       bface(6,loc_face) = findloc( cell_map(adj_part)%loc_to_glb , adj_cell)
+#endif
       !
     end if
     !
@@ -5454,8 +5464,13 @@ continue
     !
     if (send_grid_elem_host_cell) then
       i = i + 1 ! 1 for host cell
+#ifdef USE_INTRINSIC_FINDLOC
+      grid_elem(n+i) = findloc( cell_map(this_part)%loc_to_glb , &
+                                global_grid%elem(glb_cell)%host_cell , dim=1 )
+#else
       grid_elem(n+i) = findloc( cell_map(this_part)%loc_to_glb , &
                                 global_grid%elem(glb_cell)%host_cell )
+#endif
     end if
     !
     ! Add the localized indices for global_grid%elem(:)%pts
@@ -5648,7 +5663,11 @@ continue
       ! Equivalent to above, but using epart
      !master_cpu = epart( global_bface(2,glb_face) )
       !
+#ifdef USE_INTRINSIC_FINDLOC
+      loc_face = findloc( face_map(master_cpu)%loc_to_glb , glb_face , dim=1 )
+#else
       loc_face = findloc( face_map(master_cpu)%loc_to_glb , glb_face)
+#endif
       !
       bc_conflict(n)%master%face = loc_face
       bc_conflict(n)%master%cpu = master_cpu
@@ -5676,7 +5695,11 @@ continue
         ! Equivalent to above, but using epart
        !slave_cpu = epart( global_bface(2,glb_face) )
         !
+#ifdef USE_INTRINSIC_FINDLOC
+        loc_face = findloc( face_map(slave_cpu)%loc_to_glb , glb_face , dim=1 )
+#else
         loc_face = findloc( face_map(slave_cpu)%loc_to_glb , glb_face)
+#endif
         !
         bc_conflict(n)%slave(nf)%face = loc_face
         bc_conflict(n)%slave(nf)%cpu = slave_cpu

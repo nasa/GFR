@@ -11470,7 +11470,7 @@ end subroutine compute_dmatrix_grad_temperature
 !###############################################################################
 !
 include "Functions/last.f90"
-include "Functions/bc_priority.f90"
+#include "Functions/bc_priority.f90"
 include "Functions/cell_vol.f90"
 include "Functions/bc_string_to_integer.f90"
 #include "Functions/check_for_bad_number.f90"

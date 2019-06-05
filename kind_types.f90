@@ -1159,6 +1159,7 @@ module module_kind_types
   !
   !
   !
+#ifndef USE_INTRINSIC_FINDLOC
   private :: findloc_i4,recursive_findloc_i4
   private :: findloc_i8,recursive_findloc_i8
   private :: findloc_r4,recursive_findloc_r4
@@ -1171,6 +1172,7 @@ module module_kind_types
                      findloc_r8,recursive_findloc_r8
 
   end interface findloc
+#endif
   !
   !
   !
@@ -2196,7 +2198,9 @@ include "Functions/rotate.f90"
 include "Functions/rotate_2d.f90"
 #include "Functions/matrix_ops.f90"
 include "Functions/random.f90"
+#ifndef USE_INTRINSIC_FINDLOC
 include "Functions/findloc.f90"
+#endif
 include "Functions/node_center.f90"
 include "Functions/face_normal.f90"
 include "Functions/jacobians.f90"
