@@ -195,7 +195,7 @@ rebuild-merope: BDIR := optimize_merope
 rebuild-merope: EXEF := gfr_merope
 rebuild-merope: TRGT := merope
 rebuild-merope: clean-build
-rebuild-merope: build
+rebuild-merope: merope
 
 .PHONY: mer
 mer: merope
