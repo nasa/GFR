@@ -255,7 +255,7 @@ subroutine allocate_flowvar_arrays()
   !.. Use Statements ..
   use eqn_idx,   only : nq,ng,npres,ntemp,ngamm,ncs
   use geovar,    only : nr,n_solpts,n_totpts
-  use geovar,    only : nfbnd,nface,face,bface
+  use geovar,    only : nfbnd,nface,face
   use geovar,    only : nnode,nedge,edge
   use order_mod, only : geom_solpts
   use ovar,      only : Runge_Kutta_Scheme,num_rk_stages,mms_opt
@@ -263,6 +263,7 @@ subroutine allocate_flowvar_arrays()
   use ovar,      only : continuous_output
   use ovar,      only : time_average_restart_files
   use ovar,      only : if_interpto_newgrid
+  use ovar,      only : bc_in
   !
   !.. Local Scalars ..
   integer :: n,ne,nf,nn,nepts,nfp,nfpts
@@ -299,7 +300,7 @@ continue
   !
   if (time_average_restart_files) return
   !
-  if (any(bface(1,:) == bc_sem)) then
+  if (any(bc_in(:)%bc_type == bc_sem)) then
     if (.not. allocated(facexyz_dt)) then
       allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
