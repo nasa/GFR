@@ -242,6 +242,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/thermo_mod.o \
                $(OBJDIR)/transport_mod.o \
                $(OBJDIR)/reactions_mod.o \
+               $(OBJDIR)/turb_inflow_mod.o \
                $(FUNDIR)/vortex.f90 \
                $(FUNDIR)/taylor_green.f90 \
                $(FUNDIR)/smc000_interior_wall_radius.f90 \
@@ -539,7 +540,7 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/geovar_mod.o \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/flowvar_mod.o \
-		$(OBJDIR)/random_mod.o \
+                $(OBJDIR)/random_mod.o \
                 $(OBJDIR)/parallel.o \
                 $(OBJDIR)/thermo_mod.o \
                 $(OBJDIR)/turb_inflow_mod.o \

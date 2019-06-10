@@ -49,6 +49,8 @@ subroutine initialize_flow()
   !
   use interpolation_mod, only : outerp
   !
+  use synthetic_eddy_mod, only : initialize_from_sem_profile
+  !
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -134,6 +136,13 @@ continue
   else if (grid_sol_is_available) then
     !
     ! THIS SECTION OF CODE WAS MOVED INTO MAPPINGS_MOD SO DO NOTHING!
+    !
+  else if (itestcase == Channel_Flow .and. any(bc_in(:)%bc_type == bc_sem)) then
+    !
+    ! Initialize the flow based on the 1D inflow profile
+    ! used for the SEM turbulence inflow generator.
+    !
+    call initialize_from_sem_profile(xyz,usp)
     !
   else
     !
