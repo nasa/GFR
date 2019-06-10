@@ -12,6 +12,7 @@ module synthetic_eddy_mod
   public :: separate_sem_boundary_faces
   public :: output_sem_averages
   public :: dump_sem_data
+  public :: initialize_from_sem_profile
   !
   !#############################################################################
   !#############################################################################
@@ -355,6 +356,176 @@ module synthetic_eddy_mod
   type(sem_pts_t), save, allocatable :: my_sem_pts(:)
   !
 contains
+!
+!###############################################################################
+!
+subroutine initialize_from_sem_profile(xyz,cv)
+  !
+  !.. Use Statements ..
+  use ovar, only : bc_in,gam,rgasref_nd
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: xyz(:,:)
+  real(wp), intent(inout) :: cv(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: k,n,npts,n1,n2,bc_idx,ierr
+  real(wp) :: r,u,v,w,t,q2,rgas_over_gm1
+  real(wp) :: ravg,uavg,vavg,wavg,tavg
+  real(wp) :: y,y1,y2,c1,c2
+  !
+  !.. Local Allocatable Scalars ..
+  type(sem_profile_t), allocatable :: prof
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_from_sem_profile"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Precompute Rgas/(gamma-1)
+  !
+  rgas_over_gm1 = rgasref_nd / (gam - one)
+  !
+  ! Allocate prof
+  !
+  allocate ( prof , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"prof",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Read in the profile file
+  ! NOTE: This should be called before initialize_sem, so sem_box will not yet
+  !       be allocated, and therefore the profile file will not yet have been
+  !       read in and saved to sem_box(:)%profile.
+  !
+  one_pass_loop: &
+  do k = 1,1
+    !
+    do bc_idx = 1,ubound(bc_in,dim=1)
+      if (bc_in(bc_idx)%bc_type == bc_sem) then
+        prof%fname = trim(adjustl( bc_in(bc_idx)%sem%profile_file ))
+        if (len_trim(prof%fname) > 0) then
+          ravg = bc_in(bc_idx)%cv(nec)
+          uavg = bc_in(bc_idx)%cv(nmx)
+          vavg = bc_in(bc_idx)%cv(nmy)
+          wavg = bc_in(bc_idx)%cv(nmz)
+          tavg = bc_in(bc_idx)%gp(ntemp)
+          exit one_pass_loop
+        end if
+      end if
+    end do
+    !
+    write (error_message,1)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    !
+  end do one_pass_loop
+  !
+  call read_sem_profile(prof)
+  !
+  npts = prof%npts
+  !
+  ! If the averaged density was not included in the profile
+  ! file, set the density for all points in the profile to
+  ! the density specified for this boundary condition.
+  !
+  if (.not. allocated(prof%ravg)) then
+    prof%ravg = init_array(npts,ravg) ! F2003 AUTO-REALLOC
+  end if
+  !
+  ! If the averaged x-velocity was not included in the profile
+  ! file, set the x-velocity for all points in the profile to
+  ! the x-velocity specified for this boundary condition.
+  !
+  if (.not. allocated(prof%uavg)) then
+    prof%uavg = init_array(npts,uavg) ! F2003 AUTO-REALLOC
+  end if
+  !
+  ! If the averaged y-velocity was not included in the profile
+  ! file, set the y-velocity for all points in the profile to
+  ! the y-velocity specified for this boundary condition.
+  !
+  if (.not. allocated(prof%vavg)) then
+    prof%vavg = init_array(npts,vavg) ! F2003 AUTO-REALLOC
+  end if
+  !
+  ! If the averaged z-velocity was not included in the profile
+  ! file, set the z-velocity for all points in the profile to
+  ! the z-velocity specified for this boundary condition.
+  !
+  if (.not. allocated(prof%wavg)) then
+    prof%wavg = init_array(npts,wavg) ! F2003 AUTO-REALLOC
+  end if
+  !
+  ! If the averaged temperature was not included in the profile
+  ! file, set the temperature for all points in the profile to
+  ! the temperature specified for this boundary condition.
+  !
+  if (.not. allocated(prof%tavg)) then
+    prof%tavg = init_array(npts,tavg) ! F2003 AUTO-REALLOC
+  end if
+  !       
+  ! Interpolate the flow profile to the solution points
+  !
+  do k = 1,size(xyz,dim=2)
+    !
+    y = xyz(2,k)
+    !
+    n1 = 1
+    n2 = 2
+    do n = 2,npts
+      if (prof%y(n) > y) exit
+      n1 = n
+      n2 = max(n+1,npts)
+    end do
+    !
+    if (n1 == npts) then
+      !
+      c1 = zero
+      c2 = one
+      !
+    else
+      !
+      y1 = prof%y(n1)
+      y2 = prof%y(n2)
+      !
+      c1 = (y-y2)/(y2-y1)
+      c2 = (y-y1)/(y2-y1)
+      !
+    end if
+    !
+    r = c2*prof%ravg(n2) - c1*prof%ravg(n1)
+    u = c2*prof%uavg(n2) - c1*prof%uavg(n1)
+    v = c2*prof%vavg(n2) - c1*prof%vavg(n1)
+    w = c2*prof%wavg(n2) - c1*prof%wavg(n1)
+    t = c2*prof%tavg(n2) - c1*prof%tavg(n1)
+    !
+    q2 = u*u + v*v + w*w
+    !
+    cv(k,nec) = r
+    cv(k,nmx) = r*u
+    cv(k,nmy) = r*v
+    cv(k,nmz) = r*w
+    cv(k,nee) = r*( rgas_over_gm1*t + half*q2 )
+    !
+  end do
+  !
+  ! Deallocate prof and all its components before leaving
+  !
+  if (allocated(prof)) then
+    deallocate ( prof , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"prof",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("ERROR!! TRYING TO INITIALIZE CHANNEL FLOW CASE USING ", &
+            "THE SEM INFLOW PROFILE, BUT A FILE NAME FOR THE SEM ", &
+            "PROFILE FILE COULD NOT BE FOUND FROM THE INPUT BOUNDARY ", &
+            "CONDITIONS!")
+  !
+end subroutine initialize_from_sem_profile
 !
 !###############################################################################
 !
@@ -1765,7 +1936,7 @@ continue
   !
   ! Read in velocity profiles and Reynolds stresses
   !
-  call read_sem_profiles()
+  call read_sem_box_profiles()
   !
   ! Recompute the volume of the SEM boxes and the number of eddies for
   ! each box if this is not a restart simulatino
@@ -3482,32 +3653,21 @@ end subroutine check_restart_eddies
 !
 !###############################################################################
 !
-subroutine read_sem_profiles()
+subroutine read_sem_box_profiles()
   !
   !.. Use Statements
   use ovar, only : bc_in
   !
   !.. Local Scalars ..
-  integer  :: i,ierr,io,n,npts,nvar,sem_idx
+  integer  :: n,npts,sem_idx
   real(wp) :: tau11,tau21,tau22,tau31,tau32,tau33
   real(wp) :: a11,a21,a22,a31,a32,a33
-  real(wp) :: ravg,vavg,wavg,tavg
+  real(wp) :: ravg,uavg,vavg,wavg,tavg
   !
   logical(lk) :: profile_data_is_allocated
-  logical(lk) :: density_was_read
-  logical(lk) :: vy_was_read
-  logical(lk) :: vz_was_read
-  logical(lk) :: temperature_was_read
-  !
-  character(len=150) :: fname
-  character(len=150) :: profile_variables
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp),          allocatable :: temp_data(:,:)
-  character(len=10), allocatable :: var_names(:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_sem_profiles"
+  character(len=*), parameter :: pname = "read_sem_box_profiles"
   !
 continue
   !
@@ -3529,125 +3689,43 @@ continue
   !
   ! We need to create the profile data, so read the data from the profile files.
   !
-  density_was_read = fals
-  vy_was_read = fals
-  vz_was_read = fals
-  temperature_was_read = fals
-  !
   do sem_idx = 1,num_sem_boxes
     !
-    fname = sem_box(sem_idx)%profile%fname
+    call read_sem_profile(sem_box(sem_idx)%profile, &
+                          is_cylindrical=sem_box(sem_idx)%is_cylindrical)
     !
-    ! Open the profile file for this SEM box
+    npts = sem_box(sem_idx)%profile%npts
     !
-    open (newunit=io,file=trim(adjustl(fname)),status="old",action="read", &
-                     position="rewind",iostat=ierr,iomsg=error_message)
-    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+    ! Allocate any Reynolds stress tensor arrays
+    ! that were not read from the profile file.
     !
-    ! Read the number of points in this profile file
-    ! and allocate all the profile data arrays
+    if (.not. allocated(sem_box(sem_idx)%profile%tau11)) &
+    sem_box(sem_idx)%profile%tau11 = init_array(npts,zero) ! F2003 AUTO-REALLOC
     !
-    read (io,'(a)') profile_variables
+    if (.not. allocated(sem_box(sem_idx)%profile%tau21)) &
+    sem_box(sem_idx)%profile%tau21 = init_array(npts,zero) ! F2003 AUTO-REALLOC
     !
-    call identify_profile_variables(profile_variables,var_names)
+    if (.not. allocated(sem_box(sem_idx)%profile%tau22)) &
+    sem_box(sem_idx)%profile%tau22 = init_array(npts,zero) ! F2003 AUTO-REALLOC
     !
-    nvar = size(var_names)
+    if (.not. allocated(sem_box(sem_idx)%profile%tau31)) &
+    sem_box(sem_idx)%profile%tau31 = init_array(npts,zero) ! F2003 AUTO-REALLOC
     !
-    read (io,*) npts
+    if (.not. allocated(sem_box(sem_idx)%profile%tau32)) &
+    sem_box(sem_idx)%profile%tau32 = init_array(npts,zero) ! F2003 AUTO-REALLOC
     !
-    allocate ( sem_box(sem_idx)%profile%y(1:npts) , source=zero )
+    if (.not. allocated(sem_box(sem_idx)%profile%tau33)) &
+    sem_box(sem_idx)%profile%tau33 = init_array(npts,zero) ! F2003 AUTO-REALLOC
     !
-    allocate ( sem_box(sem_idx)%profile%ravg(1:npts) , source=zero )
-    allocate ( sem_box(sem_idx)%profile%uavg(1:npts) , source=zero )
-    allocate ( sem_box(sem_idx)%profile%vavg(1:npts) , source=zero )
-    allocate ( sem_box(sem_idx)%profile%wavg(1:npts) , source=zero )
-    allocate ( sem_box(sem_idx)%profile%tavg(1:npts) , source=zero )
+    ! Allocate the components of the Cholesky decomposition of
+    ! the prescribed Reynolds stress tensor for this profile.
     !
-    allocate ( sem_box(sem_idx)%profile%tau11(1:npts) , source=zero )
-    allocate ( sem_box(sem_idx)%profile%tau21(1:npts) , source=zero )
-    allocate ( sem_box(sem_idx)%profile%tau22(1:npts) , source=zero )
-    allocate ( sem_box(sem_idx)%profile%tau31(1:npts) , source=zero )
-    allocate ( sem_box(sem_idx)%profile%tau32(1:npts) , source=zero )
-    allocate ( sem_box(sem_idx)%profile%tau33(1:npts) , source=zero )
-    !
-    allocate ( sem_box(sem_idx)%profile%a11(1:npts) , source=zero )
-    allocate ( sem_box(sem_idx)%profile%a21(1:npts) , source=zero )
-    allocate ( sem_box(sem_idx)%profile%a22(1:npts) , source=zero )
-    allocate ( sem_box(sem_idx)%profile%a31(1:npts) , source=zero )
-    allocate ( sem_box(sem_idx)%profile%a32(1:npts) , source=zero )
-    allocate ( sem_box(sem_idx)%profile%a33(1:npts) , source=zero )
-    !
-    sem_box(sem_idx)%profile%npts = npts
-    !
-    ! Read in all the profile data
-    !
-    allocate ( temp_data(1:nvar,1:npts) , source=zero )
-    !
-    do n = 1,npts
-      read (io,*) (temp_data(i,n), i=1,nvar)
-     !read (io,*) sem_box(sem_idx)%profile%y(n), &
-     !            sem_box(sem_idx)%profile%uavg(n), &
-     !            sem_box(sem_idx)%profile%tau11(n), &
-     !            sem_box(sem_idx)%profile%tau22(n), &
-     !            sem_box(sem_idx)%profile%tau33(n), &
-     !            sem_box(sem_idx)%profile%tau21(n), &
-     !            sem_box(sem_idx)%profile%ravg(n), &
-     !            sem_box(sem_idx)%profile%tavg(n)
-    end do
-    !
-    ! Close the profile file for this SEM box
-    !
-    close (io,iostat=ierr,iomsg=error_message)
-    call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
-    !
-    do i = 1,nvar
-      select case (uppercase(trim(adjustl(var_names(i)))))
-        !
-        case ("Y")
-          sem_box(sem_idx)%profile%y(1:npts) = temp_data(i,1:npts)
-        !
-        case ("R")
-          sem_box(sem_idx)%is_cylindrical = true
-          sem_box(sem_idx)%profile%y(1:npts) = temp_data(i,1:npts)
-          !
-        case ("RHO","DENSITY")
-          density_was_read = true
-          sem_box(sem_idx)%profile%ravg(1:npts) = temp_data(i,1:npts)
-        case ("VX","U")
-          sem_box(sem_idx)%profile%uavg(1:npts) = temp_data(i,1:npts)
-        case ("VY","V")
-          vy_was_read = true
-          sem_box(sem_idx)%profile%vavg(1:npts) = temp_data(i,1:npts)
-        case ("VZ","W")
-          vz_was_read = true
-          sem_box(sem_idx)%profile%wavg(1:npts) = temp_data(i,1:npts)
-        case ("T","TEMPERATURE")
-          temperature_was_read = true
-          sem_box(sem_idx)%profile%tavg(1:npts) = temp_data(i,1:npts)
-          !
-        case ("TAUXX","TAU11","RXX","R11")
-          sem_box(sem_idx)%profile%tau11(1:npts) = temp_data(i,1:npts)
-        case ("TAUYX","TAUXY","TAU21","TAU12","RYX","RXY","R21","R12")
-          sem_box(sem_idx)%profile%tau21(1:npts) = temp_data(i,1:npts)
-        case ("TAUYY","TAU22","RYY","R22")
-          sem_box(sem_idx)%profile%tau22(1:npts) = temp_data(i,1:npts)
-        case ("TAUZX","TAUXZ","TAU31","TAU13","RZX","RXZ","R31","R13")
-          sem_box(sem_idx)%profile%tau31(1:npts) = temp_data(i,1:npts)
-        case ("TAUZY","TAUYZ","TAU32","TAU23","RZY","RYZ","R32","R23")
-          sem_box(sem_idx)%profile%tau32(1:npts) = temp_data(i,1:npts)
-        case ("TAUZZ","TAU33","RZZ","R33")
-          sem_box(sem_idx)%profile%tau33(1:npts) = temp_data(i,1:npts)
-          !
-      end select
-      !
-    end do
-    !
-    deallocate ( temp_data , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"temp_data",2,__LINE__,__FILE__,ierr,error_message)
-    !
-    ! Nondimensionalize all the profile quantities
-    !
-    call nondimensionalize_sem_profile(sem_box(sem_idx)%profile)
+    sem_box(sem_idx)%profile%a11 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+    sem_box(sem_idx)%profile%a21 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+    sem_box(sem_idx)%profile%a22 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+    sem_box(sem_idx)%profile%a31 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+    sem_box(sem_idx)%profile%a32 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+    sem_box(sem_idx)%profile%a33 = init_array(npts,zero) ! F2003 AUTO-REALLOC
     !
     ! Compute the Reynolds stress tensor for the profile
     !
@@ -3685,51 +3763,260 @@ continue
     ! file, set the density for all points in the profile to
     ! the density specified for this boundary condition.
     !
-    if (.not. density_was_read) then
+    if (.not. allocated(sem_box(sem_idx)%profile%ravg)) then
       ravg = bc_in( sem_box(sem_idx)%bc_idx )%cv(nec)
-      do n = 1,npts
-        sem_box(sem_idx)%profile%ravg(n) = ravg
-      end do
+      sem_box(sem_idx)%profile%ravg = init_array(npts,ravg) ! F2003 AUTO-REALLOC
+    end if
+    !
+    ! If the averaged x-velocity was not included in the profile
+    ! file, set the x-velocity for all points in the profile to
+    ! the x-velocity specified for this boundary condition.
+    !
+    if (.not. allocated(sem_box(sem_idx)%profile%uavg)) then
+      uavg = bc_in( sem_box(sem_idx)%bc_idx )%cv(nmx)
+      sem_box(sem_idx)%profile%uavg = init_array(npts,uavg) ! F2003 AUTO-REALLOC
     end if
     !
     ! If the averaged y-velocity was not included in the profile
     ! file, set the y-velocity for all points in the profile to
     ! the y-velocity specified for this boundary condition.
     !
-    if (.not. vy_was_read) then
-      vavg = bc_in( sem_box(sem_idx)%bc_idx )%pv(nmy)
-      do n = 1,npts
-        sem_box(sem_idx)%profile%vavg(n) = vavg
-      end do
+    if (.not. allocated(sem_box(sem_idx)%profile%vavg)) then
+      vavg = bc_in( sem_box(sem_idx)%bc_idx )%cv(nmy)
+      sem_box(sem_idx)%profile%vavg = init_array(npts,vavg) ! F2003 AUTO-REALLOC
     end if
     !
     ! If the averaged z-velocity was not included in the profile
     ! file, set the z-velocity for all points in the profile to
     ! the z-velocity specified for this boundary condition.
     !
-    if (.not. vz_was_read) then
-      wavg = bc_in( sem_box(sem_idx)%bc_idx )%pv(nmz)
-      do n = 1,npts
-        sem_box(sem_idx)%profile%wavg(n) = wavg
-      end do
+    if (.not. allocated(sem_box(sem_idx)%profile%wavg)) then
+      wavg = bc_in( sem_box(sem_idx)%bc_idx )%cv(nmz)
+      sem_box(sem_idx)%profile%wavg = init_array(npts,wavg) ! F2003 AUTO-REALLOC
     end if
     !
     ! If the averaged temperature was not included in the profile
     ! file, set the temperature for all points in the profile to
     ! the temperature specified for this boundary condition.
     !
-    if (.not. temperature_was_read) then
+    if (.not. allocated(sem_box(sem_idx)%profile%tavg)) then
       tavg = bc_in( sem_box(sem_idx)%bc_idx )%gp(ntemp)
-      do n = 1,npts
-        sem_box(sem_idx)%profile%tavg(n) = tavg
-      end do
+      sem_box(sem_idx)%profile%tavg = init_array(npts,tavg) ! F2003 AUTO-REALLOC
     end if
     !
   end do
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine read_sem_profiles
+end subroutine read_sem_box_profiles
+!
+!###############################################################################
+!
+subroutine read_sem_profile(prof,is_cylindrical)
+  !
+  !.. Formal Arguments ..
+  type(sem_profile_t), intent(inout) :: prof
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(inout) :: is_cylindrical
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr,io,i1,i2,n,npts,nvar
+  !
+  logical(lk) :: r_instead_of_y
+  !
+  character(len=150) :: fname
+  character(len=150) :: profile_variables
+  !
+  !.. Local Arrays ..
+  integer :: temp_size(1:2)
+  !
+  !.. Local Allocatable Arrays ..
+  integer,           allocatable :: int_char(:,:)
+  real(wp),          allocatable :: temp_data(:,:)
+  character(len=10), allocatable :: var_names(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_sem_profile"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! We need to create the profile data, so read the data from the profile files.
+  !
+  r_instead_of_y = fals
+  !
+  fname = trim(adjustl( prof%fname ))
+  !
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  !%%%  OPEN THE PROFILE FILE AND READ THE PROFILE VARIABLES  %%%
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  !
+  ! Have only the root MPI process read the profile file, and then
+  ! broadcast the read data to all the other MPI processes. We want
+  ! to do this to prevent file access contention for simulations
+  ! involving a very large number of MPI processes.
+  !
+  if (mypnum == glb_root) then
+    !
+    open (newunit=io,file=fname,status="old",action="read", &
+                     position="rewind",iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Read the number of points in this profile file
+    ! and allocate all the profile data arrays
+    !
+    read (io,'(a)') profile_variables
+    !
+    call identify_profile_variables(profile_variables,var_names)
+    !
+    nvar = size(var_names)
+    !
+    read (io,*) npts
+    !
+    prof%npts = npts
+    !
+    ! Read in all the profile data
+    !
+    temp_data = init_array(nvar,npts,zero) ! F2003 AUTO-REALLOC
+    !
+    do n = 1,npts
+      read (io,*) (temp_data(i,n), i=1,nvar)
+    end do
+    !
+    ! Close the profile file for this SEM box
+    !
+    close (io,iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+    !
+    temp_size(1) = nvar
+    temp_size(2) = npts
+    !
+  end if
+  !
+  if (ncpu > 1) then
+    !
+    call mpi_bcast(temp_size,size(temp_size,kind=int_mpi),mpi_inttyp, &
+                   glb_root,MPI_COMM_WORLD,mpierr)
+    !
+    nvar = temp_size(1)
+    npts = temp_size(2)
+    !
+    prof%npts = npts
+    !
+    if (.not. allocated(temp_data)) then
+      temp_data = init_array(nvar,npts,zero) ! F2003 AUTO-REALLOC
+    end if
+    !
+    call mpi_bcast(temp_data,size(temp_data,kind=int_mpi),mpi_flttyp, &
+                   glb_root,MPI_COMM_WORLD,mpierr)
+    !
+    ! Broadcast var_names to all the non-root MPI processes
+    !
+    if (.not. allocated(var_names)) then
+      allocate ( var_names(1:nvar) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"var_names",1,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    int_char = init_array( (len(var_names)/4)+1 , nvar , 0) ! F2003 AUTO-REALLOC
+    !
+    if (mypnum == glb_root) then
+      do n = 1,nvar
+        do i = 1,size(int_char,dim=1)
+          i1 = (i-1)*4 + 1
+          i2 = min(i*4,len(var_names))
+          int_char(i,n) = transfer( var_names(n)(i1:i2) , int_char(i,n) )
+        end do
+      end do
+    end if
+    !
+    call mpi_bcast(int_char,size(int_char,kind=int_mpi),mpi_inttyp, &
+                   glb_root,MPI_COMM_WORLD,mpierr)
+    !
+    if (mypnum /= glb_root) then
+      do n = 1,nvar
+        do i = 1,size(int_char,dim=1)
+          i1 = (i-1)*4 + 1
+          i2 = min(i*4,len(var_names))
+          var_names(n)(i1:i2) = transfer( int_char(i,n) , var_names(n)(i1:i2) )
+        end do
+      end do
+    end if
+    !
+  end if
+  !
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  !%%%  NOW SAVE THE READ DATA INTO THE PROFILE DERIVED TYPE  %%%
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  !
+  do i = 1,nvar
+    select case (uppercase(trim(adjustl(var_names(i)))))
+      !
+      case ("Y")
+        prof%y = temp_data(i,1:npts)      ! F2003 AUTO-REALLOC
+        !
+      case ("R")
+        r_instead_of_y = true
+        prof%y = temp_data(i,1:npts)      ! F2003 AUTO-REALLOC
+        !
+      case ("RHO","DENSITY")
+        prof%ravg = temp_data(i,1:npts)   ! F2003 AUTO-REALLOC
+      case ("VX","U")
+        prof%uavg = temp_data(i,1:npts)   ! F2003 AUTO-REALLOC
+      case ("VY","V")
+        prof%vavg = temp_data(i,1:npts)   ! F2003 AUTO-REALLOC
+      case ("VZ","W")
+        prof%wavg = temp_data(i,1:npts)   ! F2003 AUTO-REALLOC
+      case ("T","TEMPERATURE")
+        prof%tavg = temp_data(i,1:npts)   ! F2003 AUTO-REALLOC
+        !
+      case ("TAUXX","TAU11","RXX","R11")
+        prof%tau11 = temp_data(i,1:npts)  ! F2003 AUTO-REALLOC
+      case ("TAUYX","TAUXY","TAU21","TAU12","RYX","RXY","R21","R12")
+        prof%tau21 = temp_data(i,1:npts)  ! F2003 AUTO-REALLOC
+      case ("TAUYY","TAU22","RYY","R22")
+        prof%tau22 = temp_data(i,1:npts)  ! F2003 AUTO-REALLOC
+      case ("TAUZX","TAUXZ","TAU31","TAU13","RZX","RXZ","R31","R13")
+        prof%tau31 = temp_data(i,1:npts)  ! F2003 AUTO-REALLOC
+      case ("TAUZY","TAUYZ","TAU32","TAU23","RZY","RYZ","R32","R23")
+        prof%tau32 = temp_data(i,1:npts)  ! F2003 AUTO-REALLOC
+      case ("TAUZZ","TAU33","RZZ","R33")
+        prof%tau33 = temp_data(i,1:npts)  ! F2003 AUTO-REALLOC
+        !
+    end select
+    !
+  end do
+  !
+  deallocate ( temp_data , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_data",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Nondimensionalize all the profile quantities
+  !
+  call nondimensionalize_sem_profile(prof)
+  !
+  ! If is_cylindrical is present, return true if the variable R
+  ! was found in the profile file instead of variable Y.
+  !
+  ! NOTE: We do NOT want to return the value of r_instead_of_y to is_cylindrical
+  !       because is_cylindrical could already be true through other means of
+  !       detecting a cylindrical based SEM box. We do not want to change this
+  !       to false because the variable Y was in the profile file instead of the
+  !       variable R. In these situations, Y is just assumed to be R.
+  !
+  if (present(is_cylindrical)) then
+    if (r_instead_of_y) then
+      is_cylindrical = true
+    end if
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_sem_profile
 !
 !###############################################################################
 !
@@ -3743,7 +4030,6 @@ subroutine nondimensionalize_sem_profile(this)
   type(sem_profile_t), intent(inout) :: this
   !
   !.. Local Scalars ..
-  integer  :: n
   real(wp) :: rhoref_inv,aref_inv,tref_inv,aref2_inv
   !
   !.. Local Parameters ..
@@ -3757,22 +4043,18 @@ continue
   !
   aref2_inv = aref_inv * aref_inv
   !
-  do n = 1,this%npts
-    !
-    this%ravg(n) = this%ravg(n) * rhoref_inv
-    this%uavg(n) = this%uavg(n) * aref_inv
-    this%vavg(n) = this%vavg(n) * aref_inv
-    this%wavg(n) = this%wavg(n) * aref_inv
-    this%tavg(n) = this%tavg(n) * tref_inv
-    !
-    this%tau11(n) = this%tau11(n) * aref2_inv
-    this%tau21(n) = this%tau21(n) * aref2_inv
-    this%tau22(n) = this%tau22(n) * aref2_inv
-    this%tau31(n) = this%tau31(n) * aref2_inv
-    this%tau32(n) = this%tau32(n) * aref2_inv
-    this%tau33(n) = this%tau33(n) * aref2_inv
-    !
-  end do
+  if (allocated(this%ravg)) this%ravg(:) = this%ravg(:) * rhoref_inv
+  if (allocated(this%uavg)) this%uavg(:) = this%uavg(:) * aref_inv
+  if (allocated(this%vavg)) this%vavg(:) = this%vavg(:) * aref_inv
+  if (allocated(this%wavg)) this%wavg(:) = this%wavg(:) * aref_inv
+  if (allocated(this%tavg)) this%tavg(:) = this%tavg(:) * tref_inv
+  !
+  if (allocated(this%tau11)) this%tau11(:) = this%tau11(:) * aref2_inv
+  if (allocated(this%tau21)) this%tau21(:) = this%tau21(:) * aref2_inv
+  if (allocated(this%tau22)) this%tau22(:) = this%tau22(:) * aref2_inv
+  if (allocated(this%tau31)) this%tau31(:) = this%tau31(:) * aref2_inv
+  if (allocated(this%tau32)) this%tau32(:) = this%tau32(:) * aref2_inv
+  if (allocated(this%tau33)) this%tau33(:) = this%tau33(:) * aref2_inv
   !
 end subroutine nondimensionalize_sem_profile
 !
