@@ -4788,8 +4788,10 @@ continue
       adj_part = bface(7,loc_face) + 1  ! partition of connecting cell
       !
 #ifdef USE_INTRINSIC_FINDLOC
-      bface(5,loc_face) = findloc( face_map(adj_part)%loc_to_glb , adj_face , dim=1 )
-      bface(6,loc_face) = findloc( cell_map(adj_part)%loc_to_glb , adj_cell , dim=1 )
+      bface(5,loc_face) = findloc( face_map(adj_part)%loc_to_glb , &
+                                   adj_face , dim=1 )
+      bface(6,loc_face) = findloc( cell_map(adj_part)%loc_to_glb , &
+                                   adj_cell , dim=1 )
 #else
       bface(5,loc_face) = findloc( face_map(adj_part)%loc_to_glb , adj_face)
       bface(6,loc_face) = findloc( cell_map(adj_part)%loc_to_glb , adj_cell)

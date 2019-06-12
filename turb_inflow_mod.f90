@@ -2871,8 +2871,12 @@ continue
     !
     write (io,12) "Original"
     do n = 1,np
-      write (io,21) n,prof%tau11(n)*aref2,prof%tau22(n)*aref2,prof%tau33(n)*aref2, &
-                      prof%tau21(n)*aref2,prof%tau31(n)*aref2,prof%tau32(n)*aref2
+      write (io,21) n,prof%tau11(n)*aref2, &
+                      prof%tau22(n)*aref2, &
+                      prof%tau33(n)*aref2, &
+                      prof%tau21(n)*aref2, &
+                      prof%tau31(n)*aref2, &
+                      prof%tau32(n)*aref2
     end do
     !
     write (io,13) "Original"
@@ -2908,7 +2912,8 @@ continue
              2x,a," Reynolds Stress Tensor Profile",/, &
              14x,"<UU>",9x,"<VV>",9x,"<WW>",9x,"<UV>",9x,"<UW>",9x,"<VW>")
   13 format (/, &
-             2x,a," Cholesky Decomposition of Reynolds Stress Tensor Profile",/, &
+             2x,a," Cholesky Decomposition of", &
+                  " Reynolds Stress Tensor Profile",/, &
              15x,"A11",10x,"A22",10x,"A33",10x,"A21",10x,"A31",10x,"A32")
   !
   21 format (3x,i4,2x,6f13.8)
@@ -5082,9 +5087,9 @@ continue
     !
     ! Allocate the array to collect all the SEM averaged values
     ! from all SEM face points across all MPI processes.
-    ! NOTE: Only the global root process will allocate this array to the actually
-    !       needed size; all other processes will allocate it such that there is
-    !       only a single SEM face point.
+    ! NOTE: Only the global root process will allocate this array to the
+    !       actually needed size; all other processes will allocate it such
+    !       that there is only a single SEM face point.
     !
     num_fp = merge( num_total_sem_pts , 1 , mypnum == glb_root )
     !
@@ -5673,19 +5678,24 @@ continue
    !n5 = count( bface(5,1:nfbnd) == grp_idx )
    !n6 = count( bface(6,1:nfbnd) == bc_idx )
    !!
-   !nfp5 = sum( (face(1:nfbnd)%order+1)**2 , mask=(bface(5,1:nfbnd) == grp_idx) )
-   !nfp6 = sum( (face(1:nfbnd)%order+1)**2 , mask=(bface(6,1:nfbnd) == bc_idx) )
+   !nfp5 = sum( (face(1:nfbnd)%order+1)**2 , &
+   !            mask=(bface(5,1:nfbnd) == grp_idx) )
+   !nfp6 = sum( (face(1:nfbnd)%order+1)**2 , &
+   !            mask=(bface(6,1:nfbnd) == bc_idx) )
    !!
    !if (n5 /= n6) then
    !  write (iout,900) "sem_idx",sem_idx,"n5",n5,"n6",n6
-   !  call stop_gfr(abort,pname,__LINE__,__FILE__,"ERROR WITH SEM CONNECTIVITIES")
+   !  call stop_gfr(abort,pname,__LINE__,__FILE__, &
+   !                "ERROR WITH SEM CONNECTIVITIES")
    !else if (nfp5 /= nfp6) then
    !  write (iout,900) "sem_idx",sem_idx,"nfp5",nfp5,"nfp6",nfp6
-   !  call stop_gfr(abort,pname,__LINE__,__FILE__,"ERROR WITH SEM CONNECTIVITIES")
+   !  call stop_gfr(abort,pname,__LINE__,__FILE__, &
+   !                "ERROR WITH SEM CONNECTIVITIES")
    !else if (nfp5 /= my_sem_pts(sem_idx)%num_fp) then
    !  write (iout,900) "sem_idx",sem_idx,"nfp5",nfp5, &
    !                   "my_sem_pts(sem_idx)%num_fp",my_sem_pts(sem_idx)%num_fp
-   !  call stop_gfr(abort,pname,__LINE__,__FILE__,"ERROR WITH SEM CONNECTIVITIES")
+   !  call stop_gfr(abort,pname,__LINE__,__FILE__, &
+   !                "ERROR WITH SEM CONNECTIVITIES")
    !end if
    !900 format (/,3(2x,a," = ",i0,/))
     !
@@ -5829,9 +5839,9 @@ continue
     !
     ! Allocate the array to collect all the SEM averaged values
     ! from all SEM face points across all MPI processes.
-    ! NOTE: Only the global root process will allocate this array to the actually
-    !       needed size; all other processes will allocate it such that there is
-    !       only a single SEM face point.
+    ! NOTE: Only the global root process will allocate this array to the
+    !       actually needed size; all other processes will allocate it such
+    !       that there is only a single SEM face point.
     !
     num_faces = merge( num_total_sem_faces , 1 , mypnum == glb_root )
     !
@@ -5896,7 +5906,8 @@ continue
   !
   if (allocated(num_sem_faces)) then
     deallocate ( num_sem_faces , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"num_sem_faces",2,__LINE__,__FILE__,ierr,error_message)
+    call alloc_error(pname,"num_sem_faces",2,__LINE__,__FILE__, &
+                     ierr,error_message)
   end if
   !
   ! Since only the global root is writing the SEM averages output file,
