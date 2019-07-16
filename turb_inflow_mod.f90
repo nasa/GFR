@@ -2074,13 +2074,13 @@ continue
   ! face points, we no longer need the actual profile data so deallocate
   ! all the sem_box(:)%profile components to free up that memory.
   !
-  do sem_idx = 1,num_sem_boxes
-    if (allocated(sem_box(sem_idx)%profile)) then
-      deallocate ( sem_box(sem_idx)%profile , stat=ierr , errmsg=error_message )
-      write (array_name,'("sem_box(",i0,")%profile")') sem_idx
-      call alloc_error(pname,array_name,2,__LINE__,__FILE__,ierr,error_message)
-    end if
-  end do
+ !do sem_idx = 1,num_sem_boxes
+ !  if (allocated(sem_box(sem_idx)%profile)) then
+ !    deallocate ( sem_box(sem_idx)%profile , stat=ierr , errmsg=error_message )
+ !    write (array_name,'("sem_box(",i0,")%profile")') sem_idx
+ !    call alloc_error(pname,array_name,2,__LINE__,__FILE__,ierr,error_message)
+ !  end if
+ !end do
   !
   if (num_restart_sem_boxes > 0) then
     call dump_sem_data("read")
