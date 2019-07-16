@@ -529,7 +529,7 @@ end subroutine initialize_from_sem_profile
 !
 !###############################################################################
 !
-subroutine sem(cv)
+subroutine sem(face_cv,face_gp)
   !
   !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
   !
@@ -552,7 +552,8 @@ subroutine sem(cv)
   use ovar, only : use_improved_SEM_normalization
   !
   !.. Formal Arguments ..
-  real(wp), intent(inout) :: cv(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  real(wp), intent(inout) :: face_gp(:,:,:)
   !
   !.. Local Scalars ..
   integer  :: i,k,n,ierr,sem_idx,eddy_idx,num_eddies
@@ -810,18 +811,18 @@ continue
      !rho  = one  ! = rhoref / rhoref
      !temp = one  ! = tref / tref
       !
-      cv(k,nec) = rho
-      cv(k,nmx) = rho*vx
-      cv(k,nmy) = rho*vy
-      cv(k,nmz) = rho*vz
-      cv(k,nee) = rho*( rgas_over_gm1*temp + half*q2 )
+      face_cv(k,nec,2) = rho
+      face_cv(k,nmx,2) = rho*vx
+      face_cv(k,nmy,2) = rho*vy
+      face_cv(k,nmz,2) = rho*vz
+      face_cv(k,nee,2) = rho*( rgas_over_gm1*temp + half*q2 )
       !
 #ifdef ENABLE_OUTPUT_TIME_HISTORY
       my_sem_pts(sem_idx)%sem_fp(n)%time_history(nec ,itcur) = rho
       my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmx ,itcur) = vx
       my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmy ,itcur) = vy
       my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmz ,itcur) = vz
-      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nee ,itcur) = cv(k,nee)
+      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nee ,itcur) = face_cv(k,nee,2)
       my_sem_pts(sem_idx)%sem_fp(n)%time_history(nq+1,itcur) = temp
 #endif
       !
@@ -830,7 +831,7 @@ continue
   end do loop_over_my_sem_boxes
   !
   if (allocated(sem_avg)) then
-    call update_sem_ave(dt,cv)
+    call update_sem_ave(dt,face_cv(:,:,2))
   end if
   !
 !#define TROUBLESHOOT_PROFILE_INTERPOLATION

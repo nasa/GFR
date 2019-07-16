@@ -123,7 +123,7 @@ continue
   ! through bc_grps to set the boundary conditions
   !
   if (current_rk_stage == 1) then
-    call sem(faceusp_array(:,:,2))
+    call sem(faceusp_array,facegpsp)
   end if
   !
   ! Loop over the boundary face groups and compute the conservative variables
