@@ -108,11 +108,11 @@ $(OBJDIR)/cgnstypes_mod.o : cgnstypes_mod.f90 \
 $(OBJDIR)/channel_mod.o : channel_mod.f90 \
                 $(OBJDIR)/kind_types.o \
                 $(OBJDIR)/eqn_idx_mod.o \
-		$(OBJDIR)/order_mod.o \
+                $(OBJDIR)/order_mod.o \
                 $(OBJDIR)/geovar_mod.o \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/flowvar_mod.o \
-		$(OBJDIR)/quadrature_mod.o \
+                $(OBJDIR)/quadrature_mod.o \
                 $(OBJDIR)/metrics.o \
                 $(OBJDIR)/derivatives_mod.o \
                 $(OBJDIR)/transport_mod.o \
