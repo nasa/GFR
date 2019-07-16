@@ -2,7 +2,7 @@ module synthetic_eddy_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nee,nq,ntemp
+  use eqn_idx, only : nec,nmx,nmy,nmz,nee,nq,ntemp,npres
   !
   implicit none
   !
@@ -550,6 +550,10 @@ subroutine sem(face_cv,face_gp)
   !.. Use Statements ..
   use ovar, only : d_t,gam,rgasref_nd,time_ref,itcur
   use ovar, only : use_improved_SEM_normalization
+  use ovar, only : jet_init_func
+  !
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: face_cv(:,:,:)
@@ -558,8 +562,8 @@ subroutine sem(face_cv,face_gp)
   !.. Local Scalars ..
   integer  :: i,k,n,ierr,sem_idx,eddy_idx,num_eddies
   real(wp) :: ave,running_ave,time_scale,dt
-  real(wp) :: c0,c1,eddy_vol,boxvol,lturb,dx,fsig,rgas_over_gm1
-  real(wp) :: a11,a21,a22,a31,a32,a33,rho,temp,ravg,tavg,q2
+  real(wp) :: c0,c1,eddy_vol,boxvol,lturb,dx,fsig,one_over_gm1
+  real(wp) :: a11,a21,a22,a31,a32,a33,rho,temp,pres,ravg,tavg,q2
   real(wp) :: x,epx,elx,eix,tfx,ufluc,ufluc2,uavg,vx
   real(wp) :: y,epy,ely,eiy,tfy,vfluc,vfluc2,vavg,vy
   real(wp) :: z,epz,elz,eiz,tfz,wfluc,wfluc2,wavg,vz
@@ -610,7 +614,7 @@ continue
     !
   end if
   !
-  rgas_over_gm1 = rgasref_nd / (gam - one)
+  one_over_gm1 = one / (gam - one)
   !
   ! ###########
   ! ###########
@@ -806,16 +810,54 @@ continue
       ! One version of Jims code uses rho_inf and temp_inf, and the other
       ! uses rho_avg and temp_avg from the inflow profile
       !
-      rho  = ravg
-      temp = tavg
-     !rho  = one  ! = rhoref / rhoref
-     !temp = one  ! = tref / tref
+      if (jet_init_func == -1) then
+        !
+        ! Use interior pressure, SEM density, and SEM velocities
+        !
+        pres = face_gp(k,npres,1)
+        rho = ravg
+        temp = pres / (rho*rgasref_nd)
+        !
+      else
+        !
+        ! Use SEM density, SEM velocities, and SEM temperature/presssure
+        !
+        rho  = ravg
+        temp = tavg
+       !rho  = one  ! = rhoref / rhoref
+       !temp = one  ! = tref / tref
+        pres = rho*rgasref_nd*temp
+        !
+      end if
       !
       face_cv(k,nec,2) = rho
       face_cv(k,nmx,2) = rho*vx
       face_cv(k,nmy,2) = rho*vy
       face_cv(k,nmz,2) = rho*vz
-      face_cv(k,nee,2) = rho*( rgas_over_gm1*temp + half*q2 )
+      face_cv(k,nee,2) = pres*one_over_gm1 + half*rho*q2
+      !
+      face_gp(k,npres,2) = pres
+      face_gp(k,ntemp,2) = temp
+      !
+      if (jet_init_func == -2) then
+        !
+        ! Copy the SEM boundary states to the interior face points
+        !
+        face_cv(k,nec,1) = face_cv(k,nec,2)
+        face_cv(k,nmx,1) = face_cv(k,nmx,2)
+        face_cv(k,nmy,1) = face_cv(k,nmy,2)
+        face_cv(k,nmz,1) = face_cv(k,nmz,2)
+        face_cv(k,nee,1) = face_cv(k,nee,2)
+        !
+        face_gp(k,npres,1) = face_gp(k,npres,2)
+        face_gp(k,ntemp,1) = face_gp(k,ntemp,2)
+        !
+        call update_thermo_properties(face_cv(k,:,1),face_gp(k,:,1), &
+                                      caller_name=pname)
+        !
+        call update_transport_properties(face_cv(k,:,1),face_gp(k,:,1))
+        !
+      end if
       !
 #ifdef ENABLE_OUTPUT_TIME_HISTORY
       my_sem_pts(sem_idx)%sem_fp(n)%time_history(nec ,itcur) = rho
