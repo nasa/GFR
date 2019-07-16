@@ -1151,7 +1151,7 @@ continue
   !
   x_coef = merge( zero , one , generate_at_xmin )
   !
-  vol_coef = merge( (four/three)*pi , one , eddy_volume_is_spherical )
+  vol_coef = merge( pi/six , one , eddy_volume_is_spherical )
   !
   loop_over_sem_boxes: &
   do sem_idx = 1,num_sem_boxes
@@ -1293,8 +1293,10 @@ continue
       !
       ! Compute the volume of this eddy
       ! NOTE: The constant eddy_volume_is_spherical is equal to either
-      !       (4/3)*PI or 1 depending on whether the eddy is treated as
-      !       sphere-like or box-like in volume, respectively.
+      !       (4/3)*PI*(1/2)**2 or 1 depending on whether the eddy is
+      !       treated as sphere-like or box-like in volume, respectively.
+      !       If a box-like eddy has a volume of l**3, the equivalent
+      !       volume of a sphere-like eddy is (4/3)*pi*((l/2)**3).
       !
       eddy_vol = vol_coef*elx*ely*elz
       !
@@ -3607,7 +3609,7 @@ continue
   ! (i.e., one/length-scales) since this information is not read in
   ! from the restart file.
   !
-  vol_coef = merge( (four/three)*pi , one , eddy_volume_is_spherical )
+  vol_coef = merge( pi/six , one , eddy_volume_is_spherical )
   !
   do sem_idx = 1,num_sem_boxes
     !
