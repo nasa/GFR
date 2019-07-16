@@ -30,7 +30,7 @@ subroutine initialize_flow()
   use geovar, only : nr,n_solpts,ncell,cell,xyz,grid
   !
   use ovar, only : bc_in
-  use ovar, only : rhoref,aref,itestcase
+  use ovar, only : rhoref,aref,itestcase,jet_init_func
   use ovar, only : load_restart_file,d_t,constant_dt,itcur,time
   use ovar, only : init_tstar,time_ref,time_scaling_factor
   use ovar, only : dtrst,itrst,tmrst
@@ -132,6 +132,21 @@ continue
     d_t   = dtrst
     itcur = itrst
     time  = tmrst
+    !
+    if (abs(itestcase) == CH4_3D_Diffusion_Flame .and. &
+        jet_init_func == -1*(CH4_3D_Diffusion_Flame*100+1)) then
+      if (mypnum == glb_root) then
+        write (iout,*) "Calling detach_lip_flame"
+        flush (iout)
+      end if
+      !
+      ! Update the thermodynamics and transport properties at the solution points
+      !
+      call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                    loc="cell",caller_name=pname)
+      call update_transport_properties(1,n_solpts,usp,gpsp)
+      call detach_lip_flame(xyz,usp,gpsp)
+    end if
     !
   else if (grid_sol_is_available) then
     !
@@ -1166,6 +1181,94 @@ continue
   return_value = half * (one + tanh(numer/denom))
   !
 end function cylinder_function
+!
+!###############################################################################
+!
+subroutine detach_lip_flame(xyz,cv,gp)
+  !
+  !.. Use Statements ..
+  use ovar,       only : tref
+  use thermo_mod, only : compute_mixture_enthalpy
+  use thermo_mod, only : compute_mixture_rgas
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: xyz(:,:)
+  real(wp), intent(inout) :: cv(:,:)
+  real(wp), intent(inout) :: gp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: x,y,z,r,r1,r2
+  real(wp) :: rho,u,v,w,t,p,rhoe,h,rmix
+  real(wp) :: t_limit
+  !
+  !.. Local Arrays ..
+  real(wp) :: mass_frac(1:ncs)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "detach_lip_flame"
+  !
+continue
+  !
+  t_limit = 750.0_wp/tref
+  !
+  do n = 1,size(xyz,dim=2)
+    !
+    x = xyz(1,n)
+    y = xyz(2,n)
+    z = xyz(3,n)
+    !
+  ! if (x < -0.0003_wp .or. x > 0.017_wp) cycle
+    if (x < -0.0003_wp .or. x > 0.000983_wp) cycle
+    !
+    r = sqrt(y*y + z*z)
+    !
+    r1 = 0.031253_wp
+    r2 = 0.0323973_wp
+  ! r1 = 0.029_wp
+  ! r2 = 0.034_wp
+  !!r1 = -0.1512_wp*x + 0.03157_wp
+  !!r2 = one4*x + 0.03175_wp
+    !
+    if (r >= r1 .and. r <= r2) then
+      !
+      if (gp(n,ntemp) > t_limit) then
+        !
+        rho = cv(n,nec)
+        u = cv(n,nmx)/rho
+        v = cv(n,nmy)/rho
+        w = cv(n,nmz)/rho
+        t = t_limit
+        p = gp(n,npres)
+        !
+        mass_frac(1:ncs) = cv(n,1:ncs)/rho
+        !
+        call compute_mixture_enthalpy(mass_frac,t,h)
+        !
+        call compute_mixture_rgas(mass_frac,rmix)
+        !
+        rho = p / (rmix*t)
+        !
+        rhoe = rho*h - p + half*rho*(u*u + v*v + w*w)
+        !
+        cv(n,1:ncs) = rho*mass_frac(1:ncs)
+        !
+        cv(n,nec) = rho
+        cv(n,nmx) = rho*u
+        cv(n,nmy) = rho*v
+        cv(n,nmz) = rho*w
+        cv(n,nee) = rhoe
+        !
+        gp(n,ntemp) = t
+        gp(n,nenth) = h
+        !
+      end if
+      !
+    end if
+    !
+  end do
+  !
+end subroutine detach_lip_flame
 !
 !###############################################################################
 !
