@@ -140,7 +140,8 @@ continue
         flush (iout)
       end if
       !
-      ! Update the thermodynamics and transport properties at the solution points
+      ! Update the thermodynamics and transport properties
+      ! at the solution points
       !
       call update_thermo_properties(1,n_solpts,usp,gpsp, &
                                     loc="cell",caller_name=pname)
