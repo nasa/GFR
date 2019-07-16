@@ -6540,6 +6540,7 @@ subroutine write_parallel_cgns(iflag)
   use ovar, only : write_TaylorGreen_full_solution
   use ovar, only : completely_disable_cgns
   use ovar, only : output_time_averaging
+  use ovar, only : time_scaling_factor
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
@@ -6603,7 +6604,7 @@ continue
   call reallocate(soltime,cgns_zone_counter+1)
   call reallocate(solname,cgns_zone_counter+1)
   call reallocate(solfile,cgns_zone_counter+1)
-  soltime(size(soltime)) = real(time*time_ref,kind(soltime))
+  soltime(size(soltime)) = real(time*time_ref*time_scaling_factor,kind(soltime))
   solname(size(solname)) = tname
   solfile(size(solfile)) = sol_file
   !
