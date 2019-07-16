@@ -2944,6 +2944,7 @@ subroutine get_size_of_sem_boxes()
   real(wp) :: zmin,zmax,z
   real(wp) :: rmin,rmax,r
   real(wp) :: tmin,tmax,t
+  real(wp) :: mean_eddy_volume
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: box_min(:,:)
@@ -3176,7 +3177,19 @@ continue
     !
     if (.not. allocated(sem_box(sem_idx)%eddy)) then
       !
-      num_eddies = min( max_eddies , int( box_volume/(lturb**3) ) )
+      ! NOTE: The constant eddy_volume_is_spherical is equal to either
+      !       (4/3)*PI*(1/2)**2 or 1 depending on whether the eddy is
+      !       treated as sphere-like or box-like in volume, respectively.
+      !       If a box-like eddy has a volume of l**3, the equivalent
+      !       volume of a sphere-like eddy is (4/3)*pi*((l/2)**3).
+      !
+      if (eddy_volume_is_spherical) then
+        mean_eddy_volume = (four/three)*pi*((half*lturb)**3)
+      else
+        mean_eddy_volume = lturb**3
+      end if
+      !
+      num_eddies = min( max_eddies , int( box_volume/mean_eddy_volume ) )
       !
       ! Save the number of eddies for this box into sem_box
       !
