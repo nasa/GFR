@@ -11,6 +11,7 @@ module transport_mod
   public :: init_transport_mod
   public :: update_transport_properties
   public :: compute_mole_fractions
+  public :: compute_viscosity_cpg
   !
   integer, protected, save :: nmvc = 4
   integer, protected, save :: nmcc = 4
