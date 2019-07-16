@@ -304,11 +304,6 @@ module synthetic_eddy_mod
   !
   integer, parameter :: max_eddies = 50000
   !
-  ! TREAT EDDY VOLUMES AS SPHERE-LIKE
- !logical(lk), parameter :: eddy_volume_is_spherical = true
-  ! TREAT EDDY VOLUMES AS BOX-LIKE
-  logical(lk), parameter :: eddy_volume_is_spherical = fals
-  !
   !#############################################################################
   !#############################################################################
   !#############################################################################
@@ -1161,6 +1156,9 @@ end subroutine update_sem_ave_fp
 !
 subroutine generate_new_eddies(new_eddies,generate_at_xmin,dt)
   !
+  !.. Use Statements ..
+  use ovar, only : SEM_eddy_volume_is_spherical
+  !
   !.. Formal Arguments ..
   type(eddy_list_t), intent(in) :: new_eddies(:)
   logical(lk),       intent(in) :: generate_at_xmin
@@ -1194,7 +1192,7 @@ continue
   !
   x_coef = merge( zero , one , generate_at_xmin )
   !
-  vol_coef = merge( pi/six , one , eddy_volume_is_spherical )
+  vol_coef = merge( pi/six , one , SEM_eddy_volume_is_spherical )
   !
   loop_over_sem_boxes: &
   do sem_idx = 1,num_sem_boxes
@@ -1335,7 +1333,8 @@ continue
       sem_box(sem_idx)%eddy(eddy_idx)%z_frequency = one / elz
       !
       ! Compute the volume of this eddy
-      ! NOTE: The constant eddy_volume_is_spherical is equal to either
+      ! NOTE: The input parameter SEM_eddy_volume_is_spherical determines
+      !       whether the variable vol_coef is equal to either 
       !       (4/3)*PI*(1/2)**2 or 1 depending on whether the eddy is
       !       treated as sphere-like or box-like in volume, respectively.
       !       If a box-like eddy has a volume of l**3, the equivalent
@@ -2979,6 +2978,10 @@ end subroutine interpolate_profile_data_to_fp
 !
 subroutine get_size_of_sem_boxes()
   !
+  !.. Use Statements ..
+  use ovar, only : SEM_eddy_volume_is_spherical
+  use ovar, only : SEM_box_num_eddies_multiplier
+  !
   !.. Local Scalars ..
   integer  :: ierr,n,num_eddies,sem_idx
   real(wp) :: lturb,t_lturb,box_volume
@@ -2988,6 +2991,7 @@ subroutine get_size_of_sem_boxes()
   real(wp) :: rmin,rmax,r
   real(wp) :: tmin,tmax,t
   real(wp) :: mean_eddy_volume
+  real(wp) :: rnum_eddies
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: box_min(:,:)
@@ -3220,19 +3224,22 @@ continue
     !
     if (.not. allocated(sem_box(sem_idx)%eddy)) then
       !
-      ! NOTE: The constant eddy_volume_is_spherical is equal to either
+      ! NOTE: The input parameter SEM_eddy_volume_is_spherical determines
+      !       whether the variable mean_eddy_volume is equal to either
       !       (4/3)*PI*(1/2)**2 or 1 depending on whether the eddy is
       !       treated as sphere-like or box-like in volume, respectively.
       !       If a box-like eddy has a volume of l**3, the equivalent
       !       volume of a sphere-like eddy is (4/3)*pi*((l/2)**3).
       !
-      if (eddy_volume_is_spherical) then
+      if (SEM_eddy_volume_is_spherical) then
         mean_eddy_volume = (four/three)*pi*((half*lturb)**3)
       else
         mean_eddy_volume = lturb**3
       end if
       !
-      num_eddies = min( max_eddies , int( box_volume/mean_eddy_volume ) )
+      rnum_eddies = SEM_box_num_eddies_multiplier*box_volume / mean_eddy_volume
+      !
+      num_eddies = min( max_eddies , int( rnum_eddies ) )
       !
       ! Save the number of eddies for this box into sem_box
       !
@@ -3279,11 +3286,17 @@ end subroutine get_size_of_sem_boxes
 !
 subroutine recompute_sem_box_volume()
   !
+  !.. Use Statements ..
+  use ovar, only : SEM_eddy_volume_is_spherical
+  use ovar, only : SEM_box_num_eddies_multiplier
+  !
   !.. Local Scalars ..
   integer  :: sem_idx,num_eddies
   real(wp) :: xmin,ymin,zmin,rmin,tmin
   real(wp) :: xmax,ymax,zmax,rmax,tmax
   real(wp) :: lturb,box_volume
+  real(wp) :: mean_eddy_volume
+  real(wp) :: rnum_eddies
   !
   ! Copy the global min/max extents for each SEM box into sem_box.
   ! Also compute the volume and the number of eddies for each box.
@@ -3319,7 +3332,22 @@ subroutine recompute_sem_box_volume()
     !
     if (.not. allocated(sem_box(sem_idx)%eddy)) then
       !
-      num_eddies = min( max_eddies , int( box_volume/(lturb**3) ) )
+      ! NOTE: The input parameter SEM_eddy_volume_is_spherical determines
+      !       whether the variable mean_eddy_volume is equal to either
+      !       (4/3)*PI*(1/2)**2 or 1 depending on whether the eddy is
+      !       treated as sphere-like or box-like in volume, respectively.
+      !       If a box-like eddy has a volume of l**3, the equivalent
+      !       volume of a sphere-like eddy is (4/3)*pi*((l/2)**3).
+      !
+      if (SEM_eddy_volume_is_spherical) then
+        mean_eddy_volume = (four/three)*pi*((half*lturb)**3)
+      else
+        mean_eddy_volume = lturb**3
+      end if
+      !
+      rnum_eddies = SEM_box_num_eddies_multiplier*box_volume / mean_eddy_volume
+      !
+      num_eddies = min( max_eddies , int( rnum_eddies ) )
       !
       ! Save the number of eddies for this box into sem_box
       !
@@ -3336,6 +3364,9 @@ end subroutine recompute_sem_box_volume
 !###############################################################################
 !
 subroutine check_restart_eddies()
+  !
+  !.. Use Statements ..
+  use ovar, only : SEM_eddy_volume_is_spherical
   !
   !.. Local Scalars ..
   integer  :: ierr,n,sem_idx,eddy_idx
@@ -3665,7 +3696,7 @@ continue
   ! (i.e., one/length-scales) since this information is not read in
   ! from the restart file.
   !
-  vol_coef = merge( pi/six , one , eddy_volume_is_spherical )
+  vol_coef = merge( pi/six , one , SEM_eddy_volume_is_spherical )
   !
   do sem_idx = 1,num_sem_boxes
     !

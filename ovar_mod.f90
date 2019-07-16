@@ -224,6 +224,8 @@ module ovar
   !
   ! OPTIONS FOR SEM
   logical(lk), public, save :: use_improved_SEM_normalization = fals
+  logical(lk), public, save :: SEM_eddy_volume_is_spherical   = fals
+  real(wp),    public, save :: SEM_box_num_eddies_multiplier  = one
   !
   ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
   logical(lk), public, save :: average_sem_inflow_plane = fals
@@ -1060,6 +1062,8 @@ module input_namelist_mod
   use ovar,      only : output_debug_species_variables
   use ovar,      only : output_grdnt_species_variables
   use ovar,      only : use_improved_SEM_normalization
+  use ovar,      only : SEM_eddy_volume_is_spherical
+  use ovar,      only : SEM_box_num_eddies_multiplier
   use ovar,      only : average_sem_inflow_plane
   use ovar,      only : force_nd_subroutines, newton_rlx, conv_temp
   use ovar,      only : chemistry_sub_iterations
@@ -1137,7 +1141,9 @@ module input_namelist_mod
   ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
   namelist / input / solution_format, solution_file
   ! OPTIONS FOR SEM
-  namelist / input / use_improved_SEM_normalization
+  namelist / input / use_improved_SEM_normalization, &
+                     SEM_eddy_volume_is_spherical, &
+                     SEM_box_num_eddies_multiplier
   ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
   namelist / input / average_sem_inflow_plane
   ! STATISTICAL OUTPUT OPTIONS
