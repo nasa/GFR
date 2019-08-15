@@ -774,6 +774,12 @@ continue
   close (io,iostat=ierr,iomsg=error_message)
   call io_error(pname,auxfile,2,__LINE__,__FILE__,ierr,error_message)
   !
+  if (size(xy_prof,dim=2) == size(sem_profile,dim=2)) then
+    x_vals(:) = x_vals(:)*rnum
+    call write_profile_errors_file(x_vals,ix_ptr,xy_prof,sem_profile, &
+                                   aux_data,aux_sem_data)
+  end if
+  !
   !#############################################################################
   !
   ! Output the current iteration and how many
@@ -1264,21 +1270,26 @@ subroutine get_sem_profile(prof,aux_data)
   !.. Use Statements ..
   use ovar,               only : rhoref,aref,tref
   use transport_mod,      only : compute_viscosity_cpg
-  use synthetic_eddy_mod, only : sem_box
   !
   !.. Formal Arguments ..
   real(wp), allocatable, intent(out) :: prof(:,:)
   real(wp), allocatable, intent(out) :: aux_data(:)
   !
   !.. Local Scalars ..
-  integer  :: n,nc,n0,npts,n1d,ierr
+  integer  :: n,npts,ierr
   real(wp) :: rnum,height,half_height,dudy_wall
   real(wp) :: rho_avg,t_avg,visc_avg,u_cl,u_tau,u_bulk
-  real(wp) :: xi_min,xi_max,y1,y2,tau_wall
+  real(wp) :: tau_wall
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: y_vals(:)
+  real(wp), allocatable :: y(:)
   real(wp), allocatable :: u(:)
+  real(wp), allocatable :: r(:)
+  real(wp), allocatable :: t(:)
+  real(wp), allocatable :: tau11(:)
+  real(wp), allocatable :: tau22(:)
+  real(wp), allocatable :: tau33(:)
+  real(wp), allocatable :: tau21(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_sem_profile"
@@ -1287,31 +1298,14 @@ continue
   !
   ierr = 0
   !
-  if (allocated(sem_box)) then
-    if (allocated(sem_box(1)%profile)) then
-      if (.not. allocated(sem_box(1)%profile%y    )) ierr = 1
-      if (.not. allocated(sem_box(1)%profile%uavg )) ierr = 1
-      if (.not. allocated(sem_box(1)%profile%ravg )) ierr = 1
-      if (.not. allocated(sem_box(1)%profile%tavg )) ierr = 1
-      if (.not. allocated(sem_box(1)%profile%tau11)) ierr = 1
-      if (.not. allocated(sem_box(1)%profile%tau22)) ierr = 1
-      if (.not. allocated(sem_box(1)%profile%tau33)) ierr = 1
-      if (.not. allocated(sem_box(1)%profile%tau21)) ierr = 1
-    else
-      ierr = 1
-    end if
-  else
-    ierr = 1
-  end if
+  call extract_sem_profile(y,u,r,t,tau11,tau22,tau33,tau21,ierr)
   !
   if (ierr /= 0) return
   !
-  npts = sem_box(1)%profile%npts
+  npts = size(y)
   !
   rnum = one / real(npts,kind=wp)
   !
-  y_vals   = sem_box(1)%profile%y(1:npts)     ! F2003 AUTO-REALLOC
-  u        = sem_box(1)%profile%uavg(1:npts)  ! F2003 AUTO-REALLOC
   prof     = init_array(13,npts,zero)         ! F2003 AUTO-REALLOC
   aux_data = init_array(13,zero)              ! F2003 AUTO-REALLOC
   !
@@ -1321,11 +1315,11 @@ continue
   !       y-locations are the same distance to their respective walls, we can
   !       just add these two values together to get the true channel height.
   !
-  height = y_vals(npts) + y_vals(1)
+  height = y(npts) + y(1)
   half_height = half * height
   !
-  rho_avg = sum(sem_box(1)%profile%ravg(:)) * rnum
-  t_avg = sum(sem_box(1)%profile%tavg(:)) * rnum
+  rho_avg = sum( r(:) ) * rnum
+  t_avg   = sum( t(:) ) * rnum
   !
   call compute_viscosity_cpg(t_avg,visc_avg)
   !
@@ -1335,26 +1329,26 @@ continue
     u_cl = u((npts/2)+1)
   end if
   !
-  dudy_wall = abs(u(1)/y_vals(1))
+  dudy_wall = abs(u(1)/y(1))
   !
   tau_wall = visc_avg * dudy_wall
   !
   u_tau = sqrt( tau_wall / rho_avg )
   !
   do n = 1,npts
-    prof( 1,n) = y_vals(n) * u_tau * rho_avg / visc_avg      ! y+
-    prof( 2,n) = y_vals(n) / half_height                     ! y/b
-    prof( 3,n) = u(n) / u_cl                                 ! u/u_cl
-    prof( 4,n) = u(n) / u_tau                                ! u+
-    prof( 5,n) = sqrt(sem_box(1)%profile%tau11(n)) / u_tau   ! u'/u_tau
-    prof( 6,n) = sqrt(sem_box(1)%profile%tau22(n)) / u_tau   ! v'/u_tau
-    prof( 7,n) = sqrt(sem_box(1)%profile%tau33(n)) / u_tau   ! w'/u_tau
-    prof( 8,n) = sem_box(1)%profile%tau21(n) / (u_tau*u_tau) ! u'v'/(u_tau**2)
-    prof( 9,n) = sem_box(1)%profile%tau11(n)*aref*aref       ! tauxx
-    prof(10,n) = sem_box(1)%profile%tau22(n)*aref*aref       ! tauyy
-    prof(11,n) = sem_box(1)%profile%tau33(n)*aref*aref       ! tauzz
-    prof(12,n) = sem_box(1)%profile%tau21(n)*aref*aref       ! tauxy
-    prof(13,n) = u(n)*aref                                   ! u
+    prof( 1,n) = y(n) * u_tau * rho_avg / visc_avg  ! y+
+    prof( 2,n) = y(n) / half_height                 ! y/b
+    prof( 3,n) = u(n) / u_cl                        ! u/u_cl
+    prof( 4,n) = u(n) / u_tau                       ! u+
+    prof( 5,n) = sqrt(tau11(n)) / u_tau             ! u'/u_tau
+    prof( 6,n) = sqrt(tau22(n)) / u_tau             ! v'/u_tau
+    prof( 7,n) = sqrt(tau33(n)) / u_tau             ! w'/u_tau
+    prof( 8,n) = tau21(n) / (u_tau*u_tau)           ! u'v'/(u_tau**2)
+    prof( 9,n) = tau11(n)*aref*aref                 ! tauxx
+    prof(10,n) = tau22(n)*aref*aref                 ! tauyy
+    prof(11,n) = tau33(n)*aref*aref                 ! tauzz
+    prof(12,n) = tau21(n)*aref*aref                 ! tauxy
+    prof(13,n) = u(n)*aref                          ! u
   end do
   !
   ! Compute the bulk velocity (Eq. 7.3 from Turbulent Flows by Pope)
@@ -1363,7 +1357,7 @@ continue
   !
   u_bulk = zero
   do n = 1,npts-1
-    u_bulk = u_bulk + half*(u(n) + u(n+1))*abs(y_vals(n+1)-y_vals(n))
+    u_bulk = u_bulk + half*(u(n) + u(n+1))*abs(y(n+1)-y(n))
   end do
   !
   u_bulk = u_bulk / height
@@ -1390,6 +1384,242 @@ continue
   aux_data(13) = tau_wall / (half * rho_avg * u_cl * u_cl)
   !
 end subroutine get_sem_profile
+!
+!###############################################################################
+!
+pure &
+subroutine extract_sem_profile(y,uavg,ravg,tavg,tau11,tau22,tau33,tau21,ierr)
+  !
+  !.. Use Statements ..
+  use synthetic_eddy_mod, only : my_sem_pts
+  !
+  !.. Formal Arguments ..
+  real(wp), allocatable, intent(out) :: y(:)
+  real(wp), allocatable, intent(out) :: uavg(:)
+  real(wp), allocatable, intent(out) :: ravg(:)
+  real(wp), allocatable, intent(out) :: tavg(:)
+  real(wp), allocatable, intent(out) :: tau11(:)
+  real(wp), allocatable, intent(out) :: tau22(:)
+  real(wp), allocatable, intent(out) :: tau33(:)
+  real(wp), allocatable, intent(out) :: tau21(:)
+  integer,               intent(out) :: ierr
+  !
+  !.. Local Scalars ..
+  integer  :: j,n,ny,npts
+  real(wp) :: rnum
+  !
+  !.. Local Arrays ..
+  real(wp) :: y_vals(1:10000)
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: y_ptr(:)
+  integer, allocatable :: y_counts(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "extract_sem_profile"
+  !
+continue
+  !
+  ierr = 0
+  !
+  if (allocated(my_sem_pts)) then
+    if (.not. allocated(my_sem_pts(1)%sem_fp)) ierr = 1
+  else
+    ierr = 1
+  end if
+  !
+  if (ierr /= 0) return
+  !
+  npts = my_sem_pts(1)%num_fp
+  !
+  !#############################################################################
+  !
+  ! Find the unique y coordinates
+  !
+  y_ptr = init_array(npts,0) ! F2003 AUTO-REALLOC
+  !
+  y_vals(:) = zero
+  !
+  ny = 1
+  y_vals(1) = my_sem_pts(1)%sem_fp(1)%y
+  y_ptr(1) = 1
+  !
+  find_unique_y_loc_loop: &
+  do n = 2,npts
+    !
+    do j = 1,ny
+      if (abs(y_vals(j)-my_sem_pts(1)%sem_fp(n)%y) <= eps6) then
+        y_ptr(n) = j
+        cycle find_unique_y_loc_loop
+      end if
+    end do
+    !
+    ny = ny + 1
+    y_vals(ny) = my_sem_pts(1)%sem_fp(n)%y
+    y_ptr(n) = ny
+    !
+  end do find_unique_y_loc_loop
+  !
+  !#############################################################################
+  !
+  ! Collect the averaged data into an array
+  !
+  y_counts = init_array(ny,0)    ! F2003 AUTO-REALLOC
+  y        = init_array(ny,zero) ! F2003 AUTO-REALLOC
+  uavg     = init_array(ny,zero) ! F2003 AUTO-REALLOC
+  ravg     = init_array(ny,zero) ! F2003 AUTO-REALLOC
+  tavg     = init_array(ny,zero) ! F2003 AUTO-REALLOC
+  tau11    = init_array(ny,zero) ! F2003 AUTO-REALLOC
+  tau22    = init_array(ny,zero) ! F2003 AUTO-REALLOC
+  tau33    = init_array(ny,zero) ! F2003 AUTO-REALLOC
+  tau21    = init_array(ny,zero) ! F2003 AUTO-REALLOC
+  !
+  do n = 1,npts
+    !
+    j = y_ptr(n)
+    !
+    y_counts(j) = y_counts(j) + 1
+    !
+    y(j)     = y(j)     + my_sem_pts(1)%sem_fp(n)%y
+    uavg(j)  = uavg(j)  + my_sem_pts(1)%sem_fp(n)%uavg
+    ravg(j)  = ravg(j)  + my_sem_pts(1)%sem_fp(n)%ravg
+    tavg(j)  = tavg(j)  + my_sem_pts(1)%sem_fp(n)%tavg
+    tau11(j) = tau11(j) + my_sem_pts(1)%sem_fp(n)%r11
+    tau22(j) = tau22(j) + my_sem_pts(1)%sem_fp(n)%r22
+    tau33(j) = tau33(j) + my_sem_pts(1)%sem_fp(n)%r33
+    tau21(j) = tau21(j) + my_sem_pts(1)%sem_fp(n)%r21
+    !
+  end do
+  !
+  !#############################################################################
+  !
+  ! Average the data by dividing through by the number of averaged points
+  !
+  do j = 1,ny
+    rnum = one / real(y_counts(j),kind=wp)
+    y(j)     = y(j)     * rnum
+    uavg(j)  = uavg(j)  * rnum
+    ravg(j)  = ravg(j)  * rnum
+    tavg(j)  = tavg(j)  * rnum
+    tau11(j) = tau11(j) * rnum
+    tau22(j) = tau22(j) * rnum
+    tau33(j) = tau33(j) * rnum
+    tau21(j) = tau21(j) * rnum
+  end do
+  !
+end subroutine extract_sem_profile
+!
+!###############################################################################
+!
+subroutine write_profile_errors_file(x_vals,ix_ptr,xy_prof,sem_profile, &
+                                     aux_data,aux_sem_data)
+  !
+  !.. Use Statements ..
+  use ovar, only : itcur
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: x_vals(:)
+  integer,  intent(in) :: ix_ptr(:)
+  real(wp), intent(in) :: xy_prof(:,:,:)
+  real(wp), intent(in) :: sem_profile(:,:)
+  real(wp), intent(in) :: aux_data(:,:)
+  real(wp), intent(in) :: aux_sem_data(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,m,n,npts,nvar,io,ierr
+  real(wp) :: dq
+  !
+  character(len=100) :: error_file
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: prof(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_profile_errors_file"
+  !
+continue
+  !
+  nvar = size(xy_prof,dim=1)
+  npts = size(xy_prof,dim=2)
+  !
+  prof = init_array(nvar,npts,zero) ! F2003 AUTO-REALLOC
+  !
+  write (error_file,1) itcur
+  error_file = trim(adjustl(error_file))
+  !
+  open (newunit=io,file=error_file,status="replace",action="write", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,error_file,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  write (io,2)
+  !
+  do n = 1,size(ix_ptr)
+    !
+    if (n /= 1 .and. n /= 7) cycle
+    !
+    i = ix_ptr(n)
+    !
+    do j = 1,npts
+      prof(1,j) = xy_prof(1,j,i)
+      prof(2,j) = xy_prof(2,j,i)
+      do m = 3,nvar
+       !dq = sem_profile(m,j) - xy_prof(m,j,i)
+        prof(m,j) = log10(max(eps12,abs(sem_profile(m,j)-xy_prof(m,j,i))))
+      end do
+    end do
+    !
+    write (io,3) nint(x_vals(i)),npts
+    !
+    write (io,11) "r_avg",         aux_data(1,i)
+    write (io,12) "T_avg",         aux_data(2,i)
+    write (io,13) "visc_avg",      aux_data(3,i)
+    write (io,13) "dudy_wall",     aux_data(4,i)
+    write (io,11) "tau_wall",      aux_data(5,i)
+    write (io,11) "u_CL",          aux_data(6,i)
+    write (io,11) "u_tau",         aux_data(7,i)
+    write (io,11) "u_Bulk",        aux_data(8,i)
+    write (io,14) "Re_Bulk",  nint(aux_data(9,i))
+    write (io,14) "Re_CL",    nint(aux_data(10,i))
+    write (io,14) "Re_tau",   nint(aux_data(11,i))
+    write (io,13) "Cf_Bulk",       aux_data(12,i)
+    write (io,13) "Cf_CL",         aux_data(13,i)
+    !
+    do j = 1,npts
+      write (io,4) (prof(m,j), m=1,nvar)
+    end do
+    !
+  end do
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,error_file,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Format Statements
+  !
+  1 format ("spatial_ave.axial-profiles-error.",i0,".dat")
+  2 format ('VARIABLES = "y+",',/, &
+            '"y/<greek>d</greek>",',/, &
+            '"u/u<sub>cl</sub>",',/, &
+            '"u+",',/, &
+            '"u<sub>rms</sub>/u<sub><greek>t</greek></sub>",',/, &
+            '"v<sub>rms</sub>/u<sub><greek>t</greek></sub>",',/, &
+            '"w<sub>rms</sub>/u<sub><greek>t</greek></sub>",',/, &
+            '"u<math>\\034</math>v<math>\\034\</math>/', &
+            'u<sub><greek>t</greek></sub><sup>2</sup>",',/, &
+            '"<greek>t</greek><sub>xx</sub>",',/, &
+            '"<greek>t</greek><sub>yy</sub>",',/, &
+            '"<greek>t</greek><sub>zz</sub>",',/, &
+            '"<greek>t</greek><sub>xy</sub>",',/, &
+            '"u"')
+  3 format ('ZONE T="Error in spatial average profile at x = ',i0, &
+            ' H", I=',i0,', DATAPACKING=POINT')
+  4 format (100es14.6)
+  !
+  11 format ('AUXDATA ',a,'="',f9.6,'"')
+  12 format ('AUXDATA ',a,'="',f8.3,'"')
+  13 format ('AUXDATA ',a,'="',es14.6,'"')
+  14 format ('AUXDATA ',a,'="',i0,'"')
+  !
+end subroutine write_profile_errors_file
 !
 !###############################################################################
 !
