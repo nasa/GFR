@@ -348,7 +348,7 @@ module synthetic_eddy_mod
   !                  my_sem_pts(sem_idx)%sem_fp(:) is either unallocated or
   !                     is allocated with zero size [array bounds of (1:0)]
   !
-  type(sem_pts_t), save, allocatable :: my_sem_pts(:)
+  type(sem_pts_t), public, save, allocatable :: my_sem_pts(:)
   !
 contains
 !
@@ -1801,6 +1801,11 @@ continue
   !
   num_restart_sem_boxes = 0
   num_sem_boxes = count( bc_in(:)%bc_type == bc_sem )
+  !
+  if (num_sem_boxes < 1) then
+    call debug_timer(leaving_procedure,pname)
+    return
+  end if
   !
   ! Allocate the derived-type sem_box if needed.
   !
