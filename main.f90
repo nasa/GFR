@@ -539,10 +539,6 @@ continue
     call average_restart_files
   end if
   !
-  if (channel_spatial_ave_restart) then
-    call spatial_ave_channel_flow
-  end if
-  !
   call move_face_to_device
   call move_cell_to_device
   call move_fp_to_device
@@ -647,6 +643,12 @@ continue
     end if
     !
  !end if
+  !
+  ! Spatial average a channel flow restart file
+  !
+  if (channel_spatial_ave_restart) then
+    call spatial_ave_channel_flow
+  end if
   !
 #ifdef PAUSE_BETWEEN_ITERATIONS
   if (mypnum == glb_root) then
