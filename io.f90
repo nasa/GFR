@@ -5713,11 +5713,15 @@ continue
     !
     do kf = 1,nfp
       !
-      write (l1file,11) (face_xyz(nf)%v(l,kf,1),l=1,nq)
-      write (l2file,11) (faceusp_array(f0+kf,l,1),l=1,nq)
+      write (l1file,11) (merge(zero,face_xyz(nf)%v(l,kf,1), &
+                                abs(face_xyz(nf)%v(l,kf,1))<=eps14),l=1,nr)
+      write (l2file,11) (merge(zero,faceusp_array(f0+kf,l,1), &
+                                abs(faceusp_array(f0+kf,l,1))<=eps14),l=1,nr)
       !
-      write (r1file,11) (face_xyz(nf)%v(l,kf,2),l=1,nq)
-      write (r2file,11) (faceusp_array(f0+kf,l,2),l=1,nq)
+      write (r1file,11) (merge(zero,face_xyz(nf)%v(l,kf,2), &
+                                abs(face_xyz(nf)%v(l,kf,2))<=eps14),l=1,nr)
+      write (r2file,11) (merge(zero,faceusp_array(f0+kf,l,2), &
+                                abs(faceusp_array(f0+kf,l,2))<=eps14),l=1,nr)
       !
       write (d1file,11) (abs( face_xyz(nf)%v(l,kf,2) - &
                               face_xyz(nf)%v(l,kf,1)) , l=1,nr), &
@@ -5982,11 +5986,15 @@ continue
     !
     do kf = 1,nfp
       !
-      write (l1file,11) (face_xyz(nf)%v(l,kf,1),l=1,nq)
-      write (l2file,11) (faceusp_array(f0+kf,l,1),l=1,nq)
+      write (l1file,11) (merge(zero,face_xyz(nf)%v(l,kf,1), &
+                                abs(face_xyz(nf)%v(l,kf,1))<=eps14),l=1,nr)
+      write (l2file,11) (merge(zero,faceusp_array(f0+kf,l,1), &
+                                abs(faceusp_array(f0+kf,l,1))<=eps14),l=1,nr)
       !
-      write (r1file,11) (face_xyz(nf)%v(l,kf,2),l=1,nq)
-      write (r2file,11) (faceusp_array(f0+kf,l,2),l=1,nq)
+      write (r1file,11) (merge(zero,face_xyz(nf)%v(l,kf,2), &
+                                abs(face_xyz(nf)%v(l,kf,2))<=eps14),l=1,nr)
+      write (r2file,11) (merge(zero,faceusp_array(f0+kf,l,2), &
+                                abs(faceusp_array(f0+kf,l,2))<=eps14),l=1,nr)
       !
       write (d1file,11) (abs( face_xyz(nf)%v(l,kf,2) - &
                               face_xyz(nf)%v(l,kf,1) ) , l=1,nr), &
