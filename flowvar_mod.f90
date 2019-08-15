@@ -412,7 +412,7 @@ continue
   !
   ! Allocate the outer part of the face solution/flux arrays
   !
-  if (.not. convert_restart_to_cgns .or. continuous_output) then
+ !if (.not. convert_restart_to_cgns .or. continuous_output) then
     !
     ! If using the continuous output option or MMS,
     ! allocate the facexyz_dt array
@@ -599,7 +599,7 @@ continue
       !
     end if
     !
-  end if
+ !end if
   !
   ! Allocate the storage for the Runge-Kutta methods
   !
