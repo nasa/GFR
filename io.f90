@@ -8044,6 +8044,12 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   real(wp) :: rho_inv,vx,vy,vz,a2,q2,s
   real(wp) :: gamm,gm1,gam_over_gm1,mach,pres,temp
   real(wp) :: mi,mj,drhodi,drhodj,dmjdi,dmidj
+  real(wp) :: w12,w13,w23,wijwij
+  real(wp) :: s12,s13,s23,sijsij,s11,s22,s33,skk
+  real(wp) :: dudx,dudy,dudz
+  real(wp) :: dvdx,dvdy,dvdz
+  real(wp) :: dwdx,dwdy,dwdz
+  real(wp) :: qmin,qmax
   !
   integer(CBT) :: ivar_s
   !
@@ -8108,7 +8114,9 @@ continue
         end do
       end if
       !
-    case ("GradVelocity","GradTemperature","GradMassFractions")
+    case ("GradVelocity","GradTemperature","GradMassFractions", &
+          "GradTempMagnitude","VorticityMagnitude","StrainRateMagnitude", &
+          "QCriterion","DivergenceOfVelocity")
       !
       allocate ( dpvdx(1:npts,1:nr,1:nq) , source=zero , &
                  stat=ierr , errmsg=error_message )
@@ -8184,14 +8192,6 @@ continue
     ! ---------------------
     ! pitot pressure
     ! strain rate
-    ! velocity divergence
-    !     div(vel) = du/dx + dv/dy + dw/dz
-    ! q-criterion
-    ! magnitude of vorticity
-    ! magnitude of strain rate
-    ! magnitude of density gradient
-    ! temperature gradient
-    ! magnitude of temperature gradient
     ! pressure gradient
     ! magnitude of pressure gradient
     !
@@ -8309,6 +8309,19 @@ continue
         !
       end do
       !!}}}
+    case ("GradDensityMagnitude") ! Magnitude of density gradient
+      !!{{{
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        vartmp(n) = norm2( dcvdx(n,1:nr,nec) ) * rhoref
+      end do
+      !
+      call cgns_write_field_data
+      !
+      !!}}}
     case ("GradMomentum") ! Momentum gradients
       !!{{{
       do m = nmb,nme
@@ -8389,6 +8402,19 @@ continue
         call cgns_write_field_data
         !
       end do
+      !!}}}
+    case ("GradTempMagnitude") ! Magnitude of temperature gradient
+      !!{{{
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        vartmp(n) = norm2( dpvdx(n,1:nr,nee) ) * tref
+      end do
+      !
+      call cgns_write_field_data
+      !
       !!}}}
     case ("dTdx_Breakdown") ! Breakdown of terms to compute dT/dx
       !!{{{
@@ -8881,6 +8907,120 @@ continue
         !
       end do vorticity_loop
       !!}}}
+    case ("VorticityMagnitude") ! Vorticity magnitude
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        !
+        w12 = dpvdx(n,2,nmx) - dpvdx(n,1,nmy)
+        w13 = dpvdx(n,3,nmx) - dpvdx(n,1,nmz)
+        w23 = dpvdx(n,3,nmy) - dpvdx(n,2,nmz)
+        !
+        vartmp(n) = sqrt( w12*w12 + w13*w13 + w23*w23 ) * aref
+        !
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("StrainRateMagnitude") ! Strain rate magnitude
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        !
+        dudx = dpvdx(n,1,nmx)
+        dudy = dpvdx(n,2,nmx)
+        dudz = dpvdx(n,3,nmx)
+        !
+        dvdx = dpvdx(n,1,nmy)
+        dvdy = dpvdx(n,2,nmy)
+        dvdz = dpvdx(n,3,nmy)
+        !
+        dwdx = dpvdx(n,1,nmz)
+        dwdy = dpvdx(n,2,nmz)
+        dwdz = dpvdx(n,3,nmz)
+        !
+        skk = one3 * (dudx + dvdy + dwdz)
+        !
+        s11 = dudx - skk
+        s22 = dvdy - skk
+        s33 = dwdz - skk
+        !
+        s12 = half * (dudy + dvdx)
+        s13 = half * (dudz + dwdx)
+        s23 = half * (dvdz + dwdy)
+        !
+        sijsij = s11**2 + s22**2 + s33**2 + two*(s12**2 + s13**2 + s23**2)
+        !
+        vartmp(n) = sqrt( two * sijsij ) * aref
+        !
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("QCriterion") ! Q-criterion
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        !
+        dudx = dpvdx(n,1,nmx)
+        dudy = dpvdx(n,2,nmx)
+        dudz = dpvdx(n,3,nmx)
+        !
+        dvdx = dpvdx(n,1,nmy)
+        dvdy = dpvdx(n,2,nmy)
+        dvdz = dpvdx(n,3,nmy)
+        !
+        dwdx = dpvdx(n,1,nmz)
+        dwdy = dpvdx(n,2,nmz)
+        dwdz = dpvdx(n,3,nmz)
+        !
+        w12 = half * (dudy - dvdx)
+        w13 = half * (dudz - dwdx)
+        w23 = half * (dvdz - dwdy)
+        !
+        wijwij = two * (w12**2 + w13**2 + w23**2)
+        !
+        skk = one3 * (dudx + dvdy + dwdz)
+        !
+        s11 = dudx - skk
+        s22 = dvdy - skk
+        s33 = dwdz - skk
+        !
+        s12 = half * (dudy + dvdx)
+        s13 = half * (dudz + dwdx)
+        s23 = half * (dvdz + dwdy)
+        !
+        sijsij = s11**2 + s22**2 + s33**2 + two*(s12**2 + s13**2 + s23**2)
+        !
+        vartmp(n) = half*(wijwij - sijsij)
+       !vartmp(n) = vartmp(n) * aref*aref
+        !
+      end do
+      !
+      qmin = minval(vartmp(:))
+      qmax = maxval(vartmp(:))
+      !
+      vartmp(:) = (vartmp(:) - qmin)/(qmax-qmin)
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("DivergenceOfVelocity") ! Divergence of velocity
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        vartmp(n) = (dpvdx(n,1,nmx) + dpvdx(n,2,nmy) + dpvdx(n,3,nmz)) * aref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
     case ("ResolutionMarker")
       !!{{{
       if (.not. allocated(vartmp_at_sp)) then
@@ -9157,21 +9297,22 @@ end subroutine output_variable
 subroutine get_cgns_sol_variables(variable_list)
   !
   !.. Use Statements ..
-  use ovar, only : itestcase,governing_equations
-  use ovar, only : output_vorticity
-  use ovar, only : output_conserved_variables
-  use ovar, only : output_temperature
-  use ovar, only : output_thermo_variables
-  use ovar, only : output_gradients
-  use ovar, only : output_transport_variables
-  use ovar, only : output_stagnation_variables
-  use ovar, only : output_marker_variables
-  use ovar, only : Resolution_Marker_Variable
-  use ovar, only : output_species_mass_fractions
-  use ovar, only : output_species_mole_fractions
-  use ovar, only : output_extra_species_variables
-  use ovar, only : output_debug_species_variables
-  use ovar, only : output_grdnt_species_variables
+  use geovar, only : nr
+  use ovar,   only : itestcase,governing_equations
+  use ovar,   only : output_vorticity
+  use ovar,   only : output_conserved_variables
+  use ovar,   only : output_temperature
+  use ovar,   only : output_thermo_variables
+  use ovar,   only : output_gradients
+  use ovar,   only : output_transport_variables
+  use ovar,   only : output_stagnation_variables
+  use ovar,   only : output_marker_variables
+  use ovar,   only : Resolution_Marker_Variable
+  use ovar,   only : output_species_mass_fractions
+  use ovar,   only : output_species_mole_fractions
+  use ovar,   only : output_extra_species_variables
+  use ovar,   only : output_debug_species_variables
+  use ovar,   only : output_grdnt_species_variables
   !
   !.. Formal Arguments ..
 #ifdef SPECIAL_FOR_INTEL
@@ -9203,7 +9344,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:43) = ["Density             ", &
+  character(len=*), parameter :: var_order(1:49) = ["Density             ", &
                                                     "Momentum            ", &
                                                     "Energy              ", &
                                                     "Velocity            ", &
@@ -9245,7 +9386,13 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "TimeMetrics         ", &
                                                     "dTdx_Breakdown      ", &
                                                     "DmatTemperature     ", &
-                                                    "CoMetrics           "]
+                                                    "CoMetrics           ", &
+                                                    "GradTempMagnitude   ", &
+                                                    "GradDensityMagnitude", &
+                                                    "VorticityMagnitude  ", &
+                                                    "StrainRateMagnitude ", &
+                                                    "QCriterion          ", &
+                                                    "DivergenceOfVelocity"]
   !
   ! Conserved Variables
   character(len=*), parameter :: consv_var(1:3) = ["Density ", &
@@ -9263,8 +9410,21 @@ continue
   ! Make sure vorticity is one of the variables that will
   ! be output if running the Taylor-Green vortex problem.
   !
-  if (itestcase == Taylor_Green_Vortex .or. output_vorticity) then
+  if (itestcase == Taylor_Green_Vortex) then
     call add_sol_variable(variable_list,"Vorticity")
+  end if
+  !
+  ! Output vorticity and other variables useful for identifying
+  ! vortical structures
+  !
+  if (output_vorticity) then
+    call add_sol_variable(variable_list,"Vorticity")
+    call add_sol_variable(variable_list,"DivergenceOfVelocity")
+    if (nr > 2) then
+      call add_sol_variable(variable_list,"VorticityMagnitude")
+      call add_sol_variable(variable_list,"StrainRateMagnitude")
+      call add_sol_variable(variable_list,"QCriterion")
+    end if
   end if
   !
   ! Make sure entropy is one of the variables that will be
