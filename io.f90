@@ -7587,6 +7587,8 @@ continue
         if (ncs > 0) then
           n = n + (2*nr + 2*ncs + 7 + ncs*nr)
         end if
+      else if (trim(char_sname(l)) == "QCriterion") then
+        n = n + 2
       else
         n = n + 1
       end if
@@ -7857,6 +7859,16 @@ continue
             end do
           end do
         end if
+      else if (trim(char_sname(k)) == "QCriterion") then
+        !
+        n = n + 1
+        varname = trim(char_sname(k))
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        !
+        n = n + 1
+        varname = trim(char_sname(k))//"_Positive"
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        !
       else
         n = n + 1
         if (trim(char_sname(k)) == "Energy") then
@@ -9003,12 +9015,29 @@ continue
         !
       end do
       !
+      ! Save the original Q-criterion
+      !
+      vartmp_at_sp = vartmp(:) ! F2003 AUTO-REALLOC
+      !
+      ! Normalize the whole Q-criterion to the interval 0->1
+      !
       qmin = minval(vartmp(:))
       qmax = maxval(vartmp(:))
       !
       vartmp(:) = (vartmp(:) - qmin)/(qmax-qmin)
       !
       call cgns_write_field_data
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      ! Copy the original positive values of Q-Criterion back to vartmp
+      ! and make the negative values zero
+      !
+      vartmp(:) = merge( vartmp_at_sp(:) , zero , vartmp_at_sp(:) >= zero )
+      !
+      call cgns_write_field_data
+      !
       !!}}}
     case ("DivergenceOfVelocity") ! Divergence of velocity
       !!{{{
