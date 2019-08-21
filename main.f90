@@ -669,7 +669,7 @@ continue
   ! Output the initialized solution
   !
   if (continuous_output) then
-    call new_write_parallel_cgns
+    call new_write_parallel_cgns(open_CGNS)
   else
     call write_parallel_cgns(open_CGNS)
   end if
@@ -1176,7 +1176,7 @@ continue
         !
         if (request_solution) then
           if (continuous_output) then
-            call new_write_parallel_cgns
+            call new_write_parallel_cgns(dump_CGNS)
           else
             call write_parallel_cgns(dump_CGNS)
           end if
@@ -1252,7 +1252,7 @@ continue
       !
       if (output_solution .and. .not.request_solution) then
         if (continuous_output) then
-          call new_write_parallel_cgns
+          call new_write_parallel_cgns(CGNS_action)
         else
           call write_parallel_cgns(CGNS_action)
         end if
@@ -1270,7 +1270,7 @@ continue
       end if
       if (write_TaylorGreen_full_solution) then
         if (continuous_output) then
-          call new_write_parallel_cgns
+          call new_write_parallel_cgns(CGNS_action)
         else
           call write_parallel_cgns(CGNS_action)
         end if
@@ -1338,7 +1338,7 @@ continue
   call write_restart_file(-1)
   !
   if (continuous_output) then
-    call new_write_parallel_cgns
+    call new_write_parallel_cgns(close_CGNS)
   else
     call write_parallel_cgns(close_CGNS)
   end if
@@ -1584,7 +1584,7 @@ continue
         end do
         !
         if (continuous_output) then
-          call new_write_parallel_cgns
+          call new_write_parallel_cgns(-3)
         else
           call write_parallel_cgns(-3)
         end if

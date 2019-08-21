@@ -1,10 +1,12 @@
 module postprocessor_mod
   !
+!!#define DEBUG_POST_PROCESSOR
+  !
   !.. Global Use Statements ..
   use module_kind_types
   use module_cgns_types
-  use eqn_idx, only : nq,nec,nmx,nmy,nmz,nee,nmb,nme
-  use eqn_idx, only : ng,npres,ntemp,ngamm,ncs
+  use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
+  use eqn_idx, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ncond,ng
   !
   implicit none
   !
@@ -92,8 +94,6 @@ module postprocessor_mod
   !
   type(plot_func_t), allocatable :: plot_var(:)
   !
-  integer, save :: npvar = 20
-  !
   integer, save, allocatable :: ipelem_of_cells(:,:,:)
   !
   ! INITIALIZATION_NEEDED: Private module variable that indicates whether the
@@ -116,7 +116,8 @@ module postprocessor_mod
   ! ################################
   !
   !.. Output File Names ..
-  character(len=*),      parameter :: cgns_base_fname = "solution.grid.cgns"
+  character(len=*),      parameter :: cgns_grid_fname = "solution.grid.cgns"
+  character(len=*),      parameter :: cgns_time_fname = "solution.time.cgns"
   character(len=170),         save :: cgns_dir = ""
   character(len=170),         save :: cgns_grid_file
   !
@@ -129,21 +130,20 @@ module postprocessor_mod
   integer(CBT),      save :: isect_n
   integer(CBT), parameter :: iiter_n = 1_CBT
   !
-  integer(CBT), save, allocatable, dimension(:) :: isvar_s
-  !
   !.. CGNS Time Dependent Variables ..
   integer, save :: cgns_zone_counter
   !
-  real(sp),             save, allocatable, dimension(:) :: soltime
-  character(len=CGLEN), save, allocatable, dimension(:) :: solname
+  real(sp),             save, allocatable :: soltime(:)
+  character(len=CGLEN), save, allocatable :: solname(:)
+  character(len=CGLEN), save, allocatable :: solfile(:)
   !
   character(len=*), parameter :: base_name = "gfr_base"
   character(len=*), parameter :: zone_name = "Solution"
   !
   !.. CGNS Parallel Point Indices ..
-  integer, save :: n_my_output_pts
-  integer, save :: my_pts_beg
-  integer, save :: my_pts_end
+  integer(CST), save :: n_my_output_pts
+  integer(CST), save :: my_pts_beg
+  integer(CST), save :: my_pts_end
   !
   integer(CST), dimension(1:3) :: zone_size
   !
@@ -246,25 +246,24 @@ contains
 !
 !###############################################################################
 !
-subroutine new_write_parallel_cgns()
+subroutine new_write_parallel_cgns(iflag)
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : itcur,time,time_ref
-  use ovar,   only : completely_disable_cgns
-  use ovar,   only : write_TaylorGreen_full_solution
+  use ovar, only : itcur,time,time_ref
+  use ovar, only : write_TaylorGreen_full_solution
+  use ovar, only : completely_disable_cgns
+  use ovar, only : output_time_averaging
+  use ovar, only : time_scaling_factor
   !
-  use, intrinsic :: iso_c_binding, only : C_NULL_CHAR
+  !.. Formal Arguments ..
+  integer, intent(in) :: iflag
   !
   !.. Local Scalars ..
   integer :: n,ierr
   !
   character(len=CGLEN) :: tname
+
   character(len=170)   :: sol_file
-  character(len=300)   :: link_path
-  !
-  !.. Local Arrays ..
-  integer, dimension(1:2) :: idata
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "new_write_parallel_cgns"
@@ -288,28 +287,23 @@ continue
     ! Check for the CGNS output directory and create it if not found
     !
     call check_cgns_dir
-    !
-    ! Initialize the functions that will be written to the CGNS solution files
-    !
-    call get_plot_functions
+
+
+
+
     !
     ! Write the CGNS grid file
     !
     call write_grid_parallel_cgns
     !
+    ! Initialize the zone counter
+    !
+    cgns_zone_counter = 0
+    !
     ! Now that the CGNS grid file has been successfully created, set the
     ! initialization flag to false so this isnt done again.
     !
     initialization_needed = fals
-    !
-  else
-    !
-    ! The CGNS grid file has already been created so we need to reopen
-    ! it in modification mode.
-    !
-    call cgp_open_f(cgns_grid_file,CG_MODE_MODIFY,ifile_n,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_open_f", &
-                    cgierr,__LINE__,__FILE__,"Mode = CG_MODE_MODIFY")
     !
   end if
   !
@@ -317,32 +311,31 @@ continue
   !
   write (tname,'("FlowSolution",i0)') cgns_zone_counter
  !write (sol_file,'("solution.",i0,".cgns")') cgns_zone_counter
-  write (sol_file,cgnsfile_fmt) itcur
+  if (iflag == -3) then
+    write (sol_file,cgnsfile_fmt) max(0,itcur-1),".NaN"
+  else
+    write (sol_file,cgnsfile_fmt) itcur,""
+  end if
   !
   ! Reallocate the soltime and solname arrays so we
   ! can concatenate this solution onto those arrays
   !
   call reallocate(soltime,cgns_zone_counter+1)
   call reallocate(solname,cgns_zone_counter+1)
-  soltime(size(soltime)) = real(time*time_ref,kind(soltime))
+  call reallocate(solfile,cgns_zone_counter+1)
+  soltime(size(soltime)) = real(time*time_ref*time_scaling_factor,kind(soltime))
   solname(size(solname)) = tname
-  !
-  ! Create a link to the solution node in the current solution file
-  !
-  call cg_goto_f(ifile_n,ibase_n,cgierr, &
-                 "Zone_t",izone_n, &
-                 CGNS_GOTO_END)
-  call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr,__LINE__,__FILE__)
-  !
-  link_path = base_name//"/"//zone_name//"/"//trim(tname)
-  !
-  call cg_link_write_f(trim(tname),trim(sol_file),trim(link_path),cgierr)
-  call cgns_error(pname,cgns_grid_file,"cg_link_write_f", &
-                  cgierr,__LINE__,__FILE__)
+  solfile(size(solfile)) = sol_file
   !
   ! Write the solution file
   !
   call write_solution_parallel_cgns(sol_file,tname)
+  !
+  ! Write the solution file
+  !
+  if (output_time_averaging) then
+ !  call write_time_ave_parallel_cgns
+  end if
   !
   ! ################################################
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
@@ -350,70 +343,30 @@ continue
   !
   call set_cgns_queue(STOP_CGNS_QUEUE,pname,cgns_grid_file)
   !
-  ! Update the solution times within the base iterative node
+  ! Write the time iterative solution file
   !
-  call cg_biter_write_f(ifile_n,ibase_n,'TimeIterValues', &
-                        size(soltime,kind=CBT),cgierr)
-  call cgns_error(pname,cgns_grid_file,"cg_biter_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  call cg_goto_f(ifile_n,ibase_n,cgierr, &
-                 "BaseIterativeData_t",iiter_n, &
-                 CGNS_GOTO_END)
-  call cgns_error(pname,cgns_grid_file,"cg_goto_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  call cg_array_write_f("TimeValues",CGNS_KIND_REAL,1_CBT, &
-                        size(soltime,kind=CST),soltime,ierr)
-  call cgns_error(pname,cgns_grid_file,"cg_array_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  ! Update the names of the zone iterative nodes
-  !
-  call cg_ziter_write_f(ifile_n,ibase_n,izone_n,"ZoneIterativeData",cgierr)
-  call cgns_error(pname,cgns_grid_file,"cg_ziter_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  call cg_goto_f(ifile_n,ibase_n,cgierr, &
-                 "Zone_t",izone_n, &
-                 "ZoneIterativeData_t",iiter_n, &
-                 CGNS_GOTO_END)
-  call cgns_error(pname,cgns_grid_file,"cg_goto_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  idata(:) = int( [32,size(solname)] , kind=CST )
-  call cg_array_write_f("FlowSolutionPointers",CHARACTER,2_CBT, &
-                        idata,solname,cgierr)
-  call cgns_error(pname,cgns_grid_file,"cg_array_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  ! Identify the flow solution within the CGNS file as time dependent
-  !
-  call cg_simulation_type_write_f(ifile_n,ibase_n,TIMEACCURATE,cgierr)
-  call cgns_error(pname,cgns_grid_file,"cg_simulation_type_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  ! Close the CGNS FILE
-  !
-  call cgp_close_f(ifile_n,cgierr)
-  call cgns_error(pname,cgns_grid_file,"cgp_close_f",cgierr,__LINE__,__FILE__)
+  if (any(iflag == [close_CGNS,-3])) then
+ !  call write_time_file_parallel_cgns
+  end if
   !
   ! Update the zone counter
   !
   cgns_zone_counter = cgns_zone_counter + 1
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   write (error_message,100)
   100 format ("Temporary stop after writing initial CGNS files using the ", &
               "new continuous output from the post-processor module.")
   call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   !
-  call debug_timer(leaving_procedure,pname)
-  !
   ! Format Statements
   !
   1 format ("#############################################",/, &
             "    FOR PROCESSOR #",i0)
   2 format (a," = ",i0)
+
+
   !
 end subroutine new_write_parallel_cgns
 !
@@ -423,32 +376,51 @@ subroutine write_grid_parallel_cgns()
   !
   !.. Use Statements ..
   use geovar, only : nr
+  use ovar,   only : profile_io_cgns,profile_io_cgns_subs
+  use ovar,   only : grid_scaling_factor
   !
   !.. Local Scalars ..
   integer :: n,ierr
   !
   integer(CST) :: my_cells_beg,my_cells_end
-  integer(CST) :: n_total_output_pts
   integer(CST) :: n_total_output_cells
+  !
+  real(wp) :: beg_wall_time
+  real(wp) :: end_wall_time
+  real(wp) :: cgns_wall_time
   !
   character(len=CGLEN) :: varname
   !
   !.. Local Arrays ..
-  integer(CBT), dimension(1:nr) :: ixyz_n
+  integer(CBT) :: ixyz_n(1:nr)
   !
   !.. Local Allocatable Arrays ..
   integer(CST), allocatable :: ipelem(:,:)
-  real(wp),     allocatable :: vartmp(:,:)
-  real(CRT),    allocatable :: var(:)
+  !
+  real(CRT), allocatable :: var(:)
+  real(wp),  allocatable :: vartmp(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_grid_parallel_cgns"
+  character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  cgns_grid_file = trim(adjustl(cgns_dir)) // cgns_base_fname
+#ifndef SPECIAL_FOR_PGI
+  !
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      write (iout,1) pname
+      flush (iout)
+      beg_wall_time = mpi_wtime()
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  cgns_grid_file = trim(adjustl(cgns_dir)) // cgns_grid_fname
   !
   ! Initialize the variables and data arrays needed for CGNS output
   ! NOTE: This call to routine create_cell_subconnectivity will initialize
@@ -456,10 +428,58 @@ continue
   !
   call create_cell_subconnectivity(my_cells_beg,my_cells_end,ipelem)
   !
-  ! Extract the total number of pts and cells from the zone_size array
+  ! Extract the total number of cells from the zone_size array
   !
-  n_total_output_pts = zone_size(1)
   n_total_output_cells = zone_size(2)
+  !
+  ! Open the cgns grid file
+  !
+  call cgns_timer(start_cgns_file_timer,profile_io_cgns_subs,cgns_grid_file)
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
+  call cgp_open_f(cgns_grid_file,CG_MODE_WRITE,ifile_n,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cgp_open_f", &
+                  cgierr,__LINE__,__FILE__, &
+                  "Mode = CG_MODE_WRITE")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
+  !
+  ! Set the CGNS base (who knows what this is for)
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_base_write_f")
+  call cg_base_write_f(ifile_n,base_name,int(nr,kind=CBT), &
+                       int(nr,kind=CBT),ibase_n,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cg_base_write_f", &
+                  cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_base_write_f")
+  !
+  ! Write the title for this solution
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_zone_write_f")
+  call cg_zone_write_f(ifile_n,ibase_n,zone_name,zone_size, &
+                       UNSTRUCTURED,izone_n,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cg_zone_write_f", &
+                  cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_zone_write_f")
+  !
+  ! Create data nodes for the coordinates
+  !
+  do n = 1,nr
+    varname = "Coordinate"//char_xyz(n)
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_coord_write_f")
+    call cgp_coord_write_f(ifile_n,ibase_n,izone_n,CGNS_KIND_REAL, &
+                           trim(varname),ixyz_n(n),cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_coord_write_f", &
+                    cgierr,__LINE__,__FILE__,"Write node: Coordinate",n)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_coord_write_f")
+  end do
+  !
+  ! Now create and write the coordinate data in parallel
   !
   ! Allocate the temporary variable arrays
   !
@@ -471,40 +491,6 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Initialize the zone counter
-  !
-  cgns_zone_counter = 0
-  !
-  call cgp_open_f(cgns_grid_file,CG_MODE_WRITE,ifile_n,cgierr)
-  call cgns_error(pname,cgns_grid_file,"cgp_open_f", &
-                  cgierr,__LINE__,__FILE__,"Mode = CG_MODE_WRITE")
-  !
-  ! Set the CGNS base (who knows what this is for)
-  !
-  call cg_base_write_f(ifile_n,base_name,int(nr,kind=CBT), &
-                       int(nr,kind=CBT),ibase_n,cgierr)
-  call cgns_error(pname,cgns_grid_file,"cg_base_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  ! Write the title for this solution
-  !
-  call cg_zone_write_f(ifile_n,ibase_n,zone_name,zone_size, &
-                       UNSTRUCTURED,izone_n,ierr)
-  call cgns_error(pname,cgns_grid_file,"cg_zone_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  ! Create data nodes for the coordinates
-  !
-  do n = 1,nr
-    varname = "Coordinate"//char_xyz(n)
-    call cgp_coord_write_f(ifile_n,ibase_n,izone_n,CGNS_KIND_REAL, &
-                           trim(varname),ixyz_n(n),ierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_coord_write_f", &
-                    cgierr,__LINE__,__FILE__,"Write node: Coordinate",n)
-  end do
-  !
-  ! Now create and write the coordinate data in parallel
-  !
   ! Stop/Disable the CGNS queue if it is not to be used
   !
   call disable_cgns_queue(pname,cgns_grid_file)
@@ -514,9 +500,11 @@ continue
   !
   call collect_coordinates_for_output(vartmp)
   !
+#ifdef DEBUG_POST_PROCESSOR
   if (ncpu == 1) then
     call write_tecplot_file(vartmp,ipelem)
   end if
+#endif
   !
   ! Write the coordinates for the output points to the CGNS grid file
   !
@@ -525,7 +513,9 @@ continue
     ! Copy the current coordinate variable into the array var
     ! and convert to the real type required for the CGNS file.
     !
-    var(:) = real( vartmp(n,:) , kind=kind(var) )
+
+
+    var(:) = real( vartmp(n,:)/grid_scaling_factor , kind=kind(var) )
     !
     ! Reset the queue.
     !
@@ -533,10 +523,14 @@ continue
     !
     ! Add the data for current coordinate variable to the output queue.
     !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_coord_write_data_f")
     call cgp_coord_write_data_f(ifile_n,ibase_n,izone_n,ixyz_n(n), &
-                                my_pts_beg,my_pts_end,var,ierr)
+                                my_pts_beg,my_pts_end,var,cgierr)
     call cgns_error(pname,cgns_grid_file,"cgp_coord_write_data_f", &
                     cgierr,__LINE__,__FILE__,"Write data: Coordinate",n)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_coord_write_data_f")
     !
     ! Finally, flush the queue containing the
     ! current coordinate variable to the CGNS file.
@@ -545,41 +539,7 @@ continue
     !
   end do
   !
-  ! Create the data node for the grid connectivity
-  !
-  if (nr == 2) then
-    call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Quadrilaterals", &
-                             QUAD_4,1_CST,n_total_output_cells, &
-                             0_CBT,isect_n,ierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_section_write_f", &
-                    cgierr,__LINE__,__FILE__,"Element Type = QUAD_4")
-  else if (nr == 3) then
-    call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Hexahedrals", &
-                             HEXA_8,1_CST,n_total_output_cells, &
-                             0_CBT,isect_n,ierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_section_write_f", &
-                    cgierr,__LINE__,__FILE__,"Element Type = HEXA_8")
-  end if
-  !
-  ! Write the element connectivity in parallel
-  !
-  ! Reset the queue.
-  !
-  call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_grid_file)
-  !
-  ! Add the element connectivity data to the output queue.
-  !
-  call cgp_elements_write_data_f(ifile_n,ibase_n,izone_n,isect_n, &
-                                 my_cells_beg,my_cells_end,ipelem,ierr)
-  call cgns_error(pname,cgns_grid_file,"cgp_elements_write_data_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  ! Finally, flush the queue containing the
-  ! element connectivity to the CGNS file.
-  !
-  call flush_cgns_queue(pname,cgns_grid_file)
-  !
-  ! Deallocate the arrays var, vartmp, and ipelem
+  ! Deallocate the var and vartmp arrays
   !
   if (allocated(var)) then
     deallocate ( var , stat=ierr , errmsg=error_message )
@@ -589,12 +549,89 @@ continue
     deallocate ( vartmp , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"vartmp",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  !
+  ! Create the data node for the grid connectivity
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cgp_section_write_f")
+  if (nr == 1) then
+    call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Edges", &
+                             BAR_2,1_CST,n_total_output_cells, &
+                             0_CBT,isect_n,cgierr)
+  else if (nr == 2) then
+    call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Quadrilaterals", &
+                             QUAD_4,1_CST,n_total_output_cells, &
+                             0_CBT,isect_n,cgierr)
+  else if (nr == 3) then
+    call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Hexahedrals", &
+                             HEXA_8,1_CST,n_total_output_cells, &
+                             0_CBT,isect_n,cgierr)
+  end if
+  call cgns_error(pname,cgns_grid_file,"cgp_section_write_f", &
+                  cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cgp_section_write_f")
+  !
+  ! Write the element connectivity in parallel
+  !
+  ! Reset the queue.
+  !
+  call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_grid_file)
+  !
+  ! Add the element connectivity data to the output queue.
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cgp_elements_write_data_f")
+  call cgp_elements_write_data_f(ifile_n,ibase_n,izone_n,isect_n, &
+                                 my_cells_beg,my_cells_end,ipelem,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cgp_elements_write_data_f", &
+                  cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cgp_elements_write_data_f")
+  !
+  ! Finally, flush the queue containing the
+  ! element connectivity to the CGNS file.
+  !
+  call flush_cgns_queue(pname,cgns_grid_file)
+  !
+  ! Deallocate ipelem
+  !
   if (allocated(ipelem)) then
     deallocate ( ipelem , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  ! Close the CGNS FILE
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_close_f")
+  call cgp_close_f(ifile_n,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cgp_close_f", &
+                  cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_close_f")
+  !
+  call cgns_timer(stop_cgns_file_timer,profile_io_cgns_subs,cgns_grid_file)
+  !
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      end_wall_time = mpi_wtime()
+      cgns_wall_time = end_wall_time - beg_wall_time
+      write (iout,2) pname,trim(adjustl(cgns_grid_file)),cgns_wall_time
+      flush (iout)
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  !
+#endif
+  !
   call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (/," Entering ",a)
+  2 format (1x,"Leaving ",a,/,:, &
+            5x,"Wall time taken to write the file '",a, &
+            "' = ",f12.6," seconds",/)
   !
 end subroutine write_grid_parallel_cgns
 !
@@ -603,27 +640,44 @@ end subroutine write_grid_parallel_cgns
 subroutine write_solution_parallel_cgns(sol_file,tname)
   !
   !.. Use Statements ..
-  use geovar,  only : nr
-  !
-  use, intrinsic :: iso_c_binding, only : C_NULL_CHAR
+  use geovar, only : nr
+  use ovar,   only : profile_io_cgns,profile_io_cgns_subs
+  use ovar,   only : max_wall_time => max_cgns_wall_time
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: sol_file
   character(len=*), intent(in) :: tname
   !
   !.. Local Scalars ..
-  integer :: n,ierr
+  integer :: l,n,npts,npvar,ierr
+  !
+  real(wp) :: beg_wall_time
+  real(wp) :: end_wall_time
+  real(wp) :: cgns_wall_time
   !
   character(len=CGLEN) :: sect_name
   character(len=170)   :: cgns_sol_file
   character(len=300)   :: link_path
   !
+  !.. Local Allocatable Arrays ..
+#ifdef SPECIAL_FOR_INTEL
+  character(len=:), allocatable :: char_sname(:)
+#else
+  character(len=CGLEN), allocatable :: char_sname(:)
+#endif
+  !
   !.. Local Arrays ..
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
   !
   !.. Local Allocatable Arrays ..
-  real(wp),       allocatable :: vartmp(:,:)
+  integer(CBT), allocatable :: isvar_s(:)
+  !
+  !.. Local Allocatable Arrays ..
   real(CRT), allocatable :: var(:)
+  real(wp),  allocatable :: vartmp(:)
+  real(wp),  allocatable :: output_usp(:,:)
+  real(wp),  allocatable :: output_gpsp(:,:)
+  real(wp),  allocatable :: output_dusp(:,:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_solution_parallel_cgns"
@@ -632,113 +686,161 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+#ifndef SPECIAL_FOR_PGI
+  !
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      write (iout,1) pname
+      flush (iout)
+      beg_wall_time = mpi_wtime()
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  ! Get the list of variables that will be written to the CGNS solution file
+  !
+  call get_cgns_sol_variables(char_sname)
+  !
+  ! Get the name of the current solution file
+  !
   cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
   !
   ! Open the cgns output file if iflag is equal to open_CGNS
   !
-  ! Initialize the zone counter
+  call cgns_timer(start_cgns_file_timer,profile_io_cgns_subs,cgns_sol_file)
   !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
   call cgp_open_f(cgns_sol_file,CG_MODE_WRITE,ifile_s,cgierr)
   call io_error(pname,cgns_sol_file,1,__LINE__,__FILE__,cgierr)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
   !
   ! Set the CGNS base (who knows what this is for)
   !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_base_write_f")
   call cg_base_write_f(ifile_s,base_name,int(nr,kind=CBT), &
                        int(nr,kind=CBT),ibase_s,cgierr)
   call cgns_error(pname,cgns_sol_file,"cg_base_write_f", &
                   cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_base_write_f")
   !
   ! Write the title for this solution
   !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_zone_write_f")
   call cg_zone_write_f(ifile_s,ibase_s,zone_name,zone_size, &
-                       UNSTRUCTURED,izone_s,ierr)
+                       UNSTRUCTURED,izone_s,cgierr)
   call cgns_error(pname,cgns_sol_file,"cg_zone_write_f", &
                   cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_zone_write_f")
   !
   ! Create a link to the grid coordinates in the grid file
   !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
   call cg_goto_f(ifile_s,ibase_s,cgierr, &
                  "Zone_t",izone_s, &
                  CGNS_GOTO_END)
   call cgns_error(pname,cgns_sol_file,"cg_goto_f",cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
   !
   link_path = base_name//"/"//zone_name//"/GridCoordinates"
   !
-  call cg_link_write_f("GridCoordinates",trim(cgns_base_fname), &
-                       trim(link_path),ierr)
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
+  call cg_link_write_f("GridCoordinates",trim(cgns_grid_fname), &
+                       trim(link_path),cgierr)
   call cgns_error(pname,cgns_sol_file,"cg_link_write_f(GridCoordinates)", &
                   cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
   !
   ! Create a link to the element connectivity in the grid file
   !
-  if (nr == 2) then
+  if (nr == 1) then
+    sect_name = "Edges"
+  else if (nr == 2) then
     sect_name = "Quadrilaterals"
   else if (nr == 3) then
     sect_name = "Hexahedrals"
   end if
   link_path = base_name//"/"//zone_name//"/"//trim(sect_name)
   !
-  call cg_link_write_f(trim(sect_name),trim(cgns_base_fname), &
-                       trim(link_path),ierr)
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
+  call cg_link_write_f(trim(sect_name),trim(cgns_grid_fname), &
+                       trim(link_path),cgierr)
   call cgns_error(pname,cgns_sol_file, &
                   "cg_link_write_f("//trim(sect_name)//")", &
                   cgierr,__LINE__,__FILE__)
-  !
-  ! Allocate var and vartmp if they arent already allocated
-  !
-  allocate ( vartmp(1:npvar,1:n_my_output_pts) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( var(1:n_my_output_pts) , source=real(0,CRT) , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Collect the solution into vartmp
-  !
-  call collect_solution_for_output(vartmp)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
   !
   ! Write the flow variables
   !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_sol_write_f")
   call cg_sol_write_f(ifile_s,ibase_s,izone_s,tname,VERTEX,isol_s,cgierr)
   call cgns_error(pname,cgns_sol_file,"cg_sol_write_f",cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_sol_write_f")
+  !
+  ! Count the total number of variables that will be written to the CGNS file
+  !
+  call get_num_cgns_variables(char_sname,npvar)
+  !
+  ! Allocate isvar_s
+  !
+  allocate ( isvar_s(1:npvar) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"isvar_s",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Allocate var and vartmp if they arent already allocated
+  !
+  npts = n_my_output_pts
+  !
+  allocate ( vartmp(1:npts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( var(1:npts) , source=real(0,CRT) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( output_usp(1:npts,1:nq) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"output_usp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( output_gpsp(1:npts,1:ng) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"output_gpsp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( output_dusp(1:npts,1:nr,1:nq) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"output_dusp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Collect the solution into output_usp, output_gpsp, and output_dusp
+  !
+  call collect_solution_for_output(output_usp,output_gpsp,output_dusp)
   !
   ! ################################################
   ! #####   WRITING SOLUTION FIELD VARIABLES   #####
   ! ################################################
   !
-  ! Create data nodes for the solution variables
+  ! Create data nodes for each of the solution variables
   !
-  do n = 1,size(plot_var)
-    call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,CGNS_KIND_REAL, &
-                           trim(plot_var(n)%varname),isvar_s(n),ierr)
-    call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
-                    cgierr,__LINE__,__FILE__,"Write node: Solution variable",n)
-  end do
+  call write_field_headers(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
+                           cgns_sol_file,char_sname)
   !
   ! Now create the output data and write it to the CGNS file in parallel
   !
-  do n = 1,size(plot_var)
+  n = 0
+  do l = 1,size(char_sname)
     !
-    ! Save this plot function into a separate contiguous array
-    !
-    var(:) = real( vartmp(n,:) , kind=kind(var) )
-    !
-    ! Reset the queue.
-    !
-    call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_sol_file)
-    !
-    ! Add the data for current variable to the output queue.
-    !
-    call cgp_field_write_data_f(ifile_s,ibase_s,izone_s,isol_s,isvar_s(n), &
-                                my_pts_beg,my_pts_end,var,ierr)
-    call cgns_error(pname,cgns_sol_file,"cgp_field_write_data_f", &
-                    cgierr,__LINE__,__FILE__,"Write data: Solution variable",n)
-    !
-    ! Finally, flush the queue containing
-    ! the current variable to the CGNS file.
-    !
-    call flush_cgns_queue(pname,cgns_sol_file)
+    call get_output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
+                             cgns_sol_file,char_sname(l),n, &
+                             output_usp,output_gpsp,output_dusp,vartmp,var)
     !
   end do
   !
@@ -750,8 +852,12 @@ continue
   !
   ! Close the CGNS FILE
   !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_close_f")
   call cgp_close_f(ifile_s,cgierr)
   call io_error(pname,cgns_grid_file,2,__LINE__,__FILE__,cgierr)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_close_f")
+  !
+  call cgns_timer(stop_cgns_file_timer,profile_io_cgns_subs,cgns_sol_file)
   !
   ! Deallocate the arrays var and vartmp
   !
@@ -763,16 +869,504 @@ continue
     deallocate ( vartmp , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"vartmp",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  if (allocated(output_usp)) then
+    deallocate ( output_usp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"output_usp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  if (allocated(output_gpsp)) then
+    deallocate ( output_gpsp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"output_gpsp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  if (allocated(output_dusp)) then
+    deallocate ( output_dusp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"output_dusp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  if (allocated(isvar_s)) then
+    deallocate ( isvar_s , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"isvar_s",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      end_wall_time = mpi_wtime()
+      cgns_wall_time = end_wall_time - beg_wall_time
+      max_wall_time = max(max_wall_time,cgns_wall_time)
+      write (iout,2) pname,trim(adjustl(cgns_sol_file)),cgns_wall_time
+      flush (iout)
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  !
+#endif
   !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
-  1 format ("#############################################",/, &
-            "    FOR PROCESSOR #",i0)
-  2 format (a," = ",i0)
+  1 format (/," Entering ",a)
+  2 format (1x,"Leaving ",a,/,:, &
+            5x,"Wall time taken to write the file '",a, &
+            "' = ",f12.6," seconds",/)
   !
 end subroutine write_solution_parallel_cgns
+!
+!###############################################################################
+!
+pure &
+subroutine get_num_cgns_variables(char_sname,npvar)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : governing_equations
+  !
+  use metrics_mod, only : time_metrics
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: char_sname(:)
+  integer,       intent(inout) :: npvar
+  !
+  !.. Local Scalars ..
+  integer :: l
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_num_cgns_variables"
+  !
+continue
+  !
+  ! Count the total number of solution variables that will be written
+  ! and allocate isvar_s accordingly
+  !
+  npvar = 0
+  do l = 1,size(char_sname)
+    if (trim(char_sname(l)) == "Velocity") then
+      npvar = npvar + nr
+    else if (trim(char_sname(l)) == "Vorticity") then
+      npvar = npvar + merge(nr,1,nr==3)
+    else if (trim(char_sname(l)) == "Momentum") then
+      npvar = npvar + nr
+    else if (trim(char_sname(l)) == "GradDensity") then
+      npvar = npvar + nr
+    else if (trim(char_sname(l)) == "GradMomentum") then
+      npvar = npvar + nr*nr
+    else if (trim(char_sname(l)) == "GradVelocity") then
+      npvar = npvar + nr*nr
+    else if (trim(char_sname(l)) == "GradEnergy") then
+      npvar = npvar + nr
+    else if (trim(char_sname(l)) == "GradTemperature") then
+      npvar = npvar + nr
+  ! else if (trim(char_sname(l)) == "DmatTemperature") then
+  !   npvar = npvar + nr
+    else if (trim(char_sname(l)) == "GradMassFractions") then
+      npvar = npvar + ncs*nr
+    else if (trim(char_sname(l)) == "GradSpeciesDensities") then
+      npvar = npvar + ncs*nr
+    else if (trim(char_sname(l)) == "Viscosity") then
+      if (governing_equations == NavierStokes_Eqns) then
+        npvar = npvar + 1
+      end if
+  ! else if (trim(char_sname(l)) == "ResolutionMarker") then
+  !   npvar = npvar + 2
+  ! else if (trim(char_sname(l)) == "JumpMarker") then
+  !   npvar = npvar + 2
+  ! else if (trim(char_sname(l)) == "TimeMetrics") then
+  !   if (allocated(time_metrics)) then
+  !     npvar = npvar + nr + 1
+  !   end if
+  ! else if (trim(char_sname(l)) == "CoMetrics") then
+  !!  npvar = npvar + nr*nr
+  ! else if (trim(char_sname(l)) == "ContraMetrics") then
+  !   npvar = npvar + nr*nr
+    else if (trim(char_sname(l)) == "MassFractions") then
+      if (ncs > 0) then
+        npvar = npvar + ncs
+      end if
+    else if (trim(char_sname(l)) == "MoleFractions") then
+      if (ncs > 0) then
+        npvar = npvar + ncs
+      end if
+    else if (trim(char_sname(l)) == "SpeciesDensities") then
+      if (ncs > 0) then
+        npvar = npvar + ncs
+      end if
+    else if (trim(char_sname(l)) == "SpeciesEnthalpy") then
+      if (ncs > 0) then
+        npvar = npvar + ncs
+      end if
+    else if (trim(char_sname(l)) == "SpeciesCp") then
+      if (ncs > 0) then
+        npvar = npvar + ncs
+      end if
+    else if (trim(char_sname(l)) == "cpi/R") then
+      if (ncs > 0) then
+        npvar = npvar + ncs
+      end if
+    else if (trim(char_sname(l)) == "hi/RT") then
+      if (ncs > 0) then
+        npvar = npvar + ncs
+      end if
+    else if (trim(char_sname(l)) == "hi/R") then
+      if (ncs > 0) then
+        npvar = npvar + ncs
+      end if
+    else if (trim(char_sname(l)) == "dTdx_Breakdown") then
+      if (ncs > 0) then
+        npvar = npvar + (2*nr + 2*ncs + 7 + ncs*nr)
+      end if
+    else if (trim(char_sname(l)) == "QCriterion") then
+      npvar = npvar + 2
+    else
+      npvar = npvar + 1
+    end if
+  end do
+  !
+end subroutine get_num_cgns_variables
+!
+!###############################################################################
+!
+subroutine write_field_headers(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
+                               cgns_sol_file,char_sname)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : governing_equations
+  use ovar,   only : profile_io_cgns_subs
+  !
+  use metrics_mod, only : time_metrics
+  !
+  use thermo_mod, only : species_name
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: cgns_sol_file
+  character(len=*), intent(in) :: char_sname(:)
+  integer,          intent(in) :: ifile_s
+  integer,          intent(in) :: ibase_s
+  integer,          intent(in) :: izone_s
+  integer,          intent(in) :: isol_s
+  integer,       intent(inout) :: isvar_s(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,k,l,n,m
+  !
+  character(len=CGLEN) :: varname
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_field_headers"
+  character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
+  character(len=*), parameter :: char_ijk(1:3) = ["Xi  ","Eta ","Zeta"]
+  !
+continue
+  !
+  ! Create data nodes for the solution variables
+  !
+  n = 0
+  do k = 1,size(char_sname)
+    if (trim(char_sname(k)) == "Velocity") then
+      do m = 1,nr
+        n = n + 1
+        varname = "Velocity"//char_xyz(m)
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+      end do
+    else if (trim(char_sname(k)) == "Vorticity") then
+      do m = 1,nr
+        n = n + 1
+        varname = "Vorticity"//char_xyz(merge(m,3,nr==3))
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        if (nr < 3) exit
+      end do
+    else if (trim(char_sname(k)) == "Momentum") then
+      do m = 1,nr
+        n = n + 1
+        varname = "Momentum"//char_xyz(m)
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+      end do
+    else if (trim(char_sname(k)) == "GradDensity") then
+      do l = 1,nr
+        n = n + 1
+        varname = "DensityGradient"//char_xyz(l)
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+      end do
+    else if (trim(char_sname(k)) == "GradMomentum") then
+      do m = 1,nr
+        do l = 1,nr
+          n = n + 1
+          varname = "Momentum"//char_xyz(m)//"Gradient"//char_xyz(l)
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      end do
+    else if (trim(char_sname(k)) == "GradVelocity") then
+      do m = 1,nr
+        do l = 1,nr
+          n = n + 1
+          varname = "Velocity"//char_xyz(m)//"Gradient"//char_xyz(l)
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      end do
+    else if (trim(char_sname(k)) == "GradEnergy") then
+      do l = 1,nr
+        n = n + 1
+        varname = "EnergyGradient"//char_xyz(l)
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+      end do
+    else if (trim(char_sname(k)) == "GradTemperature") then
+      do l = 1,nr
+        n = n + 1
+        varname = "TemperatureGradient"//char_xyz(l)
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+      end do
+  ! else if (trim(char_sname(k)) == "DmatTemperature") then
+  !   do l = 1,nr
+  !     n = n + 1
+  !     varname = "TemperatureDMatrix"//char_xyz(l)
+  !     call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !   end do
+    else if (trim(char_sname(k)) == "GradMassFractions") then
+      do m = 1,ncs
+        do l = 1,nr
+          n = n + 1
+          varname = trim(adjustl(species_name(m))) // &
+                    "MassFractionGradient"//char_xyz(l)
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      end do
+    else if (trim(char_sname(k)) == "GradSpeciesDensities") then
+      do m = 1,ncs
+        do l = 1,nr
+          n = n + 1
+          varname = trim(adjustl(species_name(m))) // &
+                    "DensityGradient"//char_xyz(l)
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      end do
+    else if (trim(char_sname(k)) == "Viscosity") then
+      if (governing_equations == NavierStokes_Eqns) then
+        n = n + 1
+        varname = trim(char_sname(k))
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+      end if
+  ! else if (trim(char_sname(k)) == "ResolutionMarker") then
+  !   !
+  !   n = n + 1
+  !   varname = trim(char_sname(k))
+  !   call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !   !
+  !   n = n + 1
+  !   varname = "Scaled"//trim(char_sname(k))
+  !   call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !   !
+  ! else if (trim(char_sname(k)) == "JumpMarker") then
+  !   !
+  !   n = n + 1
+  !   varname = trim(char_sname(k))
+  !   call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !   !
+  !   n = n + 1
+  !   varname = "Scaled"//trim(char_sname(k))
+  !   call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !   !
+  ! else if (trim(char_sname(k)) == "CoMetrics") then
+  !!  do m = 1,nr
+  !!    do i = 1,nr
+  !!      n = n + 1
+  !!      varname = "Covariant Metric d" // &
+  !!                trim(adjustl(char_xyz(m))) // "d" // char_ijk(i)
+  !!      call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !!    end do
+  !!  end do
+  ! else if (trim(char_sname(k)) == "ContraMetrics") then
+  !   do m = 1,nr
+  !     do i = 1,nr
+  !       n = n + 1
+  !       varname = "Contravariant Metric d" // &
+  !                 trim(adjustl(char_ijk(m))) // "d" // char_xyz(i)
+  !       call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !     end do
+  !   end do
+  ! else if (trim(char_sname(k)) == "TimeMetrics") then
+  !   if (allocated(time_metrics)) then
+  !     do m = 1,nr
+  !       n = n + 1
+  !       varname = "Time Metric d" // char_xyz(m)
+  !       call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !     end do
+  !     n = n + 1
+  !     varname = "Time Metric dA"
+  !     call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !   end if
+    else if (trim(char_sname(k)) == "MassFractions") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "MassFraction"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(char_sname(k)) == "MoleFractions") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "MoleFraction"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(char_sname(k)) == "SpeciesDensities") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "SpeciesDensity"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(char_sname(k)) == "SpeciesEnthalpy") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "SpeciesEnthalpy"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(char_sname(k)) == "SpeciesCp") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "SpeciesCp"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(char_sname(k)) == "cpi/R") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "cpi_over_R_"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(char_sname(k)) == "hi/R") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "hi_over_R_"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(char_sname(k)) == "hi/RT") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "hi_over_RT_"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(char_sname(k)) == "dTdx_Breakdown") then
+      if (ncs > 0) then
+        do l = 1,nr
+          n = n + 1
+          varname = "CPG_dTd"//char_xyz(l)
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+        do m = 1,ncs
+          n = n + 1
+          varname = "Cv("//trim(adjustl(species_name(m)))//")"
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+        do m = 1,ncs
+          n = n + 1
+          varname = "dCp("//trim(adjustl(species_name(m)))//")dT"
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+        !
+        n = n + 1
+        varname = "dCp(mix)dT"
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        !
+        n = n + 1
+        varname = "T_from_gradcv2gradpv"
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        !
+        n = n + 1
+        varname = "Cp(mix)"
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        !
+        n = n + 1
+        varname = "Gamma(Mix)"
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        !
+        n = n + 1
+        varname = "dTdx_lead_coefficient"
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        !
+        n = n + 1
+        varname = "CPG_constant_Cv"
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        !
+        n = n + 1
+        varname = "CPG_1_over_constant_Cv"
+        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        !
+        do l = 1,nr
+          n = n + 1
+          varname = "TPG_dTd"//char_xyz(l)
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+        !
+        do m = 1,ncs
+          do l = 1,nr
+            n = n + 1
+            varname = "dY("//trim(adjustl(species_name(m)))// &
+                      ")d"//char_xyz(l)//"_from_dTd"//char_xyz(l)
+            call cgns_write_field_header(n,varname,isvar_s(n), &
+                                         __LINE__,__FILE__)
+          end do
+        end do
+      end if
+    else if (trim(char_sname(k)) == "QCriterion") then
+      !
+      n = n + 1
+      varname = trim(char_sname(k))
+      call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+      !
+      n = n + 1
+      varname = trim(char_sname(k))//"_Positive"
+      call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+      !
+    else
+      n = n + 1
+      if (trim(char_sname(k)) == "Energy") then
+        varname = "EnergyStagnationDensity"
+      else if (trim(char_sname(k)) == "T0") then
+        varname = "TemperatureStagnation"
+      else if (trim(char_sname(k)) == "P0") then
+        varname = "PressureStagnation"
+      else if (trim(char_sname(k)) == "H0") then
+        varname = "EnthalpyStagnation"
+      else if (trim(char_sname(k)) == "Viscosity") then
+        varname = "ViscosityMolecular"
+      else if (trim(char_sname(k)) == "Conductivity") then
+        varname = "ThermalConductivity"
+      else if (trim(char_sname(k)) == "Cp") then
+        varname = "SpecificHeatPressure"
+      else if (trim(char_sname(k)) == "Gamma") then
+        varname = "SpecificHeatRatio"
+      else if (trim(char_sname(k)) == "Rgas") then
+        varname = "IdealGasConstant"
+      else
+        varname = trim(char_sname(k))
+      end if
+      call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+    end if
+  end do
+  !
+  !
+  !
+  !-----------------------------------------------------------------------------
+  !
+  contains
+  !
+#include "Functions/cgns_write_field_header.f90"
+  !
+  !-----------------------------------------------------------------------------
+  !
+end subroutine write_field_headers
 !
 !###############################################################################
 !
@@ -807,11 +1401,15 @@ continue
     np1 = cell(nc)%beg_sp
     np2 = cell(nc)%end_sp
     !
+#ifdef DEBUG_POST_PROCESSOR
     write (170,1) nc
+#endif
     do n = np1,np2
       !
       l = output_sol_pts(n)
+#ifdef DEBUG_POST_PROCESSOR
       write (170,2) n,l,(xyz(nn,n), nn=1,size(var,dim=1))
+#endif
       !
       var(:,l) = xyz(:,n)
       !
@@ -833,12 +1431,16 @@ continue
     !
     face_idx = output_face_pts(nf)%face_idx
     !
+#ifdef DEBUG_POST_PROCESSOR
     write (170,3) face_idx
+#endif
     do k = 1,size(output_face_pts(nf)%out_idx)
       !
       l = output_face_pts(nf)%out_idx(k)
       !
+#ifdef DEBUG_POST_PROCESSOR
       write (170,4) k,l,(facexyz_dt(face_idx)%v(n,k), n=1,size(var,dim=1))
+#endif
       var(:,l) = facexyz_dt(face_idx)%v(:,k)
       !
     end do
@@ -851,12 +1453,16 @@ continue
     !
     edge_idx = output_edge_pts(ne)%edge_idx
     !
+#ifdef DEBUG_POST_PROCESSOR
     write (170,5) edge_idx
+#endif
     do k = 1,size(output_edge_pts(ne)%out_idx)
       !
       l = output_edge_pts(ne)%out_idx(k)
       !
+#ifdef DEBUG_POST_PROCESSOR
       write (170,6) k,l,(edgexyz_dt(edge_idx)%v(n,k), n=1,size(var,dim=1))
+#endif
       var(:,l) = edgexyz_dt(edge_idx)%v(:,k)
       !
     end do
@@ -865,14 +1471,18 @@ continue
   !
   !
   !
+#ifdef DEBUG_POST_PROCESSOR
   write (170,7)
+#endif
   node_loop: do nn = 1,size(output_node_pts)
     !
     node_idx = output_node_pts(nn)%node_idx
     !
     l = output_node_pts(nn)%out_idx
     !
+#ifdef DEBUG_POST_PROCESSOR
     write (170,8) node_idx,l,(xyz_nodes(n,node_idx), n=1,size(var,dim=1))
+#endif
     var(:,l) = xyz_nodes(:,node_idx)
     !
   end do node_loop
@@ -911,20 +1521,22 @@ end subroutine collect_coordinates_for_output
 !
 !###############################################################################
 !
-subroutine collect_solution_for_output(var)
+subroutine collect_solution_for_output(cv,gp,dcvdx)
   !
   !.. Use Statements ..
-  use geovar,  only : ncell,cell
+  use geovar,  only : nr,ncell,cell
   use flowvar, only : usp,gpsp,dusp
   use flowvar, only : faceusp_dt,facegpsp_dt,facedusp_dt
   use flowvar, only : nodeusp_dt,nodegpsp_dt,nodedusp_dt
   use flowvar, only : edgeusp_dt,edgegpsp_dt,edgedusp_dt
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(out) :: var
+  real(wp), intent(inout) :: cv(:,:)
+  real(wp), intent(inout) :: gp(:,:)
+  real(wp), intent(inout) :: dcvdx(:,:,:)
   !
   !.. Local Scalars ..
-  integer :: k,l,n,nc,ne,nf,nn,np1,np2
+  integer :: k,l,m,n,nc,ne,nf,nn,np1,np2
   integer :: face_idx,edge_idx,node_idx
   !
   !.. Local Parameters ..
@@ -948,9 +1560,22 @@ continue
     !
     do n = np1,np2
       !
-      l = output_sol_pts(n)
+      k = output_sol_pts(n)
       !
-      var(:,l) = compute_output_variables(usp(n,:),gpsp(n,:),dusp(n,:,:))
+      do m = 1,nq
+        cv(k,m) = usp(n,m)
+      end do
+      !
+      do m = 1,ng
+        gp(k,m) = gpsp(n,m)
+      end do
+      !
+      do m = 1,nq
+        do l = 1,nr
+          dcvdx(k,l,m) = dusp(n,l,m)
+        end do
+      end do
+     !var(:,k) = compute_output_variables(usp(n,:),gpsp(n,:),dusp(n,:,:))
       !
     end do
     !
@@ -962,13 +1587,26 @@ continue
     !
     face_idx = output_face_pts(nf)%face_idx
     !
-    do k = 1,size(output_face_pts(nf)%out_idx)
+    do n = 1,size(output_face_pts(nf)%out_idx)
       !
-      l = output_face_pts(nf)%out_idx(k)
+      k = output_face_pts(nf)%out_idx(n)
       !
-      var(:,l) = compute_output_variables(faceusp_dt(face_idx)%v(:,k,1), &
-                                         facegpsp_dt(face_idx)%v(:,k,1), &
-                                         facedusp_dt(face_idx)%v(:,:,k,1))
+      do m = 1,nq
+        cv(k,m) = faceusp_dt(face_idx)%v(m,n,1)
+      end do
+      !
+      do m = 1,ng
+        gp(k,m) = facegpsp_dt(face_idx)%v(m,n,1)
+      end do
+      !
+      do m = 1,nq
+        do l = 1,nr
+          dcvdx(k,l,m) = facedusp_dt(face_idx)%v(l,m,n,1)
+        end do
+      end do
+     !var(:,k) = compute_output_variables(faceusp_dt(face_idx)%v(:,n,1), &
+     !                                   facegpsp_dt(face_idx)%v(:,n,1), &
+     !                                   facedusp_dt(face_idx)%v(:,:,n,1))
       !
     end do
     !
@@ -980,13 +1618,26 @@ continue
     !
     edge_idx = output_edge_pts(ne)%edge_idx
     !
-    do k = 1,size(output_edge_pts(ne)%out_idx)
+    do n = 1,size(output_edge_pts(ne)%out_idx)
       !
-      l = output_edge_pts(ne)%out_idx(k)
+      k = output_edge_pts(ne)%out_idx(n)
       !
-      var(:,l) = compute_output_variables(edgeusp_dt(edge_idx)%v(:,k), &
-                                         edgegpsp_dt(edge_idx)%v(:,k), &
-                                         edgedusp_dt(edge_idx)%v(:,:,k))
+      do m = 1,nq
+        cv(k,m) = edgeusp_dt(edge_idx)%v(m,n)
+      end do
+      !
+      do m = 1,ng
+        gp(k,m) = edgegpsp_dt(edge_idx)%v(m,n)
+      end do
+      !
+      do m = 1,nq
+        do l = 1,nr
+          dcvdx(k,l,m) = edgedusp_dt(edge_idx)%v(l,m,n)
+        end do
+      end do
+     !var(:,k) = compute_output_variables(edgeusp_dt(edge_idx)%v(:,n), &
+     !                                   edgegpsp_dt(edge_idx)%v(:,n), &
+     !                                   edgedusp_dt(edge_idx)%v(:,:,n))
       !
     end do
     !
@@ -998,17 +1649,1969 @@ continue
     !
     node_idx = output_node_pts(nn)%node_idx
     !
-    l = output_node_pts(nn)%out_idx
+    k = output_node_pts(nn)%out_idx
     !
-    var(:,l) = compute_output_variables(nodeusp_dt(node_idx)%v(:), &
-                                       nodegpsp_dt(node_idx)%v(:), &
-                                       nodedusp_dt(node_idx)%v(:,:))
+    do m = 1,nq
+      cv(k,m) = nodeusp_dt(node_idx)%v(m)
+    end do
+    !
+    do m = 1,ng
+      gp(k,m) = nodegpsp_dt(node_idx)%v(m)
+    end do
+    !
+    do m = 1,nq
+      do l = 1,nr
+        dcvdx(k,l,m) = nodedusp_dt(node_idx)%v(l,m)
+      end do
+    end do
+   !var(:,k) = compute_output_variables(nodeusp_dt(node_idx)%v(:), &
+   !                                   nodegpsp_dt(node_idx)%v(:), &
+   !                                   nodedusp_dt(node_idx)%v(:,:))
     !
   end do node_loop
   !
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine collect_solution_for_output
+!
+!###############################################################################
+!
+subroutine get_output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
+                               cgns_sol_file,vname,nv, &
+                               cv,gp,dcvdx,vartmp,var)
+  !
+  !.. Use Statements ..
+  use geovar,  only : nr,n_solpts,ncell,cell
+  use ovar,    only : aref,rhoref,time_ref,tref
+  use ovar,    only : gam,pref,pref_nd,machref
+  use ovar,    only : rgasref,cpref,Pr
+  use ovar,    only : itestcase,governing_equations
+  use ovar,    only : profile_io_cgns_subs
+  use ovar,    only : Limiter_Option
+  use flowvar, only : dtsp
+  !
+  use metrics_mod, only : time_metrics,metrics_array,jac
+  !
+  use module_limiters, only : marker,scaled_marker
+  use module_limiters, only : resolution_indicator
+  use module_limiters, only : jump_indicator
+  !
+  use thermo_mod, only : rspec
+  use thermo_mod, only : compute_mixture_rgas
+  use thermo_mod, only : compute_species_enthalpy
+  use thermo_mod, only : compute_species_cp
+  !
+  use transport_mod, only : compute_mole_fractions
+  !
+  use gpu_mod, only : grad_cv_to_grad_pv_gpu
+  !
+  !.. Formal Arguments ..
+  integer(CBT),     intent(in) :: ifile_s
+  integer(CBT),     intent(in) :: ibase_s
+  integer(CBT),     intent(in) :: izone_s
+  integer(CBT),     intent(in) :: isol_s
+  integer(CBT),     intent(in) :: isvar_s(:)
+  character(len=*), intent(in) :: cgns_sol_file
+  character(len=*), intent(in) :: vname
+  integer,       intent(inout) :: nv
+  real(wp),      intent(inout) :: cv(:,:)
+  real(wp),      intent(inout) :: gp(:,:)
+  real(wp),         intent(in) :: dcvdx(:,:,:)
+  real(wp),      intent(inout) :: vartmp(:)
+  real(CRT),     intent(inout) :: var(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,l,m,n,nc,np,n0,npts,ierr
+  integer  :: nmi,nmj,l_comp,l_phys,nvar
+  integer  :: this_order,limit_order
+  real(wp) :: freestream_ref,rhoa,rhoa2,time_ref_inv
+  real(wp) :: cp_dim,cond_dim,dim_val
+  real(wp) :: rho_inv,vx,vy,vz,a2,q2,s
+  real(wp) :: gamm,gm1,gam_over_gm1,mach,pres,temp
+  real(wp) :: mi,mj,drhodi,drhodj,dmjdi,dmidj
+  real(wp) :: w12,w13,w23,wijwij
+  real(wp) :: s12,s13,s23,sijsij,s11,s22,s33,skk
+  real(wp) :: dudx,dudy,dudz
+  real(wp) :: dvdx,dvdy,dvdz
+  real(wp) :: dwdx,dwdy,dwdz
+  real(wp) :: qmin,qmax
+  !
+  integer(CBT) :: ivar_s
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: vartmp_at_sp(:)
+  real(wp), allocatable :: spcvar(:,:)
+  real(wp), allocatable :: dtdx(:,:)
+  real(wp), allocatable :: dpvdx(:,:,:)
+  real(wp), allocatable :: other_variables(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_output_variable"
+  !
+continue
+  !
+  npts = size(vartmp)
+  !
+  freestream_ref = zero
+  rhoa = rhoref*aref
+  rhoa2 = rhoa*aref
+  cp_dim = aref*aref/tref
+  cond_dim = rhoa*cp_dim
+  !
+  ! Pre-load vartmp with Mach number if the current variable
+  ! is Mach number, total pressure, or total temperature.
+  !
+  select case (trim(adjustl(vname)))
+    !
+    case ("Mach","P0","T0")
+      !
+      if (ncs == 0) then
+        do n = 1,npts
+          gp(n,ngamm) = gam
+        end do
+      end if
+      !
+      if (nr == 3) then
+        do n = 1,npts
+          rho_inv = one/cv(n,nec)
+          vx = cv(n,nmx)*rho_inv
+          vy = cv(n,nmy)*rho_inv
+          vz = cv(n,nmz)*rho_inv
+          a2 = max( gp(n,ngamm)*gp(n,npres)*rho_inv , rndoff )
+          q2 = vx*vx + vy*vy + vz*vz
+          vartmp(n) = sqrt( q2 / a2 ) - freestream_ref
+        end do
+      else if (nr == 2) then
+        do n = 1,npts
+          rho_inv = one/cv(n,nec)
+          vx = cv(n,nmx)*rho_inv
+          vy = cv(n,nmy)*rho_inv
+          a2 = max( gp(n,ngamm)*gp(n,npres)*rho_inv , rndoff )
+          q2 = vx*vx + vy*vy
+          vartmp(n) = sqrt( q2 / a2 ) - freestream_ref
+        end do
+      else
+        do n = 1,npts
+          rho_inv = one/cv(n,nec)
+          vx = cv(n,nmx)*rho_inv
+          a2 = max( gp(n,ngamm)*gp(n,npres)*rho_inv , rndoff )
+          vartmp(n) = sqrt( vx*vx / a2 ) - freestream_ref
+        end do
+      end if
+      !
+    case ("GradVelocity","GradTemperature","GradMassFractions", &
+          "GradTempMagnitude","VorticityMagnitude","StrainRateMagnitude", &
+          "QCriterion","DivergenceOfVelocity")
+      !
+      allocate ( dpvdx(1:npts,1:nr,1:nq) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"dpvdx",1,__LINE__,__FILE__,ierr,error_message)
+      !
+      call grad_cv_to_grad_pv_gpu(1,npts,cv,gp,dcvdx,dpvdx)
+      !
+    case ("dTdx_Breakdown")
+      !
+      if (ncs > 0) then
+        !
+        allocate ( dpvdx(1:npts,1:nr,1:nq) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"dpvdx",1,__LINE__,__FILE__,ierr,error_message)
+        !
+        nvar = nr + 2*ncs + 7
+        allocate ( other_variables(1:npts,1:nvar) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"other_variables",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+        !
+        call grad_cv_to_grad_pv_gpu(1,npts,cv,gp,dcvdx,dpvdx, &
+                                    output_variables=other_variables)
+        !
+      end if
+      !
+    case ("SpeciesEnthalpy","SpeciesCp","hi/RT","hi/R","cpi/R")
+      !
+      if (ncs > 0) then
+        !
+        allocate ( spcvar(1:npts,1:ncs) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"spcvar",1,__LINE__,__FILE__,ierr,error_message)
+        !
+        select case (trim(adjustl(vname)))
+          case ("SpeciesCp","cpi/R")
+            call compute_species_cp(1,npts,gp(1:npts,ntemp),spcvar, &
+                                    dimensional=true)
+          case default
+            call compute_species_enthalpy(1,npts,gp(1:npts,ntemp),spcvar, &
+                                          dimensional=true)
+        end select
+        !
+      end if
+      !
+    case ("MoleFractions")
+      !
+      if (ncs > 0) then
+        !
+        allocate ( spcvar(1:npts,1:ncs) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"spcvar",1,__LINE__,__FILE__,ierr,error_message)
+        !
+        call compute_mole_fractions(1,npts,cv,spcvar)
+        !
+      end if
+      !
+  end select
+  !
+  ! Compute the current output variable and write it to the CGNS file
+  !
+  select case (trim(adjustl(vname)))
+    !
+    ! #####################
+    ! ###  NEED TO ADD  ###
+    ! #####################
+    ! ---------------------
+    !   FOR GAS MIXTURES
+    ! ---------------------
+    ! sensible enthalpy
+    ! ---------------------
+    !   FOR CPG AND TPG
+    ! ---------------------
+    ! pitot pressure
+    ! strain rate
+    ! pressure gradient
+    ! magnitude of pressure gradient
+    !
+    case ("Density") ! Density
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (itestcase == Freestream_Preservation) freestream_ref = rhoref
+      !
+      do n = 1,npts
+        vartmp(n) = cv(n,nec) * rhoref - freestream_ref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("Momentum") ! Momentum
+      !!{{{
+      do m = nmb,nme
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,npts
+          vartmp(n) = cv(n,m) * rhoa
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !!}}}
+    case ("Energy") ! Energy
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        vartmp(n) = cv(n,nee) * rhoa2
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("SpeciesDensities") ! Species densities
+      !!{{{
+      do m = 1,ncs
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,npts
+          vartmp(n) = cv(n,m)
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !!}}}
+    case ("MassFractions") ! Species mass fractions
+      !!{{{
+      do m = 1,ncs
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,npts
+          vartmp(n) = cv(n,m)/cv(n,nec)
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !!}}}
+    case ("MoleFractions") ! Species mole fractions
+      !!{{{
+      do m = 1,ncs
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        vartmp(1:npts) = spcvar(1:npts,m)
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !!}}}
+    case ("GradSpeciesDensities") ! Species densities gradients
+      !!{{{
+      do m = 1,ncs
+        do l = 1,nr
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          do n = 1,npts
+            vartmp(n) = dcvdx(n,l,m) * rhoref
+          end do
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end do
+      !!}}}
+    case ("GradDensity") ! Density gradient
+      !!{{{
+      do l = 1,nr
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,npts
+          vartmp(n) = dcvdx(n,l,nec) * rhoref
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !!}}}
+    case ("GradDensityMagnitude") ! Magnitude of density gradient
+      !!{{{
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        vartmp(n) = norm2( dcvdx(n,1:nr,nec) ) * rhoref
+      end do
+      !
+      call cgns_write_field_data
+      !
+      !!}}}
+    case ("GradMomentum") ! Momentum gradients
+      !!{{{
+      do m = nmb,nme
+        do l = 1,nr
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          do n = 1,npts
+            vartmp(n) = dcvdx(n,l,m) * rhoa
+          end do
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end do
+      !!}}}
+    case ("GradEnergy") ! Total energy gradient
+      !!{{{
+      do l = 1,nr
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,npts
+          vartmp(n) = dcvdx(n,l,nee) * rhoa2
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !!}}}
+    case ("GradMassFractions") ! Species mass fraction gradients
+      !!{{{
+      do m = 1,ncs
+        do l = 1,nr
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          do n = 1,npts
+            vartmp(n) = dpvdx(n,l,m)
+          end do
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end do
+      !!}}}
+    case ("GradVelocity") ! Velocity gradients
+      !!{{{
+      do m = nmb,nme
+        do l = 1,nr
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          do n = 1,npts
+            vartmp(n) = dpvdx(n,l,m) * aref
+          end do
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end do
+      !!}}}
+    case ("GradTemperature") ! Temperature gradient
+      !!{{{
+      do l = 1,nr
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,npts
+          vartmp(n) = dpvdx(n,l,nee) * tref
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !!}}}
+    case ("GradTempMagnitude") ! Magnitude of temperature gradient
+      !!{{{
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        vartmp(n) = norm2( dpvdx(n,1:nr,nee) ) * tref
+      end do
+      !
+      call cgns_write_field_data
+      !
+      !!}}}
+    case ("dTdx_Breakdown") ! Breakdown of terms to compute dT/dx
+      !!{{{
+      if (ncs > 0) then
+        do m = 1,nvar
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          do n = 1,npts
+            vartmp(n) = other_variables(n,m)
+          end do
+          !
+          call cgns_write_field_data
+          !
+        end do
+        !
+        do l = 1,nr
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          do n = 1,npts
+            vartmp(n) = dpvdx(n,l,nee)
+          end do
+          !
+          call cgns_write_field_data
+          !
+        end do
+        !
+        do m = 1,ncs
+          do l = 1,nr
+            !
+            nv = nv + 1
+            ivar_s = isvar_s(nv)
+            !
+            do n = 1,npts
+              vartmp(n) = dpvdx(n,l,m)
+            end do
+            !
+            call cgns_write_field_data
+            !
+          end do
+        end do
+      end if
+      !!}}}
+  ! case ("DmatTemperature") ! Temperature gradient using derivative matrices
+  !   !!{{{
+  !   !
+  !   allocate ( dtdx(1:n_solpts,1:nr) , source=zero , &
+  !              stat=ierr , errmsg=error_message )
+  !   call alloc_error(pname,"dtdx",1,__LINE__,__FILE__,ierr,error_message)
+  !   !
+  !   call compute_dmatrix_grad_temperature(dtdx)
+  !   !
+  !   if (.not. allocated(vartmp_at_sp)) then
+  !     allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+  !                stat=ierr , errmsg=error_message )
+  !     call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+  !                      ierr,error_message)
+  !   end if
+  !   !
+  !   do l = 1,nr
+  !     !
+  !     nv = nv + 1
+  !     ivar_s = isvar_s(nv)
+  !     !
+  !     do n = 1,n_solpts
+  !       vartmp_at_sp(n) = dtdx(n,l) * tref
+  !     end do
+  !     !
+  !     call interpolate_for_output( vartmp_at_sp , vartmp )
+  !     !
+  !     call cgns_write_field_data
+  !     !
+  !   end do
+  !   !
+  !   if (allocated(dtdx)) then
+  !     deallocate ( dtdx , stat=ierr , errmsg=error_message )
+  !     call alloc_error(pname,"dtdx",2,__LINE__,__FILE__,ierr,error_message)
+  !   end if
+  !   !
+  !   !!}}}
+    case ("Velocity") ! Velocity
+      !!{{{
+      do m = nmb,nme
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        if (itestcase == Freestream_Preservation) then
+          freestream_ref = merge( aref*machref , zero , m==nmb )
+        end if
+        !
+        do n = 1,npts
+          vartmp(n) = cv(n,m)/cv(n,nec) * aref - freestream_ref
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !!}}}
+    case ("Pressure") ! Pressure
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (itestcase == Freestream_Preservation) freestream_ref = pref
+      !
+      do n = 1,npts
+        vartmp(n) = gp(n,npres) * rhoa2 - freestream_ref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("P0") ! Total Pressure
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      ! NOTE: vartmp has been pre-loaded with the Mach number, and the auxiliary
+      !       variable in gp has already been switched to gamma
+      !
+      do n = 1,npts
+        mach = vartmp(n)
+        pres = gp(n,npres) * rhoa2
+        gamm = gp(n,ngamm)
+        gm1 = gamm - one
+        gam_over_gm1 = gamm / gm1
+        vartmp(n) = pres*( (one + half*gm1*mach*mach)**gam_over_gm1 )
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("Mach") ! Mach number
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      ! NOTE: vartmp has been pre-loaded with the Mach number
+      !
+      if (itestcase == Freestream_Preservation) then
+        do n = 1,npts
+          vartmp(n) = vartmp(n) - machref
+        end do
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("Entropy") ! Entropy
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (ncs == 0) then
+        do n = 1,npts
+          gp(n,ngamm) = gam
+        end do
+      end if
+      !
+      if (itestcase == Inviscid_Gaussian_Bump) then
+        do n = 1,npts
+          s = (gp(n,npres)/pref_nd) / (cv(n,nec)**gp(n,ngamm))
+          vartmp(n) = abs( one - s )
+        end do
+      else
+        do n = 1,npts
+          vartmp(n) = log(gp(n,npres)) - gp(n,ngamm)*log(cv(n,nec))
+        end do
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("Temperature") ! Temperature
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (itestcase == Freestream_Preservation) freestream_ref = tref
+      !
+      do n = 1,npts
+        vartmp(n) = gp(n,ntemp) * tref - freestream_ref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("T0") ! Total Temperature
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      ! NOTE: vartmp has been pre-loaded with the Mach number, and the auxiliary
+      !       variable in gp has already been switched to gamma
+      !
+      do n = 1,npts
+        mach = vartmp(n)
+        temp = gp(n,ntemp) * tref
+        gm1 = gp(n,ngamm) - one
+        vartmp(n) = temp*(one + half*gm1*mach*mach)
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("Enthalpy") ! Enthalpy
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (ncs > 0) then
+        do n = 1,npts
+          vartmp(n) = gp(n,nenth) * aref*aref
+        end do
+      else
+        gam_over_gm1 = gam / (gam-one)
+        do n = 1,npts
+          vartmp(n) = gam_over_gm1*gp(n,npres)/cv(n,nec) * aref*aref
+        end do
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("H0") ! Total Enthalpy
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (ncs > 0) then
+        do n = 1,npts
+          vartmp(n) = gp(n,nenth) * aref*aref
+        end do
+      else
+        gam_over_gm1 = gam / (gam-one)
+        do n = 1,npts
+          vartmp(n) = gam_over_gm1*gp(n,npres)/cv(n,nec) * aref*aref
+        end do
+      end if
+      !
+      if (nr == 3) then
+        do n = 1,npts
+          rho_inv = one/cv(n,nec)
+          vx = cv(n,nmx)*rho_inv * aref
+          vy = cv(n,nmy)*rho_inv * aref
+          vz = cv(n,nmz)*rho_inv * aref
+          q2 = vx*vx + vy*vy + vz*vz
+          vartmp(n) = vartmp(n) + half*q2
+        end do
+      else if (nr == 2) then
+        do n = 1,npts
+          rho_inv = one/cv(n,nec)
+          vx = cv(n,nmx)*rho_inv * aref
+          vy = cv(n,nmy)*rho_inv * aref
+          q2 = vx*vx + vy*vy
+          vartmp(n) = vartmp(n) + half*q2
+        end do
+      else
+        do n = 1,npts
+          vx = cv(n,nmx)/cv(n,nec) * aref
+          vartmp(n) = vartmp(n) + half*vx*vx
+        end do
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("Rgas") ! Mixture gas constant
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (ncs > 0) then
+        do m = 1,ncs
+          do n = 1,npts
+            cv(n,m) = cv(n,m)/cv(n,nec)
+          end do
+        end do
+        call compute_mixture_rgas(1,npts,cv(1:npts,1:ncs),vartmp, &
+                                  dimensional=true)
+        do m = 1,ncs
+          do n = 1,npts
+            cv(n,m) = cv(n,m)*cv(n,nec)
+          end do
+        end do
+      else
+        do n = 1,npts
+          vartmp(n) = rgasref
+        end do
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("Gamma") ! Ratio of specific heats
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (ncs > 0) then
+        do n = 1,npts
+          vartmp(n) = gp(n,ngamm)
+        end do
+      else
+        do n = 1,npts
+          vartmp(n) = gam
+        end do
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("Cp") ! Specific heat at constant pressure
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (ncs > 0) then
+        do n = 1,npts
+          vartmp(n) = gp(n,ncp) * cp_dim
+        end do
+      else
+        do n = 1,npts
+          vartmp(n) = cpref
+        end do
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("Viscosity") ! Viscosity
+      !!{{{
+      if (governing_equations == NavierStokes_Eqns) then
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,npts
+          vartmp(n) = gp(n,nvisc) * rhoa
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end if
+      !!}}}
+    case ("Conductivity") ! Conductivity
+      !!{{{
+      if (governing_equations == NavierStokes_Eqns) then
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,npts
+          vartmp(n) = gp(n,ncond) * cond_dim
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end if
+      !!}}}
+    case ("Prandtl") ! Mixture Prandtl number
+      !!{{{
+      if (governing_equations == NavierStokes_Eqns) then
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        if (ncs > 0) then
+          do n = 1,npts
+            vartmp(n) = gp(n,nvisc) * gp(n,ncp) / gp(n,ncond)
+          end do
+        else
+          do n = 1,npts
+            vartmp(n) = Pr
+          end do
+        end if
+        !
+        call cgns_write_field_data
+        !
+      end if
+      !!}}}
+    case ("SpeciesEnthalpy") ! Species enthalpies
+      !!{{{
+      if (ncs > 0) then
+        do m = 1,ncs
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          vartmp(1:npts) = spcvar(1:npts,m)
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end if
+      !!}}}
+    case ("SpeciesCp") ! Species specific heats at constant pressure
+      !!{{{
+      if (ncs > 0) then
+        do m = 1,ncs
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          vartmp(1:npts) = spcvar(1:npts,m)
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end if
+      !!}}}
+    case ("cpi/R") ! Species Cp / Species gas constant
+      !!{{{
+      if (ncs > 0) then
+        do m = 1,ncs
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          dim_val = one/(rspec(m)*cp_dim)
+          vartmp(1:npts) = spcvar(1:npts,m)*dim_val
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end if
+      !!}}}
+    case ("hi/RT") ! Species enthalpies / (Species gas constant * temperature)
+      !!{{{
+      if (ncs > 0) then
+        do m = 1,ncs
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          dim_val = rspec(m)*cp_dim*tref
+          do n = 1,npts
+            vartmp(n) = spcvar(n,m)/(gp(n,ntemp)*dim_val)
+          end do
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end if
+      !!}}}
+    case ("hi/R") ! Species enthalpies / Species gas constant
+      !!{{{
+      if (ncs > 0) then
+        do m = 1,ncs
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          dim_val = one/(rspec(m)*cp_dim)
+          vartmp(1:npts) = spcvar(1:npts,m)*dim_val
+          !
+          call cgns_write_field_data
+          !
+        end do
+      end if
+      !!}}}
+    case ("Vorticity") ! Vorticity
+      !!{{{
+      time_ref_inv = one/time_ref
+      !
+      vorticity_loop: &
+      do l = 1,nr
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        i = (l+1) - ( (l+1)/4 )*3
+        j = (l+2) - ( (l+2)/4 )*3
+        !
+        nmi = nmb-1+i
+        nmj = nmb-1+j
+        !
+        do n = 1,npts
+          !
+          rho_inv = one/cv(n,nec)
+          !
+          mi = cv(n,nmi)
+          mj = cv(n,nmj)
+          !
+          drhodi = dcvdx(n,i,nec) * time_ref_inv
+          drhodj = dcvdx(n,j,nec) * time_ref_inv
+          dmjdi = dcvdx(n,i,nmj) * time_ref_inv
+          dmidj = dcvdx(n,j,nmi) * time_ref_inv
+          !
+          vartmp(n) = rho_inv*( (dmjdi-dmidj) - rho_inv*(mj*drhodi-mi*drhodj) )
+          !
+        end do
+        !
+        call cgns_write_field_data
+        !
+        if (nr < 3) exit vorticity_loop
+        !
+      end do vorticity_loop
+      !!}}}
+    case ("VorticityMagnitude") ! Vorticity magnitude
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        !
+        w12 = dpvdx(n,2,nmx) - dpvdx(n,1,nmy)
+        w13 = dpvdx(n,3,nmx) - dpvdx(n,1,nmz)
+        w23 = dpvdx(n,3,nmy) - dpvdx(n,2,nmz)
+        !
+        vartmp(n) = sqrt( w12*w12 + w13*w13 + w23*w23 ) * aref
+        !
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("StrainRateMagnitude") ! Strain rate magnitude
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        !
+        dudx = dpvdx(n,1,nmx)
+        dudy = dpvdx(n,2,nmx)
+        dudz = dpvdx(n,3,nmx)
+        !
+        dvdx = dpvdx(n,1,nmy)
+        dvdy = dpvdx(n,2,nmy)
+        dvdz = dpvdx(n,3,nmy)
+        !
+        dwdx = dpvdx(n,1,nmz)
+        dwdy = dpvdx(n,2,nmz)
+        dwdz = dpvdx(n,3,nmz)
+        !
+        skk = one3 * (dudx + dvdy + dwdz)
+        !
+        s11 = dudx - skk
+        s22 = dvdy - skk
+        s33 = dwdz - skk
+        !
+        s12 = half * (dudy + dvdx)
+        s13 = half * (dudz + dwdx)
+        s23 = half * (dvdz + dwdy)
+        !
+        sijsij = s11**2 + s22**2 + s33**2 + two*(s12**2 + s13**2 + s23**2)
+        !
+        vartmp(n) = sqrt( two * sijsij ) * aref
+        !
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("QCriterion") ! Q-criterion
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        !
+        dudx = dpvdx(n,1,nmx)
+        dudy = dpvdx(n,2,nmx)
+        dudz = dpvdx(n,3,nmx)
+        !
+        dvdx = dpvdx(n,1,nmy)
+        dvdy = dpvdx(n,2,nmy)
+        dvdz = dpvdx(n,3,nmy)
+        !
+        dwdx = dpvdx(n,1,nmz)
+        dwdy = dpvdx(n,2,nmz)
+        dwdz = dpvdx(n,3,nmz)
+        !
+        w12 = half * (dudy - dvdx)
+        w13 = half * (dudz - dwdx)
+        w23 = half * (dvdz - dwdy)
+        !
+        wijwij = two * (w12**2 + w13**2 + w23**2)
+        !
+        skk = one3 * (dudx + dvdy + dwdz)
+        !
+        s11 = dudx - skk
+        s22 = dvdy - skk
+        s33 = dwdz - skk
+        !
+        s12 = half * (dudy + dvdx)
+        s13 = half * (dudz + dwdx)
+        s23 = half * (dvdz + dwdy)
+        !
+        sijsij = s11**2 + s22**2 + s33**2 + two*(s12**2 + s13**2 + s23**2)
+        !
+        vartmp(n) = half*(wijwij - sijsij)
+       !vartmp(n) = vartmp(n) * aref*aref
+        !
+      end do
+      !
+      ! Save the original Q-criterion
+      !
+      vartmp_at_sp = vartmp(:) ! F2003 AUTO-REALLOC
+      !
+      ! Normalize the whole Q-criterion to the interval 0->1
+      !
+      qmin = minval(vartmp(:))
+      qmax = maxval(vartmp(:))
+      !
+      vartmp(:) = (vartmp(:) - qmin)/(qmax-qmin)
+      !
+      call cgns_write_field_data
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      ! Copy the original positive values of Q-Criterion back to vartmp
+      ! and make the negative values zero
+      !
+      vartmp(:) = merge( vartmp_at_sp(:) , zero , vartmp_at_sp(:) >= zero )
+      !
+      call cgns_write_field_data
+      !
+      !!}}}
+    case ("DivergenceOfVelocity") ! Divergence of velocity
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        vartmp(n) = (dpvdx(n,1,nmx) + dpvdx(n,2,nmy) + dpvdx(n,3,nmz)) * aref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+  ! case ("ResolutionMarker")
+  !   !!{{{
+  !   if (.not. allocated(vartmp_at_sp)) then
+  !     allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+  !                stat=ierr , errmsg=error_message )
+  !     call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+  !                      ierr,error_message)
+  !   end if
+  !   !
+  !   ! Compute the resolution marker if it has yet to be computed
+  !   !
+  !   if (Limiter_Option >= 0 .or. &
+  !       .not. allocated(marker) .or. &
+  !       .not. allocated(scaled_marker)) then
+  !     call resolution_indicator(apply_projection=fals)
+  !   end if
+  !   !
+  !   ! Actual resolution marker value
+  !   !
+  !   nv = nv + 1
+  !   ivar_s = isvar_s(nv)
+  !   !
+  !   do nc = 1,ncell
+  !     n0 = cell(nc)%beg_sp - 1
+  !     np = cell(nc)%end_sp - n0
+  !     do n = 1,np
+  !       vartmp_at_sp(n0+n) = marker(nc)
+  !     end do
+  !   end do
+  !   !
+  !   call interpolate_for_output( vartmp_at_sp , vartmp )
+  !   !
+  !   call cgns_write_field_data
+  !   !
+  !   ! Scaled resolution marker value
+  !   !
+  !   nv = nv + 1
+  !   ivar_s = isvar_s(nv)
+  !   !
+  !   if (Limiter_Option <= -1) then
+  !     do nc = 1,ncell
+  !       n0 = cell(nc)%beg_sp - 1
+  !       np = cell(nc)%end_sp - n0
+  !       this_order = cell(nc)%order
+  !       limit_order = int( real(this_order,kind=wp) * &
+  !                          (one-scaled_marker(nc)) )
+  !       limit_order = max(1,min(this_order,limit_order))
+  !       do n = 1,np
+  !         vartmp_at_sp(n0+n) = limit_order
+  !       end do
+  !     end do
+  !   else
+  !     do nc = 1,ncell
+  !       n0 = cell(nc)%beg_sp - 1
+  !       np = cell(nc)%end_sp - n0
+  !       do n = 1,np
+  !         vartmp_at_sp(n0+n) = scaled_marker(nc)
+  !       end do
+  !     end do
+  !   end if
+  !   !
+  !   call interpolate_for_output( vartmp_at_sp , vartmp )
+  !   !
+  !   call cgns_write_field_data
+  !   !!}}}
+  ! case ("JumpMarker")
+  !   !!{{{
+  !   allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+  !              stat=ierr , errmsg=error_message )
+  !   call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+  !                    ierr,error_message)
+  !   !
+  !   ! Compute the pressure jump marker if it has yet to be computed
+  !   !
+  !   if (Limiter_Option <= 1 .or. &
+  !       .not. allocated(marker) .or. &
+  !       .not. allocated(scaled_marker)) then
+  !     call jump_indicator
+  !   end if
+  !   !
+  !   ! Actual pressure jump marker value
+  !   !
+  !   nv = nv + 1
+  !   ivar_s = isvar_s(nv)
+  !   !
+  !   do nc = 1,ncell
+  !     n0 = cell(nc)%beg_sp - 1
+  !     np = cell(nc)%end_sp - n0
+  !     do n = 1,np
+  !       vartmp_at_sp(n0+n) = marker(nc)
+  !     end do
+  !   end do
+  !   !
+  !   call interpolate_for_output( vartmp_at_sp , vartmp )
+  !   !
+  !   call cgns_write_field_data
+  !   !
+  !   ! Scaled pressure jump marker value
+  !   !
+  !   nv = nv + 1
+  !   ivar_s = isvar_s(nv)
+  !   !
+  !   do nc = 1,ncell
+  !     n0 = cell(nc)%beg_sp - 1
+  !     np = cell(nc)%end_sp - n0
+  !     do n = 1,np
+  !       vartmp_at_sp(n0+n) = scaled_marker(nc)
+  !     end do
+  !   end do
+  !   !
+  !   call interpolate_for_output( vartmp_at_sp , vartmp )
+  !   !
+  !   call cgns_write_field_data
+  !   !!}}}
+  ! case ("Partition")
+  !   !!{{{
+  !   allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+  !              stat=ierr , errmsg=error_message )
+  !   call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+  !                    ierr,error_message)
+  !   !
+  !   nv = nv + 1
+  !   ivar_s = isvar_s(nv)
+  !   !
+  !   do n = 1,n_solpts
+  !     vartmp_at_sp(n) = mypnum+1
+  !   end do
+  !   !
+  !   call interpolate_for_output( vartmp_at_sp , vartmp )
+  !   !
+  !   call cgns_write_field_data
+  !   !!}}}
+  ! case ("Timestep")
+  !   !!{{{
+  !   nv = nv + 1
+  !   ivar_s = isvar_s(nv)
+  !   !
+  !   call interpolate_for_output( dtsp(1:n_solpts) , vartmp , nondim=time_ref )
+  !   !
+  !   call cgns_write_field_data
+  !   !!}}}
+  ! case ("CoMetrics")
+  !  !!!{{{
+  !  !allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+  !  !           stat=ierr , errmsg=error_message )
+  !  !call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+  !  !                 ierr,error_message)
+  !  !!
+  !  !do l_phys = 1,nr
+  !  !  do l_comp = 1,nr
+  !  !    !
+  !  !    nv = nv + 1
+  !  !    ivar_s = isvar_s(nv)
+  !  !    !
+  !  !    do n = 1,n_solpts
+  !  !      vartmp_at_sp(n) = metrics_array(n,l_phys,l_comp)
+  !  !    end do
+  !  !    !
+  !  !    call interpolate_for_output( vartmp_at_sp , vartmp )
+  !  !    !
+  !  !    call cgns_write_field_data
+  !  !    !
+  !  !  end do
+  !  !end do
+  !  !!!}}}
+  ! case ("ContraMetrics")
+  !   !!{{{
+  !   allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+  !              stat=ierr , errmsg=error_message )
+  !   call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+  !                    ierr,error_message)
+  !   !
+  !   do l_comp = 1,nr
+  !     do l_phys = 1,nr
+  !       !
+  !       nv = nv + 1
+  !       ivar_s = isvar_s(nv)
+  !       !
+  !       do n = 1,n_solpts
+  !         vartmp_at_sp(n) = jac(n)*metrics_array(n,l_comp,l_phys)
+  !       end do
+  !       !
+  !       call interpolate_for_output( vartmp_at_sp , vartmp )
+  !       !
+  !       call cgns_write_field_data
+  !       !
+  !     end do
+  !   end do
+  !   !!}}}
+  ! case ("TimeMetrics")
+  !   !!{{{
+  !   allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+  !              stat=ierr , errmsg=error_message )
+  !   call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+  !                    ierr,error_message)
+  !   !
+  !   if (allocated(time_metrics)) then
+  !     !
+  !     do l = 1,nr
+  !       !
+  !       nv = nv + 1
+  !       ivar_s = isvar_s(nv)
+  !       !
+  !       do n = 1,n_solpts
+  !         vartmp_at_sp(n) = one/time_metrics(l,n)
+  !       end do
+  !       !
+  !       call interpolate_for_output( vartmp_at_sp , vartmp )
+  !       !
+  !       call cgns_write_field_data
+  !       !
+  !     end do
+  !     !
+  !     nv = nv + 1
+  !     ivar_s = isvar_s(nv)
+  !     !
+  !     do n = 1,n_solpts
+  !       vartmp_at_sp(n) = time_metrics(nr+1,n) * time_ref
+  !     end do
+  !     !
+  !     call interpolate_for_output( vartmp_at_sp , vartmp )
+  !     !
+  !     call cgns_write_field_data
+  !     !
+  !   end if
+  !   !!}}}
+    case default
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        vartmp(n) = cv(n,nec) * rhoref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+  end select
+  !
+  if (allocated(vartmp_at_sp)) then
+    deallocate ( vartmp_at_sp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vartmp_at_sp",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(dpvdx)) then
+    deallocate ( dpvdx , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"dpvdx",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(spcvar)) then
+    deallocate ( spcvar , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"spcvar",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(other_variables)) then
+    deallocate ( other_variables , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"other_variables",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  contains
+  !
+#include "Functions/cgns_write_field_data.f90"
+  !
+  !-----------------------------------------------------------------------------
+  !
+end subroutine get_output_variable
+!
+!###############################################################################
+!
+subroutine get_cgns_sol_variables(variable_list)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : itestcase,governing_equations
+  use ovar,   only : output_vorticity
+  use ovar,   only : output_conserved_variables
+  use ovar,   only : output_temperature
+  use ovar,   only : output_thermo_variables
+  use ovar,   only : output_gradients
+  use ovar,   only : output_transport_variables
+  use ovar,   only : output_stagnation_variables
+  use ovar,   only : output_marker_variables
+  use ovar,   only : Resolution_Marker_Variable
+  use ovar,   only : output_species_mass_fractions
+  use ovar,   only : output_species_mole_fractions
+  use ovar,   only : output_extra_species_variables
+  use ovar,   only : output_debug_species_variables
+  use ovar,   only : output_grdnt_species_variables
+  !
+  !.. Formal Arguments ..
+#ifdef SPECIAL_FOR_INTEL
+  character(len=:), allocatable, intent(out) :: variable_list(:)
+#else
+  character(len=CGLEN), allocatable, intent(out) :: variable_list(:)
+#endif
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n,m
+  !
+  character(len=CGLEN) :: varname
+  character(len=CGLEN) :: varcheck
+  !
+  !.. Local Allocatable Arrays ..
+#ifdef SPECIAL_FOR_INTEL
+  character(len=:), allocatable :: temp_variables(:)
+#else
+  character(len=CGLEN), allocatable :: temp_variables(:)
+#endif
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_cgns_sol_variables"
+  !
+  character(len=*), parameter :: default_list(1:4) = ["Density ", &
+                                                      "Velocity", &
+                                                      "Pressure", &
+                                                      "Mach    "]
+  !
+  ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
+  !
+  character(len=*), parameter :: var_order(1:41) = ["Density             ", &
+                                                    "Momentum            ", &
+                                                    "Energy              ", &
+                                                    "Velocity            ", &
+                                                    "Pressure            ", &
+                                                    "Temperature         ", &
+                                                    "Mach                ", &
+                                                    "MassFractions       ", &
+                                                    "MoleFractions       ", &
+                                                    "SpeciesDensities    ", &
+                                                    "Enthalpy            ", &
+                                                    "Cp                  ", &
+                                                    "Entropy             ", &
+                                                    "P0                  ", &
+                                                    "T0                  ", &
+                                                    "H0                  ", &
+                                                    "Viscosity           ", &
+                                                    "Conductivity        ", &
+                                                    "Prandtl             ", &
+                                                    "Gamma               ", &
+                                                    "Rgas                ", &
+                                                    "SpeciesEnthalpy     ", &
+                                                    "SpeciesCp           ", &
+                                                    "cpi/R               ", &
+                                                    "hi/RT               ", &
+                                                    "hi/R                ", &
+                                                    "GradSpeciesDensities", &
+                                                    "GradDensity         ", &
+                                                    "GradMomentum        ", &
+                                                    "GradEnergy          ", &
+                                                    "GradMassFractions   ", &
+                                                    "GradVelocity        ", &
+                                                    "Vorticity           ", &
+                                                    "GradTemperature     ", &
+                                                  ! "ResolutionMarker    ", &
+                                                  ! "JumpMarker          ", &
+                                                  ! "Timestep            ", &
+                                                  ! "Partition           ", &
+                                                  ! "ContraMetrics       ", &
+                                                  ! "TimeMetrics         ", &
+                                                    "dTdx_Breakdown      ", &
+                                                  ! "DmatTemperature     ", &
+                                                  ! "CoMetrics           ", &
+                                                    "GradTempMagnitude   ", &
+                                                    "GradDensityMagnitude", &
+                                                    "VorticityMagnitude  ", &
+                                                    "StrainRateMagnitude ", &
+                                                    "QCriterion          ", &
+                                                    "DivergenceOfVelocity"]
+  !
+  ! Conserved Variables
+  character(len=*), parameter :: consv_var(1:3) = ["Density ", &
+                                                   "Momentum", &
+                                                   "Energy  "]
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Allocate variable_list to the default_list
+  !
+  call add_sol_variables(variable_list,default_list)
+  !
+  ! Make sure vorticity is one of the variables that will
+  ! be output if running the Taylor-Green vortex problem.
+  !
+  if (itestcase == Taylor_Green_Vortex) then
+    call add_sol_variable(variable_list,"Vorticity")
+  end if
+  !
+  ! Output vorticity and other variables useful for identifying
+  ! vortical structures
+  !
+  if (output_vorticity) then
+    call add_sol_variable(variable_list,"Vorticity")
+    call add_sol_variable(variable_list,"DivergenceOfVelocity")
+    if (nr > 2) then
+      call add_sol_variable(variable_list,"VorticityMagnitude")
+      call add_sol_variable(variable_list,"StrainRateMagnitude")
+      call add_sol_variable(variable_list,"QCriterion")
+    end if
+  end if
+  !
+  ! Make sure entropy is one of the variables that will be
+  ! output if running any of the isentropic vortex problems.
+  !
+  if (any(itestcase == Transport_Problems)) then
+    call add_sol_variable(variable_list,"Entropy")
+  end if
+  !
+  if (output_conserved_variables) then
+    call add_sol_variables(variable_list,consv_var)
+    if (ncs > 1) then
+      call add_sol_variable(variable_list,"SpeciesDensities")
+    end if
+  end if
+  !
+  if (output_temperature) then
+    call add_sol_variable(variable_list,"Temperature")
+  end if
+  !
+  if (output_thermo_variables) then
+    call add_sol_variable(variable_list,"Pressure")
+    call add_sol_variable(variable_list,"Temperature")
+    call add_sol_variable(variable_list,"Enthalpy")
+    call add_sol_variable(variable_list,"Cp")
+    call add_sol_variable(variable_list,"Entropy")
+  end if
+  !
+  if (output_stagnation_variables) then
+    call add_sol_variable(variable_list,"P0")
+    call add_sol_variable(variable_list,"T0")
+    call add_sol_variable(variable_list,"H0")
+  end if
+  !
+  ! Output the marker quantities if requested
+  !
+  if (output_marker_variables) then
+  ! call add_sol_variable(variable_list,"ResolutionMarker")
+    if (Resolution_Marker_Variable > 0) then
+      if (Resolution_Marker_Variable == nec .or. ncs > 1) then
+        m = 1
+      else if (Resolution_Marker_Variable == nee) then
+        m = 3
+      else
+        m = 2
+      end if
+      call add_sol_variable(variable_list,trim(consv_var(m)))
+    else
+      call add_sol_variables(variable_list,consv_var)
+    end if
+  end if
+  !
+  ! Add species mass fractions to the variable list if using a gas mixture.
+  ! Also output any other requested variables for gas mixtures.
+  !
+  if (ncs > 0) then
+    !
+    if (output_species_mass_fractions) then
+      call add_sol_variable(variable_list,"MassFractions")
+    end if
+    !
+    if (output_species_mole_fractions) then
+      call add_sol_variable(variable_list,"MoleFractions")
+    end if
+    !
+    if (output_extra_species_variables) then
+      call add_sol_variable(variable_list,"SpeciesDensities")
+      call add_sol_variable(variable_list,"Enthalpy")
+      call add_sol_variable(variable_list,"H0")
+      call add_sol_variable(variable_list,"Gamma")
+      call add_sol_variable(variable_list,"Cp")
+      call add_sol_variable(variable_list,"Rgas")
+      call add_sol_variable(variable_list,"Momentum")
+      call add_sol_variable(variable_list,"Energy")
+      call add_sol_variable(variable_list,"P0")
+      call add_sol_variable(variable_list,"T0")
+    end if
+    !
+    if (output_grdnt_species_variables) then
+      call add_sol_variable(variable_list,"GradMassFractions")
+      call add_sol_variable(variable_list,"GradSpeciesDensities")
+      call add_sol_variable(variable_list,"GradDensity")
+      call add_sol_variable(variable_list,"GradMomentum")
+      call add_sol_variable(variable_list,"GradEnergy")
+      call add_sol_variable(variable_list,"GradVelocity")
+      call add_sol_variable(variable_list,"GradTemperature")
+    end if
+    !
+    if (output_debug_species_variables) then
+      call add_sol_variable(variable_list,"SpeciesEnthalpy")
+      call add_sol_variable(variable_list,"SpeciesCp")
+      call add_sol_variable(variable_list,"hi/RT")
+      call add_sol_variable(variable_list,"hi/R")
+      call add_sol_variable(variable_list,"cpi/R")
+      call add_sol_variable(variable_list,"dTdx_Breakdown")
+    end if
+    !
+  end if
+  !
+  ! Output transport properties if solving the Navier-Stokes equations
+  !
+  if (output_transport_variables) then
+    if (governing_equations == NavierStokes_Eqns) then
+      !
+      call add_sol_variable(variable_list,"Viscosity")
+      call add_sol_variable(variable_list,"Conductivity")
+      !
+      if (ncs > 0) then
+        if (output_extra_species_variables) then
+          call add_sol_variable(variable_list,"Prandtl")
+        end if
+      end if
+      !
+    end if
+  end if
+  !
+  ! If outputing gradients was requested, add the gradients of whatever
+  ! variables are in the variable list.
+  !
+  if (output_gradients) then
+    !
+    allocate ( temp_variables , source=variable_list )
+    !
+    do i = 1,size(temp_variables)
+      select case (uppercase(trim(adjustl(temp_variables(i)))))
+        case ("DENSITY")
+          call add_sol_variable(variable_list,"GradDensity")
+        case ("VELOCITY")
+          call add_sol_variable(variable_list,"GradVelocity")
+        case ("ENERGY")
+          call add_sol_variable(variable_list,"GradEnergy")
+        case ("TEMPERATURE")
+          call add_sol_variable(variable_list,"GradTemperature")
+        case ("MOMENTUM")
+          call add_sol_variable(variable_list,"GradMomentum")
+        case ("MASSFRACTIONS")
+          call add_sol_variable(variable_list,"GradMassFractions")
+        case ("SPECIESDENSITIES")
+          call add_sol_variable(variable_list,"GradSpeciesDensities")
+      end select
+    end do
+    !
+    deallocate ( temp_variables )
+    !
+  end if
+  !
+  ! Make sure there are no duplicate variables being output
+  !
+  allocate ( temp_variables , source=variable_list )
+  !
+  n = 0
+  copy_loop: &
+  do i = 1,size(variable_list)
+    varcheck = uppercase( trim(adjustl(variable_list(i))) )
+    do j = 1,n
+      varname = uppercase( trim(adjustl(temp_variables(j))) )
+      if (varname == varcheck) then
+        ! This variable already exists in temp_variables, so dont add this
+        ! to temp_variables and go on to the next variable in variable_list.
+        cycle copy_loop
+      end if
+    end do
+    n = n + 1
+    temp_variables(n) = trim(adjustl(variable_list(i)))
+  end do copy_loop
+  !
+  ! Use F2003 AUTO-REALLOCATION to cutoff the duplicate variables
+  ! still contained in temp_variables(n+1:size(temp_variables)).
+  !
+  temp_variables = temp_variables(1:n)
+  !
+  ! Use move_alloc to over-write variable_list with temp_variables
+  !
+  call move_alloc( from=temp_variables , to=variable_list )
+  !
+  ! Put the output variables in order
+  !
+  allocate ( temp_variables , source=variable_list )
+  !
+  n = 0
+  do i = 1,size(var_order)
+    varname = uppercase( trim(adjustl(var_order(i))) )
+    reorder_loop: &
+    do j = 1,size(variable_list)
+      varcheck = uppercase( trim(adjustl(variable_list(j))) )
+      if (varname == varcheck) then
+        n = n + 1
+        temp_variables(n) = trim(adjustl(variable_list(j)))
+        exit reorder_loop
+      end if
+    end do reorder_loop
+  end do
+  !
+  ! Use move_alloc to over-write variable_list with temp_variables
+  !
+  call move_alloc( from=temp_variables , to=variable_list )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_cgns_sol_variables
+!
+!###############################################################################
+!
+subroutine add_sol_variable(variable_list,new_variable)
+  !
+  !.. Formal Arguments ..
+  character(len=*),                     intent(in) :: new_variable
+#ifdef SPECIAL_FOR_INTEL
+  character(len=:),     allocatable, intent(inout) :: variable_list(:)
+#else
+  character(len=CGLEN), allocatable, intent(inout) :: variable_list(:)
+#endif
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "add_sol_variable"
+  !
+continue
+  !
+  if (.not. allocated(variable_list)) then
+    !
+#ifdef SPECIAL_FOR_INTEL
+    n = len_trim(adjustl(new_variable))
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ character(len=n) :: trim(adjustl(new_variable)) ]
+#else
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ adjustl(new_variable) ]
+#endif
+    !
+  else
+    !
+#ifdef SPECIAL_FOR_INTEL
+    n = max( len_trim(adjustl(new_variable)) , len(variable_list) )
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ character(len=n) :: variable_list , &
+                                          trim(adjustl(new_variable)) ]
+#else
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ variable_list , adjustl(new_variable) ]
+#endif
+    !
+  end if
+  !
+end subroutine add_sol_variable
+!
+!###############################################################################
+!
+subroutine add_sol_variables(variable_list,new_variables)
+  !
+  !.. Formal Arguments ..
+  character(len=*),                     intent(in) :: new_variables(:)
+#ifdef SPECIAL_FOR_INTEL
+  character(len=:),     allocatable, intent(inout) :: variable_list(:)
+#else
+  character(len=CGLEN), allocatable, intent(inout) :: variable_list(:)
+#endif
+  !
+  !.. Local Scalars ..
+  integer :: i,ibeg,n
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "add_sol_variables"
+  !
+continue
+  !
+  if (.not. allocated(variable_list)) then
+    !
+#ifdef SPECIAL_FOR_INTEL
+    n = len_trim(adjustl(new_variables(1)))
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ character(len=n) :: trim(adjustl(new_variables(1))) ]
+#else
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ adjustl(new_variables(1)) ]
+#endif
+    !
+    ibeg = 2
+    !
+  else
+    !
+    ibeg = 1
+    !
+  end if
+  !
+  do i = ibeg,size(new_variables)
+#ifdef SPECIAL_FOR_INTEL
+    n = max( len_trim(adjustl(new_variables(i))) , len(variable_list) )
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ character(len=n) :: variable_list , &
+                                          trim(adjustl(new_variables(i))) ]
+#else
+    ! USING F2003 AUTO-REALLOCATION
+    variable_list = [ variable_list , adjustl(new_variables(i)) ]
+#endif
+  end do
+  !
+end subroutine add_sol_variables
+!
+!###############################################################################
+!
+!pure function compute_output_variables(upt,gppt,dupt) result(return_value)
+!  !
+!  !.. Formal Arguments ..
+!  real(wp), intent(in) :: upt(:)
+!  real(wp), intent(in) :: gppt(:)
+!  real(wp), intent(in) :: dupt(:,:)
+!  !
+!  !.. Function Result ..
+!  real(wp) :: return_value(1:size(plot_var))
+!  !
+!  !.. Local Scalars ..
+!  integer :: i
+!  !
+!continue
+!  !
+!  do i = 1,size(plot_var)
+!    return_value(i) = compute_output_variable(upt,gppt,dupt,plot_var(i))
+!  end do
+!  !
+!end function compute_output_variables
+!
+!###############################################################################
+!
+!pure function compute_output_variable(upt,gppt,dupt,plot_variable) &
+!                               result(return_value)
+!  !
+!  !.. Use Statements ..
+!  use ovar,    only : rhoref,aref,tref,time_ref,gam,pref_nd,itestcase
+!  !
+!  !.. Formal Arguments ..
+!  real(wp),          intent(in) :: upt(:)
+!  real(wp),          intent(in) :: gppt(:)
+!  real(wp),          intent(in) :: dupt(:,:)
+!  type(plot_func_t), intent(in) :: plot_variable
+!  !
+!  !.. Function Result ..
+!  real(wp) :: return_value
+!  !
+!  !.. Local Scalars ..
+!  real(wp) :: gamm
+!  !
+!continue
+!  !
+!  if (plot_variable == plot_static_density) then
+!    !
+!    return_value = upt(nec)                           * rhoref
+!    !
+!  else if (plot_variable == plot_velocity_x) then
+!    !
+!    return_value = upt(nmx) / upt(nec)                * aref
+!    !
+!  else if (plot_variable == plot_velocity_y) then
+!    !
+!    return_value = upt(nmy) / upt(nec)                * aref
+!    !
+!  else if (plot_variable == plot_velocity_z) then
+!    !
+!    return_value = upt(nmz) / upt(nec)                * aref
+!    !
+!  else if (plot_variable == plot_momentum_x) then
+!    !
+!    return_value = upt(nmx)                           * rhoref * aref
+!    !
+!  else if (plot_variable == plot_momentum_y) then
+!    !
+!    return_value = upt(nmy)                           * rhoref * aref
+!    !
+!  else if (plot_variable == plot_momentum_z) then
+!    !
+!    return_value = upt(nmz)                           * rhoref * aref
+!    !
+!  else if (plot_variable == plot_static_pressure) then
+!    !
+!    return_value = gppt(npres)                        * rhoref * aref * aref
+!    !
+!  else if (plot_variable == plot_static_temperature) then
+!    !
+!    return_value = gppt(ntemp)                        * tref
+!    !
+!  else if (plot_variable == plot_total_energy) then
+!    !
+!    return_value = upt(nee)                           * rhoref * aref * aref
+!    !
+!  else if (plot_variable == plot_mach_number) then
+!    !
+!    if (ncs == 0) then
+!      gamm = gam
+!    else
+!      gamm = gppt(ngamm)
+!    end if
+!    !
+!    return_value = norm2(upt(nmb:nme)) / sqrt( upt(nec)*gamm*gppt(npres) )
+!    !
+!  else if (plot_variable == plot_entropy) then
+!    !
+!    if (ncs == 0) then
+!      gamm = gam
+!    else
+!      gamm = gppt(ngamm)
+!    end if
+!    !
+!    if (itestcase == Inviscid_Gaussian_Bump) then
+!      return_value = (gppt(npres)/pref_nd) / (upt(nec)**gamm)
+!    else
+!      return_value = log(gppt(npres)) - gamm*log(upt(nec))
+!    end if
+!    !
+!  else if (plot_variable == plot_vorticity_x) then
+!    !
+!    return_value = vorticity_dusp( upt , gppt , dupt , 1 )   / time_ref
+!    !
+!  else if (plot_variable == plot_vorticity_y) then
+!    !
+!    return_value = vorticity_dusp( upt , gppt , dupt , 2 )   / time_ref
+!    !
+!  else if (plot_variable == plot_vorticity_z) then
+!    !
+!    return_value = vorticity_dusp( upt , gppt , dupt , 3 )   / time_ref
+!    !
+!  else if (plot_variable == plot_grad_density(1)) then
+!    !
+!    return_value = dupt(1,nec)                        * rhoref
+!    !
+!  else if (plot_variable == plot_grad_density(2)) then
+!    !
+!    return_value = dupt(2,nec)                        * rhoref
+!    !
+!  else if (plot_variable == plot_grad_density(3)) then
+!    !
+!    return_value = dupt(3,nec)                        * rhoref
+!    !
+!  else if (plot_variable == plot_grad_momentum_x(1)) then
+!    !
+!    return_value = dupt(1,nmx)                        * rhoref * aref
+!    !
+!  else if (plot_variable == plot_grad_momentum_x(2)) then
+!    !
+!    return_value = dupt(2,nmx)                        * rhoref * aref
+!    !
+!  else if (plot_variable == plot_grad_momentum_x(3)) then
+!    !
+!    return_value = dupt(3,nmx)                        * rhoref * aref
+!    !
+!  else if (plot_variable == plot_grad_momentum_y(1)) then
+!    !
+!    return_value = dupt(1,nmy)                        * rhoref * aref
+!    !
+!  else if (plot_variable == plot_grad_momentum_y(2)) then
+!    !
+!    return_value = dupt(2,nmy)                        * rhoref * aref
+!    !
+!  else if (plot_variable == plot_grad_momentum_y(3)) then
+!    !
+!    return_value = dupt(3,nmy)                        * rhoref * aref
+!    !
+!  else if (plot_variable == plot_grad_momentum_z(1)) then
+!    !
+!    return_value = dupt(1,nmz)                        * rhoref * aref
+!    !
+!  else if (plot_variable == plot_grad_momentum_z(2)) then
+!    !
+!    return_value = dupt(2,nmz)                        * rhoref * aref
+!    !
+!  else if (plot_variable == plot_grad_momentum_z(3)) then
+!    !
+!    return_value = dupt(3,nmz)                        * rhoref * aref
+!    !
+!  else if (plot_variable == plot_grad_energy(1)) then
+!    !
+!    return_value = dupt(1,nee)                        * rhoref * aref * aref
+!    !
+!  else if (plot_variable == plot_grad_energy(2)) then
+!    !
+!    return_value = dupt(2,nee)                        * rhoref * aref * aref
+!    !
+!  else if (plot_variable == plot_grad_energy(3)) then
+!    !
+!    return_value = dupt(3,nee)                        * rhoref * aref * aref
+!    !
+!  end if
+!  !
+!end function compute_output_variable
 !
 !###############################################################################
 !
@@ -3476,7 +6079,8 @@ end subroutine get_function_name
 subroutine get_plot_functions
   !
   !.. Local Scalars ..
-  integer :: ierr
+  integer :: ierr,npvar
+  integer, allocatable :: isvar_s(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_plot_functions"
@@ -4721,7 +7325,7 @@ continue
   ! Format Statements
   !
   1 format (i0)
-  2 format ("('solution.',i0.",i0,",'.cgns)'")
+  2 format ("('solution.',i0.",i0,",a,'.cgns')")
   3 format ("lfs setstripe -c ",i0," -S ",a,1x,a)
   !
 end subroutine check_cgns_dir
@@ -4791,7 +7395,7 @@ continue
             'ZONE T="Continuous Output", N=',i0,', E=',i0, &
             ', DATAPACKING=BLOCK, ZONETYPE=FEBRICK')
   2 format (5e18.10)
-  3 format (8i6)
+  3 format (8(1x,i0))
   4 format ('ZONE T="Grid Cell ',i0,'", N=',i0,', E=',i0, &
             ', DATAPACKING=BLOCK, ZONETYPE=FEBRICK',/, &
             'VARSHARELIST=([1-3]=1)')
@@ -4818,6 +7422,7 @@ subroutine write_cell_points(iunit,nep,cell_points_ptr,cell_points)
   !
 continue
   !
+#ifdef DEBUG_POST_PROCESSOR
   call debug_timer(entering_procedure,pname)
   !
   write (map_fmt,1) (nep,i=1,6)
@@ -4832,6 +7437,7 @@ continue
   iunit = iunit + 1
   !
   call debug_timer(leaving_procedure,pname)
+#endif
   !
   ! Format Statements
   !

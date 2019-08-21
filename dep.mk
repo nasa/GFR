@@ -502,6 +502,10 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(OBJDIR)/thermo_mod.o \
                  $(OBJDIR)/transport_mod.o \
                  $(OBJDIR)/gpu_mod.o \
+		 $(OBJDIR)/metrics.o \
+		 $(OBJDIR)/limiters.o \
+		 $(FUNDIR)/cgns_write_field_data.f90 \
+		 $(FUNDIR)/cgns_write_field_header.f90 \
                  $(FUNDIR)/last.f90 \
                  $(FUNDIR)/cell_solpts.f90
 
