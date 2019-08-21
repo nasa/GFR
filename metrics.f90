@@ -1,5 +1,7 @@
 module metrics_mod
   !
+!#define TIME_METRIC_PROCEDURES
+  !
   !.. Global Use Statements ..
   use module_kind_types
   !
@@ -213,6 +215,245 @@ contains
 subroutine get_metrics()
   !
   !.. Use Statements ..
+  use geovar, only : nr,ncell,nnode
+  use geovar, only : nfbnd,nface,n_solpts
+  use geovar, only : using_quadrature
+  use ovar,   only : local_volume
+  use ovar,   only : Timestep_Type
+  !
+  !.. Local Scalars ..
+  integer  :: ierr
+  integer  :: min_jsp,min_jcl,min_jac_cpu,min_vol_cpu
+  integer  :: max_jsp,max_jcl,max_jac_cpu,max_vol_cpu
+  integer  :: min_ncell_cpu,max_ncell_cpu
+  integer  :: min_nnode_cpu,max_nnode_cpu
+  integer  :: min_nfbnd_cpu,max_nfbnd_cpu
+  integer  :: min_nface_cpu,max_nface_cpu
+  integer  :: min_nspts_cpu,max_nspts_cpu
+  integer  :: min_ncv,max_ncv,min_ncv_cpu,max_ncv_cpu
+  real(wp) :: ave_ncell,ave_nnode,ave_vol,ave_cell_vol
+  real(wp) :: ave_nfbnd,ave_nface,ave_nspts
+  real(wp) :: jac_min,jac_max,vol_min,vol_max
+  !
+  !.. Local Arrays ..
+  integer  :: part_info(1:5)
+  integer  :: all_part_info(1:5,1:ncpu)
+  real(wp) :: jac_info(1:11)
+  real(wp) :: all_jac_info(1:11,1:ncpu)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_metrics"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  jac_info(:) = zero
+  all_jac_info(:,:) = zero
+  !
+  ! Allocate the required metrics related arrays
+  !
+  allocate ( wtdjac(1:n_solpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"wtdjac",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(wtdjac)
+  !
+  allocate ( jac(1:n_solpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"jac",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(jac)
+  !
+  allocate ( metrics_array(1:n_solpts,1:nr,1:nr) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"metrics_array",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(metrics_array)
+  !
+  !
+  ! Loop over the cells to get the metrics at each solution point
+  !
+  if (nr == 3) then
+    call compute_cell_metrics_3d(metrics_array,jac,wtdjac)
+  else if (nr == 2) then
+    call compute_cell_metrics_2d(metrics_array,jac,wtdjac)
+  else if (nr == 1) then
+    call compute_cell_metrics_2d(metrics_array,jac,wtdjac)
+  else
+    write (error_message,100) nr
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !$ACC UPDATE DEVICE(jac,wtdjac,metrics_array)
+  !
+  ! Compute volume and jacobian statistics
+  !
+  call compute_volume_statistics(min_ncv,max_ncv,vol_min,vol_max, &
+                                 min_jcl,max_jcl,min_jsp,max_jsp, &
+                                 jac_min,jac_max,jac,wtdjac)
+  !
+  jac_info(1) = real(min_jsp,kind=wp)
+  jac_info(2) = real(min_jcl,kind=wp)
+  jac_info(3) = real(max_jsp,kind=wp)
+  jac_info(4) = real(max_jcl,kind=wp)
+  jac_info(5) = jac_min
+  jac_info(6) = jac_max
+  jac_info(7) = local_volume
+  jac_info(8) = real(min_ncv,kind=wp)
+  jac_info(9) = real(max_ncv,kind=wp)
+  jac_info(10) = vol_min
+  jac_info(11) = vol_max
+  !
+  part_info(1) = ncell
+  part_info(2) = nnode
+  part_info(3) = nfbnd
+  part_info(4) = nface
+  part_info(5) = n_solpts
+  !
+  if (ncpu > 1) then
+    !
+    call mpi_allgather(    jac_info,size(jac_info,kind=int_mpi),mpi_flttyp, &
+                       all_jac_info,size(jac_info,kind=int_mpi),mpi_flttyp, &
+                       MPI_COMM_WORLD,mpierr)
+    !
+    call mpi_allgather(    part_info,size(part_info,kind=int_mpi),mpi_inttyp, &
+                       all_part_info,size(part_info,kind=int_mpi),mpi_inttyp, &
+                       MPI_COMM_WORLD,mpierr)
+    !
+  else
+    !
+    all_jac_info(:,1) = jac_info(:)
+    all_part_info(:,1) = part_info(:)
+    !
+  end if
+  !
+  min_jac_cpu = minloc( all_jac_info(5,:) , dim=1 )
+  max_jac_cpu = maxloc( all_jac_info(6,:) , dim=1 )
+  min_vol_cpu = minloc( all_jac_info(7,:) , dim=1 )
+  max_vol_cpu = maxloc( all_jac_info(7,:) , dim=1 )
+  min_ncv_cpu = minloc( all_jac_info(10,:) , dim=1 )
+  max_ncv_cpu = maxloc( all_jac_info(11,:) , dim=1 )
+  !
+  min_jsp = nint( all_jac_info(1,min_jac_cpu) )
+  min_jcl = nint( all_jac_info(2,min_jac_cpu) )
+  max_jsp = nint( all_jac_info(3,max_jac_cpu) )
+  max_jcl = nint( all_jac_info(4,max_jac_cpu) )
+  !
+  min_ncv = nint( all_jac_info(8,min_ncv_cpu) )
+  max_ncv = nint( all_jac_info(9,max_ncv_cpu) )
+  !
+  min_ncell_cpu = minloc( all_part_info(1,:) , dim=1 )
+  max_ncell_cpu = maxloc( all_part_info(1,:) , dim=1 )
+  min_nnode_cpu = minloc( all_part_info(2,:) , dim=1 )
+  max_nnode_cpu = maxloc( all_part_info(2,:) , dim=1 )
+  min_nfbnd_cpu = minloc( all_part_info(3,:) , dim=1 )
+  max_nfbnd_cpu = maxloc( all_part_info(3,:) , dim=1 )
+  min_nface_cpu = minloc( all_part_info(4,:) , dim=1 )
+  max_nface_cpu = maxloc( all_part_info(4,:) , dim=1 )
+  min_nspts_cpu = minloc( all_part_info(5,:) , dim=1 )
+  max_nspts_cpu = maxloc( all_part_info(5,:) , dim=1 )
+  !
+  ave_ncell = real( sum( all_part_info(1,:) ) , kind=kind(ave_ncell) ) / &
+              real( size(all_part_info,dim=2) , kind=kind(ave_ncell) )
+  ave_nnode = real( sum( all_part_info(2,:) ) , kind=kind(ave_nnode) ) / &
+              real( size(all_part_info,dim=2) , kind=kind(ave_nnode) )
+  ave_nfbnd = real( sum( all_part_info(3,:) ) , kind=kind(ave_nfbnd) ) / &
+              real( size(all_part_info,dim=2) , kind=kind(ave_nfbnd) )
+  ave_nface = real( sum( all_part_info(4,:) ) , kind=kind(ave_nface) ) / &
+              real( size(all_part_info,dim=2) , kind=kind(ave_nface) )
+  ave_nspts = real( sum( all_part_info(5,:) ) , kind=kind(ave_nspts) ) / &
+              real( size(all_part_info,dim=2) , kind=kind(ave_nspts) )
+  ave_vol   = sum( all_jac_info(7,:) ) / &
+              real( size(all_jac_info(7,:)) , kind=kind(ave_vol) )
+  !
+  ave_cell_vol = sum( all_jac_info(7,:) ) / &
+                 real( sum( all_part_info(1,:) ) , kind=kind(ave_cell_vol) )
+  !
+  if (mypnum == 0) then
+    !
+    write (iout,1) all_jac_info( 5,min_jac_cpu),min_jsp,min_jcl,min_jac_cpu-1, &
+                   all_jac_info( 6,max_jac_cpu),max_jsp,max_jcl,max_jac_cpu-1, &
+                   all_jac_info(10,min_ncv_cpu),min_ncv,min_ncv_cpu-1, &
+                   all_jac_info(11,max_ncv_cpu),max_ncv,max_ncv_cpu-1, &
+                   ave_cell_vol
+    !
+    write (iout,2) all_part_info(1,min_ncell_cpu),min_ncell_cpu, &
+                   all_part_info(1,max_ncell_cpu),max_ncell_cpu, &
+                   nint(ave_ncell), &
+                   all_part_info(2,min_nnode_cpu),min_nnode_cpu, &
+                   all_part_info(2,max_nnode_cpu),max_nnode_cpu, &
+                   nint(ave_nnode), &
+                   all_part_info(3,min_nfbnd_cpu),min_nfbnd_cpu, &
+                   all_part_info(3,max_nfbnd_cpu),max_nfbnd_cpu, &
+                   nint(ave_nfbnd), &
+                   all_part_info(4,min_nface_cpu),min_nface_cpu, &
+                   all_part_info(4,max_nface_cpu),max_nface_cpu, &
+                   nint(ave_nface), &
+                   all_part_info(5,min_nspts_cpu),min_nspts_cpu, &
+                   all_part_info(5,max_nspts_cpu),max_nspts_cpu, &
+                   nint(ave_nspts), &
+                   all_jac_info(7,min_vol_cpu),min_vol_cpu, &
+                   all_jac_info(7,max_vol_cpu),max_vol_cpu, &
+                   ave_vol
+    !
+  end if
+  !
+  ! Get the face normal at the solution points on each face
+  !
+  call compute_face_normals
+  !
+  ! Get the face normal at the flux quadrature points on each face
+  !
+  if (using_quadrature) then
+    call compute_quadrature_face_normals
+  end if
+  !
+  if (abs(Timestep_Type) == Point_Timestep) then
+    call create_time_metrics
+  end if
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (/, &
+     " Min Interior  Jacobian =",es16.8, &
+                 " @ SP ",i0,t52,"of Cell ",i0,t69,"on CPU # ",i0,/, &
+     " Max Interior  Jacobian =",es16.8, &
+                 " @ SP ",i0,t52,"of Cell ",i0,t69,"on CPU # ",i0,//, &
+     " Min Interior Cell Volume =",es16.8," @ Cell ",i0,t62,"on CPU # ",i0,/, &
+     " Max Interior Cell Volume =",es16.8," @ Cell ",i0,t62,"on CPU # ",i0,/, &
+     " Ave Interior Cell Volume =",es16.8)
+  !
+  2 format (/, &
+          " Min ncell = ",i0,t25,"on CPU # ",i0,/, &
+          " Max ncell = ",i0,t25,"on CPU # ",i0,/, &
+          " Ave ncell = ",i0,//, &
+          " Min nnode = ",i0,t25,"on CPU # ",i0,/, &
+          " Max nnode = ",i0,t25,"on CPU # ",i0,/, &
+          " Ave nnode = ",i0,//, &
+          " Min nfbnd = ",i0,t25,"on CPU # ",i0,/, &
+          " Max nfbnd = ",i0,t25,"on CPU # ",i0,/, &
+          " Ave nfbnd = ",i0,//, &
+          " Min nface = ",i0,t25,"on CPU # ",i0,/, &
+          " Max nface = ",i0,t25,"on CPU # ",i0,/, &
+          " Ave nface = ",i0,//, &
+          " Min n_solpts = ",i0,t28,"on CPU # ",i0,/, &
+          " Max n_solpts = ",i0,t28,"on CPU # ",i0,/, &
+          " Ave n_solpts = ",i0,//, &
+          " Min partition volume =",es16.8," on CPU # ",i0,/, &
+          " Max partition volume =",es16.8," on CPU # ",i0,/, &
+          " Ave partition volume =",es16.8,/)
+  !
+  100  format ("ERROR in subroutine get_metrics! The value of nr ", &
+               "should be in the range of [1-3], but nr = ",i0,"!")
+  !
+end subroutine get_metrics
+!
+!###############################################################################
+!
+subroutine old_get_metrics()
+  !
+  !.. Use Statements ..
   use geovar, only : nr,n_totpts,n_totcel
   use geovar, only : ncell,cell,xyz
   use geovar, only : nnode,nfbnd,nface,n_solpts
@@ -254,7 +495,7 @@ subroutine get_metrics()
   real(wp) :: all_jac_info(1:11,1:ncpu)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "get_metrics"
+  character(len=*), parameter :: pname = "old_get_metrics"
   character(len=*), parameter :: fname(4) = ["metrics.fwd.dat", &
                                              "metrics.rev.dat", &
                                              "uniform.fwd.dat", &
@@ -271,6 +512,21 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(reset_accumulated_time,"output metrics",acc=9)
+  call debug_timer(reset_accumulated_time,"setup and transposing xyz",acc=2)
+  call debug_timer(reset_accumulated_time,"Filling individual metrics_dt(nc)", &
+                   acc=3)
+  call debug_timer(reset_accumulated_time, &
+                   "Migrating metrics_dt to jac, wtdjac, and metrics_array", &
+                   acc=4)
+  call debug_timer(reset_accumulated_time,"computing cell volumes",acc=5)
+  call debug_timer(reset_accumulated_time,"computing volume statistics",acc=6)
+#endif
+  !
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(start_timer,"Metric initialization operations")
+#endif
   jac_info(:) = zero
   all_jac_info(:,:) = zero
   !
@@ -282,12 +538,18 @@ continue
     iend = 4
   end if
   if (output_metrics) then
+#ifdef TIME_METRIC_PROCEDURES
+    call debug_timer(start_accumulation,"output metrics",acc=9)
+#endif
     do i = ibeg,iend
       open(newunit=iom(i),file=fname(i),status="replace",action="write", &
                           form="formatted",position="rewind", &
                           iostat=ierr,iomsg=error_message)
       call io_error(pname,fname(i),1,__LINE__,__FILE__,ierr,error_message)
     end do
+#ifdef TIME_METRIC_PROCEDURES
+    call debug_timer(stop_accumulation,"output metrics",acc=9)
+#endif
   end if
   !
   ! Allocate the required metrics related arrays
@@ -324,23 +586,26 @@ continue
   max_ncv = 1
   vol_min = huge(zero)
   vol_max = -huge(zero)
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(stop_timer,"Metric initialization operations")
+#endif
   !
   ! Loop over the cells to get the metrics at each solution point
   !
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(start_timer,"Main metrics loop")
+#endif
   metrics_loop: do nc = 1,ncell
     !
+#ifdef TIME_METRIC_PROCEDURES
+    call debug_timer(start_accumulation,"setup and transposing xyz",acc=2)
+#endif
     n1 = cell(nc)%beg_sp
     n2 = cell(nc)%end_sp
     np = n2-n1+1
     !
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
-    !
-    if (output_metrics) then
-      do i = ibeg,iend
-        write (iom(i),21) nc
-      end do
-    end if
     !
     ! Create transpose of the coordinates for this cell to reduce cache misses
     !
@@ -349,12 +614,40 @@ continue
         txyz(k-n1+1,l) = xyz(l,k)
       end do
     end do
+#ifdef TIME_METRIC_PROCEDURES
+    call debug_timer(stop_accumulation,"setup and transposing xyz",acc=2)
+#endif
+    !
+    if (output_metrics) then
+#ifdef TIME_METRIC_PROCEDURES
+      call debug_timer(start_accumulation,"output metrics",acc=9)
+#endif
+      do i = ibeg,iend
+        write (iom(i),21) nc
+      end do
+#ifdef TIME_METRIC_PROCEDURES
+      call debug_timer(stop_accumulation,"output metrics",acc=9)
+#endif
+    end if
     !
     ! Compute the metrics and jacobian for this cell
     !
+#ifdef TIME_METRIC_PROCEDURES
+    call debug_timer(start_accumulation, &
+                     "Filling individual metrics_dt(nc)",acc=3)
+#endif
     call metrics_dt(nc)%create_cell_metrics(txyz(1:np,1:nr), &
                                             this_geom,this_order,nc)
+#ifdef TIME_METRIC_PROCEDURES
+    call debug_timer(stop_accumulation, &
+                     "Filling individual metrics_dt(nc)",acc=3)
+#endif
     !
+#ifdef TIME_METRIC_PROCEDURES
+    call debug_timer(start_accumulation, &
+                     "Migrating metrics_dt to jac, wtdjac, and metrics_array", &
+                     acc=4)
+#endif
     do k = 1,np
       n = n1-1+k
       jac(n) = metrics_dt(nc)%jac(k)
@@ -366,15 +659,29 @@ continue
         end do
       end do
     end do
+#ifdef TIME_METRIC_PROCEDURES
+    call debug_timer(stop_accumulation, &
+                     "Migrating metrics_dt to jac, wtdjac, and metrics_array", &
+                     acc=4)
+#endif
     !
     ! Sum the product of the Jacobian and quadrature weight for each point
     ! in this cell to compute the volume of the current cell
     !
+#ifdef TIME_METRIC_PROCEDURES
+    call debug_timer(start_accumulation,"computing cell volumes",acc=5)
+#endif
     vol = metrics_dt(nc)%vol(this_geom,this_order)
+#ifdef TIME_METRIC_PROCEDURES
+    call debug_timer(stop_accumulation,"computing cell volumes",acc=5)
+#endif
     !
     ! Add the volume of the current cell to the total volume
     ! of the current local partition
     !
+#ifdef TIME_METRIC_PROCEDURES
+    call debug_timer(start_accumulation,"computing volume statistics",acc=6)
+#endif
     local_volume = local_volume + vol
     !
     if (vol < vol_min) then
@@ -396,10 +703,16 @@ continue
       jac_max = metrics_dt(nc)%jac(max_jsp)
       max_jcl = nc
     end if
+#ifdef TIME_METRIC_PROCEDURES
+    call debug_timer(stop_accumulation,"computing volume statistics",acc=6)
+#endif
     !
     ! Output the metrics if needed
     !
     if (output_metrics) then
+#ifdef TIME_METRIC_PROCEDURES
+      call debug_timer(start_accumulation,"output metrics",acc=9)
+#endif
       do n = 1,np
         do i = ibeg,iend
           j1 = mod(i+1,2) + 1
@@ -417,11 +730,20 @@ continue
                              (outmet(k,l), k=1,nr), l=1,nr)
         end do
       end do
+#ifdef TIME_METRIC_PROCEDURES
+      call debug_timer(stop_accumulation,"output metrics",acc=9)
+#endif
     end if
     !
   end do metrics_loop
   !$ACC UPDATE DEVICE(jac,wtdjac,metrics_array)
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(stop_timer,"Main metrics loop")
+#endif
   !
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(start_timer,"Computing and reporting metric statistics")
+#endif
   jac_info(1) = real(min_jsp,kind=wp)
   jac_info(2) = real(min_jcl,kind=wp)
   jac_info(3) = real(max_jsp,kind=wp)
@@ -556,10 +878,25 @@ continue
           " Min partition volume =",es16.8," on CPU # ",i0,/, &
           " Max partition volume =",es16.8," on CPU # ",i0,/, &
           " Ave partition volume =",es16.8,/)
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(stop_timer,"Computing and reporting metric statistics")
+#endif
+  !
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(report_accumulated_time,"setup and transposing xyz",acc=2)
+  call debug_timer(report_accumulated_time, &
+                   "Filling individual metrics_dt(nc)", &
+                   acc=3)
+  call debug_timer(report_accumulated_time, &
+                   "Migrating metrics_dt to jac, wtdjac, and metrics_array", &
+                   acc=4)
+  call debug_timer(report_accumulated_time,"computing cell volumes",acc=5)
+  call debug_timer(report_accumulated_time,"computing volume statistics",acc=6)
+#endif
   !
   ! Get the face normal at the solution points on each face
   !
-  call compute_face_normals
+  call old_compute_face_normals
   !
   ! Get the face normal at the flux quadrature points on each face
   !
@@ -574,6 +911,9 @@ continue
   ! Reduce the volumes of each partition to the root
   ! processor to determine the volume of the global grid.
   !
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(start_timer,"Reducing local and total volumes")
+#endif
   tot_vol = real(local_volume,kind=r8)
   loc_vol = real(local_volume,kind=r8)
   !
@@ -586,15 +926,28 @@ continue
   local_volume = real(loc_vol,kind=wp)
   !
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(stop_timer,"Reducing local and total volumes")
+#endif
   !
   ! Close the files associated with output_metrics
   !
   if (output_metrics) then
+#ifdef TIME_METRIC_PROCEDURES
+    call debug_timer(start_accumulation,"output metrics",acc=9)
+#endif
     do i = ibeg,iend
       close (iom(i),iostat=ierr,iomsg=error_message)
       call io_error(pname,fname(i),2,__LINE__,__FILE__,ierr,error_message)
     end do
+#ifdef TIME_METRIC_PROCEDURES
+    call debug_timer(stop_accumulation,"output metrics",acc=9)
+#endif
   end if
+  !
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(report_accumulated_time,"output metrics",acc=9)
+#endif
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -604,11 +957,11 @@ continue
   22 format (5x,"Solution Point ",i4)
   23 format (3(2x,"d(",a,",",a,",",a,")/d",a,"  :  ",3es14.6,:,/))
   !
-end subroutine get_metrics
+end subroutine old_get_metrics
 !
 !###############################################################################
 !
-subroutine compute_face_normals
+subroutine old_compute_face_normals
   !
   !.. Use Statements ..
   use order_mod,         only : maxSP,maxFP
@@ -638,7 +991,7 @@ subroutine compute_face_normals
   integer, allocatable :: ipface(:,:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "compute_face_normals"
+  character(len=*), parameter :: pname = "old_compute_face_normals"
   character(len=*), parameter :: fname = "face_normals.tec.dat"
  !logical(lk), parameter :: output_face_normals = true
   logical(lk), parameter :: output_face_normals = fals
@@ -647,6 +1000,20 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+!#ifdef TIME_METRIC_PROCEDURES
+!  call debug_timer(reset_accumulated_time,"output face normals",acc=1)
+!  call debug_timer(reset_accumulated_time,"setup and transposing xyz",acc=2)
+!  call debug_timer(reset_accumulated_time,"computing xyz_face",acc=3)
+!  call debug_timer(reset_accumulated_time,"Filling individual geofa(nf)",acc=4)
+!  call debug_timer(reset_accumulated_time,"Computing dvec from xyz_face",acc=5)
+!  call debug_timer(reset_accumulated_time, &
+!                   "Computing dvec cross products",acc=6)
+!  call debug_timer(reset_accumulated_time,"Chopping dvec into geofa",acc=7)
+!#endif
+  !
+!#ifdef TIME_METRIC_PROCEDURES
+!  call debug_timer(start_timer,"Allocating geofa and its component arrays")
+!#endif
   ! Allocate the outer part of the geofa array
   !
   allocate ( geofa(1:nface) , stat=ierr , errmsg=error_message )
@@ -668,8 +1035,14 @@ continue
                      error_message,skip_alloc_pause)
     !
   end do
+!#ifdef TIME_METRIC_PROCEDURES
+!  call debug_timer(stop_timer,"Allocating geofa and its component arrays")
+!#endif
   !
   if (output_face_normals) then
+!#ifdef TIME_METRIC_PROCEDURES
+!    call debug_timer(start_accumulation,"output face normals",acc=1)
+!#endif
     !
     npcount = 0
     nfpts = 0
@@ -702,10 +1075,19 @@ continue
       !
     end if
     !
+!#ifdef TIME_METRIC_PROCEDURES
+!    call debug_timer(stop_accumulation,"output face normals",acc=1)
+!#endif
   end if
   !
+!#ifdef TIME_METRIC_PROCEDURES
+!  call debug_timer(start_timer,"Computing geofa")
+!#endif
   cell_loop: do nc = 1,ncell
     !
+!#ifdef TIME_METRIC_PROCEDURES
+!    call debug_timer(start_accumulation,"setup and transposing xyz",acc=2)
+!#endif
     left_geom  = cell(nc)%geom
     left_order = cell(nc)%order
     !
@@ -718,6 +1100,9 @@ continue
         txyz(k,l) = xyz(l,k+n1-1)
       end do
     end do
+!#ifdef TIME_METRIC_PROCEDURES
+!    call debug_timer(stop_accumulation,"setup and transposing xyz",acc=2)
+!#endif
     !
     ! Loop through the faces of the current cell
     ! to get the normals at each face point
@@ -725,6 +1110,9 @@ continue
     cell_face_loop: do ncf = 1,size(cell(nc)%face)
       !
       if (cell(nc)%face(ncf)%side == 2) cycle cell_face_loop
+!#ifdef TIME_METRIC_PROCEDURES
+!      call debug_timer(start_accumulation,"computing xyz_face",acc=3)
+!#endif
       !
       nf = cell(nc)%face(ncf)%idx
       !
@@ -760,10 +1148,16 @@ continue
         end do
         !
       end do
+!#ifdef TIME_METRIC_PROCEDURES
+!      call debug_timer(stop_accumulation,"computing xyz_face",acc=3)
+!#endif
       !
       ! If the current face is an edge, initialize the k components of the
       ! two vectors the dvec array to one and everything else to zero
       !
+!#ifdef TIME_METRIC_PROCEDURES
+!      call debug_timer(start_accumulation,"Filling individual geofa(nf)",acc=4)
+!#endif
       if (face_geom == Geom_Edge) then
         dvec = zero
         dvec(3,:) = one
@@ -775,6 +1169,10 @@ continue
       !
       do k = 1,nfp
         !
+!#ifdef TIME_METRIC_PROCEDURES
+!        call debug_timer(start_accumulation, &
+!                         "Computing dvec from xyz_face",acc=5)
+!#endif
         do n = 1,ndim
           !
           ! If the current cell face is a x-min, y-max, or z-min face, we need
@@ -804,25 +1202,46 @@ continue
           end do
           !
         end do
+!#ifdef TIME_METRIC_PROCEDURES
+!        call debug_timer(stop_accumulation, &
+!                         "Computing dvec from xyz_face",acc=5)
+!#endif
         !
         ! Finally, the length/area normal to the current face at the current
         ! flux point is just the cross product of the two vectors in dvec
         !
+!#ifdef TIME_METRIC_PROCEDURES
+!        call debug_timer(start_accumulation, &
+!                         "Computing dvec cross products",acc=6)
+!#endif
         dvec(:,3) = cross_product( dvec(:,1) , dvec(:,2) )
         !
         if (face_geom == Geom_Node) then
           dvec(1:nr,3) = one
          !dvec(1:nr,3) = merge(one,-one,ncf==1)
         end if
+!#ifdef TIME_METRIC_PROCEDURES
+!        call debug_timer(stop_accumulation, &
+!                         "Computing dvec cross products",acc=6)
+!#endif
         !
         ! Zero/chop all the normals less than 10*roundoff
         !
+!#ifdef TIME_METRIC_PROCEDURES
+!        call debug_timer(start_accumulation,"Chopping dvec into geofa",acc=7)
+!#endif
         geofa(nf)%v(1:nr,k) = chop( real(dvec(1:nr,3),kind=qp)/qten ) * ten
+!#ifdef TIME_METRIC_PROCEDURES
+!        call debug_timer(stop_accumulation,"Chopping dvec into geofa",acc=7)
+!#endif
         !
        !geofa(nf)%area = geofa(nf)%area + norm2(geofa(nf)%v(1:nr,k)) * &
        !                                  std_elem(face_geom,face_order)%wts(k)
         !
         if (output_face_normals) then
+!#ifdef TIME_METRIC_PROCEDURES
+!          call debug_timer(start_accumulation,"output face normals",acc=1)
+!#endif
           !
           npcount = npcount + 1
           !
@@ -858,16 +1277,28 @@ continue
             !
           end if
           !
+!#ifdef TIME_METRIC_PROCEDURES
+!          call debug_timer(stop_accumulation,"output face normals",acc=1)
+!#endif
         end if
         !
       end do
+!#ifdef TIME_METRIC_PROCEDURES
+!      call debug_timer(stop_accumulation,"Filling individual geofa(nf)",acc=4)
+!#endif
       !
     end do cell_face_loop
     !
   end do cell_loop
+!#ifdef TIME_METRIC_PROCEDURES
+!  call debug_timer(stop_timer,"Computing geofa")
+!#endif
   !
   ! Copy geofa into facenrm
   !
+!#ifdef TIME_METRIC_PROCEDURES
+!  call debug_timer(start_timer,"Migrating geofa(:)%v(:,:) to facenrm(:,:)")
+!#endif
   allocate ( facenrm(1:nr,1:n_flxpts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"facenrm",1,__LINE__,__FILE__,ierr,error_message)
@@ -886,8 +1317,14 @@ continue
     deallocate ( geofa , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"geofa",2,__LINE__,__FILE__,ierr,error_message)
   end if
+!#ifdef TIME_METRIC_PROCEDURES
+!  call debug_timer(stop_timer,"Migrating geofa(:)%v(:,:) to facenrm(:,:)")
+!#endif
   !
   if (output_face_normals .and. nr == 1) then
+!#ifdef TIME_METRIC_PROCEDURES
+!    call debug_timer(start_accumulation,"output face normals",acc=1)
+!#endif
     !
     write (array_name,'("face_normals.1D.CPU-",i2.2,".dat")') mypnum
     open (newunit=inrm,file=trim(adjustl(array_name)),status="replace", &
@@ -911,6 +1348,9 @@ continue
     close (inrm,iostat=ierr,iomsg=error_message)
     call io_error(pname,array_name,2,__LINE__,__FILE__,ierr,error_message)
     !
+!#ifdef TIME_METRIC_PROCEDURES
+!    call debug_timer(stop_accumulation,"output face normals",acc=1)
+!#endif
   end if
   !
   30 format (80("="),:,/,2x,"Face ",i0,/,80("-"))
@@ -926,6 +1366,9 @@ continue
   ! Interpolate the jacobians from host cells
   ! to the face points of boundary faces
   !
+!#ifdef TIME_METRIC_PROCEDURES
+!  call debug_timer(start_timer,"Computing boundary face jacobians")
+!#endif
   do nf = 1,nfbnd
     !
     face_geom = face(nf)%geom
@@ -961,9 +1404,15 @@ continue
     end do
     !
   end do
+!#ifdef TIME_METRIC_PROCEDURES
+!  call debug_timer(stop_timer,"Computing boundary face jacobians")
+!#endif
   !
   ! Now do the interior faces
   !
+!#ifdef TIME_METRIC_PROCEDURES
+!  call debug_timer(start_timer,"Computing interior face jacobians")
+!#endif
   do nf = nfbnd+1,nface
     !
     face_geom = face(nf)%geom
@@ -1022,11 +1471,17 @@ continue
     end do
     !
   end do
+!#ifdef TIME_METRIC_PROCEDURES
+!  call debug_timer(stop_timer,"Computing interior face jacobians")
+!#endif
   !$ACC UPDATE DEVICE(facejac)
   !
   !
   !
   if (output_face_normals .and. nr > 1) then
+!#ifdef TIME_METRIC_PROCEDURES
+!    call debug_timer(start_accumulation,"output face normals",acc=1)
+!#endif
     !
     do nf = 1,nface
       write (inrm,24) (ipface(l,nf),l=1,size(ipface,dim=1))
@@ -1040,7 +1495,23 @@ continue
       call alloc_error(pname,"ipface",2,__LINE__,__FILE__,ierr,error_message)
     end if
     !
+!#ifdef TIME_METRIC_PROCEDURES
+!    call debug_timer(stop_accumulation,"output face normals",acc=1)
+!#endif
   end if
+  !
+!#ifdef TIME_METRIC_PROCEDURES
+!  call debug_timer(report_accumulated_time,"output face normals",acc=1)
+!  call debug_timer(report_accumulated_time,"setup and transposing xyz",acc=2)
+!  call debug_timer(report_accumulated_time,"computing xyz_face",acc=3)
+!  call debug_timer(report_accumulated_time, &
+!                   "Filling individual geofa(nf)",acc=4)
+!  call debug_timer(report_accumulated_time, &
+!                   "Computing dvec from xyz_face",acc=5)
+!  call debug_timer(report_accumulated_time, &
+!                   "Computing dvec cross products",acc=6)
+!  call debug_timer(report_accumulated_time,"Chopping dvec into geofa",acc=7)
+!#endif
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1057,7 +1528,859 @@ continue
   23 format (3es14.6,1x,3es14.6,:,1x,i0)
   24 format (4(1x,i0))
   !
+end subroutine old_compute_face_normals
+!
+!###############################################################################
+!
+subroutine compute_face_normals
+  !
+  !.. Use Statements ..
+  use order_mod,         only : maxSP,maxFP
+  use order_mod,         only : geom_solpts
+  use geovar,            only : ncell,cell,fp
+  use geovar,            only : nfbnd,nface,face,n_flxpts
+  use geovar,            only : nr,xyz,bface
+  use interpolation_mod, only : interp
+  use derivatives_mod,   only : deriv
+  !
+  !.. Local Scalars ..
+  integer :: i,j,m,n,nc,nf,ncf,f0,n1,n2,np
+  integer :: kf,lf,l,k,nfp,ndim,lcfp,rcfp
+  integer :: left_cell,left_geom,left_order
+  integer :: right_cell,right_geom,right_order
+  integer :: face_geom,face_order
+  integer :: inrm,ierr,npcount,nfpts
+  real(wp) :: a,val
+  character(len=200) :: array_name
+  !
+  !.. Local Arrays ..
+  real(wp) :: dvec(1:3,1:3)
+  real(wp) :: txyz(1:maxSP,1:nr)
+  real(wp) :: xyz_face(1:maxFP,1:nr)
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: ipface(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_face_normals"
+  character(len=*), parameter :: fname = "face_normals.tec.dat"
+ !logical(lk), parameter :: output_face_normals = true
+  logical(lk), parameter :: output_face_normals = fals
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(reset_accumulated_time,"computing xyz_face",acc=1)
+  call debug_timer(reset_accumulated_time, &
+                   "Filling individual facenrm(:,k)",acc=2)
+  call debug_timer(reset_accumulated_time,"Computing d(xyz)/di",acc=3)
+  call debug_timer(reset_accumulated_time,"Computing d(xyz)/dj",acc=4)
+  call debug_timer(reset_accumulated_time,"Computing cross product",acc=5)
+  call debug_timer(reset_accumulated_time,"Chopping into facenrm",acc=6)
+#endif
+  !
+  ! Allocate the facenrm
+  !
+  allocate ( facenrm(1:nr,1:n_flxpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"facenrm",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Compute the face normals
+  !
+  if (nr == 3) then
+    call compute_face_normals_3d(facenrm)
+  else if (nr == 2) then
+    call compute_face_normals_2d(facenrm)
+  else if (nr == 1) then
+    call compute_face_normals_1d(facenrm)
+  else
+    write (error_message,1) nr
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Create the interpolated jacobians at the face points
+  !
+  allocate ( facejac(1:n_flxpts,1:2) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"facejac",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(facejac)
+  !
+  ! Interpolate the cell metric jacobians to the face points
+  !
+  call compute_face_jacobians(facejac)
+  !$ACC UPDATE DEVICE(facejac)
+  !
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(report_accumulated_time,"computing xyz_face",acc=1)
+  call debug_timer(report_accumulated_time, &
+                   "Filling individual facenrm(:,k)",acc=2)
+  call debug_timer(report_accumulated_time,"Computing d(xyz)/di",acc=3)
+  call debug_timer(report_accumulated_time,"Computing d(xyz)/dj",acc=4)
+  call debug_timer(report_accumulated_time,"Computing cross product",acc=5)
+  call debug_timer(report_accumulated_time,"Chopping into facenrm",acc=6)
+#endif
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1  format ("ERROR in subroutine compute_face_normals! The value of nr ", &
+             "should be in the range of [1-3], but nr = ",i0,"!")
+  !
 end subroutine compute_face_normals
+!
+!###############################################################################
+!
+subroutine compute_face_normals_3d(fnrm)
+  !
+  !.. Use Statements ..
+  use order_mod,         only : maxFP
+  use order_mod,         only : geom_solpts
+  use geovar,            only : ncell,cell,fp,face
+  use geovar,            only : xyz
+  use interpolation_mod, only : interp
+  use derivatives_mod,   only : deriv
+  !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  use omp_lib, only : omp_get_thread_num
+  use omp_lib, only : omp_get_num_threads
+#endif
+#endif
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: fnrm(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,n,nc,nf,ncf,n0
+  integer  :: kf,lf,k,f0,nfp
+  integer  :: this_geom,this_order
+  integer  :: face_geom,face_order
+  integer  :: tc_offset,tc_rot,tid
+  real(wp) :: a
+  real(wp) :: dxdi,dydi,dzdi
+  real(wp) :: dxdj,dydj,dzdj
+  real(wp) :: xval,yval,zval
+  real(wp) :: xnrm,ynrm,znrm
+  real(qp) :: xqp,yqp,zqp
+  !
+  !.. Local Arrays ..
+  real(wp) :: xyz_face(1:maxFP,1:3)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_face_normals_3d"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+!#undef TIME_METRIC_PROCEDURES
+  !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP PARALLEL &
+  !$OMP&         DEFAULT(SHARED) &
+  !$OMP&         PRIVATE(nc,this_geom,this_order,n0,ncf,nf, &
+  !$OMP&                 face_geom,face_order,f0,nfp,tc_offset,tc_rot, &
+  !$OMP&                 kf,lf,xval,yval,zval,i,k,n,a,xyz_face,tid,  &
+  !$OMP&                 dxdi,dxdj,dydi,dydj,dzdi,dzdj,xnrm,ynrm,znrm) &
+  !$OMP&         NUM_THREADS(28)
+  !
+  tid = omp_get_thread_num()
+  if (tid == glb_root) then
+    write (iout,"(a,i0)") "number of threads = ",omp_get_num_threads()
+  end if
+  !
+ !!$OMP DO SCHEDULE(GUIDED)
+  !$OMP DO
+#endif
+#endif
+  cell_loop: do nc = 1,ncell
+    !
+    this_geom  = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    n0 = cell(nc)%beg_sp - 1
+    !
+    ! Loop through the faces of the current cell
+    ! to get the normals at each face point
+    !
+    cell_face_loop: do ncf = 1,size(cell(nc)%face)
+      !
+      if (cell(nc)%face(ncf)%side == 2) cycle cell_face_loop
+#ifdef TIME_METRIC_PROCEDURES
+      call debug_timer(start_accumulation,"computing xyz_face",acc=1)
+#endif
+      !
+      nf = cell(nc)%face(ncf)%idx
+      !
+      face_geom  = cell(nc)%face(ncf)%geom
+      face_order = cell(nc)%face(ncf)%order
+      !
+     !nfp = geom_solpts(face_geom,face_order)
+      f0 = face(nf)%beg_fp - 1
+      nfp = face(nf)%end_fp - f0
+      !
+      tc_offset = cell(nc)%face(ncf)%fp_offset
+      tc_rot = cell(nc)%face(ncf)%rotation
+      !
+      ! Interpolate the coordinates of the solution points to get the
+      ! coordinates of the flux points on the current face.
+      !
+      do kf = 1,nfp
+        !
+        lf = tc_offset + fp%geord(face_geom,face_order)%rot(tc_rot)%pts(kf)
+        !
+        xval = zero
+        yval = zero
+        zval = zero
+        !
+        do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1,&
+               interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+          !
+          n = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+          !
+          xval = xval + a * xyz(1,n0+n)
+          yval = yval + a * xyz(2,n0+n)
+          zval = zval + a * xyz(3,n0+n)
+          !
+        end do
+        !
+        xyz_face(kf,1) = xval
+        xyz_face(kf,2) = yval
+        xyz_face(kf,3) = zval
+        !
+      end do
+#ifdef TIME_METRIC_PROCEDURES
+      call debug_timer(stop_accumulation,"computing xyz_face",acc=1)
+#endif
+#ifdef TIME_METRIC_PROCEDURES
+      call debug_timer(start_accumulation, &
+                       "Filling individual facenrm(:,k)",acc=2)
+#endif
+      !
+      ! Now compute the derivative of the flux point coordinates
+      !
+      if (any(ncf == [Xmin3D_Face,Ymax3D_Face,Zmin3D_Face])) then
+        !
+        ! If the current cell face is a x-min, y-max, or z-min face, we need
+        ! to reverse the order of the derivatives so that the cross_product
+        ! computed below results in a outward facing normal for the left cell
+        ! on the face. This means we compute [d(xyz)dj]x[d(xyz)di].
+        !
+        do kf = 1,nfp
+          !
+          dxdi = zero ; dxdj = zero
+          dydi = zero ; dydj = zero
+          dzdi = zero ; dzdj = zero
+          !
+          ! Xi/I derivative of the face
+          !
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(start_accumulation,"Computing d(xyz)/di",acc=3)
+#endif
+          do i = deriv(face_geom,face_order)%d(1)%row_ptr(kf)+1, &
+                 deriv(face_geom,face_order)%d(1)%row_ptr(kf+1)
+            !
+            k = deriv(face_geom,face_order)%d(1)%row_idx(i)
+            a = deriv(face_geom,face_order)%d(1)%row_val(i)
+            !
+            dxdi = dxdi + a * xyz_face(k,1)
+            dydi = dydi + a * xyz_face(k,2)
+            dzdi = dzdi + a * xyz_face(k,3)
+            !
+          end do
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(stop_accumulation,"Computing d(xyz)/di",acc=3)
+#endif
+          !
+          ! Eta/J derivative of the face
+          !
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(start_accumulation,"Computing d(xyz)/dj",acc=4)
+#endif
+          do i = deriv(face_geom,face_order)%d(2)%row_ptr(kf)+1, &
+                 deriv(face_geom,face_order)%d(2)%row_ptr(kf+1)
+            !
+            k = deriv(face_geom,face_order)%d(2)%row_idx(i)
+            a = deriv(face_geom,face_order)%d(2)%row_val(i)
+            !
+            dxdj = dxdj + a * xyz_face(k,1)
+            dydj = dydj + a * xyz_face(k,2)
+            dzdj = dzdj + a * xyz_face(k,3)
+            !
+          end do
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(stop_accumulation,"Computing d(xyz)/dj",acc=4)
+#endif
+          !
+          ! Compute [d(xyz)dj] x [d(xyz)di]
+          !
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(start_accumulation,"Computing cross product",acc=5)
+#endif
+          xnrm = dydj*dzdi - dzdj*dydi
+          ynrm = dzdj*dxdi - dxdj*dzdi
+          znrm = dxdj*dydi - dydj*dxdi
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(stop_accumulation,"Computing cross product",acc=5)
+#endif
+          !
+          ! Zero/chop all the normals less than 10*roundoff
+          ! NOTE: Using the chop() function here was really slow.
+          !       Manually inlining the function here resulted in
+          !       over two orders of magnitude speedup for this
+          !       subroutine.
+          !
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(start_accumulation,"Chopping into facenrm",acc=6)
+#endif
+          xqp = real(xnrm,kind=qp)
+          yqp = real(ynrm,kind=qp)
+          zqp = real(znrm,kind=qp)
+          !
+          xqp = merge( xqp , qzero , abs(xqp/qten)>real(rndoff,kind=qp) )
+          yqp = merge( yqp , qzero , abs(yqp/qten)>real(rndoff,kind=qp) )
+          zqp = merge( zqp , qzero , abs(zqp/qten)>real(rndoff,kind=qp) )
+          !
+          fnrm(1,f0+kf) = real(xqp,kind=wp)
+          fnrm(2,f0+kf) = real(yqp,kind=wp)
+          fnrm(3,f0+kf) = real(zqp,kind=wp)
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(stop_accumulation,"Chopping into facenrm",acc=6)
+#endif
+          !
+        end do
+        !
+      else
+        !
+        ! Otherwise, if the current cell face is a x-max, y-min,
+        ! or z-max face, compute [d(xyz)di]x[d(xyz)dj].
+        !
+        do kf = 1,nfp
+          !
+          dxdi = zero ; dxdj = zero
+          dydi = zero ; dydj = zero
+          dzdi = zero ; dzdj = zero
+          !
+          ! Xi/I derivative of the face
+          !
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(start_accumulation,"Computing d(xyz)/di",acc=3)
+#endif
+          do i = deriv(face_geom,face_order)%d(1)%row_ptr(kf)+1, &
+                 deriv(face_geom,face_order)%d(1)%row_ptr(kf+1)
+            !
+            k = deriv(face_geom,face_order)%d(1)%row_idx(i)
+            a = deriv(face_geom,face_order)%d(1)%row_val(i)
+            !
+            dxdi = dxdi + a * xyz_face(k,1)
+            dydi = dydi + a * xyz_face(k,2)
+            dzdi = dzdi + a * xyz_face(k,3)
+            !
+          end do
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(stop_accumulation,"Computing d(xyz)/di",acc=3)
+#endif
+          !
+          ! Eta/J derivative of the face
+          !
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(start_accumulation,"Computing d(xyz)/dj",acc=4)
+#endif
+          do i = deriv(face_geom,face_order)%d(2)%row_ptr(kf)+1, &
+                 deriv(face_geom,face_order)%d(2)%row_ptr(kf+1)
+            !
+            k = deriv(face_geom,face_order)%d(2)%row_idx(i)
+            a = deriv(face_geom,face_order)%d(2)%row_val(i)
+            !
+            dxdj = dxdj + a * xyz_face(k,1)
+            dydj = dydj + a * xyz_face(k,2)
+            dzdj = dzdj + a * xyz_face(k,3)
+            !
+          end do
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(stop_accumulation,"Computing d(xyz)/dj",acc=4)
+#endif
+          !
+          ! Compute [d(xyz)di] x [d(xyz)dj]
+          !
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(start_accumulation,"Computing cross product",acc=5)
+#endif
+          xnrm = dydi*dzdj - dzdi*dydj
+          ynrm = dzdi*dxdj - dxdi*dzdj
+          znrm = dxdi*dydj - dydi*dxdj
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(stop_accumulation,"Computing cross product",acc=5)
+#endif
+          !
+          ! Zero/chop all the normals less than 10*roundoff
+          ! NOTE: Using the chop() function here was really slow.
+          !       Manually inlining the function here resulted in
+          !       over two orders of magnitude speedup for this
+          !       subroutine.
+          !
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(start_accumulation,"Chopping into facenrm",acc=6)
+#endif
+          xqp = real(xnrm,kind=qp)
+          yqp = real(ynrm,kind=qp)
+          zqp = real(znrm,kind=qp)
+          !
+          xqp = merge( xqp , qzero , abs(xqp/qten)>real(rndoff,kind=qp) )
+          yqp = merge( yqp , qzero , abs(yqp/qten)>real(rndoff,kind=qp) )
+          zqp = merge( zqp , qzero , abs(zqp/qten)>real(rndoff,kind=qp) )
+          !
+          fnrm(1,f0+kf) = real(xqp,kind=wp)
+          fnrm(2,f0+kf) = real(yqp,kind=wp)
+          fnrm(3,f0+kf) = real(zqp,kind=wp)
+#ifdef TIME_METRIC_PROCEDURES
+          call debug_timer(stop_accumulation,"Chopping into facenrm",acc=6)
+#endif
+          !
+        end do
+        !
+      end if
+#ifdef TIME_METRIC_PROCEDURES
+      call debug_timer(stop_accumulation, &
+                       "Filling individual facenrm(:,k)",acc=2)
+#endif
+!#define TIME_METRIC_PROCEDURES
+      !
+    end do cell_face_loop
+    !
+  end do cell_loop
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP END DO
+  !$OMP END PARALLEL
+#endif
+#endif
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_face_normals_3d
+!
+!###############################################################################
+!
+subroutine compute_face_normals_2d(fnrm)
+  !
+  !.. Use Statements ..
+  use order_mod,         only : maxFP
+  use order_mod,         only : geom_solpts
+  use geovar,            only : ncell,cell,fp,face
+  use geovar,            only : xyz
+  use interpolation_mod, only : interp
+  use derivatives_mod,   only : deriv
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: fnrm(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,n,nc,nf,ncf,n0
+  integer  :: kf,lf,k,f0,nfp
+  integer  :: this_geom,this_order
+  integer  :: face_geom,face_order
+  integer  :: tc_offset,tc_rot
+  real(wp) :: a
+  real(wp) :: dxdi,dydi
+  real(wp) :: xval,yval
+  !
+  !.. Local Arrays ..
+  real(wp) :: xyz_face(1:maxFP,1:2)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_face_normals_2d"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  cell_loop: do nc = 1,ncell
+    !
+    this_geom  = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    n0 = cell(nc)%beg_sp - 1
+    !
+    ! Loop through the faces of the current cell
+    ! to get the normals at each face point
+    !
+    cell_face_loop: do ncf = 1,size(cell(nc)%face)
+      !
+      if (cell(nc)%face(ncf)%side == 2) cycle cell_face_loop
+#ifdef TIME_METRIC_PROCEDURES
+      call debug_timer(start_accumulation,"computing xyz_face",acc=1)
+#endif
+      !
+      nf = cell(nc)%face(ncf)%idx
+      !
+      face_geom  = cell(nc)%face(ncf)%geom
+      face_order = cell(nc)%face(ncf)%order
+      !
+     !nfp = geom_solpts(face_geom,face_order)
+      f0 = face(nf)%beg_fp - 1
+      nfp = face(nf)%end_fp - f0
+      !
+      tc_offset = cell(nc)%face(ncf)%fp_offset
+      tc_rot = cell(nc)%face(ncf)%rotation
+      !
+      ! Interpolate the coordinates of the solution points to get the
+      ! coordinates of the flux points on the current face.
+      !
+      do kf = 1,nfp
+        !
+        lf = tc_offset + fp%geord(face_geom,face_order)%rot(tc_rot)%pts(kf)
+        !
+        xval = zero
+        yval = zero
+        !
+        do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1,&
+               interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+          !
+          n = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+          !
+          xval = xval + a * xyz(1,n0+n)
+          yval = yval + a * xyz(2,n0+n)
+          !
+        end do
+        !
+        xyz_face(kf,1) = xval
+        xyz_face(kf,2) = yval
+        !
+      end do
+#ifdef TIME_METRIC_PROCEDURES
+      call debug_timer(stop_accumulation,"computing xyz_face",acc=1)
+#endif
+#ifdef TIME_METRIC_PROCEDURES
+      call debug_timer(start_accumulation, &
+                       "Filling individual facenrm(:,k)",acc=2)
+#endif
+      !
+      ! Now compute the derivative of the flux point coordinates
+      !
+      do kf = 1,nfp
+        !
+        ! Xi/I derivative of the face
+        !
+#ifdef TIME_METRIC_PROCEDURES
+        call debug_timer(start_accumulation,"Computing d(xyz)/di",acc=3)
+#endif
+        !
+        dxdi = zero
+        dydi = zero
+        !
+        do i = deriv(face_geom,face_order)%d(1)%row_ptr(kf)+1, &
+               deriv(face_geom,face_order)%d(1)%row_ptr(kf+1)
+          !
+          k = deriv(face_geom,face_order)%d(1)%row_idx(i)
+          a = deriv(face_geom,face_order)%d(1)%row_val(i)
+          !
+          dxdi = dxdi + a * xyz_face(k,1)
+          dydi = dydi + a * xyz_face(k,2)
+          !
+        end do
+#ifdef TIME_METRIC_PROCEDURES
+        call debug_timer(stop_accumulation,"Computing d(xyz)/di",acc=3)
+#endif
+        !
+        ! NOTE: We dont need to do a cross product for 2D since the
+        !       x-normal is +dy/di and the y-normal is -dx/di.
+        !
+        ! Zero/chop all the normals less than 10*roundoff
+        !
+#ifdef TIME_METRIC_PROCEDURES
+        call debug_timer(start_accumulation,"Chopping into facenrm",acc=6)
+#endif
+        fnrm(1,f0+kf) = chop( real( dydi,kind=qp)/qten ) * ten
+        fnrm(2,f0+kf) = chop( real(-dxdi,kind=qp)/qten ) * ten
+#ifdef TIME_METRIC_PROCEDURES
+        call debug_timer(stop_accumulation,"Chopping into facenrm",acc=6)
+#endif
+        !
+      end do
+#ifdef TIME_METRIC_PROCEDURES
+      call debug_timer(stop_accumulation, &
+                       "Filling individual facenrm(:,k)",acc=2)
+#endif
+      !
+    end do cell_face_loop
+    !
+  end do cell_loop
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_face_normals_2d
+!
+!###############################################################################
+!
+subroutine compute_face_normals_1d(fnrm)
+  !
+  !.. Use Statements ..
+  use geovar, only : ncell,cell,face
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: fnrm(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nc,nf,ncf,f0
+  integer :: kf,nfp
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_face_normals_1d"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! NOTE: This whole subroutine can probably be simplified to:
+  !       fnrm(:,:) = one
+  !
+  cell_loop: do nc = 1,ncell
+    !
+    ! Loop through the faces of the current cell
+    ! to get the normals at each face point
+    !
+    cell_face_loop: do ncf = 1,size(cell(nc)%face)
+      !
+      if (cell(nc)%face(ncf)%side == 2) cycle cell_face_loop
+      !
+      nf = cell(nc)%face(ncf)%idx
+      !
+      f0 = face(nf)%beg_fp - 1
+      nfp = face(nf)%end_fp - f0
+      !
+      ! Now compute the derivative of the flux point coordinates
+      !
+      do kf = 1,nfp
+        !
+        ! The face normal for 1D cells is always +1
+        !
+        fnrm(1,f0+kf) = one
+        !
+      end do
+      !
+    end do cell_face_loop
+    !
+  end do cell_loop
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_face_normals_1d
+!
+!###############################################################################
+!
+subroutine compute_face_jacobians(fjac)
+  !
+  !.. Use Statements ..
+  use geovar,            only : nfbnd,nface,face,cell,fp
+  use interpolation_mod, only : interp
+  !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  use omp_lib, only : omp_get_thread_num
+  use omp_lib, only : omp_get_num_threads
+#endif
+#endif
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: fjac(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,n,nf,kf,f0,nfp,tid
+  integer  :: l0,lc_offset,lc_rot,kl
+  integer  :: r0,rc_offset,rc_rot,kr
+  integer  :: host_cell,host_geom,host_order
+  integer  :: left_cell,left_geom,left_order
+  integer  :: right_cell,right_geom,right_order
+  integer  :: face_geom,face_order
+  real(wp) :: a,val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_face_jacobians"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(start_timer,"Computing boundary face jacobians")
+#endif
+  !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP PARALLEL &
+  !$OMP&         DEFAULT(SHARED) &
+  !$OMP&         PRIVATE(tid,nf,face_geom,face_order,f0,nfp, &
+  !$OMP&                 host_cell,host_geom,host_order, &
+  !$OMP&                 l0,lc_offset,lc_rot,kl, &
+  !$OMP&                 kf,val,i,n,a) &
+  !$OMP&         NUM_THREADS(28)
+  !
+  tid = omp_get_thread_num()
+  if (tid == glb_root) then
+    write (iout,"(a,i0)") "number of threads = ",omp_get_num_threads()
+  end if
+  !
+  !$OMP DO SCHEDULE(GUIDED)
+#endif
+#endif
+  do nf = 1,nfbnd
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    host_cell  = face(nf)%left%cell
+    !
+    host_geom  = cell(host_cell)%geom
+    host_order = cell(host_cell)%order
+    !
+    l0 = cell(host_cell)%beg_sp-1
+    !
+    lc_offset = face(nf)%left%fp_offset
+    lc_rot = face(nf)%left%rotation
+    !
+    do kf = 1,nfp
+      !
+      ! Interpolate the jacobian to the flux point for the left cell
+      !
+      kl = lc_offset + fp%geord(face_geom,face_order)%rot(lc_rot)%pts(kf)
+      !
+      val = zero
+      do i = interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl)+1, &
+             interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl+1)
+        !
+        n = interp(host_geom,host_order)%toFace(face_order)%row_idx(i)
+        a = interp(host_geom,host_order)%toFace(face_order)%row_val(i)
+        !
+        val = val + a * jac(l0+n)
+        !
+      end do
+      fjac(f0+kf,1) = val
+      !
+    end do
+    !
+  end do
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP END DO
+  !$OMP END PARALLEL
+#endif
+#endif
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(stop_timer,"Computing boundary face jacobians")
+#endif
+  !
+  ! Now do the interior faces
+  !
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(start_timer,"Computing interior face jacobians")
+#endif
+  !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP PARALLEL &
+  !$OMP&         DEFAULT(SHARED) &
+  !$OMP&         PRIVATE(tid,nf,face_geom,face_order,f0,nfp, &
+  !$OMP&                 left_cell,left_geom,left_order, &
+  !$OMP&                 l0,lc_offset,lc_rot,kl, &
+  !$OMP&                 right_cell,right_geom,right_order, &
+  !$OMP&                 r0,rc_offset,rc_rot,kr, &
+  !$OMP&                 kf,val,i,n,a) &
+  !$OMP&         NUM_THREADS(28)
+  !
+  tid = omp_get_thread_num()
+  if (tid == glb_root) then
+    write (iout,"(a,i0)") "number of threads = ",omp_get_num_threads()
+  end if
+  !
+  !$OMP DO SCHEDULE(GUIDED)
+#endif
+#endif
+  do nf = nfbnd+1,nface
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    left_cell  = face(nf)%left%cell
+    right_cell = face(nf)%right%cell
+    !
+    left_geom  = cell(left_cell)%geom
+    left_order = cell(left_cell)%order
+    !
+    right_geom  = cell(right_cell)%geom
+    right_order = cell(right_cell)%order
+    !
+    l0 = cell(left_cell)%beg_sp-1
+    r0 = cell(right_cell)%beg_sp-1
+    !
+    lc_offset = face(nf)%left%fp_offset
+    lc_rot = face(nf)%left%rotation
+    !
+    rc_offset = face(nf)%right%fp_offset
+    rc_rot = face(nf)%right%rotation
+    !
+    do kf = 1,nfp
+      !
+      ! Interpolate the jacobian to the flux point for the left cell
+      !
+      kl = lc_offset + fp%geord(face_geom,face_order)%rot(lc_rot)%pts(kf)
+      !
+      val = zero
+      do i = interp(left_geom,left_order)%toFace(face_order)%row_ptr(kl)+1, &
+             interp(left_geom,left_order)%toFace(face_order)%row_ptr(kl+1)
+        !
+        n = interp(left_geom,left_order)%toFace(face_order)%row_idx(i)
+        a = interp(left_geom,left_order)%toFace(face_order)%row_val(i)
+        !
+        val = val + a * jac(l0+n)
+        !
+      end do
+      fjac(f0+kf,1) = val
+      !
+      ! Interpolate the jacobian to the flux point for the right cell
+      !
+      kr = rc_offset + fp%geord(face_geom,face_order)%rot(rc_rot)%pts(kf)
+      !
+      val = zero
+      do i = interp(right_geom,right_order)%toFace(face_order)%row_ptr(kr)+1,&
+             interp(right_geom,right_order)%toFace(face_order)%row_ptr(kr+1)
+        !
+        n = interp(right_geom,right_order)%toFace(face_order)%row_idx(i)
+        a = interp(right_geom,right_order)%toFace(face_order)%row_val(i)
+        !
+        val = val + a * jac(r0+n)
+        !
+      end do
+      fjac(f0+kf,2) = val
+      !
+    end do
+    !
+  end do
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP END DO
+  !$OMP END PARALLEL
+#endif
+#endif
+#ifdef TIME_METRIC_PROCEDURES
+  call debug_timer(stop_timer,"Computing interior face jacobians")
+#endif
+  !
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_face_jacobians
 !
 !###############################################################################
 !
@@ -1767,6 +3090,423 @@ continue
   1 format ("metrics_dt(",i0,")%",a)
   !
 end subroutine create_cell_metrics
+!
+!###############################################################################
+!
+subroutine compute_cell_metrics_3d(met,jcb,wjac)
+  !
+  !.. Use Statements ..
+  use geovar,          only : ncell,cell,xyz
+  use quadrature_mod,  only : std_elem
+  use derivatives_mod, only : deriv
+  !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  use omp_lib, only : omp_get_thread_num
+  use omp_lib, only : omp_get_num_threads
+#endif
+#endif
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: met(:,:,:)
+  real(wp), intent(inout) :: jcb(:)
+  real(wp), intent(inout) :: wjac(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0,tid
+  integer  :: this_geom,this_order
+  real(wp) :: a,jacob
+  real(wp) :: dxdi,dydi,dzdi
+  real(wp) :: dxdj,dydj,dzdj
+  real(wp) :: dxdk,dydk,dzdk
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_cell_metrics_3d"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP PARALLEL &
+  !$OMP&         DEFAULT(SHARED) &
+  !$OMP&         PRIVATE(nc,n0,np,this_geom,this_order,k,i,n,a,jacob,tid, &
+  !$OMP&                 dxdi,dydi,dzdi,dxdj,dydj,dzdj,dxdk,dydk,dzdk) &
+  !$OMP&         NUM_THREADS(28)
+  !
+  tid = omp_get_thread_num()
+  if (tid == glb_root) then
+    write (iout,"(a,i0)") "number of threads = ",omp_get_num_threads()
+  end if
+  !
+  !$OMP DO SCHEDULE(GUIDED)
+#endif
+#endif
+  metrics_loop: do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    ! Compute the metrics and jacobian for this cell
+    !
+    do k = 1,np
+      !
+      ! Xi/I derivatives
+      !
+      dxdi = zero
+      dydi = zero
+      dzdi = zero
+      !
+      do i = deriv(this_geom,this_order)%d(1)%row_ptr(k)+1, &
+             deriv(this_geom,this_order)%d(1)%row_ptr(k+1)
+        !
+        n = deriv(this_geom,this_order)%d(1)%row_idx(i)
+        a = deriv(this_geom,this_order)%d(1)%row_val(i)
+        !
+        dxdi = dxdi + a * xyz(1,n0+n)
+        dydi = dydi + a * xyz(2,n0+n)
+        dzdi = dzdi + a * xyz(3,n0+n)
+        !
+      end do
+      !
+      ! Eta/J derivatives
+      !
+      dxdj = zero
+      dydj = zero
+      dzdj = zero
+      !
+      do i = deriv(this_geom,this_order)%d(2)%row_ptr(k)+1, &
+             deriv(this_geom,this_order)%d(2)%row_ptr(k+1)
+        !
+        n = deriv(this_geom,this_order)%d(2)%row_idx(i)
+        a = deriv(this_geom,this_order)%d(2)%row_val(i)
+        !
+        dxdj = dxdj + a * xyz(1,n0+n)
+        dydj = dydj + a * xyz(2,n0+n)
+        dzdj = dzdj + a * xyz(3,n0+n)
+        !
+      end do
+      !
+      ! Zeta/K derivatives
+      !
+      dxdk = zero
+      dydk = zero
+      dzdk = zero
+      !
+      do i = deriv(this_geom,this_order)%d(3)%row_ptr(k)+1, &
+             deriv(this_geom,this_order)%d(3)%row_ptr(k+1)
+        !
+        n = deriv(this_geom,this_order)%d(3)%row_idx(i)
+        a = deriv(this_geom,this_order)%d(3)%row_val(i)
+        !
+        dxdk = dxdk + a * xyz(1,n0+n)
+        dydk = dydk + a * xyz(2,n0+n)
+        dzdk = dzdk + a * xyz(3,n0+n)
+        !
+      end do
+      !
+      jacob = dxdk*(dydi*dzdj - dydj*dzdi) + &
+              dydk*(dxdj*dzdi - dxdi*dzdj) + &
+              dzdk*(dxdi*dydj - dxdj*dydi)
+      !
+      met(n0+k,1,1) = ( dydj*dzdk - dydk*dzdj ) / jacob
+      met(n0+k,2,1) = ( dydk*dzdi - dydi*dzdk ) / jacob
+      met(n0+k,3,1) = ( dydi*dzdj - dydj*dzdi ) / jacob
+      !
+      met(n0+k,1,2) = ( dxdk*dzdj - dxdj*dzdk ) / jacob
+      met(n0+k,2,2) = ( dxdi*dzdk - dxdk*dzdi ) / jacob
+      met(n0+k,3,2) = ( dxdj*dzdi - dxdi*dzdj ) / jacob
+      !
+      met(n0+k,1,3) = ( dxdj*dydk - dxdk*dydj ) / jacob
+      met(n0+k,2,3) = ( dxdk*dydi - dxdi*dydk ) / jacob
+      met(n0+k,3,3) = ( dxdi*dydj - dxdj*dydi ) / jacob
+      !
+      jcb(n0+k) = jacob
+      !
+      wjac(n0+k) = jacob * std_elem(this_geom,this_order)%wts(k)
+      !
+    end do
+    !
+  end do metrics_loop
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP END DO
+  !$OMP END PARALLEL
+#endif
+#endif
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_cell_metrics_3d
+!
+!###############################################################################
+!
+subroutine compute_cell_metrics_2d(met,jcb,wjac)
+  !
+  !.. Use Statements ..
+  use geovar,          only : ncell,cell,xyz
+  use quadrature_mod,  only : std_elem
+  use derivatives_mod, only : deriv
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: met(:,:,:)
+  real(wp), intent(inout) :: jcb(:)
+  real(wp), intent(inout) :: wjac(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,jacob
+  real(wp) :: dxdi,dydi
+  real(wp) :: dxdj,dydj
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_cell_metrics_2d"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  metrics_loop: do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    ! Compute the metrics and jacobian for this cell
+    !
+    do k = 1,np
+      !
+      ! Xi/I derivatives
+      !
+      dxdi = zero
+      dydi = zero
+      !
+      do i = deriv(this_geom,this_order)%d(1)%row_ptr(k)+1, &
+             deriv(this_geom,this_order)%d(1)%row_ptr(k+1)
+        !
+        n = deriv(this_geom,this_order)%d(1)%row_idx(i)
+        a = deriv(this_geom,this_order)%d(1)%row_val(i)
+        !
+        dxdi = dxdi + a * xyz(1,n0+n)
+        dydi = dydi + a * xyz(2,n0+n)
+        !
+      end do
+      !
+      ! Eta/J derivatives
+      !
+      dxdj = zero
+      dydj = zero
+      !
+      do i = deriv(this_geom,this_order)%d(2)%row_ptr(k)+1, &
+             deriv(this_geom,this_order)%d(2)%row_ptr(k+1)
+        !
+        n = deriv(this_geom,this_order)%d(2)%row_idx(i)
+        a = deriv(this_geom,this_order)%d(2)%row_val(i)
+        !
+        dxdj = dxdj + a * xyz(1,n0+n)
+        dydj = dydj + a * xyz(2,n0+n)
+        !
+      end do
+      !
+      jacob = dxdi*dydj - dxdj*dydi
+      !
+      met(n0+k,1,1) =  dydj / jacob
+      met(n0+k,2,1) = -dydi / jacob
+      !
+      met(n0+k,1,2) = -dxdj / jacob
+      met(n0+k,2,2) =  dxdi / jacob
+      !
+      jcb(n0+k) = jacob
+      !
+      wjac(n0+k) = jacob * std_elem(this_geom,this_order)%wts(k)
+      !
+    end do
+    !
+  end do metrics_loop
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_cell_metrics_2d
+!
+!###############################################################################
+!
+subroutine compute_cell_metrics_1d(met,jcb,wjac)
+  !
+  !.. Use Statements ..
+  use geovar,          only : ncell,cell,xyz
+  use quadrature_mod,  only : std_elem
+  use derivatives_mod, only : deriv
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: met(:,:,:)
+  real(wp), intent(inout) :: jcb(:)
+  real(wp), intent(inout) :: wjac(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,dxdi
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_cell_metrics_1d"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  metrics_loop: do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    ! Compute the metrics and jacobian for this cell
+    !
+    do k = 1,np
+      !
+      ! Xi/I derivatives
+      !
+      dxdi = zero
+      !
+      do i = deriv(this_geom,this_order)%d(1)%row_ptr(k)+1, &
+             deriv(this_geom,this_order)%d(1)%row_ptr(k+1)
+        !
+        n = deriv(this_geom,this_order)%d(1)%row_idx(i)
+        a = deriv(this_geom,this_order)%d(1)%row_val(i)
+        !
+        dxdi = dxdi + a * xyz(1,n0+n)
+        !
+      end do
+      !
+      met(n0+k,1,1) = one / dxdi
+      !
+      jcb(n0+k) = dxdi
+      !
+      wjac(n0+k) = dxdi * std_elem(this_geom,this_order)%wts(k)
+      !
+    end do
+    !
+  end do metrics_loop
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_cell_metrics_1d
+!
+!###############################################################################
+!
+subroutine compute_volume_statistics(min_ncv,max_ncv,vol_min,vol_max, &
+                                     min_jcl,max_jcl,min_jsp,max_jsp, &
+                                     jac_min,jac_max,jcb,wjac)
+  !
+  !.. Use Statements ..
+  use geovar, only : ncell,cell
+  use ovar,   only : local_volume,total_volume
+  !
+  !.. Formal Arguments ..
+  integer,  intent(inout) :: min_ncv,max_ncv
+  integer,  intent(inout) :: min_jcl,max_jcl
+  integer,  intent(inout) :: min_jsp,max_jsp
+  real(wp), intent(inout) :: vol_min,vol_max
+  real(wp), intent(inout) :: jac_min,jac_max
+  real(wp),    intent(in) :: jcb(:)
+  real(wp),    intent(in) :: wjac(:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nc,n1,n2
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: vol(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_volume_statistics"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  !
+  ! Compute the volume of each cell
+  !
+  vol = init_array(ncell,zero) ! F2003 AUTO-REALLOC
+  !
+  do nc = 1,ncell
+    !
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
+    !
+    vol(nc) = sum( wjac(n1:n2) )
+    !
+  end do
+  !
+  ! Compute the total volume of the local partition
+  !
+  local_volume = sum( vol(1:ncell) )
+  !
+  ! Get the location and value of the minimum and maximum cell volume
+  !
+  min_ncv = minloc( vol(1:ncell) , dim=1 )
+  max_ncv = maxloc( vol(1:ncell) , dim=1 )
+  !
+  vol_min = vol(min_ncv)
+  vol_max = vol(max_ncv)
+  !
+  ! Get the location and value of the minimum and maximum Jacobian
+  !
+  min_jcl = 1
+  max_jcl = 1
+  !
+  min_jsp = 1
+  max_jsp = 1
+  !
+  jac_min = huge(zero)
+  jac_max = -huge(zero)
+  !
+  do nc = 1,ncell
+    !
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
+    !
+    do n = n1,n2
+      !
+      if (jcb(n) < jac_min) then
+        jac_min = jcb(n)
+        min_jcl = nc
+        min_jsp = n-n1+1
+      end if
+      !
+      if (jcb(n) > jac_max) then
+        jac_max = jcb(n)
+        max_jcl = nc
+        max_jsp = n-n1+1
+      end if
+      !
+    end do
+    !
+  end do
+  !
+  ! Reduce the volumes of each partition to the root
+  ! processor to determine the volume of the global grid.
+  !
+  total_volume = local_volume
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,total_volume,1_int_mpi,mpi_flttyp, &
+                       MPI_SUM,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_volume_statistics
 !
 !###############################################################################
 !
