@@ -1327,8 +1327,15 @@ subroutine initialize_dusp_3d()
   use derivatives_mod, only : deriv
   use flowvar,         only : usp,dusp
   !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  use omp_lib, only : omp_get_thread_num
+  use omp_lib, only : omp_get_num_threads
+#endif
+#endif
+  !
   !.. Local Scalars ..
-  integer  :: i,j,n,nc,n0,np
+  integer  :: i,j,n,nc,n0,np,tid
   integer  :: this_geom,this_order
   real(wp) :: a
   real(wp) :: decdi,dmxdi,dmydi,dmzdi,deedi,didx,didy,didz
@@ -1343,6 +1350,25 @@ continue
   ! Loop over the cells and get the derivative of
   ! the primitive variables at each solution point
   !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP PARALLEL &
+  !$OMP&         DEFAULT(SHARED) &
+  !$OMP&         PRIVATE(tid,nc,n0,np,this_geom,this_order,n,i,j,a, &
+  !$OMP&                 decdi,dmxdi,dmydi,dmzdi,deedi, &
+  !$OMP&                 decdj,dmxdj,dmydj,dmzdj,deedj, &
+  !$OMP&                 decdk,dmxdk,dmydk,dmzdk,deedk, &
+  !$OMP&                 didx,djdx,dkdx,didy,djdy,dkdy,didz,djdz,dkdz) &
+  !$OMP&         NUM_THREADS(28)
+  !
+  tid = omp_get_thread_num()
+  if (tid == glb_root) then
+    write (iout,"(a,i0)") "number of threads = ",omp_get_num_threads()
+  end if
+  !
+  !$OMP DO SCHEDULE(GUIDED)
+#endif
+#endif
   do nc = 1,ncell
     !
     n0 = cell(nc)%beg_sp-1  ! beginning index for solpts in cell nc
@@ -1450,6 +1476,12 @@ continue
     end do
     !
   end do
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP END DO
+  !$OMP END PARALLEL
+#endif
+#endif
   !
 end subroutine initialize_dusp_3d
 !
@@ -1744,9 +1776,16 @@ subroutine get_face_and_edge_point_coordinates
   use flowvar,           only : facexyz_array
   use interpolation_mod, only : interp
   !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  use omp_lib, only : omp_get_thread_num
+  use omp_lib, only : omp_get_num_threads
+#endif
+#endif
+  !
   !.. Local Scalars ..
   integer  :: n,nc,ne,nf,np,n1,n2,f0
-  integer  :: i,j,k,kf,l,lf,ierr
+  integer  :: i,j,k,kf,l,lf,ierr,tid
   integer  :: this_geom,this_order
   integer  :: face_geom,face_order
   integer  :: edge_order
@@ -1770,6 +1809,22 @@ continue
   !
   if (allocated(facexyz_dt)) then
     !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+    !$OMP PARALLEL &
+    !$OMP&         DEFAULT(SHARED) &
+    !$OMP&         PRIVATE(tid,nf,face_geom,face_order,f0,nc,n1,n2,np, &
+    !$OMP&                 this_geom,this_order,k,l,txyz,kf,lf,val,i,j,a) &
+    !$OMP&         NUM_THREADS(28)
+    !
+    tid = omp_get_thread_num()
+    if (tid == glb_root) then
+      write (iout,"(a,i0)") "number of threads = ",omp_get_num_threads()
+    end if
+    !
+    !$OMP DO SCHEDULE(GUIDED)
+#endif
+#endif
     do nf = 1,size(facexyz_dt)
       !
       face_geom = face(nf)%geom
@@ -1820,6 +1875,12 @@ continue
       end do
       !
     end do
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+    !$OMP END DO
+    !$OMP END PARALLEL
+#endif
+#endif
     !
     !$ACC UPDATE DEVICE(facexyz_array)
     !
