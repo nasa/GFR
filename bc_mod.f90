@@ -7,7 +7,7 @@ module module_bc
   ! to the evaluating the boundary conditions for the flow.
   !
   !.. Use Statements ..
-  use module_kind_types, global_debug_timer => debug_timer
+  use module_kind_types
   !
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   use eqn_idx, only : ncs
@@ -685,10 +685,6 @@ continue
                    20(10x,"pv(",i2,") = ",es14.6,:,/))
   !
 end subroutine output_to_debug_bc_groups
-!
-!###############################################################################
-!
-#include "Functions/debug_timer.f90"
 !
 !###############################################################################
 !

@@ -73,7 +73,6 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/bc_sub_in_mod.o \
            $(OBJDIR)/bc_sub_out_mod.o \
            $(OBJDIR)/bc_sup_out_mod.o \
-           $(FUNDIR)/debug_timer.f90 \
                      mpi_defs.h
 
 $(OBJDIR)/bnd_profiles_mod.o : bnd_profiles_mod.f90 \
