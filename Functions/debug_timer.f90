@@ -1,4 +1,4 @@
-subroutine debug_timer(time_flag,message,processor,part_num,acc,pid)
+subroutine debug_timer(time_flag,message,processor,part_num,acc,pid,return_time)
   !
   !.. Formal Arguments ..
   integer,          intent(in) :: time_flag
@@ -6,10 +6,11 @@ subroutine debug_timer(time_flag,message,processor,part_num,acc,pid)
   character(len=*), intent(in) :: message
   !
   !.. Optional Arguments ..
-  integer, optional, intent(in) :: processor
-  integer, optional, intent(in) :: part_num
-  integer, optional, intent(in) :: acc
-  integer, optional, intent(in) :: pid
+  integer,  optional, intent(in) :: processor
+  integer,  optional, intent(in) :: part_num
+  integer,  optional, intent(in) :: acc
+  integer,  optional, intent(in) :: pid
+  real(wp), optional, intent(out) :: return_time
   !
 #ifdef PROFILE_ON
   !.. Local Scalars ..
@@ -17,6 +18,7 @@ subroutine debug_timer(time_flag,message,processor,part_num,acc,pid)
   real(wp)       :: end_wall_time
   real(wp)       :: wall_time
   real(wp)       :: temp_time
+  real(wp)       :: report_time
   !
   integer, save :: procedure_counter = 0
   integer       :: i,output_cpu,output_id
@@ -33,6 +35,7 @@ subroutine debug_timer(time_flag,message,processor,part_num,acc,pid)
   !
 continue
   !
+  report_time = zero
   output_cpu = glb_root
  !output_cpu = mypnum
   if (present(processor)) output_cpu = processor
@@ -73,6 +76,8 @@ continue
       write (iout,2) leading_space(1:i),wall_time,trim(adjustl(out_message))
     end if
     !
+    report_time = wall_time
+    !
     ! Reset beg_wall_time in case this procedure is called twice
     ! in a row with time_flag set to stop_timer
     !
@@ -98,6 +103,7 @@ continue
       write (iout,2) leading_space(1:i),accumulated_time(acc), &
                      trim(adjustl(out_message))
     end if
+    report_time = accumulated_time(acc)
     !
   else if (time_flag == start_accumulation) then
     !
@@ -114,6 +120,8 @@ continue
       wall_time = temp_time - accumulation_beg_time(acc)
       !
       accumulated_time(acc) = accumulated_time(acc) + wall_time
+      !
+      report_time = wall_time
       !
     end if
     !
@@ -143,6 +151,12 @@ continue
       write (iout,4) leading_space(1:i),trim(adjustl(message)),wall_time
     end if
     !
+    report_time = wall_time
+    !
+  end if
+  !
+  if (present(return_time)) then
+    return_time = report_time
   end if
   !
   flush (iout)
