@@ -1,7 +1,7 @@
 module flowvar
   !
   use module_kind_types, only : wp,lk
-  use module_kind_types, only : zero,iout
+  use module_kind_types, only : zero,ten2,iout
   use module_kind_types, only : true,fals
   use module_kind_types, only : debug_timer
   use module_kind_types, only : entering_procedure
@@ -14,6 +14,12 @@ module flowvar
   use module_kind_types, only : error_message
   use module_kind_types, only : Geom_Edge
   use module_kind_types, only : bc_sem
+  use module_kind_types, only : start_timer
+  use module_kind_types, only : stop_timer
+  use module_kind_types, only : mypnum
+  use module_kind_types, only : glb_root
+  use module_kind_types, only : stop_gfr
+  use module_kind_types, only : stop_mpi
   !
   implicit none
   !
@@ -266,9 +272,13 @@ subroutine allocate_flowvar_arrays()
   use ovar,      only : bc_in
   !
   !.. Local Scalars ..
-  integer :: n,ne,nf,nn,nepts,nfp,nfpts
+  integer :: i,iwt,l,m,n,ne,nf,nn,nepts,nfp,nfpts
   integer :: face_geom,face_order,ierr
   character(len=200) :: array_name
+  !
+  !.. Local Arrays ..
+  real(wp)           :: wall_time(1:50)
+  character(len=100) :: message(1:50)
   !
   !.. Local Constants ..
   character(len=*), parameter :: pname = "allocate_flowvar_arrays"
@@ -277,6 +287,12 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  iwt = 0
+  wall_time(:) = zero
+  message(:) = ""
+  !
+  iwt = iwt + 1 ; message(iwt) = "Allocating usp, dusp, and gpsp"
+call debug_timer(start_timer,message(iwt))
   if (.not. allocated(usp)) then
     allocate ( usp(1:n_solpts,1:nq) , source=zero , &
                stat=ierr , errmsg=error_message )
@@ -294,6 +310,7 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"gpsp",1,__LINE__,__FILE__,ierr,error_message)
   !$ACC UPDATE DEVICE(gpsp)
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   !
   ! If we are only time averaging restart files, we dont need any of
   ! these other arrays so return out of here
@@ -301,14 +318,19 @@ continue
   if (time_average_restart_files) return
   !
   if (any(bc_in(:)%bc_type == bc_sem)) then
+  iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_dt for SEM"
+call debug_timer(start_timer,message(iwt))
     if (.not. allocated(facexyz_dt)) then
       allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
     end if
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   end if
   !
   if (ncs > 0) then
+  iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_dt for ncs > 0"
+call debug_timer(start_timer,message(iwt))
     if (allocated(facexyz_dt)) then
       if (size(facexyz_dt) < nface) then
         deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
@@ -321,6 +343,7 @@ continue
       call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
     end if
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   end if
   !
   !
@@ -328,6 +351,8 @@ continue
   ! then only need facexyz_dt before returning out of here.
   !
   if ( if_interpto_newgrid() ) then
+  iwt = iwt + 1 ; message(iwt) = "Allocating arrays for interpolation utility"
+call debug_timer(start_timer,message(iwt))
     !
     ! Deallocate dusp because we do not need it when interpolating the
     ! solution to a new grid and it takes up too much memory.
@@ -363,11 +388,14 @@ continue
     call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__, &
                      ierr,error_message)
     !
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
     return
     !
   end if
   !
   !
+  iwt = iwt + 1 ; message(iwt) = "Allocating residual, dtsp, uoldsp, and gpoldsp"
+call debug_timer(start_timer,message(iwt))
   allocate ( residual(1:n_solpts,1:nq) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"residual",1,__LINE__,__FILE__,ierr,error_message)
@@ -390,9 +418,12 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"gpoldsp",1,__LINE__,__FILE__,ierr,error_message)
   !$ACC UPDATE DEVICE(gpoldsp)
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   !
   !
   if (convert_restart_to_cgns) then
+  iwt = iwt + 1 ; message(iwt) = "Allocating faceusp_array for convert_restart_to_cgns"
+call debug_timer(start_timer,message(iwt))
     !
     nfpts = face(nface)%end_fp ! end fp index for last face
     !
@@ -408,6 +439,7 @@ continue
    !                 ierr,error_message)
    !!$ACC UPDATE DEVICE(facedusp_array)
     !
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   end if
   !
   ! Allocate the outer part of the face solution/flux arrays
@@ -422,6 +454,8 @@ continue
       ! If using continuous output, facexyz_dt needs to be defined
       ! for both interior and boundary faces
       !
+  iwt = iwt + 1 ; message(iwt) = "Allocating face{xyz,usp,gpsp,dusp}_dt for continuous output"
+call debug_timer(start_timer,message(iwt))
       if (allocated(facexyz_dt)) then
         if (size(facexyz_dt) < nface) then
           deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
@@ -452,17 +486,21 @@ continue
         call alloc_error(pname,"facedusp_dt",1,__LINE__,__FILE__, &
                          ierr,error_message)
       end if
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
       !
     else if (mms_opt /= 0) then
       !
       ! If using MMS but not using continuous output, facexyz_dt only needs
       ! to be defined for the boundary faces
       !
+  iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_dt for MMS"
+call debug_timer(start_timer,message(iwt))
       if (.not. allocated(facexyz_dt)) then
         allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
         call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
                          ierr,error_message)
       end if
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
       !
     end if
     !
@@ -477,18 +515,29 @@ continue
     !##########################################################################
     !
     if (allocated(faceusp_dt)) then
+  iwt = iwt + 1 ; message(iwt) = "Allocating faceusp_dt components"
+call debug_timer(start_timer,message(iwt))
       call alloc_face_dt_components(faceusp_dt,nfpts,"faceusp_dt")
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
     end if
     !
     if (allocated(facegpsp_dt)) then
+  iwt = iwt + 1 ; message(iwt) = "Allocating facegpsp_dt components"
+call debug_timer(start_timer,message(iwt))
       call alloc_face_dt_components(facegpsp_dt,nfpts,"facegpsp_dt",num_var=ng)
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
     end if
     !
     if (allocated(facedusp_dt)) then
+  iwt = iwt + 1 ; message(iwt) = "Allocating facedusp_dt components"
+call debug_timer(start_timer,message(iwt))
       call alloc_face_dt_components(facedusp_dt,nfpts,"facedusp_dt")
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
     end if
     !
     !
+  iwt = iwt + 1 ; message(iwt) = "Allocating faceflx and face{usp,gpsp,dusp}_array"
+call debug_timer(start_timer,message(iwt))
     nfpts = face(nface)%end_fp ! end fp index for last face
     !
     allocate ( faceflx(1:nfpts,1:nq) , source=zero , &
@@ -520,16 +569,23 @@ continue
                        ierr,error_message)
       !$ACC UPDATE DEVICE(facegpsp)
     end if
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
     !
     !
     if (allocated(facexyz_dt)) then
       !
+  iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_dt components"
+call debug_timer(start_timer,message(iwt))
       call alloc_face_dt_components(facexyz_dt,nfpts,"facexyz_dt")
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
       !
+  iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_array"
+call debug_timer(start_timer,message(iwt))
       allocate ( facexyz_array(1:nr,1:nfpts) , source=zero , &
                  stat=ierr , errmsg=error_message )
       call alloc_error(pname,"facexyz_array",1,__LINE__,__FILE__, &
                        ierr,error_message)
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
       !
       !$ACC UPDATE DEVICE(facexyz_array)
       !
@@ -550,59 +606,80 @@ continue
       !
       ! Allocate the nodeusp_dt array and its data components
       !
+  iwt = iwt + 1 ; message(iwt) = "Allocating nodeusp_dt and its components"
+call debug_timer(start_timer,message(iwt))
       allocate ( nodeusp_dt(1:nnode) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"nodeusp_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
       !
       call alloc_ne_dt_components(nodeusp_dt,"nodeusp_dt")
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
       !
       ! Allocate the nodegpsp_dt array and its data components
       !
+  iwt = iwt + 1 ; message(iwt) = "Allocating nodegpsp_dt and its components"
+call debug_timer(start_timer,message(iwt))
       allocate ( nodegpsp_dt(1:nnode) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"nodegpsp_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
       !
       call alloc_ne_dt_components(nodegpsp_dt,"nodegpsp_dt",num_var=ng)
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
       !
       ! Allocate the nodedusp_dt array and its data components
       !
+  iwt = iwt + 1 ; message(iwt) = "Allocating nodedusp_dt and its components"
+call debug_timer(start_timer,message(iwt))
       allocate ( nodedusp_dt(1:nnode) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"nodedusp_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
       !
       call alloc_ne_dt_components(nodedusp_dt,"nodedusp_dt")
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
       !
       ! Allocate the edgeusp_dt array and its data components
       !
+  iwt = iwt + 1 ; message(iwt) = "Allocating edgeusp_dt and its components"
+call debug_timer(start_timer,message(iwt))
       allocate ( edgeusp_dt(1:nedge) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"edgeusp_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
       !
       call alloc_ne_dt_components(edgeusp_dt,nepts,"edgeusp_dt")
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
       !
       ! Allocate the edgegpsp_dt array and its data components
       !
+  iwt = iwt + 1 ; message(iwt) = "Allocating edgegpsp_dt and its components"
+call debug_timer(start_timer,message(iwt))
       allocate ( edgegpsp_dt(1:nedge) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"edgegpsp_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
       !
       call alloc_ne_dt_components(edgegpsp_dt,nepts,"edgegpsp_dt",num_var=ng)
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
       !
       ! Allocate the edgedusp_dt array and its data components
       !
+  iwt = iwt + 1 ; message(iwt) = "Allocating edgedusp_dt and its components"
+call debug_timer(start_timer,message(iwt))
       allocate ( edgedusp_dt(1:nedge) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"edgedusp_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
       !
       call alloc_ne_dt_components(edgedusp_dt,nepts,"edgedusp_dt")
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
       !
       ! Allocate the edgexyz_dt array and its data components
       !
+  iwt = iwt + 1 ; message(iwt) = "Allocating edgexyz_dt and its components"
+call debug_timer(start_timer,message(iwt))
       allocate ( edgexyz_dt(1:nedge) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"edgexyz_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
       !
       call alloc_ne_dt_components(edgexyz_dt,nepts,"edgexyz_dt",num_var=nr)
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
       !
     end if
     !
@@ -610,6 +687,8 @@ continue
   !
   ! Allocate the storage for the Runge-Kutta methods
   !
+  iwt = iwt + 1 ; message(iwt) = "Allocating Runge Kutta arrays"
+call debug_timer(start_timer,message(iwt))
   if (Runge_Kutta_Scheme == Classic_RK) then
     allocate ( rssprk(1:n_solpts,1:nq,1:num_rk_stages) , source=zero , &
                stat=ierr , errmsg=error_message )
@@ -623,6 +702,11 @@ continue
     call alloc_error(pname,"rk_sum",1,__LINE__,__FILE__,ierr,error_message)
     !$ACC UPDATE DEVICE(rk_sum)
   end if
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+  !
+  if (mypnum == glb_root) then
+    call sort_and_output_wall_times(wall_time(1:iwt),message(1:iwt))
+  end if
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -631,6 +715,65 @@ continue
   1 format (a,"(",i0,")%v")
   !
 end subroutine allocate_flowvar_arrays
+!
+!###############################################################################
+!
+subroutine sort_and_output_wall_times(wall_time,message)
+  !
+  !.. Formal Arguments ..
+  real(wp),         intent(in) :: wall_time(:)
+  character(len=*), intent(in) :: message(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,n,nwt
+  real(wp) :: total_time
+  !
+  !.. Local Arrays ..
+  integer  :: sort_order(1:size(wall_time))
+  real(wp) :: temp_time(1:size(wall_time))
+  real(wp) :: percent_time(1:size(wall_time))
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "sort_and_output_wall_times"
+  !
+continue
+  !
+#ifdef PROFILE_ON
+  nwt = size(wall_time)
+  !
+  do n = 1,nwt
+    temp_time(n) = max(zero,wall_time(n))
+  end do
+  !
+  total_time = sum(temp_time(:))
+  !
+  do n = 1,nwt
+    !
+    i = minloc(temp_time,dim=1)
+    !
+    sort_order(n) = i
+    !
+    percent_time(i) = ten2 * temp_time(i) / total_time
+    !
+    temp_time(i) = huge(zero)
+    !
+  end do
+  !
+  write (iout,1)
+  do n = 1,nwt
+    i = sort_order(n)
+    write (iout,2) wall_time(i),percent_time(i),trim(adjustl(message(i)))
+  end do
+  write (iout,*)
+  flush (iout)
+#endif
+  !
+  ! Format Statements
+  !
+  1 format (/,10x,"Sorted allocation times from allocate_flowvar_arrays")
+  2 format (12x,f12.6," ( ",f5.2,"% ) seconds for ",a)
+  !
+end subroutine sort_and_output_wall_times
 !
 !###############################################################################
 !
@@ -677,9 +820,11 @@ continue
     !
     allocate ( array(nf)%v(1:nvar,1:nfp) , source=zero , &
                stat=ierr , errmsg=error_message )
+#ifndef DEBUG_ON
     write (array_name,1) trim(adjustl(aname)),nf
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
+#endif
     !
   end do
   !
@@ -735,9 +880,11 @@ continue
     !
     allocate ( array(nf)%v(1:nvar,1:nfp,1:2) , source=zero , &
                stat=ierr , errmsg=error_message )
+#ifndef DEBUG_ON
     write (array_name,1) trim(adjustl(aname)),nf
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
+#endif
     !
   end do
   !
@@ -793,9 +940,11 @@ continue
     !
     allocate ( array(nf)%v(1:nr,1:nvar,1:nfp,1:2) , source=zero , &
                stat=ierr , errmsg=error_message )
+#ifndef DEBUG_ON
     write (array_name,1) trim(adjustl(aname)),nf
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
+#endif
     !
   end do
   !
@@ -838,9 +987,11 @@ continue
     !
     allocate ( array(nn)%v(1:nvar) , source=zero , &
                stat=ierr , errmsg=error_message )
+#ifndef DEBUG_ON
     write (array_name,1) trim(adjustl(aname)),nn
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
+#endif
     !
   end do
   !
@@ -884,9 +1035,11 @@ continue
     !
     allocate ( array(nn)%v(1:nr,1:nvar) , source=zero , &
                stat=ierr , errmsg=error_message )
+#ifndef DEBUG_ON
     write (array_name,1) trim(adjustl(aname)),nn
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
+#endif
     !
   end do
   !
@@ -938,9 +1091,11 @@ continue
     !
     allocate ( array(ne)%v(1:nvar,1:nepts) , source=zero , &
                stat=ierr , errmsg=error_message )
+#ifndef DEBUG_ON
     write (array_name,1) trim(adjustl(aname)),ne
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
+#endif
     !
   end do
   !
@@ -993,9 +1148,11 @@ continue
     !
     allocate ( array(ne)%v(1:nr,1:nvar,1:nepts) , source=zero , &
                stat=ierr , errmsg=error_message )
+#ifndef DEBUG_ON
     write (array_name,1) trim(adjustl(aname)),ne
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
+#endif
     !
   end do
   !
