@@ -1057,6 +1057,8 @@ subroutine write_field_headers(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Create data nodes for the solution variables
   !
   n = 0
@@ -1355,6 +1357,8 @@ continue
       call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
     end if
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   !
   !
@@ -3642,6 +3646,8 @@ subroutine pp_update_gas_properties()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Count the total number of edge points
   !
   n_edgpts = 0
@@ -3828,6 +3834,8 @@ continue
     call alloc_error(pname,"gptmp",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine pp_update_gas_properties
 !
 !###############################################################################
@@ -3929,6 +3937,8 @@ subroutine copy_and_average_face_arrays_to_dt()
   character(len=*), parameter :: pname = "copy_and_average_face_arrays_to_dt"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Zero out the component arrays in the face derived types
   !
@@ -4061,6 +4071,8 @@ continue
     !
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine copy_and_average_face_arrays_to_dt
 !
 !###############################################################################
@@ -4089,6 +4101,8 @@ subroutine pp_interp_cv_to_flxpts()
   character(len=*), parameter :: pname = "pp_interp_cv_to_flxpts_nd"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
@@ -4151,6 +4165,8 @@ continue
     !
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine pp_interp_cv_to_flxpts
 !
 !###############################################################################
@@ -4178,6 +4194,8 @@ subroutine pp_interp_dusp_to_flxpts()
   character(len=*), parameter :: pname = "pp_interp_dusp_to_flxpts"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
@@ -4242,6 +4260,8 @@ continue
     end do
     !
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine pp_interp_dusp_to_flxpts
 !
