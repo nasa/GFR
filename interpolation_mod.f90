@@ -304,8 +304,8 @@ continue
   ! Use the last interpolation matrix that was created to interpolate
   ! the solution in the current cell to the input point
   !
-  do m = 1,size(usp,dim=1)
-    return_value(m) = dot( interp_mat(1:np) , usp(m,n1:n2) )
+  do m = 1,size(usp,dim=2)
+    return_value(m) = dot( interp_mat(1:np) , usp(n1:n2,m) )
   end do
   !
 end subroutine interp_cell_sol_to_xyz
