@@ -285,7 +285,15 @@ $(OBJDIR)/interpsol_mod.o : interpsol_mod.f90 \
 $(OBJDIR)/interpsolvar_mod.o : interpsolvar_mod.f90 \
                      $(OBJDIR)/kind_types.o \
                      $(OBJDIR)/geovar_mod.o \
-                     $(OBJDIR)/flowvar_mod.o
+                     $(OBJDIR)/flowvar_mod.o \
+                     $(OBJDIR)/typesgen_mod.o \
+                     $(OBJDIR)/quadrature_mod.o \
+                     $(OBJDIR)/vandermonde_mod.o \
+                     $(OBJDIR)/derivatives_mod.o \
+                     $(OBJDIR)/correction_mod.o \
+                     $(OBJDIR)/interpolation_mod.o \
+                     $(OBJDIR)/projection_mod.o \
+                     $(OBJDIR)/filter_mod.o
 
 $(OBJDIR)/invs_flux_mod.o : invs_flux_mod.f90 \
          $(OBJDIR)/kind_types.o \

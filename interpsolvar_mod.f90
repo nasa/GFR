@@ -8,10 +8,20 @@ module interpsolvar_mod
   use geovar,            only : geom_conn, conflict, fp_t
   use geovar,            only : cell_t, face_t, grid_t
   use geovar,            only : map_t
+  use geovar,            only : bc_grp_t
   use flowvar,           only : sol_nodes
  !use flowvar,           only : faceusp_array
  !use flowvar,           only : faceusp_dt
  !use flowvar,           only : face_xyz,face_var
+  !
+  use generic_types_mod, only : matrix_gpu_t
+  use quadrature_mod,    only : element_type
+  use vandermonde_mod,   only : vandermonde_matrix
+  use derivatives_mod,   only : derivative_matrices
+  use interpolation_mod, only : interpolation_matrix
+  use interpolation_mod, only : outerpolation_matrix
+  use projection_mod,    only : projection_matrix
+  use filter_mod,        only : filter_t
   !
   implicit none
   !
@@ -20,6 +30,14 @@ module interpsolvar_mod
   public :: sol_nodes
  !public :: faceusp_dt
  !public :: faceusp_array
+  !
+  ! Grid2 copies of variables from order_mod.
+  integer, public, save :: g2_n_order
+  integer, public, save :: g2_p_order
+  integer, public, save :: g2_q_order
+  integer, public, save :: g2_o_order
+  integer, public, save :: g2_e_order
+  integer, public, save :: g2_t_order
   !
   ! Grid2 copies of variables from geovar.
   integer,     public, save :: g2_n_solpts
@@ -72,9 +90,12 @@ module interpsolvar_mod
   !
   type(grid_t), public, save, allocatable :: g2_grid
   !
+  type(bc_grp_t), public, save, allocatable :: g2_bc_grps(:)
+  !
   ! Grid2 copies of variables from flowvar.
   real(wp), public, save, allocatable :: g2_sol_nodes(:,:)
   real(wp), public, save, allocatable :: g2_usp(:,:)
+  real(wp), public, save, allocatable :: g2_gpsp(:,:)
   real(wp), public, save, allocatable :: g2_dusp(:,:,:)
   !
  !type(face_xyz), public, save, allocatable :: g2_facexyz_dt(:)
@@ -89,4 +110,35 @@ module interpsolvar_mod
   ! Grid2 copies of variables from parallel.
   type(map_t), public, save, allocatable :: g2_cell_map(:)
   !
+  ! Grid2 copies of variables from quadrature_mod
+  type(element_type), public, save, allocatable :: g2_std_elem(:,:)
+  type(element_type), public, save, allocatable :: g2_face_elem(:,:)
+  !
+  ! Grid2 copies of variables from vandermonde_mod
+  type(vandermonde_matrix), public, save, allocatable :: g2_vand(:,:)
+  !
+  ! Grid2 copies of variables from derivatives_mod
+  type(derivative_matrices), public, save, allocatable :: g2_deriv(:,:)
+  !
+  ! Grid2 copies of variables from correction_mod
+  type(matrix_gpu_t), public, save, allocatable :: g2_correct(:,:)
+  !
+  ! Grid2 copies of variables from interpolation_mod
+  type(interpolation_matrix), public, save, allocatable :: g2_interp(:,:)
+  type(outerpolation_matrix), public, save, allocatable :: g2_outerp(:,:)
+  !
+  ! Grid2 copies of variables from projection_mod
+  type(projection_matrix), public, save, allocatable :: g2_projct(:,:)
+  !
+  ! Grid2 copies of variables from filter_mod
+  type(filter_t), public, save, allocatable :: g2_filter(:,:)
+  !
+  ! Grid2 copies of variables from metrics_mod
+  real(wp), public, save, allocatable :: g2_metrics_array(:,:,:)
+  real(wp), public, save, allocatable :: g2_jac(:)
+  real(wp), public, save, allocatable :: g2_wtdjac(:)
+  real(wp), public, save, allocatable :: g2_facenrm(:,:)
+  real(wp), public, save, allocatable :: g2_facejac(:,:)
+  !
 end module interpsolvar_mod
+!
