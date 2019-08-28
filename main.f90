@@ -305,6 +305,59 @@ continue
     call get_grid_connectivity(bface,cell_geom,cell_order,xyz_nodes, &
                                nodes_of_cell,nodes_of_cell_ptr)
     !
+    call memory_pause("getting grid connectivity", &
+                      "initializing vandermonde matrices")
+    call check_for_bad_number(__LINE__)
+    !
+    ! Compute the remaining quadrature information
+    ! (Vandermonde matrix, stiffness matrix, LIFT / correction function, etc.)
+    !
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    call init_vandermonde_matrices
+    call memory_pause("initializing vandermonde matrices", &
+                      "initializing derivative matrices")
+    call check_for_bad_number(__LINE__)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    call init_derivative_matrices
+    call memory_pause("initializing derivative matrices", &
+                      "initializing correction matrices")
+    call check_for_bad_number(__LINE__)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    call init_correction_matrices
+    call memory_pause("initializing correction matrices", &
+                      "initializing interpolation matrices")
+    call check_for_bad_number(__LINE__)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    call init_interpolation_matrices
+    call memory_pause("initializing interpolation matrices", &
+                      "initializing outerpolation matrices")
+    call check_for_bad_number(__LINE__)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    call init_outerpolation_matrices
+    call memory_pause("initializing outerpolation matrices", &
+                      "initializing projection matrices")
+    call check_for_bad_number(__LINE__)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    call init_projection_matrices
+    call memory_pause("initializing projection matrices", &
+                      "initializing filter matrices")
+    call check_for_bad_number(__LINE__)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    call init_filter_matrices
+    call memory_pause("initializing filter matrices", &
+                      "initializing boundary profile stuff")
+    call check_for_bad_number(__LINE__)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    call init_bnd_profile_structures
+    call memory_pause("initializing boundary profile stuff", &
+                      "initializing metrics")
+    call check_for_bad_number(__LINE__)
+    !
+    ! Get the grid metrics
+    !
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    call get_metrics
+    !
     ! Special handling for interpolation mode (input_mode=1)
     !
     if (input_mode == 1) then
@@ -330,7 +383,7 @@ continue
         end if
         call mydebug(pname,__LINE__,__FILE__)
 !-DEBUG_END:
-        call memory_pause("getting grid connectivity", &
+        call memory_pause("initializing metrics", &
                           "rereading input and grid files")
         !
       else
@@ -340,60 +393,9 @@ continue
         exit preprocessing_loop
       end if
     end if
+    !
   end do preprocessing_loop
   !
-  call memory_pause("getting grid connectivity", &
-                    "initializing vandermonde matrices")
-  call check_for_bad_number(__LINE__)
-  !
-  ! Compute the remaining quadrature information
-  ! (Vandermonde matrix, stiffness matrix, LIFT / correction function, etc.)
-  !
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  call init_vandermonde_matrices
-  call memory_pause("initializing vandermonde matrices", &
-                    "initializing derivative matrices")
-  call check_for_bad_number(__LINE__)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  call init_derivative_matrices
-  call memory_pause("initializing derivative matrices", &
-                    "initializing correction matrices")
-  call check_for_bad_number(__LINE__)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  call init_correction_matrices
-  call memory_pause("initializing correction matrices", &
-                    "initializing interpolation matrices")
-  call check_for_bad_number(__LINE__)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  call init_interpolation_matrices
-  call memory_pause("initializing interpolation matrices", &
-                    "initializing outerpolation matrices")
-  call check_for_bad_number(__LINE__)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  call init_outerpolation_matrices
-  call memory_pause("initializing outerpolation matrices", &
-                    "initializing projection matrices")
-  call check_for_bad_number(__LINE__)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  call init_projection_matrices
-  call memory_pause("initializing projection matrices", &
-                    "initializing filter matrices")
-  call check_for_bad_number(__LINE__)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  call init_filter_matrices
-  call memory_pause("initializing filter matrices", &
-                    "initializing boundary profile stuff")
-  call check_for_bad_number(__LINE__)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  call init_bnd_profile_structures
-  call memory_pause("initializing boundary profile stuff", &
-                    "initializing metrics")
-  call check_for_bad_number(__LINE__)
-  !
-  ! Get the grid metrics
-  !
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  call get_metrics
   call memory_pause("initializing metrics","initializing solution")
   call check_for_bad_number(__LINE__)
   !
