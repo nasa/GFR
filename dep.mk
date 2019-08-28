@@ -255,6 +255,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
 
 $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(OBJDIR)/kind_types.o \
+                      $(OBJDIR)/eqn_idx_mod.o \
                       $(OBJDIR)/typesgen_mod.o \
                       $(OBJDIR)/geovar_mod.o \
                       $(OBJDIR)/ovar_mod.o \

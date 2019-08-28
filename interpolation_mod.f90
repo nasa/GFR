@@ -4,6 +4,7 @@ module interpolation_mod
   use module_kind_types
   use generic_types_mod, only : matrix => matrix_gpu_t
   use generic_types_mod, only : create_matrix_sparsity
+  use eqn_idx, only : nec,nmx,nmy,nmz,nee
   !
   implicit none
   !
@@ -89,6 +90,10 @@ module interpolation_mod
     integer :: idx1
     integer :: idx2
     integer :: idx3
+    real(wp), allocatable :: comp_a(:)
+    real(wp), allocatable :: comp_b(:)
+    real(wp), allocatable :: comp_c(:)
+    real(wp), allocatable :: comp_r(:)
   end type spanning_vectors_t
   !
   type(spanning_vectors_t), save, allocatable :: ref_vectors(:,:)
@@ -102,7 +107,7 @@ contains
 !
 !###############################################################################
 !
-subroutine interp_cell_sol_to_xyz(nc,xyz_pt,return_value)
+subroutine original_interp_cell_sol_to_xyz(nc,xyz_pt,return_value)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -133,7 +138,7 @@ subroutine interp_cell_sol_to_xyz(nc,xyz_pt,return_value)
   real(wp) :: interp_mat(1:maxSP)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "interp_cell_sol_to_xyz"
+  character(len=*), parameter :: pname = "original_interp_cell_sol_to_xyz"
   !
   integer,  parameter :: max_iterations = 50
  !real(wp), parameter :: error_goal = eps3
@@ -308,14 +313,598 @@ continue
     return_value(m) = dot( interp_mat(1:np) , usp(n1:n2,m) )
   end do
   !
+end subroutine original_interp_cell_sol_to_xyz
+!
+!###############################################################################
+!
+subroutine interp_cell_sol_to_xyz(nc,xyz_pt,return_value)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nc
+  real(wp),    intent(in) :: xyz_pt(:)
+  real(wp), intent(inout) :: return_value(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_cell_sol_to_xyz_3d"
+  !
+continue
+  !
+  if (nr == 3) then
+    call interp_cell_sol_to_xyz_3d(nc,xyz_pt,return_value)
+  else if (nr == 2) then
+    call interp_cell_sol_to_xyz_2d(nc,xyz_pt,return_value)
+  else
+    call stop_gfr(abort,pname,__LINE__,__FILE__,"nr /= [23]")
+  end if
+  !
 end subroutine interp_cell_sol_to_xyz
+!
+!###############################################################################
+!
+subroutine interp_cell_sol_to_xyz_3d(nc,xyz_pt,return_value)
+  !
+  !.. Use Statements ..
+  use order_mod,      only : maxSP
+  use order_mod,      only : n_min_geom,n_min_order
+  use order_mod,      only : n_max_geom,n_max_order
+  use geovar,         only : cell,xyz
+  use flowvar,        only : usp
+  use quadrature_mod, only : std_elem,solpts_edge
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nc
+  real(wp),    intent(in) :: xyz_pt(:)
+  real(wp), intent(inout) :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer  :: l,m,n,niter,n0,n1,n2,np,ierr
+  integer  :: idx0,idx1,idx2,idx3
+  integer  :: this_geom,this_order
+  real(wp) :: errmag,a
+  real(wp) :: x0,x1,x2,x3
+  real(wp) :: y0,y1,y2,y3
+  real(wp) :: z0,z1,z2,z3
+  real(wp) :: valx,valy,valz
+  real(wp) :: valsp1,valsp2,valsp3,valsp4,valsp5,valsp6
+  real(wp) :: valec,valmx,valmy,valmz,valee
+  real(wp) :: ax,ay,az,bx,by,bz,cx,cy,cz,rx,ry,rz
+  real(wp) :: m11,m12,m13,m21,m22,m23,m31,m32,m33
+  real(wp) :: det
+  !
+  !.. Local Arrays ..
+ !real(wp) :: xyz_cell(1:3,1:maxSP)
+  real(wp) :: phys_a(1:3),comp_a(1:3)
+  real(wp) :: phys_b(1:3),comp_b(1:3)
+  real(wp) :: phys_c(1:3),comp_c(1:3)
+  real(wp) :: phys_r(1:3),comp_r(1:3)
+  real(wp) :: del_abc(1:3)
+  real(wp) :: interp_mat(1:maxSP)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_cell_sol_to_xyz_3d"
+  !
+  integer,  parameter :: max_iterations = 50
+ !real(wp), parameter :: error_goal = eps3
+  real(wp), parameter :: error_goal = eps6
+  !
+continue
+  !
+  ! Information for the current cell
+  !
+  n0 = cell(nc)%beg_sp - 1
+  np = cell(nc)%end_sp - n0
+  !
+ !n1 = cell(nc)%beg_sp
+ !n2 = cell(nc)%end_sp
+ !np = n2-n1+1
+  !
+  this_geom = cell(nc)%geom
+  this_order = cell(nc)%order
+  !
+  if (.not. allocated(ref_vectors)) then
+    allocate ( ref_vectors(n_min_geom:n_max_geom,n_min_order:n_max_order) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ref_vectors",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Get the indices for the reference points for this combination of
+  ! geometry/solution-order if it hasnt been done yet
+  !
+  if (.not. ref_vectors(this_geom,this_order)%found) then
+    ref_vectors(this_geom,this_order) = find_ref_vectors(this_geom,this_order)
+  end if
+  !
+  ! Get the indices of the points to use in this cell to create the
+  ! reference vectors that will used to find the computational space
+  ! coordinates corresponding to the physical space coordinates xyz_pt
+  !
+  idx0 = 1
+  idx1 = ref_vectors(this_geom,this_order)%idx1
+  idx2 = ref_vectors(this_geom,this_order)%idx2
+  idx3 = ref_vectors(this_geom,this_order)%idx3
+  !
+  ! Create a local copy of the physical space coordinates
+  ! of the solution points for this cell
+  !
+ !xyz_cell(1:nr,1:maxSP) = xyz(1:nr,n1:n2)
+  x0 = xyz(1,idx0) ; y0 = xyz(2,idx0) ; z0 = xyz(3,idx0)
+  x1 = xyz(1,idx1) ; y1 = xyz(2,idx1) ; z1 = xyz(3,idx1)
+  x2 = xyz(1,idx2) ; y2 = xyz(2,idx2) ; z2 = xyz(3,idx2)
+  x3 = xyz(1,idx3) ; y3 = xyz(2,idx3) ; z3 = xyz(3,idx3)
+  !
+  ! Get the physical space vector for the first point 'a'
+  !
+ !phys_a(:) = xyz_cell(:,idx1) - xyz_cell(:,idx0)
+  phys_a(1) = x1 - x0
+  phys_a(2) = y1 - y0
+  phys_a(3) = z1 - z0
+  !
+  ! Get the computational space vector for the first point 'a'
+  !
+ !comp_a(:) = std_elem(this_geom,this_order)%pts(:,idx1) &
+ !          - std_elem(this_geom,this_order)%pts(:,idx0)
+  comp_a(1) = ref_vectors(this_geom,this_order)%comp_a(1)
+  comp_a(2) = ref_vectors(this_geom,this_order)%comp_a(2)
+  comp_a(3) = ref_vectors(this_geom,this_order)%comp_a(3)
+  !
+  ! Get the physical space vector for the second point 'b'
+  !
+ !phys_b(:) = xyz_cell(:,idx2) - xyz_cell(:,idx0)
+  phys_b(1) = x2 - x0
+  phys_b(2) = y2 - y0
+  phys_b(3) = z2 - z0
+  !
+  ! Get the computational space vector for the second point 'b'
+  !
+ !comp_b(:) = std_elem(this_geom,this_order)%pts(:,idx2) &
+ !          - std_elem(this_geom,this_order)%pts(:,idx0)
+  comp_b(1) = ref_vectors(this_geom,this_order)%comp_b(1)
+  comp_b(2) = ref_vectors(this_geom,this_order)%comp_b(2)
+  comp_b(3) = ref_vectors(this_geom,this_order)%comp_b(3)
+  !
+  ! If this is 3D, get the physical space vector for the third points 'c'
+  !
+ !phys_c(:) = xyz_cell(:,idx3) - xyz_cell(:,idx0)
+  phys_c(1) = x3 - x0
+  phys_c(2) = y3 - y0
+  phys_c(3) = z3 - z0
+  !
+  ! If this is 3D, get the computational space vector for the third point 'c'
+  !
+ !comp_c(:) = std_elem(this_geom,this_order)%pts(:,idx3) &
+ !          - std_elem(this_geom,this_order)%pts(:,idx0)
+  comp_c(1) = ref_vectors(this_geom,this_order)%comp_c(1)
+  comp_c(2) = ref_vectors(this_geom,this_order)%comp_c(2)
+  comp_c(3) = ref_vectors(this_geom,this_order)%comp_c(3)
+  !
+  ! Compute the physical space vector from the "origin" location
+  ! to the location to which we want to interpolate
+  !
+ !phys_r(:) = xyz_pt(:) - xyz_cell(:,idx0)
+  phys_r(1) = xyz_pt(1) - x0
+  phys_r(2) = xyz_pt(2) - y0
+  phys_r(3) = xyz_pt(3) - z0
+  !
+  ! Initialize the location of xyz_pt in computational space to the
+  ! "origin" location used to create the other computational space vectors
+  !
+ !comp_r(:) = std_elem(this_geom,this_order)%pts(:,idx0)
+  comp_r(1) = ref_vectors(this_geom,this_order)%comp_r(1)
+  comp_r(2) = ref_vectors(this_geom,this_order)%comp_r(2)
+  comp_r(3) = ref_vectors(this_geom,this_order)%comp_r(3)
+  !
+  del_abc(1) = zero
+  del_abc(2) = zero
+  del_abc(3) = zero
+  !
+  iter_loop: do niter = 1,max_iterations
+    !
+   !del_abc(:) = interpolate_vector_solve(phys_r,phys_a,phys_b,phys_c)
+    !
+    ax = phys_a(1) ; ay = phys_a(2) ; az = phys_a(3)
+    bx = phys_b(1) ; by = phys_b(2) ; bz = phys_b(3)
+    cx = phys_c(1) ; cy = phys_c(2) ; cz = phys_c(3)
+    rx = phys_r(1) ; ry = phys_r(2) ; rz = phys_r(3)
+    !
+    m11 = by*cz - bz*cy
+    m12 = bz*cx - bx*cz
+    m13 = bx*cy - by*cx
+    !
+    m21 = az*cy - ay*cz
+    m22 = ax*cz - az*cx
+    m23 = ay*cx - ax*cy
+    !
+    m31 = ay*bz - az*by
+    m32 = az*bx - ax*bz
+    m33 = ax*by - ay*bx
+    !
+    det = ax*m11 + ay*m12 + az*m13
+    !
+    if (abs(det) > eps6) then
+      !
+      del_abc(1) = rx*m11 + ry*m12 + rz*m13
+      del_abc(2) = rx*m21 + ry*m22 + rz*m23
+      del_abc(3) = rx*m31 + ry*m32 + rz*m33
+      !
+      del_abc(1) = del_abc(1) / det
+      del_abc(2) = del_abc(2) / det
+      del_abc(3) = del_abc(3) / det
+      !
+    end if
+    !
+    comp_r(1) = comp_r(1) + del_abc(1)*comp_a(1) &
+                          + del_abc(2)*comp_b(1) &
+                          + del_abc(3)*comp_c(1)
+    !
+    comp_r(2) = comp_r(2) + del_abc(1)*comp_a(2) &
+                          + del_abc(2)*comp_b(2) &
+                          + del_abc(3)*comp_c(2)
+    !
+    comp_r(3) = comp_r(3) + del_abc(1)*comp_a(3) &
+                          + del_abc(2)*comp_b(3) &
+                          + del_abc(3)*comp_c(3)
+    !
+    ! Create a new interpolation matrix for the
+    ! updated computational space coordinates in comp_r
+    !
+    select case (this_geom)
+      !
+      case (Geom_Edge)
+        !
+        interp_mat(1:np) = InterpToPoint_Edge(solpts_edge,comp_r)
+        !
+      case (Geom_Tria)
+        !
+        interp_mat(1:np) = &
+                   InterpToPoint_Tria(std_elem(this_geom,this_order)%pts,comp_r)
+        !
+      case (Geom_Quad)
+        !
+        interp_mat(1:np) = InterpToPoint_Quad(solpts_edge,comp_r)
+        !
+      case (Geom_Tetr)
+        !
+        interp_mat(1:np) = &
+                   InterpToPoint_Tetr(std_elem(this_geom,this_order)%pts,comp_r)
+        !
+      case (Geom_Pyra)
+        !
+        interp_mat(1:np) = &
+                   InterpToPoint_Pyra(std_elem(this_geom,this_order)%pts,comp_r)
+        !
+      case (Geom_Pris)
+        !
+        interp_mat(1:np) = &
+                   InterpToPoint_Pris(std_elem(this_geom,this_order)%pts,comp_r)
+        !
+      case (Geom_Hexa)
+        !
+        interp_mat(1:np) = InterpToPoint_Hexa(solpts_edge,comp_r)
+        !
+    end select
+    !
+    ! Find the physical space coordinates corresponding to the
+    ! updated computational space coordinates in comp_r using
+    ! this new interpolation matrix
+    !
+   !do l = 1,nr
+   !  phys_r(l) = xyz_pt(l) - dot( interp_mat(1:np) , xyz_cell(l,1:np) )
+   !end do
+    valx = zero
+    valy = zero
+    valz = zero
+    do n = 1,np
+      a = interp_mat(n)
+      valx = valx + a * xyz(1,n0+n)
+      valy = valy + a * xyz(2,n0+n)
+      valz = valz + a * xyz(3,n0+n)
+    end do
+    phys_r(1) = xyz_pt(1) - valx
+    phys_r(2) = xyz_pt(2) - valy
+    phys_r(3) = xyz_pt(3) - valz
+    !
+    ! Check to see if we have converged
+    !
+   !errmag = norm2( phys_r(1:nr) )
+    errmag = sqrt( phys_r(1)*phys_r(1) + &
+                   phys_r(2)*phys_r(2) + &
+                   phys_r(3)*phys_r(3) )
+    !
+    if (errmag < error_goal) then
+      exit iter_loop
+    end if
+    !
+  end do iter_loop
+  !
+  ! Use the last interpolation matrix that was created to interpolate
+  ! the solution in the current cell to the input point
+  !
+ !do m = 1,size(usp,dim=2)
+ !  return_value(m) = dot( interp_mat(1:np) , usp(n1:n2,m) )
+ !end do
+  valec  = zero
+  valmx  = zero
+  valmy  = zero
+  valmz  = zero
+  valee  = zero
+  do n = 1,np
+    a = interp_mat(n)
+    valec  = valec  + a * usp(n0+n,nec)
+    valmx  = valmx  + a * usp(n0+n,nmx)
+    valmy  = valmy  + a * usp(n0+n,nmy)
+    valmz  = valmz  + a * usp(n0+n,nmz)
+    valee  = valee  + a * usp(n0+n,nee)
+  end do
+  return_value(nec) = valec
+  return_value(nmx) = valmx
+  return_value(nmy) = valmy
+  return_value(nmz) = valmz
+  return_value(nee) = valee
+  !
+end subroutine interp_cell_sol_to_xyz_3d
+!
+!###############################################################################
+!
+subroutine interp_cell_sol_to_xyz_2d(nc,xyz_pt,return_value)
+  !
+  !.. Use Statements ..
+  use order_mod,      only : maxSP
+  use order_mod,      only : n_min_geom,n_min_order
+  use order_mod,      only : n_max_geom,n_max_order
+  use geovar,         only : cell,xyz
+  use flowvar,        only : usp
+  use quadrature_mod, only : std_elem,solpts_edge
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nc
+  real(wp),    intent(in) :: xyz_pt(:)
+  real(wp), intent(inout) :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer  :: l,m,n,niter,n0,n1,n2,np,ierr
+  integer  :: idx0,idx1,idx2
+  integer  :: this_geom,this_order
+  real(wp) :: errmag,a
+  real(wp) :: x0,x1,x2
+  real(wp) :: y0,y1,y2
+  real(wp) :: valx,valy
+  real(wp) :: valsp1,valsp2,valsp3,valsp4,valsp5,valsp6
+  real(wp) :: valec,valmx,valmy,valee
+  real(wp) :: ax,ay,bx,by,cx,cy,rx,ry
+  real(wp) :: m11,m12,m21,m22
+  real(wp) :: det
+  !
+  !.. Local Arrays ..
+ !real(wp) :: xyz_cell(1:3,1:maxSP)
+  real(wp) :: phys_a(1:2),comp_a(1:2)
+  real(wp) :: phys_b(1:2),comp_b(1:2)
+  real(wp) :: phys_r(1:2),comp_r(1:2)
+  real(wp) :: del_abc(1:2)
+  real(wp) :: interp_mat(1:maxSP)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_cell_sol_to_xyz_2d"
+  !
+  integer,  parameter :: max_iterations = 50
+ !real(wp), parameter :: error_goal = eps3
+  real(wp), parameter :: error_goal = eps6
+  !
+continue
+  !
+  ! Information for the current cell
+  !
+  n0 = cell(nc)%beg_sp - 1
+  np = cell(nc)%end_sp - n0
+  !
+ !n1 = cell(nc)%beg_sp
+ !n2 = cell(nc)%end_sp
+ !np = n2-n1+1
+  !
+  this_geom = cell(nc)%geom
+  this_order = cell(nc)%order
+  !
+  if (.not. allocated(ref_vectors)) then
+    allocate ( ref_vectors(n_min_geom:n_max_geom,n_min_order:n_max_order) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ref_vectors",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Get the indices for the reference points for this combination of
+  ! geometry/solution-order if it hasnt been done yet
+  !
+  if (.not. ref_vectors(this_geom,this_order)%found) then
+    ref_vectors(this_geom,this_order) = find_ref_vectors(this_geom,this_order)
+  end if
+  !
+  ! Get the indices of the points to use in this cell to create the
+  ! reference vectors that will used to find the computational space
+  ! coordinates corresponding to the physical space coordinates xyz_pt
+  !
+  idx0 = 1
+  idx1 = ref_vectors(this_geom,this_order)%idx1
+  idx2 = ref_vectors(this_geom,this_order)%idx2
+  !
+  ! Create a local copy of the physical space coordinates
+  ! of the solution points for this cell
+  !
+ !xyz_cell(1:nr,1:maxSP) = xyz(1:nr,n1:n2)
+  x0 = xyz(1,idx0) ; y0 = xyz(2,idx0)
+  x1 = xyz(1,idx1) ; y1 = xyz(2,idx1)
+  x2 = xyz(1,idx2) ; y2 = xyz(2,idx2)
+  !
+  ! Get the physical space vector for the first point 'a'
+  !
+ !phys_a(:) = xyz_cell(:,idx1) - xyz_cell(:,idx0)
+  phys_a(1) = x1 - x0
+  phys_a(2) = y1 - y0
+  !
+  ! Get the computational space vector for the first point 'a'
+  !
+ !comp_a(:) = std_elem(this_geom,this_order)%pts(:,idx1) &
+ !          - std_elem(this_geom,this_order)%pts(:,idx0)
+  comp_a(1) = ref_vectors(this_geom,this_order)%comp_a(1)
+  comp_a(2) = ref_vectors(this_geom,this_order)%comp_a(2)
+  !
+  ! Get the physical space vector for the second point 'b'
+  !
+ !phys_b(:) = xyz_cell(:,idx2) - xyz_cell(:,idx0)
+  phys_b(1) = x2 - x0
+  phys_b(2) = y2 - y0
+  !
+  ! Get the computational space vector for the second point 'b'
+  !
+ !comp_b(:) = std_elem(this_geom,this_order)%pts(:,idx2) &
+ !          - std_elem(this_geom,this_order)%pts(:,idx0)
+  comp_b(1) = ref_vectors(this_geom,this_order)%comp_b(1)
+  comp_b(2) = ref_vectors(this_geom,this_order)%comp_b(2)
+  !
+  ! Compute the physical space vector from the "origin" location
+  ! to the location to which we want to interpolate
+  !
+ !phys_r(:) = xyz_pt(:) - xyz_cell(:,idx0)
+  phys_r(1) = xyz_pt(1) - x0
+  phys_r(2) = xyz_pt(2) - y0
+  !
+  ! Initialize the location of xyz_pt in computational space to the
+  ! "origin" location used to create the other computational space vectors
+  !
+ !comp_r(:) = std_elem(this_geom,this_order)%pts(:,idx0)
+  comp_r(1) = ref_vectors(this_geom,this_order)%comp_r(1)
+  comp_r(2) = ref_vectors(this_geom,this_order)%comp_r(2)
+  !
+  del_abc(1) = zero
+  del_abc(2) = zero
+  !
+  iter_loop: do niter = 1,max_iterations
+    !
+   !del_abc(:) = interpolate_vector_solve(phys_r,phys_a,phys_b,phys_c)
+    !
+    ax = phys_a(1) ; ay = phys_a(2)
+    bx = phys_b(1) ; by = phys_b(2)
+    rx = phys_r(1) ; ry = phys_r(2)
+    !
+    m11 = -by
+    m12 =  bx
+    !
+    m21 =  ay
+    m22 = -ax
+    !
+    det = ax*m11 + ay*m12
+    !
+    if (abs(det) > eps6) then
+      !
+      del_abc(1) = rx*m11 + ry*m12
+      del_abc(2) = rx*m21 + ry*m22
+      !
+      del_abc(1) = del_abc(1) / det
+      del_abc(2) = del_abc(2) / det
+      !
+    end if
+    !
+    comp_r(1) = comp_r(1) + del_abc(1)*comp_a(1) + del_abc(2)*comp_b(1)
+    comp_r(2) = comp_r(2) + del_abc(1)*comp_a(2) + del_abc(2)*comp_b(2)
+    !
+    ! Create a new interpolation matrix for the
+    ! updated computational space coordinates in comp_r
+    !
+    select case (this_geom)
+      !
+      case (Geom_Edge)
+        !
+        interp_mat(1:np) = InterpToPoint_Edge(solpts_edge,comp_r)
+        !
+      case (Geom_Tria)
+        !
+        interp_mat(1:np) = &
+                   InterpToPoint_Tria(std_elem(this_geom,this_order)%pts,comp_r)
+        !
+      case (Geom_Quad)
+        !
+        interp_mat(1:np) = InterpToPoint_Quad(solpts_edge,comp_r)
+        !
+      case (Geom_Tetr)
+        !
+        interp_mat(1:np) = &
+                   InterpToPoint_Tetr(std_elem(this_geom,this_order)%pts,comp_r)
+        !
+      case (Geom_Pyra)
+        !
+        interp_mat(1:np) = &
+                   InterpToPoint_Pyra(std_elem(this_geom,this_order)%pts,comp_r)
+        !
+      case (Geom_Pris)
+        !
+        interp_mat(1:np) = &
+                   InterpToPoint_Pris(std_elem(this_geom,this_order)%pts,comp_r)
+        !
+      case (Geom_Hexa)
+        !
+        interp_mat(1:np) = InterpToPoint_Hexa(solpts_edge,comp_r)
+        !
+    end select
+    !
+    ! Find the physical space coordinates corresponding to the
+    ! updated computational space coordinates in comp_r using
+    ! this new interpolation matrix
+    !
+   !do l = 1,nr
+   !  phys_r(l) = xyz_pt(l) - dot( interp_mat(1:np) , xyz_cell(l,1:np) )
+   !end do
+    valx = zero
+    valy = zero
+    do n = 1,np
+      a = interp_mat(n)
+      valx = valx + a * xyz(1,n0+n)
+      valy = valy + a * xyz(2,n0+n)
+    end do
+    phys_r(1) = xyz_pt(1) - valx
+    phys_r(2) = xyz_pt(2) - valy
+    !
+    ! Check to see if we have converged
+    !
+   !errmag = norm2( phys_r(1:nr) )
+    errmag = sqrt( phys_r(1)*phys_r(1) + phys_r(2)*phys_r(2) )
+    !
+    if (errmag < error_goal) then
+      exit iter_loop
+    end if
+    !
+  end do iter_loop
+  !
+  ! Use the last interpolation matrix that was created to interpolate
+  ! the solution in the current cell to the input point
+  !
+ !do m = 1,size(usp,dim=2)
+ !  return_value(m) = dot( interp_mat(1:np) , usp(n1:n2,m) )
+ !end do
+  valec  = zero
+  valmx  = zero
+  valmy  = zero
+  valee  = zero
+  do n = 1,np
+    a = interp_mat(n)
+    valec  = valec  + a * usp(n0+n,nec)
+    valmx  = valmx  + a * usp(n0+n,nmx)
+    valmy  = valmy  + a * usp(n0+n,nmy)
+    valee  = valee  + a * usp(n0+n,nee)
+  end do
+  return_value(nec) = valec
+  return_value(nmx) = valmx
+  return_value(nmy) = valmy
+  return_value(nee) = valee
+  !
+end subroutine interp_cell_sol_to_xyz_2d
 !
 !###############################################################################
 !
 pure function find_ref_vectors(this_geom,this_order) result(return_value)
   !
   !.. Use Statements ..
-  use order_mod, only : geom_solpts
+  use order_mod,      only : geom_solpts
+  use quadrature_mod, only : std_elem
   !
   !.. Formal Arguments ..
   integer, intent(in) :: this_geom
@@ -325,13 +914,22 @@ pure function find_ref_vectors(this_geom,this_order) result(return_value)
   type(spanning_vectors_t) :: return_value
   !
   !.. Local Scalars ..
-  integer :: np_edge,np_tria,np_quad
+  integer :: np_edge,np_tria,np_quad,ndim
+  integer :: idx0,idx1,idx2,idx3
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: comp_a(:)
+  real(wp), allocatable :: comp_b(:)
+  real(wp), allocatable :: comp_c(:)
+  real(wp), allocatable :: comp_r(:)
   !
   !.. Local Parameters ..
  !logical(lk), parameter :: use_short_vectors = fals
   logical(lk), parameter :: use_short_vectors = true
   !
 continue
+  !
+  idx0 = 1
   !
   np_edge = geom_solpts(Geom_Edge,this_order)
   np_tria = geom_solpts(Geom_Tria,this_order)
@@ -343,45 +941,52 @@ continue
       !
       case (Geom_Tria)
         !
-        return_value%idx1 = 2
-        return_value%idx2 = np_edge+1
-        return_value%idx3 = 0
+        idx1 = 2
+        idx2 = np_edge+1
+        idx3 = 0
+        ndim = 2
         !
       case (Geom_Quad)
         !
-        return_value%idx1 = 2
-        return_value%idx2 = np_edge+1
-        return_value%idx3 = 0
+        idx1 = 2
+        idx2 = np_edge+1
+        idx3 = 0
+        ndim = 2
         !
       case (Geom_Tetr)
         !
-        return_value%idx1 = 2
-        return_value%idx2 = np_edge+1
-        return_value%idx3 = np_tria+1
+        idx1 = 2
+        idx2 = np_edge+1
+        idx3 = np_tria+1
+        ndim = 3
         !
       case (Geom_Pyra)
         !
-        return_value%idx1 = 2
-        return_value%idx2 = np_edge+1
-        return_value%idx3 = np_quad+1
+        idx1 = 2
+        idx2 = np_edge+1
+        idx3 = np_quad+1
+        ndim = 3
         !
       case (Geom_Pris)
         !
-        return_value%idx1 = 2
-        return_value%idx2 = np_edge+1
-        return_value%idx3 = np_tria+1
+        idx1 = 2
+        idx2 = np_edge+1
+        idx3 = np_tria+1
+        ndim = 3
         !
       case (Geom_Hexa)
         !
-        return_value%idx1 = 2
-        return_value%idx2 = np_edge+1
-        return_value%idx3 = np_quad+1
+        idx1 = 2
+        idx2 = np_edge+1
+        idx3 = np_quad+1
+        ndim = 3
         !
       case default
         !
-        return_value%idx1 = 2
-        return_value%idx2 = 0
-        return_value%idx3 = 0
+        idx1 = 2
+        idx2 = 0
+        idx3 = 0
+        ndim = 1
         !
     end select
     !
@@ -391,49 +996,80 @@ continue
       !
       case (Geom_Tria)
         !
-        return_value%idx1 = np_edge
-        return_value%idx2 = np_tria
-        return_value%idx3 = 0
+        idx1 = np_edge
+        idx2 = np_tria
+        idx3 = 0
+        ndim = 2
         !
       case (Geom_Quad)
         !
-        return_value%idx1 = np_edge
-        return_value%idx2 = np_edge*(np_edge-1) + 1
-        return_value%idx3 = 0
+        idx1 = np_edge
+        idx2 = np_edge*(np_edge-1) + 1
+        idx3 = 0
+        ndim = 2
         !
       case (Geom_Tetr)
         !
-        return_value%idx1 = np_edge
-        return_value%idx2 = np_tria
-        return_value%idx3 = geom_solpts(Geom_Tetr,this_order)
+        idx1 = np_edge
+        idx2 = np_tria
+        idx3 = geom_solpts(Geom_Tetr,this_order)
+        ndim = 3
         !
       case (Geom_Pyra)
         !
-        return_value%idx1 = np_edge
-        return_value%idx2 = np_edge*(np_edge-1) + 1
-        return_value%idx3 = geom_solpts(Geom_Pyra,this_order)
+        idx1 = np_edge
+        idx2 = np_edge*(np_edge-1) + 1
+        idx3 = geom_solpts(Geom_Pyra,this_order)
+        ndim = 3
         !
       case (Geom_Pris)
         !
-        return_value%idx1 = np_edge
-        return_value%idx2 = np_tria
-        return_value%idx3 = np_tria*(np_edge-1) + 1
+        idx1 = np_edge
+        idx2 = np_tria
+        idx3 = np_tria*(np_edge-1) + 1
+        ndim = 3
         !
       case (Geom_Hexa)
         !
-        return_value%idx1 = np_edge
-        return_value%idx2 = np_edge*(np_edge-1) + 1
-        return_value%idx3 = np_quad*(np_edge-1) + 1
+        idx1 = np_edge
+        idx2 = np_edge*(np_edge-1) + 1
+        idx3 = np_quad*(np_edge-1) + 1
+        ndim = 3
         !
       case default
         !
-        return_value%idx1 = np_edge
-        return_value%idx2 = 0
-        return_value%idx3 = 0
+        idx1 = np_edge
+        idx2 = 0
+        idx3 = 0
+        ndim = 1
         !
     end select
     !
   end if
+  !
+  comp_a = std_elem(this_geom,this_order)%pts(:,idx1) & ! F2003 AUTO-REALLOC
+         - std_elem(this_geom,this_order)%pts(:,idx0)
+  !
+  if (idx2 > 0) then
+    comp_b = std_elem(this_geom,this_order)%pts(:,idx2) & ! F2003 AUTO-REALLOC
+           - std_elem(this_geom,this_order)%pts(:,idx0)
+  end if
+  !
+  if (idx3 > 0) then
+    comp_c = std_elem(this_geom,this_order)%pts(:,idx3) & ! F2003 AUTO-REALLOC
+           - std_elem(this_geom,this_order)%pts(:,idx0)
+  end if
+  !
+  comp_r = std_elem(this_geom,this_order)%pts(:,idx0)
+  !
+  return_value%idx1 = idx1
+  return_value%idx2 = idx2
+  return_value%idx3 = idx3
+  !
+  if (allocated(comp_a)) return_value%comp_a = comp_a ! F2003 AUTO-REALLOC
+  if (allocated(comp_b)) return_value%comp_b = comp_b ! F2003 AUTO-REALLOC
+  if (allocated(comp_c)) return_value%comp_c = comp_c ! F2003 AUTO-REALLOC
+  if (allocated(comp_r)) return_value%comp_r = comp_r ! F2003 AUTO-REALLOC
   !
   return_value%found = true
   !
