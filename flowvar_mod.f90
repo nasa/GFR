@@ -315,7 +315,10 @@ call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   ! If we are only time averaging restart files, we dont need any of
   ! these other arrays so return out of here
   !
-  if (time_average_restart_files) return
+  if (time_average_restart_files) then
+    call debug_timer(leaving_procedure,pname)
+    return
+  end if
   !
   if (any(bc_in(:)%bc_type == bc_sem)) then
   iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_dt for SEM"
@@ -389,6 +392,9 @@ call debug_timer(start_timer,message(iwt))
                      ierr,error_message)
     !
 call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+    !
+    call debug_timer(leaving_procedure,pname)
+    !
     return
     !
   end if
