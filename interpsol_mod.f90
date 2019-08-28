@@ -30,12 +30,34 @@ subroutine mv_global_to_grid2()
   use flowvar
   use ovar,   only : bc_names
   !
+  use quadrature_mod,    only : std_elem,face_elem
+  use vandermonde_mod,   only : vand
+  use derivatives_mod,   only : deriv
+  use correction_mod,    only : correct
+  use interpolation_mod, only : interp,outerp
+  use projection_mod,    only : projct
+  use filter_mod,        only : filter
+  !
+  use metrics_mod, only : facenrm,facejac
+  use metrics_mod, only : jac,wtdjac
+  use metrics_mod, only : metrics_array
+  !
+  use order_mod, only : n_order,p_order,q_order,o_order,e_order,t_order
+  !
 continue
   !
   !-DEBUG_BEG:
   write (iout,*) "DEBUG[mv_global_to_grid2] Move global vars to grid2."
   flush (iout)
   !-DEBUG_END:
+  !
+  ! Variables from order_mod.
+  g2_n_order = n_order
+  g2_p_order = p_order
+  g2_q_order = q_order
+  g2_o_order = o_order
+  g2_e_order = e_order
+  g2_t_order = t_order
   !
   ! Variables from geovar.
   g2_n_solpts         = n_solpts
@@ -90,14 +112,47 @@ continue
   !
   call move_alloc( from=cell_map, to=g2_cell_map )
   !
+  call move_alloc( from=bc_grps, to=g2_bc_grps )
+  !
   ! Variables from flowvar.
   call move_alloc( from=usp,           to=g2_usp           )
+  call move_alloc( from=gpsp,          to=g2_gpsp          )
   call move_alloc( from=dusp,          to=g2_dusp          )
  !call move_alloc( from=facexyz_dt,    to=g2_facexyz_dt    )
   call move_alloc( from=facexyz_array, to=g2_facexyz_array )
   !
   ! Variables from ovar.
   call move_alloc( from=bc_names, to=g2_bc_names )
+  !
+  ! Variables from quadrature_mod
+  call move_alloc( from=std_elem,  to=g2_std_elem  )
+  call move_alloc( from=face_elem, to=g2_face_elem )
+  !
+  ! Variables from vandermonde_mod
+  call move_alloc( from=vand, to=g2_vand )
+  !
+  ! Variables from derivatives_mod
+  call move_alloc( from=deriv, to=g2_deriv )
+  !
+  ! Variables from correction_mod
+  call move_alloc( from=correct, to=g2_correct )
+  !
+  ! Variables from interpolation_mod
+  call move_alloc( from=interp, to=g2_interp )
+  call move_alloc( from=outerp, to=g2_outerp )
+  !
+  ! Variables from projection_mod
+  call move_alloc( from=projct, to=g2_projct )
+  !
+  ! Variables from filter_mod
+  call move_alloc( from=filter, to=g2_filter )
+  !
+  ! Variables from metrics_mod
+  call move_alloc( from=metrics_array, to=g2_metrics_array )
+  call move_alloc( from=jac,           to=g2_jac           )
+  call move_alloc( from=wtdjac,        to=g2_wtdjac        )
+  call move_alloc( from=facenrm,       to=g2_facenrm       )
+  call move_alloc( from=facejac,       to=g2_facejac       )
   !
   !-DEBUG_BEG:
   write (iout,*) "DEBUG[mv_global_to_grid2] Leaving subroutine."
@@ -119,12 +174,36 @@ subroutine mv_grid2_to_global()
   use eqn_idx, only : nq
   use ovar,    only : bc_names
   !
+  use quadrature_mod,    only : std_elem,face_elem
+  use vandermonde_mod,   only : vand
+  use derivatives_mod,   only : deriv
+  use correction_mod,    only : correct
+  use interpolation_mod, only : interp,outerp
+  use projection_mod,    only : projct
+  use filter_mod,        only : filter
+  !
+  use metrics_mod, only : facenrm,facejac
+  use metrics_mod, only : jac,wtdjac
+  use metrics_mod, only : metrics_array
+  !
+  use order_mod,      only : n_order,p_order,q_order
+  use order_mod,      only : o_order,e_order,t_order
+  use order_mod,      only : initialize_geom_solpts
+  use quadrature_mod, only : find_valid_geometries
+  !
 continue
   !
   !-DEBUG_BEG:
   write (iout,*) "DEBUG[mv_grid2_to_global] Move grid2 vars to global."
   flush (iout)
   !-DEBUG_END:
+  !
+  n_order = g2_n_order
+  p_order = g2_p_order
+  q_order = g2_q_order
+  o_order = g2_o_order
+  e_order = g2_e_order
+  t_order = g2_t_order
   !
   n_solpts         = g2_n_solpts
   n_flxpts         = g2_n_flxpts
@@ -141,6 +220,10 @@ continue
   !
   call move_alloc( from=g2_cell_geom,  to=cell_geom  )
   call move_alloc( from=g2_cell_order, to=cell_order )
+  !
+  call initialize_geom_solpts(fals)
+  call find_valid_geometries()
+  !
   call move_alloc( from=g2_xyz_nodes,  to=xyz_nodes  )
   call move_alloc( from=g2_xyz,        to=xyz        )
   !
@@ -177,6 +260,8 @@ continue
   call move_alloc( from=g2_grid, to=grid )
   !
   call move_alloc( from=g2_cell_map, to=cell_map )
+  !
+  call move_alloc( from=g2_bc_grps, to=bc_grps )
   !
   !
   !-DEBUG_BEG:
@@ -227,8 +312,38 @@ continue
   ! Variables from ovar.
   call move_alloc( from=g2_bc_names, to=bc_names )
   !
+  ! Variables from quadrature_mod
+  call move_alloc( from=g2_std_elem,  to=std_elem  )
+  call move_alloc( from=g2_face_elem, to=face_elem )
+  !
+  ! Variables from vandermonde_mod
+  call move_alloc( from=g2_vand, to=vand )
+  !
+  ! Variables from derivatives_mod
+  call move_alloc( from=g2_deriv, to=deriv )
+  !
+  ! Variables from correction_mod
+  call move_alloc( from=g2_correct, to=correct )
+  !
+  ! Variables from interpolation_mod
+  call move_alloc( from=g2_interp, to=interp )
+  call move_alloc( from=g2_outerp, to=outerp )
+  !
+  ! Variables from projection_mod
+  call move_alloc( from=g2_projct, to=projct )
+  !
+  ! Variables from filter_mod
+  call move_alloc( from=g2_filter, to=filter )
+  !
+  ! Variables from metrics_mod
+  call move_alloc( from=g2_metrics_array, to=metrics_array )
+  call move_alloc( from=g2_jac,           to=jac           )
+  call move_alloc( from=g2_wtdjac,        to=wtdjac        )
+  call move_alloc( from=g2_facenrm,       to=facenrm       )
+  call move_alloc( from=g2_facejac,       to=facejac       )
+  !
   !-DEBUG_BEG:
-  write (iout,*) "DEBUG[mv_global_to_grid2] Leaving subroutine."
+  write (iout,*) "DEBUG[mv_grid2_to_global] Leaving subroutine."
   flush (iout)
   !-DEBUG_END:
   !
