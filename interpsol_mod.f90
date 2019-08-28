@@ -762,10 +762,14 @@ continue
     !
     ! Find index of nearest face pt in src grid.
     !
+#ifdef DEBUG_ON
     call debug_timer(start_accumulation,"octtree_find_nearest_xyz",acc=1)
+#endif
     call octtree_find_nearest_xyz(octtree,g2_xyz_pt, ixyz_pt,istat, &
                                   tid=tid,acc=0)
+#ifdef DEBUG_ON
     call debug_timer(stop_accumulation,"octtree_find_nearest_xyz",acc=1)
+#endif
     !
     if (istat == OCT_STATUS_OK) then
       !
@@ -788,30 +792,40 @@ continue
         ! xyz_pt is inside this (left) donor cell.
         ! Interpolate donor sol to this xyz_pt.
         !
+#ifdef DEBUG_ON
         call debug_timer(start_accumulation, &
                          "LEFT cell interp_cell_sol_to_xyz",acc=2)
+#endif
         donor_cell = face(nf)%left%cell
         !
         call interp_cell_sol_to_xyz(donor_cell,g2_xyz_pt, g2_usp(k,1:nq))
+#ifdef DEBUG_ON
         call debug_timer(stop_accumulation, &
                          "LEFT cell interp_cell_sol_to_xyz",acc=2)
+#endif
         !
       else if (nf > nfbnd) then
         !
         ! xyz_pt is inside adjacent (right) cell.
         ! Interpolate donor sol to this xyz_pt.
         !
+#ifdef DEBUG_ON
         call debug_timer(start_accumulation, &
                          "RIGHT cell interp_cell_sol_to_xyz",acc=3)
+#endif
         donor_cell = face(nf)%right%cell
         !
         call interp_cell_sol_to_xyz(donor_cell,g2_xyz_pt, g2_usp(k,1:nq))
+#ifdef DEBUG_ON
         call debug_timer(stop_accumulation, &
                          "RIGHT cell interp_cell_sol_to_xyz",acc=3)
+#endif
         !
       else
         !
+#ifdef DEBUG_ON
         call debug_timer(start_accumulation,"outside boundary face",acc=4)
+#endif
         ! xyz_pt is outside boundary face of cell.
         ! Interpolate donor volume sol to closest donor face pt.
         ! Similar to subroutine interp_cv_to_flxpts.
@@ -874,7 +888,9 @@ continue
        !                       toFace(face_order)% &
        !                       dot( lf , tusp(1:np,m) )
        !end do
+#ifdef DEBUG_ON
         call debug_timer(stop_accumulation,"outside boundary face",acc=4)
+#endif
         !
       end if
       !
