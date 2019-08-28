@@ -3024,6 +3024,8 @@ subroutine create_bc_grps(bface,face)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   periodic_pts = 0
   !
   lfbnd = size(bface,dim=2)
@@ -3236,6 +3238,8 @@ continue
   if (mypnum == glb_root) write (iout,*)
   flush (iout)
 #endif
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
