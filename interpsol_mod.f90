@@ -7,6 +7,7 @@ module interpsol_mod
   !.. Use Statements ..
   use module_kind_types, global_debug_timer => debug_timer
   use interpsolvar_mod
+  use eqn_idx, only : nec,nmx,nmy,nmz,nee,nq
   !
   implicit none
   !
@@ -171,7 +172,6 @@ subroutine mv_grid2_to_global()
   !.. Use Statements ..
   use geovar
   use flowvar
-  use eqn_idx, only : nq
   use ovar,    only : bc_names
   !
   use quadrature_mod,    only : std_elem,face_elem
@@ -359,7 +359,6 @@ end subroutine mv_grid2_to_global
 subroutine partition_usp_to_g2()
   !
   !.. Use Statements ..
-  use eqn_idx, only : nq
   use geovar,  only : cell
   use flowvar, only : usp
   !
@@ -401,7 +400,6 @@ subroutine interpsol()
   !
   !.. Use Statements ..
   use module_kind_types, only : dot,lk,fals
-  use eqn_idx, only : nq
   use geovar,            only : ncell,nface,nfbnd,nr
   use geovar,            only : cell,face,fp
   use flux_mod,          only : interp_cv_to_flxpts  ! DEBUG: for debug output
@@ -429,13 +427,14 @@ subroutine interpsol()
   !
   integer :: istat,acc
   integer :: i,j,ifp,k,l,nc,ncf,nf,nfp,sf,f0
-  integer :: n1,n2,np,knp,m,lf
+  integer :: n0,n1,n2,np,knp,m,lf
   integer :: this_geom,this_order
   integer :: face_geom,face_order
   integer :: fp_offset,face_rot
   integer :: donor_cell
   !
   real(wp) :: a,val,face_dot
+  real(wp) :: valec,valmx,valmy,valmz,valee
   !
   logical(lk) :: dealloc_octedat
   !
@@ -679,17 +678,19 @@ continue
     !
     flush (iout)
   end if
+#define ASSUME_3D
   !-DEBUG_END:
   ! Loop over volume points in dst grid.
  !open (unit=6,form="formatted",carriagecontrol="fortran",buffered="no")
   !$OMP PARALLEL &
   !$OMP&         DEFAULT(SHARED) &
   !$OMP&         PRIVATE(k,g2_xyz_pt,nc,ncf,ifp,nf,face_to_xyz,donor_cell, &
-  !$OMP&                 n1,n2,np,this_geom,this_order,knp,m,tusp,tid, &
+  !$OMP&                 n0,n1,n2,np,this_geom,this_order,knp,m,tusp,tid, &
   !$OMP&                 face_geom,face_order,lf,istat,ixyz_pt,xyz_pt,val, &
   !$OMP&                 start_time,new_time,elapsed_time,percent_complete, &
   !$OMP&                 hours,minutes,seconds,pts_completed,fp_offset, &
-  !$OMP&                 face_rot,face_dot)
+  !$OMP&                 face_rot,face_dot, &
+  !$OMP&                 valec,valmx,valmy,valmz,valee)
   !
   call debug_timer(reset_accumulated_time, &
                    "octtree_find_nearest_xyz",acc=1)
@@ -758,7 +759,13 @@ continue
     !
     ! Get volume point xyz in dst grid to interp sol onto.
     !
+#ifdef ASSUME_3D
+    g2_xyz_pt(1) = g2_xyz(1,k)
+    g2_xyz_pt(2) = g2_xyz(2,k)
+    g2_xyz_pt(3) = g2_xyz(3,k)
+#else
     g2_xyz_pt = g2_xyz(:,k)
+#endif
     !
     ! Find index of nearest face pt in src grid.
     !
@@ -778,10 +785,31 @@ continue
       ifp = ixyz_pt(3)  ! cell face face_pt no.
       nf  = cell(nc)%face(ncf)%idx   ! global face index
       f0  = face(nf)%beg_fp - 1
+      !
+#ifdef ASSUME_3D
+     !xyz_pt(1) = facexyz_array(1,f0+ifp)
+     !xyz_pt(2) = facexyz_array(2,f0+ifp)
+     !xyz_pt(3) = facexyz_array(3,f0+ifp)
+     !!
+     !face_to_xyz(1) = g2_xyz_pt(1) - xyz_pt(1)   ! vector from face to dst pt
+     !face_to_xyz(2) = g2_xyz_pt(2) - xyz_pt(2)   ! vector from face to dst pt
+     !face_to_xyz(3) = g2_xyz_pt(3) - xyz_pt(3)   ! vector from face to dst pt
+     !!
+     !face_dot = facenrm(1,f0+ifp)*face_to_xyz(1) + &
+     !           facenrm(2,f0+ifp)*face_to_xyz(2) + &
+     !           facenrm(3,f0+ifp)*face_to_xyz(3)
+      ! 
+      ! Dot product of face normal with face_to_xyz vector
+      !
+      face_dot = facenrm(1,f0+ifp)*(g2_xyz_pt(1) - facexyz_array(1,f0+ifp)) + &
+                 facenrm(2,f0+ifp)*(g2_xyz_pt(2) - facexyz_array(2,f0+ifp)) + &
+                 facenrm(3,f0+ifp)*(g2_xyz_pt(3) - facexyz_array(3,f0+ifp))
+#else
       xyz_pt(:) = facexyz_array(:,f0+ifp)
      !xyz_pt(:) = facexyz_dt(nf)%v(:,ifp)
       face_to_xyz(:) = g2_xyz_pt(:) - xyz_pt(:)   ! vector from face to dst pt
       face_dot = dot( facenrm(:,f0+ifp), face_to_xyz(:) )
+#endif
       !
       ! Dot face normal with face_to_xyz vector.
       ! Face normal always points toward right cell.
@@ -830,20 +858,15 @@ continue
         ! Interpolate donor volume sol to closest donor face pt.
         ! Similar to subroutine interp_cv_to_flxpts.
         !
-        n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
-        n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
-        np = n2-n1+1         ! number of sol-pts in this cell
+        n0 = cell(nc)%beg_sp - 1
+        np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+        !
+       !n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
+       !n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
+       !np = n2-n1+1         ! number of sol-pts in this cell
         !
         this_geom = cell(nc)%geom   ! geometry type of this cell
         this_order = cell(nc)%order ! solution order of this cell
-        !
-        ! Create transpose of usp array to reduce cache misses.
-        !
-        do knp = 1,np
-          do m = 1,nq
-            tusp(knp,m) = usp(knp+n1-1,m)
-          end do
-        end do
         !
         ! Interpolate volume solution to face point location.
         ! Assign that face point solution to g2 dst point.
@@ -860,6 +883,35 @@ continue
         !
         lf = fp_offset + fp%geord(face_geom,face_order)%rot(face_rot)%pts(ifp)
         !
+#ifdef ASSUME_3D
+        valec  = zero
+        valmx  = zero
+        valmy  = zero
+        valmz  = zero
+        valee  = zero
+        !
+        do i = interp(this_geom,this_order)% &
+                         toFace(face_order)%row_ptr(lf)+1, &
+               interp(this_geom,this_order)% &
+                         toFace(face_order)%row_ptr(lf+1)
+          !
+          j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+          !
+          valec  = valec  + a * usp(n0+j,nec)
+          valmx  = valmx  + a * usp(n0+j,nmx)
+          valmy  = valmy  + a * usp(n0+j,nmy)
+          valmz  = valmz  + a * usp(n0+j,nmz)
+          valee  = valee  + a * usp(n0+j,nee)
+          !
+        end do
+        !
+        g2_usp(k,nec) = valec
+        g2_usp(k,nmx) = valmx
+        g2_usp(k,nmy) = valmy
+        g2_usp(k,nmz) = valmz
+        g2_usp(k,nee) = valee
+#else
         do m = 1,nq
           !
           val = zero
@@ -872,13 +924,14 @@ continue
             j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
             a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
             !
-            val = val + a * tusp(j,m)
+            val = val + a * usp(n0+j,m)
             !
           end do
           !
           g2_usp(k,m) = val
           !
         end do
+#endif
         !
        !g2_usp(1:nq,k) = interp(this_geom,this_order)% &
        !                        toFace(face_order)% &
@@ -981,7 +1034,6 @@ subroutine interpsol_debug()
   !
   !.. Use Statements ..
   use module_kind_types, only : dot,lk,fals
-  use eqn_idx,           only : nq
   use geovar,            only : nnode,ncell,nface,nfbnd,nr
   use geovar,            only : cell,face,fp
   use geovar,            only : xyz
