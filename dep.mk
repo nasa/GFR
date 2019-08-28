@@ -274,7 +274,13 @@ $(OBJDIR)/interpsol_mod.o : interpsol_mod.f90 \
                   $(OBJDIR)/order_mod.o \
                   $(OBJDIR)/flowvar_mod.o \
                   $(OBJDIR)/flux.o \
+                  $(OBJDIR)/quadrature_mod.o \
+                  $(OBJDIR)/vandermonde_mod.o \
+                  $(OBJDIR)/derivatives_mod.o \
+                  $(OBJDIR)/correction_mod.o \
                   $(OBJDIR)/interpolation_mod.o \
+                  $(OBJDIR)/projection_mod.o \
+                  $(OBJDIR)/filter_mod.o \
                   $(OBJDIR)/interpsolvar_mod.o \
                   $(OBJDIR)/metrics.o \
                   $(OBJDIR)/octedat_facexyz_mod.o \
