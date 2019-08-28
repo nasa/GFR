@@ -2105,9 +2105,13 @@ continue
     !
     call init_thermo_mod(cv_ref,pv_ref,gp_ref)
     !
+    call check_for_bad_number(__LINE__,__FILE__)
+    !
     ! Initialize the reactions module
     !
     call init_reactions_mod
+    !
+    call check_for_bad_number(__LINE__,__FILE__)
     !
   end if
   !
@@ -2120,9 +2124,13 @@ continue
   !
   call init_transport_mod(cv_ref,gp_ref)
   !
+  call check_for_bad_number(__LINE__,__FILE__)
+  !
   ! Initialize the turbulence reference conditions
   !
   call initialize_turbulence(cv_ref,pv_ref,gp_ref)
+  !
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   !$ACC UPDATE DEVICE(aref,rhoref,tref,tmin,tmax, &
   !$ACC&              gam,rgasref_nd,cpref_nd, &
@@ -4177,6 +4185,7 @@ include "Functions/vortex.f90"
 include "Functions/taylor_green.f90"
 include "Functions/smc000_interior_wall_radius.f90"
 include "Functions/arn2_interior_wall_radius.f90"
+#include "Functions/check_for_bad_number.f90"
 !
 !###############################################################################
 !

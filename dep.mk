@@ -250,7 +250,8 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(FUNDIR)/vortex.f90 \
                $(FUNDIR)/taylor_green.f90 \
                $(FUNDIR)/smc000_interior_wall_radius.f90 \
-               $(FUNDIR)/arn2_interior_wall_radius.f90
+               $(FUNDIR)/arn2_interior_wall_radius.f90 \
+               $(FUNDIR)/check_for_bad_number.f90
 
 $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(OBJDIR)/kind_types.o \
@@ -502,10 +503,10 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(OBJDIR)/thermo_mod.o \
                  $(OBJDIR)/transport_mod.o \
                  $(OBJDIR)/gpu_mod.o \
-		 $(OBJDIR)/metrics.o \
-		 $(OBJDIR)/limiters.o \
-		 $(FUNDIR)/cgns_write_field_data.f90 \
-		 $(FUNDIR)/cgns_write_field_header.f90 \
+                 $(OBJDIR)/metrics.o \
+                 $(OBJDIR)/limiters.o \
+                 $(FUNDIR)/cgns_write_field_data.f90 \
+                 $(FUNDIR)/cgns_write_field_header.f90 \
                  $(FUNDIR)/last.f90 \
                  $(FUNDIR)/cell_solpts.f90
 
@@ -535,12 +536,13 @@ $(OBJDIR)/random_mod.o : random_mod.f90 \
              $(OBJDIR)/kind_types.o
 
 $(OBJDIR)/reactions_mod.o : reactions_mod.f90 \
-             $(OBJDIR)/kind_types.o \
-             $(OBJDIR)/eqn_idx_mod.o \
-             $(OBJDIR)/ovar_mod.o \
-             $(OBJDIR)/flowvar_mod.o \
-             $(OBJDIR)/metrics.o \
-             $(OBJDIR)/thermo_mod.o
+                  $(OBJDIR)/kind_types.o \
+                  $(OBJDIR)/eqn_idx_mod.o \
+                  $(OBJDIR)/ovar_mod.o \
+                  $(OBJDIR)/flowvar_mod.o \
+                  $(OBJDIR)/metrics.o \
+                  $(OBJDIR)/thermo_mod.o \
+                  $(FUNDIR)/check_for_bad_number.f90
 
 $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/kind_types.o \

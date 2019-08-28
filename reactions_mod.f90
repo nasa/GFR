@@ -177,8 +177,10 @@ continue
       !
       if (itestcase > 0) then
         call initialize_CH4_6x3_reactions
+        call check_for_bad_number(__LINE__,__FILE__)
       else
         call initialize_CH4_6x3_Vulcan_reactions
+        call check_for_bad_number(__LINE__,__FILE__)
       end if
       !
       ! Create the lists of reactant and product species
@@ -388,6 +390,8 @@ continue
   !
   bwd_stoich_coef(nCO2,ir) = two * c1 ! CO2
   !
+  call check_for_bad_number(__LINE__,__FILE__)
+  !
   !################################################
   !
   ! Pre-multiply the forwards and backwards Arrhenius coefficients by
@@ -405,6 +409,8 @@ continue
     fwd_arrh_coef(j) = fwd_arrh_coef(j)*fwd_mwp / aref
     bwd_arrh_coef(j) = bwd_arrh_coef(j)*bwd_mwp / aref
   end do
+  !
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Pre-multiply the stoichiometric coefficients by
   !  the molar mass * [density conversion from kg/m^3 to g/cm^3] * rhoref
