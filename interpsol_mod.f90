@@ -427,7 +427,7 @@ subroutine interpsol()
   type(octedat_facexyz_type), target :: octedat
   type(octtree_type)                 :: octtree
   !
-  integer :: istat,tid,nthreads,acc
+  integer :: istat,acc
   integer :: i,j,ifp,k,l,nc,ncf,nf,nfp,sf,f0
   integer :: n1,n2,np,knp,m,lf
   integer :: this_geom,this_order
@@ -688,14 +688,8 @@ continue
   !$OMP&                 n1,n2,np,this_geom,this_order,knp,m,tusp,tid, &
   !$OMP&                 face_geom,face_order,lf,istat,ixyz_pt,xyz_pt,val, &
   !$OMP&                 start_time,new_time,elapsed_time,percent_complete, &
-  !$OMP&                 hours,minutes,seconds,pts_completed,fp_offset,face_rot)
-  !
- !!$OMP&         NUM_THREADS(40) &
-  !
-!!!$OMP&                 face_geom,face_order,lf,istat,ixyz_pt,xyz_pt) &
-  !
-!!!$OMP&         SHARED(octtree,g2_usp,interp,cell,usp,face,geofa,facexyz_dt, &
-!!!$OMP&                fp,g2_n_solpts,g2_xyz,nq,nfbnd,OCT_STATUS_OK)
+  !$OMP&                 hours,minutes,seconds,pts_completed,fp_offset, &
+  !$OMP&                 face_rot,face_dot)
   !
   call debug_timer(reset_accumulated_time, &
                    "octtree_find_nearest_xyz",acc=1)
@@ -710,25 +704,22 @@ continue
 #ifdef ENABLE_OPENMP
   tid = omp_get_thread_num()
   nthreads = omp_get_num_threads()
-#else
-  tid = 0
-  nthreads = 1
 #endif
   pts_completed = 0
+  chunk_size = ceiling( real(g2_n_solpts,kind=wp) / real(nthreads,kind=wp) )
   !
   if (mypnum == glb_root) then
     if (tid == glb_root) then
-      write (iout,"(a,i0)") "number of threads = ",nthreads
-      flush (iout)
+      write (iout,thread_report) pname,nthreads
     end if
   end if
+  !
   g2_xyz_pt(:) = zero
   ixyz_pt(:) = 0
   call octtree_find_nearest_xyz(octtree,g2_xyz_pt, ixyz_pt,istat, &
                                 tid=tid,acc=1)
   !
-  !$OMP DO SCHEDULE(GUIDED)
- !!$OMP DO SCHEDULE(RUNTIME)
+  !$OMP DO SCHEDULE(STATIC,chunk_size)
   do k = 1,g2_n_solpts
     !
     !-DEBUG_BEG:
@@ -750,7 +741,7 @@ continue
             new_time = mpi_wtime()
             elapsed_time = new_time - start_time
             percent_complete = real(pts_completed,kind=wp) / &
-                               real((g2_n_solpts-1)/nthreads,kind=wp)
+                               real(chunk_size,kind=wp)
             new_time = elapsed_time/percent_complete - elapsed_time
             hours = nint(new_time) / 3600
             minutes = (nint(new_time) - hours*3600) / 60
