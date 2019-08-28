@@ -1335,7 +1335,7 @@ subroutine initialize_dusp_3d()
 #endif
   !
   !.. Local Scalars ..
-  integer  :: i,j,n,nc,n0,np,tid
+  integer  :: i,j,n,nc,n0,np
   integer  :: this_geom,this_order
   real(wp) :: a
   real(wp) :: decdi,dmxdi,dmydi,dmzdi,deedi,didx,didy,didz
@@ -1358,15 +1358,20 @@ continue
   !$OMP&                 decdi,dmxdi,dmydi,dmzdi,deedi, &
   !$OMP&                 decdj,dmxdj,dmydj,dmzdj,deedj, &
   !$OMP&                 decdk,dmxdk,dmydk,dmzdk,deedk, &
-  !$OMP&                 didx,djdx,dkdx,didy,djdy,dkdy,didz,djdz,dkdz) &
-  !$OMP&         NUM_THREADS(28)
+  !$OMP&                 didx,djdx,dkdx,didy,djdy,dkdy,didz,djdz,dkdz)
   !
   tid = omp_get_thread_num()
-  if (tid == glb_root) then
-    write (iout,"(a,i0)") "number of threads = ",omp_get_num_threads()
+  nthreads = omp_get_num_threads()
+  !
+  if (mypnum == glb_root) then
+    if (tid == glb_root) then
+      write (iout,thread_report) pname,nthreads
+    end if
   end if
   !
-  !$OMP DO SCHEDULE(GUIDED)
+  chunk_size = ceiling( real(ncell,kind=wp) / real(nthreads,kind=wp) )
+  !
+  !$OMP DO SCHEDULE(STATIC,chunk_size)
 #endif
 #endif
   do nc = 1,ncell
@@ -1785,7 +1790,7 @@ subroutine get_face_and_edge_point_coordinates
   !
   !.. Local Scalars ..
   integer  :: n,nc,ne,nf,np,n1,n2,f0
-  integer  :: i,j,k,kf,l,lf,ierr,tid
+  integer  :: i,j,k,kf,l,lf,ierr
   integer  :: this_geom,this_order
   integer  :: face_geom,face_order
   integer  :: edge_order
@@ -1814,15 +1819,21 @@ continue
     !$OMP PARALLEL &
     !$OMP&         DEFAULT(SHARED) &
     !$OMP&         PRIVATE(tid,nf,face_geom,face_order,f0,nc,n1,n2,np, &
-    !$OMP&                 this_geom,this_order,k,l,txyz,kf,lf,val,i,j,a) &
-    !$OMP&         NUM_THREADS(28)
+    !$OMP&                 this_geom,this_order,k,l,txyz,kf,lf,val,i,j,a)
     !
     tid = omp_get_thread_num()
-    if (tid == glb_root) then
-      write (iout,"(a,i0)") "number of threads = ",omp_get_num_threads()
+    nthreads = omp_get_num_threads()
+    !
+    if (mypnum == glb_root) then
+      if (tid == glb_root) then
+        write (iout,thread_report) pname,nthreads
+      end if
     end if
     !
-    !$OMP DO SCHEDULE(GUIDED)
+    chunk_size = ceiling( real(size(facexyz_dt),kind=wp) / &
+                          real(nthreads,kind=wp) )
+    !
+    !$OMP DO SCHEDULE(STATIC,chunk_size)
 #endif
 #endif
     do nf = 1,size(facexyz_dt)

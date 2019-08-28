@@ -752,6 +752,15 @@ module module_kind_types
   !
   character(len=1000), save :: error_message
   !
+  ! OpenMP Public Scalars
+  !
+  integer, save :: tid = 0
+  integer, save :: nthreads = 1
+  integer, save :: chunk_size = 1
+  !
+  character(len=*), parameter :: thread_report = &
+                                    "(/,2x,'number of threads (',a,') = ',i0,/)"
+  !
   ! MPI Public Scalars
   !
   integer(int_mpi), protected, save :: mypnum = 0_int_mpi

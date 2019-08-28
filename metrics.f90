@@ -1658,7 +1658,7 @@ subroutine compute_face_normals_3d(fnrm)
   integer  :: kf,lf,k,f0,nfp
   integer  :: this_geom,this_order
   integer  :: face_geom,face_order
-  integer  :: tc_offset,tc_rot,tid
+  integer  :: tc_offset,tc_rot
   real(wp) :: a
   real(wp) :: dxdi,dydi,dzdi
   real(wp) :: dxdj,dydj,dzdj
@@ -1684,16 +1684,20 @@ continue
   !$OMP&         PRIVATE(nc,this_geom,this_order,n0,ncf,nf, &
   !$OMP&                 face_geom,face_order,f0,nfp,tc_offset,tc_rot, &
   !$OMP&                 kf,lf,xval,yval,zval,i,k,n,a,xyz_face,tid,  &
-  !$OMP&                 dxdi,dxdj,dydi,dydj,dzdi,dzdj,xnrm,ynrm,znrm) &
-  !$OMP&         NUM_THREADS(28)
+  !$OMP&                 dxdi,dxdj,dydi,dydj,dzdi,dzdj,xnrm,ynrm,znrm)
   !
   tid = omp_get_thread_num()
-  if (tid == glb_root) then
-    write (iout,"(a,i0)") "number of threads = ",omp_get_num_threads()
+  nthreads = omp_get_num_threads()
+  !
+  if (mypnum == glb_root) then
+    if (tid == glb_root) then
+      write (iout,thread_report) pname,nthreads
+    end if
   end if
   !
- !!$OMP DO SCHEDULE(GUIDED)
-  !$OMP DO
+  chunk_size = ceiling( real(ncell,kind=wp) / real(nthreads,kind=wp) )
+  !
+  !$OMP DO SCHEDULE(STATIC,chunk_size)
 #endif
 #endif
   cell_loop: do nc = 1,ncell
@@ -2191,7 +2195,7 @@ subroutine compute_face_jacobians(fjac)
   real(wp), intent(inout) :: fjac(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,n,nf,kf,f0,nfp,tid
+  integer  :: i,n,nf,kf,f0,nfp
   integer  :: l0,lc_offset,lc_rot,kl
   integer  :: r0,rc_offset,rc_rot,kr
   integer  :: host_cell,host_geom,host_order
@@ -2218,15 +2222,20 @@ continue
   !$OMP&         PRIVATE(tid,nf,face_geom,face_order,f0,nfp, &
   !$OMP&                 host_cell,host_geom,host_order, &
   !$OMP&                 l0,lc_offset,lc_rot,kl, &
-  !$OMP&                 kf,val,i,n,a) &
-  !$OMP&         NUM_THREADS(28)
+  !$OMP&                 kf,val,i,n,a)
   !
   tid = omp_get_thread_num()
-  if (tid == glb_root) then
-    write (iout,"(a,i0)") "number of threads = ",omp_get_num_threads()
+  nthreads = omp_get_num_threads()
+  !
+  if (mypnum == glb_root) then
+    if (tid == glb_root) then
+      write (iout,thread_report) pname,nthreads
+    end if
   end if
   !
-  !$OMP DO SCHEDULE(GUIDED)
+  chunk_size = ceiling( real(nfbnd,kind=wp) / real(nthreads,kind=wp) )
+  !
+  !$OMP DO SCHEDULE(STATIC,chunk_size)
 #endif
 #endif
   do nf = 1,nfbnd
@@ -2293,15 +2302,20 @@ continue
   !$OMP&                 l0,lc_offset,lc_rot,kl, &
   !$OMP&                 right_cell,right_geom,right_order, &
   !$OMP&                 r0,rc_offset,rc_rot,kr, &
-  !$OMP&                 kf,val,i,n,a) &
-  !$OMP&         NUM_THREADS(28)
+  !$OMP&                 kf,val,i,n,a)
   !
   tid = omp_get_thread_num()
-  if (tid == glb_root) then
-    write (iout,"(a,i0)") "number of threads = ",omp_get_num_threads()
+  nthreads = omp_get_num_threads()
+  !
+  if (mypnum == glb_root) then
+    if (tid == glb_root) then
+      write (iout,thread_report) pname,nthreads
+    end if
   end if
   !
-  !$OMP DO SCHEDULE(GUIDED)
+  chunk_size = ceiling( real(nface-nfbnd,kind=wp) / real(nthreads,kind=wp) )
+  !
+  !$OMP DO SCHEDULE(STATIC,chunk_size)
 #endif
 #endif
   do nf = nfbnd+1,nface
@@ -3113,7 +3127,7 @@ subroutine compute_cell_metrics_3d(met,jcb,wjac)
   real(wp), intent(inout) :: wjac(:)
   !
   !.. Local Scalars ..
-  integer  :: i,k,n,nc,np,n0,tid
+  integer  :: i,k,n,nc,np,n0
   integer  :: this_geom,this_order
   real(wp) :: a,jacob
   real(wp) :: dxdi,dydi,dzdi
@@ -3132,15 +3146,20 @@ continue
   !$OMP PARALLEL &
   !$OMP&         DEFAULT(SHARED) &
   !$OMP&         PRIVATE(nc,n0,np,this_geom,this_order,k,i,n,a,jacob,tid, &
-  !$OMP&                 dxdi,dydi,dzdi,dxdj,dydj,dzdj,dxdk,dydk,dzdk) &
-  !$OMP&         NUM_THREADS(28)
+  !$OMP&                 dxdi,dydi,dzdi,dxdj,dydj,dzdj,dxdk,dydk,dzdk)
   !
   tid = omp_get_thread_num()
-  if (tid == glb_root) then
-    write (iout,"(a,i0)") "number of threads = ",omp_get_num_threads()
+  nthreads = omp_get_num_threads()
+  !
+  if (mypnum == glb_root) then
+    if (tid == glb_root) then
+      write (iout,thread_report) pname,nthreads
+    end if
   end if
   !
-  !$OMP DO SCHEDULE(GUIDED)
+  chunk_size = ceiling( real(ncell,kind=wp) / real(nthreads,kind=wp) )
+  !
+  !$OMP DO SCHEDULE(STATIC,chunk_size)
 #endif
 #endif
   metrics_loop: do nc = 1,ncell
