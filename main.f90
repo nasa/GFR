@@ -967,7 +967,8 @@ continue
     if (.not. output_time_averaging) then
       if (start_averaging_tstar > zero) then
         !
-        current_tstar = time*time_ref*time_scaling_factor - init_tstar
+       !current_tstar = time*time_ref*time_scaling_factor - init_tstar
+        current_tstar = time*time_ref*time_scaling_factor
         !
         if (current_tstar > start_averaging_tstar) then
           !
