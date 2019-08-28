@@ -7218,7 +7218,8 @@ subroutine check_cgns_dir
   !
   !.. Use Statements ..
   use ovar, only : output_dir,itrst,num_timesteps
-  use ovar, only : lustre_stripe_count,lustre_stripe_size
+  use ovar, only : lustre_stripe_count
+  use ovar, only : lustre_stripe_size
   !
   !.. Local Scalars ..
   integer :: clen,ierr,iodir
@@ -7306,6 +7307,7 @@ continue
       write (command,1) max(0,lustre_stripe_count), &
                         trim(adjustl(lustre_stripe_size)), &
                         trim(adjustl(cgns_dir))
+      write (iout,2) trim(adjustl(command))
       !
       call execute_command(command,wait_for_completion,exitstat, &
                            cmndstat,cmndmsg,pname)
@@ -7326,27 +7328,25 @@ continue
   ! Broadcast the value of cgns_dir to all the non-root MPI processes
   !
   clen = len_trim(cgns_dir)
-  !
-  call mpi_bcast(clen,1_int_mpi, &
-                 mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
-  !
-  call mpi_bcast(cgns_dir(1:clen),int(clen,kind=int_mpi), &
-                 MPI_CHARACTER,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(clen,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(cgns_dir(1:clen),int(clen,kind=int_mpi),MPI_CHARACTER, &
+                 0_int_mpi,MPI_COMM_WORLD,mpierr)
   !
   ! Create the format string for creating the CGNS file names
   !
-  write (char_num,1) itrst + num_timesteps
+  write (char_num,3) itrst + num_timesteps
   final_iter_digits = max(4,len_trim(adjustl(char_num)))
   !
-  write (cgnsfile_fmt,2) final_iter_digits
+  write (cgnsfile_fmt,4) final_iter_digits
   !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
-  1 format (i0)
-  2 format ("('solution.',i0.",i0,",a,'.cgns')")
-  3 format ("lfs setstripe -c ",i0," -S ",a,1x,a)
+  1 format ("lfs setstripe -c ",i0," -S ",a,1x,a)
+  2 format ("Lustre striping command = '",a,"'")
+  3 format (i0)
+  4 format ("('solution.',i0.",i0,",a,'.cgns')")
   !
 end subroutine check_cgns_dir
 !
