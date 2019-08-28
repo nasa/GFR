@@ -405,7 +405,7 @@ subroutine interpsol()
   use geovar,            only : ncell,nface,nfbnd,nr
   use geovar,            only : cell,face,fp
   use flux_mod,          only : interp_cv_to_flxpts  ! DEBUG: for debug output
-  use metrics_mod,       only : geofa
+  use metrics_mod,       only : geofa,facenrm
   use flowvar,           only : usp
  !use flowvar,           only : facexyz_dt
   use flowvar,           only : facexyz_array
@@ -435,7 +435,7 @@ subroutine interpsol()
   integer :: fp_offset,face_rot
   integer :: donor_cell
   !
-  real(wp) :: a,val
+  real(wp) :: a,val,face_dot
   !
   logical(lk) :: dealloc_octedat
   !
@@ -786,11 +786,13 @@ continue
       xyz_pt(:) = facexyz_array(:,f0+ifp)
      !xyz_pt(:) = facexyz_dt(nf)%v(:,ifp)
       face_to_xyz(:) = g2_xyz_pt(:) - xyz_pt(:)   ! vector from face to dst pt
+      face_dot = dot( facenrm(:,f0+ifp), face_to_xyz(:) )
       !
       ! Dot face normal with face_to_xyz vector.
       ! Face normal always points toward right cell.
       !
-      if (dot( geofa(nf)%v(:,ifp), face_to_xyz(:) ) >= 0) then
+     !if (dot( geofa(nf)%v(:,ifp), face_to_xyz(:) ) >= 0) then
+      if (face_dot >= 0) then
         !
         ! xyz_pt is inside this (left) donor cell.
         ! Interpolate donor sol to this xyz_pt.
@@ -977,7 +979,7 @@ subroutine interpsol_debug()
   use geovar,            only : cell,face,fp
   use geovar,            only : xyz
   use flux_mod,          only : interp_cv_to_flxpts  ! DEBUG: for debug output
-  use metrics_mod,       only : geofa
+  use metrics_mod,       only : geofa,facenrm
   use flowvar,           only : usp
  !use flowvar,           only : facexyz_dt
   use flowvar,           only : facexyz_array
@@ -1258,9 +1260,11 @@ continue
         write (iout,21) "g2_xyz_pt  = ",g2_xyz_pt(:)
         write (iout,21) "facexyz_pt = ",facexyz_array(:,f0+ifp)
        !write (iout,21) "facexyz_pt = ",facexyz_dt(nf)%v(:,ifp)
-        write (iout,21) "normal     = ",geofa(nf)%v(:,ifp)
+       !write (iout,21) "normal     = ",geofa(nf)%v(:,ifp)
+        write (iout,21) "normal     = ",facenrm(:,f0+ifp)
         write (iout,21) "face2dst   = ",face_to_xyz(:)
-        write (iout,21) "dot(n,f2d) = ",dot(geofa(nf)%v(:,ifp), face_to_xyz(:))
+       !write (iout,21) "dot(n,f2d) = ",dot(geofa(nf)%v(:,ifp), face_to_xyz(:))
+        write (iout,21) "dot(n,f2d) = ",dot(facenrm(:,f0+ifp), face_to_xyz(:))
         ! Output xyz and usp for closest face point on donor grid.
         write (iout,20) "Donor grid/solution info."
        !write (iout,21) "facexyz_dt(:)          = ",facexyz_dt(nf)%v(1:nr,ifp)
@@ -1275,7 +1279,8 @@ continue
       !
       ! Dot face normal with face_to_xyz vector.
       ! Face normal always points toward right cell.
-      if (dot( geofa(nf)%v(:,ifp), face_to_xyz(:) ) <= 0) then
+     !if (dot( geofa(nf)%v(:,ifp), face_to_xyz(:) ) <= 0) then
+      if (dot( facenrm(:,f0+ifp), face_to_xyz(:) ) <= 0) then
         ! xyz_pt is inside this (left) donor cell.
         ! Interpolate donor sol to this xyz_pt.
         donor_lr_flag = 1
