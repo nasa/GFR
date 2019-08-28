@@ -339,6 +339,7 @@ continue
     plot3d_agglomerate_order = interpto_plot3d_agglomerate_order
     solution_file            = ""
     solution_order           = interpto_solution_order
+    all_orders               = interpto_all_orders
   end if
   !
   ! Check the lustre striping parameters
