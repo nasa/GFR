@@ -298,6 +298,7 @@ subroutine octtree_find_nearest_xyz(octtree,xyz_pt, ixyz_pt,istat,tid,acc)
   !
 continue
   !
+#ifdef DEBUG_ON
   if (present(acc)) then
     if (acc == 1) then
       call debug_timer(reset_accumulated_time,"Crap 1", &
@@ -330,6 +331,7 @@ continue
   !
   call debug_timer(start_accumulation,"Crap 1", &
                    acc=1,pid=tid)
+#endif
   !
   istat = OCT_STATUS_NOT_FOUND
   containing_octnode => null()
@@ -344,6 +346,7 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"best_ixyz",1,__LINE__,__FILE__,ierr,error_message)
   !
+#ifdef DEBUG_ON
   call debug_timer(stop_accumulation,"Crap 1", &
                    acc=1,pid=tid)
   !
@@ -351,18 +354,23 @@ continue
   !
   call debug_timer(start_accumulation,"octnode_find_containing_octnode", &
                    acc=2,pid=tid)
+#endif
   call octnode_find_containing_octnode(octtree%octnode,octtree%octroot, &
                                        octtree%octedat,xyz_pt, &
                                        containing_octnode,istat)
+#ifdef DEBUG_ON
   call debug_timer(stop_accumulation,"octnode_find_containing_octnode", &
                    acc=2,pid=tid)
+#endif
   !
   !
   !
   if (istat == OCT_STATUS_OK) then
     !
+#ifdef DEBUG_ON
     call debug_timer(start_accumulation,"Crap 2", &
                      acc=3,pid=tid)
+#endif
     !
     best_octnode => containing_octnode
     !
@@ -381,6 +389,7 @@ continue
     xyz_bbox(:,1) = xyz_pt(:) - 2*bbox_diag
     xyz_bbox(:,2) = xyz_pt(:) + 2*bbox_diag
     !
+#ifdef DEBUG_ON
     call debug_timer(stop_accumulation,"Crap 2", &
                      acc=3,pid=tid)
     !
@@ -388,19 +397,24 @@ continue
     !
     call debug_timer(start_accumulation,"octnode_find_nearest_xyz", &
                      acc=4,pid=tid)
+#endif
     call octnode_find_nearest_xyz(octtree%octnode,octtree%octroot, &
            octtree%octedat,xyz_pt,xyz_bbox, &
            best_octnode,best_octixyz,best_ixyz,best_dist2,istat)
     if (istat == OCT_STATUS_OK) then
       ixyz_pt = best_ixyz
     end if
+#ifdef DEBUG_ON
     call debug_timer(stop_accumulation,"octnode_find_nearest_xyz", &
                      acc=4,pid=tid)
+#endif
     !
   end if
   !
+#ifdef DEBUG_ON
   call debug_timer(start_accumulation,"Crap 3", &
                    acc=5,pid=tid)
+#endif
   !
 #ifdef DEBUG_OCTFIND
 #ifdef OCTID
@@ -428,8 +442,10 @@ continue
     deallocate ( best_ixyz , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"best_ixyz",2,__LINE__,__FILE__,ierr,error_message)
   end if
+#ifdef DEBUG_ON
   call debug_timer(stop_accumulation,"Crap 3", &
                    acc=5,pid=tid)
+#endif
   !
   ! Format Statements
   !
@@ -463,6 +479,10 @@ continue
 end subroutine octtree_print
 !
 !###############################################################################
+!
+#ifndef DEBUG_ON
+#undef PROFILE_ON
+#endif
 !
 #include "Functions/debug_timer.f90"
 !
