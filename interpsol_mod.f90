@@ -434,6 +434,7 @@ subroutine interpsol()
   integer :: donor_cell
   !
   real(wp) :: a,val,face_dot
+  real(wp) :: valsp1,valsp2,valsp3,valsp4,valsp5,valsp6
   real(wp) :: valec,valmx,valmy,valmz,valee
   !
   logical(lk) :: dealloc_octedat
@@ -690,6 +691,7 @@ continue
   !$OMP&                 start_time,new_time,elapsed_time,percent_complete, &
   !$OMP&                 hours,minutes,seconds,pts_completed,fp_offset, &
   !$OMP&                 face_rot,face_dot, &
+  !$OMP&                 valsp1,valsp2,valsp3,valsp4,valsp5,valsp6, &
   !$OMP&                 valec,valmx,valmy,valmz,valee)
   !
   call debug_timer(reset_accumulated_time, &
@@ -883,6 +885,54 @@ continue
         !
         lf = fp_offset + fp%geord(face_geom,face_order)%rot(face_rot)%pts(ifp)
         !
+#define TEMPORARY_FOR_UTRC_CASE
+#ifdef TEMPORARY_FOR_UTRC_CASE
+        valsp1 = zero
+        valsp2 = zero
+        valsp3 = zero
+        valsp4 = zero
+        valsp5 = zero
+        valsp6 = zero
+        valec  = zero
+        valmx  = zero
+        valmy  = zero
+        valmz  = zero
+        valee  = zero
+        !
+        do i = interp(this_geom,this_order)% &
+                         toFace(face_order)%row_ptr(lf)+1, &
+               interp(this_geom,this_order)% &
+                         toFace(face_order)%row_ptr(lf+1)
+          !
+          j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+          !
+          valsp1 = valsp1 + a * usp(n0+j,1)
+          valsp2 = valsp2 + a * usp(n0+j,2)
+          valsp3 = valsp3 + a * usp(n0+j,3)
+          valsp4 = valsp4 + a * usp(n0+j,4)
+          valsp5 = valsp5 + a * usp(n0+j,5)
+          valsp6 = valsp6 + a * usp(n0+j,6)
+          valec  = valec  + a * usp(n0+j,nec)
+          valmx  = valmx  + a * usp(n0+j,nmx)
+          valmy  = valmy  + a * usp(n0+j,nmy)
+          valmz  = valmz  + a * usp(n0+j,nmz)
+          valee  = valee  + a * usp(n0+j,nee)
+          !
+        end do
+        !
+        g2_usp(k,1)   = valsp1
+        g2_usp(k,2)   = valsp2
+        g2_usp(k,3)   = valsp3
+        g2_usp(k,4)   = valsp4
+        g2_usp(k,5)   = valsp5
+        g2_usp(k,6)   = valsp6
+        g2_usp(k,nec) = valec
+        g2_usp(k,nmx) = valmx
+        g2_usp(k,nmy) = valmy
+        g2_usp(k,nmz) = valmz
+        g2_usp(k,nee) = valee
+#else
 #ifdef ASSUME_3D
         valec  = zero
         valmx  = zero
@@ -931,6 +981,7 @@ continue
           g2_usp(k,m) = val
           !
         end do
+#endif
 #endif
         !
        !g2_usp(1:nq,k) = interp(this_geom,this_order)% &

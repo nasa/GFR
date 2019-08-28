@@ -622,6 +622,45 @@ continue
   ! Use the last interpolation matrix that was created to interpolate
   ! the solution in the current cell to the input point
   !
+#define TEMPORARY_FOR_UTRC_CASE
+#ifdef TEMPORARY_FOR_UTRC_CASE
+  valsp1 = zero
+  valsp2 = zero
+  valsp3 = zero
+  valsp4 = zero
+  valsp5 = zero
+  valsp6 = zero
+  valec  = zero
+  valmx  = zero
+  valmy  = zero
+  valmz  = zero
+  valee  = zero
+  do n = 1,np
+    a = interp_mat(n)
+    valsp1 = valsp1 + a * usp(n0+n,1)
+    valsp2 = valsp2 + a * usp(n0+n,2)
+    valsp3 = valsp3 + a * usp(n0+n,3)
+    valsp4 = valsp4 + a * usp(n0+n,4)
+    valsp5 = valsp5 + a * usp(n0+n,5)
+    valsp6 = valsp6 + a * usp(n0+n,6)
+    valec  = valec  + a * usp(n0+n,nec)
+    valmx  = valmx  + a * usp(n0+n,nmx)
+    valmy  = valmy  + a * usp(n0+n,nmy)
+    valmz  = valmz  + a * usp(n0+n,nmz)
+    valee  = valee  + a * usp(n0+n,nee)
+  end do
+  return_value(1)   = valsp1
+  return_value(2)   = valsp2
+  return_value(3)   = valsp3
+  return_value(4)   = valsp4
+  return_value(5)   = valsp5
+  return_value(6)   = valsp6
+  return_value(nec) = valec
+  return_value(nmx) = valmx
+  return_value(nmy) = valmy
+  return_value(nmz) = valmz
+  return_value(nee) = valee
+#else
  !do m = 1,size(usp,dim=2)
  !  return_value(m) = dot( interp_mat(1:np) , usp(n1:n2,m) )
  !end do
@@ -643,6 +682,7 @@ continue
   return_value(nmy) = valmy
   return_value(nmz) = valmz
   return_value(nee) = valee
+#endif
   !
 end subroutine interp_cell_sol_to_xyz_3d
 !
@@ -877,6 +917,41 @@ continue
   ! Use the last interpolation matrix that was created to interpolate
   ! the solution in the current cell to the input point
   !
+#ifdef TEMPORARY_FOR_UTRC_CASE
+  valsp1 = zero
+  valsp2 = zero
+  valsp3 = zero
+  valsp4 = zero
+  valsp5 = zero
+  valsp6 = zero
+  valec  = zero
+  valmx  = zero
+  valmy  = zero
+  valee  = zero
+  do n = 1,np
+    a = interp_mat(n)
+    valsp1 = valsp1 + a * usp(n0+n,1)
+    valsp2 = valsp2 + a * usp(n0+n,2)
+    valsp3 = valsp3 + a * usp(n0+n,3)
+    valsp4 = valsp4 + a * usp(n0+n,4)
+    valsp5 = valsp5 + a * usp(n0+n,5)
+    valsp6 = valsp6 + a * usp(n0+n,6)
+    valec  = valec  + a * usp(n0+n,nec)
+    valmx  = valmx  + a * usp(n0+n,nmx)
+    valmy  = valmy  + a * usp(n0+n,nmy)
+    valee  = valee  + a * usp(n0+n,nee)
+  end do
+  return_value(1)   = valsp1
+  return_value(2)   = valsp2
+  return_value(3)   = valsp3
+  return_value(4)   = valsp4
+  return_value(5)   = valsp5
+  return_value(6)   = valsp6
+  return_value(nec) = valec
+  return_value(nmx) = valmx
+  return_value(nmy) = valmy
+  return_value(nee) = valee
+#else
  !do m = 1,size(usp,dim=2)
  !  return_value(m) = dot( interp_mat(1:np) , usp(n1:n2,m) )
  !end do
@@ -895,6 +970,7 @@ continue
   return_value(nmx) = valmx
   return_value(nmy) = valmy
   return_value(nee) = valee
+#endif
   !
 end subroutine interp_cell_sol_to_xyz_2d
 !
