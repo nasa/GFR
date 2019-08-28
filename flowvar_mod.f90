@@ -391,6 +391,17 @@ call debug_timer(start_timer,message(iwt))
     call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__, &
                      ierr,error_message)
     !
+    allocate ( facegpsp_dt(1:nface) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facegpsp_dt",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+    !
+    call alloc_face_dt_components(facegpsp_dt,nfpts,"facegpsp_dt",num_var=ng)
+    !
+    allocate ( facegpsp(1:nfpts,1:ng,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facegpsp",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+    !
 call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
     !
     call debug_timer(leaving_procedure,pname)
