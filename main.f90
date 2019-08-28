@@ -47,6 +47,7 @@ program GFR_main
   use ovar, only : start_averaging_timestep
   use ovar, only : start_averaging_tstar,init_tstar
   use ovar, only : current_rk_stage
+  use ovar, only : Filter_Option
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
@@ -502,7 +503,9 @@ continue
     if (p_order < n_order) then
       call project_to_porder(usp)
     else
-      call filter_usp
+      if (Filter_Option > 0) then
+        call filter_usp
+      end if
     end if
     !
     ! Allocate the derivative array, which would normally be done
