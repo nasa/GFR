@@ -628,6 +628,11 @@ module module_kind_types
   integer, parameter :: close_CGNS  = -1
   integer, parameter :: dump_CGNS   = -2
   !
+  ! Channel flow constants
+  real(wp), parameter :: channel_grid_Lx = 0.036576_wp ! 0.12(in)*0.3048(m/in)
+  real(wp), parameter :: channel_grid_Ly = 0.006096_wp ! 0.02(in)*0.3048(m/in)
+  real(wp), parameter :: channel_grid_Lz = 0.018288_wp ! 0.06(in)*0.3048(m/in)
+  !
   ! Cell Geometry Family Types
   !
   type :: geom_family_t
