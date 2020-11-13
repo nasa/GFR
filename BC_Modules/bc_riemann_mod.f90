@@ -16,7 +16,7 @@ contains
 !###############################################################################
 !
 #ifdef DISABLE_FOR_GPU
-pure &
+!pure &
 #endif
 subroutine get_bc_characteristic_solution(n1,n2,facenrm,face_cv,face_gp, &
                                                 pv_in,pv_fs,relax)

@@ -213,7 +213,8 @@ end subroutine init_transport_mod
 !
 !###############################################################################
 !
-pure subroutine update_transport_properties_1p(cv_1p,gp_1p)
+!pure &
+subroutine update_transport_properties_1p(cv_1p,gp_1p)
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: cv_1p(:)
@@ -247,7 +248,8 @@ end subroutine update_transport_properties_1p
 !
 !###############################################################################
 !
-pure subroutine update_transport_properties_fp(n1,n2,cv,gp)
+!pure &
+subroutine update_transport_properties_fp(n1,n2,cv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -269,7 +271,8 @@ end subroutine update_transport_properties_fp
 !
 !###############################################################################
 !
-pure subroutine update_transport_properties_sp(n1,n2,cv,gp)
+!pure &
+subroutine update_transport_properties_sp(n1,n2,cv,gp)
   !
   !.. Use Statements ..
   use ovar,    only : Pr,cpref_nd
@@ -371,7 +374,8 @@ end subroutine update_transport_properties_sp
 !
 !###############################################################################
 !
-pure subroutine compute_viscosity_cpg_sp(n1,n2,t,visc)
+!pure &
+subroutine compute_viscosity_cpg_sp(n1,n2,t,visc)
   !
   !.. Use Statements ..
   use ovar, only : rhoref,aref,tref
@@ -405,7 +409,8 @@ end subroutine compute_viscosity_cpg_sp
 !
 !###############################################################################
 !
-pure subroutine compute_viscosity_cpg_1p(t,visc)
+!pure &
+subroutine compute_viscosity_cpg_1p(t,visc)
   !
   !.. Use Statements ..
   use ovar, only : rhoref,aref,tref

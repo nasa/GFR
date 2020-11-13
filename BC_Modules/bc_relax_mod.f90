@@ -54,7 +54,7 @@ end subroutine get_relax_coefficient
 !###############################################################################
 !
 #ifdef DISABLE_FOR_GPU
-pure &
+!pure &
 #endif
 subroutine get_relaxed_cv_bc(relax,cv_fs,cv_bc,gp_bc, &
                              cv_rlx,pv_rlx,gp_rlx,return_rlx)
@@ -140,7 +140,7 @@ end subroutine get_relaxed_cv_bc
 !###############################################################################
 !
 #ifdef DISABLE_FOR_GPU
-pure &
+!pure &
 #endif
 subroutine get_relaxed_pv_bc(relax,pv_fs,pv_bc, &
                              cv_rlx,pv_rlx,gp_rlx,return_rlx)
