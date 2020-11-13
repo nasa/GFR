@@ -324,7 +324,8 @@ call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_dt for SEM"
 call debug_timer(start_timer,message(iwt))
     if (.not. allocated(facexyz_dt)) then
-      allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
+      allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
+     !allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
                        ierr,error_message)
     end if
