@@ -315,7 +315,8 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
                           nodes_of_cell_ptr,xyz_nodes,cell_geom,cell_order)
   !
   !.. Use Statements ..
-  use ovar, only : continuous_output
+  use geovar, only : n_global_face
+  use ovar,   only : continuous_output
   !
   !.. Formal Arguments ..
   integer,                                  intent(in) :: npart
@@ -384,6 +385,8 @@ continue
                                  cells_with_edge,cells_with_edge_ptr, &
                                  nodes_on_edge,face,fp)
     !
+    n_global_face = size(face)
+    !
     ! Create the dual graph for the global grid not including ghost cells
     !
     call memory_pause("Before: calling create_metis_dual_graph")
@@ -438,6 +441,8 @@ continue
     !
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(n_global_face,1_int_mpi,mpi_inttyp, &
+                 glb_root,MPI_COMM_WORLD,mpierr)
   !
   ! Deallocate cells_surr_cell and cells_surr_cell_ptr since they
   ! are no longer needed
