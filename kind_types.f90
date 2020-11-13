@@ -825,6 +825,9 @@ module module_kind_types
   !
   logical(lk), private, save :: random_is_initialized = fals
   !
+  character(len=100), save :: src_file_with_bad_number = ""
+  integer,            save :: line_num_with_bad_number = 0
+  !
   ! Definition of 1 Work Unit using TauBench Benchmark Test
   ! Using Intel 2013 compilers
   real(wp), parameter :: one_work_unit = 6.9205_wp
