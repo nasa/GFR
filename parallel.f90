@@ -1690,7 +1690,13 @@ continue
   !############################################################################
   !############################################################################
   !
+  ! METIS 5 ALLOWS FOR ENFORCING CONTIGUOUS PARTITIONS THROUGH ITS OPTIONS
+  ! INPUT ARGUMENT, SO ONLY ENABLE THE CONTIGUOUS CHECK IF NOT USING METIS 5
+  ! 
+#ifndef METIS_5
+#ifndef DEBUG_ON
 #define ENABLE_CONTIGUITY_CHECK
+#endif
 #ifdef ENABLE_CONTIGUITY_CHECK
   if (passes_inspection) then
     !
@@ -1737,6 +1743,7 @@ continue
     call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
     !
   end if
+#endif
 #endif
   !
   call debug_timer(leaving_procedure,pname)
