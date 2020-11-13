@@ -23,21 +23,38 @@ subroutine set_random_seed(seed)
   ! a different set of numbers
   !***********************************************************************
   !
+  !.. Use Statements ..
+  use ovar, only : SEM_use_random_seed_from_restart
+  !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: seed
   !
   !.. Local Scalars ..
-  integer :: isize,iclk,i
+  integer :: isize,iclk,i,ierr
   !
   !.. Local Arrays ..
   integer :: date(1:8)
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "set_random_seed"
+  !
 continue
   !
+  ! If iseed is allocated, that means the random seed was read in from the
+  ! restart file. If the input variable SEM_use_random_seed_from_restart is
+  ! true, keep iseed allocated and we just need to call random_seed with the
+  ! restart seed. If SEM_use_random_seed_from_restart is false, deallocate
+  ! iseed so that a new random seed is created.
+  !
+  if (allocated(iseed)) then
+    if (.not. SEM_use_random_seed_from_restart) then
+      deallocate ( iseed , stat=ierr, errmsg=error_message )
+      call alloc_error(pname,"iseed",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+  end if
+  !
   ! Only allocate and create the new random seed if the iseed array is
-  ! not yet allocated. If iseed is allocated, that means the random seed
-  ! was read in from the restart file. In that case, we just need to
-  ! call random_seed with the restart seed.
+  ! not yet allocated.
   !
   if (.not. allocated(iseed)) then
     !
