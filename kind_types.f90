@@ -497,6 +497,7 @@ module module_kind_types
   integer, parameter :: N2_O2_Diffusion         = 17
   integer, parameter :: Compression_Corner      = 18
   integer, parameter :: CH4_Flame_Speed_Test    = 19
+  integer, parameter :: THX_Phase_3             = 20
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
                                                 Entropy_Transport ]
   integer, parameter :: Vortex_Problems(1:2) = [ Shu_Vortex, &
