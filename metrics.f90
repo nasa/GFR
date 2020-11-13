@@ -276,7 +276,7 @@ continue
   else if (nr == 2) then
     call compute_cell_metrics_2d(metrics_array,jac,wtdjac)
   else if (nr == 1) then
-    call compute_cell_metrics_2d(metrics_array,jac,wtdjac)
+    call compute_cell_metrics_1d(metrics_array,jac,wtdjac)
   else
     write (error_message,100) nr
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
