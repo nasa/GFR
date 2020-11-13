@@ -81,6 +81,14 @@ continue
     return
   end if
   !
+  ! Add the special case to check if the substring "PERIODIC" exists
+  !
+  n = index(text,"PERIODIC")
+  if (n > 0) then
+    return_value = bc_periodic
+    return
+  end if
+  !
   ! Use the character string given in the PhysicalName
   ! section to set the value of the boundary condition\
   !
@@ -125,8 +133,6 @@ continue
       !
     case ("SYMM","SYMMETRY","SYMMETRYPLANE")
       return_value = bc_symmetry
-    case ("PERIODIC")
-      return_value = bc_periodic
     case ("MMS_DIRICHLET","MMSDIRICHLET")
       return_value = bc_mms_dirichlet
       !
