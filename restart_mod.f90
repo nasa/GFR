@@ -94,6 +94,19 @@ module restart_mod
     integer :: end_sp
   end type sp_idx_t
   !
+  type :: backup_t
+    character(len=200) :: filename
+    integer            :: iter
+    real(wp)           :: cfl
+  end type backup_t
+  !
+  type :: backup_restart_t
+    character(len=200) :: filename
+    integer            :: iter
+    real(wp)           :: cfl
+    type(backup_t)     :: backup
+  end type backup_restart_t
+  !
   !###################################
   !###  Module Allocatable Arrays  ###
   !###################################
@@ -112,6 +125,8 @@ module restart_mod
   type(sp_idx_t), save, allocatable :: host_output_order(:)
   !
   type(rstrt_cell_t), save, allocatable :: cell_input_data(:)
+  !
+  type(backup_restart_t), save :: backup_restart
   !
   !############################################################################
   !###  Generic interfaces for subroutines to read REAL data using MPI I/O  ###
@@ -162,6 +177,65 @@ module restart_mod
   end interface read_rstrt_file_serial_wp
   !
 contains
+!
+!###############################################################################
+!
+subroutine restart_from_backup()
+  !
+  !.. Use Statements ..
+  use ovar, only : itcur,time,d_t
+  use ovar, only : itrst,tmrst,dtrst
+  use ovar, only : cfl,cfl_beg,cfl_end,cfl_cycles
+  use ovar, only : restart_interval
+  use ovar, only : CFL_reduction_for_NaN_restart
+  use ovar, only : adjust_cfl_cycles
+  !
+  !.. Local Scalars ..
+  integer  :: iter,min_iter
+  real(wp) :: restart_cfl
+  !
+  character(len=200) :: restart_fname
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "restart_from_backup"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  iter = itcur - backup_restart%iter
+  min_iter = min( 1000 , nint(real(restart_interval,kind=wp)/ten) )
+  !
+  if (iter < min_iter) then
+    !
+    backup_restart%filename = backup_restart%backup%filename
+    backup_restart%iter     = backup_restart%backup%iter
+    backup_restart%cfl      = backup_restart%backup%cfl
+    !
+    backup_restart%backup%cfl = backup_restart%cfl*CFL_reduction_for_NaN_restart
+    !
+  end if
+  !
+  restart_fname = backup_restart%filename
+  !
+  call read_restart_file(restart_fname)
+  !
+  d_t   = dtrst
+  itcur = itrst
+  time  = tmrst
+  !
+  cfl = backup_restart%cfl*CFL_reduction_for_NaN_restart
+  !
+  backup_restart%cfl = cfl
+  !
+  cfl_beg = cfl
+  cfl_end = cfl
+  cfl_cycles = 0
+  call adjust_cfl_cycles
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine restart_from_backup
 !
 !###############################################################################
 !
