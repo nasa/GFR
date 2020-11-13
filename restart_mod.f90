@@ -1953,6 +1953,8 @@ continue
     !
     if (itnum > 0) then
       write (fullname,'("out.",i0.8,".rst")') itcur
+    else if (itnum == 0) then
+      write (fullname,'("out.",i0.8,".init.rst")') itcur
     else if (itnum == -2) then
       write (fullname,'("out.",i0.8,".NaN.rst")') itcur-1
     else
@@ -2043,6 +2045,11 @@ continue
       write (fullname,rstfile_fmt) itcur,""
       write (command,lnkcmnd_fmt) itcur,""
       write (statfile,statfile_fmt) itcur,""
+    else if (itnum == 0) then
+      write (fname,rstfname_fmt) itcur,".init"
+      write (fullname,rstfile_fmt) itcur,".init"
+      write (command,lnkcmnd_fmt) itcur,".init"
+      write (statfile,statfile_fmt) itcur,".init"
     else if (itnum == -2) then
       write (fname,rstfname_fmt) itcur-1,".NaN"
       write (fullname,rstfile_fmt) itcur-1,".NaN"
