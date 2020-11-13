@@ -14,14 +14,18 @@ subroutine debug_timer(time_flag,message,processor,part_num,acc,pid,return_time)
   !
 #ifdef PROFILE_ON
   !.. Local Scalars ..
-  real(wp), save :: beg_wall_time
+  real(wp), save :: beg_wall_time = zero
   real(wp)       :: end_wall_time
   real(wp)       :: wall_time
   real(wp)       :: temp_time
   real(wp)       :: report_time
   !
   integer, save :: procedure_counter = 0
+  integer, save :: spot_counter = 0
   integer       :: i,output_cpu,output_id
+  integer       :: my_spot
+  !
+  character(len=200) :: msg1,msg2
   !
   character(len=300) :: out_message
   !
@@ -29,6 +33,9 @@ subroutine debug_timer(time_flag,message,processor,part_num,acc,pid,return_time)
   real(wp), save :: beg_procedure_time(10)
   real(wp), save :: accumulated_time(10)
   real(wp), save :: accumulation_beg_time(10)
+  !
+  real(wp),           save :: spot_beg_wall_time(50)
+  character(len=200), save :: spot_messages(50)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: leading_space = "                    "
@@ -50,9 +57,14 @@ continue
       write (out_message,5) message
     end if
     !
+    spot_counter = spot_counter + 1
+    !
     i = 3 + procedure_counter*2
     !
     call gfr_timer( beg_wall_time )
+    !
+    spot_messages(spot_counter) = trim(adjustl(message))
+    spot_beg_wall_time(spot_counter) = beg_wall_time
     !
     if (output_id == output_cpu) then
       write (iout,1) leading_space(1:i),trim(adjustl(out_message))
@@ -62,7 +74,28 @@ continue
     !
     call gfr_timer( end_wall_time )
     !
-    wall_time = end_wall_time - beg_wall_time
+    my_spot = 0
+    msg1 = uppercase(trim(adjustl(message)))
+    do i = 1,spot_counter
+      msg2 = uppercase(trim(adjustl(spot_messages(i))))
+      if (msg1 == msg2) then
+        my_spot = i
+        exit
+      end if
+    end do
+    !
+    if (my_spot > 0) then
+      wall_time = end_wall_time - spot_beg_wall_time(my_spot)
+      spot_counter = max(0,spot_counter - 1)
+      do i = my_spot,spot_counter
+        spot_messages(i) = spot_messages(i+1)
+        spot_beg_wall_time(i) = spot_beg_wall_time(i+1)
+      end do
+      spot_messages(spot_counter+1) = ""
+      spot_beg_wall_time(spot_counter+1) = zero
+    else
+      wall_time = end_wall_time - beg_wall_time
+    end if
     !
     if (present(part_num)) then
       write (out_message,6) message,part_num
