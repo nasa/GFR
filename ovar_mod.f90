@@ -392,7 +392,7 @@ module ovar
   !
   ! OPTIONS FOR MODIFYING BC ALGORITHMS
   logical(lk), public, save :: walls_are_exact   = true
-  integer,     public, save :: sub_inflow_method = 1
+  integer,     public, save :: sub_inflow_method = 4
   logical(lk), public, save :: use_bc_conflicts  = fals
   !
   ! CGNS OUTPUT OPTIONS
