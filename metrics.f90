@@ -218,7 +218,7 @@ subroutine get_metrics()
   use geovar, only : nr,ncell,nnode
   use geovar, only : nfbnd,nface,n_solpts
   use geovar, only : using_quadrature
-  use ovar,   only : local_volume
+  use ovar,   only : local_volume,total_volume
   use ovar,   only : Timestep_Type
   !
   !.. Local Scalars ..
@@ -322,6 +322,18 @@ continue
     all_jac_info(:,1) = jac_info(:)
     all_part_info(:,1) = part_info(:)
     !
+  end if
+  !
+  ! Get the total volume of the grid by summing all the local partition volumes
+  !
+  total_volume = sum( all_jac_info(7,:) )
+  !
+  ! Have the global root process its value of the total volume to all other
+  ! processes just to make sure all processes have the same value
+  !
+  if (ncpu > 1) then
+    call mpi_bcast(total_volume,1_int_mpi,mpi_flttyp, &
+                   glb_root,MPI_COMM_WORLD,mpierr)
   end if
   !
   min_jac_cpu = minloc( all_jac_info(5,:) , dim=1 )
@@ -3428,7 +3440,7 @@ subroutine compute_volume_statistics(min_ncv,max_ncv,vol_min,vol_max, &
   !
   !.. Use Statements ..
   use geovar, only : ncell,cell
-  use ovar,   only : local_volume,total_volume
+  use ovar,   only : local_volume
   !
   !.. Formal Arguments ..
   integer,  intent(inout) :: min_ncv,max_ncv
@@ -3511,17 +3523,6 @@ continue
     end do
     !
   end do
-  !
-  ! Reduce the volumes of each partition to the root
-  ! processor to determine the volume of the global grid.
-  !
-  total_volume = local_volume
-  !
-  if (ncpu > 1) then
-    call mpi_allreduce(MPI_IN_PLACE,total_volume,1_int_mpi,mpi_flttyp, &
-                       MPI_SUM,MPI_COMM_WORLD,mpierr)
-  end if
-  !
   !
   call debug_timer(leaving_procedure,pname)
   !
