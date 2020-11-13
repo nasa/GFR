@@ -243,11 +243,14 @@ module ovar
   !
   ! SELECTION OF OUTPUT VARIABLES IN THE CGNS SOLUTION FILES
   logical(lk), public, save :: output_vorticity               = fals
+  logical(lk), public, save :: output_qcriterion              = fals
   logical(lk), public, save :: output_conserved_variables     = fals
   logical(lk), public, save :: output_temperature             = fals
   logical(lk), public, save :: output_thermo_variables        = fals
   logical(lk), public, save :: output_gradients               = fals
   logical(lk), public, save :: output_transport_variables     = fals
+  logical(lk), public, save :: output_stagnation_temperature  = fals
+  logical(lk), public, save :: output_stagnation_pressure     = fals
   logical(lk), public, save :: output_stagnation_variables    = fals
   logical(lk), public, save :: output_marker_variables        = fals
   logical(lk), public, save :: output_species_mass_fractions  = true
@@ -1049,11 +1052,14 @@ module input_namelist_mod
   use ovar,      only : ideal_total_temperature,limit_total_temperature
   use ovar,      only : output_limiter_statistics,output_filter_diagonals
   use ovar,      only : output_vorticity
+  use ovar,      only : output_qcriterion
   use ovar,      only : output_conserved_variables
   use ovar,      only : output_temperature
   use ovar,      only : output_thermo_variables
   use ovar,      only : output_gradients
   use ovar,      only : output_transport_variables
+  use ovar,      only : output_stagnation_temperature
+  use ovar,      only : output_stagnation_pressure
   use ovar,      only : output_stagnation_variables
   use ovar,      only : output_marker_variables
   use ovar,      only : output_species_mass_fractions
@@ -1156,7 +1162,10 @@ module input_namelist_mod
   namelist / input / output_vorticity, output_conserved_variables, &
                      output_temperature, output_thermo_variables, &
                      output_gradients, output_transport_variables, &
+                     output_stagnation_temperature, &
+                     output_stagnation_pressure, &
                      output_stagnation_variables, output_marker_variables, &
+                     output_qcriterion, &
                      output_species_mass_fractions, &
                      output_species_mole_fractions, &
                      output_extra_species_variables, &
