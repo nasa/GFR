@@ -378,6 +378,14 @@ module ovar
   real(wp),         public, save :: channel_body_force          = 0.0_wp
   character(len=:), public, save, allocatable :: channel_init_file
   logical(lk),      public, save :: channel_spatial_ave_restart = fals
+  logical(lk),      public, save :: channel_nondim_output_coord = fals
+  !
+  real(wp), public, save :: channel_yplus_of_one       = 8.42134e-6_wp
+  real(wp), public, save :: channel_grid_ave_xplus     = 50.0_wp
+  real(wp), public, save :: channel_grid_ave_yplus     = 25.0_wp
+  real(wp), public, save :: channel_grid_ave_zplus     = 25.0_wp
+  real(wp), public, save :: channel_grid_yplus_wall    = -1.0_wp
+  integer,  public, save :: channel_rake_save_interval = 100
   !
   ! OPTIONS FOR MODIFYING BC ALGORITHMS
   logical(lk), public, save :: walls_are_exact   = true
@@ -1048,6 +1056,10 @@ module input_namelist_mod
   use ovar,      only : flame_speed_test_dof
   use ovar,      only : channel_body_force,channel_init_file
   use ovar,      only : channel_spatial_ave_restart
+  use ovar,      only : channel_nondim_output_coord
+  use ovar,      only : channel_yplus_of_one, channel_rake_save_interval
+  use ovar,      only : channel_grid_ave_xplus, channel_grid_ave_zplus
+  use ovar,      only : channel_grid_ave_yplus, channel_grid_yplus_wall
   use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
   use ovar,      only : bc_input!,bc_input_t
@@ -1247,7 +1259,10 @@ module input_namelist_mod
   namelist / input / flame_speed_test_dof
   ! CHANNEL FLOW PARAMETERS
   namelist / input / channel_body_force, channel_init_file, &
-                     channel_spatial_ave_restart
+                     channel_spatial_ave_restart, channel_nondim_output_coord, &
+                     channel_grid_ave_xplus, channel_grid_ave_zplus, &
+                     channel_grid_ave_yplus, channel_grid_yplus_wall, &
+                     channel_yplus_of_one, channel_rake_save_interval
   ! OPTIONS FOR MODIFYING BC ALGORITHMS
   namelist / input / walls_are_exact, sub_inflow_method, use_bc_conflicts
   ! CGNS OUTPUT OPTIONS
