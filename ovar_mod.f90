@@ -217,6 +217,7 @@ module ovar
   logical(lk),      public, save :: use_old_restart_format         = fals
   character(len=:), public, save, allocatable :: restart_file
   logical(lk),      public, save :: restart_output_uses_host_roots = true
+  real(wp),         public, save :: CFL_reduction_for_NaN_restart  = 2.0_wp
   !
   ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
   integer,          public, save :: solution_format = Unknown_Format
@@ -1005,6 +1006,7 @@ module input_namelist_mod
   use ovar,      only : ignition_source_location
   use ovar,      only : load_restart_file, restart_interval, restart_file
   use ovar,      only : restart_output_uses_host_roots
+  use ovar,      only : CFL_reduction_for_NaN_restart
   use ovar,      only : iter_out_interval, results_interval
   use ovar,      only : output_dir, output_interval, output_frequency
   use ovar,      only : continuous_output
@@ -1144,7 +1146,8 @@ module input_namelist_mod
   ! RESTART OPTIONS
   namelist / input / load_restart_file, restart_interval, &
                      use_old_restart_format, restart_file, &
-                     restart_output_uses_host_roots
+                     restart_output_uses_host_roots, &
+                     CFL_reduction_for_NaN_restart
   ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
   namelist / input / solution_format, solution_file
   ! OPTIONS FOR SEM
