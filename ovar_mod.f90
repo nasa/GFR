@@ -19,6 +19,9 @@ module ovar
   use module_kind_types, only : BarycentricLobatto_TriPoints
   use module_kind_types, only : LagrangePolynomial
   use module_kind_types, only : Global_Cell_Timestep
+  use module_kind_types, only : debug_timer
+  use module_kind_types, only : entering_procedure
+  use module_kind_types, only : leaving_procedure
   !
   implicit none
   !
@@ -866,7 +869,12 @@ subroutine gfr_cpu_time(time_flag)
   !.. Local Scalars ..
   integer :: hours,minutes,seconds,total_sec
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "gfr_cpu_time"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   if (time_flag == 0) then
     !
@@ -890,6 +898,8 @@ continue
     write (iout,1) wall_time,hours,minutes,seconds,work_units
     !
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   1 format (/,"TOTAL SIMULATION WALL TIME WAS ",f18.6," s.", &
               " (",i0,":",i2.2,":",i2.2,")",/, &
