@@ -1950,6 +1950,13 @@ continue
   mpi_comm_world_val = _MPI_COMM_WORLD_VAL_
   mpi_comm_self_val = _MPI_COMM_SELF_VAL_
   !
+  if (mypnum == glb_root) then
+    write (iout,1)
+    flush (iout)
+  end if
+  flush (iout)
+  1 format (/,2x,"Starting GFR after initializing the MPI environment!",/)
+  !
   ! MPI datatype for working integer precision
   !
  !r = range( 0 )
