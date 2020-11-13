@@ -366,7 +366,7 @@ continue
   ave_cell_vol = sum( all_jac_info(7,:) ) / &
                  real( sum( all_part_info(1,:) ) , kind=kind(ave_cell_vol) )
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     !
     write (iout,1) all_jac_info( 5,min_jac_cpu),min_jsp,min_jcl,min_jac_cpu-1, &
                    all_jac_info( 6,max_jac_cpu),max_jsp,max_jcl,max_jac_cpu-1, &
