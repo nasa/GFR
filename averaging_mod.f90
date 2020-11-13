@@ -117,6 +117,13 @@ continue
                              time_ave_variables(:) , v2 // v3 ]
       !
       time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "dd" ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "tt" ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "pp" ]
+      !
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
                              time_ave_variables(:) , v1 // "t" ]
       time_ave_variables = [ character(len=len(time_ave_variables)) :: &
                              time_ave_variables(:) , v2 // "t" ]
