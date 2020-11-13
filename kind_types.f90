@@ -820,6 +820,8 @@ module module_kind_types
   ! working integer precision
   _MPI_DATA_TYPE_, protected, save :: mpi_inttyp
   !
+  integer, public, save :: my_dbg_out = iout
+  !
   character(len=*), parameter :: dbg_mpi_frmt = &
                               '("CPU-",i0," : ",a," at line ",i0," in file ",a)'
   !
