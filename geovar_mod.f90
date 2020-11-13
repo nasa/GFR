@@ -97,6 +97,7 @@ module geovar
   integer, public, save :: n_global_totcel
   integer, public, save :: n_global_edge
   integer, public, save :: n_global_fbnd
+  integer, public, save :: n_global_face
   integer, public, save :: n_global_solpts
   integer, public, save :: n_global_totpts
   !
