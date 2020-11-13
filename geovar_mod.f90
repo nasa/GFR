@@ -484,6 +484,11 @@ module geovar
     integer :: elem_type
     type(geom_family_t) :: family = Complete
     logical(lk) :: warning = .false.
+#ifndef DISABLE_DTIO
+    contains
+      procedure :: output_prop
+      generic :: write(formatted) => output_prop
+#endif
   end type prop_t
   !
   ! ELEM_T
@@ -495,6 +500,11 @@ module geovar
     integer, allocatable :: tags(:)
     integer, allocatable :: nodes(:)
    !type(cgns_idx_t), allocatable :: idx
+#ifndef DISABLE_DTIO
+    contains
+      procedure :: output_elem
+      generic :: write(formatted) => output_elem
+#endif
   end type elem_t
   !
   ! GRID_T
@@ -706,6 +716,82 @@ continue
   end if
   !
 end subroutine move_cellmap_to_device
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+subroutine output_elem(dtv,iunit,iotype,vlist,my_iostat,my_iomsg)
+  !
+  !.. Formal Arguments ..
+  class(elem_t),       intent(in) :: dtv
+  integer,             intent(in) :: iunit
+  character(len=*),    intent(in) :: iotype
+  integer,             intent(in) :: vlist(:)
+  integer,            intent(out) :: my_iostat
+  character(len=*), intent(inout) :: my_iomsg
+  !
+  !.. Local Scalars ..
+  integer :: i
+  !
+continue
+  !
+  write (iunit,1,iostat=my_iostat,iomsg=my_iomsg) dtv%prop
+  !
+  write (iunit,2,iostat=my_iostat,iomsg=my_iomsg) dtv%host_cell
+  !
+  write (iunit,3,iostat=my_iostat,iomsg=my_iomsg) &
+          (dtv%nodes(i), i=1,size(dtv%nodes))
+  !
+  write (iunit,4,iostat=my_iostat,iomsg=my_iomsg) &
+          (dtv%pts(i), i=1,size(dtv%pts))
+  !
+  write (iunit,5,iostat=my_iostat,iomsg=my_iomsg) &
+          (dtv%tags(i), i=1,size(dtv%tags))
+  !
+  1 format (2x,"PROP_T: ",dt)
+  2 format (/,4x,"host_cell = ",i0)
+  3 format (/,4x,"nodes(:) =",8(1x,i0,:),100(/,t12,8(1x,i0,:)))
+  4 format (/,4x,"pts(:) =",8(1x,i0,:),100(/,t12,8(1x,i0,:)))
+  5 format (/,4x,"tags(:) =",8(1x,i0,:))
+  !
+end subroutine output_elem
+!
+!###############################################################################
+!
+subroutine output_prop(dtv,iunit,iotype,vlist,my_iostat,my_iomsg)
+  !
+  !.. Formal Arguments ..
+  class(prop_t),       intent(in) :: dtv
+  integer,             intent(in) :: iunit
+  character(len=*),    intent(in) :: iotype
+  integer,             intent(in) :: vlist(:)
+  integer,            intent(out) :: my_iostat
+  character(len=*), intent(inout) :: my_iomsg
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: family(3) = ["Complete    ", &
+                                              "Edge-Defined", &
+                                              "Face-Defined"]
+  !
+continue
+  !
+  write (iunit,1,iostat=my_iostat,iomsg=my_iomsg) &
+           dtv%npts, &
+           dtv%order, &
+           Geom_Name(dtv%geom), &
+           dtv%elem_type, &
+           trim(adjustl(family(dtv%family%v))), &
+           dtv%warning
+  !
+  1 format ("npts=",i0, &
+            ", order=",i0, &
+            ", geom=",a, &
+            ", elem_type=",i0, &
+            ", family=",a, &
+            ", warn=",l)
+  !
+end subroutine output_prop
 !
 !###############################################################################
 !###############################################################################
