@@ -419,6 +419,10 @@ module ovar
   integer,          public, save :: start_averaging_timestep = -1
   real(wp),         public, save :: start_averaging_tstar    = -one
   !
+  ! SPATIAL AVERAGE RESTART FILES
+  logical(lk), public, save :: spatial_ave_restart_x_and_z_planes = fals
+  logical(lk), public, save :: spatial_ave_restart_z_planes       = fals
+  !
   ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
   logical(lk),      public, save :: time_average_restart_files = fals
   character(len=:), public, save, allocatable :: restart_list_file
@@ -1051,6 +1055,8 @@ module input_namelist_mod
   use ovar,      only : start_averaging_timestep, start_averaging_tstar
   use ovar,      only : time_ave_vel_is_axisymm
   use ovar,      only : time_scaling_factor
+  use ovar,      only : spatial_ave_restart_x_and_z_planes
+  use ovar,      only : spatial_ave_restart_z_planes
   use ovar,      only : time_average_restart_files, restart_list_file
   use ovar,      only : use_async_for_error
   use ovar,      only : ideal_total_temperature,limit_total_temperature
@@ -1264,6 +1270,9 @@ module input_namelist_mod
   namelist / input / output_time_averaging, time_ave_file, &
                      time_scaling_factor, time_ave_vel_is_axisymm, &
                      start_averaging_timestep, start_averaging_tstar
+  ! SPATIAL AVERAGE RESTART FILES
+  namelist / input / spatial_ave_restart_x_and_z_planes, &
+                     spatial_ave_restart_z_planes
   ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
   namelist / input / time_average_restart_files, restart_list_file
   ! MEMORY USAGE
