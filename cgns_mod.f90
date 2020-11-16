@@ -728,30 +728,26 @@ continue
   array_name = get_array_name("bc")
   call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Read the grids for the current zone
+  ! Read the grids (GridCoordinates_t nodes) for the current zone
   !
   do ig_g = 1,size(z%grid)
     if (debug_cgns) write (iout,2) mypnum,"reading CGNS grid node #",ig_g
     call read_cgns_grid( z%grid(ig_g) )
   end do
   !
-  ! Read the sections for the current zone
+  ! Read the sections (Element_t nodes) for the current zone
   !
   do is_g = 1,size(z%section)
     if (debug_cgns) write (iout,2) mypnum,"reading CGNS section node #",is_g
     call read_cgns_section( z%section(is_g) )
   end do
   !
-  ! Read the sections for the current zone
+  ! Read the boundary conditions (BC_t nodes) for the current zone
   !
   do ibc_g = 1,size(z%bc)
     if (debug_cgns) write (iout,2) mypnum,"reading CGNS bc node #",ibc_g
     call read_cgns_bc( z%bc(ibc_g) )
   end do
-  !
-  ! Fix the boundary condition lists
-  !
- !call fix_boco_lists(z%nvertex,z%ncell,z%section,z%bc)
   !
   call debug_timer(leaving_procedure,pname)
   !
