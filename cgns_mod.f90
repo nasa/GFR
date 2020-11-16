@@ -2756,6 +2756,16 @@ continue
     !
   end do boundary_cell_grps
   !
+  ! ########
+  ! ## 11 ##
+  ! ########
+  !
+  ! Match all the periodic boundary faces
+  !
+  if (any(bface(1,:) == bc_periodic)) then
+    call match_cgns_periodic_boundaries()
+  end if
+  !
   ! Deallocate bnd_grps and cell_grps since we dont need them anymore
   !
   deallocate ( cell_grps , stat=ierr , errmsg=error_message )
@@ -2764,31 +2774,9 @@ continue
   deallocate ( bnd_grps , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bnd_grps",2,__LINE__,__FILE__,ierr,error_message)
   !
-  ! ########
-  ! ## 11 ##
-  ! ########
-  !
 #ifdef DEBUG_ON
   write (iout,111) pname
 #endif
-  !
-  ! Finish any remaining tasks for the grid geometry
-  !
-  ! ###############################################################
-  ! ###############################################################
-  ! ####################   !!! WARNING !!!   ######################
-  ! ###############################################################
-  ! ###############################################################
-  ! ###                                                         ###
-  ! ###  PERIODIC BOUNDARY CONDITIONS ARE NOT CURRENTLY SET UP  ###
-  ! ###  WHEN USING CGNS GRID FILES! GAMBIT NEUTRAL GRID FILES  ###
-  ! ###    ARE REQUIRED TO USE PERIODIC BOUNDARY CONDITIONS!    ###
-  ! ###                                                         ###
-  ! ###############################################################
-  ! ###############################################################
-  ! ####################   !!! WARNING !!!   ######################
-  ! ###############################################################
-  ! ###############################################################
   !
   ! If an error was found, kill the program
   !
