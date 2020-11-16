@@ -615,7 +615,8 @@ $(OBJDIR)/turb_inflow_mod.o : turb_inflow_mod.f90 \
                     $(OBJDIR)/flowvar_mod.o \
                     $(OBJDIR)/metrics.o \
                     $(OBJDIR)/thermo_mod.o \
-                    $(OBJDIR)/transport_mod.o
+                    $(OBJDIR)/transport_mod.o \
+                    $(FUNDIR)/check_for_bad_number.f90
 
 $(OBJDIR)/typesgen_mod.o : typesgen_mod.f90 \
                  $(OBJDIR)/kind_types.o \
