@@ -2950,7 +2950,7 @@ subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   character(len=10) :: r_units,t_units,p_units,v_units,h_units
   character(len=10) :: cp_units,visc_units,cond_units,q_units
   !
-  character(len=2000) :: isowall_fmt,rhovel_fmt
+  character(len=2000) :: isowall_fmt,adiwall_fmt,rhovel_fmt
   character(len=2000) :: thermo_fmt,transport_fmt
   character(len=2000) :: species_fmt,tmp_fmt,energy_fmt
   !
@@ -3008,7 +3008,8 @@ continue
   !
   ! Create the format strings
   !
-  write (isowall_fmt,103) t_units,v_units,v_units,v_units
+  write (isowall_fmt,102) t_units,v_units,v_units,v_units
+  write (adiwall_fmt,103) v_units,v_units,v_units
   write (rhovel_fmt,104) r_units,v_units,v_units,v_units
   write (thermo_fmt,105) p_units,t_units,h_units,v_units,r_units, &
                          p_units,t_units,h_units,cp_units,cp_units
@@ -3066,6 +3067,7 @@ continue
       if (this_bc == 0) then
         !
         write (iout,1) trim(adjustl(cdim))
+        bc_type = bc_unknown
         !
       else
        !!
@@ -3094,14 +3096,19 @@ continue
       !
       ! Write out the flow conditions for this boundary condition
       !
-      if ( (bc_in(this_bc)%wall_temperature*tref >= tmin) .and. &
-           (bc_in(this_bc)%wall_temperature*tref <= tmax) ) then
+      if (bc_type == bc_isothermal_wall) then
         !
         vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
         !
         t = bc_in(this_bc)%wall_temperature * tdim
         !
         write (iout,isowall_fmt) t,(vel(ii),ii=1,nr)
+        !
+      else if (bc_type == bc_adiabatic_wall) then
+        !
+        vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
+        !
+        write (iout,adiwall_fmt) (vel(ii),ii=1,nr)
         !
       else
         !
@@ -3236,10 +3243,13 @@ continue
   !
   ! Format Statements
   !
-  103 format ('(4x,"Wall Temperature",t27,"= ",es14.6,"',a,'",/,', &
-               '4x,"X-velocity",t27,"= ",es14.6,"',a,'",/,:,', &
-               '4x,"Y-velocity",t27,"= ",es14.6,"',a,'",/,:,', &
-               '4x,"Z-velocity",t27,"= ",es14.6,"',a,'",/)')
+  102 format ('(4x,"Wall Temperature",t27,"= ",es14.6,"',a,'",/,', &
+               '4x,"Wall X-velocity",t27,"= ",es14.6,"',a,'",/,:,', &
+               '4x,"Wall Y-velocity",t27,"= ",es14.6,"',a,'",/,:,', &
+               '4x,"Wall Z-velocity",t27,"= ",es14.6,"',a,'",/)')
+  103 format ('(4x,"Wall X-velocity",t27,"= ",es14.6,"',a,'",/,:,', &
+               '4x,"Wall Y-velocity",t27,"= ",es14.6,"',a,'",/,:,', &
+               '4x,"Wall Z-velocity",t27,"= ",es14.6,"',a,'",/)')
   104 format ('(4x,"Static Density",t27,"= ",es14.6,"',a,'",/,' &
                '4x,"X-velocity",t27,"= ",es14.6,"',a,'",:,/,' &
                '4x,"Y-velocity",t27,"= ",es14.6,"',a,'",:,/,' &
