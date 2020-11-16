@@ -23,7 +23,7 @@ subroutine check_for_bad_number(line_num,file_name)
   character(len=1600) :: overflow_error
   character(len=1600) :: divide_by_zero_error
   character(len=1600) :: invalid_error
-  character(len=9999) :: error_message
+  character(len=9999) :: output_message
   !
   !.. Local Arrays ..
   integer      :: bad_number_found(1:size(ieee_usual))
@@ -113,20 +113,20 @@ continue
       end if
     end if
     !
-    write (error_message,100) trim(adjustl(overflow_error)), &
-                              trim(adjustl(divide_by_zero_error)), &
-                              trim(adjustl(invalid_error))
+    write (output_message,100) trim(adjustl(overflow_error)), &
+                               trim(adjustl(divide_by_zero_error)), &
+                               trim(adjustl(invalid_error))
     !
 #else
     if (bad_number_found(1) > 0) write (overflow_error,101)
     if (bad_number_found(2) > 0) write (divide_by_zero_error,102)
     if (bad_number_found(3) > 0) write (invalid_error,103)
-    write (error_message,100) trim(adjustl(overflow_error)), &
-                              trim(adjustl(divide_by_zero_error)), &
-                              trim(adjustl(invalid_error))
+    write (output_message,100) trim(adjustl(overflow_error)), &
+                               trim(adjustl(divide_by_zero_error)), &
+                               trim(adjustl(invalid_error))
 #endif
     !
-    call stop_gfr(stop_mpi,pname,line_num,file_name,error_message)
+    call stop_gfr(stop_mpi,pname,line_num,file_name,output_message)
     !
   end if
   !
