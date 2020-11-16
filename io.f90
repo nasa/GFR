@@ -4748,6 +4748,7 @@ continue
   ! First lets look at the cells on the grid boundaries since we
   ! also need to change bface(4) if the ordering is wrong
   !
+  call debug_timer(start_timer,"checking node order of boundary faces")
   do nf = 1,nfbnd
     !
     n = bface(2,nf)
@@ -4825,11 +4826,13 @@ continue
     end if
     !
   end do
+  call debug_timer(stop_timer,"checking node order of boundary faces")
   !
   ! Now lets do it over all the cells in the grid. This includes checking
   ! the cells on the grid boundaries a second time but they shouldnt be
   ! adjusted this time and the additional cost shouldnt hurt too much.
   !
+  call debug_timer(start_timer,"checking node order of grid cells")
   do n = 1,ncell
     !
     n1 = nodes_of_cell_ptr(n)+1
@@ -4882,6 +4885,7 @@ continue
     end if
     !
   end do
+  call debug_timer(stop_timer,"checking node order of grid cells")
   !
   call debug_timer(leaving_procedure,pname)
   !
