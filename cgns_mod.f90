@@ -1191,13 +1191,14 @@ end subroutine read_cgns_bc
 !
 !###############################################################################
 !
-pure function get_array_name(c1,n1,c2,n2,c3) result(return_value)
+pure function get_array_name(c1,n1,c2,n2,c3,not_a_zone) result(return_value)
   !
   character(len=*), optional, intent(in) :: c1
   integer,          optional, intent(in) :: n1
   character(len=*), optional, intent(in) :: c2
   integer,          optional, intent(in) :: n2
   character(len=*), optional, intent(in) :: c3
+  character(len=*), optional, intent(in) :: not_a_zone
   !
   character(len=len(array_name)) :: return_value
   !
@@ -1206,6 +1207,9 @@ pure function get_array_name(c1,n1,c2,n2,c3) result(return_value)
 continue
   !
   write (return_value,1) ib_g
+  if (present(not_a_zone)) then
+    write (return_value,5) ib_g,trim(adjustl(not_a_zone))
+  end if
   !
   one_pass_loop: do i = 1,1
     !
@@ -1250,6 +1254,7 @@ continue
   2 format (a,"(",i0,")%",a)
   3 format (a,"(",i0,")")
   4 format (a,"%",a)
+  5 format ("base(",i0,")%",a)
   !
 end function get_array_name
 !
