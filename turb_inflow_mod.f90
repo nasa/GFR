@@ -3002,6 +3002,373 @@ end subroutine interpolate_profile_data_to_fp
 !
 !###############################################################################
 !
+subroutine get_center_of_sem_boxes()
+  !
+  !.. Local Scalars ..
+  integer  :: n,num_fp,sem_idx,ierr
+  real(wp) :: val
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: box_num(:)
+  real(wp), allocatable :: box_sum(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_center_of_sem_boxes"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  box_num = init_array(num_sem_boxes,zero)   ! F2003 AUTO-REALLOC
+  box_sum = init_array(3,num_sem_boxes,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Get the average contribution to each SEM box from this MPI process
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    num_fp = my_sem_pts(sem_idx)%num_fp
+    !
+    box_num(sem_idx) = num_fp
+    !
+    do n = 1,num_fp
+      !
+      box_sum(1,sem_idx) = box_sum(1,sem_idx) + my_sem_pts(sem_idx)%sem_fp(n)%x
+      box_sum(2,sem_idx) = box_sum(2,sem_idx) + my_sem_pts(sem_idx)%sem_fp(n)%y
+      box_sum(3,sem_idx) = box_sum(3,sem_idx) + my_sem_pts(sem_idx)%sem_fp(n)%z
+      !
+    end do
+   !box_sum(1,sem_idx) = sum( my_sem_pts(sem_idx)%sem_fp(1:num_fp)%x )
+   !box_sum(2,sem_idx) = sum( my_sem_pts(sem_idx)%sem_fp(1:num_fp)%y )
+   !box_sum(3,sem_idx) = sum( my_sem_pts(sem_idx)%sem_fp(1:num_fp)%z )
+    !
+  end do
+  !
+  ! Sum the average contributions across all MPI processes
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,box_num,size(box_num,kind=int_mpi), &
+                       mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call mpi_allreduce(MPI_IN_PLACE,box_sum,size(box_sum,kind=int_mpi), &
+                       mpi_flttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  ! Finish computing the average and save to the SEM box
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    val = one / real(box_num(sem_idx),kind=wp)
+    !
+    sem_box(sem_idx)%center%x = box_sum(1,sem_idx) * val
+    sem_box(sem_idx)%center%y = box_sum(2,sem_idx) * val
+    sem_box(sem_idx)%center%z = box_sum(3,sem_idx) * val
+    !
+  end do
+  !
+  ! Deallocate box_num and box_sum before we leave
+  !
+  if (allocated(box_num)) then
+    deallocate ( box_num , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"box_num",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(box_sum)) then
+    deallocate ( box_sum , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"box_sum",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_center_of_sem_boxes
+!
+!###############################################################################
+!
+subroutine get_polar_coords_for_sem_fp()
+  !
+  !.. Local Scalars ..
+  integer  :: n,sem_idx,eddy_idx
+  real(wp) :: xc,yc,zc,t
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_polar_coords_for_sem_fp"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    xc = sem_box(sem_idx)%center%x
+    yc = sem_box(sem_idx)%center%y
+    zc = sem_box(sem_idx)%center%z
+    !
+    ! Compute the polar coordinates for each SEM face point
+    ! relative to the center of the current SEM box.
+    !
+    do n = 1,my_sem_pts(sem_idx)%num_fp
+      !
+      call yz_to_rt(my_sem_pts(sem_idx)%sem_fp(n)%y, &
+                    my_sem_pts(sem_idx)%sem_fp(n)%z, &
+                    my_sem_pts(sem_idx)%sem_fp(n)%r, &
+                    my_sem_pts(sem_idx)%sem_fp(n)%t, &
+                    yc,zc)
+      !
+      if (my_sem_pts(sem_idx)%sem_fp(n)%r /= zero) then
+        t = my_sem_pts(sem_idx)%sem_fp(n)%t
+        my_sem_pts(sem_idx)%sem_fp(n)%sin_theta = sin(t)
+        my_sem_pts(sem_idx)%sem_fp(n)%cos_theta = cos(t)
+      else
+        my_sem_pts(sem_idx)%sem_fp(n)%sin_theta = zero
+        my_sem_pts(sem_idx)%sem_fp(n)%cos_theta = zero
+      end if
+      !
+    end do
+    !
+    ! If the sem_box(sem_idx)%eddy array is allocated (eddies were read in
+    ! from the restart file), recompute the polar coordinates for all the
+    ! eddies in this box.
+    !
+    if (allocated(sem_box(sem_idx)%eddy)) then
+      !
+      do eddy_idx = 1,sem_box(sem_idx)%num_eddies
+        !
+        call yz_to_rt(sem_box(sem_idx)%eddy(eddy_idx)%y, &
+                      sem_box(sem_idx)%eddy(eddy_idx)%z, &
+                      sem_box(sem_idx)%eddy(eddy_idx)%r, &
+                      sem_box(sem_idx)%eddy(eddy_idx)%t, &
+                      yc,zc)
+        !
+      end do
+      !
+    end if
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_polar_coords_for_sem_fp
+!
+!###############################################################################
+!
+subroutine get_normal_of_sem_boxes()
+  !
+  !.. Use Statements ..
+  use metrics_mod, only : facenrm
+  !
+  !.. Local Scalars ..
+  integer  :: n,k,num_fp,sem_idx,ierr
+  real(wp) :: rnx,rny,rnz,ds
+  real(wp) :: unx,uny,unz
+  real(wp) :: val,aoa,boa
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: box_num(:)
+  real(wp), allocatable :: box_sum(:,:)
+  real(wp), allocatable :: box_nrm(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_normal_of_sem_boxes"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Initialize all the SEM box normals to only the x-direction
+  !
+  sem_box(1:num_sem_boxes)%rnrm%x = one
+  sem_box(1:num_sem_boxes)%rnrm%y = zero
+  sem_box(1:num_sem_boxes)%rnrm%z = zero
+  !
+  ! Allocate the averaging arrays
+  !
+  box_num = init_array(num_sem_boxes,zero)   ! F2003 AUTO-REALLOC
+  box_sum = init_array(3,num_sem_boxes,zero) ! F2003 AUTO-REALLOC
+  box_nrm = init_array(3,num_sem_boxes,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Get the average contribution to each SEM box from this MPI process
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    num_fp = my_sem_pts(sem_idx)%num_fp
+    !
+    box_num(sem_idx) = num_fp
+    !
+    do n = 1,num_fp
+      !
+      k = my_sem_pts(sem_idx)%sem_fp(n)%idx
+      !
+      ! We need the inward facing unit normal for this face point
+      ! NOTE: facenrm stores the outward facing area-weighted normal. Taking
+      !       the negative value of facenrm gives us the inward facing
+      !       area-weighted normal. We dont want to average the area-weighted
+      !       normals, so we need to convert these to unit normals.
+      !
+      rnx = -facenrm(1,k)
+      rny = -facenrm(2,k)
+      rnz = -facenrm(3,k)
+      ds = sqrt(rnx*rnx + rny*rny + rnz*rnz)
+      unx = rnx/ds
+      uny = rny/ds
+      unz = rnz/ds
+      !
+      ! Add the unit normals to the average summation
+      !
+      box_sum(1,sem_idx) = box_sum(1,sem_idx) + unx
+      box_sum(2,sem_idx) = box_sum(2,sem_idx) + uny
+      box_sum(3,sem_idx) = box_sum(3,sem_idx) + unz
+      !
+    end do
+    !
+  end do
+  !
+  ! Sum the average contributions across all MPI processes
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,box_num,size(box_num,kind=int_mpi), &
+                       mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call mpi_allreduce(MPI_IN_PLACE,box_sum,size(box_sum,kind=int_mpi), &
+                       mpi_flttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  ! Finish computing the average and save to the SEM box
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    val = one / real(box_num(sem_idx),kind=wp)
+   !!
+   !rnx = box_sum(1,sem_idx) * val
+   !rny = box_sum(2,sem_idx) * val
+   !rnz = box_sum(3,sem_idx) * val
+   !ds = sqrt(rnx*rnx + rny*rny + rnz*rnz)
+   !unx = rnx/ds
+   !uny = rny/ds
+   !unz = rnz/ds
+   !!
+   !box_nrm(1,sem_idx) = unx
+   !box_nrm(2,sem_idx) = unxuny
+   !box_nrm(3,sem_idx) = unxunz
+    !
+    box_nrm(1,sem_idx) = box_sum(1,sem_idx) * val
+    box_nrm(2,sem_idx) = box_sum(2,sem_idx) * val
+    box_nrm(3,sem_idx) = box_sum(3,sem_idx) * val
+    !
+  end do
+  !
+  ! Reset box_sum back to 0
+  !
+  box_sum(:,:) = zero
+  !
+  ! Check the averaged norms against all the flux point normals
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    do n = 1,my_sem_pts(sem_idx)%num_fp
+      !
+      k = my_sem_pts(sem_idx)%sem_fp(n)%idx
+      !
+      ! We need the inward facing unit normal for this face point
+      !
+      rnx = -facenrm(1,k)
+      rny = -facenrm(2,k)
+      rnz = -facenrm(3,k)
+      ds = sqrt(rnx*rnx + rny*rny + rnz*rnz)
+      unx = rnx/ds
+      uny = rny/ds
+      unz = rnz/ds
+      !
+      ! Check the averaged unit normal agains this unit normal
+      !
+      if (abs(box_nrm(1,sem_idx)-unx) > eps3) then
+        box_sum(1,sem_idx) = box_sum(1,sem_idx) + one
+      end if
+      !
+      if (abs(box_nrm(2,sem_idx)-uny) > eps3) then
+        box_sum(2,sem_idx) = box_sum(2,sem_idx) + one
+      end if
+      !
+      if (abs(box_nrm(3,sem_idx)-unz) > eps3) then
+        box_sum(3,sem_idx) = box_sum(3,sem_idx) + one
+      end if
+      !
+    end do
+    !
+  end do
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,box_sum,size(box_sum,kind=int_mpi), &
+                       mpi_flttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  do sem_idx = 1,num_sem_boxes
+    !
+    if (any( nint(box_sum(:,sem_idx)) > 0)) then
+      !
+     !if (mypnum == glb_root) then
+     !  !
+     !  write (iout,1) sem_idx
+     !  !
+     !  if (nint(box_sum(1,sem_idx)) > 0) then
+     !    write (iout,2) "X",nint(box_sum(1,sem_idx))
+     !  end if
+     !  if (nint(box_sum(2,sem_idx)) > 0) then
+     !    write (iout,2) "Y",nint(box_sum(2,sem_idx))
+     !  end if
+     !  if (nint(box_sum(3,sem_idx)) > 0) then
+     !    write (iout,2) "Z",nint(box_sum(3,sem_idx))
+     !  end if
+     !  !
+     !end if
+      !
+      ! Set the SEM box unit normal in only the x direction
+      !
+      sem_box(sem_idx)%rnrm%x = one
+      sem_box(sem_idx)%rnrm%y = zero
+      sem_box(sem_idx)%rnrm%z = zero
+      !
+    else
+      !
+      unx = box_nrm(1,sem_idx)
+      uny = box_nrm(2,sem_idx)
+      unz = box_nrm(3,sem_idx)
+      !
+      sem_box(sem_idx)%rnrm%x = unx
+      sem_box(sem_idx)%rnrm%y = uny
+      sem_box(sem_idx)%rnrm%z = unz
+      !
+      aoa = atan2(uny,unx)
+      boa = atan2(unz,sqrt(unx*unx+uny*uny))
+      !
+      sem_box(sem_idx)%alpha_aoa = aoa
+      sem_box(sem_idx)%beta_aoa  = boa
+      !
+    end if
+    !
+  end do
+  !
+  !
+  !
+  ! Deallocate box_num, box_sum, and box_nrm before we leave
+  !
+  if (allocated(box_num)) then
+    deallocate ( box_num , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"box_num",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(box_sum)) then
+    deallocate ( box_sum , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"box_sum",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(box_nrm)) then
+    deallocate ( box_nrm , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"box_nrm",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_normal_of_sem_boxes
+!
+!###############################################################################
+!
 subroutine get_size_of_sem_boxes()
   !
   !.. Use Statements ..
