@@ -172,6 +172,7 @@ module module_cgns
     integer(CET) :: boco_type, ptset_type, normal_datatype, location
     integer(CST) :: npnts, normal_list_size
     integer(CBT) :: normal_index(3), ndataset
+    integer(CBT) :: fambc(2) = 0
     integer(CST), allocatable :: pnts(:)!, faces(:)
     real(wp),     allocatable :: normal_list(:)
   end type cg_bc_t
