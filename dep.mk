@@ -321,6 +321,7 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/plot3d_mod.o \
        $(OBJDIR)/cgns_mod.o \
        $(OBJDIR)/parallel.o \
+       $(OBJDIR)/poly.o \
        $(OBJDIR)/quadrature_mod.o \
        $(OBJDIR)/interpolation_mod.o \
        $(OBJDIR)/initialize.o \

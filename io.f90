@@ -1491,6 +1491,9 @@ continue
   else if (abs(itestcase) == CH4_Flame_Speed_Test .and. &
            flame_speed_test_dof > 0) then
     call create_flame_speed_test_grid
+  else if (abs(itestcase) == Channel_Flow .and. &
+           grid_format == Internally_Generated_Grid) then
+    call create_channel_flow_grid
   else if (grid_format == Gambit_Neutral) then
     call read_gambit_neutral_gridfile
   else if (grid_format == Gmsh_Format) then
@@ -3075,6 +3078,546 @@ continue
   end function map3dto1d
   !
 end subroutine create_TaylorGreenVortex_grid
+!
+!###############################################################################
+!
+subroutine create_channel_flow_grid()
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order
+  use ovar,      only : Lref,loc_solution_pts,itestcase
+  use ovar,      only : channel_grid_ave_xplus
+  use ovar,      only : channel_grid_ave_yplus
+  use ovar,      only : channel_grid_ave_zplus
+  use ovar,      only : channel_grid_yplus_wall
+  use ovar,      only : channel_yplus_of_one
+  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geovar,    only : cell_geom,cell_order
+  use ovar,      only : grid_format
+  !
+  use polynomial_mod, only : legendre_gauss_quadrature
+  use polynomial_mod, only : legendre_gauss_lobatto_quadrature
+  !
+  !.. Local Scalars ..
+  integer  :: ierr,i,j,k,l,n,n1,n2
+  integer  :: nx,ny,nz,nf_min,nf_max
+  real(wp) :: xplus_ave,yplus_ave,zplus_ave,dx,dy,dz
+  real(wp) :: ds1,ds2,dl1,dl2,a,b,sf,rnum,rden,sferr,val,ue,se
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: xi(:)
+  real(wp), allocatable :: x(:)
+  real(wp), allocatable :: y(:)
+  real(wp), allocatable :: z(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_channel_flow_grid"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Reset the grid format input parameter to identify
+  ! the grid as internally generated
+  !
+  grid_format = Internally_Generated_Grid
+  !
+  ! If we are generating the grid on the fly, make the reference length 1
+  !
+  Lref = one
+  !
+  ! The channel flow problem is always 3D
+  !
+  nr = 3
+  !
+  ! #######
+  ! #######
+  ! ## 1 ##
+  ! #######
+  ! #######
+  !
+  ! Reset any of the grid parameters to their default values if they are zero
+  !
+  if (channel_yplus_of_one    == zero) channel_yplus_of_one = 8.42134e-6_wp
+  if (channel_grid_ave_xplus  == zero) channel_grid_ave_xplus = five*ten
+  if (channel_grid_ave_yplus  == zero) channel_grid_ave_yplus = five*five
+  if (channel_grid_ave_zplus  == zero) channel_grid_ave_zplus = five*five
+  if (channel_grid_yplus_wall == zero) channel_grid_yplus_wall = -one
+  !
+  ! Compute the cell average x+,y+,z+ for the grid
+  ! For a given coordinate direction (say [i]), the cell average [i]+ is
+  !   if (channel_grid_ave_[i]plus > zero) then
+  !     [i]plus_ave = channel_grid_ave_[i]plus
+  !   else
+  !     [i]plus_ave = abs(channel_grid_ave_[i]plus)*real(n_order+2,kind=wp)
+  !   end if
+  ! NOTE: We use (P+2) here because the delta plus value is the
+  !       average distance between the DoF within a cell (or the
+  !       subcells), and there are P+2 subcells in each cell.
+  !
+  xplus_ave = abs(channel_grid_ave_xplus)*merge(one, &
+                                                real(n_order+2,kind=wp), &
+                                                channel_grid_ave_xplus > zero)
+  yplus_ave = abs(channel_grid_ave_yplus)*merge(one, &
+                                                real(n_order+2,kind=wp), &
+                                                channel_grid_ave_yplus > zero)
+  zplus_ave = abs(channel_grid_ave_zplus)*merge(one, &
+                                                real(n_order+2,kind=wp), &
+                                                channel_grid_ave_zplus > zero)
+  !
+  ! Get the number of grid points in each direction
+  !
+  nx = nint( channel_grid_Lx / (channel_yplus_of_one*xplus_ave) )
+  ny = nint( channel_grid_Ly / (channel_yplus_of_one*yplus_ave) )
+  nz = nint( channel_grid_Lz / (channel_yplus_of_one*zplus_ave) )
+  !
+  ! Compute the x and z cell spacings
+  !
+  dx = channel_grid_Lx / real(nx,kind=wp)
+  dz = channel_grid_Lz / real(nz,kind=wp)
+  !
+  ! Initialize the x,y,z grid spacing arrays
+  !
+  x = init_array(nx+1,zero) ! F2003 AUTO-REALLOC
+  y = init_array(ny+1,zero) ! F2003 AUTO-REALLOC
+  z = init_array(nz+1,zero) ! F2003 AUTO-REALLOC
+  !
+  ! #######
+  ! #######
+  ! ## 2 ##
+  ! #######
+  ! #######
+  !
+  ! Get the grid cell spacings for x,y,z
+  !
+  ! ######
+  ! # 2A #
+  ! ######
+  !
+  ! Get the grid point locations for x
+  !
+  do n = 2,nx
+    x(n) = x(n-1) + dx
+  end do
+  !
+  ! ######
+  ! # 2B #
+  ! ######
+  !
+  ! Get the grid point locations for z
+  !
+  do n = 2,nz
+    z(n) = z(n-1) + dz
+  end do
+  !
+  ! ######
+  ! # 2C #
+  ! ######
+  !
+  ! 2C.1 : Get the beginning and ending spacings needed
+  !        to generate the tanh spacing
+  !
+  ! Need to get dl1/ds1 and dl2/ds2 to create tanh spacing for y spacing
+  !
+  if (channel_grid_yplus_wall < zero) then
+    !
+    ! The i-th point of the first cell is at y+=1
+    !
+    i = min( n_order+1 , max( 1 , nint(abs(channel_grid_yplus_wall)) ) )
+    !
+    ! Get the location of the 1D solution points in reference space
+    !
+    xi = init_array(n_order+1,zero) ! F2003 AUTO-REALLOC
+    !
+    if (loc_solution_pts == Legendre_Gauss_Lobatto) then
+      i = min(i+1,n_order+1) ! Offset for 1st Lobatto point being at the wall
+      call legendre_gauss_lobatto_quadrature(xi)
+    else
+      call legendre_gauss_quadrature(xi)
+    end if
+    !
+    xi(:) = half*(xi(:) + one)
+    !
+    dl1 = channel_yplus_of_one / xi(i)
+    !
+  else
+    !
+    ! The height of the first cell off the wall is channel_grid_yplus_wall
+    !
+    dl1 = channel_yplus_of_one * channel_grid_yplus_wall
+    !
+  end if
+  !
+  dl2 = dl1
+  !
+  ! Map the beginning and ending grid cell
+  ! spacings to the reference interval [0,1].
+  !
+  ds1 = dl1 / channel_grid_Ly
+  ds2 = dl2 / channel_grid_Ly
+  !
+  ! 2C.2 : Get the a and b parameters to begin solving for the tanh y-spacing
+  !
+  a = sqrt(ds2/ds1)
+  b = one / (real(ny,kind=wp)*sqrt(ds1*ds2))
+  !
+  ! 2C.3 : Use b to solve the stretching factor function, then use the
+  !        stretching factor to get the y-spacing.
+  !
+  if (b >= 1.1_wp) then
+    !
+    ! Use a Newton iteration to solve the stretching factor function
+    !    sinh(sf)/sf = b
+    ! for the stretching factor, sf.
+    !
+    sf = two ! initial guess for sf
+    !
+    newton_tanh_loop: &
+    do i = 1,100
+      !
+      rnum = sinh(sf)/sf - b
+      rden = cosh(sf)/sf - sinh(sf)/(sf*sf)
+      !
+      sferr = rnum / rden
+      !
+      if (abs(sferr) < eps6) then
+        exit newton_tanh_loop
+      end if
+      !
+      sf = sf - sferr
+      !
+      ! Make sure sf doesnt become 0
+      !
+      if (abs(sf) < 0.01_wp) then
+        sf = 0.01_wp
+      end if
+      !
+    end do newton_tanh_loop
+    !
+    ! The stretching factor function has two solutions for sf given any
+    ! value of b (ignoring sf=0). Since the stretching factor function is
+    ! an even function, the two possible solutions are +sf and -sf. We only
+    ! care about +sf so take the absolute value of whatever result we get
+    ! from the Newton iteration.
+    !
+    sf = abs(sf)
+    !
+    ! Get the distribution y(n)
+    !
+    do n = 0,ny
+      val = real(n,kind=wp)/real(ny,kind=wp)
+      ue = half*(one + tanh(sf*(val-half))/tanh(sf*half))
+      se = ue / (a + (one-a)*ue)
+      y(n) = se * channel_grid_Ly
+    end do
+    !
+  else if (b <= 0.9_wp) then
+    !
+    ! Use a Newton iteration to solve the stretching factor function
+    !    sin(sf)/sf = b
+    ! for the stretching factor, sf.
+    !
+    sf = two ! initial guess for sf
+    !
+    newton_tan_loop: &
+    do i = 1,100
+      !
+      rnum = sin(sf)/sf - b
+      rden = cos(sf)/sf - sin(sf)/(sf*sf)
+      !
+      sferr = rnum / rden
+      !
+      if (abs(sferr) < eps6) then
+        exit newton_tan_loop
+      end if
+      !
+      sf = sf - sferr
+      !
+      ! Make sure sf doesnt become 0
+      !
+      if (abs(sf) < 0.01_wp) then
+        sf = 0.01_wp
+      end if
+      !
+    end do newton_tan_loop
+    !
+    ! The stretching factor function has two solutions for sf given any
+    ! value of b (ignoring sf=0). Since the stretching factor function is
+    ! an even function, the two possible solutions are +sf and -sf. We only
+    ! care about +sf so take the absolute value of whatever result we get
+    ! from the Newton iteration.
+    !
+    sf = abs(sf)
+    !
+    ! Get the distribution y(n)
+    !
+    do n = 0,ny
+      val = real(n,kind=wp)/real(ny,kind=wp)
+      ue = half*(one + tan(sf*(val-half))/tan(sf*half))
+      se = ue / (a + (one-a)*ue)
+      y(n) = se * channel_grid_Ly
+    end do
+    !
+  else
+    !
+    ! Both of the above Newton iterations can have numerical difficulties
+    ! if the stretching factor is close to 1, therefore use this simpler
+    ! stretching function that doesnt require a Newton iteration.
+    !
+    do n = 0,ny
+      val = real(n,kind=wp)/real(ny,kind=wp)
+      ue = val*(one + two*(b-one)*(val-half)*(one-val))
+      se = ue / (a + (one-a)*ue)
+      y(n) = se * channel_grid_Ly
+    end do
+    !
+  end if
+  !
+  ! #######
+  ! #######
+  ! ## 3 ##
+  ! #######
+  ! #######
+  !
+  ! We can finish creating the grid now that we have the x,y,z grid spacings
+  !
+  ncell = nx*ny*nz                    ! total number of grid cells
+  nnode = (nx+1)*(ny+1)*(nz+1)        ! total number of grid nodes
+  nfbnd = 2*nx*ny + 2*nx*nz + 2*ny*nz ! total number of boundary faces
+  !
+  ! Allocate all the arrays needed to define the grid
+  !
+  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xyz_nodes",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell_ptr",1,__LINE__,__FILE__,ierr, &
+                   error_message)
+  !
+  allocate ( nodes_of_cell(1:geom_nodes(Geom_Hexa)*ncell) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bface",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( cell_geom(1:ncell) , source=Geom_Hexa , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_geom",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( cell_order(1:ncell) , source=n_order , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! #######
+  ! #######
+  ! ## 4 ##
+  ! #######
+  ! #######
+  !
+  ! Create the nodes_of_cell_ptr array
+  !
+  nodes_of_cell_ptr(1) = 0
+  do n = 2,size(nodes_of_cell_ptr)
+    nodes_of_cell_ptr(n) = nodes_of_cell_ptr(n-1) + geom_nodes(Geom_Hexa)
+  end do
+  !
+  ! Create the nodes_of_cell array
+  !
+  do k = 1,nz
+    do j = 1,ny
+      do i = 1,nx
+        !
+        n = nodes_of_cell_ptr( map3dto1d(i,j,k,nx,ny) )
+        !
+        nodes_of_cell(n+1) = map3dto1d(i  ,j  ,k  ,nx+1,ny+1)
+        nodes_of_cell(n+2) = map3dto1d(i+1,j  ,k  ,nx+1,ny+1)
+        nodes_of_cell(n+3) = map3dto1d(i+1,j+1,k  ,nx+1,ny+1)
+        nodes_of_cell(n+4) = map3dto1d(i  ,j+1,k  ,nx+1,ny+1)
+        nodes_of_cell(n+5) = map3dto1d(i  ,j  ,k+1,nx+1,ny+1)
+        nodes_of_cell(n+6) = map3dto1d(i+1,j  ,k+1,nx+1,ny+1)
+        nodes_of_cell(n+7) = map3dto1d(i+1,j+1,k+1,nx+1,ny+1)
+        nodes_of_cell(n+8) = map3dto1d(i  ,j+1,k+1,nx+1,ny+1)
+        !
+      end do
+    end do
+  end do
+  !
+  ! #######
+  ! #######
+  ! ## 5 ##
+  ! #######
+  ! #######
+  !
+  ! Create the grid node coordinates
+  !
+  do k = 1,nz+1
+    do j = 1,ny+1
+      do i = 1,nx+1
+        !
+        n = map3dto1d(i,j,k,nx+1,ny+1)
+        !
+        xyz_nodes(1,n) = x(i)
+        xyz_nodes(2,n) = y(j)
+        xyz_nodes(3,n) = z(k)
+        !
+      end do
+    end do
+  end do
+  !
+  ! #######
+  ! #######
+  ! ## 6 ##
+  ! #######
+  ! #######
+  !
+  ! Create the bface array
+  !
+  nf_max = 0
+  !
+  ! Loop through the 6 grid boundaries
+  ! NOTE: This corresponds to the grid boundaries in
+  !       the order [imin,imax,jmin,jmax,kmin,kmax]
+  !
+  nf_min = nf_max
+  !
+  do k = 1,nz
+    do j = 1,ny
+      !
+      n1 = nf_min + 1
+      n2 = nf_min + 1 + ny*nz
+      !
+      if (itestcase == -Channel_Flow) then
+        !
+        bface( 1,n1) = bc_sem
+        bface( 2,n1) = map3dto1d(1 ,j,k,nx,ny)
+        bface( 3,n1) = Geom_Hexa
+        bface( 4,n1) = HostFace3D(1)
+        bface( 5,n1) = 1
+        bface( 6,n1) = 1
+        bface(10,n1) = ncell + n1
+        !
+        bface( 1,n2) = bc_sub_outflow
+        bface( 2,n2) = map3dto1d(nx,j,k,nx,ny)
+        bface( 3,n2) = Geom_Hexa
+        bface( 4,n2) = HostFace3D(2)
+        bface( 5,n2) = 2
+        bface( 6,n2) = 2
+        bface(10,n2) = ncell + n2
+        !
+      else
+        !
+        bface( 1,n1) = bc_periodic
+        bface( 2,n1) = map3dto1d(1 ,j,k,nx,ny)
+        bface( 3,n1) = Geom_Hexa
+        bface( 4,n1) = HostFace3D(1)
+        bface( 5,n1) = n2
+        bface( 6,n1) = map3dto1d(nx,j,k,nx,ny)
+        bface( 8,n1) = Geom_Hexa
+        bface( 9,n1) = HostFace3D(2)
+        bface(10,n1) = ncell + n1
+        !
+        bface( 1,n2) = bc_periodic
+        bface( 2,n2) = bface(6,n1)
+        bface( 3,n2) = bface(8,n1)
+        bface( 4,n2) = bface(9,n1)
+        bface( 5,n2) = n1
+        bface( 6,n2) = bface(2,n1)
+        bface( 8,n2) = bface(3,n1)
+        bface( 9,n2) = bface(4,n1)
+        bface(10,n2) = ncell + n2
+        !
+      end if
+      !
+      nf_min = n1
+      nf_max = n2
+      !
+    end do
+  end do
+  !
+  nf_min = nf_max
+  !
+  do k = 1,nz
+    do i = 1,nx
+      !
+      n1 = nf_min + 1
+      n2 = nf_min + 1 + nx*nz
+      !
+      bface( 1,n1) = bc_periodic
+      bface( 2,n1) = map3dto1d(i,1 ,k,nx,ny)
+      bface( 3,n1) = Geom_Hexa
+      bface( 4,n1) = HostFace3D(3)
+      bface( 5,n1) = n2
+      bface( 6,n1) = map3dto1d(i,ny,k,nx,ny)
+      bface( 8,n1) = Geom_Hexa
+      bface( 9,n1) = HostFace3D(4)
+      bface(10,n1) = ncell + n1
+      !
+      bface( 1,n2) = bc_periodic
+      bface( 2,n2) = bface(6,n1)
+      bface( 3,n2) = bface(8,n1)
+      bface( 4,n2) = bface(9,n1)
+      bface( 5,n2) = n1
+      bface( 6,n2) = bface(2,n1)
+      bface( 8,n2) = bface(3,n1)
+      bface( 9,n2) = bface(4,n1)
+      bface(10,n2) = ncell + n2
+      !
+      nf_min = n1
+      nf_max = n2
+      !
+    end do
+  end do
+  !
+  nf_min = nf_max
+  !
+  do j = 1,ny
+    do i = 1,nx
+      !
+      n1 = nf_min + 1
+      n2 = nf_min + 1 + nx*ny
+      !
+      bface( 1,n1) = bc_periodic
+      bface( 2,n1) = map3dto1d(i,j,1 ,nx,ny)
+      bface( 3,n1) = Geom_Hexa
+      bface( 4,n1) = HostFace3D(5)
+      bface( 5,n1) = n2
+      bface( 6,n1) = map3dto1d(i,j,nz,nx,ny)
+      bface( 8,n1) = Geom_Hexa
+      bface( 9,n1) = HostFace3D(6)
+      bface(10,n1) = ncell + n1
+      !
+      bface( 1,n2) = bc_periodic
+      bface( 2,n2) = bface(6,n1)
+      bface( 3,n2) = bface(8,n1)
+      bface( 4,n2) = bface(9,n1)
+      bface( 5,n2) = n1
+      bface( 6,n2) = bface(2,n1)
+      bface( 8,n2) = bface(3,n1)
+      bface( 9,n2) = bface(4,n1)
+      bface(10,n2) = ncell + n2
+      !
+      nf_min = n1
+      nf_max = n2
+      !
+    end do
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  contains
+  !
+  pure function map3dto1d(i,j,k,nx,ny) result(return_value)
+    integer, intent(in) :: i,j,k,nx,ny
+    integer :: return_value
+    return_value = i + nx*(j-1) + nx*ny*(k-1)
+  end function map3dto1d
+  !
+end subroutine create_channel_flow_grid
 !
 !###############################################################################
 !
