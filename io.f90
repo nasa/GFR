@@ -1592,6 +1592,7 @@ continue
   ! NOTE: This will also fill bface(6,:) with the correct value
   !
   call create_bc_in
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Reorder the boundary faces
   !
