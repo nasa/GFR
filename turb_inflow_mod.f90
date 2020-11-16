@@ -322,7 +322,8 @@ module synthetic_eddy_mod
   !
   ! SEM PARAMETERS
   !
-  integer, parameter :: max_eddies = 50000
+  integer, parameter :: min_eddies = 5000
+  integer, parameter :: max_eddies = 500000
   !
   !#############################################################################
   !#############################################################################
