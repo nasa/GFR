@@ -605,8 +605,11 @@ subroutine read_cgns_base(b)
   type(cg_base_t), intent(inout) :: b
   !
   !.. Local Scalars ..
-  integer      :: ierr
+  integer      :: ierr,nfam
   integer(CBT) :: nzones
+  !
+  character(len=CGLEN) :: bcname
+  character(len=CGLEN) :: famname
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_cgns_base"
@@ -638,6 +641,72 @@ continue
   do iz_g = 1,size(b%zone)
     if (debug_cgns) write (iout,1) mypnum,"reading CGNS zone node #",iz_g
     call read_cgns_zone( b%zone(iz_g) )
+  end do
+  !
+  ! Read the number of family nodes that are in the current base
+  !
+  call cg_nfamilies_f(if_g,ib_g,nfam,cgierr)
+  call cgns_error(pname,gridfile,"cg_nfamilies_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
+  !
+  ! Allocate the family component for the current base
+  !
+  allocate ( b%family(1:nfam) , stat=ierr , errmsg=error_message )
+  array_name = get_array_name(not_a_zone="family")
+  call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Read the family data structures (Family_t nodes) for the current zone
+  ! NOTE: If any of the BC_t nodes in any of the zones of this base have a
+  !       BCType of FamilyDefined, the family_t nodes will contain the
+  !       boundary condition types for those BC_t nodes.
+  !
+  do ifam_g = 1,size(b%family)
+    if (debug_cgns) write (iout,1) mypnum,"reading CGNS family node #",ifam_g
+    call read_cgns_family( b%family(ifam_g) )
+  end do
+  !
+  ! Go back through all the zones in this base and update any FamilyDefined
+  ! boundary conditions with what was just read from the family nodes.
+  !
+  do iz_g = 1,size(b%zone)
+    do ibc_g = 1,size(b%zone(iz_g)%bc)
+      if (b%zone(iz_g)%bc(ibc_g)%boco_type == FamilySpecified) then
+        !
+        ! Manually move to the end of this boundary condition node
+        !
+        call cg_goto_f(if_g,ib_g,cgierr, &
+                       "Zone_t",iz_g, &
+                       "ZoneBC_t",1_CBT, &
+                       "BC_t",ibc_g, &
+                       CGNS_GOTO_END)
+        call cgns_error(pname,gridfile,"cg_goto_f",cgierr, &
+                        __LINE__,__FILE__,not_parallel=true)
+        !
+        ! Get the family name associated with this boundary condition
+        !
+        call cg_famname_read_f(bcname,cgierr)
+        call cgns_error(pname,gridfile,"cg_famname_read_f",cgierr, &
+                        __LINE__,__FILE__,not_parallel=true)
+        !
+        bcname = uppercase( trim(adjustl(bcname)) )
+        !
+        ! Loop over the family nodes to find the
+        ! one that matches this boundary condition
+        !
+        famname_search: &
+        do ifam_g = 1,size(b%family)
+          famname = uppercase( trim(adjustl(b%family(ifam_g)%name)) )
+          if (bcname == famname) then
+            b%zone(iz_g)%bc(ibc_g)%boco_type = b%family(ifam_g)%fambc%bc_type
+            b%zone(iz_g)%bc(ibc_g)%fambc(1) = ib_g
+            b%zone(iz_g)%bc(ibc_g)%fambc(2) = ifam_g
+            exit famname_search
+          end if
+        end do famname_search
+        !
+      end if
+      !
+    end do
   end do
   !
   call debug_timer(leaving_procedure,pname)
