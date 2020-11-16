@@ -218,7 +218,8 @@ module module_cgns
    !character(len=CGLEN) :: name  ! INHERITED FROM CG_T
    !integer(CST) :: nsize         ! INHERITED FROM CG_SZ_T
     integer(CBT) :: cell_dim, phys_dim
-    type(cg_zone_t), allocatable :: zone(:)
+    type(cg_zone_t),   allocatable :: zone(:)
+    type(cg_family_t), allocatable :: family(:)
   end type cg_base_t
   !
   ! ################################
