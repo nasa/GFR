@@ -431,7 +431,7 @@ continue
         !
         ! No-slip adiabatic wall boundary conditions
         !
-        call get_bc_adiabatic_wall_gradient(n1,n2, &
+        call get_bc_adiabatic_wall_gradient(n1,n2,facenrm, &
                                             faceusp_array(:,:,1), &
                                             facedusp_array)
         !

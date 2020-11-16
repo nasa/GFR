@@ -453,7 +453,7 @@ end subroutine get_bc_adiabatic_wall_solution_1d
 !
 !###############################################################################
 !
-pure subroutine get_bc_adiabatic_wall_gradient(n1,n2,face_cv,face_dcvdx)
+pure subroutine get_bc_adiabatic_wall_gradient(n1,n2,facenrm,face_cv,face_dcvdx)
   !
   ! #####################################################
   ! #####################################################
@@ -463,11 +463,13 @@ pure subroutine get_bc_adiabatic_wall_gradient(n1,n2,face_cv,face_dcvdx)
   !
   ! N1         : Beginning face point for this boundary condition
   ! N2         : Ending    face point for this boundary condition
+  ! FACENRM    : Face outward normal vector at the flux points
   ! FACE_CV    : Conserved    variables at the flux points
   ! FACE_DCVDX : Gradients of the conserved variables at the flux points
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:)
   real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
   !
@@ -480,6 +482,7 @@ continue
   !
   if (nr == 3) then
     call get_bc_adiabatic_wall_gradient_3d(n1,n2,face_cv,face_dcvdx)
+   !call get_bc_adiabatic_wall_gradient_3d_nrm(n1,n2,facenrm,face_cv,face_dcvdx)
   else if (nr == 2) then
     call get_bc_adiabatic_wall_gradient_2d(n1,n2,face_cv,face_dcvdx)
   else
@@ -585,6 +588,160 @@ continue
   end if
   !
 end subroutine get_bc_adiabatic_wall_gradient_3d
+!
+!###############################################################################
+!
+pure &
+subroutine get_bc_adiabatic_wall_gradient_3d_nrm(n1,n2,facenrm, &
+                                                 face_cv,face_dcvdx)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Gradients for no-slip adiabatic wall
+  ! #####################################################
+  ! #####################################################
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd
+  !
+  ! N1         : Beginning face point for this boundary condition
+  ! N2         : Ending    face point for this boundary condition
+  ! FACENRM    : Face outward normal vector at the flux points
+  ! FACE_CV    : Conserved    variables at the flux points
+  ! FACE_DCVDX : Gradients of the conserved variables at the flux points
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,n
+  real(wp) :: r_inv,cv_inv
+  !
+continue
+  !
+  ! Precompute the inverse of specific heat at constant volume
+  !
+  cv_inv = (gam - one) / rgasref_nd
+  !
+  ! Copy over the interior density gradient to the boundary flux points
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+  do n = n1,n2
+    face_dcvdx(n,1,nec,2) = face_dcvdx(n,1,nec,1)
+    face_dcvdx(n,2,nec,2) = face_dcvdx(n,2,nec,1)
+    face_dcvdx(n,3,nec,2) = face_dcvdx(n,3,nec,1)
+  end do
+  !
+  ! We will also copy the other conservative variable gradients from
+  ! the interior cell to the boundary flux points. However, since
+  ! we treat the viscous fluxes for wall boundaries differently from
+  ! the flow-through boundaries, we need to ensure that the wall
+  ! gradients are in the right form for the wall viscous flux function.
+  ! This means pre-converting the conservative variable gradients to
+  ! primitive variable gradients.
+  !
+  ! Using the product rule, convert the momentum gradients to velocity gradients
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+  do n = n1,n2
+    !
+    r_inv = one/face_cv(n,nec)
+    !
+    face_dcvdx(n,1,nmx,2) = r_inv*face_dcvdx(n,1,nmx,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmx)*r_inv
+    face_dcvdx(n,2,nmx,2) = r_inv*face_dcvdx(n,2,nmx,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmx)*r_inv
+    face_dcvdx(n,3,nmx,2) = r_inv*face_dcvdx(n,3,nmx,1) &
+                          - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmx)*r_inv
+    !
+    face_dcvdx(n,1,nmy,2) = r_inv*face_dcvdx(n,1,nmy,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmy)*r_inv
+    face_dcvdx(n,2,nmy,2) = r_inv*face_dcvdx(n,2,nmy,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmy)*r_inv
+    face_dcvdx(n,3,nmy,2) = r_inv*face_dcvdx(n,3,nmy,1) &
+                          - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmy)*r_inv
+    !
+    face_dcvdx(n,1,nmz,2) = r_inv*face_dcvdx(n,1,nmz,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmz)*r_inv
+    face_dcvdx(n,2,nmz,2) = r_inv*face_dcvdx(n,2,nmz,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmz)*r_inv
+    face_dcvdx(n,3,nmz,2) = r_inv*face_dcvdx(n,3,nmz,1) &
+                          - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmz)*r_inv
+    !
+    face_dcvdx(n,1,nee,2) = r_inv*face_dcvdx(n,1,nee,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nee)*r_inv
+    face_dcvdx(n,2,nee,2) = r_inv*face_dcvdx(n,2,nee,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nee)*r_inv
+    face_dcvdx(n,3,nee,2) = r_inv*face_dcvdx(n,3,nee,1) &
+                          - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nee)*r_inv
+    !
+  end do
+  !
+  ! The location for the temperature gradient currently contains
+  ! the total energy gradient from the previous loop.
+  ! Now use the velocity gradients to subtract the gradient of
+  ! kinetic-energy-per-unit-mass from the total energy gradient.
+  !
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+  do n = n1,n2
+    !
+    r_inv = one/face_cv(n,nec)
+    !
+    face_dcvdx(n,1,nee,2) = face_dcvdx(n,1,nee,2) &
+                          - face_dcvdx(n,1,nmx,2)*face_cv(n,nmx)*r_inv &
+                          - face_dcvdx(n,1,nmy,2)*face_cv(n,nmy)*r_inv &
+                          - face_dcvdx(n,1,nmz,2)*face_cv(n,nmz)*r_inv
+    !
+    face_dcvdx(n,2,nee,2) = face_dcvdx(n,2,nee,2) &
+                          - face_dcvdx(n,2,nmx,2)*face_cv(n,nmx)*r_inv &
+                          - face_dcvdx(n,2,nmy,2)*face_cv(n,nmy)*r_inv &
+                          - face_dcvdx(n,2,nmz,2)*face_cv(n,nmz)*r_inv
+    !
+    face_dcvdx(n,3,nee,2) = face_dcvdx(n,3,nee,2) &
+                          - face_dcvdx(n,3,nmx,2)*face_cv(n,nmx)*r_inv &
+                          - face_dcvdx(n,3,nmy,2)*face_cv(n,nmy)*r_inv &
+                          - face_dcvdx(n,3,nmz,2)*face_cv(n,nmz)*r_inv
+    !
+  end do
+  !
+  ! Finish computing the temperature gradient by dividing through by
+  ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+  do n = n1,n2
+    face_dcvdx(n,1,nee,2) = face_dcvdx(n,1,nee,2) * cv_inv
+    face_dcvdx(n,2,nee,2) = face_dcvdx(n,2,nee,2) * cv_inv
+    face_dcvdx(n,3,nee,2) = face_dcvdx(n,3,nee,2) * cv_inv
+  end do
+  !
+  ! For an adiabatic wall, dT/dn = 0
+  ! ###############################################
+  ! ###  NOTE: FOR NOW, JUST SETTING dT/dy = 0  ###
+  ! ###############################################
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+  do n = n1,n2
+    face_dcvdx(n,2,nee,2) = zero
+  end do
+  !
+  ! Set the mass fraction gradients to zero for wall boundaries
+  !
+  if (ncs > 0) then
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_dcvdx)
+    do m = 1,ncs
+      do n = n1,n2
+        face_dcvdx(n,1,m,2) = zero
+        face_dcvdx(n,2,m,2) = zero
+        face_dcvdx(n,3,m,2) = zero
+      end do
+    end do
+  end if
+  !
+end subroutine get_bc_adiabatic_wall_gradient_3d_nrm
 !
 !###############################################################################
 !
