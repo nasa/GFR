@@ -193,6 +193,7 @@ continue
     ! This shouldnt do anything if there are no cut boundaries.
     !
     call remove_duplicate_nodes(sol_nodes)
+   !call old_remove_duplicate_nodes(sol_nodes)
     !
     ! Reorder the grid points so that the corners of all the grid cells
     ! are first followed by any high-order cell points existing due
@@ -4066,6 +4067,318 @@ continue
              12x,"new node index for right block = ",i0)
   !
 end subroutine remove_duplicate_nodes
+!
+!###############################################################################
+!
+subroutine old_remove_duplicate_nodes(sol_nodes)
+  !
+  !.. Use Statements ..
+  use geovar, only : ncell,xyz_nodes,grid,nodes_of_cell
+  !
+  !.. Formal Arguments ..
+  real(wp), allocatable, intent(inout) :: sol_nodes(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: ip,ipcut,ip1,ip2,ip3,n,nc,ib1,ib2,ipn1,ipn2,ierr
+  integer :: new_pt,old_pt,duplicate_node,l
+  integer :: lpts_new,lpts_old
+  logical(lk) :: first_line_not_output
+ !real(wp) :: diff
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_xyz(1:3)
+  real(wp) :: new_xyz(1:3)
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: lpoin(:)
+  integer,  allocatable :: new2old(:)
+  integer,  allocatable :: old2new(:)
+  real(wp), allocatable :: temp_sol(:,:)
+  real(wp), allocatable :: temp_xyz(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "old_remove_duplicate_nodes"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  first_line_not_output = true
+  !
+  ! Save the old number of grid nodes lpts_old
+  !
+  lpts_old = size(xyz_nodes,dim=2)
+  !
+  ! Initialize lpoin
+  ! lpoin is defined as:
+  !    lpoin(ip) > 0  =>  ip is a keeper point
+  !    lpoin(ip) < 0  =>  ip is a duplicate point to be removed
+  !                       and abs(lpoin(ip)) is the keeper point for
+  !                       this duplicate.
+  !
+  lpoin = intseq(1,lpts_old) ! USING F2003 AUTO-REALLOCATION
+  !
+  ! Remove the multiple defined points
+  !
+ !do n = ncut,1,-1
+  do n = 1,ncut
+    !
+    ! Two blocks associated with this cut
+    !
+    ib1 = cut_info(n)%side(1)%block
+    ib2 = cut_info(n)%side(2)%block
+    !
+    ! Number of grid points on this cut
+    !
+    do ipcut = 1,cut_info(n)%points
+      !
+      ! Points on the right and left blocks
+      !
+      ip1 = cut_info(n)%nodes(1,ipcut)
+      ip2 = cut_info(n)%nodes(2,ipcut)
+      !
+      ! Point to the adjacent point
+      !
+      if (lpoin(ip2) > 0) then
+        !
+        if (lpoin(ip1) > 0) then
+          ! ip2 is a duplicate of ip1 so keep which ever one
+          ! is higher and have the other point to it
+          if (ip2 > ip1) then
+            lpoin(ip2) = -ip1
+          else
+            lpoin(ip1) = -ip2
+          end if
+        else
+          ! ip1 has already been marked as a duplicate
+          ! and already points to a keeper
+          lpoin(ip2) = lpoin(ip1)
+        end if
+        !
+      else
+        !
+        ! Remove the point connected by more than 4 cells
+        !
+        ip3 = -lpoin(ip2)
+        if (ip3 == ip1) then
+          if (lpoin(ip1) > 0) then
+            lpoin(ip2) = -ip1
+          else
+            lpoin(ip2) = lpoin(ip1)
+          end if
+        else if (ip3 > ip1) then
+          if (lpoin(ip1) > 0) then
+            lpoin(ip3) = -ip1
+            lpoin(ip2) = -ip1
+          else ! lpoin(ip1) < 0
+           !if (lpoin(ip3) > 0) then
+           !  lpoin(ip1) = -ip3
+           !  lpoin(ip2) = -ip3
+           !else
+              lpoin(ip3) = lpoin(ip1)
+              lpoin(ip2) = lpoin(ip1)
+           !end if
+          end if
+        else
+          if (lpoin(ip3) > 0) then
+            lpoin(ip1) = -ip3
+            lpoin(ip2) = -ip3
+          else
+            lpoin(ip1) = lpoin(ip3)
+            lpoin(ip2) = lpoin(ip3)
+          end if
+        end if
+        !
+      end if
+      !
+    end do
+    !
+  end do
+  !
+  ! new2old(ip) = the old point number for a new point ip
+  ! old2new(ip) = the new point number for a old point ip
+  !
+  lpts_new = count( lpoin(:) > 0 )
+  !
+  allocate ( new2old(1:lpts_new) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"new2old",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( old2new(1:lpts_old) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"old2new",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  new_pt = 0
+  do old_pt = 1,lpts_old
+    if (lpoin(old_pt) > 0) then
+      new_pt = new_pt + 1
+      new2old(new_pt) = old_pt
+      old2new(old_pt) = new_pt
+    end if
+  end do
+  !
+  ! Get the new point number for all the old grid points
+  !
+  do old_pt = 1,lpts_old
+    !
+    if (lpoin(old_pt) < 0) then
+      !
+      duplicate_node = -lpoin(old_pt)
+      new_pt = old2new(duplicate_node)
+      old2new(old_pt) = new_pt
+      !
+    end if
+    !
+  end do
+  !
+  if (mypnum == glb_root) write (iout,1) lpts_old,lpts_new
+  !
+  ! Check the consistency
+  !
+  do n = 1,ncut
+    !
+    ! Number of grid points on this cut
+    !
+    do ipcut = 1,cut_info(n)%points
+      !
+      ! Points on the right and left blocks
+      !
+      ip1 = cut_info(n)%nodes(1,ipcut)
+      ip2 = cut_info(n)%nodes(2,ipcut)
+      ipn1 = old2new(ip1)
+      ipn2 = old2new(ip2)
+      !
+      if (any([ipn1,ipn2] == 0)) then
+        if (first_line_not_output) then
+          if (mypnum == glb_root) write (iout,2)
+          first_line_not_output = fals
+        end if
+        if (mypnum == glb_root) then
+          write (iout,8) 1,n,ipcut,map1dto3d(ip1,1),ipn1
+          write (iout,8) 2,n,ipcut,map1dto3d(ip2,1),ipn2
+        end if
+      else if (ipn1 /= ipn2) then
+        if (first_line_not_output) then
+          if (mypnum == glb_root) write (iout,2)
+          first_line_not_output = fals
+        end if
+        if (mypnum == glb_root)  write (iout,9) n, ipcut, ip1, ip2, ipn1, ipn2
+      end if
+      !
+    end do
+  end do
+  !
+ !new_xyz = zero
+ !old_xyz = zero
+ !!
+ !do ip = 1,lpts_old
+ !  !
+ !  new_pt = old2new(ip)
+ !  old_pt = new2old(new_pt)
+ !  !
+ !  new_xyz(:) = xyz_nodes(:,new_pt)
+ !  old_xyz(:) = xyz_nodes(:,old_pt)
+ !  !
+ !  write (44,3) ip, new_pt, old_pt, lpoin(ip)
+ !  !
+ !  diff = sum( abs(new_xyz-old_xyz) / (abs(new_xyz)+eps7) )
+ !  !
+ !  if (diff > eps2) then
+ !    write (44,4) ip, old2new(ip), (new_xyz(n), old_xyz(n), n=1,size(new_xyz))
+ !  end if
+ !  !
+ !end do
+  !
+  ! Deallocate lpoin since we are done with it
+  !
+  deallocate ( lpoin , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Adjust xyz_nodes to reflect the nodal set without any duplicates
+  !
+  ! Allocate the temporary nodal array
+  !
+  temp_xyz = xyz_nodes(:,new2old(:)) ! F2003 AUTO-REALLOCATION
+  if (allocated(sol_nodes)) then
+    temp_sol = sol_nodes(:,new2old(:)) ! F2003 AUTO-REALLOCATION
+  end if
+ !allocate( temp_xyz(1:size(xyz_nodes,dim=1),1:lpts_new) , source=zero , &
+ !          stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"temp_xyz",1,__LINE__,__FILE__,ierr,error_message)
+ !!
+ !! Copy over the non-duplicate nodes from xyz_nodes into temp_xyz
+ !!
+ !do n = 1,lpts_new
+ !  do l = 1,size(xyz_nodes,dim=1)
+ !    temp_xyz(l,n) = xyz_nodes(l,new2old(n))
+ !  end do
+ !end do
+  !
+  ! Use move_alloc to reallocate xyz_nodes. This does the following:
+  !     1. Deallocates xyz_nodes
+  !     2. Allocates xyz_nodes with the same type, type
+  !        parameters, array bounds, and value as temp_xyz
+  !     3. Deallocates temp_xyz
+  !
+  call move_alloc( from=temp_xyz , to=xyz_nodes )
+  if (allocated(temp_sol)) then
+    call move_alloc( from=temp_sol , to=sol_nodes )
+  end if
+  !
+  ! Deallocate new2old
+  !
+  deallocate ( new2old , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"new2old",2,__LINE__,__FILE__,ierr,error_message)
+ !!
+ !! Create the nodes_of_cell_ptr and nodes_of_cell arrays
+ !!
+ !call create_nodes_of_cells(old2new)
+  !
+  ! Fix all the node information in the grid derived type
+  !
+  do nc = 1,size(grid%elem)
+    if (allocated(grid%elem(nc)%nodes)) then
+     !do n = 1,size(grid%elem(nc)%nodes)
+     !  grid%elem(nc)%nodes(n) = old2new( grid%elem(nc)%nodes(n) )
+     !end do
+      grid%elem(nc)%nodes(:) = old2new( grid%elem(nc)%nodes(:) )
+    end if
+    if (allocated(grid%elem(nc)%pts)) then
+     !do n = 1,size(grid%elem(nc)%pts)
+     !  grid%elem(nc)%pts(n) = old2new( grid%elem(nc)%pts(n) )
+     !end do
+      grid%elem(nc)%pts(:) = old2new( grid%elem(nc)%pts(:) )
+    end if
+  end do
+  !
+  ! Fix the node information in nodes_of_cell
+  !
+  if (allocated(nodes_of_cell)) then
+   !do n = 1,size(nodes_of_cell)
+   !  nodes_of_cell(n) = old2new( nodes_of_cell(n) )
+   !end do
+    nodes_of_cell(:) = old2new( nodes_of_cell(:) )
+  end if
+  !
+  ! Deallocate old2new
+  !
+  deallocate ( old2new , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"old2new",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (/," After removing duplicate nodes due to cut", &
+              " interfaces of the Plot3D grid:",/, &
+              "      old nnode = ",i0,/, &
+              "      new nnode = ",i0)
+  2 format (/," Error checking the consistency !!!!",/, &
+              "   n, ipcut, ip1, ip2, ipn1, ipn2")
+  3 format (4i10)
+  4 format (i8,i10,6e14.6)
+  8 format ("Zero found on side ",i1," of cut:", &
+            2x,i4,i8,2x,3i5," (",i0,") => ",i0)
+  9 format (i4,i8, 4i12)
+  !
+end subroutine old_remove_duplicate_nodes
 !
 !###############################################################################
 !
