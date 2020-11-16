@@ -655,6 +655,88 @@ end function thx_pipe_centerline_x
 !
 !###############################################################################
 !
+subroutine init_from_sem_profile(prof,pvavg,xyz,cv)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd
+  !
+  !.. Formal Arguments ..
+  type(sem_profile_t), intent(in) :: prof
+  real(wp),            intent(in) :: pvavg(:)
+  real(wp),            intent(in) :: xyz(:,:)
+  real(wp),         intent(inout) :: cv(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: k,n,n1,n2,npts
+  real(wp) :: c1,c2,y,y1,y2
+  real(wp) :: r,u,v,w,t,q2
+  real(wp) :: rgas_over_gm1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "init_from_sem_profile"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  npts = prof%npts
+  !
+  ! Precompute Rgas/(gamma-1)
+  !
+  rgas_over_gm1 = rgasref_nd / (gam - one)
+  !
+  do k = 1,size(xyz,dim=2)
+    !
+    y = xyz(2,k)
+    !
+    n1 = 1
+    n2 = 2
+    do n = 2,npts
+      if (prof%y(n) > y) exit
+      n1 = n
+      n2 = max(n+1,npts)
+    end do
+    !
+    if (n1 == npts) then
+      !
+      r = pvavg(nec)
+      u = pvavg(nmx)
+      v = pvavg(nmy)
+      w = pvavg(nmz)
+      t = pvavg(nee)
+      !
+    else
+      !
+      y1 = prof%y(n1)
+      y2 = prof%y(n2)
+      !
+      c1 = (y-y2)/(y2-y1)
+      c2 = (y-y1)/(y2-y1)
+      !
+      r = c2*prof%ravg(n2) - c1*prof%ravg(n1)
+      u = c2*prof%uavg(n2) - c1*prof%uavg(n1)
+      v = c2*prof%vavg(n2) - c1*prof%vavg(n1)
+      w = c2*prof%wavg(n2) - c1*prof%wavg(n1)
+      t = c2*prof%tavg(n2) - c1*prof%tavg(n1)
+      !
+    end if
+    !
+    q2 = u*u + v*v + w*w
+    !
+    cv(k,nec) = r
+    cv(k,nmx) = r*u
+    cv(k,nmy) = r*v
+    cv(k,nmz) = r*w
+    cv(k,nee) = r*( rgas_over_gm1*t + half*q2 )
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine init_from_sem_profile
+!
+!###############################################################################
+!
 subroutine sem(face_cv,face_gp)
   !
   !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
