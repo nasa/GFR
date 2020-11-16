@@ -2409,6 +2409,15 @@ subroutine create_bc_in
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_bc_in"
   !
+#ifdef DEBUG_ON
+!#define USE_DUMP_BC_CONDITIONS
+#endif
+#ifdef USE_DUMP_BC_CONDITIONS
+  logical(lk), parameter :: debug_dump_bc = true
+#else
+  logical(lk), parameter :: debug_dump_bc = fals
+#endif
+  !
 continue
   !
   if (allocated(bc_in)) then
@@ -2695,7 +2704,8 @@ continue
                                   vel,mach,alpha,beta,mass_frac, &
                                   static_is_set,total_is_set, &
                                   vel_is_set,mach_is_set, &
-                                  "after igl(r,p,t)")
+                                  "after igl(r,p,t)", &
+                                  use_dump_bc=debug_dump_bc)
           !
           if (gamm <= zero) then
             if (t > tmin) then
@@ -2705,7 +2715,8 @@ continue
                                       vel,mach,alpha,beta,mass_frac, &
                                       static_is_set,total_is_set, &
                                       vel_is_set,mach_is_set, &
-                                      "after compute_mixture_gamma(1)")
+                                      "after compute_mixture_gamma(1)", &
+                                      use_dump_bc=debug_dump_bc)
             end if
           end if
           !
@@ -2714,7 +2725,8 @@ continue
                                   vel,mach,alpha,beta,mass_frac, &
                                   static_is_set,total_is_set, &
                                   vel_is_set,mach_is_set, &
-                                  "after igl(r0,p0,t0)")
+                                  "after igl(r0,p0,t0)", &
+                                  use_dump_bc=debug_dump_bc)
           !
           if (gamm > zero) then
             !
@@ -2723,21 +2735,24 @@ continue
                                     vel,mach,alpha,beta,mass_frac, &
                                     static_is_set,total_is_set, &
                                     vel_is_set,mach_is_set, &
-                                    "after mach_total_pres")
+                                    "after mach_total_pres", &
+                                    use_dump_bc=debug_dump_bc)
             !
             call mach_total_temp(gamm,t,t0,mach,mach_is_set,n)
             call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
                                     vel,mach,alpha,beta,mass_frac, &
                                     static_is_set,total_is_set, &
                                     vel_is_set,mach_is_set, &
-                                    "after mach_total_temp")
+                                    "after mach_total_temp", &
+                                    use_dump_bc=debug_dump_bc)
             !
             call mach_total_dens(gamm,r,r0,mach,mach_is_set,n)
             call dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
                                     vel,mach,alpha,beta,mass_frac, &
                                     static_is_set,total_is_set, &
                                     vel_is_set,mach_is_set, &
-                                    "after mach_total_dens")
+                                    "after mach_total_dens", &
+                                    use_dump_bc=debug_dump_bc)
             !
           else if (t0 > zero .and. mach_is_set) then
             !
@@ -2746,7 +2761,8 @@ continue
                                     vel,mach,alpha,beta,mass_frac, &
                                     static_is_set,total_is_set, &
                                     vel_is_set,mach_is_set, &
-                                    "after mach_total_temp_tpg")
+                                    "after mach_total_temp_tpg", &
+                                    use_dump_bc=debug_dump_bc)
             !
           end if
           !
@@ -2758,7 +2774,8 @@ continue
                                       vel,mach,alpha,beta,mass_frac, &
                                       static_is_set,total_is_set, &
                                       vel_is_set,mach_is_set, &
-                                      "after compute_mixture_gamma(2)")
+                                      "after compute_mixture_gamma(2)", &
+                                      use_dump_bc=debug_dump_bc)
             end if
           end if
           !
@@ -2768,7 +2785,8 @@ continue
                                   vel,mach,alpha,beta,mass_frac, &
                                   static_is_set,total_is_set, &
                                   vel_is_set,mach_is_set, &
-                                  "after vel_from_static")
+                                  "after vel_from_static", &
+                                  use_dump_bc=debug_dump_bc)
           !
           if (gamm <= zero) then
             if (t > tmin) then
@@ -2785,7 +2803,8 @@ continue
                                     vel,mach,alpha,beta,mass_frac, &
                                     static_is_set,total_is_set, &
                                     vel_is_set,mach_is_set, &
-                                    "Reached max BC iterations!")
+                                    "Reached max BC iterations!", &
+                                    use_dump_bc=true)
             call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           end if
           !
@@ -3338,7 +3357,8 @@ end subroutine write_linear_advec_ref_conditions
 subroutine dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
                               vel,mach,alpha,beta,mass_frac, &
                               static_is_set,total_is_set, &
-                              vel_is_set,mach_is_set,string)
+                              vel_is_set,mach_is_set,string, &
+                              use_dump_bc)
   !
   !.. Use Statements ..
   use thermo_mod, only : species_name
@@ -3352,6 +3372,7 @@ subroutine dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
   logical(lk),      intent(in) :: static_is_set,total_is_set
   logical(lk),      intent(in) :: vel_is_set,mach_is_set
   character(len=*), intent(in) :: string
+  logical(lk),      intent(in) :: use_dump_bc
   !
   !.. Local Scalars ..
   integer :: i,io
@@ -3360,49 +3381,52 @@ subroutine dump_bc_conditions(ii,gamm,rgas,r,p,t,r0,p0,t0, &
   !
 continue
   !
-#ifdef DEBUG_ON
-!#define USE_DUMP_BC_CONDITIONS
-#endif
-#ifdef USE_DUMP_BC_CONDITIONS
-  !
-  if (mypnum /= glb_root) return
-  !
- !output = output + 1
- !!
- !write (fname,"(i0,'.log')") output
- !!
- !open (newunit=io,file=fname,status="replace",action="write")
- !write (io,1) trim(adjustl(string)),ii, &
- !               gamm,rgas,r,p,t,static_is_set, &
- !               r0,p0,t0,total_is_set, &
- !               sqrt(merge(gamm*p/r,zero,gamm*p/r>zero)), &
- !               mach,mach_is_set
- !write (io,2) (vel(i),i=1,size(vel))
- !write (io,3) alpha,beta,vel_is_set
- !if (ncs > 0) then
- !  do i = 1,ncs
- !    write (io,4) uppercase( trim(adjustl(species_name(i))) ), mass_frac(i)
- !  end do
- !else
- !  write (io,*)
- !end if
- !close (io)
-  !
-  write (iout,1) trim(adjustl(string)),ii, &
-                 gamm,rgas,r,p,t,static_is_set, &
-                 r0,p0,t0,total_is_set, &
-                 sqrt(merge(gamm*p/r,zero,gamm*p/r>zero)), &
-                 mach,mach_is_set
-  write (iout,2) (vel(i),i=1,size(vel))
-  write (iout,3) alpha,beta,vel_is_set
-  if (ncs > 0) then
-    do i = 1,ncs
-      write (iout,4) uppercase( trim(adjustl(species_name(i))) ), mass_frac(i)
-    end do
-  else
-    write (iout,*)
+  if (use_dump_bc) then
+    !
+    if (mypnum == glb_root) then
+      !
+     !output = output + 1
+     !!
+     !write (fname,"(i0,'.log')") output
+     !!
+     !open (newunit=io,file=fname,status="replace",action="write")
+     !write (io,1) trim(adjustl(string)),ii, &
+     !               gamm,rgas,r,p,t,static_is_set, &
+     !               r0,p0,t0,total_is_set, &
+     !               sqrt(merge(gamm*p/r,zero,gamm*p/r>zero)), &
+     !               mach,mach_is_set
+     !write (io,2) (vel(i),i=1,size(vel))
+     !write (io,3) alpha,beta,vel_is_set
+     !if (ncs > 0) then
+     !  do i = 1,ncs
+     !    write (io,4) uppercase( trim(adjustl(species_name(i))) ), mass_frac(i)
+     !  end do
+     !else
+     !  write (io,*)
+     !end if
+     !close (io)
+      !
+      write (iout,1) trim(adjustl(string)),ii, &
+                     gamm,rgas,r,p,t,static_is_set, &
+                     r0,p0,t0,total_is_set, &
+                     sqrt(merge(gamm*p/r,zero,gamm*p/r>zero)), &
+                     mach,mach_is_set
+      write (iout,2) (vel(i),i=1,size(vel))
+      write (iout,3) alpha,beta,vel_is_set
+      if (ncs > 0) then
+        do i = 1,ncs
+          write (iout,4) uppercase( trim(adjustl(species_name(i))) ), &
+                         mass_frac(i)
+        end do
+      else
+        write (iout,*)
+      end if
+      !
+    end if
+    !
+    flush (iout)
+    !
   end if
-  flush (iout)
   !
   ! Format Statements
   !
@@ -3429,8 +3453,6 @@ continue
             5x,"Beta  Angle of Attack = ",es14.6,/, &
             5x,"vel_is_set            = ",l1)
   4 format (5x,a," Mass Fraction",t28,"= ",es14.6)
-  !
-#endif
   !
 end subroutine dump_bc_conditions
 !
