@@ -5065,9 +5065,12 @@ continue
   !       the point.
   !
   remaining_pts( abs(cell_points(:)) ) = 1
+!#define DEBUG_CREATE_CELL_SUBCONNECTIVITY
+#ifdef DEBUG_CREATE_CELL_SUBCONNECTIVITY
   write (iout,100) "                     mxpt = ",mxpt
   write (iout,100) "count(  cell_points <= 0) = ",count(cell_points<=0)
   write (iout,100) "count(remaining_pts == 1) = ",count(remaining_pts==1)
+#endif
   !
   ! Collectively reduce the remaining points on all processors
   !
@@ -6284,6 +6287,8 @@ continue
     end do
   end do
   !
+!#define DEBUG_MAP_TO_OUTPUT_POINTS
+#ifdef DEBUG_MAP_TO_OUTPUT_POINTS
   do n = 1,2
     write (iout,14) (j,j=3*n-2,3*n)
     do m = 1,np2d
@@ -6295,6 +6300,7 @@ continue
   do l = 1,size(map%np)
     write (iout,22) l,map%np(l)+1
   end do
+#endif
   !
   l = 0
   do n = 1,size(edge_values,dim=3)
@@ -6304,6 +6310,7 @@ continue
     end do
   end do
   !
+#ifdef DEBUG_MAP_TO_OUTPUT_POINTS
   do n = 1,4
     write (iout,35) (j,j=3*n-2,3*n)
     do m = 1,np1d
@@ -6323,6 +6330,7 @@ continue
       l = l + np1d
     end do
   end do
+#endif
   !
   call debug_timer(leaving_procedure,pname)
   !
