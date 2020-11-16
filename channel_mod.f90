@@ -1208,7 +1208,7 @@ end subroutine get_dudy
 !
 !###############################################################################
 !
-pure &
+!pure &
 subroutine get_normalized_profile(y_vals,u,uu,v,vv,w,ww,uv,rho,t,dudy, &
                                   prof,aux_data,averaging_channel_flow,ix)
   !
@@ -1397,7 +1397,7 @@ end subroutine get_normalized_profile
 !
 !###############################################################################
 !
-pure &
+!pure &
 subroutine get_sem_profile(prof,aux_data,averaging_channel_flow)
   !
   !.. Use Statements ..
