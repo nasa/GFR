@@ -1492,6 +1492,9 @@ continue
     end do
   end do
   !
+  call debug_timer(stop_timer,"creating grid%xyz")
+  call debug_timer(start_timer,"scaling grid%xyz")
+  !
   ! Apply the grid scaling factor to the coordinates of the grid nodes
   !
   do n = 1,size(grid%xyz,dim=2)
@@ -1502,7 +1505,7 @@ continue
   !
   ! Get the size needed for the grid%elem array
   !
-  call debug_timer(stop_timer,"creating grid%xyz")
+  call debug_timer(stop_timer,"scaling grid%xyz")
   call debug_timer(start_timer,"find size for grid%elem")
   !
   nsections = 0
