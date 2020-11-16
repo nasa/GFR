@@ -36,6 +36,7 @@ subroutine initialize_flow()
   use ovar, only : dtrst,itrst,tmrst
   use ovar, only : adjust_cfl_cycles
   use ovar, only : solution_file, solution_format
+  use ovar, only : use_SEM_profile_for_initialization
   !
   use flowvar, only : usp,uoldsp,gpsp
   use flowvar, only : allocate_flowvar_arrays
@@ -153,7 +154,8 @@ continue
     !
     ! THIS SECTION OF CODE WAS MOVED INTO MAPPINGS_MOD SO DO NOTHING!
     !
-  else if (itestcase == Channel_Flow .and. any(bc_in(:)%bc_type == bc_sem)) then
+  else if (use_SEM_profile_for_initialization .and. &
+           any(bc_in(:)%bc_type == bc_sem)) then
     !
     ! Initialize the flow based on the 1D inflow profile
     ! used for the SEM turbulence inflow generator.
