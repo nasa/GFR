@@ -3701,6 +3701,7 @@ continue
   ! Use the cut_info derived type to create the initial node lists
   ! for all the nodes on cut boundaries.
   !
+  call debug_timer(start_timer,"First loop")
   do n = 1,ncut
     !
     do ipcut = 1,cut_info(n)%points
@@ -3729,9 +3730,11 @@ continue
     end do
     !
   end do
+  call debug_timer( stop_timer,"First loop")
   !
   ! Set the initial index value for each node.
   !
+  call debug_timer(start_timer,"Second loop")
   do n = 1,lpts_old
     if (.not. allocated(lpoin_dt(n)%nodes)) then
       lpoin_dt(n)%idx = n
@@ -3739,6 +3742,7 @@ continue
       lpoin_dt(n)%idx = minval(lpoin_dt(n)%nodes)
     end if
   end do
+  call debug_timer( stop_timer,"Second loop")
   !
   ! Allocate the mask array for marking duplicate nodes
   !
@@ -3749,6 +3753,7 @@ continue
   ! cut boundaries until no new changes are made to the information in lpoin_dt
   ! between the previous and current loop of the lpoin_dt_convergence loop.
   !
+  call debug_timer(start_timer,"Third loop")
   lpoin_dt_convergence: &
   do
     !
@@ -3819,12 +3824,14 @@ continue
     if (no_changes) exit lpoin_dt_convergence
     !
   end do lpoin_dt_convergence
+  call debug_timer( stop_timer,"Third loop")
   !
   deallocate ( msk , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Make the index for all duplicate nodes negative
   !
+  call debug_timer(start_timer,"Fourth loop")
   do n = 1,lpts_old
     !
     if (lpoin_dt(n)%idx /= n) then
@@ -3832,6 +3839,7 @@ continue
     end if
     !
   end do
+  call debug_timer( stop_timer,"Fourth loop")
   !
   ! Create the lpoin array using lpoin_dt(:)%idx
   !     lpoin is defined as:
@@ -3859,6 +3867,7 @@ continue
   allocate ( old2new(1:lpts_old) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"old2new",1,__LINE__,__FILE__,ierr,error_message)
   !
+  call debug_timer(start_timer,"Fifth loop")
   new_pt = 0
   do old_pt = 1,lpts_old
     if (lpoin(old_pt) > 0) then
@@ -3867,9 +3876,11 @@ continue
       old2new(old_pt) = new_pt
     end if
   end do
+  call debug_timer( stop_timer,"Fifth loop")
   !
   ! Get the new point number for all the old grid points
   !
+  call debug_timer(start_timer,"Sixth loop")
   do old_pt = 1,lpts_old
     !
     if (lpoin(old_pt) < 0) then
@@ -3881,6 +3892,7 @@ continue
     end if
     !
   end do
+  call debug_timer( stop_timer,"Sixth loop")
   !
   if (mypnum == glb_root) write (iout,1) lpts_old,lpts_new
   !
@@ -3888,6 +3900,7 @@ continue
   !
   error_removing_nodes = fals
   !
+  call debug_timer(start_timer,"Seventh loop")
   do n = 1,ncut
     !
     ! Number of grid points on this cut
@@ -3933,6 +3946,7 @@ continue
       !
     end do
   end do
+  call debug_timer( stop_timer,"Seventh loop")
   !
   if (error_removing_nodes) then
     write (error_message,100)
@@ -4007,6 +4021,7 @@ continue
   !
   ! Fix all the node information in the grid derived type
   !
+  call debug_timer(start_timer,"Eighth loop")
   do nc = 1,size(grid%elem)
     if (allocated(grid%elem(nc)%nodes)) then
      !do n = 1,size(grid%elem(nc)%nodes)
@@ -4021,6 +4036,7 @@ continue
       grid%elem(nc)%pts(:) = old2new( grid%elem(nc)%pts(:) )
     end if
   end do
+  call debug_timer( stop_timer,"Eighth loop")
   !
   ! Fix the node information in nodes_of_cell
   !
