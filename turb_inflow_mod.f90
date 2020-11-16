@@ -5748,6 +5748,149 @@ end subroutine write_sem_ave_data
 !
 !###############################################################################
 !
+subroutine write_sem_profile_data(num_sem_pts,all_prof_data)
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: num_sem_pts(:,:)
+  real(wp), intent(in) :: all_prof_data(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,io,ierr,m,n,n0,nvar,num_fp,sem_idx,cpu_idx
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: offset(:,:)
+  real(wp), allocatable :: this_prof(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_sem_profile_data"
+  !
+  character(len=*), parameter :: fname = "sem_profile_inflow.tec.dat"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nvar = 24
+  !
+  ! Create the offset array for each box on each MPI process
+  !
+  offset = init_array(ncpu,num_sem_boxes,0) ! F2003 AUTO-REALLOC
+  !
+  i = 0
+  do cpu_idx = 1,ncpu
+    do sem_idx = 1,num_sem_boxes
+      offset(cpu_idx,sem_idx) = i
+      i = i + num_sem_pts(sem_idx,cpu_idx)
+    end do
+  end do
+  !
+  ! Open the output file
+  !
+  open (newunit=io,file=fname,status="replace",action="write", &
+                   form="formatted",position="rewind", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Write the Tecplot header
+  !
+  write (io,1)
+  !
+  ! Loop over the SEM boxes and write the SEM averaged data for each
+  ! box into a separate Tecplot zone
+  !
+  loop_over_boxes: &
+  do sem_idx = 1,num_sem_boxes
+    !
+    num_fp = sum( num_sem_pts(sem_idx,:) )
+    !
+    ! Allocate the array to collect the averaged data for the current SEM box
+    !
+    this_prof = init_array(nvar,num_fp,zero) ! F2003 AUTO-REALLOC
+    !
+    !############################################################
+    !############################################################
+    !#####  OUTPUT THE AVERAGED SEM DATA TO A TECPLOT ZONE  #####
+    !############################################################
+    !############################################################
+    !
+    i = 0
+    !
+    loop_over_cpus_ave: &
+    do cpu_idx = 1,ncpu
+      !
+      n0 = offset(cpu_idx,sem_idx)
+      !
+      loop_over_cpu_pts_ave: &
+      do n = 1,num_sem_pts(sem_idx,cpu_idx)
+        !
+        i = i + 1
+        !
+        do m = 1,nvar
+          this_prof(m,i) = all_prof_data(m,n0+n)
+        end do
+        !
+      end do loop_over_cpu_pts_ave
+      !
+    end do loop_over_cpus_ave
+    !
+    ! Dimensionalize the averaged data
+    !
+    call dimensionalize_sem_prof(this_prof)
+    !
+    ! Write the zone header for this SEM box
+    !
+    write (io,2) sem_idx,"Profile",num_fp,size(sem_conn(sem_idx)%ipelem,dim=2)
+    !
+    ! Write the SEM averaged data for this SEM box
+    !
+    do m = 1,nvar
+      write (io,3) (this_prof(m,i), i=1,num_fp)
+    end do
+    !
+    do n = 1,size(sem_conn(sem_idx)%ipelem,dim=2)
+      write (io,4) (sem_conn(sem_idx)%ipelem(i,n), &
+                    i=1,size(sem_conn(sem_idx)%ipelem,dim=1))
+    end do
+    !
+  end do loop_over_boxes
+  !
+  ! Close the output file
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Deallocate local arrays before leaving
+  !
+  if (allocated(this_prof)) then
+    deallocate ( this_prof , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"this_prof",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(offset)) then
+    deallocate ( offset , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"offset",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ('VARIABLES = "Z"',/,'"Y"',/,'"X"',/, &
+            '"<greek>r</greek>"',/,'"U"',/,'"V"',/,'"W"',/,'"T"',/, &
+            '"uu"',/,'"vv"',/,'"ww"',/, &
+            '"uv"',/,'"uw"',/,'"vw"',/, &
+            '"a11"',/,'"a22"',/,'"a33"',/, &
+            '"a21"',/,'"a31"',/,'"a32"',/, &
+            '"Wall Distance"',/,'"nx"',/,'"ny"',/,'"nz"')
+  2 format ('ZONE T="SEM BC #',i0,' (',a,')", N=',i0,', E=',i0, &
+            ', DATAPACKING=BLOCK, ZONETYPE=FEQUADRILATERAL')
+  3 format (6es14.6)
+  4 format (8i8)
+  !
+end subroutine write_sem_profile_data
+!
+!###############################################################################
+!
 subroutine collect_output_sem_connectivities(num_sem_pts)
   !
   !.. Use Statements ..
