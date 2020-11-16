@@ -545,6 +545,267 @@ end subroutine initialize_from_sem_profile
 !
 !###############################################################################
 !
+subroutine thx_sem_initialization(prof,pvavg,bc_idx_prof,xyz,cv)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd
+  use ovar, only : grid_scaling_factor
+  use ovar, only : bc_in,bc_input
+  !
+  !.. Formal Arguments ..
+  type(sem_profile_t), intent(in) :: prof(:)
+  real(wp),            intent(in) :: pvavg(:,:)
+  integer,             intent(in) :: bc_idx_prof(:)
+  real(wp),            intent(in) :: xyz(:,:)
+  real(wp),         intent(inout) :: cv(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: k,n,n1,n2,npts,idx,iprof
+  integer  :: pipe_prof,nozzle_prof
+  real(wp) :: c1,c2,y,y1,y2
+  real(wp) :: r,u,v,w,t,q,q2,uu,vv,ww
+  real(wp) :: rgas_over_gm1
+  real(wp) :: dx,dy,dz,dl,unx,uny,unz
+  real(wp) :: xp,yp,zp,xc,yc,angle
+  real(wp) :: cn,cni,v11,v12,v13,v21,v22,v23,v31,v32,v33
+  !
+  !.. Local Allocatable Arrays ..
+  character(len=:), allocatable :: prof_name
+  integer,          allocatable :: init_grp(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "thx_sem_initialization"
+  !
+  real(wp), parameter :: height = 2.68_wp
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  do iprof = 1,size(bc_idx_prof)
+    !
+    idx = bc_in(bc_idx_prof(iprof))%bc_input_idx
+    !
+    prof_name = trim(adjustl(uppercase(bc_input(idx)%name))) ! F03 AUTO-REALLOC
+    !
+    if (prof_name == "INFLOWPIPE") then
+      pipe_prof = iprof
+    else if (prof_name == "INFLOWNOZZLE") then
+      nozzle_prof = iprof
+    end if
+    !
+  end do
+  !
+  ! Allocate the array for identifying which section
+  ! of the grid each solution point is in.
+  !
+  init_grp = init_array(size(xyz,dim=2),0) ! F2003 AUTO-REALLOC
+  !
+  do k = 1,size(xyz,dim=2)
+    !
+    xp = xyz(1,k)/grid_scaling_factor
+    yp = xyz(2,k)/grid_scaling_factor
+    zp = xyz(3,k)/grid_scaling_factor
+    !
+    if ( (xp <= zero .and. yp < -half) .or. &
+         (xp > zero .and. yp < zero) ) then
+      !
+      ! Find all solution points that are definitely
+      ! in the pipe/injector section
+      !
+      init_grp(k) = pipe_prof
+      !
+    else if (xp > zero .and. xp <= twelve .and. yp >= zero) then
+   !else if (xp > zero .and. xp <= twelve .and. &
+   !         yp >= zero .and. yp < half) then
+      !
+      ! Find all solution points above the plate
+      !
+      init_grp(k) = nozzle_prof
+      !
+    else if (xp <= zero .and. yp > -half) then
+      !
+      ! Find all solution points in the nozzle area
+      !
+      if (xp >= -one .and. xp <= zero) then
+        if ( (yp >= zero .and. yp <= height) .and. &
+             (zp >= -half*height .and. zp <= half*height) ) then
+          init_grp(k) = nozzle_prof
+        end if
+      else if (xp >= -five/four .and. xp < -one) then
+        if ( (yp > -one4 .and. yp < (two+three4)) .and. &
+             (zp > -seven/five .and. zp < seven/five) ) then
+          init_grp(k) = nozzle_prof
+        end if
+      else if (xp < -five/four) then
+        if ( (yp > -half .and. yp < three) .and. &
+             (zp > -seven/four .and. zp < seven/four) ) then
+          init_grp(k) = nozzle_prof
+        end if
+      end if
+      !
+      init_grp(k) = nozzle_prof
+      !
+    else
+      !
+      ! For now, just have everything else default to the plate section
+      !
+      init_grp(k) = nozzle_prof
+      !
+    end if
+    !
+  end do
+  !
+  ! Precompute Rgas/(gamma-1)
+  !
+  rgas_over_gm1 = rgasref_nd / (gam - one)
+  !
+  do k = 1,size(xyz,dim=2)
+    !
+    iprof = init_grp(k)
+    !
+    ! Determine the wall distance based on which
+    ! section of the grid this point is in
+    !
+    if (iprof == pipe_prof) then
+      !
+      ! This point is in the pipe section
+      !
+      xp = xyz(1,k)/grid_scaling_factor
+      yp = xyz(2,k)/grid_scaling_factor
+      zp = xyz(3,k)/grid_scaling_factor
+      !
+      ! Get the turn angle of the pipe
+      !
+      angle = thx_pipe_turn_angle(xp,yp)
+      !
+      ! Get the x and y coordinates of the point on the pipe centerline
+      ! that is perpendicular the current solution point
+      !
+      yc = thx_pipe_centerline_y(angle,xp,yp)
+      xc = thx_pipe_centerline_x(angle,yc,xp)
+      !
+      ! Get the distance from the current solution point to the centerline point
+      ! NOTE: If (angle <= zero), then (xp = xc), so explicitly set dx to zero
+      !
+      dx = merge( xc - xp , zero , angle > zero )
+      dy = yc - yp
+      dz = -zp     ! NOTE: zc = 0
+      dl = sqrt( dx*dx + dy*dy + dz*dz )
+      !
+      ! Get the inward facing unit normal at the nearest wall point
+      !
+      unx = dx/dl
+      uny = dy/dl
+      unz = dz/dl
+      !
+      ! Get the wall distance
+      ! NOTE: This is just [the radius of the pipe (0.25 in)] - [dl]
+      ! NOTE: Need to use grid scaling factor to convert to meters
+      !
+      y = (one4 - dl)*grid_scaling_factor
+      !
+      ! Create the coefficients for the vector transformation
+      !
+      cn = sqrt(uny*uny + unz*unz)
+      cni = one/cn
+      !
+      v11 = cn           ; v12 = unx ; v13 =  zero
+      v21 = -unx*uny*cni ; v22 = uny ; v23 = -unz*cni
+      v31 = -unx*unz*cni ; v32 = unz ; v33 =  uny*cni
+      !
+    else
+      !
+      ! This point is in the nozzle or above the plate
+      !
+      y = xyz(2,k)
+      !
+    end if
+    !
+    ! Interpolate the primitive variables from the SEM profile
+    ! based on the wall distance of the current point
+    !
+    npts = prof(iprof)%npts
+    !
+    n1 = 1
+    n2 = 2
+    do n = 2,npts
+      if (prof(iprof)%y(n) > y) exit
+      n1 = n
+      n2 = max(n+1,npts)
+    end do
+    !
+    if (n1 == npts) then
+      !
+     !r  = pvavg(nec,iprof)
+     !uu = pvavg(nmx,iprof)
+     !vv = pvavg(nmy,iprof)
+     !ww = pvavg(nmz,iprof)
+     !t  = pvavg(nee,iprof)
+      r  = prof(iprof)%ravg(npts)
+      uu = prof(iprof)%uavg(npts)
+      vv = prof(iprof)%vavg(npts)
+      ww = prof(iprof)%wavg(npts)
+      t  = prof(iprof)%tavg(npts)
+      !
+    else
+      !
+      y1 = prof(iprof)%y(n1)
+      y2 = prof(iprof)%y(n2)
+      !
+      c1 = (y-y2)/(y2-y1)
+      c2 = (y-y1)/(y2-y1)
+      !
+      r  = c2*prof(iprof)%ravg(n2) - c1*prof(iprof)%ravg(n1)
+      uu = c2*prof(iprof)%uavg(n2) - c1*prof(iprof)%uavg(n1)
+      vv = c2*prof(iprof)%vavg(n2) - c1*prof(iprof)%vavg(n1)
+      ww = c2*prof(iprof)%wavg(n2) - c1*prof(iprof)%wavg(n1)
+      t  = c2*prof(iprof)%tavg(n2) - c1*prof(iprof)%tavg(n1)
+      !
+    end if
+    !
+    if (iprof == pipe_prof) then
+      !
+      if (angle > zero) then
+        q = sqrt(uu*uu + vv*vv + ww*ww)
+        if (angle >= 30.0_wp) then
+          u = q*half*sqrt(three) ! q*cos(30)
+          v = q*half             ! q*sin(30)
+        else
+          u = q*cos(angle*degrees2radians)
+          v = q*sin(angle*degrees2radians)
+        end if
+        w = zero
+      else
+        u = uu
+        v = vv
+        w = ww
+      end if
+      !
+    else
+      !
+      u = uu
+      v = vv
+      w = ww
+      !
+    end if
+    !
+    q2 = u*u + v*v + w*w
+    !
+    cv(k,nec) = r
+    cv(k,nmx) = r*u
+    cv(k,nmy) = r*v
+    cv(k,nmz) = r*w
+    cv(k,nee) = r*( rgas_over_gm1*t + half*q2 )
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine thx_sem_initialization
+!
+!###############################################################################
+!
 subroutine thx_pipe_sem_initialization(prof,pvavg,xyz,cv)
   !
   !.. Use Statements ..
