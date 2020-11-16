@@ -545,6 +545,116 @@ end subroutine initialize_from_sem_profile
 !
 !###############################################################################
 !
+pure &
+function thx_pipe_turn_angle(x,y) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: x,y
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  real(wp) :: numer,denom
+  !
+  !.. Local Constants ..
+  real(wp), parameter :: c1 = sqrt(three) - 11.0_wp
+  real(wp), parameter :: c2 = 635.0_wp - 74.0_wp*sqrt(three)
+  real(wp), parameter :: c3 = 13.0_wp*sqrt(three) - two
+  real(wp), parameter :: cx = half*(two - 13.0_wp*sqrt(three))
+  !
+continue
+  !
+  ! Compute the turn angle
+  !
+  ! NOTE: Using mathematica, I was able to prove that the argument to the
+  !       sqrt in the denominator should always be positive and greater
+  !       than zero if the coordinates [x,y] are a valid point within the
+  !       pipe/injector geometry.
+  !
+  numer = c1 - two*y
+  denom = sqrt( c2 + four*x*(c3+x) + four*y*(y-c1) )
+  !
+  return_value = acos( numer / denom ) * radians2degrees
+  !
+  ! Set the angle negative if it is in the SEM inflow region
+  ! of the pipe/injector that is aligned with the x-axis.
+  !
+  if (x < cx) return_value = -return_value
+  !
+end function thx_pipe_turn_angle
+!
+!###############################################################################
+!
+pure &
+function thx_pipe_centerline_y(angle,x,y) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: angle
+  real(wp), intent(in) :: x
+  real(wp), intent(in) :: y
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Constants ..
+  real(wp), parameter :: c1  = -half*13.0_wp
+  real(wp), parameter :: c2  = -one4*25.0_wp
+  real(wp), parameter :: c3  = half*(two + sqrt(three))
+  real(wp), parameter :: c4  = half*(sqrt(three) - 11.0_wp)
+  real(wp), parameter :: c5  = -one8*three*sqrt(three)
+  real(wp), parameter :: c6  = one4*sqrt(three)
+  real(wp), parameter :: c30 = 30.0_wp
+  !
+continue
+  !
+  if (angle <= zero) then
+    return_value = c1
+  else if (angle >= c30) then
+    return_value = c5 + c6*x + one4*y
+   !return_value = c2 + half*c3*tan( (angle-c30)*degrees2radians )
+  else
+    return_value = c4 - c3*cos(angle*degrees2radians)
+  end if
+  !
+end function thx_pipe_centerline_y
+!
+!###############################################################################
+!
+pure &
+function thx_pipe_centerline_x(angle,yc,x) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: angle
+  real(wp), intent(in) :: yc
+  real(wp), intent(in) :: x
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Constants ..
+  real(wp), parameter :: c1  = three/two
+  real(wp), parameter :: c2  = sqrt(three)
+  real(wp), parameter :: c3  = half*(two - 13.0_wp*sqrt(three))
+  real(wp), parameter :: c4  = half*(two + sqrt(three))
+  real(wp), parameter :: c5  = half*13.0_wp
+  real(wp), parameter :: c30 = 30.0_wp
+  !
+continue
+  !
+  if (angle <= zero) then
+    return_value = x
+   !return_value = c3 - c5*tan(abs(angle)*degrees2radians)
+  else if (angle >= c30) then
+    return_value = c1 + c2*yc
+  else
+    return_value = c3 + c4*sin(angle*degrees2radians)
+  end if
+  !
+end function thx_pipe_centerline_x
+!
+!###############################################################################
+!
 subroutine sem(face_cv,face_gp)
   !
   !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
