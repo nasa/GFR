@@ -378,6 +378,7 @@ subroutine write_grid_parallel_cgns()
   use geovar, only : nr
   use ovar,   only : profile_io_cgns,profile_io_cgns_subs
   use ovar,   only : grid_scaling_factor
+  use ovar,   only : channel_nondim_output_coord
   !
   !.. Local Scalars ..
   integer :: n,ierr
@@ -513,8 +514,10 @@ continue
     ! Copy the current coordinate variable into the array var
     ! and convert to the real type required for the CGNS file.
     !
-
-
+    if (channel_nondim_output_coord) then
+      vartmp(n,:) = vartmp(n,:) / 0.003048_wp
+    end if
+    !
     var(:) = real( vartmp(n,:)/grid_scaling_factor , kind=kind(var) )
     !
     ! Reset the queue.

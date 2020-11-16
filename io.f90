@@ -6927,6 +6927,7 @@ subroutine write_parallel_cgns_grid_file()
   use geovar, only : nr,n_solpts,xyz
   use ovar,   only : profile_io_cgns,profile_io_cgns_subs
   use ovar,   only : grid_scaling_factor
+  use ovar,   only : channel_nondim_output_coord
   !
   !.. Local Scalars ..
   integer :: n,ierr
@@ -7050,6 +7051,10 @@ continue
     ! convert to the real type required for the CGNS file.
     !
     call interpolate_for_output( xyz(n,1:n_solpts) , vartmp )
+    !
+    if (channel_nondim_output_coord) then
+      vartmp(:) = vartmp(:) / 0.003048_wp
+    end if
     !
     var(:) = real( vartmp/grid_scaling_factor , kind(var) )
     !
