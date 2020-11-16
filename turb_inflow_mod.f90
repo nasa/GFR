@@ -2124,6 +2124,46 @@ end subroutine initialize_sem
 !
 !###############################################################################
 !
+subroutine output_interpolated_profiles()
+  !
+  !.. Local Scalars ..
+  integer :: n,sem_idx,io,ierr
+  !
+  character(len=100) :: fname
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_interpolated_profiles"
+  !
+continue
+  !
+  if (sum(my_sem_pts(:)%num_fp) > 0) then
+    !
+    write (fname,1) mypnum
+    1 format ("sem_profile.",i4.4,".dat")
+    !
+    open (newunit=io,file=fname,status="replace",action="write", &
+                     form="formatted",position="rewind", &
+                     iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    do sem_idx = 1,num_sem_boxes
+      do n = 1,my_sem_pts(sem_idx)%num_fp
+        call output_fp_interpolated_profiles(my_sem_pts(sem_idx)%sem_fp(n), &
+                                             sem_idx,n,io)
+      end do
+    end do
+    !
+    close (io,iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+    !
+  end if
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+end subroutine output_interpolated_profiles
+!
+!###############################################################################
+!
 subroutine output_fp_interpolated_profiles(this,sem_idx,fp_idx,io)
   !
   !.. Use Statements ..
