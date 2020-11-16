@@ -1416,7 +1416,7 @@ subroutine get_sem_profile(prof,aux_data,averaging_channel_flow)
   integer  :: n,npts,ierr
   real(wp) :: rnum,height,half_height,dudy_wall,gsf
   real(wp) :: rho_avg,t_avg,visc_avg,u_cl,u_tau,u_bulk
-  real(wp) :: tau_wall
+  real(wp) :: tau_wall,yc,yh,ywall
   real(wp) :: dy,udtm,udtp,umtm,umtp
   real(wp) :: displacement_thickness,momentum_thickness
   !
@@ -1482,7 +1482,26 @@ continue
     !
   end if
   !
-  dudy_wall = abs(u(1)/y(1))
+  ! The follow is needed in case the wall is not at y=0
+  !
+  ! Find center of first cell off the wall
+  if (mod(n_order+1,2) == 0) then
+    yc = half*( y( (n_order+1)/2 ) + y( (n_order+1)/2 + 1 ) )
+  else
+    yc = y( (n_order/2) + 1 )
+  end if
+  ! Find height of first cell off the wall
+  yh = two*( (y(1)-yc) / std_elem(Geom_Edge,n_order)%pts(1,1) )
+  ! Get the coordinates of the wall
+  ywall = yc - half*yh
+  ! Get the distance of the first point off the wall
+  dy = y(1)-ywall
+  !
+  if (abs(dy) <= eps10) then
+    dudy_wall = abs(u(1)/y(1))
+  else
+    dudy_wall = u(1)/dy
+  end if
   !
   call compute_viscosity_cpg(t_avg,visc_avg)
   !
