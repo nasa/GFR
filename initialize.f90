@@ -1780,6 +1780,7 @@ subroutine get_face_and_edge_point_coordinates
   use flowvar,           only : edgexyz_dt,facexyz_dt
   use flowvar,           only : facexyz_array
   use interpolation_mod, only : interp
+  use ovar,              only : continuous_output
   !
 #ifdef DEBUG_ON
 #ifdef ENABLE_OPENMP
@@ -1895,6 +1896,11 @@ continue
     !
     !$ACC UPDATE DEVICE(facexyz_array)
     !
+  end if
+  !
+  if (.not. continuous_output) then
+    deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Only do this if edgexyz is allocated which means
