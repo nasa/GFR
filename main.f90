@@ -216,6 +216,8 @@ program GFR_main
   !
   real(wp) :: cfl_tmp(1:5)
   !
+  integer :: final_timestep_from_stop_request
+  !
 continue
   !
   call check_for_bad_number(__LINE__)
@@ -227,6 +229,7 @@ continue
   request_reactions = .false.
   request_stop = .false.
   completed_initial_cgns_output = fals
+  final_timestep_from_stop_request = 0
   !
   ! Initialize the overall MPI session
   !
