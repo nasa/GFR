@@ -8,7 +8,7 @@ subroutine check_for_bad_number(line_num,file_name)
 #endif
   !
   !.. Formal Arguments ..
-  integer, intent(in) :: line_num
+  integer,          intent(in) :: line_num
   character(len=*), intent(in) :: file_name
   !
 #ifndef SPECIAL_FOR_GCC
@@ -73,6 +73,11 @@ continue
   if (sum(bad_number_found) > 0) then
 #endif
     !
+    if (len_trim(adjustl(src_file_with_bad_number)) == 0) then
+      src_file_with_bad_number = file_name
+      line_num_with_bad_number = line_num
+    end if
+    !
     ! A floating-point exception was detected.
     !
 #ifdef USE_GATHER
@@ -127,7 +132,7 @@ continue
                                trim(adjustl(invalid_error))
 #endif
     !
-    call stop_gfr(stop_mpi,pname,line_num,file_name,output_message)
+   !call stop_gfr(stop_mpi,pname,line_num,file_name,output_message)
     !
   end if
   !
