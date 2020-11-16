@@ -156,6 +156,17 @@ module module_cgns
     real(wp), allocatable :: data(:)
   end type cg_dataarray_t
   !
+  type, extends(cg_t) :: cg_descriptor_t
+   !character(len=CGLEN) :: name  ! INHERITED FROM CG_T
+    integer(CBT) :: nsize
+    character(len=:), allocatable :: text
+  end type cg_descriptor_t
+  !
+  type, extends(cg_t) :: cg_fambc_t
+   !character(len=CGLEN) :: name  ! INHERITED FROM CG_T
+    integer(CET) :: bc_type
+  end type cg_fambc_t
+  !
   type, extends(cg_t) :: cg_bc_t
    !character(len=CGLEN) :: name  ! INHERITED FROM CG_T
     integer(CET) :: boco_type, ptset_type, normal_datatype, location
@@ -194,6 +205,13 @@ module module_cgns
     type(cg_section_t), allocatable :: section(:)
     type(cg_bc_t),      allocatable :: bc(:)
   end type cg_zone_t
+  !
+  type, extends(cg_t) :: cg_family_t
+   !character(len=CGLEN) :: name  ! INHERITED FROM CG_T
+    integer(CBT) :: nfambc,ngeo
+    type(cg_fambc_t) :: fambc
+    type(cg_descriptor_t), allocatable :: descriptor(:)
+  end type cg_family_t
   !
   type, extends(cg_sz_t) :: cg_base_t
    !character(len=CGLEN) :: name  ! INHERITED FROM CG_T
