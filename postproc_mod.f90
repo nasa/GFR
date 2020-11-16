@@ -3009,11 +3009,14 @@ subroutine get_cgns_sol_variables(variable_list)
   use geovar, only : nr
   use ovar,   only : itestcase,governing_equations
   use ovar,   only : output_vorticity
+  use ovar,   only : output_qcriterion
   use ovar,   only : output_conserved_variables
   use ovar,   only : output_temperature
   use ovar,   only : output_thermo_variables
   use ovar,   only : output_gradients
   use ovar,   only : output_transport_variables
+  use ovar,   only : output_stagnation_temperature
+  use ovar,   only : output_stagnation_pressure
   use ovar,   only : output_stagnation_variables
   use ovar,   only : output_marker_variables
   use ovar,   only : Resolution_Marker_Variable
@@ -3136,6 +3139,14 @@ continue
     end if
   end if
   !
+  ! Output Q-criterion without all the other vorticity variables
+  !
+  if (output_qcriterion) then
+    if (nr > 2) then
+      call add_sol_variable(variable_list,"QCriterion")
+    end if
+  end if
+  !
   ! Make sure entropy is one of the variables that will be
   ! output if running any of the isentropic vortex problems.
   !
@@ -3160,6 +3171,14 @@ continue
     call add_sol_variable(variable_list,"Enthalpy")
     call add_sol_variable(variable_list,"Cp")
     call add_sol_variable(variable_list,"Entropy")
+  end if
+  !
+  if (output_stagnation_temperature) then
+    call add_sol_variable(variable_list,"T0")
+  end if
+  !
+  if (output_stagnation_pressure) then
+    call add_sol_variable(variable_list,"P0")
   end if
   !
   if (output_stagnation_variables) then
