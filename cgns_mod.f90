@@ -1386,7 +1386,7 @@ subroutine transfer_cgns_data_to_grid_dt
   integer :: ib,iz,ig,ic,ix,is,ibc
   integer :: elem_beg,elem_end
   integer :: mine,maxe,sume,ierr
-  integer :: ngrids,nsections,nbocos
+  integer :: ngrids,nsections,nbocos,bc_type
   integer(CET) :: sect_type,elem_type
   !
   character(len=9)     :: wall_type
@@ -1756,43 +1756,73 @@ continue
         !
         n = n + 1
         !
-        j1 = 3
-        bc_string = BCTYPENAME( base(ib)%zone(iz)%bc(ibc)%boco_type )
-        if (uppercase(bc_string) == 'NULL') then
-          j1 = 1
-          bc_string = trim(adjustl(base(ib)%zone(iz)%bc(ibc)%name))
-        end if
-        j2 = len_trim(bc_string)
-        !
-        !#################################################################
-        !#################################################################
-        !#################################################################
-        !    TEMPORARY FOR POINTWISE CURVED MESH OF SMC000 NOZZLE
-        !
-        if (uppercase(bc_string(j1:j2)) == 'FARFIELD') then
-          bc_string = 'CHARACTERISTIC'
-        else if (uppercase(bc_string(j1:j2)) == 'INFLOW') then
-         !bc_string = 'REFERENCE'
-          bc_string = 'CHARACTERISTIC'
-        else if (uppercase(bc_string(j1:j2)) == 'INFLOWSUBSONIC') then
-         !bc_string = 'SUBINFLOW'
-          bc_string = 'CHARACTERISTIC'
-        else if (uppercase(bc_string(j1:j2)) == 'NOZZLEBASE') then
-          bc_string = trim(adjustl(wall_type))
-        else if (uppercase(bc_string(j1:j2)) == 'NOZZLEEXTERIOR') then
-          bc_string = trim(adjustl(wall_type))
-        else if (uppercase(bc_string(j1:j2)) == 'NOZZLEINTERIOR') then
-          bc_string = trim(adjustl(wall_type))
-        else if (uppercase(bc_string(j1:j2)) == 'WALL') then
-          bc_string = trim(adjustl(wall_type))
-        else if (uppercase(bc_string(j1:j2)) == 'OUTFLOW') then
-          bc_string = 'CHARACTERISTIC'
-        else if (uppercase(bc_string(j1:j2)) == 'OUTFLOWSUBSONIC') then
-          bc_string = 'CHARACTERISTIC'
-        end if
-        !#################################################################
-        !#################################################################
-        !#################################################################
+        select case ( base(ib)%zone(iz)%bc(ibc)%boco_type )
+          case ( BCExtrapolate, BCOutflowSupersonic )
+            bc_type = bc_sup_outflow
+          case ( BCFarfield )
+            bc_type = bc_characteristic
+          case ( BCGeneral )
+            bc_type = bc_generic_freeflow
+          case ( BCInflow )
+            bc_type = bc_generic_inflow
+          case ( BCInflowSubsonic )
+            bc_type = bc_sub_inflow
+          case ( BCInflowSupersonic )
+            bc_type = bc_sup_inflow
+          case ( BCOutflow )
+            bc_type = bc_generic_outflow
+          case ( BCOutflowSubsonic )
+            bc_type = bc_sub_outflow
+          case ( BCSymmetryPlane )
+            bc_type = bc_symmetry
+          case ( BCWall, BCWallViscous, BCWallViscousHeatFlux )
+            bc_type = bc_adiabatic_wall
+          case ( BCWallViscousIsothermal )
+            bc_type = bc_isothermal_wall
+          case ( BCWallInviscid )
+            bc_type = bc_slip_wall
+          case default
+            bc_string = trim(adjustl(base(ib)%zone(iz)%bc(ibc)%name))
+            bc_type = bc_string_to_integer( bc_string )
+        end select
+       !!
+       !j1 = 3
+       !bc_string = BCTYPENAME( base(ib)%zone(iz)%bc(ibc)%boco_type )
+       !if (uppercase(bc_string) == 'NULL') then
+       !  j1 = 1
+       !  bc_string = trim(adjustl(base(ib)%zone(iz)%bc(ibc)%name))
+       !end if
+       !j2 = len_trim(bc_string)
+       !!
+       !!#################################################################
+       !!#################################################################
+       !!#################################################################
+       !!    TEMPORARY FOR POINTWISE CURVED MESH OF SMC000 NOZZLE
+       !!
+       !if (uppercase(bc_string(j1:j2)) == 'FARFIELD') then
+       !  bc_string = 'CHARACTERISTIC'
+       !else if (uppercase(bc_string(j1:j2)) == 'INFLOW') then
+       ! !bc_string = 'REFERENCE'
+       !  bc_string = 'CHARACTERISTIC'
+       !else if (uppercase(bc_string(j1:j2)) == 'INFLOWSUBSONIC') then
+       ! !bc_string = 'SUBINFLOW'
+       !  bc_string = 'CHARACTERISTIC'
+       !else if (uppercase(bc_string(j1:j2)) == 'NOZZLEBASE') then
+       !  bc_string = trim(adjustl(wall_type))
+       !else if (uppercase(bc_string(j1:j2)) == 'NOZZLEEXTERIOR') then
+       !  bc_string = trim(adjustl(wall_type))
+       !else if (uppercase(bc_string(j1:j2)) == 'NOZZLEINTERIOR') then
+       !  bc_string = trim(adjustl(wall_type))
+       !else if (uppercase(bc_string(j1:j2)) == 'WALL') then
+       !  bc_string = trim(adjustl(wall_type))
+       !else if (uppercase(bc_string(j1:j2)) == 'OUTFLOW') then
+       !  bc_string = 'CHARACTERISTIC'
+       !else if (uppercase(bc_string(j1:j2)) == 'OUTFLOWSUBSONIC') then
+       !  bc_string = 'CHARACTERISTIC'
+       !end if
+       !!#################################################################
+       !!#################################################################
+       !!#################################################################
         !
         cell_grps(n)%name = base(ib)%zone(iz)%bc(ibc)%name
         if (base(ib)%zone(iz)%bc(ibc)%location == FACECENTER) then
@@ -1801,12 +1831,15 @@ continue
           cell_grps(n)%cell_dim = 1
         end if
         cell_grps(n)%grp_id = n-1
-        cell_grps(n)%ibc = bc_string_to_integer( bc_string )
+        cell_grps(n)%ibc = bc_type
         if (cell_grps(n)%ibc == bc_unsupported) then
           if (allocated(unsupported_bc)) then
+            bc_string = BCTYPENAME( base(ib)%zone(iz)%bc(ibc)%boco_type )
+            ! USING F2003 AUTO-REALLOCATION
             unsupported_bc = [unsupported_bc,trim(adjustl(bc_string))]
           else
-            unsupported_bc = [bc_string]
+            bc_string = BCTYPENAME( base(ib)%zone(iz)%bc(ibc)%boco_type )
+            unsupported_bc = [bc_string] ! F2003 AUTO-REALLOCATION
           end if
         end if
       end do
