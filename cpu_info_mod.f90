@@ -97,14 +97,12 @@ continue
   !
   if (ncpu == 1) return
   !
-  allocate ( all_host_num(1:ncpu) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"all_host_num",1,__LINE__,__FILE__, &
-                   ierr,error_message,skip_alloc_pause)
+  ! Get the host name for each processor
   !
-  allocate ( all_cpu_num(1:ncpu) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"all_cpu_num",1,__LINE__,__FILE__, &
-                   ierr,error_message,skip_alloc_pause)
+  all_host_num = init_array(ncpu,0) ! F2003 AUTO-REALLOC
+  all_cpu_num  = init_array(ncpu,0) ! F2003 AUTO-REALLOC
+  !
+  ! Get the host name for the current processor
   !
   call mpi_get_processor_name(host_name,name_len,mpierr)
   !
@@ -154,18 +152,23 @@ continue
     end do
     !
   end do
-  !
-  ! Count the number of unique host names
-  !
-  num_hosts = count(host_mask)
+ !!
+ !! Count the number of unique host names
+ !!
+ !num_hosts = count(host_mask)
+ !!
+ !! Create a list of the unique host names
+ !!
+ !allocate ( unique_hosts(1:num_hosts) , stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"unique_hosts",1,__LINE__,__FILE__, &
+ !                 ierr,error_message,skip_alloc_pause)
+ !!
+ !unique_hosts(:) = pack(all_host_name,host_mask)
   !
   ! Create a list of the unique host names
   !
-  allocate ( unique_hosts(1:num_hosts) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"unique_hosts",1,__LINE__,__FILE__, &
-                   ierr,error_message,skip_alloc_pause)
-  !
-  unique_hosts(:) = pack(all_host_name,host_mask)
+  unique_hosts = pack( all_host_name(:) , host_mask(:) ) ! F2003 AUTO-REALLOC
+  num_hosts = size(unique_hosts)
   !
   ! Give each unique host a unique integer ID and give
   ! this ID to all processes on the respective host
@@ -248,9 +251,7 @@ continue
     ! F2003 AUTO-REALLOCATION
     host(n)%new_cpu_num = host(n)%cpu_num
     !
-    allocate ( msk(1:size(host(n)%cpu_num)) , source=true , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
+    msk = init_array(size(host(n)%cpu_num),true) ! F2003 AUTO-REALLOC
     !
     l = 0
     do i = 1,size(host(n)%cpu_num)
@@ -260,10 +261,12 @@ continue
       msk(min_cpu_num) = fals
     end do
     !
+  end do
+  !
+  if (allocated(msk)) then
     deallocate ( msk , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
-    !
-  end do
+  end if
   !
   ! Find the new CPU number for this MPI process
   !
@@ -313,10 +316,7 @@ continue
   flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
   !
-  allocate ( my_host_grp(1:host_size) , source=0_int_mpi , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_host_grp",1,__LINE__,__FILE__, &
-                   ierr,error_message,skip_alloc_pause)
+  my_host_grp = init_array(host_size,0_int_mpi) ! F2003 AUTO-REALLOC
   !
   ! Collect the global ranks of all the MPI processes included within
   ! the my_host_comm communicator that the current process is a part of
@@ -390,10 +390,7 @@ continue
     flush (iout) ; call mpi_barrier(host_roots_comm,mpierr)
 #endif
     !
-    allocate ( host_roots_grp(1:host_roots_size) , source=0_int_mpi , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"host_roots_grp",1,__LINE__,__FILE__, &
-                     ierr,error_message,skip_alloc_pause)
+    host_roots_grp = init_array(host_roots_size,0_int_mpi) ! F2003 AUTO-REALLOC
     !
     call mpi_gather(mypnum,1_int_mpi,MPI_INTEGER, &
                     host_roots_grp,1_int_mpi,MPI_INTEGER, &
@@ -416,10 +413,7 @@ continue
 #endif
   !
   if (.not.allocated(host_roots_grp)) then
-    allocate ( host_roots_grp(1:host_roots_size) , source=0_int_mpi , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"host_roots_grp",1,__LINE__,__FILE__, &
-                     ierr,error_message,skip_alloc_pause)
+    host_roots_grp = init_array(host_roots_size,0_int_mpi) ! F2003 AUTO-REALLOC
   end if
   !
   call mpi_bcast(host_roots_grp,host_roots_size,MPI_INTEGER, &
@@ -438,9 +432,7 @@ continue
   !#####################################################################
   !#####################################################################
   !
-  allocate ( host_cores(1:num_hosts) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"host_cores",1,__LINE__,__FILE__,ierr,error_message)
+  host_cores = init_array(num_hosts,0) ! F2003 AUTO-REALLOC
   !
   do n = 1,num_hosts
     if (n == my_host_num) then
@@ -542,10 +534,7 @@ continue
   flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
   !
-  allocate ( my_cpu_grp(1:cpu_size) , source=0_int_mpi , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_cpu_grp",1,__LINE__,__FILE__, &
-                   ierr,error_message,skip_alloc_pause)
+  my_cpu_grp = init_array(cpu_size,0_int_mpi) ! F2003 AUTO-REALLOC
   !
   ! Collect the global ranks of all the MPI processes included within
   ! the my_cpu_comm communicator that the current process is a part of
@@ -623,10 +612,7 @@ continue
     call mpi_comm_size(cpu_roots_comm,cpu_roots_size,mpierr)
     call mpi_comm_rank(cpu_roots_comm,cpu_roots_rank,mpierr)
     !
-    allocate ( cpu_roots_grp(1:cpu_roots_size) , source=0_int_mpi , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"cpu_roots_grp",1,__LINE__,__FILE__, &
-                     ierr,error_message,skip_alloc_pause)
+    cpu_roots_grp = init_array(cpu_roots_size,0_int_mpi) ! F2003 AUTO-REALLOC
     !
     call mpi_gather(mypnum,1_int_mpi,MPI_INTEGER, &
                     cpu_roots_grp,1_int_mpi,MPI_INTEGER, &
@@ -641,10 +627,7 @@ continue
                  glb_root,MPI_COMM_WORLD,mpierr)
   !
   if (.not.allocated(cpu_roots_grp)) then
-    allocate ( cpu_roots_grp(1:cpu_roots_size) , source=0_int_mpi , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"cpu_roots_grp",1,__LINE__,__FILE__, &
-                     ierr,error_message,skip_alloc_pause)
+    cpu_roots_grp = init_array(cpu_roots_size,0_int_mpi) ! F2003 AUTO-REALLOC
   end if
   !
   call mpi_bcast(cpu_roots_grp,cpu_roots_size,MPI_INTEGER, &
