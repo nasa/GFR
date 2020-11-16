@@ -277,9 +277,19 @@ module synthetic_eddy_mod
     real(wp) :: boxmax(1:5)
     ! BOX_VOLUME : volume of this SEM box
     real(wp) :: box_volume
+    ! ALPHA_AOA : alpha angle of attack for the SEM inflow boundary
+    real(wp) :: alpha_aoa = zero
+    ! BETA_AOA : beta angle of attack for the SEM inflow boundary
+    real(wp) :: beta_aoa = zero
     ! IS_CYLINDRICAL : logical flag indicating if the box extents are
     !                  best defined in cylindrical coordinates
     logical(lk) :: is_cylindrical = fals
+    ! CENTER : coordinates for the center of this SEM box
+    type(coord_t) :: center
+    ! RNRM : collective inward facing normal for the inflow plane associated
+    !        with this SEM box. This is needed for the coordinate transform
+    !        required when the inflow plane is now perpendicular to x.
+    type(coord_t) :: rnrm
     ! PROFILE : inflow profile related to this SEM box
     type(sem_profile_t), allocatable :: profile
     ! EDDY : information about each eddy in this SEM box
