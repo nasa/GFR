@@ -7088,19 +7088,36 @@ end subroutine output_bface
 !###############################################################################
 !
 pure &
-subroutine yz_to_rt(y,z,r,t)
+subroutine yz_to_rt(y,z,r,t,yc,zc)
   !
+  !.. Formal Arguments ..
   real(wp),    intent(in) :: y
   real(wp),    intent(in) :: z
   real(wp), intent(inout) :: r
   real(wp), intent(inout) :: t
   !
+  !.. Optional Arguments ..
+  real(wp),    optional, intent(in) :: yc
+  real(wp),    optional, intent(in) :: zc
+  !
+  !.. Local Scalars ..
+  real(wp)    :: y0,z0,dy,dz
+  !
 continue
   !
-  r = hypot(y,z)
+  y0 = zero
+  z0 = zero
+  !
+  if (present(yc)) y0 = yc
+  if (present(zc)) z0 = zc
+  !
+  dy = y - y0
+  dz = z - z0
+  !
+  r = hypot(dy,dz)
   !
   if (r /= zero) then
-    t = atan2(z,y)
+    t = atan2(dz,dy)
     if (t < zero) t = t + two*pi
     t = t*radians2degrees
   else
