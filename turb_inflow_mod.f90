@@ -6541,6 +6541,62 @@ end subroutine copy_my_sem_ave_data
 !###############################################################################
 !
 pure &
+subroutine copy_my_sem_fp_profiles(my_prof_data)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: my_prof_data(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,n,sem_idx
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "copy_my_sem_fp_profiles"
+  !
+continue
+  !
+  i = 0
+  do sem_idx = 1,num_sem_boxes
+    do n = 1,my_sem_pts(sem_idx)%num_fp
+      !
+      i = i + 1
+      !
+      my_prof_data( 1,i) = my_sem_pts(sem_idx)%sem_fp(n)%z
+      my_prof_data( 2,i) = my_sem_pts(sem_idx)%sem_fp(n)%y
+      my_prof_data( 3,i) = my_sem_pts(sem_idx)%sem_fp(n)%x
+      !
+      my_prof_data( 4,i) = my_sem_pts(sem_idx)%sem_fp(n)%ravg
+      my_prof_data( 5,i) = my_sem_pts(sem_idx)%sem_fp(n)%uavg
+      my_prof_data( 6,i) = my_sem_pts(sem_idx)%sem_fp(n)%vavg
+      my_prof_data( 7,i) = my_sem_pts(sem_idx)%sem_fp(n)%wavg
+      my_prof_data( 8,i) = my_sem_pts(sem_idx)%sem_fp(n)%tavg
+      !
+      my_prof_data( 9,i) = my_sem_pts(sem_idx)%sem_fp(n)%r11
+      my_prof_data(10,i) = my_sem_pts(sem_idx)%sem_fp(n)%r22
+      my_prof_data(11,i) = my_sem_pts(sem_idx)%sem_fp(n)%r33
+      my_prof_data(12,i) = my_sem_pts(sem_idx)%sem_fp(n)%r21
+      my_prof_data(13,i) = my_sem_pts(sem_idx)%sem_fp(n)%r31
+      my_prof_data(14,i) = my_sem_pts(sem_idx)%sem_fp(n)%r32
+      !
+      my_prof_data(15,i) = my_sem_pts(sem_idx)%sem_fp(n)%a11
+      my_prof_data(16,i) = my_sem_pts(sem_idx)%sem_fp(n)%a22
+      my_prof_data(17,i) = my_sem_pts(sem_idx)%sem_fp(n)%a33
+      my_prof_data(18,i) = my_sem_pts(sem_idx)%sem_fp(n)%a21
+      my_prof_data(19,i) = my_sem_pts(sem_idx)%sem_fp(n)%a31
+      my_prof_data(20,i) = my_sem_pts(sem_idx)%sem_fp(n)%a32
+      !
+      my_prof_data(21,i) = my_sem_pts(sem_idx)%sem_fp(n)%wall%distance
+      my_prof_data(22,i) = my_sem_pts(sem_idx)%sem_fp(n)%wall%xnrm
+      my_prof_data(23,i) = my_sem_pts(sem_idx)%sem_fp(n)%wall%ynrm
+      my_prof_data(24,i) = my_sem_pts(sem_idx)%sem_fp(n)%wall%znrm
+      !
+    end do
+  end do
+  !
+end subroutine copy_my_sem_fp_profiles
+!
+!###############################################################################
+!
+pure &
 subroutine dimensionalize_sem_ave(this_ave)
   !
   !.. Use Statements ..
