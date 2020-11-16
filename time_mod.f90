@@ -29,7 +29,7 @@ contains
 !
 !###############################################################################
 !
-subroutine get_dtsp(dtmin)
+subroutine get_dtsp(dtmin,final_timestep_from_stop_request)
   !
   !.. Use Statements ..
   use ovar, only : Timestep_Type,d_t,itestcase,Final_Time
@@ -37,6 +37,7 @@ subroutine get_dtsp(dtmin)
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
+  integer,   intent(in) :: final_timestep_from_stop_request
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_dtsp"
@@ -85,8 +86,8 @@ continue
   !
   ! Make sure the timestep size doesnt make the final time exceed Final_Time
   !
-  if (Final_time > zero) then
-    call check_final_time(dtmin)
+  if (Final_time > zero .or. final_timestep_from_stop_request /= 0) then
+    call check_final_time(dtmin,final_timestep_from_stop_request)
   end if
   !
   !
@@ -1372,16 +1373,17 @@ end subroutine check_output_frequency
 !
 !###############################################################################
 !
-subroutine check_final_time(dtmin)
+subroutine check_final_time(dtmin,final_timestep_from_stop_request)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use flowvar, only : dtsp
-  use ovar,    only : time,Final_Time,time_ref
+  use ovar,    only : itcur,time,Final_Time,time_ref
   use ovar,    only : this_is_final_timestep
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: dtmin
+  integer,     intent(in) :: final_timestep_from_stop_request
   !
   !.. Local Scalars ..
   integer  :: n
@@ -1389,12 +1391,22 @@ subroutine check_final_time(dtmin)
   !
 continue
   !
-  new_time = time + dtmin
-  chk_time = Final_Time/time_ref + eps9
+  if (Final_Time > zero) then
+    !
+    new_time = time + dtmin
+    chk_time = Final_Time/time_ref + eps9
+    !
+    if (new_time > chk_time) then
+      dtmin = Final_Time/time_ref - time
+      this_is_final_timestep = true
+    end if
+    !
+  end if
   !
-  if (new_time > chk_time) then
-    dtmin = Final_Time/time_ref - time
-    this_is_final_timestep = true
+  if (final_timestep_from_stop_request /= 0) then
+    if (final_timestep_from_stop_request <= itcur) then
+      this_is_final_timestep = true
+    end if
   end if
   !
  !!$ACC UPDATE DEVICE(dtmin)

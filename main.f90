@@ -636,7 +636,7 @@ continue
     !
     ! Get initial time step values in case they are needed for CGNS output
     !
-    call get_dtsp(dtmin)
+    call get_dtsp(dtmin,final_timestep_from_stop_request)
     call check_for_bad_number(__LINE__)
     !
     if (itestcase == Taylor_Green_Vortex) then
@@ -872,7 +872,8 @@ continue
       call rresi(iter,nst)                !; call check_for_bad_number(__LINE__)
       !
       if (nst == 1) then
-        call get_dtsp(dtmin)              !; call check_for_bad_number(__LINE__)
+        call get_dtsp(dtmin,final_timestep_from_stop_request)
+                                          !  call check_for_bad_number(__LINE__)
       end if
       !
       ! Store residual in rssprk(:,:,nst) and update the solutions in usp
