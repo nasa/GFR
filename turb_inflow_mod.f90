@@ -4974,9 +4974,11 @@ subroutine output_details_of_sem_boxes()
   !
   !.. Use Statements ..
   use ovar, only : aref
+  use ovar, only : grid_scaling_factor
   !
   !.. Local Scalars ..
-  integer :: sem_idx
+  integer  :: sem_idx
+  real(wp) :: gsf
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "output_details_of_sem_boxes"
@@ -4985,23 +4987,26 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  gsf = one
+  if (abs(grid_scaling_factor) > eps6) gsf = one/grid_scaling_factor 
+  !
   if (mypnum == glb_root) then
     do sem_idx = 1,num_sem_boxes
       write (iout,*)
       write (iout,1) sem_idx
       write (iout,*) 'Uconv     = ',sem_box(sem_idx)%convective_velocity*aref
-      write (iout,*) 'Lturb     = ',sem_box(sem_idx)%length_scale
+      write (iout,*) 'Lturb     = ',sem_box(sem_idx)%length_scale*gsf
       write (iout,*) 'Neddies   = ',sem_box(sem_idx)%num_eddies
-      write (iout,*) 'Volbox    = ',sem_box(sem_idx)%box_volume
-      write (iout,*) 'Min x     = ',sem_box(sem_idx)%boxmin(1)
-      write (iout,*) 'Max x     = ',sem_box(sem_idx)%boxmax(1)
-      write (iout,*) 'Min y     = ',sem_box(sem_idx)%boxmin(2)
-      write (iout,*) 'Max y     = ',sem_box(sem_idx)%boxmax(2)
-      write (iout,*) 'Min z     = ',sem_box(sem_idx)%boxmin(3)
-      write (iout,*) 'Max z     = ',sem_box(sem_idx)%boxmax(3)
+      write (iout,*) 'Volbox    = ',sem_box(sem_idx)%box_volume*gsf*gsf*gsf
+      write (iout,*) 'Min x     = ',sem_box(sem_idx)%boxmin(1)*gsf
+      write (iout,*) 'Max x     = ',sem_box(sem_idx)%boxmax(1)*gsf
+      write (iout,*) 'Min y     = ',sem_box(sem_idx)%boxmin(2)*gsf
+      write (iout,*) 'Max y     = ',sem_box(sem_idx)%boxmax(2)*gsf
+      write (iout,*) 'Min z     = ',sem_box(sem_idx)%boxmin(3)*gsf
+      write (iout,*) 'Max z     = ',sem_box(sem_idx)%boxmax(3)*gsf
       if (sem_box(sem_idx)%is_cylindrical) then
-        write (iout,*) 'Min r     = ',sem_box(sem_idx)%boxmin(4)
-        write (iout,*) 'Max r     = ',sem_box(sem_idx)%boxmax(4)
+        write (iout,*) 'Min r     = ',sem_box(sem_idx)%boxmin(4)*gsf
+        write (iout,*) 'Max r     = ',sem_box(sem_idx)%boxmax(4)*gsf
         write (iout,*) 'Min theta = ',sem_box(sem_idx)%boxmin(5)*radians2degrees
         write (iout,*) 'Max theta = ',sem_box(sem_idx)%boxmax(5)*radians2degrees
       end if
