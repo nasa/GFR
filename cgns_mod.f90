@@ -2789,6 +2789,525 @@ end subroutine create_solver_geom_arrays_cgns
 !
 !###############################################################################
 !
+subroutine match_cgns_periodic_boundaries()
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,nfbnd,bface,xyz_nodes
+  use geovar, only : grid
+  use ovar,   only : bc_names
+  !
+  !.. Local Scalars ..
+  integer :: n,npbc,npf,nfnods,npair,ierr,l1,l2
+  integer :: bnd_cell,host_cell,host_geom,host_side
+  integer :: i,ic,ifc,ipb,igrp,idir
+  integer :: j,jc,jfc,jpb,jgrp,jdir
+  !
+  logical(lk) :: error_found
+  !
+  character(len=CGLEN) :: pbc_name
+  character(len=CGLEN) :: iname,idiff
+  character(len=CGLEN) :: jname,jdiff
+  !
+  !.. Local Arrays ..
+  integer  :: face_nodes(1:4)
+  real(wp) :: xvals(1:4)
+  real(wp) :: yvals(1:4)
+  real(wp) :: zvals(1:4)
+  real(wp) :: xyz_imin(1:nr)
+  real(wp) :: xyz_imax(1:nr)
+  real(wp) :: xyz_jmin(1:nr)
+  real(wp) :: xyz_jmax(1:nr)
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: pbc_grps(:)
+  integer,  allocatable :: ifaces(:)
+  integer,  allocatable :: jfaces(:)
+  integer,  allocatable :: paired(:)
+  integer,  allocatable :: pairs(:,:)
+  real(wp), allocatable :: ds(:)
+  real(wp), allocatable :: xyz_ipf(:,:)
+  real(wp), allocatable :: xyz_jpf(:,:)
+  !
+  logical(lk), allocatable :: matched(:)
+  !
+  character(len=CGLEN), allocatable :: pbc_names(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "match_cgns_periodic_boundaries"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Collect the periodic boundary groups
+  !
+  pbc_grps = pack( intseq(1,size(cell_grps)) , & ! F2003 AUTO-REALLOC
+                   cell_grps(:)%ibc == bc_periodic )
+  !
+  npbc = size(pbc_grps)
+  !
+  if (mod(npbc,2) /= 0) then
+    write (iout,100)
+    write (iout,101) npbc
+    write (iout,100)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
+  end if
+  !
+  pbc_names = cell_grps(pbc_grps(:))%name ! F2003 AUTO-REALLOC
+  !
+  ! Remove 'PERIODIC' from the group name
+  !
+  do n = 1,npbc
+    !
+    pbc_name = uppercase( trim(adjustl(pbc_names(n))) )
+    !
+    l1 = index(pbc_name,"PERIODIC")
+    l2 = l1 + 7
+    !
+    if (l1 == 1 .and. l2 == len_trim(pbc_name)) then
+      write (iout,100)
+      write (iout,102) pbc_grps(n),trim(adjustl(pbc_name))
+      write (iout,100)
+      call stop_gfr(abort,pname,__LINE__,__FILE__)
+    end if
+    !
+    pbc_names(n) = trim(adjustl( substitute(pbc_name,"PERIODIC") ))
+    !
+  end do
+  !
+  ! Find all the pairs of periodic boundary conditions
+  !
+  npair = npbc/2
+  !
+  pairs = init_array(2,npair,0) ! F2003 AUTO-REALLOC
+  paired = init_array(npbc,0) ! F2003 AUTO-REALLOC
+  !
+  n = 1
+  outer_pair_loop: &
+  do i = 1,npbc
+    !
+    if (paired(i) > 0) cycle outer_pair_loop
+    !
+    iname = pbc_names(i)
+    !
+    inner_pair_loop: &
+    do j = i+1,npbc
+      !
+      if (paired(j) > 0) cycle inner_pair_loop
+      !
+      jname = pbc_names(j)
+      !
+      call char_diff(iname,jname,idiff,jdiff)
+      !
+      if (trim(adjustl(idiff)) == "L" .and. &
+          trim(adjustl(jdiff)) == "R") then
+        pairs(1:2,n) = [i,j]
+      else if (trim(adjustl(idiff)) == "R" .and. &
+               trim(adjustl(jdiff)) == "L") then
+        pairs(1:2,n) = [j,i]
+      end if
+      !
+      if (all(pairs(1:2,n) /= 0)) then
+        paired(pairs(1,n)) = pairs(2,n)
+        paired(pairs(2,n)) = pairs(1,n)
+        n = n + 1
+        cycle outer_pair_loop
+      end if
+      !
+    end do inner_pair_loop
+    !
+  end do outer_pair_loop
+  !
+  ! Make sure the expected number of matched pairs were found
+  !
+  if (n-1 /= npair) then
+    write (iout,100)
+    write (iout,106) n-1,npair
+    write (iout,100)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
+  end if
+  !
+  ! Make sure all periodic boundary groups found a matching pair
+  !
+  if (.not. all(paired > 0)) then
+    write (iout,100)
+    write (iout,103)
+    do n = 1,npbc
+      ipb = pbc_grps(n)
+      jpb = pbc_grps(paired(n))
+      if (jpb > 0) then
+        write (iout,104) n,trim(adjustl(cell_grps(ipb)%name)), &
+                           trim(adjustl(cell_grps(jpb)%name))
+      else
+        write (iout,105) n,trim(adjustl(cell_grps(ipb)%name))
+      end if
+    end do
+    write (iout,100)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
+  end if
+  !
+  ! Make sure that the number of boundary faces match between two matching
+  ! periodic boundary groups
+  !
+  error_found = fals
+  do n = 1,npair
+    ipb = pbc_grps( pairs(1,n) )
+    jpb = pbc_grps( pairs(2,n) )
+    if (size(cell_grps(ipb)%cells) /= size(cell_grps(jpb)%cells)) then
+      if (.not. error_found) then
+        write (iout,100)
+        write (iout,107)
+        error_found = true
+      end if
+      write (iout,108) n,trim(adjustl(cell_grps(ipb)%name)), &
+                         size(cell_grps(ipb)%cells), &
+                         trim(adjustl(cell_grps(jpb)%name)), &
+                         size(cell_grps(jpb)%cells)
+    end if
+  end do
+  !
+  if (error_found) then
+    write (iout,100)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
+  end if
+  error_found = fals
+  !
+  ! Match the boundary faces for each pair of periodic boundary groups
+  !
+  loop_over_pairs: &
+  do n = 1,npair
+    !
+    ipb = pbc_grps( pairs(1,n) )
+    jpb = pbc_grps( pairs(2,n) )
+    !
+    do i = 1,size(bc_names)
+      if (trim(adjustl(bc_names(i))) == trim(adjustl(cell_grps(ipb)%name))) then
+        igrp = i
+      end if
+      if (trim(adjustl(bc_names(i))) == trim(adjustl(cell_grps(jpb)%name))) then
+        jgrp = i
+      end if
+    end do
+    !
+    ! Find the i and j faces in bface
+    !
+    ifaces = pack( intseq(1,nfbnd) , bface(5,:)==igrp ) ! F2003 AUTO-REALLOC
+    jfaces = pack( intseq(1,nfbnd) , bface(5,:)==jgrp ) ! F2003 AUTO-REALLOC
+    !
+    if (size(ifaces) /= size(cell_grps(ipb)%cells)) then
+      write (iout,109) n,"i",ipb, &
+                       trim(adjustl(bc_names(igrp))), &
+                       trim(adjustl(cell_grps(ipb)%name)), &
+                       "i",size(ifaces),size(cell_grps(ipb)%cells)
+    end if
+    if (size(jfaces) /= size(cell_grps(jpb)%cells)) then
+      write (iout,109) n,"j",jpb, &
+                       trim(adjustl(bc_names(jgrp))), &
+                       trim(adjustl(cell_grps(jpb)%name)), &
+                       "j",size(jfaces),size(cell_grps(jpb)%cells)
+    end if
+    !
+    npf = size(ifaces)
+    !
+    ! Get the min/max values for each coordinate direction for the i faces
+    !
+    xyz_imin(:) =  huge(zero)
+    xyz_imax(:) = -huge(zero)
+    !
+    do ic = 1,npf
+      !
+      ifc = ifaces(ic)
+      !
+      bnd_cell = cell_grps(ipb)%cells(ic)
+      host_cell = bface(2,ifc)
+      host_geom = bface(3,ifc)
+      host_side = bface(4,ifc)
+      !
+      nfnods = num_face_nodes(host_side,host_geom)
+      !
+      face_nodes(1:nfnods) = grid%elem(bnd_cell)%nodes(1:nfnods)
+      !
+      xvals(1:nfnods) = xyz_nodes(1,face_nodes(1:nfnods))
+      yvals(1:nfnods) = xyz_nodes(2,face_nodes(1:nfnods))
+      zvals(1:nfnods) = xyz_nodes(3,face_nodes(1:nfnods))
+      !
+      xyz_imin(1) = min( xyz_imin(1) , minval(xvals(1:nfnods)) )
+      xyz_imax(1) = max( xyz_imax(1) , maxval(xvals(1:nfnods)) )
+      !
+      xyz_imin(2) = min( xyz_imin(2) , minval(yvals(1:nfnods)) )
+      xyz_imax(2) = max( xyz_imax(2) , maxval(yvals(1:nfnods)) )
+      !
+      xyz_imin(3) = min( xyz_imin(3) , minval(zvals(1:nfnods)) )
+      xyz_imax(3) = max( xyz_imax(3) , maxval(zvals(1:nfnods)) )
+      !
+    end do
+    !
+    ! Get the min/max values for each coordinate direction for the j faces
+    !
+    xyz_jmin(:) =  huge(zero)
+    xyz_jmax(:) = -huge(zero)
+    !
+    do jc = 1,npf
+      !
+      jfc = jfaces(jc)
+      !
+      bnd_cell = cell_grps(jpb)%cells(jc)
+      host_cell = bface(2,jfc)
+      host_geom = bface(3,jfc)
+      host_side = bface(4,jfc)
+      !
+      nfnods = num_face_nodes(host_side,host_geom)
+      !
+      face_nodes(1:nfnods) = grid%elem(bnd_cell)%nodes(1:nfnods)
+      !
+      xvals(1:nfnods) = xyz_nodes(1,face_nodes(1:nfnods))
+      yvals(1:nfnods) = xyz_nodes(2,face_nodes(1:nfnods))
+      zvals(1:nfnods) = xyz_nodes(3,face_nodes(1:nfnods))
+      !
+      xyz_jmin(1) = min( xyz_jmin(1) , minval(xvals(1:nfnods)) )
+      xyz_jmax(1) = max( xyz_jmax(1) , maxval(xvals(1:nfnods)) )
+      !
+      xyz_jmin(2) = min( xyz_jmin(2) , minval(yvals(1:nfnods)) )
+      xyz_jmax(2) = max( xyz_jmax(2) , maxval(yvals(1:nfnods)) )
+      !
+      xyz_jmin(3) = min( xyz_jmin(3) , minval(zvals(1:nfnods)) )
+      xyz_jmax(3) = max( xyz_jmax(3) , maxval(zvals(1:nfnods)) )
+      !
+    end do
+    !
+    ! Find the constant coordinate direction for the i faces
+    !
+    idir = 0
+    if (abs(xyz_imax(1)-xyz_imin(1)) < eps6) then
+      idir = 1
+    else if (abs(xyz_imax(2)-xyz_imin(2)) < eps6) then
+      idir = 2
+    else if (abs(xyz_imax(3)-xyz_imin(3)) < eps6) then
+      idir = 3
+    end if
+    !
+    ! Find the constant coordinate direction for the i faces
+    !
+    jdir = 0
+    if (abs(xyz_jmax(1)-xyz_jmin(1)) < eps6) then
+      jdir = 1
+    else if (abs(xyz_jmax(2)-xyz_jmin(2)) < eps6) then
+      jdir = 2
+    else if (abs(xyz_jmax(3)-xyz_jmin(3)) < eps6) then
+      jdir = 3
+    end if
+    !
+    ! Make sure that both sides have a constant coordinate direction
+    ! and that the direction is the same on both sides 
+    !
+    if ((idir == 0 .or. jdir == 0) .or. (idir /= jdir)) then
+      if (.not. error_found) then
+        write (iout,100)
+        write (iout,110)
+        error_found = true
+      end if
+      write (iout,111) n,ipb,idir, &
+                       trim(adjustl(bc_names(igrp))), &
+                       trim(adjustl(cell_grps(ipb)%name)), &
+                       (xyz_imin(i),xyz_imax(i), i=1,nr), &
+                       jpb,jdir, &
+                       trim(adjustl(bc_names(jgrp))), &
+                       trim(adjustl(cell_grps(jpb)%name)), &
+                       (xyz_imin(j),xyz_imax(j), j=1,nr)
+    end if
+    !
+    ! Get the non-constant coordinate directions
+    !
+    l1 = idir + 1 - ( (idir+1)/4 )*3
+    l2 = idir + 2 - ( (idir+2)/4 )*3
+    !
+    ! Get the coordinates for the center of each i face
+    !
+    xyz_ipf = init_array(2,npf,zero) ! F2003 AUTO-REALLOC
+    !
+    do ic = 1,npf
+      !
+      ifc = ifaces(ic)
+      !
+      bnd_cell = cell_grps(ipb)%cells(ic)
+      host_cell = bface(2,ifc)
+      host_geom = bface(3,ifc)
+      host_side = bface(4,ifc)
+      !
+      nfnods = num_face_nodes(host_side,host_geom)
+      !
+      face_nodes(1:nfnods) = grid%elem(bnd_cell)%nodes(1:nfnods)
+      !
+      xyz_ipf(1,ic) = sum( xyz_nodes(l1,face_nodes(1:nfnods)) ) / &
+                      real(nfnods,kind=wp)
+      xyz_ipf(2,ic) = sum( xyz_nodes(l2,face_nodes(1:nfnods)) ) / &
+                      real(nfnods,kind=wp)
+      !
+    end do
+    !
+    ! Get the coordinates for the center of each j face
+    !
+    xyz_jpf = init_array(2,npf,zero) ! F2003 AUTO-REALLOC
+    !
+    do jc = 1,npf
+      !
+      jfc = jfaces(jc)
+      !
+      bnd_cell = cell_grps(jpb)%cells(jc)
+      host_cell = bface(2,jfc)
+      host_geom = bface(3,jfc)
+      host_side = bface(4,jfc)
+      !
+      nfnods = num_face_nodes(host_side,host_geom)
+      !
+      face_nodes(1:nfnods) = grid%elem(bnd_cell)%nodes(1:nfnods)
+      !
+      xyz_jpf(1,jc) = sum( xyz_nodes(l1,face_nodes(1:nfnods)) ) / &
+                      real(nfnods,kind=wp)
+      xyz_jpf(2,jc) = sum( xyz_nodes(l2,face_nodes(1:nfnods)) ) / &
+                      real(nfnods,kind=wp)
+      !
+    end do
+    !
+    ! Now, do a brute force matching between xyz_ipf and xyz_jpf
+    !
+    matched = init_array(npf,fals) ! F2003 AUTO-REALLOC
+    ds = init_array(npf,zero) ! F2003 AUTO-REALLOC
+    !
+    i_match_loop: &
+    do ic = 1,npf
+      !
+      ifc = ifaces(ic)
+      !
+      ds(:) = huge(zero)
+      !
+      j_match_loop: &
+      do jc = 1,npf
+        !
+        if (matched(jc)) cycle j_match_loop
+        !
+        ds(jc) = norm2( xyz_ipf(:,ic) - xyz_jpf(:,jc) )
+        !
+      end do j_match_loop
+      !
+      jc = minloc( ds , dim=1 )
+      jfc = jfaces(jc)
+      matched(jc) = true
+      !
+      bface(5,ifc) = jfc
+      bface(6,ifc) = bface(2,jfc)
+      bface(8,ifc) = bface(3,jfc)
+      bface(9,ifc) = bface(4,jfc)
+      !
+      bface(5,jfc) = ifc
+      bface(6,jfc) = bface(2,ifc)
+      bface(8,jfc) = bface(3,ifc)
+      bface(9,jfc) = bface(4,ifc)
+      !
+    end do i_match_loop
+    !
+  end do loop_over_pairs
+  !
+  if (error_found) then
+    write (iout,100)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
+  end if
+  error_found = fals
+  !
+  ! Deallocate any local arrays
+  !
+  if (allocated(ds)) then
+    deallocate ( ds , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ds",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(pbc_names)) then
+    deallocate ( pbc_names , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"pbc_names",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(ifaces)) then
+    deallocate ( ifaces , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ifaces",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(jfaces)) then
+    deallocate ( jfaces , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"jfaces",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(pairs)) then
+    deallocate ( pairs , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"pairs",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(paired)) then
+    deallocate ( paired , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"paired",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(pbc_grps)) then
+    deallocate ( pbc_grps , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"pbc_grps",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(xyz_ipf)) then
+    deallocate ( xyz_ipf , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyz_ipf",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(xyz_jpf)) then
+    deallocate ( xyz_jpf , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyz_jpf",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(matched)) then
+    deallocate ( matched , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"matched",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  100 format (/,2x,70("*"),/,2x,31("*")," ERROR! ",31("*"),/,2x,70("*"),/)
+  101 format (2x,"Number of periodic boundary groups (",i0,") is odd!")
+  102 format (2x,"The name of boundary group # ",i0," appears to be ", &
+                 "exactly 'PERIODIC' which is invalid!",/, &
+              4x,"BC GROUP NAME = '",a,"'")
+  103 format (2x,"Not all of the periodic BC groups were able ", &
+                 "to find a matching periodic BC group!",//, &
+              4x,"BC GROUP #",t18,"GROUP NAME",t53,"MATCHING GROUP NAME")
+  104 format (4x,i5,t17,"'",a,"'",t52,"'",a,"'")
+  105 format (4x,i5,t17,"'",a,"'",t52,"no match found!")
+  106 format (2x,"The number of matched pairs does not equal ", &
+                 "the expected number of pairs!",/, &
+              4x," matched pairs = ",i0,/, &
+              4x,"expected pairs = ",i0)
+  107 format (2x,"The number of cells between two matching periodic ", &
+                 "boundary groups are not the same!",//, &
+              4x,"PERIODIC PAIR #",t25,"GROUP-NAME",t62,"NCELLS")
+  108 format (7x,i5,t24,"'",a,"'",t60,i8,/, &
+                    t24,"'",a,"'",t60,i8)
+  109 format ("ERROR: pair=",i0," ",a,"pb=",i0," bc_name='",a, &
+              "' grp%name='",a,"' size(",a,"faces)=",i0," size(cells)=",i0)
+  110 format (2x,"Unable to find a constant coordinate direcion for a ", &
+                 "periodic boundary group,",/,2x,"or the directions found ", &
+                 "between two matching periodic groups do not match!")
+  111 format (/,6x,"pair # ",i0,t18," : ", &
+                 "ipb=",i0," idir=",i0," bc_name='",a,"' grp%name='",a,"'",/, &
+             22x,"min/max x = [",es14.6,",",es14.6,"]",/, &
+             22x,"min/max y = [",es14.6,",",es14.6,"]",/, &
+             22x,"min/max z = [",es14.6,",",es14.6,"]",/, &
+             20x,"jpb=",i0," jdir=",i0," bc_name='",a,"' grp%name='",a,"'",/, &
+             22x,"min/max x = [",es14.6,",",es14.6,"]",/, &
+             22x,"min/max y = [",es14.6,",",es14.6,"]",/, &
+             22x,"min/max z = [",es14.6,",",es14.6,"]")
+  !
+end subroutine match_cgns_periodic_boundaries
+!
+!###############################################################################
+!
 pure &
 function substitute(string,pattern,replacement) result(return_value)
   !
