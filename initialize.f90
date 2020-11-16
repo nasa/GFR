@@ -2387,6 +2387,7 @@ subroutine create_bc_in
   use ovar,   only : rhoref,aref,gam
   use ovar,   only : cv_ref,pv_ref,gp_ref
   use ovar,   only : governing_equations
+  use ovar,   only : iso_wall_temp
   !
   use thermo_mod, only : compute_mixture_rgas
   use thermo_mod, only : compute_mixture_gamma
@@ -2401,6 +2402,7 @@ subroutine create_bc_in
   logical(lk) :: mach_is_set
   logical(lk) :: vel_is_set
   logical(lk) :: face_was_reset_to_slip_wall
+  logical(lk) :: this_is_a_wall_bc
   !
   character(len=32) :: bcnam,bcinp
   !
@@ -2519,6 +2521,11 @@ continue
     !
     bc_in(i)%bc_input_idx = n
     !
+    ! Set a logical that identifies if the
+    ! current boundary condition is a wall
+    !
+    this_is_a_wall_bc = ( any(bc_input(n)%set_bc_value == bc_walls) )
+    !
     if ( bc_input(n)%has_default_flow_conditions() ) then
       !
       ! This boundary condition has all the default flow conditions
@@ -2533,7 +2540,7 @@ continue
       end if
 #endif
       !
-      if (any(bc_input(n)%set_bc_value == bc_walls)) then
+      if (this_is_a_wall_bc) then
         !
         ! Set the boundary conditions for this wall BC to the reference
         ! density, pressure, temperature, and zero velocity
@@ -2543,7 +2550,13 @@ continue
         pv(nee) = bc_in(0)%pv(nee)
         !
         gp(npres) = bc_in(0)%gp(npres)
-        gp(ntemp) = bc_in(0)%gp(ntemp)
+        !
+        if (bc_input(n)%set_bc_value == bc_isothermal_wall) then
+          bc_in(i)%wall_temperature = iso_wall_temp/tref
+          gp(ntemp) = bc_in(i)%wall_temperature
+        else
+          gp(ntemp) = bc_in(0)%gp(ntemp)
+        end if
         !
         call compute_flow_conditions_from_pvt(cv,pv,gp)
         !
@@ -2594,17 +2607,39 @@ continue
       ! Set the flow conditions for this BC depending on whether
       ! or not a wall temperature has been specified for this BC.
       !
-      if ( (bc_input(n)%wall_temp >= tmin) .and. &
-           (bc_input(n)%wall_temp <= tmax) ) then
+      if (this_is_a_wall_bc) then
         !
-        ! A wall temperature has been specified for this BC
-        ! NOTE: The only values likely to be used for an isothermal wall
-        !       boundary condition are:
-        !              bc_in(i)%wall_temperature
-        !              bc_in(i)%pv(nmb:nme)
-        !       All other quantities will come from the interior.
-        !
-        bc_in(i)%wall_temperature = bc_input(n)%wall_temp/tref
+        if (bc_input(n)%set_bc_value == bc_isothermal_wall) then
+          !
+          ! Set the wall temperature for an isothermal wall
+          !
+          if ( (bc_input(n)%wall_temp >= tmin) .and. &
+               (bc_input(n)%wall_temp <= tmax) ) then
+            !
+            ! A wall temperature has been specified for this BC
+            ! NOTE: The only values likely to be used for an isothermal wall
+            !       boundary condition are:
+            !              bc_in(i)%wall_temperature
+            !              bc_in(i)%pv(nmb:nme)
+            !       All other quantities will come from the interior.
+            !
+            bc_in(i)%wall_temperature = bc_input(n)%wall_temp/tref
+            !
+          else
+            !
+            bc_in(i)%wall_temperature = iso_wall_temp/tref
+            !
+          end if
+          !
+          t = bc_in(i)%wall_temperature
+          !
+        else
+          !
+          ! Set temperature to the reference temperature for an adiabatic wall
+          !
+          t = bc_in(0)%gp(ntemp)
+          !
+        end if
         !
         ! Copy the velocity for this BC into the temporary array vel(:)
         ! and nondimensionalize the temporary array.
@@ -2636,7 +2671,7 @@ continue
         pv(nee) = p
         !
         gp(npres) = p
-        gp(ntemp) = bc_in(i)%wall_temperature
+        gp(ntemp) = t
         !
         call compute_flow_conditions_from_pvt(cv,pv,gp)
         !
@@ -2646,43 +2681,19 @@ continue
         !
       else
         !
-        if (any(bc_input(n)%set_bc_value == bc_walls)) then
-          !
-          ! Set the boundary conditions for this wall BC to the reference
-          ! density, pressure, temperature, and make the total conditions
-          ! and mach number negative.
-          !
-          if (ncs > 0) mass_frac(1:ncs) = bc_in(0)%pv(1:ncs)
-          !
-          r = bc_in(0)%pv(nec)
-          p = bc_in(0)%gp(npres)
-          t = bc_in(0)%gp(ntemp)
-          !
-          r0 = -one
-          p0 = -one
-          t0 = -one
-          !
-          mach = -one
-          alpha = zero
-          beta = zero
-          !
-        else
-          !
-          if (ncs > 0) mass_frac(1:ncs) = bc_input(n)%mass_frac(1:ncs)
-          !
-          r = bc_input(n)%rho_static
-          p = bc_input(n)%p_static
-          t = bc_input(n)%t_static
-          !
-          r0 = bc_input(n)%rho_total
-          p0 = bc_input(n)%p_total
-          t0 = bc_input(n)%t_total
-          !
-          mach  = bc_input(n)%mach
-          alpha = bc_input(n)%alpha_aoa
-          beta  = bc_input(n)%beta_aoa
-          !
-        end if
+        if (ncs > 0) mass_frac(1:ncs) = bc_input(n)%mass_frac(1:ncs)
+        !
+        r = bc_input(n)%rho_static
+        p = bc_input(n)%p_static
+        t = bc_input(n)%t_static
+        !
+        r0 = bc_input(n)%rho_total
+        p0 = bc_input(n)%p_total
+        t0 = bc_input(n)%t_total
+        !
+        mach  = bc_input(n)%mach
+        alpha = bc_input(n)%alpha_aoa
+        beta  = bc_input(n)%beta_aoa
         !
         if (ncs > 0) then
           call compute_mixture_rgas(mass_frac,rgas,dimensional=true)
@@ -2702,9 +2713,9 @@ continue
         !
         iterate_bc_conditions: do ii = 1,5
           !
-          ! The Mach number has been set if:   0 < mach < 25
+          ! The Mach number has been set if:  0 < mach < 25
           mach_is_set = ( abs(mach) < five*five .and. mach > zero )
-          ! The velocity has been set if:   |vel| > 0
+          ! The velocity has been set if:  |vel| > 0
           vel_is_set  = ( norm2(vel) > zero )
           !
           call igl(rgas,r,p,t,static_is_set,n)
