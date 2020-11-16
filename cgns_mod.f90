@@ -2562,6 +2562,7 @@ continue
   !
   ! Find the host cells for each boundary face
   !
+  error_found = fals
   do i = 1,size(bnd_grps)
     !
 #ifdef DEBUG_ON
@@ -2592,11 +2593,24 @@ continue
           cycle face_loop
         end if
       end do
-      write (iout,1092) j,n
+      !
+      if (.not. error_found) then
+        write (iout,99)
+        write (iout,50)
+        error_found = true
+      end if
+      !
+      write (iout,51) trim(adjustl(cell_grps(np)%name)),j,n
       !
     end do face_loop
     !
   end do
+  !
+  if (error_found) then
+    write (iout,99)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
+  end if
+  error_found = fals
   !
   ! Deallocate lpoin, cells_with_node, and cells_with_node_ptr
   ! since we no longer need them
@@ -2839,6 +2853,10 @@ continue
              "                   number of 0-D cell groups = ",i0,/, &
              "           size(cell_grps) - 0-D cell groups = ",i0,/, &
              "                 final tmp_cell_grps counter = ",i0,/)
+  !
+  50 format (4x,"UNABLE TO FIND HOST CELL FOR BOUNDARY FACE(S)",//, &
+             6x,"Boundary Group Name",t43,"Face # in Group",t63,"CGNS Cell #")
+  51 format (6x,a,t48,i10,t64,i10)
   !
   99 format (/,"**********************************************************", &
              /,"************************ ERROR! **************************", &
