@@ -6598,6 +6598,62 @@ end subroutine dimensionalize_sem_ave
 !
 !###############################################################################
 !
+pure &
+subroutine dimensionalize_sem_prof(this_prof)
+  !
+  !.. Use Statements ..
+  use ovar, only : rhoref,aref,tref,grid_scaling_factor
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: this_prof(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,npts
+  real(wp) :: aref2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "dimensionalize_sem_prof"
+  !
+continue
+  !
+  npts = size(this_prof,dim=2)
+  !
+  aref2 = aref * aref
+  !
+  do n = 1,npts
+    !
+    this_prof( 1,n) = this_prof( 1,n) / grid_scaling_factor
+    this_prof( 2,n) = this_prof( 2,n) / grid_scaling_factor
+    this_prof( 3,n) = this_prof( 3,n) / grid_scaling_factor
+    !
+    this_prof( 4,n) = this_prof( 4,n) * rhoref
+    this_prof( 5,n) = this_prof( 5,n) * aref
+    this_prof( 6,n) = this_prof( 6,n) * aref
+    this_prof( 7,n) = this_prof( 7,n) * aref
+    this_prof( 8,n) = this_prof( 8,n) * tref
+    !
+    this_prof( 9,n) = this_prof( 9,n) * aref2
+    this_prof(10,n) = this_prof(10,n) * aref2
+    this_prof(11,n) = this_prof(11,n) * aref2
+    this_prof(12,n) = this_prof(12,n) * aref2
+    this_prof(13,n) = this_prof(13,n) * aref2
+    this_prof(14,n) = this_prof(14,n) * aref2
+    !
+    this_prof(15,n) = this_prof(15,n) * aref
+    this_prof(16,n) = this_prof(16,n) * aref
+    this_prof(17,n) = this_prof(17,n) * aref
+    this_prof(18,n) = this_prof(18,n) * aref
+    this_prof(19,n) = this_prof(19,n) * aref
+    this_prof(20,n) = this_prof(20,n) * aref
+    !
+    this_prof(21,n) = this_prof(21,n) / grid_scaling_factor
+    !
+  end do
+  !
+end subroutine dimensionalize_sem_prof
+!
+!###############################################################################
+!
 subroutine dump_sem_data(cloc)
   !
   !.. Use Statements ..
