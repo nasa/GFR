@@ -1497,6 +1497,11 @@ continue
   !
   ! Apply the grid scaling factor to the coordinates of the grid nodes
   !
+  write (iout,4001) (minval(grid%xyz(i,:)),maxval(grid%xyz(i,:)), &
+                     i=1,size(grid%xyz,dim=1))
+  4001 format (/,2x,"grid%xyz  [min-x,max-x] = [",es14.6,",",es14.6,"]",/, &
+                        :,t13,"[min-y,max-y] = [",es14.6,",",es14.6,"]",/, &
+                        :,t13,"[min-z,max-z] = [",es14.6,",",es14.6,"]",/)
   do n = 1,size(grid%xyz,dim=2)
     do i = 1,size(grid%xyz,dim=1)
       grid%xyz(i,n) = grid_scaling_factor*grid%xyz(i,n)
