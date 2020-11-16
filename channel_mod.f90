@@ -15,6 +15,8 @@ module channel_mod
   public :: channel_initialization
   public :: channel_source
   public :: spatial_ave_channel_flow
+  public :: spatial_ave_z_planes
+  public :: spatial_ave_x_and_z_planes
   !
   !.. Local Module Variables ..
   real(wp), allocatable, save :: init_sol(:,:)
