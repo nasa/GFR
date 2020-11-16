@@ -2124,6 +2124,135 @@ end subroutine initialize_sem
 !
 !###############################################################################
 !
+subroutine output_fp_interpolated_profiles(this,sem_idx,fp_idx,io)
+  !
+  !.. Use Statements ..
+  use ovar, only : grid_scaling_factor,rhoref,aref,tref
+  !
+  !.. Formal Arguments ..
+  type(sem_fp_t), intent(in) :: this
+  integer,        intent(in) :: sem_idx
+  integer,        intent(in) :: fp_idx
+  integer,        intent(in) :: io
+  !
+  !.. Local Scalars ..
+  real(wp) :: y,z,yw,unx,uny,unz
+  real(wp) :: ravg,uavg,vavg,wavg,tavg
+  real(wp) :: r11,r21,r22,r31,r32,r33
+  real(wp) :: a11,a21,a22,a31,a32,a33
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_fp_interpolated_profiles"
+  !
+continue
+  !
+  y = this%y
+  z = this%z
+  !
+  yw = this%wall%distance
+  !
+  unx = this%wall%xnrm
+  uny = this%wall%ynrm
+  unz = this%wall%znrm
+  !
+  ravg = this%ravg*rhoref
+  uavg = this%uavg*aref
+  vavg = this%vavg*aref
+  wavg = this%wavg*aref
+  tavg = this%tavg*tref
+  !
+  r11 = this%r11*aref*aref
+  r21 = this%r21*aref*aref
+  r22 = this%r22*aref*aref
+  r31 = this%r31*aref*aref
+  r32 = this%r32*aref*aref
+  r33 = this%r33*aref*aref
+  !
+  a11 = this%a11*aref
+  a21 = this%a21*aref
+  a22 = this%a22*aref
+  a31 = this%a31*aref
+  a32 = this%a32*aref
+  a33 = this%a33*aref
+  !
+  write (io,1) sem_idx,fp_idx,this%idx
+  !
+  write (io,7) " Y",y," m"
+  write (io,7) " Y",y/grid_scaling_factor," in"
+  write (io,7) " Z",z," m"
+  write (io,7) " Z",z/grid_scaling_factor," in",""
+  !
+  write (io,7) "  WALL DISTANCE",yw," m"
+  write (io,7) "  WALL DISTANCE",yw/grid_scaling_factor," in",""
+  !
+  write (io,2) " UNX",unx
+  write (io,2) " UNY",uny
+  write (io,2) " UNZ",unz,""
+  !
+  write (io,3)
+  write (io,2) "  RHO",ravg
+  write (io,2) "    U",uavg
+  write (io,2) "    V",vavg
+  write (io,2) "    W",wavg
+  write (io,2) "    T",tavg,""
+  !
+  write (io,4)
+  write (io,2) "  <UU>",r11
+  write (io,2) "  <VV>",r22
+  write (io,2) "  <WW>",r33
+  write (io,2) "  <UV>",r21
+  write (io,2) "  <UW>",r31
+  write (io,2) "  <VW>",r32,""
+  !
+  write (io,5)
+  write (io,2) "  A11",a11
+  write (io,2) "  A22",a22
+  write (io,2) "  A33",a33
+  if (abs(a21) < 1000.0_wp) then
+    write (io,2) "  A21",a21
+  else
+    write (io,6) "  A21",a21
+  end if
+  if (abs(a31) < 1000.0_wp) then
+    write (io,2) "  A31",a31
+  else
+    write (io,6) "  A31",a31
+  end if
+  if (abs(a32) < 1000.0_wp) then
+    write (io,2) "  A32",a32
+  else
+    write (io,6) "  A32",a32
+  end if
+  write (io,*)
+  write (io,2) "  A11            ",a11
+  if (abs(a21+a22) < 1000.0_wp) then
+    write (io,2) "  A21 + A22      ",a21+a22
+  else
+    write (io,6) "  A21 + A22      ",a21+a22
+  end if
+  if (abs(a31+a32+a33) < 1000.0_wp) then
+    write (io,2) "  A31 + A32 + A33",a31+a32+a33,""
+  else
+    write (io,6) "  A31 + A32 + A33",a31+a32+a33,""
+  end if
+  !
+  1 format (/,80("#"),/, &
+            2x,"SEM Box       = ",i0,/, &
+            2x,"SEM FP Index  = ",i0,/, &
+            2x,"Grid FP Index = ",i0,/, &
+            80("-"),/)
+  2 format (2x,a," = ",f18.13,:,/,a)
+  3 format (2x,"Interpolated Transformed Primitive Variables Profile")
+  4 format (2x,"Interpolated Transformed Reynolds Stress Tensor Profile")
+  5 format (2x,"Interpolated Transformed Cholesky Decomposition ", &
+               "of Reynolds Stress Tensor Profile")
+  6 format (2x,a," = ",es18.10,:,/,a)
+  7 format (2x,a," = ",f18.13,a,:,/,a)
+  !
+end subroutine output_fp_interpolated_profiles
+!
+!###############################################################################
+!
 subroutine initialize_sem_avg()
   !
   !.. Local Scalars ..
