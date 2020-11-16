@@ -4837,6 +4837,7 @@ continue
     !
     n1 = nodes_of_cell_ptr(n)+1
     n2 = nodes_of_cell_ptr(n+1)
+    np = n2-n1+1
     !
     ! Compute the signed area/volume of the current host cell
     !
