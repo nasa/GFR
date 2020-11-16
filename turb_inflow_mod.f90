@@ -7088,7 +7088,7 @@ end subroutine output_bface
 !###############################################################################
 !
 pure &
-subroutine yz_to_rt(y,z,r,t,yc,zc)
+subroutine yz_to_rt(y,z,r,t,yc,zc,return_degrees)
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: y
@@ -7099,17 +7099,21 @@ subroutine yz_to_rt(y,z,r,t,yc,zc)
   !.. Optional Arguments ..
   real(wp),    optional, intent(in) :: yc
   real(wp),    optional, intent(in) :: zc
+  logical(lk), optional, intent(in) :: return_degrees
   !
   !.. Local Scalars ..
   real(wp)    :: y0,z0,dy,dz
+  logical(lk) :: returns_degrees
   !
 continue
   !
   y0 = zero
   z0 = zero
+  returns_degrees = fals
   !
   if (present(yc)) y0 = yc
   if (present(zc)) z0 = zc
+  if (present(return_degrees)) returns_degrees = return_degrees
   !
   dy = y - y0
   dz = z - z0
@@ -7119,7 +7123,7 @@ continue
   if (r /= zero) then
     t = atan2(dz,dy)
     if (t < zero) t = t + two*pi
-    t = t*radians2degrees
+    if (returns_degrees) t = t*radians2degrees
   else
     t = zero
   end if
