@@ -124,13 +124,16 @@ end subroutine spatial_ave_channel_flow
 !
 !###############################################################################
 !
-subroutine spatial_ave_x_and_z_planes()
+subroutine spatial_ave_x_and_z_planes(called_from_channel_mod)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts,xyz
   use flowvar, only : uavesp
   use ovar,    only : itcur,time,time_ref,time_scaling_factor
   use ovar,    only : ave_start_time,output_time_averaging
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: called_from_channel_mod
   !
   !.. Local Scalars ..
   integer  :: j,m,n,ierr,io,ip
@@ -389,13 +392,16 @@ end subroutine spatial_ave_x_and_z_planes
 !
 !###############################################################################
 !
-subroutine spatial_ave_z_planes()
+subroutine spatial_ave_z_planes(called_from_channel_mod)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts,xyz
   use flowvar, only : uavesp
   use ovar,    only : itcur,time,time_ref,time_scaling_factor
   use ovar,    only : ave_start_time,output_time_averaging
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: called_from_channel_mod
   !
   !.. Local Scalars ..
   integer  :: i,j,m,n,ierr,io,ia1,ia2,ip
