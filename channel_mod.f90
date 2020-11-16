@@ -118,9 +118,9 @@ subroutine spatial_ave_channel_flow()
   !
 continue
   !
-  call spatial_ave_z_planes
+  call spatial_ave_z_planes(called_from_channel_mod=true)
   !
-  call spatial_ave_x_and_z_planes
+  call spatial_ave_x_and_z_planes(called_from_channel_mod=true)
   !
 end subroutine spatial_ave_channel_flow
 !
