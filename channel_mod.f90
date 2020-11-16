@@ -669,8 +669,8 @@ continue
   !
   write (io,12) nx,ny
   !
-  do i = 1,nx
-    do j = 1,ny
+  do j = 1,ny
+    do i = 1,nx
       write (io,13) x_vals(i)*rnum, &
                     y_vals(j)*rnum, &
                     (xy_data(m,j,i), m=1,nvar)
