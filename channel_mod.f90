@@ -151,7 +151,7 @@ subroutine spatial_ave_x_and_z_planes(called_from_channel_mod)
   !.. Local Arrays ..
   real(wp) :: y_vals(1:10000)
   real(wp) :: var_dim(1:size(uavesp,dim=2))
-  real(wp) :: aux_data(1:13)
+  real(wp) :: aux_data(1:17)
   !
   character(len=50) :: varnames(1:size(uavesp,dim=2))
   !
@@ -325,11 +325,15 @@ continue
   write (ip,51) "u_CL",          aux_data(6)
   write (ip,51) "u_tau",         aux_data(7)
   write (ip,51) "u_Bulk",        aux_data(8)
-  write (ip,54) "Re_Bulk",  nint(aux_data(9))
-  write (ip,54) "Re_CL",    nint(aux_data(10))
-  write (ip,54) "Re_tau",   nint(aux_data(11))
-  write (ip,53) "Cf_Bulk",       aux_data(12)
-  write (ip,53) "Cf_CL",         aux_data(13)
+  write (ip,53) "dstar",         aux_data(9)
+  write (ip,53) "theta",         aux_data(10)
+  write (ip,54) "Re_Bulk",  nint(aux_data(11))
+  write (ip,54) "Re_dstar", nint(aux_data(12))
+  write (ip,54) "Re_theta", nint(aux_data(13))
+  write (ip,54) "Re_CL",    nint(aux_data(14))
+  write (ip,54) "Re_tau",   nint(aux_data(15))
+  write (ip,53) "Cf_Bulk",       aux_data(16)
+  write (ip,53) "Cf_CL",         aux_data(17)
   !
   do j = 1,ny
     write (ip,13) (y_prof(m,j), m=1,size(y_prof,dim=1))
@@ -529,7 +533,7 @@ continue
   xy_counts = init_array(ny,nx,0)         ! F2003 AUTO-REALLOC
   xy_dudy   = init_array(ny,nx,zero)      ! F2003 AUTO-REALLOC
   xy_prof   = init_array(13,ny,nx,zero)    ! F2003 AUTO-REALLOC
-  aux_data  = init_array(13,nx,zero)       ! F2003 AUTO-REALLOC
+  aux_data  = init_array(17,nx,zero)       ! F2003 AUTO-REALLOC
   !
   do n = 1,n_solpts
     !
@@ -721,15 +725,19 @@ continue
     write (ip,52) "T_avg",         aux_data(2,i)
     write (ip,53) "visc_avg",      aux_data(3,i)
     write (ip,53) "dudy_wall",     aux_data(4,i)
-    write (ip,51) "tau_wall",      aux_data(5,i)
-    write (ip,51) "u_CL",          aux_data(6,i)
-    write (ip,51) "u_tau",         aux_data(7,i)
-    write (ip,51) "u_Bulk",        aux_data(8,i)
-    write (ip,54) "Re_Bulk",  nint(aux_data(9,i))
-    write (ip,54) "Re_CL",    nint(aux_data(10,i))
-    write (ip,54) "Re_tau",   nint(aux_data(11,i))
-    write (ip,53) "Cf_Bulk",       aux_data(12,i)
-    write (ip,53) "Cf_CL",         aux_data(13,i)
+    write (ip,53) "tau_wall",      aux_data(5,i)
+    write (ip,52) "u_CL",          aux_data(6,i)
+    write (ip,52) "u_tau",         aux_data(7,i)
+    write (ip,52) "u_Bulk",        aux_data(8,i)
+    write (ip,53) "dstar",         aux_data(9,i)
+    write (ip,53) "theta",         aux_data(10,i)
+    write (ip,54) "Re_Bulk",  nint(aux_data(11,i))
+    write (ip,54) "Re_dstar", nint(aux_data(12,i))
+    write (ip,54) "Re_theta", nint(aux_data(13,i))
+    write (ip,54) "Re_CL",    nint(aux_data(14,i))
+    write (ip,54) "Re_tau",   nint(aux_data(15,i))
+    write (ip,53) "Cf_Bulk",       aux_data(16,i)
+    write (ip,53) "Cf_CL",         aux_data(17,i)
     !
     do j = 1,ny
       write (ip,13) (xy_prof(m,j,i), m=1,size(xy_prof,dim=1))
@@ -746,15 +754,19 @@ continue
     write (ip,52) "T_avg",         aux_sem_data(2)
     write (ip,53) "visc_avg",      aux_sem_data(3)
     write (ip,53) "dudy_wall",     aux_sem_data(4)
-    write (ip,51) "tau_wall",      aux_sem_data(5)
-    write (ip,51) "u_CL",          aux_sem_data(6)
-    write (ip,51) "u_tau",         aux_sem_data(7)
-    write (ip,51) "u_Bulk",        aux_sem_data(8)
-    write (ip,54) "Re_Bulk",  nint(aux_sem_data(9))
-    write (ip,54) "Re_CL",    nint(aux_sem_data(10))
-    write (ip,54) "Re_tau",   nint(aux_sem_data(11))
-    write (ip,53) "Cf_Bulk",       aux_sem_data(12)
-    write (ip,53) "Cf_CL",         aux_sem_data(13)
+    write (ip,53) "tau_wall",      aux_sem_data(5)
+    write (ip,52) "u_CL",          aux_sem_data(6)
+    write (ip,52) "u_tau",         aux_sem_data(7)
+    write (ip,52) "u_Bulk",        aux_sem_data(8)
+    write (ip,53) "dstar",         aux_sem_data(9)
+    write (ip,53) "theta",         aux_sem_data(10)
+    write (ip,54) "Re_Bulk",  nint(aux_sem_data(11))
+    write (ip,54) "Re_dstar", nint(aux_sem_data(12))
+    write (ip,54) "Re_theta", nint(aux_sem_data(13))
+    write (ip,54) "Re_CL",    nint(aux_sem_data(14))
+    write (ip,54) "Re_tau",   nint(aux_sem_data(15))
+    write (ip,53) "Cf_Bulk",       aux_sem_data(16)
+    write (ip,53) "Cf_CL",         aux_sem_data(17)
     !
     do j = 1,size(sem_profile,dim=2)
       write (ip,13) (sem_profile(m,j), m=1,size(sem_profile,dim=1))
@@ -914,7 +926,11 @@ continue
                          '"u_CL",',/, &
                          '"u_tau",',/, &
                          '"u_Bulk",',/, &
+                         '"dstar",',/, &
+                         '"theta",',/, &
                          '"Re_Bulk",',/, &
+                         '"Re_dstar",',/, &
+                         '"Re_theta",',/, &
                          '"Re_CL",',/, &
                          '"Re_tau",',/, &
                          '"Cf_Bulk",',/, &
@@ -1156,6 +1172,8 @@ subroutine get_normalized_profile(y_vals,u,uu,v,vv,w,ww,uv,rho,t,dudy, &
   real(wp) :: rnum,height,half_height,dudy_wall
   real(wp) :: rho_avg,t_avg,visc_avg,u_cl,u_tau,u_bulk
   real(wp) :: xi_min,xi_max,y1,y2,tau_wall
+  real(wp) :: dy,wt,udt,umt,udtm,udtp,umtm,umtp
+  real(wp) :: displacement_thickness,momentum_thickness
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_normalized_profile"
@@ -1212,6 +1230,8 @@ continue
   ! Compute the bulk velocity (Eq. 7.3 from Turbulent Flows by Pope)
   !
   u_bulk = zero
+  momentum_thickness = zero
+  displacement_thickness = zero
   !
   if (mod(npts,n1d) == 0) then
     !
@@ -1230,7 +1250,12 @@ continue
       rnum = (y2 - y1) / (xi_max - xi_min) ! Simplified using Mathematica
       !
       do n = 1,n1d
-        u_bulk = u_bulk + rnum*u(n0+n)*std_elem(Geom_Edge,n_order)%wts(n)
+        wt = rnum*std_elem(Geom_Edge,n_order)%wts(n)
+        u_bulk = u_bulk + u(n0+n)*wt
+        udt = (one - u(n0+n)/u_cl)
+        umt = udt*u(n0+n)/u_cl
+        displacement_thickness = displacement_thickness + udt*wt
+        momentum_thickness = momentum_thickness + umt*wt
       end do
       !
     end do
@@ -1240,7 +1265,14 @@ continue
     ! Use trapezoid rule to integrate bulk velocity
     !
     do n = 1,npts-1
-      u_bulk = u_bulk + half*(u(n) + u(n+1))*abs(y_vals(n+1)-y_vals(n))
+      dy = abs(y_vals(n+1)-y_vals(n))
+      u_bulk = u_bulk + half*(u(n) + u(n+1))*dy
+      udtm = (one - u(n  )/u_cl)
+      udtp = (one - u(n+1)/u_cl)
+      umtm = udtm*u(n  )/u_cl
+      umtp = udtp*u(n+1)/u_cl
+      displacement_thickness = displacement_thickness + half*(udtm+udtp)*dy
+      momentum_thickness = momentum_thickness + half*(umtm+umtp)*dy
     end do
     !
   end if
@@ -1257,16 +1289,22 @@ continue
   aux_data(6) = u_cl * aref
   aux_data(7) = u_tau * aref
   aux_data(8) = u_bulk * aref
+  aux_data(9) = displacement_thickness
+  aux_data(10) = momentum_thickness
   ! Re = Reynolds number based on bulk velocity (Pope eq. 7.1)
-  aux_data(9) = rho_avg * u_bulk * height / visc_avg
+  aux_data(11) = rho_avg * u_bulk * height / visc_avg
+  ! Retheta = Reynolds number based on displacement thickness (Pope eq. 7.126)
+  aux_data(12) = rho_avg * u_cl * displacement_thickness / visc_avg
+  ! Retheta = Reynolds number based on momentum thickness (Pope eq. 7.127)
+  aux_data(13) = rho_avg * u_cl * momentum_thickness / visc_avg
   ! Re0 = Reynolds number based on center-line velocity (Pope eq. 7.2)
-  aux_data(10) = rho_avg * u_cl * half_height / visc_avg
+  aux_data(14) = rho_avg * u_cl * half_height / visc_avg
   ! Re_tau = Reynolds number based on frication velocity
-  aux_data(11) = rho_avg * u_tau * half_height / visc_avg
+  aux_data(15) = rho_avg * u_tau * half_height / visc_avg
   ! Skin friction based on bulk velocity (Pope eq. 7.15)
-  aux_data(12) = tau_wall / (half * rho_avg * u_bulk * u_bulk)
+  aux_data(16) = tau_wall / (half * rho_avg * u_bulk * u_bulk)
   ! Skin friction based on center-line velocity (Pope eq. 7.14)
-  aux_data(13) = tau_wall / (half * rho_avg * u_cl * u_cl)
+  aux_data(17) = tau_wall / (half * rho_avg * u_cl * u_cl)
   !
 end subroutine get_normalized_profile
 !
@@ -1288,6 +1326,8 @@ subroutine get_sem_profile(prof,aux_data)
   real(wp) :: rnum,height,half_height,dudy_wall
   real(wp) :: rho_avg,t_avg,visc_avg,u_cl,u_tau,u_bulk
   real(wp) :: tau_wall
+  real(wp) :: dy,udtm,udtp,umtm,umtp
+  real(wp) :: displacement_thickness,momentum_thickness
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: y(:)
@@ -1315,7 +1355,7 @@ continue
   rnum = one / real(npts,kind=wp)
   !
   prof     = init_array(13,npts,zero)         ! F2003 AUTO-REALLOC
-  aux_data = init_array(13,zero)              ! F2003 AUTO-REALLOC
+  aux_data = init_array(17,zero)              ! F2003 AUTO-REALLOC
   !
   ! Get the channel height
   ! NOTE: The min y-value is slightly larger than zero, and the max y-value
@@ -1364,8 +1404,18 @@ continue
   ! Use trapezoid rule to integrate bulk velocity
   !
   u_bulk = zero
+  momentum_thickness = zero
+  displacement_thickness = zero
+  !
   do n = 1,npts-1
-    u_bulk = u_bulk + half*(u(n) + u(n+1))*abs(y(n+1)-y(n))
+    dy = abs(y(n+1)-y(n))
+    u_bulk = u_bulk + half*(u(n) + u(n+1))*dy
+    udtm = (one - u(n  )/u_cl)
+    udtp = (one - u(n+1)/u_cl)
+    umtm = udtm*u(n  )/u_cl
+    umtp = udtp*u(n+1)/u_cl
+    displacement_thickness = displacement_thickness + half*(udtm+udtp)*dy
+    momentum_thickness = momentum_thickness + half*(umtm+umtp)*dy
   end do
   !
   u_bulk = u_bulk / height
@@ -1380,16 +1430,22 @@ continue
   aux_data(6) = u_cl * aref
   aux_data(7) = u_tau * aref
   aux_data(8) = u_bulk * aref
+  aux_data(9) = displacement_thickness
+  aux_data(10) = momentum_thickness
   ! Re = Reynolds number based on bulk velocity (Pope eq. 7.1)
-  aux_data(9) = rho_avg * u_bulk * height / visc_avg
+  aux_data(11) = rho_avg * u_bulk * height / visc_avg
+  ! Retheta = Reynolds number based on displacement thickness (Pope eq. 7.126)
+  aux_data(12) = rho_avg * u_cl * displacement_thickness / visc_avg
+  ! Retheta = Reynolds number based on momentum thickness (Pope eq. 7.127)
+  aux_data(13) = rho_avg * u_cl * momentum_thickness / visc_avg
   ! Re0 = Reynolds number based on center-line velocity (Pope eq. 7.2)
-  aux_data(10) = rho_avg * u_cl * half_height / visc_avg
+  aux_data(14) = rho_avg * u_cl * half_height / visc_avg
   ! Re_tau = Reynolds number based on frication velocity
-  aux_data(11) = rho_avg * u_tau * half_height / visc_avg
+  aux_data(15) = rho_avg * u_tau * half_height / visc_avg
   ! Skin friction based on bulk velocity (Pope eq. 7.15)
-  aux_data(12) = tau_wall / (half * rho_avg * u_bulk * u_bulk)
+  aux_data(16) = tau_wall / (half * rho_avg * u_bulk * u_bulk)
   ! Skin friction based on center-line velocity (Pope eq. 7.14)
-  aux_data(13) = tau_wall / (half * rho_avg * u_cl * u_cl)
+  aux_data(17) = tau_wall / (half * rho_avg * u_cl * u_cl)
   !
 end subroutine get_sem_profile
 !
@@ -1586,11 +1642,15 @@ continue
     write (io,11) "u_CL",          aux_data(6,i)
     write (io,11) "u_tau",         aux_data(7,i)
     write (io,11) "u_Bulk",        aux_data(8,i)
-    write (io,14) "Re_Bulk",  nint(aux_data(9,i))
-    write (io,14) "Re_CL",    nint(aux_data(10,i))
-    write (io,14) "Re_tau",   nint(aux_data(11,i))
-    write (io,13) "Cf_Bulk",       aux_data(12,i)
-    write (io,13) "Cf_CL",         aux_data(13,i)
+    write (io,13) "dstar",         aux_data(9,i)
+    write (io,13) "theta",         aux_data(10,i)
+    write (io,14) "Re_Bulk",  nint(aux_data(11,i))
+    write (io,14) "Re_dstar", nint(aux_data(12,i))
+    write (io,14) "Re_theta", nint(aux_data(13,i))
+    write (io,14) "Re_CL",    nint(aux_data(14,i))
+    write (io,14) "Re_tau",   nint(aux_data(15,i))
+    write (io,13) "Cf_Bulk",       aux_data(16,i)
+    write (io,13) "Cf_CL",         aux_data(17,i)
     !
     do j = 1,npts
       write (io,4) (prof(m,j), m=1,nvar)
