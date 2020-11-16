@@ -2649,6 +2649,54 @@ end subroutine create_solver_geom_arrays_cgns
 !
 !###############################################################################
 !
+pure &
+function substitute(string,pattern,replacement) result(return_value)
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: string
+  character(len=*), intent(in) :: pattern
+  !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: replacement
+  !
+  !.. Function Result ..
+  character(len=:), allocatable :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: i1,i2
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: str,pat,rep
+  !
+continue
+  !
+  str = trim(adjustl(string))  ! F2003 AUTO-REALLOC
+  pat = trim(adjustl(pattern)) ! F2003 AUTO-REALLOC
+  rep = ""                     ! F2003 AUTO-REALLOC
+  !
+  if (present(replacement)) then
+    rep = replacement ! F2003 AUTO-REALLOC
+  end if
+  !
+  i1 = index(str,pat)
+  !
+  if (i1 <= 0) then
+    !
+    return_value = str ! F2003 AUTO-REALLOC
+    !
+  else
+    !
+    i2 = i1+len(pat)
+    i1 = i1-1
+    !
+    return_value = str(:i1) // rep // str(i2:) ! F2003 AUTO-REALLOC
+    !
+  end if
+  !
+end function substitute
+!
+!###############################################################################
+!
 subroutine root_broadcasts_grid_dt()
   !
   !.. Use Statements ..
