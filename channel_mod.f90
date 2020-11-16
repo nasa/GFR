@@ -133,6 +133,7 @@ subroutine spatial_ave_x_and_z_planes(called_from_channel_mod)
   use flowvar, only : uavesp
   use ovar,    only : itcur,time,time_ref,time_scaling_factor
   use ovar,    only : ave_start_time,output_time_averaging
+  use ovar,    only : grid_scaling_factor
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: called_from_channel_mod
@@ -143,6 +144,8 @@ subroutine spatial_ave_x_and_z_planes(called_from_channel_mod)
   real(wp) :: out_time,rnum,ymax
   !
   integer  :: nvx,nvxvx,nvy,nvyvy,nvz,nvzvz,nvxvy,nrho,nt
+  !
+  logical(lk) :: averaging_channel_flow
   !
   character(len=50)  :: varname
   character(len=100) :: avefile
@@ -167,6 +170,11 @@ subroutine spatial_ave_x_and_z_planes(called_from_channel_mod)
   character(len=*), parameter :: pname = "spatial_ave_x_and_z_planes"
   !
 continue
+  !
+  averaging_channel_flow = fals
+  if (present(called_from_channel_mod)) then
+    averaging_channel_flow = called_from_channel_mod
+  end if
   !
   nvar = size(uavesp,dim=2)
   !
@@ -250,7 +258,11 @@ continue
     y_dudy(j) = y_dudy(j) * rnum
   end do
   !
-  rnum = one/ymax
+  if (averaging_channel_flow) then
+    rnum = one/ymax
+  else
+    rnum = one/grid_scaling_factor
+  end if
   !
   !#############################################################################
   !
@@ -268,7 +280,8 @@ continue
                               y_data(nt   ,1:ny), &
                               y_dudy(1:ny), &
                               y_prof(:,1:ny), &
-                              aux_data(:))
+                              aux_data(:), &
+                              averaging_channel_flow,1)
   !
   !#############################################################################
   !
@@ -405,6 +418,7 @@ subroutine spatial_ave_z_planes(called_from_channel_mod)
   use flowvar, only : uavesp
   use ovar,    only : itcur,time,time_ref,time_scaling_factor
   use ovar,    only : ave_start_time,output_time_averaging
+  use ovar,    only : grid_scaling_factor
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: called_from_channel_mod
@@ -415,6 +429,8 @@ subroutine spatial_ave_z_planes(called_from_channel_mod)
   real(wp) :: out_time,rnum,xmax,ymax
   !
   integer  :: nvx,nvxvx,nvy,nvyvy,nvz,nvzvz,nvxvy,nrho,nt
+  !
+  logical(lk) :: averaging_channel_flow
   !
   character(len=50)  :: varname
   character(len=100) :: avefile
@@ -447,6 +463,11 @@ subroutine spatial_ave_z_planes(called_from_channel_mod)
   character(len=*), parameter :: pname = "spatial_ave_z_planes"
   !
 continue
+  !
+  averaging_channel_flow = fals
+  if (present(called_from_channel_mod)) then
+    averaging_channel_flow = called_from_channel_mod
+  end if
   !
   nvar = size(uavesp,dim=2)
   !
@@ -570,7 +591,11 @@ continue
   ! Get the spatially averaged profiles at axial locations
   ! equal to integer multiples of the channel height.
   !
-  rnum = one/ymax
+  if (averaging_channel_flow) then
+    rnum = one/ymax
+  else
+    rnum = one/grid_scaling_factor
+  end if
   !
   nix = nint( xmax*rnum ) + 1
   !
@@ -597,12 +622,13 @@ continue
                                 xy_data(nt   ,1:ny,i), &
                                 xy_dudy(1:ny,i), &
                                 xy_prof(:,1:ny,i), &
-                                aux_data(:,i))
+                                aux_data(:,i), &
+                                averaging_channel_flow,ix=i)
   end do
   !
   ! Get the SEM profile
   !
-  call get_sem_profile(sem_profile,aux_sem_data)
+  call get_sem_profile(sem_profile,aux_sem_data,averaging_channel_flow)
   !
   !#############################################################################
   !
@@ -687,7 +713,11 @@ continue
     !
     i = ix_ptr(n)
     !
-    write (ia1,33) nint(x_vals(i)*rnum),ny
+    if (averaging_channel_flow) then
+      write (ia1,133) nint(x_vals(i)*rnum),ny
+    else
+      write (ia1,33) nint(x_vals(i)*rnum),ny
+    end if
     !
     do j = 1,ny
       write (ia1,13) y_vals(j)*rnum,(xy_data(m,j,i), m=1,nvar)
@@ -702,7 +732,11 @@ continue
   !
   do i = 1,nx
     !
-    write (ia2,32) x_vals(i)*rnum,ny
+    if (averaging_channel_flow) then
+      write (ia2,132) x_vals(i)*rnum,ny
+    else
+      write (ia2,32) x_vals(i)*rnum,ny
+    end if
     !
     do j = 1,ny
       write (ia2,13) y_vals(j)*rnum,(xy_data(m,j,i), m=1,nvar)
@@ -720,7 +754,11 @@ continue
     !
     i = ix_ptr(n)
     !
-    write (ip,33) nint(x_vals(i)*rnum),ny
+    if (averaging_channel_flow) then
+      write (ip,133) nint(x_vals(i)*rnum),ny
+    else
+      write (ip,33) nint(x_vals(i)*rnum),ny
+    end if
     write (ip,51) "r_avg",         aux_data(1,i)
     write (ip,52) "T_avg",         aux_data(2,i)
     write (ip,53) "visc_avg",      aux_data(3,i)
@@ -785,7 +823,11 @@ continue
                    iostat=ierr,iomsg=error_message)
   call io_error(pname,auxfile,1,__LINE__,__FILE__,ierr,error_message)
   !
-  write (io,60) nx
+  if (averaging_channel_flow) then
+    write (io,160) nx
+  else
+    write (io,60) nx
+  end if
   !
   do i = 1,nx
     write (io,13) x_vals(i)*rnum,(aux_data(m,i), m=1,size(aux_data,dim=1))
@@ -890,9 +932,9 @@ continue
   30 format ("spatial_ave.axial-locations",a,".",i0,".dat")
   31 format ('VARIABLES = "Y",')
   32 format ('ZONE T="Spatial average profile at x =',f6.3, &
-             'H", I=',i0,', DATAPACKING=POINT')
+             '", I=',i0,', DATAPACKING=POINT')
   33 format ('ZONE T="Spatial average profile at x = ',i0, &
-             ' H", I=',i0,', DATAPACKING=POINT')
+             '", I=',i0,', DATAPACKING=POINT')
   34 format ('ZONE T="SEM Inflow Profile", I=',i0,', DATAPACKING=POINT')
   !
   40 format ("spatial_ave.axial-profiles.",i0,".dat")
@@ -917,7 +959,7 @@ continue
   53 format ('AUXDATA ',a,'="',es14.6,'"')
   54 format ('AUXDATA ',a,'="',i0,'"')
   !
-  60 format ('VARIABLES = "x/H",',/, &
+  60 format ('VARIABLES = "x",',/, &
                          '"r_avg",',/, &
                          '"T_avg",',/, &
                          '"visc_avg",',/, &
@@ -936,6 +978,30 @@ continue
                          '"Cf_Bulk",',/, &
                          '"Cf_CL"',/, &
              'ZONE T="Axial Profile", I=',i0,', DATAPACKING=POINT')
+  !
+  132 format ('ZONE T="Spatial average profile at x =',f6.3, &
+              'H", I=',i0,', DATAPACKING=POINT')
+  133 format ('ZONE T="Spatial average profile at x = ',i0, &
+              ' H", I=',i0,', DATAPACKING=POINT')
+  160 format ('VARIABLES = "x/H",',/, &
+                          '"r_avg",',/, &
+                          '"T_avg",',/, &
+                          '"visc_avg",',/, &
+                          '"dudy_wall",',/, &
+                          '"tau_wall",',/, &
+                          '"u_CL",',/, &
+                          '"u_tau",',/, &
+                          '"u_Bulk",',/, &
+                          '"dstar",',/, &
+                          '"theta",',/, &
+                          '"Re_Bulk",',/, &
+                          '"Re_dstar",',/, &
+                          '"Re_theta",',/, &
+                          '"Re_CL",',/, &
+                          '"Re_tau",',/, &
+                          '"Cf_Bulk",',/, &
+                          '"Cf_CL"',/, &
+              'ZONE T="Axial Profile", I=',i0,', DATAPACKING=POINT')
   !
 end subroutine spatial_ave_z_planes
 !
@@ -1144,11 +1210,12 @@ end subroutine get_dudy
 !
 pure &
 subroutine get_normalized_profile(y_vals,u,uu,v,vv,w,ww,uv,rho,t,dudy, &
-                                  prof,aux_data)
+                                  prof,aux_data,averaging_channel_flow,ix)
   !
   !.. Use Statements ..
   use order_mod,      only : n_order
   use ovar,           only : rhoref,aref,tref
+  use ovar,           only : grid_scaling_factor
   use quadrature_mod, only : std_elem
   use transport_mod,  only : compute_viscosity_cpg
   !
@@ -1166,10 +1233,12 @@ subroutine get_normalized_profile(y_vals,u,uu,v,vv,w,ww,uv,rho,t,dudy, &
   real(wp),    intent(in) :: dudy(:)
   real(wp), intent(inout) :: prof(:,:)
   real(wp), intent(inout) :: aux_data(:)
+  logical(lk), intent(in) :: averaging_channel_flow
+  integer,     intent(in) :: ix
   !
   !.. Local Scalars ..
   integer  :: n,nc,n0,npts,n1d
-  real(wp) :: rnum,height,half_height,dudy_wall
+  real(wp) :: rnum,height,half_height,dudy_wall,gsf
   real(wp) :: rho_avg,t_avg,visc_avg,u_cl,u_tau,u_bulk
   real(wp) :: xi_min,xi_max,y1,y2,tau_wall
   real(wp) :: dy,wt,udt,umt,udtm,udtp,umtm,umtp
@@ -1191,21 +1260,39 @@ continue
   !       y-locations are the same distance to their respective walls, we can
   !       just add these two values together to get the true channel height.
   !
-  height = y_vals(npts) + y_vals(1)
-  half_height = half * height
-  !
-  rho_avg = sum(rho(:)) * rnum
-  t_avg = sum(t(:)) * rnum
-  !
-  call compute_viscosity_cpg(t_avg,visc_avg)
-  !
-  if (mod(npts,2) == 0) then
-    u_cl = max( u(npts/2) , u((npts/2)+1) )
+  if (averaging_channel_flow) then
+    !
+    height = y_vals(npts) + y_vals(1)
+    half_height = half * height
+    gsf = one
+    !
+    rho_avg = sum(rho(:)) * rnum
+    t_avg = sum(t(:)) * rnum
+    !
+    if (mod(npts,2) == 0) then
+      u_cl = max( u(npts/2) , u((npts/2)+1) )
+    else
+      u_cl = u((npts/2)+1)
+    end if
+    !
+    dudy_wall = half*(abs(dudy(1)) + abs(dudy(npts)))
+    !
   else
-    u_cl = u((npts/2)+1)
+    !
+    height = abs(y_vals(npts) - y_vals(1))
+    half_height = one
+    gsf = grid_scaling_factor
+    !
+    rho_avg = rho(1)
+    t_avg = t(1)
+    !
+    u_cl = u(npts)
+    !
+    dudy_wall = dudy(1)
+    !
   end if
   !
-  dudy_wall = half*(abs(dudy(1)) + abs(dudy(npts)))
+  call compute_viscosity_cpg(t_avg,visc_avg)
   !
   tau_wall = visc_avg * dudy_wall
   !
@@ -1213,7 +1300,7 @@ continue
   !
   do n = 1,npts
     prof( 1,n) = y_vals(n) * u_tau * rho_avg / visc_avg ! y+
-    prof( 2,n) = y_vals(n) / half_height                ! y/b
+    prof( 2,n) = y_vals(n) / half_height / gsf          ! y/b
     prof( 3,n) = u(n) / u_cl                            ! u/u_cl
     prof( 4,n) = u(n) / u_tau                           ! u+
     prof( 5,n) = sqrt(max(zero,uu(n) - u(n)*u(n))) / u_tau        ! u'/u_tau
@@ -1311,19 +1398,23 @@ end subroutine get_normalized_profile
 !###############################################################################
 !
 pure &
-subroutine get_sem_profile(prof,aux_data)
+subroutine get_sem_profile(prof,aux_data,averaging_channel_flow)
   !
   !.. Use Statements ..
-  use ovar,               only : rhoref,aref,tref
-  use transport_mod,      only : compute_viscosity_cpg
+  use ovar,           only : rhoref,aref,tref
+  use ovar,           only : grid_scaling_factor
+  use order_mod,      only : n_order
+  use transport_mod,  only : compute_viscosity_cpg
+  use quadrature_mod, only : std_elem
   !
   !.. Formal Arguments ..
   real(wp), allocatable, intent(out) :: prof(:,:)
   real(wp), allocatable, intent(out) :: aux_data(:)
+  logical(lk),            intent(in) :: averaging_channel_flow
   !
   !.. Local Scalars ..
   integer  :: n,npts,ierr
-  real(wp) :: rnum,height,half_height,dudy_wall
+  real(wp) :: rnum,height,half_height,dudy_wall,gsf
   real(wp) :: rho_avg,t_avg,visc_avg,u_cl,u_tau,u_bulk
   real(wp) :: tau_wall
   real(wp) :: dy,udtm,udtp,umtm,umtp
@@ -1363,21 +1454,37 @@ continue
   !       y-locations are the same distance to their respective walls, we can
   !       just add these two values together to get the true channel height.
   !
-  height = y(npts) + y(1)
-  half_height = half * height
-  !
-  rho_avg = sum( r(:) ) * rnum
-  t_avg   = sum( t(:) ) * rnum
-  !
-  call compute_viscosity_cpg(t_avg,visc_avg)
-  !
-  if (mod(npts,2) == 0) then
-    u_cl = max( u(npts/2) , u((npts/2)+1) )
+  if (averaging_channel_flow) then
+    !
+    height = y(npts) + y(1)
+    half_height = half * height
+    gsf = one
+    !
+    rho_avg = sum( r(:) ) * rnum
+    t_avg   = sum( t(:) ) * rnum
+    !
+    if (mod(npts,2) == 0) then
+      u_cl = max( u(npts/2) , u((npts/2)+1) )
+    else
+      u_cl = u((npts/2)+1)
+    end if
+    !
   else
-    u_cl = u((npts/2)+1)
+    !
+    height = abs(y(npts) - y(1))
+    half_height = one
+    gsf = grid_scaling_factor
+    !
+    rho_avg = r(1)
+    t_avg = t(1)
+    !
+    u_cl = u(npts)
+    !
   end if
   !
   dudy_wall = abs(u(1)/y(1))
+  !
+  call compute_viscosity_cpg(t_avg,visc_avg)
   !
   tau_wall = visc_avg * dudy_wall
   !
@@ -1385,7 +1492,7 @@ continue
   !
   do n = 1,npts
     prof( 1,n) = y(n) * u_tau * rho_avg / visc_avg  ! y+
-    prof( 2,n) = y(n) / half_height                 ! y/b
+    prof( 2,n) = y(n) / half_height / gsf           ! y/b
     prof( 3,n) = u(n) / u_cl                        ! u/u_cl
     prof( 4,n) = u(n) / u_tau                       ! u+
     prof( 5,n) = sqrt(tau11(n)) / u_tau             ! u'/u_tau
