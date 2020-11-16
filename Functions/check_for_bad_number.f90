@@ -37,6 +37,7 @@ subroutine check_for_bad_number(line_num,file_name)
   character(len=*), parameter :: pname = "check_for_bad_number"
   !
 continue
+#ifndef DISABLE_CHECK_FOR_BAD_NUMBER
   !
   overflow_error = ""
   divide_by_zero_error = ""
@@ -145,6 +146,7 @@ continue
   203 format ("('INVALID NUMBER (NaN) EXCEPTION DETECTED ON ',", &
               "i0,' OUT OF ',i0,' PROCESSORS ',", &
               i0,"(i0,','),i0,' !!!')")
+#endif
 #endif
   !
 end subroutine check_for_bad_number
