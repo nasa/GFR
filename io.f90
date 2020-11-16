@@ -9769,9 +9769,7 @@ continue
       !
       ! Compute the resolution marker if it has yet to be computed
       !
-      if (Limiter_Option >= 0 .or. &
-          .not. allocated(marker) .or. &
-          .not. allocated(scaled_marker)) then
+      if (.not. allocated(marker) .or. .not. allocated(scaled_marker)) then
         call resolution_indicator(apply_projection=fals)
       end if
       !
