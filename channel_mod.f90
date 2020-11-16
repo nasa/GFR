@@ -426,7 +426,7 @@ subroutine spatial_ave_z_planes(called_from_channel_mod)
   !.. Local Scalars ..
   integer  :: i,j,m,n,ierr,io,ia1,ia2,ip
   integer  :: nvar,ny,nx,nix
-  real(wp) :: out_time,rnum,xmax,ymax
+  real(wp) :: out_time,rnum,xmin,xmax,ymax
   !
   integer  :: nvx,nvxvx,nvy,nvyvy,nvz,nvzvz,nvxvy,nrho,nt
   !
@@ -514,6 +514,7 @@ continue
     !
   end do find_unique_x_loc_loop
   !
+  xmin = minval(x_vals)
   xmax = maxval(x_vals)
   !
   !#############################################################################
@@ -597,13 +598,21 @@ continue
     rnum = one/grid_scaling_factor
   end if
   !
-  nix = nint( xmax*rnum ) + 1
+  nix = nint( abs(xmax-xmin)*rnum ) + 1
   !
   ix_ptr = init_array(nix,0) ! F2003 AUTO-REALLOC
   !
   do n = 1,nix
-    ix_ptr(n) = minloc( abs(x_vals(1:nx)*rnum - real(n-1,kind=wp)) , dim=1 )
+    ix_ptr(n) = minloc( abs(abs(x_vals(1:nx)-xmin)*rnum - real(n-1,kind=wp)) , dim=1 )
   end do
+  write (iout,*) "xmin = ",xmin
+  write (iout,*) "xmax = ",xmax
+  write (iout,*) "abs(xmax-xmin)*rnum = ",abs(xmax-xmin)*rnum
+  write (iout,*) "nint(abs(xmax-xmin)*rnum) = ",nint(abs(xmax-xmin)*rnum)
+  do n = 1,nix
+    write (iout,201) n,ix_ptr(n),x_vals(ix_ptr(n)),x_vals(ix_ptr(n))*rnum
+  end do
+  201 format (2x,i2,": x_vals(",i0,") = ",f10.5,2x,f10.5)
   !
   !#############################################################################
   !
