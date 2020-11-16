@@ -4734,6 +4734,9 @@ subroutine check_node_ordering()
   !.. Local Arrays ..
   real(wp), dimension(1:nr,1:8) :: cell_nodes
   !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: cn_xyz(:,:)
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_node_ordering"
   !
@@ -4832,61 +4835,150 @@ continue
   ! the cells on the grid boundaries a second time but they shouldnt be
   ! adjusted this time and the additional cost shouldnt hurt too much.
   !
-  call debug_timer(start_timer,"checking node order of grid cells")
-  do n = 1,ncell
-    !
-    n1 = nodes_of_cell_ptr(n)+1
-    n2 = nodes_of_cell_ptr(n+1)
-    np = n2-n1+1
-    !
-    ! Compute the signed area/volume of the current host cell
-    !
-    cell_nodes(1:nr,1:np) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
-    !
-    select case (cell_geom(n))
-      case (Geom_Edge)
-        cell_vol = length_edge( cell_nodes(1:nr,1:np) )
-      case (Geom_Quad)
-        cell_vol = area_quad( cell_nodes(1:nr,1:np) )
-      case (Geom_Tria)
-        cell_vol = area_tria( cell_nodes(1:nr,1:np) )
-      case (Geom_Tetr)
-        cell_vol = vol_tet( cell_nodes(1:nr,1:np) )
-      case (Geom_Pyra)
-        cell_vol = vol_pyr( cell_nodes(1:nr,1:np) )
-      case (Geom_Pris)
-        cell_vol = vol_pri( cell_nodes(1:nr,1:np) )
-      case (Geom_Hexa)
-        cell_vol = vol_hex( cell_nodes(1:nr,1:np) )
-      case default
-        write (iout,1)
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
-    end select
-    !
-    ! If the cell volume is negative, this means the cell is in clockwise
-    ! ordering.  Switch two nodes (2 and 3 for triangles; 2 and 4 for quads)
-    ! to change the cell to counter-clockwise ordering.
-    !
-    if (cell_vol < zero) then
-      !
-      if (any(cell_geom(n) == Geom_2D)) then
-        !
-        ip2 = nodes_of_cell(n1+1)
-        ip4 = nodes_of_cell(n2  ) ! for triangles, ip4 = ip3 because n2 = n1+2
-        !
-        nodes_of_cell(n1+1) = ip4 ! for triangles, ip4 = ip3
-        nodes_of_cell(n2  ) = ip2
-        !
-      else
-        !
-        write (iout,2)
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
-        !
+  !
+  ! Edge cells
+  !
+  call debug_timer(start_timer,"checking node order of edge cells")
+  if (any(cell_geom(:) == Geom_Edge)) then
+    cn_xyz = init_array(nr,geom_nodes(Geom_Edge),zero) ! F2003 AUTO-REALLOC
+    do n = 1,ncell
+      if (cell_geom(n) == Geom_Edge) then
+        n1 = nodes_of_cell_ptr(n)+1
+        n2 = nodes_of_cell_ptr(n+1)
+        cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
+        cell_vol = length_edge( cn_xyz(:,:) )
+        if (cell_vol < zero) then
+          write (iout,3) geom_name(Geom_Edge)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+        end if
       end if
-    end if
-    !
-  end do
-  call debug_timer(stop_timer,"checking node order of grid cells")
+    end do
+  end if
+  call debug_timer(stop_timer,"checking node order of edge cells")
+  !
+  ! Quad cells
+  !
+  call debug_timer(start_timer,"checking node order of quad cells")
+  if (any(cell_geom(:) == Geom_Quad)) then
+    cn_xyz = init_array(nr,geom_nodes(Geom_Quad),zero) ! F2003 AUTO-REALLOC
+    do n = 1,ncell
+      if (cell_geom(n) == Geom_Quad) then
+        n1 = nodes_of_cell_ptr(n)+1
+        n2 = nodes_of_cell_ptr(n+1)
+        cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
+        cell_vol = area_quad( cn_xyz(:,:) )
+        if (cell_vol < zero) then
+          ip2 = nodes_of_cell(n1+1)
+          ip4 = nodes_of_cell(n2  )
+          nodes_of_cell(n1+1) = ip4
+          nodes_of_cell(n2  ) = ip2
+        end if
+      end if
+    end do
+  end if
+  call debug_timer(stop_timer,"checking node order of quad cells")
+  !
+  ! Tria cells
+  !
+  call debug_timer(start_timer,"checking node order of tria cells")
+  if (any(cell_geom(:) == Geom_Tria)) then
+    cn_xyz = init_array(nr,geom_nodes(Geom_Tria),zero) ! F2003 AUTO-REALLOC
+    do n = 1,ncell
+      if (cell_geom(n) == Geom_Tria) then
+        n1 = nodes_of_cell_ptr(n)+1
+        n2 = nodes_of_cell_ptr(n+1)
+        cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
+        cell_vol = area_tria( cn_xyz(:,:) )
+        if (cell_vol < zero) then
+          ip2 = nodes_of_cell(n1+1)
+          ip4 = nodes_of_cell(n2  )
+          nodes_of_cell(n1+1) = ip4
+          nodes_of_cell(n2  ) = ip2
+        end if
+      end if
+    end do
+  end if
+  call debug_timer(stop_timer,"checking node order of tria cells")
+  !
+  ! Tetr cells
+  !
+  call debug_timer(start_timer,"checking node order of tetr cells")
+  if (any(cell_geom(:) == Geom_Tetr)) then
+    cn_xyz = init_array(nr,geom_nodes(Geom_Tetr),zero) ! F2003 AUTO-REALLOC
+    do n = 1,ncell
+      if (cell_geom(n) == Geom_Tetr) then
+        n1 = nodes_of_cell_ptr(n)+1
+        n2 = nodes_of_cell_ptr(n+1)
+        cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
+        cell_vol = vol_tet( cn_xyz(:,:) )
+        if (cell_vol < zero) then
+          write (iout,3) geom_name(Geom_Tetr)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+        end if
+      end if
+    end do
+  end if
+  call debug_timer(stop_timer,"checking node order of tetr cells")
+  !
+  ! Pyra cells
+  !
+  call debug_timer(start_timer,"checking node order of pyra cells")
+  if (any(cell_geom(:) == Geom_Pyra)) then
+    cn_xyz = init_array(nr,geom_nodes(Geom_Pyra),zero) ! F2003 AUTO-REALLOC
+    do n = 1,ncell
+      if (cell_geom(n) == Geom_Pyra) then
+        n1 = nodes_of_cell_ptr(n)+1
+        n2 = nodes_of_cell_ptr(n+1)
+        cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
+        cell_vol = vol_pyr( cn_xyz(:,:) )
+        if (cell_vol < zero) then
+          write (iout,3) geom_name(Geom_Pyra)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+        end if
+      end if
+    end do
+  end if
+  call debug_timer(stop_timer,"checking node order of pyra cells")
+  !
+  ! Pris cells
+  !
+  call debug_timer(start_timer,"checking node order of pris cells")
+  if (any(cell_geom(:) == Geom_Pris)) then
+    cn_xyz = init_array(nr,geom_nodes(Geom_Pris),zero) ! F2003 AUTO-REALLOC
+    do n = 1,ncell
+      if (cell_geom(n) == Geom_Pris) then
+        n1 = nodes_of_cell_ptr(n)+1
+        n2 = nodes_of_cell_ptr(n+1)
+        cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
+        cell_vol = vol_pri( cn_xyz(:,:) )
+        if (cell_vol < zero) then
+          write (iout,3) geom_name(Geom_Pris)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+        end if
+      end if
+    end do
+  end if
+  call debug_timer(stop_timer,"checking node order of pris cells")
+  !
+  ! Hexa cells
+  !
+  call debug_timer(start_timer,"checking node order of hexa cells")
+  if (any(cell_geom(:) == Geom_Hexa)) then
+    cn_xyz = init_array(nr,geom_nodes(Geom_Hexa),zero) ! F2003 AUTO-REALLOC
+    do n = 1,ncell
+      if (cell_geom(n) == Geom_Hexa) then
+        n1 = nodes_of_cell_ptr(n)+1
+        n2 = nodes_of_cell_ptr(n+1)
+        cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
+        cell_vol = vol_hex( cn_xyz(:,:) )
+        if (cell_vol < zero) then
+          write (iout,3) geom_name(Geom_Hexa)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+        end if
+      end if
+    end do
+  end if
+  call debug_timer(stop_timer,"checking node order of hexa cells")
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -4899,6 +4991,13 @@ continue
   2 format (/, &
     " ############################## ERROR! ##############################",/, &
     "   NEGATIVE VOLUME DETECTED WHEN CHECKING THE CELL NODE ORDERINGS!",/, &
+    "         UNFORTUNATELY, THE NODES CANNOT BE REARRANGED",/, &
+    "         TO FIX THIS FOR 3D SIMULATIONS!",/, &
+    " ############################## ERROR! ##############################",/)
+  3 format (/, &
+    " ############################## ERROR! ##############################",/, &
+    "   NEGATIVE VOLUME DETECTED WHEN CHECKING THE ",a, &
+                                     " CELL NODE ORDERINGS!",/, &
     "         UNFORTUNATELY, THE NODES CANNOT BE REARRANGED",/, &
     "         TO FIX THIS FOR 3D SIMULATIONS!",/, &
     " ############################## ERROR! ##############################",/)
