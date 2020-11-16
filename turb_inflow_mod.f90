@@ -545,6 +545,211 @@ end subroutine initialize_from_sem_profile
 !
 !###############################################################################
 !
+subroutine thx_pipe_sem_initialization(prof,pvavg,xyz,cv)
+  !
+  !.. Use Statements ..
+  use ovar, only : rhoref,aref,tref
+  use ovar, only : gam,rgasref_nd
+  use ovar, only : grid_scaling_factor
+  !
+  !.. Formal Arguments ..
+  type(sem_profile_t), intent(in) :: prof
+  real(wp),            intent(in) :: pvavg(:)
+  real(wp),            intent(in) :: xyz(:,:)
+  real(wp),         intent(inout) :: cv(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: k,n,n1,n2,npts
+  real(wp) :: c1,c2,cn,cni,y,y1,y2
+  real(wp) :: r,u,v,w,t,q,q2,uu,vv,ww
+  real(wp) :: rgas_over_gm1
+  real(wp) :: dx,dy,dz,dl,unx,uny,unz
+  real(wp) :: xp,yp,zp,xc,yc,angle
+  real(wp) :: v11,v12,v13,v21,v22,v23,v31,v32,v33
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "thx_pipe_sem_initialization"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  npts = prof%npts
+  !
+  ! Precompute Rgas/(gamma-1)
+  !
+  rgas_over_gm1 = rgasref_nd / (gam - one)
+  !
+  do k = 1,size(xyz,dim=2)
+    !
+    xp = xyz(1,k)/grid_scaling_factor
+    yp = xyz(2,k)/grid_scaling_factor
+    zp = xyz(3,k)/grid_scaling_factor
+    !
+    ! Get the turn angle of the pipe
+    !
+    angle = thx_pipe_turn_angle(xp,yp)
+    !
+    ! Get the x and y coordinates of the point on the pipe centerline
+    ! that is perpendicular the current solution point
+    !
+    yc = thx_pipe_centerline_y(angle,xp,yp)
+    xc = thx_pipe_centerline_x(angle,yc,xp)
+    !
+    ! Get the distance from the current solution point to the centerline point
+    ! NOTE: If (angle <= zero), then (xp = xc), so explicitly set dx to zero
+    !
+    dx = merge( xc - xp , zero , angle > zero )
+    dy = yc - yp
+    dz = -zp     ! NOTE: zc = 0
+    dl = sqrt( dx*dx + dy*dy + dz*dz )
+    !
+    ! Get the inward facing unit normal at the nearest wall point
+    !
+    unx = dx/dl
+    uny = dy/dl
+    unz = dz/dl
+    !
+    ! Get the wall distance
+    ! NOTE: This is just [the radius of the pipe (0.25 in)] - [dl]
+    ! NOTE: Need to use grid scaling factor to convert to meters
+    !
+    y = (one4 - dl)*grid_scaling_factor
+    !
+    ! Create the coefficients for the vector transformation
+    !
+    cn = sqrt(uny*uny + unz*unz)
+    cni = one/cn
+    !
+    v11 = cn           ; v12 = unx ; v13 =  zero
+    v21 = -unx*uny*cni ; v22 = uny ; v23 = -unz*cni
+    v31 = -unx*unz*cni ; v32 = unz ; v33 =  uny*cni
+    !
+    n1 = 1
+    n2 = 2
+    do n = 2,npts
+      if (prof%y(n) > y) exit
+      n1 = n
+      n2 = max(n+1,npts)
+    end do
+    !
+    if (n1 == npts) then
+      !
+     !r  = pvavg(nec)
+     !uu = pvavg(nmx)
+     !vv = pvavg(nmy)
+     !ww = pvavg(nmz)
+     !t  = pvavg(nee)
+      r  = prof%ravg(npts)
+      uu = prof%uavg(npts)
+      vv = prof%vavg(npts)
+      ww = prof%wavg(npts)
+      t  = prof%tavg(npts)
+      !
+    else
+      !
+      y1 = prof%y(n1)
+      y2 = prof%y(n2)
+      !
+      c1 = (y-y2)/(y2-y1)
+      c2 = (y-y1)/(y2-y1)
+      !
+      r  = c2*prof%ravg(n2) - c1*prof%ravg(n1)
+      uu = c2*prof%uavg(n2) - c1*prof%uavg(n1)
+      vv = c2*prof%vavg(n2) - c1*prof%vavg(n1)
+      ww = c2*prof%wavg(n2) - c1*prof%wavg(n1)
+      t  = c2*prof%tavg(n2) - c1*prof%tavg(n1)
+      !
+    end if
+    !
+    ! Transform the SEM velocity vector to align it with the
+    ! new coodinate system defined by the wall unit normal
+    !
+#define USE_SIMPLE_ROTATION_FOR_THX_PIPE
+#ifdef USE_SIMPLE_ROTATION_FOR_THX_PIPE
+    if (angle > zero) then
+      q = sqrt(uu*uu + vv*vv + ww*ww)
+      if (angle >= 30.0_wp) then
+        u = q*half*sqrt(three) ! q*cos(30)
+        v = q*half             ! q*sin(30)
+      else
+        u = q*cos(angle*degrees2radians)
+        v = q*sin(angle*degrees2radians)
+      end if
+      w = zero
+    else
+      u = uu
+      v = vv
+      w = ww
+    end if
+#else
+    if (angle >= 30.0_wp) then
+      q = sqrt(uu*uu + vv*vv + ww*ww)
+      u = q*sqrt(three)*half
+      v = half*q
+      w = zero
+    else
+      u = uu*v11 + vv*v12 + ww*v13
+      v = uu*v21 + vv*v22 + ww*v23
+      w = uu*v31 + vv*v32 + ww*v33
+    end if
+#endif
+    !
+    q2 = u*u + v*v + w*w
+    !
+    cv(k,nec) = r
+    cv(k,nmx) = r*u
+    cv(k,nmy) = r*v
+    cv(k,nmz) = r*w
+    cv(k,nee) = r*( rgas_over_gm1*t + half*q2 )
+    !
+!#define DEBUG_THX_PIPE_INIT
+#ifdef DEBUG_THX_PIPE_INIT
+    if (sqrt(q2)*aref > 215.0_wp) then
+      write (10000+mypnum,1) k,xp,yp,zp, &
+                             angle,xc,yc, &
+                             unx,uny,unz, &
+                             dl,y,y/grid_scaling_factor
+      write (20000+mypnum,2) k,cn,cni, &
+                             v11,v12,v13, &
+                             v21,v22,v23, &
+                             v31,v32,v33
+      write (30000+mypnum,3) k, &
+                             uu*aref, &
+                             vv*aref, &
+                             ww*aref, &
+                             r*rhoref, &
+                             u*aref, &
+                             v*aref, &
+                             w*aref, &
+                             t*tref, &
+                             sqrt(q2)*aref
+    end if
+    1 format (i8," : ",3(1x,f11.6), &
+                    4x,f9.3,2(1x,f9.5), &
+                    3x,3(1x,f9.5), &
+                    4x,f9.5,1x,f9.5,2x,f11.7)
+    2 format (i8," : ",f11.6,1x,f15.6, &
+                    3(3x,3(1x,f15.6)))
+    3 format (i8," : ",3(1x,f15.6), &
+                      4x,6f15.6)
+#endif
+   !
+  end do
+  !
+#ifdef DEBUG_THX_PIPE_INIT
+  flush (10000+mypnum)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  error_message = "After dumping THX pipe SEM initialization"
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+#endif
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine thx_pipe_sem_initialization
+!
+!###############################################################################
+!
 pure &
 function thx_pipe_turn_angle(x,y) result(return_value)
   !
