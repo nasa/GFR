@@ -1216,9 +1216,9 @@ continue
     prof( 2,n) = y_vals(n) / half_height                ! y/b
     prof( 3,n) = u(n) / u_cl                            ! u/u_cl
     prof( 4,n) = u(n) / u_tau                           ! u+
-    prof( 5,n) = sqrt(uu(n) - u(n)*u(n)) / u_tau        ! u'/u_tau
-    prof( 6,n) = sqrt(vv(n) - v(n)*v(n)) / u_tau        ! v'/u_tau
-    prof( 7,n) = sqrt(ww(n) - w(n)*w(n)) / u_tau        ! w'/u_tau
+    prof( 5,n) = sqrt(max(zero,uu(n) - u(n)*u(n))) / u_tau        ! u'/u_tau
+    prof( 6,n) = sqrt(max(zero,vv(n) - v(n)*v(n))) / u_tau        ! v'/u_tau
+    prof( 7,n) = sqrt(max(zero,ww(n) - w(n)*w(n))) / u_tau        ! w'/u_tau
     prof( 8,n) = (uv(n) - u(n)*v(n)) / (u_tau*u_tau)    ! u'v'/(u_tau**2)
     prof( 9,n) = (uu(n) - u(n)*u(n))*aref*aref          ! tauxx
     prof(10,n) = (vv(n) - v(n)*v(n))*aref*aref          ! tauyy
