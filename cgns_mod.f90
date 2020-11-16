@@ -1191,6 +1191,78 @@ end subroutine read_cgns_bc
 !
 !###############################################################################
 !
+subroutine read_cgns_family(f)
+  !
+  !.. Formal Arguments ..
+  type(cg_family_t), intent(inout) :: f
+  !
+  !.. Local Scalars ..
+  integer      :: ierr
+  integer(CBT) :: ndescriptors
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_cgns_family"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Read the information for the current family
+  !
+  call cg_family_read_f(if_g,ib_g,ifam_g,f%name,f%nfambc,f%ngeo,cgierr)
+  call cgns_error(pname,gridfile,"cg_family_read_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
+  !
+  ! Read the boundary condition type for this family
+  !
+  if (f%nfambc /= 0_CBT) then
+    call cg_fambc_read_f(if_g,ib_g,ifam_g,1_CBT, &
+                         f%fambc%name,f%fambc%bc_type,cgierr)
+    call cgns_error(pname,gridfile,"cg_fambc_read_f",cgierr, &
+                    __LINE__,__FILE__,not_parallel=true)
+  else
+    f%fambc%name = "Not Specified"
+    f%fambc%bc_type = BCTypeNull
+  end if
+  !
+  ! Manually move to the end of the current family node
+  ! so that we can read any descriptors that might exist.
+  !
+  call cg_goto_f(if_g,ib_g,cgierr, &
+                 "Family_t",ifam_g, &
+                 CGNS_GOTO_END)
+  call cgns_error(pname,gridfile,"cg_goto_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
+  !
+  ! Get the number of descriptor nodes under this family
+  !
+  call cg_ndescriptors_f(ndescriptors,cgierr)
+  call cgns_error(pname,gridfile,"cg_ndescriptors_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
+  !
+  ! Allocate the descriptor component for the current family
+  !
+  allocate ( f%descriptor(1:ndescriptors) , stat=ierr , errmsg=error_message )
+  array_name = get_array_name(n1=ifam_g,c2="descriptor",not_a_zone="family")
+  call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Read the descriptors for the current family
+  !
+  do id_g = 1,size(f%descriptor)
+    if (debug_cgns) write (iout,1) mypnum,"reading CGNS descriptor node #",id_g
+    call read_cgns_descriptor( f%descriptor(id_g) )
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (" CPU #",i0,": ",a,:,i0)
+  !
+end subroutine read_cgns_family
+!
+!###############################################################################
+!
 subroutine read_cgns_descriptor(d)
   !
   !.. Formal Arguments ..
