@@ -20,10 +20,10 @@ subroutine check_for_bad_number(line_num,file_name)
   character(len=200) :: divide_by_zero_fmt
   character(len=200) :: invalid_fmt
   !
-  character(len=1600) :: overflow_error
-  character(len=1600) :: divide_by_zero_error
-  character(len=1600) :: invalid_error
-  character(len=9999) :: output_message
+  character(len=:), allocatable :: overflow_error
+  character(len=:), allocatable :: divide_by_zero_error
+  character(len=:), allocatable :: invalid_error
+  character(len=:), allocatable :: output_message
   !
   !.. Local Arrays ..
   integer      :: bad_number_found(1:size(ieee_usual))
@@ -39,9 +39,10 @@ subroutine check_for_bad_number(line_num,file_name)
 continue
 #ifndef DISABLE_CHECK_FOR_BAD_NUMBER
   !
-  overflow_error = ""
-  divide_by_zero_error = ""
-  invalid_error = ""
+  overflow_error = repeat(" ",100000)       ! F2003 AUTO-REALLOC
+  divide_by_zero_error = repeat(" ",100000) ! F2003 AUTO-REALLOC
+  invalid_error = repeat(" ",100000)        ! F2003 AUTO-REALLOC
+  output_message = repeat(" ",400000)       ! F2003 AUTO-REALLOC
   !
   ! First check to make sure that no floating-point exceptions are signaling
   !
