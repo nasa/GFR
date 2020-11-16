@@ -969,13 +969,20 @@ subroutine read_cgns_section(s)
   !
   !.. Local Scalars ..
   integer      :: ierr
-  integer(CST) :: np,nelem,element_data_size
+  integer(CST) :: l,nsplit,ibeg,iend,ncell,jbeg,jend
+  integer(CST) :: np,nelem,element_data_size,partial_size
+  !
+  !.. Local Allocatable Arrays ..
+  integer(CST), allocatable :: partial(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_cgns_section"
   !
  !logical(lk), parameter :: read_parent_data = true
   logical(lk), parameter :: read_parent_data = fals
+  !
+  integer(CST), parameter :: nmax_pts = 200000000_CST
+  integer(CST), parameter :: nmax_cell = 1000000_CST
   !
 continue
   !
@@ -996,7 +1003,7 @@ continue
   !
   np = element_data_size
   !
-  allocate ( s%elements(1:np) , stat=ierr , errmsg=error_message )
+  allocate ( s%elements(1:np) , source=-1_CST, stat=ierr , errmsg=error_message )
   array_name = get_array_name("section",is_g,"elements")
   call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
   !
@@ -1015,11 +1022,55 @@ continue
     !
   else
     !
-    call cg_elements_read_f(if_g,ib_g,iz_g,is_g,s%elements,c_null_ptr,cgierr)
-    call cgns_error(pname,gridfile,"cg_elements_read_f",cgierr, &
-                    __LINE__,__FILE__,not_parallel=true)
+    if (np > nmax_pts) then
+      nelem = s%end - s%start + 1_CST
+      nsplit = nelem/nmax_cell + 1_CST
+      iend = 0_CST
+      jend = 0_CST
+      do l = 1_CST,nsplit
+        !
+        ibeg = iend + 1_CST
+        iend = min( iend+nmax_cell , nelem )
+        !
+        call cg_elementpartialsize_f(if_g,ib_g,iz_g,is_g,ibeg,iend, &
+                                     partial_size,cgierr)
+        call cgns_error(pname,gridfile,"cg_elementpartialsize_f",cgierr, &
+                        __LINE__,__FILE__,not_parallel=true)
+        !
+        jbeg = jend + 1_CST
+        jend = jend + partial_size
+        !
+#ifdef DEBUG_ON
+        write (iout,4) l,ibeg,iend,jbeg,jend
+#endif
+        !
+        call cg_elements_partial_read_f(if_g,ib_g,iz_g,is_g,ibeg,iend, &
+                                        s%elements(jbeg:jend),c_null_ptr,cgierr)
+        call cgns_error(pname,gridfile,"cg_elements_partial_read_f",cgierr, &
+                        __LINE__,__FILE__,not_parallel=true)
+        !
+      end do
+    else
+      !
+      call cg_elements_read_f(if_g,ib_g,iz_g,is_g,s%elements,c_null_ptr,cgierr)
+      call cgns_error(pname,gridfile,"cg_elements_read_f",cgierr, &
+                      __LINE__,__FILE__,not_parallel=true)
+      !
+    end if
     !
   end if
+  !
+#ifdef DEBUG_ON
+  write (iout,1) is_g,size(s%elements),minval(s%elements),maxval(s%elements)
+  1 format ("section # ",i0," : size(s%elements) = ",i0, &
+            ", minval = ",i0,", maxval = ",i0)
+  write (iout,2) count(s%elements(:) == -1_CST)
+  write (iout,3) count(s%elements(:) == 0_CST)
+  2 format ("count(s%elements(:) == -1) = ",i0)
+  3 format ("count(s%elements(:) == 0) = ",i0)
+  4 format ("partial read # ",i0," : ibeg = ",i0,", iend = ",i0, &
+                                  ", jbeg = ",i0,", jend = ",i0)
+#endif
   !
   call debug_timer(leaving_procedure,pname)
   !
