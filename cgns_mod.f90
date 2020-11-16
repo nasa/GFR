@@ -2697,6 +2697,92 @@ end function substitute
 !
 !###############################################################################
 !
+pure &
+subroutine char_diff(iname,jname,idiff,jdiff)
+  !
+  !.. Formal Arguments ..
+  character(len=*),  intent(in) :: iname
+  character(len=*),  intent(in) :: jname
+  character(len=*), intent(out) :: idiff
+  character(len=*), intent(out) :: jdiff
+  !
+  !.. Local Scalars ..
+  integer :: i,j
+  !
+  character(len=1) :: ic,jc
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: itext,itmp
+  character(len=:), allocatable :: jtext,jtmp
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "char_diff"
+  !
+continue
+  !
+  idiff = "not-a-match-i"
+  jdiff = "not-a-match-j"
+  !
+  itext = uppercase( trim(adjustl(iname)) ) ! F2003 AUTO-REALLOC
+  jtext = uppercase( trim(adjustl(jname)) ) ! F2003 AUTO-REALLOC
+  !
+  ! Reduce the string "LEFT" to "L" if it exists
+  !
+  itext = substitute(itext,"LEFT","L") ! F2003 AUTO-REALLOC
+  jtext = substitute(jtext,"LEFT","L") ! F2003 AUTO-REALLOC
+  !
+  ! Reduce the string "RIGHT" to "R" if it exists
+  !
+  itext = substitute(itext,"RIGHT","R") ! F2003 AUTO-REALLOC
+  jtext = substitute(jtext,"RIGHT","R") ! F2003 AUTO-REALLOC
+  !
+  ! These will never be a match if the lengths of itext
+  ! and jtext arent the same, so just return now
+  !
+  if (len(itext) /= len(jtext)) return
+  !
+  ! The loops below do the following:
+  !   1. Find any instances of "R" or "L" in itext
+  !   2. Get the string resulting from removing a given instance
+  !   3. Find any instances of the opposite character value in jtext
+  !   4. Get the string resulting from removing the opposite instance from jtext
+  !   5. Compare the two resulting strings to see if they match
+  !   6. If they match, set idiff and jdiff to their respective character values
+  !      and exit the subroutine, otherwise continue the loops.
+  !
+  i_search_loop: &
+  do i = 1,len(itext)
+    !
+    if (itext(i:i) == "L") then
+      ic = "L"
+      jc = "R"
+    else if (itext(i:i) == "R") then
+      ic = "R"
+      jc = "L"
+    else
+      cycle i_search_loop
+    end if
+    !
+    itmp = itext(:i-1) // itext(i+1:) ! F2003 AUTO-REALLOC
+    !
+    j_search_loop: &
+    do j = 1,len(jtext)
+      if (jtext(j:j) == jc) then
+        jtmp = jtext(:j-1) // jtext(j+1:) ! F2003 AUTO-REALLOC
+        if (itmp == jtmp) then
+          idiff = ic
+          jdiff = jc
+          exit i_search_loop
+        end if
+      end if
+    end do j_search_loop
+    !
+  end do i_search_loop
+  !
+end subroutine char_diff
+!
+!###############################################################################
+!
 subroutine root_broadcasts_grid_dt()
   !
   !.. Use Statements ..
