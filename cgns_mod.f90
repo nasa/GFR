@@ -1191,6 +1191,47 @@ end subroutine read_cgns_bc
 !
 !###############################################################################
 !
+subroutine read_cgns_descriptor(d)
+  !
+  !.. Formal Arguments ..
+  type(cg_descriptor_t), intent(inout) :: d
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_cgns_descriptor"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Get the size for the current descriptor
+  !
+  call cg_descriptor_size_f(id_g,d%nsize,cgierr)
+  call cgns_error(pname,gridfile,"cg_descriptor_size_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
+  !
+  ! Allocate the text component for the current descriptor
+  !
+  allocate ( character(len=d%nsize) :: d%text , &
+             stat=ierr , errmsg=error_message )
+  array_name = get_array_name(n1=ifam_g,c2="descriptor",n2=id_g, &
+                              not_a_zone="family")
+  call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Get the name and text for the current descriptor
+  !
+  call cg_descriptor_read_f(id_g,d%name,d%text,cgierr)
+  call cgns_error(pname,gridfile,"cg_descriptor_read_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_cgns_descriptor
+!
+!###############################################################################
+!
 pure function get_array_name(c1,n1,c2,n2,c3,not_a_zone) result(return_value)
   !
   character(len=*), optional, intent(in) :: c1
