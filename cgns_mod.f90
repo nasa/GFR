@@ -226,14 +226,16 @@ module module_cgns
   ! ###  Module Local Variables  ###
   ! ################################
   !
-  integer(CBT), save :: if_g  ! CGNS file index number
-  integer(CBT), save :: ib_g  ! base index number
-  integer(CBT), save :: iz_g  ! zone index number
-  integer(CBT), save :: ig_g  ! grid index number
-  integer(CBT), save :: is_g  ! element section index number
-  integer(CBT), save :: ic_g  ! coordinate array index number
-  integer(CBT), save :: ia_g  ! data array index number
-  integer(CBT), save :: ibc_g ! boundary condition index number
+  integer(CBT), save :: if_g   ! CGNS file index number
+  integer(CBT), save :: ib_g   ! base index number
+  integer(CBT), save :: iz_g   ! zone index number
+  integer(CBT), save :: ig_g   ! grid index number
+  integer(CBT), save :: is_g   ! element section index number
+  integer(CBT), save :: ic_g   ! coordinate array index number
+  integer(CBT), save :: ia_g   ! data array index number
+  integer(CBT), save :: ibc_g  ! boundary condition index number
+  integer(CBT), save :: ifam_g ! family index number
+  integer(CBT), save :: id_g   ! descriptor index number
   !
   character(len=150),  save :: gridfile
   character(len=1000), save :: array_name
