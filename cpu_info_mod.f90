@@ -86,6 +86,8 @@ subroutine get_cpu_locality
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Initialize communication variables
   !
   my_host_comm = MPI_COMM_WORLD
@@ -749,6 +751,8 @@ continue
   call stop_gfr(stop_mpi,pname,__LINE__,__FILE__, &
                   "AFTER DUMPING CPU LOCALITY!!")
 #endif
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_cpu_locality
 !
