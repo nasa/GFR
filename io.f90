@@ -521,6 +521,35 @@ continue
       Resolution_Marker_Variable = Resolution_Marker_Variable + ncs
     end if
   end if
+ !!
+ !if (mypnum == glb_root) then
+ !  psi0 = -one*(marker_c1+marker_c2*log10(real(n_order,kind=wp)))
+ !  write (iout,582) "BEFORE", &
+ !                   Limiter_Marker_c1, &
+ !                   Limiter_Marker_c2, &
+ !                   Limiter_Marker_dpsi, &
+ !                   Limiter_Marker_Min, &
+ !                   Limiter_Marker_Max, &
+ !                   marker_c1, &
+ !                   marker_c2, &
+ !                   marker_dpsi, &
+ !                   psi0, &
+ !                   psi0-marker_dpsi, &
+ !                   psi0+marker_dpsi
+ !end if
+ !flush (iout)
+ !582 format (//,2x,a," modifying marker parameters:",//, &
+ !               4x,"Limiter_Marker_c1   = ",f10.6,/, &
+ !               4x,"Limiter_Marker_c2   = ",f10.6,/, &
+ !               4x,"Limiter_Marker_dpsi = ",f10.6,/, &
+ !               4x,"Limiter_Marker_Min  = ",f10.6,/, &
+ !               4x,"Limiter_Marker_Max  = ",f10.6,//, &
+ !               4x,"        marker_c1   = ",f10.6,/, &
+ !               4x,"        marker_c2   = ",f10.6,/, &
+ !               4x,"        marker_dpsi = ",f10.6,/, &
+ !               4x,"        marker_psi0 = ",f10.6,/, &
+ !               4x,"        marker_min  = ",f10.6,/, &
+ !               4x,"        marker_max  = ",f10.6,//)
   !
   if (Limiter_Marker_c1   > zero) marker_c1   = Limiter_Marker_c1
   if (Limiter_Marker_c2   > zero) marker_c2   = Limiter_Marker_c2
@@ -536,6 +565,13 @@ continue
     !
     marker_dpsi = half*abs(Limiter_Marker_Min-Limiter_Marker_Max)
     !
+    ! Confirmed via Mathematica that the following options:
+    !   1) holding marker_c1 constant and using it plus Limiter_Marker_min
+    !      and marker_dpsi to compute a new marker_c2
+    !   2) holding marker_c2 constant and using it plus Limiter_Marker_min
+    !      and marker_dpsi to compute a new marker_c1
+    ! result in the SAME psi0, which makes them equivalent.
+    !
     if (marker_c1 /= Default_Marker_c1) then
       marker_c2 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c1) / &
                    log10(real(n_order,kind=wp))
@@ -545,6 +581,24 @@ continue
     end if
     !
   end if
+ !!
+ !if (mypnum == glb_root) then
+ !  psi0 = -one*(marker_c1+marker_c2*log10(real(n_order,kind=wp)))
+ !  write (iout,582) " AFTER", &
+ !                   Limiter_Marker_c1, &
+ !                   Limiter_Marker_c2, &
+ !                   Limiter_Marker_dpsi, &
+ !                   Limiter_Marker_Min, &
+ !                   Limiter_Marker_Max, &
+ !                   marker_c1, &
+ !                   marker_c2, &
+ !                   marker_dpsi, &
+ !                   psi0, &
+ !                   psi0-marker_dpsi, &
+ !                   psi0+marker_dpsi
+ !end if
+ !flush (iout)
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"Dumping marker parameters!")
   !
 !!if (mypnum == glb_root) then
 !!  psi0 = -one*(marker_c1 + marker_c2*log10(real(n_order,kind=wp)))
