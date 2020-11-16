@@ -50,6 +50,16 @@ module synthetic_eddy_mod
   !
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !
+  ! COORD_T : Derived-type to store the x,y,z location for an object
+  !
+  type :: coord_t
+    real(wp) :: x = zero
+    real(wp) :: y = zero
+    real(wp) :: z = zero
+  end type coord_t
+  !
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  !
   ! WALL_T : Derived-type to store the location of a
   !          wall point and distance to that point
   !
