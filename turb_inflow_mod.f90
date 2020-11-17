@@ -3345,11 +3345,11 @@ end subroutine collect_sem_fp_coordinates
 !
 !###############################################################################
 !
-subroutine brute_force_wall_distance(xyz_wall,xyz_sem,wall)
+subroutine brute_force_wall_distance(xyz_wall,xyz_pts,wall)
   !
   !.. Formal Arguments ..
   real(wp),                   intent(in) :: xyz_wall(:,:)
-  real(wp),                   intent(in) :: xyz_sem(:,:)
+  real(wp),                   intent(in) :: xyz_pts(:,:)
   type(wall_t), allocatable, intent(out) :: wall(:)
   !
   !.. Local Scalars ..
@@ -3364,21 +3364,21 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   nwp = size(xyz_wall,dim=2)
-  nfp = size(xyz_sem,dim=2)
+  nfp = size(xyz_pts,dim=2)
   !
   allocate ( wall(1:nfp) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"wall",1,__LINE__,__FILE__,ierr,error_message)
   !
   !$OMP PARALLEL DO &
   !$OMP&         DEFAULT(NONE) &
-  !$OMP&         SHARED(nfp,nwp,xyz_sem,xyz_wall,wall) &
+  !$OMP&         SHARED(nfp,nwp,xyz_pts,xyz_wall,wall) &
   !$OMP&         PRIVATE(n,i,xf,yf,zf,dx,dy,dz,dw2,dw2_min)
   !
   do n = 1,nfp
     !
-    xf = xyz_sem(1,n)
-    yf = xyz_sem(2,n)
-    zf = xyz_sem(3,n)
+    xf = xyz_pts(1,n)
+    yf = xyz_pts(2,n)
+    zf = xyz_pts(3,n)
     !
     dw2_min = huge(dw2_min)
     !
