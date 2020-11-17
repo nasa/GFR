@@ -388,9 +388,9 @@ pure function init_array_lk_rank1(size1,val) result(return_value)
   integer, parameter :: lp = lk
   !
   integer,     intent(in) :: size1
-  logical(lk), intent(in) :: val
+  logical(lp), intent(in) :: val
   !
-  logical(lk), allocatable :: return_value(:)
+  logical(lp), allocatable :: return_value(:)
   !
 continue
   return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
@@ -403,9 +403,9 @@ pure function init_array_lk_rank2(size1,size2,val) result(return_value)
   integer, parameter :: lp = lk
   !
   integer,     intent(in) :: size1,size2
-  logical(lk), intent(in) :: val
+  logical(lp), intent(in) :: val
   !
-  logical(lk), allocatable :: return_value(:,:)
+  logical(lp), allocatable :: return_value(:,:)
   !
 continue
   ! F2003 AUTO-REALLOC
@@ -421,9 +421,9 @@ pure function init_array_lk_rank3(size1,size2,size3,val) result(return_value)
   integer, parameter :: lp = lk
   !
   integer,     intent(in) :: size1,size2,size3
-  logical(lk), intent(in) :: val
+  logical(lp), intent(in) :: val
   !
-  logical(lk), allocatable :: return_value(:,:,:)
+  logical(lp), allocatable :: return_value(:,:,:)
   !
 continue
   ! F2003 AUTO-REALLOC
