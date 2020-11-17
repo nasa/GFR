@@ -902,14 +902,14 @@ continue
       !
       ! Compute and output the residual error at the specified interval
       !
-      if ( (mod(iter,iter_out_interval) == 0 .or. this_is_final_timestep) .or. &
-           (mod(itcur,results_interval) == 0 .and. iter/=num_timesteps) ) then
+      if ((mod(itcur,iter_out_interval) == 0 .or. this_is_final_timestep) .or. &
+          (mod(itcur,results_interval) == 0 .and. iter/=num_timesteps)) then
         !
         ! Compute the residual error
         !
         call compute_residual_error
         !
-        if (mod(iter,iter_out_interval) == 0 .or. this_is_final_timestep) then
+        if (mod(itcur,iter_out_interval) == 0 .or. this_is_final_timestep) then
           !
           ! Output the density residual error to stdout
           !
