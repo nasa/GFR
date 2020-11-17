@@ -4632,10 +4632,12 @@ subroutine check_restart_eddies()
   !
   !.. Use Statements ..
   use ovar, only : SEM_eddy_volume_is_spherical
+  use ovar, only : dtrst
   !
   !.. Local Scalars ..
   integer  :: ierr,n,sem_idx,eddy_idx
   real(wp) :: vol_coef,eddy_vol,elx,ely,elz
+  real(wp) :: x_offset
   !
   logical(lk) :: error_found
   !
@@ -4669,10 +4671,14 @@ continue
   loop_over_sem_boxes: &
   do sem_idx = 1,num_sem_boxes
     !
+    x_offset = half*dtrst*sem_box(sem_idx)%convective_velocity
+    !
     ! Get the extents of the current SEM box
     !
-    box_min(1,sem_idx) = sem_box(sem_idx)%boxmin(1) - eps6
-    box_max(1,sem_idx) = sem_box(sem_idx)%boxmax(1) + eps6
+   !box_min(1,sem_idx) = sem_box(sem_idx)%boxmin(1) - eps6
+   !box_max(1,sem_idx) = sem_box(sem_idx)%boxmax(1) + eps6
+    box_min(1,sem_idx) = sem_box(sem_idx)%boxmin(1) - x_offset
+    box_max(1,sem_idx) = sem_box(sem_idx)%boxmax(1) + x_offset
     !
     if (sem_box(sem_idx)%is_cylindrical) then
       !
