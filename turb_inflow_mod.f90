@@ -5811,13 +5811,15 @@ subroutine get_sem_profile_heights()
   use ovar, only : bc_input
   !
   !.. Local Scalars ..
-  integer  :: io,ierr,n,npts,bc_idx
-  real(wp) :: ymax
+  integer  :: i,io,ierr,n,npts,bc_idx,iskip
+  real(wp) :: ymax,vskip
   !
   character(len=100) :: fname
+  character(len=150) :: profile_variables
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: y(:)
+  real(wp),          allocatable :: y(:)
+  character(len=10), allocatable :: var_names(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_sem_profile_heights"
@@ -5845,11 +5847,25 @@ continue
                          position="rewind",iostat=ierr,iomsg=error_message)
         call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
         !
-        ! Skip reading the variable names
-        ! NOTE: This assumes that y/wall-distance is the first variable
-        !       in the profile file.
+        ! Read the name of the profile variables
         !
-        read (io,*)
+        read (io,'(a)') profile_variables
+        !
+        ! Identify the variable names
+        !
+        call identify_profile_variables(profile_variables,var_names)
+        !
+        ! Count the number of variables to skip
+        ! to get to the y/wall-distance variable
+        !
+        iskip = 0
+        find_iskip_loop: &
+        do i = 1,size(var_names)
+          if (uppercase(trim(adjustl(var_names(i)))) == "Y") then
+            exit find_iskip_loop
+          end if
+          iskip = iskip + 1
+        end do find_iskip_loop
         !
         ! Read in the number of data points in this SEM profile
         !
@@ -5862,7 +5878,7 @@ continue
         ! Read the wall distance of each SEM profile data point
         !
         do n = 1,npts
-          read (io,*) y(n)
+          read (io,*) (vskip, i=1,iskip), y(n)
         end do
         !
         ! Close the profile file for this SEM boundary
