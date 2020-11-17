@@ -371,6 +371,29 @@ module synthetic_eddy_mod
   !
   type(sem_pts_t), public, save, allocatable :: my_sem_pts(:)
   !
+  ! XYZ_WALL : Array for storing the coordinates for all boundary
+  !            flux points on physical wall boundaries and the
+  !            interior facing unit normal at each point.
+  !               xyz_wall(1,ifp) : x coordinate for flux point ifp
+  !               xyz_wall(2,ifp) : y coordinate for flux point ifp
+  !               xyz_wall(3,ifp) : z coordinate for flux point ifp
+  !               xyz_wall(4,ifp) : x-component of the interior facing
+  !                                 unit normal at flux point ifp
+  !               xyz_wall(5,ifp) : y-component of the interior facing
+  !                                 unit normal at flux point ifp
+  !               xyz_wall(6,ifp) : z-component of the interior facing
+  !                                 unit normal at flux point ifp
+  !
+ !real(wp), allocatable :: xyz_wall(:,:)
+  !
+  ! XYZ_SEM : Array for storing the coordinates for all boundary flux points
+  !           on SEM inflow boundaries.
+  !               xyz_sem(1,ifp) : x coordinate for flux point ifp
+  !               xyz_sem(2,ifp) : y coordinate for flux point ifp
+  !               xyz_sem(3,ifp) : z coordinate for flux point ifp
+  !
+ !real(wp), allocatable :: xyz_sem(:,:)
+  !
 contains
 !
 !###############################################################################
