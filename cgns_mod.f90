@@ -401,11 +401,6 @@ continue
     !
   end if
   !
-  ! Broadcast the grid derived type to all processors
-  ! but save it on only the root processes of each host
-  !
-  call root_broadcasts_grid_dt
-  !
   ! It should now be safe to deallocate the base derived-type array.
   ! We dont need it wasting a bunch of memory since we are about to
   ! give each MPI process copies of the grid_data, section_data, and
@@ -415,6 +410,12 @@ continue
     deallocate ( base , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"base",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  !
+  ! Broadcast the grid derived type to all processors
+  ! but save it on only the root processes of each host
+  !
+  call root_broadcasts_grid_dt
+  !
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   ! Broadcast the grid arrays to all processors
