@@ -705,7 +705,8 @@ continue
   !
   call gfr_cpu_time(0)
   !
-  main_loop: do iter = 1, num_timesteps
+  main_loop: &
+  do iter = 1, num_timesteps
     !
     ! Current iteration count including restart iterations
     !
@@ -718,7 +719,8 @@ continue
     !
     ! Loop over the Runge-Kutta stages
     !
-    rk_loop: do nst = 1,num_rk_stages
+    rk_loop: &
+    do nst = 1,num_rk_stages
       !
       current_rk_stage = nst
       !
