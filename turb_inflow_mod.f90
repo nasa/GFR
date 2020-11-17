@@ -1241,7 +1241,7 @@ subroutine sem(face_cv,face_gp)
   real(wp) :: x,epx,elx,eix,tfx,ufluc,ufluc2,uavg,vx
   real(wp) :: y,epy,ely,eiy,tfy,vfluc,vfluc2,vavg,vy
   real(wp) :: z,epz,elz,eiz,tfz,wfluc,wfluc2,wavg,vz
-  real(wp) :: st,ct,vr,vt
+  real(wp) :: st,ct,vr,vt,aoa,boa
   real(wp) :: boxmaxx,new_x
   !
   !.. Local Allocatable Arrays ..
@@ -1353,6 +1353,9 @@ continue
     !
     time_scale = sem_box(sem_idx)%length_scale / &
                  sem_box(sem_idx)%convective_velocity
+    !
+    aoa = sem_box(sem_idx)%alpha_aoa * degrees2radians
+    boa = sem_box(sem_idx)%beta_aoa  * degrees2radians
     !
     ! Pre-compute the parts of the normalization constant and
     ! shape/tent function that can be factored out of the summation
