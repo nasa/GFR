@@ -1849,9 +1849,9 @@ subroutine generate_new_eddies(new_eddies,generate_at_xmin,dt)
   !.. Local Scalars ..
   integer  :: n,num_eddies,sem_idx,eddy_idx
   real(wp) :: eddy_vol,x_coef,vol_coef,x_offset
-  real(wp) :: x,eix,elx,boxminx,boxmaxx,box_dx
-  real(wp) :: y,eiy,ely,boxminy,boxmaxy,box_dy
-  real(wp) :: z,eiz,elz,boxminz,boxmaxz,box_dz
+  real(wp) :: x,xc,eix,elx,boxminx,boxmaxx,box_dx
+  real(wp) :: y,yc,eiy,ely,boxminy,boxmaxy,box_dy
+  real(wp) :: z,zc,eiz,elz,boxminz,boxmaxz,box_dz
   real(wp) :: r,t,rmin2,rmax2
   !
   !.. Local Arrays ..
@@ -1878,6 +1878,10 @@ continue
   !
   loop_over_sem_boxes: &
   do sem_idx = 1,num_sem_boxes
+    !
+    xc = sem_box(sem_idx)%center%x
+    yc = sem_box(sem_idx)%center%y
+    zc = sem_box(sem_idx)%center%z
     !
     num_eddies = new_eddies(sem_idx)%num_eddies
     !
@@ -1947,8 +1951,8 @@ continue
         !
         ! Convert r and theta to y and z
         !
-        y = r*cos(t)
-        z = r*sin(t)
+        y = yc + r*cos(t)
+        z = zc + r*sin(t)
         !
       else
         !
@@ -1957,7 +1961,7 @@ continue
         !
         ! Convert y and z to r and theta
         !
-        call yz_to_rt(y,z,r,t)
+        call yz_to_rt(y,z,r,t,yc,zc)
         !
       end if
       !
