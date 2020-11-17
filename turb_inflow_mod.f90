@@ -6685,7 +6685,10 @@ continue
         !
         this_ave(18,i) = all_ave_data(43,n0+n)
         !
-        call yz_to_rt(y,z,r,t)
+        call yz_to_rt(y,z,r,t, &
+                      yc=sem_box(sem_idx)%center%y, &
+                      zc=sem_box(sem_idx)%center%z, &
+                      return_degrees=true)
         this_ave(19,i) = r
         this_ave(20,i) = t
         !
@@ -6779,7 +6782,10 @@ continue
         !
         this_ave(18,i) = all_ave_data(43,n0+n)
         !
-        call yz_to_rt(y,z,r,t)
+        call yz_to_rt(y,z,r,t, &
+                      yc=sem_box(sem_idx)%center%y, &
+                      zc=sem_box(sem_idx)%center%z, &
+                      return_degrees=true)
         this_ave(19,i) = r
         this_ave(20,i) = t
         !
@@ -6893,7 +6899,10 @@ continue
         !
         this_ave(18,i) = all_ave_data(43,n0+n)
         !
-        call yz_to_rt(y,z,r,t)
+        call yz_to_rt(y,z,r,t, &
+                      yc=sem_box(sem_idx)%center%y, &
+                      zc=sem_box(sem_idx)%center%z, &
+                      return_degrees=true)
         this_ave(19,i) = r
         this_ave(20,i) = t
         !
