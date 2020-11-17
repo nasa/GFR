@@ -1044,13 +1044,26 @@ continue
             !
             if (request_stop) then
               !
-              write (iout,99)
-              !
               ! We dont care about the exit status here since we are
               ! going to be stopping execution after this anyways
               !
               open (newunit=i,file="STOP_GFR",iostat=ierr)
+              !
+              read (i,*,iostat=ierr) final_timestep_from_stop_request
+              !
+              if (ierr /= 0) then
+                final_timestep_from_stop_request = 1
+              else if (final_timestep_from_stop_request <= 0) then
+                final_timestep_from_stop_request = 1
+              end if
+              !
               close (i,status="delete",iostat=ierr)
+              !
+              if (final_timestep_from_stop_request <= itcur) then
+                write (iout,99)
+              else
+                write (iout,199) final_timestep_from_stop_request
+              end if
               !
             end if
             !
@@ -1184,6 +1197,10 @@ continue
                                 merge(1,0,request_time_ave), &
                                 merge(1,0,request_reactions)]
             !
+            if (request_stop) then
+              request_array(1) = final_timestep_from_stop_request
+            end if
+            !
           end if
           !
           ! Have the root processor broadcast all the request logicals to
@@ -1191,6 +1208,8 @@ continue
           !
           call mpi_bcast(request_array,size(request_array,kind=int_mpi), &
                          mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+          !
+          final_timestep_from_stop_request = request_array(1)
           !
           request_stop             = (request_array(1) /= 0)
           request_restart          = (request_array(2) /= 0)
@@ -1202,7 +1221,9 @@ continue
           !
           ! Exit if the STOP_GFR file was found
           !
-          if (request_stop) exit main_loop
+          if (request_stop) then
+            if (final_timestep_from_stop_request <= itcur) exit main_loop
+          end if
           !
           ! If a restart dump was requested, write a restart file
           !
@@ -1497,6 +1518,12 @@ continue
                " FOUND FILE REQUESTING TO STOP THE EXECUTION OF GFR! ",/, &
                "   STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
                "*******************************************************",/)
+  !
+  199 format (/,"*******************************************************",/, &
+                "  FOUND FILE REQUESTING TO STOP THE EXECUTION OF GFR!",/, &
+                "  STOPPING EXECUTION AND DUMPING THE FINAL RESULTS",/, &
+                "  AFTER ITERATION # ",i0," !",/, &
+                "*******************************************************",/)
   !
   201 format (/,"INTERPOLATING SOLUTION TO NEW GRID.")
   202 format (/,"INTERPOLATION COMPLETE.")
