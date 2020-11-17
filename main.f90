@@ -705,6 +705,9 @@ continue
   !
   call gfr_cpu_time(0)
   !
+  restart_loop: &
+  do
+  !
   main_loop: &
   do iter = 1, num_timesteps
     !
@@ -1316,6 +1319,10 @@ continue
     request_solution = .false.
     !
   end do main_loop
+  !
+  exit restart_loop
+  !
+  end do restart_loop
   !
 #ifdef PAUSE_BETWEEN_ITERATIONS
   if (mypnum == glb_root) then
