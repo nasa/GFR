@@ -989,12 +989,12 @@ continue
       !    2. Check for a file requesting a premature stop
       !
 #ifdef DEBUG_ON
-      if (mod(iter,1) == 0) then
+      if (mod(itcur,1) == 0) then
 #else
 #ifdef PBS_ENV
-      if (mod(iter,1000) == 0) then
+      if (mod(itcur,1000) == 0) then
 #else
-      if (mod(iter,50) == 0) then
+      if (mod(itcur,50) == 0) then
 #endif
 #endif
         !
