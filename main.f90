@@ -738,8 +738,8 @@ continue
           end if
         end if
         !
-        call interp_cv_to_flxpts(iter,nst)  
-                                           ! call check_for_bad_number(__LINE__)
+        call interp_cv_to_flxpts(iter,nst)
+                                          !  call check_for_bad_number(__LINE__)
         !
         if (ncpu > 1) then
           call exchange_faceusp           !; call check_for_bad_number(__LINE__)
@@ -768,13 +768,13 @@ continue
         if (governing_equations == NavierStokes_Eqns) then
           if (visc_flux_method == visc_flux_BR2) then
            !call correct_gradients_br2
-            call correct_gradients_br2_gpu  
-                                           ! call check_for_bad_number(__LINE__)
+            call correct_gradients_br2_gpu
+                                          !  call check_for_bad_number(__LINE__)
           else
             call correct_gradients_at_solpts_gpu
                                           !  call check_for_bad_number(__LINE__)
-           !call correct_gradients_at_solpts 
-                                           ! call check_for_bad_number(__LINE__)
+           !call correct_gradients_at_solpts
+                                          !  call check_for_bad_number(__LINE__)
             call interp_dusp_to_flxpts    !; call check_for_bad_number(__LINE__)
           end if
           if (ncpu > 1) then
