@@ -235,7 +235,6 @@ continue
   call ieee_get_status(default_ieee_status)
 #endif
   !
-  call check_for_bad_number(__LINE__)
   request_restart = .false.
   request_solution = .false.
   request_time_ave = .false.
