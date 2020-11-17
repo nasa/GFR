@@ -6294,6 +6294,8 @@ subroutine output_sem_averages(output_inflow_profile)
   !.. Local Scalars ..
   integer :: i,ierr,n,nvar,num_fp,num_total_sem_pts,sem_idx
   !
+  logical(lk) :: output_interpolated_inflow_profile
+  !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: num_sem_pts(:,:)
   integer,  allocatable :: num_box_sem_pts(:)
@@ -6312,6 +6314,12 @@ continue
   if (.not. allocated(sem_avg)) return
   !
   call debug_timer(entering_procedure,pname)
+  !
+  output_interpolated_inflow_profile = fals
+  if (present(output_inflow_profile)) then
+    output_interpolated_inflow_profile = output_inflow_profile
+  end if
+
   !
   ! Have each MPI process count the number of SEM face points it has
   ! in each SEM box and save that to its location within num_sem_pts.
@@ -6425,14 +6433,22 @@ continue
   ! Have all MPI processes collect all their SEM averaged values into
   ! a local array.
   !
-  nvar = 43
+  if (output_interpolated_inflow_profile) then
+    nvar = 24
+  else
+    nvar = 43
 #ifdef ENABLE_OUTPUT_TIME_HISTORY
-  nvar = nvar + 6
+    nvar = nvar + 6
 #endif
+  end if
   !
   my_ave_data = init_array(nvar,num_my_sem_pts(mypnum+1),zero) ! F03 AUTO-REALOC
   !
-  call copy_my_sem_ave_data(my_ave_data)
+  if (output_interpolated_inflow_profile) then
+    call copy_my_sem_fp_profiles(my_prof_data=my_ave_data)
+  else
+    call copy_my_sem_ave_data(my_ave_data)
+  end if
   !
   ! Gather all the SEM averaged values on global root process
   !
@@ -6477,7 +6493,11 @@ continue
   !
   if (mypnum == glb_root) then
     !
-    call write_sem_ave_data(num_sem_pts,all_ave_data)
+    if (output_interpolated_inflow_profile) then
+      call write_sem_profile_data(num_sem_pts,all_prof_data=all_ave_data)
+    else
+      call write_sem_ave_data(num_sem_pts,all_ave_data)
+    end if
     !
   end if
   !
