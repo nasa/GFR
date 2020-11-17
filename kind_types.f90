@@ -892,6 +892,7 @@ module module_kind_types
   private :: init_array_r8_rank1,init_array_r8_rank2,init_array_r8_rank3
   private :: init_array_r16_rank1,init_array_r16_rank2,init_array_r16_rank3
   private :: init_array_lk_rank1,init_array_lk_rank2,init_array_lk_rank3
+  private :: init_array_l4_rank1,init_array_l4_rank2,init_array_l4_rank3
   !
   interface init_array
     module procedure &
@@ -901,7 +902,8 @@ module module_kind_types
                 init_array_i8_rank1, init_array_i8_rank2, init_array_i8_rank3, &
                 init_array_r4_rank1, init_array_r4_rank2, init_array_r4_rank3, &
                 init_array_r8_rank1, init_array_r8_rank2, init_array_r8_rank3, &
-                init_array_lk_rank1, init_array_lk_rank2, init_array_lk_rank3
+                init_array_lk_rank1, init_array_lk_rank2, init_array_lk_rank3, &
+                init_array_l4_rank1, init_array_l4_rank2, init_array_l4_rank3
 #ifndef DISABLE_QP
     module procedure &
                 init_array_r16_rank1, init_array_r16_rank2, init_array_r16_rank3
