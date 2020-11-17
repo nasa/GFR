@@ -513,7 +513,7 @@ continue
   end if
   !
   if (loc_solution_pts /= loc_flux_pts) then
-    if (mypnum == 0) write (iout,101)
+    if (mypnum == glb_root) write (iout,101)
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
@@ -774,7 +774,7 @@ continue
       Period_Timesteps_Y = nint(Period_Time_Y/constant_dt)
       Period_Timesteps = Period_Timesteps_Y
       !
-     !if (mypnum == 0) then
+     !if (mypnum == glb_root) then
      !  write (*,*) Period_Time_Y,Period_Timesteps_Y,Period_Timesteps
      !end if
       !
@@ -787,7 +787,7 @@ continue
       Period_Timesteps_X = nint(Period_Time_X/constant_dt)
       Period_Timesteps = Period_Timesteps_X
       !
-     !if (mypnum == 0) then
+     !if (mypnum == glb_root) then
      !  write (*,*) Period_Time_Y,Period_Timesteps_Y,Period_Timesteps
      !end if
       !
@@ -807,7 +807,7 @@ continue
                                 min(Period_Timesteps_X,Period_Timesteps_Y) )
       end if
       !
-     !if (mypnum == 0) then
+     !if (mypnum == glb_root) then
      !write (*,*) Period_Time_X,Period_Time_Y
      !write (*,*) Period_Timesteps_X,Period_Timesteps_Y
      !write (*,*) Period_Timesteps
@@ -827,10 +827,10 @@ continue
       real_Total_Periods = Final_Time*reciprocal(Period_Time)
       Total_Periods = nint(real_Total_Periods)
       if (abs(real_Total_Periods-real(Total_Periods,kind=wp)) > ten*eps6) then
-        if (mypnum == 0) write (iout,103) real_Total_Periods
+        if (mypnum == glb_root) write (iout,103) real_Total_Periods
       end if
     end if
-   !if (mypnum == 0) write (*,*) Period_Time,Total_Periods,Final_Time
+   !if (mypnum == glb_root) write (*,*) Period_Time,Total_Periods,Final_Time
     !
     num_timesteps = nint( Final_Time / constant_dt )
     !
@@ -1090,7 +1090,7 @@ continue
   !
   call allocate_namelist_variables
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     open (newunit=ionml,file=output_fname,status="new",action="write", &
                         delim='apostrophe', &
                         position="rewind",iostat=ierr,iomsg=error_message)
@@ -1204,7 +1204,7 @@ continue
   !
   if (stripe_num == 0) then
     !
-    if (mypnum == 0) write (iout,1)
+    if (mypnum == glb_root) write (iout,1)
     lustre_stripe_size = "0"
     !
   else
@@ -1224,7 +1224,7 @@ continue
   end if
   !
 #ifdef PBS_ENV
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     write (iout,3) lustre_stripe_count, &
                    trim(adjustl(lustre_stripe_size))
   end if
@@ -1282,7 +1282,7 @@ continue
   ! to minimize contention and prevent each MPI process from
   ! executing the same command.
   !
-  root_proc_only: if (mypnum == 0) then
+  root_proc_only: if (mypnum == glb_root) then
     !
     one_pass: do ii = 1,1
       !
@@ -1404,7 +1404,7 @@ continue
   if (test_dir(1:7) == "BAD_DIR") then
     !
     output_dir = test_dir(8:clen)
-    if (mypnum == 0) write (iout,1) trim(adjustl(output_dir))
+    if (mypnum == glb_root) write (iout,1) trim(adjustl(output_dir))
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
     !
   else
@@ -1415,7 +1415,7 @@ continue
     ! in the input file
     !
     if (dump_fluxes) then
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         !
         command = "mkdir -p "//trim(output_dir)//"flux_files"
         !
@@ -1489,7 +1489,7 @@ continue
   ! to minimize contention and prevent each MPI process from
   ! executing the same command.
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     !
     open (newunit=iodir,file=trim(test_file),status="replace", &
                         action="write",iostat=ierr)
@@ -2706,7 +2706,7 @@ continue
   !
   ! Create the bface array
   !
-  only_root_creates_bface: if (mypnum == 0) then
+  only_root_creates_bface: if (mypnum == glb_root) then
     !
     nf_max = 0
     !
@@ -3877,7 +3877,7 @@ continue
   ! RANDOMIZATION INVOLVED. WE WILL BROADCAST THE RESULTS TO ALL THE OTHER
   ! PROCESSORS AFTERWARDS SO THAT ALL PROCESSORS HAVE THE SAME GRID DATA.
   !
-  only_root_creates_grid: if (mypnum == 0) then
+  only_root_creates_grid: if (mypnum == glb_root) then
     !
     ! #######
     ! #######
