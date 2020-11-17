@@ -3491,7 +3491,10 @@ continue
   y = this%wall%distance
   !
 #ifdef EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
-  call yz_to_rt(this%y,this%z,radius,theta)
+  call yz_to_rt(this%y,this%z,radius,theta, &
+                yc=sem_box(sem_idx)%center%y, &
+                zc=sem_box(sem_idx)%center%z, &
+                return_degrees=true)
   !
   io = 0
   if (sem_idx == 1) then
