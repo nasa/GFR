@@ -222,7 +222,18 @@ program GFR_main
   !
   integer :: final_timestep_from_stop_request
   !
+#ifndef SPECIAL_FOR_GCC
+  type(ieee_status_type) :: default_ieee_status
+#endif
+  !
 continue
+  !
+#ifndef SPECIAL_FOR_GCC
+  !
+  ! Save the default IEEE floating point status
+  !
+  call ieee_get_status(default_ieee_status)
+#endif
   !
   call check_for_bad_number(__LINE__)
   request_restart = .false.
@@ -685,6 +696,9 @@ continue
   else
     call write_parallel_cgns(open_CGNS)
   end if
+  ! Reset the IEEE floating point status to the default values
+  call ieee_set_status(default_ieee_status)
+  !
   if (convert_restart_to_cgns) then
     if (.not. continuous_output) then
       call write_parallel_cgns(close_CGNS)
@@ -1145,6 +1159,8 @@ continue
             else
               call write_parallel_cgns(dump_CGNS)
             end if
+            ! Reset the IEEE floating point status to the default values
+            call ieee_set_status(default_ieee_status)
             CGNS_action = reopen_CGNS
           end if
           !
@@ -1221,6 +1237,8 @@ continue
           else
             call write_parallel_cgns(CGNS_action)
           end if
+          ! Reset the IEEE floating point status to the default values
+          call ieee_set_status(default_ieee_status)
         end if
         !
       end if
@@ -1239,6 +1257,8 @@ continue
           else
             call write_parallel_cgns(CGNS_action)
           end if
+          ! Reset the IEEE floating point status to the default values
+          call ieee_set_status(default_ieee_status)
           write_TaylorGreen_full_solution = fals
         end if
       end if
@@ -1311,6 +1331,8 @@ continue
   else
     call write_parallel_cgns(close_CGNS)
   end if
+  ! Reset the IEEE floating point status to the default values
+  call ieee_set_status(default_ieee_status)
   !
   call output_sem_averages()
   !
