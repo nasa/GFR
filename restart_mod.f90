@@ -1172,12 +1172,16 @@ continue
       sem_box(sem_idx)%eddy(n)%x = x
       sem_box(sem_idx)%eddy(n)%y = y
       sem_box(sem_idx)%eddy(n)%z = z
-      sem_box(sem_idx)%eddy(n)%r = hypot(y,z)
-      if (all([y,z] == zero)) then
-        sem_box(sem_idx)%eddy(n)%t = zero
-      else
-        sem_box(sem_idx)%eddy(n)%t = atan2(z,y)
-      end if
+     !
+     ! The polar components r and t are now computed in subroutine
+     ! get_polar_coords_for_sem_fp which is called from initialize_sem.
+     !
+     !sem_box(sem_idx)%eddy(n)%r = hypot(y,z)
+     !if (all([y,z] == zero)) then
+     !  sem_box(sem_idx)%eddy(n)%t = zero
+     !else
+     !  sem_box(sem_idx)%eddy(n)%t = atan2(z,y)
+     !end if
       !
       sem_box(sem_idx)%eddy(n)%x_intensity = eddy_data(4,i)
       sem_box(sem_idx)%eddy(n)%y_intensity = eddy_data(5,i)
@@ -1828,12 +1832,16 @@ continue
       sem_box(sem_idx)%eddy(n)%x = x
       sem_box(sem_idx)%eddy(n)%y = y
       sem_box(sem_idx)%eddy(n)%z = z
-      sem_box(sem_idx)%eddy(n)%r = hypot(y,z)
-      if (all([y,z] == zero)) then
-        sem_box(sem_idx)%eddy(n)%t = zero
-      else
-        sem_box(sem_idx)%eddy(n)%t = atan2(z,y)
-      end if
+     !
+     ! The polar components r and t are now computed in subroutine
+     ! get_polar_coords_for_sem_fp which is called from initialize_sem.
+     !
+     !sem_box(sem_idx)%eddy(n)%r = hypot(y,z)
+     !if (all([y,z] == zero)) then
+     !  sem_box(sem_idx)%eddy(n)%t = zero
+     !else
+     !  sem_box(sem_idx)%eddy(n)%t = atan2(z,y)
+     !end if
       !
       sem_box(sem_idx)%eddy(n)%x_intensity = eddy_data(4,i)
       sem_box(sem_idx)%eddy(n)%y_intensity = eddy_data(5,i)

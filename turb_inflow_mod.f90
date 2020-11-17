@@ -2628,29 +2628,9 @@ continue
         y = facexyz_array(2,k)
         z = facexyz_array(3,k)
         !
-        r = hypot(y,z)
-        !
-        if (r /= zero) then
-          t = atan2(z,y)
-          if (t < zero) t = t + two*pi
-        else
-          t = zero
-        end if
-        !
         my_sem_pts(sem_idx)%sem_fp(n)%x = x
         my_sem_pts(sem_idx)%sem_fp(n)%y = y
         my_sem_pts(sem_idx)%sem_fp(n)%z = z
-        my_sem_pts(sem_idx)%sem_fp(n)%r = r
-        my_sem_pts(sem_idx)%sem_fp(n)%t = t
-        !
-        if (r /= zero) then
-          my_sem_pts(sem_idx)%sem_fp(n)%sin_theta = sin(t)
-          my_sem_pts(sem_idx)%sem_fp(n)%cos_theta = cos(t)
-        else
-          my_sem_pts(sem_idx)%sem_fp(n)%sin_theta = zero
-          my_sem_pts(sem_idx)%sem_fp(n)%cos_theta = zero
-        end if
-        !
         !
 #ifdef ENABLE_OUTPUT_TIME_HISTORY
         allocate ( my_sem_pts(sem_idx)% &
@@ -2681,6 +2661,12 @@ continue
   ! Get the coordinates for the center of each SEM box
   !
   call get_center_of_sem_boxes()
+  !
+  ! Get the polar/cylindrical coordinates for each SEM face point
+  ! NOTE: This will also compute the polar/cylindrical coodinates for all the
+  !       eddies if sem_box(:)%eddy is allocated (restart containing SEM).
+  !
+  call get_polar_coords_for_sem_fp()
   !
   ! Get the inward facing normal of each SEM box
   !
