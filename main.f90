@@ -8,7 +8,7 @@ program GFR_main
   !
   use geovar, only : ncell,n_global_cell
   use geovar, only : nnode,n_global_node
-  use geovar, only : nfbnd,n_global_fbnd
+  use geovar, only : nfbnd,n_global_fbnd,n_global_face
   use geovar, only : nr,n_solpts
   use geovar, only : n_global_solpts
   use geovar, only : bface,xyz_nodes,nface
@@ -220,6 +220,9 @@ program GFR_main
   !
   real(wp) :: cfl_tmp(1:5)
   !
+  integer :: n_par_fbnd,nfint
+  integer :: n_sum_fbnd,n_sum_fint
+  !
   integer :: final_timestep_from_stop_request
   !
 #ifndef SPECIAL_FOR_GCC
@@ -428,12 +431,24 @@ continue
   !
   ! Output information about the global grid
   !
+  n_sum_fbnd = 0
+  n_par_fbnd = 0
+  n_sum_fint = 0
+  nfint = nface-nfbnd
+  call mpi_allreduce(nfbnd,n_sum_fbnd,1_int_mpi,mpi_inttyp, &
+                     MPI_SUM,MPI_COMM_WORLD,mpierr)
+  call mpi_allreduce(nfint,n_sum_fint,1_int_mpi,mpi_inttyp, &
+                     MPI_SUM,MPI_COMM_WORLD,mpierr)
+  n_par_fbnd = (n_sum_fbnd - n_global_fbnd)/2
+  !
   if (mypnum == glb_root) then
     write (iout,11) n_global_cell, n_global_node, n_global_fbnd, &
+                    n_global_face-n_global_fbnd, n_global_face, &
+                    n_sum_fbnd,n_par_fbnd,n_sum_fint, &
                     n_global_solpts, &
                     n_solpts,n_flxpts,n_bnd_flxpts,n_wall_flxpts, &
                     n_qdtpts,n_flx_qdtpts,n_bnd_qdtpts,n_wall_qdtpts, &
-                    total_volume, &
+                    total_volume,nr, &
                     (solpts_edge(k), k=1,size(solpts_edge))
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -1373,8 +1388,10 @@ continue
   !
   11 format (/,'  For the Global Grid ',/, &
                ' ---------------------',/, &
-               '  ncell = ',i0,'  nnode = ',i0, &
-               '  nfbnd = ',i0,'  nDOF = ',i0,//, &
+               '  ncell = ',i0,t21,'  nnode = ',i0,/, &
+               '  nfbnd = ',i0,t21,'  nfint = ',i0,t41,'  nface = ',i0,/, &
+               '  nsbnd = ',i0,t21,'  npbnd = ',i0,t41,'  nsint = ',i0,//, &
+               '  n_global_DOF  = ',i0,//, &
                '  n_solpts      = ',i0,/, &
                '  n_flxpts      = ',i0,/, &
                '  n_bnd_flxpts  = ',i0,/, &
@@ -1383,7 +1400,7 @@ continue
                '  n_flx_qdtpts  = ',i0,/, &
                '  n_bnd_qdtpts  = ',i0,/, &
                '  n_wall_qdtpts = ',i0,//, &
-               '  Total Grid Volume = ',f13.6,/, &
+               '  Total Grid Volume = ',g16.8," [m^",i1,"]",/, &
                '  1D Solution Points = ',100(6f9.5,:,/,23x))
   !
   19 format (/,' Lowest  Cell Order = ',i4,/, &
