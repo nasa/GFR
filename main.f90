@@ -52,6 +52,8 @@ program GFR_main
   use ovar, only : start_averaging_tstar,init_tstar
   use ovar, only : current_rk_stage
   use ovar, only : Filter_Option
+  use ovar, only : spatial_ave_restart_z_planes
+  use ovar, only : spatial_ave_restart_x_and_z_planes
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
@@ -156,6 +158,8 @@ program GFR_main
   !
   use channel_mod, only : channel_source
   use channel_mod, only : spatial_ave_channel_flow
+  use channel_mod, only : spatial_ave_z_planes
+  use channel_mod, only : spatial_ave_x_and_z_planes
   !
   use bnd_profiles_mod, only : init_bnd_profile_structures
   use bnd_profiles_mod, only : compute_bnd_profiles
@@ -699,6 +703,18 @@ continue
   !
   if (channel_spatial_ave_restart) then
     call spatial_ave_channel_flow
+  else
+    if (spatial_ave_restart_z_planes .or. &
+        spatial_ave_restart_x_and_z_planes) then
+      if (spatial_ave_restart_z_planes) then
+        call spatial_ave_z_planes
+      end if
+      if (spatial_ave_restart_x_and_z_planes) then
+        call spatial_ave_x_and_z_planes
+      end if
+      write (error_message,'(a)') "After spatially averaging a restart file."
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
   end if
   !
 #ifdef PAUSE_BETWEEN_ITERATIONS
