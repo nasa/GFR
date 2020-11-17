@@ -3636,7 +3636,8 @@ subroutine root_broadcasts_grid_dt()
   character(len=*), parameter :: pname = "root_broadcasts_grid_dt"
  !logical(lk),      parameter :: use_all_processors = fals
   logical(lk),      parameter :: use_all_processors = true
-  integer,          parameter :: nsplit = 6
+  integer,          parameter :: nsplit = 1
+ !integer,          parameter :: nsplit = 6
   !
 continue
   !
