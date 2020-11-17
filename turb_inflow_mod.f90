@@ -3369,10 +3369,10 @@ continue
   allocate ( wall(1:nfp) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"wall",1,__LINE__,__FILE__,ierr,error_message)
   !
-  !$OMP PARALLEL DO &
-  !$OMP&         DEFAULT(NONE) &
-  !$OMP&         SHARED(nfp,nwp,xyz_pts,xyz_wall,wall) &
-  !$OMP&         PRIVATE(n,i,xf,yf,zf,dx,dy,dz,dw2,dw2_min)
+ !!$OMP PARALLEL DO &
+ !!$OMP&         DEFAULT(NONE) &
+ !!$OMP&         SHARED(nfp,nwp,xyz_pts,xyz_wall,wall) &
+ !!$OMP&         PRIVATE(n,i,xf,yf,zf,dx,dy,dz,dw2,dw2_min)
   !
   do n = 1,nfp
     !
@@ -3412,7 +3412,7 @@ continue
     !
   end do
   !
-  !$OMP END PARALLEL DO
+ !!$OMP END PARALLEL DO
   !
   call debug_timer(leaving_procedure,pname)
   !
