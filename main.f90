@@ -727,11 +727,6 @@ continue
         !
         current_rk_stage = nst
         !
-      !!if (mypnum == glb_root) then
-      !!  write (iout,810) nst,num_rk_stages
-      !!  flush (iout)
-      !!  810 format (2x,"Runge Kutta stage ",i0," of ",i0)
-      !!end if
         Apply_Filter = (Filtering_Interval == 0)
         Apply_Limiter = (Limiting_Interval == 0)
         if (nst == num_rk_stages) then
@@ -742,8 +737,7 @@ continue
             Apply_Limiter = (mod(iter,Limiting_Interval) == 0)
           end if
         end if
-!!#define NEW_FLUX_REARRANGEMENT
-!!#ifdef NEW_FLUX_REARRANGEMENT
+        !
         call interp_cv_to_flxpts(iter,nst)  
                                            ! call check_for_bad_number(__LINE__)
         !
@@ -807,57 +801,6 @@ continue
         !
         call flux_gradient_at_solpts(iter,nst)
                                           !  call check_for_bad_number(__LINE__)
-  !!#else
-!!        !
-!!        call interp_cv_to_flxpts(iter,nst)
-!!        !
-!!        if (ncpu > 1) then
-!!          call exchange_faceusp
-!!#ifdef IMMEDIATE_WAIT_FOR_MPI
-!!          call wait_faceusp           ! ; call check_for_bad_number(__LINE__)
-!!#endif
-!!        end if
-!!        !
-!!        call get_faceusp_bc(newton_failures)
-!!        call check_for_bad_number(__LINE__,newton_failures)
-!!        !
-!!#ifndef IMMEDIATE_WAIT_FOR_MPI
-!!        if (ncpu > 1) call wait_faceusp
-!!#endif
-!!        !
-!!       !if (nst == 1) call get_dtsp(dtmin)
-!!        !
-!!        if (governing_equations == NavierStokes_Eqns) then
-!!          !
-!!          call discontinuous_gradient_at_solpts
-!!          !
-!!          if (visc_flux_method == visc_flux_BR2) then
-!!           !call correct_gradients_br2
-!!            call correct_gradients_br2_gpu
-!!          else if (visc_flux_method /= visc_flux_BR2) then
-!!            call correct_gradients_at_solpts
-!!            call interp_dusp_to_flxpts
-!!          end if
-!!          !
-!!          if (ncpu > 1) then
-!!            call exchange_facedusp
-!!#ifdef IMMEDIATE_WAIT_FOR_MPI
-!!            call wait_facedusp         ! ; call check_for_bad_number(__LINE__)
-!!#endif
-!!          end if
-!!          !
-!!          call get_facedusp_bc
-!!          !
-!!#ifndef IMMEDIATE_WAIT_FOR_MPI
-!!          if (ncpu > 1) call wait_facedusp
-!!#endif
-!!          !
-!!        end if
-!!        !
-!!       !call flux_gradient_at_solpts_visc(iter,nst)
-!!        call flux_gradient_at_solpts_visc_gpu(iter,nst)
-!!        call correct_interface_flux_visc(iter,nst)
-!!#endif
         !
         ! Compute the source terms for method of manufactured solutions (MMS)
         !
