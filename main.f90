@@ -733,6 +733,14 @@ continue
     call check_for_bad_number(__LINE__)
   end if
   !
+  ! Write out the initial solution to a restart file before starting the solver.
+  ! This is necessary for using the capability to automatically restart with
+  ! a reduced CFL when a NaN is detected during the solver.
+  !
+  if (itcur == 0) then
+    call write_restart_file(itcur)
+  end if
+  !
   ! Initialize the wall time
   !
   call gfr_cpu_time(0)
