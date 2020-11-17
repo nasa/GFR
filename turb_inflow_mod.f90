@@ -2020,7 +2020,7 @@ continue
       !
       ! Compute the volume of this eddy
       ! NOTE: The input parameter SEM_eddy_volume_is_spherical determines
-      !       whether the variable vol_coef is equal to either 
+      !       whether the variable vol_coef is equal to either
       !       (4/3)*PI*(1/2)**2 or 1 depending on whether the eddy is
       !       treated as sphere-like or box-like in volume, respectively.
       !       If a box-like eddy has a volume of l**3, the equivalent
@@ -2686,7 +2686,7 @@ continue
   call read_sem_box_profiles()
   !
   ! Recompute the volume of the SEM boxes and the number of eddies for
-  ! each box if this is not a restart simulatino
+  ! each box if this is not a restart simulation
   !
   call recompute_sem_box_volume()
   !
@@ -6545,7 +6545,7 @@ continue
     !
   end if
   !
-  call  collect_output_sem_connectivities(num_sem_pts)
+  call collect_output_sem_connectivities(num_sem_pts)
   !
   ! Now have the global root process group all the SEM face points by
   ! their respective SEM boxes so that the averaged data can be output.
