@@ -2549,7 +2549,13 @@ continue
       sem_box(sem_idx)%alpha_aoa = bc_input( bc_input_idx )%alpha_aoa
       sem_box(sem_idx)%beta_aoa  = bc_input( bc_input_idx )%beta_aoa
       !
-      sem_box(sem_idx)%is_cylindrical = bc_in(bc_idx)%sem%is_cylindrical
+      if (mypnum == glb_root) then
+        n = merge(1,0,bc_in(bc_idx)%sem%is_cylindrical)
+      end if
+      !
+      call mpi_bcast(n,1_int_mpi,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
+      !
+      sem_box(sem_idx)%is_cylindrical = (n == 1)
       !
       if (.not. allocated(sem_box(sem_idx)%profile)) then
         allocate ( sem_box(sem_idx)%profile )
