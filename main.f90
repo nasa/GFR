@@ -1,5 +1,9 @@
 program GFR_main
   !
+#ifndef SPECIAL_FOR_GCC
+  use, intrinsic :: ieee_exceptions
+#endif
+  !
   use module_kind_types
   !
   use geovar, only : ncell,n_global_cell
@@ -1428,10 +1432,10 @@ subroutine check_for_bad_number(line_num,newton_failures,force_signaling)
   use eqn_idx, only : nq
   use geovar,  only : n_solpts
   use flowvar, only : usp,uoldsp
-#ifndef SPECIAL_FOR_GCC
-  use, intrinsic :: ieee_exceptions, only : ieee_usual
-  use, intrinsic :: ieee_exceptions, only : ieee_get_flag
-#endif
+!#ifndef SPECIAL_FOR_GCC
+!  use, intrinsic :: ieee_exceptions, only : ieee_usual
+!  use, intrinsic :: ieee_exceptions, only : ieee_get_flag
+!#endif
   !
   !.. Formal Arguments ..
   integer, intent(in) :: line_num
