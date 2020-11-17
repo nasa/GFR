@@ -189,6 +189,8 @@ subroutine create_equation_indices(num_dim,itestcase)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ncs = 0
   ncr = 0
   if (itestcase == Reacting_Backstep) then
@@ -328,6 +330,8 @@ continue
   !$ACC UPDATE DEVICE(nq,nec,nmx,nmy,nmz,nee,nmb,nme,ntk,ntl)
   !$ACC UPDATE DEVICE(ncs,ncb,nce,ncr)
   !$ACC UPDATE DEVICE(ng,npres,ntemp,nvisc,ncond,ngamm,nenth,ncp)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine create_equation_indices
 !

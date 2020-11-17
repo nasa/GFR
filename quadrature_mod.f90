@@ -93,7 +93,12 @@ subroutine find_valid_geometries()
   !.. Local Scalars ..
   integer :: nc,ne,no,this_geom
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "find_valid_geometries"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Initialize geom_is_used to false
   !
@@ -171,6 +176,8 @@ continue
   !
   maxpts = max( maxSP , maxQP , maxFP , maxGP , maxOP , maxEP )
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine find_valid_geometries
 !
 !###############################################################################
@@ -199,6 +206,8 @@ subroutine init_geom_quadrature_rules()
   character(len=*), parameter :: pname = "init_geom_quadrature_rules"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
  !call dump_solpts
   !
@@ -415,6 +424,8 @@ continue
   !
   solpts_edge => std_elem(Geom_Edge,n_order)%pts(1,:)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format ("std_elem(",a,",",i0,")%",a)
@@ -452,6 +463,8 @@ subroutine init_face_quadrature_rules()
   character(len=*), parameter :: pname = "init_face_quadrature_rules"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Initialize this_elem to disassociated
   !
@@ -654,6 +667,8 @@ continue
     end do quad_loop
     !
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !

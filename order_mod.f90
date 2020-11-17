@@ -4,6 +4,7 @@ module order_mod
   use module_kind_types, only : Geom_Node,Geom_Edge,Geom_Tria,Geom_Quad
   use module_kind_types, only : Geom_Tetr,Geom_Pyra,Geom_Pris,Geom_Hexa
   use module_kind_types, only : Geom_Min,Geom_Max,Order_Min,Order_Max,lk
+  use module_kind_types, only : debug_timer,entering_procedure,leaving_procedure
   !
   implicit none
   !
@@ -97,7 +98,12 @@ subroutine initialize_geom_solpts(use_qdtr_face_pts)
   !.. Local Scalars ..
   integer :: i,j
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_geom_solpts"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   do j = lbound(geom_solpts,dim=2),ubound(geom_solpts,dim=2)
     do i = lbound(geom_solpts,dim=1),ubound(geom_solpts,dim=1)
@@ -141,6 +147,8 @@ continue
  !!$ACC ENTER DATA COPYIN(geom_solpts)
   !$ACC UPDATE DEVICE(geom_solpts)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine initialize_geom_solpts
 !
 !###############################################################################
@@ -160,7 +168,12 @@ subroutine find_geom_max_interp_order(cell_geom,cell_order,cells_on_left, &
   integer :: lgeom,lorder,left_cell
   integer :: rgeom,rorder,right_cell
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "find_geom_max_interp_order"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   geom_mio = -1
   !
@@ -181,6 +194,8 @@ continue
     geom_mio(rgeom,rorder) = max( geom_mio(rgeom,rorder) , face_order )
     !
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine find_geom_max_interp_order
 !
