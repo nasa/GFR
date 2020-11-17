@@ -4644,6 +4644,8 @@ subroutine check_restart_eddies()
   !.. Local Arrays ..
   real(wp) :: eddy_loc(1:3)
   !
+  character(len=1) :: cxyz(1:3)
+  !
   !.. Local Allocatable Arrays ..
   integer,         allocatable :: num_bad_eddies(:)
   real(wp),        allocatable :: box_min(:,:)
@@ -4655,6 +4657,8 @@ subroutine check_restart_eddies()
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_restart_eddies"
+  character(len=*), parameter :: char_xyz(1:3) = ["x","y","z"]
+  character(len=*), parameter :: char_xrt(1:3) = ["x","r","t"]
   !
 continue
   !
@@ -4881,6 +4885,20 @@ continue
                           sem_idx,(is_inside(n,sem_idx), n=1,num_sem_boxes)
         end do
         write (iout,'(//)')
+        !
+        do sem_idx = 1,num_sem_boxes
+          if (sem_box(sem_idx)%is_cylindrical) then
+            cxyz(1:3) = char_xrt(1:3)
+          else
+            cxyz(1:3) = char_xyz(1:3)
+          end if
+          write (iout,20) sem_idx,(cxyz(n), &
+                                   box_min(n,sem_idx), &
+                                   box_max(n,sem_idx), n=1,3)
+          write (iout,21) sem_idx,(cxyz(n), &
+                                   eddy_min(n,sem_idx), &
+                                   eddy_max(n,sem_idx), n=1,3)
+        end do
       end if
       flush (iout)
       write (error_message,14)
@@ -5013,6 +5031,15 @@ continue
   14 format ("ERROR!!! An error occurred while trying to create a 1-to-1 ", &
              "matching between the groups of eddies read from the restart ", &
              "file and the current set of SEM bounding boxes!")
+  !
+  20 format (/,2x,"Coordinate range for SEM box # ",i0," : ",/, &
+               6x,a1," = [",es14.6,",",es14.6,"]",/, &
+               6x,a1," = [",es14.6,",",es14.6,"]",/, &
+               6x,a1," = [",es14.6,",",es14.6,"]")
+  21 format (/,2x,"Coordinate range for Restart Eddy Group # ",i0," : ",/, &
+               6x,a1," = [",es14.6,",",es14.6,"]",/, &
+               6x,a1," = [",es14.6,",",es14.6,"]",/, &
+               6x,a1," = [",es14.6,",",es14.6,"]")
   !
 end subroutine check_restart_eddies
 !
