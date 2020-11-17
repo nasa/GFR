@@ -6286,7 +6286,10 @@ end subroutine separate_sem_boundary_faces
 !
 !###############################################################################
 !
-subroutine output_sem_averages()
+subroutine output_sem_averages(output_inflow_profile)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: output_inflow_profile
   !
   !.. Local Scalars ..
   integer :: i,ierr,n,nvar,num_fp,num_total_sem_pts,sem_idx
