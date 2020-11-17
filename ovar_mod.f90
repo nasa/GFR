@@ -1337,6 +1337,9 @@ subroutine allocate_namelist_variables
   !
   !.. Use Statements ..
   use module_kind_types, only : zero,alloc_error,error_message
+  use module_kind_types, only : debug_timer
+  use module_kind_types, only : entering_procedure
+  use module_kind_types, only : leaving_procedure
   !
   !.. Local Scalars ..
   integer :: n,ierr
@@ -1349,6 +1352,8 @@ subroutine allocate_namelist_variables
   integer, parameter :: max_ncs = 7
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Make sure everything is deallocated first
   !
@@ -1539,6 +1544,8 @@ continue
   lustre_stripe_size(1:2)  = "4m"
   time_ave_file(1:7) = "out.ave"
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   1 format ('(',i0,'x)')
   2 format ("bc_input(",i0,")%",a)
   !
@@ -1550,6 +1557,9 @@ subroutine resize_namelist_allocatables
   !
   !.. Use Statements ..
   use module_kind_types, only : alloc_error,error_message
+  use module_kind_types, only : debug_timer
+  use module_kind_types, only : entering_procedure
+  use module_kind_types, only : leaving_procedure
   use ovar,              only : bc_input_t
   !
   !.. Local Scalars ..
@@ -1562,6 +1572,8 @@ subroutine resize_namelist_allocatables
   character(len=*), parameter :: pname = "resize_namelist_allocatables"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Reallocate bc_input to the actual size needed for the inputs
   !
@@ -1604,6 +1616,8 @@ continue
   lustre_stripe_size = trim(adjustl(lustre_stripe_size))
   time_ave_file = trim(adjustl(time_ave_file))
   restart_list_file = trim(adjustl(restart_list_file))
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine resize_namelist_allocatables
 !
