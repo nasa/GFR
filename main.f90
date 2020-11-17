@@ -54,6 +54,7 @@ program GFR_main
   use ovar, only : Filter_Option
   use ovar, only : spatial_ave_restart_z_planes
   use ovar, only : spatial_ave_restart_x_and_z_planes
+  use ovar, only : CFL_reduction_for_NaN_restart
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
@@ -233,6 +234,9 @@ program GFR_main
   character(len=10)  :: text
   character(len=100) :: dbgfile,dbgfrmt
   !
+  integer            :: num_CFL_restarts
+  integer, parameter :: max_CFL_restarts = 0
+  !
 #ifndef SPECIAL_FOR_GCC
   type(ieee_status_type) :: default_ieee_status
 #endif
@@ -255,6 +259,8 @@ continue
   request_stop = .false.
   completed_initial_cgns_output = fals
   final_timestep_from_stop_request = 0
+  !
+  num_CFL_restarts = 0
   !
   ! Initialize the overall MPI session
   !
@@ -1371,7 +1377,25 @@ continue
       !
     end do main_loop
     !
-    exit restart_loop
+    ! For now, always exit the restart loop
+    !
+    if (abs(CFL_reduction_for_NaN_restart) > one) then
+      !
+      exit restart_loop
+      !
+    else
+      !
+      if (num_CFL_restarts == max_CFL_restarts) then
+        exit restart_loop
+      end if
+      !
+      num_CFL_restarts = num_CFL_restarts + 1
+      !
+      ! Reset the IEEE floating point status to the default values
+      !
+      call ieee_set_status(default_ieee_status)
+      !
+    end if
     !
   end do restart_loop
   !
