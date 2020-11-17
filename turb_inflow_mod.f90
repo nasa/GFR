@@ -2671,9 +2671,16 @@ continue
   end if
   !
   ! For each SEM box:
-  !   1) get the min/max extents of the box,
-  !   2) compute the volume of the box, and
-  !   3) compute the number of eddies to use for the box.
+  !   1) get the coordinates for the center of the box,
+  !   2) get the min/max extents of the box,
+  !   3) compute the volume of the box, and
+  !   4) compute the number of eddies to use for the box.
+  !
+  ! Get the coordinates for the center of each SEM box
+  !
+  call get_center_of_sem_boxes()
+  !
+  ! Get the min/max extents of each SEM box
   !
   call get_size_of_sem_boxes()
   !
