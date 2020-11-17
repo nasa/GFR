@@ -4292,13 +4292,8 @@ continue
       x = my_sem_pts(sem_idx)%sem_fp(n)%x
       y = my_sem_pts(sem_idx)%sem_fp(n)%y
       z = my_sem_pts(sem_idx)%sem_fp(n)%z
-      r = hypot(y,z)
-      if (r == zero) then
-        t = zero
-      else
-        t = atan2( z , y )
-        if (t < zero) t = t + two*pi
-      end if
+      r = my_sem_pts(sem_idx)%sem_fp(n)%r
+      t = my_sem_pts(sem_idx)%sem_fp(n)%t
       !
       xmin = x - lturb
       xmax = x + lturb
@@ -4327,6 +4322,8 @@ continue
       rmin = max(zero,rmin)
       tmin = max(zero,tmin)
       tmax = min(two*pi,tmax)
+     !tmin = max(zero,min(two*pi,tmin))
+     !tmax = min(two*pi,max(zero,tmax))
       !
       box_min(1,sem_idx) = min(xmin,box_min(1,sem_idx))
       box_min(2,sem_idx) = min(ymin,box_min(2,sem_idx))
