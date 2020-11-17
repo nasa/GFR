@@ -2451,7 +2451,8 @@ subroutine initialize_sem()
   !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
   !
   !.. Use Statements ..
-  use ovar,       only : bc_in,average_sem_inflow_plane,num_timesteps
+  use ovar,       only : bc_input,bc_in
+  use ovar,       only : average_sem_inflow_plane,num_timesteps
   use geovar,     only : bc_grps
   use flowvar,    only : facexyz_array
   use random_mod, only : set_random_seed
@@ -2460,6 +2461,7 @@ subroutine initialize_sem()
   integer  :: ierr,k,n,np,n1,n2
   integer  :: sem_idx,grp_idx,bc_idx,num_eddies
   integer  :: num_restart_sem_boxes
+  integer  :: bc_input_idx
   real(wp) :: lturb,uconv,x,y,z,r,t
   !
   character(len=50)  :: array_name
@@ -2538,9 +2540,14 @@ continue
       uconv = bc_in(bc_idx)%sem%convective_velocity
       fname = trim(adjustl(bc_in(bc_idx)%sem%profile_file))
       !
+      bc_input_idx = bc_in(bc_idx)%bc_input_idx
+      !
       sem_box(sem_idx)%bc_idx = bc_idx
       sem_box(sem_idx)%length_scale = lturb
       sem_box(sem_idx)%convective_velocity = uconv
+      !
+      sem_box(sem_idx)%alpha_aoa = bc_input( bc_input_idx )%alpha_aoa
+      sem_box(sem_idx)%beta_aoa  = bc_input( bc_input_idx )%beta_aoa
       !
       sem_box(sem_idx)%is_cylindrical = bc_in(bc_idx)%sem%is_cylindrical
       !
