@@ -438,3 +438,58 @@ end function init_array_lk_rank3
 !###############################################################################
 !###############################################################################
 !
+pure function init_array_l4_rank1(size1,val) result(return_value)
+  !
+  integer, parameter :: lp = ldk
+  !
+  integer,     intent(in) :: size1
+  logical(lp), intent(in) :: val
+  !
+  logical(lp), allocatable :: return_value(:)
+  !
+continue
+  return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
+end function init_array_l4_rank1
+!
+!###############################################################################
+!
+pure function init_array_l4_rank2(size1,size2,val) result(return_value)
+  !
+  integer, parameter :: lp = ldk
+  !
+  integer,     intent(in) :: size1,size2
+  logical(lp), intent(in) :: val
+  !
+  logical(lp), allocatable :: return_value(:,:)
+  !
+continue
+  ! F2003 AUTO-REALLOC
+  return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
+ !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
+ !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
+end function init_array_l4_rank2
+!
+!###############################################################################
+!
+pure function init_array_l4_rank3(size1,size2,size3,val) result(return_value)
+  !
+  integer, parameter :: lp = ldk
+  !
+  integer,     intent(in) :: size1,size2,size3
+  logical(lp), intent(in) :: val
+  !
+  logical(lp), allocatable :: return_value(:,:,:)
+  !
+continue
+  ! F2003 AUTO-REALLOC
+  return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
+ !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
+ !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
+end function init_array_l4_rank3
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
