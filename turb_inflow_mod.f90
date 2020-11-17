@@ -3679,12 +3679,27 @@ continue
     !
     a11(n) = sqrt( max( zero , r11(n) ) )
     !
-    a21(n) = r21(n) / (a11(n)+rndoff)
+    if (abs(a11(n)) < rndoff) then
+      a11(n) = zero
+      a21(n) = zero
+      a31(n) = zero
+    else
+      a21(n) = r21(n) / (a11(n)+rndoff)
+      a31(n) = r31(n) / (a11(n)+rndoff)
+    end if
+    !
     a22(n) = sqrt( max( zero , r22(n) - (a21(n)**2) ) )
     !
-    a31(n) = r31(n) / (a11(n)+rndoff)
-    a32(n) = (r32(n) - a21(n)*a31(n)) / (a22(n)+rndoff)
+    if (abs(a22(n)) < rndoff) then
+      a22(n) = zero
+      a32(n) = zero
+    else
+      a32(n) = (r32(n) - a21(n)*a31(n)) / (a22(n)+rndoff)
+    end if
+    !
     a33(n) = sqrt( max( zero , r33(n) - (a31(n)**2) -(a32(n)**2) ) )
+    !
+    if (abs(a33(n)) < rndoff) a33(n) = zero
     !
   end do
   !
