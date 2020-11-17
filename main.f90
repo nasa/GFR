@@ -1516,6 +1516,7 @@ subroutine check_for_bad_number(line_num,newton_failures,force_signaling)
   character(len=*), parameter :: pname = "check_for_bad_number"
   !
 continue
+#ifndef DISABLE_CHECK_FOR_BAD_NUMBER
   !
   error_found = fals
   !
@@ -1646,6 +1647,7 @@ continue
               "TIME STEP # ",i0," !!! DUMPING SOLUTION AND ", &
               "RESTART FILES FOR THE PREVIOUS TIME STEP!!!")
   201 format (4(2x,a,:))
+#endif
 #endif
   !
 end subroutine check_for_bad_number
