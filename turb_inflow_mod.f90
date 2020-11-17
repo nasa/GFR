@@ -3410,7 +3410,16 @@ continue
     !
     wall(n)%distance = sqrt( dw2_min )
     !
+    if (ncpu == 1) then
+      if (mypnum == glb_root) then
+        if (mod(n,100) == 0) then
+          write (iout,1) n,nfp,100.0_wp*real(n,kind=wp)/real(nfp,kind=wp)
+        end if
+      end if
+    end if
+    !
   end do
+  1 format (2x,"Finished ",i8," of ",i8," (",f9.4," %)")
   !
  !!$OMP END PARALLEL DO
   !
