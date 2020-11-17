@@ -343,6 +343,13 @@ module ovar
   real(wp), public, save :: Limiter_Filter_Alpha  = 36.0_wp
   real(wp), public, save :: Limiter_Filter_eps    = 0.0_wp
   !
+  ! SPONGE FILTER OPTIONS
+  logical(lk), public, save :: use_sponge_filter    = fals
+  real(wp),    public, save :: Sponge_Filter_etac   = 0.0_wp
+  integer,     public, save :: Sponge_Filter_Order  = 8
+  real(wp),    public, save :: Sponge_Filter_Alpha  = 36.0_wp
+  real(wp),    public, save :: Sponge_Beyond_X      = huge(zero)
+  !
   ! LIMITER OPTIONS
   integer, public, save :: Limiter_Option             = 0
   integer, public, save :: Resolution_Marker_Variable = 0
@@ -1052,6 +1059,11 @@ module input_namelist_mod
   use ovar,      only : Filter_Order,  Limiter_Filter_Order
   use ovar,      only : Filter_Alpha,  Limiter_Filter_Alpha
   use ovar,      only : Filter_eps,    Limiter_Filter_eps
+  use ovar,      only : use_sponge_filter
+  use ovar,      only : Sponge_Filter_etac
+  use ovar,      only : Sponge_Filter_Order
+  use ovar,      only : Sponge_Filter_Alpha
+  use ovar,      only : Sponge_Beyond_X
   use ovar,      only : Limiter_Option, Resolution_Marker_Variable
   use ovar,      only : Limiter_Marker_Min, Limiter_Marker_Max
   use ovar,      only : Limiter_Marker_dpsi
@@ -1251,6 +1263,12 @@ module input_namelist_mod
   namelist / input / Limiter_Filter_Option, Limiter_Filter_etac, &
                      Limiter_Filter_Order, Limiter_Filter_Alpha, &
                      Limiter_Filter_eps
+  ! SPONGE FILTER OPTIONS
+  namelist / input / use_sponge_filter, &
+                     Sponge_Filter_etac, &
+                     Sponge_Filter_Order, &
+                     Sponge_Filter_Alpha, &
+                     Sponge_Beyond_X
   ! LIMITER OPTIONS
   namelist / input / Limiter_Option, Resolution_Marker_Variable
   ! LIMITER MARKER SENSITIVITY OPTIONS
