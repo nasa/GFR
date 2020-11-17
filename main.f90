@@ -210,7 +210,8 @@ program GFR_main
   logical(ldk) :: request_restart_interupt
   logical(ldk) :: request_time_ave
   logical(ldk) :: request_reactions
-  logical(ldk) :: request_array(1:7)
+  !
+  integer :: request_array(1:7)
   !
   logical(lk)  :: Apply_Filter
   logical(lk)  :: Apply_Limiter
@@ -1146,9 +1147,13 @@ continue
            !  !
            !end if
             !
-            request_array(:) = [request_stop,request_restart,request_solution, &
-                                request_cfl_adjustment,request_restart_interupt, &
-                                request_time_ave,request_reactions]
+            request_array(:) = [merge(1,0,request_stop), &
+                                merge(1,0,request_restart), &
+                                merge(1,0,request_solution), &
+                                merge(1,0,request_cfl_adjustment), &
+                                merge(1,0,request_restart_interupt), &
+                                merge(1,0,request_time_ave), &
+                                merge(1,0,request_reactions)]
             !
           end if
           !
@@ -1156,15 +1161,15 @@ continue
           ! the other processors so they can proceed as needed
           !
           call mpi_bcast(request_array,size(request_array,kind=int_mpi), &
-                         MPI_LOGICAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
+                         mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
           !
-          request_stop = request_array(1)
-          request_restart = request_array(2)
-          request_solution = request_array(3)
-          request_cfl_adjustment = request_array(4)
-          request_restart_interupt = request_array(5)
-          request_time_ave = request_array(6)
-          request_reactions = request_array(7)
+          request_stop             = (request_array(1) /= 0)
+          request_restart          = (request_array(2) /= 0)
+          request_solution         = (request_array(3) /= 0)
+          request_cfl_adjustment   = (request_array(4) /= 0)
+          request_restart_interupt = (request_array(5) /= 0)
+          request_time_ave         = (request_array(6) /= 0)
+          request_reactions        = (request_array(7) /= 0)
           !
           ! Exit if the STOP_GFR file was found
           !
