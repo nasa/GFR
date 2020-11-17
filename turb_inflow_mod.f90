@@ -4837,29 +4837,6 @@ continue
       end do
     end do
     !
-    ! Deallocate box_min, box_max, eddy_min, and eddy_max
-    ! since they are no longer needed
-    !
-    if (allocated(box_min)) then
-      deallocate ( box_min , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"box_min",2,__LINE__,__FILE__,ierr,error_message)
-    end if
-    !
-    if (allocated(box_max)) then
-      deallocate ( box_max , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"box_max",2,__LINE__,__FILE__,ierr,error_message)
-    end if
-    !
-    if (allocated(eddy_min)) then
-      deallocate ( eddy_min , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"eddy_min",2,__LINE__,__FILE__,ierr,error_message)
-    end if
-    !
-    if (allocated(eddy_max)) then
-      deallocate ( eddy_max , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"eddy_max",2,__LINE__,__FILE__,ierr,error_message)
-    end if
-    !
     ! Check to make sure that each group of eddies was found to be in only
     ! one SEM box, and that each SEM box only contains one group of eddies.
     !
@@ -4948,6 +4925,29 @@ continue
       end if
       !
     end do shuffle_eddies
+    !
+    ! Deallocate box_min, box_max, eddy_min, and eddy_max
+    ! since they are no longer needed
+    !
+    if (allocated(box_min)) then
+      deallocate ( box_min , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"box_min",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    if (allocated(box_max)) then
+      deallocate ( box_max , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"box_max",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    if (allocated(eddy_min)) then
+      deallocate ( eddy_min , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"eddy_min",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    if (allocated(eddy_max)) then
+      deallocate ( eddy_max , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"eddy_max",2,__LINE__,__FILE__,ierr,error_message)
+    end if
     !
   end if
   !
