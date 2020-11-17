@@ -5009,7 +5009,7 @@ continue
                   "by ",i0," SEM boxes!")
   12 format (//,20x,"Restart Eddy Group #",/, &
                 2x,"Contained by",6x,i2,100(2x,i2,:))
-  13 format (5x,a10,i2," [  ",l1,100(3x,l1," ]",:,tl2))
+  13 format (5x,a10,i2," [",100(2x,l1," ]",:,tl2))
   14 format ("ERROR!!! An error occurred while trying to create a 1-to-1 ", &
              "matching between the groups of eddies read from the restart ", &
              "file and the current set of SEM bounding boxes!")
