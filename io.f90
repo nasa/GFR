@@ -391,6 +391,7 @@ continue
   !
   ! Open the input file
   !
+  call debug_timer(start_timer,"actually reading the input file")
   open (newunit=inpt,file=input_fname,status="old",action="read", &
                      form="formatted",iostat=ierr,iomsg=error_message)
   call io_error(pname,input_fname,1,__LINE__,__FILE__,ierr,error_message)
@@ -403,6 +404,7 @@ continue
   !
   close (inpt,iostat=ierr,iomsg=error_message)
   call io_error(pname,input_fname,2,__LINE__,__FILE__,ierr,error_message)
+  call debug_timer(stop_timer,"actually reading the input file")
   !
   ! Resize all the allocatable variables within the input
   ! namelist to sizes more appropriate to their input values
@@ -459,6 +461,8 @@ continue
   !
   call check_restart_dir
   call check_for_bad_number(__LINE__,__FILE__)
+  !
+  call debug_timer(start_timer,"read_nml_input_file pre read_grid_file")
   !
   ! Adjust the name of the grid and solution files
   !
@@ -570,6 +574,7 @@ continue
   ! This includes quadrature and face values
   !
   use_qdtr_face_pts = using_quadrature .and. dflux_opt==project_derivatives
+  call debug_timer(stop_timer,"read_nml_input_file pre read_grid_file")
   !
   call initialize_geom_solpts(use_qdtr_face_pts)
   call check_for_bad_number(__LINE__,__FILE__)
@@ -584,6 +589,8 @@ continue
   call check_for_bad_number(__LINE__,__FILE__)
   call init_face_quadrature_rules
   call check_for_bad_number(__LINE__,__FILE__)
+  !
+  call debug_timer(start_timer,"read_nml_input_file post read_grid_file")
   !
   ! Change the upwind method to LDFSS if using gas mixture
   !
@@ -1030,6 +1037,7 @@ continue
   !
   flush (iout)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  call debug_timer(stop_timer,"read_nml_input_file post read_grid_file")
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
