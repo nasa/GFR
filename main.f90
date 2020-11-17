@@ -707,621 +707,621 @@ continue
   !
   restart_loop: &
   do
-  !
-  main_loop: &
-  do iter = 1, num_timesteps
     !
-    ! Current iteration count including restart iterations
-    !
-    itcur = itcur + 1
-    !$ACC UPDATE DEVICE(itcur)
-    !
-    ! Store a copy of the solution from the previous time step
-    !
-    call save_old_solution                !; call check_for_bad_number(__LINE__)
-    !
-    ! Loop over the Runge-Kutta stages
-    !
-    rk_loop: &
-    do nst = 1,num_rk_stages
+    main_loop: &
+    do iter = 1, num_timesteps
       !
-      current_rk_stage = nst
+      ! Current iteration count including restart iterations
       !
-    !!if (mypnum == glb_root) then
-    !!  write (iout,810) nst,num_rk_stages
-    !!  flush (iout)
-    !!  810 format (2x,"Runge Kutta stage ",i0," of ",i0)
-    !!end if
-      Apply_Filter = (Filtering_Interval == 0)
-      Apply_Limiter = (Limiting_Interval == 0)
-      if (nst == num_rk_stages) then
-        if (Filtering_Interval > 0) then
-          Apply_Filter = (mod(iter,Filtering_Interval) == 0)
+      itcur = itcur + 1
+      !$ACC UPDATE DEVICE(itcur)
+      !
+      ! Store a copy of the solution from the previous time step
+      !
+      call save_old_solution                !; call check_for_bad_number(__LINE__)
+      !
+      ! Loop over the Runge-Kutta stages
+      !
+      rk_loop: &
+      do nst = 1,num_rk_stages
+        !
+        current_rk_stage = nst
+        !
+      !!if (mypnum == glb_root) then
+      !!  write (iout,810) nst,num_rk_stages
+      !!  flush (iout)
+      !!  810 format (2x,"Runge Kutta stage ",i0," of ",i0)
+      !!end if
+        Apply_Filter = (Filtering_Interval == 0)
+        Apply_Limiter = (Limiting_Interval == 0)
+        if (nst == num_rk_stages) then
+          if (Filtering_Interval > 0) then
+            Apply_Filter = (mod(iter,Filtering_Interval) == 0)
+          end if
+          if (Limiting_Interval > 0) then
+            Apply_Limiter = (mod(iter,Limiting_Interval) == 0)
+          end if
         end if
-        if (Limiting_Interval > 0) then
-          Apply_Limiter = (mod(iter,Limiting_Interval) == 0)
-        end if
-      end if
 !!#define NEW_FLUX_REARRANGEMENT
 !!#ifdef NEW_FLUX_REARRANGEMENT
-      call interp_cv_to_flxpts(iter,nst)  !; call check_for_bad_number(__LINE__)
-      !
-      if (ncpu > 1) then
-        call exchange_faceusp             !; call check_for_bad_number(__LINE__)
-#ifdef IMMEDIATE_WAIT_FOR_MPI
-        call wait_faceusp                 !; call check_for_bad_number(__LINE__)
-#endif
-      end if
-      !
-      if (governing_equations == NavierStokes_Eqns) then
-        call discontinuous_gradient_at_solpts
-                                          !  call check_for_bad_number(__LINE__)
-      end if
-      !
-      call get_faceusp_bc(newton_failures)
-      call check_for_bad_number(__LINE__,newton_failures)
-      !
-      call get_invs_common_fluxes_interior
-                                          !  call check_for_bad_number(__LINE__)
-      !
-      if (ncpu > 1) then
-#ifndef IMMEDIATE_WAIT_FOR_MPI
-        call wait_faceusp                 !; call check_for_bad_number(__LINE__)
-#endif
-      end if
-      !
-      if (governing_equations == NavierStokes_Eqns) then
-        if (visc_flux_method == visc_flux_BR2) then
-         !call correct_gradients_br2
-          call correct_gradients_br2_gpu  !; call check_for_bad_number(__LINE__)
-        else
-          call correct_gradients_at_solpts_gpu
-                                          !  call check_for_bad_number(__LINE__)
-         !call correct_gradients_at_solpts ! call check_for_bad_number(__LINE__)
-          call interp_dusp_to_flxpts      !; call check_for_bad_number(__LINE__)
-        end if
+        call interp_cv_to_flxpts(iter,nst)  !; call check_for_bad_number(__LINE__)
+        !
         if (ncpu > 1) then
-          call exchange_facedusp          !; call check_for_bad_number(__LINE__)
+          call exchange_faceusp             !; call check_for_bad_number(__LINE__)
 #ifdef IMMEDIATE_WAIT_FOR_MPI
-          call wait_facedusp              !; call check_for_bad_number(__LINE__)
+          call wait_faceusp                 !; call check_for_bad_number(__LINE__)
 #endif
         end if
-        call get_facedusp_bc              !; call check_for_bad_number(__LINE__)
-        call get_visc_common_fluxes_interior
-                                          !  call check_for_bad_number(__LINE__)
-      end if
-      !
-      call get_invs_common_fluxes_bc      !; call check_for_bad_number(__LINE__)
-      !
-      if (governing_equations == NavierStokes_Eqns) then
+        !
+        if (governing_equations == NavierStokes_Eqns) then
+          call discontinuous_gradient_at_solpts
+                                            !  call check_for_bad_number(__LINE__)
+        end if
+        !
+        call get_faceusp_bc(newton_failures)
+        call check_for_bad_number(__LINE__,newton_failures)
+        !
+        call get_invs_common_fluxes_interior
+                                            !  call check_for_bad_number(__LINE__)
+        !
         if (ncpu > 1) then
 #ifndef IMMEDIATE_WAIT_FOR_MPI
-          call wait_facedusp              !; call check_for_bad_number(__LINE__)
+          call wait_faceusp                 !; call check_for_bad_number(__LINE__)
 #endif
         end if
-        call get_visc_common_fluxes_bc    !; call check_for_bad_number(__LINE__)
-      end if
-      !
-      call flux_gradient_at_solpts(iter,nst)
-                                          !  call check_for_bad_number(__LINE__)
-!!#else
-!!      !
-!!      call interp_cv_to_flxpts(iter,nst)
-!!      !
-!!      if (ncpu > 1) then
-!!        call exchange_faceusp
-!!#ifdef IMMEDIATE_WAIT_FOR_MPI
-!!        call wait_faceusp           ! ; call check_for_bad_number(__LINE__)
-!!#endif
-!!      end if
-!!      !
-!!      call get_faceusp_bc(newton_failures)
-!!      call check_for_bad_number(__LINE__,newton_failures)
-!!      !
-!!#ifndef IMMEDIATE_WAIT_FOR_MPI
-!!      if (ncpu > 1) call wait_faceusp
-!!#endif
-!!      !
-!!     !if (nst == 1) call get_dtsp(dtmin)
-!!      !
-!!      if (governing_equations == NavierStokes_Eqns) then
+        !
+        if (governing_equations == NavierStokes_Eqns) then
+          if (visc_flux_method == visc_flux_BR2) then
+           !call correct_gradients_br2
+            call correct_gradients_br2_gpu  !; call check_for_bad_number(__LINE__)
+          else
+            call correct_gradients_at_solpts_gpu
+                                            !  call check_for_bad_number(__LINE__)
+           !call correct_gradients_at_solpts ! call check_for_bad_number(__LINE__)
+            call interp_dusp_to_flxpts      !; call check_for_bad_number(__LINE__)
+          end if
+          if (ncpu > 1) then
+            call exchange_facedusp          !; call check_for_bad_number(__LINE__)
+#ifdef IMMEDIATE_WAIT_FOR_MPI
+            call wait_facedusp              !; call check_for_bad_number(__LINE__)
+#endif
+          end if
+          call get_facedusp_bc              !; call check_for_bad_number(__LINE__)
+          call get_visc_common_fluxes_interior
+                                            !  call check_for_bad_number(__LINE__)
+        end if
+        !
+        call get_invs_common_fluxes_bc      !; call check_for_bad_number(__LINE__)
+        !
+        if (governing_equations == NavierStokes_Eqns) then
+          if (ncpu > 1) then
+#ifndef IMMEDIATE_WAIT_FOR_MPI
+            call wait_facedusp              !; call check_for_bad_number(__LINE__)
+#endif
+          end if
+          call get_visc_common_fluxes_bc    !; call check_for_bad_number(__LINE__)
+        end if
+        !
+        call flux_gradient_at_solpts(iter,nst)
+                                            !  call check_for_bad_number(__LINE__)
+  !!#else
 !!        !
-!!        call discontinuous_gradient_at_solpts
-!!        !
-!!        if (visc_flux_method == visc_flux_BR2) then
-!!         !call correct_gradients_br2
-!!          call correct_gradients_br2_gpu
-!!        else if (visc_flux_method /= visc_flux_BR2) then
-!!          call correct_gradients_at_solpts
-!!          call interp_dusp_to_flxpts
-!!        end if
+!!        call interp_cv_to_flxpts(iter,nst)
 !!        !
 !!        if (ncpu > 1) then
-!!          call exchange_facedusp
+!!          call exchange_faceusp
 !!#ifdef IMMEDIATE_WAIT_FOR_MPI
-!!          call wait_facedusp           ! ; call check_for_bad_number(__LINE__)
+!!          call wait_faceusp           ! ; call check_for_bad_number(__LINE__)
 !!#endif
 !!        end if
 !!        !
-!!        call get_facedusp_bc
+!!        call get_faceusp_bc(newton_failures)
+!!        call check_for_bad_number(__LINE__,newton_failures)
 !!        !
 !!#ifndef IMMEDIATE_WAIT_FOR_MPI
-!!        if (ncpu > 1) call wait_facedusp
+!!        if (ncpu > 1) call wait_faceusp
 !!#endif
 !!        !
-!!      end if
-!!      !
-!!     !call flux_gradient_at_solpts_visc(iter,nst)
-!!      call flux_gradient_at_solpts_visc_gpu(iter,nst)
-!!      call correct_interface_flux_visc(iter,nst)
+!!       !if (nst == 1) call get_dtsp(dtmin)
+!!        !
+!!        if (governing_equations == NavierStokes_Eqns) then
+!!          !
+!!          call discontinuous_gradient_at_solpts
+!!          !
+!!          if (visc_flux_method == visc_flux_BR2) then
+!!           !call correct_gradients_br2
+!!            call correct_gradients_br2_gpu
+!!          else if (visc_flux_method /= visc_flux_BR2) then
+!!            call correct_gradients_at_solpts
+!!            call interp_dusp_to_flxpts
+!!          end if
+!!          !
+!!          if (ncpu > 1) then
+!!            call exchange_facedusp
+!!#ifdef IMMEDIATE_WAIT_FOR_MPI
+!!            call wait_facedusp           ! ; call check_for_bad_number(__LINE__)
 !!#endif
+!!          end if
+!!          !
+!!          call get_facedusp_bc
+!!          !
+!!#ifndef IMMEDIATE_WAIT_FOR_MPI
+!!          if (ncpu > 1) call wait_facedusp
+!!#endif
+!!          !
+!!        end if
+!!        !
+!!       !call flux_gradient_at_solpts_visc(iter,nst)
+!!        call flux_gradient_at_solpts_visc_gpu(iter,nst)
+!!        call correct_interface_flux_visc(iter,nst)
+!!#endif
+        !
+        ! Compute the source terms for the method of manufactured solutions (MMS)
+        !
+        if (mms_opt /= 0) then
+          call mms_src                      !; call check_for_bad_number(__LINE__)
+        end if
+        !
+        ! Compute the source terms for the channel flow
+        !
+        if (itestcase == Channel_Flow) then
+          call channel_source               !; call check_for_bad_number(__LINE__)
+        end if
+        !
+        ! Compute the species source terms for chemically reacting flows
+        !
+        call compute_wdot(iter)             !; call check_for_bad_number(__LINE__)
+        !
+        ! Compute the final residual for each solution point
+        !
+        call rresi(iter,nst)                !; call check_for_bad_number(__LINE__)
+        !
+        if (nst == 1) then
+          call get_dtsp(dtmin,final_timestep_from_stop_request)
+                                            !  call check_for_bad_number(__LINE__)
+        end if
+        !
+        ! Store residual in rssprk(:,:,nst) and update the solutions in usp
+        !
+        if (Runge_Kutta_Scheme == Classic_RK) then
+          call update_Classic_RK(nst,Apply_Filter,Apply_Limiter)
+        else if (Runge_Kutta_Scheme == TVD2_RK) then
+          call update_TVD_RK2(nst,Apply_Filter,Apply_Limiter)
+        else if (Runge_Kutta_Scheme == TVD3_RK) then
+          call update_TVD_RK3(nst,Apply_Filter,Apply_Limiter,iter)
+        else if (Runge_Kutta_Scheme == TVD4_RK) then
+          call update_TVD_RK4(nst,Apply_Filter,Apply_Limiter)
+        else if (Runge_Kutta_Scheme == CK4_RK) then
+          call update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
+        end if
+       !call check_for_bad_number(__LINE__)
+        !
+      end do rk_loop
       !
-      ! Compute the source terms for the method of manufactured solutions (MMS)
+      completed_timesteps = iter
       !
-      if (mms_opt /= 0) then
-        call mms_src                      !; call check_for_bad_number(__LINE__)
-      end if
+      ! Update the current time now that the Runge-Kutta loop is finished
       !
-      ! Compute the source terms for the channel flow
+      time = time + dtmin
+      !$ACC UPDATE DEVICE(time)
       !
-      if (itestcase == Channel_Flow) then
-        call channel_source               !; call check_for_bad_number(__LINE__)
-      end if
-      !
-      ! Compute the species source terms for chemically reacting flows
-      !
-      call compute_wdot(iter)             !; call check_for_bad_number(__LINE__)
-      !
-      ! Compute the final residual for each solution point
-      !
-      call rresi(iter,nst)                !; call check_for_bad_number(__LINE__)
-      !
-      if (nst == 1) then
-        call get_dtsp(dtmin,final_timestep_from_stop_request)
-                                          !  call check_for_bad_number(__LINE__)
-      end if
-      !
-      ! Store residual in rssprk(:,:,nst) and update the solutions in usp
-      !
-      if (Runge_Kutta_Scheme == Classic_RK) then
-        call update_Classic_RK(nst,Apply_Filter,Apply_Limiter)
-      else if (Runge_Kutta_Scheme == TVD2_RK) then
-        call update_TVD_RK2(nst,Apply_Filter,Apply_Limiter)
-      else if (Runge_Kutta_Scheme == TVD3_RK) then
-        call update_TVD_RK3(nst,Apply_Filter,Apply_Limiter,iter)
-      else if (Runge_Kutta_Scheme == TVD4_RK) then
-        call update_TVD_RK4(nst,Apply_Filter,Apply_Limiter)
-      else if (Runge_Kutta_Scheme == CK4_RK) then
-        call update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
-      end if
      !call check_for_bad_number(__LINE__)
       !
-    end do rk_loop
-    !
-    completed_timesteps = iter
-    !
-    ! Update the current time now that the Runge-Kutta loop is finished
-    !
-    time = time + dtmin
-    !$ACC UPDATE DEVICE(time)
-    !
-   !call check_for_bad_number(__LINE__)
-    !
-    ! Update the time averaged variables
-    !
-    if (output_time_averaging) then
-      call update_time_ave
-    end if
-    !
-    ! Compute and output the residual error at the specified interval
-    !
-    if ( (mod(iter,iter_out_interval) == 0 .or. this_is_final_timestep) .or. &
-         (mod(itcur,results_interval) == 0 .and. iter/=num_timesteps) ) then
+      ! Update the time averaged variables
       !
-      ! Compute the residual error
-      !
-      call compute_residual_error
-      !
-      if (mod(iter,iter_out_interval) == 0 .or. this_is_final_timestep) then
-        !
-        ! Output the density residual error to stdout
-        !
-        call write_iter_stats(walltime_expiring,exit_main_loop)
-        !
-        ! Exit the main loop if the convergence criteria were met
-        !
-        if (exit_main_loop) exit main_loop
-        !
+      if (output_time_averaging) then
+        call update_time_ave
       end if
       !
-      ! Output the residual error at the specified interval
+      ! Compute and output the residual error at the specified interval
       !
-      if (mod(itcur,results_interval)==0 .and. iter/=num_timesteps) then
+      if ( (mod(iter,iter_out_interval) == 0 .or. this_is_final_timestep) .or. &
+           (mod(itcur,results_interval) == 0 .and. iter/=num_timesteps) ) then
         !
-        call gfr_cpu_time(1)
+        ! Compute the residual error
         !
-        if (mypnum == glb_root) call write_residual_file(0,itcur)
+        call compute_residual_error
         !
-      end if
-      !
-    end if
-    !
-    call check_for_bad_number(__LINE__)
-    !
-    ! Initialize time averaging if start_averaging_timestep
-    ! is equal to the current time step
-    !
-    if (.not. output_time_averaging) then
-      if (start_averaging_timestep > 0) then
-        if (itcur == start_averaging_timestep) then
+        if (mod(iter,iter_out_interval) == 0 .or. this_is_final_timestep) then
           !
-          if (mypnum == glb_root) then
-            write (iout,80)
-            flush (iout)
-          end if
+          ! Output the density residual error to stdout
           !
-          output_time_averaging = true
-          rl2mx = -huge(zero)
+          call write_iter_stats(walltime_expiring,exit_main_loop)
           !
-          call initialize_time_ave
+          ! Exit the main loop if the convergence criteria were met
+          !
+          if (exit_main_loop) exit main_loop
           !
         end if
-      end if
-    end if
-    !
-    ! Initialize time averaging if the current non-dimensional elapsed
-    ! simulation time (t* or t_star) since the beginning of the simulation
-    ! is greater than start_averaging_tstar
-    !
-    if (.not. output_time_averaging) then
-      if (start_averaging_tstar > zero) then
         !
-       !current_tstar = time*time_ref*time_scaling_factor - init_tstar
-        current_tstar = time*time_ref*time_scaling_factor
+        ! Output the residual error at the specified interval
         !
-        if (current_tstar > start_averaging_tstar) then
+        if (mod(itcur,results_interval)==0 .and. iter/=num_timesteps) then
           !
-          if (mypnum == glb_root) then
-            write (iout,81)
-            flush (iout)
-          end if
+          call gfr_cpu_time(1)
           !
-          output_time_averaging = true
-          rl2mx = -huge(zero)
-          !
-          call initialize_time_ave
+          if (mypnum == glb_root) call write_residual_file(0,itcur)
           !
         end if
         !
       end if
-    end if
-    !
-    ! Every 50 (1000 for NAS) iterations
-    !    1. Compute the residual error for this time step and exit
-    !       the main loop if the remaining wall time is almost zero
-    !    2. Check for a file requesting a premature stop
-    !
+      !
+      call check_for_bad_number(__LINE__)
+      !
+      ! Initialize time averaging if start_averaging_timestep
+      ! is equal to the current time step
+      !
+      if (.not. output_time_averaging) then
+        if (start_averaging_timestep > 0) then
+          if (itcur == start_averaging_timestep) then
+            !
+            if (mypnum == glb_root) then
+              write (iout,80)
+              flush (iout)
+            end if
+            !
+            output_time_averaging = true
+            rl2mx = -huge(zero)
+            !
+            call initialize_time_ave
+            !
+          end if
+        end if
+      end if
+      !
+      ! Initialize time averaging if the current non-dimensional elapsed
+      ! simulation time (t* or t_star) since the beginning of the simulation
+      ! is greater than start_averaging_tstar
+      !
+      if (.not. output_time_averaging) then
+        if (start_averaging_tstar > zero) then
+          !
+         !current_tstar = time*time_ref*time_scaling_factor - init_tstar
+          current_tstar = time*time_ref*time_scaling_factor
+          !
+          if (current_tstar > start_averaging_tstar) then
+            !
+            if (mypnum == glb_root) then
+              write (iout,81)
+              flush (iout)
+            end if
+            !
+            output_time_averaging = true
+            rl2mx = -huge(zero)
+            !
+            call initialize_time_ave
+            !
+          end if
+          !
+        end if
+      end if
+      !
+      ! Every 50 (1000 for NAS) iterations
+      !    1. Compute the residual error for this time step and exit
+      !       the main loop if the remaining wall time is almost zero
+      !    2. Check for a file requesting a premature stop
+      !
 #ifdef PBS_ENV
-    if (mod(iter,1000) == 0) then
+      if (mod(iter,1000) == 0) then
 #else
-    if (mod(iter,50) == 0) then
+      if (mod(iter,50) == 0) then
 #endif
-      !
-      ! Only do the rest if this is not the last time step
-      !
-      if (iter /= num_timesteps) then
         !
-        ! Have the root processor check for various temporary files
+        ! Only do the rest if this is not the last time step
         !
-        if (mypnum == glb_root) then
+        if (iter /= num_timesteps) then
           !
-          ! Check for a stop request
+          ! Have the root processor check for various temporary files
           !
-          inquire (file="STOP_GFR",exist=request_stop)
-          !
-          ! If stop was requested, delete the
-          ! STOP_GFR file and exit the main loop
-          !
-          if (request_stop) then
+          if (mypnum == glb_root) then
             !
-            write (iout,99)
+            ! Check for a stop request
             !
-            ! We dont care about the exit status here since we are
-            ! going to be stopping execution after this anyways
+            inquire (file="STOP_GFR",exist=request_stop)
             !
-            open (newunit=i,file="STOP_GFR",iostat=ierr)
-            close (i,status="delete",iostat=ierr)
+            ! If stop was requested, delete the
+            ! STOP_GFR file and exit the main loop
+            !
+            if (request_stop) then
+              !
+              write (iout,99)
+              !
+              ! We dont care about the exit status here since we are
+              ! going to be stopping execution after this anyways
+              !
+              open (newunit=i,file="STOP_GFR",iostat=ierr)
+              close (i,status="delete",iostat=ierr)
+              !
+            end if
+            !
+            ! Check for a dump of a restart file
+            !
+            inquire (file="DUMP_RESTART",exist=request_restart)
+            !
+            ! If restart dump was requested, delete the DUMP_RESTART file
+            !
+            if (request_restart) then
+              !
+              write (iout,96)
+              !
+              open (newunit=i,file="DUMP_RESTART",iostat=ierr)
+              close (i,status="delete",iostat=ierr)
+              !
+            end if
+            !
+            ! Check for a dump of the solution file
+            !
+            inquire (file="DUMP_SOLUTION",exist=request_solution)
+            !
+            ! If solution dump was requested, delete the DUMP_SOLUTION file
+            !
+            if (request_solution) then
+              !
+              write (iout,97)
+              !
+              open (newunit=i,file="DUMP_SOLUTION",iostat=ierr)
+              close (i,status="delete",iostat=ierr)
+              !
+            end if
+            !
+            ! Check for a CFL adjustment file
+            !
+            inquire (file="ADJUST_CFL",exist=request_cfl_adjustment)
+            !
+            ! If a CFL adjustment was requested, delete the ADJUST_CFL file
+            !
+            if (request_cfl_adjustment) then
+              !
+              write (iout,95)
+              !
+              open (newunit=i,file="ADJUST_CFL",iostat=ierr)
+              read (i,nml=cfl_adjustment)
+              close (i,status="delete",iostat=ierr)
+              !
+              cfl_tmp = [cfl,cfl_beg,cfl_end, &
+                         real(cfl_cycles,kind=wp), &
+                         real(cfl_start_iter,kind=wp)]
+              !
+              ! If we are adjusting the CFL cycling, automatically
+              ! write out a restart file of the solution before the
+              ! new CFL cycling takes effect.
+              !
+              if (cfl_start_iter < itcur) then
+                request_restart = .true.
+              end if
+              !
+            end if
+            !
+            ! Check for a start time-averaging request
+            !
+            inquire (file="START_TIME_AVERAGING",exist=request_time_ave)
+            !
+            ! If stop was requested, delete the
+            ! STOP_GFR file and exit the main loop
+            !
+            if (request_time_ave) then
+              !
+              if (output_time_averaging) then
+                request_time_ave = .false.
+              else
+                write (iout,94)
+              end if
+              !
+              ! We dont care about the exit status here
+              !
+              open (newunit=i,file="START_TIME_AVERAGING",iostat=ierr)
+              close (i,status="delete",iostat=ierr)
+              !
+            end if
+           !!
+           !! Check for a start reactions request
+           !!
+           !inquire (file="START_REACTIONS",exist=request_reactions)
+           !!
+           !! If reactions were requested, read the reactions namelist
+           !! to get the iteration to begin reactions
+           !!
+           !if (request_reactions) then
+           !  !
+           !  write (iout,96)
+           !  !
+           !  open (newunit=i,file="START_REACTIONS",iostat=ierr)
+           !  read (i,nml=start_reactions)
+           !  close (i,status="delete",iostat=ierr)
+           !  !
+           !  ! If we are starting chemical reactions, automatically
+           !  ! write out a restart file of the solution before the
+           !  ! reactions begin.
+           !  !
+           !  if (reactions_start_iter < itcur) then
+           !    request_restart = .true.
+           !  end if
+           !  !
+           !end if
+           !!
+           !! Check for a file requesting an interuption of the current
+           !! simulation to restart it with a new restart file
+           !!
+           !inquire (file="RESTART_INTERUPT",exist=request_restart_interupt)
+           !!
+           !!
+           !! Delete the RESTART_INTERUPT file if restart interupt was requested
+           !!
+           !if (request_restart_interupt) then
+           !  !
+           !  write (iout,96)
+           !  !
+           !  open (newunit=i,file="RESTART_INTERUPT",iostat=ierr)
+           !  close (i,status="delete",iostat=ierr)
+           !  !
+           !end if
+            !
+            request_array(:) = [request_stop,request_restart,request_solution, &
+                                request_cfl_adjustment,request_restart_interupt, &
+                                request_time_ave,request_reactions]
             !
           end if
           !
-          ! Check for a dump of a restart file
+          ! Have the root processor broadcast all the request logicals to
+          ! the other processors so they can proceed as needed
           !
-          inquire (file="DUMP_RESTART",exist=request_restart)
+          call mpi_bcast(request_array,size(request_array,kind=int_mpi), &
+                         MPI_LOGICAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
           !
-          ! If restart dump was requested, delete the DUMP_RESTART file
+          request_stop = request_array(1)
+          request_restart = request_array(2)
+          request_solution = request_array(3)
+          request_cfl_adjustment = request_array(4)
+          request_restart_interupt = request_array(5)
+          request_time_ave = request_array(6)
+          request_reactions = request_array(7)
+          !
+          ! Exit if the STOP_GFR file was found
+          !
+          if (request_stop) exit main_loop
+          !
+          ! If a restart dump was requested, write a restart file
           !
           if (request_restart) then
-            !
-            write (iout,96)
-            !
-            open (newunit=i,file="DUMP_RESTART",iostat=ierr)
-            close (i,status="delete",iostat=ierr)
-            !
+            call write_restart_file(itcur)
           end if
           !
-          ! Check for a dump of the solution file
-          !
-          inquire (file="DUMP_SOLUTION",exist=request_solution)
-          !
-          ! If solution dump was requested, delete the DUMP_SOLUTION file
+          ! If a solution dump was requested, dump the solution and then let
+          ! the CGNS subroutine know that the file needs to be reopened.
           !
           if (request_solution) then
-            !
-            write (iout,97)
-            !
-            open (newunit=i,file="DUMP_SOLUTION",iostat=ierr)
-            close (i,status="delete",iostat=ierr)
-            !
+            if (continuous_output) then
+              call new_write_parallel_cgns(dump_CGNS)
+            else
+              call write_parallel_cgns(dump_CGNS)
+            end if
+            CGNS_action = reopen_CGNS
           end if
-          !
-          ! Check for a CFL adjustment file
-          !
-          inquire (file="ADJUST_CFL",exist=request_cfl_adjustment)
-          !
-          ! If a CFL adjustment was requested, delete the ADJUST_CFL file
           !
           if (request_cfl_adjustment) then
             !
-            write (iout,95)
+            call mpi_bcast(cfl_tmp,size(cfl_tmp,kind=int_mpi),mpi_flttyp, &
+                           0_int_mpi,MPI_COMM_WORLD,mpierr)
             !
-            open (newunit=i,file="ADJUST_CFL",iostat=ierr)
-            read (i,nml=cfl_adjustment)
-            close (i,status="delete",iostat=ierr)
-            !
-            cfl_tmp = [cfl,cfl_beg,cfl_end, &
-                       real(cfl_cycles,kind=wp), &
-                       real(cfl_start_iter,kind=wp)]
-            !
-            ! If we are adjusting the CFL cycling, automatically
-            ! write out a restart file of the solution before the
-            ! new CFL cycling takes effect.
+            cfl = cfl_tmp(1)
+            cfl_beg = cfl_tmp(2)
+            cfl_end = cfl_tmp(3)
+            cfl_cycles = nint(cfl_tmp(4))
+            cfl_start_iter = nint(cfl_tmp(5))
             !
             if (cfl_start_iter < itcur) then
-              request_restart = .true.
+              call adjust_cfl_cycles
             end if
             !
           end if
-          !
-          ! Check for a start time-averaging request
-          !
-          inquire (file="START_TIME_AVERAGING",exist=request_time_ave)
-          !
-          ! If stop was requested, delete the
-          ! STOP_GFR file and exit the main loop
           !
           if (request_time_ave) then
             !
-            if (output_time_averaging) then
-              request_time_ave = .false.
-            else
-              write (iout,94)
-            end if
+            output_time_averaging = true
+            rl2mx = -huge(zero)
             !
-            ! We dont care about the exit status here
-            !
-            open (newunit=i,file="START_TIME_AVERAGING",iostat=ierr)
-            close (i,status="delete",iostat=ierr)
+            call initialize_time_ave
             !
           end if
-         !!
-         !! Check for a start reactions request
-         !!
-         !inquire (file="START_REACTIONS",exist=request_reactions)
-         !!
-         !! If reactions were requested, read the reactions namelist
-         !! to get the iteration to begin reactions
-         !!
-         !if (request_reactions) then
-         !  !
-         !  write (iout,96)
-         !  !
-         !  open (newunit=i,file="START_REACTIONS",iostat=ierr)
-         !  read (i,nml=start_reactions)
-         !  close (i,status="delete",iostat=ierr)
-         !  !
-         !  ! If we are starting chemical reactions, automatically
-         !  ! write out a restart file of the solution before the
-         !  ! reactions begin.
-         !  !
-         !  if (reactions_start_iter < itcur) then
-         !    request_restart = .true.
-         !  end if
-         !  !
-         !end if
-         !!
-         !! Check for a file requesting an interuption of the current
-         !! simulation to restart it with a new restart file
-         !!
-         !inquire (file="RESTART_INTERUPT",exist=request_restart_interupt)
-         !!
-         !!
-         !! Delete the RESTART_INTERUPT file if restart interupt was requested
-         !!
-         !if (request_restart_interupt) then
-         !  !
-         !  write (iout,96)
-         !  !
-         !  open (newunit=i,file="RESTART_INTERUPT",iostat=ierr)
-         !  close (i,status="delete",iostat=ierr)
-         !  !
-         !end if
-          !
-          request_array(:) = [request_stop,request_restart,request_solution, &
-                              request_cfl_adjustment,request_restart_interupt, &
-                              request_time_ave,request_reactions]
           !
         end if
         !
-        ! Have the root processor broadcast all the request logicals to
-        ! the other processors so they can proceed as needed
+      end if
+      !
+      if (iter /= num_timesteps) then
         !
-        call mpi_bcast(request_array,size(request_array,kind=int_mpi), &
-                       MPI_LOGICAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
+        ! If the current time step is equal to cfl_start_iter,
+        ! begin the adjustment of the CFL cycling
         !
-        request_stop = request_array(1)
-        request_restart = request_array(2)
-        request_solution = request_array(3)
-        request_cfl_adjustment = request_array(4)
-        request_restart_interupt = request_array(5)
-        request_time_ave = request_array(6)
-        request_reactions = request_array(7)
+        output_restart = fals
+        if (cfl_start_iter == itcur) then
+          call adjust_cfl_cycles
+          output_restart = true
+        end if
         !
-        ! Exit if the STOP_GFR file was found
+        ! Output the restart file at specified step interval
         !
-        if (request_stop) exit main_loop
+        if (restart_interval > 0 .and. .not.request_restart) then
+          if (mod(itcur,restart_interval) == 0) then
+            output_restart = true
+          end if
+        end if
         !
-        ! If a restart dump was requested, write a restart file
-        !
-        if (request_restart) then
+        if (output_restart .and. .not.request_restart) then
           call write_restart_file(itcur)
         end if
         !
-        ! If a solution dump was requested, dump the solution and then let
-        ! the CGNS subroutine know that the file needs to be reopened.
+        ! Output the solution at the specified interval
         !
-        if (request_solution) then
-          if (continuous_output) then
-            call new_write_parallel_cgns(dump_CGNS)
-          else
-            call write_parallel_cgns(dump_CGNS)
+        output_solution = fals
+        if (output_interval > 0 .and. .not.request_solution) then
+          if (mod(itcur,output_interval) == 0) then
+            output_solution = true
           end if
-          CGNS_action = reopen_CGNS
         end if
         !
-        if (request_cfl_adjustment) then
-          !
-          call mpi_bcast(cfl_tmp,size(cfl_tmp,kind=int_mpi),mpi_flttyp, &
-                         0_int_mpi,MPI_COMM_WORLD,mpierr)
-          !
-          cfl = cfl_tmp(1)
-          cfl_beg = cfl_tmp(2)
-          cfl_end = cfl_tmp(3)
-          cfl_cycles = nint(cfl_tmp(4))
-          cfl_start_iter = nint(cfl_tmp(5))
-          !
-          if (cfl_start_iter < itcur) then
-            call adjust_cfl_cycles
-          end if
-          !
-        end if
-        !
-        if (request_time_ave) then
-          !
-          output_time_averaging = true
-          rl2mx = -huge(zero)
-          !
-          call initialize_time_ave
-          !
-        end if
-        !
-      end if
-      !
-    end if
-    !
-    if (iter /= num_timesteps) then
-      !
-      ! If the current time step is equal to cfl_start_iter,
-      ! begin the adjustment of the CFL cycling
-      !
-      output_restart = fals
-      if (cfl_start_iter == itcur) then
-        call adjust_cfl_cycles
-        output_restart = true
-      end if
-      !
-      ! Output the restart file at specified step interval
-      !
-      if (restart_interval > 0 .and. .not.request_restart) then
-        if (mod(itcur,restart_interval) == 0) then
-          output_restart = true
-        end if
-      end if
-      !
-      if (output_restart .and. .not.request_restart) then
-        call write_restart_file(itcur)
-      end if
-      !
-      ! Output the solution at the specified interval
-      !
-      output_solution = fals
-      if (output_interval > 0 .and. .not.request_solution) then
-        if (mod(itcur,output_interval) == 0) then
+        if (is_at_output_frequency) then
           output_solution = true
+          is_at_output_frequency = fals
+        end if
+        !
+        if (output_solution .and. .not.request_solution) then
+          if (continuous_output) then
+            call new_write_parallel_cgns(CGNS_action)
+          else
+            call write_parallel_cgns(CGNS_action)
+          end if
+        end if
+        !
+      end if
+      !
+      if (itestcase == Taylor_Green_Vortex) then
+        if (write_TaylorGreen_8s_solution) then
+          if (completely_disable_cgns) then
+            write_TaylorGreen_8s_solution = fals
+          else
+            call TaylorGreen_8s_vorticity_solution
+          end if
+        end if
+        if (write_TaylorGreen_full_solution) then
+          if (continuous_output) then
+            call new_write_parallel_cgns(CGNS_action)
+          else
+            call write_parallel_cgns(CGNS_action)
+          end if
+          write_TaylorGreen_full_solution = fals
         end if
       end if
       !
-      if (is_at_output_frequency) then
-        output_solution = true
-        is_at_output_frequency = fals
+      ! If solving the Taylor-Green Vortex problem, compute
+      ! the various integrated quantities needed to get the
+      ! different the kinetic energy dissipation rates
+      !
+      if (itestcase == Taylor_Green_Vortex .and. iter/=num_timesteps) then
+        call compute_TaylorGreen_KEDR(iter,dtmin)
       end if
       !
-      if (output_solution .and. .not.request_solution) then
-        if (continuous_output) then
-          call new_write_parallel_cgns(CGNS_action)
-        else
-          call write_parallel_cgns(CGNS_action)
-        end if
-      end if
-      !
-    end if
-    !
-    if (itestcase == Taylor_Green_Vortex) then
-      if (write_TaylorGreen_8s_solution) then
-        if (completely_disable_cgns) then
-          write_TaylorGreen_8s_solution = fals
-        else
-          call TaylorGreen_8s_vorticity_solution
-        end if
-      end if
-      if (write_TaylorGreen_full_solution) then
-        if (continuous_output) then
-          call new_write_parallel_cgns(CGNS_action)
-        else
-          call write_parallel_cgns(CGNS_action)
-        end if
-        write_TaylorGreen_full_solution = fals
-      end if
-    end if
-    !
-    ! If solving the Taylor-Green Vortex problem, compute
-    ! the various integrated quantities needed to get the
-    ! different the kinetic energy dissipation rates
-    !
-    if (itestcase == Taylor_Green_Vortex .and. iter/=num_timesteps) then
-      call compute_TaylorGreen_KEDR(iter,dtmin)
-    end if
-    !
 #ifdef PAUSE_BETWEEN_ITERATIONS
-    if (iter /= num_timesteps) then
-      if (mypnum == glb_root) then
-        write (iout,8261) iter,num_timesteps
+      if (iter /= num_timesteps) then
+        if (mypnum == glb_root) then
+          write (iout,8261) iter,num_timesteps
+        end if
+        8261 format (//," Pausing after completing ",i0," of ",i0, &
+                          " trips through the main iteration loop!",/, &
+                          " Press any key to continue!",//)
+        read (*,*)
       end if
-      8261 format (//," Pausing after completing ",i0," of ",i0, &
-                        " trips through the main iteration loop!",/, &
-                        " Press any key to continue!",//)
-      read (*,*)
-    end if
 #endif
+      !
+      ! Reset the request options
+      !
+      request_restart = .false.
+      request_solution = .false.
+      !
+    end do main_loop
     !
-    ! Reset the request options
+    exit restart_loop
     !
-    request_restart = .false.
-    request_solution = .false.
-    !
-  end do main_loop
-  !
-  exit restart_loop
-  !
   end do restart_loop
   !
 #ifdef PAUSE_BETWEEN_ITERATIONS
