@@ -125,7 +125,12 @@ continue
       !
       call get_command_argument(1,input_fname,command_length,ierr)
       !
+#define ONLY_ROOT_CHECKS_INPUT_FILE
+#ifdef ONLY_ROOT_CHECKS_INPUT_FILE
+      call check_input_file_root_only(input_fname,input_status)
+#else
       call check_input_file(input_fname,input_status)
+#endif
       !
       if (input_status == 0) exit one_pass_loop
       !
@@ -139,7 +144,11 @@ continue
           !
           call get_command_argument(j+1,input_fname,command_length,ierr)
           !
+#ifdef ONLY_ROOT_CHECKS_INPUT_FILE
+          call check_input_file_root_only(input_fname,input_status)
+#else
           call check_input_file(input_fname,input_status)
+#endif
           !
           if (input_status == 0) exit one_pass_loop
           !
@@ -151,7 +160,11 @@ continue
     !
     input_fname = default_fname
     !
+#ifdef ONLY_ROOT_CHECKS_INPUT_FILE
+    call check_input_file_root_only(input_fname,input_status)
+#else
     call check_input_file(input_fname,input_status)
+#endif
     !
     if (input_status /= 0) then
       call write_nml_input_file('gfr.in.default')
