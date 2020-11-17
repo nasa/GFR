@@ -67,12 +67,13 @@ program GFR_main
   !
   use io_mod, only : read_input_file
   use io_mod, only : write_final_error
-  use io_mod, only : write_parallel_cgns
   use io_mod, only : write_residual_file
   use io_mod, only : test_communication
   use io_mod, only : check_face_flux_point_orderings
   use io_mod, only : check_cell_flux_point_orderings
-  use io_mod, only : TaylorGreen_8s_vorticity_solution
+  !
+  use write_cgns_mod, only : write_parallel_cgns
+  use write_cgns_mod, only : TaylorGreen_8s_vorticity_solution
   !
   use restart_mod, only : write_restart_file
   !

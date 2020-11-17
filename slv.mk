@@ -91,6 +91,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/cgnstypes_mod.o \
         $(OBJDIR)/cgns_mod.o \
         $(OBJDIR)/io.o \
+        $(OBJDIR)/write_cgns_mod.o \
         $(OBJDIR)/metrics.o \
         $(OBJDIR)/poly.o \
         $(OBJDIR)/initialize.o \

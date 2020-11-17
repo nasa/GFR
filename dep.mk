@@ -14,6 +14,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/projection_mod.o \
          $(OBJDIR)/filter_mod.o \
          $(OBJDIR)/io.o \
+         $(OBJDIR)/write_cgns_mod.o \
          $(OBJDIR)/metrics.o \
          $(OBJDIR)/mappings.o \
          $(OBJDIR)/connectivity.o \
@@ -45,7 +46,7 @@ $(OBJDIR)/averaging_mod.o : averaging_mod.f90 \
                   $(OBJDIR)/geovar_mod.o \
                   $(OBJDIR)/ovar_mod.o \
                   $(OBJDIR)/flowvar_mod.o \
-                  $(OBJDIR)/io.o \
+                  $(OBJDIR)/write_cgns_mod.o \
                   $(OBJDIR)/restart_mod.o \
                   $(OBJDIR)/metrics.o
 
@@ -310,12 +311,10 @@ $(OBJDIR)/invs_flux_mod.o : invs_flux_mod.f90 \
 
 $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/kind_types.o \
-       $(OBJDIR)/cgnstypes_mod.o \
        $(OBJDIR)/eqn_idx_mod.o \
        $(OBJDIR)/order_mod.o \
        $(OBJDIR)/geovar_mod.o \
        $(OBJDIR)/ovar_mod.o \
-       $(OBJDIR)/metrics.o \
        $(OBJDIR)/flowvar_mod.o \
        $(OBJDIR)/gmsh_mod.o \
        $(OBJDIR)/plot3d_mod.o \
@@ -326,20 +325,13 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/interpolation_mod.o \
        $(OBJDIR)/initialize.o \
        $(OBJDIR)/restart_mod.o \
-       $(OBJDIR)/limiters.o \
        $(OBJDIR)/thermo_mod.o \
-       $(OBJDIR)/transport_mod.o \
        $(OBJDIR)/turb_inflow_mod.o \
-       $(OBJDIR)/flux.o \
-       $(OBJDIR)/gpu_mod.o \
        $(FUNDIR)/last.f90 \
        $(FUNDIR)/bc_priority.f90 \
        $(FUNDIR)/cell_vol.f90 \
        $(FUNDIR)/bc_string_to_integer.f90 \
-       $(FUNDIR)/check_for_bad_number.f90 \
-       $(FUNDIR)/cgns_write_field_data.f90 \
-       $(FUNDIR)/cgns_write_field_header.f90 \
-                 mpi_defs.h
+       $(FUNDIR)/check_for_bad_number.f90
 
 $(OBJDIR)/kind_types.o : kind_types.f90 \
                $(FUNDIR)/all_are_equal.f90 \
@@ -646,6 +638,27 @@ $(OBJDIR)/visc_flux_mod.o : visc_flux_mod.f90 \
          $(OBJDIR)/gpu_mod.o \
          $(OBJDIR)/thermo_mod.o \
          $(OBJDIR)/transport_mod.o
+
+$(OBJDIR)/write_cgns_mod.o : write_cgns_mod.f90 \
+                   $(OBJDIR)/kind_types.o \
+                   $(OBJDIR)/cgnstypes_mod.o \
+                   $(OBJDIR)/eqn_idx_mod.o \
+                   $(OBJDIR)/order_mod.o \
+                   $(OBJDIR)/geovar_mod.o \
+                   $(OBJDIR)/ovar_mod.o \
+                   $(OBJDIR)/metrics.o \
+                   $(OBJDIR)/flowvar_mod.o \
+                   $(OBJDIR)/interpolation_mod.o \
+                   $(OBJDIR)/derivatives_mod.o \
+                   $(OBJDIR)/projection_mod.o \
+                   $(OBJDIR)/limiters.o \
+                   $(OBJDIR)/thermo_mod.o \
+                   $(OBJDIR)/transport_mod.o \
+                   $(OBJDIR)/flux.o \
+                   $(OBJDIR)/gpu_mod.o \
+                   $(FUNDIR)/cgns_write_field_data.f90 \
+                   $(FUNDIR)/cgns_write_field_header.f90 \
+                             mpi_defs.h
 
 $(OBJDIR)/bc_adiabatic_wall_mod.o : $(BCDIR)/bc_adiabatic_wall_mod.f90 \
                           $(OBJDIR)/kind_types.o \

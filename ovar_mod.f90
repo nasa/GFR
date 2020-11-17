@@ -566,6 +566,9 @@ module ovar
   logical(lk),  public, save :: convergence_reached = fals
   logical(lk),  public, save :: this_is_final_timestep = fals
   !
+  character(len=170), public, save :: cgns_dir = ""
+  logical(lk),        public, save :: disable_cgns_output = fals
+  !
   real(wp),         save :: max_wall_time
   real(wp),         save :: beg_wall_time
   real(wp),         save :: end_wall_time

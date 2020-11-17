@@ -404,13 +404,13 @@ end subroutine update_time_ave
 subroutine average_restart_files()
   !
   !.. Use Statements ..
-  use ovar,        only : restart_list_file,restart_file
-  use ovar,        only : output_time_averaging,read_time_ave_restart
-  use ovar,        only : ave_start_time,prev_ave_time
-  use ovar,        only : time,itcur,tmrst,itrst
-  use flowvar,     only : uavesp
-  use restart_mod, only : read_restart_file,write_restart_file
-  use io_mod,      only : write_parallel_cgns
+  use ovar,           only : restart_list_file,restart_file
+  use ovar,           only : output_time_averaging,read_time_ave_restart
+  use ovar,           only : ave_start_time,prev_ave_time
+  use ovar,           only : time,itcur,tmrst,itrst
+  use flowvar,        only : uavesp
+  use restart_mod,    only : read_restart_file,write_restart_file
+  use write_cgns_mod, only : write_parallel_cgns
   !
   !.. Local Scalars ..
   integer :: ierr,io,m,n,np,nq
