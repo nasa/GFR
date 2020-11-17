@@ -1562,6 +1562,11 @@ continue
   !
   if (error_found) then
     !
+    if (len_trim(adjustl(src_file_with_bad_number)) == 0) then
+      src_file_with_bad_number = __FILE__
+      line_num_with_bad_number = line_num
+    end if
+    !
     ! A floating-point exception was detected or the subsonic inflow
     ! Newton iteration failed. Dump solution and restart files for the
     ! solution at the previous time step and abort the simulation.
@@ -1621,7 +1626,8 @@ continue
                               trim(adjustl(invalid_error)), &
                               trim(adjustl(newton_error))
     !
-    call stop_gfr(stop_mpi,pname,line_num,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,line_num_with_bad_number, &
+                  src_file_with_bad_number,error_message)
     !
   end if
   !
