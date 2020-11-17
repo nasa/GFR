@@ -1111,7 +1111,9 @@ continue
   !
   ! Set the default options for METIS
   !
+  call debug_timer(start_timer,"call METIS_SetDefaultOptions")
   call METIS_SetDefaultOptions(options)
+  call debug_timer(stop_timer,"call METIS_SetDefaultOptions")
   !
   ! Customize some of these options
   !
@@ -1184,9 +1186,13 @@ continue
         weight = "non-weighted"
         minmzd = "      edge cut      "
         !
+        call debug_timer(start_timer, &
+                         "calling metis_partgraphrecursive, metis_option=1")
         call metis_partgraphrecursive(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
                                       adjwgt,nparts,tpwgts,ubvec,options, &
                                       objval,epart)
+        call debug_timer(stop_timer, &
+                         "calling metis_partgraphrecursive, metis_option=1")
         !
       else if (metis_option == 2) then
         !
@@ -1200,9 +1206,13 @@ continue
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_CUT
         !
+        call debug_timer(start_timer, &
+                         "calling metis_partgraphkway, metis_option=2")
         call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
                                  adjwgt,nparts,tpwgts,ubvec,options, &
                                  objval,epart)
+        call debug_timer(stop_timer, &
+                         "calling metis_partgraphkway, metis_option=2")
         !
       else if (metis_option == 3) then
         !
@@ -1216,9 +1226,13 @@ continue
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_VOL
         !
+        call debug_timer(start_timer, &
+                         "calling metis_partgraphkway, metis_option=3")
         call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
                                  adjwgt,nparts,tpwgts,ubvec,options, &
                                  objval,epart)
+        call debug_timer(stop_timer, &
+                         "calling metis_partgraphkway, metis_option=3")
         !
       else if (metis_option == 4) then
         !
@@ -1242,9 +1256,13 @@ continue
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_VOL
         !
+        call debug_timer(start_timer, &
+                         "calling metis_partgraphkway, metis_option=4")
         call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
                                  adjwgt,nparts,tpwgts,ubvec,options, &
                                  objval,epart)
+        call debug_timer(stop_timer, &
+                         "calling metis_partgraphkway, metis_option=4")
         !
       else
         !
