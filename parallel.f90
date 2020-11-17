@@ -1346,6 +1346,257 @@ end subroutine partition_using_metis_5
 !
 !###############################################################################
 !
+subroutine output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
+                                  adjwgt,nparts,tpwgts,ubvec,options, &
+                                  objval,epart,in_method,in_weight,in_minmzd)
+  !
+  !.. Formal Arguments ..
+  integer(idx_t),              intent(in) :: nvtxs
+  integer(idx_t),              intent(in) :: ncon
+  integer(idx_t),              intent(in) :: xadj(:)
+  integer(idx_t),              intent(in) :: adjncy(:)
+  integer(idx_t), allocatable, intent(in) :: vwgt(:)
+  integer(idx_t), allocatable, intent(in) :: vsize(:)
+  integer(idx_t), allocatable, intent(in) :: adjwgt(:)
+  integer(idx_t),              intent(in) :: nparts
+  real(real_t),   allocatable, intent(in) :: tpwgts(:)
+  real(real_t),   allocatable, intent(in) :: ubvec(:)
+  integer(idx_t),              intent(in) :: options(0:)
+  integer(idx_t),              intent(in) :: objval
+  integer(idx_t),              intent(in) :: epart(:)
+  character(len=*),            intent(in) :: in_method
+  character(len=*),            intent(in) :: in_weight
+  character(len=*),            intent(in) :: in_minmzd
+  !
+  !.. Local Scalars ..
+  integer        :: i,io,ierr
+  integer(idx_t) :: n
+  !
+  character(len=25) :: fname
+  !
+  !.. Local Allocatable Arrays ..
+  character(len=:), allocatable :: method
+  character(len=:), allocatable :: weight
+  character(len=:), allocatable :: minmzd
+  !
+  !.. Local Saved Scalars ..
+  integer, save :: partition_attempt = 0
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_metis_arguments"
+  !
+continue
+  !
+  partition_attempt = partition_attempt + 1
+  !
+  write (fname,1) partition_attempt
+  1 format ("metis_args.",i0,".dat")
+  !
+  fname = trim(adjustl(fname))
+  !
+  open (newunit=io,file=fname,status="replace",action="write",iostat=ierr)
+  !
+  ! Write out a description of the METIS method that was used
+  !
+  method = trim(adjustl(in_method)) ! F2003 AUTO-REALLOC
+  weight = trim(adjustl(in_weight)) ! F2003 AUTO-REALLOC
+  minmzd = trim(adjustl(in_minmzd)) ! F2003 AUTO-REALLOC
+  !
+  weight(1:1) = uppercase(weight(1:1))
+  !
+  write (io,2) trim(adjustl(weight)), &
+               trim(adjustl(method)), &
+               trim(adjustl(minmzd))
+  !
+  ! Write out the METIS input arguments
+  !
+  write (io,3) "nvtxs",nvtxs
+  write (io,3) "ncon",ncon
+  write (io,3) "nparts",nparts
+  !
+  !############################################################
+  !
+  write (io,4) ("options",i=1,2), lbound(options,dim=1), &
+                                  ubound(options,dim=1), &
+                                  size(options)
+  write (io,8) METIS_OPTION_PTYPE, options(METIS_OPTION_PTYPE), &
+              "METIS_OPTION_PTYPE"
+  write (io,8) METIS_OPTION_OBJTYPE, options(METIS_OPTION_OBJTYPE), &
+              "METIS_OPTION_OBJTYPE"
+  write (io,8) METIS_OPTION_CTYPE, options(METIS_OPTION_CTYPE), &
+              "METIS_OPTION_CTYPE"
+  write (io,8) METIS_OPTION_IPTYPE, options(METIS_OPTION_IPTYPE), &
+              "METIS_OPTION_IPTYPE"
+  write (io,8) METIS_OPTION_RTYPE, options(METIS_OPTION_RTYPE), &
+              "METIS_OPTION_RTYPE"
+  write (io,8) METIS_OPTION_DBGLVL, options(METIS_OPTION_DBGLVL), &
+              "METIS_OPTION_DBGLVL"
+  write (io,8) METIS_OPTION_NITER, options(METIS_OPTION_NITER), &
+              "METIS_OPTION_NITER"
+  write (io,8) METIS_OPTION_NCUTS, options(METIS_OPTION_NCUTS), &
+              "METIS_OPTION_NCUTS"
+  write (io,8) METIS_OPTION_SEED, options(METIS_OPTION_SEED), &
+              "METIS_OPTION_SEED"
+  write (io,8) METIS_OPTION_NO2HOP, options(METIS_OPTION_NO2HOP), &
+              "METIS_OPTION_NO2HOP"
+  write (io,8) METIS_OPTION_MINCONN, options(METIS_OPTION_MINCONN), &
+              "METIS_OPTION_MINCONN"
+  write (io,8) METIS_OPTION_CONTIG, options(METIS_OPTION_CONTIG), &
+              "METIS_OPTION_CONTIG"
+  write (io,8) METIS_OPTION_COMPRESS, options(METIS_OPTION_COMPRESS), &
+              "METIS_OPTION_COMPRESS"
+  write (io,8) METIS_OPTION_CCORDER, options(METIS_OPTION_CCORDER), &
+              "METIS_OPTION_CCORDER"
+  write (io,8) METIS_OPTION_PFACTOR, options(METIS_OPTION_PFACTOR), &
+              "METIS_OPTION_PFACTOR"
+  write (io,8) METIS_OPTION_NSEPS, options(METIS_OPTION_NSEPS), &
+              "METIS_OPTION_NSEPS"
+  write (io,8) METIS_OPTION_UFACTOR, options(METIS_OPTION_UFACTOR), &
+              "METIS_OPTION_UFACTOR"
+  write (io,8) METIS_OPTION_NUMBERING, options(METIS_OPTION_NUMBERING), &
+              "METIS_OPTION_NUMBERING"
+  write (io,8) METIS_OPTION_HELP, options(METIS_OPTION_HELP), &
+              "METIS_OPTION_HELP"
+  write (io,8) METIS_OPTION_TPWGTS, options(METIS_OPTION_TPWGTS), &
+              "METIS_OPTION_TPWGTS"
+  write (io,8) METIS_OPTION_NCOMMON, options(METIS_OPTION_NCOMMON), &
+              "METIS_OPTION_NCOMMON"
+  write (io,8) METIS_OPTION_NOOUTPUT, options(METIS_OPTION_NOOUTPUT), &
+              "METIS_OPTION_NOOUTPUT"
+  write (io,8) METIS_OPTION_BALANCE, options(METIS_OPTION_BALANCE), &
+              "METIS_OPTION_BALANCE"
+  write (io,8) METIS_OPTION_GTYPE, options(METIS_OPTION_GTYPE), &
+              "METIS_OPTION_GTYPE"
+  write (io,8) METIS_OPTION_UBVEC, options(METIS_OPTION_UBVEC), &
+              "METIS_OPTION_UBVEC"
+  !
+  write (1001,4) ("options",i=1,2), lbound(options,dim=1), &
+                                    ubound(options,dim=1), &
+                                    size(options)
+  do n = lbound(options,dim=1),ubound(options,dim=1)
+    write (1001,5) options(n)
+  end do
+  !
+  !############################################################
+  !
+ !if (allocated(xadj)) then
+    write (io,4) ("xadj",i=1,2), lbound(xadj,dim=1), &
+                                 ubound(xadj,dim=1), &
+                                 size(xadj)
+    do n = lbound(xadj,dim=1),ubound(xadj,dim=1)
+      write (io,5) xadj(n)
+    end do
+ !else
+ !  write (io,7) "xadj"
+ !end if
+  !
+  !############################################################
+  !
+ !if (allocated(adjncy)) then
+    write (io,4) ("adjncy",i=1,2), lbound(adjncy,dim=1), &
+                                   ubound(adjncy,dim=1), &
+                                   size(adjncy)
+    do n = lbound(adjncy,dim=1),ubound(adjncy,dim=1)
+      write (io,5) adjncy(n)
+    end do
+ !else
+ !  write (io,7) "adjncy"
+ !end if
+  !
+  !############################################################
+  !
+  if (allocated(vwgt)) then
+    write (io,4) ("vwgt",i=1,2), lbound(vwgt,dim=1), &
+                                 ubound(vwgt,dim=1), &
+                                 size(vwgt)
+    do n = lbound(vwgt,dim=1),ubound(vwgt,dim=1)
+      write (io,5) vwgt(n)
+    end do
+  else
+    write (io,7) "vwgt"
+  end if
+  !
+  !############################################################
+  !
+  if (allocated(vsize)) then
+    write (io,4) ("vsize",i=1,2), lbound(vsize,dim=1), &
+                                  ubound(vsize,dim=1), &
+                                  size(vsize)
+    do n = lbound(vsize,dim=1),ubound(vsize,dim=1)
+      write (io,5) vsize(n)
+    end do
+  else
+    write (io,7) "vsize"
+  end if
+  !
+  !############################################################
+  !
+  if (allocated(adjwgt)) then
+    write (io,4) ("adjwgt",i=1,2), lbound(adjwgt,dim=1), &
+                                   ubound(adjwgt,dim=1), &
+                                   size(adjwgt)
+    do n = lbound(adjwgt,dim=1),ubound(adjwgt,dim=1)
+      write (io,5) adjwgt(n)
+    end do
+  else
+    write (io,7) "adjwgt"
+  end if
+  !
+  !############################################################
+  !
+  if (allocated(tpwgts)) then
+    write (io,4) ("tpwgts",i=1,2), lbound(tpwgts,dim=1), &
+                                   ubound(tpwgts,dim=1), &
+                                   size(tpwgts)
+    do n = lbound(tpwgts,dim=1),ubound(tpwgts,dim=1)
+      write (io,6) tpwgts(n)
+    end do
+  else
+    write (io,7) "tpwgts"
+  end if
+  !
+  !############################################################
+  !
+  if (allocated(ubvec)) then
+    write (io,4) ("ubvec",i=1,2), lbound(ubvec,dim=1), &
+                                  ubound(ubvec,dim=1), &
+                                  size(ubvec)
+    do n = lbound(ubvec,dim=1),ubound(ubvec,dim=1)
+      write (io,6) ubvec(n)
+    end do
+  else
+    write (io,7) "ubvec"
+  end if
+  !
+  !############################################################
+  !
+  ! Write out the results of the partitioning
+  !
+  write (io,3) "objval",objval
+  !
+ !if (allocated(epart)) then
+    write (io,4) ("epart",i=1,2), lbound(epart,dim=1), &
+                                  ubound(epart,dim=1), &
+                                  size(epart)
+    do n = lbound(epart,dim=1),ubound(epart,dim=1)
+      write (io,5) epart(n)
+    end do
+ !else
+ !  write (io,7) "epart"
+ !end if
+  !
+  2 format ('"',a,' multilevel ',a,' minimizing the ',a,'"')
+  3 format (/,a,/,i0)
+  4 format (/,"size(",a,") = ",a,"(",i0,":",i0,") = ",i0)
+  5 format (1x,i0)
+  6 format (1x,es23.15)
+  7 format (/,"size(",a,") = 0")
+  8 format ("options(",i0,") = ",i0,t40,a)
+  !
+end subroutine output_metis_arguments
+!
+!###############################################################################
+!
 subroutine get_global_connectivity(cell_geom,cell_order,bface,xyz_nodes, &
                                    nodes_of_cell,nodes_of_cell_ptr, &
                                    cells_with_node,cells_with_node_ptr, &
