@@ -5863,6 +5863,10 @@ continue
         do i = 1,size(var_names)
           if (uppercase(trim(adjustl(var_names(i)))) == "Y") then
             exit find_iskip_loop
+          else if (uppercase(trim(adjustl(var_names(i)))) == "R") then
+            ! Mark this SEM box as cylindrical if the variable name is "R"
+            bc_input(bc_idx)%sem%is_cylindrical = true
+            exit find_iskip_loop
           end if
           iskip = iskip + 1
         end do find_iskip_loop
