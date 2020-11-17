@@ -2774,6 +2774,12 @@ continue
   !
   call check_for_bad_number(__LINE__,__FILE__)
   !
+  if (average_sem_inflow_plane) then
+    call output_sem_averages(output_inflow_profile=true)
+  end if
+  !
+ !call output_interpolated_profiles()
+  !
   ! Now that we have interpolated all the profile data to the SEM
   ! face points, we no longer need the actual profile data so deallocate
   ! all the sem_box(:)%profile components to free up that memory.
