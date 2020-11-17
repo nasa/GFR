@@ -378,20 +378,21 @@ contains
 subroutine initialize_from_sem_profile(xyz,cv)
   !
   !.. Use Statements ..
-  use ovar, only : bc_in,gam,rgasref_nd
+  use ovar, only : bc_in,bc_input
+  use ovar, only : rhoref,aref,tref
+  use ovar, only : itestcase
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: xyz(:,:)
   real(wp), intent(inout) :: cv(:,:)
   !
   !.. Local Scalars ..
-  integer  :: k,n,npts,n1,n2,bc_idx,ierr
-  real(wp) :: r,u,v,w,t,q2,rgas_over_gm1
-  real(wp) :: ravg,uavg,vavg,wavg,tavg
-  real(wp) :: y,y1,y2,c1,c2
+  integer :: k,n,npts,idx,iprof,nprof,bc_idx,ierr
   !
-  !.. Local Allocatable Scalars ..
-  type(sem_profile_t), allocatable :: prof
+  !.. Local Allocatable Arrays ..
+  type(sem_profile_t), allocatable :: prof(:)
+  real(wp),            allocatable :: pvavg(:,:)
+  integer,             allocatable :: bc_idx_prof(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_from_sem_profile"
@@ -400,34 +401,49 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  ! Precompute Rgas/(gamma-1)
-  !
-  rgas_over_gm1 = rgasref_nd / (gam - one)
-  !
   ! Allocate prof
   !
-  allocate ( prof , stat=ierr , errmsg=error_message )
+  nprof = count(bc_in(:)%bc_type == bc_sem)
+  !
+  allocate ( prof(1:nprof) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"prof",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Allocate pvavg and initialize it to reference conditions
+  !
+  pvavg = init_array(nq,nprof,zero) ! F2003 AUTO-REALLOC
+  !
+  pvavg(nec,:) = bc_in(0)%cv(nec)
+  pvavg(nmx,:) = bc_in(0)%pv(nmx)
+  pvavg(nmy,:) = bc_in(0)%pv(nmy)
+  pvavg(nmz,:) = bc_in(0)%pv(nmz)
+  pvavg(nee,:) = bc_in(0)%gp(ntemp)
+  !
+  ! Allocate bc_idx_prof
+  !
+  bc_idx_prof = init_array(nprof,0) ! F2003 AUTO-REALLOC
   !
   ! Read in the profile file
   ! NOTE: This should be called before initialize_sem, so sem_box will not yet
   !       be allocated, and therefore the profile file will not yet have been
   !       read in and saved to sem_box(:)%profile.
   !
+  iprof = 0
   one_pass_loop: &
   do k = 1,1
     !
     do bc_idx = 1,ubound(bc_in,dim=1)
       if (bc_in(bc_idx)%bc_type == bc_sem) then
-        prof%fname = trim(adjustl( bc_in(bc_idx)%sem%profile_file ))
-        if (len_trim(prof%fname) > 0) then
-          ravg = bc_in(bc_idx)%cv(nec)
-          uavg = bc_in(bc_idx)%cv(nmx)
-          vavg = bc_in(bc_idx)%cv(nmy)
-          wavg = bc_in(bc_idx)%cv(nmz)
-          tavg = bc_in(bc_idx)%gp(ntemp)
-          exit one_pass_loop
+        iprof = iprof + 1
+        bc_idx_prof(iprof) = bc_idx
+        prof(iprof)%fname = trim(adjustl( bc_in(bc_idx)%sem%profile_file ))
+        if (len_trim(prof(iprof)%fname) > 0) then
+          pvavg(nec,iprof) = bc_in(bc_idx)%cv(nec)
+          pvavg(nmx,iprof) = bc_in(bc_idx)%pv(nmx)
+          pvavg(nmy,iprof) = bc_in(bc_idx)%pv(nmy)
+          pvavg(nmz,iprof) = bc_in(bc_idx)%pv(nmz)
+          pvavg(nee,iprof) = bc_in(bc_idx)%gp(ntemp)
         end if
+        if (iprof == nprof) exit one_pass_loop
       end if
     end do
     !
@@ -436,100 +452,122 @@ continue
     !
   end do one_pass_loop
   !
-  call read_sem_profile(prof)
+  ! Read in the SEM profiles
   !
-  npts = prof%npts
-  !
-  ! If the averaged density was not included in the profile
-  ! file, set the density for all points in the profile to
-  ! the density specified for this boundary condition.
-  !
-  if (.not. allocated(prof%ravg)) then
-    prof%ravg = init_array(npts,ravg) ! F2003 AUTO-REALLOC
-  end if
-  !
-  ! If the averaged x-velocity was not included in the profile
-  ! file, set the x-velocity for all points in the profile to
-  ! the x-velocity specified for this boundary condition.
-  !
-  if (.not. allocated(prof%uavg)) then
-    prof%uavg = init_array(npts,uavg) ! F2003 AUTO-REALLOC
-  end if
-  !
-  ! If the averaged y-velocity was not included in the profile
-  ! file, set the y-velocity for all points in the profile to
-  ! the y-velocity specified for this boundary condition.
-  !
-  if (.not. allocated(prof%vavg)) then
-    prof%vavg = init_array(npts,vavg) ! F2003 AUTO-REALLOC
-  end if
-  !
-  ! If the averaged z-velocity was not included in the profile
-  ! file, set the z-velocity for all points in the profile to
-  ! the z-velocity specified for this boundary condition.
-  !
-  if (.not. allocated(prof%wavg)) then
-    prof%wavg = init_array(npts,wavg) ! F2003 AUTO-REALLOC
-  end if
-  !
-  ! If the averaged temperature was not included in the profile
-  ! file, set the temperature for all points in the profile to
-  ! the temperature specified for this boundary condition.
-  !
-  if (.not. allocated(prof%tavg)) then
-    prof%tavg = init_array(npts,tavg) ! F2003 AUTO-REALLOC
-  end if
-  !       
-  ! Interpolate the flow profile to the solution points
-  !
-  do k = 1,size(xyz,dim=2)
+  do iprof = 1,nprof
     !
-    y = xyz(2,k)
+    call read_sem_profile(prof(iprof))
     !
-    n1 = 1
-    n2 = 2
-    do n = 2,npts
-      if (prof%y(n) > y) exit
-      n1 = n
-      n2 = max(n+1,npts)
-    end do
+    npts = prof(iprof)%npts
     !
-    if (n1 == npts) then
-      !
-      c1 = zero
-      c2 = one
-      !
-    else
-      !
-      y1 = prof%y(n1)
-      y2 = prof%y(n2)
-      !
-      c1 = (y-y2)/(y2-y1)
-      c2 = (y-y1)/(y2-y1)
-      !
+    ! If the averaged density was not included in the profile
+    ! file, set the density for all points in the profile to
+    ! the density specified for this boundary condition.
+    !
+    if (.not. allocated(prof(iprof)%ravg)) then
+      prof(iprof)%ravg = init_array(npts,pvavg(nec,iprof)) ! F2003 AUTO-REALLOC
     end if
     !
-    r = c2*prof%ravg(n2) - c1*prof%ravg(n1)
-    u = c2*prof%uavg(n2) - c1*prof%uavg(n1)
-    v = c2*prof%vavg(n2) - c1*prof%vavg(n1)
-    w = c2*prof%wavg(n2) - c1*prof%wavg(n1)
-    t = c2*prof%tavg(n2) - c1*prof%tavg(n1)
+    ! If the averaged x-velocity was not included in the profile
+    ! file, set the x-velocity for all points in the profile to
+    ! the x-velocity specified for this boundary condition.
     !
-    q2 = u*u + v*v + w*w
+    if (.not. allocated(prof(iprof)%uavg)) then
+      prof(iprof)%uavg = init_array(npts,pvavg(nmx,iprof)) ! F2003 AUTO-REALLOC
+    end if
     !
-    cv(k,nec) = r
-    cv(k,nmx) = r*u
-    cv(k,nmy) = r*v
-    cv(k,nmz) = r*w
-    cv(k,nee) = r*( rgas_over_gm1*t + half*q2 )
+    ! If the averaged y-velocity was not included in the profile
+    ! file, set the y-velocity for all points in the profile to
+    ! the y-velocity specified for this boundary condition.
+    !
+    if (.not. allocated(prof(iprof)%vavg)) then
+      prof(iprof)%vavg = init_array(npts,pvavg(nmy,iprof)) ! F2003 AUTO-REALLOC
+    end if
+    !
+    ! If the averaged z-velocity was not included in the profile
+    ! file, set the z-velocity for all points in the profile to
+    ! the z-velocity specified for this boundary condition.
+    !
+    if (.not. allocated(prof(iprof)%wavg)) then
+      prof(iprof)%wavg = init_array(npts,pvavg(nmz,iprof)) ! F2003 AUTO-REALLOC
+    end if
+    !
+    ! If the averaged temperature was not included in the profile
+    ! file, set the temperature for all points in the profile to
+    ! the temperature specified for this boundary condition.
+    !
+    if (.not. allocated(prof(iprof)%tavg)) then
+      prof(iprof)%tavg = init_array(npts,pvavg(nee,iprof)) ! F2003 AUTO-REALLOC
+    end if
     !
   end do
   !
-  ! Deallocate prof and all its components before leaving
+  if (mypnum == glb_root) then
+    write (iout,*)
+    do iprof = 1,nprof
+      write (iout,2) bc_idx_prof(iprof),iprof, &
+                     pvavg(nec,iprof)*rhoref, &
+                     pvavg(nmx,iprof)*aref, &
+                     pvavg(nmy,iprof)*aref, &
+                     pvavg(nmz,iprof)*aref, &
+                     pvavg(nee,iprof)*tref
+      npts = prof(iprof)%npts
+      write (iout,2) bc_idx_prof(iprof),iprof, &
+                     prof(iprof)%ravg(npts)*rhoref, &
+                     prof(iprof)%uavg(npts)*aref, &
+                     prof(iprof)%vavg(npts)*aref, &
+                     prof(iprof)%wavg(npts)*aref, &
+                     prof(iprof)%tavg(npts)*tref
+    end do
+    write (iout,*)
+  end if
+  flush (iout)
+  !
+  ! Interpolate the flow profile to the solution points
+  !
+  if (itestcase == -THX_Phase_3) then
+    !
+    iprof = 1
+    !
+    find_pipe_sem: &
+    do n = 1,nprof
+      idx = bc_in(bc_idx_prof(iprof))%bc_input_idx
+      if (trim(adjustl(uppercase(bc_input(idx)%name))) == "INFLOWPIPE") then
+        iprof = n
+        exit find_pipe_sem
+      end if
+    end do find_pipe_sem
+    !
+    call thx_pipe_sem_initialization(prof(iprof),pvavg(:,iprof),xyz,cv)
+    !
+  else if (itestcase == THX_Phase_3) then
+    !
+    call thx_sem_initialization(prof,pvavg,bc_idx_prof,xyz,cv)
+    !
+  else
+    !
+    iprof = 1
+    !
+    call init_from_sem_profile(prof(iprof),pvavg(:,iprof),xyz,cv)
+    !
+  end if
+  !
+  !
+  ! Deallocate all local arrays before leaving
   !
   if (allocated(prof)) then
     deallocate ( prof , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"prof",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(pvavg)) then
+    deallocate ( pvavg , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"pvavg",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(bc_idx_prof)) then
+    deallocate ( bc_idx_prof , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bc_idx_prof",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -540,6 +578,14 @@ continue
             "THE SEM INFLOW PROFILE, BUT A FILE NAME FOR THE SEM ", &
             "PROFILE FILE COULD NOT BE FOUND FROM THE INPUT BOUNDARY ", &
             "CONDITIONS!")
+  !
+  2 format (/,2x,"Primitive variables from the SEM BC group # ",i0,/, &
+              2x,"that will be used for initialization group # ",i0," : ",/, &
+              6x,"ravg = ",f18.10," kg/(m^3)",/, &
+              6x,"uavg = ",f18.10," m/s",/, &
+              6x,"vavg = ",f18.10," m/s",/, &
+              6x,"wavg = ",f18.10," m/s",/, &
+              6x,"tavg = ",f18.10," K",/)
   !
 end subroutine initialize_from_sem_profile
 !
