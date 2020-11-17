@@ -1194,6 +1194,13 @@ continue
         call debug_timer(stop_timer, &
                          "calling metis_partgraphrecursive, metis_option=1")
         !
+!#define DUMP_METIS_ARGUMENTS
+#ifdef DUMP_METIS_ARGUMENTS
+        call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
+                                    adjwgt,nparts,tpwgts,ubvec,options, &
+                                    objval,epart,method,weight,minmzd)
+#endif
+        !
       else if (metis_option == 2) then
         !
         ! This METIS routine computes non-weighted partitions using
@@ -1214,6 +1221,12 @@ continue
         call debug_timer(stop_timer, &
                          "calling metis_partgraphkway, metis_option=2")
         !
+#ifdef DUMP_METIS_ARGUMENTS
+        call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
+                                    adjwgt,nparts,tpwgts,ubvec,options, &
+                                    objval,epart,method,weight,minmzd)
+#endif
+        !
       else if (metis_option == 3) then
         !
         ! This METIS routine computes non-weighted partitions using a
@@ -1233,6 +1246,12 @@ continue
                                  objval,epart)
         call debug_timer(stop_timer, &
                          "calling metis_partgraphkway, metis_option=3")
+        !
+#ifdef DUMP_METIS_ARGUMENTS
+        call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
+                                    adjwgt,nparts,tpwgts,ubvec,options, &
+                                    objval,epart,method,weight,minmzd)
+#endif
         !
       else if (metis_option == 4) then
         !
@@ -1263,6 +1282,12 @@ continue
                                  objval,epart)
         call debug_timer(stop_timer, &
                          "calling metis_partgraphkway, metis_option=4")
+        !
+#ifdef DUMP_METIS_ARGUMENTS
+        call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
+                                    adjwgt,nparts,tpwgts,ubvec,options, &
+                                    objval,epart,method,weight,minmzd)
+#endif
         !
       else
         !
