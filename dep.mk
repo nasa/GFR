@@ -610,6 +610,16 @@ $(OBJDIR)/turb_inflow_mod.o : turb_inflow_mod.f90 \
                     $(OBJDIR)/transport_mod.o \
                     $(FUNDIR)/check_for_bad_number.f90
 
+$(OBJDIR)/thx_mod.o : thx_mod.f90 \
+            $(OBJDIR)/kind_types.o \
+            $(OBJDIR)/eqn_idx_mod.o \
+            $(OBJDIR)/geovar_mod.o \
+            $(OBJDIR)/ovar_mod.o \
+            $(OBJDIR)/flowvar_mod.o \
+            $(OBJDIR)/metrics.o \
+            $(OBJDIR)/quadrature_mod.o \
+            $(FUNDIR)/debug_timer.f90
+
 $(OBJDIR)/typesgen_mod.o : typesgen_mod.f90 \
                  $(OBJDIR)/kind_types.o \
                  $(OBJDIR)/ovar_mod.o
