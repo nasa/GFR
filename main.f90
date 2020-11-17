@@ -226,6 +226,9 @@ program GFR_main
   !
   integer :: final_timestep_from_stop_request
   !
+  character(len=10)  :: text
+  character(len=100) :: dbgfile,dbgfrmt
+  !
 #ifndef SPECIAL_FOR_GCC
   type(ieee_status_type) :: default_ieee_status
 #endif
@@ -253,6 +256,16 @@ continue
   !
   call initialize_mpi_environment
   call check_for_bad_number(__LINE__)
+  !
+#ifdef DEBUG_VERBOSE_MPI_CALLS
+  write (text,'(i0)') ncpu
+  write (dbgfrmt,850) len_trim(adjustl(text)),len_trim(adjustl(text))
+  850 format ('("mpi_calls.CPU-",i',i0,'.',i0,',".log")')
+  write (dbgfile,dbgfrmt) mypnum
+  open (newunit=my_dbg_out,file=dbgfile,status="replace",action="write", &
+                           iostat=ierr,iomsg=error_message)
+  call io_error(pname,dbgfile,1,__LINE__,__FILE__,ierr,error_message)
+#endif
   !
   call get_cpu_locality
   call check_for_bad_number(__LINE__)
