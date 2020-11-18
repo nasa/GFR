@@ -51,7 +51,64 @@ module flux_mod
     module procedure write_2d_array, write_3d_array
   end interface write_array
   !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  public :: write_br2_timings
+  integer,  save :: timings_counter = 0
+  integer,  save :: timings_points(1:1000) = 0
+  real(wp), save :: timings_beg(1:1000) = zero
+  real(wp), save :: timings_end(1:1000) = zero
+  integer,  save :: timings_counter1 = 0
+  integer,  save :: timings_points1(1:1000) = 0
+  real(wp), save :: timings_beg1(1:1000) = zero
+  real(wp), save :: timings_end1(1:1000) = zero
+#endif
+  !
 contains
+!
+!###############################################################################
+!
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+subroutine write_br2_timings()
+  !
+  integer :: i,l,n,io,ierr,ncalls
+  character(len=100) :: fname
+  !
+  write (fname,2) 1,mypnum
+  open (newunit=io,file=fname,status="replace",action="write",iostat=ierr)
+  l = maxval(timings_points1(1:timings_counter1))
+  ncalls = count(timings_points1(1:timings_counter1) == l)
+  write (io,10) 1,mypnum+1,ncpu,ncalls,l
+  i = 0
+  do n = 1,timings_counter1
+    if (timings_points1(n) == l) then
+      i = i + 1
+      write (io,1) i,timings_end1(n)-timings_beg1(n)
+    end if
+  end do
+  close (io,iostat=ierr)
+  !
+  write (fname,2) 2,mypnum
+  open (newunit=io,file=fname,status="replace",action="write",iostat=ierr)
+  l = maxval(timings_points(1:timings_counter))
+  ncalls = count(timings_points(1:timings_counter) == l)
+  write (io,10) 2,mypnum+1,ncpu,ncalls,l
+  i = 0
+  do n = 1,timings_counter
+    if (timings_points(n) == l) then
+      i = i + 1
+      write (io,1) i,timings_end(n)-timings_beg(n)
+    end if
+  end do
+  close (io,iostat=ierr)
+  !
+  1 format (i4,2x,es23.15)
+  2 format ("br2_timings.k-",i1,".",i2.2,".dat")
+  10 format ('VARIABLES = "Call #", "Wall Time"',/, &
+             'ZONE T="br2, k-',i1,': CPU ',i2,' of ',i2, &
+             '", I=',i0,', DATAPACKING=POINT',/, &
+             'AUXDATA loop_size="'i0,'"')
+end subroutine write_br2_timings
+#endif
 !
 !###############################################################################
 !
@@ -6797,6 +6854,11 @@ continue
  !!$OMP&                 decdy,dmxdy,dmydy,dmzdy,deedy, &
  !!$OMP&                 decdz,dmxdz,dmydz,dmzdz,deedz)
   !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  timings_counter1 = timings_counter1 + 1
+  timings_points1(timings_counter1) = n_flxpts
+  call gfr_timer( timings_beg1(timings_counter1) )
+#endif
   !$ACC PARALLEL LOOP &
   !$ACC&              PRESENT(faceusp_array,cbias,face_jump)
  !!$OMP DO
@@ -6810,6 +6872,16 @@ continue
   end do
  !!$OMP END DO
   !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  call gfr_timer( timings_end1(timings_counter1) )
+#endif
+  !
+  !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  timings_counter = timings_counter + 1
+  timings_points(timings_counter) = ncell
+  call gfr_timer( timings_beg(timings_counter) )
+#endif
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              VECTOR_LENGTH(32) &
   !$ACC&              PRESENT(facedusp_array,facenrm) &
@@ -7112,6 +7184,10 @@ continue
   end do cell_loop
  !!$OMP END DO
  !!$OMP END PARALLEL
+  !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  call gfr_timer( timings_end(timings_counter) )
+#endif
   !
 end subroutine correct_gradients_br2_gpu_3d
 !
