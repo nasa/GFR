@@ -217,6 +217,10 @@ continue
   call pbs_time_left(current_wtl)
  !current_wtl = real (8*3600,kind=wp)
   !
+  if (current_wtl < -300_pbs_int) then
+    current_wtl = 7200_pbs_int
+  end if
+  !
   hours = current_wtl / 3600_pbs_int
   minutes = (current_wtl - 3600_pbs_int*hours) / 60_pbs_int
   seconds = current_wtl - hours*3600_pbs_int - minutes*60_pbs_int
