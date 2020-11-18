@@ -1035,7 +1035,7 @@ continue
       if (mod(itcur,1) == 0) then
 #else
 #ifdef PBS_ENV
-      if (mod(itcur,1000) == 0) then
+      if (mod(itcur,100) == 0) then
 #else
       if (mod(itcur,50) == 0) then
 #endif
