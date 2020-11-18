@@ -1612,6 +1612,94 @@ end subroutine compute_resolution_marker
 !
 !###############################################################################
 !
+subroutine output_lim_data(usp,skip_cell,cutoff_order)
+  !
+  !.. Use Statements ..
+  use geovar,         only : n_solpts
+  use geovar,         only : output_cell_dt,input_cell_dt
+  use filter_mod,     only : output_filter_dt,input_filter_dt
+  use quadrature_mod, only : output_std_elem_dt,input_std_elem_dt
+  !
+  !.. Formal Arguments ..
+  real(wp),     intent(in) :: usp(:,:)
+  logical(ldk), intent(in) :: skip_cell(:)
+  integer,      intent(in) :: cutoff_order(:)
+  !
+  !.. Local Scalars ..
+  integer :: io,m,n,ierr
+  logical(lk) :: success
+  !
+continue
+  !
+  open (newunit=io,file="lim_usp.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) n_solpts
+  write (io) ((usp(n,m), n=1,n_solpts), m=1,nq)
+  close (io)
+  !
+  open (newunit=io,file="lim_skip_cell.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) size(skip_cell)
+  write (io) (skip_cell(n), n=1,size(skip_cell))
+  close (io)
+  !
+  open (newunit=io,file="lim_cutoff_order.dat",status="replace",action="write",&
+                   form="unformatted",iostat=ierr)
+  write (io) size(cutoff_order)
+  write (io) (cutoff_order(n), n=1,size(cutoff_order))
+  close (io)
+  !
+  open (newunit=io,file="lim_cell.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  call output_cell_dt(io)
+  close (io)
+  !
+  open (newunit=io,file="lim_filter.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  call output_filter_dt(io)
+  close (io)
+  !
+  open (newunit=io,file="lim_std_elem.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  call output_std_elem_dt(io)
+  close (io)
+  !
+  ! Check to make sure the derived types were output correctly
+  !
+  open (newunit=io,file="lim_cell.dat",status="old",action="read", &
+                   form="unformatted",iostat=ierr)
+  call input_cell_dt(io,success)
+  close (io)
+  if (success) then
+    write (iout,*) "cell output correctly!"
+  else
+    write (iout,*) "ERROR: cell NOT output correctly"
+  end if
+  !
+  open (newunit=io,file="lim_filter.dat",status="old",action="read", &
+                   form="unformatted",iostat=ierr)
+  call input_filter_dt(io,success)
+  close (io)
+  if (success) then
+    write (iout,*) "filter output correctly!"
+  else
+    write (iout,*) "ERROR: filter NOT output correctly"
+  end if
+  !
+  open (newunit=io,file="lim_std_elem.dat",status="old",action="read", &
+                   form="unformatted",iostat=ierr)
+  call input_std_elem_dt(io,success)
+  close (io)
+  if (success) then
+    write (iout,*) "std_elem output correctly!"
+  else
+    write (iout,*) "ERROR: std_elem NOT output correctly"
+  end if
+  !
+end subroutine output_lim_data
+!
+!###############################################################################
+!
  pure &
 subroutine compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
   !
@@ -1770,6 +1858,26 @@ continue
   end do
   !
 end subroutine compute_resolution_marker_3d
+!
+!###############################################################################
+!
+subroutine output_gold_lim_data(gold_marker)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: gold_marker(:)
+  !
+  !.. Local Scalars ..
+  integer :: io,n,ierr
+  !
+continue
+  !
+  open (newunit=io,file="lim_gold_marker.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) size(gold_marker)
+  write (io) (gold_marker(n), n=1,size(gold_marker))
+  close (io)
+  !
+end subroutine output_gold_lim_data
 !
 !###############################################################################
 !
