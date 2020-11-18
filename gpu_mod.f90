@@ -564,7 +564,8 @@ end subroutine pv2cv_gpu_cpg_1d
 !###############################################################################
 !###############################################################################
 !
-pure subroutine grad_cv_to_grad_pv_sp(uin,gpin,dcvdxin,return_value)
+pure &
+subroutine grad_cv_to_grad_pv_sp(uin,gpin,dcvdxin,return_value)
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: uin(:)
@@ -609,7 +610,8 @@ end subroutine grad_cv_to_grad_pv_sp
 !
 !###############################################################################
 !
-pure subroutine grad_cv_to_grad_pv_gpu(n1,n2,usp,gpsp,dcvdx,return_value, &
+pure &
+subroutine grad_cv_to_grad_pv_gpu(n1,n2,usp,gpsp,dcvdx,return_value, &
                                        output_variables)
   !
   !.. Formal Arguments ..
@@ -664,7 +666,8 @@ end subroutine grad_cv_to_grad_pv_gpu
 !
 !###############################################################################
 !
-pure subroutine grad_cv_to_grad_pv_cpg_3d(n1,n2,usp,dcvdx,return_value)
+pure &
+subroutine grad_cv_to_grad_pv_cpg_3d(n1,n2,usp,dcvdx,return_value)
   !
   !.. Use Statements ..
   use ovar, only : rgasref_nd,gam

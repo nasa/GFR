@@ -350,7 +350,8 @@ end subroutine apply_filter_limiter_to_usp
 !
 !###############################################################################
 !
-pure subroutine apply_filter_limiter_to_usp_3d(troubled_cell,usp)
+pure &
+subroutine apply_filter_limiter_to_usp_3d(troubled_cell,usp)
   !
   !.. Use Statements ..
   use order_mod,  only : maxSP
@@ -451,7 +452,8 @@ end subroutine apply_filter_limiter_to_usp_3d
 !
 !###############################################################################
 !
-pure subroutine apply_filter_limiter_to_usp_2d(troubled_cell,usp)
+pure &
+subroutine apply_filter_limiter_to_usp_2d(troubled_cell,usp)
   !
   !.. Use Statements ..
   use order_mod,  only : maxSP
@@ -548,7 +550,8 @@ end subroutine apply_filter_limiter_to_usp_2d
 !
 !###############################################################################
 !
-pure subroutine apply_filter_limiter_to_usp_1d(troubled_cell,usp)
+pure &
+subroutine apply_filter_limiter_to_usp_1d(troubled_cell,usp)
   !
   !.. Use Statements ..
   use order_mod,  only : maxSP
@@ -641,7 +644,8 @@ end subroutine apply_filter_limiter_to_usp_1d
 !
 !###############################################################################
 !
-pure subroutine apply_filter_limiter_to_usp_nd(mbeg,mend,troubled_cell,usp)
+pure &
+subroutine apply_filter_limiter_to_usp_nd(mbeg,mend,troubled_cell,usp)
   !
   !.. Use Statements ..
   use order_mod,  only : maxSP
@@ -728,6 +732,13 @@ continue
 end subroutine apply_filter_limiter_to_usp_nd
 !
 !###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !
 subroutine apply_projct_limiter_to_usp(troubled_cell,usp,dropped_orders)
   !
@@ -775,7 +786,8 @@ end subroutine apply_projct_limiter_to_usp
 !
 !###############################################################################
 !
-pure subroutine apply_projct_limiter_to_usp_3d(troubled_cell,usp,dropped_orders)
+pure &
+subroutine apply_projct_limiter_to_usp_3d(troubled_cell,usp,dropped_orders)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -883,7 +895,8 @@ end subroutine apply_projct_limiter_to_usp_3d
 !
 !###############################################################################
 !
-pure subroutine apply_projct_limiter_to_usp_2d(troubled_cell,usp,dropped_orders)
+pure &
+subroutine apply_projct_limiter_to_usp_2d(troubled_cell,usp,dropped_orders)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -987,7 +1000,8 @@ end subroutine apply_projct_limiter_to_usp_2d
 !
 !###############################################################################
 !
-pure subroutine apply_projct_limiter_to_usp_1d(troubled_cell,usp,dropped_orders)
+pure &
+subroutine apply_projct_limiter_to_usp_1d(troubled_cell,usp,dropped_orders)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -1087,8 +1101,9 @@ end subroutine apply_projct_limiter_to_usp_1d
 !
 !###############################################################################
 !
-pure subroutine apply_projct_limiter_to_usp_nd(mbeg,mend,troubled_cell,usp, &
-                                               dropped_orders)
+pure &
+subroutine apply_projct_limiter_to_usp_nd(mbeg,mend,troubled_cell,usp, &
+                                          dropped_orders)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -1183,6 +1198,13 @@ continue
   !
 end subroutine apply_projct_limiter_to_usp_nd
 !
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !###############################################################################
 !
 subroutine identify_troubled_cells(troubled_cell,dropped_orders, &
@@ -1538,10 +1560,17 @@ continue
 end subroutine resolution_indicator
 !
 !###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !
  pure &
 subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
-                                          marker,scaled_marker)
+                                     marker,scaled_marker)
   !
   !.. Use Statements ..
   use ovar, only : Resolution_Marker_Variable
@@ -1881,7 +1910,8 @@ end subroutine output_gold_lim_data
 !
 !###############################################################################
 !
-pure subroutine compute_resolution_marker_2d(usp,skip_cell,cutoff_order,marker)
+pure &
+subroutine compute_resolution_marker_2d(usp,skip_cell,cutoff_order,marker)
   !
   !.. Use Statements ..
   use geovar,         only : n_solpts,ncell,cell
@@ -2039,7 +2069,8 @@ end subroutine compute_resolution_marker_2d
 !
 !###############################################################################
 !
-pure subroutine compute_resolution_marker_1d(usp,skip_cell,cutoff_order,marker)
+pure &
+subroutine compute_resolution_marker_1d(usp,skip_cell,cutoff_order,marker)
   !
   !.. Use Statements ..
   use geovar,         only : n_solpts,ncell,cell
@@ -2185,8 +2216,9 @@ end subroutine compute_resolution_marker_1d
 !
 !###############################################################################
 !
-pure subroutine compute_resolution_marker_nd(mbeg,mend,usp,skip_cell, &
-                                             cutoff_order,marker)
+pure &
+subroutine compute_resolution_marker_nd(mbeg,mend,usp,skip_cell, &
+                                        cutoff_order,marker)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -2337,8 +2369,8 @@ end subroutine compute_resolution_marker_nd
 !
 !###############################################################################
 !
-pure subroutine compute_resolution_marker_1var(var,skip_cell, &
-                                               cutoff_order,marker)
+pure &
+subroutine compute_resolution_marker_1var(var,skip_cell,cutoff_order,marker)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -2440,8 +2472,16 @@ continue
 end subroutine compute_resolution_marker_1var
 !
 !###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !
-pure subroutine compute_scaled_marker(skip_cell,marker,scaled_marker)
+pure &
+subroutine compute_scaled_marker(skip_cell,marker,scaled_marker)
   !
   !.. Use Statements ..
   use geovar, only : ncell,cell
@@ -2498,8 +2538,16 @@ continue
 end subroutine compute_scaled_marker
 !
 !###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !
-pure subroutine res_ind_apply_proj_3d(usp,skip_cell,lmtr_order)
+pure &
+subroutine res_ind_apply_proj_3d(usp,skip_cell,lmtr_order)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -2595,7 +2643,8 @@ end subroutine res_ind_apply_proj_3d
 !
 !###############################################################################
 !
-pure subroutine res_ind_apply_proj_2d(usp,skip_cell,lmtr_order)
+pure &
+subroutine res_ind_apply_proj_2d(usp,skip_cell,lmtr_order)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -2687,7 +2736,8 @@ end subroutine res_ind_apply_proj_2d
 !
 !###############################################################################
 !
-pure subroutine res_ind_apply_proj_1d(usp,skip_cell,lmtr_order)
+pure &
+subroutine res_ind_apply_proj_1d(usp,skip_cell,lmtr_order)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -2775,7 +2825,8 @@ end subroutine res_ind_apply_proj_1d
 !
 !###############################################################################
 !
-pure subroutine res_ind_apply_proj_nd(mbeg,mend,usp,skip_cell,lmtr_order)
+pure &
+subroutine res_ind_apply_proj_nd(mbeg,mend,usp,skip_cell,lmtr_order)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -2858,6 +2909,13 @@ continue
   !
 end subroutine res_ind_apply_proj_nd
 !
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !###############################################################################
 !
 subroutine jump_indicator(troubled_cell)
@@ -3062,6 +3120,13 @@ continue
   !
 end subroutine jump_indicator
 !
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !###############################################################################
 !
 subroutine limiters_memory_usage(iunit)

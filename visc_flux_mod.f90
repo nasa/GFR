@@ -60,7 +60,8 @@ end subroutine visc_flx_cv_gpu
 !
 !###############################################################################
 !
-pure subroutine visc_flx_cv_gpu_3d(n1,n2,cv,gp,dcvdx,return_value)
+pure &
+subroutine visc_flx_cv_gpu_3d(n1,n2,cv,gp,dcvdx,return_value)
   !
   !.. Use Statements ..
   use ovar,       only : schmidt_lam
@@ -402,7 +403,8 @@ end subroutine visc_flx_cv_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine visc_flx_cv_gpu_1d(n1,n2,cv,gp,dcvdx,return_value)
+pure &
+subroutine visc_flx_cv_gpu_1d(n1,n2,cv,gp,dcvdx,return_value)
   !
   !.. Use Statements ..
   use ovar,       only : schmidt_lam
@@ -495,7 +497,8 @@ end subroutine visc_flx_cv_gpu_1d
 !
 !###############################################################################
 !
-pure function visc_flx_cv1(uu,gp,dcvdx) result(return_value)
+pure &
+function visc_flx_cv1(uu,gp,dcvdx) result(return_value)
   !
   !.. Use Statements ..
   use geovar,  only : nr
@@ -578,7 +581,8 @@ end function visc_flx_cv1
 !
 !###############################################################################
 !
-pure subroutine visc_flx_cv(uu,gp,dcvdx,return_value)
+pure &
+subroutine visc_flx_cv(uu,gp,dcvdx,return_value)
 ! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
@@ -665,7 +669,8 @@ end subroutine visc_flx_cv
 !
 !###############################################################################
 !
-pure function normal_visc_flx_cv(rnrm,uu,gp,dcvdx) result(return_value)
+pure &
+function normal_visc_flx_cv(rnrm,uu,gp,dcvdx) result(return_value)
   !
   !.. Use Statements ..
   use geovar, only : nr
@@ -1365,7 +1370,8 @@ end subroutine common_vflx_ave_fluxes_gpu
 !
 !###############################################################################
 !
-pure subroutine common_vflx_ave_fluxes_gpu_3d(n1,n2,facenrm,face_cv,face_gp, &
+pure &
+subroutine common_vflx_ave_fluxes_gpu_3d(n1,n2,facenrm,face_cv,face_gp, &
                                               face_dcvdx,return_value)
   !
   !.. Use Statements ..
@@ -1594,7 +1600,8 @@ end subroutine common_vflx_ave_fluxes_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine common_vflx_ave_fluxes_gpu_1d(n1,n2,facenrm,face_cv,face_gp, &
+pure &
+subroutine common_vflx_ave_fluxes_gpu_1d(n1,n2,facenrm,face_cv,face_gp, &
                                               face_dcvdx,return_value)
   !
   !.. Use Statements ..

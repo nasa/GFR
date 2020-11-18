@@ -304,7 +304,8 @@ end subroutine get_bc_isothermal_wall_solution_1d
 !
 !###############################################################################
 !
-pure subroutine get_bc_wall_gradient(n1,n2,face_cv,face_gp,face_dcvdx)
+pure &
+subroutine get_bc_wall_gradient(n1,n2,face_cv,face_gp,face_dcvdx)
   !
   ! #####################################################
   ! #####################################################
