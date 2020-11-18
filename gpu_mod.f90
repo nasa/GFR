@@ -688,6 +688,108 @@ subroutine grad_cv_to_grad_pv_cpg_3d(n1,n2,usp,dcvdx,return_value)
   integer  :: n
   real(wp) :: cv_inv,rho_inv
   real(wp) :: decdx,decdy,decdz
+  real(wp) :: vx,vy,vz,ee
+  !
+continue
+  !
+  cv_inv = (gam - one) / rgasref_nd
+  !
+  ! Using the product rule:
+  !
+  ! 1. Copy the density gradient
+  ! 2. Compute the velocity gradients (nmx,nmy,nmz)
+  ! 3. Compute the total energy gradient and store in the
+  !    location for the temperature gradient (nee)
+  !
+  !$ACC PARALLEL LOOP PRESENT(usp,dcvdx,return_value)
+  do n = n1,n2
+    !
+    rho_inv = one/usp(n,nec)
+    !
+    decdx = dcvdx(n,1,nec)
+    decdy = dcvdx(n,2,nec)
+    decdz = dcvdx(n,3,nec)
+    !
+    return_value(n,1,nec) = decdx
+    return_value(n,2,nec) = decdy
+    return_value(n,3,nec) = decdz
+    !
+    decdx = decdx*rho_inv
+    decdy = decdy*rho_inv
+    decdz = decdz*rho_inv
+    !
+    vx = usp(n,nmx)*rho_inv
+    vy = usp(n,nmy)*rho_inv
+    vz = usp(n,nmz)*rho_inv
+    ee = usp(n,nee)*rho_inv
+    !
+    return_value(n,1,nmx) = rho_inv*dcvdx(n,1,nmx) - decdx*vx
+    return_value(n,2,nmx) = rho_inv*dcvdx(n,2,nmx) - decdy*vx
+    return_value(n,3,nmx) = rho_inv*dcvdx(n,3,nmx) - decdz*vx
+    !
+    return_value(n,1,nmy) = rho_inv*dcvdx(n,1,nmy) - decdx*vy
+    return_value(n,2,nmy) = rho_inv*dcvdx(n,2,nmy) - decdy*vy
+    return_value(n,3,nmy) = rho_inv*dcvdx(n,3,nmy) - decdz*vy
+    !
+    return_value(n,1,nmz) = rho_inv*dcvdx(n,1,nmz) - decdx*vz
+    return_value(n,2,nmz) = rho_inv*dcvdx(n,2,nmz) - decdy*vz
+    return_value(n,3,nmz) = rho_inv*dcvdx(n,3,nmz) - decdz*vz
+    !
+    return_value(n,1,nee) = rho_inv*dcvdx(n,1,nee) - decdx*ee
+    return_value(n,2,nee) = rho_inv*dcvdx(n,2,nee) - decdy*ee
+    return_value(n,3,nee) = rho_inv*dcvdx(n,3,nee) - decdz*ee
+    !
+    ! The location for the temperature gradient currently contains
+    ! the total energy gradient from the previous loop.
+    ! Now use the velocity gradients to subtract the gradient of
+    ! kinetic-energy-per-unit-mass from the total energy gradient.
+    !
+    return_value(n,1,nee) = return_value(n,1,nee) &
+                          - return_value(n,1,nmx)*vx &
+                          - return_value(n,1,nmy)*vy &
+                          - return_value(n,1,nmz)*vz
+    !
+    return_value(n,2,nee) = return_value(n,2,nee) &
+                          - return_value(n,2,nmx)*vx &
+                          - return_value(n,2,nmy)*vy &
+                          - return_value(n,2,nmz)*vz
+    !
+    return_value(n,3,nee) = return_value(n,3,nee) &
+                          - return_value(n,3,nmx)*vx &
+                          - return_value(n,3,nmy)*vy &
+                          - return_value(n,3,nmz)*vz
+    !
+    ! Finish computing the temperature gradient by dividing through by
+    ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
+    !
+    return_value(n,1,nee) = return_value(n,1,nee) * cv_inv
+    return_value(n,2,nee) = return_value(n,2,nee) * cv_inv
+    return_value(n,3,nee) = return_value(n,3,nee) * cv_inv
+    !
+  end do
+  !
+end subroutine grad_cv_to_grad_pv_cpg_3d
+!
+!###############################################################################
+!
+#ifndef TIME_MINIAPPS_FOR_GPU_COMPARISON
+pure &
+#endif
+subroutine grad_cv_to_grad_pv_cpg_3d_original(n1,n2,usp,dcvdx,return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : rgasref_nd,gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: dcvdx(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: cv_inv,rho_inv
+  real(wp) :: decdx,decdy,decdz
   !
 continue
   !
@@ -775,7 +877,7 @@ continue
     return_value(n,3,nee) = return_value(n,3,nee) * cv_inv
   end do
   !
-end subroutine grad_cv_to_grad_pv_cpg_3d
+end subroutine grad_cv_to_grad_pv_cpg_3d_original
 !
 !###############################################################################
 !
