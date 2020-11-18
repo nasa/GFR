@@ -51,6 +51,10 @@ module flux_mod
     module procedure write_2d_array, write_3d_array
   end interface write_array
   !
+!#define WRITE_DATA_FOR_PROFILING
+#ifdef WRITE_DATA_FOR_PROFILING
+  integer, save :: num_prof_vflx_outputs = 0
+#endif
 #ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
   public :: write_br2_timings
   integer,  save :: timings_counter = 0
@@ -1067,12 +1071,30 @@ continue
   !
   if (governing_equations == NavierStokes_Eqns) then
     !
+#ifdef WRITE_DATA_FOR_PROFILING
+    if (num_prof_vflx_outputs == 0) then
+      if (mypnum == glb_root) then
+        call output_vflx_data(n_solpts,usp,dusp,gpsp)
+      end if
+    end if
+#endif
+    !
 !#define DEBUG_FLUXES_AND_RESIDUAL
     call visc_flx_cv_gpu( 1 , n_solpts , usp , gpsp , dusp , vfluxes &
 #ifdef DEBUG_FLUXES_AND_RESIDUAL
                           , output_visc_fluxes=true &
 #endif
                           )
+    !
+#ifdef WRITE_DATA_FOR_PROFILING
+    if (num_prof_vflx_outputs == 0) then
+      if (mypnum == glb_root) then
+        call output_gold_vflx_data(n_solpts,vfluxes)
+      end if
+      num_prof_vflx_outputs = 1
+    end if
+#endif
+    !
 #ifdef DEBUG_FLUXES_AND_RESIDUAL
   block
     !
