@@ -120,11 +120,12 @@ end subroutine write_br2_timings
 subroutine interp_cv_to_flxpts(iter,nst)
   !
   !.. Use Statements ..
-  use geovar,        only : nr,n_bnd_flxpts,n_phys_bnd_flxpts,n_flxpts
-  use flowvar,       only : faceusp_array,facegpsp
-  use thermo_mod,    only : update_thermo_properties
-  use thermo_mod,    only : update_mixture_density
-  use transport_mod, only : update_transport_properties
+  use geovar,          only : nr,n_bnd_flxpts,n_phys_bnd_flxpts,n_flxpts
+  use flowvar,         only : faceusp_array,facegpsp
+  use thermo_mod,      only : update_thermo_properties
+  use thermo_mod,      only : update_mixture_density
+  use transport_mod,   only : update_transport_properties
+  use module_limiters, only : check_face_thermo_properties
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: iter,nst
@@ -166,6 +167,11 @@ continue
   n2 = n_flxpts
   !
   call update_thermo_properties(n1,n2,faceusp_array,facegpsp,caller_name=pname)
+  !
+  ! Check for any negative thermodynamic properties at the flux points
+  !
+ !call check_face_thermo_properties()
+  !
   call update_transport_properties(n1,n2,faceusp_array,facegpsp)
   !
   ! We need to update the mixture density from interpolating the species

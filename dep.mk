@@ -194,6 +194,7 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/typesgen_mod.o \
          $(OBJDIR)/thermo_mod.o \
          $(OBJDIR)/transport_mod.o \
+         $(OBJDIR)/limiters.o \
          $(FUNDIR)/debug_timer.f90 \
          $(FUNDIR)/check_for_bad_number.f90
 
