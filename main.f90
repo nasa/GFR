@@ -778,6 +778,10 @@ continue
   call memory_pause("writing initial CGNS file","main iteration loop")
   call check_for_bad_number(__LINE__)
   !
+  ! Reset the IEEE floating point status to the default values
+  !
+  call ieee_set_status(default_ieee_status)
+  !
   ! Initialize uoldsp and gpoldsp if num_timesteps is zero
   !
   if (num_timesteps == 0) then
