@@ -54,6 +54,7 @@ module flux_mod
 !#define WRITE_DATA_FOR_PROFILING
 #ifdef WRITE_DATA_FOR_PROFILING
   integer, save :: num_prof_vflx_outputs = 0
+  integer, save :: num_prof_br2_outputs = 0
 #endif
 #ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
   public :: write_br2_timings
@@ -6876,6 +6877,14 @@ continue
  !!$OMP&                 decdy,dmxdy,dmydy,dmzdy,deedy, &
  !!$OMP&                 decdz,dmxdz,dmydz,dmzdz,deedz)
   !
+#ifdef WRITE_DATA_FOR_PROFILING
+  if (num_prof_br2_outputs == 0) then
+    if (mypnum == glb_root) then
+      call output_br2_data
+    end if
+  end if
+#endif
+  !
 #ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
   timings_counter1 = timings_counter1 + 1
   timings_points1(timings_counter1) = n_flxpts
@@ -7209,6 +7218,15 @@ continue
   !
 #ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
   call gfr_timer( timings_end(timings_counter) )
+#endif
+  !
+#ifdef WRITE_DATA_FOR_PROFILING
+  if (num_prof_br2_outputs == 0) then
+    if (mypnum == glb_root) then
+      call output_gold_br2_data(dusp,facedusp_array)
+    end if
+    num_prof_br2_outputs = 1
+  end if
 #endif
   !
 end subroutine correct_gradients_br2_gpu_3d
