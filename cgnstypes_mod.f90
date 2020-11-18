@@ -268,7 +268,21 @@ continue
     call io_error(procedure_name,file_name,5,line_number,src_file_name, &
                   iemessag,error_message)
   else
+   !call cg_get_error_f(error_message)
+    if (mypnum == glb_root) then
+      write (iout,30)
+      flush (iout)
+    end if
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
     call cg_error_print_f
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      write (iout,31)
+      flush (iout)
+    end if
+    flush (iout)
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
     call cgp_error_exit_f
   end if
@@ -287,6 +301,9 @@ continue
              "                     OF THE FILE '",a,"'")
   13 format (" ***************************************************** ",//)
   20 format (2x,"Checking error for: ",a)
+  30 format (//,2x,72("#"),//,6x,"BEFORE CALL TO CG_ERROR_PRINT_F",//,2x,72("-"),/)
+  31 format (/,2x,72("-"),//,6x,"AFTER  CALL TO CG_ERROR_PRINT_F",//,2x,72("#"),//, &
+               6x,"BEFORE CALL TO CG_ERROR_EXIT_F",//,2x,72("-"),/)
   !
 end subroutine cgns_error
 !
