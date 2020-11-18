@@ -356,6 +356,548 @@ end subroutine limit_by_projecting
 !
 !###############################################################################
 !
+subroutine reinterpolate_bad_cells(bad_cell,usp,faceusp_array,facegpsp)
+  !
+  use geovar,     only : nfbnd,nface,face
+  use thermo_mod, only : update_thermo_properties
+  !
+  !.. Optional Arguments ..
+  logical(lk),    intent(in) :: bad_cell(:)
+  real(wp),       intent(in) :: usp(:,:)
+  real(wp),    intent(inout) :: faceusp_array(:,:,:)
+  real(wp),    intent(inout) :: facegpsp(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr,nf,sf,f1,f2
+  !
+  !.. Local Allocatable Arrays
+  logical(lk), allocatable :: faces_to_update(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "reinterpolate_bad_cells"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nr = nme-nmb+1
+  !
+  faces_to_update = init_array(nface,2,fals) ! F2003 AUTO-REALLOC
+  !$ACC DATA CREATE(faces_to_update)
+  !
+  if (force_nd_subroutines) then
+    !
+    call reinterpolate_bad_cells_nd(1,nq,bad_cell,usp, &
+                                    faceusp_array,faces_to_update)
+    !
+  else
+    !
+    if (nr == 3) then
+      call reinterpolate_bad_cells_3d(bad_cell,usp, &
+                                      faceusp_array,faces_to_update)
+    else if (nr == 2) then
+      call reinterpolate_bad_cells_2d(bad_cell,usp, &
+                                      faceusp_array,faces_to_update)
+    else
+      call reinterpolate_bad_cells_1d(bad_cell,usp, &
+                                      faceusp_array,faces_to_update)
+    end if
+    !
+  end if
+  !$ACC UPDATE HOST(faces_to_update)
+  !
+  do nf = 1,nfbnd
+    if (faces_to_update(nf,1)) then
+      f1 = face(nf)%beg_fp
+      f2 = face(nf)%end_fp
+      call update_thermo_properties(f1,f2, &
+                                    faceusp_array(:,:,1),facegpsp(:,:,1), &
+                                    loc="face",caller_name=pname)
+    end if
+  end do
+  !
+  do sf = 1,2
+    do nf = nfbnd+1,nface
+      if (faces_to_update(nf,sf)) then
+        f1 = face(nf)%beg_fp
+        f2 = face(nf)%end_fp
+        call update_thermo_properties(f1,f2, &
+                                      faceusp_array(:,:,sf),facegpsp(:,:,sf), &
+                                      loc="face",caller_name=pname)
+      end if
+    end do
+  end do
+  !
+  !$ACC END DATA
+  if (allocated(faces_to_update)) deallocate ( faces_to_update )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine reinterpolate_bad_cells
+!
+!###############################################################################
+!
+pure &
+subroutine reinterpolate_bad_cells_3d(bad_cell,usp, &
+                                      faceusp_array,faces_to_update)
+  !
+  use geovar,            only : ncell,cell,fp
+  use interpolation_mod, only : interp
+  use geovar,            only : face
+  !
+  !.. Optional Arguments ..
+  logical(lk),    intent(in) :: bad_cell(:)
+  real(wp),       intent(in) :: usp(:,:)
+  real(wp),    intent(inout) :: faceusp_array(:,:,:)
+  logical(lk), intent(inout) :: faces_to_update(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nc,n0,ncf,f0
+  integer :: nf,kf,lf,sf,i,j,nfp
+  integer :: this_geom,this_order
+  integer :: face_geom,face_order
+  integer :: fp_offset,face_rot
+  integer :: num_cell_faces
+  real(wp) :: a,face_ec,face_mx,face_my,face_mz,face_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "reinterpolate_bad_cells_3d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(faceusp_array) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(fp) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(usp) &
+  !$ACC&                   PRESENT(interp) &
+  !$ACC&                   PRESENT(bad_cell,faces_to_update)
+  cell_loop: &
+  do nc = 1,ncell
+    !
+    if (.not. bad_cell(nc)) cycle cell_loop
+    !
+    n0 = cell(nc)%beg_sp-1
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    !
+    ! Now interpolate the interior solution gradients to the flux points
+    !
+    ! Loop over the faces of this cell
+    !
+    num_cell_faces = size(cell(nc)%face)
+    !
+    do ncf = 1,num_cell_faces
+      !
+      nf = cell(nc)%face(ncf)%idx  ! index of the current face
+      sf = cell(nc)%face(ncf)%side ! side of face that cell nc is on
+      !
+      ! Mark this side of this face as needing
+      ! an update of the thermo properties
+      !
+      faces_to_update(nf,sf) = true
+      !
+      face_geom = cell(nc)%face(ncf)%geom   ! geom  of current face
+      face_order = cell(nc)%face(ncf)%order ! order of current face
+      !
+      fp_offset = cell(nc)%face(ncf)%fp_offset
+      face_rot = cell(nc)%face(ncf)%rotation
+      !
+      f0 = face(nf)%beg_fp - 1
+      nfp = face(nf)%end_fp - f0
+      !
+      !$ACC LOOP VECTOR
+      do kf = 1,nfp
+        !
+        ! kf: index of the flx-pt local to this face
+        ! lf: index of flx-pt within interp%mat
+        !
+        lf = fp_offset + fp%geord(face_geom,face_order)%rot(face_rot)%pts(kf)
+        !
+        face_ec = zero
+        face_mx = zero
+        face_my = zero
+        face_mz = zero
+        face_ee = zero
+        !
+        do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+               interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+          !
+          j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+          !
+          face_ec = face_ec + a * usp(n0+j,nec)
+          face_mx = face_mx + a * usp(n0+j,nmx)
+          face_my = face_my + a * usp(n0+j,nmy)
+          face_mz = face_mz + a * usp(n0+j,nmz)
+          face_ee = face_ee + a * usp(n0+j,nee)
+          !
+        end do
+        !
+        faceusp_array(f0+kf,nec,sf) = face_ec
+        faceusp_array(f0+kf,nmx,sf) = face_mx
+        faceusp_array(f0+kf,nmy,sf) = face_my
+        faceusp_array(f0+kf,nmz,sf) = face_mz
+        faceusp_array(f0+kf,nee,sf) = face_ee
+        !
+      end do
+      !
+    end do
+    !
+  end do cell_loop
+  !
+end subroutine reinterpolate_bad_cells_3d
+!
+!###############################################################################
+!
+pure &
+subroutine reinterpolate_bad_cells_2d(bad_cell,usp, &
+                                      faceusp_array,faces_to_update)
+  !
+  use geovar,            only : ncell,cell,fp
+  use interpolation_mod, only : interp
+  use geovar,            only : face
+  !
+  !.. Optional Arguments ..
+  logical(lk),    intent(in) :: bad_cell(:)
+  real(wp),       intent(in) :: usp(:,:)
+  real(wp),    intent(inout) :: faceusp_array(:,:,:)
+  logical(lk), intent(inout) :: faces_to_update(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nc,n0,ncf,f0
+  integer :: nf,kf,lf,sf,i,j,nfp
+  integer :: this_geom,this_order
+  integer :: face_geom,face_order
+  integer :: fp_offset,face_rot
+  integer :: num_cell_faces
+  real(wp) :: a,face_ec,face_mx,face_my,face_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "reinterpolate_bad_cells_2d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(faceusp_array) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(fp) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(usp) &
+  !$ACC&                   PRESENT(interp) &
+  !$ACC&                   PRESENT(bad_cell,faces_to_update)
+  cell_loop: &
+  do nc = 1,ncell
+    !
+    if (.not. bad_cell(nc)) cycle cell_loop
+    !
+    n0 = cell(nc)%beg_sp-1
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    !
+    ! Now interpolate the interior solution gradients to the flux points
+    !
+    ! Loop over the faces of this cell
+    !
+    num_cell_faces = size(cell(nc)%face)
+    !
+    do ncf = 1,num_cell_faces
+      !
+      nf = cell(nc)%face(ncf)%idx  ! index of the current face
+      sf = cell(nc)%face(ncf)%side ! side of face that cell nc is on
+      !
+      ! Mark this side of this face as needing
+      ! an update of the thermo properties
+      !
+      faces_to_update(nf,sf) = true
+      !
+      face_geom = cell(nc)%face(ncf)%geom   ! geom  of current face
+      face_order = cell(nc)%face(ncf)%order ! order of current face
+      !
+      fp_offset = cell(nc)%face(ncf)%fp_offset
+      face_rot = cell(nc)%face(ncf)%rotation
+      !
+      f0 = face(nf)%beg_fp - 1
+      nfp = face(nf)%end_fp - f0
+      !
+      !$ACC LOOP VECTOR
+      do kf = 1,nfp
+        !
+        ! kf: index of the flx-pt local to this face
+        ! lf: index of flx-pt within interp%mat
+        !
+        lf = fp_offset + fp%geord(face_geom,face_order)%rot(face_rot)%pts(kf)
+        !
+        face_ec = zero
+        face_mx = zero
+        face_my = zero
+        face_ee = zero
+        !
+        do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+               interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+          !
+          j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+          !
+          face_ec = face_ec + a * usp(n0+j,nec)
+          face_mx = face_mx + a * usp(n0+j,nmx)
+          face_my = face_my + a * usp(n0+j,nmy)
+          face_ee = face_ee + a * usp(n0+j,nee)
+          !
+        end do
+        !
+        faceusp_array(f0+kf,nec,sf) = face_ec
+        faceusp_array(f0+kf,nmx,sf) = face_mx
+        faceusp_array(f0+kf,nmy,sf) = face_my
+        faceusp_array(f0+kf,nee,sf) = face_ee
+        !
+      end do
+      !
+    end do
+    !
+  end do cell_loop
+  !
+end subroutine reinterpolate_bad_cells_2d
+!
+!###############################################################################
+!
+pure &
+subroutine reinterpolate_bad_cells_1d(bad_cell,usp, &
+                                      faceusp_array,faces_to_update)
+  !
+  use geovar,            only : ncell,cell,fp
+  use interpolation_mod, only : interp
+  use geovar,            only : face
+  !
+  !.. Optional Arguments ..
+  logical(lk),    intent(in) :: bad_cell(:)
+  real(wp),       intent(in) :: usp(:,:)
+  real(wp),    intent(inout) :: faceusp_array(:,:,:)
+  logical(lk), intent(inout) :: faces_to_update(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nc,n0,ncf,f0
+  integer :: nf,kf,lf,sf,i,j,nfp
+  integer :: this_geom,this_order
+  integer :: face_geom,face_order
+  integer :: fp_offset,face_rot
+  integer :: num_cell_faces
+  real(wp) :: a,face_ec,face_mx,face_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "reinterpolate_bad_cells_1d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(faceusp_array) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(fp) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(usp) &
+  !$ACC&                   PRESENT(interp) &
+  !$ACC&                   PRESENT(bad_cell,faces_to_update)
+  cell_loop: &
+  do nc = 1,ncell
+    !
+    if (.not. bad_cell(nc)) cycle cell_loop
+    !
+    n0 = cell(nc)%beg_sp-1
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    !
+    ! Now interpolate the interior solution gradients to the flux points
+    !
+    ! Loop over the faces of this cell
+    !
+    num_cell_faces = size(cell(nc)%face)
+    !
+    do ncf = 1,num_cell_faces
+      !
+      nf = cell(nc)%face(ncf)%idx  ! index of the current face
+      sf = cell(nc)%face(ncf)%side ! side of face that cell nc is on
+      !
+      ! Mark this side of this face as needing
+      ! an update of the thermo properties
+      !
+      faces_to_update(nf,sf) = true
+      !
+      face_geom = cell(nc)%face(ncf)%geom   ! geom  of current face
+      face_order = cell(nc)%face(ncf)%order ! order of current face
+      !
+      fp_offset = cell(nc)%face(ncf)%fp_offset
+      face_rot = cell(nc)%face(ncf)%rotation
+      !
+      f0 = face(nf)%beg_fp - 1
+      nfp = face(nf)%end_fp - f0
+      !
+      !$ACC LOOP VECTOR
+      do kf = 1,nfp
+        !
+        ! kf: index of the flx-pt local to this face
+        ! lf: index of flx-pt within interp%mat
+        !
+        lf = fp_offset + fp%geord(face_geom,face_order)%rot(face_rot)%pts(kf)
+        !
+        face_ec = zero
+        face_mx = zero
+        face_ee = zero
+        !
+        do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+               interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+          !
+          j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+          !
+          face_ec = face_ec + a * usp(n0+j,nec)
+          face_mx = face_mx + a * usp(n0+j,nmx)
+          face_ee = face_ee + a * usp(n0+j,nee)
+          !
+        end do
+        !
+        faceusp_array(f0+kf,nec,sf) = face_ec
+        faceusp_array(f0+kf,nmx,sf) = face_mx
+        faceusp_array(f0+kf,nee,sf) = face_ee
+        !
+      end do
+      !
+    end do
+    !
+  end do cell_loop
+  !
+end subroutine reinterpolate_bad_cells_1d
+!
+!###############################################################################
+!
+pure &
+subroutine reinterpolate_bad_cells_nd(mbeg,mend,bad_cell,usp, &
+                                      faceusp_array,faces_to_update)
+  !
+  use geovar,            only : ncell,cell,fp
+  use interpolation_mod, only : interp
+  use geovar,            only : face
+  !
+  !.. Optional Arguments ..
+  integer,        intent(in) :: mbeg,mend
+  logical(lk),    intent(in) :: bad_cell(:)
+  real(wp),       intent(in) :: usp(:,:)
+  real(wp),    intent(inout) :: faceusp_array(:,:,:)
+  logical(lk), intent(inout) :: faces_to_update(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: m,nc,n0,ncf,f0
+  integer :: nf,kf,lf,sf,i,j,nfp
+  integer :: this_geom,this_order
+  integer :: face_geom,face_order
+  integer :: fp_offset,face_rot
+  integer :: num_cell_faces
+  real(wp) :: a,val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "reinterpolate_bad_cells_nd"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(faceusp_array) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(fp) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(usp) &
+  !$ACC&                   PRESENT(interp) &
+  !$ACC&                   PRESENT(bad_cell,faces_to_update)
+  cell_loop: &
+  do nc = 1,ncell
+    !
+    if (.not. bad_cell(nc)) cycle cell_loop
+    !
+    n0 = cell(nc)%beg_sp-1
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    !
+    ! Now interpolate the interior solution gradients to the flux points
+    !
+    ! Loop over the faces of this cell
+    !
+    num_cell_faces = size(cell(nc)%face)
+    !
+    do ncf = 1,num_cell_faces
+      !
+      nf = cell(nc)%face(ncf)%idx  ! index of the current face
+      sf = cell(nc)%face(ncf)%side ! side of face that cell nc is on
+      !
+      ! Mark this side of this face as needing
+      ! an update of the thermo properties
+      !
+      faces_to_update(nf,sf) = true
+      !
+      face_geom = cell(nc)%face(ncf)%geom   ! geom  of current face
+      face_order = cell(nc)%face(ncf)%order ! order of current face
+      !
+      fp_offset = cell(nc)%face(ncf)%fp_offset
+      face_rot = cell(nc)%face(ncf)%rotation
+      !
+      f0 = face(nf)%beg_fp - 1
+      nfp = face(nf)%end_fp - f0
+      !
+      !$ACC LOOP VECTOR COLLAPSE(2)
+      do kf = 1,nfp
+        do m = mbeg,mend
+          !
+          ! kf: index of the flx-pt local to this face
+          ! lf: index of flx-pt within interp%mat
+          !
+          lf = fp_offset + fp%geord(face_geom,face_order)%rot(face_rot)%pts(kf)
+          !
+          val = zero
+          !
+          do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1,&
+                 interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+            !
+            j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+            a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+            !
+            val = val + a * usp(n0+j,m)
+            !
+          end do
+          !
+          faceusp_array(f0+kf,m,sf) = val
+          !
+        end do
+      end do
+      !
+    end do
+    !
+  end do cell_loop
+  !
+end subroutine reinterpolate_bad_cells_nd
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
 subroutine emergency_limit_bad_cells(bad_cell,usp,gpsp)
   !
   !.. Use Statements ..
