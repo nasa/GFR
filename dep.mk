@@ -376,6 +376,7 @@ $(OBJDIR)/limiters.o : limiters.f90 \
              $(OBJDIR)/projection_mod.o \
              $(OBJDIR)/filter_mod.o \
              $(OBJDIR)/quadrature_mod.o \
+             $(OBJDIR)/thermo_mod.o \
              $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/mappings.o : mappings.f90 \
