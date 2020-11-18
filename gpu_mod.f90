@@ -19,7 +19,46 @@ module gpu_mod
                      grad_cv_to_grad_pv_sp
   end interface grad_cv_to_grad_pv_gpu
   !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  public :: write_grad_timings
+  integer,  save :: timings_counter = 0
+  integer,  save :: timings_points(1:1000) = 0
+  real(wp), save :: timings_beg(1:1000) = zero
+  real(wp), save :: timings_end(1:1000) = zero
+#endif
+  !
 contains
+!
+!###############################################################################
+!
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+subroutine write_grad_timings()
+  !
+  integer :: i,l,n,io,ierr,ncalls
+  character(len=100) :: fname
+  !
+  write (fname,2) mypnum
+  open (newunit=io,file=fname,status="replace",action="write",iostat=ierr)
+  l = maxval(timings_points(1:timings_counter))
+  ncalls = count(timings_points(1:timings_counter) == l)
+  write (io,10) mypnum+1,ncpu,ncalls,l
+  i = 0
+  do n = 1,timings_counter
+    if (timings_points(n) == l) then
+      i = i + 1
+      write (io,1) i,timings_end(n)-timings_beg(n)
+    end if
+  end do
+  close (io,iostat=ierr)
+  !
+  1 format (i4,2x,es23.15)
+  2 format ("grad_timings.",i2.2,".dat")
+  10 format ('VARIABLES = "Call #", "Wall Time"',/, &
+             'ZONE T="grad: CPU ',i2,' of ',i2, &
+             '", I=',i0,', DATAPACKING=POINT',/, &
+             'AUXDATA loop_size="'i0,'"')
+end subroutine write_grad_timings
+#endif
 !
 !###############################################################################
 !
@@ -692,6 +731,12 @@ subroutine grad_cv_to_grad_pv_cpg_3d(n1,n2,usp,dcvdx,return_value)
   !
 continue
   !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  timings_counter = timings_counter + 1
+  timings_points(timings_counter) = n2-n1+1
+  call gfr_timer( timings_beg(timings_counter) )
+#endif
+  !
   cv_inv = (gam - one) / rgasref_nd
   !
   ! Using the product rule:
@@ -768,6 +813,10 @@ continue
     !
   end do
   !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  call gfr_timer( timings_end(timings_counter) )
+#endif
+  !
 end subroutine grad_cv_to_grad_pv_cpg_3d
 !
 !###############################################################################
@@ -792,6 +841,12 @@ subroutine grad_cv_to_grad_pv_cpg_3d_original(n1,n2,usp,dcvdx,return_value)
   real(wp) :: decdx,decdy,decdz
   !
 continue
+  !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  timings_counter = timings_counter + 1
+  timings_points(timings_counter) = n2-n1+1
+  call gfr_timer( timings_beg(timings_counter) )
+#endif
   !
   cv_inv = (gam - one) / rgasref_nd
   !
@@ -876,6 +931,10 @@ continue
     return_value(n,2,nee) = return_value(n,2,nee) * cv_inv
     return_value(n,3,nee) = return_value(n,3,nee) * cv_inv
   end do
+  !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  call gfr_timer( timings_end(timings_counter) )
+#endif
   !
 end subroutine grad_cv_to_grad_pv_cpg_3d_original
 !
