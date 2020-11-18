@@ -4,6 +4,7 @@ module correction_mod
   use module_kind_types
   use generic_types_mod, only : matrix => matrix_gpu_t
   use generic_types_mod, only : create_matrix_sparsity
+  use generic_types_mod, only : output_sparsity
   !
   implicit none
   !
@@ -121,33 +122,57 @@ continue
           !
           correct(this_geom,this_order)%mat = &
                      CorrectionMatrix_Tria( std_elem(this_geom,this_order)%pts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+          write (array_name,10) "tria",this_order
+          call output_sparsity( correct(this_geom,this_order) , array_name )
+#endif
           !
         case (Geom_Quad)
           !
           edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
           !
           correct(this_geom,this_order)%mat = CorrectionMatrix_Quad( edgpts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+          write (array_name,10) "quad",this_order
+          call output_sparsity( correct(this_geom,this_order) , array_name )
+#endif
           !
         case (Geom_Tetr)
           !
           correct(this_geom,this_order)%mat = &
                      CorrectionMatrix_Tetr( std_elem(this_geom,this_order)%pts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+          write (array_name,10) "tetr",this_order
+          call output_sparsity( correct(this_geom,this_order) , array_name )
+#endif
           !
         case (Geom_Pyra)
           !
           correct(this_geom,this_order)%mat = &
                      CorrectionMatrix_Pyra( std_elem(this_geom,this_order)%pts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+          write (array_name,10) "pyra",this_order
+          call output_sparsity( correct(this_geom,this_order) , array_name )
+#endif
           !
         case (Geom_Pris)
           !
           correct(this_geom,this_order)%mat = &
                      CorrectionMatrix_Pris( std_elem(this_geom,this_order)%pts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+          write (array_name,10) "pris",this_order
+          call output_sparsity( correct(this_geom,this_order) , array_name )
+#endif
           !
         case (Geom_Hexa)
           !
           edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
           !
           correct(this_geom,this_order)%mat = CorrectionMatrix_Hexa( edgpts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+          write (array_name,10) "hexa",this_order
+          call output_sparsity( correct(this_geom,this_order) , array_name )
+#endif
           !
         case default
           !
@@ -171,6 +196,8 @@ continue
   !
   1 format ("correct(",a,",",i0,")%mat")
   2 format (" A grid cell of an unknown geometry type was found!")
+  !
+  10 format (a4,".correct.p",i0,".tec.dat")
   !
 end subroutine init_correction_matrices
 !

@@ -10,6 +10,7 @@ module filter_mod
   !
   use generic_types_mod, only : matrix => matrix_gpu_t
   use generic_types_mod, only : create_matrix_sparsity
+  use generic_types_mod, only : output_sparsity
   !
   use ovar, only : Filter_Option,Limiter_Filter_Option
   use ovar, only : Filter_etac,  Limiter_Filter_etac
@@ -170,36 +171,66 @@ continue
             filter(this_geom,this_order)%exponential%mat = &
                FilterMatrix_Tria( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "tria",this_order,"exp"
+            call output_sparsity( filter(this_geom,this_order)%exponential , &
+                                  array_name )
+#endif
             !
           case (Geom_Quad)
             !
             filter(this_geom,this_order)%exponential%mat = &
                FilterMatrix_Quad( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "quad",this_order,"exp"
+            call output_sparsity( filter(this_geom,this_order)%exponential , &
+                                  array_name )
+#endif
             !
           case (Geom_Tetr)
             !
             filter(this_geom,this_order)%exponential%mat = &
                FilterMatrix_Tetr( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "tetr",this_order,"exp"
+            call output_sparsity( filter(this_geom,this_order)%exponential , &
+                                  array_name )
+#endif
             !
           case (Geom_Pyra)
             !
             filter(this_geom,this_order)%exponential%mat = &
                FilterMatrix_Pyra( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "pyra",this_order,"exp"
+            call output_sparsity( filter(this_geom,this_order)%exponential , &
+                                  array_name )
+#endif
             !
           case (Geom_Pris)
             !
             filter(this_geom,this_order)%exponential%mat = &
                FilterMatrix_Pris( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "pris",this_order,"exp"
+            call output_sparsity( filter(this_geom,this_order)%exponential , &
+                                  array_name )
+#endif
             !
           case (Geom_Hexa)
             !
             filter(this_geom,this_order)%exponential%mat = &
                FilterMatrix_Hexa( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "hexa",this_order,"exp"
+            call output_sparsity( filter(this_geom,this_order)%exponential , &
+                                  array_name )
+#endif
             !
           case default
             !
@@ -273,6 +304,11 @@ continue
                FilterMatrix_Tria( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat , &
                                   cutoff_order=-1 )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "tria",this_order,"lim"
+            call output_sparsity( filter(this_geom,this_order)%limiter , &
+                                  array_name )
+#endif
             !
           case (Geom_Quad)
             !
@@ -280,6 +316,11 @@ continue
                FilterMatrix_Quad( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat , &
                                   cutoff_order=-1 )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "quad",this_order,"lim"
+            call output_sparsity( filter(this_geom,this_order)%limiter , &
+                                  array_name )
+#endif
             !
           case (Geom_Tetr)
             !
@@ -287,6 +328,11 @@ continue
                FilterMatrix_Tetr( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat , &
                                   cutoff_order=-1 )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "tetr",this_order,"lim"
+            call output_sparsity( filter(this_geom,this_order)%limiter , &
+                                  array_name )
+#endif
             !
           case (Geom_Pyra)
             !
@@ -294,6 +340,11 @@ continue
                FilterMatrix_Pyra( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat , &
                                   cutoff_order=-1 )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "pyra",this_order,"lim"
+            call output_sparsity( filter(this_geom,this_order)%limiter , &
+                                  array_name )
+#endif
             !
           case (Geom_Pris)
             !
@@ -301,6 +352,11 @@ continue
                FilterMatrix_Pris( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat , &
                                   cutoff_order=-1 )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "pris",this_order,"lim"
+            call output_sparsity( filter(this_geom,this_order)%limiter , &
+                                  array_name )
+#endif
             !
           case (Geom_Hexa)
             !
@@ -308,6 +364,11 @@ continue
                FilterMatrix_Hexa( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat , &
                                   cutoff_order=-1 )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "hexa",this_order,"lim"
+            call output_sparsity( filter(this_geom,this_order)%limiter , &
+                                  array_name )
+#endif
             !
           case default
             !
@@ -388,6 +449,11 @@ continue
                FilterMatrix_Tria( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat , &
                                   cutoff_order )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,11) "tria",this_order,cutoff_order
+            call output_sparsity( filter(this_geom,this_order)% &
+                                          cutoff(cutoff_order) , array_name )
+#endif
             !
           case (Geom_Quad)
             !
@@ -395,6 +461,11 @@ continue
                FilterMatrix_Quad( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat , &
                                   cutoff_order )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,11) "quad",this_order,cutoff_order
+            call output_sparsity( filter(this_geom,this_order)% &
+                                          cutoff(cutoff_order) , array_name )
+#endif
             !
           case (Geom_Tetr)
             !
@@ -402,6 +473,11 @@ continue
                FilterMatrix_Tetr( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat , &
                                   cutoff_order )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,11) "tetr",this_order,cutoff_order
+            call output_sparsity( filter(this_geom,this_order)% &
+                                          cutoff(cutoff_order) , array_name )
+#endif
             !
           case (Geom_Pyra)
             !
@@ -409,6 +485,11 @@ continue
                FilterMatrix_Pyra( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat , &
                                   cutoff_order )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,11) "pyra",this_order,cutoff_order
+            call output_sparsity( filter(this_geom,this_order)% &
+                                          cutoff(cutoff_order) , array_name )
+#endif
             !
           case (Geom_Pris)
             !
@@ -416,6 +497,11 @@ continue
                FilterMatrix_Pris( vand(this_geom,this_order)%modal2nodal%mat , &
                                   vand(this_geom,this_order)%nodal2modal%mat , &
                                   cutoff_order )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,11) "pris",this_order,cutoff_order
+            call output_sparsity( filter(this_geom,this_order)% &
+                                          cutoff(cutoff_order) , array_name )
+#endif
             !
           case (Geom_Hexa)
             !
@@ -423,6 +509,11 @@ continue
               FilterMatrix_Hexa( vand(this_geom,this_order)%modal2nodal%mat , &
                                  vand(this_geom,this_order)%nodal2modal%mat , &
                                  cutoff_order )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,11) "hexa",this_order,cutoff_order
+            call output_sparsity( filter(this_geom,this_order)% &
+                                          cutoff(cutoff_order) , array_name )
+#endif
             !
           case default
             !
@@ -493,6 +584,9 @@ continue
               "IT IS TURNED OFF IN THE INPUT FILE!")
   803 format ("AFTER WRITING OUT THE FILTER DIAGONALS ", &
               "TO 'filter_diagonals.dat'.")
+  !
+  10 format (a4,".filter.p",i0,".",a3,".tec.dat")
+  11 format (a4,".filter.p",i0,".cut-p",i0,".tec.dat")
   !
 end subroutine init_filter_matrices
 !

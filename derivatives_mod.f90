@@ -8,6 +8,7 @@ module derivatives_mod
   use generic_types_mod, only : matrix_cpu_t => matrix
   use generic_types_mod, only : matrix => matrix_gpu_t
   use generic_types_mod, only : create_matrix_sparsity
+  use generic_types_mod, only : output_sparsity
   !
   implicit none
   !
@@ -294,31 +295,75 @@ continue
           !
           deriv(this_geom,this_order)%d = &
                             Dmatrix_Tria( std_elem(this_geom,this_order)%pts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+          write (array_name,10) "tria","x",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(1) , array_name )
+          write (array_name,10) "tria","y",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(2) , array_name )
+#endif
           !
         case (Geom_Quad)
           !
           deriv(this_geom,this_order)%d = &
                             Dmatrix_Quad( deriv(Geom_Edge,this_order)%d(1)%mat )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+          write (array_name,10) "quad","x",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(1) , array_name )
+          write (array_name,10) "quad","y",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(2) , array_name )
+#endif
           !
         case (Geom_Tetr)
           !
           deriv(this_geom,this_order)%d = &
                             Dmatrix_Tetr( std_elem(this_geom,this_order)%pts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+          write (array_name,10) "tetr","x",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(1) , array_name )
+          write (array_name,10) "tetr","y",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(2) , array_name )
+          write (array_name,10) "tetr","z",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(3) , array_name )
+#endif
           !
         case (Geom_Pyra)
           !
           deriv(this_geom,this_order)%d = &
                             Dmatrix_Pyra( std_elem(this_geom,this_order)%pts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+          write (array_name,10) "pyra","x",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(1) , array_name )
+          write (array_name,10) "pyra","y",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(2) , array_name )
+          write (array_name,10) "pyra","z",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(3) , array_name )
+#endif
           !
         case (Geom_Pris)
           !
           deriv(this_geom,this_order)%d = &
                             Dmatrix_Pris( std_elem(this_geom,this_order)%pts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+          write (array_name,10) "pris","x",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(1) , array_name )
+          write (array_name,10) "pris","y",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(2) , array_name )
+          write (array_name,10) "pris","z",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(3) , array_name )
+#endif
           !
         case (Geom_Hexa)
           !
           deriv(this_geom,this_order)%d = &
                             Dmatrix_Hexa( deriv(Geom_Edge,this_order)%d(1)%mat )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+          write (array_name,10) "hexa","x",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(1) , array_name )
+          write (array_name,10) "hexa","y",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(2) , array_name )
+          write (array_name,10) "hexa","z",this_order
+          call output_sparsity( deriv(this_geom,this_order)%d(3) , array_name )
+#endif
           !
         case default
           !
@@ -356,6 +401,8 @@ continue
   !
   1 format ("deriv(",a,",",i0,")%d")
   2 format (" A grid cell of an unknown geometry type was found!")
+  !
+  10 format (a4,".deriv.d",a1,".p",i0,".tec.dat")
   !
 end subroutine init_derivative_matrices
 !

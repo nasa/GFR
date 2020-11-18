@@ -4,6 +4,7 @@ module interpolation_mod
   use module_kind_types
   use generic_types_mod, only : matrix => matrix_gpu_t
   use generic_types_mod, only : create_matrix_sparsity
+  use generic_types_mod, only : output_sparsity
   use eqn_idx, only : nec,nmx,nmy,nmz,nee
   !
   implicit none
@@ -1781,6 +1782,11 @@ continue
             !
             interp(this_geom,this_order)%toFace(face_order)%mat = &
                     InterpToFace_Tria( std_elem(this_geom,this_order)%pts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "tria",this_order,face_order
+            call output_sparsity( interp(this_geom,this_order)% &
+                                            toFace(face_order) , array_name )
+#endif
             !
           case (Geom_Quad)
             !
@@ -1789,21 +1795,41 @@ continue
             !
             interp(this_geom,this_order)%toFace(face_order)%mat = &
                     InterpToFace_Quad( edgpts , flxpts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "quad",this_order,face_order
+            call output_sparsity( interp(this_geom,this_order)% &
+                                            toFace(face_order) , array_name )
+#endif
             !
           case (Geom_Tetr)
             !
             interp(this_geom,this_order)%toFace(face_order)%mat = &
                     InterpToFace_Tetr( std_elem(this_geom,this_order)%pts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "tetr",this_order,face_order
+            call output_sparsity( interp(this_geom,this_order)% &
+                                            toFace(face_order) , array_name )
+#endif
             !
           case (Geom_Pyra)
             !
             interp(this_geom,this_order)%toFace(face_order)%mat = &
                     InterpToFace_Pyra( std_elem(this_geom,this_order)%pts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "pyra",this_order,face_order
+            call output_sparsity( interp(this_geom,this_order)% &
+                                            toFace(face_order) , array_name )
+#endif
             !
           case (Geom_Pris)
             !
             interp(this_geom,this_order)%toFace(face_order)%mat = &
                     InterpToFace_Pris( std_elem(this_geom,this_order)%pts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "pris",this_order,face_order
+            call output_sparsity( interp(this_geom,this_order)% &
+                                            toFace(face_order) , array_name )
+#endif
             !
           case (Geom_Hexa)
             !
@@ -1812,6 +1838,11 @@ continue
             !
             interp(this_geom,this_order)%toFace(face_order)%mat = &
                     InterpToFace_Hexa( edgpts , flxpts )
+#ifdef SPECIAL_OUTPUT_SPARSITY
+            write (array_name,10) "hexa",this_order,face_order
+            call output_sparsity( interp(this_geom,this_order)% &
+                                            toFace(face_order) , array_name )
+#endif
             !
           case default
             !
@@ -1999,6 +2030,8 @@ continue
             27x,i0," => Legendre Gauss Lobatto Points",/, &
             27x,i0," => Equidistant Points",/, &
             9x,"Option given : ",a," = ",i0)
+  !
+  10 format (a4,".interp.p",i0,".f",i0,".tec.dat")
   !
 end subroutine init_interpolation_matrices
 !
