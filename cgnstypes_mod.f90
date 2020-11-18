@@ -372,6 +372,8 @@ continue
      !  write (iout,1) trim(adjustl(message))
      !end if
       !
+      write (iout,4) trim(adjustl(message))
+      !
     else if (time_flag == stop_cgns_procedure_timer) then
       !
       end_procedure_time = mpi_wtime()
@@ -396,6 +398,7 @@ continue
   1 format (/,2x,"Starting I/O timer for: ",a)
   2 format (2x,"Total wall time to write ",a," : ",f12.6," seconds",/)
   3 format (4x,"Time to complete call to ",a," : ",f12.6," seconds")
+  4 format (10x,"Starting timer for ",a)
   !
 end subroutine cgns_timer
 !
