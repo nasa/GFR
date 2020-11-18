@@ -1,6 +1,7 @@
 module geovar
   !
   use module_kind_types, only : wp,lk,iout,int_mpi
+  use module_kind_types, only : true,fals,eps6
   use module_kind_types, only : Geom_Min,Geom_Max,Geom_Name
   use module_kind_types, only : geom_family_t,Complete
   !
@@ -14,6 +15,12 @@ module geovar
   public :: move_bcgrps_to_device
   public :: move_fp_to_device
   public :: move_cellmap_to_device
+  public :: output_cell_dt
+  public :: output_face_dt
+  public :: output_fp_dt
+  public :: input_cell_dt
+  public :: input_face_dt
+  public :: input_fp_dt
   !
   !  c - cells
   !  v - vertices
@@ -792,6 +799,244 @@ continue
             ", warn=",l)
   !
 end subroutine output_prop
+!
+!###############################################################################
+!
+subroutine output_face_dt(io)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: io
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2
+  !
+continue
+  !
+  !##########################################################
+ !type, public :: cell_on_face_t
+ !  integer :: cell
+ !  integer :: cell_face
+ !  integer :: fp_offset
+ !  integer :: rotation
+ !  integer :: qp_offset
+ !end type cell_on_face_t
+ !type, public :: face_t
+ !  integer :: geom
+ !  integer :: order
+ !  integer :: qdtr_order
+ !  integer :: beg_fp
+ !  integer :: end_fp
+ !  integer :: beg_qp
+ !  integer :: end_qp
+ !  integer :: nodes(1:4)
+ !  type(cell_on_face_t) :: left
+ !  type(cell_on_face_t) :: right
+ !end type face_t
+ !type(face_t), public, save, allocatable :: face(:)
+  !##########################################################
+  !
+  if (allocated(face)) then
+    i1 = lbound(face,dim=1)
+    i2 = ubound(face,dim=1)
+    write (io) i1,i2
+    write (io) (face(i)%geom, face(i)%order, face(i)%qdtr_order, &
+                face(i)%beg_fp, face(i)%end_fp, &
+                face(i)%beg_qp, face(i)%end_qp, &
+                face(i)%nodes(1), face(i)%nodes(2), &
+                face(i)%nodes(3), face(i)%nodes(4), &
+                face(i)%left%cell, &
+                face(i)%left%cell_face, &
+                face(i)%left%fp_offset, &
+                face(i)%left%rotation, &
+                face(i)%left%qp_offset, &
+                face(i)%right%cell, &
+                face(i)%right%cell_face, &
+                face(i)%right%fp_offset, &
+                face(i)%right%rotation, &
+                face(i)%right%qp_offset, &
+               i=i1,i2)
+  else
+    write (io) -1,-1
+  end if
+  !
+end subroutine output_face_dt
+!
+!###############################################################################
+!
+subroutine output_cell_dt(io)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: io
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2
+  integer :: j,j1,j2
+  !
+continue
+  !
+  !##########################################################
+ !type, public :: face_of_cell_t
+ !  integer :: idx
+ !  integer :: side
+ !  integer :: geom
+ !  integer :: order
+ !  integer :: qdtr_order
+ !  integer :: fp_offset
+ !  integer :: rotation
+ !  integer :: qp_offset
+ !end type face_of_cell_t
+ !type, public :: edge_of_cell_t
+ !  integer :: idx
+ !  integer :: order
+ !  real(wp) :: ave_coef
+ !  integer :: ep_offset
+ !  logical(lk) :: rev_dir
+ !end type edge_of_cell_t
+ !type, public :: node_of_cell_t
+ !  integer :: idx
+ !  real(wp) :: ave_coef
+ !  integer :: cell_idx
+ !end type node_of_cell_t
+ !type, public :: cell_t
+ !  integer :: geom
+ !  integer :: order
+ !  integer :: qdtr_order
+ !  integer :: beg_sp
+ !  integer :: end_sp
+ !  integer :: beg_qp
+ !  integer :: end_qp
+ !  type(face_of_cell_t), allocatable :: face(:)
+ !  type(edge_of_cell_t), allocatable :: edge(:)
+ !  type(node_of_cell_t), allocatable :: node(:)
+ !end type cell_t
+ !type(cell_t), public, save, allocatable :: cell(:)
+  !##########################################################
+  !
+  if (allocated(cell)) then
+    i1 = lbound(cell,dim=1)
+    i2 = ubound(cell,dim=1)
+    write (io) i1,i2
+    do i = i1,i2
+      !
+      write (io) cell(i)%geom, cell(i)%order, cell(i)%qdtr_order, &
+                 cell(i)%beg_sp, cell(i)%end_sp, &
+                 cell(i)%beg_qp, cell(i)%end_qp
+      !
+      if (allocated(cell(i)%face)) then
+        j1 = lbound(cell(i)%face,dim=1)
+        j2 = ubound(cell(i)%face,dim=1)
+        write (io) j1,j2
+        write (io) (cell(i)%face(j)%idx, &
+                    cell(i)%face(j)%side, &
+                    cell(i)%face(j)%geom, &
+                    cell(i)%face(j)%order, &
+                    cell(i)%face(j)%qdtr_order, &
+                    cell(i)%face(j)%fp_offset, &
+                    cell(i)%face(j)%rotation, &
+                    cell(i)%face(j)%qp_offset, &
+                   j=j1,j2)
+      else
+        write (io) -1,-1
+      end if
+      !
+      if (allocated(cell(i)%edge)) then
+        j1 = lbound(cell(i)%edge,dim=1)
+        j2 = ubound(cell(i)%edge,dim=1)
+        write (io) j1,j2
+        write (io) (cell(i)%edge(j)%idx, &
+                    cell(i)%edge(j)%order, &
+                    cell(i)%edge(j)%ave_coef, &
+                    cell(i)%edge(j)%ep_offset, &
+                    cell(i)%edge(j)%rev_dir, &
+                   j=j1,j2)
+      else
+        write (io) -1,-1
+      end if
+      !
+      if (allocated(cell(i)%node)) then
+        j1 = lbound(cell(i)%node,dim=1)
+        j2 = ubound(cell(i)%node,dim=1)
+        write (io) j1,j2
+        write (io) (cell(i)%node(j)%idx, &
+                    cell(i)%node(j)%ave_coef, &
+                    cell(i)%node(j)%cell_idx, &
+                   j=j1,j2)
+      else
+        write (io) -1,-1
+      end if
+      !
+    end do
+  else
+    write (io) -1,-1
+  end if
+  !
+end subroutine output_cell_dt
+!
+!###############################################################################
+!
+subroutine output_fp_dt(io)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: io
+  !
+  !.. Local Scalars ..
+  integer :: g,g1,g2
+  integer :: o,o1,o2
+  integer :: r,r1,r2
+  integer :: i,i1,i2
+  !
+continue
+  !
+  !##########################################################
+ !type, public :: fp_rot_pts_t
+ !  integer, allocatable :: pts(:)
+ !end type fp_rot_pts_t
+ !type, public :: fp_rot_t
+ !  type(fp_rot_pts_t), allocatable :: rot(:)
+ !end type fp_rot_t
+ !type, public :: fp_t
+ !  type(fp_rot_t), allocatable :: geord(:,:)
+ !end type fp_t
+ !type(fp_t), public, save, allocatable :: fp
+  !##########################################################
+  !
+  if (allocated(fp)) then
+    write (io) 1
+    if (allocated(fp%geord)) then
+      g1 = lbound(fp%geord,dim=1)
+      g2 = ubound(fp%geord,dim=1)
+      o1 = lbound(fp%geord,dim=2)
+      o2 = ubound(fp%geord,dim=2)
+      write (io) g1,g2,o1,o2
+      do o = o1,o2
+        do g = g1,g2
+          if (allocated(fp%geord(g,o)%rot)) then
+            r1 = lbound(fp%geord(g,o)%rot,dim=1)
+            r2 = ubound(fp%geord(g,o)%rot,dim=1)
+            write (io) r1,r2
+            do r = r1,r2
+              if (allocated(fp%geord(g,o)%rot(r)%pts)) then
+                i1 = lbound(fp%geord(g,o)%rot(r)%pts,dim=1)
+                i2 = ubound(fp%geord(g,o)%rot(r)%pts,dim=1)
+                write (io) i1,i2
+                write (io) (fp%geord(g,o)%rot(r)%pts(i), i=i1,i2)
+              else
+                write (io) -1,-1
+              end if
+            end do
+          else
+            write (io) -1,-1
+          end if
+        end do
+      end do
+    else
+      write (io) -1,-1,-1,-1
+    end if
+  else
+    write (io) -1
+  end if
+  !
+end subroutine output_fp_dt
 !
 !###############################################################################
 !###############################################################################
@@ -1607,6 +1852,415 @@ continue
 #endif
 end subroutine geovar_memory_usage
 !
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+subroutine input_face_dt(io,success)
+  !
+  !.. Formal Arguments ..
+  integer,      intent(in) :: io
+  logical(lk), intent(out) :: success
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2
+  integer :: ierr
+  !
+  !.. Local Allocatable Arrays ..
+  type(face_t), allocatable :: tmp(:)
+  !
+continue
+  !
+  !##########################################################
+ !type, public :: cell_on_face_t
+ !  integer :: cell
+ !  integer :: cell_face
+ !  integer :: fp_offset
+ !  integer :: rotation
+ !  integer :: qp_offset
+ !end type cell_on_face_t
+ !type, public :: face_t
+ !  integer :: geom
+ !  integer :: order
+ !  integer :: qdtr_order
+ !  integer :: beg_fp
+ !  integer :: end_fp
+ !  integer :: beg_qp
+ !  integer :: end_qp
+ !  integer :: nodes(1:4)
+ !  type(cell_on_face_t) :: left
+ !  type(cell_on_face_t) :: right
+ !end type face_t
+ !type(face_t), public, save, allocatable :: face(:)
+  !##########################################################
+  !
+  success = fals
+  !
+  read (io) i1,i2
+  !
+  if (all([i1,i2] == -1)) return
+  if (i1 /= lbound(face,dim=1)) return
+  if (i2 /= ubound(face,dim=1)) return
+  !
+  allocate ( tmp(i1:i2) , stat=ierr )
+  !
+  read (io) (tmp(i)%geom, tmp(i)%order, tmp(i)%qdtr_order, &
+             tmp(i)%beg_fp, tmp(i)%end_fp, &
+             tmp(i)%beg_qp, tmp(i)%end_qp, &
+             tmp(i)%nodes(1), tmp(i)%nodes(2), &
+             tmp(i)%nodes(3), tmp(i)%nodes(4), &
+             tmp(i)%left%cell, &
+             tmp(i)%left%cell_face, &
+             tmp(i)%left%fp_offset, &
+             tmp(i)%left%rotation, &
+             tmp(i)%left%qp_offset, &
+             tmp(i)%right%cell, &
+             tmp(i)%right%cell_face, &
+             tmp(i)%right%fp_offset, &
+             tmp(i)%right%rotation, &
+             tmp(i)%right%qp_offset, &
+            i=i1,i2)
+  !
+  do i = i1,i2
+    if (tmp(i)%geom /= face(i)%geom) return
+    if (tmp(i)%order /= face(i)%order) return
+    if (tmp(i)%qdtr_order /= face(i)%qdtr_order) return
+    if (tmp(i)%beg_fp /= face(i)%beg_fp) return
+    if (tmp(i)%end_fp /= face(i)%end_fp) return
+    if (tmp(i)%beg_qp /= face(i)%beg_qp) return
+    if (tmp(i)%end_qp /= face(i)%end_qp) return
+    if (tmp(i)%nodes(1) /= face(i)%nodes(1)) return
+    if (tmp(i)%nodes(2) /= face(i)%nodes(2)) return
+    if (tmp(i)%nodes(3) /= face(i)%nodes(3)) return
+    if (tmp(i)%nodes(4) /= face(i)%nodes(4)) return
+    if (tmp(i)%left%cell /= face(i)%left%cell) return
+    if (tmp(i)%left%cell_face /= face(i)%left%cell_face) return
+    if (tmp(i)%left%fp_offset /= face(i)%left%fp_offset) return
+    if (tmp(i)%left%rotation /= face(i)%left%rotation) return
+    if (tmp(i)%left%qp_offset /= face(i)%left%qp_offset) return
+    if (tmp(i)%right%cell /= face(i)%right%cell) return
+    if (tmp(i)%right%cell_face /= face(i)%right%cell_face) return
+    if (tmp(i)%right%fp_offset /= face(i)%right%fp_offset) return
+    if (tmp(i)%right%rotation /= face(i)%right%rotation) return
+    if (tmp(i)%right%qp_offset /= face(i)%right%qp_offset) return
+  end do
+  !
+  deallocate ( tmp , stat=ierr )
+  !
+  success = true
+  !
+end subroutine input_face_dt
+!
+!###############################################################################
+!
+subroutine input_cell_dt(io,success)
+  !
+  !.. Formal Arguments ..
+  integer,      intent(in) :: io
+  logical(lk), intent(out) :: success
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2
+  integer :: j,j1,j2
+  integer :: ierr
+  !
+  !.. Local Allocatable Arrays ..
+  type(cell_t), allocatable :: tmp(:)
+  !
+continue
+  !
+  !##########################################################
+ !type, public :: face_of_cell_t
+ !  integer :: idx
+ !  integer :: side
+ !  integer :: geom
+ !  integer :: order
+ !  integer :: qdtr_order
+ !  integer :: fp_offset
+ !  integer :: rotation
+ !  integer :: qp_offset
+ !end type face_of_cell_t
+ !type, public :: edge_of_cell_t
+ !  integer :: idx
+ !  integer :: order
+ !  real(wp) :: ave_coef
+ !  integer :: ep_offset
+ !  logical(lk) :: rev_dir
+ !end type edge_of_cell_t
+ !type, public :: node_of_cell_t
+ !  integer :: idx
+ !  real(wp) :: ave_coef
+ !  integer :: cell_idx
+ !end type node_of_cell_t
+ !type, public :: cell_t
+ !  integer :: geom
+ !  integer :: order
+ !  integer :: qdtr_order
+ !  integer :: beg_sp
+ !  integer :: end_sp
+ !  integer :: beg_qp
+ !  integer :: end_qp
+ !  type(face_of_cell_t), allocatable :: face(:)
+ !  type(edge_of_cell_t), allocatable :: edge(:)
+ !  type(node_of_cell_t), allocatable :: node(:)
+ !end type cell_t
+ !type(cell_t), public, save, allocatable :: cell(:)
+  !##########################################################
+  !
+  success = fals
+  !
+  read (io) i1,i2
+  !
+  if (all([i1,i2] == -1)) return
+  if (i1 /= lbound(cell,dim=1)) return
+  if (i2 /= ubound(cell,dim=1)) return
+  !
+  allocate ( tmp(i1:i2) , stat=ierr )
+  !
+  do i = i1,i2
+    !
+    read (io) tmp(i)%geom, tmp(i)%order, tmp(i)%qdtr_order, &
+              tmp(i)%beg_sp, tmp(i)%end_sp, &
+              tmp(i)%beg_qp, tmp(i)%end_qp
+    !
+    read (io) j1,j2
+    if (any([j1,j2] /= -1)) then
+      allocate ( tmp(i)%face(j1:j2) , stat=ierr )
+      read (io) (tmp(i)%face(j)%idx, &
+                 tmp(i)%face(j)%side, &
+                 tmp(i)%face(j)%geom, &
+                 tmp(i)%face(j)%order, &
+                 tmp(i)%face(j)%qdtr_order, &
+                 tmp(i)%face(j)%fp_offset, &
+                 tmp(i)%face(j)%rotation, &
+                 tmp(i)%face(j)%qp_offset, &
+                j=j1,j2)
+    end if
+    !
+    read (io) j1,j2
+    if (any([j1,j2] /= -1)) then
+      allocate ( tmp(i)%edge(j1:j2) , stat=ierr )
+      read (io) (tmp(i)%edge(j)%idx, &
+                 tmp(i)%edge(j)%order, &
+                 tmp(i)%edge(j)%ave_coef, &
+                 tmp(i)%edge(j)%ep_offset, &
+                 tmp(i)%edge(j)%rev_dir, &
+                j=j1,j2)
+    end if
+    !
+    read (io) j1,j2
+    if (any([j1,j2] /= -1)) then
+      allocate ( tmp(i)%node(j1:j2) , stat=ierr )
+      read (io) (tmp(i)%node(j)%idx, &
+                 tmp(i)%node(j)%ave_coef, &
+                 tmp(i)%node(j)%cell_idx, &
+                j=j1,j2)
+    end if
+    !
+  end do
+  !
+  do i = i1,i2
+    !
+    if (tmp(i)%geom /= cell(i)%geom) return
+    if (tmp(i)%order /= cell(i)%order) return
+    if (tmp(i)%qdtr_order /= cell(i)%qdtr_order) return
+    if (tmp(i)%beg_sp /= cell(i)%beg_sp) return
+    if (tmp(i)%end_sp /= cell(i)%end_sp) return
+    if (tmp(i)%beg_qp /= cell(i)%beg_qp) return
+    if (tmp(i)%end_qp /= cell(i)%end_qp) return
+    !
+    if (allocated(tmp(i)%face) .neqv. &
+        allocated(cell(i)%face)) return
+    !
+    if (.not. allocated(cell(i)%face)) cycle
+    !
+    if (lbound(tmp(i)%face,dim=1) /= &
+        lbound(cell(i)%face,dim=1)) return
+    if (ubound(tmp(i)%face,dim=1) /= &
+        ubound(cell(i)%face,dim=1)) return
+    !
+    do j = lbound(tmp(i)%face,dim=1), &
+           ubound(tmp(i)%face,dim=1)
+      !
+      if (tmp(i)%face(j)%idx /= cell(i)%face(j)%idx) return
+      if (tmp(i)%face(j)%side /= cell(i)%face(j)%side) return
+      if (tmp(i)%face(j)%geom /= cell(i)%face(j)%geom) return
+      if (tmp(i)%face(j)%order /= cell(i)%face(j)%order) return
+      if (tmp(i)%face(j)%qdtr_order /= cell(i)%face(j)%qdtr_order) return
+      if (tmp(i)%face(j)%fp_offset /= cell(i)%face(j)%fp_offset) return
+      if (tmp(i)%face(j)%rotation /= cell(i)%face(j)%rotation) return
+      if (tmp(i)%face(j)%qp_offset /= cell(i)%face(j)%qp_offset) return
+      !
+    end do
+    !
+    if (allocated(tmp(i)%edge) .neqv. &
+        allocated(cell(i)%edge)) return
+    !
+    if (.not. allocated(cell(i)%edge)) cycle
+    !
+    if (lbound(tmp(i)%edge,dim=1) /= &
+        lbound(cell(i)%edge,dim=1)) return
+    if (ubound(tmp(i)%edge,dim=1) /= &
+        ubound(cell(i)%edge,dim=1)) return
+    !
+    do j = lbound(tmp(i)%edge,dim=1), &
+           ubound(tmp(i)%edge,dim=1)
+      !
+      if (tmp(i)%edge(j)%idx /= cell(i)%edge(j)%idx) return
+      if (tmp(i)%edge(j)%order /= cell(i)%edge(j)%order) return
+      if (abs(tmp(i)%edge(j)%ave_coef-cell(i)%edge(j)%ave_coef) > eps6) return
+      if (tmp(i)%edge(j)%ep_offset /= cell(i)%edge(j)%ep_offset) return
+      if (tmp(i)%edge(j)%rev_dir .neqv. cell(i)%edge(j)%rev_dir) return
+      !
+    end do
+    !
+    if (allocated(tmp(i)%node) .neqv. &
+        allocated(cell(i)%node)) return
+    !
+    if (.not. allocated(cell(i)%node)) cycle
+    !
+    if (lbound(tmp(i)%node,dim=1) /= &
+        lbound(cell(i)%node,dim=1)) return
+    if (ubound(tmp(i)%node,dim=1) /= &
+        ubound(cell(i)%node,dim=1)) return
+    !
+    do j = lbound(tmp(i)%node,dim=1), &
+           ubound(tmp(i)%node,dim=1)
+      !
+      if (tmp(i)%node(j)%idx /= cell(i)%node(j)%idx) return
+      if (abs(tmp(i)%node(j)%ave_coef-cell(i)%node(j)%ave_coef) > eps6) return
+      if (tmp(i)%node(j)%cell_idx /= cell(i)%node(j)%cell_idx) return
+      !
+    end do
+    !
+  end do
+  !
+  deallocate ( tmp , stat=ierr )
+  !
+  success = true
+  !
+end subroutine input_cell_dt
+!
+!###############################################################################
+!
+subroutine input_fp_dt(io,success)
+  !
+  !.. Formal Arguments ..
+  integer,      intent(in) :: io
+  logical(lk), intent(out) :: success
+  !
+  !.. Local Scalars ..
+  integer :: g,g1,g2
+  integer :: o,o1,o2
+  integer :: r,r1,r2
+  integer :: i,i1,i2
+  integer :: ierr
+  !
+  !.. Local Allocatable Arrays ..
+  type(fp_t), allocatable :: tmp
+  !
+continue
+  !
+  !##########################################################
+ !type, public :: fp_rot_pts_t
+ !  integer, allocatable :: pts(:)
+ !end type fp_rot_pts_t
+ !type, public :: fp_rot_t
+ !  type(fp_rot_pts_t), allocatable :: rot(:)
+ !end type fp_rot_t
+ !type, public :: fp_t
+ !  type(fp_rot_t), allocatable :: geord(:,:)
+ !end type fp_t
+ !type(fp_t), public, save, allocatable :: fp
+  !##########################################################
+  !
+  success = fals
+  !
+  read (io) i1
+  !
+  if (i1 == -1) return
+  !
+  allocate ( tmp , stat=ierr )
+  !
+  read (io) g1,g2,o1,o2
+  !
+  if (all([g1,g2,o1,o2] == -1)) return
+  if (g1 /= lbound(fp%geord,dim=1)) return
+  if (g2 /= ubound(fp%geord,dim=1)) return
+  if (o1 /= lbound(fp%geord,dim=2)) return
+  if (o2 /= ubound(fp%geord,dim=2)) return
+  !
+  allocate ( tmp%geord(g1:g2,o1:o2) , stat=ierr )
+  !
+  do o = o1,o2
+    do g = g1,g2
+      !
+      read (io) r1,r2
+      !
+      if (all([r1,r2] == -1)) cycle
+      !
+      allocate ( tmp%geord(g,o)%rot(r1:r2) , stat=ierr )
+      !
+      do r = r1,r2
+        !
+        read (io) i1,i2
+        !
+        if (all([i1,i2] == -1)) cycle
+        !
+        allocate ( tmp%geord(g,o)%rot(r)%pts(i1:i2) , stat=ierr )
+        !
+        read (io) (tmp%geord(g,o)%rot(r)%pts(i), i=i1,i2)
+        !
+      end do
+      !
+    end do
+  end do
+  !
+  do o = o1,o2
+    do g = g1,g2
+      !
+      if (allocated(tmp%geord(g,o)%rot) .neqv. &
+          allocated(fp%geord(g,o)%rot)) return
+      !
+      if (.not. allocated(fp%geord(g,o)%rot)) cycle
+      !
+      if (lbound(tmp%geord(g,o)%rot,dim=1) /= &
+          lbound(fp%geord(g,o)%rot,dim=1)) return
+      if (ubound(tmp%geord(g,o)%rot,dim=1) /= &
+          ubound(fp%geord(g,o)%rot,dim=1)) return
+      !
+      do r = lbound(tmp%geord(g,o)%rot,dim=1), &
+             ubound(tmp%geord(g,o)%rot,dim=1)
+        !
+        if (allocated(tmp%geord(g,o)%rot(r)%pts) .neqv. &
+            allocated(fp%geord(g,o)%rot(r)%pts)) return
+        !
+        if (.not. allocated(fp%geord(g,o)%rot(r)%pts)) cycle
+        !
+        if (lbound(tmp%geord(g,o)%rot(r)%pts,dim=1) /= &
+            lbound(fp%geord(g,o)%rot(r)%pts,dim=1)) return
+        if (ubound(tmp%geord(g,o)%rot(r)%pts,dim=1) /= &
+            ubound(fp%geord(g,o)%rot(r)%pts,dim=1)) return
+        !
+        do i = lbound(tmp%geord(g,o)%rot(r)%pts,dim=1), &
+               ubound(tmp%geord(g,o)%rot(r)%pts,dim=1)
+          if (tmp%geord(g,o)%rot(r)%pts(i) /= &
+              fp%geord(g,o)%rot(r)%pts(i)) return
+        end do
+        !
+      end do
+      !
+    end do
+  end do
+  !
+  deallocate ( tmp , stat=ierr )
+  !
+  success = true
+  !
+end subroutine input_fp_dt
+!
+!###############################################################################
+!###############################################################################
 !###############################################################################
 !
 end module geovar
