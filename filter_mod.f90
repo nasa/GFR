@@ -13,9 +13,9 @@ module filter_mod
   use generic_types_mod, only : output_sparsity
   !
   use ovar, only : Filter_Option,Limiter_Filter_Option
-  use ovar, only : Filter_etac,  Limiter_Filter_etac
-  use ovar, only : Filter_Order, Limiter_Filter_Order
-  use ovar, only : Filter_Alpha, Limiter_Filter_Alpha
+  use ovar, only : Filter_etac,  Limiter_Filter_etac,  Sponge_Filter_etac
+  use ovar, only : Filter_Order, Limiter_Filter_Order, Sponge_Filter_Order
+  use ovar, only : Filter_Alpha, Limiter_Filter_Alpha, Sponge_Filter_Alpha
   use ovar, only : Filter_eps,   Limiter_Filter_eps
   !
   implicit none
@@ -45,6 +45,9 @@ module filter_mod
     ! cutoff : matrix to filter a polynomial by
     !          cutting-off (zeroing) higher modes
     type(matrix), allocatable :: cutoff(:)
+    ! sponge : filter matrix to use as a stronger limiter
+    !          for cells that are in a sponge region
+    type(matrix), allocatable :: sponge
   end type filter_t
   !
   ! filter : filter matrices for all combinations of cell geometry and
@@ -526,6 +529,101 @@ continue
         !
       end do cutoff_loop
       !
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+      ! #################################
+      ! #####  3. Sponge Filter  #####
+      ! #################################
+      !
+      write (timer_message,203) trim(adjustl(Geom_Name(this_geom))),this_order
+      203 format ("Sponge filter: Geometry = ",a,"  ;  Order = ",i0)
+      call debug_timer(start_timer,timer_message)
+      !
+      ! Allocate the sponge filter matrix
+      !
+      allocate ( filter(this_geom,this_order)%sponge , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"sponge"
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      ! Allocate the sponge filter matrix
+      !
+      allocate ( filter(this_geom,this_order)%sponge%mat(1:npts,1:npts) , &
+                 source=zero , stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"sponge%mat"
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      ! Compute the filter matrices depending on geometry type
+      !
+      select case (this_geom)
+        case (Geom_Edge)
+          !
+          filter(this_geom,this_order)%sponge%mat = &
+           FilterMatrix_Edge( vand(this_geom,this_order)%modal2nodal%mat , &
+                              vand(this_geom,this_order)%nodal2modal%mat , &
+                              cutoff_order=-2 )
+          !
+        case (Geom_Tria)
+          !
+          filter(this_geom,this_order)%sponge%mat = &
+             FilterMatrix_Tria( vand(this_geom,this_order)%modal2nodal%mat , &
+                                vand(this_geom,this_order)%nodal2modal%mat , &
+                                cutoff_order=-2 )
+          !
+        case (Geom_Quad)
+          !
+          filter(this_geom,this_order)%sponge%mat = &
+             FilterMatrix_Quad( vand(this_geom,this_order)%modal2nodal%mat , &
+                                vand(this_geom,this_order)%nodal2modal%mat , &
+                                cutoff_order=-2 )
+          !
+        case (Geom_Tetr)
+          !
+          filter(this_geom,this_order)%sponge%mat = &
+             FilterMatrix_Tetr( vand(this_geom,this_order)%modal2nodal%mat , &
+                                vand(this_geom,this_order)%nodal2modal%mat , &
+                                cutoff_order=-2 )
+          !
+        case (Geom_Pyra)
+          !
+          filter(this_geom,this_order)%sponge%mat = &
+             FilterMatrix_Pyra( vand(this_geom,this_order)%modal2nodal%mat , &
+                                vand(this_geom,this_order)%nodal2modal%mat , &
+                                cutoff_order=-2 )
+          !
+        case (Geom_Pris)
+          !
+          filter(this_geom,this_order)%sponge%mat = &
+             FilterMatrix_Pris( vand(this_geom,this_order)%modal2nodal%mat , &
+                                vand(this_geom,this_order)%nodal2modal%mat , &
+                                cutoff_order=-2 )
+          !
+        case (Geom_Hexa)
+          !
+          filter(this_geom,this_order)%sponge%mat = &
+             FilterMatrix_Hexa( vand(this_geom,this_order)%modal2nodal%mat , &
+                                vand(this_geom,this_order)%nodal2modal%mat , &
+                                cutoff_order=-2 )
+          !
+        case default
+          !
+          write (error_message,100)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          !
+      end select
+      !
+      call debug_timer(stop_timer,timer_message)
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+      !
     end do order_loop
     !
   end do geom_loop
@@ -566,6 +664,14 @@ continue
                     a,"  ;  Order = ",i0)
         call debug_timer(start_timer,timer_message)
         call create_matrix_sparsity( filter(this_geom,this_order)%cutoff )
+        call debug_timer(stop_timer,timer_message)
+      end if
+      if (allocated(filter(this_geom,this_order)%sponge)) then
+        write (timer_message,303) trim(adjustl(Geom_Name(this_geom))),this_order
+        303 format ("Sponge filter sparsity check:  Geometry = ", &
+                    a,"  ;  Order = ",i0)
+        call debug_timer(start_timer,timer_message)
+        call create_matrix_sparsity( filter(this_geom,this_order)%sponge )
         call debug_timer(stop_timer,timer_message)
       end if
     end do
@@ -1020,6 +1126,14 @@ continue
       Filter_Cutoff = cutoff_order
       fetac_qp = real(cutoff_order,kind=qp) / real(order,kind=qp)
       feps_qp = qzero
+    else if (cutoff_order == -2) then
+      fetac_qp = real( Sponge_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
+                            real(order,kind=wp) )
+      local_Filter_Option = 1
+      feps_qp = qone
+      falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
+      filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
       Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
@@ -1133,6 +1247,14 @@ continue
       Filter_Cutoff = cutoff_order
       fetac_qp = real(cutoff_order,kind=qp) / real(order,kind=qp)
       feps_qp = qzero
+    else if (cutoff_order == -2) then
+      fetac_qp = real( Sponge_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
+                            real(order,kind=wp) )
+      local_Filter_Option = 1
+      feps_qp = qone
+      falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
+      filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
       Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
@@ -1267,6 +1389,14 @@ continue
       Filter_Cutoff = i*cutoff_order
       fetac_qp = real(Filter_Cutoff,kind=qp) / real(i*order,kind=qp)
       feps_qp = qzero
+    else if (cutoff_order == -2) then
+      fetac_qp = real( Sponge_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
+                            real(order,kind=wp) )
+      local_Filter_Option = 1
+      feps_qp = qone
+      falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
+      filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
       Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
@@ -1429,6 +1559,14 @@ continue
       Filter_Cutoff = cutoff_order
       fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
       feps_qp = qzero
+    else if (cutoff_order == -2) then
+      fetac_qp = real( Sponge_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
+                            real(order,kind=wp) )
+      local_Filter_Option = 1
+      feps_qp = qone
+      falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
+      filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
       Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
@@ -1548,6 +1686,14 @@ continue
       Filter_Cutoff = cutoff_order
       fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
       feps_qp = qzero
+    else if (cutoff_order == -2) then
+      fetac_qp = real( Sponge_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
+                            real(order,kind=wp) )
+      local_Filter_Option = 1
+      feps_qp = qone
+      falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
+      filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
       Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
@@ -1667,6 +1813,14 @@ continue
       Filter_Cutoff = cutoff_order
       fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
       feps_qp = qzero
+    else if (cutoff_order == -2) then
+      fetac_qp = real( Sponge_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
+                            real(order,kind=wp) )
+      local_Filter_Option = 1
+      feps_qp = qone
+      falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
+      filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
       Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
@@ -1786,6 +1940,14 @@ continue
       Filter_Cutoff = cutoff_order
       fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
       feps_qp = qzero
+    else if (cutoff_order == -2) then
+      fetac_qp = real( Sponge_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
+                            real(order,kind=wp) )
+      local_Filter_Option = 1
+      feps_qp = qone
+      falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
+      filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
       Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
@@ -1923,6 +2085,14 @@ continue
       Filter_Cutoff = i*cutoff_order
       fetac_qp = real(Filter_Cutoff,kind=qp) / real(i*order,kind=qp)
       feps_qp = qzero
+    else if (cutoff_order == -2) then
+      fetac_qp = real( Sponge_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
+                            real(order,kind=wp) )
+      local_Filter_Option = 1
+      feps_qp = qone
+      falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
+      filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
       Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
@@ -2398,6 +2568,62 @@ continue
             !
           end do
           !
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(filter(i,j)%sponge)) then
+          !$ACC ENTER DATA COPYIN(filter(i,j)%sponge)
+          if (allocated(filter(i,j)%sponge%mat)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%sponge%mat)
+            m1 = lbound(filter(i,j)%sponge%mat,dim=1)
+            m2 = ubound(filter(i,j)%sponge%mat,dim=1)
+            n1 = lbound(filter(i,j)%sponge%mat,dim=2)
+            n2 = ubound(filter(i,j)%sponge%mat,dim=2)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%sponge%mat(m1:m2,n1:n2))
+          end if
+          !
+          if (allocated(filter(i,j)%sponge%row_ptr)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%sponge%row_ptr)
+            m1 = lbound(filter(i,j)%sponge%row_ptr,dim=1)
+            m2 = ubound(filter(i,j)%sponge%row_ptr,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%sponge%row_ptr(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%sponge%row_idx)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%sponge%row_idx)
+            m1 = lbound(filter(i,j)%sponge%row_idx,dim=1)
+            m2 = ubound(filter(i,j)%sponge%row_idx,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%sponge%row_idx(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%sponge%row_val)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%sponge%row_val)
+            m1 = lbound(filter(i,j)%sponge%row_val,dim=1)
+            m2 = ubound(filter(i,j)%sponge%row_val,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%sponge%row_val(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%sponge%col_ptr)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%sponge%col_ptr)
+            m1 = lbound(filter(i,j)%sponge%col_ptr,dim=1)
+            m2 = ubound(filter(i,j)%sponge%col_ptr,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%sponge%col_ptr(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%sponge%col_idx)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%sponge%col_idx)
+            m1 = lbound(filter(i,j)%sponge%col_idx,dim=1)
+            m2 = ubound(filter(i,j)%sponge%col_idx,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%sponge%col_idx(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%sponge%col_val)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%sponge%col_val)
+            m1 = lbound(filter(i,j)%sponge%col_val,dim=1)
+            m2 = ubound(filter(i,j)%sponge%col_val,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%sponge%col_val(m1:m2))
+          end if
         end if
         !
         !---------------------------------------------------------------
