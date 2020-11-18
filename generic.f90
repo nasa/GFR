@@ -1201,6 +1201,8 @@ subroutine write_iter_stats(walltime_expiring,exit_main_loop)
   !
   use pbs_mod, only : pbs_remaining_walltime
   !
+  use thx_mod, only : compute_blowing_ratio
+  !
   !.. Formal Arguments ..
   logical(lk), intent(inout) :: walltime_expiring
   logical(lk), intent(  out) :: exit_main_loop
@@ -1213,6 +1215,7 @@ subroutine write_iter_stats(walltime_expiring,exit_main_loop)
   real(wp) :: wall_time_left,out_time
   real(wp) :: orders_converged,output_L2val
   real(wp) :: rltwo,rlim
+  real(wp) :: blowing_ratio,mdot_nozzle,mdot_injector
   !
   !.. Local Arrays ..
   real(wp) :: max_wall_times(1:4)
@@ -1225,6 +1228,13 @@ continue
   exit_main_loop = fals
   !
   call debug_timer(entering_procedure,pname)
+  !
+  if (abs(itestcase) == THX_Phase_3) then
+    call compute_blowing_ratio(blowing_ratio,mdot_nozzle,mdot_injector)
+    uverr(nmx,2,2) = mdot_nozzle
+    uverr(nmy,2,2) = mdot_injector
+    uverr(nmz,2,2) = blowing_ratio
+  end if
   !
   ! Get the density and entropy residual stats from uverr
   !
@@ -1365,12 +1375,21 @@ continue
     write (*,101) "sec_left = ",sec_left
 #endif
     !
-   !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
-    write (iout,iter_out_fmt) itcur,d_t,out_time, &
-                              cfl,rltwo,output_L2val,nloc, &
-                              global_pinc_ptr(nloc)+kloc, &
-                              xentmax,yentmax, &
-                              hrs_left,min_left,sec_left
+    if (abs(itestcase) == THX_Phase_3) then
+     !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
+      write (iout,iter_out_fmt) itcur,d_t,out_time, &
+                                cfl,output_L2val, &
+                                mdot_nozzle,mdot_injector,blowing_ratio, &
+                                nloc,global_pinc_ptr(nloc)+kloc, &
+                                hrs_left,min_left,sec_left
+    else
+     !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
+      write (iout,iter_out_fmt) itcur,d_t,out_time, &
+                                cfl,rltwo,output_L2val,nloc, &
+                                global_pinc_ptr(nloc)+kloc, &
+                                xentmax,yentmax, &
+                                hrs_left,min_left,sec_left
+    end if
     !
 #else
     !
@@ -1485,11 +1504,14 @@ continue
   write (char_num,1) n_global_solpts
   max_solpt_digits = max(5,len_trim(adjustl(char_num)))
   !
+  if (abs(itestcase) == THX_Phase_3) then
+    write (iter_out_fmt,102) final_iter_digits,max_cell_digits,max_solpt_digits
+  else
  !if (output_time_averaging) then
  !  write (iter_out_fmt,101) final_iter_digits
  !else
     write (iter_out_fmt,100) final_iter_digits,max_cell_digits,max_solpt_digits
- !end if
+  end if
   !
   ! Add on the remaining simulation time to the output if
   ! running in the PBS environment
@@ -1561,6 +1583,7 @@ continue
               "  Wall Time Remaining = ",i0,2(":",i2.2))
   100 format ("(1x,i",i0,",5es12.4,2x,i",i0,",2x,i",i0,",2es9.1")
   101 format ("(1x,i",i0,",8es12.4")
+  102 format ("(1x,i",i0,",7es12.4,2x,i",i0,",2x,i",i0)
   200 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
               "'L2-Entropy',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
   201 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-X-Mmntm',2x,", &

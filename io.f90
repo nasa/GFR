@@ -7031,6 +7031,7 @@ subroutine write_residual_file(iflag,icount)
   use ovar,      only : work_units,uverr,total_volume
   use ovar,      only : time,time_ref,time_scaling_factor
   use ovar,      only : output_time_averaging,ave_start_time
+  use ovar,      only : itestcase
   use order_mod, only : p_order
   use thermo_mod, only : species_name
   !
@@ -7227,9 +7228,18 @@ continue
   u2(:) = merge( uverr(:,2,1) , epsilon(zero)/total_volume , uverr(:,2,1)>zero )
   v2(:) = merge( uverr(:,2,2) , epsilon(zero)/total_volume , uverr(:,2,2)>zero )
   !
-  write (iores,5) icount,(log10(u2(i)),i=1,nq+1), &
-                         (log10(v2(i)),i=1,nq+1), &
-                         comp_cost
+  do i = 1,nq+1
+    u2(i) = log10(u2(i))
+    v2(i) = log10(v2(i))
+  end do
+  !
+  if (abs(itestcase) == THX_Phase_3) then
+    v2(nmx) = uverr(nmx,2,2)
+    v2(nmy) = uverr(nmy,2,2)
+    v2(nmz) = uverr(nmz,2,2)
+  end if
+  !
+  write (iores,5) icount,(u2(i),i=1,nq+1), (v2(i),i=1,nq+1), comp_cost
   flush (iores)
   !
 #ifdef OUTPUT_LINF_AND_L1_RESIDUALS

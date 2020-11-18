@@ -209,6 +209,7 @@ $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/quadrature_mod.o \
             $(OBJDIR)/gpu_mod.o \
             $(OBJDIR)/mms_mod.o \
+            $(OBJDIR)/thx_mod.o \
             $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/geovar_mod.o : geovar_mod.f90 \
