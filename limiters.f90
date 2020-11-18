@@ -1565,27 +1565,7 @@ continue
       !
       ! Apply the projection limiter to the cells marked as needing limiting
       !
-      nr = nme-nmb+1
-      !
-      if (force_nd_subroutines) then
-        !
-        call res_ind_apply_proj_nd(1,nq,usp,skip_cell,lmtr_order)
-        !
-      else
-        !
-        if (nr == 3) then
-          call res_ind_apply_proj_3d(usp,skip_cell,lmtr_order)
-        else if (nr == 2) then
-          call res_ind_apply_proj_2d(usp,skip_cell,lmtr_order)
-        else
-          call res_ind_apply_proj_1d(usp,skip_cell,lmtr_order)
-        end if
-        !
-        if (ncs > 0) then
-          call res_ind_apply_proj_nd(1,ncs,usp,skip_cell,lmtr_order)
-        end if
-        !
-      end if
+      call res_ind_apply_proj(usp,skip_cell,lmtr_order)
       !
     end if
   end if
@@ -2597,6 +2577,48 @@ end subroutine compute_scaled_marker
 !###############################################################################
 !###############################################################################
 !###############################################################################
+!###############################################################################
+!
+pure &
+subroutine res_ind_apply_proj(usp,skip_cell,lmtr_order)
+  !
+  !.. Formal Arguments ..
+  logical(ldk), intent(in) :: skip_cell(:)
+  integer,      intent(in) :: lmtr_order(:)
+  real(wp),  intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: nr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "res_ind_apply_proj"
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (force_nd_subroutines) then
+    !
+    call res_ind_apply_proj_nd(1,nq,usp,skip_cell,lmtr_order)
+    !
+  else
+    !
+    if (nr == 3) then
+      call res_ind_apply_proj_3d(usp,skip_cell,lmtr_order)
+    else if (nr == 2) then
+      call res_ind_apply_proj_2d(usp,skip_cell,lmtr_order)
+    else
+      call res_ind_apply_proj_1d(usp,skip_cell,lmtr_order)
+    end if
+    !
+    if (ncs > 0) then
+      call res_ind_apply_proj_nd(1,ncs,usp,skip_cell,lmtr_order)
+    end if
+    !
+  end if
+  !
+end subroutine res_ind_apply_proj
+!
 !###############################################################################
 !
 pure &
