@@ -4,7 +4,7 @@ module module_limiters
   use module_kind_types, global_debug_timer => debug_timer
   !
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
-  use eqn_idx, only : ncs,npres
+  use eqn_idx, only : ncs,npres,ntemp
   !
   use ovar, only : force_nd_subroutines
   !
@@ -20,6 +20,8 @@ module module_limiters
   public :: limiters_memory_usage
   public :: resolution_indicator
   public :: jump_indicator
+  public :: check_cell_thermo_properties
+  public :: check_face_thermo_properties
   public :: apply_sponge_filter
   !
   !
@@ -354,6 +356,284 @@ continue
   !
 end subroutine limit_by_projecting
 !
+!###############################################################################
+!
+subroutine check_cell_thermo_properties()
+  !
+  !.. Use Statements ..
+  use geovar,  only : ncell,cell
+  use flowvar, only : usp,gpsp
+  use ovar,    only : rhoref,tref,aref
+  !
+  use, intrinsic :: ieee_arithmetic, only : ieee_is_negative
+  !
+  !.. Local Scalars ..
+  integer :: nc,n1,n2
+  logical(lk) :: bad_cell_found
+  real(wp) :: dens_limit,temp_limit,pres_limit
+  !
+  !.. Local Allocatable Arrays ..
+  logical(lk), allocatable :: bad_cell(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_cell_thermo_properties"
+  !
+continue
+  !
+  if (ncs > 0) return
+  !
+  dens_limit = 0.1_wp/rhoref
+  temp_limit = 100.0_wp/tref
+  pres_limit = 40000.0_wp/(rhoref*aref*aref)
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Find any cells with solution points that have
+  ! a negative density, temperature, or pressure
+  !
+  bad_cell_found = fals
+  !
+  bad_cell = init_array(ncell,fals) ! F2003 AUTO-REALLOC
+  !$ACC DATA CREATE(bad_cell)
+  !
+  cell_loop: &
+  do nc = 1,ncell
+    !
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
+    !
+   !if (any(ieee_is_negative( usp(n1:n2,nec) ))) then
+    if (any( usp(n1:n2,nec) < dens_limit)) then
+      bad_cell(nc) = true
+      bad_cell_found = true
+      cycle cell_loop
+    end if
+    !
+   !if (any(ieee_is_negative( gpsp(n1:n2,npres) ))) then
+    if (any( gpsp(n1:n2,npres) < temp_limit)) then
+      bad_cell(nc) = true
+      bad_cell_found = true
+      cycle cell_loop
+    end if
+    !
+   !if (any(ieee_is_negative( gpsp(n1:n2,ntemp) ))) then
+    if (any( gpsp(n1:n2,ntemp) < pres_limit )) then
+      bad_cell(nc) = true
+      bad_cell_found = true
+      cycle cell_loop
+    end if
+    !
+  end do cell_loop
+  !$ACC UPDATE DEVICE(bad_cell)
+  !
+  if (bad_cell_found) then
+    write (iout,1) mypnum
+    flush (iout)
+  end if
+  !
+  ! Use the emergency filter to limit any cells with
+  ! a negative density, temperature, or pressure
+  !
+  if (bad_cell_found) then
+    call emergency_limit_bad_cells(bad_cell,usp,gpsp)
+  end if
+  !
+  !$ACC END DATA
+  if (allocated(bad_cell)) deallocate ( bad_cell )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (/,2x,"WARNING!!! CPU # ",i6," FOUND A CELL WITH ", &
+                 "A NEGATIVE DENSITY, TEMPERATURE, OR PRESSURE,",/, &
+              2x,"WARNING!!!",14x,"AND IS ATTEMPTING TO USE THE ", &
+                 "EMERGENCY LIMITER TO CONTINUE RUNNING!",/)
+  !
+end subroutine check_cell_thermo_properties
+!
+!###############################################################################
+!
+subroutine check_face_thermo_properties()
+  !
+  !.. Use Statements ..
+  use geovar,  only : ncell,nfbnd,nface,face
+  use flowvar, only : usp,gpsp,faceusp_array,facegpsp
+  use ovar,    only : rhoref,tref,aref
+  !
+  use, intrinsic :: ieee_arithmetic, only : ieee_is_negative
+  !
+  !.. Local Scalars ..
+  integer :: nf,f1,f2,left_cell,right_cell
+  logical(lk) :: bad_cell_found
+  real(wp) :: dens_limit,temp_limit,pres_limit
+  !
+  !.. Local Allocatable Arrays ..
+  logical(lk), allocatable :: bad_cell(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_face_thermo_properties"
+  !
+continue
+  !
+  if (ncs > 0) return
+  !
+  dens_limit = 0.1_wp/rhoref
+  temp_limit = 100.0_wp/tref
+  pres_limit = 40000.0_wp/(rhoref*aref*aref)
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Find any cells with solution points that have
+  ! a negative density, temperature, or pressure
+  !
+  bad_cell_found = fals
+  !
+  bad_cell = init_array(ncell,fals) ! F2003 AUTO-REALLOC
+  !$ACC DATA CREATE(bad_cell)
+  !
+  ! Search the boundary faces for any negative density, temperature, or pressure
+  !
+  bnd_face_loop: &
+  do nf = 1,nfbnd
+    !
+    f1 = face(nf)%beg_fp
+    f2 = face(nf)%end_fp
+    !
+    left_cell = face(nf)%left%cell
+    !
+    if (bad_cell(left_cell)) cycle bnd_face_loop
+    !
+   !if (any(ieee_is_negative( faceusp_array(f1:f2,nec,1) ))) then
+    if (any( faceusp_array(f1:f2,nec,1) < dens_limit)) then
+      bad_cell(left_cell) = true
+      bad_cell_found = true
+      cycle bnd_face_loop
+    end if
+    !
+   !if (any(ieee_is_negative( facegpsp(f1:f2,npres,1) ))) then
+    if (any( facegpsp(f1:f2,npres,1) < temp_limit)) then
+      bad_cell(left_cell) = true
+      bad_cell_found = true
+      cycle bnd_face_loop
+    end if
+    !
+   !if (any(ieee_is_negative( facegpsp(f1:f2,ntemp,1) ))) then
+    if (any( facegpsp(f1:f2,ntemp,1) < pres_limit)) then
+      bad_cell(left_cell) = true
+      bad_cell_found = true
+      cycle bnd_face_loop
+    end if
+    !
+  end do bnd_face_loop
+  !
+  ! Search the interior faces for any negative density, temperature, or pressure
+  !
+  int_face_loop: &
+  do nf = nfbnd+1,nface
+    !
+    f1 = face(nf)%beg_fp
+    f2 = face(nf)%end_fp
+    !
+    left_cell = face(nf)%left%cell
+    right_cell = face(nf)%right%cell
+    !
+    ! Check the left side of this face
+    !
+    left_cell_check: &
+    if (.not. bad_cell(left_cell)) then
+      !
+     !if (any(ieee_is_negative( faceusp_array(f1:f2,nec,1) ))) then
+      if (any( faceusp_array(f1:f2,nec,1) < dens_limit)) then
+        bad_cell(left_cell) = true
+        bad_cell_found = true
+        exit left_cell_check
+      end if
+      !
+     !if (any(ieee_is_negative( facegpsp(f1:f2,npres,1) ))) then
+      if (any( facegpsp(f1:f2,npres,1) < temp_limit)) then
+        bad_cell(left_cell) = true
+        bad_cell_found = true
+        exit left_cell_check
+      end if
+      !
+     !if (any(ieee_is_negative( facegpsp(f1:f2,ntemp,1) ))) then
+      if (any( facegpsp(f1:f2,ntemp,1) < pres_limit)) then
+        bad_cell(left_cell) = true
+        bad_cell_found = true
+        exit left_cell_check
+      end if
+      !
+    end if left_cell_check
+    !
+    ! Check the right side of this face
+    !
+    right_cell_check: &
+    if (.not. bad_cell(right_cell)) then
+      !
+      if (any( faceusp_array(f1:f2,nec,2) < dens_limit)) then
+     !if (any(ieee_is_negative( faceusp_array(f1:f2,nec,2) ))) then
+        bad_cell(right_cell) = true
+        bad_cell_found = true
+        exit right_cell_check
+      end if
+      !
+     !if (any(ieee_is_negative( facegpsp(f1:f2,npres,2) ))) then
+      if (any( facegpsp(f1:f2,npres,2) < temp_limit)) then
+        bad_cell(right_cell) = true
+        bad_cell_found = true
+        exit right_cell_check
+      end if
+      !
+     !if (any(ieee_is_negative( facegpsp(f1:f2,ntemp,2) ))) then
+      if (any( facegpsp(f1:f2,ntemp,2) < pres_limit)) then
+        bad_cell(right_cell) = true
+        bad_cell_found = true
+        exit right_cell_check
+      end if
+      !
+    end if right_cell_check
+    !
+  end do int_face_loop
+  !$ACC UPDATE DEVICE(bad_cell)
+  !
+  if (bad_cell_found) then
+    write (iout,1) mypnum
+    flush (iout)
+  end if
+  !
+  ! Use the emergency filter to limit any cells with
+  ! a negative density, temperature, or pressure
+  !
+  if (bad_cell_found) then
+    call emergency_limit_bad_cells(bad_cell,usp,gpsp)
+  end if
+  !
+  ! Now go back and for all bad cells, re-interpolate
+  ! the conserved variables to the face points
+  !
+  if (bad_cell_found) then
+    call reinterpolate_bad_cells(bad_cell,usp,faceusp_array,facegpsp)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (/,2x,"WARNING!!! CPU # ",i6," FOUND A FACE WITH ", &
+                 "A NEGATIVE DENSITY, TEMPERATURE, OR PRESSURE,",/, &
+              2x,"WARNING!!!",14x,"AND IS ATTEMPTING TO USE THE ", &
+                 "EMERGENCY LIMITER TO CONTINUE RUNNING!",/)
+  !
+end subroutine check_face_thermo_properties
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !###############################################################################
 !
 subroutine reinterpolate_bad_cells(bad_cell,usp,faceusp_array,facegpsp)
