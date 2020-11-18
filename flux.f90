@@ -1061,6 +1061,105 @@ end subroutine compute_fluxes_at_solpts
 !
 !###############################################################################
 !
+subroutine output_vflx_data(n_solpts,cv,dcvdx,gp)
+  !
+  !.. Use Statements ..
+  use geovar,  only : nr
+  use ovar,    only : gam,rgasref_nd
+  use gpu_mod, only : grad_cv_to_grad_pv_gpu
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: n_solpts
+  real(wp), intent(in) :: cv(:,:)
+  real(wp), intent(in) :: gp(:,:)
+  real(wp), intent(in) :: dcvdx(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: io,l,m,n,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: dpvdx(:,:,:)
+  !
+continue
+  !
+  !
+  !
+  open (newunit=io,file="vflx_cv.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) n_solpts
+  write (io) ((cv(n,m), n=1,n_solpts), m=1,nq)
+  close (io)
+  !
+  dpvdx = init_array(n_solpts,nr,nq,zero) ! F2003 AUTO-REALLOC
+  call grad_cv_to_grad_pv_gpu(1,n_solpts,cv,gp,dcvdx,dpvdx)
+  open (newunit=io,file="vflx_dpvdx.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) n_solpts
+  write (io) (((dpvdx(n,l,m), n=1,n_solpts), l=1,nr), m=1,nq)
+  close (io)
+  !
+  open (newunit=io,file="vflx_gp.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) n_solpts
+  write (io) ((gp(n,m), n=1,n_solpts), m=1,ng)
+  close (io)
+  !
+  !
+  !
+  open (newunit=io,file="grad_ovar.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) gam,rgasref_nd
+  close (io)
+  !
+  open (newunit=io,file="grad_cv.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) n_solpts
+  write (io) ((cv(n,m), n=1,n_solpts), m=1,nq)
+  close (io)
+  !
+  open (newunit=io,file="grad_dcvdx.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) n_solpts
+  write (io) (((dcvdx(n,l,m), n=1,n_solpts), l=1,nr), m=1,nq)
+  close (io)
+  !
+  open (newunit=io,file="grad_gold_dpvdx.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) n_solpts
+  write (io) (((dpvdx(n,l,m), n=1,n_solpts), l=1,nr), m=1,nq)
+  close (io)
+  deallocate ( dpvdx , stat=ierr )
+  !
+end subroutine output_vflx_data
+!
+!###############################################################################
+!
+subroutine output_gold_vflx_data(n_solpts,vfluxes)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: n_solpts
+  real(wp), intent(in) :: vfluxes(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: io,l,m,n,ierr
+  !
+continue
+  !
+  !
+  !
+  open (newunit=io,file="vflx_gold_vfluxes.dat",status="replace", &
+                   action="write",form="unformatted",iostat=ierr)
+  write (io) n_solpts
+  write (io) (((vfluxes(n,l,m), n=1,n_solpts), l=1,nr), m=1,nq)
+  close (io)
+  !
+end subroutine output_gold_vflx_data
+!
+!###############################################################################
+!
 subroutine compute_fluxes_at_qdtpts(usp,dusp,ifluxes)
   !
   !.. Use Statements ..
@@ -7015,6 +7114,166 @@ continue
  !!$OMP END PARALLEL
   !
 end subroutine correct_gradients_br2_gpu_3d
+!
+!###############################################################################
+!
+subroutine output_br2_data()
+  !
+  !.. Use Statements ..
+  use geovar,            only : nr,n_flxpts,n_solpts
+  use geovar,            only : output_cell_dt,input_cell_dt
+  use geovar,            only : output_face_dt,input_face_dt
+  use geovar,            only : output_fp_dt,input_fp_dt
+  use metrics_mod,       only : jac,facenrm
+  use correction_mod,    only : output_correct_dt,input_correct_dt
+  use flowvar,           only : dusp
+  use flowvar,           only : faceusp_array
+  use interpolation_mod, only : output_interp_dt,input_interp_dt
+  !
+  !.. Local Scalars ..
+  integer :: io,l,m,n,ierr
+  logical(lk) :: success
+  !
+continue
+  !
+  open (newunit=io,file="br2_cbias.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) n_flxpts
+  write (io) (cbias(n), n=1,n_flxpts)
+  close (io)
+  !
+  open (newunit=io,file="br2_dusp.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) n_solpts
+  write (io) (((dusp(n,l,m), n=1,n_solpts), l=1,nr), m=1,nq)
+  close (io)
+  !
+  open (newunit=io,file="br2_faceusp.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) n_flxpts
+  write (io) (((faceusp_array(n,m,l), n=1,n_flxpts), m=1,nq), l=1,2)
+  close (io)
+  !
+  open (newunit=io,file="br2_jac.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) n_solpts
+  write (io) (jac(n), n=1,n_solpts)
+  close (io)
+  !
+  open (newunit=io,file="br2_facenrm.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) n_flxpts
+  write (io) ((facenrm(l,n), l=1,nr), n=1,n_flxpts)
+  close (io)
+  !
+  open (newunit=io,file="br2_cell.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  call output_cell_dt(io)
+  close (io)
+  !
+  open (newunit=io,file="br2_face.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  call output_face_dt(io)
+  close (io)
+  !
+  open (newunit=io,file="br2_fp.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  call output_fp_dt(io)
+  close (io)
+  !
+  open (newunit=io,file="br2_correct.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  call output_correct_dt(io)
+  close (io)
+  !
+  open (newunit=io,file="br2_interp.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  call output_interp_dt(io)
+  close (io)
+  !
+  ! Check to make sure the derived types were output correctly
+  !
+  open (newunit=io,file="br2_cell.dat",status="old",action="read", &
+                   form="unformatted",iostat=ierr)
+  call input_cell_dt(io,success)
+  close (io)
+  if (success) then
+    write (iout,*) "cell output correctly!"
+  else
+    write (iout,*) "ERROR: cell NOT output correctly"
+  end if
+  !
+  open (newunit=io,file="br2_face.dat",status="old",action="read", &
+                   form="unformatted",iostat=ierr)
+  call input_face_dt(io,success)
+  close (io)
+  if (success) then
+    write (iout,*) "face output correctly!"
+  else
+    write (iout,*) "ERROR: face NOT output correctly"
+  end if
+  !
+  open (newunit=io,file="br2_fp.dat",status="old",action="read", &
+                   form="unformatted",iostat=ierr)
+  call input_fp_dt(io,success)
+  close (io)
+  if (success) then
+    write (iout,*) "fp output correctly!"
+  else
+    write (iout,*) "ERROR: fp NOT output correctly"
+  end if
+  !
+  open (newunit=io,file="br2_correct.dat",status="old",action="read", &
+                   form="unformatted",iostat=ierr)
+  call input_correct_dt(io,success)
+  close (io)
+  if (success) then
+    write (iout,*) "correct output correctly!"
+  else
+    write (iout,*) "ERROR: correct NOT output correctly"
+  end if
+  !
+  open (newunit=io,file="br2_interp.dat",status="old",action="read", &
+                   form="unformatted",iostat=ierr)
+  call input_interp_dt(io,success)
+  close (io)
+  if (success) then
+    write (iout,*) "interp output correctly!"
+  else
+    write (iout,*) "ERROR: interp NOT output correctly"
+  end if
+  !
+end subroutine output_br2_data
+!
+!###############################################################################
+!
+subroutine output_gold_br2_data(dusp,facedusp)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,n_flxpts,n_solpts
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: dusp(:,:,:)
+  real(wp), intent(in) :: facedusp(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: io,k,l,m,n,ierr
+  !
+continue
+  !
+  open (newunit=io,file="br2_gold_dusp.dat",status="replace",action="write", &
+                   form="unformatted",iostat=ierr)
+  write (io) n_solpts
+  write (io) (((dusp(n,l,m), n=1,n_solpts), l=1,nr), m=1,nq)
+  close (io)
+  !
+  open (newunit=io,file="br2_gold_facedusp.dat",status="replace", &
+                   action="write",form="unformatted",iostat=ierr)
+  write (io) n_flxpts
+  write (io) ((((facedusp(n,l,m,k), n=1,n_flxpts), l=1,nr), m=1,nq), k=1,2)
+  close (io)
+  !
+end subroutine output_gold_br2_data
 !
 !###############################################################################
 !
