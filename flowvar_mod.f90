@@ -20,6 +20,7 @@ module flowvar
   use module_kind_types, only : glb_root
   use module_kind_types, only : stop_gfr
   use module_kind_types, only : stop_mpi
+  use module_kind_types, only : THX_Phase_3
   !
   implicit none
   !
@@ -270,6 +271,7 @@ subroutine allocate_flowvar_arrays()
   use ovar,      only : time_average_restart_files
   use ovar,      only : if_interpto_newgrid
   use ovar,      only : bc_in
+  use ovar,      only : itestcase
   !
   !.. Local Scalars ..
   integer :: i,iwt,l,m,n,ne,nf,nn,nepts,nfp,nfpts
@@ -320,7 +322,8 @@ call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
     return
   end if
   !
-  if (any(bc_in(:)%bc_type == bc_sem)) then
+  if (any(bc_in(:)%bc_type == bc_sem) .or. &
+      abs(itestcase) == THX_Phase_3) then
   iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_dt for SEM"
 call debug_timer(start_timer,message(iwt))
     if (.not. allocated(facexyz_dt)) then
