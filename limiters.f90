@@ -123,6 +123,7 @@ continue
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"troubled_cell",1,__LINE__,__FILE__,ierr, &
                      error_message)
+    !$ACC UPDATE DEVICE(troubled_cell)
     !
  !end if
   !
