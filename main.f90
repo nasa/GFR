@@ -186,6 +186,13 @@ program GFR_main
   use mydebug_mod,   only : mydebug
 !-DEBUG_END:
   !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  use flux_mod, only : write_br2_timings
+  use module_limiters, only : write_lim_timings
+  use visc_flux_mod, only : write_vflx_timings
+  use gpu_mod, only : write_grad_timings
+#endif
+  !
   use, intrinsic :: iso_c_binding,   only : c_long
   !
   implicit none
@@ -1466,6 +1473,13 @@ continue
     end if
     !
   end if
+  !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  call write_br2_timings
+  call write_lim_timings
+  call write_vflx_timings
+  call write_grad_timings
+#endif
   !
   flush (iout)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
