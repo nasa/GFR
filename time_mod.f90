@@ -1860,9 +1860,11 @@ subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name)
   use flowvar,         only : usp,gpsp
   use ovar,            only : Limiter_Option,Filter_Option
   use ovar,            only : ideal_total_temperature
+  use ovar,            only : use_sponge_filter
   use filter_mod,      only : filter_usp
   use module_limiters, only : resolution_indicator
   use module_limiters, only : limit_by_projecting
+  use module_limiters, only : apply_sponge_filter
   !
   use thermo_mod,      only : update_mixture_density
   use thermo_mod,      only : update_thermo_properties
@@ -1889,6 +1891,12 @@ continue
   !       computational cost.
   !
   call update_mixture_density(1,n_solpts,usp)
+  !
+  ! Apply the sponge filter to cells in sponge regions
+  !
+  if (use_sponge_filter) then
+    call apply_sponge_filter(usp)
+  end if
   !
   ! Apply realizable total temperature limiter
   !
