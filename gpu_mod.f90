@@ -564,7 +564,9 @@ end subroutine pv2cv_gpu_cpg_1d
 !###############################################################################
 !###############################################################################
 !
+#ifndef TIME_MINIAPPS_FOR_GPU_COMPARISON
 pure &
+#endif
 subroutine grad_cv_to_grad_pv_sp(uin,gpin,dcvdxin,return_value)
   !
   !.. Formal Arguments ..
@@ -610,7 +612,9 @@ end subroutine grad_cv_to_grad_pv_sp
 !
 !###############################################################################
 !
+#ifndef TIME_MINIAPPS_FOR_GPU_COMPARISON
 pure &
+#endif
 subroutine grad_cv_to_grad_pv_gpu(n1,n2,usp,gpsp,dcvdx,return_value, &
                                        output_variables)
   !
@@ -666,7 +670,9 @@ end subroutine grad_cv_to_grad_pv_gpu
 !
 !###############################################################################
 !
+#ifndef TIME_MINIAPPS_FOR_GPU_COMPARISON
 pure &
+#endif
 subroutine grad_cv_to_grad_pv_cpg_3d(n1,n2,usp,dcvdx,return_value)
   !
   !.. Use Statements ..

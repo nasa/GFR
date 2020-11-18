@@ -1568,7 +1568,9 @@ end subroutine resolution_indicator
 !###############################################################################
 !###############################################################################
 !
+#ifndef TIME_MINIAPPS_FOR_GPU_COMPARISON
  pure &
+#endif
 subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
                                      marker,scaled_marker)
   !
@@ -1729,7 +1731,9 @@ end subroutine output_lim_data
 !
 !###############################################################################
 !
+#ifndef TIME_MINIAPPS_FOR_GPU_COMPARISON
  pure &
+#endif
 subroutine compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
   !
   !.. Use Statements ..
