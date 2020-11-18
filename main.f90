@@ -1663,7 +1663,7 @@ continue
     !
     if (mypnum == glb_root) then
       !
-      write (error_message,200) itcur
+      write (error_message,200) itcur,current_rk_stage
       output_message = reformat_string(error_message, &
                                        line_length=70, &
                                        leading_blanks=5)
@@ -1708,7 +1708,7 @@ continue
     end if
     !
     out_time = time*time_ref*time_scaling_factor
-    write (error_message,100) itcur,out_time, &
+    write (error_message,100) itcur,current_rk_stage,out_time, &
                               trim(adjustl(overflow_error)), &
                               trim(adjustl(divide_by_zero_error)), &
                               trim(adjustl(invalid_error)), &
@@ -1724,7 +1724,8 @@ continue
   !
   100 format ("A SIGNALING FLOATING POINT EXCEPTION WAS ", &
               "DETECTED AFTER UPDATING THE SOLUTION AFTER ", &
-              "TIME STEP # ",i0," AT SOLUTION TIME ",es18.10, &
+              "TIME STEP # ",i0,", RK STAGE # ",i0, &
+              ", AT SOLUTION TIME ",es18.10, &
               "!!! DUMPING SOLUTION AND ", &
               "RESTART FILES FOR THE PREVIOUS TIME STEP!!!", &
               4(2x,a,:))
@@ -1738,8 +1739,9 @@ continue
   !
   200 format ("A SIGNALING FLOATING POINT EXCEPTION WAS ", &
               "DETECTED AFTER UPDATING THE SOLUTION AFTER ", &
-              "TIME STEP # ",i0," !!! DUMPING SOLUTION AND ", &
-              "RESTART FILES FOR THE PREVIOUS TIME STEP!!!")
+              "TIME STEP # ",i0,", RK STAGE # ",i0," !!! ", &
+              "DUMPING SOLUTION AND RESTART FILES FOR THE ", &
+              "PREVIOUS TIME STEP!!!")
   201 format (4(2x,a,:))
 #endif
 #endif
