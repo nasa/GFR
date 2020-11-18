@@ -178,6 +178,8 @@ program GFR_main
   !
   use synthetic_eddy_mod, only : output_sem_averages
   !
+  use thx_mod, only : compute_blowing_ratio
+  !
   use interpsol_mod, only : mv_global_to_grid2
   use interpsol_mod, only : mv_grid2_to_global
   use interpsol_mod, only : interpsol
@@ -244,6 +246,8 @@ program GFR_main
   !
   integer            :: num_CFL_restarts
   integer, parameter :: max_CFL_restarts = 0
+  !
+  real(wp) :: br,mdot_inj,mdot_noz
   !
 #ifndef SPECIAL_FOR_GCC
   type(ieee_status_type) :: default_ieee_status
@@ -739,6 +743,10 @@ continue
                     " Press any key to continue!",//)
   read (*,*)
 #endif
+  !
+  if (abs(itestcase) == THX_Phase_3) then
+    call compute_blowing_ratio(br,mdot_noz,mdot_inj)
+  end if
   !
   ! If requested, dump the memory usage of the advanced data types from some of
   ! the modules
