@@ -1898,11 +1898,12 @@ continue
     !
     !$ACC UPDATE DEVICE(facexyz_array)
     !
-  end if
-  !
-  if (.not. continuous_output) then
-    deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
+    if (.not. continuous_output) then
+      deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
+    !
   end if
   !
   ! Only do this if edgexyz is allocated which means
