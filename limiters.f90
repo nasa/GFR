@@ -322,6 +322,7 @@ continue
     !
     if (Limiter_Filter_Option /= 0) then
       call apply_filter_limiter_to_usp(troubled_cell,usp)
+      exit order_loop
     else
       call apply_projct_limiter_to_usp(troubled_cell,usp,dropped_orders)
     end if
