@@ -1307,7 +1307,8 @@ continue
         call check_quality_of_partitioning(npart,epart, &
                                            cells_surr_cell, &
                                            cells_surr_cell_ptr, &
-                                           passes_inspection)
+                                           passes_inspection, &
+                               contiguity_setting=options(METIS_OPTION_CONTIG))
      !end if
       !
       ! Broadcast the logical passes_inspection to all processors so
@@ -1943,7 +1944,8 @@ end subroutine create_grid_weights
 !
 subroutine check_quality_of_partitioning(npart,epart, &
                                          cells_surr_cell,cells_surr_cell_ptr, &
-                                         passes_inspection)
+                                         passes_inspection, &
+                                         contiguity_setting)
   !
   !.. Formal Arguments ..
   integer,        intent(in) :: npart
@@ -1952,8 +1954,13 @@ subroutine check_quality_of_partitioning(npart,epart, &
   integer,        intent(in) :: cells_surr_cell(:)
   integer,        intent(in) :: cells_surr_cell_ptr(:)
   !
+  !.. Optional Arguments ..
+  integer(idx_t), optional, intent(in) :: contiguity_setting
+  !
   !.. Local Scalars ..
   integer :: n,nc,l,lcell,ierr
+  !
+  logical(lk) :: check_contiguity
   !
   !.. Local Allocatable Arrays ..
   logical(lk), allocatable :: msk(:)
@@ -1964,6 +1971,15 @@ subroutine check_quality_of_partitioning(npart,epart, &
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+#ifdef DEBUG_ON
+  check_contiguity = fals
+#else
+  check_contiguity = true
+  if (present(contiguity_setting)) then
+    check_contiguity = (contiguity_setting == 0_idx_t)
+  end if
+#endif
   !
   passes_inspection = .true.
   !
@@ -1977,22 +1993,14 @@ continue
   end do
   !
   !############################################################################
-  !############################################################################
-  !############################################################################
-  !#####   NEED TO ADD CODE TO CHECK THAT ALL PARTITIONS ARE CONTIGUOUS   #####
-  !############################################################################
-  !############################################################################
+  !###        Check to make sure that all partitions are contiguous.        ###
   !############################################################################
   !
-  ! METIS 5 ALLOWS FOR ENFORCING CONTIGUOUS PARTITIONS THROUGH ITS OPTIONS
-  ! INPUT ARGUMENT, SO ONLY ENABLE THE CONTIGUOUS CHECK IF NOT USING METIS 5
+  ! NOTE: METIS 5 ALLOWS FOR ENFORCING CONTIGUOUS PARTITIONS THROUGH ITS OPTIONS
+  !       INPUT ARGUMENT. CHECK_CONTIGUITY WILL ONLY BE FALSE IF USING METIS 5
+  !       AND THE OPTIONAL ARGUMENT CONTIGUITY_SETTING IS > 0.
   ! 
-#ifndef METIS_5
-#ifndef DEBUG_ON
-#define ENABLE_CONTIGUITY_CHECK
-#endif
-#ifdef ENABLE_CONTIGUITY_CHECK
-  if (passes_inspection) then
+  if (passes_inspection .and. check_contiguity) then
     !
     lcell = size(epart)
     !
@@ -2037,8 +2045,6 @@ continue
     call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
     !
   end if
-#endif
-#endif
   !
   call debug_timer(leaving_procedure,pname)
   !
