@@ -172,68 +172,6 @@ continue
   !
  !call check_face_thermo_properties()
   !
-!block
-!  use flowvar, only : facexyz_array
-!  use ovar, only : grid_scaling_factor,rhoref,aref,tref
-!  use eqn_idx, only : npres,ntemp
-!  integer :: l,m,n
-!  real(wp) :: rho_inv
-!  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-!  cpu_loop: &
-!  do m = 0,ncpu-1
-!    if (mypnum == m) then
-!      if (any(facegpsp(n1:n2,ntemp,:) <= zero) .or. &
-!          any(faceusp_array(n1:n2,nec,:) <= zero) .or. &
-!          any(faceusp_array(n1:n2,nee,:) <= zero)) then
-!        pts_loop: &
-!        do n = n1,n2
-!          if (any(facegpsp(n,ntemp,:) <= zero) .or. &
-!              any(faceusp_array(n,nec,:) <= zero) .or. &
-!              any(faceusp_array(n,nec,:) <= zero)) then
-!            write (iout,1) mypnum,n, &
-!                           facexyz_array(1,n)/grid_scaling_factor, &
-!                           facexyz_array(2,n)/grid_scaling_factor, &
-!                           facexyz_array(3,n)/grid_scaling_factor
-!            flush (iout)
-!            sides_loop: &
-!            do l = 1,2
-!              if (faceusp_array(n,nec,l) /= zero) then
-!                rho_inv = one/abs(faceusp_array(n,nec,l))
-!              else
-!                rho_inv = one
-!              end if
-!              write (iout,2) mypnum,n,l, &
-!                             faceusp_array(n,nec,l)*rhoref, &
-!                             faceusp_array(n,nmx,l)*rho_inv*aref, &
-!                             faceusp_array(n,nmy,l)*rho_inv*aref, &
-!                             faceusp_array(n,nmz,l)*rho_inv*aref, &
-!                             faceusp_array(n,nee,l)*rhoref*aref*aref, &
-!                             facegpsp(n,npres,l)*rhoref*aref*aref, &
-!                             facegpsp(n,ntemp,l)*tref
-!              flush (iout)
-!            end do sides_loop
-!            flush (iout)
-!          end if
-!          flush (iout)
-!        end do pts_loop
-!        flush (iout)
-!      end if
-!    end if
-!    flush (iout)
-!    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-!    flush (iout)
-!    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-!  end do cpu_loop
-!  flush (iout)
-!  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-!  flush (iout)
-!  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-!  1 format (/,"[",i5,"] invalid T @ fp=",i0, &
-!            " : [x,y,z] = [",f13.8,",",f13.8,",",f13.8,"]")
-!  2 format ("[",i5,"] invalid T @ fp=",i0,", side=",i0,/, &
-!            8x,"[r,u,v,w,rE] = [",f9.5,3(",",f10.4),",",f12.2,"]",/, &
-!            8x,"[P,T] = [",f11.2,",",f9.3,"]")
-!end block
   call update_transport_properties(n1,n2,faceusp_array,facegpsp)
   !
   ! We need to update the mixture density from interpolating the species
@@ -3177,9 +3115,6 @@ subroutine add_flux_correction_3d(tfluxes)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "add_flux_correction_3d"
   !
-!#ifdef DEBUG_ON
-!  logical(lk), save :: first_step = true
-!#endif
 continue
   !
  !do kf = lbound(geom_solpts,dim=2),ubound(geom_solpts,dim=2)
@@ -3197,22 +3132,6 @@ continue
  !  end do
  !end do
  !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"error")
-!#ifdef DEBUG_ON
-!  if (ncpu > 1) first_step = fals
-!  if (ncell > 100) first_step = fals
-!  if (first_step) then
-!    write (100,2)
-!  2 format ("nc  = cell number",/, &
-!            "ncf = face of cell",/, &
-!            "kf  = fp local to face of cell",/, &
-!            "fp  = global fp",/, &
-!            "lf  = fp of all faces of cell",/, &
-!            "np  = sp local to cell",/, &
-!            "sp  = global sp",/, &
-!            "mv  = matrix value",/, &
-!            " nc  ncf  kf    fp   lf   np    sp         mv")
-!  end if
-!#endif
   !
   !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
   !$ACC&                   PRESENT(correct) &
@@ -3230,22 +3149,6 @@ continue
     !
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
-!#ifdef DEBUG_ON
-!  if (first_step) then
-!    if (nc == 1) then
-!      do n = 1,size(correct(this_geom,this_order)%mat,dim=1)
-!        write (101,10) (correct(this_geom,this_order)%mat(n,i), &
-!                        i=1,size(correct(this_geom,this_order)%mat,dim=2))
-!      end do
-!      face_order = cell(nc)%face(1)%order
-!      do n = 1,size(interp(this_geom,this_order)%toFace(face_order)%mat,dim=1)
-!        write (102,10) (interp(this_geom,this_order)%toFace(face_order)%mat(n,i), &
-!                        i=1,size(interp(this_geom,this_order)%toFace(face_order)%mat,dim=2))
-!      end do
-!    end if
-!  end if
-!  10 format (1000es11.3)
-!#endif
     !
     ! Interpolate the fluxes to the interface flux points and dot this
     ! interpolated vector with the face normal at each flux point
@@ -3343,12 +3246,6 @@ continue
           n = correct(this_geom,this_order)%row_idx(i)
           a = correct(this_geom,this_order)%row_val(i)
           !
-!#ifdef DEBUG_ON
-!  if (first_step) then
-!    write (100,1) nc,ncf,kf,f0+kf,lf,n,n0+n,a
-!  end if
-!  1 format (1x,i2,4x,i1,2x,i2,2x,i4,2x,i3,2x,i3,2x,i4,3x,es14.6)
-!#endif
           residual(n0+n,nec) = residual(n0+n,nec) + a*flx_ec
           residual(n0+n,nmx) = residual(n0+n,nmx) + a*flx_mx
           residual(n0+n,nmy) = residual(n0+n,nmy) + a*flx_my
@@ -3362,9 +3259,6 @@ continue
     end do faces_of_cell
     !
   end do cell_loop
-!#ifdef DEBUG_ON
-!  first_step = fals
-!#endif
   !
 end subroutine add_flux_correction_3d
 !
@@ -3406,29 +3300,12 @@ subroutine add_flux_correction_2d(tfluxes)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "add_flux_correction_2d"
   !
-!#ifdef DEBUG_ON
-!  logical(lk), save :: first_step = true
-!#endif
 continue
   !
 #ifdef DEBUG_FLUXES_AND_RESIDUAL
   flux_correction(:,:) = zero
 #endif
   !
-!#ifdef DEBUG_ON
-!  if (first_step) then
-!    write (100,2)
-!  2 format ("nc  = cell number",/, &
-!            "ncf = face of cell",/, &
-!            "kf  = fp local to face of cell",/, &
-!            "fp  = global fp",/, &
-!            "lf  = fp of all faces of cell",/, &
-!            "np  = sp local to cell",/, &
-!            "sp  = global sp",/, &
-!            "mv  = matrix value",/, &
-!            " nc  ncf  kf  fp  lf  np   sp         mv")
-!  end if
-!#endif
   !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
   !$ACC&                   PRESENT(correct) &
   !$ACC&                   PRESENT(fp) &
@@ -3446,17 +3323,6 @@ continue
     !
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
-!#ifdef DEBUG_ON
-!  if (first_step) then
-!    if (nc == 1) then
-!      do n = 1,size(correct(this_geom,this_order)%mat,dim=1)
-!        write (101,10) (correct(this_geom,this_order)%mat(n,i), &
-!                        i=1,size(correct(this_geom,this_order)%mat,dim=2))
-!      end do
-!    end if
-!  end if
-!  10 format (20es11.3)
-!#endif
     !
     ! Interpolate the fluxes to the interface flux points and dot this
     ! interpolated vector with the face normal at each flux point
@@ -3544,12 +3410,6 @@ continue
           n = correct(this_geom,this_order)%row_idx(i)
           a = correct(this_geom,this_order)%row_val(i)
           !
-!#ifdef DEBUG_ON
-!  if (first_step) then
-!    write (100,1) nc,ncf,kf,f0+kf,lf,n,n0+n,a
-!  end if
-!  1 format (1x,i2,4x,i1,3x,i1,2x,i2,2x,i2,2x,i2,2x,i3,3x,es14.6)
-!#endif
           residual(n0+n,nec) = residual(n0+n,nec) + a*flx_ec
           residual(n0+n,nmx) = residual(n0+n,nmx) + a*flx_mx
           residual(n0+n,nmy) = residual(n0+n,nmy) + a*flx_my
@@ -3611,9 +3471,6 @@ continue
     !
   end block
 #endif
-!#ifdef DEBUG_ON
-!  first_step = fals
-!#endif
   !
 end subroutine add_flux_correction_2d
 !
@@ -4264,16 +4121,9 @@ end subroutine visc_common_fluxes_interior_at_qdtpts
 !
 !###############################################################################
 !
-!#define THX_DEBUG
 subroutine get_invs_common_fluxes_bc()
   !
   !.. Use Statements ..
-#ifdef THX_DEBUG
-  use ovar,    only : rhoref,aref,tref,grid_scaling_factor
-  use geovar,  only : nfbnd,bface,face,cell_map
-  use eqn_idx, only : ntemp,npres
-  use flowvar, only : facexyz_array
-#endif
   use geovar,        only : using_quadrature,n_bnd_flxpts
   use flowvar,       only : faceusp_array,facegpsp
   use thermo_mod,    only : update_thermo_properties
@@ -4281,12 +4131,6 @@ subroutine get_invs_common_fluxes_bc()
   !
   !.. Local Scalars ..
   integer :: n1,n2
-#ifdef THX_DEBUG
-  integer :: n,nf,f1,f2,nc,gc,k,ierr
-  !
-  !.. Local Allocatable Arrays ..
-  integer, allocatable :: face_for_fp(:)
-#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_invs_common_fluxes_bc"
@@ -4303,48 +4147,6 @@ continue
   !
   call update_thermo_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2), &
                                       loc="face",caller_name=pname)
-#ifdef THX_DEBUG
-  !
-  face_for_fp = init_array(n_bnd_flxpts,0) ! F2003 AUTO-REALLOC
-  !
-  do nf = 1,nfbnd
-    f1 = face(nf)%beg_fp
-    f2 = face(nf)%end_fp
-    do n = f1,f2
-      face_for_fp(n) = nf
-    end do
-  end do
-  !
-  if (any(abs(faceusp_array(n1:n2,nee,2)) > ten*ten)) then
-    do n = n1,n2
-      if (abs(faceusp_array(n,nee,2)) > ten*ten) then
-        nf = face_for_fp(n)
-        nc = bface(2,nf)
-        gc = cell_map(mypnum+1)%loc_to_glb(nc)
-        k = n - face(nf)%beg_fp + 1
-        write (10000+mypnum,2) n,k,nf,nc,gc, &
-                               facexyz_array(1,n)/grid_scaling_factor, &
-                               facexyz_array(2,n)/grid_scaling_factor, &
-                               facexyz_array(3,n)/grid_scaling_factor, &
-                               faceusp_array(n,nmx,2)*aref, &
-                               faceusp_array(n,nmy,2)*aref, &
-                               faceusp_array(n,nmz,2)*aref, &
-                               facegpsp(n,npres,2)*rhoref*aref*aref, &
-                               facegpsp(n,ntemp,2)*tref
-      end if
-    end do
-    write (10000+mypnum,3)
-    flush (10000+mypnum)
-  end if
-  !
-  if (allocated(face_for_fp)) deallocate ( face_for_fp , stat=ierr )
-  !
-  2 format (i8,i5,3i8,100(2x,es14.6,:))
-  3 format (//,80("#"),//)
-  !
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
-  !
   call update_transport_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2))
   !
   if (using_quadrature) then
