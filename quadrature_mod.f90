@@ -13,6 +13,8 @@ module quadrature_mod
   public :: init_geom_quadrature_rules
   public :: init_face_quadrature_rules
   public :: quadrature_memory_usage
+  public :: output_std_elem_dt
+  public :: input_std_elem_dt
   !
   ! element_type : derived type that stores the location of the solution points
   !                and their respective quadrature weights within the standard
@@ -2117,6 +2119,148 @@ continue
   !#############################################################################
   !
 end subroutine dump_solpts
+!
+!###############################################################################
+!
+subroutine output_std_elem_dt(io)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: io
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2
+  integer :: j,j1,j2
+  integer :: o,o1,o2
+  integer :: g,g1,g2
+  !
+continue
+  !
+  !########################################################
+ !type, public :: element_type
+ !  real(wp), allocatable :: pts(:,:)
+ !  real(wp), allocatable :: wts(:)
+ !end type element_type
+ !type(element_type), public, save, target, allocatable :: std_elem(:,:)
+  !########################################################
+  !
+  if (allocated(std_elem)) then
+    g1 = lbound(std_elem,dim=1)
+    g2 = ubound(std_elem,dim=1)
+    o1 = lbound(std_elem,dim=2)
+    o2 = ubound(std_elem,dim=2)
+    write (io) g1,g2,o1,o2
+    do o = o1,o2
+      do g = g1,g2
+        if (allocated(std_elem(g,o)%pts)) then
+          i1 = lbound(std_elem(g,o)%pts,dim=1)
+          i2 = ubound(std_elem(g,o)%pts,dim=1)
+          j1 = lbound(std_elem(g,o)%pts,dim=2)
+          j2 = ubound(std_elem(g,o)%pts,dim=2)
+          write (io) i1,i2,j1,j2
+          write (io) ((std_elem(g,o)%pts(i,j), i=i1,i2), j=j1,j2)
+        else
+          write (io) -1,-1,-1,-1
+        end if
+        if (allocated(std_elem(g,o)%wts)) then
+          i1 = lbound(std_elem(g,o)%wts,dim=1)
+          i2 = ubound(std_elem(g,o)%wts,dim=1)
+          write (io) i1,i2
+          write (io) (std_elem(g,o)%wts(i), i=i1,i2)
+        else
+          write (io) -1,-1
+        end if
+      end do
+    end do
+  else
+    write (io) -1,-1,-1,-1
+  end if
+  !
+end subroutine output_std_elem_dt
+!
+!###############################################################################
+!
+subroutine input_std_elem_dt(io,success)
+  !
+  !.. Formal Arguments ..
+  integer,      intent(in) :: io
+  logical(lk), intent(out) :: success
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2
+  integer :: j,j1,j2
+  integer :: o,o1,o2
+  integer :: g,g1,g2
+  integer :: ierr
+  !
+  type(element_type), allocatable :: tmp(:,:)
+  !
+continue
+  !
+  !########################################################
+ !type, public :: element_type
+ !  real(wp), allocatable :: pts(:,:)
+ !  real(wp), allocatable :: wts(:)
+ !end type element_type
+ !type(element_type), public, save, target, allocatable :: std_elem(:,:)
+  !########################################################
+  !
+  success = fals
+  !
+  read (io) g1,g2,o1,o2
+  !
+  if (all([g1,g2,o1,o2] == -1)) return
+  if (g1 /= lbound(std_elem,dim=1)) return
+  if (g2 /= ubound(std_elem,dim=1)) return
+  if (o1 /= lbound(std_elem,dim=2)) return
+  if (o2 /= ubound(std_elem,dim=2)) return
+  !
+  allocate ( tmp(g1:g2,o1:o2) , stat=ierr )
+  !
+  do o = o1,o2
+    do g = g1,g2
+      !
+      read (io) i1,i2,j1,j2
+      if (any([i1,i2,j1,j2] /= -1)) then
+        allocate ( tmp(g,o)%pts(i1:i2,j1:j2) , stat=ierr )
+        read (io) ((tmp(g,o)%pts(i,j), i=i1,i2), j=j1,j2)
+      end if
+      !
+      read (io) i1,i2
+      if (any([i1,i2] /= -1)) then
+        allocate ( tmp(g,o)%wts(i1:i2) , stat=ierr )
+        read (io) (tmp(g,o)%wts(i), i=i1,i2)
+      end if
+      !
+    end do
+  end do
+  !
+  do o = o1,o2
+    do g = g1,g2
+      !
+      if (allocated(tmp(g,o)%pts) .neqv. allocated(std_elem(g,o)%pts)) return
+      !
+      if (lbound(tmp(g,o)%pts,dim=1) /= lbound(std_elem(g,o)%pts,dim=1)) return
+      if (ubound(tmp(g,o)%pts,dim=1) /= ubound(std_elem(g,o)%pts,dim=1)) return
+      if (lbound(tmp(g,o)%pts,dim=2) /= lbound(std_elem(g,o)%pts,dim=2)) return
+      if (ubound(tmp(g,o)%pts,dim=2) /= ubound(std_elem(g,o)%pts,dim=2)) return
+      !
+      if (any(abs(tmp(g,o)%pts(:,:)-std_elem(g,o)%pts(:,:)) > eps6)) return
+      !
+      if (allocated(tmp(g,o)%wts) .neqv. allocated(std_elem(g,o)%wts)) return
+      !
+      if (lbound(tmp(g,o)%wts,dim=1) /= lbound(std_elem(g,o)%wts,dim=1)) return
+      if (ubound(tmp(g,o)%wts,dim=1) /= ubound(std_elem(g,o)%wts,dim=1)) return
+      !
+      if (any(abs(tmp(g,o)%wts(:)-std_elem(g,o)%wts(:)) > eps6)) return
+      !
+    end do
+  end do
+  !
+  deallocate ( tmp , stat=ierr )
+  !
+  success = true
+  !
+end subroutine input_std_elem_dt
 !
 !###############################################################################
 !
