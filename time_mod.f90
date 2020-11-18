@@ -1864,6 +1864,7 @@ subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name)
   use filter_mod,      only : filter_usp
   use module_limiters, only : resolution_indicator
   use module_limiters, only : limit_by_projecting
+  use module_limiters, only : check_cell_thermo_properties
   use module_limiters, only : apply_sponge_filter
   !
   use thermo_mod,      only : update_mixture_density
@@ -1938,6 +1939,10 @@ continue
   !
   call update_thermo_properties(1,n_solpts,usp,gpsp, &
                                 loc="cell",caller_name=caller_name)
+  !
+  ! Check for any negative thermodynamic properties at the solution points
+  !
+ !call check_cell_thermo_properties()
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
