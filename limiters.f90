@@ -356,6 +356,424 @@ end subroutine limit_by_projecting
 !
 !###############################################################################
 !
+subroutine emergency_limit_bad_cells(bad_cell,usp,gpsp)
+  !
+  !.. Use Statements ..
+  use geovar,     only : ncell,cell
+  use thermo_mod, only : update_thermo_properties
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(in) :: bad_cell(:)
+  real(wp), intent(inout) :: usp(:,:)
+  real(wp), intent(inout) :: gpsp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nc,nr,n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_limit_bad_cells"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nr = nme-nmb+1
+  !
+  if (force_nd_subroutines) then
+    !
+    call emergency_limit_bad_cells_nd(1,nq,bad_cell,usp)
+    !
+  else
+    !
+    if (nr == 3) then
+      call emergency_limit_bad_cells_3d(bad_cell,usp)
+    else if (nr == 2) then
+      call emergency_limit_bad_cells_2d(bad_cell,usp)
+    else
+      call emergency_limit_bad_cells_1d(bad_cell,usp)
+    end if
+    !
+  end if
+  !
+  ! Update the thermodynamic properties for any cells that had to be limited
+  !
+  do nc = 1,ncell
+    if (bad_cell(nc)) then
+      n1 = cell(nc)%beg_sp
+      n2 = cell(nc)%beg_sp
+      call update_thermo_properties(n1,n2,usp,gpsp, &
+                                    loc="cell",caller_name=pname)
+    end if
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine emergency_limit_bad_cells
+!
+!###############################################################################
+!
+pure &
+subroutine emergency_limit_bad_cells_3d(bad_cell,usp)
+  !
+  !.. Use Statements ..
+  use order_mod,  only : maxSP
+  use geovar,     only : ncell,cell
+  use filter_mod, only : filter
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(in) :: bad_cell(:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,filt_ec,filt_mx,filt_my,filt_mz,filt_ee
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_usp(1:maxSP,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_limit_bad_cells_3d"
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,usp,bad_cell,filter) &
+  !$ACC&              PRIVATE(old_usp)
+  filt_cell_loop: &
+  do nc = 1,ncell
+    !
+    ! If the current cell is not troubled, skip to the next one
+    !
+    if (.not.bad_cell(nc)) then
+      cycle filt_cell_loop
+    end if
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    ! Store a copy of usp for this cell because the individual
+    ! solutions at the solution points within the cell will be
+    ! altered during the projection computation.
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      old_usp(n,nec) = usp(n0+n,nec)
+      old_usp(n,nmx) = usp(n0+n,nmx)
+      old_usp(n,nmy) = usp(n0+n,nmy)
+      old_usp(n,nmz) = usp(n0+n,nmz)
+      old_usp(n,nee) = usp(n0+n,nee)
+    end do
+    !
+    ! Apply the filter emergency limiter by multplying the filter
+    ! matrix with the solution in the current cell
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      !
+      filt_ec = zero
+      filt_mx = zero
+      filt_my = zero
+      filt_mz = zero
+      filt_ee = zero
+      !
+      do i = filter(this_geom,this_order)%sponge%col_ptr(n)+1, &
+             filter(this_geom,this_order)%sponge%col_ptr(n+1)
+        !
+        k = filter(this_geom,this_order)%sponge%col_idx(i)
+        a = filter(this_geom,this_order)%sponge%col_val(i)
+        !
+        filt_ec = filt_ec + a * old_usp(k,nec)
+        filt_mx = filt_mx + a * old_usp(k,nmx)
+        filt_my = filt_my + a * old_usp(k,nmy)
+        filt_mz = filt_mz + a * old_usp(k,nmz)
+        filt_ee = filt_ee + a * old_usp(k,nee)
+        !
+      end do
+      !
+      usp(n0+n,nec) = filt_ec
+      usp(n0+n,nmx) = filt_mx
+      usp(n0+n,nmy) = filt_my
+      usp(n0+n,nmz) = filt_mz
+      usp(n0+n,nee) = filt_ee
+      !
+    end do
+    !
+  end do filt_cell_loop
+  !
+end subroutine emergency_limit_bad_cells_3d
+!
+!###############################################################################
+!
+pure &
+subroutine emergency_limit_bad_cells_2d(bad_cell,usp)
+  !
+  !.. Use Statements ..
+  use order_mod,  only : maxSP
+  use geovar,     only : ncell,cell
+  use filter_mod, only : filter
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(in) :: bad_cell(:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,filt_ec,filt_mx,filt_my,filt_ee
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_usp(1:maxSP,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_limit_bad_cells_2d"
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,usp,bad_cell,filter) &
+  !$ACC&              PRIVATE(old_usp)
+  filt_cell_loop: &
+  do nc = 1,ncell
+    !
+    ! If the current cell is not troubled, skip to the next one
+    !
+    if (.not.bad_cell(nc)) then
+      cycle filt_cell_loop
+    end if
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    ! Store a copy of usp for this cell because the individual
+    ! solutions at the solution points within the cell will be
+    ! altered during the projection computation.
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      old_usp(n,nec) = usp(n0+n,nec)
+      old_usp(n,nmx) = usp(n0+n,nmx)
+      old_usp(n,nmy) = usp(n0+n,nmy)
+      old_usp(n,nee) = usp(n0+n,nee)
+    end do
+    !
+    ! Apply the filter emergency limiter by multplying the filter
+    ! matrix with the solution in the current cell
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      !
+      filt_ec = zero
+      filt_mx = zero
+      filt_my = zero
+      filt_ee = zero
+      !
+      do i = filter(this_geom,this_order)%sponge%col_ptr(n)+1, &
+             filter(this_geom,this_order)%sponge%col_ptr(n+1)
+        !
+        k = filter(this_geom,this_order)%sponge%col_idx(i)
+        a = filter(this_geom,this_order)%sponge%col_val(i)
+        !
+        filt_ec = filt_ec + a * old_usp(k,nec)
+        filt_mx = filt_mx + a * old_usp(k,nmx)
+        filt_my = filt_my + a * old_usp(k,nmy)
+        filt_ee = filt_ee + a * old_usp(k,nee)
+        !
+      end do
+      !
+      usp(n0+n,nec) = filt_ec
+      usp(n0+n,nmx) = filt_mx
+      usp(n0+n,nmy) = filt_my
+      usp(n0+n,nee) = filt_ee
+      !
+    end do
+    !
+  end do filt_cell_loop
+  !
+end subroutine emergency_limit_bad_cells_2d
+!
+!###############################################################################
+!
+pure &
+subroutine emergency_limit_bad_cells_1d(bad_cell,usp)
+  !
+  !.. Use Statements ..
+  use order_mod,  only : maxSP
+  use geovar,     only : ncell,cell
+  use filter_mod, only : filter
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(in) :: bad_cell(:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,filt_ec,filt_mx,filt_ee
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_usp(1:maxSP,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_limit_bad_cells_1d"
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,usp,bad_cell,filter) &
+  !$ACC&              PRIVATE(old_usp)
+  filt_cell_loop: &
+  do nc = 1,ncell
+    !
+    ! If the current cell is not troubled, skip to the next one
+    !
+    if (.not.bad_cell(nc)) then
+      cycle filt_cell_loop
+    end if
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    ! Store a copy of usp for this cell because the individual
+    ! solutions at the solution points within the cell will be
+    ! altered during the projection computation.
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      old_usp(n,nec) = usp(n0+n,nec)
+      old_usp(n,nmx) = usp(n0+n,nmx)
+      old_usp(n,nee) = usp(n0+n,nee)
+    end do
+    !
+    ! Apply the filter emergency limiter by multplying the filter
+    ! matrix with the solution in the current cell
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      !
+      filt_ec = zero
+      filt_mx = zero
+      filt_ee = zero
+      !
+      do i = filter(this_geom,this_order)%sponge%col_ptr(n)+1, &
+             filter(this_geom,this_order)%sponge%col_ptr(n+1)
+        !
+        k = filter(this_geom,this_order)%sponge%col_idx(i)
+        a = filter(this_geom,this_order)%sponge%col_val(i)
+        !
+        filt_ec = filt_ec + a * old_usp(k,nec)
+        filt_mx = filt_mx + a * old_usp(k,nmx)
+        filt_ee = filt_ee + a * old_usp(k,nee)
+        !
+      end do
+      !
+      usp(n0+n,nec) = filt_ec
+      usp(n0+n,nmx) = filt_mx
+      usp(n0+n,nee) = filt_ee
+      !
+    end do
+    !
+  end do filt_cell_loop
+  !
+end subroutine emergency_limit_bad_cells_1d
+!
+!###############################################################################
+!
+pure &
+subroutine emergency_limit_bad_cells_nd(mbeg,mend,bad_cell,usp)
+  !
+  !.. Use Statements ..
+  use order_mod,  only : maxSP
+  use geovar,     only : ncell,cell
+  use filter_mod, only : filter
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: mbeg,mend
+  logical(lk), intent(in) :: bad_cell(:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,m,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,val
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_usp(1:maxSP,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_limit_bad_cells_nd"
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,usp,bad_cell,filter) &
+  !$ACC&              PRIVATE(old_usp)
+  filt_cell_loop: &
+  do nc = 1,ncell
+    !
+    ! If the current cell is not troubled, skip to the next one
+    !
+    if (.not.bad_cell(nc)) then
+      cycle filt_cell_loop
+    end if
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    ! Store a copy of usp for this cell because the individual
+    ! solutions at the solution points within the cell will be
+    ! altered during the projection computation.
+    !
+    !$ACC LOOP VECTOR COLLAPSE(2)
+    do m = mbeg,mend
+      do n = 1,np
+        old_usp(n,m) = usp(n0+n,m)
+      end do
+    end do
+    !
+    ! Apply the filter emergency limiter by multplying the filter
+    ! matrix with the solution in the current cell
+    !
+    !$ACC LOOP VECTOR COLLAPSE(2)
+    do m = mbeg,mend
+      do n = 1,np
+        !
+        val = zero
+        !
+        do i = filter(this_geom,this_order)%sponge%col_ptr(n)+1, &
+               filter(this_geom,this_order)%sponge%col_ptr(n+1)
+          !
+          k = filter(this_geom,this_order)%sponge%col_idx(i)
+          a = filter(this_geom,this_order)%sponge%col_val(i)
+          !
+          val = val + a * old_usp(k,m)
+          !
+        end do
+        !
+        usp(n0+n,m) = val
+        !
+      end do
+    end do
+    !
+  end do filt_cell_loop
+  !
+end subroutine emergency_limit_bad_cells_nd
 !
 !###############################################################################
 !###############################################################################
