@@ -47,6 +47,10 @@ module module_limiters
   !
   integer, parameter :: init_troubled_cells = -11
   !
+!#define WRITE_DATA_FOR_PROFILING
+#ifdef WRITE_DATA_FOR_PROFILING
+  integer, save :: num_prof_lim_outputs = 0
+#endif
 #ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
   public :: write_lim_timings
   integer,  save :: timings_counter = 0
@@ -1588,7 +1592,9 @@ end subroutine resolution_indicator
 !###############################################################################
 !
 #ifndef TIME_MINIAPPS_FOR_GPU_COMPARISON
+#ifndef WRITE_DATA_FOR_PROFILING
  pure &
+#endif
 #endif
 subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
                                      marker,scaled_marker)
@@ -1751,7 +1757,9 @@ end subroutine output_lim_data
 !###############################################################################
 !
 #ifndef TIME_MINIAPPS_FOR_GPU_COMPARISON
+#ifndef WRITE_DATA_FOR_PROFILING
  pure &
+#endif
 #endif
 subroutine compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
   !
@@ -1785,6 +1793,14 @@ subroutine compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
   character(len=*), parameter :: pname = "compute_resolution_marker_3d"
   !
 continue
+  !
+#ifdef WRITE_DATA_FOR_PROFILING
+  if (num_prof_lim_outputs == 0) then
+    if (mypnum == glb_root) then
+      call output_lim_data(usp,skip_cell,cutoff_order)
+    end if
+  end if
+#endif
   !
 #ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
   timings_counter = timings_counter + 1
@@ -1917,6 +1933,15 @@ continue
   !
 #ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
   call gfr_timer( timings_end(timings_counter) )
+#endif
+  !
+#ifdef WRITE_DATA_FOR_PROFILING
+  if (num_prof_lim_outputs == 0) then
+    if (mypnum == glb_root) then
+      call output_gold_lim_data(marker)
+    end if
+    num_prof_lim_outputs = 1
+  end if
 #endif
   !
 end subroutine compute_resolution_marker_3d
