@@ -1,6 +1,7 @@
 module generic_types_mod
   !
   use module_kind_types, only : wp,zero,half,dot,intseq
+  use module_kind_types, only : lk,true,fals,eps6
   use module_kind_types, only : alloc_error,io_error
   use module_kind_types, only : error_message
   !
@@ -9,6 +10,8 @@ module generic_types_mod
   private
   !
   public :: create_matrix_sparsity
+  public :: output_matrix_dt
+  public :: input_matrix_dt
   !
   ! matrix_gpu_t : derived type that stores a matrix quantity without the
   !                type-bound procedures and procedure pointers found in
@@ -2178,6 +2181,262 @@ continue
   !
 #endif
 end function memory_usage_gpu
+!
+!###############################################################################
+!
+subroutine output_matrix_dt(io,dtv)
+  !
+  !.. Formal Arguments ..
+  integer,            intent(in) :: io
+  type(matrix_gpu_t), intent(in) :: dtv
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2
+  integer :: j,j1,j2
+  !
+continue
+  !
+  !########################################################
+ !type, public :: matrix_gpu_t
+ !  real(wp), allocatable :: mat(:,:)
+ !  integer,  allocatable :: row_ptr(:)
+ !  integer,  allocatable :: row_idx(:)
+ !  real(wp), allocatable :: row_val(:)
+ !  integer,  allocatable :: col_ptr(:)
+ !  integer,  allocatable :: col_idx(:)
+ !  real(wp), allocatable :: col_val(:)
+ !end type matrix_gpu_t
+  !########################################################
+  !
+  if (allocated(dtv%mat)) then
+    i1 = lbound(dtv%mat,dim=1)
+    i2 = ubound(dtv%mat,dim=1)
+    j1 = lbound(dtv%mat,dim=2)
+    j2 = ubound(dtv%mat,dim=2)
+    write (io) i1,i2,j1,j2
+    write (io) ((dtv%mat(i,j), i=i1,i2), j=j1,j2)
+  else
+    write (io) -1,-1,-1,-1
+  end if
+  !
+  if (allocated(dtv%row_ptr)) then
+    i1 = lbound(dtv%row_ptr,dim=1)
+    i2 = ubound(dtv%row_ptr,dim=1)
+    write (io) i1,i2
+    write (io) (dtv%row_ptr(i), i=i1,i2)
+  else
+    write (io) -1,-1
+  end if
+  !
+  if (allocated(dtv%row_idx)) then
+    i1 = lbound(dtv%row_idx,dim=1)
+    i2 = ubound(dtv%row_idx,dim=1)
+    write (io) i1,i2
+    write (io) (dtv%row_idx(i), i=i1,i2)
+  else
+    write (io) -1,-1
+  end if
+  !
+  if (allocated(dtv%row_val)) then
+    i1 = lbound(dtv%row_val,dim=1)
+    i2 = ubound(dtv%row_val,dim=1)
+    write (io) i1,i2
+    write (io) (dtv%row_val(i), i=i1,i2)
+  else
+    write (io) -1,-1
+  end if
+  !
+  if (allocated(dtv%col_ptr)) then
+    i1 = lbound(dtv%col_ptr,dim=1)
+    i2 = ubound(dtv%col_ptr,dim=1)
+    write (io) i1,i2
+    write (io) (dtv%col_ptr(i), i=i1,i2)
+  else
+    write (io) -1,-1
+  end if
+  !
+  if (allocated(dtv%col_idx)) then
+    i1 = lbound(dtv%col_idx,dim=1)
+    i2 = ubound(dtv%col_idx,dim=1)
+    write (io) i1,i2
+    write (io) (dtv%col_idx(i), i=i1,i2)
+  else
+    write (io) -1,-1
+  end if
+  !
+  if (allocated(dtv%col_val)) then
+    i1 = lbound(dtv%col_val,dim=1)
+    i2 = ubound(dtv%col_val,dim=1)
+    write (io) i1,i2
+    write (io) (dtv%col_val(i), i=i1,i2)
+  else
+    write (io) -1,-1
+  end if
+  !
+end subroutine output_matrix_dt
+!
+!###############################################################################
+!
+subroutine input_matrix_dt(io,dtv,success)
+  !
+  !.. Formal Arguments ..
+  integer,            intent(in) :: io
+  type(matrix_gpu_t), intent(in) :: dtv
+  logical(lk),       intent(out) :: success
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2
+  integer :: j,j1,j2
+  integer :: ierr
+  !
+  !.. Local Allocatable Arrays ..
+  type(matrix_gpu_t), allocatable :: tmp
+  !
+continue
+  !
+  !########################################################
+ !type, public :: matrix_gpu_t
+ !  real(wp), allocatable :: mat(:,:)
+ !  integer,  allocatable :: row_ptr(:)
+ !  integer,  allocatable :: row_idx(:)
+ !  real(wp), allocatable :: row_val(:)
+ !  integer,  allocatable :: col_ptr(:)
+ !  integer,  allocatable :: col_idx(:)
+ !  real(wp), allocatable :: col_val(:)
+ !end type matrix_gpu_t
+  !########################################################
+  !
+  success = fals
+  !
+  allocate ( tmp , stat=ierr )
+  !
+  read (io) i1,i2,j1,j2
+  if (any([i1,i2,j1,j2] /= -1)) then
+    allocate ( tmp%mat(i1:i2,j1:j2) , stat=ierr )
+    read (io) ((tmp%mat(i,j), i=i1,i2), j=j1,j2)
+  end if
+  !
+  read (io) i1,i2
+  if (any([i1,i2] /= -1)) then
+    allocate ( tmp%row_ptr(i1:i2) , stat=ierr )
+    read (io) (tmp%row_ptr(i), i=i1,i2)
+  end if
+  !
+  read (io) i1,i2
+  if (any([i1,i2] /= -1)) then
+    allocate ( tmp%row_idx(i1:i2) , stat=ierr )
+    read (io) (tmp%row_idx(i), i=i1,i2)
+  end if
+  !
+  read (io) i1,i2
+  if (any([i1,i2] /= -1)) then
+    allocate ( tmp%row_val(i1:i2) , stat=ierr )
+    read (io) (tmp%row_val(i), i=i1,i2)
+  end if
+  !
+  read (io) i1,i2
+  if (any([i1,i2] /= -1)) then
+    allocate ( tmp%col_ptr(i1:i2) , stat=ierr )
+    read (io) (tmp%col_ptr(i), i=i1,i2)
+  end if
+  !
+  read (io) i1,i2
+  if (any([i1,i2] /= -1)) then
+    allocate ( tmp%col_idx(i1:i2) , stat=ierr )
+    read (io) (tmp%col_idx(i), i=i1,i2)
+  end if
+  !
+  read (io) i1,i2
+  if (any([i1,i2] /= -1)) then
+    allocate ( tmp%col_val(i1:i2) , stat=ierr )
+    read (io) (tmp%col_val(i), i=i1,i2)
+  end if
+  !
+  if (allocated(tmp%mat) .neqv. allocated(dtv%mat)) return
+  if (allocated(tmp%mat)) then
+    !
+    if (lbound(tmp%mat,dim=1) /= lbound(dtv%mat,dim=1)) return
+    if (ubound(tmp%mat,dim=1) /= ubound(dtv%mat,dim=1)) return
+    if (lbound(tmp%mat,dim=2) /= lbound(dtv%mat,dim=2)) return
+    if (ubound(tmp%mat,dim=2) /= ubound(dtv%mat,dim=2)) return
+    !
+    if (any(abs(tmp%mat(:,:)-dtv%mat(:,:)) > eps6)) return
+    !
+  end if
+  !
+  if (allocated(tmp%row_ptr) .neqv. allocated(dtv%row_ptr)) return
+  if (allocated(tmp%row_ptr)) then
+    !
+    if (lbound(tmp%row_ptr,dim=1) /= lbound(dtv%row_ptr,dim=1)) return
+    if (ubound(tmp%row_ptr,dim=1) /= ubound(dtv%row_ptr,dim=1)) return
+    !
+    do i = lbound(tmp%row_ptr,dim=1),ubound(tmp%row_ptr,dim=1)
+      if (tmp%row_ptr(i) /= dtv%row_ptr(i)) return
+    end do
+    !
+  end if
+  !
+  if (allocated(tmp%row_idx) .neqv. allocated(dtv%row_idx)) return
+  if (allocated(tmp%row_idx)) then
+    !
+    if (lbound(tmp%row_idx,dim=1) /= lbound(dtv%row_idx,dim=1)) return
+    if (ubound(tmp%row_idx,dim=1) /= ubound(dtv%row_idx,dim=1)) return
+    !
+    do i = lbound(tmp%row_idx,dim=1),ubound(tmp%row_idx,dim=1)
+      if (tmp%row_idx(i) /= dtv%row_idx(i)) return
+    end do
+    !
+  end if
+  !
+  if (allocated(tmp%row_val) .neqv. allocated(dtv%row_val)) return
+  if (allocated(tmp%row_val)) then
+    !
+    if (lbound(tmp%row_val,dim=1) /= lbound(dtv%row_val,dim=1)) return
+    if (ubound(tmp%row_val,dim=1) /= ubound(dtv%row_val,dim=1)) return
+    !
+    if (any(abs(tmp%row_val(:)-dtv%row_val(:)) > eps6)) return
+    !
+  end if
+  !
+  if (allocated(tmp%col_ptr) .neqv. allocated(dtv%col_ptr)) return
+  if (allocated(tmp%col_ptr)) then
+    !
+    if (lbound(tmp%col_ptr,dim=1) /= lbound(dtv%col_ptr,dim=1)) return
+    if (ubound(tmp%col_ptr,dim=1) /= ubound(dtv%col_ptr,dim=1)) return
+    !
+    do i = lbound(tmp%col_ptr,dim=1),ubound(tmp%col_ptr,dim=1)
+      if (tmp%col_ptr(i) /= dtv%col_ptr(i)) return
+    end do
+    !
+  end if
+  !
+  if (allocated(tmp%col_idx) .neqv. allocated(dtv%col_idx)) return
+  if (allocated(tmp%col_idx)) then
+    !
+    if (lbound(tmp%col_idx,dim=1) /= lbound(dtv%col_idx,dim=1)) return
+    if (ubound(tmp%col_idx,dim=1) /= ubound(dtv%col_idx,dim=1)) return
+    !
+    do i = lbound(tmp%col_idx,dim=1),ubound(tmp%col_idx,dim=1)
+      if (tmp%col_idx(i) /= dtv%col_idx(i)) return
+    end do
+    !
+  end if
+  !
+  if (allocated(tmp%col_val) .neqv. allocated(dtv%col_val)) return
+  if (allocated(tmp%col_val)) then
+    !
+    if (lbound(tmp%col_val,dim=1) /= lbound(dtv%col_val,dim=1)) return
+    if (ubound(tmp%col_val,dim=1) /= ubound(dtv%col_val,dim=1)) return
+    !
+    if (any(abs(tmp%col_val(:)-dtv%col_val(:)) > eps6)) return
+    !
+  end if
+  !
+  deallocate ( tmp , stat=ierr )
+  !
+  success = true
+  !
+end subroutine input_matrix_dt
 !
 !###############################################################################
 !
