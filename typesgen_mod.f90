@@ -65,7 +65,7 @@ module generic_types_mod
   contains
     !
     procedure :: check_for_sparsity
-    procedure :: output_sparsity
+    procedure :: output_sparsity => output_sparsity_dt_procedure
     procedure :: memory_usage
     procedure :: mm_mult       => mat_mat_mult_intrinsic
     procedure :: mm_rev_mult   => mat_mat_rev_mult_intrinsic
@@ -1985,7 +1985,7 @@ end function num_nz
 !
 !###############################################################################
 !
-subroutine output_sparsity(this,fname)
+subroutine output_sparsity_dt_procedure(this,fname)
   !
   !.. Passed Argument from Invoking Object ..
   class(matrix), intent(inout) :: this
@@ -2001,7 +2001,7 @@ subroutine output_sparsity(this,fname)
   real(wp), allocatable :: xy(:,:,:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "output_sparsity"
+  character(len=*), parameter :: pname = "output_sparsity_dt_procedure"
   !
 continue
   !
@@ -2048,7 +2048,7 @@ continue
   2 format (12f7.1)
   3 format (42i2)
   !
-end subroutine output_sparsity
+end subroutine output_sparsity_dt_procedure
 !
 !###############################################################################
 !
