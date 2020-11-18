@@ -47,7 +47,46 @@ module module_limiters
   !
   integer, parameter :: init_troubled_cells = -11
   !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  public :: write_lim_timings
+  integer,  save :: timings_counter = 0
+  integer,  save :: timings_points(1:1000) = 0
+  real(wp), save :: timings_beg(1:1000) = zero
+  real(wp), save :: timings_end(1:1000) = zero
+#endif
+  !
 contains
+!
+!###############################################################################
+!
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+subroutine write_lim_timings()
+  !
+  integer :: i,l,n,io,ierr,ncalls
+  character(len=100) :: fname
+  !
+  write (fname,2) mypnum
+  open (newunit=io,file=fname,status="replace",action="write",iostat=ierr)
+  l = maxval(timings_points(1:timings_counter))
+  ncalls = count(timings_points(1:timings_counter) == l)
+  write (io,10) mypnum+1,ncpu,ncalls,l
+  i = 0
+  do n = 1,timings_counter
+    if (timings_points(n) == l) then
+      i = i + 1
+      write (io,1) i,timings_end(n)-timings_beg(n)
+    end if
+  end do
+  close (io,iostat=ierr)
+  !
+  1 format (i4,2x,es23.15)
+  2 format ("lim_timings.",i2.2,".dat")
+  10 format ('VARIABLES = "Call #", "Wall Time"',/, &
+             'ZONE T="lim: CPU ',i2,' of ',i2, &
+             '", I=',i0,', DATAPACKING=POINT',/, &
+             'AUXDATA loop_size="'i0,'"')
+end subroutine write_lim_timings
+#endif
 !
 !###############################################################################
 !
@@ -1767,6 +1806,12 @@ subroutine compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
   !
 continue
   !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  timings_counter = timings_counter + 1
+  timings_points(timings_counter) = ncell
+  call gfr_timer( timings_beg(timings_counter) )
+#endif
+  !
   ! Compute u_hat, the degree-(P-1) solution of density at the sol-pts
   !
   !$ACC PARALLEL LOOP GANG &
@@ -1889,6 +1934,10 @@ continue
     marker(nc) = max(mark_ec,mark_mx,mark_my,mark_mz,mark_ee)
     !
   end do
+  !
+#ifdef TIME_MINIAPPS_FOR_GPU_COMPARISON
+  call gfr_timer( timings_end(timings_counter) )
+#endif
   !
 end subroutine compute_resolution_marker_3d
 !
