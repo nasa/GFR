@@ -2990,10 +2990,28 @@ continue
     !
     proj_order = 0
     !
-    !$ACC PARALLEL LOOP PRESENT(troubled_cell)
-    do nc = 1,ncell
-      troubled_cell(nc) = .true.
-    end do
+    if (allocated(sponge_cell)) then
+      !
+      ! If using the sponge cell limiter:
+      !   1. initialize all non-sponge cells as troubled, and
+      !   2. initialize all sponge cells as not troubled since these cells
+      !      will have already been limited using the sponge filter
+      !
+      !$ACC PARALLEL LOOP PRESENT(sponge_cell,troubled_cell)
+      do nc = 1,ncell
+        troubled_cell(nc) = ( .not. sponge_cell(nc))
+      end do
+      !
+    else
+      !
+      ! If not using the sponge cell limiter, initialize all cells as troubled
+      !
+      !$ACC PARALLEL LOOP PRESENT(troubled_cell)
+      do nc = 1,ncell
+        troubled_cell(nc) = .true.
+      end do
+      !
+    end if
     !
   end if
   !
