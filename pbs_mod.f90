@@ -42,13 +42,14 @@ subroutine pbs_remaining_walltime(walltime_expiring,wall_time_remaining, &
   !.. Local Scalars ..
   integer(pbs_int) :: current_wtl
   real(wp)         :: current_wtime
+  real(wp)         :: total_elapsed_wtime
   real(wp)         :: time_elapsed
   real(wp)         :: next_time_est
   real(wp)         :: wall_time_left
   real(wp)         :: shutdown_time_needed
   !
   !.. Local Arrays ..
-  real(wp) :: time_values(1:2)
+  real(wp) :: time_values(1:3)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "pbs_remaining_walltime"
@@ -74,6 +75,7 @@ continue
     ! pbs_time_left seems to not be reliable enough to use it each time
     current_wtl = previous_wtl
     current_wtime = mpi_wtime()
+    total_elapsed_wtime = current_wtime-initial_wtime
    !write (iout,1) current_wtl,current_wtime
     !
     if (previous_wtl-current_wtl == 0_pbs_int) then
@@ -89,7 +91,7 @@ continue
       time_elapsed = current_wtime - previous_wtime
       time_elapsed = min( time_elapsed , max_sec )
       wall_time_left = real(initial_wtl,kind=kind(wall_time_left)) - &
-                       (current_wtime-initial_wtime)
+                       total_elapsed_wtime
       !
     else
       !
@@ -170,11 +172,14 @@ continue
 #else
     wall_time_left = huge(zero)
     walltime_expiring = .false.
+    current_wtime = mpi_wtime()
+    total_elapsed_wtime = current_wtime-initial_wtime
 #endif
     !
    !write (iout,1) current_wtl,wall_time_left
     time_values(1) = merge(-one,one,walltime_expiring)
     time_values(2) = wall_time_left
+    time_values(3) = total_elapsed_wtime
     !
   end if
   !
@@ -187,6 +192,9 @@ continue
   if (present(wall_time_remaining)) then
     wall_time_remaining = time_values(2)
    !if (mypnum == 0) write (iout,2) wall_time_remaining
+  end if
+  if (present(wall_time_elapsed)) then
+    wall_time_elapsed = time_values(3)
   end if
   !
   1 format (/,2x,"        current_wtl = ",i0,/, &
