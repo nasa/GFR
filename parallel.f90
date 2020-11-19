@@ -432,6 +432,28 @@ continue
 #endif
       !
     end if
+    if (continuous_output .and. lcell == 8) then
+      select case (ncpu)
+        case (2)
+          epart(:) = [1,1,1,1,2,2,2,2]
+        case (3)
+          epart(:) = [1,1,1,2,2,2,3,3]
+        case (4)
+          epart(:) = [1,1,2,2,3,3,4,4]
+        case (5)
+          epart(:) = [1,1,2,2,3,3,4,5]
+        case (6)
+          epart(:) = [1,1,2,2,3,4,5,6]
+        case (7)
+          epart(:) = [1,1,2,3,4,5,6,7]
+        case (8)
+          epart(:) = [1,2,3,4,5,6,7,8]
+        case default
+          epart(:) = [1,1,1,1,1,1,1,1]
+      end select
+    else if (continuous_output .and. lcell == 2) then
+      epart(:) = [1,2]
+    end if
     !
     ! Have the global root process broadcast
     ! the partitioning to all host roots
