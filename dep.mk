@@ -669,6 +669,7 @@ $(OBJDIR)/write_cgns_mod.o : write_cgns_mod.f90 \
                    $(OBJDIR)/transport_mod.o \
                    $(OBJDIR)/flux.o \
                    $(OBJDIR)/gpu_mod.o \
+                   $(OBJDIR)/restart_mod.o \
                    $(FUNDIR)/cgns_write_field_data.f90 \
                    $(FUNDIR)/cgns_write_field_header.f90 \
                              mpi_defs.h

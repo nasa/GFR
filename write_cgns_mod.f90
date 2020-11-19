@@ -18,6 +18,7 @@ module write_cgns_mod
   !
   public :: write_parallel_cgns
   public :: TaylorGreen_8s_vorticity_solution
+  public :: convert_restart_files_to_cgns
   !
   ! ###########################
   ! ###  Module Parameters  ###
@@ -73,6 +74,228 @@ module write_cgns_mod
   end interface interpolate_for_output
   !
 contains
+!
+!###############################################################################
+!
+subroutine convert_restart_files_to_cgns()
+  !
+  !.. Use Statements ..
+  use ovar,          only : restart_list_file,restart_file
+  use ovar,          only : output_time_averaging,read_time_ave_restart
+  use ovar,          only : ave_start_time,prev_ave_time
+  use ovar,          only : time,itcur,tmrst,itrst
+  use ovar,          only : time_ref,time_scaling_factor
+  use geovar,        only : n_solpts
+  use flowvar,       only : usp,gpsp
+  use restart_mod,   only : read_restart_file
+  use flux_mod,      only : discontinuous_gradient_at_solpts
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
+  !
+  !.. Local Scalars ..
+  integer  :: ierr,io,i,n
+  real(wp) :: out_time
+  !
+  logical(ldk) :: file_exists
+  !
+  character(len=150) :: fname
+  character(len=150) :: text
+  !
+  !.. Local Allocatable Arrays ..
+  character(len=100), allocatable :: restart_file_list(:)
+  character(len=100), allocatable :: temp_list(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "convert_restart_files_to_cgns"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Write out the CGNS grid file and first solution file using
+  ! using the restart file provided in the input file
+  !
+  if (mypnum == glb_root) then
+    write (iout,2) trim(adjustl(restart_file))
+  end if
+  !
+  if (mypnum == glb_root) then
+    out_time = time*time_ref*time_scaling_factor
+    if (output_time_averaging) then
+      out_time = out_time - ave_start_time*time_ref*time_scaling_factor
+    end if
+    write (iout,3) out_time
+  end if
+  !
+  call write_parallel_cgns(open_CGNS)
+  !
+  if (len_trim(adjustl(restart_list_file)) == 0) then
+    write (error_message,5)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  !###############################################
+  !################    FOR NOW    ################
+  !###############################################
+  !
+  ! Disable reading in of a time averaged restart files and
+  ! writing the CGNS time averaged solution files
+  !
+  read_time_ave_restart = fals
+  output_time_averaging = fals
+  !
+  !###############################################
+  !###############################################
+  !###############################################
+  !
+  ! Read in the list of restart files that will be averaged
+  !
+  fname = trim(adjustl(restart_list_file))
+  !
+  open (newunit=io,file=fname,status="old",action="read", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Count the number of restart files given in the list of files
+  !
+  n = 0
+  do
+    read (io,1,iostat=ierr,iomsg=error_message) text
+    if (ierr < 0) then
+      exit
+    else if (ierr > 0) then
+      call io_error(pname,fname,-1,__LINE__,__FILE__,ierr,error_message)
+    else
+      n = n + 1
+    end if
+  end do
+  !
+  rewind (io)
+  !
+  ! Allocate the arrays for storing the file names from the list of files
+  !
+  allocate ( restart_file_list(1:n) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"restart_file_list",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  allocate ( temp_list(1:n) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_list",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  ! Read the file names from the list of files
+  !
+  do n = 1,size(restart_file_list)
+    read (io,1,iostat=ierr,iomsg=error_message) restart_file_list(n)
+    call io_error(pname,fname,-1,__LINE__,__FILE__,ierr,error_message)
+  end do
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Check the validity of the filenames in the restart file list.
+  !   1) Ignore any filenames that start with !
+  !   2) For those filenames not starting with !, use inquire to check whether
+  !      or not the file exists. If the file does exist, add the filename
+  !      to temp_list.
+  !
+  i = 0
+  do n = 1,size(restart_file_list)
+    fname = trim(adjustl(restart_file_list(n)))
+    if (mypnum == glb_root) write (iout,10) n,trim(adjustl(fname))
+    if (fname(1:1) /= "!") then
+      if (mypnum == glb_root) write (iout,11) trim(adjustl(fname))
+      inquire (file=fname,exist=file_exists)
+      if (file_exists) then
+        i = i + 1
+        if (mypnum == glb_root) write (iout,12) i
+        temp_list(i) = fname
+      else
+        if (mypnum == glb_root) write (iout,13)
+      end if
+    else
+      if (mypnum == glb_root) write (iout,14)
+    end if
+  end do
+  flush (iout)
+  !
+  ! Use F2003 AUTO-REALLOCATION to cutoff the unused parts of temp_list
+  !
+  temp_list = temp_list(1:i) ! F2003 AUTO-REALLOC
+  !
+  ! Use move_alloc to over-write restart_file_list with temp_list
+  !
+  call move_alloc( from=temp_list , to=restart_file_list )
+  !
+  ! Loop over the list of files to read each restart
+  ! file and write out a CGNS solution file
+  !
+  do n = 1,size(restart_file_list)
+    !
+    restart_file = trim(adjustl(restart_file_list(n)))
+    !
+    if (mypnum == glb_root) then
+      write (iout,2) trim(adjustl(restart_file))
+    end if
+    !
+    call read_restart_file
+    !
+    time = tmrst
+    itcur = itrst
+    !
+    if (mypnum == glb_root) then
+      out_time = time*time_ref*time_scaling_factor
+      if (output_time_averaging) then
+        out_time = out_time - ave_start_time*time_ref*time_scaling_factor
+      end if
+      write (iout,3) out_time
+    end if
+    !
+    call discontinuous_gradient_at_solpts
+    !
+    call debug_timer(entering_procedure,"update_thermo_properties")
+    call update_thermo_properties(1,n_solpts,usp,gpsp,caller_name=pname)
+    call debug_timer(leaving_procedure,"update_thermo_properties")
+    !
+    call debug_timer(entering_procedure,"update_transport_properties")
+    call update_transport_properties(1,n_solpts,usp,gpsp)
+    call debug_timer(leaving_procedure,"update_transport_properties")
+    !
+    if (n == size(restart_file_list)) then
+      call write_parallel_cgns(close_CGNS)
+    else
+      call write_parallel_cgns(add_to_CGNS)
+    end if
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  write (error_message,4)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  !
+  ! Format Statements
+  !
+  1 format (a)
+  2 format (/,3(1x,100("#"),/),/, &
+              3x,"Working on restart file '",a,"'",//, &
+              3(1x,100("#"),/),/, &
+              4x,"Reading the restart file")
+  3 format (/,1x,81("-"),/, &
+              1x,"-----  Creating CGNS solution file from restart file at ", &
+                 "tstar = ",f10.4,"  -----",/, &
+              1x,81("-"),/)
+  4 format ("STOPPING EXECUTION AFTER CONVERTING THE LIST OF ", &
+            "RESTART FILES TO CGNS SOLUTION FILES!")
+  5 format ("STOPPING EXECUTION AFTER CONVERTING THE RESTART ", &
+            "FILE TO A CGNS SOLUTION FILE!")
+  !
+  10 format (/,2x,"Filename # ",i0," from restart file list = '",a,"'")
+  11 format (4x,"Checking existance of restart file '",a,"'")
+  12 format (4x,"Restart file found! Saving to temp_list(",i0,")")
+  13 format (8x,"ERROR: RESTART FILE DOES NOT EXIST!")
+  14 format (8x,"WARNING: IGNORING FILENAME BEGINNING WITH '!'...")
+  !
+end subroutine convert_restart_files_to_cgns
 !
 !###############################################################################
 !
