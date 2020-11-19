@@ -4767,6 +4767,12 @@ subroutine create_cell_subconnectivity(my_cells_beg,my_cells_end,ipelem)
   !
   !.. Local Allocatable Arrays ..
   type(geom_pnt_map_t), allocatable :: map(:,:)
+!%type :: geom_pnt_map_t
+!%  integer, allocatable :: sp(:)
+!%  integer, allocatable :: fp(:)
+!%  integer, allocatable :: ep(:)
+!%  integer, allocatable :: np(:)
+!%end type geom_pnt_map_t
   !
   integer, allocatable :: cell_points_ptr(:)
   integer, allocatable :: cell_points(:)
