@@ -96,6 +96,9 @@ subroutine write_parallel_cgns(iflag)
   character(len=100)   :: char_num
   character(len=170)   :: sol_file
   !
+  !.. Local Saved Variables ..
+  logical(lk), save :: this_is_initial_output = true
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns"
   !
@@ -113,7 +116,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (iflag == open_CGNS) then
+  if (this_is_initial_output) then
     !
     ! Create the format string for creating the CGNS file names
     !
@@ -129,6 +132,8 @@ continue
     ! Initialize the zone counter
     !
     cgns_zone_counter = 0
+    !
+    this_is_initial_output = fals
     !
   end if
   !
