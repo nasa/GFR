@@ -1128,16 +1128,18 @@ continue
       feps_qp = qzero
     else if (cutoff_order == -2) then
       fetac_qp = real( Sponge_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
-                            real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Sponge_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = 1
       feps_qp = qone
       falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
       filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
-                      real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Limiter_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = Limiter_Filter_Option
       feps_qp = real( one - Limiter_Filter_eps , kind=qp )
       falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
@@ -1145,7 +1147,9 @@ continue
     end if
   else
     fetac_qp = real( Filter_etac , kind=qp )
-    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    Filter_Cutoff = int_cutoff_function( &
+                      max(zero,min(one,Filter_etac)) * &
+                      real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
   end if
@@ -1249,16 +1253,18 @@ continue
       feps_qp = qzero
     else if (cutoff_order == -2) then
       fetac_qp = real( Sponge_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
-                            real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Sponge_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = 1
       feps_qp = qone
       falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
       filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
-                      real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Limiter_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = Limiter_Filter_Option
       feps_qp = real( one - Limiter_Filter_eps , kind=qp )
       falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
@@ -1266,7 +1272,9 @@ continue
     end if
   else
     fetac_qp = real( Filter_etac , kind=qp )
-    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    Filter_Cutoff = int_cutoff_function( &
+                      max(zero,min(one,Filter_etac)) * &
+                      real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
   end if
@@ -1391,16 +1399,18 @@ continue
       feps_qp = qzero
     else if (cutoff_order == -2) then
       fetac_qp = real( Sponge_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
-                            real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Sponge_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = 1
       feps_qp = qone
       falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
       filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
-                      real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Limiter_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = Limiter_Filter_Option
       feps_qp = real( one - Limiter_Filter_eps , kind=qp )
       falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
@@ -1408,7 +1418,9 @@ continue
     end if
   else
     fetac_qp  = real( Filter_etac , kind=qp )
-    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    Filter_Cutoff = int_cutoff_function( &
+                      max(zero,min(one,Filter_etac)) * &
+                      real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
   end if
@@ -1561,16 +1573,18 @@ continue
       feps_qp = qzero
     else if (cutoff_order == -2) then
       fetac_qp = real( Sponge_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
-                            real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Sponge_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = 1
       feps_qp = qone
       falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
       filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
-                      real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Limiter_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = Limiter_Filter_Option
       feps_qp = real( one - Limiter_Filter_eps , kind=qp )
       falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
@@ -1578,7 +1592,9 @@ continue
     end if
   else
     fetac_qp  = real( Filter_etac , kind=qp )
-    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    Filter_Cutoff = int_cutoff_function( &
+                      max(zero,min(one,Filter_etac)) * &
+                      real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
   end if
@@ -1688,16 +1704,18 @@ continue
       feps_qp = qzero
     else if (cutoff_order == -2) then
       fetac_qp = real( Sponge_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
-                            real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Sponge_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = 1
       feps_qp = qone
       falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
       filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
-                      real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Limiter_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = Limiter_Filter_Option
       feps_qp = real( one - Limiter_Filter_eps , kind=qp )
       falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
@@ -1705,7 +1723,9 @@ continue
     end if
   else
     fetac_qp  = real( Filter_etac , kind=qp )
-    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    Filter_Cutoff = int_cutoff_function( &
+                      max(zero,min(one,Filter_etac)) * &
+                      real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
   end if
@@ -1815,16 +1835,18 @@ continue
       feps_qp = qzero
     else if (cutoff_order == -2) then
       fetac_qp = real( Sponge_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
-                            real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Sponge_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = 1
       feps_qp = qone
       falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
       filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
-                      real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Limiter_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = Limiter_Filter_Option
       feps_qp = real( one - Limiter_Filter_eps , kind=qp )
       falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
@@ -1832,7 +1854,9 @@ continue
     end if
   else
     fetac_qp  = real( Filter_etac , kind=qp )
-    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    Filter_Cutoff = int_cutoff_function( &
+                      max(zero,min(one,Filter_etac)) * &
+                      real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
   end if
@@ -1942,16 +1966,18 @@ continue
       feps_qp = qzero
     else if (cutoff_order == -2) then
       fetac_qp = real( Sponge_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
-                            real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Sponge_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = 1
       feps_qp = qone
       falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
       filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
-                      real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Limiter_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = Limiter_Filter_Option
       feps_qp = real( one - Limiter_Filter_eps , kind=qp )
       falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
@@ -1959,7 +1985,9 @@ continue
     end if
   else
     fetac_qp  = real( Filter_etac , kind=qp )
-    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    Filter_Cutoff = int_cutoff_function( &
+                      max(zero,min(one,Filter_etac)) * &
+                      real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
   end if
@@ -2087,16 +2115,18 @@ continue
       feps_qp = qzero
     else if (cutoff_order == -2) then
       fetac_qp = real( Sponge_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Sponge_Filter_etac)) * &
-                            real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Sponge_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = 1
       feps_qp = qone
       falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
       filt_order = Sponge_Filter_Order
     else
       fetac_qp = real( Limiter_Filter_etac , kind=qp )
-      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
-                      real(order,kind=wp) )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Limiter_Filter_etac)) * &
+                        real(order,kind=wp) )
       local_Filter_Option = Limiter_Filter_Option
       feps_qp = real( one - Limiter_Filter_eps , kind=qp )
       falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
@@ -2104,7 +2134,9 @@ continue
     end if
   else
     fetac_qp  = real( Filter_etac , kind=qp )
-    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    Filter_Cutoff = int_cutoff_function( &
+                      max(zero,min(one,Filter_etac)) * &
+                      real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
   end if
@@ -2262,6 +2294,42 @@ continue
 #endif
   !
 end function FilterMatrix_Hexa
+!
+!###############################################################################
+!
+pure function int_cutoff_function(input_value) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: input_value
+  !
+  !.. Function Result ..
+  integer :: return_value
+  !
+continue
+  !
+  ! Old integer conversion function
+  ! This can cause an incorrect value for Filter_Cutoff.
+  ! For example, take two very similar P3 filters:
+  !   1) alpha = 36 ; etac = 0.75 ; order = 8
+  !   2) alpha = 36 ; etac = 0.8  ; order = 8
+  ! Analytically, the second filter is very slightly weaker than the first.
+  ! Numerically, they should be the same when evaluated at finite integer
+  ! orders (i=0,3). The filter cutoffs should be 2.25 and 2.4, so all integer
+  ! orders less than these values should give a filter diagonal value of 1.
+  ! However, using nint means the filter cutoffs will be 2, so the diagonal
+  ! for order i=2 will not be 1. In fact the i=2 diagonal value for the first
+  ! filter will be 0.9945281 whereas the value will be 0.2454495 for the
+  ! second, which makes the second filter significantly weaker than the first
+  ! when using the nint function! Both filters should have i=2 diagonal values
+  ! of 1.
+  !
+ !return_value = nint( input_value )
+  !
+  ! Correct integer conversion function
+  !
+  return_value = ceiling( input_value )
+  !
+end function int_cutoff_function
 !
 !###############################################################################
 !
