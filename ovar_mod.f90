@@ -404,6 +404,7 @@ module ovar
   !
   ! CGNS OUTPUT OPTIONS
   logical(lk), public, save :: convert_restart_to_cgns = fals
+  logical(lk), public, save :: delete_converted_restart_files = fals
   logical(lk), public, save :: completely_disable_cgns = fals
   logical(lk), public, save :: interpolate_before_output_variable = true
   !
@@ -1089,6 +1090,7 @@ module input_namelist_mod
   use ovar,      only : channel_grid_ave_xplus, channel_grid_ave_zplus
   use ovar,      only : channel_grid_ave_yplus, channel_grid_yplus_wall
   use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
+  use ovar,      only : delete_converted_restart_files
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
   use ovar,      only : bc_input!,bc_input_t
   use ovar,      only : output_time_averaging, time_ave_file
@@ -1301,7 +1303,8 @@ module input_namelist_mod
   namelist / input / walls_are_exact, sub_inflow_method, use_bc_conflicts
   ! CGNS OUTPUT OPTIONS
   namelist / input / cgns_use_queue, interpolate_before_output_variable, &
-                     convert_restart_to_cgns, completely_disable_cgns
+                     convert_restart_to_cgns, completely_disable_cgns, &
+                     delete_converted_restart_files
   ! CONVERGENCE CRITERIA
   namelist / input / convergence_order_abs_res, convergence_order_max_res
   ! PROFILE PARALLEL IO
