@@ -1138,7 +1138,7 @@ end subroutine write_solution_parallel_cgns
 !
 !###############################################################################
 !
-pure &
+!pure &
 subroutine get_num_cgns_variables(char_sname,npvar)
   !
   !.. Use Statements ..
@@ -1158,6 +1158,8 @@ subroutine get_num_cgns_variables(char_sname,npvar)
   character(len=*), parameter :: pname = "get_num_cgns_variables"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Count the total number of solution variables that will be written
   ! and allocate isvar_s accordingly
@@ -1244,6 +1246,8 @@ continue
       npvar = npvar + 1
     end if
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_num_cgns_variables
 !
