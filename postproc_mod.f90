@@ -17,6 +17,7 @@ module postprocessor_mod
   ! ##################################
   !
   public :: new_write_parallel_cgns
+  public :: convert_restart_files_to_continuous_cgns
   !
   !
   ! ################################
@@ -243,6 +244,160 @@ module postprocessor_mod
   end interface
   !
 contains
+!
+!###############################################################################
+!
+subroutine convert_restart_files_to_continuous_cgns()
+  !
+  !.. Use Statements ..
+  use ovar,           only : restart_list_file,restart_file
+  use ovar,           only : output_time_averaging,read_time_ave_restart
+  use ovar,           only : ave_start_time,prev_ave_time
+  use ovar,           only : time,itcur,tmrst,itrst
+  use ovar,           only : time_ref,time_scaling_factor
+  use restart_mod,    only : read_restart_file
+  !
+  !.. Local Scalars ..
+  integer  :: ierr,io,n
+  real(wp) :: out_time
+  !
+  character(len=150) :: fname
+  character(len=150) :: text
+  !
+  !.. Local Allocatable Arrays ..
+  character(len=100), allocatable :: restart_file_list(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: &
+                              pname = "convert_restart_files_to_continuous_cgns"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Write out the CGNS grid file and first solution file using
+  ! using the restart file provided in the input file
+  !
+  if (mypnum == glb_root) then
+    out_time = time*time_ref*time_scaling_factor
+    if (output_time_averaging) then
+      out_time = out_time - ave_start_time*time_ref*time_scaling_factor
+    end if
+    write (iout,3) out_time
+  end if
+  !
+  call new_write_parallel_cgns(open_CGNS)
+  !
+  if (len_trim(adjustl(restart_list_file)) == 0) then
+    write (error_message,5)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  !###############################################
+  !################    FOR NOW    ################
+  !###############################################
+  !
+  ! Disable reading in of a time averaged restart files and
+  ! writing the CGNS time averaged solution files
+  !
+  read_time_ave_restart = fals
+  output_time_averaging = fals
+  !
+  !###############################################
+  !###############################################
+  !###############################################
+  !
+  ! Read in the list of restart files that will be averaged
+  !
+  fname = trim(adjustl(restart_list_file))
+  !
+  open (newunit=io,file=fname,status="old",action="read", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Count the number of restart files given in the list of files
+  !
+  n = 0
+  do
+    read (io,1,iostat=ierr,iomsg=error_message) text
+    if (ierr < 0) then
+      exit
+    else if (ierr > 0) then
+      call io_error(pname,fname,-1,__LINE__,__FILE__,ierr,error_message)
+    else
+      n = n + 1
+    end if
+  end do
+  !
+  rewind (io)
+  !
+  ! Allocate the arrays for storing the file names from the list of files
+  !
+  allocate ( restart_file_list(1:n) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"restart_file_list",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  ! Read the file names from the list of files
+  !
+  do n = 1,size(restart_file_list)
+    read (io,1,iostat=ierr,iomsg=error_message) restart_file_list(n)
+    call io_error(pname,fname,-1,__LINE__,__FILE__,ierr,error_message)
+  end do
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Loop over the list of files to read each restart
+  ! file and write out a CGNS solution file
+  !
+  do n = 1,size(restart_file_list)
+    !
+    restart_file = trim(adjustl(restart_file_list(n)))
+    !
+    if (mypnum == glb_root) then
+      write (iout,2) trim(adjustl(restart_file))
+    end if
+    !
+    call read_restart_file
+    !
+    time = tmrst
+    itcur = itrst
+    !
+    if (mypnum == glb_root) then
+      out_time = time*time_ref*time_scaling_factor
+      if (output_time_averaging) then
+        out_time = out_time - ave_start_time*time_ref*time_scaling_factor
+      end if
+      write (iout,3) out_time
+    end if
+    !
+    if (n == size(restart_file_list)) then
+      call new_write_parallel_cgns(close_CGNS)
+    else
+      call new_write_parallel_cgns(add_to_CGNS)
+    end if
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  write (error_message,4)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  !
+  ! Format Statements
+  !
+  1 format (a)
+  2 format (/,4x,"Working on restart file '",a,"'",/, &
+              8x,"Reading the restart file")
+  3 format (/,2x,"Creating CGNS solution file from restart file at ", &
+                 "tstar = ",f10.4,/)
+  4 format ("STOPPING EXECUTION AFTER CONVERTING THE LIST OF ", &
+            "RESTART FILES TO CGNS SOLUTION FILES!")
+  5 format ("STOPPING EXECUTION AFTER CONVERTING THE RESTART ", &
+            "FILE TO A CGNS SOLUTION FILE!")
+  !
+  !
+end subroutine convert_restart_files_to_continuous_cgns
 !
 !###############################################################################
 !
