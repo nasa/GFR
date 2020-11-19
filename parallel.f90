@@ -7256,7 +7256,7 @@ continue
         !               Partition A | This partition
         !                           |
         !
-        if (any(node(glb_node)%cpu%partition == my_part)) then
+        if (any(node(glb_node)%cpu(:)%partition == my_part)) then
           n = n + 1
         end if
       end if
@@ -7309,7 +7309,7 @@ continue
     glb_edge = edge_map(my_part)%loc_to_glb(loc_edge)
     if (allocated(edge(glb_edge)%cpu)) then
       if (size(edge(glb_edge)%cpu) > 1) then
-        if (any(edge(glb_edge)%cpu%partition == my_part)) then
+        if (any(edge(glb_edge)%cpu(:)%partition == my_part)) then
           n = n + 1
         end if
       end if
@@ -7406,15 +7406,15 @@ continue
   !
   ! Initialize the min/max edge/node indices
   !
-  rnmin =  huge(0)
-  remin =  huge(0)
-  rnmax = -huge(0)
-  remax = -huge(0)
+  rnmin(:) =  huge(0)
+  remin(:) =  huge(0)
+  rnmax(:) = -huge(0)
+  remax(:) = -huge(0)
   !
   ! Create an array that identifies all processors that the current processor
   ! needs to communicate with and are of a higher CPU rank
   !
-  cpu_msk = fals
+  cpu_msk(:) = fals
   !
   ! First, find the communication required for nodes while also creating an
   ! offset array for the number of node points that lie on a partition boundary
@@ -7630,9 +7630,9 @@ continue
   !       dimension of comm_pair because each pair contains that many
   !       pieces of information when collecting comm_pair
   !
-  cpu_nums = cpu_nums * size(comm_pair,dim=1,kind=int_mpi)
+  cpu_nums(:) = cpu_nums(:) * size(comm_pair,dim=1,kind=int_mpi)
   !
-  cpu_disp = 0_int_mpi
+  cpu_disp(:) = 0_int_mpi
   do n = 2,ncpu
     cpu_disp(n) = cpu_disp(n-1) + cpu_nums(n-1)
   end do
