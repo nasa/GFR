@@ -7785,10 +7785,10 @@ end subroutine write_tecplot_file
 !
 !###############################################################################
 !
-subroutine write_cell_points(iunit,nep,cell_points_ptr,cell_points)
+subroutine write_cell_points(io,nep,cell_points_ptr,cell_points)
   !
   !.. Formal Arguments ..
-  integer,            intent(inout) :: iunit
+  integer,            intent(inout) :: io
   integer,               intent(in) :: nep
   integer, dimension(:), intent(in) :: cell_points_ptr
   integer, dimension(:), intent(in) :: cell_points
@@ -7811,11 +7811,11 @@ continue
   do n = 1,size(cell_points_ptr)-1
     n1 = cell_points_ptr(n)+1
     n2 = cell_points_ptr(n+1)
-   !write (iunit,1) n,(cell_points(i),i=n1,n2)
-    write (iunit,map_fmt) n,(cell_points(i),i=n1,n2)
+   !write (io,1) n,(cell_points(i),i=n1,n2)
+    write (io,map_fmt) n,(cell_points(i),i=n1,n2)
   end do
   !
-  iunit = iunit + 1
+  io = io + 1
   !
   call debug_timer(leaving_procedure,pname)
 #endif
