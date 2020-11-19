@@ -116,7 +116,7 @@ continue
   ! using the restart file provided in the input file
   !
   if (mypnum == glb_root) then
-    write (iout,2) trim(adjustl(restart_file))
+    write (iout,2) trim(adjustl(restart_file)),1,1
   end if
   !
   if (mypnum == glb_root) then
@@ -234,7 +234,7 @@ continue
     restart_file = trim(adjustl(restart_file_list(n)))
     !
     if (mypnum == glb_root) then
-      write (iout,2) trim(adjustl(restart_file))
+      write (iout,2) trim(adjustl(restart_file)),n,size(restart_file_list)
     end if
     !
     call read_restart_file
@@ -277,7 +277,7 @@ continue
   !
   1 format (a)
   2 format (/,3(1x,100("#"),/),/, &
-              3x,"Working on restart file '",a,"'",//, &
+              3x,"Working on restart file '",a,"' (",i3," of ",i3,")",//, &
               3(1x,100("#"),/),/, &
               4x,"Reading the restart file")
   3 format (/,1x,81("-"),/, &
