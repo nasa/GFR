@@ -6207,7 +6207,8 @@ end function plot_func_type_equals
 !
 !###############################################################################
 !
-pure function compute_output_variables(upt,gppt,dupt) result(return_value)
+pure &
+function compute_output_variables(upt,gppt,dupt) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: upt(:)
@@ -6230,8 +6231,9 @@ end function compute_output_variables
 !
 !###############################################################################
 !
-pure function compute_output_variable(upt,gppt,dupt,plot_variable) &
-                               result(return_value)
+pure &
+function compute_output_variable(upt,gppt,dupt,plot_variable) &
+                                 result(return_value)
   !
   !.. Use Statements ..
   use ovar,    only : rhoref,aref,tref,time_ref,gam,pref_nd,itestcase
@@ -7553,7 +7555,8 @@ end subroutine find_cells_on_each_face
 !
 !###############################################################################
 !
-pure function vorticity_dusp(cv,gp,dcvdx,dir) result(return_value)
+pure &
+function vorticity_dusp(cv,gp,dcvdx,dir) result(return_value)
   !
   use gpu_mod, only : grad_cv_to_grad_pv_gpu
   !
