@@ -3750,17 +3750,6 @@ continue
   ! to the grid_xyz and grid_elem arrays, and save the necessary size
   ! information into the array_sizes array.
   !
-#ifdef DEBUG_HOST_HANG
-  if (i_am_host_root) then
-    write (iout,100) mypnum,"b) before root_packs_grid_dt, before mpi_barrier"
-    call mpi_barrier(host_roots_comm,mpierr)
-    write (iout,100) mypnum, &
-            "c) before root_packs_grid_dt, after  mpi_barrier",mpierr
-  end if
-#endif
-  100 format (" CPU # ",i4.4," : ",a,:,"  mpierr=",i0)
-  101 format (" CPU # ",i4.4," : ",a,:,i0)
-  102 format (a," : size=",i0,",   storage_size=",i0)
   if (mypnum == glb_root) then
     !
     call root_packs_grid_dt(grid_elem,grid_xyz,grid)
@@ -3771,19 +3760,6 @@ continue
     array_sizes(4) = size(grid%elem)
     !
   end if
-#ifdef DEBUG_HOST_HANG
-  if (i_am_host_root) then
-    if (mypnum == glb_root) then
-      write (iout,102) "grid_elem",size(grid_elem),storage_size(grid_elem)
-      write (iout,102) "grid_xyz ",size(grid_xyz),storage_size(grid_xyz)
-      flush (iout)
-    end if
-    write (iout,100) mypnum,"d) after  root_packs_grid_dt, before mpi_barrier"
-    call mpi_barrier(host_roots_comm,mpierr)
-    write (iout,100) mypnum, &
-            "e) after  mpi_barrier, before mpi_bast(array_sizes)",mpierr
-  end if
-#endif
   !
   ! Broadcast the array_sizes array to all host roots
   !
@@ -3795,12 +3771,6 @@ continue
  !    call mpi_bcast(array_sizes,n,mpi_inttyp,glb_root,host_roots_comm,mpierr)
  !  end if
  !end if
-#ifdef DEBUG_HOST_HANG
-  if (i_am_host_root) then
-    write (iout,100) mypnum, &
-            "f) after  mpi_bast(array_sizes), before allocation",mpierr
-  end if
-#endif
   !
   ! Allocate the grid_elem array on the non-root processes
   ! so it can be received from the root process.
@@ -3811,24 +3781,10 @@ continue
     call alloc_error(pname,"grid_elem",1,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-#ifdef DEBUG_HOST_HANG
-  if (i_am_host_root) then
-    write (iout,100) mypnum,"g) after  allocation, before mpi_bast(grid_elem)"
-  end if
-#endif
   !
   ! Broadcast the grid_elem array to all host roots
   !
   n = size(grid_elem,kind=int_mpi)
- !if (mypnum == glb_root .or. mypnum == 1064 .or. mypnum == 1092) then
- !  write (iout,101) mypnum,"array_sizes(1) = ",array_sizes(1)
- !  write (iout,101) mypnum,"array_sizes(2) = ",array_sizes(2)
- !  write (iout,101) mypnum,"array_sizes(3) = ",array_sizes(3)
- !  write (iout,101) mypnum,"array_sizes(4) = ",array_sizes(4)
- !  write (iout,101) mypnum,"size(grid_elem) = ",size(grid_elem)
- !  write (iout,101) mypnum,"size(grid_xyz,dim=1) = ",size(grid_xyz,dim=1)
- !  write (iout,101) mypnum,"size(grid_xyz,dim=2) = ",size(grid_xyz,dim=2)
- !end if
   if (use_all_processors) then
     call mpi_bcast(grid_elem,n,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
     if (.not. i_am_host_root) then
@@ -3840,12 +3796,6 @@ continue
       call mpi_bcast(grid_elem,n,mpi_inttyp,glb_root,host_roots_comm,mpierr)
     end if
   end if
-#ifdef DEBUG_HOST_HANG
-  if (i_am_host_root) then
-    write (iout,100) mypnum, &
-            "h) after  mpi_bcast(grid_elem), before mpi_bast(grid_xyz)",mpierr
-  end if
-#endif
   !
   ! Allocate the grid_xyz array on the non-root processes
   ! so it can be received from the root process.
@@ -4018,12 +3968,6 @@ continue
    !call mpi_bcast(grid_xyz,n,mpi_flttyp,glb_root,host_roots_comm,mpierr)
     call mpi_bcast(grid_xyz,size(grid_xyz,dim=2,kind=int_mpi), &
                    xyz_block_type,glb_root,host_roots_comm,mpierr)
-#ifdef DEBUG_HOST_HANG
-    if (i_am_host_root) then
-      write (iout,100) mypnum, &
-              "i) after  mpi_bcast(grid_xyz), before unpack_grid_dt",mpierr
-    end if
-#endif
   end if
   !
   ! Have all host roots unpack the grid_elem and grid_xyz arrays
@@ -4034,11 +3978,6 @@ continue
   !
   if (i_am_host_root) then
     call unpack_grid_dt(array_sizes(4),grid_elem,grid_xyz,grid)
-#ifdef DEBUG_HOST_HANG
-    write (iout,100) mypnum,"j) after unpack_grid_dt, before mpi_barrier"
-    call mpi_barrier(host_roots_comm,mpierr)
-    write (iout,100) mypnum,"k) after unpack_grid_dt, after mpi_barrier",mpierr
-#endif
   end if
   !
   ! The local allocatable arrays grid_xyz and grid_elem should
