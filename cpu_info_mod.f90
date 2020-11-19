@@ -96,6 +96,11 @@ continue
   !
   if (ncpu == 1) return
   !
+  my_host_comm = MPI_COMM_NULL
+  my_cpu_comm = MPI_COMM_NULL
+  host_roots_comm = MPI_COMM_NULL
+  cpu_roots_comm = MPI_COMM_NULL
+  !
   ! Get the host name for each processor
   !
   all_host_num = init_array(ncpu,0) ! F2003 AUTO-REALLOC
@@ -304,6 +309,10 @@ continue
   key = mypnum
   call mpi_comm_split(MPI_COMM_WORLD,color,key,host_roots_comm,mpierr)
   !
+ !if (.not. i_am_host_root) then
+ !  host_roots_comm = MPI_COMM_NULL
+ !end if
+  !
   ! If the current process is the root process for a host (e.g. NAS Node),
   ! get the total number of processes and the local rank
   ! of this process within the host_roots_comm communicator
@@ -445,6 +454,10 @@ continue
 ! end if
   key = mypnum
   call mpi_comm_split(MPI_COMM_WORLD,color,key,cpu_roots_comm,mpierr)
+  !
+ !if (.not. i_am_cpu_root) then
+ !  cpu_roots_comm = MPI_COMM_NULL
+ !end if
   !
   ! If the current process is the root process for a physical
   ! cpu, get the total number of processes and the local rank
