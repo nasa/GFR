@@ -799,7 +799,7 @@ continue
   !
   cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
   !
-  ! Open the CGNS solution file if iflag is 1
+  ! Open the CGNS solution file
   !
   call cgns_timer(start_cgns_file_timer,profile_io_cgns_subs,cgns_sol_file)
   !
@@ -808,7 +808,7 @@ continue
   call io_error(pname,cgns_sol_file,1,__LINE__,__FILE__,cgierr)
   call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
   !
-  ! Set the CGNS base (who knows what this is for)
+  ! Create the CGNS base for this solution
   !
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_base_write_f")
@@ -819,7 +819,7 @@ continue
   call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_base_write_f")
   !
-  ! Write the title for this solution
+  ! Write the zone information for this solution
   !
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_zone_write_f")
