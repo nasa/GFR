@@ -5007,15 +5007,15 @@ continue
     !
     ! Create the initial indices for the face points of this cell
     !
-    cell_pts(face_pt) = nop1 + map(this_geom,this_order)%fp
+    cell_pts(face_pt(1:nfp)) = nop1 + map(this_geom,this_order)%fp
     !
     ! Create the initial indices for the edge points of this cell
     !
-    cell_pts(edge_pt) = nop1 + map(this_geom,this_order)%ep
+    cell_pts(edge_pt(1:nep)) = nop1 + map(this_geom,this_order)%ep
     !
     ! Create the initial indices for the node points of this cell
     !
-    cell_pts(node_pt) = nop1 + map(this_geom,this_order)%np
+    cell_pts(node_pt(1:nnp)) = nop1 + map(this_geom,this_order)%np
     !
     ! Adjust cell_pts for the offset of this processor
     !
