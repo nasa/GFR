@@ -363,10 +363,29 @@ continue
             !
           case (Geom_Hexa)
             !
-            filter(this_geom,this_order)%limiter%mat = &
-               FilterMatrix_Hexa( vand(this_geom,this_order)%modal2nodal%mat , &
-                                  vand(this_geom,this_order)%nodal2modal%mat , &
-                                  cutoff_order=-1 )
+            if (output_filter_diagonals .and. mypnum == glb_root) then
+              !
+              filter(this_geom,this_order)%limiter%mat = &
+               FilterMatrix_Hexa_with_output( vand(this_geom,this_order)% &
+                                                             modal2nodal%mat , &
+                                              vand(this_geom,this_order)% &
+                                                             nodal2modal%mat , &
+                                                   cutoff_order=-1 )
+              write (io,800) "Hexa Limiter Filter"
+              if (Limiter_Filter_Option == 0) write (io,802)
+              do j = npts,1,-1
+                write (io,801) (filter(this_geom,this_order)% &
+                                                     limiter%mat(i,j), i=1,npts)
+              end do
+              !
+            else
+              !
+              filter(this_geom,this_order)%limiter%mat = &
+                 FilterMatrix_Hexa( vand(this_geom,this_order)%modal2nodal%mat , &
+                                    vand(this_geom,this_order)%nodal2modal%mat , &
+                                    cutoff_order=-1 )
+              !
+            end if
 #ifdef SPECIAL_OUTPUT_SPARSITY
             write (array_name,10) "hexa",this_order,"lim"
             call output_sparsity( filter(this_geom,this_order)%limiter , &
@@ -2294,6 +2313,250 @@ continue
 #endif
   !
 end function FilterMatrix_Hexa
+!
+!###############################################################################
+!
+function FilterMatrix_Hexa_with_output(vand,vand_inv,cutoff_order) &
+                                result(return_value)
+  !
+#ifdef SPECIAL_FOR_INTEL
+  !.. Use Statements ..
+  use blas95, only : gemm
+#endif
+  !
+  ! Routine to compute the spectral filter matrices
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: vand
+  real(wp), dimension(:,:), intent(in) :: vand_inv
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: cutoff_order
+  !
+  !.. Function Return Value ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,l,np,nsp,order
+  integer  :: Filter_Cutoff,ierr
+  integer  :: local_Filter_Option
+  integer  :: filt_order
+  real(qp) :: rd_qp,fetac_qp
+  real(qp) :: rn_qp,falpha_qp
+  real(qp) :: feps_qp
+  real(wp) :: a
+  integer  :: num_zeros
+  !
+  !.. Local Arrays ..
+  real(qp), allocatable :: filter_1D_qp(:)
+  real(qp), allocatable :: filt_diag_qp(:)
+  real(qp), allocatable :: fmat_qp(:,:)
+  real(wp), allocatable :: filt_diag(:)
+  real(wp), allocatable :: fmat(:,:)
+  !
+continue
+  !
+  ! Get the number of solution points
+  !
+  nsp = size(vand,dim=1)
+  order = solpts2order_hexa(nsp)
+  np = order+1
+ !np = nint( real(nsp,kind=wp)**one3 )
+ !order = np-1
+  !
+  ! Covert Filter_Alpha and Filter_etac to quad precision
+  !
+  falpha_qp = real( Filter_Alpha , kind=qp )
+  !
+  filt_order = Filter_Order
+  !
+  if (present(cutoff_order)) then
+    if (cutoff_order >= 0) then
+      local_Filter_Option = Cutoff_Filter_Option
+      i = merge(3,1,local_Filter_Option==2)
+      Filter_Cutoff = i*cutoff_order
+      fetac_qp = real(Filter_Cutoff,kind=qp) / real(i*order,kind=qp)
+      feps_qp = qzero
+    else if (cutoff_order == -2) then
+      fetac_qp = real( Sponge_Filter_etac , kind=qp )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Sponge_Filter_etac)) * &
+                        real(order,kind=wp) )
+      local_Filter_Option = 1
+      feps_qp = qone
+      falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
+      filt_order = Sponge_Filter_Order
+    else
+      fetac_qp = real( Limiter_Filter_etac , kind=qp )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Limiter_Filter_etac)) * &
+                        real(order,kind=wp) )
+      local_Filter_Option = Limiter_Filter_Option
+      feps_qp = real( one - Limiter_Filter_eps , kind=qp )
+      falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
+      filt_order = Limiter_Filter_Order
+    end if
+  else
+    fetac_qp  = real( Filter_etac , kind=qp )
+    Filter_Cutoff = int_cutoff_function( &
+                      max(zero,min(one,Filter_etac)) * &
+                      real(order,kind=wp) )
+    local_Filter_Option = Filter_Option
+    feps_qp = real( one - Filter_eps , kind=qp )
+  end if
+  !
+  ! Allocate the return array containing the working
+  ! precision filter matrix
+  !
+  allocate ( return_value(1:nsp,1:nsp) , source=zero , stat=ierr )
+  !
+  ! Create the filter matrix using quad precision
+  !
+  allocate ( filt_diag_qp(1:nsp) , source=qzero , stat=ierr )
+  !
+  ! Initialize the local filter matrices to identity matrices
+  !
+  do i = 1,nsp
+    filt_diag_qp(i) = qone
+  end do
+  !
+  ! Compute the filter diagonal for hexahedrals
+  !
+  if (local_Filter_Option == 1) then
+    !
+    ! Option 1 - Tensor product of the 1D filter
+    !           (Equivalent to using a 1D filter in each direction)
+    !
+    ! Allocate the 1D filter vector and set all its values to one
+    !
+    allocate ( filter_1D_qp(1:np) , source=qone , stat=ierr )
+    !
+    ! First get the 1D filter diagonal
+    !
+    do i = 0,order
+      if (i >= Filter_Cutoff) then
+        !
+        rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
+        rd_qp = max( qzero , qone - fetac_qp )
+        !
+        if (rd_qp == qzero) then
+          filter_1D_qp(i+1) = feps_qp
+        else
+          filter_1D_qp(i+1) = feps_qp * &
+                              exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
+        end if
+        !
+      end if
+    end do
+    !
+    ! Now fill the filter diagonal for hexes
+    !
+    do k = 0,order
+      do j = 0,order
+        do i = 0,order
+          !
+          l = np*np*k + np*j + i + 1
+          !
+          filt_diag_qp(l) = filter_1D_qp(i+1) * &
+                            filter_1D_qp(j+1) * &
+                            filter_1D_qp(k+1)
+          !
+        end do
+      end do
+    end do
+    !
+  else if (local_Filter_Option == 2) then
+    !
+    ! Option 2 - The hex basis functions actually contains cross polynomial
+    !            terms up to order 3*p (as opposed to just 1*p for simplexes).
+    !            This filter applies the cut-off frequency based on 3*p as
+    !            opposed to basing it on just p in 1D like Option 1.
+    !
+    do k = 0,order
+      do j = 0,order
+        do i = 0,order
+          !
+          if (i+j+k >= Filter_Cutoff) then
+            !
+            l = np*np*k + np*j + i + 1
+            !
+            rn_qp = real(i+j+k-Filter_Cutoff,kind=qp)
+            rd_qp = max( qzero , real(3*order-Filter_Cutoff,kind=qp) )
+            !
+            if (rd_qp == qzero) then
+              filt_diag_qp(l) = feps_qp
+            else
+              filt_diag_qp(l) = feps_qp * &
+                                exp(-falpha_qp*(rn_qp/rd_qp)**filt_order)
+            end if
+            !
+          end if
+          !
+        end do
+      end do
+    end do
+    !
+  end if
+  !
+  if (local_Filter_Option /= 0) then
+    !
+    if (mypnum == glb_root) then
+      if (present(cutoff_order)) then
+        if (cutoff_order == -1) then
+          write (io,102)
+          102 format (/,"Diagonal for hexa limiter filter")
+        else
+          write (io,101) order+1-(Filter_cutoff)
+          101 format (/,"Diagonal for hexa cutoff filter for P-",i0)
+        end if
+      else
+        write (io,103)
+        103 format (/,"Diagonal for hexa standard filter")
+      end if
+      do k = 0,order
+        do j = 0,order
+          do i = 0,order
+            l = np*np+k + np*j + i + 1
+            write (io,100) i,j,k,filt_diag_qp(l)
+          end do
+        end do
+      end do
+      100 format (2x,i2,1x,i2,1x,i2,4x,es14.6)
+    end if
+    !
+  end if
+  !
+  ! Compute the final filter matrix for hexahedrals
+  !
+#ifdef SPECIAL_FOR_INTEL
+  !
+  allocate ( fmat(1:nsp,1:nsp) , source=zero , stat=ierr )
+  !
+  filt_diag = chop( filt_diag_qp(:) ) ! F2003 AUTO-REALLOCATION
+  !
+  do j = 1,nsp
+    do i = 1,nsp
+      fmat(i,j) = vand(i,j)*filt_diag(j)
+    end do
+  end do
+  !
+  call gemm(fmat,vand_inv,return_value)
+  !
+#else
+  !
+  fmat_qp = real(vand,kind=qp) * & ! F2003 AUTO-REALLOCATION
+            spread(filt_diag_qp,dim=1,ncopies=size(vand,dim=1))
+ !fmat_qp = matmul( real(vand,kind=qp) , fmat_qp )
+  fmat_qp = matmul( fmat_qp , real(vand_inv,kind=qp) )
+  !
+  ! Use the chop function to copy fmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( fmat_qp )
+  !
+#endif
+  !
+end function FilterMatrix_Hexa_with_output
 !
 !###############################################################################
 !
