@@ -4,7 +4,7 @@ program GFR_main
   use, intrinsic :: ieee_exceptions
 #endif
   !
-  use module_kind_types
+  use module_kind_types, global_debug_timer => debug_timer
   !
   use geovar, only : ncell,n_global_cell
   use geovar, only : nnode,n_global_node
@@ -2207,6 +2207,13 @@ continue
   20 format ("After dumping memory usage")
   !
 end subroutine report_memory_usage
+!
+!###############################################################################
+!
+!!#define PROFILE_ON
+#include "Functions/debug_timer.f90"
+!
+!###############################################################################
 !
 end program GFR_main
 !

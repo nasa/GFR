@@ -38,7 +38,8 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/turb_inflow_mod.o \
          $(OBJDIR)/cpu_info_mod.o \
          $(OBJDIR)/interpsol_mod.o \
-         $(OBJDIR)/mydebug_mod.o
+         $(OBJDIR)/mydebug_mod.o \
+         $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/averaging_mod.o : averaging_mod.f90 \
                   $(OBJDIR)/kind_types.o \
