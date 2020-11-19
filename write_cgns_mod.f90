@@ -85,6 +85,7 @@ subroutine convert_restart_files_to_cgns()
   use ovar,          only : ave_start_time,prev_ave_time
   use ovar,          only : time,itcur,tmrst,itrst
   use ovar,          only : time_ref,time_scaling_factor
+  use ovar,          only : delete_converted_restart_files
   use geovar,        only : n_solpts
   use flowvar,       only : usp,gpsp
   use restart_mod,   only : read_restart_file
@@ -264,6 +265,20 @@ continue
       call write_parallel_cgns(close_CGNS)
     else
       call write_parallel_cgns(add_to_CGNS)
+    end if
+    !
+    if (delete_converted_restart_files) then
+      if (mypnum == glb_root) then
+        !
+        open (newunit=io,file=restart_file,status="old",action="readwrite", &
+                         access="stream",form="unformatted", &
+                         iostat=ierr,iomsg=error_message)
+        call io_error(pname,restart_file,1,__LINE__,__FILE__,ierr,error_message)
+        !
+        close (io,status="delete",iostat=ierr,iomsg=error_message)
+        call io_error(pname,restart_file,2,__LINE__,__FILE__,ierr,error_message)
+        !
+      end if
     end if
     !
   end do
