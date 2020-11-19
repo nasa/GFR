@@ -570,6 +570,7 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/turb_inflow_mod.o \
                 $(FUNDIR)/cell_solpts.f90 \
                 $(FUNDIR)/sort.f90 \
+                $(FUNDIR)/debug_timer.f90 \
                           mpi_defs.h
 
 $(OBJDIR)/thermo_mod.o : thermo_mod.f90 \
