@@ -5095,10 +5095,10 @@ continue
                      error_message)
   end if
   !
-  if (ncpu == 1) then
-    ! debug_unit = 160
+!%if (ncpu == 1) then
+    debug_unit = 110 + mypnum + merge(1,0,ncpu>1)
     call write_cell_points(debug_unit,omin+1,cell_points_ptr,cell_points)
-  end if
+!%end if
   !
   !###########################################################################
   !###########################################################################
@@ -5110,10 +5110,44 @@ continue
   !###########################################################################
   !###########################################################################
   !
+!% ###########################################################################
+!% ###########################################################################
+!% ###########################################################################
+!%
+!%             POSSIBLE THAT PARALLEL ERRORS ARE CREATED HERE
+!%
+!%             ||||||||||||||||||||||||||||||||||||||||||||||
+!%             VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
+!%
+!% ###########################################################################
+!% ###########################################################################
+!% ###########################################################################
+  !
+  debug_unit = 120 + mypnum + merge(1,0,ncpu>1)
+  call write_node_edge_face_dt(debug_unit,nodeusp_dt,nodedusp_dt, &
+                               edgeusp_dt,edgedusp_dt,faceusp_dt)
+  !
   if (ncpu > 1) then
     call exch_connectivity(nodeusp_dt,nodedusp_dt, &
                            edgeusp_dt,edgedusp_dt,faceusp_dt)
   end if
+  !
+  debug_unit = 130 + mypnum + merge(1,0,ncpu>1)
+  call write_node_edge_face_dt(debug_unit,nodeusp_dt,nodedusp_dt, &
+                               edgeusp_dt,edgedusp_dt,faceusp_dt)
+  !
+!% ###########################################################################
+!% ###########################################################################
+!% ###########################################################################
+!%
+!%             AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+!%             ||||||||||||||||||||||||||||||||||||||||||||||
+!%
+!%             POSSIBLE THAT PARALLEL ERRORS ARE CREATED HERE
+!%
+!% ###########################################################################
+!% ###########################################################################
+!% ###########################################################################
   !
   !##########################################################################
   !##########################################################################
@@ -5227,10 +5261,10 @@ continue
     !
   end do
   !
-  if (ncpu == 1) then
-    ! debug_unit = 161
+!%if (ncpu == 1) then
+    debug_unit = 140 + mypnum + merge(1,0,ncpu>1)
     call write_cell_points(debug_unit,omin+1,cell_points_ptr,cell_points)
-  end if
+!%end if
   !
   !#############################################################################
   !#############################################################################
@@ -5421,10 +5455,10 @@ continue
                            cell_points(n) )
   end do
   !
-  if (ncpu == 1) then
-    ! debug_unit = 162
+!%if (ncpu == 1) then
+    debug_unit = 150 + mypnum + merge(1,0,ncpu>1)
     call write_cell_points(debug_unit,omin+1,cell_points_ptr,cell_points)
-  end if
+!%end if
   !
   msk = init_array(n_total_output_pts,fals) ! F2003 AUTO-REALLOC
   !
@@ -5566,7 +5600,7 @@ continue
   ! TEMPORARY DEBUG STUFF
   ! TEMPORARY DEBUG STUFF
   ! TEMPORARY DEBUG STUFF
-  if (ncpu == 1) then
+!%if (ncpu == 1) then
     nsp = (omin+1)**3
     nfp = (omin+1)**2
     nep = (omin+1)
@@ -5574,9 +5608,9 @@ continue
                                       size(edgeusp_dt)*nep + &
                                       size(nodeusp_dt)
     write (iout,40) loc_n_my_output_pts
-    ! debug_unit = 163
+    debug_unit = 160 + mypnum + merge(1,0,ncpu>1)
     call write_cell_points(debug_unit,omin+1,cell_points_ptr,cell_points)
-  end if
+!%end if
   !
   n1 = minval( cell_points , mask=(cell_points>0) )
   n2 = maxval( cell_points , mask=(cell_points>0) )
