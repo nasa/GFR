@@ -278,6 +278,10 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  ! First deallocate any arrays that wont be needed
+  !
+  call deallocate_solver_arrays()
+  !
   ! Write out the CGNS grid file and first solution file using
   ! using the restart file provided in the input file
   !
