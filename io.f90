@@ -7028,7 +7028,8 @@ end subroutine write_final_error
 subroutine write_residual_file(iflag,icount)
   !
   use geovar,    only : nr,n_global_solpts
-  use ovar,      only : work_units,uverr,total_volume
+  use ovar,      only : elapsed_wall_time,work_units
+  use ovar,      only : uverr,total_volume
   use ovar,      only : time,time_ref,time_scaling_factor
   use ovar,      only : output_time_averaging,ave_start_time
   use ovar,      only : itestcase
@@ -7133,10 +7134,11 @@ continue
     write (iores,2) "p" // trim(suffix)
     write (iores,2) "||V||" // trim(suffix)
     if (write_work_units) then
-      write (iores,2) "Work units",'"'
+      write (iores,2) "Work units" // '",'
     else
-      write (iores,2) "Time",'"'
+      write (iores,2) "Time" // '",'
     end if
+    write (iores,2) "Wall Time",'"'
     !
     write (iores,4) p_order, one/sqrt(real(n_global_solpts,kind=wp))
     !
@@ -7245,7 +7247,8 @@ continue
     v2(nmz) = uverr(nmz,2,2)
   end if
   !
-  write (iores,5) icount,(u2(i),i=1,nq+1), (v2(i),i=1,nq+1), comp_cost
+  write (iores,5) icount,(u2(i),i=1,nq+1), (v2(i),i=1,nq+1), &
+                  comp_cost, elapsed_wall_time
   flush (iores)
   !
 #ifdef OUTPUT_LINF_AND_L1_RESIDUALS
