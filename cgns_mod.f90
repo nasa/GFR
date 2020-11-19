@@ -5463,6 +5463,15 @@ continue
   nocsz = grid_size(5)
   nbcnm = grid_size(6)
   !
+  if (mypnum == glb_root) then
+    write (iout,1001) "size(bface)     = ",nbfai*nfbnd, &
+                      "size(noc_ptr)   = ",ncell+1, &
+                      "size(noc)       = ",nocsz, &
+                      "size(xyz_nodes) = ",nr*nnode, &
+                      "size(bc_names)  = ",nbcnm
+  end if
+  1001 format (/,5(2x,a,i0,/))
+  !
   ! Have all the non-root processors allocate the arrays
   !
   if (mypnum /= glb_root) then
