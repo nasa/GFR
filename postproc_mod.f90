@@ -4944,7 +4944,7 @@ continue
   !###########################################################################
   !###                                                                     ###
   !###  3. Loop through the cells on this partition and find the indices   ###
-  !###     for the output points of each cell and use the node and edge    ###
+  !###     for the output points of each cell.    Use the node and edge    ###
   !###     mask arrays that were just allocated to make sure that we only  ###
   !###     assign a point index for the first node or edge point found     ###
   !###     for the nodes and edges with multiple colocated points and      ###
@@ -5049,7 +5049,7 @@ continue
       do kf = 1,edge_order+1
         !
         lf = cell(nc)%edge(n)%ep_offset + merge( edge_order+2-kf , kf , &
-                                                cell(nc)%edge(n)%rev_dir )
+                                                 cell(nc)%edge(n)%rev_dir )
         !
         edgeusp_dt(ne)%v(1,kf) = real( cell_pts( edge_pt(lf) ) , kind=wp )
         !
@@ -5199,7 +5199,7 @@ continue
       do kf = 1,edge_order+1
         !
         lf = cell(nc)%edge(n)%ep_offset + merge( edge_order+2-kf , kf , &
-                                                cell(nc)%edge(n)%rev_dir)
+                                                 cell(nc)%edge(n)%rev_dir )
         !
         cell_pts( edge_pt(lf) ) = nint( edgeusp_dt(ne)%v(1,kf) , &
                                         kind=kind(cell_pts) )
@@ -5323,6 +5323,15 @@ continue
     write (error_message,13)
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
+!% ###########################################################################
+!% ###########################################################################
+!% ###########################################################################
+!%
+!%      STOPPED HERE DEBUGGING PARALLEL CONTINUOUS OUTPUT
+!%
+!% ###########################################################################
+!% ###########################################################################
+!% ###########################################################################
   !
   !############################################################################
   !############################################################################
@@ -5567,18 +5576,24 @@ continue
     ! debug_unit = 163
     call write_cell_points(debug_unit,omin+1,cell_points_ptr,cell_points)
   end if
+  !
   n1 = minval( cell_points , mask=(cell_points>0) )
   n2 = maxval( cell_points , mask=(cell_points>0) )
+  !
   allocate ( msk(n1:n2) , source=fals , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
+  !
   do n = 1,size(cell_points)
     if (cell_points(n) > 0) then
       msk(cell_points(n)) = true
     end if
   end do
+  !
   loc_n_my_output_pts = count(msk)
+  !
   deallocate ( msk , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+  !
   write (iout,41) loc_n_my_output_pts
   ! TEMPORARY DEBUG STUFF
   ! TEMPORARY DEBUG STUFF
