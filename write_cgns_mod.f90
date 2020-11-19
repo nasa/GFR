@@ -55,6 +55,8 @@ module write_cgns_mod
   character(len=*), parameter :: base_name = "gfr_base"
   character(len=*), parameter :: zone_name = "Solution"
   !
+  character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
+  !
   !.. CGNS Parallel Point Indices ..
   integer(CST), save :: n_my_output_pts
   integer(CST), save :: my_pts_beg
@@ -487,7 +489,6 @@ subroutine write_parallel_cgns_grid_file()
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_grid_file"
-  character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
   !
 continue
   !
@@ -758,7 +759,6 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_solution_file"
-  character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
   character(len=*), parameter :: char_ijk(1:3) = ["Xi  ","Eta ","Zeta"]
   !
   !.. Local Scalars ..
