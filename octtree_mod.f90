@@ -27,6 +27,7 @@ module octtree_mod
   use module_kind_types, only : mypnum,mpi_wtime,iout,zero
   use module_kind_types, only : gfr_timer
   use module_kind_types, only : glb_root
+  use module_kind_types, only : uppercase ! needed for Functions/debug_timer.f90
   use octstat_mod
   use octroot_mod
   use octedat_mod
