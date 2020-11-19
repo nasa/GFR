@@ -565,7 +565,11 @@ continue
     !
   else if (itestcase == THX_Phase_3) then
     !
-    call thx_sem_initialization(prof,pvavg,bc_idx_prof,xyz,cv)
+    if (size(bc_idx_prof) >= 2) then
+      call thx_sem_initialization(prof,pvavg,bc_idx_prof,xyz,cv)
+    else
+      call thx_sem_plenum_initialization(prof,pvavg,bc_idx_prof,xyz,cv)
+    end if
     !
   else
     !
