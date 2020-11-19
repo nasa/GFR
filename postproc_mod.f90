@@ -1845,7 +1845,7 @@ continue
     !
     do n = np1,np2
       !
-      k = output_sol_pts(n)
+      k = output_sol_pts(n) - my_pts_beg + 1
       !
       do m = 1,nq
         cv(k,m) = usp(n,m)
@@ -1874,7 +1874,7 @@ continue
     !
     do n = 1,size(output_face_pts(nf)%out_idx)
       !
-      k = output_face_pts(nf)%out_idx(n)
+      k = output_face_pts(nf)%out_idx(n) - my_pts_beg + 1
       !
       do m = 1,nq
         cv(k,m) = faceusp_dt(face_idx)%v(m,n,1)
@@ -1905,7 +1905,7 @@ continue
     !
     do n = 1,size(output_edge_pts(ne)%out_idx)
       !
-      k = output_edge_pts(ne)%out_idx(n)
+      k = output_edge_pts(ne)%out_idx(n) - my_pts_beg + 1
       !
       do m = 1,nq
         cv(k,m) = edgeusp_dt(edge_idx)%v(m,n)
@@ -1934,7 +1934,7 @@ continue
     !
     node_idx = output_node_pts(nn)%node_idx
     !
-    k = output_node_pts(nn)%out_idx
+    k = output_node_pts(nn)%out_idx - my_pts_beg + 1
     !
     do m = 1,nq
       cv(k,m) = nodeusp_dt(node_idx)%v(m)
