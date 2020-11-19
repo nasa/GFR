@@ -318,15 +318,27 @@ continue
   !
   gridfile = trim(adjustl(input_gridfile))
   !
+  if (mypnum == glb_root) then
+    write (iout,*) "calling cgp_mpi_comm_f"
+    flush (iout)
+  end if
+  call debug_timer(start_timer,"calling cgp_mpi_comm_f")
   call cgp_mpi_comm_f(mpi_comm_self_val,cgierr)
  !call cgns_error(pname,gridfile,"cgp_mpi_comm_f",cgierr,__LINE__,__FILE__)
+  call debug_timer(stop_timer,"calling cgp_mpi_comm_f")
   !
   ! Open the grid file
   !
+  if (mypnum == glb_root) then
+    write (iout,*) "calling cgp_open_f"
+    flush (iout)
+  end if
+  call debug_timer(start_timer,"calling cgp_open_f")
   call cgp_open_f(trim(adjustl(gridfile)),CG_MODE_READ,if_g,cgierr)
   if (debug_cgns) write (*,1) mypnum,"opened CGNS grid file"
   call cgns_error(pname,gridfile,"cgp_open_f",cgierr, &
                   __LINE__,__FILE__,"Mode = CG_MODE_READ")
+  call debug_timer(stop_timer,"calling cgp_open_f")
   !
   ! Have only the root processor read in the data from the CGNS grid file
   !
