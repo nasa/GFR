@@ -1,6 +1,7 @@
 module postprocessor_mod
   !
 !!#define DEBUG_POST_PROCESSOR
+!#define VERBOSE_MPI
   !
   !.. Global Use Statements ..
   use module_kind_types
@@ -567,13 +568,25 @@ continue
 #ifndef SPECIAL_FOR_PGI
   !
   if (profile_io_cgns) then
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_barrier",__LINE__,__FILE__
+#endif
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_barrier",__LINE__,__FILE__
+#endif
     if (mypnum == glb_root) then
       write (iout,1) pname
       flush (iout)
       beg_wall_time = mpi_wtime()
     end if
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_barrier",__LINE__,__FILE__
+#endif
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_barrier",__LINE__,__FILE__
+#endif
   end if
   !
   cgns_grid_file = trim(adjustl(cgns_dir)) // cgns_grid_fname
@@ -770,14 +783,26 @@ continue
   call cgns_timer(stop_cgns_file_timer,profile_io_cgns_subs,cgns_grid_file)
   !
   if (profile_io_cgns) then
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_barrier",__LINE__,__FILE__
+#endif
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_barrier",__LINE__,__FILE__
+#endif
     if (mypnum == glb_root) then
       end_wall_time = mpi_wtime()
       cgns_wall_time = end_wall_time - beg_wall_time
       write (iout,2) pname,trim(adjustl(cgns_grid_file)),cgns_wall_time
       flush (iout)
     end if
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_barrier",__LINE__,__FILE__
+#endif
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_barrier",__LINE__,__FILE__
+#endif
   end if
   !
 #endif
@@ -847,13 +872,25 @@ continue
 #ifndef SPECIAL_FOR_PGI
   !
   if (profile_io_cgns) then
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_barrier",__LINE__,__FILE__
+#endif
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_barrier",__LINE__,__FILE__
+#endif
     if (mypnum == glb_root) then
       write (iout,1) pname
       flush (iout)
       beg_wall_time = mpi_wtime()
     end if
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_barrier",__LINE__,__FILE__
+#endif
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_barrier",__LINE__,__FILE__
+#endif
   end if
   !
   ! Get the list of variables that will be written to the CGNS solution file
@@ -1045,7 +1082,13 @@ continue
   end if
   !
   if (profile_io_cgns) then
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_barrier",__LINE__,__FILE__
+#endif
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_barrier",__LINE__,__FILE__
+#endif
     if (mypnum == glb_root) then
       end_wall_time = mpi_wtime()
       cgns_wall_time = end_wall_time - beg_wall_time
@@ -1053,7 +1096,13 @@ continue
       write (iout,2) pname,trim(adjustl(cgns_sol_file)),cgns_wall_time
       flush (iout)
     end if
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_barrier",__LINE__,__FILE__
+#endif
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_barrier",__LINE__,__FILE__
+#endif
   end if
   !
 #endif
@@ -4748,9 +4797,15 @@ continue
   !
   if (ncpu > 1) then
    !call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_allgather",__LINE__,__FILE__
+#endif
     call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_INTEGER, &
                        cpu_mxpts,1_int_mpi,mpi_inttyp, &
                        MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_allgather",__LINE__,__FILE__
+#endif
   end if
   !
   ! Create the point offset for this processor
@@ -5196,8 +5251,14 @@ continue
   ! Reduce the maximum value of bad_indices across all processors
   !
   if (ncpu > 1) then
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_allreduce",__LINE__,__FILE__
+#endif
     call mpi_allreduce(MPI_IN_PLACE,bad_indices,1_int_mpi,mpi_inttyp, &
                        MPI_MAX,MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_allreduce",__LINE__,__FILE__
+#endif
   end if
   !
   ! Abort execution if bad_indices was non-zero on any processor
@@ -5227,8 +5288,14 @@ continue
   ! Collectively find the maximum point index from all processors
   !
   if (ncpu > 1) then
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_allreduce",__LINE__,__FILE__
+#endif
     call mpi_allreduce(MPI_IN_PLACE,mxpt,1_int_mpi,mpi_inttyp, &
                        MPI_MAX,MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_allreduce",__LINE__,__FILE__
+#endif
   end if
   !
   ! Allocate the array to mark the points on each processor that still remain
@@ -5254,8 +5321,14 @@ continue
   ! Collectively reduce the remaining points on all processors
   !
   if (ncpu > 1) then
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_allreduce",__LINE__,__FILE__
+#endif
     call mpi_allreduce(MPI_IN_PLACE,remaining_pts,int(mxpt,kind=int_mpi), &
                        mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_allreduce",__LINE__,__FILE__
+#endif
   end if
   !
   ! Convert remaining_pts into an array that maps a point index in cell_points
@@ -5331,8 +5404,14 @@ continue
         remaining_pts(:) = unpack( intseq(ibeg,iend) , mask=msk , field=0 )
       end if
       !
+#ifdef VERBOSE_MPI
+      write (iout,dbg_mpi_frmt) mypnum,"before mpi_bcast",__LINE__,__FILE__
+#endif
       call mpi_bcast(remaining_pts,size(remaining_pts,kind=int_mpi), &
                      mpi_inttyp,this_cpu,MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+      write (iout,dbg_mpi_frmt) mypnum," after mpi_bcast",__LINE__,__FILE__
+#endif
       !
       if (mypnum == this_cpu) then
         do i = 1,size(cell_points)
@@ -5371,11 +5450,23 @@ continue
       end if
     end do
     !
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_barrier",__LINE__,__FILE__
+#endif
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_barrier",__LINE__,__FILE__
+#endif
     do n = 1,ncpu
       !
       flush (iout)
+#ifdef VERBOSE_MPI
+      write (iout,dbg_mpi_frmt) mypnum,"before mpi_barrier",__LINE__,__FILE__
+#endif
       call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+      write (iout,dbg_mpi_frmt) mypnum," after mpi_barrier",__LINE__,__FILE__
+#endif
       if (mypnum == int(n-1,kind=int_mpi)) then
         write (iout,31) mypnum,minval(remaining_pts)
         write (iout,32) mypnum,maxval(remaining_pts)
@@ -5387,7 +5478,13 @@ continue
         if (n == ncpu) write (iout,38)
       end if
       flush (iout)
+#ifdef VERBOSE_MPI
+      write (iout,dbg_mpi_frmt) mypnum,"before mpi_barrier",__LINE__,__FILE__
+#endif
       call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+      write (iout,dbg_mpi_frmt) mypnum," after mpi_barrier",__LINE__,__FILE__
+#endif
       !
     end do
     !
@@ -5678,8 +5775,14 @@ continue
   ! Reduce the maximum value of bad_indices across all processors
   !
   if (ncpu > 1) then
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_allreduce",__LINE__,__FILE__
+#endif
     call mpi_allreduce(MPI_IN_PLACE,bad_indices,1_int_mpi,mpi_inttyp, &
                        MPI_MAX,MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_allreduce",__LINE__,__FILE__
+#endif
   end if
   !
   ! Dump some error messages and abort execution
@@ -5745,13 +5848,25 @@ continue
   !
   if (ncpu > 1) then
    !call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_allgather",__LINE__,__FILE__
+#endif
     call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_INTEGER, &
                        cpu_mxpts,1_int_mpi,mpi_inttyp, &
                        MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_allgather",__LINE__,__FILE__
+#endif
    !call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum,"before mpi_allgather",__LINE__,__FILE__
+#endif
     call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_INTEGER, &
                        cpu_subcells,1_int_mpi,mpi_inttyp, &
                        MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+    write (iout,dbg_mpi_frmt) mypnum," after mpi_allgather",__LINE__,__FILE__
+#endif
   end if
   !
   my_pts_beg = sum( cpu_mxpts(1:mypnum) ) + 1
@@ -7515,9 +7630,21 @@ continue
   ! Broadcast the value of cgns_dir to all the non-root MPI processes
   !
   clen = len_trim(cgns_dir)
+#ifdef VERBOSE_MPI
+  write (iout,dbg_mpi_frmt) mypnum,"before mpi_bcast",__LINE__,__FILE__
+#endif
   call mpi_bcast(clen,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+  write (iout,dbg_mpi_frmt) mypnum," after mpi_bcast",__LINE__,__FILE__
+#endif
+#ifdef VERBOSE_MPI
+  write (iout,dbg_mpi_frmt) mypnum,"before mpi_bcast",__LINE__,__FILE__
+#endif
   call mpi_bcast(cgns_dir(1:clen),int(clen,kind=int_mpi),MPI_CHARACTER, &
                  0_int_mpi,MPI_COMM_WORLD,mpierr)
+#ifdef VERBOSE_MPI
+  write (iout,dbg_mpi_frmt) mypnum," after mpi_bcast",__LINE__,__FILE__
+#endif
   !
   ! Create the format string for creating the CGNS file names
   !
