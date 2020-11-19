@@ -163,7 +163,7 @@ continue
   !
   ! Write the solution file
   !
-  if (output_time_averaging) then
+  if (output_time_averaging .and. iflag /= -3) then
     call write_parallel_cgns_time_ave_file
   end if
   !
