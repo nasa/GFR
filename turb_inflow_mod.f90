@@ -893,6 +893,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  pipe_prof = 0
+  nozzle_prof = 0
+  !
   do iprof = 1,size(bc_idx_prof)
     !
     idx = bc_in(bc_idx_prof(iprof))%bc_input_idx
@@ -906,6 +909,15 @@ continue
     end if
     !
   end do
+  !
+  if (pipe_prof == 0) then
+    error_message = "Unable to find SEM profile for the pipe/injector!"
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  if (nozzle_prof == 0) then
+    error_message = "Unable to find SEM profile for the nozzle!"
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
   !
   ! Allocate the array for identifying which section
   ! of the grid each solution point is in.
