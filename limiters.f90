@@ -23,6 +23,8 @@ module module_limiters
   public :: check_cell_thermo_properties
   public :: check_face_thermo_properties
   public :: apply_sponge_filter
+  public :: deallocate_marker
+  public :: deallocate_scaled_marker
   !
   !
   !.. Module Local Scalars ..
@@ -4943,6 +4945,53 @@ continue
   end if
   !
 end subroutine jump_indicator
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+subroutine deallocate_marker(caller_name)
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: caller_name
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+continue
+  !
+  if (allocated(marker)) then
+    deallocate ( marker , stat=ierr , errmsg=error_message )
+    call alloc_error(caller_name,"marker",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+end subroutine deallocate_marker
+!
+!###############################################################################
+!
+subroutine deallocate_scaled_marker(caller_name)
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: caller_name
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+continue
+  !
+  if (allocated(scaled_marker)) then
+    deallocate ( scaled_marker , stat=ierr , errmsg=error_message )
+    call alloc_error(caller_name,"scaled_marker",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+end subroutine deallocate_scaled_marker
 !
 !###############################################################################
 !###############################################################################
