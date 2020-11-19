@@ -439,6 +439,11 @@ continue
     call mpi_bcast(epart,int(lcell,kind=int_mpi),mpi_inttyp, &
                    glb_root,host_roots_comm,mpierr)
     !
+    if (continuous_output) then
+      call output_continuous_grid(xyz_nodes,nodes_of_cell,nodes_of_cell_ptr, &
+                                  face,nodes_on_edge,epart)
+    end if
+    !
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call mpi_bcast(n_global_face,1_int_mpi,mpi_inttyp, &
@@ -2177,6 +2182,79 @@ continue
   2 format (a," = ",i0)
   !
 end subroutine output_value
+!
+!###############################################################################
+!
+subroutine output_continuous_grid(xyz_nodes,noc,noc_ptr,face,noe,epart)
+  !
+  real(wp), intent(in) :: xyz_nodes(:,:)
+  integer, intent(in) :: noc(:)
+  integer, intent(in) :: noc_ptr(:)
+  type(face_t), intent(in) :: face(:)
+  integer, intent(in) :: noe(:,:)
+  integer(idx_t), intent(in) :: epart(:)
+  !
+  integer :: n,nn,ne,nc,nf,n1,n2,io,ierr
+  integer :: lnode,lcell,lface,ledge
+  !
+continue
+  !
+  if (mypnum /= glb_root) return
+  !
+  lnode = size(xyz_nodes,dim=2)
+  lcell = size(epart)
+  lface = size(face)
+  ledge = size(noe,dim=2)
+  !
+  if (lcell > 32) return
+  !
+  open (newunit=io,file="continuous_grid.dat",status="replace", &
+                   action="write",iostat=ierr)
+  !
+  write (io,*) lnode
+  do nn = 1,lnode
+    write (io,1) (xyz_nodes(n,nn), n=1,size(xyz_nodes,dim=1))
+  end do
+  !
+  write (io,*)
+  !
+  write (io,*) lcell
+  do nc = 1,lcell
+    n1 = noc_ptr(nc)+1
+    n2 = noc_ptr(nc+1)
+    write (io,2) (noc(n), n=n1,n2)
+  end do
+  !
+  write (io,*)
+  !
+  write (io,*) lface
+  do nf = 1,lface
+    if (face(nf)%nodes(4) == 0) then
+      write (io,2) (face(nf)%nodes(n), n=1,3), face(nf)%nodes(3)
+    else
+      write (io,2) (face(nf)%nodes(n), n=1,4)
+    end if
+  end do
+  !
+  write (io,*)
+  !
+  write (io,*) ledge
+  do ne = 1,ledge
+    write (io,2) noe(1,ne),noe(2,ne)
+  end do
+  !
+  write (io,*)
+  !
+  do nc = 1,lcell
+    write (io,2) epart(nc)
+  end do
+  !
+  close (io,iostat=ierr)
+  !
+  1 format (3(2x,es14.6))
+  2 format (8i4)
+  !
+end subroutine output_continuous_grid
 !
 !###############################################################################
 !
