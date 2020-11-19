@@ -547,6 +547,9 @@ module geovar
   !                  from the restart file.
   !
   type(map_t), public, save, allocatable :: cell_map(:)
+  type(map_t), public, save, allocatable :: face_map(:)
+  type(map_t), public, save, allocatable :: edge_map(:)
+  type(map_t), public, save, allocatable :: node_map(:)
   !
 contains
 !
