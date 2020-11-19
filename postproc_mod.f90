@@ -1,7 +1,8 @@
 module postprocessor_mod
   !
 #ifdef DEBUG_ON
-!!#define DEBUG_POST_PROCESSOR
+!#define DEBUG_POST_PROCESSOR
+#define DEBUG_WRITE_CELL_POINTS
 #endif
 !#define VERBOSE_MPI
   !
@@ -7803,7 +7804,7 @@ subroutine write_cell_points(io,nep,cell_points_ptr,cell_points)
   !
 continue
   !
-#ifdef DEBUG_POST_PROCESSOR
+#ifdef DEBUG_WRITE_CELL_POINTS
   call debug_timer(entering_procedure,pname)
   !
   write (map_fmt,1) (nep,i=1,6)
