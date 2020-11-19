@@ -1702,6 +1702,8 @@ subroutine get_output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use module_limiters, only : marker,scaled_marker
   use module_limiters, only : resolution_indicator
   use module_limiters, only : jump_indicator
+  use module_limiters, only : deallocate_marker
+  use module_limiters, only : deallocate_scaled_marker
   !
   use thermo_mod, only : rspec
   use thermo_mod, only : compute_mixture_rgas
