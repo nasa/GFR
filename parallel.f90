@@ -2340,7 +2340,7 @@ continue
   !
   !
   ! Allocate the array to store the partitions numbers for all cells with a
-  ! given node/edge, and the array to store the BCs those boundary faces
+  ! given node/edge, and the array to store the BCs for those boundary faces
   ! with a given node/edge.
   !
   n = max(n1,n2)
@@ -7441,8 +7441,9 @@ continue
         !
       else
         !
-        ! This is a node is on an adjacent processor so update the
+        ! This node is on an adjacent processor so update the
         ! min and max node index used to allocate recv_node_map
+        ! NOTE: node(:)%cpu(:)%loc_node is filled in create_node_map
         !
         rnmin(node_part) = min( rnmin(node_part) , &
                                 node(glb_node)%cpu(i)%loc_node )
@@ -7528,6 +7529,7 @@ continue
         !
         ! This is an edge on an adjacent processor so update the
         ! min and max edge index used to allocate recv_edge_map
+        ! NOTE: node(:)%cpu(:)%loc_edge is filled in create_edge_map
         !
         remin(edge_part) = min( remin(edge_part) , &
                                 edge(glb_edge)%cpu(i)%loc_edge )
@@ -7684,6 +7686,15 @@ continue
   call alloc_error(pname,"comm_pair",2,__LINE__,__FILE__,ierr,error_message)
   call debug_timer(stop_timer,"section 5d")
   call debug_timer(start_timer,"section 6: pair_loop")
+!% #############################################################################
+!% #############################################################################
+!% #############################################################################
+!%
+!%      STOPPED HERE FOR DEBUGGING PARALLEL CONTINUOUS OUTPUT
+!%
+!% #############################################################################
+!% #############################################################################
+!% #############################################################################
   !
   ! Allocate all the arrays needed for creating
   ! the send and receive node and edge maps
