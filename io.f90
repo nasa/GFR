@@ -7121,9 +7121,15 @@ continue
     end if
     !
     write (iores,2) "T" // trim(suffix)
-    do i = 1,nr
-      write (iores,2) uvw(i) // trim(suffix)
-    end do
+    if (abs(itestcase) == THX_Phase_3) then
+      write (iores,2) "Nozzle mdot" // '",'
+      write (iores,2) "Injector mdot" // '",'
+      write (iores,2) "Blowing Ratio" // '",'
+    else
+      do i = 1,nr
+        write (iores,2) uvw(i) // trim(suffix)
+      end do
+    end if
     write (iores,2) "p" // trim(suffix)
     write (iores,2) "||V||" // trim(suffix)
     if (write_work_units) then
