@@ -327,6 +327,75 @@ continue
  !call cgns_error(pname,gridfile,"cgp_mpi_comm_f",cgierr,__LINE__,__FILE__)
   call debug_timer(stop_timer,"calling cgp_mpi_comm_f")
   !
+! if (mypnum == glb_root) then
+!   write (iout,*) "calling cgp_pio_mode_f"
+!   flush (iout)
+! end if
+! call debug_timer(start_timer,"calling cgp_pio_mode_f")
+! call cgp_pio_mode_f(CGP_INDEPENDENT,cgierr)
+!!call cgns_error(pname,gridfile,"cgp_pio_mode_f",cgierr,__LINE__,__FILE__)
+! call debug_timer(stop_timer,"calling cgp_pio_mode_f")
+! !
+! call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+#define ONLY_GLB_ROOT_OPENS_CGNS_GRIDFILE
+#ifdef ONLY_GLB_ROOT_OPENS_CGNS_GRIDFILE
+  !
+  ! Open the grid file
+  !
+  if (mypnum == glb_root) then
+    !
+    if (mypnum == glb_root) then
+      write (iout,*) "calling cgp_open_f"
+      flush (iout)
+    end if
+    call debug_timer(start_timer,"calling cgp_open_f")
+    call cgp_open_f(trim(adjustl(gridfile)),CG_MODE_READ,if_g,cgierr)
+    if (debug_cgns) write (*,1) mypnum,"opened CGNS grid file"
+    call cgns_error(pname,gridfile,"cgp_open_f",cgierr, &
+                    __LINE__,__FILE__,"Mode = CG_MODE_READ",not_parallel=true)
+    call debug_timer(stop_timer,"calling cgp_open_f")
+    !
+    ! Have only the root processor read in the data from the CGNS grid file
+    !
+    ! Get the precision of the grid file
+    !
+    call cg_precision_f(if_g,grid_precision,cgierr)
+    call cgns_error(pname,gridfile,"cg_precision_f",cgierr, &
+                    __LINE__,__FILE__,not_parallel=true)
+    if (debug_cgns) then
+      write (iout,1) mypnum, &
+                     "The CGNS grid file was written using a precision of ", &
+                     grid_precision
+    end if
+    !
+    ! Read the number of bases
+    !
+    call cg_nbases_f(if_g,nbases,cgierr)
+    call cgns_error(pname,gridfile,"cg_nbases_f",cgierr, &
+                    __LINE__,__FILE__,not_parallel=true)
+    !
+    ! Allocate the base array
+    !
+    allocate ( base(1:nbases) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"base",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    do ib_g = 1,size(base)
+      if (debug_cgns) write (iout,1) mypnum,"reading CGNS base node #",ib_g
+      call read_cgns_base( base(ib_g) )
+    end do
+    !
+    ! We are done reading the grid file so close it
+    !
+    call cgp_close_f(if_g,cgierr)
+    if (debug_cgns) write (*,1) mypnum,"closed CGNS grid file"
+    call cgns_error(pname,gridfile,"cgp_close_f",cgierr,__LINE__,__FILE__, &
+                    not_parallel=true)
+    !
+  end if
+  !
+#else
+  !
   ! Open the grid file
   !
   if (mypnum == glb_root) then
@@ -379,11 +448,19 @@ continue
   if (debug_cgns) write (*,1) mypnum,"closed CGNS grid file"
   call cgns_error(pname,gridfile,"cgp_close_f",cgierr,__LINE__,__FILE__)
   !
+#endif
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
   ! Reset the MPI communicator for CGNS back to MPI_COMM_WORLD
   !
   call cgp_mpi_comm_f(mpi_comm_world_val,cgierr)
  !call cgns_error(pname,gridfile,"cgp_mpi_comm_f",cgierr,__LINE__,__FILE__)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+! call cgp_pio_mode_f(CGP_COLLECTIVE,cgierr)
+!!call cgns_error(pname,gridfile,"cgp_pio_mode_f",cgierr,__LINE__,__FILE__)
+! call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   !
   !
