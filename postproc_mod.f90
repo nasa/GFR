@@ -1621,6 +1621,8 @@ subroutine collect_coordinates_for_output(var)
   !
   !.. Local Allocatable Arrays ..
   type(face_xyz), allocatable :: temp_facexyz(:)
+  integer, allocatable :: edge_pts(:)
+  integer, allocatable :: face_pts(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "collect_coordinates_for_output"
@@ -1629,19 +1631,30 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+ !write (iout,1000) "size(xyz,dim=1) = ",size(xyz,dim=1)
+ !write (iout,1000) "size(xyz,dim=2) = ",size(xyz,dim=2)
+ !write (iout,1000) "size(var,dim=1) = ",size(var,dim=1)
+ !write (iout,1000) "size(var,dim=2) = ",size(var,dim=2)
+ !write (iout,1000) "size(output_sol_pts) = ",size(output_sol_pts)
+ !write (iout,1000) "minval(output_sol_pts) = ",minval(output_sol_pts)
+ !write (iout,1000) "maxval(output_sol_pts) = ",maxval(output_sol_pts)
+ !write (iout,1000) "n_my_output_pts = ",n_my_output_pts
+ !write (iout,1000) "my_pts_beg = ",my_pts_beg
+ !write (iout,1000) "my_pts_end = ",my_pts_end
+ !1000 format (2x,a,i0)
   cell_loop: do nc = 1,ncell
     !
     np1 = cell(nc)%beg_sp
     np2 = cell(nc)%end_sp
     !
 #ifdef DEBUG_POST_PROCESSOR
-    write (170,1) nc
+    write (1000+mypnum,1) nc
 #endif
     do n = np1,np2
       !
       l = output_sol_pts(n)
 #ifdef DEBUG_POST_PROCESSOR
-      write (170,2) n,l,(xyz(nn,n), nn=1,size(var,dim=1))
+      write (1000+mypnum,2) n,l,(xyz(nn,n), nn=1,size(var,dim=1))
 #endif
       !
       var(:,l) = xyz(:,n)
@@ -1659,20 +1672,36 @@ continue
   8 format ("    NP ",i0," => ",i0,"  : ",3es14.6)
   !
   !
+ !l = 0
+ !do nf = 1,size(output_face_pts)
+ !  l = l + size(output_face_pts(nf)%out_idx)
+ !end do
+ !face_pts = init_array(l,0) ! F2003 AUTO-REALLOC
+ !l = 0
+ !do nf = 1,size(output_face_pts)
+ !  do k = 1,size(output_face_pts(nf)%out_idx)
+ !    l = l + 1
+ !    face_pts(l) = output_face_pts(nf)%out_idx(k)
+ !  end do
+ !end do
+ !write (iout,1000) "size(output_face_pts) = ",size(face_pts)
+ !write (iout,1000) "minval(output_face_pts) = ",minval(face_pts)
+ !write (iout,1000) "maxval(output_face_pts) = ",maxval(face_pts)
+ !deallocate ( face_pts )
   !
   face_loop: do nf = 1,size(output_face_pts)
     !
     face_idx = output_face_pts(nf)%face_idx
     !
 #ifdef DEBUG_POST_PROCESSOR
-    write (170,3) face_idx
+    write (1000+mypnum,3) face_idx
 #endif
     do k = 1,size(output_face_pts(nf)%out_idx)
       !
       l = output_face_pts(nf)%out_idx(k)
       !
 #ifdef DEBUG_POST_PROCESSOR
-      write (170,4) k,l,(facexyz_dt(face_idx)%v(n,k), n=1,size(var,dim=1))
+      write (1000+mypnum,4) k,l,(facexyz_dt(face_idx)%v(n,k), n=1,size(var,dim=1))
 #endif
       var(:,l) = facexyz_dt(face_idx)%v(:,k)
       !
@@ -1681,20 +1710,36 @@ continue
   end do face_loop
   !
   !
+ !l = 0
+ !do ne = 1,size(output_edge_pts)
+ !  l = l + size(output_edge_pts(ne)%out_idx)
+ !end do
+ !edge_pts = init_array(l,0) ! F2003 AUTO-REALLOC
+ !l = 0
+ !do ne = 1,size(output_edge_pts)
+ !  do k = 1,size(output_edge_pts(ne)%out_idx)
+ !    l = l + 1
+ !    edge_pts(l) = output_edge_pts(ne)%out_idx(k)
+ !  end do
+ !end do
+ !write (iout,1000) "size(output_edge_pts) = ",size(edge_pts)
+ !write (iout,1000) "minval(output_edge_pts) = ",minval(edge_pts)
+ !write (iout,1000) "maxval(output_edge_pts) = ",maxval(edge_pts)
+ !deallocate ( edge_pts )
   !
   edge_loop: do ne = 1,size(output_edge_pts)
     !
     edge_idx = output_edge_pts(ne)%edge_idx
     !
 #ifdef DEBUG_POST_PROCESSOR
-    write (170,5) edge_idx
+    write (1000+mypnum,5) edge_idx
 #endif
     do k = 1,size(output_edge_pts(ne)%out_idx)
       !
       l = output_edge_pts(ne)%out_idx(k)
       !
 #ifdef DEBUG_POST_PROCESSOR
-      write (170,6) k,l,(edgexyz_dt(edge_idx)%v(n,k), n=1,size(var,dim=1))
+      write (1000+mypnum,6) k,l,(edgexyz_dt(edge_idx)%v(n,k), n=1,size(var,dim=1))
 #endif
       var(:,l) = edgexyz_dt(edge_idx)%v(:,k)
       !
@@ -1703,9 +1748,12 @@ continue
   end do edge_loop
   !
   !
+ !write (iout,1000) "size(output_node_pts) = ",size(output_node_pts(:))
+ !write (iout,1000) "minval(output_node_pts) = ",minval(output_node_pts(:)%out_idx)
+ !write (iout,1000) "maxval(output_node_pts) = ",maxval(output_node_pts(:)%out_idx)
   !
 #ifdef DEBUG_POST_PROCESSOR
-  write (170,7)
+  write (1000+mypnum,7)
 #endif
   node_loop: do nn = 1,size(output_node_pts)
     !
@@ -1714,7 +1762,7 @@ continue
     l = output_node_pts(nn)%out_idx
     !
 #ifdef DEBUG_POST_PROCESSOR
-    write (170,8) node_idx,l,(xyz_nodes(n,node_idx), n=1,size(var,dim=1))
+    write (1000+mypnum,8) node_idx,l,(xyz_nodes(n,node_idx), n=1,size(var,dim=1))
 #endif
     var(:,l) = xyz_nodes(:,node_idx)
     !
