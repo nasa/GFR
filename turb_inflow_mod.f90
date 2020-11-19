@@ -998,16 +998,23 @@ continue
     !
     iprof = init_grp(k)
     !
+    ! If iprof is zero, this point should be initialized to free stream
+    ! conditions which was already done at the beginning of this subroutine.
+    !
+    if (iprof == 0) cycle init_loop
+    !
     ! Determine the wall distance based on which
     ! section of the grid this point is in
+    !
+    ! Get the location of this solution point in native grid units
+    !
+    xp = xyz(1,k)/grid_scaling_factor
+    yp = xyz(2,k)/grid_scaling_factor
+    zp = xyz(3,k)/grid_scaling_factor
     !
     if (iprof == pipe_prof) then
       !
       ! This point is in the pipe section
-      !
-      xp = xyz(1,k)/grid_scaling_factor
-      yp = xyz(2,k)/grid_scaling_factor
-      zp = xyz(3,k)/grid_scaling_factor
       !
       ! Get the turn angle of the pipe
       !
@@ -1050,9 +1057,51 @@ continue
       !
     else
       !
-      ! This point is in the nozzle or above the plate
+      ! Determine if this point is in the nozzle or above the plate
       !
-      y = xyz(2,k)
+      if (xp >= zero) then
+        !
+        ! This point is above the plate
+        !
+        y = xyz(2,k)
+        !
+        cos_theta = one
+        sin_theta = zero
+        !
+      else
+        !
+        ! This point is in the nozzle
+        !
+        ! Find which wall of the nozzle the current point is closest to
+        !
+        mywall = minloc(abs([yp,half_height-zp,height-yp,zp+half_height]),dim=1)
+        !
+        if (mywall == 1) then
+          ! Closest to bottom (y-min) wall
+          y = abs(xyz(2,k))
+          cos_theta = one
+          sin_theta = zero
+        else if (mywall == 2) then
+          ! Closest to right (z-max) wall
+         !y = abs(half_height*grid_scaling_factor - xyz(3,k))
+          y = abs(half_height - zp)*grid_scaling_factor
+          cos_theta = zero
+          sin_theta = one
+        else if (mywall == 3) then
+          ! Closest to top (y-max) wall
+         !y = abs(height*grid_scaling_factor - xyz(2,k))
+          y = abs(height - yp)*grid_scaling_factor
+          cos_theta = -one
+          sin_theta = zero
+        else if (mywall == 4) then
+          ! Closest to left (z-min) wall
+         !y = abs(xyz(3,k) - half_height*grid_scaling_factor)
+          y = abs(zp + half_height)*grid_scaling_factor
+          cos_theta = zero
+          sin_theta = -one
+        end if
+        !
+      end if
       !
     end if
     !
@@ -1120,8 +1169,8 @@ continue
     else
       !
       u = uu
-      v = vv
-      w = ww
+      v =  vv*cos_theta + ww*sin_theta
+      w = -vv*sin_theta + ww*cos_theta
       !
     end if
     !
