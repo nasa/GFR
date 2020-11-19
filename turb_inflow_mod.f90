@@ -614,6 +614,244 @@ end subroutine initialize_from_sem_profile
 !
 !###############################################################################
 !
+subroutine thx_sem_plenum_initialization(prof,pvavg,bc_idx_prof,xyz,cv)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd
+  use ovar, only : grid_scaling_factor
+  use ovar, only : bc_in,bc_input
+  !
+  !.. Formal Arguments ..
+  type(sem_profile_t), intent(in) :: prof(:)
+  real(wp),            intent(in) :: pvavg(:,:)
+  integer,             intent(in) :: bc_idx_prof(:)
+  real(wp),            intent(in) :: xyz(:,:)
+  real(wp),         intent(inout) :: cv(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,n1,n2,npts,idx,iprof
+  integer  :: nozzle_prof,mywall
+  real(wp) :: c1,c2,y,y1,y2,rlx_vel
+  real(wp) :: r,u,v,w,t,q,q2,uu,vv,ww
+  real(wp) :: rgas_over_gm1,ujet,uinf
+  real(wp) :: xp,yp,zp
+  real(wp) :: cos_theta,sin_theta
+  !
+  !.. Local Allocatable Arrays ..
+  character(len=:), allocatable :: prof_name
+  integer,          allocatable :: init_grp(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "thx_sem_plenum_initialization"
+  !
+  real(wp), parameter :: height = 2.68_wp
+  real(wp), parameter :: half_height = half*height
+  !
+  logical(lk), parameter :: using_constant_area_nozzle = true
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nozzle_prof = 0
+  !
+  do iprof = 1,size(bc_idx_prof)
+    !
+    idx = bc_in(bc_idx_prof(iprof))%bc_input_idx
+    !
+    prof_name = trim(adjustl(uppercase(bc_input(idx)%name))) ! F03 AUTO-REALLOC
+    !
+    if (prof_name == "INFLOWNOZZLE") then
+      nozzle_prof = iprof
+    end if
+    !
+  end do
+  !
+  if (nozzle_prof == 0) then
+    error_message = "Unable to find SEM profile for the nozzle!"
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Start by initializing everything to freestream
+  !
+  do k = 1,size(cv,dim=1)
+    cv(k,nec) = bc_in(0)%cv(nec)
+    cv(k,nmx) = bc_in(0)%cv(nmx)
+    cv(k,nmy) = bc_in(0)%cv(nmy)
+    cv(k,nmz) = bc_in(0)%cv(nmz)
+    cv(k,nee) = bc_in(0)%cv(nee)
+  end do
+  !
+  ! Allocate the array for identifying which section
+  ! of the grid each solution point is in.
+  !
+  init_grp = init_array(size(xyz,dim=2),0) ! F2003 AUTO-REALLOC
+  !
+  ! Find all the points that will be initialized to the nozzle SEM profile
+  !
+  do k = 1,size(xyz,dim=2)
+    !
+    yp = xyz(2,k)/grid_scaling_factor
+    zp = xyz(3,k)/grid_scaling_factor
+    !
+    if (yp >= -eps6 .and. yp <= (height+eps4)) then
+      if (zp > (-half_height-eps4) .and. zp < (half_height+eps4)) then
+        init_grp(k) = nozzle_prof
+      end if
+    end if
+    !
+  end do
+  !
+  ! Precompute Rgas/(gamma-1)
+  !
+  rgas_over_gm1 = rgasref_nd / (gam - one)
+  !
+  uinf = bc_in(0)%pv(nmx)
+  ujet = prof(nozzle_prof)%uavg( prof(nozzle_prof)%npts )
+  !
+  init_loop: &
+  do k = 1,size(xyz,dim=2)
+    !
+    iprof = init_grp(k)
+    !
+    ! If iprof is zero, this point should be initialized to free stream
+    ! conditions which was already done at the beginning of this subroutine.
+    !
+    if (iprof == 0) cycle init_loop
+    !
+    ! Determine the wall distance based on which
+    ! section of the grid this point is in
+    !
+    ! Get the location of this solution point in native grid units
+    !
+    xp = xyz(1,k)/grid_scaling_factor
+    yp = xyz(2,k)/grid_scaling_factor
+    zp = xyz(3,k)/grid_scaling_factor
+    !
+    ! Determine where this point is axially 
+    !
+    if (xp >= twelve) then
+      !
+      ! This point is beyond the plate
+      !
+      y = xyz(2,k)
+      !
+      cos_theta = one
+      sin_theta = zero
+      !
+      ! This sets the relaxation factor between the values 1 and uinf/ujet,
+      ! with xp=12 -> rlx_vel=1 and xp=48 -> rlx_vel=uinf/ujet.
+      !
+      rlx_vel = ( uinf*(xp-twelve) - ujet*(xp-four*twelve) ) / &
+                (ujet*three*twelve)
+      !
+    else if (xp >= zero) then
+      !
+      ! This point is above the plate
+      !
+      y = xyz(2,k)
+      !
+      cos_theta = one
+      sin_theta = zero
+      !
+      rlx_vel = one
+      !
+    else
+      !
+      ! This point is in the nozzle
+      !
+      ! Find which wall of the nozzle the current point is closest to
+      !
+      mywall = minloc(abs([yp,half_height-zp,height-yp,zp+half_height]),dim=1)
+      !
+      if (mywall == 1) then
+        ! Closest to bottom (y-min) wall
+        y = abs(xyz(2,k))
+        cos_theta = one
+        sin_theta = zero
+      else if (mywall == 2) then
+        ! Closest to right (z-max) wall
+        y = abs(half_height - zp)*grid_scaling_factor
+        cos_theta = zero
+        sin_theta = one
+      else if (mywall == 3) then
+        ! Closest to top (y-max) wall
+        y = abs(height - yp)*grid_scaling_factor
+        cos_theta = -one
+        sin_theta = zero
+      else if (mywall == 4) then
+        ! Closest to left (z-min) wall
+        y = abs(zp + half_height)*grid_scaling_factor
+        cos_theta = zero
+        sin_theta = -one
+      end if
+      !
+      rlx_vel = one
+      !
+    end if
+    !
+    ! Interpolate the primitive variables from the SEM profile
+    ! based on the wall distance of the current point
+    !
+    npts = prof(iprof)%npts
+    !
+    n1 = 1
+    n2 = 2
+    search_profile_loop: &
+    do n = 2,npts
+      if (prof(iprof)%y(n) > y) exit search_profile_loop
+      n1 = n
+      n2 = max(n+1,npts)
+    end do search_profile_loop
+    !
+    if (n1 == npts) then
+      !
+      r  = prof(iprof)%ravg(npts)
+      uu = prof(iprof)%uavg(npts)
+      vv = prof(iprof)%vavg(npts)
+      ww = prof(iprof)%wavg(npts)
+      t  = prof(iprof)%tavg(npts)
+      !
+    else
+      !
+      y1 = prof(iprof)%y(n1)
+      y2 = prof(iprof)%y(n2)
+      !
+      c1 = (y-y2)/(y2-y1)
+      c2 = (y-y1)/(y2-y1)
+      !
+      r  = c2*prof(iprof)%ravg(n2) - c1*prof(iprof)%ravg(n1)
+      uu = c2*prof(iprof)%uavg(n2) - c1*prof(iprof)%uavg(n1)
+      vv = c2*prof(iprof)%vavg(n2) - c1*prof(iprof)%vavg(n1)
+      ww = c2*prof(iprof)%wavg(n2) - c1*prof(iprof)%wavg(n1)
+      t  = c2*prof(iprof)%tavg(n2) - c1*prof(iprof)%tavg(n1)
+      !
+    end if
+    !
+    u = uu
+    v =  vv*cos_theta + ww*sin_theta
+    w = -vv*sin_theta + ww*cos_theta
+    !
+    u = u * rlx_vel
+    v = v * rlx_vel
+    w = w * rlx_vel
+    !
+    q2 = u*u + v*v + w*w
+    !
+    cv(k,nec) = r
+    cv(k,nmx) = r*u
+    cv(k,nmy) = r*v
+    cv(k,nmz) = r*w
+    cv(k,nee) = r*( rgas_over_gm1*t + half*q2 )
+    !
+  end do init_loop
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine thx_sem_plenum_initialization
+!
+!###############################################################################
+!
 subroutine thx_sem_initialization(prof,pvavg,bc_idx_prof,xyz,cv)
   !
   !.. Use Statements ..
