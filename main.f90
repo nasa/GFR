@@ -787,7 +787,7 @@ continue
   completed_initial_cgns_output = true
   CGNS_action = add_to_CGNS
   call memory_pause("writing initial CGNS file","main iteration loop")
-  call check_for_bad_number(__LINE__)
+ !call check_for_bad_number(__LINE__)
   !
   ! Reset the IEEE floating point status to the default values
   !
