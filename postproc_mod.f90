@@ -7828,6 +7828,225 @@ end subroutine write_cell_points
 !
 !###############################################################################
 !
+subroutine write_node_edge_face_dt(io,nodeusp_dt,nodedusp_dt, &
+                                   edgeusp_dt,edgedusp_dt,faceusp_dt)
+  !
+  !.. Use Statements ..
+  use flowvar, only : ne1d_t,ne2d_t,ne3d_t,face_var
+  use geovar,  only : face_map,edge_map,node_map
+  !
+  !.. Formal Arguments ..
+  integer,     intent(inout) :: io
+  type(ne1d_t),   intent(in) :: nodeusp_dt(:)
+  type(ne2d_t),   intent(in) :: nodedusp_dt(:)
+  type(ne2d_t),   intent(in) :: edgeusp_dt(:)
+  type(ne3d_t),   intent(in) :: edgedusp_dt(:)
+  type(face_var), intent(in) :: faceusp_dt(:)
+  !
+  !.. Local Scalars ..
+  integer :: l,k,m,n,sf
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_node_edge_face_dt"
+  !
+continue
+  !
+#ifdef DEBUG_WRITE_CELL_POINTS
+  if (size(faceusp_dt) > 240) return
+  call debug_timer(entering_procedure,pname)
+  !
+  write (io,1) "nodeusp_dt"
+  do n = 1,size(nodeusp_dt)
+    if (allocated(node_map)) then
+      write (io,2) node_map(mypnum+1)%loc_to_glb(n), &
+                   (nint(nodeusp_dt(n)%v(m)), m=1,size(nodeusp_dt(n)%v))
+    else
+      write (io,2) n,(nint(nodeusp_dt(n)%v(m)), m=1,size(nodeusp_dt(n)%v))
+    end if
+  end do
+ !!
+ !write (io,1) "nodedusp_dt"
+ !do n = 1,size(nodedusp_dt)
+ !  do l = 1,size(nodedusp_dt(n)%v,dim=1)
+ !    write (io,3) n,l,(nint(nodedusp_dt(n)%v(l,m)), m=1,size(nodedusp_dt(n)%v,dim=2))
+ !  end do
+ !end do
+  !
+  write (io,1) "edgeusp_dt"
+  do n = 1,size(edgeusp_dt)
+    do k = 1,size(edgeusp_dt(n)%v,dim=2)
+      if (allocated(edge_map)) then
+        write (io,4) edge_map(mypnum+1)%loc_to_glb(n),k, &
+                     (nint(edgeusp_dt(n)%v(m,k)), &
+                      m=1,size(edgeusp_dt(n)%v,dim=1))
+      else
+        write (io,4) n,k, &
+                     (nint(edgeusp_dt(n)%v(m,k)), &
+                      m=1,size(edgeusp_dt(n)%v,dim=1))
+      end if
+    end do
+  end do
+ !!
+ !write (io,1) "edgedusp_dt"
+ !do n = 1,size(edgedusp_dt)
+ !  do k = 1,size(edgedusp_dt(n)%v,dim=3)
+ !    do l = 1,size(edgedusp_dt(n)%v,dim=1)
+ !      write (io,5) n,l,k,(nint(edgedusp_dt(n)%v(l,m,k)), m=1,size(edgedusp_dt(n)%v,dim=2))
+ !    end do
+ !  end do
+ !end do
+  !
+  write (io,1) "faceusp_dt"
+  do n = 1,size(faceusp_dt)
+    do k = 1,size(faceusp_dt(n)%v,dim=2)
+      do sf = 1,size(faceusp_dt(n)%v,dim=3)
+        if (allocated(face_map)) then
+          write (io,6) face_map(mypnum+1)%loc_to_glb(n),k,sf, &
+                       (nint(faceusp_dt(n)%v(m,k,sf)), &
+                        m=1,size(faceusp_dt(n)%v,dim=1))
+        else
+          write (io,6) n,k,sf, &
+                       (nint(faceusp_dt(n)%v(m,k,sf)), &
+                        m=1,size(faceusp_dt(n)%v,dim=1))
+        end if
+      end do
+    end do
+  end do
+  !
+  io = io + 1
+  !
+  call debug_timer(leaving_procedure,pname)
+#endif
+  !
+  ! Format Statements
+  !
+  1 format (/,2x,a,/,60("-"),/)
+  2 format (4x,"nodeusp_dt(",i2,")%v(:) = ",10(i0,:,1x))
+  3 format (4x,"nodedusp_dt(",i2,")%v(",i1,",:) = ",10(i0,:,1x))
+  4 format (4x,"edgeusp_dt(",i2,")%v(:,",i1,") = ",10(i0,:,1x))
+  5 format (4x,"edgedusp_dt(",i2,")%v(",i1,",:,",i1,") = ",10(i0,:,1x))
+  6 format (4x,"faceusp_dt(",i2,")%v(:,",i1,",",i1,") = ",10(i0,:,1x))
+  !
+end subroutine write_node_edge_face_dt
+!
+!###############################################################################
+!
+subroutine deallocate_solver_arrays()
+  !
+  !.. Use Statements ..
+  use geovar,      only : grid
+  use flowvar,     only : faceflx,gpoldsp
+  use flowvar,     only : residual,dtsp,uoldsp,rk_sum,rssprk
+  use flowvar,     only : global_usp,global_var
+  use metrics_mod, only : metrics_dt,geofa,facenrm,metrics_array
+  use metrics_mod, only : facejac,jac,wtdjac,time_metrics
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "deallocate_solver_arrays"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (allocated(grid)) then
+    deallocate ( grid , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(faceflx)) then
+    deallocate ( faceflx , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"faceflx",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(residual)) then
+    deallocate ( residual , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"residual",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(dtsp)) then
+    deallocate ( dtsp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"dtsp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(uoldsp)) then
+    deallocate ( uoldsp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"uoldsp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(gpoldsp)) then
+    deallocate ( gpoldsp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"gpoldsp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(rk_sum)) then
+    deallocate ( rk_sum , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"rk_sum",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(rssprk)) then
+    deallocate ( rssprk , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"rssprk",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(global_usp)) then
+    deallocate ( global_usp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"global_usp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(global_var)) then
+    deallocate ( global_var , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"global_var",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(time_metrics)) then
+    deallocate ( time_metrics , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"time_metrics",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(metrics_array)) then
+    deallocate ( metrics_array , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"metrics_array",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(metrics_dt)) then
+    deallocate ( metrics_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"metrics_dt",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(wtdjac)) then
+    deallocate ( wtdjac , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"wtdjac",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(jac)) then
+    deallocate ( jac , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"jac",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(geofa)) then
+    deallocate ( geofa , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"geofa",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(facejac)) then
+    deallocate ( facejac , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facejac",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+ !if (allocated(facenrm)) then
+ !  deallocate ( facenrm , stat=ierr , errmsg=error_message )
+ !  call alloc_error(pname,"facenrm",2,__LINE__,__FILE__,ierr,error_message)
+ !end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine deallocate_solver_arrays
+!
+!###############################################################################
+!
 include "Functions/last.f90"
 include "Functions/cell_solpts.f90"
 #include "Functions/debug_timer.f90"
