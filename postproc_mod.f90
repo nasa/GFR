@@ -491,7 +491,7 @@ continue
   !
   ! Write the solution file
   !
-  if (output_time_averaging) then
+  if (output_time_averaging .and. iflag /= -3) then
  !  call write_time_ave_parallel_cgns
   end if
   !
