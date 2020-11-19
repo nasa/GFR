@@ -1652,7 +1652,7 @@ continue
 #endif
     do n = np1,np2
       !
-      l = output_sol_pts(n)
+      l = output_sol_pts(n) - my_pts_beg + 1
 #ifdef DEBUG_POST_PROCESSOR
       write (1000+mypnum,2) n,l,(xyz(nn,n), nn=1,size(var,dim=1))
 #endif
@@ -1698,7 +1698,7 @@ continue
 #endif
     do k = 1,size(output_face_pts(nf)%out_idx)
       !
-      l = output_face_pts(nf)%out_idx(k)
+      l = output_face_pts(nf)%out_idx(k) - my_pts_beg + 1
       !
 #ifdef DEBUG_POST_PROCESSOR
       write (1000+mypnum,4) k,l,(facexyz_dt(face_idx)%v(n,k), n=1,size(var,dim=1))
@@ -1736,7 +1736,8 @@ continue
 #endif
     do k = 1,size(output_edge_pts(ne)%out_idx)
       !
-      l = output_edge_pts(ne)%out_idx(k)
+     !l = output_edge_pts(ne)%out_idx(k)
+      l = output_edge_pts(ne)%out_idx(k) - my_pts_beg + 1
       !
 #ifdef DEBUG_POST_PROCESSOR
       write (1000+mypnum,6) k,l,(edgexyz_dt(edge_idx)%v(n,k), n=1,size(var,dim=1))
@@ -1759,7 +1760,8 @@ continue
     !
     node_idx = output_node_pts(nn)%node_idx
     !
-    l = output_node_pts(nn)%out_idx
+   !l = output_node_pts(nn)%out_idx
+    l = output_node_pts(nn)%out_idx - my_pts_beg + 1
     !
 #ifdef DEBUG_POST_PROCESSOR
     write (1000+mypnum,8) node_idx,l,(xyz_nodes(n,node_idx), n=1,size(var,dim=1))
