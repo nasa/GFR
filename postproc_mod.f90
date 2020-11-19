@@ -4805,10 +4805,7 @@ continue
   !##########################################################################
   !##########################################################################
   !
-  allocate ( cell_points_ptr(1:ncell+1) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_points_ptr",1,__LINE__,__FILE__,ierr, &
-                   error_message)
+  cell_points_ptr = init_array(ncell+1,0) ! F2003 AUTO-REALLOC
   !
   ! Loop through each cell and count the number of output points
   ! for each cell on this partition
@@ -4904,38 +4901,23 @@ continue
   ! for these colocated points will be reduced to a single index that is shared
   ! by all cells that contain the point.
   !
-  allocate ( cell_points(1:last(cell_points_ptr)) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_points",1,__LINE__,__FILE__,ierr,error_message)
+  cell_points = init_array(last(cell_points_ptr),0) ! F2003 AUTO-REALLOC
   !
   ! Allocate the arrays to mark nodes and edges that have already been completed
   !
   nn = size(nodeusp_dt)
-  allocate ( node_already_done(1:nn) , source=fals , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"node_already_done",1,__LINE__,__FILE__,ierr, &
-                   error_message)
-  !
   ne = size(edgeusp_dt)
-  allocate ( edge_already_done(1:ne) , source=fals , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"edge_already_done",1,__LINE__,__FILE__,ierr, &
-                   error_message)
+  !
+  node_already_done = init_array(nn,fals) ! F2003 AUTO-REALLOC
+  edge_already_done = init_array(ne,fals) ! F2003 AUTO-REALLOC
   !
   ! Allocate the cell_pts array to temporarily store the point indices of
   ! the current cell thats being operated on
   !
-  allocate ( cell_pts(1:mop) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_pts",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( face_pt(1:mfp) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"face_pt",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( edge_pt(1:mep) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"edge_pt",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( node_pt(1:mnp) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"node_pt",1,__LINE__,__FILE__,ierr,error_message)
+  cell_pts = init_array(mop,0) ! F2003 AUTO-REALLOC
+  face_pt  = init_array(mfp,0) ! F2003 AUTO-REALLOC
+  edge_pt  = init_array(mep,0) ! F2003 AUTO-REALLOC
+  node_pt  = init_array(mnp,0) ! F2003 AUTO-REALLOC
   !
   ! Zero the nodeusp, nodedusp, edgeusp, edgedusp, and faceusp array
   ! before we start storing point indices in these arrays
@@ -5255,16 +5237,12 @@ continue
   !#############################################################################
   !
   nf = size(faceusp_dt)
-  allocate ( my_faces(1:nf) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_faces",1,__LINE__,__FILE__,ierr,error_message)
-  !
   ne = size(edgeusp_dt)
-  allocate ( my_edges(1:ne) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_edges",1,__LINE__,__FILE__,ierr,error_message)
-  !
   nn = size(nodeusp_dt)
-  allocate ( my_nodes(1:nn) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_nodes",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  my_faces = init_array(nf,fals) ! F2003 AUTO-REALLOC
+  my_edges = init_array(ne,fals) ! F2003 AUTO-REALLOC
+  my_nodes = init_array(nn,fals) ! F2003 AUTO-REALLOC
   !
   bad_indices = 0
   !
@@ -5374,9 +5352,7 @@ continue
   !
   ! Allocate the array to mark the points on each processor that still remain
   !
-  allocate ( remaining_pts(1:mxpt) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"remaining_pts",1,__LINE__,__FILE__,ierr,error_message)
+  remaining_pts = init_array(mxpt,0) ! F2003 AUTO-REALLOC
   !
   ! Mark all the remaining points on this processor
   ! NOTE: We need to use the absolute value of cell_points because some
@@ -5436,9 +5412,7 @@ continue
     call write_cell_points(debug_unit,omin+1,cell_points_ptr,cell_points)
   end if
   !
-  allocate ( msk(1:n_total_output_pts) , source=fals , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
+  msk = init_array(n_total_output_pts,fals) ! F2003 AUTO-REALLOC
   !
  !where (cell_points > 0) msk(cell_points) = true
   do n = 1,size(cell_points)
@@ -5618,10 +5592,7 @@ continue
   !###########################################################################
   !###########################################################################
   !
-  allocate ( output_sol_pts(1:n_solpts) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"output_sol_pts",1,__LINE__,__FILE__,ierr, &
-                   error_message)
+  output_sol_pts = init_array(n_solpts,0) ! F2003 AUTO-REALLOC
   !
   nf = count( my_faces )
   allocate ( output_face_pts(1:nf) , stat=ierr , errmsg=error_message )
@@ -5739,10 +5710,7 @@ continue
       !
       ! Allocate the out_idx component of output_face_pts for this face
       !
-      allocate ( output_face_pts(ifc)%out_idx(1:nfp) , source=0 , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) "face",ifc
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      output_face_pts(ifc)%out_idx = init_array(nfp,0) ! F2003 AUTO-REALLOC
       !
       do kf = 1,nfp
         !
@@ -5791,10 +5759,7 @@ continue
       !
       ! Allocate the out_idx component of output_edge_pts for this edge
       !
-      allocate ( output_edge_pts(iec)%out_idx(1:nep) , source=0 , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) "edge",iec
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      output_edge_pts(iec)%out_idx = init_array(nep,0) ! F2003 AUTO-REALLOC
       !
       do kf = 1,nep
         !
@@ -5990,17 +5955,12 @@ continue
     call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  allocate ( ipelem(1:np,1:n_my_output_cells) , source=0_CST , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"ipelem",1,__LINE__,__FILE__,ierr,error_message)
+  ipelem = init_array(np,n_my_output_cells,0_CST) ! F2003 AUTO-REALLOC
   !
   if (postproc_debug_grid .and. ncpu == 1) then
     if (mod(n_my_output_cells,ncell) == 0) then
       n = n_my_output_cells / ncell
-      allocate ( ipelem_of_cells(1:np,1:n,1:ncell) , source=0 , &
-                 stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"ipelem_of_cells",1,__LINE__,__FILE__,ierr, &
-                       error_message)
+      ipelem_of_cells = init_array(np,n,ncell,0) ! F2003 AUTO-REALLOC
     else
       write (error_message,'(a)') &
             "n_my_output_cells should be a multiple of ncell!"
@@ -6008,9 +5968,7 @@ continue
     end if
   end if
   !
-  allocate ( rev_pts(1:size(cell_pts)) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"rev_pts",1,__LINE__,__FILE__,ierr,error_message)
+  rev_pts = init_array(size(cell_pts),0) ! F2003 AUTO-REALLOC
   !
   inc = 0
   !
@@ -6571,17 +6529,10 @@ continue
   !
   ! Allocate the different components of the map derived type
   !
-  allocate ( map%sp(1:nsp) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"map%sp",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( map%fp(1:nfp) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"map%sp",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( map%ep(1:nep) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"map%sp",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( map%np(1:nnp) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"map%sp",1,__LINE__,__FILE__,ierr,error_message)
+  map%sp = init_array(nsp,0) ! F2003 AUTO-REALLOC
+  map%fp = init_array(nfp,0) ! F2003 AUTO-REALLOC
+  map%ep = init_array(nep,0) ! F2003 AUTO-REALLOC
+  map%np = init_array(nnp,0) ! F2003 AUTO-REALLOC
   !
   ! Compute the maps from the local indices to the output indices
   !
