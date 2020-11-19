@@ -4971,10 +4971,10 @@ continue
     !
     ! First initialize cell_pts to 0
     !
-    cell_pts = 0
-    face_pt  = 0
-    edge_pt  = 0
-    node_pt  = 0
+    cell_pts(:) = 0
+    face_pt(:)  = 0
+    edge_pt(:)  = 0
+    node_pt(:)  = 0
     !
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
@@ -5139,10 +5139,10 @@ continue
   !
   do nc = 1,ncell
     !
-    cell_pts = 0
-    face_pt  = 0
-    edge_pt  = 0
-    node_pt  = 0
+    cell_pts(:) = 0
+    face_pt(:)  = 0
+    edge_pt(:)  = 0
+    node_pt(:)  = 0
     !
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
