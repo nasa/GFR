@@ -430,14 +430,14 @@ continue
   color = MPI_UNDEFINED
   i_am_cpu_root = fals
   !
-  min_cpu_num = minloc(host(my_host_num)%cpu_num,dim=1)
+  min_cpu_num = minloc(host(my_host_num)%new_cpu_num,dim=1)
   if (mypnum == host(my_host_num)%mpi_num(min_cpu_num)) then
     color = 1_int_mpi
     i_am_cpu_root = true
   end if
   !
-  min_cpu_num = minloc( host(my_host_num)%cpu_num , &
-                        mask=host(my_host_num)%cpu_num >= cores_per_cpu , &
+  min_cpu_num = minloc( host(my_host_num)%new_cpu_num , &
+                        mask=host(my_host_num)%new_cpu_num >= cores_per_cpu , &
                         dim=1 )
   if (mypnum == host(my_host_num)%mpi_num(min_cpu_num)) then
     color = 1_int_mpi
