@@ -967,6 +967,7 @@ continue
   !
   rgas_over_gm1 = rgasref_nd / (gam - one)
   !
+  init_loop: &
   do k = 1,size(xyz,dim=2)
     !
     iprof = init_grp(k)
@@ -1036,11 +1037,12 @@ continue
     !
     n1 = 1
     n2 = 2
+    search_profile_loop: &
     do n = 2,npts
-      if (prof(iprof)%y(n) > y) exit
+      if (prof(iprof)%y(n) > y) exit search_profile_loop
       n1 = n
       n2 = max(n+1,npts)
-    end do
+    end do search_profile_loop
     !
     if (n1 == npts) then
       !
@@ -1105,7 +1107,7 @@ continue
     cv(k,nmz) = r*w
     cv(k,nee) = r*( rgas_over_gm1*t + half*q2 )
     !
-  end do
+  end do init_loop
   !
   call debug_timer(leaving_procedure,pname)
   !
