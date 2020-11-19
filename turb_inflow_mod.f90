@@ -871,14 +871,15 @@ subroutine thx_sem_initialization(prof,pvavg,bc_idx_prof,xyz,cv)
   real(wp),         intent(inout) :: cv(:,:)
   !
   !.. Local Scalars ..
-  integer  :: k,n,n1,n2,npts,idx,iprof
-  integer  :: pipe_prof,nozzle_prof
+  integer  :: i,k,n,n1,n2,npts,idx,iprof
+  integer  :: pipe_prof,nozzle_prof,mywall
   real(wp) :: c1,c2,y,y1,y2
   real(wp) :: r,u,v,w,t,q,q2,uu,vv,ww
   real(wp) :: rgas_over_gm1
   real(wp) :: dx,dy,dz,dl,unx,uny,unz
   real(wp) :: xp,yp,zp,xc,yc,angle
   real(wp) :: cn,cni,v11,v12,v13,v21,v22,v23,v31,v32,v33
+  real(wp) :: cos_theta,sin_theta
   !
   !.. Local Allocatable Arrays ..
   character(len=:), allocatable :: prof_name
@@ -888,6 +889,9 @@ subroutine thx_sem_initialization(prof,pvavg,bc_idx_prof,xyz,cv)
   character(len=*), parameter :: pname = "thx_sem_initialization"
   !
   real(wp), parameter :: height = 2.68_wp
+  real(wp), parameter :: half_height = half*height
+  !
+  logical(lk), parameter :: using_constant_area_nozzle = true
   !
 continue
   !
@@ -940,19 +944,31 @@ continue
     yp = xyz(2,k)/grid_scaling_factor
     zp = xyz(3,k)/grid_scaling_factor
     !
-    if ( (xp <= zero .and. yp < -half) .or. &
-         (xp > zero .and. yp < zero) ) then
+    if (yp > height+eps4) then
+      !
+      init_grp(k) = 0
+      !
+    else if (zp > half_height+eps4) then
+      !
+      init_grp(k) = 0
+      !
+    else if (zp < -half_height-eps4) then
+      !
+      init_grp(k) = 0
+      !
+    else if ( (xp <= zero .and. yp < -half) .or. &
+              (xp > zero .and. yp < zero) ) then
       !
       ! Find all solution points that are definitely
       ! in the pipe/injector section
       !
       init_grp(k) = pipe_prof
       !
-    else if (xp > zero .and. xp <= twelve .and. yp >= zero) then
-   !else if (xp > zero .and. xp <= twelve .and. &
-   !         yp >= zero .and. yp < half) then
+    else if (xp > zero .and. xp <= twelve .and. &
+             yp >= zero .and. yp <= height) then
       !
       ! Find all solution points above the plate
+      ! but below the top lip of the nozzle
       !
       init_grp(k) = nozzle_prof
       !
@@ -960,30 +976,67 @@ continue
       !
       ! Find all solution points in the nozzle area
       !
-      if (xp >= -one .and. xp <= zero) then
-        if ( (yp >= zero .and. yp <= height) .and. &
-             (zp >= -half*height .and. zp <= half*height) ) then
-          init_grp(k) = nozzle_prof
+      one_pass_loop: &
+      do i = 1,1
+        !
+        ! Find points outside the nozzle area
+        !
+        if (yp > (height+eps4) .or. &
+            zp < (-half_height-eps4) .or. &
+            zp > (half_height+eps4)) then
+          init_grp(k) = 0
+          exit one_pass_loop
         end if
-      else if (xp >= -five/four .and. xp < -one) then
-        if ( (yp > -one4 .and. yp < (two+three4)) .and. &
-             (zp > -seven/five .and. zp < seven/five) ) then
-          init_grp(k) = nozzle_prof
+        !
+        if (using_constant_area_nozzle) then
+          !
+          if (xp <= zero) then
+            if ( (yp > -eps4 .and. yp < (height+eps4)) .and. &
+                 (zp > (-half_height-eps4) .and. zp < (half_height+eps4)) ) then
+              init_grp(k) = nozzle_prof
+              exit one_pass_loop
+            end if
+          end if
+          !
+        else
+          !
+          if (xp >= -one .and. xp <= zero) then
+            if ( (yp >= zero .and. yp <= height) .and. &
+                 (zp >= -half_height .and. zp <= half_height) ) then
+              init_grp(k) = nozzle_prof
+              exit one_pass_loop
+            end if
+          end if
+          !
+          if (xp >= -five/four .and. xp < -one) then
+            if ( (yp > -one4 .and. yp < (two+three4)) .and. &
+                 (zp > -seven/five .and. zp < seven/five) ) then
+              init_grp(k) = nozzle_prof
+              exit one_pass_loop
+            end if
+          end if
+          !
+          if (xp < -five/four) then
+            if ( (yp > -half .and. yp < three) .and. &
+                 (zp > -seven/four .and. zp < seven/four) ) then
+              init_grp(k) = nozzle_prof
+              exit one_pass_loop
+            end if
+          end if
+          !
         end if
-      else if (xp < -five/four) then
-        if ( (yp > -half .and. yp < three) .and. &
-             (zp > -seven/four .and. zp < seven/four) ) then
-          init_grp(k) = nozzle_prof
-        end if
-      end if
-      !
-      init_grp(k) = nozzle_prof
+        !
+        ! Set to free stream if not one of the above
+        !
+        init_grp(k) = 0
+        !
+      end do one_pass_loop
       !
     else
       !
-      ! For now, just have everything else default to the plate section
+      ! This should be initialized to free stream
       !
-      init_grp(k) = nozzle_prof
+      init_grp(k) = 0
       !
     end if
     !
