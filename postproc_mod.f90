@@ -1,10 +1,12 @@
 module postprocessor_mod
   !
+#ifdef DEBUG_ON
 !!#define DEBUG_POST_PROCESSOR
+#endif
 !#define VERBOSE_MPI
   !
   !.. Global Use Statements ..
-  use module_kind_types
+  use module_kind_types, global_debug_timer => debug_timer
   use module_cgns_types
   use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
   use eqn_idx, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ncond,ng
@@ -7874,6 +7876,7 @@ end subroutine write_cell_points
 !
 include "Functions/last.f90"
 include "Functions/cell_solpts.f90"
+#include "Functions/debug_timer.f90"
 !
 !###############################################################################
 !
