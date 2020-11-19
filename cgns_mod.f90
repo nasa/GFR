@@ -1574,6 +1574,9 @@ subroutine transfer_cgns_data_to_grid_dt
   integer :: elem_beg,elem_end
   integer :: mine,maxe,sume,ierr
   integer :: ngrids,nsections,nbocos,bc_type
+  integer :: xmin_idx,xmax_idx
+  integer :: ymin_idx,ymax_idx
+  integer :: zmin_idx,zmax_idx
   integer(CET) :: sect_type,elem_type
   !
   character(len=9)     :: wall_type
@@ -1684,8 +1687,19 @@ continue
   !
   ! Apply the grid scaling factor to the coordinates of the grid nodes
   !
-  write (iout,4001) (minval(grid%xyz(i,:)),maxval(grid%xyz(i,:)), &
-                     i=1,size(grid%xyz,dim=1))
+  !
+  xmin_idx = minloc(grid%xyz(1,:),dim=1)
+  xmax_idx = maxloc(grid%xyz(1,:),dim=1)
+  ymin_idx = minloc(grid%xyz(2,:),dim=1)
+  ymax_idx = maxloc(grid%xyz(2,:),dim=1)
+  zmin_idx = minloc(grid%xyz(3,:),dim=1)
+  zmax_idx = maxloc(grid%xyz(3,:),dim=1)
+  !
+  write (iout,4001) grid%xyz(1,xmin_idx),grid%xyz(1,xmax_idx), &
+                    grid%xyz(2,ymin_idx),grid%xyz(2,ymax_idx), &
+                    grid%xyz(3,zmin_idx),grid%xyz(3,zmax_idx)
+  flush (iout)
+  !
   4001 format (/,2x,"grid%xyz  [min-x,max-x] = [",es14.6,",",es14.6,"]",/, &
                         :,t13,"[min-y,max-y] = [",es14.6,",",es14.6,"]",/, &
                         :,t13,"[min-z,max-z] = [",es14.6,",",es14.6,"]",/)
