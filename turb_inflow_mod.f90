@@ -919,6 +919,16 @@ continue
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
+  ! Start by initializing everything to freestream
+  !
+  do k = 1,size(cv,dim=1)
+    cv(k,nec) = bc_in(0)%cv(nec)
+    cv(k,nmx) = bc_in(0)%cv(nmx)
+    cv(k,nmy) = bc_in(0)%cv(nmy)
+    cv(k,nmz) = bc_in(0)%cv(nmz)
+    cv(k,nee) = bc_in(0)%cv(nee)
+  end do
+  !
   ! Allocate the array for identifying which section
   ! of the grid each solution point is in.
   !
