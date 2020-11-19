@@ -314,6 +314,9 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   !.. Use Statements ..
   use geovar, only : n_global_face
   use ovar,   only : continuous_output
+  use geovar, only : geo_face_map => face_map
+  use geovar, only : geo_edge_map => edge_map
+  use geovar, only : geo_node_map => node_map
   !
   !.. Formal Arguments ..
   integer,                                  intent(in) :: npart
@@ -598,6 +601,12 @@ continue
                                        cell_map,flx,face_rotation)
  !  end if
  !end if
+  !
+  if (continuous_output .and. lcell < 64) then
+    geo_face_map = face_map(:) ! F2003 AUTO-REALLOC
+    geo_edge_map = edge_map(:) ! F2003 AUTO-REALLOC
+    geo_node_map = node_map(:) ! F2003 AUTO-REALLOC
+  end if
   !
  !call parallel_memory_usage(iout)
   !
