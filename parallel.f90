@@ -300,10 +300,7 @@ continue
   call alloc_error(pname,"cell_map",1,__LINE__,__FILE__,ierr, &
                    error_message,skip_alloc_pause)
   !
-  allocate ( cell_map(1)%loc_to_glb(1:lcell) , source=intseq(1,lcell) , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_map(1)%loc_to_glb",1,__LINE__,__FILE__,ierr, &
-                   error_message)
+  cell_map(1)%loc_to_glb = intseq(1,lcell) ! F2003 AUTO-REALLOC
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -2239,14 +2236,10 @@ continue
   !
   n = max(n1,n2)
   !
-  allocate ( cell_list(1:n) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_list",1,__LINE__,__FILE__,ierr,error_message)
+  cell_list = init_array(n,0) ! F2003 AUTO-REALLOC
+  part_list = init_array(n,0) ! F2003 AUTO-REALLOC
   !
-  allocate ( part_list(1:n) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"part_list",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( bc_list(1:n) , source=not_a_bc , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bc_list",1,__LINE__,__FILE__,ierr,error_message)
+  bc_list = init_array(n,not_a_bc) ! F2003 AUTO-REALLOC
   !
   ! Create the node array
   !
@@ -7261,13 +7254,8 @@ continue
   !
   ! Allocate the node and edge point offset array
   !
-  allocate ( nodpt_offset(1:lnode) , source=0_int_mpi , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"nodpt_offset",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( edgpt_offset(1:ledge) , source=0_int_mpi , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"edgpt_offset",1,__LINE__,__FILE__,ierr,error_message)
+  nodpt_offset = init_array(lnode,0_int_mpi) ! F2003 AUTO-REALLOC
+  edgpt_offset = init_array(ledge,0_int_mpi) ! F2003 AUTO-REALLOC
   !
   ! Compute the total size of the buffer for
   ! communicating node/edge solutions and gradients
@@ -7510,9 +7498,7 @@ continue
   !
   ! Allocate the comm_pair array
   !
-  allocate ( comm_pair(1:2,1:npair) , source=-1 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"comm_pair",1,__LINE__,__FILE__,ierr,error_message)
+  comm_pair = init_array(2,npair,-1) ! F2003 AUTO-REALLOC
   !
   ! Fill in the section of comm_pair for the
   ! current processor before communicating
@@ -7593,13 +7579,8 @@ continue
   ! Allocate all the arrays needed for creating
   ! the send and receive node and edge maps
   !
-  allocate ( send_node_msk(1:lnode) , source=fals , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"send_node_msk",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( send_edge_msk(1:ledge) , source=fals , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"send_edge_msk",1,__LINE__,__FILE__,ierr,error_message)
+  send_node_msk = init_array(lnode,fals) ! F2003 AUTO-REALLOC
+  send_edge_msk = init_array(ledge,fals) ! F2003 AUTO-REALLOC
   !
   ! Loop through each of the node/edge communication pairs and create the
   ! send and receive MPI datatypes for the two processors of this pair
@@ -7743,13 +7724,8 @@ continue
     ! Allocate the send and recv arrays needed to create the MPI datatypes now
     ! that we know the total number of points that will need to be communicated.
     !
-    allocate ( send_disp(1:scnt) , source=0_int_mpi , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"send_disp",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    allocate ( recv_disp(1:scnt) , source=0_int_mpi , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"recv_disp",1,__LINE__,__FILE__,ierr,error_message)
+    send_disp = init_array(scnt,0_int_mpi) ! F2003 AUTO-REALLOC
+    recv_disp = init_array(scnt,0_int_mpi) ! F2003 AUTO-REALLOC
     !
     !###########################################################################
     !###########################################################################
