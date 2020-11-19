@@ -580,7 +580,7 @@ module ovar
   real(wp),         save :: max_wall_time
   real(wp),         save :: beg_wall_time
   real(wp),         save :: end_wall_time
-  real(wp),         save :: wall_time
+  real(wp), public, save :: elapsed_wall_time
   real(wp), public, save :: work_units
   !
   real(wp), public, save :: max_restart_wall_time       = zero
@@ -895,18 +895,19 @@ continue
   else if (time_flag == 1) then
     !
     call gfr_timer( end_wall_time )
-    wall_time = end_wall_time-beg_wall_time
-    work_units = wall_time/one_work_unit
+    elapsed_wall_time = end_wall_time-beg_wall_time
+    work_units = elapsed_wall_time/one_work_unit
     !
   else if (time_flag == -1) then
     !
-    total_sec = nint(wall_time)
+    total_sec = nint(elapsed_wall_time)
     !
     hours   = total_sec / 3600
     minutes = (total_sec - hours*3600) / 60
     seconds = total_sec - hours*3600 - minutes*60
     !
-    write (iout,1) wall_time,hours,minutes,seconds,work_units
+    write (iout,1) elapsed_wall_time, &
+                   hours,minutes,seconds,work_units
     !
   end if
   !
