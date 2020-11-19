@@ -945,7 +945,8 @@ subroutine read_cgns_coord(c)
   !
   !.. Local Scalars ..
   integer      :: ierr
-  integer(CST) :: np,ibeg,iend
+  integer(CST) :: np,ibeg,iend,l
+  integer(CST) :: nmax_pts,nsplit
   integer(CET) :: stored_datatype
   integer(CET) :: read_datatype
   !
@@ -964,6 +965,15 @@ continue
   call cgns_error(pname,gridfile,"cg_coord_info_f",cgierr, &
                   __LINE__,__FILE__,not_parallel=true)
   !
+  ! Set the maximum number of points to read at any time so
+  ! that the total number of bits read is less than 2^31. 
+  !
+  if (any([stored_datatype,read_datatype] == REALDOUBLE)) then
+    nmax_pts = 2000000000_CST/8_CST
+  else
+    nmax_pts = 2000000000_CST/4_CST
+  end if
+  !
   ! Allocate the data array to the total number of nodes in the grid
   !
   np = base(ib_g)%zone(iz_g)%nvertex
@@ -972,15 +982,62 @@ continue
   array_name = get_array_name("grid",ig_g,"coord",ic_g,"x")
   call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Read in the coordinate data
+  if (ic_g == 1) write (iout,1)
   !
-  ibeg = 1_CST
-  iend = np
+  write (iout,2) ic_g,trim(adjustl(c%name)),np,stored_datatype,read_datatype
   !
-  call cg_coord_read_f(if_g,ib_g,iz_g,trim(adjustl(c%name)),read_datatype, &
-                       ibeg,iend,c%x,cgierr)
-  call cgns_error(pname,gridfile,"cg_coord_read_f",cgierr, &
-                  __LINE__,__FILE__,not_parallel=true)
+  if (np > nmax_pts) then
+    !
+    nsplit = np/nmax_pts + 1_CST
+    iend = 0
+    !
+    do l = 1_CST,nsplit
+      !
+      ibeg = iend + 1_CST
+      iend = min( iend+nmax_pts , np )
+      !
+      call cg_coord_read_f(if_g,ib_g,iz_g,trim(adjustl(c%name)),read_datatype, &
+                           ibeg,iend,c%x(ibeg:iend),cgierr)
+      call cgns_error(pname,gridfile,"cg_coord_read_f",cgierr, &
+                      __LINE__,__FILE__,not_parallel=true)
+      !
+      write (iout,3) ibeg,iend,minval(c%x(ibeg:iend)),maxval(c%x(ibeg:iend))
+      !
+    end do
+    !
+  else
+    !
+    ! Read in the coordinate data
+    !
+    ibeg = 1_CST
+    iend = np
+    !
+    call cg_coord_read_f(if_g,ib_g,iz_g,trim(adjustl(c%name)),read_datatype, &
+                         ibeg,iend,c%x,cgierr)
+    call cgns_error(pname,gridfile,"cg_coord_read_f",cgierr, &
+                    __LINE__,__FILE__,not_parallel=true)
+    !
+    write (iout,3) ibeg,iend,minval(c%x(ibeg:iend)),maxval(c%x(ibeg:iend))
+    !
+  end if
+  write (iout,4) minval(c%x),maxval(c%x)
+  !
+  1 format (/,40("-"))
+  !
+  2 format (2x,"            coordinate # ",i0,/, &
+            2x,"       coordinate name = ",a,/, &
+            2x,"               nvertex = ",i0,/, &
+            2x,"       stored_datatype = ",i0,/, &
+            2x,"         read_datatype = ",i0)
+  !
+  3 format (2x,"                  ibeg = ",i0,/, &
+            2x,"                  iend = ",i0,/, &
+            2x,"minval(c%x(ibeg:iend)) = ",es14.6,/, &
+            2x,"maxval(c%x(ibeg:iend)) = ",es14.6)
+  !
+  4 format (2x,"           minval(c%x) = ",es14.6,/, &
+            2x,"           maxval(c%x) = ",es14.6,/, &
+            40("-"))
   !
   call debug_timer(leaving_procedure,pname)
   !
