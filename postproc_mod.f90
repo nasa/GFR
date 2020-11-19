@@ -7805,6 +7805,7 @@ subroutine write_cell_points(io,nep,cell_points_ptr,cell_points)
 continue
   !
 #ifdef DEBUG_WRITE_CELL_POINTS
+  if (size(cell_points_ptr) > 65) return
   call debug_timer(entering_procedure,pname)
   !
   write (map_fmt,1) (nep,i=1,6)
