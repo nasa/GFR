@@ -2738,6 +2738,47 @@ continue
     !
   end do create_edge_loop
   !
+  if (mypnum == glb_root) then
+    if (lcell <= 32) then
+      !
+      do n = 1,lnode
+        write (40,40) n, &
+                      node(n)%is_on_boundary, &
+                      node(n)%controlling_partition, &
+                      allocated(node(n)%cpu)
+        if (allocated(node(n)%cpu)) then
+          do i = 1,size(node(n)%cpu)
+            write (40,41) i, &
+                          node(n)%cpu(i)%partition, &
+                          node(n)%cpu(i)%loc_node, &
+                          node(n)%cpu(i)%num_cells
+          end do
+        end if
+      end do
+      !
+      do n = 1,ledge
+        write (50,50) n, &
+                      edge(n)%is_on_boundary, &
+                      edge(n)%controlling_partition, &
+                      edge(n)%order, &
+                      allocated(edge(n)%cpu)
+        if (allocated(edge(n)%cpu)) then
+          do i = 1,size(edge(n)%cpu)
+            write (50,51) i, &
+                          edge(n)%cpu(i)%partition, &
+                          edge(n)%cpu(i)%loc_edge, &
+                          edge(n)%cpu(i)%num_cells
+            if (allocated(edge(n)%cpu(i)%edgpts)) then
+              write (50,52) (edge(n)%cpu(i)%edgpts(np), &
+                               np=1,size(edge(n)%cpu(i)%edgpts))
+            end if
+          end do
+        end if
+      end do
+      !
+    end if
+  end if
+  !
   ! Deallocate cell_list, part_list, and bc_list before we leave
   !
   if (allocated(cell_list)) then
@@ -2778,6 +2819,28 @@ continue
            11x,"cells_with_edge(i)  = ",i0,/, &
            11x,"face(nf)%right%cell = ",i0,/, &
            11x,"face(nf)%left%cell  = ",i0,/)
+  !
+  40 format (/, &
+            "node = ",i0,/, &
+             6x,"is_on_boundary = ",l1,/, &
+             6x,"controlling_partition = ",i0,/, &
+             6x,"allocated(node(n)%cpu) = ",l1)
+  41 format (6x,"cpu = ",i0,/, &
+             12x,"partition = ",i0,/, &
+             12x,"loc_node = ",i0,/, &
+             12x,"num_cells = ",i0)
+  !
+  50 format (/, &
+            "edge = ",i0,/, &
+             6x,"is_on_boundary = ",l1,/, &
+             6x,"controlling_partition = ",i0,/, &
+             6x,"order = ",i0,/, &
+             6x,"allocated(edge(n)%cpu) = ",l1)
+  51 format (6x,"cpu = ",i0,/, &
+             12x,"partition = ",i0,/, &
+             12x,"loc_edge = ",i0,/, &
+             12x,"num_cells = ",i0)
+  52 format (12x,"edgpts =",10(1x,i0,:,","))
   !
 end subroutine create_node_and_edge_arrays
 !
@@ -7327,6 +7390,7 @@ continue
   fill_bnd_edges: do loc_edge = 1,ledge
     !
     glb_edge = edge_map(my_part)%loc_to_glb(loc_edge)
+    write (iout,*) mypnum,glb_edge,loc_edge
     !
     if (allocated(edge(glb_edge)%cpu)) then
       if (size(edge(glb_edge)%cpu) > 1) then
@@ -7354,6 +7418,13 @@ continue
     end if
     !
   end do fill_bnd_edges
+  do n = 1,size(bnd_edges)
+    write (mypnum+431,92) n, &
+                         bnd_edges(n)%idx, &
+                         bnd_edges(n)%ave_correction, &
+                         bnd_edges(n)%my_responsibility
+  end do
+  92 format ("bnd_edges(",i3,") = [",i3,",",es14.6,",",1x,l1,"]")
   call debug_timer(stop_timer,"section 1")
   call debug_timer(start_timer,"section 2")
   !
@@ -7993,6 +8064,14 @@ continue
       end if
       !
     end do edge_recv_disp
+    !
+    do n = 1,size(send_disp)
+      write (mypnum+211,*) send_disp(n)
+    end do
+    !
+    do n = 1,size(recv_disp)
+      write (mypnum+221,*) recv_disp(n)
+    end do
     !
     ! Deallocate recv_node_map and recv_edge_map since they are
     ! no longer needed for the current communication pair
@@ -9655,6 +9734,21 @@ subroutine exch_connectivity(nodeusp_dt,nodedusp_dt, &
   !
 continue
   !
+  do n = 1,size(bnd_nodes)
+    write (mypnum+411,2) n, &
+                         bnd_nodes(n)%idx, &
+                         bnd_nodes(n)%ave_correction, &
+                         bnd_nodes(n)%my_responsibility
+  end do
+  do n = 1,size(bnd_edges)
+    write (mypnum+421,2) n, &
+                         bnd_edges(n)%idx, &
+                         bnd_edges(n)%ave_correction, &
+                         bnd_edges(n)%my_responsibility
+  end do
+  1 format ("bnd_nodes(",i3,") = [",i3,",",es14.6,",",1x,l1,"]")
+  2 format ("bnd_edges(",i3,") = [",i3,",",es14.6,",",1x,l1,"]")
+  !
   ! ##########################################################################
   ! ##########################################################################
   ! ##########################################################################
@@ -9754,6 +9848,10 @@ continue
     !
   end do pack_edges
   !
+  do n = 1,size(send_buffer)
+    write (mypnum+311,*) send_buffer(n)
+  end do
+  !
   !#######################################################################
   !#######################################################################
   !###                                                                 ###
@@ -9789,6 +9887,10 @@ continue
       call mpi_sendrecv(send_buffer,1_int_mpi,send_dtype,adj_cpu,send_tag, &
                         recv_buffer,1_int_mpi,recv_dtype,adj_cpu,recv_tag, &
                         MPI_COMM_WORLD,istat(1),mpierr)
+      !
+      do n = 1,size(recv_buffer)
+        write (mypnum+321,*) recv_buffer(n)
+      end do
       !
       ! Add the received data to the solutions at the nodes and edges
       ! NOTE: This will unfortunately add a bunch of zeros because of
