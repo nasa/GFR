@@ -1566,6 +1566,7 @@ subroutine transfer_cgns_data_to_grid_dt
   use geovar, only : grid
   use ovar,   only : grid_scaling_factor
   use ovar,   only : governing_equations
+  use ovar,   only : itestcase
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,n3,np,nc,nf
@@ -1708,6 +1709,25 @@ continue
       grid%xyz(i,n) = grid_scaling_factor*grid%xyz(i,n)
     end do
   end do
+  !
+  if (abs(itestcase) == THX_Phase_3) then
+    !
+    if (abs(grid%xyz(3,zmin_idx)+grid%xyz(3,zmax_idx)) > eps3) then
+      write (error_message,5001)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+    end if
+    !
+    if (grid%xyz(2,ymax_idx) < 0.3556_wp) then ! 0.3556 meters = 14.0 inches
+      write (error_message,5002)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+    end if
+    !
+  end if
+  5001 format ("The CGNS grid file for appears to be invalid for the ", &
+               "THX Phase 3 test case because it is not symmetrical in Z!")
+  5002 format ("The CGNS grid file appears to be invalid for the THX Phase ", &
+               "3 test case because the max Y coordinate value is less than ", &
+               "0.3556 meters and it should be around 0.3716651 meters")
   !
   ! Get the size needed for the grid%elem array
   !
