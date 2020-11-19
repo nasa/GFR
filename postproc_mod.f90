@@ -4795,7 +4795,7 @@ continue
   !
   ! Initialize the maximum number of output points to zero for all processors
   !
-  cpu_mxpts = 0
+  cpu_mxpts(:) = 0
   !
   allocate ( map(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"map",1,__LINE__,__FILE__,ierr,error_message)
@@ -5621,10 +5621,10 @@ continue
   !
   do nc = 1,ncell
     !
-    cell_pts = 0
-    face_pt  = 0
-    edge_pt  = 0
-    node_pt  = 0
+    cell_pts(:) = 0
+    face_pt(:)  = 0
+    edge_pt(:)  = 0
+    node_pt(:)  = 0
     !
     n1 = cell(nc)%beg_sp
     n2 = cell(nc)%end_sp
@@ -6544,43 +6544,43 @@ continue
       !
     case (Geom_Tria)
       !
-      map%sp = get_tria_solpt_indices(this_order)
-      map%fp = get_tria_face_indices(this_order)
-      map%np = get_tria_node_indices(this_order)
+      map%sp(:) = get_tria_solpt_indices(this_order)
+      map%fp(:) = get_tria_face_indices(this_order)
+      map%np(:) = get_tria_node_indices(this_order)
       !
     case (Geom_Quad)
       !
-      map%sp = get_quad_solpt_indices(this_order)
-      map%fp = get_quad_face_indices(this_order)
-      map%np = get_quad_node_indices(this_order)
+      map%sp(:) = get_quad_solpt_indices(this_order)
+      map%fp(:) = get_quad_face_indices(this_order)
+      map%np(:) = get_quad_node_indices(this_order)
       !
     case (Geom_Tetr)
       !
-      map%sp = get_tetr_solpt_indices(this_order)
-      map%fp = get_tetr_face_indices(this_order)
-      map%ep = get_tetr_edge_indices(this_order)
-      map%np = get_tetr_node_indices(this_order)
+      map%sp(:) = get_tetr_solpt_indices(this_order)
+      map%fp(:) = get_tetr_face_indices(this_order)
+      map%ep(:) = get_tetr_edge_indices(this_order)
+      map%np(:) = get_tetr_node_indices(this_order)
       !
     case (Geom_Pyra)
       !
-      map%sp = get_pyra_solpt_indices(this_order)
-      map%fp = get_pyra_face_indices(this_order)
-      map%ep = get_pyra_edge_indices(this_order)
-      map%np = get_pyra_node_indices(this_order)
+      map%sp(:) = get_pyra_solpt_indices(this_order)
+      map%fp(:) = get_pyra_face_indices(this_order)
+      map%ep(:) = get_pyra_edge_indices(this_order)
+      map%np(:) = get_pyra_node_indices(this_order)
       !
     case (Geom_Pris)
       !
-      map%sp = get_pris_solpt_indices(this_order)
-      map%fp = get_pris_face_indices(this_order)
-      map%ep = get_pris_edge_indices(this_order)
-      map%np = get_pris_node_indices(this_order)
+      map%sp(:) = get_pris_solpt_indices(this_order)
+      map%fp(:) = get_pris_face_indices(this_order)
+      map%ep(:) = get_pris_edge_indices(this_order)
+      map%np(:) = get_pris_node_indices(this_order)
       !
     case (Geom_Hexa)
       !
-      map%sp = get_hexa_solpt_indices(this_order)
-      map%fp = get_hexa_face_indices(this_order)
-      map%ep = get_hexa_edge_indices(this_order)
-      map%np = get_hexa_node_indices(this_order)
+      map%sp(:) = get_hexa_solpt_indices(this_order)
+      map%fp(:) = get_hexa_face_indices(this_order)
+      map%ep(:) = get_hexa_edge_indices(this_order)
+      map%np(:) = get_hexa_node_indices(this_order)
       !
     case default
       !
@@ -6591,10 +6591,10 @@ continue
   !
   ! Finally, adjust the mapping indices so that they start at 0 instead of 1
   !
-  map%sp = map%sp - 1
-  map%fp = map%fp - 1
-  map%ep = map%ep - 1
-  map%np = map%np - 1
+  map%sp(:) = map%sp(:) - 1
+  map%fp(:) = map%fp(:) - 1
+  map%ep(:) = map%ep(:) - 1
+  map%np(:) = map%np(:) - 1
   !
   np1d = this_order+1
   np2d = np1d*np1d
