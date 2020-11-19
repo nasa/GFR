@@ -537,7 +537,7 @@ subroutine write_grid_parallel_cgns()
   use ovar,   only : channel_nondim_output_coord
   !
   !.. Local Scalars ..
-  integer :: n,ierr
+  integer :: i,l,k,n,ierr
   !
   integer(CST) :: my_cells_beg,my_cells_end
   integer(CST) :: n_total_output_cells
@@ -677,6 +677,15 @@ continue
   !
   ! Write the coordinates for the output points to the CGNS grid file
   !
+  write (700+mypnum,20) my_pts_beg,my_pts_end,my_pts_end-my_pts_beg+1
+  do n = 1,size(vartmp,dim=2)
+    write (700+mypnum,21) n+my_pts_beg-1,(vartmp(i,n), i=1,size(vartmp,dim=1))
+  end do
+  20 format (/,2x,"my_pts_beg = ",i0,/, &
+               2x,"my_pts_end = ",i0,/, &
+               2x,"my_pts_tot = ",i0,/)
+  21 format (i10," : ",3es15.6)
+  !
   do n = 1,nr
     !
     ! Copy the current coordinate variable into the array var
@@ -750,6 +759,15 @@ continue
   call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_grid_file)
   !
   ! Add the element connectivity data to the output queue.
+  !
+  write (600+mypnum,10) my_cells_beg,my_cells_end,my_cells_end-my_cells_beg+1
+  do n = 1,size(ipelem,dim=2)
+    write (600+mypnum,11) n+my_cells_beg-1,(ipelem(i,n), i=1,size(ipelem,dim=1))
+  end do
+  10 format (/,2x,"my_cells_beg = ",i0,/, &
+               2x,"my_cells_end = ",i0,/, &
+               2x,"my_cells_tot = ",i0,/)
+  11 format (i10," : ",8i9)
   !
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cgp_elements_write_data_f")
