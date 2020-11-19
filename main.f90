@@ -74,6 +74,7 @@ program GFR_main
   !
   use write_cgns_mod, only : write_parallel_cgns
   use write_cgns_mod, only : TaylorGreen_8s_vorticity_solution
+  use write_cgns_mod, only : convert_restart_files_to_cgns
   !
   use restart_mod, only : write_restart_file
   !
@@ -167,6 +168,7 @@ program GFR_main
   use bnd_profiles_mod, only : compute_bnd_profiles
   !
   use postprocessor_mod, only : new_write_parallel_cgns
+  use postprocessor_mod, only : convert_restart_files_to_continuous_cgns
   !
   use pbs_mod, only : pbs_remaining_walltime
   !
@@ -755,24 +757,33 @@ continue
     call report_memory_usage(n=3,request_stop=true)
   end if
   !
-  ! Output the initialized solution
-  !
-  if (continuous_output) then
-    call new_write_parallel_cgns(open_CGNS)
-  else
-    call write_parallel_cgns(open_CGNS)
-  end if
   ! Reset the IEEE floating point status to the default values
+  !
   call ieee_set_status(default_ieee_status)
   !
   if (convert_restart_to_cgns) then
+    !
+    ! Convert the current restart file or list
+    ! of restart files into CGNS solution files.
+    !
     if (.not. continuous_output) then
-      call write_parallel_cgns(close_CGNS)
+      call convert_restart_files_to_cgns
+    else
+      call convert_restart_files_to_continuous_cgns
     end if
-    call write_restart_file(-1)
-    write (error_message,209)
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    !
+  else
+    !
+    ! Output the initialized solution
+    !
+    if (continuous_output) then
+      call new_write_parallel_cgns(open_CGNS)
+    else
+      call write_parallel_cgns(open_CGNS)
+    end if
+    !
   end if
+  !
   completed_initial_cgns_output = true
   CGNS_action = add_to_CGNS
   call memory_pause("writing initial CGNS file","main iteration loop")
@@ -1364,6 +1375,7 @@ continue
           else
             call write_parallel_cgns(CGNS_action)
           end if
+          call write_restart_file(itcur)
           ! Reset the IEEE floating point status to the default values
           call ieee_set_status(default_ieee_status)
           write_TaylorGreen_full_solution = fals
@@ -1580,7 +1592,6 @@ continue
   202 format (/,"INTERPOLATION COMPLETE.")
   207 format (/,"WRITING RESTART FILE.")
   208 format (/,"WRITING CGNS FILE.")
-  209 format ("CONVERTING RESTART FILE TO CGNS SOLUTION FILE.")
   210 format ("STOPPING EXECUTION SO YOU MAY EXAMINE INTERPOLATED SOLUTION.")
   211 format ("STOPPING EXECUTION SO YOU MAY EXAMINE interpsol_debug.tec")
   !
