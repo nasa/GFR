@@ -718,6 +718,8 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !.. Use Statements ..
   use geovar,  only : nr,n_solpts
   use ovar,    only : governing_equations
+  use ovar,    only : itcur
+  use ovar,    only : tref,rgasref_nd,tmin
   use ovar,    only : profile_io_cgns,profile_io_cgns_subs
   use ovar,    only : max_wall_time => max_cgns_wall_time
   use ovar,    only : cgns_dir
@@ -1457,6 +1459,18 @@ continue
     !
     call update_thermo_properties(1,npts,interp_usp,interp_gpsp, &
                                   caller_name=pname)
+    if (itcur == 0) then
+      if (any(interp_gpsp(:,ntemp) <= zero) .or. &
+          any(interp_usp(:,nec) <= zero)) then
+        do n = 1,size(interp_gpsp,dim=1)
+          if (interp_gpsp(n,ntemp) <= tmin/tref) then
+            interp_gpsp(n,ntemp) = tmin/tref
+            interp_usp(n,nec) = interp_gpsp(n,npres) / &
+                                (rgasref_nd*interp_gpsp(n,ntemp))
+          end if
+        end do
+      end if
+    end if
     call update_transport_properties(1,npts,interp_usp,interp_gpsp)
     !
     ! Now create the output data and write it to the CGNS file in parallel
