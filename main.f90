@@ -279,7 +279,7 @@ continue
   ! Initialize the overall MPI session
   !
   call initialize_mpi_environment
-  call check_for_bad_number(__LINE__)
+  call timed_check_for_bad_number(__LINE__)
   !
 #ifdef DEBUG_VERBOSE_MPI_CALLS
   write (text,'(i0)') ncpu
@@ -292,23 +292,23 @@ continue
 #endif
   !
   call get_cpu_locality
-  call check_for_bad_number(__LINE__)
+  call timed_check_for_bad_number(__LINE__)
   !
   ! Initialize the wall time
   !
   call gfr_cpu_time(0)
-  call check_for_bad_number(__LINE__)
+  call timed_check_for_bad_number(__LINE__)
   !
   ! Get the number of seconds allowed for this simulation
   !
   call pbs_remaining_walltime(walltime_expiring)
-  call check_for_bad_number(__LINE__)
+  call timed_check_for_bad_number(__LINE__)
   !
   ! Initialize all the random constants that must be initialized at run time
   !
   call initialize_runtime_parameters
   call memory_pause("base initializations","reading input and grid files")
-  call check_for_bad_number(__LINE__)
+  call timed_check_for_bad_number(__LINE__)
   !
   ! Perform preprocessing loop twice, if necessary.
   !   input_mode = 1  Interpolation Mode
