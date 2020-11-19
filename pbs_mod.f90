@@ -29,7 +29,7 @@ contains
 !###############################################################################
 !
 subroutine pbs_remaining_walltime(walltime_expiring,wall_time_remaining, &
-                                  io_time_needed)
+                                  io_time_needed,wall_time_elapsed)
   !
   !.. Formal Arguments ..
   logical(lk), intent(out) :: walltime_expiring
@@ -37,6 +37,7 @@ subroutine pbs_remaining_walltime(walltime_expiring,wall_time_remaining, &
   !.. Optional Arguments ..
   real(wp), optional, intent(out) :: wall_time_remaining
   real(wp), optional,  intent(in) :: io_time_needed(:)
+  real(wp), optional, intent(out) :: wall_time_elapsed
   !
   !.. Local Scalars ..
   integer(pbs_int) :: current_wtl
