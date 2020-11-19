@@ -3716,31 +3716,25 @@ subroutine root_broadcasts_grid_dt()
   use geovar, only : grid
   !
   !.. Local Scalars ..
-  integer          :: n1,n2,m1,m2,ierr,npts,ndiv,nn,np,m,l,i
-  integer(INT_MPI) :: n
-  !
-  _MPI_DATA_TYPE_ :: xyz_block_type
-  _MPI_REQUEST_TYPE_ :: my_rqst
+  integer :: n,n1,n2,m1,m2,ierr,nsplit,npts,nn,np,m,l,i
   !
   !.. Local Arrays ..
   integer :: array_sizes(1:4)
   !
-  _MPI_STATUS_TYPE_ :: my_istat(1:_MPI_STATUS_SIZE_)
-  !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: grid_elem(:)
+  integer,  allocatable :: ival(:)
   real(wp), allocatable :: grid_xyz(:,:)
   real(wp), allocatable :: val(:)
-  _MPI_REQUEST_TYPE_, allocatable :: rqst(:)
-  _MPI_STATUS_TYPE_, allocatable :: istat(:),jstat(:,:)
-  integer(int_mpi), allocatable :: hosts(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "root_broadcasts_grid_dt"
  !logical(lk),      parameter :: use_all_processors = fals
   logical(lk),      parameter :: use_all_processors = true
-  integer,          parameter :: nsplit = 1
- !integer,          parameter :: nsplit = 6
+  !
+  ! Maximum number of integers and reals to send at a time with MPI
+  integer, parameter :: nmax_int  = 2000000000/4
+  integer, parameter :: nmax_real = 2000000000/8
   !
 continue
   !
@@ -3761,40 +3755,78 @@ continue
     !
   end if
   !
+  if (mypnum == glb_root) then
+    write (iout,201) "array_sizes(1) = ",array_sizes(1), &
+                     "array_sizes(2) = ",array_sizes(2), &
+                     "array_sizes(3) = ",array_sizes(3), &
+                     "array_sizes(4) = ",array_sizes(4), &
+                     "size(grid_elem) = ",size(grid_elem), &
+                     "size(grid_xyz ) = ",size(grid_xyz), &
+                     "size(grid_xyz,dim=1) = ",size(grid_xyz,dim=1), &
+                     "size(grid_xyz,dim=2) = ",size(grid_xyz,dim=2)
+    flush (iout)
+  end if
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  201 format (/,4(2x,a,i0,/),/,4(2x,a,i0,/))
+  !
   ! Broadcast the array_sizes array to all host roots
   !
-  n = size(array_sizes,kind=int_mpi)
- !if (use_all_processors) then
-    call mpi_bcast(array_sizes,n,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
- !else
- !  if (i_am_host_root) then
- !    call mpi_bcast(array_sizes,n,mpi_inttyp,glb_root,host_roots_comm,mpierr)
- !  end if
- !end if
+  call mpi_bcast(array_sizes,size(array_sizes,kind=int_mpi),mpi_inttyp, &
+                 glb_root,MPI_COMM_WORLD,mpierr)
+  !
   !
   ! Allocate the grid_elem array on the non-root processes
   ! so it can be received from the root process.
   !
+  m1 = array_sizes(1)
   if (.not. allocated(grid_elem)) then
-    n1 = array_sizes(1)
-    allocate ( grid_elem(1:n1) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"grid_elem",1,__LINE__,__FILE__,ierr,error_message)
+    if (i_am_host_root) then
+      allocate ( grid_elem(1:m1) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"grid_elem",1,__LINE__,__FILE__,ierr,error_message)
+    end if
   end if
   !
   !
   ! Broadcast the grid_elem array to all host roots
   !
-  n = size(grid_elem,kind=int_mpi)
-  if (use_all_processors) then
-    call mpi_bcast(grid_elem,n,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
-    if (.not. i_am_host_root) then
-      deallocate ( grid_elem , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"grid_elem",2,__LINE__,__FILE__,ierr,error_message)
-    end if
-  else
-    if (i_am_host_root) then
-      call mpi_bcast(grid_elem,n,mpi_inttyp,glb_root,host_roots_comm,mpierr)
-    end if
+  if (i_am_host_root) then
+    !
+    npts = m1
+    nsplit = npts/nmax_int
+    !
+    n2 = 0
+    do nn = 1,nsplit+1
+      !
+      n1 = n2 + 1
+      n2 = min( n2+nmax_int , npts )
+      np = n2 - n1 + 1
+      !
+      if (mypnum == glb_root) then
+        write (iout,1000) "grid_elem : ",nn,n1,n2,np
+        ival = grid_elem(n1:n2) ! F2003 AUTO-REALLOC
+      else
+        ival = init_array(np,int(0,kind=kind(grid_elem))) ! F2003 AUTO-REALLOC
+      end if
+      !
+      call mpi_bcast(ival,int(np,kind=int_mpi),mpi_inttyp, &
+                     glb_root,host_roots_comm,mpierr)
+      !
+      if (mypnum /= glb_root) then
+        do n = 1,np
+          grid_elem(n+n1-1) = ival(n)
+        end do
+      end if
+      !
+      if (n2 == npts) exit
+      !
+    end do
+  end if
+  1000 format (2x,a,"div # ",i0," : n1=",i0,", n2=",i0,", np=",i0)
+  !
+  if (allocated(ival)) then
+    deallocate ( ival , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ival",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Allocate the grid_xyz array on the non-root processes
@@ -3811,163 +3843,47 @@ continue
   !
   ! Broadcast the grid_xyz array to all host roots
   !
- !call mpi_type_contiguous(size(grid_xyz,dim=1,kind=int_mpi),mpi_flttyp, &
- !                         xyz_block_type,mpierr)
- !call mpi_type_commit(xyz_block_type,mpierr)
-  !
- !n = size(grid_xyz,kind=int_mpi)
-  if (use_all_processors) then
-    if (i_am_host_root) then
+  if (i_am_host_root) then
+    !
+    npts = m2
+    nsplit = npts/nmax_real
+    !
+    n2 = 0
+    do nn = 1,nsplit+1
       !
-      hosts = pack( host_roots_grp(:) , & ! F2003 AUTO-REALLOC
-                    host_roots_grp(:) /= glb_root )
+      n1 = n2 + 1
+      n2 = min( n2+nmax_real , npts )
+      np = n2 - n1 + 1
       !
-      if (mypnum == glb_root) then
-        allocate ( rqst(1:size(hosts)) , stat=ierr )
-        allocate ( jstat(1:_MPI_STATUS_SIZE_,1:size(hosts)) , stat=ierr )
-        istat = reshape(jstat,[size(jstat)]) ! F2003 AUTO-REALLOC
-        deallocate ( jstat , stat=ierr )
-      end if
-      !
-      npts = m2
-      ndiv = npts/nsplit
-      !
-      n2 = 0
-      do nn = 1,nsplit+1
+      do l = 1,m1
         !
-        n1 = n2 + 1
-        n2 = min( n2+ndiv , npts )
-        np = n2 - n1 + 1
+        if (mypnum == glb_root) then
+          write (iout,1001) "grid_xyz : ",nn,n1,n2,np,l
+          val = grid_xyz(l,n1:n2) ! F2003 AUTO-REALLOC
+        else
+          val = init_array(np,zero) ! F2003 AUTO-REALLOC
+        end if
         !
-        do l = 1,m1
-          !
-          if (mypnum == glb_root) then
-            write (iout,1001) nn,n1,n2,np,l
-            val = grid_xyz(l,n1:n2) ! F2003 AUTO-REALLOC
-          else
-            val = init_array(np,zero) ! F2003 AUTO-REALLOC
-          end if
-          !
-#define USE_HOST_BCAST_FOR_GRIDXYZ
-#ifdef USE_HOST_BCAST_FOR_GRIDXYZ
-          call mpi_bcast(val,int(np,kind=int_mpi),mpi_flttyp, &
-                         glb_root,host_roots_comm,mpierr)
-#else
-!#define USE_BLOCKING_SEND_AND_RECV
-#ifdef USE_BLOCKING_SEND_AND_RECV
-          do i = 1,size(host_roots_grp)
-            if (host_roots_grp(i) == glb_root) cycle
-            if (mypnum == glb_root) then
-              call mpi_send(val,int(np,kind=int_mpi),mpi_flttyp, &
-                            host_roots_grp(i),host_roots_grp(i), &
-                            MPI_COMM_WORLD,mpierr)
-            else if (mypnum == host_roots_grp(i)) then
-              call mpi_recv(val,int(np,kind=int_mpi),mpi_flttyp, &
-                            glb_root,host_roots_grp(i), &
-                            MPI_COMM_WORLD,my_istat(1),mpierr)
-            end if
+        call mpi_bcast(val,int(np,kind=int_mpi),mpi_flttyp, &
+                       glb_root,host_roots_comm,mpierr)
+        !
+        if (mypnum /= glb_root) then
+          do n = 1,np
+            grid_xyz(l,n+n1-1) = val(n)
           end do
-#else
-          if (mypnum == glb_root) then
-            do i = 1,size(hosts)
-              call mpi_isend(val,int(np,kind=int_mpi),mpi_flttyp, &
-                             hosts(i),hosts(i),MPI_COMM_WORLD, &
-                             rqst(i),mpierr)
-            end do
-            call mpi_waitall(size(rqst,kind=int_mpi),rqst,istat)
-          else
-            call mpi_irecv(val,int(np,kind=int_mpi),mpi_flttyp, &
-                           glb_root,mypnum,MPI_COMM_WORLD, &
-                           my_rqst,mpierr)
-            call mpi_wait(my_rqst,my_istat(1))
-          end if
-#endif
-#endif
-          !
-          if (mypnum /= glb_root) then
-            do m = 1,np
-              grid_xyz(l,m+n1-1) = val(m)
-            end do
-          end if
-          !
-        end do
-        !
-        if (n2 == npts) exit
+        end if
         !
       end do
-    end if
-   !!
-   !npts = m2
-   !ndiv = npts/nsplit
-   !!
-   !n2 = 0
-   !do nn = 1,nsplit+1
-   !  !
-   !  n1 = n2 + 1
-   !  n2 = min( n2+ndiv , npts )
-   !  np = n2 - n1 + 1
-   !  !
-   !  do l = 1,m1
-   !    !
-   !    if (mypnum == glb_root) then
-   !      write (iout,1001) nn,n1,n2,np,l
-   !      val = grid_xyz(l,n1:n2) ! F2003 AUTO-REALLOC
-   !    else
-   !      val = init_array(np,zero) ! F2003 AUTO-REALLOC
-   !    end if
-   !    !
-   !    call mpi_bcast(val,int(np,kind=int_mpi),mpi_flttyp, &
-   !                   glb_root,MPI_COMM_WORLD,mpierr)
-   !    !
-   !    if (mypnum /= glb_root) then
-   !      if (i_am_host_root) then
-   !        do m = 1,np
-   !          grid_xyz(l,m+n1-1) = val(m)
-   !        end do
-   !      end if
-   !    end if
-   !    !
-   !  end do
-   !  !
-   !  if (n2 == npts) exit
-   !  !
-   !end do
-  1001 format (2x,"div # ",i0," : n1=",i0,", n2=",i0, &
-                   ", np=",i0,", dir=",i0)
-  ! !
-  !!call mpi_bcast(grid_xyz,n,mpi_flttyp,glb_root,MPI_COMM_WORLD,mpierr)
-  ! call mpi_bcast(grid_xyz,size(grid_xyz,dim=2,kind=int_mpi), &
-  !                xyz_block_type,glb_root,MPI_COMM_WORLD,mpierr)
-    if (.not. i_am_host_root) then
-      if (allocated(grid_xyz)) then
-        deallocate ( grid_xyz , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"grid_xyz",2,__LINE__,__FILE__,ierr,error_message)
-      end if
-    end if
-    if (allocated(val)) then
-      deallocate ( val , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"val",2,__LINE__,__FILE__,ierr,error_message)
-    end if
-    if (allocated(rqst)) then
-      deallocate ( rqst , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"rqst",2,__LINE__,__FILE__,ierr,error_message)
-    end if
-    if (allocated(istat)) then
-      deallocate ( istat , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"istat",2,__LINE__,__FILE__,ierr,error_message)
-    end if
-    if (allocated(jstat)) then
-      deallocate ( jstat , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"jstat",2,__LINE__,__FILE__,ierr,error_message)
-    end if
-    if (allocated(hosts)) then
-      deallocate ( hosts , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"hosts",2,__LINE__,__FILE__,ierr,error_message)
-    end if
-  else
-   !call mpi_bcast(grid_xyz,n,mpi_flttyp,glb_root,host_roots_comm,mpierr)
-    call mpi_bcast(grid_xyz,size(grid_xyz,dim=2,kind=int_mpi), &
-                   xyz_block_type,glb_root,host_roots_comm,mpierr)
+      !
+      if (n2 == npts) exit
+      !
+    end do
+  end if
+  1001 format (2x,a,"div # ",i0," : n1=",i0,", n2=",i0,", np=",i0,", dir=",i0)
+  !
+  if (allocated(val)) then
+    deallocate ( val , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"val",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Have all host roots unpack the grid_elem and grid_xyz arrays
