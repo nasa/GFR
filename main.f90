@@ -24,7 +24,7 @@ program GFR_main
   use geovar, only : n_flxpts,n_bnd_flxpts,n_wall_flxpts
   use geovar, only : n_qdtpts,n_flx_qdtpts,n_bnd_qdtpts,n_wall_qdtpts
   !
-  use eqn_idx, only : nq
+  use eqn_idx, only : nq,ng
   !
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
@@ -60,7 +60,7 @@ program GFR_main
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
   !
-  use flowvar, only : usp,dusp
+  use flowvar, only : usp,gpsp,dusp
   !
   use order_mod, only : n_order,p_order,q_order
   !
@@ -423,6 +423,12 @@ continue
         allocate ( usp(1:n_solpts,1:nq) , source=zero , &
                    stat=ierr , errmsg=error_message )
         call alloc_error(pname,"usp",1,__LINE__,__FILE__,ierr,error_message)
+        !
+        ! Allocate the gas properties array, which would normally be done
+        ! during initialization.
+        allocate ( gpsp(1:n_solpts,1:ng) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"gpsp",1,__LINE__,__FILE__,ierr,error_message)
         !
         ! Move this data to another set of variables, so that during the
         ! second pass of this preprocessing loop we can read the
