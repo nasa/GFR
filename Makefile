@@ -71,10 +71,17 @@ rebuild-skylake: TRGT := skylake
 rebuild-skylake: clean-build
 rebuild-skylake: build
 
+.PHONY: clean-skylake
+clean-skylake: BDIR := optimize_skylake
+clean-skylake: EXEF := gfr_skylake
+clean-skylake: clean-build
+
 .PHONY: sky
 sky: skylake
 .PHONY: rebuild-sky
 rebuild-sky: rebuild-skylake
+.PHONY: clean-sky
+clean-sky: clean-skylake
 
 # BROADWELL (Essentially the same as Haswell)
 
@@ -106,10 +113,17 @@ rebuild-haswell: TRGT := haswell
 rebuild-haswell: clean-build
 rebuild-haswell: build
 
+.PHONY: clean-haswell
+clean-haswell: BDIR := optimize_haswell
+clean-haswell: EXEF := gfr_haswell
+clean-haswell: clean-build
+
 .PHONY: has
 has: haswell
 .PHONY: rebuild-has
 rebuild-has: rebuild-haswell
+.PHONY: clean-has
+clean-has: clean-haswell
 
 # IVY BRIDGE
 
@@ -131,10 +145,17 @@ rebuild-ivybridge: TRGT := ivybridge
 rebuild-ivybridge: clean-build
 rebuild-ivybridge: build
 
+.PHONY: clean-ivybridge
+clean-ivybridge: BDIR := optimize_ivybridge
+clean-ivybridge: EXEF := gfr_ivybridge
+clean-ivybridge: clean-build
+
 .PHONY: ivy
 ivy: ivybridge
 .PHONY: rebuild-ivy
 rebuild-ivy: rebuild-ivybridge
+.PHONY: clean-ivy
+clean-ivy: clean-ivybridge
 
 # SANDY BRIDGE
 
@@ -156,10 +177,17 @@ rebuild-sandybridge: TRGT := sandybridge
 rebuild-sandybridge: clean-build
 rebuild-sandybridge: build
 
+.PHONY: clean-sandybridge
+clean-sandybridge: BDIR := optimize_sandybridge
+clean-sandybridge: EXEF := gfr_sandybridge
+clean-sandybridge: clean-build
+
 .PHONY: san
 san: sandybridge
 .PHONY: rebuild-san
 rebuild-san: rebuild-sandybridge
+.PHONY: clean-san
+clean-san: clean-sandybridge
 
 # WESTMERE
 
@@ -176,10 +204,17 @@ rebuild-westmere: TRGT := westmere
 rebuild-westmere: clean-build
 rebuild-westmere: build
 
+.PHONY: clean-westmere
+clean-westmere: BDIR := optimize_westmere
+clean-westmere: EXEF := gfr_westmere
+clean-westmere: clean-build
+
 .PHONY: wes
 wes: westmere
 .PHONY: rebuild-wes
 rebuild-wes: rebuild-westmere
+.PHONY: clean-wes
+clean-wes: clean-westmere
 
 # MEROPE
 
@@ -197,10 +232,17 @@ rebuild-merope: TRGT := merope
 rebuild-merope: clean-build
 rebuild-merope: merope
 
+.PHONY: clean-merope
+clean-merope: BDIR := optimize_merope
+clean-merope: EXEF := gfr_merope
+clean-merope: clean-build
+
 .PHONY: mer
 mer: merope
 .PHONY: rebuild-mer
 rebuild-mer: rebuild-merope
+.PHONY: clean-mer
+clean-mer: clean-merope
 
 # GPU COMMON FLAGS
 
@@ -240,6 +282,11 @@ rebuild-gpu-mm: TRGT := gpu-mm
 rebuild-gpu-mm: clean-build
 rebuild-gpu-mm: build
 
+.PHONY: clean-gpu-mm
+clean-gpu-mm: BDIR := gpu_mm
+clean-gpu-mm: EXEF := gfr_gpu_mm
+clean-gpu-mm: clean-build
+
 # GPU
 
 .PHONY: gpu
@@ -270,6 +317,11 @@ rebuild-gpu: EXEF := gfr_gpu
 rebuild-gpu: TRGT := gpu
 rebuild-gpu: clean-build
 rebuild-gpu: build
+
+.PHONY: clean-gpu
+clean-gpu: BDIR := gpu
+clean-gpu: EXEF := gfr_gpu
+clean-gpu: clean-build
 
 
 # CHECK AGAINST FORTRAN STANDARDS WITH ONLY COMPILER WARNINGS
