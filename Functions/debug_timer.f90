@@ -206,3 +206,36 @@ continue
 #endif
   !
 end subroutine debug_timer
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine pure_debug_timer(time_flag,message,processor, &
+                            part_num,acc,pid,return_time)
+  !
+  !.. Formal Arguments ..
+  integer,          intent(in) :: time_flag
+  !
+  character(len=*), intent(in) :: message
+  !
+  !.. Optional Arguments ..
+  integer,  optional, intent(in) :: processor
+  integer,  optional, intent(in) :: part_num
+  integer,  optional, intent(in) :: acc
+  integer,  optional, intent(in) :: pid
+  real(wp), optional, intent(out) :: return_time
+  !
+continue
+  !
+#ifdef DISABLE_PURE
+  call debug_timer(time_flag,message, &
+                   processor=processor,part_num=part_num, &
+                   acc=acc,pid=pid,return_time=return_time)
+#endif
+  !
+end subroutine pure_debug_timer
+!
+!###############################################################################
+!
