@@ -798,54 +798,36 @@ end function get_edge_quadrature
 #ifndef DISABLE_PURE
 pure &
 #endif
-function get_tria_quadrature(n,location) result(return_value)
+function get_tria_quadrature(p,location) result(return_value)
   !
-  use order_mod,      only : geom_solpts
-  use triangle_mod,   only : TriNodes2D_AlphaOptimized
-  use triangle_mod,   only : TriNodes2D_BarycentricLobatto
-  use triangle_mod,   only : get_triangle_weights_at_solpts
-  use triangle_mod,   only : old_get_triangle_weights_at_solpts
+  !.. Use Statements ..
+  use triangle_mod, only : TriNodes2D
+  use triangle_mod, only : get_triangle_weights_at_solpts
+  use triangle_mod, only : old_get_triangle_weights_at_solpts
   !
-  integer, intent(in) :: n
+  !.. Formal Arguments ..
+  integer, intent(in) :: p
   integer, intent(in) :: location
   !
+  !.. Function Result ..
   type(element_type) :: return_value
   !
-  integer :: ndim,npts,ierr
+  !.. Local Declared Precision ..
+#ifdef DISABLE_QP
+  integer, parameter :: lp = wp
+#else
+  integer, parameter :: lp = qp
+#endif
   !
-  real(qp), allocatable :: pts(:,:)
-  real(qp), allocatable :: wts(:)
+  !.. Local Allocatable Arrays ..
+  real(lp), allocatable :: pts(:,:)
+  real(lp), allocatable :: wts(:)
   !
 continue
   !
-  ndim = geom_dimen(Geom_Tria)
-  npts = geom_solpts(Geom_Tria,n)
+  ! Get the solution points
   !
-  allocate ( pts(1:ndim,1:npts) , source=qzero , stat=ierr )
-  allocate ( wts(1:npts) , source=qzero , stat=ierr )
-  !
-  select case (location)
-    !
-    case (AlphaOptimized_TriPoints)
-      !
-      ! Alpha optimized triangle quadrature from Hesthaven and Warburton
-      !
-      pts = TriNodes2D_AlphaOptimized(n,qzero)
-      !
-    case (BarycentricLobatto_TriPoints)
-      !
-      ! 1D Lobatto quadrature extrapolated to a barycentric triangle
-      ! coordinate system
-      !
-      pts = TriNodes2D_BarycentricLobatto(n,qzero)
-      !
-    case default
-      !
-      ! Default to the barycentric Lobatto quadrature
-      !
-      pts = TriNodes2D_BarycentricLobatto(n,qzero)
-      !
-  end select
+  pts = TriNodes2D(p,location,real(zero,kind=lp)) ! F2003 AUTO-REALLOC
   !
   ! The method for computing the triangle quadrature weights is
   ! independent of the method for getting the point locations
@@ -853,14 +835,11 @@ continue
   wts = get_triangle_weights_at_solpts(pts)     ! F2003 AUTO-REALLOC
  !wts = old_get_triangle_weights_at_solpts(pts) ! F2003 AUTO-REALLOC
   !
-  allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
-  allocate ( return_value%wts(1:npts) , source=zero , stat=ierr )
+ !return_value%pts = chop( pts ) ! F2003 AUTO-REALLOC
+ !return_value%wts = chop( wts ) ! F2003 AUTO-REALLOC
   !
-  return_value%pts = chop( pts )
-  return_value%wts = chop( wts )
-  !
-  deallocate ( pts , stat=ierr )
-  deallocate ( wts , stat=ierr )
+  return_value%pts = real(pts,kind=kind(return_value%pts)) ! F2003 AUTO-REALLOC
+  return_value%wts = real(wts,kind=kind(return_value%wts)) ! F2003 AUTO-REALLOC
   !
 end function get_tria_quadrature
 !
