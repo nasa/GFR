@@ -579,6 +579,10 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(FUNDIR)/debug_timer.f90 \
                           mpi_defs.h
 
+$(OBJDIR)/tetrahedra.o : tetrahedra.f90 \
+               $(OBJDIR)/kind_types.o \
+               $(OBJDIR)/poly.o
+
 $(OBJDIR)/thermo_mod.o : thermo_mod.f90 \
                $(OBJDIR)/kind_types.o \
                $(OBJDIR)/eqn_idx_mod.o \

@@ -99,6 +99,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/bc_mod.o \
         $(OBJDIR)/bnd_profiles_mod.o \
         $(OBJDIR)/triangle.o \
+        $(OBJDIR)/tetrahedra.o \
         $(OBJDIR)/flux.o \
         $(OBJDIR)/filter_mod.o \
         $(OBJDIR)/time_mod.o \
