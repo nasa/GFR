@@ -962,25 +962,54 @@ end function get_tetr_quadrature
 #ifndef DISABLE_PURE
 pure &
 #endif
-function get_pyra_quadrature(n) result(return_value)
+function get_pyra_quadrature(p,location) result(return_value)
   !
-  use order_mod, only : geom_solpts
+  !.. Use Statements ..
+  use pyramid_mod, only : PyrNodes3D
+  use pyramid_mod, only : get_pyramid_weights_at_solpts
   !
-  integer, intent(in) :: n
+  !.. Formal Arguments ..
+  integer, intent(in) :: p
+  integer, intent(in) :: location
   !
+  !.. Function Result ..
   type(element_type) :: return_value
   !
-  integer :: ndim,npts,ierr
+  !.. Local Declared Precision ..
+#ifdef DISABLE_QP
+  integer, parameter :: lp = wp
+#else
+  integer, parameter :: lp = qp
+#endif
+  !
+  !.. Local Scalars ..
+  integer :: node_loc
+  !
+  !.. Local Allocatable Arrays ..
+  real(lp), allocatable :: pts(:,:)
+  real(lp), allocatable :: wts(:)
   !
 continue
   !
-  ndim = geom_dimen(Geom_Pyra)
-  npts = geom_solpts(Geom_Pyra,n)
+  node_loc = Legendre_Gauss
+  if (location == Legendre_Gauss_Lobatto) then
+    node_loc = Legendre_Gauss_Lobatto
+  end if
   !
-  allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
-  allocate ( return_value%wts(1:npts) , source=zero , stat=ierr )
+  ! Get the solution points
   !
-  return_value%wts = one / real(npts,kind=wp)
+  pts = PyrNodes3D(p,real(zero,kind=lp),node_loc) ! F2003 AUTO-REALLOC
+  !
+  ! The method for computing the pyramid quadrature weights is
+  ! independent of the method for getting the point locations
+  !
+  wts = get_pyramid_weights_at_solpts(pts)     ! F2003 AUTO-REALLOC
+  !
+ !return_value%pts = chop( pts ) ! F2003 AUTO-REALLOC
+ !return_value%wts = chop( wts ) ! F2003 AUTO-REALLOC
+  !
+  return_value%pts = real(pts,kind=kind(return_value%pts)) ! F2003 AUTO-REALLOC
+  return_value%wts = real(wts,kind=kind(return_value%wts)) ! F2003 AUTO-REALLOC
   !
 end function get_pyra_quadrature
 !
