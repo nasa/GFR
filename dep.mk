@@ -528,12 +528,15 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
 
 $(OBJDIR)/projection_mod.o : projection_mod.f90 \
                    $(OBJDIR)/kind_types.o \
+                   $(OBJDIR)/eqn_idx_mod.o \
                    $(OBJDIR)/typesgen_mod.o \
                    $(OBJDIR)/geovar_mod.o \
                    $(OBJDIR)/order_mod.o \
                    $(OBJDIR)/ovar_mod.o \
                    $(OBJDIR)/quadrature_mod.o \
                    $(OBJDIR)/vandermonde_mod.o \
+                   $(OBJDIR)/thermo_mod.o \
+                   $(OBJDIR)/transport_mod.o \
                    $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \

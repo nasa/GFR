@@ -586,20 +586,27 @@ end subroutine project_to_porder_vector
 !
 !###############################################################################
 !
-subroutine project_to_porder_array(array,proj_order)
+subroutine project_to_porder_array(array,proj_order,update_gpsp)
   !
   !.. Use Statements ..
   use order_mod, only : p_order
+  use geovar,    only : n_solpts
   use ovar,      only : force_nd_subroutines
+  use flowvar,   only : gpsp
+  !
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: array(:,:)
   !
   !.. Optional Arguments ..
-  integer, optional, intent(in) :: proj_order
+  integer,     optional, intent(in) :: proj_order
+  logical(lk), optional, intent(in) :: update_gpsp
   !
   !.. Local Scalars ..
   integer     :: nr,nvar,order
+  logical(lk) :: gpsp_update_requested
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "project_to_porder_array"
@@ -607,6 +614,11 @@ subroutine project_to_porder_array(array,proj_order)
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  gpsp_update_requested = fals
+  if (present(update_gpsp)) then
+    gpsp_update_requested = update_gpsp
+  end if
   !
   nr = nme-nmb+1
   nvar = size(array,dim=2)
@@ -634,6 +646,12 @@ continue
       call project_to_porder_nd(1,ncs,array,order)
     end if
     !
+  end if
+  !
+  if (gpsp_update_requested) then
+    call update_thermo_properties(1,n_solpts,array,gpsp, &
+                                  loc="cell",caller_name=pname)
+    call update_transport_properties(1,n_solpts,array,gpsp)
   end if
   !
   call debug_timer(leaving_procedure,pname)
