@@ -1142,8 +1142,14 @@ module input_namelist_mod
   integer, save :: quadrature_order = 3
   integer, save :: output_order = -3
   integer, save :: error_order = -3
-  integer, save :: interpto_solution_order = 3
+  !
   integer, save :: interpto_all_orders = -3
+  integer, save :: interpto_solution_order = 3
+  integer, save :: interpto_projection_order = -3
+  integer, save :: interpto_quadrature_order = -3
+  integer, save :: interpto_output_order = -3
+  integer, save :: interpto_error_order = -3
+  !
   integer, save :: dmat_grad_temp_order = -1
   !
   ! ########################
@@ -1166,7 +1172,9 @@ module input_namelist_mod
                      interpto_plot3d_k_stride, interpto_plot3d_all_strides, &
                      interpto_plot3d_agglomerate_order
   ! INTERPOLATION UTILITY SOLUTION ORDER
-  namelist / input / interpto_solution_order, interpto_all_orders
+  namelist / input / interpto_solution_order, interpto_all_orders, &
+                     interpto_projection_order, interpto_quadrature_order, &
+                     interpto_output_order, interpto_error_order
   ! BASE FR OPTIONS
   namelist / input / solution_order, flux_divergence, correction_function
   ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS

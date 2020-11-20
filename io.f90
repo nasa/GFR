@@ -370,8 +370,14 @@ continue
     plot3d_all_strides       = interpto_plot3d_all_strides
     plot3d_agglomerate_order = interpto_plot3d_agglomerate_order
     solution_file            = ""
-    solution_order           = interpto_solution_order
-    all_orders               = interpto_all_orders
+    !
+    solution_order   = interpto_solution_order
+    projection_order = interpto_projection_order
+    quadrature_order = interpto_quadrature_order
+    output_order     = interpto_output_order
+    error_order      = interpto_error_order
+    all_orders       = interpto_all_orders
+    !
   end if
   !
   ! Check the lustre striping parameters
