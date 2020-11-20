@@ -913,25 +913,47 @@ end function get_quad_quadrature
 #ifndef DISABLE_PURE
 pure &
 #endif
-function get_tetr_quadrature(n) result(return_value)
+function get_tetr_quadrature(p,location) result(return_value)
   !
-  use order_mod, only : geom_solpts
+  !.. Use Statements ..
+  use tetrahedra_mod, only : TetNodes3D
+  use tetrahedra_mod, only : get_tetrahedron_weights_at_solpts
   !
-  integer, intent(in) :: n
+  !.. Formal Arguments ..
+  integer, intent(in) :: p
+  integer, intent(in) :: location
   !
+  !.. Function Result ..
   type(element_type) :: return_value
   !
-  integer :: ndim,npts,ierr
+  !.. Local Declared Precision ..
+#ifdef DISABLE_QP
+  integer, parameter :: lp = wp
+#else
+  integer, parameter :: lp = qp
+#endif
+  !
+  !.. Local Allocatable Arrays ..
+  real(lp), allocatable :: pts(:,:)
+  real(lp), allocatable :: wts(:)
   !
 continue
   !
-  ndim = geom_dimen(Geom_Tetr)
-  npts = geom_solpts(Geom_Tetr,n)
+  ! Get the solution points
   !
-  allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
-  allocate ( return_value%wts(1:npts) , source=zero , stat=ierr )
+  pts = TetNodes3D(p,location,real(zero,kind=lp)) ! F2003 AUTO-REALLOC
+ !pts = TetNodes3D(p,location,real(zero,kind=lp),use_Gauss) ! F2003 AUTO-REALLOC
   !
-  return_value%wts = one / real(npts,kind=wp)
+  ! The method for computing the tetrahedra quadrature weights is
+  ! independent of the method for getting the point locations
+  !
+  wts = get_tetrahedron_weights_at_solpts(pts)     ! F2003 AUTO-REALLOC
+  !
+ !return_value%pts = chop( pts ) ! F2003 AUTO-REALLOC
+ !return_value%wts = chop( wts ) ! F2003 AUTO-REALLOC
+  !
+  return_value%pts = real(pts,kind=kind(return_value%pts)) ! F2003 AUTO-REALLOC
+  return_value%wts = real(wts,kind=kind(return_value%wts)) ! F2003 AUTO-REALLOC
   !
 end function get_tetr_quadrature
 !
