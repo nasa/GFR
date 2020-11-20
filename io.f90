@@ -1972,6 +1972,13 @@ continue
     !
   end if
   !
+  ! Broadcast the new bface to all the non-host-root MPI processes
+  !
+  if (ncpu > 1) then
+    call mpi_bcast(bface,size(bface,kind=int_mpi),mpi_inttyp, &
+                   host_root,my_host_comm,mpierr)
+  end if
+  !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
