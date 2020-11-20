@@ -192,6 +192,18 @@ continue
     ! Go through the cut boundaries and remove all duplicate nodes.
     ! This shouldnt do anything if there are no cut boundaries.
     !
+    ! ##########################################################################
+    ! ##########################################################################
+    ! ##########################################################################
+    !  NOTE: IF A SIMULATION USING A PLOT3D GRID COMPLAINS ABOUT ERRORS WITH
+    !        REMOVING DUPLICATE NODES, TRY REPLACING THE CALL TO SUBROUTINE
+    !        REMOVE_DUPLICATE_NODES WITH A CALL TO SUBROUTINE
+    !        OLD_REMOVE_DUPLICATE_NODES, RECOMPILING, AND RERUNNING THE
+    !        SIMULATION.
+    ! ##########################################################################
+    ! ##########################################################################
+    ! ##########################################################################
+    !
     call remove_duplicate_nodes(sol_nodes)
    !call old_remove_duplicate_nodes(sol_nodes)
     !
