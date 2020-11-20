@@ -420,6 +420,7 @@ subroutine assume_equidistant_mapping()
   use order_mod,      only : n_min_order,n_max_order
   !
   use ovar,           only : rhoref,aref
+  use ovar,           only : interpto_input_mode
   !
   use flowvar,        only : usp
   !
@@ -753,6 +754,17 @@ continue
   !$ACC UPDATE DEVICE(xyz)
   if (grid_sol_is_available) then
     !$ACC UPDATE DEVICE(usp)
+  end if
+  !
+  if (interpto_input_mode == 2) then
+    if (ncpu > 1) then
+      call mpi_bcast(xyz,size(xyz,kind=int_mpi),mpi_flttyp,glb_root, &
+                     MPI_COMM_WORLD,mpierr)
+      if (grid_sol_is_available) then
+        call mpi_bcast(usp,size(usp,kind=int_mpi),mpi_flttyp,glb_root, &
+                       MPI_COMM_WORLD,mpierr)
+      end if
+    end if
   end if
   !
   call debug_timer(leaving_procedure,pname)
