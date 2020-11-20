@@ -1756,7 +1756,8 @@ continue
   call create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
                                 nodes_of_cell,nodes_of_cell_ptr, &
                                 cells_surr_cell,cells_surr_cell_ptr, &
-                                face,fp,force_flxpt_offset_to_zero=true)
+                                face,fp,force_flxpt_offset_to_zero=true, &
+                                group_comm=host_roots_comm)
   !
   call debug_timer(leaving_procedure,pname)
   !
