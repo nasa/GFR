@@ -965,7 +965,9 @@ end subroutine update_thermo_properties_sp
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine update_thermo_cpg(n1,n2,cv,gp)
   !
   ! N1 : beginning solution point
@@ -1065,7 +1067,9 @@ end subroutine update_thermo_cpg
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine update_mixture_density(n1,n2,cv)
   !
   !.. Formal Arguments ..
@@ -1113,7 +1117,9 @@ end subroutine update_mixture_density
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_mixture_gamma_sp(n1,n2,cp,gam)
   !
   ! N1  : beginning solution point
@@ -1145,7 +1151,9 @@ end subroutine compute_mixture_gamma_sp
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_mixture_gamma_1p(cp,gam)
   !
   ! CP  : mixture specific heat at constant pressure
@@ -1167,7 +1175,9 @@ end subroutine compute_mixture_gamma_1p
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_mixture_gamma_from_temp_1p(mass_frac,temp,gam,dimensional)
   !
   ! CP  : mixture specific heat at constant pressure
@@ -1200,7 +1210,9 @@ end subroutine compute_mixture_gamma_from_temp_1p
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_mixture_rgas_sp(n1,n2,mass_frac,rmix,dimensional)
   !
   !.. Use Statements ..
@@ -1248,7 +1260,9 @@ end subroutine compute_mixture_rgas_sp
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_mixture_rgas_1p(mass_frac,rmix,dimensional)
   !
   !.. Use Statements ..
@@ -1672,7 +1686,9 @@ end subroutine newton_solve_for_temperature
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_internal_energy(n1,n2,cv,e)
   !
   !.. Formal Arguments ..
@@ -1744,7 +1760,9 @@ end subroutine compute_internal_energy
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_mixture_enthalpy_sp(n1,n2,mass_frac,t,h,dimensional)
   !
   !.. Use Statements ..
@@ -1822,7 +1840,9 @@ end subroutine compute_mixture_enthalpy_sp
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_mixture_enthalpy_1p(mass_frac,t,h,dimensional)
   !
   !.. Use Statements ..
@@ -1874,7 +1894,9 @@ end subroutine compute_mixture_enthalpy_1p
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_species_enthalpy_sp(n1,n2,t,hsi,dimensional)
   !
   !.. Use Statements ..
@@ -1946,7 +1968,9 @@ end subroutine compute_species_enthalpy_sp
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_species_enthalpy_1p(t,hsi,dimensional)
   !
   !.. Use Statements ..
@@ -1996,7 +2020,9 @@ end subroutine compute_species_enthalpy_1p
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_mixture_href(mass_frac,t,h)
   !
   ! NOTE: This version is different from the others in
@@ -2045,7 +2071,9 @@ end subroutine compute_mixture_href
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_species_energy_sp(n1,n2,t,esi,dimensional)
   !
   !.. Use Statements ..
@@ -2122,7 +2150,9 @@ end subroutine compute_species_energy_sp
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_mixture_cp_sp(n1,n2,mass_frac,t,cp,dimensional)
   !
   !.. Use Statements ..
@@ -2199,7 +2229,9 @@ end subroutine compute_mixture_cp_sp
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_mixture_cp_1p(mass_frac,t,cp,dimensional)
   !
   !.. Use Statements ..
@@ -2250,7 +2282,9 @@ end subroutine compute_mixture_cp_1p
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_species_cp_sp(n1,n2,t,cpi,dimensional)
   !
   !.. Use Statements ..
@@ -2321,7 +2355,9 @@ end subroutine compute_species_cp_sp
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_species_cp_1p(t,cpi,dimensional)
   !
   !.. Use Statements ..
@@ -2371,7 +2407,9 @@ end subroutine compute_species_cp_1p
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_mixture_cpref(mass_frac,t,cp)
   !
   ! NOTE: This version is different from the others in
@@ -2419,7 +2457,9 @@ end subroutine compute_mixture_cpref
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_mixture_dcpdt(n1,n2,mass_frac,t,dcpdt)
   !
   ! Computes the following sum for points n1 to n2:
@@ -2490,7 +2530,9 @@ end subroutine compute_mixture_dcpdt
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_species_dcpdt(n1,n2,t,dcpidt)
   !
   ! Computes the partial derivative of the species Cp w.r.t. temperature:
@@ -2550,7 +2592,9 @@ end subroutine compute_species_dcpdt
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_cp_over_temp_integral_sp(n1,n2,mass_frac, &
                                             return_value,temp,ttot)
   !
@@ -2695,7 +2739,9 @@ end subroutine compute_cp_over_temp_integral_sp
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_cp_over_temp_integral_1p(mass_frac,return_value,temp,ttot)
   !
   ! Routine to compute the integral required for calculating total pressure
@@ -2827,7 +2873,9 @@ end subroutine compute_cp_over_temp_integral_1p
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_gibbs_free_energy(n1,n2,t,gbfe)
   !
   ! Routine to calculate the Gibbs free energy of a specie
@@ -2937,7 +2985,10 @@ end subroutine compute_gibbs_free_energy
 !
 !###############################################################################
 !
-pure subroutine compute_dgbdt(n1,n2,t,delsco,dgbdt,dimensional)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_dgbdt(n1,n2,t,delsco,dgbdt,dimensional)
   !
   ! Routine to calculate the derivtive of the Gibbs free energy
   ! of a specie with respect to temperature
@@ -3074,7 +3125,9 @@ end subroutine compute_dgbdt
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_cp_low_temperature(cpi)
   !
   ! Routine to calculate the specific heat at constant pressure
@@ -3113,7 +3166,9 @@ end subroutine compute_cp_low_temperature
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_enthalpy_low_temperature(hsi)
   !
   ! Routine to calculate the enthalpy of a species at the low temperature
@@ -3152,7 +3207,9 @@ end subroutine compute_enthalpy_low_temperature
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine compute_gbfe_low_temperature(gbfe)
   !
   ! Routine to calculate the Gibbs free energy of a
