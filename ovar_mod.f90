@@ -604,6 +604,8 @@ module ovar
   !
   character(len=32), public, save, allocatable :: bc_names(:)
   !
+  integer, public, save :: interpto_input_mode = 1
+  !
   !$ACC DECLARE CREATE(walls_are_exact,sub_inflow_method, &
   !$ACC&               turb_is_on,include_tke_in_energy, &
   !$ACC&               time,itcur,gam,pr,aref,rhoref,tref,tmin,tmax, &
