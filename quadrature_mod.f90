@@ -70,13 +70,6 @@ module quadrature_mod
   !
   logical(lk), public, protected, save :: geom_is_used(Geom_Min:Geom_Max)
   !
-  interface get_triangle_weights_at_solpts
-    module procedure get_triangle_weights_at_solpts_DP
-#ifndef DISABLE_QP
-    module procedure get_triangle_weights_at_solpts_QP
-#endif
-  end interface get_triangle_weights_at_solpts
-  !
 contains
 !
 !###############################################################################
@@ -810,6 +803,8 @@ function get_tria_quadrature(n,location) result(return_value)
   use order_mod,      only : geom_solpts
   use triangle_mod,   only : TriNodes2D_AlphaOptimized
   use triangle_mod,   only : TriNodes2D_BarycentricLobatto
+  use triangle_mod,   only : get_triangle_weights_at_solpts
+  use triangle_mod,   only : old_get_triangle_weights_at_solpts
   !
   integer, intent(in) :: n
   integer, intent(in) :: location
@@ -855,7 +850,8 @@ continue
   ! The method for computing the triangle quadrature weights is
   ! independent of the method for getting the point locations
   !
-  wts = get_triangle_weights_at_solpts(pts)
+  wts = get_triangle_weights_at_solpts(pts)     ! F2003 AUTO-REALLOC
+ !wts = old_get_triangle_weights_at_solpts(pts) ! F2003 AUTO-REALLOC
   !
   allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
   allocate ( return_value%wts(1:npts) , source=zero , stat=ierr )
@@ -1084,262 +1080,6 @@ continue
   deallocate ( wts , stat=ierr )
   !
 end function get_hexa_quadrature
-!
-!###############################################################################
-!
-#ifndef DISABLE_PURE
-pure &
-#endif
-function get_triangle_weights_at_solpts_DP(rs) result(return_value)
-  !
-  ! NOTE : This seems to fail for large n_order (>15)
-  !
-  use polynomial_mod, only : nodes_legendre_gauss
-  use polynomial_mod, only : weights_legendre_gauss
-  !
-  real(dp), dimension(:,:), intent(in) :: rs
-  !
-  real(dp), dimension(1:size(rs,2)) :: return_value
-  !
-  integer  :: i,j,k,n,m,np
-  integer  :: nspts,nfpts
-  real(dp) :: g,h,x,y
-  !
-  integer, parameter :: nquad = 20
-  !
-  real(dp), dimension(1:nquad)                   :: xi
-  real(dp), dimension(1:nquad)                   :: dxi
-  real(dp), dimension(1:nquad)                   :: weights
-  real(dp), dimension(1:size(rs,2),1:size(rs,2)) :: V
-  !
-  integer, parameter :: lp = dp
-  !
-  real(lp), parameter :: zero = 0.0_lp
-  real(lp), parameter :: half = 0.5_lp
-  real(lp), parameter :: one  = 1.0_lp
-  !
-continue
-  !
-  ! On entry, r and s need to be defined on the interval [0,1]
-  !
-  nspts = size(rs,2)
-  nfpts = np2n(nspts) + 1
-  !
-  ! Compute the coefficients of the Vandermonde matrix for
-  ! the Lagrange polynomials using monomial basis functions
-  !
-  do n = 1,nspts
-    k = 0
-    do i = 1,nfpts
-      do j = 1,i
-        k = k + 1
-        V(k,n) = rs(1,n)**(i-j) * rs(2,n)**(j-1)
-      end do
-    end do
-  end do
-  !
-  ! Now get the inverse of this matrix for use later
-  !
-#ifdef SPECIAL_FOR_INTEL
-  V = invert_matrix_lapack95(V)
-#else
-  V = invert_matrix(V)
-#endif
-  !
-  ! Get the Gauss quadrature points on the interval [-1,1] and
-  ! the corresponding weights necessary to perform the integration
-  !
-  call nodes_legendre_gauss(nquad,xi,dxi)
-  call weights_legendre_gauss(nquad,xi,dxi,weights)
-  !
-  ! Reset the quadrature points and weights to the interval [0,1]
-  !
-  xi(:) = half*(one+xi(:))
-  weights(:) = half*weights(:)
-  !
-  ! Initialize the triangle weights to zero
-  !
-  return_value(:) = zero
-  !
-  ! Loop over each solution point performing a double integral on the
-  ! corresponding Lagrange polynomial over the domain of the triangle
-  ! i.e., ipt    : current solution point
-  !       L(ipt) : Lagrange polynomial for ipt
-  !
-  !   /\ 1    /\ 1-xi
-  !   |       |
-  !   | d(xi) | d(eta) [L(ipt)]
-  !   |       |
-  !  \/ 0    \/ 0
-  !
-  do np = 1,nspts
-    !
-    ! Outer integral loop
-    !
-    outer_integral: do n = 1,nquad
-      !
-      ! Inner integral loop
-      !
-      h = zero
-      inner_integral: do m = 1,nquad
-        !
-        x = xi(n)
-        y = (one-xi(n))*xi(m)
-        !
-        ! Evaluate the polynomial at the point x,y
-        !
-        k = 0
-        g = zero
-        do i = 1,nfpts
-          do j = 1,i
-            k = k + 1
-            g = g + V(np,k) * x**(i-j) * y**(j-1)
-          end do
-        end do
-        !
-        ! Add the weighted polynomial value to the inner integral result
-        !
-        h = h + (one-xi(n)) * weights(m) * g
-        !
-      end do inner_integral
-      !
-      ! Add the weighted inner integral result to the outer integral result
-      !
-      return_value(np) = return_value(np) + weights(n) * h
-      !
-    end do outer_integral
-    !
-  end do
-  !
-end function get_triangle_weights_at_solpts_DP
-!
-!###############################################################################
-!
-#ifndef DISABLE_PURE
-pure &
-#endif
-function get_triangle_weights_at_solpts_QP(rs) result(return_value)
-  !
-  ! NOTE : This seems to fail for large n_order (>15)
-  !
-  use polynomial_mod, only : nodes_legendre_gauss
-  use polynomial_mod, only : weights_legendre_gauss
-  !
-  real(qp), dimension(:,:), intent(in) :: rs
-  !
-  real(qp), dimension(1:size(rs,2)) :: return_value
-  !
-  integer  :: i,j,k,n,m,np
-  integer  :: nspts,nfpts
-  real(qp) :: g,h,x,y
-  !
-  integer, parameter :: nquad = 20
-  !
-  real(qp), dimension(1:nquad)                   :: xi
-  real(qp), dimension(1:nquad)                   :: dxi
-  real(qp), dimension(1:nquad)                   :: weights
-  real(qp), dimension(1:size(rs,2),1:size(rs,2)) :: V
-  !
-  integer, parameter :: lp = qp
-  !
-  real(lp), parameter :: zero = 0.0_lp
-  real(lp), parameter :: half = 0.5_lp
-  real(lp), parameter :: one  = 1.0_lp
-  !
-continue
-  !
-  ! On entry, r and s need to be defined on the interval [0,1]
-  !
-  nspts = size(rs,2)
-  nfpts = np2n(nspts) + 1
-  !
-  ! Compute the coefficients of the Vandermonde matrix for
-  ! the Lagrange polynomials using monomial basis functions
-  !
-  do n = 1,nspts
-    k = 0
-    do i = 1,nfpts
-      do j = 1,i
-        k = k + 1
-        V(k,n) = rs(1,n)**(i-j) * rs(2,n)**(j-1)
-      end do
-    end do
-  end do
-  !
-  ! Now get the inverse of this matrix for use later
-  !
-#ifdef SPECIAL_FOR_INTEL
-  V = invert_matrix_lapack95(V)
-#else
-  V = invert_matrix(V)
-#endif
-  !
-  ! Get the Gauss quadrature points on the interval [-1,1] and
-  ! the corresponding weights necessary to perform the integration
-  !
-  call nodes_legendre_gauss(nquad,xi,dxi)
-  call weights_legendre_gauss(nquad,xi,dxi,weights)
-  !
-  ! Reset the quadrature points and weights to the interval [0,1]
-  !
-  xi(:) = half*(one+xi(:))
-  weights(:) = half*weights(:)
-  !
-  ! Initialize the triangle weights to zero
-  !
-  return_value(:) = zero
-  !
-  ! Loop over each solution point performing a double integral on the
-  ! corresponding Lagrange polynomial over the domain of the triangle
-  ! i.e., ipt    : current solution point
-  !       L(ipt) : Lagrange polynomial for ipt
-  !
-  !   /\ 1    /\ 1-xi
-  !   |       |
-  !   | d(xi) | d(eta) [L(ipt)]
-  !   |       |
-  !  \/ 0    \/ 0
-  !
-  do np = 1,nspts
-    !
-    ! Outer integral loop
-    !
-    outer_integral: do n = 1,nquad
-      !
-      ! Inner integral loop
-      !
-      h = zero
-      inner_integral: do m = 1,nquad
-        !
-        x = xi(n)
-        y = (one-xi(n))*xi(m)
-        !
-        ! Evaluate the polynomial at the point x,y
-        !
-        k = 0
-        g = zero
-        do i = 1,nfpts
-          do j = 1,i
-            k = k + 1
-            g = g + V(np,k) * x**(i-j) * y**(j-1)
-          end do
-        end do
-        !
-        ! Add the weighted polynomial value to the inner integral result
-        !
-        h = h + (one-xi(n)) * weights(m) * g
-        !
-      end do inner_integral
-      !
-      ! Add the weighted inner integral result to the outer integral result
-      !
-      return_value(np) = return_value(np) + weights(n) * h
-      !
-    end do outer_integral
-    !
-  end do
-  !
-end function get_triangle_weights_at_solpts_QP
 !
 !###############################################################################
 !
