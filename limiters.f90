@@ -56,11 +56,6 @@ module module_limiters
   !
   integer, parameter :: init_troubled_cells = -11
   !
-!#define WRITE_DATA_FOR_PROFILING
-#ifdef WRITE_DATA_FOR_PROFILING
-  integer, save :: num_prof_lim_outputs = 0
-#endif
-  !
 contains
 !
 !###############################################################################
@@ -3279,9 +3274,7 @@ end subroutine resolution_indicator
 !###############################################################################
 !###############################################################################
 !
-#ifndef WRITE_DATA_FOR_PROFILING
- pure &
-#endif
+pure &
 subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
                                      marker,scaled_marker)
   !
@@ -3442,9 +3435,7 @@ end subroutine output_lim_data
 !
 !###############################################################################
 !
-#ifndef WRITE_DATA_FOR_PROFILING
- pure &
-#endif
+pure &
 subroutine compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
   !
   !.. Use Statements ..
@@ -3477,14 +3468,6 @@ subroutine compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
   character(len=*), parameter :: pname = "compute_resolution_marker_3d"
   !
 continue
-  !
-#ifdef WRITE_DATA_FOR_PROFILING
-  if (num_prof_lim_outputs == 0) then
-    if (mypnum == glb_root) then
-      call output_lim_data(usp,skip_cell,cutoff_order)
-    end if
-  end if
-#endif
   !
   ! Compute u_hat, the degree-(P-1) solution of density at the sol-pts
   !
@@ -3608,15 +3591,6 @@ continue
     marker(nc) = max(mark_ec,mark_mx,mark_my,mark_mz,mark_ee)
     !
   end do
-  !
-#ifdef WRITE_DATA_FOR_PROFILING
-  if (num_prof_lim_outputs == 0) then
-    if (mypnum == glb_root) then
-      call output_gold_lim_data(marker)
-    end if
-    num_prof_lim_outputs = 1
-  end if
-#endif
   !
 end subroutine compute_resolution_marker_3d
 !
