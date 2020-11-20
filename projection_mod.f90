@@ -9,6 +9,8 @@ module projection_mod
   use generic_types_mod, only : matrix => matrix_gpu_t
   use generic_types_mod, only : create_matrix_sparsity
   !
+  use eqn_idx, only : ncs,nec,nmx,nmy,nmz,nmb,nme,nee,nq
+  !
   implicit none
   !
   private
@@ -588,6 +590,7 @@ subroutine project_to_porder_array(array,proj_order)
   !
   !.. Use Statements ..
   use order_mod, only : p_order
+  use ovar,      only : force_nd_subroutines
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: array(:,:)
@@ -596,7 +599,7 @@ subroutine project_to_porder_array(array,proj_order)
   integer, optional, intent(in) :: proj_order
   !
   !.. Local Scalars ..
-  integer :: nvar,order
+  integer     :: nr,nvar,order
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "project_to_porder_array"
@@ -605,6 +608,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  nr = nme-nmb+1
   nvar = size(array,dim=2)
   !
   order = p_order
@@ -612,14 +616,24 @@ continue
     order = proj_order
   end if
   !
-  if (nvar == 5) then      ! Probably 3D solution or residual
-    call project_to_porder_5v(array,order)
-  else if (nvar == 4) then ! Probably 2D solution or residual
-    call project_to_porder_4v(array,order)
-  else if (nvar == 3) then ! Probably 1D solution or residual
-    call project_to_porder_3v(array,order)
+  if (force_nd_subroutines) then
+    !
+    call project_to_porder_nd(1,nvar,array,order)
+    !
   else
-    call project_to_porder_nv(array,order)
+    !
+    if (nr == 3) then
+      call project_to_porder_3d(array,order)
+    else if (nr == 2) then
+      call project_to_porder_2d(array,order)
+    else
+      call project_to_porder_1d(array,order)
+    end if
+    !
+    if (ncs > 0) then
+      call project_to_porder_nd(1,ncs,array,order)
+    end if
+    !
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -628,7 +642,10 @@ end subroutine project_to_porder_array
 !
 !###############################################################################
 !
-subroutine project_to_porder_5v(array,order)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine project_to_porder_3d(array,order)
   !
   !.. Use Statements ..
   use order_mod, only : maxSP
@@ -641,13 +658,13 @@ subroutine project_to_porder_5v(array,order)
   !.. Local Scalars ..
   integer  :: i,k,n,nc,np,n0
   integer  :: this_geom,this_order
-  real(wp) :: a,var_1,var_2,var_3,var_4,var_5
+  real(wp) :: a,var_ec,var_mx,var_my,var_mz,var_ee
   !
   !.. Local Arrays ..
-  real(wp) :: old_array(1:maxSP,1:5)
+  real(wp) :: old_array(1:maxSP,1:nq)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "project_to_porder_5v"
+  character(len=*), parameter :: pname = "project_to_porder_3d"
   !
 continue
   !
@@ -670,11 +687,11 @@ continue
       !
       !$ACC LOOP VECTOR
       do n = 1,np
-        old_array(n,1) = array(n0+n,1)
-        old_array(n,2) = array(n0+n,2)
-        old_array(n,3) = array(n0+n,3)
-        old_array(n,4) = array(n0+n,4)
-        old_array(n,5) = array(n0+n,5)
+        old_array(n,nec) = array(n0+n,nec)
+        old_array(n,nmx) = array(n0+n,nmx)
+        old_array(n,nmy) = array(n0+n,nmy)
+        old_array(n,nmz) = array(n0+n,nmz)
+        old_array(n,nee) = array(n0+n,nee)
       end do
       !
       ! Project the variables to order at each solution point of this cell
@@ -682,11 +699,11 @@ continue
       !$ACC LOOP VECTOR
       do n = 1,np
         !
-        var_1 = zero
-        var_2 = zero
-        var_3 = zero
-        var_4 = zero
-        var_5 = zero
+        var_ec = zero
+        var_mx = zero
+        var_my = zero
+        var_mz = zero
+        var_ee = zero
         !
         do i = projct(this_geom,this_order)%limiter(order)%row_ptr(n)+1, &
                projct(this_geom,this_order)%limiter(order)%row_ptr(n+1)
@@ -694,19 +711,19 @@ continue
           k = projct(this_geom,this_order)%limiter(order)%row_idx(i)
           a = projct(this_geom,this_order)%limiter(order)%row_val(i)
           !
-          var_1 = var_1 + a * old_array(k,1)
-          var_2 = var_2 + a * old_array(k,2)
-          var_3 = var_3 + a * old_array(k,3)
-          var_4 = var_4 + a * old_array(k,4)
-          var_5 = var_5 + a * old_array(k,5)
+          var_ec = var_ec + a * old_array(k,nec)
+          var_mx = var_mx + a * old_array(k,nmx)
+          var_my = var_my + a * old_array(k,nmy)
+          var_mz = var_mz + a * old_array(k,nmz)
+          var_ee = var_ee + a * old_array(k,nee)
           !
         end do
         !
-        array(n0+n,1) = var_1
-        array(n0+n,2) = var_2
-        array(n0+n,3) = var_3
-        array(n0+n,4) = var_4
-        array(n0+n,5) = var_5
+        array(n0+n,nec) = var_ec
+        array(n0+n,nmx) = var_mx
+        array(n0+n,nmy) = var_my
+        array(n0+n,nmz) = var_mz
+        array(n0+n,nee) = var_ee
         !
       end do
       !
@@ -714,11 +731,14 @@ continue
     !
   end do
   !
-end subroutine project_to_porder_5v
+end subroutine project_to_porder_3d
 !
 !###############################################################################
 !
-subroutine project_to_porder_4v(array,order)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine project_to_porder_2d(array,order)
   !
   !.. Use Statements ..
   use order_mod, only : maxSP
@@ -731,13 +751,13 @@ subroutine project_to_porder_4v(array,order)
   !.. Local Scalars ..
   integer  :: i,k,n,nc,np,n0
   integer  :: this_geom,this_order
-  real(wp) :: a,var_1,var_2,var_3,var_4
+  real(wp) :: a,var_ec,var_mx,var_my,var_ee
   !
   !.. Local Arrays ..
-  real(wp) :: old_array(1:maxSP,1:4)
+  real(wp) :: old_array(1:maxSP,1:nq)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "project_to_porder_4v"
+  character(len=*), parameter :: pname = "project_to_porder_2d"
   !
 continue
   !
@@ -760,10 +780,10 @@ continue
       !
       !$ACC LOOP VECTOR
       do n = 1,np
-        old_array(n,1) = array(n0+n,1)
-        old_array(n,2) = array(n0+n,2)
-        old_array(n,3) = array(n0+n,3)
-        old_array(n,4) = array(n0+n,4)
+        old_array(n,nec) = array(n0+n,nec)
+        old_array(n,nmx) = array(n0+n,nmx)
+        old_array(n,nmy) = array(n0+n,nmy)
+        old_array(n,nee) = array(n0+n,nee)
       end do
       !
       ! Project the variables to order at each solution point of this cell
@@ -771,10 +791,10 @@ continue
       !$ACC LOOP VECTOR
       do n = 1,np
         !
-        var_1 = zero
-        var_2 = zero
-        var_3 = zero
-        var_4 = zero
+        var_ec = zero
+        var_mx = zero
+        var_my = zero
+        var_ee = zero
         !
         do i = projct(this_geom,this_order)%limiter(order)%row_ptr(n)+1, &
                projct(this_geom,this_order)%limiter(order)%row_ptr(n+1)
@@ -782,17 +802,17 @@ continue
           k = projct(this_geom,this_order)%limiter(order)%row_idx(i)
           a = projct(this_geom,this_order)%limiter(order)%row_val(i)
           !
-          var_1 = var_1 + a * old_array(k,1)
-          var_2 = var_2 + a * old_array(k,2)
-          var_3 = var_3 + a * old_array(k,3)
-          var_4 = var_4 + a * old_array(k,4)
+          var_ec = var_ec + a * old_array(k,nec)
+          var_mx = var_mx + a * old_array(k,nmx)
+          var_my = var_my + a * old_array(k,nmy)
+          var_ee = var_ee + a * old_array(k,nee)
           !
         end do
         !
-        array(n0+n,1) = var_1
-        array(n0+n,2) = var_2
-        array(n0+n,3) = var_3
-        array(n0+n,4) = var_4
+        array(n0+n,nec) = var_ec
+        array(n0+n,nmx) = var_mx
+        array(n0+n,nmy) = var_my
+        array(n0+n,nee) = var_ee
         !
       end do
       !
@@ -800,11 +820,14 @@ continue
     !
   end do
   !
-end subroutine project_to_porder_4v
+end subroutine project_to_porder_2d
 !
 !###############################################################################
 !
-subroutine project_to_porder_3v(array,order)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine project_to_porder_1d(array,order)
   !
   !.. Use Statements ..
   use order_mod, only : maxSP
@@ -817,13 +840,13 @@ subroutine project_to_porder_3v(array,order)
   !.. Local Scalars ..
   integer  :: i,k,n,nc,np,n0
   integer  :: this_geom,this_order
-  real(wp) :: a,var_1,var_2,var_3
+  real(wp) :: a,var_ec,var_mx,var_ee
   !
   !.. Local Arrays ..
-  real(wp) :: old_array(1:maxSP,1:3)
+  real(wp) :: old_array(1:maxSP,1:nq)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "project_to_porder_3v"
+  character(len=*), parameter :: pname = "project_to_porder_1d"
   !
 continue
   !
@@ -846,9 +869,9 @@ continue
       !
       !$ACC LOOP VECTOR
       do n = 1,np
-        old_array(n,1) = array(n0+n,1)
-        old_array(n,2) = array(n0+n,2)
-        old_array(n,3) = array(n0+n,3)
+        old_array(n,nec) = array(n0+n,nec)
+        old_array(n,nmx) = array(n0+n,nmx)
+        old_array(n,nee) = array(n0+n,nee)
       end do
       !
       ! Project the variables to order at each solution point of this cell
@@ -856,9 +879,9 @@ continue
       !$ACC LOOP VECTOR
       do n = 1,np
         !
-        var_1 = zero
-        var_2 = zero
-        var_3 = zero
+        var_ec = zero
+        var_mx = zero
+        var_ee = zero
         !
         do i = projct(this_geom,this_order)%limiter(order)%row_ptr(n)+1, &
                projct(this_geom,this_order)%limiter(order)%row_ptr(n+1)
@@ -866,15 +889,15 @@ continue
           k = projct(this_geom,this_order)%limiter(order)%row_idx(i)
           a = projct(this_geom,this_order)%limiter(order)%row_val(i)
           !
-          var_1 = var_1 + a * old_array(k,1)
-          var_2 = var_2 + a * old_array(k,2)
-          var_3 = var_3 + a * old_array(k,3)
+          var_ec = var_ec + a * old_array(k,nec)
+          var_mx = var_mx + a * old_array(k,nmx)
+          var_ee = var_ee + a * old_array(k,nee)
           !
         end do
         !
-        array(n0+n,1) = var_1
-        array(n0+n,2) = var_2
-        array(n0+n,3) = var_3
+        array(n0+n,nec) = var_ec
+        array(n0+n,nmx) = var_mx
+        array(n0+n,nee) = var_ee
         !
       end do
       !
@@ -882,17 +905,21 @@ continue
     !
   end do
   !
-end subroutine project_to_porder_3v
+end subroutine project_to_porder_1d
 !
 !###############################################################################
 !
-subroutine project_to_porder_nv(array,order)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine project_to_porder_nd(mbeg,mend,array,order)
   !
   !.. Use Statements ..
   use order_mod, only : maxSP
   use geovar,    only : ncell,cell
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: mbeg,mend
   integer,     intent(in) :: order
   real(wp), intent(inout) :: array(:,:)
   !
@@ -902,10 +929,10 @@ subroutine project_to_porder_nv(array,order)
   real(wp) :: a,val
   !
   !.. Local Arrays ..
-  real(wp) :: old_array(1:maxSP,1:size(array,dim=2))
+  real(wp) :: old_array(1:maxSP,1:nq)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "project_to_porder_nv"
+  character(len=*), parameter :: pname = "project_to_porder_nd"
   !
 continue
   !
@@ -929,7 +956,7 @@ continue
       ! for this cell into the temporary array old_array.
       !
       !$ACC LOOP VECTOR COLLAPSE(2)
-      do m = 1,nvar
+      do m = mbeg,mend
         do n = 1,np
           old_array(n,m) = array(n0+n,m)
         end do
@@ -938,7 +965,7 @@ continue
       ! Project the variables to order at each solution point of this cell
       !
       !$ACC LOOP VECTOR COLLAPSE(2)
-      do m = 1,nvar
+      do m = mbeg,mend
         do n = 1,np
           !
           val = zero
@@ -962,7 +989,7 @@ continue
     !
   end do
   !
-end subroutine project_to_porder_nv
+end subroutine project_to_porder_nd
 !
 !###############################################################################
 !
