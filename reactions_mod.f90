@@ -1367,6 +1367,9 @@ end subroutine compute_ignition_source
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine compute_CH4_hardcoded_wdot(n1,n2,cv,gp,residual,iter)
   !
   !======================================================================
@@ -1628,6 +1631,9 @@ end subroutine compute_CH4_hardcoded_wdot
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine compute_H2_hardcoded_wdot(n1,n2,cv,gp,residual)
   !
   ! Routine to compute the chemical source terms
@@ -1969,7 +1975,9 @@ end subroutine compute_H2_hardcoded_wdot
 !
 !###############################################################################
 !
-!pure &
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine compute_H2_wdot(n1,n2,cv,gp,residual,iter)
   !
   ! N1       : beginning point
@@ -2096,7 +2104,9 @@ end subroutine compute_H2_wdot
 !
 !###############################################################################
 !
-!pure &
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine compute_species_source_terms(n1,n2,cv,t,specon,frrate,brrate,wdot)
   !
   ! Routine to compute the chemical source terms
@@ -2162,7 +2172,9 @@ end subroutine compute_species_source_terms
 !
 !###############################################################################
 !
-!pure &
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine compute_reaction_rates(n1,n2,t,frrate,brrate)
   !
   ! Routine to calculate the forward and backward reaction rate
@@ -2208,7 +2220,9 @@ end subroutine compute_reaction_rates
 !
 !###############################################################################
 !
-!pure &
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine compute_arrhenius_rate(n1,n2,t,frrate)
   !
   ! Routine to calculate the reaction rate coefficient
@@ -2274,7 +2288,9 @@ end subroutine compute_arrhenius_rate
 !
 !###############################################################################
 !
-!pure &
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine compute_equilibrium_rate(n1,n2,t,frrate,brrate)
   !
   ! Routine to calculate the backward reaction rate coefficient
@@ -2404,7 +2420,9 @@ end subroutine compute_equilibrium_rate
 !
 !###############################################################################
 !
-!pure &
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine compute_species_production_rates(n1,n2,specon,frrate,brrate,wdot)
   !
   ! Routine to calculate the species production term based on
@@ -2615,6 +2633,9 @@ end subroutine compute_species_production_rates
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine compute_generic_wdot(n1,n2,usp,gpsp,residual)
   !
   !.. Use Statements ..
@@ -2642,6 +2663,9 @@ end subroutine compute_generic_wdot
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine semi_implicit_exact_jac(n1,n2,cv,gp,frrate,brrate,specon,wdot)
   !
   ! Routine to perform the point implicit treatment for the source terms
@@ -3078,6 +3102,9 @@ end subroutine semi_implicit_exact_jac
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine semi_implicit_numerical_jac(n1,n2,cv,gp,frrate,brrate, &
                                        specon,wdot,wdotsv)
   !
@@ -3288,8 +3315,11 @@ end subroutine semi_implicit_numerical_jac
 !
 !###############################################################################
 !
-!subroutine hholdr(a,mmax,m,mf,n,nmax,b,d,ifac,tmp,iblog)
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine hholdr(n1,n2,a,b)
+!subroutine hholdr(a,mmax,m,mf,n,nmax,b,d,ifac,tmp,iblog)
   !
   ! This routine solves Ax=B using the householder method. This routine
   ! should be used if the size of the system is larger than five
