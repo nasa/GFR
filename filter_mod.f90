@@ -715,14 +715,22 @@ end subroutine init_filter_matrices
 !
 !###############################################################################
 !
-subroutine filter_usp()
+subroutine filter_usp(update_gpsp)
   !
   !.. Use Statements ..
-  use flowvar, only : usp
+  use geovar,  only : n_solpts
+  use flowvar, only : usp,gpsp
   use ovar,    only : force_nd_subroutines
   !
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: update_gpsp
+  !
   !.. Local Scalars ..
-  integer :: nr
+  integer     :: nr
+  logical(lk) :: gpsp_update_requested
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "filter_usp"
@@ -732,6 +740,11 @@ continue
 #ifdef DEBUG_ON
   call debug_timer(entering_procedure,pname)
 #endif
+  !
+  gpsp_update_requested = fals
+  if (present(update_gpsp)) then
+    gpsp_update_requested = update_gpsp
+  end if
   !
   nr = nme-nmb+1
   !
@@ -753,6 +766,12 @@ continue
       call filter_usp_nd(1,ncs,usp)
     end if
     !
+  end if
+  !
+  if (gpsp_update_requested) then
+    call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                  loc="cell",caller_name=pname)
+    call update_transport_properties(1,n_solpts,usp,gpsp)
   end if
   !
 #ifdef DEBUG_ON

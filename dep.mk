@@ -167,6 +167,7 @@ $(OBJDIR)/filter_mod.o : filter_mod.f90 \
                $(OBJDIR)/quadrature_mod.o \
                $(OBJDIR)/vandermonde_mod.o \
                $(OBJDIR)/thermo_mod.o \
+               $(OBJDIR)/transport_mod.o \
                $(FUNDIR)/solpts2order.f90 \
                $(FUNDIR)/debug_timer.f90
 
