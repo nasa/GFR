@@ -908,6 +908,7 @@ continue
     !    NOTE: Currently, the gamma and pressure locations of gp respectively
     !          contain the mixture gas constant and the internal energy.
     !
+#ifndef DISABLE_PURE
     call newton_solve_for_temperature(n1,n2,cv,gp(:,ngamm), &
                                             gp(:,npres),gp(:,ntemp), &
                                             gp(:,nenth),gp(:,ncp), &
@@ -917,6 +918,17 @@ continue
                                             caller_name=caller_name, &
                                             dim_t_upon_entry=true, &
                                             nondim_t_upon_return=true)
+#else
+    call impure_newton_solve_for_temperature(n1,n2,cv,gp(:,ngamm), &
+                                                   gp(:,npres),gp(:,ntemp), &
+                                                   gp(:,nenth),gp(:,ncp), &
+                                                   num_newton_errors, &
+                                                   max_newton_error, &
+                                                   loc=loc, &
+                                                   caller_name=caller_name, &
+                                                   dim_t_upon_entry=true, &
+                                                   nondim_t_upon_return=true)
+#endif
     !
     ! 5. Compute the static pressure
     !    NOTE: The gamma location of gp currently
@@ -1292,10 +1304,146 @@ end subroutine compute_mixture_rgas_1p
 !
 !###############################################################################
 !
-!pure &
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
                                         ndnc,dtmx,loc,caller_name, &
                                         dim_t_upon_entry,nondim_t_upon_return)
+  !
+  !.. Use Statements ..
+  use ovar, only : tref,tmin,tmax
+  use ovar, only : newton_rlx,conv_temp
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp),    intent(in) :: cv(:,:) ! mass fractions and conserved variables
+  real(wp),    intent(in) :: rmix(:)
+  real(wp),    intent(in) :: p(:)
+  real(wp), intent(inout) :: t(:)
+  real(wp), intent(inout) :: h(:)
+  real(wp), intent(inout) :: cp(:)
+  integer,  intent(inout) :: ndnc
+  real(wp), intent(inout) :: dtmx
+  !
+  !.. Optional Arguments
+  character(len=*), optional, intent(in) :: loc
+  character(len=*), optional, intent(in) :: caller_name
+  logical(lk),      optional, intent(in) :: dim_t_upon_entry
+  logical(lk),      optional, intent(in) :: nondim_t_upon_return
+  !
+  !.. Local Scalars ..
+  integer  :: k,n
+  real(wp) :: func,dfunc,dtemp,dterr
+  real(wp) :: tmin_nd,tmax_nd
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: eint(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "newton_solve_for_temperature"
+  !
+  integer, parameter :: newton_iter = 20
+  !
+continue
+  !
+  call pure_debug_timer(entering_procedure,pname)
+  !
+  tmin_nd = tmin / tref
+  tmax_nd = tmax / tref
+  !
+  ! Reset the temperature to the reference temperature wherever
+  ! the temperature is less-than tmin_nd or greater-than tmax_nd.
+  !
+  where ( t(:) < tmin_nd ) t(:) = one
+  where ( t(:) > tmax_nd ) t(:) = one
+  !
+  allocate ( eint(1:size(t)) , source=zero )
+  !
+  call compute_internal_energy(n1,n2,cv,eint)
+  !
+  ! Compute initial static enthalpy and specific heat of the mixture
+  !
+  call compute_mixture_enthalpy(n1,n2,cv(:,1:ncs),t,h)
+  !
+  call compute_mixture_cp(n1,n2,cv(:,1:ncs),t,cp)
+  !
+  ! Compute the temperature using Newton solve
+  !
+  newton_iteration : &
+  do k = 1,newton_iter
+    !
+    ndnc = 0
+    dtmx = zero
+    !
+    do n = n1,n2
+      !
+      func = h(n) - rmix(n)*t(n) - eint(n)
+      dfunc = cp(n) - rmix(n)
+      !
+      dtemp = func/dfunc
+      !
+      t(n) = min( tmax_nd , max(tmin_nd,t(n)-dtemp) )
+      !
+      dterr = abs(dtemp) / t(n)
+      !
+      if (dterr > dtmx) dtmx = dterr
+      !
+      if (dterr > conv_temp) then
+        ndnc = ndnc + 1
+      end if
+      !
+    end do
+    !
+    ! Update the static enthalpy and specific heat of the mixture
+    !
+    call compute_mixture_enthalpy(n1,n2,cv(:,1:ncs),t,h)
+    !
+    call compute_mixture_cp(n1,n2,cv(:,1:ncs),t,cp)
+    !
+    ! Add some special logic to prevent false positives for failing
+    ! to converge when the "not converged" temperature is still 
+    ! safely within the min/max temperature bounds.
+    ! NOTE: This is known to happen when the temperature is very close
+    !       to the temperature that seperates the curve fit intervals,
+    !       e.g., 1000 K if the curve fit intervals are 300 K to 1000 K
+    !       and 1000 K to 5000 K.
+    !
+    if (k == newton_iter) then
+      ndnc = 0
+      do n = n1,n2
+        if (any( [ abs(t(n)-tmin_nd) , abs(t(n)-tmax_nd) ] <= eps9 )) then
+          ndnc = ndnc + 1
+        end if
+      end do
+      if (ndnc == 0) then
+        dtmx = half*conv_temp
+      end if
+    end if
+    !
+    ! Check for convergence
+    !
+    if (dtmx <= conv_temp) then
+      exit newton_iteration
+    end if
+    !
+  end do newton_iteration
+  !
+  if (allocated(eint)) then
+    deallocate ( eint )
+  end if
+  !
+  call pure_debug_timer(leaving_procedure,pname)
+  !
+end subroutine newton_solve_for_temperature
+!
+!###############################################################################
+!
+subroutine impure_newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
+                                               ndnc,dtmx,loc,caller_name, &
+                                               dim_t_upon_entry, &
+                                               nondim_t_upon_return)
   !
   !.. Use Statements ..
   use ovar, only : tref,tmin,tmax
@@ -1336,7 +1484,7 @@ subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
   real(wp), allocatable :: eint(:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "newton_solve_for_temperature"
+  character(len=*), parameter :: pname = "impure_newton_solve_for_temperature"
   !
   integer, parameter :: newton_iter = 20
   !
@@ -1346,7 +1494,7 @@ subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
  !real(wp), parameter :: conv_temp = eps12 ! VULCAN if ref. Mach <= 0.01
   !
 #ifdef DEBUG_ON
-#define DEBUG_TEMPERATURE_NEWTON_SOLVE
+!#define DEBUG_TEMPERATURE_NEWTON_SOLVE
 #endif
 #ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
   real(wp),    allocatable :: dtemp_save(:,:,:)
@@ -1682,7 +1830,7 @@ continue
    1x,5("*"),7x,"CALLED FROM PROCEDURE = '",a,"'",/, &
    1x,64("*"),/)
    !
-end subroutine newton_solve_for_temperature
+end subroutine impure_newton_solve_for_temperature
 !
 !###############################################################################
 !
