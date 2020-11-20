@@ -1,4 +1,4 @@
-subroutine check_for_bad_number(line_num,file_name)
+subroutine check_for_bad_number(line_num,file_name,ival)
   !
 #define USE_GATHER
   !.. Use Statements ..
@@ -10,6 +10,9 @@ subroutine check_for_bad_number(line_num,file_name)
   !.. Formal Arguments ..
   integer,          intent(in) :: line_num
   character(len=*), intent(in) :: file_name
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: ival
   !
 #ifndef SPECIAL_FOR_GCC
   !
@@ -119,17 +122,31 @@ continue
       end if
     end if
     !
-    write (output_message,100) trim(adjustl(overflow_error)), &
-                               trim(adjustl(divide_by_zero_error)), &
-                               trim(adjustl(invalid_error))
+    if (present(ival)) then
+      write (output_message,100) trim(adjustl(overflow_error)), &
+                                trim(adjustl(divide_by_zero_error)), &
+                                trim(adjustl(invalid_error)), &
+                                ival
+    else
+      write (output_message,100) trim(adjustl(overflow_error)), &
+                                trim(adjustl(divide_by_zero_error)), &
+                                trim(adjustl(invalid_error))
+    end if
     !
 #else
     if (bad_number_found(1) > 0) write (overflow_error,101)
     if (bad_number_found(2) > 0) write (divide_by_zero_error,102)
     if (bad_number_found(3) > 0) write (invalid_error,103)
-    write (output_message,100) trim(adjustl(overflow_error)), &
-                               trim(adjustl(divide_by_zero_error)), &
-                               trim(adjustl(invalid_error))
+    if (present(ival)) then
+      write (output_message,100) trim(adjustl(overflow_error)), &
+                                trim(adjustl(divide_by_zero_error)), &
+                                trim(adjustl(invalid_error)), &
+                                ival
+    else
+      write (output_message,100) trim(adjustl(overflow_error)), &
+                                trim(adjustl(divide_by_zero_error)), &
+                                trim(adjustl(invalid_error))
+    end if
 #endif
     !
    !call stop_gfr(stop_mpi,pname,line_num,file_name,output_message)
@@ -137,7 +154,8 @@ continue
   end if
   !
   100 format ("A SIGNALING FLOATING POINT EXCEPTION WAS DETECTED!!!", &
-              3(2x,a,:))
+             !3(2x,a,:))
+              3(2x,a,:),2x,"ival = ",i0)
   !
   101 format ("OVERFLOW EXCEPTION DETECTED!!!")
   102 format ("DIVIDE-BY-ZERO EXCEPTION DETECTED!!!")
@@ -152,6 +170,9 @@ continue
   203 format ("('INVALID NUMBER (NaN) EXCEPTION DETECTED ON ',", &
               "i0,' OUT OF ',i0,' PROCESSORS ',", &
               i0,"(i0,','),i0,' !!!')")
+  !
+  300 format ("A SIGNALING FLOATING POINT EXCEPTION WAS DETECTED!!!", &
+              3(2x,a,:),2x,"ival = ",i0)
 #endif
 #endif
   !
