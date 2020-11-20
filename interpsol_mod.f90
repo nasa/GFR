@@ -281,6 +281,7 @@ continue
   !
   ! Variables from flowvar.
   call move_alloc( from=g2_usp,           to=usp           )
+  call move_alloc( from=g2_gpsp,          to=gpsp          )
   call move_alloc( from=g2_dusp,          to=dusp          )
  !call move_alloc( from=g2_facexyz_dt,    to=facexyz_dt    )
   call move_alloc( from=g2_facexyz_array, to=facexyz_array )
