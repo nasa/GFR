@@ -313,16 +313,37 @@ module module_kind_types
   ! ####################################
   ! ####################################
   !
-  ! Aliases for kind type parameters
+  !--------------------------------
+  ! Aliases for logical kind types
+  !--------------------------------
   !
+  ! Logical kind of least precision (only needs true/false values)
   integer, parameter :: LK = l1k
-  integer, parameter :: SP = r4
-  integer, parameter :: DP = r8
-  integer, parameter :: QP = r16
-  integer, parameter :: WP = r8
   !
+  !--------------------------------
+  ! Aliases for real kind types
+  !--------------------------------
+  !
+  ! 'Single Precision' (32-bit/4-byte) real
+  integer, parameter :: SP = r4
+  ! 'Double Precision' (64-bit/8-byte) real
+  integer, parameter :: DP = r8
+  ! 'Quadruple Precision' (128-bit/16-byte) real (or DP if DISABLE_QP active)
+  integer, parameter :: QP = r16
+  ! 'Working Precision' real: Used for most real scalars/arrays
+  integer, parameter :: WP = r8
+  ! 'Matrix Precision' real: Used for polynomial evals and creating matrices
+  integer, parameter :: MP = QP
+  !
+  !--------------------------------
+  ! Aliases for integer kind types
+  !--------------------------------
+  !
+  ! 'Working Integer Precision': for now default integer precision (32-bit)
   integer, parameter :: WIP = i4
+  ! 'MPI Integer Precision': determined by MPI constant MPI_INTEGER_KIND
   integer, parameter :: INT_MPI = kind(MPI_INTEGER_KIND)
+  ! 'METIS Integer Precision': for now default integer precision (32-bit)
   integer, parameter :: INT_METIS = i4
   !
   ! ###########################################
