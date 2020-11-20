@@ -53,6 +53,7 @@ program GFR_main
   use ovar, only : start_averaging_tstar,init_tstar
   use ovar, only : current_rk_stage
   use ovar, only : Filter_Option
+  use ovar, only : interpto_input_mode
   use ovar, only : spatial_ave_restart_z_planes
   use ovar, only : spatial_ave_restart_x_and_z_planes
   use ovar, only : CFL_reduction_for_NaN_restart
@@ -191,6 +192,8 @@ program GFR_main
   use mydebug_mod,   only : mydebug
 !-DEBUG_END:
   !
+  use module_cgns, only : root_broadcasts_grid_dt
+  !
   use, intrinsic :: iso_c_binding,   only : c_long
   !
   implicit none
@@ -319,6 +322,10 @@ continue
     call memory_pause("reading input and grid files","partitioning the grid")
     call check_for_bad_number(__LINE__)
     !
+    if ( if_interpto_newgrid() ) then
+      interpto_input_mode = input_mode
+    end if
+    !
     ! Partition the grid if using more than one processor.
     ! Upon entry:  These arrays define the global grid
     ! Upon return: These arrays define the partition local
@@ -335,6 +342,10 @@ continue
       call memory_pause("getting serial cell map","getting the solution points")
     end if
     call check_for_bad_number(__LINE__)
+    !
+    if (input_mode == 2) then
+      call root_broadcasts_grid_dt
+    end if
     !
     ! Get the coordinates of the solution points within each grid cell
     !
@@ -355,7 +366,7 @@ continue
     ! Get the grid connectivity and metrics
     !
     call get_grid_connectivity(bface,cell_geom,cell_order,xyz_nodes, &
-                               nodes_of_cell,nodes_of_cell_ptr)
+                               nodes_of_cell,nodes_of_cell_ptr,input_mode)
     !
     call memory_pause("getting grid connectivity", &
                       "initializing vandermonde matrices")
@@ -409,6 +420,7 @@ continue
     !
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
     call get_metrics
+    call check_for_bad_number(__LINE__)
     !
     ! Special handling for interpolation mode (input_mode=1)
     !
