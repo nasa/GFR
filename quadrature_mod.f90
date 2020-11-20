@@ -1018,25 +1018,49 @@ end function get_pyra_quadrature
 #ifndef DISABLE_PURE
 pure &
 #endif
-function get_pris_quadrature(n) result(return_value)
+function get_pris_quadrature(p,tria_loc,edge_loc) result(return_value)
   !
-  use order_mod, only : geom_solpts
+  !.. Use Statements ..
+  use prism_mod, only : PriNodes3D
+  use prism_mod, only : get_prism_weights_at_solpts
   !
-  integer, intent(in) :: n
+  !.. Formal Arguments ..
+  integer, intent(in) :: p
+  integer, intent(in) :: tria_loc
+  integer, intent(in) :: edge_loc
   !
+  !.. Function Result ..
   type(element_type) :: return_value
   !
-  integer :: ndim,npts,ierr
+  !.. Local Declared Precision ..
+#ifdef DISABLE_QP
+  integer, parameter :: lp = wp
+#else
+  integer, parameter :: lp = qp
+#endif
+  !
+  !.. Local Allocatable Arrays ..
+  real(lp), allocatable :: pts(:,:)
+  real(lp), allocatable :: wts(:)
   !
 continue
   !
-  ndim = geom_dimen(Geom_Pris)
-  npts = geom_solpts(Geom_Pris,n)
+  ! Get the solution points
   !
-  allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
-  allocate ( return_value%wts(1:npts) , source=zero , stat=ierr )
+  pts = PriNodes3D(p,tria_loc,edge_loc,real(zero,kind=lp)) ! F2003 AUTO-REALLOC
+ !pts = PriNodes3D(p,tria_loc,edge_loc, &
+ !                 real(zero,kind=lp),tria_edge_loc) ! F2003 AUTO-REALLOC
   !
-  return_value%wts = one / real(npts,kind=wp)
+  ! The method for computing the prism quadrature weights is
+  ! independent of the method for getting the point locations
+  !
+  wts = get_prism_weights_at_solpts(pts)     ! F2003 AUTO-REALLOC
+  !
+ !return_value%pts = chop( pts ) ! F2003 AUTO-REALLOC
+ !return_value%wts = chop( wts ) ! F2003 AUTO-REALLOC
+  !
+  return_value%pts = real(pts,kind=kind(return_value%pts)) ! F2003 AUTO-REALLOC
+  return_value%wts = real(wts,kind=kind(return_value%wts)) ! F2003 AUTO-REALLOC
   !
 end function get_pris_quadrature
 !
