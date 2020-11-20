@@ -23,7 +23,8 @@ FCADD += -qopenmp -DENABLE_OPENMP #-DPROFILE_ON
 
 .PHONY: all
 all: debug_gfr
-all: gfr
+all: gfr_westmere
+#all: gfr
 .PHONY: all-nodes
 all-nodes: debug_gfr
 all-nodes: gfr_westmere
@@ -36,7 +37,7 @@ all-nodes: gfr
 
 .PHONY: rebuild
 rebuild: rebuild-debug
-rebuild: rebuild-optimize
+rebuild: rebuild-westmere
 
 .PHONY: optimize
 optimize: opt
