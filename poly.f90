@@ -51,6 +51,16 @@ module polynomial_mod
   public :: eval_D2LagrangeDx2
   public :: eval_DLagrangeDx
   !
+  interface legendre_gauss_quadrature
+    module procedure legendre_gauss_quadrature_DP, &
+                     legendre_gauss_quadrature_QP
+  end interface legendre_gauss_quadrature
+  !
+  interface legendre_gauss_lobatto_quadrature
+    module procedure legendre_gauss_lobatto_quadrature_DP, &
+                     legendre_gauss_lobatto_quadrature_QP
+  end interface legendre_gauss_lobatto_quadrature
+  !
   interface JacobiGL
     module procedure JacobiGL_DP, &
                      JacobiGL_QP
@@ -256,13 +266,16 @@ contains
 #ifndef DISABLE_PURE
 pure &
 #endif
-subroutine legendre_gauss_quadrature(xi,weights)
+subroutine legendre_gauss_quadrature_DP(xi,weights)
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = dp
   !
   !.. Formal Arguments ..
-  real(wp), intent(inout) :: xi(:)
+  real(lp), intent(inout) :: xi(:)
   !
   !.. Optional Arguments ..
-  real(wp), optional, intent(inout) :: weights(:)
+  real(lp), optional, intent(inout) :: weights(:)
   !
   !.. Local Scalars ..
   integer :: npts
@@ -279,26 +292,68 @@ continue
   call nodes_legendre_gauss(npts,pts_qp,val_qp)
   call weights_legendre_gauss(npts,pts_qp,val_qp,wts_qp)
   !
-  xi = chop( pts_qp )
+  xi = real( chop(pts_qp) , kind=lp )
   !
   if (present(weights)) then
-    weights = chop( wts_qp )
+    weights = real( chop(wts_qp) , kind=lp )
   end if
   !
-end subroutine legendre_gauss_quadrature
+end subroutine legendre_gauss_quadrature_DP
 !
 !###############################################################################
 !
 #ifndef DISABLE_PURE
 pure &
 #endif
-subroutine legendre_gauss_lobatto_quadrature(xi,weights)
+subroutine legendre_gauss_quadrature_QP(xi,weights)
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
-  real(wp), intent(inout) :: xi(:)
+  real(lp), intent(inout) :: xi(:)
   !
   !.. Optional Arguments ..
-  real(wp), optional, intent(inout) :: weights(:)
+  real(lp), optional, intent(inout) :: weights(:)
+  !
+  !.. Local Scalars ..
+  integer :: npts
+  !
+  !.. Local Arrays ..
+  real(qp) :: pts_qp(1:size(xi))
+  real(qp) :: wts_qp(1:size(xi))
+  real(qp) :: val_qp(1:size(xi))
+  !
+continue
+  !
+  npts = size(xi)
+  !
+  call nodes_legendre_gauss(npts,pts_qp,val_qp)
+  call weights_legendre_gauss(npts,pts_qp,val_qp,wts_qp)
+  !
+  xi = real( chop(pts_qp) , kind=lp )
+  !
+  if (present(weights)) then
+    weights = real( chop(wts_qp) , kind=lp )
+  end if
+  !
+end subroutine legendre_gauss_quadrature_QP
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine legendre_gauss_lobatto_quadrature_DP(xi,weights)
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = dp
+  !
+  !.. Formal Arguments ..
+  real(lp), intent(inout) :: xi(:)
+  !
+  !.. Optional Arguments ..
+  real(lp), optional, intent(inout) :: weights(:)
   !
   !.. Local Scalars ..
   integer :: npts
@@ -315,13 +370,52 @@ continue
   call nodes_legendre_gauss_lobatto(npts-1,pts_qp,val_qp)
   call weights_legendre_gauss_lobatto(npts-1,val_qp,wts_qp)
   !
-  xi = chop( pts_qp )
+  xi = real( chop(pts_qp) , kind=lp )
   !
   if (present(weights)) then
-    weights = chop( wts_qp )
+    weights = real( chop(wts_qp) , kind=lp )
   end if
   !
-end subroutine legendre_gauss_lobatto_quadrature
+end subroutine legendre_gauss_lobatto_quadrature_DP
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine legendre_gauss_lobatto_quadrature_QP(xi,weights)
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = local_qp
+  !
+  !.. Formal Arguments ..
+  real(lp), intent(inout) :: xi(:)
+  !
+  !.. Optional Arguments ..
+  real(lp), optional, intent(inout) :: weights(:)
+  !
+  !.. Local Scalars ..
+  integer :: npts
+  !
+  !.. Local Arrays ..
+  real(qp) :: pts_qp(1:size(xi))
+  real(qp) :: wts_qp(1:size(xi))
+  real(qp) :: val_qp(1:size(xi))
+  !
+continue
+  !
+  npts = size(xi)
+  !
+  call nodes_legendre_gauss_lobatto(npts-1,pts_qp,val_qp)
+  call weights_legendre_gauss_lobatto(npts-1,val_qp,wts_qp)
+  !
+  xi = real( chop(pts_qp) , kind=lp )
+  !
+  if (present(weights)) then
+    weights = real( chop(wts_qp) , kind=lp )
+  end if
+  !
+end subroutine legendre_gauss_lobatto_quadrature_QP
 !
 !###############################################################################
 !###############################################################################
@@ -1097,11 +1191,16 @@ subroutine nodes_jacobi_gauss_DP(n,alpha,beta,xi,dxi)
   real(lp),                  intent(in) :: alpha
   real(lp),                  intent(in) :: beta
   real(lp), dimension(1:n), intent(out) :: xi
-  real(lp), dimension(1:n), intent(out) :: dxi
+  !
+  !.. Optional Arguments ..
+  real(lp), optional, dimension(1:n), intent(out) :: dxi
   !
   !.. Local Scalars ..
   integer  :: i,it
   real(lp) :: const,ri,x,y,dy,d2y
+  !
+  !.. Local Arrays ..
+  real(lp) :: val(1:n)
   !
   !.. Local Constants ..
   real(lp), parameter :: zero  = 0.0_lp
@@ -1116,7 +1215,7 @@ continue
   !
   if (n > 0) then
     xi(1)  = (beta - alpha) / (alpha + beta + two)
-    dxi(1) = half*(alpha + beta) + one
+    val(1) = half*(alpha + beta) + one
   end if
   !
   if (n > 1) then
@@ -1137,15 +1236,19 @@ continue
       if (abs(x) <= eps17) x = zero
       !
       xi(i)  = x
-      dxi(i) = dy
+      val(i) = dy
       !
     end do
     !
     do i = 1,n/2
       xi (n-i+1) = -xi (i)
-     !dxi(n-i+1) = -dxi(i)
+     !val(n-i+1) = -val(i)
     end do
     !
+  end if
+  !
+  if (present(dxi)) then
+    dxi(:) = val(:)
   end if
   !
 end subroutine nodes_jacobi_gauss_DP
@@ -1165,11 +1268,16 @@ subroutine nodes_jacobi_gauss_QP(n,alpha,beta,xi,dxi)
   real(lp),                  intent(in) :: alpha
   real(lp),                  intent(in) :: beta
   real(lp), dimension(1:n), intent(out) :: xi
-  real(lp), dimension(1:n), intent(out) :: dxi
+  !
+  !.. Optional Arguments ..
+  real(lp), optional, dimension(1:n), intent(out) :: dxi
   !
   !.. Local Scalars ..
   integer  :: i,it
   real(lp) :: const,ri,x,y,dy,d2y
+  !
+  !.. Local Arrays ..
+  real(lp) :: val(1:n)
   !
   !.. Local Constants ..
   real(lp), parameter :: zero  = 0.0_lp
@@ -1184,7 +1292,7 @@ continue
   !
   if (n > 0) then
     xi(1)  = (beta - alpha) / (alpha + beta + two)
-    dxi(1) = half*(alpha + beta) + one
+    val(1) = half*(alpha + beta) + one
   end if
   !
   if (n > 1) then
@@ -1205,15 +1313,19 @@ continue
       if (abs(x) <= eps17) x = zero
       !
       xi(i)  = x
-      dxi(i) = dy
+      val(i) = dy
       !
     end do
     !
     do i = 1,n/2
       xi (n-i+1) = -xi (i)
-     !dxi(n-i+1) = -dxi(i)
+     !val(n-i+1) = -val(i)
     end do
     !
+  end if
+  !
+  if (present(dxi)) then
+    dxi(:) = val(:)
   end if
   !
 end subroutine nodes_jacobi_gauss_QP
@@ -1231,7 +1343,9 @@ subroutine nodes_legendre_gauss_DP(n,xi,dxi)
   !.. Formal Arguments ..
   integer,                   intent(in) :: n
   real(lp), dimension(1:n), intent(out) :: xi
-  real(lp), dimension(1:n), intent(out) :: dxi
+  !
+  !.. Optional Arguments ..
+  real(lp), optional, dimension(1:n), intent(out) :: dxi
   !
   !.. Local Scalars ..
   real(lp) :: alpha,beta
@@ -1261,7 +1375,9 @@ subroutine nodes_legendre_gauss_QP(n,xi,dxi)
   !.. Formal Arguments ..
   integer,                   intent(in) :: n
   real(lp), dimension(1:n), intent(out) :: xi
-  real(lp), dimension(1:n), intent(out) :: dxi
+  !
+  !.. Optional Arguments ..
+  real(lp), optional, dimension(1:n), intent(out) :: dxi
   !
   !.. Local Scalars ..
   real(lp) :: alpha,beta
@@ -1655,11 +1771,16 @@ subroutine nodes_legendre_gauss_lobatto_DP(n,xi,vn)
   !.. Formal Arguments ..
   integer,                     intent(in) :: n
   real(lp), dimension(1:n+1), intent(out) :: xi
-  real(lp), dimension(1:n+1), intent(out) :: vn
+  !
+  !.. Optional Arguments ..
+  real(lp), optional, dimension(1:n+1), intent(out) :: vn
   !
   !.. Local Scalars ..
   integer  :: i,it,n2
   real(lp) :: sn,x,y,dy,d2y
+  !
+  !.. Local Arrays ..
+  real(lp) :: val(1:n+1)
   !
   !.. Local Constants ..
   real(lp), parameter :: zero = 0.0_lp
@@ -1670,17 +1791,17 @@ continue
   !
   if (n == 0) then
     xi(1) = zero
-    vn(1) = one
+    val(1) = one
   else
     !
     n2 = (n-1)/2
     sn = real(2*n - 4*n2 - 3,kind=lp)
     !
     xi(1) = -one
-    vn(1) =  sn
+    val(1) =  sn
     !
     xi(n+1) = one
-    vn(n+1) = one
+    val(n+1) = one
     !
   end if
   !
@@ -1688,7 +1809,7 @@ continue
     x = zero
     call eval_legendre_poly(n,x,y,dy,d2y)
     xi(n2+2) = x
-    vn(n2+2) = y
+    val(n2+2) = y
   end if
   !
   if (n > 2) then
@@ -1705,11 +1826,15 @@ continue
       xi(i+1)   = -x
       xi(n-i+1) =  x
       !
-      vn(i+1)   = y*sn
-      vn(n-i+1) = y
+      val(i+1)   = y*sn
+      val(n-i+1) = y
       !
     end do
     !
+  end if
+  !
+  if (present(vn)) then
+    vn(:) = val(:)
   end if
   !
 end subroutine nodes_legendre_gauss_lobatto_DP
@@ -1727,11 +1852,16 @@ subroutine nodes_legendre_gauss_lobatto_QP(n,xi,vn)
   !.. Formal Arguments ..
   integer,                     intent(in) :: n
   real(lp), dimension(1:n+1), intent(out) :: xi
-  real(lp), dimension(1:n+1), intent(out) :: vn
+  !
+  !.. Optional Arguments ..
+  real(lp), optional, dimension(1:n+1), intent(out) :: vn
   !
   !.. Local Scalars ..
   integer  :: i,it,n2
   real(lp) :: sn,x,y,dy,d2y
+  !
+  !.. Local Arrays ..
+  real(lp) :: val(1:n+1)
   !
   !.. Local Constants ..
   real(lp), parameter :: zero = 0.0_lp
@@ -1742,17 +1872,17 @@ continue
   !
   if (n == 0) then
     xi(1) = zero
-    vn(1) = one
+    val(1) = one
   else
     !
     n2 = (n-1)/2
     sn = real(2*n - 4*n2 - 3,kind=lp)
     !
     xi(1) = -one
-    vn(1) =  sn
+    val(1) =  sn
     !
     xi(n+1) = one
-    vn(n+1) = one
+    val(n+1) = one
     !
   end if
   !
@@ -1760,7 +1890,7 @@ continue
     x = zero
     call eval_legendre_poly(n,x,y,dy,d2y)
     xi(n2+2) = x
-    vn(n2+2) = y
+    val(n2+2) = y
   end if
   !
   if (n > 2) then
@@ -1777,11 +1907,15 @@ continue
       xi(i+1)   = -x
       xi(n-i+1) =  x
       !
-      vn(i+1)   = y*sn
-      vn(n-i+1) = y
+      val(i+1)   = y*sn
+      val(n-i+1) = y
       !
     end do
     !
+  end if
+  !
+  if (present(vn)) then
+    vn(:) = val(:)
   end if
   !
 end subroutine nodes_legendre_gauss_lobatto_QP
