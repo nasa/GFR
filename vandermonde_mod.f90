@@ -3,7 +3,8 @@ module vandermonde_mod
 !!!#define PROFILE_ON
   !
   !.. Use Statements ..
-  use module_kind_types, global_debug_timer => debug_timer
+  use module_kind_types, global_debug_timer =>      debug_timer, &
+                    pure_global_debug_timer => pure_debug_timer
   !
   use generic_types_mod, only : matrix => matrix_gpu_t
   use generic_types_mod, only : create_matrix_sparsity

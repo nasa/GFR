@@ -3,7 +3,8 @@ module thx_mod
 !#define PROFILE_ON
   !
   !.. Use Statements ..
-  use module_kind_types, global_debug_timer => debug_timer
+  use module_kind_types, global_debug_timer =>      debug_timer, &
+                    pure_global_debug_timer => pure_debug_timer
   use eqn_idx, only : nmx,nmy,nmz
   !
   implicit none

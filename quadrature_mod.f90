@@ -3,7 +3,8 @@ module quadrature_mod
 !!!#define PROFILE_ON
 !!!#define DISABLE_PURE
   !
-  use module_kind_types, global_debug_timer => debug_timer
+  use module_kind_types, global_debug_timer =>      debug_timer, &
+                    pure_global_debug_timer => pure_debug_timer
   !
   implicit none
   !

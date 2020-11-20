@@ -3,7 +3,8 @@ module restart_mod
 #include <mpi_defs.h>
 !!!#define VERBOSE_RESTART
   !
-  use module_kind_types, global_debug_timer => debug_timer
+  use module_kind_types, global_debug_timer =>      debug_timer, &
+                    pure_global_debug_timer => pure_debug_timer
   use eqn_idx, only : nq,nec,ncs
   !
   use iso_fortran_env, only : int8,int16,int32,int64

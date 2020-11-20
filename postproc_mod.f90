@@ -7,7 +7,8 @@ module postprocessor_mod
 !#define VERBOSE_MPI
   !
   !.. Global Use Statements ..
-  use module_kind_types, global_debug_timer => debug_timer
+  use module_kind_types, global_debug_timer =>      debug_timer, &
+                    pure_global_debug_timer => pure_debug_timer
   use module_cgns_types
   use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
   use eqn_idx, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ncond,ng

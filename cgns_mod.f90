@@ -4,7 +4,8 @@ module module_cgns
 #define PROFILE_ON
 !!!#define DEBUG_HOST_HANG
   !.. Use Statements
-  use module_kind_types, global_debug_timer => debug_timer
+  use module_kind_types, global_debug_timer =>      debug_timer, &
+                    pure_global_debug_timer => pure_debug_timer
   use module_cgns_types
   use geovar, only : grid_t
   use geovar, only : elem_t

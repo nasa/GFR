@@ -4,7 +4,8 @@ program GFR_main
   use, intrinsic :: ieee_exceptions
 #endif
   !
-  use module_kind_types, global_debug_timer => debug_timer
+  use module_kind_types, global_debug_timer =>      debug_timer, &
+                    pure_global_debug_timer => pure_debug_timer
   !
   use geovar, only : ncell,n_global_cell
   use geovar, only : nnode,n_global_node
