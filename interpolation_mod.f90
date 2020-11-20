@@ -21,6 +21,7 @@ module interpolation_mod
   public :: move_interp_to_device
   public :: move_outerp_to_device
   public :: outerp_mv_mult
+  public :: init_ref_vectors
   !
   !
   !
@@ -105,6 +106,51 @@ module interpolation_mod
   end interface outerp_mv_mult
   !
 contains
+!
+!###############################################################################
+!
+subroutine init_ref_vectors()
+  !
+  !.. Use Statements ..
+  use order_mod,      only : n_min_geom,n_min_order
+  use order_mod,      only : n_max_geom,n_max_order
+  use quadrature_mod, only : geom_is_used
+  !
+  !.. Local Scalars ..
+  integer :: this_geom,this_order,ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "init_ref_vectors"
+  !
+continue
+  !
+  if (allocated(ref_vectors)) then
+    deallocate ( ref_vectors , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ref_vectors",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( ref_vectors(n_min_geom:n_max_geom,n_min_order:n_max_order) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ref_vectors",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  order_loop: &
+  do this_order = n_min_order,n_max_order
+    geom_loop: &
+    do this_geom = n_min_geom,n_max_geom
+      !
+      if (.not. geom_is_used(this_geom)) cycle geom_loop
+      if (all(this_geom /= Geom_Valid)) cycle geom_loop
+      if (this_geom == Geom_Node) cycle geom_loop
+      !
+      if (.not. ref_vectors(this_geom,this_order)%found) then
+        ref_vectors(this_geom,this_order) = find_ref_vectors(this_geom, &
+                                                             this_order)
+      end if
+      !
+    end do geom_loop
+  end do order_loop
+  !
+end subroutine init_ref_vectors
 !
 !###############################################################################
 !
@@ -404,19 +450,6 @@ continue
   !
   this_geom = cell(nc)%geom
   this_order = cell(nc)%order
-  !
-  if (.not. allocated(ref_vectors)) then
-    allocate ( ref_vectors(n_min_geom:n_max_geom,n_min_order:n_max_order) , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ref_vectors",1,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  ! Get the indices for the reference points for this combination of
-  ! geometry/solution-order if it hasnt been done yet
-  !
-  if (.not. ref_vectors(this_geom,this_order)%found) then
-    ref_vectors(this_geom,this_order) = find_ref_vectors(this_geom,this_order)
-  end if
   !
   ! Get the indices of the points to use in this cell to create the
   ! reference vectors that will used to find the computational space

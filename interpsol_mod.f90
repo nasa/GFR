@@ -414,6 +414,7 @@ subroutine interpsol()
   use octtree_mod
   use octstat_mod
   use interpolation_mod, only : interp_cell_sol_to_xyz, interp
+  use interpolation_mod, only : init_ref_vectors
   !-DEBUG_BEG:
  !use ifport,            only : sleep
   use mydebug_mod
@@ -681,6 +682,11 @@ continue
     !
     flush (iout)
   end if
+  !
+  ! Initialize the ref_vectors array needed for interpolation
+  !
+  call init_ref_vectors()
+  !
 !#define QUICK_SKIP_INTERPOLATE
 #ifdef QUICK_SKIP_INTERPOLATE
   do m = 1,nq
