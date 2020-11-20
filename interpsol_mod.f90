@@ -681,6 +681,14 @@ continue
     !
     flush (iout)
   end if
+!#define QUICK_SKIP_INTERPOLATE
+#ifdef QUICK_SKIP_INTERPOLATE
+  do m = 1,nq
+    do k = 1,g2_n_solpts
+      g2_usp(k,m) = usp(1,m)
+    end do
+  end do
+#else
 #define ASSUME_3D
   !-DEBUG_END:
   ! Loop over volume points in dst grid.
@@ -1031,6 +1039,8 @@ continue
   !
   1000 format ("ERROR:  Octree failed to locate nearest", &
                " point for interpolation.")
+  !
+#endif
   !
   !-DEBUG_BEG:
   if (mypnum == glb_root) then
