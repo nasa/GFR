@@ -527,7 +527,13 @@ module module_kind_types
   !
   ! Method for creating triangle solution points
   integer, parameter :: AlphaOptimized_TriPoints = 1
-  integer, parameter :: BarycentricLobatto_TriPoints = 2
+  integer, parameter :: Barycentric_TriPoints = 2
+  integer, parameter :: WilliamsShunn_TriPoints = 3
+  !
+  ! Method for creating tetrahedra solution points
+  integer, parameter :: AlphaOptimized_TetPoints = 1
+  integer, parameter :: Barycentric_TetPoints = 2
+  integer, parameter :: ShunnHam_TetPoints = 3
   !
   integer, parameter :: LagrangePolynomial = 1
   integer, parameter :: ChainRuleCV = 2
