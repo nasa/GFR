@@ -29,6 +29,7 @@ module module_cgns
   public :: read_cgns_gridfile
   public :: cgns_element_properties
   public :: cgns_memory_usage
+  public :: root_broadcasts_grid_dt
   !
   ! ###########################################################################
   ! ###########################################################################
