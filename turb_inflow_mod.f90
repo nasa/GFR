@@ -5810,17 +5810,17 @@ continue
       case ("T","TEMPERATURE")
         prof%tavg = temp_data(i,1:npts)   ! F2003 AUTO-REALLOC
         !
-      case ("TAUXX","TAU11","RXX","R11")
+      case ("TAUXX","TAU11","RXX","R11","UU")
         prof%tau11 = temp_data(i,1:npts)  ! F2003 AUTO-REALLOC
-      case ("TAUYX","TAUXY","TAU21","TAU12","RYX","RXY","R21","R12")
+      case ("TAUYX","TAUXY","TAU21","TAU12","RYX","RXY","R21","R12","UV","VU")
         prof%tau21 = temp_data(i,1:npts)  ! F2003 AUTO-REALLOC
-      case ("TAUYY","TAU22","RYY","R22")
+      case ("TAUYY","TAU22","RYY","R22","VV")
         prof%tau22 = temp_data(i,1:npts)  ! F2003 AUTO-REALLOC
-      case ("TAUZX","TAUXZ","TAU31","TAU13","RZX","RXZ","R31","R13")
+      case ("TAUZX","TAUXZ","TAU31","TAU13","RZX","RXZ","R31","R13","UW","WU")
         prof%tau31 = temp_data(i,1:npts)  ! F2003 AUTO-REALLOC
-      case ("TAUZY","TAUYZ","TAU32","TAU23","RZY","RYZ","R32","R23")
+      case ("TAUZY","TAUYZ","TAU32","TAU23","RZY","RYZ","R32","R23","VW","WV")
         prof%tau32 = temp_data(i,1:npts)  ! F2003 AUTO-REALLOC
-      case ("TAUZZ","TAU33","RZZ","R33")
+      case ("TAUZZ","TAU33","RZZ","R33","WW")
         prof%tau33 = temp_data(i,1:npts)  ! F2003 AUTO-REALLOC
         !
     end select
