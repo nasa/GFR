@@ -457,10 +457,10 @@ continue
   ! Set the order variables using the input parameters
   !
   n_order = solution_order
-  p_order = projection_order
-  q_order = quadrature_order
-  o_order = output_order
-  e_order = error_order
+  p_order = merge(projection_order,solution_order,projection_order > 0)
+  q_order = merge(quadrature_order,solution_order,quadrature_order > 0)
+  o_order = merge(    output_order,solution_order,    output_order > 0)
+  e_order = merge(     error_order,solution_order,     error_order > 0)
   t_order = max(n_order,dmat_grad_temp_order)
   !
   ! Allow for the use of the variable all_points to make

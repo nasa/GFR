@@ -1138,8 +1138,8 @@ module input_namelist_mod
   !
   integer, save :: all_orders = -3
   integer, save :: solution_order = 3
-  integer, save :: projection_order = 3
-  integer, save :: quadrature_order = 3
+  integer, save :: projection_order = -3
+  integer, save :: quadrature_order = -3
   integer, save :: output_order = -3
   integer, save :: error_order = -3
   !
