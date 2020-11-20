@@ -1744,86 +1744,6 @@ end subroutine compute_internal_energy
 !
 !###############################################################################
 !
-!#define MIXTURES_CALL_SPECIES_SUBS
-#ifdef MIXTURES_CALL_SPECIES_SUBS
-pure &
-subroutine compute_mixture_enthalpy_sp(n1,n2,mass_frac,t,h,dimensional)
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1
-  integer,     intent(in) :: n2
-  real(wp),    intent(in) :: mass_frac(:,:)
-  real(wp),    intent(in) :: t(:)
-  real(wp), intent(inout) :: h(:)
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: dimensional
-  !
-  !.. Local Scalars ..
-  integer :: m,n
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: hsi(:,:)
-  !
-continue
-  !
- !allocate ( hsi , mold=mass_frac , source=zero )
-  allocate ( hsi , mold=mass_frac )
-  !$ACC DATA CREATE(hsi)
-  !
-  call compute_species_enthalpy(n1,n2,t,hsi,dimensional)
-  !
-  !$ACC PARALLEL LOOP PRESENT(mass_frac,hsi,h)
-  do n = n1,n2
-    h(n) = mass_frac(n,1)*hsi(n,1)
-  end do
-  !
-  do m = 2,ncs
-    !$ACC PARALLEL LOOP PRESENT(mass_frac,hsi,h)
-    do n = n1,n2
-      h(n) = h(n) + mass_frac(n,m)*hsi(n,m)
-    end do
-  end do
-  !
-  !$ACC END DATA
-  deallocate ( hsi )
-  !
-end subroutine compute_mixture_enthalpy_sp
-!
-!###############################################################################
-!
-pure &
-subroutine compute_mixture_enthalpy_1p(mass_frac,t,h,dimensional)
-  !
-  !.. Formal Arguments ..
-  real(wp),    intent(in) :: mass_frac(:)
-  real(wp),    intent(in) :: t
-  real(wp), intent(inout) :: h
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: dimensional
-  !
-  !.. Local Scalars ..
-  integer :: m
-  !
-  !.. Local Arrays ..
-  real(wp) :: hsi(1:ncs)
-  !
-continue
-  !
-  h = zero
-  !
-  call compute_species_enthalpy(t,hsi,dimensional)
-  !
-  do m = 1,ncs
-    h = h + mass_frac(m)*hsi(m)
-  end do
-  !
-end subroutine compute_mixture_enthalpy_1p
-!
-!###############################################################################
-!
-#else
 pure &
 subroutine compute_mixture_enthalpy_sp(n1,n2,mass_frac,t,h,dimensional)
   !
@@ -1954,7 +1874,6 @@ end subroutine compute_mixture_enthalpy_1p
 !
 !###############################################################################
 !
-#endif
 pure &
 subroutine compute_species_enthalpy_sp(n1,n2,t,hsi,dimensional)
   !
@@ -2203,85 +2122,6 @@ end subroutine compute_species_energy_sp
 !
 !###############################################################################
 !
-#ifdef MIXTURES_CALL_SPECIES_SUBS
-pure &
-subroutine compute_mixture_cp_sp(n1,n2,mass_frac,t,cp,dimensional)
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: n1
-  integer,     intent(in) :: n2
-  real(wp),    intent(in) :: mass_frac(:,:)
-  real(wp),    intent(in) :: t(:)
-  real(wp), intent(inout) :: cp(:)
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: dimensional
-  !
-  !.. Local Scalars ..
-  integer :: m,n
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: cpi(:,:)
-  !
-continue
-  !
- !allocate ( cpi , mold=mass_frac , source=zero )
-  allocate ( cpi , mold=mass_frac )
-  !$ACC DATA CREATE(cpi)
-  !
-  call compute_species_cp(n1,n2,t,cpi,dimensional)
-  !
-  !$ACC PARALLEL LOOP PRESENT(mass_frac,cpi,cp)
-  do n = n1,n2
-    cp(n) = mass_frac(n,1)*cpi(n,1)
-  end do
-  !
-  do m = 2,ncs
-    !$ACC PARALLEL LOOP PRESENT(mass_frac,cpi,cp)
-    do n = n1,n2
-      cp(n) = cp(n) + mass_frac(n,m)*cpi(n,m)
-    end do
-  end do
-  !
-  !$ACC END DATA
-  deallocate ( cpi )
-  !
-end subroutine compute_mixture_cp_sp
-!
-!###############################################################################
-!
-pure &
-subroutine compute_mixture_cp_1p(mass_frac,t,cp,dimensional)
-  !
-  !.. Formal Arguments ..
-  real(wp),    intent(in) :: mass_frac(:)
-  real(wp),    intent(in) :: t
-  real(wp), intent(inout) :: cp
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: dimensional
-  !
-  !.. Local Scalars ..
-  integer :: m
-  !
-  !.. Local Arrays ..
-  real(wp) :: cpi(1:ncs)
-  !
-continue
-  !
-  cp = zero
-  !
-  call compute_species_cp(t,cpi,dimensional)
-  !
-  do m = 1,ncs
-    cp = cp + mass_frac(m)*cpi(m)
-  end do
-  !
-end subroutine compute_mixture_cp_1p
-!
-!###############################################################################
-!
-#else
 pure &
 subroutine compute_mixture_cp_sp(n1,n2,mass_frac,t,cp,dimensional)
   !
@@ -2410,7 +2250,6 @@ end subroutine compute_mixture_cp_1p
 !
 !###############################################################################
 !
-#endif
 pure &
 subroutine compute_species_cp_sp(n1,n2,t,cpi,dimensional)
   !
