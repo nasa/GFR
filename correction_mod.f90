@@ -16,8 +16,6 @@ module correction_mod
   public :: init_correction_matrices
   public :: correction_memory_usage
   public :: move_correct_to_device
-  public :: output_correct_dt
-  public :: input_correct_dt
   !
   !
   !
@@ -1500,111 +1498,6 @@ continue
   end if
   !
 end subroutine move_correct_to_device
-!
-!###############################################################################
-!
-subroutine output_correct_dt(io)
-  !
-  !.. Use Statements ..
-  use generic_types_mod, only : output_matrix_dt
-  !
-  !.. Formal Arguments ..
-  integer, intent(in) :: io
-  !
-  !.. Local Scalars ..
-  integer :: o,o1,o2
-  integer :: g,g1,g2
-  !
-continue
-  !
-  !########################################################
- !type, public :: matrix
- !  real(wp), allocatable :: mat(:,:)
- !  integer,  allocatable :: row_ptr(:)
- !  integer,  allocatable :: row_idx(:)
- !  real(wp), allocatable :: row_val(:)
- !  integer,  allocatable :: col_ptr(:)
- !  integer,  allocatable :: col_idx(:)
- !  real(wp), allocatable :: col_val(:)
- !end type matrix
- !type(matrix), public, save, allocatable :: correct(:,:)
-  !########################################################
-  !
-  if (allocated(correct)) then
-    !
-    g1 = lbound(correct,dim=1)
-    g2 = ubound(correct,dim=1)
-    !
-    o1 = lbound(correct,dim=2)
-    o2 = ubound(correct,dim=2)
-    !
-    write (io) g1,g2,o1,o2
-    !
-    do o = o1,o2
-      do g = g1,g2
-        call output_matrix_dt(io,correct(g,o))
-      end do
-    end do
-    !
-  else
-    !
-    write (io) -1,-1,-1,-1
-    !
-  end if
-  !
-end subroutine output_correct_dt
-!
-!###############################################################################
-!
-subroutine input_correct_dt(io,success)
-  !
-  !.. Use Statements ..
-  use generic_types_mod, only : input_matrix_dt
-  !
-  !.. Formal Arguments ..
-  integer,      intent(in) :: io
-  logical(lk), intent(out) :: success
-  !
-  !.. Local Scalars ..
-  integer :: o,o1,o2
-  integer :: g,g1,g2
-  logical(lk) :: local_success
-  !
-continue
-  !
-  !########################################################
- !type, public :: matrix
- !  real(wp), allocatable :: mat(:,:)
- !  integer,  allocatable :: row_ptr(:)
- !  integer,  allocatable :: row_idx(:)
- !  real(wp), allocatable :: row_val(:)
- !  integer,  allocatable :: col_ptr(:)
- !  integer,  allocatable :: col_idx(:)
- !  real(wp), allocatable :: col_val(:)
- !end type matrix
- !type(matrix), public, save, allocatable :: correct(:,:)
-  !########################################################
-  !
-  success = fals
-  !
-  read (io) g1,g2,o1,o2
-  !
-  if (all([g1,g2,o1,o2] == -1)) return
-  if (g1 /= lbound(correct,dim=1)) return
-  if (g2 /= ubound(correct,dim=1)) return
-  if (o1 /= lbound(correct,dim=2)) return
-  if (o2 /= ubound(correct,dim=2)) return
-  !
-  do o = o1,o2
-    do g = g1,g2
-      call input_matrix_dt(io,correct(g,o),local_success)
-      if (.not. local_success) return
-    end do
-  end do
-  !
-  success = true
-  !
-end subroutine input_correct_dt
 !
 !###############################################################################
 !
