@@ -252,9 +252,7 @@ end subroutine get_bc_slip_wall_solution_1d
 !
 !###############################################################################
 !
-#ifndef TIME_MINIAPPS_FOR_GPU_COMPARISON
 pure &
-#endif
 subroutine get_bc_slip_wall_gradient(n1,n2,facenrm,face_cv,face_gp,face_dcvdx)
   !
   ! ###########################################################
