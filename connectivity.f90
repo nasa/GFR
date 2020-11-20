@@ -1,5 +1,7 @@
 module connectivity_mod
   !
+#include <mpi_defs.h>
+  !
   !.. Global Use Statements ..
   use module_kind_types
   !
@@ -51,7 +53,7 @@ contains
 !###############################################################################
 !
 subroutine get_grid_connectivity(bface,cell_geom,cell_order,xyz_nodes, &
-                                 nodes_of_cell,nodes_of_cell_ptr)
+                                 nodes_of_cell,nodes_of_cell_ptr,input_mode)
   !
   !.. Use Statements ..
   use ovar,   only : continuous_output
@@ -64,6 +66,7 @@ subroutine get_grid_connectivity(bface,cell_geom,cell_order,xyz_nodes, &
   integer,  dimension(:),   intent(in) :: nodes_of_cell
   integer,  dimension(:),   intent(in) :: nodes_of_cell_ptr
   real(wp), dimension(:,:), intent(in) :: xyz_nodes
+  integer,                  intent(in) :: input_mode
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -134,7 +137,7 @@ continue
   call create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
                                 nodes_of_cell,nodes_of_cell_ptr, &
                                 cells_surr_cell,cells_surr_cell_ptr, &
-                                face,fp)
+                                face,fp,input_mode=input_mode)
   !
   ! Save the total number of faces to nface
   !
@@ -893,7 +896,8 @@ end subroutine initialize_flxpts
 subroutine create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
                                     nodes_of_cell,nodes_of_cell_ptr, &
                                     cells_surr_cell,cells_surr_cell_ptr, &
-                                    face,fp,force_flxpt_offset_to_zero)
+                                    face,fp,force_flxpt_offset_to_zero, &
+                                    group_comm,input_mode)
   !
   ! Procedure that creates the face array.
   ! Look in the module geovar for the definition of the derived type.
@@ -919,7 +923,9 @@ subroutine create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
   type(fp_t),   allocatable, intent(inout) :: fp
   !
   !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: force_flxpt_offset_to_zero
+  logical(lk),     optional, intent(in) :: force_flxpt_offset_to_zero
+  _MPI_COMM_TYPE_, optional, intent(in) :: group_comm
+  integer,         optional, intent(in) :: input_mode
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,nf,nc,ierr
@@ -936,20 +942,23 @@ subroutine create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
   integer :: c1,c2,this_cell,this_geom,adj_cell
   integer :: left_order,right_order
   integer :: left_qorder,right_qorder
-  integer :: rotation,fp_counter
+  integer :: rotation,fp_counter,rotation_errors
   integer :: qp_counter,nqp,qdtr_pts,qdtr_order
   character(len=200) :: array_name
-  logical(lk) :: error_finding_rotation
   logical(lk) :: flxpt_offset_is_zero
   !
   integer :: nr,lnode,lfbnd,lface,lcell
   !
   real(wp) :: dir
   !
+  _MPI_COMM_TYPE_ :: reduce_comm
+  !
   !.. Local Arrays ..
   integer,  dimension(1:4) :: ip
   integer,  dimension(1:4) :: left_nodes
   integer,  dimension(1:4) :: right_nodes
+  integer,  dimension(1:4) :: old_left_nodes
+  integer,  dimension(1:4) :: old_right_nodes
  !integer,  dimension(1:4) :: face_nodes
   real(wp), dimension(1:3) :: rnrm
   real(wp), dimension(1:3) :: face_center
@@ -985,6 +994,16 @@ continue
   ! ###  1  ###
   ! ###########
   ! ###########
+  !
+ !if (present(input_mode)) then
+ !  if (input_mode == 2) then
+ !    do nf = 1,lfbnd
+ !      write (mypnum+200,201) (bface(n,nf), n=1,size(bface,dim=1))
+ !    end do
+ !    flush (mypnum+200)
+ !  end if
+ !  201 format (100i8)
+ !end if
   call debug_timer(start_timer,"section 1")
   !
   ! Find the total number of faces
@@ -1382,7 +1401,7 @@ continue
   ! cell that are on this face. These indices are used in the correct and
   ! interp(:)%toFace matrices.
   !
-  error_finding_rotation = fals
+  rotation_errors = 0
   !
   do nf = 1,lface
     !
@@ -1414,6 +1433,7 @@ continue
     !
     ip(1:nfnods) = side_nodes(1:nfnods,left_side,left_geom)
     left_nodes(1:nfnods) = nodes_of_cell(l1 + ip(1:nfnods))
+    old_left_nodes(:) = left_nodes(:)
     !
     ! #############################
     ! #############################
@@ -1568,6 +1588,7 @@ continue
     ! Use the node indices to collect the nodes of the right cell on this face
     !
     right_nodes(1:nfnods) = nodes_of_cell(r1 + ip(1:nfnods))
+    old_right_nodes(:) = right_nodes(:)
     !
     ! Get the flux point rotation for the right cell
     !
@@ -1611,7 +1632,29 @@ continue
     ! If the previous function could not find the rotation, mark that there
     ! was an error finding the correct face rotation between cells.
     !
-    if (rotation == 0) error_finding_rotation = true
+   !if (present(input_mode)) then
+   !  if (input_mode == 2 .and. mypnum == glb_root .and. nf <= lfbnd) then
+   !    call output_face_nodes(nf,nfnods,nfp,face_geom,face_order,qdtr_order, &
+   !                           left_cell,left_side,left_geom,left_order, &
+   !                           nodes_of_cell(l1:l2),left_nodes(1:nfnods), &
+   !                           old_left_nodes(1:nfnods), &
+   !                           right_cell,right_side,right_geom,right_order, &
+   !                           nodes_of_cell(r1:r2),right_nodes(1:nfnods), &
+   !                           old_right_nodes(1:nfnods), &
+   !                           lfbnd,lface)
+   !  end if
+   !end if
+    if (rotation == 0) then
+      rotation_errors = rotation_errors + 1
+      call output_face_nodes(nf,nfnods,nfp,face_geom,face_order,qdtr_order, &
+                             left_cell,left_side,left_geom,left_order, &
+                             nodes_of_cell(l1:l2),left_nodes(1:nfnods), &
+                             old_left_nodes(1:nfnods), &
+                             right_cell,right_side,right_geom,right_order, &
+                             nodes_of_cell(r1:r2),right_nodes(1:nfnods), &
+                             old_right_nodes(1:nfnods), &
+                             lfbnd,lface)
+    end if
     !
     ! Save the rotation index for this face
     !
@@ -1619,8 +1662,19 @@ continue
     !
   end do
   !
-  if (error_finding_rotation) then
-    write (iout,*) "There was an error rotating flux points!"
+  if (ncpu > 1) then
+    if (present(group_comm)) then
+      reduce_comm = group_comm
+    else
+      reduce_comm = MPI_COMM_WORLD
+    end if
+    call mpi_allreduce(MPI_IN_PLACE,rotation_errors,1_int_mpi,mpi_inttyp, &
+                       MPI_SUM,reduce_comm,mpierr)
+  end if
+  !
+  if (rotation_errors > 0) then
+    if (mypnum == glb_root) write (iout,3) rotation_errors
+    flush (iout)
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
@@ -1646,8 +1700,94 @@ continue
   !
   1 format (" Error on face - ",i0,",  nodes ",i0,3(:,2x,i0))
   2 format ("face(",i0,")%",a,"%flxpts")
+  3 format (/,"There was an error rotating flux points!",/, &
+              "  number of rotation errors = ",i0,/)
   !
 end subroutine create_face_derived_type
+!
+!###############################################################################
+!
+subroutine output_face_nodes(nf,nfnods,nfp,face_geom,face_order,qdtr_order, &
+                             left_cell,left_side,left_geom,left_order, &
+                             left_nodes,left_face_nodes,old_left_face_nodes, &
+                             right_cell,right_side,right_geom,right_order, &
+                             right_nodes,right_face_nodes,old_right_face_nodes, &
+                             lfbnd,lface)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: nf
+  integer, intent(in) :: nfnods
+  integer, intent(in) :: nfp
+  integer, intent(in) :: face_geom
+  integer, intent(in) :: face_order
+  integer, intent(in) :: qdtr_order
+  integer, intent(in) :: left_cell
+  integer, intent(in) :: left_side
+  integer, intent(in) :: left_geom
+  integer, intent(in) :: left_order
+  integer, intent(in) :: left_nodes(:)
+  integer, intent(in) :: left_face_nodes(:)
+  integer, intent(in) :: old_left_face_nodes(:)
+  integer, intent(in) :: right_cell
+  integer, intent(in) :: right_side
+  integer, intent(in) :: right_geom
+  integer, intent(in) :: right_order
+  integer, intent(in) :: right_nodes(:)
+  integer, intent(in) :: right_face_nodes(:)
+  integer, intent(in) :: old_right_face_nodes(:)
+  integer, intent(in) :: lfbnd
+  integer, intent(in) :: lface
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_face_nodes"
+  !
+continue
+  !
+  write (100+mypnum,1)
+  write (100+mypnum,2) "     lfbnd",lfbnd
+  write (100+mypnum,2) "     lface",lface
+  write (100+mypnum,2) "        nf",nf
+  write (100+mypnum,2) "    nfnods",nfnods
+  write (100+mypnum,2) "       nfp",nfp
+  write (100+mypnum,2) " face_geom",face_geom
+  write (100+mypnum,2) "face_order",face_order
+  write (100+mypnum,2) "qdtr_order",qdtr_order
+  write (100+mypnum,*)
+  !
+  write (100+mypnum,2) "left_cell ",left_cell
+  write (100+mypnum,2) "left_side ",left_side
+  write (100+mypnum,2) "left_geom ",left_geom
+  write (100+mypnum,2) "left_order",left_order
+  write (100+mypnum,3) "Left",(left_nodes(n),n=1,size(left_nodes))
+  write (100+mypnum,4) "Left", &
+    (old_left_face_nodes(n),n=1,size(old_left_face_nodes))
+  write (100+mypnum,5) "Left", ( left_face_nodes(n),n=1,size( left_face_nodes))
+  write (100+mypnum,*)
+  !
+  write (100+mypnum,2) "right_cell ",right_cell
+  write (100+mypnum,2) "right_side ",right_side
+  write (100+mypnum,2) "right_geom ",right_geom
+  write (100+mypnum,2) "right_order",right_order
+  write (100+mypnum,3) "Right",(right_nodes(n),n=1,size(right_nodes))
+  write (100+mypnum,4) "Right", &
+    (old_right_face_nodes(n),n=1,size(old_right_face_nodes))
+  write (100+mypnum,5) "Right",(right_face_nodes(n),n=1,size(right_face_nodes))
+  write (100+mypnum,*)
+  !
+  flush (100+mypnum)
+  !
+  ! Format Statements
+  !
+  1 format (/,80("="))
+  2 format (1x,a," = ",i0)
+  3 format (1x,a," cell nodes : ",8i8)
+  4 format (1x,a," face nodes before GetFaceNodes : ",4i8)
+  5 format (1x,a," face nodes  after GetFaceNodes : ",4i8)
+  !
+end subroutine output_face_nodes
 !
 !###############################################################################
 !
