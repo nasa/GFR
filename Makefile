@@ -223,6 +223,8 @@ clean-wes: clean-westmere
 merope: BDIR := optimize_merope
 merope: EXEF := gfr_merope
 merope: TRGT := merope
+merope: FCADD += -DDISABLE_CHECK_FOR_BAD_NUMBER
+merope: FCADD += -DPROFILE_ON
 #merope: FCADD += -pg
 merope: build
 
