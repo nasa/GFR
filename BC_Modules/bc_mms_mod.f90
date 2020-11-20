@@ -14,7 +14,10 @@ contains
 !
 !###############################################################################
 !
-pure subroutine get_bc_mms_dirichlet_solution(n1,n2,facenrm,facexyz,face_cv)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_mms_dirichlet_solution(n1,n2,facenrm,facexyz,face_cv)
   !
   ! #############################################################
   ! #############################################################
@@ -53,7 +56,10 @@ end subroutine get_bc_mms_dirichlet_solution
 !
 !###############################################################################
 !
-pure subroutine get_bc_mms_dirichlet_solution_3d(n1,n2,facenrm,facexyz,face_cv)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_mms_dirichlet_solution_3d(n1,n2,facenrm,facexyz,face_cv)
   !
   ! #########################################################
   ! #########################################################
@@ -189,7 +195,10 @@ end subroutine get_bc_mms_dirichlet_solution_3d
 !
 !###############################################################################
 !
-pure subroutine get_bc_mms_dirichlet_solution_2d(n1,n2,facenrm,facexyz,face_cv)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_mms_dirichlet_solution_2d(n1,n2,facenrm,facexyz,face_cv)
   !
   ! #########################################################
   ! #########################################################
@@ -318,7 +327,10 @@ end subroutine get_bc_mms_dirichlet_solution_2d
 !
 !###############################################################################
 !
-pure subroutine get_bc_mms_dirichlet_solution_1d(n1,n2,facenrm,facexyz,face_cv)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_mms_dirichlet_solution_1d(n1,n2,facenrm,facexyz,face_cv)
   !
   ! #########################################################
   ! #########################################################

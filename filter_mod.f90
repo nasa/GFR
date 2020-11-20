@@ -783,7 +783,10 @@ end subroutine filter_usp
 !
 !###############################################################################
 !
-pure subroutine filter_usp_3d(usp)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine filter_usp_3d(usp)
   !
   !.. Use Statements ..
   use order_mod, only : maxSP
@@ -869,7 +872,10 @@ end subroutine filter_usp_3d
 !
 !###############################################################################
 !
-pure subroutine filter_usp_2d(usp)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine filter_usp_2d(usp)
   !
   !.. Use Statements ..
   use order_mod, only : maxSP
@@ -951,7 +957,10 @@ end subroutine filter_usp_2d
 !
 !###############################################################################
 !
-pure subroutine filter_usp_1d(usp)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine filter_usp_1d(usp)
   !
   !.. Use Statements ..
   use order_mod, only : maxSP
@@ -1029,7 +1038,10 @@ end subroutine filter_usp_1d
 !
 !###############################################################################
 !
-pure subroutine filter_usp_nd(mbeg,mend,usp)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine filter_usp_nd(mbeg,mend,usp)
   !
   !.. Use Statements ..
   use order_mod, only : maxSP
@@ -1117,7 +1129,10 @@ end subroutine filter_usp_nd
 !
 !###############################################################################
 !
-pure function FilterMatrix_Edge(vand,vand_inv,cutoff_order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function FilterMatrix_Edge(vand,vand_inv,cutoff_order) result(return_value)
   !
   ! Routine to compute the spectral filter matrices
   !
@@ -1383,7 +1398,9 @@ end function FilterMatrix_Edge_with_output
 !
 !###############################################################################
 !
- pure &
+#ifndef DISABLE_PURE
+pure &
+#endif
 function FilterMatrix_Quad(vand,vand_inv,cutoff_order) result(return_value)
   !
   ! Routine to compute the spectral filter matrices
@@ -1562,7 +1579,10 @@ end function FilterMatrix_Quad
 !
 !###############################################################################
 !
-pure function FilterMatrix_Tria(vand,vand_inv,cutoff_order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function FilterMatrix_Tria(vand,vand_inv,cutoff_order) result(return_value)
   !
   ! Routine to compute the spectral filter matrices
   !
@@ -1693,7 +1713,10 @@ end function FilterMatrix_Tria
 !
 !###############################################################################
 !
-pure function FilterMatrix_Tetr(vand,vand_inv,cutoff_order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function FilterMatrix_Tetr(vand,vand_inv,cutoff_order) result(return_value)
   !
   ! Routine to compute the spectral filter matrices
   !
@@ -1824,7 +1847,10 @@ end function FilterMatrix_Tetr
 !
 !###############################################################################
 !
-pure function FilterMatrix_Pyra(vand,vand_inv,cutoff_order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function FilterMatrix_Pyra(vand,vand_inv,cutoff_order) result(return_value)
   !
   ! Routine to compute the spectral filter matrices
   !
@@ -1955,7 +1981,10 @@ end function FilterMatrix_Pyra
 !
 !###############################################################################
 !
-pure function FilterMatrix_Pris(vand,vand_inv,cutoff_order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function FilterMatrix_Pris(vand,vand_inv,cutoff_order) result(return_value)
   !
   ! Routine to compute the spectral filter matrices
   !

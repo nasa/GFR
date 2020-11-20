@@ -23,7 +23,10 @@ contains
 !
 !###############################################################################
 !
-pure subroutine cv2pv_gpu(n1,n2,cv,gp,return_value,swap_t_for_rho)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine cv2pv_gpu(n1,n2,cv,gp,return_value,swap_t_for_rho)
   !
   !.. Use Statements ..
   use ovar, only : turb_is_on
@@ -84,7 +87,10 @@ end subroutine cv2pv_gpu
 !
 !###############################################################################
 !
-pure subroutine cv2pv_gpu_3d(n1,n2,cv,gp,return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine cv2pv_gpu_3d(n1,n2,cv,gp,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -115,7 +121,10 @@ end subroutine cv2pv_gpu_3d
 !
 !###############################################################################
 !
-pure subroutine cv2pv_gpu_2d(n1,n2,cv,gp,return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine cv2pv_gpu_2d(n1,n2,cv,gp,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -145,7 +154,10 @@ end subroutine cv2pv_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine cv2pv_gpu_1d(n1,n2,cv,gp,return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine cv2pv_gpu_1d(n1,n2,cv,gp,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -183,7 +195,10 @@ end subroutine cv2pv_gpu_1d
 !###############################################################################
 !###############################################################################
 !
-pure subroutine pv2cv_gpu(n1,n2,pv,gp)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine pv2cv_gpu(n1,n2,pv,gp)
   !
   !.. Use Statements ..
   use ovar, only : include_tke_in_energy
@@ -235,7 +250,10 @@ end subroutine pv2cv_gpu
 !
 !###############################################################################
 !
-pure subroutine pv2cv_gpu_tpg(n1,n2,pv,gp)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine pv2cv_gpu_tpg(n1,n2,pv,gp)
   !
   !.. Use Statements ..
   use thermo_mod, only : compute_mixture_rgas
@@ -305,7 +323,10 @@ end subroutine pv2cv_gpu_tpg
 !
 !###############################################################################
 !
-pure subroutine pv2cv_gpu_tpg_3d(n1,n2,pv,gp)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine pv2cv_gpu_tpg_3d(n1,n2,pv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -345,7 +366,10 @@ end subroutine pv2cv_gpu_tpg_3d
 !
 !###############################################################################
 !
-pure subroutine pv2cv_gpu_tpg_2d(n1,n2,pv,gp)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine pv2cv_gpu_tpg_2d(n1,n2,pv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -383,7 +407,10 @@ end subroutine pv2cv_gpu_tpg_2d
 !
 !###############################################################################
 !
-pure subroutine pv2cv_gpu_tpg_1d(n1,n2,pv,gp)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine pv2cv_gpu_tpg_1d(n1,n2,pv,gp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -417,7 +444,10 @@ end subroutine pv2cv_gpu_tpg_1d
 !
 !###############################################################################
 !
-pure subroutine pv2cv_gpu_cpg(n1,n2,pv)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine pv2cv_gpu_cpg(n1,n2,pv)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -443,7 +473,10 @@ end subroutine pv2cv_gpu_cpg
 !
 !###############################################################################
 !
-pure subroutine pv2cv_gpu_cpg_3d(n1,n2,pv)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine pv2cv_gpu_cpg_3d(n1,n2,pv)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -483,7 +516,10 @@ end subroutine pv2cv_gpu_cpg_3d
 !
 !###############################################################################
 !
-pure subroutine pv2cv_gpu_cpg_2d(n1,n2,pv)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine pv2cv_gpu_cpg_2d(n1,n2,pv)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -521,7 +557,10 @@ end subroutine pv2cv_gpu_cpg_2d
 !
 !###############################################################################
 !
-pure subroutine pv2cv_gpu_cpg_1d(n1,n2,pv)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine pv2cv_gpu_cpg_1d(n1,n2,pv)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -564,7 +603,9 @@ end subroutine pv2cv_gpu_cpg_1d
 !###############################################################################
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine grad_cv_to_grad_pv_sp(uin,gpin,dcvdxin,return_value)
   !
   !.. Formal Arguments ..
@@ -610,9 +651,11 @@ end subroutine grad_cv_to_grad_pv_sp
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine grad_cv_to_grad_pv_gpu(n1,n2,usp,gpsp,dcvdx,return_value, &
-                                       output_variables)
+                                  output_variables)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -666,7 +709,9 @@ end subroutine grad_cv_to_grad_pv_gpu
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine grad_cv_to_grad_pv_cpg_3d(n1,n2,usp,dcvdx,return_value)
   !
   !.. Use Statements ..
@@ -766,7 +811,9 @@ end subroutine grad_cv_to_grad_pv_cpg_3d
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine grad_cv_to_grad_pv_cpg_3d_original(n1,n2,usp,dcvdx,return_value)
   !
   !.. Use Statements ..
@@ -873,7 +920,10 @@ end subroutine grad_cv_to_grad_pv_cpg_3d_original
 !
 !###############################################################################
 !
-pure subroutine grad_cv_to_grad_pv_cpg_2d(n1,n2,usp,dcvdx,return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine grad_cv_to_grad_pv_cpg_2d(n1,n2,usp,dcvdx,return_value)
   !
   !.. Use Statements ..
   use ovar, only : rgasref_nd,gam
@@ -964,7 +1014,10 @@ end subroutine grad_cv_to_grad_pv_cpg_2d
 !
 !###############################################################################
 !
-pure subroutine grad_cv_to_grad_pv_cpg_1d(n1,n2,usp,dcvdx,return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine grad_cv_to_grad_pv_cpg_1d(n1,n2,usp,dcvdx,return_value)
   !
   !.. Use Statements ..
   use ovar, only : rgasref_nd,gam
@@ -1033,8 +1086,11 @@ end subroutine grad_cv_to_grad_pv_cpg_1d
 !
 !###############################################################################
 !
-pure subroutine adjust_temp_gradient_for_tpg_3d(n1,n2,usp,gpsp,dcvdx, &
-                                                return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine adjust_temp_gradient_for_tpg_3d(n1,n2,usp,gpsp,dcvdx, &
+                                           return_value)
   !
   !.. Use Statements ..
   use ovar,       only : rgasref_nd,gam
@@ -1174,8 +1230,11 @@ end subroutine adjust_temp_gradient_for_tpg_3d
 !
 !###############################################################################
 !
-pure subroutine adjust_temp_gradient_for_tpg_2d(n1,n2,usp,gpsp,dcvdx, &
-                                                return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine adjust_temp_gradient_for_tpg_2d(n1,n2,usp,gpsp,dcvdx, &
+                                           return_value)
   !
   !.. Use Statements ..
   use ovar,       only : rgasref_nd,gam
@@ -1309,8 +1368,11 @@ end subroutine adjust_temp_gradient_for_tpg_2d
 !
 !###############################################################################
 !
-pure subroutine adjust_temp_gradient_for_tpg_1d(n1,n2,usp,gpsp,dcvdx, &
-                                                return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine adjust_temp_gradient_for_tpg_1d(n1,n2,usp,gpsp,dcvdx, &
+                                           return_value)
   !
   !.. Use Statements ..
   use ovar,       only : rgasref_nd,gam
@@ -1438,8 +1500,11 @@ end subroutine adjust_temp_gradient_for_tpg_1d
 !
 !###############################################################################
 !
-pure subroutine adjust_temp_grad_for_tpg_3d(n1,n2,usp,gpsp,dcvdx, &
-                                            return_value,output_variables)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine adjust_temp_grad_for_tpg_3d(n1,n2,usp,gpsp,dcvdx, &
+                                       return_value,output_variables)
   !
   !.. Use Statements ..
   use ovar,       only : rgasref_nd,gam
@@ -1606,8 +1671,11 @@ end subroutine adjust_temp_grad_for_tpg_3d
 !
 !###############################################################################
 !
-pure subroutine adjust_temp_grad_for_tpg_2d(n1,n2,usp,gpsp,dcvdx, &
-                                            return_value,output_variables)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine adjust_temp_grad_for_tpg_2d(n1,n2,usp,gpsp,dcvdx, &
+                                       return_value,output_variables)
   !
   !.. Use Statements ..
   use ovar,       only : rgasref_nd,gam
@@ -1767,8 +1835,11 @@ end subroutine adjust_temp_grad_for_tpg_2d
 !
 !###############################################################################
 !
-pure subroutine adjust_temp_grad_for_tpg_1d(n1,n2,usp,gpsp,dcvdx, &
-                                            return_value,output_variables)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine adjust_temp_grad_for_tpg_1d(n1,n2,usp,gpsp,dcvdx, &
+                                       return_value,output_variables)
   !
   !.. Use Statements ..
   use ovar,       only : rgasref_nd,gam

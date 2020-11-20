@@ -16,8 +16,11 @@ contains
 !
 !###############################################################################
 !
-pure subroutine get_bc_isothermal_wall_solution(n1,n2,face_cv,face_gp, &
-                                                wall_temperature,pv_in)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_isothermal_wall_solution(n1,n2,face_cv,face_gp, &
+                                           wall_temperature,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -100,8 +103,11 @@ end subroutine get_bc_isothermal_wall_solution
 !
 !###############################################################################
 !
-pure subroutine get_bc_isothermal_wall_solution_3d(n1,n2,face_cv,face_gp, &
-                                                   wall_temperature,pv_in)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_isothermal_wall_solution_3d(n1,n2,face_cv,face_gp, &
+                                              wall_temperature,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -173,8 +179,11 @@ end subroutine get_bc_isothermal_wall_solution_3d
 !
 !###############################################################################
 !
-pure subroutine get_bc_isothermal_wall_solution_2d(n1,n2,face_cv,face_gp, &
-                                                   wall_temperature,pv_in)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_isothermal_wall_solution_2d(n1,n2,face_cv,face_gp, &
+                                              wall_temperature,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -242,8 +251,11 @@ end subroutine get_bc_isothermal_wall_solution_2d
 !
 !###############################################################################
 !
-pure subroutine get_bc_isothermal_wall_solution_1d(n1,n2,face_cv,face_gp, &
-                                                   wall_temperature,pv_in)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_isothermal_wall_solution_1d(n1,n2,face_cv,face_gp, &
+                                              wall_temperature,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -304,7 +316,9 @@ end subroutine get_bc_isothermal_wall_solution_1d
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_bc_wall_gradient(n1,n2,face_cv,face_gp,face_dcvdx)
   !
   ! #####################################################
@@ -378,7 +392,10 @@ end subroutine get_bc_wall_gradient
 !
 !###############################################################################
 !
-pure subroutine get_bc_wall_gradient_3d(n1,n2,face_cv,face_dcvdx)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_wall_gradient_3d(n1,n2,face_cv,face_dcvdx)
   !
   ! #####################################################
   ! #####################################################
@@ -522,7 +539,10 @@ end subroutine get_bc_wall_gradient_3d
 !
 !###############################################################################
 !
-pure subroutine get_bc_wall_gradient_2d(n1,n2,face_cv,face_dcvdx)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_wall_gradient_2d(n1,n2,face_cv,face_dcvdx)
   !
   ! #####################################################
   ! #####################################################
@@ -643,7 +663,10 @@ end subroutine get_bc_wall_gradient_2d
 !
 !###############################################################################
 !
-pure subroutine get_bc_wall_gradient_1d(n1,n2,face_cv,face_dcvdx)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_bc_wall_gradient_1d(n1,n2,face_cv,face_dcvdx)
   !
   ! #####################################################
   ! #####################################################

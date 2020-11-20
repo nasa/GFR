@@ -496,7 +496,10 @@ end function mms_solution_at_xyz
 !
 !###############################################################################
 !
-pure subroutine mms_solution_at_xyz_gpu(n1,n2,xyz,pv,return_nondim,return_cv)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine mms_solution_at_xyz_gpu(n1,n2,xyz,pv,return_nondim,return_cv)
   !
   ! Function to evaluate the exact MMS solution at a set of coordinates
   !
@@ -528,7 +531,10 @@ end subroutine mms_solution_at_xyz_gpu
 !
 !###############################################################################
 !
-pure subroutine mms_solution_at_xyz_gpu_3d(n1,n2,xyz,pv,return_nondim,return_cv)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine mms_solution_at_xyz_gpu_3d(n1,n2,xyz,pv,return_nondim,return_cv)
   !
   ! Function to evaluate the exact MMS solution at a set of coordinates
   !
@@ -629,7 +635,10 @@ end subroutine mms_solution_at_xyz_gpu_3d
 !
 !###############################################################################
 !
-pure subroutine mms_solution_at_xyz_gpu_2d(n1,n2,xyz,pv,return_nondim,return_cv)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine mms_solution_at_xyz_gpu_2d(n1,n2,xyz,pv,return_nondim,return_cv)
   !
   ! Function to evaluate the exact MMS solution at a set of coordinates
   !
@@ -723,7 +732,10 @@ end subroutine mms_solution_at_xyz_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine mms_solution_at_xyz_gpu_1d(n1,n2,xyz,pv,return_nondim,return_cv)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine mms_solution_at_xyz_gpu_1d(n1,n2,xyz,pv,return_nondim,return_cv)
   !
   ! Function to evaluate the exact MMS solution at a set of coordinates
   !
