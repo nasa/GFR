@@ -415,7 +415,8 @@ call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   end if
   !
   !
-  iwt = iwt + 1 ; message(iwt) = "Allocating residual, dtsp, uoldsp, and gpoldsp"
+  iwt = iwt + 1
+  message(iwt) = "Allocating residual, dtsp, uoldsp, and gpoldsp"
 call debug_timer(start_timer,message(iwt))
   allocate ( residual(1:n_solpts,1:nq) , source=zero , &
              stat=ierr , errmsg=error_message )
@@ -443,7 +444,8 @@ call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   !
   !
   if (convert_restart_to_cgns) then
-  iwt = iwt + 1 ; message(iwt) = "Allocating faceusp_array for convert_restart_to_cgns"
+  iwt = iwt + 1
+  message(iwt) = "Allocating faceusp_array for convert_restart_to_cgns"
 call debug_timer(start_timer,message(iwt))
     !
     nfpts = face(nface)%end_fp ! end fp index for last face
@@ -475,7 +477,8 @@ call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
       ! If using continuous output, facexyz_dt needs to be defined
       ! for both interior and boundary faces
       !
-  iwt = iwt + 1 ; message(iwt) = "Allocating face{xyz,usp,gpsp,dusp}_dt for continuous output"
+  iwt = iwt + 1 
+  message(iwt) = "Allocating face{xyz,usp,gpsp,dusp}_dt for continuous output"
 call debug_timer(start_timer,message(iwt))
       if (allocated(facexyz_dt)) then
         if (size(facexyz_dt) < nface) then
@@ -557,7 +560,8 @@ call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
     end if
     !
     !
-  iwt = iwt + 1 ; message(iwt) = "Allocating faceflx and face{usp,gpsp,dusp}_array"
+  iwt = iwt + 1
+  message(iwt) = "Allocating faceflx and face{usp,gpsp,dusp}_array"
 call debug_timer(start_timer,message(iwt))
     nfpts = face(nface)%end_fp ! end fp index for last face
     !

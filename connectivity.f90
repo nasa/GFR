@@ -1711,8 +1711,8 @@ subroutine output_face_nodes(nf,nfnods,nfp,face_geom,face_order,qdtr_order, &
                              left_cell,left_side,left_geom,left_order, &
                              left_nodes,left_face_nodes,old_left_face_nodes, &
                              right_cell,right_side,right_geom,right_order, &
-                             right_nodes,right_face_nodes,old_right_face_nodes, &
-                             lfbnd,lface)
+                             right_nodes,right_face_nodes, &
+                             old_right_face_nodes,lfbnd,lface)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: nf
