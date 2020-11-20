@@ -136,7 +136,7 @@ subroutine parametrically_corrected_mapping()
   use quadrature_mod, only : std_elem
   !
   !.. Local Scalars ..
-  integer :: l,n,n0,n1,n2,np,mp,p1,p2,ierr,io,io1,io2
+  integer :: l,n,n0,n1,n2,np,op,p1,p2,ierr,io,io1,io2
   integer :: this_cell,mesh_order
   integer :: this_geom,this_order
   logical(lk) :: grid_sol_is_available
@@ -272,11 +272,11 @@ continue
     !
     ! Create the custom mapping matrix for this cell
     !
-    mp = size(elem_xyz,dim=2)
+    op = size(elem_xyz,dim=2)
     !
     ! Allocate the mat component of this_map
     !
-    allocate ( this_map%mat(1:mp,1:np) , source=zero , &
+    allocate ( this_map%mat(1:op,1:np) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
     !
@@ -427,7 +427,7 @@ subroutine assume_equidistant_mapping()
   use quadrature_mod, only : std_elem
   !
   !.. Local Scalars ..
-  integer :: l,n,n0,n1,n2,np,mp,p1,p2,ierr,io,io1,io2
+  integer :: l,n,n0,n1,n2,np,op,p1,p2,ierr,io,io1,io2
   integer :: this_cell,mesh_order
   integer :: this_geom,this_order
   logical(lk) :: use_nodes_of_cell
@@ -607,11 +607,11 @@ continue
     !
     if (.not.allocated(this_map%mat)) then
       !
-      mp = size(elem_xyz,dim=2)
+      op = size(elem_xyz,dim=2)
       !
       ! Allocate the mat component of this_map
       !
-      allocate ( this_map%mat(1:mp,1:np) , source=zero , &
+      allocate ( this_map%mat(1:op,1:np) , source=zero , &
                  stat=ierr , errmsg=error_message )
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
@@ -626,16 +626,16 @@ continue
         !
         case (Geom_Edge)
           !
-          this_map%mat = map_edge_to_solpts( mp , np , edge_pts , mesh_order )
+          this_map%mat = map_edge_to_solpts( op , np , edge_pts , mesh_order )
           !
         case (Geom_Tria)
           !
-          this_map%mat = map_tria_to_solpts( mp , np , tria_pts , &
+          this_map%mat = map_tria_to_solpts( op , np , tria_pts , &
                                              mesh_order , elem_family )
           !
         case (Geom_Quad)
           !
-          this_map%mat = map_quad_to_solpts( mp , np , edge_pts , &
+          this_map%mat = map_quad_to_solpts( op , np , edge_pts , &
                                              mesh_order , elem_family )
           !
         case (Geom_Tetr)
@@ -643,7 +643,7 @@ continue
           write (error_message,3) "Tetrahedral"
           call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
           !
-          this_map%mat = map_tetr_to_solpts( mp , np , tria_pts , &
+          this_map%mat = map_tetr_to_solpts( op , np , tria_pts , &
                                              mesh_order , elem_family )
           !
         case (Geom_Pyra)
@@ -651,7 +651,7 @@ continue
           write (error_message,3) "Pyramid"
           call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
           !
-          this_map%mat = map_pyra_to_solpts( mp , np , edge_pts , tria_pts , &
+          this_map%mat = map_pyra_to_solpts( op , np , edge_pts , tria_pts , &
                                              mesh_order , elem_family )
           !
         case (Geom_Pris)
@@ -659,12 +659,12 @@ continue
           write (error_message,3) "Prism"
           call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
           !
-          this_map%mat = map_pris_to_solpts( mp , np , edge_pts , tria_pts , &
+          this_map%mat = map_pris_to_solpts( op , np , edge_pts , tria_pts , &
                                              mesh_order , elem_family )
           !
         case (Geom_Hexa)
           !
-          this_map%mat = map_hexa_to_solpts( mp , np , edge_pts , &
+          this_map%mat = map_hexa_to_solpts( op , np , edge_pts , &
                                              mesh_order , elem_family )
           !
         case default
@@ -935,20 +935,20 @@ end subroutine create_mapping_array
 #ifndef DISABLE_PURE
 pure &
 #endif
-function equidistant_map_edge_to_solpts(mp,np,xi,mesh_order) &
+function equidistant_map_edge_to_solpts(op,np,xi,mesh_order) &
                           result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
   !
   !.. Formal Arguments ..
-  integer,  intent(in) :: mp
+  integer,  intent(in) :: op
   integer,  intent(in) :: np
   real(wp), intent(in) :: xi(:)
   integer,  intent(in) :: mesh_order
   !
   !.. Function Result ..
-  real(wp) :: return_value(1:mp,1:np)
+  real(wp) :: return_value(1:op,1:np)
   !
   !.. Local Scalars ..
   integer  :: i,mi,ni,xpts,epts
@@ -956,7 +956,7 @@ function equidistant_map_edge_to_solpts(mp,np,xi,mesh_order) &
   !.. Local Arrays ..
   real(qp) :: xi_qp(1:size(xi))
   real(qp) :: eq_pts(1:mesh_order+1)
-  real(qp) :: map_qp(1:mp,1:np)
+  real(qp) :: map_qp(1:op,1:np)
   !
 continue
   !
@@ -988,7 +988,7 @@ end function equidistant_map_edge_to_solpts
 #ifndef DISABLE_PURE
 pure &
 #endif
-function equidistant_map_tria_to_solpts(mp,np,rs,mesh_order,family) &
+function equidistant_map_tria_to_solpts(op,np,rs,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -996,7 +996,7 @@ function equidistant_map_tria_to_solpts(mp,np,rs,mesh_order,family) &
   use polynomial_mod, only : eval_LagrangePoly2D
   !
   !.. Formal Arguments ..
-  integer,  intent(in) :: mp
+  integer,  intent(in) :: op
   integer,  intent(in) :: np
   real(wp), intent(in) :: rs(:,:)
   integer,  intent(in) :: mesh_order
@@ -1004,7 +1004,7 @@ function equidistant_map_tria_to_solpts(mp,np,rs,mesh_order,family) &
   type(geom_family_t), intent(in) :: family
   !
   !.. Function Result ..
-  real(wp) :: return_value(1:mp,1:np)
+  real(wp) :: return_value(1:op,1:np)
   !
   !.. Local Scalars ..
   integer  :: i
@@ -1012,7 +1012,7 @@ function equidistant_map_tria_to_solpts(mp,np,rs,mesh_order,family) &
   !
   !.. Local Arrays ..
   real(qp) :: eq_pts(1:mesh_order+1)
-  real(qp) :: map_qp(1:mp,1:np)
+  real(qp) :: map_qp(1:op,1:np)
   !
   !.. Local Parameters ..
   real(qp), parameter :: end_pts(1:2) = [-qone,qone]
@@ -1054,7 +1054,7 @@ end function equidistant_map_tria_to_solpts
 #ifndef DISABLE_PURE
 pure &
 #endif
-function equidistant_map_quad_to_solpts(mp,np,xi,mesh_order,family) &
+function equidistant_map_quad_to_solpts(op,np,xi,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -1062,7 +1062,7 @@ function equidistant_map_quad_to_solpts(mp,np,xi,mesh_order,family) &
   use polynomial_mod, only : eval_LagrangePoly2D
   !
   !.. Formal Arguments ..
-  integer,  intent(in) :: mp
+  integer,  intent(in) :: op
   integer,  intent(in) :: np
   real(wp), intent(in) :: xi(:)
   integer,  intent(in) :: mesh_order
@@ -1070,7 +1070,7 @@ function equidistant_map_quad_to_solpts(mp,np,xi,mesh_order,family) &
   type(geom_family_t), intent(in) :: family
   !
   !.. Function Result ..
-  real(wp) :: return_value(1:mp,1:np)
+  real(wp) :: return_value(1:op,1:np)
   !
   !.. Local Scalars ..
   integer  :: i,j,m,mi,mj,n,ni,nj,xpts,epts
@@ -1079,7 +1079,7 @@ function equidistant_map_quad_to_solpts(mp,np,xi,mesh_order,family) &
   real(qp) :: xy_qp(1:2)
   real(qp) :: xi_qp(1:size(xi))
   real(qp) :: eq_pts(1:mesh_order+1)
-  real(qp) :: map_qp(1:mp,1:np)
+  real(qp) :: map_qp(1:op,1:np)
   !
   !.. Local Parameters ..
   real(qp), parameter :: end_pts(1:2) = [-qone,qone]
@@ -1181,7 +1181,7 @@ end function equidistant_map_quad_to_solpts
 #ifndef DISABLE_PURE
 pure &
 #endif
-function equidistant_map_tetr_to_solpts(mp,np,rs,mesh_order,family) &
+function equidistant_map_tetr_to_solpts(op,np,rs,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -1189,7 +1189,7 @@ function equidistant_map_tetr_to_solpts(mp,np,rs,mesh_order,family) &
   use polynomial_mod, only : eval_LagrangePoly3D
   !
   !.. Formal Arguments ..
-  integer,  intent(in) :: mp
+  integer,  intent(in) :: op
   integer,  intent(in) :: np
   real(wp), intent(in) :: rs(:,:)
   integer,  intent(in) :: mesh_order
@@ -1197,14 +1197,14 @@ function equidistant_map_tetr_to_solpts(mp,np,rs,mesh_order,family) &
   type(geom_family_t), intent(in) :: family
   !
   !.. Function Result ..
-  real(wp) :: return_value(1:mp,1:np)
+  real(wp) :: return_value(1:op,1:np)
   !
   !.. Local Scalars ..
   integer :: n,ndim,npts
   !
   !.. Local Arrays ..
   real(qp) :: eq_pts(1:mesh_order+1)
-  real(qp) :: map_qp(1:mp,1:np)
+  real(qp) :: map_qp(1:op,1:np)
   real(qp) :: xi_qp(1:size(rs,dim=2))
   !
   !.. Local Parameters ..
@@ -1236,7 +1236,7 @@ end function equidistant_map_tetr_to_solpts
 #ifndef DISABLE_PURE
 pure &
 #endif
-function equidistant_map_pyra_to_solpts(mp,np,xi,rs,mesh_order,family) &
+function equidistant_map_pyra_to_solpts(op,np,xi,rs,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -1244,7 +1244,7 @@ function equidistant_map_pyra_to_solpts(mp,np,xi,rs,mesh_order,family) &
   use polynomial_mod, only : eval_LagrangePoly3D
   !
   !.. Formal Arguments ..
-  integer,  intent(in) :: mp
+  integer,  intent(in) :: op
   integer,  intent(in) :: np
   real(wp), intent(in) :: xi(:)
   real(wp), intent(in) :: rs(:,:)
@@ -1253,7 +1253,7 @@ function equidistant_map_pyra_to_solpts(mp,np,xi,rs,mesh_order,family) &
   type(geom_family_t), intent(in) :: family
   !
   !.. Function Result ..
-  real(wp) :: return_value(1:mp,1:np)
+  real(wp) :: return_value(1:op,1:np)
   !
   !.. Local Scalars ..
   integer :: n,ndim,npts
@@ -1261,7 +1261,7 @@ function equidistant_map_pyra_to_solpts(mp,np,xi,rs,mesh_order,family) &
   !.. Local Arrays ..
   real(qp) :: xi_qp(1:size(xi))
   real(qp) :: eq_pts(1:mesh_order+1)
-  real(qp) :: map_qp(1:mp,1:np)
+  real(qp) :: map_qp(1:op,1:np)
   !
   !.. Local Parameters ..
   real(qp), parameter :: end_pts(1:2) = [-qone,qone]
@@ -1292,7 +1292,7 @@ end function equidistant_map_pyra_to_solpts
 #ifndef DISABLE_PURE
 pure &
 #endif
-function equidistant_map_pris_to_solpts(mp,np,xi,rs,mesh_order,family) &
+function equidistant_map_pris_to_solpts(op,np,xi,rs,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -1300,7 +1300,7 @@ function equidistant_map_pris_to_solpts(mp,np,xi,rs,mesh_order,family) &
   use polynomial_mod, only : eval_LagrangePoly3D
   !
   !.. Formal Arguments ..
-  integer,  intent(in) :: mp
+  integer,  intent(in) :: op
   integer,  intent(in) :: np
   real(wp), intent(in) :: xi(:)
   real(wp), intent(in) :: rs(:,:)
@@ -1309,7 +1309,7 @@ function equidistant_map_pris_to_solpts(mp,np,xi,rs,mesh_order,family) &
   type(geom_family_t), intent(in) :: family
   !
   !.. Function Result ..
-  real(wp) :: return_value(1:mp,1:np)
+  real(wp) :: return_value(1:op,1:np)
   !
   !.. Local Scalars ..
   integer  :: i,j,k,ndim,npts
@@ -1318,7 +1318,7 @@ function equidistant_map_pris_to_solpts(mp,np,xi,rs,mesh_order,family) &
   !.. Local Arrays ..
   real(qp) :: xi_qp(1:size(xi))
   real(qp) :: eq_pts(1:mesh_order+1)
-  real(qp) :: map_qp(1:mp,1:np)
+  real(qp) :: map_qp(1:op,1:np)
   !
   !.. Local Arrays ..
   real(wp), dimension(1:size(rs ,1)) :: p1
@@ -1385,7 +1385,7 @@ end function equidistant_map_pris_to_solpts
 #ifndef DISABLE_PURE
 pure &
 #endif
-function equidistant_map_hexa_to_solpts(mp,np,xi,mesh_order,family) &
+function equidistant_map_hexa_to_solpts(op,np,xi,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -1393,7 +1393,7 @@ function equidistant_map_hexa_to_solpts(mp,np,xi,mesh_order,family) &
   use polynomial_mod, only : eval_LagrangePoly3D
   !
   !.. Formal Arguments ..
-  integer,  intent(in) :: mp
+  integer,  intent(in) :: op
   integer,  intent(in) :: np
   real(wp), intent(in) :: xi(:)
   integer,  intent(in) :: mesh_order
@@ -1401,7 +1401,7 @@ function equidistant_map_hexa_to_solpts(mp,np,xi,mesh_order,family) &
   type(geom_family_t), intent(in) :: family
   !
   !.. Function Result ..
-  real(wp) :: return_value(1:mp,1:np)
+  real(wp) :: return_value(1:op,1:np)
   !
   !.. Local Scalars ..
   integer  :: i,j,k,m,mi,mj,mk,n,ni,nj,nk,xpts,epts
@@ -1410,7 +1410,7 @@ function equidistant_map_hexa_to_solpts(mp,np,xi,mesh_order,family) &
   real(qp) :: xy_qp(1:3)
   real(qp) :: xi_qp(1:size(xi))
   real(qp) :: eq_pts(1:mesh_order+1)
-  real(qp) :: map_qp(1:mp,1:np)
+  real(qp) :: map_qp(1:op,1:np)
   !
   !.. Local Parameters ..
   real(qp), parameter :: end_pts(1:2) = [-qone,qone]
