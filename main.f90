@@ -520,7 +520,7 @@ continue
     ! Start by projecting the source solution to p_order
     !
     if (p_order < n_order) then
-      call project_to_porder(usp)
+      call project_to_porder(usp,update_gpsp=true)
     end if
     !
 !-DEBUG_BEG:
@@ -573,10 +573,10 @@ continue
     ! Finish by projecting or filtering the destination solution
     !
     if (p_order < n_order) then
-      call project_to_porder(usp)
+      call project_to_porder(usp,update_gpsp=true)
     else
       if (Filter_Option > 0) then
-        call filter_usp
+        call filter_usp(update_gpsp=true)
       end if
     end if
     !
