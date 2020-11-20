@@ -14,178 +14,451 @@ module triangle_mod
   !
   private
   !
-  public :: TriNodes2D_AlphaOptimized
-  public :: TriNodes2D_BarycentricLobatto
+  public :: TriNodes2D
+  public :: get_triangle_weights_at_solpts
+  public :: old_get_triangle_weights_at_solpts
   !
-  interface EquiTriNodes2D
-    module procedure EquiTriNodes2D_DP, &
-                     EquiTriNodes2D_QP
-  end interface EquiTriNodes2D
+  interface TriNodes2D
+    module procedure TriNodes2D_DP, &
+                     TriNodes2D_QP
+  end interface TriNodes2D
   !
   interface Warpfactor
     module procedure Warpfactor_DP, &
                      Warpfactor_QP
   end interface Warpfactor
   !
-  interface Nodes2D
-    module procedure Nodes2D_DP, &
-                     Nodes2D_QP
-  end interface Nodes2D
-  !
-  interface xytors
-    module procedure xytors_DP, &
-                     xytors_QP
-  end interface xytors
-  !
   interface TriNodes2D_AlphaOptimized
     module procedure TriNodes2D_AlphaOptimized_DP, &
                      TriNodes2D_AlphaOptimized_QP
   end interface TriNodes2D_AlphaOptimized
   !
-  interface TriNodes2D_BarycentricLobatto
-    module procedure TriNodes2D_BarycentricLobatto_DP, &
-                     TriNodes2D_BarycentricLobatto_QP
-  end interface TriNodes2D_BarycentricLobatto
+  interface TriNodes2D_Barycentric
+    module procedure TriNodes2D_Barycentric_DP, &
+                     TriNodes2D_Barycentric_QP
+  end interface TriNodes2D_Barycentric
+  !
+  interface old_get_triangle_weights_at_solpts
+    module procedure old_get_triangle_weights_at_solpts_DP, &
+                     old_get_triangle_weights_at_solpts_QP
+  end interface old_get_triangle_weights_at_solpts
+  !
+  interface get_triangle_weights_at_solpts
+    module procedure get_triangle_weights_at_solpts_DP, &
+                     get_triangle_weights_at_solpts_QP
+  end interface get_triangle_weights_at_solpts
   !
 contains
 !
 !###############################################################################
 !
+pure integer function tri_pts(p)
+  integer, intent(in) :: p
+  tri_pts = (p+1)*(p+2)/2
+end function tri_pts
+!
+!###############################################################################
+!
 #ifndef DISABLE_PURE
 pure &
 #endif
-function EquiTriNodes2D_DP(N,val) result(return_value)
+function TriNodes2D_DP(p,location,val,edge_loc) result(return_value)
   !
+  !.. Local Declared Precision ..
   integer, parameter :: lp = dp
   !
-  integer,  intent(in) :: N
+  !.. Formal Arguments ..
+  integer,  intent(in) :: p
+  integer,  intent(in) :: location
   real(lp), intent(in) :: val
   !
-  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: edge_loc
   !
-  integer :: i,j,k,np
+  !.. Function Result ..
+  real(lp) :: return_value(1:2,1:tri_pts(p))
   !
-  real(lp) :: rN,ri,rj,r,s,t
-  !
-  real(lp), parameter :: one   = 1.0_lp
-  real(lp), parameter :: two   = 2.0_lp
-  real(lp), parameter :: three = 3.0_lp
-  real(lp), parameter :: csq3  = sqrt(three)
-  real(lp), parameter :: csq3i = one/csq3
-  real(lp), parameter :: eps10 = 1.0e-10_lp
+  !.. Local Scalars ..
+  logical(lk) :: use_Gauss
   !
 continue
   !
-  rN = max(real(N,kind=lp),eps10)
-  np = (N+1)*(N+2)/2
+  use_Gauss = fals
+  if (present(edge_loc)) then
+    if (edge_loc == Legendre_Gauss) then
+      use_Gauss = true
+    end if
+  end if
   !
-  k = 1
-  do i = 1,N+1
+  if (location == AlphaOptimized_TriPoints) then
     !
-    ri = real(i,kind=lp)
+    return_value(:,:) = TriNodes2D_AlphaOptimized(p,val,use_Gauss)
     !
-    do j = 1,N+2-i
-      !
-      rj = real(j,kind=lp)
-      !
-      r = (rj-one)/rN
-      s = (ri-one)/rN
-      t = one - r - s
-      !
-      return_value(1,k) = r - t
-      return_value(2,k) = (two*s - r - t)*csq3i
-      !
-      k = k + 1
-      !
-    end do
+  else if (location == Barycentric_TriPoints) then
     !
-  end do
+    return_value(:,:) = TriNodes2D_Barycentric(p,val,use_Gauss)
+    !
+  else
+    !
+    return_value(:,:) = real(TriNodes2D_WilliamsShunn(p),kind=lp)
+    !
+  end if
   !
-end function EquiTriNodes2D_DP
+end function TriNodes2D_DP
 !
 !###############################################################################
 !
 #ifndef DISABLE_PURE
 pure &
 #endif
-function EquiTriNodes2D_QP(N,val) result(return_value)
+function TriNodes2D_QP(p,location,val,edge_loc) result(return_value)
   !
+  !.. Local Declared Precision ..
   integer, parameter :: lp = local_qp
   !
-  integer,  intent(in) :: N
+  !.. Formal Arguments ..
+  integer,  intent(in) :: p
+  integer,  intent(in) :: location
   real(lp), intent(in) :: val
   !
-  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: edge_loc
   !
-  integer :: i,j,k,np
+  !.. Function Result ..
+  real(lp) :: return_value(1:2,1:tri_pts(p))
   !
-  real(lp) :: rN,ri,rj,r,s,t
-  !
-  real(lp), parameter :: one   = 1.0_lp
-  real(lp), parameter :: two   = 2.0_lp
-  real(lp), parameter :: three = 3.0_lp
-  real(lp), parameter :: csq3  = sqrt(three)
-  real(lp), parameter :: csq3i = one/csq3
-  real(lp), parameter :: eps10 = 1.0e-10_lp
+  !.. Local Scalars ..
+  logical(lk) :: use_Gauss
   !
 continue
   !
-  rN = max(real(N,kind=lp),eps10)
-  np = (N+1)*(N+2)/2
+  use_Gauss = fals
+  if (present(edge_loc)) then
+    if (edge_loc == Legendre_Gauss) then
+      use_Gauss = true
+    end if
+  end if
   !
-  k = 1
-  do i = 1,N+1
+  if (location == AlphaOptimized_TriPoints) then
     !
-    ri = real(i,kind=lp)
+    return_value(:,:) = TriNodes2D_AlphaOptimized(p,val,use_Gauss)
     !
-    do j = 1,N+2-i
-      !
-      rj = real(j,kind=lp)
-      !
-      r = (rj-one)/rN
-      s = (ri-one)/rN
-      t = one - r - s
-      !
-      return_value(1,k) = r - t
-      return_value(2,k) = (two*s - r - t)*csq3i
-      !
-      k = k + 1
-      !
-    end do
+  else if (location == Barycentric_TriPoints) then
     !
-  end do
+    return_value(:,:) = TriNodes2D_Barycentric(p,val,use_Gauss)
+    !
+  else
+    !
+    return_value(:,:) = real(TriNodes2D_WilliamsShunn(p),kind=lp)
+    !
+  end if
   !
-end function EquiTriNodes2D_QP
+end function TriNodes2D_QP
 !
 !###############################################################################
 !
 #ifndef DISABLE_PURE
 pure &
 #endif
-function Warpfactor_DP(N,r) result(return_value)
+function TriNodes2D_AlphaOptimized_DP(p,val,use_Gauss) result(return_value)
   !
+  !.. Local Declared Precision ..
+  integer, parameter :: lp = dp
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: p
+  real(lp),    intent(in) :: val
+  logical(lk), intent(in) :: use_Gauss
+  !
+  !.. Function Result ..
+  real(lp) :: return_value(1:2,1:tri_pts(p))
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,n,np
+  real(lp) :: a,b,c,xp,yp,alpha
+  !
+  !.. Local Arrays ..
+  real(lp), dimension(1:tri_pts(p)) :: r,warp_r,rmt,x,xeq
+  real(lp), dimension(1:tri_pts(p)) :: s,warp_s,smr,y,yeq
+  real(lp), dimension(1:tri_pts(p)) :: t,warp_t,tms
+  !
+  !.. Local Parameters ..
+  real(lp), parameter :: zero  = 0.0_lp
+  real(lp), parameter :: half  = 0.5_lp
+  real(lp), parameter :: one   = 1.0_lp
+  real(lp), parameter :: two   = 2.0_lp
+  real(lp), parameter :: three = 3.0_lp
+  real(lp), parameter :: four  = 4.0_lp
+  real(lp), parameter :: five  = 5.0_lp
+  real(lp), parameter :: six   = 6.0_lp
+  !
+  real(lp), parameter :: eps12 = 1.0e-12_lp
+  !
+  real(lp), parameter :: csq3  = sqrt(three)
+  real(lp), parameter :: csq3i = one/csq3
+  !
+  real(lp), parameter :: crx = one
+  real(lp), parameter :: cry = -csq3i     ! -1/sqrt(3)
+  real(lp), parameter :: csy = two*csq3i  !  2/sqrt(3)
+  !
+  real(lp), parameter :: cxt = -half      ! cos( two*pi/three)
+  real(lp), parameter :: cxr = -half      ! cos(four*pi/three)
+  real(lp), parameter :: cyt =  half*csq3 ! sin( two*pi/three)
+  real(lp), parameter :: cyr = -half*csq3 ! sin(four*pi/three)
+  !
+  real(lp), parameter :: &
+       alpopt(1:15) = [ zero,      zero,      1.4152_lp, 0.1001_lp, 0.2751_lp, &
+                        0.9800_lp, 1.0999_lp, 1.2832_lp, 1.3648_lp, 1.4773_lp, &
+                        1.4959_lp, 1.5743_lp, 1.5770_lp, 1.6223_lp, 1.6258_lp]
+  !
+continue
+  !
+  np = tri_pts(p)
+  !
+  if (p == 0) then
+    return_value(:,:) = -half
+    return
+  end if
+  !
+  ! Set optimized parameter, alpha, depending on order P
+  !
+  alpha = five/three
+  if (p <= 15) then
+    alpha = alpopt(p)
+  end if
+  !
+  ! Create the equidistant nodes in the equilateral triangle
+  !
+  n = 0
+  do j = 1,p+1
+    do i = 1,p+2-j
+      !
+      n = n + 1
+      !
+      a = (real(i,kind=lp) - one)/real(p,kind=lp)
+      b = (real(j,kind=lp) - one)/real(p,kind=lp)
+      c = one - a - b
+      !
+      xeq(n) = a - c
+      yeq(n) = (two*b - a - c)*csq3i
+      !
+    end do
+  end do
+  !
+  ! Compute the barycentric coordinates for the equilateral triangle
+  !
+  r(:) = ( three*xeq(:) - csq3*yeq(:) + two)/six
+  s(:) = (                csq3*yeq(:) + one)/three
+  t(:) = (-three*xeq(:) - csq3*yeq(:) + two)/six
+  !
+  ! Get the vectors for each face of the triangle
+  !
+  tms(:) = t(:) - s(:)
+  rmt(:) = r(:) - t(:)
+  smr(:) = s(:) - r(:)
+  !
+  ! Compute the warp shifts due to each face of the equilateral triangle
+  !
+  warp_r(:) = Warpfactor(p,tms,use_Gauss)
+  warp_s(:) = Warpfactor(p,rmt,use_Gauss)
+  warp_t(:) = Warpfactor(p,smr,use_Gauss)
+  !
+  warp_r(:) = (four*s(:)*t(:)) * warp_r(:) * (one + (alpha*r(:))**2)
+  warp_s(:) = (four*r(:)*t(:)) * warp_s(:) * (one + (alpha*s(:))**2)
+  warp_t(:) = (four*r(:)*s(:)) * warp_t(:) * (one + (alpha*t(:))**2)
+  !
+  ! Apply the face shifts to the equidistant nodes on the equilateral triangle
+  !
+  x(:) = xeq(:) + cxr*warp_r(:) + cxt*warp_t(:) + warp_s(:)
+  y(:) = yeq(:) + cyr*warp_r(:) + cyt*warp_t(:)
+  !
+  ! Convert node points from (x,y) in equilateral triangle
+  ! to (r,s) coordinates in the standard triangle
+  !
+  do n = 1,np
+    !
+    xp = x(n) - half
+    yp = x(n) - half*csq3i
+    !
+    return_value(1,n) = cry*yp + crx*xp
+    return_value(2,n) = csy*yp
+    !
+  end do
+  !
+  return_value(:,:) = merge(return_value(:,:),zero,abs(return_value(:,:))>eps12)
+  !
+end function TriNodes2D_AlphaOptimized_DP
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function TriNodes2D_AlphaOptimized_QP(p,val,use_Gauss) result(return_value)
+  !
+  !.. Local Declared Precision ..
+  integer, parameter :: lp = local_qp
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: p
+  real(lp),    intent(in) :: val
+  logical(lk), intent(in) :: use_Gauss
+  !
+  !.. Function Result ..
+  real(lp) :: return_value(1:2,1:tri_pts(p))
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,n,np
+  real(lp) :: a,b,c,xp,yp,alpha
+  !
+  !.. Local Arrays ..
+  real(lp), dimension(1:tri_pts(p)) :: r,warp_r,rmt,x,xeq
+  real(lp), dimension(1:tri_pts(p)) :: s,warp_s,smr,y,yeq
+  real(lp), dimension(1:tri_pts(p)) :: t,warp_t,tms
+  !
+  !.. Local Parameters ..
+  real(lp), parameter :: zero  = 0.0_lp
+  real(lp), parameter :: half  = 0.5_lp
+  real(lp), parameter :: one   = 1.0_lp
+  real(lp), parameter :: two   = 2.0_lp
+  real(lp), parameter :: three = 3.0_lp
+  real(lp), parameter :: four  = 4.0_lp
+  real(lp), parameter :: five  = 5.0_lp
+  real(lp), parameter :: six   = 6.0_lp
+  !
+  real(lp), parameter :: eps12 = 1.0e-12_lp
+  !
+  real(lp), parameter :: csq3  = sqrt(three)
+  real(lp), parameter :: csq3i = one/csq3
+  !
+  real(lp), parameter :: crx = one
+  real(lp), parameter :: cry = -csq3i     ! -1/sqrt(3)
+  real(lp), parameter :: csy = two*csq3i  !  2/sqrt(3)
+  !
+  real(lp), parameter :: cxt = -half      ! cos( two*pi/three)
+  real(lp), parameter :: cxr = -half      ! cos(four*pi/three)
+  real(lp), parameter :: cyt =  half*csq3 ! sin( two*pi/three)
+  real(lp), parameter :: cyr = -half*csq3 ! sin(four*pi/three)
+  !
+  real(lp), parameter :: &
+       alpopt(1:15) = [ zero,      zero,      1.4152_lp, 0.1001_lp, 0.2751_lp, &
+                        0.9800_lp, 1.0999_lp, 1.2832_lp, 1.3648_lp, 1.4773_lp, &
+                        1.4959_lp, 1.5743_lp, 1.5770_lp, 1.6223_lp, 1.6258_lp]
+  !
+continue
+  !
+  np = tri_pts(p)
+  !
+  if (p == 0) then
+    return_value(:,:) = -half
+    return
+  end if
+  !
+  ! Set optimized parameter, alpha, depending on order P
+  !
+  alpha = five/three
+  if (p <= 15) then
+    alpha = alpopt(p)
+  end if
+  !
+  ! Create the equidistant nodes in the equilateral triangle
+  !
+  n = 0
+  do j = 1,p+1
+    do i = 1,p+2-j
+      !
+      n = n + 1
+      !
+      a = (real(i,kind=lp) - one)/real(p,kind=lp)
+      b = (real(j,kind=lp) - one)/real(p,kind=lp)
+      c = one - a - b
+      !
+      xeq(n) = a - c
+      yeq(n) = (two*b - a - c)*csq3i
+      !
+    end do
+  end do
+  !
+  ! Compute the barycentric coordinates for the equilateral triangle
+  !
+  r(:) = ( three*xeq(:) - csq3*yeq(:) + two)/six
+  s(:) = (                csq3*yeq(:) + one)/three
+  t(:) = (-three*xeq(:) - csq3*yeq(:) + two)/six
+  !
+  ! Get the vectors for each face of the triangle
+  !
+  tms(:) = t(:) - s(:)
+  rmt(:) = r(:) - t(:)
+  smr(:) = s(:) - r(:)
+  !
+  ! Compute the warp shifts due to each face of the equilateral triangle
+  !
+  warp_r(:) = Warpfactor(p,tms,use_Gauss)
+  warp_s(:) = Warpfactor(p,rmt,use_Gauss)
+  warp_t(:) = Warpfactor(p,smr,use_Gauss)
+  !
+  warp_r(:) = (four*s(:)*t(:)) * warp_r(:) * (one + (alpha*r(:))**2)
+  warp_s(:) = (four*r(:)*t(:)) * warp_s(:) * (one + (alpha*s(:))**2)
+  warp_t(:) = (four*r(:)*s(:)) * warp_t(:) * (one + (alpha*t(:))**2)
+  !
+  ! Apply the face shifts to the equidistant nodes on the equilateral triangle
+  !
+  x(:) = xeq(:) + cxr*warp_r(:) + cxt*warp_t(:) + warp_s(:)
+  y(:) = yeq(:) + cyr*warp_r(:) + cyt*warp_t(:)
+  !
+  ! Convert node points from (x,y) in equilateral triangle
+  ! to (r,s) coordinates in the standard triangle
+  !
+  do n = 1,np
+    !
+    xp = x(n) - half
+    yp = x(n) - half*csq3i
+    !
+    return_value(1,n) = cry*yp + crx*xp
+    return_value(2,n) = csy*yp
+    !
+  end do
+  !
+  return_value(:,:) = merge(return_value(:,:),zero,abs(return_value(:,:))>eps12)
+  !
+end function TriNodes2D_AlphaOptimized_QP
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Warpfactor_DP(p,r,use_Gauss) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : nodes_legendre_gauss
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
   use polynomial_mod, only : JacobiP => normalized_jacobi_poly
   !
+  !.. Local Declared Precision ..
   integer, parameter :: lp = dp
   !
-  integer,  intent(in) :: N
-  real(lp), dimension(1:(N+1)*(N+2)/2), intent(in) :: r
+  !.. Formal Arguments ..
+  integer,     intent(in) :: p
+  real(lp),    intent(in) :: r(1:tri_pts(p))
+  logical(lk), intent(in) :: use_Gauss
   !
-  real(lp), dimension(1:(N+1)*(N+2)/2) :: return_value
+  !.. Function Result ..
+  real(lp) :: return_value(1:tri_pts(p))
   !
   !.. Local Scalars ..
   integer  :: i,j,np,nn
   real(lp) :: sf
   !
   !.. Local Arrays ..
-  real(lp), dimension(1:N+1) :: LGL_nodes
-  real(lp), dimension(1:N+1) :: EQD_nodes
-  real(lp), dimension(1:(N+1)*(N+2)/2) :: warp
-  real(lp), dimension(1:N+1,1:N+1) :: V_EQD
-  real(lp), dimension(1:N+1,1:(N+1)*(N+2)/2) :: Pmat
-  real(lp), dimension(1:N+1,1:(N+1)*(N+2)/2) :: Lmat
+  real(lp) :: LGL_nodes(1:p+1)
+  real(lp) :: EQD_nodes(1:p+1)
+  real(lp) :: warp(1:tri_pts(p))
+  real(lp) :: V_EQD(1:p+1,1:p+1)
+  real(lp) :: Pmat(1:p+1,1:tri_pts(p))
+  real(lp) :: Lmat(1:p+1,1:tri_pts(p))
   !
+  !.. Local Parameters ..
   real(lp), parameter :: zero  = 0.0_lp
   real(lp), parameter :: one   = 1.0_lp
   real(lp), parameter :: two   = 2.0_lp
@@ -193,17 +466,21 @@ function Warpfactor_DP(N,r) result(return_value)
   !
 continue
   !
-  np = N+1
-  nn = (N+1)*(N+2)/2
+  np = p+1
+  nn = tri_pts(p)
   !
   ! Get the 1D Legendre-Gauss-Lobatto nodes
   !
-  call nodes_legendre_gauss_lobatto(N,LGL_nodes,EQD_nodes)
+  if (use_Gauss) then
+    call nodes_legendre_gauss(p+1,LGL_nodes)
+  else
+    call nodes_legendre_gauss_lobatto(p,LGL_nodes)
+  end if
   !
   ! Get the 1D Equidistant nodes
   !
   do i = 1,np
-    EQD_nodes(i) = two*real(i-1,kind=lp)/real(N,kind=lp) - one
+    EQD_nodes(i) = two*real(i-1,kind=lp)/real(p,kind=lp) - one
   end do
   !
   ! Compute the transpose of the Vandermonde matrix based on EQD_nodes
@@ -251,30 +528,37 @@ end function Warpfactor_DP
 #ifndef DISABLE_PURE
 pure &
 #endif
-function Warpfactor_QP(N,r) result(return_value)
+function Warpfactor_QP(p,r,use_Gauss) result(return_value)
   !
+  !.. Use Statements ..
+  use polynomial_mod, only : nodes_legendre_gauss
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
   use polynomial_mod, only : JacobiP => normalized_jacobi_poly
   !
+  !.. Local Declared Precision ..
   integer, parameter :: lp = local_qp
   !
-  integer,  intent(in) :: N
-  real(lp), dimension(1:(N+1)*(N+2)/2), intent(in) :: r
+  !.. Formal Arguments ..
+  integer,     intent(in) :: p
+  real(lp),    intent(in) :: r(1:tri_pts(p))
+  logical(lk), intent(in) :: use_Gauss
   !
-  real(lp), dimension(1:(N+1)*(N+2)/2) :: return_value
+  !.. Function Result ..
+  real(lp) :: return_value(1:tri_pts(p))
   !
   !.. Local Scalars ..
   integer  :: i,j,np,nn
   real(lp) :: sf
   !
   !.. Local Arrays ..
-  real(lp), dimension(1:N+1) :: LGL_nodes
-  real(lp), dimension(1:N+1) :: EQD_nodes
-  real(lp), dimension(1:(N+1)*(N+2)/2) :: warp
-  real(lp), dimension(1:N+1,1:N+1) :: V_EQD
-  real(lp), dimension(1:N+1,1:(N+1)*(N+2)/2) :: Pmat
-  real(lp), dimension(1:N+1,1:(N+1)*(N+2)/2) :: Lmat
+  real(lp) :: LGL_nodes(1:p+1)
+  real(lp) :: EQD_nodes(1:p+1)
+  real(lp) :: warp(1:tri_pts(p))
+  real(lp) :: V_EQD(1:p+1,1:p+1)
+  real(lp) :: Pmat(1:p+1,1:tri_pts(p))
+  real(lp) :: Lmat(1:p+1,1:tri_pts(p))
   !
+  !.. Local Parameters ..
   real(lp), parameter :: zero  = 0.0_lp
   real(lp), parameter :: one   = 1.0_lp
   real(lp), parameter :: two   = 2.0_lp
@@ -282,17 +566,21 @@ function Warpfactor_QP(N,r) result(return_value)
   !
 continue
   !
-  np = N+1
-  nn = (N+1)*(N+2)/2
+  np = p+1
+  nn = tri_pts(p)
   !
   ! Get the 1D Legendre-Gauss-Lobatto nodes
   !
-  call nodes_legendre_gauss_lobatto(N,LGL_nodes,EQD_nodes)
+  if (use_Gauss) then
+    call nodes_legendre_gauss(p+1,LGL_nodes)
+  else
+    call nodes_legendre_gauss_lobatto(p,LGL_nodes)
+  end if
   !
   ! Get the 1D Equidistant nodes
   !
   do i = 1,np
-    EQD_nodes(i) = two*real(i-1,kind=lp)/real(N,kind=lp) - one
+    EQD_nodes(i) = two*real(i-1,kind=lp)/real(p,kind=lp) - one
   end do
   !
   ! Compute the transpose of the Vandermonde matrix based on EQD_nodes
@@ -328,9 +616,9 @@ continue
   ! Scale factor, equation at bottom of page 176
   !
   do i = 1,nn
-    sf = one - ( deltafun_QP(abs(r(i))<one-eps10) * r(i) )**2
+    sf = one - ( deltafun(abs(r(i))<one-eps10) * r(i) )**2
     return_value(i) = warp(i)/sf + &
-                      warp(i)*( deltafun_QP(abs(r(i))<one-eps10) - one )
+                      warp(i)*( deltafun(abs(r(i))<one-eps10) - one )
   end do
   !
 end function Warpfactor_QP
@@ -340,315 +628,59 @@ end function Warpfactor_QP
 #ifndef DISABLE_PURE
 pure &
 #endif
-function Nodes2D_DP(N,val) result(return_value)
+function TriNodes2D_Barycentric_DP(p,val,use_Gauss) result(return_value)
   !
-  integer, parameter :: lp = dp
-  !
-  integer,  intent(in) :: N
-  real(lp), intent(in) :: val
-  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
-  !
-  !.. Local Scalars ..
-  real(lp) :: alpha
-  !
-  !.. Local Arrays ..
-  real(lp), dimension(1:(N+1)*(N+2)/2) :: r,warp_r
-  real(lp), dimension(1:(N+1)*(N+2)/2) :: s,warp_s
-  real(lp), dimension(1:(N+1)*(N+2)/2) :: t,warp_t
-  !
-  real(lp), parameter :: one   = 1.0_lp
-  real(lp), parameter :: two   = 2.0_lp
-  real(lp), parameter :: three = 3.0_lp
-  real(lp), parameter :: four  = 4.0_lp
-  real(lp), parameter :: five  = 5.0_lp
-  real(lp), parameter :: six   = 6.0_lp
-  real(lp), parameter :: pi    = 3.14159265358979323846_lp
-  !
-  real(lp), parameter :: csq3  = sqrt(three)
-  real(lp), parameter :: csq3i = one/csq3
-  real(lp), parameter :: cxt   = cos( two*pi/three)
-  real(lp), parameter :: cxr   = cos(four*pi/three)
-  real(lp), parameter :: cyt   = sin( two*pi/three)
-  real(lp), parameter :: cyr   = sin(four*pi/three)
-  !
-  real(lp), dimension(1:15), parameter :: &
-         alpopt = (/ 0.0000_lp, 0.0000_lp, 1.4152_lp, 0.1001_lp, 0.2751_lp, &
-                     0.9800_lp, 1.0999_lp, 1.2832_lp, 1.3648_lp, 1.4773_lp, &
-                     1.4959_lp, 1.5743_lp, 1.5770_lp, 1.6223_lp, 1.6258_lp  /)
-  !
-continue
-  !
-  ! Set optimized parameter, alpha, depending on order N
-  !
-  if (N<16 .and. N>0) then
-    alpha = alpopt(N)
-  else
-    alpha = five/three
-  end if
-  !
-  return_value(:,:) = EquiTriNodes2D(N,val)
-  !
-  r(:) = ( three*return_value(1,:) - csq3*return_value(2,:) + two)/six
-  s(:) = (                           csq3*return_value(2,:) + one)/three
-  t(:) = (-three*return_value(1,:) - csq3*return_value(2,:) + two)/six
-  !
-  warp_r = Warpfactor(N,t-s)
-  warp_s = Warpfactor(N,r-t)
-  warp_t = Warpfactor(N,s-r)
-  !
-  warp_r = (four*s*t) * warp_r * (one + (alpha*r)**2)
-  warp_s = (four*r*t) * warp_s * (one + (alpha*s)**2)
-  warp_t = (four*r*s) * warp_t * (one + (alpha*t)**2)
-  !
-  return_value(1,:) = return_value(1,:) + cxr*warp_r + cxt*warp_t + warp_s
-  return_value(2,:) = return_value(2,:) + cyr*warp_r + cyt*warp_t
-  !
-end function Nodes2D_DP
-!
-!###############################################################################
-!
-#ifndef DISABLE_PURE
-pure &
-#endif
-function Nodes2D_QP(N,val) result(return_value)
-  !
-  integer, parameter :: lp = local_qp
-  !
-  integer,  intent(in) :: N
-  real(lp), intent(in) :: val
-  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
-  !
-  !.. Local Scalars ..
-  real(lp) :: alpha
-  !
-  !.. Local Arrays ..
-  real(lp), dimension(1:(N+1)*(N+2)/2) :: r,warp_r
-  real(lp), dimension(1:(N+1)*(N+2)/2) :: s,warp_s
-  real(lp), dimension(1:(N+1)*(N+2)/2) :: t,warp_t
-  !
-  real(lp), parameter :: one   = 1.0_lp
-  real(lp), parameter :: two   = 2.0_lp
-  real(lp), parameter :: three = 3.0_lp
-  real(lp), parameter :: four  = 4.0_lp
-  real(lp), parameter :: five  = 5.0_lp
-  real(lp), parameter :: six   = 6.0_lp
-  real(lp), parameter :: pi    = 3.14159265358979323846_lp
-  !
-  real(lp), parameter :: csq3  = sqrt(three)
-  real(lp), parameter :: csq3i = one/csq3
-  real(lp), parameter :: cxt   = cos( two*pi/three)
-  real(lp), parameter :: cxr   = cos(four*pi/three)
-  real(lp), parameter :: cyt   = sin( two*pi/three)
-  real(lp), parameter :: cyr   = sin(four*pi/three)
-  !
-  real(lp), dimension(1:15), parameter :: &
-         alpopt = (/ 0.0000_lp, 0.0000_lp, 1.4152_lp, 0.1001_lp, 0.2751_lp, &
-                     0.9800_lp, 1.0999_lp, 1.2832_lp, 1.3648_lp, 1.4773_lp, &
-                     1.4959_lp, 1.5743_lp, 1.5770_lp, 1.6223_lp, 1.6258_lp  /)
-  !
-continue
-  !
-  ! Set optimized parameter, alpha, depending on order N
-  !
-  if (N<16 .and. N>0) then
-    alpha = alpopt(N)
-  else
-    alpha = five/three
-  end if
-  !
-  return_value(:,:) = EquiTriNodes2D(N,val)
-  !
-  r(:) = ( three*return_value(1,:) - csq3*return_value(2,:) + two)/six
-  s(:) = (                           csq3*return_value(2,:) + one)/three
-  t(:) = (-three*return_value(1,:) - csq3*return_value(2,:) + two)/six
-  !
-  warp_r = Warpfactor(N,t-s)
-  warp_s = Warpfactor(N,r-t)
-  warp_t = Warpfactor(N,s-r)
-  !
-  warp_r = (four*s*t) * warp_r * (one + (alpha*r)**2)
-  warp_s = (four*r*t) * warp_s * (one + (alpha*s)**2)
-  warp_t = (four*r*s) * warp_t * (one + (alpha*t)**2)
-  !
-  return_value(1,:) = return_value(1,:) + cxr*warp_r + cxt*warp_t + warp_s
-  return_value(2,:) = return_value(2,:) + cyr*warp_r + cyt*warp_t
-  !
-end function Nodes2D_QP
-!
-!###############################################################################
-!
-#ifndef DISABLE_PURE
-pure &
-#endif
-function xytors_DP(xy) result(return_value)
-  !
-  integer, parameter :: lp = dp
-  !
-  real(lp), dimension(:,:), intent(in) :: xy
-  real(lp), dimension(size(xy,1),size(xy,2)) :: return_value
-  !
-  !.. Local Scalars ..
-  integer   :: i
-  real(lp) :: r,s,t
-  !
-  real(lp), parameter :: one   = 1.0_lp
-  real(lp), parameter :: two   = 2.0_lp
-  real(lp), parameter :: three = 3.0_lp
-  real(lp), parameter :: six   = 6.0_lp
-  real(lp), parameter :: csq3  = sqrt(three)
-  !
-continue
-  !
-  do i = 1,size(xy,2)
-    r = ( three*xy(1,i) - csq3*xy(2,i) + two)/six
-    s = (sqrt(three)*xy(2,i) + one)/three
-    t = (-three*xy(1,i) - csq3*xy(2,i) + two)/six
-    return_value(1,i) = r - s - t
-    return_value(2,i) = s - r - t
-  end do
-  !
-end function xytors_DP
-!
-!###############################################################################
-!
-#ifndef DISABLE_PURE
-pure &
-#endif
-function xytors_QP(xy) result(return_value)
-  !
-  integer, parameter :: lp = local_qp
-  !
-  real(lp), dimension(:,:), intent(in) :: xy
-  real(lp), dimension(size(xy,1),size(xy,2)) :: return_value
-  !
-  !.. Local Scalars ..
-  integer   :: i
-  real(lp) :: r,s,t
-  !
-  real(lp), parameter :: one   = 1.0_lp
-  real(lp), parameter :: two   = 2.0_lp
-  real(lp), parameter :: three = 3.0_lp
-  real(lp), parameter :: six   = 6.0_lp
-  real(lp), parameter :: csq3  = sqrt(three)
-  !
-continue
-  !
-  do i = 1,size(xy,2)
-    r = ( three*xy(1,i) - csq3*xy(2,i) + two)/six
-    s = (sqrt(three)*xy(2,i) + one)/three
-    t = (-three*xy(1,i) - csq3*xy(2,i) + two)/six
-    return_value(1,i) = r - s - t
-    return_value(2,i) = s - r - t
-  end do
-  !
-end function xytors_QP
-!
-!###############################################################################
-!
-#ifndef DISABLE_PURE
-pure &
-#endif
-function TriNodes2D_AlphaOptimized_DP(N,val) result(return_value)
-  !
-  integer, parameter :: lp = dp
-  !
-  integer,  intent(in) :: N
-  real(lp), intent(in) :: val
-  !
-  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
-  !
-  real(lp), parameter :: half = 0.5_lp
-  real(lp), parameter :: one  = 1.0_lp
-  !
-continue
-  !
-  return_value(:,:) = Nodes2D(N,val)
-  return_value(:,:) = xytors(return_value)
-  !
-  ! Adjust the triangle nodes to lie in the unit right triangle
-  ! defined by the vertices: (0,0) - (1,0) - (0,1)
-  !
-  return_value(:,:) = half * (return_value(:,:) + one)
-  !
-end function TriNodes2D_AlphaOptimized_DP
-!
-!###############################################################################
-!
-#ifndef DISABLE_PURE
-pure &
-#endif
-function TriNodes2D_AlphaOptimized_QP(N,val) result(return_value)
-  !
-  integer, parameter :: lp = local_qp
-  !
-  integer,  intent(in) :: N
-  real(lp), intent(in) :: val
-  !
-  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
-  !
-  real(lp), parameter :: half = 0.5_lp
-  real(lp), parameter :: one  = 1.0_lp
-  !
-continue
-  !
-  return_value(:,:) = Nodes2D(N,val)
-  return_value(:,:) = xytors(return_value)
-  !
-  ! Adjust the triangle nodes to lie in the unit right triangle
-  ! defined by the vertices: (0,0) - (1,0) - (0,1)
-  !
-  return_value(:,:) = half * (return_value(:,:) + one)
-  !
-end function TriNodes2D_AlphaOptimized_QP
-!
-!###############################################################################
-!
-#ifndef DISABLE_PURE
-pure &
-#endif
-function TriNodes2D_BarycentricLobatto_DP(N,val) result(return_value)
-  !
+  !.. Use Statements ..
+  use polynomial_mod, only : nodes_legendre_gauss
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
   !
+  !.. Local Declared Precision ..
   integer, parameter :: lp = dp
   !
-  integer,  intent(in) :: N
-  real(lp), intent(in) :: val
+  !.. Formal Arguments ..
+  integer,     intent(in) :: p
+  real(lp),    intent(in) :: val
+  logical(lk), intent(in) :: use_Gauss
   !
-  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  !.. Function Result ..
+  real(lp) :: return_value(1:2,1:tri_pts(p))
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,isp,np1d,np2d,m
+  integer  :: i,j,k,n,np1d
   real(lp) :: r,s,t,sm
   !
   !.. Local Arrays ..
-  real(lp), dimension(1:N+1) :: xi
-  real(lp), dimension(1:N+1) :: vp
+  real(lp) :: xi(1:p+1)
   !
-  real(lp), parameter :: one   = 1.0_lp
-  real(lp), parameter :: two   = 2.0_lp
+  !.. Local Parameters ..
+  real(lp), parameter :: half = 0.5_lp
+  real(lp), parameter :: one  = 1.0_lp
+  real(lp), parameter :: eps12 = 1.0e-12_lp
   !
 continue
   !
-  np1d = N+1
-  np2d = (N+1)*(N+2)/2
+  np1d = p+1
   !
   ! Get the 1D Legendre-Gauss-Lobatto nodes
   !
-  call nodes_legendre_gauss_lobatto(N,xi,vp)
+  if (use_Gauss) then
+    call nodes_legendre_gauss(p+1,xi)
+  else
+    call nodes_legendre_gauss_lobatto(p,xi)
+  end if
   !
   ! Adjust the 1D LGL nodes to lie on the interval [0,1]
   !
-  xi = (xi + one)/two
+  xi(:) = half*(xi(:) + one)
   !
   ! Get the triangle nodes in r,s space and defined
   ! by the vertices: (0,0) - (1,0) - (0,1)
   !
-  isp = 0
+  n = 0
   do j = 1,np1d
     do i = 1,np1d+1-j
       !
-      isp = isp + 1
+      n = n + 1
       k = np1d + 2 - i - j
       !
       r = xi(i)
@@ -656,8 +688,8 @@ continue
       t = xi(k)
       sm = r + s + t
       !
-      return_value(1,isp) = r/sm
-      return_value(2,isp) = s/sm
+      return_value(1,n) = r/sm
+      return_value(2,n) = s/sm
       !
     end do
   end do
@@ -665,58 +697,70 @@ continue
   ! Adjust the triangle nodes to lie in the bi-unit right
   ! triangle defined by the vertices: (-1,-1) - (1,-1) - (-1,1)
   !
- !return_value = return_value*two - one
+  return_value(:,:) = return_value(:,:)*two - one
   !
-end function TriNodes2D_BarycentricLobatto_DP
+  return_value(:,:) = merge(return_value(:,:),zero,abs(return_value(:,:))>eps12)
+  !
+end function TriNodes2D_Barycentric_DP
 !
 !###############################################################################
 !
 #ifndef DISABLE_PURE
 pure &
 #endif
-function TriNodes2D_BarycentricLobatto_QP(N,val) result(return_value)
+function TriNodes2D_Barycentric_QP(p,val,use_Gauss) result(return_value)
   !
+  !.. Use Statements ..
+  use polynomial_mod, only : nodes_legendre_gauss
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
   !
+  !.. Local Declared Precision ..
   integer, parameter :: lp = local_qp
   !
-  integer,  intent(in) :: N
-  real(lp), intent(in) :: val
+  !.. Formal Arguments ..
+  integer,     intent(in) :: p
+  real(lp),    intent(in) :: val
+  logical(lk), intent(in) :: use_Gauss
   !
-  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  !.. Function Result ..
+  real(lp) :: return_value(1:2,1:tri_pts(p))
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,isp,np1d,np2d,m
+  integer  :: i,j,k,n,np1d
   real(lp) :: r,s,t,sm
   !
   !.. Local Arrays ..
-  real(lp), dimension(1:N+1) :: xi
-  real(lp), dimension(1:N+1) :: vp
+  real(lp) :: xi(1:p+1)
   !
+  !.. Local Parameters ..
+  real(lp), parameter :: half  = 0.5_lp
   real(lp), parameter :: one   = 1.0_lp
-  real(lp), parameter :: two   = 2.0_lp
+  real(lp), parameter :: eps12 = 1.0e-12_lp
   !
 continue
   !
-  np1d = N+1
-  np2d = (N+1)*(N+2)/2
+  np1d = p+1
   !
   ! Get the 1D Legendre-Gauss-Lobatto nodes
   !
-  call nodes_legendre_gauss_lobatto(N,xi,vp)
+  if (use_Gauss) then
+    call nodes_legendre_gauss(p+1,xi)
+  else
+    call nodes_legendre_gauss_lobatto(p,xi)
+  end if
   !
   ! Adjust the 1D LGL nodes to lie on the interval [0,1]
   !
-  xi = (xi + one)/two
+  xi(:) = half*(xi(:) + one)
   !
   ! Get the triangle nodes in r,s space and defined
   ! by the vertices: (0,0) - (1,0) - (0,1)
   !
-  isp = 0
+  n = 0
   do j = 1,np1d
     do i = 1,np1d+1-j
       !
-      isp = isp + 1
+      n = n + 1
       k = np1d + 2 - i - j
       !
       r = xi(i)
@@ -724,8 +768,8 @@ continue
       t = xi(k)
       sm = r + s + t
       !
-      return_value(1,isp) = r/sm
-      return_value(2,isp) = s/sm
+      return_value(1,n) = r/sm
+      return_value(2,n) = s/sm
       !
     end do
   end do
@@ -733,10 +777,998 @@ continue
   ! Adjust the triangle nodes to lie in the bi-unit right
   ! triangle defined by the vertices: (-1,-1) - (1,-1) - (-1,1)
   !
- !return_value = return_value*two - one
+  return_value(:,:) = return_value(:,:)*two - one
   !
-end function TriNodes2D_BarycentricLobatto_QP
+  return_value(:,:) = merge(return_value(:,:),zero,abs(return_value(:,:))>eps12)
+  !
+end function TriNodes2D_Barycentric_QP
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_triangle_weights_at_solpts_DP(rs) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : legendre_gauss_quadrature
+  !
+  !.. Local Declared Precision ..
+  integer, parameter :: lp = dp
+  !
+  !.. Formal Arguments ..
+  real(lp), intent(in) :: rs(:,:)
+  !
+  !.. Function Result ..
+  real(lp) :: return_value(1:size(rs,2))
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,l,n,nquad
+  integer  :: ix,iy
+  integer  :: nspts,nfpts
+  real(lp) :: x,y,wx,wy,a,b
+  !
+  !.. Local Arrays ..
+  real(lp) :: V(1:size(rs,2),1:size(rs,2))
+  real(lp) :: xy(1:2,1:size(rs,2))
+  !
+  !.. Local Allocatable Arrays ..
+  real(lp), allocatable :: xi(:)
+  real(lp), allocatable :: wts(:)
+  !
+  !.. Local Parameters ..
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: half = 0.5_lp
+  real(lp), parameter :: one  = 1.0_lp
+  real(lp), parameter :: two  = 2.0_lp
+  !
+continue
+  !
+  ! On entry, r and s need to be defined on the interval [-1,1]
+  !
+  nspts = size(rs,2)
+  nfpts = ( (nint(sqrt(real(9-8*(1-nspts),kind=lp)))-3)/2 ) + 1
+  !
+  nquad = 2*nfpts - 1 ! quadtrature order is 2*P
+  !
+  xi = init_array(nquad,zero) ! F2003 AUTO-REALLOC
+  wts = init_array(nquad,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Compute the coefficients of the Vandermonde matrix for
+  ! the Lagrange polynomials using monomial basis functions
+  !
+  xy(:,:) = half * (rs(:,:) + one)
+  !
+  do n = 1,nspts
+    l = 0
+    x = xy(1,n)
+    y = xy(2,n)
+    do i = 1,nfpts
+      do j = 1,i
+        l = l + 1
+        V(l,n) = x**(i-j) * y**(j-1)
+      end do
+    end do
+  end do
+  !
+  ! Now get the inverse of this matrix for use later
+  !
+#ifdef SPECIAL_FOR_INTEL
+  V = invert_matrix_lapack95(V)
+#else
+  V = invert_matrix(V)
+#endif
+  !
+  ! Get the Gauss quadrature points on the interval [-1,1] and
+  ! the corresponding weights necessary to perform the integration
+  !
+  call legendre_gauss_quadrature(xi,wts)
+  !
+  ! Reset the quadrature points and weights to the interval [0,1]
+  !
+  xi(:) = half*(one+xi(:))
+  !
+  ! Initialize the triangle weights to zero
+  !
+  return_value(:) = zero
+  !
+  ! Loop over each solution point performing a double integral on the
+  ! corresponding Lagrange polynomial over the domain of the triangle
+  ! i.e., n    : current solution point
+  !       L(n) : Lagrange polynomial for n
+  !
+  !   /\ 1    /\ 1-xi
+  !   |       |
+  !   | d(xi) | d(eta) [L(n)]
+  !   |       |
+  !  \/ 0    \/ 0
+  !
+  do n = 1,nspts
+    !
+    ! Outer integral loop
+    !
+    x_integral: &
+    do ix = 1,nquad
+      !
+      x = xi(ix)
+      wx = wts(ix)
+      !
+      ! Inner integral loop
+      !
+      a = zero
+      y_integral: &
+      do iy = 1,nquad
+        !
+        y = (one-x) * xi(iy)
+        wy = (one-x) * wts(iy)
+        !
+        ! Evaluate the Lagrange polynomial at the point x,y
+        !
+        l = 0
+        b = zero
+        do i = 1,nfpts
+          do j = 1,i
+            l = l + 1
+            b = b + V(n,l) * x**(i-j) * y**(j-1)
+          end do
+        end do
+        !
+        ! Add the weighted polynomial value to the inner integral result
+        !
+        a = a + wy*b
+        !
+      end do y_integral
+      !
+      ! Add the weighted inner integral result to the outer integral result
+      !
+      return_value(n) = return_value(n) + wx*a
+      !
+    end do x_integral
+    !
+  end do
+  !
+  ! Zero out any weights that are smaller than eps10
+  !
+  return_value(:) = merge(return_value(:),zero,abs(return_value(:))>eps10)
+  !
+  ! Make sure the weights sum to 2
+  !
+  return_value(:) = two * return_value(:) / sum(return_value(:))
+  !
+end function get_triangle_weights_at_solpts_DP
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_triangle_weights_at_solpts_QP(rs) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : legendre_gauss_quadrature
+  !
+  !.. Local Declared Precision ..
+  integer, parameter :: lp = local_qp
+  !
+  !.. Formal Arguments ..
+  real(lp), intent(in) :: rs(:,:)
+  !
+  !.. Function Result ..
+  real(lp) :: return_value(1:size(rs,2))
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,l,n,nquad
+  integer  :: ix,iy
+  integer  :: nspts,nfpts
+  real(lp) :: x,y,wx,wy,a,b
+  !
+  !.. Local Arrays ..
+  real(lp) :: V(1:size(rs,2),1:size(rs,2))
+  real(lp) :: xy(1:2,1:size(rs,2))
+  !
+  !.. Local Allocatable Arrays ..
+  real(lp), allocatable :: xi(:)
+  real(lp), allocatable :: wts(:)
+  !
+  !.. Local Parameters ..
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: half = 0.5_lp
+  real(lp), parameter :: one  = 1.0_lp
+  real(lp), parameter :: two  = 2.0_lp
+  !
+continue
+  !
+  ! On entry, r and s need to be defined on the interval [-1,1]
+  !
+  nspts = size(rs,2)
+  nfpts = ( (nint(sqrt(real(9-8*(1-nspts),kind=lp)))-3)/2 ) + 1
+  !
+  nquad = 2*nfpts - 1 ! quadtrature order is 2*P
+  !
+  xi = init_array(nquad,zero) ! F2003 AUTO-REALLOC
+  wts = init_array(nquad,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Compute the coefficients of the Vandermonde matrix for
+  ! the Lagrange polynomials using monomial basis functions
+  !
+  xy(:,:) = half * (rs(:,:) + one)
+  !
+  do n = 1,nspts
+    l = 0
+    x = xy(1,n)
+    y = xy(2,n)
+    do i = 1,nfpts
+      do j = 1,i
+        l = l + 1
+        V(l,n) = x**(i-j) * y**(j-1)
+      end do
+    end do
+  end do
+  !
+  ! Now get the inverse of this matrix for use later
+  !
+#ifdef SPECIAL_FOR_INTEL
+  V = invert_matrix_lapack95(V)
+#else
+  V = invert_matrix(V)
+#endif
+  !
+  ! Get the Gauss quadrature points on the interval [-1,1] and
+  ! the corresponding weights necessary to perform the integration
+  !
+  call legendre_gauss_quadrature(xi,wts)
+  !
+  ! Reset the quadrature points and weights to the interval [0,1]
+  !
+  xi(:) = half*(one+xi(:))
+  !
+  ! Initialize the triangle weights to zero
+  !
+  return_value(:) = zero
+  !
+  ! Loop over each solution point performing a double integral on the
+  ! corresponding Lagrange polynomial over the domain of the triangle
+  ! i.e., n    : current solution point
+  !       L(n) : Lagrange polynomial for n
+  !
+  !   /\ 1    /\ 1-xi
+  !   |       |
+  !   | d(xi) | d(eta) [L(n)]
+  !   |       |
+  !  \/ 0    \/ 0
+  !
+  do n = 1,nspts
+    !
+    ! Outer integral loop
+    !
+    x_integral: &
+    do ix = 1,nquad
+      !
+      x = xi(ix)
+      wx = wts(ix)
+      !
+      ! Inner integral loop
+      !
+      a = zero
+      y_integral: &
+      do iy = 1,nquad
+        !
+        y = (one-x) * xi(iy)
+        wy = (one-x) * wts(iy)
+        !
+        ! Evaluate the Lagrange polynomial at the point x,y
+        !
+        l = 0
+        b = zero
+        do i = 1,nfpts
+          do j = 1,i
+            l = l + 1
+            b = b + V(n,l) * x**(i-j) * y**(j-1)
+          end do
+        end do
+        !
+        ! Add the weighted polynomial value to the inner integral result
+        !
+        a = a + wy*b
+        !
+      end do y_integral
+      !
+      ! Add the weighted inner integral result to the outer integral result
+      !
+      return_value(n) = return_value(n) + wx*a
+      !
+    end do x_integral
+    !
+  end do
+  !
+  ! Zero out any weights that are smaller than eps10
+  !
+  return_value(:) = merge(return_value(:),zero,abs(return_value(:))>eps10)
+  !
+  ! Make sure the weights sum to 2
+  !
+  return_value(:) = two * return_value(:) / sum(return_value(:))
+  !
+end function get_triangle_weights_at_solpts_QP
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function old_get_triangle_weights_at_solpts_DP(rs) result(return_value)
+  !
+  ! NOTE : This seems to fail for large n_order (>15)
+  !
+  use polynomial_mod, only : nodes_legendre_gauss
+  use polynomial_mod, only : weights_legendre_gauss
+  !
+  integer, parameter :: lp = dp
+  !
+  real(lp), dimension(:,:), intent(in) :: rs
+  !
+  real(lp), dimension(1:size(rs,2)) :: return_value
+  !
+  integer  :: i,j,k,n,m,np
+  integer  :: nspts,nfpts
+  real(lp) :: g,h,x,y
+  !
+  integer, parameter :: nquad = 20
+  !
+  real(lp), dimension(1:nquad)                   :: xi
+  real(lp), dimension(1:nquad)                   :: dxi
+  real(lp), dimension(1:nquad)                   :: weights
+  real(lp), dimension(1:size(rs,2),1:size(rs,2)) :: V
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: half = 0.5_lp
+  real(lp), parameter :: one  = 1.0_lp
+  !
+continue
+  !
+  ! On entry, r and s need to be defined on the interval [0,1]
+  !
+  nspts = size(rs,2)
+  nfpts = ( (nint(sqrt(real(9-8*(1-nspts),kind=lp)))-3)/2 ) + 1
+  !
+  ! Compute the coefficients of the Vandermonde matrix for
+  ! the Lagrange polynomials using monomial basis functions
+  !
+  do n = 1,nspts
+    k = 0
+    do i = 1,nfpts
+      do j = 1,i
+        k = k + 1
+        V(k,n) = rs(1,n)**(i-j) * rs(2,n)**(j-1)
+      end do
+    end do
+  end do
+  !
+  ! Now get the inverse of this matrix for use later
+  !
+#ifdef SPECIAL_FOR_INTEL
+  V = invert_matrix_lapack95(V)
+#else
+  V = invert_matrix(V)
+#endif
+  !
+  ! Get the Gauss quadrature points on the interval [-1,1] and
+  ! the corresponding weights necessary to perform the integration
+  !
+  call nodes_legendre_gauss(nquad,xi,dxi)
+  call weights_legendre_gauss(nquad,xi,dxi,weights)
+  !
+  ! Reset the quadrature points and weights to the interval [0,1]
+  !
+  xi(:) = half*(one+xi(:))
+  weights(:) = half*weights(:)
+  !
+  ! Initialize the triangle weights to zero
+  !
+  return_value(:) = zero
+  !
+  ! Loop over each solution point performing a double integral on the
+  ! corresponding Lagrange polynomial over the domain of the triangle
+  ! i.e., ipt    : current solution point
+  !       L(ipt) : Lagrange polynomial for ipt
+  !
+  !   /\ 1    /\ 1-xi
+  !   |       |
+  !   | d(xi) | d(eta) [L(ipt)]
+  !   |       |
+  !  \/ 0    \/ 0
+  !
+  do np = 1,nspts
+    !
+    ! Outer integral loop
+    !
+    outer_integral: do n = 1,nquad
+      !
+      ! Inner integral loop
+      !
+      h = zero
+      inner_integral: do m = 1,nquad
+        !
+        x = xi(n)
+        y = (one-xi(n))*xi(m)
+        !
+        ! Evaluate the polynomial at the point x,y
+        !
+        k = 0
+        g = zero
+        do i = 1,nfpts
+          do j = 1,i
+            k = k + 1
+            g = g + V(np,k) * x**(i-j) * y**(j-1)
+          end do
+        end do
+        !
+        ! Add the weighted polynomial value to the inner integral result
+        !
+        h = h + (one-xi(n)) * weights(m) * g
+        !
+      end do inner_integral
+      !
+      ! Add the weighted inner integral result to the outer integral result
+      !
+      return_value(np) = return_value(np) + weights(n) * h
+      !
+    end do outer_integral
+    !
+  end do
+  !
+end function old_get_triangle_weights_at_solpts_DP
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function old_get_triangle_weights_at_solpts_QP(rs) result(return_value)
+  !
+  ! NOTE : This seems to fail for large n_order (>15)
+  !
+  use polynomial_mod, only : nodes_legendre_gauss
+  use polynomial_mod, only : weights_legendre_gauss
+  !
+  integer, parameter :: lp = local_qp
+  !
+  real(lp), dimension(:,:), intent(in) :: rs
+  !
+  real(lp), dimension(1:size(rs,2)) :: return_value
+  !
+  integer  :: i,j,k,n,m,np
+  integer  :: nspts,nfpts
+  real(lp) :: g,h,x,y
+  !
+  integer, parameter :: nquad = 20
+  !
+  real(lp) :: xi(1:nquad)
+  real(lp) :: dxi(1:nquad)
+  real(lp) :: weights(1:nquad)
+  real(lp) :: V(1:size(rs,2),1:size(rs,2))
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: half = 0.5_lp
+  real(lp), parameter :: one  = 1.0_lp
+  !
+continue
+  !
+  ! On entry, r and s need to be defined on the interval [0,1]
+  !
+  nspts = size(rs,2)
+  nfpts = ( (nint(sqrt(real(9-8*(1-nspts),kind=lp)))-3)/2 ) + 1
+  !
+  ! Compute the coefficients of the Vandermonde matrix for
+  ! the Lagrange polynomials using monomial basis functions
+  !
+  do n = 1,nspts
+    k = 0
+    do i = 1,nfpts
+      do j = 1,i
+        k = k + 1
+        V(k,n) = rs(1,n)**(i-j) * rs(2,n)**(j-1)
+      end do
+    end do
+  end do
+  !
+  ! Now get the inverse of this matrix for use later
+  !
+#ifdef SPECIAL_FOR_INTEL
+  V = invert_matrix_lapack95(V)
+#else
+  V = invert_matrix(V)
+#endif
+  !
+  ! Get the Gauss quadrature points on the interval [-1,1] and
+  ! the corresponding weights necessary to perform the integration
+  !
+  call nodes_legendre_gauss(nquad,xi,dxi)
+  call weights_legendre_gauss(nquad,xi,dxi,weights)
+  !
+  ! Reset the quadrature points and weights to the interval [0,1]
+  !
+  xi(:) = half*(one+xi(:))
+  weights(:) = half*weights(:)
+  !
+  ! Initialize the triangle weights to zero
+  !
+  return_value(:) = zero
+  !
+  ! Loop over each solution point performing a double integral on the
+  ! corresponding Lagrange polynomial over the domain of the triangle
+  ! i.e., ipt    : current solution point
+  !       L(ipt) : Lagrange polynomial for ipt
+  !
+  !   /\ 1    /\ 1-xi
+  !   |       |
+  !   | d(xi) | d(eta) [L(ipt)]
+  !   |       |
+  !  \/ 0    \/ 0
+  !
+  do np = 1,nspts
+    !
+    ! Outer integral loop
+    !
+    outer_integral: do n = 1,nquad
+      !
+      ! Inner integral loop
+      !
+      h = zero
+      inner_integral: do m = 1,nquad
+        !
+        x = xi(n)
+        y = (one-xi(n))*xi(m)
+        !
+        ! Evaluate the polynomial at the point x,y
+        !
+        k = 0
+        g = zero
+        do i = 1,nfpts
+          do j = 1,i
+            k = k + 1
+            g = g + V(np,k) * x**(i-j) * y**(j-1)
+          end do
+        end do
+        !
+        ! Add the weighted polynomial value to the inner integral result
+        !
+        h = h + (one-xi(n)) * weights(m) * g
+        !
+      end do inner_integral
+      !
+      ! Add the weighted inner integral result to the outer integral result
+      !
+      return_value(np) = return_value(np) + weights(n) * h
+      !
+    end do outer_integral
+    !
+  end do
+  !
+end function old_get_triangle_weights_at_solpts_QP
+!
+!###############################################################################
+!
+pure &
+function TriNodes2D_WilliamsShunn(p) result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: p
+  !
+  !.. Function Result
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: idx(:)
+  !
+  !.. Local Parameters ..
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  ! P0 triangle with a single solution point at the center of the triangle.
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  real(wp), parameter :: P0_pts(2,1) = -one3
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  ! P1 triangle solution points using alpha-optimized triangle points.
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  real(wp), parameter :: P1_pts(2,3) = reshape( [-two3,  one3, &
+                                                  one3, -two3, &
+                                                 -two3, -two3], [2,3] )
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  ! P2 triangle solution points using alpha-optimized triangle points.
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  real(wp), parameter :: P2_pts(2,6) = reshape( [ &
+        -0.81684757298044_wp,   0.63369514596088_wp, &
+         0.63369514596088_wp,  -0.81684757298044_wp, &
+        -0.81684757298044_wp,  -0.81684757298044_wp, &
+        -0.108103018168072_wp, -0.783793963663856_wp, &
+        -0.783793963663856_wp, -0.108103018168072_wp, &
+        -0.108103018168072_wp, -0.108103018168072_wp], &
+         [2,6] )
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  ! P3 triangle solution points using alpha-optimized triangle points.
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  real(wp), parameter :: P3_pts(2,10) = reshape( [ &
+        -one3,                 -one3, &
+        -0.888871894660414_wp,  0.777743789320828_wp, &
+         0.777743789320828_wp, -0.888871894660414_wp, &
+        -0.888871894660414_wp, -0.888871894660414_wp, &
+         0.268421495491446_wp, -0.408932576528214_wp, &
+        -0.859488918963232_wp, -0.408932576528214_wp, &
+        -0.408932576528214_wp, -0.859488918963232_wp, &
+         0.268421495491446_wp, -0.859488918963232_wp, &
+        -0.859488918963232_wp,  0.268421495491446_wp, &
+        -0.408932576528214_wp,  0.268421495491446_wp], &
+         [2,10] )
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  ! P4 triangle solution points using alpha-optimized triangle points.
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  real(wp), parameter :: P4_pts(2,15) = reshape( [ &
+        -0.928258244608532_wp,  0.856516489217064_wp, &
+         0.856516489217064_wp, -0.928258244608532_wp, &
+        -0.928258244608532_wp, -0.928258244608532_wp, &
+        -0.516541208464066_wp,  0.033082416928132_wp, &
+         0.033082416928132_wp, -0.516541208464066_wp, &
+        -0.516541208464066_wp, -0.516541208464066_wp, &
+        -0.051382424445842_wp, -0.897235151108316_wp, &
+        -0.897235151108316_wp, -0.051382424445842_wp, &
+        -0.051382424445842_wp, -0.051382424445842_wp, &
+         0.502367262212968_wp, -0.5969922362364_wp, &
+        -0.905375025976568_wp, -0.5969922362364_wp, &
+        -0.5969922362364_wp,   -0.905375025976568_wp, &
+         0.502367262212968_wp, -0.905375025976568_wp, &
+        -0.905375025976568_wp,  0.502367262212968_wp, &
+        -0.5969922362364_wp,    0.502367262212968_wp], &
+         [2,15] )
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  ! P5 triangle solution points using alpha-optimized triangle points.
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  real(wp), parameter :: P5_pts(2,21) = reshape( [ &
+        -0.943774095634672_wp,  0.887548191269344_wp, &
+         0.887548191269344_wp, -0.943774095634672_wp, &
+        -0.943774095634672_wp, -0.943774095634672_wp, &
+        -0.645721803061366_wp,  0.291443606122732_wp, &
+         0.291443606122732_wp, -0.645721803061366_wp, &
+        -0.645721803061366_wp, -0.645721803061366_wp, &
+        -0.188982808265134_wp, -0.622034383469732_wp, &
+        -0.622034383469732_wp, -0.188982808265134_wp, &
+        -0.188982808265134_wp, -0.188982808265134_wp, &
+         0.635801960056998_wp, -0.702868375458226_wp, &
+        -0.932933584598772_wp, -0.702868375458226_wp, &
+        -0.702868375458226_wp, -0.932933584598772_wp, &
+         0.635801960056998_wp, -0.932933584598772_wp, &
+        -0.932933584598772_wp,  0.635801960056998_wp, &
+        -0.702868375458226_wp,  0.635801960056998_wp, &
+         0.209957823550266_wp, -0.285607402768638_wp, &
+        -0.924350420781628_wp, -0.285607402768638_wp, &
+        -0.285607402768638_wp, -0.924350420781628_wp, &
+         0.209957823550266_wp, -0.924350420781628_wp, &
+        -0.924350420781628_wp,  0.209957823550266_wp, &
+        -0.285607402768638_wp,  0.209957823550266_wp], &
+         [2,21] )
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  ! P6 triangle solution points using alpha-optimized triangle points.
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  real(wp), parameter :: P6_pts(2,28) = reshape( [ &
+        -one3,                 -one3, &
+        -0.960045625755614_wp,  0.920091251511228_wp, &
+         0.920091251511228_wp, -0.960045625755614_wp, &
+        -0.960045625755614_wp, -0.960045625755614_wp, &
+        -0.736556464940004_wp,  0.473112929880008_wp, &
+         0.473112929880008_wp, -0.736556464940004_wp, &
+        -0.736556464940004_wp, -0.736556464940004_wp, &
+        -0.029729306413078_wp, -0.940541387173844_wp, &
+        -0.940541387173844_wp, -0.029729306413078_wp, &
+        -0.029729306413078_wp, -0.029729306413078_wp, &
+         0.7358224202359_wp,   -0.784096036307978_wp, &
+        -0.951726383927922_wp, -0.784096036307978_wp, &
+        -0.784096036307978_wp, -0.951726383927922_wp, &
+         0.7358224202359_wp,   -0.951726383927922_wp, &
+        -0.951726383927922_wp,  0.7358224202359_wp, &
+        -0.784096036307978_wp,  0.7358224202359_wp, &
+         0.401745140761446_wp, -0.458318454156866_wp, &
+        -0.94342668660458_wp,  -0.458318454156866_wp, &
+        -0.458318454156866_wp, -0.94342668660458_wp, &
+         0.401745140761446_wp, -0.94342668660458_wp, &
+        -0.94342668660458_wp,   0.401745140761446_wp, &
+        -0.458318454156866_wp,  0.401745140761446_wp, &
+         0.073309368412276_wp, -0.366900802310766_wp, &
+        -0.70640856610151_wp,  -0.366900802310766_wp, &
+        -0.366900802310766_wp, -0.70640856610151_wp, &
+         0.073309368412276_wp, -0.70640856610151_wp, &
+        -0.70640856610151_wp,   0.073309368412276_wp, &
+        -0.366900802310766_wp,  0.073309368412276_wp], &
+         [2,28] )
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  ! P7 triangle solution points using alpha-optimized triangle points.
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  real(wp), parameter :: P7_pts(2,36) = reshape( [ &
+        -0.95765715444107_wp,   0.91531430888214_wp, &
+         0.91531430888214_wp,  -0.95765715444107_wp, &
+        -0.95765715444107_wp,  -0.95765715444107_wp, &
+        -0.798831205208224_wp,  0.597662410416448_wp, &
+         0.597662410416448_wp, -0.798831205208224_wp, &
+        -0.798831205208224_wp, -0.798831205208224_wp, &
+        -0.457923384576136_wp, -0.084153230847728_wp, &
+        -0.084153230847728_wp, -0.457923384576136_wp, &
+        -0.457923384576136_wp, -0.457923384576136_wp, &
+        -0.119617483192336_wp, -0.760765033615328_wp, &
+        -0.760765033615328_wp, -0.119617483192336_wp, &
+        -0.119617483192336_wp, -0.119617483192336_wp, &
+         0.759959282854462_wp, -0.963486641850504_wp, &
+        -0.796472641003958_wp, -0.963486641850504_wp, &
+        -0.963486641850504_wp, -0.796472641003958_wp, &
+         0.759959282854462_wp, -0.796472641003958_wp, &
+        -0.796472641003958_wp,  0.759959282854462_wp, &
+        -0.963486641850504_wp,  0.759959282854462_wp, &
+         0.165124045727344_wp, -0.211933456660026_wp, &
+        -0.953190589067318_wp, -0.211933456660026_wp, &
+        -0.211933456660026_wp, -0.953190589067318_wp, &
+         0.165124045727344_wp, -0.953190589067318_wp, &
+        -0.953190589067318_wp,  0.165124045727344_wp, &
+        -0.211933456660026_wp,  0.165124045727344_wp, &
+         0.503061229085564_wp, -0.547508938181542_wp, &
+        -0.955552290904022_wp, -0.547508938181542_wp, &
+        -0.547508938181542_wp, -0.955552290904022_wp, &
+         0.503061229085564_wp, -0.955552290904022_wp, &
+        -0.955552290904022_wp,  0.503061229085564_wp, &
+        -0.547508938181542_wp,  0.503061229085564_wp, &
+         0.27147436652621_wp,  -0.501841544757336_wp, &
+        -0.769632821768874_wp, -0.501841544757336_wp, &
+        -0.501841544757336_wp, -0.769632821768874_wp, &
+         0.27147436652621_wp,  -0.769632821768874_wp, &
+        -0.769632821768874_wp,  0.27147436652621_wp, &
+        -0.501841544757336_wp,  0.27147436652621_wp], &
+         [2,36] )
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  ! P8 triangle solution points using alpha-optimized triangle points.
+  !
+  !=============================================================================
+  !=============================================================================
+  !=============================================================================
+  !
+  real(wp), parameter :: P8_pts(2,45) = reshape( [ &
+        -0.895845867331362_wp,  0.791691734662724_wp, &
+         0.791691734662724_wp, -0.895845867331362_wp, &
+        -0.895845867331362_wp, -0.895845867331362_wp, &
+        -0.772586942778008_wp,  0.545173885556016_wp, &
+         0.545173885556016_wp, -0.772586942778008_wp, &
+        -0.772586942778008_wp, -0.772586942778008_wp, &
+        -0.565662308452164_wp,  0.131324616904328_wp, &
+         0.131324616904328_wp, -0.565662308452164_wp, &
+        -0.565662308452164_wp, -0.565662308452164_wp, &
+        -0.227854451277354_wp, -0.544291097445292_wp, &
+        -0.544291097445292_wp, -0.227854451277354_wp, &
+        -0.227854451277354_wp, -0.227854451277354_wp, &
+        -0.02014813417346_wp,  -0.95970373165308_wp, &
+        -0.95970373165308_wp,  -0.02014813417346_wp, &
+        -0.02014813417346_wp,  -0.02014813417346_wp, &
+         0.669376181231556_wp, -0.703503756777164_wp, &
+        -0.965872424454392_wp, -0.703503756777164_wp, &
+        -0.703503756777164_wp, -0.965872424454392_wp, &
+         0.669376181231556_wp, -0.965872424454392_wp, &
+        -0.965872424454392_wp,  0.669376181231556_wp, &
+        -0.703503756777164_wp,  0.669376181231556_wp, &
+         0.414495985308496_wp, -0.57957674232286_wp, &
+        -0.834919242985636_wp, -0.57957674232286_wp, &
+        -0.57957674232286_wp,  -0.834919242985636_wp, &
+         0.414495985308496_wp, -0.834919242985636_wp, &
+        -0.834919242985636_wp,  0.414495985308496_wp, &
+        -0.57957674232286_wp,   0.414495985308496_wp, &
+         0.925803833285858_wp, -0.92588151521622_wp, &
+        -0.999922318069638_wp, -0.92588151521622_wp, &
+        -0.92588151521622_wp,  -0.999922318069638_wp, &
+         0.925803833285858_wp, -0.999922318069638_wp, &
+        -0.999922318069638_wp,  0.925803833285858_wp, &
+        -0.92588151521622_wp,   0.925803833285858_wp, &
+         0.348012222825796_wp, -0.38207975901364_wp, &
+        -0.965932463812156_wp, -0.38207975901364_wp, &
+        -0.38207975901364_wp,  -0.965932463812156_wp, &
+         0.348012222825796_wp, -0.965932463812156_wp, &
+        -0.965932463812156_wp,  0.348012222825796_wp, &
+        -0.38207975901364_wp,   0.348012222825796_wp, &
+         0.08389791764566_wp,  -0.279351646321358_wp, &
+        -0.804546271324302_wp, -0.279351646321358_wp, &
+        -0.279351646321358_wp, -0.804546271324302_wp, &
+         0.08389791764566_wp,  -0.804546271324302_wp, &
+        -0.804546271324302_wp,  0.08389791764566_wp, &
+        -0.279351646321358_wp,  0.08389791764566_wp], &
+         [2,45] )
+  !
+continue
+  !
+  if (p <= 8) then
+    idx = TriNodes2D_Reorder(p) ! F2003 AUTO-REALLOC
+  end if
+  !
+  if (p == 0) then
+    return_value = P0_pts(:,idx(:)) ! F2003 AUTO-REALLOC
+  else if (p == 1) then
+    return_value = P1_pts(:,idx(:)) ! F2003 AUTO-REALLOC
+  else if (p == 2) then
+    return_value = P2_pts(:,idx(:)) ! F2003 AUTO-REALLOC
+  else if (p == 3) then
+    return_value = P3_pts(:,idx(:)) ! F2003 AUTO-REALLOC
+  else if (p == 4) then
+    return_value = P4_pts(:,idx(:)) ! F2003 AUTO-REALLOC
+  else if (p == 5) then
+    return_value = P5_pts(:,idx(:)) ! F2003 AUTO-REALLOC
+  else if (p == 6) then
+    return_value = P6_pts(:,idx(:)) ! F2003 AUTO-REALLOC
+  else if (p == 7) then
+    return_value = P7_pts(:,idx(:)) ! F2003 AUTO-REALLOC
+  else if (p == 8) then
+    return_value = P8_pts(:,idx(:)) ! F2003 AUTO-REALLOC
+  else
+    return_value = TriNodes2D_Barycentric(p,zero,fals) ! F2003 AUTO-REALLOC
+  end if
+  !
+end function TriNodes2D_WilliamsShunn
+!
+!###############################################################################
+!
+pure &
+function TriNodes2D_Reorder(p) result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: p
+  !
+  !.. Function Result
+  integer, allocatable :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer :: i
+  !
+  !.. Local Parameters ..
+  integer, parameter :: P0_idx(1) = [1]
+  !
+  integer, parameter :: P1_idx(3) = [3,2, &
+                                       1]
+  !
+  integer, parameter :: P2_idx(6) = [3,4,2, &
+                                       5,6, &
+                                         1]
+  !
+  integer, parameter :: P3_idx(10) = [ 4, 7, 8, 3, &
+                                       6, 1, 5,    &
+                                       9,10,       &
+                                       2]
+  !
+  integer, parameter :: P4_idx(15) = [ 3,12, 7,13, 2, &
+                                      11, 6, 5,10,    &
+                                       8, 4, 9,       &
+                                      14,15,          &
+                                       1]
+  !
+  integer, parameter :: P5_idx(21) = [ 3,12,18,19,13, 2, &
+                                      11, 6, 7, 5,10,    &
+                                      17, 8, 9,16,       &
+                                      20, 4,21,          &
+                                      14,15,             &
+                                       1]
+  !
+  integer, parameter :: P6_idx(28) = [ 4,13,19, 8,20,14, 3, &
+                                      12, 7,25,26, 6,11,    &
+                                      18,24, 1,23,17,       &
+                                       9,27,28,10,          &
+                                      21, 5,22,             &
+                                      15,16,                &
+                                       2]
+  !
+  integer, parameter :: P7_idx(36) = [ 3,14,27,21,22,28,13, 2, &
+                                      15, 6,33,10,34, 5,16,    &
+                                      26,32, 9, 8,31,25,       &
+                                      20,11, 7,12,19,          &
+                                      23,35,36,24,             &
+                                      29, 4,30,                &
+                                      18,17,                   &
+                                       1]
+  !
+  integer, parameter :: P8_idx(45) = [ 3,30,18,36,13,37,19,31, 2, &
+                                      29, 6,24,42,43,25, 5,28,    &
+                                      17,23, 9,10, 8,22,16,       &
+                                      35,41,11,12,40,34,          &
+                                      14,44, 7,45,15,             &
+                                      38,26,27,39,                &
+                                      20, 4,21,                   &
+                                      32,33,                      &
+                                       1]
+  !
+continue
+  !
+  if (p == 0) then
+    return_value = P0_idx(:) ! F2003 AUTO-REALLOC
+  else if (p == 1) then
+    return_value = P1_idx(:) ! F2003 AUTO-REALLOC
+  else if (p == 2) then
+    return_value = P2_idx(:) ! F2003 AUTO-REALLOC
+  else if (p == 3) then
+    return_value = P3_idx(:) ! F2003 AUTO-REALLOC
+  else if (p == 4) then
+    return_value = P4_idx(:) ! F2003 AUTO-REALLOC
+  else if (p == 5) then
+    return_value = P5_idx(:) ! F2003 AUTO-REALLOC
+  else if (p == 6) then
+    return_value = P6_idx(:) ! F2003 AUTO-REALLOC
+  else if (p == 7) then
+    return_value = P7_idx(:) ! F2003 AUTO-REALLOC
+  else if (p == 8) then
+    return_value = P8_idx(:) ! F2003 AUTO-REALLOC
+  else
+    return_value = [(i, i=1,tri_pts(p))] ! F2003 AUTO-REALLOC
+  end if
+  !
+end function TriNodes2D_Reorder
 !
 !###############################################################################
 !
 end module triangle_mod
+!
+!###############################################################################
+!
