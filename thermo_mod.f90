@@ -1477,6 +1477,8 @@ subroutine impure_newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
   real(wp) :: func,dfunc,dtemp,dterr
   real(wp) :: tmin_nd,tmax_nd
   !
+  character(len=100) :: message
+  !
   !.. Local Saved Scalars ..
   logical(lk), save :: output_thermo_coef = true
   !
@@ -1505,6 +1507,8 @@ subroutine impure_newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   tmin_nd = tmin / tref
   tmax_nd = tmax / tref
   !
@@ -1516,13 +1520,19 @@ continue
   !
   allocate ( eint(1:size(t)) , source=zero )
   !
+  call debug_timer(start_timer,"compute_internal_energy")
   call compute_internal_energy(n1,n2,cv,eint)
+  call debug_timer(stop_timer,"compute_internal_energy")
   !
   ! Compute initial static enthalpy and specific heat of the mixture
   !
+  call debug_timer(start_timer,"compute_mixture_enthalpy")
   call compute_mixture_enthalpy(n1,n2,cv(:,1:ncs),t,h)
+  call debug_timer(stop_timer,"compute_mixture_enthalpy")
   !
+  call debug_timer(start_timer,"compute_mixture_cp")
   call compute_mixture_cp(n1,n2,cv(:,1:ncs),t,cp)
+  call debug_timer(stop_timer,"compute_mixture_cp")
   !
 #ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
   allocate ( did_not_converge(n1:n2) , source=fals )
@@ -1539,6 +1549,8 @@ continue
     ndnc = 0
     dtmx = zero
     !
+    write (message,'(a,i0)') "thermo Newton iteration # ",k
+    call debug_timer(start_timer,message)
     do n = n1,n2
       !
       func = h(n) - rmix(n)*t(n) - eint(n)
@@ -1581,12 +1593,21 @@ continue
       end if
       !
     end do
+    call debug_timer(stop_timer,message)
     !
     ! Update the static enthalpy and specific heat of the mixture
     !
+    write (message,'(a,i0)') &
+                "compute_mixture_enthalpy Newton iteration # ",k
+    call debug_timer(start_timer,message)
     call compute_mixture_enthalpy(n1,n2,cv(:,1:ncs),t,h)
+    call debug_timer(stop_timer,message)
     !
+    write (message,'(a,i0)') &
+                "compute_mixture_cp Newton iteration # ",k
+    call debug_timer(start_timer,message)
     call compute_mixture_cp(n1,n2,cv(:,1:ncs),t,cp)
+    call debug_timer(stop_timer,message)
     !
     ! Add some special logic to prevent false positives for failing
     ! to converge when the "not converged" temperature is still 
@@ -1810,6 +1831,8 @@ continue
   if (allocated(eint)) then
     deallocate ( eint )
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
