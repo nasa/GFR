@@ -1708,8 +1708,11 @@ continue
   end if
   !
   chunk_size = ceiling( real(ncell,kind=wp) / real(nthreads,kind=wp) )
+  chunk_size = chunk_size / 10
   !
-  !$OMP DO SCHEDULE(STATIC,chunk_size)
+  !$OMP DO SCHEDULE(RUNTIME)
+ !!$OMP DO SCHEDULE(GUIDED,chunk_size)
+ !!$OMP DO SCHEDULE(STATIC,chunk_size)
 #endif
 #endif
   cell_loop: do nc = 1,ncell
@@ -2246,8 +2249,11 @@ continue
   end if
   !
   chunk_size = ceiling( real(nfbnd,kind=wp) / real(nthreads,kind=wp) )
+  chunk_size = chunk_size / 10
   !
-  !$OMP DO SCHEDULE(STATIC,chunk_size)
+  !$OMP DO SCHEDULE(RUNTIME)
+ !!$OMP DO SCHEDULE(GUIDED,chunk_size)
+ !!$OMP DO SCHEDULE(STATIC,chunk_size)
 #endif
 #endif
   do nf = 1,nfbnd
@@ -2326,8 +2332,11 @@ continue
   end if
   !
   chunk_size = ceiling( real(nface-nfbnd,kind=wp) / real(nthreads,kind=wp) )
+  chunk_size = chunk_size / 10
   !
-  !$OMP DO SCHEDULE(STATIC,chunk_size)
+  !$OMP DO SCHEDULE(RUNTIME)
+ !!$OMP DO SCHEDULE(GUIDED,chunk_size)
+ !!$OMP DO SCHEDULE(STATIC,chunk_size)
 #endif
 #endif
   do nf = nfbnd+1,nface
@@ -3170,8 +3179,11 @@ continue
   end if
   !
   chunk_size = ceiling( real(ncell,kind=wp) / real(nthreads,kind=wp) )
+  chunk_size = chunk_size / 10
   !
-  !$OMP DO SCHEDULE(STATIC,chunk_size)
+  !$OMP DO SCHEDULE(RUNTIME)
+ !!$OMP DO SCHEDULE(GUIDED,chunk_size)
+ !!$OMP DO SCHEDULE(STATIC,chunk_size)
 #endif
 #endif
   metrics_loop: do nc = 1,ncell

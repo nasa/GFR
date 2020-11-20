@@ -724,7 +724,9 @@ continue
   call octtree_find_nearest_xyz(octtree,g2_xyz_pt, ixyz_pt,istat, &
                                 tid=tid,acc=1)
   !
-  !$OMP DO SCHEDULE(STATIC,chunk_size)
+  !$OMP DO SCHEDULE(RUNTIME)
+ !!$OMP DO SCHEDULE(GUIDED,chunk_size/10)
+ !!$OMP DO SCHEDULE(STATIC,chunk_size)
   do k = 1,g2_n_solpts
     !
     !-DEBUG_BEG:
