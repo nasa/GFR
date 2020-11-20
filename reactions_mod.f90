@@ -1408,7 +1408,7 @@ subroutine compute_CH4_hardcoded_wdot(n1,n2,cv,gp,residual,iter)
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+  call pure_debug_timer(entering_procedure,pname)
   !
   !
   allocate ( rhoi(n1:n2,1:ncs) )
@@ -1622,7 +1622,7 @@ continue
   !
   if (allocated(rhoi)) deallocate ( rhoi )
   !
-  call debug_timer(leaving_procedure,pname)
+  call pure_debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_CH4_hardcoded_wdot
 !
@@ -1677,7 +1677,7 @@ subroutine compute_H2_hardcoded_wdot(n1,n2,cv,gp,residual)
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+  call pure_debug_timer(entering_procedure,pname)
   !
   np = size(cv,dim=1)
   !
@@ -1963,7 +1963,7 @@ continue
   !
   if (allocated(gibrt)) deallocate ( gibrt )
   !
-  call debug_timer(leaving_procedure,pname)
+  call pure_debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_H2_hardcoded_wdot
 !
@@ -2004,7 +2004,7 @@ subroutine compute_H2_wdot(n1,n2,cv,gp,residual,iter)
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+  call pure_debug_timer(entering_procedure,pname)
   !
   np = size(cv,dim=1)
   !
@@ -2090,7 +2090,7 @@ continue
   if (allocated(frrate)) deallocate ( frrate )
   if (allocated(wdot))  deallocate ( wdot )
   !
-  call debug_timer(leaving_procedure,pname)
+  call pure_debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_H2_wdot
 !
@@ -2137,7 +2137,7 @@ subroutine compute_species_source_terms(n1,n2,cv,t,specon,frrate,brrate,wdot)
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+  call pure_debug_timer(entering_procedure,pname)
   !
   ! Compute the species concentrations in (moles/cm^3)
   !
@@ -2156,7 +2156,7 @@ continue
   !
   call compute_species_production_rates(n1,n2,specon,frrate,brrate,wdot)
   !
-  call debug_timer(leaving_procedure,pname)
+  call pure_debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_species_source_terms
 !
@@ -2188,7 +2188,7 @@ subroutine compute_reaction_rates(n1,n2,t,frrate,brrate)
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+  call pure_debug_timer(entering_procedure,pname)
   !
   ! Compute the forward reaction rate coefficient
   !
@@ -2202,7 +2202,7 @@ continue
     call compute_equilibrium_rate(n1,n2,t,frrate,brrate)
   end if
   !
-  call debug_timer(leaving_procedure,pname)
+  call pure_debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_reaction_rates
 !
@@ -2246,7 +2246,7 @@ subroutine compute_arrhenius_rate(n1,n2,t,frrate)
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+  call pure_debug_timer(entering_procedure,pname)
   !
   ! Compute the reaction rate coefficient
   !
@@ -2268,7 +2268,7 @@ continue
     !
   end do
   !
-  call debug_timer(leaving_procedure,pname)
+  call pure_debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_arrhenius_rate
 !
@@ -2340,7 +2340,7 @@ subroutine compute_equilibrium_rate(n1,n2,t,frrate,brrate)
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+  call pure_debug_timer(entering_procedure,pname)
   !
   rulog = log(runivl)
   !
@@ -2398,7 +2398,7 @@ continue
   if (allocated(gibrt)) deallocate ( gibrt )
   if (allocated(dgibrt)) deallocate ( dgibrt )
   !
-  call debug_timer(leaving_procedure,pname)
+  call pure_debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_equilibrium_rate
 !
@@ -2457,7 +2457,7 @@ subroutine compute_species_production_rates(n1,n2,specon,frrate,brrate,wdot)
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+  call pure_debug_timer(entering_procedure,pname)
   !
   allocate ( prdctb(n1:n2) , source=zero )
   allocate ( prdctf(n1:n2) , source=zero )
@@ -2609,7 +2609,7 @@ continue
   if (allocated(prdctb)) deallocate ( prdctb )
   if (allocated(prdctf)) deallocate ( prdctf )
   !
-  call debug_timer(leaving_procedure,pname)
+  call pure_debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_species_production_rates
 !
@@ -2634,9 +2634,9 @@ subroutine compute_generic_wdot(n1,n2,usp,gpsp,residual)
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+  call pure_debug_timer(entering_procedure,pname)
   !
-  call debug_timer(leaving_procedure,pname)
+  call pure_debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_generic_wdot
 !
@@ -2761,7 +2761,7 @@ subroutine semi_implicit_exact_jac(n1,n2,cv,gp,frrate,brrate,specon,wdot)
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+  call pure_debug_timer(entering_procedure,pname)
   !
   np = size(wdot,dim=1)
   !
@@ -3072,7 +3072,7 @@ continue
   !
   if (allocated(cjac)) deallocate ( cjac )
   !
-  call debug_timer(leaving_procedure,pname)
+  call pure_debug_timer(leaving_procedure,pname)
   !
 end subroutine semi_implicit_exact_jac
 !
@@ -3131,7 +3131,7 @@ subroutine semi_implicit_numerical_jac(n1,n2,cv,gp,frrate,brrate, &
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+  call pure_debug_timer(entering_procedure,pname)
   !
   ! Compute small numbers
   !
@@ -3278,7 +3278,7 @@ continue
   !
   if (allocated(cjac)) deallocate ( cjac )
   !
-  call debug_timer(leaving_procedure,pname)
+  call pure_debug_timer(leaving_procedure,pname)
   !
   ! Finished performing the point implicit treatment for the source terms
   ! of the species transport equations. There is no turbulence/chemistry
@@ -3419,7 +3419,7 @@ subroutine hholdr(n1,n2,a,b)
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+  call pure_debug_timer(entering_procedure,pname)
   !
   lvar = size(b,dim=2)
   !
@@ -3719,7 +3719,7 @@ continue
   !
   if (allocated(d)) deallocate ( d )
   !
-  call debug_timer(leaving_procedure,pname)
+  call pure_debug_timer(leaving_procedure,pname)
   !
   ! Finished solving Ax=B using the householder method
   !
