@@ -101,6 +101,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/triangle.o \
         $(OBJDIR)/tetrahedra.o \
         $(OBJDIR)/pyramid.o \
+        $(OBJDIR)/prism.o \
         $(OBJDIR)/flux.o \
         $(OBJDIR)/filter_mod.o \
         $(OBJDIR)/time_mod.o \

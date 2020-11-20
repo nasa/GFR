@@ -526,6 +526,10 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(FUNDIR)/debug_timer.f90 \
                  $(FUNDIR)/cell_solpts.f90
 
+$(OBJDIR)/prism.o : prism.f90 \
+          $(OBJDIR)/kind_types.o \
+          $(OBJDIR)/poly.o \
+          $(OBJDIR)/triangle.o
 
 $(OBJDIR)/projection_mod.o : projection_mod.f90 \
                    $(OBJDIR)/kind_types.o \
