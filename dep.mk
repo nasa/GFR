@@ -124,7 +124,8 @@ $(OBJDIR)/connectivity.o : connectivity.f90 \
                  $(OBJDIR)/geovar_mod.o \
                  $(OBJDIR)/ovar_mod.o \
                  $(OBJDIR)/order_mod.o \
-                 $(FUNDIR)/last.f90
+                 $(FUNDIR)/last.f90 \
+                           mpi_defs.h
 
 $(OBJDIR)/correction_mod.o : correction_mod.f90 \
                    $(OBJDIR)/kind_types.o \
