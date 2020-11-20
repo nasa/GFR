@@ -184,6 +184,7 @@ subroutine init_geom_quadrature_rules()
   use order_mod, only : n_min_order,n_max_order
   use ovar,      only : loc_solution_pts
   use ovar,      only : loc_triangle_pts
+  use ovar,      only : loc_tetrahedra_pts
   !
   !.. Local Scalars ..
   integer :: n,npts,ndim,ierr
@@ -370,21 +371,16 @@ continue
           !
         case (Geom_Tetr)
           !
-          write (error_message,3) "Geom_Tetr"
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-          this_elem = get_tetr_quadrature(this_order)
+          this_elem = get_tetr_quadrature(this_order,loc_tetrahedra_pts)
           !
         case (Geom_Pyra)
           !
-          write (error_message,3) "Geom_Pyra"
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-          this_elem = get_pyra_quadrature(this_order)
+          this_elem = get_pyra_quadrature(this_order,loc_solution_pts)
           !
         case (Geom_Pris)
           !
-          write (error_message,3) "Geom_Pris"
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-          this_elem = get_pris_quadrature(this_order)
+          this_elem = get_pris_quadrature(this_order,loc_triangle_pts, &
+                                                     loc_solution_pts)
           !
         case (Geom_Hexa)
           !

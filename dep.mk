@@ -555,6 +555,9 @@ $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(OBJDIR)/ovar_mod.o \
                    $(OBJDIR)/poly.o \
                    $(OBJDIR)/triangle.o \
+                   $(OBJDIR)/tetrahedra.o \
+                   $(OBJDIR)/pyramid.o \
+                   $(OBJDIR)/prism.o \
                    $(FUNDIR)/np2n.f90 \
                    $(FUNDIR)/check_for_bad_number.f90 \
                    $(FUNDIR)/debug_timer.f90
