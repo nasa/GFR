@@ -540,6 +540,10 @@ $(OBJDIR)/projection_mod.o : projection_mod.f90 \
                    $(OBJDIR)/transport_mod.o \
                    $(FUNDIR)/debug_timer.f90
 
+$(OBJDIR)/pyramid.o : pyramid.f90 \
+            $(OBJDIR)/kind_types.o \
+            $(OBJDIR)/poly.o
+
 $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(OBJDIR)/kind_types.o \
                    $(OBJDIR)/geovar_mod.o \
