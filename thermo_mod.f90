@@ -788,7 +788,9 @@ end subroutine init_thermo_mod
 !
 !###############################################################################
 !
-!pure &
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine update_thermo_properties_1p(cv_1p,gp_1p,caller_name)
   !
   !.. Formal Arguments ..
@@ -826,7 +828,9 @@ end subroutine update_thermo_properties_1p
 !
 !###############################################################################
 !
-!pure &
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine update_thermo_properties_fp(n1,n2,cv,gp,caller_name)
   !
   !.. Formal Arguments ..
@@ -856,7 +860,9 @@ end subroutine update_thermo_properties_fp
 !
 !###############################################################################
 !
-!pure &
+#ifndef DISABLE_PURE
+pure &
+#endif
 subroutine update_thermo_properties_sp(n1,n2,cv,gp,loc,caller_name)
   !
   !.. Formal Arguments ..
@@ -878,21 +884,27 @@ subroutine update_thermo_properties_sp(n1,n2,cv,gp,loc,caller_name)
   !
 continue
   !
+  call pure_debug_timer(entering_procedure,pname)
+  !
   ! 1. Update the mixture density by summing the species densities
   !    and convert the species densities to mass fractions
   !
   if (ncs > 0) then
     !
+    call pure_debug_timer(start_timer,"update_mixture_density")
     call update_mixture_density(n1,n2,cv)
+    call pure_debug_timer( stop_timer,"update_mixture_density")
     !
     ! Convert the species densities to mass fractions
     !
+    call pure_debug_timer(start_timer,"Convert species densities to SMF")
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv)
     do m = 1,ncs
       do n = n1,n2
         cv(n,m) = cv(n,m)/cv(n,nec)
       end do
     end do
+    call pure_debug_timer( stop_timer,"Convert species densities to SMF")
     !
     ! 2. Compute the internal energy. Temporarily store the internal energy
     !    in the pressure location of gp.
@@ -902,7 +914,9 @@ continue
     ! 3. Compute the mixture gas constant. Temporarily store the mixture
     !    gas constant in the gamma location of gp.
     !
+    call pure_debug_timer(start_timer,"compute_mixture_rgas")
     call compute_mixture_rgas(n1,n2,cv(:,1:ncs),gp(:,ngamm))
+    call pure_debug_timer( stop_timer,"compute_mixture_rgas")
     !
     ! 4. Compute static temperature and gas variables using Newton iteration
     !    NOTE: Currently, the gamma and pressure locations of gp respectively
@@ -934,17 +948,21 @@ continue
     !    NOTE: The gamma location of gp currently
     !          contains the mixture gas constant.
     !
+    call pure_debug_timer(start_timer,"Compute static pressure")
     !$ACC PARALLEL LOOP PRESENT(gp,cv)
     do n = n1,n2
       gp(n,npres) = cv(n,nec) * gp(n,ngamm) * gp(n,ntemp)
     end do
+    call pure_debug_timer( stop_timer,"Compute static pressure")
     !
     ! 6. Compute the ratio of the specific heats of the mixture.
     !    NOTE: gp(:,ngamm) contains the mixture gas constant going into
     !          compute_mixture_gamma, but returns containing the ratio of
     !          the specific heats of the mixture.
     !
+    call pure_debug_timer(start_timer,"compute_mixture_gamma")
     call compute_mixture_gamma(n1,n2,gp(:,ncp),gp(:,ngamm))
+    call pure_debug_timer( stop_timer,"compute_mixture_gamma")
    !!
    !! 7. Nondimensionalize temperature, pressure, enthalpy, cp
    !!
@@ -958,20 +976,26 @@ continue
     !
     ! 9. Convert species mass fractions back to species densities
     !
+    call pure_debug_timer(start_timer,"Convert SMF to species densities")
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv)
     do m = 1,ncs
       do n = n1,n2
         cv(n,m) = cv(n,m)*cv(n,nec)
       end do
     end do
+    call pure_debug_timer( stop_timer,"Convert SMF to species densities")
     !
   else
     !
     ! Compute the pressure and temperature of a calorically perfect gas
     !
+    call pure_debug_timer(start_timer,"update_thermo_cpg")
     call update_thermo_cpg(n1,n2,cv,gp)
+    call pure_debug_timer( stop_timer,"update_thermo_cpg")
     !
   end if
+  !
+  call pure_debug_timer(leaving_procedure,pname)
   !
 end subroutine update_thermo_properties_sp
 !
