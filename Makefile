@@ -70,7 +70,7 @@ rebuild-skylake: BDIR := optimize_skylake
 rebuild-skylake: EXEF := gfr_skylake
 rebuild-skylake: TRGT := skylake
 rebuild-skylake: clean-build
-rebuild-skylake: build
+rebuild-skylake: skylake
 
 .PHONY: clean-skylake
 clean-skylake: BDIR := optimize_skylake
@@ -112,7 +112,7 @@ rebuild-haswell: BDIR := optimize_haswell
 rebuild-haswell: EXEF := gfr_haswell
 rebuild-haswell: TRGT := haswell
 rebuild-haswell: clean-build
-rebuild-haswell: build
+rebuild-haswell: haswell
 
 .PHONY: clean-haswell
 clean-haswell: BDIR := optimize_haswell
@@ -144,7 +144,7 @@ rebuild-ivybridge: BDIR := optimize_ivybridge
 rebuild-ivybridge: EXEF := gfr_ivybridge
 rebuild-ivybridge: TRGT := ivybridge
 rebuild-ivybridge: clean-build
-rebuild-ivybridge: build
+rebuild-ivybridge: ivybridge
 
 .PHONY: clean-ivybridge
 clean-ivybridge: BDIR := optimize_ivybridge
@@ -176,7 +176,7 @@ rebuild-sandybridge: BDIR := optimize_sandybridge
 rebuild-sandybridge: EXEF := gfr_sandybridge
 rebuild-sandybridge: TRGT := sandybridge
 rebuild-sandybridge: clean-build
-rebuild-sandybridge: build
+rebuild-sandybridge: sandybridge
 
 .PHONY: clean-sandybridge
 clean-sandybridge: BDIR := optimize_sandybridge
@@ -203,7 +203,7 @@ rebuild-westmere: BDIR := optimize_westmere
 rebuild-westmere: EXEF := gfr_westmere
 rebuild-westmere: TRGT := westmere
 rebuild-westmere: clean-build
-rebuild-westmere: build
+rebuild-westmere: westmere
 
 .PHONY: clean-westmere
 clean-westmere: BDIR := optimize_westmere
@@ -281,7 +281,7 @@ rebuild-gpu-mm: BDIR := gpu_mm
 rebuild-gpu-mm: EXEF := gfr_gpu_mm
 rebuild-gpu-mm: TRGT := gpu-mm
 rebuild-gpu-mm: clean-build
-rebuild-gpu-mm: build
+rebuild-gpu-mm: gpu-mm
 
 .PHONY: clean-gpu-mm
 clean-gpu-mm: BDIR := gpu_mm
@@ -317,7 +317,7 @@ rebuild-gpu: BDIR := gpu
 rebuild-gpu: EXEF := gfr_gpu
 rebuild-gpu: TRGT := gpu
 rebuild-gpu: clean-build
-rebuild-gpu: build
+rebuild-gpu: gpu
 
 .PHONY: clean-gpu
 clean-gpu: BDIR := gpu
