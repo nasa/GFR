@@ -16,7 +16,8 @@ module ovar
   use module_kind_types, only : bc_unknown
   use module_kind_types, only : project_derivatives
   use module_kind_types, only : derivative_of_proj_fluxes
-  use module_kind_types, only : BarycentricLobatto_TriPoints
+  use module_kind_types, only : WilliamsShunn_TriPoints
+  use module_kind_types, only : ShunnHam_TetPoints
   use module_kind_types, only : LagrangePolynomial
   use module_kind_types, only : Global_Cell_Timestep
   use module_kind_types, only : debug_timer
@@ -162,9 +163,10 @@ module ovar
   integer, public, save :: correction_function = Correction_gDG
   !
   ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS
-  integer, public, save :: loc_solution_pts = Legendre_Gauss
-  integer, public, save :: loc_flux_pts     = Legendre_Gauss
-  integer, public, save :: loc_triangle_pts = BarycentricLobatto_TriPoints
+  integer, public, save :: loc_solution_pts   = Legendre_Gauss
+  integer, public, save :: loc_flux_pts       = Legendre_Gauss
+  integer, public, save :: loc_triangle_pts   = WilliamsShunn_TriPoints
+  integer, public, save :: loc_tetrahedra_pts = ShunnHam_TetPoints
   !
   ! LOCATION OF INITIALIZATION POINTS
   integer, public, save :: loc_init_pts = 0 ! uses same as solution points
@@ -1020,7 +1022,8 @@ module input_namelist_mod
   use ovar,      only : interpto_grid_scaling_factor
   use ovar,      only : solution_format, solution_file
   use ovar,      only : loc_solution_pts, loc_flux_pts
-  use ovar,      only : loc_triangle_pts, loc_quadrature_pts
+  use ovar,      only : loc_triangle_pts, loc_tetrahedra_pts
+  use ovar,      only : loc_quadrature_pts
   use ovar,      only : combine_common_flux_projections
   use ovar,      only : flux_divergence, correction_function
   use ovar,      only : Runge_Kutta_Scheme, num_rk_stages
@@ -1180,7 +1183,8 @@ module input_namelist_mod
   ! BASE FR OPTIONS
   namelist / input / solution_order, flux_divergence, correction_function
   ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS
-  namelist / input / loc_solution_pts, loc_flux_pts, loc_triangle_pts
+  namelist / input / loc_solution_pts, loc_flux_pts, loc_triangle_pts, &
+                     loc_tetrahedra_pts
   ! LOCATION OF INITIALIZATION POINTS
   namelist / input / loc_init_pts
   ! RUNGE-KUTTA OPTIONS
