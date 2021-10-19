@@ -1036,17 +1036,18 @@ function Compute_Projection_Matrix(basis,weights,vand) result(return_value)
   integer :: i,j
   !
   !.. Local Arrays ..
-  real(qp) :: bmat(1:size(basis,dim=1), &
+  real(mp) :: bmat(1:size(basis,dim=1), &
                    1:size(basis,dim=2))
-  real(qp) :: bTxW(1:size(basis,dim=2), &
+  real(mp) :: bTxW(1:size(basis,dim=2), &
                    1:size(basis,dim=1))
-  real(qp) :: bTxWxb(1:size(basis,dim=2), &
+  real(mp) :: bTxWxb(1:size(basis,dim=2), &
                      1:size(basis,dim=2))
   !
   !.. Local Allocatable Arrays ..
-  real(qp), allocatable :: pmat(:,:)
-  real(qp), allocatable :: vmat(:,:)
-  real(qp), allocatable :: tmp(:,:)
+  real(mp), allocatable :: pmat(:,:)
+  real(mp), allocatable :: vmat(:,:)
+  real(wp), allocatable :: tmp(:,:)
+  real(wp), allocatable :: tmp_mat(:,:)
   !
 continue
   !
@@ -1081,7 +1082,11 @@ continue
   ! bTxWxb = transpose(basis) x diag(weights) x basis
   !
 #ifdef SPECIAL_FOR_INTEL
-  call gemm( bTxW , bmat , bTxWxb )
+  tmp_mat = init_array(size(bTxWxb,dim=1), & ! F2003 AUTO-REALLOC
+                       size(bTxWxB,dim=2),zero)
+  call gemm( real(bTxW,kind=wp) , real(bmat,kind=wp) , tmp_mat )
+  bTxWxb(:,:) = real(tmp_mat,kind=kind(bTxWxb))
+ !call gemm( bTxW , bmat , bTxWxb )
 #else
   bTxWxb = matmul( bTxW , bmat )
 #endif
@@ -1126,10 +1131,15 @@ continue
 #endif
     !
 #ifdef SPECIAL_FOR_INTEL
-    allocate ( tmp(1:size(bTxWxb,dim=1),1:size(bTxW,dim=2)) , source=qzero )
-    allocate ( pmat(1:size(vmat,dim=1),1:size(bTxW,dim=2)) , source=qzero )
-    call gemm( bTxWxb , bTxW , tmp )
-    call gemm( vmat , tmp , pmat )
+    tmp = init_array(size(bTxWxb,dim=1), & ! F2003 AUTO-REALLOC
+                     size(bTxW,dim=2),zero)
+    tmp_mat = init_array(size(vmat,dim=1), & ! F2003 AUTO-REALLOC
+                         size(bTxW,dim=2),zero)
+    call gemm( real(bTxWxb,kind=wp) , real(bTxW,kind=wp) , tmp )
+    call gemm( real(vmat,kind=wp) , tmp , tmp_mat )
+    pmat = real(tmp_mat,kind=kind(pmat)) ! F2003 AUTO-REALLOC
+   !call gemm( bTxWxb , bTxW , tmp )
+   !call gemm( vmat , tmp , pmat )
 #else
     pmat = matmul( vmat , matmul( bTxWxb , bTxW ) ) ! F2003 AUTO-REALLOCATION
 #endif
@@ -1139,10 +1149,15 @@ continue
     ! pmat = basis x bTxWxb x bTxW
     !
 #ifdef SPECIAL_FOR_INTEL
-    allocate ( tmp(1:size(bTxWxb,dim=1),1:size(bTxW,dim=2)) , source=qzero )
-    allocate ( pmat(1:size(bmat,dim=1),1:size(bTxW,dim=2)) , source=qzero )
-    call gemm( bTxWxb , bTxW , tmp )
-    call gemm( bmat , tmp , pmat )
+    tmp = init_array(size(bTxWxb,dim=1), & ! F2003 AUTO-REALLOC
+                     size(bTxW,dim=2),zero)
+    tmp_mat = init_array(size(bmat,dim=1), & ! F2003 AUTO-REALLOC
+                         size(bTxW,dim=2),zero)
+    call gemm( real(bTxWxb,kind=wp) , real(bTxW,kind=wp) , tmp )
+    call gemm( real(bmat,kind=wp) , tmp , tmp_mat )
+    pmat = real(tmp_mat,kind=kind(pmat)) ! F2003 AUTO-REALLOC
+   !call gemm( bTxWxb , bTxW , tmp )
+   !call gemm( bmat , tmp , pmat )
 #else
     pmat = matmul( bmat , matmul( bTxWxb , bTxW ) ) ! F2003 AUTO-REALLOCATION
 #endif

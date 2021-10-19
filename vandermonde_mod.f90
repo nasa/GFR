@@ -389,7 +389,7 @@ function Vandermonde_Inverse(vand_mat) result(return_value)
   !
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: vmat_inv_qp(:,:)
-  real(wp), allocatable :: vmat_inv(:,:)
+  real(qp), allocatable :: vmat_inv(:,:)
   integer,  allocatable :: ipiv(:)
   !
 continue

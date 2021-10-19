@@ -1314,12 +1314,21 @@ pure function InterpToPoint_Edge(xi_sp,xi_pt) result(return_value)
   real(wp) :: return_value(1:size(xi_sp))
   !
   !.. Local Scalars ..
-  integer :: i
+  integer  :: i
+  real(mp) :: val
+  !
+  !.. Local Arrays ..
+  real(mp) :: xisp(1:size(xi_sp))
+  real(mp) :: xipt(1:size(xi_pt))
   !
 continue
   !
-  do i = 1,size(xi_sp)
-    return_value(i) = eval_LagrangePoly( [i] , xi_pt , xi_sp )
+  xisp(:) = real( xi_sp(:) , kind=kind(xi_sp) )
+  xipt(:) = real( xi_pt(:) , kind=kind(xi_pt) )
+  !
+  do i = 1,size(xisp)
+    val = eval_LagrangePoly( [i] , xipt , xisp )
+    return_value(i) = real(val,kind=kind(return_value))
   end do
   !
 end function InterpToPoint_Edge
@@ -1339,11 +1348,19 @@ pure function InterpToPoint_Quad(xi_sp,xi_pt) result(return_value)
   real(wp) :: return_value(1:size(xi_sp)**2)
   !
   !.. Local Scalars ..
-  integer :: i,j,n,nsp
+  integer  :: i,j,n,nsp
+  real(mp) :: val
+  !
+  !.. Local Arrays ..
+  real(mp) :: xisp(1:size(xi_sp))
+  real(mp) :: xipt(1:size(xi_pt))
   !
 continue
   !
   nsp = size(xi_sp)
+  !
+  xisp(:) = real( xi_sp(:) , kind=kind(xi_sp) )
+  xipt(:) = real( xi_pt(:) , kind=kind(xi_pt) )
   !
   ! Get the coefficients for interpolating a polynomial from the solution
   ! points to the input point. These coefficients are simply the value of
@@ -1357,7 +1374,8 @@ continue
   do j = 1,nsp
     do i = 1,nsp
       n = n + 1
-      return_value(n) = eval_LagrangePoly( [i,j] , xi_pt , xi_sp )
+      val = eval_LagrangePoly( [i,j] , xipt , xisp )
+      return_value(n) = real(val,kind=kind(return_value))
     end do
   end do
   !
@@ -1524,11 +1542,19 @@ pure function InterpToPoint_Hexa(xi_sp,xi_pt) result(return_value)
   real(wp) :: return_value(1:size(xi_sp)**3)
   !
   !.. Local Scalars ..
-  integer :: i,j,k,n,nsp
+  integer  :: i,j,k,n,nsp
+  real(mp) :: val
+  !
+  !.. Local Arrays ..
+  real(mp) :: xisp(1:size(xi_sp))
+  real(mp) :: xipt(1:size(xi_pt))
   !
 continue
   !
   nsp = size(xi_sp)
+  !
+  xisp(:) = real( xi_sp(:) , kind=kind(xi_sp) )
+  xipt(:) = real( xi_pt(:) , kind=kind(xi_pt) )
   !
   ! Get the coefficients for interpolating a polynomial from the solution
   ! points to the input point. These coefficients are simply the value of
@@ -1543,7 +1569,8 @@ continue
     do j = 1,nsp
       do i = 1,nsp
         n = n + 1
-        return_value(n) = eval_LagrangePoly( [i,j,k] , xi_pt , xi_sp )
+        val = eval_LagrangePoly( [i,j,k] , xipt , xisp )
+        return_value(n) = real(val,kind=kind(return_value))
       end do
     end do
   end do
@@ -1656,9 +1683,10 @@ subroutine init_interpolation_matrices()
   character(len=200) :: array_name
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: edgpts(:)
-  real(wp), allocatable :: flxpts(:)
-  real(wp), allocatable :: pts(:)
+  real(mp), allocatable :: edgpts(:)
+  real(mp), allocatable :: flxpts(:)
+  real(mp), allocatable :: pts(:)
+  real(mp), allocatable :: solpts(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_interpolation_matrices"
@@ -1720,9 +1748,7 @@ continue
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message)
         !
-        allocate ( pts(1:cell_order+1) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"pts",1,__LINE__,__FILE__,ierr,error_message)
+        pts = init_array(cell_order+1,real(zero,kind=kind(pts))) ! F2003 AUTO-REALLOC
         !
         if (loc_quadrature_pts == Legendre_Gauss) then
           !
@@ -1734,8 +1760,8 @@ continue
           !
         else if (loc_quadrature_pts == Equi_Distant_Points) then
           !
-          pts(:) = real(intseq(-cell_order,cell_order,2),kind=wp) / &
-                   real(max(cell_order,1),kind=wp)
+          pts(:) = real(intseq(-cell_order,cell_order,2),kind=kind(pts)) / &
+                   real(max(cell_order,1),kind=kind(pts))
           !
         else
           !
@@ -1804,15 +1830,19 @@ continue
         select case (this_geom)
           case (Geom_Edge)
             !
-            edgpts = std_elem(this_geom,this_order)%pts(1,:) ! F03 AUTO-REALLOC
+            edgpts = real(std_elem(this_geom,this_order)%pts(1,:), &
+                          kind=kind(edgpts))  ! F2003 AUTO-REALLOC
             !
             interp(this_geom,this_order)%toFace(face_order)%mat = &
                     InterpToFace_Edge( edgpts )
             !
           case (Geom_Tria)
             !
+            solpts = real(std_elem(this_geom,this_order)%pts, &
+                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
+            !
             interp(this_geom,this_order)%toFace(face_order)%mat = &
-                    InterpToFace_Tria( std_elem(this_geom,this_order)%pts )
+                    InterpToFace_Tria( solpts )
 #ifdef SPECIAL_OUTPUT_SPARSITY
             write (array_name,10) "tria",this_order,face_order
             call output_sparsity( interp(this_geom,this_order)% &
@@ -1821,8 +1851,10 @@ continue
             !
           case (Geom_Quad)
             !
-            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
-            flxpts = face_elem(Geom_Edge,face_order)%pts(1,:) ! F03 AUTO-REALLOC
+            edgpts = real(std_elem(Geom_Edge,this_order)%pts(1,:), &
+                          kind=kind(edgpts))  ! F2003 AUTO-REALLOC
+            flxpts = real(face_elem(Geom_Edge,face_order)%pts(1,:), &
+                          kind=kind(flxpts))  ! F2003 AUTO-REALLOC
             !
             interp(this_geom,this_order)%toFace(face_order)%mat = &
                     InterpToFace_Quad( edgpts , flxpts )
@@ -1834,8 +1866,11 @@ continue
             !
           case (Geom_Tetr)
             !
+            solpts = real(std_elem(this_geom,this_order)%pts, &
+                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
+            !
             interp(this_geom,this_order)%toFace(face_order)%mat = &
-                    InterpToFace_Tetr( std_elem(this_geom,this_order)%pts )
+                    InterpToFace_Tetr( solpts )
 #ifdef SPECIAL_OUTPUT_SPARSITY
             write (array_name,10) "tetr",this_order,face_order
             call output_sparsity( interp(this_geom,this_order)% &
@@ -1844,8 +1879,11 @@ continue
             !
           case (Geom_Pyra)
             !
+            solpts = real(std_elem(this_geom,this_order)%pts, &
+                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
+            !
             interp(this_geom,this_order)%toFace(face_order)%mat = &
-                    InterpToFace_Pyra( std_elem(this_geom,this_order)%pts )
+                    InterpToFace_Pyra( solpts )
 #ifdef SPECIAL_OUTPUT_SPARSITY
             write (array_name,10) "pyra",this_order,face_order
             call output_sparsity( interp(this_geom,this_order)% &
@@ -1854,8 +1892,11 @@ continue
             !
           case (Geom_Pris)
             !
+            solpts = real(std_elem(this_geom,this_order)%pts, &
+                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
+            !
             interp(this_geom,this_order)%toFace(face_order)%mat = &
-                    InterpToFace_Pris( std_elem(this_geom,this_order)%pts )
+                    InterpToFace_Pris( solpts )
 #ifdef SPECIAL_OUTPUT_SPARSITY
             write (array_name,10) "pris",this_order,face_order
             call output_sparsity( interp(this_geom,this_order)% &
@@ -1864,8 +1905,10 @@ continue
             !
           case (Geom_Hexa)
             !
-            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
-            flxpts = face_elem(Geom_Edge,face_order)%pts(1,:) ! F03 AUTO-REALLOC
+            edgpts = real(std_elem(Geom_Edge,this_order)%pts(1,:), &
+                          kind=kind(edgpts))  ! F2003 AUTO-REALLOC
+            flxpts = real(face_elem(Geom_Edge,face_order)%pts(1,:), &
+                          kind=kind(flxpts))  ! F2003 AUTO-REALLOC
             !
             interp(this_geom,this_order)%toFace(face_order)%mat = &
                     InterpToFace_Hexa( edgpts , flxpts )
@@ -1919,23 +1962,34 @@ continue
         select case (this_geom)
           case (Geom_Tetr)
             !
+            solpts = real(std_elem(this_geom,this_order)%pts, &
+                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
+            !
             interp(this_geom,this_order)%toEdge(edge_order)%mat = &
-                    InterpToEdge_Tetr( std_elem(this_geom,this_order)%pts )
+                    InterpToEdge_Tetr( solpts )
             !
           case (Geom_Pyra)
             !
+            solpts = real(std_elem(this_geom,this_order)%pts, &
+                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
+            !
             interp(this_geom,this_order)%toEdge(edge_order)%mat = &
-                    InterpToEdge_Pyra( std_elem(this_geom,this_order)%pts )
+                    InterpToEdge_Pyra( solpts )
             !
           case (Geom_Pris)
             !
+            solpts = real(std_elem(this_geom,this_order)%pts, &
+                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
+            !
             interp(this_geom,this_order)%toEdge(edge_order)%mat = &
-                    InterpToEdge_Pris( std_elem(this_geom,this_order)%pts )
+                    InterpToEdge_Pris( solpts )
             !
           case (Geom_Hexa)
             !
-            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
-            flxpts = face_elem(Geom_Edge,edge_order)%pts(1,:) ! F03 AUTO-REALLOC
+            edgpts = real(std_elem(Geom_Edge,this_order)%pts(1,:), &
+                          kind=kind(edgpts))  ! F2003 AUTO-REALLOC
+            flxpts = real(face_elem(Geom_Edge,edge_order)%pts(1,:), &
+                          kind=kind(flxpts))  ! F2003 AUTO-REALLOC
             !
             interp(this_geom,this_order)%toEdge(edge_order)%mat = &
                     InterpToEdge_Hexa( edgpts , flxpts )
@@ -1984,37 +2038,45 @@ continue
         select case (this_geom)
           case (Geom_Tria)
             !
-            interp(this_geom,this_order)%toNode%mat = &
-                        InterpToNode_Tria( std_elem(this_geom,this_order)%pts )
+            solpts = real(std_elem(this_geom,this_order)%pts, &
+                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
+            !
+            interp(this_geom,this_order)%toNode%mat = InterpToNode_Tria(solpts)
             !
           case (Geom_Quad)
             !
-            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
+            edgpts = real(std_elem(Geom_Edge,this_order)%pts(1,:), &
+                          kind=kind(edgpts))  ! F2003 AUTO-REALLOC
             !
-            interp(this_geom,this_order)%toNode%mat = &
-                        InterpToNode_Quad( edgpts )
+            interp(this_geom,this_order)%toNode%mat = InterpToNode_Quad(edgpts)
             !
           case (Geom_Tetr)
             !
-            interp(this_geom,this_order)%toNode%mat = &
-                        InterpToNode_Tetr( std_elem(this_geom,this_order)%pts )
+            solpts = real(std_elem(this_geom,this_order)%pts, &
+                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
+            !
+            interp(this_geom,this_order)%toNode%mat = InterpToNode_Tetr(solpts)
             !
           case (Geom_Pyra)
             !
-            interp(this_geom,this_order)%toNode%mat = &
-                        InterpToNode_Pyra( std_elem(this_geom,this_order)%pts )
+            solpts = real(std_elem(this_geom,this_order)%pts, &
+                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
+            !
+            interp(this_geom,this_order)%toNode%mat = InterpToNode_Pyra(solpts)
             !
           case (Geom_Pris)
             !
-            interp(this_geom,this_order)%toNode%mat = &
-                        InterpToNode_Pris( std_elem(this_geom,this_order)%pts )
+            solpts = real(std_elem(this_geom,this_order)%pts, &
+                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
+            !
+            interp(this_geom,this_order)%toNode%mat = InterpToNode_Pris(solpts)
             !
           case (Geom_Hexa)
             !
-            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
+            edgpts = real(std_elem(Geom_Edge,this_order)%pts(1,:), &
+                          kind=kind(edgpts))  ! F2003 AUTO-REALLOC
             !
-            interp(this_geom,this_order)%toNode%mat = &
-                        InterpToNode_Hexa( edgpts )
+            interp(this_geom,this_order)%toNode%mat = InterpToNode_Hexa(edgpts)
             !
           case default
             !
@@ -2093,8 +2155,8 @@ subroutine init_outerpolation_matrices()
   character(len=200) :: array_name
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: pts(:)
-  real(wp), allocatable :: wts(:)
+  real(mp), allocatable :: pts(:)
+  real(mp), allocatable :: wts(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_outerpolation_matrices"
@@ -2182,10 +2244,8 @@ continue
         !
         ! Get the 1D location of the initialization points
         !
-        allocate ( pts(1:this_order+1) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"pts",1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
+        ! F2003 AUTO-REALLOC
+        pts = init_array(this_order+1,real(zero,kind=kind(pts)))
         !
         if (loc_init_pts == Legendre_Gauss) then
           !
@@ -2249,10 +2309,8 @@ continue
         !
         ! Get the 1D location of the output points
         !
-        allocate ( pts(1:output_order+1) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"pts",1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
+        ! F2003 AUTO-REALLOC
+        pts = init_array(output_order+1,real(zero,kind=kind(pts)))
         !
         if (loc_output_pts == Legendre_Gauss) then
           !
@@ -2264,8 +2322,8 @@ continue
           !
         else if (loc_output_pts == Equi_Distant_Points) then
           !
-          pts(:) = real(intseq(-output_order,output_order,2),kind=wp) / &
-                   real(max(output_order,1),kind=wp)
+          pts(:) = real(intseq(-output_order,output_order,2),kind=kind(pts)) / &
+                   real(max(output_order,1),kind=kind(pts))
           !
         else
           !
@@ -2322,15 +2380,10 @@ continue
         ! Get the 1D location of the error points
         ! and their corresponding quadrature weights
         !
-        allocate ( pts(1:error_order+1) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"pts",1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
-        !
-        allocate ( wts(1:error_order+1) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"wts",1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
+        ! F2003 AUTO-REALLOC
+        pts = init_array(error_order+1,real(zero,kind=kind(pts)))
+        ! F2003 AUTO-REALLOC
+        wts = init_array(error_order+1,real(zero,kind=kind(wts)))
         !
         if (loc_error_pts == Legendre_Gauss) then
           !
@@ -2436,13 +2489,13 @@ function InterpToCell(this_geom,this_order,opts,npts,pts) result(return_value)
   integer,  intent(in) :: this_order
   integer,  intent(in) :: opts
   integer,  intent(in) :: npts
-  real(wp), intent(in) :: pts(:)
+  real(mp), intent(in) :: pts(:)
   !
   !.. Function Result ..
   real(wp) :: return_value(1:npts,1:opts)
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: edgpts(:)
+  real(mp), allocatable :: edgpts(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "InterptoCell"
@@ -2454,7 +2507,9 @@ continue
   select case (this_geom)
     case (Geom_Edge)
       !
-      edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+      ! F2003 AUTO-REALLOC
+      edgpts = real(std_elem(Geom_Edge,this_order)%pts(1,:), &
+                    kind=kind(edgpts))
       !
       return_value(:,:) = InterpToCell_Edge( edgpts , pts )
       !
@@ -2466,7 +2521,9 @@ continue
       !
     case (Geom_Quad)
       !
-      edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+      ! F2003 AUTO-REALLOC
+      edgpts = real(std_elem(Geom_Edge,this_order)%pts(1,:), &
+                    kind=kind(edgpts))
       !
       return_value(:,:) = InterpToCell_Quad( edgpts , pts )
       !
@@ -2490,7 +2547,9 @@ continue
       !
     case (Geom_Hexa)
       !
-      edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+      ! F2003 AUTO-REALLOC
+      edgpts = real(std_elem(Geom_Edge,this_order)%pts(1,:), &
+                    kind=kind(edgpts))
       !
       return_value(:,:) = InterpToCell_Hexa( edgpts , pts )
       !
@@ -2514,7 +2573,7 @@ function InterpWeights(this_geom,npts,wts) result(return_value)
   !.. Formal Arguments ..
   integer,  intent(in) :: this_geom
   integer,  intent(in) :: npts
-  real(wp), intent(in) :: wts(:)
+  real(mp), intent(in) :: wts(:)
   !
   !.. Function Result ..
   real(wp) :: return_value(1:npts)
@@ -2563,51 +2622,44 @@ function generic_interpolation_matrix(basis,newbasis,wmat) &
                                     result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: basis
-  real(wp), dimension(:,:), intent(in) :: newbasis
-  real(wp), dimension(:,:), intent(in) :: wmat
+  real(mp), intent(in) :: basis(:,:)
+  real(mp), intent(in) :: newbasis(:,:)
+  real(mp), intent(in) :: wmat(:,:)
   !
   !.. Function Result ..
-  real(wp), dimension(1:size(wmat,1),1:size(newbasis,1)) :: return_value
+  real(wp) :: return_value(1:size(wmat,1),1:size(newbasis,1))
   !
   !.. Local Arrays ..
-  real(qp), dimension(1:size(wmat,1),1:size(newbasis,1)) :: interp_mat_qp
-  real(qp), dimension(1:size(basis,2),1:size(basis,1)) :: basisT_qp
-  real(qp), dimension(1:size(basis,2),1:size(basis,2)) :: pmat_qp
-  real(qp), dimension(1:size(basis,2),1:size(wmat,2)) :: tmat_qp
-  real(qp), dimension(1:size(basis,1),1:size(basis,2)) :: basis_qp
-  real(qp), dimension(1:size(newbasis,1),1:size(newbasis,2)) :: newbasis_qp
-  real(qp), dimension(1:size(wmat,1),1:size(wmat,2)) :: wmat_qp
+  real(mp) :: interp_mat(1:size(wmat,1),1:size(newbasis,1))
+  real(mp) :: basisT(1:size(basis,2),1:size(basis,1))
+  real(mp) :: pmat(1:size(basis,2),1:size(basis,2))
+  real(mp) :: tmat(1:size(basis,2),1:size(wmat,2))
   !
 continue
   !
-  basis_qp = real( basis , kind=qp )
-  newbasis_qp = real( newbasis , kind=qp )
-  wmat_qp = real( wmat , kind=qp )
+  basisT = matmul( transpose(basis) , wmat )
+  basisT = chop( basisT , basisT )
   !
-  basisT_qp = matmul( transpose(basis_qp) , wmat_qp )
-  basisT_qp = chop( basisT_qp , basisT_qp )
-  !
-  pmat_qp = matmul( basisT_qp , basis_qp )
-  pmat_qp = chop( pmat_qp , pmat_qp )
+  pmat = matmul( basisT , basis )
+  pmat = chop( pmat , pmat )
   !
 #ifdef SPECIAL_FOR_INTEL
-  pmat_qp = invert_matrix_lapack95( pmat_qp )
+  pmat = invert_matrix_lapack95( pmat )
 #else
-  pmat_qp = invert_matrix( pmat_qp )
+  pmat = invert_matrix( pmat )
 #endif
-  pmat_qp = chop( pmat_qp , pmat_qp )
+  pmat = chop( pmat , pmat )
   !
-  tmat_qp = matmul( pmat_qp , basisT_qp )
-  tmat_qp = chop( tmat_qp , tmat_qp )
+  tmat = matmul( pmat , basisT )
+  tmat = chop( tmat , tmat )
   !
-  interp_mat_qp = transpose( matmul( newbasis_qp , tmat_qp ) )
-  interp_mat_qp = chop( interp_mat_qp , interp_mat_qp )
+  interp_mat = transpose( matmul( newbasis , tmat ) )
+  interp_mat = chop( interp_mat , interp_mat )
   !
-  ! Use the chop function to copy interp_mat_qp into return_value while also
+  ! Use the chop function to copy interp_mat into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( interp_mat_qp )
+  return_value(:,:) = chop( interp_mat )
   !
 end function generic_interpolation_matrix
 !
@@ -2622,33 +2674,31 @@ function InterpToFace_Edge(xi) result(return_value)
   use polynomial_mod, only : eval_LagrangePoly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: xi
+  real(mp), intent(in) :: xi(:)
   !
   !.. Function Return Value ..
-  real(wp), dimension(1:size(xi),1:2) :: return_value
+  real(wp) :: return_value(1:size(xi),1:2)
   !
   !.. Local Scalars ..
   integer :: i
   !
   !.. Local Arrays ..
-  real(qp), dimension(1:size(xi)) :: xi_qp
-  real(qp), dimension(1:size(xi),1:2) :: interp_mat_qp
+  real(mp) :: interp_mat(1:size(xi),1:2)
+  !
+  !.. Local Parameters ..
+  real(mp), parameter :: one = 1.0_mp
   !
 continue
   !
-  ! Create a quad precision copy of the array giving the solution points
-  !
-  xi_qp = real( xi , kind=qp )
-  !
   do i = 1,size(xi)
-    interp_mat_qp(i,1) = eval_LagrangePoly([i],[-qone],xi_qp)
-    interp_mat_qp(i,2) = eval_LagrangePoly([i],[qone],xi_qp)
+    interp_mat(i,1) = eval_LagrangePoly([i],[-one],xi)
+    interp_mat(i,2) = eval_LagrangePoly([i],[one],xi)
   end do
   !
-  ! Use the chop function to copy interp_mat_qp into return_value while also
+  ! Use the chop function to copy interp_mat into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( interp_mat_qp )
+  return_value = chop( interp_mat )
   !
 end function InterpToFace_Edge
 !
@@ -2663,44 +2713,34 @@ function InterpToCell_Edge(xi,xi_interp) result(return_value)
   use polynomial_mod, only : eval_LagrangePoly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: xi
-  real(wp), dimension(:), intent(in) :: xi_interp
+  real(mp), intent(in) :: xi(:)
+  real(mp), intent(in) :: xi_interp(:)
   !
   !.. Function Return Value ..
-  real(wp), dimension(1:size(xi),1:size(xi)) :: return_value
+  real(wp) :: return_value(1:size(xi),1:size(xi))
   !
   !.. Local Scalars ..
   integer :: i,j,npts
   !
   !.. Local Arrays ..
-  real(qp), dimension(1:size(xi)) :: xi_qp
-  real(qp), dimension(1:size(xi)) :: pts_qp
-  real(qp), dimension(1:size(xi),1:size(xi)) :: interp_mat_qp
+  real(mp) :: interp_mat(1:size(xi),1:size(xi))
   !
 continue
   !
   npts = size(xi)
   !
-  ! Create a quad precision copy of the array giving the solution points
-  !
-  xi_qp = real( xi , kind=qp )
-  !
-  ! Create a quad precision copy of the array giving the interpolation points
-  !
-  pts_qp = real( xi_interp , kind=qp )
-  !
   ! Evaluate the Lagrange polynomial at each interpolation point
   !
   do j = 1,npts
     do i = 1,npts
-      interp_mat_qp(i,j) = eval_LagrangePoly([j],[pts_qp(i)],xi_qp)
+      interp_mat(i,j) = eval_LagrangePoly([j],[xi_interp(i)],xi)
     end do
   end do
   !
-  ! Use the chop function to copy interp_mat_qp into return_value while also
+  ! Use the chop function to copy interp_mat into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( interp_mat_qp )
+  return_value = chop( interp_mat )
   !
 end function InterpToCell_Edge
 !
@@ -2715,19 +2755,18 @@ function InterpToNode_Quad(xi_sp) result(return_value)
   use polynomial_mod, only : eval_LagrangePoly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: xi_sp
+  real(mp), intent(in) :: xi_sp(:)
   !
   !.. Function Return Value ..
-  real(wp), dimension(1:size(xi_sp)**2,1:4) :: return_value
+  real(wp) :: return_value(1:size(xi_sp)**2,1:4)
   !
   !.. Local Scalars ..
   integer :: i,j,n,np,nfp,nsp
   !
   !.. Local Arrays ..
-  real(qp), dimension(1:2) :: xy_qp
-  real(qp), dimension(1:2,1:4) :: nodes_qp
-  real(qp), dimension(1:size(xi_sp)) :: solpts_qp
-  real(qp), dimension(1:size(xi_sp)**2,1:4) :: interp_mat_qp
+  real(mp) :: xy(1:2)
+  real(mp) :: nodes(1:2,1:4)
+  real(mp) :: interp_mat(1:size(xi_sp)**2,1:4)
   !
 continue
   !
@@ -2735,15 +2774,10 @@ continue
   !
   ! Fill in the nodes for the reference element
   !
-  nodes_qp(1:2,1) = [-qone,-qone]
-  nodes_qp(1:2,2) = [ qone,-qone]
-  nodes_qp(1:2,3) = [ qone, qone]
-  nodes_qp(1:2,4) = [-qone, qone]
-  !
-  ! Create quad precision versions of the arrays containing
-  ! the locations of the solution points
-  !
-  solpts_qp = real( xi_sp , kind=qp )
+  nodes(1:2,1) = real([-one,-one],kind=kind(nodes))
+  nodes(1:2,2) = real([ one,-one],kind=kind(nodes))
+  nodes(1:2,3) = real([ one, one],kind=kind(nodes))
+  nodes(1:2,4) = real([-one, one],kind=kind(nodes))
   !
   ! For each cell node, get the coefficients for interpolating
   ! a polynomial from the solution points to the node.
@@ -2758,22 +2792,22 @@ continue
     ! Loop to get the value of the Lagrange polynomial for the
     ! current node at each of the interior solution points
     !
-    xy_qp(1:2) = nodes_qp(1:2,np)
+    xy(1:2) = nodes(1:2,np)
     !
     n = 0
     do j = 1,nsp
       do i = 1,nsp
         n = n + 1
-        interp_mat_qp(n,np) = eval_LagrangePoly([i,j],xy_qp,solpts_qp)
+        interp_mat(n,np) = eval_LagrangePoly([i,j],xy,xi_sp)
       end do
     end do
     !
   end do
   !
-  ! Use the chop function to copy interp_mat_qp into return_value while also
+  ! Use the chop function to copy interp_mat into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( interp_mat_qp )
+  return_value = chop( interp_mat )
   !
 end function InterpToNode_Quad
 !
@@ -2788,31 +2822,26 @@ function InterpToFace_Quad(xi_sp,xi_fp) result(return_value)
   use polynomial_mod, only : eval_LagrangePoly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: xi_sp
-  real(wp), dimension(:), intent(in) :: xi_fp
+  real(mp), intent(in) :: xi_sp(:)
+  real(mp), intent(in) :: xi_fp(:)
   !
   !.. Function Return Value ..
-  real(wp), dimension(1:size(xi_sp)**2,1:4*size(xi_fp)) :: return_value
+  real(wp) :: return_value(1:size(xi_sp)**2,1:4*size(xi_fp))
   !
   !.. Local Scalars ..
   integer :: i,j,n,nf,nfp,nsp
   !
   !.. Local Arrays ..
-  real(qp), dimension(1:2) :: xy_qp
-  real(qp), dimension(1:size(xi_sp)) :: solpts_qp
-  real(qp), dimension(1:size(xi_fp)) :: flxpts_qp
-  real(qp), dimension(1:size(xi_sp)**2,1:4*size(xi_fp)) :: interp_mat_qp
+  real(mp) :: xy(1:2)
+  real(mp) :: interp_mat(1:size(xi_sp)**2,1:4*size(xi_fp))
+  !
+  !.. Local Parameters ..
+  real(mp), parameter :: one = 1.0_mp
   !
 continue
   !
   nfp = size(xi_fp)
   nsp = size(xi_sp)
-  !
-  ! Create quad precision versions of the arrays containing
-  ! the locations of the solution and flux points
-  !
-  solpts_qp = real( xi_sp , kind=qp )
-  flxpts_qp = real( xi_fp , kind=qp )
   !
   ! For each flux point, get the coefficients for interpolating
   ! a polynomial from the solution points to the flux point.
@@ -2822,16 +2851,16 @@ continue
   !
   ! Face 1 - bottom/south edge of quad
   !
-  xy_qp(2) = -qone
+  xy(2) = -one
   do n = 1,nfp
     !
     nf = n
     !
-    xy_qp(1) = flxpts_qp(n)
+    xy(1) = xi_fp(n)
     !
     do j = 1,nsp
       do i = 1,nsp
-        interp_mat_qp(nsp*(j-1)+i,nf) = eval_LagrangePoly([i,j],xy_qp,solpts_qp)
+        interp_mat(nsp*(j-1)+i,nf) = eval_LagrangePoly([i,j],xy,xi_sp)
       end do
     end do
     !
@@ -2839,16 +2868,16 @@ continue
   !
   ! Face 2 - right/east edge of quad
   !
-  xy_qp(1) = qone
+  xy(1) = one
   do n = 1,nfp
     !
     nf = n + nfp
     !
-    xy_qp(2) = flxpts_qp(n)
+    xy(2) = xi_fp(n)
     !
     do j = 1,nsp
       do i = 1,nsp
-        interp_mat_qp(nsp*(j-1)+i,nf) = eval_LagrangePoly([i,j],xy_qp,solpts_qp)
+        interp_mat(nsp*(j-1)+i,nf) = eval_LagrangePoly([i,j],xy,xi_sp)
       end do
     end do
     !
@@ -2856,16 +2885,16 @@ continue
   !
   ! Face 3 - top/north edge of quad
   !
-  xy_qp(2) = qone
+  xy(2) = one
   do n = 1,nfp
     !
     nf = n + 2*nfp
     !
-    xy_qp(1) = flxpts_qp(nfp+1-n)
+    xy(1) = xi_fp(nfp+1-n)
     !
     do j = 1,nsp
       do i = 1,nsp
-        interp_mat_qp(nsp*(j-1)+i,nf) = eval_LagrangePoly([i,j],xy_qp,solpts_qp)
+        interp_mat(nsp*(j-1)+i,nf) = eval_LagrangePoly([i,j],xy,xi_sp)
       end do
     end do
     !
@@ -2873,25 +2902,25 @@ continue
   !
   ! Face 4 - left/west edge of quad
   !
-  xy_qp(1) = -qone
+  xy(1) = -one
   do n = 1,nfp
     !
     nf = n + 3*nfp
     !
-    xy_qp(2) = flxpts_qp(nfp+1-n)
+    xy(2) = xi_fp(nfp+1-n)
     !
     do j = 1,nsp
       do i = 1,nsp
-        interp_mat_qp(nsp*(j-1)+i,nf) = eval_LagrangePoly([i,j],xy_qp,solpts_qp)
+        interp_mat(nsp*(j-1)+i,nf) = eval_LagrangePoly([i,j],xy,xi_sp)
       end do
     end do
     !
   end do
   !
-  ! Use the chop function to copy interp_mat_qp into return_value while also
+  ! Use the chop function to copy interp_mat into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( interp_mat_qp )
+  return_value = chop( interp_mat )
   !
 end function InterpToFace_Quad
 !
@@ -2906,34 +2935,24 @@ function InterpToCell_Quad(xi_old,xi_new) result(return_value)
   use polynomial_mod, only : eval_LagrangePoly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: xi_old
-  real(wp), dimension(:), intent(in) :: xi_new
+  real(mp), intent(in) :: xi_old(:)
+  real(mp), intent(in) :: xi_new(:)
   !
   !.. Function Return Value ..
-  real(wp), dimension(1:size(xi_new)**2,1:size(xi_old)**2) :: return_value
+  real(wp) :: return_value(1:size(xi_new)**2,1:size(xi_old)**2)
   !
   !.. Local Scalars ..
   integer :: o,oi,oj,opts
   integer :: n,ni,nj,npts
   !
   !.. Local Arrays ..
-  real(qp), dimension(1:2) :: xy_qp
-  real(qp), dimension(1:size(xi_old)) :: xi_old_qp
-  real(qp), dimension(1:size(xi_new)) :: xi_new_qp
-  real(qp), dimension(1:size(xi_new)**2,1:size(xi_old)**2) :: interp_mat_qp
+  real(mp) :: xy(1:2)
+  real(mp) :: interp_mat(1:size(xi_new)**2,1:size(xi_old)**2)
   !
 continue
   !
   opts = size(xi_old)
   npts = size(xi_new)
-  !
-  ! Create a quad precision copy of the array giving the solution points
-  !
-  xi_old_qp = real( xi_old , kind=qp )
-  !
-  ! Create a quad precision copy of the array giving the interpolation points
-  !
-  xi_new_qp = real( xi_new , kind=qp )
   !
   ! Evaluate the Lagrange polynomial at each interpolation point
   !
@@ -2944,15 +2963,15 @@ continue
       !
       do nj = 1,npts
         !
-        xy_qp(2) = xi_new_qp(nj)
+        xy(2) = xi_new(nj)
         !
         do ni = 1,npts
           !
-          xy_qp(1) = xi_new_qp(ni)
+          xy(1) = xi_new(ni)
           !
           n = (nj-1)*npts + ni
           !
-          interp_mat_qp(n,o) = eval_LagrangePoly([oi,oj],xy_qp,xi_old_qp)
+          interp_mat(n,o) = eval_LagrangePoly([oi,oj],xy,xi_old)
           !
         end do
       end do
@@ -2960,10 +2979,10 @@ continue
     end do
   end do
   !
-  ! Use the chop function to copy interp_mat_qp into return_value while also
+  ! Use the chop function to copy interp_mat into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( interp_mat_qp )
+  return_value = chop( interp_mat )
   !
 end function InterpToCell_Quad
 !
@@ -2975,25 +2994,20 @@ pure &
 function InterpWeights_Quad(wts) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: wts
+  real(mp), intent(in) :: wts(:)
   !
   !.. Function Return Value ..
-  real(wp), dimension(1:size(wts)**2) :: return_value
+  real(wp) :: return_value(1:size(wts)**2)
   !
   !.. Local Scalars ..
   integer :: m,mi,mj,npts
   !
   !.. Local Arrays ..
-  real(qp), dimension(1:size(wts)) :: wts_qp
-  real(qp), dimension(1:size(wts)**2) :: weights_qp
+  real(mp) :: weights(1:size(wts)**2)
   !
 continue
   !
   npts = size(wts)
-  !
-  ! Create a quad precision copy of the array giving the 1D quadrature weights
-  !
-  wts_qp = real( wts , kind=qp )
   !
   ! Evaluate the tensor product of the 1D weights
   !
@@ -3002,15 +3016,15 @@ continue
       !
       m = (mj-1)*npts + mi
       !
-      weights_qp(m) = wts_qp(mi)*wts_qp(mj)
+      weights(m) = wts(mi)*wts(mj)
       !
     end do
   end do
   !
-  ! Use the chop function to copy weights_qp into return_value while also
+  ! Use the chop function to copy weights into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( weights_qp )
+  return_value = chop( weights )
   !
 end function InterpWeights_Quad
 !
@@ -3022,10 +3036,10 @@ pure &
 function InterpToNode_Tria(rs) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(mp), intent(in) :: rs(:,:)
   !
   !.. Function Return Argument ..
-  real(wp), dimension(1:size(rs,2),1:3) :: return_value
+  real(wp) :: return_value(1:size(rs,2),1:3)
   !
   !.. Local Scalars ..
   integer :: np,nfp
@@ -3059,16 +3073,16 @@ pure &
 function InterpToFace_Tria(rs) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(mp), intent(in) :: rs(:,:)
   !
   !.. Function Return Argument ..
-  real(wp), dimension(1:size(rs,2),1:3*(np2n(size(rs,2))+1)) :: return_value
+  real(wp) :: return_value(1:size(rs,2),1:3*(np2n(size(rs,2))+1))
   !
   !.. Local Scalars ..
   integer :: i,j,np,nfp
   !
   !.. Local Arrays ..
-  integer, dimension(1:np2n(size(rs,2))+1,1:3) :: Fmask
+  integer :: Fmask(1:np2n(size(rs,2))+1,1:3)
   !
 continue
   !
@@ -3112,20 +3126,20 @@ end function InterpToFace_Tria
 #ifndef DISABLE_PURE
 pure &
 #endif
-function InterpToNode_Tetr(rs) result(return_value)
+function InterpToNode_Tetr(rst) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(mp), intent(in) :: rst(:,:)
   !
   !.. Function Return Argument ..
-  real(wp), dimension(1:size(rs,2),1:4) :: return_value
+  real(wp) :: return_value(1:size(rst,2),1:4)
   !
   !.. Local Scalars ..
   integer :: i,n,nsp3d,nfp3d,nep3d
   !
 continue
   !
-  nsp3d = size(rs,2)
+  nsp3d = size(rst,2)
   !
   return_value(:,:) = zero
   !
@@ -3169,10 +3183,10 @@ end function InterpToNode_Tetr
 #ifndef DISABLE_PURE
 pure &
 #endif
-function InterpToEdge_Tetr(rs) result(return_value)
+function InterpToEdge_Tetr(rst) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(mp), intent(in) :: rst(:,:)
   !
   !.. Function Return Argument ..
   real(wp), allocatable :: return_value(:,:)
@@ -3182,7 +3196,7 @@ function InterpToEdge_Tetr(rs) result(return_value)
   !
 continue
   !
-  nsp3d = size(rs,2)
+  nsp3d = size(rst,2)
   !
   ! Find the order for this tetrahedra
   !
@@ -3212,10 +3226,10 @@ end function InterpToEdge_Tetr
 #ifndef DISABLE_PURE
 pure &
 #endif
-function InterpToFace_Tetr(rs) result(return_value)
+function InterpToFace_Tetr(rst) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(mp), intent(in) :: rst(:,:)
   !
   !.. Function Return Argument ..
   real(wp), allocatable :: return_value(:,:)
@@ -3225,7 +3239,7 @@ function InterpToFace_Tetr(rs) result(return_value)
   !
 continue
   !
-  nsp3d = size(rs,2)
+  nsp3d = size(rst,2)
   !
   ! Find the order for this tetrahedra
   !
@@ -3255,20 +3269,20 @@ end function InterpToFace_Tetr
 #ifndef DISABLE_PURE
 pure &
 #endif
-function InterpToNode_Pyra(rs) result(return_value)
+function InterpToNode_Pyra(rst) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(mp), intent(in) :: rst(:,:)
   !
   !.. Function Return Argument ..
-  real(wp), dimension(1:size(rs,2),1:5) :: return_value
+  real(wp) :: return_value(1:size(rst,2),1:5)
   !
   !.. Local Scalars ..
   integer :: i,n,nfp3d,nsp3d,ierr
   !
 continue
   !
-  nsp3d = size(rs,2)
+  nsp3d = size(rst,2)
   !
   return_value(:,:) = zero
   !
@@ -3295,10 +3309,10 @@ end function InterpToNode_Pyra
 #ifndef DISABLE_PURE
 pure &
 #endif
-function InterpToEdge_Pyra(rs) result(return_value)
+function InterpToEdge_Pyra(rst) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(mp), intent(in) :: rst(:,:)
   !
   !.. Function Return Argument ..
   real(wp), allocatable :: return_value(:,:)
@@ -3308,7 +3322,7 @@ function InterpToEdge_Pyra(rs) result(return_value)
   !
 continue
   !
-  nsp3d = size(rs,2)
+  nsp3d = size(rst,2)
   !
   ! Find the order for this tetrahedra
   !
@@ -3338,10 +3352,10 @@ end function InterpToEdge_Pyra
 #ifndef DISABLE_PURE
 pure &
 #endif
-function InterpToFace_Pyra(rs) result(return_value)
+function InterpToFace_Pyra(rst) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(mp), intent(in) :: rst(:,:)
   !
   !.. Function Return Argument ..
   real(wp), allocatable :: return_value(:,:)
@@ -3351,7 +3365,7 @@ function InterpToFace_Pyra(rs) result(return_value)
   !
 continue
   !
-  nsp3d = size(rs,2)
+  nsp3d = size(rst,2)
   !
   ! Find the order for this tetrahedra
   !
@@ -3381,20 +3395,20 @@ end function InterpToFace_Pyra
 #ifndef DISABLE_PURE
 pure &
 #endif
-function InterpToNode_Pris(rs) result(return_value)
+function InterpToNode_Pris(rst) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(mp), intent(in) :: rst(:,:)
   !
   !.. Function Return Argument ..
-  real(wp), dimension(1:size(rs,2),1:6) :: return_value
+  real(wp) :: return_value(1:size(rst,2),1:6)
   !
   !.. Local Scalars ..
   integer :: i,n,nfp3d,nsp3d,ierr
   !
 continue
   !
-  nsp3d = size(rs,2)
+  nsp3d = size(rst,2)
   !
   return_value(:,:) = zero
   !
@@ -3421,10 +3435,10 @@ end function InterpToNode_Pris
 #ifndef DISABLE_PURE
 pure &
 #endif
-function InterpToEdge_Pris(rs) result(return_value)
+function InterpToEdge_Pris(rst) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(mp), intent(in) :: rst(:,:)
   !
   !.. Function Return Argument ..
   real(wp), allocatable :: return_value(:,:)
@@ -3434,7 +3448,7 @@ function InterpToEdge_Pris(rs) result(return_value)
   !
 continue
   !
-  nsp3d = size(rs,2)
+  nsp3d = size(rst,2)
   !
   ! Find the order for this tetrahedra
   !
@@ -3464,10 +3478,10 @@ end function InterpToEdge_Pris
 #ifndef DISABLE_PURE
 pure &
 #endif
-function InterpToFace_Pris(rs) result(return_value)
+function InterpToFace_Pris(rst) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(mp), intent(in) :: rst(:,:)
   !
   !.. Function Return Argument ..
   real(wp), allocatable :: return_value(:,:)
@@ -3477,7 +3491,7 @@ function InterpToFace_Pris(rs) result(return_value)
   !
 continue
   !
-  nsp3d = size(rs,2)
+  nsp3d = size(rst,2)
   !
   ! Find the order for this tetrahedra
   !
@@ -3513,7 +3527,7 @@ function InterpToNode_Hexa(xi_sp) result(return_value)
   use polynomial_mod, only : eval_LagrangePoly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: xi_sp
+  real(mp), intent(in) :: xi_sp(:)
   !
   !.. Function Return Value ..
   real(wp), allocatable :: return_value(:,:)
@@ -3523,12 +3537,11 @@ function InterpToNode_Hexa(xi_sp) result(return_value)
   integer :: nsp1d,nsp3d
   !
   !.. Local Arrays ..
-  real(qp), dimension(1:3) :: xyz_qp
-  real(qp), dimension(1:3,1:8) :: nodes_qp
-  real(qp), dimension(1:size(xi_sp)) :: solpts_qp
+  real(mp) :: xyz(1:3)
+  real(mp) :: nodes(1:3,1:8)
   !
   !.. Local Allocatable Arrays ..
-  real(qp), allocatable :: interp_mat_qp(:,:)
+  real(mp), allocatable :: interp_mat(:,:)
   !
 continue
   !
@@ -3537,28 +3550,19 @@ continue
   !
   ! Fill in the nodes for the reference element
   !
-  nodes_qp(1:3,1) = [-qone,-qone,-qone]
-  nodes_qp(1:3,2) = [ qone,-qone,-qone]
-  nodes_qp(1:3,3) = [ qone, qone,-qone]
-  nodes_qp(1:3,4) = [-qone, qone,-qone]
-  nodes_qp(1:3,5) = [-qone,-qone, qone]
-  nodes_qp(1:3,6) = [ qone,-qone, qone]
-  nodes_qp(1:3,7) = [ qone, qone, qone]
-  nodes_qp(1:3,8) = [-qone, qone, qone]
-  !
-  ! Allocate the return array containing the
-  ! working precision interpolation matrix
-  !
-  allocate ( return_value(1:nsp3d,1:8) , source=zero , stat=ierr )
+  nodes(1:3,1) = real([-one,-one,-one],kind=kind(nodes))
+  nodes(1:3,2) = real([ one,-one,-one],kind=kind(nodes))
+  nodes(1:3,3) = real([ one, one,-one],kind=kind(nodes))
+  nodes(1:3,4) = real([-one, one,-one],kind=kind(nodes))
+  nodes(1:3,5) = real([-one,-one, one],kind=kind(nodes))
+  nodes(1:3,6) = real([ one,-one, one],kind=kind(nodes))
+  nodes(1:3,7) = real([ one, one, one],kind=kind(nodes))
+  nodes(1:3,8) = real([-one, one, one],kind=kind(nodes))
   !
   ! Create the interpolation matrix using quad precision
   !
-  allocate ( interp_mat_qp(1:nsp3d,1:8) , source=qzero , stat=ierr )
-  !
-  ! Create quad precision versions of the arrays containing
-  ! the locations of the solution points
-  !
-  solpts_qp = real( xi_sp , kind=qp )
+  ! F2003 AUTO-REALLOC
+  interp_mat = init_array(nsp3d,8,real(zero,kind=kind(interp_mat)))
   !
   ! For each cell node, get the coefficients for interpolating
   ! a polynomial from the solution points to the node.
@@ -3573,24 +3577,24 @@ continue
     ! Loop to get the value of the Lagrange polynomial for the
     ! current node at each of the interior solution points
     !
-    xyz_qp(1:3) = nodes_qp(1:3,np)
+    xyz(1:3) = nodes(1:3,np)
     !
     n = 0
     do k = 1,nsp1d
       do j = 1,nsp1d
         do i = 1,nsp1d
           n = n + 1
-          interp_mat_qp(n,np) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+          interp_mat(n,np) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
         end do
       end do
     end do
     !
   end do
   !
-  ! Use the chop function to copy interp_mat_qp into return_value while also
+  ! Use the chop function to copy interp_mat into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value(:,:) = chop( interp_mat_qp(:,:) )
+  return_value = chop( interp_mat ) ! F2003 AUTO-REALLOC
   !
 end function InterpToNode_Hexa
 !
@@ -3605,8 +3609,8 @@ function InterpToEdge_Hexa(xi_sp,xi_ep) result(return_value)
   use polynomial_mod, only : eval_LagrangePoly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: xi_sp
-  real(wp), dimension(:), intent(in) :: xi_ep
+  real(mp), intent(in) :: xi_sp(:)
+  real(mp), intent(in) :: xi_ep(:)
   !
   !.. Function Return Value ..
   real(wp), allocatable :: return_value(:,:)
@@ -3618,14 +3622,13 @@ function InterpToEdge_Hexa(xi_sp,xi_ep) result(return_value)
   integer :: this_edge,n1,n2,l,lbeg,lend,lint,lp
   !
   !.. Local Arrays ..
-  real(qp), dimension(1:3) :: xyz_qp
-  real(qp), dimension(1:size(xi_sp)) :: solpts_qp
-  real(qp), dimension(1:size(xi_ep)) :: edgpts_qp
+  real(mp) :: xyz(1:3)
   !
   !.. Local Allocatable Arrays ..
-  real(qp), allocatable :: interp_mat_qp(:,:)
+  real(mp), allocatable :: interp_mat(:,:)
   !
   !.. Local Parameters ..
+  real(mp), parameter :: one = 1.0_mp
   integer, parameter :: unit_cell(1:3,1:8) = reshape( [ 0,0,0, 1,0,0, &
                                                         1,1,0, 0,1,0, &
                                                         0,0,1, 1,0,1, &
@@ -3642,20 +3645,8 @@ continue
   nep3d = 12*nep1d
   nsp3d = nsp1d**3
   !
-  ! Allocate the return array containing the
-  ! working precision interpolation matrix
-  !
-  allocate ( return_value(1:nsp3d,1:nep3d) , source=zero , stat=ierr )
-  !
-  ! Create the interpolation matrix using quad precision
-  !
-  allocate ( interp_mat_qp(1:nsp3d,1:nep3d) , source=qzero , stat=ierr )
-  !
-  ! Create quad precision versions of the arrays containing
-  ! the locations of the solution and edge points
-  !
-  solpts_qp = real( xi_sp , kind=qp )
-  edgpts_qp = real( xi_ep , kind=qp )
+  ! F2003 AUTO-REALLOC
+  interp_mat = init_array(nsp3d,nep3d,real(zero,kind=kind(interp_mat)))
   !
   if (use_condensed_loop) then
     !
@@ -3666,9 +3657,9 @@ continue
       n1 = edge_nodes(1,this_edge,Geom_Hexa) + 1
       n2 = edge_nodes(2,this_edge,Geom_Hexa) + 1
       !
-      xyz_qp(1) = merge( -qone , qone , unit_cell(1,n1) == 0 )
-      xyz_qp(2) = merge( -qone , qone , unit_cell(2,n1) == 0 )
-      xyz_qp(3) = merge( -qone , qone , unit_cell(3,n1) == 0 )
+      xyz(1) = merge( -one , one , unit_cell(1,n1) == 0 )
+      xyz(2) = merge( -one , one , unit_cell(2,n1) == 0 )
+      xyz(3) = merge( -one , one , unit_cell(3,n1) == 0 )
       !
       if (unit_cell(1,n1) /= unit_cell(1,n2)) then
         l = 1
@@ -3686,14 +3677,14 @@ continue
         !
         ne = ne + 1 ! Proceed to next point on this edge
         !
-        xyz_qp(l) = edgpts_qp(lp)
+        xyz(l) = xi_ep(lp)
         !
         n = 0
         do k = 1,nsp1d
           do j = 1,nsp1d
             do i = 1,nsp1d
               n = n + 1
-              interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+              interp_mat(n,ne) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
             end do
           end do
         end do
@@ -3720,14 +3711,14 @@ continue
     !
     ne = 0*nep1d+1 ! First point on this edge
     !
-    xyz_qp(1) = -qone ! x/xi   coordinate of current edge point
-    xyz_qp(3) = -qone ! z/zeta coordinate of current edge point
+    xyz(1) = -one ! x/xi   coordinate of current edge point
+    xyz(3) = -one ! z/zeta coordinate of current edge point
     !
     ! Loops over points on this edge
     !
     do jfa = 1,nep1d
       !
-      xyz_qp(2) = edgpts_qp(jfa) ! y/eta coordinate of current edge point
+      xyz(2) = xi_ep(jfa) ! y/eta coordinate of current edge point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! edge point at each of the interior solution points
@@ -3737,7 +3728,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1
-            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,ne) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -3756,14 +3747,14 @@ continue
     !
     ne = 1*nep1d+1 ! First point on this edge
     !
-    xyz_qp(2) = +qone ! y/eta  coordinate of current edge point
-    xyz_qp(3) = -qone ! z/zeta coordinate of current edge point
+    xyz(2) = +one ! y/eta  coordinate of current edge point
+    xyz(3) = -one ! z/zeta coordinate of current edge point
     !
     ! Loops over points on this edge
     !
     do ifa = 1,nep1d
       !
-      xyz_qp(1) = edgpts_qp(ifa) ! x/xi  coordinate of current edge point
+      xyz(1) = xi_ep(ifa) ! x/xi  coordinate of current edge point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! edge point at each of the interior solution points
@@ -3773,7 +3764,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1
-            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,ne) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -3792,14 +3783,14 @@ continue
     !
     ne = 2*nep1d+1 ! First point on this edge
     !
-    xyz_qp(1) = +qone ! x/xi   coordinate of current edge point
-    xyz_qp(3) = -qone ! z/zeta coordinate of current edge point
+    xyz(1) = +one ! x/xi   coordinate of current edge point
+    xyz(3) = -one ! z/zeta coordinate of current edge point
     !
     ! Loops over points on this edge
     !
     do jfa = 1,nep1d
       !
-      xyz_qp(2) = edgpts_qp(jfa) ! y/eta coordinate of current edge point
+      xyz(2) = xi_ep(jfa) ! y/eta coordinate of current edge point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! edge point at each of the interior solution points
@@ -3809,7 +3800,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1
-            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,ne) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -3828,14 +3819,14 @@ continue
     !
     ne = 3*nep1d+1 ! First point on this edge
     !
-    xyz_qp(2) = -qone ! y/eta  coordinate of current edge point
-    xyz_qp(3) = -qone ! z/zeta coordinate of current edge point
+    xyz(2) = -one ! y/eta  coordinate of current edge point
+    xyz(3) = -one ! z/zeta coordinate of current edge point
     !
     ! Loops over points on this edge
     !
     do ifa = 1,nep1d
       !
-      xyz_qp(1) = edgpts_qp(ifa) ! x/xi  coordinate of current edge point
+      xyz(1) = xi_ep(ifa) ! x/xi  coordinate of current edge point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! edge point at each of the interior solution points
@@ -3845,7 +3836,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1
-            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,ne) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -3864,14 +3855,14 @@ continue
     !
     ne = 4*nep1d+1 ! First point on this edge
     !
-    xyz_qp(2) = -qone ! y/eta  coordinate of current edge point
-    xyz_qp(3) = +qone ! z/zeta coordinate of current edge point
+    xyz(2) = -one ! y/eta  coordinate of current edge point
+    xyz(3) = +one ! z/zeta coordinate of current edge point
     !
     ! Loops over points on this edge
     !
     do ifa = 1,nep1d
       !
-      xyz_qp(1) = edgpts_qp(ifa) ! x/xi  coordinate of current edge point
+      xyz(1) = xi_ep(ifa) ! x/xi  coordinate of current edge point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! edge point at each of the interior solution points
@@ -3881,7 +3872,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1
-            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,ne) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -3900,14 +3891,14 @@ continue
     !
     ne = 5*nep1d+1 ! First point on this edge
     !
-    xyz_qp(1) = +qone ! x/xi   coordinate of current edge point
-    xyz_qp(3) = +qone ! z/zeta coordinate of current edge point
+    xyz(1) = +one ! x/xi   coordinate of current edge point
+    xyz(3) = +one ! z/zeta coordinate of current edge point
     !
     ! Loops over points on this edge
     !
     do jfa = 1,nep1d
       !
-      xyz_qp(2) = edgpts_qp(jfa) ! y/eta coordinate of current edge point
+      xyz(2) = xi_ep(jfa) ! y/eta coordinate of current edge point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! edge point at each of the interior solution points
@@ -3917,7 +3908,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1
-            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,ne) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -3936,14 +3927,14 @@ continue
     !
     ne = 6*nep1d+1 ! First point on this edge
     !
-    xyz_qp(2) = +qone ! y/eta  coordinate of current edge point
-    xyz_qp(3) = +qone ! z/zeta coordinate of current edge point
+    xyz(2) = +one ! y/eta  coordinate of current edge point
+    xyz(3) = +one ! z/zeta coordinate of current edge point
     !
     ! Loops over points on this edge
     !
     do ifa = 1,nep1d
       !
-      xyz_qp(1) = edgpts_qp(ifa) ! x/xi  coordinate of current edge point
+      xyz(1) = xi_ep(ifa) ! x/xi  coordinate of current edge point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! edge point at each of the interior solution points
@@ -3953,7 +3944,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1
-            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,ne) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -3972,14 +3963,14 @@ continue
     !
     ne = 7*nep1d+1 ! First point on this edge
     !
-    xyz_qp(1) = -qone ! x/xi   coordinate of current edge point
-    xyz_qp(3) = +qone ! z/zeta coordinate of current edge point
+    xyz(1) = -one ! x/xi   coordinate of current edge point
+    xyz(3) = +one ! z/zeta coordinate of current edge point
     !
     ! Loops over points on this edge
     !
     do jfa = 1,nep1d
       !
-      xyz_qp(2) = edgpts_qp(jfa) ! y/eta coordinate of current edge point
+      xyz(2) = xi_ep(jfa) ! y/eta coordinate of current edge point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! edge point at each of the interior solution points
@@ -3989,7 +3980,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1
-            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,ne) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -4008,14 +3999,14 @@ continue
     !
     ne = 8*nep1d+1 ! First point on this edge
     !
-    xyz_qp(1) = +qone ! x/xi   coordinate of current edge point
-    xyz_qp(2) = +qone ! y/eta  coordinate of current edge point
+    xyz(1) = +one ! x/xi   coordinate of current edge point
+    xyz(2) = +one ! y/eta  coordinate of current edge point
     !
     ! Loops over points on this edge
     !
     do kfa = 1,nep1d
       !
-      xyz_qp(3) = edgpts_qp(kfa) ! z/zeta coordinate of current edge point
+      xyz(3) = xi_ep(kfa) ! z/zeta coordinate of current edge point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! edge point at each of the interior solution points
@@ -4025,7 +4016,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1
-            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,ne) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -4044,14 +4035,14 @@ continue
     !
     ne = 9*nep1d+1 ! First point on this edge
     !
-    xyz_qp(1) = +qone ! x/xi   coordinate of current edge point
-    xyz_qp(2) = -qone ! y/eta  coordinate of current edge point
+    xyz(1) = +one ! x/xi   coordinate of current edge point
+    xyz(2) = -one ! y/eta  coordinate of current edge point
     !
     ! Loops over points on this edge
     !
     do kfa = 1,nep1d
       !
-      xyz_qp(3) = edgpts_qp(kfa) ! z/zeta coordinate of current edge point
+      xyz(3) = xi_ep(kfa) ! z/zeta coordinate of current edge point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! edge point at each of the interior solution points
@@ -4061,7 +4052,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1
-            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,ne) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -4080,14 +4071,14 @@ continue
     !
     ne = 10*nep1d+1 ! First point on this edge
     !
-    xyz_qp(1) = -qone ! x/xi   coordinate of current edge point
-    xyz_qp(2) = -qone ! y/eta  coordinate of current edge point
+    xyz(1) = -one ! x/xi   coordinate of current edge point
+    xyz(2) = -one ! y/eta  coordinate of current edge point
     !
     ! Loops over points on this edge
     !
     do kfa = 1,nep1d
       !
-      xyz_qp(3) = edgpts_qp(kfa) ! z/zeta coordinate of current edge point
+      xyz(3) = xi_ep(kfa) ! z/zeta coordinate of current edge point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! edge point at each of the interior solution points
@@ -4097,7 +4088,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1
-            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,ne) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -4116,14 +4107,14 @@ continue
     !
     ne = 11*nep1d+1 ! First point on this edge
     !
-    xyz_qp(1) = -qone ! x/xi   coordinate of current edge point
-    xyz_qp(2) = +qone ! y/eta  coordinate of current edge point
+    xyz(1) = -one ! x/xi   coordinate of current edge point
+    xyz(2) = +one ! y/eta  coordinate of current edge point
     !
     ! Loops over points on this edge
     !
     do kfa = 1,nep1d
       !
-      xyz_qp(3) = edgpts_qp(kfa) ! z/zeta coordinate of current edge point
+      xyz(3) = xi_ep(kfa) ! z/zeta coordinate of current edge point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! edge point at each of the interior solution points
@@ -4133,7 +4124,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1
-            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,ne) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -4144,10 +4135,10 @@ continue
     !
   end if
   !
-  ! Use the chop function to copy interp_mat_qp into return_value while also
+  ! Use the chop function to copy interp_mat into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( interp_mat_qp )
+  return_value = chop( interp_mat ) ! F2003 AUTO-REALLOC
   !
 end function InterpToEdge_Hexa
 !
@@ -4162,8 +4153,8 @@ function InterpToFace_Hexa(xi_sp,xi_fp) result(return_value)
   use polynomial_mod, only : eval_LagrangePoly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: xi_sp
-  real(wp), dimension(:), intent(in) :: xi_fp
+  real(mp), intent(in) :: xi_sp(:)
+  real(mp), intent(in) :: xi_fp(:)
   !
   !.. Function Return Value ..
   real(wp), allocatable :: return_value(:,:)
@@ -4174,12 +4165,13 @@ function InterpToFace_Hexa(xi_sp,xi_fp) result(return_value)
   integer :: nsp1d,nsp2d,nsp3d
   !
   !.. Local Arrays ..
-  real(qp), dimension(1:3) :: xyz_qp
-  real(qp), dimension(1:size(xi_sp)) :: solpts_qp
-  real(qp), dimension(1:size(xi_fp)) :: flxpts_qp
+  real(mp) :: xyz(1:3)
   !
   !.. Local Allocatable Arrays ..
-  real(qp), allocatable :: interp_mat_qp(:,:)
+  real(mp), allocatable :: interp_mat(:,:)
+  !
+  !.. Local Parameters ..
+  real(mp), parameter :: one = 1.0_mp
   !
 continue
   !
@@ -4206,20 +4198,8 @@ continue
   nfp3d = 6*nfp2d
   nsp3d = nsp1d**3
   !
-  ! Allocate the return array containing the
-  ! working precision interpolation matrix
-  !
-  allocate ( return_value(1:nsp3d,1:nfp3d) , source=zero , stat=ierr )
-  !
-  ! Create the interpolation matrix using quad precision
-  !
-  allocate ( interp_mat_qp(1:nsp3d,1:nfp3d) , source=qzero , stat=ierr )
-  !
-  ! Create quad precision versions of the arrays containing
-  ! the locations of the solution and flux points
-  !
-  solpts_qp = real( xi_sp , kind=qp )
-  flxpts_qp = real( xi_fp , kind=qp )
+  ! F2003 AUTO-REALLOC
+  interp_mat = init_array(nsp3d,nfp3d,real(zero,kind=kind(interp_mat)))
   !
   ! For each flux point, get the coefficients for interpolating
   ! a polynomial from the solution points to the flux point.
@@ -4239,15 +4219,15 @@ continue
   !
   ! Loops over points on this face
   !
-  xyz_qp(3) = -qone ! z/zeta coordinate of current face/flux point
+  xyz(3) = -one ! z/zeta coordinate of current face/flux point
   !
   do jfa = 1,nfp1d
     !
-    xyz_qp(2) = flxpts_qp(jfa) ! y/eta coordinate of current face/flux point
+    xyz(2) = xi_fp(jfa) ! y/eta coordinate of current face/flux point
     !
     do ifa = 1,nfp1d
       !
-      xyz_qp(1) = flxpts_qp(ifa) ! x/xi coordinate of current face/flux point
+      xyz(1) = xi_fp(ifa) ! x/xi coordinate of current face/flux point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! face/flux point at each of the interior solution points
@@ -4257,7 +4237,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1 ! Equivalent to: n = (k-1)*nsp2d + (j-1)*nsp1d + i
-            interp_mat_qp(n,nf) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,nf) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -4279,15 +4259,15 @@ continue
   !
   ! Loops over points on this face
   !
-  xyz_qp(3) = qone ! z/zeta coordinate of current face/flux point
+  xyz(3) = one ! z/zeta coordinate of current face/flux point
   !
   do jfa = 1,nfp1d
     !
-    xyz_qp(2) = flxpts_qp(jfa) ! y/eta coordinate of current face/flux point
+    xyz(2) = xi_fp(jfa) ! y/eta coordinate of current face/flux point
     !
     do ifa = 1,nfp1d
       !
-      xyz_qp(1) = flxpts_qp(ifa) ! x/xi coordinate of current face/flux point
+      xyz(1) = xi_fp(ifa) ! x/xi coordinate of current face/flux point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! face/flux point at each of the interior solution points
@@ -4297,7 +4277,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1 ! Equivalent to: n = (k-1)*nsp2d + (j-1)*nsp1d + i
-            interp_mat_qp(n,nf) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,nf) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -4319,15 +4299,15 @@ continue
   !
   ! Loops over points on this face
   !
-  xyz_qp(1) = qone ! x/xi coordinate of current face/flux point
+  xyz(1) = one ! x/xi coordinate of current face/flux point
   !
   do kfa = 1,nfp1d
     !
-    xyz_qp(3) = flxpts_qp(kfa) ! z/zeta coordinate of current face/flux point
+    xyz(3) = xi_fp(kfa) ! z/zeta coordinate of current face/flux point
     !
     do jfa = 1,nfp1d
       !
-      xyz_qp(2) = flxpts_qp(jfa) ! y/eta coordinate of current face/flux point
+      xyz(2) = xi_fp(jfa) ! y/eta coordinate of current face/flux point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! face/flux point at each of the interior solution points
@@ -4337,7 +4317,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1 ! Equivalent to: n = (k-1)*nsp2d + (j-1)*nsp1d + i
-            interp_mat_qp(n,nf) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,nf) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -4359,15 +4339,15 @@ continue
   !
   ! Loops over points on this face
   !
-  xyz_qp(1) = -qone ! x/xi coordinate of current face/flux point
+  xyz(1) = -one ! x/xi coordinate of current face/flux point
   !
   do kfa = 1,nfp1d
     !
-    xyz_qp(3) = flxpts_qp(kfa) ! z/zeta coordinate of current face/flux point
+    xyz(3) = xi_fp(kfa) ! z/zeta coordinate of current face/flux point
     !
     do jfa = 1,nfp1d
       !
-      xyz_qp(2) = flxpts_qp(jfa) ! y/eta coordinate of current face/flux point
+      xyz(2) = xi_fp(jfa) ! y/eta coordinate of current face/flux point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! face/flux point at each of the interior solution points
@@ -4377,7 +4357,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1 ! Equivalent to: n = (k-1)*nsp2d + (j-1)*nsp1d + i
-            interp_mat_qp(n,nf) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,nf) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -4399,15 +4379,15 @@ continue
   !
   ! Loops over points on this face
   !
-  xyz_qp(2) = -qone ! y/eta coordinate of current face/flux point
+  xyz(2) = -one ! y/eta coordinate of current face/flux point
   !
   do kfa = 1,nfp1d
     !
-    xyz_qp(3) = flxpts_qp(kfa) ! z/zeta coordinate of current face/flux point
+    xyz(3) = xi_fp(kfa) ! z/zeta coordinate of current face/flux point
     !
     do ifa = 1,nfp1d
       !
-      xyz_qp(1) = flxpts_qp(ifa) ! x/xi coordinate of current face/flux point
+      xyz(1) = xi_fp(ifa) ! x/xi coordinate of current face/flux point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! face/flux point at each of the interior solution points
@@ -4417,7 +4397,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1 ! Equivalent to: n = (k-1)*nsp2d + (j-1)*nsp1d + i
-            interp_mat_qp(n,nf) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,nf) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -4439,15 +4419,15 @@ continue
   !
   ! Loops over points on this face
   !
-  xyz_qp(2) = qone ! y/eta coordinate of current face/flux point
+  xyz(2) = one ! y/eta coordinate of current face/flux point
   !
   do kfa = 1,nfp1d
     !
-    xyz_qp(3) = flxpts_qp(kfa) ! z/zeta coordinate of current face/flux point
+    xyz(3) = xi_fp(kfa) ! z/zeta coordinate of current face/flux point
     !
     do ifa = 1,nfp1d
       !
-      xyz_qp(1) = flxpts_qp(ifa) ! x/xi coordinate of current face/flux point
+      xyz(1) = xi_fp(ifa) ! x/xi coordinate of current face/flux point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! face/flux point at each of the interior solution points
@@ -4457,7 +4437,7 @@ continue
         do j = 1,nsp1d
           do i = 1,nsp1d
             n = n + 1 ! Equivalent to: n = (k-1)*nsp2d + (j-1)*nsp1d + i
-            interp_mat_qp(n,nf) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            interp_mat(n,nf) = eval_LagrangePoly([i,j,k],xyz,xi_sp)
           end do
         end do
       end do
@@ -4467,10 +4447,10 @@ continue
     end do
   end do
   !
-  ! Use the chop function to copy interp_mat_qp into return_value while also
+  ! Use the chop function to copy interp_mat into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( interp_mat_qp )
+  return_value = chop( interp_mat ) ! F2003 AUTO-REALLOC
   !
 end function InterpToFace_Hexa
 !
@@ -4485,34 +4465,24 @@ function InterpToCell_Hexa(xi_old,xi_new) result(return_value)
   use polynomial_mod, only : eval_LagrangePoly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: xi_old
-  real(wp), dimension(:), intent(in) :: xi_new
+  real(mp), intent(in) :: xi_old(:)
+  real(mp), intent(in) :: xi_new(:)
   !
   !.. Function Return Value ..
-  real(wp), dimension(1:size(xi_new)**3,1:size(xi_old)**3) :: return_value
+  real(wp) :: return_value(1:size(xi_new)**3,1:size(xi_old)**3)
   !
   !.. Local Scalars ..
   integer :: o,oi,oj,ok,opts
   integer :: n,ni,nj,nk,npts
   !
   !.. Local Arrays ..
-  real(qp), dimension(1:3) :: xyz_qp
-  real(qp), dimension(1:size(xi_old)) :: xi_old_qp
-  real(qp), dimension(1:size(xi_new)) :: xi_new_qp
-  real(qp), dimension(1:size(xi_new)**3,1:size(xi_old)**3) :: interp_mat_qp
+  real(mp) :: xyz(1:3)
+  real(mp) :: interp_mat(1:size(xi_new)**3,1:size(xi_old)**3)
   !
 continue
   !
   opts = size(xi_old)
   npts = size(xi_new)
-  !
-  ! Create a quad precision copy of the array giving the solution points
-  !
-  xi_old_qp = real( xi_old , kind=qp )
-  !
-  ! Create a quad precision copy of the array giving the interpolation points
-  !
-  xi_new_qp = real( xi_new , kind=qp )
   !
   ! Evaluate the Lagrange polynomial at each interpolation point
   !
@@ -4524,20 +4494,19 @@ continue
         !
         do nk = 1,npts
           !
-          xyz_qp(3) = xi_new_qp(nk)
+          xyz(3) = xi_new(nk)
           !
           do nj = 1,npts
             !
-            xyz_qp(2) = xi_new_qp(nj)
+            xyz(2) = xi_new(nj)
             !
             do ni = 1,npts
               !
-              xyz_qp(1) = xi_new_qp(ni)
+              xyz(1) = xi_new(ni)
               !
               n = (nk-1)*npts*npts + (nj-1)*npts + ni
               !
-              interp_mat_qp(n,o) = eval_LagrangePoly([oi,oj,ok], &
-                                                     xyz_qp,xi_old_qp)
+              interp_mat(n,o) = eval_LagrangePoly([oi,oj,ok],xyz,xi_old)
               !
             end do
           end do
@@ -4547,10 +4516,10 @@ continue
     end do
   end do
   !
-  ! Use the chop function to copy interp_mat_qp into return_value while also
+  ! Use the chop function to copy interp_mat into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( interp_mat_qp )
+  return_value = chop( interp_mat )
   !
 end function InterpToCell_Hexa
 !
@@ -4562,25 +4531,20 @@ pure &
 function InterpWeights_Hexa(wts) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: wts
+  real(mp), intent(in) :: wts(:)
   !
   !.. Function Return Value ..
-  real(wp), dimension(1:size(wts)**3) :: return_value
+  real(wp) :: return_value(1:size(wts)**3)
   !
   !.. Local Scalars ..
   integer :: m,mi,mj,mk,npts
   !
   !.. Local Arrays ..
-  real(qp), dimension(1:size(wts)) :: wts_qp
-  real(qp), dimension(1:size(wts)**3) :: weights_qp
+  real(mp) :: weights(1:size(wts)**3)
   !
 continue
   !
   npts = size(wts)
-  !
-  ! Create a quad precision copy of the array giving the 1D quadrature weights
-  !
-  wts_qp = real( wts , kind=qp )
   !
   ! Evaluate the tensor product of the 1D weights
   !
@@ -4590,16 +4554,16 @@ continue
         !
         m = (mk-1)*npts*npts + (mj-1)*npts + mi
         !
-        weights_qp(m) = wts_qp(mi)*wts_qp(mj)*wts_qp(mk)
+        weights(m) = wts(mi)*wts(mj)*wts(mk)
         !
       end do
     end do
   end do
   !
-  ! Use the chop function to copy weights_qp into return_value while also
+  ! Use the chop function to copy weights into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( weights_qp )
+  return_value = chop( weights )
   !
 end function InterpWeights_Hexa
 !

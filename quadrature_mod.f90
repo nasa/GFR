@@ -88,7 +88,7 @@ subroutine find_valid_geometries()
   integer :: nc,ne,no,this_geom
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "find_valid_geometries"
+  character(len=:), parameter :: pname = "find_valid_geometries"
   !
 continue
   !
@@ -702,10 +702,8 @@ pure &
 function get_edge_quadrature(n,location) result(return_value)
   !
   use order_mod,      only : geom_solpts
-  use polynomial_mod, only : nodes_legendre_gauss
-  use polynomial_mod, only : nodes_legendre_gauss_lobatto
-  use polynomial_mod, only : weights_legendre_gauss
-  use polynomial_mod, only : weights_legendre_gauss_lobatto
+  use polynomial_mod, only : legendre_gauss_quadrature
+  use polynomial_mod, only : legendre_gauss_lobatto_quadrature
   !
   integer, intent(in) :: n
   integer, intent(in) :: location
@@ -714,33 +712,24 @@ function get_edge_quadrature(n,location) result(return_value)
   !
   integer :: ndim,npts,ierr
   !
-  real(qp), allocatable :: pts(:)
-  real(qp), allocatable :: wts(:)
-  real(qp), allocatable :: val_at_pts(:)
+  real(mp), allocatable :: pts(:)
+  real(mp), allocatable :: wts(:)
   !
 continue
   !
   ndim = geom_dimen(Geom_Edge)
   npts = geom_solpts(Geom_Edge,n)
   !
-  allocate ( pts(1:npts) , source=qzero , stat=ierr )
-  allocate ( wts(1:npts) , source=qzero , stat=ierr )
-  allocate ( val_at_pts(1:npts) , source=qzero , stat=ierr )
+  pts = init_array(npts,real(zero,kind=kind(pts))) ! F2003 AUTO-REALLOC
+  wts = init_array(npts,real(zero,kind=kind(wts))) ! F2003 AUTO-REALLOC
   !
-#ifdef DISABLE_PURE
-  call check_for_bad_number(__LINE__,__FILE__)
-#endif
   select case (location)
     !
     case (Legendre_Gauss)
       !
       ! Edge quadrature using Legendre Gauss nodes
       !
-      call nodes_legendre_gauss(npts,pts,val_at_pts)
-#ifdef DISABLE_PURE
-      call check_for_bad_number(__LINE__,__FILE__)
-#endif
-      call weights_legendre_gauss(npts,pts,val_at_pts,wts)
+      call legendre_gauss_quadrature(pts,wts)
 #ifdef DISABLE_PURE
       call check_for_bad_number(__LINE__,__FILE__)
 #endif
@@ -749,11 +738,7 @@ continue
       !
       ! Edge quadrature using Legendre Gauss Lobatto nodes
       !
-      call nodes_legendre_gauss_lobatto(n,pts,val_at_pts)
-#ifdef DISABLE_PURE
-      call check_for_bad_number(__LINE__,__FILE__)
-#endif
-      call weights_legendre_gauss_lobatto(n,val_at_pts,wts)
+      call legendre_gauss_lobatto_quadrature(pts,wts)
 #ifdef DISABLE_PURE
       call check_for_bad_number(__LINE__,__FILE__)
 #endif
@@ -762,30 +747,15 @@ continue
       !
       ! Default to Legendre Gauss points
       !
-      call nodes_legendre_gauss(npts,pts,val_at_pts)
-#ifdef DISABLE_PURE
-      call check_for_bad_number(__LINE__,__FILE__)
-#endif
-      call weights_legendre_gauss(npts,pts,val_at_pts,wts)
+      call legendre_gauss_quadrature(pts,wts)
 #ifdef DISABLE_PURE
       call check_for_bad_number(__LINE__,__FILE__)
 #endif
       !
   end select
   !
-  deallocate ( val_at_pts , stat=ierr )
-  !
-  allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
-  allocate ( return_value%wts(1:npts) , source=zero , stat=ierr )
-  !
-  return_value%pts(1,:) = chop( pts )
-  return_value%wts = chop( wts )
-  !
-  deallocate ( pts , stat=ierr )
-  deallocate ( wts , stat=ierr )
-#ifdef DISABLE_PURE
-  call check_for_bad_number(__LINE__,__FILE__)
-#endif
+  return_value%pts = reshape( chop(pts) , [ndim,npts] ) ! F2003 AUTO-REALLOC
+  return_value%wts = chop(wts) ! F2003 AUTO-REALLOC
   !
 end function get_edge_quadrature
 !
@@ -808,22 +778,15 @@ function get_tria_quadrature(p,location) result(return_value)
   !.. Function Result ..
   type(element_type) :: return_value
   !
-  !.. Local Declared Precision ..
-#ifdef DISABLE_QP
-  integer, parameter :: lp = wp
-#else
-  integer, parameter :: lp = qp
-#endif
-  !
   !.. Local Allocatable Arrays ..
-  real(lp), allocatable :: pts(:,:)
-  real(lp), allocatable :: wts(:)
+  real(mp), allocatable :: pts(:,:)
+  real(mp), allocatable :: wts(:)
   !
 continue
   !
   ! Get the solution points
   !
-  pts = TriNodes2D(p,location,real(zero,kind=lp)) ! F2003 AUTO-REALLOC
+  pts = TriNodes2D(p,location) ! F2003 AUTO-REALLOC
   !
   ! The method for computing the triangle quadrature weights is
   ! independent of the method for getting the point locations
@@ -854,8 +817,8 @@ function get_quad_quadrature(edge_elem) result(return_value)
   !
   integer :: i,j,l,n,ndim,npts,ierr
   !
-  real(qp), allocatable :: pts(:,:)
-  real(qp), allocatable :: wts(:)
+  real(mp), allocatable :: pts(:,:)
+  real(mp), allocatable :: wts(:)
   !
 continue
   !
@@ -866,41 +829,33 @@ continue
   !
   ! Compute the tensor product of the 1D solution points
   !
-  allocate ( pts(1:ndim,1:npts) , source=qzero , stat=ierr )
+  pts = init_array(ndim,npts,real(zero,kind=kind(pts))) ! F2003 AUTO-REALLOC
   !
   l = 0
   do j = 1,size(edge_elem%pts,dim=2)
     do i = 1,size(edge_elem%pts,dim=2)
       l = l + 1
-      pts(1,l) = real( edge_elem%pts(1,i) , kind=qp )
-      pts(2,l) = real( edge_elem%pts(1,j) , kind=qp )
+      pts(1,l) = real( edge_elem%pts(1,i) , kind=kind(pts) )
+      pts(2,l) = real( edge_elem%pts(1,j) , kind=kind(pts) )
     end do
   end do
   !
-  allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
-  !
-  return_value%pts = chop( pts )
-  !
-  deallocate ( pts , stat=ierr )
+  return_value%pts = chop( pts ) ! F2003 AUTO-REALLOC
   !
   ! Compute the tensor product of the 1D weights
   !
-  allocate ( wts(1:npts) , source=qzero , stat=ierr )
+  wts = init_array(npts,real(zero,kind=kind(wts))) ! F2003 AUTO-REALLOC
   !
   l = 0
   do j = 1,size(edge_elem%wts)
     do i = 1,size(edge_elem%wts)
       l = l + 1
-      wts(l) = real( edge_elem%wts(i) , kind=qp ) *  &
-               real( edge_elem%wts(j) , kind=qp )
+      wts(l) = real( edge_elem%wts(i) , kind=kind(wts) ) *  &
+               real( edge_elem%wts(j) , kind=kind(wts) )
     end do
   end do
   !
-  allocate ( return_value%wts(1:npts) , source=zero , stat=ierr )
-  !
-  return_value%wts = chop( wts )
-  !
-  deallocate ( wts , stat=ierr )
+  return_value%wts = chop( wts ) ! F2003 AUTO-REALLOC
   !
 end function get_quad_quadrature
 !
@@ -922,23 +877,16 @@ function get_tetr_quadrature(p,location) result(return_value)
   !.. Function Result ..
   type(element_type) :: return_value
   !
-  !.. Local Declared Precision ..
-#ifdef DISABLE_QP
-  integer, parameter :: lp = wp
-#else
-  integer, parameter :: lp = qp
-#endif
-  !
   !.. Local Allocatable Arrays ..
-  real(lp), allocatable :: pts(:,:)
-  real(lp), allocatable :: wts(:)
+  real(mp), allocatable :: pts(:,:)
+  real(mp), allocatable :: wts(:)
   !
 continue
   !
   ! Get the solution points
   !
-  pts = TetNodes3D(p,location,real(zero,kind=lp)) ! F2003 AUTO-REALLOC
- !pts = TetNodes3D(p,location,real(zero,kind=lp),use_Gauss) ! F2003 AUTO-REALLOC
+  pts = TetNodes3D(p,location) ! F2003 AUTO-REALLOC
+ !pts = TetNodes3D(p,location,use_Gauss) ! F2003 AUTO-REALLOC
   !
   ! The method for computing the tetrahedra quadrature weights is
   ! independent of the method for getting the point locations
@@ -971,19 +919,12 @@ function get_pyra_quadrature(p,location) result(return_value)
   !.. Function Result ..
   type(element_type) :: return_value
   !
-  !.. Local Declared Precision ..
-#ifdef DISABLE_QP
-  integer, parameter :: lp = wp
-#else
-  integer, parameter :: lp = qp
-#endif
-  !
   !.. Local Scalars ..
   integer :: node_loc
   !
   !.. Local Allocatable Arrays ..
-  real(lp), allocatable :: pts(:,:)
-  real(lp), allocatable :: wts(:)
+  real(mp), allocatable :: pts(:,:)
+  real(mp), allocatable :: wts(:)
   !
 continue
   !
@@ -994,7 +935,7 @@ continue
   !
   ! Get the solution points
   !
-  pts = PyrNodes3D(p,real(zero,kind=lp),node_loc) ! F2003 AUTO-REALLOC
+  pts = PyrNodes3D(p,node_loc) ! F2003 AUTO-REALLOC
   !
   ! The method for computing the pyramid quadrature weights is
   ! independent of the method for getting the point locations
@@ -1028,24 +969,16 @@ function get_pris_quadrature(p,tria_loc,edge_loc) result(return_value)
   !.. Function Result ..
   type(element_type) :: return_value
   !
-  !.. Local Declared Precision ..
-#ifdef DISABLE_QP
-  integer, parameter :: lp = wp
-#else
-  integer, parameter :: lp = qp
-#endif
-  !
   !.. Local Allocatable Arrays ..
-  real(lp), allocatable :: pts(:,:)
-  real(lp), allocatable :: wts(:)
+  real(mp), allocatable :: pts(:,:)
+  real(mp), allocatable :: wts(:)
   !
 continue
   !
   ! Get the solution points
   !
-  pts = PriNodes3D(p,tria_loc,edge_loc,real(zero,kind=lp)) ! F2003 AUTO-REALLOC
- !pts = PriNodes3D(p,tria_loc,edge_loc, &
- !                 real(zero,kind=lp),tria_edge_loc) ! F2003 AUTO-REALLOC
+  pts = PriNodes3D(p,tria_loc,edge_loc) ! F2003 AUTO-REALLOC
+ !pts = PriNodes3D(p,tria_loc,edge_loc,tria_edge_loc) ! F2003 AUTO-REALLOC
   !
   ! The method for computing the prism quadrature weights is
   ! independent of the method for getting the point locations
@@ -1075,8 +1008,8 @@ function get_hexa_quadrature(edge_elem) result(return_value)
   !
   integer :: i,j,k,l,n,ndim,npts,ierr
   !
-  real(qp), allocatable :: pts(:,:)
-  real(qp), allocatable :: wts(:)
+  real(mp), allocatable :: pts(:,:)
+  real(mp), allocatable :: wts(:)
   !
 continue
   !
@@ -1087,47 +1020,39 @@ continue
   !
   ! Compute the tensor product of the 1D solution points
   !
-  allocate ( pts(1:ndim,1:npts) , source=qzero , stat=ierr )
+  pts = init_array(ndim,npts,real(zero,kind=kind(pts))) ! F2003 AUTO-REALLOC
   !
   l = 0
   do k = 1,size(edge_elem%pts,dim=2)
     do j = 1,size(edge_elem%pts,dim=2)
       do i = 1,size(edge_elem%pts,dim=2)
         l = l + 1
-        pts(1,l) = real( edge_elem%pts(1,i) , kind=qp )
-        pts(2,l) = real( edge_elem%pts(1,j) , kind=qp )
-        pts(3,l) = real( edge_elem%pts(1,k) , kind=qp )
+        pts(1,l) = real( edge_elem%pts(1,i) , kind=kind(pts) )
+        pts(2,l) = real( edge_elem%pts(1,j) , kind=kind(pts) )
+        pts(3,l) = real( edge_elem%pts(1,k) , kind=kind(pts) )
       end do
     end do
   end do
   !
-  allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
-  !
-  return_value%pts = chop( pts )
-  !
-  deallocate ( pts , stat=ierr )
+  return_value%pts = chop( pts ) ! F2003 AUTO-REALLOC
   !
   ! Compute the tensor product of the 1D weights
   !
-  allocate ( wts(1:npts) , source=qzero , stat=ierr )
+  wts = init_array(npts,real(zero,kind=kind(wts))) ! F2003 AUTO-REALLOC
   !
   l = 0
   do k = 1,size(edge_elem%wts)
     do j = 1,size(edge_elem%wts)
       do i = 1,size(edge_elem%wts)
         l = l + 1
-        wts(l) = real( edge_elem%wts(i) , kind=qp ) * &
-                 real( edge_elem%wts(j) , kind=qp ) * &
-                 real( edge_elem%wts(k) , kind=qp )
+        wts(l) = real( edge_elem%wts(i) , kind=kind(wts) ) * &
+                 real( edge_elem%wts(j) , kind=kind(wts) ) * &
+                 real( edge_elem%wts(k) , kind=kind(wts) )
       end do
     end do
   end do
   !
-  allocate ( return_value%wts(1:npts) , source=zero , stat=ierr )
-  !
-  return_value%wts = chop( wts )
-  !
-  deallocate ( wts , stat=ierr )
+  return_value%wts = chop( wts ) ! F2003 AUTO-REALLOC
   !
 end function get_hexa_quadrature
 !
@@ -1540,31 +1465,32 @@ continue
 #endif
   function get_edge_points(n,nloc) result(return_value)
     !
+    !.. Use Statements ..
     use order_mod,      only : geom_solpts
-    use polynomial_mod, only : nodes_legendre_gauss
-    use polynomial_mod, only : nodes_legendre_gauss_lobatto
-    use polynomial_mod, only : weights_legendre_gauss
-    use polynomial_mod, only : weights_legendre_gauss_lobatto
+    use polynomial_mod, only : legendre_gauss_quadrature
+    use polynomial_mod, only : legendre_gauss_lobatto_quadrature
     !
+    !.. Formal Arguments ..
     integer, intent(in) :: n
     integer, intent(in) :: nloc
     !
+    !.. Function Result ..
     type(element_type) :: return_value
     !
+    !.. Local Scalars ..
     integer :: nd,np,ierr
     !
-    real(qp), allocatable :: pts(:)
-    real(qp), allocatable :: wts(:)
-    real(qp), allocatable :: val_at_pts(:)
+    !.. Local Allocatable Arrays ..
+    real(mp), allocatable :: pts(:)
+    real(mp), allocatable :: wts(:)
     !
   continue
     !
     nd = geom_dimen(Geom_Edge)
     np = geom_solpts(Geom_Edge,n)
     !
-    allocate ( pts(1:np) , source=qzero , stat=ierr )
-    allocate ( wts(1:np) , source=qzero , stat=ierr )
-    allocate ( val_at_pts(1:np) , source=qzero , stat=ierr )
+    pts = init_array(np,real(zero,kind=kind(pts))) ! F2003 AUTO-REALLOC
+    wts = init_array(np,real(zero,kind=kind(wts))) ! F2003 AUTO-REALLOC
     !
     select case (nloc)
       !
@@ -1572,47 +1498,34 @@ continue
         !
         ! Edge quadrature using Legendre Gauss nodes
         !
-        call nodes_legendre_gauss(np,pts,val_at_pts)
-        call weights_legendre_gauss(np,pts,val_at_pts,wts)
+        call legendre_gauss_quadrature(pts,wts)
         !
       case (Legendre_Gauss_Lobatto)
         !
         ! Edge quadrature using Legendre Gauss Lobatto nodes
         !
-        call nodes_legendre_gauss_lobatto(n,pts,val_at_pts)
-        call weights_legendre_gauss_lobatto(n,val_at_pts,wts)
+        call legendre_gauss_lobatto_quadrature(pts,wts)
         !
       case (3)
         !
         ! Edge quadrature using [-1,Legendre Gauss nodes,+1]
         !
-        call nodes_legendre_gauss(np,pts,val_at_pts)
-        call weights_legendre_gauss(np,pts,val_at_pts,wts)
+        call legendre_gauss_quadrature(pts,wts)
         !
     end select
     !
-    deallocate ( val_at_pts , stat=ierr )
-    !
     if (nloc == 3) then
       !
-      allocate ( return_value%pts(1:nd,1:np+2) , source=zero , stat=ierr )
-      allocate ( return_value%wts(1:np+2) , source=zero , stat=ierr )
-      !
-      return_value%pts(1,:) = [-one,chop( pts ),+one]
-      return_value%wts = [zero,chop( wts ),zero]
+      ! F2003 AUTO-REALLOC
+      return_value%pts = reshape( [-one,chop(pts),+one] , [nd,np+2] )
+      return_value%wts = [zero,chop(wts),zero] ! F2003 AUTO-REALLOC
       !
     else
       !
-      allocate ( return_value%pts(1:nd,1:np) , source=zero , stat=ierr )
-      allocate ( return_value%wts(1:np) , source=zero , stat=ierr )
-      !
-      return_value%pts(1,:) = chop( pts )
-      return_value%wts = chop( wts )
+      return_value%pts = reshape( chop(pts) , [nd,np] ) ! F2003 AUTO-REALLOC
+      return_value%wts = chop(wts) ! F2003 AUTO-REALLOC
       !
     end if
-    !
-    deallocate ( pts , stat=ierr )
-    deallocate ( wts , stat=ierr )
     !
   end function get_edge_points
   !
@@ -1623,15 +1536,20 @@ continue
 #endif
   function get_quad_points(edge) result(return_value)
     !
+    !.. Use Statements ..
     use order_mod, only : geom_solpts
     !
+    !.. Formal Arguments ..
     type(element_type), intent(in) :: edge
     !
+    !.. Function Result ..
     type(element_type) :: return_value
     !
+    !.. Local Scalars ..
     integer :: i,j,l,nd,np,ierr
     !
-    real(qp), allocatable :: pts(:,:)
+    !.. Local Allocatable Arrays ..
+    real(mp), allocatable :: pts(:,:)
     !
   continue
     !
@@ -1640,30 +1558,25 @@ continue
     !
     ! Compute the tensor product of the 1D solution points
     !
-    allocate ( pts(1:nd,1:np) , source=qzero , stat=ierr )
+    pts = init_array(nd,np,real(zero,kind=kind(pts))) ! F2003 AUTO-REALLOC
     !
     l = 0
     do j = 1,size(edge%pts,dim=2)
       do i = 1,size(edge%pts,dim=2)
         l = l + 1
-        pts(1,l) = real( edge%pts(1,i) , kind=qp )
-        pts(2,l) = real( edge%pts(1,j) , kind=qp )
+        pts(1,l) = real( edge%pts(1,i) , kind=kind(pts) )
+        pts(2,l) = real( edge%pts(1,j) , kind=kind(pts) )
       end do
     end do
     !
-    allocate ( return_value%pts(1:nd,1:np) , source=zero , stat=ierr )
+    return_value%pts = chop( pts ) ! F2003 AUTO-REALLOC
     !
-    return_value%pts = chop( pts )
-    !
-    deallocate ( pts , stat=ierr )
-    !
-    allocate ( return_value%wts(1:np) , source=zero , stat=ierr )
-    !
+    return_value%wts = init_array(np,zero) ! F2003 AUTO-REALLOC
     l = 0
     do j = 1,size(edge%wts)
       do i = 1,size(edge%wts)
         l = l + 1
-        return_value%wts(l) = real( l , kind=wp )
+        return_value%wts(l) = real( l , kind=kind(return_value%wts) )
       end do
     end do
     !
@@ -1676,15 +1589,20 @@ continue
 #endif
   function get_hexa_points(edge) result(return_value)
     !
+    !.. Use Statements ..
     use order_mod, only : geom_solpts
     !
+    !.. Formal Arguments ..
     type(element_type), intent(in) :: edge
     !
+    !.. Function Result ..
     type(element_type) :: return_value
     !
+    !.. Local Scalars ..
     integer :: i,j,k,l,nd,np,ierr
     !
-    real(qp), allocatable :: pts(:,:)
+    !.. Local Allocatable Arrays ..
+    real(mp), allocatable :: pts(:,:)
     !
   continue
     !
@@ -1693,34 +1611,29 @@ continue
     !
     ! Compute the tensor product of the 1D solution points
     !
-    allocate ( pts(1:nd,1:np) , source=qzero , stat=ierr )
+    pts = init_array(nd,np,real(zero,kind=kind(pts))) ! F2003 AUTO-REALLOC
     !
     l = 0
     do k = 1,size(edge%pts,dim=2)
       do j = 1,size(edge%pts,dim=2)
         do i = 1,size(edge%pts,dim=2)
           l = l + 1
-          pts(1,l) = real( edge%pts(1,i) , kind=qp )
-          pts(2,l) = real( edge%pts(1,j) , kind=qp )
-          pts(3,l) = real( edge%pts(1,k) , kind=qp )
+          pts(1,l) = real( edge%pts(1,i) , kind=kind(pts) )
+          pts(2,l) = real( edge%pts(1,j) , kind=kind(pts) )
+          pts(3,l) = real( edge%pts(1,k) , kind=kind(pts) )
         end do
       end do
     end do
     !
-    allocate ( return_value%pts(1:nd,1:np) , source=zero , stat=ierr )
+    return_value%pts = chop( pts ) ! F2003 AUTO-REALLOC
     !
-    return_value%pts = chop( pts )
-    !
-    deallocate ( pts , stat=ierr )
-    !
-    allocate ( return_value%wts(1:np) , source=zero , stat=ierr )
-    !
+    return_value%wts = init_array(np,zero) ! F2003 AUTO-REALLOC
     l = 0
     do k = 1,size(edge%wts)
       do j = 1,size(edge%wts)
         do i = 1,size(edge%wts)
           l = l + 1
-          return_value%wts(l) = real( l , kind=wp )
+          return_value%wts(l) = real( l , kind=kind(return_value%wts) )
         end do
       end do
     end do
@@ -1911,7 +1824,6 @@ end subroutine dump_solpts
 !
 !###############################################################################
 !
-include "Functions/np2n.f90"
 #include "Functions/check_for_bad_number.f90"
 #include "Functions/debug_timer.f90"
 !
