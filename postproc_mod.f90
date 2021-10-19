@@ -2031,6 +2031,9 @@ subroutine get_output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
   integer(CBT) :: ivar_s
   !
+  logical(lk) :: marker_was_not_allocated
+  logical(lk) :: scaled_marker_was_not_allocated
+  !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: vartmp_at_sp(:)
   real(wp), allocatable :: spcvar(:,:)
@@ -3027,9 +3030,11 @@ continue
   !   !
   !   ! Compute the resolution marker if it has yet to be computed
   !   !
-  !   if (Limiter_Option >= 0 .or. &
-  !       .not. allocated(marker) .or. &
-  !       .not. allocated(scaled_marker)) then
+  !   marker_was_not_allocated = fals
+  !   scaled_marker_was_not_allocated = fals
+  !   if (.not. allocated(marker) .or. .not. allocated(scaled_marker)) then
+  !     marker_was_not_allocated = ( .not. allocated(marker) )
+  !     scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
   !     call resolution_indicator(apply_projection=fals)
   !   end if
   !   !
@@ -3080,6 +3085,18 @@ continue
   !   call interpolate_for_output( vartmp_at_sp , vartmp )
   !   !
   !   call cgns_write_field_data
+  !   !
+  !   ! Deallocate marker and/or scaled_marker if they were not originally
+  !   ! allocated when this case construct was entered.
+  !   !
+  !   if (marker_was_not_allocated) then
+  !     call deallocate_marker(pname)
+  !   end if
+  !   !
+  !   if (scaled_marker_was_not_allocated) then
+  !     call deallocate_scaled_marker(pname)
+  !   end if
+  !   !
   !   !!}}}
   ! case ("JumpMarker")
   !   !!{{{
