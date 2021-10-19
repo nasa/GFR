@@ -2,6 +2,13 @@ subroutine check_for_bad_number(line_num,file_name,ival)
   !
 #define USE_GATHER
   !.. Use Statements ..
+  use module_kind_types, only : ldk,int_mpi
+  use module_kind_types, only : mypnum,ncpu,mpierr
+  use module_kind_types, only : mpi_inttyp
+  use module_kind_types, only : MPI_IN_PLACE,MPI_COMM_WORLD,MPI_MAX
+  use module_kind_types, only : mpi_allgather
+  use module_kind_types, only : mpi_allreduce
+  use module_kind_types, only : stop_gfr,stop_mpi
 #ifndef SPECIAL_FOR_GCC
   use, intrinsic :: ieee_exceptions, only : ieee_usual
   use, intrinsic :: ieee_exceptions, only : ieee_get_flag
