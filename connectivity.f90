@@ -2274,11 +2274,22 @@ pure function GetFluxPointRotation_Quad(abcd_left,abcd_right) &
  !integer, dimension(1:face_order+1,1:face_order+1) :: fp_idx
   !
   !.. Local Parameters ..
-  integer, parameter :: rotation(1:4,1:8) = &
-                                         reshape( [1,2,3,4, 4,3,2,1, &
-                                                   3,4,1,2, 2,1,4,3, &
-                                                   2,1,3,4, 4,3,1,2, &
-                                                   3,4,2,1, 1,2,4,3] , [4,8] )
+ !integer, parameter :: rotation(1:4,1:8) = reshape( [1,2,3,4, &
+ !                                                    4,3,2,1, &
+ !                                                    3,4,1,2, &
+ !                                                    2,1,4,3, &
+ !                                                    2,1,3,4, &
+ !                                                    4,3,1,2, &
+ !                                                    3,4,2,1, &
+ !                                                    1,2,4,3] , [4,8] )
+  integer, parameter :: rotation(1:4,1:8) = reshape( [1,2,3,4, &
+                                                      4,3,2,1, &
+                                                      2,1,4,3, &
+                                                      3,4,1,2, &
+                                                      1,4,3,2, &
+                                                      2,3,4,1, &
+                                                      4,1,2,3, &
+                                                      3,2,1,4] , [4,8] )
   !
 continue
   !
@@ -2514,11 +2525,22 @@ pure function RotateFluxPoints_Quad(abcd_left,abcd_right,face_order) &
   integer, dimension(1:face_order+1,1:face_order+1) :: fp_idx
   !
   !.. Local Parameters ..
-  integer, parameter :: rotation(1:4,1:8) = &
-                                         reshape( [1,2,3,4, 4,3,2,1, &
-                                                   3,4,1,2, 2,1,4,3, &
-                                                   2,1,3,4, 4,3,1,2, &
-                                                   3,4,2,1, 1,2,4,3] , [4,8] )
+ !integer, parameter :: rotation(1:4,1:8) = reshape( [1,2,3,4, &
+ !                                                    4,3,2,1, &
+ !                                                    3,4,1,2, &
+ !                                                    2,1,4,3, &
+ !                                                    2,1,3,4, &
+ !                                                    4,3,1,2, &
+ !                                                    3,4,2,1, &
+ !                                                    1,2,4,3] , [4,8] )
+  integer, parameter :: rotation(1:4,1:8) = reshape( [1,2,3,4, &
+                                                      4,3,2,1, &
+                                                      2,1,4,3, &
+                                                      3,4,1,2, &
+                                                      1,4,3,2, &
+                                                      2,3,4,1, &
+                                                      4,1,2,3, &
+                                                      3,2,1,4] , [4,8] )
   !
 continue
   !
