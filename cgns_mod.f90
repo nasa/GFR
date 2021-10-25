@@ -6857,15 +6857,32 @@ pure function reorder_cgns_tetr_pts(pts,elem_type,reverse) result(return_value)
   logical(lk) :: reorder_to_cgns
   !
   !.. Local Parameters ..
-  integer, parameter :: tetr4(4) = [1,4,2,3]
+ !integer, parameter :: tetr4(4) = [1,4,2,3]
+  integer, parameter :: tetr4(4) = [1,2,3,4]
   !
-  integer, parameter :: tetr10(10) = [1,8,4,5,9,2,7,10,6,3]
+ !integer, parameter :: tetr10(10) = [1,8,4,5,9,2,7,10,6,3]
+  integer, parameter :: tetr10(10) = [1,5, 2, &
+                                        7, 6, &
+                                           3, &
+                                        8, 9, &
+                                          10, &
+                                           4]
   !
   integer, parameter :: tetr16(16) = [ 1,11,12, 4, 5,14, 6,13, &
                                        2,10,16, 7, 9,15, 8, 3]
   !
-  integer, parameter :: tetr20(20) = [ 1,11,12, 4, 5,18,14, 6,13, 2, &
-                                      10,20,16,17,19, 7, 9,15, 8, 3]
+ !integer, parameter :: tetr20(20) = [ 1,11,12, 4, 5,18,14, 6,13, 2, &
+ !                                    10,20,16,17,19, 7, 9,15, 8, 3]
+  integer, parameter :: tetr20(20) = [ 1, 5, 6, 2, &
+                                         10,17, 7, &
+                                             9, 8, &
+                                                3, &
+                                         11,18,13, &
+                                            20,19, &
+                                               15, &
+                                            12,14, &
+                                               16, &
+                                                4]
   !
   integer, parameter :: tetr22(22) = [ 1,14,15,16, 4, 5,19, 6,18, 7,17, &
                                        2,13,22, 8,12,21, 9,11,20,10, 3]
@@ -6876,11 +6893,26 @@ pure function reorder_cgns_tetr_pts(pts,elem_type,reverse) result(return_value)
                                       31,24,29, 8,12,32,21, &
                                       25,30, 9,11,20,10, 3]
   !
-  integer, parameter :: tetr35(35) = [ 1,14,15,16, 4, 5,26, &
-                                      28,19, 6,27,18, 7,17, &
-                                       2,13,33,34,22,23,35, &
-                                      31,24,29, 8,12,32,21, &
-                                      25,30, 9,11,20,10, 3]
+ !integer, parameter :: tetr35(35) = [ 1,14,15,16, 4, 5,26, &
+ !                                    28,19, 6,27,18, 7,17, &
+ !                                     2,13,33,34,22,23,35, &
+ !                                    31,24,29, 8,12,32,21, &
+ !                                    25,30, 9,11,20,10, 3]
+  integer, parameter :: tetr35(35) = [ 1, 5, 6, 7, 2, &
+                                         13,23,24, 8, &
+                                            12,25, 9, &
+                                               11,10, &
+                                                   3, &
+                                         14,23,27,17, &
+                                            33,35,29, &
+                                               32,30, &
+                                                  20, &
+                                            15,28,18, &
+                                               34,31, &
+                                                  21, &
+                                               16,19, &
+                                                  22, &
+                                                   4]
   !
 continue
   !
