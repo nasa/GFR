@@ -25,28 +25,17 @@ module connectivity_mod
   !
   public :: GetFaceNodes_for_QuadFace
   public :: GetFaceNodes_for_TriaFace
+  !
   public :: RotateFluxPoints_Quad
+  public :: GetFluxPointRotation_Quad
+  !
   public :: RotateFluxPoints_Tria
+  public :: GetFluxPointRotation_Tria
   !
   !
   ! #########################################
   ! #####   MODULE GENERIC INTERFACES   #####
   ! #########################################
-  !
-  interface RotateFluxPoints_Edge
-    module procedure RotateFluxPoints_Edge, &
-                     FluxPointRotation_Edge
-  end interface RotateFluxPoints_Edge
-  !
-  interface RotateFluxPoints_Quad
-    module procedure RotateFluxPoints_Quad, &
-                     FluxPointRotation_Quad
-  end interface RotateFluxPoints_Quad
-  !
-  interface RotateFluxPoints_Tria
-    module procedure RotateFluxPoints_Tria, &
-                     FluxPointRotation_Tria
-  end interface RotateFluxPoints_Tria
   !
 contains
 !
@@ -1598,8 +1587,8 @@ continue
       ! points for the right cell is just the reverse ordering of the flux
       ! points for the left cell.
       !
-      rotation = RotateFluxPoints_Edge(left_nodes(1:nfnods), &
-                                       right_nodes(1:nfnods))
+      rotation = GetFluxPointRotation_Edge(left_nodes(1:nfnods), &
+                                          right_nodes(1:nfnods))
       !
     else if (face_geom == Geom_Quad) then
       !
@@ -1615,8 +1604,8 @@ continue
       ! this rotation to get the correct ordering of the flux points for the
       ! right cell relative to the flux points of the left cell.
       !
-      rotation = RotateFluxPoints_Quad(left_nodes(1:nfnods), &
-                                       right_nodes(1:nfnods))
+      rotation = GetFluxPointRotation_Quad(left_nodes(1:nfnods), &
+                                          right_nodes(1:nfnods))
       !
     else if (face_geom == Geom_Tria) then
       !
@@ -1624,8 +1613,8 @@ continue
                                      nodes_of_cell(r1:r2),right_side, &
                                      left_nodes(1:nfnods),right_nodes(1:nfnods))
       !
-      rotation = RotateFluxPoints_Tria(left_nodes(1:nfnods), &
-                                       right_nodes(1:nfnods))
+      rotation = GetFluxPointRotation_Tria(left_nodes(1:nfnods), &
+                                          right_nodes(1:nfnods))
       !
     end if
     !
@@ -2140,7 +2129,7 @@ end subroutine GetFaceNodes_for_TriaFace
 !
 !###############################################################################
 !
-pure function FluxPointRotation_Edge(ab_left,ab_right) result(return_value)
+pure function GetFluxPointRotation_Edge(ab_left,ab_right) result(return_value)
   !
   !.. Formal Arguments ..
   integer, dimension(:), intent(in) :: ab_left
@@ -2200,7 +2189,7 @@ continue
     !
   end if
   !
-end function FluxPointRotation_Edge
+end function GetFluxPointRotation_Edge
 !
 !###############################################################################
 !
@@ -2267,7 +2256,8 @@ end function RotateFluxPoints_Edge
 !
 !###############################################################################
 !
-pure function FluxPointRotation_Quad(abcd_left,abcd_right) result(return_value)
+pure function GetFluxPointRotation_Quad(abcd_left,abcd_right) &
+                                 result(return_value)
   !
   !.. Formal Arguments ..
   integer, dimension(:), intent(in) :: abcd_left
@@ -2502,7 +2492,7 @@ continue
     !
   end if
   !
-end function FluxPointRotation_Quad
+end function GetFluxPointRotation_Quad
 !
 !###############################################################################
 !
@@ -2757,8 +2747,8 @@ end function RotateFluxPoints_Tria
 !
 !###############################################################################
 !
-pure function FluxPointRotation_Tria(left_nodes,right_nodes) &
-                              result(return_value)
+pure function GetFluxPointRotation_Tria(left_nodes,right_nodes) &
+                                 result(return_value)
   !
   !.. Formal Arguments ..
   integer, dimension(:), intent(in) :: left_nodes
@@ -2771,7 +2761,7 @@ continue
   !
   return_value = 0
   !
-end function FluxPointRotation_Tria
+end function GetFluxPointRotation_Tria
 !
 !###############################################################################
 !
