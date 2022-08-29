@@ -608,6 +608,12 @@ module ovar
   !
   integer, public, save :: interpto_input_mode = 1
   !
+  ! Turn quadrature/matrix output on by setting matrix_output_unit to anything
+  ! besides iout (which is a parameter variable set to the iso_fortran_env
+  ! constant output_unit, which historically has the value 6)
+  integer, public, save :: matrix_output_unit = iout
+ !integer, public, save :: matrix_output_unit = 9203
+  !
   !$ACC DECLARE CREATE(walls_are_exact,sub_inflow_method, &
   !$ACC&               turb_is_on,include_tke_in_energy, &
   !$ACC&               time,itcur,gam,pr,aref,rhoref,tref,tmin,tmax, &
