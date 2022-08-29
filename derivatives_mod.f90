@@ -10,6 +10,7 @@ module derivatives_mod
   use generic_types_mod, only : matrix => matrix_gpu_t
   use generic_types_mod, only : create_matrix_sparsity
   use generic_types_mod, only : output_sparsity
+  use generic_types_mod, only : output_matrix
   !
   implicit none
   !
@@ -305,6 +306,10 @@ continue
           call output_sparsity( deriv(this_geom,this_order)%d(1) , array_name )
 #endif
           !
+          error_message = "dx Derivative"
+          call output_matrix(deriv(this_geom,this_order)%d(1), &
+                             error_message,this_geom,this_order)
+          !
         case (Geom_Quad)
           !
           deriv(this_geom,this_order)%d(:) = &
@@ -315,6 +320,14 @@ continue
           write (array_name,10) "quad","y",this_order
           call output_sparsity( deriv(this_geom,this_order)%d(2) , array_name )
 #endif
+          !
+          error_message = "dx Derivative"
+          call output_matrix(deriv(this_geom,this_order)%d(1), &
+                             error_message,this_geom,this_order)
+          !
+          error_message = "dy Derivative"
+          call output_matrix(deriv(this_geom,this_order)%d(2), &
+                             error_message,this_geom,this_order)
           !
         case (Geom_Hexa)
           !
@@ -328,6 +341,18 @@ continue
           write (array_name,10) "hexa","z",this_order
           call output_sparsity( deriv(this_geom,this_order)%d(3) , array_name )
 #endif
+          !
+          error_message = "dx Derivative"
+          call output_matrix(deriv(this_geom,this_order)%d(1), &
+                             error_message,this_geom,this_order)
+          !
+          error_message = "dy Derivative"
+          call output_matrix(deriv(this_geom,this_order)%d(2), &
+                             error_message,this_geom,this_order)
+          !
+          error_message = "dz Derivative"
+          call output_matrix(deriv(this_geom,this_order)%d(3), &
+                             error_message,this_geom,this_order)
           !
         case (Geom_Tria,Geom_Tetr,Geom_Pyra,Geom_Pris)
           !
