@@ -1765,24 +1765,40 @@ continue
   call debug_timer(stop_timer,"creating grid%xyz")
   call debug_timer(start_timer,"scaling grid%xyz")
   !
-  ! Apply the grid scaling factor to the coordinates of the grid nodes
-  !
+  ! Write the extents of the grid in each dimension to stdout
   !
   xmin_idx = minloc(grid%xyz(1,:),dim=1)
   xmax_idx = maxloc(grid%xyz(1,:),dim=1)
-  ymin_idx = minloc(grid%xyz(2,:),dim=1)
-  ymax_idx = maxloc(grid%xyz(2,:),dim=1)
-  zmin_idx = minloc(grid%xyz(3,:),dim=1)
-  zmax_idx = maxloc(grid%xyz(3,:),dim=1)
   !
-  write (iout,4001) grid%xyz(1,xmin_idx),grid%xyz(1,xmax_idx), &
-                    grid%xyz(2,ymin_idx),grid%xyz(2,ymax_idx), &
-                    grid%xyz(3,zmin_idx),grid%xyz(3,zmax_idx)
+  if (size(grid%xyz,dim=1) >= 2) then
+    ymin_idx = minloc(grid%xyz(2,:),dim=1)
+    ymax_idx = maxloc(grid%xyz(2,:),dim=1)
+  end if
+  !
+  if (size(grid%xyz,dim=1) >= 3) then
+    zmin_idx = minloc(grid%xyz(3,:),dim=1)
+    zmax_idx = maxloc(grid%xyz(3,:),dim=1)
+  end if
+  !
+  write (iout,4001) size(grid%xyz,dim=1), &
+                    grid%xyz(1,xmin_idx),grid%xyz(1,xmax_idx)
+  !
+  if (size(grid%xyz,dim=1) >= 2) then
+    write (iout,4002) "y","y",grid%xyz(2,ymin_idx),grid%xyz(2,ymax_idx)
+  end if
+  !
+  if (size(grid%xyz,dim=1) >= 3) then
+    write (iout,4002) "z","z",grid%xyz(3,zmin_idx),grid%xyz(3,zmax_idx)
+  end if
+  write (iout,*)
   flush (iout)
   !
-  4001 format (/,2x,"grid%xyz  [min-x,max-x] = [",es14.6,",",es14.6,"]",/, &
-                        :,t13,"[min-y,max-y] = [",es14.6,",",es14.6,"]",/, &
-                        :,t13,"[min-z,max-z] = [",es14.6,",",es14.6,"]",/)
+  4001 format (/,6x,i1,"D Grid with extents:",/, &
+                 2x,"grid%xyz  [min-x,max-x] = [",es14.6,",",es14.6,"]")
+  4002 format (t13,"[min-",a1,",max-",a1,"] = [",es14.6,",",es14.6,"]")
+  !
+  ! Apply the grid scaling factor to the coordinates of the grid nodes
+  !
   do n = 1,size(grid%xyz,dim=2)
     do i = 1,size(grid%xyz,dim=1)
       grid%xyz(i,n) = grid_scaling_factor*grid%xyz(i,n)
