@@ -88,7 +88,7 @@ subroutine find_valid_geometries()
   integer :: nc,ne,no,this_geom
   !
   !.. Local Parameters ..
-  character(len=:), parameter :: pname = "find_valid_geometries"
+  character(len=*), parameter :: pname = "find_valid_geometries"
   !
 continue
   !
