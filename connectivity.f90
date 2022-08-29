@@ -2750,38 +2750,191 @@ end function RotateFluxPoints_Quad
 !
 !###############################################################################
 !
-pure function RotateFluxPoints_Tria(left_nodes,right_nodes,nfp) &
+pure function RotateFluxPoints_Tria(abc_left,abc_right,face_order) &
                              result(return_value)
   !
   !.. Formal Arguments ..
-  integer,               intent(in) :: nfp
-  integer, dimension(:), intent(in) :: left_nodes
-  integer, dimension(:), intent(in) :: right_nodes
+  integer,               intent(in) :: face_order
+  integer, dimension(:), intent(in) :: abc_left
+  integer, dimension(:), intent(in) :: abc_right
   !
   !.. Function Result ..
-  integer, dimension(1:nfp) :: return_value
+  integer, dimension(1:((face_order+1)*(face_order+2)/2)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: p,pp1,pp2,pp3,nfp,k
+  integer :: i1,i2,i3,i4,i5,i6
+  integer :: j1,j2,j3,j4,j5,j6
+  !
+  !.. Local Parameters ..
+  integer, parameter :: rotation(1:3,1:6) = reshape( [1,2,3, &
+                                                      3,1,2, &
+                                                      2,3,1, &
+                                                      2,1,3, &
+                                                      1,3,2, &
+                                                      3,2,1] , [3,6] )
   !
 continue
   !
-  return_value = 0
+  p = face_order
+  pp1 = p+1
+  pp2 = p+2
+  pp3 = p+3
+  nfp = pp1*pp2/2
   !
+  if (all(abc_left == abc_right(rotation(:,1)))) then
+    !
+    return_value(:) = intseq(0,nfp-1)
+    !
+  else if (all(abc_left == abc_right(rotation(:,2)))) then
+    !
+    k = 0
+    do j1 = 1,pp1
+      do i1 = 1,pp2-j1
+        !
+        k = k + 1
+        !
+        i2 = j1
+        j2 = pp3 - i1 - j1
+        !
+        return_value(k) = FacePointNumber(i2,j2) - 1
+        !
+      end do
+    end do
+    !
+  else if (all(abc_left == abc_right(rotation(:,3)))) then
+    !
+    k = 0
+    do j1 = 1,pp1
+      do i1 = 1,pp2-j1
+        !
+        k = k + 1
+        !
+        i3 = pp3 - i1 - j1
+        j3 = i1
+        !
+        return_value(k) = FacePointNumber(i3,j3) - 1
+        !
+      end do
+    end do
+    !
+  else if (all(abc_left == abc_right(rotation(:,4)))) then
+    !
+    k = 0
+    do j1 = 1,pp1
+      do i1 = 1,pp2-j1
+        !
+        k = k + 1
+        !
+        i4 = pp3 - i1 - j1
+        j4 = j1
+        !
+        return_value(k) = FacePointNumber(i4,j4) - 1
+        !
+      end do
+    end do
+    !
+  else if (all(abc_left == abc_right(rotation(:,5)))) then
+    !
+    k = 0
+    do j1 = 1,pp1
+      do i1 = 1,pp2-j1
+        !
+        k = k + 1
+        !
+        i5 = j1
+        j5 = i1
+        !
+        return_value(k) = FacePointNumber(i5,j5) - 1
+        !
+      end do
+    end do
+    !
+  else if (all(abc_left == abc_right(rotation(:,6)))) then
+    !
+    k = 0
+    do j1 = 1,pp1
+      do i1 = 1,pp2-j1
+        !
+        k = k + 1
+        !
+        i6 = i1
+        j6 = pp3 - i1 - j1
+        !
+        return_value(k) = FacePointNumber(i6,j6) - 1
+        !
+      end do
+    end do
+    !
+  else
+    !
+    ! Something was wrong here so just return the value 0.
+    !
+    return_value(:) = 0
+    !
+  end if
+  !
+contains
+pure function FacePointNumber(i,j) result(fpn)
+  integer, intent(in) :: i,j
+  integer :: fpn
+  fpn = (2*p + 4 - j)*(j - 1)/2 + i
+end function FacePointNumber
 end function RotateFluxPoints_Tria
 !
 !###############################################################################
 !
-pure function GetFluxPointRotation_Tria(left_nodes,right_nodes) &
+pure function GetFluxPointRotation_Tria(abc_left,abc_right) &
                                  result(return_value)
   !
   !.. Formal Arguments ..
-  integer, dimension(:), intent(in) :: left_nodes
-  integer, dimension(:), intent(in) :: right_nodes
+  integer, dimension(:), intent(in) :: abc_left
+  integer, dimension(:), intent(in) :: abc_right
   !
   !.. Function Result ..
   integer :: return_value
   !
+  !.. Local Parameters ..
+  integer, parameter :: rotation(1:3,1:6) = reshape( [1,2,3, &
+                                                      3,1,2, &
+                                                      2,3,1, &
+                                                      2,1,3, &
+                                                      1,3,2, &
+                                                      3,2,1] , [3,6] )
+  !
 continue
   !
-  return_value = 0
+  if (all(abc_left == abc_right(rotation(:,1)))) then
+    !
+    return_value = 1
+    !
+  else if (all(abc_left == abc_right(rotation(:,2)))) then
+    !
+    return_value = 2
+    !
+  else if (all(abc_left == abc_right(rotation(:,3)))) then
+    !
+    return_value = 3
+    !
+  else if (all(abc_left == abc_right(rotation(:,4)))) then
+    !
+    return_value = 4
+    !
+  else if (all(abc_left == abc_right(rotation(:,5)))) then
+    !
+    return_value = 5
+    !
+  else if (all(abc_left == abc_right(rotation(:,6)))) then
+    !
+    return_value = 6
+    !
+  else
+    !
+    ! Something was wrong here so just return the value 0.
+    !
+    return_value = 0
+    !
+  end if
   !
 end function GetFluxPointRotation_Tria
 !
