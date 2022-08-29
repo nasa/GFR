@@ -392,7 +392,8 @@ $(OBJDIR)/mappings.o : mappings.f90 \
              $(OBJDIR)/flowvar_mod.o \
              $(OBJDIR)/quadrature_mod.o \
              $(OBJDIR)/typesgen_mod.o \
-             $(OBJDIR)/poly.o
+             $(OBJDIR)/poly.o \
+             $(FUNDIR)/solpts2order.f90
 
 $(OBJDIR)/metis.o : metis.f90
 
