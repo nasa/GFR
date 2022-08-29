@@ -1421,6 +1421,7 @@ subroutine check_cgns_dir
   use ovar, only : output_dir,cgns_dir
   use ovar, only : lustre_stripe_count
   use ovar, only : lustre_stripe_size
+  use ovar, only : matrix_output_unit
   !
   !.. Local Scalars ..
   integer :: clen,ierr,iodir
@@ -1437,6 +1438,8 @@ subroutine check_cgns_dir
   logical(ldk), parameter :: wait_for_completion = .true.
   !
 continue
+  !
+  if (matrix_output_unit /= iout) return
   !
   call debug_timer(entering_procedure,pname)
   !
