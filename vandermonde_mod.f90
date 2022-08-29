@@ -8,6 +8,7 @@ module vandermonde_mod
   !
   use generic_types_mod, only : matrix => matrix_gpu_t
   use generic_types_mod, only : create_matrix_sparsity
+  use generic_types_mod, only : output_matrix
   !
   implicit none
   !
@@ -175,6 +176,14 @@ continue
       call debug_timer(start_timer,timer_message)
       vmat_inv(:,:) = Vandermonde_Inverse( vmat )
       call debug_timer(stop_timer,timer_message)
+      !
+      error_message = "Modal-to-Nodal Vandermonde"
+      call output_matrix(this_vand%modal2nodal, &
+                         error_message,this_geom,this_order)
+      !
+      error_message = "Nodal-to-Modal Vandermonde"
+      call output_matrix(this_vand%nodal2modal, &
+                         error_message,this_geom,this_order)
       !
       ! Remove all associations of the local pointers before continuing
       !
