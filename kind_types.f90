@@ -771,7 +771,8 @@ module module_kind_types
   !         = true  -> defined by the three nodes (-1,-1) - ( 1,-1) - (-1, 1)
   !         = false -> defined by the three nodes ( 0, 0) - ( 1, 0) - ( 0, 1)
   !
-  logical(lk), parameter :: tria_is_biunit = fals
+  logical(lk), parameter :: tria_is_biunit = true
+ !logical(lk), parameter :: tria_is_biunit = fals
   !
   ! CL : coefficient that gives (2.0 / length of the 1D solution points).
   !      This is needed because of the difference between how the reference
