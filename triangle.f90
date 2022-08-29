@@ -208,7 +208,7 @@ continue
   do n = 1,np
     !
     xp = x(n) - half
-    yp = x(n) - half*csq3i
+    yp = y(n) - half*csq3i
     !
     return_value(1,n) = cry*yp + crx*xp
     return_value(2,n) = csy*yp
