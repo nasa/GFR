@@ -57,6 +57,7 @@ program GFR_main
   use ovar, only : spatial_ave_restart_z_planes
   use ovar, only : spatial_ave_restart_x_and_z_planes
   use ovar, only : CFL_reduction_for_NaN_restart
+  use ovar, only : matrix_output_unit
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
@@ -307,6 +308,20 @@ continue
   call memory_pause("base initializations","reading input and grid files")
   call timed_check_for_bad_number(__LINE__)
   !
+  if (mypnum == glb_root) then
+    if (matrix_output_unit /= iout) then
+      open (newunit=matrix_output_unit,file="matrix_output.dat", &
+            status="replace",action="write", &
+            iostat=ierr,iomsg=error_message)
+      call io_error(pname,"matrix_output.dat",1,__LINE__,__FILE__, &
+                    ierr,error_message)
+    end if
+  end if
+  if (ncpu > 1) then
+    call mpi_bcast(matrix_output_unit,1_int_mpi,mpi_inttyp, &
+                   glb_root,MPI_COMM_WORLD,mpierr)
+  end if
+  !
   ! Perform preprocessing loop twice, if necessary.
   !   input_mode = 1  Interpolation Mode
   !   input_mode = 2  Normal Solver Mode
@@ -421,6 +436,9 @@ continue
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
     call get_metrics
     call check_for_bad_number(__LINE__)
+    !
+    error_message = "STOP_FOR MATRIX OUTPUT"
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     !
     ! Special handling for interpolation mode (input_mode=1)
     !
