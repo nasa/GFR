@@ -3732,6 +3732,7 @@ subroutine check_restart_dir
   use ovar, only : output_time_averaging
   use ovar, only : time_ave_file,read_time_ave_restart
   use ovar, only : restart_output_uses_host_roots
+  use ovar, only : matrix_output_unit
   !
   !.. Local Scalars ..
   integer :: clen,ierr,iodir
@@ -3755,6 +3756,8 @@ subroutine check_restart_dir
   logical(ldk), parameter :: wait_for_completion = .true.
   !
 continue
+  !
+  if (matrix_output_unit /= iout) return
   !
   call global_debug_timer(entering_procedure,pname)
   !
