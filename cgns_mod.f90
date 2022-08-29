@@ -5440,7 +5440,7 @@ subroutine broadcast_solver_geom_arrays
   use geovar,    only : nr,ncell,nnode,nfbnd,nbfai,bface
   use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : cell_geom,cell_order,xyz_nodes
-  use ovar,      only : loc_solution_pts,loc_flux_pts,bc_names
+  use ovar,      only : bc_names
   !
   !.. Local Scalars ..
   integer :: n,nocsz,ierr,nbcnm
@@ -5551,34 +5551,12 @@ continue
     call mpi_bcast(bc_names(n),isz,MPI_CHARACTER,glb_root,MPI_COMM_WORLD,mpierr)
   end do
   !
-  ! Make sure that Lobatto nodes are requested if the grid contains triangle
-  ! elements since Gauss nodes is not currently set up for triangles.
-  !
- !if (any(cell_geom == Geom_Tria)) then
- !  write (error_message,11)
- !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
- !end if
-  !
-  if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
-      loc_flux_pts /= Legendre_Gauss_Lobatto) then
-    if (any(cell_geom == Geom_Tria)) then
-      write (error_message,12)
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-    end if
-  end if
-  !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
   1 format (" CPU #",i0,": grid_size(:) = ",5(1x,i0),:,/,27x,100(5(1x,i0),/))
  !1 format (" CPU #",i0,": grid_size(:) = ",5(1x,i0),:,/,27x,*(5(1x,i0),/))
-  !
-  11 format (" Triangles are temporarily disabled due to significant", &
-             " changes in the quadrilateral part of the code. These ", &
-             " changes have yet to be applied to triangles.")
-  12 format (" Quadrature points besides Gauss-Lobatto nodes are not", &
-             " currently supported for a grid containing triangle cells.")
   !
 end subroutine broadcast_solver_geom_arrays
 !
@@ -5591,7 +5569,6 @@ subroutine create_serial_geom_arrays
   use geovar,    only : nr,ncell
   use geovar,    only : nodes_of_cell_ptr
   use geovar,    only : cell_geom,cell_order
-  use ovar,      only : loc_solution_pts,loc_flux_pts
   !
   !.. Local Scalars ..
   integer :: n,ierr
@@ -5618,31 +5595,7 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Make sure that Lobatto nodes are requested if the grid contains triangle
-  ! elements since Gauss nodes is not currently set up for triangles.
-  !
- !if (any(cell_geom == Geom_Tria)) then
- !  write (error_message,11)
- !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
- !end if
-  !
-  if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
-      loc_flux_pts /= Legendre_Gauss_Lobatto) then
-    if (any(cell_geom == Geom_Tria)) then
-      write (error_message,12)
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-    end if
-  end if
-  !
   call debug_timer(leaving_procedure,pname)
-  !
-  ! Format Statements
-  !
-  11 format (" Triangles are temporarily disabled due to significant", &
-             " changes in the quadrilateral part of the code. These ", &
-             " changes have yet to be applied to triangles.")
-  12 format (" Quadrature points besides Gauss-Lobatto nodes are not", &
-             " currently supported for a grid containing triangle cells.")
   !
 end subroutine create_serial_geom_arrays
 !
