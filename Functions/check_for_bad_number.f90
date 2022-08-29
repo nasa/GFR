@@ -9,6 +9,8 @@ subroutine check_for_bad_number(line_num,file_name,ival)
   use module_kind_types, only : mpi_allgather
   use module_kind_types, only : mpi_allreduce
   use module_kind_types, only : stop_gfr,stop_mpi
+  use module_kind_types, only : src_file_with_bad_number
+  use module_kind_types, only : line_num_with_bad_number
 #ifndef SPECIAL_FOR_GCC
   use, intrinsic :: ieee_exceptions, only : ieee_usual
   use, intrinsic :: ieee_exceptions, only : ieee_get_flag
