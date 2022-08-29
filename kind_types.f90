@@ -724,6 +724,7 @@ module module_kind_types
   !
   character(len=100), protected, save :: Geom_String(Geom_Min:Geom_Max)
   character(len=9),   protected, save :: Geom_Name(Geom_Min:Geom_Max)
+  character(len=15),  protected, save :: Geom_Full_Name(Geom_Min:Geom_Max)
   !
   integer, parameter :: Zmin3D_Face = 1
   integer, parameter :: Zmax3D_Face = 2
@@ -1350,6 +1351,16 @@ continue
   Geom_Name(Geom_Pris) = "Geom_Pris"
   Geom_Name(Geom_Unknown) = "Geom_Unkn"
   Geom_Name(Geom_Hexa) = "Geom_Hexa"
+  !
+  Geom_Full_Name(Geom_Node) = "Node"
+  Geom_Full_Name(Geom_Edge) = "Edge"
+  Geom_Full_Name(Geom_Tria) = "Triangle"
+  Geom_Full_Name(Geom_Quad) = "Quadrilateral"
+  Geom_Full_Name(Geom_Tetr) = "Tetrahedra"
+  Geom_Full_Name(Geom_Pyra) = "Pyramid"
+  Geom_Full_Name(Geom_Pris) = "Prism"
+  Geom_Full_Name(Geom_Unknown) = "Unknown"
+  Geom_Full_Name(Geom_Hexa) = "Hexahedra"
   !
   Geom_String(Geom_Node) = "Node (0-D)"
   Geom_String(Geom_Edge) = "Edge (1-D)"
