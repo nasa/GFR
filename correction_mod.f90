@@ -5,6 +5,7 @@ module correction_mod
   use generic_types_mod, only : matrix => matrix_gpu_t
   use generic_types_mod, only : create_matrix_sparsity
   use generic_types_mod, only : output_sparsity
+  use generic_types_mod, only : output_matrix
   !
   implicit none
   !
@@ -116,6 +117,11 @@ continue
           correct(this_geom,this_order)%mat(:,2) = &
                      correct(this_geom,this_order)%mat(nsolpts:1:-1,1)
           !
+          error_message = "Correction"
+          call output_matrix(correct(this_geom,this_order), &
+                             error_message,this_geom,this_order, &
+                             output_transpose=.true.)
+          !
         case (Geom_Tria)
           !
           correct(this_geom,this_order)%mat = &
@@ -134,6 +140,11 @@ continue
           write (array_name,10) "quad",this_order
           call output_sparsity( correct(this_geom,this_order) , array_name )
 #endif
+          !
+          error_message = "Correction"
+          call output_matrix(correct(this_geom,this_order), &
+                             error_message,this_geom,this_order, &
+                             output_transpose=.true.)
           !
         case (Geom_Tetr)
           !
@@ -171,6 +182,11 @@ continue
           write (array_name,10) "hexa",this_order
           call output_sparsity( correct(this_geom,this_order) , array_name )
 #endif
+          !
+          error_message = "Correction"
+          call output_matrix(correct(this_geom,this_order), &
+                             error_message,this_geom,this_order, &
+                             output_transpose=.true.)
           !
         case default
           !
