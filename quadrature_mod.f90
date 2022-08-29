@@ -280,6 +280,7 @@ continue
       else if (this_geom == Geom_Tria) then
         this_elem = get_tria_quadrature(this_order,loc_triangle_pts)
       end if
+      call output_quadrature(this_elem,this_geom,this_order,"Cell")
       !
       ! Disassociate this_elem before continuing to the next loop combo
       !
@@ -392,6 +393,8 @@ continue
           call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
       end select
+      !
+      call output_quadrature(this_elem,this_geom,this_order,"Cell")
       !
       ! Disassociate the pointer 'this_elem' before
       ! continuing to the next geometry
@@ -530,6 +533,8 @@ continue
     !
     this_elem = get_edge_quadrature(this_order,loc_flux_pts)
     !
+    call output_quadrature(this_elem,Geom_Edge,this_order,"Face")
+    !
     ! Disassociate this_elem before continuing to the next loop combo
     !
     if (associated(this_elem)) this_elem => null()
@@ -584,6 +589,8 @@ continue
       ! for a triangle face with the current order
       !
       this_elem = get_tria_quadrature(this_order,loc_triangle_pts)
+      !
+      call output_quadrature(this_elem,Geom_Tria,this_order,"Face")
       !
       ! Disassociate this_elem before continuing to the next loop combo
       !
@@ -646,6 +653,8 @@ continue
       ! for a quad face with the current order
       !
       this_elem = get_quad_quadrature(edge_elem)
+      !
+      call output_quadrature(this_elem,Geom_Quad,this_order,"Face")
       !
       ! Disassociate this_elem before continuing to the next loop combo
       !
@@ -1055,6 +1064,61 @@ continue
   return_value%wts = chop( wts ) ! F2003 AUTO-REALLOC
   !
 end function get_hexa_quadrature
+!
+!###############################################################################
+!
+subroutine output_quadrature(this_elem,this_geom,this_order,this_type)
+  !
+  !.. Use Statements ..
+  use ovar, only : mout => matrix_output_unit
+  !
+  !.. Formal Arguments ..
+  class(element_type), intent(in) :: this_elem
+  integer,             intent(in) :: this_geom
+  integer,             intent(in) :: this_order
+  character(len=*),    intent(in) :: this_type
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_quadrature"
+  !
+continue
+  !
+  if (mout == iout) return
+  !
+  write (mout,1) this_order, trim(adjustl(Geom_Full_Name(this_geom))), &
+                 trim(adjustl(this_type))
+  !
+  n1 = size(this_elem%pts,dim=1)
+  n2 = size(this_elem%pts,dim=2)
+  !
+  if (geom_dimen(this_geom) == 1) then
+    do j = 1,n2
+      write (mout,2) (this_elem%pts(i,j),i=1,n1), this_elem%wts(j)
+    end do
+  else if (geom_dimen(this_geom) == 2) then
+    do j = 1,n2
+      write (mout,3) (this_elem%pts(i,j),i=1,n1), this_elem%wts(j)
+    end do
+  else if (geom_dimen(this_geom) == 3) then
+    do j = 1,n2
+      write (mout,4) (this_elem%pts(i,j),i=1,n1), this_elem%wts(j)
+    end do
+  end if
+  !
+  1 format (/, &
+            80("#"),/, &
+            3x,"Solution Point Coordinates : Quadrature Weight",/, &
+            3x,"for a P",i0,1x,a,1x,a," element",/, &
+            80("-"),/)
+  2 format (1x,es14.7,"  :  ",es14.7)
+  3 format (2(1x,es14.7),"  :  ",es14.7)
+  4 format (3(1x,es14.7),"  :  ",es14.7)
+
+  !
+end subroutine output_quadrature
 !
 !###############################################################################
 !
