@@ -11,6 +11,7 @@ module generic_types_mod
   !
   public :: create_matrix_sparsity
   public :: output_sparsity
+  public :: output_matrix
   !
   ! matrix_gpu_t : derived type that stores a matrix quantity without the
   !                type-bound procedures and procedure pointers found in
@@ -2115,6 +2116,68 @@ continue
   3 format (42i2)
   !
 end subroutine output_sparsity
+!
+!###############################################################################
+!
+subroutine output_matrix(this,matrix_name,this_geom,this_order,output_transpose)
+  !
+  !.. Use Statements ..
+  use module_kind_types, only : iout,Geom_Full_Name
+  use ovar,              only : mout => matrix_output_unit
+  !
+  !.. Formal Arguments ..
+  class(matrix_gpu_t), intent(in) :: this
+  character(len=*), intent(in) :: matrix_name
+  integer,          intent(in) :: this_geom
+  integer,          intent(in) :: this_order
+  !
+  !.. Optional Arguments ..
+  logical, optional, intent(in) :: output_transpose
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n1,n2
+  logical :: output_trnspose
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_matrix"
+  !
+continue
+  !
+  if (mout == iout) return
+  !
+  write (mout,1) trim(adjustl(matrix_name)), &
+                 this_order, trim(adjustl(Geom_Full_Name(this_geom)))
+  !
+  output_trnspose = .false.
+  if (present(output_transpose)) then
+    output_trnspose = output_transpose
+  end if
+  !
+  n1 = size(this%mat,dim=1)
+  n2 = size(this%mat,dim=2)
+  !
+  if (output_trnspose) then
+    do i = 1,n2
+      write (mout,2) (this%mat(j,i), j=1,n1)
+    end do
+  else
+    do i = 1,n1
+      write (mout,2) (this%mat(i,j), j=1,n2)
+    end do
+  end if
+  !
+  write (mout,*)
+  !
+  1 format (/, &
+            80("#"),/, &
+            3x,a," matrix",/, &
+            3x,"for a P",i0,1x,a," element",/, &
+            80("-"),/)
+  2 format (1000f11.6)
+ !2 format (1000es11.3)
+ !2 format (1000(1x,g10.3))
+  !
+end subroutine output_matrix
 !
 !###############################################################################
 !
