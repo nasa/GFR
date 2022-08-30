@@ -631,7 +631,7 @@ continue
         case (Geom_Tria)
           !
           this_map%mat = map_tria_to_solpts( op , np , tria_pts , &
-                                             mesh_order , elem_family )
+                                             mesh_order )
           !
         case (Geom_Quad)
           !
@@ -644,7 +644,7 @@ continue
           call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
           !
           this_map%mat = map_tetr_to_solpts( op , np , tria_pts , &
-                                             mesh_order , elem_family )
+                                             mesh_order )
           !
         case (Geom_Pyra)
           !
@@ -652,7 +652,7 @@ continue
           call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
           !
           this_map%mat = map_pyra_to_solpts( op , np , edge_pts , tria_pts , &
-                                             mesh_order , elem_family )
+                                             mesh_order )
           !
         case (Geom_Pris)
           !
@@ -660,7 +660,7 @@ continue
           call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
           !
           this_map%mat = map_pris_to_solpts( op , np , edge_pts , tria_pts , &
-                                             mesh_order , elem_family )
+                                             mesh_order )
           !
         case (Geom_Hexa)
           !
@@ -988,7 +988,7 @@ end function equidistant_map_edge_to_solpts
 #ifndef DISABLE_PURE
 pure &
 #endif
-function equidistant_map_tria_to_solpts(op,np,rs,mesh_order,family) &
+function equidistant_map_tria_to_solpts(op,np,rs,mesh_order) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -1000,8 +1000,6 @@ function equidistant_map_tria_to_solpts(op,np,rs,mesh_order,family) &
   integer,  intent(in) :: np
   real(wp), intent(in) :: rs(:,:)
   integer,  intent(in) :: mesh_order
-  !
-  type(geom_family_t), intent(in) :: family
   !
   !.. Function Result ..
   real(wp) :: return_value(1:op,1:np)
@@ -1352,7 +1350,7 @@ end function equidistant_map_quad_to_solpts
 #ifndef DISABLE_PURE
 pure &
 #endif
-function equidistant_map_tetr_to_solpts(op,np,rs,mesh_order,family) &
+function equidistant_map_tetr_to_solpts(op,np,rs,mesh_order) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -1364,8 +1362,6 @@ function equidistant_map_tetr_to_solpts(op,np,rs,mesh_order,family) &
   integer,  intent(in) :: np
   real(wp), intent(in) :: rs(:,:)
   integer,  intent(in) :: mesh_order
-  !
-  type(geom_family_t), intent(in) :: family
   !
   !.. Function Result ..
   real(wp) :: return_value(1:op,1:np)
@@ -1407,7 +1403,7 @@ end function equidistant_map_tetr_to_solpts
 #ifndef DISABLE_PURE
 pure &
 #endif
-function equidistant_map_pyra_to_solpts(op,np,xi,rs,mesh_order,family) &
+function equidistant_map_pyra_to_solpts(op,np,xi,rs,mesh_order) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -1420,8 +1416,6 @@ function equidistant_map_pyra_to_solpts(op,np,xi,rs,mesh_order,family) &
   real(wp), intent(in) :: xi(:)
   real(wp), intent(in) :: rs(:,:)
   integer,  intent(in) :: mesh_order
-  !
-  type(geom_family_t), intent(in) :: family
   !
   !.. Function Result ..
   real(wp) :: return_value(1:op,1:np)
@@ -1463,7 +1457,7 @@ end function equidistant_map_pyra_to_solpts
 #ifndef DISABLE_PURE
 pure &
 #endif
-function equidistant_map_pris_to_solpts(op,np,xi,rs,mesh_order,family) &
+function equidistant_map_pris_to_solpts(op,np,xi,rs,mesh_order) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -1476,8 +1470,6 @@ function equidistant_map_pris_to_solpts(op,np,xi,rs,mesh_order,family) &
   real(wp), intent(in) :: xi(:)
   real(wp), intent(in) :: rs(:,:)
   integer,  intent(in) :: mesh_order
-  !
-  type(geom_family_t), intent(in) :: family
   !
   !.. Function Result ..
   real(wp) :: return_value(1:op,1:np)
