@@ -524,6 +524,7 @@ continue
   ! of the points defining each element that were given by the grid file to
   ! the coordinates of the solution points within each cell
   !
+!#define OUTPUT_GRID_MAPPINGS
 #ifdef OUTPUT_GRID_MAPPINGS
   open (newunit=io,file="xyz.dat",status="replace",action="write",iostat=ierr)
   open (newunit=io1,file="xyz.x",status="replace",action="write",iostat=ierr)
@@ -544,6 +545,10 @@ continue
     this_order = cell_order(this_cell)
     !
     np = geom_solpts(this_geom,this_order) ! number of solution points
+ !  write (iout,*) "this_cell = ",this_cell
+ !  write (iout,*) "this_geom = ",this_geom
+ !  write (iout,*) "this_order = ",this_order
+ !  write (iout,*) "np = ",np
     !
     n0 = n2
     n1 = n2 + 1
@@ -622,6 +627,27 @@ continue
         end if
       end if
       !
+ !  block
+ !    integer :: i,j
+ !    write (iout,*)
+ !    write (iout,'(" elem_xyz(",i0,")")') this_cell
+ !    do j = 1,size(elem_xyz,dim=2)
+ !      write (iout,*) (elem_xyz(i,j),i=1,size(elem_xyz,dim=1))
+ !    end do
+ !    if (this_cell == 1) then
+ !      write (iout,*)
+ !      write (iout,*) "edge_pts"
+ !      do j = 1,size(edge_pts,dim=1)
+ !        write (iout,*) edge_pts(j)
+ !      end do
+ !      write (iout,*)
+ !      write (iout,*) "tria_pts"
+ !      do j = 1,size(tria_pts,dim=2)
+ !        write (iout,*) (tria_pts(i,j),i=1,size(tria_pts,dim=1))
+ !      end do
+ !    end if
+ !  end block
+      !
       select case (this_geom)
         !
         case (Geom_Edge)
@@ -675,6 +701,36 @@ continue
       end select
       !
     end if
+ !  block
+ !    integer :: i,j
+ !    if (this_cell == 1) then
+ !      write (iout,*)
+ !      write (iout,'(" tria_map(i,j) =")')
+ !      do i = size(this_map%mat,dim=1),1,-1
+ !        write (iout,300) (this_map%mat(i,j),j=1,size(this_map%mat,dim=2))
+ !      end do
+ !      write (iout,*)
+ !      300 format (100(f10.4))
+ !    end if
+ !    !
+ !    write (iout,*)
+ !    do j = 1,size(elem_xyz,dim=2)
+ !      write (iout,*) (elem_xyz(i,j),i=1,size(elem_xyz,dim=1))
+ !    end do
+ !    if (this_cell == 1) then
+ !      write (iout,*)
+ !      write (iout,*) "edge_pts"
+ !      do j = 1,size(edge_pts,dim=1)
+ !        write (iout,*) edge_pts(j)
+ !      end do
+ !      write (iout,*)
+ !      write (iout,*) "tria_pts"
+ !      do j = 1,size(tria_pts,dim=2)
+ !        write (iout,*) (tria_pts(i,j),i=1,size(tria_pts,dim=1))
+ !      end do
+ !    end if
+ !  end block
+      !
     !
     ! Now use the mapping matrix to map the coordinates of the points for the
     ! element provided by the grid file to the coordinates of the solution
@@ -683,12 +739,36 @@ continue
     xyz(1:nr,n1:n2) = matmul( elem_xyz(:,:) , this_map%mat(:,:) )
     !
 #ifdef OUTPUT_GRID_MAPPINGS
-    write (io,100) this_cell
-    do n = n1,n2
-      write (io,101) n,(xyz(l,n),l=1,nr)
+    write (io,*)
+    write (io,203) "ell",this_cell
+    do n = 1,size(elem_xyz,dim=2)
+      write (io,204) (elem_xyz(l,n),l=1,nr)
     end do
+    write (io,205) (elem_xyz(l,1),l=1,nr)
+    write (io,206)
+    !
+    write (io,203) "pts",this_cell
+    do n = n1,n2-1
+      write (io,204) (xyz(l,n),l=1,nr)
+    end do
+    write (io,205) (xyz(l,n2),l=1,nr)
+    write (io,206)
+    203 format ("c",a3,i0,"={")
+    204 format ("{",f7.4,",",f7.4,"},")
+    205 format ("{",f7.4,",",f7.4,"}")
+    206 format ("};")
+    !
+   !write (io,100) this_cell
+   !write (io,*)
+   !do n = 1,size(elem_xyz,dim=2)
+   !  write (io,101) n,(elem_xyz(l,n),l=1,nr)
+   !end do
+   !write (io,*)
+   !do n = n1,n2
+   !  write (io,101) n,(xyz(l,n),l=1,nr)
+   !end do
     100 format (/," Cell # ",i0)
-    101 format (i8,3x,3es23.15)
+    101 format (i8,3x,3f10.4)
     !
     do l = 1,nr
       write (io1,102) (xyz(l,n),n=n1,n2)
