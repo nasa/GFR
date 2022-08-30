@@ -666,24 +666,15 @@ continue
           !
         case (Geom_Tetr)
           !
-          write (error_message,3) "Tetrahedral"
-          call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
-          !
           this_map%mat = map_tetr_to_solpts( op , np , tria_pts , &
                                              mesh_order )
           !
         case (Geom_Pyra)
           !
-          write (error_message,3) "Pyramid"
-          call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
-          !
           this_map%mat = map_pyra_to_solpts( op , np , edge_pts , tria_pts , &
                                              mesh_order )
           !
         case (Geom_Pris)
-          !
-          write (error_message,3) "Prism"
-          call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
           !
           this_map%mat = map_pris_to_solpts( op , np , edge_pts , tria_pts , &
                                              mesh_order )
