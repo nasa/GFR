@@ -676,8 +676,7 @@ continue
           !
         case (Geom_Pris)
           !
-          this_map%mat = map_pris_to_solpts( op , np , edge_pts , tria_pts , &
-                                             mesh_order )
+          this_map%mat = map_pris_to_solpts( edge_pts , tria_pts , mesh_order )
           !
         case (Geom_Hexa)
           !
@@ -1528,51 +1527,37 @@ end function equidistant_map_pyra_to_solpts
 #ifndef DISABLE_PURE
 pure &
 #endif
-function equidistant_map_pris_to_solpts(op,np,xi,rs,mesh_order) &
-                          result(return_value)
+function equidistant_map_pris_to_solpts(xi,rs,mesh_order) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
   use polynomial_mod, only : eval_LagrangePoly3D
   !
   !.. Formal Arguments ..
-  integer,  intent(in) :: op
-  integer,  intent(in) :: np
   real(wp), intent(in) :: xi(:)
   real(wp), intent(in) :: rs(:,:)
   integer,  intent(in) :: mesh_order
   !
   !.. Function Result ..
-  real(wp) :: return_value(1:op,1:np)
+  real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,ndim,npts
+  integer  :: i,j,k,np,op
   real(wp) :: r,s,a,b,c,zetam1,zetap1
   !
   !.. Local Arrays ..
-  real(qp) :: xi_qp(1:size(xi))
-  real(qp) :: eq_pts(1:mesh_order+1)
-  real(qp) :: map_qp(1:op,1:np)
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:size(rs ,1)) :: p1
-  real(wp), dimension(1:size(rs ,1)) :: p2
-  real(wp), dimension(1:size(rs ,1)) :: p3
-  !
-  !.. Local Parameters ..
-  real(qp), parameter :: end_pts(1:2) = [-qone,qone]
+  real(wp), dimension(1:size(rs,1)) :: p1
+  real(wp), dimension(1:size(rs,1)) :: p2
+  real(wp), dimension(1:size(rs,1)) :: p3
   !
 continue
   !
-  return_value(:,:) = zero
+  this_order = size(xi) - 1
   !
-  eq_pts(:) = real(intseq(-mesh_order,mesh_order,2),kind=qp) / &
-              real(max(mesh_order,1),kind=qp)
+  np = geom_solpts(Geom_Pris,this_order)
+  op = geom_solpts(Geom_Pris,mesh_order)
   !
-  xi_qp(:) = real(xi(:),kind=qp)
-  !
-  ndim = size(rs ,dim=1)
-  npts = size(xi)*size(rs,dim=2)
+  return_value = init_array(op,np,zero) ! F2003 AUTO-REALLOC
   !
   ! If tria_is_biunit is true:  a=0 ; b=1 ; c=1/2
   ! If tria_is_biunit is false: a=1 ; b=0 ; c=1
@@ -1601,16 +1586,13 @@ continue
       r = rs(1,i)
       s = rs(2,i)
       !
-      return_value(:,k) = c * ((a-r-s)*p1 + (r+b)*p2 + (s+b)*p3)
+      return_value(1,k) = c * ((a-r-s)*p1(1) + (r+b)*p2(1) + (s+b)*p3(1))
+      return_value(2,k) = c * ((a-r-s)*p1(2) + (r+b)*p2(2) + (s+b)*p3(2))
+      return_value(3,k) = xi(j)
       !
     end do
     !
   end do
-  !
-  ! Use the chop function to copy map_qp into return_value while also
-  ! setting any values that are less that working machine epsilon to zero.
-  !
-  return_value = chop( map_qp )
   !
 end function equidistant_map_pris_to_solpts
 !
