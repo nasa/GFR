@@ -1130,6 +1130,98 @@ end function eval_triangle_lagrange
 !
 !###############################################################################
 !
+pure &
+function eval_tetrahedra_lagrange(i,j,k,p,rs) result(return_value)
+  !
+  integer,  intent(in) :: i
+  integer,  intent(in) :: j
+  integer,  intent(in) :: k
+  integer,  intent(in) :: p
+  real(wp), intent(in) :: rs(:)
+  !
+  real(wp) :: return_value
+  !
+  integer  :: l,m
+  real(wp) :: a,b,c
+  real(wp) :: val_i,val_j,val_k,val_l
+  real(wp) :: nrm_i,nrm_j,nrm_k,nrm_l
+  real(wp) :: r,s,t,rn,sn,tn,rp,ri,rj,rk
+  !
+continue
+  !
+  a = zero
+  b = one
+  c = one
+  !
+  if (tria_is_biunit) then
+    a = one
+    b = two
+    c = half
+  end if
+  !
+  l = p - i - j - k
+  !
+  ! Initialize the three values to one
+  !
+  val_i = one
+  val_j = one
+  val_k = one
+  val_l = one
+  !
+  nrm_i = one
+  nrm_j = one
+  nrm_k = one
+  nrm_l = one
+  !
+  r = rs(1)
+  s = rs(2)
+  t = rs(3)
+  !
+  rp = real(p,kind=wp)
+  ri = real(i,kind=wp)
+  rj = real(j,kind=wp)
+  rk = real(k,kind=wp)
+  !
+  rn = b*ri/rp - a
+  sn = b*rj/rp - a
+  tn = b*rk/rp - a
+  !
+  ! Compute the product series for the x/r coordinate
+  !
+  do m = 0,i-1
+    val_i = val_i * (c*(r +a) - real(m,kind=wp)/rp)
+    nrm_i = nrm_i * (c*(rn+a) - real(m,kind=wp)/rp)
+  end do
+  !
+  ! Compute the product series for the y/s coordinate
+  !
+  do m = 0,j-1
+    val_j = val_j * (c*(s +a) - real(m,kind=wp)/rp)
+    nrm_j = nrm_j * (c*(sn+a) - real(m,kind=wp)/rp)
+  end do
+  !
+  ! Compute the product series for the z/t coordinate
+  !
+  do m = 0,k-1
+    val_k = val_k * (c*(t +a) - real(m,kind=wp)/rp)
+    nrm_k = nrm_k * (c*(tn+a) - real(m,kind=wp)/rp)
+  end do
+  !
+  ! Compute the product series for the auxilary index l = p-i-j-k
+  !
+  do m = 0,l-1
+    val_l = val_l * (one-c*(r +a)-c*(s +a)-c*(t +a) - real(m,kind=wp)/rp)
+    nrm_l = nrm_l * (one-c*(rn+a)-c*(sn+a)-c*(tn+a) - real(m,kind=wp)/rp)
+  end do
+  !
+  ! Compute the value of the tetrahedra lagrange at (r,s,t)
+  !
+  return_value = val_i*val_j*val_k*val_l / (nrm_i*nrm_j*nrm_k*nrm_l)
+  !  !
+end function eval_tetrahedra_lagrange
+!
+!###############################################################################
+!
 #ifndef DISABLE_PURE
 pure &
 #endif
