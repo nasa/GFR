@@ -1504,10 +1504,6 @@ pure &
 #endif
 function equidistant_map_pyra_to_solpts(xi,rs,mesh_order) result(return_value)
   !
-  !.. Use Statements ..
-  use polynomial_mod, only : eval_LagrangePoly
-  use polynomial_mod, only : eval_LagrangePoly3D
-  !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xi(:)
   real(wp), intent(in) :: rs(:,:)
@@ -1536,10 +1532,6 @@ end function equidistant_map_pyra_to_solpts
 pure &
 #endif
 function equidistant_map_pris_to_solpts(xi,rs,mesh_order) result(return_value)
-  !
-  !.. Use Statements ..
-  use polynomial_mod, only : eval_LagrangePoly
-  use polynomial_mod, only : eval_LagrangePoly3D
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xi(:)
