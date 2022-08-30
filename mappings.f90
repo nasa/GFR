@@ -1051,6 +1051,85 @@ end function equidistant_map_tria_to_solpts
 !
 !###############################################################################
 !
+pure &
+function eval_triangle_lagrange(i,j,p,rs) result(return_value)
+  !
+  integer,  intent(in) :: i
+  integer,  intent(in) :: j
+  integer,  intent(in) :: p
+  real(wp), intent(in) :: rs(:)
+  !
+  real(wp) :: return_value
+  !
+  integer  :: k,m
+  real(wp) :: a,b,c
+  real(wp) :: val_i,val_j,val_k
+  real(wp) :: nrm_i,nrm_j,nrm_k
+  real(wp) :: r,s,rn,sn,rp,ri,rj
+  !
+continue
+  !
+  a = zero
+  b = one
+  c = one
+  !
+  if (tria_is_biunit) then
+    a = one
+    b = two
+    c = half
+  end if
+  !
+  k = p - i - j
+  !
+  ! Initialize the three values to one
+  !
+  val_i = one
+  val_j = one
+  val_k = one
+  !
+  nrm_i = one
+  nrm_j = one
+  nrm_k = one
+  !
+  r = rs(1)
+  s = rs(2)
+  !
+  rp = real(p,kind=wp)
+  ri = real(i,kind=wp)
+  rj = real(j,kind=wp)
+  !
+  rn = b*ri/rp - a
+  sn = b*rj/rp - a
+  !
+  ! Compute the product series for the x/r coordinate
+  !
+  do m = 0,i-1
+    val_i = val_i * (c*(r +a) - real(m,kind=wp)/rp)
+    nrm_i = nrm_i * (c*(rn+a) - real(m,kind=wp)/rp)
+  end do
+  !
+  ! Compute the product series for the y/s coordinate
+  !
+  do m = 0,j-1
+    val_j = val_j * (c*(s +a) - real(m,kind=wp)/rp)
+    nrm_j = nrm_j * (c*(sn+a) - real(m,kind=wp)/rp)
+  end do
+  !
+  ! Compute the product series for the auxilary index k = p-i-j
+  !
+  do m = 0,k-1
+    val_k = val_k * (one-c*(r +a)-c*(s +a) - real(m,kind=wp)/rp)
+    nrm_k = nrm_k * (one-c*(rn+a)-c*(sn+a) - real(m,kind=wp)/rp)
+  end do
+  !
+  ! Compute the value of the triangle lagrange at (r,s)
+  !
+  return_value = val_i*val_j*val_k / (nrm_i*nrm_j*nrm_k)
+  !  !
+end function eval_triangle_lagrange
+!
+!###############################################################################
+!
 #ifndef DISABLE_PURE
 pure &
 #endif
