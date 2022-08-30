@@ -448,6 +448,7 @@ subroutine assume_equidistant_mapping()
   real(wp), allocatable :: elem_usp(:,:)
   real(wp), allocatable :: edge_pts(:)
   real(wp), allocatable :: tria_pts(:,:)
+  real(wp), allocatable :: tetr_pts(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "assume_equidistant_mapping"
@@ -665,8 +666,9 @@ continue
           !
         case (Geom_Tetr)
           !
-          this_map%mat = map_tetr_to_solpts( op , np , tria_pts , &
-                                             mesh_order )
+          tetr_pts = std_elem(Geom_Tetr,this_order)%pts ! F2003 AUTO-REALLOC
+          !
+          this_map%mat = map_tetr_to_solpts( tetr_pts , mesh_order )
           !
         case (Geom_Pyra)
           !
@@ -1423,53 +1425,75 @@ end function equidistant_map_quad_to_solpts
 !###############################################################################
 !
 #ifndef DISABLE_PURE
-pure &
+!pure &
 #endif
-function equidistant_map_tetr_to_solpts(op,np,rs,mesh_order) &
-                          result(return_value)
+function equidistant_map_tetr_to_solpts(rs,mesh_order) result(return_value)
   !
-  !.. Use Statements ..
-  use polynomial_mod, only : eval_LagrangePoly
-  use polynomial_mod, only : eval_LagrangePoly3D
+  ! RST : location of solution points on the reference tetrahedra element
+  ! MESH_ORDER : polynomial order of the grid file
   !
   !.. Formal Arguments ..
-  integer,  intent(in) :: op
-  integer,  intent(in) :: np
-  real(wp), intent(in) :: rs(:,:)
+  real(wp), intent(in) :: rst(:,:)
   integer,  intent(in) :: mesh_order
   !
   !.. Function Result ..
-  real(wp) :: return_value(1:op,1:np)
+  real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer :: n,ndim,npts
-  !
-  !.. Local Arrays ..
-  real(qp) :: eq_pts(1:mesh_order+1)
-  real(qp) :: map_qp(1:op,1:np)
-  real(qp) :: xi_qp(1:size(rs,dim=2))
-  !
-  !.. Local Parameters ..
-  real(qp), parameter :: end_pts(1:2) = [-qone,qone]
+  integer :: i,j,k,l,ni,nj,nk,nl
+  integer :: pm,ps,mp,np
   !
 continue
   !
-  return_value(:,:) = zero
+  pm = mesh_order                 ! order of grid cells
+  mp = geom_solpts(Geom_Tetr,pm)  ! no. of pts defining a tetr cell in grid file
   !
-  eq_pts(:) = real(intseq(-mesh_order,mesh_order,2),kind=qp) / &
-              real(max(mesh_order,1),kind=qp)
+  np = size(rst,dim=2)             ! no. of solution points in a tetrahedra cell
+  ps = solpts2order(Geom_Tetr,np) ! solution order
+  write (*,*)
+  write (*,*)
+  write (*,*) pm,ps
+  write (*,*) mp,np
+  write (*,*)
+  write (*,*)
   !
-  xi_qp(:) = real(rs(1,:),kind=qp)
+  ! Initialize the allocatable arrays
   !
-  n = size(rs,dim=2)
+  return_value = init_array(mp,np,zero) ! F2003 AUTO-REALLOC
   !
- !ndim = size(xyz,dim=1)
-  npts = n*(3+nint(sqrt(real(1+8*n,kind=wp))))/6
+  ! Loop over each of the solution points
   !
-  ! Use the chop function to copy map_qp into return_value while also
-  ! setting any values that are less that working machine epsilon to zero.
-  !
-  return_value = chop( map_qp )
+  nl = 0
+  do nk = 0,ps
+    do nj = 0,ps-nk
+      do ni = 0,ps-nk-nj
+        !
+        nl = nl + 1
+        write (*,*) rst(1,nl),rst(2,nl),rst(3,nl)
+        !
+        ! Evaluate the Lagrange polynomial for each grid point at
+        ! the reference coordinates of the current solution point
+        !
+        l = 0
+        do k = 0,pm
+          do j = 0,pm-k
+            do i = 0,pm-k-j
+              !
+              ! Evaluate the Lagrange polynomial for grid point (i,j,k) at
+              ! the reference space coordinates for solution point (ni,nj,nk)
+              !
+              l = l + 1
+              return_value(l,nl) = eval_tetrahedra_lagrange(i,j,k,pm,rst(1:3,nl))
+              !
+            end do
+          end do
+        end do
+        !
+      end do
+    end do
+  end do
+  write (*,*)
+  write (*,*)
   !
 end function equidistant_map_tetr_to_solpts
 !
