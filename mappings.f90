@@ -656,8 +656,7 @@ continue
           !
         case (Geom_Tria)
           !
-          this_map%mat = map_tria_to_solpts( op , np , tria_pts , &
-                                             mesh_order )
+          this_map%mat = map_tria_to_solpts( tria_pts , mesh_order )
           !
         case (Geom_Quad)
           !
@@ -1056,64 +1055,71 @@ end function equidistant_map_edge_to_solpts
 !###############################################################################
 !
 #ifndef DISABLE_PURE
-pure &
+!pure &
 #endif
-function equidistant_map_tria_to_solpts(op,np,rs,mesh_order) &
-                          result(return_value)
+function equidistant_map_tria_to_solpts(rs,mesh_order) result(return_value)
   !
-  !.. Use Statements ..
-  use polynomial_mod, only : eval_LagrangePoly
-  use polynomial_mod, only : eval_LagrangePoly2D
+  ! RS : location of solution points on the reference triangle element
+  ! MESH_ORDER : polynomial order of the grid file
   !
   !.. Formal Arguments ..
-  integer,  intent(in) :: op
-  integer,  intent(in) :: np
   real(wp), intent(in) :: rs(:,:)
   integer,  intent(in) :: mesh_order
   !
   !.. Function Result ..
-  real(wp) :: return_value(1:op,1:np)
+  real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i
-  real(wp) :: r,s,a,b,c
-  !
-  !.. Local Arrays ..
-  real(qp) :: eq_pts(1:mesh_order+1)
-  real(qp) :: map_qp(1:op,1:np)
-  !
-  !.. Local Parameters ..
-  real(qp), parameter :: end_pts(1:2) = [-qone,qone]
+  integer :: i,j,k,ni,nj,nk
+  integer :: pm,ps,mp,np
   !
 continue
   !
-  return_value(:,:) = zero
+  pm = mesh_order                 ! order of grid cells
+  mp = geom_solpts(Geom_Tria,pm)  ! no. of pts defining a tria cell in grid file
   !
-  eq_pts(:) = real(intseq(-mesh_order,mesh_order,2),kind=qp) / &
-              real(max(mesh_order,1),kind=qp)
+  np = size(rs,dim=2)             ! no. of solution points in a triangle cell
+  ps = solpts2order(Geom_Tria,np) ! solution order
+  write (*,*)
+  write (*,*)
+  write (*,*) pm,ps
+  write (*,*) mp,np
+  write (*,*)
+  write (*,*)
   !
-  ! If tria_is_biunit is true:  a=0 ; b=1 ; c=1/2
-  ! If tria_is_biunit is false: a=1 ; b=0 ; c=1
+  ! Initialize the allocatable arrays
   !
-  b = deltafun(tria_is_biunit)
-  a = one - b
-  c = one - half*b
+  return_value = init_array(mp,np,zero) ! F2003 AUTO-REALLOC
   !
-  ! On entry, r and s both need to be defined on the interval [0,1]
+  ! Loop over each of the solution points
   !
-  do i = 1,size(rs,2)
-    !
-    r = rs(1,i)
-    s = rs(2,i)
-    !
-    return_value(:,i) = c * ((a-r-s)*rs(:,1) + (r+b)*rs(:,2) + (s+b)*rs(:,3))
-    !
+  nk = 0
+  do nj = 0,ps
+    do ni = 0,ps-nj
+      !
+      nk = nk + 1
+      write (*,*) rs(1,nk),rs(2,nk)
+      !
+      ! Evaluate the Lagrange polynomial for each grid point at
+      ! the reference coordinates of the current solution point
+      !
+      k = 0
+      do j = 0,pm
+        do i = 0,pm-j
+          !
+          ! Evaluate the Lagrange polynomial for grid point (i,j) at
+          ! the reference space coordinates for solution point (ni,nj)
+          !
+          k = k + 1
+          return_value(k,nk) = eval_triangle_lagrange(i,j,pm,rs(1:2,nk))
+          !
+        end do
+      end do
+      !
+    end do
   end do
-  !
-  ! Use the chop function to copy map_qp into return_value while also
-  ! setting any values that are less that working machine epsilon to zero.
-  !
-  return_value = chop( map_qp )
+  write (*,*)
+  write (*,*)
   !
 end function equidistant_map_tria_to_solpts
 !
