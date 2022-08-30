@@ -1513,16 +1513,18 @@ function equidistant_map_pyra_to_solpts(xi,rs,mesh_order) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer :: n,np,op,this_order
+  integer :: n
+  integer :: pm,ps,mp,np
   !
 continue
   !
-  this_order = size(xi) - 1
+  pm = mesh_order                ! order of grid cells
+  mp = geom_solpts(Geom_Pyra,pm) ! no. of pts defining a pyra cell in grid file
   !
-  np = geom_solpts(Geom_Pyra,this_order)
-  op = geom_solpts(Geom_Pyra,mesh_order)
+  ps = size(xi) - 1              ! solution order
+  np = geom_solpts(Geom_Pyra,ps) ! no. of solution points in a pyramid cell
   !
-  return_value = init_array(op,np,zero) ! F2003 AUTO-REALLOC
+  return_value = init_array(mp,np,zero) ! F2003 AUTO-REALLOC
   !
 end function equidistant_map_pyra_to_solpts
 !
@@ -1542,7 +1544,8 @@ function equidistant_map_pris_to_solpts(xi,rs,mesh_order) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,np,op,this_order
+  integer  :: i,j,k
+  integer  :: pm,ps,mp,np
   real(wp) :: r,s,a,b,c,zetam1,zetap1
   !
   !.. Local Arrays ..
@@ -1552,12 +1555,15 @@ function equidistant_map_pris_to_solpts(xi,rs,mesh_order) result(return_value)
   !
 continue
   !
-  this_order = size(xi) - 1
+  pm = mesh_order                ! order of grid cells
+  mp = geom_solpts(Geom_Pris,pm) ! no. of pts defining a pris cell in grid file
   !
-  np = geom_solpts(Geom_Pris,this_order)
-  op = geom_solpts(Geom_Pris,mesh_order)
+  ps = size(xi) - 1              ! solution order
+  np = geom_solpts(Geom_Pris,ps) ! no. of solution points in a prism cell
   !
-  return_value = init_array(op,np,zero) ! F2003 AUTO-REALLOC
+  ! Initialize local allocatable array
+  !
+  return_value = init_array(mp,np,zero) ! F2003 AUTO-REALLOC
   !
   ! If tria_is_biunit is true:  a=0 ; b=1 ; c=1/2
   ! If tria_is_biunit is false: a=1 ; b=0 ; c=1
