@@ -323,7 +323,7 @@ continue
   !
   ! Make sure the weights sum to 8/3
   !
-  return_value(:) = eight3 * return_value(:) / sum(return_value(:))
+ !return_value(:) = eight3 * return_value(:) / sum(return_value(:))
   !
 end function get_pyramid_weights_at_solpts
 !
