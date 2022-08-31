@@ -762,6 +762,15 @@ module module_kind_types
                                            Ymin3D_Face,Ymax3D_Face, &
                                            Zmin3D_Face,Zmax3D_Face]
   !
+  real(wp), protected, save :: ref_edge_nodes_xyz(1:1,1:2)
+  real(wp), protected, save :: ref_tria_nodes_xyz(1:2,1:3)
+  real(wp), protected, save :: ref_quad_nodes_xyz(1:2,1:4)
+  real(wp), protected, save :: ref_tetr_nodes_xyz(1:3,1:4)
+  real(wp), protected, save :: ref_pyra_nodes_xyz(1:3,1:5)
+  real(wp), protected, save :: ref_pris_nodes_xyz(1:3,1:6)
+  real(wp), protected, save :: ref_hexa_nodes_xyz(1:3,1:8)
+  real(wp), protected, save :: ref_elem_nodes_xyz(1:3,1:8,Geom_Min:Geom_Max)
+  !
   ! Minimum/Maximum Order Allowed
   integer, parameter :: Order_Min = 0
   integer, parameter :: Order_Max = 25
