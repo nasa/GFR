@@ -807,8 +807,8 @@ module module_kind_types
   integer(int_mpi), protected, save :: mpi_comm_self_val
   !
   integer(int_mpi), parameter :: dump_stack = int( 7 , kind=kind(dump_stack) )
-  integer(int_mpi), parameter :: abort = int( 8 , kind=kind(abort) )
-  integer(int_mpi), parameter :: stop_mpi = int( 9 , kind=kind(stop_mpi) )
+  integer(int_mpi), parameter :: abort      = int( 8 , kind=kind(abort     ) )
+  integer(int_mpi), parameter :: stop_mpi   = int( 9 , kind=kind(stop_mpi  ) )
   !
   integer(int_MPI), parameter :: glb_root = 0_int_mpi
   integer(int_MPI), parameter :: host_root = 0_int_mpi
