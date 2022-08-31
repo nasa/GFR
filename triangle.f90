@@ -376,7 +376,9 @@ continue
   ! Adjust the triangle nodes to lie in the bi-unit right
   ! triangle defined by the vertices: (-1,-1) - (1,-1) - (-1,1)
   !
-  return_value(:,:) = return_value(:,:)*two - one
+  if (tria_is_biunit) then
+    return_value(:,:) = return_value(:,:)*two - one
+  end if
   !
   return_value(:,:) = merge(return_value(:,:),zero,abs(return_value(:,:))>eps12)
   !
