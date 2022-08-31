@@ -128,13 +128,16 @@ end function PyrNodes3D
 #ifndef DISABLE_PURE
 pure &
 #endif
-function get_pyramid_weights_at_solpts(rst) result(return_value)
+function get_pyramid_weights_at_solpts(rst,nquadrature) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : legendre_gauss_quadrature
   !
   !.. Formal Arguments ..
   real(lp), intent(in) :: rst(:,:)
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: nquadrature
   !
   !.. Function Result ..
   real(lp) :: return_value(1:size(rst,2))
@@ -167,6 +170,10 @@ continue
   nfpts = p+1
   !
   nquad = 2*nfpts - 1 ! quadtrature order is 2*P
+  !
+  if (present(nquadrature)) then
+    nquad = nquadrature
+  end if
   !
   xi = spread(zero,dim=1,ncopies=nquad) ! F2003 AUTO-REALLOC
   wts = spread(zero,dim=1,ncopies=nquad) ! F2003 AUTO-REALLOC
