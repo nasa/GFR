@@ -896,6 +896,7 @@ module module_kind_types
   ! ############################################################################
   ! ############################################################################
   !
+  ! From Functions/reallocate.f90
   ! Generic interface for reallocating arrays of varying types and ranks
   !
   private :: reallocate1_i4,reallocate1_i8
@@ -911,7 +912,7 @@ module module_kind_types
                      reallocate1_c
   end interface reallocate
   !
-  !
+  ! From Functions/init_array.f90
   !
   private :: init_array_i1_rank1,init_array_i1_rank2,init_array_i1_rank3
   private :: init_array_i2_rank1,init_array_i2_rank2,init_array_i2_rank3
@@ -939,7 +940,7 @@ module module_kind_types
 #endif
   end interface init_array
   !
-  !
+  ! From Functions/cross_product.f90
   !
   private :: cross_product_SP,cross_product_DP,cross_product_QP
   !
@@ -951,7 +952,7 @@ module module_kind_types
 #endif
   end interface cross_product
   !
-  !
+  ! From Functions/deltafun.f90
   !
   private :: deltafun_DP_LDK,deltafun_DP_LK
   !
@@ -960,7 +961,7 @@ module module_kind_types
     module procedure deltafun_DP_LK
   end interface deltafun
   !
-  !
+  ! From Functions/deltafun.f90
   !
   private :: deltafun_QP_LDK,deltafun_QP_LK
   !
@@ -969,7 +970,7 @@ module module_kind_types
     module procedure deltafun_QP_LK
   end interface deltafun_QP
   !
-  !
+  ! From Functions/norms.f90
   !
   private :: selfdot_SP,selfdot_DP,selfdot_QP
   !
@@ -981,7 +982,7 @@ module module_kind_types
 #endif
   end interface selfdot
   !
-  !
+  ! From Functions/norms.f90
   !
   private :: rnorm2_SP,rnorm2_DP,rnorm2_QP
   !
@@ -995,7 +996,7 @@ module module_kind_types
   end interface norm2
 #endif
   !
-  !
+  ! From Functions/norms.f90
   !
   private :: unit_vector_SP,unit_vector_DP,unit_vector_QP
   !
@@ -1007,7 +1008,7 @@ module module_kind_types
 #endif
   end interface unit_vector
   !
-  !
+  ! From Functions/outerprod.f90
   !
   private :: outerprod_DP,outerprod_QP
   !
@@ -1018,7 +1019,7 @@ module module_kind_types
 #endif
   end interface outerprod
   !
-  !
+  ! From Functions/reciprocal.f90
   !
   private :: reciprocal_SP,reciprocal_DP,reciprocal_QP
   !
@@ -1030,7 +1031,7 @@ module module_kind_types
 #endif
   end interface reciprocal
   !
-  !
+  ! From Functions/chop.f90
   !
   private :: chop_WP,chop_SP,chop_DP,chop_QP
   !
@@ -1043,7 +1044,7 @@ module module_kind_types
 #endif
   end interface chop
   !
-  !
+  ! From Functions/reflect.f90
   !
   private :: reflect_DP,reflect_QP
   !
@@ -1054,7 +1055,7 @@ module module_kind_types
 #endif
   end interface reflect
   !
-  !
+  ! From Functions/rotate_2d.f90
   !
   private :: rotate_2d_DP,rotate_2d_QP
   !
@@ -1065,7 +1066,7 @@ module module_kind_types
 #endif
   end interface rotate_2d
   !
-  !
+  ! From Functions/rotate.f90
   !
   private :: rotate_DP,rotate_QP
   !
@@ -1076,7 +1077,7 @@ module module_kind_types
 #endif
   end interface rotate
   !
-  !
+  ! From Functions/node_center.f90
   !
   private :: node_center_SP,node_center_DP,node_center_QP
   !
@@ -1088,7 +1089,7 @@ module module_kind_types
 #endif
   end interface node_center
   !
-  !
+  ! From Functions/face_normal.f90
   !
   private :: face_normal_SP,face_normal_DP,face_normal_QP
   !
@@ -1100,7 +1101,7 @@ module module_kind_types
 #endif
   end interface face_normal
   !
-  !
+  ! From Functions/jacobians.f90
   !
   private :: compute_jacobian_SP,compute_jacobian_DP,compute_jacobian_QP
   !
@@ -1112,7 +1113,7 @@ module module_kind_types
 #endif
   end interface compute_jacobian
   !
-  !
+  ! From Functions/reverse_metrics.f90
   !
   private :: reverse_metrics_SP,reverse_metrics_DP,reverse_metrics_QP
   !
@@ -1124,7 +1125,7 @@ module module_kind_types
 #endif
   end interface reverse_metrics
   !
-  !
+  ! From Functions/matrix_ops.f90
   !
   private :: invert_matrix_lapack95_SP
   private :: invert_matrix_lapack95_DP
@@ -1138,7 +1139,7 @@ module module_kind_types
 #endif
   end interface invert_matrix_lapack95
   !
-  !
+  ! From Functions/matrix_ops.f90
   !
   private :: invert_matrix_SP,invert_matrix_DP,invert_matrix_QP
   !
@@ -1150,7 +1151,7 @@ module module_kind_types
 #endif
   end interface invert_matrix
   !
-  !
+  ! From Functions/matrix_ops.f90
   !
   private :: invert_matrix90_SP,invert_matrix90_DP,invert_matrix90_QP
   !
@@ -1162,7 +1163,7 @@ module module_kind_types
 #endif
   end interface invert_matrix90
   !
-  !
+  ! From Functions/matrix_ops.f90
   !
   private :: ludcmp_SP,ludcmp_DP,ludcmp_QP
   !
@@ -1174,7 +1175,7 @@ module module_kind_types
 #endif
   end interface ludcmp
   !
-  !
+  ! From Functions/matrix_ops.f90
   !
   private :: lubksb_SP,lubksb_DP,lubksb_QP
   !
@@ -1186,7 +1187,7 @@ module module_kind_types
 #endif
   end interface lubksb
   !
-  !
+  ! From Functions/matrix_ops.f90
   !
   private :: determinant_SP,determinant_DP,determinant_QP
   !
@@ -1198,7 +1199,7 @@ module module_kind_types
 #endif
   end interface determinant
   !
-  !
+  ! From Functions/random.f90
   !
   private :: random_i4,random_sp,random_dp,random_qp
   !
@@ -1211,7 +1212,7 @@ module module_kind_types
 #endif
   end interface random
   !
-  !
+  ! From Functions/findloc.f90
   !
 #ifndef USE_INTRINSIC_FINDLOC
   private :: findloc_i4,recursive_findloc_i4
@@ -1228,8 +1229,7 @@ module module_kind_types
   end interface findloc
 #endif
   !
-  !
-  !
+  ! From Functions/matrix_ops.f90
   !
   private :: identity_matrix_dim_SP,identity_matrix_mat_SP
   private :: identity_matrix_dim_DP,identity_matrix_mat_DP
@@ -1246,7 +1246,7 @@ module module_kind_types
 #endif
   end interface identity_matrix
   !
-  !
+  ! From Functions/intseq.f90
   !
   private :: intseq_no_interval_i1,intseq_with_interval_i1
   private :: intseq_no_interval_i2,intseq_with_interval_i2
@@ -1261,7 +1261,7 @@ module module_kind_types
       intseq_no_interval_i8,intseq_with_interval_i8,intseq_rev_dir_i8
   end interface intseq
   !
-  !
+  ! From Functions/big_to_little_endian.f90
   !
   private :: big_to_little_endian_i2
   private :: big_to_little_endian_i4
@@ -1277,7 +1277,7 @@ module module_kind_types
                      big_to_little_endian_r8
   end interface big_to_little_endian
   !
-  !
+  ! From Functions/checks_for_bad_numbers.f90
   !
   private :: is_nan_SP,is_nan_DP,is_nan_QP
   !
@@ -1291,7 +1291,7 @@ module module_kind_types
 #endif
   end interface is_nan
   !
-  !
+  ! From Functions/checks_for_bad_numbers.f90
   !
   private :: is_finite_SP,is_finite_DP,is_finite_QP
   !
@@ -1305,7 +1305,7 @@ module module_kind_types
 #endif
   end interface is_finite
   !
-  !
+  ! From Functions/checks_for_bad_numbers.f90
   !
   private :: is_negative_SP,is_negative_DP,is_negative_QP
   !
