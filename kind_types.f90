@@ -1535,22 +1535,39 @@ continue
   side_nodes(1:2,Ymax2D_Face,Geom_Quad) = Ymax2D ! [2,3]
   side_nodes(1:2,Xmin2D_Face,Geom_Quad) = Xmin2D ! [3,0]
   !
-  side_nodes(1:3,1,Geom_Tetr) = [1,2,3]
-  side_nodes(1:3,2,Geom_Tetr) = [2,0,3]
-  side_nodes(1:3,3,Geom_Tetr) = [3,0,1]
+  side_nodes(1:3,1,Geom_Tetr) = [0,1,3]
+  side_nodes(1:3,2,Geom_Tetr) = [1,2,3]
+  side_nodes(1:3,3,Geom_Tetr) = [2,0,3]
   side_nodes(1:3,4,Geom_Tetr) = [0,2,1]
+ !! #### OLD PRE-UNSTRUCTURED GFR
+ !side_nodes(1:3,1,Geom_Tetr) = [1,2,3]
+ !side_nodes(1:3,2,Geom_Tetr) = [2,0,3]
+ !side_nodes(1:3,3,Geom_Tetr) = [3,0,1]
+ !side_nodes(1:3,4,Geom_Tetr) = [0,2,1]
   !
-  side_nodes(1:3,1,Geom_Pyra) = [1,2,4]
-  side_nodes(1:3,2,Geom_Pyra) = [2,3,4]
-  side_nodes(1:3,3,Geom_Pyra) = [3,0,4]
-  side_nodes(1:3,4,Geom_Pyra) = [0,1,4]
+  side_nodes(1:3,1,Geom_Pyra) = [0,1,4]
+  side_nodes(1:3,2,Geom_Pyra) = [1,2,4]
+  side_nodes(1:3,3,Geom_Pyra) = [2,3,4]
+  side_nodes(1:3,4,Geom_Pyra) = [3,0,4]
   side_nodes(1:4,5,Geom_Pyra) = [0,3,2,1]
+ !! #### OLD PRE-UNSTRUCTURED GFR
+ !side_nodes(1:3,1,Geom_Pyra) = [1,2,4]
+ !side_nodes(1:3,2,Geom_Pyra) = [2,3,4]
+ !side_nodes(1:3,3,Geom_Pyra) = [3,0,4]
+ !side_nodes(1:3,4,Geom_Pyra) = [0,1,4]
+ !side_nodes(1:4,5,Geom_Pyra) = [0,3,2,1]
   !
   side_nodes(1:3,1,Geom_Pris) = [0,2,1]
   side_nodes(1:3,2,Geom_Pris) = [3,4,5]
   side_nodes(1:4,3,Geom_Pris) = [0,1,4,3]
   side_nodes(1:4,4,Geom_Pris) = [1,2,5,4]
-  side_nodes(1:4,5,Geom_Pris) = [3,5,2,0]
+  side_nodes(1:4,5,Geom_Pris) = [0,3,5,2]
+ !! #### OLD PRE-UNSTRUCTURED GFR
+ !side_nodes(1:3,1,Geom_Pris) = [0,2,1]
+ !side_nodes(1:3,2,Geom_Pris) = [3,4,5]
+ !side_nodes(1:4,3,Geom_Pris) = [0,1,4,3]
+ !side_nodes(1:4,4,Geom_Pris) = [1,2,5,4]
+ !side_nodes(1:4,5,Geom_Pris) = [3,5,2,0]
   !
  !integer, parameter :: Zmin3D_Face = 1
  !integer, parameter :: Zmax3D_Face = 2
