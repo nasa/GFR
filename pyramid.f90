@@ -274,11 +274,11 @@ continue
           !
           l = 0
           c = zero
-          do i = 1,nfpts
-            do j = 1,i
-              do k = 1,j
+          do i = 0,p
+            do j = 0,i
+              do k = 0,j
                 l = l + 1
-                c = c + V(n,l) * x**(i-j) * y**(j-k) * z**(k-1)
+                c = c + V(n,l) * x**(i-j) * y**(j-k) * z**(k)
               end do
             end do
           end do
