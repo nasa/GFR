@@ -1566,6 +1566,10 @@ continue
   side_nodes(1:4,Ymin3D_Face,Geom_Hexa) = Ymin3D ! [0,1,5,4]
   side_nodes(1:4,Ymax3D_Face,Geom_Hexa) = Ymax3D ! [3,7,6,2]
   !
+  ! Define the node coordinates for each reference element
+  !
+  call define_ref_elem_node_coordinates
+  !
   ! Create the connectivity information between the nodes and edges
   ! of each geometry type
   !
@@ -1598,6 +1602,71 @@ continue
  !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   !
 end subroutine initialize_runtime_parameters
+!
+!###############################################################################
+!
+subroutine define_ref_elem_node_coordinates
+  !
+  ! Define the node coordinates for each reference element
+  !
+continue
+  !
+  ref_edge_nodes_xyz = reshape( [-one,one] , shape(ref_edge_nodes_xyz) )
+  !
+  ref_tria_nodes_xyz = reshape( [-one,-one, &
+                                  one,-one, &
+                                 -one, one] , shape(ref_tria_nodes_xyz) )
+  if (.not. tria_is_biunit) ref_tria_nodes_xyz = half*(ref_tria_nodes_xyz+one)
+  !
+  ref_quad_nodes_xyz = reshape( [-one,-one, &
+                                  one,-one, &
+                                  one, one, &
+                                 -one, one] , shape(ref_quad_nodes_xyz) )
+  !
+  ref_tetr_nodes_xyz = reshape( [-one,-one,-one, &
+                                  one,-one,-one, &
+                                 -one, one,-one, &
+                                 -one,-one, one] , shape(ref_tetr_nodes_xyz) )
+  !
+  ref_pyra_nodes_xyz = reshape( [-one,-one,-one, &
+                                  one,-one,-one, &
+                                  one, one,-one, &
+                                 -one, one,-one, &
+                                 zero,zero, one] , shape(ref_pyra_nodes_xyz) )
+  !
+  ref_pris_nodes_xyz = reshape( [-one,-one,-one, &
+                                  one,-one,-one, &
+                                 -one, one,-one, &
+                                 -one,-one, one, &
+                                  one,-one, one, &
+                                 -one, one, one] , shape(ref_pris_nodes_xyz) )
+  !
+  ref_hexa_nodes_xyz = reshape( [-one,-one,-one, &
+                                  one,-one,-one, &
+                                  one, one,-one, &
+                                 -one, one,-one, &
+                                 -one,-one, one, &
+                                  one,-one, one, &
+                                  one, one, one, &
+                                 -one, one, one] , shape(ref_hexa_nodes_xyz) )
+  !
+  ! Initialize the parts of ref_elem_nodes_xyz that shouldnt be
+  ! accessed to a number that will hopefully cause problems.
+  !
+  ref_elem_nodes_xyz = -huge(zero)
+  !
+  ! Gather the node coordinates for all reference element
+  ! types to the combined array ref_elem_nodes_xyz
+  !
+  ref_elem_nodes_xyz(1:1,1:2,Geom_Edge) = ref_edge_nodes_xyz(1:1,1:2)
+  ref_elem_nodes_xyz(1:2,1:3,Geom_Tria) = ref_tria_nodes_xyz(1:2,1:3)
+  ref_elem_nodes_xyz(1:2,1:4,Geom_Quad) = ref_quad_nodes_xyz(1:2,1:4)
+  ref_elem_nodes_xyz(1:3,1:4,Geom_Tetr) = ref_tetr_nodes_xyz(1:3,1:4)
+  ref_elem_nodes_xyz(1:3,1:5,Geom_Pyra) = ref_pyra_nodes_xyz(1:3,1:5)
+  ref_elem_nodes_xyz(1:3,1:6,Geom_Pris) = ref_pris_nodes_xyz(1:3,1:6)
+  ref_elem_nodes_xyz(1:3,1:8,Geom_Hexa) = ref_hexa_nodes_xyz(1:3,1:8)
+  !
+end subroutine define_ref_elem_node_coordinates
 !
 !###############################################################################
 !
