@@ -13,6 +13,7 @@ module triangle_mod
 #else
   use module_kind_types, only : invert_matrix
 #endif
+  use module_kind_types, only : tria_is_biunit
   !
   implicit none
   !
