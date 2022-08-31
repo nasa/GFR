@@ -766,6 +766,8 @@ module module_kind_types
   integer, parameter :: Order_Min = 0
   integer, parameter :: Order_Max = 25
   !
+  integer, save :: exclusive_element = -1
+  !
   ! tria_is_biunit : logical that changes the location of the reference
   !                  nodes in the definition of the reference triangle
   !         = true  -> defined by the three nodes (-1,-1) - ( 1,-1) - (-1, 1)
