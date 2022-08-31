@@ -686,7 +686,7 @@ function TriNodes2D_WilliamsShunn(p) result(return_value)
   !=============================================================================
   !=============================================================================
   !
-  ! P1 triangle solution points using alpha-optimized triangle points.
+  ! P1 triangle solution points using Williams-Shunn triangle points.
   !
   !=============================================================================
   !=============================================================================
@@ -700,7 +700,7 @@ function TriNodes2D_WilliamsShunn(p) result(return_value)
   !=============================================================================
   !=============================================================================
   !
-  ! P2 triangle solution points using alpha-optimized triangle points.
+  ! P2 triangle solution points using Williams-Shunn triangle points.
   !
   !=============================================================================
   !=============================================================================
@@ -719,7 +719,7 @@ function TriNodes2D_WilliamsShunn(p) result(return_value)
   !=============================================================================
   !=============================================================================
   !
-  ! P3 triangle solution points using alpha-optimized triangle points.
+  ! P3 triangle solution points using Williams-Shunn triangle points.
   !
   !=============================================================================
   !=============================================================================
@@ -742,7 +742,7 @@ function TriNodes2D_WilliamsShunn(p) result(return_value)
   !=============================================================================
   !=============================================================================
   !
-  ! P4 triangle solution points using alpha-optimized triangle points.
+  ! P4 triangle solution points using Williams-Shunn triangle points.
   !
   !=============================================================================
   !=============================================================================
@@ -770,7 +770,7 @@ function TriNodes2D_WilliamsShunn(p) result(return_value)
   !=============================================================================
   !=============================================================================
   !
-  ! P5 triangle solution points using alpha-optimized triangle points.
+  ! P5 triangle solution points using Williams-Shunn triangle points.
   !
   !=============================================================================
   !=============================================================================
@@ -804,7 +804,7 @@ function TriNodes2D_WilliamsShunn(p) result(return_value)
   !=============================================================================
   !=============================================================================
   !
-  ! P6 triangle solution points using alpha-optimized triangle points.
+  ! P6 triangle solution points using Williams-Shunn triangle points.
   !
   !=============================================================================
   !=============================================================================
@@ -845,7 +845,7 @@ function TriNodes2D_WilliamsShunn(p) result(return_value)
   !=============================================================================
   !=============================================================================
   !
-  ! P7 triangle solution points using alpha-optimized triangle points.
+  ! P7 triangle solution points using Williams-Shunn triangle points.
   !
   !=============================================================================
   !=============================================================================
@@ -894,7 +894,7 @@ function TriNodes2D_WilliamsShunn(p) result(return_value)
   !=============================================================================
   !=============================================================================
   !
-  ! P8 triangle solution points using alpha-optimized triangle points.
+  ! P8 triangle solution points using Williams-Shunn triangle points.
   !
   !=============================================================================
   !=============================================================================
