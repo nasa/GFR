@@ -429,7 +429,10 @@ continue
   ! Compute the coefficients of the Vandermonde matrix for
   ! the Lagrange polynomials using monomial basis functions
   !
-  xy(:,:) = half * (rs(:,:) + one)
+  xy(:,:) = rs(1:2,:)
+  if (tria_is_biunit) then
+    xy(:,:) = half * (rs(1:2,:) + one)
+  end if
   !
   do n = 1,nspts
     l = 0
@@ -459,6 +462,7 @@ continue
   ! Reset the quadrature points and weights to the interval [0,1]
   !
   xi(:) = half*(one+xi(:))
+  wts(:) = wts(:)/sum(wts(:))
   !
   ! Initialize the triangle weights to zero
   !
@@ -523,9 +527,15 @@ continue
   !
   return_value(:) = merge(return_value(:),zero,abs(return_value(:))>eps10)
   !
-  ! Make sure the weights sum to 2
+  ! Make sure the weights sum to the right amount
   !
-  return_value(:) = two * return_value(:) / sum(return_value(:))
+  if (tria_is_biunit) then
+    ! Make sure the weights sum to 2
+    return_value(:) = two * return_value(:) / sum(return_value(:))
+  else
+    ! Make sure the weights sum to 0.5
+    return_value(:) = half * return_value(:) / sum(return_value(:))
+  end if
   !
 end function get_triangle_weights_at_solpts
 !
