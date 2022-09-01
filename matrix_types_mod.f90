@@ -32,10 +32,10 @@ module matrix_types_mod
     !
   end type matrix_gpu_t
   !
-  ! matrix : derived type that stores a matrix quantity
+  ! old_matrix_t : derived type that stores a matrix quantity
   !            Examples : interpolation matrix, derivative matrix, etc.
   !
-  type, public :: matrix
+  type, public :: old_matrix_t
     !
     real(wp), allocatable :: mat(:,:)
     !
@@ -75,46 +75,46 @@ module matrix_types_mod
     procedure :: mmut_rev_mult => mm_rev_mult_intsc_use_transpose
    !generic :: dot => dot_vec,dot_mat
     !
-  end type matrix
+  end type old_matrix_t
   !
   !
   !
   abstract interface
     !
     pure function dot_vec_function(this,idx,vector) result(return_value)
-      import :: wp, matrix
-      class(matrix), intent(in) :: this
+      import :: wp, old_matrix_t
+      class(old_matrix_t), intent(in) :: this
       integer, intent(in) :: idx
       real(wp), dimension(:), intent(in) :: vector
       real(wp) :: return_value
     end function dot_vec_function
     !
     pure function dot_mat_function(this,idx,array) result(return_value)
-      import :: wp, matrix
-      class(matrix), intent(in) :: this
+      import :: wp, old_matrix_t
+      class(old_matrix_t), intent(in) :: this
       integer, intent(in) :: idx
       real(wp), dimension(:,:), intent(in) :: array
       real(wp) :: return_value(1:size(array,dim=2))
     end function dot_mat_function
     !
     pure function dot_mat2_function(this,idx,array) result(return_value)
-      import :: wp, matrix
-      class(matrix), intent(in) :: this
+      import :: wp, old_matrix_t
+      class(old_matrix_t), intent(in) :: this
       integer, intent(in) :: idx
       real(wp), dimension(:,:,:), intent(in) :: array
       real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
     end function dot_mat2_function
     !
     pure function mat_vec_mult(this,vector) result(return_value)
-      import :: wp, matrix
-      class(matrix), intent(in) :: this
+      import :: wp, old_matrix_t
+      class(old_matrix_t), intent(in) :: this
       real(wp), dimension(:), intent(in) :: vector
       real(wp), dimension(1:size(this%mat,dim=1)) :: return_value
     end function mat_vec_mult
     !
     pure function vec_mat_mult(this,vector) result(return_value)
-      import :: wp, matrix
-      class(matrix), intent(in) :: this
+      import :: wp, old_matrix_t
+      class(old_matrix_t), intent(in) :: this
       real(wp), dimension(:), intent(in) :: vector
       real(wp), dimension(1:size(this%mat,dim=2)) :: return_value
     end function vec_mat_mult
@@ -125,48 +125,48 @@ module matrix_types_mod
     !
     !
     pure function mat_mat_mult(this,mat) result(return_value)
-      import :: wp, matrix
-      class(matrix), intent(in) :: this
+      import :: wp, old_matrix_t
+      class(old_matrix_t), intent(in) :: this
       real(wp), dimension(:,:), intent(in) :: mat
       real(wp), dimension(1:size(     mat,dim=1), &
                           1:size(this%mat,dim=2)) :: return_value
     end function mat_mat_mult
     !
     pure function mat_mat_rev_mult(this,mat) result(return_value)
-      import :: wp, matrix
-      class(matrix), intent(in) :: this
+      import :: wp, old_matrix_t
+      class(old_matrix_t), intent(in) :: this
       real(wp), dimension(:,:), intent(in) :: mat
       real(wp), dimension(1:size(this%mat,dim=1), &
                           1:size(     mat,dim=2)) :: return_value
     end function mat_mat_rev_mult
     !
     pure function mat_mat_mult_rt(this,mat) result(return_value)
-      import :: wp, matrix
-      class(matrix), intent(in) :: this
+      import :: wp, old_matrix_t
+      class(old_matrix_t), intent(in) :: this
       real(wp), dimension(:,:), intent(in) :: mat
       real(wp), dimension(1:size(this%mat,dim=2), &
                           1:size(     mat,dim=1)) :: return_value
     end function mat_mat_mult_rt
     !
     pure function mat_mat_rev_mult_rt(this,mat) result(return_value)
-      import :: wp, matrix
-      class(matrix), intent(in) :: this
+      import :: wp, old_matrix_t
+      class(old_matrix_t), intent(in) :: this
       real(wp), dimension(:,:), intent(in) :: mat
       real(wp), dimension(1:size(     mat,dim=2), &
                           1:size(this%mat,dim=1)) :: return_value
     end function mat_mat_rev_mult_rt
     !
     pure function mat_mat_mult_ut(this,mat) result(return_value)
-      import :: wp, matrix
-      class(matrix), intent(in) :: this
+      import :: wp, old_matrix_t
+      class(old_matrix_t), intent(in) :: this
       real(wp), dimension(:,:), intent(in) :: mat
       real(wp), dimension(1:size(this%mat,dim=2), &
                           1:size(     mat,dim=2)) :: return_value
     end function mat_mat_mult_ut
     !
     pure function mat_mat_rev_mult_ut(this,mat) result(return_value)
-      import :: wp, matrix
-      class(matrix), intent(in) :: this
+      import :: wp, old_matrix_t
+      class(old_matrix_t), intent(in) :: this
       real(wp), dimension(:,:), intent(in) :: mat
       real(wp), dimension(1:size(     mat,dim=1), &
                           1:size(this%mat,dim=1)) :: return_value
@@ -191,7 +191,7 @@ elemental subroutine check_for_sparsity(this)
   use ovar, only : use_unrolled_dot_products
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(inout) :: this
+  class(old_matrix_t), intent(inout) :: this
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,nsz_dim1,nsz_dim2,total_nz,ierr
@@ -496,7 +496,7 @@ pure function dot_sparse(this,idx,vector) result(return_value)
 #endif
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: idx
@@ -526,7 +526,7 @@ end function dot_sparse
 pure function dot_sparse_unrolled_p0(this,idx,vector) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: idx
@@ -551,7 +551,7 @@ end function dot_sparse_unrolled_p0
 pure function dot_sparse_unrolled_p1(this,idx,vector) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: idx
@@ -581,7 +581,7 @@ end function dot_sparse_unrolled_p1
 pure function dot_sparse_unrolled_p2(this,idx,vector) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: idx
@@ -613,7 +613,7 @@ end function dot_sparse_unrolled_p2
 pure function dot_sparse_unrolled_p3(this,idx,vector) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: idx
@@ -647,7 +647,7 @@ end function dot_sparse_unrolled_p3
 pure function dot_sparse_unrolled_p4(this,idx,vector) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: idx
@@ -683,7 +683,7 @@ end function dot_sparse_unrolled_p4
 pure function dot_sparse_unrolled_p5(this,idx,vector) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: idx
@@ -721,7 +721,7 @@ end function dot_sparse_unrolled_p5
 pure function dot_sparse_unrolled_p6(this,idx,vector) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: idx
@@ -761,7 +761,7 @@ end function dot_sparse_unrolled_p6
 pure function dot_sparse_unrolled_p7(this,idx,vector) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: idx
@@ -803,7 +803,7 @@ end function dot_sparse_unrolled_p7
 pure function dot_sparse_unrolled_p8(this,idx,vector) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: idx
@@ -847,7 +847,7 @@ end function dot_sparse_unrolled_p8
 pure function dot_sparse_unrolled_p9(this,idx,vector) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: idx
@@ -892,7 +892,7 @@ end function dot_sparse_unrolled_p9
 !
 pure function dot_intrinsic(this,idx,vector) result(return_value)
   !
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   integer,                intent(in) :: idx
   real(wp), dimension(:), intent(in) :: vector
   !
@@ -908,9 +908,9 @@ end function dot_intrinsic
 !
 pure function dot_mat_intrinsic(this,idx,array) result(return_value)
   !
-  class(matrix), intent(in) :: this
-  integer,       intent(in) :: idx
-  real(wp),      intent(in) :: array(:,:)
+  class(old_matrix_t), intent(in) :: this
+  integer,             intent(in) :: idx
+  real(wp),            intent(in) :: array(:,:)
   !
   real(wp) :: return_value(1:size(array,dim=2))
   !
@@ -932,7 +932,7 @@ pure function dot_mat_sparse(this,idx,array) result(return_value)
 #endif
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -966,7 +966,7 @@ end function dot_mat_sparse
 pure function dot_mat_sparse_unrolled_p0(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -993,7 +993,7 @@ end function dot_mat_sparse_unrolled_p0
 pure function dot_mat_sparse_unrolled_p1(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1022,7 +1022,7 @@ end function dot_mat_sparse_unrolled_p1
 pure function dot_mat_sparse_unrolled_p2(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1053,7 +1053,7 @@ end function dot_mat_sparse_unrolled_p2
 pure function dot_mat_sparse_unrolled_p3(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1086,7 +1086,7 @@ end function dot_mat_sparse_unrolled_p3
 pure function dot_mat_sparse_unrolled_p4(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1121,7 +1121,7 @@ end function dot_mat_sparse_unrolled_p4
 pure function dot_mat_sparse_unrolled_p5(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1158,7 +1158,7 @@ end function dot_mat_sparse_unrolled_p5
 pure function dot_mat_sparse_unrolled_p6(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1197,7 +1197,7 @@ end function dot_mat_sparse_unrolled_p6
 pure function dot_mat_sparse_unrolled_p7(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1238,7 +1238,7 @@ end function dot_mat_sparse_unrolled_p7
 pure function dot_mat_sparse_unrolled_p8(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1281,7 +1281,7 @@ end function dot_mat_sparse_unrolled_p8
 pure function dot_mat_sparse_unrolled_p9(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1327,9 +1327,9 @@ end function dot_mat_sparse_unrolled_p9
 !
 pure function dot_mat2_intrinsic(this,idx,array) result(return_value)
   !
-  class(matrix), intent(in) :: this
-  integer,       intent(in) :: idx
-  real(wp),      intent(in) :: array(:,:,:)
+  class(old_matrix_t), intent(in) :: this
+  integer,             intent(in) :: idx
+  real(wp),            intent(in) :: array(:,:,:)
   !
   real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
   !
@@ -1352,7 +1352,7 @@ pure function dot_mat2_sparse(this,idx,array) result(return_value)
 #endif
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1388,7 +1388,7 @@ end function dot_mat2_sparse
 pure function dot_mat2_sparse_unrolled_p0(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1417,7 +1417,7 @@ end function dot_mat2_sparse_unrolled_p0
 pure function dot_mat2_sparse_unrolled_p1(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1448,7 +1448,7 @@ end function dot_mat2_sparse_unrolled_p1
 pure function dot_mat2_sparse_unrolled_p2(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1481,7 +1481,7 @@ end function dot_mat2_sparse_unrolled_p2
 pure function dot_mat2_sparse_unrolled_p3(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1516,7 +1516,7 @@ end function dot_mat2_sparse_unrolled_p3
 pure function dot_mat2_sparse_unrolled_p4(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1553,7 +1553,7 @@ end function dot_mat2_sparse_unrolled_p4
 pure function dot_mat2_sparse_unrolled_p5(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1592,7 +1592,7 @@ end function dot_mat2_sparse_unrolled_p5
 pure function dot_mat2_sparse_unrolled_p6(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1633,7 +1633,7 @@ end function dot_mat2_sparse_unrolled_p6
 pure function dot_mat2_sparse_unrolled_p7(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1676,7 +1676,7 @@ end function dot_mat2_sparse_unrolled_p7
 pure function dot_mat2_sparse_unrolled_p8(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1721,7 +1721,7 @@ end function dot_mat2_sparse_unrolled_p8
 pure function dot_mat2_sparse_unrolled_p9(this,idx,array) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: idx
@@ -1771,7 +1771,7 @@ end function dot_mat2_sparse_unrolled_p9
 pure function mat_vec_mult_sparse(this,vector) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: vector
@@ -1799,7 +1799,7 @@ end function mat_vec_mult_sparse
 !
 pure function mat_vec_mult_intrinsic(this,vector) result(return_value)
   !
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   real(wp), dimension(:), intent(in) :: vector
   !
   real(wp), dimension(1:size(this%mat,dim=1)) :: return_value
@@ -1817,7 +1817,7 @@ end function mat_vec_mult_intrinsic
 pure function vec_mat_mult_sparse(this,vector) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: vector
@@ -1845,7 +1845,7 @@ end function vec_mat_mult_sparse
 !
 pure function vec_mat_mult_intrinsic(this,vector) result(return_value)
   !
-  class(matrix),          intent(in) :: this
+  class(old_matrix_t),    intent(in) :: this
   real(wp), dimension(:), intent(in) :: vector
   !
   real(wp), dimension(1:size(this%mat,dim=2)) :: return_value
@@ -1869,7 +1869,7 @@ end function vec_mat_mult_intrinsic
 !
 pure function mat_mat_mult_intrinsic(this,mat) result(return_value)
   !
-  class(matrix),            intent(in) :: this
+  class(old_matrix_t),      intent(in) :: this
   real(wp), dimension(:,:), intent(in) :: mat
   !
   real(wp), dimension(1:size(     mat,dim=1), &
@@ -1885,7 +1885,7 @@ end function mat_mat_mult_intrinsic
 !
 pure function mat_mat_rev_mult_intrinsic(this,mat) result(return_value)
   !
-  class(matrix),            intent(in) :: this
+  class(old_matrix_t),      intent(in) :: this
   real(wp), dimension(:,:), intent(in) :: mat
   !
   real(wp), dimension(1:size(this%mat,dim=1), &
@@ -1901,7 +1901,7 @@ end function mat_mat_rev_mult_intrinsic
 !
 pure function mm_mult_intsc_rtrn_transpose(this,mat) result(return_value)
   !
-  class(matrix),            intent(in) :: this
+  class(old_matrix_t),      intent(in) :: this
   real(wp), dimension(:,:), intent(in) :: mat
   !
   real(wp), dimension(1:size(this%mat,dim=2), &
@@ -1917,7 +1917,7 @@ end function mm_mult_intsc_rtrn_transpose
 !
 pure function mm_rev_mult_intsc_rtrn_transpose(this,mat) result(return_value)
   !
-  class(matrix),            intent(in) :: this
+  class(old_matrix_t),      intent(in) :: this
   real(wp), dimension(:,:), intent(in) :: mat
   !
   real(wp), dimension(1:size(     mat,dim=2), &
@@ -1933,7 +1933,7 @@ end function mm_rev_mult_intsc_rtrn_transpose
 !
 pure function mm_mult_intsc_use_transpose(this,mat) result(return_value)
   !
-  class(matrix),            intent(in) :: this
+  class(old_matrix_t),      intent(in) :: this
   real(wp), dimension(:,:), intent(in) :: mat
   !
   real(wp), dimension(1:size(this%mat,dim=2), &
@@ -1949,7 +1949,7 @@ end function mm_mult_intsc_use_transpose
 !
 pure function mm_rev_mult_intsc_use_transpose(this,mat) result(return_value)
   !
-  class(matrix),            intent(in) :: this
+  class(old_matrix_t),      intent(in) :: this
   real(wp), dimension(:,:), intent(in) :: mat
   !
   real(wp), dimension(1:size(     mat,dim=1), &
@@ -1972,7 +1972,7 @@ end function mm_rev_mult_intsc_use_transpose
 !
 pure function num_nz(this,idx) result(return_value)
   !
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   integer, intent(in) :: idx
   !
   integer :: return_value
@@ -1988,7 +1988,7 @@ end function num_nz
 subroutine output_sparsity_dt_procedure(this,fname)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix), intent(inout) :: this
+  class(old_matrix_t), intent(inout) :: this
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: fname
@@ -2187,7 +2187,7 @@ pure function memory_usage(this) result(return_value)
   use module_memory
   !
   !.. Formal Arguments ..
-  class(matrix), intent(in) :: this
+  class(old_matrix_t), intent(in) :: this
   !
   !.. Function Result ..
   type(memory) :: return_value

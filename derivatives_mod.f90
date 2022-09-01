@@ -6,7 +6,7 @@ module derivatives_mod
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
   !
-  use matrix_types_mod, only : matrix_cpu_t => matrix
+  use matrix_types_mod, only : old_matrix_t
   use matrix_types_mod, only : matrix => matrix_gpu_t
   use matrix_types_mod, only : create_matrix_sparsity
   use matrix_types_mod, only : output_sparsity
@@ -31,7 +31,7 @@ module derivatives_mod
   !                       combination of cell geometry and cell order
   !
   type, public :: derivative_matrices_t
-    type(matrix_cpu_t), allocatable :: d(:)
+    type(old_matrix_t), allocatable :: d(:)
   contains
     private
     procedure :: grad_p1 => gradient_for_point_rank1
