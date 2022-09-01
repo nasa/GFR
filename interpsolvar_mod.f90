@@ -14,7 +14,7 @@ module interpsolvar_mod
  !use flowvar,           only : faceusp_dt
  !use flowvar,           only : face_xyz,face_var
   !
-  use matrix_types_mod,  only : matrix_gpu_t
+  use matrix_types_mod,  only : matrix
   use quadrature_mod,    only : element_type
   use vandermonde_mod,   only : vandermonde_matrix
   use derivatives_mod,   only : derivative_matrices
@@ -121,7 +121,7 @@ module interpsolvar_mod
   type(derivative_matrices), public, save, allocatable :: g2_deriv(:,:)
   !
   ! Grid2 copies of variables from correction_mod
-  type(matrix_gpu_t), public, save, allocatable :: g2_correct(:,:)
+  type(matrix), public, save, allocatable :: g2_correct(:,:)
   !
   ! Grid2 copies of variables from interpolation_mod
   type(interpolation_matrix), public, save, allocatable :: g2_interp(:,:)

@@ -13,12 +13,12 @@ module matrix_types_mod
   public :: output_sparsity
   public :: output_matrix
   !
-  ! matrix_gpu_t : derived type that stores a matrix quantity without the
-  !                type-bound procedures and procedure pointers found in
-  !                the matrix type.
-  !            Examples : interpolation matrix, derivative matrix, etc.
+  ! matrix : derived type that stores a matrix quantity without the
+  !          type-bound procedures and procedure pointers found in
+  !          the old_matrix_t type.
+  !          Examples : interpolation matrix, derivative matrix, etc.
   !
-  type, public :: matrix_gpu_t
+  type, public :: matrix
     !
     real(wp), allocatable :: mat(:,:)
     !
@@ -30,10 +30,13 @@ module matrix_types_mod
     integer,  allocatable :: col_idx(:)
     real(wp), allocatable :: col_val(:)
     !
-  end type matrix_gpu_t
+  end type matrix
   !
-  ! old_matrix_t : derived type that stores a matrix quantity
-  !            Examples : interpolation matrix, derivative matrix, etc.
+  ! old_matrix_t : derived type that stores a matrix quantity with type-bound
+  !                procedures and procedure pointers that perform optimized
+  !                matrix multiplications and dot products using the matrix
+  !                arrays stored in the derived type.
+  !                Examples : interpolation matrix, derivative matrix, etc.
   !
   type, public :: old_matrix_t
     !
@@ -406,7 +409,7 @@ elemental subroutine create_matrix_sparsity(this)
   use ovar, only : use_unrolled_dot_products
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix_gpu_t), intent(inout) :: this
+  class(matrix), intent(inout) :: this
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,nsz_dim1,nsz_dim2,total_nz,ierr
@@ -2055,7 +2058,7 @@ end subroutine output_sparsity_dt_procedure
 subroutine output_sparsity(this,fname)
   !
   !.. Passed Argument from Invoking Object ..
-  class(matrix_gpu_t), intent(inout) :: this
+  class(matrix), intent(inout) :: this
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: fname
@@ -2126,7 +2129,7 @@ subroutine output_matrix(this,matrix_name,this_geom,this_order,output_transpose)
   use ovar,              only : mout => matrix_output_unit
   !
   !.. Formal Arguments ..
-  class(matrix_gpu_t), intent(in) :: this
+  class(matrix),    intent(in) :: this
   character(len=*), intent(in) :: matrix_name
   integer,          intent(in) :: this_geom
   integer,          intent(in) :: this_order
@@ -2253,7 +2256,7 @@ pure function memory_usage_gpu(this) result(return_value)
   use module_memory
   !
   !.. Formal Arguments ..
-  class(matrix_gpu_t), intent(in) :: this
+  class(matrix), intent(in) :: this
   !
   !.. Function Result ..
   type(memory) :: return_value

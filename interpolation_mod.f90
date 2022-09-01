@@ -2,7 +2,7 @@ module interpolation_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use matrix_types_mod, only : matrix => matrix_gpu_t
+  use matrix_types_mod, only : matrix
   use matrix_types_mod, only : create_matrix_sparsity
   use matrix_types_mod, only : output_sparsity
   use eqn_idx, only : nec,nmx,nmy,nmz,nee

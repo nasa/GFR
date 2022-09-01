@@ -7,7 +7,7 @@ module derivatives_mod
                     pure_global_debug_timer => pure_debug_timer
   !
   use matrix_types_mod, only : old_matrix_t
-  use matrix_types_mod, only : matrix => matrix_gpu_t
+  use matrix_types_mod, only : matrix
   use matrix_types_mod, only : create_matrix_sparsity
   use matrix_types_mod, only : output_sparsity
   use matrix_types_mod, only : output_matrix

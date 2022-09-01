@@ -9,7 +9,7 @@ module filter_mod
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   use eqn_idx, only : ncs
   !
-  use matrix_types_mod, only : matrix => matrix_gpu_t
+  use matrix_types_mod, only : matrix
   use matrix_types_mod, only : create_matrix_sparsity
   use matrix_types_mod, only : output_sparsity
   !
