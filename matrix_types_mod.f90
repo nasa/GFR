@@ -405,9 +405,6 @@ end subroutine check_for_sparsity
 !
 elemental subroutine create_matrix_sparsity(this)
   !
-  !.. Use Statements ..
-  use ovar, only : use_unrolled_dot_products
-  !
   !.. Passed Argument from Invoking Object ..
   class(matrix), intent(inout) :: this
   !
