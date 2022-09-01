@@ -105,7 +105,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/flux.o \
         $(OBJDIR)/filter_mod.o \
         $(OBJDIR)/time_mod.o \
-        $(OBJDIR)/typesgen_mod.o \
+        $(OBJDIR)/matrix_types_mod.o \
         $(OBJDIR)/eqn_idx_mod.o \
         $(OBJDIR)/correction_mod.o \
         $(OBJDIR)/derivatives_mod.o \
