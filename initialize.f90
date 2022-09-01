@@ -2942,14 +2942,14 @@ end subroutine create_bc_in
 subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   !
   !.. Use Statements ..
-  use geovar,         only : nr,bface,face
-  use ovar,           only : bc_input,bc_in
-  use ovar,           only : tmin,tmax,tref
-  use ovar,           only : rhoref,aref,cpref_nd
-  use ovar,           only : governing_equations
-  use metrics_mod,    only : facenrm
-  use quadrature_mod, only : std_elem
-  use thermo_mod,     only : species_name
+  use geovar,           only : nr,bface,face
+  use ovar,             only : bc_input,bc_in
+  use ovar,             only : tmin,tmax,tref
+  use ovar,             only : rhoref,aref,cpref_nd
+  use ovar,             only : governing_equations
+  use metrics_mod,      only : facenrm
+  use element_type_mod, only : std_elem
+  use thermo_mod,       only : species_name
   !
   !.. Optional Arguments ..
   integer,     optional, intent(in) :: ibc_beg

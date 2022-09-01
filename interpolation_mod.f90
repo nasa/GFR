@@ -157,12 +157,12 @@ end subroutine init_ref_vectors
 subroutine original_interp_cell_sol_to_xyz(nc,xyz_pt,return_value)
   !
   !.. Use Statements ..
-  use order_mod,      only : maxSP
-  use order_mod,      only : n_min_geom,n_min_order
-  use order_mod,      only : n_max_geom,n_max_order
-  use geovar,         only : nr,cell,xyz
-  use flowvar,        only : usp
-  use quadrature_mod, only : std_elem,solpts_edge
+  use order_mod,        only : maxSP
+  use order_mod,        only : n_min_geom,n_min_order
+  use order_mod,        only : n_max_geom,n_max_order
+  use geovar,           only : nr,cell,xyz
+  use flowvar,          only : usp
+  use element_type_mod, only : std_elem,solpts_edge
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nc
@@ -394,12 +394,12 @@ end subroutine interp_cell_sol_to_xyz
 subroutine interp_cell_sol_to_xyz_3d(nc,xyz_pt,return_value)
   !
   !.. Use Statements ..
-  use order_mod,      only : maxSP
-  use order_mod,      only : n_min_geom,n_min_order
-  use order_mod,      only : n_max_geom,n_max_order
-  use geovar,         only : cell,xyz
-  use flowvar,        only : usp
-  use quadrature_mod, only : std_elem,solpts_edge
+  use order_mod,        only : maxSP
+  use order_mod,        only : n_min_geom,n_min_order
+  use order_mod,        only : n_max_geom,n_max_order
+  use geovar,           only : cell,xyz
+  use flowvar,          only : usp
+  use element_type_mod, only : std_elem,solpts_edge
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nc
@@ -725,12 +725,12 @@ end subroutine interp_cell_sol_to_xyz_3d
 subroutine interp_cell_sol_to_xyz_2d(nc,xyz_pt,return_value)
   !
   !.. Use Statements ..
-  use order_mod,      only : maxSP
-  use order_mod,      only : n_min_geom,n_min_order
-  use order_mod,      only : n_max_geom,n_max_order
-  use geovar,         only : cell,xyz
-  use flowvar,        only : usp
-  use quadrature_mod, only : std_elem,solpts_edge
+  use order_mod,        only : maxSP
+  use order_mod,        only : n_min_geom,n_min_order
+  use order_mod,        only : n_max_geom,n_max_order
+  use geovar,           only : cell,xyz
+  use flowvar,          only : usp
+  use element_type_mod, only : std_elem,solpts_edge
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nc
@@ -1013,8 +1013,8 @@ end subroutine interp_cell_sol_to_xyz_2d
 pure function find_ref_vectors(this_geom,this_order) result(return_value)
   !
   !.. Use Statements ..
-  use order_mod,      only : geom_solpts
-  use quadrature_mod, only : std_elem
+  use order_mod,        only : geom_solpts
+  use element_type_mod, only : std_elem
   !
   !.. Formal Arguments ..
   integer, intent(in) :: this_geom
@@ -1662,15 +1662,15 @@ end subroutine outerp_mv_mult_in_place
 subroutine init_interpolation_matrices()
   !
   !.. Use Statements ..
-  use ovar,           only : loc_quadrature_pts
-  use order_mod,      only : geom_solpts,geom_flxpts
-  use order_mod,      only : n_min_geom,n_max_geom
-  use order_mod,      only : n_min_order,n_max_order
-  use order_mod,      only : geom_mio,geom_edgpts
-  use quadrature_mod, only : geom_is_used
-  use quadrature_mod, only : std_elem,face_elem
-  use polynomial_mod, only : legendre_gauss_quadrature
-  use polynomial_mod, only : legendre_gauss_lobatto_quadrature
+  use ovar,             only : loc_quadrature_pts
+  use order_mod,        only : geom_solpts,geom_flxpts
+  use order_mod,        only : n_min_geom,n_max_geom
+  use order_mod,        only : n_min_order,n_max_order
+  use order_mod,        only : geom_mio,geom_edgpts
+  use quadrature_mod,   only : geom_is_used
+  use element_type_mod, only : std_elem,face_elem
+  use polynomial_mod,   only : legendre_gauss_quadrature
+  use polynomial_mod,   only : legendre_gauss_lobatto_quadrature
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax,ierr
@@ -2482,7 +2482,7 @@ function InterpToCell(this_geom,this_order,opts,npts,pts) result(return_value)
   ! PTS        : array of the 1D points we will be interpolating to
   !
   !.. Use Statements ..
-  use quadrature_mod, only : std_elem
+  use element_type_mod, only : std_elem
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: this_geom

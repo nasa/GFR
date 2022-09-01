@@ -66,7 +66,7 @@ program GFR_main
   !
   use order_mod, only : n_order,p_order,q_order
   !
-  use quadrature_mod, only : solpts_edge
+  use element_type_mod, only : solpts_edge
   !
   use io_mod, only : read_input_file
   use io_mod, only : write_final_error

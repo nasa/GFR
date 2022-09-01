@@ -15,7 +15,7 @@ module interpsolvar_mod
  !use flowvar,           only : face_xyz,face_var
   !
   use matrix_types_mod,  only : matrix
-  use quadrature_mod,    only : element_type
+  use element_type_mod,  only : element_t
   use vandermonde_mod,   only : vandermonde_matrix
   use derivatives_mod,   only : derivative_matrices
   use interpolation_mod, only : interpolation_matrix
@@ -110,9 +110,9 @@ module interpsolvar_mod
   ! Grid2 copies of variables from parallel.
   type(map_t), public, save, allocatable :: g2_cell_map(:)
   !
-  ! Grid2 copies of variables from quadrature_mod
-  type(element_type), public, save, allocatable :: g2_std_elem(:,:)
-  type(element_type), public, save, allocatable :: g2_face_elem(:,:)
+  ! Grid2 copies of variables from element_type_mod
+  type(element_t), public, save, allocatable :: g2_std_elem(:,:)
+  type(element_t), public, save, allocatable :: g2_face_elem(:,:)
   !
   ! Grid2 copies of variables from vandermonde_mod
   type(vandermonde_matrix), public, save, allocatable :: g2_vand(:,:)

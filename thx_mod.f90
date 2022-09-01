@@ -38,11 +38,11 @@ contains
 subroutine compute_blowing_ratio(blowing_ratio,mdot_nozzle,mdot_injector)
   !
   !.. Use Statements ..
-  use ovar,           only : rhoref,aref
-  use geovar,         only : face
-  use flowvar,        only : faceusp_array
-  use metrics_mod,    only : facenrm
-  use quadrature_mod, only : std_elem
+  use ovar,             only : rhoref,aref
+  use geovar,           only : face
+  use flowvar,          only : faceusp_array
+  use metrics_mod,      only : facenrm
+  use element_type_mod, only : std_elem
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: blowing_ratio
@@ -188,10 +188,10 @@ end subroutine compute_blowing_ratio
 subroutine init_blowing_ratio()
   !
   !.. Use Statements ..
-  use geovar,         only : ncell,cell,nface,face,xyz
-  use flowvar,        only : facexyz_array
-  use metrics_mod,    only : facenrm
-  use quadrature_mod, only : std_elem
+  use geovar,           only : ncell,cell,nface,face,xyz
+  use flowvar,          only : facexyz_array
+  use metrics_mod,      only : facenrm
+  use element_type_mod, only : std_elem
   !
   !.. Local Scalars ..
   integer  :: n,nc,ncf,nf,nfp,n1,n2,k,f0,f1,f2,sf,ierr

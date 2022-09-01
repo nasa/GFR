@@ -84,11 +84,11 @@ contains
 subroutine init_vandermonde_matrices()
   !
   !.. Use Statements ..
-  use order_mod,      only : geom_solpts
-  use order_mod,      only : n_min_geom,n_max_geom
-  use order_mod,      only : n_min_order,n_max_order
-  use quadrature_mod, only : geom_is_used
-  use quadrature_mod, only : std_elem
+  use order_mod,        only : geom_solpts
+  use order_mod,        only : n_min_geom,n_max_geom
+  use order_mod,        only : n_min_order,n_max_order
+  use quadrature_mod,   only : geom_is_used
+  use element_type_mod, only : std_elem
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax,ierr
@@ -239,8 +239,8 @@ function Compute_Basis_Matrix(elem_geom,elem_order,basis_order,nodal_points) &
                        result(return_value)
   !
   !.. Use Statements ..
-  use order_mod,      only : geom_solpts
-  use quadrature_mod, only : std_elem
+  use order_mod,        only : geom_solpts
+  use element_type_mod, only : std_elem
   !
   !.. Formal Arguments ..
   integer, intent(in) :: elem_geom

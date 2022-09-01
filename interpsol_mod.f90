@@ -32,7 +32,7 @@ subroutine mv_global_to_grid2()
   use flowvar
   use ovar,   only : bc_names
   !
-  use quadrature_mod,    only : std_elem,face_elem
+  use element_type_mod,  only : std_elem,face_elem
   use vandermonde_mod,   only : vand
   use derivatives_mod,   only : deriv
   use correction_mod,    only : correct
@@ -175,7 +175,7 @@ subroutine mv_grid2_to_global()
   use flowvar
   use ovar,    only : bc_names
   !
-  use quadrature_mod,    only : std_elem,face_elem
+  use element_type_mod,  only : std_elem,face_elem
   use vandermonde_mod,   only : vand
   use derivatives_mod,   only : deriv
   use correction_mod,    only : correct

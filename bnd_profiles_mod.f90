@@ -78,7 +78,7 @@ subroutine compute_bnd_profiles
   !
   !.. Use Statements ..
   use order_mod,         only : maxSP,maxFP,geom_solpts
-  use quadrature_mod,    only : std_elem
+  use element_type_mod,  only : std_elem
   use geovar,            only : nr,bface,face,cell,xyz_nodes,fp
   use geovar,            only : nodes_of_cell,nodes_of_cell_ptr
   use ovar,              only : machref,rhoref,aref,muref,tref

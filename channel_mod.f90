@@ -1222,11 +1222,11 @@ subroutine get_normalized_profile(y_vals,u,uu,v,vv,w,ww,uv,rho,t,dudy, &
                                   prof,aux_data,averaging_channel_flow,ix)
   !
   !.. Use Statements ..
-  use order_mod,      only : n_order
-  use ovar,           only : rhoref,aref,tref
-  use ovar,           only : grid_scaling_factor
-  use quadrature_mod, only : std_elem
-  use transport_mod,  only : compute_viscosity_cpg
+  use order_mod,        only : n_order
+  use ovar,             only : rhoref,aref,tref
+  use ovar,             only : grid_scaling_factor
+  use element_type_mod, only : std_elem
+  use transport_mod,    only : compute_viscosity_cpg
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: y_vals(:)
@@ -1410,11 +1410,11 @@ end subroutine get_normalized_profile
 subroutine get_sem_profile(prof,aux_data,averaging_channel_flow)
   !
   !.. Use Statements ..
-  use ovar,           only : rhoref,aref,tref
-  use ovar,           only : grid_scaling_factor
-  use order_mod,      only : n_order
-  use transport_mod,  only : compute_viscosity_cpg
-  use quadrature_mod, only : std_elem
+  use ovar,             only : rhoref,aref,tref
+  use ovar,             only : grid_scaling_factor
+  use order_mod,        only : n_order
+  use transport_mod,    only : compute_viscosity_cpg
+  use element_type_mod, only : std_elem
   !
   !.. Formal Arguments ..
   real(wp), allocatable, intent(out) :: prof(:,:)

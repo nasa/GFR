@@ -3352,10 +3352,10 @@ pure &
 subroutine compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
   !
   !.. Use Statements ..
-  use order_mod,      only : maxSP
-  use geovar,         only : n_solpts,ncell,cell
-  use filter_mod,     only : filter
-  use quadrature_mod, only : std_elem
+  use order_mod,        only : maxSP
+  use geovar,           only : n_solpts,ncell,cell
+  use filter_mod,       only : filter
+  use element_type_mod, only : std_elem
   !
   !.. Formal Arguments ..
   real(wp),     intent(in) :: usp(:,:)
@@ -3513,9 +3513,9 @@ pure &
 subroutine compute_resolution_marker_2d(usp,skip_cell,cutoff_order,marker)
   !
   !.. Use Statements ..
-  use geovar,         only : n_solpts,ncell,cell
-  use filter_mod,     only : filter
-  use quadrature_mod, only : std_elem
+  use geovar,           only : n_solpts,ncell,cell
+  use filter_mod,       only : filter
+  use element_type_mod, only : std_elem
   !
   !.. Formal Arguments ..
   real(wp),     intent(in) :: usp(:,:)
@@ -3672,9 +3672,9 @@ pure &
 subroutine compute_resolution_marker_1d(usp,skip_cell,cutoff_order,marker)
   !
   !.. Use Statements ..
-  use geovar,         only : n_solpts,ncell,cell
-  use filter_mod,     only : filter
-  use quadrature_mod, only : std_elem
+  use geovar,           only : n_solpts,ncell,cell
+  use filter_mod,       only : filter
+  use element_type_mod, only : std_elem
   !
   !.. Formal Arguments ..
   real(wp),     intent(in) :: usp(:,:)
@@ -3820,10 +3820,10 @@ subroutine compute_resolution_marker_nd(mbeg,mend,usp,skip_cell, &
                                         cutoff_order,marker)
   !
   !.. Use Statements ..
-  use order_mod,      only : maxSP
-  use geovar,         only : n_solpts,ncell,cell
-  use filter_mod,     only : filter
-  use quadrature_mod, only : std_elem
+  use order_mod,        only : maxSP
+  use geovar,           only : n_solpts,ncell,cell
+  use filter_mod,       only : filter
+  use element_type_mod, only : std_elem
   !
   !.. Formal Arguments ..
   integer,      intent(in) :: mbeg,mend
@@ -3972,10 +3972,10 @@ pure &
 subroutine compute_resolution_marker_1var(var,skip_cell,cutoff_order,marker)
   !
   !.. Use Statements ..
-  use order_mod,      only : maxSP
-  use geovar,         only : n_solpts,ncell,cell
-  use filter_mod,     only : filter
-  use quadrature_mod, only : std_elem
+  use order_mod,        only : maxSP
+  use geovar,           only : n_solpts,ncell,cell
+  use filter_mod,       only : filter
+  use element_type_mod, only : std_elem
   !
   !.. Formal Arguments ..
   real(wp),     intent(in) :: var(:)
@@ -4562,10 +4562,10 @@ end subroutine res_ind_apply_proj_nd
 subroutine jump_indicator(troubled_cell)
   !
   !.. Use Statements ..
-  use geovar,         only : nr,n_flxpts,ncell,cell,nface,face
-  use quadrature_mod, only : std_elem
-  use flowvar,        only : facegpsp
-  use metrics_mod,    only : facenrm
+  use geovar,           only : nr,n_flxpts,ncell,cell,nface,face
+  use element_type_mod, only : std_elem
+  use flowvar,          only : facegpsp
+  use metrics_mod,      only : facenrm
   !
   !.. Optional Arguments ..
   logical(ldk), optional, intent(inout) :: troubled_cell(:)

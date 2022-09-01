@@ -238,12 +238,12 @@ end function gradient_for_cell_rank2
 subroutine init_derivative_matrices()
   !
   !.. Use Statements ..
-  use order_mod,      only : n_min_geom,n_max_geom
-  use order_mod,      only : n_min_order,n_max_order
-  use order_mod,      only : n_order
-  use ovar,           only : loc_solution_pts
-  use quadrature_mod, only : geom_is_used
-  use quadrature_mod, only : std_elem
+  use order_mod,        only : n_min_geom,n_max_geom
+  use order_mod,        only : n_min_order,n_max_order
+  use order_mod,        only : n_order
+  use ovar,             only : loc_solution_pts
+  use quadrature_mod,   only : geom_is_used
+  use element_type_mod, only : std_elem
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax,ierr
@@ -714,8 +714,8 @@ pure &
 function Dmatrix_Unstructured(this_geom,this_order) result(return_value)
   !
   !.. Use Statements ..
-  use quadrature_mod,  only : std_elem
-  use vandermonde_mod, only : vand
+  use element_type_mod, only : std_elem
+  use vandermonde_mod,  only : vand
   !
   !.. Formal Arguments ..
   integer, intent(in) :: this_geom

@@ -1644,16 +1644,16 @@ end subroutine getmaxent
 subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use geovar, only : nr,ncell,n_solpts
-  use ovar, only : muref_nd,total_volume
-  use ovar, only : time,time_ref
-  use ovar, only : VortexGrid_DOF
-  use ovar, only : iter_out_interval
-  use flowvar, only : usp,dusp,gpsp
-  use quadrature_mod, only : std_elem
-  use metrics_mod, only : wtdjac
-  use gpu_mod, only : grad_cv_to_grad_pv_gpu
+  use order_mod,        only : n_order
+  use geovar,           only : nr,ncell,n_solpts
+  use ovar,             only : muref_nd,total_volume
+  use ovar,             only : time,time_ref
+  use ovar,             only : VortexGrid_DOF
+  use ovar,             only : iter_out_interval
+  use flowvar,          only : usp,dusp,gpsp
+  use element_type_mod, only : std_elem
+  use metrics_mod,      only : wtdjac
+  use gpu_mod,          only : grad_cv_to_grad_pv_gpu
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: iter

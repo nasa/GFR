@@ -6,6 +6,8 @@ module quadrature_mod
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
   !
+  use element_type_mod, only : element_t
+  !
   implicit none
   !
   private
@@ -15,58 +17,8 @@ module quadrature_mod
   public :: init_face_quadrature_rules
   public :: quadrature_memory_usage
   !
-  ! element_type : derived type that stores the location of the solution points
-  !                and their respective quadrature weights within the standard
-  !                region of a given cell geometry.
-  !
-  type, public :: element_type
-    real(wp), allocatable :: pts(:,:)
-    real(wp), allocatable :: wts(:)
-  end type element_type
-  !
-  ! std_elem : Array giving the location of the solution points and their
-  !            respective quadrature weights for all combinations of cell
-  !            geometry and cell order that are possible in the current
-  !            simulation
-  !
-  !  For a given elemental geometry, this_geom,
-  !                   and its order, this_order :
-  !
-  !  std_elem(this_geom,this_order)%pts(l,k) : The location of the solution
-  !                                            point 'k' in the direction 'l' of
-  !                                            the local coordinate system
-  !                                            within the standard region of the
-  !                                            current element geometry.
-  !
-  !  std_elem(this_geom,this_order)%wts(k) :
-  !                       The quadrature weight of the solution point 'k' within
-  !                       the standard region of the current element geometry.
-  !
-  type(element_type), public, save, target, allocatable :: std_elem(:,:)
-  !
-  ! solpts_edge : pointer to the 'n_order' 1D edge solution points
-  !
-  real(wp), public, protected, pointer :: solpts_edge(:) => null()
-  !
-  ! face_elem : Array giving the location of the flux points and their
-  !             respective quadrature weights for all combinations of cell
-  !             geometry and cell order that are possible in the current
-  !             simulation
-  !
-  !  For a given face geometry, this_geom,
-  !              and its order, this_order :
-  !
-  !  face_elem(this_geom,this_order)%pts(l,k) :
-  !                       The location of the flux point 'k' in the direction
-  !                       'l' of the local coordinate system within the
-  !                       standard region of the current face geometry.
-  !
-  !  face_elem(this_geom,this_order)%wts(k) :
-  !                       The quadrature weight of the flux point 'k' within
-  !                       the standard region of the current face geometry.
-  !
-  type(element_type), public, save, target, allocatable :: face_elem(:,:)
-  !
+  ! GEOM_IS_USED : logical array that identifies whether or not a given
+  !                element type could be used in the current simulation
   !
   logical(lk), public, protected, save :: geom_is_used(Geom_Min:Geom_Max)
   !
@@ -186,6 +138,9 @@ subroutine init_geom_quadrature_rules()
   use ovar,      only : loc_triangle_pts
   use ovar,      only : loc_tetrahedra_pts
   !
+  use element_type_mod, only : std_elem
+  use element_type_mod, only : assign_solpts_edge_ptr
+  !
   !.. Local Scalars ..
   integer :: n,npts,ndim,ierr
   integer :: this_geom,this_order
@@ -193,9 +148,9 @@ subroutine init_geom_quadrature_rules()
   character(len=300) :: timer_message
   !
   !.. Local Pointers ..
-  type(element_type), pointer :: this_elem
-  type(element_type), pointer :: edge_elem
-  type(element_type), pointer :: tria_elem
+  type(element_t), pointer :: this_elem
+  type(element_t), pointer :: edge_elem
+  type(element_t), pointer :: tria_elem
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_geom_quadrature_rules"
@@ -224,7 +179,7 @@ continue
   ! for the most basic geometries that are used (Geom_Edge and Geom_Tria).
   ! We need to do this before all other geometry types because the
   ! remaining geometries are dependent on these quadrature rules.
-  ! NOTE: The pts array within the type element_type is only needed for these
+  ! NOTE: The pts array within the type element_t is only needed for these
   !       two geometries (maybe tetrahedra as well) so they will be the only
   !       ones in which this array will be allocated and created.
   !
@@ -415,7 +370,7 @@ continue
   !
   ! Before we leave, assign the pointer solpts_edge to its target
   !
-  solpts_edge => std_elem(Geom_Edge,n_order)%pts(1,:)
+  call assign_solpts_edge_ptr(n_order)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -440,6 +395,8 @@ subroutine init_face_quadrature_rules()
   use ovar,      only : loc_flux_pts
   use ovar,      only : loc_triangle_pts
   !
+  use element_type_mod, only : face_elem
+  !
   !.. Local Scalars ..
   integer :: n,npts,ndim,ierr
   integer :: gmin,gmax,this_order
@@ -449,8 +406,8 @@ subroutine init_face_quadrature_rules()
   character(len=300) :: timer_message
   !
   !.. Local Pointers ..
-  type(element_type), pointer :: this_elem
-  type(element_type), pointer :: edge_elem
+  type(element_t), pointer :: this_elem
+  type(element_t), pointer :: edge_elem
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_face_quadrature_rules"
@@ -717,7 +674,7 @@ function get_edge_quadrature(n,location) result(return_value)
   integer, intent(in) :: n
   integer, intent(in) :: location
   !
-  type(element_type) :: return_value
+  type(element_t) :: return_value
   !
   integer :: ndim,npts,ierr
   !
@@ -785,7 +742,7 @@ function get_tria_quadrature(p,location) result(return_value)
   integer, intent(in) :: location
   !
   !.. Function Result ..
-  type(element_type) :: return_value
+  type(element_t) :: return_value
   !
   !.. Local Allocatable Arrays ..
   real(mp), allocatable :: pts(:,:)
@@ -820,9 +777,9 @@ function get_quad_quadrature(edge_elem) result(return_value)
   !
   use order_mod, only : geom_solpts
   !
-  type(element_type), intent(in) :: edge_elem
+  type(element_t), intent(in) :: edge_elem
   !
-  type(element_type) :: return_value
+  type(element_t) :: return_value
   !
   integer :: i,j,l,n,ndim,npts,ierr
   !
@@ -884,7 +841,7 @@ function get_tetr_quadrature(p,location) result(return_value)
   integer, intent(in) :: location
   !
   !.. Function Result ..
-  type(element_type) :: return_value
+  type(element_t) :: return_value
   !
   !.. Local Allocatable Arrays ..
   real(mp), allocatable :: pts(:,:)
@@ -926,7 +883,7 @@ function get_pyra_quadrature(p,location) result(return_value)
   integer, intent(in) :: location
   !
   !.. Function Result ..
-  type(element_type) :: return_value
+  type(element_t) :: return_value
   !
   !.. Local Scalars ..
   integer :: node_loc
@@ -976,7 +933,7 @@ function get_pris_quadrature(p,tria_loc,edge_loc) result(return_value)
   integer, intent(in) :: edge_loc
   !
   !.. Function Result ..
-  type(element_type) :: return_value
+  type(element_t) :: return_value
   !
   !.. Local Allocatable Arrays ..
   real(mp), allocatable :: pts(:,:)
@@ -1011,9 +968,9 @@ function get_hexa_quadrature(edge_elem) result(return_value)
   !
   use order_mod, only : geom_solpts
   !
-  type(element_type), intent(in) :: edge_elem
+  type(element_t), intent(in) :: edge_elem
   !
-  type(element_type) :: return_value
+  type(element_t) :: return_value
   !
   integer :: i,j,k,l,n,ndim,npts,ierr
   !
@@ -1073,10 +1030,10 @@ subroutine output_quadrature(this_elem,this_geom,this_order,this_type)
   use ovar, only : mout => matrix_output_unit
   !
   !.. Formal Arguments ..
-  class(element_type), intent(in) :: this_elem
-  integer,             intent(in) :: this_geom
-  integer,             intent(in) :: this_order
-  character(len=*),    intent(in) :: this_type
+  class(element_t), intent(in) :: this_elem
+  integer,          intent(in) :: this_geom
+  integer,          intent(in) :: this_order
+  character(len=*), intent(in) :: this_type
   !
   !.. Local Scalars ..
   integer :: i,j,n1,n2
@@ -1126,6 +1083,8 @@ subroutine quadrature_memory_usage(iunit)
   !
   !.. Use Statements ..
   use module_memory
+  use element_type_mod, only : std_elem
+  use element_type_mod, only : face_elem
   !
   !.. Formal Arguments ..
   integer, optional, intent(in) :: iunit
@@ -1268,13 +1227,13 @@ subroutine dump_solpts()
   character(len=100) :: array_name
   !
   !.. Local Pointers ..
-  type(element_type), pointer :: this_elem
-  type(element_type), pointer :: ref_edge
+  type(element_t), pointer :: this_elem
+  type(element_t), pointer :: ref_edge
   !
   !.. Local Allocatable Arrays ..
-  type(element_type), target, allocatable, dimension(:,:) :: edge_elem
-  type(element_type), target, allocatable, dimension(:,:) :: quad_elem
-  type(element_type), target, allocatable, dimension(:,:) :: hexa_elem
+  type(element_t), target, allocatable, dimension(:,:) :: edge_elem
+  type(element_t), target, allocatable, dimension(:,:) :: quad_elem
+  type(element_t), target, allocatable, dimension(:,:) :: hexa_elem
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "dump_solpts"
@@ -1310,7 +1269,7 @@ continue
   ! for the most basic geometries that are used (Geom_Edge and Geom_Tria).
   ! We need to do this before all other geometry types because the
   ! remaining geometries are dependent on these quadrature rules.
-  ! NOTE: The pts array within the type element_type is only needed for these
+  ! NOTE: The pts array within the type element_t is only needed for these
   !       two geometries (maybe tetrahedra as well) so they will be the only
   !       ones in which this array will be allocated and created.
   !
@@ -1539,7 +1498,7 @@ continue
     integer, intent(in) :: nloc
     !
     !.. Function Result ..
-    type(element_type) :: return_value
+    type(element_t) :: return_value
     !
     !.. Local Scalars ..
     integer :: nd,np,ierr
@@ -1604,10 +1563,10 @@ continue
     use order_mod, only : geom_solpts
     !
     !.. Formal Arguments ..
-    type(element_type), intent(in) :: edge
+    type(element_t), intent(in) :: edge
     !
     !.. Function Result ..
-    type(element_type) :: return_value
+    type(element_t) :: return_value
     !
     !.. Local Scalars ..
     integer :: i,j,l,nd,np,ierr
@@ -1657,10 +1616,10 @@ continue
     use order_mod, only : geom_solpts
     !
     !.. Formal Arguments ..
-    type(element_type), intent(in) :: edge
+    type(element_t), intent(in) :: edge
     !
     !.. Function Result ..
-    type(element_type) :: return_value
+    type(element_t) :: return_value
     !
     !.. Local Scalars ..
     integer :: i,j,k,l,nd,np,ierr
@@ -1709,10 +1668,10 @@ continue
   subroutine write_points(elem,geom,order,nloc)
     !
     !.. Formal Arguments ..
-    integer,            intent(in) :: geom
-    integer,            intent(in) :: order
-    integer,            intent(in) :: nloc
-    type(element_type), intent(in) :: elem
+    integer,         intent(in) :: geom
+    integer,         intent(in) :: order
+    integer,         intent(in) :: nloc
+    type(element_t), intent(in) :: elem
     !
     !.. Local Scalars ..
     integer :: i,j,k,l,m,n,ierr

@@ -123,16 +123,16 @@ contains
 subroutine init_projection_matrices()
   !
   !.. Use Statements ..
-  use geovar,          only : nr
-  use order_mod,       only : geom_solpts,p_order
-  use order_mod,       only : n_min_geom,n_max_geom
-  use order_mod,       only : n_min_order,n_max_order
-  use quadrature_mod,  only : geom_is_used
-  use quadrature_mod,  only : std_elem,face_elem
-  use vandermonde_mod, only : vand
-  use vandermonde_mod, only : Compute_Basis_Matrix
-  use ovar,            only : Limiter_Option
-  use ovar,            only : Limiter_Filter_Option
+  use geovar,           only : nr
+  use order_mod,        only : geom_solpts,p_order
+  use order_mod,        only : n_min_geom,n_max_geom
+  use order_mod,        only : n_min_order,n_max_order
+  use quadrature_mod,   only : geom_is_used
+  use element_type_mod, only : std_elem,face_elem
+  use vandermonde_mod,  only : vand
+  use vandermonde_mod,  only : Compute_Basis_Matrix
+  use ovar,             only : Limiter_Option
+  use ovar,             only : Limiter_Filter_Option
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax,ierr

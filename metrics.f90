@@ -471,7 +471,7 @@ subroutine old_get_metrics()
   use geovar, only : nnode,nfbnd,nface,n_solpts
   use geovar, only : using_quadrature
   !
-  use quadrature_mod, only : std_elem
+  use element_type_mod, only : std_elem
   !
   use ovar, only : local_volume,total_volume
   use ovar, only : VortexGrid_random_perturb
@@ -2737,8 +2737,8 @@ end subroutine compute_quadrature_face_normals
 subroutine create_time_metrics()
   !
   !.. Use Statements ..
-  use geovar,         only : nr,ncell,cell,n_solpts
-  use quadrature_mod, only : element_type,std_elem
+  use geovar,           only : nr,ncell,cell,n_solpts
+  use element_type_mod, only : element_t,std_elem
   !
   !.. Local Scalars ..
   integer  :: i,j,k,l,n,nc,ni,n0,np,nd,ierr
@@ -2753,7 +2753,7 @@ subroutine create_time_metrics()
   real(wp) :: del(1:nr)
   !
   !.. Local Allocatable Arrays ..
-  type(element_type), allocatable :: del_ref_coord(:,:)
+  type(element_t), allocatable :: del_ref_coord(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_time_metrics"
@@ -2953,7 +2953,7 @@ end subroutine create_time_metrics
 pure function compute_cell_volume(this,geom,order) result(return_value)
   !
   !.. Use Statements ..
-  use quadrature_mod, only : std_elem
+  use element_type_mod, only : std_elem
   !
   !.. Passed Argument from Invoking Object ..
   class(metrics_t), intent(in) :: this
@@ -2979,7 +2979,7 @@ end function compute_cell_volume
 pure function compute_face_area(this,geom,order) result(return_value)
   !
   !.. Use Statements ..
-  use quadrature_mod, only : std_elem
+  use element_type_mod, only : std_elem
   !
   !.. Passed Argument from Invoking Object ..
   class(face_nrm_t), intent(in) :: this
@@ -3131,9 +3131,9 @@ end subroutine create_cell_metrics
 subroutine compute_cell_metrics_3d(met,jcb,wjac)
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,cell,xyz
-  use quadrature_mod,  only : std_elem
-  use derivatives_mod, only : deriv
+  use geovar,            only : ncell,cell,xyz
+  use element_type_mod,  only : std_elem
+  use derivatives_mod,   only : deriv
   !
 #ifdef DEBUG_ON
 #ifdef ENABLE_OPENMP
@@ -3291,9 +3291,9 @@ end subroutine compute_cell_metrics_3d
 subroutine compute_cell_metrics_2d(met,jcb,wjac)
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,cell,xyz
-  use quadrature_mod,  only : std_elem
-  use derivatives_mod, only : deriv
+  use geovar,            only : ncell,cell,xyz
+  use element_type_mod,  only : std_elem
+  use derivatives_mod,   only : deriv
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: met(:,:,:)
@@ -3383,9 +3383,9 @@ end subroutine compute_cell_metrics_2d
 subroutine compute_cell_metrics_1d(met,jcb,wjac)
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,cell,xyz
-  use quadrature_mod,  only : std_elem
-  use derivatives_mod, only : deriv
+  use geovar,            only : ncell,cell,xyz
+  use element_type_mod,  only : std_elem
+  use derivatives_mod,   only : deriv
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: met(:,:,:)

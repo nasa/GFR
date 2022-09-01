@@ -46,12 +46,12 @@ contains
 subroutine init_correction_matrices()
   !
   !.. Use Statements ..
-  use order_mod,      only : geom_solpts,geom_flxpts
-  use order_mod,      only : n_min_geom,n_max_geom
-  use order_mod,      only : n_min_order,n_max_order
-  use order_mod,      only : n_order
-  use quadrature_mod, only : geom_is_used
-  use quadrature_mod, only : std_elem
+  use order_mod,        only : geom_solpts,geom_flxpts
+  use order_mod,        only : n_min_geom,n_max_geom
+  use order_mod,        only : n_min_order,n_max_order
+  use order_mod,        only : n_order
+  use quadrature_mod,   only : geom_is_used
+  use element_type_mod, only : std_elem
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax

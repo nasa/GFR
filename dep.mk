@@ -6,6 +6,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/geovar_mod.o \
          $(OBJDIR)/ovar_mod.o \
          $(OBJDIR)/flowvar_mod.o \
+         $(OBJDIR)/element_type_mod.o \
          $(OBJDIR)/quadrature_mod.o \
          $(OBJDIR)/vandermonde_mod.o \
          $(OBJDIR)/derivatives_mod.o \
@@ -84,7 +85,7 @@ $(OBJDIR)/bnd_profiles_mod.o : bnd_profiles_mod.f90 \
                      $(OBJDIR)/geovar_mod.o \
                      $(OBJDIR)/ovar_mod.o \
                      $(OBJDIR)/flowvar_mod.o \
-                     $(OBJDIR)/quadrature_mod.o \
+                     $(OBJDIR)/element_type_mod.o \
                      $(OBJDIR)/interpolation_mod.o \
                      $(OBJDIR)/gpu_mod.o \
                      $(OBJDIR)/thermo_mod.o \
@@ -113,7 +114,7 @@ $(OBJDIR)/channel_mod.o : channel_mod.f90 \
                 $(OBJDIR)/geovar_mod.o \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/flowvar_mod.o \
-                $(OBJDIR)/quadrature_mod.o \
+                $(OBJDIR)/element_type_mod.o \
                 $(OBJDIR)/metrics.o \
                 $(OBJDIR)/derivatives_mod.o \
                 $(OBJDIR)/transport_mod.o \
@@ -132,6 +133,7 @@ $(OBJDIR)/correction_mod.o : correction_mod.f90 \
                    $(OBJDIR)/matrix_types_mod.o \
                    $(OBJDIR)/order_mod.o \
                    $(OBJDIR)/ovar_mod.o \
+                   $(OBJDIR)/element_type_mod.o \
                    $(OBJDIR)/quadrature_mod.o \
                    $(OBJDIR)/vandermonde_mod.o \
                    $(OBJDIR)/poly.o \
@@ -146,6 +148,7 @@ $(OBJDIR)/derivatives_mod.o : derivatives_mod.f90 \
                     $(OBJDIR)/matrix_types_mod.o \
                     $(OBJDIR)/order_mod.o \
                     $(OBJDIR)/ovar_mod.o \
+                    $(OBJDIR)/element_type_mod.o \
                     $(OBJDIR)/quadrature_mod.o \
                     $(OBJDIR)/poly.o \
                     $(OBJDIR)/vandermonde_mod.o \
@@ -213,7 +216,7 @@ $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/order_mod.o \
             $(OBJDIR)/metrics.o \
             $(OBJDIR)/flowvar_mod.o \
-            $(OBJDIR)/quadrature_mod.o \
+            $(OBJDIR)/element_type_mod.o \
             $(OBJDIR)/gpu_mod.o \
             $(OBJDIR)/mms_mod.o \
             $(OBJDIR)/thx_mod.o \
@@ -247,7 +250,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/mms_mod.o \
                $(OBJDIR)/channel_mod.o \
                $(OBJDIR)/metrics.o \
-               $(OBJDIR)/quadrature_mod.o \
+               $(OBJDIR)/element_type_mod.o \
                $(OBJDIR)/restart_mod.o \
                $(OBJDIR)/projection_mod.o \
                $(OBJDIR)/interpolation_mod.o \
@@ -269,6 +272,7 @@ $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(OBJDIR)/geovar_mod.o \
                       $(OBJDIR)/ovar_mod.o \
                       $(OBJDIR)/order_mod.o \
+                      $(OBJDIR)/element_type_mod.o \
                       $(OBJDIR)/quadrature_mod.o \
                       $(OBJDIR)/poly.o \
                       $(OBJDIR)/flowvar_mod.o \
@@ -283,6 +287,7 @@ $(OBJDIR)/interpsol_mod.o : interpsol_mod.f90 \
                   $(OBJDIR)/order_mod.o \
                   $(OBJDIR)/flowvar_mod.o \
                   $(OBJDIR)/flux.o \
+                  $(OBJDIR)/element_type_mod.o \
                   $(OBJDIR)/quadrature_mod.o \
                   $(OBJDIR)/vandermonde_mod.o \
                   $(OBJDIR)/derivatives_mod.o \
@@ -303,7 +308,7 @@ $(OBJDIR)/interpsolvar_mod.o : interpsolvar_mod.f90 \
                      $(OBJDIR)/geovar_mod.o \
                      $(OBJDIR)/flowvar_mod.o \
                      $(OBJDIR)/matrix_types_mod.o \
-                     $(OBJDIR)/quadrature_mod.o \
+                     $(OBJDIR)/element_type_mod.o \
                      $(OBJDIR)/vandermonde_mod.o \
                      $(OBJDIR)/derivatives_mod.o \
                      $(OBJDIR)/correction_mod.o \
@@ -382,7 +387,7 @@ $(OBJDIR)/limiters.o : limiters.f90 \
              $(OBJDIR)/vandermonde_mod.o \
              $(OBJDIR)/projection_mod.o \
              $(OBJDIR)/filter_mod.o \
-             $(OBJDIR)/quadrature_mod.o \
+             $(OBJDIR)/element_type_mod.o \
              $(OBJDIR)/thermo_mod.o \
              $(FUNDIR)/debug_timer.f90
 
@@ -397,7 +402,7 @@ $(OBJDIR)/mappings.o : mappings.f90 \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/order_mod.o \
              $(OBJDIR)/flowvar_mod.o \
-             $(OBJDIR)/quadrature_mod.o \
+             $(OBJDIR)/element_type_mod.o \
              $(OBJDIR)/matrix_types_mod.o \
              $(OBJDIR)/poly.o \
              $(FUNDIR)/solpts2order.f90
@@ -409,7 +414,7 @@ $(OBJDIR)/metrics.o : metrics.f90 \
             $(OBJDIR)/geovar_mod.o \
             $(OBJDIR)/order_mod.o \
             $(OBJDIR)/ovar_mod.o \
-            $(OBJDIR)/quadrature_mod.o \
+            $(OBJDIR)/element_type_mod.o \
             $(OBJDIR)/interpolation_mod.o \
             $(OBJDIR)/derivatives_mod.o
 
@@ -546,6 +551,7 @@ $(OBJDIR)/projection_mod.o : projection_mod.f90 \
                    $(OBJDIR)/geovar_mod.o \
                    $(OBJDIR)/order_mod.o \
                    $(OBJDIR)/ovar_mod.o \
+                   $(OBJDIR)/element_type_mod.o \
                    $(OBJDIR)/quadrature_mod.o \
                    $(OBJDIR)/vandermonde_mod.o \
                    $(OBJDIR)/thermo_mod.o \
@@ -561,6 +567,7 @@ $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(OBJDIR)/geovar_mod.o \
                    $(OBJDIR)/order_mod.o \
                    $(OBJDIR)/ovar_mod.o \
+                   $(OBJDIR)/element_type_mod.o \
                    $(OBJDIR)/poly.o \
                    $(OBJDIR)/triangle.o \
                    $(OBJDIR)/tetrahedra.o \
@@ -651,7 +658,7 @@ $(OBJDIR)/thx_mod.o : thx_mod.f90 \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/metrics.o \
-            $(OBJDIR)/quadrature_mod.o \
+            $(OBJDIR)/element_type_mod.o \
             $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/upwind_flux_mod.o : upwind_flux_mod.f90 \
@@ -664,6 +671,7 @@ $(OBJDIR)/vandermonde_mod.o : vandermonde_mod.f90 \
                     $(OBJDIR)/kind_types.o \
                     $(OBJDIR)/matrix_types_mod.o \
                     $(OBJDIR)/order_mod.o \
+                    $(OBJDIR)/element_type_mod.o \
                     $(OBJDIR)/quadrature_mod.o \
                     $(OBJDIR)/poly.o \
                     $(FUNDIR)/np2n.f90 \
