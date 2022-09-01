@@ -179,7 +179,7 @@ module matrix_types_mod
 #ifndef DISABLE_DTIO
   public :: matrix_memory_usage
   interface matrix_memory_usage
-    module procedure memory_usage, memory_usage_gpu
+    module procedure memory_usage_old_t, memory_usage
   end interface matrix_memory_usage
 #endif
   !
@@ -2187,7 +2187,7 @@ end subroutine output_matrix
 !
 !###############################################################################
 !
-pure function memory_usage(this) result(return_value)
+pure function memory_usage_old_t(this) result(return_value)
   !
   !.. Use Statements ..
   use module_memory
@@ -2249,11 +2249,11 @@ continue
   end if
   !
 #endif
-end function memory_usage
+end function memory_usage_old_t
 !
 !###############################################################################
 !
-pure function memory_usage_gpu(this) result(return_value)
+pure function memory_usage(this) result(return_value)
   !
   !.. Use Statements ..
   use module_memory
@@ -2315,7 +2315,7 @@ continue
   end if
   !
 #endif
-end function memory_usage_gpu
+end function memory_usage
 !
 !###############################################################################
 !
