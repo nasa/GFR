@@ -2123,6 +2123,7 @@ subroutine output_matrix(this,matrix_name,this_geom,this_order,output_transpose)
   !
   !.. Use Statements ..
   use module_kind_types, only : iout,Geom_Full_Name
+  use module_kind_types, only : exclusive_element
   use ovar,              only : mout => matrix_output_unit
   !
   !.. Formal Arguments ..
@@ -2144,6 +2145,12 @@ subroutine output_matrix(this,matrix_name,this_geom,this_order,output_transpose)
 continue
   !
   if (mout == iout) return
+  !
+  if (exclusive_element >= 0) then
+    if (this_geom /= exclusive_element) then
+      return
+    end if
+  end if
   !
   write (mout,1) trim(adjustl(matrix_name)), &
                  this_order, trim(adjustl(Geom_Full_Name(this_geom)))
