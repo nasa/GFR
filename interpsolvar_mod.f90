@@ -14,7 +14,7 @@ module interpsolvar_mod
  !use flowvar,           only : faceusp_dt
  !use flowvar,           only : face_xyz,face_var
   !
-  use generic_types_mod, only : matrix_gpu_t
+  use matrix_types_mod,  only : matrix_gpu_t
   use quadrature_mod,    only : element_type
   use vandermonde_mod,   only : vandermonde_matrix
   use derivatives_mod,   only : derivative_matrices

@@ -6,11 +6,11 @@ module derivatives_mod
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
   !
-  use generic_types_mod, only : matrix_cpu_t => matrix
-  use generic_types_mod, only : matrix => matrix_gpu_t
-  use generic_types_mod, only : create_matrix_sparsity
-  use generic_types_mod, only : output_sparsity
-  use generic_types_mod, only : output_matrix
+  use matrix_types_mod, only : matrix_cpu_t => matrix
+  use matrix_types_mod, only : matrix => matrix_gpu_t
+  use matrix_types_mod, only : create_matrix_sparsity
+  use matrix_types_mod, only : output_sparsity
+  use matrix_types_mod, only : output_matrix
   !
   implicit none
   !
@@ -1346,7 +1346,7 @@ subroutine derivatives_memory_usage(iunit)
   !.. Use Statements ..
   use module_memory
 #ifndef DISABLE_DTIO
-  use generic_types_mod, only : matrix_memory_usage
+  use matrix_types_mod, only : matrix_memory_usage
 #endif
   !
   !.. Formal Arguments ..

@@ -9,9 +9,9 @@ module filter_mod
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   use eqn_idx, only : ncs
   !
-  use generic_types_mod, only : matrix => matrix_gpu_t
-  use generic_types_mod, only : create_matrix_sparsity
-  use generic_types_mod, only : output_sparsity
+  use matrix_types_mod, only : matrix => matrix_gpu_t
+  use matrix_types_mod, only : create_matrix_sparsity
+  use matrix_types_mod, only : output_sparsity
   !
   use ovar, only : Filter_Option,Limiter_Filter_Option
   use ovar, only : Filter_etac,  Limiter_Filter_etac,  Sponge_Filter_etac
@@ -2648,7 +2648,7 @@ subroutine filter_memory_usage(iunit)
   !.. Use Statements ..
   use module_memory
 #ifndef DISABLE_DTIO
-  use generic_types_mod, only : matrix_memory_usage
+  use matrix_types_mod, only : matrix_memory_usage
 #endif
   !
   !.. Formal Arguments ..

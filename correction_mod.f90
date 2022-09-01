@@ -2,10 +2,10 @@ module correction_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use generic_types_mod, only : matrix => matrix_gpu_t
-  use generic_types_mod, only : create_matrix_sparsity
-  use generic_types_mod, only : output_sparsity
-  use generic_types_mod, only : output_matrix
+  use matrix_types_mod, only : matrix => matrix_gpu_t
+  use matrix_types_mod, only : create_matrix_sparsity
+  use matrix_types_mod, only : output_sparsity
+  use matrix_types_mod, only : output_matrix
   !
   implicit none
   !
@@ -1367,7 +1367,7 @@ subroutine correction_memory_usage(iunit)
   !.. Use Statements ..
   use module_memory
 #ifndef DISABLE_DTIO
-  use generic_types_mod, only : matrix_memory_usage
+  use matrix_types_mod, only : matrix_memory_usage
 #endif
   !
   !.. Formal Arguments ..

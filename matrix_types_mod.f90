@@ -1,4 +1,4 @@
-module generic_types_mod
+module matrix_types_mod
   !
   use module_kind_types, only : wp,zero,half,dot,intseq
   use module_kind_types, only : lk,true,fals,eps6
@@ -2313,7 +2313,7 @@ end function memory_usage_gpu
 !
 !###############################################################################
 !
-end module generic_types_mod
+end module matrix_types_mod
 !
 !###############################################################################
 !

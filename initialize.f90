@@ -25,7 +25,7 @@ subroutine initialize_flow()
   ! Routine to initialize the flow
   !
   !.. Use Statements ..
-  use generic_types_mod, only : matrix => matrix_gpu_t
+  use matrix_types_mod, only : matrix => matrix_gpu_t
   !
   use geovar, only : nr,n_solpts,ncell,cell,xyz,grid
   !

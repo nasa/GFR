@@ -2,7 +2,7 @@ module mappings_mod
   !
   !.. Global Use Statements ..
   use module_kind_types
-  use generic_types_mod, only : matrix => matrix_gpu_t
+  use matrix_types_mod, only : matrix => matrix_gpu_t
   use eqn_idx, only : nec,nmb,nme,nee,nq
   !
   implicit none

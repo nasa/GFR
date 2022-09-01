@@ -8668,7 +8668,7 @@ end subroutine write_3d_array
 !
 !!subroutine correct_gradients_br2()
 !!!
-!!use generic_types_mod, only : matrix
+!!use matrix_types_mod,  only : matrix
 !!use order_mod,         only : maxSP,maxFP,geom_solpts
 !!use geovar,            only : cell
 !!use geovar,            only : nr,ncell,nfbnd,bface
