@@ -1,7 +1,6 @@
 module matrix_types_mod
   !
   use module_kind_types, only : wp,zero,half,dot,intseq
-  use module_kind_types, only : lk,true,fals,eps6
   use module_kind_types, only : alloc_error,io_error
   use module_kind_types, only : error_message
   !
