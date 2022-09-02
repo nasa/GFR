@@ -1704,7 +1704,6 @@ end subroutine move_monomials_to_device
 !###############################################################################
 !
 include "Functions/solpts2order.f90"
-include "Functions/np2n.f90"
 include "Functions/cell_solpts.f90"
 #include "Functions/debug_timer.f90"
 !
