@@ -1343,9 +1343,6 @@ subroutine output_quadrature(this_elem,this_geom,this_order,this_type)
   integer,          intent(in) :: this_order
   character(len=*), intent(in) :: this_type
   !
-  !.. Local Scalars ..
-  integer :: i,j,n1,n2
-  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "output_quadrature"
   !
@@ -1353,35 +1350,42 @@ continue
   !
   if (mout == iout) return
   !
-  write (mout,1) this_order, trim(adjustl(Geom_Full_Name(this_geom))), &
+  if (exclusive_element >= 0) then
+    if (this_geom /= exclusive_element) then
+      return
+    end if
+  end if
+  !
+  write (mout,1) this_order, &
+                 trim(adjustl(Geom_Full_Name(this_geom))), &
                  trim(adjustl(this_type))
   !
-  n1 = size(this_elem%pts,dim=1)
-  n2 = size(this_elem%pts,dim=2)
+  write (mout,2) "Solution"
+  call output_pts_and_wts(this_geom,this_elem%pts,this_elem%wts)
   !
-  if (geom_dimen(this_geom) == 1) then
-    do j = 1,n2
-      write (mout,2) (this_elem%pts(i,j),i=1,n1), this_elem%wts(j)
-    end do
-  else if (geom_dimen(this_geom) == 2) then
-    do j = 1,n2
-      write (mout,3) (this_elem%pts(i,j),i=1,n1), this_elem%wts(j)
-    end do
-  else if (geom_dimen(this_geom) == 3) then
-    do j = 1,n2
-      write (mout,4) (this_elem%pts(i,j),i=1,n1), this_elem%wts(j)
-    end do
+  if (allocated(this_elem%face_pts) .and. allocated(this_elem%face_wts)) then
+    write (iout,2) "  Flux"
+    call output_pts_and_wts(this_geom,this_elem%face_pts,this_elem%face_wts)
+  else
+    write (iout,3) merge("TRUE ","FALSE",allocated(this_elem%face_pts)), &
+                   merge("TRUE ","FALSE",allocated(this_elem%face_wts))
   end if
   !
   1 format (/, &
-            80("#"),/, &
-            3x,"Solution Point Coordinates : Quadrature Weight",/, &
-            3x,"for a P",i0,1x,a,1x,a," element",/, &
-            80("-"),/)
-  2 format (1x,es14.7,"  :  ",es14.7)
-  3 format (2(1x,es14.7),"  :  ",es14.7)
-  4 format (3(1x,es14.7),"  :  ",es14.7)
-
+            3(80("#"),/),/, &
+            3x,"for a P",i0,1x,a,1x,a," element",/,/, &
+            80("="))
+  2 format (/, &
+            2x,19("*"),/, &
+            4x,a," Points",/, &
+            2x,19("*"),/, &
+            3x,"Reference Coordinates : Quadrature Weight",/, &
+            80("-"))
+  3 format (/, &
+            2x,59("*"),/, &
+            12x,"allocated( this_elem%face_pts ) = ",a,/, &
+            12x,"allocated( this_elem%face_wts ) = ",a,/, &
+            2x,59("*"))
   !
 end subroutine output_quadrature
 !
