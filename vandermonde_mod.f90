@@ -454,7 +454,7 @@ function Vandermonde_Edge(xi,number_of_modes) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars
-  integer  :: i,j,nqp,nqo,nsp,nso,ierr
+  integer  :: i,j,nqp,nqo,nsp,nso
   real(qp) :: x
   !
   !.. Local Allocatable Arrays ..
@@ -472,14 +472,9 @@ continue
   end if
   nsp = nso+1
   !
-  ! Allocate the return array containing the
-  ! working precision Vandermonde matrix
-  !
-  allocate ( return_value(1:nqp,1:nsp) , source=zero , stat=ierr )
-  !
   ! Create the Vandermonde matrix using quad precision
   !
-  allocate ( vmat_qp(1:nqp,1:nsp) , source=qzero , stat=ierr )
+  vmat_qp = init_array(nqp,nsp,qzero) ! F2003 AUTO-REALLOC
   !
   do j = 1,nsp
     do i = 1,nqp
@@ -494,7 +489,7 @@ continue
   ! Use the chop function to copy vmat_qp into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( vmat_qp )
+  return_value = chop( vmat_qp ) ! F2003 AUTO-REALLOC
   !
 end function Vandermonde_Edge
 !
@@ -518,7 +513,7 @@ function Vandermonde_Quad(xi,number_of_modes) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,ni,nj,m,mi,mj,ierr
+  integer  :: n,ni,nj,m,mi,mj
   integer  :: nsp,nso,nsq,nqp,nqo,nqq
   real(qp) :: x,y,hx,hy
   !
@@ -539,14 +534,9 @@ continue
   nsp = nso+1
   nsq = nsp*nsp
   !
-  ! Allocate the return array containing the
-  ! working precision Vandermonde matrix
-  !
-  allocate ( return_value(1:nqq,1:nsq) , source=zero , stat=ierr )
-  !
   ! Create the Vandermonde matrix using quad precision
   !
-  allocate ( vmat_qp(1:nqq,1:nsq) , source=qzero , stat=ierr )
+  vmat_qp = init_array(nqq,nsq,qzero) ! F2003 AUTO-REALLOC
   !
   do nj = 1,nqp
     do ni = 1,nqp
@@ -580,7 +570,7 @@ continue
   ! Use the chop function to copy vmat_qp into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( vmat_qp )
+  return_value = chop( vmat_qp ) ! F2003 AUTO-REALLOC
   !
 end function Vandermonde_Quad
 !
@@ -599,7 +589,7 @@ function General_Basis_Quad(basis_order,xy) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: m,mi,mj,np,bo,nb,k,ierr
+  integer  :: m,mi,mj,np,bo,nb,k
   real(qp) :: x,y,hx,hy
   !
   !.. Local Allocatable Arrays ..
@@ -664,7 +654,7 @@ function Vandermonde_Tria(rs,number_of_modes) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,n,np,nb,m,ierr
+  integer  :: i,j,k,n,np,nb,m
   real(qp) :: r,s,a,b,h1,h2,alpha,beta
   !
   !.. Local Allocatable Arrays ..
@@ -759,7 +749,7 @@ function Vandermonde_Tetr(rs,number_of_modes) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,l,n,np,nb,m,ierr
+  integer  :: i,j,k,l,n,np,nb,m
   real(qp) :: r,s,t,a,b,c,h1,h2,h3,alpha,beta
   !
   !.. Local Allocatable Arrays ..
@@ -863,7 +853,7 @@ function Vandermonde_Pyra(rs,number_of_modes) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,l,n,np,nb,m,ierr
+  integer  :: i,j,k,l,n,np,nb,m
   real(qp) :: r,s,t,a,b,c,h1,h2,h3,alpha,beta
   !
   !.. Local Allocatable Arrays ..
@@ -966,7 +956,7 @@ function Vandermonde_Pris(rs,number_of_modes) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,l,n,np,nb,m,ierr
+  integer  :: i,j,k,l,n,np,nb,m
   real(qp) :: r,s,t,a,b,c,h1,h2,h3,alpha,beta
   !
   !.. Local Allocatable Arrays ..
@@ -1093,7 +1083,7 @@ continue
   !
   ! Create the Vandermonde matrix using quad precision
   !
-  allocate ( vmat_qp(1:nqq,1:nsq) , source=qzero , stat=ierr )
+  vmat_qp = init_array(nqq,nsq,qzero) ! F2003 AUTO-REALLOC
   !
   allocate ( vnjp_qp(0:nso,1:nqp) , source=qzero , stat=ierr )
   !
@@ -1197,7 +1187,7 @@ function General_Basis_Hexa(basis_order,xyz) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: m,mi,mj,mk,np,bo,nb,k,ierr
+  integer  :: m,mi,mj,mk,np,bo,nb,k
   real(qp) :: x,y,z,hx,hy,hz
   !
   !.. Local Allocatable Arrays ..
