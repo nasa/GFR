@@ -239,7 +239,6 @@ function Compute_Basis_Matrix(elem_geom,elem_order,basis_order,nodal_points) &
                        result(return_value)
   !
   !.. Use Statements ..
-  use order_mod,        only : geom_solpts
   use element_type_mod, only : std_elem
   !
   !.. Formal Arguments ..
@@ -269,16 +268,12 @@ continue
   !
   solpts => null()
   !
-  npts = geom_solpts(elem_geom,elem_order)
+  npts = cell_solpts(elem_geom,elem_order)
   if (present(basis_order)) then
-    nmodes = geom_solpts(elem_geom,basis_order)
+    nmodes = cell_solpts(elem_geom,basis_order)
   else
     nmodes = npts
   end if
-  !
-  allocate ( return_value(1:npts,1:nmodes) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"return_value",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Compute the basis matrix depending on the geometry type
   !
@@ -287,14 +282,11 @@ continue
       !
       if (present(nodal_points)) then
         edgpts = nodal_points(1,:) ! F2003 AUTO-REALLOCATION
-       !solpts => nodal_points
       else
         edgpts = std_elem(Geom_Edge,elem_order)%pts(1,:) ! F2003 AUTO-REALLOC
-       !solpts => std_elem(elem_geom,elem_order)%pts
       end if
       !
-      return_value(:,:) = Vandermonde_Edge( edgpts , basis_order )
-     !return_value(:,:) = Vandermonde_Edge( solpts(1,:) , basis_order )
+      return_value = Vandermonde_Edge( edgpts , basis_order ) ! F03 AUTO-REALLOC
       !
     case (Geom_Tria)
       !
@@ -304,20 +296,17 @@ continue
         solpts => std_elem(elem_geom,elem_order)%pts
       end if
       !
-      return_value(:,:) = Vandermonde_Tria( solpts , basis_order )
+      return_value = Vandermonde_Tria( solpts , basis_order ) ! F03 AUTO-REALLOC
       !
     case (Geom_Quad)
       !
       if (present(nodal_points)) then
         edgpts = nodal_points(1,:) ! F2003 AUTO-REALLOCATION
-       !solpts => nodal_points
       else
         edgpts = std_elem(Geom_Edge,elem_order)%pts(1,:) ! F2003 AUTO-REALLOC
-       !solpts => std_elem(Geom_Edge,elem_order)%pts
       end if
       !
-      return_value(:,:) = Vandermonde_Quad( edgpts , basis_order )
-     !return_value(:,:) = Vandermonde_Quad( solpts(1,:) , basis_order )
+      return_value = Vandermonde_Quad( edgpts , basis_order ) ! F03 AUTO-REALLOC
       !
     case (Geom_Tetr)
       !
@@ -327,7 +316,7 @@ continue
         solpts => std_elem(elem_geom,elem_order)%pts
       end if
       !
-      return_value(:,:) = Vandermonde_Tetr( solpts , basis_order )
+      return_value = Vandermonde_Tetr( solpts , basis_order ) ! F03 AUTO-REALLOC
       !
     case (Geom_Pyra)
       !
@@ -337,7 +326,7 @@ continue
         solpts => std_elem(elem_geom,elem_order)%pts
       end if
       !
-      return_value(:,:) = Vandermonde_Pyra( solpts , basis_order )
+      return_value = Vandermonde_Pyra( solpts , basis_order ) ! F03 AUTO-REALLOC
       !
     case (Geom_Pris)
       !
@@ -347,20 +336,17 @@ continue
         solpts => std_elem(elem_geom,elem_order)%pts
       end if
       !
-      return_value(:,:) = Vandermonde_Pris( solpts , basis_order )
+      return_value = Vandermonde_Pris( solpts , basis_order ) ! F03 AUTO-REALLOC
       !
     case (Geom_Hexa)
       !
       if (present(nodal_points)) then
         edgpts = nodal_points(1,:) ! F2003 AUTO-REALLOCATION
-       !solpts => nodal_points
       else
         edgpts = std_elem(Geom_Edge,elem_order)%pts(1,:) ! F2003 AUTO-REALLOC
-       !solpts => std_elem(Geom_Edge,elem_order)%pts
       end if
       !
-      return_value(:,:) = Vandermonde_Hexa( edgpts , basis_order )
-     !return_value(:,:) = Vandermonde_Hexa( solpts(1,:) , basis_order )
+      return_value = Vandermonde_Hexa( edgpts , basis_order ) ! F03 AUTO-REALLOC
       !
     case default
       !
