@@ -247,7 +247,7 @@ function Compute_Basis_Matrix(elem_geom,elem_order,basis_order,nodal_points) &
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer :: npts,nmodes,ierr
+  integer :: npts,nmodes
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: edgpts(:)
@@ -340,15 +340,9 @@ continue
       !
     case default
       !
-      write (error_message,1)
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      return_value = init_array(npts,nmodes,zero) ! F2003 AUTO-REALLOC
       !
   end select
-  !
-  ! Format Statements
-  !
-  1 format (" An error occured by attempting to create a Basis", &
-            " Matrix for a grid cell of unknown geometry type!")
   !
 end function Compute_Basis_Matrix
 !
