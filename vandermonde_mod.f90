@@ -229,6 +229,9 @@ end subroutine init_vandermonde_matrices
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 function Compute_Basis_Matrix(elem_geom,elem_order,basis_order,nodal_points) &
                        result(return_value)
   !
@@ -348,6 +351,9 @@ end function Compute_Basis_Matrix
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 function General_Basis_Matrix(this_geom,this_order,xyz) result(return_value)
   !
   !.. Formal Arguments ..
@@ -576,6 +582,9 @@ end function Vandermonde_Quad
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 function General_Basis_Quad(basis_order,xy) result(return_value)
   !
   !.. Use Statements ..
@@ -1174,6 +1183,9 @@ end function Vandermonde_Hexa
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 function General_Basis_Hexa(basis_order,xyz) result(return_value)
   !
   !.. Use Statements ..
