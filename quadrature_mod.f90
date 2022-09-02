@@ -1104,6 +1104,67 @@ end function get_ref_elem_node_idx_for_face
 !###############################################################################
 !
 pure &
+subroutine get_face_pts(this_elem,this_geom,this_order)
+  !
+  !.. Use Statements ..
+  use element_type_mod, only : face_elem
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: this_geom
+  integer, intent(in) :: this_order
+  type(element_t), intent(inout) :: this_elem
+  !
+  !.. Local Scalars ..
+  integer :: if1,if2,ndim,ntfp,nfp,nfnods
+  integer :: this_face,face_geom
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: ip(:)
+  real(wp), allocatable :: rs(:,:)
+  real(wp), allocatable :: node_xyz(:,:)
+  real(wp), allocatable :: face_pts(:,:)
+  !
+continue
+  !
+  if (this_geom == Geom_Edge) then
+    this_elem%face_pts = reshape( [-one,one] , [1,2] ) ! F2003 AUTO-REALLOC
+    this_elem%face_wts = [one,one] ! F2003 AUTO-REALLOC
+    return
+  end if
+  !
+  ndim = geom_dimen(this_geom)
+  ntfp = cell_flxpts(this_geom,this_order)
+  !
+  this_elem%face_pts = init_array(ndim,ntfp,zero) ! F2003 AUTO-REALLOC
+  this_elem%face_wts = init_array(ntfp,zero) ! F2003 AUTO-REALLOC
+  !
+  if2 = 0
+  !
+  do this_face = 1,geom_faces(this_geom)
+    !
+    face_geom = cell_face_geom(this_face,this_geom)
+    !
+    rs = face_elem(face_geom,this_order)%pts ! F2003 AUTO-REALLOC
+    !
+    ip = get_ref_elem_node_idx_for_face(this_geom,this_face) ! F03 AUTO-REALLOC
+    !
+    node_xyz = ref_elem_nodes_xyz(1:ndim,ip(:),this_geom) ! F2003 AUTO-REALLOC
+    !
+    face_pts = map_face_pts(node_xyz,rs) ! F2003 AUTO-REALLOC
+    !
+    if1 = if2 + 1
+    if2 = if2 + size(face_pts,dim=2)
+    !
+    this_elem%face_pts(1:ndim,if1:if2) = face_pts(:,:)
+    this_elem%face_wts(if1:if2) = face_elem(face_geom,this_order)%wts(:)
+    !
+  end do
+  !
+end subroutine get_face_pts
+!
+!###############################################################################
+!
+pure &
 function map_face_pts(v,rs) result(return_value)
   !
   ! This function maps face points defined on a
