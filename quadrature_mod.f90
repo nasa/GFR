@@ -315,6 +315,10 @@ continue
   !
   call assign_solpts_edge_ptr(n_order)
   !
+  ! Get the face point quadratures for all faces of each element type
+  !
+  call get_std_elem_face_pts
+  !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements

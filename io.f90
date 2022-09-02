@@ -529,9 +529,9 @@ continue
   call read_grid_file
   call check_for_bad_number(__LINE__,__FILE__)
   !
-  call init_geom_quadrature_rules
-  call check_for_bad_number(__LINE__,__FILE__)
   call init_face_quadrature_rules
+  call check_for_bad_number(__LINE__,__FILE__)
+  call init_geom_quadrature_rules
   call check_for_bad_number(__LINE__,__FILE__)
   !
   call debug_timer(start_timer,"read_nml_input_file post read_grid_file")
