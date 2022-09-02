@@ -323,7 +323,7 @@ continue
           !
         case (Geom_Quad)
           !
-          this_elem = get_quad_quadrature(edge_elem)
+          this_elem = get_quad_quadrature(this_order,loc_solution_pts)
           !
         case (Geom_Tetr)
           !
@@ -609,7 +609,7 @@ continue
       ! Fill in the solution points and quadrature weights
       ! for a quad face with the current order
       !
-      this_elem = get_quad_quadrature(edge_elem)
+      this_elem = get_quad_quadrature(this_order,loc_flux_pts)
       !
       call output_quadrature(this_elem,Geom_Quad,this_order,"Face")
       !
@@ -793,22 +793,25 @@ end function get_tria_quadrature
 #ifndef DISABLE_PURE
 pure &
 #endif
-function get_quad_quadrature(edge_elem) result(return_value)
+function get_quad_quadrature(n,location) result(return_value)
   !
   use order_mod, only : geom_solpts
   !
-  type(element_t), intent(in) :: edge_elem
+  integer, intent(in) :: n
+  integer, intent(in) :: location
   !
   type(element_t) :: return_value
   !
-  integer :: i,j,l,n,ndim,npts,ierr
+  integer :: i,j,l,ndim,npts,ierr
   !
   real(mp), allocatable :: pts(:,:)
   real(mp), allocatable :: wts(:)
   !
+  type(element_t) :: edge_elem
+  !
 continue
   !
-  n = size(edge_elem%wts) - 1
+  edge_elem = get_edge_quadrature(n,location)
   !
   ndim = geom_dimen(Geom_Quad)
   npts = geom_solpts(Geom_Quad,n)
