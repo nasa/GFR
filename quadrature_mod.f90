@@ -1131,6 +1131,7 @@ pure &
 subroutine get_face_pts(this_elem,this_geom,this_order)
   !
   !.. Use Statements ..
+  use order_mod,        only : geom_flxpts
   use element_type_mod, only : face_elem
   !
   !.. Formal Arguments ..
@@ -1157,7 +1158,7 @@ continue
   end if
   !
   ndim = geom_dimen(this_geom)
-  ntfp = cell_flxpts(this_geom,this_order)
+  ntfp = geom_flxpts(this_geom,this_order)
   !
   this_elem%face_pts = init_array(ndim,ntfp,zero) ! F2003 AUTO-REALLOC
   this_elem%face_wts = init_array(ntfp,zero) ! F2003 AUTO-REALLOC
