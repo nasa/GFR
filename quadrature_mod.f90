@@ -15,6 +15,11 @@ module quadrature_mod
   public :: find_valid_geometries
   public :: init_geom_quadrature_rules
   public :: init_face_quadrature_rules
+  public :: get_edge_quadrature
+  public :: get_tria_quadrature
+  public :: get_quad_quadrature
+  public :: get_ref_elem_node_idx_for_face
+  public :: map_face_pts
   public :: quadrature_memory_usage
   !
   ! GEOM_IS_USED : logical array that identifies whether or not a given
