@@ -1047,6 +1047,35 @@ end function get_hexa_quadrature
 !###############################################################################
 !
 pure &
+function map_face_pts(v,rs) result(return_value)
+  !
+  ! This function maps face points defined on a
+  ! reference element to arbitrary face points
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: v(:,:)
+  real(wp), intent(in) :: rs(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value( 1:size(v,dim=1) , 1:size(rs,dim=2) )
+  !
+continue
+  !
+  if (size(v,dim=2) == 2) then
+    return_value = map_edge_pts(v,rs(1,:))
+  else if (size(v,dim=2) == 3) then
+    return_value = map_tria_pts(v,rs)
+  else if (size(v,dim=2) == 4) then
+    return_value = map_quad_pts(v,rs)
+  else
+    return_value = zero
+  end if
+  !
+end function map_face_pts
+!
+!###############################################################################
+!
+pure &
 function map_edge_pts(v,xi) result(return_value)
   !
   ! This function maps the points xi defined on the reference edge [-1,+1]
