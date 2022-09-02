@@ -704,7 +704,7 @@ function Vandermonde_Tetr(rs,number_of_modes) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,l,n,np,m,ierr
+  integer  :: i,j,k,l,n,np,nb,m,ierr
   real(qp) :: r,s,t,a,b,c,h1,h2,h3,alpha,beta
   !
   !.. Local Allocatable Arrays ..
@@ -716,31 +716,30 @@ continue
   !
   ! Find the order for this tetrahedra
   !
-  n = -1
-  do i = 0,256
-    if (Tetr_Solpts(i) == np) then
-      n = i
-      exit
-    end if
-  end do
-  !
-  ! Allocate the return array containing the
-  ! working precision Vandermonde matrix
-  !
-  allocate ( return_value(1:np,1:np) , source=zero , stat=ierr )
+  if (present(number_of_modes)) then
+    n = number_of_modes
+  else
+    n = solpts2order(Geom_Tetr,np)
+  end if
+  nb = cell_solpts(Geom_Tetr,n)
   !
   ! If n is still -1, return with the Vandermonde matrix still being zero
   !
-  if (n == -1) return
+  if (n == -1) then
+    return_value = init_array(np,np,zero)
+    return
+  end if
   !
   ! Create the Vandermonde matrix using quad precision
   !
-  allocate ( vmat_qp(1:np,1:np) , source=qzero , stat=ierr )
+  vmat_qp = init_array(np,nb,qzero) ! F2003 AUTO-REALLOC
   !
-  m = 1
+  m = 0
   do i = 0,n
     do j = 0,n-i
       do k = 0,n-i-j
+        !
+        m = m + 1
         !
         ! Evaluate the basis function, psi(m), at the np solution points
         ! where m = j + i*(n+1) + 1 - i*(i-1)/2
@@ -763,11 +762,11 @@ continue
           beta  = qzero
           h1 = normalized_jacobi_poly(i,alpha,beta,a)
           !
-          alpha = real( 2*i+1 , kind=qp )
+          alpha = real( 2*i + 1 , kind=qp )
           beta  = qzero
           h2 = normalized_jacobi_poly(j,alpha,beta,b)
           !
-          alpha = real( 2*(i+j)+2 , kind=qp )
+          alpha = real( 2*i + 2*j + 2 , kind=qp )
           beta  = qzero
           h3 = normalized_jacobi_poly(k,alpha,beta,c)
           !
@@ -778,8 +777,6 @@ continue
           !
         end do
         !
-        m = m + 1
-        !
       end do
     end do
   end do
@@ -787,7 +784,7 @@ continue
   ! Use the chop function to copy vmat_qp into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( vmat_qp )
+  return_value = chop( vmat_qp ) ! F2003 AUTO-REALLOC
   !
 end function Vandermonde_Tetr
 !
