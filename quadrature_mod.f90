@@ -1387,6 +1387,53 @@ end subroutine output_quadrature
 !
 !###############################################################################
 !
+subroutine output_pts_and_wts(this_geom,pts,wts,mout)
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: this_geom
+  real(wp), intent(in) :: pts(:,:)
+  real(wp), intent(in) :: wts(:)
+  integer,  intent(in) :: mout
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_pts_and_wts"
+  !
+continue
+  !
+  n1 = size(pts,dim=1)
+  n2 = size(pts,dim=2)
+  !
+  if (geom_dimen(this_geom) == 1) then
+    do j = 1,n2
+      write (mout,1) (pts(i,j),i=1,n1), wts(j)
+    end do
+    write (mout,4) sum(wts(:))
+  else if (geom_dimen(this_geom) == 2) then
+    do j = 1,n2
+      write (mout,2) (pts(i,j),i=1,n1), wts(j)
+    end do
+    write (mout,5) sum(wts(:))
+  else if (geom_dimen(this_geom) == 3) then
+    do j = 1,n2
+      write (mout,3) (pts(i,j),i=1,n1), wts(j)
+    end do
+    write (mout,6) sum(wts(:))
+  end if
+  !
+  1 format (1x,f10.6,"  :  ",f10.6)
+  2 format (2(1x,f10.6),"  :  ",f10.6)
+  3 format (3(1x,f10.6),"  :  ",f10.6)
+  4 format (16x,f10.6)
+  5 format (27x,f10.6)
+  6 format (38x,f10.6)
+  !
+end subroutine output_pts_and_wts
+!
+!###############################################################################
+!
 subroutine quadrature_memory_usage(iunit)
   !
   !.. Use Statements ..
