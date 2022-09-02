@@ -1047,6 +1047,63 @@ end function get_hexa_quadrature
 !###############################################################################
 !
 pure &
+function get_ref_elem_node_idx_for_face(this_geom,this_face) &
+                                 result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: this_geom
+  integer, intent(in) :: this_face
+  !
+  !.. Function Result ..
+  integer, allocatable :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer :: nfnods
+  !
+continue
+  !
+  nfnods = num_face_nodes(this_face,this_geom)
+  !
+  return_value = side_nodes(1:nfnods,this_face,this_geom)+1 ! F2003 AUTO-REALLOC
+  !
+  ! We need to switch the node indices for some special cases
+  !
+  if (this_geom == Geom_Tetr) then
+    !
+    if (this_face == 3) then
+      return_value = return_value([2,1,3]) ! F2003 AUTO-REALLOC
+    else if (this_face == 4) then
+      return_value = return_value([1,3,2]) ! F2003 AUTO-REALLOC
+    end if
+    !
+  else if (this_geom == Geom_Pyra) then
+    !
+    if (any(this_face == [3,4])) then
+      return_value = return_value([2,1,3]) ! F2003 AUTO-REALLOC
+    else if (this_face == 5) then
+      return_value = return_value([1,4,3,2]) ! F2003 AUTO-REALLOC
+    end if
+  else if (this_geom == Geom_Pris) then
+    !
+    if (this_face == 1) then
+      return_value = return_value([1,3,2]) ! F2003 AUTO-REALLOC
+    else if (this_face == 5) then
+      return_value = return_value([1,4,3,2]) ! F2003 AUTO-REALLOC
+    end if
+    !
+  else if (this_geom == Geom_Hexa) then
+    !
+    if (any(this_face == [1,4,6])) then
+      return_value = return_value([1,4,3,2]) ! F2003 AUTO-REALLOC
+    end if
+    !
+  end if
+  !
+end function get_ref_elem_node_idx_for_face
+!
+!###############################################################################
+!
+pure &
 function map_face_pts(v,rs) result(return_value)
   !
   ! This function maps face points defined on a
