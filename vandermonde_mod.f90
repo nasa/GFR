@@ -100,7 +100,6 @@ subroutine init_vandermonde_matrices()
   !
   !.. Local Pointers ..
   type(vandermonde_matrix), pointer :: this_vand
-! real(wp), pointer :: solpts(:,:)
   real(wp), pointer :: vmat(:,:)
   real(wp), pointer :: vmat_inv(:,:)
   !
@@ -114,7 +113,6 @@ continue
   ! Initialize the local pointers to disassociated
   !
   this_vand => null()
- !solpts => null()
   vmat => null()
   vmat_inv => null()
   !
@@ -144,19 +142,10 @@ continue
       !
       npts = geom_solpts(this_geom,this_order)
       !
-      ! Allocate the modal2nodal / vandermonde matrix
+      ! Allocate the modal-to-nodal and nodal-to-modal Vandermonde matrices
       !
-      allocate ( this_vand%modal2nodal%mat(1:npts,1:npts) , &
-                 source=zero , stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order,"modal2nodal%mat"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
-      ! Allocate the nodal2modal / vandermonde inverse matrix
-      !
-      allocate ( this_vand%nodal2modal%mat(1:npts,1:npts) , &
-                 source=zero , stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order,"nodal2modal%mat"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      this_vand%modal2nodal%mat = init_array(npts,npts,zero) ! F03 AUTO-REALLOC
+      this_vand%nodal2modal%mat = init_array(npts,npts,zero) ! F03 AUTO-REALLOC
       !
       ! Assign local pointers to these matrices as aliases to simplify the code
       !
@@ -196,6 +185,9 @@ continue
     end do order_loop
     !
   end do geom_loop
+  !
+  ! Loop through all Vandermonde matrices and
+  ! create sparse matrix arrays for each of them
   !
   do this_geom = gmin,gmax
     do this_order = omin,omax
