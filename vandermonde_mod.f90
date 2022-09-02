@@ -22,6 +22,8 @@ module vandermonde_mod
   public :: Vandermonde_Tria
   public :: vandermonde_memory_usage
   public :: Compute_Basis_Matrix
+  public :: General_Basis_Matrix
+  public :: vandermonde_inverse
   public :: move_vand_to_device
   public :: move_monomials_to_device
   !
