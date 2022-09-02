@@ -385,8 +385,6 @@ pure &
 #endif
 function Vandermonde_Inverse(vand_mat) result(return_value)
   !
-  use lapack95, only : getrf,getri
-  !
   !.. Formal Arguments ..
   real(wp), intent(in) :: vand_mat(:,:)
   !
@@ -397,9 +395,7 @@ function Vandermonde_Inverse(vand_mat) result(return_value)
   integer :: n1,n2,ierr
   !
   !.. Local Allocatable Arrays ..
-  real(qp), allocatable :: vmat_inv_qp(:,:)
   real(qp), allocatable :: vmat_inv(:,:)
-  integer,  allocatable :: ipiv(:)
   !
 continue
   !
@@ -414,7 +410,7 @@ continue
   ! Convert the Vandermonde matrix to quad precision and temporarily
   ! store in the array for the inverse Vandermonde matrix
   !
-  vmat_inv = vand_mat ! USING F2003 AUTO-REALLOCATION
+  vmat_inv = real( vand_mat , kind=kind(vmat_inv) ) ! F2003 AUTO-REALLOC
   !
   ! Compute the inverse of the Vandermonde matrix
   !
@@ -425,27 +421,10 @@ continue
   vmat_inv(:,:) = invert_matrix90( vmat_inv )
 #endif
   !
-  ! Use the chop function to copy vmat_inv_qp into return_value while also
+  ! Use the chop function to copy vmat_inv into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
   return_value(:,:) = chop( vmat_inv )
-  !
-! allocate ( vmat_inv_qp(1:n1,1:n2) , source=qzero , stat=ierr )
-! !
-! ! Convert the Vandermonde matrix to quad precision and temporarily
-! ! store in the array for the inverse Vandermonde matrix
-! !
-! vmat_inv_qp(:,:) = real( vand_mat , kind=qp )
-! !
-! ! Compute the inverse of the Vandermonde matrix
-! !
-!!vmat_inv_qp(:,:) = invert_matrix( vmat_inv_qp )
-! vmat_inv_qp(:,:) = invert_matrix90( vmat_inv_qp )
-! !
-! ! Use the chop function to copy vmat_inv_qp into return_value while also
-! ! setting any values that are less than working machine epsilon to zero.
-! !
-! return_value(:,:) = chop( vmat_inv_qp )
   !
 end function Vandermonde_Inverse
 !
