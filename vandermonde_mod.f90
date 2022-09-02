@@ -410,7 +410,7 @@ function Vandermonde_Inverse(vand_mat) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer :: n1,n2,ierr
+  integer :: n1,n2
   !
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: vmat_inv(:,:)
@@ -419,11 +419,6 @@ continue
   !
   n1 = size(vand_mat,dim=1)
   n2 = size(vand_mat,dim=2)
-  !
-  ! Allocate the return array containing the working
-  ! precision inverse of the Vandermonde matrix
-  !
-  allocate ( return_value(1:n1,1:n2) , source=zero , stat=ierr )
   !
   ! Convert the Vandermonde matrix to quad precision and temporarily
   ! store in the array for the inverse Vandermonde matrix
@@ -441,7 +436,7 @@ continue
   ! Use the chop function to copy vmat_inv into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value(:,:) = chop( vmat_inv )
+  return_value = chop( vmat_inv ) ! F2003 AUTO-REALLOC
   !
 end function Vandermonde_Inverse
 !
