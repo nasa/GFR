@@ -744,6 +744,11 @@ continue
   return_value%pts = reshape( chop(pts) , [ndim,npts] ) ! F2003 AUTO-REALLOC
   return_value%wts = chop(wts) ! F2003 AUTO-REALLOC
   !
+  ! NOTE: The following call to get_generic_quadrature_wts
+  !       will give the same set of quadrature weights
+  ! F2003 AUTO-REALLOC
+ !return_value%wts = get_generic_quadrature_wts(Geom_Edge,n,return_value%pts)
+  !
 end function get_edge_quadrature
 !
 !###############################################################################
@@ -843,6 +848,11 @@ continue
   end do
   !
   return_value%wts = chop( wts ) ! F2003 AUTO-REALLOC
+  !
+  ! NOTE: The following call to get_generic_quadrature_wts
+  !       will give the same set of quadrature weights
+  ! F2003 AUTO-REALLOC
+ !return_value%wts = get_generic_quadrature_wts(Geom_Quad,n,return_value%pts)
   !
 end function get_quad_quadrature
 !
@@ -1029,6 +1039,11 @@ continue
   end do
   !
   return_value%wts = chop( wts ) ! F2003 AUTO-REALLOC
+  !
+  ! NOTE: The following call to get_generic_quadrature_wts
+  !       will give the same set of quadrature weights
+  ! F2003 AUTO-REALLOC
+ !return_value%wts = get_generic_quadrature_wts(Geom_Hexa,n,return_value%pts)
   !
 end function get_hexa_quadrature
 !
