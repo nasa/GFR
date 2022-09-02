@@ -875,16 +875,14 @@ continue
   pts = TetNodes3D(p,location) ! F2003 AUTO-REALLOC
  !pts = TetNodes3D(p,location,use_Gauss) ! F2003 AUTO-REALLOC
   !
-  ! The method for computing the tetrahedra quadrature weights is
-  ! independent of the method for getting the point locations
-  !
-  wts = get_tetrahedron_weights_at_solpts(pts)     ! F2003 AUTO-REALLOC
-  !
- !return_value%pts = chop( pts ) ! F2003 AUTO-REALLOC
- !return_value%wts = chop( wts ) ! F2003 AUTO-REALLOC
+  ! Save the solution points into return_value
   !
   return_value%pts = real(pts,kind=kind(return_value%pts)) ! F2003 AUTO-REALLOC
-  return_value%wts = real(wts,kind=kind(return_value%wts)) ! F2003 AUTO-REALLOC
+  !
+  ! Compute the quadrature weights using the inverse mass matrix
+  !
+  ! F2003 AUTO-REALLOC
+  return_value%wts = get_generic_quadrature_wts(Geom_Tetr,p,return_value%pts)
   !
 end function get_tetr_quadrature
 !
