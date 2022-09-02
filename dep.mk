@@ -569,6 +569,7 @@ $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(OBJDIR)/ovar_mod.o \
                    $(OBJDIR)/element_type_mod.o \
                    $(OBJDIR)/poly.o \
+                   $(OBJDIR)/vandermonde_mod.o \
                    $(OBJDIR)/triangle.o \
                    $(OBJDIR)/tetrahedra.o \
                    $(OBJDIR)/pyramid.o \

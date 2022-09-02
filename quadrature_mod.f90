@@ -637,28 +637,49 @@ end subroutine init_face_quadrature_rules
 #ifndef DISABLE_PURE
 pure &
 #endif
-function get_quadrature_wts(this_geom,this_order) result(return_value)
+function get_generic_quadrature_wts(this_geom,this_order,pts) &
+                             result(return_value)
+  !
+  !.. Use Statements ..
+ !use vandermonde_mod, only : Compute_Basis_Matrix
+  use vandermonde_mod, only : General_Basis_Matrix
+  use vandermonde_mod, only : Vandermonde_Inverse
   !
   !.. Formal Arguments ..
-  integer, intent(in) :: this_geom
-  integer, intent(in) :: this_order
+  integer,  intent(in) :: this_geom
+  integer,  intent(in) :: this_order
+  real(wp), intent(in) :: pts(:,:)
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:)
   !
-  !.. Local Scalars ..
-  integer :: i,ierr
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: vmat(:,:)
+  real(wp), allocatable :: vmatI(:,:)
+  real(wp), allocatable :: mmatI(:,:)
   !
 continue
   !
-  ! NEED TO FIGURE OUT WHAT DO IF QUADRATURE POINTS ARE NOT THE SAME AS THOSE
-  ! USED TO COMPUTE THE INFORMATION STORED IN THE STD_ELEM ARRAY.
+  ! Compute the Vandermonde matrix for the solution points
   !
-  allocate ( return_value(1:this_order+1) , stat=ierr )
+ !vmat = Compute_Basis_Matrix(this_geom,this_order,pts) ! F2003 AUTO-REALLOC
+  vmat = General_Basis_Matrix(this_geom,this_order,pts) ! F2003 AUTO-REALLOC
   !
-  return_value = one/real(this_order+1,kind=wp)
+  ! Compute the inverse of the Vandermonde matrix
   !
-end function get_quadrature_wts
+  vmatI = Vandermonde_Inverse( vmat ) ! F2003 AUTO-REALLOC
+  !
+  ! Compute the inverse mass matrix
+  !
+  mmatI = matmul( transpose(vmatI) , vmatI ) ! F2003 AUTO-REALLOC
+  !
+  ! The quadrature weights are just the sum of each row of mmatI
+  ! NOTE: mmatI is a square, symmetric matrix, so it doesnt matter whether
+  !       we sum the rows or columns
+  !
+  return_value = sum( mmatI , dim=1 ) ! F2003 AUTO-REALLOC
+  !
+end function get_generic_quadrature_wts
 !
 !###############################################################################
 !
