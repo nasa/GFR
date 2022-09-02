@@ -1036,11 +1036,6 @@ continue
   nsp = nso+1
   nsq = nsp*nsp*nsp
   !
-  ! Allocate the return array containing the
-  ! working precision Vandermonde matrix
-  !
-  allocate ( return_value(1:nqq,1:nsq) , source=zero , stat=ierr )
-  !
   ! Create the Vandermonde matrix using quad precision
   !
   allocate ( vmat_qp(1:nqq,1:nsq) , source=qzero , stat=ierr )
@@ -1128,7 +1123,7 @@ continue
   ! Use the chop function to copy vmat_qp into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( vmat_qp )
+  return_value = chop( vmat_qp ) ! F2003 AUTO-REALLOC
   !
 end function Vandermonde_Hexa
 !
