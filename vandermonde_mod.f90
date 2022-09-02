@@ -1129,6 +1129,70 @@ end function Vandermonde_Hexa
 !
 !###############################################################################
 !
+function General_Basis_Hexa(basis_order,xyz) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: basis_order
+  real(wp), intent(in) :: xyz(:,:)
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,mi,mj,mk,np,bo,nb,k,ierr
+  real(qp) :: x,y,z,hx,hy,hz
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: bmat_qp(:,:)
+  !
+continue
+  !
+  np = size(xyz,dim=2)
+  !
+  bo = basis_order
+  nb = cell_solpts(Geom_Hexa,basis_order)
+  !
+  ! Create the generalized basis matrix using quad precision
+  !
+  bmat_qp = init_array(np,nb,qzero) ! F2003 AUTO-REALLOC
+  !
+  m = 0
+  do mk = 0,bo
+    do mj = 0,bo
+      do mi = 0,bo
+        !
+        m = m + 1
+        !
+        do k = 1,np
+          !
+          x = real( xyz(1,k) , kind=qp )
+          y = real( xyz(2,k) , kind=qp )
+          z = real( xyz(3,k) , kind=qp )
+          !
+          hx = normalized_jacobi_poly(mi,qzero,qzero,x)
+          hy = normalized_jacobi_poly(mj,qzero,qzero,y)
+          hz = normalized_jacobi_poly(mk,qzero,qzero,z)
+          !
+          bmat_qp(k,m) = hx*hy*hz
+          !
+        end do
+        !
+      end do
+    end do
+  end do
+  !
+  ! Use the chop function to copy bmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( bmat_qp ) ! F2003 AUTO-REALLOC
+  !
+end function General_Basis_Hexa
+!
+!###############################################################################
+!
 subroutine vandermonde_memory_usage(iunit)
   !
   !.. Use Statements ..
