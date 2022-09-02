@@ -441,7 +441,6 @@ continue
 #ifdef SPECIAL_FOR_INTEL
   vmat_inv(:,:) = invert_matrix_lapack95( vmat_inv )
 #else
- !vmat_inv(:,:) = invert_matrix( vmat_inv_qp )
   vmat_inv(:,:) = invert_matrix90( vmat_inv )
 #endif
   !
