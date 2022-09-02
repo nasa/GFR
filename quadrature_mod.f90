@@ -1046,6 +1046,30 @@ end function get_hexa_quadrature
 !
 !###############################################################################
 !
+subroutine get_std_elem_face_pts()
+  !
+  !.. Use Statements ..
+  use element_type_mod, only : std_elem
+  !
+  !.. Local Scalars ..
+  integer :: this_geom,this_order
+  !
+continue
+  !
+  do this_geom = lbound(std_elem,dim=1),ubound(std_elem,dim=1)
+    do this_order = lbound(std_elem,dim=2),ubound(std_elem,dim=2)
+      !
+      if (allocated(std_elem(this_geom,this_order)%pts)) then
+        call get_face_pts(std_elem(this_geom,this_order),this_geom,this_order)
+      end if
+      !
+    end do
+  end do
+  !
+end subroutine get_std_elem_face_pts
+!
+!###############################################################################
+!
 pure &
 function get_ref_elem_node_idx_for_face(this_geom,this_face) &
                                  result(return_value)
