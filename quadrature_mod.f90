@@ -1119,6 +1119,47 @@ end function map_tria_pts
 !
 !###############################################################################
 !
+pure &
+function map_quad_pts(v,rs) result(return_value)
+  !
+  ! This function maps the points rs defined on the reference quad
+  ! to the arbitrary quad defined by v
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: v(:,:)
+  real(wp), intent(in) :: rs(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value( 1:size(v,dim=1) , 1:size(rs,dim=2) )
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: r,s,opr,omr,ops,oms
+  !
+continue
+  !
+  do n = 1,size(rs,dim=2)
+    !
+    r = rs(1,n)
+    s = rs(2,n)
+    !
+    opr = one + r
+    omr = one - r
+    !
+    ops = one + s
+    oms = one - s
+    !
+    return_value(:,n) = one4*( v(:,1)*omr*oms + &
+                               v(:,2)*opr*oms + &
+                               v(:,3)*opr*ops + &
+                               v(:,4)*omr*ops )
+    !
+  end do
+  !
+end function map_quad_pts
+!
+!###############################################################################
+!
 subroutine output_quadrature(this_elem,this_geom,this_order,this_type)
   !
   !.. Use Statements ..
