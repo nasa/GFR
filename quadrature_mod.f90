@@ -1046,6 +1046,41 @@ end function get_hexa_quadrature
 !
 !###############################################################################
 !
+pure &
+function map_edge_pts(v,xi) result(return_value)
+  !
+  ! This function maps the points xi defined on the reference edge [-1,+1]
+  ! to the arbitrary edge defined by [v(:,1),v(:,2)]
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: v(:,:)
+  real(wp), intent(in) :: xi(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value( 1:size(v,dim=1) , 1:size(xi) )
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: x,xp1,xm1
+  !
+continue
+  !
+  do n = 1,size(xi)
+    !
+    x = xi(n)
+    !
+    xp1 = x + one
+    xm1 = x - one
+    !
+    return_value(:,n) = half*( v(:,2)*xp1 - &
+                               v(:,1)*xm1 )
+    !
+  end do
+  !
+end function map_edge_pts
+!
+!###############################################################################
+!
 subroutine output_quadrature(this_elem,this_geom,this_order,this_type)
   !
   !.. Use Statements ..
