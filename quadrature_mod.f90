@@ -760,8 +760,6 @@ function get_tria_quadrature(p,location) result(return_value)
   !
   !.. Use Statements ..
   use triangle_mod, only : TriNodes2D
-  use triangle_mod, only : get_triangle_weights_at_solpts
-  use triangle_mod, only : old_get_triangle_weights_at_solpts
   !
   !.. Formal Arguments ..
   integer, intent(in) :: p
@@ -772,7 +770,6 @@ function get_tria_quadrature(p,location) result(return_value)
   !
   !.. Local Allocatable Arrays ..
   real(mp), allocatable :: pts(:,:)
-  real(mp), allocatable :: wts(:)
   !
 continue
   !
@@ -780,17 +777,14 @@ continue
   !
   pts = TriNodes2D(p,location) ! F2003 AUTO-REALLOC
   !
-  ! The method for computing the triangle quadrature weights is
-  ! independent of the method for getting the point locations
-  !
-  wts = get_triangle_weights_at_solpts(pts)     ! F2003 AUTO-REALLOC
- !wts = old_get_triangle_weights_at_solpts(pts) ! F2003 AUTO-REALLOC
-  !
- !return_value%pts = chop( pts ) ! F2003 AUTO-REALLOC
- !return_value%wts = chop( wts ) ! F2003 AUTO-REALLOC
+  ! Save the solution points into return_value
   !
   return_value%pts = real(pts,kind=kind(return_value%pts)) ! F2003 AUTO-REALLOC
-  return_value%wts = real(wts,kind=kind(return_value%wts)) ! F2003 AUTO-REALLOC
+  !
+  ! Compute the quadrature weights using the inverse mass matrix
+  !
+  ! F2003 AUTO-REALLOC
+  return_value%wts = get_generic_quadrature_wts(Geom_Tria,p,return_value%pts)
   !
 end function get_tria_quadrature
 !
