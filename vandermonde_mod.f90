@@ -601,6 +601,66 @@ end function Vandermonde_Quad
 !
 !###############################################################################
 !
+function General_Basis_Quad(basis_order,xy) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: basis_order
+  real(wp), intent(in) :: xy(:,:)
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: m,mi,mj,np,bo,nb,k,ierr
+  real(qp) :: x,y,hx,hy
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: bmat_qp(:,:)
+  !
+continue
+  !
+  np = size(xy,dim=2)
+  !
+  bo = basis_order
+  nb = cell_solpts(Geom_Quad,basis_order)
+  !
+  ! Create the generalized basis matrix using quad precision
+  !
+  bmat_qp = init_array(np,nb,qzero) ! F2003 AUTO-REALLOC
+  !
+  m = 0
+  do mj = 0,bo
+    do mi = 0,bo
+      !
+      m = m + 1
+      !
+      do k = 1,np
+        !
+        x = real( xy(1,k) , kind=qp )
+        y = real( xy(2,k) , kind=qp )
+        !
+        hx = normalized_jacobi_poly(mi,qzero,qzero,x)
+        hy = normalized_jacobi_poly(mj,qzero,qzero,y)
+        !
+        bmat_qp(k,m) = hx*hy
+        !
+      end do
+      !
+    end do
+  end do
+  !
+  ! Use the chop function to copy bmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( bmat_qp ) ! F2003 AUTO-REALLOC
+  !
+end function General_Basis_Quad
+!
+!###############################################################################
+!
 #ifndef DISABLE_PURE
 pure &
 #endif
