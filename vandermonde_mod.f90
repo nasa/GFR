@@ -246,8 +246,8 @@ function Compute_Basis_Matrix(elem_geom,elem_order,basis_order,nodal_points) &
   integer, intent(in) :: elem_order
   !
   !.. Optional Arguments ..
-  integer,  optional,         intent(in) :: basis_order
-  real(wp), optional, target, intent(in) :: nodal_points(:,:)
+  integer,  optional, intent(in) :: basis_order
+  real(wp), optional, intent(in) :: nodal_points(:,:)
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -255,18 +255,14 @@ function Compute_Basis_Matrix(elem_geom,elem_order,basis_order,nodal_points) &
   !.. Local Scalars ..
   integer :: npts,nmodes,ierr
   !
-  !.. Local Pointers ..
-  real(wp), pointer :: solpts(:,:)
-  !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: edgpts(:)
+  real(wp), allocatable :: solpts(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "Compute_Basis_Matrix"
   !
 continue
-  !
-  solpts => null()
   !
   npts = cell_solpts(elem_geom,elem_order)
   if (present(basis_order)) then
@@ -291,9 +287,9 @@ continue
     case (Geom_Tria)
       !
       if (present(nodal_points)) then
-        solpts => nodal_points
+        solpts = nodal_points ! F03 AUTO-REALLOC
       else
-        solpts => std_elem(elem_geom,elem_order)%pts
+        solpts = std_elem(elem_geom,elem_order)%pts ! F03 AUTO-REALLOC
       end if
       !
       return_value = Vandermonde_Tria( solpts , basis_order ) ! F03 AUTO-REALLOC
@@ -311,9 +307,9 @@ continue
     case (Geom_Tetr)
       !
       if (present(nodal_points)) then
-        solpts => nodal_points
+        solpts = nodal_points ! F03 AUTO-REALLOC
       else
-        solpts => std_elem(elem_geom,elem_order)%pts
+        solpts = std_elem(elem_geom,elem_order)%pts ! F03 AUTO-REALLOC
       end if
       !
       return_value = Vandermonde_Tetr( solpts , basis_order ) ! F03 AUTO-REALLOC
@@ -321,9 +317,9 @@ continue
     case (Geom_Pyra)
       !
       if (present(nodal_points)) then
-        solpts => nodal_points
+        solpts = nodal_points ! F03 AUTO-REALLOC
       else
-        solpts => std_elem(elem_geom,elem_order)%pts
+        solpts = std_elem(elem_geom,elem_order)%pts ! F03 AUTO-REALLOC
       end if
       !
       return_value = Vandermonde_Pyra( solpts , basis_order ) ! F03 AUTO-REALLOC
@@ -331,9 +327,9 @@ continue
     case (Geom_Pris)
       !
       if (present(nodal_points)) then
-        solpts => nodal_points
+        solpts = nodal_points ! F03 AUTO-REALLOC
       else
-        solpts => std_elem(elem_geom,elem_order)%pts
+        solpts = std_elem(elem_geom,elem_order)%pts ! F03 AUTO-REALLOC
       end if
       !
       return_value = Vandermonde_Pris( solpts , basis_order ) ! F03 AUTO-REALLOC
@@ -354,8 +350,6 @@ continue
       call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       !
   end select
-  !
-  if (associated(solpts)) solpts => null()
   !
   ! Format Statements
   !
