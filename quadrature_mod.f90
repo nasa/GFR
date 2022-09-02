@@ -149,8 +149,6 @@ subroutine init_geom_quadrature_rules()
   !
   !.. Local Pointers ..
   type(element_t), pointer :: this_elem
-  type(element_t), pointer :: edge_elem
-  type(element_t), pointer :: tria_elem
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_geom_quadrature_rules"
@@ -164,8 +162,6 @@ continue
   ! Initialize this_elem to disassociated
   !
   this_elem => null()
-  edge_elem => null()
-  tria_elem => null()
   !
   ! Allocate the std_elem array
   !
@@ -258,14 +254,6 @@ continue
   ! and get the quadrature rules for each one
   !
   order_loop: do this_order = n_min_order,n_max_order
-    !
-    ! Assign pointers to the edge and triangle elements of the std_elem
-    ! array in order to simplify the remaining code in this loop and
-    ! make it more legible.
-    !
-    edge_elem => std_elem(Geom_Edge,this_order)
-    tria_elem => std_elem(Geom_Tria,this_order)
-    !
     geom_loop: do this_geom = n_min_geom,n_max_geom
       !
       ! Cycle to the next geometry if the current one is:
@@ -359,13 +347,6 @@ continue
       call check_for_bad_number(__LINE__,__FILE__)
       !
     end do geom_loop
-    !
-    ! Disassociate the pointers 'edge_elem' and 'tria_elem' before
-    ! continuing to the next order
-    !
-    if (associated(edge_elem)) edge_elem => null()
-    if (associated(tria_elem)) tria_elem => null()
-    !
   end do order_loop
   !
   ! Before we leave, assign the pointer solpts_edge to its target
@@ -407,7 +388,6 @@ subroutine init_face_quadrature_rules()
   !
   !.. Local Pointers ..
   type(element_t), pointer :: this_elem
-  type(element_t), pointer :: edge_elem
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_face_quadrature_rules"
@@ -419,7 +399,6 @@ continue
   ! Initialize this_elem to disassociated
   !
   this_elem => null()
-  edge_elem => null()
   !
   ! Determine if there are any of the geometries used for this simulation
   ! are 3D to see if we need to find the quadrature rules for 2D faces.
@@ -568,11 +547,6 @@ continue
       write (timer_message,100) trim(adjustl(Geom_Name(Geom_Quad))),this_order
       call debug_timer(start_timer,timer_message)
       !
-      ! Assign a pointer to the edge element of the face_elem array in order
-      ! to simplify the remaining code in this loop and make it more legible.
-      !
-      edge_elem => face_elem(Geom_Edge,this_order)
-      !
       ! Assign the pointer 'this_elem' to face_elem(Geom_Quad,this_order)
       ! to simplify the remaining code in this loop and make it more legible
       !
@@ -616,7 +590,6 @@ continue
       ! Disassociate this_elem before continuing to the next loop combo
       !
       if (associated(this_elem)) this_elem => null()
-      if (associated(edge_elem)) edge_elem => null()
       call debug_timer(stop_timer,timer_message)
       call check_for_bad_number(__LINE__,__FILE__)
       !
@@ -1590,7 +1563,6 @@ subroutine dump_solpts()
   !
   !.. Local Pointers ..
   type(element_t), pointer :: this_elem
-  type(element_t), pointer :: ref_edge
   !
   !.. Local Allocatable Arrays ..
   type(element_t), target, allocatable, dimension(:,:) :: edge_elem
@@ -1695,12 +1667,6 @@ continue
     !
     quad_order_loop: do this_order = min_order,max_order
       !
-      ! Assign pointers to the edge and triangle elements of the std_elem
-      ! array in order to simplify the remaining code in this loop and
-      ! make it more legible.
-      !
-      ref_edge => edge_elem(this_order,location)
-      !
       ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
       ! to simplify the remaining code in this loop and make it more legible
       !
@@ -1713,7 +1679,7 @@ continue
       !
       ! Number of solution points for the current geometry/order combination
       !
-      npts = size(ref_edge%wts)**ndim
+      npts = size( edge_elem(this_order,location)%wts )**ndim
       !
       ! Allocate the wts component of the current geometry/order combination
       !
@@ -1731,17 +1697,12 @@ continue
       ! Fill in the quadrature weights for the
       ! current geometry/order combination
       !
-      this_elem = get_quad_points(ref_edge)
+      this_elem = get_quad_points( edge_elem(this_order,location) )
       !
       ! Disassociate the pointer 'this_elem' before
-      ! continuing to the next geometry
-      !
-      if (associated(this_elem)) this_elem => null()
-      !
-      ! Disassociate the pointers 'edge_elem' and 'tria_elem' before
       ! continuing to the next order
       !
-      if (associated(ref_edge)) ref_edge => null()
+      if (associated(this_elem)) this_elem => null()
       !
     end do quad_order_loop
     !
@@ -1759,12 +1720,6 @@ continue
     !
     hexa_order_loop: do this_order = min_order,max_order
       !
-      ! Assign pointers to the edge and triangle elements of the std_elem
-      ! array in order to simplify the remaining code in this loop and
-      ! make it more legible.
-      !
-      ref_edge => edge_elem(this_order,location)
-      !
       ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
       ! to simplify the remaining code in this loop and make it more legible
       !
@@ -1777,7 +1732,7 @@ continue
       !
       ! Number of solution points for the current geometry/order combination
       !
-      npts = size(ref_edge%wts)**ndim
+      npts = size( edge_elem(this_order,location)%wts )**ndim
       !
       ! Allocate the wts component of the current geometry/order combination
       !
@@ -1795,17 +1750,12 @@ continue
       ! Fill in the quadrature weights for the
       ! current geometry/order combination
       !
-      this_elem = get_hexa_points(ref_edge)
+      this_elem = get_hexa_points( edge_elem(this_order,location) )
       !
       ! Disassociate the pointer 'this_elem' before
-      ! continuing to the next geometry
-      !
-      if (associated(this_elem)) this_elem => null()
-      !
-      ! Disassociate the pointers 'edge_elem' and 'tria_elem' before
       ! continuing to the next order
       !
-      if (associated(ref_edge)) ref_edge => null()
+      if (associated(this_elem)) this_elem => null()
       !
     end do hexa_order_loop
     !
