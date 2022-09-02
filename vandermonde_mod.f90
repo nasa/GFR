@@ -808,8 +808,8 @@ function Vandermonde_Pyra(rs,number_of_modes) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,n,np,m,ierr
-  real(qp) :: r,s,a,b,h1,h2,alpha,beta
+  integer  :: i,j,k,l,n,np,nb,m,ierr
+  real(qp) :: r,s,t,a,b,c,h1,h2,h3,alpha,beta
   !
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: vmat_qp(:,:)
@@ -817,12 +817,77 @@ function Vandermonde_Pyra(rs,number_of_modes) result(return_value)
 continue
   !
   np = size(rs,2)
-  n  = np2n(np)
   !
-  ! Allocate the return array containing the
-  ! working precision Vandermonde matrix
+  ! Find the order for this pyramid
   !
-  allocate ( return_value(1:np,1:np) , source=zero , stat=ierr )
+  if (present(number_of_modes)) then
+    n = number_of_modes
+  else
+    n = solpts2order(Geom_Pyra,np)
+  end if
+  nb = cell_solpts(Geom_Pyra,n)
+  !
+  ! If n is still -1, return with the Vandermonde matrix still being zero
+  !
+  if (n == -1) then
+    return_value = init_array(np,np,zero)
+    return
+  end if
+  !
+  ! Create the Vandermonde matrix using quad precision
+  !
+  vmat_qp = init_array(np,nb,qzero) ! F2003 AUTO-REALLOC
+  !
+  m = 0
+  do k = 0,n
+    do j = 0,n-k
+      do i = 0,n-k
+        !
+        m = m + 1
+        !
+        ! Evaluate the basis function, psi(m), at the np solution points
+        ! where m = j + i*(n+1) + 1 - i*(i-1)/2
+        !
+        do l = 1,np
+          !
+          ! Get a,b from r,s
+          !
+          r = real( rs(1,l) , kind=qp )
+          s = real( rs(2,l) , kind=qp )
+          t = real( rs(3,l) , kind=qp )
+          !
+          a = qtwo * r * reciprocal(qone-t)
+          b = qtwo * s * reciprocal(qone-t)
+          c = t
+          !
+          ! Get the value of the Jacobi polynomial for a and b
+          !
+          alpha = qzero
+          beta  = qzero
+          h1 = normalized_jacobi_poly(i,alpha,beta,a)
+          !
+          alpha = qzero
+          beta  = qzero
+          h2 = normalized_jacobi_poly(j,alpha,beta,b)
+          !
+          alpha = real( 2*i + 2*j + 2 , kind=qp )
+          beta  = qzero
+          h3 = normalized_jacobi_poly(k,alpha,beta,c)
+          !
+          ! Evaluate the basis function psi(m) at node l
+          !
+          vmat_qp(l,m) = qtwo * h1 * h2 * h3 * (qone-c)**(i+j)
+          !
+        end do
+        !
+      end do
+    end do
+  end do
+  !
+  ! Use the chop function to copy vmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( vmat_qp ) ! F2003 AUTO-REALLOC
   !
 end function Vandermonde_Pyra
 !
