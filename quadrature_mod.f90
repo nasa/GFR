@@ -855,7 +855,6 @@ function get_tetr_quadrature(p,location) result(return_value)
   !
   !.. Use Statements ..
   use tetrahedra_mod, only : TetNodes3D
-  use tetrahedra_mod, only : get_tetrahedron_weights_at_solpts
   !
   !.. Formal Arguments ..
   integer, intent(in) :: p
