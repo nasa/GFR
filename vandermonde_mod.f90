@@ -380,6 +380,50 @@ end function Compute_Basis_Matrix
 !
 !###############################################################################
 !
+function General_Basis_Matrix(this_geom,this_order,xyz) result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: this_geom
+  integer,  intent(in) :: this_order
+  real(wp), intent(in) :: xyz(:,:)
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: bmat_qp(:,:)
+  !
+continue
+  !
+  n1 = cell_solpts(this_geom,this_order)
+  n2 = size(xyz,dim=2)
+  !
+  select case (this_geom)
+    case (Geom_Edge)
+      return_value = Vandermonde_Edge(xyz(1,:),this_order) ! F2003 AUTO-REALLOC
+    case (Geom_Quad)
+      return_value = General_Basis_Quad(this_order,xyz) ! F2003 AUTO-REALLOC
+    case (Geom_Tria)
+      return_value = Vandermonde_Tria(xyz,this_order) ! F2003 AUTO-REALLOC
+    case (Geom_Tetr)
+      return_value = Vandermonde_Tetr(xyz,this_order) ! F2003 AUTO-REALLOC
+    case (Geom_Pyra)
+      return_value = Vandermonde_Pyra(xyz,this_order) ! F2003 AUTO-REALLOC
+    case (Geom_Pris)
+      return_value = Vandermonde_Pris(xyz,this_order) ! F2003 AUTO-REALLOC
+    case (Geom_Hexa)
+      return_value = General_Basis_Hexa(this_order,xyz) ! F2003 AUTO-REALLOC
+    case default
+      return_value = init_array(n1,n2,zero) ! F2003 AUTO-REALLOC
+  end select
+  !
+end function General_Basis_Matrix
+!
+!###############################################################################
+!
 #ifndef DISABLE_PURE
 pure &
 #endif
