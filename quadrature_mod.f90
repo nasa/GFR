@@ -1081,6 +1081,44 @@ end function map_edge_pts
 !
 !###############################################################################
 !
+pure &
+function map_tria_pts(v,rs) result(return_value)
+  !
+  ! This function maps the points rs defined on the reference triangle
+  ! to the arbitrary triangle defined by v
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: v(:,:)
+  real(wp), intent(in) :: rs(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value( 1:size(v,dim=1) , 1:size(rs,dim=2) )
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: r,s,rp1,sp1,rps
+  !
+continue
+  !
+  do n = 1,size(rs,dim=2)
+    !
+    r = rs(1,n)
+    s = rs(2,n)
+    !
+    rp1 = r + one
+    sp1 = s + one
+    rps = r + s
+    !
+    return_value(:,n) = half*( v(:,3)*sp1 + &
+                               v(:,2)*rp1 - &
+                               v(:,1)*rps )
+    !
+  end do
+  !
+end function map_tria_pts
+!
+!###############################################################################
+!
 subroutine output_quadrature(this_elem,this_geom,this_order,this_type)
   !
   !.. Use Statements ..
