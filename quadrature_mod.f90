@@ -142,9 +142,8 @@ subroutine init_geom_quadrature_rules()
   use element_type_mod, only : assign_solpts_edge_ptr
   !
   !.. Local Scalars ..
-  integer :: n,npts,ndim,ierr
+  integer :: n,ierr
   integer :: this_geom,this_order
-  character(len=100) :: array_name
   character(len=300) :: timer_message
   !
   !.. Local Pointers ..
@@ -186,8 +185,7 @@ continue
   basic_geom_loop: do n = 1,2
     !
     basic_order_loop: do this_order = n_min_order,n_max_order
-      write (timer_message,100) trim(adjustl(Geom_Name(this_geom))),this_order
-      100 format ("Geometry = ",a,"  ;  Order = ",i0)
+      write (timer_message,1) trim(adjustl(Geom_Name(this_geom))),this_order
       call debug_timer(start_timer,timer_message)
       !
       ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
@@ -195,33 +193,12 @@ continue
       !
       this_elem => std_elem(this_geom,this_order)
       !
-      ! Spatial dimension of the current geometry
-      ! NOTE: Make sure that ndim is at minimum 1, primarily for Geom_Node
-      !
-      ndim = max( 1 , geom_dimen(this_geom) )
-      !
-      ! Number of solution points for the current geometry/order combination
-      !
-      npts = geom_solpts(this_geom,this_order)
-      !
-      ! Allocate the wts component of the current geometry/order combination.
-      ! If already allocated, then the rest of this loop was done before
+      ! If wts is already allocated, then the rest of this loop was done before
       !
       if (allocated(this_elem%wts)) then
         if (associated(this_elem)) this_elem => null()
         cycle basic_order_loop
       end if
-      !
-      allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order,"wts"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
-      ! Allocate the pts component of the current geometry/order combination
-      !
-      allocate ( this_elem%pts(1:ndim,1:npts) , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order,"pts"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Fill in the solution points and quadrature weights
       ! for an edge with the current order
@@ -265,7 +242,7 @@ continue
       if (any(this_geom == [Geom_Edge,Geom_Tria])) cycle geom_loop
       if (all(this_geom /= Geom_Valid)) cycle geom_loop
       !
-      write (timer_message,100) trim(adjustl(Geom_Name(this_geom))),this_order
+      write (timer_message,1) trim(adjustl(Geom_Name(this_geom))),this_order
       call debug_timer(start_timer,timer_message)
       !
       ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
@@ -273,33 +250,12 @@ continue
       !
       this_elem => std_elem(this_geom,this_order)
       !
-      ! Spatial dimension of the current geometry
-      ! NOTE: Make sure that ndim is at minimum 1, primarily for Geom_Node
-      !
-      ndim = max( 1 , geom_dimen(this_geom) )
-      !
-      ! Number of solution points for the current geometry/order combination
-      !
-      npts = geom_solpts(this_geom,this_order)
-      !
-      ! Allocate the wts component of the current geometry/order combination.
-      ! If already allocated, then the rest of this loop was done before
+      ! If wts is already allocated, then the rest of this loop was done before
       !
       if (allocated(this_elem%wts)) then
         if (associated(this_elem)) this_elem => null()
         cycle geom_loop
       end if
-      !
-      allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order,"wts"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
-      ! Allocate the pts component of the current geometry/order combination
-      !
-      allocate ( this_elem%pts(1:ndim,1:npts) , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order,"pts"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Fill in the quadrature points and weights for the
       ! current geometry/order combination
@@ -307,7 +263,8 @@ continue
       select case (this_geom)
         case (Geom_Node)
           !
-          this_elem%wts = one
+          this_elem%pts = init_array(1,1,zero) ! F2003 AUTO-REALLOC
+          this_elem%wts = init_array(1,one)    ! F2003 AUTO-REALLOC
           !
         case (Geom_Quad)
           !
@@ -357,12 +314,8 @@ continue
   !
   ! Format Statements
   !
-  1 format ("std_elem(",a,",",i0,")%",a)
+  1 format ("Geometry = ",a,"  ;  Order = ",i0)
   2 format (" A grid cell of an unknown geometry type was found!")
-  3 format (" A grid cell of geometry type '",a,"' was encountered while", &
-            " trying to compute the quadrature rules for each geometry type.", &
-            " This geometry type is currently invalid because it has not", &
-            " yet been fully implemented.")
   !
 end subroutine init_geom_quadrature_rules
 !
@@ -379,11 +332,10 @@ subroutine init_face_quadrature_rules()
   use element_type_mod, only : face_elem
   !
   !.. Local Scalars ..
-  integer :: n,npts,ndim,ierr
+  integer :: n,ierr
   integer :: gmin,gmax,this_order
   logical(lk) :: there_are_quad_faces
   logical(lk) :: there_are_tria_faces
-  character(len=100) :: array_name
   character(len=300) :: timer_message
   !
   !.. Local Pointers ..
@@ -428,8 +380,7 @@ continue
   call check_for_bad_number(__LINE__,__FILE__)
   !
   edge_loop: do this_order = n_min_order,n_max_order
-    write (timer_message,100) trim(adjustl(Geom_Name(Geom_Edge))),this_order
-    100 format ("Geometry = ",a,"  ;  Order = ",i0)
+    write (timer_message,1) trim(adjustl(Geom_Name(Geom_Edge))),this_order
     call debug_timer(start_timer,timer_message)
     !
     ! Assign the pointer 'this_elem' to face_elem(Geom_Edge,this_order)
@@ -437,32 +388,12 @@ continue
     !
     this_elem => face_elem(Geom_Edge,this_order)
     !
-    ! Spatial dimension of the current geometry
-    ! NOTE: Make sure that ndim is at minimum 1, primarily for Geom_Node
-    !
-    ndim = max( 1 , geom_dimen(Geom_Edge) )
-    !
-    ! Number of solution points for the current geometry/order combination
-    !
-    npts = geom_solpts(Geom_Edge,this_order)
-    !
-    ! Allocate the wts component of the current geometry/order combination.
-    ! If already allocated, then the rest of this loop was done before
+    ! If wts is already allocated, then the rest of this loop was done before
     !
     if (allocated(this_elem%wts)) then
       if (associated(this_elem)) this_elem => null()
       cycle edge_loop
     end if
-    !
-    allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
-    write (array_name,1) Geom_Name(Geom_Edge),this_order,"wts"
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-    !
-    ! Allocate the pts component of the current geometry/order combination
-    !
-    allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
-    write (array_name,1) Geom_Name(Geom_Edge),this_order,"pts"
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Fill in the solution points and quadrature weights
     ! for an edge with the current order
@@ -485,7 +416,7 @@ continue
   if (there_are_tria_faces) then
     !
     tria_loop: do this_order = n_min_order,n_max_order
-      write (timer_message,100) trim(adjustl(Geom_Name(Geom_Tria))),this_order
+      write (timer_message,1) trim(adjustl(Geom_Name(Geom_Tria))),this_order
       call debug_timer(start_timer,timer_message)
       !
       ! Assign the pointer 'this_elem' to face_elem(Geom_Tria,this_order)
@@ -493,33 +424,12 @@ continue
       !
       this_elem => face_elem(Geom_Tria,this_order)
       !
-      ! Spatial dimension of the current geometry
-      ! NOTE: Make sure that ndim is at minimum 1, primarily for Geom_Node
-      !
-      ndim = max( 1 , geom_dimen(Geom_Tria) )
-      !
-      ! Number of solution points for the current geometry/order combination
-      !
-      npts = geom_solpts(Geom_Tria,this_order)
-      !
-      ! Allocate the wts component of the current geometry/order combination.
-      ! If already allocated, then the rest of this loop was done before
+      ! If wts is already allocated, then the rest of this loop was done before
       !
       if (allocated(this_elem%wts)) then
         if (associated(this_elem)) this_elem => null()
         cycle tria_loop
       end if
-      !
-      allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(Geom_Tria),this_order,"wts"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
-      ! Allocate the pts component of the current geometry/order combination
-      !
-      allocate ( this_elem%pts(1:ndim,1:npts) , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(Geom_Tria),this_order,"pts"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Fill in the solution points and quadrature weights
       ! for a triangle face with the current order
@@ -544,7 +454,7 @@ continue
   if (there_are_quad_faces) then
     !
     quad_loop: do this_order = n_min_order,n_max_order
-      write (timer_message,100) trim(adjustl(Geom_Name(Geom_Quad))),this_order
+      write (timer_message,1) trim(adjustl(Geom_Name(Geom_Quad))),this_order
       call debug_timer(start_timer,timer_message)
       !
       ! Assign the pointer 'this_elem' to face_elem(Geom_Quad,this_order)
@@ -552,33 +462,12 @@ continue
       !
       this_elem => face_elem(Geom_Quad,this_order)
       !
-      ! Spatial dimension of the current geometry
-      ! NOTE: Make sure that ndim is at minimum 1, primarily for Geom_Node
-      !
-      ndim = max( 1 , geom_dimen(Geom_Quad) )
-      !
-      ! Number of solution points for the current geometry/order combination
-      !
-      npts = geom_solpts(Geom_Quad,this_order)
-      !
-      ! Allocate the wts component of the current geometry/order combination.
-      ! If already allocated, then the rest of this loop was done before
+      ! If wts is already allocated, then the rest of this loop was done before
       !
       if (allocated(this_elem%wts)) then
         if (associated(this_elem)) this_elem => null()
         cycle quad_loop
       end if
-      !
-      allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(Geom_Quad),this_order,"wts"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-     !!
-     !! Allocate the pts component of the current geometry/order combination
-     !!
-     !allocate ( this_elem%pts(1:ndim,1:npts) , &
-     !           stat=ierr , errmsg=error_message )
-     !write (array_name,1) Geom_Name(Geom_Quad),this_order,"pts"
-     !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Fill in the solution points and quadrature weights
       ! for a quad face with the current order
@@ -601,7 +490,7 @@ continue
   !
   ! Format Statements
   !
-  1 format ("face_elem(",a,",",i0,")%",a)
+  1 format ("Geometry = ",a,"  ;  Order = ",i0)
   !
 end subroutine init_face_quadrature_rules
 !
@@ -1557,12 +1446,8 @@ subroutine dump_solpts()
   use order_mod, only : n_min_order,n_max_order
   !
   !.. Local Scalars ..
-  integer :: npts,ndim,ierr,location,io
+  integer :: ierr,location,io
   integer :: this_geom,this_order
-  character(len=100) :: array_name
-  !
-  !.. Local Pointers ..
-  type(element_t), pointer :: this_elem
   !
   !.. Local Allocatable Arrays ..
   type(element_t), target, allocatable, dimension(:,:) :: edge_elem
@@ -1581,11 +1466,7 @@ continue
         position="rewind",form="formatted",iostat=ierr,iomsg=error_message)
   call io_error(pname,filename,1,__LINE__,__FILE__,ierr,error_message)
   !
-  write (io,10)
-  !
-  ! Initialize this_elem to disassociated
-  !
-  this_elem => null()
+  write (io,1)
   !
   allocate ( edge_elem(min_order:max_order,1:3) , &
              stat=ierr , errmsg=error_message )
@@ -1613,43 +1494,10 @@ continue
     !
     basic_order_loop: do this_order = min_order,max_order
       !
-      ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
-      ! to simplify the remaining code in this loop and make it more legible
-      !
-      this_elem => edge_elem(this_order,location)
-      !
-      ! Spatial dimension of the current geometry
-      ! NOTE: Make sure that ndim is at minimum 1, primarily for Geom_Node
-      !
-      ndim = max( 1 , geom_dimen(this_geom) )
-      !
-      ! Number of solution points for the current geometry/order combination
-      !
-      npts = geom_solpts(this_geom,this_order)
-      !
-      if (location == 3) npts = npts + 2
-      !
-      ! Allocate the wts component of the current geometry/order combination
-      !
-      allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order,"wts"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
-      ! Allocate the pts component of the current geometry/order combination
-      !
-      allocate ( this_elem%pts(1:ndim,1:npts) , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order,"pts"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
       ! Fill in the solution points and quadrature weights
       ! for an edge with the current order
       !
-      this_elem = get_edge_points(this_order,location)
-      !
-      ! Disassociate this_elem before continuing to the next loop combo
-      !
-      if (associated(this_elem)) this_elem => null()
+      edge_elem(this_order,location) = get_edge_points(this_order,location)
       !
     end do basic_order_loop
     !
@@ -1667,42 +1515,11 @@ continue
     !
     quad_order_loop: do this_order = min_order,max_order
       !
-      ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
-      ! to simplify the remaining code in this loop and make it more legible
-      !
-      this_elem => quad_elem(this_order,location)
-      !
-      ! Spatial dimension of the current geometry
-      ! NOTE: Make sure that ndim is at minimum 1, primarily for Geom_Node
-      !
-      ndim = max( 1 , geom_dimen(this_geom) )
-      !
-      ! Number of solution points for the current geometry/order combination
-      !
-      npts = size( edge_elem(this_order,location)%wts )**ndim
-      !
-      ! Allocate the wts component of the current geometry/order combination
-      !
-      allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order,"wts"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
-      ! Allocate the pts component of the current geometry/order combination
-      !
-      allocate ( this_elem%pts(1:ndim,1:npts) , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order,"pts"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
       ! Fill in the quadrature weights for the
       ! current geometry/order combination
       !
-      this_elem = get_quad_points( edge_elem(this_order,location) )
-      !
-      ! Disassociate the pointer 'this_elem' before
-      ! continuing to the next order
-      !
-      if (associated(this_elem)) this_elem => null()
+      quad_elem(this_order,location) = &
+                               get_quad_points( edge_elem(this_order,location) )
       !
     end do quad_order_loop
     !
@@ -1720,42 +1537,11 @@ continue
     !
     hexa_order_loop: do this_order = min_order,max_order
       !
-      ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
-      ! to simplify the remaining code in this loop and make it more legible
-      !
-      this_elem => hexa_elem(this_order,location)
-      !
-      ! Spatial dimension of the current geometry
-      ! NOTE: Make sure that ndim is at minimum 1, primarily for Geom_Node
-      !
-      ndim = max( 1 , geom_dimen(this_geom) )
-      !
-      ! Number of solution points for the current geometry/order combination
-      !
-      npts = size( edge_elem(this_order,location)%wts )**ndim
-      !
-      ! Allocate the wts component of the current geometry/order combination
-      !
-      allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order,"wts"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
-      ! Allocate the pts component of the current geometry/order combination
-      !
-      allocate ( this_elem%pts(1:ndim,1:npts) , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order,"pts"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
       ! Fill in the quadrature weights for the
       ! current geometry/order combination
       !
-      this_elem = get_hexa_points( edge_elem(this_order,location) )
-      !
-      ! Disassociate the pointer 'this_elem' before
-      ! continuing to the next order
-      !
-      if (associated(this_elem)) this_elem => null()
+      hexa_elem(this_order,location) = &
+                               get_hexa_points( edge_elem(this_order,location) )
       !
     end do hexa_order_loop
     !
@@ -1782,14 +1568,7 @@ continue
   !
   ! Format Statements
   !
-  1 format ("std_elem(",a,",",i0,")%",a)
-  2 format (" A grid cell of an unknown geometry type was found!")
-  3 format (" A grid cell of geometry type '",a,"' was encountered while", &
-            " trying to compute the quadrature rules for each geometry type.", &
-            " This geometry type is currently invalid because it has not", &
-            " yet been fully implemented.")
-  !
-  10 format ('VARIABLES = "X","Y","Z"')
+  1 format ('VARIABLES = "X","Y","Z"')
   !
   contains
   !
@@ -2050,17 +1829,9 @@ continue
     !
     !
     !
-    allocate ( ipelem(1:nnpc,1:nc,1:ncells) , source=0 , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ipelem",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    allocate ( xyz(1:3,1:np,1:ncells) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"xyz",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    allocate ( xyz_offset(1:3,1:ncells) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"xyz_offset",1,__LINE__,__FILE__,ierr,error_message)
+    ipelem     = init_array(nnpc,nc,ncells,0) ! F2003 AUTO-REALLOC
+    xyz        = init_array(3,np,ncells,zero) ! F2003 AUTO-REALLOC
+    xyz_offset = init_array(3,ncells,zero)    ! F2003 AUTO-REALLOC
     !
     m = 0
     do n = 1,ncells
