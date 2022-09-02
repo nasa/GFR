@@ -619,7 +619,7 @@ function Vandermonde_Tria(rs,number_of_modes) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,n,np,m,ierr
+  integer  :: i,j,k,n,np,nb,m,ierr
   real(qp) :: r,s,a,b,h1,h2,alpha,beta
   !
   !.. Local Allocatable Arrays ..
@@ -628,20 +628,32 @@ function Vandermonde_Tria(rs,number_of_modes) result(return_value)
 continue
   !
   np = size(rs,2)
-  n  = np2n(np)
   !
-  ! Allocate the return array containing the
-  ! working precision Vandermonde matrix
+  ! Find the order for this triangle
   !
-  allocate ( return_value(1:np,1:np) , source=zero , stat=ierr )
+  if (present(number_of_modes)) then
+    n = number_of_modes
+  else
+    n = solpts2order(Geom_Tria,np)
+  end if
+  nb = cell_solpts(Geom_Tria,n)
+  !
+  ! If n is still -1, return with the Vandermonde matrix still being zero
+  !
+  if (n == -1) then
+    return_value = init_array(np,np,zero)
+    return
+  end if
   !
   ! Create the Vandermonde matrix using quad precision
   !
-  allocate ( vmat_qp(1:np,1:np) , source=qzero , stat=ierr )
+  vmat_qp = init_array(np,nb,qzero) ! F2003 AUTO-REALLOC
   !
-  m = 1
+  m = 0
   do i = 0,n
     do j = 0,n-i
+      !
+      m = m + 1
       !
       ! Evaluate the basis function, psi(m), at the np solution points
       ! where m = j + i*(n+1) + 1 - i*(i-1)/2
@@ -672,15 +684,13 @@ continue
         !
       end do
       !
-      m = m + 1
-      !
     end do
   end do
   !
   ! Use the chop function to copy vmat_qp into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( vmat_qp )
+  return_value = chop( vmat_qp ) ! F2003 AUTO-REALLOC
   !
 end function Vandermonde_Tria
 !
