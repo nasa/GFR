@@ -403,6 +403,9 @@ end function CorrectionMatrix_Edge
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 function CorrectionMatrix_Edge_LP(pts1d,wts1d) result(return_value)
   !
   !.. Use Statements ..
@@ -550,6 +553,9 @@ end function CorrectionMatrix_Quad_LP
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 function CorrectionMatrix_Quad_2D_LP(pts1d,wts1d) result(return_value)
   !
   !.. Use Statements ..
@@ -593,12 +599,12 @@ continue
   !
   ! Face 1 - bottom/south edge of quad
   !
-  write (iout,*)
-  write (iout,*)
-  write (iout,*)
-  1 format (2x,i1,2x,"cmat(",i2,",",i2,")", &
-               " = eval_LagrangePoly2D(",i1,",",i1,",", &
-               f4.1,",",f4.1,",pts1d,pts1d) / wts1d(",i1,") = ",f11.6)
+ !write (iout,*)
+ !write (iout,*)
+ !write (iout,*)
+ !1 format (2x,i1,2x,"cmat(",i2,",",i2,")", &
+ !             " = eval_LagrangePoly2D(",i1,",",i1,",", &
+ !             f4.1,",",f4.1,",pts1d,pts1d) / wts1d(",i1,") = ",f11.6)
   !
   nf = 1
   y = -qone
@@ -609,10 +615,10 @@ continue
         k = (j-1)*np + i
         cmat_qp(k,nf) = eval_LagrangePoly2D(i,j,x,y,pts1d_qp,pts1d_qp) / &
                                                                      wts1d_qp(j)
-        write (iout,1) n,k,nf,i,j,x,y,j,cmat_qp(k,nf)
+ !      write (iout,1) n,k,nf,i,j,x,y,j,cmat_qp(k,nf)
       end do
     end do
-    write (iout,*)
+ !  write (iout,*)
     nf = nf + 1
   end do
   !
@@ -637,10 +643,10 @@ continue
         k = (j-1)*np + i
         cmat_qp(k,nf) = eval_LagrangePoly2D(i,j,x,y,pts1d_qp,pts1d_qp) / &
                                                                      wts1d_qp(i)
-        write (iout,1) n,k,nf,i,j,x,y,i,cmat_qp(k,nf)
+ !      write (iout,1) n,k,nf,i,j,x,y,i,cmat_qp(k,nf)
       end do
     end do
-    write (iout,*)
+ !  write (iout,*)
     nf = nf + 1
   end do
   !
@@ -665,10 +671,10 @@ continue
         k = (j-1)*np + i
         cmat_qp(k,nf) = eval_LagrangePoly2D(i,j,x,y,pts1d_qp,pts1d_qp) / &
                                                                      wts1d_qp(j)
-        write (iout,1) np+1-n,k,nf,i,j,x,y,j,cmat_qp(k,nf)
+ !      write (iout,1) np+1-n,k,nf,i,j,x,y,j,cmat_qp(k,nf)
       end do
     end do
-    write (iout,*)
+ !  write (iout,*)
     nf = nf + 1
   end do
   !
@@ -693,10 +699,10 @@ continue
         k = (j-1)*np + i
         cmat_qp(k,nf) = eval_LagrangePoly2D(i,j,x,y,pts1d_qp,pts1d_qp) / &
                                                                      wts1d_qp(i)
-        write (iout,1) np+1-n,k,nf,i,j,x,y,i,cmat_qp(k,nf)
+ !      write (iout,1) np+1-n,k,nf,i,j,x,y,i,cmat_qp(k,nf)
       end do
     end do
-    write (iout,*)
+ !  write (iout,*)
     nf = nf + 1
   end do
   !
@@ -710,9 +716,9 @@ continue
  !  nf = nf + 1
  !end do
   !
-  write (iout,*)
-  write (iout,*)
-  write (iout,*)
+ !write (iout,*)
+ !write (iout,*)
+ !write (iout,*)
   !
   ! Use the chop function to copy cmat_qp into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
@@ -1062,6 +1068,9 @@ end function General_Correction_Matrix
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 function CorrectionMatrix_Quad(this_order) result(return_value)
   !
   !.. Use Statements ..
@@ -1344,6 +1353,9 @@ end function face_interpolation_matrix_from_qdtr
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 function CorrectionMatrix_Tria(this_order) result(return_value)
   !
   ! RS : r and s coordinates for the standard
