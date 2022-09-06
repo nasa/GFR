@@ -3126,7 +3126,7 @@ function InterpToFace_Tria(rs) result(return_value)
   !.. Local Scalars ..
   integer :: i,j,np,nfp
   !
-  !.. Local Arrays ..
+  !.. Local Allocatable Arrays ..
   integer, allocatable :: Fmask(:,:)
   !
 continue
@@ -3135,7 +3135,6 @@ continue
   nfp = solpts2order(Geom_Tria,np) + 1
   !
   return_value = init_array(np,3*nfp,zero) ! F2003 AUTO-REALLOC
-  !
   Fmask = init_array(nfp,3,0) ! F2003 AUTO-REALLOC
   !
   ! Face 1 - bottom edge of triangle
@@ -3192,13 +3191,7 @@ continue
   !
   ! Find the order for this tetrahedra
   !
-  n = -1
-  do i = 0,256
-    if (Tetr_Solpts(i) == nsp3d) then
-      n = i
-      exit
-    end if
-  end do
+  n = solpts2order(Geom_Tetr,nsp3d)
   !
   ! If n is still -1, return with the interpolation matrix still being zero
   !
@@ -3247,13 +3240,7 @@ continue
   !
   ! Find the order for this tetrahedra
   !
-  n = -1
-  do i = 0,256
-    if (Tetr_Solpts(i) == nsp3d) then
-      n = i
-      exit
-    end if
-  end do
+  n = solpts2order(Geom_Tetr,nsp3d)
   !
   nep3d = geom_edges(Geom_Tetr) * (n + 1)
   !
@@ -3290,13 +3277,7 @@ continue
   !
   ! Find the order for this tetrahedra
   !
-  n = -1
-  do i = 0,256
-    if (Tetr_Solpts(i) == nsp3d) then
-      n = i
-      exit
-    end if
-  end do
+  n = solpts2order(Geom_Tetr,nsp3d)
   !
   nfp3d = Cell_Flxpts(Geom_Tetr,n)
   !
@@ -3335,13 +3316,7 @@ continue
   !
   ! Find the order for this tetrahedra
   !
-  n = -1
-  do i = 0,256
-    if (Pyra_Solpts(i) == nsp3d) then
-      n = i
-      exit
-    end if
-  end do
+  n = solpts2order(Geom_Pyra,nsp3d)
   !
   nfp3d = Cell_Flxpts(Geom_Pyra,n)
   !
@@ -3373,13 +3348,7 @@ continue
   !
   ! Find the order for this tetrahedra
   !
-  n = -1
-  do i = 0,256
-    if (Pyra_Solpts(i) == nsp3d) then
-      n = i
-      exit
-    end if
-  end do
+  n = solpts2order(Geom_Pyra,nsp3d)
   !
   nep3d = geom_edges(Geom_Pyra) * (n + 1)
   !
@@ -3416,13 +3385,7 @@ continue
   !
   ! Find the order for this tetrahedra
   !
-  n = -1
-  do i = 0,256
-    if (Pyra_Solpts(i) == nsp3d) then
-      n = i
-      exit
-    end if
-  end do
+  n = solpts2order(Geom_Pyra,nsp3d)
   !
   nfp3d = Cell_Flxpts(Geom_Pyra,n)
   !
@@ -3461,13 +3424,7 @@ continue
   !
   ! Find the order for this tetrahedra
   !
-  n = -1
-  do i = 0,256
-    if (Pris_Solpts(i) == nsp3d) then
-      n = i
-      exit
-    end if
-  end do
+  n = solpts2order(Geom_Pris,nsp3d)
   !
   nfp3d = Cell_Flxpts(Geom_Pris,n)
   !
@@ -3499,13 +3456,7 @@ continue
   !
   ! Find the order for this tetrahedra
   !
-  n = -1
-  do i = 0,256
-    if (Pris_Solpts(i) == nsp3d) then
-      n = i
-      exit
-    end if
-  end do
+  n = solpts2order(Geom_Pris,nsp3d)
   !
   nep3d = geom_edges(Geom_Pris) * (n + 1)
   !
@@ -3542,13 +3493,7 @@ continue
   !
   ! Find the order for this tetrahedra
   !
-  n = -1
-  do i = 0,256
-    if (Pris_Solpts(i) == nsp3d) then
-      n = i
-      exit
-    end if
-  end do
+  n = solpts2order(Geom_Pris,nsp3d)
   !
   nfp3d = Cell_Flxpts(Geom_Pris,n)
   !
