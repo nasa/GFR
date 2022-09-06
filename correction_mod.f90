@@ -606,6 +606,242 @@ end function CorrectionMatrix_Quad
 !
 !###############################################################################
 !
+function General_Correction_Matrix(this_geom,this_order) result(return_value)
+  !
+  !.. Use Statements ..
+  use element_type_mod,  only : element_type
+  use element_type_mod,  only : std_elem,face_elem
+  use quadrature_mod,  only : get_edge_quadrature
+  use quadrature_mod,  only : get_tria_quadrature
+  use quadrature_mod,  only : get_quad_quadrature
+  use quadrature_mod,  only : get_ref_elem_node_idx_for_face
+  use quadrature_mod,  only : map_face_pts
+  use vandermonde_mod, only : vand
+  use vandermonde_mod, only : General_Basis_Matrix
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: this_geom
+  integer, intent(in) :: this_order
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2,nsp,nfp,ndim
+  integer :: this_face,face_geom
+  !
+  logical :: needsEdge,needsTria,needsQuad
+  !
+  type(element_type) :: edge_qdtr
+  type(element_type) :: tria_qdtr
+  type(element_type) :: quad_qdtr
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: ip(:)
+  real(wp), allocatable :: rs(:,:)
+  real(wp), allocatable :: node_xyz(:,:)
+  real(wp), allocatable :: face_pts(:,:)
+  real(wp), allocatable :: bmat(:,:)
+  real(wp), allocatable :: smat(:,:)
+  real(wp), allocatable :: bwimat(:,:)
+  real(wp), allocatable :: cmat(:,:)
+  !
+  real(wp), allocatable :: imat(:,:)
+  real(wp), allocatable :: wimat(:,:)
+  real(wp), allocatable :: wimatEdge(:,:)
+  real(wp), allocatable :: wimatTria(:,:)
+  real(wp), allocatable :: wimatQuad(:,:)
+  !
+  type(matrix) :: tmp
+  integer :: i,j
+  !
+continue
+  !
+  nsp = cell_solpts(this_geom,this_order)
+  nfp = cell_flxpts(this_geom,this_order)
+  !
+  ! Special logic if this is for an edge element
+  !
+  if (this_geom == Geom_Edge) then
+    !
+    return_value = init_array(nsp,nfp,zero) ! F2003 AUTO-REALLOC
+    !
+    edge_qdtr = std_elem(Geom_Edge,this_order)
+    !
+    return_value(:,1) = CorrectionMatrix_Edge( edge_qdtr%pts(1,:) )
+    return_value(:,2) = return_value(nsp:1:-1,1)
+    !
+    return
+    !
+  end if
+ !!
+ !needsEdge = any( this_geom == [Geom_Tria,Geom_Quad] )
+ !needsTria = any( this_geom == [Geom_Tetr,Geom_Pyra,Geom_Pris] )
+ !needsQuad = any( this_geom == [Geom_Pyra,Geom_Pris,Geom_Hexa] )
+  !
+  needsEdge = any( cell_face_geom(:,this_geom) == Geom_Edge )
+  needsTria = any( cell_face_geom(:,this_geom) == Geom_Tria )
+  needsQuad = any( cell_face_geom(:,this_geom) == Geom_Quad )
+  !
+  ! Compute the wimatEdge matrix if this element has edge faces.
+  !
+  if (needsEdge) then
+    !
+    ! Get the coordinates and weights for the edge-face
+    ! quadrature/integration points
+    !
+    edge_qdtr = get_edge_quadrature(this_order,Legendre_Gauss)
+    !
+    ! Compute the interpolation matrix from the face flux points
+    ! to the face quadrature/integration points
+    !
+    imat = face_interpolation_matrix(Geom_Edge, & ! F2003 AUTO-REALLOC
+                                     face_elem(Geom_Edge,this_order), &
+                                     edge_qdtr)
+    !
+    ! Compute diag(wts)*imat
+    !
+    ! F2003 AUTO-REALLOC
+    wimatEdge = spread(edge_qdtr%wts,dim=1,ncopies=size(imat,dim=1))*imat
+    !
+  end if
+  !
+  ! Compute the wimatTria matrix if this element has triangle faces.
+  !
+  if (needsTria) then
+    !
+    ! Get the coordinates and weights for the triangle-face
+    ! quadrature/integration points
+    !
+    tria_qdtr = get_tria_quadrature(this_order,WilliamsShunn_TriPoints)
+    !
+    ! Compute the interpolation matrix from the face flux points
+    ! to the face quadrature/integration points
+    !
+    imat = face_interpolation_matrix(Geom_Tria, & ! F2003 AUTO-REALLOC
+                                     face_elem(Geom_Tria,this_order), &
+                                     tria_qdtr)
+    !
+    ! Compute diag(wts)*imat
+    !
+    ! F2003 AUTO-REALLOC
+    wimatTria = spread(tria_qdtr%wts,dim=1,ncopies=size(imat,dim=1))*imat
+    !
+  end if
+  !
+  ! Compute the wimatQuad matrix if this element has quad faces.
+  !
+  if (needsQuad) then
+    !
+    ! Get the coordinates and weights for the quad-face
+    ! quadrature/integration points
+    !
+    quad_qdtr = get_quad_quadrature(this_order,Legendre_Gauss)
+    !
+    ! Compute the interpolation matrix from the face flux points
+    ! to the face quadrature/integration points
+    !
+    imat = face_interpolation_matrix(Geom_Quad, & ! F2003 AUTO-REALLOC
+                                     face_elem(Geom_Quad,this_order), &
+                                     quad_qdtr)
+    !
+    ! Compute diag(wts)*imat
+    !
+    ! F2003 AUTO-REALLOC
+    wimatQuad = spread(quad_qdtr%wts,dim=1,ncopies=size(imat,dim=1))*imat
+    !
+  end if
+  !
+  ! Now we loop over the faces to compute the sections of bwimat
+  !
+  bwimat = init_array(nfp,nsp,zero) ! F2003 AUTO-REALLOC
+  !
+  n2 = 0
+  ndim = geom_dimen(this_geom)
+  !
+  do this_face = 1,geom_faces(this_geom)
+    !
+    ! Get the geometry of the current face
+    !
+    face_geom = cell_face_geom(this_face,this_geom)
+    !
+    ! Load up rs and wimat depending what geometry the current face is
+    !
+    if (face_geom == Geom_Edge) then
+      rs = edge_qdtr%pts ! F2003 AUTO-REALLOC
+      wimat = wimatEdge ! F2003 AUTO-REALLOC
+    else if (face_geom == Geom_Tria) then
+      rs = tria_qdtr%pts ! F2003 AUTO-REALLOC
+      wimat = wimatTria ! F2003 AUTO-REALLOC
+    else if (face_geom == Geom_Quad) then
+      rs = quad_qdtr%pts ! F2003 AUTO-REALLOC
+      wimat = wimatQuad ! F2003 AUTO-REALLOC
+    end if
+    !
+    ! Get the extents of the face points for the current face within the
+    ! range of all face points across all faces of the current cell
+    !
+    n1 = n2 + 1
+    n2 = n2 + size(rs,dim=2)
+    !
+    ! Get the node indices of the current face for the reference element
+    !
+    ip = get_ref_elem_node_idx_for_face(this_geom,this_face) ! F2003 AUTO-REALLOC
+    !
+    ! Get the coordinates of the nodes for the current face
+    !
+    node_xyz = ref_elem_nodes_xyz(1:ndim,ip(:),this_geom) ! F2003 AUTO-REALLOC
+    !
+    ! Map the face integration points onto the
+    ! current face of the reference element
+    !
+    face_pts = map_face_pts(node_xyz,rs) ! F2003 AUTO-REALLOC
+ !  !
+ !  write (error_message,1) "face_pts",this_face
+ !  tmp%mat = transpose(face_pts) ! F2003 AUTO-REALLOC
+ !  call output_matrix(tmp,error_message,this_geom,this_order)
+    !
+    ! Compute a basis matrix containing the values of the cell orthonormal
+    ! basis functions evaluated at the face integration points
+    !
+    bmat = General_Basis_Matrix(this_geom,this_order,face_pts) ! F2003 AUTO-REALLOC
+ !  !
+ !  write (error_message,1) "bmat",this_face
+ !  tmp%mat = transpose(bmat) ! F2003 AUTO-REALLOC
+ !  call output_matrix(tmp,error_message,this_geom,this_order)
+    !
+    smat = matmul( transpose(bmat) , transpose(wimat) ) ! F2003 AUTO-REALLOC
+ !  !
+ !  write (error_message,1) "smat",this_face
+ !  tmp%mat = transpose(smat) ! F2003 AUTO-REALLOC
+ !  call output_matrix(tmp,error_message,this_geom,this_order)
+    !
+    bwimat(n1:n2,1:nsp) = transpose(smat(:,:))
+    !
+  end do
+ !1 format (a," (Face #",i1,")")
+ !!
+ !error_message = "bwimat"
+ !tmp%mat = bwimat ! F2003 AUTO-REALLOC
+ !call output_matrix(tmp,error_message,this_geom,this_order)
+ !!
+ !error_message = "vand"
+ !call output_matrix(vand(this_geom,this_order)%modal2nodal, &
+ !                   error_message,this_geom,this_order)
+  !
+  ! F2003 AUTO-REALLOC
+  cmat = matmul( bwimat , transpose(vand(this_geom,this_order)%modal2nodal%mat) )
+ !!
+ !error_message = "cmat"
+ !tmp%mat = cmat ! F2003 AUTO-REALLOC
+ !call output_matrix(tmp,error_message,this_geom,this_order)
+  !
+  return_value = chop( real( transpose(cmat) , kind=qp ) ) ! F2003 AUTO-REALLOC
+  !
+end function General_Correction_Matrix
+!
+!###############################################################################
+!
 function face_interpolation_matrix(face_geom,from_order,from_loc, &
                                    to_order,to_loc) result(return_value)
   !
