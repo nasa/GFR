@@ -403,6 +403,58 @@ end function CorrectionMatrix_Edge
 !
 !###############################################################################
 !
+function CorrectionMatrix_Edge_LP(pts1d,wts1d) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : eval_LagrangePoly1D
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: pts1d
+  real(wp), dimension(:), intent(in) :: wts1d
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer :: n,np,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: cmat_qp(:)
+  real(qp), allocatable :: pts1d_qp(:)
+  real(qp), allocatable :: wts1d_qp(:)
+  !
+continue
+  !
+  np = size(pts1d)
+  !
+  ! Allocate the return array containing the working
+  ! precision correction matrix
+  !
+  allocate ( return_value(1:np) , source=zero , stat=ierr )
+  !
+  ! Create the correction matrix using quad precision and make quad precision
+  ! copies of the 1D solution points and their corresponding quadrature weights
+  !
+  allocate ( cmat_qp(1:np) , source=qzero , stat=ierr )
+  !
+  pts1d_qp = real(pts1d,kind=kind(pts1d_qp)) ! F2003 AUTO-REALLOC
+  wts1d_qp = real(wts1d,kind=kind(wts1d_qp)) ! F2003 AUTO-REALLOC
+  !
+  !
+  !
+  do n = 1,np
+    cmat_qp(n) = eval_LagrangePoly1D(n,-qone,pts1d_qp) / wts1d_qp(n)
+  end do
+  !
+  ! Use the chop function to copy cmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( cmat_qp )
+  !
+end function CorrectionMatrix_Edge_LP
+!
+!###############################################################################
+!
 #ifndef DISABLE_PURE
 pure &
 #endif
