@@ -51,22 +51,13 @@ contains
 subroutine init_correction_matrices()
   !
   !.. Use Statements ..
-  use order_mod,        only : geom_solpts,geom_flxpts
-  use order_mod,        only : n_min_geom,n_max_geom
-  use order_mod,        only : n_min_order,n_max_order
-  use order_mod,        only : n_order
-  use quadrature_mod,   only : geom_is_used
-  use element_type_mod, only : std_elem
+  use order_mod,      only : n_min_geom,n_max_geom
+  use order_mod,      only : n_min_order,n_max_order
+  use quadrature_mod, only : geom_is_used
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax
-  integer :: this_geom,this_order
-  integer :: nsolpts,nflxpts,ierr
-  integer :: n,n1,n2,i
-  character(len=200) :: array_name
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: edgpts(:)
+  integer :: this_geom,this_order,ierr
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_correction_matrices"
@@ -93,112 +84,20 @@ continue
     !
     order_loop: do this_order = omin,omax
       !
-      ! Get the number of solution points for this cell
+      ! Compute the correction matrix for this geometry/order combo
       !
-      nsolpts = geom_solpts(this_geom,this_order)
+      correct(this_geom,this_order)%mat = & ! F2003 AUTO-REALLOC
+                             General_Correction_Matrix( this_geom , this_order )
       !
-      ! Get the number of face/flux points for this cell
+      error_message = "Generalized Correction"
+      call output_matrix(correct(this_geom,this_order), &
+                         error_message,this_geom,this_order, &
+                         output_transpose=.true.)
       !
-      nflxpts = geom_flxpts(this_geom,this_order)
-      !
-      ! Allocate the correction matrix
-      !
-     !allocate ( this_correct%mat(1:nsolpts,1:nflxpts) , &
-      allocate ( correct(this_geom,this_order)%mat(1:nsolpts,1:nflxpts) , &
-                 source=zero , stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
-      ! Compute the correction matrices depending on geometry type
-      !
-      select case (this_geom)
-        case (Geom_Edge)
-          !
-          edgpts = std_elem(this_geom,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
-          !
-          correct(this_geom,this_order)%mat(:,1) = &
-                     CorrectionMatrix_Edge( edgpts )
-          !
-          correct(this_geom,this_order)%mat(:,2) = &
-                     correct(this_geom,this_order)%mat(nsolpts:1:-1,1)
-          !
-          error_message = "Correction"
-          call output_matrix(correct(this_geom,this_order), &
-                             error_message,this_geom,this_order, &
-                             output_transpose=.true.)
-          !
-        case (Geom_Tria)
-          !
-          correct(this_geom,this_order)%mat = &
-                     CorrectionMatrix_Tria( std_elem(this_geom,this_order)%pts )
 #ifdef SPECIAL_OUTPUT_SPARSITY
-          write (array_name,10) "tria",this_order
-          call output_sparsity( correct(this_geom,this_order) , array_name )
+      write (error_message,1) Geom_Short_Name(this_geom),this_order
+      call output_sparsity( correct(this_geom,this_order) , error_message )
 #endif
-          !
-        case (Geom_Quad)
-          !
-          edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
-          !
-          correct(this_geom,this_order)%mat = CorrectionMatrix_Quad( edgpts )
-#ifdef SPECIAL_OUTPUT_SPARSITY
-          write (array_name,10) "quad",this_order
-          call output_sparsity( correct(this_geom,this_order) , array_name )
-#endif
-          !
-          error_message = "Correction"
-          call output_matrix(correct(this_geom,this_order), &
-                             error_message,this_geom,this_order, &
-                             output_transpose=.true.)
-          !
-        case (Geom_Tetr)
-          !
-          correct(this_geom,this_order)%mat = &
-                     CorrectionMatrix_Tetr( std_elem(this_geom,this_order)%pts )
-#ifdef SPECIAL_OUTPUT_SPARSITY
-          write (array_name,10) "tetr",this_order
-          call output_sparsity( correct(this_geom,this_order) , array_name )
-#endif
-          !
-        case (Geom_Pyra)
-          !
-          correct(this_geom,this_order)%mat = &
-                     CorrectionMatrix_Pyra( std_elem(this_geom,this_order)%pts )
-#ifdef SPECIAL_OUTPUT_SPARSITY
-          write (array_name,10) "pyra",this_order
-          call output_sparsity( correct(this_geom,this_order) , array_name )
-#endif
-          !
-        case (Geom_Pris)
-          !
-          correct(this_geom,this_order)%mat = &
-                     CorrectionMatrix_Pris( std_elem(this_geom,this_order)%pts )
-#ifdef SPECIAL_OUTPUT_SPARSITY
-          write (array_name,10) "pris",this_order
-          call output_sparsity( correct(this_geom,this_order) , array_name )
-#endif
-          !
-        case (Geom_Hexa)
-          !
-          edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
-          !
-          correct(this_geom,this_order)%mat = CorrectionMatrix_Hexa( edgpts )
-#ifdef SPECIAL_OUTPUT_SPARSITY
-          write (array_name,10) "hexa",this_order
-          call output_sparsity( correct(this_geom,this_order) , array_name )
-#endif
-          !
-          error_message = "Correction"
-          call output_matrix(correct(this_geom,this_order), &
-                             error_message,this_geom,this_order, &
-                             output_transpose=.true.)
-          !
-        case default
-          !
-          write (error_message,2)
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-          !
-      end select
       !
     end do order_loop
     !
@@ -206,17 +105,13 @@ continue
   !
   ! Check for sparsity within each of the correction matrices
   !
- !call correct%check_for_sparsity
   call create_matrix_sparsity( correct )
   !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
-  1 format ("correct(",a,",",i0,")%mat")
-  2 format (" A grid cell of an unknown geometry type was found!")
-  !
-  10 format (a4,".correct.p",i0,".tec.dat")
+  1 format (a4,".correct.p",i0,".tec.dat")
   !
 end subroutine init_correction_matrices
 !
