@@ -550,6 +550,179 @@ end function CorrectionMatrix_Quad_LP
 !
 !###############################################################################
 !
+function CorrectionMatrix_Quad_2D_LP(pts1d,wts1d) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : eval_LagrangePoly1D
+  use polynomial_mod, only : eval_LagrangePoly2D
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: pts1d
+  real(wp), dimension(:), intent(in) :: wts1d
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,n,nf,np,nsp,nfp,ierr
+  real(qp) :: x,y
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: cmat_qp(:,:)
+  real(qp), allocatable :: pts1d_qp(:)
+  real(qp), allocatable :: wts1d_qp(:)
+  !
+continue
+  !
+  np = size(pts1d)
+  nsp = np*np
+  nfp = 4*np
+  !
+  ! Allocate the return array containing the working
+  ! precision correction matrix
+  !
+  allocate ( return_value(1:nsp,1:nfp) , source=zero , stat=ierr )
+  !
+  ! Create the correction matrix using quad precision and make quad precision
+  ! copies of the 1D solution points and their corresponding quadrature weights
+  !
+  allocate ( cmat_qp(1:nsp,1:nfp) , source=qzero , stat=ierr )
+  !
+  pts1d_qp = real(pts1d,kind=kind(pts1d_qp)) ! F2003 AUTO-REALLOC
+  wts1d_qp = real(wts1d,kind=kind(wts1d_qp)) ! F2003 AUTO-REALLOC
+  !
+  ! Face 1 - bottom/south edge of quad
+  !
+  write (iout,*)
+  write (iout,*)
+  write (iout,*)
+  1 format (2x,i1,2x,"cmat(",i2,",",i2,")", &
+               " = eval_LagrangePoly2D(",i1,",",i1,",", &
+               f4.1,",",f4.1,",pts1d,pts1d) / wts1d(",i1,") = ",f11.6)
+  !
+  nf = 1
+  y = -qone
+  do n = 1,np
+    x = pts1d_qp(n)
+    do j = 1,np
+      do i = 1,np
+        k = (j-1)*np + i
+        cmat_qp(k,nf) = eval_LagrangePoly2D(i,j,x,y,pts1d_qp,pts1d_qp) / &
+                                                                     wts1d_qp(j)
+        write (iout,1) n,k,nf,i,j,x,y,j,cmat_qp(k,nf)
+      end do
+    end do
+    write (iout,*)
+    nf = nf + 1
+  end do
+  !
+ !nf = 1
+ !do i = 1,np
+ !  do j = 1,np
+ !    k = (j-1)*np + i
+ !    cmat_qp(k,nf) = eval_LagrangePoly1D(j,-qone,pts1d_qp) / wts1d_qp(j)
+ !    write (iout,1) k,nf,j,"-1.0",j,cmat_qp(k,nf)
+ !  end do
+ !  nf = nf + 1
+ !end do
+  !
+  ! Face 2 - right/east edge of quad
+  !
+  nf = np+1
+  x = qone
+  do n = 1,np
+    y = pts1d_qp(n)
+    do j = 1,np
+      do i = 1,np
+        k = (j-1)*np + i
+        cmat_qp(k,nf) = eval_LagrangePoly2D(i,j,x,y,pts1d_qp,pts1d_qp) / &
+                                                                     wts1d_qp(i)
+        write (iout,1) n,k,nf,i,j,x,y,i,cmat_qp(k,nf)
+      end do
+    end do
+    write (iout,*)
+    nf = nf + 1
+  end do
+  !
+ !nf = np+1
+ !do j = 1,np
+ !  do i = np,1,-1
+ !    k = (j-1)*np + i
+ !    cmat_qp(k,nf) = eval_LagrangePoly1D(i,qone,pts1d_qp) / wts1d_qp(i)
+ !    write (iout,1) k,nf,i," 1.0",i,cmat_qp(k,nf)
+ !  end do
+ !  nf = nf + 1
+ !end do
+  !
+  ! Face 3 - top/north edge of quad
+  !
+  nf = 2*np+1
+  y = qone
+  do n = 1,np
+    x = pts1d_qp(np+1-n)
+    do j = 1,np
+      do i = 1,np
+        k = (j-1)*np + i
+        cmat_qp(k,nf) = eval_LagrangePoly2D(i,j,x,y,pts1d_qp,pts1d_qp) / &
+                                                                     wts1d_qp(j)
+        write (iout,1) np+1-n,k,nf,i,j,x,y,j,cmat_qp(k,nf)
+      end do
+    end do
+    write (iout,*)
+    nf = nf + 1
+  end do
+  !
+ !nf = 2*np+1
+ !do i = np,1,-1
+ !  do j = np,1,-1
+ !    k = (j-1)*np + i
+ !    cmat_qp(k,nf) = eval_LagrangePoly1D(j,qone,pts1d_qp) / wts1d_qp(j)
+ !    write (iout,1) k,nf,j," 1.0",j,cmat_qp(k,nf)
+ !  end do
+ !  nf = nf + 1
+ !end do
+  !
+  ! Face 4 - left/west edge of quad
+  !
+  nf = 3*np+1
+  x = -qone
+  do n = 1,np
+    y = pts1d_qp(np+1-n)
+    do j = 1,np
+      do i = 1,np
+        k = (j-1)*np + i
+        cmat_qp(k,nf) = eval_LagrangePoly2D(i,j,x,y,pts1d_qp,pts1d_qp) / &
+                                                                     wts1d_qp(i)
+        write (iout,1) np+1-n,k,nf,i,j,x,y,i,cmat_qp(k,nf)
+      end do
+    end do
+    write (iout,*)
+    nf = nf + 1
+  end do
+  !
+ !nf = 3*np+1
+ !do j = np,1,-1
+ !  do i = 1,np
+ !    k = (j-1)*np + i
+ !    cmat_qp(k,nf) = eval_LagrangePoly1D(i,-qone,pts1d_qp) / wts1d_qp(i)
+ !    write (iout,1) k,nf,i,"-1.0",i,cmat_qp(k,nf)
+ !  end do
+ !  nf = nf + 1
+ !end do
+  !
+  write (iout,*)
+  write (iout,*)
+  write (iout,*)
+  !
+  ! Use the chop function to copy cmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( cmat_qp )
+  !
+end function CorrectionMatrix_Quad_2D_LP
+!
+!###############################################################################
+!
 #ifndef DISABLE_PURE
 pure &
 #endif
