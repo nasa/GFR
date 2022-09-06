@@ -1341,6 +1341,149 @@ end function face_interpolation_matrix_from_qdtr
 !
 !###############################################################################
 !
+function CorrectionMatrix_Tria(this_order) result(return_value)
+  !
+  ! RS : r and s coordinates for the standard
+  !      triangle element on the interval [-1,1]
+  !
+  !.. Use Statements ..
+  use ovar,            only : loc_flux_pts
+  use element_type_mod,  only : element_type
+  use element_type_mod,  only : face_elem
+  use quadrature_mod,  only : get_edge_quadrature
+  use quadrature_mod,  only : get_ref_elem_node_idx_for_face
+  use quadrature_mod,  only : map_face_pts
+  use vandermonde_mod, only : vand
+  use vandermonde_mod, only : General_Basis_Matrix
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: this_order
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2,nsp,nfp,ndim
+  integer :: this_face,face_geom
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: ip(:)
+  real(wp), allocatable :: imat_edge(:,:)
+  real(wp), allocatable :: wimat(:,:)
+  real(wp), allocatable :: rs(:,:)
+  real(wp), allocatable :: node_xyz(:,:)
+  real(wp), allocatable :: face_pts(:,:)
+  real(wp), allocatable :: bmat(:,:)
+  real(wp), allocatable :: smat(:,:)
+  real(wp), allocatable :: bwimat(:,:)
+  real(wp), allocatable :: cmat(:,:)
+  !
+  type(element_type) :: face_qdtr
+  type(matrix) :: tmp
+  !
+continue
+  !
+  nsp = cell_solpts(Geom_Tria,this_order)
+  nfp = cell_flxpts(Geom_Tria,this_order)
+  !
+  ! Get the coordinates and weights for the face quadrature/integration points
+  !
+  face_qdtr = get_edge_quadrature(this_order,Legendre_Gauss)
+  !
+  ! Compute the interpolation matrix from the face flux points
+  ! to the face quadrature/integration points
+  !
+  ! F2003 AUTO-REALLOC
+  imat_edge = face_interpolation_matrix(Geom_Edge, &
+                                        face_elem(Geom_Edge,this_order), &
+                                        face_qdtr)
+ !!
+ !error_message = "edge-face interpolation (imat_edge)"
+ !tmp%mat = imat_edge ! F2003 AUTO-REALLOC
+ !call output_matrix(tmp,error_message,Geom_Edge,this_order)
+ !!
+ !! Compute the interpolation matrix from the face flux points
+ !! to the face quadrature/integration points
+ !!
+ !! F2003 AUTO-REALLOC
+ !imat_edge = face_interpolation_matrix(Geom_Edge,this_order,loc_flux_pts, &
+ !                                                this_order,Legendre_Gauss)
+ !!
+ !error_message = "edge-face interpolation (imat_edge)"
+ !tmp%mat = imat_edge ! F2003 AUTO-REALLOC
+ !call output_matrix(tmp,error_message,Geom_Edge,this_order)
+  !
+  ! Compute diag(wts)*imat
+  !
+  ! F2003 AUTO-REALLOC
+  wimat = spread(face_qdtr%wts,dim=1,ncopies=size(imat_edge,dim=1))*imat_edge
+ !!
+ !error_message = "weighted edge-face interpolation (wimat)"
+ !tmp%mat = wimat ! F2003 AUTO-REALLOC
+ !call output_matrix(tmp,error_message,Geom_Edge,this_order)
+  !
+  bwimat = init_array(nfp,nsp,zero) ! F2003 AUTO-REALLOC
+  !
+  n2 = 0
+  ndim = geom_dimen(Geom_Tria)
+  !
+  do this_face = 1,geom_faces(Geom_Tria)
+    !
+    face_geom = cell_face_geom(this_face,Geom_Tria)
+    !
+    rs = face_qdtr%pts ! F2003 AUTO-REALLOC
+    !
+    n1 = n2 + 1
+    n2 = n2 + size(rs,dim=2)
+    !
+    ip = get_ref_elem_node_idx_for_face(Geom_Tria,this_face) ! F2003 AUTO-REALLOC
+    !
+    node_xyz = ref_elem_nodes_xyz(1:ndim,ip(:),Geom_Tria) ! F2003 AUTO-REALLOC
+    !
+    face_pts = map_face_pts(node_xyz,rs) ! F2003 AUTO-REALLOC
+ !  !
+ !  write (error_message,1) "face_pts",this_face
+ !  tmp%mat = transpose(face_pts) ! F2003 AUTO-REALLOC
+ !  call output_matrix(tmp,error_message,Geom_Tria,this_order)
+    !
+    bmat = General_Basis_Matrix(Geom_Tria,this_order,face_pts) ! F2003 AUTO-REALLOC
+ !  !
+ !  write (error_message,1) "bmat",this_face
+ !  tmp%mat = transpose(bmat) ! F2003 AUTO-REALLOC
+ !  call output_matrix(tmp,error_message,Geom_Tria,this_order)
+    !
+    smat = matmul( transpose(bmat) , transpose(wimat) ) ! F2003 AUTO-REALLOC
+ !  !
+ !  write (error_message,1) "smat",this_face
+ !  tmp%mat = transpose(smat) ! F2003 AUTO-REALLOC
+ !  call output_matrix(tmp,error_message,Geom_Tria,this_order)
+    !
+    bwimat(n1:n2,1:nsp) = transpose(smat(:,:))
+    !
+  end do
+ !1 format (a," (Face #",i1,")")
+ !!
+ !error_message = "bwimat"
+ !tmp%mat = bwimat ! F2003 AUTO-REALLOC
+ !call output_matrix(tmp,error_message,Geom_Tria,this_order)
+ !!
+ !error_message = "vand"
+ !call output_matrix(vand(Geom_Tria,this_order)%modal2nodal, &
+ !                   error_message,Geom_Tria,this_order)
+  !
+  ! F2003 AUTO-REALLOC
+  cmat = matmul( bwimat , transpose(vand(Geom_Tria,this_order)%modal2nodal%mat) )
+ !!
+ !error_message = "cmat"
+ !tmp%mat = cmat ! F2003 AUTO-REALLOC
+ !call output_matrix(tmp,error_message,Geom_Tria,this_order)
+  !
+  return_value = chop( real( transpose(cmat) , kind=qp ) ) ! F2003 AUTO-REALLOC
+  !
+end function CorrectionMatrix_Tria
+!
+!###############################################################################
+!
 #ifndef DISABLE_PURE
 pure &
 #endif
