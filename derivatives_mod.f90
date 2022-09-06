@@ -943,7 +943,6 @@ pure &
 function GradVandermonde_Tetr(rst) result(return_value)
   !
   !.. Use Statements ..
-  use order_mod,      only : geom_solpts
   use polynomial_mod, only : normalized_jacobi_poly
   use polynomial_mod, only : grad_normalized_jacobi_poly
   !
@@ -975,12 +974,7 @@ function GradVandermonde_Tetr(rst) result(return_value)
 continue
   !
   nsp = size(rst,dim=2)
-  do n = 0,nsp
-    if (geom_solpts(Geom_Tetr,n) >= nsp) then
-      this_order = n
-      exit
-    end if
-  end do
+  this_order = solpts2order(Geom_Tetr,nsp)
   !
   ! Allocate the dimensions of the derivative of the Vandermonde matrices
   !
