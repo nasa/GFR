@@ -606,6 +606,9 @@ end function CorrectionMatrix_Quad
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 function General_Correction_Matrix(this_geom,this_order) result(return_value)
   !
   !.. Use Statements ..
@@ -842,6 +845,9 @@ end function General_Correction_Matrix
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 function face_interpolation_matrix(face_geom,from_order,from_loc, &
                                    to_order,to_loc) result(return_value)
   !
@@ -924,6 +930,9 @@ end function face_interpolation_matrix
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
 function face_interpolation_matrix_from_qdtr(face_geom,from_qdtr,to_qdtr) &
                                       result(return_value)
   !
@@ -934,10 +943,9 @@ function face_interpolation_matrix_from_qdtr(face_geom,from_qdtr,to_qdtr) &
   ! Vandermonde matrix needed here needs to be based of of loc_flux_pts.
   !
   !.. Use Statements ..
-  use element_type_mod,  only : element_type
-  use vandermonde_mod, only : Compute_Basis_Matrix
-  use vandermonde_mod, only : vandermonde_inverse
-  use vandermonde_mod, only : General_Basis_Matrix
+  use element_type_mod, only : element_type
+  use vandermonde_mod,  only : vandermonde_inverse
+  use vandermonde_mod,  only : General_Basis_Matrix
   !
   !.. Formal Arguments ..
   integer,            intent(in) :: face_geom
