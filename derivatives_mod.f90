@@ -240,21 +240,17 @@ subroutine init_derivative_matrices()
   !.. Use Statements ..
   use order_mod,        only : n_min_geom,n_max_geom
   use order_mod,        only : n_min_order,n_max_order
-  use order_mod,        only : n_order
   use ovar,             only : loc_solution_pts
   use quadrature_mod,   only : geom_is_used
-  use element_type_mod, only : std_elem
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax,ierr
-  integer :: this_geom,this_order,ndim
-  integer :: n,n1,n2,i
-  character(len=4)   :: gname
-  character(len=200) :: array_name
+  integer :: this_geom,this_order,l
   character(len=300) :: timer_message
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_derivative_matrices"
+  character(len=*), parameter :: cxyz(1:3) = ["x","y","z"]
   !
 continue
   !
@@ -277,116 +273,56 @@ continue
     if (all(this_geom /= Geom_Valid)) cycle geom_loop
     if (this_geom == Geom_Node) cycle geom_loop
     !
-    ! Get the number of dimensions for this cell type
-    !
-    ndim = geom_dimen(this_geom)
-    !
     order_loop: do this_order = omin,omax
       write (timer_message,100) trim(adjustl(Geom_Name(this_geom))),this_order
       100 format ("Geometry = ",a,"  ;  Order = ",i0)
       call debug_timer(start_timer,timer_message)
-      !
-      ! Allocate the number of dimensional derivative matrices
-      !
-      allocate ( deriv(this_geom,this_order)%d(1:ndim) , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                       error_message,skip_alloc_pause)
       !
       ! Compute the derivative matrices depending on geometry type
       !
       select case (this_geom)
         case (Geom_Edge)
           !
-          deriv(this_geom,this_order)%d(:) = Dmatrix_Edge( this_order , &
-                                                           loc_solution_pts )
-#ifdef SPECIAL_OUTPUT_SPARSITY
-          write (array_name,10) "edge","x",this_order
-          call output_sparsity( deriv(this_geom,this_order)%d(1) , array_name )
-#endif
-          !
-          error_message = "dx Derivative"
-          call output_matrix(deriv(this_geom,this_order)%d(1), &
-                             error_message,this_geom,this_order)
+          ! F2003 AUTO-REALLOC
+          deriv(this_geom,this_order)%d = Dmatrix_Edge( this_order , &
+                                                        loc_solution_pts )
           !
         case (Geom_Quad)
           !
-          deriv(this_geom,this_order)%d(:) = &
+          deriv(this_geom,this_order)%d = & ! F2003 AUTO-REALLOC
                             Dmatrix_Quad( deriv(Geom_Edge,this_order)%d(1)%mat )
-#ifdef SPECIAL_OUTPUT_SPARSITY
-          write (array_name,10) "quad","x",this_order
-          call output_sparsity( deriv(this_geom,this_order)%d(1) , array_name )
-          write (array_name,10) "quad","y",this_order
-          call output_sparsity( deriv(this_geom,this_order)%d(2) , array_name )
-#endif
-          !
-          error_message = "dx Derivative"
-          call output_matrix(deriv(this_geom,this_order)%d(1), &
-                             error_message,this_geom,this_order)
-          !
-          error_message = "dy Derivative"
-          call output_matrix(deriv(this_geom,this_order)%d(2), &
-                             error_message,this_geom,this_order)
           !
         case (Geom_Hexa)
           !
-          deriv(this_geom,this_order)%d(:) = &
+          deriv(this_geom,this_order)%d = & ! F2003 AUTO-REALLOC
                             Dmatrix_Hexa( deriv(Geom_Edge,this_order)%d(1)%mat )
-#ifdef SPECIAL_OUTPUT_SPARSITY
-          write (array_name,10) "hexa","x",this_order
-          call output_sparsity( deriv(this_geom,this_order)%d(1) , array_name )
-          write (array_name,10) "hexa","y",this_order
-          call output_sparsity( deriv(this_geom,this_order)%d(2) , array_name )
-          write (array_name,10) "hexa","z",this_order
-          call output_sparsity( deriv(this_geom,this_order)%d(3) , array_name )
-#endif
-          !
-          error_message = "dx Derivative"
-          call output_matrix(deriv(this_geom,this_order)%d(1), &
-                             error_message,this_geom,this_order)
-          !
-          error_message = "dy Derivative"
-          call output_matrix(deriv(this_geom,this_order)%d(2), &
-                             error_message,this_geom,this_order)
-          !
-          error_message = "dz Derivative"
-          call output_matrix(deriv(this_geom,this_order)%d(3), &
-                             error_message,this_geom,this_order)
           !
         case (Geom_Tria,Geom_Tetr,Geom_Pyra,Geom_Pris)
           !
-          deriv(this_geom,this_order)%d(:) = &
+          deriv(this_geom,this_order)%d = & ! F2003 AUTO-REALLOC
                             Dmatrix_Unstructured(this_geom,this_order)
-#ifdef SPECIAL_OUTPUT_SPARSITY
-          select case (this_geom)
-            case (Geom_Tria)
-              gname = "tria"
-            case (Geom_Tetr)
-              gname = "tetr"
-            case (Geom_Tetr)
-              gname = "pyra"
-            case (Geom_Tetr)
-              gname = "pris"
-            case default
-              gname = "unst"
-          end select
-          write (array_name,10) gname,"x",this_order
-          call output_sparsity( deriv(this_geom,this_order)%d(1) , array_name )
-          write (array_name,10) gname,"y",this_order
-          call output_sparsity( deriv(this_geom,this_order)%d(2) , array_name )
-          if (this_geom /= Geom_Tria) then
-            write (array_name,10) gname,"z",this_order
-            call output_sparsity( deriv(this_geom,this_order)%d(3) , array_name )
-          end if
-#endif
           !
         case default
           !
-          write (error_message,2)
+          write (error_message,1)
           call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
       end select
+      !
+      ! Output the derivative matrices and/or sparsity if requested
+      !
+      do l = 1,size(deriv(this_geom,this_order)%d)
+        !
+        write (error_message,2) cxyz(l)
+        call output_matrix(deriv(this_geom,this_order)%d(l), &
+                           error_message,this_geom,this_order)
+        !
+#ifdef SPECIAL_OUTPUT_SPARSITY
+        write (error_message,3) Geom_Short_Name(this_geom),cxyz(l),this_order
+        call output_sparsity( deriv(this_geom,this_order)%d(l) , error_message )
+#endif
+        !
+      end do
       !
       call debug_timer(stop_timer,timer_message)
       call check_for_bad_number(__LINE__,__FILE__)
@@ -403,7 +339,6 @@ continue
         write (timer_message,101) trim(adjustl(Geom_Name(this_geom))),this_order
         101 format ("Sparsity check:  Geometry = ",a,"  ;  Order = ",i0)
         call debug_timer(start_timer,timer_message)
-       !call deriv(this_geom,this_order)%d%check_for_sparsity
         call create_matrix_sparsity( deriv(this_geom,this_order)%d )
         call debug_timer(stop_timer,timer_message)
         call check_for_bad_number(__LINE__,__FILE__)
@@ -415,10 +350,9 @@ continue
   !
   ! Format Statements
   !
-  1 format ("deriv(",a,",",i0,")%d")
-  2 format (" A grid cell of an unknown geometry type was found!")
-  !
-  10 format (a4,".deriv.d",a1,".p",i0,".tec.dat")
+  1 format (" A grid cell of an unknown geometry type was found!")
+  2 format ("d",a1," Derivative")
+  3 format (a4,".deriv.d",a1,".p",i0,".tec.dat")
   !
 end subroutine init_derivative_matrices
 !
