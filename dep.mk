@@ -276,7 +276,7 @@ $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(OBJDIR)/quadrature_mod.o \
                       $(OBJDIR)/poly.o \
                       $(OBJDIR)/flowvar_mod.o \
-                      $(FUNDIR)/np2n.f90 \
+                      $(FUNDIR)/solpts2order.f90 \
                       $(FUNDIR)/cell_solpts.f90
 
 $(OBJDIR)/interpsol_mod.o : interpsol_mod.f90 \

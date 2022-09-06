@@ -1398,7 +1398,7 @@ pure function InterpToPoint_Tria(rs_sp,rs_pt) result(return_value)
 continue
   !
  !np = size(rs_sp,dim=2)
- !nfp = np2n( np ) + 1
+ !nfp = solpts2order(Geom_Tria,np) + 1
   !
   return_value(:) = zero
   !
@@ -3047,7 +3047,7 @@ function InterpToNode_Tria(rs) result(return_value)
 continue
   !
   np = size(rs,2)
-  nfp = np2n( np ) + 1
+  nfp = solpts2order(Geom_Tria,np) + 1
   !
   return_value(:,:) = zero
   !
@@ -3076,20 +3076,22 @@ function InterpToFace_Tria(rs) result(return_value)
   real(mp), intent(in) :: rs(:,:)
   !
   !.. Function Return Argument ..
-  real(wp) :: return_value(1:size(rs,2),1:3*(np2n(size(rs,2))+1))
+  real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer :: i,j,np,nfp
   !
   !.. Local Arrays ..
-  integer :: Fmask(1:np2n(size(rs,2))+1,1:3)
+  integer, allocatable :: Fmask(:,:)
   !
 continue
   !
   np = size(rs,2)
-  nfp = np2n( np ) + 1
+  nfp = solpts2order(Geom_Tria,np) + 1
   !
-  return_value(:,:) = zero
+  return_value = init_array(np,3*nfp,zero) ! F2003 AUTO-REALLOC
+  !
+  Fmask = init_array(nfp,3,0) ! F2003 AUTO-REALLOC
   !
   ! Face 1 - bottom edge of triangle
   !
@@ -5303,7 +5305,7 @@ end subroutine move_outerp_to_device
 !
 !###############################################################################
 !
-include "Functions/np2n.f90"
+include "Functions/solpts2order.f90"
 include "Functions/cell_solpts.f90"
 !
 !###############################################################################
