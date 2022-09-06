@@ -458,8 +458,7 @@ end function CorrectionMatrix_Edge_LP
 #ifndef DISABLE_PURE
 pure &
 #endif
-function CorrectionMatrix_Quad_DG(pts1d,wts1d,eval_deriv) &
-                                result(return_value)
+function CorrectionMatrix_Quad_LP(pts1d,wts1d) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly1D
@@ -468,15 +467,11 @@ function CorrectionMatrix_Quad_DG(pts1d,wts1d,eval_deriv) &
   real(wp), dimension(:), intent(in) :: pts1d
   real(wp), dimension(:), intent(in) :: wts1d
   !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: eval_deriv
-  !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer :: i,j,k,nf,np,nsp,nfp,ierr
-  logical(lk) :: compute_derivative
   !
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: cmat_qp(:,:)
@@ -489,11 +484,6 @@ continue
   nsp = np*np
   nfp = 4*np
   !
-  compute_derivative = true
-  if (present(eval_deriv)) then
-    compute_derivative = eval_deriv
-  end if
-  !
   ! Allocate the return array containing the working
   ! precision correction matrix
   !
@@ -503,8 +493,9 @@ continue
   ! copies of the 1D solution points and their corresponding quadrature weights
   !
   allocate ( cmat_qp(1:nsp,1:nfp) , source=qzero , stat=ierr )
-  allocate ( pts1d_qp(1:np) , source=qzero , stat=ierr )
-  allocate ( wts1d_qp(1:np) , source=qzero , stat=ierr )
+  !
+  pts1d_qp = real(pts1d,kind=kind(pts1d_qp)) ! F2003 AUTO-REALLOC
+  wts1d_qp = real(wts1d,kind=kind(wts1d_qp)) ! F2003 AUTO-REALLOC
   !
   ! Face 1 - bottom/south edge of quad
   !
@@ -555,7 +546,7 @@ continue
   !
   return_value = chop( cmat_qp )
   !
-end function CorrectionMatrix_Quad_DG
+end function CorrectionMatrix_Quad_LP
 !
 !###############################################################################
 !
