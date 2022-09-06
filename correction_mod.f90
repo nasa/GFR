@@ -39,6 +39,11 @@ module correction_mod
   !
   type(matrix), public, save, allocatable :: correct(:,:)
   !
+  interface face_interpolation_matrix
+    module procedure face_interpolation_matrix, &
+                     face_interpolation_matrix_from_qdtr
+  end interface face_interpolation_matrix
+  !
 contains
 !
 !###############################################################################
@@ -598,6 +603,141 @@ continue
   end do
   !
 end function CorrectionMatrix_Quad
+!
+!###############################################################################
+!
+function face_interpolation_matrix(face_geom,from_order,from_loc, &
+                                   to_order,to_loc) result(return_value)
+  !
+  ! This function is needed because we cant use General_Interp_Matrix here in
+  ! the situation where the face flux points use different quadrature points
+  ! from the interior solution points of the cell. The matrices stored in
+  ! vand(cell_geom,cell_order) are based on the input loc_solution_pts and the
+  ! Vandermonde matrix needed here needs to be based of of loc_flux_pts.
+  !
+  !.. Use Statements ..
+  use element_type_mod,  only : element_type
+  use quadrature_mod,  only : get_edge_quadrature
+  use quadrature_mod,  only : get_tria_quadrature
+  use quadrature_mod,  only : get_quad_quadrature
+  use vandermonde_mod, only : Compute_Basis_Matrix
+  use vandermonde_mod, only : vandermonde_inverse
+  use vandermonde_mod, only : General_Basis_Matrix
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: face_geom
+  integer, intent(in) :: from_order
+  integer, intent(in) :: from_loc
+  integer, intent(in) :: to_order
+  integer, intent(in) :: to_loc
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: npf,npt
+  !
+  type(element_type) :: from_qdtr
+  type(element_type) :: to_qdtr
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: vand(:,:)
+  real(wp), allocatable :: vinv(:,:)
+  real(wp), allocatable :: bmat(:,:)
+  !
+continue
+  !
+  npf = cell_solpts(face_geom,from_order)
+  npt = cell_solpts(face_geom,to_order)
+  !
+  return_value = init_array(npf,npt,zero) ! F2003 AUTO-REALLOC
+  !
+  select case (face_geom)
+    !
+    case (Geom_Edge)
+      !
+      from_qdtr = get_edge_quadrature(from_order,from_loc)
+      to_qdtr = get_edge_quadrature(to_order,to_loc)
+      !
+    case (Geom_Tria)
+      !
+      from_qdtr = get_tria_quadrature(from_order,from_loc)
+      to_qdtr = get_tria_quadrature(to_order,to_loc)
+      !
+    case (Geom_Quad)
+      !
+      from_qdtr = get_quad_quadrature(from_order,from_loc)
+      to_qdtr = get_quad_quadrature(to_order,to_loc)
+      !
+    case default
+      !
+      return
+      !
+  end select
+  !
+  ! F2003 AUTO-REALLOC
+  vand = Compute_Basis_Matrix(face_geom,from_order,nodal_points=from_qdtr%pts)
+  vinv = Vandermonde_Inverse(vand) ! F2003 AUTO-REALLOC
+  !
+  ! F2003 AUTO-REALLOC
+  bmat = General_Basis_Matrix(face_geom,from_order,to_qdtr%pts)
+  !
+  return_value(1:npf,1:npt) = matmul( transpose(vinv) , transpose(bmat) )
+  !
+end function face_interpolation_matrix
+!
+!###############################################################################
+!
+function face_interpolation_matrix_from_qdtr(face_geom,from_qdtr,to_qdtr) &
+                                      result(return_value)
+  !
+  ! This function is needed because we cant use General_Interp_Matrix here in
+  ! the situation where the face flux points use different quadrature points
+  ! from the interior solution points of the cell. The matrices stored in
+  ! vand(cell_geom,cell_order) are based on the input loc_solution_pts and the
+  ! Vandermonde matrix needed here needs to be based of of loc_flux_pts.
+  !
+  !.. Use Statements ..
+  use element_type_mod,  only : element_type
+  use vandermonde_mod, only : Compute_Basis_Matrix
+  use vandermonde_mod, only : vandermonde_inverse
+  use vandermonde_mod, only : General_Basis_Matrix
+  !
+  !.. Formal Arguments ..
+  integer,            intent(in) :: face_geom
+  type(element_type), intent(in) :: from_qdtr
+  type(element_type), intent(in) :: to_qdtr
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: npf,npt,from_order
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: vand(:,:)
+  real(wp), allocatable :: vinv(:,:)
+  real(wp), allocatable :: bmat(:,:)
+  !
+continue
+  !
+  npf = size(from_qdtr%wts)
+  npt = size(to_qdtr%wts)
+  !
+  from_order = solpts2order(face_geom,npf)
+  !
+  return_value = init_array(npf,npt,zero) ! F2003 AUTO-REALLOC
+  !
+  ! F2003 AUTO-REALLOC
+  vand = General_Basis_Matrix(face_geom,from_order,xyz=from_qdtr%pts)
+  vinv = Vandermonde_Inverse(vand) ! F2003 AUTO-REALLOC
+  !
+  ! F2003 AUTO-REALLOC
+  bmat = General_Basis_Matrix(face_geom,from_order,to_qdtr%pts)
+  !
+  return_value(1:npf,1:npt) = matmul( transpose(vinv) , transpose(bmat) )
+  !
+end function face_interpolation_matrix_from_qdtr
 !
 !###############################################################################
 !
