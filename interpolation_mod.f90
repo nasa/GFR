@@ -2618,6 +2618,51 @@ end function InterpWeights
 #ifndef DISABLE_PURE
 pure &
 #endif
+function General_Interp_Matrix(this_geom,this_order,xyz) result(return_value)
+  !
+  !.. Use Statements ..
+  use vandermonde_mod, only : vand
+  use vandermonde_mod, only : General_Basis_Matrix
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: this_geom
+  integer,  intent(in) :: this_order
+  real(wp), intent(in) :: xyz(:,:)
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: bmat(:,:)
+  real(wp), allocatable :: vmat(:,:)
+  real(wp), allocatable :: imat(:,:)
+  !
+continue
+  !
+  ! Get the basis matrix of the basis functions evaluated at points xyz
+  !
+  bmat = General_Basis_Matrix(this_geom,this_order,xyz) ! F2003 AUTO-REALLOC
+  !
+  ! Extract the nodal-to-modal Vandermonde matrix
+  !
+  vmat = vand(this_geom,this_order)%nodal2modal%mat ! F2003 AUTO-REALLOC
+  !
+  ! Compute the interpolation matrix
+  !
+  imat = matmul(transpose(vmat),transpose(bmat)) ! F2003 AUTO-REALLOC
+  !
+  ! Use the chop function to copy imat into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( real(imat,kind=qp) ) ! F2003 AUTO-REALLOC
+  !
+end function General_Interp_Matrix
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
 function generic_interpolation_matrix(basis,newbasis,wmat) &
                                     result(return_value)
   !
