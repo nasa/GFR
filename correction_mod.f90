@@ -636,7 +636,7 @@ function CorrectionMatrix_Tria(rs,eval_deriv) result(return_value)
 continue
   !
   nsp = size(rs,dim=2)
-  this_order = np2n(nsp)
+  this_order = solpts2order(Geom_Tria,nsp)
   np = this_order+1
   nfp = 3*np
   !
@@ -771,7 +771,7 @@ function CorrectionMatrix_Tetr(rs,eval_deriv) result(return_value)
 continue
   !
   nsp = size(rs,dim=2)
-  this_order = np2n(nsp)
+  this_order = solpts2order(Geom_Tetr,nsp)
   np = this_order+1
   nfp = 3*np
   !
@@ -906,7 +906,7 @@ function CorrectionMatrix_Pyra(rs,eval_deriv) result(return_value)
 continue
   !
   nsp = size(rs,dim=2)
-  this_order = np2n(nsp)
+  this_order = solpts2order(Geom_Pyra,nsp)
   np = this_order+1
   nfp = 3*np
   !
@@ -1041,7 +1041,7 @@ function CorrectionMatrix_Pris(rs,eval_deriv) result(return_value)
 continue
   !
   nsp = size(rs,dim=2)
-  this_order = np2n(nsp)
+  this_order = solpts2order(Geom_Pris,nsp)
   np = this_order+1
   nfp = 3*np
   !
@@ -1517,7 +1517,7 @@ end subroutine move_correct_to_device
 !
 !###############################################################################
 !
-include "Functions/np2n.f90"
+include "Functions/solpts2order.f90"
 !
 !###############################################################################
 !

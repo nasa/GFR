@@ -137,7 +137,7 @@ $(OBJDIR)/correction_mod.o : correction_mod.f90 \
                    $(OBJDIR)/quadrature_mod.o \
                    $(OBJDIR)/vandermonde_mod.o \
                    $(OBJDIR)/poly.o \
-                   $(FUNDIR)/np2n.f90
+                   $(FUNDIR)/solpts2order.f90
 
 $(OBJDIR)/cpu_info_mod.o : cpu_info_mod.f90 \
                  $(OBJDIR)/kind_types.o \
