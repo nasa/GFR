@@ -556,8 +556,8 @@ continue
   !
   ! Allocate each individual derivative matrix within return_value
   !
-  allocate ( return_value(1)%mat(1:nsp,1:nsp) , source=zero , stat=ierr )
-  allocate ( return_value(2)%mat(1:nsp,1:nsp) , source=zero , stat=ierr )
+  return_value(1)%mat = init_array(nsp,nsp,zero) ! F2003 AUTO-REALLOC
+  return_value(2)%mat = init_array(nsp,nsp,zero) ! F2003 AUTO-REALLOC
   !
   ! Create the quadrilateral derivative matrix in the x/xi direction
   !
