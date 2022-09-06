@@ -1212,7 +1212,6 @@ pure &
 function GradVandermonde_Pris(rst) result(return_value)
   !
   !.. Use Statements ..
-  use order_mod,      only : geom_solpts
   use polynomial_mod, only : normalized_jacobi_poly
   use polynomial_mod, only : grad_normalized_jacobi_poly
   !
@@ -1223,11 +1222,11 @@ function GradVandermonde_Pris(rst) result(return_value)
   type(matrix), allocatable :: return_value(:)
   !
   !.. Local Scalars ..
-  integer  :: i,im1,j,k,m,n,this_order,nsp,ierr
-  real(mp) :: ri,twoiph,beta,h1mb
-  real(mp) :: r,alpha,a,fa,dfa,dmdr
-  real(mp) :: s,alphb,b,gb,dgb,dmds
-  real(mp) :: t,alphc,c,hc,dhc,dmdt
+  integer  :: i,j,k,m,n,nsp,this_order,ierr,im1
+  real(mp) :: alpha,alphb,alphc,ri,denom_onemb
+  real(mp) :: a,b,c,fa,gb,hc,dfa,dgb,dhc
+  real(mp) :: r,s,t,dmdr,dmds,dmdt
+  real(mp) :: h1pa,omb,omb_to_i,omb_to_im1
   !
   !.. Local Allocatable Arrays ..
   real(mp), allocatable :: dvdr(:,:)
@@ -1236,19 +1235,14 @@ function GradVandermonde_Pris(rst) result(return_value)
   !
   !.. Local Parameters ..
   real(mp), parameter :: zero = 0.0_mp
-  real(mp), parameter :: half = 0.5_mp
   real(mp), parameter :: one  = 1.0_mp
   real(mp), parameter :: two  = 2.0_mp
+  real(mp), parameter :: half = 0.5_mp
   !
 continue
   !
   nsp = size(rst,dim=2)
-  do n = 0,nsp
-    if (geom_solpts(Geom_Pris,n) >= nsp) then
-      this_order = n
-      exit
-    end if
-  end do
+  this_order = solpts2order(Geom_Pris,nsp)
   !
   ! Allocate the dimensions of the derivative of the Vandermonde matrices
   !
@@ -1260,23 +1254,19 @@ continue
   dvds = init_array(nsp,nsp,zero) ! F2003 AUTO-REALLOC
   dvdt = init_array(nsp,nsp,zero) ! F2003 AUTO-REALLOC
   !
+  alpha = zero
+  alphc = zero
+  !
   m = 1
-  do i = 0,this_order
+  do k = 0,this_order
     !
-    ri   = real( i , kind=mp )
-    im1  = max(i-1,0)
-    !
-    twoiph = sqrt(two) * two**i
-    !
-    alpha = zero
-    alphb = real( 2*i+1 , kind=mp )
-    beta  = zero
-    !
-    do j = 0,this_order-i
+    do i = 0,this_order
       !
-      alphc = zero
+      im1 = max(i-1,0)
+      ri = real( i , kind=mp )
+      alphb = real( 2*i+1 , kind=mp )
       !
-      do k = 0,this_order-i-j
+      do j = 0,this_order-i
         !
         do n = 1,nsp
           !
@@ -1291,27 +1281,33 @@ continue
           !       1/(one-s), we would have to create logic to prevent against
           !       division by zero when s=1, even though r=-1.
           !
-          a = two * (one+r) * reciprocal(one-s) - one
+          denom_onemb = reciprocal(one-s)
+          !
+          a = two * (one+r) * denom_onemb - one
           b = s
-          c = zero
+          c = t
           !
-          fa = normalized_jacobi_poly(i,alpha,beta,a)
-          gb = normalized_jacobi_poly(j,alphb,beta,b)
-          hc = normalized_jacobi_poly(k,alphc,beta,c)
+          fa = normalized_jacobi_poly(i,alpha,zero,a)
+          gb = normalized_jacobi_poly(j,alphb,zero,b)
+          hc = normalized_jacobi_poly(k,alphc,zero,c)
           !
-          dfa = grad_normalized_jacobi_poly(i,alpha,beta,a)
-          dgb = grad_normalized_jacobi_poly(j,alphb,beta,b)
-          dhc = grad_normalized_jacobi_poly(k,alphc,beta,c)
+          dfa = grad_normalized_jacobi_poly(i,alpha,zero,a)
+          dgb = grad_normalized_jacobi_poly(j,alphb,zero,b)
+          dhc = grad_normalized_jacobi_poly(k,alphc,zero,c)
           !
-          h1mb = half*(one-b)
+          h1pa = half*(one+a)
+          omb = one-b
           !
-          dmdr = dfa * gb * h1mb**im1
-          dmds = half*dmdr*(one+a) + fa*(dgb*h1mb**i - half*ri*gb*h1mb**im1)
-          dmdt = zero
+          omb_to_im1 = omb**im1
+          omb_to_i   = omb**i
           !
-          dvdr(n,m) = twoiph * dmdr
-          dvds(n,m) = twoiph * dmds
-          dvdt(n,m) = twoiph * dmdt
+          dmdr = two * dfa * gb * hc * omb_to_im1
+          dmds = h1pa*dmdr + fa*dgb*hc*omb_to_i - ri*fa*gb*hc*omb_to_im1
+          dmdt = fa*gb*dhc*omb_to_i
+          !
+          dvdr(n,m) = sqrt(two) * dmdr
+          dvds(n,m) = sqrt(two) * dmds
+          dvdt(n,m) = sqrt(two) * dmdt
           !
         end do
         !
