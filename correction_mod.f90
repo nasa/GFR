@@ -553,7 +553,7 @@ end function CorrectionMatrix_Quad_LP
 #ifndef DISABLE_PURE
 pure &
 #endif
-function CorrectionMatrix_Quad(xi,eval_deriv) result(return_value)
+function CorrectionMatrix_Quad_from_Edge(xi,eval_deriv) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: xi
@@ -645,7 +645,7 @@ continue
     nf = nf + 1
   end do
   !
-end function CorrectionMatrix_Quad
+end function CorrectionMatrix_Quad_from_Edge
 !
 !###############################################################################
 !
