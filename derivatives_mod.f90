@@ -1087,7 +1087,6 @@ pure &
 function GradVandermonde_Pyra(rst) result(return_value)
   !
   !.. Use Statements ..
-  use order_mod,      only : geom_solpts
   use polynomial_mod, only : normalized_jacobi_poly
   use polynomial_mod, only : grad_normalized_jacobi_poly
   !
@@ -1098,11 +1097,12 @@ function GradVandermonde_Pyra(rst) result(return_value)
   type(matrix), allocatable :: return_value(:)
   !
   !.. Local Scalars ..
-  integer  :: i,im1,j,k,m,n,this_order,nsp,ierr
-  real(mp) :: ri,twoiph,beta,h1mb
-  real(mp) :: r,alpha,a,fa,dfa,dmdr
-  real(mp) :: s,alphb,b,gb,dgb,dmds
-  real(mp) :: t,alphc,c,hc,dhc,dmdt
+  integer  :: i,j,k,m,n,nsp,this_order,ierr
+  integer  :: ipjm1
+  real(mp) :: alpha,alphb,alphc,ripj,denom_onemc
+  real(mp) :: a,b,c,fa,gb,hc,dfa,dgb,dhc
+  real(mp) :: r,s,t,dmdr,dmds,dmdt
+  real(mp) :: omc,omc_to_ipjm1,omc_to_ipj
   !
   !.. Local Allocatable Arrays ..
   real(mp), allocatable :: dvdr(:,:)
@@ -1111,19 +1111,13 @@ function GradVandermonde_Pyra(rst) result(return_value)
   !
   !.. Local Parameters ..
   real(mp), parameter :: zero = 0.0_mp
-  real(mp), parameter :: half = 0.5_mp
   real(mp), parameter :: one  = 1.0_mp
   real(mp), parameter :: two  = 2.0_mp
   !
 continue
   !
   nsp = size(rst,dim=2)
-  do n = 0,nsp
-    if (geom_solpts(Geom_Pyra,n) >= nsp) then
-      this_order = n
-      exit
-    end if
-  end do
+  this_order = solpts2order(Geom_Pyra,nsp)
   !
   ! Allocate the dimensions of the derivative of the Vandermonde matrices
   !
@@ -1135,23 +1129,19 @@ continue
   dvds = init_array(nsp,nsp,zero) ! F2003 AUTO-REALLOC
   dvdt = init_array(nsp,nsp,zero) ! F2003 AUTO-REALLOC
   !
+  alpha = zero
+  alphb = zero
+  !
   m = 1
-  do i = 0,this_order
+  do k = 0,this_order
     !
-    ri   = real( i , kind=mp )
-    im1  = max(i-1,0)
-    !
-    twoiph = sqrt(two) * two**i
-    !
-    alpha = zero
-    alphb = real( 2*i+1 , kind=mp )
-    beta  = zero
-    !
-    do j = 0,this_order-i
+    do j = 0,this_order-k
       !
-      alphc = zero
-      !
-      do k = 0,this_order-i-j
+      do i = 0,this_order-k
+        !
+        ipjm1 = max(i+j-1,0)
+        ripj = real( i+j , kind=mp )
+        alphc = real( 2*i+2*j+2 , kind=mp )
         !
         do n = 1,nsp
           !
@@ -1161,32 +1151,40 @@ continue
           s = real( rst(2,n) , kind=mp )
           t = real( rst(3,n) , kind=mp )
           !
-          ! NOTE: If s=1, r=-1, therefore (one+r)=zero and reciprocal(one-s)
-          !       will return zero, thus a=-1. If we didnt use reciprocal for
-          !       1/(one-s), we would have to create logic to prevent against
-          !       division by zero when s=1, even though r=-1.
+          ! NOTE: If t=1, r=0 and s=0, therfore reciprocal(one-t) will return
+          !       zero, thus a=0 and b=0. If we didnt use reciprocal for
+          !       1/(one-t), we would have to create logic to prevent against
+          !       division by zero when t=1, even though r=0 and s=0.
           !
-          a = two * (one+r) * reciprocal(one-s) - one
-          b = s
-          c = zero
+          denom_onemc = reciprocal(one-t)
           !
-          fa = normalized_jacobi_poly(i,alpha,beta,a)
-          gb = normalized_jacobi_poly(j,alphb,beta,b)
-          hc = normalized_jacobi_poly(k,alphc,beta,c)
+          a = two * r * denom_onemc
+          b = two * s * denom_onemc
+          c = t
           !
-          dfa = grad_normalized_jacobi_poly(i,alpha,beta,a)
-          dgb = grad_normalized_jacobi_poly(j,alphb,beta,b)
-          dhc = grad_normalized_jacobi_poly(k,alphc,beta,c)
+          fa = normalized_jacobi_poly(i,alpha,zero,a)
+          gb = normalized_jacobi_poly(j,alphb,zero,b)
+          hc = normalized_jacobi_poly(k,alphc,zero,c)
           !
-          h1mb = half*(one-b)
+          dfa = grad_normalized_jacobi_poly(i,alpha,zero,a)
+          dgb = grad_normalized_jacobi_poly(j,alphb,zero,b)
+          dhc = grad_normalized_jacobi_poly(k,alphc,zero,c)
           !
-          dmdr = dfa * gb * h1mb**im1
-          dmds = half*dmdr*(one+a) + fa*(dgb*h1mb**i - half*ri*gb*h1mb**im1)
-          dmdt = zero
+          omc = one-c
           !
-          dvdr(n,m) = twoiph * dmdr
-          dvds(n,m) = twoiph * dmds
-          dvdt(n,m) = twoiph * dmdt
+          omc_to_ipjm1 = omc**ipjm1
+          omc_to_ipj   = omc**(i+j)
+          !
+          dmdr = two * dfa *  gb * hc * omc_to_ipjm1
+          dmds = two *  fa * dgb * hc * omc_to_ipjm1
+          !
+          dmdt = half*a*dmdr + half*b*dmds &
+               +        fa * gb * dhc * omc_to_ipj &
+               - ripj * fa * gb *  hc * omc_to_ipjm1
+          !
+          dvdr(n,m) = two * dmdr
+          dvds(n,m) = two * dmds
+          dvdt(n,m) = two * dmdt
           !
         end do
         !
