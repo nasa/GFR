@@ -828,15 +828,16 @@ pure &
 function General_Correction_Matrix(this_geom,this_order) result(return_value)
   !
   !.. Use Statements ..
-  use element_type_mod,  only : element_type
-  use element_type_mod,  only : std_elem,face_elem
-  use quadrature_mod,  only : get_edge_quadrature
-  use quadrature_mod,  only : get_tria_quadrature
-  use quadrature_mod,  only : get_quad_quadrature
-  use quadrature_mod,  only : get_ref_elem_node_idx_for_face
-  use quadrature_mod,  only : map_face_pts
-  use vandermonde_mod, only : vand
-  use vandermonde_mod, only : General_Basis_Matrix
+  use order_mod,        only : geom_solpts,geom_flxpts
+  use element_type_mod, only : element_type
+  use element_type_mod, only : std_elem,face_elem
+  use quadrature_mod,   only : get_edge_quadrature
+  use quadrature_mod,   only : get_tria_quadrature
+  use quadrature_mod,   only : get_quad_quadrature
+  use quadrature_mod,   only : get_ref_elem_node_idx_for_face
+  use quadrature_mod,   only : map_face_pts
+  use vandermonde_mod,  only : vand
+  use vandermonde_mod,  only : General_Basis_Matrix
   !
   !.. Formal Arguments ..
   integer, intent(in) :: this_geom
@@ -876,8 +877,8 @@ function General_Correction_Matrix(this_geom,this_order) result(return_value)
   !
 continue
   !
-  nsp = cell_solpts(this_geom,this_order)
-  nfp = cell_flxpts(this_geom,this_order)
+  nsp = geom_solpts(this_geom,this_order)
+  nfp = geom_flxpts(this_geom,this_order)
   !
   ! Special logic if this is for an edge element
   !
@@ -1064,13 +1065,14 @@ end function General_Correction_Matrix
 function CorrectionMatrix_Quad(this_order) result(return_value)
   !
   !.. Use Statements ..
-  use element_type_mod,  only : element_type
-  use element_type_mod,  only : face_elem
-  use quadrature_mod,  only : get_edge_quadrature
-  use quadrature_mod,  only : get_ref_elem_node_idx_for_face
-  use quadrature_mod,  only : map_face_pts
-  use vandermonde_mod, only : vand
-  use vandermonde_mod, only : General_Basis_Matrix
+  use order_mod,        only : geom_solpts,geom_flxpts
+  use element_type_mod, only : element_type
+  use element_type_mod, only : face_elem
+  use quadrature_mod,   only : get_edge_quadrature
+  use quadrature_mod,   only : get_ref_elem_node_idx_for_face
+  use quadrature_mod,   only : map_face_pts
+  use vandermonde_mod,  only : vand
+  use vandermonde_mod,  only : General_Basis_Matrix
   !
   !.. Formal Arguments ..
   integer, intent(in) :: this_order
@@ -1100,8 +1102,8 @@ function CorrectionMatrix_Quad(this_order) result(return_value)
   !
 continue
   !
-  nsp = cell_solpts(Geom_Quad,this_order)
-  nfp = cell_flxpts(Geom_Quad,this_order)
+  nsp = geom_solpts(Geom_Quad,this_order)
+  nfp = geom_flxpts(Geom_Quad,this_order)
   !
   ! Get the coordinates and weights for the face quadrature/integration points
   !
@@ -1214,13 +1216,14 @@ function face_interpolation_matrix(face_geom,from_order,from_loc, &
   ! Vandermonde matrix needed here needs to be based of of loc_flux_pts.
   !
   !.. Use Statements ..
-  use element_type_mod,  only : element_type
-  use quadrature_mod,  only : get_edge_quadrature
-  use quadrature_mod,  only : get_tria_quadrature
-  use quadrature_mod,  only : get_quad_quadrature
-  use vandermonde_mod, only : Compute_Basis_Matrix
-  use vandermonde_mod, only : vandermonde_inverse
-  use vandermonde_mod, only : General_Basis_Matrix
+  use order_mod,        only : geom_solpts,geom_flxpts
+  use element_type_mod, only : element_type
+  use quadrature_mod,   only : get_edge_quadrature
+  use quadrature_mod,   only : get_tria_quadrature
+  use quadrature_mod,   only : get_quad_quadrature
+  use vandermonde_mod,  only : Compute_Basis_Matrix
+  use vandermonde_mod,  only : vandermonde_inverse
+  use vandermonde_mod,  only : General_Basis_Matrix
   !
   !.. Formal Arguments ..
   integer, intent(in) :: face_geom
@@ -1245,8 +1248,8 @@ function face_interpolation_matrix(face_geom,from_order,from_loc, &
   !
 continue
   !
-  npf = cell_solpts(face_geom,from_order)
-  npt = cell_solpts(face_geom,to_order)
+  npf = geom_solpts(face_geom,from_order)
+  npt = geom_solpts(face_geom,to_order)
   !
   return_value = init_array(npf,npt,zero) ! F2003 AUTO-REALLOC
   !
@@ -1347,14 +1350,15 @@ function CorrectionMatrix_Tria(this_order) result(return_value)
   !      triangle element on the interval [-1,1]
   !
   !.. Use Statements ..
-  use ovar,            only : loc_flux_pts
-  use element_type_mod,  only : element_type
-  use element_type_mod,  only : face_elem
-  use quadrature_mod,  only : get_edge_quadrature
-  use quadrature_mod,  only : get_ref_elem_node_idx_for_face
-  use quadrature_mod,  only : map_face_pts
-  use vandermonde_mod, only : vand
-  use vandermonde_mod, only : General_Basis_Matrix
+  use order_mod,        only : geom_solpts,geom_flxpts
+  use ovar,             only : loc_flux_pts
+  use element_type_mod, only : element_type
+  use element_type_mod, only : face_elem
+  use quadrature_mod,   only : get_edge_quadrature
+  use quadrature_mod,   only : get_ref_elem_node_idx_for_face
+  use quadrature_mod,   only : map_face_pts
+  use vandermonde_mod,  only : vand
+  use vandermonde_mod,  only : General_Basis_Matrix
   !
   !.. Formal Arguments ..
   integer, intent(in) :: this_order
@@ -1383,8 +1387,8 @@ function CorrectionMatrix_Tria(this_order) result(return_value)
   !
 continue
   !
-  nsp = cell_solpts(Geom_Tria,this_order)
-  nfp = cell_flxpts(Geom_Tria,this_order)
+  nsp = geom_solpts(Geom_Tria,this_order)
+  nfp = geom_flxpts(Geom_Tria,this_order)
   !
   ! Get the coordinates and weights for the face quadrature/integration points
   !
