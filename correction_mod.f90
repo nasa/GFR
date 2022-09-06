@@ -1344,7 +1344,7 @@ end function face_interpolation_matrix_from_qdtr
 #ifndef DISABLE_PURE
 pure &
 #endif
-function CorrectionMatrix_Tria(rs,eval_deriv) result(return_value)
+function CorrectionMatrix_Tria_backup(rs,eval_deriv) result(return_value)
   !
   ! RS : r and s coordinates for the standard
   !      triangle element on the interval [-1,1]
@@ -1465,14 +1465,17 @@ continue
   ! Finally, compute the correction matrix
   !
   cmat_qp = matmul( transpose(vtria_qp) , cmat_qp )
-  cmat_qp = qtwo*matmul( vtria_qp , cmat_qp )
+  cmat_qp = matmul( vtria_qp , cmat_qp )
+  if (.not. tria_is_biunit) then
+    cmat_qp = qtwo*cmat_qp
+  end if
   !
   ! Use the chop function to copy cmat_qp into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
   return_value = chop( cmat_qp )
   !
-end function CorrectionMatrix_Tria
+end function CorrectionMatrix_Tria_backup
 !
 !###############################################################################
 !
