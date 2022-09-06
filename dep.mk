@@ -152,8 +152,8 @@ $(OBJDIR)/derivatives_mod.o : derivatives_mod.f90 \
                     $(OBJDIR)/quadrature_mod.o \
                     $(OBJDIR)/poly.o \
                     $(OBJDIR)/vandermonde_mod.o \
+                    $(FUNDIR)/solpts2order.f90 \
                     $(FUNDIR)/check_for_bad_number.f90 \
-                    $(FUNDIR)/np2n.f90 \
                     $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/element_type_mod.o : element_type_mod.f90 \

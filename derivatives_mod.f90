@@ -1655,6 +1655,7 @@ end subroutine move_dqmat_to_device
 !
 !###############################################################################
 !
+include "Functions/solpts2order.f90"
 #include "Functions/check_for_bad_number.f90"
 #include "Functions/debug_timer.f90"
 !
