@@ -4,6 +4,7 @@ module interpolation_mod
   use module_kind_types
   use matrix_types_mod, only : matrix
   use matrix_types_mod, only : create_matrix_sparsity
+  use matrix_types_mod, only : output_matrix
   use matrix_types_mod, only : output_sparsity
   use eqn_idx, only : nec,nmx,nmy,nmz,nee
   !
@@ -1662,31 +1663,19 @@ end subroutine outerp_mv_mult_in_place
 subroutine init_interpolation_matrices()
   !
   !.. Use Statements ..
-  use ovar,             only : loc_quadrature_pts
-  use order_mod,        only : geom_solpts,geom_flxpts
-  use order_mod,        only : n_min_geom,n_max_geom
-  use order_mod,        only : n_min_order,n_max_order
-  use order_mod,        only : geom_mio,geom_edgpts
-  use quadrature_mod,   only : geom_is_used
-  use element_type_mod, only : std_elem,face_elem
-  use polynomial_mod,   only : legendre_gauss_quadrature
-  use polynomial_mod,   only : legendre_gauss_lobatto_quadrature
+  use order_mod,      only : n_min_geom,n_max_geom
+  use order_mod,      only : n_min_order,n_max_order
+  use order_mod,      only : geom_mio,geom_edgpts
+  use quadrature_mod, only : geom_is_used
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax,ierr
   integer :: this_omin,this_omax
-  integer :: nsolpts,this_order,this_geom
-  integer :: nvolpts,cell_order
-  integer :: nflxpts,face_order
-  integer :: nedgpts,edge_order
-  integer :: nnodpts,node_order
+  integer :: this_order,this_geom
+  integer :: cell_order
+  integer :: face_order
+  integer :: edge_order
   character(len=200) :: array_name
-  !
-  !.. Local Allocatable Arrays ..
-  real(mp), allocatable :: edgpts(:)
-  real(mp), allocatable :: flxpts(:)
-  real(mp), allocatable :: pts(:)
-  real(mp), allocatable :: solpts(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_interpolation_matrices"
@@ -1713,9 +1702,19 @@ continue
     !
     order_loop: do this_order = omin,omax
       !
-      ! Get the number of solution points for this cell
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
       !
-      nsolpts = geom_solpts(this_geom,this_order)
+      ! %toCell INTERPOLATION MATRICES FROM SOLUTION POINTS TO CELL POINTS
+      !
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
       !
       ! Get the minimum and maximum interpolation order for
       ! this combination of cell geometry and cell order
@@ -1731,61 +1730,32 @@ continue
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Loop through all the interpolation orders for this combo
-      ! and compute the corresponding interpolation matrices
+      ! and compute the corresponding cell interpolation matrices
       !
       cell_order_loop: do cell_order = this_omin,this_omax
         !
-        ! Get the number of volume points for this cell order
+        ! For this geom/order combo, compute the interpolation matrix
+        ! from solution points to cell points of order 'cell_order'
         !
-        nvolpts = geom_solpts(this_geom,cell_order)
-        !
-        ! Allocate the interpolation matrix for this cell order
-        !
-        allocate ( interp(this_geom,this_order)% &
-                             toCell(cell_order)%mat(1:nvolpts,1:nsolpts) , &
-                   source=zero , stat=ierr , errmsg=error_message )
-        write (array_name,1) Geom_Name(this_geom),this_order,"toCell",cell_order
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message)
-        !
-        pts = init_array(cell_order+1,real(zero,kind=kind(pts))) ! F2003 AUTO-REALLOC
-        !
-        if (loc_quadrature_pts == Legendre_Gauss) then
-          !
-          call legendre_gauss_quadrature(pts)
-          !
-        else if (loc_quadrature_pts == Legendre_Gauss_Lobatto) then
-          !
-          call legendre_gauss_lobatto_quadrature(pts)
-          !
-        else if (loc_quadrature_pts == Equi_Distant_Points) then
-          !
-          pts(:) = real(intseq(-cell_order,cell_order,2),kind=kind(pts)) / &
-                   real(max(cell_order,1),kind=kind(pts))
-          !
-        else
-          !
-          write (error_message,3) "quadrature", Legendre_Gauss, &
-                                  Legendre_Gauss_Lobatto, Equi_Distant_Points, &
-                                  "loc_quadrature_pts",loc_quadrature_pts
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-          !
-        end if
-        !
-        ! Create the matrix to interpolate to quadrature points
-        !
-        interp(this_geom,this_order)%toCell(cell_order)%mat(:,:) = &
-                     InterpToCell(this_geom,this_order,nsolpts,nvolpts,pts)
-        !
-        ! Deallocate the pts array if needed
-        !
-        if (allocated(pts)) then
-          deallocate ( pts , stat=ierr , errmsg=error_message )
-          call alloc_error(pname,"pts",2,__LINE__,__FILE__,ierr, &
-                           error_message,skip_alloc_pause)
-        end if
+        ! F2003 AUTO-REALLOC
+        interp(this_geom,this_order)%toCell(cell_order)%mat = &
+                             Cell_Interp_Matrix(this_geom,this_order,cell_order)
         !
       end do cell_order_loop
+      !
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !
+      ! %toFace INTERPOLATION MATRICES FROM SOLUTION POINTS TO FACE POINTS
+      !
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
       !
       ! Get the minimum and maximum interpolation order for
       ! this combination of cell geometry and cell order
@@ -1808,124 +1778,43 @@ continue
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Loop through all the interpolation orders for this combo
-      ! and compute the corresponding interpolation matrices
+      ! and compute the corresponding face interpolation matrices
       !
       face_order_loop: do face_order = this_omin,this_omax
         !
-        ! Get the number of face/flux points for this face order
+        ! For this geom/order combo, compute the interpolation matrix
+        ! from solution points to face points of order 'face_order'
         !
-        nflxpts = geom_flxpts(this_geom,face_order)
+        ! F2003 AUTO-REALLOC
+        interp(this_geom,this_order)%toFace(face_order)%mat = &
+                             Face_Interp_Matrix(this_geom,this_order,face_order)
         !
-        ! Allocate the interpolation matrix for this face order
+        error_message = "Interpolation to face/flux points"
+        call output_matrix(interp(this_geom,this_order)%toFace(face_order), &
+                           error_message,this_geom,this_order, &
+                           output_transpose=.true.)
         !
-        allocate ( interp(this_geom,this_order)% &
-                             toFace(face_order)%mat(1:nsolpts,1:nflxpts) , &
-                   source=zero , stat=ierr , errmsg=error_message )
-        write (array_name,1) Geom_Name(this_geom),this_order,"toFace",face_order
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message)
-        !
-        ! Compute the interpolation matrices depending on geometry type
-        !
-        select case (this_geom)
-          case (Geom_Edge)
-            !
-            edgpts = real(std_elem(this_geom,this_order)%pts(1,:), &
-                          kind=kind(edgpts))  ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toFace(face_order)%mat = &
-                    InterpToFace_Edge( edgpts )
-            !
-          case (Geom_Tria)
-            !
-            solpts = real(std_elem(this_geom,this_order)%pts, &
-                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toFace(face_order)%mat = &
-                    InterpToFace_Tria( solpts )
 #ifdef SPECIAL_OUTPUT_SPARSITY
-            write (array_name,10) "tria",this_order,face_order
-            call output_sparsity( interp(this_geom,this_order)% &
-                                            toFace(face_order) , array_name )
+        write (array_name,2) Geom_Short_Name(this_geom),this_order,face_order
+        call output_sparsity( interp(this_geom,this_order)% &
+                                        toFace(face_order) , array_name )
 #endif
-            !
-          case (Geom_Quad)
-            !
-            edgpts = real(std_elem(Geom_Edge,this_order)%pts(1,:), &
-                          kind=kind(edgpts))  ! F2003 AUTO-REALLOC
-            flxpts = real(face_elem(Geom_Edge,face_order)%pts(1,:), &
-                          kind=kind(flxpts))  ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toFace(face_order)%mat = &
-                    InterpToFace_Quad( edgpts , flxpts )
-#ifdef SPECIAL_OUTPUT_SPARSITY
-            write (array_name,10) "quad",this_order,face_order
-            call output_sparsity( interp(this_geom,this_order)% &
-                                            toFace(face_order) , array_name )
-#endif
-            !
-          case (Geom_Tetr)
-            !
-            solpts = real(std_elem(this_geom,this_order)%pts, &
-                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toFace(face_order)%mat = &
-                    InterpToFace_Tetr( solpts )
-#ifdef SPECIAL_OUTPUT_SPARSITY
-            write (array_name,10) "tetr",this_order,face_order
-            call output_sparsity( interp(this_geom,this_order)% &
-                                            toFace(face_order) , array_name )
-#endif
-            !
-          case (Geom_Pyra)
-            !
-            solpts = real(std_elem(this_geom,this_order)%pts, &
-                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toFace(face_order)%mat = &
-                    InterpToFace_Pyra( solpts )
-#ifdef SPECIAL_OUTPUT_SPARSITY
-            write (array_name,10) "pyra",this_order,face_order
-            call output_sparsity( interp(this_geom,this_order)% &
-                                            toFace(face_order) , array_name )
-#endif
-            !
-          case (Geom_Pris)
-            !
-            solpts = real(std_elem(this_geom,this_order)%pts, &
-                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toFace(face_order)%mat = &
-                    InterpToFace_Pris( solpts )
-#ifdef SPECIAL_OUTPUT_SPARSITY
-            write (array_name,10) "pris",this_order,face_order
-            call output_sparsity( interp(this_geom,this_order)% &
-                                            toFace(face_order) , array_name )
-#endif
-            !
-          case (Geom_Hexa)
-            !
-            edgpts = real(std_elem(Geom_Edge,this_order)%pts(1,:), &
-                          kind=kind(edgpts))  ! F2003 AUTO-REALLOC
-            flxpts = real(face_elem(Geom_Edge,face_order)%pts(1,:), &
-                          kind=kind(flxpts))  ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toFace(face_order)%mat = &
-                    InterpToFace_Hexa( edgpts , flxpts )
-#ifdef SPECIAL_OUTPUT_SPARSITY
-            write (array_name,10) "hexa",this_order,face_order
-            call output_sparsity( interp(this_geom,this_order)% &
-                                            toFace(face_order) , array_name )
-#endif
-            !
-          case default
-            !
-            write (error_message,2)
-            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-            !
-        end select
         !
       end do face_order_loop
+      !
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !
+      ! %toEdge INTERPOLATION MATRICES FROM SOLUTION POINTS TO EDGE POINTS
+      !
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
       !
       ! Allocate the interp%toEdge component of interp
       !
@@ -1935,161 +1824,72 @@ continue
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Loop through all the interpolation orders for this combo
-      ! and compute the corresponding interpolation matrices
+      ! and compute the corresponding edge interpolation matrices
       !
       edge_order_loop: do edge_order = this_omin,this_omax
         !
-        ! Get the number of edge/flux points for this edge order
+        ! If the number of edge/flux points for this edge order is zero,
+        ! skip to the next edge order. This will be the case for 1D and
+        ! 2D geometries since the faces are the edges
         !
-        nedgpts = geom_edgpts(this_geom,edge_order)
+        if (geom_edgpts(this_geom,edge_order) == 0) cycle edge_order_loop
         !
-        ! If nedgpts is zero, skip to the next edge order. This will be
-        ! the case for 1D and 2D geometries since the faces are the edges
+        ! For this geom/order combo, compute the interpolation matrix
+        ! from solution points to edge points of order 'edge_order'
         !
-        if (nedgpts == 0) cycle edge_order_loop
-        !
-        ! Allocate the interpolation matrix for this edge order
-        !
-        allocate ( interp(this_geom,this_order)% &
-                             toEdge(edge_order)%mat(1:nsolpts,1:nedgpts) , &
-                   source=zero , stat=ierr , errmsg=error_message )
-        write (array_name,1) Geom_Name(this_geom),this_order,"toEdge",edge_order
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message)
-        !
-        ! Compute the interpolation matrices depending on geometry type
-        !
-        select case (this_geom)
-          case (Geom_Tetr)
-            !
-            solpts = real(std_elem(this_geom,this_order)%pts, &
-                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toEdge(edge_order)%mat = &
-                    InterpToEdge_Tetr( solpts )
-            !
-          case (Geom_Pyra)
-            !
-            solpts = real(std_elem(this_geom,this_order)%pts, &
-                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toEdge(edge_order)%mat = &
-                    InterpToEdge_Pyra( solpts )
-            !
-          case (Geom_Pris)
-            !
-            solpts = real(std_elem(this_geom,this_order)%pts, &
-                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toEdge(edge_order)%mat = &
-                    InterpToEdge_Pris( solpts )
-            !
-          case (Geom_Hexa)
-            !
-            edgpts = real(std_elem(Geom_Edge,this_order)%pts(1,:), &
-                          kind=kind(edgpts))  ! F2003 AUTO-REALLOC
-            flxpts = real(face_elem(Geom_Edge,edge_order)%pts(1,:), &
-                          kind=kind(flxpts))  ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toEdge(edge_order)%mat = &
-                    InterpToEdge_Hexa( edgpts , flxpts )
-            !
-          case default
-            !
-            write (error_message,2)
-            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-            !
-        end select
+        ! F2003 AUTO-REALLOC
+        interp(this_geom,this_order)%toEdge(edge_order)%mat = &
+                             Edge_Interp_Matrix(this_geom,this_order,edge_order)
         !
       end do edge_order_loop
       !
-      ! There isnt really an order for nodes. The following loop exists
-      ! simply so it can be skipped if this is an edge geometry
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
       !
-      node_loop: do node_order = 1,1
-        !
-        ! Skip edge geometries since the nodes are the faces
-        !
-        if (this_geom == Geom_Edge) exit node_loop
+      ! %toNode INTERPOLATION MATRICES FROM SOLUTION POINTS TO NODE POINTS
+      !
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !
+      ! Only compute the node interpolation matrices for non-edge geometries.
+      ! For edge geometries, the nodes are the faces, so those interpolation
+      ! matrices have already been computed for interp%toFace(:)%mat.
+      !
+      if (this_geom /= Geom_Edge) then
         !
         ! Allocate the interp%toNode component of interp
         !
-        allocate ( interp(this_geom,this_order)%toNode , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) Geom_Name(this_geom),this_order,"toNode"
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message)
+       !allocate ( interp(this_geom,this_order)%toNode , &
+       !           stat=ierr , errmsg=error_message )
+       !write (array_name,1) Geom_Name(this_geom),this_order,"toNode"
+       !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+       !                 error_message)
         !
-        ! Get the number of nodes for this cell
+        ! Compute the node interpolation matrix for this geom/order combo
         !
-        nnodpts = geom_nodes(this_geom)
+       !interp(this_geom,this_order)%toNode%mat = & ! F2003 AUTO-REALLOC
+        interp(this_geom,this_order)%toNode = & ! F2003 AUTO-REALLOC
+                                       Node_Interp_Matrix(this_geom,this_order)
         !
-        ! Allocate the interpolation matrix for the nodes
-        !
-        allocate ( interp(this_geom,this_order)% &
-                                         toNode%mat(1:nsolpts,1:nnodpts) , &
-                   source=zero , stat=ierr , errmsg=error_message )
-        write (array_name,1) Geom_Name(this_geom),this_order,"toNode%mat"
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message)
-        !
-        ! Compute the interpolation matrices depending on geometry type
-        !
-        select case (this_geom)
-          case (Geom_Tria)
-            !
-            solpts = real(std_elem(this_geom,this_order)%pts, &
-                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toNode%mat = InterpToNode_Tria(solpts)
-            !
-          case (Geom_Quad)
-            !
-            edgpts = real(std_elem(Geom_Edge,this_order)%pts(1,:), &
-                          kind=kind(edgpts))  ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toNode%mat = InterpToNode_Quad(edgpts)
-            !
-          case (Geom_Tetr)
-            !
-            solpts = real(std_elem(this_geom,this_order)%pts, &
-                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toNode%mat = InterpToNode_Tetr(solpts)
-            !
-          case (Geom_Pyra)
-            !
-            solpts = real(std_elem(this_geom,this_order)%pts, &
-                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toNode%mat = InterpToNode_Pyra(solpts)
-            !
-          case (Geom_Pris)
-            !
-            solpts = real(std_elem(this_geom,this_order)%pts, &
-                          kind=kind(solpts)) ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toNode%mat = InterpToNode_Pris(solpts)
-            !
-          case (Geom_Hexa)
-            !
-            edgpts = real(std_elem(Geom_Edge,this_order)%pts(1,:), &
-                          kind=kind(edgpts))  ! F2003 AUTO-REALLOC
-            !
-            interp(this_geom,this_order)%toNode%mat = InterpToNode_Hexa(edgpts)
-            !
-          case default
-            !
-            write (error_message,2)
-            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-            !
-        end select
-        !
-      end do node_loop
+      end if
       !
     end do order_loop
     !
   end do geom_loop
+  !
+  !#########################################################################
+  !#########################################################################
+  !
+  ! Create sparse matrix arrays for interpolation matrices
+  !
+  !#########################################################################
+  !#########################################################################
   !
   do this_geom = gmin,gmax
     do this_order = omin,omax
@@ -2117,14 +1917,7 @@ continue
   ! Format Statements
   !
   1 format ("interp(",a,",",i0,")%",a,:,"(",i0,")%mat")
-  2 format (" A grid cell of an unknown geometry type was found!")
-  3 format (2x,"Invalid option given for the location of the ",a," points!",/, &
-            4x,"Valid options are :",4x,i0," => Legendre Gauss Points",/, &
-            27x,i0," => Legendre Gauss Lobatto Points",/, &
-            27x,i0," => Equidistant Points",/, &
-            9x,"Option given : ",a," = ",i0)
-  !
-  10 format (a4,".interp.p",i0,".f",i0,".tec.dat")
+  2 format (a4,".interp.p",i0,".f",i0,".tec.dat")
   !
 end subroutine init_interpolation_matrices
 !
