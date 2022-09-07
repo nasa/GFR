@@ -2699,6 +2699,87 @@ end function Node_Interp_Matrix
 #ifndef DISABLE_PURE
 pure &
 #endif
+function Edge_Interp_Matrix(this_geom,this_order,to_order) result(return_value)
+  !
+  !.. Use Statements ..
+  use order_mod,        only : geom_edgpts
+  use element_type_mod, only : std_elem
+  use quadrature_mod,   only : map_face_pts
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: this_geom
+  integer, intent(in) :: this_order
+  integer, intent(in) :: to_order
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: ndim,npts,np,n1,n2
+  integer :: i1,i2,this_edge
+  !
+  !.. Local 
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: xyz(:,:)
+  real(wp), allocatable :: v(:,:)
+  real(wp), allocatable :: edgpts(:,:)
+  !
+continue
+  !
+  ndim = geom_dimen(this_geom)
+  npts = geom_edgpts(this_geom,to_order) ! # of edge points for order 'to_order'
+  !
+  ! Initialize the xyz array to zero since we have to fill this in pieces
+  !
+  xyz = init_array(ndim,npts,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Initialize the array that will be used to store the reference
+  ! coordinates of the two nodes defining each individual face
+  !
+  v = init_array(ndim,2,zero)
+  !
+  ! Extract the 1D edge points of order 'to_order'
+  !
+  edgpts = std_elem(Geom_Edge,to_order)%pts(:,:) ! F2003 AUTO-REALLOC
+  !
+  np = size(edgpts,dim=2) ! # of 1D edge points
+  !
+  ! Loop over the number of edges for this geometry type
+  ! and map the 1D edgpts to each edge of the geometry
+  !
+  n2 = 0
+  do this_edge = 1,geom_edges(this_geom)
+    !
+    n1 = n2 + 1  ! first edge point for this edge
+    n2 = n2 + np ! last  edge point for this edge
+    !
+    i1 = edge_nodes(1,this_edge,this_geom) + 1 ! beginning node on edge
+    i2 = edge_nodes(2,this_edge,this_geom) + 1 ! ending    node on edge
+    !
+    ! Get the reference coordinates for the two nodes on this edge
+    !
+    v(1:ndim,1) = ref_elem_nodes_xyz(1:ndim,i1,this_geom) ! ref coord for i1
+    v(1:ndim,2) = ref_elem_nodes_xyz(1:ndim,i2,this_geom) ! ref coord for i2
+    !
+    ! Use map_face_pts to map the 1D edgpts to the line defined by i1->i2
+    ! NOTE: map_face_pts will call map_edge_pts
+    !
+    xyz(1:ndim,n1:n2) = map_face_pts( v , edgpts )
+    !
+  end do
+  !
+  ! Compute the interpolation matrix
+  !
+  ! F2003 AUTO-REALLOC
+  return_value = General_Interp_Matrix(this_geom,this_order,xyz)
+  !
+end function Edge_Interp_Matrix
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
 function generic_interpolation_matrix(basis,newbasis,wmat) &
                                     result(return_value)
   !
