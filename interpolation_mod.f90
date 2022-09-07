@@ -2663,6 +2663,42 @@ end function General_Interp_Matrix
 #ifndef DISABLE_PURE
 pure &
 #endif
+function Node_Interp_Matrix(this_geom,this_order) result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: this_geom
+  integer, intent(in) :: this_order
+  !
+  !.. Function Result ..
+ !real(wp), allocatable :: return_value(:,:)
+  type(matrix) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: ndim,nnod
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: xyz(:,:)
+  !
+continue
+  !
+  ndim = geom_dimen(this_geom)
+  nnod = geom_nodes(this_geom)
+  !
+  xyz = ref_elem_nodes_xyz(1:ndim,1:nnod,this_geom) ! F2003 AUTO-REALLOC
+  !
+  ! Compute the interpolation matrix
+  !
+  ! F2003 AUTO-REALLOC
+ !return_value = General_Interp_Matrix(this_geom,this_order,xyz)
+  return_value%mat = General_Interp_Matrix(this_geom,this_order,xyz)
+  !
+end function Node_Interp_Matrix
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
 function generic_interpolation_matrix(basis,newbasis,wmat) &
                                     result(return_value)
   !
