@@ -2814,6 +2814,40 @@ end function Face_Interp_Matrix
 #ifndef DISABLE_PURE
 pure &
 #endif
+function Cell_Interp_Matrix(this_geom,this_order,to_order) result(return_value)
+  !
+  !.. Use Statements ..
+  use element_type_mod, only : std_elem
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: this_geom
+  integer, intent(in) :: this_order
+  integer, intent(in) :: to_order
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: xyz(:,:)
+  !
+continue
+  !
+  ! Get the reference coordinates for the cell points of 'to_order'
+  !
+  xyz = std_elem(this_geom,to_order)%pts(:,:) ! F2003 AUTO-REALLOC
+  !
+  ! Compute the interpolation matrix
+  !
+  ! F2003 AUTO-REALLOC
+  return_value = General_Interp_Matrix(this_geom,this_order,xyz)
+  !
+end function Cell_Interp_Matrix
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
 function generic_interpolation_matrix(basis,newbasis,wmat) &
                                     result(return_value)
   !
