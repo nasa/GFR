@@ -1945,7 +1945,7 @@ subroutine init_outerpolation_matrices()
   integer :: gmin,gmax,omin,omax,ierr
   integer :: this_geom,this_order,face_order
   integer :: this_omin,this_omax
-  integer :: npts,opts,epts
+  integer :: npts,epts
   integer :: output_order,error_order
   logical(lk) :: init_matrix_is_needed
   logical(lk) :: output_matrix_is_needed
@@ -2085,10 +2085,6 @@ continue
         !
         output_order = max(this_order,o_order)
         !
-        ! Get the number of solution points for this cell
-        !
-        opts = geom_solpts(this_geom,output_order)
-        !
         ! Allocate the output component of outerp
         !
         allocate ( outerp(this_geom,this_order)%output , &
@@ -2097,54 +2093,17 @@ continue
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
         !
-        ! Allocate the mat component of outerp%output
-        !
-        allocate ( outerp(this_geom,this_order)%output%mat(1:opts,1:npts) , &
-                   source=zero , stat=ierr , errmsg=error_message )
-        write (array_name,1) Geom_Name(this_geom),this_order,"output%mat"
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
-        !
-        ! Get the 1D location of the output points
+        ! Get the reference coordinates for the output points
         !
         ! F2003 AUTO-REALLOC
-        pts = init_array(output_order+1,real(zero,kind=kind(pts)))
+        pts = get_generic_quadrature_pts(this_geom,output_order,loc_output_pts)
         !
-        if (loc_output_pts == Legendre_Gauss) then
-          !
-          call legendre_gauss_quadrature(pts)
-          !
-        else if (loc_output_pts == Legendre_Gauss_Lobatto) then
-          !
-          call legendre_gauss_lobatto_quadrature(pts)
-          !
-        else if (loc_output_pts == Equi_Distant_Points) then
-          !
-          pts(:) = real(intseq(-output_order,output_order,2),kind=kind(pts)) / &
-                   real(max(output_order,1),kind=kind(pts))
-          !
-        else
-          !
-          write (error_message,3) "output", Legendre_Gauss, &
-                                  Legendre_Gauss_Lobatto, Equi_Distant_Points, &
-                                  "loc_output_pts",loc_output_pts
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-          !
-        end if
+        ! Create the interpolation matrix from the solution points to the
+        ! output points
         !
-        ! Create the output matrix
+        outerp(this_geom,this_order)%output%mat = & ! F2003 AUTO-REALLOC
+                                 General_Interp_Matrix(this_geom,this_order,pts)
         !
-        outerp(this_geom,this_order)%output%mat(:,:) = &
-                          InterpToCell(this_geom,this_order,npts,opts,pts)
-        !
-      end if
-      !
-      ! Deallocate the pts array if needed
-      !
-      if (allocated(pts)) then
-        deallocate ( pts , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"pts",2,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
       end if
       !
       ! Create the error component of outerp if needed
