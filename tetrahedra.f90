@@ -8,6 +8,8 @@ module tetrahedra_mod
   use module_kind_types, only : Legendre_Gauss_Lobatto
   use module_kind_types, only : AlphaOptimized_Points
   use module_kind_types, only : Barycentric_Points
+  use module_kind_types, only : Equi_Distant_Points
+  use module_kind_types, only : intseq
 #ifdef SPECIAL_FOR_INTEL
   use module_kind_types, only : invert_matrix_lapack95
 #else
@@ -93,6 +95,10 @@ continue
     !
     return_value(:,:) = TetNodes3D_Barycentric(p,bary_loc)
     !
+  else if (location == Equi_Distant_Points) then
+    !
+    return_value(:,:) = TetNodes3D_EqualDistant(p)
+    !
   else
     !
     return_value(:,:) = real(TetNodes3D_ShunnHam(p),kind=lp)
@@ -100,6 +106,58 @@ continue
   end if
   !
 end function TetNodes3D
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function TetNodes3D_EqualDistant(p) result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: p
+  !
+  !.. Function Result ..
+  real(lp) :: return_value(1:3,1:tet_pts(p))
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,n,np
+  !
+  !.. Local Allocatable Arrays ..
+  real(lp), allocatable :: eq_pts(:)
+  !
+continue
+  !
+  np = tet_pts(p)
+  !
+  if (p == 0) then
+    return_value(:,:) = -half
+    return
+  end if
+  !
+  ! Create the 1D equal distant points
+  !
+  ! F2003 AUTO-REALLOC
+  eq_pts = real(intseq(-p,p,2),kind=lp) / real(max(p,1),kind=lp)
+  !
+  ! Create the equidistant nodes in the reference tetrahedron
+  !
+  n = 0
+  do k = 1,p+1
+    do j = 1,p+2-k
+      do i = 1,p+3-j-k
+        !
+        n = n + 1
+        !
+        return_value(1,n) = eq_pts(i)
+        return_value(2,n) = eq_pts(j)
+        return_value(3,n) = eq_pts(k)
+        !
+      end do
+    end do
+  end do
+  !
+end function TetNodes3D_EqualDistant
 !
 !###############################################################################
 !
