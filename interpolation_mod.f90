@@ -2228,53 +2228,6 @@ end subroutine init_outerpolation_matrices
 !
 !###############################################################################
 !
-function InterpWeights(this_geom,npts,wts) result(return_value)
-  !
-  !.. Formal Arguments ..
-  integer,  intent(in) :: this_geom
-  integer,  intent(in) :: npts
-  real(mp), intent(in) :: wts(:)
-  !
-  !.. Function Result ..
-  real(wp) :: return_value(1:npts)
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "InterpWeights"
-  !
-continue
-  !
-  ! Compute the outerpolation matrices depending on geometry type
-  !
-  select case (this_geom)
-    case (Geom_Edge)
-      return_value(:) = wts
-    case (Geom_Tria)
-      return_value(:) = zero
-    case (Geom_Quad)
-      return_value(:) = InterpWeights_Quad( wts )
-    case (Geom_Tetr)
-      return_value(:) = zero
-    case (Geom_Pyra)
-      return_value(:) = zero
-    case (Geom_Pris)
-      return_value(:) = zero
-    case (Geom_Hexa)
-      return_value(:) = InterpWeights_Hexa( wts )
-    case default
-      !
-      write (error_message,1)
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-      !
-  end select
-  !
-  ! Format Statements
-  !
-  1 format (" A grid cell of an unknown geometry type was found!")
-  !
-end function InterpWeights
-!
-!###############################################################################
-!
 #ifndef DISABLE_PURE
 pure &
 #endif
