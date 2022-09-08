@@ -8,6 +8,8 @@ module triangle_mod
   use module_kind_types, only : Legendre_Gauss_Lobatto
   use module_kind_types, only : AlphaOptimized_Points
   use module_kind_types, only : Barycentric_Points
+  use module_kind_types, only : Equi_Distant_Points
+  use module_kind_types, only : intseq
 #ifdef SPECIAL_FOR_INTEL
   use module_kind_types, only : invert_matrix_lapack95
 #else
@@ -89,6 +91,10 @@ continue
     !
     return_value(:,:) = TriNodes2D_Barycentric(p,use_Gauss)
     !
+  else if (location == Equi_Distant_Points) then
+    !
+    return_value(:,:) = TriNodes2D_EqualDistant(p)
+    !
   else
     !
     return_value(:,:) = TriNodes2D_WilliamsShunn(p)
@@ -96,6 +102,55 @@ continue
   end if
   !
 end function TriNodes2D
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function TriNodes2D_EqualDistant(p) result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: p
+  !
+  !.. Function Result ..
+  real(lp) :: return_value(1:2,1:tri_pts(p))
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n,np
+  !
+  !.. Local Allocatable Arrays ..
+  real(lp), allocatable :: eq_pts(:)
+  !
+continue
+  !
+  np = tri_pts(p)
+  !
+  if (p == 0) then
+    return_value(:,:) = -one3
+    return
+  end if
+  !
+  ! Create the 1D equal distant points
+  !
+  ! F2003 AUTO-REALLOC
+  eq_pts = real(intseq(-p,p,2),kind=lp) / real(max(p,1),kind=lp)
+  !
+  ! Create the equidistant nodes in the equilateral triangle
+  !
+  n = 0
+  do j = 1,p+1
+    do i = 1,p+2-j
+      !
+      n = n + 1
+      !
+      return_value(1,n) = eq_pts(i)
+      return_value(2,n) = eq_pts(j)
+      !
+    end do
+  end do
+  !
+end function TriNodes2D_EqualDistant
 !
 !###############################################################################
 !
