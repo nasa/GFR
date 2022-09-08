@@ -535,26 +535,56 @@ module module_kind_types
                                           [H2_2D_Diffusion_Flame, &
                                            N2_O2_Diffusion]
   !
-  ! Location of 1D solution points
+  ! Grouping the different sets of points with
+  ! values that match across geometries
+  !
+  ! Equal distant points
   integer, parameter :: Equi_Distant_Points     = 0
+  !
+  ! Interior-only points (e.g. Gauss points)
   integer, parameter :: Legendre_Gauss          = 1
-  integer, parameter :: Legendre_Gauss_Lobatto  = 2
+  integer, parameter :: WilliamsShunn_TriPoints = 1
+  integer, parameter :: ShunnHam_TetPoints      = 1
+  !
+  ! Preferred sets that include points on the faces (e.g. Lobatto points)
+  integer, parameter :: Legendre_Gauss_Lobatto = 2
+  integer, parameter :: Barycentric_TriPoints  = 2
+  integer, parameter :: Barycentric_TetPoints  = 2
+  !
+  ! Non-preferred sets that include points on the faces (e.g. alpha-opt points)
+  integer, parameter :: AlphaOptimized_TriPoints = -2
+  integer, parameter :: AlphaOptimized_TetPoints = -2
+  !
+  ! Other sets that arent used anywhere yet
+  integer, parameter :: Chebyshev_Gauss         = 1003
+  integer, parameter :: Chebyshev_Gauss_Lobatto = 1004
+  !
+  ! Arrays grouping different sets of points
   integer, parameter :: Legendre_Nodes(1:2) = [Legendre_Gauss, &
                                                Legendre_Gauss_Lobatto]
-  integer, parameter :: Chebyshev_Gauss         = 3
-  integer, parameter :: Chebyshev_Gauss_Lobatto = 4
   integer, parameter :: Gauss_Lobatto(1:2) = [Legendre_Gauss_Lobatto, &
                                               Chebyshev_Gauss_Lobatto]
-  !
-  ! Method for creating triangle solution points
-  integer, parameter :: AlphaOptimized_TriPoints = 1
-  integer, parameter :: Barycentric_TriPoints = 2
-  integer, parameter :: WilliamsShunn_TriPoints = 3
-  !
-  ! Method for creating tetrahedra solution points
-  integer, parameter :: AlphaOptimized_TetPoints = 1
-  integer, parameter :: Barycentric_TetPoints = 2
-  integer, parameter :: ShunnHam_TetPoints = 3
+!!!
+!!! Location of 1D solution points
+!!integer, parameter :: Equi_Distant_Points     = 0
+!!integer, parameter :: Legendre_Gauss          = 1
+!!integer, parameter :: Legendre_Gauss_Lobatto  = 2
+!!integer, parameter :: Legendre_Nodes(1:2) = [Legendre_Gauss, &
+!!                                             Legendre_Gauss_Lobatto]
+!!integer, parameter :: Chebyshev_Gauss         = 3
+!!integer, parameter :: Chebyshev_Gauss_Lobatto = 4
+!!integer, parameter :: Gauss_Lobatto(1:2) = [Legendre_Gauss_Lobatto, &
+!!                                            Chebyshev_Gauss_Lobatto]
+!!!
+!!! Method for creating triangle solution points
+!!integer, parameter :: AlphaOptimized_TriPoints = 1
+!!integer, parameter :: Barycentric_TriPoints = 2
+!!integer, parameter :: WilliamsShunn_TriPoints = 3
+!!!
+!!! Method for creating tetrahedra solution points
+!!integer, parameter :: AlphaOptimized_TetPoints = 1
+!!integer, parameter :: Barycentric_TetPoints = 2
+!!integer, parameter :: ShunnHam_TetPoints = 3
   !
   integer, parameter :: LagrangePolynomial = 1
   integer, parameter :: ChainRuleCV = 2
