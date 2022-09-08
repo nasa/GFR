@@ -1929,13 +1929,12 @@ subroutine init_outerpolation_matrices()
   use ovar,             only : loc_solution_pts,loc_output_pts
   use ovar,             only : loc_error_pts,loc_init_pts
   use order_mod,        only : n_order,o_order,e_order
-  use order_mod,        only : geom_solpts,geom_flxpts
   use order_mod,        only : n_min_geom,n_max_geom
   use order_mod,        only : n_min_order,n_max_order
   use quadrature_mod,   only : geom_is_used
-  use polynomial_mod,   only : legendre_gauss_quadrature
-  use polynomial_mod,   only : legendre_gauss_lobatto_quadrature
+  use element_type_mod, only : element_t
   use element_type_mod, only : std_elem
+  use quadrature_mod,   only : get_generic_quadrature
   use quadrature_mod,   only : get_generic_quadrature_pts
   use vandermonde_mod,  only : Compute_Basis_Matrix
   use vandermonde_mod,  only : Vandermonde_Inverse
@@ -1943,22 +1942,20 @@ subroutine init_outerpolation_matrices()
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax,ierr
-  integer :: this_geom,this_order,face_order
-  integer :: this_omin,this_omax
-  integer :: npts,epts
+  integer :: this_geom,this_order
   integer :: output_order,error_order
   logical(lk) :: init_matrix_is_needed
   logical(lk) :: output_matrix_is_needed
   logical(lk) :: error_matrix_is_needed
   character(len=200) :: array_name
   !
+  type(element_t) :: error_elem
+  !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: pts(:,:)
   real(wp), allocatable :: vmat(:,:)
   real(wp), allocatable :: bmat_m2n(:,:)
   real(wp), allocatable :: bmat_n2m(:,:)
-  !
-  real(mp), allocatable :: wts(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_outerpolation_matrices"
@@ -2020,13 +2017,28 @@ continue
     !
     order_loop: do this_order = omin,omax
       !
-      ! Get the number of solution points for this cell
-      !
-      npts = geom_solpts(this_geom,this_order)
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
       !
       ! Create the init component of outerp if needed
       !
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !
       if (init_matrix_is_needed) then
+        !
+        ! NOTE: Creating the interpolation matrices for initialization is
+        !       a little more difficult than the other interpolation
+        !       matrices. All the other interpolation matrices interpolate
+        !       FROM the solution points to another set of points. The
+        !       interpolation matrix for initialization is interpolating
+        !       TO the solution points from the initialization points.
         !
         ! Allocate the init component of outerp
         !
@@ -2075,9 +2087,26 @@ continue
        !outerp(this_geom,this_order)%init%mat = & ! F2003 AUTO-REALLOC
        !                         matmul( transpose(bmat_n2m) , transpose(vmat) )
         !
+        error_message = "Interpolation for Initialization"
+        call output_matrix(outerp(this_geom,this_order)%init, &
+                           error_message,this_geom,this_order, &
+                           output_transpose=.true.)
+        !
       end if
       !
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !
       ! Create the output component of outerp if needed
+      !
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
       !
       if (output_matrix_is_needed) then
         !
@@ -2104,19 +2133,32 @@ continue
         outerp(this_geom,this_order)%output%mat = & ! F2003 AUTO-REALLOC
                                  General_Interp_Matrix(this_geom,this_order,pts)
         !
+        error_message = "Interpolation for Output"
+        call output_matrix(outerp(this_geom,this_order)%output, &
+                           error_message,this_geom,this_order, &
+                           output_transpose=.true.)
+        !
       end if
       !
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !
       ! Create the error component of outerp if needed
+      !
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
       !
       if (error_matrix_is_needed) then
         !
         ! Get the order for computing error
         !
         error_order = max(this_order,e_order)
-        !
-        ! Get the number of solution points for this cell
-        !
-        epts = geom_solpts(this_geom,error_order)
         !
         ! Allocate the error component of outerp
         !
@@ -2126,71 +2168,28 @@ continue
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
         !
-        ! Allocate the mat component of outerp%error
+        ! Get the quadrature points and weights for the error points
         !
-        allocate ( outerp(this_geom,this_order)%error%mat(1:epts,1:npts) , &
-                   source=zero , stat=ierr , errmsg=error_message )
-        write (array_name,1) Geom_Name(this_geom),this_order,"error%mat"
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
+        error_elem = get_generic_quadrature(this_geom,error_order,loc_error_pts)
         !
-        ! Get the 1D location of the error points
-        ! and their corresponding quadrature weights
+        pts = error_elem%pts(:,:) ! F2003 AUTO-REALLOC
+        !
+        ! Create the interpolation matrix from the solution points to the
+        ! output points
+        !
+        outerp(this_geom,this_order)%error%mat = & ! F2003 AUTO-REALLOC
+                                 General_Interp_Matrix(this_geom,this_order,pts)
+        !
+        ! Save the error quadrature weights to outerp
         !
         ! F2003 AUTO-REALLOC
-        pts = init_array(error_order+1,real(zero,kind=kind(pts)))
-        ! F2003 AUTO-REALLOC
-        wts = init_array(error_order+1,real(zero,kind=kind(wts)))
+        outerp(this_geom,this_order)%err_wts = error_elem%wts(:)
         !
-        if (loc_error_pts == Legendre_Gauss) then
-          !
-          call legendre_gauss_quadrature(pts,wts)
-          !
-        else if (loc_error_pts == Legendre_Gauss_Lobatto) then
-          !
-          call legendre_gauss_lobatto_quadrature(pts,wts)
-          !
-        else
-          !
-          write (error_message,2) "error", &
-                                  Legendre_Gauss, Legendre_Gauss_Lobatto, &
-                                  "loc_error_pts",loc_error_pts
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-          !
-        end if
+        error_message = "Interpolation for Error"
+        call output_matrix(outerp(this_geom,this_order)%error, &
+                           error_message,this_geom,this_order, &
+                           output_transpose=.true.)
         !
-        ! Create the error matrix
-        !
-        outerp(this_geom,this_order)%error%mat(:,:) = &
-                         InterpToCell(this_geom,this_order,npts,epts,pts)
-        !
-        ! Allocate the error_wts component of outerp
-        !
-        allocate ( outerp(this_geom,this_order)%err_wts(1:epts) , &
-                   source=zero , stat=ierr , errmsg=error_message )
-        write (array_name,1) Geom_Name(this_geom),this_order,"err_wts"
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
-        !
-        ! Compute the error weights
-        !
-        outerp(this_geom,this_order)%err_wts(:) = &
-                                               InterpWeights(this_geom,epts,wts)
-        !
-      end if
-      !
-      ! Deallocate the pts array if needed
-      !
-      if (allocated(pts)) then
-        deallocate ( pts , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"pts",2,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
-      end if
-      !
-      if (allocated(wts)) then
-        deallocate ( wts , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"wts",2,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
       end if
       !
     end do order_loop
@@ -2224,15 +2223,6 @@ continue
   ! Format Statements
   !
   1 format ("outerp(",a,",",i0,")%",a)
-  2 format (2x,"Invalid option given for the location of the ",a," points!",/, &
-            4x,"Valid options are :",4x,i0," => Legendre Gauss Points",/, &
-            27x,i0," => Legendre Gauss Lobatto Points",/, &
-            9x,"Option given : ",a," = ",i0)
-  3 format (2x,"Invalid option given for the location of the ",a," points!",/, &
-            4x,"Valid options are :",4x,i0," => Legendre Gauss Points",/, &
-            27x,i0," => Legendre Gauss Lobatto Points",/, &
-            27x,i0," => Equidistant Points",/, &
-            9x,"Option given : ",a," = ",i0)
   !
 end subroutine init_outerpolation_matrices
 !
