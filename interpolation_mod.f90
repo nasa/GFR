@@ -2419,7 +2419,8 @@ end function InterpWeights
 #ifndef DISABLE_PURE
 pure &
 #endif
-function General_Interp_Matrix(this_geom,this_order,xyz) result(return_value)
+function General_Interp_Matrix(this_geom,this_order,xyz,opt_bmat,opt_vmat) &
+                        result(return_value)
   !
   !.. Use Statements ..
   use vandermonde_mod, only : vand
@@ -2429,6 +2430,10 @@ function General_Interp_Matrix(this_geom,this_order,xyz) result(return_value)
   integer,  intent(in) :: this_geom
   integer,  intent(in) :: this_order
   real(wp), intent(in) :: xyz(:,:)
+  !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(in) :: opt_bmat(:,:)
+  real(wp), optional, intent(in) :: opt_vmat(:,:)
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -2442,11 +2447,19 @@ continue
   !
   ! Get the basis matrix of the basis functions evaluated at points xyz
   !
-  bmat = General_Basis_Matrix(this_geom,this_order,xyz) ! F2003 AUTO-REALLOC
+  if (present(opt_bmat)) then
+    bmat = opt_bmat(:,:) ! F2003 AUTO-REALLOC
+  else
+    bmat = General_Basis_Matrix(this_geom,this_order,xyz) ! F2003 AUTO-REALLOC
+  end if
   !
   ! Extract the nodal-to-modal Vandermonde matrix
   !
-  vmat = vand(this_geom,this_order)%nodal2modal%mat ! F2003 AUTO-REALLOC
+  if (present(opt_vmat)) then
+    vmat = opt_vmat(:,:) ! F2003 AUTO-REALLOC
+  else
+    vmat = vand(this_geom,this_order)%nodal2modal%mat ! F2003 AUTO-REALLOC
+  end if
   !
   ! Compute the interpolation matrix
   !
