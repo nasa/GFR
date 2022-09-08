@@ -5,6 +5,8 @@ module prism_mod
   !
   use module_kind_types, only : MP
   use module_kind_types, only : Legendre_Gauss_Lobatto
+  use module_kind_types, only : Equi_Distant_Points
+  use module_kind_types, only : intseq
 #ifdef SPECIAL_FOR_INTEL
   use module_kind_types, only : invert_matrix_lapack95
 #else
@@ -86,6 +88,8 @@ continue
   !
   if (edge_loc == Legendre_Gauss_Lobatto) then
     call nodes_legendre_gauss_lobatto(p,xi)
+  else if (edge_loc == Equi_Distant_Points) then
+    xi(:) = real(intseq(-p,p,2),kind=lp) / real(max(p,1),kind=lp)
   else
     call nodes_legendre_gauss(p+1,xi)
   end if
