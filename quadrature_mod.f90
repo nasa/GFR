@@ -15,6 +15,7 @@ module quadrature_mod
   public :: find_valid_geometries
   public :: init_geom_quadrature_rules
   public :: init_face_quadrature_rules
+  public :: get_generic_quadrature_pts
   public :: get_edge_quadrature
   public :: get_tria_quadrature
   public :: get_quad_quadrature
@@ -502,6 +503,92 @@ continue
   1 format ("Geometry = ",a,"  ;  Order = ",i0)
   !
 end subroutine init_face_quadrature_rules
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_generic_quadrature_pts(this_geom,p,loc_pts,loc_tri_pts) &
+                             result(return_value)
+  !
+  !.. Use Statements ..
+  use triangle_mod,   only : TriNodes2D
+  use tetrahedra_mod, only : TetNodes3D
+  use pyramid_mod,    only : PyrNodes3D
+  use prism_mod,      only : PriNodes3D
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: this_geom
+  integer, intent(in) :: p
+  integer, intent(in) :: loc_pts
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: loc_tri_pts
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: loc_tri
+  !
+  type(element_t) :: elem
+  !
+  !.. Local Allocatable Arrays ..
+  real(mp), allocatable :: pts(:,:)
+  !
+continue
+  !
+  select case (this_geom)
+    !
+    case (Geom_Edge)
+      !
+      elem = get_edge_quadrature(p,loc_pts)
+      !
+    case (Geom_Tria)
+      !
+      pts = TriNodes2D(p,loc_pts)             ! F2003 AUTO-REALLOC
+      elem%pts = real(pts,kind=kind(elem%pts) ! F2003 AUTO-REALLOC)
+      !
+    case (Geom_Quad)
+      !
+      elem = get_quad_quadrature(p,loc_pts)
+      !
+    case (Geom_Tetr)
+      !
+      pts = TetNodes3D(p,loc_pts)              ! F2003 AUTO-REALLOC
+      elem%pts = real(pts,kind=kind(elem%pts)) ! F2003 AUTO-REALLOC
+      !
+    case (Geom_Pyra)
+      !
+      pts = PyrNodes3D(p,loc_pts)             ! F2003 AUTO-REALLOC
+      elem%pts = real(pts,kind=kind(elem%pts) ! F2003 AUTO-REALLOC)
+      !
+    case (Geom_Pris)
+      !
+      if (present(loc_tri_pts)) then
+        loc_tri = loc_tri_pts
+      else
+        loc_tri = loc_pts
+      end if
+      pts = PriNodes3D(p,loc_tri,loc_pts)     ! F2003 AUTO-REALLOC
+      elem%pts = real(pts,kind=kind(elem%pts) ! F2003 AUTO-REALLOC)
+      !
+    case (Geom_Hexa)
+      !
+      elem = get_hexa_quadrature(p,loc_pts)
+      !
+    case default
+      !
+      elem%pts = init_array(1,1,zero) ! F2003 AUTO-REALLOC
+      !
+  end select
+  !
+  ! We only care about the points here so copy pts into return_value
+  !
+  return_value = elem%pts(:,:) ! F2003 AUTO-REALLOC
+  !
+end function get_generic_quadrature_pts
 !
 !###############################################################################
 !
