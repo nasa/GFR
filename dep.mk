@@ -274,6 +274,7 @@ $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(OBJDIR)/order_mod.o \
                       $(OBJDIR)/element_type_mod.o \
                       $(OBJDIR)/quadrature_mod.o \
+                      $(OBJDIR)/vandermonde_mod.o \
                       $(OBJDIR)/poly.o \
                       $(OBJDIR)/flowvar_mod.o \
                       $(FUNDIR)/solpts2order.f90 \
