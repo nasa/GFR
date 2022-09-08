@@ -1926,15 +1926,20 @@ end subroutine init_interpolation_matrices
 subroutine init_outerpolation_matrices()
   !
   !.. Use Statements ..
-  use ovar,            only : loc_solution_pts,loc_output_pts
-  use ovar,            only : loc_error_pts,loc_init_pts
-  use order_mod,       only : n_order,o_order,e_order
-  use order_mod,       only : geom_solpts,geom_flxpts
-  use order_mod,       only : n_min_geom,n_max_geom
-  use order_mod,       only : n_min_order,n_max_order
-  use quadrature_mod,  only : geom_is_used
-  use polynomial_mod,  only : legendre_gauss_quadrature
-  use polynomial_mod,  only : legendre_gauss_lobatto_quadrature
+  use ovar,             only : loc_solution_pts,loc_output_pts
+  use ovar,             only : loc_error_pts,loc_init_pts
+  use order_mod,        only : n_order,o_order,e_order
+  use order_mod,        only : geom_solpts,geom_flxpts
+  use order_mod,        only : n_min_geom,n_max_geom
+  use order_mod,        only : n_min_order,n_max_order
+  use quadrature_mod,   only : geom_is_used
+  use polynomial_mod,   only : legendre_gauss_quadrature
+  use polynomial_mod,   only : legendre_gauss_lobatto_quadrature
+  use element_type_mod, only : std_elem
+  use quadrature_mod,   only : get_generic_quadrature_pts
+  use vandermonde_mod,  only : Compute_Basis_Matrix
+  use vandermonde_mod,  only : Vandermonde_Inverse
+  use vandermonde_mod,  only : vand
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax,ierr
@@ -1948,7 +1953,11 @@ subroutine init_outerpolation_matrices()
   character(len=200) :: array_name
   !
   !.. Local Allocatable Arrays ..
-  real(mp), allocatable :: pts(:)
+  real(wp), allocatable :: pts(:,:)
+  real(wp), allocatable :: vmat(:,:)
+  real(wp), allocatable :: bmat_m2n(:,:)
+  real(wp), allocatable :: bmat_n2m(:,:)
+  !
   real(mp), allocatable :: wts(:)
   !
   !.. Local Parameters ..
@@ -2027,49 +2036,45 @@ continue
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
         !
-        ! Allocate the mat component of outerp%init
-        !
-        allocate ( outerp(this_geom,this_order)%init%mat(1:npts,1:npts) , &
-                   source=zero , stat=ierr , errmsg=error_message )
-        write (array_name,1) Geom_Name(this_geom),this_order,"init%mat"
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
-        !
-        ! Get the 1D location of the initialization points
+        ! Get the reference coordinates for the initialization points
         !
         ! F2003 AUTO-REALLOC
-        pts = init_array(this_order+1,real(zero,kind=kind(pts)))
+        pts = get_generic_quadrature_pts(this_geom,this_order,loc_init_pts)
         !
-        if (loc_init_pts == Legendre_Gauss) then
-          !
-          call legendre_gauss_quadrature(pts)
-          !
-        else if (loc_init_pts == Legendre_Gauss_Lobatto) then
-          !
-          call legendre_gauss_lobatto_quadrature(pts)
-          !
-        else
-          !
-          write (error_message,2) "initialization", &
-                                  Legendre_Gauss, Legendre_Gauss_Lobatto, &
-                                  "loc_init_pts",loc_init_pts
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-          !
-        end if
+        ! We need to create a Vandermonde matrix for the initialization points
         !
-        ! Create the initialization matrix
+        ! F2003 AUTO-REALLOC
+        bmat_m2n = Compute_Basis_Matrix(this_geom,this_order, &
+                                        nodal_points=pts)
         !
-        outerp(this_geom,this_order)%init%mat(:,:) = &
-                        InterpToCell(this_geom,this_order,npts,npts,pts)
+        bmat_n2m = Vandermonde_Inverse( bmat_m2n ) ! F2003 AUTO-REALLOC
         !
-      end if
-      !
-      ! Deallocate the pts array if needed
-      !
-      if (allocated(pts)) then
-        deallocate ( pts , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"pts",2,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
+        ! Get the modal-to-nodal Vandermonde matrix for the solution points
+        !
+        vmat = vand(this_geom,this_order)%modal2nodal%mat
+        !
+        ! Replace pts with the reference coordinates for the solution points
+        !
+        pts = std_elem(this_geom,this_order)%pts ! F2003 AUTO-REALLOC
+        !
+        ! Compute the interpolation matrix from the initialization points
+        ! to the solution points
+        ! NOTE: Because we are interpolating FROM initialization points TO
+        !       solution points, the argument opt_bmat needs to be the standard
+        !       modal2nodal Vandermonde matrix, and the argument opt_vmat needs
+        !       to be the nodal2modal basis matrix for the initialization
+        !       points.
+        !       SO, opt_bmat=vmat AND opt_vmat=bmat_n2m IS NOT A BUG.
+        ! NOTE: pts does not matter here since we are using both optional
+        !       arguments.
+        !
+        outerp(this_geom,this_order)%init%mat = &
+                               General_Interp_Matrix(this_geom,this_order,pts, &
+                                                     opt_bmat=vmat, &
+                                                     opt_vmat=bmat_n2m)
+       !outerp(this_geom,this_order)%init%mat = & ! F2003 AUTO-REALLOC
+       !                         matmul( transpose(bmat_n2m) , transpose(vmat) )
+        !
       end if
       !
       ! Create the output component of outerp if needed
