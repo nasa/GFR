@@ -5,6 +5,8 @@ module pyramid_mod
   !
   use module_kind_types, only : MP,LK,true,fals
   use module_kind_types, only : Legendre_Gauss_Lobatto
+  use module_kind_types, only : Equi_Distant_Points
+  use module_kind_types, only : intseq
 #ifdef SPECIAL_FOR_INTEL
   use module_kind_types, only : invert_matrix_lapack95
 #else
@@ -50,17 +52,13 @@ function PyrNodes3D(p,location) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: p
-  !
-  !.. Optional Arguments ..
-  integer, optional, intent(in) :: location
+  integer, intent(in) :: location
   !
   !.. Function Result..
   real(lp) :: return_value(1:3,1:pyr_pts(p))
   !
   !.. Local Scalars ..
-  integer :: i,j,k,n
-  !
-  logical(lk) :: use_Gauss
+  integer :: i,j,k,l,n
   !
   !.. Local Arrays ..
   real(lp) :: zeta(1:p+1)
@@ -75,19 +73,14 @@ continue
     return
   end if
   !
-  use_Gauss = true
-  if (present(location)) then
-    if (location == Legendre_Gauss_Lobatto) then
-      use_Gauss = fals
-    end if
-  end if
-  !
   ! Get the 1D Legendre-Gauss-Lobatto nodes
   !
-  if (use_Gauss) then
-    call nodes_legendre_gauss(p+1,zeta)
-  else
+  if (location == Legendre_Gauss_Lobatto) then
     call nodes_legendre_gauss_lobatto(p,zeta)
+  else if (location == Equi_Distant_Points) then
+    zeta(:) = real(intseq(-p,p,2),kind=lp) / real(max(p,1),kind=lp)
+  else
+    call nodes_legendre_gauss(p+1,zeta)
   end if
   !
   n = 0
@@ -95,10 +88,13 @@ continue
     !
     xi = spread(zero,dim=1,ncopies=p-k+2) ! F2003 AUTO-REALLOC
     !
-    if (use_Gauss) then
-      call nodes_legendre_gauss(p-k+2,xi)
-    else
+    if (location == Legendre_Gauss_Lobatto) then
       call nodes_legendre_gauss_lobatto(p-k+1,xi)
+    else if (location == Equi_Distant_Points) then
+      l = p-k+2
+      xi(:) = real(intseq(-l,l,2),kind=lp) / real(max(l,1),kind=lp)
+    else
+      call nodes_legendre_gauss(p-k+2,xi)
     end if
     !
     ! Scale xi to the current zeta value
