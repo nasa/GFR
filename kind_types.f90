@@ -548,12 +548,10 @@ module module_kind_types
   !
   ! Preferred sets that include points on the faces (e.g. Lobatto points)
   integer, parameter :: Legendre_Gauss_Lobatto = 2
-  integer, parameter :: Barycentric_TriPoints  = 2
-  integer, parameter :: Barycentric_TetPoints  = 2
+  integer, parameter :: Barycentric_Points     = 2
   !
   ! Non-preferred sets that include points on the faces (e.g. alpha-opt points)
-  integer, parameter :: AlphaOptimized_TriPoints = -2
-  integer, parameter :: AlphaOptimized_TetPoints = -2
+  integer, parameter :: AlphaOptimized_Points = -2
   !
   ! Other sets that arent used anywhere yet
   integer, parameter :: Chebyshev_Gauss         = 1003

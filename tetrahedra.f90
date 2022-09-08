@@ -6,8 +6,8 @@ module tetrahedra_mod
   use module_kind_types, only : MP,LK
   use module_kind_types, only : Legendre_Gauss
   use module_kind_types, only : Legendre_Gauss_Lobatto
-  use module_kind_types, only : AlphaOptimized_TetPoints
-  use module_kind_types, only : Barycentric_TetPoints
+  use module_kind_types, only : AlphaOptimized_Points
+  use module_kind_types, only : Barycentric_Points
 #ifdef SPECIAL_FOR_INTEL
   use module_kind_types, only : invert_matrix_lapack95
 #else
@@ -77,11 +77,11 @@ continue
     return
   end if
   !
-  if (location == AlphaOptimized_TetPoints) then
+  if (location == AlphaOptimized_Points) then
     !
     return_value(:,:) = TetNodes3D_AlphaOptimized(p,use_Gauss)
     !
-  else if (location == Barycentric_TetPoints) then
+  else if (location == Barycentric_Points) then
     !
     bary_loc = Legendre_Gauss_Lobatto
     !

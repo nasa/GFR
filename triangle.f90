@@ -6,8 +6,8 @@ module triangle_mod
   use module_kind_types, only : MP,LK,true,fals
   use module_kind_types, only : Legendre_Gauss
   use module_kind_types, only : Legendre_Gauss_Lobatto
-  use module_kind_types, only : AlphaOptimized_TriPoints
-  use module_kind_types, only : Barycentric_TriPoints
+  use module_kind_types, only : AlphaOptimized_Points
+  use module_kind_types, only : Barycentric_Points
 #ifdef SPECIAL_FOR_INTEL
   use module_kind_types, only : invert_matrix_lapack95
 #else
@@ -81,11 +81,11 @@ continue
     end if
   end if
   !
-  if (location == AlphaOptimized_TriPoints) then
+  if (location == AlphaOptimized_Points) then
     !
     return_value(:,:) = TriNodes2D_AlphaOptimized(p,use_Gauss)
     !
-  else if (location == Barycentric_TriPoints) then
+  else if (location == Barycentric_Points) then
     !
     return_value(:,:) = TriNodes2D_Barycentric(p,use_Gauss)
     !
