@@ -1025,9 +1025,9 @@ function equidistant_map_edge_to_solpts(op,np,xi,mesh_order) &
   integer  :: i,mi,ni,xpts,epts
   !
   !.. Local Arrays ..
-  real(qp) :: xi_qp(1:size(xi))
-  real(qp) :: eq_pts(1:mesh_order+1)
-  real(qp) :: map_qp(1:op,1:np)
+  real(mp) :: xi_qp(1:size(xi))
+  real(mp) :: eq_pts(1:mesh_order+1)
+  real(mp) :: map_qp(1:op,1:np)
   !
 continue
   !
@@ -1038,7 +1038,7 @@ continue
   !
   call equal_distant_quadrature(eq_pts)
   !
-  xi_qp(:) = real(xi(:),kind=qp)
+  xi_qp(:) = real(xi(:),kind=kind(xi_qp))
   !
   do mi = 1,xpts
     do ni = 1,epts
@@ -1323,13 +1323,13 @@ function equidistant_map_quad_to_solpts(op,np,xi,mesh_order,family) &
   integer  :: i,j,m,mi,mj,n,ni,nj,xpts,epts
   !
   !.. Local Arrays ..
-  real(qp) :: xy_qp(1:2)
-  real(qp) :: xi_qp(1:size(xi))
-  real(qp) :: eq_pts(1:mesh_order+1)
-  real(qp) :: map_qp(1:op,1:np)
+  real(mp) :: xy_qp(1:2)
+  real(mp) :: xi_qp(1:size(xi))
+  real(mp) :: eq_pts(1:mesh_order+1)
+  real(mp) :: map_qp(1:op,1:np)
   !
   !.. Local Parameters ..
-  real(qp), parameter :: end_pts(1:2) = [-qone,qone]
+  real(mp), parameter :: end_pts(1:2) = [-qone,qone]
   !
 continue
   !
@@ -1340,7 +1340,7 @@ continue
   !
   call equal_distant_quadrature(eq_pts)
   !
-  xi_qp(:) = real(xi(:),kind=qp)
+  xi_qp(:) = real(xi(:),kind=kind(xi_qp))
   !
   if (family == Edge_Defined .or. family == Face_Defined) then
     !
@@ -1630,13 +1630,13 @@ function equidistant_map_hexa_to_solpts(op,np,xi,mesh_order,family) &
   integer  :: i,j,k,m,mi,mj,mk,n,ni,nj,nk,xpts,epts
   !
   !.. Local Arrays ..
-  real(qp) :: xy_qp(1:3)
-  real(qp) :: xi_qp(1:size(xi))
-  real(qp) :: eq_pts(1:mesh_order+1)
-  real(qp) :: map_qp(1:op,1:np)
+  real(mp) :: xy_qp(1:3)
+  real(mp) :: xi_qp(1:size(xi))
+  real(mp) :: eq_pts(1:mesh_order+1)
+  real(mp) :: map_qp(1:op,1:np)
   !
   !.. Local Parameters ..
-  real(qp), parameter :: end_pts(1:2) = [-qone,qone]
+  real(mp), parameter :: end_pts(1:2) = [-qone,qone]
   !
 continue
   !
@@ -1647,7 +1647,7 @@ continue
   !
   call equal_distant_quadrature(eq_pts)
   !
-  xi_qp(:) = real(xi(:),kind=qp)
+  xi_qp(:) = real(xi(:),kind=kind(xi_qp))
   !
   if (family == Edge_Defined) then
     !
@@ -1790,12 +1790,12 @@ function parametric_map_edge_to_solpts(np,xi,elem_xyz) &
   !
   !.. Local Scalars ..
   integer  :: i,mi,ni,xpts,gpts
-  real(qp) :: arc_len
+  real(mp) :: arc_len
   !
   !.. Local Arrays ..
-  real(qp) :: xi_qp(1:size(xi))
-  real(qp) :: gp_qp(1:size(elem_xyz,dim=2))
-  real(qp) :: map_qp(1:size(elem_xyz,dim=2),1:np)
+  real(mp) :: xi_qp(1:size(xi))
+  real(mp) :: gp_qp(1:size(elem_xyz,dim=2))
+  real(mp) :: map_qp(1:size(elem_xyz,dim=2),1:np)
   !
 continue
   !
@@ -1804,11 +1804,11 @@ continue
   !
   return_value(:,:) = zero
   !
-  xi_qp(:) = real(xi(:),kind=qp)
+  xi_qp(:) = real(xi(:),kind=kind(xi_qp))
   !
   if (parametric_agglomeration == Cartesian_Parameterization) then
     !
-    gp_qp(:) = real(elem_xyz(1,:),kind=qp)
+    gp_qp(:) = real(elem_xyz(1,:),kind=kind(gp_qp))
     !
     arc_len = abs(gp_qp(gpts) - gp_qp(1))
     !
@@ -1860,14 +1860,14 @@ function parametric_map_quad_to_solpts(np,xi,elem_xyz,mesh_order) &
   !
   !.. Local Scalars ..
   integer  :: i,j,l,m,mi,mj,n,ni,nj,xpts,gpts
-  real(qp) :: arc_len
+  real(mp) :: arc_len
   !
   !.. Local Arrays ..
-  real(qp) :: xy_qp(1:2)
-  real(qp) :: xi_qp(1:size(xi))
-  real(qp) :: gp_qp(1:mesh_order+1)
-  real(qp) :: comp_coord(1:mesh_order+1,1:2,1:size(elem_xyz,dim=2))
-  real(qp) :: map_qp(1:size(elem_xyz,dim=2),1:np)
+  real(mp) :: xy_qp(1:2)
+  real(mp) :: xi_qp(1:size(xi))
+  real(mp) :: gp_qp(1:mesh_order+1)
+  real(mp) :: comp_coord(1:mesh_order+1,1:2,1:size(elem_xyz,dim=2))
+  real(mp) :: map_qp(1:size(elem_xyz,dim=2),1:np)
   !
 continue
   !
@@ -1876,7 +1876,7 @@ continue
   !
   return_value(:,:) = zero
   !
-  xi_qp(:) = real(xi(:),kind=qp)
+  xi_qp(:) = real(xi(:),kind=kind(xi_qp))
   !
   if (parametric_agglomeration == Cartesian_Parameterization) then
     !
@@ -1891,9 +1891,9 @@ continue
           nj = ( n-1)*gpts + mi
           !
           ! Save the 1D x coordinates
-          comp_coord(n,1,m) = real(elem_xyz(1,ni),kind=qp)
+          comp_coord(n,1,m) = real(elem_xyz(1,ni),kind=kind(comp_coord))
           ! Save the 1D y coordinates
-          comp_coord(n,2,m) = real(elem_xyz(2,nj),kind=qp)
+          comp_coord(n,2,m) = real(elem_xyz(2,nj),kind=kind(comp_coord))
           !
         end do
         !
@@ -1984,33 +1984,33 @@ function parametric_map_hexa_to_solpts(np,xi,elem_xyz,mesh_order) &
   !
   !.. Local Scalars ..
   integer  :: i,j,k,l,m,mi,mj,mk,n,ni,nj,nk,xpts,gpts
-  real(qp) :: arc_len,x1,x2,x3,rndoff_qp,d1,d2,d3
+  real(mp) :: arc_len,x1,x2,x3,rndoff_qp,d1,d2,d3
   !
   !.. Local Arrays ..
   integer  :: imask(1:mesh_order+1)
-  real(qp) :: xy_qp(1:3)
-  real(qp) :: xi_qp(1:size(xi))
-  real(qp) :: gp_qp(1:mesh_order+1)
-  real(qp) :: x1_pts(1:mesh_order+1)
-  real(qp) :: x2_pts(1:mesh_order+1)
-  real(qp) :: x3_pts(1:mesh_order+1)
-  real(qp) :: comp_coord(1:mesh_order+1,1:3,1:size(elem_xyz,dim=2))
-  real(qp) :: lp_qp(1:size(xi),1:3)
-  real(qp) :: map_qp(1:size(elem_xyz,dim=2),1:np)
+  real(mp) :: xy_qp(1:3)
+  real(mp) :: xi_qp(1:size(xi))
+  real(mp) :: gp_qp(1:mesh_order+1)
+  real(mp) :: x1_pts(1:mesh_order+1)
+  real(mp) :: x2_pts(1:mesh_order+1)
+  real(mp) :: x3_pts(1:mesh_order+1)
+  real(mp) :: comp_coord(1:mesh_order+1,1:3,1:size(elem_xyz,dim=2))
+  real(mp) :: lp_qp(1:size(xi),1:3)
+  real(mp) :: map_qp(1:size(elem_xyz,dim=2),1:np)
   !
 continue
   !
 #ifdef TIME_PARAMETRIC_MAPPING
   call debug_timer(start_accumulation,"parametric initialization",acc=1)
 #endif
-  rndoff_qp = real(rndoff,kind=qp)
+  rndoff_qp = real(rndoff,kind=kind(rndoff_qp))
   xpts = size(xi_qp)
   gpts = mesh_order+1
   imask(:) = intseq(1,mesh_order+1)
   !
   return_value(:,:) = zero
   !
-  xi_qp(:) = real(xi(:),kind=qp)
+  xi_qp(:) = real(xi(:),kind=kind(xi_qp))
 #ifdef TIME_PARAMETRIC_MAPPING
   call debug_timer(stop_accumulation,"parametric initialization",acc=1)
 #endif
@@ -2033,11 +2033,11 @@ continue
             nk = ( n-1)*gpts*gpts + (mj-1)*gpts + mi
             !
             ! Save the 1D x coordinates
-            comp_coord(n,1,m) = real(elem_xyz(1,ni),kind=qp)
+            comp_coord(n,1,m) = real(elem_xyz(1,ni),kind=kind(comp_coord))
             ! Save the 1D y coordinates
-            comp_coord(n,2,m) = real(elem_xyz(2,nj),kind=qp)
+            comp_coord(n,2,m) = real(elem_xyz(2,nj),kind=kind(comp_coord))
             ! Save the 1D z coordinates
-            comp_coord(n,3,m) = real(elem_xyz(3,nk),kind=qp)
+            comp_coord(n,3,m) = real(elem_xyz(3,nk),kind=kind(comp_coord))
             !
           end do
           !
