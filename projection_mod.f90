@@ -310,6 +310,10 @@ continue
                      stat=ierr , errmsg=error_message )
           call alloc_error(pname,"vmat",1,__LINE__,__FILE__,ierr,error_message)
           !
+          ! NOTE: USE OF COMPUTE_BASIS_MATRIX WITH OPTIONAL ARGUMENT
+          !       NODAL_POINTS CAN BE PROBLEMATIC FOR QUADS AND HEXES. THIS
+          !       FUNCTION IS EXPECTING A 1D NODAL SET FOR THIS ELEMENTS.
+          !
           vmat(:,:) = Compute_Basis_Matrix( &
                           this_geom,elem_order, &
                           nodal_points=face_elem(this_geom,elem_order)%pts)
@@ -322,6 +326,10 @@ continue
           allocate ( bmat(1:nfqp,1:nfp) , source=zero , &
                      stat=ierr , errmsg=error_message )
           call alloc_error(pname,"bmat",1,__LINE__,__FILE__,ierr,error_message)
+          !
+          ! NOTE: USE OF COMPUTE_BASIS_MATRIX WITH OPTIONAL ARGUMENT
+          !       NODAL_POINTS CAN BE PROBLEMATIC FOR QUADS AND HEXES. THIS
+          !       FUNCTION IS EXPECTING A 1D NODAL SET FOR THIS ELEMENTS.
           !
           bmat(:,:) = Compute_Basis_Matrix( &
                           this_geom,fq_order,basis_order=elem_order, &
