@@ -718,6 +718,7 @@ function get_edge_quadrature(n,location) result(return_value)
   use order_mod,      only : geom_solpts
   use polynomial_mod, only : legendre_gauss_quadrature
   use polynomial_mod, only : legendre_gauss_lobatto_quadrature
+  use polynomial_mod, only : equal_distant_quadrature
   !
   integer, intent(in) :: n
   integer, intent(in) :: location
@@ -753,6 +754,13 @@ continue
       ! Edge quadrature using Legendre Gauss Lobatto nodes
       !
       call legendre_gauss_lobatto_quadrature(pts,wts)
+#ifdef DISABLE_PURE
+      call check_for_bad_number(__LINE__,__FILE__)
+#endif
+      !
+    case (Equi_Distant_Points)
+      !
+      call equal_distant_quadrature(pts,wts)
 #ifdef DISABLE_PURE
       call check_for_bad_number(__LINE__,__FILE__)
 #endif
