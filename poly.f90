@@ -121,12 +121,15 @@ continue
   npts = size(xi)
   !
   call nodes_legendre_gauss(npts,pts,val)
-  call weights_legendre_gauss(npts,pts,val,wts)
   !
   xi = real( chop(pts) , kind=lp )
   !
   if (present(weights)) then
+    !
+    call weights_legendre_gauss(npts,pts,val,wts)
+    !
     weights = real( chop(wts) , kind=lp )
+    !
   end if
   !
 end subroutine legendre_gauss_quadrature
@@ -157,12 +160,15 @@ continue
   npts = size(xi)
   !
   call nodes_legendre_gauss_lobatto(npts-1,pts,val)
-  call weights_legendre_gauss_lobatto(npts-1,val,wts)
   !
   xi = real( chop(pts) , kind=lp )
   !
   if (present(weights)) then
+    !
+    call weights_legendre_gauss_lobatto(npts-1,val,wts)
+    !
     weights = real( chop(wts) , kind=lp )
+    !
   end if
   !
 end subroutine legendre_gauss_lobatto_quadrature
@@ -196,26 +202,28 @@ continue
   !
   pts(:) = real(intseq(-p,p,2),kind=lp) / real(max(p,1),kind=lp)
   !
-  call legendre_gauss_quadrature(ga_pts,ga_wts)
-  !
-  ! Each quadrature weight is equal to the integral of the Lagrange
-  ! polynomial for the respective quadrature point.
-  !
-  ! Integrate the Lagrange polynomials for the equal distant points
-  ! using a Gauss quadrature of order p+1. Each Lagrange polynomial is
-  ! of order p, and integration using Gauss quadrature is exact to 2p+1,
-  ! so p+1 Gauss quadrature is exact to 2p+3. Using p+1 is just being
-  ! extra. For 1D, this extra-ness isnt computationally expensive.
-  !
-  wts(:) = zero
-  do k = 1,size(ga_pts)
-    wts(:) = wts(:) + ga_wts(k)*eval_all_LagrangePoly1D(ga_pts(k),pts)
-  end do
-  !
   xi = real( chop(pts) , kind=lp )
   !
   if (present(weights)) then
+    !
+    call legendre_gauss_quadrature(ga_pts,ga_wts)
+    !
+    ! Each quadrature weight is equal to the integral of the Lagrange
+    ! polynomial for the respective quadrature point.
+    !
+    ! Integrate the Lagrange polynomials for the equal distant points
+    ! using a Gauss quadrature of order p+1. Each Lagrange polynomial is
+    ! of order p, and integration using Gauss quadrature is exact to 2p+1,
+    ! so p+1 Gauss quadrature is exact to 2p+3. Using p+1 is just being
+    ! extra. For 1D, this extra-ness isnt computationally expensive.
+    !
+    wts(:) = zero
+    do k = 1,size(ga_pts)
+      wts(:) = wts(:) + ga_wts(k)*eval_all_LagrangePoly1D(ga_pts(k),pts)
+    end do
+    !
     weights = real( chop(wts) , kind=lp )
+    !
   end if
   !
 end subroutine equal_distant_quadrature
