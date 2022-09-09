@@ -1934,7 +1934,7 @@ subroutine init_outerpolation_matrices()
   use element_type_mod, only : element_t
   use element_type_mod, only : std_elem
   use quadrature_mod,   only : geom_is_used
-  use quadrature_mod,   only : get_generic_quadrature
+  use quadrature_mod,   only : get_general_quadrature
   use quadrature_mod,   only : get_general_quadrature_pts
   use vandermonde_mod,  only : General_Basis_Matrix
   use vandermonde_mod,  only : Vandermonde_Inverse
@@ -2169,7 +2169,7 @@ continue
         !
         ! Get the quadrature points and weights for the error points
         !
-        error_elem = get_generic_quadrature(this_geom,error_order,loc_error_pts)
+        error_elem = get_general_quadrature(this_geom,error_order,loc_error_pts)
         !
         pts = error_elem%pts(:,:) ! F2003 AUTO-REALLOC
         !

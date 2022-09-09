@@ -15,7 +15,7 @@ module quadrature_mod
   public :: find_valid_geometries
   public :: init_geom_quadrature_rules
   public :: init_face_quadrature_rules
-  public :: get_generic_quadrature
+  public :: get_general_quadrature
   public :: get_general_quadrature_pts
   public :: get_edge_quadrature
   public :: get_tria_quadrature
@@ -510,7 +510,7 @@ end subroutine init_face_quadrature_rules
 #ifndef DISABLE_PURE
 pure &
 #endif
-function get_generic_quadrature(this_geom,p,loc_pts,loc_tri_pts) &
+function get_general_quadrature(this_geom,p,loc_pts,loc_tri_pts) &
                          result(return_value)
   !
   !.. Formal Arguments ..
@@ -571,7 +571,7 @@ continue
       !
   end select
   !
-end function get_generic_quadrature
+end function get_general_quadrature
 !
 !###############################################################################
 !
