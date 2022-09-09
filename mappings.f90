@@ -1006,7 +1006,7 @@ end subroutine create_mapping_array
 pure &
 #endif
 function equidistant_map_edge_to_solpts(op,np,xi,mesh_order) &
-                          result(return_value)
+                                 result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -1022,7 +1022,7 @@ function equidistant_map_edge_to_solpts(op,np,xi,mesh_order) &
   real(wp) :: return_value(1:op,1:np)
   !
   !.. Local Scalars ..
-  integer  :: i,mi,ni,xpts,epts
+  integer :: i,mi,ni,xpts,epts
   !
   !.. Local Arrays ..
   real(mp) :: xi_qp(1:size(xi))
@@ -1301,7 +1301,7 @@ end function eval_tetrahedra_lagrange
 pure &
 #endif
 function equidistant_map_quad_to_solpts(op,np,xi,mesh_order,family) &
-                          result(return_value)
+                                 result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -1608,7 +1608,7 @@ end function equidistant_map_pris_to_solpts
 pure &
 #endif
 function equidistant_map_hexa_to_solpts(op,np,xi,mesh_order,family) &
-                          result(return_value)
+                                 result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -1773,8 +1773,7 @@ end function equidistant_map_hexa_to_solpts
 #ifndef DISABLE_PURE
 pure &
 #endif
-function parametric_map_edge_to_solpts(np,xi,elem_xyz) &
-                          result(return_value)
+function parametric_map_edge_to_solpts(np,xi,elem_xyz) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -1843,7 +1842,7 @@ end function parametric_map_edge_to_solpts
 pure &
 #endif
 function parametric_map_quad_to_solpts(np,xi,elem_xyz,mesh_order) &
-                          result(return_value)
+                                result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly2D
@@ -1966,7 +1965,7 @@ pure &
 #endif
 #endif
 function parametric_map_hexa_to_solpts(np,xi,elem_xyz,mesh_order) &
-                          result(return_value)
+                                result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly1D
