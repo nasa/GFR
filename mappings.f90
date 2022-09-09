@@ -416,24 +416,22 @@ subroutine assume_equidistant_mapping()
   use geovar,           only : cell_geom,cell_order
   !
   use order_mod,        only : geom_solpts
-  use order_mod,        only : n_min_geom,n_max_geom
-  use order_mod,        only : n_min_order,n_max_order
   !
   use ovar,             only : rhoref,aref
   use ovar,             only : interpto_input_mode
   !
   use flowvar,          only : usp
   !
-  use element_type_mod, only : std_elem
-  !
   !.. Local Scalars ..
-  integer :: l,n,n0,n1,n2,np,op,p1,p2,ierr,io,io1,io2
+  integer :: n,n0,n1,n2,np,p1,p2,ierr
   integer :: this_cell,mesh_order
   integer :: this_geom,this_order
   logical(lk) :: use_nodes_of_cell
   logical(lk) :: check_grid_for_pts
   logical(lk) :: grid_sol_is_available
   real(wp) :: rhoref_inv,rhoa_inv,rhoa2_inv
+  !
+  integer :: l,io,io1,io2
   !
   type(geom_family_t) :: elem_family
   !
@@ -446,9 +444,7 @@ subroutine assume_equidistant_mapping()
   real(wp), allocatable :: elem_xyz(:,:)
   real(wp), allocatable :: elem_sol(:,:)
   real(wp), allocatable :: elem_usp(:,:)
-  real(wp), allocatable :: edge_pts(:)
-  real(wp), allocatable :: tria_pts(:,:)
-  real(wp), allocatable :: tetr_pts(:,:)
+  real(wp), allocatable :: old_map_mat(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "assume_equidistant_mapping"
@@ -498,9 +494,7 @@ continue
   !
   ! Now calculate the coordinates of the solution points within each cell
   !
-  allocate ( xyz(1:nr,1:n_solpts) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"xyz",1,__LINE__,__FILE__,ierr,error_message)
+  xyz = init_array(nr,n_solpts,zero) ! F2003 AUTO-REALLOC
   !$ACC UPDATE DEVICE(xyz)
   !
   ! Determine whether grid%sol is available
@@ -509,9 +503,7 @@ continue
   if (allocated(grid)) then
     if (allocated(grid%sol)) then
       grid_sol_is_available = true
-      allocate ( usp(1:n_solpts,1:nq) , source=zero , &
-                 stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"usp",1,__LINE__,__FILE__,ierr,error_message)
+      usp = init_array(n_solpts,nq,zero) ! F2003 AUTO-REALLOC
       !$ACC UPDATE DEVICE(usp)
     end if
   end if
@@ -613,114 +605,16 @@ continue
     !
     if (.not.allocated(this_map%mat)) then
       !
-      op = size(elem_xyz,dim=2)
+      ! F2003 AUTO-REALLOC
+      this_map%mat = map_general_mesh_elem_to_solpts(this_geom, &
+                                                     this_order, &
+                                                     mesh_order)
       !
-      ! Allocate the mat component of this_map
-      !
-      allocate ( this_map%mat(1:op,1:np) , source=zero , &
-                 stat=ierr , errmsg=error_message )
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
-      edge_pts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
-      if (nr > 1) then
-        if (allocated(std_elem(Geom_Tria,this_order)%pts)) then
-          tria_pts = std_elem(Geom_Tria,this_order)%pts  ! F2003 AUTO-REALLOC
-        end if
-      end if
-      !
- !  block
- !    integer :: i,j
- !    write (iout,*)
- !    write (iout,'(" elem_xyz(",i0,")")') this_cell
- !    do j = 1,size(elem_xyz,dim=2)
- !      write (iout,*) (elem_xyz(i,j),i=1,size(elem_xyz,dim=1))
- !    end do
- !    if (this_cell == 1) then
- !      write (iout,*)
- !      write (iout,*) "edge_pts"
- !      do j = 1,size(edge_pts,dim=1)
- !        write (iout,*) edge_pts(j)
- !      end do
- !      write (iout,*)
- !      write (iout,*) "tria_pts"
- !      do j = 1,size(tria_pts,dim=2)
- !        write (iout,*) (tria_pts(i,j),i=1,size(tria_pts,dim=1))
- !      end do
- !    end if
- !  end block
-      !
-      select case (this_geom)
-        !
-        case (Geom_Edge)
-          !
-          this_map%mat = map_edge_to_solpts( op , np , edge_pts , mesh_order )
-          !
-        case (Geom_Tria)
-          !
-          this_map%mat = map_tria_to_solpts( tria_pts , mesh_order )
-          !
-        case (Geom_Quad)
-          !
-          this_map%mat = map_quad_to_solpts( op , np , edge_pts , &
-                                             mesh_order , elem_family )
-          !
-        case (Geom_Tetr)
-          !
-          tetr_pts = std_elem(Geom_Tetr,this_order)%pts ! F2003 AUTO-REALLOC
-          !
-          this_map%mat = map_tetr_to_solpts( tetr_pts , mesh_order )
-          !
-        case (Geom_Pyra)
-          !
-          this_map%mat = map_pyra_to_solpts( edge_pts , tria_pts , mesh_order )
-          !
-        case (Geom_Pris)
-          !
-          this_map%mat = map_pris_to_solpts( edge_pts , tria_pts , mesh_order )
-          !
-        case (Geom_Hexa)
-          !
-          this_map%mat = map_hexa_to_solpts( op , np , edge_pts , &
-                                             mesh_order , elem_family )
-          !
-        case default
-          !
-          write (iout,2) this_cell,cell_geom(this_cell)
-          call stop_gfr(abort,pname,__LINE__,__FILE__)
-          !
-      end select
+      ! F2003 AUTO-REALLOC
+      old_map_mat = old_mappings(this_geom,this_order,mesh_order, &
+                                 size(elem_xyz,dim=2),np,elem_family,this_cell)
       !
     end if
- !  block
- !    integer :: i,j
- !    if (this_cell == 1) then
- !      write (iout,*)
- !      write (iout,'(" tria_map(i,j) =")')
- !      do i = size(this_map%mat,dim=1),1,-1
- !        write (iout,300) (this_map%mat(i,j),j=1,size(this_map%mat,dim=2))
- !      end do
- !      write (iout,*)
- !      300 format (100(f10.4))
- !    end if
- !    !
- !    write (iout,*)
- !    do j = 1,size(elem_xyz,dim=2)
- !      write (iout,*) (elem_xyz(i,j),i=1,size(elem_xyz,dim=1))
- !    end do
- !    if (this_cell == 1) then
- !      write (iout,*)
- !      write (iout,*) "edge_pts"
- !      do j = 1,size(edge_pts,dim=1)
- !        write (iout,*) edge_pts(j)
- !      end do
- !      write (iout,*)
- !      write (iout,*) "tria_pts"
- !      do j = 1,size(tria_pts,dim=2)
- !        write (iout,*) (tria_pts(i,j),i=1,size(tria_pts,dim=1))
- !      end do
- !    end if
- !  end block
-      !
     !
     ! Now use the mapping matrix to map the coordinates of the points for the
     ! element provided by the grid file to the coordinates of the solution
@@ -842,11 +736,6 @@ continue
   ! Format Statements
   !
   1 format ("this_map => mapping(",a,",",i0,")%",a,"(",i0,")%mat")
-  2 format (" ERROR: Invalid cell geometry!",/, &
-            "        Cell = ",i0,/, &
-            "        Geom = ",i0,/)
-  3 format ("ERROR: ",a," cells are currently not supported!")
-  4 format (" std_elem(",a,",",i0,")%",a,1x,a," contiguous")
   !
 end subroutine assume_equidistant_mapping
 !
@@ -1068,6 +957,106 @@ continue
   return_value = chop( real(mmat,kind=qp) ) ! F2003 AUTO-REALLOC
   !
 end function map_general_mesh_elem_to_solpts
+!
+!###############################################################################
+!
+function old_mappings(this_geom,this_order,mesh_order,op,np,family,nc) &
+               result(return_value)
+  !
+  !.. Use Statements ..
+  use element_type_mod, only : std_elem
+  !
+  !.. Formal Arguments ..
+  integer,             intent(in) :: this_geom
+  integer,             intent(in) :: this_order
+  integer,             intent(in) :: mesh_order
+  integer,             intent(in) :: op
+  integer,             intent(in) :: np
+  type(geom_family_t), intent(in) :: family
+  integer,             intent(in) :: nc
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: edge_pts(:)
+  real(wp), allocatable :: tria_pts(:,:)
+  real(wp), allocatable :: tetr_pts(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "old_mappings"
+  !
+continue
+  !
+  select case (this_geom)
+    !
+    case (Geom_Edge)
+      !
+      edge_pts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+      !
+      ! F2003 AUTO-REALLOC
+      return_value = map_edge_to_solpts( op , np , edge_pts , mesh_order )
+      !
+    case (Geom_Tria)
+      !
+      tria_pts = std_elem(Geom_Tria,this_order)%pts  ! F2003 AUTO-REALLOC
+      !
+      ! F2003 AUTO-REALLOC
+      return_value = map_tria_to_solpts( tria_pts , mesh_order )
+      !
+    case (Geom_Quad)
+      !
+      edge_pts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+      !
+      ! F2003 AUTO-REALLOC
+      return_value = map_quad_to_solpts( op , np , edge_pts , &
+                                         mesh_order , family )
+      !
+    case (Geom_Tetr)
+      !
+      tetr_pts = std_elem(Geom_Tetr,this_order)%pts ! F2003 AUTO-REALLOC
+      !
+      ! F2003 AUTO-REALLOC
+      return_value = map_tetr_to_solpts( tetr_pts , mesh_order )
+      !
+    case (Geom_Pyra)
+      !
+      edge_pts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+      tria_pts = std_elem(Geom_Tria,this_order)%pts      ! F2003 AUTO-REALLOC
+      !
+      ! F2003 AUTO-REALLOC
+      return_value = map_pyra_to_solpts( edge_pts , tria_pts , mesh_order )
+      !
+    case (Geom_Pris)
+      !
+      edge_pts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+      tria_pts = std_elem(Geom_Tria,this_order)%pts      ! F2003 AUTO-REALLOC
+      !
+      ! F2003 AUTO-REALLOC
+      return_value = map_pris_to_solpts( edge_pts , tria_pts , mesh_order )
+      !
+    case (Geom_Hexa)
+      !
+      edge_pts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+      !
+      ! F2003 AUTO-REALLOC
+      return_value = map_hexa_to_solpts( op , np , edge_pts , &
+                                         mesh_order , family )
+      !
+    case default
+      !
+      write (iout,1) nc,this_geom
+      call stop_gfr(abort,pname,__LINE__,__FILE__)
+      !
+  end select
+  !
+  ! Format Statements
+  !
+  1 format (" ERROR: Invalid cell geometry!",/, &
+            "        Cell = ",i0,/, &
+            "        Geom = ",i0,/)
+  !
+end function old_mappings
 !
 !###############################################################################
 !
