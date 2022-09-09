@@ -9,7 +9,7 @@ module tetrahedra_mod
   use module_kind_types, only : AlphaOptimized_Points
   use module_kind_types, only : Barycentric_Points
   use module_kind_types, only : Equi_Distant_Points
-  use module_kind_types, only : intseq
+  use module_kind_types, only : init_array
 #ifdef SPECIAL_FOR_INTEL
   use module_kind_types, only : invert_matrix_lapack95
 #else
@@ -114,6 +114,9 @@ pure &
 #endif
 function TetNodes3D_EqualDistant(p) result(return_value)
   !
+  !.. Use Statements ..
+  use polynomial_mod, only : equal_distant_quadrature
+  !
   !.. Formal Arguments ..
   integer, intent(in) :: p
   !
@@ -137,8 +140,8 @@ continue
   !
   ! Create the 1D equal distant points
   !
-  ! F2003 AUTO-REALLOC
-  eq_pts = real(intseq(-p,p,2),kind=lp) / real(max(p,1),kind=lp)
+  eq_pts = init_array(p+1,zero) ! F2003 AUTO-REALLOC
+  call equal_distant_quadrature(eq_pts)
   !
   ! Create the equidistant nodes in the reference tetrahedron
   !
