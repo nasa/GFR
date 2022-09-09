@@ -406,6 +406,8 @@ $(OBJDIR)/mappings.o : mappings.f90 \
              $(OBJDIR)/element_type_mod.o \
              $(OBJDIR)/matrix_types_mod.o \
              $(OBJDIR)/poly.o \
+             $(OBJDIR)/quadrature_mod.o \
+             $(OBJDIR)/vandermonde_mod.o \
              $(FUNDIR)/solpts2order.f90
 
 $(OBJDIR)/metis.o : metis.f90
