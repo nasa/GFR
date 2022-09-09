@@ -668,7 +668,6 @@ function get_generic_quadrature_wts(this_geom,this_order,pts) &
                              result(return_value)
   !
   !.. Use Statements ..
- !use vandermonde_mod, only : Compute_Basis_Matrix
   use vandermonde_mod, only : General_Basis_Matrix
   use vandermonde_mod, only : Vandermonde_Inverse
   !
@@ -689,7 +688,6 @@ continue
   !
   ! Compute the Vandermonde matrix for the solution points
   !
- !vmat = Compute_Basis_Matrix(this_geom,this_order,pts) ! F2003 AUTO-REALLOC
   vmat = General_Basis_Matrix(this_geom,this_order,pts) ! F2003 AUTO-REALLOC
   !
   ! Compute the inverse of the Vandermonde matrix
