@@ -132,7 +132,7 @@ function get_pyramid_weights_at_solpts(rst,nquadrature) result(return_value)
   !#############################################################################
   !
   ! NOTE: THIS FUNCTION IS KNOWN TO COMPUTE INCORRECT QUADRATURE WEIGHTS!!!
-  !       USE FUNCTION get_generic_quadrature_weights FROM THE MODULE
+  !       USE FUNCTION get_general_quadrature_wts FROM THE MODULE
   !       quadrature_mod INSTEAD!!! 
   !
   !#############################################################################

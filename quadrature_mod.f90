@@ -664,7 +664,7 @@ end function get_general_quadrature_pts
 #ifndef DISABLE_PURE
 pure &
 #endif
-function get_generic_quadrature_wts(this_geom,pts) result(return_value)
+function get_general_quadrature_wts(this_geom,pts) result(return_value)
   !
   !.. Use Statements ..
   use vandermonde_mod, only : General_Basis_Matrix
@@ -711,7 +711,7 @@ continue
   !
   return_value = sum( mmatI , dim=1 ) ! F2003 AUTO-REALLOC
   !
-end function get_generic_quadrature_wts
+end function get_general_quadrature_wts
 !
 !###############################################################################
 !
@@ -784,10 +784,10 @@ continue
   return_value%pts = reshape( chop(pts) , [ndim,npts] ) ! F2003 AUTO-REALLOC
   return_value%wts = chop(wts) ! F2003 AUTO-REALLOC
   !
-  ! NOTE: The following call to get_generic_quadrature_wts
+  ! NOTE: The following call to get_general_quadrature_wts
   !       will give the same set of quadrature weights
   ! F2003 AUTO-REALLOC
- !return_value%wts = get_generic_quadrature_wts(Geom_Edge,return_value%pts)
+ !return_value%wts = get_general_quadrature_wts(Geom_Edge,return_value%pts)
   !
 end function get_edge_quadrature
 !
@@ -824,7 +824,7 @@ continue
   ! Compute the quadrature weights using the inverse mass matrix
   !
   ! F2003 AUTO-REALLOC
-  return_value%wts = get_generic_quadrature_wts(Geom_Tria,return_value%pts)
+  return_value%wts = get_general_quadrature_wts(Geom_Tria,return_value%pts)
   !
 end function get_tria_quadrature
 !
@@ -886,10 +886,10 @@ continue
   !
   return_value%wts = chop( wts ) ! F2003 AUTO-REALLOC
   !
-  ! NOTE: The following call to get_generic_quadrature_wts
+  ! NOTE: The following call to get_general_quadrature_wts
   !       will give the same set of quadrature weights
   ! F2003 AUTO-REALLOC
- !return_value%wts = get_generic_quadrature_wts(Geom_Quad,return_value%pts)
+ !return_value%wts = get_general_quadrature_wts(Geom_Quad,return_value%pts)
   !
 end function get_quad_quadrature
 !
@@ -928,7 +928,7 @@ continue
   ! Compute the quadrature weights using the inverse mass matrix
   !
   ! F2003 AUTO-REALLOC
-  return_value%wts = get_generic_quadrature_wts(Geom_Tetr,return_value%pts)
+  return_value%wts = get_general_quadrature_wts(Geom_Tetr,return_value%pts)
   !
 end function get_tetr_quadrature
 !
@@ -973,7 +973,7 @@ continue
   ! Compute the quadrature weights using the inverse mass matrix
   !
   ! F2003 AUTO-REALLOC
-  return_value%wts = get_generic_quadrature_wts(Geom_Pyra,return_value%pts)
+  return_value%wts = get_general_quadrature_wts(Geom_Pyra,return_value%pts)
   !
 end function get_pyra_quadrature
 !
@@ -1012,7 +1012,7 @@ continue
   ! Compute the quadrature weights using the inverse mass matrix
   !
   ! F2003 AUTO-REALLOC
-  return_value%wts = get_generic_quadrature_wts(Geom_Pris,return_value%pts)
+  return_value%wts = get_general_quadrature_wts(Geom_Pris,return_value%pts)
   !
 end function get_pris_quadrature
 !
@@ -1080,10 +1080,10 @@ continue
   !
   return_value%wts = chop( wts ) ! F2003 AUTO-REALLOC
   !
-  ! NOTE: The following call to get_generic_quadrature_wts
+  ! NOTE: The following call to get_general_quadrature_wts
   !       will give the same set of quadrature weights
   ! F2003 AUTO-REALLOC
- !return_value%wts = get_generic_quadrature_wts(Geom_Hexa,return_value%pts)
+ !return_value%wts = get_general_quadrature_wts(Geom_Hexa,return_value%pts)
   !
 end function get_hexa_quadrature
 !
