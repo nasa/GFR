@@ -6,7 +6,6 @@ module pyramid_mod
   use module_kind_types, only : MP,LK,true,fals
   use module_kind_types, only : Legendre_Gauss_Lobatto
   use module_kind_types, only : Equi_Distant_Points
-  use module_kind_types, only : intseq
 #ifdef SPECIAL_FOR_INTEL
   use module_kind_types, only : invert_matrix_lapack95
 #else
@@ -49,6 +48,7 @@ function PyrNodes3D(p,location) result(return_value)
   !.. Use Statements ..
   use polynomial_mod, only : nodes_legendre_gauss
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
+  use polynomial_mod, only : equal_distant_quadrature
   !
   !.. Formal Arguments ..
   integer, intent(in) :: p
@@ -78,7 +78,7 @@ continue
   if (location == Legendre_Gauss_Lobatto) then
     call nodes_legendre_gauss_lobatto(p,zeta)
   else if (location == Equi_Distant_Points) then
-    zeta(:) = real(intseq(-p,p,2),kind=lp) / real(max(p,1),kind=lp)
+    call equal_distant_quadrature(zeta)
   else
     call nodes_legendre_gauss(p+1,zeta)
   end if
@@ -91,8 +91,7 @@ continue
     if (location == Legendre_Gauss_Lobatto) then
       call nodes_legendre_gauss_lobatto(p-k+1,xi)
     else if (location == Equi_Distant_Points) then
-      l = p-k+2
-      xi(:) = real(intseq(-l,l,2),kind=lp) / real(max(l,1),kind=lp)
+      call equal_distant_quadrature(xi)
     else
       call nodes_legendre_gauss(p-k+2,xi)
     end if
