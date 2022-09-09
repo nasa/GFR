@@ -1931,12 +1931,12 @@ subroutine init_outerpolation_matrices()
   use order_mod,        only : n_order,o_order,e_order
   use order_mod,        only : n_min_geom,n_max_geom
   use order_mod,        only : n_min_order,n_max_order
-  use quadrature_mod,   only : geom_is_used
   use element_type_mod, only : element_t
   use element_type_mod, only : std_elem
+  use quadrature_mod,   only : geom_is_used
   use quadrature_mod,   only : get_generic_quadrature
   use quadrature_mod,   only : get_generic_quadrature_pts
-  use vandermonde_mod,  only : Compute_Basis_Matrix
+  use vandermonde_mod,  only : General_Basis_Matrix
   use vandermonde_mod,  only : Vandermonde_Inverse
   use vandermonde_mod,  only : vand
   !
@@ -2056,8 +2056,7 @@ continue
         ! We need to create a Vandermonde matrix for the initialization points
         !
         ! F2003 AUTO-REALLOC
-        bmat_m2n = Compute_Basis_Matrix(this_geom,this_order, &
-                                        nodal_points=pts)
+        bmat_m2n = General_Basis_Matrix(this_geom,this_order,pts)
         !
         bmat_n2m = Vandermonde_Inverse( bmat_m2n ) ! F2003 AUTO-REALLOC
         !
