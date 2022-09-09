@@ -16,7 +16,7 @@ module quadrature_mod
   public :: init_geom_quadrature_rules
   public :: init_face_quadrature_rules
   public :: get_generic_quadrature
-  public :: get_generic_quadrature_pts
+  public :: get_general_quadrature_pts
   public :: get_edge_quadrature
   public :: get_tria_quadrature
   public :: get_quad_quadrature
@@ -578,7 +578,7 @@ end function get_generic_quadrature
 #ifndef DISABLE_PURE
 pure &
 #endif
-function get_generic_quadrature_pts(this_geom,p,loc_pts,loc_tri_pts) &
+function get_general_quadrature_pts(this_geom,p,loc_pts,loc_tri_pts) &
                              result(return_value)
   !
   !.. Use Statements ..
@@ -657,7 +657,7 @@ continue
   !
   return_value = elem%pts(:,:) ! F2003 AUTO-REALLOC
   !
-end function get_generic_quadrature_pts
+end function get_general_quadrature_pts
 !
 !###############################################################################
 !

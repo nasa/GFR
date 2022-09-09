@@ -1935,7 +1935,7 @@ subroutine init_outerpolation_matrices()
   use element_type_mod, only : std_elem
   use quadrature_mod,   only : geom_is_used
   use quadrature_mod,   only : get_generic_quadrature
-  use quadrature_mod,   only : get_generic_quadrature_pts
+  use quadrature_mod,   only : get_general_quadrature_pts
   use vandermonde_mod,  only : General_Basis_Matrix
   use vandermonde_mod,  only : Vandermonde_Inverse
   use vandermonde_mod,  only : vand
@@ -2051,7 +2051,7 @@ continue
         ! Get the reference coordinates for the initialization points
         !
         ! F2003 AUTO-REALLOC
-        pts = get_generic_quadrature_pts(this_geom,this_order,loc_init_pts)
+        pts = get_general_quadrature_pts(this_geom,this_order,loc_init_pts)
         !
         ! We need to create a Vandermonde matrix for the initialization points
         !
@@ -2124,7 +2124,7 @@ continue
         ! Get the reference coordinates for the output points
         !
         ! F2003 AUTO-REALLOC
-        pts = get_generic_quadrature_pts(this_geom,output_order,loc_output_pts)
+        pts = get_general_quadrature_pts(this_geom,output_order,loc_output_pts)
         !
         ! Create the interpolation matrix from the solution points to the
         ! output points

@@ -1010,7 +1010,7 @@ function map_general_mesh_elem_to_solpts(this_geom,this_order,mesh_order) &
   !
   !.. Use Statements ..
   use element_type_mod, only : std_elem
-  use quadrature_mod,   only : get_generic_quadrature_pts
+  use quadrature_mod,   only : get_general_quadrature_pts
   use vandermonde_mod,  only : General_Basis_Matrix
   use vandermonde_mod,  only : Vandermonde_Inverse
   !
@@ -1036,7 +1036,7 @@ continue
   ! for the grid/mesh element of order mesh_order
   !
   ! F2003 AUTO-REALLOC
-  grdpts = get_generic_quadrature_pts(this_geom,mesh_order,Equi_Distant_Points)
+  grdpts = get_general_quadrature_pts(this_geom,mesh_order,Equi_Distant_Points)
   !
   ! First create a modal-to-nodal Vandermonde matrix
   ! for the equal distant mesh points
