@@ -556,7 +556,6 @@ function face_interpolation_matrix(face_geom,from_order,from_loc, &
   use quadrature_mod,   only : get_edge_quadrature
   use quadrature_mod,   only : get_tria_quadrature
   use quadrature_mod,   only : get_quad_quadrature
-  use vandermonde_mod,  only : Compute_Basis_Matrix
   use vandermonde_mod,  only : vandermonde_inverse
   use vandermonde_mod,  only : General_Basis_Matrix
   !
@@ -612,7 +611,7 @@ continue
   end select
   !
   ! F2003 AUTO-REALLOC
-  vand = Compute_Basis_Matrix(face_geom,from_order,nodal_points=from_qdtr%pts)
+  vand = General_Basis_Matrix(face_geom,from_order,nodal_points=from_qdtr%pts)
   vinv = Vandermonde_Inverse(vand) ! F2003 AUTO-REALLOC
   !
   ! F2003 AUTO-REALLOC
