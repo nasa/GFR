@@ -575,6 +575,7 @@ $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(OBJDIR)/tetrahedra.o \
                    $(OBJDIR)/pyramid.o \
                    $(OBJDIR)/prism.o \
+                   $(FUNDIR)/solpts2order.f90 \
                    $(FUNDIR)/check_for_bad_number.f90 \
                    $(FUNDIR)/debug_timer.f90
 
