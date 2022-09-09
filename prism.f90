@@ -6,7 +6,6 @@ module prism_mod
   use module_kind_types, only : MP
   use module_kind_types, only : Legendre_Gauss_Lobatto
   use module_kind_types, only : Equi_Distant_Points
-  use module_kind_types, only : intseq
 #ifdef SPECIAL_FOR_INTEL
   use module_kind_types, only : invert_matrix_lapack95
 #else
@@ -57,6 +56,7 @@ function PriNodes3D(p,tria_loc,edge_loc,tria_edge_loc) result(return_value)
   !.. Use Statements ..
   use polynomial_mod, only : nodes_legendre_gauss
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
+  use polynomial_mod, only : equal_distant_quadrature
   use triangle_mod,   only : TriNodes2D
   !
   !.. Formal Arguments ..
@@ -89,7 +89,7 @@ continue
   if (edge_loc == Legendre_Gauss_Lobatto) then
     call nodes_legendre_gauss_lobatto(p,xi)
   else if (edge_loc == Equi_Distant_Points) then
-    xi(:) = real(intseq(-p,p,2),kind=lp) / real(max(p,1),kind=lp)
+    call equal_distant_quadrature(xi)
   else
     call nodes_legendre_gauss(p+1,xi)
   end if
