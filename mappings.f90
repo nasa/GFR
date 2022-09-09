@@ -1010,6 +1010,7 @@ function equidistant_map_edge_to_solpts(op,np,xi,mesh_order) &
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
+  use polynomial_mod, only : equal_distant_quadrature
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: op
@@ -1035,8 +1036,7 @@ continue
   !
   return_value(:,:) = zero
   !
-  eq_pts(:) = real(intseq(-mesh_order,mesh_order,2),kind=qp) / &
-              real(max(mesh_order,1),kind=qp)
+  call equal_distant_quadrature(eq_pts)
   !
   xi_qp(:) = real(xi(:),kind=qp)
   !
@@ -1306,6 +1306,7 @@ function equidistant_map_quad_to_solpts(op,np,xi,mesh_order,family) &
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
   use polynomial_mod, only : eval_LagrangePoly2D
+  use polynomial_mod, only : equal_distant_quadrature
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: op
@@ -1337,8 +1338,7 @@ continue
   !
   return_value(:,:) = zero
   !
-  eq_pts(:) = real(intseq(-mesh_order,mesh_order,2),kind=qp) / &
-              real(max(mesh_order,1),kind=qp)
+  call equal_distant_quadrature(eq_pts)
   !
   xi_qp(:) = real(xi(:),kind=qp)
   !
@@ -1613,6 +1613,7 @@ function equidistant_map_hexa_to_solpts(op,np,xi,mesh_order,family) &
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
   use polynomial_mod, only : eval_LagrangePoly3D
+  use polynomial_mod, only : equal_distant_quadrature
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: op
@@ -1644,8 +1645,7 @@ continue
   !
   return_value(:,:) = zero
   !
-  eq_pts(:) = real(intseq(-mesh_order,mesh_order,2),kind=qp) / &
-              real(max(mesh_order,1),kind=qp)
+  call equal_distant_quadrature(eq_pts)
   !
   xi_qp(:) = real(xi(:),kind=qp)
   !
