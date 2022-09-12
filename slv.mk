@@ -34,7 +34,7 @@ ifdef SZIPDIR
 endif
 
 ifdef MKLFPP
-  MKLFLAG := -mkl=sequential
+  MKLFLAG := -qmkl=sequential
   MKLINC  := -I$(MKLROOT)/include/intel64/lp64 -I$(MKLROOT)/include
   MKLLIB  := -lmkl_blas95_lp64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential
 endif
