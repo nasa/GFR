@@ -68,7 +68,7 @@ module matrix_types_mod
     !
     procedure :: check_for_sparsity
     procedure :: output_sparsity => output_sparsity_dt_procedure
-    procedure :: memory_usage
+    procedure :: memory_usage_old_t
     procedure :: mm_mult       => mat_mat_mult_intrinsic
     procedure :: mm_rev_mult   => mat_mat_rev_mult_intrinsic
     procedure :: mmrt_mult     => mm_mult_intsc_rtrn_transpose
