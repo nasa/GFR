@@ -1146,7 +1146,9 @@ end subroutine write_solution_parallel_cgns
 !
 !###############################################################################
 !
+!#ifndef DISABLE_PURE
 !pure &
+!#endif
 subroutine get_num_cgns_variables(char_sname,npvar)
   !
   !.. Use Statements ..
@@ -3759,7 +3761,10 @@ end subroutine add_sol_variables
 !
 !###############################################################################
 !
-!pure function compute_output_variables(upt,gppt,dupt) result(return_value)
+!#ifndef DISABLE_PURE
+!pure &
+!#endif
+!function compute_output_variables(upt,gppt,dupt) result(return_value)
 !  !
 !  !.. Formal Arguments ..
 !  real(wp), intent(in) :: upt(:)
@@ -3782,7 +3787,10 @@ end subroutine add_sol_variables
 !
 !###############################################################################
 !
-!pure function compute_output_variable(upt,gppt,dupt,plot_variable) &
+!#ifndef DISABLE_PURE
+!pure &
+!#endif
+!function compute_output_variable(upt,gppt,dupt,plot_variable) &
 !                               result(return_value)
 !  !
 !  !.. Use Statements ..
@@ -6215,7 +6223,10 @@ end subroutine create_cell_subconnectivity
 !
 !###############################################################################
 !
-pure function transpose_face(face_pts) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function transpose_face(face_pts) result(return_value)
   integer, dimension(:), intent(in) :: face_pts
   integer, dimension(1:size(face_pts)) :: return_value
   integer :: np1d
@@ -6243,7 +6254,9 @@ end function plot_func_type_equals
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 function compute_output_variables(upt,gppt,dupt) result(return_value)
   !
   !.. Formal Arguments ..
@@ -6267,7 +6280,9 @@ end function compute_output_variables
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 function compute_output_variable(upt,gppt,dupt,plot_variable) &
                                  result(return_value)
   !
@@ -6752,7 +6767,10 @@ end subroutine map_to_output_points
 !
 !###############################################################################
 !
-pure function get_hexa_solpt_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_hexa_solpt_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -6791,7 +6809,10 @@ end function get_hexa_solpt_indices
 !
 !###############################################################################
 !
-pure function get_hexa_node_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_hexa_node_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -6836,7 +6857,10 @@ end function get_hexa_node_indices
 !
 !###############################################################################
 !
-pure function get_hexa_face_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_hexa_face_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -6909,7 +6933,10 @@ end function get_hexa_face_indices
 !
 !###############################################################################
 !
-pure function get_hexa_edge_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_hexa_edge_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7003,7 +7030,10 @@ end function get_hexa_edge_indices
 !
 !###############################################################################
 !
-pure function get_tria_solpt_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_tria_solpt_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7024,7 +7054,10 @@ end function get_tria_solpt_indices
 !
 !###############################################################################
 !
-pure function get_tria_face_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_tria_face_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7045,7 +7078,10 @@ end function get_tria_face_indices
 !
 !###############################################################################
 !
-pure function get_tria_node_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_tria_node_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7066,7 +7102,10 @@ end function get_tria_node_indices
 !
 !###############################################################################
 !
-pure function get_quad_solpt_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_quad_solpt_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7087,7 +7126,10 @@ end function get_quad_solpt_indices
 !
 !###############################################################################
 !
-pure function get_quad_face_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_quad_face_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7108,7 +7150,10 @@ end function get_quad_face_indices
 !
 !###############################################################################
 !
-pure function get_quad_node_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_quad_node_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7129,7 +7174,10 @@ end function get_quad_node_indices
 !
 !###############################################################################
 !
-pure function get_tetr_solpt_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_tetr_solpt_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7150,7 +7198,10 @@ end function get_tetr_solpt_indices
 !
 !###############################################################################
 !
-pure function get_tetr_face_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_tetr_face_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7171,7 +7222,10 @@ end function get_tetr_face_indices
 !
 !###############################################################################
 !
-pure function get_tetr_edge_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_tetr_edge_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7192,7 +7246,10 @@ end function get_tetr_edge_indices
 !
 !###############################################################################
 !
-pure function get_tetr_node_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_tetr_node_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7213,7 +7270,10 @@ end function get_tetr_node_indices
 !
 !###############################################################################
 !
-pure function get_pyra_solpt_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_pyra_solpt_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7234,7 +7294,10 @@ end function get_pyra_solpt_indices
 !
 !###############################################################################
 !
-pure function get_pyra_face_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_pyra_face_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7255,7 +7318,10 @@ end function get_pyra_face_indices
 !
 !###############################################################################
 !
-pure function get_pyra_edge_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_pyra_edge_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7276,7 +7342,10 @@ end function get_pyra_edge_indices
 !
 !###############################################################################
 !
-pure function get_pyra_node_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_pyra_node_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7297,7 +7366,10 @@ end function get_pyra_node_indices
 !
 !###############################################################################
 !
-pure function get_pris_solpt_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_pris_solpt_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7318,7 +7390,10 @@ end function get_pris_solpt_indices
 !
 !###############################################################################
 !
-pure function get_pris_face_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_pris_face_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7339,7 +7414,10 @@ end function get_pris_face_indices
 !
 !###############################################################################
 !
-pure function get_pris_edge_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_pris_edge_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7360,7 +7438,10 @@ end function get_pris_edge_indices
 !
 !###############################################################################
 !
-pure function get_pris_node_indices(order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_pris_node_indices(order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: order
@@ -7584,7 +7665,9 @@ end subroutine find_cells_on_each_face
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 function vorticity_dusp(cv,gp,dcvdx,dir) result(return_value)
   !
   use gpu_mod, only : grad_cv_to_grad_pv_gpu

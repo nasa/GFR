@@ -727,7 +727,9 @@ end function old_get_triangle_weights_at_solpts
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 function TriNodes2D_WilliamsShunn(p) result(return_value)
   !
   !.. Formal Arguments ..
@@ -1051,7 +1053,9 @@ end function TriNodes2D_WilliamsShunn
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 function TriNodes2D_Reorder(p) result(return_value)
   !
   !.. Formal Arguments ..

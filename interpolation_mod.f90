@@ -1011,7 +1011,10 @@ end subroutine interp_cell_sol_to_xyz_2d
 !
 !###############################################################################
 !
-pure function find_ref_vectors(this_geom,this_order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function find_ref_vectors(this_geom,this_order) result(return_value)
   !
   !.. Use Statements ..
   use order_mod,        only : geom_solpts
@@ -1188,7 +1191,10 @@ end function find_ref_vectors
 !
 !###############################################################################
 !
-pure function interpolate_vector_solve(r,a,b,c) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function interpolate_vector_solve(r,a,b,c) result(return_value)
   !
   ! This function finds the coefficients that make a linear combination of
   ! some reference vectors equivalent to the vector r.
@@ -1302,7 +1308,10 @@ end function interpolate_vector_solve
 !
 !###############################################################################
 !
-pure function InterpToPoint_Edge(xi_sp,xi_pt) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToPoint_Edge(xi_sp,xi_pt) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -1336,7 +1345,10 @@ end function InterpToPoint_Edge
 !
 !###############################################################################
 !
-pure function InterpToPoint_Quad(xi_sp,xi_pt) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToPoint_Quad(xi_sp,xi_pt) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -1384,7 +1396,10 @@ end function InterpToPoint_Quad
 !
 !###############################################################################
 !
-pure function InterpToPoint_Tria(rs_sp,rs_pt) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToPoint_Tria(rs_sp,rs_pt) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: rs_sp(:,:)
@@ -1409,7 +1424,10 @@ end function InterpToPoint_Tria
 !
 !###############################################################################
 !
-pure function InterpToPoint_Tetr(rs_sp,rs_pt) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToPoint_Tetr(rs_sp,rs_pt) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: rs_sp(:,:)
@@ -1450,7 +1468,10 @@ end function InterpToPoint_Tetr
 !
 !###############################################################################
 !
-pure function InterpToPoint_Pyra(rs_sp,rs_pt) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToPoint_Pyra(rs_sp,rs_pt) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: rs_sp(:,:)
@@ -1490,7 +1511,10 @@ end function InterpToPoint_Pyra
 !
 !###############################################################################
 !
-pure function InterpToPoint_Pris(rs_sp,rs_pt) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToPoint_Pris(rs_sp,rs_pt) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: rs_sp(:,:)
@@ -1530,7 +1554,10 @@ end function InterpToPoint_Pris
 !
 !###############################################################################
 !
-pure function InterpToPoint_Hexa(xi_sp,xi_pt) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToPoint_Hexa(xi_sp,xi_pt) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -1580,7 +1607,10 @@ end function InterpToPoint_Hexa
 !
 !###############################################################################
 !
-pure subroutine outerp_mv_mult_with_rv(outerp_mat,vector,return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine outerp_mv_mult_with_rv(outerp_mat,vector,return_value)
   !
   !.. Formal Arguments ..
   type(matrix), intent(in) :: outerp_mat
@@ -1618,7 +1648,10 @@ end subroutine outerp_mv_mult_with_rv
 !
 !###############################################################################
 !
-pure subroutine outerp_mv_mult_in_place(outerp_mat,vector)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine outerp_mv_mult_in_place(outerp_mat,vector)
   !
   !.. Formal Arguments ..
   type(matrix), intent(in) :: outerp_mat

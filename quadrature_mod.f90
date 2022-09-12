@@ -983,7 +983,9 @@ end function get_hexa_quadrature
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_std_elem_face_pts(std_elem)
   !
   !.. Formal Arguments ..
@@ -1008,7 +1010,9 @@ end subroutine get_std_elem_face_pts
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 function get_ref_elem_node_idx_for_face(this_geom,this_face) &
                                  result(return_value)
   !
@@ -1065,7 +1069,9 @@ end function get_ref_elem_node_idx_for_face
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_face_pts(this_elem,this_geom,this_order)
   !
   !.. Use Statements ..
@@ -1127,7 +1133,9 @@ end subroutine get_face_pts
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 function map_face_pts(v,rs) result(return_value)
   !
   ! This function maps face points defined on a
@@ -1156,7 +1164,9 @@ end function map_face_pts
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 function map_edge_pts(v,xi) result(return_value)
   !
   ! This function maps the points xi defined on the reference edge [-1,+1]
@@ -1191,7 +1201,9 @@ end function map_edge_pts
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 function map_tria_pts(v,rs) result(return_value)
   !
   ! This function maps the points rs defined on the reference triangle
@@ -1229,7 +1241,9 @@ end function map_tria_pts
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 function map_quad_pts(v,rs) result(return_value)
   !
   ! This function maps the points rs defined on the reference quad

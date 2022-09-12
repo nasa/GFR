@@ -116,7 +116,9 @@ end subroutine get_bc_generic_inflow_solution
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_bc_gen_inflow_sol_cpg_3d(n1,n2,facenrm,face_cv,face_gp, &
                                         cv_bc,pv_bc)
   !
@@ -258,7 +260,9 @@ end subroutine get_bc_gen_inflow_sol_cpg_3d
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_bc_gen_inflow_sol_cpg_2d(n1,n2,facenrm,face_cv,face_gp, &
                                         cv_bc,pv_bc)
   !
@@ -390,7 +394,9 @@ end subroutine get_bc_gen_inflow_sol_cpg_2d
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_bc_gen_inflow_sol_cpg_1d(n1,n2,facenrm,face_cv,face_gp, &
                                         cv_bc,pv_bc)
   !
@@ -507,7 +513,9 @@ end subroutine get_bc_gen_inflow_sol_cpg_1d
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_bc_gen_inflow_sol_tpg_3d(n1,n2,facenrm,face_cv,face_gp, &
                                         cv_bc,pv_bc,gp_bc,newton_failures)
   !
@@ -772,7 +780,9 @@ end subroutine get_bc_gen_inflow_sol_tpg_3d
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_bc_gen_inflow_sol_tpg_2d(n1,n2,facenrm,face_cv,face_gp, &
                                         cv_bc,pv_bc,gp_bc,newton_failures)
   !
@@ -1031,7 +1041,9 @@ end subroutine get_bc_gen_inflow_sol_tpg_2d
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine get_bc_gen_inflow_sol_tpg_1d(n1,n2,facenrm,face_cv,face_gp, &
                                         cv_bc,pv_bc,gp_bc,newton_failures)
   !

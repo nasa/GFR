@@ -29,7 +29,9 @@ contains
 !###############################################################################
 !###############################################################################
 !
+!#ifndef DISABLE_PURE
 !pure &
+!#endif
 subroutine visc_flx_cv_gpu(n1,n2,cv,gp,dcvdx,return_value,output_visc_fluxes)
   !
   !.. Formal Arguments ..
@@ -60,7 +62,9 @@ end subroutine visc_flx_cv_gpu
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine visc_flx_cv_gpu_3d(n1,n2,cv,gp,dcvdx,return_value)
   !
   !.. Use Statements ..
@@ -213,7 +217,9 @@ end subroutine visc_flx_cv_gpu_3d
 !
 !###############################################################################
 !
+!#ifndef DISABLE_PURE
 !pure &
+!#endif
 subroutine visc_flx_cv_gpu_2d(n1,n2,cv,gp,dcvdx,return_value,output_visc_fluxes)
   !
   !.. Use Statements ..
@@ -403,7 +409,9 @@ end subroutine visc_flx_cv_gpu_2d
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine visc_flx_cv_gpu_1d(n1,n2,cv,gp,dcvdx,return_value)
   !
   !.. Use Statements ..
@@ -497,7 +505,9 @@ end subroutine visc_flx_cv_gpu_1d
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 function visc_flx_cv1(uu,gp,dcvdx) result(return_value)
   !
   !.. Use Statements ..
@@ -581,7 +591,9 @@ end function visc_flx_cv1
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine visc_flx_cv(uu,gp,dcvdx,return_value)
 ! !$ACC ROUTINE SEQ
   !
@@ -669,7 +681,9 @@ end subroutine visc_flx_cv
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 function normal_visc_flx_cv(rnrm,uu,gp,dcvdx) result(return_value)
   !
   !.. Use Statements ..
@@ -707,7 +721,9 @@ end function normal_visc_flx_cv
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine visc_wall_flx_gpu(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                              return_value)
   !
@@ -741,7 +757,10 @@ end subroutine visc_wall_flx_gpu
 !
 !###############################################################################
 !
-pure subroutine visc_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine visc_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                                      return_value)
   !
   !.. Use Statements ..
@@ -890,7 +909,9 @@ end subroutine visc_wall_flx_gpu_3d
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine visc_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                                 return_value)
   !
@@ -1022,7 +1043,10 @@ end subroutine visc_wall_flx_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine visc_wall_flx_gpu_1d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine visc_wall_flx_gpu_1d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                                      return_value)
   !
   !.. Use Statements ..
@@ -1131,7 +1155,10 @@ end subroutine visc_wall_flx_gpu_1d
 !
 !###############################################################################
 !
-pure subroutine visc_wall_flx_sub(unrm,uwall,gpwall,dpvdx,return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine visc_wall_flx_sub(unrm,uwall,gpwall,dpvdx,return_value)
 ! !$ACC ROUTINE SEQ
   !
   ! UNRM  : Outward pointing unit normal to the wall
@@ -1233,7 +1260,10 @@ end subroutine visc_wall_flx_sub
 !
 !###############################################################################
 !
-pure function visc_wall_flx_cv(unrm,uwall,gpwall,dpvdx) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function visc_wall_flx_cv(unrm,uwall,gpwall,dpvdx) result(return_value)
   !
   ! UNRM  : Outward pointing unit normal to the wall
   !         boundary face for current flux point
@@ -1336,7 +1366,9 @@ end function visc_wall_flx_cv
 !
 !###############################################################################
 !
+!#ifndef DISABLE_PURE
 !pure &
+!#endif
      subroutine common_vflx_ave_fluxes_gpu(n1,n2,facenrm,face_cv,face_gp, &
                                            face_dcvdx,return_value)
   !
@@ -1370,7 +1402,9 @@ end subroutine common_vflx_ave_fluxes_gpu
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine common_vflx_ave_fluxes_gpu_3d(n1,n2,facenrm,face_cv,face_gp, &
                                               face_dcvdx,return_value)
   !
@@ -1488,7 +1522,9 @@ end subroutine common_vflx_ave_fluxes_gpu_3d
 !
 !###############################################################################
 !
+!#ifndef DISABLE_PURE
 !pure &
+!#endif
 subroutine common_vflx_ave_fluxes_gpu_2d(n1,n2,facenrm,face_cv,face_gp, &
                                               face_dcvdx,return_value)
   !
@@ -1600,7 +1636,9 @@ end subroutine common_vflx_ave_fluxes_gpu_2d
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 subroutine common_vflx_ave_fluxes_gpu_1d(n1,n2,facenrm,face_cv,face_gp, &
                                               face_dcvdx,return_value)
   !
@@ -1699,7 +1737,9 @@ end subroutine common_vflx_ave_fluxes_gpu_1d
 !
 !###############################################################################
 !
+!#ifndef DISABLE_PURE
 !pure &
+!#endif
      subroutine common_vflx_ave_sol_and_grad_gpu(n1,n2,facenrm,face_cv, &
                                                  face_dcvdx,return_value)
   !
@@ -1732,7 +1772,9 @@ end subroutine common_vflx_ave_sol_and_grad_gpu
 !
 !###############################################################################
 !
+!#ifndef DISABLE_PURE
 !pure &
+!#endif
     subroutine common_vflx_ave_sol_and_grad_gpu_3d(n1,n2,facenrm,face_cv, &
                                                     face_dcvdx,return_value)
   !
@@ -1874,7 +1916,9 @@ end subroutine common_vflx_ave_sol_and_grad_gpu_3d
 !
 !###############################################################################
 !
+!#ifndef DISABLE_PURE
 !pure &
+!#endif
 subroutine common_vflx_ave_sol_and_grad_gpu_2d(n1,n2,facenrm,face_cv, &
                                                     face_dcvdx,return_value)
   !
@@ -2006,7 +2050,9 @@ end subroutine common_vflx_ave_sol_and_grad_gpu_2d
 !
 !###############################################################################
 !
+!#ifndef DISABLE_PURE
 !pure &
+!#endif
     subroutine common_vflx_ave_sol_and_grad_gpu_1d(n1,n2,facenrm,face_cv, &
                                                     face_dcvdx,return_value)
   !
@@ -2125,7 +2171,9 @@ end subroutine common_vflx_ave_sol_and_grad_gpu_1d
 !
 !###############################################################################
 !
+!#ifndef DISABLE_PURE
 !pure &
+!#endif
     subroutine common_visc_flx_sub(unrm,ul,gpl,duldx,ur,gpr,durdx,return_value)
 ! !$ACC ROUTINE SEQ
   !
@@ -2272,7 +2320,9 @@ end subroutine common_visc_flx_sub
 !
 !###############################################################################
 !
+!#ifndef DISABLE_PURE
 !pure &
+!#endif
     function common_visc_flx_cv(unrm,ul,gpl,duldx,ur,gpr,durdx) &
                           result(return_value)
   !
