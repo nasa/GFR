@@ -2163,7 +2163,8 @@ continue
         ! output points
         !
         outerp(this_geom,this_order)%output%mat = & ! F2003 AUTO-REALLOC
-                                 General_Interp_Matrix(this_geom,this_order,pts)
+                               General_Interp_Matrix(this_geom,this_order,pts, &
+                                                     return_transpose=true)
         !
         error_message = "Interpolation for Output"
         call output_matrix(outerp(this_geom,this_order)%output, &
@@ -2263,7 +2264,8 @@ end subroutine init_outerpolation_matrices
 #ifndef DISABLE_PURE
 pure &
 #endif
-function General_Interp_Matrix(this_geom,this_order,xyz,opt_bmat,opt_vmat) &
+function General_Interp_Matrix(this_geom,this_order,xyz, &
+                               opt_bmat,opt_vmat,return_transpose) &
                         result(return_value)
   !
   !.. Use Statements ..
@@ -2276,11 +2278,15 @@ function General_Interp_Matrix(this_geom,this_order,xyz,opt_bmat,opt_vmat) &
   real(wp), intent(in) :: xyz(:,:)
   !
   !.. Optional Arguments ..
-  real(wp), optional, intent(in) :: opt_bmat(:,:)
-  real(wp), optional, intent(in) :: opt_vmat(:,:)
+  real(wp),    optional, intent(in) :: opt_bmat(:,:)
+  real(wp),    optional, intent(in) :: opt_vmat(:,:)
+  logical(lk), optional, intent(in) :: return_transpose
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  logical(lk) :: compute_transpose
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: bmat(:,:)
@@ -2288,6 +2294,11 @@ function General_Interp_Matrix(this_geom,this_order,xyz,opt_bmat,opt_vmat) &
   real(wp), allocatable :: imat(:,:)
   !
 continue
+  !
+  compute_transpose = fals
+  if (present(return_transpose)) then
+    compute_transpose = return_transpose
+  end if
   !
   ! Get the basis matrix of the basis functions evaluated at points xyz
   !
@@ -2307,7 +2318,11 @@ continue
   !
   ! Compute the interpolation matrix
   !
-  imat = matmul(transpose(vmat),transpose(bmat)) ! F2003 AUTO-REALLOC
+  if (compute_transpose) then
+    imat = matmul(bmat,vmat) ! F2003 AUTO-REALLOC
+  else
+    imat = matmul(transpose(vmat),transpose(bmat)) ! F2003 AUTO-REALLOC
+  end if
   !
   ! Use the chop function to copy imat into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
