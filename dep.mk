@@ -149,7 +149,6 @@ $(OBJDIR)/derivatives_mod.o : derivatives_mod.f90 \
                     $(OBJDIR)/order_mod.o \
                     $(OBJDIR)/ovar_mod.o \
                     $(OBJDIR)/element_type_mod.o \
-                    $(OBJDIR)/quadrature_mod.o \
                     $(OBJDIR)/poly.o \
                     $(OBJDIR)/vandermonde_mod.o \
                     $(FUNDIR)/solpts2order.f90 \
@@ -171,7 +170,6 @@ $(OBJDIR)/filter_mod.o : filter_mod.f90 \
                $(OBJDIR)/order_mod.o \
                $(OBJDIR)/geovar_mod.o \
                $(OBJDIR)/flowvar_mod.o \
-               $(OBJDIR)/quadrature_mod.o \
                $(OBJDIR)/vandermonde_mod.o \
                $(OBJDIR)/thermo_mod.o \
                $(OBJDIR)/transport_mod.o \
@@ -289,7 +287,6 @@ $(OBJDIR)/interpsol_mod.o : interpsol_mod.f90 \
                   $(OBJDIR)/flowvar_mod.o \
                   $(OBJDIR)/flux.o \
                   $(OBJDIR)/element_type_mod.o \
-                  $(OBJDIR)/quadrature_mod.o \
                   $(OBJDIR)/vandermonde_mod.o \
                   $(OBJDIR)/derivatives_mod.o \
                   $(OBJDIR)/correction_mod.o \
@@ -335,7 +332,7 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/cgns_mod.o \
        $(OBJDIR)/parallel.o \
        $(OBJDIR)/poly.o \
-       $(OBJDIR)/quadrature_mod.o \
+       $(OBJDIR)/element_type_mod.o \
        $(OBJDIR)/interpolation_mod.o \
        $(OBJDIR)/initialize.o \
        $(OBJDIR)/restart_mod.o \
@@ -555,7 +552,6 @@ $(OBJDIR)/projection_mod.o : projection_mod.f90 \
                    $(OBJDIR)/order_mod.o \
                    $(OBJDIR)/ovar_mod.o \
                    $(OBJDIR)/element_type_mod.o \
-                   $(OBJDIR)/quadrature_mod.o \
                    $(OBJDIR)/vandermonde_mod.o \
                    $(OBJDIR)/thermo_mod.o \
                    $(OBJDIR)/transport_mod.o \
@@ -677,7 +673,6 @@ $(OBJDIR)/vandermonde_mod.o : vandermonde_mod.f90 \
                     $(OBJDIR)/matrix_types_mod.o \
                     $(OBJDIR)/order_mod.o \
                     $(OBJDIR)/element_type_mod.o \
-                    $(OBJDIR)/quadrature_mod.o \
                     $(OBJDIR)/poly.o \
                     $(FUNDIR)/solpts2order.f90 \
                     $(FUNDIR)/cell_solpts.f90 \

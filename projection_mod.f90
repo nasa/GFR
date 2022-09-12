@@ -127,7 +127,7 @@ subroutine init_projection_matrices()
   use order_mod,        only : geom_solpts,p_order
   use order_mod,        only : n_min_geom,n_max_geom
   use order_mod,        only : n_min_order,n_max_order
-  use quadrature_mod,   only : geom_is_used
+  use element_type_mod, only : geom_is_used
   use element_type_mod, only : std_elem,face_elem
   use vandermonde_mod,  only : vand
   use vandermonde_mod,  only : Compute_Basis_Matrix

@@ -73,12 +73,12 @@ contains
 subroutine init_filter_matrices()
   !
   !.. Use Statements ..
-  use ovar,      only : output_filter_diagonals
-  use order_mod, only : geom_solpts
-  use order_mod, only : n_min_geom,n_max_geom
-  use order_mod, only : n_min_order,n_max_order
-  use quadrature_mod, only : geom_is_used
-  use vandermonde_mod, only : vand
+  use ovar,             only : output_filter_diagonals
+  use order_mod,        only : geom_solpts
+  use order_mod,        only : n_min_geom,n_max_geom
+  use order_mod,        only : n_min_order,n_max_order
+  use element_type_mod, only : geom_is_used
+  use vandermonde_mod,  only : vand
   !
   !.. Local Scalars ..
   integer :: ierr,gmin,gmax,omin,omax

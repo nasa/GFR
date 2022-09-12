@@ -113,9 +113,9 @@ contains
 subroutine init_ref_vectors()
   !
   !.. Use Statements ..
-  use order_mod,      only : n_min_geom,n_min_order
-  use order_mod,      only : n_max_geom,n_max_order
-  use quadrature_mod, only : geom_is_used
+  use order_mod,        only : n_min_geom,n_min_order
+  use order_mod,        only : n_max_geom,n_max_order
+  use element_type_mod, only : geom_is_used
   !
   !.. Local Scalars ..
   integer :: this_geom,this_order,ierr
@@ -1663,10 +1663,10 @@ end subroutine outerp_mv_mult_in_place
 subroutine init_interpolation_matrices()
   !
   !.. Use Statements ..
-  use order_mod,      only : n_min_geom,n_max_geom
-  use order_mod,      only : n_min_order,n_max_order
-  use order_mod,      only : geom_mio,geom_edgpts
-  use quadrature_mod, only : geom_is_used
+  use order_mod,        only : n_min_geom,n_max_geom
+  use order_mod,        only : n_min_order,n_max_order
+  use order_mod,        only : geom_mio,geom_edgpts
+  use element_type_mod, only : geom_is_used
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax,ierr
@@ -1933,7 +1933,7 @@ subroutine init_outerpolation_matrices()
   use order_mod,        only : n_min_order,n_max_order
   use element_type_mod, only : element_t
   use element_type_mod, only : std_elem
-  use quadrature_mod,   only : geom_is_used
+  use element_type_mod, only : geom_is_used
   use quadrature_mod,   only : get_general_quadrature
   use quadrature_mod,   only : get_general_quadrature_pts
   use vandermonde_mod,  only : General_Basis_Matrix

@@ -89,7 +89,7 @@ subroutine init_vandermonde_matrices()
   use order_mod,        only : geom_solpts
   use order_mod,        only : n_min_geom,n_max_geom
   use order_mod,        only : n_min_order,n_max_order
-  use quadrature_mod,   only : geom_is_used
+  use element_type_mod, only : geom_is_used
   use element_type_mod, only : std_elem
   !
   !.. Local Scalars ..
