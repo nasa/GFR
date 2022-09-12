@@ -611,7 +611,7 @@ continue
   end select
   !
   ! F2003 AUTO-REALLOC
-  vand = General_Basis_Matrix(face_geom,from_order,nodal_points=from_qdtr%pts)
+  vand = General_Basis_Matrix(face_geom,from_order,from_qdtr%pts)
   vinv = Vandermonde_Inverse(vand) ! F2003 AUTO-REALLOC
   !
   ! F2003 AUTO-REALLOC
