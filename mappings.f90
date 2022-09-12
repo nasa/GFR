@@ -1121,6 +1121,9 @@ function equidistant_map_tria_to_solpts(rs,mesh_order) result(return_value)
   ! RS : location of solution points on the reference triangle element
   ! MESH_ORDER : polynomial order of the grid file
   !
+  !.. Use Statements ..
+  use order_mod, only : geom_solpts
+  !
   !.. Formal Arguments ..
   real(wp), intent(in) :: rs(:,:)
   integer,  intent(in) :: mesh_order
@@ -1485,10 +1488,13 @@ end function equidistant_map_quad_to_solpts
 #ifndef DISABLE_PURE
 !pure &
 #endif
-function equidistant_map_tetr_to_solpts(rs,mesh_order) result(return_value)
+function equidistant_map_tetr_to_solpts(rst,mesh_order) result(return_value)
   !
   ! RST : location of solution points on the reference tetrahedra element
   ! MESH_ORDER : polynomial order of the grid file
+  !
+  !.. Use Statements ..
+  use order_mod, only : geom_solpts
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: rst(:,:)
@@ -1562,6 +1568,9 @@ pure &
 #endif
 function equidistant_map_pyra_to_solpts(xi,rs,mesh_order) result(return_value)
   !
+  !.. Use Statements ..
+  use order_mod, only : geom_solpts
+  !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xi(:)
   real(wp), intent(in) :: rs(:,:)
@@ -1592,6 +1601,9 @@ end function equidistant_map_pyra_to_solpts
 pure &
 #endif
 function equidistant_map_pris_to_solpts(xi,rs,mesh_order) result(return_value)
+  !
+  !.. Use Statements ..
+  use order_mod, only : geom_solpts
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xi(:)
@@ -2733,6 +2745,10 @@ continue
   end if
   !
 end subroutine move_mapping_to_device
+!
+!###############################################################################
+!
+include "Functions/solpts2order.f90"
 !
 !###############################################################################
 !
