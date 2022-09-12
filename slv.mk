@@ -300,7 +300,7 @@ ifeq "$(COMPFAMILY)" "intel"
   TRACEFLAG := -traceback
   REALLOCFLAG := -assume realloc_lhs
  #CMPFLAGS := -DSPECIAL_FOR_INTEL
-  CMPFLAGS := -DSPECIAL_FOR_INTEL -DDISABLE_QP -mkl=sequential -DOCTID
+  CMPFLAGS := -DSPECIAL_FOR_INTEL -DDISABLE_QP -qmkl=sequential -DOCTID
  #CPMFLAGS += -guide -parallel -qopt-report=5 -qopt-report-file=stderr
   AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH) -ax$(SKYARCH),$(HASARCH),$(IVYARCH) $(ALIGN32)
   HOSTARCH := $(ARCHFLAG)Host
