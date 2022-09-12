@@ -305,7 +305,7 @@ function General_Correction_Matrix(this_geom,this_order) result(return_value)
   !
   !.. Use Statements ..
   use order_mod,        only : geom_solpts,geom_flxpts
-  use element_type_mod, only : element_type
+  use element_type_mod, only : element_t
   use element_type_mod, only : std_elem,face_elem
   use quadrature_mod,   only : get_edge_quadrature
   use quadrature_mod,   only : get_tria_quadrature
@@ -328,9 +328,9 @@ function General_Correction_Matrix(this_geom,this_order) result(return_value)
   !
   logical :: needsEdge,needsTria,needsQuad
   !
-  type(element_type) :: edge_qdtr
-  type(element_type) :: tria_qdtr
-  type(element_type) :: quad_qdtr
+  type(element_t) :: edge_qdtr
+  type(element_t) :: tria_qdtr
+  type(element_t) :: quad_qdtr
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: ip(:)
@@ -552,7 +552,7 @@ function face_interpolation_matrix(face_geom,from_order,from_loc, &
   !
   !.. Use Statements ..
   use order_mod,        only : geom_solpts,geom_flxpts
-  use element_type_mod, only : element_type
+  use element_type_mod, only : element_t
   use quadrature_mod,   only : get_edge_quadrature
   use quadrature_mod,   only : get_tria_quadrature
   use quadrature_mod,   only : get_quad_quadrature
@@ -572,8 +572,8 @@ function face_interpolation_matrix(face_geom,from_order,from_loc, &
   !.. Local Scalars ..
   integer :: npf,npt
   !
-  type(element_type) :: from_qdtr
-  type(element_type) :: to_qdtr
+  type(element_t) :: from_qdtr
+  type(element_t) :: to_qdtr
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: vand(:,:)
@@ -636,14 +636,14 @@ function face_interpolation_matrix_from_qdtr(face_geom,from_qdtr,to_qdtr) &
   ! Vandermonde matrix needed here needs to be based of of loc_flux_pts.
   !
   !.. Use Statements ..
-  use element_type_mod, only : element_type
+  use element_type_mod, only : element_t
   use vandermonde_mod,  only : vandermonde_inverse
   use vandermonde_mod,  only : General_Basis_Matrix
   !
   !.. Formal Arguments ..
-  integer,            intent(in) :: face_geom
-  type(element_type), intent(in) :: from_qdtr
-  type(element_type), intent(in) :: to_qdtr
+  integer,         intent(in) :: face_geom
+  type(element_t), intent(in) :: from_qdtr
+  type(element_t), intent(in) :: to_qdtr
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
