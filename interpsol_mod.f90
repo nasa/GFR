@@ -187,10 +187,10 @@ subroutine mv_grid2_to_global()
   use metrics_mod, only : jac,wtdjac
   use metrics_mod, only : metrics_array
   !
-  use order_mod,        only : n_order,p_order,q_order
-  use order_mod,        only : o_order,e_order,t_order
-  use order_mod,        only : initialize_geom_solpts
-  use element_type_mod, only : find_valid_geometries
+  use order_mod, only : n_order,p_order,q_order
+  use order_mod, only : o_order,e_order,t_order
+  use order_mod, only : initialize_geom_solpts
+  use order_mod, only : find_valid_geometries
   !
 continue
   !

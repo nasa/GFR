@@ -33,12 +33,12 @@ subroutine init_geom_quadrature_rules()
   use order_mod, only : n_order,geom_solpts
   use order_mod, only : n_min_geom,n_max_geom
   use order_mod, only : n_min_order,n_max_order
+  use order_mod, only : geom_is_used
   use ovar,      only : loc_solution_pts
   use ovar,      only : loc_triangle_pts
   use ovar,      only : loc_tetrahedra_pts
   !
   use element_type_mod, only : std_elem
-  use element_type_mod, only : geom_is_used
   use element_type_mod, only : assign_solpts_edge_ptr
   !
   !.. Local Scalars ..
@@ -230,11 +230,11 @@ subroutine init_face_quadrature_rules()
   !.. Use Statements ..
   use order_mod, only : geom_solpts
   use order_mod, only : n_min_order,n_max_order
+  use order_mod, only : geom_is_used
   use ovar,      only : loc_flux_pts
   use ovar,      only : loc_triangle_pts
   !
   use element_type_mod, only : face_elem
-  use element_type_mod, only : geom_is_used
   !
   !.. Local Scalars ..
   integer :: n,ierr

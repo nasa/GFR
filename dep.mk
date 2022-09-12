@@ -332,7 +332,6 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/cgns_mod.o \
        $(OBJDIR)/parallel.o \
        $(OBJDIR)/poly.o \
-       $(OBJDIR)/element_type_mod.o \
        $(OBJDIR)/interpolation_mod.o \
        $(OBJDIR)/initialize.o \
        $(OBJDIR)/restart_mod.o \
@@ -470,6 +469,7 @@ $(OBJDIR)/octtree_mod.o : octtree_mod.f90 \
 
 $(OBJDIR)/order_mod.o : order_mod.f90 \
               $(OBJDIR)/kind_types.o \
+              $(OBJDIR)/geovar_mod.o \
               $(FUNDIR)/cell_solpts.f90
 
 $(OBJDIR)/ovar_mod.o : ovar_mod.f90 \
