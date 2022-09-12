@@ -510,8 +510,8 @@ continue
       !
     case (Geom_Tria)
       !
-      pts = TriNodes2D(p,loc_pts)             ! F2003 AUTO-REALLOC
-      elem%pts = real(pts,kind=kind(elem%pts) ! F2003 AUTO-REALLOC)
+      pts = TriNodes2D(p,loc_pts)              ! F2003 AUTO-REALLOC
+      elem%pts = real(pts,kind=kind(elem%pts)) ! F2003 AUTO-REALLOC
       !
     case (Geom_Quad)
       !
@@ -524,8 +524,8 @@ continue
       !
     case (Geom_Pyra)
       !
-      pts = PyrNodes3D(p,loc_pts)             ! F2003 AUTO-REALLOC
-      elem%pts = real(pts,kind=kind(elem%pts) ! F2003 AUTO-REALLOC)
+      pts = PyrNodes3D(p,loc_pts)              ! F2003 AUTO-REALLOC
+      elem%pts = real(pts,kind=kind(elem%pts)) ! F2003 AUTO-REALLOC
       !
     case (Geom_Pris)
       !
@@ -534,8 +534,8 @@ continue
       else
         loc_tri = loc_pts
       end if
-      pts = PriNodes3D(p,loc_tri,loc_pts)     ! F2003 AUTO-REALLOC
-      elem%pts = real(pts,kind=kind(elem%pts) ! F2003 AUTO-REALLOC)
+      pts = PriNodes3D(p,loc_tri,loc_pts)      ! F2003 AUTO-REALLOC
+      elem%pts = real(pts,kind=kind(elem%pts)) ! F2003 AUTO-REALLOC
       !
     case (Geom_Hexa)
       !
@@ -1299,11 +1299,14 @@ continue
                  trim(adjustl(this_type))
   !
   write (mout,2) "Solution"
-  call output_pts_and_wts(this_geom,this_elem%pts,this_elem%wts)
+  call output_pts_and_wts(this_geom,this_elem%pts,this_elem%wts,mout)
   !
   if (allocated(this_elem%face_pts) .and. allocated(this_elem%face_wts)) then
     write (iout,2) "  Flux"
-    call output_pts_and_wts(this_geom,this_elem%face_pts,this_elem%face_wts)
+    call output_pts_and_wts(this_geom, &
+                            this_elem%face_pts, &
+                            this_elem%face_wts, &
+                            mout)
   else
     write (iout,3) merge("TRUE ","FALSE",allocated(this_elem%face_pts)), &
                    merge("TRUE ","FALSE",allocated(this_elem%face_wts))
