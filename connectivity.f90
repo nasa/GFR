@@ -3310,6 +3310,7 @@ subroutine create_bc_grps(bface,face)
   use geovar, only : num_bc_grps,bc_grps,bc_grp_t
   use geovar, only : face_t
   use geovar, only : n_wall_flxpts,n_wall_qdtpts
+  use geovar, only : nr
   !
   !.. Formal Arguments ..
   integer,      intent(in) :: bface(:,:)
@@ -3452,14 +3453,25 @@ continue
       bc_grps(n)%beg_qp = min(bc_grps(n)%beg_qp,q1)
       bc_grps(n)%end_qp = max(bc_grps(n)%end_qp,q2)
       !
+      if (nr == 2) then
 #ifdef REVERSE_PERIODIC
-      do k = p2,p1,-1
+        do k = p1,p2
 #else
-      do k = p1,p2
+        do k = p2,p1,-1
 #endif
-        i = i + 1
-        bc_grps(n)%periodic_list(i) = k
-      end do
+          i = i + 1
+          bc_grps(n)%periodic_list(i) = k
+        end do
+      else
+#ifdef REVERSE_PERIODIC
+        do k = p2,p1,-1
+#else
+        do k = p1,p2
+#endif
+          i = i + 1
+          bc_grps(n)%periodic_list(i) = k
+        end do
+      end if
       !
     end do
     !
