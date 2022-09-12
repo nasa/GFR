@@ -212,7 +212,7 @@ continue
   !
   ! Get the face point quadratures for all faces of each element type
   !
-  call get_std_elem_face_pts(std_elem)
+  call get_std_elem_face_pts()
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -983,13 +983,10 @@ end function get_hexa_quadrature
 !
 !###############################################################################
 !
-#ifndef DISABLE_PURE
-pure &
-#endif
-subroutine get_std_elem_face_pts(std_elem)
+subroutine get_std_elem_face_pts()
   !
-  !.. Formal Arguments ..
-  type(element_t), intent(inout) :: std_elem(:,:)
+  !.. Use Statements ..
+  use element_type_mod, only : std_elem
   !
   !.. Local Scalars ..
   integer :: this_geom,this_order
