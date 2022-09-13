@@ -1696,7 +1696,8 @@ continue
   !$OMP&         PRIVATE(nc,this_geom,this_order,n0,ncf,nf, &
   !$OMP&                 face_geom,face_order,f0,nfp,tc_offset,tc_rot, &
   !$OMP&                 kf,lf,xval,yval,zval,i,k,n,a,xyz_face,tid,  &
-  !$OMP&                 dxdi,dxdj,dydi,dydj,dzdi,dzdj,xnrm,ynrm,znrm)
+  !$OMP&                 dxdi,dxdj,dydi,dydj,dzdi,dzdj, &
+  !$OMP&                 xnrm,ynrm,znrm,xqp,yqp,zqp)
   !
   tid = omp_get_thread_num()
   nthreads = omp_get_num_threads()
