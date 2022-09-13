@@ -3054,11 +3054,11 @@ continue
   !
   ! Scale the grid node coordinates to the cube (-1,-1,-1) to (1,1,1)
   !
-  xyz_nodes = two*xyz_nodes - one
+  xyz_nodes(:,:) = two*xyz_nodes(:,:) - one
   !
   ! Scale the grid node coordinates to the cube (-pi,-pi,-pi) to (pi,pi,pi)
   !
-  xyz_nodes = PI * xyz_nodes
+  xyz_nodes(:,:) = PI * xyz_nodes(:,:)
   !
   ! #######
   ! #######
@@ -3074,13 +3074,15 @@ continue
   ! NOTE: This corresponds to the grid boundaries in
   !       the order [imin,imax,jmin,jmax,kmin,kmax]
   !
-  nf_min = nf_max
+  ! Min-X and Max-X boundary faces
   !
+  n1 = 0          ! min-x counter
+  n2 = n1 + nc*nc ! max-x counter
   do k = 1,nc
     do j = 1,nc
       !
-      n1 = nf_min + 1
-      n2 = nf_min + 1 + nc*nc
+      n1 = n1 + 1
+      n2 = n2 + 1
       !
       bface( 1,n1) = bc_periodic
       bface( 2,n1) = map3dto1d(1 ,j,k,nc)
@@ -3102,19 +3104,18 @@ continue
       bface( 9,n2) = bface(4,n1)
       bface(10,n2) = ncell + n2
       !
-      nf_min = n1
-      nf_max = n2
-      !
     end do
   end do
   !
-  nf_min = nf_max
+  ! Min-Y and Max-Y boundary faces
   !
+  n1 = 2*nc*nc    ! min-y counter
+  n2 = n1 + nc*nc ! max-y counter
   do k = 1,nc
     do i = 1,nc
       !
-      n1 = nf_min + 1
-      n2 = nf_min + 1 + nc*nc
+      n1 = n1 + 1
+      n2 = n2 + 1
       !
       bface( 1,n1) = bc_periodic
       bface( 2,n1) = map3dto1d(i,1 ,k,nc)
@@ -3136,19 +3137,18 @@ continue
       bface( 9,n2) = bface(4,n1)
       bface(10,n2) = ncell + n2
       !
-      nf_min = n1
-      nf_max = n2
-      !
     end do
   end do
   !
-  nf_min = nf_max
+  ! Min-Z and Max-Z boundary faces
   !
+  n1 = 4*nc*nc    ! min-z counter
+  n2 = n1 + nc*nc ! max-z counter
   do j = 1,nc
     do i = 1,nc
       !
-      n1 = nf_min + 1
-      n2 = nf_min + 1 + nc*nc
+      n1 = n1 + 1
+      n2 = n2 + 1
       !
       bface( 1,n1) = bc_periodic
       bface( 2,n1) = map3dto1d(i,j,1 ,nc)
@@ -3169,9 +3169,6 @@ continue
       bface( 8,n2) = bface(3,n1)
       bface( 9,n2) = bface(4,n1)
       bface(10,n2) = ncell + n2
-      !
-      nf_min = n1
-      nf_max = n2
       !
     end do
   end do
@@ -4465,7 +4462,7 @@ continue
   allocate ( grid , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"grid",1,__LINE__,__FILE__,ierr,error_message)
   !
-  grid%xyz = xyz_nodes(:,:) ! USING F2003 AUTO-REALLOCATION
+  grid%xyz = xyz_nodes(:,:) ! F2003 AUTO-REALLOC
   !
   allocate ( grid%elem(1:ncell+nfbnd) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"grid%elem",1,__LINE__,__FILE__,ierr,error_message)
