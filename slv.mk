@@ -41,6 +41,9 @@ endif
 BLASLIB := $(MKLROOT)/lib/intel64/libmkl_blas95_lp64.a
 LAPACKLIB := $(MKLROOT)/lib/intel64/libmkl_lapack95_lp64.a
 
+ifdef ENABLEOMP
+  OMPADD = $(OMPFLAG) -DENABLE_OPENMP
+endif
 
 ifdef PBSFPP
  #PBSDIR := -L/u/scicon/tools/lib 
@@ -73,7 +76,7 @@ FCBASE = $(REALLOCFLAG)
 #FCBASE += $(TRACEFLAG)
 #FCBASE += -g
 
-ADDFLAGS = $(MKLFLAG) $(MOD) $(FINC) $(FCADD) $(CMPFLAGS)
+ADDFLAGS = $(MKLFLAG) $(MOD) $(FINC) $(OMPADD) $(FCADD) $(CMPFLAGS)
 
 COBJS := $(OBJDIR)/mycpu.o \
          $(OBJDIR)/pbs_time_left.o
@@ -279,6 +282,7 @@ ifeq "$(COMPFAMILY)" "intel"
   FPE     := -fpe0 -fpe-all=0 -fp-stack-check
  #FPEALL  := -fpe-all=0
   MODFLAG := -module
+  OMPFLAG := -qopenmp
   ARCHFLAG := -x
   WESARCH := SSE4.2
   SANARCH := AVX
@@ -307,6 +311,7 @@ ifeq "$(COMPFAMILY)" "intel"
 else ifeq "$(COMPFAMILY)" "gcc"
   # GCC flags
   MODFLAG := -J
+  OMPFLAG := -fopenmp
   ARCHFLAG := -march=
   ######################################################
   #### USE THESE ARCH FLAGS FOR GCC 4.9.4 OR NEWER
@@ -336,6 +341,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
 else ifeq "$(COMPFAMILY)" "pgi"
   # PGI flags
   MODFLAG := -module
+  OMPFLAG := -mp
   ARCHFLAG := -tp=
   WESARCH := nehalem
   SANARCH := sandybridge

@@ -68,3 +68,7 @@ OTHERLIBDIR :=# -L$(ADVISOR_XE_2016_DIR)/lib64
 OTHERINCDIR :=# -I$(ADVISOR_XE_2016_DIR)/include/lib64
 OTHERFPP    :=
 
+# Toggle the use of OpenMP for certain non-solver parts of the code
+#     ENABLEOMP := 1         => Enable  OpenMP
+#     ENABLEOMP :=           => Disable OpenMP
+ENABLEOMP :=  # 1
