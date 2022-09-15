@@ -511,6 +511,7 @@ function initial_conditions(xyz,init_cond) result(return_value)
   use ovar, only : jet_init_func
   use mms_mod, only : mms_solution_at_xyz
   use channel_mod, only : channel_initialization
+  use gpu_mod, only : vortex_solution_gpu
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xyz(:,:)
@@ -532,9 +533,7 @@ continue
   !
   if (any(itestcase == Transport_Problems)) then
     !
-    do k = 1,np
-      return_value(k,:) = vortex_solution( xyz(:,k) )
-    end do
+    call vortex_solution_gpu(1,np,xyz,return_value)
     !
   else if (itestcase == Taylor_Green_Vortex) then
     !
@@ -4251,7 +4250,6 @@ end subroutine compute_flow_conditions_from_pvt
 !
 !###############################################################################
 !
-include "Functions/vortex.f90"
 include "Functions/taylor_green.f90"
 include "Functions/smc000_interior_wall_radius.f90"
 include "Functions/arn2_interior_wall_radius.f90"

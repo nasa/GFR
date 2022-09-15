@@ -257,7 +257,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/transport_mod.o \
                $(OBJDIR)/reactions_mod.o \
                $(OBJDIR)/turb_inflow_mod.o \
-               $(FUNDIR)/vortex.f90 \
+               $(OBJDIR)/gpu_mod.o \
                $(FUNDIR)/taylor_green.f90 \
                $(FUNDIR)/smc000_interior_wall_radius.f90 \
                $(FUNDIR)/arn2_interior_wall_radius.f90 \
