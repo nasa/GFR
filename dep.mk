@@ -263,6 +263,13 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(FUNDIR)/arn2_interior_wall_radius.f90 \
                $(FUNDIR)/check_for_bad_number.f90
 
+$(OBJDIR)/internal_grid_mod.o : internal_grid_mod.f90 \
+                      $(OBJDIR)/kind_types.o \
+                      $(OBJDIR)/order_mod.o \
+                      $(OBJDIR)/geovar_mod.o \
+                      $(OBJDIR)/ovar_mod.o \
+                      $(OBJDIR)/poly.o
+
 $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(OBJDIR)/kind_types.o \
                       $(OBJDIR)/eqn_idx_mod.o \
@@ -330,8 +337,9 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/gmsh_mod.o \
        $(OBJDIR)/plot3d_mod.o \
        $(OBJDIR)/cgns_mod.o \
+       $(OBJDIR)/internal_grid_mod.o \
        $(OBJDIR)/parallel.o \
-       $(OBJDIR)/poly.o \
+       $(OBJDIR)/quadrature_mod.o \
        $(OBJDIR)/interpolation_mod.o \
        $(OBJDIR)/initialize.o \
        $(OBJDIR)/restart_mod.o \
