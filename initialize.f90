@@ -499,7 +499,9 @@ end subroutine old_output_freestream_conditions
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 pure &
+#endif
 function initial_conditions(xyz,init_cond) result(return_value)
   !
   !.. Use Statements ..

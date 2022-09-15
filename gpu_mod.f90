@@ -2001,9 +2001,11 @@ end subroutine adjust_temp_grad_for_tpg_1d
 !###############################################################################
 !###############################################################################
 !
+#ifndef DISABLE_PURE
 !#define DEBUG_VORTEX_SOLUTION
 #ifndef DEBUG_VORTEX_SOLUTION
 pure &
+#endif
 #endif
 subroutine vortex_solution_gpu(n1,n2,xyz,return_value)
   !
