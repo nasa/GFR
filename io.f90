@@ -1596,6 +1596,19 @@ continue
     call check_for_bad_number(__LINE__,__FILE__)
   end if
   !
+  ! If running certain special cases and the grid was not internally generated,
+  ! make sure the grid extents are valid for the current test case
+  !
+  if (grid_format /= Internally_Generated_Grid) then
+    if (any(abs(itestcase) == Transport_Problems) .or. &
+        itestcase == Taylor_Green_Vortex) then
+      call rescale_grid_for_vortex_problems
+    end if
+  end if
+  !
+  ! Create the grid derived type if it hasnt already been created.
+  ! This means that the grid is linear.
+  !
   if (.not. allocated(grid)) then
     if (i_am_host_root) then
       call create_linear_grid_dt
@@ -2305,6 +2318,88 @@ continue
                 " changes have yet to be applied to triangles.",///)
   !
 end subroutine read_gambit_neutral_gridfile
+!
+!###############################################################################
+!
+subroutine rescale_grid_for_vortex_problems()
+  !
+  !.. Use Statements ..
+  use ovar,   only : itestcase
+  use ovar,   only : Lref,VortexGrid_Lref
+  use geovar, only : nr,grid,xyz_nodes,xyz
+  !
+  !.. Local Scalars ..
+  integer  :: l
+  real(wp) :: llenmax
+  !
+  !.. Local Arrays ..
+  real(wp) :: lmin(1:nr)
+  real(wp) :: lmax(1:nr)
+  real(wp) :: llen(1:nr)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "rescale_grid_for_vortex_problems"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  Lref = one
+  !
+  ! Make sure VortexGrid_Lref for the Taylor Green vortex problem is pi
+  !
+  if (itestcase == Taylor_Green_Vortex) then
+    VortexGrid_Lref = PI
+  end if
+  !
+  ! Get the min/max grid extents in each direction
+  ! NOTE: If grid%xyz exists, xyz_nodes is a subset of grid%xyz and (in nearly
+  !       all cases) will include the min/max grid coordinates. The only case
+  !       where this might not be the case is with a highly curved grid, and
+  !       this shouldnt be the case for either the isentropic vortex or Taylor
+  !       Green vortex cases.
+  !
+  do l = 1,nr
+    lmin(l) = minval(xyz_nodes(l,:))
+    lmax(l) = maxval(xyz_nodes(l,:))
+    llen(l) = half*(lmax(l)-lmin(l)) ! half length in each direction
+  end do
+  !
+  ! Center the grid coordinates, and scale them so the coordinate
+  ! direction with the largest extent is scaled to (-1,1)
+  !
+  llenmax = maxval(llen)
+  !
+  do l = 1,nr
+    xyz_nodes(l,:) = (xyz_nodes(l,:) - llen(l)) / llenmax
+    if (allocated(grid)) then
+      if (allocated(grid%xyz)) then
+        grid%xyz(l,:) = (grid%xyz(l,:) - llen(l)) / llenmax
+      end if
+    end if
+    ! xyz shouldnt exist yet, but scale it just in case
+    if (allocated(xyz)) then
+      xyz(l,:) = (xyz(l,:) - llen(l)) / llenmax
+    end if
+  end do
+  !
+  ! Finally scale the grid so the coordinate direction with the
+  ! largest extent is scaled to (-VortexGrid_Lref,VortexGrid_Lref)
+  !
+  xyz_nodes(:,:) = xyz_nodes(:,:) * abs(VortexGrid_Lref)
+  if (allocated(grid)) then
+    if (allocated(grid%xyz)) then
+      grid%xyz(:,:) = grid%xyz(:,:) * abs(VortexGrid_Lref)
+    end if
+  end if
+  ! xyz shouldnt exist yet, but scale it just in case
+  if (allocated(xyz)) then
+    xyz(:,:) = xyz(:,:) * abs(VortexGrid_Lref)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine rescale_grid_for_vortex_problems
 !
 !###############################################################################
 !
