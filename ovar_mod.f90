@@ -680,6 +680,24 @@ module ovar
   integer, public, save :: matrix_output_unit = iout
  !integer, public, save :: matrix_output_unit = 9203
   !
+  ! Interface to check if two boundary condition input derived types are equal
+  !
+  interface operator(==)
+    module procedure bc_input_t_equals, &
+                     relaxation_t_equals, &
+                     sem_bc_t_equals, &
+                     periodic_bc_t_equals
+  end interface
+  !
+  ! Interface to check if two boundary condition input derived types are equal
+  !
+  interface operator(/=)
+    module procedure bc_input_t_not_equal, &
+                     relaxation_t_not_equal, &
+                     sem_bc_t_not_equal, &
+                     periodic_bc_t_not_equal
+  end interface
+  !
   !$ACC DECLARE CREATE(walls_are_exact,sub_inflow_method, &
   !$ACC&               turb_is_on,include_tke_in_energy, &
   !$ACC&               time,itcur,gam,pr,aref,rhoref,tref,tmin,tmax, &
@@ -742,14 +760,18 @@ pure function is_not_default_bc_input(this) result(return_value)
   !.. Function Result ..
   logical(lk) :: return_value
   !
+  !.. Local Allocatable Scalars ..
+  type(bc_input_t), allocatable :: bc_input_default
+  !
 continue
   !
-  return_value = true
+  ! Create a variable of type bc_input_t with default values
   !
-  if (len_trim(adjustl(this%name)) > 0) return
-  if (this%set_bc_value /= bc_unknown)  return
+  allocate ( bc_input_default )
   !
-  return_value = (.not. this%has_default_flow_conditions())
+  ! Compare the input argument to the default values
+  !
+  return_value = ( this /= bc_input_default )
   !
 end function is_not_default_bc_input
 !
@@ -757,47 +779,199 @@ end function is_not_default_bc_input
 !
 pure function has_default_flow_conditions(this) result(return_value)
   !
+  ! This function is slightly different than is_not_default_bc_input. This
+  ! function is used to check only the flow condition components of the
+  ! boundary condition against the default values. The function
+  ! is_not_default_bc_input also checks bc_input%name and other non flow
+  ! condition components against the default values.
+  !
   !.. Passed Argument from Invoking Object ..
   class(bc_input_t), intent(in) :: this
   !
   !.. Function Result ..
   logical(lk) :: return_value
   !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  !.. Local Allocatable Scalars ..
+  type(bc_input_t), allocatable :: dflt
+  !
 continue
+  !
+  ! Create a variable of type bc_input_t with default values
+  !
+  allocate ( dflt )
+  !
+  ! Initialize the function result to false
   !
   return_value = fals
   !
-  if (abs(this%t_static  +one) > eps6) return
-  if (abs(this%p_static  +one) > eps6) return
-  if (abs(this%rho_static+one) > eps6) return
-  if (abs(this%mach      +one) > eps6) return
-  if (abs(this%vx            ) > eps6) return
-  if (abs(this%vy            ) > eps6) return
-  if (abs(this%vz            ) > eps6) return
-  if (abs(this%t_total   +one) > eps6) return
-  if (abs(this%p_total   +one) > eps6) return
-  if (abs(this%rho_total +one) > eps6) return
-  if (abs(this%alpha_aoa     ) > eps6) return
-  if (abs(this%beta_aoa      ) > eps6) return
-  if (abs(this%wall_temp +one) > eps6) return
+  ! NOTE: Dont check this%name, this%set_bc_value, or this%periodic because
+  !       those three components dont have anything to do with the flow
+  !       conditions for this boundary condition
+  !
+  ! If any of the following conditionals are true, then the subcomponents
+  ! of the input argument are not equal to the default values, so immediately
+  ! return with a function result of false indicating they are not equal.
+  !
+  if (abs(this%t_static   - dflt%t_static  ) > eps6) return
+  if (abs(this%p_static   - dflt%p_static  ) > eps6) return
+  if (abs(this%rho_static - dflt%rho_static) > eps6) return
+  if (abs(this%mach       - dflt%mach      ) > eps6) return
+  if (abs(this%vx         - dflt%vx        ) > eps6) return
+  if (abs(this%vy         - dflt%vy        ) > eps6) return
+  if (abs(this%vz         - dflt%vz        ) > eps6) return
+  if (abs(this%t_total    - dflt%t_total   ) > eps6) return
+  if (abs(this%p_total    - dflt%p_total   ) > eps6) return
+  if (abs(this%rho_total  - dflt%rho_total ) > eps6) return
+  if (abs(this%alpha_aoa  - dflt%alpha_aoa ) > eps6) return
+  if (abs(this%beta_aoa   - dflt%beta_aoa  ) > eps6) return
+  if (abs(this%wall_temp  - dflt%wall_temp ) > eps6) return
   !
   if ( this%relax%is_not_default() ) return
   !
   if ( this%sem%is_not_default() ) return
   !
-  if ( this%periodic%is_not_default() ) return
-  !
 #ifdef ALLOCATABLE_MASS_FRAC
+  !
+  if (allocated(this%mass_frac   ) .neqv. allocated(dflt%mass_frac   )) return
+  if (allocated(this%species_name) .neqv. allocated(dflt%species_name)) return
+  !
   if (allocated(this%mass_frac)) then
-    if (any(this%mass_frac(:) > zero)) return
+    if (size(this%mass_frac) /= size(dflt%mass_frac)) return
+    do n = 1,size(this%mass_frac)
+      if (abs(this%mass_frac(n) - dflt%mass_frac(n)) > eps6) return
+    end do
   end if
+  !
+  if (allocated(this%species_name)) then
+    if (size(this%species_name) /= size(dflt%species_name)) return
+    do n = 1,size(this%species_name)
+      if (trim(adjustl(this%species_name(n))) /= &
+          trim(adjustl(dflt%species_name(n)))) return
+    end do
+  end if
+  !
 #else
-  if (any(this%mass_frac(:) > zero)) return
+  !
+  do n = 1,size(this%mass_frac)
+    if (abs(this%mass_frac(n) - dflt%mass_frac(n)) > eps6) return
+  end do
+  !
+  do n = 1,size(this%species_name)
+    if (trim(adjustl(this%species_name(n))) /= &
+        trim(adjustl(dflt%species_name(n)))) return
+  end do
+  !
 #endif
   !
   return_value = true
   !
 end function has_default_flow_conditions
+!
+!###############################################################################
+!
+pure function bc_input_t_equals(a,b) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(bc_input_t), intent(in) :: a
+  type(bc_input_t), intent(in) :: b
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  ! Initialize the function result to false
+  !
+  return_value = fals
+  !
+  ! If any of the following conditionals are true, then the subcomponents
+  ! of the input arguments are not equal, so immediately return with a
+  ! function result of false indicating they are not equal.
+  !
+  if (trim(adjustl(a%name)) /= trim(adjustl(b%name))) return
+  !
+  if (a%set_bc_value /= b%set_bc_value) return
+  !
+  if (abs(a%t_static   - b%t_static  ) > eps6) return
+  if (abs(a%p_static   - b%p_static  ) > eps6) return
+  if (abs(a%rho_static - b%rho_static) > eps6) return
+  if (abs(a%mach       - b%mach      ) > eps6) return
+  if (abs(a%vx         - b%vx        ) > eps6) return
+  if (abs(a%vy         - b%vy        ) > eps6) return
+  if (abs(a%vz         - b%vz        ) > eps6) return
+  if (abs(a%t_total    - b%t_total   ) > eps6) return
+  if (abs(a%p_total    - b%p_total   ) > eps6) return
+  if (abs(a%rho_total  - b%rho_total ) > eps6) return
+  if (abs(a%alpha_aoa  - b%alpha_aoa ) > eps6) return
+  if (abs(a%beta_aoa   - b%beta_aoa  ) > eps6) return
+  if (abs(a%wall_temp  - b%wall_temp ) > eps6) return
+  !
+#ifdef ALLOCATABLE_MASS_FRAC
+  !
+  if (allocated(a%mass_frac   ) .neqv. allocated(b%mass_frac   )) return
+  if (allocated(a%species_name) .neqv. allocated(b%species_name)) return
+  !
+  if (allocated(a%mass_frac)) then
+    if (size(a%mass_frac) /= size(b%mass_frac)) return
+    do n = 1,size(a%mass_frac)
+      if (abs(a%mass_frac(n) - b%mass_frac(n)) > eps6) return
+    end do
+  end if
+  !
+  if (allocated(a%species_name)) then
+    if (size(a%species_name) /= size(b%species_name)) return
+    do n = 1,size(a%species_name)
+      if (trim(adjustl(a%species_name(n))) /= &
+          trim(adjustl(b%species_name(n)))) return
+    end do
+  end if
+  !
+#else
+  !
+  do n = 1,size(a%mass_frac)
+    if (abs(a%mass_frac(n) - b%mass_frac(n)) > eps6) return
+  end do
+  !
+  do n = 1,size(a%species_name)
+    if (trim(adjustl(a%species_name(n))) /= &
+        trim(adjustl(b%species_name(n)))) return
+  end do
+  !
+#endif
+  !
+  if (a%relax    /= b%relax   ) return
+  if (a%sem      /= b%sem     ) return
+  if (a%periodic /= b%periodic) return
+  !
+  ! If we have reached this point, all subcomponents of the input arguments
+  ! are equal, so return true to indicate this is the case.
+  !
+  return_value = true
+  !
+end function bc_input_t_equals
+!
+!###############################################################################
+!
+pure function bc_input_t_not_equal(a,b) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(bc_input_t), intent(in) :: a
+  type(bc_input_t), intent(in) :: b
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+continue
+  !
+  return_value = .not. (a == b)
+  !
+end function bc_input_t_not_equal
 !
 !###############################################################################
 !
@@ -809,27 +983,69 @@ pure function is_not_default_relax(this) result(return_value)
   !.. Function Result ..
   logical(lk) :: return_value
   !
+  !.. Local Allocatable Scalars ..
+  type(relaxation_t), allocatable :: relax_default
+  !
 continue
   !
-  ! Initialize the function result to true
+  ! Create a variable of type relaxation_t with default values
   !
-  return_value = true
+  allocate ( relax_default )
   !
-  ! If any of the following conditionals are true, the input argument
-  ! no longer has default values so just return with the function result
-  ! that has already been initialized to true, thus indicating non-default
-  ! values are present in the input argument.
+  ! Compare the input argument to the default values
   !
-  if (abs(this%value- one) > eps6) return
-  if (abs(this%time -zero) > eps6) return
-  if (    this%iter        /=   0) return
+  return_value = ( this /= relax_default )
   !
-  ! If we have reached this point, the input argument still contains
-  ! default values so return false to indicate this is the case.
+end function is_not_default_relax
+!
+!###############################################################################
+!
+elemental function relaxation_t_equals(a,b) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(relaxation_t), intent(in) :: a
+  type(relaxation_t), intent(in) :: b
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+continue
+  !
+  ! Initialize the function result to false
   !
   return_value = fals
   !
-end function is_not_default_relax
+  ! If any of the following conditionals are true, then the subcomponents
+  ! of the input arguments are not equal, so immediately return with a
+  ! function result of false indicating they are not equal.
+  !
+  if (abs(a%value - b%value) > eps6) return
+  if (abs(a%time  - b%time ) > eps6) return
+  if (a%iter /= b%iter) return
+  !
+  ! If we have reached this point, all subcomponents of the input arguments
+  ! are equal, so return true to indicate this is the case.
+  !
+  return_value = true
+  !
+end function relaxation_t_equals
+!
+!###############################################################################
+!
+elemental function relaxation_t_not_equal(a,b) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(relaxation_t), intent(in) :: a
+  type(relaxation_t), intent(in) :: b
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+continue
+  !
+  return_value = .not. (a == b)
+  !
+end function relaxation_t_not_equal
 !
 !###############################################################################
 !
@@ -841,31 +1057,76 @@ pure function is_not_default_sem(this) result(return_value)
   !.. Function Result ..
   logical(lk) :: return_value
   !
+  !.. Local Allocatable Scalars ..
+  type(sem_bc_t), allocatable :: sem_default
+  !
 continue
   !
-  ! Initialize the function result to true
+  ! Create a variable of type sem_bc_t with default values
   !
-  return_value = true
+  allocate ( sem_default )
   !
-  ! If any of the following conditionals are true, the input argument
-  ! no longer has default values so just return with the function result
-  ! that has already been initialized to true, thus indicating non-default
-  ! values are present in the input argument.
+  ! Compare the input argument to the default values
   !
-  if (this%is_cylindrical) return
-  if (abs(this%length_scale       ) > eps6) return
-  if (abs(this%convective_velocity) > eps6) return
-  if (abs(this%profile_height     ) > eps6) return
-  if (len_trim(adjustl(this%profile_file)) > 0) return
-  if (this%sub_in_bc_grp /= 0) return
-  if (this%sub_in_bc_idx /= 0) return
+  return_value = ( this /= sem_default )
   !
-  ! If we have reached this point, the input argument still contains
-  ! default values so return false to indicate this is the case.
+end function is_not_default_sem
+!
+!###############################################################################
+!
+elemental function sem_bc_t_equals(a,b) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(sem_bc_t), intent(in) :: a
+  type(sem_bc_t), intent(in) :: b
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+continue
+  !
+  ! Initialize the function result to false
   !
   return_value = fals
   !
-end function is_not_default_sem
+  ! If any of the following conditionals are true, then the subcomponents
+  ! of the input arguments are not equal, so immediately return with a
+  ! function result of false indicating they are not equal.
+  !
+  if (a%is_cylindrical .neqv. b%is_cylindrical) return
+  !
+  if (abs(a%length_scale        - b%length_scale       ) > eps6) return
+  if (abs(a%convective_velocity - b%convective_velocity) > eps6) return
+  if (abs(a%profile_height      - b%profile_height     ) > eps6) return
+  !
+  if (trim(adjustl(a%profile_file)) /= trim(adjustl(b%profile_file))) return
+  !
+  if (a%sub_in_bc_grp /= b%sub_in_bc_grp) return
+  if (a%sub_in_bc_idx /= b%sub_in_bc_idx) return
+  !
+  ! If we have reached this point, all subcomponents of the input arguments
+  ! are equal, so return true to indicate this is the case.
+  !
+  return_value = true
+  !
+end function sem_bc_t_equals
+!
+!###############################################################################
+!
+elemental function sem_bc_t_not_equal(a,b) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(sem_bc_t), intent(in) :: a
+  type(sem_bc_t), intent(in) :: b
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+continue
+  !
+  return_value = .not. (a == b)
+  !
+end function sem_bc_t_not_equal
 !
 !###############################################################################
 !
@@ -877,29 +1138,85 @@ pure function is_not_default_periodic(this) result(return_value)
   !.. Function Result ..
   logical(lk) :: return_value
   !
+  !.. Local Allocatable Scalars ..
+  type(periodic_bc_t), allocatable :: periodic_default
+  !
 continue
   !
-  ! Initialize the function result to true
+  ! Create a variable of type periodic_t with default values
   !
-  return_value = true
+  allocate ( periodic_default )
   !
-  ! If any of the following conditionals are true, the input argument
-  ! no longer has default values so just return with the function result
-  ! that has already been initialized to true, thus indicating non-default
-  ! values are present in the input argument.
-  ! 
-  if (len_trim(adjustl(this%matching_bc_name)) > 0) return
-  if (                 this%matching_bc_idx   /= 0) return
-  if (any(abs(this%RotationCenter(:)) > eps6)) return 
-  if (any(abs(this%RotationAngle(:) ) > eps6)) return 
-  if (any(abs(this%Translation(:)   ) > eps6)) return 
+  ! Compare the input argument to the default values
   !
-  ! If we have reached this point, the input argument still contains
-  ! default values so return false to indicate this is the case.
+  return_value = ( this /= periodic_default )
+  !
+end function is_not_default_periodic
+!
+!###############################################################################
+!
+elemental function periodic_bc_t_equals(a,b) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(periodic_bc_t), intent(in) :: a
+  type(periodic_bc_t), intent(in) :: b
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  ! Initialize the function result to false
   !
   return_value = fals
   !
-end function is_not_default_periodic
+  ! If any of the following conditionals are true, then the subcomponents
+  ! of the input arguments are not equal, so immediately return with a
+  ! function result of false indicating they are not equal.
+  !
+  if (trim(adjustl(a%matching_bc_name)) /= &
+      trim(adjustl(b%matching_bc_name))) return
+  !
+  if (a%matching_bc_idx /= b%matching_bc_idx) return
+  !
+  do n = 1,size(a%RotationCenter)
+    if (abs(a%RotationCenter(n) - b%RotationCenter(n)) > eps6) return 
+  end do
+  !
+  do n = 1,size(a%RotationAngle)
+    if (abs(a%RotationAngle(n) - b%RotationAngle(n)) > eps6) return 
+  end do
+  !
+  do n = 1,size(a%Translation)
+    if (abs(a%Translation(n) - b%Translation(n)) > eps6) return 
+  end do
+  !
+  ! If we have reached this point, all subcomponents of the input arguments
+  ! are equal, so return true to indicate this is the case.
+  !
+  return_value = true
+  !
+end function periodic_bc_t_equals
+!
+!###############################################################################
+!
+elemental function periodic_bc_t_not_equal(a,b) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(periodic_bc_t), intent(in) :: a
+  type(periodic_bc_t), intent(in) :: b
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+continue
+  !
+  return_value = .not. (a == b)
+  !
+end function periodic_bc_t_not_equal
 !
 !###############################################################################
 !
