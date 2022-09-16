@@ -40,11 +40,18 @@ module ovar
   ! ###  Module Derived Types  ###
   ! ##############################
   !
+  ! relaxation_t : derived type that provides relaxation parameters
+  !                that can be used for certain boundary conditions
+  !
   type, public :: relaxation_t
     real(wp) :: value = one
     real(wp) :: time  = zero
     integer  :: iter  = 0
   end type relaxation_t
+  !
+  ! sem_bc_t : derived type to provide information to use the
+  !            synthetic eddy method (SEM) to generate an
+  !            unsteady turbulent inflow boundary condition
   !
   type, public :: sem_bc_t
     logical(lk) :: is_cylindrical = fals
@@ -55,6 +62,9 @@ module ovar
     integer  :: sub_in_bc_grp = 0
     integer  :: sub_in_bc_idx = 0
   end type sem_bc_t
+  !
+  ! bc_input_t : derived type used in the input namelist to specify
+  !              the flow parameters for each boundary condition
   !
   type, public :: bc_input_t
     !
@@ -101,6 +111,10 @@ module ovar
 #endif
     !
   end type bc_input_t
+  !
+  ! bc_in_t : derived type that contains the boundary condition flow parameters
+  !           used by the solver. This is a consolidated version of what is
+  !           specified in the input namelist using bc_input_t.
   !
   type, public :: bc_in_t
     real(wp), allocatable :: cv(:)
