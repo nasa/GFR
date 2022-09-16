@@ -146,7 +146,7 @@ module ovar
     !
   contains
     !
-    procedure :: is_not_default
+    procedure :: is_not_default => is_not_default_bc_input
     procedure :: has_default_flow_conditions
   !!procedure, private :: write_bc_input_t
   !!procedure, private :: read_bc_input_t
@@ -728,7 +728,7 @@ end subroutine move_bcin_to_device
 !
 !###############################################################################
 !
-pure function is_not_default(this) result(return_value)
+pure function is_not_default_bc_input(this) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
   class(bc_input_t), intent(in) :: this
@@ -745,7 +745,7 @@ continue
   !
   return_value = (.not. this%has_default_flow_conditions())
   !
-end function is_not_default
+end function is_not_default_bc_input
 !
 !###############################################################################
 !
