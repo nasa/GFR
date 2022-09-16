@@ -803,6 +803,104 @@ end function has_default_flow_conditions
 !
 !###############################################################################
 !
+pure function is_not_default_relax(this) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(relaxation_t), intent(in) :: this
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+continue
+  !
+  ! Initialize the function result to true
+  !
+  return_value = true
+  !
+  ! If any of the following conditionals are true, the input argument
+  ! no longer has default values so just return with the function result
+  ! that has already been initialized to true, thus indicating non-default
+  ! values are present in the input argument.
+  !
+  if (abs(this%value- one) > eps6) return
+  if (abs(this%time -zero) > eps6) return
+  if (    this%iter        /=   0) return
+  !
+  ! If we have reached this point, the input argument still contains
+  ! default values so return false to indicate this is the case.
+  !
+  return_value = fals
+  !
+end function is_not_default_relax
+!
+!###############################################################################
+!
+pure function is_not_default_sem(this) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(sem_bc_t), intent(in) :: this
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+continue
+  !
+  ! Initialize the function result to true
+  !
+  return_value = true
+  !
+  ! If any of the following conditionals are true, the input argument
+  ! no longer has default values so just return with the function result
+  ! that has already been initialized to true, thus indicating non-default
+  ! values are present in the input argument.
+  !
+  if (abs(this%length_scale       ) > eps6) return
+  if (abs(this%convective_velocity) > eps6) return
+  if (len_trim(adjustl(this%profile_file)) > 0) return
+  !
+  ! If we have reached this point, the input argument still contains
+  ! default values so return false to indicate this is the case.
+  !
+  return_value = fals
+  !
+end function is_not_default_sem
+!
+!###############################################################################
+!
+pure function is_not_default_periodic(this) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(periodic_bc_t), intent(in) :: this
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+continue
+  !
+  ! Initialize the function result to true
+  !
+  return_value = true
+  !
+  ! If any of the following conditionals are true, the input argument
+  ! no longer has default values so just return with the function result
+  ! that has already been initialized to true, thus indicating non-default
+  ! values are present in the input argument.
+  ! 
+  if (len_trim(adjustl(this%matching_bc_name)) > 0) return
+  if (                 this%matching_bc_idx   /= 0) return
+  if (any(abs(this%RotationCenter(:)) > eps6)) return 
+  if (any(abs(this%RotationAngle(:) ) > eps6)) return 
+  if (any(abs(this%Translation(:)   ) > eps6)) return 
+  !
+  ! If we have reached this point, the input argument still contains
+  ! default values so return false to indicate this is the case.
+  !
+  return_value = fals
+  !
+end function is_not_default_periodic
+!
+!###############################################################################
+!
 !!subroutine write_bc_input_t(dtv,iunit,iotype,vlist,my_iostat,my_iomsg)
 !!  !
 !!  !.. Passed Argument from Invoking Object ..
