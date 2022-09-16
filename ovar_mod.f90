@@ -63,6 +63,50 @@ module ovar
     integer  :: sub_in_bc_idx = 0
   end type sem_bc_t
   !
+  ! periodic_bc_t : derived type to provide information about a periodic
+  !                 boundary condition to allow it to be matched to another
+  !                 periodic boundary condition
+  !
+  type, public :: periodic_bc_t
+    !
+    ! NOTE: At least one of matching_bc_name or matching_bc_idx needs to have
+    !       a non-default value. If both have been given non-default values,
+    !       the bc_input_t entity that they point to needs to be the same.
+    !
+    ! matching_bc_name : gives a character string that should match the value
+    !                    of one of the other boundary condition names (that is
+    !                    not itself), i.e.,
+    !                       matching_bc_name == bc_input(i)%name
+    !                       matching_bc_idx = i
+    character(len=32) :: matching_bc_name = ""
+    ! matching_bc_idx  : gives the index of bc_input(:) to find the matching
+    !                    periodic boundary interface, i.e.,
+    !                       i = matching_bc_idx
+    !                       matching_bc_name = bc_input(i)%name
+    integer :: matching_bc_idx = 0
+    !
+    ! The following three arrays define the geometrical transformation required
+    ! to find the matching faces from the connecting periodic boundary.
+    ! NOTE: These are based off the implementation of periodic interfaces
+    !       within the CGNS standard. For more insight, see the
+    !       Periodic_t data structure in the CGNS SIDS.
+    !
+    ! RotationCenter : the origin for defining the rotation angle
+    !                  between the periodic interfaces
+    real(wp) :: RotationCenter(1:3) = [zero,zero,zero]
+    ! RotationAngle  : defines the axis-rotation angle from the current periodic
+    !                  boundary interface to the connecting periodic boundary
+    !                  interface. If rotating about more than one axis, the
+    !                  rotation is performed first about the x-axis, then the
+    !                  y-axis, then the z-axis.
+    real(wp) :: RotationAngle(1:3)  = [zero,zero,zero]
+    ! Translation    : defines the translation from the current periodic
+    !                  boundary interface to the connecting periodic boundary
+    !                  interface.
+    real(wp) :: Translation(1:3)    = [zero,zero,zero]
+    !
+  end type periodic_bc_t
+  !
   ! bc_input_t : derived type used in the input namelist to specify
   !              the flow parameters for each boundary condition
   !
