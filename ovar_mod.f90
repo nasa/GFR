@@ -852,9 +852,13 @@ continue
   ! that has already been initialized to true, thus indicating non-default
   ! values are present in the input argument.
   !
+  if (this%is_cylindrical) return
   if (abs(this%length_scale       ) > eps6) return
   if (abs(this%convective_velocity) > eps6) return
+  if (abs(this%profile_height     ) > eps6) return
   if (len_trim(adjustl(this%profile_file)) > 0) return
+  if (this%sub_in_bc_grp /= 0) return
+  if (this%sub_in_bc_idx /= 0) return
   !
   ! If we have reached this point, the input argument still contains
   ! default values so return false to indicate this is the case.
