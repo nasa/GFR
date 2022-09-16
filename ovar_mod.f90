@@ -47,6 +47,8 @@ module ovar
     real(wp) :: value = one
     real(wp) :: time  = zero
     integer  :: iter  = 0
+  contains
+    procedure :: is_not_default => is_not_default_relax
   end type relaxation_t
   !
   ! sem_bc_t : derived type to provide information to use the
