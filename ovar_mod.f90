@@ -142,6 +142,8 @@ module ovar
     !
     type(sem_bc_t) :: sem
     !
+    type(periodic_bc_t) :: periodic
+    !
   contains
     !
     procedure :: is_not_default
