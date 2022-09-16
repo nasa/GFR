@@ -783,6 +783,12 @@ continue
   if (abs(this%sem%convective_velocity) > eps6) return
   if (len_trim(adjustl(this%sem%profile_file)) > 0) return
   !
+  if (len_trim(adjustl(this%periodic%matching_bc_name)) > 0) return
+  if (                 this%periodic%matching_bc_idx   /= 0) return
+  if (any(abs(this%periodic%RotationCenter(:)) > eps6)) return 
+  if (any(abs(this%periodic%RotationAngle(:) ) > eps6)) return 
+  if (any(abs(this%periodic%Translation(:)   ) > eps6)) return 
+  !
 #ifdef ALLOCATABLE_MASS_FRAC
   if (allocated(this%mass_frac)) then
     if (any(this%mass_frac(:) > zero)) return
