@@ -109,6 +109,8 @@ module ovar
     !                  interface.
     real(wp) :: Translation(1:3)    = [zero,zero,zero]
     !
+  contains
+    procedure :: is_not_default => is_not_default_periodic
   end type periodic_bc_t
   !
   ! bc_input_t : derived type used in the input namelist to specify
