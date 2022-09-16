@@ -63,6 +63,8 @@ module ovar
     character(len=150) :: profile_file = ""
     integer  :: sub_in_bc_grp = 0
     integer  :: sub_in_bc_idx = 0
+  contains
+    procedure :: is_not_default => is_not_default_sem
   end type sem_bc_t
   !
   ! periodic_bc_t : derived type to provide information about a periodic
