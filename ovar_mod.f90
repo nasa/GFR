@@ -781,19 +781,11 @@ continue
   if (abs(this%beta_aoa      ) > eps6) return
   if (abs(this%wall_temp +one) > eps6) return
   !
-  if (abs(this%relax%value- one) > eps6) return
-  if (abs(this%relax%time -zero) > eps6) return
-  if (    this%relax%iter        /=   0) return
+  if ( this%relax%is_not_default() ) return
   !
-  if (abs(this%sem%length_scale       ) > eps6) return
-  if (abs(this%sem%convective_velocity) > eps6) return
-  if (len_trim(adjustl(this%sem%profile_file)) > 0) return
+  if ( this%sem%is_not_default() ) return
   !
-  if (len_trim(adjustl(this%periodic%matching_bc_name)) > 0) return
-  if (                 this%periodic%matching_bc_idx   /= 0) return
-  if (any(abs(this%periodic%RotationCenter(:)) > eps6)) return 
-  if (any(abs(this%periodic%RotationAngle(:) ) > eps6)) return 
-  if (any(abs(this%periodic%Translation(:)   ) > eps6)) return 
+  if ( this%periodic%is_not_default() ) return
   !
 #ifdef ALLOCATABLE_MASS_FRAC
   if (allocated(this%mass_frac)) then
