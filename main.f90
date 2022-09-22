@@ -437,8 +437,8 @@ continue
     call get_metrics
     call check_for_bad_number(__LINE__)
     !
-    error_message = "STOP_FOR MATRIX OUTPUT"
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+   !error_message = "STOP_FOR MATRIX OUTPUT"
+   !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     !
     ! Special handling for interpolation mode (input_mode=1)
     !
@@ -1731,6 +1731,10 @@ continue
       write (iout,1) trim(output_message)
       flush (iout)
       !
+      write (iout,202) line_num_with_bad_number, &
+                       trim(adjustl(src_file_with_bad_number))
+      flush (iout)
+      !
       write (error_message,201) trim(adjustl(overflow_error)), &
                                 trim(adjustl(divide_by_zero_error)), &
                                 trim(adjustl(invalid_error)), &
@@ -1803,6 +1807,8 @@ continue
               "DUMPING SOLUTION AND RESTART FILES FOR THE ", &
               "PREVIOUS TIME STEP!!!")
   201 format (4(2x,a,:))
+  202 format (5x,"FLOATING POINT CHECK WAS CALLED ON LINE #  ",i0,/,&
+              35x,"OF THE FILE '",a,"'",/)
 #endif
 #endif
   !
@@ -1933,6 +1939,10 @@ continue
       write (iout,1) trim(output_message)
       flush (iout)
       !
+      write (iout,202) line_num_with_bad_number, &
+                       trim(adjustl(src_file_with_bad_number))
+      flush (iout)
+      !
       write (error_message,201) trim(adjustl(overflow_error)), &
                                 trim(adjustl(divide_by_zero_error)), &
                                 trim(adjustl(invalid_error)), &
@@ -2007,6 +2017,8 @@ continue
               "DUMPING SOLUTION AND RESTART FILES FOR THE ", &
               "PREVIOUS TIME STEP!!!")
   201 format (4(2x,a,:))
+  202 format (/,5x,"FLOATING POINT CHECK WAS CALLED ON LINE #  ",i0,/,&
+               35x,"OF THE FILE '",a,"'")
 #endif
 #endif
   !
@@ -2032,6 +2044,7 @@ subroutine find_bad_number()
   integer  :: n,nc,nf,nfp,n0,sf,f0,i,i1,i2,j,kf,lf,l
   integer  :: this_geom,this_order
   integer  :: face_geom,face_order
+  integer  :: one_pass
   real(wp) :: a
   !
   logical(lk) :: use_interp
@@ -2046,34 +2059,45 @@ subroutine find_bad_number()
   !
 continue
   !
-  ! Find a negative density, temperature, or pressure at a solution point
-  !
-  write (inv_fmt,1) "Invalid",nr
-  write (neg_fmt,1) "Negative",nr
-  !
-  do n = 1,n_solpts
-    vars(1) = usp(n,nec)
-    vars(2) = gpsp(n,npres)
-    vars(3) = gpsp(n,ntemp)
-    if (.not. all(ieee_is_finite(vars))) then
-      write (iout,inv_fmt) (xyz(l,n)/grid_scaling_factor, l=1,nr), &
-                           vars(1)*rhoref, &
-                           vars(2)*rhoref*aref*aref, &
-                           vars(3)*tref
-      flush (iout)
-    else if (any(ieee_is_negative(vars))) then
-      write (iout,neg_fmt) (xyz(l,n)/grid_scaling_factor, l=1,nr), &
-                           vars(1)*rhoref, &
-                           vars(2)*rhoref*aref*aref, &
-                           vars(3)*tref
-      flush (iout)
-    end if
-  end do
+  one_pass_solpt_loop: &
+  do one_pass = 1,1
+    !
+    ! Skip this loop if any of the needed arrays have yet to be allocated
+    !
+    if (.not. allocated(xyz) .or. &
+        .not. allocated(usp) .or. &
+        .not. allocated(gpsp)) exit one_pass_solpt_loop
+    !
+    ! Find a negative density, temperature, or pressure at a solution point
+    !
+    write (inv_fmt,1) "Invalid",nr
+    write (neg_fmt,1) "Negative",nr
+    !
+    do n = 1,n_solpts
+      vars(1) = usp(n,nec)
+      vars(2) = gpsp(n,npres)
+      vars(3) = gpsp(n,ntemp)
+      if (.not. all(ieee_is_finite(vars))) then
+        write (iout,inv_fmt) (xyz(l,n)/grid_scaling_factor, l=1,nr), &
+                             vars(1)*rhoref, &
+                             vars(2)*rhoref*aref*aref, &
+                             vars(3)*tref
+        flush (iout)
+      else if (any(ieee_is_negative(vars))) then
+        write (iout,neg_fmt) (xyz(l,n)/grid_scaling_factor, l=1,nr), &
+                             vars(1)*rhoref, &
+                             vars(2)*rhoref*aref*aref, &
+                             vars(3)*tref
+        flush (iout)
+      end if
+    end do
+    !
+  end do one_pass_solpt_loop
   !
   ! Determine if we need to use the interpolation matrix
   ! to get the coordinates of the face points
   !
-  use_interp = true
+  use_interp = allocated(interp)
   !
   if (allocated(facexyz_array)) then
     if (size(facexyz_array,dim=2) == n_flxpts) then
@@ -2085,203 +2109,228 @@ continue
   !
   if (use_interp) then
     !
-    ! Find a negative density, temperature,
-    ! or pressure at a boundary face point
-    !
-    write (inv_fmt,2) "Invalid boundary",nr
-    write (neg_fmt,2) "Negative boundary",nr
-    !
-    bnd_nf_loop: &
-    do nf = 1,nfbnd
+    one_pass_interp_face_loop: &
+    do one_pass = 1,1
       !
-      face_geom = face(nf)%geom
-      face_order = face(nf)%order
+      ! Skip this loop if any of the needed arrays have yet to be allocated
       !
-      f0 = face(nf)%beg_fp - 1
-      nfp = face(nf)%end_fp - f0
+      if (.not. allocated(xyz) .or. &
+          .not. allocated(cell) .or. &
+          .not. allocated(face) .or. &
+          .not. allocated(fp) .or. &
+          .not. allocated(faceusp_array) .or. &
+          .not. allocated(facegpsp)) exit one_pass_interp_face_loop
       !
-      bnd_kf_loop: &
-      do kf = 1,nfp
-        bnd_sf_loop: &
-        do sf = 1,2
-          !
-          vars(1) = faceusp_array(f0+kf,nec,sf)
-          vars(2) = facegpsp(f0+kf,npres,sf)
-          vars(3) = facegpsp(f0+kf,ntemp,sf)
-          !
-          if (.not. all(ieee_is_finite(vars)) .or. &
-              any(ieee_is_negative(vars))) then
+      ! Find a negative density, temperature,
+      ! or pressure at a boundary face point
+      !
+      write (inv_fmt,2) "Invalid boundary",nr
+      write (neg_fmt,2) "Negative boundary",nr
+      !
+      bnd_nf_loop: &
+      do nf = 1,nfbnd
+        !
+        face_geom = face(nf)%geom
+        face_order = face(nf)%order
+        !
+        f0 = face(nf)%beg_fp - 1
+        nfp = face(nf)%end_fp - f0
+        !
+        bnd_kf_loop: &
+        do kf = 1,nfp
+          bnd_sf_loop: &
+          do sf = 1,2
             !
-            nc = face(nf)%left%cell
+            vars(1) = faceusp_array(f0+kf,nec,sf)
+            vars(2) = facegpsp(f0+kf,npres,sf)
+            vars(3) = facegpsp(f0+kf,ntemp,sf)
             !
-            this_geom = cell(nc)%geom
-            this_order = cell(nc)%order
-            !
-            n0 = cell(nc)%beg_sp - 1
-            !
-            lf = face(nf)%left%fp_offset + fp%geord(face_geom,face_order)% &
-                                              rot(face(nf)%left%rotation)% &
-                                           pts(kf)
-            !
-            i1 = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1
-            i2 = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
-            !
-            xyz_fp(1:nr) = zero
-            do i = i1,i2
-              j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
-              a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
-              xyz_fp(1:nr) = xyz_fp(1:nr) + a * xyz(1:nr,n0+j)
-            end do
-            !
-            if (.not. all(ieee_is_finite(vars))) then
-              write (iout,inv_fmt) sf, &
-                                   (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
-                                   vars(1)*rhoref, &
-                                   vars(2)*rhoref*aref*aref, &
-                                   vars(3)*tref
-              flush (iout)
-            else if (any(ieee_is_negative(vars))) then
-              write (iout,neg_fmt) sf, &
-                                   (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
-                                   vars(1)*rhoref, &
-                                   vars(2)*rhoref*aref*aref, &
-                                   vars(3)*tref
-              flush (iout)
+            if (.not. all(ieee_is_finite(vars)) .or. &
+                any(ieee_is_negative(vars))) then
+              !
+              nc = face(nf)%left%cell
+              !
+              this_geom = cell(nc)%geom
+              this_order = cell(nc)%order
+              !
+              n0 = cell(nc)%beg_sp - 1
+              !
+              lf = face(nf)%left%fp_offset + fp%geord(face_geom,face_order)% &
+                                                rot(face(nf)%left%rotation)% &
+                                             pts(kf)
+              !
+              i1 = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1
+              i2 = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+              !
+              xyz_fp(1:nr) = zero
+              do i = i1,i2
+                j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+                a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+                xyz_fp(1:nr) = xyz_fp(1:nr) + a * xyz(1:nr,n0+j)
+              end do
+              !
+              if (.not. all(ieee_is_finite(vars))) then
+                write (iout,inv_fmt) sf, &
+                                     (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
+                                     vars(1)*rhoref, &
+                                     vars(2)*rhoref*aref*aref, &
+                                     vars(3)*tref
+                flush (iout)
+              else if (any(ieee_is_negative(vars))) then
+                write (iout,neg_fmt) sf, &
+                                     (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
+                                     vars(1)*rhoref, &
+                                     vars(2)*rhoref*aref*aref, &
+                                     vars(3)*tref
+                flush (iout)
+              end if
+              !
             end if
-            !
-          end if
-        end do bnd_sf_loop
-      end do bnd_kf_loop
-    end do bnd_nf_loop
-    !
-    ! Find a negative density, temperature,
-    ! or pressure at an interior face point
-    !
-    write (inv_fmt,2) "Invalid interior",nr
-    write (neg_fmt,2) "Negative interior",nr
-    !
-    int_nf_loop: &
-    do nf = nfbnd+1,nface
+          end do bnd_sf_loop
+        end do bnd_kf_loop
+      end do bnd_nf_loop
       !
-      face_geom = face(nf)%geom
-      face_order = face(nf)%order
+      ! Find a negative density, temperature,
+      ! or pressure at an interior face point
       !
-      f0 = face(nf)%beg_fp - 1
-      nfp = face(nf)%end_fp - f0
+      write (inv_fmt,2) "Invalid interior",nr
+      write (neg_fmt,2) "Negative interior",nr
       !
-      int_kf_loop: &
-      do kf = 1,nfp
-        int_sf_loop: &
-        do sf = 1,2
-          !
-          vars(1) = faceusp_array(f0+kf,nec,sf)
-          vars(2) = facegpsp(f0+kf,npres,sf)
-          vars(3) = facegpsp(f0+kf,ntemp,sf)
-          !
-          if (.not. all(ieee_is_finite(vars)) .or. &
-              any(ieee_is_negative(vars))) then
+      int_nf_loop: &
+      do nf = nfbnd+1,nface
+        !
+        face_geom = face(nf)%geom
+        face_order = face(nf)%order
+        !
+        f0 = face(nf)%beg_fp - 1
+        nfp = face(nf)%end_fp - f0
+        !
+        int_kf_loop: &
+        do kf = 1,nfp
+          int_sf_loop: &
+          do sf = 1,2
             !
-            nc = face(nf)%left%cell
+            vars(1) = faceusp_array(f0+kf,nec,sf)
+            vars(2) = facegpsp(f0+kf,npres,sf)
+            vars(3) = facegpsp(f0+kf,ntemp,sf)
             !
-            this_geom = cell(nc)%geom
-            this_order = cell(nc)%order
-            !
-            n0 = cell(nc)%beg_sp - 1
-            !
-            lf = face(nf)%left%fp_offset + fp%geord(face_geom,face_order)% &
-                                              rot(face(nf)%left%rotation)% &
-                                           pts(kf)
-            !
-            i1 = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1
-            i2 = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
-            !
-            xyz_fp(1:nr) = zero
-            do i = i1,i2
-              j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
-              a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
-              xyz_fp(1:nr) = xyz_fp(1:nr) + a * xyz(1:nr,n0+j)
-            end do
-            !
-            if (.not. all(ieee_is_finite(vars))) then
-              write (iout,inv_fmt) sf, &
-                                   (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
-                                   vars(1)*rhoref, &
-                                   vars(2)*rhoref*aref*aref, &
-                                   vars(3)*tref
-              flush (iout)
-            else if (any(ieee_is_negative(vars))) then
-              write (iout,neg_fmt) sf, &
-                                   (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
-                                   vars(1)*rhoref, &
-                                   vars(2)*rhoref*aref*aref, &
-                                   vars(3)*tref
-              flush (iout)
+            if (.not. all(ieee_is_finite(vars)) .or. &
+                any(ieee_is_negative(vars))) then
+              !
+              nc = face(nf)%left%cell
+              !
+              this_geom = cell(nc)%geom
+              this_order = cell(nc)%order
+              !
+              n0 = cell(nc)%beg_sp - 1
+              !
+              lf = face(nf)%left%fp_offset + fp%geord(face_geom,face_order)% &
+                                                rot(face(nf)%left%rotation)% &
+                                             pts(kf)
+              !
+              i1 = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1
+              i2 = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+              !
+              xyz_fp(1:nr) = zero
+              do i = i1,i2
+                j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+                a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+                xyz_fp(1:nr) = xyz_fp(1:nr) + a * xyz(1:nr,n0+j)
+              end do
+              !
+              if (.not. all(ieee_is_finite(vars))) then
+                write (iout,inv_fmt) sf, &
+                                     (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
+                                     vars(1)*rhoref, &
+                                     vars(2)*rhoref*aref*aref, &
+                                     vars(3)*tref
+                flush (iout)
+              else if (any(ieee_is_negative(vars))) then
+                write (iout,neg_fmt) sf, &
+                                     (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
+                                     vars(1)*rhoref, &
+                                     vars(2)*rhoref*aref*aref, &
+                                     vars(3)*tref
+                flush (iout)
+              end if
+              !
             end if
-            !
-          end if
-        end do int_sf_loop
-      end do int_kf_loop
-    end do int_nf_loop
+          end do int_sf_loop
+        end do int_kf_loop
+      end do int_nf_loop
+      !
+    end do one_pass_interp_face_loop
     !
   else
     !
-    ! Find a negative density, temperature,
-    ! or pressure at a boundary face point
-    !
-    write (inv_fmt,2) "Invalid boundary",nr
-    write (neg_fmt,2) "Negative boundary",nr
-    !
-    do n = 1,n_bnd_flxpts
-      do sf = 1,2
-        vars(1) = faceusp_array(n,nec,sf)
-        vars(2) = facegpsp(n,npres,sf)
-        vars(3) = facegpsp(n,ntemp,sf)
-        if (.not. all(ieee_is_finite(vars))) then
-          write (iout,inv_fmt) sf, &
+    one_pass_noninterp_face_loop: &
+    do one_pass = 1,1
+      !
+      ! Skip this loop if any of the needed arrays have yet to be allocated
+      !
+      if (.not. allocated(facexyz_array) .or. &
+          .not. allocated(faceusp_array) .or. &
+          .not. allocated(facegpsp)) exit one_pass_noninterp_face_loop
+      !
+      ! Find a negative density, temperature,
+      ! or pressure at a boundary face point
+      !
+      write (inv_fmt,2) "Invalid boundary",nr
+      write (neg_fmt,2) "Negative boundary",nr
+      !
+      do n = 1,n_bnd_flxpts
+        do sf = 1,2
+          vars(1) = faceusp_array(n,nec,sf)
+          vars(2) = facegpsp(n,npres,sf)
+          vars(3) = facegpsp(n,ntemp,sf)
+          if (.not. all(ieee_is_finite(vars))) then
+            write (iout,inv_fmt) sf, &
                              (facexyz_array(l,n)/grid_scaling_factor, l=1,nr), &
                              vars(1)*rhoref, &
                              vars(2)*rhoref*aref*aref, &
                              vars(3)*tref
-          flush (iout)
-        else if (any(ieee_is_negative(vars))) then
-          write (iout,neg_fmt) sf, &
+            flush (iout)
+          else if (any(ieee_is_negative(vars))) then
+            write (iout,neg_fmt) sf, &
                              (facexyz_array(l,n)/grid_scaling_factor, l=1,nr), &
                              vars(1)*rhoref, &
                              vars(2)*rhoref*aref*aref, &
                              vars(3)*tref
-          flush (iout)
-        end if
+            flush (iout)
+          end if
+        end do
       end do
-    end do
-    !
-    ! Find a negative density, temperature,
-    ! or pressure at an interior face point
-    !
-    write (inv_fmt,2) "Invalid interior",nr
-    write (neg_fmt,2) "Negative interior",nr
-    !
-    do n = n_bnd_flxpts+1,n_flxpts
-      do sf = 1,2
-        vars(1) = faceusp_array(n,nec,sf)
-        vars(2) = facegpsp(n,npres,sf)
-        vars(3) = facegpsp(n,ntemp,sf)
-        if (.not. all(ieee_is_finite(vars))) then
-          write (iout,inv_fmt) sf, &
+      !
+      ! Find a negative density, temperature,
+      ! or pressure at an interior face point
+      !
+      write (inv_fmt,2) "Invalid interior",nr
+      write (neg_fmt,2) "Negative interior",nr
+      !
+      do n = n_bnd_flxpts+1,n_flxpts
+        do sf = 1,2
+          vars(1) = faceusp_array(n,nec,sf)
+          vars(2) = facegpsp(n,npres,sf)
+          vars(3) = facegpsp(n,ntemp,sf)
+          if (.not. all(ieee_is_finite(vars))) then
+            write (iout,inv_fmt) sf, &
                              (facexyz_array(l,n)/grid_scaling_factor, l=1,nr), &
                              vars(1)*rhoref, &
                              vars(2)*rhoref*aref*aref, &
                              vars(3)*tref
-          flush (iout)
-        else if (any(ieee_is_negative(vars))) then
-          write (iout,neg_fmt) sf, &
+            flush (iout)
+          else if (any(ieee_is_negative(vars))) then
+            write (iout,neg_fmt) sf, &
                              (facexyz_array(l,n)/grid_scaling_factor, l=1,nr), &
                              vars(1)*rhoref, &
                              vars(2)*rhoref*aref*aref, &
                              vars(3)*tref
-          flush (iout)
-        end if
+            flush (iout)
+          end if
+        end do
       end do
-    end do
+      !
+    end do one_pass_noninterp_face_loop
     !
   end if
   !
