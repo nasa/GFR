@@ -5005,7 +5005,9 @@ continue
       ! NOTE: Make sure that the number of subcells is at least 1,
       !       particularly for the case of this_order=0
       !
-      this_subcells = max( 1 , output_order**geom_dimen(this_geom) )
+      this_subcells = &
+            max( 1 , size(pst_geom(this_geom,output_order)%connectivity,dim=2) )
+     !this_subcells = max( 1 , output_order**geom_dimen(this_geom) )
       !
       ! Add the number of solution points for this cell geometry at
       ! this order to the running count of the global total number of
@@ -5101,7 +5103,9 @@ continue
     ! NOTE: Make sure that the number of subcells is at least 1,
     !       particularly for the case of this_order=0
     !
-    this_subcells = max( 1 , output_order**geom_dimen(this_geom) )
+    this_subcells = &
+          max( 1 , size(pst_geom(this_geom,output_order)%connectivity,dim=2) )
+   !this_subcells = max( 1 , output_order**geom_dimen(this_geom) )
     !
     ! Loop through the number of subcells and add the subconnectivity
     ! to the first solution point of the current grid cell to get the
