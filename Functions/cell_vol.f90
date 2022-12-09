@@ -113,11 +113,22 @@ pure function vol_pyr(xyz_pts) result(return_value)
   !.. Local Scalars ..
   real(wp) :: vol1,vol2
   !
+  !.. Local Arrays ..
+  real(wp) :: xyz_tet(3,4)
+  !
 continue
   !
-  vol1 = vol_tet( xyz_pts(:,[1,2,3,5]) )
+  xyz_tet(1:3,1) = xyz_pts(1:3,1)
+  xyz_tet(1:3,2) = xyz_pts(1:3,2)
+  xyz_tet(1:3,3) = xyz_pts(1:3,3)
+  xyz_tet(1:3,4) = xyz_pts(1:3,5)
+  vol1 = vol_tet( xyz_tet(1:3,1:4) )
   !
-  vol2 = vol_tet( xyz_pts(:,[1,3,4,5]) )
+  xyz_tet(1:3,1) = xyz_pts(1:3,1)
+  xyz_tet(1:3,2) = xyz_pts(1:3,3)
+  xyz_tet(1:3,3) = xyz_pts(1:3,4)
+  xyz_tet(1:3,4) = xyz_pts(1:3,5)
+  vol2 = vol_tet( xyz_tet(1:3,1:4) )
   !
   return_value = vol1 + vol2
   !
@@ -128,7 +139,7 @@ end function vol_pyr
 pure function vol_pri(xyz_pts) result(return_value)
   !
   ! This function computes the volume of a prismatic element
-  ! by dividing the prism into one pyramid and one tetrahedral
+  ! by dividing the prism into three tetrahedra
   !
   !.. Formal Arguments ..
   real(wp), dimension(3,6), intent(in) :: xyz_pts
@@ -137,15 +148,32 @@ pure function vol_pri(xyz_pts) result(return_value)
   real(wp) :: return_value
   !
   !.. Local Scalars ..
-  real(wp) :: vol1,vol2
+  real(wp) :: vol1,vol2,vol3
+  !
+  !.. Local Arrays ..
+  real(wp) :: xyz_tet(3,4)
   !
 continue
   !
-  vol1 = vol_tet( xyz_pts(:,[1,6,4,5]) )
+  xyz_tet(1:3,1) = xyz_pts(1:3,1)
+  xyz_tet(1:3,2) = xyz_pts(1:3,6)
+  xyz_tet(1:3,3) = xyz_pts(1:3,4)
+  xyz_tet(1:3,4) = xyz_pts(1:3,5)
+  vol1 = vol_tet( xyz_tet(1:3,1:4) )
   !
-  vol2 = vol_pyr( xyz_pts(:,[2,5,6,3,1]) )
+  xyz_tet(1:3,1) = xyz_pts(1:3,2)
+  xyz_tet(1:3,2) = xyz_pts(1:3,5)
+  xyz_tet(1:3,3) = xyz_pts(1:3,6)
+  xyz_tet(1:3,4) = xyz_pts(1:3,1)
+  vol2 = vol_tet( xyz_tet(1:3,1:4) )
   !
-  return_value = vol1 + vol2
+  xyz_tet(1:3,1) = xyz_pts(1:3,2)
+  xyz_tet(1:3,2) = xyz_pts(1:3,6)
+  xyz_tet(1:3,3) = xyz_pts(1:3,3)
+  xyz_tet(1:3,4) = xyz_pts(1:3,1)
+  vol3 = vol_tet( xyz_tet(1:3,1:4) )
+  !
+  return_value = vol1 + vol2 + vol3
   !
 end function vol_pri
 !
