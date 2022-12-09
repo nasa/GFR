@@ -1708,8 +1708,13 @@ continue
         do n = 1,size(interp_gpsp,dim=1)
           if (interp_gpsp(n,ntemp) <= tmin/tref) then
             interp_gpsp(n,ntemp) = tmin/tref
-            interp_usp(n,nec) = interp_gpsp(n,npres) / &
-                                (rgasref_nd*interp_gpsp(n,ntemp))
+            if (interp_usp(n,nec) < zero) then
+              interp_usp(n,nec) = interp_gpsp(n,npres) / &
+                                  (rgasref_nd*interp_gpsp(n,ntemp))
+            else
+              interp_gpsp(n,npres) = interp_usp(n,nec) * &
+                                     rgasref_nd*interp_gpsp(n,ntemp)
+            end if
           end if
         end do
       end if
