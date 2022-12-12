@@ -2016,7 +2016,7 @@ subroutine vortex_solution_gpu(n1,n2,xyz,return_value)
   use ovar, only : gam,rhoref,tref,pref,itestcase
   use ovar, only : vortex_bigR,vortex_bigGam
   use ovar, only : itcur,Period_Timesteps,Period_Time
-  use ovar, only : Grid_Length,Grid_min
+  use ovar, only : Grid_Length,Grid_Min
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
