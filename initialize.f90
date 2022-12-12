@@ -15,6 +15,7 @@ module initialization_mod
   public :: initialize_flow
   public :: initialize_reference
   public :: create_bc_in
+  public :: get_face_and_edge_point_coordinates
   !
 contains
 !
