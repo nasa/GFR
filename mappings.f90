@@ -444,7 +444,6 @@ subroutine assume_equidistant_mapping()
   real(wp), allocatable :: elem_xyz(:,:)
   real(wp), allocatable :: elem_sol(:,:)
   real(wp), allocatable :: elem_usp(:,:)
-  real(wp), allocatable :: old_map_mat(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "assume_equidistant_mapping"
@@ -609,10 +608,6 @@ continue
       this_map%mat = map_general_mesh_elem_to_solpts(this_geom, &
                                                      this_order, &
                                                      mesh_order)
-      !
-      ! F2003 AUTO-REALLOC
-      old_map_mat = old_mappings(this_geom,this_order,mesh_order, &
-                                 size(elem_xyz,dim=2),np,elem_family,this_cell)
       !
     end if
     !
