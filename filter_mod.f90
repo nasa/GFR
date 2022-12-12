@@ -1805,7 +1805,7 @@ continue
     fmat_qp(i,i) = qone
   end do
   !
-  ! Compute the filter diagonal for triangles
+  ! Compute the filter diagonal for tetrahedra
   !
   if (local_Filter_Option /= 0) then
     !
@@ -1833,7 +1833,7 @@ continue
     !
   end if
   !
-  ! Compute the final filter matrix for triangles
+  ! Compute the final filter matrix for tetrahedra
   !
   fmat_qp = matmul( real(vand,kind=qp) , fmat_qp )
   fmat_qp = matmul( fmat_qp , real(vand_inv,kind=qp) )
@@ -1939,7 +1939,7 @@ continue
     fmat_qp(i,i) = qone
   end do
   !
-  ! Compute the filter diagonal for triangles
+  ! Compute the filter diagonal for pyramids
   !
   if (local_Filter_Option /= 0) then
     !
@@ -1967,7 +1967,7 @@ continue
     !
   end if
   !
-  ! Compute the final filter matrix for triangles
+  ! Compute the final filter matrix for pyramids
   !
   fmat_qp = matmul( real(vand,kind=qp) , fmat_qp )
   fmat_qp = matmul( fmat_qp , real(vand_inv,kind=qp) )
@@ -2073,7 +2073,7 @@ continue
     fmat_qp(i,i) = qone
   end do
   !
-  ! Compute the filter diagonal for triangles
+  ! Compute the filter diagonal for prisms
   !
   if (local_Filter_Option /= 0) then
     !
@@ -2101,7 +2101,7 @@ continue
     !
   end if
   !
-  ! Compute the final filter matrix for triangles
+  ! Compute the final filter matrix for prisms
   !
   fmat_qp = matmul( real(vand,kind=qp) , fmat_qp )
   fmat_qp = matmul( fmat_qp , real(vand_inv,kind=qp) )
