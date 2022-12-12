@@ -626,21 +626,39 @@ continue
     write (io,*)
     write (io,203) "ell",this_cell
     do n = 1,size(elem_xyz,dim=2)
-      write (io,204) (elem_xyz(l,n),l=1,nr)
+      if (nr == 2) then
+        write (io,204) (elem_xyz(l,n),l=1,nr)
+      else if (nr == 3) then
+        write (io,304) (elem_xyz(l,n),l=1,nr)
+      end if
     end do
-    write (io,205) (elem_xyz(l,1),l=1,nr)
+    if (nr == 2) then
+      write (io,205) (elem_xyz(l,1),l=1,nr)
+    else if (nr == 3) then
+      write (io,305) (elem_xyz(l,1),l=1,nr)
+    end if
     write (io,206)
     !
     write (io,203) "pts",this_cell
     do n = n1,n2-1
-      write (io,204) (xyz(l,n),l=1,nr)
+      if (nr == 2) then
+        write (io,204) (xyz(l,n),l=1,nr)
+      else if (nr == 3) then
+        write (io,304) (xyz(l,n),l=1,nr)
+      end if
     end do
-    write (io,205) (xyz(l,n2),l=1,nr)
+    if (nr == 2) then
+      write (io,205) (xyz(l,n2),l=1,nr)
+    else if (nr == 3) then
+      write (io,305) (xyz(l,n2),l=1,nr)
+    end if
     write (io,206)
     203 format ("c",a3,i0,"={")
     204 format ("{",f7.4,",",f7.4,"},")
     205 format ("{",f7.4,",",f7.4,"}")
     206 format ("};")
+    304 format ("{",f7.4,",",f7.4,",",f7.4,"},")
+    305 format ("{",f7.4,",",f7.4,",",f7.4,"}")
     !
    !write (io,100) this_cell
    !write (io,*)
