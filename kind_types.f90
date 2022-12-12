@@ -504,6 +504,7 @@ module module_kind_types
   integer, parameter :: Inviscid_Gaussian_Bump  = 3
   integer, parameter :: Laminar_BndLyr          = 4
   integer, parameter :: Shu_Vortex              = 5
+  integer, parameter :: Shu_MultiVortex         = 55
   integer, parameter :: Vortex_Transport        = 6
   integer, parameter :: Density_Transport       = 7
   integer, parameter :: Entropy_Transport       = 8
@@ -521,10 +522,10 @@ module module_kind_types
   integer, parameter :: THX_Phase_3             = 20
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
                                                 Entropy_Transport ]
-  integer, parameter :: Vortex_Problems(1:2) = [ Shu_Vortex, &
-                                                 Vortex_Transport ]
-  integer, parameter :: Transport_Problems(1:4) = [ Shu_Vortex, &
-                                                    Vortex_Transport, &
+  integer, parameter :: Vortex_Problems(1:3) = [ Shu_Vortex, &
+                                                 Vortex_Transport, &
+                                                 Shu_MultiVortex ]
+  integer, parameter :: Transport_Problems(1:5) = [ Vortex_Problems, &
                                                     Advec_Problems ]
   integer, parameter :: Reacting_Flows(1:5) = [Reacting_Backstep, &
                                                H2_2D_Diffusion_Flame, &
