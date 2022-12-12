@@ -1942,38 +1942,12 @@ continue
     !       actually given as KEDR(Ek) = -d/dt (Ek) so the differencing
     !       equation below has been multiplied through by a -1.
     !
-    nbeg = merge(     1     ,   0    , first_output )
-    nend = merge( tgv_idx-1 , nmax-1 , final_output )
-    !
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) PRESENT(tgv_kedr)
-    do n = nbeg,nend
-      !
-      kem = tgv_kedr(5,n-1)
-      kec = tgv_kedr(5,n)
-      kep = tgv_kedr(5,n+1)
-      !
-      dtm = tgv_kedr(7,n)
-      dtp = tgv_kedr(7,n+1)
-      !
-      tgv_kedr(1,n) =  ( (dtm/dtp)*(kec-kep) + (dtp/dtm)*(kem-kec) ) / (dtm+dtp)
-      !
-    end do
-    !$ACC UPDATE SELF(tgv_kedr)
-    !
-    ! Do a one sided difference on the initial conditions if this is the
-    ! first output interval
-    !
-    if (first_output) then
-      tgv_kedr(1,0) = (tgv_kedr(5,0) - tgv_kedr(5,1)) / tgv_kedr(7,1)
-    end if
-    !
-    ! If this is the last output interval, do a one sided difference
-    ! on the final solution
-    !
-    if (final_output) then
-      n = tgv_idx
-      tgv_kedr(1,n) = (tgv_kedr(5,n-1) - tgv_kedr(5,n)) / tgv_kedr(7,n)
-    end if
+    call compute_dEkdt_central_diff_O2(first_output,final_output,tgv_idx, &
+                                       tgv_kedr(5,:),tgv_kedr(7,:), &
+                                       tgv_kedr(1,:),nend)
+   !call compute_dEkdt_backward_diff_O1(first_output,final_output,tgv_idx, &
+   !                                    tgv_kedr(5,:),tgv_kedr(7,:), &
+   !                                    tgv_kedr(1,:),nend)
     !
     ! Have the root processor output the Taylor-Green KEDR solutions
     !
