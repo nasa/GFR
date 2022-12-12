@@ -1673,7 +1673,7 @@ continue
   !
   ! Compute the filter diagonal for triangles
   !
-  if (local_Filter_Option /= 0) then
+  if (local_Filter_Option /= 0 .and. Filter_Cutoff < order) then
     !
     k = 1
     do i = 0,order
@@ -1808,7 +1808,7 @@ continue
   !
   ! Compute the filter diagonal for tetrahedra
   !
-  if (local_Filter_Option /= 0) then
+  if (local_Filter_Option /= 0 .and. Filter_Cutoff < order) then
     !
     l = 1
     do i = 0,order
@@ -1943,7 +1943,7 @@ continue
   !
   ! Compute the filter diagonal for pyramids
   !
-  if (local_Filter_Option /= 0) then
+  if (local_Filter_Option /= 0 .and. Filter_Cutoff < order) then
     !
     l = 1
     do i = 0,order
@@ -2078,7 +2078,7 @@ continue
   !
   ! Compute the filter diagonal for prisms
   !
-  if (local_Filter_Option /= 0) then
+  if (local_Filter_Option /= 0 .and. Filter_Cutoff < order) then
     !
     l = 1
     do i = 0,order
