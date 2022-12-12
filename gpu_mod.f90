@@ -2181,6 +2181,14 @@ continue
       return_value(n,nmy) = rho*vy
       return_value(n,nmz) = rho*vz
       return_value(n,nee) = pres*c5 + half*rho*q2
+#ifdef DEBUG_VORTEX_SOLUTION
+    write (iout,2) n,return_value(n,nec), &
+                     return_value(n,nmx), &
+                     return_value(n,nmy), &
+                     return_value(n,nmz), &
+                     return_value(n,nee),nec,nmx,nmy,nmz,nee
+    2 format (2x,i8,5es14.6,5i3)
+#endif
       !
     end do
   else
