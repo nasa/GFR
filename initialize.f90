@@ -2189,6 +2189,7 @@ subroutine initialize_vortex_problem(cv,pv,gp)
   use ovar, only : cpref,cpref_nd
   use ovar, only : alpha_aoaref,beta_aoaref
   use ovar, only : itestcase
+  use ovar, only : tmin,tmax
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: cv(:)
@@ -2213,7 +2214,7 @@ continue
   beta_aoaref = zero
   velref(:) = zero
   !
-  if (itestcase == -Shu_Vortex) then
+  if (any(itestcase == [-Shu_Vortex,-Shu_MultiVortex])) then
     !
     ! Stationary vortex problem
     !
@@ -2275,6 +2276,9 @@ continue
   cpref = rgasref * gam / (gam - one)
   ! Nondimensional reference specific heat at constant pressure
   cpref_nd = cpref * tref / (aref*aref)
+  !
+  tmin = 0.025_wp ! roughly default tmin/tref
+  tmax = 50.0_wp  ! roughly default tmax/tref
   !
   call debug_timer(leaving_procedure,pname)
   !
