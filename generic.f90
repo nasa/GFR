@@ -1646,6 +1646,7 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   !.. Use Statements ..
   use order_mod,        only : n_order
   use geovar,           only : nr,ncell,n_solpts
+  use geovar,           only : n_global_cell,global_cell_geom
   use ovar,             only : muref_nd,total_volume
   use ovar,             only : time,time_ref
   use ovar,             only : VortexGrid_DOF
@@ -1676,6 +1677,8 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   real(wp) :: velx,dudx,dvdx,dwdx,vortx
   real(wp) :: vely,dudy,dvdy,dwdy,vorty
   real(wp) :: velz,dudz,dvdz,dwdz,vortz
+  !
+  character(len=5) :: grid_geom
   !
   !.. Local Saved Scalars ..
   logical(lk), save :: completed_first_output = fals
@@ -1773,6 +1776,18 @@ continue
     ! Open the output file for the root process
     !
     if (mypnum == 0) then
+      !
+      if (all(global_cell_geom(1:n_global_cell) == Geom_Tetr)) then
+        grid_geom = "Tet"
+      else if (all(global_cell_geom(1:n_global_cell) == Geom_Pyra)) then
+        grid_geom = "Pyr"
+      else if (all(global_cell_geom(1:n_global_cell) == Geom_Pris)) then
+        grid_geom = "Pri"
+      else if (all(global_cell_geom(1:n_global_cell) == Geom_Hexa)) then
+        grid_geom = "Hex"
+      else
+        grid_geom = "Mixed"
+      end if
       !
       nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
       !
