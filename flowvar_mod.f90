@@ -9,6 +9,8 @@ module flowvar
   use module_kind_types, only : Classic_RK
   use module_kind_types, only : CK4_RK
   use module_kind_types, only : TVD4_RK
+  use module_kind_types, only : OERK
+  use module_kind_types, only : EPERK
   use module_kind_types, only : alloc_error
   use module_kind_types, only : skip_alloc_pause
   use module_kind_types, only : error_message
@@ -714,14 +716,14 @@ call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   !
   iwt = iwt + 1 ; message(iwt) = "Allocating Runge Kutta arrays"
 call debug_timer(start_timer,message(iwt))
-  if (Runge_Kutta_Scheme == Classic_RK) then
+  if ( any(Runge_Kutta_Scheme == [Classic_RK,-EPERK]) ) then
     allocate ( rssprk(1:n_solpts,1:nq,1:num_rk_stages) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"rssprk",1,__LINE__,__FILE__,ierr,error_message)
     !$ACC UPDATE DEVICE(rssprk)
   end if
   !
-  if ( any(Runge_Kutta_Scheme == [CK4_RK,TVD4_RK]) ) then
+  if ( any(Runge_Kutta_Scheme == [CK4_RK,TVD4_RK,OERK,EPERK]) ) then
     allocate ( rk_sum(1:n_solpts,1:nq) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"rk_sum",1,__LINE__,__FILE__,ierr,error_message)
