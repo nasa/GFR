@@ -1780,10 +1780,10 @@ end subroutine initialize_dusp_nd
 !
 !###############################################################################
 !
-subroutine get_face_and_edge_point_coordinates
+subroutine get_face_and_edge_point_coordinates(force_facexyz)
   !
   use order_mod,         only : maxSP,geom_solpts
-  use geovar,            only : nr,cell,face,xyz,fp
+  use geovar,            only : nr,cell,face,xyz,fp,nface
   use flowvar,           only : edgexyz_dt,facexyz_dt
   use flowvar,           only : facexyz_array
   use interpolation_mod, only : interp
@@ -1795,6 +1795,9 @@ subroutine get_face_and_edge_point_coordinates
   use omp_lib, only : omp_get_num_threads
 #endif
 #endif
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: force_facexyz
   !
   !.. Local Scalars ..
   integer  :: n,nc,ne,nf,np,n1,n2,f0
@@ -1816,6 +1819,20 @@ subroutine get_face_and_edge_point_coordinates
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  if (present(force_facexyz)) then
+    if (force_facexyz) then
+      if (.not. allocated(facexyz_dt)) then
+        allocate ( facexyz_dt(1:nface) )
+        do nf = 1,nface
+          np = geom_solpts(face(nf)%geom,face(nf)%order)
+          facexyz_dt(nf)%v = init_array(nr,np,zero) ! F2003 AUTO-REALLOC
+        end do
+      end if
+      np = face(nface)%end_fp
+      facexyz_array = init_array(nr,np,zero) ! F2003 AUTO-REALLOC
+    end if
+  end if
   !
   ! Only do this if facexyz is allocated which means that either
   ! the continuous output option or MMS is being used
