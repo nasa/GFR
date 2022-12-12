@@ -1142,12 +1142,6 @@ continue
   !
   np = size(rs,dim=2)             ! no. of solution points in a triangle cell
   ps = solpts2order(Geom_Tria,np) ! solution order
-  write (*,*)
-  write (*,*)
-  write (*,*) pm,ps
-  write (*,*) mp,np
-  write (*,*)
-  write (*,*)
   !
   ! Initialize the allocatable arrays
   !
@@ -1160,7 +1154,6 @@ continue
     do ni = 0,ps-nj
       !
       nk = nk + 1
-      write (*,*) rs(1,nk),rs(2,nk)
       !
       ! Evaluate the Lagrange polynomial for each grid point at
       ! the reference coordinates of the current solution point
@@ -1180,8 +1173,6 @@ continue
       !
     end do
   end do
-  write (*,*)
-  write (*,*)
   !
 end function equidistant_map_tria_to_solpts
 !
@@ -1514,12 +1505,6 @@ continue
   !
   np = size(rst,dim=2)             ! no. of solution points in a tetrahedra cell
   ps = solpts2order(Geom_Tetr,np) ! solution order
-  write (*,*)
-  write (*,*)
-  write (*,*) pm,ps
-  write (*,*) mp,np
-  write (*,*)
-  write (*,*)
   !
   ! Initialize the allocatable arrays
   !
@@ -1533,7 +1518,6 @@ continue
       do ni = 0,ps-nk-nj
         !
         nl = nl + 1
-        write (*,*) rst(1,nl),rst(2,nl),rst(3,nl)
         !
         ! Evaluate the Lagrange polynomial for each grid point at
         ! the reference coordinates of the current solution point
@@ -1556,8 +1540,6 @@ continue
       end do
     end do
   end do
-  write (*,*)
-  write (*,*)
   !
 end function equidistant_map_tetr_to_solpts
 !
