@@ -2103,13 +2103,20 @@ continue
     write (iout,1) "aref",aref
     write (iout,1) "vx_ref",vx_ref
     write (iout,1) "vy_ref",vy_ref
+    if (nr == 3) &
+    write (iout,1) "vz_ref",velref(3)
     write (iout,1) "tref",tref
+    write (iout,1) "pref",pref
     write (iout,1) "rhoref_inv",rhoref_inv
     write (iout,1) "aref_inv",aref_inv
     write (iout,1) "rhoa2_inv",rhoa2_inv
     write (iout,1) "tref_inv",tref_inv
     write (iout,1) "bigR",bigR
     write (iout,1) "bigGam",bigGam
+    write (iout,1) "x_Grid_Len",Grid_Length(1)
+    write (iout,1) "y_Grid_Len",Grid_Length(2)
+    write (iout,1) "x_Grid_Min",Grid_Min(1)
+    write (iout,1) "y_Grid_Min",Grid_Min(2)
     write (iout,1) "c0",c0
     write (iout,1) "c1",c1
     write (iout,1) "c2",c2
