@@ -2118,7 +2118,8 @@ end subroutine output_sparsity
 !
 !###############################################################################
 !
-subroutine output_matrix(this,matrix_name,this_geom,this_order,output_transpose)
+subroutine output_matrix(this,matrix_name,this_geom,this_order, &
+                         output_transpose,force_output)
   !
   !.. Use Statements ..
   use module_kind_types, only : iout,Geom_Full_Name
@@ -2133,22 +2134,33 @@ subroutine output_matrix(this,matrix_name,this_geom,this_order,output_transpose)
   !
   !.. Optional Arguments ..
   logical, optional, intent(in) :: output_transpose
+  logical, optional, intent(in) :: force_output
   !
   !.. Local Scalars ..
   integer :: i,j,n1,n2
   logical :: output_trnspose
+  logical :: forced_output_requested
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "output_matrix"
   !
 continue
   !
-  if (mout == iout) return
+  forced_output_requested = .false.
+  if (present(force_output)) then
+    forced_output_requested = force_output
+  end if
   !
-  if (exclusive_element >= 0) then
-    if (this_geom /= exclusive_element) then
-      return
+  if (.not. forced_output_requested) then
+    !
+    if (mout == iout) return
+    !
+    if (exclusive_element >= 0) then
+      if (this_geom /= exclusive_element) then
+        return
+      end if
     end if
+    !
   end if
   !
   write (mout,1) trim(adjustl(matrix_name)), &
