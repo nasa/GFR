@@ -647,8 +647,8 @@ module module_kind_types
   integer, parameter :: TVD3_RK    = 3
   integer, parameter :: TVD4_RK    = 4
   integer, parameter :: CK4_RK     = 5
-  integer, parameter :: OERK        = 6
-  integer, parameter :: EPERK       = 7
+  integer, parameter :: OERK       = 6
+  integer, parameter :: EPERK      = 7
   !
   ! OERK Parameters
   integer, parameter :: OERK_5Stage_3rdOrder  = 53
