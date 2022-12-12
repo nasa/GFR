@@ -1624,7 +1624,7 @@ continue
   !
   if (present(cutoff_order)) then
     if (cutoff_order >= 0) then
-      local_Filter_Option = Cutoff_Filter_Option
+      local_Filter_Option = 1
       Filter_Cutoff = cutoff_order
       fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
       feps_qp = qzero
@@ -1758,7 +1758,8 @@ continue
   !
   if (present(cutoff_order)) then
     if (cutoff_order >= 0) then
-      local_Filter_Option = Cutoff_Filter_Option
+     !local_Filter_Option = Cutoff_Filter_Option
+      local_Filter_Option = 1
       Filter_Cutoff = cutoff_order
       fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
       feps_qp = qzero
@@ -1892,7 +1893,8 @@ continue
   !
   if (present(cutoff_order)) then
     if (cutoff_order >= 0) then
-      local_Filter_Option = Cutoff_Filter_Option
+     !local_Filter_Option = Cutoff_Filter_Option
+      local_Filter_Option = 1
       Filter_Cutoff = cutoff_order
       fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
       feps_qp = qzero
@@ -2026,7 +2028,8 @@ continue
   !
   if (present(cutoff_order)) then
     if (cutoff_order >= 0) then
-      local_Filter_Option = Cutoff_Filter_Option
+     !local_Filter_Option = Cutoff_Filter_Option
+      local_Filter_Option = 1
       Filter_Cutoff = cutoff_order
       fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
       feps_qp = qzero
