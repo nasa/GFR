@@ -2028,7 +2028,7 @@ subroutine vortex_solution_gpu(n1,n2,xyz,return_value)
   real(wp) :: rhoref_inv,aref_inv,rhoa2_inv,tref_inv
   real(wp) :: vx_ref,vy_ref,delt_since_lastperiod
   real(wp) :: a,du,dv,dT,vx,vy,vz,q2,temp,rho,pres
-  real(wp) :: x,y,dx,dy,xc,yc
+  real(wp) :: x,y,dx_prop,dy_prop,xc,yc,dx,dy
   !
   logical(lk) :: running_vortex_problem
   !
@@ -2045,14 +2045,14 @@ continue
   ! Find the x and y distances the vortex has
   ! traveled since the start of the current period
   !
-  dx = deltafun(velref(1)>eps3) * (velref(1)/aref) * delt_since_lastperiod
-  dy = deltafun(velref(2)>eps3) * (velref(2)/aref) * delt_since_lastperiod
+  dx_prop = deltafun(velref(1)>eps3) * (velref(1)/aref) * delt_since_lastperiod
+  dy_prop = deltafun(velref(2)>eps3) * (velref(2)/aref) * delt_since_lastperiod
   !
   ! Now translate these into a periodic domain
   ! with the grid lengths for each direction
   !
-  dx = mod(dx,Grid_Length(1))
-  dy = mod(dy,Grid_Length(2))
+  dx_prop = mod(dx_prop,Grid_Length(1))
+  dy_prop = mod(dy_prop,Grid_Length(2))
   !
   ! Some needed constants
   !
@@ -2090,8 +2090,8 @@ continue
   c5 = gm1_inv * (one - deltafun(itestcase==Density_Transport))
   !
 #ifdef DEBUG_VORTEX_SOLUTION
-  write (iout,1) "dx",dx
-  write (iout,1) "dy",dy
+  write (iout,1) "dx_prop",dx_prop
+  write (iout,1) "dy_prop",dy_prop
   write (iout,1) "delt",delt_since_lastperiod
   write (iout,1) "gam",gam
   write (iout,1) "rhoref",rhoref
@@ -2119,6 +2119,9 @@ continue
     !
     xc = xyz(1,n)
     yc = xyz(2,n)
+    !
+    dx = dx_prop
+    dy = dy_prop
     !
     x = xc - merge( dx , dx - Grid_Length(1) , xc - dx >= Grid_Min(1) )
     y = yc - merge( dy , dy - Grid_Length(2) , yc - dy >= Grid_Min(2) )
