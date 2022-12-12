@@ -448,6 +448,8 @@ module ovar
   integer,     public, save :: VortexGrid_DOF             = 48
   logical(lk), public, save :: VortexGrid_random_perturb  = fals
   integer,     public, save :: VortexGrid_perturb_percent = 30
+  logical(lk), public, save :: VortexGrid_Hex_to_Pyramids = fals
+  logical(lk), public, save :: VortexGrid_is_3D           = fals
   !
   ! FLAME SPEED TEST PARAMETERS
   integer, public, save :: flame_speed_test_dof = 0
@@ -1576,6 +1578,7 @@ module input_namelist_mod
   use ovar,      only : use_unrolled_dot_products
   use ovar,      only : VortexGrid_DOF,VortexGrid_random_perturb
   use ovar,      only : VortexGrid_perturb_percent,VortexGrid_Lref
+  use ovar,      only : VortexGrid_Hex_to_Pyramids,VortexGrid_is_3D
   use ovar,      only : flame_speed_test_dof
   use ovar,      only : channel_body_force,channel_init_file
   use ovar,      only : channel_spatial_ave_restart
@@ -1793,7 +1796,8 @@ module input_namelist_mod
   namelist / input / vortex_bigR, vortex_bigGam, VortexGrid_Lref
   ! TAYLOR-GREEN VORTEX CONSTANTS
   namelist / input / VortexGrid_DOF, VortexGrid_random_perturb, &
-                     VortexGrid_perturb_percent
+                     VortexGrid_perturb_percent, VortexGrid_Hex_to_Pyramids, &
+                     VortexGrid_is_3D
   ! FLAME SPEED TEST PARAMETERS
   namelist / input / flame_speed_test_dof
   ! CHANNEL FLOW PARAMETERS
