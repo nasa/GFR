@@ -2001,8 +2001,8 @@ end subroutine adjust_temp_grad_for_tpg_1d
 !###############################################################################
 !###############################################################################
 !
-#ifndef DISABLE_PURE
 !#define DEBUG_VORTEX_SOLUTION
+#ifndef DISABLE_PURE
 #ifndef DEBUG_VORTEX_SOLUTION
 pure &
 #endif
@@ -2043,7 +2043,7 @@ continue
   delt_since_lastperiod = delt_since_lastperiod * Period_Time
   !
   ! Find the x and y distances the vortex has
-  ! traveled since the start of the current period
+  ! traveled/propagated since the start of the current period
   !
   dx_prop = deltafun(velref(1)>eps3) * (velref(1)/aref) * delt_since_lastperiod
   dy_prop = deltafun(velref(2)>eps3) * (velref(2)/aref) * delt_since_lastperiod
@@ -2056,6 +2056,8 @@ continue
   !
   ! Some needed constants
   !
+  ! running_vortex_problem = fals -> advection only problem
+  ! running_vortex_problem = true -> actual vortex problem
   running_vortex_problem = any(itestcase==Vortex_Problems)
   !
   c0 = deltafun( running_vortex_problem )
