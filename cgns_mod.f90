@@ -5765,7 +5765,10 @@ function create_element_i4(elem_type,pts) result(return_value)
   type(elem_t) :: return_value
   !
   !.. Local Scalars ..
-  integer :: ierr,nn,np
+  integer :: ierr,n,nn,np,i,imax
+  !
+  !.. Local Arrays ..
+  integer :: ip(1:8)
   !
 continue
   !
@@ -5778,6 +5781,58 @@ continue
   !
   return_value%pts = int(pts(1:np),kind=kind(return_value%pts))
   return_value%nodes = int(pts(1:nn),kind=kind(return_value%nodes))
+  !
+  if (randomly_rotate_cells_debug) then
+    !
+    n = 0
+    !
+    if (return_value%prop%geom == Geom_Hexa) then
+      !
+      n = size(hex_random_rotation,dim=1)
+      imax = size(hex_random_rotation,dim=2)
+      !
+      i = min( imax , max(1,random(imax+1)) ) ! random value from 1 to imax
+      !
+      ip(1:n) = hex_random_rotation(1:n,i)
+      !
+    else if (return_value%prop%geom == Geom_Pris) then
+      !
+      n = size(pri_random_rotation,dim=1)
+      imax = size(pri_random_rotation,dim=2)
+      !
+      i = min( imax , max(1,random(imax+1)) ) ! random value from 1 to imax
+      !
+      ip(1:n) = pri_random_rotation(1:n,i)
+      !
+    else if (return_value%prop%geom == Geom_Pyra) then
+      !
+      n = size(pyr_random_rotation,dim=1)
+      imax = size(pyr_random_rotation,dim=2)
+      !
+      i = min( imax , max(1,random(imax+1)) ) ! random value from 1 to imax
+      !
+      ip(1:n) = pyr_random_rotation(1:n,i)
+      !
+    else if (return_value%prop%geom == Geom_Tetr) then
+      !
+      n = size(tet_random_rotation,dim=1)
+      imax = size(tet_random_rotation,dim=2)
+      !
+      i = min( imax , max(1,random(imax+1)) ) ! random value from 1 to imax
+      !
+      ip(1:n) = tet_random_rotation(1:n,i)
+      !
+    end if
+    !
+    ! Protect against reordering cells besides the elements
+    ! in the above if statement
+    !
+    if (n > 0) then
+      return_value%nodes(1:n) = return_value%nodes( ip(1:n) )
+      return_value%pts(1:n) = return_value%pts( ip(1:n) )
+    end if
+    !
+  end if
   !
   return_value = reorder_cgns_pts(return_value)
   !
@@ -5800,7 +5855,10 @@ function create_element_i8(elem_type,pts) result(return_value)
   type(elem_t) :: return_value
   !
   !.. Local Scalars ..
-  integer :: ierr,nn,np
+  integer :: ierr,n,nn,np,i,imax
+  !
+  !.. Local Arrays ..
+  integer :: ip(1:8)
   !
 continue
   !
@@ -5813,6 +5871,58 @@ continue
   !
   return_value%pts = int(pts(1:np),kind=kind(return_value%pts))
   return_value%nodes = int(pts(1:nn),kind=kind(return_value%nodes))
+  !
+  if (randomly_rotate_cells_debug) then
+    !
+    n = 0
+    !
+    if (return_value%prop%geom == Geom_Hexa) then
+      !
+      n = size(hex_random_rotation,dim=1)
+      imax = size(hex_random_rotation,dim=2)
+      !
+      i = min( imax , max(1,random(imax+1)) ) ! random value from 1 to imax
+      !
+      ip(1:n) = hex_random_rotation(1:n,i)
+      !
+    else if (return_value%prop%geom == Geom_Pris) then
+      !
+      n = size(pri_random_rotation,dim=1)
+      imax = size(pri_random_rotation,dim=2)
+      !
+      i = min( imax , max(1,random(imax+1)) ) ! random value from 1 to imax
+      !
+      ip(1:n) = pri_random_rotation(1:n,i)
+      !
+    else if (return_value%prop%geom == Geom_Pyra) then
+      !
+      n = size(pyr_random_rotation,dim=1)
+      imax = size(pyr_random_rotation,dim=2)
+      !
+      i = min( imax , max(1,random(imax+1)) ) ! random value from 1 to imax
+      !
+      ip(1:n) = pyr_random_rotation(1:n,i)
+      !
+    else if (return_value%prop%geom == Geom_Tetr) then
+      !
+      n = size(tet_random_rotation,dim=1)
+      imax = size(tet_random_rotation,dim=2)
+      !
+      i = min( imax , max(1,random(imax+1)) ) ! random value from 1 to imax
+      !
+      ip(1:n) = tet_random_rotation(1:n,i)
+      !
+    end if
+    !
+    ! Protect against reordering cells besides the elements
+    ! in the above if statement
+    !
+    if (n > 0) then
+      return_value%nodes(1:n) = return_value%nodes( ip(1:n) )
+      return_value%pts(1:n) = return_value%pts( ip(1:n) )
+    end if
+    !
+  end if
   !
   return_value = reorder_cgns_pts(return_value)
   !
