@@ -1731,7 +1731,7 @@ function FilterMatrix_Tetr(vand,vand_inv,cutoff_order) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,np,nsp,order
+  integer  :: i,j,k,l,np,nsp,order
   integer  :: Filter_Cutoff,ierr
   integer  :: local_Filter_Option
   integer  :: filt_order
@@ -1809,7 +1809,7 @@ continue
   !
   if (local_Filter_Option /= 0) then
     !
-    k = 1
+    l = 1
     do i = 0,order
       do j = 0,order-i
         !
@@ -1819,14 +1819,14 @@ continue
           rd_qp = max( qzero , qone - fetac_qp )
           !
           if (rd_qp == qzero) then
-            fmat_qp(k,k) = feps_qp
+            fmat_qp(l,l) = feps_qp
           else
-            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
+            fmat_qp(l,l) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
           end if
           !
         end if
         !
-        k = k + 1
+        l = l + 1
         !
       end do
     end do
@@ -1865,7 +1865,7 @@ function FilterMatrix_Pyra(vand,vand_inv,cutoff_order) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,np,nsp,order
+  integer  :: i,j,k,l,np,nsp,order
   integer  :: Filter_Cutoff,ierr
   integer  :: local_Filter_Option
   integer  :: filt_order
@@ -1943,7 +1943,7 @@ continue
   !
   if (local_Filter_Option /= 0) then
     !
-    k = 1
+    l = 1
     do i = 0,order
       do j = 0,order-i
         !
@@ -1953,14 +1953,14 @@ continue
           rd_qp = max( qzero , qone - fetac_qp )
           !
           if (rd_qp == qzero) then
-            fmat_qp(k,k) = feps_qp
+            fmat_qp(l,l) = feps_qp
           else
-            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
+            fmat_qp(l,l) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
           end if
           !
         end if
         !
-        k = k + 1
+        l = l + 1
         !
       end do
     end do
@@ -1999,7 +1999,7 @@ function FilterMatrix_Pris(vand,vand_inv,cutoff_order) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,np,nsp,order
+  integer  :: i,j,k,l,np,nsp,order
   integer  :: Filter_Cutoff,ierr
   integer  :: local_Filter_Option
   integer  :: filt_order
@@ -2077,7 +2077,7 @@ continue
   !
   if (local_Filter_Option /= 0) then
     !
-    k = 1
+    l = 1
     do i = 0,order
       do j = 0,order-i
         !
@@ -2087,14 +2087,14 @@ continue
           rd_qp = max( qzero , qone - fetac_qp )
           !
           if (rd_qp == qzero) then
-            fmat_qp(k,k) = feps_qp
+            fmat_qp(l,l) = feps_qp
           else
-            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
+            fmat_qp(l,l) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
           end if
           !
         end if
         !
-        k = k + 1
+        l = l + 1
         !
       end do
     end do
