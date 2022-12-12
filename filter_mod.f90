@@ -1813,22 +1813,24 @@ continue
     l = 1
     do i = 0,order
       do j = 0,order-i
-        !
-        if (i+j >= Filter_Cutoff) then
+        do k = 0,order-i-j
           !
-          rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
-          rd_qp = max( qzero , qone - fetac_qp )
-          !
-          if (rd_qp == qzero) then
-            fmat_qp(l,l) = feps_qp
-          else
-            fmat_qp(l,l) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
+          if (i+j+k >= Filter_Cutoff) then
+            !
+            rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
+            rd_qp = max( qzero , qone - fetac_qp )
+            !
+            if (rd_qp == qzero) then
+              fmat_qp(l,l) = feps_qp
+            else
+              fmat_qp(l,l) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
+            end if
+            !
           end if
           !
-        end if
-        !
-        l = l + 1
-        !
+          l = l + 1
+          !
+        end do
       end do
     end do
     !
@@ -1946,24 +1948,26 @@ continue
   if (local_Filter_Option /= 0 .and. Filter_Cutoff < order) then
     !
     l = 1
-    do i = 0,order
-      do j = 0,order-i
-        !
-        if (i+j >= Filter_Cutoff) then
+    do k = 0,order
+      do j = 0,order-k
+        do i = 0,order-k
           !
-          rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
-          rd_qp = max( qzero , qone - fetac_qp )
-          !
-          if (rd_qp == qzero) then
-            fmat_qp(l,l) = feps_qp
-          else
-            fmat_qp(l,l) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
+          if (i+j+k >= Filter_Cutoff) then
+            !
+            rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
+            rd_qp = max( qzero , qone - fetac_qp )
+            !
+            if (rd_qp == qzero) then
+              fmat_qp(l,l) = feps_qp
+            else
+              fmat_qp(l,l) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
+            end if
+            !
           end if
           !
-        end if
-        !
-        l = l + 1
-        !
+          l = l + 1
+          !
+        end do
       end do
     end do
     !
@@ -2081,24 +2085,26 @@ continue
   if (local_Filter_Option /= 0 .and. Filter_Cutoff < order) then
     !
     l = 1
-    do i = 0,order
-      do j = 0,order-i
-        !
-        if (i+j >= Filter_Cutoff) then
+    do k = 0,order
+      do i = 0,order
+        do j = 0,order-i
           !
-          rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
-          rd_qp = max( qzero , qone - fetac_qp )
-          !
-          if (rd_qp == qzero) then
-            fmat_qp(l,l) = feps_qp
-          else
-            fmat_qp(l,l) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
+          if (i+j+k >= Filter_Cutoff) then
+            !
+            rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
+            rd_qp = max( qzero , qone - fetac_qp )
+            !
+            if (rd_qp == qzero) then
+              fmat_qp(l,l) = feps_qp
+            else
+              fmat_qp(l,l) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
+            end if
+            !
           end if
           !
-        end if
-        !
-        l = l + 1
-        !
+          l = l + 1
+          !
+        end do
       end do
     end do
     !
