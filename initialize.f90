@@ -2081,6 +2081,7 @@ continue
   !
   if (any(itestcase == Advec_Problems) .or. &
       abs(itestcase) == Shu_Vortex .or. &
+      abs(itestcase) == Shu_MultiVortex .or. &
       itestcase == -Vortex_Transport) then
     !
     ! Set up the base reference conditions for different
