@@ -5750,7 +5750,10 @@ end function get_elem_dim_for_boco_pointrange
 !
 !###############################################################################
 !
-pure function create_element_i4(elem_type,pts) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function create_element_i4(elem_type,pts) result(return_value)
   !
   integer, parameter :: lp = i4
   !
@@ -5782,7 +5785,10 @@ end function create_element_i4
 !
 !###############################################################################
 !
-pure function create_element_i8(elem_type,pts) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function create_element_i8(elem_type,pts) result(return_value)
   !
   integer, parameter :: lp = i8
   !
