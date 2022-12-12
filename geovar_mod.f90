@@ -55,7 +55,7 @@ module geovar
   ! nbfai : number of storage locations needed for
   !         each boundary face in array bface
   !
-  integer, parameter, public :: nbfai = 10
+  integer, parameter, public :: nbfai = 11
   !
   ! nr    : number of dimensions for computation
   ! nnode : total number of grid nodes
@@ -171,6 +171,11 @@ module geovar
   !                            faces can connect to the same cell on an adjacent
   !                            partition and therefore connect to the same ghost
   !                            cell.
+  !        bface(11,:) = index within bc_input that gives the boundary
+  !                      conditions for this face. This is kind of a copy of
+  !                      bface(6,:) for physical BCs, but it is needed for
+  !                      non-MPI communication periodic BCs where bface(6,:)
+  !                      is used for a different purpose.
   !
   integer, public, save, allocatable, dimension(:,:) :: bface
   !
