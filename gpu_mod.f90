@@ -2016,7 +2016,7 @@ subroutine vortex_solution_gpu(n1,n2,xyz,return_value)
   use ovar, only : gam,rhoref,tref,pref,itestcase
   use ovar, only : vortex_bigR,vortex_bigGam
   use ovar, only : itcur,Period_Timesteps,Period_Time
-  use ovar, only : Grid_Length,Grid_Min
+  use ovar, only : Grid_Length,Grid_Min,Grid_Max
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -2024,17 +2024,35 @@ subroutine vortex_solution_gpu(n1,n2,xyz,return_value)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,nr
+  integer  :: i,n,nr
   real(wp) :: c0,c1,c2,c3,c4,c5,bigR,bigGam
   real(wp) :: gm1,gm1_inv,gam_over_gm1
   real(wp) :: rhoref_inv,aref_inv,rhoa2_inv,tref_inv
   real(wp) :: vx_ref,vy_ref,delt_since_lastperiod
   real(wp) :: a,du,dv,dT,vx,vy,vz,q2,temp,rho,pres
-  real(wp) :: x,y,dx_prop,dy_prop,xc,yc,dx,dy
+  real(wp) :: x,y,dx_prop,dy_prop,xc,yc,xvc,yvc,dx,dy
   !
   logical(lk) :: running_vortex_problem
   !
+  integer :: num_vortices
+  !
+  real(wp), allocatable :: vortex_centers(:,:)
+  !
 continue
+  !
+  ! Set the number of vortex centers based on whether or not
+  ! we are running the multi-vortex problem.
+  !
+  num_vortices = merge(4,1,itestcase==Shu_MultiVortex)
+  !
+  vortex_centers = init_array(2,num_vortices,zero) ! F2003 AUTO-REALLOC
+  !
+  if (num_vortices > 1) then
+    vortex_centers(1:2,2) = [Grid_Max(1),zero]
+    vortex_centers(1:2,3) = [zero,Grid_Max(2)]
+    vortex_centers(1:2,4) = Grid_Max(1:2)
+  end if
+  !
   !
   nr = size(xyz,dim=1)
   !
@@ -2134,24 +2152,41 @@ continue
     xc = xyz(1,n)
     yc = xyz(2,n)
     !
-    dx = dx_prop
-    dy = dy_prop
+    vx = zero
+    vy = zero
+    temp = zero
     !
-    x = xc - merge( dx , dx - Grid_Length(1) , xc - dx >= Grid_Min(1) )
-    y = yc - merge( dy , dy - Grid_Length(2) , yc - dy >= Grid_Min(2) )
+    do i = 1,num_vortices
+      !
+      xvc = vortex_centers(1,i)
+      yvc = vortex_centers(2,i)
+      !
+      dx = xvc + dx_prop
+      dy = yvc + dy_prop
+      !
+      x = xc - merge( dx , dx - Grid_Length(1) , xc - dx >= Grid_Min(1) )
+      y = yc - merge( dy , dy - Grid_Length(2) , yc - dy >= Grid_Min(2) )
+      !
+      a = c2*exp((one - x*x - y*y)*c1)
+      !
+      du = -c4*a*y
+      dv =  c4*a*x
+      dT = -c3*a*a
+      !
+      ! Only add on the velocity pertubations if doing vortex transport
+      ! i.e., the velocity is constant if doing density/entropy transport
+      !
+      vx = vx + du*c0
+      vy = vy + dv*c0
+      temp = temp + dT
+      !
+    end do
     !
-    a = c2*exp((one - x*x - y*y)*c1)
+    ! Add the freestream velocity and temperature to the pertubations
     !
-    du = -c4*a*y
-    dv =  c4*a*x
-    dT = -c3*a*a
-    !
-    ! Only add on the velocity pertubations if doing vortex transport
-    ! i.e., the velocity is constant if doing density/entropy transport
-    !
-    vx = vx_ref + du*c0
-    vy = vy_ref + dv*c0
-    temp = tref  + dT
+    vx = vx + vx_ref
+    vy = vy + vy_ref
+    temp = temp + tref
     !
     rho  = rhoref * (temp*tref_inv)**(gm1_inv)
     pres = pref   * (temp*tref_inv)**(gam_over_gm1)
