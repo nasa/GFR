@@ -19,6 +19,8 @@ module gpu_mod
                      grad_cv_to_grad_pv_sp
   end interface grad_cv_to_grad_pv_gpu
   !
+  integer, save :: num_of_outputs = 0
+  !
 contains
 !
 !###############################################################################
@@ -2092,27 +2094,30 @@ continue
   c5 = gm1_inv * (one - deltafun(itestcase==Density_Transport))
   !
 #ifdef DEBUG_VORTEX_SOLUTION
-  write (iout,1) "dx_prop",dx_prop
-  write (iout,1) "dy_prop",dy_prop
-  write (iout,1) "delt",delt_since_lastperiod
-  write (iout,1) "gam",gam
-  write (iout,1) "rhoref",rhoref
-  write (iout,1) "aref",aref
-  write (iout,1) "vx_ref",vx_ref
-  write (iout,1) "vy_ref",vy_ref
-  write (iout,1) "tref",tref
-  write (iout,1) "rhoref_inv",rhoref_inv
-  write (iout,1) "aref_inv",aref_inv
-  write (iout,1) "rhoa2_inv",rhoa2_inv
-  write (iout,1) "tref_inv",tref_inv
-  write (iout,1) "bigR",bigR
-  write (iout,1) "bigGam",bigGam
-  write (iout,1) "c0",c0
-  write (iout,1) "c1",c1
-  write (iout,1) "c2",c2
-  write (iout,1) "c3",c3
-  write (iout,1) "c4",c4
-  write (iout,1) "c5",c5
+  if (num_of_outputs < 1) then
+    write (iout,1) "dx_prop",dx_prop
+    write (iout,1) "dy_prop",dy_prop
+    write (iout,1) "delt",delt_since_lastperiod
+    write (iout,1) "gam",gam
+    write (iout,1) "rhoref",rhoref
+    write (iout,1) "aref",aref
+    write (iout,1) "vx_ref",vx_ref
+    write (iout,1) "vy_ref",vy_ref
+    write (iout,1) "tref",tref
+    write (iout,1) "rhoref_inv",rhoref_inv
+    write (iout,1) "aref_inv",aref_inv
+    write (iout,1) "rhoa2_inv",rhoa2_inv
+    write (iout,1) "tref_inv",tref_inv
+    write (iout,1) "bigR",bigR
+    write (iout,1) "bigGam",bigGam
+    write (iout,1) "c0",c0
+    write (iout,1) "c1",c1
+    write (iout,1) "c2",c2
+    write (iout,1) "c3",c3
+    write (iout,1) "c4",c4
+    write (iout,1) "c5",c5
+    num_of_outputs = 1
+  end if
   1 format (2x,a,t12," = ",es14.6)
 #endif
   !
