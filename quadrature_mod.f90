@@ -644,34 +644,34 @@ continue
       ! Edge quadrature using Legendre Gauss nodes
       !
       call legendre_gauss_quadrature(pts,wts)
-#ifdef DISABLE_PURE
-      call check_for_bad_number(__LINE__,__FILE__)
-#endif
+!#ifdef DISABLE_PURE
+!      call check_for_bad_number(__LINE__,__FILE__)
+!#endif
       !
     case (Legendre_Gauss_Lobatto)
       !
       ! Edge quadrature using Legendre Gauss Lobatto nodes
       !
       call legendre_gauss_lobatto_quadrature(pts,wts)
-#ifdef DISABLE_PURE
-      call check_for_bad_number(__LINE__,__FILE__)
-#endif
+!#ifdef DISABLE_PURE
+!      call check_for_bad_number(__LINE__,__FILE__)
+!#endif
       !
     case (Equi_Distant_Points)
       !
       call equal_distant_quadrature(pts,wts)
-#ifdef DISABLE_PURE
-      call check_for_bad_number(__LINE__,__FILE__)
-#endif
+!#ifdef DISABLE_PURE
+!      call check_for_bad_number(__LINE__,__FILE__)
+!#endif
       !
     case default
       !
       ! Default to Legendre Gauss points
       !
       call legendre_gauss_quadrature(pts,wts)
-#ifdef DISABLE_PURE
-      call check_for_bad_number(__LINE__,__FILE__)
-#endif
+!#ifdef DISABLE_PURE
+!      call check_for_bad_number(__LINE__,__FILE__)
+!#endif
       !
   end select
   !
