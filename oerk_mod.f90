@@ -13,12 +13,14 @@ module oerk_mod
   public :: init_optimized_erk_coefficients
   public :: update_OERK
   !
-  real(wp), save, allocatable :: oerk_coeff_c(:)
-  real(wp), save, allocatable :: oerk_coeff_b(:)
-  real(wp), save, allocatable :: oerk_coeff_g1(:)
-  real(wp), save, allocatable :: oerk_coeff_g2(:)
-  real(wp), save, allocatable :: oerk_coeff_g3(:)
-  real(wp), save, allocatable :: oerk_coeff_d(:)
+  real(wp), save, allocatable :: oerk_coef_c(:)
+  real(wp), save, allocatable :: oerk_coef_b(:)
+  real(wp), save, allocatable :: oerk_coef_g1(:)
+  real(wp), save, allocatable :: oerk_coef_g2(:)
+  real(wp), save, allocatable :: oerk_coef_g3(:)
+  real(wp), save, allocatable :: oerk_coef_d(:)
+  !
+  real(wp), save :: pseudo_time
   !
 contains
 !
@@ -1029,8 +1031,8 @@ subroutine update_OERK(nst,Apply_Filter,Apply_Limiter)
   logical(lk), intent(in) :: Apply_Limiter
   !
   !.. Local Scalars ..
-  integer  :: n,nr
-  real(wp) :: c,b,g1,g2,g3,d,dt,pseudo_time
+  integer  :: n,m,nr
+  real(wp) :: c,b,g1,g2,g3,d,dt
   real(wp) :: u1ec,u1mx,u1my,u1mz,u1ee,u1m
   real(wp) :: u2ec,u2mx,u2my,u2mz,u2ee,u2m
   !
