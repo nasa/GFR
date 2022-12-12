@@ -647,9 +647,9 @@ subroutine nodes_legendre_gauss(n,xi,dxi)
 continue
   !
   call nodes_jacobi_gauss(n,zero,zero,xi,dxi)
-#ifdef DISABLE_PURE
-  call check_for_bad_number(__LINE__,__FILE__)
-#endif
+!#ifdef DISABLE_PURE
+!  call check_for_bad_number(__LINE__,__FILE__)
+!#endif
   !
 end subroutine nodes_legendre_gauss
 !
@@ -1004,23 +1004,23 @@ continue
   do i = 1,n
     dy2(i) = dy(i)*dy(i)
   end do
-#ifdef DISABLE_PURE
-  call check_for_bad_number(__LINE__,__FILE__)
-#endif
+!#ifdef DISABLE_PURE
+!  call check_for_bad_number(__LINE__,__FILE__)
+!#endif
   !
   do i = 1,n
     dy2_inv(i) = one / dy2(i)
   end do
-#ifdef DISABLE_PURE
-  call check_for_bad_number(__LINE__,__FILE__)
-#endif
+!#ifdef DISABLE_PURE
+!  call check_for_bad_number(__LINE__,__FILE__)
+!#endif
   !
   do i = 1,n
     weights(i) = two * dy2_inv(i) / (one - xi(i)*xi(i))
   end do
-#ifdef DISABLE_PURE
-  call check_for_bad_number(__LINE__,__FILE__)
-#endif
+!#ifdef DISABLE_PURE
+!  call check_for_bad_number(__LINE__,__FILE__)
+!#endif
   !
 ! do i = 1,n
 !   weights(i) = two / ((one - (xi(i)**2)) * (dy(i)**2) )
@@ -1410,18 +1410,18 @@ continue
       end if
     end do
   end do
-#ifdef DISABLE_PURE
-  call check_for_bad_number(__LINE__,__FILE__)
-#endif
+!#ifdef DISABLE_PURE
+!  call check_for_bad_number(__LINE__,__FILE__)
+!#endif
   !
   do i = 1,np
     do j = 1,np
       val_inv(i,j) = one / val(i,j)
     end do
   end do
-#ifdef DISABLE_PURE
-  call check_for_bad_number(__LINE__,__FILE__)
-#endif
+!#ifdef DISABLE_PURE
+!  call check_for_bad_number(__LINE__,__FILE__)
+!#endif
   !
   do i = 1,np
     do j = 1,np
@@ -1432,9 +1432,9 @@ continue
       end if
     end do
   end do
-#ifdef DISABLE_PURE
-  call check_for_bad_number(__LINE__,__FILE__)
-#endif
+!#ifdef DISABLE_PURE
+!  call check_for_bad_number(__LINE__,__FILE__)
+!#endif
   !
  !do i = 1,np
  !  do j = 1,np
