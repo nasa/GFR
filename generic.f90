@@ -1645,7 +1645,7 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   !
   !.. Use Statements ..
   use order_mod,        only : n_order
-  use geovar,           only : nr,ncell,n_solpts
+  use geovar,           only : nr,ncell,n_solpts,n_global_solpts
   use geovar,           only : n_global_cell,global_cell_geom
   use ovar,             only : muref_nd,total_volume
   use ovar,             only : time,time_ref
@@ -1661,7 +1661,7 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   real(wp), intent(in) :: dtmin
   !
   !.. Local Scalars ..
-  integer :: k,n,nc,np,n0,tgv_idx
+  integer :: k,n,np,n0,ndof_1d,tgv_idx
   integer :: ierr,nmin,nmax,nbeg,nend
   integer :: this_cell,this_geom,this_order
   !
@@ -1789,14 +1789,14 @@ continue
         grid_geom = "Mixed"
       end if
       !
-      nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
+      ndof_1d = nint( real(n_global_solpts,kind=wp)**(one3) )
       !
       open (newunit=iotg,file=fname,status="replace",action="write", &
             iostat=ierr,iomsg=error_message)
       call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
       !
-      write (iotg,1) n_order,nc*(n_order+1),n_order, &
-                     VortexGrid_DOF,nc*(n_order+1)
+      write (iotg,1) n_order,ndof_1d,trim(adjustl(grid_geom)), &
+                     n_order,ndof_1d,trim(adjustl(grid_geom))
       !
     end if
     !
@@ -2046,10 +2046,10 @@ continue
             '"E<sub>k</sub>"',/, &
             '"<greek>z</greek>"',/, &
             '"<greek>D</greek>t*"',/, &
-            'ZONE T="P',i0,' - ',i0,'<sup>3</sup>"',/, &
+            'ZONE T="P',i0,' - ',i0,'<sup>3</sup> ',a,' Grid"',/, &
             'AUXDATA order="',i0,'"',/, &
-            'AUXDATA RDOF="',i0,'<sup>3</sup>"',/, &
-            'AUXDATA DOF="',i0,'<sup>3</sup>"')
+            'AUXDATA DOF="',i0,'<sup>3</sup>"',/, &
+            'AUXDATA geom="',a,'"')
   2 format (100(es17.9))
  !2 format (*(es17.9))
   !
