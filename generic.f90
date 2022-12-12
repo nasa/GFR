@@ -2068,6 +2068,196 @@ end subroutine compute_TaylorGreen_KEDR
 !
 !###############################################################################
 !
+subroutine compute_dEkdt_central_diff_O2(first_output,final_output, &
+                                         tgv_idx,ek,dt,dekdt,nend)
+  !
+  !.. Formal Arugments ..
+  logical(lk), intent(in) :: first_output
+  logical(lk), intent(in) :: final_output
+  integer,     intent(in) :: tgv_idx
+  real(wp),    intent(in) :: ek(-1:)
+  real(wp),    intent(in) :: dt(-1:)
+  real(wp), intent(inout) :: dekdt(-1:)
+  integer,  intent(inout) :: nend
+  !
+  !.. Local Scalars ..
+  integer  :: n,np,nbeg
+  real(wp) :: kem,kec,kep,dtm,dtp
+  !
+continue
+  !
+  ! Compute the central difference of the KEDR to get its rate of change
+  ! over time
+  ! NOTE: The KEDR found by differencing the integrated kinetic energy is
+  !       actually given as KEDR(Ek) = -d/dt (Ek) so the differencing
+  !       equation below has been multiplied through by a -1.
+  !
+  np = ubound(ek,dim=1)
+  !
+  nbeg = merge(     1     ,  0   , first_output )
+  nend = merge( tgv_idx-1 , np-1 , final_output )
+  !
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) PRESENT(tgv_kedr)
+  do n = nbeg,nend
+    !
+    kem = ek(n-1)
+    kec = ek(n)
+    kep = ek(n+1)
+    !
+    dtm = dt(n)
+    dtp = dt(n+1)
+    !
+    dekdt(n) =  ( (dtm/dtp)*(kec-kep) + (dtp/dtm)*(kem-kec) ) / (dtm+dtp)
+    !
+  end do
+  !$ACC UPDATE SELF(tgv_kedr)
+  !
+  ! Do a one sided difference on the initial conditions if this is the
+  ! first output interval
+  !
+  if (first_output) then
+    dekdt(0) = (ek(0) - ek(1)) / dt(1)
+  end if
+  !
+  ! If this is the last output interval, do a one sided difference
+  ! on the final solution
+  !
+  if (final_output) then
+   !n = min(nend+1,np)
+    n = nend+1 ! nend should be tgv_idx-1 which should be <= np-1
+    dekdt(n) = (ek(n-1) - ek(n)) / dt(n)
+  end if
+  !
+end subroutine compute_dEkdt_central_diff_O2
+!
+!###############################################################################
+!
+subroutine compute_dEkdt_backward_diff_O1(first_output,final_output, &
+                                         tgv_idx,ek,dt,dekdt,nend)
+  !
+  !.. Formal Arugments ..
+  logical(lk), intent(in) :: first_output
+  logical(lk), intent(in) :: final_output
+  integer,     intent(in) :: tgv_idx
+  real(wp),    intent(in) :: ek(-1:)
+  real(wp),    intent(in) :: dt(-1:)
+  real(wp), intent(inout) :: dekdt(-1:)
+  integer,  intent(inout) :: nend
+  !
+  !.. Local Scalars ..
+  integer  :: n,np,nbeg
+  real(wp) :: kem,kec,dtm
+  !
+continue
+  !
+  ! Compute the central difference of the KEDR to get its rate of change
+  ! over time
+  ! NOTE: The KEDR found by differencing the integrated kinetic energy is
+  !       actually given as KEDR(Ek) = -d/dt (Ek) so the differencing
+  !       equation below has been multiplied through by a -1.
+  !
+  np = ubound(ek,dim=1)
+  !
+  nbeg = merge(     1     ,  0   , first_output )
+  nend = merge( tgv_idx-1 , np-1 , final_output )
+  !
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) PRESENT(tgv_kedr)
+  do n = nbeg,nend
+    !
+    kem = ek(n-1)
+    kec = ek(n)
+    !
+    dtm = dt(n)
+    !
+    dekdt(n) =  (kem - kec) / dtm
+    !
+  end do
+  !$ACC UPDATE SELF(tgv_kedr)
+  !
+  ! Do a one sided difference on the initial conditions if this is the
+  ! first output interval
+  !
+  if (first_output) then
+    dekdt(0) = (ek(0) - ek(1)) / dt(1)
+  end if
+  !
+  ! If this is the last output interval, do a one sided difference
+  ! on the final solution
+  !
+  if (final_output) then
+   !n = min(nend+1,np)
+    n = nend+1 ! nend should be tgv_idx-1 which should be <= np-1
+    dekdt(n) = (ek(n-1) - ek(n)) / dt(n)
+  end if
+  !
+end subroutine compute_dEkdt_backward_diff_O1
+!
+!###############################################################################
+!
+subroutine compute_dEkdt_backward_diff_O2(first_output,final_output, &
+                                         tgv_idx,ek,dt,dekdt,nend)
+  !
+  !.. Formal Arugments ..
+  logical(lk), intent(in) :: first_output
+  logical(lk), intent(in) :: final_output
+  integer,     intent(in) :: tgv_idx
+  real(wp),    intent(in) :: ek(-1:)
+  real(wp),    intent(in) :: dt(-1:)
+  real(wp), intent(inout) :: dekdt(-1:)
+  integer,  intent(inout) :: nend
+  !
+  !.. Local Scalars ..
+  integer  :: n,np,nbeg
+  real(wp) :: kem,kec,kep,dtm,dtp
+  !
+continue
+  !
+  ! Compute the central difference of the KEDR to get its rate of change
+  ! over time
+  ! NOTE: The KEDR found by differencing the integrated kinetic energy is
+  !       actually given as KEDR(Ek) = -d/dt (Ek) so the differencing
+  !       equation below has been multiplied through by a -1.
+  !
+  np = ubound(ek,dim=1)
+  !
+  nbeg = merge(     1     ,  0   , first_output )
+  nend = merge( tgv_idx-1 , np-1 , final_output )
+  !
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) PRESENT(tgv_kedr)
+  do n = nbeg,nend
+    !
+    kem = ek(n-1)
+    kec = ek(n)
+    kep = ek(n+1)
+    !
+    dtm = dt(n)
+    dtp = dt(n+1)
+    !
+    dekdt(n) =  ( (dtm/dtp)*(kec-kep) + (dtp/dtm)*(kem-kec) ) / (dtm+dtp)
+    !
+  end do
+  !$ACC UPDATE SELF(tgv_kedr)
+  !
+  ! Do a one sided difference on the initial conditions if this is the
+  ! first output interval
+  !
+  if (first_output) then
+    dekdt(0) = (ek(0) - ek(1)) / dt(1)
+  end if
+  !
+  ! If this is the last output interval, do a one sided difference
+  ! on the final solution
+  !
+  if (final_output) then
+   !n = min(nend+1,np)
+    n = nend+1 ! nend should be tgv_idx-1 which should be <= np-1
+    dekdt(n) = (ek(n-1) - ek(n)) / dt(n)
+  end if
+  !
+end subroutine compute_dEkdt_backward_diff_O2
+!
+!###############################################################################
+!
 subroutine generic_memory_usage(iunit)
   !
   !.. Use Statements ..
