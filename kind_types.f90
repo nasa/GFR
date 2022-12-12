@@ -647,6 +647,44 @@ module module_kind_types
   integer, parameter :: TVD3_RK    = 3
   integer, parameter :: TVD4_RK    = 4
   integer, parameter :: CK4_RK     = 5
+  integer, parameter :: OERK        = 6
+  integer, parameter :: EPERK       = 7
+  !
+  ! OERK Parameters
+  integer, parameter :: OERK_5Stage_3rdOrder  = 53
+  integer, parameter :: OERK_11Stage_3rdOrder = 113
+  integer, parameter :: OERK_6Stage_4thOrder  = 64
+  integer, parameter :: OERK_15Stage_4thOrder = 154
+  integer, parameter :: OERK_8Stage_5thOrder  = 85
+  integer, parameter :: OERK_16Stage_5thOrder = 165
+  integer, parameter :: OERK_Schemes(1:6) = [OERK_5Stage_3rdOrder, &
+                                             OERK_11Stage_3rdOrder, &
+                                             OERK_6Stage_4thOrder, &
+                                             OERK_15Stage_4thOrder, &
+                                             OERK_8Stage_5thOrder, &
+                                             OERK_16Stage_5thOrder]
+  !
+  ! Embedded-Pair ERK Parameters
+  integer, parameter :: EPERK_DormandPrince_5thOrder = 54
+  integer, parameter :: EPERK_DormandPrince_8thOrder = 853
+  integer, parameter :: OEPERK_3rdOrder              = 532
+  integer, parameter :: OEPERK_4thOrder              = 943
+  integer, parameter :: OEPERK_5thOrder              = 1054
+  integer, parameter :: EPERK_DP_Schemes(1:2) = [EPERK_DormandPrince_5thOrder, &
+                                                 EPERK_DormandPrince_8thOrder]
+  integer, parameter :: OEPERK_Schemes(1:3) = [OEPERK_3rdOrder, &
+                                               OEPERK_4thOrder, &
+                                               OEPERK_5thOrder]
+  integer, parameter :: EPERK_Schemes(1:5) = [EPERK_DP_Schemes(:), &
+                                              OEPERK_Schemes(:)]
+  !
+  ! All valid Runge-Kutta schemes (to verify input is valid)
+  integer, parameter :: Valid_RK_Schemes(1:18) = [Classic_RK, &
+                                                  TVD2_RK, TVD3_RK, &
+                                                  TVD4_RK, CK4_RK, &
+                                                  OERK, EPERK, &
+                                                  OERK_Schemes(:), &
+                                                  EPERK_Schemes(:)]
   !
   ! Equation Types
   integer, parameter :: Euler_Eqns = 1
