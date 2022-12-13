@@ -1701,6 +1701,16 @@ continue
     !
   end do
   !
+  ! Deallocate tri_face_rotations since it is no longer needed
+  !
+  if (allocated(tri_face_rotations)) then
+    deallocate ( tri_face_rotations , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"tri_face_rotations",2,__LINE__,__FILE__,ierr, &
+                     error_message)
+  end if
+  !
+  ! Check for face connectivity errors across all MPI processes
+  !
   if (ncpu > 1) then
     if (present(group_comm)) then
       reduce_comm = group_comm
