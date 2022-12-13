@@ -1827,6 +1827,25 @@ subroutine GetFaceNodes_for_QuadFace(left_cell_nodes,left_side, &
                                      right_cell_nodes,right_side, &
                                      left_face_nodes,right_face_nodes)
   !
+  ! This subroutine extracts the four node indices from the left and right
+  ! cells on a given face and puts them in [a,b,c,d] order. ABCD order is
+  ! defined as
+  !
+  !      B---D
+  !      |   |   where the vectors a and b are defined as a = A-C and b=B-C.
+  !      C---A   
+  !
+  ! In reference coordinates [x,y,z] = [xi,eta,zeta], the vector a points in
+  ! the positive direction of the lowest coordinate direction, and b points in
+  ! the positive direction of the remaining coordinate direction, i.e.,
+  !      z-faces:  a = +x [or xi]   and  b = +y [or eta]
+  !      x-faces:  a = +y [or eta]  and  b = +z [or zeta]
+  !      y-faces:  a = +x [or xi]   and  b = +z [or zeta]
+  !
+  ! The rotation of the right cell face relative to the left cell face can be
+  ! found by comparing the orientation of the a and b vectors from the two
+  ! cell faces once the ABCD order has been found.
+  !
   !.. Formal Arguments ..
   integer, dimension(:),    intent(in) :: left_cell_nodes
   integer,                  intent(in) :: left_side
