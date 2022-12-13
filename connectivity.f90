@@ -1433,6 +1433,13 @@ continue
   ! cell that are on this face. These indices are used in the correct and
   ! interp(:)%toFace matrices.
   !
+  ! Before we do this, we need to initialize the module array tri_face_rotations
+  ! in case there are any triangle faces in the grid
+  !
+  if (.not. allocated(tri_face_rotations)) then
+    call init_tri_face_rotation_values
+  end if
+  !
   rotation_errors = 0
   !
   do nf = 1,lface
