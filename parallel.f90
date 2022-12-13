@@ -3316,6 +3316,58 @@ continue
     left_rotation = face(nf)%left%rotation
     right_rotation = face(nf)%right%rotation
     !
+    ! This is some special logic for triangle periodic faces that is needed
+    ! to get the communication correct if the periodic face ends up being an
+    ! MPI communication boundary face. Im not completely sure why this is
+    ! needed, but the data communicated between partitions for a triangle
+    ! formerly-periodic boundary face will be out of order if triangle
+    ! rotations 2 and 3 are not flipped. This only affects MPI-communicated
+    ! periodic faces, because the face_rotation array is only used to
+    ! create the MPI datatypes used for communication between partitions.
+    ! These triangle face rotations should remain as-is and not be flipped
+    ! if the periodic BC remains local to a single partition (this would
+    ! only occur if we altered face(nf)%right%rotation, which we are not).
+    !
+    ! In trying to figure out why this special logic is needed, the best
+    ! I can figure out is that triangle rotations 2 and 3 are the two face
+    ! rotations that are not immediately reversible, i.e. if you apply the
+    ! rotations 1,4,5,6 twice to an integer sequence, you will get the
+    ! same integer sequence. If you apply rotations 2 and 3 twice to an
+    ! integer sequence, you will not get the initial integer sequence back.
+    ! However, applying rotations 2 and 3 a THIRD time will get the initial
+    ! integer sequence back. The interesting thing is is you apply rotation
+    ! 2 to an integer sequence then rotation 3 to that result, you will get
+    ! the initial integer sequence back. The same goes for applying rotation
+    ! 3 the rotation 2 to that result. Swapping these rotations has something
+    ! to do with these requirements to successfully reverse the face rotations.
+    !
+    ! A similar issue occurs for quad periodic faces that have
+    ! rotations 6 or 7.
+    !
+    if (nf <= size(bface,dim=2)) then
+      if (bface(1,nf) == bc_periodic) then
+        !
+        if (face_geom == Geom_Tria) then
+          !
+          if (right_rotation == 2) then
+            right_rotation = 3
+          else if (right_rotation == 3) then
+            right_rotation = 2
+          end if
+          !
+        else if (face_geom == Geom_Quad) then
+          !
+          if (right_rotation == 6) then
+            right_rotation = 7
+          else if (right_rotation == 7) then
+            right_rotation = 6
+          end if
+          !
+        end if
+        !
+      end if
+    end if
+    !
     face_rotation(1,nf) = fpidx(face_geom,face_order,left_rotation)
     face_rotation(2,nf) = fpidx(face_geom,face_order,right_rotation)
     !
