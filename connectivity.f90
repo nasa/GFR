@@ -3595,7 +3595,7 @@ subroutine get_unit_cell_subconnectivity()
   !
   !.. Local Scalars ..
   integer :: i,j,k,sk,ierr
-  integer :: no1d,no2d,no3d,np1d
+  integer :: no1d,no2d,no3d,np1d,npyr3d
   integer :: p1,p2,p3,p4,p5,p6,p7,p8
   integer :: omin,omax,order
   integer :: add_points
@@ -3850,8 +3850,82 @@ continue
     ! ## Pyramid Geometry ##
     ! ######################
     !
-    allocate ( pst_geom(Geom_Pyra,order)%connectivity(1:8,1:no3d) , &
+    ! I THINK THE PYRAMID SUBCELL COUNT WILL NEED TO BE HIGHER THAN NO3D.
+    ! THIS IS BECAUSE THE TRIANGLE FACES NEED TO MATCH UP TO OTHER TET AND
+    ! PRISM TRIANGLE FACES, AND THE QUAD FACE NEEDS TO MATCH UP WITH OTHER
+    ! PRISM AND HEX QUAD FACES. I THINK THIS RESTRICTION WILL MAKE IT
+    ! IMPOSSIBLE TO CREATE A SUBCONNECTIVITY WITH NO3D SUBCELLS.
+    ! I ALSO THINK THIS MEANS THAT THE SUBCELLS WILL NEED TO BE A MIX OF 
+    ! PYRAMID AND TETRAHEDRA SUBCELLS.
+    !
+    npyr3d = 0
+    do i = 1,no1d
+      npyr3d = npyr3d + (i-1)*(i-1)*4 + 2*(i-1)*2 + 1
+    end do
+    !
+    allocate ( pst_geom(Geom_Pyra,order)%connectivity(1:8,1:npyr3d) , &
                source=0 , stat=ierr , errmsg=error_message )
+    !
+    counter3 = 0
+    sk = 0
+    do k = 1,np1d
+      do j = 1,np1d+1-k
+        do i = 1,np1d+1-k
+          sk = sk + 1
+          counter3(k,j,i) = sk
+        end do
+      end do
+    end do
+    !
+    sk = 0
+    do k = 1,no1d
+      do j = 1,no1d+1-k
+        do i = 1,no1d+1-k
+          !
+          p1 = counter3(k  ,j  ,i  )
+          p2 = counter3(k  ,j  ,i+1)
+          p3 = counter3(k  ,j+1,i+1)
+          p4 = counter3(k  ,j+1,i  )
+          p5 = counter3(k+1,j  ,i  )
+          p6 = counter3(k+1,j  ,i+1)
+          p7 = counter3(k+1,j+1,i+1)
+          p8 = counter3(k+1,j+1,i  )
+          !
+          sk = sk + 1
+          pst_geom(Geom_Pyra,order)%connectivity(1:1,sk) = p1
+          pst_geom(Geom_Pyra,order)%connectivity(2:2,sk) = p2
+          pst_geom(Geom_Pyra,order)%connectivity(3:3,sk) = p3
+          pst_geom(Geom_Pyra,order)%connectivity(4:4,sk) = p4
+          pst_geom(Geom_Pyra,order)%connectivity(5:8,sk) = p5
+          !
+          if (p6 /= 0) then
+            sk = sk + 1
+            pst_geom(Geom_Pyra,order)%connectivity(1:1,sk) = p2
+            pst_geom(Geom_Pyra,order)%connectivity(2:2,sk) = p3
+            pst_geom(Geom_Pyra,order)%connectivity(3:4,sk) = p5
+            pst_geom(Geom_Pyra,order)%connectivity(5:8,sk) = p6
+          end if
+          !
+          if (p8 /= 0) then
+            sk = sk + 1
+            pst_geom(Geom_Pyra,order)%connectivity(1:1,sk) = p3
+            pst_geom(Geom_Pyra,order)%connectivity(2:2,sk) = p4
+            pst_geom(Geom_Pyra,order)%connectivity(3:4,sk) = p5
+            pst_geom(Geom_Pyra,order)%connectivity(5:8,sk) = p8
+          end if
+          !
+          if (p7 /= 0) then
+            sk = sk + 1
+            pst_geom(Geom_Pyra,order)%connectivity(1:1,sk) = p5
+            pst_geom(Geom_Pyra,order)%connectivity(2:2,sk) = p8
+            pst_geom(Geom_Pyra,order)%connectivity(3:3,sk) = p7
+            pst_geom(Geom_Pyra,order)%connectivity(4:4,sk) = p6
+            pst_geom(Geom_Pyra,order)%connectivity(5:8,sk) = p3
+          end if
+          !
+        end do
+      end do
+    end do
     !
     ! Subtract one from the sub-connectivity so that it starts at zero
     !
