@@ -2186,7 +2186,7 @@ pure function GetFluxPointRotation_Edge(ab_left,ab_right) result(return_value)
  !integer :: nep
   !
   !.. Local Parameters ..
-  integer, parameter :: rotation(1:2,1:2) = reshape( [1,2, 2,1] , [2,2] )
+  integer, parameter :: rotation(1:2,1:2) = edge_rotation(1:2,1:2)
   !
 continue
   !
