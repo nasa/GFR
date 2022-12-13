@@ -23,6 +23,8 @@ module connectivity_mod
   !
   public :: get_unit_cell_subconnectivity
   !
+  public :: GetFluxPointRotation_Edge
+  !
   public :: GetFaceNodes_for_QuadFace
   public :: GetFaceNodes_for_TriaFace
   !
