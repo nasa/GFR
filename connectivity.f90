@@ -32,6 +32,8 @@ module connectivity_mod
   public :: RotateFluxPoints_Tria
   public :: GetFluxPointRotation_Tria
   !
+  public :: init_tri_face_rotation_values
+  !
   !
   ! #########################################
   ! #####   MODULE GENERIC INTERFACES   #####
@@ -4673,6 +4675,478 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine create_edge_derived_type
+!
+!###############################################################################
+!
+subroutine init_tri_face_rotation_values()
+  !
+  !.. Local Scalars ..
+  integer :: gl1,gl2,gr1,gr2,ierr
+  integer :: left_geom,left_face,right_geom
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "init_tri_face_rotation_values"
+  !
+  integer, parameter :: i123(1:3) = [1,2,3]
+  integer, parameter :: i132(1:3) = [1,3,2]
+  integer, parameter :: i213(1:3) = [2,1,3]
+  integer, parameter :: i312(1:3) = [3,1,2]
+  integer, parameter :: i321(1:3) = [3,2,1] ! testing for bnd tri face only
+  !
+  integer, parameter :: i456(1:3) = [4,5,6]
+  integer, parameter :: i546(1:3) = [5,4,6]
+  integer, parameter :: i564(1:3) = [5,6,4]
+  integer, parameter :: i645(1:3) = [6,4,5]
+  !
+  integer, parameter :: tri_bnd_face(1:3) = i123(1:3)
+ !integer, parameter :: tri_bnd_face(1:3) = i132(1:3)
+ !integer, parameter :: tri_bnd_face(1:3) = i213(1:3)
+ !integer, parameter :: tri_bnd_face(1:3) = i312(1:3)
+ !integer, parameter :: tri_bnd_face(1:3) = i456(1:3)
+ !integer, parameter :: tri_bnd_face(1:3) = i546(1:3)
+ !integer, parameter :: tri_bnd_face(1:3) = i564(1:3)
+ !integer, parameter :: tri_bnd_face(1:3) = i645(1:3)
+ !integer, parameter :: tri_bnd_face(1:3) = i321(1:3)
+  !
+continue
+  !
+  if (allocated(tri_face_rotations)) return
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! tri_face_rotations(1:3,left_face,left_geom,right_face,right_geom) = [i,j,k]
+  !
+  ! Allocate tri_face_rotations and initialize it to zero
+  !
+  gl1 = min( Geom_Tetr , Geom_Pyra , Geom_Pris )
+  gl2 = max( Geom_Tetr , Geom_Pyra , Geom_Pris )
+  !
+  gr1 = min( Geom_Tria , Geom_Tetr , Geom_Pyra , Geom_Pris )
+  gr2 = max( Geom_Tria , Geom_Tetr , Geom_Pyra , Geom_Pris )
+  !
+  allocate ( tri_face_rotations(1:3,1:4,gl1:gl2,1:4,gr1:gr2) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tri_face_rotations",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  ! Fill the rotation indices for each combination of left and right faces
+  ! These rotation were found manually rotating between the different element
+  ! geometries and faces using a Tecplot file.
+  !
+  !############################################################
+  !############################################################
+  !############################################################
+  !############################################################
+  !#########################          #########################
+  !#########################   Tetr   #########################
+  !#########################          #########################
+  !############################################################
+  !############################################################
+  !############################################################
+  !############################################################
+  !
+  left_geom = Geom_Tetr
+  !############################################################
+  !####################### Tetr Face 1 ########################
+  !############################################################
+  left_face = 1
+  !============================================================
+  right_geom = Geom_Tria
+  ! left tetr face 4   matching   right tria face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = tri_bnd_face
+  !============================================================
+  right_geom = Geom_Tetr
+  ! left tetr face 1   matching   right tetr face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i546
+  ! left tetr face 1   matching   right tetr face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+  ! left tetr face 1   matching   right tetr face 3
+  tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i312
+  ! left tetr face 1   matching   right tetr face 4
+  tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i123
+  !============================================================
+  right_geom = Geom_Pyra
+  ! left tetr face 1   matching   right pyra face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i546
+  ! left tetr face 1   matching   right pyra face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+  ! left tetr face 1   matching   right pyra face 3
+  tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i312
+  ! left tetr face 1   matching   right pyra face 4
+  tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i312
+  !============================================================
+  right_geom = Geom_Pris
+  ! left tetr face 1   matching   right pris face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i123
+  ! left tetr face 1   matching   right pris face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+  !============================================================
+  !
+  !############################################################
+  !####################### Tetr Face 2 ########################
+  !############################################################
+  !
+  ! Tetr face 2 is the same as tetr face 1
+  !
+  tri_face_rotations(:,2,left_geom,:,:) = tri_face_rotations(:,1,left_geom,:,:)
+!!left_face = 2
+!!!============================================================
+!!right_geom = Geom_Tria
+!!! left tetr face 4   matching   right tria face 1
+!!tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = tri_bnd_face
+!!!============================================================
+!!right_geom = Geom_Tetr
+!!! left tetr face 2   matching   right tetr face 1
+!!tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i546
+!!! left tetr face 2   matching   right tetr face 2
+!!tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+!!! left tetr face 2   matching   right tetr face 3
+!!tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i312
+!!! left tetr face 2   matching   right tetr face 4
+!!tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i123
+!!!============================================================
+!!right_geom = Geom_Pyra
+!!! left tetr face 2   matching   right pyra face 1
+!!tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i546
+!!! left tetr face 2   matching   right pyra face 2
+!!tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+!!! left tetr face 2   matching   right pyra face 3
+!!tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i312
+!!! left tetr face 2   matching   right pyra face 4
+!!tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i312
+!!!============================================================
+!!right_geom = Geom_Pris
+!!! left tetr face 2   matching   right pris face 1
+!!tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i123
+!!! left tetr face 2   matching   right pris face 2
+!!tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+  !============================================================
+  !
+  !############################################################
+  !####################### Tetr Face 3 ########################
+  !############################################################
+  left_face = 3
+  !============================================================
+  right_geom = Geom_Tria
+  ! left tetr face 4   matching   right tria face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = tri_bnd_face
+  !============================================================
+  right_geom = Geom_Tetr
+  ! left tetr face 3   matching   right tetr face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i213
+  ! left tetr face 3   matching   right tetr face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i213
+  ! left tetr face 3   matching   right tetr face 3
+  tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i645
+  ! left tetr face 3   matching   right tetr face 4
+  tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i456
+  !============================================================
+  right_geom = Geom_Pyra
+  ! left tetr face 3   matching   right pyra face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i213
+  ! left tetr face 3   matching   right pyra face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i213
+  ! left tetr face 3   matching   right pyra face 3
+  tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i645
+  ! left tetr face 3   matching   right pyra face 4
+  tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i645
+  !============================================================
+  right_geom = Geom_Pris
+  ! left tetr face 3   matching   right pris face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i456
+  ! left tetr face 3   matching   right pris face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i213
+  !============================================================
+  !
+  !############################################################
+  !####################### Tetr Face 4 ########################
+  !############################################################
+  left_face = 4
+  !============================================================
+  right_geom = Geom_Tria
+  ! left tetr face 4   matching   right tria face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = tri_bnd_face
+  !============================================================
+  right_geom = Geom_Tetr
+  ! left tetr face 4   matching   right tetr face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i132
+  ! left tetr face 4   matching   right tetr face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i132
+  ! left tetr face 4   matching   right tetr face 3
+  tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i456
+  ! left tetr face 4   matching   right tetr face 4
+  tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i564
+  !============================================================
+  right_geom = Geom_Pyra
+  ! left tetr face 4   matching   right pyra face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i132
+  ! left tetr face 4   matching   right pyra face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i132
+  ! left tetr face 4   matching   right pyra face 3
+  tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i456
+  ! left tetr face 4   matching   right pyra face 4
+  tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i456
+  !============================================================
+  right_geom = Geom_Pris
+  ! left tetr face 4   matching   right pris face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i564
+  ! left tetr face 4   matching   right pris face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i132
+  !============================================================
+  !
+  !############################################################
+  !############################################################
+  !############################################################
+  !############################################################
+  !#########################          #########################
+  !#########################   Pyra   #########################
+  !#########################          #########################
+  !############################################################
+  !############################################################
+  !############################################################
+  !############################################################
+  !
+  left_geom = Geom_Pyra
+  !############################################################
+  !####################### Pyra Face 1 ########################
+  !############################################################
+  left_face = 1
+  !============================================================
+  right_geom = Geom_Tria
+  ! left pyra face 4   matching   right tria face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = tri_bnd_face
+  !============================================================
+  right_geom = Geom_Tetr
+  ! left pyra face 1   matching   right tetr face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i546
+  ! left pyra face 1   matching   right tetr face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+  ! left pyra face 1   matching   right tetr face 3
+  tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i312
+  ! left pyra face 1   matching   right tetr face 4
+  tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i123
+  !============================================================
+  right_geom = Geom_Pyra
+  ! left pyra face 1   matching   right pyra face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i546
+  ! left pyra face 1   matching   right pyra face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+  ! left pyra face 1   matching   right pyra face 3
+  tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i312
+  ! left pyra face 1   matching   right pyra face 4
+  tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i312
+  !============================================================
+  right_geom = Geom_Pris
+  ! left pyra face 1   matching   right pris face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i123
+  ! left pyra face 1   matching   right pris face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+  !============================================================
+  !
+  !############################################################
+  !####################### Pyra Face 2 ########################
+  !############################################################
+  !
+  ! Pyra face 2 is the same as pyra face 1
+  !
+  tri_face_rotations(:,2,left_geom,:,:) = tri_face_rotations(:,1,left_geom,:,:)
+!!left_face = 2
+!!!============================================================
+!!right_geom = Geom_Tria
+!!! left pyra face 4   matching   right tria face 1
+!!tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = tri_bnd_face
+!!!============================================================
+!!right_geom = Geom_Tetr
+!!! left pyra face 2   matching   right tetr face 1
+!!tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i546
+!!! left pyra face 2   matching   right tetr face 2
+!!tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+!!! left pyra face 2   matching   right tetr face 3
+!!tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i312
+!!! left pyra face 2   matching   right tetr face 4
+!!tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i123
+!!!============================================================
+!!right_geom = Geom_Pyra
+!!! left pyra face 2   matching   right pyra face 1
+!!tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i546
+!!! left pyra face 2   matching   right pyra face 2
+!!tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+!!! left pyra face 2   matching   right pyra face 3
+!!tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i312
+!!! left pyra face 2   matching   right pyra face 4
+!!tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i312
+!!!============================================================
+!!right_geom = Geom_Pris
+!!! left pyra face 2   matching   right pris face 1
+!!tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i123
+!!! left pyra face 2   matching   right pris face 2
+!!tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+  !============================================================
+  !
+  !############################################################
+  !####################### Pyra Face 3 ########################
+  !############################################################
+  left_face = 3
+  !============================================================
+  right_geom = Geom_Tria
+  ! left pyra face 4   matching   right tria face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = tri_bnd_face
+  !============================================================
+  right_geom = Geom_Tetr
+  ! left pyra face 3   matching   right tetr face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i213
+  ! left pyra face 3   matching   right tetr face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i213
+  ! left pyra face 3   matching   right tetr face 3
+  tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i645
+  ! left pyra face 3   matching   right tetr face 4
+  tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i456
+  !============================================================
+  right_geom = Geom_Pyra
+  ! left pyra face 3   matching   right pyra face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i213
+  ! left pyra face 3   matching   right pyra face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i213
+  ! left pyra face 3   matching   right pyra face 3
+  tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i645
+  ! left pyra face 3   matching   right pyra face 4
+  tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i645
+  !============================================================
+  right_geom = Geom_Pris
+  ! left pyra face 3   matching   right pris face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i456
+  ! left pyra face 3   matching   right pris face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i213
+  !============================================================
+  !
+  !############################################################
+  !####################### Pyra Face 4 ########################
+  !############################################################
+  !
+  ! Pyra face 4 is the same as pyra face 3
+  !
+  tri_face_rotations(:,4,left_geom,:,:) = tri_face_rotations(:,3,left_geom,:,:)
+!!left_face = 4
+!!!============================================================
+!!right_geom = Geom_Tria
+!!! left pyra face 4   matching   right tria face 1
+!!tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = tri_bnd_face
+!!!============================================================
+!!right_geom = Geom_Tetr
+!!! left pyra face 4   matching   right tetr face 1
+!!tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i213
+!!! left pyra face 4   matching   right tetr face 2
+!!tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i213
+!!! left pyra face 4   matching   right tetr face 3
+!!tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i645
+!!! left pyra face 4   matching   right tetr face 4
+!!tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i456
+!!!============================================================
+!!right_geom = Geom_Pyra
+!!! left pyra face 4   matching   right pyra face 1
+!!tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i213
+!!! left pyra face 4   matching   right pyra face 2
+!!tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i213
+!!! left pyra face 4   matching   right pyra face 3
+!!tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i645
+!!! left pyra face 4   matching   right pyra face 4
+!!tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i645
+!!!============================================================
+!!right_geom = Geom_Pris
+!!! left pyra face 4   matching   right pris face 1
+!!tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i456
+!!! left pyra face 4   matching   right pris face 2
+!!tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i213
+  !============================================================
+  !
+  !############################################################
+  !############################################################
+  !############################################################
+  !############################################################
+  !#########################          #########################
+  !#########################   Pris   #########################
+  !#########################          #########################
+  !############################################################
+  !############################################################
+  !############################################################
+  !############################################################
+  !
+  left_geom = Geom_Pris
+  !############################################################
+  !####################### Pris Face 1 ########################
+  !############################################################
+  left_face = 1
+  !============================================================
+  right_geom = Geom_Tria
+  ! left pris face 4   matching   right tria face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = tri_bnd_face
+  !============================================================
+  right_geom = Geom_Tetr
+  ! left pris face 1   matching   right tetr face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i132
+  ! left pris face 1   matching   right tetr face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i132
+  ! left pris face 1   matching   right tetr face 3
+  tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i456
+  ! left pris face 1   matching   right tetr face 4
+  tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i564
+  !============================================================
+  right_geom = Geom_Pyra
+  ! left pris face 1   matching   right pyra face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i132
+  ! left pris face 1   matching   right pyra face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i132
+  ! left pris face 1   matching   right pyra face 3
+  tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i456
+  ! left pris face 1   matching   right pyra face 4
+  tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i456
+  !============================================================
+  right_geom = Geom_Pris
+  ! left pris face 1   matching   right pris face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i564
+  ! left pris face 1   matching   right pris face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i132
+  !============================================================
+  !
+  !############################################################
+  !####################### Pris Face 2 ########################
+  !############################################################
+  left_face = 2
+  !============================================================
+  right_geom = Geom_Tria
+  ! left pris face 4   matching   right tria face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = tri_bnd_face
+  !============================================================
+  right_geom = Geom_Tetr
+  ! left pris face 2   matching   right tetr face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i546
+  ! left pris face 2   matching   right tetr face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+  ! left pris face 2   matching   right tetr face 3
+  tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i312
+  ! left pris face 2   matching   right tetr face 4
+  tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i123
+  !============================================================
+  right_geom = Geom_Pyra
+  ! left pris face 2   matching   right pyra face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i546
+  ! left pris face 2   matching   right pyra face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+  ! left pris face 2   matching   right pyra face 3
+  tri_face_rotations(1:3,left_face,left_geom,3,right_geom) = i312
+  ! left pris face 2   matching   right pyra face 4
+  tri_face_rotations(1:3,left_face,left_geom,4,right_geom) = i312
+  !============================================================
+  right_geom = Geom_Pris
+  ! left pris face 2   matching   right pris face 1
+  tri_face_rotations(1:3,left_face,left_geom,1,right_geom) = i123
+  ! left pris face 2   matching   right pris face 2
+  tri_face_rotations(1:3,left_face,left_geom,2,right_geom) = i546
+  !============================================================
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine init_tri_face_rotation_values
 !
 !###############################################################################
 !
