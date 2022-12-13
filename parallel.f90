@@ -5449,6 +5449,7 @@ subroutine root_localizes_nodes_of_cell(this_part,gnode,bface,face, &
   integer :: loc_face,loc_cell,loc_node
   integer :: glb_face,glb_cell,glb_node
   integer :: loc_ghost_cell
+  integer :: switch_index
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable :: rev_node_map(:)
