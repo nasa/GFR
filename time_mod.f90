@@ -22,6 +22,7 @@ module time_mod
   public :: update_TVD_RK3
   public :: update_TVD_RK4
   public :: save_old_solution
+  public :: stabilize_usp
   !
   interface write_array
     module procedure write_1d_array, write_2d_array, write_3d_array
