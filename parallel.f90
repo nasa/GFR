@@ -273,6 +273,56 @@ module parallel_mod
  !  module procedure exchange_modes_r4, exchange_modes_r8
  !end interface exchange_modes
   !
+  !#############################################################################
+  !#############################################################################
+  !#############################################################################
+  !
+  ! Tasks that are done when partitioning the grid for parallel simulations
+  !
+  !=============================================================================
+  !
+  ! partiton_grid
+  !   - IN  : npart, metis_option_requested
+  !   - IN  : global versions of
+  !              cell_geom, cell_order, bface, xyz_nodes, 
+  !              nodes_of_cell, nodes_of_cell_ptr
+  !   - OUT : local versions of
+  !              cell_geom, cell_order, bface, xyz_nodes, 
+  !              nodes_of_cell, nodes_of_cell_ptr
+  !
+  ! 1) call get_global_connectivity
+  !      - IN  : global cell_geom,cell_order,bface,xyz_nodes,
+  !                     nodes_of_cell,nodes_of_cell_ptr
+  !      - OUT : global versions of
+  !                 cells_with_node, cells_with_node_ptr,
+  !                 cells_surr_cell, cells_surr_cell_ptr,
+  !                 cells_with_edge, cells_with_edge_ptr,
+  !                 nodes_on_edge, face, fp
+  !
+  ! 2) call create_metis_dual_graph
+  !       creates xadj and adjncy arrays needed for METIS partitioner
+  !
+  ! 3) call partition_using_metis_[45]
+  !       partitions the grid using either METIS ver. 4 or ver. 5
+  !       - OUT : global epart
+  !
+  ! 4) call create_node_and_edge_arrays (only for continuous output)
+  !       - OUT : global versions of node, edge
+  !
+  ! 5) call find_partition_boundaries
+  !      finds all interior faces and periodic BCs that divide two partitions
+  !      and change those into MPI communication boundary faces
+  ! 
+  ! 6) call create_face_rotations
+  !      - IN  : global face, fp
+  !      - OUT : flx, face_rotation
+  !
+  ! 7) ... NEEDS TO BE FINISHED ...
+  !
+  !#############################################################################
+  !#############################################################################
+  !#############################################################################
+  !
 contains
 !
 !###############################################################################
@@ -2951,9 +3001,17 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"old2new",1,__LINE__,__FILE__,ierr,error_message)
   !
+  ! Create a mapping of the old boundary face indices to new boundary face
+  ! indices. We start by only including physical boundary faces and periodic
+  ! boundary faces whose matching periodic face is on the same partition,
+  ! i.e., we start by only including non-MPI communication boundary faces.
+  !
   i = 0
   do nf = 1,lfbnd
     if (bface(1,nf) == bc_periodic) then
+      ! If the host cell for this periodic face and the host cell for its
+      ! matching periodic face are on different partition, this will become
+      ! an MPI communication BC so skip to the next boundary face.
       if (epart(bface(2,nf)) /= epart(bface(6,nf))) then
         cycle
       end if
@@ -2962,6 +3020,11 @@ continue
     new2old(i) = nf
     old2new(nf) = i
   end do
+  !
+  ! Now add any periodic boundary faces that are now communication boundary
+  ! faces to the end of the boundary face index mapping so that they are
+  ! grouped together with the other communication boundary faces.
+  !
   do nf = 1,lfbnd
     if (bface(1,nf) == bc_periodic) then
       if (epart(bface(2,nf)) /= epart(bface(6,nf))) then
@@ -3243,6 +3306,34 @@ subroutine create_face_rotations(face,fp,flx,face_rotation,bface)
   !
 continue
   !
+  ! This subroutine creates the arrays face_rotation and flx, which are arrays
+  ! that attempt to simplify finding the face/flux point rotation between
+  ! the two cells on a face, and the resulting face/flux point index ordering.
+  ! Normally you would need to do something like:
+  !
+  !   face_geom = face(nf)%geom
+  !   face_order = face(nf)%order
+  !   left_rotation = face(nf)%left%rotation
+  !   right_rotation = face(nf)%right%rotation
+  !   [left fp indices] = fp%geord(face_geom,face_order)% &
+  !                                   rot(left_rotation)%pts(:)
+  !   [right fp indices] = fp%geord(face_geom,face_order)% &
+  !                                   rot(right_rotation)%pts(:)
+  !
+  ! With the face_rotation and flx arrays, we can do this:
+  !
+  !   left_rotation = face_rotation(1,nf)
+  !   right_rotation = face_rotation(2,nf)
+  !   [left fp indices] = flx(left_rotation)%pts(:)
+  !   [right fp indices] = flx(right_rotation)%pts(:)
+  !
+  ! These rotation values and face/flux point indices are needed to
+  ! create the MPI communication datatypes on all MPI processes, so
+  ! each process needs these arrays. It is much easier to collect/compress
+  ! and communicate/broadcast the flx and face_rotation arrays to all
+  ! processes then it would be to collect/compress the complex face
+  ! and fp derived types.
+  !
   call debug_timer(entering_procedure,pname)
   !
   ibeg = lbound(fp%geord,dim=1)
@@ -3261,6 +3352,10 @@ continue
     end do
   end do
   !
+  ! Create the fpidx array which basically works as a masking array to
+  ! that identifies only valid rotations within fp so that a compact version
+  ! can be created within the array flx.
+  !
   allocate ( fpidx(ibeg:iend,jbeg:jend,kbeg:kend) , source=-huge(0) , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"fpidx",1,__LINE__,__FILE__,ierr,error_message)
@@ -3277,6 +3372,10 @@ continue
       end do
     end do
   end do
+  !
+  ! Create the flx array which is a compact version of fp without any
+  ! unused space. Each index within flx gives only valid face/flux point
+  ! orderings for the current simulation.
   !
   allocate ( flx(1:n) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"flx",1,__LINE__,__FILE__,ierr,error_message)
@@ -3303,6 +3402,10 @@ continue
       end do
     end do
   end do
+  !
+  ! Create the face_rotation array which gives the index within the array flx
+  ! that provides the face/flux point index orderings for the left and right
+  ! sides of the current face.
   !
   allocate ( face_rotation(1:2,1:size(face)) , source=0 , &
              stat=ierr , errmsg=error_message )
@@ -5570,6 +5673,20 @@ continue
     l2 = nodes_of_cell_ptr(loc_ghost_cell+1)
     !
     nfnods = geom_nodes(face(glb_face)%geom) ! # of nodes defining this face
+    !
+    ! Assign nodes defining boundary face from the host cell to the ghost cell
+    ! NOTE: We have to reverse the rotation/ordering of the face nodes so that
+    !       the nodes of the ghost cell are defined such that the normal of
+    !       each of its faces points outwards (this is the same as the interior
+    !       cells). For a 2D host cell, there are only two nodes so we just
+    !       need to switch them, i.e. node1 <=> node2.  For a 3D host cell,
+    !       switching either nodes 1 & 3 or nodes 3 & 4 will do the trick.
+    !       Since triangle faces only have three nodes, we will switch nodes
+    !       1 & 3 for both triangle and quad faces so that we dont have to
+    !       distinguish between the two.
+    !
+    ! Copy over the face nodes to the ghost cell,
+    ! keeping the same ordering as the host cell.
     !
     nodes_of_cell(l1:l2) = face(glb_face)%nodes(1:nfnods)
     !
