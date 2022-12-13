@@ -576,7 +576,7 @@ continue
     ! Create the flx and face_rotation arrays from fp and the newly
     ! updated face array that now contains communication boundary faces
     !
-    call create_face_rotations(face,fp,flx,face_rotation)
+    call create_face_rotations(face,fp,flx,face_rotation,bface)
     !
     ! Deallocate fp since it is no longer needed
     !
@@ -3216,13 +3216,14 @@ end subroutine find_partition_boundaries
 !
 !###############################################################################
 !
-subroutine create_face_rotations(face,fp,flx,face_rotation)
+subroutine create_face_rotations(face,fp,flx,face_rotation,bface)
   !
   !.. Formal Arguments ..
   type(face_t),                     intent(in) :: face(:)
   type(fp_t),                       intent(in) :: fp
   type(flux_pts_t), allocatable, intent(inout) :: flx(:)
   integer,          allocatable, intent(inout) :: face_rotation(:,:)
+  integer,                          intent(in) :: bface(:,:)
   !
   !.. Local Scalars ..
   integer :: i,j,k,n,nf,np,ierr
