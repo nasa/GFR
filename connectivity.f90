@@ -2302,6 +2302,28 @@ end function RotateFluxPoints_Edge
 pure function GetFluxPointRotation_Quad(abcd_left,abcd_right) &
                                  result(return_value)
   !
+  ! This function finds the rotation of a right cell quad face relative to a
+  ! left cell quad face on a given grid face, and returns the rotation index
+  ! with valid values being 1-8, and a value of 0 indicating an error where
+  ! none of the valid rotations match up the right face nodes to the left face
+  ! nodes. The nodes of the two quad faces must be input in ABCD ordering
+  ! defined as:
+  !
+  !      B---D
+  !      |   |   where the vectors a and b are defined as a = A-C and b=B-C.
+  !      C---A   
+  !
+  ! In reference coordinates [x,y,z] = [xi,eta,zeta], the vector a points in
+  ! the positive direction of the lowest coordinate direction, and b points in
+  ! the positive direction of the remaining coordinate direction, i.e.,
+  !      z-faces:  a = +x [or xi]   and  b = +y [or eta]
+  !      x-faces:  a = +y [or eta]  and  b = +z [or zeta]
+  !      y-faces:  a = +x [or xi]   and  b = +z [or zeta]
+  !
+  ! The rotation of the right cell face relative to the left cell face can be
+  ! found by comparing the orientation of the a and b vectors from the two
+  ! cell faces.
+  !
   !.. Formal Arguments ..
   integer, dimension(:), intent(in) :: abcd_left
   integer, dimension(:), intent(in) :: abcd_right
@@ -2537,6 +2559,27 @@ end function GetFluxPointRotation_Quad
 !
 pure function RotateFluxPoints_Quad(abcd_left,abcd_right,face_order) &
                              result(return_value)
+  !
+  ! This function finds the rotation of a right cell quad face relative to
+  ! a left cell quad face on a given grid face, and returns the matching
+  ! face/flux point indices for the right cell relative to the face/flux
+  ! point indices for the left cell. The nodes of the two quad faces must
+  ! be input in ABCD ordering defined as:
+  !
+  !      B---D
+  !      |   |   where the vectors a and b are defined as a = A-C and b=B-C.
+  !      C---A   
+  !
+  ! In reference coordinates [x,y,z] = [xi,eta,zeta], the vector a points in
+  ! the positive direction of the lowest coordinate direction, and b points in
+  ! the positive direction of the remaining coordinate direction, i.e.,
+  !      z-faces:  a = +x [or xi]   and  b = +y [or eta]
+  !      x-faces:  a = +y [or eta]  and  b = +z [or zeta]
+  !      y-faces:  a = +x [or xi]   and  b = +z [or zeta]
+  !
+  ! The rotation of the right cell face relative to the left cell face can be
+  ! found by comparing the orientation of the a and b vectors from the two
+  ! cell faces.
   !
   !.. Formal Arguments ..
   integer, dimension(:), intent(in) :: abcd_left
