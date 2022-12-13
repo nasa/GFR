@@ -6715,7 +6715,15 @@ continue
       !
       glb_face = face_map(my_part)%loc_to_glb(loc_face)
       !
-      left_rotation = face_rotation(1,glb_face)
+      ! If this is a formerly periodic boundary face, the special
+      ! periodic face rotation is given by the right face rotation,
+      ! i.e. face_rotation(2,:); otherwise, use the left face rotation.
+      !
+      if (bface(1,loc_face) == -bc_cpu_bnd) then
+        left_rotation = face_rotation(2,glb_face)
+      else
+        left_rotation = face_rotation(1,glb_face)
+      end if
       !
       ibeg = lbound( flx(left_rotation)%pts , dim=1 )
       iend = ubound( flx(left_rotation)%pts , dim=1 )
@@ -6725,11 +6733,6 @@ continue
       ! used to be a periodic boundary face.
       !
       if (bface(1,loc_face) == -bc_cpu_bnd) then
-        if (nr < 3) then
-          ibeg = ubound( flx(left_rotation)%pts , dim=1 )
-          iend = lbound( flx(left_rotation)%pts , dim=1 )
-          interval = -1
-        end if
         bface(1,loc_face) = bc_cpu_bnd
       end if
       !
