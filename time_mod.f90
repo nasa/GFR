@@ -75,24 +75,12 @@ continue
     !
   end if
   !
-  if (itestcase == Taylor_Green_Vortex) then
-    call check_tstar_for_TaylorGreen(dtmin)
-  end if
+  ! Perform some checks on dtmin to make sure the time of the new solution
+  ! doesnt skip past a milestone for output or final solution time
   !
-  ! Check to see if we need to output a new
-  ! solution file based on output_frequency
+  call checks_on_dtmin(dtmin,final_timestep_from_stop_request)
   !
-  if (output_frequency > zero) then
-    call check_output_frequency(dtmin)
-  end if
-  !
-  !
-  ! Make sure the timestep size doesnt make the final time exceed Final_Time
-  !
-  if (Final_time > zero .or. final_timestep_from_stop_request /= 0) then
-    call check_final_time(dtmin,final_timestep_from_stop_request)
-  end if
-  !
+  ! Update d_t with the new dtmin
   !
   d_t = dtmin
   !
