@@ -886,7 +886,7 @@ subroutine create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
                                     nodes_of_cell,nodes_of_cell_ptr, &
                                     cells_surr_cell,cells_surr_cell_ptr, &
                                     face,fp,force_flxpt_offset_to_zero, &
-                                    group_comm,input_mode)
+                                    group_comm,input_mode,creating_global_face)
   !
   ! Procedure that creates the face array.
   ! Look in the module geovar for the definition of the derived type.
@@ -915,6 +915,7 @@ subroutine create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
   logical(lk),     optional, intent(in) :: force_flxpt_offset_to_zero
   _MPI_COMM_TYPE_, optional, intent(in) :: group_comm
   integer,         optional, intent(in) :: input_mode
+  logical(lk),     optional, intent(in) :: creating_global_face
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,nf,nc,ierr
