@@ -1299,6 +1299,74 @@ end subroutine check_tstar_for_TaylorGreen
 !
 !###############################################################################
 !
+function check_against_ideal_time(current_time,current_dt,ideal_time) &
+                           result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: current_time
+  real(wp), intent(in) :: current_dt
+  real(wp), intent(in) :: ideal_time
+  !
+  !.. Function Results ..
+  integer :: return_value
+  !
+  !.. Local Parameters ..
+  real(wp), parameter :: scale_factor = 1.75_wp
+  real(wp), parameter :: eps_time = eps6
+  !
+continue
+  !
+  ! Default function result is 0, which means that the
+  ! next 1 or 2 time steps will NOT exceed the ideal time.
+  !
+  return_value = 0
+  !
+  ! Perform some checks to see if the next 1 or 2 time steps will reach
+  ! or exceed the ideal simulation time.
+  ! NOTE: The parameter scale_factor is used to see if we will hit a
+  !       simulation time within the next two time steps. We want to
+  !       use a value somewhere between 1 and 2 so that we can adjust the
+  !       next two time steps to reach that ideal simulation time smoothly,
+  !       instead of only adjusting 1 time step size which can result in a
+  !       really tiny time step size for the next time step if the difference
+  !       between the ideal time and the current time happens to be just
+  !       larger than the current time step size.
+  !
+  !
+  if ((current_time+scale_factor*current_dt) > (ideal_time-eps_time)) then
+    ! 
+    if (abs(ideal_time - (current_time+current_dt)) <= eps_time) then
+      !
+      ! The simulation time after the upcoming time step (using the current
+      ! time step size) is within 1e-6 of the ideal time. Return a value of
+      ! -1 to indicate this condition.
+      !
+      return_value = -1
+      !
+    else if ((current_time+current_dt) > (ideal_time-eps_time)) then
+      !
+      ! The simulation time after the upcoming time step (using the current
+      ! time step size) will exceed the ideal time, so return a value of
+      ! 1 to indicate the ideal time will be exceeded in 1 time step.
+      !
+      return_value = 1
+      !
+    else
+      !
+      ! It looks like the next time step will exceed the ideal time, so
+      ! return a value of 2 to indicate the ideal time step will be exceeded
+      ! in 2 time steps.
+      !
+      return_value = 2
+      !
+    end if
+    !
+  end if
+  !
+end function check_against_ideal_time
+!
+!###############################################################################
+!
 subroutine check_output_frequency(dtmin)
   !
   !.. Use Statements ..
