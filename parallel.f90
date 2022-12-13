@@ -2069,7 +2069,7 @@ continue
   ! NOTE: METIS 5 ALLOWS FOR ENFORCING CONTIGUOUS PARTITIONS THROUGH ITS OPTIONS
   !       INPUT ARGUMENT. CHECK_CONTIGUITY WILL ONLY BE FALSE IF USING METIS 5
   !       AND THE OPTIONAL ARGUMENT CONTIGUITY_SETTING IS > 0.
-  ! 
+  !
   if (passes_inspection .and. check_contiguity) then
     !
     lcell = size(epart)
@@ -2994,17 +2994,6 @@ continue
   call alloc_error(pname,"new2old",2,__LINE__,__FILE__,ierr,error_message)
   deallocate ( old2new , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"old2new",2,__LINE__,__FILE__,ierr,error_message)
-! !
-! ! Reallocate bface to make room for new partition boundary faces
-! !
-! call reallocate(bface,new_size2=new_lfbnd)
-! !
-! ! Replace bface(10,nf) with the location within the face array to extract data
-! ! and set the responsible partition to the partition for the host cell
-! !
-! do nf = 1,lfbnd
-!   bface(10,nf) = nf
-! end do
   !
   ! Collect and add the new boundary faces to bface
   !
@@ -3180,12 +3169,6 @@ continue
     end if
   end do
   !
-  ! Now we need to reorder the boundary faces so that any periodic boundary
-  ! faces that are now communication boundary faces are grouped together with
-  ! the other communication boundary faces.
-  !
-
-  !
   ! ##########################################################################
   ! ##########################################################################
   ! ##########################################################################
@@ -3255,7 +3238,7 @@ subroutine create_face_rotations(face,fp,flx,face_rotation)
   integer, allocatable :: fpidx(:,:,:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "create_face_rotation"
+  character(len=*), parameter :: pname = "create_face_rotations"
   !
 continue
   !
