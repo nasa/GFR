@@ -48,6 +48,37 @@ module connectivity_mod
   !
   integer, public, save, allocatable :: tri_face_rotations(:,:,:,:,:)
   !
+  !
+  ! #################################
+  ! #####   MODULE PARAMETERS   #####
+  ! #################################
+  !
+  integer, parameter :: edge_rotation(1:2,1:2) = reshape( [1,2, 2,1] , [2,2] )
+  !
+  integer, parameter :: tria_rotation(1:3,1:6) = reshape( [1,2,3, &
+                                                           3,1,2, &
+                                                           2,3,1, &
+                                                           2,1,3, &
+                                                           1,3,2, &
+                                                           3,2,1] , [3,6] )
+  !
+  integer, parameter :: quad_rotation(1:4,1:8) = reshape( [1,2,3,4, &
+                                                           4,3,2,1, &
+                                                           3,4,1,2, &
+                                                           2,1,4,3, &
+                                                           2,1,3,4, &
+                                                           4,3,1,2, &
+                                                           3,4,2,1, &
+                                                           1,2,4,3] , [4,8] )
+ !integer, parameter :: quad_rotation(1:4,1:8) = reshape( [1,2,3,4, &
+ !                                                         4,3,2,1, &
+ !                                                         2,1,4,3, &
+ !                                                         3,4,1,2, &
+ !                                                         1,4,3,2, &
+ !                                                         2,3,4,1, &
+ !                                                         4,1,2,3, &
+ !                                                         3,2,1,4] , [4,8] )
+ !
 contains
 !
 !###############################################################################
