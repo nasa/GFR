@@ -2010,7 +2010,7 @@ pure subroutine update_CK_RK4_S1(np,dtsp,residual,usp,rk_sum)
   real(wp) :: sum_ec,sum_mx,sum_my,sum_mz,sum_ee,sum_eq
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "update_TVD_RK4_S1"
+  character(len=*), parameter :: pname = "update_CK_RK4_S1"
   !
   real(wp), parameter :: b = 1432997174477.0_wp / 9575080441755.0_wp
   !
@@ -2094,7 +2094,7 @@ pure subroutine update_CK_RK4_S2(np,dtsp,residual,usp,rk_sum)
   real(wp) :: sum_ec,sum_mx,sum_my,sum_mz,sum_ee,sum_eq
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "update_TVD_RK4_S2"
+  character(len=*), parameter :: pname = "update_CK_RK4_S2"
   !
   real(wp), parameter :: a = -567301805773.0_wp / 1357537059087.0_wp
   real(wp), parameter :: b = 5161836677717.0_wp / 13612068292357.0_wp
@@ -2179,7 +2179,7 @@ pure subroutine update_CK_RK4_S3(np,dtsp,residual,usp,rk_sum)
   real(wp) :: sum_ec,sum_mx,sum_my,sum_mz,sum_ee,sum_eq
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "update_TVD_RK4_S3"
+  character(len=*), parameter :: pname = "update_CK_RK4_S3"
   !
   real(wp), parameter :: a = -2404267990393.0_wp / 2016746695238.0_wp
   real(wp), parameter :: b = 1720146321549.0_wp / 2090206949498.0_wp
@@ -2264,7 +2264,7 @@ pure subroutine update_CK_RK4_S4(np,dtsp,residual,usp,rk_sum)
   real(wp) :: sum_ec,sum_mx,sum_my,sum_mz,sum_ee,sum_eq
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "update_TVD_RK4_S4"
+  character(len=*), parameter :: pname = "update_CK_RK4_S4"
   !
   real(wp), parameter :: a = -3550918686646.0_wp / 2091501179385.0_wp
   real(wp), parameter :: b = 3134564353537.0_wp / 4481467310338.0_wp
@@ -2349,7 +2349,7 @@ pure subroutine update_CK_RK4_S5(np,dtsp,residual,usp,rk_sum)
   real(wp) :: sum_ec,sum_mx,sum_my,sum_mz,sum_ee,sum_eq
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "update_TVD_RK4_S5"
+  character(len=*), parameter :: pname = "update_CK_RK4_S5"
   !
   real(wp), parameter :: a = -1275806237668.0_wp / 842570457699.0_wp
   real(wp), parameter :: b = 2277821191437.0_wp / 14882151754819.0_wp
