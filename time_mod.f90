@@ -1257,58 +1257,97 @@ subroutine check_tstar_for_TaylorGreen(dtmin)
   real(wp), intent(inout) :: dtmin
   !
   !.. Local Scalars ..
-  integer     :: n
-  real(wp)    :: tstar,new_tstar
-  logical(lk) :: reset_dtsp
+  integer     :: n,ichk
+  real(wp)    :: tstar,dtstar,ideal_tstar
+  logical(lk) :: reset_dtsp,checking_for_eight
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_tstar_for_TaylorGreen"
   !
 continue
   !
   reset_dtsp = fals
   !
   tstar = time*time_ref
-  new_tstar = tstar + dtmin*time_ref
+  dtstar = dtmin*time_ref
   !
-  if (tstar < eight .and. new_tstar >= eight) then
+  checking_for_eight = fals
+  if (tstar < three) then
+    ideal_tstar = three
+  else if (tstar < five) then
+    ideal_tstar = five
+  else if (tstar < seven) then
+    ideal_tstar = seven
+  else if (tstar < eight) then
+    ideal_tstar = eight
+    checking_for_eight = true
+  else if (tstar < nine) then
+    ideal_tstar = nine
+  else if (tstar < 11.0_wp) then
+    ideal_tstar = 11.0_wp
+  else if (tstar < 15.0_wp) then
+    ideal_tstar = 15.0_wp
+  else
+   !ideal_tstar = 20.0_wp
+    ideal_tstar = 25.0_wp
+  end if
+  !
+  ! Use the function check_against_ideal_time to see if the next 1 or 2 time
+  ! steps will exceed the ideal output time.
+  !
+  ichk = check_against_ideal_time(tstar,dtstar,ideal_tstar)
+  !
+  if (ichk == -1) then
     !
-    dtmin = (eight - tstar) / time_ref
-    write_TaylorGreen_8s_solution = true
+    ! If the simulation time after the upcoming time step (using the current
+    ! time step size) is within 1e-6 of the ideal time for output, just
+    ! continue on using the current time step size (i.e. do not reset dtmin),
+    ! and set the necessary flags to create the desired output at this
+    ! simulation time.
+    !
+    if (checking_for_eight) then
+      write_TaylorGreen_8s_solution = true
+    else
+      write_TaylorGreen_full_solution = true
+    end if
+    !
+  else if (ichk == 1) then
+    !
+    ! If the simulation time after the upcoming time step (using the current
+    ! time step size) will exceed the ideal time for output, adjust dtmin
+    ! so that the simulation time after this time step is equal to the
+    ! ideal time. Also set the necessary flags to create the desired output
+    ! at this simulation time.
+    ! NOTE: We are adding 1e-14 to the ideal time to make sure that the
+    !       simulation time after this time step will exceed the ideal
+    !       time, and there isnt some issue with round off errors making
+    !       the updated simulation time smaller than the ideal time.
+    !
+    if (checking_for_eight) then
+      write_TaylorGreen_8s_solution = true
+    else
+      write_TaylorGreen_full_solution = true
+    end if
+    !
     reset_dtsp = true
     !
-  else if (tstar < three .and. new_tstar >= three) then
+    dtmin = ((ideal_tstar+eps14) - tstar) / time_ref
     !
-    dtmin = (three - tstar) / time_ref
-    write_TaylorGreen_full_solution = true
+  else if (ichk == 2) then
+    !
+    ! It looks like the next time step will exceed the ideal time for output.
+    ! To smooth the modification of the time step size, adjust dtmin to
+    ! half the remaining difference between the current simulation time and
+    ! the ideal time.
+    ! NOTE: We dont want to set the flags to create the desired output
+    !       because the simulation time after this time step wont be the
+    !       ideal time. This should happen during the next time step, and
+    !       at that point the previous conditional above this one should
+    !       be met.
+    !
     reset_dtsp = true
     !
-  else if (tstar < five .and. new_tstar >= five) then
-    !
-    dtmin = (five - tstar) / time_ref
-    write_TaylorGreen_full_solution = true
-    reset_dtsp = true
-    !
-  else if (tstar < seven .and. new_tstar >= seven) then
-    !
-    dtmin = (seven - tstar) / time_ref
-    write_TaylorGreen_full_solution = true
-    reset_dtsp = true
-    !
-  else if (tstar < nine .and. new_tstar >= nine) then
-    !
-    dtmin = (nine - tstar) / time_ref
-    write_TaylorGreen_full_solution = true
-    reset_dtsp = true
-    !
-  else if (tstar < 11.0_wp .and. new_tstar >= 11.0_wp) then
-    !
-    dtmin = (11.0_wp - tstar) / time_ref
-    write_TaylorGreen_full_solution = true
-    reset_dtsp = true
-    !
-  else if (tstar < 15.0_wp .and. new_tstar >= 15.0_wp) then
-    !
-    dtmin = (15.0_wp - tstar) / time_ref
-    write_TaylorGreen_full_solution = true
-    reset_dtsp = true
+    dtmin = (half * (ideal_tstar - tstar)) / time_ref
     !
   end if
   !
