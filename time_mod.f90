@@ -14,6 +14,7 @@ module time_mod
   private
   !
   public :: get_dtsp
+  public :: checks_on_dtmin
   public :: rresi
   public :: update_Classic_RK
   public :: update_CK_RK4
@@ -95,6 +96,42 @@ continue
   d_t = dtmin
   !
 end subroutine get_dtsp
+!
+!###############################################################################
+!
+subroutine checks_on_dtmin(dtmin,final_timestep_from_stop_request)
+  !
+  !.. Use Statements ..
+  use ovar, only : itestcase,Final_Time
+  use ovar, only : output_frequency
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: dtmin
+  integer,     intent(in) :: final_timestep_from_stop_request
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "checks_on_dtmin"
+  !
+continue
+  !
+  if (itestcase == Taylor_Green_Vortex) then
+    call check_tstar_for_TaylorGreen(dtmin)
+  end if
+  !
+  ! Check to see if we need to output a new
+  ! solution file based on output_frequency
+  !
+  if (output_frequency > zero) then
+    call check_output_frequency(dtmin)
+  end if
+  !
+  ! Make sure the timestep size doesnt make the final time exceed Final_Time
+  !
+  if (Final_time > zero .or. final_timestep_from_stop_request /= 0) then
+    call check_final_time(dtmin,final_timestep_from_stop_request)
+  end if
+  !
+end subroutine checks_on_dtmin
 !
 !###############################################################################
 !
