@@ -2251,7 +2251,7 @@ pure function RotateFluxPoints_Edge(ab_left,ab_right,face_order) &
   integer :: nep
   !
   !.. Local Parameters ..
-  integer, parameter :: rotation(1:2,1:2) = reshape( [1,2, 2,1] , [2,2] )
+  integer, parameter :: rotation(1:2,1:2) = edge_rotation(1:2,1:2)
   !
 continue
   !
@@ -2317,22 +2317,7 @@ pure function GetFluxPointRotation_Quad(abcd_left,abcd_right) &
  !integer, dimension(1:face_order+1,1:face_order+1) :: fp_idx
   !
   !.. Local Parameters ..
-  integer, parameter :: rotation(1:4,1:8) = reshape( [1,2,3,4, &
-                                                      4,3,2,1, &
-                                                      3,4,1,2, &
-                                                      2,1,4,3, &
-                                                      2,1,3,4, &
-                                                      4,3,1,2, &
-                                                      3,4,2,1, &
-                                                      1,2,4,3] , [4,8] )
- !integer, parameter :: rotation(1:4,1:8) = reshape( [1,2,3,4, &
- !                                                    4,3,2,1, &
- !                                                    2,1,4,3, &
- !                                                    3,4,1,2, &
- !                                                    1,4,3,2, &
- !                                                    2,3,4,1, &
- !                                                    4,1,2,3, &
- !                                                    3,2,1,4] , [4,8] )
+  integer, parameter :: rotation(1:4,1:8) = quad_rotation(1:4,1:8)
   !
 continue
   !
@@ -2568,22 +2553,7 @@ pure function RotateFluxPoints_Quad(abcd_left,abcd_right,face_order) &
   integer, dimension(1:face_order+1,1:face_order+1) :: fp_idx
   !
   !.. Local Parameters ..
-  integer, parameter :: rotation(1:4,1:8) = reshape( [1,2,3,4, &
-                                                      4,3,2,1, &
-                                                      3,4,1,2, &
-                                                      2,1,4,3, &
-                                                      2,1,3,4, &
-                                                      4,3,1,2, &
-                                                      3,4,2,1, &
-                                                      1,2,4,3] , [4,8] )
- !integer, parameter :: rotation(1:4,1:8) = reshape( [1,2,3,4, &
- !                                                    4,3,2,1, &
- !                                                    2,1,4,3, &
- !                                                    3,4,1,2, &
- !                                                    1,4,3,2, &
- !                                                    2,3,4,1, &
- !                                                    4,1,2,3, &
- !                                                    3,2,1,4] , [4,8] )
+  integer, parameter :: rotation(1:4,1:8) = quad_rotation(1:4,1:8)
   !
 continue
   !
@@ -2810,12 +2780,7 @@ pure function RotateFluxPoints_Tria(abc_left,abc_right,face_order) &
   integer :: j1,j2,j3,j4,j5,j6
   !
   !.. Local Parameters ..
-  integer, parameter :: rotation(1:3,1:6) = reshape( [1,2,3, &
-                                                      3,1,2, &
-                                                      2,3,1, &
-                                                      2,1,3, &
-                                                      1,3,2, &
-                                                      3,2,1] , [3,6] )
+  integer, parameter :: rotation(1:3,1:6) = tria_rotation(1:3,1:6)
   !
 continue
   !
@@ -2938,12 +2903,7 @@ pure function GetFluxPointRotation_Tria(abc_left,abc_right) &
   integer :: return_value
   !
   !.. Local Parameters ..
-  integer, parameter :: rotation(1:3,1:6) = reshape( [1,2,3, &
-                                                      3,1,2, &
-                                                      2,3,1, &
-                                                      2,1,3, &
-                                                      1,3,2, &
-                                                      3,2,1] , [3,6] )
+  integer, parameter :: rotation(1:3,1:6) = tria_rotation(1:3,1:6)
   !
 continue
   !
