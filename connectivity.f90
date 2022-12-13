@@ -3782,7 +3782,6 @@ continue
     end do
     !
     sk = 0
-    sk = 0
     do k = 1,no1d
       do j = 1,no1d+1-k
         do i = 1,no1d+2-k-j
