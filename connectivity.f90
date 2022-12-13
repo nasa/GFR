@@ -3870,7 +3870,7 @@ continue
     sk = 0
     do k = 1,np1d
       do j = 1,np1d
-        do i = 1,np1d+1-k
+        do i = 1,np1d+1-j
           sk = sk + 1
           counter3(k,j,i) = sk
         end do
@@ -3880,7 +3880,7 @@ continue
     sk = 0
     do k = 1,no1d
       do j = 1,no1d
-        do i = 1,no1d+1-k
+        do i = 1,no1d+1-j
           !
           p1 = counter3(k  ,j  ,i  )
           p2 = counter3(k  ,j  ,i+1)
@@ -3894,17 +3894,17 @@ continue
           sk = sk + 1
           pst_geom(Geom_Pris,order)%connectivity(1:1,sk) = p1
           pst_geom(Geom_Pris,order)%connectivity(2:2,sk) = p2
-          pst_geom(Geom_Pris,order)%connectivity(3:4,sk) = p5
-          pst_geom(Geom_Pris,order)%connectivity(5:5,sk) = p4
-          pst_geom(Geom_Pris,order)%connectivity(6:6,sk) = p3
+          pst_geom(Geom_Pris,order)%connectivity(3:4,sk) = p4
+          pst_geom(Geom_Pris,order)%connectivity(5:5,sk) = p5
+          pst_geom(Geom_Pris,order)%connectivity(6:6,sk) = p6
           pst_geom(Geom_Pris,order)%connectivity(7:8,sk) = p8
           !
-          if (p6 /= 0 .and. p7 /= 0) then
+          if (p3 /= 0 .and. p7 /= 0) then
             sk = sk + 1
             pst_geom(Geom_Pris,order)%connectivity(1:1,sk) = p2
-            pst_geom(Geom_Pris,order)%connectivity(2:2,sk) = p6
-            pst_geom(Geom_Pris,order)%connectivity(3:4,sk) = p5
-            pst_geom(Geom_Pris,order)%connectivity(5:5,sk) = p3
+            pst_geom(Geom_Pris,order)%connectivity(2:2,sk) = p3
+            pst_geom(Geom_Pris,order)%connectivity(3:4,sk) = p4
+            pst_geom(Geom_Pris,order)%connectivity(5:5,sk) = p6
             pst_geom(Geom_Pris,order)%connectivity(6:6,sk) = p7
             pst_geom(Geom_Pris,order)%connectivity(7:8,sk) = p8
           end if
