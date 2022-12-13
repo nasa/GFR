@@ -279,6 +279,10 @@ contains
 !
 subroutine create_serial_cell_map(lcell)
   !
+  !.. Use Statements ..
+  use geovar, only : nnode,node_map
+  use geovar, only : nface,face_map
+  !
   !.. Formal Arguments ..
   integer, intent(in) :: lcell
   !
@@ -292,6 +296,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  ! Allocate the serial version of cell_map
+  ! NOTE: This is the only one that is really needed
+  !
   if (allocated(cell_map)) then
     deallocate ( cell_map , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"cell_map",2,__LINE__,__FILE__,ierr,error_message)
@@ -302,6 +309,34 @@ continue
                    error_message,skip_alloc_pause)
   !
   cell_map(1)%loc_to_glb = intseq(1,lcell) ! F2003 AUTO-REALLOC
+  !
+  ! Allocate the serial version of face_map
+  ! NOTE: This is only temporarily needed for debugging
+  !
+  if (allocated(face_map)) then
+    deallocate ( face_map , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"face_map",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( face_map(1:1) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"face_map",1,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
+  !
+  face_map(1)%loc_to_glb = intseq(1,nface) ! F2003 AUTO-REALLOC
+  !
+  ! Allocate the serial version of node_map
+  ! NOTE: This is only temporarily needed for debugging
+  !
+  if (allocated(node_map)) then
+    deallocate ( node_map , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"node_map",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( node_map(1:1) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"node_map",1,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
+  !
+  node_map(1)%loc_to_glb = intseq(1,nnode) ! F2003 AUTO-REALLOC
   !
   call debug_timer(leaving_procedure,pname)
   !
