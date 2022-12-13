@@ -1977,11 +1977,11 @@ continue
     call update_CK_RK4_S1(n_solpts,dtsp,residual,usp,rk_sum)
   else if (nst == 2) then
     call update_CK_RK4_S2(n_solpts,dtsp,residual,usp,rk_sum)
-  else if (nst == 2) then
+  else if (nst == 3) then
     call update_CK_RK4_S3(n_solpts,dtsp,residual,usp,rk_sum)
-  else if (nst == 2) then
+  else if (nst == 4) then
     call update_CK_RK4_S4(n_solpts,dtsp,residual,usp,rk_sum)
-  else if (nst == 2) then
+  else if (nst == 5) then
     call update_CK_RK4_S5(n_solpts,dtsp,residual,usp,rk_sum)
   end if
   !
