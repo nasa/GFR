@@ -1481,22 +1481,43 @@ subroutine check_final_time(dtmin,final_timestep_from_stop_request)
   integer,     intent(in) :: final_timestep_from_stop_request
   !
   !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: new_time,chk_time
+  integer     :: n,ichk
+  real(wp)    :: chk_time
+  logical(lk) :: reset_dtsp
   !
 continue
   !
+  reset_dtsp = fals
+  !
   if (Final_Time > zero) then
     !
-    new_time = time + dtmin
     chk_time = Final_Time/time_ref + eps9
     !
-    if (new_time > chk_time) then
-      dtmin = Final_Time/time_ref - time
+    ichk = check_against_ideal_time(time,dtmin,chk_time)
+    !
+    if (ichk == -1) then
+      !
       this_is_final_timestep = true
+      !
+    else if (ichk == 1) then
+      !
+      this_is_final_timestep = true
+      !
+      reset_dtsp = true
+      !
+      dtmin = Final_Time/time_ref - time
+      !
+    else if (ichk == 2) then
+      !
+      reset_dtsp = true
+      !
+      dtmin = half * (Final_Time/time_ref - time)
+      !
     end if
     !
   end if
+  !
+  ! Check to see if a final time step number was provided by a temp file
   !
   if (final_timestep_from_stop_request /= 0) then
     if (final_timestep_from_stop_request <= itcur) then
@@ -1506,7 +1527,7 @@ continue
   !
  !!$ACC UPDATE DEVICE(dtmin)
   !
-  if (this_is_final_timestep) then
+  if (reset_dtsp) then
     !$ACC PARALLEL LOOP PRESENT(dtsp)
     do n = 1,n_solpts
       dtsp(n) = dtmin
