@@ -5572,6 +5572,21 @@ continue
     !
     nodes_of_cell(l1:l2) = face(glb_face)%nodes(1:nfnods)
     !
+    ! Get the index of the node to switch with node 1.
+    ! NOTE: switch_index = nfnods (i.e. 2) for a 2D host cell
+    !       switch_index = nfnods (i.e. 3) for a triangular boundary face
+    !       switch_index = 3               for a quadrilateral boundary face
+    ! ADDITIONAL NOTE: switch_index also evaluates to nfnods (i.e. 1) for
+    !                  a 1D host cell which is the correct value if the
+    !                  rest of the code is ever set up to run 1D.
+    !
+    switch_index = min( nfnods , 3 )
+    !
+    ! Switch the two face nodes required to reverse the face node ordering
+    !
+    nodes_of_cell(l1) = face(glb_face)%nodes(switch_index)
+    nodes_of_cell(l1-1+switch_index) = face(glb_face)%nodes(1)
+    !
   end do
  !!
  !! Debugging localization of nodes_of_cell_ptr and nodes_of_cell by having
