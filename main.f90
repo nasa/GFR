@@ -881,89 +881,15 @@ continue
           end if
         end if
         !
-        call interp_cv_to_flxpts(iter,nst)
-                                          !  call check_for_bad_number(__LINE__)
+        ! Compute the residual/RHS for this Runge-Kutta stage
+        ! NOTE: We want to skip this if
+        !         1) we are using an embedded-pair Runge-Kutta method,
+        !         2) this is the first Runge-Kutta stage, and
+        !         3) this is not the first time step
+        !       because this was already done after computing the final stage
+        !       of the previous time step.
         !
-        if (ncpu > 1) then
-          call exchange_faceusp           !; call check_for_bad_number(__LINE__)
-#ifdef IMMEDIATE_WAIT_FOR_MPI
-          call wait_faceusp               !; call check_for_bad_number(__LINE__)
-#endif
-        end if
-        !
-        if (governing_equations == NavierStokes_Eqns) then
-          call discontinuous_gradient_at_solpts
-                                          !  call check_for_bad_number(__LINE__)
-        end if
-        !
-        call get_faceusp_bc(newton_failures)
-        call check_for_bad_number(__LINE__,newton_failures)
-        !
-        call get_invs_common_fluxes_interior
-                                          !  call check_for_bad_number(__LINE__)
-        !
-        if (ncpu > 1) then
-#ifndef IMMEDIATE_WAIT_FOR_MPI
-          call wait_faceusp               !; call check_for_bad_number(__LINE__)
-#endif
-        end if
-        !
-        if (governing_equations == NavierStokes_Eqns) then
-          if (visc_flux_method == visc_flux_BR2) then
-           !call correct_gradients_br2
-            call correct_gradients_br2_gpu
-                                          !  call check_for_bad_number(__LINE__)
-          else
-            call correct_gradients_at_solpts_gpu
-                                          !  call check_for_bad_number(__LINE__)
-           !call correct_gradients_at_solpts
-                                          !  call check_for_bad_number(__LINE__)
-            call interp_dusp_to_flxpts    !; call check_for_bad_number(__LINE__)
-          end if
-          if (ncpu > 1) then
-            call exchange_facedusp        !; call check_for_bad_number(__LINE__)
-#ifdef IMMEDIATE_WAIT_FOR_MPI
-            call wait_facedusp            !; call check_for_bad_number(__LINE__)
-#endif
-          end if
-          call get_facedusp_bc            !; call check_for_bad_number(__LINE__)
-          call get_visc_common_fluxes_interior
-                                          !  call check_for_bad_number(__LINE__)
-        end if
-        !
-        call get_invs_common_fluxes_bc    !; call check_for_bad_number(__LINE__)
-        !
-        if (governing_equations == NavierStokes_Eqns) then
-          if (ncpu > 1) then
-#ifndef IMMEDIATE_WAIT_FOR_MPI
-            call wait_facedusp            !; call check_for_bad_number(__LINE__)
-#endif
-          end if
-          call get_visc_common_fluxes_bc  !; call check_for_bad_number(__LINE__)
-        end if
-        !
-        call flux_gradient_at_solpts(iter,nst)
-                                          !  call check_for_bad_number(__LINE__)
-        !
-        ! Compute the source terms for method of manufactured solutions (MMS)
-        !
-        if (mms_opt /= 0) then
-          call mms_src                    !; call check_for_bad_number(__LINE__)
-        end if
-        !
-        ! Compute the source terms for the channel flow
-        !
-        if (itestcase == Channel_Flow) then
-          call channel_source             !; call check_for_bad_number(__LINE__)
-        end if
-        !
-        ! Compute the species source terms for chemically reacting flows
-        !
-        call compute_wdot(iter)           !; call check_for_bad_number(__LINE__)
-        !
-        ! Compute the final residual for each solution point
-        !
-        call rresi(iter,nst)              !; call check_for_bad_number(__LINE__)
+        call compute_rhs(iter,nst,newton_failures)
         !
         if (nst == 1) then
           call get_dtsp(dtmin,final_timestep_from_stop_request)
