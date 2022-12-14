@@ -4024,6 +4024,167 @@ end subroutine check_face_flux_point_orderings
 !
 !###############################################################################
 !
+subroutine output_element_solpts_and_flxpts()
+  !
+  !.. Use Statements ..
+  use element_type_mod,  only : std_elem
+  use order_mod,         only : n_min_geom,n_min_order
+  use order_mod,         only : n_max_geom,n_max_order
+  use order_mod,         only : geom_is_used,geom_solpts
+  use geovar,            only : fp
+  use interpolation_mod, only : interp
+  !
+  !.. Local Scalars ..
+  integer :: this_geom,this_order,face_geom
+  integer :: ndim,io1,ierr,n,l,k0,nfp,kf,k,lf,i,j
+  real(wp) :: a,val
+  !
+  character(len=100) :: f1
+  !
+  !.. Local Arrays ..
+  integer :: ip(1:8)
+  real(wp), allocatable :: face_val(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_element_solpts_and_flxpts"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  geom_loop: &
+  do this_geom = n_min_geom,n_max_geom
+    !
+    if (.not. geom_is_used(this_geom)) cycle geom_loop
+    if (all(this_geom /= Geom_3D)) cycle geom_loop
+    !
+    ndim = geom_dimen(this_geom)
+    !
+    order_loop: &
+    do this_order = n_min_order,n_max_order
+      !
+      write (f1,1) Geom_Short_Name(this_geom),this_order
+      !
+      open (newunit=io1,file=trim(adjustl(f1)),status="replace",action="write", &
+                        iostat=ierr,iomsg=error_message)
+      call io_error(pname,f1,1,__LINE__,__FILE__,ierr,error_message)
+      !
+      ! Write out the nodes defining this standard element
+      !
+      write (io1,10) Geom_Short_Name(this_geom),geom_nodes(this_geom)
+      !
+      if (this_geom == Geom_Tetr) then
+        ip(:) = [1,2,3,3,4,4,4,4]
+      else if (this_geom == Geom_Pyra) then
+        ip(:) = [1,2,3,4,5,5,5,5]
+      else if (this_geom == Geom_Pris) then
+        ip(:) = [1,2,3,3,4,5,6,6]
+      else if (this_geom == Geom_Hexa) then
+        ip(:) = [1,2,3,4,5,6,7,8]
+      end if
+      do n = 1,geom_nodes(this_geom)
+        write (io1,11) (ref_elem_nodes_xyz(l,n,this_geom), l=1,ndim),n,n
+      end do
+      write (io1,12) (ip(n), n=1,8)
+      !
+      ! Write out the solution points for this geometry
+      !
+      nfp = size(std_elem(this_geom,this_order)%pts,dim=2)
+      !
+      write (io1,20) Geom_Short_Name(this_geom),nfp
+      !
+      do n = 1,nfp
+        write (io1,11) (std_elem(this_geom,this_order)%pts(l,n), l=1,ndim),n,n
+      end do
+      !
+      ! Write out the face points stored in std_elem
+      !
+      k0 = 0 ! offset for start of face points for current face
+      do n = 1,geom_faces(this_geom)
+        !
+        face_geom = cell_face_geom(n,this_geom) ! geometry of this face
+        !
+        nfp = geom_solpts(face_geom,this_order) ! # of face points for this face
+        !
+        write (io1,30) Geom_Short_Name(this_geom),n, nfp
+        !
+        do kf = 1,nfp
+          k = k0 + kf
+          write (io1,11) &
+            (std_elem(this_geom,this_order)%face_pts(l,k), l=1,ndim), kf, k
+        end do
+        !
+        k0 = k0 + nfp ! update offset for start of face points for next face
+        !
+      end do
+     !!
+     !! Write out the face points found by interpolating the solution points
+     !!
+     !face_val = init_array(ndim,zero) ! F2003 AUTO-REALLOC
+     !!
+     !k0 = 1
+     !do n = 1,geom_faces(this_geom)
+     !  !
+     !  face_geom = cell_face_geom(n,this_geom) ! geometry of this face
+     !  !
+     !  nfp = geom_solpts(face_geom,this_order) ! # of face points for this face
+     !  !
+     !  write (io1,40) Geom_Short_Name(this_geom),n, nfp
+     !  !
+     !  do kf = 1,nfp
+     !    !
+     !    lf = k0 + fp%geord(face_geom,this_order)%rot(1)%pts(kf)
+     !    !
+     !    do l = 1,ndim
+     !      val = zero
+     !      do i = interp(this_geom,this_order)%toFace(this_order)%row_ptr(lf)+1, &
+     !             interp(this_geom,this_order)%toFace(this_order)%row_ptr(lf+1)
+     !        !
+     !        j = interp(this_geom,this_order)%toFace(this_order)%row_idx(i)
+     !        a = interp(this_geom,this_order)%toFace(this_order)%row_val(i)
+     !        !
+     !        val = val + a * std_elem(this_geom,this_order)%pts(l,j)
+     !        !
+     !      end do
+     !      face_val(l) = val
+     !    end do
+     !    !
+     !    write (io1,11) (face_val(l), l=1,ndim), kf, lf
+     !    !
+     !  end do
+     !  !
+     !  k0 = k0 + nfp
+     !  !
+     !end do
+      !
+      close (io1,iostat=ierr,iomsg=error_message)
+      call io_error(pname,f1,2,__LINE__,__FILE__,ierr,error_message)
+      !
+    end do order_loop
+    !
+  end do geom_loop
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1  format (a4,".p",i0,".tec.dat")
+  10 format ('VARIABLES = "X", "Y", "Z", "local idx", "global idx"',/, &
+             'ZONE T="',a,' standard element", N=',i0,', E=1, ', &
+             'ZONETYPE=FEBRICK, DATAPACKING=POINT')
+  11 format (3es16.8,2x,i4,2x,i4)
+  12 format (10(1x,i0))
+  20 format ('ZONE T="',a,' solution points", I=',i0,',J=1,K=1, ', &
+             'ZONETYPE=ORDERED, DATAPACKING=POINT')
+  30 format ('ZONE T="',a,' face ',i1,' points", I=',i0,',J=1,K=1, ', &
+             'ZONETYPE=ORDERED, DATAPACKING=POINT')
+  40 format ('ZONE T="',a,' face ',i1,' interpolated points", I=',i0, &
+             ',J=1,K=1, ZONETYPE=ORDERED, DATAPACKING=POINT')
+  !
+end subroutine output_element_solpts_and_flxpts
+!
+!###############################################################################
+!
 pure subroutine transfer_periodic(n1,n2,face_cv,periodic_list)
   !
   integer,     intent(in) :: n1,n2
