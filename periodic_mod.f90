@@ -27,6 +27,7 @@ module periodic_mod
   type :: periodic_face_t
     integer :: nf
     integer :: bc_idx
+    integer :: rotation
   end type periodic_face_t
   !
   type(periodic_face_t), save, allocatable :: periodic_faces(:)
