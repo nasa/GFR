@@ -30,7 +30,6 @@ program GFR_main
   use ovar, only : total_volume,local_volume,itestcase
   use ovar, only : num_rk_stages,Runge_Kutta_Scheme
   use ovar, only : time,time_ref,itcur,num_timesteps,rl2mx
-  use ovar, only : governing_equations,visc_flux_method
   use ovar, only : results_interval,iter_out_interval
   use ovar, only : restart_interval,output_interval
   use ovar, only : is_at_output_frequency
@@ -115,7 +114,6 @@ program GFR_main
   use initialization_mod, only : get_face_and_edge_point_coordinates
   !
   use module_bc, only : get_faceusp_bc
-  use module_bc, only : get_facedusp_bc
   !
   use generic_mod, only : init_generic_mod
   use generic_mod, only : write_iter_stats
@@ -124,7 +122,6 @@ program GFR_main
   use generic_mod, only : compute_TaylorGreen_KEDR
   !
   use time_mod, only : get_dtsp
-  use time_mod, only : rresi
   use time_mod, only : update_Classic_RK
   use time_mod, only : update_CK_RK4
   use time_mod, only : update_TVD_RK2
@@ -138,37 +135,17 @@ program GFR_main
   use eperk_mod, only : get_eperk_adaptive_dtsp
   !
   use flux_mod, only : interp_cv_to_flxpts
-  use flux_mod, only : interp_dusp_to_flxpts
-!!use flux_mod, only : flux_gradient_at_solpts_visc
-!!use flux_mod, only : flux_gradient_at_solpts_visc_gpu
-!!use flux_mod, only : correct_interface_flux_visc
-  use flux_mod, only : discontinuous_gradient_at_solpts
-!!use flux_mod, only : correct_gradients_at_solpts
-  use flux_mod, only : correct_gradients_at_solpts_gpu
-!!use flux_mod, only : correct_gradients_br2
-  use flux_mod, only : correct_gradients_br2_gpu
-  use flux_mod, only : flux_gradient_at_solpts
-  use flux_mod, only : get_invs_common_fluxes_interior
-  use flux_mod, only : get_visc_common_fluxes_interior
-  use flux_mod, only : get_invs_common_fluxes_bc
-  use flux_mod, only : get_visc_common_fluxes_bc
   use flux_mod, only : init_cbias
-  !
-  use reactions_mod, only : compute_wdot
   !
   use parallel_mod, only : partition_grid
   use parallel_mod, only : create_serial_cell_map
   use parallel_mod, only : exchange_faceusp
-  use parallel_mod, only : exchange_facedusp
   use parallel_mod, only : wait_faceusp
-  use parallel_mod, only : wait_facedusp
   !
   use module_limiters, only : initialize_limiters
   !
-  use mms_mod, only : mms_src
   use mms_mod, only : initialize_mms
   !
-  use channel_mod, only : channel_source
   use channel_mod, only : spatial_ave_channel_flow
   use channel_mod, only : spatial_ave_z_planes
   use channel_mod, only : spatial_ave_x_and_z_planes
