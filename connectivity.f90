@@ -186,7 +186,7 @@ continue
   !
   ! Create the bc_grps derived type
   !
-  call create_bc_grps(bface,face)
+  call create_bc_grps(bface,face,fp)
   !
   ! If using the continuous output option, create the edge derived type array
   !
@@ -3386,17 +3386,18 @@ end subroutine create_cell_derived_type
 !
 !###############################################################################
 !
-subroutine create_bc_grps(bface,face)
+subroutine create_bc_grps(bface,face,fp)
   !
   !.. Use Statements ..
   use geovar, only : num_bc_grps,bc_grps,bc_grp_t
-  use geovar, only : face_t
+  use geovar, only : face_t,fp_t
   use geovar, only : n_wall_flxpts,n_wall_qdtpts
   use geovar, only : nr
   !
   !.. Formal Arguments ..
   integer,      intent(in) :: bface(:,:)
   type(face_t), intent(in) :: face(:)
+  type(fp_t),   intent(in) :: fp
   !
   !.. Local Scalars ..
   integer :: i,k,n,nf,pf,p1,p2,q1,q2,lfbnd,ierr
