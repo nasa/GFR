@@ -3746,26 +3746,6 @@ continue
                                                                 rot(irot)% &
                                            pts(k)
       end do
-!      !
-!      if (nr == 2) then
-!#ifdef REVERSE_PERIODIC
-!        do k = p1,p2
-!#else
-!        do k = p2,p1,-1
-!#endif
-!          i = i + 1
-!          bc_grps(n)%periodic_list(i) = k
-!        end do
-!      else
-!#ifdef REVERSE_PERIODIC
-!        do k = p2,p1,-1
-!#else
-!        do k = p1,p2
-!#endif
-!          i = i + 1
-!          bc_grps(n)%periodic_list(i) = k
-!        end do
-!      end if
       !
     end do
     !
