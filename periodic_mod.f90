@@ -51,6 +51,8 @@ subroutine match_periodic_faces()
   !
   use module_cgns_types, only : CGLEN
   !
+  use connectivity_mod, only : init_tri_face_rotation_values
+  !
   !.. Local Scalars ..
   integer :: l,n,nf,nc,npbc,npair,npf,npn,nfnods,this_pair,ierr
   integer :: i,ip,iidx,ipf,igeom,match_iidx,num_iidx_cells
@@ -122,6 +124,13 @@ continue
   ! non-root processes.
   !
   call get_boundary_face_nodes(bnd_face)
+  !
+  ! If any of the periodic boundary faces are triangles, we will need to
+  ! find the face rotations for these faces
+  !
+  if (any(bnd_face(:)%geom == Geom_Tria)) then
+    call init_tri_face_rotation_values(tri_rotations)
+  end if
   !
   ! Create an array that gives the indices of only the elements of
   ! bc_input that have been set to a periodic boundary condition
