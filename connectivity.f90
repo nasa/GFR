@@ -723,6 +723,8 @@ subroutine initialize_flxpts(fp)
   character(len=100) :: array_name
   !
   !.. Local Allocatable Arrays ..
+  integer, allocatable :: abc_left(:)
+  integer, allocatable :: abc_right(:)
   integer, allocatable :: fp_idx(:,:)
   !
   !.. Local Parameters ..
@@ -841,73 +843,32 @@ continue
     !###############################################
     !
     !
-    nfp = geom_solpts(Geom_Quad,this_order)
-    !
     allocate ( fp%geord(Geom_Quad,this_order)%rot(0:8) , &
                stat=ierr , errmsg=error_message )
     write (array_name,1) "Geom_Quad",this_order
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
     !
-    do n = lbound(fp%geord(Geom_Quad,this_order)%rot,dim=1), &
-           ubound(fp%geord(Geom_Quad,this_order)%rot,dim=1)
-      !
-      allocate ( fp%geord(Geom_Quad,this_order)%rot(n)%pts(1:nfp) , source=0 , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) "Geom_Quad",this_order,n
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
-    end do
-    !
     ! See the function RotateFluxPoints_Quad for a complete description of
     ! how these rotations are defined
     !
-    if (allocated(fp_idx)) then
-      deallocate ( fp_idx , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"fp_idx",2,__LINE__,__FILE__,ierr,error_message)
-    end if
+    abc_left = quad_rotation(1:4,1) ! F2003 AUTO-REALLOC
     !
-    ! Create fp_idx as a square 2D array containing
-    ! the consecutive indices from 0 to nfp-1
-    !
-    allocate ( fp_idx(1:nep,1:nep) , &
-               source=reshape( intseq(0,nfp-1) , [nep,nep] ) , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"fp_idx",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    ! Set all the flux point indices for the error rotation to 0
-    !
-    fp%geord(Geom_Quad,this_order)%rot(0)%pts(1:nfp) = 0
-    !
-    ! Create the flux point indices for the first four rotations where the
-    ! "a" and "b" vectors are aligned in the same coordinate directions
-    !
-    fp%geord(Geom_Quad,this_order)%rot(1)%pts(1:nfp) = reshape( fp_idx , [nfp] )
-    !
-    fp%geord(Geom_Quad,this_order)%rot(2)%pts(1:nfp) = &
-                                         reshape( fp_idx(:,nep:1:-1) , [nfp] )
-    !
-    fp%geord(Geom_Quad,this_order)%rot(3)%pts(1:nfp) = &
-                                         reshape( fp_idx(nep:1:-1,:) , [nfp] )
-    !
-    fp%geord(Geom_Quad,this_order)%rot(4)%pts(1:nfp) = &
-                                  reshape( fp_idx(nep:1:-1,nep:1:-1) , [nfp] )
-    !
-    ! Create the flux point indices for the last four rotations where the
-    ! "a" and "b" vectors are aligned in opposite coordinate directions,
-    ! which requires that we first transpose fp_idx
-    !
-    fp_idx = transpose(fp_idx)
-    !
-    fp%geord(Geom_Quad,this_order)%rot(5)%pts(1:nfp) = reshape( fp_idx , [nfp] )
-    !
-    fp%geord(Geom_Quad,this_order)%rot(6)%pts(1:nfp) = &
-                                         reshape( fp_idx(:,nep:1:-1) , [nfp] )
-    !
-    fp%geord(Geom_Quad,this_order)%rot(7)%pts(1:nfp) = &
-                                         reshape( fp_idx(nep:1:-1,:) , [nfp] )
-    !
-    fp%geord(Geom_Quad,this_order)%rot(8)%pts(1:nfp) = &
-                                  reshape( fp_idx(nep:1:-1,nep:1:-1) , [nfp] )
+    do n = lbound(fp%geord(Geom_Quad,this_order)%rot,dim=1), &
+           ubound(fp%geord(Geom_Quad,this_order)%rot,dim=1)
+      !
+      abc_right = init_array(4,0) ! F2003 AUTO-REALLOC
+      ! If n==0, abc_right being all zeros will never match abc_left
+      if (n /= 0) then
+        abc_right(quad_rotation(1:4,n)) = [1,2,3,4]
+      end if
+      !
+      ! Use the quad_rotation parameter with function RotateFluxPoints_Quad
+      ! to get the correct indices for this rotation
+      !
+      fp%geord(Geom_Quad,this_order)%rot(n)%pts = & ! F2003 AUTO-REALLOC
+                            RotateFluxPoints_Quad(abc_left,abc_right,this_order)
+      !
+    end do
     !
   end do
   !
