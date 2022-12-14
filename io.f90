@@ -1619,12 +1619,12 @@ continue
   ! If running certain special cases and the grid was not internally generated,
   ! make sure the grid extents are valid for the current test case
   !
-  if (grid_format /= Internally_Generated_Grid) then
+ !if (grid_format /= Internally_Generated_Grid) then
     if (any(abs(itestcase) == Transport_Problems) .or. &
         itestcase == Taylor_Green_Vortex) then
       call rescale_grid_for_vortex_problems
     end if
-  end if
+ !end if
   !
   ! Create the equation indices now that we know the dimension of the grid
   !
