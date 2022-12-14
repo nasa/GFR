@@ -179,6 +179,11 @@ continue
   !
   nr = 2
   !
+  ! Reset bc_input for this fully periodic grid so that the subroutine
+  ! match_periodic_faces can correctly match all the periodic faces.
+  !
+  call reset_bc_input_for_internal_grid
+  !
   ! Estimate the number of cells required to get the requested DOF
   !
   nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
@@ -494,6 +499,11 @@ continue
   ! The Taylor-Green vortex problem is always 3D
   !
   nr = 3
+  !
+  ! Reset bc_input for this fully periodic grid so that the subroutine
+  ! match_periodic_faces can correctly match all the periodic faces.
+  !
+  call reset_bc_input_for_internal_grid
   !
   ! Estimate the number of cells required to get the requested DOF
   !
