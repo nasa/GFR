@@ -745,6 +745,25 @@ continue
     !
   end do match_pair_faces
   !
+  ! Save some information to periodic_faces for later
+  !
+  npf = count( bface(1,:) == bc_periodic )
+  !
+  allocate ( periodic_faces(1:npf) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"periodic_faces",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  i = 0
+  do nf = 1,nfbnd
+    if (bface(1,nf) == bc_periodic) then
+      i = i + 1
+      periodic_faces(i)%nf = nf
+      periodic_faces(i)%bc_idx = bnd_face(nf)%bc_idx
+     !periodic_faces(i)%rotation = -99
+      periodic_faces(i)%rotation = bface(11,nf)/10000
+    end if
+  end do
+  !
   !#############################################################################
   !#############################################################################
   !#############################################################################
