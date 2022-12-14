@@ -1596,6 +1596,11 @@ continue
     call check_for_bad_number(__LINE__,__FILE__)
   end if
   !
+  ! Alter bface due to the input boundary conditions
+  ! NOTE: This will apply the correct BC to bface(1,:) and fill bface(6,:)
+  !
+  call apply_bc_input_to_bface
+  !
   ! If running certain special cases and the grid was not internally generated,
   ! make sure the grid extents are valid for the current test case
   !
@@ -1624,11 +1629,6 @@ continue
   !
   call initialize_reference
   call check_for_bad_number(__LINE__,__FILE__)
-  !
-  ! Alter bface due to the input boundary conditions
-  ! NOTE: This will apply the correct BC to bface(1,:) and fill bface(6,:)
-  !
-  call apply_bc_input_to_bface
   !
   ! Before doing anything with the boundary conditions, check to see if
   ! there are any SEM boundary conditions. If there are any, read in the
