@@ -981,6 +981,7 @@ subroutine create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
   character(len=200) :: array_name
   logical(lk) :: flxpt_offset_is_zero
   logical(lk) :: creating_local_face
+  logical(lk) :: this_is_periodic_face
   !
   integer :: nr,lnode,lfbnd,lface,lcell
   !
@@ -1450,6 +1451,13 @@ continue
   !
   do nf = 1,lface
     !
+    this_is_periodic_face = fals
+    if (nf <= lfbnd) then
+      if (bface(1,nf) == bc_periodic) then
+        this_is_periodic_face = true
+      end if
+    end if
+    !
     left_cell = face(nf)%left%cell
     right_cell = face(nf)%right%cell
     !
@@ -1637,7 +1645,13 @@ continue
     !
     ! Get the flux point rotation for the right cell
     !
-    if (face_geom == Geom_Edge) then
+    if (this_is_periodic_face) then
+      !
+      ! Special logic to get rotation if this is a periodic boundary face
+      !
+      rotation = bface(11,nf)/10000
+      !
+    else if (face_geom == Geom_Edge) then
       !
       ! If this is a 1D edge between two 2D cells, the ordering of the flux
       ! points for the right cell is just the reverse ordering of the flux
