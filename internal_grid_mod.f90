@@ -90,7 +90,7 @@ continue
     !
   else if (any(abs(itestcase) == Transport_Problems)) then
     !
-    call create_IsentropicVortex_grid
+    call create_periodic_square_quad_grid
     !
   else if (abs(itestcase) == CH4_Flame_Speed_Test) then
     !
@@ -125,7 +125,7 @@ end subroutine create_internal_grid
 !
 !###############################################################################
 !
-subroutine create_IsentropicVortex_grid()
+subroutine create_periodic_square_quad_grid()
   !
   !.. Use Statements ..
   use order_mod, only : n_order
@@ -148,7 +148,7 @@ subroutine create_IsentropicVortex_grid()
   real(r4), allocatable :: perturb(:,:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "create_IsentropicVortex_grid"
+  character(len=*), parameter :: pname = "create_periodic_square_quad_grid"
  !logical(lk), parameter :: test_random_bc = true
   logical(lk), parameter :: test_random_bc = fals
   !
@@ -455,7 +455,7 @@ continue
     return_value = i + n*(j-1)
   end function map2dto1d
   !
-end subroutine create_IsentropicVortex_grid
+end subroutine create_periodic_square_quad_grid
 !
 !###############################################################################
 !
