@@ -32,6 +32,12 @@ module periodic_mod
   !
   type(periodic_face_t), save, allocatable :: periodic_faces(:)
   !
+  ! ###################################
+  ! ###  Module Allocatable Arrays  ###
+  ! ###################################
+  !
+  integer, save, allocatable :: tri_rotations(:,:,:,:,:)
+  !
 contains
 !
 !###############################################################################
