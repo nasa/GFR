@@ -3049,57 +3049,6 @@ end function GetFluxPointRotation_Tria
 !
 !###############################################################################
 !
-pure function old_GetFluxPointRotation_Tria(abc_left,abc_right) &
-                                     result(return_value)
-  !
-  !.. Formal Arguments ..
-  integer, dimension(:), intent(in) :: abc_left
-  integer, dimension(:), intent(in) :: abc_right
-  !
-  !.. Function Result ..
-  integer :: return_value
-  !
-  !.. Local Parameters ..
-  integer, parameter :: rotation(1:3,1:6) = tria_rotation(1:3,1:6)
-  !
-continue
-  !
-  if (all(abc_left == abc_right(rotation(:,1)))) then
-    !
-    return_value = 1
-    !
-  else if (all(abc_left == abc_right(rotation(:,2)))) then
-    !
-    return_value = 2
-    !
-  else if (all(abc_left == abc_right(rotation(:,3)))) then
-    !
-    return_value = 3
-    !
-  else if (all(abc_left == abc_right(rotation(:,4)))) then
-    !
-    return_value = 4
-    !
-  else if (all(abc_left == abc_right(rotation(:,5)))) then
-    !
-    return_value = 5
-    !
-  else if (all(abc_left == abc_right(rotation(:,6)))) then
-    !
-    return_value = 6
-    !
-  else
-    !
-    ! Something was wrong here so just return the value 0.
-    !
-    return_value = 0
-    !
-  end if
-  !
-end function old_GetFluxPointRotation_Tria
-!
-!###############################################################################
-!
 subroutine create_cell_derived_type(nodes_of_cell,nodes_of_cell_ptr, &
                                     cells_with_node_ptr,nodes_on_edge, &
                                     cells_with_edge,cells_with_edge_ptr)
