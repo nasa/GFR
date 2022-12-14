@@ -1601,6 +1601,15 @@ continue
   !
   call apply_bc_input_to_bface
   !
+  ! Create the grid derived type if it hasnt already been created.
+  ! This means that the grid is linear.
+  !
+  if (.not. allocated(grid)) then
+    if (i_am_host_root) then
+      call create_linear_grid_dt
+    end if
+  end if
+  !
   ! If running certain special cases and the grid was not internally generated,
   ! make sure the grid extents are valid for the current test case
   !
@@ -1608,15 +1617,6 @@ continue
     if (any(abs(itestcase) == Transport_Problems) .or. &
         itestcase == Taylor_Green_Vortex) then
       call rescale_grid_for_vortex_problems
-    end if
-  end if
-  !
-  ! Create the grid derived type if it hasnt already been created.
-  ! This means that the grid is linear.
-  !
-  if (.not. allocated(grid)) then
-    if (i_am_host_root) then
-      call create_linear_grid_dt
     end if
   end if
   !
