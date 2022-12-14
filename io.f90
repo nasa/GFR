@@ -3682,8 +3682,12 @@ subroutine check_face_flux_point_orderings()
   use geovar, only : nr,xyz,bface,bc_grps
   use interpolation_mod, only : interp
   use flowvar, only : face_var,faceusp_array
+  use flowvar, only : facexyz_array
   use parallel_mod, only : exchange_faceusp,wait_faceusp
   use parallel_mod, only : exchange_faceusp_dt,wait_faceusp_dt
+  use geovar, only : xyz_nodes
+  use ovar, only : VortexGrid_Lref
+  use geovar, only : nodes_of_cell,nodes_of_cell_ptr
   !
   !.. Local Scalars ..
   integer :: i,j,nf,nfp,kf,kl,kr,l,ierr
@@ -3696,11 +3700,23 @@ subroutine check_face_flux_point_orderings()
   integer :: l1file,r1file,d1file
   integer :: l2file,r2file,d2file
   real(wp) :: a,val
+  real(wp) :: ds1,ds2,ds3,ds4,ds5,ds6
   character(len=25) :: face_string
   character(len=100) :: array_name
+  integer :: il1,il2,ir1,ir2
   !
   !.. Local Arrays ..
   type(face_var), allocatable :: face_xyz(:)
+  integer, allocatable :: left_nodes(:)
+  integer, allocatable :: right_nodes(:)
+  integer, allocatable :: node_order(:)
+  logical(lk), allocatable :: msk(:)
+  real(wp) :: left_xyz(1:nr)
+  real(wp) :: right_xyz(1:nr)
+  !
+  integer, allocatable :: abc_left(:)
+  integer, allocatable :: abc_right(:)
+  integer, allocatable :: new_right_nodes(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_face_flux_point_orderings"
@@ -3712,6 +3728,36 @@ continue
   call output_element_solpts_and_flxpts
   !
   call check_periodic_coordinates
+  !
+  do i = 1,ncell
+    n1 = cell(i)%beg_sp
+    n2 = cell(i)%end_sp
+    write (102,55) i
+    do j = n1,n2
+      write (102,56) (xyz(l,j), l=1,nr)
+    end do
+  end do
+  55 format ("Cell # ",i0)
+  56 format (3es16.7)
+  !
+  face_geom = Geom_Tria
+  do j = 0,1
+    do face_order = lbound(fp%geord,dim=2),ubound(fp%geord,dim=2)
+      write (103+j,553) face_order
+      do i = lbound(fp%geord(face_geom,face_order)%rot,dim=1), &
+             ubound(fp%geord(face_geom,face_order)%rot,dim=1)
+        write (103+j,554) i
+        do kf = lbound(fp%geord(face_geom,face_order)%rot(i)%pts,dim=1), &
+                ubound(fp%geord(face_geom,face_order)%rot(i)%pts,dim=1)
+          write (103+j,555) kf,fp%geord(face_geom,face_order)%rot(i)%pts(kf)+1
+        end do
+      end do
+    end do
+    face_geom = Geom_Quad
+  end do
+  553 format (/,40("#"),/,"Face order = ",i0)
+  554 format (2x,"Rotation # ",i0)
+  555 format (4x,"kf = ",i3,",  pts(kf) = ",i3)
   !
   l1file = 1101 + mypnum
   r1file = 1201 + mypnum
@@ -3980,10 +4026,18 @@ continue
     f0 = face(nf)%beg_fp - 1
     nfp = face(nf)%end_fp - f0
     !
+    rotation = 0
+    !
     face_string = ""
-    if (nf < nfbnd) then
+    if (nf <= nfbnd) then
       if (bface(1,nf) == bc_periodic) then
+        pf = bface(5,nf)
         face_string = "(periodic face)"
+        rotation = bface(11,nf)/10000
+        write (mypnum+4201,924) &
+          nf-nfbnd,nf,face(nf)%left%cell_face,face(pf)%left%cell_face, &
+          rotation
+  924 format (i6,1x,i5,6x,i1,i2,2x,i0)
       else if (bface(1,nf) == bc_cpu_bnd) then
         face_string = "(cpu boundary)"
       else
@@ -3991,12 +4045,21 @@ continue
       end if
     end if
     !
-    write (l1file,12) nf-nfbnd,trim(adjustl(face_string))
-    write (r1file,12) nf-nfbnd,trim(adjustl(face_string))
-    write (d1file,12) nf-nfbnd,trim(adjustl(face_string))
-    write (l2file,12) nf-nfbnd,trim(adjustl(face_string))
-    write (r2file,12) nf-nfbnd,trim(adjustl(face_string))
-    write (d2file,12) nf-nfbnd,trim(adjustl(face_string))
+    if (rotation /= 0) then
+      write (l1file,12) nf-nfbnd,trim(adjustl(face_string)),rotation
+      write (r1file,12) nf-nfbnd,trim(adjustl(face_string)),rotation
+      write (d1file,12) nf-nfbnd,trim(adjustl(face_string)),rotation
+      write (l2file,12) nf-nfbnd,trim(adjustl(face_string)),rotation
+      write (r2file,12) nf-nfbnd,trim(adjustl(face_string)),rotation
+      write (d2file,12) nf-nfbnd,trim(adjustl(face_string)),rotation
+    else
+      write (l1file,12) nf-nfbnd,trim(adjustl(face_string))
+      write (r1file,12) nf-nfbnd,trim(adjustl(face_string))
+      write (d1file,12) nf-nfbnd,trim(adjustl(face_string))
+      write (l2file,12) nf-nfbnd,trim(adjustl(face_string))
+      write (r2file,12) nf-nfbnd,trim(adjustl(face_string))
+      write (d2file,12) nf-nfbnd,trim(adjustl(face_string))
+    end if
     !
     do kf = 1,nfp
       !
@@ -4023,6 +4086,15 @@ continue
     !
   end do
   !
+  do kf = 0,8
+    if (any(face(:)%left%rotation == kf)) then
+      write (iout,*) "there exists  left%rotation = ",kf
+    end if
+    if (any(face(:)%right%rotation == kf)) then
+      write (iout,*) "there exists right%rotation = ",kf
+    end if
+  end do
+  !
   deallocate ( face_xyz , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face_xyz",2,__LINE__,__FILE__,ierr,error_message)
   !
@@ -4044,7 +4116,7 @@ continue
               "#######################################################",/)
  11 format (1x,100(es12.4))
 !11 format (1x,*(es12.4))
- 12 format ("FACE ",i0,4x,a)
+ 12 format ("FACE ",i0,4x,a,:,4x,"rotation = ",i0)
   !
 end subroutine check_face_flux_point_orderings
 !
