@@ -1562,6 +1562,8 @@ subroutine read_grid_file()
   use ovar,          only : plot3d_bcsfile
   use ovar,          only : solution_file
   !
+  use periodic_mod, only : match_periodic_faces
+  !
   use initialization_mod, only : initialize_reference
   use initialization_mod, only : create_bc_in
   !
@@ -1609,6 +1611,10 @@ continue
       call create_linear_grid_dt
     end if
   end if
+  !
+  ! Match periodic faces specified using bc_input
+  !
+  call match_periodic_faces
   !
   ! If running certain special cases and the grid was not internally generated,
   ! make sure the grid extents are valid for the current test case
