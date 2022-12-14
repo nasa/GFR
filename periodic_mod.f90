@@ -80,7 +80,8 @@ subroutine match_periodic_faces()
   integer, allocatable :: jfaces(:)
   integer, allocatable :: inodes(:)
   integer, allocatable :: jnodes(:)
-  integer, allocatable :: node_match(:)
+  integer, allocatable :: node_match_i2j(:)
+  integer, allocatable :: node_match_j2i(:)
   integer, allocatable :: face_match(:)
   integer, allocatable :: marker(:)
   !
@@ -446,7 +447,8 @@ continue
     !
     ! Loop through the i-nodes and find each matching j-node
     !
-    node_match = init_array(nnode,0) ! F2003 AUTO-REALLOC
+    node_match_i2j = init_array(nnode,0) ! F2003 AUTO-REALLOC
+    node_match_j2i = init_array(nnode,0) ! F2003 AUTO-REALLOC
     !
     matched = init_array(npn,fals) ! F2003 AUTO-REALLOC
     ds = init_array(npn,zero) ! F2003 AUTO-REALLOC
@@ -481,7 +483,8 @@ continue
         jp = -jp
       end if
       ! 
-      node_match(ip) = jp
+      node_match_i2j(ip) = jp
+      node_match_j2i(jp) = ip
       !
     end do inode_loop
     !
@@ -503,8 +506,8 @@ continue
       ! Get the nodes for the current i-face
       ipn(1:nfnods) = bnd_face(ipf)%nodes(:) ! nodes defining i-face
       !
-      ! Use node_match to covert the i-nodes to their matching j-nodes
-      mpn(1:nfnods) = node_match( ipn(1:nfnods) )
+      ! Use node_match_i2j to covert the i-nodes to their matching j-nodes
+      mpn(1:nfnods) = node_match_i2j( ipn(1:nfnods) )
       !
       ! Mark all the matching j-nodes with the value 1.
       ! All other nodes are set to 0.
@@ -620,9 +623,16 @@ continue
     call alloc_error(pname,"jnodes",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(node_match)) then
-    deallocate ( node_match , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"node_match",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(node_match_i2j)) then
+    deallocate ( node_match_i2j , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"node_match_i2j",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(node_match_j2i)) then
+    deallocate ( node_match_j2i , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"node_match_j2i",2,__LINE__,__FILE__, &
+                     ierr,error_message)
   end if
   !
   if (allocated(face_match)) then
