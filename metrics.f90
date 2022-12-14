@@ -1828,89 +1828,89 @@ continue
       !
       ! Now compute the derivative of the flux point coordinates
       !
-        do kf = 1,nfp
-          !
-          dxdi = zero ; dxdj = zero
-          dydi = zero ; dydj = zero
-          dzdi = zero ; dzdj = zero
-          !
-          ! Xi/I derivative of the face
-          !
+      do kf = 1,nfp
+        !
+        dxdi = zero ; dxdj = zero
+        dydi = zero ; dydj = zero
+        dzdi = zero ; dzdj = zero
+        !
+        ! Xi/I derivative of the face
+        !
 #ifdef TIME_METRIC_PROCEDURES
-          call debug_timer(start_accumulation,"Computing d(xyz)/di",acc=3)
+        call debug_timer(start_accumulation,"Computing d(xyz)/di",acc=3)
 #endif
-          do i = deriv(face_geom,face_order)%d(1)%row_ptr(kf)+1, &
-                 deriv(face_geom,face_order)%d(1)%row_ptr(kf+1)
-            !
-            k = deriv(face_geom,face_order)%d(1)%row_idx(i)
-            a = deriv(face_geom,face_order)%d(1)%row_val(i)
-            !
-            dxdi = dxdi + a * xyz_face(k,1)
-            dydi = dydi + a * xyz_face(k,2)
-            dzdi = dzdi + a * xyz_face(k,3)
-            !
-          end do
-#ifdef TIME_METRIC_PROCEDURES
-          call debug_timer(stop_accumulation,"Computing d(xyz)/di",acc=3)
-#endif
+        do i = deriv(face_geom,face_order)%d(1)%row_ptr(kf)+1, &
+               deriv(face_geom,face_order)%d(1)%row_ptr(kf+1)
           !
-          ! Eta/J derivative of the face
+          k = deriv(face_geom,face_order)%d(1)%row_idx(i)
+          a = deriv(face_geom,face_order)%d(1)%row_val(i)
           !
-#ifdef TIME_METRIC_PROCEDURES
-          call debug_timer(start_accumulation,"Computing d(xyz)/dj",acc=4)
-#endif
-          do i = deriv(face_geom,face_order)%d(2)%row_ptr(kf)+1, &
-                 deriv(face_geom,face_order)%d(2)%row_ptr(kf+1)
-            !
-            k = deriv(face_geom,face_order)%d(2)%row_idx(i)
-            a = deriv(face_geom,face_order)%d(2)%row_val(i)
-            !
-            dxdj = dxdj + a * xyz_face(k,1)
-            dydj = dydj + a * xyz_face(k,2)
-            dzdj = dzdj + a * xyz_face(k,3)
-            !
-          end do
-#ifdef TIME_METRIC_PROCEDURES
-          call debug_timer(stop_accumulation,"Computing d(xyz)/dj",acc=4)
-#endif
-          !
-          ! Compute [d(xyz)di] x [d(xyz)dj]
-          !
-#ifdef TIME_METRIC_PROCEDURES
-          call debug_timer(start_accumulation,"Computing cross product",acc=5)
-#endif
-          xnrm = dydi*dzdj - dzdi*dydj
-          ynrm = dzdi*dxdj - dxdi*dzdj
-          znrm = dxdi*dydj - dydi*dxdj
-#ifdef TIME_METRIC_PROCEDURES
-          call debug_timer(stop_accumulation,"Computing cross product",acc=5)
-#endif
-          !
-          ! Zero/chop all the normals less than 10*roundoff
-          ! NOTE: Using the chop() function here was really slow.
-          !       Manually inlining the function here resulted in
-          !       over two orders of magnitude speedup for this
-          !       subroutine.
-          !
-#ifdef TIME_METRIC_PROCEDURES
-          call debug_timer(start_accumulation,"Chopping into facenrm",acc=6)
-#endif
-          xqp = real(xnrm,kind=qp)
-          yqp = real(ynrm,kind=qp)
-          zqp = real(znrm,kind=qp)
-          !
-          xqp = merge( xqp , qzero , abs(xqp/qten)>real(rndoff,kind=qp) )
-          yqp = merge( yqp , qzero , abs(yqp/qten)>real(rndoff,kind=qp) )
-          zqp = merge( zqp , qzero , abs(zqp/qten)>real(rndoff,kind=qp) )
-          !
-          fnrm(1,f0+kf) = real(xqp,kind=wp)
-          fnrm(2,f0+kf) = real(yqp,kind=wp)
-          fnrm(3,f0+kf) = real(zqp,kind=wp)
-#ifdef TIME_METRIC_PROCEDURES
-          call debug_timer(stop_accumulation,"Chopping into facenrm",acc=6)
-#endif
+          dxdi = dxdi + a * xyz_face(k,1)
+          dydi = dydi + a * xyz_face(k,2)
+          dzdi = dzdi + a * xyz_face(k,3)
           !
         end do
+#ifdef TIME_METRIC_PROCEDURES
+        call debug_timer(stop_accumulation,"Computing d(xyz)/di",acc=3)
+#endif
+        !
+        ! Eta/J derivative of the face
+        !
+#ifdef TIME_METRIC_PROCEDURES
+        call debug_timer(start_accumulation,"Computing d(xyz)/dj",acc=4)
+#endif
+        do i = deriv(face_geom,face_order)%d(2)%row_ptr(kf)+1, &
+               deriv(face_geom,face_order)%d(2)%row_ptr(kf+1)
+          !
+          k = deriv(face_geom,face_order)%d(2)%row_idx(i)
+          a = deriv(face_geom,face_order)%d(2)%row_val(i)
+          !
+          dxdj = dxdj + a * xyz_face(k,1)
+          dydj = dydj + a * xyz_face(k,2)
+          dzdj = dzdj + a * xyz_face(k,3)
+          !
+        end do
+#ifdef TIME_METRIC_PROCEDURES
+        call debug_timer(stop_accumulation,"Computing d(xyz)/dj",acc=4)
+#endif
+        !
+        ! Compute [d(xyz)di] x [d(xyz)dj]
+        !
+#ifdef TIME_METRIC_PROCEDURES
+        call debug_timer(start_accumulation,"Computing cross product",acc=5)
+#endif
+        xnrm = dydi*dzdj - dzdi*dydj
+        ynrm = dzdi*dxdj - dxdi*dzdj
+        znrm = dxdi*dydj - dydi*dxdj
+#ifdef TIME_METRIC_PROCEDURES
+        call debug_timer(stop_accumulation,"Computing cross product",acc=5)
+#endif
+        !
+        ! Zero/chop all the normals less than 10*roundoff
+        ! NOTE: Using the chop() function here was really slow.
+        !       Manually inlining the function here resulted in
+        !       over two orders of magnitude speedup for this
+        !       subroutine.
+        !
+#ifdef TIME_METRIC_PROCEDURES
+        call debug_timer(start_accumulation,"Chopping into facenrm",acc=6)
+#endif
+        xqp = real(xnrm,kind=qp)
+        yqp = real(ynrm,kind=qp)
+        zqp = real(znrm,kind=qp)
+        !
+        xqp = merge( xqp , qzero , abs(xqp/qten)>real(rndoff,kind=qp) )
+        yqp = merge( yqp , qzero , abs(yqp/qten)>real(rndoff,kind=qp) )
+        zqp = merge( zqp , qzero , abs(zqp/qten)>real(rndoff,kind=qp) )
+        !
+        fnrm(1,f0+kf) = real(xqp,kind=wp)
+        fnrm(2,f0+kf) = real(yqp,kind=wp)
+        fnrm(3,f0+kf) = real(zqp,kind=wp)
+#ifdef TIME_METRIC_PROCEDURES
+        call debug_timer(stop_accumulation,"Chopping into facenrm",acc=6)
+#endif
+        !
+      end do
 #ifdef TIME_METRIC_PROCEDURES
       call debug_timer(stop_accumulation, &
                        "Filling individual facenrm(:,k)",acc=2)
