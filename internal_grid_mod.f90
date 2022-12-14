@@ -181,34 +181,19 @@ continue
   !
   ! Allocate all the arrays needed to define the grid
   !
-  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"xyz_nodes",1,__LINE__,__FILE__,ierr,error_message)
+  xyz_nodes = init_array(nr,nnode,zero) ! F2003 AUTO-REALLOC
   !
-  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"nodes_of_cell_ptr",1,__LINE__,__FILE__,ierr, &
-                   error_message)
+  nodes_of_cell_ptr = init_array(ncell+1,0) ! F2003 AUTO-REALLOC
   !
-  allocate ( nodes_of_cell(1:geom_nodes(Geom_Quad)*ncell) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"nodes_of_cell",1,__LINE__,__FILE__,ierr,error_message)
+  nodes_of_cell = init_array(geom_nodes(Geom_Quad)*ncell,0) ! F03 AUTO-REALLOC
   !
-  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bface",1,__LINE__,__FILE__,ierr,error_message)
+  bface = init_array(nbfai,nfbnd,0) ! F2003 AUTO-REALLOC
   !
-  allocate ( cell_geom(1:ncell) , source=Geom_Quad , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_geom",1,__LINE__,__FILE__,ierr,error_message)
+  cell_geom = init_array(ncell,Geom_Quad) ! F2003 AUTO-REALLOC
   !
-  allocate ( cell_order(1:ncell) , source=n_order , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
+  cell_order = init_array(ncell,n_order) ! F2003 AUTO-REALLOC
   !
-  allocate ( perturb(1:nr,1:nnode) , source=real(0,kind=r4) , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"perturb",1,__LINE__,__FILE__,ierr,error_message)
+  perturb = init_array(nr,nnode,real(0,kind=r4)) ! F2003 AUTO-REALLOC
   !
   ! #######
   ! #######
@@ -512,34 +497,19 @@ continue
   !
   ! Allocate all the arrays needed to define the grid
   !
-  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"xyz_nodes",1,__LINE__,__FILE__,ierr,error_message)
+  xyz_nodes = init_array(nr,nnode,zero) ! F2003 AUTO-REALLOC
   !
-  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"nodes_of_cell_ptr",1,__LINE__,__FILE__,ierr, &
-                   error_message)
+  nodes_of_cell_ptr = init_array(ncell+1,0) ! F2003 AUTO-REALLOC
   !
-  allocate ( nodes_of_cell(1:geom_nodes(Geom_Hexa)*ncell) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"nodes_of_cell",1,__LINE__,__FILE__,ierr,error_message)
+  nodes_of_cell = init_array(geom_nodes(Geom_Hexa)*ncell,0) ! F03 AUTO-REALLOC
   !
-  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bface",1,__LINE__,__FILE__,ierr,error_message)
+  bface = init_array(nbfai,nfbnd,0) ! F2003 AUTO-REALLOC
   !
-  allocate ( cell_geom(1:ncell) , source=Geom_Hexa , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_geom",1,__LINE__,__FILE__,ierr,error_message)
+  cell_geom = init_array(ncell,Geom_Hexa) ! F2003 AUTO-REALLOC
   !
-  allocate ( cell_order(1:ncell) , source=n_order , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
+  cell_order = init_array(ncell,n_order) ! F2003 AUTO-REALLOC
   !
-  allocate ( perturb(1:nr,1:nnode) , source=real(0,kind=r4) , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"perturb",1,__LINE__,__FILE__,ierr,error_message)
+  perturb = init_array(nr,nnode,real(0,kind=r4)) ! F2003 AUTO-REALLOC
   !
   ! #######
   ! #######
