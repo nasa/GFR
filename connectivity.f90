@@ -980,6 +980,7 @@ subroutine create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
   integer :: qp_counter,nqp,qdtr_pts,qdtr_order
   character(len=200) :: array_name
   logical(lk) :: flxpt_offset_is_zero
+  logical(lk) :: creating_local_face
   !
   integer :: nr,lnode,lfbnd,lface,lcell
   !
@@ -1018,6 +1019,11 @@ continue
   lnode = size(xyz_nodes,dim=2)
   lfbnd = size(bface,dim=2)
   lcell = size(nodes_of_cell_ptr)-1 - lfbnd
+  !
+  creating_local_face = true
+  if (present(creating_global_face)) then
+    creating_local_face = (.not. creating_global_face)
+  end if
   !
   ! Initialize the flxpts array
   !
