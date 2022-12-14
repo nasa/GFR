@@ -134,6 +134,9 @@ program GFR_main
   !
   use oerk_mod, only : update_oerk
   !
+  use eperk_mod, only : update_eperk
+  use eperk_mod, only : get_eperk_adaptive_dtsp
+  !
   use flux_mod, only : interp_cv_to_flxpts
   use flux_mod, only : interp_dusp_to_flxpts
 !!use flux_mod, only : flux_gradient_at_solpts_visc
@@ -212,6 +215,10 @@ program GFR_main
   real(wp) :: dtmin,out_time
   real(wp) :: current_tstar
   !
+  real(wp) :: next_dtmin
+  integer  :: n_rejected_timesteps
+  logical(lk) :: previous_timestep_rejected
+  !
   character(len=50) :: memfile
   !
   integer :: CGNS_action
@@ -278,6 +285,9 @@ continue
   final_timestep_from_stop_request = 0
   !
   num_CFL_restarts = 0
+  !
+  n_rejected_timesteps = 0
+  previous_timestep_rejected = fals
   !
   ! Initialize the overall MPI session
   !
@@ -891,11 +901,29 @@ continue
         !       because this was already done after computing the final stage
         !       of the previous time step.
         !
-        call compute_rhs(iter,nst,newton_failures)
+        if (abs(Runge_Kutta_Scheme) /= EPERK) then
+          call compute_rhs(iter,nst,newton_failures)
+        else ! Runge_Kutta_Scheme == EPERK
+          if (iter == 1 .or. nst > 1) then
+            call compute_rhs(iter,nst,newton_failures)
+          end if
+        end if
+        !
+        ! Compute the CFL-based time step size if this is the first
+        ! Runge-Kutta stage and not using an embedded-pair RK method
+        ! NOTE: We also need to do this if this is the first time step and
+        !       we are using an embedded-pair Runge-Kutta method.
         !
         if (nst == 1) then
-          call get_dtsp(dtmin,final_timestep_from_stop_request)
+          if (Runge_Kutta_Scheme /= EPERK) then
+            call get_dtsp(dtmin,final_timestep_from_stop_request)
                                           !  call check_for_bad_number(__LINE__)
+          else ! Runge_Kutta_Scheme == EPERK
+            if (iter == 1) then
+              call get_dtsp(dtmin,final_timestep_from_stop_request)
+                                          !  call check_for_bad_number(__LINE__)
+            end if
+          end if
         end if
         !
         ! Store residual in rssprk(:,:,nst) and update the solutions in usp
@@ -912,17 +940,73 @@ continue
           call update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
         else if (Runge_Kutta_Scheme == OERK) then
           call update_OERK(nst,Apply_Filter,Apply_Limiter)
+        else if (abs(Runge_Kutta_Scheme) == EPERK) then
+          call update_EPERK(nst,iter,Apply_Filter,Apply_Limiter)!, &
+                           !dtmin,final_timestep_from_stop_request)
         end if
        !call check_for_bad_number(__LINE__)
         !
       end do rk_loop
       !
-      completed_timesteps = iter
+      ! If using an embedded-pair Runge-Kutta method, compute the time error
+      ! using the embedded-pair stage and use that to either reject the
+      ! previous time step or compute a new dtmin for the next time step.
       !
-      ! Update the current time now that the Runge-Kutta loop is finished
-      !
-      time = time + dtmin
+      if (abs(Runge_Kutta_Scheme) == EPERK) then
+        !
+        current_rk_stage = 1 ! this needs to be 1 for SEM BCs
+        call compute_rhs(iter,current_rk_stage,newton_failures)
+        !
+        call get_EPERK_adaptive_dtsp(iter,dtmin,next_dtmin, &
+                                     final_timestep_from_stop_request, &
+                                     previous_timestep_rejected)
+        !
+        ! If the previous time step was rejected, we need to do some stuff
+        ! before redoing the previous time step with a new time step size.
+        !
+        if (previous_timestep_rejected) then
+         !!
+         !! With the previous time step rejected, the subroutine
+         !! get_EPERK_adaptive_dtsp will reset usp back to uoldsp. We
+         !! need to compute residual with the reset usp, because
+         !! the Runge-Kutta loop wont compute this for the first stage.
+         !! NOTE: This might technically make the SEM inconsistent because
+         !!       calling this again will propagate the eddies twice in one
+         !!       time step. However, I dont think this will cause any
+         !!       significant issues.
+         !!
+         !call compute_rhs(iter,current_rk_stage,newton_failures)
+          !
+          ! Finally, adjust some of the counters and skip to the start of the
+          ! main loop so redo the previous time step with a new time step size.
+          !
+          n_rejected_timesteps = n_rejected_timesteps + 1
+          itcur = itcur - 1
+          if (mypnum == glb_root) then
+            write (iout,*) "TIME STEP REJECTED"
+            flush (iout)
+          end if
+          call mpi_barrier(MPI_COMM_WORLD,mpierr)
+          !
+          dtmin = next_dtmin
+          !
+          cycle main_loop
+          !
+        else
+          time = time + dtmin
+          dtmin = next_dtmin
+        end if
+        !
+      else
+        !
+        ! Update the current time now that the Runge-Kutta loop is finished
+        !
+        time = time + dtmin
+        !
+      end if
       !$ACC UPDATE DEVICE(time)
+      !
+      completed_timesteps = iter - n_rejected_timesteps
       !
      !call check_for_bad_number(__LINE__)
       !
