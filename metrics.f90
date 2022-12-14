@@ -1671,7 +1671,7 @@ subroutine compute_face_normals_3d(fnrm)
   integer  :: this_geom,this_order
   integer  :: face_geom,face_order
   integer  :: tc_offset,tc_rot
-  real(wp) :: a
+  real(wp) :: a,facenrm_coeff
   real(wp) :: dxdi,dydi,dzdi
   real(wp) :: dxdj,dydj,dzdj
   real(wp) :: xval,yval,zval
@@ -1780,6 +1780,51 @@ continue
       call debug_timer(start_accumulation, &
                        "Filling individual facenrm(:,k)",acc=2)
 #endif
+      !
+      ! We need to create a coefficient to reverse the direction of the
+      ! face normal depending on which face of the current cell. This
+      ! coefficient will have the default value of +1, but will be changed
+      ! to -1 for the faces that need the face normal direction reversed.
+      !
+      facenrm_coeff = one
+      !
+      if (this_geom == Geom_Hexa) then
+        !
+        ! If the current cell is a hexahedra, and the face is a x-min, y-max,
+        ! or z-min face, we need to reverse the order of the derivatives so
+        ! that the cross_product computed below results in a outward facing
+        ! normal for the left cell on the face. This means we compute
+        ! [d(xyz)dj]x[d(xyz)di].
+        !
+        if (any(ncf == [Xmin3D_Face,Ymax3D_Face,Zmin3D_Face])) then
+          facenrm_coeff = -one
+        end if
+        !
+      else if (this_geom == Geom_Tetr) then
+        !
+        ! Faces 3 and 4 of tetrahedras need the face normal direction reversed
+        !
+        if (any(ncf == [3,4])) then
+          facenrm_coeff = -one
+        end if
+        !
+      else if (this_geom == Geom_Pris) then
+        !
+        ! Faces 1 and 5 of prisms need the face normal direction reversed
+        !
+        if (any(ncf == [1,5])) then
+          facenrm_coeff = -one
+        end if
+        !
+      else if (this_geom == Geom_Pyra) then
+        !
+        ! Faces 3, 4, and 5 of pyramids need the face normal direction reversed
+        !
+        if (any(ncf == [3,4,5])) then
+          facenrm_coeff = -one
+        end if
+        !
+      end if
       !
       ! Now compute the derivative of the flux point coordinates
       !
