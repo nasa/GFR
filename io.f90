@@ -657,7 +657,10 @@ continue
   !
   ! Make sure the number of RK stages is correct for some RK types
   !
-  if (Runge_Kutta_Scheme == TVD2_RK) then
+  if (.not. any(abs(Runge_Kutta_Scheme) == Valid_RK_Schemes(:))) then
+    write (error_message,31)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  else if (Runge_Kutta_Scheme == TVD2_RK) then
     num_rk_stages = 2
   else if (Runge_Kutta_Scheme == TVD3_RK) then
     num_rk_stages = 3
@@ -1029,6 +1032,8 @@ continue
   22 format ("MMS ERROR: MMS solution 3 is allowed for 1D and 2D only!")
   23 format ("MMS ERROR: MMS solution 4 is allowed for 2D only!")
   24 format ("MMS ERROR: The MMS solution chosen is invalid!")
+  !
+  31 format ("RUNGE-KUTTA ERROR: Requested Runge-Kutta scheme is invalid!")
   !
 end subroutine read_nml_input_file
 !
