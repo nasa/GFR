@@ -3689,6 +3689,10 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  call output_element_solpts_and_flxpts
+  !
+  call check_periodic_coordinates
+  !
   l1file = 1101 + mypnum
   r1file = 1201 + mypnum
   d1file = 1301 + mypnum
