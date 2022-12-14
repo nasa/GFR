@@ -1650,8 +1650,9 @@ subroutine compute_face_normals_3d(fnrm)
   !.. Use Statements ..
   use order_mod,         only : maxFP
   use order_mod,         only : geom_solpts
-  use geovar,            only : ncell,cell,fp,face
-  use geovar,            only : xyz
+  use geovar,            only : nfbnd,ncell,cell,fp,face
+  use geovar,            only : xyz,xyz_nodes
+  use geovar,            only : nodes_of_cell,nodes_of_cell_ptr
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   !
@@ -1680,6 +1681,13 @@ subroutine compute_face_normals_3d(fnrm)
   !
   !.. Local Arrays ..
   real(wp) :: xyz_face(1:maxFP,1:3)
+  !
+  integer :: i1,i2
+  integer, allocatable :: cell_nodes(:)
+  integer, allocatable :: face_nodes(:)
+  real(wp), allocatable :: cell_xyz(:,:)
+  real(wp), allocatable :: face_xyz(:,:)
+  real(wp) :: cell_vec(1:3)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_face_normals_3d"
@@ -1723,6 +1731,12 @@ continue
     !
     n0 = cell(nc)%beg_sp - 1
     !
+    i1 = nodes_of_cell_ptr(nc)+1
+    i2 = nodes_of_cell_ptr(nc+1)
+    !
+    cell_nodes = nodes_of_cell(i1:i2) ! F2003 AUTO-REALLOC
+    cell_xyz = xyz_nodes(1:3,cell_nodes(:)) ! F2003 AUTO-REALLOC
+    !
     ! Loop through the faces of the current cell
     ! to get the normals at each face point
     !
@@ -1744,6 +1758,17 @@ continue
       !
       tc_offset = cell(nc)%face(ncf)%fp_offset
       tc_rot = cell(nc)%face(ncf)%rotation
+      !
+      if (face_geom == Geom_Edge) then
+        face_nodes = face(nf)%nodes(1:2) ! F2003 AUTO-REALLOC
+      else if (face_geom == Geom_Tria) then
+        face_nodes = face(nf)%nodes(1:3) ! F2003 AUTO-REALLOC
+      else
+        face_nodes = face(nf)%nodes(1:4) ! F2003 AUTO-REALLOC
+      end if
+      face_xyz = xyz_nodes(1:3,face_nodes(:)) ! F2003 AUTO-REALLOC
+      !
+      cell_vec(1:3) = get_cell_vec(cell_nodes,face_nodes,cell_xyz,face_xyz)
       !
       ! Interpolate the coordinates of the solution points to get the
       ! coordinates of the flux points on the current face.
@@ -1910,6 +1935,17 @@ continue
 #ifdef TIME_METRIC_PROCEDURES
         call debug_timer(stop_accumulation,"Chopping into facenrm",acc=6)
 #endif
+        !
+        if (dot(fnrm(1:3,f0+kf),cell_vec(1:3)) > zero) then
+       !if (this_geom == Geom_Pyra) then
+          ! If any of the output dot products are positive, that face
+          ! of the cell (ncf) needs to have logic to set facenrm_coeff
+          ! to -one. The logic is correctly in place above for faces
+          ! of hexes, tets, pyramids, and prisms.
+          write (9101,95) nc,this_geom,f0+kf,kf,ncf, &
+                          dot(fnrm(1:3,f0+kf),cell_vec(1:3))
+        end if
+        95 format (i5,i3,i6,i3,i8,f15.10)
         !
       end do
 #ifdef TIME_METRIC_PROCEDURES
