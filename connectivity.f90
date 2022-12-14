@@ -3402,6 +3402,9 @@ subroutine create_bc_grps(bface,face,fp)
   !.. Local Scalars ..
   integer :: i,k,n,nf,pf,p1,p2,q1,q2,lfbnd,ierr
   integer :: bc_idx,bc_grp,periodic_pts,ngrps
+  integer :: left_cell,left_geom,left_side
+  integer :: right_cell,right_geom,right_side
+  integer :: face_geom,face_order,nfp,irot
   !
   character(len=50) :: array_name
   !
@@ -3531,30 +3534,51 @@ continue
       q1 = face(pf)%beg_qp
       q2 = face(pf)%end_qp
       !
+      left_cell = bface(2,nf)
+      left_geom = bface(3,nf)
+      left_side = bface(4,nf)
+      !
+      right_cell = bface(2,pf)
+      right_geom = bface(3,pf)
+      right_side = bface(4,pf)
+      !
       bc_grps(n)%beg_fp = min(bc_grps(n)%beg_fp,p1)
       bc_grps(n)%end_fp = max(bc_grps(n)%end_fp,p2)
       bc_grps(n)%beg_qp = min(bc_grps(n)%beg_qp,q1)
       bc_grps(n)%end_qp = max(bc_grps(n)%end_qp,q2)
       !
-      if (nr == 2) then
-#ifdef REVERSE_PERIODIC
-        do k = p1,p2
-#else
-        do k = p2,p1,-1
-#endif
-          i = i + 1
-          bc_grps(n)%periodic_list(i) = k
-        end do
-      else
-#ifdef REVERSE_PERIODIC
-        do k = p2,p1,-1
-#else
-        do k = p1,p2
-#endif
-          i = i + 1
-          bc_grps(n)%periodic_list(i) = k
-        end do
-      end if
+      face_geom = face(nf)%geom
+      face_order = face(nf)%order
+      nfp = p2-p1+1
+      !
+      irot = bface(11,nf)/10000
+      !
+      do k = 1,nfp
+        i = i + 1
+        bc_grps(n)%periodic_list(i) = p1 + fp%geord(face_geom,face_order)% &
+                                                                rot(irot)% &
+                                           pts(k)
+      end do
+!      !
+!      if (nr == 2) then
+!#ifdef REVERSE_PERIODIC
+!        do k = p1,p2
+!#else
+!        do k = p2,p1,-1
+!#endif
+!          i = i + 1
+!          bc_grps(n)%periodic_list(i) = k
+!        end do
+!      else
+!#ifdef REVERSE_PERIODIC
+!        do k = p2,p1,-1
+!#else
+!        do k = p1,p2
+!#endif
+!          i = i + 1
+!          bc_grps(n)%periodic_list(i) = k
+!        end do
+!      end if
       !
     end do
     !
