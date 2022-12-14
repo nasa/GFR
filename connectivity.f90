@@ -2971,6 +2971,84 @@ end function RotateFluxPoints_Tria
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
+function GetFluxPointRotation_Tria(left_nodes,left_geom,left_side, &
+                                   right_nodes,right_geom,right_side) &
+                            result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: left_nodes(:)
+  integer, intent(in) :: left_geom
+  integer, intent(in) :: left_side
+  integer, intent(in) :: right_nodes(:)
+  integer, intent(in) :: right_geom
+  integer, intent(in) :: right_side
+  !
+  !.. Function Results ..
+  integer :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n,i
+  !
+  !.. Local Arrays ..
+  integer :: abc_left(1:3)
+  integer :: abc_right(1:3)
+  integer :: rotated_right(1:3)
+  !
+  !.. Local Parameters ..
+  integer, parameter :: rotate(3,3) = reshape( [1,2,3, &
+                                                3,1,2, &
+                                                2,3,1] , [3,3] )
+  !
+continue
+  !
+  !
+  abc_left(1:3) = left_nodes(1:3)
+  !
+  ! Both left and right nodes are ordered such that they result in an outward
+  ! facing normal. In order for us to match the left and right nodes, we need
+  ! to swap the last two nodes of the right face to make it an inward facing
+  ! normal.
+  !
+  abc_right(1:3) = right_nodes([1,3,2])
+  !
+  ! Initialize return_value to zero to indicate no rotation was found in case
+  ! for some reason the following loop does not find a rotation match.
+  !
+  return_value = 0
+  !
+  find_rotation: &
+  do n = 1,3
+    !
+    if (all(abc_left == abc_right(rotate(:,n)))) then
+      !
+      return_value = tri_face_rotations(n,left_side, left_geom, &
+                                          right_side,right_geom)
+      !
+      if (right_geom == Geom_Tria) then
+        rotated_right(1:3) = abc_right(rotate(1:3,n))
+ !      write (iout,1) return_value, &
+ !                    (abc_left(i), i=1,3), &
+ !                    (right_nodes(i),i=1,3), &
+ !                    (abc_right(i),i=1,3), &
+ !                    (rotated_right(i),i=1,3)
+      end if
+ !1 format (" here !!!! rotation = ",i1," left = [",i2,2(",",i2),"]", &
+ !                               " right_nodes = [",i2,2(",",i2),"]", &
+ !                                 " abc_right = [",i2,2(",",i2),"]", &
+ !                           "   rotated right = [",i2,2(",",i2),"]")
+      exit find_rotation
+      !
+    end if
+    !
+  end do find_rotation
+  !
+end function GetFluxPointRotation_Tria
+!
+!###############################################################################
+!
 pure function old_GetFluxPointRotation_Tria(abc_left,abc_right) &
                                      result(return_value)
   !
