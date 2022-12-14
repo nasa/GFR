@@ -279,6 +279,8 @@ continue
   end if
   !
   ! Create the grid node coordinates as a square from (0,0) to (1,1)
+  ! NOTE: Scaling the grid to (-Lref,-Lref) to (+Lref,+Lref) is now done
+  !       in subroutine rescale_grid_for_vortex_problems.
   !
   do j = 1,np
     !
@@ -300,14 +302,6 @@ continue
   !
   deallocate ( perturb , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"perturb",2,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Scale the grid node coordinates to the square (-1,-1) to (1,1)
-  !
-  xyz_nodes = two*xyz_nodes - one
-  !
-  ! Scale the grid node coordinates to the square (-Lref,-Lref) to (+Lref,+Lref)
-  !
-  xyz_nodes = abs(VortexGrid_Lref) * xyz_nodes
   !
   ! #######
   ! #######
@@ -597,6 +591,8 @@ continue
   end if
   !
   ! Create the grid node coordinates as a cube from (0,0,0) to (1,1,1)
+  ! NOTE: Scaling the grid to (-Lref,-Lref,-Lref) to (+Lref,+Lref,+Lref)
+  !       is now done in subroutine rescale_grid_for_vortex_problems.
   !
   do k = 1,np
     !
@@ -624,14 +620,6 @@ continue
   !
   deallocate ( perturb , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"perturb",2,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Scale the grid node coordinates to the cube (-1,-1,-1) to (1,1,1)
-  !
-  xyz_nodes(:,:) = two*xyz_nodes(:,:) - one
-  !
-  ! Scale the grid node coordinates to the cube (-pi,-pi,-pi) to (pi,pi,pi)
-  !
-  xyz_nodes(:,:) = PI * xyz_nodes(:,:)
   !
   ! #######
   ! #######
