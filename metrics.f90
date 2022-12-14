@@ -1986,6 +1986,48 @@ end subroutine compute_face_normals_3d
 !
 !###############################################################################
 !
+function get_cell_vec(cell_nodes,face_nodes,cell_xyz,face_xyz) &
+               result(return_value)
+  !
+  integer,  intent(in) :: cell_nodes(:)
+  integer,  intent(in) :: face_nodes(:)
+  real(wp), intent(in) :: cell_xyz(:,:)
+  real(wp), intent(in) :: face_xyz(:,:)
+  !
+  real(wp) :: return_value(1:size(cell_xyz,dim=1))
+  !
+  integer :: n,l,nfp,ncp,nl
+  !
+  real(wp) :: face_center(1:size(cell_xyz,dim=1))
+  !
+continue
+  !
+  return_value(:) = -huge(zero)
+  !
+  nl = size(cell_xyz,dim=1)
+  nfp = size(face_nodes)
+  ncp = size(cell_nodes)
+  !
+  do l = 1,nl
+    face_center(l) = sum(face_xyz(l,:)) / real(nfp,kind=wp)
+  end do
+  !
+  do n = 1,ncp
+    !
+    if (any(cell_nodes(n) == face_nodes(:))) cycle
+    !
+    do l = 1,nl
+      return_value(l) = cell_xyz(l,n) - face_center(l)
+    end do
+    !
+    exit
+    !
+  end do
+  !
+end function get_cell_vec
+!
+!###############################################################################
+!
 subroutine compute_face_normals_2d(fnrm)
   !
   !.. Use Statements ..
