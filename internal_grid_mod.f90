@@ -86,7 +86,7 @@ continue
     !
   else if (itestcase == Taylor_Green_Vortex) then
     !
-    call create_TaylorGreenVortex_grid
+    call create_periodic_cube_hex_grid
     !
   else if (any(abs(itestcase) == Transport_Problems)) then
     !
@@ -459,7 +459,7 @@ end subroutine create_periodic_square_quad_grid
 !
 !###############################################################################
 !
-subroutine create_TaylorGreenVortex_grid()
+subroutine create_periodic_cube_hex_grid()
   !
   !.. Use Statements ..
   use order_mod, only : n_order
@@ -481,7 +481,7 @@ subroutine create_TaylorGreenVortex_grid()
   real(r4), allocatable :: perturb(:,:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "create_TaylorGreenVortex_grid"
+  character(len=*), parameter :: pname = "create_periodic_cube_hex_grid"
   !
 continue
   !
@@ -821,7 +821,7 @@ continue
     return_value = i + n*(j-1) + n*n*(k-1)
   end function map3dto1d
   !
-end subroutine create_TaylorGreenVortex_grid
+end subroutine create_periodic_cube_hex_grid
 !
 !###############################################################################
 !
