@@ -1700,7 +1700,8 @@ continue
                              right_cell,right_side,right_geom,right_order, &
                              nodes_of_cell(r1:r2),right_nodes(1:nfnods), &
                              old_right_nodes(1:nfnods), &
-                             lfbnd,lface)
+                             lfbnd,lface,lcell,lnode, &
+                             rotation,creating_local_face)
     end if
     !
     ! Save the rotation index for this face
@@ -1769,7 +1770,8 @@ subroutine output_face_nodes(nf,nfnods,nfp,face_geom,face_order,qdtr_order, &
                              left_nodes,left_face_nodes,old_left_face_nodes, &
                              right_cell,right_side,right_geom,right_order, &
                              right_nodes,right_face_nodes, &
-                             old_right_face_nodes,lfbnd,lface)
+                             old_right_face_nodes,lfbnd,lface,lcell,lnode, &
+                             rotation,creating_local_face)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: nf
@@ -1794,6 +1796,10 @@ subroutine output_face_nodes(nf,nfnods,nfp,face_geom,face_order,qdtr_order, &
   integer, intent(in) :: old_right_face_nodes(:)
   integer, intent(in) :: lfbnd
   integer, intent(in) :: lface
+  integer, intent(in) :: lcell
+  integer, intent(in) :: lnode
+  integer, intent(in) :: rotation
+  logical(lk), intent(in) :: creating_local_face
   !
   !.. Local Scalars ..
   integer :: n
