@@ -3690,6 +3690,7 @@ subroutine check_face_flux_point_orderings()
   integer :: l1,l2,r1,r2,npl,npr,pf,f0,ntfp
   integer :: n1,n2,n0,np,bc_type
   integer :: face_geom,face_order
+  integer :: rotation,fp_offset
   integer :: left_cell,left_geom,left_order
   integer :: right_cell,right_geom,right_order
   integer :: l1file,r1file,d1file
@@ -3797,11 +3798,14 @@ continue
       r2 = cell(right_cell)%end_sp
       npr = r2-r1+1
       !
+      rotation = face(nf)%right%rotation
+      fp_offset = face(pf)%left%fp_offset
+      !
       do kf = 1,nfp
         !
-        kr = face(pf)%left%fp_offset + fp%geord(face_geom,face_order)% &
-                                          rot(face(pf)%left%rotation)% &
-                                       pts(kf)
+        kr = fp_offset + fp%geord(face_geom,face_order)% &
+                                          rot(rotation)% &
+                         pts(kf)
         !
         ! Interpolate the coordinates for this flux point for the right cell
         !
@@ -3818,8 +3822,7 @@ continue
             val = val + a * xyz(l,r1-1+j)
             !
           end do
-         !face_xyz(nf)%v(l,kf,2) = val
-          face_xyz(nf)%v(l,nfp-kf+1,2) = val
+          face_xyz(nf)%v(l,kf,2) = val
         end do
         !
       end do
@@ -4297,6 +4300,7 @@ subroutine check_cell_flux_point_orderings()
   integer :: i,j,nf,nc,np,n1,n2,l,n,sf,kf,lf,pf,nfp,ierr
   integer :: this_geom,this_order
   integer :: face_geom,face_order,f0,ntfp
+  integer :: rotation,fp_offset
   integer :: l1file,r1file,d1file
   integer :: l2file,r2file,d2file
   real(wp) :: a
@@ -4410,10 +4414,15 @@ continue
       !
       pf = bface(5,nf)
       !
+      rotation = face(nf)%right%rotation
+      fp_offset = face(nf)%right%fp_offset
+      !
       do kf = 1,nfp
         do l = 1,nr
-         !face_xyz(nf)%v(l,kf,2) = face_xyz(pf)%v(l,kf,1)
-          face_xyz(nf)%v(l,kf,2) = face_xyz(pf)%v(l,nfp-kf+1,1)
+          lf = fp_offset + fp%geord(face_geom,face_order)% &
+                                            rot(rotation)% &
+                           pts(kf)
+          face_xyz(nf)%v(l,kf,2) = face_xyz(pf)%v(l,lf,1)
         end do
       end do
       !
