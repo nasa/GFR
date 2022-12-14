@@ -1956,17 +1956,34 @@ continue
   nfp = size(face_nodes)
   ncp = size(cell_nodes)
   !
+  ! Compute the coordinates for the center of the current face by averaging
+  ! the coordinates of all the face nodes.
+  !
   do l = 1,nl
     face_center(l) = sum(face_xyz(l,:)) / real(nfp,kind=wp)
   end do
   !
+  ! Loop through the cell nodes to find a node that is not on the current face
+  !
   do n = 1,ncp
     !
+    ! If this cell node matches any of the face nodes, we need to skip to
+    ! the next cell node because we need to a cell node that is not on the
+    ! current face to get a vector from the cell interior (direction) to
+    ! the center of the current face.
+    !
     if (any(cell_nodes(n) == face_nodes(:))) cycle
+    !
+    ! This cell node is not on the current face, so compute the vector from
+    ! this cell node to the center of the face, which is a vector from the
+    ! interior (direction) of the cell to the face.
     !
     do l = 1,nl
       return_value(l) = cell_xyz(l,n) - face_center(l)
     end do
+    !
+    ! We only need to compute this vector from one of the cell nodes that is
+    ! not on the face, so if we are here, the job is done and we can exit.
     !
     exit
     !
