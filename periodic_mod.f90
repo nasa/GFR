@@ -12,6 +12,7 @@ module periodic_mod
   ! ##################################
   !
   public :: match_periodic_faces
+  public :: check_periodic_list_indices
   !
   ! ##############################
   ! ###  Module Derived Types  ###
