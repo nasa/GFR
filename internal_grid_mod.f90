@@ -326,24 +326,25 @@ continue
       nf_min = nf_min + 1
       nf_max = nf_min + nc
       !
+      ! NOTE: The subroutine match_periodic_faces will set the values of
+      !       bface([5,6,8,9],:), so we dont need to do that here.
+      !
+      ! face on x-min boundary
+      !
       bface( 1,nf_min) = bc_periodic
       bface( 2,nf_min) = map2dto1d(1 ,j,nc)
       bface( 3,nf_min) = Geom_Quad
       bface( 4,nf_min) = HostFace2D(1)
-      bface( 5,nf_min) = nf_max
-      bface( 6,nf_min) = map2dto1d(nc,j,nc)
-      bface( 8,nf_min) = Geom_Quad
-      bface( 9,nf_min) = HostFace2D(2)
+      bface( 6,nf_min) = 1 ! index for bc_input needed by match_periodic_faces
       bface(10,nf_min) = ncell + nf_min
       !
+      ! face on x-max boundary
+      !
       bface( 1,nf_max) = bc_periodic
-      bface( 2,nf_max) = bface(6,nf_min)
-      bface( 3,nf_max) = bface(8,nf_min)
-      bface( 4,nf_max) = bface(9,nf_min)
-      bface( 5,nf_max) = nf_min
-      bface( 6,nf_max) = bface(2,nf_min)
-      bface( 8,nf_max) = bface(3,nf_min)
-      bface( 9,nf_max) = bface(4,nf_min)
+      bface( 2,nf_max) = map2dto1d(nc,j,nc)
+      bface( 3,nf_max) = Geom_Quad
+      bface( 4,nf_max) = HostFace2D(2)
+      bface( 6,nf_max) = 2 ! index for bc_input needed by match_periodic_faces
       bface(10,nf_max) = ncell + nf_max
       !
     end do
@@ -355,24 +356,25 @@ continue
       nf_min = nf_min + 1
       nf_max = nf_min + nc
       !
+      ! NOTE: The subroutine match_periodic_faces will set the values of
+      !       bface([5,6,8,9],:), so we dont need to do that here.
+      !
+      ! face on y-min boundary
+      !
       bface( 1,nf_min) = bc_periodic
       bface( 2,nf_min) = map2dto1d(i,1 ,nc)
       bface( 3,nf_min) = Geom_Quad
       bface( 4,nf_min) = HostFace2D(3)
-      bface( 5,nf_min) = nf_max
-      bface( 6,nf_min) = map2dto1d(i,nc,nc)
-      bface( 8,nf_min) = Geom_Quad
-      bface( 9,nf_min) = HostFace2D(4)
+      bface( 6,nf_min) = 3 ! index for bc_input needed by match_periodic_faces
       bface(10,nf_min) = ncell + nf_min
       !
+      ! face on y-max boundary
+      !
       bface( 1,nf_max) = bc_periodic
-      bface( 2,nf_max) = bface(6,nf_min)
-      bface( 3,nf_max) = bface(8,nf_min)
-      bface( 4,nf_max) = bface(9,nf_min)
-      bface( 5,nf_max) = nf_min
-      bface( 6,nf_max) = bface(2,nf_min)
-      bface( 8,nf_max) = bface(3,nf_min)
-      bface( 9,nf_max) = bface(4,nf_min)
+      bface( 2,nf_max) = map2dto1d(i,nc,nc)
+      bface( 3,nf_max) = Geom_Quad
+      bface( 4,nf_max) = HostFace2D(4)
+      bface( 6,nf_max) = 4 ! index for bc_input needed by match_periodic_faces
       bface(10,nf_max) = ncell + nf_max
       !
     end do
