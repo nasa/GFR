@@ -2537,6 +2537,7 @@ function reorder_linear_pts(elem,reverse) result(return_value)
   !
   !.. Local Parameters ..
   integer, parameter :: quad(4) = [1,2,4,3]
+  integer, parameter :: pyra(5) = [1,2,4,3,5]
   integer, parameter :: hexa(8) = [1,2,4,3,5,6,8,7]
   !
 continue
@@ -2554,6 +2555,8 @@ continue
     select case (elem%prop%geom)
       case (Geom_Quad)
         return_value%pts( quad(:) ) = elem%pts(:)
+      case (Geom_Pyra)
+        return_value%pts( pyra(:) ) = elem%pts(:)
       case (Geom_Hexa)
         return_value%pts( hexa(:) ) = elem%pts(:)
     end select
@@ -2561,6 +2564,8 @@ continue
     select case (elem%prop%geom)
       case (Geom_Quad)
         return_value%pts(:) = elem%pts( n1-1 + quad(:) )
+      case (Geom_Pyra)
+        return_value%pts(:) = elem%pts( n1-1 + pyra(:) )
       case (Geom_Hexa)
         return_value%pts(:) = elem%pts( n1-1 + hexa(:) )
     end select
