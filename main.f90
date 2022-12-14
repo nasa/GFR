@@ -132,6 +132,8 @@ program GFR_main
   use time_mod, only : update_TVD_RK4
   use time_mod, only : save_old_solution
   !
+  use oerk_mod, only : update_oerk
+  !
   use flux_mod, only : interp_cv_to_flxpts
   use flux_mod, only : interp_dusp_to_flxpts
 !!use flux_mod, only : flux_gradient_at_solpts_visc
@@ -908,6 +910,8 @@ continue
           call update_TVD_RK4(nst,Apply_Filter,Apply_Limiter)
         else if (Runge_Kutta_Scheme == CK4_RK) then
           call update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
+        else if (Runge_Kutta_Scheme == OERK) then
+          call update_OERK(nst,Apply_Filter,Apply_Limiter)
         end if
        !call check_for_bad_number(__LINE__)
         !
