@@ -980,32 +980,94 @@ end subroutine get_boundary_face_nodes
 subroutine check_periodic_list_indices()
   !
   !.. Use Statements ..
-  use geovar,            only : nr,nfbnd
-  use geovar,            only : bface,cell,face,xyz,fp
-  use order_mod,         only : geom_solpts,maxSP,maxFP
-  !
-  use interpolation_mod, only : interp
+  use geovar, only : bc_grps
+  use geovar, only : bface,face,fp
+  use geovar, only : cell_map
   !
   !.. Local Scalars ..
-  integer :: nf,nfp,l1,l2,nlp,r1,r2,nrp,kf,lf,rf,l,i,j,k,pf
+  integer :: nf,nfp,i,k,pf,ipf
+  integer :: irot,p1,p2,n
   integer :: face_geom,face_order
-  integer :: left_cell,left_geom,left_side,left_order
-  integer :: right_cell,right_geom,right_side,right_order
-  real(wp) :: a,val
-  !
-  !.. Local Arrays ..
-  real(wp) :: txyz(1:maxSP,1:nr)
-  real(wp) :: left_facexyz(1:nr,1:maxFP)
-  real(wp) :: right_facexyz(1:nr,1:maxFP)
+  integer :: my_cpu,adj_cpu
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_periodic_list_indices"
   !
 continue
   !
+  write (iout,981) mypnum,count(bface(1,:)==bc_periodic)
+  981 format ("CPU ",i2," : # of periodic faces = ",i0)
+  return
+  if (ncpu > 1) return
+  if (.not. allocated(periodic_faces)) return
+  !
   call debug_timer(entering_procedure,pname)
   !
+  do ipf = 1,size(periodic_faces)
+    write (mypnum+200,801) ipf, &
+                           periodic_faces(ipf)%nf, &
+                           periodic_faces(ipf)%bc_idx, &
+                           periodic_faces(ipf)%rotation
+  end do
+  if (ncpu > 1) then
+  do nf = 1,size(bface,dim=2)
+    write (mypnum+300,801) nf,(bface(k,nf), k=1,size(bface,dim=1))
+    my_cpu = mypnum+1
+    adj_cpu = bface(7,nf)+1
+    write (mypnum+500,801) nf,bface(1,nf), &
+                              cell_map(my_cpu)%loc_to_glb(bface(2,nf)), &
+                              bface(3,nf), &
+                              bface(4,nf), &
+                              bface(5,nf), &
+                              cell_map(adj_cpu)%loc_to_glb(bface(6,nf)), &
+                              bface(7,nf), &
+                              bface(8,nf), &
+                              bface(9,nf), &
+                              (bface(k,nf), k=10,size(bface,dim=1))
+  end do
+  end if
+  801 format (i4,4x,20i5)
   !
+  !
+  redo_periodic_list: &
+  do n = 1,size(bc_grps)
+    !
+    if (bc_grps(n)%bc_type == bc_periodic .and. &
+        allocated(bc_grps(n)%periodic_list)) then
+      !
+      i = 0
+      do ipf = 1,size(periodic_faces)
+        !
+        nf = periodic_faces(ipf)%nf
+        irot = periodic_faces(ipf)%rotation
+       !write (iout,'(10i5)') ipf,nf,irot,face(nf)%right%rotation
+        !
+        face_geom = face(nf)%geom
+        face_order = face(nf)%order
+        !
+        face(nf)%right%rotation = irot
+        !
+        pf = bface(5,nf)
+        !
+        p1 = face(pf)%beg_fp
+        p2 = face(pf)%end_fp
+        nfp = p2-p1+1
+        !
+        do k = 1,nfp
+          i = i + 1
+          bc_grps(n)%periodic_list(i) = p1 + fp%geord(face_geom,face_order)% &
+                                                                  rot(irot)% &
+                                             pts(k)
+        end do
+        write (mypnum+4400,801) nf,irot,bface(11,nf)/10000
+        !
+      end do
+      !
+      exit redo_periodic_list
+      !
+    end if
+    !
+  end do redo_periodic_list
   !
   call debug_timer(leaving_procedure,pname)
   !
