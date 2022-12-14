@@ -1817,38 +1817,40 @@ subroutine output_face_nodes(nf,nfnods,nfp,face_geom,face_order,qdtr_order, &
   !
 continue
   !
-  write (100+mypnum,1)
-  write (100+mypnum,2) "     lfbnd",lfbnd
-  write (100+mypnum,2) "     lface",lface
-  write (100+mypnum,2) "        nf",nf
-  write (100+mypnum,2) "    nfnods",nfnods
-  write (100+mypnum,2) "       nfp",nfp
-  write (100+mypnum,2) " face_geom",face_geom
-  write (100+mypnum,2) "face_order",face_order
-  write (100+mypnum,2) "qdtr_order",qdtr_order
-  write (100+mypnum,*)
+  io = 100+mypnum
   !
-  write (100+mypnum,2) "left_cell ",left_cell
-  write (100+mypnum,2) "left_side ",left_side
-  write (100+mypnum,2) "left_geom ",left_geom
-  write (100+mypnum,2) "left_order",left_order
-  write (100+mypnum,3) "Left",(left_nodes(n),n=1,size(left_nodes))
-  write (100+mypnum,4) "Left", &
+  write (io,1)
+  write (io,2) "     lfbnd",lfbnd
+  write (io,2) "     lface",lface
+  write (io,2) "        nf",nf
+  write (io,2) "    nfnods",nfnods
+  write (io,2) "       nfp",nfp
+  write (io,2) " face_geom",face_geom
+  write (io,2) "face_order",face_order
+  write (io,2) "qdtr_order",qdtr_order
+  write (io,*)
+  !
+  write (io,2) "left_cell ",left_cell
+  write (io,2) "left_side ",left_side
+  write (io,2) "left_geom ",left_geom
+  write (io,2) "left_order",left_order
+  write (io,3) "Left",(left_nodes(n),n=1,size(left_nodes))
+  write (io,4) "Left", &
     (old_left_face_nodes(n),n=1,size(old_left_face_nodes))
-  write (100+mypnum,5) "Left", ( left_face_nodes(n),n=1,size( left_face_nodes))
-  write (100+mypnum,*)
+  write (io,5) "Left", ( left_face_nodes(n),n=1,size( left_face_nodes))
+  write (io,*)
   !
-  write (100+mypnum,2) "right_cell ",right_cell
-  write (100+mypnum,2) "right_side ",right_side
-  write (100+mypnum,2) "right_geom ",right_geom
-  write (100+mypnum,2) "right_order",right_order
-  write (100+mypnum,3) "Right",(right_nodes(n),n=1,size(right_nodes))
-  write (100+mypnum,4) "Right", &
+  write (io,2) "right_cell ",right_cell
+  write (io,2) "right_side ",right_side
+  write (io,2) "right_geom ",right_geom
+  write (io,2) "right_order",right_order
+  write (io,3) "Right",(right_nodes(n),n=1,size(right_nodes))
+  write (io,4) "Right", &
     (old_right_face_nodes(n),n=1,size(old_right_face_nodes))
-  write (100+mypnum,5) "Right",(right_face_nodes(n),n=1,size(right_face_nodes))
-  write (100+mypnum,*)
+  write (io,5) "Right",(right_face_nodes(n),n=1,size(right_face_nodes))
+  write (io,*)
   !
-  flush (100+mypnum)
+  flush (io)
   !
   ! Format Statements
   !
