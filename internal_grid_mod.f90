@@ -159,8 +159,6 @@ subroutine create_periodic_square_quad_grid()
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_periodic_square_quad_grid"
- !logical(lk), parameter :: test_random_bc = true
-  logical(lk), parameter :: test_random_bc = fals
   !
 continue
   !
@@ -354,33 +352,6 @@ continue
       bface( 9,nf_max) = bface(4,nf_min)
       bface(10,nf_max) = ncell + nf_max
       !
-      ! Adjust boundary conditions for stationary vortex or
-      ! vortex propagation in only the vertical direction
-      !
-      if (any(itestcase == [-Shu_Vortex,-Vortex_Transport])) then
-        !
-        if (test_random_bc) then
-          l = size(bc_heirarchy)
-          l = max( 1 , min(l,random(l)) )
-          bface(1,nf_min) = bc_heirarchy(l)
-        else
-          bface(1,nf_min) = bc_characteristic
-        end if
-        bface(  5,nf_min) = 1
-        bface(6:9,nf_min) = 0
-        !
-        if (test_random_bc) then
-          l = size(bc_heirarchy)
-          l = max( 1 , min(l,random(l)) )
-          bface(1,nf_max) = bc_heirarchy(l)
-        else
-          bface(1,nf_max) = bc_characteristic
-        end if
-        bface(  5,nf_max) = 1
-        bface(6:9,nf_max) = 0
-        !
-      end if
-      !
     end do
     !
     nf_min = nf_max
@@ -409,32 +380,6 @@ continue
       bface( 8,nf_max) = bface(3,nf_min)
       bface( 9,nf_max) = bface(4,nf_min)
       bface(10,nf_max) = ncell + nf_max
-      !
-      ! Adjust boundary conditions for stationary vortex
-      !
-      if (itestcase == -Shu_Vortex) then
-        !
-        if (test_random_bc) then
-          l = size(bc_heirarchy)
-          l = max( 1 , min(l,random(l)) )
-          bface(1,nf_min) = bc_heirarchy(l)
-        else
-          bface(1,nf_min) = bc_characteristic
-        end if
-        bface(  5,nf_min) = 1
-        bface(6:9,nf_min) = 0
-        !
-        if (test_random_bc) then
-          l = size(bc_heirarchy)
-          l = max( 1 , min(l,random(l)) )
-          bface(1,nf_max) = bc_heirarchy(l)
-        else
-          bface(1,nf_max) = bc_characteristic
-        end if
-        bface(  5,nf_max) = 1
-        bface(6:9,nf_max) = 0
-        !
-      end if
       !
     end do
     !
