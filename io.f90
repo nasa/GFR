@@ -1730,6 +1730,15 @@ continue
         !
         bface(6,nf) = n
         !
+        ! Also save this index to bface(11,:) if the first dimension of
+        ! bface is large enough. Its unsure if the first dimension of bface
+        ! will be permanently increased to 11, but if it is, bface(11,:)
+        ! is meant to store this value.
+        !
+        if (size(bface,dim=1) >= 11) then
+          bface(11,nf) = n
+        end if
+        !
         ! Force the boundary condition to that specified in the input file
         ! if the value of set_bc_value is not equal to bc_unknown
         !
