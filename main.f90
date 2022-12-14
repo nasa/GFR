@@ -112,6 +112,7 @@ program GFR_main
   !
   use initialization_mod, only : initialize_flow
   use initialization_mod, only : initialize_dusp
+  use initialization_mod, only : get_face_and_edge_point_coordinates
   !
   use module_bc, only : get_faceusp_bc
   use module_bc, only : get_facedusp_bc
@@ -194,6 +195,8 @@ program GFR_main
 !-DEBUG_END:
   !
   use module_cgns, only : root_broadcasts_grid_dt
+  !
+  use periodic_mod, only : check_periodic_list_indices
   !
   use, intrinsic :: iso_c_binding,   only : c_long
   !
@@ -491,10 +494,13 @@ continue
   ! suspect that there is an error between the orderings of
   ! the flux points from the two cells on an interface
   !
+  call check_periodic_list_indices
   if (check_flux_point_coordinates) then
+    call get_face_and_edge_point_coordinates(force_facexyz=true)
     call test_communication
     call check_face_flux_point_orderings
     call check_cell_flux_point_orderings
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   ! Output information about the global grid
