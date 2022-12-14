@@ -1875,13 +1875,14 @@ continue
 #endif
         !
         ! Compute [d(xyz)di] x [d(xyz)dj]
+        ! NOTE: If facenrm_coeff = -1, this will compute [d(xyz)dj] x [d(xyz)di]
         !
 #ifdef TIME_METRIC_PROCEDURES
         call debug_timer(start_accumulation,"Computing cross product",acc=5)
 #endif
-        xnrm = dydi*dzdj - dzdi*dydj
-        ynrm = dzdi*dxdj - dxdi*dzdj
-        znrm = dxdi*dydj - dydi*dxdj
+        xnrm = facenrm_coeff * (dydi*dzdj - dzdi*dydj)
+        ynrm = facenrm_coeff * (dzdi*dxdj - dxdi*dzdj)
+        znrm = facenrm_coeff * (dxdi*dydj - dydi*dxdj)
 #ifdef TIME_METRIC_PROCEDURES
         call debug_timer(stop_accumulation,"Computing cross product",acc=5)
 #endif
