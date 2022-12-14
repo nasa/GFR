@@ -4024,6 +4024,59 @@ end subroutine check_face_flux_point_orderings
 !
 !###############################################################################
 !
+subroutine check_periodic_coordinates()
+  !
+  !.. Use Statements ..
+  use geovar,  only : nr,bc_grps
+  use flowvar, only : facexyz_array
+  !
+  !.. Local Scalars ..
+  integer :: i,k,l,n,n1,n2
+  integer :: lpfile,rpfile
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_periodic_coordinates"
+  !
+continue
+  !
+  lpfile = 3101 + mypnum
+  rpfile = 3201 + mypnum
+  !
+  do i = 1,size(bc_grps)
+    !
+    if (bc_grps(i)%bc_type == bc_periodic) then
+      !
+      write (lpfile,10) i
+      write (rpfile,10) i
+      !
+      n1 = bc_grps(i)%beg_fp
+      n2 = bc_grps(i)%end_fp
+      !
+      do n = n1,n2
+        !
+        k = bc_grps(i)%periodic_list(n-n1+1)
+        !
+        write (lpfile,11) n,(facexyz_array(l,n), l=1,nr)
+        write (rpfile,11) k,(facexyz_array(l,k), l=1,nr)
+        !
+        if (mod(n-n1+1,10) == 0) then
+          write (lpfile,*)
+          write (rpfile,*)
+        end if
+        !
+      end do
+      !
+    end if
+    !
+  end do
+  !
+  10 format ("BC_GRP(",i0,")",/,60("="))
+  11 format (i8,100(es12.4))
+  !
+end subroutine check_periodic_coordinates
+!
+!###############################################################################
+!
 subroutine output_element_solpts_and_flxpts()
   !
   !.. Use Statements ..
