@@ -1933,7 +1933,45 @@ continue
       !
     case (Geom_Pyra)
       !
+      ! Reordering the pyramid quad face is the
+      ! same as reordering a hex min face
+      !
+      ip = ip( min_face_ABCD )
+      !
     case (Geom_Pris)
+      !
+      if (left_side == 3) then
+        !
+        ! This is the y-min face so we need to treat it like the hex y-min
+        ! face. First, we use flip_left_hand_to_right_hand, then use
+        ! min_face_ABCD.
+        ! NOTE: Combining these two steps is actually the same thing as just
+        !       using max_face_ABCD, but we will use both steps to keep this
+        !       consistent with how it is done for hex faces.
+        !
+        ip = ip( flip_left_hand_to_right_hand )
+        !
+        ip = ip( min_face_ABCD )
+        !
+      else if (left_side == 4) then
+        !
+        ! This is the diagonal quad face and gets the max face treatment
+        !
+        ip = ip( max_face_ABCD )
+        !
+      else if (left_side == 5) then
+        !
+        ! This is the x-min face and gets the min face treatment
+        !
+        ip = ip( min_face_ABCD )
+        !
+      else
+        !
+        ! We shouldnt be here, so set ip equal to zero to create problems
+        !
+        ip(:) = 0
+        !
+      end if
       !
     case (Geom_Hexa)
       !
@@ -2005,7 +2043,45 @@ continue
       !
     case (Geom_Pyra)
       !
+      ! Reordering the pyramid quad face is the
+      ! same as reordering a hex min face
+      !
+      ip = ip( min_face_ABCD )
+      !
     case (Geom_Pris)
+      !
+      if (right_side == 3) then
+        !
+        ! This is the y-min face so we need to treat it like the hex y-min
+        ! face. First, we use flip_left_hand_to_right_hand, then use
+        ! min_face_ABCD.
+        ! NOTE: Combining these two steps is actually the same thing as just
+        !       using max_face_ABCD, but we will use both steps to keep this
+        !       consistent with how it is done for hex faces.
+        !
+        ip = ip( flip_left_hand_to_right_hand )
+        !
+        ip = ip( min_face_ABCD )
+        !
+      else if (right_side == 4) then
+        !
+        ! This is the diagonal quad face and gets the max face treatment
+        !
+        ip = ip( max_face_ABCD )
+        !
+      else if (right_side == 5) then
+        !
+        ! This is the x-min face and gets the min face treatment
+        !
+        ip = ip( min_face_ABCD )
+        !
+      else
+        !
+        ! We shouldnt be here, so set ip equal to zero to create problems
+        !
+        ip(:) = 0
+        !
+      end if
       !
     case (Geom_Hexa)
       !
