@@ -2216,27 +2216,6 @@ continue
   !
   ip = side_nodes(1:3,left_side,left_geom) + 1
   !
-  ! Get the face nodes of the left cell in the correct order needed
-  ! to find the rotation between the cells on the interface in the
-  ! function RotateFluxPoints_Quad
-  !
-  select case (left_geom)
-      !
-    case (Geom_Tetr)
-      !
-    case (Geom_Pyra)
-      !
-    case (Geom_Pris)
-      !
-    case default
-      !
-      ! ERROR! This geometry is invalid
-      !
-      write (error_message,2) ("left",i=1,2),left_geom
-      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
-      !
-  end select
-  !
   ! Extract the nodes of the left cell on the interface
   !
   left_face_nodes = left_cell_nodes( ip )
@@ -2247,33 +2226,19 @@ continue
   !       i.e. they range from [0:size(right_cell_nodes)-1] and we want them
   !              to range from [1:size(right_cell_nodes)].
   !
-  ip = side_nodes(1:3,right_side,right_geom) + 1
-  !
-  ! Get the face nodes of the right cell in the correct order needed
-  ! to find the rotation between the cells on the interface in the
-  ! function RotateFluxPoints_Tria
-  !
-  select case (right_geom)
-      !
-    case (Geom_Tria)
-      !
-      ! The right cell can be a 2D triangle if this is for a boundary face. For
-      ! a triangular face, the face indices are always
-      !
-    case (Geom_Tetr)
-      !
-    case (Geom_Pyra)
-      !
-    case (Geom_Pris)
-      !
-    case default
-      !
-      ! ERROR! This geometry is invalid
-      !
-      write (error_message,2) ("right",i=1,2),right_geom
-      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
-      !
-  end select
+  if (right_geom == Geom_Tria) then
+    !
+    ! The right cell is a boundary face, so make ip just [1,2,3]
+    !
+    ip = [1,2,3]
+    !
+  else
+    !
+    ! The right cell is an internal cell
+    !
+    ip = side_nodes(1:3,right_side,right_geom) + 1
+    !
+  end if
   !
   ! Extract the nodes of the right cell on the interface
   !
