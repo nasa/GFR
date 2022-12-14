@@ -1802,10 +1802,18 @@ subroutine output_face_nodes(nf,nfnods,nfp,face_geom,face_order,qdtr_order, &
   logical(lk), intent(in) :: creating_local_face
   !
   !.. Local Scalars ..
-  integer :: n
+  integer :: n,ierr
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "output_face_nodes"
+  !
+  !.. Local Saved Scalars ..
+  integer,     save :: io = 0
+  logical(lk), save :: file_not_opened = true
+  logical(lk), save :: file_is_opened = fals
+  logical(lk), save :: opened_file_is_global = fals
+  !
+  character(len=100), save :: fname
   !
 continue
   !
