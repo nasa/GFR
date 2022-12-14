@@ -72,6 +72,7 @@ subroutine create_internal_grid()
   !
   !.. Use Statements ..
   use ovar, only : itestcase,postproc_debug_grid
+  use ovar, only : VortexGrid_is_3D,VortexGrid_Hex_to_Pyramids
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_internal_grid"
@@ -84,13 +85,22 @@ continue
     !
     call create_postproc_debug_grid
     !
-  else if (itestcase == Taylor_Green_Vortex) then
+  else if (any(abs(itestcase) == Transport_Problems) .or. &
+           itestcase == Taylor_Green_Vortex) then
     !
-    call create_periodic_cube_hex_grid
-    !
-  else if (any(abs(itestcase) == Transport_Problems)) then
-    !
-    call create_periodic_square_quad_grid
+    if (itestcase == Taylor_Green_Vortex .or. VortexGrid_is_3D) then
+      !
+      if (VortexGrid_Hex_to_Pyramids) then
+        call create_periodic_cube_pyramid_grid
+      else
+        call create_periodic_cube_hex_grid
+      end if
+      !
+    else
+      !
+      call create_periodic_square_quad_grid
+      !
+    end if
     !
   else if (abs(itestcase) == CH4_Flame_Speed_Test) then
     !
