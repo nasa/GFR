@@ -298,6 +298,8 @@ subroutine read_nml_input_file(input_fname,input_mode)
   !
   use restart_mod, only : check_restart_dir
   !
+  use oerk_mod,  only : init_optimized_erk_coefficients
+  !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: input_fname
   integer,          intent(in) :: input_mode
@@ -668,6 +670,9 @@ continue
     num_rk_stages = 5
   else if (Runge_Kutta_Scheme == CK4_RK) then
     num_rk_stages = 5
+  else if (any(abs(Runge_Kutta_Scheme) == OERK_Schemes)) then
+    call init_optimized_erk_coefficients
+    Runge_Kutta_Scheme = OERK
   end if
   !
   ! Make sure the initialization and error locations are valid
