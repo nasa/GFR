@@ -1758,6 +1758,16 @@ subroutine output_face_nodes(nf,nfnods,nfp,face_geom,face_order,qdtr_order, &
                              old_right_face_nodes,lfbnd,lface,lcell,lnode, &
                              rotation,creating_local_face)
   !
+  !.. Use Statements ..
+  use geovar, only : n_global_cell
+  use geovar, only : n_global_node
+  use geovar, only : n_global_fbnd
+  use geovar, only : n_global_face
+  use geovar, only : bface
+  use geovar, only : node_map
+  use geovar, only : cell_map
+  use geovar, only : face_map
+  !
   !.. Formal Arguments ..
   integer, intent(in) :: nf
   integer, intent(in) :: nfnods
@@ -1802,37 +1812,133 @@ subroutine output_face_nodes(nf,nfnods,nfp,face_geom,face_order,qdtr_order, &
   !
 continue
   !
-  io = 100+mypnum
+  ! Close the file if it was writing global face errors and we are now
+  ! writing local face errors. This shouldnt happen because the code
+  ! should abort if global face errors are found, but the logic is here
+  ! just in case
+  !
+  if (file_is_opened) then
+    !
+    if (creating_local_face) then
+      if (opened_file_is_global) then
+        !
+        close (io,iostat=ierr,iomsg=error_message)
+        call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+        !
+        opened_file_is_global = fals
+        file_not_opened = true
+        file_is_opened = fals
+        io = 0
+        !
+      end if
+    end if
+    !
+  end if
+  !
+  ! If this is the first time writing face errors, open the file to write
+  ! all the face information for faces with rotation errors.
+  !
+  if (file_not_opened) then
+    !
+    write (fname,10) mypnum
+    !
+    if (lcell == n_global_cell .and. ncpu > 1) then
+      write (fname,11) trim(adjustl(fname))
+      opened_file_is_global = true
+    end if
+    fname = trim(adjustl(fname))
+    !
+    open (newunit=io,file=fname,status="replace",action="write", &
+                     iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    file_not_opened = fals
+    file_is_opened = true
+    !
+  end if
+  !
+  !
   !
   write (io,1)
+  write (io,2) "     lnode",lnode
+  write (io,2) "     lcell",lcell
   write (io,2) "     lfbnd",lfbnd
   write (io,2) "     lface",lface
   write (io,2) "        nf",nf
+  if (.not. opened_file_is_global) then
+    write (io,2) "GLB     nf",face_map(mypnum+1)%loc_to_glb(nf)
+  end if
+  if (nf <= size(bface,dim=2)) &
+  write (io,6) "        BC",trim(adjustl(bc_integer_to_string(bface(1,nf))))
   write (io,2) "    nfnods",nfnods
   write (io,2) "       nfp",nfp
-  write (io,2) " face_geom",face_geom
+  write (io,6) " face_geom",uppercase(Geom_Short_Name(face_geom))
   write (io,2) "face_order",face_order
   write (io,2) "qdtr_order",qdtr_order
+  write (io,2) "n_glb_node",n_global_node
+  write (io,2) "n_glb_cell",n_global_cell
+  write (io,2) "n_glb_fbnd",n_global_fbnd
+  write (io,2) "n_glb_face",n_global_face
   write (io,*)
   !
+  write (io,2) "  rotation",rotation
+  write (io,*)
+  !
+  ! Left cell information
+  !
   write (io,2) "left_cell ",left_cell
+  if (.not. opened_file_is_global) then
+    write (io,2) "Gleft_cell",cell_map(mypnum+1)%loc_to_glb(left_cell)
+  end if
   write (io,2) "left_side ",left_side
-  write (io,2) "left_geom ",left_geom
+  write (io,6) "left_geom ",uppercase(Geom_Short_Name(left_geom))
   write (io,2) "left_order",left_order
-  write (io,3) "Left",(left_nodes(n),n=1,size(left_nodes))
+  !
+  write (io,3) "Left", &
+    (left_nodes(n),n=1,size(left_nodes))
   write (io,4) "Left", &
     (old_left_face_nodes(n),n=1,size(old_left_face_nodes))
-  write (io,5) "Left", ( left_face_nodes(n),n=1,size( left_face_nodes))
+  write (io,5) "Left", &
+    ( left_face_nodes(n),n=1,size( left_face_nodes))
+  !
+  if (.not. opened_file_is_global) then
+    write (io,3) "Left", &
+      (node_map(mypnum+1)%loc_to_glb(left_nodes(n)), &
+                            n=1,size(left_nodes))
+    write (io,4) "Left", &
+      (node_map(mypnum+1)%loc_to_glb(old_left_face_nodes(n)), &
+                            n=1,size(old_left_face_nodes))
+    write (io,5) "Left", &
+      (node_map(mypnum+1)%loc_to_glb(left_face_nodes(n)), &
+                            n=1,size(left_face_nodes))
+  end if
   write (io,*)
+  !
+  ! Right cell information
   !
   write (io,2) "right_cell ",right_cell
   write (io,2) "right_side ",right_side
-  write (io,2) "right_geom ",right_geom
+  write (io,6) "right_geom ",uppercase(Geom_Short_Name(right_geom))
   write (io,2) "right_order",right_order
-  write (io,3) "Right",(right_nodes(n),n=1,size(right_nodes))
+  !
+  write (io,3) "Right", &
+    (right_nodes(n),n=1,size(right_nodes))
   write (io,4) "Right", &
     (old_right_face_nodes(n),n=1,size(old_right_face_nodes))
-  write (io,5) "Right",(right_face_nodes(n),n=1,size(right_face_nodes))
+  write (io,5) "Right", &
+    (right_face_nodes(n),n=1,size(right_face_nodes))
+  !
+  if (.not. opened_file_is_global) then
+    write (io,3) "GLB Right", &
+      (node_map(mypnum+1)%loc_to_glb(right_nodes(n)), &
+                            n=1,size(right_nodes))
+    write (io,4) "GLB Right", &
+      (node_map(mypnum+1)%loc_to_glb(old_right_face_nodes(n)), &
+                            n=1,size(old_right_face_nodes))
+    write (io,5) "GLB Right", &
+      (node_map(mypnum+1)%loc_to_glb(right_face_nodes(n)), &
+                            n=1,size(right_face_nodes))
+  end if
   write (io,*)
   !
   flush (io)
@@ -1844,6 +1950,10 @@ continue
   3 format (1x,a," cell nodes : ",8i8)
   4 format (1x,a," face nodes before GetFaceNodes : ",4i8)
   5 format (1x,a," face nodes  after GetFaceNodes : ",4i8)
+  6 format (1x,a," = ",a)
+  !
+  10 format ("face_rotation_errors.CPU-",i0,".log")
+  11 format ("global.",a)
   !
 end subroutine output_face_nodes
 !
