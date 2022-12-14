@@ -818,20 +818,30 @@ continue
     !##########################################
     !
     !
-    nfp = geom_solpts(Geom_Tria,this_order)
-    !
     allocate ( fp%geord(Geom_Tria,this_order)%rot(0:6) , &
                stat=ierr , errmsg=error_message )
     write (array_name,1) "Geom_Tria",this_order
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
     !
+    ! See the function RotateFluxPoints_Tria for a complete discription of
+    ! how these rotations are defined
+    !
+    abc_left = tria_rotation(1:3,1) ! F2003 AUTO-REALLOC
+    !
     do n = lbound(fp%geord(Geom_Tria,this_order)%rot,dim=1), &
            ubound(fp%geord(Geom_Tria,this_order)%rot,dim=1)
       !
-      allocate ( fp%geord(Geom_Tria,this_order)%rot(n)%pts(1:nfp) , source=0 , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) "Geom_Tria",this_order,n
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      abc_right = init_array(3,0) ! F2003 AUTO-REALLOC
+      ! If n==0, abc_right being all zeros will never match abc_left
+      if (n /= 0) then
+        abc_right(tria_rotation(1:3,n)) = [1,2,3]
+      end if
+      !
+      ! Use the tria_rotation parameter with function RotateFluxPoints_Tria
+      ! to get the correct indices for this rotation
+      !
+      fp%geord(Geom_Tria,this_order)%rot(n)%pts = & ! F2003 AUTO-REALLOC
+                            RotateFluxPoints_Tria(abc_left,abc_right,this_order)
       !
     end do
     !
