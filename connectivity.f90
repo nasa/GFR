@@ -2971,8 +2971,8 @@ end function RotateFluxPoints_Tria
 !
 !###############################################################################
 !
-pure function GetFluxPointRotation_Tria(abc_left,abc_right) &
-                                 result(return_value)
+pure function old_GetFluxPointRotation_Tria(abc_left,abc_right) &
+                                     result(return_value)
   !
   !.. Formal Arguments ..
   integer, dimension(:), intent(in) :: abc_left
@@ -3018,7 +3018,7 @@ continue
     !
   end if
   !
-end function GetFluxPointRotation_Tria
+end function old_GetFluxPointRotation_Tria
 !
 !###############################################################################
 !
