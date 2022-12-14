@@ -300,6 +300,8 @@ subroutine read_nml_input_file(input_fname,input_mode)
   !
   use oerk_mod,  only : init_optimized_erk_coefficients
   !
+  use eperk_mod,  only : init_eperk_coefficients
+  !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: input_fname
   integer,          intent(in) :: input_mode
@@ -673,6 +675,13 @@ continue
   else if (any(abs(Runge_Kutta_Scheme) == OERK_Schemes)) then
     call init_optimized_erk_coefficients
     Runge_Kutta_Scheme = OERK
+  else if (any(abs(Runge_Kutta_Scheme) == EPERK_Schemes)) then
+    call init_eperk_coefficients
+    if (any(abs(Runge_Kutta_Scheme) == OEPERK_Schemes)) then
+      Runge_Kutta_Scheme = EPERK
+    else
+      Runge_Kutta_Scheme = -EPERK
+    end if
   end if
   !
   ! Make sure the initialization and error locations are valid
