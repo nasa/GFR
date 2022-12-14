@@ -1628,6 +1628,193 @@ contains
 !
 !###############################################################################
 !
+subroutine compute_rhs(iter,nst,newton_failures)
+  !
+  !.. Use Statements ..
+  use ovar, only : governing_equations
+  use ovar, only : visc_flux_method
+  use ovar, only : mms_opt
+  use ovar, only : itestcase
+  !
+  use module_bc, only : get_faceusp_bc
+  use module_bc, only : get_facedusp_bc
+  !
+  use parallel_mod, only : exchange_faceusp
+  use parallel_mod, only : wait_faceusp
+  use parallel_mod, only : exchange_facedusp
+  use parallel_mod, only : wait_facedusp
+  !
+  use mms_mod, only : mms_src
+  !
+  use channel_mod, only : channel_source
+  !
+  use reactions_mod, only : compute_wdot
+  !
+  use time_mod, only : rresi
+  !
+  use flux_mod, only : interp_cv_to_flxpts
+  use flux_mod, only : discontinuous_gradient_at_solpts
+  use flux_mod, only : get_invs_common_fluxes_interior
+  use flux_mod, only : correct_gradients_br2_gpu
+  use flux_mod, only : correct_gradients_at_solpts_gpu
+  use flux_mod, only : interp_dusp_to_flxpts
+  use flux_mod, only : get_visc_common_fluxes_interior
+  use flux_mod, only : get_invs_common_fluxes_bc
+  use flux_mod, only : get_visc_common_fluxes_bc
+  use flux_mod, only : flux_gradient_at_solpts
+!!use flux_mod, only : correct_gradients_at_solpts
+!!use flux_mod, only : correct_gradients_br2
+  !
+  !.. Formal Arguments ..
+  integer,    intent(in) :: iter
+  integer,    intent(in) :: nst
+  integer, intent(inout) :: newton_failures
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_rhs"
+  !
+continue
+  !
+  call global_debug_timer(entering_procedure,pname)
+  !
+  ! Interpolate the conserved variables from
+  ! the solution points to the face/flux points
+  !
+  call interp_cv_to_flxpts(iter,nst)
+                                    !  call check_for_bad_number(__LINE__)
+  !
+  ! Initiate the exchange of face/flux point solutions
+  ! between adjacent partitions
+  !
+  if (ncpu > 1) then
+    call exchange_faceusp           !; call check_for_bad_number(__LINE__)
+#ifdef IMMEDIATE_WAIT_FOR_MPI
+    call wait_faceusp               !; call check_for_bad_number(__LINE__)
+#endif
+  end if
+  !
+  ! Compute the discontinuous gradient of the solution at the solution points
+  !
+  if (governing_equations == NavierStokes_Eqns) then
+    call discontinuous_gradient_at_solpts
+                                    !  call check_for_bad_number(__LINE__)
+  end if
+  !
+  ! Get the boundary conditions for the boundary face/flux points
+  !
+  call get_faceusp_bc(newton_failures)
+  call check_for_bad_number(__LINE__,newton_failures)
+  !
+  ! Compute the inviscid common fluxes at all the face/flux points that
+  ! are not on a boundary face
+  !
+  call get_invs_common_fluxes_interior
+                                    !  call check_for_bad_number(__LINE__)
+  !
+  ! Ensure that the exchange of face/flux point solutions between adjacent
+  ! partitions has been completed, because that information will be needed
+  ! in the next step.
+  !
+  if (ncpu > 1) then
+#ifndef IMMEDIATE_WAIT_FOR_MPI
+    call wait_faceusp               !; call check_for_bad_number(__LINE__)
+#endif
+  end if
+  !
+  if (governing_equations == NavierStokes_Eqns) then
+    !
+    ! Compute the corrected gradients at the solution points and interpolate
+    ! the corrected gradients to all the face/flux points
+    !
+    if (visc_flux_method == visc_flux_BR2) then
+     !call correct_gradients_br2
+      call correct_gradients_br2_gpu
+                                    !  call check_for_bad_number(__LINE__)
+    else
+      call correct_gradients_at_solpts_gpu
+                                    !  call check_for_bad_number(__LINE__)
+     !call correct_gradients_at_solpts
+                                    !  call check_for_bad_number(__LINE__)
+      call interp_dusp_to_flxpts    !; call check_for_bad_number(__LINE__)
+    end if
+    !
+    ! Initiate the exchange of face/flux point corrected
+    ! gradients between adjacent partitions
+    !
+    if (ncpu > 1) then
+      call exchange_facedusp        !; call check_for_bad_number(__LINE__)
+#ifdef IMMEDIATE_WAIT_FOR_MPI
+      call wait_facedusp            !; call check_for_bad_number(__LINE__)
+#endif
+    end if
+    !
+    ! Compute the gradient boundary conditions for the boundary face/flux points
+    !
+    call get_facedusp_bc            !; call check_for_bad_number(__LINE__)
+    !
+    ! Compute the viscous common fluxes at all the face/flux points that
+    ! are not on a boundary face
+    !
+    call get_visc_common_fluxes_interior
+                                    !  call check_for_bad_number(__LINE__)
+  end if
+  !
+  ! Compute the inviscid common fluxes for all boundary face/flux points
+  !
+  call get_invs_common_fluxes_bc    !; call check_for_bad_number(__LINE__)
+  !
+  if (governing_equations == NavierStokes_Eqns) then
+    !
+    ! Ensure that the exchange of face/flux point corrected gradients
+    ! between adjacent partitions has been completed, because that
+    ! information will be needed in the next step.
+    !
+    if (ncpu > 1) then
+#ifndef IMMEDIATE_WAIT_FOR_MPI
+      call wait_facedusp            !; call check_for_bad_number(__LINE__)
+#endif
+    end if
+    !
+    ! Compute the viscous common fluxes for all the boundary face/flux points
+    !
+    call get_visc_common_fluxes_bc  !; call check_for_bad_number(__LINE__)
+    !
+  end if
+  !
+  ! Compute the corrected flux divergence at the solution points
+  ! NOTE: The name of this subroutine is a holdover from an older version
+  !       and misleading, so it probably needs to be updated to what it
+  !       actually does.
+  !
+  call flux_gradient_at_solpts(iter,nst)
+                                    !  call check_for_bad_number(__LINE__)
+  !
+  ! Compute the source terms for method of manufactured solutions (MMS)
+  !
+  if (mms_opt /= 0) then
+    call mms_src                    !; call check_for_bad_number(__LINE__)
+  end if
+  !
+  ! Compute the source terms for the channel flow
+  !
+  if (itestcase == Channel_Flow) then
+    call channel_source             !; call check_for_bad_number(__LINE__)
+  end if
+  !
+  ! Compute the species source terms for chemically reacting flows
+  !
+  call compute_wdot(iter)           !; call check_for_bad_number(__LINE__)
+  !
+  ! Compute the final residual for each solution point
+  !
+  call rresi(iter,nst)              !; call check_for_bad_number(__LINE__)
+  !
+  call global_debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_rhs
+!
+!###############################################################################
+!
 subroutine check_for_bad_number(line_num,newton_failures,force_signaling)
   !
   !.. Use Statements ..
