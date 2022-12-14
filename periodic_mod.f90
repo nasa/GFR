@@ -47,16 +47,23 @@ subroutine match_periodic_faces()
   !.. Use Statements ..
   use geovar, only : nr,nfbnd,nnode,ncell
   use geovar, only : bface,xyz_nodes
+  use geovar, only : nodes_of_cell,nodes_of_cell_ptr
   use ovar,   only : bc_input
   !
   use module_cgns_types, only : CGLEN
   !
   use connectivity_mod, only : init_tri_face_rotation_values
+  use connectivity_mod, only : GetFluxPointRotation_Edge
+  use connectivity_mod, only : GetFluxPointRotation_Tria
+  use connectivity_mod, only : GetFluxPointRotation_Quad
+  use connectivity_mod, only : GetFaceNodes_for_QuadFace
   !
   !.. Local Scalars ..
   integer :: l,n,nf,nc,npbc,npair,npf,npn,nfnods,this_pair,ierr
   integer :: i,ip,iidx,ipf,igeom,match_iidx,num_iidx_cells
   integer :: j,jp,jidx,jpf,jgeom,match_jidx,num_jidx_cells
+  integer :: lg,ls,rg,rs,rotation_i2j,rotation_j2i
+  integer :: i1,i2,j1,j2,ihost,jhost,np
   !
   logical(lk) :: error_found
   !
@@ -84,6 +91,14 @@ subroutine match_periodic_faces()
   integer, allocatable :: node_match_j2i(:)
   integer, allocatable :: face_match(:)
   integer, allocatable :: marker(:)
+  integer, allocatable :: ipf_nodes(:)
+  integer, allocatable :: jpf_nodes(:)
+  integer, allocatable :: left_nodes(:)
+  integer, allocatable :: right_nodes(:)
+  integer, allocatable :: ihost_nodes(:)
+  integer, allocatable :: jhost_nodes(:)
+  integer, allocatable :: lcell_nodes(:)
+  integer, allocatable :: rcell_nodes(:)
   !
   real(wp), allocatable :: ds(:)
   !
@@ -566,6 +581,165 @@ continue
       bface(6,jpf) = bface(2,ipf)
       bface(8,jpf) = bface(3,ipf)
       bface(9,jpf) = bface(4,ipf)
+      !
+      ! If this is a triangle face, we need to find the rotation between
+      ! the two faces
+      !
+      rotation_i2j = 0
+      rotation_j2i = 0
+      !
+      if (bnd_face(ipf)%geom == Geom_Edge) then
+        !
+        ipf_nodes = bnd_face(ipf)%nodes(:) ! F2003 AUTO-REALLOC
+        jpf_nodes = bnd_face(jpf)%nodes(:) ! F2003 AUTO-REALLOC
+        !
+        ! First get the rotation from ipf (left) to jpf (right)
+        !
+        left_nodes = ipf_nodes(:) ! F2003 AUTO-REALLOC
+        right_nodes = node_match_j2i( jpf_nodes(:) ) ! F2003 AUTO-REALLOC
+        !
+        rotation_i2j = GetFluxPointRotation_Edge(left_nodes,right_nodes)
+        !
+        ! Next get the rotation from jpf (left) to ipf (right)
+        !
+        left_nodes = jpf_nodes(:) ! F2003 AUTO-REALLOC
+        right_nodes = node_match_i2j( ipf_nodes(:) ) ! F2003 AUTO-REALLOC
+        !
+        rotation_j2i = GetFluxPointRotation_Edge(left_nodes,right_nodes)
+        !
+      else if (bnd_face(ipf)%geom == Geom_Tria) then
+        !
+        ipf_nodes = bnd_face(ipf)%nodes(:) ! F2003 AUTO-REALLOC
+        jpf_nodes = bnd_face(jpf)%nodes(:) ! F2003 AUTO-REALLOC
+        !
+        ! First get the rotation from ipf (left) to jpf (right)
+        !
+        left_nodes = ipf_nodes(:) ! F2003 AUTO-REALLOC
+        right_nodes = node_match_j2i( jpf_nodes(:) ) ! F2003 AUTO-REALLOC
+        !
+        lg = bface(3,ipf) ! left geom
+        ls = bface(4,ipf) ! side/face of left cell
+        !
+        rg = bface(8,ipf) ! right geom
+        rs = bface(9,ipf) ! side/face of right cell
+        !
+        rotation_i2j = GetFluxPointRotation_Tria(left_nodes,lg,ls, &
+                                                 right_nodes,rg,rs)
+        !
+        ! Next get the rotation from jpf (left) to ipf (right)
+        !
+        left_nodes = jpf_nodes(:) ! F2003 AUTO-REALLOC
+        right_nodes = node_match_i2j( ipf_nodes(:) ) ! F2003 AUTO-REALLOC
+        !
+        lg = bface(3,jpf) ! left geom
+        ls = bface(4,jpf) ! side/face of left cell
+        !
+        rg = bface(8,jpf) ! right geom
+        rs = bface(9,jpf) ! side/face of right cell
+        !
+        rotation_j2i = GetFluxPointRotation_Tria(left_nodes,lg,ls, &
+                                                 right_nodes,rg,rs)
+        !
+      else if (bnd_face(ipf)%geom == Geom_Quad) then
+        !
+        np = geom_nodes(bnd_face(ipf)%geom)
+        !
+        ihost = bface(2,ipf)
+        jhost = bface(2,jpf)
+        !
+        i1 = nodes_of_cell_ptr(ihost)+1
+        i2 = nodes_of_cell_ptr(ihost+1)
+        !
+        j1 = nodes_of_cell_ptr(jhost)+1
+        j2 = nodes_of_cell_ptr(jhost+1)
+        !
+        ihost_nodes = nodes_of_cell(i1:i2) ! F2003 AUTO-REALLOC
+        jhost_nodes = nodes_of_cell(j1:j2) ! F2003 AUTO-REALLOC
+        !
+        left_nodes = init_array(np,0) ! F2003 AUTO-REALLOC
+        right_nodes = init_array(np,0) ! F2003 AUTO-REALLOC
+        !
+        ! First get the rotation from ipf (left) to jpf (right)
+        !
+        lg = bface(3,ipf) ! left geom
+        ls = bface(4,ipf) ! side/face of left cell
+        !
+        rg = bface(8,ipf) ! right geom
+        rs = bface(9,ipf) ! side/face of right cell
+        !
+        lcell_nodes = ihost_nodes(:) ! F2003 AUTO-REALLOC
+        rcell_nodes = jhost_nodes(:) ! F2003 AUTO-REALLOC
+        !
+        ! Convert the j-face nodes to their matching i-face nodes
+        !
+        do n = 1,np
+          l = side_nodes(n,rs,rg) + 1
+          rcell_nodes(l) = node_match_j2i( jhost_nodes(l) )
+        end do
+       !write (mypnum+6100,931) (ihost_nodes(n), n=1,size(ihost_nodes)), &
+       !                        (jhost_nodes(n), n=1,size(jhost_nodes))
+       !write (mypnum+5100,931) (lcell_nodes(n), n=1,size(lcell_nodes)), &
+       !                        (rcell_nodes(n), n=1,size(rcell_nodes)), &
+       !                        ls,rs
+       !931 format (2x,8i4,4x,8i4,4x,2i3)
+        !
+        call GetFaceNodes_for_QuadFace(lcell_nodes,ls, &
+                                       rcell_nodes,rs, &
+                                       left_nodes(1:np),right_nodes(1:np))
+       !write (mypnum+5300,932) (left_nodes(n), n=1,np), &
+       !                        (right_nodes(n), n=1,np)
+       !932 format (2x,4i4,4x,4i4)
+        !
+        rotation_i2j = GetFluxPointRotation_Quad(left_nodes(1:np), &
+                                                 right_nodes(1:np))
+        !
+        ! Next get the rotation from jpf (left) to ipf (right)
+        !
+        lg = bface(3,jpf) ! left geom
+        ls = bface(4,jpf) ! side/face of left cell
+        !
+        rg = bface(8,jpf) ! right geom
+        rs = bface(9,jpf) ! side/face of right cell
+        !
+        lcell_nodes = jhost_nodes(:) ! F2003 AUTO-REALLOC
+        rcell_nodes = ihost_nodes(:) ! F2003 AUTO-REALLOC
+        !
+        ! Convert the j-face nodes to their matching i-face nodes
+        !
+        do n = 1,np
+          l = side_nodes(n,rs,rg) + 1
+          rcell_nodes(l) = node_match_i2j( ihost_nodes(l) )
+        end do
+       !write (mypnum+5200,931) (lcell_nodes(n), n=1,size(lcell_nodes)), &
+       !                        (rcell_nodes(n), n=1,size(rcell_nodes)), &
+       !                        ls,rs
+        !
+        call GetFaceNodes_for_QuadFace(lcell_nodes,ls, &
+                                       rcell_nodes,rs, &
+                                       left_nodes(1:np),right_nodes(1:np))
+       !write (mypnum+5400,932) (left_nodes(n), n=1,np), &
+       !                        (right_nodes(n), n=1,np)
+        !
+        rotation_j2i = GetFluxPointRotation_Quad(left_nodes(1:np), &
+                                                 right_nodes(1:np))
+        !
+      end if
+      !
+      ! Its unsure if the first dimension of bface will be permanently
+      ! increased to 11, but if it is, bface(11,:) is meant to store the
+      ! bc_index value for the face, so save this information to bface.
+      !
+      ! rotation_i2j/j2i will be a value from 1-6 for a triangle face or
+      ! 1-8 for a quad face. We are doubling up the info stored in
+      ! bface(11,:) for periodic faces by adding 10000*rotation to the
+      ! bc_idx value. This shouldnt be a problem unless there are more
+      ! than 10000 bc_input given in the input file, which seems
+      ! extremely unlikely.
+      !
+      if (size(bface,dim=1) >= 11) then
+        bface(11,ipf) = 10000*rotation_i2j + iidx
+        bface(11,jpf) = 10000*rotation_j2i + jidx
+      end if
       !
     end do
     !
