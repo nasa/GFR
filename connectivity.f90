@@ -1664,7 +1664,9 @@ continue
                                      left_nodes(1:nfnods),right_nodes(1:nfnods))
       !
       rotation = GetFluxPointRotation_Tria(left_nodes(1:nfnods), &
-                                          right_nodes(1:nfnods))
+                                           left_geom,left_side, &
+                                           right_nodes(1:nfnods), &
+                                           right_geom,right_side)
       !
     end if
     !
