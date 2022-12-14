@@ -795,6 +795,481 @@ end subroutine create_periodic_cube_hex_grid
 !
 !###############################################################################
 !
+subroutine create_periodic_cube_pyramid_grid()
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order,geom_solpts
+  use ovar,      only : VortexGrid_DOF,Lref
+  use ovar,      only : VortexGrid_random_perturb
+  use ovar,      only : VortexGrid_perturb_percent
+  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geovar,    only : cell_geom,cell_order
+  use ovar,      only : grid_format
+  !
+  !.. Local Scalars ..
+  integer :: nc,np,ierr,i,j,k,l,n,n1,n2,n0
+  integer :: ncf,ncp,nc_min,nc_max,nc_hex
+  integer :: imin,imax,jmin,jmax,kmin,kmax,ip_mid
+  integer :: npyr_dof_per_hex,n_hex_cells,n_hex_nodes
+  real(wp) :: x,y,z,dl
+  real(r4) :: rbas,radj,rval
+  !
+  !.. Local Arrays ..
+  integer :: ip_hex(1:8)
+  integer :: ip_pyr(1:5,1:6)
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: ipelem(:,:)
+  integer,  allocatable :: ipehex(:,:)
+  real(r4), allocatable :: perturb(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_periodic_cube_pyramid_grid"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Reset the grid format input parameter to identify
+  ! the grid as internally generated
+  !
+  grid_format = Internally_Generated_Grid
+  !
+  ! If we are generating the grid on the fly, make the reference length 1
+  !
+  Lref = one
+  !
+  ! The Taylor-Green vortex problem is always 3D
+  !
+  nr = 3
+  !
+  ! Reset bc_input for this fully periodic grid so that the subroutine
+  ! match_periodic_faces can correctly match all the periodic faces.
+  !
+  call reset_bc_input_for_internal_grid
+  !
+  ! Estimate the number of cells required to get the requested DOF. We are
+  ! converting each hex cell into 6 pyramid cells by adding a center node
+  ! to the hex cell; therefore, the total number of pyramid DoF per hex cell
+  ! is 6*(# DoF per pyramid cell). We need the number of pyramid DoF per hex
+  ! cell in each direction, so we need to take the cube root of the total
+  ! number of pyramid DoF per hex cell.
+  !
+  ncp = geom_solpts(Geom_Pyra,n_order)
+  npyr_dof_per_hex = nint( real(max(1,6*ncp),kind=wp)**one3 )
+  !
+  ! Get the number of cells in each direction
+  !
+  nc = nint( real(VortexGrid_DOF,kind=wp) / real(npyr_dof_per_hex,kind=wp) )
+  !
+  np = nc + 1 ! number of grid nodes in each direction
+  !
+  n_hex_cells = nc*nc*nc ! total number of hex grid cells
+  n_hex_nodes = np*np*np ! total number of hex grid nodes
+  !
+  ncell = 6*n_hex_cells ! total number of pyramid grid cells
+  nnode = n_hex_nodes + n_hex_cells ! total number of pyramid grid nodes
+  nfbnd = 6*nc*nc  ! total number of boundary faces (same as for hex grid)
+  !
+  ! Allocate all the arrays needed to define the grid
+  !
+  xyz_nodes = init_array(nr,nnode,zero) ! F2003 AUTO-REALLOC
+  !
+  ipelem = init_array(geom_nodes(Geom_Pyra),ncell,0) ! F2003 AUTO-REALLOC
+  ipehex = init_array(geom_nodes(Geom_Hexa),n_hex_cells,0) ! F2003 AUTO-REALLOC
+  !
+  nodes_of_cell_ptr = init_array(ncell+1,0) ! F2003 AUTO-REALLOC
+  !
+  nodes_of_cell = init_array(geom_nodes(Geom_Pyra)*ncell,0) ! F03 AUTO-REALLOC
+  !
+  bface = init_array(nbfai,nfbnd,0) ! F2003 AUTO-REALLOC
+  !
+  cell_geom = init_array(ncell,Geom_Pyra) ! F2003 AUTO-REALLOC
+  !
+  cell_order = init_array(ncell,n_order) ! F2003 AUTO-REALLOC
+  !
+  perturb = init_array(nr,nnode,real(0,kind=r4)) ! F2003 AUTO-REALLOC
+  !
+  ! #######
+  ! #######
+  ! ## 1 ##
+  ! #######
+  ! #######
+  !
+  ! Create ipelem
+  !
+  do k = 1,nc
+    do j = 1,nc
+      do i = 1,nc
+        !
+        nc_hex = map3dto1d(i,j,k,nc)
+        !
+        n0 = 6*(nc_hex-1)
+        !
+        ip_hex(1) = map3dto1d(i  ,j  ,k  ,np)
+        ip_hex(2) = map3dto1d(i+1,j  ,k  ,np)
+        ip_hex(3) = map3dto1d(i+1,j+1,k  ,np)
+        ip_hex(4) = map3dto1d(i  ,j+1,k  ,np)
+        ip_hex(5) = map3dto1d(i  ,j  ,k+1,np)
+        ip_hex(6) = map3dto1d(i+1,j  ,k+1,np)
+        ip_hex(7) = map3dto1d(i+1,j+1,k+1,np)
+        ip_hex(8) = map3dto1d(i  ,j+1,k+1,np)
+        !
+        ipehex(1:8,nc_hex) = ip_hex(1:8)
+        !
+        ip_mid = n_hex_nodes + nc_hex
+        !
+        ! Get the cell connectivities of the 6 pyramids in this hex cel
+        !
+        ip_pyr(1:5,1) = [ ip_hex([1,4,8,5]) , ip_mid ] ! x-min hex face as base
+        ip_pyr(1:5,2) = [ ip_hex([2,6,7,3]) , ip_mid ] ! x-max hex face as base
+        ip_pyr(1:5,3) = [ ip_hex([1,5,6,2]) , ip_mid ] ! y-min hex face as base
+        ip_pyr(1:5,4) = [ ip_hex([4,3,7,8]) , ip_mid ] ! y-max hex face as base
+        ip_pyr(1:5,5) = [ ip_hex([1,2,3,4]) , ip_mid ] ! z-min hex face as base
+        ip_pyr(1:5,6) = [ ip_hex([5,8,7,6]) , ip_mid ] ! z-max hex face as base
+        !
+        ! Randomly rotate the pyramid cell connectivities
+        !
+        if (randomly_rotate_cells_debug) then
+          do ncf = 1,6
+            l = min( 4 , max(1,random(5)) )
+            ip_pyr(1:5,ncf) = ip_pyr( pyr_random_rotation(1:5,l) , ncf )
+          end do
+        end if
+        !
+        ! Copy the pyramid connectivities into ipelem
+        !
+       !do ncf = 1,6
+       !  do l = 1,5
+       !    ipelem(l,n0+ncf) = ip_pyr(l,ncf)
+       !  end do
+       !end do
+        !
+        ipelem(1:5,n0+1) = ip_pyr(1:5,1)
+        ipelem(1:5,n0+2) = ip_pyr(1:5,2)
+        ipelem(1:5,n0+3) = ip_pyr(1:5,3)
+        ipelem(1:5,n0+4) = ip_pyr(1:5,4)
+        ipelem(1:5,n0+5) = ip_pyr(1:5,5)
+        ipelem(1:5,n0+6) = ip_pyr(1:5,6)
+        !
+      end do
+    end do
+  end do
+  !
+ !do n = 1,n_hex_cells
+ !  write (8502,851) n,(ipehex(i,n), i=1,8)
+ !end do
+ !851 format (i5,3x,8i4)
+ !do n = 1,ncell
+ !  write (8501,851) n,(ipelem(i,n), i=1,5)
+ !end do
+  !
+  ! Create the nodes_of_cell_ptr array
+  !
+  nodes_of_cell_ptr(1) = 0
+  do n = 2,size(nodes_of_cell_ptr)
+    nodes_of_cell_ptr(n) = nodes_of_cell_ptr(n-1) + geom_nodes(Geom_Pyra)
+  end do
+  !
+  ! Create the nodes_of_cell array
+  !
+  do n = 1,ncell
+    !
+    n0 = nodes_of_cell_ptr(n)
+    !
+    nodes_of_cell(n0+1) = ipelem(1,n)
+    nodes_of_cell(n0+2) = ipelem(2,n)
+    nodes_of_cell(n0+3) = ipelem(3,n)
+    nodes_of_cell(n0+4) = ipelem(4,n)
+    nodes_of_cell(n0+5) = ipelem(5,n)
+    !
+  end do
+  !
+  ! Deallocate ipelem since it is no longer needed
+  !
+  deallocate ( ipelem , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! #######
+  ! #######
+  ! ## 2 ##
+  ! #######
+  ! #######
+  !
+  ! Compute the cell length for a Cartesian/uniform grid
+  !
+  dl = real(1,kind=wp) / real(np-1,kind=wp)
+  !
+  ! Compute the random perturbations if the flag was set on input
+  !
+  if (VortexGrid_random_perturb) then
+    !
+    rbas = real(dl,kind=r4) * real(abs(VortexGrid_perturb_percent),kind=r4) &
+              / real(100,kind=r4)
+    radj = rbas / real(2,kind=r4)
+    !
+    ! Randomly perturb the crap out of the hex nodes
+    !
+    do k = 2,np-1
+      do j = 2,np-1
+        do i = 2,np-1
+          !
+          n = map3dto1d(i,j,k,np)
+          !
+          do l = 1,nr
+            rval = random(rbas) - radj
+            perturb(l,n) = rval
+          end do
+          !
+        end do
+      end do
+    end do
+    !
+    ! Randomly perturb the crap out of the center nodes in each hex
+    ! cell that defines the apex of the 6 pyramids
+    !
+    do k = 2,nc-1
+      do j = 2,nc-1
+        do i = 2,nc-1
+          !
+          n = n_hex_nodes + map3dto1d(i,j,k,nc)
+          !
+          do l = 1,nr
+            rval = random(rbas) - radj
+            perturb(l,n) = rval
+          end do
+          !
+        end do
+      end do
+    end do
+    !
+    ! Have the root processor broadcast its perturbations to all the
+    ! other processors so that the perturbations will be consistent
+    ! on all processors.
+    !
+    call mpi_bcast(perturb,size(perturb,kind=int_mpi), &
+                   MPI_REAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
+    !
+  end if
+  !
+  ! Create the grid node coordinates as a cube from (0,0,0) to (1,1,1)
+  ! NOTE: Scaling the grid to (-Lref,-Lref,-Lref) to (+Lref,+Lref,+Lref)
+  !       is now done in subroutine rescale_grid_for_vortex_problems.
+  !
+  do k = 1,np
+    !
+    z = dl * real(k-1,kind=wp)
+    !
+    do j = 1,np
+      !
+      y = dl * real(j-1,kind=wp)
+      !
+      do i = 1,np
+        !
+        x = dl * real(i-1,kind=wp)
+        !
+        n = map3dto1d(i,j,k,np)
+        !
+        xyz_nodes(1,n) = x
+        xyz_nodes(2,n) = y
+        xyz_nodes(3,n) = z
+       !write (8503,853) n,(xyz_nodes(l,n),l=1,3)
+       !853 format (i4,3x,3f8.4,:,3x,i4)
+        !
+      end do
+    end do
+  end do
+  !
+  ! Create the grid node coordinates for the center nodes in each hex
+  ! cell that defines the apex of the 6 pyramids
+  !
+  do k = 1,nc
+    !
+    z = dl * (real(k,kind=wp) - half)
+    !
+    do j = 1,nc
+      !
+      y = dl * (real(j,kind=wp) - half)
+      !
+      do i = 1,nc
+        !
+        x = dl * (real(i,kind=wp) - half)
+        !
+        nc_hex = map3dto1d(i,j,k,nc)
+        n = n_hex_nodes + nc_hex
+        !
+        xyz_nodes(1,n) = x
+        xyz_nodes(2,n) = y
+        xyz_nodes(3,n) = z
+       !write (8504,853) n,(xyz_nodes(l,n),l=1,3),nc_hex
+        !
+      end do
+      !
+    end do
+    !
+  end do
+  !
+  ! Now randomly perturb the grid nodes
+  !
+  if (VortexGrid_random_perturb) then
+    !
+    do n = 1,nnode
+      xyz_nodes(1,n) = xyz_nodes(1,n) + real(perturb(1,n),kind=wp)
+      xyz_nodes(2,n) = xyz_nodes(2,n) + real(perturb(2,n),kind=wp)
+      xyz_nodes(3,n) = xyz_nodes(3,n) + real(perturb(3,n),kind=wp)
+    end do
+    !
+  end if
+  !
+  ! Deallocate perturb since it is no longer needed
+  !
+  deallocate ( perturb , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"perturb",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! #######
+  ! #######
+  ! ## 3 ##
+  ! #######
+  ! #######
+  !
+  ! Create the bface array
+  !
+  ! Loop through the 6 grid boundaries
+  ! NOTE: This corresponds to the grid boundaries in
+  !       the order [imin,imax,jmin,jmax,kmin,kmax]
+  !
+  ! Min-X and Max-X boundary faces
+  !
+  n1 = 0          ! min-x counter
+  n2 = n1 + nc*nc ! max-x counter
+  do k = 1,nc
+    do j = 1,nc
+      !
+      imin = 1
+      imax = nc
+      !
+      nc_hex_min = map3dto1d(imin,j,k,nc)
+      nc_hex_max = map3dto1d(imax,j,k,nc)
+      !
+      nc_min = 6*(nc_hex_min-1) + 1 ! pyramid with x-min hex face as base
+      nc_max = 6*(nc_hex_max-1) + 2 ! pyramid with x-max hex face as base
+      !
+      n1 = n1 + 1 ! x-min face
+      n2 = n2 + 1 ! x-max face
+      !
+      ! NOTE: The subroutine match_periodic_faces will set the values of
+      !       bface([5,6,8,9],:), so we dont need to do that here.
+      !
+      bface( 1,n1) = bc_periodic
+      bface( 2,n1) = nc_min
+      bface( 3,n1) = Geom_Pyra
+      bface( 4,n1) = 5 ! always 5 since quad faces on periodic boundaries
+      bface( 6,n1) = 1 ! index for bc_input needed by match_periodic_faces
+      bface(10,n1) = ncell + n1
+      !
+      bface( 1,n2) = bc_periodic
+      bface( 2,n2) = nc_max
+      bface( 3,n2) = Geom_Pyra
+      bface( 4,n2) = 5 ! always 5 since quad faces on periodic boundaries
+      bface( 6,n2) = 2 ! index for bc_input needed by match_periodic_faces
+      bface(10,n2) = ncell + n2
+      !
+    end do
+  end do
+  !
+  ! Min-Y and Max-Y boundary faces
+  !
+  n1 = 2*nc*nc    ! min-y counter
+  n2 = n1 + nc*nc ! max-y counter
+  do k = 1,nc
+    do i = 1,nc
+      !
+      jmin = 1
+      jmax = nc
+      !
+      nc_hex_min = map3dto1d(i,jmin,k,nc)
+      nc_hex_max = map3dto1d(i,jmax,k,nc)
+      !
+      nc_min = 6*(nc_hex_min-1) + 3 ! pyramid with y-min hex face as base
+      nc_max = 6*(nc_hex_max-1) + 4 ! pyramid with y-max hex face as base
+      !
+      n1 = n1 + 1 ! y-min face
+      n2 = n2 + 1 ! y-max face
+      !
+      ! NOTE: The subroutine match_periodic_faces will set the values of
+      !       bface([5,6,8,9],:), so we dont need to do that here.
+      !
+      bface( 1,n1) = bc_periodic
+      bface( 2,n1) = nc_min
+      bface( 3,n1) = Geom_Pyra
+      bface( 4,n1) = 5 ! always 5 since quad faces on periodic boundaries
+      bface( 6,n1) = 3 ! index for bc_input needed by match_periodic_faces
+      bface(10,n1) = ncell + n1
+      !
+      bface( 1,n2) = bc_periodic
+      bface( 2,n2) = nc_max
+      bface( 3,n2) = Geom_Pyra
+      bface( 4,n2) = 5 ! always 5 since quad faces on periodic boundaries
+      bface( 6,n2) = 4 ! index for bc_input needed by match_periodic_faces
+      bface(10,n2) = ncell + n2
+      !
+    end do
+  end do
+  !
+  ! Min-Z and Max-Z boundary faces
+  !
+  n1 = 4*nc*nc    ! min-z counter
+  n2 = n1 + nc*nc ! max-z counter
+  do j = 1,nc
+    do i = 1,nc
+      !
+      kmin = 1
+      kmax = nc
+      !
+      nc_hex_min = map3dto1d(i,j,kmin,nc)
+      nc_hex_max = map3dto1d(i,j,kmax,nc)
+      !
+      nc_min = 6*(nc_hex_min-1) + 5 ! pyramid with z-min hex face as base
+      nc_max = 6*(nc_hex_max-1) + 6 ! pyramid with z-max hex face as base
+      !
+      n1 = n1 + 1 ! z-min face
+      n2 = n2 + 1 ! z-max face
+      !
+      ! NOTE: The subroutine match_periodic_faces will set the values of
+      !       bface([5,6,8,9],:), so we dont need to do that here.
+      !
+      bface( 1,n1) = bc_periodic
+      bface( 2,n1) = nc_min
+      bface( 3,n1) = Geom_Pyra
+      bface( 4,n1) = 5 ! always 5 since quad faces on periodic boundaries
+      bface( 6,n1) = 5 ! index for bc_input needed by match_periodic_faces
+      bface(10,n1) = ncell + n1
+      !
+      bface( 1,n2) = bc_periodic
+      bface( 2,n2) = nc_max
+      bface( 3,n2) = Geom_Pyra
+      bface( 4,n2) = 5 ! always 5 since quad faces on periodic boundaries
+      bface( 6,n2) = 6 ! index for bc_input needed by match_periodic_faces
+      bface(10,n2) = ncell + n2
+      !
+    end do
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  contains
+  !
+  pure function map3dto1d(i,j,k,n) result(return_value)
+    integer, intent(in) :: i,j,k,n
+    integer :: return_value
+    return_value = i + n*(j-1) + n*n*(k-1)
+  end function map3dto1d
+  !
+end subroutine create_periodic_cube_pyramid_grid
+!
+!###############################################################################
+!
 subroutine reset_bc_input_for_internal_grid()
   !
   !.. Use Statements ..
