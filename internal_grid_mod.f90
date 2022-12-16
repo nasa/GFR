@@ -418,7 +418,11 @@ subroutine create_periodic_cube_hex_grid()
   real(r4) :: x,y,z,dl
   real(r4) :: rbas,radj,rval
   !
+  !.. Local Arrays ..
+  integer :: ip(1:8)
+  !
   !.. Local Allocatable Arrays ..
+  integer,  allocatable :: ipelem(:,:)
   real(r4), allocatable :: perturb(:,:)
   !
   !.. Local Parameters ..
@@ -460,6 +464,8 @@ continue
   !
   xyz_nodes = init_array(nr,nnode,zero) ! F2003 AUTO-REALLOC
   !
+  ipelem = init_array(geom_nodes(Geom_Hexa),ncell,0) ! F2003 AUTO-REALLOC
+  !
   nodes_of_cell_ptr = init_array(ncell+1,0) ! F2003 AUTO-REALLOC
   !
   nodes_of_cell = init_array(geom_nodes(Geom_Hexa)*ncell,0) ! F03 AUTO-REALLOC
@@ -477,6 +483,60 @@ continue
   ! ## 1 ##
   ! #######
   ! #######
+  !
+  ! Create ipelem
+  !
+  do k = 1,nc
+    do j = 1,nc
+      do i = 1,nc
+        !
+        n = map3dto1d(i,j,k,nc)
+        !
+        ip(1) = map3dto1d(i  ,j  ,k  ,np)
+        ip(2) = map3dto1d(i+1,j  ,k  ,np)
+        ip(3) = map3dto1d(i+1,j+1,k  ,np)
+        ip(4) = map3dto1d(i  ,j+1,k  ,np)
+        ip(5) = map3dto1d(i  ,j  ,k+1,np)
+        ip(6) = map3dto1d(i+1,j  ,k+1,np)
+        ip(7) = map3dto1d(i+1,j+1,k+1,np)
+        ip(8) = map3dto1d(i  ,j+1,k+1,np)
+        !
+        if (randomly_rotate_cells_debug) then
+          !
+          ! Randomly rotate the cell connectivity of all the hex cells
+          ! NOTE: This leaves the grid nodes in a structured ijk order.
+          !       Only the cell connectivities are randomized.
+          !       The cells will also still be in a structured ijk order,
+          !       but what faces of each cell face in each ijk direction
+          !       will be randomized.
+          !
+          l = min( 24 , max(1,random(25)) )
+          !
+          ipelem(1,n) = ip( hex_random_rotation(1,l) )
+          ipelem(2,n) = ip( hex_random_rotation(2,l) )
+          ipelem(3,n) = ip( hex_random_rotation(3,l) )
+          ipelem(4,n) = ip( hex_random_rotation(4,l) )
+          ipelem(5,n) = ip( hex_random_rotation(5,l) )
+          ipelem(6,n) = ip( hex_random_rotation(6,l) )
+          ipelem(7,n) = ip( hex_random_rotation(7,l) )
+          ipelem(8,n) = ip( hex_random_rotation(8,l) )
+          !
+        else
+          !
+          ipelem(1,n) = ip(1)
+          ipelem(2,n) = ip(2)
+          ipelem(3,n) = ip(3)
+          ipelem(4,n) = ip(4)
+          ipelem(5,n) = ip(5)
+          ipelem(6,n) = ip(6)
+          ipelem(7,n) = ip(7)
+          ipelem(8,n) = ip(8)
+          !
+        end if
+        !
+      end do
+    end do
+  end do
   !
   ! Create the nodes_of_cell_ptr array
   !
@@ -735,6 +795,11 @@ continue
       !
     end do
   end do
+  !
+  ! Deallocate ipelem and msk since they are no longer needed
+  !
+  deallocate ( ipelem , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
   !
   call debug_timer(leaving_procedure,pname)
   !
