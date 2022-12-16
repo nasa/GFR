@@ -350,9 +350,12 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/quadrature_mod.o \
        $(OBJDIR)/interpolation_mod.o \
        $(OBJDIR)/initialize.o \
+       $(OBJDIR)/oerk_mod.o \
+       $(OBJDIR)/eperk_mod.o \
        $(OBJDIR)/restart_mod.o \
        $(OBJDIR)/thermo_mod.o \
        $(OBJDIR)/turb_inflow_mod.o \
+       $(OBJDIR)/periodic_mod.o \
        $(FUNDIR)/last.f90 \
        $(FUNDIR)/bc_priority.f90 \
        $(FUNDIR)/cell_vol.f90 \
