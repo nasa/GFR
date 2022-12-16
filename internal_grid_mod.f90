@@ -414,7 +414,7 @@ subroutine create_periodic_cube_hex_grid()
   !
   !.. Local Scalars ..
   integer :: nc,np,ierr,i,j,k,l,n,n1,n2
-  integer :: nf_min,nf_max
+  integer :: nf_min,nf_max,n0
   real(r4) :: x,y,z,dl
   real(r4) :: rbas,radj,rval
   !
@@ -549,23 +549,19 @@ continue
   !
   ! Create the nodes_of_cell array
   !
-  do k = 1,nc
-    do j = 1,nc
-      do i = 1,nc
-        !
-        n = nodes_of_cell_ptr( map3dto1d(i,j,k,nc) )
-        !
-        nodes_of_cell(n+1) = map3dto1d(i  ,j  ,k  ,np)
-        nodes_of_cell(n+2) = map3dto1d(i+1,j  ,k  ,np)
-        nodes_of_cell(n+3) = map3dto1d(i+1,j+1,k  ,np)
-        nodes_of_cell(n+4) = map3dto1d(i  ,j+1,k  ,np)
-        nodes_of_cell(n+5) = map3dto1d(i  ,j  ,k+1,np)
-        nodes_of_cell(n+6) = map3dto1d(i+1,j  ,k+1,np)
-        nodes_of_cell(n+7) = map3dto1d(i+1,j+1,k+1,np)
-        nodes_of_cell(n+8) = map3dto1d(i  ,j+1,k+1,np)
-        !
-      end do
-    end do
+  do n = 1,ncell
+    !
+    n0 = nodes_of_cell_ptr(n)
+    !
+    nodes_of_cell(n0+1) = ipelem(1,n)
+    nodes_of_cell(n0+2) = ipelem(2,n)
+    nodes_of_cell(n0+3) = ipelem(3,n)
+    nodes_of_cell(n0+4) = ipelem(4,n)
+    nodes_of_cell(n0+5) = ipelem(5,n)
+    nodes_of_cell(n0+6) = ipelem(6,n)
+    nodes_of_cell(n0+7) = ipelem(7,n)
+    nodes_of_cell(n0+8) = ipelem(8,n)
+    !
   end do
   !
   ! #######
