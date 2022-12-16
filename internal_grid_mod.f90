@@ -414,12 +414,17 @@ subroutine create_periodic_cube_hex_grid()
   !
   !.. Local Scalars ..
   integer :: nc,np,ierr,i,j,k,l,n,n1,n2
-  integer :: nf_min,nf_max,n0
+  integer :: nf_min,nf_max,n0,nc_min,nc_max
+  integer :: imin,imax,imin_side,imax_side
+  integer :: jmin,jmax,jmin_side,jmax_side
+  integer :: kmin,kmax,kmin_side,kmax_side
   real(r4) :: x,y,z,dl
   real(r4) :: rbas,radj,rval
   !
   !.. Local Arrays ..
   integer :: ip(1:8)
+  integer :: ifp(1:4)
+  integer :: icp(1:8)
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: ipelem(:,:)
@@ -704,27 +709,105 @@ continue
   do k = 1,nc
     do j = 1,nc
       !
-      n1 = n1 + 1
-      n2 = n2 + 1
+      imin = 1
+      imax = nc
+      !
+      nc_min = map3dto1d(imin,j,k,nc)
+      nc_max = map3dto1d(imax,j,k,nc)
+      !
+      n1 = n1 + 1 ! x-min face
+      n2 = n2 + 1 ! x-max face
+      !
+      if (.not. randomly_rotate_cells_debug) then
+        !
+        imin_side = HostFace3D(1)
+        imax_side = HostFace3D(2)
+        !
+      else
+        !
+        ! get the structured ijk nodes of the x-min face
+        !
+        ip(1) = map3dto1d(imin  ,j  ,k  ,np)
+        ip(2) = map3dto1d(imin+1,j  ,k  ,np)
+        ip(3) = map3dto1d(imin+1,j+1,k  ,np)
+        ip(4) = map3dto1d(imin  ,j+1,k  ,np)
+        ip(5) = map3dto1d(imin  ,j  ,k+1,np)
+        ip(6) = map3dto1d(imin+1,j  ,k+1,np)
+        ip(7) = map3dto1d(imin+1,j+1,k+1,np)
+        ip(8) = map3dto1d(imin  ,j+1,k+1,np)
+        !
+        ! get the face nodes that are on this x-min boundary face
+        !
+        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(1),Geom_Hexa) + 1 )
+        !
+        ! mark these face nodes
+        !
+        msk(ifp(1:4)) = true
+        !
+        ! get the cell nodes for this cell in the randomized order
+        !
+        icp(1:8) = ipelem(1:8,nc_min)
+        !
+        ! loop through the different cell faces and find which face
+        ! has the same nodes as the x-min boundary face
+        !
+        imin_side = -99
+        imin_side_loop: &
+        do l = 1,6
+          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
+            imin_side = l
+            exit imin_side_loop
+          end if
+        end do imin_side_loop
+        !
+        ! reset the marker for these face nodes
+        !
+        msk(ifp(1:4)) = fals
+        !
+        ! get the structured ijk nodes of the x-max face
+        !
+        ip(1) = map3dto1d(imax  ,j  ,k  ,np)
+        ip(2) = map3dto1d(imax+1,j  ,k  ,np)
+        ip(3) = map3dto1d(imax+1,j+1,k  ,np)
+        ip(4) = map3dto1d(imax  ,j+1,k  ,np)
+        ip(5) = map3dto1d(imax  ,j  ,k+1,np)
+        ip(6) = map3dto1d(imax+1,j  ,k+1,np)
+        ip(7) = map3dto1d(imax+1,j+1,k+1,np)
+        ip(8) = map3dto1d(imax  ,j+1,k+1,np)
+        !
+        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(2),Geom_Hexa) + 1 )
+        !
+        msk(ifp(1:4)) = true
+        !
+        icp(1:8) = ipelem(1:8,nc_max)
+        imax_side = -99
+        imax_side_loop: &
+        do l = 1,6
+          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
+            imax_side = l
+            exit imax_side_loop
+          end if
+        end do imax_side_loop
+        !
+        msk(ifp(1:4)) = fals
+        !
+      end if
+      !
+      ! NOTE: The subroutine match_periodic_faces will set the values of
+      !       bface([5,6,8,9],:), so we dont need to do that here.
       !
       bface( 1,n1) = bc_periodic
-      bface( 2,n1) = map3dto1d(1 ,j,k,nc)
+      bface( 2,n1) = nc_min
       bface( 3,n1) = Geom_Hexa
-      bface( 4,n1) = HostFace3D(1)
-      bface( 5,n1) = n2
-      bface( 6,n1) = map3dto1d(nc,j,k,nc)
-      bface( 8,n1) = Geom_Hexa
-      bface( 9,n1) = HostFace3D(2)
+      bface( 4,n1) = imin_side
+      bface( 6,n1) = 1 ! index for bc_input needed by match_periodic_faces
       bface(10,n1) = ncell + n1
       !
       bface( 1,n2) = bc_periodic
-      bface( 2,n2) = bface(6,n1)
-      bface( 3,n2) = bface(8,n1)
-      bface( 4,n2) = bface(9,n1)
-      bface( 5,n2) = n1
-      bface( 6,n2) = bface(2,n1)
-      bface( 8,n2) = bface(3,n1)
-      bface( 9,n2) = bface(4,n1)
+      bface( 2,n2) = nc_max
+      bface( 3,n2) = Geom_Hexa
+      bface( 4,n2) = imax_side
+      bface( 6,n2) = 2 ! index for bc_input needed by match_periodic_faces
       bface(10,n2) = ncell + n2
       !
     end do
@@ -737,27 +820,93 @@ continue
   do k = 1,nc
     do i = 1,nc
       !
-      n1 = n1 + 1
-      n2 = n2 + 1
+      jmin = 1
+      jmax = nc
+      !
+      nc_min = map3dto1d(i,jmin,k,nc)
+      nc_max = map3dto1d(i,jmax,k,nc)
+      !
+      n1 = n1 + 1 ! y-min face
+      n2 = n2 + 1 ! y-max face
+      !
+      if (.not. randomly_rotate_cells_debug) then
+        !
+        jmin_side = HostFace3D(3)
+        jmax_side = HostFace3D(4)
+        !
+      else
+        !
+        ! get the structured ijk nodes of the y-min face
+        !
+        ip(1) = map3dto1d(i  ,jmin  ,k  ,np)
+        ip(2) = map3dto1d(i+1,jmin  ,k  ,np)
+        ip(3) = map3dto1d(i+1,jmin+1,k  ,np)
+        ip(4) = map3dto1d(i  ,jmin+1,k  ,np)
+        ip(5) = map3dto1d(i  ,jmin  ,k+1,np)
+        ip(6) = map3dto1d(i+1,jmin  ,k+1,np)
+        ip(7) = map3dto1d(i+1,jmin+1,k+1,np)
+        ip(8) = map3dto1d(i  ,jmin+1,k+1,np)
+        !
+        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(3),Geom_Hexa) + 1 )
+        !
+        msk(ifp(1:4)) = true
+        !
+        icp(1:8) = ipelem(1:8,nc_min)
+        jmin_side = -99
+        jmin_side_loop: &
+        do l = 1,6
+          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
+            jmin_side = l
+            exit jmin_side_loop
+          end if
+        end do jmin_side_loop
+        !
+        msk(ifp(1:4)) = fals
+        !
+        ! get the structured ijk nodes of the y-max face
+        !
+        ip(1) = map3dto1d(i  ,jmax  ,k  ,np)
+        ip(2) = map3dto1d(i+1,jmax  ,k  ,np)
+        ip(3) = map3dto1d(i+1,jmax+1,k  ,np)
+        ip(4) = map3dto1d(i  ,jmax+1,k  ,np)
+        ip(5) = map3dto1d(i  ,jmax  ,k+1,np)
+        ip(6) = map3dto1d(i+1,jmax  ,k+1,np)
+        ip(7) = map3dto1d(i+1,jmax+1,k+1,np)
+        ip(8) = map3dto1d(i  ,jmax+1,k+1,np)
+        !
+        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(4),Geom_Hexa) + 1 )
+        !
+        msk(ifp(1:4)) = true
+        !
+        icp(1:8) = ipelem(1:8,nc_max)
+        jmax_side = -99
+        jmax_side_loop: &
+        do l = 1,6
+          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
+            jmax_side = l
+            exit jmax_side_loop
+          end if
+        end do jmax_side_loop
+        !
+        msk(ifp(1:4)) = fals
+        !
+      end if
+      !
+      ! NOTE: The subroutine match_periodic_faces will set the values of
+      !       bface([5,6,8,9],:), so we dont need to do that here.
       !
       bface( 1,n1) = bc_periodic
-      bface( 2,n1) = map3dto1d(i,1 ,k,nc)
+      bface( 2,n1) = nc_min
       bface( 3,n1) = Geom_Hexa
-      bface( 4,n1) = HostFace3D(3)
-      bface( 5,n1) = n2
-      bface( 6,n1) = map3dto1d(i,nc,k,nc)
-      bface( 8,n1) = Geom_Hexa
-      bface( 9,n1) = HostFace3D(4)
+      bface( 4,n1) = jmin_side
+      bface( 6,n1) = 3 ! index for bc_input needed by match_periodic_faces
       bface(10,n1) = ncell + n1
       !
       bface( 1,n2) = bc_periodic
-      bface( 2,n2) = bface(6,n1)
-      bface( 3,n2) = bface(8,n1)
-      bface( 4,n2) = bface(9,n1)
-      bface( 5,n2) = n1
-      bface( 6,n2) = bface(2,n1)
-      bface( 8,n2) = bface(3,n1)
-      bface( 9,n2) = bface(4,n1)
+      bface( 2,n2) = nc_max
+      bface( 3,n2) = Geom_Hexa
+      bface( 4,n2) = jmax_side
+      bface( 6,n2) = 4 ! index for bc_input needed by match_periodic_faces
       bface(10,n2) = ncell + n2
       !
     end do
@@ -770,27 +919,93 @@ continue
   do j = 1,nc
     do i = 1,nc
       !
-      n1 = n1 + 1
-      n2 = n2 + 1
+      kmin = 1
+      kmax = nc
+      !
+      nc_min = map3dto1d(i,j,kmin,nc)
+      nc_max = map3dto1d(i,j,kmax,nc)
+      !
+      n1 = n1 + 1 ! z-min face
+      n2 = n2 + 1 ! z-max face
+      !
+      if (.not. randomly_rotate_cells_debug) then
+        !
+        kmin_side = HostFace3D(5)
+        kmax_side = HostFace3D(6)
+        !
+      else
+        !
+        ! get the structured ijk nodes of the y-min face
+        !
+        ip(1) = map3dto1d(i  ,j  ,kmin  ,np)
+        ip(2) = map3dto1d(i+1,j  ,kmin  ,np)
+        ip(3) = map3dto1d(i+1,j+1,kmin  ,np)
+        ip(4) = map3dto1d(i  ,j+1,kmin  ,np)
+        ip(5) = map3dto1d(i  ,j  ,kmin+1,np)
+        ip(6) = map3dto1d(i+1,j  ,kmin+1,np)
+        ip(7) = map3dto1d(i+1,j+1,kmin+1,np)
+        ip(8) = map3dto1d(i  ,j+1,kmin+1,np)
+        !
+        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(5),Geom_Hexa) + 1 )
+        !
+        msk(ifp(1:4)) = true
+        !
+        icp(1:8) = ipelem(1:8,nc_min)
+        kmin_side = -99
+        kmin_side_loop: &
+        do l = 1,6
+          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
+            kmin_side = l
+            exit kmin_side_loop
+          end if
+        end do kmin_side_loop
+        !
+        msk(ifp(1:4)) = fals
+        !
+        ! get the structured ijk nodes of the y-max face
+        !
+        ip(1) = map3dto1d(i  ,j  ,kmax  ,np)
+        ip(2) = map3dto1d(i+1,j  ,kmax  ,np)
+        ip(3) = map3dto1d(i+1,j+1,kmax  ,np)
+        ip(4) = map3dto1d(i  ,j+1,kmax  ,np)
+        ip(5) = map3dto1d(i  ,j  ,kmax+1,np)
+        ip(6) = map3dto1d(i+1,j  ,kmax+1,np)
+        ip(7) = map3dto1d(i+1,j+1,kmax+1,np)
+        ip(8) = map3dto1d(i  ,j+1,kmax+1,np)
+        !
+        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(6),Geom_Hexa) + 1 )
+        !
+        msk(ifp(1:4)) = true
+        !
+        icp(1:8) = ipelem(1:8,nc_max)
+        kmax_side = -99
+        kmax_side_loop: &
+        do l = 1,6
+          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
+            kmax_side = l
+            exit kmax_side_loop
+          end if
+        end do kmax_side_loop
+        !
+        msk(ifp(1:4)) = fals
+        !
+      end if
+      !
+      ! NOTE: The subroutine match_periodic_faces will set the values of
+      !       bface([5,6,8,9],:), so we dont need to do that here.
       !
       bface( 1,n1) = bc_periodic
-      bface( 2,n1) = map3dto1d(i,j,1 ,nc)
+      bface( 2,n1) = nc_min
       bface( 3,n1) = Geom_Hexa
-      bface( 4,n1) = HostFace3D(5)
-      bface( 5,n1) = n2
-      bface( 6,n1) = map3dto1d(i,j,nc,nc)
-      bface( 8,n1) = Geom_Hexa
-      bface( 9,n1) = HostFace3D(6)
+      bface( 4,n1) = kmin_side
+      bface( 6,n1) = 5 ! index for bc_input needed by match_periodic_faces
       bface(10,n1) = ncell + n1
       !
       bface( 1,n2) = bc_periodic
-      bface( 2,n2) = bface(6,n1)
-      bface( 3,n2) = bface(8,n1)
-      bface( 4,n2) = bface(9,n1)
-      bface( 5,n2) = n1
-      bface( 6,n2) = bface(2,n1)
-      bface( 8,n2) = bface(3,n1)
-      bface( 9,n2) = bface(4,n1)
+      bface( 2,n2) = nc_max
+      bface( 3,n2) = Geom_Hexa
+      bface( 4,n2) = kmax_side
+      bface( 6,n2) = 6 ! index for bc_input needed by match_periodic_faces
       bface(10,n2) = ncell + n2
       !
     end do
