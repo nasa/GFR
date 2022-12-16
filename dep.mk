@@ -483,6 +483,14 @@ $(OBJDIR)/octtree_mod.o : octtree_mod.f90 \
                 $(OBJDIR)/octstat_mod.o \
                 $(FUNDIR)/debug_timer.f90
 
+$(OBJDIR)/oerk_mod.o : oerk_mod.f90 \
+             $(OBJDIR)/kind_types.o \
+             $(OBJDIR)/eqn_idx_mod.o \
+             $(OBJDIR)/geovar_mod.o \
+             $(OBJDIR)/ovar_mod.o \
+             $(OBJDIR)/flowvar_mod.o \
+             $(OBJDIR)/time_mod.o
+
 $(OBJDIR)/order_mod.o : order_mod.f90 \
               $(OBJDIR)/kind_types.o \
               $(OBJDIR)/geovar_mod.o \
