@@ -522,6 +522,13 @@ $(OBJDIR)/pbs_mod.o : pbs_mod.f90 \
 
 $(OBJDIR)/pbs_time_left.o : $(FUNDIR)/pbs_time_left.c
 
+$(OBJDIR)/periodic_mod.o : periodic_mod.f90 \
+                 $(OBJDIR)/kind_types.o \
+                 $(OBJDIR)/geovar_mod.o \
+                 $(OBJDIR)/ovar_mod.o \
+                 $(OBJDIR)/cgnstypes_mod.o \
+                 $(OBJDIR)/connectivity.o
+
 $(OBJDIR)/plot3d_mod.o : plot3d_mod.f90 \
                $(OBJDIR)/kind_types.o \
                $(OBJDIR)/geovar_mod.o \
