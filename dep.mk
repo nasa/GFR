@@ -15,6 +15,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/projection_mod.o \
          $(OBJDIR)/filter_mod.o \
          $(OBJDIR)/io.o \
+         $(OBJDIR)/periodic_mod.o \
          $(OBJDIR)/write_cgns_mod.o \
          $(OBJDIR)/metrics.o \
          $(OBJDIR)/mappings.o \
@@ -26,6 +27,8 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/flux.o \
          $(OBJDIR)/parallel.o \
          $(OBJDIR)/time_mod.o \
+         $(OBJDIR)/oerk_mod.o \
+         $(OBJDIR)/eperk_mod.o \
          $(OBJDIR)/mms_mod.o \
          $(OBJDIR)/channel_mod.o \
          $(OBJDIR)/limiters.o \
