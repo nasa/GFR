@@ -110,6 +110,8 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/flux.o \
         $(OBJDIR)/filter_mod.o \
         $(OBJDIR)/time_mod.o \
+        $(OBJDIR)/oerk_mod.o \
+        $(OBJDIR)/eperk_mod.o \
         $(OBJDIR)/matrix_types_mod.o \
         $(OBJDIR)/eqn_idx_mod.o \
         $(OBJDIR)/correction_mod.o \
@@ -117,6 +119,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/interpolation_mod.o \
         $(OBJDIR)/projection_mod.o \
         $(OBJDIR)/vandermonde_mod.o \
+        $(OBJDIR)/periodic_mod.o \
         $(OBJDIR)/metis.o \
         $(OBJDIR)/parallel.o \
         $(OBJDIR)/mappings.o \
