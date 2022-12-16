@@ -425,6 +425,8 @@ subroutine create_periodic_cube_hex_grid()
   integer,  allocatable :: ipelem(:,:)
   real(r4), allocatable :: perturb(:,:)
   !
+  logical(lk), allocatable :: msk(:)
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_periodic_cube_hex_grid"
   !
@@ -689,6 +691,8 @@ continue
   ! #######
   ! #######
   !
+  msk = init_array(nnode,fals) ! F2003 AUTO-REALLOC
+  !
   ! Create the bface array
   !
   nf_max = 0
@@ -800,6 +804,9 @@ continue
   !
   deallocate ( ipelem , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  deallocate ( msk , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
   !
   call debug_timer(leaving_procedure,pname)
   !
