@@ -158,6 +158,14 @@ $(OBJDIR)/derivatives_mod.o : derivatives_mod.f90 \
 $(OBJDIR)/element_type_mod.o : element_type_mod.f90 \
                      $(OBJDIR)/kind_types.o
 
+$(OBJDIR)/eperk_mod.o : eperk_mod.f90 \
+              $(OBJDIR)/kind_types.o \
+              $(OBJDIR)/eqn_idx_mod.o \
+              $(OBJDIR)/geovar_mod.o \
+              $(OBJDIR)/ovar_mod.o \
+              $(OBJDIR)/flowvar_mod.o \
+              $(OBJDIR)/time_mod.o
+
 $(OBJDIR)/eqn_idx_mod.o : eqn_idx_mod.f90 \
                 $(OBJDIR)/kind_types.o \
                 $(OBJDIR)/ovar_mod.o
