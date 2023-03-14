@@ -2,7 +2,7 @@ module bc_wall_mod
   !
   !.. Use Statements
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nee
+  use eqn_idx, only : nec,nmx,nmy,nmz,nee,nq
   use eqn_idx, only : ncs,npres,ntemp,ngamm
   !
   implicit none
@@ -231,7 +231,7 @@ continue
     !
   end if
   !
-end subroutine get_bc_wall_gp_solution_3d
+end subroutine get_bc_wall_gp_solution
 !
 !###############################################################################
 !
