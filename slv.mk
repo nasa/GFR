@@ -150,19 +150,18 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/reactions_mod.o \
         $(OBJDIR)/turb_inflow_mod.o \
         $(OBJDIR)/thx_mod.o \
+        $(OBJDIR)/taylor_couette_mod.o \
         $(OBJDIR)/mydebug_mod.o \
-        $(OBJDIR)/bc_adiabatic_wall_mod.o \
+        $(OBJDIR)/bc_wall_mod.o \
         $(OBJDIR)/bc_fixed_mod.o \
         $(OBJDIR)/bc_flowthrough_grad_mod.o \
         $(OBJDIR)/bc_gen_free_mod.o \
         $(OBJDIR)/bc_gen_in_mod.o \
         $(OBJDIR)/bc_gen_out_mod.o \
-        $(OBJDIR)/bc_isothermal_wall_mod.o \
         $(OBJDIR)/bc_mms_mod.o \
         $(OBJDIR)/bc_periodic_mod.o \
         $(OBJDIR)/bc_relax_mod.o \
         $(OBJDIR)/bc_riemann_mod.o \
-        $(OBJDIR)/bc_slip_wall_mod.o \
         $(OBJDIR)/bc_sub_in_mod.o \
         $(OBJDIR)/bc_sub_out_mod.o \
         $(OBJDIR)/bc_sup_out_mod.o \
