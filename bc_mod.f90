@@ -78,9 +78,7 @@ subroutine get_faceusp_bc(exit_error)
   use bc_sub_in_mod,           only : get_bc_sub_inflow_solution
   use bc_sub_out_mod,          only : get_bc_sub_outflow_solution
   use bc_sup_out_mod,          only : get_bc_sup_outflow_solution
-  use bc_slip_wall_mod,        only : get_bc_slip_wall_solution
-  use bc_adiabatic_wall_mod,   only : get_bc_adiabatic_wall_solution
-  use bc_isothermal_wall_mod,  only : get_bc_isothermal_wall_solution
+  use bc_wall_mod,             only : get_bc_wall_solution
   use bc_periodic_mod,         only : get_bc_periodic_solution
   use bc_mms_mod,              only : get_bc_mms_dirichlet_solution
   !
@@ -94,6 +92,9 @@ subroutine get_faceusp_bc(exit_error)
   !
   !.. Local Saved Scalars ..
   logical(lk), save :: first_output = true
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: pv_in(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_faceusp_bc"
@@ -251,39 +252,31 @@ continue
         !
         call get_bc_sup_outflow_solution(n1,n2,faceusp_array)
         !
-      case (bc_slip_wall,bc_symmetry)
+      case (bc_slip_wall,bc_symmetry,bc_adiabatic_wall,bc_isothermal_wall)
         !
-        ! Slip wall / symmetry boundary condition
+        ! All wall-type BCs
+        !  - Slip wall
+        !  - Symmetry BC
+        !  - No-slip adiabatic  wall, with/without imposed wall velocity
+        !  - No-slip isothermal wall, with/without imposed wall velocity
         !
-        call get_bc_slip_wall_solution(n1,n2,facenrm,faceusp_array)
+        pv_in = bc_in(bc_idx)%pv(:) ! F2003 AUTO-REALLOC
         !
-      case (bc_adiabatic_wall)
+        ! If bc_idx==0, that means this wall-type boundary condition doesnt
+        ! specify any flow conditions (e.g., imposed wall velocity) and just
+        ! uses interior values and a zero-velocity wall for a no-slip wall.
+        ! That means we need to zero out the velocity in pv_in when bc_idx==0,
+        ! because otherwise the no-slip wall BCs will impose the free stream
+        ! velocity at the wall, since that is what is saved in
+        ! bc_in(0)%pv(nmb:nme).
         !
-        ! No-slip adiabatic wall
+        if (bc_idx == 0) pv_in(nmb:nme) = zero
         !
-        if (bc_idx /= 0) then
-          call get_bc_adiabatic_wall_solution(n1,n2,facenrm, &
-                                              faceusp_array,facegpsp, &
-                                              bc_in(bc_idx)%relax, &
-                                              bc_in(bc_idx)%pv)
-        else
-          call get_bc_adiabatic_wall_solution(n1,n2,facenrm, &
-                                              faceusp_array,facegpsp, &
-                                              bc_in(bc_idx)%relax)
-        end if
-        !
-      case (bc_isothermal_wall)
-        !
-        ! No-slip isothermal wall
-        !
-        if (bc_idx /= 0) then
-          call get_bc_isothermal_wall_solution(n1,n2,faceusp_array,facegpsp, &
-                                               bc_in(bc_idx)%wall_temperature, &
-                                               bc_in(bc_idx)%pv)
-        else
-          call get_bc_isothermal_wall_solution(n1,n2,faceusp_array,facegpsp, &
-                                               bc_in(bc_idx)%wall_temperature)
-        end if
+        call get_bc_wall_solution(n1,n2,bc_type,facexyz_array,facenrm, &
+                                  faceusp_array,facegpsp, &
+                                  bc_in(bc_idx)%relax,pv_in, &
+                                  bc_in(bc_idx)%wall_temperature, &
+                                  bc_in(bc_idx)%rotation_speed)
         !
       case (bc_periodic)
         !
@@ -397,9 +390,7 @@ subroutine get_facedusp_bc
   use flowvar,      only : facedusp_array
   use flowvar,      only : facegpsp
   !
-  use bc_adiabatic_wall_mod,   only : get_bc_adiabatic_wall_gradient
-  use bc_slip_wall_mod,        only : get_bc_slip_wall_gradient
-  use bc_isothermal_wall_mod,  only : get_bc_wall_gradient
+  use bc_wall_mod,             only : get_bc_wall_gradient
   use bc_periodic_mod,         only : get_bc_periodic_gradient
   use bc_flowthrough_grad_mod, only : get_bc_flowthrough_gradient
   !
@@ -431,35 +422,16 @@ continue
     !
     if (any(bc_type == bc_walls)) then
       !
-      ! Wall boundary condition
+      ! All wall-type boundary conditions
+      !  - Slip wall
+      !  - Symmetry BC
+      !  - No-slip adiabatic  wall
+      !  - No-slip isothermal wall
       !
-      if (bc_type == bc_adiabatic_wall) then
-        !
-        ! No-slip adiabatic wall boundary conditions
-        !
-        call get_bc_adiabatic_wall_gradient(n1,n2,facenrm, &
-                                            faceusp_array(:,:,1), &
-                                            facedusp_array)
-        !
-      else if (any(bc_type == [bc_slip_wall,bc_symmetry])) then
-        !
-        ! Slip wall / symmetry boundary condition
-        !
-        call get_bc_slip_wall_gradient(n1,n2,facenrm, &
-                                       faceusp_array(:,:,1), &
-                                       facegpsp(:,:,1), &
-                                       facedusp_array)
-        !
-      else
-        !
-        ! Non-adiabatic wall boundary condition
-        !
-        call get_bc_wall_gradient(n1,n2, &
-                                  faceusp_array(:,:,1), &
-                                  facegpsp(:,:,1), &
-                                  facedusp_array)
-        !
-      end if
+      call get_bc_wall_gradient(n1,n2,bc_type,facenrm, &
+                                faceusp_array(:,:,1), &
+                                facegpsp(:,:,1), &
+                                facedusp_array)
       !
     else if (bc_type == bc_periodic) then
       !
