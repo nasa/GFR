@@ -2050,6 +2050,8 @@ subroutine initialize_reference
   use transport_mod, only : init_transport_mod
   use reactions_mod, only : init_reactions_mod
   !
+  use taylor_couette_mod, only : initialize_taylor_couette_problem
+  !
   !.. Local Scalars ..
   integer  :: ierr
   real(wp) :: rhoa,rhoa2,tda2,q2
@@ -2141,6 +2143,20 @@ continue
       !
       suth_Sref = 110.5556_wp
       suth_Tref = 273.111_wp
+      !
+    else if (abs(itestcase) == Taylor_Couette_Flow) then
+      !
+      ! Set the reference conditions for the Taylor-Couette flow problem
+      ! NOTE: After calling this subroutine, subroutines init_thermo_mod and
+      !       init_transport_mod will be called to set the thermo and
+      !       transport refrerence conditions. Some of these will have already
+      !       been set in this initialize_taylor_couette_problem, but these
+      !       values should stay the same even if they are recomputed. These
+      !       two subroutines (thermo/transport) still need to be called
+      !       because they set a lot of other reference variables that are
+      !       not evaluated in this subroutine.
+      !
+      call initialize_taylor_couette_problem
       !
     end if
     !
