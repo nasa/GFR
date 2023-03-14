@@ -2673,6 +2673,10 @@ continue
           !
         end if
         !
+        if (abs(bc_input(n)%rotation_speed) > eps1) then
+          bc_in(i)%rotation_speed = bc_input(n)%rotation_speed
+        end if
+        !
         ! Copy the velocity for this BC into the temporary array vel(:)
         ! and nondimensionalize the temporary array.
         !
