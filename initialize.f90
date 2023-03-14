@@ -516,6 +516,9 @@ function initial_conditions(xyz,init_cond) result(return_value)
   use channel_mod, only : channel_initialization
   use gpu_mod, only : vortex_solution_gpu
   !
+  use taylor_couette_mod, only : laminar_taylor_couette_init
+  use taylor_couette_mod, only : turbulent_taylor_couette_init
+  !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xyz(:,:)
   integer,  intent(in) :: init_cond
@@ -554,6 +557,28 @@ continue
   else if (itestcase == Channel_Flow) then
     !
     return_value(:,:) = channel_initialization( xyz(:,:) )
+    !
+  else if (abs(itestcase) == Taylor_Couette_Flow) then
+    !
+    ! These initializations for the Taylor-Couette flow come from
+    ! the 2021 Advances in Aerodynamics journal article by ZJ Wang:
+    !      Benchmark for scale-resolving simulation
+    !      with curved walls: the Taylor Couette flow
+    !
+    ! If itestcase == -Taylor_Couette_Flow
+    !  - initialize to the laminar solution
+    ! Else if itestcase == +Taylor_Couette_Flow
+    !  - initialize to the Taylor-Green-inspired initial solution
+    ! 
+    if (itestcase < 0) then
+      do k = 1,np
+        return_value(k,:) = laminar_taylor_couette_init( xyz(:,k) )
+      end do
+    else
+      do k = 1,np
+        return_value(k,:) = turbulent_taylor_couette_init( xyz(:,k) )
+      end do
+    end if
     !
   else if (mms_opt /= 0) then
     !
