@@ -326,6 +326,12 @@ continue
     !
   end do loop_over_boundary_groups
   !
+  ! NOTE: We dont need to update the thermo/transport properties for the
+  !       boundary states [i.e., face_gp(:,:,2)] because that is done just
+  !       before computing the inviscid common fluxes for the boundary faces
+  !       in subroutine get_invs_common_fluxes_bc, which is the first place
+  !       these values would be used.
+  !
   ! Sum the total number of Newton failures across all MPI processes
   !
   if (ncpu > 1) then
