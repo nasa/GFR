@@ -848,6 +848,10 @@ continue
     !
     if (itestcase == Infinite_Cylinder) then
       time_ref = machref
+    else if (abs(itestcase) == Taylor_Couette_flow) then
+      ! Do nothing here for Taylor-Couette flow because time_ref
+      ! has already been set when the Taylor-Couette flow module
+      ! was inititialized.
     else
       time_ref = one / aref
     end if
