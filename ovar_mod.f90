@@ -135,6 +135,7 @@ module ovar
     real(wp) :: alpha_aoa  = zero
     real(wp) :: beta_aoa   = zero
     real(wp) :: wall_temp  = -one
+    real(wp) :: rotation_speed = zero
     !
 #ifdef ALLOCATABLE_MASS_FRAC
     real(wp), allocatable :: mass_frac(:)
@@ -830,6 +831,7 @@ continue
   if (abs(this%alpha_aoa  - dflt%alpha_aoa ) > eps6) return
   if (abs(this%beta_aoa   - dflt%beta_aoa  ) > eps6) return
   if (abs(this%wall_temp  - dflt%wall_temp ) > eps6) return
+  if (abs(this%rotation_speed - dflt%rotation_speed ) > eps6) return
   !
   if ( this%relax%is_not_default() ) return
   !
@@ -913,6 +915,7 @@ continue
   if (abs(a%alpha_aoa  - b%alpha_aoa ) > eps6) return
   if (abs(a%beta_aoa   - b%beta_aoa  ) > eps6) return
   if (abs(a%wall_temp  - b%wall_temp ) > eps6) return
+  if (abs(a%rotation_speed - b%rotation_speed ) > eps6) return
   !
 #ifdef ALLOCATABLE_MASS_FRAC
   !
@@ -1250,6 +1253,7 @@ end function periodic_bc_t_not_equal
 !!    dtv%alpha_aoa, &
 !!    dtv%beta_aoa, &
 !!    dtv%wall_temp, &
+!!    dtv%rotation_speed, &
 !!    dtv%relax%value, &
 !!    dtv%relax%time, &
 !!    dtv%relax%iter
@@ -1276,6 +1280,7 @@ end function periodic_bc_t_not_equal
 !!            "alpha_aoa     = ",es14.6,/, &
 !!            "beta_aoa     = ",es14.6,/, &
 !!            "wall_temp     = ",es14.6,/, &
+!!            "rotation_speed = ",es14.6,/, &
 !!            "relax%value     = ",es14.6,/, &
 !!            "relax%time     = ",es14.6,/, &
 !!            "relax%iter     = ",es14.6,/)
@@ -1316,6 +1321,7 @@ end function periodic_bc_t_not_equal
 !!    dtv%alpha_aoa, &
 !!    dtv%beta_aoa, &
 !!    dtv%wall_temp, &
+!!    dtv%rotation_speed, &
 !!    dtv%relax%value, &
 !!    dtv%relax%time, &
 !!    dtv%relax%iter
