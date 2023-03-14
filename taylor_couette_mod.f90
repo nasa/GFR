@@ -280,14 +280,14 @@ continue
   return_value(nmz) = return_value(nmz) / rhoa
   return_value(nee) = return_value(nee) / rhoa2
   !
-end subroutine laminar_taylor_couette_init
+end function laminar_taylor_couette_init
 !
 !###############################################################################
 !
 #ifndef DISABLE_PURE
 pure &
 #endif
-function turbulent_taylor_couette_init(xyz)
+function turbulent_taylor_couette_init(xyz) result(return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam,rhoref,aref
@@ -363,7 +363,7 @@ continue
   return_value(nmz) = return_value(nmz) / rhoa
   return_value(nee) = return_value(nee) / rhoa2
   !
-end subroutine turbulent_taylor_couette_init
+end function turbulent_taylor_couette_init
 !
 !###############################################################################
 !
