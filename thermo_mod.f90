@@ -38,6 +38,8 @@ module thermo_mod
   !
   real(wp), parameter :: cp_air_wtmol = 28.9651159_wp
   !
+  real(wp), public, parameter :: rgas_cpg = runivl/cp_air_wtmol
+  !
   integer, protected :: ncpc = 5
   !
   !
@@ -412,7 +414,7 @@ continue
     end if
     !
     if (rgasref <= zero) then
-      rgasref = runivl / cp_air_wtmol
+      rgasref = rgas_cpg
     end if
     !
   end if
