@@ -65,17 +65,15 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/thermo_mod.o \
            $(OBJDIR)/transport_mod.o \
            $(OBJDIR)/turb_inflow_mod.o \
-           $(OBJDIR)/bc_adiabatic_wall_mod.o \
+           $(OBJDIR)/bc_wall_mod.o \
            $(OBJDIR)/bc_fixed_mod.o \
            $(OBJDIR)/bc_flowthrough_grad_mod.o \
            $(OBJDIR)/bc_gen_free_mod.o \
            $(OBJDIR)/bc_gen_in_mod.o \
            $(OBJDIR)/bc_gen_out_mod.o \
-           $(OBJDIR)/bc_isothermal_wall_mod.o \
            $(OBJDIR)/bc_mms_mod.o \
            $(OBJDIR)/bc_periodic_mod.o \
            $(OBJDIR)/bc_riemann_mod.o \
-           $(OBJDIR)/bc_slip_wall_mod.o \
            $(OBJDIR)/bc_sub_in_mod.o \
            $(OBJDIR)/bc_sub_out_mod.o \
            $(OBJDIR)/bc_sup_out_mod.o \
@@ -269,6 +267,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/reactions_mod.o \
                $(OBJDIR)/turb_inflow_mod.o \
                $(OBJDIR)/gpu_mod.o \
+               $(OBJDIR)/taylor_couette_mod.o \
                $(FUNDIR)/taylor_green.f90 \
                $(FUNDIR)/smc000_interior_wall_radius.f90 \
                $(FUNDIR)/arn2_interior_wall_radius.f90 \
@@ -642,6 +641,13 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(FUNDIR)/debug_timer.f90 \
                           mpi_defs.h
 
+$(OBJDIR)/taylor_couette_mod.o : taylor_couette_mod.f90 \
+                       $(OBJDIR)/kind_types.o \
+                       $(OBJDIR)/eqn_idx_mod.o \
+                       $(OBJDIR)/geovar_mod.o \
+                       $(OBJDIR)/ovar_mod.o \
+                       $(OBJDIR)/thermo_mod.o
+
 $(OBJDIR)/tetrahedra.o : tetrahedra.f90 \
                $(OBJDIR)/kind_types.o \
                $(OBJDIR)/poly.o
@@ -746,13 +752,13 @@ $(OBJDIR)/write_cgns_mod.o : write_cgns_mod.f90 \
                    $(FUNDIR)/cgns_write_field_header.f90 \
                              mpi_defs.h
 
-$(OBJDIR)/bc_adiabatic_wall_mod.o : $(BCDIR)/bc_adiabatic_wall_mod.f90 \
-                          $(OBJDIR)/kind_types.o \
-                          $(OBJDIR)/eqn_idx_mod.o \
-                          $(OBJDIR)/ovar_mod.o \
-                          $(OBJDIR)/gpu_mod.o \
-                          $(OBJDIR)/thermo_mod.o \
-                          $(OBJDIR)/bc_relax_mod.o
+$(OBJDIR)/bc_wall_mod.o : $(BCDIR)/bc_wall_mod.f90 \
+                         $(OBJDIR)/kind_types.o \
+                         $(OBJDIR)/eqn_idx_mod.o \
+                         $(OBJDIR)/ovar_mod.o \
+                         $(OBJDIR)/gpu_mod.o \
+                         $(OBJDIR)/thermo_mod.o \
+                         $(OBJDIR)/bc_relax_mod.o
 
 $(OBJDIR)/bc_fixed_mod.o : $(BCDIR)/bc_fixed_mod.f90 \
                  $(OBJDIR)/kind_types.o \
@@ -782,13 +788,6 @@ $(OBJDIR)/bc_gen_out_mod.o : $(BCDIR)/bc_gen_out_mod.f90 \
                    $(OBJDIR)/ovar_mod.o \
                    $(OBJDIR)/bc_relax_mod.o
 
-$(OBJDIR)/bc_isothermal_wall_mod.o : $(BCDIR)/bc_isothermal_wall_mod.f90 \
-                           $(OBJDIR)/kind_types.o \
-                           $(OBJDIR)/eqn_idx_mod.o \
-                           $(OBJDIR)/ovar_mod.o \
-                           $(OBJDIR)/gpu_mod.o \
-                           $(OBJDIR)/thermo_mod.o
-
 $(OBJDIR)/bc_mms_mod.o : $(BCDIR)/bc_mms_mod.f90 \
                $(OBJDIR)/kind_types.o \
                $(OBJDIR)/eqn_idx_mod.o \
@@ -811,12 +810,6 @@ $(OBJDIR)/bc_riemann_mod.o : $(BCDIR)/bc_riemann_mod.f90 \
                    $(OBJDIR)/eqn_idx_mod.o \
                    $(OBJDIR)/ovar_mod.o \
                    $(OBJDIR)/bc_relax_mod.o
-
-$(OBJDIR)/bc_slip_wall_mod.o : $(BCDIR)/bc_slip_wall_mod.f90 \
-                     $(OBJDIR)/kind_types.o \
-                     $(OBJDIR)/eqn_idx_mod.o \
-                     $(OBJDIR)/ovar_mod.o \
-                     $(OBJDIR)/gpu_mod.o
 
 $(OBJDIR)/bc_sub_in_mod.o : $(BCDIR)/bc_sub_in_mod.f90 \
                   $(OBJDIR)/kind_types.o \
