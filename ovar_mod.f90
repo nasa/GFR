@@ -174,6 +174,7 @@ module ovar
     real(wp), allocatable :: pv(:)
     real(wp), allocatable :: gp(:)
     real(wp) :: wall_temperature = -one
+    real(wp) :: rotation_speed = zero
     type(relaxation_t) :: relax
     type(sem_bc_t) :: sem
     integer :: bc_input_idx
