@@ -62,7 +62,11 @@ TARGET ?= $(HOSTARCH)
 
 FPP = $(FPPFLAG) $(METISFPP) $(PBSFPP) $(CGNSFPP) $(MPIFPP) $(MKLFPP) $(OTHERFPP)
 
-#INCDIR = $(sort $(CGNSDIR))
+ifeq "$(COMPFAMILY)" "gcc"
+  INCDIR = $(sort $(CGNSDIR))
+else
+ #INCDIR = $(sort $(CGNSDIR))
+endif
 LIBDIR = $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR) $(TECDIR))
 
 FINC = $(foreach i,$(INCDIR),-I$(i)/include) -I./ $(MKLINC) $(OTHERINCDIR)
@@ -337,7 +341,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
   DBGFLAG := -fcheck=all -Wall -Wextra -Wuninitialized
   TRACEFLAG := -fbacktrace
   REALLOCFLAG := -frealloc-lhs
-  CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC -DOCTID
+  CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC -DDISABLE_QP -DOCTID
   AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH)
   AUTOTARGETARCH += -mtune=$(IVYARCH) -mtune=$(HASARCH) -mtune=$(BROARCH) -mtune=$(SKYARCH)
   HOSTARCH := $(ARCHFLAG)native
