@@ -88,10 +88,16 @@ module eqn_idx
   ! NENTH : index for enthalpy
   ! NCP   : index for specific heat at constant pressure
   !
+#define NPRES_AND_NTEMP_ARE_CONSTANTS
+#ifdef NPRES_AND_NTEMP_ARE_CONSTANTS
+  integer, public, parameter :: npres = 1
+  integer, public, parameter :: ntemp = 2
+#else
   integer, public, protected, save :: npres = 1
   !$ACC DECLARE CREATE(npres)
   integer, public, protected, save :: ntemp = 2
   !$ACC DECLARE CREATE(ntemp)
+#endif
   integer, public, protected, save :: nvisc = 3
   !$ACC DECLARE CREATE(nvisc)
   integer, public, protected, save :: ncond = 4
@@ -287,8 +293,11 @@ continue
   !
   ! Update the indices for the thermodynamic and transport gas properties
   !
+#ifndef NPRES_AND_NTEMP_ARE_CONSTANTS
   npres = 1
   ntemp = 2
+  !$ACC UPDATE DEVICE(npres,ntemp)
+#endif
   ngamm = 3
   ng = 3
   !
@@ -329,7 +338,7 @@ continue
   !
   !$ACC UPDATE DEVICE(nq,nec,nmx,nmy,nmz,nee,nmb,nme,ntk,ntl)
   !$ACC UPDATE DEVICE(ncs,ncb,nce,ncr)
-  !$ACC UPDATE DEVICE(ng,npres,ntemp,nvisc,ncond,ngamm,nenth,ncp)
+  !$ACC UPDATE DEVICE(ng,nvisc,ncond,ngamm,nenth,ncp)
   !
   call debug_timer(leaving_procedure,pname)
   !
