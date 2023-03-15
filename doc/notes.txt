@@ -10,30 +10,6 @@
 ################################################################################
 ################################################################################
 
-* Possibly change npres and ntemp to parameters since there appears to be no
-  future situation where they would need to be changed from their respective
-  default values of 1 and 2.
-
-* For gas mixtures, instead of using the *_nd version of a subroutine, i.e.:
-      if (nr == 3 .and. ncs == 0) then
-        call ..._3d(...)
-      else if (nr == 2 .and. ncs == 0) then
-        call ..._2d(...)
-      else
-        call ..._nd(...)
-      end if
-  do the following:
-    1. Call the appropriate 2D or 3D version for the main flow equations.
-    2. Call the *_nd version for the species equations.
-        - To do this, add optional arguments to the *_nd subroutines to specify
-          the equation indices to loop over. If they aren't present, loop over
-          1 to nq.
-  This might improve performance for gas mixtures if the main flow equations use
-  the unrolled optimized subroutines, and only the species equations use the
-  older and slower loop based versions.
-  NOTE: SEE SUBROUTINE compute_resolution_marker IN limiters.f90 AS AN EXAMPLE
-        OF IMPLEMENTING THIS IDEA.
-
 * The continuous_output functionality does not appear to work for 2D cases. I
   think this is because it tries to create edge information for all the grid
   cells. However, edges do not really exist for 2D since the cell edges are
@@ -95,12 +71,6 @@
   require adding another equation to the system to solve for the artificial
   viscosity state variable.
 
-* Finish work on the restart module to include option of storing the monomial
-  (or some other basis) modal coefficients in the restart file instead of the
-  flow variables at the solution points (i.e. nodal coefficients). This way the
-  simulation could be restarted with different solution points, solution orders,
-  etc.
-
 * Restructure the flux procedures to combine matrix operations in the same way
   that PyFR and the Stanford group does it. Primarily, the discontinuous part of
   the correction should be separated from the common part so that it can be
@@ -130,11 +100,6 @@
   pretty evenly across processors, EXCEPT FOR THE grid DERIVED TYPE THAT
   CONTAINS THE HIGH-ORDER CURVED BOUNDARY NODE COORDINATES AND ELEMENT
   CONNECTIVITIES.
-
-* In order to get unstructured elements (tria, tetr, pyra, pris) working sooner
-  than later, copy the quadrature look-up tables from PyFR and use these look-up
-  tables for now.  This will limit the maximum order of these element types but
-  we can deal with that at another time.
 
 * Create utility to import an arbitrary Plot3D grid (including its BCS and CUT
   files) and convert it to a single block unstructured CGNS or Gmsh grid file,
@@ -183,8 +148,6 @@
      This only happens if a solution dump was performed.
 
 * The subroutine find_bc_conflicts needs to be extended to 3D.
-
-* The subroutine get_point_timestep needs to be extended to 3D.
 
 * Bug with function reformat string: If a constant string is sent in to
   input_string and the length of the input string is greater than 50 (or the
@@ -280,22 +243,12 @@
 
 * Need to add MPI capabilities to the GPU code.
 
-* Finish the subroutine check_quality_of_partitioning so it checks that all
-  the partitions created by METIS are contiguous.
-
 * Add code to save a solution from 100 iterations prior (or some other number
   provided as an input variable) and if an error is detected, try to restart
   from this saved solution with some changes to the time step size and/or
   method.
    - This requires adding code to detect floating-point exceptions.
    - Additional tests to ensure realizability could also help with robustness.
-
-* Finish the code getting the rotation of the flux points between two cells on
-  a face (used for creating the flxpts component of the face array).
-    - Need to finish pyramid and prism sections of GetFaceNodes_for_QuadFace
-    - Need to finish creating GetFaceNodes_for_TriaFace
-       - Could this be combined with GetFaceNodes_for_QuadFace?
-    - Need to create RotateFluxPoint_Tria
 
 * When computing the correction to the flux, need to add code that accounts for
   the case of a face that is of higher order than the cell so that the correction
@@ -305,9 +258,6 @@
      order face solution/flux/gradient can be projected down to the lower
      order face/flux points of the attached cell.
 
-* Do the interp(:,:)%toCell(:)%mat matrices need to be created or can it wait
-   - This is needed if over-integration is to be used
-
 * Need to finish creating the dqmat array
    - This is needed if over-integration is to be used
 
@@ -315,21 +265,6 @@
 
 * Create functions that given an input of the number of solution points for a
   geometry type, it returns the number of flux points for that geometry type.
-   
-* Create functions that given an input of the number of solution points for a
-  geometry type, it returns the solution order.
-   - The functions have been created, they just need to be applied throughout
-     the code. More specifically, the use of the function np2n needs to be
-     replaced with these newly created functions.
-
-* Need to redefine standard triangle element to the biunit triangle defined by
-  the nodes (-1,-1)-(+1,-1)-(-1,+1) instead of the unit triangle defined by
-  the nodes (0,0)-(+1,0)-(0,+1).
-   - This applies to tets, pyramids, and prisms as well through their triangle
-     faces and any tensor products used to create their mappings.
-   - This will eliminate the need for the stupid cl array.
-   - A logical parameter 'tria_is_biunit' has been created to possibly allow
-     using either definition of the standard triangle.
 
 ################################################################################
 ################################################################################
@@ -361,14 +296,8 @@
 
 * Replace namelist input file with character based input file.
 
-* Create a way to specify which variables are output to the solution file.
-
 * Try to get MMS working.
    - Seems like we might have to use profile files like VULCAN does.
-
-* Need to add inflow turbulence.
-   - Synthetic eddy method
-   - Digital filtering
 
 * Need to add rotating/sliding mesh capabilities.
 
@@ -594,7 +523,7 @@
 
 * Create complimentary variables to maxpts such as maxSP and maxFP so that
   temporary storage can be minimized if we know a temporary array is only used
-  for solution, flux or quadrature points.
+  for solution, flux, or quadrature points.
    - Replace maxpts with maxSP, maxFP, maxQP, and maxGP where applicable
 
 * Need to allow the error quadrature points to possibly be of higher order than
@@ -605,6 +534,77 @@
      rates for the Taylor-Green vortex problem due to insufficient quadrature.
 
 * Timestepping procedures need to be fine tuned with the new datatypes.
+
+* Possibly change npres and ntemp to parameters since there appears to be no
+  future situation where they would need to be changed from their respective
+  default values of 1 and 2.
+
+* For gas mixtures, instead of using the *_nd version of a subroutine, i.e.:
+      if (nr == 3 .and. ncs == 0) then
+        call ..._3d(...)
+      else if (nr == 2 .and. ncs == 0) then
+        call ..._2d(...)
+      else
+        call ..._nd(...)
+      end if
+  do the following:
+    1. Call the appropriate 2D or 3D version for the main flow equations.
+    2. Call the *_nd version for the species equations.
+        - To do this, add optional arguments to the *_nd subroutines to specify
+          the equation indices to loop over. If they aren't present, loop over
+          1 to nq.
+  This might improve performance for gas mixtures if the main flow equations use
+  the unrolled optimized subroutines, and only the species equations use the
+  older and slower loop based versions.
+  NOTE: SEE SUBROUTINE compute_resolution_marker IN limiters.f90 AS AN EXAMPLE
+        OF IMPLEMENTING THIS IDEA.
+
+* Finish work on the restart module to include option of storing the monomial
+  (or some other basis) modal coefficients in the restart file instead of the
+  flow variables at the solution points (i.e. nodal coefficients). This way the
+  simulation could be restarted with different solution points, solution orders,
+  etc.
+
+* In order to get unstructured elements (tria, tetr, pyra, pris) working sooner
+  than later, copy the quadrature look-up tables from PyFR and use these look-up
+  tables for now.  This will limit the maximum order of these element types but
+  we can deal with that at another time.
+
+* The subroutine get_point_timestep needs to be extended to 3D.
+
+* Finish the subroutine check_quality_of_partitioning so it checks that all
+  the partitions created by METIS are contiguous.
+
+* Finish the code getting the rotation of the flux points between two cells on
+  a face (used for creating the flxpts component of the face array).
+    - Need to finish pyramid and prism sections of GetFaceNodes_for_QuadFace
+    - Need to finish creating GetFaceNodes_for_TriaFace
+       - Could this be combined with GetFaceNodes_for_QuadFace?
+    - Need to create RotateFluxPoint_Tria
+
+* Do the interp(:,:)%toCell(:)%mat matrices need to be created or can it wait
+   - This is needed if over-integration is to be used
+   
+* Create functions that given an input of the number of solution points for a
+  geometry type, it returns the solution order.
+   - The functions have been created, they just need to be applied throughout
+     the code. More specifically, the use of the function np2n needs to be
+     replaced with these newly created functions.
+
+* Need to redefine standard triangle element to the biunit triangle defined by
+  the nodes (-1,-1)-(+1,-1)-(-1,+1) instead of the unit triangle defined by
+  the nodes (0,0)-(+1,0)-(0,+1).
+   - This applies to tets, pyramids, and prisms as well through their triangle
+     faces and any tensor products used to create their mappings.
+   - This will eliminate the need for the stupid cl array.
+   - A logical parameter 'tria_is_biunit' has been created to possibly allow
+     using either definition of the standard triangle.
+
+* Create a way to specify which variables are output to the solution file.
+
+* Need to add inflow turbulence.
+   - Synthetic eddy method
+   - Digital filtering
 
 ################################################################################
 ################################################################################
