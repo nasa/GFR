@@ -84,8 +84,7 @@ continue
     ! NOTE: This branch and the called subroutine should probably just
     !       be removed entirely because there isnt really a 1D wall
     !       boundary condition.
-    call get_bc_wall_vel_solution_1d(n1,n2,bc_type,facexyz,facenrm, &
-                                     face_cv,rlx,pv_in)
+    call get_bc_wall_vel_solution_1d(n1,n2,bc_type,facenrm,face_cv,rlx,pv_in)
   end if
   !
   ! Get the gas properties (density, pressure, temperature) for this wall BC
@@ -698,7 +697,7 @@ end subroutine get_bc_wall_vel_solution_2d
 #ifdef DISABLE_FOR_GPU
 pure &
 #endif
-subroutine get_bc_wall_vel_solution_1d(n1,n2,bc_type,facexyz,facenrm, &
+subroutine get_bc_wall_vel_solution_1d(n1,n2,bc_type,facenrm, &
                                        face_cv,rlx,pv_in)
   !
   ! ####################################################################
@@ -713,7 +712,6 @@ subroutine get_bc_wall_vel_solution_1d(n1,n2,bc_type,facexyz,facenrm, &
   ! N1      : Beginning face point for this boundary condition
   ! N2      : Ending    face point for this boundary condition
   ! BC_TYPE : Integer identifying this boundary condition type
-  ! FACEXYZ : Coordinates for the boundary flux points
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conserved    variables at the flux points
   !           NOTE: The wall states will be saved as primitive variables
@@ -724,7 +722,6 @@ subroutine get_bc_wall_vel_solution_1d(n1,n2,bc_type,facexyz,facenrm, &
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   integer,     intent(in) :: bc_type
-  real(wp),    intent(in) :: facexyz(:,:)
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp), intent(inout) :: face_cv(:,:,:)
   real(wp),    intent(in) :: rlx
