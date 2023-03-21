@@ -1003,6 +1003,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_solution_file"
   character(len=*), parameter :: char_ijk(1:3) = ["Xi  ","Eta ","Zeta"]
+  character(len=*), parameter :: char_cyl(1:3) = ["R    ","Theta","Phi  "]
   !
   !.. Local Scalars ..
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
@@ -1302,6 +1303,8 @@ continue
     do l = 1,size(char_sname)
       if (trim(char_sname(l)) == "Velocity") then
         n = n + nr
+      else if (trim(char_sname(l)) == "CylindricalVelocity") then
+        n = n + 2
       else if (trim(char_sname(l)) == "Vorticity") then
         n = n + merge(nr,1,nr==3)
       else if (trim(char_sname(l)) == "Momentum") then
@@ -1392,6 +1395,12 @@ continue
         do m = 1,nr
           n = n + 1
           varname = "Velocity"//char_xyz(m)
+          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+        end do
+      else if (trim(char_sname(k)) == "CylindricalVelocity") then
+        do m = 1,2
+          n = n + 1
+          varname = "Velocity"//trim(adjustl(char_cyl(m)))
           call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
         end do
       else if (trim(char_sname(k)) == "Vorticity") then
@@ -1813,6 +1822,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
   !.. Use Statements ..
   use geovar,  only : nr,n_solpts,ncell,cell
+  use geovar,  only : xyz
   use ovar,    only : aref,rhoref,time_ref,tref
   use ovar,    only : gam,pref,pref_nd,machref
   use ovar,    only : rgasref,cpref,Pr
@@ -1854,12 +1864,13 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   real(CRT),     intent(inout) :: var(:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,l,m,n,nc,np,n0,npts,ierr
+  integer  :: i,j,l,m,m1,m2,n,nc,np,n0,npts,ierr
   integer  :: nmi,nmj,l_comp,l_phys,nvar
   integer  :: this_order,limit_order
   real(wp) :: freestream_ref,rhoa,rhoa2,time_ref_inv
   real(wp) :: cp_dim,cond_dim,dim_val
   real(wp) :: rho_inv,vx,vy,vz,a2,q2,s
+  real(wp) :: x1,x2,v1,v2,theta,vr,vt
   real(wp) :: gamm,gm1,gam_over_gm1,mach,pres,temp
   real(wp) :: mi,mj,drhodi,drhodj,dmjdi,dmidj
   real(wp) :: w12,w13,w23,wijwij
@@ -1876,6 +1887,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: vartmp_at_sp(:)
+  real(wp), allocatable :: xyztmp(:,:)
   real(wp), allocatable :: spcvar(:,:)
   real(wp), allocatable :: dtdx(:,:)
   real(wp), allocatable :: dpvdx(:,:,:)
@@ -1999,6 +2011,7 @@ continue
   !
   ! Compute the current output variable and write it to the CGNS file
   !
+  variable_select: &
   select case (trim(adjustl(vname)))
     !
     ! #####################
@@ -2337,6 +2350,70 @@ continue
         call cgns_write_field_data
         !
       end do
+      !!}}}
+    case ("CylindricalVelocity") ! Cylindrical Velocity
+      !!{{{
+      !
+      ! First we need to get the coordinates for the output points
+      !
+      xyztmp = init_array(npts,nr,zero) ! F2003 AUTO-REALLOC
+      do m = 1,nr
+        call interpolate_for_output( xyz(m,1:n_solpts) , xyztmp(1:npts,m) )
+      end do
+      !
+      ! Get the indices for the primary and secondary directions
+      !
+      m2 = nr   ! z for 3D, y for 2D
+      m1 = m2-1 ! y for 3D, x for 2D
+      !
+      ! Use vartmp_at_sp to temporarily store Vtheta while Vr is saved
+      ! to vartmp. This is so we dont have to do the following loop twice.
+      ! After the loop, we will write Vr (in vartmp) to the CGNS solution
+      ! file, then we can just copy Vtheta (in vartmp_at_sp) into vartmp
+      ! to output Vtheta to the CGNS solution file.
+      !
+      vartmp_at_sp = init_array(npts,zero) ! F2003 AUTO-REALLOC
+      !
+      do n = 1,npts
+        !
+        v1 = cv(n,nec+m1)/cv(n,nec) * aref
+        v2 = cv(n,nec+m2)/cv(n,nec) * aref
+        !
+        x1 = xyztmp(n,m1)
+        x2 = xyztmp(n,m2)
+        !
+        theta = atan2(x2,x1)
+        !
+        vr = v2*sin(theta) + v1*cos(theta)
+        vt = v2*cos(theta) - v1*sin(theta)
+        !
+        vartmp(n) = vr
+        vartmp_at_sp(n) = vt
+        !
+      end do
+      !
+      ! Deallocate xyztmp since it is no longer needed
+      !
+      if (allocated(xyztmp)) then
+        deallocate ( xyztmp , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"xyztmp",2,__LINE__,__FILE__,ierr,error_message)
+      end if
+      !
+      ! Write Vr which is in vartmp to the CGNS solution file
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      call cgns_write_field_data
+      !
+      ! Copy Vtheta which is in vartmp_to_sp to vartmp
+      !
+      vartmp(1:npts) = vartmp_at_sp(1:npts)
+      !
+      ! Write Vtheta which is now in vartmp to the CGNS solution file
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      call cgns_write_field_data
       !!}}}
     case ("Pressure") ! Pressure
       !!{{{
@@ -3110,7 +3187,7 @@ continue
       !
       call cgns_write_field_data
       !!}}}
-  end select
+  end select variable_select
   !
   if (allocated(vartmp_at_sp)) then
     deallocate ( vartmp_at_sp , stat=ierr , errmsg=error_message )
@@ -3152,6 +3229,7 @@ subroutine get_cgns_sol_variables(variable_list)
   use geovar, only : nr
   use ovar,   only : itestcase,governing_equations
   use ovar,   only : output_vorticity
+  use ovar,   only : output_cylindrical_velocity
   use ovar,   only : output_qcriterion
   use ovar,   only : output_conserved_variables
   use ovar,   only : output_temperature
@@ -3199,7 +3277,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:49) = ["Density             ", &
+  character(len=*), parameter :: var_order(1:50) = ["Density             ", &
                                                     "Momentum            ", &
                                                     "Energy              ", &
                                                     "Velocity            ", &
@@ -3232,6 +3310,7 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "GradMassFractions   ", &
                                                     "GradVelocity        ", &
                                                     "Vorticity           ", &
+                                                    "CylindricalVelocity ", &
                                                     "GradTemperature     ", &
                                                     "ResolutionMarker    ", &
                                                     "JumpMarker          ", &
@@ -3279,6 +3358,13 @@ continue
       call add_sol_variable(variable_list,"VorticityMagnitude")
       call add_sol_variable(variable_list,"StrainRateMagnitude")
       call add_sol_variable(variable_list,"QCriterion")
+    end if
+  end if
+  !
+  ! Output the cylindrical velocity components (vr,vtheta)
+  if (output_cylindrical_velocity) then
+    if (nr >= 2) then
+      call add_sol_variable(variable_list,"CylindricalVelocity")
     end if
   end if
   !
