@@ -480,6 +480,8 @@ module ovar
   logical(lk), public, save :: delete_converted_restart_files = fals
   logical(lk), public, save :: completely_disable_cgns = fals
   logical(lk), public, save :: interpolate_before_output_variable = true
+  logical(lk), public, save :: cgns_high_order_output = fals
+  logical(lk), public, save :: cgns_mixed_output = fals
   !
   ! CONVERGENCE CRITERIA
   real(wp), public, save :: convergence_order_abs_res = real( -16 , kind=wp )
@@ -1580,6 +1582,7 @@ module input_namelist_mod
   use ovar,      only : vortex_bigR, vortex_bigGam
   use ovar,      only : output_plot3d_to_tecplot, output_bface_array
   use ovar,      only : interpolate_before_output_variable
+  use ovar,      only : cgns_high_order_output,cgns_mixed_output
   use ovar,      only : convergence_order_abs_res, convergence_order_max_res
   use ovar,      only : dump_memory_usage,use_bc_conflicts
   use ovar,      only : dump_fluxes,check_flux_point_coordinates
@@ -1820,6 +1823,7 @@ module input_namelist_mod
   namelist / input / walls_are_exact, sub_inflow_method, use_bc_conflicts
   ! CGNS OUTPUT OPTIONS
   namelist / input / cgns_use_queue, interpolate_before_output_variable, &
+                     cgns_high_order_output, cgns_mixed_output, &
                      convert_restart_to_cgns, completely_disable_cgns, &
                      delete_converted_restart_files
   ! CONVERGENCE CRITERIA
