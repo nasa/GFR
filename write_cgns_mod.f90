@@ -1299,90 +1299,7 @@ continue
     ! Count the total number of solution variables that will be written
     ! and allocate isvar_s accordingly
     !
-    n = 0
-    do l = 1,size(char_sname)
-      if (trim(char_sname(l)) == "Velocity") then
-        n = n + nr
-      else if (trim(char_sname(l)) == "CylindricalVelocity") then
-        n = n + 2
-      else if (trim(char_sname(l)) == "Vorticity") then
-        n = n + merge(nr,1,nr==3)
-      else if (trim(char_sname(l)) == "Momentum") then
-        n = n + nr
-      else if (trim(char_sname(l)) == "GradDensity") then
-        n = n + nr
-      else if (trim(char_sname(l)) == "GradMomentum") then
-        n = n + nr*nr
-      else if (trim(char_sname(l)) == "GradVelocity") then
-        n = n + nr*nr
-      else if (trim(char_sname(l)) == "GradEnergy") then
-        n = n + nr
-      else if (trim(char_sname(l)) == "GradTemperature") then
-        n = n + nr
-      else if (trim(char_sname(l)) == "DmatTemperature") then
-        n = n + nr
-      else if (trim(char_sname(l)) == "GradMassFractions") then
-        n = n + ncs*nr
-      else if (trim(char_sname(l)) == "GradSpeciesDensities") then
-        n = n + ncs*nr
-      else if (trim(char_sname(l)) == "Viscosity") then
-        if (governing_equations == NavierStokes_Eqns) then
-          n = n + 1
-        end if
-      else if (trim(char_sname(l)) == "ResolutionMarker") then
-        n = n + 2
-      else if (trim(char_sname(l)) == "JumpMarker") then
-        n = n + 2
-      else if (trim(char_sname(l)) == "TimeMetrics") then
-        if (allocated(time_metrics)) then
-          n = n + nr + 1
-        end if
-      else if (trim(char_sname(l)) == "CoMetrics") then
-     !  n = n + nr*nr
-      else if (trim(char_sname(l)) == "ContraMetrics") then
-        n = n + nr*nr
-      else if (trim(char_sname(l)) == "MassFractions") then
-        if (ncs > 0) then
-          n = n + ncs
-        end if
-      else if (trim(char_sname(l)) == "MoleFractions") then
-        if (ncs > 0) then
-          n = n + ncs
-        end if
-      else if (trim(char_sname(l)) == "SpeciesDensities") then
-        if (ncs > 0) then
-          n = n + ncs
-        end if
-      else if (trim(char_sname(l)) == "SpeciesEnthalpy") then
-        if (ncs > 0) then
-          n = n + ncs
-        end if
-      else if (trim(char_sname(l)) == "SpeciesCp") then
-        if (ncs > 0) then
-          n = n + ncs
-        end if
-      else if (trim(char_sname(l)) == "cpi/R") then
-        if (ncs > 0) then
-          n = n + ncs
-        end if
-      else if (trim(char_sname(l)) == "hi/RT") then
-        if (ncs > 0) then
-          n = n + ncs
-        end if
-      else if (trim(char_sname(l)) == "hi/R") then
-        if (ncs > 0) then
-          n = n + ncs
-        end if
-      else if (trim(char_sname(l)) == "dTdx_Breakdown") then
-        if (ncs > 0) then
-          n = n + (2*nr + 2*ncs + 7 + ncs*nr)
-        end if
-      else if (trim(char_sname(l)) == "QCriterion") then
-        n = n + 2
-      else
-        n = n + 1
-      end if
-    end do
+    n = count_output_variables(char_sname)
     !
     allocate ( isvar_s(1:n) , source=0 , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"isvar_s",1,__LINE__,__FILE__,ierr,error_message)
@@ -1813,6 +1730,122 @@ continue
   !-----------------------------------------------------------------------------
   !
 end subroutine write_parallel_cgns_solution_file
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function count_output_variables(variable_names) result(return_value)
+  !
+  !.. Use Statements ..
+  use geovar,      only : nr
+  use ovar,        only : governing_equations
+  use metrics_mod, only : time_metrics
+  !
+  !.. Formal Arguments ..
+#ifdef SPECIAL_FOR_INTEL
+  character(len=:), intent(in) :: variable_names(:)
+#else
+  character(len=CGLEN), intent(in) :: variable_names(:)
+#endif
+  !
+  !.. Function Result ..
+  integer :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n,l
+  !
+continue
+  !
+  n = 0
+  do l = 1,size(variable_names)
+    if (trim(variable_names(l)) == "Velocity") then
+      n = n + nr
+    else if (trim(variable_names(l)) == "CylindricalVelocity") then
+      n = n + 2
+    else if (trim(variable_names(l)) == "Vorticity") then
+      n = n + merge(nr,1,nr==3)
+    else if (trim(variable_names(l)) == "Momentum") then
+      n = n + nr
+    else if (trim(variable_names(l)) == "GradDensity") then
+      n = n + nr
+    else if (trim(variable_names(l)) == "GradMomentum") then
+      n = n + nr*nr
+    else if (trim(variable_names(l)) == "GradVelocity") then
+      n = n + nr*nr
+    else if (trim(variable_names(l)) == "GradEnergy") then
+      n = n + nr
+    else if (trim(variable_names(l)) == "GradTemperature") then
+      n = n + nr
+    else if (trim(variable_names(l)) == "DmatTemperature") then
+      n = n + nr
+    else if (trim(variable_names(l)) == "GradMassFractions") then
+      n = n + ncs*nr
+    else if (trim(variable_names(l)) == "GradSpeciesDensities") then
+      n = n + ncs*nr
+    else if (trim(variable_names(l)) == "Viscosity") then
+      if (governing_equations == NavierStokes_Eqns) then
+        n = n + 1
+      end if
+    else if (trim(variable_names(l)) == "ResolutionMarker") then
+      n = n + 2
+    else if (trim(variable_names(l)) == "JumpMarker") then
+      n = n + 2
+    else if (trim(variable_names(l)) == "TimeMetrics") then
+      if (allocated(time_metrics)) then
+        n = n + nr + 1
+      end if
+    else if (trim(variable_names(l)) == "CoMetrics") then
+   !  n = n + nr*nr
+    else if (trim(variable_names(l)) == "ContraMetrics") then
+      n = n + nr*nr
+    else if (trim(variable_names(l)) == "MassFractions") then
+      if (ncs > 0) then
+        n = n + ncs
+      end if
+    else if (trim(variable_names(l)) == "MoleFractions") then
+      if (ncs > 0) then
+        n = n + ncs
+      end if
+    else if (trim(variable_names(l)) == "SpeciesDensities") then
+      if (ncs > 0) then
+        n = n + ncs
+      end if
+    else if (trim(variable_names(l)) == "SpeciesEnthalpy") then
+      if (ncs > 0) then
+        n = n + ncs
+      end if
+    else if (trim(variable_names(l)) == "SpeciesCp") then
+      if (ncs > 0) then
+        n = n + ncs
+      end if
+    else if (trim(variable_names(l)) == "cpi/R") then
+      if (ncs > 0) then
+        n = n + ncs
+      end if
+    else if (trim(variable_names(l)) == "hi/RT") then
+      if (ncs > 0) then
+        n = n + ncs
+      end if
+    else if (trim(variable_names(l)) == "hi/R") then
+      if (ncs > 0) then
+        n = n + ncs
+      end if
+    else if (trim(variable_names(l)) == "dTdx_Breakdown") then
+      if (ncs > 0) then
+        n = n + (2*nr + 2*ncs + 7 + ncs*nr)
+      end if
+    else if (trim(variable_names(l)) == "QCriterion") then
+      n = n + 2
+    else
+      n = n + 1
+    end if
+  end do
+  !
+  return_value = n
+  !
+end function count_output_variables
 !
 !###############################################################################
 !
