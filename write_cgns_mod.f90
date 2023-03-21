@@ -1306,308 +1306,7 @@ continue
     !
     ! Create data nodes for the solution variables
     !
-    n = 0
-    do k = 1,size(char_sname)
-      if (trim(char_sname(k)) == "Velocity") then
-        do m = 1,nr
-          n = n + 1
-          varname = "Velocity"//char_xyz(m)
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        end do
-      else if (trim(char_sname(k)) == "CylindricalVelocity") then
-        do m = 1,2
-          n = n + 1
-          varname = "Velocity"//trim(adjustl(char_cyl(m)))
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        end do
-      else if (trim(char_sname(k)) == "Vorticity") then
-        do m = 1,nr
-          n = n + 1
-          varname = "Vorticity"//char_xyz(merge(m,3,nr==3))
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          if (nr < 3) exit
-        end do
-      else if (trim(char_sname(k)) == "Momentum") then
-        do m = 1,nr
-          n = n + 1
-          varname = "Momentum"//char_xyz(m)
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        end do
-      else if (trim(char_sname(k)) == "GradDensity") then
-        do l = 1,nr
-          n = n + 1
-          varname = "DensityGradient"//char_xyz(l)
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        end do
-      else if (trim(char_sname(k)) == "GradMomentum") then
-        do m = 1,nr
-          do l = 1,nr
-            n = n + 1
-            varname = "Momentum"//char_xyz(m)//"Gradient"//char_xyz(l)
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-        end do
-      else if (trim(char_sname(k)) == "GradVelocity") then
-        do m = 1,nr
-          do l = 1,nr
-            n = n + 1
-            varname = "Velocity"//char_xyz(m)//"Gradient"//char_xyz(l)
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-        end do
-      else if (trim(char_sname(k)) == "GradEnergy") then
-        do l = 1,nr
-          n = n + 1
-          varname = "EnergyGradient"//char_xyz(l)
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        end do
-      else if (trim(char_sname(k)) == "GradTemperature") then
-        do l = 1,nr
-          n = n + 1
-          varname = "TemperatureGradient"//char_xyz(l)
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        end do
-      else if (trim(char_sname(k)) == "DmatTemperature") then
-        do l = 1,nr
-          n = n + 1
-          varname = "TemperatureDMatrix"//char_xyz(l)
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        end do
-      else if (trim(char_sname(k)) == "GradMassFractions") then
-        do m = 1,ncs
-          do l = 1,nr
-            n = n + 1
-            varname = trim(adjustl(species_name(m))) // &
-                      "MassFractionGradient"//char_xyz(l)
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-        end do
-      else if (trim(char_sname(k)) == "GradSpeciesDensities") then
-        do m = 1,ncs
-          do l = 1,nr
-            n = n + 1
-            varname = trim(adjustl(species_name(m))) // &
-                      "DensityGradient"//char_xyz(l)
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-        end do
-      else if (trim(char_sname(k)) == "Viscosity") then
-        if (governing_equations == NavierStokes_Eqns) then
-          n = n + 1
-          varname = trim(char_sname(k))
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        end if
-      else if (trim(char_sname(k)) == "ResolutionMarker") then
-        !
-        n = n + 1
-        varname = trim(char_sname(k))
-        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        !
-        n = n + 1
-        varname = "Scaled"//trim(char_sname(k))
-        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        !
-      else if (trim(char_sname(k)) == "JumpMarker") then
-        !
-        n = n + 1
-        varname = trim(char_sname(k))
-        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        !
-        n = n + 1
-        varname = "Scaled"//trim(char_sname(k))
-        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        !
-      else if (trim(char_sname(k)) == "CoMetrics") then
-     !  do m = 1,nr
-     !    do i = 1,nr
-     !      n = n + 1
-     !      varname = "Covariant Metric d" // &
-     !                trim(adjustl(char_xyz(m))) // "d" // char_ijk(i)
-     !      call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-     !    end do
-     !  end do
-      else if (trim(char_sname(k)) == "ContraMetrics") then
-        do m = 1,nr
-          do i = 1,nr
-            n = n + 1
-            varname = "Contravariant Metric d" // &
-                      trim(adjustl(char_ijk(m))) // "d" // char_xyz(i)
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-        end do
-      else if (trim(char_sname(k)) == "TimeMetrics") then
-        if (allocated(time_metrics)) then
-          do m = 1,nr
-            n = n + 1
-            varname = "Time Metric d" // char_xyz(m)
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-          n = n + 1
-          varname = "Time Metric dA"
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        end if
-      else if (trim(char_sname(k)) == "MassFractions") then
-        if (ncs > 0) then
-          do m = 1,ncs
-            n = n + 1
-            varname = "MassFraction"//trim(adjustl(species_name(m)))
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-        end if
-      else if (trim(char_sname(k)) == "MoleFractions") then
-        if (ncs > 0) then
-          do m = 1,ncs
-            n = n + 1
-            varname = "MoleFraction"//trim(adjustl(species_name(m)))
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-        end if
-      else if (trim(char_sname(k)) == "SpeciesDensities") then
-        if (ncs > 0) then
-          do m = 1,ncs
-            n = n + 1
-            varname = "SpeciesDensity"//trim(adjustl(species_name(m)))
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-        end if
-      else if (trim(char_sname(k)) == "SpeciesEnthalpy") then
-        if (ncs > 0) then
-          do m = 1,ncs
-            n = n + 1
-            varname = "SpeciesEnthalpy"//trim(adjustl(species_name(m)))
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-        end if
-      else if (trim(char_sname(k)) == "SpeciesCp") then
-        if (ncs > 0) then
-          do m = 1,ncs
-            n = n + 1
-            varname = "SpeciesCp"//trim(adjustl(species_name(m)))
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-        end if
-      else if (trim(char_sname(k)) == "cpi/R") then
-        if (ncs > 0) then
-          do m = 1,ncs
-            n = n + 1
-            varname = "cpi_over_R_"//trim(adjustl(species_name(m)))
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-        end if
-      else if (trim(char_sname(k)) == "hi/R") then
-        if (ncs > 0) then
-          do m = 1,ncs
-            n = n + 1
-            varname = "hi_over_R_"//trim(adjustl(species_name(m)))
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-        end if
-      else if (trim(char_sname(k)) == "hi/RT") then
-        if (ncs > 0) then
-          do m = 1,ncs
-            n = n + 1
-            varname = "hi_over_RT_"//trim(adjustl(species_name(m)))
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-        end if
-      else if (trim(char_sname(k)) == "dTdx_Breakdown") then
-        if (ncs > 0) then
-          do l = 1,nr
-            n = n + 1
-            varname = "CPG_dTd"//char_xyz(l)
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-          do m = 1,ncs
-            n = n + 1
-            varname = "Cv("//trim(adjustl(species_name(m)))//")"
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-          do m = 1,ncs
-            n = n + 1
-            varname = "dCp("//trim(adjustl(species_name(m)))//")dT"
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-          !
-          n = n + 1
-          varname = "dCp(mix)dT"
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          !
-          n = n + 1
-          varname = "T_from_gradcv2gradpv"
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          !
-          n = n + 1
-          varname = "Cp(mix)"
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          !
-          n = n + 1
-          varname = "Gamma(Mix)"
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          !
-          n = n + 1
-          varname = "dTdx_lead_coefficient"
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          !
-          n = n + 1
-          varname = "CPG_constant_Cv"
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          !
-          n = n + 1
-          varname = "CPG_1_over_constant_Cv"
-          call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          !
-          do l = 1,nr
-            n = n + 1
-            varname = "TPG_dTd"//char_xyz(l)
-            call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-          end do
-          !
-          do m = 1,ncs
-            do l = 1,nr
-              n = n + 1
-              varname = "dY("//trim(adjustl(species_name(m)))// &
-                        ")d"//char_xyz(l)//"_from_dTd"//char_xyz(l)
-              call cgns_write_field_header(n,varname,isvar_s(n), &
-                                           __LINE__,__FILE__)
-            end do
-          end do
-        end if
-      else if (trim(char_sname(k)) == "QCriterion") then
-        !
-        n = n + 1
-        varname = trim(char_sname(k))
-        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        !
-        n = n + 1
-        varname = trim(char_sname(k))//"_Positive"
-        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-        !
-      else
-        n = n + 1
-        if (trim(char_sname(k)) == "Energy") then
-          varname = "EnergyStagnationDensity"
-        else if (trim(char_sname(k)) == "T0") then
-          varname = "TemperatureStagnation"
-        else if (trim(char_sname(k)) == "P0") then
-          varname = "PressureStagnation"
-        else if (trim(char_sname(k)) == "H0") then
-          varname = "EnthalpyStagnation"
-        else if (trim(char_sname(k)) == "Viscosity") then
-          varname = "ViscosityMolecular"
-        else if (trim(char_sname(k)) == "Conductivity") then
-          varname = "ThermalConductivity"
-        else if (trim(char_sname(k)) == "Cp") then
-          varname = "SpecificHeatPressure"
-        else if (trim(char_sname(k)) == "Gamma") then
-          varname = "SpecificHeatRatio"
-        else if (trim(char_sname(k)) == "Rgas") then
-          varname = "IdealGasConstant"
-        else
-          varname = trim(char_sname(k))
-        end if
-        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-      end if
-    end do
+    call write_field_headers(ifile_s,ibase_s,izone_s,isol_s,char_sname,isvar_s)
     !
     !
     !
@@ -1720,14 +1419,6 @@ continue
   2 format (1x,"Leaving ",a,/,:, &
             5x,"Wall time taken to write the file '",a, &
             "' = ",f12.6," seconds",/)
-  !
-  !-----------------------------------------------------------------------------
-  !
-  contains
-  !
-#include "Functions/cgns_write_field_header.f90"
-  !
-  !-----------------------------------------------------------------------------
   !
 end subroutine write_parallel_cgns_solution_file
 !
@@ -1846,6 +1537,354 @@ continue
   return_value = n
   !
 end function count_output_variables
+!
+!###############################################################################
+!
+subroutine write_field_headers(ifile,ibase,izone,isol,variable_names,ifld)
+  !
+  !.. Use Statements ..
+  use geovar,      only : nr
+  use ovar,        only : governing_equations
+  use ovar,        only : profile_io_cgns_subs
+  use thermo_mod,  only : species_name
+  use metrics_mod, only : time_metrics
+  !
+  !.. Formal Arguments ..
+  integer(CBT),         intent(in) :: ifile
+  integer(CBT),         intent(in) :: ibase
+  integer(CBT),         intent(in) :: izone
+  integer(CBT),         intent(in) :: isol
+#ifdef SPECIAL_FOR_INTEL
+  character(len=:),     intent(in) :: variable_names(:)
+#else
+  character(len=CGLEN), intent(in) :: variable_names(:)
+#endif
+  integer(CBT),      intent(inout) :: ifld(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,k,l,m,n
+  !
+  character(len=CGLEN) :: varname
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_field_headers"
+  character(len=*), parameter :: char_ijk(1:3) = ["Xi  ","Eta ","Zeta"]
+  character(len=*), parameter :: char_cyl(1:3) = ["R    ","Theta","Phi  "]
+  !
+continue
+  !
+  n = 0
+  do k = 1,size(variable_names)
+    if (trim(variable_names(k)) == "Velocity") then
+      do m = 1,nr
+        n = n + 1
+        varname = "Velocity"//char_xyz(m)
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+    else if (trim(variable_names(k)) == "CylindricalVelocity") then
+      do m = 1,2
+        n = n + 1
+        varname = "Velocity"//trim(adjustl(char_cyl(m)))
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+    else if (trim(variable_names(k)) == "Vorticity") then
+      do m = 1,nr
+        n = n + 1
+        varname = "Vorticity"//char_xyz(merge(m,3,nr==3))
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        if (nr < 3) exit
+      end do
+    else if (trim(variable_names(k)) == "Momentum") then
+      do m = 1,nr
+        n = n + 1
+        varname = "Momentum"//char_xyz(m)
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+    else if (trim(variable_names(k)) == "GradDensity") then
+      do l = 1,nr
+        n = n + 1
+        varname = "DensityGradient"//char_xyz(l)
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+    else if (trim(variable_names(k)) == "GradMomentum") then
+      do m = 1,nr
+        do l = 1,nr
+          n = n + 1
+          varname = "Momentum"//char_xyz(m)//"Gradient"//char_xyz(l)
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      end do
+    else if (trim(variable_names(k)) == "GradVelocity") then
+      do m = 1,nr
+        do l = 1,nr
+          n = n + 1
+          varname = "Velocity"//char_xyz(m)//"Gradient"//char_xyz(l)
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      end do
+    else if (trim(variable_names(k)) == "GradEnergy") then
+      do l = 1,nr
+        n = n + 1
+        varname = "EnergyGradient"//char_xyz(l)
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+    else if (trim(variable_names(k)) == "GradTemperature") then
+      do l = 1,nr
+        n = n + 1
+        varname = "TemperatureGradient"//char_xyz(l)
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+    else if (trim(variable_names(k)) == "DmatTemperature") then
+      do l = 1,nr
+        n = n + 1
+        varname = "TemperatureDMatrix"//char_xyz(l)
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+    else if (trim(variable_names(k)) == "GradMassFractions") then
+      do m = 1,ncs
+        do l = 1,nr
+          n = n + 1
+          varname = trim(adjustl(species_name(m))) // &
+                    "MassFractionGradient"//char_xyz(l)
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      end do
+    else if (trim(variable_names(k)) == "GradSpeciesDensities") then
+      do m = 1,ncs
+        do l = 1,nr
+          n = n + 1
+          varname = trim(adjustl(species_name(m))) // &
+                    "DensityGradient"//char_xyz(l)
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      end do
+    else if (trim(variable_names(k)) == "Viscosity") then
+      if (governing_equations == NavierStokes_Eqns) then
+        n = n + 1
+        varname = trim(variable_names(k))
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end if
+    else if (trim(variable_names(k)) == "ResolutionMarker") then
+      !
+      n = n + 1
+      varname = trim(variable_names(k))
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
+      n = n + 1
+      varname = "Scaled"//trim(variable_names(k))
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
+    else if (trim(variable_names(k)) == "JumpMarker") then
+      !
+      n = n + 1
+      varname = trim(variable_names(k))
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
+      n = n + 1
+      varname = "Scaled"//trim(variable_names(k))
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
+    else if (trim(variable_names(k)) == "CoMetrics") then
+   !  do m = 1,nr
+   !    do i = 1,nr
+   !      n = n + 1
+   !      varname = "Covariant Metric d" // &
+   !                trim(adjustl(char_xyz(m))) // "d" // char_ijk(i)
+   !      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+   !    end do
+   !  end do
+    else if (trim(variable_names(k)) == "ContraMetrics") then
+      do m = 1,nr
+        do i = 1,nr
+          n = n + 1
+          varname = "Contravariant Metric d" // &
+                    trim(adjustl(char_ijk(m))) // "d" // char_xyz(i)
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      end do
+    else if (trim(variable_names(k)) == "TimeMetrics") then
+      if (allocated(time_metrics)) then
+        do m = 1,nr
+          n = n + 1
+          varname = "Time Metric d" // char_xyz(m)
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+        n = n + 1
+        varname = "Time Metric dA"
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end if
+    else if (trim(variable_names(k)) == "MassFractions") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "MassFraction"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(variable_names(k)) == "MoleFractions") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "MoleFraction"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(variable_names(k)) == "SpeciesDensities") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "SpeciesDensity"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(variable_names(k)) == "SpeciesEnthalpy") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "SpeciesEnthalpy"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(variable_names(k)) == "SpeciesCp") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "SpeciesCp"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(variable_names(k)) == "cpi/R") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "cpi_over_R_"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(variable_names(k)) == "hi/R") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "hi_over_R_"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(variable_names(k)) == "hi/RT") then
+      if (ncs > 0) then
+        do m = 1,ncs
+          n = n + 1
+          varname = "hi_over_RT_"//trim(adjustl(species_name(m)))
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(variable_names(k)) == "dTdx_Breakdown") then
+      if (ncs > 0) then
+        do l = 1,nr
+          n = n + 1
+          varname = "CPG_dTd"//char_xyz(l)
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+        do m = 1,ncs
+          n = n + 1
+          varname = "Cv("//trim(adjustl(species_name(m)))//")"
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+        do m = 1,ncs
+          n = n + 1
+          varname = "dCp("//trim(adjustl(species_name(m)))//")dT"
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+        !
+        n = n + 1
+        varname = "dCp(mix)dT"
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        !
+        n = n + 1
+        varname = "T_from_gradcv2gradpv"
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        !
+        n = n + 1
+        varname = "Cp(mix)"
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        !
+        n = n + 1
+        varname = "Gamma(Mix)"
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        !
+        n = n + 1
+        varname = "dTdx_lead_coefficient"
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        !
+        n = n + 1
+        varname = "CPG_constant_Cv"
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        !
+        n = n + 1
+        varname = "CPG_1_over_constant_Cv"
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        !
+        do l = 1,nr
+          n = n + 1
+          varname = "TPG_dTd"//char_xyz(l)
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+        !
+        do m = 1,ncs
+          do l = 1,nr
+            n = n + 1
+            varname = "dY("//trim(adjustl(species_name(m)))// &
+                      ")d"//char_xyz(l)//"_from_dTd"//char_xyz(l)
+            call cgns_write_field_header(n,varname,ifld(n), &
+                                         __LINE__,__FILE__)
+          end do
+        end do
+      end if
+    else if (trim(variable_names(k)) == "QCriterion") then
+      !
+      n = n + 1
+      varname = trim(variable_names(k))
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
+      n = n + 1
+      varname = trim(variable_names(k))//"_Positive"
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
+    else
+      n = n + 1
+      if (trim(variable_names(k)) == "Energy") then
+        varname = "EnergyStagnationDensity"
+      else if (trim(variable_names(k)) == "T0") then
+        varname = "TemperatureStagnation"
+      else if (trim(variable_names(k)) == "P0") then
+        varname = "PressureStagnation"
+      else if (trim(variable_names(k)) == "H0") then
+        varname = "EnthalpyStagnation"
+      else if (trim(variable_names(k)) == "Viscosity") then
+        varname = "ViscosityMolecular"
+      else if (trim(variable_names(k)) == "Conductivity") then
+        varname = "ThermalConductivity"
+      else if (trim(variable_names(k)) == "Cp") then
+        varname = "SpecificHeatPressure"
+      else if (trim(variable_names(k)) == "Gamma") then
+        varname = "SpecificHeatRatio"
+      else if (trim(variable_names(k)) == "Rgas") then
+        varname = "IdealGasConstant"
+      else
+        varname = trim(variable_names(k))
+      end if
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+    end if
+  end do
+  !
+  !-----------------------------------------------------------------------------
+  !
+  contains
+  !
+#include "Functions/cgns_write_field_header.f90"
+  !
+  !-----------------------------------------------------------------------------
+  !
+end subroutine write_field_headers
 !
 !###############################################################################
 !

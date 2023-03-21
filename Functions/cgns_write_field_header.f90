@@ -1,4 +1,4 @@
-  subroutine cgns_write_field_header(n,vname,ivar_s,line_number,file_name)
+  subroutine cgns_write_field_header(n,vname,ifld,line_number,file_name)
     !
     ! This routine is placed here simply to prevent from having to place this
     ! whole chunk of code after each variable that needs to be written to the
@@ -8,7 +8,7 @@
     !.. Formal Arguments ..
     integer,          intent(in) :: n
     character(len=*), intent(in) :: vname
-    integer(CBT),  intent(inout) :: ivar_s
+    integer(CBT),  intent(inout) :: ifld
     integer,          intent(in) :: line_number
     character(len=*), intent(in) :: file_name
     !
@@ -16,8 +16,8 @@
     !
     call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_field_write_f")
-    call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
-                           CGNS_KIND_REAL,trim(vname),ivar_s,cgierr)
+    call cgp_field_write_f(ifile,ibase,izone,isol, &
+                           CGNS_KIND_REAL,trim(vname),ifld,cgierr)
     call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                     cgierr,line_number,file_name, &
                     "Write node: Solution variable",n)
