@@ -30,6 +30,7 @@ module module_cgns
   public :: cgns_element_properties
   public :: cgns_memory_usage
   public :: root_broadcasts_grid_dt
+  public :: reorder_to_cgns_pts
   !
   ! ###########################################################################
   ! ###########################################################################
@@ -6707,6 +6708,40 @@ continue
   end select
   !
 end function element_properties
+!
+!###############################################################################
+!
+pure function reorder_to_cgns_pts(type,pts) result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer(CET), intent(in) :: type
+  integer,      intent(in) :: pts(:)
+  !
+  !.. Function Result ..
+  integer :: return_value(1:size(pts))
+  !
+continue
+  !
+  return_value(:) = pts(:)
+  !
+  select case (type)
+    case (BAR_2,BAR_3,BAR_4,BAR_5)
+      return_value(:) = reorder_cgns_edge_pts(pts,reverse=true)
+    case (TRI_3,TRI_6,TRI_10,TRI_15)
+      return_value(:) = reorder_cgns_tria_pts(pts,type,reverse=true)
+    case (QUAD_4,QUAD_9,QUAD_16,QUAD_25)
+      return_value(:) = reorder_cgns_quad_pts(pts,type,reverse=true)
+    case (TETRA_4,TETRA_10,TETRA_20,TETRA_35)
+      return_value(:) = reorder_cgns_tetr_pts(pts,type,reverse=true)
+    case (PYRA_5,PYRA_14,PYRA_30,PYRA_55)
+      return_value(:) = reorder_cgns_pyra_pts(pts,type,reverse=true)
+    case (PENTA_6,PENTA_18,PENTA_40,PENTA_75)
+      return_value(:) = reorder_cgns_pris_pts(pts,type,reverse=true)
+    case (HEXA_8,HEXA_27,HEXA_64,HEXA_125)
+      return_value(:) = reorder_cgns_hexa_pts(pts,type,reverse=true)
+  end select
+  !
+end function reorder_to_cgns_pts
 !
 !###############################################################################
 !
