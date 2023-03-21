@@ -1263,7 +1263,7 @@ end subroutine get_num_cgns_variables
 !
 !###############################################################################
 !
-subroutine write_field_headers(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
+subroutine write_field_headers(ifile,ibase,izone,isol,isvar_s, &
                                cgns_sol_file,char_sname)
   !
   !.. Use Statements ..
@@ -1278,10 +1278,10 @@ subroutine write_field_headers(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !.. Formal Arguments ..
   character(len=*), intent(in) :: cgns_sol_file
   character(len=*), intent(in) :: char_sname(:)
-  integer,          intent(in) :: ifile_s
-  integer,          intent(in) :: ibase_s
-  integer,          intent(in) :: izone_s
-  integer,          intent(in) :: isol_s
+  integer,          intent(in) :: ifile
+  integer,          intent(in) :: ibase
+  integer,          intent(in) :: izone
+  integer,          intent(in) :: isol
   integer,       intent(inout) :: isvar_s(:)
   !
   !.. Local Scalars ..
