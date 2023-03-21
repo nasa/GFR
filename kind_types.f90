@@ -995,29 +995,52 @@ module module_kind_types
   !
   ! From Functions/init_array.f90
   !
-  private :: init_array_i1_rank1,init_array_i1_rank2,init_array_i1_rank3
-  private :: init_array_i2_rank1,init_array_i2_rank2,init_array_i2_rank3
-  private :: init_array_i4_rank1,init_array_i4_rank2,init_array_i4_rank3
-  private :: init_array_i8_rank1,init_array_i8_rank2,init_array_i8_rank3
-  private :: init_array_r4_rank1,init_array_r4_rank2,init_array_r4_rank3
-  private :: init_array_r8_rank1,init_array_r8_rank2,init_array_r8_rank3
-  private :: init_array_r16_rank1,init_array_r16_rank2,init_array_r16_rank3
-  private :: init_array_lk_rank1,init_array_lk_rank2,init_array_lk_rank3
-  private :: init_array_l4_rank1,init_array_l4_rank2,init_array_l4_rank3
+  ! Versions of init_array with size inputs being 64-bit integers
+  private :: &
+      init_array_s4_i1_rank1, init_array_s4_i1_rank2, init_array_s4_i1_rank3, &
+      init_array_s4_i2_rank1, init_array_s4_i2_rank2, init_array_s4_i2_rank3, &
+      init_array_s4_i4_rank1, init_array_s4_i4_rank2, init_array_s4_i4_rank3, &
+      init_array_s4_i8_rank1, init_array_s4_i8_rank2, init_array_s4_i8_rank3, &
+      init_array_s4_r4_rank1, init_array_s4_r4_rank2, init_array_s4_r4_rank3, &
+      init_array_s4_r8_rank1, init_array_s4_r8_rank2, init_array_s4_r8_rank3, &
+      init_array_s4_r16_rank1,init_array_s4_r16_rank2,init_array_s4_r16_rank3, &
+      init_array_s4_lk_rank1, init_array_s4_lk_rank2, init_array_s4_lk_rank3, &
+      init_array_s4_l4_rank1, init_array_s4_l4_rank2, init_array_s4_l4_rank3
+  !
+  ! Versions of init_array with size inputs being 64-bit integers
+  private :: &
+      init_array_s8_i1_rank1, init_array_s8_i1_rank2, init_array_s8_i1_rank3, &
+      init_array_s8_i2_rank1, init_array_s8_i2_rank2, init_array_s8_i2_rank3, &
+      init_array_s8_i4_rank1, init_array_s8_i4_rank2, init_array_s8_i4_rank3, &
+      init_array_s8_i8_rank1, init_array_s8_i8_rank2, init_array_s8_i8_rank3, &
+      init_array_s8_r4_rank1, init_array_s8_r4_rank2, init_array_s8_r4_rank3, &
+      init_array_s8_r8_rank1, init_array_s8_r8_rank2, init_array_s8_r8_rank3, &
+      init_array_s8_r16_rank1,init_array_s8_r16_rank2,init_array_s8_r16_rank3, &
+      init_array_s8_lk_rank1, init_array_s8_lk_rank2, init_array_s8_lk_rank3, &
+      init_array_s8_l4_rank1, init_array_s8_l4_rank2, init_array_s8_l4_rank3
   !
   interface init_array
     module procedure &
-                init_array_i1_rank1, init_array_i1_rank2, init_array_i1_rank3, &
-                init_array_i2_rank1, init_array_i2_rank2, init_array_i2_rank3, &
-                init_array_i4_rank1, init_array_i4_rank2, init_array_i4_rank3, &
-                init_array_i8_rank1, init_array_i8_rank2, init_array_i8_rank3, &
-                init_array_r4_rank1, init_array_r4_rank2, init_array_r4_rank3, &
-                init_array_r8_rank1, init_array_r8_rank2, init_array_r8_rank3, &
-                init_array_lk_rank1, init_array_lk_rank2, init_array_lk_rank3, &
-                init_array_l4_rank1, init_array_l4_rank2, init_array_l4_rank3
+       init_array_s4_i1_rank1, init_array_s4_i1_rank2, init_array_s4_i1_rank3, &
+       init_array_s4_i2_rank1, init_array_s4_i2_rank2, init_array_s4_i2_rank3, &
+       init_array_s4_i4_rank1, init_array_s4_i4_rank2, init_array_s4_i4_rank3, &
+       init_array_s4_i8_rank1, init_array_s4_i8_rank2, init_array_s4_i8_rank3, &
+       init_array_s4_r4_rank1, init_array_s4_r4_rank2, init_array_s4_r4_rank3, &
+       init_array_s4_r8_rank1, init_array_s4_r8_rank2, init_array_s4_r8_rank3, &
+       init_array_s4_lk_rank1, init_array_s4_lk_rank2, init_array_s4_lk_rank3, &
+       init_array_s4_l4_rank1, init_array_s4_l4_rank2, init_array_s4_l4_rank3, &
+       init_array_s8_i1_rank1, init_array_s8_i1_rank2, init_array_s8_i1_rank3, &
+       init_array_s8_i2_rank1, init_array_s8_i2_rank2, init_array_s8_i2_rank3, &
+       init_array_s8_i4_rank1, init_array_s8_i4_rank2, init_array_s8_i4_rank3, &
+       init_array_s8_i8_rank1, init_array_s8_i8_rank2, init_array_s8_i8_rank3, &
+       init_array_s8_r4_rank1, init_array_s8_r4_rank2, init_array_s8_r4_rank3, &
+       init_array_s8_r8_rank1, init_array_s8_r8_rank2, init_array_s8_r8_rank3, &
+       init_array_s8_lk_rank1, init_array_s8_lk_rank2, init_array_s8_lk_rank3, &
+       init_array_s8_l4_rank1, init_array_s8_l4_rank2, init_array_s8_l4_rank3
 #ifndef DISABLE_QP
     module procedure &
-                init_array_r16_rank1, init_array_r16_rank2, init_array_r16_rank3
+    init_array_s4_r16_rank1, init_array_s4_r16_rank2, init_array_s4_r16_rank3, &
+    init_array_s8_r16_rank1, init_array_s8_r16_rank2, init_array_s8_r16_rank3
 #endif
   end interface init_array
   !

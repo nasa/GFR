@@ -22,7 +22,7 @@
 !###############################################################################
 !###############################################################################
 !
-pure function init_array_i1_rank1(size1,val) result(return_value)
+pure function init_array_s4_i1_rank1(size1,val) result(return_value)
   !
   use iso_fortran_env, only : lp => int8
   use iso_fortran_env, only : ip => int32
@@ -34,11 +34,11 @@ pure function init_array_i1_rank1(size1,val) result(return_value)
   !
 continue
   return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
-end function init_array_i1_rank1
+end function init_array_s4_i1_rank1
 !
 !###############################################################################
 !
-pure function init_array_i1_rank2(size1,size2,val) result(return_value)
+pure function init_array_s4_i1_rank2(size1,size2,val) result(return_value)
   !
   use iso_fortran_env, only : lp => int8
   use iso_fortran_env, only : ip => int32
@@ -53,11 +53,11 @@ continue
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
  !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
-end function init_array_i1_rank2
+end function init_array_s4_i1_rank2
 !
 !###############################################################################
 !
-pure function init_array_i1_rank3(size1,size2,size3,val) result(return_value)
+pure function init_array_s4_i1_rank3(size1,size2,size3,val) result(return_value)
   !
   use iso_fortran_env, only : lp => int8
   use iso_fortran_env, only : ip => int32
@@ -72,7 +72,7 @@ continue
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
  !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
-end function init_array_i1_rank3
+end function init_array_s4_i1_rank3
 !
 !###############################################################################
 !###############################################################################
@@ -82,7 +82,7 @@ end function init_array_i1_rank3
 !###############################################################################
 !###############################################################################
 !
-pure function init_array_i2_rank1(size1,val) result(return_value)
+pure function init_array_s4_i2_rank1(size1,val) result(return_value)
   !
   use iso_fortran_env, only : lp => int16
   use iso_fortran_env, only : ip => int32
@@ -94,11 +94,11 @@ pure function init_array_i2_rank1(size1,val) result(return_value)
   !
 continue
   return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
-end function init_array_i2_rank1
+end function init_array_s4_i2_rank1
 !
 !###############################################################################
 !
-pure function init_array_i2_rank2(size1,size2,val) result(return_value)
+pure function init_array_s4_i2_rank2(size1,size2,val) result(return_value)
   !
   use iso_fortran_env, only : lp => int16
   use iso_fortran_env, only : ip => int32
@@ -113,11 +113,11 @@ continue
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
  !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
-end function init_array_i2_rank2
+end function init_array_s4_i2_rank2
 !
 !###############################################################################
 !
-pure function init_array_i2_rank3(size1,size2,size3,val) result(return_value)
+pure function init_array_s4_i2_rank3(size1,size2,size3,val) result(return_value)
   !
   use iso_fortran_env, only : lp => int16
   use iso_fortran_env, only : ip => int32
@@ -132,7 +132,7 @@ continue
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
  !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
-end function init_array_i2_rank3
+end function init_array_s4_i2_rank3
 !
 !###############################################################################
 !###############################################################################
@@ -142,7 +142,7 @@ end function init_array_i2_rank3
 !###############################################################################
 !###############################################################################
 !
-pure function init_array_i4_rank1(size1,val) result(return_value)
+pure function init_array_s4_i4_rank1(size1,val) result(return_value)
   !
   use iso_fortran_env, only : lp => int32
   use iso_fortran_env, only : ip => int32
@@ -154,11 +154,11 @@ pure function init_array_i4_rank1(size1,val) result(return_value)
   !
 continue
   return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
-end function init_array_i4_rank1
+end function init_array_s4_i4_rank1
 !
 !###############################################################################
 !
-pure function init_array_i4_rank2(size1,size2,val) result(return_value)
+pure function init_array_s4_i4_rank2(size1,size2,val) result(return_value)
   !
   use iso_fortran_env, only : lp => int32
   use iso_fortran_env, only : ip => int32
@@ -173,11 +173,11 @@ continue
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
  !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
-end function init_array_i4_rank2
+end function init_array_s4_i4_rank2
 !
 !###############################################################################
 !
-pure function init_array_i4_rank3(size1,size2,size3,val) result(return_value)
+pure function init_array_s4_i4_rank3(size1,size2,size3,val) result(return_value)
   !
   use iso_fortran_env, only : lp => int32
   use iso_fortran_env, only : ip => int32
@@ -192,7 +192,7 @@ continue
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
  !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
-end function init_array_i4_rank3
+end function init_array_s4_i4_rank3
 !
 !###############################################################################
 !###############################################################################
@@ -202,7 +202,7 @@ end function init_array_i4_rank3
 !###############################################################################
 !###############################################################################
 !
-pure function init_array_i8_rank1(size1,val) result(return_value)
+pure function init_array_s4_i8_rank1(size1,val) result(return_value)
   !
   use iso_fortran_env, only : lp => int64
   use iso_fortran_env, only : ip => int32
@@ -214,11 +214,11 @@ pure function init_array_i8_rank1(size1,val) result(return_value)
   !
 continue
   return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
-end function init_array_i8_rank1
+end function init_array_s4_i8_rank1
 !
 !###############################################################################
 !
-pure function init_array_i8_rank2(size1,size2,val) result(return_value)
+pure function init_array_s4_i8_rank2(size1,size2,val) result(return_value)
   !
   use iso_fortran_env, only : lp => int64
   use iso_fortran_env, only : ip => int32
@@ -233,11 +233,11 @@ continue
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
  !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
-end function init_array_i8_rank2
+end function init_array_s4_i8_rank2
 !
 !###############################################################################
 !
-pure function init_array_i8_rank3(size1,size2,size3,val) result(return_value)
+pure function init_array_s4_i8_rank3(size1,size2,size3,val) result(return_value)
   !
   use iso_fortran_env, only : lp => int64
   use iso_fortran_env, only : ip => int32
@@ -252,7 +252,7 @@ continue
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
  !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
-end function init_array_i8_rank3
+end function init_array_s4_i8_rank3
 !
 !###############################################################################
 !###############################################################################
@@ -262,7 +262,7 @@ end function init_array_i8_rank3
 !###############################################################################
 !###############################################################################
 !
-pure function init_array_r4_rank1(size1,val) result(return_value)
+pure function init_array_s4_r4_rank1(size1,val) result(return_value)
   !
   use iso_fortran_env, only : lp => real32
   use iso_fortran_env, only : ip => int32
@@ -274,11 +274,11 @@ pure function init_array_r4_rank1(size1,val) result(return_value)
   !
 continue
   return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
-end function init_array_r4_rank1
+end function init_array_s4_r4_rank1
 !
 !###############################################################################
 !
-pure function init_array_r4_rank2(size1,size2,val) result(return_value)
+pure function init_array_s4_r4_rank2(size1,size2,val) result(return_value)
   !
   use iso_fortran_env, only : lp => real32
   use iso_fortran_env, only : ip => int32
@@ -293,11 +293,11 @@ continue
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
  !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
-end function init_array_r4_rank2
+end function init_array_s4_r4_rank2
 !
 !###############################################################################
 !
-pure function init_array_r4_rank3(size1,size2,size3,val) result(return_value)
+pure function init_array_s4_r4_rank3(size1,size2,size3,val) result(return_value)
   !
   use iso_fortran_env, only : lp => real32
   use iso_fortran_env, only : ip => int32
@@ -312,7 +312,7 @@ continue
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
  !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
-end function init_array_r4_rank3
+end function init_array_s4_r4_rank3
 !
 !###############################################################################
 !###############################################################################
@@ -322,7 +322,7 @@ end function init_array_r4_rank3
 !###############################################################################
 !###############################################################################
 !
-pure function init_array_r8_rank1(size1,val) result(return_value)
+pure function init_array_s4_r8_rank1(size1,val) result(return_value)
   !
   use iso_fortran_env, only : lp => real64
   use iso_fortran_env, only : ip => int32
@@ -334,11 +334,11 @@ pure function init_array_r8_rank1(size1,val) result(return_value)
   !
 continue
   return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
-end function init_array_r8_rank1
+end function init_array_s4_r8_rank1
 !
 !###############################################################################
 !
-pure function init_array_r8_rank2(size1,size2,val) result(return_value)
+pure function init_array_s4_r8_rank2(size1,size2,val) result(return_value)
   !
   use iso_fortran_env, only : lp => real64
   use iso_fortran_env, only : ip => int32
@@ -353,11 +353,11 @@ continue
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
  !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
-end function init_array_r8_rank2
+end function init_array_s4_r8_rank2
 !
 !###############################################################################
 !
-pure function init_array_r8_rank3(size1,size2,size3,val) result(return_value)
+pure function init_array_s4_r8_rank3(size1,size2,size3,val) result(return_value)
   !
   use iso_fortran_env, only : lp => real64
   use iso_fortran_env, only : ip => int32
@@ -372,7 +372,7 @@ continue
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
  !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
-end function init_array_r8_rank3
+end function init_array_s4_r8_rank3
 !
 !###############################################################################
 !###############################################################################
@@ -382,7 +382,7 @@ end function init_array_r8_rank3
 !###############################################################################
 !###############################################################################
 !
-pure function init_array_r16_rank1(size1,val) result(return_value)
+pure function init_array_s4_r16_rank1(size1,val) result(return_value)
   !
   use iso_fortran_env, only : lp => real128
   use iso_fortran_env, only : ip => int32
@@ -394,11 +394,11 @@ pure function init_array_r16_rank1(size1,val) result(return_value)
   !
 continue
   return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
-end function init_array_r16_rank1
+end function init_array_s4_r16_rank1
 !
 !###############################################################################
 !
-pure function init_array_r16_rank2(size1,size2,val) result(return_value)
+pure function init_array_s4_r16_rank2(size1,size2,val) result(return_value)
   !
   use iso_fortran_env, only : lp => real128
   use iso_fortran_env, only : ip => int32
@@ -413,11 +413,11 @@ continue
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
  !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
-end function init_array_r16_rank2
+end function init_array_s4_r16_rank2
 !
 !###############################################################################
 !
-pure function init_array_r16_rank3(size1,size2,size3,val) result(return_value)
+pure function init_array_s4_r16_rank3(size1,size2,size3,val) result(return_value)
   !
   use iso_fortran_env, only : lp => real128
   use iso_fortran_env, only : ip => int32
@@ -432,7 +432,7 @@ continue
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
  !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
-end function init_array_r16_rank3
+end function init_array_s4_r16_rank3
 !
 !###############################################################################
 !###############################################################################
@@ -442,7 +442,7 @@ end function init_array_r16_rank3
 !###############################################################################
 !###############################################################################
 !
-pure function init_array_lk_rank1(size1,val) result(return_value)
+pure function init_array_s4_lk_rank1(size1,val) result(return_value)
   !
   use iso_fortran_env, only : ip => int32
   !
@@ -455,11 +455,11 @@ pure function init_array_lk_rank1(size1,val) result(return_value)
   !
 continue
   return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
-end function init_array_lk_rank1
+end function init_array_s4_lk_rank1
 !
 !###############################################################################
 !
-pure function init_array_lk_rank2(size1,size2,val) result(return_value)
+pure function init_array_s4_lk_rank2(size1,size2,val) result(return_value)
   !
   use iso_fortran_env, only : ip => int32
   !
@@ -475,11 +475,11 @@ continue
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
  !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
-end function init_array_lk_rank2
+end function init_array_s4_lk_rank2
 !
 !###############################################################################
 !
-pure function init_array_lk_rank3(size1,size2,size3,val) result(return_value)
+pure function init_array_s4_lk_rank3(size1,size2,size3,val) result(return_value)
   !
   use iso_fortran_env, only : ip => int32
   !
@@ -495,7 +495,7 @@ continue
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
  !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
-end function init_array_lk_rank3
+end function init_array_s4_lk_rank3
 !
 !###############################################################################
 !###############################################################################
@@ -505,7 +505,7 @@ end function init_array_lk_rank3
 !###############################################################################
 !###############################################################################
 !
-pure function init_array_l4_rank1(size1,val) result(return_value)
+pure function init_array_s4_l4_rank1(size1,val) result(return_value)
   !
   use iso_fortran_env, only : ip => int32
   !
@@ -518,11 +518,11 @@ pure function init_array_l4_rank1(size1,val) result(return_value)
   !
 continue
   return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
-end function init_array_l4_rank1
+end function init_array_s4_l4_rank1
 !
 !###############################################################################
 !
-pure function init_array_l4_rank2(size1,size2,val) result(return_value)
+pure function init_array_s4_l4_rank2(size1,size2,val) result(return_value)
   !
   use iso_fortran_env, only : ip => int32
   !
@@ -538,11 +538,11 @@ continue
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
  !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
-end function init_array_l4_rank2
+end function init_array_s4_l4_rank2
 !
 !###############################################################################
 !
-pure function init_array_l4_rank3(size1,size2,size3,val) result(return_value)
+pure function init_array_s4_l4_rank3(size1,size2,size3,val) result(return_value)
   !
   use iso_fortran_env, only : ip => int32
   !
@@ -558,7 +558,7 @@ continue
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
  !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
  !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
-end function init_array_l4_rank3
+end function init_array_s4_l4_rank3
 !
 !
 !
