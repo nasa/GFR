@@ -179,7 +179,7 @@ end subroutine flush_cgns_queue
 !
 !###############################################################################
 !
-subroutine cgns_error(procedure_name,file_name,cgns_routine,iemessag, &
+subroutine cgns_error(procedure_name,file_name,cgns_routine,cgierr_val, &
                       line_number,src_file_name,optmessag,optinteger, &
                       not_parallel)
   !
@@ -207,7 +207,7 @@ subroutine cgns_error(procedure_name,file_name,cgns_routine,iemessag, &
   character(len=*), intent(in) :: procedure_name
   character(len=*), intent(in) :: file_name
   character(len=*), intent(in) :: cgns_routine
-  integer(CBT),     intent(in) :: iemessag
+  integer(CBT),     intent(in) :: cgierr_val
   integer,          intent(in) :: line_number
   character(len=*), intent(in) :: src_file_name
   !
@@ -227,7 +227,7 @@ continue
     file_operation_is_serial = not_parallel
   end if
   !
-  if (iemessag == CG_OK) then
+  if (cgierr_val == CG_OK) then
     ierror = 0
   else
     ierror = 1
@@ -252,7 +252,7 @@ continue
       write (iout,3) optinteger
     end if
     !
-    write (iout,11) trim(adjustl(procedure_name)),iemessag, &
+    write (iout,11) trim(adjustl(procedure_name)),cgierr_val, &
                     trim(adjustl(cgns_routine))
     !
     if (.not. file_operation_is_serial) then
@@ -266,7 +266,7 @@ continue
   if (file_operation_is_serial) then
     call cg_get_error_f(error_message)
     call io_error(procedure_name,file_name,5,line_number,src_file_name, &
-                  iemessag,error_message)
+                  cgierr_val,error_message)
   else
    !call cg_get_error_f(error_message)
     if (mypnum == glb_root) then
