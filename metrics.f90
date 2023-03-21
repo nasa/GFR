@@ -1677,6 +1677,7 @@ subroutine compute_face_normals_3d(fnrm)
   real(wp) :: dxdj,dydj,dzdj
   real(wp) :: xval,yval,zval
   real(wp) :: xnrm,ynrm,znrm
+  real(wp) :: x,y,z,r,theta,angle
   real(qp) :: xqp,yqp,zqp
   !
   !.. Local Arrays ..
@@ -1688,6 +1689,8 @@ subroutine compute_face_normals_3d(fnrm)
   real(wp), allocatable :: cell_xyz(:,:)
   real(wp), allocatable :: face_xyz(:,:)
   real(wp) :: cell_vec(1:3)
+  real(wp) :: cell_pt(1:3)
+  real(wp) :: face_pt(1:3)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_face_normals_3d"
@@ -1768,7 +1771,9 @@ continue
       end if
       face_xyz = xyz_nodes(1:3,face_nodes(:)) ! F2003 AUTO-REALLOC
       !
-      cell_vec(1:3) = get_cell_vec(cell_nodes,face_nodes,cell_xyz,face_xyz)
+      call get_cell_vec_sub(cell_nodes,face_nodes,cell_xyz,face_xyz, &
+                            cell_pt,face_pt,cell_vec)
+     !cell_vec(1:3) = get_cell_vec(cell_nodes,face_nodes,cell_xyz,face_xyz)
       !
       ! Interpolate the coordinates of the solution points to get the
       ! coordinates of the flux points on the current face.
@@ -1942,10 +1947,19 @@ continue
           ! of the cell (ncf) needs to have logic to set facenrm_coeff
           ! to -one. The logic is correctly in place above for faces
           ! of hexes, tets, pyramids, and prisms.
+          x = xyz_face(kf,1)
+          y = xyz_face(kf,2)
+          z = xyz_face(kf,3)
+          r = sqrt(y*y + z*z)
+          theta = atan2(z,y)
+          angle = (theta + merge(two*pi,zero,theta<zero))*radians2degrees
           write (9101,95) nc,this_geom,f0+kf,kf,ncf, &
-                          dot(fnrm(1:3,f0+kf),cell_vec(1:3))
+                          dot(fnrm(1:3,f0+kf),cell_vec(1:3)), &
+                          x,y,z,r,theta,angle, &
+                          (fnrm(i,f0+kf),i=1,3),(cell_vec(i),i=1,3), &
+                          (cell_pt(i),i=1,3),(face_pt(i),i=1,3)
         end if
-        95 format (i5,i3,i6,i3,i8,f15.10)
+        95 format (i6,i3,i10,i4,i8,f15.10,6(4x,3f11.6))
         !
       end do
 #ifdef TIME_METRIC_PROCEDURES
@@ -1967,6 +1981,107 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_face_normals_3d
+!
+!###############################################################################
+!
+subroutine get_cell_vec_sub(cell_nodes,face_nodes,cell_xyz,face_xyz, &
+                            cell_pt,face_pt,cell_vec)
+  !
+  integer,     intent(in) :: cell_nodes(:)
+  integer,     intent(in) :: face_nodes(:)
+  real(wp),    intent(in) :: cell_xyz(:,:)
+  real(wp),    intent(in) :: face_xyz(:,:)
+  real(wp), intent(inout) :: cell_pt(1:size(cell_xyz,dim=1))
+  real(wp), intent(inout) :: face_pt(1:size(cell_xyz,dim=1))
+  real(wp), intent(inout) :: cell_vec(1:size(cell_xyz,dim=1))
+  !
+  integer :: n,l,nfp,ncp,nl,m
+  !
+  real(wp) :: face_center(1:size(cell_xyz,dim=1))
+  !
+continue
+  !
+  cell_vec(:) = -huge(zero)
+  !
+  nl = size(cell_xyz,dim=1)
+  nfp = size(face_nodes)
+  ncp = size(cell_nodes)
+  !
+  ! Compute the coordinates for the center of the current face by averaging
+  ! the coordinates of all the face nodes.
+  !
+  do l = 1,nl
+    face_center(l) = sum(face_xyz(l,:)) / real(nfp,kind=wp)
+  end do
+  !
+  ! Loop through the cell nodes to find a node that is not on the current face
+  !
+  m = 0
+  cell_pt(:) = zero
+  do n = 1,ncp
+    !
+    ! If this cell node matches any of the face nodes, we need to skip to
+    ! the next cell node because we need to a cell node that is not on the
+    ! current face to get a vector from the cell interior (direction) to
+    ! the center of the current face.
+    !
+    if (any(cell_nodes(n) == face_nodes(:))) cycle
+    !
+    ! This cell node is not part of the face, so add it to the average of
+    ! the nodes not on the face
+    !
+    m = m + 1
+    !
+    do l = 1,nl
+      cell_pt(l) = cell_pt(l) + cell_xyz(l,n)
+    end do
+    !
+  end do
+  !
+  ! Now compute the average location of all nodes not on the face using
+  ! the counter m
+  !
+  do l = 1,nl
+    cell_pt(l) = cell_pt(l)/real(m,kind=wp)
+  end do
+  !
+  ! Finally, compute the vector from the from the averaged coordinates
+  ! of the cell nodes not on the face, to the center of the face
+  !
+  do l = 1,nl
+    cell_vec(l) = cell_pt(l) - face_center(l)
+    face_pt(l) = face_center(l)
+  end do
+ !!
+ !! Loop through the cell nodes to find a node that is not on the current face
+ !!
+ !do n = 1,ncp
+ !  !
+ !  ! If this cell node matches any of the face nodes, we need to skip to
+ !  ! the next cell node because we need to a cell node that is not on the
+ !  ! current face to get a vector from the cell interior (direction) to
+ !  ! the center of the current face.
+ !  !
+ !  if (any(cell_nodes(n) == face_nodes(:))) cycle
+ !  !
+ !  ! This cell node is not on the current face, so compute the vector from
+ !  ! this cell node to the center of the face, which is a vector from the
+ !  ! interior (direction) of the cell to the face.
+ !  !
+ !  do l = 1,nl
+ !    cell_vec(l) = cell_xyz(l,n) - face_center(l)
+ !    cell_pt(l) = cell_xyz(l,n)
+ !    face_pt(l) = face_center(l)
+ !  end do
+ !  !
+ !  ! We only need to compute this vector from one of the cell nodes that is
+ !  ! not on the face, so if we are here, the job is done and we can exit.
+ !  !
+ !  exit
+ !  !
+ !end do
+  !
+end subroutine get_cell_vec_sub
 !
 !###############################################################################
 !
