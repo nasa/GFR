@@ -494,7 +494,7 @@ continue
       ! Mark jp negative if ds(j) is > eps6
       !
       jp = jnodes(j)
-      if (ds(j) > eps6) then
+      if (ds(j) > eps3) then
         jp = -jp
       end if
       ! 
