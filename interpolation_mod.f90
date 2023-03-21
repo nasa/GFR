@@ -1961,6 +1961,7 @@ subroutine init_outerpolation_matrices()
   !.. Use Statements ..
   use ovar,             only : loc_solution_pts,loc_output_pts
   use ovar,             only : loc_error_pts,loc_init_pts
+  use ovar,             only : cgns_high_order_output
   use order_mod,        only : n_order,o_order,e_order
   use order_mod,        only : n_min_geom,n_max_geom
   use order_mod,        only : n_min_order,n_max_order
@@ -2021,7 +2022,12 @@ continue
   !
   ! Check if we need the matrix to output the solution for post-processing
   !
-  if (loc_solution_pts /= loc_output_pts .or. o_order > n_order) then
+  if (cgns_high_order_output) then
+    output_matrix_is_needed = true
+    ! Make sure the location of the output points are the equal distant
+    ! points if writing high-order CGNS files
+    loc_output_pts = Equi_Distant_Points
+  else if (loc_solution_pts /= loc_output_pts .or. o_order > n_order) then
     output_matrix_is_needed = true
   end if
   !
@@ -2145,6 +2151,13 @@ continue
         ! Get the order for output
         !
         output_order = max(this_order,o_order)
+        !
+        ! If outputing to a high-order CGNS, make sure the output order
+        ! is not higher than 4, which is the current limit of CGNS.
+        !
+        if (cgns_high_order_output) then
+          output_order = min(output_order,4)
+        end if
         !
         ! Allocate the output component of outerp
         !
