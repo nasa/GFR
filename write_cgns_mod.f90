@@ -3265,7 +3265,7 @@ continue
   ! Make sure vorticity is one of the variables that will
   ! be output if running the Taylor-Green vortex problem.
   !
-  if (itestcase == Taylor_Green_Vortex) then
+  if (any(abs(itestcase) == [Taylor_Green_Vortex,Taylor_Couette_Flow])) then
     call add_sol_variable(variable_list,"Vorticity")
   end if
   !
