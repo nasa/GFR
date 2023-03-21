@@ -1306,7 +1306,8 @@ continue
     !
     ! Create data nodes for the solution variables
     !
-    call write_field_headers(ifile_s,ibase_s,izone_s,isol_s,char_sname,isvar_s)
+    call write_field_headers(cgns_sol_file,ifile_s,ibase_s,izone_s,isol_s, &
+                             char_sname,isvar_s)
     !
     !
     !
@@ -1436,7 +1437,7 @@ function count_output_variables(variable_names) result(return_value)
   !
   !.. Formal Arguments ..
 #ifdef SPECIAL_FOR_INTEL
-  character(len=:), intent(in) :: variable_names(:)
+  character(len=:), allocatable, intent(in) :: variable_names(:)
 #else
   character(len=CGLEN), intent(in) :: variable_names(:)
 #endif
@@ -1540,7 +1541,8 @@ end function count_output_variables
 !
 !###############################################################################
 !
-subroutine write_field_headers(ifile,ibase,izone,isol,variable_names,ifld)
+subroutine write_field_headers(cgns_sol_file,ifile,ibase,izone,isol, &
+                               variable_names,ifld)
   !
   !.. Use Statements ..
   use geovar,      only : nr
@@ -1550,12 +1552,13 @@ subroutine write_field_headers(ifile,ibase,izone,isol,variable_names,ifld)
   use metrics_mod, only : time_metrics
   !
   !.. Formal Arguments ..
+  character(len=*),     intent(in) :: cgns_sol_file
   integer(CBT),         intent(in) :: ifile
   integer(CBT),         intent(in) :: ibase
   integer(CBT),         intent(in) :: izone
   integer(CBT),         intent(in) :: isol
 #ifdef SPECIAL_FOR_INTEL
-  character(len=:),     intent(in) :: variable_names(:)
+  character(len=:), allocatable, intent(in) :: variable_names(:)
 #else
   character(len=CGLEN), intent(in) :: variable_names(:)
 #endif
@@ -3923,33 +3926,14 @@ continue
   ! Count the total number of time averaged variables that will be written
   ! and allocate isvar_s accordingly
   !
-  n = 0
-  do l = 1,size(char_sname)
-    if (trim(char_sname(l)) == "Velocity") then
-      n = n + nr
-    else
-      n = n + 1
-    end if
-  end do
+  n = count_output_variables(char_sname)
   !
   isvar_s = init_array(n,0) ! F2003 AUTO-REALLOC
   !
   ! Create data nodes for the time averaged solution variables
   !
-  n = 0
-  do l = 1,size(char_sname)
-    if (trim(char_sname(l)) == "Velocity") then
-      do m = 1,nr
-        n = n + 1
-        varname = "Velocity"//char_xyz(m)
-        call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-      end do
-    else
-      n = n + 1
-      varname = trim(char_sname(l))
-      call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
-    end if
-  end do
+  call write_field_headers(cgns_sol_file,ifile_s,ibase_s,izone_s,isol_s, &
+                           char_sname,isvar_s)
   !
   ! Preallocate var for writing variables in the correct precision
   ! to the CGNS file
@@ -4022,14 +4006,6 @@ continue
             "' = ",f12.6," seconds",/)
   3 format ("('",a,"solution.time_ave.',i0.",i0,",'.cgns')")
   4 format (i0)
-  !
-  !-----------------------------------------------------------------------------
-  !
-  contains
-  !
-#include "Functions/cgns_write_field_header.f90"
-  !
-  !-----------------------------------------------------------------------------
   !
 end subroutine write_parallel_cgns_time_ave_file
 !
