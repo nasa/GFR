@@ -261,6 +261,9 @@ subroutine get_bc_wall_vel_solution_3d(n1,n2,bc_type,facexyz,facenrm, &
   ! PV_IN   : Primitive    variables specified for this BC
   ! ROTATION_SPEED : RPM for rotating non-slip wall
   !
+  !.. Use Statements ..
+  use ovar, only : aref
+  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   integer,     intent(in) :: bc_type
@@ -285,14 +288,14 @@ subroutine get_bc_wall_vel_solution_3d(n1,n2,bc_type,facexyz,facenrm, &
   !.. Local Parameters ..
   ! RPM_CONVERSION : converts RPM to velocity magnitude when multiplied
   !                  with the distance r from the rotational axis.
-  real(wp), parameter :: rpm_conversion = six*ten*two*pi
+  real(wp), parameter :: rpm_conversion = two*pi/(six*ten)
   !
 continue
   !
   rotating_wall_check: &
   if (abs(rotation_speed) > eps1) then
     !
-    speed = rotation_speed*rpm_conversion
+    speed = rotation_speed*rpm_conversion/aref
     !
     !#######################################################################
     !#######################################################################
@@ -502,6 +505,9 @@ subroutine get_bc_wall_vel_solution_2d(n1,n2,bc_type,facexyz,facenrm, &
   ! PV_IN   : Primitive    variables specified for this BC
   ! ROTATION_SPEED : RPM for rotating non-slip wall
   !
+  !.. Use Statements ..
+  use ovar, only : aref
+  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   integer,     intent(in) :: bc_type
@@ -525,14 +531,14 @@ subroutine get_bc_wall_vel_solution_2d(n1,n2,bc_type,facexyz,facenrm, &
   !.. Local Parameters ..
   ! RPM_CONVERSION : converts RPM to velocity magnitude when multiplied
   !                  with the distance r from the rotational axis.
-  real(wp), parameter :: rpm_conversion = six*ten*two*pi
+  real(wp), parameter :: rpm_conversion = two*pi/(six*ten)
   !
 continue
   !
   rotating_wall_check: &
   if (abs(rotation_speed) > eps1) then
     !
-    speed = rotation_speed*rpm_conversion
+    speed = rotation_speed*rpm_conversion/aref
     !
     !#######################################################################
     !#######################################################################
