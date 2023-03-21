@@ -2794,11 +2794,9 @@ subroutine check_node_ordering()
   integer  :: i,n,nf,np,n1,n2,ip2,ip4
   real(wp) :: cell_vol
   !
-  !.. Local Arrays ..
-  real(wp), dimension(1:nr,1:8) :: cell_nodes
-  !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: cn_xyz(:,:)
+  real(wp), allocatable :: cell_nodes(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_node_ordering"
@@ -2825,23 +2823,23 @@ continue
     !
     ! Compute the signed area/volume of the current host cell
     !
-    cell_nodes(1:nr,1:np) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
+    cell_nodes = xyz_nodes(1:nr,nodes_of_cell(n1:n2)) ! F2003 AUTO-REALLOC
     !
     select case (cell_geom(n))
       case (Geom_Edge)
-        cell_vol = length_edge( cell_nodes(1:nr,1:np) )
+        cell_vol = length_edge( cell_nodes(:,:) )
       case (Geom_Quad)
-        cell_vol = area_quad( cell_nodes(1:nr,1:np) )
+        cell_vol = area_quad( cell_nodes(:,:) )
       case (Geom_Tria)
-        cell_vol = area_tria( cell_nodes(1:nr,1:np) )
+        cell_vol = area_tria( cell_nodes(:,:) )
       case (Geom_Tetr)
-        cell_vol = vol_tet( cell_nodes(1:nr,1:np) )
+        cell_vol = vol_tet( cell_nodes(:,:) )
       case (Geom_Pyra)
-        cell_vol = vol_pyr( cell_nodes(1:nr,1:np) )
+        cell_vol = vol_pyr( cell_nodes(:,:) )
       case (Geom_Pris)
-        cell_vol = vol_pri( cell_nodes(1:nr,1:np) )
+        cell_vol = vol_pri( cell_nodes(:,:) )
       case (Geom_Hexa)
-        cell_vol = vol_hex( cell_nodes(1:nr,1:np) )
+        cell_vol = vol_hex( cell_nodes(:,:) )
       case default
         write (iout,1)
         call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
