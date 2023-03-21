@@ -36,8 +36,12 @@ module thermo_mod
   !
   real(wp), public, parameter :: runivl = 8314.5_wp ! mJoules/(K*moles)
   !
+  ! CP_AIR_WTMOL : molecular weight for calorically perfect air (g/mole)
   real(wp), parameter :: cp_air_wtmol = 28.9651159_wp
   !
+  ! RGAS_CP : Specific gas constant for calorically perfect air using
+  !           cp_air_wtmol for the molecular weight of air.
+  !           rgas_cpg = 287.05219 J/(kg*K)
   real(wp), public, parameter :: rgas_cpg = runivl/cp_air_wtmol
   !
   integer, protected :: ncpc = 5
