@@ -20,13 +20,6 @@ module write_cgns_mod
   public :: TaylorGreen_8s_vorticity_solution
   public :: convert_restart_files_to_cgns
   !
-  ! ###########################
-  ! ###  Module Parameters  ###
-  ! ###########################
-  !
-  logical(lk), parameter :: check_gradients = fals
- !logical(lk), parameter :: check_gradients = true
-  !
   ! ################################
   ! ###  Module Local Variables  ###
   ! ################################
@@ -1204,161 +1197,71 @@ continue
     !
   end if
   !
-  if (check_gradients) then
-    !
-    ! ################################################
-    ! #####   WRITING GRADIENT FIELD VARIABLES   #####
-    ! ################################################
-    !
-    ! Count the total number of solution variables that will be written
-    ! and allocate isvar_s accordingly
-    !
-    n = nr * (nme - nec)
-    allocate ( isvar_s(1:n) , source=0 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"isvar_s",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    ! Create data nodes for the solution variables
-    !
-    ! Density Gradients
-    !
-    do l = 1,nr
-      varname = "Density_d"//char_xyz(l)
-      call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                      "cgp_field_write_f")
-      call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,CGNS_KIND_REAL, &
-                             trim(varname),isvar_s(l),cgierr)
-      call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
-                      cgierr,__LINE__,__FILE__, &
-                      "Write node: Gradient variable",l)
-      call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                      "cgp_field_write_f")
-    end do
-    !
-    ! Velocity Gradients
-    !
-    do m = 1,nr
-      do l = 1,nr
-        n = m*nr + l
-        varname = "Velocity"//char_xyz(m)//"_d"//char_xyz(l)
-        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                        "cgp_field_write_f")
-        call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,CGNS_KIND_REAL, &
-                               trim(varname),isvar_s(n),cgierr)
-        call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
-                        cgierr,__LINE__,__FILE__, &
-                        "Write node: Gradient variable",n)
-        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                        "cgp_field_write_f")
-      end do
-    end do
-    !
-    ! Now create the output data and write it to the CGNS file in parallel
-    !
-    grad_eqn: do m = nec,nme
-      !
-      grad_dir: do l = 1,nr
-        !
-        n = (m-nec)*nr + l
-        !
-        vartmp(1:npts) = grad_of_selected_pv(l,m,interp_usp(1:npts,:), &
-                                                interp_dusp(1:npts,:,:))
-        !
-        var(:) = real( vartmp , kind(var) )
-        !
-        ! Reset the queue.
-        !
-        call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_sol_file)
-        !
-        ! Add the data for current variable to the output queue.
-        !
-        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                        "cgp_field_write_data_f")
-        call cgp_field_write_data_f(ifile_s,ibase_s,izone_s,isol_s,isvar_s(n), &
-                                    my_pts_beg,my_pts_end,var,cgierr)
-        call cgns_error(pname,cgns_sol_file,"cgp_field_write_data_f", &
-                        cgierr,__LINE__,__FILE__, &
-                        "Write data: Gradient variable",n)
-        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                        "cgp_field_write_data_f")
-        !
-        ! Finally, flush the queue containing
-        ! the current variable to the CGNS file.
-        !
-        call flush_cgns_queue(pname,cgns_sol_file)
-        !
-      end do grad_dir
-      !
-    end do grad_eqn
-    !
-  else
-    !
-    ! ################################################
-    ! #####   WRITING SOLUTION FIELD VARIABLES   #####
-    ! ################################################
-    !
-    ! Count the total number of solution variables that will be written
-    ! and allocate isvar_s accordingly
-    !
-    n = count_output_variables(char_sname)
-    !
-    allocate ( isvar_s(1:n) , source=0 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"isvar_s",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    ! Create data nodes for the solution variables
-    !
-    call write_field_headers(cgns_sol_file,ifile_s,ibase_s,izone_s,isol_s, &
-                             char_sname,isvar_s)
-    !
-    !
-    !
-    allocate ( interp_gpsp(1:npts,1:ng) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interp_gpsp",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    ! Initialize interp_gpsp to the interpolated values of gpsp
-    ! Interpolate the values in gpsp to initialize interp_gpsp. We need to
-    ! initialize the temperature in interp_gpsp in case this is for a
-    ! thermally perfect gas mixture which needs an initial guess for
-    ! temperature when performing the Newton solve for temperature.
-    !
-    call interpolate_for_output( gpsp , interp_gpsp )
-    !
-    ! Now actually compute the updated thermodynamic and transport properties
-    ! based on the interpolated values of the conserved variables.
-    !
-    call update_thermo_properties(1,npts,interp_usp,interp_gpsp, &
-                                  caller_name=pname)
-    if (itcur == 0) then
-      if (any(interp_gpsp(:,ntemp) <= zero) .or. &
-          any(interp_usp(:,nec) <= zero)) then
-        do n = 1,size(interp_gpsp,dim=1)
-          if (interp_gpsp(n,ntemp) <= tmin/tref) then
-            interp_gpsp(n,ntemp) = tmin/tref
-            if (interp_usp(n,nec) < zero) then
-              interp_usp(n,nec) = interp_gpsp(n,npres) / &
-                                  (rgasref_nd*interp_gpsp(n,ntemp))
-            else
-              interp_gpsp(n,npres) = interp_usp(n,nec) * &
-                                     rgasref_nd*interp_gpsp(n,ntemp)
-            end if
+  ! ################################################
+  ! #####   WRITING SOLUTION FIELD VARIABLES   #####
+  ! ################################################
+  !
+  ! Count the total number of solution variables that will be written
+  ! and allocate isvar_s accordingly
+  !
+  n = count_output_variables(char_sname)
+  !
+  allocate ( isvar_s(1:n) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"isvar_s",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Create data nodes for the solution variables
+  !
+  call write_field_headers(cgns_sol_file,ifile_s,ibase_s,izone_s,isol_s, &
+                           char_sname,isvar_s)
+  !
+  !
+  !
+  allocate ( interp_gpsp(1:npts,1:ng) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"interp_gpsp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Initialize interp_gpsp to the interpolated values of gpsp
+  ! Interpolate the values in gpsp to initialize interp_gpsp. We need to
+  ! initialize the temperature in interp_gpsp in case this is for a
+  ! thermally perfect gas mixture which needs an initial guess for
+  ! temperature when performing the Newton solve for temperature.
+  !
+  call interpolate_for_output( gpsp , interp_gpsp )
+  !
+  ! Now actually compute the updated thermodynamic and transport properties
+  ! based on the interpolated values of the conserved variables.
+  !
+  call update_thermo_properties(1,npts,interp_usp,interp_gpsp, &
+                                caller_name=pname)
+  if (itcur == 0) then
+    if (any(interp_gpsp(:,ntemp) <= zero) .or. &
+        any(interp_usp(:,nec) <= zero)) then
+      do n = 1,size(interp_gpsp,dim=1)
+        if (interp_gpsp(n,ntemp) <= tmin/tref) then
+          interp_gpsp(n,ntemp) = tmin/tref
+          if (interp_usp(n,nec) < zero) then
+            interp_usp(n,nec) = interp_gpsp(n,npres) / &
+                                (rgasref_nd*interp_gpsp(n,ntemp))
+          else
+            interp_gpsp(n,npres) = interp_usp(n,nec) * &
+                                   rgasref_nd*interp_gpsp(n,ntemp)
           end if
-        end do
-      end if
+        end if
+      end do
     end if
-    call update_transport_properties(1,npts,interp_usp,interp_gpsp)
-    !
-    ! Now create the output data and write it to the CGNS file in parallel
-    !
-    n = 0
-    do l = 1,size(char_sname)
-      !
-      call output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
-                           cgns_sol_file,char_sname(l),n, &
-                           interp_usp,interp_gpsp,interp_dusp,vartmp,var)
-      !
-    end do
-    !
   end if
+  call update_transport_properties(1,npts,interp_usp,interp_gpsp)
+  !
+  ! Now create the output data and write it to the CGNS file in parallel
+  !
+  n = 0
+  do l = 1,size(char_sname)
+    !
+    call output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
+                         cgns_sol_file,char_sname(l),n, &
+                         interp_usp,interp_gpsp,interp_dusp,vartmp,var)
+    !
+  end do
   !
   ! ################################################
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
@@ -5820,75 +5723,6 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_vort_face_solution
-!
-!###############################################################################
-!
-pure function grad_of_selected_pv(ndr,npv,uu,dcvdx) result(return_value)
-  !
-  !.. Use Statements ..
-  use ovar, only : rgasref_nd,gam
-  !
-  !.. Formal Arguments ..
-  integer,                    intent(in) :: ndr ! index for derivative direction
-  integer,                    intent(in) :: npv ! index for primitive variable
-  real(wp), dimension(:,:),   intent(in) :: uu  ! conservative solution
-  real(wp), dimension(:,:,:), intent(in) :: dcvdx ! conservative var gradients
-  !
-  !.. Function Results ..
-  real(wp), dimension(1:size(dcvdx,dim=1)) :: return_value
-  !
-  !.. Local Scalars ..
-  integer :: nr,np,n
-  real(wp) :: cv_inv,rho_inv,rho_inv2,q2
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:size(dcvdx,dim=3)) :: coef
-  !
-continue
-  !
-  nr = size(dcvdx,dim=2)
-  np = size(dcvdx,dim=1)
-  !
-  if (npv == nec) then
-    !
-    do n = 1,np
-      return_value(n) = dcvdx(n,ndr,npv)
-    end do
-    !
-  else if (npv == nee) then
-    !
-    cv_inv = (gam - one) / rgasref_nd
-    !
-    do n = 1,np
-      !
-      rho_inv = one/uu(n,nec)
-      rho_inv2 = rho_inv*rho_inv
-      !
-      q2 = dot( uu(n,nmb:nme) , uu(n,nmb:nme) )
-      !
-      coef(nec)     = -rho_inv2 * (uu(n,nee) - rho_inv*q2)
-      coef(nmb:nme) = -rho_inv2 * uu(n,nmb:nme)
-      coef(nee)     =  rho_inv
-      !
-      return_value(n) = cv_inv * dot( coef , dcvdx(n,ndr,1:nq) )
-      !
-    end do
-    !
-  else
-    !
-    do n = 1,np
-      !
-      rho_inv = one/uu(n,nec)
-      rho_inv2 = rho_inv*rho_inv
-      !
-      return_value(n) = rho_inv  * dcvdx(n,ndr,npv) - &
-                        rho_inv2 * dcvdx(n,ndr,nec) * uu(n,npv)
-      !
-    end do
-    !
-  end if
-  !
-end function grad_of_selected_pv
 !
 !###############################################################################
 !
