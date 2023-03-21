@@ -1,7 +1,7 @@
 module flowvar
   !
   use module_kind_types, only : wp,lk
-  use module_kind_types, only : zero,ten2,iout
+  use module_kind_types, only : zero,eps1,ten2,iout
   use module_kind_types, only : true,fals
   use module_kind_types, only : debug_timer
   use module_kind_types, only : entering_procedure
@@ -23,6 +23,7 @@ module flowvar
   use module_kind_types, only : stop_gfr
   use module_kind_types, only : stop_mpi
   use module_kind_types, only : THX_Phase_3
+  use module_kind_types, only : bc_walls
   !
   implicit none
   !
@@ -279,6 +280,7 @@ subroutine allocate_flowvar_arrays()
   integer :: i,iwt,l,m,n,ne,nf,nn,nepts,nfp,nfpts
   integer :: face_geom,face_order,ierr
   character(len=200) :: array_name
+  logical(lk) :: need_facexyz
   !
   !.. Local Arrays ..
   real(wp)           :: wall_time(1:50)
@@ -322,6 +324,28 @@ call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   if (time_average_restart_files) then
     call debug_timer(leaving_procedure,pname)
     return
+  end if
+  !
+  if (any(abs(bc_in(:)%rotation_speed) > eps1)) then
+    need_facexyz = fals
+    do i = 1,size(bc_in)
+      if (abs(bc_in(i)%rotation_speed) <= eps1) cycle
+      if (any(bc_in(i)%bc_type == bc_walls)) then
+        need_facexyz = true
+        exit
+      end if
+    end do
+    if (need_facexyz) then
+  iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_dt for rotating wall"
+call debug_timer(start_timer,message(iwt))
+      if (.not. allocated(facexyz_dt)) then
+        allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
+       !allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+    end if
   end if
   !
   if (any(bc_in(:)%bc_type == bc_sem) .or. &
