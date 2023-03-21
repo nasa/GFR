@@ -49,11 +49,7 @@
      !end where
     end where
     !
-    ! Reset the queue.
-    !
-    call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_sol_file)
-    !
-    ! Add the data for current variable to the output queue.
+    ! Write the current variable data to the CGNS file
     !
     call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_field_write_data_f")
@@ -63,10 +59,5 @@
                     cgierr,__LINE__,__FILE__,"Write data: Solution variable",nv)
     call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_field_write_data_f")
-    !
-    ! Finally, flush the queue containing
-    ! the current variable to the CGNS file.
-    !
-    call flush_cgns_queue(pname,cgns_sol_file)
     !
   end subroutine cgns_write_field_data
