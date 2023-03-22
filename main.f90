@@ -229,6 +229,7 @@ program GFR_main
   integer :: n_sum_fbnd,n_sum_fint
   !
   integer :: final_timestep_from_stop_request
+  integer :: previous_stop_request_timestep
   !
   character(len=10)  :: text
   character(len=100) :: dbgfile,dbgfrmt
@@ -1081,6 +1082,7 @@ continue
       !       the main loop if the remaining wall time is almost zero
       !    2. Check for a file requesting a premature stop
       !
+      check_for_interupt_files: &
 #ifdef DEBUG_ON
       if (mod(itcur,1) == 0) then
 #else
@@ -1102,6 +1104,14 @@ continue
             ! Check for a stop request
             !
             inquire (file="STOP_GFR",exist=request_stop)
+            !
+            ! Save the previous time step from the last stop request
+            ! NOTE: It probably isnt needed to save this to a new variable,
+            !       but this just makes it clear that if request_stop is true
+            !       the value read in from the STOP_GFR file isnt what is
+            !       tested for the 'else if' part of the conditional.
+            !
+            previous_stop_request_timestep = final_timestep_from_stop_request
             !
             ! If stop was requested, delete the
             ! STOP_GFR file and exit the main loop
@@ -1129,7 +1139,20 @@ continue
                 write (iout,199) final_timestep_from_stop_request
               end if
               !
+            else if (previous_stop_request_timestep > 0) then
+              !
+              ! Manually set request_stop. If a previous stop request provided
+              ! a final timestep and there was no STOP_GFR file when checking 
+              ! this time, creating the request_array below will zero out the
+              ! previous final timestep if request_stop is false. We want to
+              ! keep the previous value of final_timestep_from_stop_request so
+              ! the simulation stops as was requested.
+              !
+              request_stop = .true.
+              final_timestep_from_stop_request = previous_stop_request_timestep
+              !
             end if
+            !
             !
             ! Check for a dump of a restart file
             !
@@ -1337,7 +1360,7 @@ continue
           !
         end if
         !
-      end if
+      end if check_for_interupt_files
       !
       if (iter /= num_timesteps) then
         !
