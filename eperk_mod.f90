@@ -303,7 +303,7 @@ continue
       ! updated at a later point.
       !
       time = time + dtmin
-      call checks_on_dtmin(next_dtmin,final_timestep_from_stop_request)
+      call checks_on_dtmin(next_dtmin,dtsp,final_timestep_from_stop_request)
       time = time - dtmin
       !
       ! Check to see if dtmin was modified in checks_on_dtmin. If it
