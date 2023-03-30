@@ -815,16 +815,11 @@ continue
     !
     num_timesteps = nint( Final_Time / constant_dt )
     !
-  else if (itestcase == Taylor_Green_Vortex) then
+  else if (any(itestcase == Taylor_Problems)) then
     !
    !cfl_beg = CFL
    !cfl_end = CFL
    !cfl_cycles = 1
-    !
-    ! Set the variable time_ref to adjust our nondimension time to match
-    ! the nondimensional time used for the Taylor-Green Vortex problem
-    !
-    time_ref = machref
     !
     if (Final_Time > zero) then
       !
@@ -843,18 +838,7 @@ continue
     !
   else
     !
-    ! Set time_ref to Lref/aref for nondimensionalizing time
-    ! NOTE: Lref is always just one
-    !
-    if (itestcase == Infinite_Cylinder) then
-      time_ref = machref
-    else if (abs(itestcase) == Taylor_Couette_flow) then
-      ! Do nothing here for Taylor-Couette flow because time_ref
-      ! has already been set when the Taylor-Couette flow module
-      ! was inititialized.
-    else
-      time_ref = one / aref
-    end if
+    ! time_ref is now set in initialize_reference
     !
     if (convert_restart_to_cgns) then
       !
