@@ -37,6 +37,7 @@ program GFR_main
   use ovar, only : gfr_cpu_time,this_is_final_timestep
   use ovar, only : write_TaylorGreen_8s_solution
   use ovar, only : write_TaylorGreen_full_solution
+  use ovar, only : output_KEDR
   use ovar, only : continuous_output,completely_disable_cgns
   use ovar, only : check_flux_point_coordinates
   use ovar, only : cfl,cfl_beg,cfl_end,cfl_cycles,cfl_start_iter
@@ -732,7 +733,7 @@ continue
     call get_dtsp(dtmin,final_timestep_from_stop_request)
     call check_for_bad_number(__LINE__)
     !
-    if (itestcase == Taylor_Green_Vortex) then
+    if (output_KEDR) then
       call compute_KEDR(0,zero)
       if (dump_memory_usage) then
         call memory_pause("initial TGV KEDR evaluation","dumping memory usage")
@@ -1436,7 +1437,7 @@ continue
       ! the various integrated quantities needed to get the
       ! different the kinetic energy dissipation rates
       !
-      if (itestcase == Taylor_Green_Vortex .and. iter/=num_timesteps) then
+      if (output_KEDR .and. iter/=num_timesteps) then
         call compute_KEDR(iter,dtmin)
       end if
       !
@@ -1506,7 +1507,7 @@ continue
   ! finalize the kinetic energy dissipation rates
   !
   if (num_timesteps > 0) then
-    if (itestcase == Taylor_Green_Vortex) then
+    if (output_KEDR) then
       call compute_KEDR(-completed_timesteps,dtmin)
     end if
   end if
