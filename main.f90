@@ -30,7 +30,7 @@ program GFR_main
   use ovar, only : total_volume,local_volume,itestcase
   use ovar, only : num_rk_stages,Runge_Kutta_Scheme
   use ovar, only : time,time_ref,itcur,num_timesteps,rl2mx
-  use ovar, only : results_interval,iter_out_interval
+  use ovar, only : results_interval,iter_out_interval,output_eperk_cfl
   use ovar, only : restart_interval,output_interval
   use ovar, only : is_at_output_frequency
   use ovar, only : dump_memory_usage,mms_opt
@@ -901,6 +901,9 @@ continue
             if (iter == 1) then
               call get_dtsp(dtmin,final_timestep_from_stop_request)
                                           !  call check_for_bad_number(__LINE__)
+            else if (output_eperk_cfl) then
+              call get_dtsp(dtmin,final_timestep_from_stop_request, &
+                            skip_updates=true)
             end if
           end if
         end if
