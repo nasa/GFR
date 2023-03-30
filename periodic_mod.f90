@@ -53,6 +53,7 @@ subroutine match_periodic_faces()
   use module_cgns_types, only : CGLEN
   !
   use connectivity_mod, only : init_tri_face_rotation_values
+ !use connectivity_mod, only : init_tri_rotation_values
   use connectivity_mod, only : GetFluxPointRotation_Edge
   use connectivity_mod, only : GetFluxPointRotation_Tria
   use connectivity_mod, only : GetFluxPointRotation_Quad
@@ -145,7 +146,8 @@ continue
   ! find the face rotations for these faces
   !
   if (any(bnd_face(:)%geom == Geom_Tria)) then
-    call init_tri_face_rotation_values(tri_rotations)
+    call init_tri_face_rotation_values()
+   !call init_tri_rotation_values(tri_rotations)
   end if
   !
   ! Create an array that gives the indices of only the elements of
