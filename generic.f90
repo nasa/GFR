@@ -1651,6 +1651,7 @@ subroutine compute_KEDR(iter,dtmin)
   use ovar,             only : time,time_ref
   use ovar,             only : VortexGrid_DOF
   use ovar,             only : iter_out_interval
+  use ovar,             only : itestcase
   use flowvar,          only : usp,dusp,gpsp
   use element_type_mod, only : std_elem
   use metrics_mod,      only : wtdjac
@@ -1680,6 +1681,8 @@ subroutine compute_KEDR(iter,dtmin)
   !
   character(len=5) :: grid_geom
   !
+  character(len=50) :: fname
+  !
   !.. Local Saved Scalars ..
   logical(lk), save :: completed_first_output = fals
   logical(lk), save :: needs_initialization = true
@@ -1689,7 +1692,6 @@ subroutine compute_KEDR(iter,dtmin)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_KEDR"
-  character(len=*), parameter :: fname = "TaylorGreen_KEDR.dat"
   !
 continue
   !
@@ -1790,6 +1792,12 @@ continue
       end if
       !
       ndof_1d = nint( real(n_global_solpts,kind=wp)**(one3) )
+      !
+      if (abs(itestcase) == Taylor_Couette_Flow) then
+        fname = "TaylorCouette_KEDR.dat"
+      else
+        fname = "TaylorGreen_KEDR.dat"
+      end if
       !
       open (newunit=iotg,file=fname,status="replace",action="write", &
             iostat=ierr,iomsg=error_message)
