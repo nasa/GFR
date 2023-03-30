@@ -2062,7 +2062,7 @@ subroutine initialize_reference
   !.. Use Statements ..
   use ovar,   only : gam,tmin,tmax
   use ovar,   only : rhoref,aref,tref,pref
-  use ovar,   only : machref,reyref
+  use ovar,   only : machref,reyref,time_ref
   use ovar,   only : rgasref_nd,cpref_nd
   use ovar,   only : cv_ref,pv_ref,gp_ref
   use ovar,   only : suth_Sref,suth_Tref
@@ -2205,6 +2205,27 @@ continue
     call check_for_bad_number(__LINE__,__FILE__)
     !
   end if
+  !
+  ! Set the reference time
+  !
+  if (any(itestcase == [Taylor_Problems,Infinite_Cylinder])) then
+    ! The time used within the solver is nondimensionalized by aref, so
+    ! set the reference time so that it re-nondimensionalizes the
+    ! time using uref instead of aref.
+    ! NOTE: For the Taylor-Couette flow problem, time_ref needs to include
+    !       the difference in radii between the two cylinders which was
+    !       returned as ref_length from initialize_taylor_couette_problem.
+    !       For all other problems, ref_length should just be 1.0.
+    time_ref = machref/ref_length
+  else
+    ! Set the reference time to one/aref which converts the
+    ! nondimensional time used in the solver to the physical time.
+    ! NOTE: For the various (vortex/advection) transport problems,
+    !       aref=1, so time_ref should just be 1.
+    time_ref = one / aref
+  end if
+  !
+  ! Nondimensionalize the ideal total temperature
   !
   if (ideal_total_temperature > zero) then
     ideal_total_temperature = ideal_total_temperature / tref
