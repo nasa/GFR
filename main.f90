@@ -1412,7 +1412,7 @@ continue
         !
       end if
       !
-      if (itestcase == Taylor_Green_Vortex) then
+      if (any(itestcase == Taylor_Problems)) then
         if (write_TaylorGreen_8s_solution) then
           if (completely_disable_cgns) then
             write_TaylorGreen_8s_solution = fals
