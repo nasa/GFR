@@ -307,8 +307,9 @@ module ovar
   logical(lk), public, save :: average_sem_inflow_plane = fals
   !
   ! STATISTICAL OUTPUT OPTIONS
-  integer, public, save :: iter_out_interval = 1
-  integer, public, save :: results_interval  = 0
+  integer,     public, save :: iter_out_interval = 1
+  integer,     public, save :: results_interval  = 0
+  logical(lk), public, save :: output_eperk_cfl  = true
   !
   ! SOLUTION OUTPUT OPTIONS
   character(len=:), public, save, allocatable :: output_dir
@@ -1551,6 +1552,7 @@ module input_namelist_mod
   use ovar,      only : restart_output_uses_host_roots
   use ovar,      only : CFL_reduction_for_NaN_restart
   use ovar,      only : iter_out_interval, results_interval
+  use ovar,      only : output_eperk_cfl
   use ovar,      only : output_dir, output_interval, output_frequency
   use ovar,      only : continuous_output
   use ovar,      only : postproc_debug_grid
@@ -1729,7 +1731,7 @@ module input_namelist_mod
   ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
   namelist / input / average_sem_inflow_plane
   ! STATISTICAL OUTPUT OPTIONS
-  namelist / input / iter_out_interval, results_interval
+  namelist / input / iter_out_interval, results_interval, output_eperk_cfl
   ! SOLUTION OUTPUT OPTIONS
   namelist / input / output_dir, output_interval, continuous_output, &
                      output_order, loc_output_pts, output_frequency
