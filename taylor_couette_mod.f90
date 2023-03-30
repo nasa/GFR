@@ -42,7 +42,7 @@ contains
 !
 !###############################################################################
 !
-subroutine initialize_taylor_couette_problem()
+subroutine initialize_taylor_couette_problem(ref_length)
   !
   !.. Use Statements ..
   use geovar,     only : xyz_nodes
@@ -50,6 +50,9 @@ subroutine initialize_taylor_couette_problem()
   use ovar,       only : gam,rgasref,reyref,machref
   use ovar,       only : bc_input,time_ref
   use thermo_mod, only : rgas_cpg
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: ref_length
   !
   !.. Local Scalars ..
   integer  :: n,bc_idx
@@ -111,6 +114,12 @@ continue
   !
   ri = sqrt(rmin)
   ro = sqrt(rmax)
+  !
+  ! Set the reference length for the Taylor-Couette problem to the difference
+  ! between the radii of the two cylinders, d=ro-ri. This reference length is
+  ! only used to compute time_ref after returning from this subroutine.
+  !
+  ref_length = ro - ri
   !
   ! Get the wall temperature from the boundary condition. If the wall
   ! temperature hasnt been provided, first use the reference temperature
