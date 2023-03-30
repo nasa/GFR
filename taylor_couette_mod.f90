@@ -48,7 +48,7 @@ subroutine initialize_taylor_couette_problem(ref_length)
   use geovar,     only : xyz_nodes
   use ovar,       only : rhoref,tref,aref,pref,tmin
   use ovar,       only : gam,rgasref,reyref,machref
-  use ovar,       only : bc_input,time_ref
+  use ovar,       only : bc_input
   use thermo_mod, only : rgas_cpg
   !
   !.. Formal Arguments ..
@@ -181,12 +181,6 @@ continue
     machref = rotation_speed*(ri*two*pi)/(aref*sec_per_min)
     !
   end if
-  !
-  ! Set time_ref to machref/d
-  ! NOTE: time is already nondimensionalized by Lref/aref so multiplying
-  !       time by this time_ref will give t/(d/uref) = t*uref/d
-  !
-  time_ref = machref/(ro-ri)
   !
   ! Save the wall temperature and rotation speed back into the boundary
   ! condition in case either of these were updated
