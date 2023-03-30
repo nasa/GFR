@@ -35,9 +35,8 @@ contains
 subroutine get_dtsp(dtmin,final_timestep_from_stop_request,skip_updates)
   !
   !.. Use Statements ..
-  use ovar, only : Timestep_Type,d_t,itestcase,Final_Time
-  use ovar, only : output_frequency
-  use ovar,    only : cfl ! modified
+  use ovar, only : Timestep_Type
+  use ovar,    only : d_t,cfl ! modified
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
