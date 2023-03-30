@@ -528,6 +528,9 @@ module module_kind_types
                                                  Shu_MultiVortex ]
   integer, parameter :: Transport_Problems(1:5) = [ Vortex_Problems, &
                                                     Advec_Problems ]
+  integer, parameter :: Taylor_Problems(1:3) = [ Taylor_Green_Vortex, &
+                                                 Taylor_Couette_Flow, &
+                                                -Taylor_Couette_Flow ]
   integer, parameter :: Reacting_Flows(1:5) = [Reacting_Backstep, &
                                                H2_2D_Diffusion_Flame, &
                                                CH4_3D_Diffusion_Flame, &
