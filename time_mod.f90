@@ -53,6 +53,7 @@ subroutine get_dtsp(dtmin,final_timestep_from_stop_request,skip_updates)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
   !
   update_dt_values = true
   if (present(skip_updates)) then
@@ -95,6 +96,8 @@ continue
   ! Update d_t with the new dtmin
   !
   d_t = dtmin
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_dtsp
 !
