@@ -15,7 +15,7 @@ module generic_mod
   public :: write_iter_stats
   public :: getmaxent
   public :: compute_residual_error
-  public :: compute_TaylorGreen_KEDR
+  public :: compute_KEDR
   public :: generic_memory_usage
   !
   character(len=100), save :: iter_out_fmt
@@ -1641,7 +1641,7 @@ end subroutine getmaxent
 !
 !###############################################################################
 !
-subroutine compute_TaylorGreen_KEDR(iter,dtmin)
+subroutine compute_KEDR(iter,dtmin)
   !
   !.. Use Statements ..
   use order_mod,        only : n_order
@@ -1688,7 +1688,7 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   real(wp), allocatable :: tdpvdx(:,:,:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "compute_TaylorGreen_KEDR"
+  character(len=*), parameter :: pname = "compute_KEDR"
   character(len=*), parameter :: fname = "TaylorGreen_KEDR.dat"
   !
 continue
@@ -2053,7 +2053,7 @@ continue
   2 format (100(es17.9))
  !2 format (*(es17.9))
   !
-end subroutine compute_TaylorGreen_KEDR
+end subroutine compute_KEDR
 !
 !###############################################################################
 !

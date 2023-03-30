@@ -119,7 +119,7 @@ program GFR_main
   use generic_mod, only : write_iter_stats
   use generic_mod, only : getmaxent
   use generic_mod, only : compute_residual_error
-  use generic_mod, only : compute_TaylorGreen_KEDR
+  use generic_mod, only : compute_KEDR
   !
   use time_mod, only : get_dtsp
   use time_mod, only : update_Classic_RK
@@ -733,7 +733,7 @@ continue
     call check_for_bad_number(__LINE__)
     !
     if (itestcase == Taylor_Green_Vortex) then
-      call compute_TaylorGreen_KEDR(0,zero)
+      call compute_KEDR(0,zero)
       if (dump_memory_usage) then
         call memory_pause("initial TGV KEDR evaluation","dumping memory usage")
       else
@@ -1437,7 +1437,7 @@ continue
       ! different the kinetic energy dissipation rates
       !
       if (itestcase == Taylor_Green_Vortex .and. iter/=num_timesteps) then
-        call compute_TaylorGreen_KEDR(iter,dtmin)
+        call compute_KEDR(iter,dtmin)
       end if
       !
 #ifdef PAUSE_BETWEEN_ITERATIONS
@@ -1507,7 +1507,7 @@ continue
   !
   if (num_timesteps > 0) then
     if (itestcase == Taylor_Green_Vortex) then
-      call compute_TaylorGreen_KEDR(-completed_timesteps,dtmin)
+      call compute_KEDR(-completed_timesteps,dtmin)
     end if
   end if
   !
