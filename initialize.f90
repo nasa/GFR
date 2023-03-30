@@ -2083,6 +2083,7 @@ subroutine initialize_reference
   real(wp) :: gam_over_gm1
   real(wp) :: gm1_over_gam
   real(wp) :: pres_check
+  real(wp) :: ref_length
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_reference"
@@ -2093,6 +2094,8 @@ continue
   !
   tmin = 10.0_wp
   tmax = 15000.0_wp
+  !
+  ref_length = one
   !
   ! Allocate the free stream inflow arrays
   !
@@ -2181,7 +2184,7 @@ continue
       !       because they set a lot of other reference variables that are
       !       not evaluated in this subroutine.
       !
-      call initialize_taylor_couette_problem
+      call initialize_taylor_couette_problem(ref_length)
       !
     end if
     !
