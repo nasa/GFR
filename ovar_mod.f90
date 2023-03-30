@@ -481,8 +481,8 @@ module ovar
   logical(lk), public, save :: delete_converted_restart_files = fals
   logical(lk), public, save :: completely_disable_cgns = fals
   logical(lk), public, save :: interpolate_before_output_variable = true
-  logical(lk), public, save :: cgns_high_order_output = fals
-  logical(lk), public, save :: cgns_mixed_output = fals
+  logical(lk), public, save :: cgns_high_order_output = true
+  logical(lk), public, save :: cgns_mixed_output = true
   !
   ! CONVERGENCE CRITERIA
   real(wp), public, save :: convergence_order_abs_res = real( -16 , kind=wp )
