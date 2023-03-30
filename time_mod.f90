@@ -38,6 +38,7 @@ subroutine get_dtsp(dtmin,final_timestep_from_stop_request,skip_updates)
   use geovar,  only : n_solpts
   use ovar,    only : Timestep_Type
   use ovar,    only : d_t,cfl ! modified
+  use flowvar, only : dtsp ! modified
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: dtmin
@@ -47,6 +48,7 @@ subroutine get_dtsp(dtmin,final_timestep_from_stop_request,skip_updates)
   logical(lk), optional, intent(in) :: skip_updates
   !
   !.. Local Scalars ..
+  integer     :: n
   real(wp)    :: dtmin_new
   logical(lk) :: update_dt_values
   !
@@ -72,16 +74,16 @@ continue
     !
     call get_current_cfl(cfl)
     !
-    call get_constant_timestep(dtmin)
+    call get_constant_timestep(dtmin_new,dt_sp)
     !
   else if (abs(Timestep_Type) == Cell_Timestep) then
     !
     call get_current_cfl(cfl)
     !
     if (Timestep_Type == Global_Cell_Timestep) then
-      call get_cell_global_timestep(dtmin)
+      call get_cell_global_timestep(dtmin_new,dt_sp)
     else if (Timestep_Type == Local_Cell_Timestep) then
-      call get_cell_local_timestep(dtmin)
+      call get_cell_local_timestep(dtmin_new,dt_sp)
     end if
     !
   else if (abs(Timestep_Type) == Point_Timestep) then
@@ -89,21 +91,56 @@ continue
     call get_current_cfl(cfl)
     !
     if (Timestep_Type == Global_Point_Timestep) then
-      call get_point_global_timestep(dtmin)
+      call get_point_global_timestep(dtmin_new,dt_sp)
     else if (Timestep_Type == Local_Point_Timestep) then
-      call get_point_local_timestep(dtmin)
+      call get_point_local_timestep(dtmin_new,dt_sp)
     end if
     !
   end if
   !
-  ! Perform some checks on dtmin to make sure the time of the new solution
+  ! Perform some checks on dtmin_new to make sure the time of the new solution
   ! doesnt skip past a milestone for output or final solution time
   !
-  call checks_on_dtmin(dtmin,final_timestep_from_stop_request)
+  call checks_on_dtmin(dtmin_new,dt_sp,final_timestep_from_stop_request, &
+                       skip_updates)
   !
-  ! Update d_t with the new dtmin
+  ! If the optional input skip_updates is not present or is present and false,
+  ! update dtmin, dtsp, and d_t
   !
-  d_t = dtmin
+  if (update_dt_values) then
+    !
+    !$ACC PARALLEL LOOP PRESENT(dt_sp,dtsp)
+    do n = 1,n_solpts
+      dtsp(n) = dt_sp(n)
+    end do
+    !
+    ! Update dtmin and d_t with the new dtmin
+    !
+    dtmin = dtmin_new
+    d_t = dtmin
+    !
+  else
+    !
+    ! This means that skip_updates is present and true, which should only
+    ! happen if using an EPERK method and this subroutine is being used just
+    ! get an estimated CFL number for the adaptive time step size computed
+    ! by the EPERK method.
+    !
+    ! The dtmin_new computed from the above subroutines was multiplied by the
+    ! current CFL value, so we need to divide that out in order to compare this
+    ! dtmin_new with the input argument dtmin that was computed by the EPERK
+    ! method.
+    !
+    dtmin_new = dtmin_new / CFL
+    !
+    ! Now get the approximate CFL by dividing the input argument
+    ! dtmin (which was computed by the EPERK adaptive time step
+    ! controller) by dtmin_new (which is the CFL-based dtmin with
+    ! an assumed CFL of 1).
+    !
+    CFL = dtmin / dtmin_new
+    !
+  end if
   !
   !$ACC END DATA
   deallocate ( dt_sp )
@@ -114,7 +151,8 @@ end subroutine get_dtsp
 !
 !###############################################################################
 !
-subroutine checks_on_dtmin(dtmin,final_timestep_from_stop_request)
+subroutine checks_on_dtmin(dtmin,dt_sp,final_timestep_from_stop_request, &
+                           skip_updates)
   !
   !.. Use Statements ..
   use ovar, only : itestcase,Final_Time
@@ -122,7 +160,11 @@ subroutine checks_on_dtmin(dtmin,final_timestep_from_stop_request)
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: dtmin
+  real(wp), intent(inout) :: dt_sp(:)
   integer,     intent(in) :: final_timestep_from_stop_request
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: skip_updates
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "checks_on_dtmin"
@@ -130,20 +172,23 @@ subroutine checks_on_dtmin(dtmin,final_timestep_from_stop_request)
 continue
   !
   if (itestcase == Taylor_Green_Vortex) then
-    call check_tstar_for_TaylorGreen(dtmin)
+    call check_tstar_for_TaylorGreen(dtmin,dt_sp,skip_updates)
+  else if (abs(itestcase) == Taylor_Couette_Flow) then
+    call check_tstar_for_TaylorCouette(dtmin,dt_sp,skip_updates)
   end if
   !
   ! Check to see if we need to output a new
   ! solution file based on output_frequency
   !
   if (output_frequency > zero) then
-    call check_output_frequency(dtmin)
+    call check_output_frequency(dtmin,dt_sp,skip_updates)
   end if
   !
   ! Make sure the timestep size doesnt make the final time exceed Final_Time
   !
   if (Final_time > zero .or. final_timestep_from_stop_request /= 0) then
-    call check_final_time(dtmin,final_timestep_from_stop_request)
+    call check_final_time(dtmin,dt_sp,final_timestep_from_stop_request, &
+                          skip_updates)
   end if
   !
 end subroutine checks_on_dtmin
@@ -184,16 +229,15 @@ end subroutine get_current_cfl
 !
 !###############################################################################
 !
-subroutine get_constant_timestep(dtmin)
+subroutine get_constant_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
-  use ovar,    only : constant_dt,time_ref,Final_Time,time,CFL
-  use ovar,    only : this_is_final_timestep
-  use flowvar, only : dtsp
+  use ovar,    only : constant_dt,CFL
   use geovar,  only : n_solpts
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
+  real(wp), intent(out) :: dt_sp(:)
   !
   !.. Local Scalars ..
   integer :: n
@@ -207,16 +251,9 @@ continue
   !
   dtmin = CFL * constant_dt
   !
-  if (Final_Time > zero) then
-    if (time + dtmin > Final_Time/time_ref + eps9) then
-      dtmin = Final_Time/time_ref - time
-      this_is_final_timestep = true
-    end if
-  end if
-  !
-  !$ACC PARALLEL LOOP PRESENT(dtsp)
+  !$ACC PARALLEL LOOP PRESENT(dt_sp)
   do n = 1,n_solpts
-    dtsp(n) = dtmin
+    dt_sp(n) = dtmin
   end do
   !
   call debug_timer(leaving_procedure,pname)
@@ -225,7 +262,7 @@ end subroutine get_constant_timestep
 !
 !###############################################################################
 !
-subroutine get_cell_global_timestep(dtmin)
+subroutine get_cell_global_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
   use geovar, only : nfbnd,nface,n_solpts
@@ -235,12 +272,12 @@ subroutine get_cell_global_timestep(dtmin)
   !
   use metrics_mod, only : facenrm,facejac
   !
-  use flowvar, only : dtsp
   use flowvar, only : faceusp_array
   use flowvar, only : facegpsp
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
+  real(wp), intent(out) :: dt_sp(:)
   !
   !.. Local Scalars ..
   integer  :: n,kf,nf,f1,f2,n1,n2
@@ -389,9 +426,9 @@ continue
     !$ACC UPDATE DEVICE(dtmin)
   end if
   !
-  !$ACC PARALLEL LOOP PRESENT(dtsp)
+  !$ACC PARALLEL LOOP PRESENT(dt_sp)
   do n = 1,n_solpts
-    dtsp(n) = dtmin
+    dt_sp(n) = dtmin
   end do
   !
   !$ACC END DATA
@@ -407,7 +444,7 @@ end subroutine get_cell_global_timestep
 !
 !###############################################################################
 !
-subroutine get_cell_local_timestep(dtmin)
+subroutine get_cell_local_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
   use geovar, only : nfbnd,nface,ncell
@@ -417,12 +454,12 @@ subroutine get_cell_local_timestep(dtmin)
   !
   use metrics_mod, only : facenrm,facejac
   !
-  use flowvar, only : dtsp
   use flowvar, only : faceusp_array
   use flowvar, only : facegpsp
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
+  real(wp), intent(out) :: dt_sp(:)
   !
   !.. Local Scalars ..
   integer  :: k,n,kf,nc,nf,f0,nfp,n1,n2
@@ -575,14 +612,14 @@ continue
   !
   !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
   !$ACC&              REDUCTION(min:dtmin) &
-  !$ACC&              PRESENT(cell,dt_cell,dtsp)
+  !$ACC&              PRESENT(cell,dt_cell,dt_sp)
   do nc = 1,ncell
     n1 = cell(nc)%beg_sp
     n2 = cell(nc)%end_sp
     dtc = dt_cell(nc)
     dtmin = min(dtmin,dtc)
     do n = n1,n2
-      dtsp(n) = dtc
+      dt_sp(n) = dtc
     end do
   end do
   !
@@ -960,17 +997,18 @@ end subroutine invs_eigenvalue_nd
 !
 !###############################################################################
 !
-subroutine get_point_global_timestep(dtmin)
+subroutine get_point_global_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
   use geovar,      only : nr,n_solpts
   use ovar,        only : gam,CFL
   use metrics_mod, only : time_metrics
-  use flowvar,     only : usp,dtsp
+  use flowvar,     only : usp
   use flowvar,     only : gpsp
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
+  real(wp), intent(out) :: dt_sp(:)
   !
   !.. Local Scalars ..
   integer  :: n
@@ -1024,7 +1062,7 @@ continue
   if (nr == 3) then ! this should also work for ncs > 0
     !
     !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,aspd,time_metrics,dtsp)
+    !$ACC&              PRESENT(usp,aspd,time_metrics,dt_sp)
     do n = 1,n_solpts
       !
       dx = time_metrics(1,n)
@@ -1044,14 +1082,14 @@ continue
       !
       dtmin = min( dtpt , dtmin )
       !
-      dtsp(n) = dtpt
+      dt_sp(n) = dtpt
       !
     end do
     !
   else if (nr == 2) then ! this should also work for ncs > 0
     !
     !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,aspd,time_metrics,dtsp)
+    !$ACC&              PRESENT(usp,aspd,time_metrics,dt_sp)
     do n = 1,n_solpts
       !
       dx = time_metrics(1,n)
@@ -1069,14 +1107,14 @@ continue
       !
       dtmin = min( dtpt , dtmin )
       !
-      dtsp(n) = dtpt
+      dt_sp(n) = dtpt
       !
     end do
     !
   else
     !
     !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,aspd,time_metrics,dtsp)
+    !$ACC&              PRESENT(usp,aspd,time_metrics,dt_sp)
     do n = 1,n_solpts
       !
       dx = time_metrics(1,n)
@@ -1088,7 +1126,7 @@ continue
       !
       dtmin = min( dtpt , dtmin )
       !
-      dtsp(n) = dtpt
+      dt_sp(n) = dtpt
       !
     end do
     !
@@ -1108,9 +1146,9 @@ continue
     !$ACC UPDATE DEVICE(dtmin)
   end if
   !
-  !$ACC PARALLEL LOOP PRESENT(dtsp)
+  !$ACC PARALLEL LOOP PRESENT(dt_sp)
   do n = 1,n_solpts
-    dtsp(n) = dtmin
+    dt_sp(n) = dtmin
   end do
   !
   call debug_timer(leaving_procedure,pname)
@@ -1119,17 +1157,18 @@ end subroutine get_point_global_timestep
 !
 !###############################################################################
 !
-subroutine get_point_local_timestep(dtmin)
+subroutine get_point_local_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
   use geovar,      only : nr,n_solpts
   use ovar,        only : gam,CFL
   use metrics_mod, only : time_metrics
-  use flowvar,     only : usp,dtsp
+  use flowvar,     only : usp
   use flowvar,     only : gpsp
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
+  real(wp), intent(out) :: dt_sp(:)
   !
   !.. Local Scalars ..
   integer  :: n
@@ -1183,7 +1222,7 @@ continue
   if (nr == 3) then ! this should also work for ncs > 0
     !
     !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,aspd,time_metrics,dtsp)
+    !$ACC&              PRESENT(usp,aspd,time_metrics,dt_sp)
     do n = 1,n_solpts
       !
       dx = time_metrics(1,n)
@@ -1203,14 +1242,14 @@ continue
       !
       dtmin = min( dtpt , dtmin )
       !
-      dtsp(n) = dtpt
+      dt_sp(n) = dtpt
       !
     end do
     !
   else if (nr == 2) then ! this should also work for ncs > 0
     !
     !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,aspd,time_metrics,dtsp)
+    !$ACC&              PRESENT(usp,aspd,time_metrics,dt_sp)
     do n = 1,n_solpts
       !
       dx = time_metrics(1,n)
@@ -1228,14 +1267,14 @@ continue
       !
       dtmin = min( dtpt , dtmin )
       !
-      dtsp(n) = dtpt
+      dt_sp(n) = dtpt
       !
     end do
     !
   else
     !
     !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,aspd,time_metrics,dtsp)
+    !$ACC&              PRESENT(usp,aspd,time_metrics,dt_sp)
     do n = 1,n_solpts
       !
       dx = time_metrics(1,n)
@@ -1247,7 +1286,7 @@ continue
       !
       dtmin = min( dtpt , dtmin )
       !
-      dtsp(n) = dtpt
+      dt_sp(n) = dtpt
       !
     end do
     !
@@ -1273,27 +1312,38 @@ end subroutine get_point_local_timestep
 !
 !###############################################################################
 !
-subroutine check_tstar_for_TaylorGreen(dtmin)
+subroutine check_tstar_for_TaylorGreen(dtmin,dt_sp,skip_updates)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use flowvar, only : dtsp
   use ovar,    only : time,time_ref
-  use ovar,    only : write_TaylorGreen_8s_solution
-  use ovar,    only : write_TaylorGreen_full_solution
+  use ovar,    only : write_TaylorGreen_8s_solution ! modified
+  use ovar,    only : write_TaylorGreen_full_solution ! modified
   !
   !.. Formal Arguments ..
-  real(wp), intent(inout) :: dtmin
+  real(wp),    intent(inout) :: dtmin
+  real(wp),    intent(inout) :: dt_sp(:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: skip_updates
   !
   !.. Local Scalars ..
   integer     :: n,ichk
   real(wp)    :: tstar,dtstar,ideal_tstar
   logical(lk) :: reset_dtsp,checking_for_eight
+  logical(lk) :: write_tgv_8s_solution
+  logical(lk) :: write_tgv_full_solution
+  logical(lk) :: perform_updates
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_tstar_for_TaylorGreen"
   !
 continue
+  !
+  perform_updates = true
+  if (present(skip_updates)) then
+    perform_updates = (.not. skip_updates)
+  end if
   !
   reset_dtsp = fals
   !
@@ -1326,6 +1376,9 @@ continue
   !
   ichk = check_against_ideal_time(tstar,dtstar,ideal_tstar)
   !
+  write_tgv_8s_solution = write_TaylorGreen_8s_solution
+  write_tgv_full_solution = write_TaylorGreen_full_solution
+  !
   if (ichk == -1) then
     !
     ! If the simulation time after the upcoming time step (using the current
@@ -1335,9 +1388,9 @@ continue
     ! simulation time.
     !
     if (checking_for_eight) then
-      write_TaylorGreen_8s_solution = true
+      write_tgv_8s_solution = true
     else
-      write_TaylorGreen_full_solution = true
+      write_tgv_full_solution = true
     end if
     !
   else if (ichk == 1) then
@@ -1353,9 +1406,9 @@ continue
     !       the updated simulation time smaller than the ideal time.
     !
     if (checking_for_eight) then
-      write_TaylorGreen_8s_solution = true
+      write_tgv_8s_solution = true
     else
-      write_TaylorGreen_full_solution = true
+      write_tgv_full_solution = true
     end if
     !
     reset_dtsp = true
@@ -1380,12 +1433,17 @@ continue
     !
   end if
   !
+  if (perform_updates) then
+    write_TaylorGreen_8s_solution = write_tgv_8s_solution
+    write_TaylorGreen_full_solution = write_tgv_full_solution
+  end if
+  !
  !!$ACC UPDATE DEVICE(dtmin)
   !
   if (reset_dtsp) then
-    !$ACC PARALLEL LOOP PRESENT(dtsp)
+    !$ACC PARALLEL LOOP PRESENT(dt_sp)
     do n = 1,n_solpts
-      dtsp(n) = dtmin
+      dt_sp(n) = dtmin
     end do
   end if
   !
@@ -1584,26 +1642,39 @@ end function check_against_ideal_time
 !
 !###############################################################################
 !
-subroutine check_output_frequency(dtmin)
+subroutine check_output_frequency(dtmin,dt_sp,skip_updates)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use flowvar, only : dtsp
   use ovar,    only : time,time_ref,time_scaling_factor
-  use ovar,    only : output_frequency,is_at_output_frequency
+  use ovar,    only : output_frequency
+  use ovar,    only : is_at_output_frequency ! modified
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: dtmin
+  real(wp), intent(inout) :: dt_sp(:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: skip_updates
   !
   !.. Local Scalars ..
-  integer  :: n,old_int,new_int
-  real(wp) :: old_time,new_time
+  integer     :: n,old_int,new_int
+  real(wp)    :: old_time,new_time
+  logical(lk) :: is_at_output_freq
+  logical(lk) :: perform_updates
   !
   !.. Local Parameters ..
   logical(lk), parameter :: update_dtmin_for_output_frequency = fals
  !logical(lk), parameter :: update_dtmin_for_output_frequency = true
   !
 continue
+  !
+  perform_updates = true
+  if (present(skip_updates)) then
+    perform_updates = (.not. skip_updates)
+  end if
+  !
+  is_at_output_freq = is_at_output_frequency
   !
   old_time = time*time_ref*time_scaling_factor
   new_time = old_time + dtmin*time_ref*time_scaling_factor
@@ -1623,7 +1694,7 @@ continue
   ! tells the main loop to output a new solution file.
   !
   if (new_int > old_int) then
-    is_at_output_frequency = true
+    is_at_output_freq = true
   end if
   !
   ! NOTE: WITHOUT ALTERING DTMIN, WE ARE ASSUMING THAT THE TIMESTEP SIZE IS
@@ -1637,7 +1708,7 @@ continue
   !
   if (update_dtmin_for_output_frequency) then
     !
-    if (is_at_output_frequency) then
+    if (is_at_output_freq) then
       !
       new_time = output_frequency*real(new_int,kind=wp)
       !
@@ -1646,37 +1717,54 @@ continue
       dtmin = time - new_time/time_ref/time_scaling_factor
       !$ACC UPDATE DEVICE(dtmin)
       !
-      !$ACC PARALLEL LOOP PRESENT(dtsp)
+      !$ACC PARALLEL LOOP PRESENT(dt_sp)
       do n = 1,n_solpts
-        dtsp(n) = dtmin
+        dt_sp(n) = dtmin
       end do
       !
     end if
     !
   end if
   !
+  if (perform_updates) then
+    is_at_output_frequency = is_at_output_freq
+  end if
+  !
 end subroutine check_output_frequency
 !
 !###############################################################################
 !
-subroutine check_final_time(dtmin,final_timestep_from_stop_request)
+subroutine check_final_time(dtmin,dt_sp,final_timestep_from_stop_request, &
+                            skip_updates)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use flowvar, only : dtsp
   use ovar,    only : itcur,time,Final_Time,time_ref
-  use ovar,    only : this_is_final_timestep
+  use ovar,    only : this_is_final_timestep ! modified
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: dtmin
+  real(wp), intent(inout) :: dt_sp(:)
   integer,     intent(in) :: final_timestep_from_stop_request
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: skip_updates
   !
   !.. Local Scalars ..
   integer     :: n,ichk
   real(wp)    :: chk_time
   logical(lk) :: reset_dtsp
+  logical(lk) :: this_is_last_timestep
+  logical(lk) :: perform_updates
   !
 continue
+  !
+  perform_updates = true
+  if (present(skip_updates)) then
+    perform_updates = (.not. skip_updates)
+  end if
+  !
+  this_is_last_timestep = this_is_final_timestep
   !
   reset_dtsp = fals
   !
@@ -1688,11 +1776,11 @@ continue
     !
     if (ichk == -1) then
       !
-      this_is_final_timestep = true
+      this_is_last_timestep = true
       !
     else if (ichk == 1) then
       !
-      this_is_final_timestep = true
+      this_is_last_timestep = true
       !
       reset_dtsp = true
       !
@@ -1712,17 +1800,21 @@ continue
   !
   if (final_timestep_from_stop_request /= 0) then
     if (final_timestep_from_stop_request <= itcur) then
-      this_is_final_timestep = true
+      this_is_last_timestep = true
     end if
   end if
   !
  !!$ACC UPDATE DEVICE(dtmin)
   !
   if (reset_dtsp) then
-    !$ACC PARALLEL LOOP PRESENT(dtsp)
+    !$ACC PARALLEL LOOP PRESENT(dt_sp)
     do n = 1,n_solpts
-      dtsp(n) = dtmin
+      dt_sp(n) = dtmin
     end do
+  end if
+  !
+  if (perform_updates) then
+    this_is_final_timestep = this_is_last_timestep
   end if
   !
 end subroutine check_final_time
