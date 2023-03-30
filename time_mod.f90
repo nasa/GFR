@@ -35,7 +35,8 @@ contains
 subroutine get_dtsp(dtmin,final_timestep_from_stop_request,skip_updates)
   !
   !.. Use Statements ..
-  use ovar, only : Timestep_Type
+  use geovar,  only : n_solpts
+  use ovar,    only : Timestep_Type
   use ovar,    only : d_t,cfl ! modified
   !
   !.. Formal Arguments ..
@@ -46,7 +47,11 @@ subroutine get_dtsp(dtmin,final_timestep_from_stop_request,skip_updates)
   logical(lk), optional, intent(in) :: skip_updates
   !
   !.. Local Scalars ..
+  real(wp)    :: dtmin_new
   logical(lk) :: update_dt_values
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: dt_sp(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_dtsp"
@@ -59,6 +64,9 @@ continue
   if (present(skip_updates)) then
     update_dt_values = (.not. skip_updates)
   end if
+  !
+  allocate ( dt_sp(1:n_solpts) )
+  !$ACC DATA CREATE(dt_sp)
   !
   if (Timestep_Type == Constant_Timestep) then
     !
@@ -96,6 +104,9 @@ continue
   ! Update d_t with the new dtmin
   !
   d_t = dtmin
+  !
+  !$ACC END DATA
+  deallocate ( dt_sp )
   !
   call debug_timer(leaving_procedure,pname)
   !
