@@ -37,6 +37,7 @@ subroutine get_dtsp(dtmin,final_timestep_from_stop_request)
   !.. Use Statements ..
   use ovar, only : Timestep_Type,d_t,itestcase,Final_Time
   use ovar, only : output_frequency
+  use ovar,    only : cfl ! modified
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
@@ -49,13 +50,13 @@ continue
   !
   if (Timestep_Type == Constant_Timestep) then
     !
-    call get_current_cfl
+    call get_current_cfl(cfl)
     !
     call get_constant_timestep(dtmin)
     !
   else if (abs(Timestep_Type) == Cell_Timestep) then
     !
-    call get_current_cfl
+    call get_current_cfl(cfl)
     !
     if (Timestep_Type == Global_Cell_Timestep) then
       call get_cell_global_timestep(dtmin)
@@ -65,7 +66,7 @@ continue
     !
   else if (abs(Timestep_Type) == Point_Timestep) then
     !
-    call get_current_cfl
+    call get_current_cfl(cfl)
     !
     if (Timestep_Type == Global_Point_Timestep) then
       call get_point_global_timestep(dtmin)
@@ -124,11 +125,14 @@ end subroutine checks_on_dtmin
 !
 !###############################################################################
 !
-subroutine get_current_cfl
+subroutine get_current_cfl(cfl)
   !
   !.. Use Statements ..
-  use ovar, only : cfl,cfl_beg,cfl_end,cfl_cycles,itcur
+  use ovar, only : cfl_beg,cfl_end,cfl_cycles,itcur
   use ovar, only : cfl_cycle_start,cfl_cycle_end
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: cfl
   !
   !.. Local Scalars ..
   real(wp) :: cycle_ratio
