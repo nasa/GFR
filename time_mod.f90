@@ -40,8 +40,8 @@ subroutine get_dtsp(dtmin,final_timestep_from_stop_request,skip_updates)
   use ovar,    only : d_t,cfl ! modified
   !
   !.. Formal Arguments ..
-  real(wp), intent(out) :: dtmin
-  integer,   intent(in) :: final_timestep_from_stop_request
+  real(wp), intent(inout) :: dtmin
+  integer,     intent(in) :: final_timestep_from_stop_request
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: skip_updates
