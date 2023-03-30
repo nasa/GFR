@@ -1952,11 +1952,12 @@ continue
     vol_inv = one/total_volume
     !$ACC PARALLEL LOOP VECTOR_LENGTH(32) PRESENT(tgv_kedr,sum_kedr)
     do n = nmin,nmax
-      tgv_kedr(2,n) = sum_kedr(1,n) * tgv_dimen(2) * vol_inv
-      tgv_kedr(3,n) = sum_kedr(2,n) * tgv_dimen(3) * vol_inv
-      tgv_kedr(4,n) = sum_kedr(3,n) * tgv_dimen(4) * vol_inv
-      tgv_kedr(5,n) = sum_kedr(4,n) * tgv_dimen(5) * vol_inv
-      tgv_kedr(6,n) = sum_kedr(1,n) * tgv_dimen(6) * vol_inv
+     !tgv_kedr(1,n) = tgv_kedr(5,n)-tgv_kedr(5,n-1)          ! e(Ek) KEDR
+      tgv_kedr(2,n) = sum_kedr(1,n) * tgv_dimen(2) * vol_inv ! e(Z) Z-KEDR
+      tgv_kedr(3,n) = sum_kedr(2,n) * tgv_dimen(3) * vol_inv ! e1 (strain KEDR)
+      tgv_kedr(4,n) = sum_kedr(3,n) * tgv_dimen(4) * vol_inv ! e3 (pres KEDR)
+      tgv_kedr(5,n) = sum_kedr(4,n) * tgv_dimen(5) * vol_inv ! Ek (KE)
+      tgv_kedr(6,n) = sum_kedr(1,n) * tgv_dimen(6) * vol_inv ! Z (Enstrophy)
     end do
     !
     ! Compute the central difference of the KEDR to get its rate of change
