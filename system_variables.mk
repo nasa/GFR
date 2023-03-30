@@ -53,7 +53,7 @@ CGNSFPP := -DCGNS_3_3
 #     MPIFPP := -DUSE_MPI_F08  => USE MPI_F08
 #     MPIFPP :=                => USE MPI
 MPIFPP := -DUSE_MPI_F08
-ifeq "$(COMPFAMILY)" "pgi"
+ifneq "$(COMPFAMILY)" "intel"
 MPIFPP :=
 endif
 
