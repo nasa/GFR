@@ -648,6 +648,8 @@ module ovar
   logical(lk),  public, save :: write_TaylorGreen_8s_solution = fals
   logical(lk),  public, save :: write_TaylorGreen_full_solution = fals
   !
+  logical(lk),  public, save :: output_KEDR = fals
+  !
   logical(lk),  public, save :: convergence_reached = fals
   logical(lk),  public, save :: this_is_final_timestep = fals
   !
