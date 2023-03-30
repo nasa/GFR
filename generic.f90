@@ -1648,7 +1648,7 @@ subroutine compute_KEDR(iter,dtmin)
   use geovar,           only : nr,ncell,n_solpts,n_global_solpts
   use geovar,           only : n_global_cell,global_cell_geom
   use ovar,             only : muref_nd,total_volume
-  use ovar,             only : time,time_ref
+  use ovar,             only : time,time_ref,machref
   use ovar,             only : VortexGrid_DOF
   use ovar,             only : iter_out_interval
   use ovar,             only : itestcase
@@ -1671,6 +1671,7 @@ subroutine compute_KEDR(iter,dtmin)
   !
   real(wp) :: kem,kec,kep,dtm,dtp,vol_inv
   real(wp) :: solution_time,muref_star
+  real(wp) :: ke_coef,kedr_coef
   real(wp) :: sum_kedr_1,sum_kedr_2
   real(wp) :: sum_kedr_3,sum_kedr_4
   real(wp) :: rho,rho_inv,pres,q2,vort,div_vel
@@ -1750,23 +1751,49 @@ continue
     !
     ! Initialize the array to adjust the nondimensionalization of the
     ! integrated results
+    ! NOTE: This is now being used to compute the KEDR for both the
+    !       Taylor-Green vortex (TGV) and Taylor-Couette (TCF) flows.
+    !       Both cases nondimensionalize the different KEDR values
+    !       by uref, but TCF also nondimensionalizes any velocity
+    !       derivative terms by d which is the difference in radius
+    !       between the two cylinders. For TGV, time_ref=machref, and
+    !       for TCF, time_ref=machref/d. Dividing by machref basically
+    !       switches the nondimensionalization of a term from aref to
+    !       uref. To keep things the same between TGV and TCF, we
+    !       use machref for re-nondimensionalizing all velocity terms
+    !       and use time_ref (machref for TGV, and machref/d for TCF)
+    !       to re-nondimensionalize all velocity derivative terms.
     ! NOTE: The comments above each value indicate the reason for
-    !       the number of time_refs
+    !       the number of machrefs and time_refs
     !
-    ! Adjust the nondimensionalizatin of muref
+    ! For some reason, ZJs TCF paper doesnt include the 1/2 term
+    ! when computing the integrated KE or enstrophy, so we have to 
+    ! also create a coefficient to adjust these terms accordingly.
     !
-    muref_star = muref_nd / time_ref
+    ke_coef = merge(one,half,abs(itestcase) == Taylor_Couette_Flow)
     !
-    ! two for square of velocity derivatives (from vorticity**2)
+    ! Create the adjustment coefficient for the finite-difference KEDR.
+    ! This is needed for the TCF since the 1/2 coefficient in the KEDR
+    ! is implicitly included when tgv_dimen(5) multiplies the KE by 1/2
+    ! for the TGV case. Since ZJ doesnt include the 1/2 for the KE for
+    ! the TCF case, we need to multiply that in after computing the KEDR.
+    !
+    kedr_coef = half/ke_coef
+    !
+    ! Adjust the nondimensionalization of muref so it is
+    ! nondimensionalized by uref instead of aref
+    muref_star = muref_nd / machref
+    !
+    ! Two time_refs for square of velocity derivatives (from vorticity**2)
     tgv_dimen(2) = muref_star / time_ref / time_ref
-    ! two for square of velocity derivatives (from strain**2)
+    ! Two time_refs for square of velocity derivatives (from strain**2)
     tgv_dimen(3) = two * muref_star / time_ref / time_ref
-    ! two for pressure, one for velocity derivative
-    tgv_dimen(4) = -one / time_ref / time_ref / time_ref
-    ! two for velocity squared in kinetic energy term
-    tgv_dimen(5) = half / time_ref / time_ref
-    ! two for square of velocity derivatives (from vorticity**2)
-    tgv_dimen(6) = half / time_ref / time_ref
+    ! Two machrefs for pressure, one time_ref for velocity derivative
+    tgv_dimen(4) = -one / machref / machref / time_ref
+    ! Two machrefs for velocity squared in kinetic energy term
+    tgv_dimen(5) = ke_coef / machref / machref
+    ! Two time_refs for square of velocity derivatives (from vorticity**2)
+    tgv_dimen(6) = ke_coef / time_ref / time_ref
     !
     ! Set tgv_kedr(7,-1) to time the first time through
     ! time will have the value zero for a new simulation or the
@@ -1972,6 +1999,16 @@ continue
    !call compute_dEkdt_backward_diff_O1(first_output,final_output,tgv_idx, &
    !                                    tgv_kedr(5,:),tgv_kedr(7,:), &
    !                                    tgv_kedr(1,:),nend)
+    !
+    ! Multiply the finite-difference KEDR for the Taylor-Couette flow by 1/2
+    ! since tgv_dimen(5) for KE doesnt include the 1/2 like it does for TGV.
+    ! NOTE: This uses kedr_coef to adjust the KEDR for both the TGV and TCF
+    !       cases, but kedr_coef=1 for TGV and kedr_coef=1/2 for TCF.
+    !
+    !$ACC PARALLEL LOOP PRESENT(tgv_kedr)
+    do n = nmin,nmax
+      tgv_kedr(1,n) = kedr_coef*tgv_kedr(1,n)
+    end do
     !
     ! Have the root processor output the Taylor-Green KEDR solutions
     !
