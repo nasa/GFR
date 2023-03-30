@@ -1293,7 +1293,7 @@ continue
     if (itcur > minimum_timesteps) then
       convergence_reached = (-orders_converged <= convergence_order_max_res) &
                             .or. (log10(rltwo) <= convergence_order_abs_res)
-      if (itestcase == Taylor_Green_Vortex) then
+      if (any(itestcase == Taylor_Problems)) then
         convergence_reached = fals
       end if
     end if
@@ -1535,7 +1535,7 @@ continue
     write (iter_header,201) final_iter_digits-3, &
                             max_cell_digits-2, &
                             max_solpt_digits-3
-  else if (itestcase == Taylor_Green_Vortex) then
+  else if (any(itestcase == Taylor_Problems)) then
    !write (iter_header,203) final_iter_digits-3, &
     write (iter_header,202) final_iter_digits-3, &
                             max_cell_digits-2, &
