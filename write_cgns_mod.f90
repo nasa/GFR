@@ -32,13 +32,6 @@ module write_cgns_mod
   character(len=170),    save :: cgns_time_file
   character(len=170),    save :: cgnsfile_fmt
   !
-  !.. CGNS Path Variables ..
-  integer(CBT),      save :: ifile_n
-  integer(CBT),      save :: ibase_n
-  integer(CBT),      save :: izone_n
-  integer(CBT),      save :: isect_n
-  integer(CBT), parameter :: iiter_n = 1_CBT
-  !
   !.. CGNS Time Dependent Variables ..
   integer, save :: cgns_zone_counter
   !
@@ -46,13 +39,76 @@ module write_cgns_mod
   character(len=CGLEN), save, allocatable :: solname(:)
   character(len=CGLEN), save, allocatable :: solfile(:)
   !
+  ! CGNS Base and Zone names (hard-coded for now)
   character(len=*), parameter :: base_name = "gfr_base"
   character(len=*), parameter :: zone_name = "Solution"
+  !
+  ! Derived type for CGNS sections
+  !
+  type :: cgns_sect_t
+    ! NAME : This is the string name for this CGNS section
+    character(len=CGLEN) :: name
+    ! TYPE : Element type for this section
+    integer(CET) :: type
+    ! ISECT_G : CGNS section index
+    integer(CBT) :: isect_g = 0_CBT
+    ! ALL_CELLS_BEG : Index of first element in this section (global)
+    integer(CST) :: all_cells_beg
+    ! ALL_CELLS_END : Index of last element in this section (global)
+    integer(CST) :: all_cells_end
+    ! MY_CELLS_BEG : Index of first element in this section (local)
+    integer(CST) :: my_cells_beg
+    ! MY_CELLS_END : Index of last element in this section (local)
+    integer(CST) :: my_cells_end
+    ! MAXOFFSET : This is just the size of ElemConn or the last value in the
+    !             array Offsets. This is just a helpful integer to have
+    !             when writing a MIXED CGNS section instead of having to
+    !             extract it from ElemConn or Offsets.
+    integer(CST) :: MaxOffset
+    ! ELEMCONN : This is the actual element connectivities.
+    ! NOTE: For a MIXED section, each elements connectivity is prepended
+    !       by the element type, e.g., the connectivity for a linear hex
+    !       is 9 integers: [HEXA_8, node 1, ..., node 8].
+    integer(CST), allocatable :: ElemConn(:)
+    ! OFFSETS : This is only needed for a MIXED section. This gives the
+    !           start/offset of each element within the ElemConn array.
+    integer(CST), allocatable :: Offsets(:)
+  end type cgns_sect_t
+  !
+  ! CGNS section information
+  ! NOTE: This needs to be an array for when using a mixed element grid
+  !       and writing out each element type as its own section.
+  !
+  type(cgns_sect_t), save, allocatable :: cgns_sect(:)
+  !
+  ! Derived type containing various information for
+  ! each combination of cell geom/order
+  !
+  type :: geord_t
+    ! USED,NOT_USED : logicals indicating if this geom/order combo exists
+    logical(lk) :: used = fals
+    logical(lk) :: not_used = true
+    ! NCELL : number of global cells of this geom/order combo
+    integer :: ncell = 0
+    ! TYPE : CGNS element type for this geom/order combo
+    integer(CET) :: type
+    ! NPTS : number of output nodes/points of this element type
+    integer :: npts
+    ! PTS : element connectivity / point indices
+    integer(CST), allocatable :: pts(:)
+  end type geord_t
+  !
+  ! Array of derived types to store various information for
+  ! the different combinations of cell geom/order
+  !
+  type(geord_t), save, allocatable :: geord(:,:)
+  !
+  !
+  !
   !
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
   !
   !.. CGNS Parallel Point Indices ..
-  integer(CST), save :: n_my_output_pts
   integer(CST), save :: my_pts_beg
   integer(CST), save :: my_pts_end
   !
@@ -402,8 +458,6 @@ continue
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
   ! ################################################
   !
-  call set_cgns_queue(STOP_CGNS_QUEUE,pname,cgns_grid_file)
-  !
   ! Write the time iterative solution file
   !
   if (any(iflag == [close_CGNS,-3])) then
@@ -431,9 +485,8 @@ end subroutine write_parallel_cgns
 subroutine write_parallel_cgns_time_file()
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : profile_io_cgns,profile_io_cgns_subs
-  use ovar,   only : cgns_dir
+  use ovar, only : profile_io_cgns,profile_io_cgns_subs
+  use ovar, only : cgns_dir
   !
   !.. Local Scalars ..
   integer :: n
@@ -444,8 +497,7 @@ subroutine write_parallel_cgns_time_file()
   real(wp) :: end_wall_time
   real(wp) :: cgns_wall_time
   !
-  character(len=CGLEN) :: sect_name
-  character(len=300)   :: link_path
+  character(len=300) :: link_path
   !
   !.. Local Arrays ..
   integer(CST) :: idata(1:2)
@@ -477,84 +529,24 @@ continue
     !
     cgns_time_file = trim(adjustl(cgns_dir)) // cgns_time_fname
     !
+    ! Start the timer for writing this time file that links all
+    ! the previous CGNS solution files into a single CGNS file.
+    !
     call cgns_timer(start_cgns_file_timer,profile_io_cgns_subs, &
                     cgns_time_file,override_barrier=true)
     !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cgp_open_f",override_barrier=true)
-    call cgp_open_f(cgns_time_file,CG_MODE_WRITE,ifile_t,cgierr)
-    call cgns_error(pname,cgns_time_file,"cgp_open_f", &
-                    cgierr,__LINE__,__FILE__, &
-                    "Mode = CG_MODE_WRITE",not_parallel=true)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cgp_open_f",override_barrier=true)
+    ! Open the time file linking all the previous CGNS solution files into
+    ! a single CGNS file.
+    ! NOTE: This opens the CGNS file and creates the base and zone sections.
     !
-    ! Set the CGNS base (who knows what this is for)
+    call open_cgns_file(cgns_time_file,pname,ifile_t,ibase_t,izone_t, &
+                        not_parallel=true)
     !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_base_write_f",override_barrier=true)
-    call cg_base_write_f(ifile_t,base_name,int(nr,kind=CBT), &
-                         int(nr,kind=CBT),ibase_t,cgierr)
-    call cgns_error(pname,cgns_time_file,"cg_base_write_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_base_write_f",override_barrier=true)
+    ! Create the grid coordinates and element connectivity sections by
+    ! using links to these respective sections within the CGNS grid file.
     !
-    ! Write the title for this solution
-    !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_zone_write_f",override_barrier=true)
-    call cg_zone_write_f(ifile_t,ibase_t,zone_name,zone_size, &
-                         UNSTRUCTURED,izone_t,cgierr)
-    call cgns_error(pname,cgns_time_file,"cg_zone_write_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_zone_write_f",override_barrier=true)
-    !
-    ! Create a link to the grid coordinates in the grid file
-    !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_link_write_f",override_barrier=true)
-    call cg_goto_f(ifile_t,ibase_t,cgierr, &
-                   "Zone_t",izone_t, &
-                   CGNS_GOTO_END)
-    call cgns_error(pname,cgns_time_file,"cg_goto_f",cgierr, &
-                    __LINE__,__FILE__,not_parallel=true)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_link_write_f",override_barrier=true)
-    !
-    link_path = base_name//"/"//zone_name//"/GridCoordinates"
-    !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_link_write_f",override_barrier=true)
-    call cg_link_write_f("GridCoordinates",trim(cgns_base_fname), &
-                         trim(link_path),cgierr)
-    call cgns_error(pname,cgns_time_file,"cg_link_write_f(GridCoordinates)", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_link_write_f",override_barrier=true)
-    !
-    ! Create a link to the element connectivity in the grid file
-    !
-    if (nr == 1) then
-      sect_name = "Edges"
-    else if (nr == 2) then
-      sect_name = "Quadrilaterals"
-    else if (nr == 3) then
-      sect_name = "Hexahedrals"
-    end if
-    link_path = base_name//"/"//zone_name//"/"//trim(sect_name)
-    !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_link_write_f",override_barrier=true)
-    call cg_link_write_f(trim(sect_name),trim(cgns_base_fname), &
-                         trim(link_path),cgierr)
-    call cgns_error(pname,cgns_time_file, &
-                    "cg_link_write_f("//trim(sect_name)//")", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_link_write_f",override_barrier=true)
-    !
+    call link_cgns_grid_file(cgns_time_file,pname,ifile_t,ibase_t,izone_t, &
+                             not_parallel=true)
     !
     ! Create a links to the solution node in each of the solution files
     !
@@ -705,8 +697,11 @@ subroutine write_parallel_cgns_grid_file()
   !.. Local Scalars ..
   integer :: n,ierr
   !
-  integer(CST) :: my_cells_beg,my_cells_end
-  integer(CST) :: n_total_output_cells
+  integer(CBT) :: ifile_g,ibase_g,izone_g
+  !
+  integer(CST) :: npts
+  !
+  integer(CET) :: cgpio_mode
   !
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
@@ -715,11 +710,9 @@ subroutine write_parallel_cgns_grid_file()
   character(len=CGLEN) :: varname
   !
   !.. Local Arrays ..
-  integer(CBT) :: ixyz_n(1:nr)
+  integer(CBT) :: ixyz_g(1:nr)
   !
   !.. Local Allocatable Arrays ..
-  integer(CST), allocatable :: ipelem(:,:)
-  !
   real(CRT), allocatable :: var(:)
   real(wp),  allocatable :: vartmp(:)
   !
@@ -744,48 +737,32 @@ continue
   !
   cgns_grid_file = trim(adjustl(cgns_dir)) // cgns_grid_fname
   !
-  ! Initialize the variables and data arrays needed for CGNS output
-  ! NOTE: This call to routine get_initial_data_for_cgns will initialize
-  !       the module variables my_pts_beg, my_pts_end, and n_my_output_pts.
+  ! Get the element connectivities and point/node and cell beginning and
+  ! ending indices that are needed for CGNS output. This will basically
+  ! create the cgns_sect(:) derived type, but it also gets the values for
+  ! the module variables/arrays my_pts_beg, my_pts_end, and zone_size.
   !
-  call get_initial_data_for_cgns(my_cells_beg,my_cells_end,ipelem)
+  call get_connectivity_for_cgns()
   !
-  ! Extract the total number of cells from the zone_size array
-  !
-  n_total_output_cells = zone_size(2)
-  !
-  ! Open the cgns grid file
+  ! Start the timer for writing the grid file
   !
   call cgns_timer(start_cgns_file_timer,profile_io_cgns_subs,cgns_grid_file)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
-  call cgp_open_f(cgns_grid_file,CG_MODE_WRITE,ifile_n,cgierr)
-  call cgns_error(pname,cgns_grid_file,"cgp_open_f", &
-                  cgierr,__LINE__,__FILE__, &
-                  "Mode = CG_MODE_WRITE")
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
+  ! Open the CGNS grid file
+  ! NOTE: This opens the CGNS files and creates the base and zone sections
+  ! NOTE: If using a mixed element grid and cgns_mixed_output is not being
+  !       used (i.e., size(cgns_sect) > 1), we need to open the CGNS file
+  !       for process-independent parallel IO instead of the default
+  !       collective parallel IO. This is needed in case any of the MPI
+  !       processes has zero cells matching the element type of one of the
+  !       sections.
   !
-  ! Set the CGNS base (who knows what this is for)
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_base_write_f")
-  call cg_base_write_f(ifile_n,base_name,int(nr,kind=CBT), &
-                       int(nr,kind=CBT),ibase_n,cgierr)
-  call cgns_error(pname,cgns_grid_file,"cg_base_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_base_write_f")
-  !
-  ! Write the title for this solution
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_zone_write_f")
-  call cg_zone_write_f(ifile_n,ibase_n,zone_name,zone_size, &
-                       UNSTRUCTURED,izone_n,cgierr)
-  call cgns_error(pname,cgns_grid_file,"cg_zone_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_zone_write_f")
+  cgpio_mode = CGP_COLLECTIVE
+  if (size(cgns_sect) > 1) then
+    cgpio_mode = CGP_INDEPENDENT
+  end if
+  call open_cgns_file(cgns_grid_file,pname,ifile_g,ibase_g,izone_g, &
+                      cgpio_mode=cgpio_mode)
   !
   ! Create data nodes for the coordinates
   !
@@ -793,8 +770,8 @@ continue
     varname = "Coordinate"//char_xyz(n)
     call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_coord_write_f")
-    call cgp_coord_write_f(ifile_n,ibase_n,izone_n,CGNS_KIND_REAL, &
-                           trim(varname),ixyz_n(n),cgierr)
+    call cgp_coord_write_f(ifile_g,ibase_g,izone_g,CGNS_KIND_REAL, &
+                           trim(varname),ixyz_g(n),cgierr)
     call cgns_error(pname,cgns_grid_file,"cgp_coord_write_f", &
                     cgierr,__LINE__,__FILE__,"Write node: Coordinate",n)
     call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
@@ -805,17 +782,10 @@ continue
   !
   ! Allocate the temporary variable arrays
   !
-  allocate ( vartmp(1:n_my_output_pts) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
+  npts = my_pts_end - my_pts_beg + 1_CST
   !
-  allocate ( var(1:n_my_output_pts) , source=real(0,CRT) , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Stop/Disable the CGNS queue if it is not to be used
-  !
-  call disable_cgns_queue(pname,cgns_grid_file)
+  vartmp = init_array(npts,zero)     ! F2003 AUTO-REALLOC
+  var = init_array(npts,real(0,CRT)) ! F2003 AUTO-REALLOC
   !
   do n = 1,nr
     !
@@ -830,25 +800,16 @@ continue
     !
     var(:) = real( vartmp/grid_scaling_factor , kind(var) )
     !
-    ! Reset the queue.
-    !
-    call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_grid_file)
-    !
-    ! Add the data for current coordinate variable to the output queue.
+    ! Write the current coordinate variable to the CGNS file
     !
     call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_coord_write_data_f")
-    call cgp_coord_write_data_f(ifile_n,ibase_n,izone_n,ixyz_n(n), &
+    call cgp_coord_write_data_f(ifile_g,ibase_g,izone_g,ixyz_g(n), &
                                 my_pts_beg,my_pts_end,var,cgierr)
     call cgns_error(pname,cgns_grid_file,"cgp_coord_write_data_f", &
                     cgierr,__LINE__,__FILE__,"Write data: Coordinate",n)
     call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_coord_write_data_f")
-    !
-    ! Finally, flush the queue containing the
-    ! current coordinate variable to the CGNS file.
-    !
-    call flush_cgns_queue(pname,cgns_grid_file)
     !
   end do
   !
@@ -863,61 +824,16 @@ continue
     call alloc_error(pname,"vartmp",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  ! Create the data node for the grid connectivity
+  ! Write all of the CGNS sections which contain the element connectivities
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cgp_section_write_f")
-  if (nr == 1) then
-    call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Edges", &
-                             BAR_2,1_CST,n_total_output_cells, &
-                             0_CBT,isect_n,cgierr)
-  else if (nr == 2) then
-    call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Quadrilaterals", &
-                             QUAD_4,1_CST,n_total_output_cells, &
-                             0_CBT,isect_n,cgierr)
-  else if (nr == 3) then
-    call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Hexahedrals", &
-                             HEXA_8,1_CST,n_total_output_cells, &
-                             0_CBT,isect_n,cgierr)
-  end if
-  call cgns_error(pname,cgns_grid_file,"cgp_section_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cgp_section_write_f")
-  !
-  ! Write the element connectivity in parallel
-  !
-  ! Reset the queue.
-  !
-  call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_grid_file)
-  !
-  ! Add the element connectivity data to the output queue.
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cgp_elements_write_data_f")
-  call cgp_elements_write_data_f(ifile_n,ibase_n,izone_n,isect_n, &
-                                 my_cells_beg,my_cells_end,ipelem,cgierr)
-  call cgns_error(pname,cgns_grid_file,"cgp_elements_write_data_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cgp_elements_write_data_f")
-  !
-  ! Finally, flush the queue containing the
-  ! element connectivity to the CGNS file.
-  !
-  call flush_cgns_queue(pname,cgns_grid_file)
-  !
-  ! Deallocate ipelem
-  !
-  if (allocated(ipelem)) then
-    deallocate ( ipelem , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
-  end if
+  do n = 1,size(cgns_sect)
+    call write_cgns_section(ifile_g,ibase_g,izone_g,cgns_sect(n),sect_idx=n)
+  end do
   !
   ! Close the CGNS FILE
   !
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_close_f")
-  call cgp_close_f(ifile_n,cgierr)
+  call cgp_close_f(ifile_g,cgierr)
   call cgns_error(pname,cgns_grid_file,"cgp_close_f", &
                   cgierr,__LINE__,__FILE__)
   call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_close_f")
@@ -950,11 +866,313 @@ end subroutine write_parallel_cgns_grid_file
 !
 !###############################################################################
 !
+subroutine open_cgns_file(cgns_file,procedure_name,ifile,ibase,izone, &
+                          cgpio_mode,not_parallel)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : profile_io_cgns_subs
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: cgns_file
+  character(len=*), intent(in) :: procedure_name
+  integer(CBT),  intent(inout) :: ifile
+  integer(CBT),  intent(inout) :: ibase
+  integer(CBT),  intent(inout) :: izone
+  !
+  !.. Optional Arguments ..
+  integer(CET), optional, intent(in) :: cgpio_mode
+  logical(lk),  optional, intent(in) :: not_parallel
+  !
+  !.. Local Scalars ..
+  integer(CET) :: cgns_pio_mode
+  character(len=300) :: pname
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: sub_pname = "open_cgns_file"
+  !
+continue
+  !
+  write (pname,1) sub_pname,trim(adjustl(procedure_name))
+  !
+  cgns_pio_mode = CGP_COLLECTIVE
+  if (present(cgpio_mode)) then
+    if (cgpio_mode == CGP_INDEPENDENT) then
+      ! Make sure to only change this if it takes the other valid value
+      ! of CGP_INDEPENDENT, otherwise keep it set to the default value.
+      cgns_pio_mode = CGP_INDEPENDENT
+    end if
+  end if
+  !
+  call cgp_pio_mode_f(cgns_pio_mode,cgierr)
+  call cgns_error(pname,cgns_file,"cgp_pio_mode_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  !
+  ! Open the CGNS solution file
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cgp_open_f",override_barrier=not_parallel)
+  call cgp_open_f(cgns_file,CG_MODE_WRITE,ifile,cgierr)
+  call cgns_error(pname,cgns_file,"cgp_open_f", &
+                  cgierr,__LINE__,__FILE__, &
+                  "Mode = CG_MODE_WRITE",not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cgp_open_f",override_barrier=not_parallel)
+  !
+  ! Create the CGNS base for this solution
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_base_write_f",override_barrier=not_parallel)
+  call cg_base_write_f(ifile,base_name,int(nr,kind=CBT), &
+                       int(nr,kind=CBT),ibase,cgierr)
+  call cgns_error(pname,cgns_file,"cg_base_write_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_base_write_f",override_barrier=not_parallel)
+  !
+  ! Write the zone information for this solution
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_zone_write_f",override_barrier=not_parallel)
+  call cg_zone_write_f(ifile,ibase,zone_name,zone_size, &
+                       UNSTRUCTURED,izone,cgierr)
+  call cgns_error(pname,cgns_file,"cg_zone_write_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_zone_write_f",override_barrier=not_parallel)
+  !
+  ! Format Statements
+  !
+  1 format (a," (called from ",a,")")
+  !
+end subroutine open_cgns_file
+!
+!###############################################################################
+!
+subroutine link_cgns_grid_file(cgns_file,procedure_name, &
+                               ifile,ibase,izone,not_parallel)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : profile_io_cgns_subs
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: cgns_file
+  character(len=*), intent(in) :: procedure_name
+  integer(CBT),     intent(in) :: ifile
+  integer(CBT),     intent(in) :: ibase
+  integer(CBT),     intent(in) :: izone
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: not_parallel
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  character(len=CGLEN) :: sect_name
+  !
+  character(len=300) :: link_path
+  character(len=300) :: pname
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: sub_pname = "link_cgns_grid_file"
+  !
+continue
+  !
+  write (pname,1) sub_pname,trim(adjustl(procedure_name))
+  !
+  ! Create a link to the grid coordinates in the grid file
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_goto_f",override_barrier=not_parallel)
+  call cg_goto_f(ifile,ibase,cgierr, &
+                 "Zone_t",izone, &
+                 CGNS_GOTO_END)
+  call cgns_error(pname,cgns_file,"cg_goto_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_goto_f",override_barrier=not_parallel)
+  !
+  link_path = base_name//"/"//zone_name//"/GridCoordinates"
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f",override_barrier=not_parallel)
+  call cg_link_write_f("GridCoordinates",trim(cgns_grid_fname), &
+                       trim(link_path),cgierr)
+  call cgns_error(pname,cgns_file,"cg_link_write_f(GridCoordinates)", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f",override_barrier=not_parallel)
+ !!
+ !! Create a link to the element connectivity in the grid file
+ !!
+ !link_path = base_name//"/"//zone_name//"/"//trim(cgns_sect_name)
+ !!
+ !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+ !                "cg_link_write_f",override_barrier=not_parallel)
+ !call cg_link_write_f(trim(cgns_sect_name),trim(cgns_grid_fname), &
+ !                     trim(link_path),cgierr)
+ !call cgns_error(pname,cgns_file, &
+ !                "cg_link_write_f("//trim(cgns_sect_name)//")", &
+ !                cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+ !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+ !                "cg_link_write_f",override_barrier=not_parallel)
+  !
+  ! Create a link to the element connectivity in the grid file
+  !
+  do n = 1,size(cgns_sect)
+    !
+    sect_name = trim(adjustl(cgns_sect(n)%name))
+    !
+    link_path = base_name//"/"//zone_name//"/"//trim(sect_name)
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_link_write_f",override_barrier=not_parallel)
+    call cg_link_write_f(trim(sect_name),trim(cgns_grid_fname), &
+                         trim(link_path),cgierr)
+    call cgns_error(pname,cgns_file, &
+                    "cg_link_write_f("//trim(sect_name)//")", &
+                    cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_link_write_f",override_barrier=not_parallel)
+    !
+  end do
+  !
+  ! Format Statements
+  !
+  1 format (a," (called from ",a,")")
+  !
+end subroutine link_cgns_grid_file
+!
+!###############################################################################
+!
+subroutine write_cgns_section(ifil,ibas,izon,s,sect_idx)
+  !
+  !.. Use Statements ..
+  use iso_c_binding, only : c_null_ptr
+  use ovar,          only : profile_io_cgns_subs
+  !
+  !.. Formal Arguments ..
+  integer(CBT),         intent(in) :: ifil
+  integer(CBT),         intent(in) :: ibas
+  integer(CBT),         intent(in) :: izon
+  type(cgns_sect_t), intent(inout) :: s
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: sect_idx
+  !
+  !.. Local Scalars ..
+  integer(CBT) :: isec
+  integer(CET) :: ityp
+  integer(CST) :: glb1,glb2
+  integer(CST) :: loc1,loc2
+  integer(CST) :: mxoff
+  !
+  character(len=CGLEN) :: snam
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_cgns_section"
+  !
+continue
+  !
+  snam = trim(adjustl(s%name))
+  !
+  ityp = s%type
+  !
+  glb1 = s%all_cells_beg
+  glb2 = s%all_cells_end
+  !
+  loc1 = s%my_cells_beg
+  loc2 = s%my_cells_end
+  !
+  mxoff = s%MaxOffset
+  !
+  if (ityp == MIXED) then
+    !
+    ! For mixed sections, we need to use the cgp_poly_... functions
+    !
+    ! First, create the empty section to prepare for writing the element
+    ! connectivities for this section in parallel
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_poly_section_write_f")
+    call cgp_poly_section_write_f(ifil,ibas,izon,snam,ityp,glb1,glb2,mxoff, &
+                                  0_CBT,isec,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_poly_section_write_f", &
+                    cgierr,__LINE__,__FILE__)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_poly_section_write_f")
+    !
+    ! Now write the actual element connectivities in parallel
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_poly_elements_write_data_f")
+    call cgp_poly_elements_write_data_f(ifil,ibas,izon,isec,loc1,loc2, &
+                                        s%ElemConn,s%Offsets,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_poly_elements_write_data_f", &
+                    cgierr,__LINE__,__FILE__)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_poly_elements_write_data_f")
+    !
+  else
+    !
+    ! For sections containing a single element type, just use the normal
+    ! cgp_section_write_f and cgp_element_write_data_f functions
+    !
+    ! First, create the empty section to prepare for writing the element
+    ! connectivities for this section in parallel
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_section_write_f")
+    call cgp_section_write_f(ifil,ibas,izon,snam,ityp,glb1,glb2, &
+                             0_CBT,isec,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_section_write_f", &
+                    cgierr,__LINE__,__FILE__)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_section_write_f")
+    !
+    ! Now write the actual element connectivities in parallel
+    ! NOTE: Only have those paritions with cells matching the element type
+    !       for this section (i.e., s%ElemConn has been allocated) write
+    !       their element connectivity for this section to the CGNS grid
+    !       file.
+    !     - I tried passing c_null_ptr instead of s%ElemConn if it wasnt
+    !       allocated, but this just overwrote the first element of the
+    !       section with an element connectivity of all 0's. 
+    !     - I also tried making loc1 and loc2 zero, but that just
+    !       returned errors from CGNS. 
+    !     - Sending in the unallocated s%ElemConn array itself results in
+    !       runtime errors for trying to access an unallocated array.
+    ! NOTE: Since not all MPI processes are guaranteed to call
+    !       cgp_elements_write_data_f, we need to make sure that the
+    !       parallel IO mode is set to independent instead of the default
+    !       collective. This is done in the call to open_cgns_file.
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_elements_write_data_f")
+    if (allocated(s%ElemConn)) then
+      call cgp_elements_write_data_f(ifil,ibas,izon,isec,loc1,loc2, &
+                                     s%ElemConn,cgierr)
+    end if
+    call cgns_error(pname,cgns_grid_file,"cgp_elements_write_data_f", &
+                    cgierr,__LINE__,__FILE__)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_elements_write_data_f")
+    !
+  end if
+  !
+  ! Save isec back into cgns_sect in case it will be needed later
+  !
+  s%isect_g = isec
+  !
+end subroutine write_cgns_section
+!
+!###############################################################################
+!
 subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,n_solpts
-  use ovar,    only : governing_equations
+  use geovar,  only : nr
   use ovar,    only : itcur
   use ovar,    only : tref,rgasref_nd,tmin
   use ovar,    only : profile_io_cgns,profile_io_cgns_subs
@@ -962,9 +1180,6 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   use ovar,    only : cgns_dir
   use flowvar, only : usp,dusp,gpsp
   !
-  use metrics_mod, only : time_metrics
-  !
-  use thermo_mod,    only : species_name
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -975,16 +1190,13 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   character(len=*), intent(in) :: tname
   !
   !.. Local Scalars ..
-  integer :: i,k,l,m,n,nc,npts,ierr
+  integer :: l,n,npts,ierr
   !
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
   real(wp) :: cgns_wall_time
   !
-  character(len=CGLEN) :: varname
-  character(len=CGLEN) :: sect_name
-  character(len=170)   :: cgns_sol_file
-  character(len=300)   :: link_path
+  character(len=170) :: cgns_sol_file
   !
   !.. Local Allocatable Arrays ..
 #ifdef SPECIAL_FOR_INTEL
@@ -995,8 +1207,6 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_solution_file"
-  character(len=*), parameter :: char_ijk(1:3) = ["Xi  ","Eta ","Zeta"]
-  character(len=*), parameter :: char_cyl(1:3) = ["R    ","Theta","Phi  "]
   !
   !.. Local Scalars ..
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
@@ -1038,104 +1248,21 @@ continue
   !
   cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
   !
-  ! Open the CGNS solution file
+  ! Start the timer for writing this solution file
   !
   call cgns_timer(start_cgns_file_timer,profile_io_cgns_subs,cgns_sol_file)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
-  call cgp_open_f(cgns_sol_file,CG_MODE_WRITE,ifile_s,cgierr)
-  call io_error(pname,cgns_sol_file,1,__LINE__,__FILE__,cgierr)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
+  ! Open the solution file.
+  ! NOTE: This opens the CGNS file and creates the base and zone sections.
   !
-  ! Create the CGNS base for this solution
+  call open_cgns_file(cgns_sol_file,pname,ifile_s,ibase_s,izone_s)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_base_write_f")
-  call cg_base_write_f(ifile_s,base_name,int(nr,kind=CBT), &
-                       int(nr,kind=CBT),ibase_s,cgierr)
-  call cgns_error(pname,cgns_sol_file,"cg_base_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_base_write_f")
+  ! Create the grid coordinates and element connectivity sections by
+  ! using links to these respective sections within the CGNS grid file.
   !
-  ! Write the zone information for this solution
+  call link_cgns_grid_file(cgns_sol_file,pname,ifile_s,ibase_s,izone_s)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_zone_write_f")
-  call cg_zone_write_f(ifile_s,ibase_s,zone_name,zone_size, &
-                       UNSTRUCTURED,izone_s,cgierr)
-  call cgns_error(pname,cgns_sol_file,"cg_zone_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_zone_write_f")
-  !
-  ! Create a link to the grid coordinates in the grid file
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
-  call cg_goto_f(ifile_s,ibase_s,cgierr, &
-                 "Zone_t",izone_s, &
-                 CGNS_GOTO_END)
-  call cgns_error(pname,cgns_sol_file,"cg_goto_f",cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
-  !
-  link_path = base_name//"/"//zone_name//"/GridCoordinates"
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_link_write_f")
-  call cg_link_write_f("GridCoordinates",trim(cgns_base_fname), &
-                       trim(link_path),cgierr)
-  call cgns_error(pname,cgns_sol_file,"cg_link_write_f(GridCoordinates)", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_link_write_f")
-  !
-  ! Create a link to the element connectivity in the grid file
-  !
-  if (nr == 1) then
-    sect_name = "Edges"
-  else if (nr == 2) then
-    sect_name = "Quadrilaterals"
-  else if (nr == 3) then
-    sect_name = "Hexahedrals"
-  end if
-  link_path = base_name//"/"//zone_name//"/"//trim(sect_name)
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_link_write_f")
-  call cg_link_write_f(trim(sect_name),trim(cgns_base_fname), &
-                       trim(link_path),cgierr)
-  call cgns_error(pname,cgns_sol_file, &
-                  "cg_link_write_f("//trim(sect_name)//")", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_link_write_f")
-  !
-  ! Allocate var and vartmp if they arent already allocated
-  !
-  if (allocated(vartmp)) then
-    deallocate ( vartmp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vartmp",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  if (allocated(interp_usp)) then
-    deallocate ( interp_usp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interp_usp",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  if (allocated(interp_gpsp)) then
-    deallocate ( interp_gpsp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interp_gpsp",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  if (allocated(interp_dusp)) then
-    deallocate ( interp_dusp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interp_dusp",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (.not. allocated(var)) then
-    allocate ( var(1:n_my_output_pts) , source=real(0,CRT) , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  ! Write the flow variables
+  ! Create the flow solution section of the CGNS file
   !
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_sol_write_f")
@@ -1148,21 +1275,16 @@ continue
   ! #####   WRITING FIELD VARIABLES   #####
   ! #######################################
   !
-  npts = n_my_output_pts
+  npts = int( my_pts_end - my_pts_beg + 1_CST , kind=kind(npts) )
   !
-  allocate ( vartmp(1:npts) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
+  ! Allocate the local arrays used for output
   !
-  allocate ( interp_usp(1:npts,1:nq) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"interp_usp",1,__LINE__,__FILE__,ierr,error_message)
+  var = init_array(npts,real(0,CRT))        ! F2003 AUTO-REALLOC
+  vartmp = init_array(npts,zero)            ! F2003 AUTO-REALLOC
+  interp_usp = init_array(npts,nq,zero)     ! F2003 AUTO-REALLOC
+  interp_dusp = init_array(npts,nr,nq,zero) ! F2003 AUTO-REALLOC
   !
-  allocate ( interp_dusp(1:npts,1:nr,1:nq) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"interp_dusp",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  !
+  ! Interpolate usp to the output points
   !
   call interpolate_for_output( usp , interp_usp )
   !
@@ -1174,7 +1296,7 @@ continue
       ! contents of dusp with the discontinuous gradient, so save
       ! the contents of dusp in dusp_copy.
       !
-      dusp_copy = dusp ! F2003 AUTOMATIC-REALLOCATION
+      dusp_copy = dusp(:,:,:) ! F2003 AUTOMATIC-REALLOCATION
       !
       call discontinuous_gradient_at_solpts()
       !
@@ -1206,30 +1328,42 @@ continue
   !
   n = count_output_variables(char_sname)
   !
-  allocate ( isvar_s(1:n) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"isvar_s",1,__LINE__,__FILE__,ierr,error_message)
+  ! Allocate the CGNS field indexing array
+  !
+  isvar_s = init_array(n,0_CBT) ! F2003 AUTO-REALLOC
   !
   ! Create data nodes for the solution variables
   !
   call write_field_headers(cgns_sol_file,ifile_s,ibase_s,izone_s,isol_s, &
                            char_sname,isvar_s)
   !
+  ! Allocate the array for storing the gas properties
+  ! evaluated at the output points
   !
+  interp_gpsp = init_array(npts,ng,zero) ! F2003 AUTO-REALLOC
   !
-  allocate ( interp_gpsp(1:npts,1:ng) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"interp_gpsp",1,__LINE__,__FILE__,ierr,error_message)
+  ! The most accurate gas properties (GP) we can output are those computed
+  ! from the conserved variable (CV) values which have already been
+  ! interpolated to the output points (OP). This is because the CV are an
+  ! actual polynomial good for interpolating, whereas the GP at the solution
+  ! points (SP) are not a true polynomial because they are computed from the
+  ! CV values at the SP. However, for the special case of thermally perfect
+  ! gas mixture (TPG) simulations, computing the temperature from the CV
+  ! requires a Newton solve and thus an initial guess for the temperature.
+  ! To get this initial guess, we need to interpolate the GP in gpsp to the
+  ! OP and store in interp_gpsp. These interpolated GP in interp_gpsp will be
+  ! overwritten once update_thermo_properties is called. NOTE, this only
+  ! needs to be done for simulations using a TPG, since the GP for a
+  ! calorically perfect gas are simply computed from the CV.
   !
-  ! Initialize interp_gpsp to the interpolated values of gpsp
-  ! Interpolate the values in gpsp to initialize interp_gpsp. We need to
-  ! initialize the temperature in interp_gpsp in case this is for a
-  ! thermally perfect gas mixture which needs an initial guess for
-  ! temperature when performing the Newton solve for temperature.
-  !
-  call interpolate_for_output( gpsp , interp_gpsp )
+  if (ncs > 0) then
+    call interpolate_for_output( gpsp , interp_gpsp )
+  end if
   !
   ! Now actually compute the updated thermodynamic and transport properties
-  ! based on the interpolated values of the conserved variables.
+  ! NOTE: If this is a TPG simulation, interp_gpsp has been initialized to
+  !       the interpolated values of gpsp so the Newton solve has an initial
+  !       guess for computing temperature.
   !
   call update_thermo_properties(1,npts,interp_usp,interp_gpsp, &
                                 caller_name=pname)
@@ -1266,8 +1400,6 @@ continue
   ! ################################################
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
   ! ################################################
-  !
-  call set_cgns_queue(STOP_CGNS_QUEUE,pname,cgns_sol_file)
   !
   ! Close the CGNS FILE
   !
@@ -3322,8 +3454,9 @@ continue
   ! Make sure vorticity is one of the variables that will
   ! be output if running the Taylor-Green vortex problem.
   !
-  if (any(abs(itestcase) == [Taylor_Green_Vortex,Taylor_Couette_Flow])) then
+  if (any(itestcase == Taylor_Problems)) then
     call add_sol_variable(variable_list,"Vorticity")
+    call add_sol_variable(variable_list,"VorticityMagnitude")
   end if
   !
   ! Output vorticity and other variables useful for identifying
@@ -3666,25 +3799,21 @@ end subroutine add_sol_variables
 subroutine write_parallel_cgns_time_ave_file()
   !
   !.. Use Statements ..
-  use geovar,  only : nr
   use ovar,    only : profile_io_cgns,profile_io_cgns_subs
   use ovar,    only : max_wall_time => max_time_ave_cgns_wall_time
   use ovar,    only : cgns_dir,itcur,itrst,num_timesteps
   use flowvar, only : uavesp
   !
   !.. Local Scalars ..
-  integer :: l,m,n,npts,ierr
+  integer :: l,n,npts,ierr
   integer :: final_iter_digits
   !
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
   real(wp) :: cgns_wall_time
   !
-  character(len=CGLEN) :: varname
-  character(len=CGLEN) :: sect_name
-  character(len=100)   :: char_num
-  character(len=170)   :: cgns_sol_file
-  character(len=300)   :: link_path
+  character(len=100) :: char_num
+  character(len=170) :: cgns_sol_file
   !
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
   !
@@ -3738,81 +3867,25 @@ continue
   !
   call get_cgns_time_ave_variables(char_sname)
   !
-  ! Get the name of the current time average solution file
+  ! Get the name of the current time averaged solution file
   !
   write (cgns_sol_file,tafile_fmt) itcur
   !
-  ! Open the CGNS solution file
+  ! Start the timer for writing this time averaged solution file
   !
   call cgns_timer(start_cgns_file_timer,profile_io_cgns_subs,cgns_sol_file)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
-  call cgp_open_f(cgns_sol_file,CG_MODE_WRITE,ifile_s,cgierr)
-  call io_error(pname,cgns_sol_file,1,__LINE__,__FILE__,cgierr)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
+  ! Open the time averaged solution file.
+  ! NOTE: This opens the CGNS file and creates the base and zone sections.
   !
-  ! Create the CGNS base for this time averaged solution
+  call open_cgns_file(cgns_sol_file,pname,ifile_s,ibase_s,izone_s)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_base_write_f")
-  call cg_base_write_f(ifile_s,base_name,int(nr,kind=CBT), &
-                       int(nr,kind=CBT),ibase_s,cgierr)
-  call cgns_error(pname,cgns_sol_file,"cg_base_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_base_write_f")
+  ! Create the grid coordinates and element connectivity sections by
+  ! using links to these respective sections within the CGNS grid file.
   !
-  ! Write the zone information for this time averaged solution
+  call link_cgns_grid_file(cgns_sol_file,pname,ifile_s,ibase_s,izone_s)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_zone_write_f")
-  call cg_zone_write_f(ifile_s,ibase_s,zone_name,zone_size, &
-                       UNSTRUCTURED,izone_s,cgierr)
-  call cgns_error(pname,cgns_sol_file,"cg_zone_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_zone_write_f")
-  !
-  ! Create a link to the grid coordinates in the grid file
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
-  call cg_goto_f(ifile_s,ibase_s,cgierr, &
-                 "Zone_t",izone_s, &
-                 CGNS_GOTO_END)
-  call cgns_error(pname,cgns_sol_file,"cg_goto_f",cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
-  !
-  link_path = base_name//"/"//zone_name//"/GridCoordinates"
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_link_write_f")
-  call cg_link_write_f("GridCoordinates",trim(cgns_base_fname), &
-                       trim(link_path),cgierr)
-  call cgns_error(pname,cgns_sol_file,"cg_link_write_f(GridCoordinates)", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_link_write_f")
-  !
-  ! Create a link to the element connectivity in the grid file
-  !
-  if (nr == 2) then
-    sect_name = "Quadrilaterals"
-  else if (nr == 3) then
-    sect_name = "Hexahedrals"
-  end if
-  link_path = base_name//"/"//zone_name//"/"//trim(sect_name)
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_link_write_f")
-  call cg_link_write_f(trim(sect_name),trim(cgns_base_fname), &
-                       trim(link_path),cgierr)
-  call cgns_error(pname,cgns_sol_file, &
-                  "cg_link_write_f("//trim(sect_name)//")", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                  "cg_link_write_f")
-  !
-  ! Write the flow variables
+  ! Create the flow solution section of the CGNS file
   !
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_sol_write_f")
@@ -3831,7 +3904,7 @@ continue
   !
   n = count_output_variables(char_sname)
   !
-  isvar_s = init_array(n,0) ! F2003 AUTO-REALLOC
+  isvar_s = init_array(n,0_CBT) ! F2003 AUTO-REALLOC
   !
   ! Create data nodes for the time averaged solution variables
   !
@@ -3841,7 +3914,7 @@ continue
   ! Preallocate var for writing variables in the correct precision
   ! to the CGNS file
   !
-  npts = n_my_output_pts
+  npts = int( my_pts_end - my_pts_beg + 1_CST , kind=kind(npts) )
   !
   vartmp = init_array(npts,zero)          ! F2003 AUTO-REALLOC
   var = init_array(npts,real(0,kind=CRT)) ! F2003 AUTO-REALLOC
@@ -3858,8 +3931,6 @@ continue
   ! ################################################
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
   ! ################################################
-  !
-  call set_cgns_queue(STOP_CGNS_QUEUE,pname,cgns_sol_file)
   !
   ! Close the CGNS FILE
   !
@@ -4656,7 +4727,82 @@ end subroutine output_time_ave_variable
 !
 !###############################################################################
 !
-subroutine get_initial_data_for_cgns(my_cells_beg,my_cells_end,ipelem)
+subroutine get_connectivity_for_cgns()
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use geovar, only : global_cell_geom
+  use geovar, only : global_cell_order
+  use ovar,   only : cgns_high_order_output
+  use ovar,   only : cgns_mixed_output
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+  logical(lk) :: mixed_element_grid
+  logical(lk) :: mixed_order_grid
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_connectivity_for_cgns"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (cgns_high_order_output) then
+    !
+   !!
+   !! Use a MIXED CGNS section only if this is a mixed element/order grid
+   !! and the cgns_mixed_output flag is enabled.
+   !!
+   !mixed_element_grid = all_not_equal(global_cell_geom)
+   !mixed_order_grid = all_not_equal(global_cell_order)
+   !!
+   !if ((mixed_element_grid .or. mixed_order_grid) .and. cgns_mixed_output) then
+    if (cgns_mixed_output) then
+      !
+      call get_mixed_connectivity()
+      !
+    else
+      !
+      call get_unmixed_connectivities()
+      !
+    end if
+    !
+  else
+    !
+    ! Use linear subcell connectivity to output the high order solution
+    !
+    allocate ( cgns_sect(1:1) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cgns_sect",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    if (nr == 1) then
+      cgns_sect(1)%name = "Edges"
+      cgns_sect(1)%type = BAR_2
+    else if (nr == 2) then
+      cgns_sect(1)%name = "Quadrilaterals"
+      cgns_sect(1)%type = QUAD_4
+    else if (nr == 3) then
+      cgns_sect(1)%name = "Hexahedrals"
+      cgns_sect(1)%type = HEXA_8
+    end if
+    !
+    call get_linear_subcell_connectivity(cgns_sect(1)%all_cells_beg, &
+                                         cgns_sect(1)%all_cells_end, &
+                                         cgns_sect(1)%my_cells_beg, &
+                                         cgns_sect(1)%my_cells_end, &
+                                         cgns_sect(1)%ElemConn)
+    !
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_connectivity_for_cgns
+!
+!###############################################################################
+!
+subroutine get_linear_subcell_connectivity(all_cells_beg,all_cells_end, &
+                                           my_cells_beg,my_cells_end,ElemConn)
   !
   !.. Use Statements ..
   use geovar,    only : ncell,n_global_cell,cell
@@ -4667,9 +4813,11 @@ subroutine get_initial_data_for_cgns(my_cells_beg,my_cells_end,ipelem)
   use order_mod, only : o_order,geom_solpts
   !
   !.. Formal Arguments ..
+  integer(CST),              intent(inout) :: all_cells_beg
+  integer(CST),              intent(inout) :: all_cells_end
   integer(CST),              intent(inout) :: my_cells_beg
   integer(CST),              intent(inout) :: my_cells_end
-  integer(CST), allocatable, intent(inout) :: ipelem(:,:)
+  integer(CST), allocatable, intent(inout) :: ElemConn(:)
   !
   !.. Local Scalars ..
   integer :: n,nc,np,ierr,icpu
@@ -4678,30 +4826,30 @@ subroutine get_initial_data_for_cgns(my_cells_beg,my_cells_end,ipelem)
   integer :: this_order,output_order
   !
   integer(CST) :: p1,this_npts
-  integer(CST) :: n_my_output_cells
-  integer(CST) :: n_total_output_cells
-  integer(CST) :: n_total_output_pts
+  integer(CST) :: ibeg,iend,npts
+  integer(CST) :: n_total_cells
+  integer(CST) :: n_total_pts
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "get_initial_data_for_cgns"
+  character(len=*), parameter :: pname = "get_linear_subcell_connectivity"
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  ! Initialize n_total_output_cells and n_total_output_pts which give:
+  ! Initialize n_total_cells and n_total_pts which give:
   !
-  ! n_total_output_cells: total number of output cells for the global grid
-  ! n_total_output_pts: total number of output points for the global grid
+  ! n_total_cells: total number of output cells for the global grid
+  ! n_total_pts: total number of output points for the global grid
   !
-  n_total_output_pts = 0_CST
-  n_total_output_cells = 0_CST
+  n_total_pts = 0_CST
+  n_total_cells = 0_CST
   !
   do icpu = 1,ncpu
     !
     if (icpu-1 == mypnum) then
-      my_pts_beg = n_total_output_pts + 1_CST
-      my_cells_beg = n_total_output_cells + 1_CST
+      my_pts_beg = n_total_pts + 1_CST
+      my_cells_beg = n_total_cells + 1_CST
     end if
     !
     do nc = 1,size(cell_map(icpu)%loc_to_glb)
@@ -4738,35 +4886,35 @@ continue
       ! this order to the running count of the global total number of
       ! output solution points.
       !
-      n_total_output_pts = n_total_output_pts + this_npts
+      n_total_pts = n_total_pts + this_npts
       !
       ! Add the number of subcells for this cell geometry at this order
       ! to the running count of the global total number of output
       ! subcells.
       !
-      n_total_output_cells = n_total_output_cells + &
-                             int(this_subcells,kind=kind(n_total_output_cells))
+      n_total_cells = n_total_cells + &
+                      int(this_subcells,kind=kind(n_total_cells))
       !
     end do
     !
     if (icpu-1 == mypnum) then
-      my_pts_end = n_total_output_pts
-      my_cells_end = n_total_output_cells
+      my_pts_end = n_total_pts
+      my_cells_end = n_total_cells
     end if
     !
   end do
   !
-  ! Save n_total_output_pts and n_total_output_cells to zone_size
+  ! Set the beginning and ending cell indices for the total number of linear
+  ! sub-cells that will be output
   !
-  zone_size = [n_total_output_pts,n_total_output_cells,0_CST]
+  all_cells_beg = 1_CST
+  all_cells_end = n_total_cells
   !
-  ! n_my_output_pts: number of output points for this processor
+  ! Save n_total_pts and n_total_cells to zone_size
   !
-  n_my_output_pts = my_pts_end - my_pts_beg + 1_CST
-  !
-  ! n_my_output_cells: number of output cell for this processor
-  !
-  n_my_output_cells = my_cells_end - my_cells_beg + 1_CST
+  zone_size(1) = n_total_pts
+  zone_size(2) = n_total_cells
+  zone_size(3) = 0_CST
   !
   ! Some quick stuff needed before creating the connectivity array
   !
@@ -4794,17 +4942,14 @@ continue
   !
   ! Create the connectivity array
   !
-  if (allocated(ipelem)) then
-    deallocate ( ipelem , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
-  end if
+  npts = int(np,kind=kind(npts)) * (my_cells_end - my_cells_beg + 1_CST)
   !
-  allocate ( ipelem(1:np,1:n_my_output_cells) , source=0_CST , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"ipelem",1,__LINE__,__FILE__,ierr,error_message)
+  ElemConn = init_array(npts,0_CST) ! F2003 AUTO-REALLOC
   !
   nc = 0
   p1 = my_pts_beg
+  !
+  iend = 0_CST
   !
   do this_cell = 1,ncell
     !
@@ -4840,9 +4985,12 @@ continue
       !
       nc = nc + 1
       !
-      ipelem(:,nc) = p1 + int( pst_geom(this_geom,output_order)% &
-                                              connectivity(:,n) , &
-                               kind=kind(ipelem) )
+      ibeg = iend + 1_CST
+      iend = iend + int(np,kind=kind(iend))
+      !
+      ElemConn(ibeg:iend) =  p1 + int( pst_geom(this_geom,output_order)% &
+                                                      connectivity(:,n) , &
+                                       kind=kind(ElemConn) )
       !
     end do
     !
@@ -4859,7 +5007,1109 @@ continue
             " match. For example, this would happen if there is a 2D cell", &
             " within a 3D grid. This configuration is currently not supported.")
   !
-end subroutine get_initial_data_for_cgns
+end subroutine get_linear_subcell_connectivity
+!
+!###############################################################################
+!
+subroutine get_mixed_connectivity()
+  !
+  ! USE FROM MODULE HEADER
+  ! my_pts_beg
+  ! my_pts_end
+  ! zone_size
+  ! cgns_sect
+  ! geord
+  !
+  !.. Use Statements ..
+  use geovar, only : n_global_cell,ncell
+  use geovar, only : global_cell_geom,cell_geom
+  use geovar, only : global_cell_order,cell_order
+  use geovar, only : cell_map
+  !
+  !.. Formal Arguments ..
+  !
+  !.. Local Scalars ..
+  integer :: gmin,gmax,omin,omax,ierr,icpu,nc
+  integer :: this_cell,this_geom,this_order,this_npts
+  !
+  integer(CST) :: n_total_pts
+  integer(CST) :: n_total_cells
+  integer(CST) :: my_cells_beg
+  integer(CST) :: my_cells_end
+  !
+  logical(lk) :: mixed_geom
+  logical(lk) :: mixed_order
+  logical(lk) :: mixed_grid
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_mixed_connectivity"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Create the geord derived type that contains various information
+  ! for the different combinations of cell geom/order. This also returns
+  ! the min/max cell geometry and min/max cell order across all the cells
+  ! in the current simulation.
+  ! NOTE: We have to explicitly specify the indices of the geom and order
+  !       argument arrays because these arrays are allocated to the number
+  !       of (cells + boundary faces) and not just to the number of cells.
+  !
+  call create_geord(global_cell_geom(1:n_global_cell), &
+                    global_cell_order(1:n_global_cell), &
+                    gmin,gmax,omin,omax)
+  !
+  mixed_geom  = ( gmin /= gmax )
+  ! Be careful here, because the order can only be mixed if (omin < 4)
+  ! since everything P5 and higher will be output as P4
+  mixed_order = ( (omin < 4) .and. (omin /= omax) )
+  mixed_grid  = ( mixed_geom .or. mixed_order )
+  !
+  ! Allocate the cgns_sect derived type
+  !
+  allocate ( cgns_sect(1:1) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cgns_sect",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Get the name for the CGNS section.
+  !
+  cgns_sect(1)%name = get_mixed_section_name()
+  !
+  ! Get the CGNS element type for the CGNS section
+  ! NOTE: We only want to use a MIXED CGNS element type if the grid actually
+  !       contains more than one geom/order combo, because the element
+  !       connectivity + element offset arrays for a MIXED section take up
+  !       2*N_GLOBAL_CELL*CST additional bytes of storage compared to the
+  !       same data stored in a regular single-element-type section.
+  !
+  if (mixed_grid) then
+    cgns_sect(1)%type = MIXED
+  else
+    cgns_sect(1)%type = get_cell_type(gmin,omin)
+  end if
+  !
+  ! Set the beginning and ending cell indices for this section
+  !
+  cgns_sect(1)%all_cells_beg = 1_CST
+  cgns_sect(1)%all_cells_end = int(n_global_cell,kind=CST)
+  !
+  ! Get the total number of output points/nodes and output cells, and the
+  ! beginning and ending indices for the points/nodes and cells output
+  ! by this process.
+  !
+  n_total_pts = 0_CST
+  n_total_cells = 0_CST
+  !
+  do icpu = 1,ncpu
+    !
+    ! If this process/CPU number matches my process/CPU number, save the
+    ! current sum of the output points/nodes+1 and output cells+1 as the
+    ! beginning index of my output points/nodes and output cells, respectively.
+    !
+    if (icpu-1 == mypnum) then
+      my_pts_beg = n_total_pts + 1_CST
+      my_cells_beg = n_total_cells + 1_CST
+    end if
+    !
+    ! Count the number of output points/nodes and output cells for this
+    ! partition.
+    ! NOTE: For a MIXED section, the number of output cells is really
+    !       just the number of cells on the partition.
+    !
+    do nc = 1,size(cell_map(icpu)%loc_to_glb)
+      !
+      ! Get the global cell index for the current local cell index (nc)
+      !
+      this_cell = cell_map(icpu)%loc_to_glb(nc)
+      !
+      this_geom = global_cell_geom(this_cell)   ! cell geometry
+      this_order = global_cell_order(this_cell) ! cell order
+      !
+      ! Get the number of output points for this cell geom/order combo
+      !
+      this_npts = geord(this_geom,this_order)%npts
+      !
+      ! Add the number of points/nodes for this cell to the running sum
+      ! of the total number of output points/nodes.
+      !
+      n_total_pts = n_total_pts + int(this_npts,kind=kind(n_total_pts))
+      !
+      ! Add this cell to the section cell count
+      ! 
+      n_total_cells = n_total_cells + 1_CST
+      !
+    end do
+    !
+    ! If this process/CPU number matches my process/CPU number, save the
+    ! current sum of the output points/nodes and output cells as the ending
+    ! index of my output points/nodes and output cells, respectively.
+    !
+    if (icpu-1 == mypnum) then
+      my_pts_end = n_total_pts
+      my_cells_end = n_total_cells
+    end if
+    !
+  end do
+  !
+  ! Save the beginning and ending indices of my cells to cgns_sect
+  !
+  cgns_sect(1)%my_cells_beg = my_cells_beg
+  cgns_sect(1)%my_cells_end = my_cells_end
+  !
+  ! Save the total number of output points and cells to zone_size
+  !
+  zone_size(1) = n_total_pts
+  zone_size(2) = n_total_cells
+  zone_size(3) = 0_CST
+  !
+  ! Create the CGNS element connectivity and offsets for this partition
+  !
+  call create_cgns_connectivity(my_pts_beg,my_pts_end, &
+                                my_cells_beg,my_cells_end, &
+                                cgns_sect(1)%ElemConn, &
+                                cgns_sect(1)%Offsets, &
+                                mixed_grid=mixed_grid)
+  !
+  ! Save the total size of ElemConn to MaxOffset so we dont have to extract
+  ! this information when creating the CGNS section.
+  !
+ !cgns_sect(1)%MaxOffset = cgns_sect(1)%Offsets(size(cell_geom)+1)
+ !cgns_sect(1)%MaxOffset = size(cgns_sect(1)%ElemConn,kind=CST)
+  cgns_sect(1)%MaxOffset = n_total_pts + n_total_cells
+  !
+  if (mixed_grid) then
+    !
+    ! We only need to do a sanity check on MaxOffset if this is a MIXED
+    ! section, because MaxOffset is only used in the call to
+    ! cgp_poly_section_write_f which is only used for MIXED sections.
+    !
+    nc = size(cgns_sect(1)%ElemConn)
+    if (ncpu > 1) then
+      call mpi_allreduce(MPI_IN_PLACE,nc,1_int_mpi, &
+                         mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    end if
+    !
+    if (nc /= cgns_sect(1)%MaxOffset) then
+      write (error_message,1) nc,cgns_sect(1)%MaxOffset
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+    !
+  end if
+  !
+  ! If this is not a mixed element section, deallocate cgns_sect(1)%Offsets
+  ! since we dont need it.
+  !
+  if (.not. mixed_grid) then
+    if (allocated(cgns_sect(1)%Offsets)) then
+      deallocate ( cgns_sect(1)%Offsets , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"cgns_sect(1)%Offsets",2,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
+  end if
+  !
+  if (allocated(geord)) then
+    deallocate ( geord , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"geord",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Format statements
+  !
+  1 format ("The MaxOffset or elementDataSize input for the CGNS function/&", &
+            "cgp_poly_section_write_f does not seem to match the sum of/&", &
+            "the total number of output points and cells which should be/&", &
+            "the case for a MIXED CGNS section./&", &
+            "  the sum of the size of all local ElemConn arrays   = ",i0,'/&', &
+            "  the sum of total number of output points and cells = ",i0)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_mixed_connectivity
+!
+!###############################################################################
+!
+subroutine get_unmixed_connectivities()
+  !
+  !.. Use Statements ..
+  use geovar, only : ncell,n_global_cell
+  use geovar, only : global_cell_geom,cell_geom
+  use geovar, only : global_cell_order,cell_order
+  use geovar, only : cell_map
+  !
+  !.. Local Scalars ..
+  integer :: nc,icpu,gmin,gmax,omin,omax,ierr
+  integer :: nsect,this_sect,this_geom,this_order
+  integer :: num_cells,this_cell,this_npts,npts
+  integer :: ibeg,iend
+  !
+  integer(CET) :: this_type
+  !
+  integer(CST) :: my_cells_beg,n_cells_beg
+  integer(CST) :: my_cells_end,n_cells_end
+  integer(CST) :: n_total_cells
+  integer(CST) :: n_total_pts
+  integer(CST) :: sect_total_cells
+  integer(CST) :: sect_cells
+  integer(CST) :: jbeg,jend,joff
+  !
+  !.. Allocatable Arrays ..
+  integer(CET), allocatable :: global_cell_type(:)
+  integer(CET), allocatable :: cell_type(:)
+  integer(CST), allocatable :: ElemConn(:)
+  integer(CST), allocatable :: Offsets(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_unmixed_connectivities"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Create the geord derived type that contains various information
+  ! for the different combinations of cell geom/order. This also returns
+  ! the min/max cell geometry and min/max cell order across all the cells
+  ! in the current simulation.
+  ! NOTE: We have to explicitly specify the indices of the geom and order
+  !       argument arrays because these arrays are allocated to the number
+  !       of (cells + boundary faces) and not just to the number of cells.
+  !
+  call create_geord(global_cell_geom(1:n_global_cell), &
+                    global_cell_order(1:n_global_cell), &
+                    gmin,gmax,omin,omax)
+  !
+  ! Create local and global arrays that contain the CGNS element type
+  ! for all the local and global cells, respectively. This is just to
+  ! make things easier instead of having to keep getting the CGNS element
+  ! type from the combination of the cell geometry and cell order.
+  ! NOTE: We have to explicitly specify the indices of the geom and order
+  !       argument arrays because these arrays are allocated to the number
+  !       of (cells + boundary faces) and not just to the number of cells.
+  !
+  ! F2003 AUTO-REALLOC
+  global_cell_type = get_cell_type(global_cell_geom(1:n_global_cell), &
+                                   global_cell_order(1:n_global_cell))
+  ! F2003 AUTO-REALLOC
+  cell_type = get_cell_type(cell_geom(1:ncell),cell_order(1:ncell))
+  !
+  ! Count the number of CGNS sections that will be needed
+  !
+  nsect = count( geord(:,:)%used )
+  !
+  ! Allocate the cgns_sect derived type
+  !
+  allocate ( cgns_sect(1:nsect) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cgns_sect",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Create the basic information for each section: section name, element type,
+  ! beginning/ending indices for all elements in this section
+  !
+  n_cells_end = 0_CST
+  !
+  this_sect = 0
+  do this_geom = gmin,gmax
+    do this_order = omin,min(omax,4)
+      !
+      if (geord(this_geom,this_order)%not_used) cycle
+      !
+      this_sect = this_sect + 1
+      !
+      ! Get the section name
+      !
+      write (cgns_sect(this_sect)%name,'("P",i0,1x,a)') &
+                            this_order, trim(adjustl(Geom_Full_Name(this_geom)))
+      !
+      ! Get the section element type
+      !
+      cgns_sect(this_sect)%type = geord(this_geom,this_order)%type
+      !
+      ! Set the beginning and ending element index for this section
+      ! NOTE: This gives the beginning and ending index for the cells
+      !       in this section within the range of [1:n_global_cell]
+      !
+      num_cells = geord(this_geom,this_order)%ncell
+      !
+      n_cells_beg = n_cells_end + 1_CST
+      n_cells_end = n_cells_end + int(num_cells,kind=CST)
+      !
+      ! Save the beginning and ending element indices to cgns_sect
+      !
+      cgns_sect(this_sect)%all_cells_beg = n_cells_beg
+      cgns_sect(this_sect)%all_cells_end = n_cells_end
+      !
+    end do
+  end do
+  !
+  ! For each section, count the number of cells for each partition using
+  ! cell_map. This also creates a running sum of the total number of cells
+  ! across all partitions to make sure it matches up with the counts we
+  ! just found.
+  !
+  n_total_cells = 0_CST
+  !
+  do this_sect = 1,nsect
+    !
+    sect_total_cells = 0_CST
+    !
+    do icpu = 1,ncpu
+      !
+      ! If this process/CPU number matches my process/CPU number, save the
+      ! current sum of the section cells +1 as the beginning index of my
+      ! cells for this section.
+      !
+      if (icpu-1 == mypnum) then
+        my_cells_beg = sect_total_cells + 1_CST
+      end if
+      !
+      ! Count the number of cells on this partition that belong to this section
+      !
+      do nc = 1,size(cell_map(icpu)%loc_to_glb)
+        !
+        ! Get the global cell index for the current local cell index (nc)
+        !
+        this_cell = cell_map(icpu)%loc_to_glb(nc)
+        !
+        ! Add this cell to the section cell count if the CGNS element type
+        ! for this cell geom/order combo matches the CGNS element type
+        ! for this section.
+        !
+        if (global_cell_type(this_cell) == cgns_sect(this_sect)%type) then
+          sect_total_cells = sect_total_cells + 1_CST
+        end if
+        !
+      end do
+      !
+      ! If this process/CPU number matches my process/CPU number, save the
+      ! current sum of the section cells as the ending index of my cells
+      ! for this section.
+      !
+      if (icpu-1 == mypnum) then
+        my_cells_end = sect_total_cells
+      end if
+      !
+    end do
+    !
+    ! Save the beginning and ending indices of my cells 
+    ! for this section to cgns_sect.
+    ! NOTE: We need to add an offset for the cells from the previous sections
+    !
+    joff = cgns_sect(this_sect)%all_cells_beg - 1_CST
+    !
+    cgns_sect(this_sect)%my_cells_beg = joff + my_cells_beg
+    cgns_sect(this_sect)%my_cells_end = joff + my_cells_end
+    !
+    ! Compare the global number of cells found for this section to the count
+    ! found previously, and abort if they dont match.
+    !
+    sect_cells = cgns_sect(this_sect)%all_cells_end - &
+                 cgns_sect(this_sect)%all_cells_beg + 1_CST
+    !
+    if (sect_total_cells /= sect_cells) then
+      write (error_message,1) this_sect,sect_total_cells,sect_cells
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+    !
+    ! Update the count for the total number of output cells to include
+    ! the cells found for this section.
+    !
+    n_total_cells = n_total_cells + sect_total_cells
+    !
+  end do
+  !
+  ! Compare the total number of output cells across all sections to the
+  ! number of global cells in the simulation, and abort if they dont match.
+  !
+  if (n_total_cells /= int(n_global_cell,kind=kind(n_total_cells))) then
+    write (error_message,2) n_total_cells,n_global_cell
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! We can deallocate global_cell_type since it is no longer needed
+  !
+  if (allocated(global_cell_type)) then
+    deallocate ( global_cell_type , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"global_cell_type",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  ! Get the total number of output points/nodes and the beginning and ending
+  ! index for the points/nodes output by this process
+  ! NOTE: The output points/nodes are independent of sections
+  !
+  n_total_pts = 0_CST
+  !
+  do icpu = 1,ncpu
+    !
+    ! If this process/CPU number matches my process/CPU number, save the
+    ! current sum of the output points/nodes +1 as the beginning index of
+    ! my output points/nodes.
+    !
+    if (icpu-1 == mypnum) then
+      my_pts_beg = n_total_pts + 1_CST
+    end if
+    !
+    ! Count the number of output points/nodes for this partition
+    !
+    do nc = 1,size(cell_map(icpu)%loc_to_glb)
+      !
+      ! Get the global cell index for the current local cell index (nc)
+      !
+      this_cell = cell_map(icpu)%loc_to_glb(nc)
+      !
+      this_geom = global_cell_geom(this_cell)   ! cell geometry
+      this_order = global_cell_order(this_cell) ! cell order
+      !
+      ! Get the number of output points for this cell geom/order combo
+      !
+      this_npts = geord(this_geom,this_order)%npts
+      !
+      ! Add the number of points/nodes for this cell to the running sum
+      ! of the total number of output points/nodes.
+      !
+      n_total_pts = n_total_pts + int(this_npts,kind=kind(n_total_pts))
+      !
+    end do
+    !
+    ! If this process/CPU number matches my process/CPU number, save the
+    ! current sum of the output points/nodes as the ending index of
+    ! my output points/nodes.
+    !
+    if (icpu-1 == mypnum) then
+      my_pts_end = n_total_pts
+    end if
+    !
+  end do
+  !
+  ! Save the total number of output points and cells to zone_size
+  !
+  zone_size(1) = n_total_pts
+  zone_size(2) = n_total_cells
+  zone_size(3) = 0_CST
+  !
+  ! Create the CGNS element connectivity and offsets for this partition
+  !
+  call create_cgns_connectivity(my_pts_beg,my_pts_end, &
+                                my_cells_beg,my_cells_end, &
+                                ElemConn,Offsets)
+ !!
+ !! Get the total number of output points/nodes for all the cells on this
+ !! partition to get the size of the element connectivity array ElemConn.
+ !!
+ !my_npts = int( my_pts_end - my_pts_beg + 1_CST , kind=kind(my_npts) )
+ !!
+ !! Create cell connectivities and offsets for all the cells on this partition
+ !!
+ !Offsets = init_array(ncell+1,0_CST) ! F2003 AUTO-REALLOC
+ !ElemConn = init_array(my_npts,0_CST) ! F2003 AUTO-REALLOC
+ !!
+ !! Set the initial ending point/node index to the ending point/node index
+ !! of the partition before this one, which is my_pts_beg-1.
+ !!
+ !iend = my_pts_beg - 1_CST
+ !!
+ !do nc = 1,ncell
+ !  !
+ !  this_geom = cell_geom(nc)
+ !  this_order = cell_order(nc)
+ !  this_npts = geord(this_geom,this_order)%npts
+ !  !
+ !  ! Save the index offset for this cell which is the final index of the
+ !  ! previous cell
+ !  !
+ !  ioff = iend
+ !  !
+ !  Offsets(nc) = ioff
+ !  !
+ !  ! Get the beginning and ending indices for the connectivity for this cell
+ !  !
+ !  ibeg = iend + 1_CST
+ !  iend = iend + int(this_npts,kind=kind(iend))
+ !  !
+ !  ! Save the element connectivity for this cell and add in the offset to
+ !  ! make the connectivity indices match the point/node data for this cell
+ !  !
+ !  ElemConn(ibeg:iend) = ioff + &
+ !         int(geord(this_geom,this_order)%pts(1:this_npts),kind=kind(ElemConn))
+ !  !
+ !end do
+  !
+  ! Now go through the sections and save the element connectivities for all
+  ! the cells of a given element type to the element connectivity for the
+  ! respective section in cgns_sect.
+  !
+  do this_sect = 1,nsect
+    !
+    ! Get the CGNS element type for this section
+    !
+    this_type = cgns_sect(this_sect)%type
+    !
+    ! Get the number of output points/nodes for this element type
+    !
+    call cg_npe_f(this_type,this_npts,cgierr)
+    !
+    ! Get the size of the element connectivity array for this section,
+    ! which is just the number of output points/nodes for this element type
+    ! multiplied by the number of cells on this partition of that type.
+    !
+    npts = this_npts * count(cell_type(1:ncell) == this_type)
+    !
+    ! If the current partition has no cells of this element type, first,
+    ! set the beginning and ending cell indices for this partition to the
+    ! global index for the first cell of this section, the continue to the
+    ! next section so that ElemConn doesnt get allocated.
+    !
+    if (npts == 0) then
+      joff = cgns_sect(this_sect)%all_cells_beg
+      cgns_sect(this_sect)%my_cells_beg = joff
+      cgns_sect(this_sect)%my_cells_end = joff
+      cycle
+    end if
+    !
+    ! Allocate the element connectivity array for the cells on this
+    ! partition matching the element type of the current section.
+    !
+    cgns_sect(this_sect)%ElemConn = init_array(npts,0_CST) ! F2003 AUTO-REALLOC
+    !
+    ! Loop through the cells on this partition and add the connectivities
+    ! for the cells that match the element type of the current section to
+    ! the element connectivity for this section.
+    !
+    iend = 0
+    do nc = 1,ncell
+      !
+      ! Skip to the next cell if the current cell is not
+      ! the same element type as the current section.
+      !
+      if (cell_type(nc) /= this_type) cycle
+      !
+      ! Get the beginning and ending indices within the section
+      ! element connectivity for the current cell.
+      !
+      ibeg = iend + 1
+      iend = iend + this_npts
+      !
+      ! Get the beginning and ending indices within the partition
+      ! element connectivity for the current cell.
+      !
+     !joff = Offsets(nc) - (my_pts_beg-1_CST)
+      joff = Offsets(nc)
+      jbeg = joff + 1_CST
+      jend = joff + int(this_npts,kind=kind(jend))
+      !
+      ! Save the element connectivity for this cell
+      ! to the element connectivity for this section.
+      !
+      cgns_sect(this_sect)%ElemConn(ibeg:iend) = ElemConn(jbeg:jend)
+      !
+    end do
+    !
+  end do
+  !
+  ! Deallocate geord and the local arrays before leaving
+  !
+  if (allocated(geord)) then
+    deallocate ( geord , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"geord",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(cell_type)) then
+    deallocate ( cell_type , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cell_type",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(ElemConn)) then
+    deallocate ( ElemConn , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ElemConn",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(Offsets)) then
+    deallocate ( Offsets , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"Offsets",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("The number of cells found for CGNS section #",i0," across/&", &
+            "all partitions does not match the expected number of cells/&", &
+            "determined from the global grid information./&", &
+            "  # of cells found from across all partitions = ",i0,'/&', &
+            "  # of cells determined from the global grid  = ",i0)
+  2 format ("The total number of cells across all CGNS sections does/&", &
+            "not match the total number of cells in the global grid./&", &
+            "  # of cells across all CGNS sections = ",i0,'/&', &
+            "  # of cells in the global grid       = ",i0)
+  !
+end subroutine get_unmixed_connectivities
+!
+!###############################################################################
+!
+subroutine create_geord(cell_geom,cell_order,gmin,gmax,omin,omax)
+  !
+  !.. Use Statements ..
+  use module_cgns, only : reorder_to_cgns_pts
+  !
+  !.. Formal Arguments ..
+  integer,    intent(in) :: cell_geom(:)
+  integer,    intent(in) :: cell_order(:)
+  integer, intent(inout) :: gmin
+  integer, intent(inout) :: gmax
+  integer, intent(inout) :: omin
+  integer, intent(inout) :: omax
+  !
+  !.. Local Scalars ..
+  integer      :: nc,igeo,iord,npts,ierr
+  integer(CET) :: ityp
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_geord"
+  !
+continue
+  !
+  gmin = minval(cell_geom)
+  gmax = maxval(cell_geom)
+  omin = minval(cell_order)
+  omax = maxval(cell_order)
+  !
+  ! Make sure the minimum order is not greater than 4 because CGNS
+  ! does not support anything higher than P4
+  !
+  omin = min(4,omin)
+  !
+  ! Allocate the geord derived type
+  !
+  allocate ( geord(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"geord",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Count the number of cells for each geom/order combination
+  !
+  do nc = 1,size(cell_geom)
+    igeo = cell_geom(nc)
+    iord = cell_order(nc)
+    geord(igeo,iord)%ncell = geord(igeo,iord)%ncell + 1
+  end do
+  !
+  ! If there are any cells P5 or higher, add these cells to the P4 count for
+  ! the respective geometry and set the higher-than-P4 cell count to zero.
+  ! This is because CGNS only supports up to P4 cells, so any cells P5 or
+  ! higher will have to be interpolated to the P4 output points.
+  !
+  do igeo = gmin,gmax
+    if (omax >= 5) then
+      geord(igeo,4)%ncell = sum(geord(igeo,4:omax)%ncell)
+      geord(igeo,5:omax)%ncell = 0
+    end if
+  end do
+  !
+  ! Go through each geom/order combo and indicate if the combo exists
+  ! in the current simulation
+  !
+  do igeo = gmin,gmax
+    do iord = omin,omax
+      if (geord(igeo,iord)%ncell > 0) then
+        geord(igeo,iord)%used = true
+        geord(igeo,iord)%not_used = fals
+      end if
+    end do
+  end do
+  !
+  ! Get the element type and number of output points/nodes for each
+  ! geom/order combo
+  !
+  do igeo = gmin,gmax
+    do iord = omin,omax
+      geord(igeo,iord)%type = get_cell_type(igeo,iord)
+      call cg_npe_f(geord(igeo,iord)%type, &
+                    geord(igeo,iord)%npts, &
+                    cgierr)
+    end do
+  end do
+  !
+  ! Create the the point connectivity for each present geom/order combo. The
+  ! indices in the point connectivity make it so that the current point data
+  ! can be written directly to the CGNS file without reordering, and the indices
+  ! themselves reorder the point data to the order defined for the element type
+  ! by CGNS. The indices are the same for all cells of a particular geom/order
+  ! combo, except for an offset based on the number of points from all previous
+  ! cells. Creating this derived type allows us to create these indices once,
+  ! and we can just add the offset as the full cell connectivity is created.
+  !
+  do igeo = gmin,gmax
+    do iord = omin,omax
+      !
+      ! Skip to the next geom/order combo if there are no cells for this combo
+      !
+      if (geord(igeo,iord)%not_used) cycle
+      !
+      ityp = geord(igeo,iord)%type ! CGNS element type for this combo
+      npts = geord(igeo,iord)%npts ! num of output points/nodes for this combo
+      !
+      ! Get the point connectivity for this geom/order combo
+      !
+      ! F2003 AUTO-REALLOC
+      geord(igeo,iord)%pts = int( reorder_to_cgns_pts(ityp,intseq(1,npts)) , &
+                                  kind=kind(geord(igeo,iord)%pts) )
+      !
+    end do
+  end do
+  !
+end subroutine create_geord
+!
+!###############################################################################
+!
+elemental function get_cell_type(geom,order) result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: geom
+  integer, intent(in) :: order
+  !
+  !.. Function Result ..
+  integer(CET) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: cap_order
+  !
+  !.. Local Parameters ..
+  integer(CET), parameter :: edge(1:4) = [BAR_2,  BAR_3,   BAR_4,   BAR_5]
+  integer(CET), parameter :: tria(1:4) = [TRI_3,  TRI_6,   TRI_10,  TRI_15]
+  integer(CET), parameter :: quad(1:4) = [QUAD_4, QUAD_9,  QUAD_16, QUAD_25]
+  integer(CET), parameter :: tetr(1:4) = [TETRA_4,TETRA_10,TETRA_20,TETRA_35]
+  integer(CET), parameter :: pyra(1:4) = [PYRA_5, PYRA_14, PYRA_30, PYRA_55]
+  integer(CET), parameter :: pris(1:4) = [PENTA_6,PENTA_18,PENTA_40,PENTA_75]
+  integer(CET), parameter :: hexa(1:4) = [HEXA_8, HEXA_27, HEXA_64, HEXA_125]
+  !
+continue
+  !
+  ! We need to cap order at 4 since CGNS only supports up to P4 elements
+  ! Also make sure order is at least P1
+  !
+  cap_order = max( 1 , min(order,4) )
+  !
+  if (geom == Geom_Node) then
+    return_value = NODE ! I doubt this will be needed
+  else if (geom == Geom_Edge) then
+    return_value = edge( cap_order )
+  else if (geom == Geom_Tria) then
+    return_value = tria( cap_order )
+  else if (geom == Geom_Quad) then
+    return_value = quad( cap_order )
+  else if (geom == Geom_Tetr) then
+    return_value = tetr( cap_order )
+  else if (geom == Geom_Pyra) then
+    return_value = pyra( cap_order )
+  else if (geom == Geom_Pris) then
+    return_value = pris( cap_order )
+  else if (geom == Geom_Hexa) then
+    return_value = hexa( cap_order )
+  else
+    return_value = -1_CET
+  end if
+  !
+end function get_cell_type
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine get_geom_order_from_cgns_type(type,geom,order)
+  !
+  !.. Formal Arguments ..
+  integer(CET), intent(in) :: type
+  integer,     intent(out) :: geom
+  integer,     intent(out) :: order
+  !
+  !.. Local Parameters ..
+  integer(CET), parameter :: edge(1:4) = [BAR_2,  BAR_3,   BAR_4,   BAR_5]
+  integer(CET), parameter :: tria(1:4) = [TRI_3,  TRI_6,   TRI_10,  TRI_15]
+  integer(CET), parameter :: quad(1:4) = [QUAD_4, QUAD_9,  QUAD_16, QUAD_25]
+  integer(CET), parameter :: tetr(1:4) = [TETRA_4,TETRA_10,TETRA_20,TETRA_35]
+  integer(CET), parameter :: pyra(1:4) = [PYRA_5, PYRA_14, PYRA_30, PYRA_55]
+  integer(CET), parameter :: pris(1:4) = [PENTA_6,PENTA_18,PENTA_40,PENTA_75]
+  integer(CET), parameter :: hexa(1:4) = [HEXA_8, HEXA_27, HEXA_64, HEXA_125]
+  !
+continue
+  !
+  if (any(type == edge(:))) then
+    geom = Geom_Edge
+    order = findloc(edge,type,dim=1)
+  else if (any(type == tria(:))) then
+    geom = Geom_Tria
+    order = findloc(tria,type,dim=1)
+  else if (any(type == quad(:))) then
+    geom = Geom_Quad
+    order = findloc(quad,type,dim=1)
+  else if (any(type == tetr(:))) then
+    geom = Geom_Tetr
+    order = findloc(tetr,type,dim=1)
+  else if (any(type == pyra(:))) then
+    geom = Geom_Pyra
+    order = findloc(pyra,type,dim=1)
+  else if (any(type == pris(:))) then
+    geom = Geom_Pris
+    order = findloc(pris,type,dim=1)
+  else if (any(type == hexa(:))) then
+    geom = Geom_Hexa
+    order = findloc(hexa,type,dim=1)
+  else
+    geom = Geom_Unknown
+    order = -1
+  end if
+  !
+end subroutine get_geom_order_from_cgns_type
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_mixed_section_name() result(return_value)
+  !
+  !.. Function Result ..
+  character(len=CGLEN) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: igeo,iord
+  integer :: found_geom,found_order
+  !
+  logical(lk) :: mixed_geom,geom_not_set
+  logical(lk) :: mixed_order,order_not_set
+  !
+  character(len=13) :: cord
+  character(len=15) :: cgeo
+  !
+continue
+  !
+  cgeo = "Elements"
+  cord = "Unknown-Order"
+  !
+  mixed_geom = fals
+  mixed_order = fals
+  !
+  geom_not_set = true
+  order_not_set = true
+  !
+  do igeo = lbound(geord,dim=1),ubound(geord,dim=1)
+    do iord = lbound(geord,dim=2),ubound(geord,dim=2)
+      !
+      ! Skip to the next geom/order combo if there are no cells for this combo
+      !
+      if (geord(igeo,iord)%not_used) cycle
+      !
+      if (.not. mixed_geom) then
+        if (geom_not_set) then
+          cgeo = trim(adjustl(Geom_Full_Name(igeo)))
+          geom_not_set = fals
+          found_geom = igeo
+        else
+          if (igeo /= found_geom) then
+            cgeo = "Mixed-Element"
+            mixed_geom = true
+          end if
+        end if
+      end if
+      !
+      if (.not. mixed_order) then
+        if (order_not_set) then
+          write (cord,'("P",i0)') iord
+          order_not_set = fals
+          found_order = iord
+        else
+          if (iord /= found_order) then
+            cord = "Mixed-Order"
+            mixed_order = true
+          end if
+        end if
+      end if
+      !
+     !if (mixed_geom) then
+     !  ! There are multiple geometries present so set the geometry part of
+     !  ! the section name to indicate its a mixed element section
+     !  cgeo = "Mixed-Element"
+     !else
+     !  found_geom = igeo
+     !  ! This is the first geometry found, so set the geometry part of the
+     !  ! section name to the name of this geometry
+     !  cgeo = trim(adjustl(Geom_Full_Name(igeo)))
+     !  ! Set mixed_geom to 1 so that we know a geometry has already been found
+     !  mixed_geom = true
+     !end if
+     !!
+     !if (mixed_order) then
+     !  ! There are multiple orders present so set the order part of
+     !  ! the section name to indicate its a mixed order section
+     !  cord = "Mixed-Order"
+     !else
+     !  ! This is the first order found, so set the order part of the
+     !  ! section name to this order
+     !  write (cord,'("P",i0)') iord
+     !  ! Set mixed_order to 1 so that we know an order has already been found
+     !  mixed_order = true
+     !end if
+      !
+    end do
+  end do
+  !
+  ! Write the section name to the function result
+  !
+  write (return_value,'(a,1x,a)') trim(adjustl(cord)), trim(adjustl(cgeo))
+  !
+  return_value = trim(adjustl(return_value))
+ !return_value = "Hexahedrals"
+  !
+end function get_mixed_section_name
+!
+!###############################################################################
+!
+subroutine create_cgns_connectivity(ptsbeg,ptsend,celbeg,celend, &
+                                    ElemConn,Offsets,mixed_grid)
+  !
+  !.. Use Statements ..
+  use geovar, only : ncell,cell_geom,cell_order
+  !
+  !.. Formal Arguments ..
+  integer(CST),               intent(in) :: ptsbeg
+  integer(CST),               intent(in) :: ptsend
+  integer(CST),               intent(in) :: celbeg
+  integer(CST),               intent(in) :: celend
+  integer(CST), allocatable, intent(out) :: ElemConn(:)
+  integer(CST), allocatable, intent(out) :: Offsets(:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: mixed_grid
+  !
+  !.. Local Scalars ..
+  integer :: nc,igeo,iord
+  integer(CST) :: ibeg,iend,ioff,npts,my_npts
+  integer(CST) :: pts_offset,offset_for_elem_type
+  logical(lk) :: mixed_elem_grid
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_cgns_connectivity"
+  !
+continue
+  !
+  mixed_elem_grid = fals
+  if (present(mixed_grid)) then
+    mixed_elem_grid = mixed_grid
+  end if
+  !
+  ! Get the total number of output points/nodes and cells for this partition
+  !
+  my_npts = ptsend - ptsbeg + 1_CST
+  !
+  ! If this is actually a MIXED section, add ncell to my_npts because the
+  ! element connectivity for a MIXED section must include the element type
+  ! before the actual connectivity for each cell.
+  !
+  if (mixed_elem_grid) then
+    my_npts = my_npts + int(ncell,kind=kind(my_npts))
+  end if
+  !
+  ! Create cell connectivities and offsets for all the cells on this partition
+  !
+  Offsets = init_array(ncell+1,0_CST) ! F2003 AUTO-REALLOC
+  ElemConn = init_array(my_npts,0_CST) ! F2003 AUTO-REALLOC
+  !
+  ! Create an integer binary to use for a mixed element section that is used
+  ! to add the +1 offset needed for storing the element type in the element
+  ! connectivity array.
+  !
+  offset_for_elem_type = merge(1_CST,0_CST,mixed_elem_grid)
+  !
+  ! Initialize the points/node offset counting index for this partition
+  !
+  pts_offset = ptsbeg - 1_CST
+  !
+  ! Initialize the ioff counting index which is basically the offset value
+  ! for the Offsets array. The Offsets array is needed for 2 situations:
+  !  1) Writing a MIXED section, in which ioff needs to be
+  !     pts_offset + celbeg - 1
+  !  2) Writing multiple sections each having a fixed element type. For this
+  !     situation, Offsets is only used to copy only the connectivity for cells
+  !     of a certain type from the ElemConn array into the respective
+  !     cgns_sect(i)%ElemConn array. For this use, Offsets should start at
+  !     zero since it is only for cells local to the partition.
+  !  3) The last situation is when using the cgns_mixed_output for a grid that
+  !     only contains a single element type. For this situation, the Offsets
+  !     array wont be used, so it doesnt matter what ioff is initialized to.
+  !
+ !ioff = pts_offset + offset_for_elem_type*(celbeg - 1_CST)
+  ioff = offset_for_elem_type*(pts_offset + celbeg - 1_CST)
+  !
+  ! Initialize the counting index for the ElemConn array
+  !
+  iend = 0_CST
+  !
+  ! Loop over the cells and create the element connectivity for each cell
+  ! and the offset array pointing to starting location of the connectivity
+  ! for a given cell within the connectivity array.
+  !
+  do nc = 1,ncell
+    !
+    igeo = cell_geom(nc)
+    iord = cell_order(nc)
+    npts = int(geord(igeo,iord)%npts,kind=kind(npts))
+    !
+    ! Save the index offset for this cell which is the final index of the
+    ! previous cell
+    !
+    Offsets(nc) = ioff
+    !
+    ! Get the beginning and ending indices for the connectivity for this cell
+    !
+    ibeg = iend + 1_CST
+    iend = iend + npts + offset_for_elem_type
+    !
+    ! Update the offset value for the next cell
+    !
+    ioff = ioff + npts + offset_for_elem_type
+    !
+    ! Add the element type for this cell to the ibeg location of ElemConn
+    ! if this is for a mixed element section.
+    !
+    if (mixed_elem_grid) then
+      ElemConn(ibeg) = int(geord(igeo,iord)%type,kind=kind(ElemConn))
+    end if
+    !
+    ! Add offset_for_elem_type to ibeg to increase it by one if this is
+    ! for a mixed element section so that the array indices (ibeg:iend)
+    ! match the size of geord(igeo,iord)%pts(1:npts).
+    !
+    ibeg = ibeg + offset_for_elem_type
+    !
+    ! Save the element connectivity for this cell and add in the offset to
+    ! make the connectivity indices match the point/node data for this cell
+    !
+    ElemConn(ibeg:iend) = pts_offset + &
+           int(geord(igeo,iord)%pts(1:npts),kind=kind(ElemConn))
+    !
+    ! Update the points/node offset index for the next cell.
+    ! We need to do this separately from iend because these
+    ! two offsets will be different for a mixed element section.
+    !
+    pts_offset = pts_offset + npts
+    !
+  end do
+  !
+  ! The last element of Offsets should give the total size of the ElemConn array
+  !
+  Offsets(ncell+1) = ioff
+  !
+  ! Check to make sure the final ioff counter matches the size of ElemConn
+  !
+  if (Offsets(ncell+1)-Offsets(1) /= my_npts) then
+    write (error_message,1) Offsets(ncell+1)-Offsets(1),my_npts
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Format Statements
+  !
+  1 format ("The final offset counter does not match the size of the/&", &
+            "connectivity array!/&", &
+            "  final offset counter = ",i0,'/&', &
+            "        size(ElemConn) = ",i0)
+  !
+end subroutine create_cgns_connectivity
 !
 !###############################################################################
 !
