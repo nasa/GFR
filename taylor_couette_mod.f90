@@ -173,9 +173,11 @@ continue
     !
   end if
   !
-  ! Set time_ref to d/ui
+  ! Set time_ref to machref/d
+  ! NOTE: time is already nondimensionalized by Lref/aref so multiplying
+  !       time by this time_ref will give t/(d/uref) = t*uref/d
   !
-  time_ref = (ro-ri)/(machref*aref)
+  time_ref = machref/(ro-ri)
   !
   ! Save the wall temperature and rotation speed back into the boundary
   ! condition in case either of these were updated
