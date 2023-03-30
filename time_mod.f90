@@ -1393,6 +1393,129 @@ end subroutine check_tstar_for_TaylorGreen
 !
 !###############################################################################
 !
+subroutine check_tstar_for_TaylorCouette(dtmin,dt_sp,skip_updates)
+  !
+  !.. Use Statements ..
+  use geovar,  only : n_solpts
+  use ovar,    only : time,time_ref
+  use ovar,    only : write_TaylorGreen_full_solution ! modified
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(inout) :: dtmin
+  real(wp),    intent(inout) :: dt_sp(:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: skip_updates
+  !
+  !.. Local Scalars ..
+  integer     :: n,ichk
+  real(wp)    :: tstar,dtstar,ideal_tstar
+  logical(lk) :: reset_dtsp,checking_for_eight
+  logical(lk) :: write_tcf_full_solution
+  logical(lk) :: perform_updates
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_tstar_for_TaylorCouette"
+  !
+  real(wp), parameter :: t1 = 22.058_wp
+  real(wp), parameter :: t2 = 24.016_wp
+  real(wp), parameter :: t3 = 27.200_wp
+  real(wp), parameter :: t4 = 33.500_wp
+  !
+continue
+  !
+  perform_updates = true
+  if (present(skip_updates)) then
+    perform_updates = (.not. skip_updates)
+  end if
+  !
+  reset_dtsp = fals
+  !
+  tstar = time*time_ref
+  dtstar = dtmin*time_ref
+  !
+  if (tstar < t1) then
+    ideal_tstar = t1
+  else if (tstar < t2) then
+    ideal_tstar = t2
+  else if (tstar < t3) then
+    ideal_tstar = t3
+  else if (tstar < t4) then
+    ideal_tstar = t4
+  else
+    ideal_tstar = 80.0_wp
+  end if
+  !
+  ! Use the function check_against_ideal_time to see if the next 1 or 2 time
+  ! steps will exceed the ideal output time.
+  !
+  ichk = check_against_ideal_time(tstar,dtstar,ideal_tstar)
+  !
+  write_tcf_full_solution = write_TaylorGreen_full_solution
+  !
+  if (ichk == -1) then
+    !
+    ! If the simulation time after the upcoming time step (using the current
+    ! time step size) is within 1e-6 of the ideal time for output, just
+    ! continue on using the current time step size (i.e. do not reset dtmin),
+    ! and set the necessary flags to create the desired output at this
+    ! simulation time.
+    !
+    write_tcf_full_solution = true
+    !
+  else if (ichk == 1) then
+    !
+    ! If the simulation time after the upcoming time step (using the current
+    ! time step size) will exceed the ideal time for output, adjust dtmin
+    ! so that the simulation time after this time step is equal to the
+    ! ideal time. Also set the necessary flags to create the desired output
+    ! at this simulation time.
+    ! NOTE: We are adding 1e-14 to the ideal time to make sure that the
+    !       simulation time after this time step will exceed the ideal
+    !       time, and there isnt some issue with round off errors making
+    !       the updated simulation time smaller than the ideal time.
+    !
+    write_tcf_full_solution = true
+    !
+    reset_dtsp = true
+    !
+    dtmin = ((ideal_tstar+eps14) - tstar) / time_ref
+    !
+  else if (ichk == 2) then
+    !
+    ! It looks like the next time step will exceed the ideal time for output.
+    ! To smooth the modification of the time step size, adjust dtmin to
+    ! half the remaining difference between the current simulation time and
+    ! the ideal time.
+    ! NOTE: We dont want to set the flags to create the desired output
+    !       because the simulation time after this time step wont be the
+    !       ideal time. This should happen during the next time step, and
+    !       at that point the previous conditional above this one should
+    !       be met.
+    !
+    reset_dtsp = true
+    !
+    dtmin = (half * (ideal_tstar - tstar)) / time_ref
+    !
+  end if
+  !
+  if (perform_updates) then
+    write_TaylorGreen_full_solution = write_tcf_full_solution
+  end if
+  !
+ !!$ACC UPDATE DEVICE(dtmin)
+  !
+  if (reset_dtsp) then
+    !$ACC PARALLEL LOOP PRESENT(dt_sp)
+    do n = 1,n_solpts
+      dt_sp(n) = dtmin
+    end do
+  end if
+  !
+end subroutine check_tstar_for_TaylorCouette
+!
+!###############################################################################
+!
 function check_against_ideal_time(current_time,current_dt,ideal_time) &
                            result(return_value)
   !
