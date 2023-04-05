@@ -10,7 +10,7 @@ module ovar
   use module_kind_types, only : visc_interface_fluxes
   use module_kind_types, only : laminar_flow
   use module_kind_types, only : one_work_unit
-  use module_kind_types, only : iout,zero,one,eps6,eps12
+  use module_kind_types, only : iout,zero,one,half,two,pi,eps6,eps12
   use module_kind_types, only : mpi_wtime
   use module_kind_types, only : Correction_gDG
   use module_kind_types, only : bc_unknown
@@ -454,6 +454,16 @@ module ovar
   integer,     public, save :: VortexGrid_perturb_percent = 30
   logical(lk), public, save :: VortexGrid_Hex_to_Pyramids = fals
   logical(lk), public, save :: VortexGrid_is_3D           = fals
+  !
+  ! TAYLOR-COUETTE FLOW CONSTANTS
+  real(wp), public, save :: TCF_Inner_Radius       = half
+  real(wp), public, save :: TCF_Inner_Wall_Spacing = 0.002_wp
+  real(wp), public, save :: TCF_Outer_Radius       = one
+  real(wp), public, save :: TCF_Outer_Wall_Spacing = 0.0025_wp
+  real(wp), public, save :: TCF_Aspect_Ratio       = two*pi
+  integer,  public, save :: TCF_Axial_Cells        = 24
+  integer,  public, save :: TCF_Radial_Cells       = 20
+  integer,  public, save :: TCF_Azimuthal_Cells    = 48
   !
   ! FLAME SPEED TEST PARAMETERS
   integer, public, save :: flame_speed_test_dof = 0
@@ -1594,6 +1604,10 @@ module input_namelist_mod
   use ovar,      only : VortexGrid_DOF,VortexGrid_random_perturb
   use ovar,      only : VortexGrid_perturb_percent,VortexGrid_Lref
   use ovar,      only : VortexGrid_Hex_to_Pyramids,VortexGrid_is_3D
+  use ovar,      only : TCF_Inner_Radius,TCF_Inner_Wall_Spacing
+  use ovar,      only : TCF_Outer_Radius,TCF_Outer_Wall_Spacing
+  use ovar,      only : TCF_Aspect_Ratio,TCF_Axial_Cells
+  use ovar,      only : TCF_Radial_Cells,TCF_Azimuthal_Cells
   use ovar,      only : flame_speed_test_dof
   use ovar,      only : channel_body_force,channel_init_file
   use ovar,      only : channel_spatial_ave_restart
@@ -1815,6 +1829,11 @@ module input_namelist_mod
   namelist / input / VortexGrid_DOF, VortexGrid_random_perturb, &
                      VortexGrid_perturb_percent, VortexGrid_Hex_to_Pyramids, &
                      VortexGrid_is_3D
+  ! TAYLOR-COUETTE FLOW CONSTANTS
+  namelist / input / TCF_Inner_Radius, TCF_Inner_Wall_Spacing, &
+                     TCF_Outer_Radius, TCF_Outer_Wall_Spacing, &
+                     TCF_Aspect_Ratio, TCF_Axial_Cells, &
+                     TCF_Radial_Cells, TCF_Azimuthal_Cells
   ! FLAME SPEED TEST PARAMETERS
   namelist / input / flame_speed_test_dof
   ! CHANNEL FLOW PARAMETERS
