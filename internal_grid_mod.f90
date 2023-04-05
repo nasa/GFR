@@ -102,6 +102,10 @@ continue
       !
     end if
     !
+  else if (abs(itestcase) == Taylor_Couette_Flow) then
+    !
+    call create_taylor_couette_grid
+    !
   else if (abs(itestcase) == CH4_Flame_Speed_Test) then
     !
     if (flame_speed_test_dof <= 0) then
@@ -132,6 +136,644 @@ continue
               "************************* ERROR! *************************",/)
   !
 end subroutine create_internal_grid
+!
+!###############################################################################
+!
+subroutine create_taylor_couette_grid()
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order
+  use ovar,      only : VortexGrid_DOF,Lref
+  use ovar,      only : VortexGrid_random_perturb
+  use ovar,      only : VortexGrid_perturb_percent
+  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geovar,    only : cell_geom,cell_order
+  use ovar,      only : grid_format
+  !
+  use ovar, only : TCF_Inner_Radius,TCF_Inner_Wall_Radius
+  use ovar, only : TCF_Outer_Radius,TCF_Outer_Wall_Radius
+  use ovar, only : TCF_Aspect_Ratio,TCF_Axial_Cells
+  use ovar, only : TCF_Radial_Cells,TCF_Azimuthal_Cells
+  !
+  !.. Local Scalars ..
+  integer :: nc,np,ierr,i,j,k,l,n,n1,n2
+  integer :: nf_min,nf_max,n0,nc_min,nc_max
+  integer :: imin,imax,imin_side,imax_side
+  integer :: jmin,jmax,jmin_side,jmax_side
+  integer :: kmin,kmax,kmin_side,kmax_side
+  real(r4) :: x,y,z,dl
+  real(r4) :: rbas,radj,rval
+  !
+  !.. Local Arrays ..
+  integer :: ip(1:8)
+  integer :: ifp(1:4)
+  integer :: icp(1:8)
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: ipelem(:,:)
+  real(r4), allocatable :: perturb(:,:)
+  !
+  logical(lk), allocatable :: msk(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_periodic_cube_hex_grid"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Reset the grid format input parameter to identify
+  ! the grid as internally generated
+  !
+  grid_format = Internally_Generated_Grid
+  !
+  ! If we are generating the grid on the fly, make the reference length 1
+  !
+  Lref = one
+  !
+  ! The Taylor-Green vortex problem is always 3D
+  !
+  nr = 3
+  !
+  ! Reset bc_input for this fully periodic grid so that the subroutine
+  ! match_periodic_faces can correctly match all the periodic faces.
+  !
+  call reset_bc_input_for_internal_grid
+  !
+  ! Estimate the number of cells required to get the requested DOF
+  !
+  nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
+  !
+  np = nc + 1 ! number of grid nodes in each direction
+  !
+  ncell = nc*nc*nc ! total number of grid cells
+  nnode = np*np*np ! total number of grid nodes
+  nfbnd = 6*nc*nc  ! total number of boundary faces
+  !
+  ! Allocate all the arrays needed to define the grid
+  !
+  xyz_nodes = init_array(nr,nnode,zero) ! F2003 AUTO-REALLOC
+  !
+  ipelem = init_array(geom_nodes(Geom_Hexa),ncell,0) ! F2003 AUTO-REALLOC
+  !
+  nodes_of_cell_ptr = init_array(ncell+1,0) ! F2003 AUTO-REALLOC
+  !
+  nodes_of_cell = init_array(geom_nodes(Geom_Hexa)*ncell,0) ! F03 AUTO-REALLOC
+  !
+  bface = init_array(nbfai,nfbnd,0) ! F2003 AUTO-REALLOC
+  !
+  cell_geom = init_array(ncell,Geom_Hexa) ! F2003 AUTO-REALLOC
+  !
+  cell_order = init_array(ncell,n_order) ! F2003 AUTO-REALLOC
+  !
+  perturb = init_array(nr,nnode,real(0,kind=r4)) ! F2003 AUTO-REALLOC
+  !
+  ! #######
+  ! #######
+  ! ## 1 ##
+  ! #######
+  ! #######
+  !
+  ! Create ipelem
+  !
+  do k = 1,nc
+    do j = 1,nc
+      do i = 1,nc
+        !
+        n = map3dto1d(i,j,k,nc)
+        !
+        ip(1) = map3dto1d(i  ,j  ,k  ,np)
+        ip(2) = map3dto1d(i+1,j  ,k  ,np)
+        ip(3) = map3dto1d(i+1,j+1,k  ,np)
+        ip(4) = map3dto1d(i  ,j+1,k  ,np)
+        ip(5) = map3dto1d(i  ,j  ,k+1,np)
+        ip(6) = map3dto1d(i+1,j  ,k+1,np)
+        ip(7) = map3dto1d(i+1,j+1,k+1,np)
+        ip(8) = map3dto1d(i  ,j+1,k+1,np)
+        !
+        if (randomly_rotate_cells_debug) then
+          !
+          ! Randomly rotate the cell connectivity of all the hex cells
+          ! NOTE: This leaves the grid nodes in a structured ijk order.
+          !       Only the cell connectivities are randomized.
+          !       The cells will also still be in a structured ijk order,
+          !       but what faces of each cell face in each ijk direction
+          !       will be randomized.
+          !
+          l = min( 24 , max(1,random(25)) )
+          !
+          ipelem(1,n) = ip( hex_random_rotation(1,l) )
+          ipelem(2,n) = ip( hex_random_rotation(2,l) )
+          ipelem(3,n) = ip( hex_random_rotation(3,l) )
+          ipelem(4,n) = ip( hex_random_rotation(4,l) )
+          ipelem(5,n) = ip( hex_random_rotation(5,l) )
+          ipelem(6,n) = ip( hex_random_rotation(6,l) )
+          ipelem(7,n) = ip( hex_random_rotation(7,l) )
+          ipelem(8,n) = ip( hex_random_rotation(8,l) )
+          !
+        else
+          !
+          ipelem(1,n) = ip(1)
+          ipelem(2,n) = ip(2)
+          ipelem(3,n) = ip(3)
+          ipelem(4,n) = ip(4)
+          ipelem(5,n) = ip(5)
+          ipelem(6,n) = ip(6)
+          ipelem(7,n) = ip(7)
+          ipelem(8,n) = ip(8)
+          !
+        end if
+        !
+      end do
+    end do
+  end do
+  !
+  ! Create the nodes_of_cell_ptr array
+  !
+  nodes_of_cell_ptr(1) = 0
+  do n = 2,size(nodes_of_cell_ptr)
+    nodes_of_cell_ptr(n) = nodes_of_cell_ptr(n-1) + geom_nodes(Geom_Hexa)
+  end do
+  !
+  ! Create the nodes_of_cell array
+  !
+  do n = 1,ncell
+    !
+    n0 = nodes_of_cell_ptr(n)
+    !
+    nodes_of_cell(n0+1) = ipelem(1,n)
+    nodes_of_cell(n0+2) = ipelem(2,n)
+    nodes_of_cell(n0+3) = ipelem(3,n)
+    nodes_of_cell(n0+4) = ipelem(4,n)
+    nodes_of_cell(n0+5) = ipelem(5,n)
+    nodes_of_cell(n0+6) = ipelem(6,n)
+    nodes_of_cell(n0+7) = ipelem(7,n)
+    nodes_of_cell(n0+8) = ipelem(8,n)
+    !
+  end do
+  !
+  ! #######
+  ! #######
+  ! ## 2 ##
+  ! #######
+  ! #######
+  !
+  ! Compute the cell length for a Cartesian/uniform grid
+  !
+  dl = real(1,kind=r4) / real(np-1,kind=r4)
+  !
+  ! Compute the random perturbations if the flag was set on input
+  !
+  if (VortexGrid_random_perturb) then
+    !
+    rbas = dl * real(abs(VortexGrid_perturb_percent),kind=r4) &
+              / real(100,kind=r4)
+    radj = rbas / real(2,kind=r4)
+    !
+    if (VortexGrid_perturb_percent < 0) then
+      !
+      ! Randomly perturb the crap out of everything
+      !
+      do k = 2,np-1
+        do j = 2,np-1
+          do i = 2,np-1
+            !
+            n = map3dto1d(i,j,k,np)
+            !
+            do l = 1,nr
+              rval = random(rbas) - radj
+              perturb(l,n) = rval
+            end do
+            !
+          end do
+        end do
+      end do
+      !
+    else
+      !
+      ! Get the random perturbation in along i for y
+      !
+      do i = 2,np-1
+        rval = random(rbas) - radj
+        do k = 2,np-1
+          do j = 2,np-1
+            n = map3dto1d(i,j,k,np)
+            perturb(2,n) = rval
+          end do
+        end do
+      end do
+      !
+      ! Get the random perturbation along j for z
+      !
+      do j = 2,np-1
+        rval = random(rbas) - radj
+        do k = 2,np-1
+          do i = 2,np-1
+            n = map3dto1d(i,j,k,np)
+            perturb(3,n) = rval
+          end do
+        end do
+      end do
+      !
+      ! Get the random perturbation along k for x
+      !
+      do k = 2,np-1
+        rval = random(rbas) - radj
+        do j = 2,np-1
+          do i = 2,np-1
+            n = map3dto1d(i,j,k,np)
+            perturb(1,n) = rval
+          end do
+        end do
+      end do
+      !
+    end if
+    !
+    ! Have the root processor broadcast its perturbations to all the
+    ! other processors so that the perturbations will be consistent
+    ! on all processors.
+    !
+    call mpi_bcast(perturb,size(perturb,kind=int_mpi), &
+                   MPI_REAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
+    !
+  end if
+  !
+  ! Create the grid node coordinates as a cube from (0,0,0) to (1,1,1)
+  ! NOTE: Scaling the grid to (-Lref,-Lref,-Lref) to (+Lref,+Lref,+Lref)
+  !       is now done in subroutine rescale_grid_for_vortex_problems.
+  !
+  do k = 1,np
+    !
+    z = dl * real(k-1,kind=r4)
+    !
+    do j = 1,np
+      !
+      y = dl * real(j-1,kind=r4)
+      !
+      do i = 1,np
+        !
+        x = dl * real(i-1,kind=r4)
+        !
+        n = map3dto1d(i,j,k,np)
+        !
+        xyz_nodes(1,n) = real( x + perturb(1,n) , kind=wp )
+        xyz_nodes(2,n) = real( y + perturb(2,n) , kind=wp )
+        xyz_nodes(3,n) = real( z + perturb(3,n) , kind=wp )
+        !
+      end do
+    end do
+  end do
+  !
+  ! Deallocate perturb since it is no longer needed
+  !
+  deallocate ( perturb , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"perturb",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! #######
+  ! #######
+  ! ## 3 ##
+  ! #######
+  ! #######
+  !
+  msk = init_array(nnode,fals) ! F2003 AUTO-REALLOC
+  !
+  ! Create the bface array
+  !
+  nf_max = 0
+  !
+  ! Loop through the 6 grid boundaries
+  ! NOTE: This corresponds to the grid boundaries in
+  !       the order [imin,imax,jmin,jmax,kmin,kmax]
+  !
+  ! Min-X and Max-X boundary faces
+  !
+  n1 = 0          ! min-x counter
+  n2 = n1 + nc*nc ! max-x counter
+  do k = 1,nc
+    do j = 1,nc
+      !
+      imin = 1
+      imax = nc
+      !
+      nc_min = map3dto1d(imin,j,k,nc)
+      nc_max = map3dto1d(imax,j,k,nc)
+      !
+      n1 = n1 + 1 ! x-min face
+      n2 = n2 + 1 ! x-max face
+      !
+      if (.not. randomly_rotate_cells_debug) then
+        !
+        imin_side = HostFace3D(1)
+        imax_side = HostFace3D(2)
+        !
+      else
+        !
+        ! get the structured ijk nodes of the x-min face
+        !
+        ip(1) = map3dto1d(imin  ,j  ,k  ,np)
+        ip(2) = map3dto1d(imin+1,j  ,k  ,np)
+        ip(3) = map3dto1d(imin+1,j+1,k  ,np)
+        ip(4) = map3dto1d(imin  ,j+1,k  ,np)
+        ip(5) = map3dto1d(imin  ,j  ,k+1,np)
+        ip(6) = map3dto1d(imin+1,j  ,k+1,np)
+        ip(7) = map3dto1d(imin+1,j+1,k+1,np)
+        ip(8) = map3dto1d(imin  ,j+1,k+1,np)
+        !
+        ! get the face nodes that are on this x-min boundary face
+        !
+        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(1),Geom_Hexa) + 1 )
+        !
+        ! mark these face nodes
+        !
+        msk(ifp(1:4)) = true
+        !
+        ! get the cell nodes for this cell in the randomized order
+        !
+        icp(1:8) = ipelem(1:8,nc_min)
+        !
+        ! loop through the different cell faces and find which face
+        ! has the same nodes as the x-min boundary face
+        !
+        imin_side = -99
+        imin_side_loop: &
+        do l = 1,6
+          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
+            imin_side = l
+            exit imin_side_loop
+          end if
+        end do imin_side_loop
+        !
+        ! reset the marker for these face nodes
+        !
+        msk(ifp(1:4)) = fals
+        !
+        ! get the structured ijk nodes of the x-max face
+        !
+        ip(1) = map3dto1d(imax  ,j  ,k  ,np)
+        ip(2) = map3dto1d(imax+1,j  ,k  ,np)
+        ip(3) = map3dto1d(imax+1,j+1,k  ,np)
+        ip(4) = map3dto1d(imax  ,j+1,k  ,np)
+        ip(5) = map3dto1d(imax  ,j  ,k+1,np)
+        ip(6) = map3dto1d(imax+1,j  ,k+1,np)
+        ip(7) = map3dto1d(imax+1,j+1,k+1,np)
+        ip(8) = map3dto1d(imax  ,j+1,k+1,np)
+        !
+        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(2),Geom_Hexa) + 1 )
+        !
+        msk(ifp(1:4)) = true
+        !
+        icp(1:8) = ipelem(1:8,nc_max)
+        imax_side = -99
+        imax_side_loop: &
+        do l = 1,6
+          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
+            imax_side = l
+            exit imax_side_loop
+          end if
+        end do imax_side_loop
+        !
+        msk(ifp(1:4)) = fals
+        !
+      end if
+      !
+      ! NOTE: The subroutine match_periodic_faces will set the values of
+      !       bface([5,6,8,9],:), so we dont need to do that here.
+      !
+      bface( 1,n1) = bc_periodic
+      bface( 2,n1) = nc_min
+      bface( 3,n1) = Geom_Hexa
+      bface( 4,n1) = imin_side
+      bface( 6,n1) = 1 ! index for bc_input needed by match_periodic_faces
+      bface(10,n1) = ncell + n1
+      !
+      bface( 1,n2) = bc_periodic
+      bface( 2,n2) = nc_max
+      bface( 3,n2) = Geom_Hexa
+      bface( 4,n2) = imax_side
+      bface( 6,n2) = 2 ! index for bc_input needed by match_periodic_faces
+      bface(10,n2) = ncell + n2
+      !
+    end do
+  end do
+  !
+  ! Min-Y and Max-Y boundary faces
+  !
+  n1 = 2*nc*nc    ! min-y counter
+  n2 = n1 + nc*nc ! max-y counter
+  do k = 1,nc
+    do i = 1,nc
+      !
+      jmin = 1
+      jmax = nc
+      !
+      nc_min = map3dto1d(i,jmin,k,nc)
+      nc_max = map3dto1d(i,jmax,k,nc)
+      !
+      n1 = n1 + 1 ! y-min face
+      n2 = n2 + 1 ! y-max face
+      !
+      if (.not. randomly_rotate_cells_debug) then
+        !
+        jmin_side = HostFace3D(3)
+        jmax_side = HostFace3D(4)
+        !
+      else
+        !
+        ! get the structured ijk nodes of the y-min face
+        !
+        ip(1) = map3dto1d(i  ,jmin  ,k  ,np)
+        ip(2) = map3dto1d(i+1,jmin  ,k  ,np)
+        ip(3) = map3dto1d(i+1,jmin+1,k  ,np)
+        ip(4) = map3dto1d(i  ,jmin+1,k  ,np)
+        ip(5) = map3dto1d(i  ,jmin  ,k+1,np)
+        ip(6) = map3dto1d(i+1,jmin  ,k+1,np)
+        ip(7) = map3dto1d(i+1,jmin+1,k+1,np)
+        ip(8) = map3dto1d(i  ,jmin+1,k+1,np)
+        !
+        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(3),Geom_Hexa) + 1 )
+        !
+        msk(ifp(1:4)) = true
+        !
+        icp(1:8) = ipelem(1:8,nc_min)
+        jmin_side = -99
+        jmin_side_loop: &
+        do l = 1,6
+          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
+            jmin_side = l
+            exit jmin_side_loop
+          end if
+        end do jmin_side_loop
+        !
+        msk(ifp(1:4)) = fals
+        !
+        ! get the structured ijk nodes of the y-max face
+        !
+        ip(1) = map3dto1d(i  ,jmax  ,k  ,np)
+        ip(2) = map3dto1d(i+1,jmax  ,k  ,np)
+        ip(3) = map3dto1d(i+1,jmax+1,k  ,np)
+        ip(4) = map3dto1d(i  ,jmax+1,k  ,np)
+        ip(5) = map3dto1d(i  ,jmax  ,k+1,np)
+        ip(6) = map3dto1d(i+1,jmax  ,k+1,np)
+        ip(7) = map3dto1d(i+1,jmax+1,k+1,np)
+        ip(8) = map3dto1d(i  ,jmax+1,k+1,np)
+        !
+        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(4),Geom_Hexa) + 1 )
+        !
+        msk(ifp(1:4)) = true
+        !
+        icp(1:8) = ipelem(1:8,nc_max)
+        jmax_side = -99
+        jmax_side_loop: &
+        do l = 1,6
+          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
+            jmax_side = l
+            exit jmax_side_loop
+          end if
+        end do jmax_side_loop
+        !
+        msk(ifp(1:4)) = fals
+        !
+      end if
+      !
+      ! NOTE: The subroutine match_periodic_faces will set the values of
+      !       bface([5,6,8,9],:), so we dont need to do that here.
+      !
+      bface( 1,n1) = bc_periodic
+      bface( 2,n1) = nc_min
+      bface( 3,n1) = Geom_Hexa
+      bface( 4,n1) = jmin_side
+      bface( 6,n1) = 3 ! index for bc_input needed by match_periodic_faces
+      bface(10,n1) = ncell + n1
+      !
+      bface( 1,n2) = bc_periodic
+      bface( 2,n2) = nc_max
+      bface( 3,n2) = Geom_Hexa
+      bface( 4,n2) = jmax_side
+      bface( 6,n2) = 4 ! index for bc_input needed by match_periodic_faces
+      bface(10,n2) = ncell + n2
+      !
+    end do
+  end do
+  !
+  ! Min-Z and Max-Z boundary faces
+  !
+  n1 = 4*nc*nc    ! min-z counter
+  n2 = n1 + nc*nc ! max-z counter
+  do j = 1,nc
+    do i = 1,nc
+      !
+      kmin = 1
+      kmax = nc
+      !
+      nc_min = map3dto1d(i,j,kmin,nc)
+      nc_max = map3dto1d(i,j,kmax,nc)
+      !
+      n1 = n1 + 1 ! z-min face
+      n2 = n2 + 1 ! z-max face
+      !
+      if (.not. randomly_rotate_cells_debug) then
+        !
+        kmin_side = HostFace3D(5)
+        kmax_side = HostFace3D(6)
+        !
+      else
+        !
+        ! get the structured ijk nodes of the y-min face
+        !
+        ip(1) = map3dto1d(i  ,j  ,kmin  ,np)
+        ip(2) = map3dto1d(i+1,j  ,kmin  ,np)
+        ip(3) = map3dto1d(i+1,j+1,kmin  ,np)
+        ip(4) = map3dto1d(i  ,j+1,kmin  ,np)
+        ip(5) = map3dto1d(i  ,j  ,kmin+1,np)
+        ip(6) = map3dto1d(i+1,j  ,kmin+1,np)
+        ip(7) = map3dto1d(i+1,j+1,kmin+1,np)
+        ip(8) = map3dto1d(i  ,j+1,kmin+1,np)
+        !
+        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(5),Geom_Hexa) + 1 )
+        !
+        msk(ifp(1:4)) = true
+        !
+        icp(1:8) = ipelem(1:8,nc_min)
+        kmin_side = -99
+        kmin_side_loop: &
+        do l = 1,6
+          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
+            kmin_side = l
+            exit kmin_side_loop
+          end if
+        end do kmin_side_loop
+        !
+        msk(ifp(1:4)) = fals
+        !
+        ! get the structured ijk nodes of the y-max face
+        !
+        ip(1) = map3dto1d(i  ,j  ,kmax  ,np)
+        ip(2) = map3dto1d(i+1,j  ,kmax  ,np)
+        ip(3) = map3dto1d(i+1,j+1,kmax  ,np)
+        ip(4) = map3dto1d(i  ,j+1,kmax  ,np)
+        ip(5) = map3dto1d(i  ,j  ,kmax+1,np)
+        ip(6) = map3dto1d(i+1,j  ,kmax+1,np)
+        ip(7) = map3dto1d(i+1,j+1,kmax+1,np)
+        ip(8) = map3dto1d(i  ,j+1,kmax+1,np)
+        !
+        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(6),Geom_Hexa) + 1 )
+        !
+        msk(ifp(1:4)) = true
+        !
+        icp(1:8) = ipelem(1:8,nc_max)
+        kmax_side = -99
+        kmax_side_loop: &
+        do l = 1,6
+          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
+            kmax_side = l
+            exit kmax_side_loop
+          end if
+        end do kmax_side_loop
+        !
+        msk(ifp(1:4)) = fals
+        !
+      end if
+      !
+      ! NOTE: The subroutine match_periodic_faces will set the values of
+      !       bface([5,6,8,9],:), so we dont need to do that here.
+      !
+      bface( 1,n1) = bc_periodic
+      bface( 2,n1) = nc_min
+      bface( 3,n1) = Geom_Hexa
+      bface( 4,n1) = kmin_side
+      bface( 6,n1) = 5 ! index for bc_input needed by match_periodic_faces
+      bface(10,n1) = ncell + n1
+      !
+      bface( 1,n2) = bc_periodic
+      bface( 2,n2) = nc_max
+      bface( 3,n2) = Geom_Hexa
+      bface( 4,n2) = kmax_side
+      bface( 6,n2) = 6 ! index for bc_input needed by match_periodic_faces
+      bface(10,n2) = ncell + n2
+      !
+    end do
+  end do
+  !
+  ! Deallocate ipelem and msk since they are no longer needed
+  !
+  deallocate ( ipelem , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  deallocate ( msk , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  contains
+  !
+  pure function map3dto1d(i,j,k,n) result(return_value)
+    integer, intent(in) :: i,j,k,n
+    integer :: return_value
+    return_value = i + n*(j-1) + n*n*(k-1)
+  end function map3dto1d
+  !
+end subroutine create_taylor_couette_grid
 !
 !###############################################################################
 !
@@ -2984,6 +3626,194 @@ continue
   end function map3dto1d
   !
 end subroutine create_postproc_debug_grid
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function tanh_spacing(x1in,x2in,ds1in,ds2in,np) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: x1in(:)
+  real(wp), intent(in) :: x2in(:)
+  real(wp), intent(in) :: ds1in
+  real(wp), intent(in) :: ds2in
+  integer,  intent(in) :: np
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nl,k,l
+  real(wp) :: ds1,ds2,dl
+  real(wp) :: a,b,sf,rnum,rden,sferr
+  real(wp) :: val,ue
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: x1(:)
+  real(wp), allocatable :: x2(:)
+  real(wp), allocatable :: ds(:)
+  !
+continue
+  !
+  ! Make sure x1 and x2 have the same dimensions
+  !
+  nl = min(size(x1in),size(x2in))
+  !
+  x1 = x1in(1:nl) ! F2003 AUTO-REALLOC
+  x2 = x2in(1:nl) ! F2003 AUTO-REALLOC
+  !
+  ! Initialize ds
+  !
+  ds = init_array(np,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Get the distance between the two points
+  !
+  dl = norm2( x1(:) - x2(:) )
+  !
+  ! Map the beginning and ending grid cell
+  ! spacings to the reference interval [0,1].
+  !
+  ds1 = ds1in/dl
+  ds2 = ds2in/dl
+  !
+  ! 2C.2 : Get the a and b parameters to begin solving for the tanh y-spacing
+  !
+  a = sqrt(ds2/ds1)
+  b = one / (real(np-1,kind=wp)*sqrt(ds1*ds2))
+  !
+  ! 2C.3 : Use b to solve the stretching factor function, then use the
+  !        stretching factor to get the y-spacing.
+  !
+  if (b >= 1.1_wp) then
+    !
+    ! Use a Newton iteration to solve the stretching factor function
+    !    sinh(sf)/sf = b
+    ! for the stretching factor, sf.
+    !
+    sf = two ! initial guess for sf
+    !
+    newton_tanh_loop: &
+    do k = 1,100
+      !
+      rnum = sinh(sf)/sf - b
+      rden = cosh(sf)/sf - sinh(sf)/(sf*sf)
+      !
+      sferr = rnum / rden
+      !
+      if (abs(sferr) < eps10) then
+        exit newton_tanh_loop
+      end if
+      !
+      sf = sf - sferr
+      !
+      ! Make sure sf doesnt become 0
+      !
+      if (abs(sf) < eps2) then
+        sf = eps2
+      end if
+      !
+    end do newton_tanh_loop
+    !
+    ! The stretching factor function has two solutions for sf given any
+    ! value of b (ignoring sf=0). Since the stretching factor function is
+    ! an even function, the two possible solutions are +sf and -sf. We only
+    ! care about +sf so take the absolute value of whatever result we get
+    ! from the Newton iteration.
+    !
+    sf = abs(sf)
+    !
+    ! Get the distribution y(n)
+    !
+    do n = 0,np-1
+      val = real(n,kind=wp)/real(np-1,kind=wp)
+      ue = half*(one + tanh(sf*(val-half))/tanh(sf*half))
+      ds(n+1) = ue / (a + (one-a)*ue)
+    end do
+    !
+  else if (b <= 0.9_wp) then
+    !
+    ! Use a Newton iteration to solve the stretching factor function
+    !    sin(sf)/sf = b
+    ! for the stretching factor, sf.
+    !
+    sf = two ! initial guess for sf
+    !
+    newton_tan_loop: &
+    do k = 1,100
+      !
+      rnum = sin(sf)/sf - b
+      rden = cos(sf)/sf - sin(sf)/(sf*sf)
+      !
+      sferr = rnum / rden
+      !
+      if (abs(sferr) < eps6) then
+        exit newton_tan_loop
+      end if
+      !
+      sf = sf - sferr
+      !
+      ! Make sure sf doesnt become 0
+      !
+      if (abs(sf) < eps2) then
+        sf = eps2
+      end if
+      !
+    end do newton_tan_loop
+    !
+    ! The stretching factor function has two solutions for sf given any
+    ! value of b (ignoring sf=0). Since the stretching factor function is
+    ! an even function, the two possible solutions are +sf and -sf. We only
+    ! care about +sf so take the absolute value of whatever result we get
+    ! from the Newton iteration.
+    !
+    sf = abs(sf)
+    !
+    ! Get the distribution y(n)
+    !
+    do n = 0,np-1
+      val = real(n,kind=wp)/real(np-1,kind=wp)
+      ue = half*(one + tan(sf*(val-half))/tan(sf*half))
+      ds(n+1) = ue / (a + (one-a)*ue)
+    end do
+    !
+  else
+    !
+    ! Both of the above Newton iterations can have numerical difficulties
+    ! if the stretching factor is close to 1, therefore use this simpler
+    ! stretching function that doesnt require a Newton iteration.
+    !
+    do n = 0,np-1
+      val = real(n,kind=wp)/real(np-1,kind=wp)
+      ue = val*(one + two*(b-one)*(val-half)*(one-val))
+      ds(n+1) = ue / (a + (one-a)*ue)
+    end do
+    !
+  end if
+  !
+  return_value = init_array(nl,np,zero) ! F2003 AUTO-REALLOC
+  !
+  return_value(1:nl, 1) = x1(1:nl)
+  return_value(1:nl,np) = x2(1:nl)
+  !
+  do l = 1,nl
+    !
+    ! Get the length for this direction which is needed
+    ! to unscale the stretching values from [0,1]
+    !
+    dsl = x2(l)-x1(l)
+    !
+    ! Finally loop through and use the scaled stretching values to get the
+    ! coordinate for the points of this direction
+    !
+    do n = 2,np-1
+      return_value(l,n) = x1(l) + ds(n) * dsl
+    end do
+    !
+  end do
+  !
+end function tanh_spacing
 !
 !###############################################################################
 !
