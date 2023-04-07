@@ -820,16 +820,24 @@ module module_kind_types
   integer, parameter :: Ymin2D(1:2) = [0,1]
   integer, parameter :: Ymax2D(1:2) = [2,3]
   !
-  integer, parameter :: Xmin3D(1:4) = [0,4,7,3]
-  integer, parameter :: Xmax3D(1:4) = [1,2,6,5]
-  integer, parameter :: Ymin3D(1:4) = [0,1,5,4]
-  integer, parameter :: Ymax3D(1:4) = [3,7,6,2]
-  integer, parameter :: Zmin3D(1:4) = [0,3,2,1]
-  integer, parameter :: Zmax3D(1:4) = [4,5,6,7]
+  integer, parameter :: Xmin3D(1:4) = [0,4,7,3] ! [1,5,8,4]
+  integer, parameter :: Xmax3D(1:4) = [1,2,6,5] ! [2,3,7,6]
+  integer, parameter :: Ymin3D(1:4) = [0,1,5,4] ! [1,2,6,5]
+  integer, parameter :: Ymax3D(1:4) = [3,7,6,2] ! [4,8,7,3]
+  integer, parameter :: Zmin3D(1:4) = [0,3,2,1] ! [1,4,3,2]
+  integer, parameter :: Zmax3D(1:4) = [4,5,6,7] ! [5,6,7,8]
   !
   integer, parameter :: HostFace2D(1:6) = [Xmin2D_Face,Xmax2D_Face, &
                                            Ymin2D_Face,Ymax2D_Face, &
                                            Zmin2D_Face,Zmax2D_Face]
+  ! HostFace3D is used to traditional values of 
+  ! [imin,imax,jmin,jmax,kmin,kmax] = [1,2,3,4,5,6] to their
+  ! corresponding GFR side/face values of
+  ! [zmin,zmax,xmax,xmin,ymin,ymax] = [1,2,3,4,5,6] or
+  ! HostFace3D[imin,imax,jmin,jmax,kmin,kmax] = [4,3,5,6,1,2] which is also
+  ! HostFace3D[1,2,3,4,5,6] = [Xmin3D_Face,Xmax3D_Face, &
+  !                            Ymin3D_Face,Ymax3D_Face, &
+  !                            Zmin3D_Face,Zmax3D_Face]
   integer, parameter :: HostFace3D(1:6) = [Xmin3D_Face,Xmax3D_Face, &
                                            Ymin3D_Face,Ymax3D_Face, &
                                            Zmin3D_Face,Zmax3D_Face]
