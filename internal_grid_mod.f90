@@ -4070,8 +4070,8 @@ end subroutine create_postproc_debug_grid
 #ifndef DISABLE_PURE
 pure &
 #endif
-function tanh_spacing(x1in,x2in,ds1in,ds2in,np,special_b_coeff) &
-               result(return_value)
+function get_tanh_spacing(x1in,x2in,ds1in,ds2in,np,special_b_coeff) &
+                   result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: x1in(:)
@@ -4272,7 +4272,7 @@ continue
     !
   end do
   !
-end function tanh_spacing
+end function get_tanh_spacing
 !
 !###############################################################################
 !
