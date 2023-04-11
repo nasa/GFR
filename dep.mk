@@ -278,6 +278,7 @@ $(OBJDIR)/internal_grid_mod.o : internal_grid_mod.f90 \
                       $(OBJDIR)/order_mod.o \
                       $(OBJDIR)/geovar_mod.o \
                       $(OBJDIR)/ovar_mod.o \
+                      $(OBJDIR)/cgns_mod.o \
                       $(OBJDIR)/poly.o
 
 $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
