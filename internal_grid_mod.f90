@@ -3,6 +3,8 @@ module internal_grid_mod
   !.. Use Statements ..
   use module_kind_types
   !
+  implicit none
+  !
   private
   !
   public :: create_internal_grid
