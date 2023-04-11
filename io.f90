@@ -292,6 +292,7 @@ subroutine read_nml_input_file(input_fname,input_mode)
   use ovar,   only : marker_c1,marker_c2,marker_dpsi
   use ovar,   only : Default_Marker_c1
   use ovar,   only : disable_cgns_output
+  use ovar,   only : output_KEDR
   !
   use quadrature_mod, only : init_geom_quadrature_rules
   use quadrature_mod, only : init_face_quadrature_rules
@@ -816,6 +817,8 @@ continue
     num_timesteps = nint( Final_Time / constant_dt )
     !
   else if (any(itestcase == Taylor_Problems)) then
+    !
+    output_KEDR = true
     !
    !cfl_beg = CFL
    !cfl_end = CFL
