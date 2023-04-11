@@ -1863,6 +1863,23 @@ continue
   !
   ! Apply the grid scaling factor to the coordinates of the grid nodes
   !
+!block
+!  integer  :: l,n
+!  real(wp) :: x,y,z,r,t,theta
+!  if (mypnum == glb_root) then
+!    do n = 1,size(grid%xyz,dim=2)
+!      x = grid%xyz(1,n)
+!      y = grid%xyz(2,n)
+!      z = grid%xyz(3,n)
+!      r = sqrt(y*y+z*z)
+!      t = atan2(z,y)
+!      theta = t + merge(two*pi,zero,t<zero)
+!      write (501,572) n,x,y,z,x,r,theta
+!    end do
+!  end if
+!  572 format (i7,5x,3f12.6,5x,3f12.6)
+!end block
+! !
   do n = 1,size(grid%xyz,dim=2)
     do i = 1,size(grid%xyz,dim=1)
       grid%xyz(i,n) = grid_scaling_factor*grid%xyz(i,n)
@@ -5834,7 +5851,31 @@ continue
     !
   end if
   !
+!block
+!  integer :: i
+!  if (mypnum == glb_root) then
+!    if (current_element == 1) then
+!      write (301,1) 0, (i, i=1,size(return_value%nodes))
+!      write (401,1) 0, (i, i=1,size(return_value%pts))
+!    end if
+!    write (301,1) current_element, &
+!                  (return_value%nodes(i), i=1,size(return_value%nodes))
+!    write (401,1) current_element, &
+!                  (return_value%pts(i), i=1,size(return_value%pts))
+!  end if
+!  1 format (i6,3x,100i7)
+!end block
   return_value = reorder_cgns_pts(return_value)
+!block
+!  integer :: i
+!  if (mypnum == glb_root) then
+!    if (current_element == 1) then
+!      write (402,1) 0, (i, i=1,size(return_value%pts))
+!    end if
+!    write (402,1) current_element, &
+!                  (return_value%pts(i), i=1,size(return_value%pts))
+!  end if
+!end block
   !
 end function create_element_i4
 !
@@ -5924,7 +5965,31 @@ continue
     !
   end if
   !
+!block
+!  integer :: i
+!  if (mypnum == glb_root) then
+!    if (current_element == 1) then
+!      write (301,1) 0, (i, i=1,size(return_value%nodes))
+!      write (401,1) 0, (i, i=1,size(return_value%pts))
+!    end if
+!    write (301,1) current_element, &
+!                  (return_value%nodes(i), i=1,size(return_value%nodes))
+!    write (401,1) current_element, &
+!                  (return_value%pts(i), i=1,size(return_value%pts))
+!  end if
+!  1 format (i6,3x,100i7)
+!end block
   return_value = reorder_cgns_pts(return_value)
+!block
+!  integer :: i
+!  if (mypnum == glb_root) then
+!    if (current_element == 1) then
+!      write (402,1) 0, (i, i=1,size(return_value%pts))
+!    end if
+!    write (402,1) current_element, &
+!                  (return_value%pts(i), i=1,size(return_value%pts))
+!  end if
+!end block
   !
 end function create_element_i8
 !
