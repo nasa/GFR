@@ -60,76 +60,78 @@ module module_cgns
   !
   ! ----------------------------------------------------------------------------
   !
-  ! NODE : 1-node 1st order node
+  ! [CGNS Enum Name] (Value) : description
   !
-  ! BAR_2 : 2-node 1st order edge
-  ! BAR_3 : 3-node 2nd order edge
-  ! BAR_4 : 4-node 3rd order edge
-  ! BAR_5 : 5-node 4th order edge
+  ! NODE (2) : 1-node 1st order node
   !
-  ! TRI_3  :  3-node 1st order     COMPLETE triangle
-  ! TRI_6  :  6-node 2nd order     COMPLETE triangle
-  ! TRI_9  :  9-node 3rd order EDGE-DEFINED triangle
-  ! TRI_10 : 10-node 3rd order     COMPLETE triangle
-  ! TRI_12 : 12-node 4th order EDGE-DEFINED triangle
-  ! TRI_15 : 15-node 4th order     COMPLETE triangle
+  ! BAR_2 ( 3) : 2-node 1st order edge
+  ! BAR_3 ( 4) : 3-node 2nd order edge
+  ! BAR_4 (24) : 4-node 3rd order edge
+  ! BAR_5 (40) : 5-node 4th order edge
   !
-  ! QUAD_4     :  4-node 1st order     COMPLETE quadrilateral
-  ! QUAD_8     :  8-node 2nd order EDGE-DEFINED quadrilateral
-  ! QUAD_9     :  9-node 2nd order     COMPLETE quadrilateral
-  ! QUAD_12    : 12-node 3rd order EDGE-DEFINED quadrilateral
-  ! QUAD_16    : 16-node 3rd order     COMPLETE quadrilateral
-  ! QUAD_P4_16 : 16-node 4th order EDGE-DEFINED quadrilateral
-  ! QUAD_25    : 25-node 4th order     COMPLETE quadrilateral
+  ! TRI_3  ( 5) :  3-node 1st order     COMPLETE triangle
+  ! TRI_6  ( 6) :  6-node 2nd order     COMPLETE triangle
+  ! TRI_9  (25) :  9-node 3rd order EDGE-DEFINED triangle
+  ! TRI_10 (26) : 10-node 3rd order     COMPLETE triangle
+  ! TRI_12 (41) : 12-node 4th order EDGE-DEFINED triangle
+  ! TRI_15 (42) : 15-node 4th order     COMPLETE triangle
   !
-  ! TETRA_4  :  4-node 1st order     COMPLETE tetrahedron
-  ! TETRA_10 : 10-node 2nd order     COMPLETE tetrahedron
-  ! TETRA_16 : 16-node 3rd order EDGE-DEFINED tetrahedron
-  ! TETRA_20 : 20-node 3rd order     COMPLETE tetrahedron
-  ! TETRA_22 : 22-node 4th order EDGE-DEFINED tetrahedron
-  ! TETRA_34 : 34-node 4th order FACE-DEFINED tetrahedron
-  ! TETRA_35 : 35-node 4th order     COMPLETE tetrahedron
+  ! QUAD_4     ( 7) :  4-node 1st order     COMPLETE quadrilateral
+  ! QUAD_8     ( 8) :  8-node 2nd order EDGE-DEFINED quadrilateral
+  ! QUAD_9     ( 9) :  9-node 2nd order     COMPLETE quadrilateral
+  ! QUAD_12    (27) : 12-node 3rd order EDGE-DEFINED quadrilateral
+  ! QUAD_16    (28) : 16-node 3rd order     COMPLETE quadrilateral
+  ! QUAD_P4_16 (43) : 16-node 4th order EDGE-DEFINED quadrilateral
+  ! QUAD_25    (44) : 25-node 4th order     COMPLETE quadrilateral
   !
-  ! PYRA_5     :  5-node 1st order     COMPLETE pyramid
-  ! PYRA_13    : 13-node 2nd order EDGE-DEFINED pyramid
-  ! PYRA_14    : 14-node 2nd order     COMPLETE pyramid
-  ! PYRA_21    : 21-node 3rd order EDGE-DEFINED pyramid
-  ! PYRA_29    : 29-node 3rd order FACE-DEFINED pyramid
-  ! PYRA_30    : 30-node 3rd order     COMPLETE pyramid
-  ! PYRA_P4_29 : 29-node 4th order EDGE-DEFINED pyramid
-  ! PYRA_50    : 50-node 4th order FACE-DEFINED pyramid
-  ! PYRA_55    : 55-node 4th order     COMPLETE pyramid
+  ! TETRA_4  (10) :  4-node 1st order     COMPLETE tetrahedron
+  ! TETRA_10 (11) : 10-node 2nd order     COMPLETE tetrahedron
+  ! TETRA_16 (29) : 16-node 3rd order EDGE-DEFINED tetrahedron
+  ! TETRA_20 (30) : 20-node 3rd order     COMPLETE tetrahedron
+  ! TETRA_22 (45) : 22-node 4th order EDGE-DEFINED tetrahedron
+  ! TETRA_34 (46) : 34-node 4th order FACE-DEFINED tetrahedron
+  ! TETRA_35 (47) : 35-node 4th order     COMPLETE tetrahedron
   !
-  ! PENTA_6  :  6-node 1st order     COMPLETE prism
-  ! PENTA_15 : 15-node 2nd order EDGE-DEFINED prism
-  ! PENTA_18 : 18-node 2nd order     COMPLETE prism
-  ! PENTA_24 : 24-node 3rd order EDGE-DEFINED prism
-  ! PENTA_38 : 38-node 3rd order FACE-DEFINED prism
-  ! PENTA_40 : 40-node 3rd order     COMPLETE prism
-  ! PENTA_33 : 33-node 4th order EDGE-DEFINED prism
-  ! PENTA_66 : 66-node 4th order FACE-DEFINED prism
-  ! PENTA_75 : 75-node 4th order     COMPLETE prism
+  ! PYRA_5     (12) :  5-node 1st order     COMPLETE pyramid
+  ! PYRA_13    (13) : 13-node 2nd order EDGE-DEFINED pyramid
+  ! PYRA_14    (21) : 14-node 2nd order     COMPLETE pyramid
+  ! PYRA_21    (31) : 21-node 3rd order EDGE-DEFINED pyramid
+  ! PYRA_29    (32) : 29-node 3rd order FACE-DEFINED pyramid
+  ! PYRA_30    (33) : 30-node 3rd order     COMPLETE pyramid
+  ! PYRA_P4_29 (48) : 29-node 4th order EDGE-DEFINED pyramid
+  ! PYRA_50    (49) : 50-node 4th order FACE-DEFINED pyramid
+  ! PYRA_55    (50) : 55-node 4th order     COMPLETE pyramid
   !
-  ! HEXA_8   :   8-node 1st order     COMPLETE hexahedron
-  ! HEXA_20  :  20-node 2nd order EDGE-DEFINED hexahedron
-  ! HEXA_27  :  27-node 2nd order     COMPLETE hexahedron
-  ! HEXA_32  :  32-node 3rd order EDGE-DEFINED hexahedron
-  ! HEXA_56  :  56-node 3rd order FACE-DEFINED hexahedron
-  ! HEXA_64  :  64-node 3rd order     COMPLETE hexahedron
-  ! HEXA_44  :  44-node 4th order EDGE-DEFINED hexahedron
-  ! HEXA_98  :  98-node 4th order FACE-DEFINED hexahedron
-  ! HEXA_125 : 125-node 4th order     COMPLETE hexahedron
+  ! PENTA_6  (14) :  6-node 1st order     COMPLETE prism
+  ! PENTA_15 (15) : 15-node 2nd order EDGE-DEFINED prism
+  ! PENTA_18 (16) : 18-node 2nd order     COMPLETE prism
+  ! PENTA_24 (34) : 24-node 3rd order EDGE-DEFINED prism
+  ! PENTA_38 (35) : 38-node 3rd order FACE-DEFINED prism
+  ! PENTA_40 (36) : 40-node 3rd order     COMPLETE prism
+  ! PENTA_33 (51) : 33-node 4th order EDGE-DEFINED prism
+  ! PENTA_66 (52) : 66-node 4th order FACE-DEFINED prism
+  ! PENTA_75 (53) : 75-node 4th order     COMPLETE prism
   !
-  ! MIXED : Arbitrary mixture of all possible element types
-  !         except NGON_n or NFACE_n
+  ! HEXA_8   (17) :   8-node 1st order     COMPLETE hexahedron
+  ! HEXA_20  (18) :  20-node 2nd order EDGE-DEFINED hexahedron
+  ! HEXA_27  (19) :  27-node 2nd order     COMPLETE hexahedron
+  ! HEXA_32  (37) :  32-node 3rd order EDGE-DEFINED hexahedron
+  ! HEXA_56  (38) :  56-node 3rd order FACE-DEFINED hexahedron
+  ! HEXA_64  (39) :  64-node 3rd order     COMPLETE hexahedron
+  ! HEXA_44  (54) :  44-node 4th order EDGE-DEFINED hexahedron
+  ! HEXA_98  (55) :  98-node 4th order FACE-DEFINED hexahedron
+  ! HEXA_125 (56) : 125-node 4th order     COMPLETE hexahedron
+  !
+  ! MIXED (20) : Arbitrary mixture of all possible element types
+  !              except NGON_n or NFACE_n
   !
   ! ################################################################
   ! #####   NON-COMPATIBLE ELEMENT TYPES, THEREFORE NOT USED   #####
   ! ################################################################
   !
-  ! NGON_n     : Face elements used for defining arbitrary polyhedral elements
-  ! NFACE_n    : Arbitrary polyhedral element defined by collection of
-  !              face elements of NGON_n element type
+  ! NGON_n  (22) : Face elements used for defining arbitrary polyhedral elements
+  ! NFACE_n (23) : Arbitrary polyhedral element defined by collection of
+  !                face elements of NGON_n element type
   !
   !
   ! ###########################
@@ -6179,7 +6181,7 @@ pure function element_properties(elem_type) result(return_value)
 continue
   !
   select case (elem_type)
-    case (NODE)
+    case (NODE)  ! (2)
      !return_value = prop_t(npts=1, &
      !                      order=1, &
      !                      geom=Geom_Node, &
@@ -6188,7 +6190,7 @@ continue
       return_value%order = 1
       return_value%geom = Geom_Node
       return_value%elem_type = int(elem_type)
-    case (BAR_2)
+    case (BAR_2)  ! (3)
      !return_value = prop_t(npts=2, &
      !                      order=1, &
      !                      geom=Geom_Edge, &
@@ -6197,7 +6199,7 @@ continue
       return_value%order = 1
       return_value%geom = Geom_Edge
       return_value%elem_type = int(elem_type)
-    case (BAR_3)
+    case (BAR_3)  ! (4)
      !return_value = prop_t(npts=3, &
      !                      order=2, &
      !                      geom=Geom_Edge, &
@@ -6206,7 +6208,7 @@ continue
       return_value%order = 2
       return_value%geom = Geom_Edge
       return_value%elem_type = int(elem_type)
-    case (TRI_3)
+    case (TRI_3)  ! (5)
      !return_value = prop_t(npts=3, &
      !                      order=1, &
      !                      geom=Geom_Tria, &
@@ -6215,7 +6217,7 @@ continue
       return_value%order = 1
       return_value%geom = Geom_Tria
       return_value%elem_type = int(elem_type)
-    case (TRI_6)
+    case (TRI_6)  ! (6)
      !return_value = prop_t(npts=6, &
      !                      order=2, &
      !                      geom=Geom_Tria, &
@@ -6224,7 +6226,7 @@ continue
       return_value%order = 2
       return_value%geom = Geom_Tria
       return_value%elem_type = int(elem_type)
-    case (QUAD_4)
+    case (QUAD_4)  ! (7)
      !return_value = prop_t(npts=4, &
      !                      order=1, &
      !                      geom=Geom_Quad, &
@@ -6233,7 +6235,7 @@ continue
       return_value%order = 1
       return_value%geom = Geom_Quad
       return_value%elem_type = int(elem_type)
-    case (QUAD_8)
+    case (QUAD_8)  ! (8)
      !return_value = prop_t(npts=8, &
      !                      order=2, &
      !                      geom=Geom_Quad, &
@@ -6244,7 +6246,7 @@ continue
       return_value%geom = Geom_Quad
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (QUAD_9)
+    case (QUAD_9)  ! (9)
      !return_value = prop_t(npts=9, &
      !                      order=2, &
      !                      geom=Geom_Quad, &
@@ -6253,7 +6255,7 @@ continue
       return_value%order = 2
       return_value%geom = Geom_Quad
       return_value%elem_type = int(elem_type)
-    case (TETRA_4)
+    case (TETRA_4)  ! (10)
      !return_value = prop_t(npts=4, &
      !                      order=1, &
      !                      geom=Geom_Tetr, &
@@ -6262,7 +6264,7 @@ continue
       return_value%order = 1
       return_value%geom = Geom_Tetr
       return_value%elem_type = int(elem_type)
-    case (TETRA_10)
+    case (TETRA_10)  ! (11)
      !return_value = prop_t(npts=10, &
      !                      order=2, &
      !                      geom=Geom_Tetr, &
@@ -6271,7 +6273,7 @@ continue
       return_value%order = 2
       return_value%geom = Geom_Tetr
       return_value%elem_type = int(elem_type)
-    case (PYRA_5)
+    case (PYRA_5)  ! (12)
      !return_value = prop_t(npts=5, &
      !                      order=1, &
      !                      geom=Geom_Pyra, &
@@ -6280,7 +6282,7 @@ continue
       return_value%order = 1
       return_value%geom = Geom_Pyra
       return_value%elem_type = int(elem_type)
-    case (PYRA_13)
+    case (PYRA_13)  ! (13)
      !return_value = prop_t(npts=13, &
      !                      order=2, &
      !                      geom=Geom_Pyra, &
@@ -6291,7 +6293,7 @@ continue
       return_value%geom = Geom_Pyra
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (PYRA_14)
+    case (PYRA_14)  ! (21)
      !return_value = prop_t(npts=14, &
      !                      order=2, &
      !                      geom=Geom_Pyra, &
@@ -6300,7 +6302,7 @@ continue
       return_value%order = 2
       return_value%geom = Geom_Pyra
       return_value%elem_type = int(elem_type)
-    case (PENTA_6)
+    case (PENTA_6)  ! (14)
      !return_value = prop_t(npts=6, &
      !                      order=1, &
      !                      geom=Geom_Pris, &
@@ -6309,7 +6311,7 @@ continue
       return_value%order = 1
       return_value%geom = Geom_Pris
       return_value%elem_type = int(elem_type)
-    case (PENTA_15)
+    case (PENTA_15)  ! (15)
      !return_value = prop_t(npts=15, &
      !                      order=2, &
      !                      geom=Geom_Pris, &
@@ -6320,7 +6322,7 @@ continue
       return_value%geom = Geom_Pris
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (PENTA_18)
+    case (PENTA_18)  ! (16)
      !return_value = prop_t(npts=18, &
      !                      order=2, &
      !                      geom=Geom_Pris, &
@@ -6329,7 +6331,7 @@ continue
       return_value%order = 2
       return_value%geom = Geom_Pris
       return_value%elem_type = int(elem_type)
-    case (HEXA_8)
+    case (HEXA_8)  ! (17)
      !return_value = prop_t(npts=8, &
      !                      order=1, &
      !                      geom=Geom_Hexa, &
@@ -6338,7 +6340,7 @@ continue
       return_value%order = 1
       return_value%geom = Geom_Hexa
       return_value%elem_type = int(elem_type)
-    case (HEXA_20)
+    case (HEXA_20)  ! (18)
      !return_value = prop_t(npts=20, &
      !                      order=2, &
      !                      geom=Geom_Hexa, &
@@ -6349,7 +6351,7 @@ continue
       return_value%geom = Geom_Hexa
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (HEXA_27)
+    case (HEXA_27)  ! (19)
      !return_value = prop_t(npts=27, &
      !                      order=2, &
      !                      geom=Geom_Hexa, &
@@ -6358,10 +6360,10 @@ continue
       return_value%order = 2
       return_value%geom = Geom_Hexa
       return_value%elem_type = int(elem_type)
-   !case (MIXED)   ! MIXED TYPE SHOULD BE SEPARATED BY NOW
-   !case (NGON_n)  ! UNSUPPORTED TYPE
-   !case (NFACE_n) ! UNSUPPORTED TYPE
-    case (BAR_4)
+   !case (MIXED)   ! (20) ! MIXED TYPE SHOULD BE SEPARATED BY NOW
+   !case (NGON_n)  ! (22) ! UNSUPPORTED TYPE
+   !case (NFACE_n) ! (23) ! UNSUPPORTED TYPE
+    case (BAR_4)  ! (24)
      !return_value = prop_t(npts=4, &
      !                      order=3, &
      !                      geom=Geom_Edge, &
@@ -6370,7 +6372,7 @@ continue
       return_value%order = 3
       return_value%geom = Geom_Edge
       return_value%elem_type = int(elem_type)
-    case (TRI_9)
+    case (TRI_9)  ! (25)
      !return_value = prop_t(npts=9, &
      !                      order=3, &
      !                      geom=Geom_Tria, &
@@ -6381,7 +6383,7 @@ continue
       return_value%geom = Geom_Tria
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (TRI_10)
+    case (TRI_10)  ! (26)
      !return_value = prop_t(npts=10, &
      !                      order=3, &
      !                      geom=Geom_Tria, &
@@ -6390,7 +6392,7 @@ continue
       return_value%order = 3
       return_value%geom = Geom_Tria
       return_value%elem_type = int(elem_type)
-    case (QUAD_12)
+    case (QUAD_12)  ! (27)
      !return_value = prop_t(npts=12, &
      !                      order=3, &
      !                      geom=Geom_Quad, &
@@ -6401,7 +6403,7 @@ continue
       return_value%geom = Geom_Quad
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (QUAD_16)
+    case (QUAD_16)  ! (28)
      !return_value = prop_t(npts=16, &
      !                      order=3, &
      !                      geom=Geom_Quad, &
@@ -6410,7 +6412,7 @@ continue
       return_value%order = 3
       return_value%geom = Geom_Quad
       return_value%elem_type = int(elem_type)
-    case (TETRA_16)
+    case (TETRA_16)  ! (29)
      !return_value = prop_t(npts=16, &
      !                      order=3, &
      !                      geom=Geom_Tetr, &
@@ -6421,7 +6423,7 @@ continue
       return_value%geom = Geom_Tetr
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (TETRA_20)
+    case (TETRA_20)  ! (30)
      !return_value = prop_t(npts=20, &
      !                      order=3, &
      !                      geom=Geom_Tetr, &
@@ -6430,7 +6432,7 @@ continue
       return_value%order = 3
       return_value%geom = Geom_Tetr
       return_value%elem_type = int(elem_type)
-    case (PYRA_21)
+    case (PYRA_21)  ! (31)
      !return_value = prop_t(npts=21, &
      !                      order=3, &
      !                      geom=Geom_Pyra, &
@@ -6441,7 +6443,7 @@ continue
       return_value%geom = Geom_Pyra
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (PYRA_29)
+    case (PYRA_29)  ! (32)
      !return_value = prop_t(npts=29, &
      !                      order=3, &
      !                      geom=Geom_Pyra, &
@@ -6452,7 +6454,7 @@ continue
       return_value%geom = Geom_Pyra
       return_value%elem_type = int(elem_type)
       return_value%family = Face_Defined
-    case (PYRA_30)
+    case (PYRA_30)  ! (33)
      !return_value = prop_t(npts=30, &
      !                      order=3, &
      !                      geom=Geom_Pyra, &
@@ -6461,7 +6463,7 @@ continue
       return_value%order = 3
       return_value%geom = Geom_Pyra
       return_value%elem_type = int(elem_type)
-    case (PENTA_24)
+    case (PENTA_24)  ! (34)
      !return_value = prop_t(npts=24, &
      !                      order=3, &
      !                      geom=Geom_Pris, &
@@ -6472,7 +6474,7 @@ continue
       return_value%geom = Geom_Pris
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (PENTA_38)
+    case (PENTA_38)  ! (35)
      !return_value = prop_t(npts=38, &
      !                      order=3, &
      !                      geom=Geom_Pris, &
@@ -6483,7 +6485,7 @@ continue
       return_value%geom = Geom_Pris
       return_value%elem_type = int(elem_type)
       return_value%family = Face_Defined
-    case (PENTA_40)
+    case (PENTA_40)  ! (36)
      !return_value = prop_t(npts=40, &
      !                      order=3, &
      !                      geom=Geom_Pris, &
@@ -6492,7 +6494,7 @@ continue
       return_value%order = 3
       return_value%geom = Geom_Pris
       return_value%elem_type = int(elem_type)
-    case (HEXA_32)
+    case (HEXA_32)  ! (37)
      !return_value = prop_t(npts=32, &
      !                      order=3, &
      !                      geom=Geom_Hexa, &
@@ -6503,7 +6505,7 @@ continue
       return_value%geom = Geom_Hexa
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (HEXA_56)
+    case (HEXA_56)  ! (38)
      !return_value = prop_t(npts=56, &
      !                      order=3, &
      !                      geom=Geom_Hexa, &
@@ -6514,7 +6516,7 @@ continue
       return_value%geom = Geom_Hexa
       return_value%elem_type = int(elem_type)
       return_value%family = Face_Defined
-    case (HEXA_64)
+    case (HEXA_64)  ! (39)
      !return_value = prop_t(npts=64, &
      !                      order=3, &
      !                      geom=Geom_Hexa, &
@@ -6523,7 +6525,7 @@ continue
       return_value%order = 3
       return_value%geom = Geom_Hexa
       return_value%elem_type = int(elem_type)
-    case (BAR_5)
+    case (BAR_5)  ! (40)
      !return_value = prop_t(npts=5, &
      !                      order=4, &
      !                      geom=Geom_Edge, &
@@ -6532,7 +6534,7 @@ continue
       return_value%order = 4
       return_value%geom = Geom_Edge
       return_value%elem_type = int(elem_type)
-    case (TRI_12)
+    case (TRI_12)  ! (41)
      !return_value = prop_t(npts=12, &
      !                      order=4, &
      !                      geom=Geom_Tria, &
@@ -6543,7 +6545,7 @@ continue
       return_value%geom = Geom_Tria
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (TRI_15)
+    case (TRI_15)  ! (42)
      !return_value = prop_t(npts=15, &
      !                      order=4, &
      !                      geom=Geom_Tria, &
@@ -6552,7 +6554,7 @@ continue
       return_value%order = 4
       return_value%geom = Geom_Tria
       return_value%elem_type = int(elem_type)
-    case (QUAD_P4_16)
+    case (QUAD_P4_16)  ! (43)
      !return_value = prop_t(npts=16, &
      !                      order=4, &
      !                      geom=Geom_Quad, &
@@ -6563,7 +6565,7 @@ continue
       return_value%geom = Geom_Quad
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (QUAD_25)
+    case (QUAD_25)  ! (44)
      !return_value = prop_t(npts=25, &
      !                      order=4, &
      !                      geom=Geom_Quad, &
@@ -6572,7 +6574,7 @@ continue
       return_value%order = 4
       return_value%geom = Geom_Quad
       return_value%elem_type = int(elem_type)
-    case (TETRA_22)
+    case (TETRA_22)  ! (45)
      !return_value = prop_t(npts=22, &
      !                      order=4, &
      !                      geom=Geom_Tetr, &
@@ -6583,7 +6585,7 @@ continue
       return_value%geom = Geom_Tetr
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (TETRA_34)
+    case (TETRA_34)  ! (46)
      !return_value = prop_t(npts=34, &
      !                      order=4, &
      !                      geom=Geom_Tetr, &
@@ -6594,7 +6596,7 @@ continue
       return_value%geom = Geom_Tetr
       return_value%elem_type = int(elem_type)
       return_value%family = Face_Defined
-    case (TETRA_35)
+    case (TETRA_35)  ! (47)
      !return_value = prop_t(npts=35, &
      !                      order=4, &
      !                      geom=Geom_Tetr, &
@@ -6603,7 +6605,7 @@ continue
       return_value%order = 4
       return_value%geom = Geom_Tetr
       return_value%elem_type = int(elem_type)
-    case (PYRA_P4_29)
+    case (PYRA_P4_29)  ! (48)
      !return_value = prop_t(npts=29, &
      !                      order=4, &
      !                      geom=Geom_Pyra, &
@@ -6614,7 +6616,7 @@ continue
       return_value%geom = Geom_Pyra
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (PYRA_50)
+    case (PYRA_50)  ! (49)
      !return_value = prop_t(npts=50, &
      !                      order=4, &
      !                      geom=Geom_Pyra, &
@@ -6625,7 +6627,7 @@ continue
       return_value%geom = Geom_Pyra
       return_value%elem_type = int(elem_type)
       return_value%family = Face_Defined
-    case (PYRA_55)
+    case (PYRA_55)  ! (50)
      !return_value = prop_t(npts=55, &
      !                      order=4, &
      !                      geom=Geom_Pyra, &
@@ -6634,7 +6636,7 @@ continue
       return_value%order = 4
       return_value%geom = Geom_Pyra
       return_value%elem_type = int(elem_type)
-    case (PENTA_33)
+    case (PENTA_33)  ! (51)
      !return_value = prop_t(npts=33, &
      !                      order=4, &
      !                      geom=Geom_Pris, &
@@ -6645,7 +6647,7 @@ continue
       return_value%geom = Geom_Pris
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (PENTA_66)
+    case (PENTA_66)  ! (52)
      !return_value = prop_t(npts=66, &
      !                      order=4, &
      !                      geom=Geom_Pris, &
@@ -6656,7 +6658,7 @@ continue
       return_value%geom = Geom_Pris
       return_value%elem_type = int(elem_type)
       return_value%family = Face_Defined
-    case (PENTA_75)
+    case (PENTA_75)  ! (53)
      !return_value = prop_t(npts=75, &
      !                      order=4, &
      !                      geom=Geom_Pris, &
@@ -6665,7 +6667,7 @@ continue
       return_value%order = 4
       return_value%geom = Geom_Pris
       return_value%elem_type = int(elem_type)
-    case (HEXA_44)
+    case (HEXA_44)  ! (54)
      !return_value = prop_t(npts=44, &
      !                      order=4, &
      !                      geom=Geom_Hexa, &
@@ -6676,7 +6678,7 @@ continue
       return_value%geom = Geom_Hexa
       return_value%elem_type = int(elem_type)
       return_value%family = Edge_Defined
-    case (HEXA_98)
+    case (HEXA_98)  ! (55)
      !return_value = prop_t(npts=98, &
      !                      order=4, &
      !                      geom=Geom_Hexa, &
@@ -6687,7 +6689,7 @@ continue
       return_value%geom = Geom_Hexa
       return_value%elem_type = int(elem_type)
       return_value%family = Face_Defined
-    case (HEXA_125)
+    case (HEXA_125)  ! (56)
      !return_value = prop_t(npts=125, &
      !                      order=4, &
      !                      geom=Geom_Hexa, &
