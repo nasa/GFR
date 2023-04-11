@@ -300,6 +300,7 @@ module module_cgns
   end interface create_element
   !
   !
+  integer, save :: current_element
   !
   logical(lk), parameter :: randomly_rotate_cells_debug = fals
  !logical(lk), parameter :: randomly_rotate_cells_debug = true
@@ -1997,6 +1998,8 @@ continue
           j2 = 0
           do n = elem_beg,elem_end
             !
+            current_element = n
+            !
             j0 = j2 + 1
             !
             elem_type = int( base(ib)%zone(iz)%section(is)% &
@@ -2033,6 +2036,8 @@ continue
           !
           j2 = 0
           do n = elem_beg,elem_end
+            !
+            current_element = n
             !
             j1 = j2 + 1
             j2 = j2 + np
