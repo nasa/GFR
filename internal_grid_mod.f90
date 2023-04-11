@@ -66,6 +66,14 @@ module internal_grid_mod
                                                      8,4,3,7,5,1,2,6, &
                                                      4,3,7,8,1,2,6,5] , [8,24] )
   !
+  interface tanh_spacing
+    module procedure tanh_spacing_1d, tanh_spacing_md
+  end interface tanh_spacing
+  !
+  interface average_1p_spacing
+    module procedure average_1p_spacing_1d, average_1p_spacing_md
+  end interface average_1p_spacing
+  !
 contains
 !
 !###############################################################################
@@ -4064,6 +4072,227 @@ continue
   end function map3dto1d
   !
 end subroutine create_postproc_debug_grid
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function tanh_spacing_1d(x1in,x2in,ds1in,ds2in,npts,special_b_coeff) &
+                  result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: x1in
+  real(wp), intent(in) :: x2in
+  real(wp), intent(in) :: ds1in
+  real(wp), intent(in) :: ds2in
+  integer,  intent(in) :: npts
+  !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(in) :: special_b_coeff
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer  :: nl,np,l
+  real(wp) :: dl,x
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: x1(:)
+  real(wp), allocatable :: x2(:)
+  real(wp), allocatable :: x1i(:)
+  real(wp), allocatable :: x2i(:)
+  real(wp), allocatable :: xp(:,:)
+  !
+continue
+  !
+  ! We are going to enforce the end spacings ds1in and ds2in,
+  ! so we only want to solve for the npts-3 interior spacings
+  ! (meaning npts-2 points on the line).
+  !
+  np = npts-2
+  !
+  ! Allocate the function result
+  !
+  return_value = init_array(npts,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Set the end points of the function result
+  ! to the end points input to the function
+  !
+  return_value(   1) = x1in
+  return_value(npts) = x2in
+  !
+  ! Special cases for npts=2 (a line with just two end points)
+  ! or npts=3 (a line with just one interior point)
+  !
+  if (np == 0) then
+    return
+  else if (np == 1) then
+    return_value(2) = average_1p_spacing(x1in,x2in,ds1in,ds2in)
+    return
+  end if
+  !
+  ! nl is always 1 for this version of tanh_spacing
+  !
+  nl = 1
+  !
+  x1 = [x1in] ! F2003 AUTO-REALLOC
+  x2 = [x2in] ! F2003 AUTO-REALLOC
+  !
+  ! Get the distance between the two points
+  !
+  dl = norm2( x1(:) - x2(:) )
+  !
+  ! Initialize the x1i and x2i arrays which will hold the coordinates
+  ! for the first points off the ends, i.e., [x1,x1i,...,x2i,x2].
+  !
+  x1i = init_array(nl,zero) ! F2003 AUTO-REALLOC
+  x2i = init_array(nl,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Modify x1i and x2i to be the location for the 2nd and npts-1 points
+  !
+  do l = 1,nl
+    x1i(l) = x1(l) + (x2(l)-x1(l))*ds1in/dl
+    x2i(l) = x2(l) - (x2(l)-x1(l))*ds2in/dl
+  end do
+  !
+  ! F2003 AUTO-REALLOC
+  xp = get_tanh_spacing(x1i,x2i,ds1in,ds2in,np,special_b_coeff)
+  !
+  ! Copy the interior point spacings to the function result
+  !
+  return_value(2:np+1) = xp(1,1:np)
+  !
+end function tanh_spacing_1d
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function average_1p_spacing_1d(x1,x2,ds1,ds2) result(return_value)
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: x1
+  real(wp), intent(in) :: x2
+  real(wp), intent(in) :: ds1
+  real(wp), intent(in) :: ds2
+  !.. Function Result ..
+  real(wp) :: return_value
+continue
+  return_value = x1 + (x2-x1)*ds1/(ds1+ds2)
+end function average_1p_spacing_1d
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function average_1p_spacing_md(x1,x2,ds1,ds2) result(return_value)
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: x1(:)
+  real(wp), intent(in) :: x2(:)
+  real(wp), intent(in) :: ds1
+  real(wp), intent(in) :: ds2
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(x1))
+continue
+  return_value(:) = x1(:) + (x2(:)-x1(:))*ds1/(ds1+ds2)
+end function average_1p_spacing_md
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function tanh_spacing_md(x1in,x2in,ds1in,ds2in,npts,special_b_coeff) &
+                  result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: x1in(:)
+  real(wp), intent(in) :: x2in(:)
+  real(wp), intent(in) :: ds1in
+  real(wp), intent(in) :: ds2in
+  integer,  intent(in) :: npts
+  !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(in) :: special_b_coeff
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: nl,np,l
+  real(wp) :: dl
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: x1(:)
+  real(wp), allocatable :: x2(:)
+  real(wp), allocatable :: x1i(:)
+  real(wp), allocatable :: x2i(:)
+  real(wp), allocatable :: xp(:,:)
+  !
+continue
+  !
+  ! We are going to enforce the end spacings ds1in and ds2in,
+  ! so we only want to solve for the npts-3 interior spacings
+  ! (meaning npts-2 points on the line).
+  !
+  np = npts-2
+  !
+  ! Make sure x1 and x2 have the same dimensions
+  !
+  nl = min(size(x1in),size(x2in))
+  !
+  x1 = x1in(1:nl) ! F2003 AUTO-REALLOC
+  x2 = x2in(1:nl) ! F2003 AUTO-REALLOC
+  !
+  ! Allocate the function result
+  !
+  return_value = init_array(nl,npts,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Set the end points of the function result
+  ! to the end points input to the function
+  !
+  return_value(1:nl,   1) = x1(1:nl)
+  return_value(1:nl,npts) = x2(1:nl)
+  !
+  ! Special cases for npts=2 (a line with just two end points)
+  ! or npts=3 (a line with just one interior point)
+  !
+  if (np == 0) then
+    return
+  else if (np == 1) then
+    x1i = average_1p_spacing(x1,x2,ds1in,ds2in) ! F2003 AUTO-REALLOC
+    return_value(1:nl,2) = x1i(1:nl)
+    return
+  end if
+  !
+  ! Get the distance between the two points
+  !
+  dl = norm2( x1(:) - x2(:) )
+  !
+  ! Initialize the x1i and x2i arrays which will hold the coordinates
+  ! for the first points off the ends, i.e., [x1,x1i,...,x2i,x2].
+  !
+  x1i = init_array(nl,zero) ! F2003 AUTO-REALLOC
+  x2i = init_array(nl,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Modify x1i and x2i to be the location for the 2nd and npts-1 points
+  !
+  do l = 1,nl
+    x1i(l) = x1(l) + (x2(l)-x1(l))*ds1in/dl
+    x2i(l) = x2(l) - (x2(l)-x1(l))*ds2in/dl
+  end do
+  !
+  ! F2003 AUTO-REALLOC
+  xp = get_tanh_spacing(x1i,x2i,ds1in,ds2in,np,special_b_coeff)
+  !
+  ! Copy the interior point spacings to the function result
+  !
+  return_value(1:nl,2:np+1) = xp(1:nl,1:np)
+  !
+end function tanh_spacing_md
 !
 !###############################################################################
 !
