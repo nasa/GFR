@@ -75,6 +75,7 @@ subroutine create_internal_grid()
   !.. Use Statements ..
   use ovar, only : itestcase,postproc_debug_grid
   use ovar, only : VortexGrid_is_3D,VortexGrid_Hex_to_Pyramids
+  use ovar, only : flame_speed_test_dof
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_internal_grid"
@@ -153,8 +154,8 @@ subroutine create_taylor_couette_grid()
   use geovar,    only : cell_geom,cell_order
   use ovar,      only : grid_format
   !
-  use ovar, only : TCF_Inner_Radius,TCF_Inner_Wall_Radius
-  use ovar, only : TCF_Outer_Radius,TCF_Outer_Wall_Radius
+  use ovar, only : TCF_Inner_Radius,TCF_Inner_Wall_Spacing
+  use ovar, only : TCF_Outer_Radius,TCF_Outer_Wall_Spacing
   use ovar, only : TCF_Aspect_Ratio,TCF_Axial_Cells
   use ovar, only : TCF_Radial_Cells,TCF_Azimuthal_Cells
   !
@@ -1694,6 +1695,7 @@ subroutine create_periodic_cube_pyramid_grid()
   integer :: ncf,ncp,nc_min,nc_max,nc_hex
   integer :: imin,imax,jmin,jmax,kmin,kmax,ip_mid
   integer :: npyr_dof_per_hex,n_hex_cells,n_hex_nodes
+  integer :: nc_hex_min,nc_hex_max
   real(wp) :: x,y,z,dl
   real(r4) :: rbas,radj,rval
   !
@@ -3648,7 +3650,7 @@ function tanh_spacing(x1in,x2in,ds1in,ds2in,np) result(return_value)
   !
   !.. Local Scalars ..
   integer  :: n,nl,k,l
-  real(wp) :: ds1,ds2,dl
+  real(wp) :: ds1,ds2,dl,dsl
   real(wp) :: a,b,sf,rnum,rden,sferr
   real(wp) :: val,ue
   !
