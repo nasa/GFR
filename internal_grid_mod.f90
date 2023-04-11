@@ -780,6 +780,299 @@ end subroutine create_taylor_couette_grid
 !
 !###############################################################################
 !
+subroutine high_order_TCF_grid_points(ncx,ncr,nca,length,radial_pts,order, &
+                                      elem_nodes,elem_pts,xyz_nodes,xyz_pts)
+  !
+  !.. Formal Arguments ..
+  integer,                intent(in) :: ncx
+  integer,                intent(in) :: ncr
+  integer,                intent(in) :: nca
+  real(wp),               intent(in) :: length
+  real(wp),               intent(in) :: radial_pts(:)
+  integer,                intent(in) :: order
+  integer,  allocatable, intent(out) :: elem_nodes(:,:)
+  integer,  allocatable, intent(out) :: elem_pts(:,:)
+  real(wp), allocatable, intent(out) :: xyz_nodes(:,:)
+  real(wp), allocatable, intent(out) :: xyz_pts(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: nnx,nnr,nna,npx,npr,npa,p
+  integer  :: i,j,k,ic,jc,kc,ip,jp,kp
+  integer  :: n,nc,lcell,lnode,cpts,npts
+  real(wp) :: y,z,theta,divp,dr,dlpa,dlpx
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: ijkmap(:,:,:)
+  real(wp), allocatable :: rpts(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "high_order_TCF_grid_points"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Number of grid nodes in each direction
+  !
+  nnx = ncx + 1 ! axial     grid nodes
+  nnr = ncr + 1 ! radial    grid nodes
+  nna = nca     ! azimuthal grid nodes
+  !
+  ! Get the order of the high order grid
+  ! NOTE: For now we are limiting this to P4 to match the maximum allowed
+  !       by CGNS. One reason to do this is because we can then use the
+  !       functions in cgns_mod to extract the high-order connectivity for
+  !       each of the boundary face elements, which are needed for the
+  !       grid derived type.
+  !
+  p = min(order,4)
+  !
+  ! Number of high order points in each direction
+  !
+  npx = ncx*p + 1 ! axial     high order points
+  npr = ncr*p + 1 ! radial    high order points
+  npa = nca*p     ! azimuthal high order points
+  !
+  !################################################################
+  !################################################################
+  !#####  First, we need to take the radial cell spacings in  #####
+  !#####  radial_pts and add in the uniform spacings for the  #####
+  !#####  high-order points between each of the grid nodes.   #####
+  !################################################################
+  !################################################################
+  !
+  rpts = init_array(npr,zero) ! F2003 AUTO-REALLOC
+  !
+  jp = 1
+  rpts(jp) = radial_pts(1)
+  divp = one/real(p,kind=wp)
+  do jc = 2,ncr+1
+    dr = divp * (radial_pts(jc)-radial_pts(jc-1))
+    do n = 1,p
+      jp = jp + 1
+      rpts(jp) = rpts(jp-1) + dr
+    end do
+  end do
+  !
+  ! Also, compute the uniform high-order points spacings
+  !
+  ! Compute the uniform axial high-order point spacing
+  dlpx = length / real(npx-1,kind=wp)
+  ! Compute the uniform azimuthal high-order point spacing
+  dlpa = two*pi / real(npa,kind=wp)
+  !
+  !###################################################################
+  !###################################################################
+  !#####  Next, we need to create the ijkmap array which allows  #####
+  !#####  us to map between the high-order i,j,k point indices   #####
+  !#####  to the respective 1D index. Normally, we would just    #####
+  !#####  use a map3dto1d function, but the points need to be    #####
+  !#####  ordered such that the all the linear grid nodes come   #####
+  !#####  first followed by all the high-order points (well I    #####
+  !#####  am not sure the NEED to be ordered this way, but this  #####
+  !#####  seems to be the ordering convention used by others).   #####
+  !#####  While we are in the loop creating ijkmap, we will      #####
+  !#####  also create xyz_nodes since we have all the necessary  #####
+  !#####  information available and it uses the exact same loop  #####
+  !#####  structures.                                            #####
+  !###################################################################
+  !###################################################################
+  !
+  ! Compute the total number of grid nodes and allocate xyz_nodes
+  !
+  lnode = nnx*nnr*nna
+  !
+  xyz_nodes = init_array(3,lnode,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Allocate ijkmap
+  ! NOTE: The ijkmap(:,:,npa+1) == ijkmap(:,:,1) because
+  !       the min/max k boundaries self-connect
+  ! NOTE: We initialize this to -1 so that we will know which i,j,k
+  !       points have already been given a 1D index
+  !
+  ijkmap = init_array(npx,npr,npa+1,-1)
+  !
+  ! First create the indices for the linear grid nodes, and also
+  ! fill in xyz_nodes for these nodes
+  !
+  n = 0
+  do k = 1,nna
+    !
+    kp = (k-1)*p + 1
+    !
+    theta = dlpa * real(kp-1,kind=wp)
+    !
+    do j = 1,nnr
+      !
+      jp = (j-1)*p + 1
+      !
+      y = rpts(jp)*cos(theta)
+      z = rpts(jp)*sin(theta)
+      !
+      do i = 1,nnx
+        !
+        ip = (i-1)*p + 1
+        !
+        ! Save the 1D index for this grid node to ijkmap
+        !
+        n = n + 1
+        !
+        ijkmap(ip,jp,kp) = n
+        !
+        ! Compute the coordinates for this point and save it to xyz_nodes
+        !
+        xyz_nodes(1,n) = dlpx * real(ip-1,kind=wp)
+        xyz_nodes(2,n) = y
+        xyz_nodes(3,n) = z
+        !
+      end do
+    end do
+  end do
+  !
+  ! Compute the total number of high-order points and allocate xyz_pts
+  !
+  npts = npx*npr*npa
+  !
+  xyz_pts = init_array(3,npts,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Copy xyz_nodes over to xyz_pts
+  ! NOTE: n should equal lnode coming out of the above loops
+  !
+  xyz_pts(1:3,1:lnode) = xyz_nodes(1:3,1:lnode)
+  !
+  ! Now create the indices for the high-order grid points, and also
+  ! fill in xyz_pts for these points
+  !
+  n = lnode ! n should already be equal to lnode, but just in case
+  do kp = 1,npa
+    theta = dlpa * real(kp-1,kind=wp)
+    do jp = 1,npr
+      do ip = 1,npx
+        !
+        ! If the value in ijkmap for the current point is not the
+        ! initialized value of -1, then this point is a linear grid
+        ! node and has already been given a 1D index, so skip to the
+        ! next high-order point.
+        !
+        if (ijkmap(ip,jp,kp) /= -1) cycle
+        !
+        ! This high-order point is not a linear grid nodes, so give it a
+        ! 1D index in ijkmap
+        !
+        n = n + 1
+        !
+        ijkmap(ip,jp,kp) = n
+        !
+        ! Compute the coordinates for this point and save it to xyz_pts
+        !
+        xyz_pts(1,n) = dlpx * real(ip-1,kind=wp)
+        xyz_pts(2,n) = rpts(jp)*cos(theta)
+        xyz_pts(3,n) = rpts(jp)*sin(theta)
+        !
+      end do
+    end do
+  end do
+  !
+  ! Finally fill the self-connected kmax plane in ijkmap
+  ! by copying over the indices from the kmin plane
+  !
+  ijkmap(:,:,npa+1) = ijkmap(:,:,1)
+  !
+  !####################################################################
+  !####################################################################
+  !#####  Finally, create the elem_nodes and elem_pts arrays.     #####
+  !#####  The elem_nodes array contains the node connectivity     #####
+  !#####  for each of the linear grid cells, and the elem_pts     #####
+  !#####  array contains the high-order point connectivity for    #####
+  !#####  each of the high-order grid cells. The connectivity     #####
+  !#####  in elem_nodes is just a 2D array version of the same    #####
+  !#####  connectivity stored in nodes_of_cell. The connectivity  #####
+  !#####  in elem_pts uses the GFR point ordering, (i.e., i,j,k   #####
+  !#####  ordering).                                              #####
+  !####################################################################
+  !####################################################################
+  !
+  ! Compute the total number of grid cells and allocate elem_nodes
+  !
+  lcell = ncx*ncr*nca
+  !
+  elem_nodes = init_array(8,lcell,0) ! F2003 AUTO-REALLOC
+  !
+  ! Compute the number of high order points in each grid cell
+  ! and allocate elem_pts.
+  !
+  cpts = (p+1)**3
+  !
+  elem_pts = init_array(cpts,lcell,0) ! F2003 AUTO-REALLOC
+  !
+  ! Loop over the cells and create the elem_nodes
+  ! and elem_pts connectivities for each cell.
+  !
+  nc = 0
+  k_cells: &
+  do kc = 1,nca
+    !
+    k = (kc-1)*p + 1
+    !
+    j_cells: &
+    do jc = 1,ncr
+      !
+      j = (jc-1)*p + 1
+      !
+      i_cells: &
+      do ic = 1,ncx
+        !
+       !nc = map3dto1d(ic,jc,kc,ncx,ncr,nca)
+        nc = nc + 1
+        !
+        i = (ic-1)*p + 1
+        !
+        ! Fill elem_nodes
+        !
+        elem_nodes(1,nc) = ijkmap(i  ,j  ,k  )
+        elem_nodes(2,nc) = ijkmap(i+p,j  ,k  )
+        elem_nodes(3,nc) = ijkmap(i+p,j+p,k  )
+        elem_nodes(4,nc) = ijkmap(i  ,j+p,k  )
+        elem_nodes(5,nc) = ijkmap(i  ,j  ,k+p)
+        elem_nodes(6,nc) = ijkmap(i+p,j  ,k+p)
+        elem_nodes(7,nc) = ijkmap(i+p,j+p,k+p)
+        elem_nodes(8,nc) = ijkmap(i  ,j+p,k+p)
+        !
+        ! Fill elem_pts
+        !
+        n = 0
+        do kp = k,k+p
+          do jp = j,j+p
+            do ip = i,i+p
+              n = n + 1
+              elem_pts(n,nc) = ijkmap(ip,jp,kp)
+            end do
+          end do
+        end do
+        !
+      end do i_cells
+    end do j_cells
+  end do k_cells
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+!!contains
+!!!
+!!pure function map3dto1d(i,j,k,ni,nj,nk) result(return_value)
+!!  integer, intent(in) :: i,j,k,ni,nj,nk
+!!  integer :: return_value
+!!  integer :: kk
+!!  ! If k>nk, this should mean that we are looking at a cell on the
+!!  ! self-connecting azimuthal plane. For these cells, the k+1 nodes are
+!!  ! actually the k=1 nodes so zero out the k part of the mapping.
+!!  kk = merge( 0 , ni*nj*(k-1) , k > nk )
+!!  return_value = i + ni*(j-1) + kk
+!!end function map3dto1d
+  !
+end subroutine high_order_TCF_grid_points
+!
+!###############################################################################
+!
 subroutine create_periodic_square_quad_grid()
   !
   !.. Use Statements ..
