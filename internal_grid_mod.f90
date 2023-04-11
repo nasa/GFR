@@ -1073,6 +1073,147 @@ end subroutine high_order_TCF_grid_points
 !
 !###############################################################################
 !
+subroutine write_internal_grid(lcell,lfbnd)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,grid,bface
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: lcell
+  integer, intent(in) :: lfbnd
+  !
+  !.. Local Scalars ..
+  integer :: nnod,npts,fnod,fpts
+  integer :: nc,nf,i,l
+  real(wp) :: x,y,z,r,t
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: nodes(:)
+  integer, allocatable :: pts(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_internal_grid"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nnod = 0
+  npts = 0
+  fnod = 0
+  fpts = 0
+  !
+  do nc = 1,lcell
+    nnod = max(nnod,size(grid%elem(nc)%nodes))
+    npts = max(npts,size(grid%elem(nc)%pts))
+  end do
+  !
+  do nf = 1,lfbnd
+    nc = lcell + nf
+    fnod = max(fnod,size(grid%elem(nc)%nodes))
+    fpts = max(fpts,size(grid%elem(nc)%pts))
+  end do
+  !
+  1 format (i6,1x,"|",1x,100i7)
+  2 format (i6,1x,"|",1x,i3,i2,1x,"|",1x,100i7)
+  3 format (i7,2(5x,3f12.6))
+  4 format (89("="),/,"Cell ",i0, &
+            t21,"x",t33,"y",t45,"z",t62,"x",t74,"r",t86,"t",/, &
+            89("-"))
+  5 format (89("="),/,"Boundary Face ",i0, &
+            t21,"x",t33,"y",t45,"z",t62,"x",t74,"r",t86,"t",/, &
+            89("-"))
+  6 format (1000(a1))
+  if (mypnum == glb_root) then
+    !
+    write (4101,1) 0,    (i, i=1,nnod)
+    write (4102,2) 0,0,0,(i, i=1,fnod)
+    write (5101,1) 0,    (i, i=1,npts)
+    write (5102,2) 0,0,0,(i, i=1,fpts)
+    !
+    write (5101,6) ("-",i=1,npts*7+9)
+    write (5102,6) ("-",i=1,fpts*7+17)
+    !
+    do nc = 1,lcell
+      !
+      nodes = grid%elem(nc)%nodes(:) ! F2003 AUTO-REALLOC
+      pts   = grid%elem(nc)%pts(:)   ! F2003 AUTO-REALLOC
+      !
+      write (4101,1) nc,(nodes(i), i=1,size(nodes))
+      write (5101,1) nc,(pts(i), i=1,size(pts))
+      !
+      write (4103,4) nc
+      do i = 1,size(nodes)
+        l = nodes(i)
+        x = grid%xyz(1,l)
+        y = grid%xyz(2,l)
+        z = grid%xyz(3,l)
+        r = sqrt(y*y+z*z)
+        t = atan2(z,y)
+        t = t + merge(two*pi,zero,t<zero)
+        write (4103,3) l,x,y,z,x,r,t*radians2degrees
+      end do
+      !
+      write (5103,4) nc
+      do i = 1,size(pts)
+        l = pts(i)
+        x = grid%xyz(1,l)
+        y = grid%xyz(2,l)
+        z = grid%xyz(3,l)
+        r = sqrt(y*y+z*z)
+        t = atan2(z,y)
+        t = t + merge(two*pi,zero,t<zero)
+        write (5103,3) l,x,y,z,x,r,t*radians2degrees
+      end do
+      !
+    end do
+    !
+    do nf = 1,lfbnd
+      !
+      nc = lcell + nf
+      !
+      nodes = grid%elem(nc)%nodes(:) ! F2003 AUTO-REALLOC
+      pts   = grid%elem(nc)%pts(:)   ! F2003 AUTO-REALLOC
+      !
+      write (4102,2) nf,bface(1,nf),bface(4,nf),(nodes(i), i=1,size(nodes))
+      write (5102,2) nf,bface(1,nf),bface(4,nf),(pts(i), i=1,size(pts))
+      !
+      write (4104,5) nf
+      do i = 1,size(nodes)
+        l = nodes(i)
+        x = grid%xyz(1,l)
+        y = grid%xyz(2,l)
+        z = grid%xyz(3,l)
+        r = sqrt(y*y+z*z)
+        t = atan2(z,y)
+        t = t + merge(two*pi,zero,t<zero)
+        write (4104,3) l,x,y,z,x,r,t*radians2degrees
+      end do
+      !
+      write (5104,5) nf
+      do i = 1,size(pts)
+        l = pts(i)
+        x = grid%xyz(1,l)
+        y = grid%xyz(2,l)
+        z = grid%xyz(3,l)
+        r = sqrt(y*y+z*z)
+        t = atan2(z,y)
+        t = t + merge(two*pi,zero,t<zero)
+        write (5104,3) l,x,y,z,x,r,t*radians2degrees
+      end do
+      !
+    end do
+    !
+  end if
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine write_internal_grid
+!
+!###############################################################################
+!
 subroutine create_periodic_square_quad_grid()
   !
   !.. Use Statements ..
