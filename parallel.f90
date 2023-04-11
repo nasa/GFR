@@ -4736,6 +4736,7 @@ subroutine unpack_localized_grid_dt(lcell,grid_elem,grid_xyz,grid_sol,grid)
   !.. Use Statements ..
   use geovar,        only : grid_t
   use ovar,          only : grid_format,plot3d_agglomerate_order
+  use ovar,          only : itestcase
   use module_cgns,   only : cgns_element_properties
   use module_gmsh,   only : gmsh_element_properties
   use module_plot3d, only : plot3d_element_properties
@@ -4804,6 +4805,12 @@ continue
       grid%elem(nc)%prop = gmsh_element_properties(elem_type)
     else if (grid_format == CGNS_Format) then
       grid%elem(nc)%prop = cgns_element_properties(elem_type)
+    else if (grid_format == Internally_Generated_Grid) then
+      if (abs(itestcase) == Taylor_Couette_Flow) then
+        grid%elem(nc)%prop = cgns_element_properties(elem_type)
+      else
+        grid%elem(nc)%prop = linear_element_properties(elem_type)
+      end if
     else if (grid_format == Plot3D_Format) then
       plot3d_order = max(1,plot3d_agglomerate_order)
       grid%elem(nc)%prop = plot3d_element_properties(elem_type,plot3d_order)
