@@ -3060,9 +3060,10 @@ subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   !
   character(len=5)  :: cdim
   character(len=10) :: r_units,t_units,p_units,v_units,h_units
-  character(len=10) :: cp_units,visc_units,cond_units,q_units
+  character(len=10) :: cp_units,visc_units,cond_units,q_units,rpm_units
   !
   character(len=2000) :: isowall_fmt,adiwall_fmt,rhovel_fmt
+  character(len=2000) :: isorotwall_fmt,adirotwall_fmt
   character(len=2000) :: thermo_fmt,transport_fmt
   character(len=2000) :: species_fmt,tmp_fmt,energy_fmt
   !
@@ -3096,6 +3097,7 @@ continue
   cp_units = " J/(kg*K)"
   h_units = " J/kg"
   q_units = " m^2/s^2"
+  rpm_units = " RPM"
   !
   if (present(dimensional)) then
     if (.not. dimensional) then
@@ -3114,6 +3116,7 @@ continue
       cp_units = ""
       h_units = ""
       q_units = ""
+      rpm_units = " RPM"
       !
     end if
   end if
@@ -3122,6 +3125,8 @@ continue
   !
   write (isowall_fmt,102) t_units,v_units,v_units,v_units
   write (adiwall_fmt,103) v_units,v_units,v_units
+  write (isorotwall_fmt,202) t_units,rpm_units
+  write (adirotwall_fmt,203) rpm_units
   write (rhovel_fmt,104) r_units,v_units,v_units,v_units
   write (thermo_fmt,105) p_units,t_units,h_units,v_units,r_units, &
                          p_units,t_units,h_units,cp_units,cp_units
@@ -3210,17 +3215,23 @@ continue
       !
       if (bc_type == bc_isothermal_wall) then
         !
-        vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
-        !
         t = bc_in(this_bc)%wall_temperature * tdim
         !
-        write (iout,isowall_fmt) t,(vel(ii),ii=1,nr)
+        if (bc_input(bc_idx)%rotation_speed > eps1) then
+          write (iout,isorotwall_fmt) t,bc_input(bc_idx)%rotation_speed
+        else 
+          vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
+          write (iout,isowall_fmt) t,(vel(ii),ii=1,nr)
+        end if
         !
       else if (bc_type == bc_adiabatic_wall) then
         !
-        vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
-        !
-        write (iout,adiwall_fmt) (vel(ii),ii=1,nr)
+        if (bc_input(bc_idx)%rotation_speed > eps1) then
+          write (iout,adirotwall_fmt) bc_input(bc_idx)%rotation_speed
+        else
+          vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
+          write (iout,adiwall_fmt) (vel(ii),ii=1,nr)
+        end if
         !
       else
         !
@@ -3362,6 +3373,9 @@ continue
   103 format ('(4x,"Wall X-velocity",t27,"= ",es14.6,"',a,'",/,:,', &
                '4x,"Wall Y-velocity",t27,"= ",es14.6,"',a,'",/,:,', &
                '4x,"Wall Z-velocity",t27,"= ",es14.6,"',a,'",/)')
+  202 format ('(4x,"Wall Temperature",t27,"= ",es14.6,"',a,'",/,', &
+               '4x,"Wall Rotation Speed",t27,"= ",es14.6,"',a,'",/)')
+  203 format ('(4x,"Wall Rotation Speed",t27,"= ",es14.6,"',a,'",/)')
   104 format ('(4x,"Static Density",t27,"= ",es14.6,"',a,'",/,' &
                '4x,"X-velocity",t27,"= ",es14.6,"',a,'",:,/,' &
                '4x,"Y-velocity",t27,"= ",es14.6,"',a,'",:,/,' &
