@@ -154,45 +154,64 @@ subroutine create_taylor_couette_grid()
   !
   !.. Use Statements ..
   use order_mod, only : n_order
-  use ovar,      only : VortexGrid_DOF,Lref
-  use ovar,      only : VortexGrid_random_perturb
-  use ovar,      only : VortexGrid_perturb_percent
+  use ovar,      only : Lref,bc_input
   use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : cell_geom,cell_order
-  use ovar,      only : grid_format
+  use geovar,    only : grid,cell_geom,cell_order
+  use ovar,      only : grid_format,bc_names
   !
   use ovar, only : TCF_Inner_Radius,TCF_Inner_Wall_Spacing
   use ovar, only : TCF_Outer_Radius,TCF_Outer_Wall_Spacing
   use ovar, only : TCF_Aspect_Ratio,TCF_Axial_Cells
   use ovar, only : TCF_Radial_Cells,TCF_Azimuthal_Cells
   !
-  !.. Local Scalars ..
-  integer :: nc,np,ierr,i,j,k,l,n,n1,n2
-  integer :: nf_min,nf_max,n0,nc_min,nc_max
-  integer :: imin,imax,imin_side,imax_side
-  integer :: jmin,jmax,jmin_side,jmax_side
-  integer :: kmin,kmax,kmin_side,kmax_side
-  real(r4) :: x,y,z,dl
-  real(r4) :: rbas,radj,rval
+  use module_cgns_types, only : HEXA_8,HEXA_27,HEXA_64,HEXA_125
   !
-  !.. Local Arrays ..
-  integer :: ip(1:8)
-  integer :: ifp(1:4)
-  integer :: icp(1:8)
+  use module_cgns, only : get_face_elem
+  !
+  !.. Local Scalars ..
+  integer  :: ierr,i,j,k,imin,imax,jmin,jmax
+  integer  :: nc,nf,n1,n2,nc_min,nc_max
+  integer  :: ncx,ncr,nca,npx,npr,npa,npts
+  integer  :: host_cell,host_side,elem_type
+  integer  :: inner_wall_idx,outer_wall_idx
+  integer  :: inflow_idx,outflow_idx
+  real(wp) :: lx,special_b_coeff
   !
   !.. Local Allocatable Arrays ..
-  integer,  allocatable :: ipelem(:,:)
-  real(r4), allocatable :: perturb(:,:)
-  !
-  logical(lk), allocatable :: msk(:)
+  integer,  allocatable :: elem_nodes(:,:)
+  integer,  allocatable :: elem_pts(:,:)
+  real(wp), allocatable :: radial_pts(:)
+  real(wp), allocatable :: xyz_pts(:,:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "create_periodic_cube_hex_grid"
+  character(len=*), parameter :: pname = "create_taylor_couette_grid"
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+ !bc_names = ["Inflow","InnerWall","OuterWall","Outflow"]
+ !bc_names = ["InnerWall","OuterWall","Inflow","Outflow"]
+  !
+  inner_wall_idx = -1
+  outer_wall_idx = -1
+  inflow_idx = -1
+  outflow_idx = -1
+  !
+  bc_names = bc_input(1:4)%name ! F2003 AUTO-REALLOC
+  !
+  do i = 1,size(bc_names)
+    if (trim(adjustl(uppercase(bc_names(i)))) == "INNERWALL") then
+      inner_wall_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "OUTERWALL") then
+      outer_wall_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "INFLOW") then
+      inflow_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "OUTFLOW") then
+      outflow_idx = i
+    end if
+  end do
   !
   ! Reset the grid format input parameter to identify
   ! the grid as internally generated
@@ -203,30 +222,46 @@ continue
   !
   Lref = one
   !
-  ! The Taylor-Green vortex problem is always 3D
+  ! Get the length of the cylinders
+  !
+  lx = TCF_Aspect_Ratio * abs(TCF_Outer_Radius-TCF_Inner_Radius)
+  !
+  ! The Taylor-Couette flow problem is always 3D
   !
   nr = 3
   !
-  ! Reset bc_input for this fully periodic grid so that the subroutine
-  ! match_periodic_faces can correctly match all the periodic faces.
+  ! Get the number of grid cells in each direction from the TCF inputs
   !
-  call reset_bc_input_for_internal_grid
+  ncr = TCF_Radial_Cells
+  nca = TCF_Azimuthal_Cells
+  ncx = TCF_Axial_Cells
   !
-  ! Estimate the number of cells required to get the requested DOF
+  ! Get the number of grid nodes in each direction
   !
-  nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
+  npr = ncr+1 ! radial nodes
+  npa = nca   ! azimuthal nodes NOTE: self-connecting so no +1
+  npx = ncx+1 ! axial nodes
   !
-  np = nc + 1 ! number of grid nodes in each direction
-  !
-  ncell = nc*nc*nc ! total number of grid cells
-  nnode = np*np*np ! total number of grid nodes
-  nfbnd = 6*nc*nc  ! total number of boundary faces
+  ncell = ncr*nca*ncx ! total number of grid cells
+  ! NOTE: The following is still true, but we have changed npa=nca (instead of
+  !       npa=nca+1) which simplifies the logic for a bunch of the following
+  !       code. This means anywhere it says to use nca and NOT npa, we can now
+  !       use npa in those places since npa==nca.
+  ! We have to be careful when computing the number of grid nodes for this grid.
+  ! Because the grid in the azimuthal direction reconnects with itself,
+  ! the number of grid nodes isnt just npr*npa*npx like for other simple
+  ! structured grids. To get the total number of grid nodes, we need to multiply
+  ! the number of nodes on an axial plane is (npr*nca) by the number of axial
+  ! planes (number axial nodes).
+  nnode = npr*npa*npx ! total number of grid nodes (NOTE use nca NOT npa)
+  ! total number of boundary faces
+  nfbnd = ncx*nca & ! number of boundary faces for inner cylinder
+        + ncx*nca & ! number of boundary faces for outer cylinder
+        + ncr*nca & ! number of boundary faces for  inflow/periodic-A
+        + ncr*nca   ! number of boundary faces for outflow/periodic-B
   !
   ! Allocate all the arrays needed to define the grid
-  !
-  xyz_nodes = init_array(nr,nnode,zero) ! F2003 AUTO-REALLOC
-  !
-  ipelem = init_array(geom_nodes(Geom_Hexa),ncell,0) ! F2003 AUTO-REALLOC
+  ! NOTE: xyz_nodes and elem_nodes are allocated in high_order_TCF_grid_points
   !
   nodes_of_cell_ptr = init_array(ncell+1,0) ! F2003 AUTO-REALLOC
   !
@@ -238,91 +273,61 @@ continue
   !
   cell_order = init_array(ncell,n_order) ! F2003 AUTO-REALLOC
   !
-  perturb = init_array(nr,nnode,real(0,kind=r4)) ! F2003 AUTO-REALLOC
-  !
   ! #######
   ! #######
   ! ## 1 ##
   ! #######
   ! #######
   !
-  ! Create ipelem
+  ! Compute the radial cell spacings using a tanh distribution
   !
-  do k = 1,nc
-    do j = 1,nc
-      do i = 1,nc
-        !
-        n = map3dto1d(i,j,k,nc)
-        !
-        ip(1) = map3dto1d(i  ,j  ,k  ,np)
-        ip(2) = map3dto1d(i+1,j  ,k  ,np)
-        ip(3) = map3dto1d(i+1,j+1,k  ,np)
-        ip(4) = map3dto1d(i  ,j+1,k  ,np)
-        ip(5) = map3dto1d(i  ,j  ,k+1,np)
-        ip(6) = map3dto1d(i+1,j  ,k+1,np)
-        ip(7) = map3dto1d(i+1,j+1,k+1,np)
-        ip(8) = map3dto1d(i  ,j+1,k+1,np)
-        !
-        if (randomly_rotate_cells_debug) then
-          !
-          ! Randomly rotate the cell connectivity of all the hex cells
-          ! NOTE: This leaves the grid nodes in a structured ijk order.
-          !       Only the cell connectivities are randomized.
-          !       The cells will also still be in a structured ijk order,
-          !       but what faces of each cell face in each ijk direction
-          !       will be randomized.
-          !
-          l = min( 24 , max(1,random(25)) )
-          !
-          ipelem(1,n) = ip( hex_random_rotation(1,l) )
-          ipelem(2,n) = ip( hex_random_rotation(2,l) )
-          ipelem(3,n) = ip( hex_random_rotation(3,l) )
-          ipelem(4,n) = ip( hex_random_rotation(4,l) )
-          ipelem(5,n) = ip( hex_random_rotation(5,l) )
-          ipelem(6,n) = ip( hex_random_rotation(6,l) )
-          ipelem(7,n) = ip( hex_random_rotation(7,l) )
-          ipelem(8,n) = ip( hex_random_rotation(8,l) )
-          !
-        else
-          !
-          ipelem(1,n) = ip(1)
-          ipelem(2,n) = ip(2)
-          ipelem(3,n) = ip(3)
-          ipelem(4,n) = ip(4)
-          ipelem(5,n) = ip(5)
-          ipelem(6,n) = ip(6)
-          ipelem(7,n) = ip(7)
-          ipelem(8,n) = ip(8)
-          !
-        end if
-        !
-      end do
-    end do
-  end do
-  !
-  ! Create the nodes_of_cell_ptr array
-  !
-  nodes_of_cell_ptr(1) = 0
-  do n = 2,size(nodes_of_cell_ptr)
-    nodes_of_cell_ptr(n) = nodes_of_cell_ptr(n-1) + geom_nodes(Geom_Hexa)
-  end do
-  !
-  ! Create the nodes_of_cell array
-  !
-  do n = 1,ncell
+  special_b_coeff = -one
+  check_recreate_loop: &
+  do i = 1,1
     !
-    n0 = nodes_of_cell_ptr(n)
+    ! This loop is to check if the inputs used for creating the grid for
+    ! the Taylor-Couette flow problem match the specs for the initial
+    ! grid created by Pointwise to test/debug this problem. If the inputs
+    ! match the Pointwise grid specs, it is assumed we are trying to recreate
+    ! that grid for testing the use of an internally generated grid versus
+    ! the result of using the Pointwise grid. The radial tanh spacing
+    ! generated by Pointwise doesnt match the spacings generated by the
+    ! tanh_spacing function (with default settings) using the same input
+    ! values. We can recreate the Pointwise tanh spacing by providing a
+    ! special coefficient used in the computation of the b parameter that is
+    ! needed to compute the tanh spacing. We can specify this special
+    ! coefficient using the optional argument special_b_coeff to the function
+    ! tanh_spacing. Using a value of +3.75 for special_b_coeff seems to do
+    ! a good enough job of recreating the Pointwise tanh spacings.
     !
-    nodes_of_cell(n0+1) = ipelem(1,n)
-    nodes_of_cell(n0+2) = ipelem(2,n)
-    nodes_of_cell(n0+3) = ipelem(3,n)
-    nodes_of_cell(n0+4) = ipelem(4,n)
-    nodes_of_cell(n0+5) = ipelem(5,n)
-    nodes_of_cell(n0+6) = ipelem(6,n)
-    nodes_of_cell(n0+7) = ipelem(7,n)
-    nodes_of_cell(n0+8) = ipelem(8,n)
+    ! If any of the TCF input values do not match those used for the initial
+    ! Pointwise grid, exit this single-pass loop and leave special_b_coeff to
+    ! its default value of -1.
     !
-  end do
+    if (TCF_Radial_Cells    /= 20) exit check_recreate_loop
+    if (TCF_Azimuthal_Cells /= 48) exit check_recreate_loop
+    if (TCF_Axial_Cells     /= 24) exit check_recreate_loop
+    if (abs(TCF_Inner_Radius       - half)      > eps6) exit check_recreate_loop
+    if (abs(TCF_Inner_Wall_Spacing - 0.002_wp)  > eps6) exit check_recreate_loop
+    if (abs(TCF_Outer_Radius       - one)       > eps6) exit check_recreate_loop
+    if (abs(TCF_Outer_Wall_Spacing - 0.0025_wp) > eps6) exit check_recreate_loop
+    !
+    ! It appears we are trying to recreate the initial Pointwise grid used
+    ! for testing/debugging the Taylor-Couette flow problem, so set
+    ! special_b_coeff to +3.75 which should do a decent job of recreating the
+    ! radial tanh spacings generated by Pointwise.
+    !
+    special_b_coeff = 3.75_wp
+    !
+  end do check_recreate_loop
+  !
+  ! Compute the actual radial point coordinates using the tanh_spacing function
+  !
+  radial_pts = tanh_spacing(TCF_Inner_Radius, & ! F2003 AUTO-REALLOC
+                            TCF_Outer_Radius, &
+                            TCF_Inner_Wall_Spacing, &
+                            TCF_Outer_Wall_Spacing, &
+                            npr,special_b_coeff=special_b_coeff)
   !
   ! #######
   ! #######
@@ -330,116 +335,19 @@ continue
   ! #######
   ! #######
   !
-  ! Compute the cell length for a Cartesian/uniform grid
+  ! Create the linear grid cell connectivities (elem_nodes), the high-order
+  ! grid cell connectivities (elem_pts), the linear grid node coordinates
+  ! (xyz_nodes), and the high-order grid point coordinates (xyz_pts).
   !
-  dl = real(1,kind=r4) / real(np-1,kind=r4)
+  call high_order_TCF_grid_points(ncx,ncr,nca,lx,radial_pts,n_order, &
+                                  elem_nodes,elem_pts,xyz_nodes,xyz_pts)
   !
-  ! Compute the random perturbations if the flag was set on input
+  ! Deallocate radial_pts since it is no longer needed
   !
-  if (VortexGrid_random_perturb) then
-    !
-    rbas = dl * real(abs(VortexGrid_perturb_percent),kind=r4) &
-              / real(100,kind=r4)
-    radj = rbas / real(2,kind=r4)
-    !
-    if (VortexGrid_perturb_percent < 0) then
-      !
-      ! Randomly perturb the crap out of everything
-      !
-      do k = 2,np-1
-        do j = 2,np-1
-          do i = 2,np-1
-            !
-            n = map3dto1d(i,j,k,np)
-            !
-            do l = 1,nr
-              rval = random(rbas) - radj
-              perturb(l,n) = rval
-            end do
-            !
-          end do
-        end do
-      end do
-      !
-    else
-      !
-      ! Get the random perturbation in along i for y
-      !
-      do i = 2,np-1
-        rval = random(rbas) - radj
-        do k = 2,np-1
-          do j = 2,np-1
-            n = map3dto1d(i,j,k,np)
-            perturb(2,n) = rval
-          end do
-        end do
-      end do
-      !
-      ! Get the random perturbation along j for z
-      !
-      do j = 2,np-1
-        rval = random(rbas) - radj
-        do k = 2,np-1
-          do i = 2,np-1
-            n = map3dto1d(i,j,k,np)
-            perturb(3,n) = rval
-          end do
-        end do
-      end do
-      !
-      ! Get the random perturbation along k for x
-      !
-      do k = 2,np-1
-        rval = random(rbas) - radj
-        do j = 2,np-1
-          do i = 2,np-1
-            n = map3dto1d(i,j,k,np)
-            perturb(1,n) = rval
-          end do
-        end do
-      end do
-      !
-    end if
-    !
-    ! Have the root processor broadcast its perturbations to all the
-    ! other processors so that the perturbations will be consistent
-    ! on all processors.
-    !
-    call mpi_bcast(perturb,size(perturb,kind=int_mpi), &
-                   MPI_REAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
-    !
+  if (allocated(radial_pts)) then
+    deallocate ( radial_pts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"radial_pts",2,__LINE__,__FILE__,ierr,error_message)
   end if
-  !
-  ! Create the grid node coordinates as a cube from (0,0,0) to (1,1,1)
-  ! NOTE: Scaling the grid to (-Lref,-Lref,-Lref) to (+Lref,+Lref,+Lref)
-  !       is now done in subroutine rescale_grid_for_vortex_problems.
-  !
-  do k = 1,np
-    !
-    z = dl * real(k-1,kind=r4)
-    !
-    do j = 1,np
-      !
-      y = dl * real(j-1,kind=r4)
-      !
-      do i = 1,np
-        !
-        x = dl * real(i-1,kind=r4)
-        !
-        n = map3dto1d(i,j,k,np)
-        !
-        xyz_nodes(1,n) = real( x + perturb(1,n) , kind=wp )
-        xyz_nodes(2,n) = real( y + perturb(2,n) , kind=wp )
-        xyz_nodes(3,n) = real( z + perturb(3,n) , kind=wp )
-        !
-      end do
-    end do
-  end do
-  !
-  ! Deallocate perturb since it is no longer needed
-  !
-  deallocate ( perturb , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"perturb",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! #######
   ! #######
@@ -447,341 +355,239 @@ continue
   ! #######
   ! #######
   !
-  msk = init_array(nnode,fals) ! F2003 AUTO-REALLOC
+  ! Create the nodes_of_cell and nodes_of_cell_ptr arrays. nodes_of_cell is
+  ! just a 1D version of elem_nodes, and nodes_of_cell_ptr is an indexing
+  ! array that gives the beginning/ending index in nodes_of_cell for each
+  ! cell.
+  !
+  ! Create the nodes_of_cell_ptr array
+  !
+  nodes_of_cell_ptr = intseq(0,ncell)*geom_nodes(Geom_Hexa) ! F2003 AUTO-REALLOC
+ !nodes_of_cell_ptr(1) = 0
+ !do n = 2,size(nodes_of_cell_ptr)
+ !  nodes_of_cell_ptr(n) = nodes_of_cell_ptr(n-1) + geom_nodes(Geom_Hexa)
+ !end do
+  !
+  ! Create the nodes_of_cell array
+  !
+  ! F2003 AUTO-REALLOC
+  nodes_of_cell = reshape( elem_nodes(:,:) , shape=[size(elem_nodes)] )
+ !do n = 1,ncell
+ !  !
+ !  n0 = nodes_of_cell_ptr(n)
+ !  !
+ !  nodes_of_cell(n0+1) = elem_nodes(1,n)
+ !  nodes_of_cell(n0+2) = elem_nodes(2,n)
+ !  nodes_of_cell(n0+3) = elem_nodes(3,n)
+ !  nodes_of_cell(n0+4) = elem_nodes(4,n)
+ !  nodes_of_cell(n0+5) = elem_nodes(5,n)
+ !  nodes_of_cell(n0+6) = elem_nodes(6,n)
+ !  nodes_of_cell(n0+7) = elem_nodes(7,n)
+ !  nodes_of_cell(n0+8) = elem_nodes(8,n)
+ !  !
+ !end do
+  !
+  ! #######
+  ! #######
+  ! ## 4 ##
+  ! #######
+  ! #######
   !
   ! Create the bface array
   !
-  nf_max = 0
-  !
-  ! Loop through the 6 grid boundaries
+  ! Loop through the 4 grid boundaries
   ! NOTE: This corresponds to the grid boundaries in
-  !       the order [imin,imax,jmin,jmax,kmin,kmax]
+  !       the order [InnerWall,OuterWall,Inflow,Outflow] which
+  !       correspond to the [jmin,jmax,imin,imax] boundaries.
+  ! NOTE: There are no kmin and kmax boundaries because
+  !       the k-direction self-connects with itself.
+  !
+  ! InnerWall/j-min and OuterWall/j-max boundaries
+  !
+  n1 = 0            ! j-min counter
+  n2 = n1 + ncx*nca ! j-max counter
+  do k = 1,nca
+    do i = 1,ncx
+      !
+      jmin = 1
+      jmax = ncr
+      !
+      nc_min = map3dto1d(i,jmin,k,ncx,ncr,nca)
+      nc_max = map3dto1d(i,jmax,k,ncx,ncr,nca)
+      !
+      n1 = n1 + 1 ! j-min face
+      n2 = n2 + 1 ! j-max face
+      !
+      bface( 1,n1) = bc_isothermal_wall
+      bface( 2,n1) = nc_min
+      bface( 3,n1) = Geom_Hexa
+      bface( 4,n1) = HostFace3D(3)
+      bface( 5,n1) = inner_wall_idx ! group for boundary face
+      bface( 6,n1) = inner_wall_idx ! index of bc_input for this BC
+      bface(10,n1) = ncell + n1
+      !
+      bface( 1,n2) = bc_adiabatic_wall
+      bface( 2,n2) = nc_max
+      bface( 3,n2) = Geom_Hexa
+      bface( 4,n2) = HostFace3D(4)
+      bface( 5,n2) = outer_wall_idx ! group for boundary face
+      bface( 6,n2) = outer_wall_idx ! index of bc_input for this BC
+      bface(10,n2) = ncell + n2
+      !
+    end do
+  end do
   !
   ! Min-X and Max-X boundary faces
   !
-  n1 = 0          ! min-x counter
-  n2 = n1 + nc*nc ! max-x counter
-  do k = 1,nc
-    do j = 1,nc
+  n1 = 2*ncx*nca    ! min-x counter
+  n2 = n1 + ncr*nca ! max-x counter
+  do k = 1,nca
+    do j = 1,ncr
       !
       imin = 1
-      imax = nc
+      imax = ncx
       !
-      nc_min = map3dto1d(imin,j,k,nc)
-      nc_max = map3dto1d(imax,j,k,nc)
+      nc_min = map3dto1d(imin,j,k,ncx,ncr,nca)
+      nc_max = map3dto1d(imax,j,k,ncx,ncr,nca)
       !
       n1 = n1 + 1 ! x-min face
       n2 = n2 + 1 ! x-max face
       !
-      if (.not. randomly_rotate_cells_debug) then
-        !
-        imin_side = HostFace3D(1)
-        imax_side = HostFace3D(2)
-        !
-      else
-        !
-        ! get the structured ijk nodes of the x-min face
-        !
-        ip(1) = map3dto1d(imin  ,j  ,k  ,np)
-        ip(2) = map3dto1d(imin+1,j  ,k  ,np)
-        ip(3) = map3dto1d(imin+1,j+1,k  ,np)
-        ip(4) = map3dto1d(imin  ,j+1,k  ,np)
-        ip(5) = map3dto1d(imin  ,j  ,k+1,np)
-        ip(6) = map3dto1d(imin+1,j  ,k+1,np)
-        ip(7) = map3dto1d(imin+1,j+1,k+1,np)
-        ip(8) = map3dto1d(imin  ,j+1,k+1,np)
-        !
-        ! get the face nodes that are on this x-min boundary face
-        !
-        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(1),Geom_Hexa) + 1 )
-        !
-        ! mark these face nodes
-        !
-        msk(ifp(1:4)) = true
-        !
-        ! get the cell nodes for this cell in the randomized order
-        !
-        icp(1:8) = ipelem(1:8,nc_min)
-        !
-        ! loop through the different cell faces and find which face
-        ! has the same nodes as the x-min boundary face
-        !
-        imin_side = -99
-        imin_side_loop: &
-        do l = 1,6
-          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
-            imin_side = l
-            exit imin_side_loop
-          end if
-        end do imin_side_loop
-        !
-        ! reset the marker for these face nodes
-        !
-        msk(ifp(1:4)) = fals
-        !
-        ! get the structured ijk nodes of the x-max face
-        !
-        ip(1) = map3dto1d(imax  ,j  ,k  ,np)
-        ip(2) = map3dto1d(imax+1,j  ,k  ,np)
-        ip(3) = map3dto1d(imax+1,j+1,k  ,np)
-        ip(4) = map3dto1d(imax  ,j+1,k  ,np)
-        ip(5) = map3dto1d(imax  ,j  ,k+1,np)
-        ip(6) = map3dto1d(imax+1,j  ,k+1,np)
-        ip(7) = map3dto1d(imax+1,j+1,k+1,np)
-        ip(8) = map3dto1d(imax  ,j+1,k+1,np)
-        !
-        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(2),Geom_Hexa) + 1 )
-        !
-        msk(ifp(1:4)) = true
-        !
-        icp(1:8) = ipelem(1:8,nc_max)
-        imax_side = -99
-        imax_side_loop: &
-        do l = 1,6
-          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
-            imax_side = l
-            exit imax_side_loop
-          end if
-        end do imax_side_loop
-        !
-        msk(ifp(1:4)) = fals
-        !
-      end if
-      !
       ! NOTE: The subroutine match_periodic_faces will set the values of
       !       bface([5,6,8,9],:), so we dont need to do that here.
       !
       bface( 1,n1) = bc_periodic
       bface( 2,n1) = nc_min
       bface( 3,n1) = Geom_Hexa
-      bface( 4,n1) = imin_side
-      bface( 6,n1) = 1 ! index for bc_input needed by match_periodic_faces
+      bface( 4,n1) = HostFace3D(1)
+      bface( 5,n1) = inflow_idx ! group for boundary face
+      bface( 6,n1) = inflow_idx ! idx needed by match_periodic_faces
       bface(10,n1) = ncell + n1
       !
       bface( 1,n2) = bc_periodic
       bface( 2,n2) = nc_max
       bface( 3,n2) = Geom_Hexa
-      bface( 4,n2) = imax_side
-      bface( 6,n2) = 2 ! index for bc_input needed by match_periodic_faces
+      bface( 4,n2) = HostFace3D(2)
+      bface( 5,n2) = outflow_idx ! group for boundary face
+      bface( 6,n2) = outflow_idx ! idx needed by match_periodic_faces
       bface(10,n2) = ncell + n2
       !
     end do
   end do
   !
-  ! Min-Y and Max-Y boundary faces
+  ! #######
+  ! #######
+  ! ## 5 ##
+  ! #######
+  ! #######
   !
-  n1 = 2*nc*nc    ! min-y counter
-  n2 = n1 + nc*nc ! max-y counter
-  do k = 1,nc
-    do i = 1,nc
-      !
-      jmin = 1
-      jmax = nc
-      !
-      nc_min = map3dto1d(i,jmin,k,nc)
-      nc_max = map3dto1d(i,jmax,k,nc)
-      !
-      n1 = n1 + 1 ! y-min face
-      n2 = n2 + 1 ! y-max face
-      !
-      if (.not. randomly_rotate_cells_debug) then
-        !
-        jmin_side = HostFace3D(3)
-        jmax_side = HostFace3D(4)
-        !
-      else
-        !
-        ! get the structured ijk nodes of the y-min face
-        !
-        ip(1) = map3dto1d(i  ,jmin  ,k  ,np)
-        ip(2) = map3dto1d(i+1,jmin  ,k  ,np)
-        ip(3) = map3dto1d(i+1,jmin+1,k  ,np)
-        ip(4) = map3dto1d(i  ,jmin+1,k  ,np)
-        ip(5) = map3dto1d(i  ,jmin  ,k+1,np)
-        ip(6) = map3dto1d(i+1,jmin  ,k+1,np)
-        ip(7) = map3dto1d(i+1,jmin+1,k+1,np)
-        ip(8) = map3dto1d(i  ,jmin+1,k+1,np)
-        !
-        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(3),Geom_Hexa) + 1 )
-        !
-        msk(ifp(1:4)) = true
-        !
-        icp(1:8) = ipelem(1:8,nc_min)
-        jmin_side = -99
-        jmin_side_loop: &
-        do l = 1,6
-          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
-            jmin_side = l
-            exit jmin_side_loop
-          end if
-        end do jmin_side_loop
-        !
-        msk(ifp(1:4)) = fals
-        !
-        ! get the structured ijk nodes of the y-max face
-        !
-        ip(1) = map3dto1d(i  ,jmax  ,k  ,np)
-        ip(2) = map3dto1d(i+1,jmax  ,k  ,np)
-        ip(3) = map3dto1d(i+1,jmax+1,k  ,np)
-        ip(4) = map3dto1d(i  ,jmax+1,k  ,np)
-        ip(5) = map3dto1d(i  ,jmax  ,k+1,np)
-        ip(6) = map3dto1d(i+1,jmax  ,k+1,np)
-        ip(7) = map3dto1d(i+1,jmax+1,k+1,np)
-        ip(8) = map3dto1d(i  ,jmax+1,k+1,np)
-        !
-        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(4),Geom_Hexa) + 1 )
-        !
-        msk(ifp(1:4)) = true
-        !
-        icp(1:8) = ipelem(1:8,nc_max)
-        jmax_side = -99
-        jmax_side_loop: &
-        do l = 1,6
-          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
-            jmax_side = l
-            exit jmax_side_loop
-          end if
-        end do jmax_side_loop
-        !
-        msk(ifp(1:4)) = fals
-        !
-      end if
-      !
-      ! NOTE: The subroutine match_periodic_faces will set the values of
-      !       bface([5,6,8,9],:), so we dont need to do that here.
-      !
-      bface( 1,n1) = bc_periodic
-      bface( 2,n1) = nc_min
-      bface( 3,n1) = Geom_Hexa
-      bface( 4,n1) = jmin_side
-      bface( 6,n1) = 3 ! index for bc_input needed by match_periodic_faces
-      bface(10,n1) = ncell + n1
-      !
-      bface( 1,n2) = bc_periodic
-      bface( 2,n2) = nc_max
-      bface( 3,n2) = Geom_Hexa
-      bface( 4,n2) = jmax_side
-      bface( 6,n2) = 4 ! index for bc_input needed by match_periodic_faces
-      bface(10,n2) = ncell + n2
-      !
-    end do
+  ! We need to create the grid derived type for the Taylor-Couette grids
+  ! because we need to make the high-order grid points for the curved
+  ! boundaries
+  !
+  if (allocated(grid)) then
+    deallocate ( grid , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( grid , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"grid",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( grid%elem(1:ncell+nfbnd) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"grid%elem",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Create grid for the grid cells
+  !
+  if (n_order == 1) then
+    elem_type = int(HEXA_8)
+    npts = 8
+  else if (n_order == 2) then
+    elem_type = int(HEXA_27)
+    npts = 27
+  else if (n_order == 3) then
+    elem_type = int(HEXA_64)
+    npts = 64
+  else ! n_order >= 4
+    elem_type = int(HEXA_125)
+    npts = 125
+  end if
+  !
+  do nc = 1,ncell
+    !
+    grid%elem(nc)%prop%npts = npts
+    grid%elem(nc)%prop%order = min(n_order,4)
+    grid%elem(nc)%prop%geom = Geom_Hexa
+    grid%elem(nc)%prop%elem_type = elem_type
+    !
+    grid%elem(nc)%nodes = elem_nodes(1:8,nc) ! F2003 AUTO-REALLOC
+    grid%elem(nc)%pts = elem_pts(1:npts,nc) ! F2003 AUTO-REALLOC
+    !
+    grid%elem(nc)%tags = [0,0] ! F2003 AUTO-REALLOC
+    !
   end do
   !
-  ! Min-Z and Max-Z boundary faces
+  ! Create grid for the boundary faces
   !
-  n1 = 4*nc*nc    ! min-z counter
-  n2 = n1 + nc*nc ! max-z counter
-  do j = 1,nc
-    do i = 1,nc
-      !
-      kmin = 1
-      kmax = nc
-      !
-      nc_min = map3dto1d(i,j,kmin,nc)
-      nc_max = map3dto1d(i,j,kmax,nc)
-      !
-      n1 = n1 + 1 ! z-min face
-      n2 = n2 + 1 ! z-max face
-      !
-      if (.not. randomly_rotate_cells_debug) then
-        !
-        kmin_side = HostFace3D(5)
-        kmax_side = HostFace3D(6)
-        !
-      else
-        !
-        ! get the structured ijk nodes of the y-min face
-        !
-        ip(1) = map3dto1d(i  ,j  ,kmin  ,np)
-        ip(2) = map3dto1d(i+1,j  ,kmin  ,np)
-        ip(3) = map3dto1d(i+1,j+1,kmin  ,np)
-        ip(4) = map3dto1d(i  ,j+1,kmin  ,np)
-        ip(5) = map3dto1d(i  ,j  ,kmin+1,np)
-        ip(6) = map3dto1d(i+1,j  ,kmin+1,np)
-        ip(7) = map3dto1d(i+1,j+1,kmin+1,np)
-        ip(8) = map3dto1d(i  ,j+1,kmin+1,np)
-        !
-        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(5),Geom_Hexa) + 1 )
-        !
-        msk(ifp(1:4)) = true
-        !
-        icp(1:8) = ipelem(1:8,nc_min)
-        kmin_side = -99
-        kmin_side_loop: &
-        do l = 1,6
-          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
-            kmin_side = l
-            exit kmin_side_loop
-          end if
-        end do kmin_side_loop
-        !
-        msk(ifp(1:4)) = fals
-        !
-        ! get the structured ijk nodes of the y-max face
-        !
-        ip(1) = map3dto1d(i  ,j  ,kmax  ,np)
-        ip(2) = map3dto1d(i+1,j  ,kmax  ,np)
-        ip(3) = map3dto1d(i+1,j+1,kmax  ,np)
-        ip(4) = map3dto1d(i  ,j+1,kmax  ,np)
-        ip(5) = map3dto1d(i  ,j  ,kmax+1,np)
-        ip(6) = map3dto1d(i+1,j  ,kmax+1,np)
-        ip(7) = map3dto1d(i+1,j+1,kmax+1,np)
-        ip(8) = map3dto1d(i  ,j+1,kmax+1,np)
-        !
-        ifp(1:4) = ip( side_nodes(1:4,HostFace3D(6),Geom_Hexa) + 1 )
-        !
-        msk(ifp(1:4)) = true
-        !
-        icp(1:8) = ipelem(1:8,nc_max)
-        kmax_side = -99
-        kmax_side_loop: &
-        do l = 1,6
-          if (count(msk(icp(side_nodes(1:4,l,Geom_Hexa)+1))) == 4) then
-            kmax_side = l
-            exit kmax_side_loop
-          end if
-        end do kmax_side_loop
-        !
-        msk(ifp(1:4)) = fals
-        !
-      end if
-      !
-      ! NOTE: The subroutine match_periodic_faces will set the values of
-      !       bface([5,6,8,9],:), so we dont need to do that here.
-      !
-      bface( 1,n1) = bc_periodic
-      bface( 2,n1) = nc_min
-      bface( 3,n1) = Geom_Hexa
-      bface( 4,n1) = kmin_side
-      bface( 6,n1) = 5 ! index for bc_input needed by match_periodic_faces
-      bface(10,n1) = ncell + n1
-      !
-      bface( 1,n2) = bc_periodic
-      bface( 2,n2) = nc_max
-      bface( 3,n2) = Geom_Hexa
-      bface( 4,n2) = kmax_side
-      bface( 6,n2) = 6 ! index for bc_input needed by match_periodic_faces
-      bface(10,n2) = ncell + n2
-      !
-    end do
+  do nf = 1,nfbnd
+    !
+    nc = ncell + nf
+    !
+    host_cell = bface(2,nf)
+    host_side = bface(4,nf)
+    !
+    ! Use get_face_elem to get the face connectivity
+    ! NOTE: This will assign all the %prop values, create the %nodes
+    !       and %pts arrays, and copy the host cells %tags array.
+    ! NOTE: The get_face_elem function works correctly whether the host
+    !       cells point connectivity is in CGNS or GFR ordering. It will check
+    !       to see if
+    !         1) %pts(1:size(%nodes)) == %nodes (CGNS ordering), and then
+    !            return the face elements %pts array in GFR ordering, or
+    !         2) otherwise, it will reverse the GFR ordering of the host
+    !            cells %pts to put it back in CGNS order, the return the
+    !            face elements %pts array in GFR ordering
+    !
+    grid%elem(nc) = get_face_elem(grid%elem(host_cell),host_side,host_cell)
+    !
+    ! The get_face_elem function copies the host cells tags array to the
+    ! face element, so we need to add the boundary condition to tags.
+    !
+    grid%elem(nc)%tags = [bface(1,nf),0] ! F2003 AUTO-REALLOC
+    !
   end do
   !
-  ! Deallocate ipelem and msk since they are no longer needed
+  ! Copy the xyz_pts array into grid%xyz using the move_alloc subroutine
+  ! NOTE: This will allocate grid%xyz with the same size and shape as xyz_pts,
+  !       copy over the values, then deallocate xyz_pts.
   !
-  deallocate ( ipelem , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
+  call move_alloc( from=xyz_pts , to=grid%xyz )
   !
-  deallocate ( msk , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+ !call write_internal_grid(ncell,nfbnd)
+  !
+  ! Deallocate elem_nodes and elem_pts before leaving
+  !
+  if (allocated(elem_nodes)) then
+    deallocate ( elem_nodes , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"elem_nodes",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  if (allocated(elem_pts)) then
+    deallocate ( elem_pts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"elem_pts",2,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
   call debug_timer(leaving_procedure,pname)
   !
   contains
   !
-  pure function map3dto1d(i,j,k,n) result(return_value)
-    integer, intent(in) :: i,j,k,n
+  pure function map3dto1d(i,j,k,ni,nj,nk) result(return_value)
+    integer, intent(in) :: i,j,k,ni,nj,nk
     integer :: return_value
-    return_value = i + n*(j-1) + n*n*(k-1)
+    integer :: kk
+    ! If k>nk, this should mean that we are looking at a cell on the
+    ! self-connecting azimuthal plane. For these cells, the k+1 nodes are
+    ! actually the k=1 nodes so zero out the k part of the mapping.
+    kk = merge( 0 , ni*nj*(k-1) , k > nk )
+    return_value = i + ni*(j-1) + kk
   end function map3dto1d
   !
 end subroutine create_taylor_couette_grid
