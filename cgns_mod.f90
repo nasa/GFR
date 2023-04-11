@@ -31,6 +31,7 @@ module module_cgns
   public :: cgns_memory_usage
   public :: root_broadcasts_grid_dt
   public :: reorder_to_cgns_pts
+  public :: get_face_elem
   !
   ! ###########################################################################
   ! ###########################################################################
