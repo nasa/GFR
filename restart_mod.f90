@@ -563,8 +563,8 @@ continue
   !
   restart_solution_form = int( int_header(3) , &
                                kind=kind(restart_solution_form) )
-  !
-  call check_restart_solution_form(restart_solution_form)
+!%!
+!%call check_restart_solution_form(restart_solution_form)
   !
   ! Check if there is restart information for
   ! the synthetic inflow turbulence generators
@@ -644,6 +644,12 @@ continue
         call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end select
   end if
+  !
+  ! Check to see if the form of the restart data matches the
+  ! form of the solution data for the current simulation.
+  !
+  call check_restart_solution_form(restart_solution_form,ordered_geom, &
+                                   rst_form_matches_sol_form)
   !
 ! ################################################
 ! ### Variable header part of the restart file ###
@@ -1375,8 +1381,8 @@ continue
   !
   restart_solution_form = int( int_header(3) , &
                                kind=kind(restart_solution_form) )
-  !
-  call check_restart_solution_form(restart_solution_form)
+!%!
+!%call check_restart_solution_form(restart_solution_form)
   !
   ! Check if there is restart information for
   ! the synthetic inflow turbulence generators
@@ -1451,6 +1457,12 @@ continue
         call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end select
   end if
+  !
+  ! Check to see if the form of the restart data matches the
+  ! form of the solution data for the current simulation.
+  !
+  call check_restart_solution_form(restart_solution_form,ordered_geom, &
+                                   rst_form_matches_sol_form)
   !
 ! ################################################
 ! ### Variable header part of the restart file ###
@@ -5118,15 +5130,29 @@ end subroutine get_input_mpi_datatypes
 !
 !###############################################################################
 !
-subroutine check_restart_solution_form(restart_solution_form)
+subroutine check_restart_solution_form(restart_solution_form,ordered_geom, &
+                                       rst_form_matches_sol_form)
   !
   !.. Use Statements ..
-  use ovar, only : loc_solution_pts
+  use ovar,   only : loc_solution_pts
+  use geovar, only : global_cell_geom
+  use geovar, only : global_cell_order
   !
   !.. Formal Arguments ..
-  integer, intent(in) :: restart_solution_form
+  integer,        intent(in) :: restart_solution_form
+  integer(wip),   intent(in) :: ordered_geom(:)
+  logical(lk), intent(inout) :: rst_form_matches_sol_form
   !
   !.. Local Scalars ..
+  integer :: nc
+  integer :: rst_geom,rst_order
+  integer :: sol_geom,sol_order
+  !
+  logical(lk) :: found_geom_mismatch
+  logical(lk) :: found_order_mismatch
+  logical(lk) :: requires_interpolation
+  logical(lk) :: requires_projection
+  !
   character(len=10) :: inp_solpts
   character(len=50) :: restart_form
   !
@@ -5135,12 +5161,67 @@ subroutine check_restart_solution_form(restart_solution_form)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
+  requires_interpolation = fals
+  requires_projection = fals
+  !
+  rst_form_matches_sol_form = true
+  !
+  ! Check each of the restart cells to see if they
+  ! match the cells for the current simulation.
+  !
+  found_geom_mismatch = fals
+  found_order_mismatch = fals
+  !
+  do nc = 1,size(ordered_geom)
+    !
+    rst_order = ordered_geom(nc) / 100
+    rst_geom = ordered_geom(nc) - 100*rst_order
+    !
+    sol_order = global_cell_order(nc)
+    sol_geom = global_cell_geom(nc)
+    !
+    if (sol_order /= rst_order) then
+      found_order_mismatch = true
+      if (rst_order > sol_order) then
+        requires_projection = true
+      else
+        requires_interpolation = true
+      end if
+    end if
+    !
+    if (sol_geom /= rst_geom) found_geom_mismatch = true
+    !
+  end do
+  !
+  ! Stop execution if there is a geometry mismatch which means
+  ! the grid file and restart file are not compatible.
+  ! 
+  if (found_geom_mismatch) then
+    write (error_message,100)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Change rst_form_matches_sol_form if an order mismatch is found
+  !
+  if (found_order_mismatch) rst_form_matches_sol_form = fals
+  !
+  ! Check to see if the restart solution is stored
+  ! in a different form than the current solution
+  !
   if (restart_solution_form /= -loc_solution_pts) then
     !
+    rst_form_matches_sol_form = fals
+    !
     select case (loc_solution_pts)
-      case (Legendre_Gauss)         ; inp_solpts = "Gauss"
-      case (Legendre_Gauss_Lobatto) ; inp_solpts = "Lobatto"
-      case default                  ; inp_solpts = "Unknown"
+      case (Legendre_Gauss)
+        inp_solpts = "Gauss"
+      case (Legendre_Gauss_Lobatto)
+        inp_solpts = "Lobatto"
+      case default
+        write (error_message,101)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end select
     !
     select case (restart_solution_form)
@@ -5149,25 +5230,50 @@ continue
       case (restart_lobatto_nodal_solution)
         restart_form = "nodal form for the Lobatto solution points"
       case (restart_legendre_modal_solution)
-        restart_form = "modal form for Legendre basis functions"
+        write (error_message,102) "Legendre"
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       case (restart_monomial_modal_solution)
-        restart_form = "modal form for monomial basis functions"
+        write (error_message,102) "monomial"
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       case default
-        restart_form = "Unknown"
+        write (error_message,103)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end select
     !
-    write (error_message,1) trim(adjustl(restart_form)), &
-                            trim(adjustl(inp_solpts))
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    if (mypnum == glb_root) then
+      write (iout,1) trim(adjustl(restart_form)),trim(adjustl(inp_solpts))
+      flush (iout)
+    end if
     !
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
-  1 format("The format of the solution data in the restart file does not ", &
-           "match the current simulation. The restart data is in ",a," ", &
-           "and the current simulation requires the data to be defined at ", &
-           " the ",a," points.")
+  1 format(/,1x,93("#"),/, &
+             40x,"!!! WARNING !!!",/, &
+             2x,"The format of the solution data in the restart file does ", &
+                "not match the current simulation.",/, &
+             6x,"The restart data is in ",a,", and",/, &
+             6x,"the current simulation requires the data to be defined ", &
+                "at the ",a," points.",/, &
+             2x,"Attempting to convert the restart solution into the form ", &
+                "needed for this simulation.",/, &
+             1x,93("#"),/)
+  !
+  100 format ("The geometry of one or more cells from the restart file ", &
+              "does not match that of the current simulation! It appears ", &
+              "that the current grid file is not compatible with the ", &
+              "specified restart file!")
+  101 format ("The solution for the current simulation seems to be in ", &
+              "an unknown form when trying to read in the solution data ", &
+              "from the restart file!")
+  102 format ("The restart file appears to contain solution data stored ", &
+              "in modal form using ",a," basis functions. Restarting ", &
+              "from modal solution data is not supported at this time.")
+  103 format ("The solution data in the restart file seems to be in an ", &
+              "unknown form!")
   !
 end subroutine check_restart_solution_form
 !
