@@ -408,6 +408,7 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
   integer :: inert_nq,inert_ncs
   integer :: restart_ip,restart_rp
   logical(lk) :: flip_sol_indices
+  logical(lk) :: rst_form_matches_sol_form
   !
   _MPI_FILE_TYPE_ :: file_handle
   _MPI_INFO_TYPE_ :: file_info
@@ -1250,6 +1251,7 @@ subroutine read_solution_file_serial(file_name,int_header,real_header, &
   integer :: sol_nq
   integer :: restart_ip,restart_rp
   logical(lk) :: flip_sol_indices
+  logical(lk) :: rst_form_matches_sol_form
   !
   integer :: solution_errors
   integer :: restart_nq,restart_ncells
