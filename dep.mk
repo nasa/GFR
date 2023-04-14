@@ -637,6 +637,10 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/parallel.o \
                 $(OBJDIR)/thermo_mod.o \
                 $(OBJDIR)/turb_inflow_mod.o \
+                $(OBJDIR)/order_mod.o \
+                $(OBJDIR)/interpolation_mod.o \
+                $(OBJDIR)/projection_mod.o \
+                $(OBJDIR)/matrix_types_mod.o \
                 $(FUNDIR)/cell_solpts.f90 \
                 $(FUNDIR)/sort.f90 \
                 $(FUNDIR)/debug_timer.f90 \

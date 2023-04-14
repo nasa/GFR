@@ -5994,6 +5994,288 @@ continue
 end subroutine read_rstrt_file_serial_wp_rank2
 !
 !###############################################################################
+!
+subroutine interp_restart_solution(restart_solution_form,flip_sol_indices, &
+                                   rst_sol,usp,ordered_geom)
+  !
+  !.. Use Statements ..
+  use order_mod,         only : n_min_geom,n_min_order
+  use order_mod,         only : n_max_geom,n_max_order
+  use geovar,            only : ncell,cell
+  use ovar,              only : loc_solution_pts
+  use interpolation_mod, only : compute_generic_interp_matrix
+  use projection_mod,    only : compute_generic_projct_matrix
+  !
+  use matrix_types_mod, only : matrix
+  use matrix_types_mod, only : create_matrix_sparsity
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: restart_solution_form
+  logical(lk), intent(in) :: flip_sol_indices
+  real(wp),    intent(in) :: rst_sol(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: ordered_geom(:)
+  !
+  !.. Local Derived Types ..
+  type :: rstrt_interp_t
+    integer :: omin = huge(0)
+    integer :: omax = -huge(0)
+    type(matrix), allocatable :: fromCell(:)
+  end type rstrt_interp_t
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n,nc,np,n0,lp,l0,l1,l2
+  integer :: gmin,gmax,omin,omax
+  integer :: rst_omin,rst_omax,ierr
+  integer :: this_geom,this_order
+  integer :: rst_geom,rst_order
+  integer :: loc_rst_pts
+  !
+  real(wp) :: a
+  !
+  character(len=200) :: array_name
+  !
+  !.. Local Arrays ..
+  real(wp) :: val(1:nq)
+  !
+  !.. Local Allocatable Arrays ..
+  type(rstrt_cell_t),   allocatable :: rst_cell(:)
+  type(rstrt_interp_t), allocatable :: rst_interp(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_restart_solution"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  loc_rst_pts = abs(restart_solution_form)
+  !
+  ! If ordered_geom is present, this is for reading a restart file
+  ! in serial and cell_input_data doesnt exist, so create rst_cell
+  ! using ordered_geom.
+  !
+  if (present(ordered_geom)) then
+    !
+    allocate ( rst_cell(1:ncell) )
+    !
+    l2 = 0
+    do nc = 1,ncell
+      !
+      rst_order = ordered_geom(nc) / 100
+      rst_geom = ordered_geom(nc) - 100*rst_order
+      !
+      l1 = l2 + 1
+      l2 = l2 + Cell_Solpts(rst_geom,rst_order)
+      !
+      rst_cell(nc)%input_geom = rst_geom
+      rst_cell(nc)%input_order = rst_order
+      rst_cell(nc)%input_beg_sp = l1
+      rst_cell(nc)%input_end_sp = l2
+      rst_cell(nc)%input_cell = nc
+      !
+    end do
+    !
+  else
+    !
+    ! Copy cell_input_data into rst_cell
+    !
+    rst_cell = cell_input_data(:) ! F2003 AUTO-REALLOC
+    !
+  end if
+  !
+  ! Get the min/max order of the restart solution
+  !
+  rst_omin = minval(rst_cell(:)%input_order)
+  rst_omax = maxval(rst_cell(:)%input_order)
+  !
+  gmin = n_min_geom
+  gmax = n_max_geom
+  omin = n_min_order
+  omax = n_max_order
+  !
+  ! Allocate the rst_interp array
+  !
+  allocate ( rst_interp(gmin:gmax,omin:omax) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"rst_interp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Find the max/min restart order for each geom/order cell combination
+  !
+  do nc = 1,ncell
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    rst_order = rst_cell(nc)%input_order
+    !
+    if (rst_order < rst_interp(this_geom,this_order)%omin) then
+      rst_interp(this_geom,this_order)%omin = rst_order
+    end if
+    !
+    if (rst_order > rst_interp(this_geom,this_order)%omax) then
+      rst_interp(this_geom,this_order)%omax = rst_order
+    end if
+    !
+  end do
+  !
+  ! Allocate the fromCell components of the rst_interp array
+  ! and create all the interpolation/projection matrices
+  !
+  do this_geom = gmin,gmax
+    do this_order = omin,omax
+      !
+      ! Extract the min/max restart cell order for the current geom/order combo
+      !
+      rst_omin = rst_interp(this_geom,this_order)%omin
+      rst_omax = rst_interp(this_geom,this_order)%omax
+      !
+      ! If the minimum restart order is greater than the maximum restart order
+      ! then there are no restart cells of this geom/order combo so cycle to
+      ! the next combo.
+      !
+      if (rst_omin > rst_omax) cycle
+      !
+      ! Allocate the fromCell component of rst_interp for this geom/order combo
+      !
+      allocate ( rst_interp(this_geom,this_order)%fromCell(rst_omin:rst_omax), &
+                 stat=ierr, errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"fromCell"
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      !
+      ! Create interpolation matrices for all restart orders
+      ! less than or equal to this_order
+      !
+      do rst_order = rst_omin,min(this_order,rst_omax)
+        !
+        ! Compute the interpolation matrix for this geometry to 
+        ! interpolate from a restart cell of order rst_order to a
+        ! solution cell of order this_order.
+        !
+        ! F2003 AUTO-REALLOC
+        rst_interp(this_geom,this_order)%fromCell(rst_order)%mat = &
+                          compute_generic_interp_matrix(this_geom, &
+                                                        from_order=rst_order, &
+                                                        from_loc=loc_rst_pts, &
+                                                        to_order=this_order, &
+                                                        to_loc=loc_solution_pts)
+        !
+      end do
+      !
+      ! Create projection matrices for all restart orders
+      ! greater than this_order
+      !
+      do rst_order = max(this_order+1,rst_omin),rst_omax
+        !
+        ! Compute the projection matrix for this geometry to 
+        ! project from a restart cell of order rst_order to a
+        ! solution cell of order this_order.
+        !
+        ! F2003 AUTO-REALLOC
+        rst_interp(this_geom,this_order)%fromCell(rst_order)%mat = &
+                          compute_generic_projct_matrix(this_geom, &
+                                                        from_order=rst_order, &
+                                                        from_loc=loc_rst_pts, &
+                                                        to_order=this_order, &
+                                                        to_loc=loc_solution_pts)
+        !
+      end do
+      !
+    end do
+  end do
+  !
+  ! Create the sparse matrix arrays for rst_interp
+  !
+  do this_geom = gmin,gmax
+    do this_order = omin,omax
+      if (allocated(rst_interp(this_geom,this_order)%fromCell)) then
+        call create_matrix_sparsity( rst_interp(this_geom,this_order)%fromCell )
+      end if
+    end do
+  end do
+  !
+  ! Now interpolate/project the restart solution
+  ! to the solution points of each cell
+  !
+  do nc = 1,ncell
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+    !
+    rst_order = rst_cell(nc)%input_order
+    !
+    l0 = rst_cell(nc)%input_beg_sp - 1
+    lp = rst_cell(nc)%input_end_sp - l0
+    !
+    do n = 1,np
+      !
+      val(1:nq) = zero
+      !
+      if (rst_order > this_order) then
+        !
+        ! Use the row sparse arrays for projecting
+        !
+        do i = rst_interp(this_geom,this_order)% &
+                            fromCell(rst_order)%row_ptr(n)+1, &
+               rst_interp(this_geom,this_order)% &
+                            fromCell(rst_order)%row_ptr(n+1)
+          !
+          j = rst_interp(this_geom,this_order)%fromCell(rst_order)%row_idx(i)
+          a = rst_interp(this_geom,this_order)%fromCell(rst_order)%row_val(i)
+          !
+          val(1:nq) = val(1:nq) + a * rst_sol(1:nq,l0+j)
+          !
+        end do
+        !
+      else
+        !
+        ! Use the column sparse arrays for interpolating
+        !
+        do i = rst_interp(this_geom,this_order)% &
+                            fromCell(rst_order)%col_ptr(n)+1, &
+               rst_interp(this_geom,this_order)% &
+                            fromCell(rst_order)%col_ptr(n+1)
+          !
+          j = rst_interp(this_geom,this_order)%fromCell(rst_order)%col_idx(i)
+          a = rst_interp(this_geom,this_order)%fromCell(rst_order)%col_val(i)
+          !
+          val(1:nq) = val(1:nq) + a * rst_sol(1:nq,l0+j)
+          !
+        end do
+        !
+      end if
+      !
+      ! Finally, save the interpolated/projected restart solution into usp
+      !
+      if (flip_sol_indices) then
+        usp(n0+n,1:nq) = val(1:nq)
+      else
+        usp(1:nq,n0+n) = val(1:nq)
+      end if
+      !
+    end do
+    !
+  end do
+  !
+  ! Deallocate local allocatable arrays before leaving
+  !
+  if (allocated(rst_interp)) deallocate ( rst_interp )
+  if (allocated(rst_cell)) deallocate ( rst_cell )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("rst_interp(",a,",",i0,")%",a,:,"(",i0,")%mat")
+  !
+end subroutine interp_restart_solution
+!
+!###############################################################################
 !###############################################################################
 !###############################################################################
 !
