@@ -2553,7 +2553,7 @@ continue
   !
   file_disp = int( disp , kind=MPI_OFFSET_KIND )
   !
-  ! Set the file fiew to write the solution data to the restart file
+  ! Set the file view to write the solution data to the restart file
   !
   call mpi_file_set_view(file_handle,file_disp,sol_blktyp, &
                          sol_type, trim(adjustl(file_datarep)), &
