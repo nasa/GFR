@@ -812,100 +812,114 @@ continue
   !
   call mpi_file_close(file_handle,mpierr)
   !
-  ! Copy the restart solution data over into the solution array
   !
-  solution_errors = 0
   !
-  do this_cell = 1,ncell
+  if (rst_form_matches_sol_form) then
     !
-    inp_cell = cell_input_data(this_cell)%input_cell
+    ! Copy the restart solution data over into the solution array
     !
-    l1 = cell_input_data(this_cell)%input_beg_sp
-    l2 = cell_input_data(this_cell)%input_end_sp
-    l0 = l1-1
+    solution_errors = 0
     !
-    inp_geom = cell_input_data(this_cell)%input_geom
-    inp_order = cell_input_data(this_cell)%input_order
-    !
-    n1 = cell(this_cell)%beg_sp
-    n2 = cell(this_cell)%end_sp
-    n0 = n1-1
-    np = n2-n0
-    !
-    this_geom = cell(this_cell)%geom
-    this_order = cell(this_cell)%order
-    !
-    ! NEED TO ADD SOMETHING HERE TO CONVERT THE SOLUTION IF THE SOLUTION
-    ! FORM DOESNT MATCH THE CURRENT SIMULATION.  FOR NOW, JUST CREATE AN
-    ! ERROR IF IT DOESNT MATCH THE RESTART FORM.
-    !
-    if ((inp_geom /= this_geom) .or. (inp_order /= this_order)) then
-      write (iout,30) mypnum, inp_cell, inp_geom, inp_order, &
-                             this_cell,this_geom,this_order
-      solution_errors = solution_errors + 1
-    end if
-    !
-    ! Copy over the restart solutions for the continuity, momentum, and
-    ! energy equations. Also copy over the restart solutions for the
-    ! species equations if the number of chemical species in the restart
-    ! file matches the number of chemical species in the current simulation.
-    !
-    ncs_diff = 0
-    mbeg = 1
-    if (ncs > 0 .and. restart_ncs /= ncs) then
-      ncs_diff = ncs - restart_ncs
-      mbeg = restart_ncs + 1
-    end if
-    !
-    if (flip_sol_indices) then
-      do n = 1,np
-        do m = mbeg,restart_nq
-          solution(n0+n,m+ncs_diff) = rst_sol(m,l0+n)
-        end do
-      end do
-    else
-      do n = 1,np
-        do m = mbeg,restart_nq
-          solution(m+ncs_diff,n0+n) = rst_sol(m,l0+n)
-        end do
-      end do
-    end if
-   !solution(:,n1:n2) = rst_sol(:,l1:l2)
-    !
-    ! Copy over the restart solutions for the species equations if 
-    ! the number of chemical species in the restart file does not
-    ! match the number of chemical species in the current simulation.
-    !
-    if (ncs > 0 .and. restart_ncs /= ncs) then
+    do this_cell = 1,ncell
       !
-      if (restart_ncs == inert_ncs) then
-        !
-        if (flip_sol_indices) then
-          do n = 1,np
-            do mm = 1,restart_ncs
-              m = inert_species_map(mm)
-              solution(n0+n,m) = rst_sol(mm,l0+n)
-            end do
+      inp_cell = cell_input_data(this_cell)%input_cell
+      !
+      l1 = cell_input_data(this_cell)%input_beg_sp
+      l2 = cell_input_data(this_cell)%input_end_sp
+      l0 = l1-1
+      !
+      inp_geom = cell_input_data(this_cell)%input_geom
+      inp_order = cell_input_data(this_cell)%input_order
+      !
+      n1 = cell(this_cell)%beg_sp
+      n2 = cell(this_cell)%end_sp
+      n0 = n1-1
+      np = n2-n0
+      !
+      this_geom = cell(this_cell)%geom
+      this_order = cell(this_cell)%order
+      !
+      ! NEED TO ADD SOMETHING HERE TO CONVERT THE SOLUTION IF THE SOLUTION
+      ! FORM DOESNT MATCH THE CURRENT SIMULATION.  FOR NOW, JUST CREATE AN
+      ! ERROR IF IT DOESNT MATCH THE RESTART FORM.
+      !
+      if ((inp_geom /= this_geom) .or. (inp_order /= this_order)) then
+        write (iout,30) mypnum, inp_cell, inp_geom, inp_order, &
+                               this_cell,this_geom,this_order
+        solution_errors = solution_errors + 1
+      end if
+      !
+      ! Copy over the restart solutions for the continuity, momentum, and
+      ! energy equations. Also copy over the restart solutions for the
+      ! species equations if the number of chemical species in the restart
+      ! file matches the number of chemical species in the current simulation.
+      !
+      ncs_diff = 0
+      mbeg = 1
+      if (ncs > 0 .and. restart_ncs /= ncs) then
+        ncs_diff = ncs - restart_ncs
+        mbeg = restart_ncs + 1
+      end if
+      !
+      if (flip_sol_indices) then
+        do n = 1,np
+          do m = mbeg,restart_nq
+            solution(n0+n,m+ncs_diff) = rst_sol(m,l0+n)
           end do
-        else
-          do n = 1,np
-            do mm = 1,restart_ncs
-              m = inert_species_map(mm)
-              solution(m,n0+n) = rst_sol(mm,l0+n)
-            end do
-          end do
-        end if
-        !
+        end do
       else
+        do n = 1,np
+          do m = mbeg,restart_nq
+            solution(m+ncs_diff,n0+n) = rst_sol(m,l0+n)
+          end do
+        end do
+      end if
+     !solution(:,n1:n2) = rst_sol(:,l1:l2)
+      !
+      ! Copy over the restart solutions for the species equations if 
+      ! the number of chemical species in the restart file does not
+      ! match the number of chemical species in the current simulation.
+      !
+      if (ncs > 0 .and. restart_ncs /= ncs) then
         !
-        write (error_message,50) restart_ncs,ncs,inert_ncs
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        if (restart_ncs == inert_ncs) then
+          !
+          if (flip_sol_indices) then
+            do n = 1,np
+              do mm = 1,restart_ncs
+                m = inert_species_map(mm)
+                solution(n0+n,m) = rst_sol(mm,l0+n)
+              end do
+            end do
+          else
+            do n = 1,np
+              do mm = 1,restart_ncs
+                m = inert_species_map(mm)
+                solution(m,n0+n) = rst_sol(mm,l0+n)
+              end do
+            end do
+          end if
+          !
+        else
+          !
+          write (error_message,50) restart_ncs,ncs,inert_ncs
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          !
+        end if
         !
       end if
       !
-    end if
+    end do
     !
-  end do
+  else
+    !
+    ! Interpolate/project the restart solution
+    ! to the current solution points/order
+    !
+    call interp_restart_solution(restart_solution_form,flip_sol_indices, &
+                                 rst_sol,solution)
+    !
+  end if
   !
   ! Deallocate rst_sol since it is no longer needed
   !
@@ -1552,54 +1566,69 @@ continue
   close (io,iostat=ierr,iomsg=error_message)
   call io_error(pname,file_name,2,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Copy the restart solution data over into the solution array
   !
-  solution_errors = 0
   !
-  l2 = 0
-  do this_cell = 1,ncell
+  if (rst_form_matches_sol_form) then
     !
-    inp_order = ordered_geom(this_cell) / 100
-    inp_geom = ordered_geom(this_cell) - 100*inp_order
+    ! Copy the restart solution data over into the solution array
     !
-    l1 = l2 + 1
-    l2 = l2 + Cell_Solpts(inp_geom,inp_order)
-    l0 = l1-1
+    solution_errors = 0
     !
-    n1 = cell(this_cell)%beg_sp
-    n2 = cell(this_cell)%end_sp
-    n0 = n1-1
-    np = n2-n0
-    !
-    this_geom = cell(this_cell)%geom
-    this_order = cell(this_cell)%order
-    !
-    ! NEED TO ADD SOMETHING HERE TO CONVERT THE SOLUTION IF THE SOLUTION
-    ! FORM DOESNT MATCH THE CURRENT SIMULATION.  FOR NOW, JUST CREATE AN
-    ! ERROR IF IT DOESNT MATCH THE RESTART FORM.
-    !
-    if ((inp_geom /= this_geom) .or. (inp_order /= this_order)) then
-      write (iout,30) mypnum,this_cell, inp_geom, inp_order, &
-                             this_cell,this_geom,this_order
-      solution_errors = solution_errors + 1
-    end if
-    !
-    if (flip_sol_indices) then
-      do n = 1,np
-        do m = 1,restart_nq
-          solution(n0+n,m) = rst_sol(m,l0+n)
+    l2 = 0
+    do this_cell = 1,ncell
+      !
+      inp_order = ordered_geom(this_cell) / 100
+      inp_geom = ordered_geom(this_cell) - 100*inp_order
+      !
+      l1 = l2 + 1
+      l2 = l2 + Cell_Solpts(inp_geom,inp_order)
+      l0 = l1-1
+      !
+      n1 = cell(this_cell)%beg_sp
+      n2 = cell(this_cell)%end_sp
+      n0 = n1-1
+      np = n2-n0
+      !
+      this_geom = cell(this_cell)%geom
+      this_order = cell(this_cell)%order
+      !
+      ! NEED TO ADD SOMETHING HERE TO CONVERT THE SOLUTION IF THE SOLUTION
+      ! FORM DOESNT MATCH THE CURRENT SIMULATION.  FOR NOW, JUST CREATE AN
+      ! ERROR IF IT DOESNT MATCH THE RESTART FORM.
+      !
+      if ((inp_geom /= this_geom) .or. (inp_order /= this_order)) then
+        write (iout,30) mypnum,this_cell, inp_geom, inp_order, &
+                               this_cell,this_geom,this_order
+        solution_errors = solution_errors + 1
+      end if
+      !
+      if (flip_sol_indices) then
+        do n = 1,np
+          do m = 1,restart_nq
+            solution(n0+n,m) = rst_sol(m,l0+n)
+          end do
         end do
-      end do
-    else
-      do n = 1,np
-        do m = 1,restart_nq
-          solution(m,n0+n) = rst_sol(m,l0+n)
+      else
+        do n = 1,np
+          do m = 1,restart_nq
+            solution(m,n0+n) = rst_sol(m,l0+n)
+          end do
         end do
-      end do
-    end if
-   !solution(:,n1:n2) = rst_sol(:,l1:l2)
+      end if
+     !solution(:,n1:n2) = rst_sol(:,l1:l2)
+      !
+    end do
     !
-  end do
+  else
+    !
+    ! Interpolate/project the restart solution
+    ! to the current solution points/order
+    !
+    call interp_restart_solution(restart_solution_form,flip_sol_indices, &
+                                 rst_sol,solution, &
+                                 ordered_geom=ordered_geom)
+    !
+  end if
   !
   ! Deallocate ordered_geom since it is no longer needed
   !
