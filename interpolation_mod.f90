@@ -23,6 +23,7 @@ module interpolation_mod
   public :: move_outerp_to_device
   public :: outerp_mv_mult
   public :: init_ref_vectors
+  public :: compute_generic_interp_matrix
   !
   !
   !
@@ -2528,6 +2529,87 @@ continue
   return_value = General_Interp_Matrix(this_geom,this_order,xyz)
   !
 end function Cell_Interp_Matrix
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function compute_generic_interp_matrix(this_geom, &
+                                       from_order,from_loc, &
+                                       to_order,to_loc) &
+                                result(return_value)
+  !
+  !.. Use Statements ..
+  use quadrature_mod,  only : get_general_quadrature_pts
+  use vandermonde_mod, only : Compute_Basis_Matrix
+  use vandermonde_mod, only : Vandermonde_Inverse
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: this_geom
+  integer, intent(in) :: from_order
+  integer, intent(in) :: from_loc
+  integer, intent(in) :: to_order
+  integer, intent(in) :: to_loc
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: xyz(:,:)
+  real(wp), allocatable :: vmat(:,:)
+  !
+continue
+  !
+  ! Get the reference coordinates for the cell points being interpolated from
+  ! NOTE: The function Compute_Basis_Matrix requires the 1D edge points
+  !       for structured elements.
+  !
+  if (any(this_geom == [Geom_Edge,Geom_Quad,Geom_Hexa])) then
+    ! F2003 AUTO-REALLOC
+    xyz = get_general_quadrature_pts(Geom_Edge,from_order,from_loc)
+  else
+    ! F2003 AUTO-REALLOC
+    xyz = get_general_quadrature_pts(this_geom,from_order,from_loc)
+  end if
+  !
+  ! Create the nodal-to-modal Vandermonde matrix
+  ! for the cell points being interpolated from
+  ! NOTE: We need to create this Vandermonde matrix because there is no
+  !       guarantee that the vand(:,:) array has a Vandermonde matrix for
+  !       this combination of from_order and from_loc. The vand(:,:) array
+  !       generally only has the Vandermonde matrices that will be needed
+  !       for the solver. As an example, this could be called while reading
+  !       a restart file with a P2 solution, but the current simulation is
+  !       P4. In this example, we need to create an interpolation matrix that
+  !       interpolates the P2 restart data to the P4 solution points. A P4
+  !       simulation wont create any P2 Vandermonde matrices, i.e., vand(:,2),
+  !       since there arent any P2 cells in the grid.
+  ! NOTE: The function Compute_Basis_Matrix will return the modal-to-nodal
+  !       Vandermonde matrix, so we need to compute the inverse of that
+  !       matrix to get the nodal-to-modal Vandermonde matrix.
+  !
+  vmat = Compute_Basis_Matrix(this_geom,from_order, & ! F2003 AUTO-REALLOC
+                              nodal_points=xyz)
+  !
+  ! Compute the inverse of vmat to get the nodal-to-modal Vandermonde matrix
+  !
+  vmat(:,:) = Vandermonde_Inverse( vmat )
+  !
+  ! Get the reference coordinates for the cell points being interpolated to
+  ! NOTE: We are just going to reuse xyz since we no longer need the 'from'
+  !       xyz we previously computed.
+  !
+  ! F2003 AUTO-REALLOC
+  xyz = get_general_quadrature_pts(this_geom,to_order,to_loc)
+  !
+  ! Compute the interpolation matrix
+  !
+  ! F2003 AUTO-REALLOC
+  return_value = General_Interp_Matrix(this_geom,from_order,xyz, &
+                                       opt_vmat=vmat)
+  !
+end function compute_generic_interp_matrix
 !
 !###############################################################################
 !
