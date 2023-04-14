@@ -727,26 +727,26 @@ continue
     call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__, &
                      ierr,error_message)
   end if
-  !
-  ! IF WE ARE TO MOVE THE POINT IN THE PRE-PROCESSING PHASE AT WHICH THE
-  ! RESTART FILE IS READ, WE NEED TO MAKE SURE THAT N_SOLPTS HAS BEEN
-  ! RECOMPUTED SO THAT IT IS LOCAL TO EACH PROCESSOR BECAUSE THIS IS NOT
-  ! DONE WITHIN PARALLEL_MOD AFTER PARTITIONING THE GRID.
-  !
-  if (num_pts /= n_solpts) then
-    write (iout,12) mypnum,num_pts,n_solpts
-    solution_errors = 100
-  end if
-  !
-  ! Sum up the value of solution_errors across all processors
-  !
-  call mpi_allreduce(MPI_IN_PLACE,solution_errors,1_int_mpi, &
-                     mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
-  !
-  if (solution_errors /= 0) then
-    write (error_message,13)
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-  end if
+!%!
+!%! IF WE ARE TO MOVE THE POINT IN THE PRE-PROCESSING PHASE AT WHICH THE
+!%! RESTART FILE IS READ, WE NEED TO MAKE SURE THAT N_SOLPTS HAS BEEN
+!%! RECOMPUTED SO THAT IT IS LOCAL TO EACH PROCESSOR BECAUSE THIS IS NOT
+!%! DONE WITHIN PARALLEL_MOD AFTER PARTITIONING THE GRID.
+!%!
+!%if (num_pts /= n_solpts) then
+!%  write (iout,12) mypnum,num_pts,n_solpts
+!%  solution_errors = 100
+!%end if
+!%!
+!%! Sum up the value of solution_errors across all processors
+!%!
+!%call mpi_allreduce(MPI_IN_PLACE,solution_errors,1_int_mpi, &
+!%                   mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
+!%!
+!%if (solution_errors /= 0) then
+!%  write (error_message,13)
+!%  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+!%end if
   !
   ! Set the file view to to read in the solution restart data
   !
@@ -756,7 +756,8 @@ continue
   !
   ! Allocate the rst_sol array to read in the solution restart data
   !
-  allocate ( rst_sol(1:restart_nq,1:n_solpts) , source=zero , &
+!%allocate ( rst_sol(1:restart_nq,1:n_solpts) , source=zero , &
+  allocate ( rst_sol(1:restart_nq,1:num_pts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"rst_sol",1,__LINE__,__FILE__,ierr,error_message)
   !
@@ -1503,21 +1504,22 @@ continue
     num_pts = num_pts + Cell_Solpts(inp_geom,inp_order)
     !
   end do
-  !
-  ! IF WE ARE TO MOVE THE POINT IN THE PRE-PROCESSING PHASE AT WHICH THE
-  ! RESTART FILE IS READ, WE NEED TO MAKE SURE THAT N_SOLPTS HAS BEEN
-  ! RECOMPUTED SO THAT IT IS LOCAL TO EACH PROCESSOR BECAUSE THIS IS NOT
-  ! DONE WITHIN PARALLEL_MOD AFTER PARTITIONING THE GRID.
-  !
-  if (num_pts /= n_solpts) then
-    write (iout,12) mypnum,num_pts,n_solpts
-    write (error_message,13)
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-  end if
+!%!
+!%! IF WE ARE TO MOVE THE POINT IN THE PRE-PROCESSING PHASE AT WHICH THE
+!%! RESTART FILE IS READ, WE NEED TO MAKE SURE THAT N_SOLPTS HAS BEEN
+!%! RECOMPUTED SO THAT IT IS LOCAL TO EACH PROCESSOR BECAUSE THIS IS NOT
+!%! DONE WITHIN PARALLEL_MOD AFTER PARTITIONING THE GRID.
+!%!
+!%if (num_pts /= n_solpts) then
+!%  write (iout,12) mypnum,num_pts,n_solpts
+!%  write (error_message,13)
+!%  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+!%end if
   !
   ! Allocate the rst_sol array to read in the solution restart data
   !
-  allocate ( rst_sol(1:restart_nq,1:n_solpts) , source=zero , &
+!%allocate ( rst_sol(1:restart_nq,1:n_solpts) , source=zero , &
+  allocate ( rst_sol(1:restart_nq,1:num_pts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"rst_sol",1,__LINE__,__FILE__,ierr,error_message)
   !
