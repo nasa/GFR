@@ -22,6 +22,7 @@ module projection_mod
   public :: project_to_porder
   public :: projection_memory_usage
   public :: move_projct_to_device
+  public :: compute_generic_projct_matrix
   !
   !
   !
@@ -1200,6 +1201,207 @@ continue
 #endif
   !
 end function Compute_Projection_Matrix
+!
+!###############################################################################
+!
+!!!#define ENABLE_PROJECTION_OUTPUT
+#ifndef ENABLE_PROJECTION_OUTPUT
+!pure &
+#endif
+function compute_generic_projct_matrix(this_geom, &
+                                       from_order,from_loc, &
+                                       to_order,to_loc) &
+                                result(return_value)
+  !
+#ifdef SPECIAL_FOR_INTEL
+  !.. Use Statements ..
+  use blas95, only : gemm
+#endif
+  use vandermonde_mod,  only : Compute_Basis_Matrix
+  use element_type_mod, only : element_t
+  use quadrature_mod,   only : get_general_quadrature
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: this_geom
+  integer, intent(in) :: from_order
+  integer, intent(in) :: from_loc
+  integer, intent(in) :: to_order
+  integer, intent(in) :: to_loc
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j
+  !
+  !.. Local Allocatalbe Scalars ..
+  type(element_t), allocatable :: to_elem
+  type(element_t), allocatable :: from_elem
+  type(element_t), allocatable :: edge_elem
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: from_basis(:,:)
+  real(wp), allocatable :: to_vand(:,:)
+  !
+  real(wp), allocatable :: bTxW(:,:)
+  real(wp), allocatable :: bTxWxb(:,:)
+  real(wp), allocatable :: pmat(:,:)
+  real(wp), allocatable :: tmp(:,:)
+  !
+continue
+  !
+  !
+  ! Compute the Vandermonde matrix for the 'to' cell order
+  !
+  if (any(this_geom == [Geom_Edge,Geom_Quad,Geom_Hexa])) then
+    ! F2003 AUTO-REALLOC
+    edge_elem = get_general_quadrature(Geom_Edge,to_order,to_loc)
+    !
+    to_vand = Compute_Basis_Matrix(this_geom,to_order, & ! F2003 AUTO-REALLOC
+                                   nodal_points=edge_elem%pts)
+  else
+    ! F2003 AUTO-REALLOC
+    to_elem = get_general_quadrature(this_geom,to_order,to_loc)
+    !
+    to_vand = Compute_Basis_Matrix(this_geom,to_order, & ! F2003 AUTO-REALLOC
+                                   nodal_points=to_elem%pts)
+  end if
+  !
+  ! Get the quadrature points and weights for the 'from' cell
+  !
+  ! F2003 AUTO-REALLOC
+  from_elem = get_general_quadrature(this_geom,from_order,from_loc)
+  !
+  ! Compute the basis matrix with a basis of order 'to',
+  ! evaluated at the 'from' nodal points.
+  !
+  if (any(this_geom == [Geom_Edge,Geom_Quad,Geom_Hexa])) then
+    ! We need to get the nodal points for the 'from' edge element
+    ! F2003 AUTO-REALLOC
+    edge_elem = get_general_quadrature(Geom_Edge,from_order,from_loc)
+    ! F2003 AUTO-REALLOC
+    from_basis = Compute_Basis_Matrix(this_geom,from_order, &
+                                      basis_order=to_order, &
+                                      nodal_points=edge_elem%pts)
+  else
+    ! F2003 AUTO-REALLOC
+    from_basis = Compute_Basis_Matrix(this_geom,from_order, &
+                                      basis_order=to_order, &
+                                      nodal_points=from_elem%pts)
+  end if
+  !
+!%#ifdef ENABLE_PROJECTION_OUTPUT
+!%  write (iu,1) "current_elem_geom  = ",current_elem_geom
+!%  write (iu,1) "current_elem_order = ",current_elem_order
+!%  write (iu,1) "current_proj_order = ",current_proj_order
+!%  !
+!%  write (iu,2) "from_basis", &
+!%               ((from_basis(i,j),i=1,size(from_basis,dim=1)), &
+!%                                 j=1,size(from_basis,dim=2))
+!%#endif
+  !
+  ! F2003 AUTO-REALLOC
+  bTxW   = init_array(size(from_basis,dim=2),size(from_basis,dim=1),zero)
+  ! F2003 AUTO-REALLOC
+  bTxWxb = init_array(size(from_basis,dim=2),size(from_basis,dim=2),zero)
+  !
+  ! bTxW = transpose(basis) x diag(weights)
+  !
+  do j = 1,size(from_basis,dim=2)
+    do i = 1,size(from_basis,dim=1)
+      bTxW(j,i) = from_basis(i,j) * from_elem%wts(i)
+    end do
+  end do
+  !
+!%#ifdef ENABLE_PROJECTION_OUTPUT
+!%  write (iu,2) "bTxW", &
+!%               ((bTxW(i,j),i=1,size(bTxW,dim=1)),j=1,size(bTxW,dim=2))
+!%#endif
+  !
+  ! bTxWxb = transpose(basis) x diag(weights) x basis
+  !
+#ifdef SPECIAL_FOR_INTEL
+  call gemm( bTxW , from_basis , bTxWxb )
+#else
+  bTxWxb(:,:) = matmul( bTxW , from_basis )
+#endif
+  !
+!%#ifdef ENABLE_PROJECTION_OUTPUT
+!%  write (iu,2) "bTxWxb", &
+!%               ((bTxWxb(i,j),i=1,size(bTxWxb,dim=1)),j=1,size(bTxWxb,dim=2))
+!%#endif
+  !
+  ! Get the inverse of bTxWxb
+  ! bTxWxb = inverse( transpose(basis) x diag(weights) x basis )
+  !
+#ifdef SPECIAL_FOR_INTEL
+  bTxWxb(:,:) = invert_matrix_lapack95( bTxWxb )
+#else
+  bTxWxb(:,:) = invert_matrix( bTxWxb )
+#endif
+  !
+!%#ifdef ENABLE_PROJECTION_OUTPUT
+!%  write (iu,2) "inverse(bTxWxb)", &
+!%               ((bTxWxb(i,j),i=1,size(bTxWxb,dim=1)),j=1,size(bTxWxb,dim=2))
+!%#endif
+  !
+  ! Compute the final projection matrix
+  !
+  ! pmat = vand x bTxWxb x bTxW
+  !
+!%#ifdef ENABLE_PROJECTION_OUTPUT
+!%  write (iu,2) "to_vand", &
+!%               ((to_vand(i,j),i=1,size(to_vand,dim=1)), &
+!%                              j=1,size(to_vand,dim=2))
+!%#endif
+  !
+#ifdef SPECIAL_FOR_INTEL
+  ! F2003 AUTO-REALLOC
+  tmp  = init_array(size(bTxWxB, dim=1),size(bTxW,dim=2),zero)
+  ! F2003 AUTO-REALLOC
+  pmat = init_array(size(to_vand,dim=1),size(bTxW,dim=2),zero)
+  call gemm( bTxWxb , bTxW , tmp )
+  call gemm( to_vand , tmp , pmat )
+#else
+  pmat = matmul( to_vand , matmul( bTxWxb , bTxW ) ) ! F2003 AUTO-REALLOCATION
+#endif
+  !
+!%#ifdef ENABLE_PROJECTION_OUTPUT
+!%  write (iu,2) "pmat", &
+!%               ((pmat(i,j),i=1,size(pmat,dim=1)),j=1,size(pmat,dim=2))
+!%#endif
+  !
+  ! Return the projection matrix
+  ! NOTE : The transpose of the projection matrix is returned because the
+  !        second dimension (or rows) of the projection matrix is used for
+  !        dot products with solution vectors.  This reduces the number of
+  !        cache misses whenever the projection matrix is used.
+  !
+  return_value = transpose( pmat ) ! USING F2003 AUTO-REALLOCATION
+!%#ifdef ENABLE_PROJECTION_OUTPUT
+!%  write (iu,2) "return_value",&
+!%               ((return_value(i,j),i=1,size(return_value,dim=1)), &
+!%                                   j=1,size(return_value,dim=2))
+!%  !
+!%  iu = iu + 1
+!%  1 format (a,i0)
+!%  2 format (/,a,/,100(6(1x,g12.4,:),/))
+!% !2 format (/,a,/,*(6(1x,g12.4,:),/))
+!%#endif
+  !
+  ! Deallocate all local arrays before leaving
+  !
+  if (allocated(to_elem)) deallocate ( to_elem )
+  if (allocated(from_elem)) deallocate ( from_elem )
+  if (allocated(edge_elem)) deallocate ( edge_elem )
+  if (allocated(from_basis)) deallocate ( from_basis )
+  if (allocated(to_vand)) deallocate ( to_vand )
+  if (allocated(bTxW)) deallocate ( bTxW )
+  if (allocated(bTxWxb)) deallocate ( bTxWxb )
+  if (allocated(pmat)) deallocate ( pmat )
+  if (allocated(tmp)) deallocate ( tmp )
+  !
+end function compute_generic_projct_matrix
 !
 !###############################################################################
 !
