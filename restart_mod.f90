@@ -77,6 +77,7 @@ module restart_mod
   _MPI_DATA_TYPE_, save :: real_type
   !
   integer, save :: num_pts = 0
+  integer, save :: num_global_pts = 0
   !
   !##################################
   !###  Module Derived Datatypes  ###
@@ -714,7 +715,8 @@ continue
     !
     call get_input_mpi_datatypes(restart_nq,restart_rp,real_type, &
                                  read_block_type,read_type, &
-                                 num_pts,ordered_geom,cell_input_data)
+                                 num_pts,num_global_pts, &
+                                 ordered_geom,cell_input_data)
     !
   end if
   !
@@ -789,7 +791,7 @@ continue
   !
   file_disp = file_disp + real_bytes * &
                           int(int_header(1),kind=MPI_OFFSET_KIND) * &
-                          int(n_global_solpts,kind=MPI_OFFSET_KIND)
+                          int(num_global_pts,kind=MPI_OFFSET_KIND)
   !
   ! Update the file view to after all the solution data
   !
@@ -4825,7 +4827,8 @@ end subroutine get_time_ave_mpi_datatypes
 !
 subroutine get_input_mpi_datatypes(restart_nq,restart_rp,real_type, &
                                    read_block_type,read_type, &
-                                   num_pts,ordered_geom,cell_input_data)
+                                   num_pts,num_global_pts, &
+                                   ordered_geom,cell_input_data)
   !
   !.. Use Statements ..
   use geovar, only : ncell ! ncell is recomputed after cell_map is created
@@ -4838,6 +4841,7 @@ subroutine get_input_mpi_datatypes(restart_nq,restart_rp,real_type, &
   _MPI_DATA_TYPE_,               intent(inout) :: read_block_type
   _MPI_DATA_TYPE_,               intent(inout) :: read_type
   integer(wip),                  intent(inout) :: num_pts
+  integer(wip),                  intent(inout) :: num_global_pts
   integer(wip),                     intent(in) :: ordered_geom(:)
   type(rstrt_cell_t), allocatable, intent(out) :: cell_input_data(:)
   !
@@ -4904,6 +4908,10 @@ continue
                               Cell_Solpts(this_geom,this_order)
     !
   end do
+  !
+  ! Get the total number of points in the restart file
+  !
+  num_global_pts = pinc_ptr(size(ordered_geom)+1)
   !
   ! Create the offset and block length arrays for the solution data
   !
