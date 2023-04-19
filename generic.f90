@@ -1784,6 +1784,7 @@ continue
     ! nondimensionalized by uref instead of aref
     muref_star = muref_nd / machref
     !
+    tgv_dimen(1) = kedr_coef
     ! Two time_refs for square of velocity derivatives (from vorticity**2)
     tgv_dimen(2) = muref_star / time_ref / time_ref
     ! Two time_refs for square of velocity derivatives (from strain**2)
@@ -1804,7 +1805,7 @@ continue
     !
     ! Open the output file for the root process
     !
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       !
       if (all(global_cell_geom(1:n_global_cell) == Geom_Tetr)) then
         grid_geom = "Tet"
@@ -2007,7 +2008,7 @@ continue
     !
     !$ACC PARALLEL LOOP PRESENT(tgv_kedr)
     do n = nmin,nmax
-      tgv_kedr(1,n) = kedr_coef*tgv_kedr(1,n)
+      tgv_kedr(1,n) = tgv_kedr(1,n) * tgv_dimen(1)
     end do
     !
     ! Have the root processor output the Taylor-Green KEDR solutions
