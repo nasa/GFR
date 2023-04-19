@@ -928,7 +928,7 @@ continue
     end if
     results_interval = max(results_interval,1)
     !
-    if (itestcase == Taylor_Green_Vortex) then
+    if (any(itestcase == Taylor_Problems)) then
       if (output_interval == 0) then
         disable_cgns_output = true
       end if
