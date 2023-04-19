@@ -1,6 +1,7 @@
 ./results
 ./objects/debug/*
 ./objects/optimize/*
+./objects/optimize_rome/*
 ./objects/optimize_skylake/*
 ./objects/optimize_broadwell/*
 ./objects/optimize_haswell/*
@@ -12,6 +13,7 @@
 ./objects/gpu_mm/*
 ./modules/debug/*
 ./modules/optimize/*
+./modules/optimize_rome/*
 ./modules/optimize_skylake/*
 ./modules/optimize_broadwell/*
 ./modules/optimize_haswell/*
@@ -23,6 +25,7 @@
 ./modules/gpu_mm/*
 ./gfr
 ./debug_gfr
+./gfr_rome
 ./gfr_skylake
 ./gfr_broadwell
 ./gfr_haswell
