@@ -1441,7 +1441,7 @@ continue
       ! different the kinetic energy dissipation rates
       !
       if (output_KEDR .and. iter/=num_timesteps) then
-        call compute_KEDR(iter,dtmin)
+        call compute_KEDR(itcur,dtmin)
       end if
       !
 #ifdef PAUSE_BETWEEN_ITERATIONS
