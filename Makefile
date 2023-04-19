@@ -33,6 +33,7 @@ all-nodes: gfr_sandybridge
 all-nodes: gfr_ivybridge
 all-nodes: gfr_broadwell
 all-nodes: gfr_skylake
+all-nodes: gfr_rome
 all-nodes: gfr
 
 .PHONY: rebuild
@@ -47,6 +48,7 @@ rebuild-optimize: rebuild-opt
 debug_gfr: debug
 gfr: optimize
 
+gfr_rome: rome
 gfr_skylake: skylake
 gfr_broadwell: broadwell
 gfr_haswell: haswell
@@ -56,6 +58,33 @@ gfr_westmere: westmere
 gfr_merope: merope
 gfr_gpu_mm: gpu-mm
 gfr_gpu: gpu
+
+# ROME
+
+.PHONY: rome
+rome: BDIR := optimize_rome
+rome: EXEF := gfr_rome
+rome: TRGT := rome
+rome: build
+
+.PHONY: rebuild-rome
+rebuild-rome: BDIR := optimize_rome
+rebuild-rome: EXEF := gfr_rome
+rebuild-rome: TRGT := rome
+rebuild-rome: clean-build
+rebuild-rome: rome
+
+.PHONY: clean-rome
+clean-rome: BDIR := optimize_rome
+clean-rome: EXEF := gfr_rome
+clean-rome: clean-build
+
+.PHONY: rom
+rom: rome
+.PHONY: rebuild-rom
+rebuild-rom: rebuild-rome
+.PHONY: clean-rom
+clean-rom: clean-rome
 
 # SKYLAKE
 
@@ -487,6 +516,8 @@ clean:
 	               "BUILDDIR=optimize_haswell" clean
 	make -f slv.mk "EXECUTABLE=gfr_skylake" \
 	               "BUILDDIR=optimize_skylake" clean
+	make -f slv.mk "EXECUTABLE=gfr_rome" \
+	               "BUILDDIR=optimize_rome" clean
 	make -f slv.mk "EXECUTABLE=gfr_gpu_mm" \
 	               "BUILDDIR=gpu_mm" clean
 	make -f slv.mk "EXECUTABLE=gfr_gpu" \
