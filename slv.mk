@@ -182,6 +182,10 @@ opt: optimize
 opt-host: OPTIM = $(OPTFLAG) $(HOSTARCH)
 opt-host: optimize
 
+.PHONY: rome
+rome: OPTIM = $(OPTFLAG) $(ROMOPT)
+rome: optimize
+
 .PHONY: skylake
 skylake: OPTIM = $(OPTFLAG) $(SKYOPT)
 skylake: optimize
@@ -291,6 +295,7 @@ ifeq "$(COMPFAMILY)" "intel"
   MODFLAG := -module
   OMPFLAG := -qopenmp
   ARCHFLAG := -x
+  ARCHFLAGROM := -march=
   WESARCH := SSE4.2
   SANARCH := AVX
   IVYARCH := CORE-AVX-I
@@ -301,6 +306,7 @@ ifeq "$(COMPFAMILY)" "intel"
  #SKYARCH := SKYLAKE-AVX512
  #SKYOPT  := $(ARCHFLAG)$(SKYARCH) $(ALIGN64) $(FPE)
  #SKYOPT  := $(ARCHFLAG)$(SKYARCH) $(ALIGN64) $(FPE) -qopt-zmm-usage=high
+  ROMARCH := core-avx2 -fma
   FPPFLAG := -fpp
   IPFLAG  := -ip
   IPOFLAG := -ipo
@@ -320,6 +326,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
   MODFLAG := -J
   OMPFLAG := -fopenmp
   ARCHFLAG := -march=
+  ARCHFLAGROM := -march=
   ######################################################
   #### USE THESE ARCH FLAGS FOR GCC 4.9.4 OR NEWER
   WESARCH := westmere
@@ -328,6 +335,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
   HASARCH := haswell
   BROARCH := broadwell
   SKYARCH := skylake-avx512 # ONLY WORKS FOR 6.1.0 or newer
+  ROMARCH := znver2
   #### USE THESE ARCH FLAGS FOR GCC 4.8.5 OR OLDER
  #WESARCH := corei7
  #SANARCH := corei7-avx
@@ -343,19 +351,21 @@ else ifeq "$(COMPFAMILY)" "gcc"
   REALLOCFLAG := -frealloc-lhs
   CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC -DDISABLE_QP -DOCTID
   AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH)
-  AUTOTARGETARCH += -mtune=$(IVYARCH) -mtune=$(HASARCH) -mtune=$(BROARCH) -mtune=$(SKYARCH)
+  AUTOTARGETARCH += -mtune=$(IVYARCH) -mtune=$(HASARCH) -mtune=$(BROARCH) -mtune=$(SKYARCH) -mtune=$(ROMARCH)
   HOSTARCH := $(ARCHFLAG)native
 else ifeq "$(COMPFAMILY)" "pgi"
   # PGI flags
   MODFLAG := -module
   OMPFLAG := -mp
   ARCHFLAG := -tp=
+  ARCHFLAGROM := -tp=
   WESARCH := nehalem
   SANARCH := sandybridge
   IVYARCH := sandybridge
   HASARCH := haswell
   BROARCH := haswell
   SKYARCH := haswell
+  ROMARCH := zen
   FPPFLAG := -Mpreprocess
   OPTFLAG := -O3
   DBGFLAG := -Mbounds -Mchkfpstk -Mchkptr -Mchkstk -Minform=inform -Ktrap=fp
@@ -372,5 +382,6 @@ IVYOPT  := $(ARCHFLAG)$(IVYARCH) $(ALIGN32)
 HASOPT  := $(ARCHFLAG)$(HASARCH) $(ALIGN32)
 BROOPT  := $(ARCHFLAG)$(BROARCH) $(ALIGN32)
 SKYOPT  := $(ARCHFLAG)$(SKYARCH) $(ALIGN64) -qopt-zmm-usage=high
+ROMOPT  := $(ARCHFLAGROM)$(ROMARCH)
 
 include dep.mk
