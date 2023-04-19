@@ -989,9 +989,11 @@ subroutine check_periodic_list_indices()
   !
 continue
   !
+#ifndef PBS_ENV
 #ifdef DEBUG_ON
   write (iout,981) mypnum,count(bface(1,:)==bc_periodic)
   981 format ("CPU ",i2," : # of periodic faces = ",i0)
+#endif
 #endif
   return
   if (ncpu > 1) return
