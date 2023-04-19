@@ -5,12 +5,19 @@ subroutine check_for_bad_number(line_num,file_name,ival)
   use module_kind_types, only : ldk,int_mpi
   use module_kind_types, only : mypnum,ncpu,mpierr
   use module_kind_types, only : mpi_inttyp
-  use module_kind_types, only : MPI_IN_PLACE,MPI_COMM_WORLD,MPI_MAX
   use module_kind_types, only : mpi_allgather
   use module_kind_types, only : mpi_allreduce
   use module_kind_types, only : stop_gfr,stop_mpi
   use module_kind_types, only : src_file_with_bad_number
   use module_kind_types, only : line_num_with_bad_number
+  use module_kind_types, only : MPI_MAX
+  use module_kind_types, only : MPI_COMM_WORLD
+! use module_kind_types, only : MPI_IN_PLACE
+#ifdef USE_MPI_F08
+  use mpi_f08, only : MPI_IN_PLACE
+#else
+  use mpi,     only : MPI_IN_PLACE
+#endif
 #ifndef SPECIAL_FOR_GCC
   use, intrinsic :: ieee_exceptions, only : ieee_usual
   use, intrinsic :: ieee_exceptions, only : ieee_get_flag
