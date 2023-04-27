@@ -1650,7 +1650,7 @@ subroutine compute_KEDR(iter,dtmin)
   use ovar,             only : muref_nd,total_volume
   use ovar,             only : time,time_ref,machref
   use ovar,             only : VortexGrid_DOF
-  use ovar,             only : iter_out_interval
+  use ovar,             only : iter_out_interval,itrst
   use ovar,             only : itestcase
   use flowvar,          only : usp,dusp,gpsp
   use element_type_mod, only : std_elem
@@ -1710,7 +1710,7 @@ continue
   ! Create some logical variables to help readability
   !
   final_output = (iter < 0)
-  first_output = (iter == nmax) .or. &
+  first_output = (iter == nmax+itrst) .or. &
                  (final_output .and. .not. completed_first_output)
   this_is_output_iter = ((tgv_idx == nmax .or. final_output) .and. (iter /= 0))
   !
