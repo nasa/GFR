@@ -581,6 +581,31 @@ continue
       elem_xyz = grid%xyz(1:nr, grid%elem(this_cell)%pts(:) )
       !
     end if
+!#ifdef DEBUG_ON
+!block
+!    real(wp) :: x,y,z,r,t
+!    if (mypnum == glb_root) then
+!      if (this_cell == 1) then
+!        write (iout,'(///)')
+!        write (iout,184) "mesh_order = ",mesh_order
+!        write (iout,184) "cell_order = ",this_order
+!        do n = 1,size(elem_xyz,dim=2)
+!          x = elem_xyz(1,n)
+!          y = elem_xyz(2,n)
+!          z = elem_xyz(3,n)
+!          r = sqrt(y*y + z*z)
+!          t = atan2(z,y)
+!          if (t < zero) t = t + two*pi
+!          write (iout,185) n,x,y,z,x,r,t*radians2degrees
+!        end do
+!        write (iout,'(///)')
+!      end if
+!    end if
+!    184 format (a,i0)
+!    185 format (i6,2(3x,3f12.6))
+!end block
+!#endif
+    !
     !
     ! Assign a local pointer to the mapping
     ! matrix as an alias to simplify the code
@@ -616,6 +641,30 @@ continue
     ! points for the cell
     !
     xyz(1:nr,n1:n2) = matmul( elem_xyz(:,:) , this_map%mat(:,:) )
+!#ifdef DEBUG_ON
+!block
+!    real(wp) :: x,y,z,r,t
+!    if (mypnum == glb_root) then
+!      if (this_cell == 1) then
+!        write (iout,'(///)')
+!        write (iout,184) "mesh_order = ",mesh_order
+!        write (iout,184) "cell_order = ",this_order
+!        do n = n1,n2
+!          x = xyz(1,n)
+!          y = xyz(2,n)
+!          z = xyz(3,n)
+!          r = sqrt(y*y + z*z)
+!          t = atan2(z,y)
+!          if (t < zero) t = t + two*pi
+!          write (iout,185) n,x,y,z,x,r,t*radians2degrees
+!        end do
+!        write (iout,'(///)')
+!      end if
+!    end if
+!   !184 format (a,i0)
+!   !185 format (i6,2(3x,3f12.6))
+!end block
+!#endif
     !
 #ifdef OUTPUT_GRID_MAPPINGS
     write (io,*)
