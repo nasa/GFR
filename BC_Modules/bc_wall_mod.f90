@@ -309,6 +309,14 @@ continue
       y = facexyz(2,n)
       z = facexyz(3,n)
       !
+      ! NOTE: With the assumption that the rotation axis is aligned with the
+      !       x-axis, we can make the simplification that y=r*cos(theta) and
+      !       z=r*sin(theta). With the rotational velocity, omega, only being
+      !       in the theta direction (no radial velocity), the y and z
+      !       direction velocities should be
+      !          vy = -(omega*r)*sin(theta) = -z*omega
+      !          vz =  (omega*r)*cos(theta) =  y*omega
+      !
       face_cv(n,nmx,2) = zero
       face_cv(n,nmy,2) = -z * speed
       face_cv(n,nmz,2) =  y * speed
