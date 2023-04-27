@@ -8,6 +8,7 @@ module internal_grid_mod
   private
   !
   public :: create_internal_grid
+  public :: write_internal_grid
   !
   logical(lk), parameter :: randomly_rotate_cells_debug = fals
  !logical(lk), parameter :: randomly_rotate_cells_debug = true
@@ -899,6 +900,7 @@ subroutine write_internal_grid(lcell,lfbnd)
   !.. Local Scalars ..
   integer :: nnod,npts,fnod,fpts
   integer :: nc,nf,i,l
+  integer :: i1,i2,i3,i4,i5,i6,i7,i8
   real(wp) :: x,y,z,r,t
   !
   !.. Local Allocatable Arrays ..
@@ -917,19 +919,8 @@ continue
   fnod = 0
   fpts = 0
   !
-  do nc = 1,lcell
-    nnod = max(nnod,size(grid%elem(nc)%nodes))
-    npts = max(npts,size(grid%elem(nc)%pts))
-  end do
-  !
-  do nf = 1,lfbnd
-    nc = lcell + nf
-    fnod = max(fnod,size(grid%elem(nc)%nodes))
-    fpts = max(fpts,size(grid%elem(nc)%pts))
-  end do
-  !
-  1 format (i6,1x,"|",1x,100i7)
-  2 format (i6,1x,"|",1x,i3,i2,1x,"|",1x,100i7)
+  1 format (i6,1x,"|",1x,100i8)
+  2 format (i6,1x,"|",1x,i3,i2,1x,"|",1x,100i8)
   3 format (i7,2(5x,3f12.6))
   4 format (89("="),/,"Cell ",i0, &
             t21,"x",t33,"y",t45,"z",t62,"x",t74,"r",t86,"t",/, &
@@ -938,25 +929,46 @@ continue
             t21,"x",t33,"y",t45,"z",t62,"x",t74,"r",t86,"t",/, &
             89("-"))
   6 format (1000(a1))
+  !
   if (mypnum == glb_root) then
     !
-    write (4101,1) 0,    (i, i=1,nnod)
-    write (4102,2) 0,0,0,(i, i=1,fnod)
-    write (5101,1) 0,    (i, i=1,npts)
-    write (5102,2) 0,0,0,(i, i=1,fpts)
+    open (newunit=i1,file="p0-cell_conn.dat",status="replace",action="write")
+    open (newunit=i2,file="ho-cell_conn.dat",status="replace",action="write")
+    open (newunit=i3,file="p0-face_conn.dat",status="replace",action="write")
+    open (newunit=i4,file="ho-face_conn.dat",status="replace",action="write")
+    open (newunit=i5,file="p0-cell_xyz.dat",status="replace",action="write")
+    open (newunit=i6,file="ho-cell_xyz.dat",status="replace",action="write")
+    open (newunit=i7,file="p0-face_xyz.dat",status="replace",action="write")
+    open (newunit=i8,file="ho-face_xyz.dat",status="replace",action="write")
     !
-    write (5101,6) ("-",i=1,npts*7+9)
-    write (5102,6) ("-",i=1,fpts*7+17)
+    do nc = 1,lcell
+      nnod = max(nnod,size(grid%elem(nc)%nodes))
+      npts = max(npts,size(grid%elem(nc)%pts))
+    end do
+    !
+    do nf = 1,lfbnd
+      nc = lcell + nf
+      fnod = max(fnod,size(grid%elem(nc)%nodes))
+      fpts = max(fpts,size(grid%elem(nc)%pts))
+    end do
+    !
+    write (i1,1) 0,    (i, i=1,nnod)
+    write (i3,2) 0,0,0,(i, i=1,fnod)
+    write (i2,1) 0,    (i, i=1,npts)
+    write (i4,2) 0,0,0,(i, i=1,fpts)
+    !
+    write (i2,6) ("-",i=1,npts*8+9)
+    write (i4,6) ("-",i=1,fpts*8+17)
     !
     do nc = 1,lcell
       !
       nodes = grid%elem(nc)%nodes(:) ! F2003 AUTO-REALLOC
       pts   = grid%elem(nc)%pts(:)   ! F2003 AUTO-REALLOC
       !
-      write (4101,1) nc,(nodes(i), i=1,size(nodes))
-      write (5101,1) nc,(pts(i), i=1,size(pts))
+      write (i1,1) nc,(nodes(i), i=1,size(nodes))
+      write (i2,1) nc,(pts(i), i=1,size(pts))
       !
-      write (4103,4) nc
+      write (i5,4) nc
       do i = 1,size(nodes)
         l = nodes(i)
         x = grid%xyz(1,l)
@@ -965,10 +977,10 @@ continue
         r = sqrt(y*y+z*z)
         t = atan2(z,y)
         t = t + merge(two*pi,zero,t<zero)
-        write (4103,3) l,x,y,z,x,r,t*radians2degrees
+        write (i5,3) l,x,y,z,x,r,t*radians2degrees
       end do
       !
-      write (5103,4) nc
+      write (i6,4) nc
       do i = 1,size(pts)
         l = pts(i)
         x = grid%xyz(1,l)
@@ -977,7 +989,7 @@ continue
         r = sqrt(y*y+z*z)
         t = atan2(z,y)
         t = t + merge(two*pi,zero,t<zero)
-        write (5103,3) l,x,y,z,x,r,t*radians2degrees
+        write (i6,3) l,x,y,z,x,r,t*radians2degrees
       end do
       !
     end do
@@ -989,10 +1001,10 @@ continue
       nodes = grid%elem(nc)%nodes(:) ! F2003 AUTO-REALLOC
       pts   = grid%elem(nc)%pts(:)   ! F2003 AUTO-REALLOC
       !
-      write (4102,2) nf,bface(1,nf),bface(4,nf),(nodes(i), i=1,size(nodes))
-      write (5102,2) nf,bface(1,nf),bface(4,nf),(pts(i), i=1,size(pts))
+      write (i3,2) nf,bface(1,nf),bface(4,nf),(nodes(i), i=1,size(nodes))
+      write (i4,2) nf,bface(1,nf),bface(4,nf),(pts(i), i=1,size(pts))
       !
-      write (4104,5) nf
+      write (i7,5) nf
       do i = 1,size(nodes)
         l = nodes(i)
         x = grid%xyz(1,l)
@@ -1001,10 +1013,10 @@ continue
         r = sqrt(y*y+z*z)
         t = atan2(z,y)
         t = t + merge(two*pi,zero,t<zero)
-        write (4104,3) l,x,y,z,x,r,t*radians2degrees
+        write (i7,3) l,x,y,z,x,r,t*radians2degrees
       end do
       !
-      write (5104,5) nf
+      write (i8,5) nf
       do i = 1,size(pts)
         l = pts(i)
         x = grid%xyz(1,l)
@@ -1013,10 +1025,19 @@ continue
         r = sqrt(y*y+z*z)
         t = atan2(z,y)
         t = t + merge(two*pi,zero,t<zero)
-        write (5104,3) l,x,y,z,x,r,t*radians2degrees
+        write (i8,3) l,x,y,z,x,r,t*radians2degrees
       end do
       !
     end do
+    !
+    close (i1)
+    close (i2)
+    close (i3)
+    close (i4)
+    close (i5)
+    close (i6)
+    close (i7)
+    close (i8)
     !
   end if
   !
