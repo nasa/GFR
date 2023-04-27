@@ -1578,6 +1578,7 @@ subroutine read_grid_file()
   use initialization_mod, only : create_bc_in
   !
   use internal_grid_mod, only : create_internal_grid
+  use internal_grid_mod, only : write_internal_grid
   !
   use eqn_idx, only : create_equation_indices
   !
@@ -1621,6 +1622,12 @@ continue
       call create_linear_grid_dt
     end if
   end if
+  !
+block
+  use geovar, only : ncell,nfbnd
+ !call write_internal_grid(ncell,nfbnd)
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+end block
   !
   ! Match periodic faces specified using bc_input
   !
