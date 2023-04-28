@@ -2007,7 +2007,7 @@ continue
     !       cases, but kedr_coef=1 for TGV and kedr_coef=1/2 for TCF.
     !
     !$ACC PARALLEL LOOP PRESENT(tgv_kedr)
-    do n = nmin,nmax
+    do n = 0,nend
       tgv_kedr(1,n) = tgv_kedr(1,n) * tgv_dimen(1)
     end do
     !
