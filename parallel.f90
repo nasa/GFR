@@ -1433,7 +1433,8 @@ continue
                                            cells_surr_cell, &
                                            cells_surr_cell_ptr, &
                                            passes_inspection, &
-                               contiguity_setting=options(METIS_OPTION_CONTIG))
+                               contiguity_setting=options(METIS_OPTION_CONTIG), &
+                               metis_option=metis_option)
      !end if
       !
       ! Broadcast the logical passes_inspection to all processors so
@@ -2072,7 +2073,7 @@ end subroutine create_grid_weights
 subroutine check_quality_of_partitioning(npart,epart, &
                                          cells_surr_cell,cells_surr_cell_ptr, &
                                          passes_inspection, &
-                                         contiguity_setting)
+                                         contiguity_setting,metis_option)
   !
   !.. Formal Arguments ..
   integer,        intent(in) :: npart
@@ -2083,6 +2084,7 @@ subroutine check_quality_of_partitioning(npart,epart, &
   !
   !.. Optional Arguments ..
   integer(idx_t), optional, intent(in) :: contiguity_setting
+  integer,        optional, intent(in) :: metis_option
   !
   !.. Local Scalars ..
   integer :: n,nc,l,lcell,ierr
