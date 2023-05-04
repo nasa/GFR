@@ -2091,6 +2091,8 @@ subroutine check_quality_of_partitioning(npart,epart, &
   !
   logical(lk) :: check_contiguity
   !
+  character(len=15) :: fname
+  !
   !.. Local Allocatable Arrays ..
   logical(lk), allocatable :: msk(:)
   !
@@ -2120,6 +2122,26 @@ continue
     passes_inspection = .false.
    !call stop_gfr(abort,pname,__LINE__,__FILE__)
   end do
+  if (mypnum == glb_root) then
+    if (.not. passes_inspection) then
+      if (present(metis_option)) then
+        write (fname,"('epart.',i0,'.dat')") metis_option
+      else
+        fname = "epart.dat"
+      end if
+      open (newunit=n,file=fname,status="replace",action="write",iostat=ierr)
+      do nc = 1,size(epart)
+        write (n,982) nc,epart(nc)
+      end do
+      write (n,"(80('#'))")
+      do nc = 1,nparts
+        write (n,983) nc,count(epart==nc)
+      end do
+      close (n,iostat=ierr)
+      982 format (i8,4x,i6)
+      983 format (i6,4x,i8)
+    end if
+  end if
   !
   !############################################################################
   !###        Check to make sure that all partitions are contiguous.        ###
