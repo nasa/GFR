@@ -3,6 +3,9 @@ module restart_mod
 #include <mpi_defs.h>
 #define PROFILE_ON
 !!!#define VERBOSE_RESTART
+#ifdef VERBOSE_RESTART
+#define ONLY_READ_RESTARTS_ARE_VERBOSE
+#endif
   !
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
@@ -41,6 +44,8 @@ module restart_mod
   !
   logical(lk), save :: restart_needs_initialization = true
   logical(lk), save :: time_ave_needs_initialization = true
+  !
+  logical(lk), save :: restart_operation_is_read = fals
   !
   integer, save :: restart_solution_form
   !
@@ -274,6 +279,8 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  restart_operation_is_read = true
+  !
   force_serial = fals
   if (present(force_serial_read)) force_serial = force_serial_read
   !
@@ -368,6 +375,8 @@ continue
     end if
     !
   end if
+  !
+  restart_operation_is_read = fals
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -3698,6 +3707,13 @@ subroutine write_restart_status(ios,file_comm,file_name,stat_strng, &
 continue
   !
 #ifdef VERBOSE_RESTART
+  !
+#ifdef ONLY_READ_RESTARTS_ARE_VERBOSE
+  if (.not. restart_operation_is_read) then
+    return
+  end if
+#endif
+  !
   if (present(file_name)) then
     !
     if (present(open_file)) then
