@@ -1206,7 +1206,7 @@ subroutine partition_using_metis_5(metis_option_requested,npart, &
   character(len=20) :: minmzd
   !
   !.. Local Arrays ..
-  integer :: metis_option_hierarchy(1:5)
+  integer, allocatable :: metis_option_hierarchy(:)
 #ifdef METIS_5
   integer(idx_t) :: options(0:METIS_NOPTIONS-1)
 #endif
@@ -1220,6 +1220,9 @@ subroutine partition_using_metis_5(metis_option_requested,npart, &
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "partition_using_metis_5"
+  !
+  integer, parameter :: metis_option_defaults(1:4) = [3,2,1,4]
+  !
   !
 continue
 #ifdef METIS_5
@@ -1281,7 +1284,10 @@ continue
   !
   ! Create the hierarchy of METIS algorithms to try
   !
-  metis_option_hierarchy = [metis_option_requested,3,2,1,4]
+  ! F2003 AUTO-REALLOC
+  metis_option_hierarchy = [metis_option_requested, &
+                pack(metis_option_defaults, &
+                     mask=(metis_option_defaults/=metis_option_requested))]
   !
   ! One-pass loop to allow for easy error handling if none of the
   ! partitioning methods produce a quality grid partitioning
