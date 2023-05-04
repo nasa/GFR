@@ -1,6 +1,7 @@
 module restart_mod
   !
 #include <mpi_defs.h>
+#define PROFILE_ON
 !!!#define VERBOSE_RESTART
   !
   use module_kind_types, global_debug_timer =>      debug_timer, &
@@ -6421,7 +6422,6 @@ end subroutine interp_restart_solution
 include "Functions/cell_solpts.f90"
 #include "Functions/sort.f90"
 !
-#define PROFILE_ON
 #include "Functions/debug_timer.f90"
 !
 !###############################################################################
