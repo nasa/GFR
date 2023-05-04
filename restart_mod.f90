@@ -5300,11 +5300,14 @@ end subroutine check_restart_solution_form
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_i1(file_handle,int_data)
+subroutine read_rstrt_file_i1(file_handle,int_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   integer(wip), intent(inout) :: int_data(:)
+  !
+  !.. Optional Arguments ..
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Arrays ..
   integer(int8) :: read_int(1:size(int_data))
@@ -5316,9 +5319,15 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,read_int, &
-                         size(read_int,kind=int_mpi), &
-                         MPI_INTEGER1,MPI_STATUS_IGNORE,mpierr)
+  if (present(mpistat)) then
+    call mpi_file_read_all(file_handle,read_int, &
+                           size(read_int,kind=int_mpi), &
+                           MPI_INTEGER1,mpistat(1),mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_int, &
+                           size(read_int,kind=int_mpi), &
+                           MPI_INTEGER1,MPI_STATUS_IGNORE,mpierr)
+  end if
   !
   int_data = int( read_int , kind=wip )
   !
@@ -5332,11 +5341,14 @@ end subroutine read_rstrt_file_i1
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_i2(file_handle,int_data)
+subroutine read_rstrt_file_i2(file_handle,int_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   integer(wip), intent(inout) :: int_data(:)
+  !
+  !.. Optional Arguments ..
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Arrays ..
   integer(int16) :: read_int(1:size(int_data))
@@ -5348,9 +5360,15 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,read_int, &
-                         size(read_int,kind=int_mpi), &
-                         MPI_INTEGER2,MPI_STATUS_IGNORE,mpierr)
+  if (present(mpistat)) then
+    call mpi_file_read_all(file_handle,read_int, &
+                           size(read_int,kind=int_mpi), &
+                           MPI_INTEGER2,mpistat(1),mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_int, &
+                           size(read_int,kind=int_mpi), &
+                           MPI_INTEGER2,MPI_STATUS_IGNORE,mpierr)
+  end if
   !
   int_data = int( read_int , kind=wip )
   !
@@ -5364,11 +5382,14 @@ end subroutine read_rstrt_file_i2
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_i4(file_handle,int_data)
+subroutine read_rstrt_file_i4(file_handle,int_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   integer(wip), intent(inout) :: int_data(:)
+  !
+  !.. Optional Arguments ..
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Arrays ..
   integer(int32) :: read_int(1:size(int_data))
@@ -5380,9 +5401,15 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,read_int, &
-                         size(read_int,kind=int_mpi), &
-                         MPI_INTEGER4,MPI_STATUS_IGNORE,mpierr)
+  if (present(mpistat)) then
+    call mpi_file_read_all(file_handle,read_int, &
+                           size(read_int,kind=int_mpi), &
+                           MPI_INTEGER4,mpistat(1),mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_int, &
+                           size(read_int,kind=int_mpi), &
+                           MPI_INTEGER4,MPI_STATUS_IGNORE,mpierr)
+  end if
   !
   int_data = int( read_int , kind=wip )
   !
@@ -5396,11 +5423,14 @@ end subroutine read_rstrt_file_i4
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_i8(file_handle,int_data)
+subroutine read_rstrt_file_i8(file_handle,int_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   integer(wip), intent(inout) :: int_data(:)
+  !
+  !.. Optional Arguments ..
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Arrays ..
   integer(int64) :: read_int(1:size(int_data))
@@ -5412,9 +5442,15 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,read_int, &
-                         size(read_int,kind=int_mpi), &
-                         MPI_INTEGER8,MPI_STATUS_IGNORE,mpierr)
+  if (present(mpistat)) then
+    call mpi_file_read_all(file_handle,read_int, &
+                           size(read_int,kind=int_mpi), &
+                           MPI_INTEGER8,mpistat(1),mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_int, &
+                           size(read_int,kind=int_mpi), &
+                           MPI_INTEGER8,MPI_STATUS_IGNORE,mpierr)
+  end if
   !
   int_data = int( read_int , kind=wip )
   !
@@ -5428,11 +5464,14 @@ end subroutine read_rstrt_file_i8
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_wip(file_handle,int_data)
+subroutine read_rstrt_file_wip(file_handle,int_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   integer(wip), intent(inout) :: int_data(:)
+  !
+  !.. Optional Arguments ..
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Arrays ..
   integer(wip) :: read_int(1:size(int_data))
@@ -5444,9 +5483,15 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,read_int, &
-                         size(int_data,kind=int_mpi), &
-                         mpi_inttyp,MPI_STATUS_IGNORE,mpierr)
+  if (present(mpistat)) then
+    call mpi_file_read_all(file_handle,read_int, &
+                           size(int_data,kind=int_mpi), &
+                           mpi_inttyp,mpistat(1),mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_int, &
+                           size(int_data,kind=int_mpi), &
+                           mpi_inttyp,MPI_STATUS_IGNORE,mpierr)
+  end if
   !
   int_data = read_int
   !
@@ -5460,11 +5505,14 @@ end subroutine read_rstrt_file_wip
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_r4_rank1(file_handle,real_data)
+subroutine read_rstrt_file_r4_rank1(file_handle,real_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:)
+  !
+  !.. Optional Arguments ..
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Arrays ..
   real(real32) :: read_real(1:size(real_data))
@@ -5476,9 +5524,15 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,read_real, &
-                         size(read_real,kind=int_mpi), &
-                         MPI_REAL4,MPI_STATUS_IGNORE,mpierr)
+  if (present(mpistat)) then
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(read_real,kind=int_mpi), &
+                           MPI_REAL4,mpistat(1),mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(read_real,kind=int_mpi), &
+                           MPI_REAL4,MPI_STATUS_IGNORE,mpierr)
+  end if
   !
   real_data = real( read_real , kind=wp )
   !
@@ -5486,14 +5540,16 @@ continue
   !
 end subroutine read_rstrt_file_r4_rank1
 !-------------------------------------------------------------------------------
-subroutine read_rstrt_file_r4_rank2(file_handle,real_data,read_block_type)
+subroutine read_rstrt_file_r4_rank2(file_handle,real_data, &
+                                    read_block_type,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:,:)
   !
   !.. Optional Arguments ..
-  _MPI_DATA_TYPE_, optional, intent(in) :: read_block_type
+  _MPI_DATA_TYPE_,   optional,    intent(in) :: read_block_type
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Arrays ..
   real(real32) :: read_real(1:size(real_data,dim=1), &
@@ -5506,14 +5562,26 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (present(read_block_type)) then
-    call mpi_file_read_all(file_handle,read_real, &
-                           size(read_real,dim=2,kind=int_mpi), &
-                           read_block_type,MPI_STATUS_IGNORE,mpierr)
+  if (present(mpistat)) then
+    if (present(read_block_type)) then
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(read_real,dim=2,kind=int_mpi), &
+                             read_block_type,mpistat(1),mpierr)
+    else
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(read_real,kind=int_mpi), &
+                             MPI_REAL4,mpistat(1),mpierr)
+    end if
   else
-    call mpi_file_read_all(file_handle,read_real, &
-                           size(read_real,kind=int_mpi), &
-                           MPI_REAL4,MPI_STATUS_IGNORE,mpierr)
+    if (present(read_block_type)) then
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(read_real,dim=2,kind=int_mpi), &
+                             read_block_type,MPI_STATUS_IGNORE,mpierr)
+    else
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(read_real,kind=int_mpi), &
+                             MPI_REAL4,MPI_STATUS_IGNORE,mpierr)
+    end if
   end if
   !
   real_data = real( read_real , kind=wp )
@@ -5528,11 +5596,14 @@ end subroutine read_rstrt_file_r4_rank2
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_r8_rank1(file_handle,real_data)
+subroutine read_rstrt_file_r8_rank1(file_handle,real_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:)
+  !
+  !.. Optional Arguments ..
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Arrays ..
   real(real64) :: read_real(1:size(real_data))
@@ -5544,9 +5615,15 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,read_real, &
-                         size(read_real,kind=int_mpi), &
-                         MPI_REAL8,MPI_STATUS_IGNORE,mpierr)
+  if (present(mpistat)) then
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(read_real,kind=int_mpi), &
+                           MPI_REAL8,mpistat(1),mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(read_real,kind=int_mpi), &
+                           MPI_REAL8,MPI_STATUS_IGNORE,mpierr)
+  end if
   !
   real_data = real( read_real , kind=wp )
   !
@@ -5554,14 +5631,16 @@ continue
   !
 end subroutine read_rstrt_file_r8_rank1
 !-------------------------------------------------------------------------------
-subroutine read_rstrt_file_r8_rank2(file_handle,real_data,read_block_type)
+subroutine read_rstrt_file_r8_rank2(file_handle,real_data, &
+                                    read_block_type,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:,:)
   !
   !.. Optional Arguments ..
-  _MPI_DATA_TYPE_, optional, intent(in) :: read_block_type
+  _MPI_DATA_TYPE_,   optional,    intent(in) :: read_block_type
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Arrays ..
   real(real64) :: read_real(1:size(real_data,dim=1), &
@@ -5574,14 +5653,25 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (present(read_block_type)) then
-    call mpi_file_read_all(file_handle,read_real, &
-                           size(read_real,dim=2,kind=int_mpi), &
-                           read_block_type,MPI_STATUS_IGNORE,mpierr)
-  else
-    call mpi_file_read_all(file_handle,read_real, &
-                           size(read_real,kind=int_mpi), &
-                           MPI_REAL8,MPI_STATUS_IGNORE,mpierr)
+  if (present(mpistat)) then
+    if (present(read_block_type)) then
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(read_real,dim=2,kind=int_mpi), &
+                             read_block_type,mpistat(1),mpierr)
+    else
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(read_real,kind=int_mpi), &
+                             MPI_REAL8,mpistat(1),mpierr)
+    end if
+    if (present(read_block_type)) then
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(read_real,dim=2,kind=int_mpi), &
+                             read_block_type,MPI_STATUS_IGNORE,mpierr)
+    else
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(read_real,kind=int_mpi), &
+                             MPI_REAL8,MPI_STATUS_IGNORE,mpierr)
+    end if
   end if
   !
   real_data = real( read_real , kind=wp )
@@ -5596,11 +5686,14 @@ end subroutine read_rstrt_file_r8_rank2
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_r16_rank1(file_handle,real_data)
+subroutine read_rstrt_file_r16_rank1(file_handle,real_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:)
+  !
+  !.. Optional Arguments ..
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Arrays ..
   real(max(real64,real128)) :: read_real(1:size(real_data))
@@ -5612,9 +5705,15 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,read_real, &
-                         size(read_real,kind=int_mpi), &
-                         MPI_REAL16,MPI_STATUS_IGNORE,mpierr)
+  if (present(mpistat)) then
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(read_real,kind=int_mpi), &
+                           MPI_REAL16,mpistat(1),mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(read_real,kind=int_mpi), &
+                           MPI_REAL16,MPI_STATUS_IGNORE,mpierr)
+  end if
   !
   real_data = real( read_real , kind=wp )
   !
@@ -5622,14 +5721,16 @@ continue
   !
 end subroutine read_rstrt_file_r16_rank1
 !-------------------------------------------------------------------------------
-subroutine read_rstrt_file_r16_rank2(file_handle,real_data,read_block_type)
+subroutine read_rstrt_file_r16_rank2(file_handle,real_data, &
+                                     read_block_type,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:,:)
   !
   !.. Optional Arguments ..
-  _MPI_DATA_TYPE_, optional, intent(in) :: read_block_type
+  _MPI_DATA_TYPE_,   optional,    intent(in) :: read_block_type
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Arrays ..
   real(max(real64,real128)) :: read_real(1:size(real_data,dim=1), &
@@ -5642,14 +5743,25 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (present(read_block_type)) then
-    call mpi_file_read_all(file_handle,read_real, &
-                           size(read_real,dim=2,kind=int_mpi), &
-                           read_block_type,MPI_STATUS_IGNORE,mpierr)
-  else
-    call mpi_file_read_all(file_handle,read_real, &
-                           size(read_real,kind=int_mpi), &
-                           MPI_REAL16,MPI_STATUS_IGNORE,mpierr)
+  if (present(mpistat)) then
+    if (present(read_block_type)) then
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(read_real,dim=2,kind=int_mpi), &
+                             read_block_type,mpistat(1),mpierr)
+    else
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(read_real,kind=int_mpi), &
+                             MPI_REAL16,mpistat(1),mpierr)
+    end if
+    if (present(read_block_type)) then
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(read_real,dim=2,kind=int_mpi), &
+                             read_block_type,MPI_STATUS_IGNORE,mpierr)
+    else
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(read_real,kind=int_mpi), &
+                             MPI_REAL16,MPI_STATUS_IGNORE,mpierr)
+    end if
   end if
   !
   real_data = real( read_real , kind=wp )
@@ -5664,11 +5776,14 @@ end subroutine read_rstrt_file_r16_rank2
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_wp_rank1(file_handle,real_data)
+subroutine read_rstrt_file_wp_rank1(file_handle,real_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:)
+  !
+  !.. Optional Arguments ..
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Arrays ..
   real(wp) :: read_real(1:size(real_data))
@@ -5680,9 +5795,15 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,read_real, &
-                         size(real_data,kind=int_mpi), &
-                         mpi_flttyp,MPI_STATUS_IGNORE,mpierr)
+  if (present(mpistat)) then
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(real_data,kind=int_mpi), &
+                           mpi_flttyp,mpistat(1),mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_real, &
+                           size(real_data,kind=int_mpi), &
+                           mpi_flttyp,MPI_STATUS_IGNORE,mpierr)
+  end if
   !
   real_data = read_real
   !
@@ -5690,14 +5811,16 @@ continue
   !
 end subroutine read_rstrt_file_wp_rank1
 !-------------------------------------------------------------------------------
-subroutine read_rstrt_file_wp_rank2(file_handle,real_data,read_block_type)
+subroutine read_rstrt_file_wp_rank2(file_handle,real_data, &
+                                    read_block_type,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:,:)
   !
   !.. Optional Arguments ..
-  _MPI_DATA_TYPE_, optional, intent(in) :: read_block_type
+  _MPI_DATA_TYPE_,   optional,    intent(in) :: read_block_type
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Arrays ..
   real(wp) :: read_real(1:size(real_data,dim=1), &
@@ -5710,14 +5833,26 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (present(read_block_type)) then
-    call mpi_file_read_all(file_handle,read_real, &
-                           size(real_data,dim=2,kind=int_mpi), &
-                           read_block_type,MPI_STATUS_IGNORE,mpierr)
+  if (present(mpistat)) then
+    if (present(read_block_type)) then
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(real_data,dim=2,kind=int_mpi), &
+                             read_block_type,mpistat(1),mpierr)
+    else
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(real_data,kind=int_mpi), &
+                             mpi_flttyp,mpistat(1),mpierr)
+    end if
   else
-    call mpi_file_read_all(file_handle,read_real, &
-                           size(real_data,kind=int_mpi), &
-                           mpi_flttyp,MPI_STATUS_IGNORE,mpierr)
+    if (present(read_block_type)) then
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(real_data,dim=2,kind=int_mpi), &
+                             read_block_type,MPI_STATUS_IGNORE,mpierr)
+    else
+      call mpi_file_read_all(file_handle,read_real, &
+                             size(real_data,kind=int_mpi), &
+                             mpi_flttyp,MPI_STATUS_IGNORE,mpierr)
+    end if
   end if
   !
   real_data = read_real
