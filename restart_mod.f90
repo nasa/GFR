@@ -755,7 +755,7 @@ continue
   !
   if (present(var_header)) then
     !
-    ! Read the real type for the solution data
+    ! Read the integer type for the variable header
     !
     call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
                             stat_strng="before reading int type for var_header")
