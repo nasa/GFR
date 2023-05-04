@@ -137,6 +137,7 @@ continue
     !
   end if
   !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
