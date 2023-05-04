@@ -435,6 +435,9 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
   integer :: inp_cell,inp_geom,inp_order
   integer :: this_cell,this_geom,this_order
   !
+  ! Variables for restart status
+  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
+  !
   !.. Local Allocatable Arrays ..
   integer(wip), allocatable :: ordered_geom(:)
   real(wp),     allocatable :: rst_sol(:,:)
@@ -491,14 +494,14 @@ continue
   !
   call debug_timer(start_timer,"reading int type for int header")
   call mpi_file_read_all(file_handle,restart_ip,1_int_mpi, &
-                         MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+                         MPI_INTEGER,istat(1),mpierr)
   call debug_timer(stop_timer,"reading int type for int header")
   !
   ! Read the number of integer header items
   !
   call debug_timer(start_timer,"reading # of int header items")
   call mpi_file_read_all(file_handle,n_header_int,1_int_mpi, &
-                         MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+                         MPI_INTEGER,istat(1),mpierr)
   call debug_timer(stop_timer,"reading # of int header items")
   !
   ! Allocate the int_header array
@@ -516,13 +519,17 @@ continue
   !
   call debug_timer(start_timer,"reading integer header")
   if (restart_ip == wip) then
-    call read_rstrt_file_wip(file_handle,int_header)
+    call read_rstrt_file_wip(file_handle,int_header,mpistat=istat)
   else
     select case (restart_ip)
-      case (int32) ; call read_rstrt_file_i4(file_handle,int_header)
-      case (int64) ; call read_rstrt_file_i8(file_handle,int_header)
-      case (int8)  ; call read_rstrt_file_i1(file_handle,int_header)
-      case (int16) ; call read_rstrt_file_i2(file_handle,int_header)
+      case (int32) ; call read_rstrt_file_i4(file_handle,int_header, &
+                                             mpistat=istat)
+      case (int64) ; call read_rstrt_file_i8(file_handle,int_header, &
+                                             mpistat=istat)
+      case (int8)  ; call read_rstrt_file_i1(file_handle,int_header, &
+                                             mpistat=istat)
+      case (int16) ; call read_rstrt_file_i2(file_handle,int_header, &
+                                             mpistat=istat)
       case default
         write (error_message,20)
         call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
@@ -601,14 +608,14 @@ continue
   !
   call debug_timer(start_timer,"reading real type for real header")
   call mpi_file_read_all(file_handle,restart_rp,1_int_mpi, &
-                         MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+                         MPI_INTEGER,istat(1),mpierr)
   call debug_timer(stop_timer,"reading real type for real header")
   !
   ! Read the number of real header items
   !
   call debug_timer(start_timer,"reading # of real header items")
   call mpi_file_read_all(file_handle,n_header_real,1_int_mpi, &
-                         MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+                         MPI_INTEGER,istat(1),mpierr)
   call debug_timer(stop_timer,"reading # of real header items")
   !
   ! Allocate the real_header array
@@ -626,12 +633,15 @@ continue
   !
   call debug_timer(start_timer,"reading real header")
   if (restart_rp == wp) then
-    call read_rstrt_file_wp(file_handle,real_header)
+    call read_rstrt_file_wp(file_handle,real_header,mpistat=istat)
   else
     select case (restart_rp)
-      case (real64)  ; call read_rstrt_file_r8(file_handle,real_header)
-      case (real32)  ; call read_rstrt_file_r4(file_handle,real_header)
-      case (real128) ; call read_rstrt_file_r16(file_handle,real_header)
+      case (real64)  ; call read_rstrt_file_r8(file_handle,real_header, &
+                                               mpistat=istat)
+      case (real32)  ; call read_rstrt_file_r4(file_handle,real_header, &
+                                               mpistat=istat)
+      case (real128) ; call read_rstrt_file_r16(file_handle,real_header, &
+                                                mpistat=istat)
       case default
         write (error_message,21)
         call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
@@ -647,7 +657,7 @@ continue
   !
   call debug_timer(start_timer,"reading int type for ordered_geom")
   call mpi_file_read_all(file_handle,restart_ip,1_int_mpi, &
-                         MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+                         MPI_INTEGER,istat(1),mpierr)
   call debug_timer(stop_timer,"reading int type for ordered_geom")
   !
   allocate ( ordered_geom(1:restart_ncells) , source=0_wip , &
@@ -661,13 +671,17 @@ continue
   !
   call debug_timer(start_timer,"reading ordered_geom")
   if (restart_ip == wip) then
-    call read_rstrt_file_wip(file_handle,ordered_geom)
+    call read_rstrt_file_wip(file_handle,ordered_geom,mpistat=istat)
   else
     select case (restart_ip)
-      case (int32) ; call read_rstrt_file_i4(file_handle,ordered_geom)
-      case (int64) ; call read_rstrt_file_i8(file_handle,ordered_geom)
-      case (int8)  ; call read_rstrt_file_i1(file_handle,ordered_geom)
-      case (int16) ; call read_rstrt_file_i2(file_handle,ordered_geom)
+      case (int32) ; call read_rstrt_file_i4(file_handle,ordered_geom, &
+                                             mpistat=istat)
+      case (int64) ; call read_rstrt_file_i8(file_handle,ordered_geom, &
+                                             mpistat=istat)
+      case (int8)  ; call read_rstrt_file_i1(file_handle,ordered_geom, &
+                                             mpistat=istat)
+      case (int16) ; call read_rstrt_file_i2(file_handle,ordered_geom, &
+                                             mpistat=istat)
       case default
         write (error_message,22)
         call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
@@ -691,7 +705,7 @@ continue
     !
     call debug_timer(start_timer,"reading int type for variable header")
     call mpi_file_read_all(file_handle,restart_ip,1_int_mpi, &
-                           MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+                           MPI_INTEGER,istat(1),mpierr)
     call debug_timer(stop_timer,"reading int type for variable header")
     !
     if (allocated(var_header)) then
@@ -708,13 +722,17 @@ continue
     !
     call debug_timer(start_timer,"reading variable header")
     if (restart_ip == wip) then
-      call read_rstrt_file_wip(file_handle,var_header)
+      call read_rstrt_file_wip(file_handle,var_header,mpistat=istat)
     else
       select case (restart_ip)
-        case (int32) ; call read_rstrt_file_i4(file_handle,var_header)
-        case (int64) ; call read_rstrt_file_i8(file_handle,var_header)
-        case (int8)  ; call read_rstrt_file_i1(file_handle,var_header)
-        case (int16) ; call read_rstrt_file_i2(file_handle,var_header)
+        case (int32) ; call read_rstrt_file_i4(file_handle,var_header, &
+                                               mpistat=istat)
+        case (int64) ; call read_rstrt_file_i8(file_handle,var_header, &
+                                               mpistat=istat)
+        case (int8)  ; call read_rstrt_file_i1(file_handle,var_header, &
+                                               mpistat=istat)
+        case (int16) ; call read_rstrt_file_i2(file_handle,var_header, &
+                                               mpistat=istat)
         case default
           write (error_message,24)
           call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
@@ -743,7 +761,7 @@ continue
   !
   call debug_timer(start_timer,"reading real type for solution data")
   call mpi_file_read_all(file_handle,restart_rp,1_int_mpi, &
-                         MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+                         MPI_INTEGER,istat(1),mpierr)
   call debug_timer(stop_timer,"reading real type for solution data")
   !
   ! Get the updated file displacement
@@ -816,16 +834,18 @@ call debug_timer(stop_timer,"getting byte offset to read solution data")
   !
   call debug_timer(start_timer,"reading solution data")
   if (restart_rp == wp) then
-    call read_rstrt_file_wp(file_handle,rst_sol, &
-                            read_block_type)
+    call read_rstrt_file_wp(file_handle,rst_sol,read_block_type,mpistat=istat)
   else
     select case (restart_rp)
       case (real64)  ; call read_rstrt_file_r8(file_handle,rst_sol, &
-                                               read_block_type)
+                                               read_block_type, &
+                                               mpistat=istat)
       case (real32)  ; call read_rstrt_file_r4(file_handle,rst_sol, &
-                                               read_block_type)
+                                               read_block_type, &
+                                               mpistat=istat)
       case (real128) ; call read_rstrt_file_r16(file_handle,rst_sol, &
-                                                read_block_type)
+                                                read_block_type, &
+                                                mpistat=istat)
       case default
         write (error_message,23)
         call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
