@@ -1267,12 +1267,12 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"adjwgt",1,__LINE__,__FILE__,ierr,error_message)
   !
-  allocate ( tpwgts(0:ncon*npart-1) , &
-             source=1.0_real_t/real(npart,kind=real_t) , &
+  allocate ( tpwgts(0:ncon*nparts-1) , &
+             source=1.0_real_t/real(nparts,kind=real_t) , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"tpwgts",1,__LINE__,__FILE__,ierr,error_message)
   !
-  tpwgts(:) = real( one/real(npart,kind=wp) , kind=kind(tpwgts) )
+  tpwgts(:) = real( one/real(nparts,kind=wp) , kind=kind(tpwgts) )
   tpwgts(:) = tpwgts(:) / sum(tpwgts(:))
   !
   allocate ( ubvec(1:ncon) , source=1.01_real_t , &
@@ -1429,7 +1429,7 @@ continue
       ! partitioning to the other processes if none are found.
       !
      !if (mypnum == 0) then
-        call check_quality_of_partitioning(npart,epart, &
+        call check_quality_of_partitioning(nparts,epart, &
                                            cells_surr_cell, &
                                            cells_surr_cell_ptr, &
                                            passes_inspection, &
@@ -1447,11 +1447,11 @@ continue
       ! output the results of the partitioning and exit from part_loop.
       !
       if (passes_inspection) then
-        write (iout,1) method,npart,weight,minmzd,objval
+        write (iout,1) method,nparts,weight,minmzd,objval
         exit part_loop
       end if
       !
-      write (iout,4) method,npart,weight,minmzd
+      write (iout,4) method,nparts,weight,minmzd
       !
     end do
     !
@@ -2070,13 +2070,13 @@ end subroutine create_grid_weights
 !
 !###############################################################################
 !
-subroutine check_quality_of_partitioning(npart,epart, &
+subroutine check_quality_of_partitioning(nparts,epart, &
                                          cells_surr_cell,cells_surr_cell_ptr, &
                                          passes_inspection, &
                                          contiguity_setting,metis_option)
   !
   !.. Formal Arguments ..
-  integer,        intent(in) :: npart
+  integer,        intent(in) :: nparts
   integer(idx_t), intent(in) :: epart(:)
   logical(ldk),  intent(out) :: passes_inspection
   integer,        intent(in) :: cells_surr_cell(:)
@@ -2116,7 +2116,7 @@ continue
   !
   ! Check that all processors got part of the global grid
   !
-  do n = 1,npart
+  do n = 1,nparts
     if (any(epart == n)) cycle
     write (iout,100) n
     passes_inspection = .false.
@@ -2158,7 +2158,7 @@ continue
     allocate ( msk(1:lcell) , source=true , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
     !
-    do n = 1,npart
+    do n = 1,nparts
       !
       nc = 0
       !
