@@ -491,77 +491,89 @@ continue
     call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  allocate ( grid , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"grid",1,__LINE__,__FILE__,ierr,error_message)
+  ! Only have the host roots create the grid derived type. The high-order
+  ! data it will contain can take up a lot of memory. Only having the root
+  ! process on each host/node store this data will save a lot of memory
+  ! instead of having [# of cores per node] copies of the same data on each
+  ! node. The partitioning code only expects the host root to have this
+  ! information, so storing this information on non-root processes is just
+  ! a waste of memory anyways.
   !
-  allocate ( grid%elem(1:ncell+nfbnd) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"grid%elem",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Create grid for the grid cells
-  !
-  if (n_order == 1) then
-    elem_type = int(HEXA_8)
-    npts = 8
-  else if (n_order == 2) then
-    elem_type = int(HEXA_27)
-    npts = 27
-  else if (n_order == 3) then
-    elem_type = int(HEXA_64)
-    npts = 64
-  else ! n_order >= 4
-    elem_type = int(HEXA_125)
-    npts = 125
+  if (i_am_host_root) then
+    !
+    allocate ( grid , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( grid%elem(1:ncell+nfbnd) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid%elem",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Create grid for the grid cells
+    !
+    if (n_order == 1) then
+      elem_type = int(HEXA_8)
+      npts = 8
+    else if (n_order == 2) then
+      elem_type = int(HEXA_27)
+      npts = 27
+    else if (n_order == 3) then
+      elem_type = int(HEXA_64)
+      npts = 64
+    else ! n_order >= 4
+      elem_type = int(HEXA_125)
+      npts = 125
+    end if
+    !
+    do nc = 1,ncell
+      !
+      grid%elem(nc)%prop%npts = npts
+      grid%elem(nc)%prop%order = min(n_order,4)
+      grid%elem(nc)%prop%geom = Geom_Hexa
+      grid%elem(nc)%prop%elem_type = elem_type
+      !
+      grid%elem(nc)%nodes = elem_nodes(1:8,nc) ! F2003 AUTO-REALLOC
+      grid%elem(nc)%pts = elem_pts(1:npts,nc) ! F2003 AUTO-REALLOC
+      !
+      grid%elem(nc)%tags = [0,0] ! F2003 AUTO-REALLOC
+      !
+    end do
+    !
+    ! Create grid for the boundary faces
+    !
+    do nf = 1,nfbnd
+      !
+      nc = ncell + nf
+      !
+      host_cell = bface(2,nf)
+      host_side = bface(4,nf)
+      !
+      ! Use get_face_elem to get the face connectivity
+      ! NOTE: This will assign all the %prop values, create the %nodes
+      !       and %pts arrays, and copy the host cells %tags array.
+      ! NOTE: The get_face_elem function works correctly whether the host
+      !       cells point connectivity is in CGNS or GFR ordering. It will check
+      !       to see if
+      !         1) %pts(1:size(%nodes)) == %nodes (CGNS ordering), and then
+      !            return the face elements %pts array in GFR ordering, or
+      !         2) otherwise, it will reverse the GFR ordering of the host
+      !            cells %pts to put it back in CGNS order, the return the
+      !            face elements %pts array in GFR ordering
+      !
+      grid%elem(nc) = get_face_elem(grid%elem(host_cell),host_side,host_cell)
+      !
+      ! The get_face_elem function copies the host cells tags array to the
+      ! face element, so we need to add the boundary condition to tags.
+      !
+      grid%elem(nc)%tags = [bface(1,nf),0] ! F2003 AUTO-REALLOC
+      !
+    end do
+    !
+    ! Copy the xyz_pts array into grid%xyz using the move_alloc subroutine
+    ! NOTE: This will allocate grid%xyz with the same size and shape as xyz_pts,
+    !       copy over the values, then deallocate xyz_pts.
+    !
+    call move_alloc( from=xyz_pts , to=grid%xyz )
+    !
   end if
-  !
-  do nc = 1,ncell
-    !
-    grid%elem(nc)%prop%npts = npts
-    grid%elem(nc)%prop%order = min(n_order,4)
-    grid%elem(nc)%prop%geom = Geom_Hexa
-    grid%elem(nc)%prop%elem_type = elem_type
-    !
-    grid%elem(nc)%nodes = elem_nodes(1:8,nc) ! F2003 AUTO-REALLOC
-    grid%elem(nc)%pts = elem_pts(1:npts,nc) ! F2003 AUTO-REALLOC
-    !
-    grid%elem(nc)%tags = [0,0] ! F2003 AUTO-REALLOC
-    !
-  end do
-  !
-  ! Create grid for the boundary faces
-  !
-  do nf = 1,nfbnd
-    !
-    nc = ncell + nf
-    !
-    host_cell = bface(2,nf)
-    host_side = bface(4,nf)
-    !
-    ! Use get_face_elem to get the face connectivity
-    ! NOTE: This will assign all the %prop values, create the %nodes
-    !       and %pts arrays, and copy the host cells %tags array.
-    ! NOTE: The get_face_elem function works correctly whether the host
-    !       cells point connectivity is in CGNS or GFR ordering. It will check
-    !       to see if
-    !         1) %pts(1:size(%nodes)) == %nodes (CGNS ordering), and then
-    !            return the face elements %pts array in GFR ordering, or
-    !         2) otherwise, it will reverse the GFR ordering of the host
-    !            cells %pts to put it back in CGNS order, the return the
-    !            face elements %pts array in GFR ordering
-    !
-    grid%elem(nc) = get_face_elem(grid%elem(host_cell),host_side,host_cell)
-    !
-    ! The get_face_elem function copies the host cells tags array to the
-    ! face element, so we need to add the boundary condition to tags.
-    !
-    grid%elem(nc)%tags = [bface(1,nf),0] ! F2003 AUTO-REALLOC
-    !
-  end do
-  !
-  ! Copy the xyz_pts array into grid%xyz using the move_alloc subroutine
-  ! NOTE: This will allocate grid%xyz with the same size and shape as xyz_pts,
-  !       copy over the values, then deallocate xyz_pts.
-  !
-  call move_alloc( from=xyz_pts , to=grid%xyz )
   !
  !call write_internal_grid(ncell,nfbnd)
   !
@@ -748,12 +760,20 @@ continue
   !
   npts = npx*npr*npa
   !
-  xyz_pts = init_array(3,npts,zero) ! F2003 AUTO-REALLOC
+  ! Only the root process on each host/node will store the high-order
+  ! grid information prior to partitioning, so we only want the host
+  ! roots to create xyz_pts.
   !
-  ! Copy xyz_nodes over to xyz_pts
-  ! NOTE: n should equal lnode coming out of the above loops
-  !
-  xyz_pts(1:3,1:lnode) = xyz_nodes(1:3,1:lnode)
+  if (i_am_host_root) then
+    !
+    xyz_pts = init_array(3,npts,zero) ! F2003 AUTO-REALLOC
+    !
+    ! Copy xyz_nodes over to xyz_pts
+    ! NOTE: n should equal lnode coming out of the above loops
+    !
+    xyz_pts(1:3,1:lnode) = xyz_nodes(1:3,1:lnode)
+    !
+  end if
   !
   ! Now create the indices for the high-order grid points, and also
   ! fill in xyz_pts for these points
@@ -779,10 +799,13 @@ continue
         ijkmap(ip,jp,kp) = n
         !
         ! Compute the coordinates for this point and save it to xyz_pts
+        ! NOTE: Only the host roots will store the high-order data
         !
-        xyz_pts(1,n) = dlpx * real(ip-1,kind=wp)
-        xyz_pts(2,n) = rpts(jp)*cos(theta)
-        xyz_pts(3,n) = rpts(jp)*sin(theta)
+        if (i_am_host_root) then
+          xyz_pts(1,n) = dlpx * real(ip-1,kind=wp)
+          xyz_pts(2,n) = rpts(jp)*cos(theta)
+          xyz_pts(3,n) = rpts(jp)*sin(theta)
+        end if
         !
       end do
     end do
@@ -818,7 +841,13 @@ continue
   !
   cpts = (p+1)**3
   !
-  elem_pts = init_array(cpts,lcell,0) ! F2003 AUTO-REALLOC
+  ! Only the root process on each host/node will store the high-order
+  ! grid information prior to partitioning, so we only want the host
+  ! roots to create elem_pts.
+  !
+  if (i_am_host_root) then
+    elem_pts = init_array(cpts,lcell,0) ! F2003 AUTO-REALLOC
+  end if
   !
   ! Loop over the cells and create the elem_nodes
   ! and elem_pts connectivities for each cell.
@@ -854,16 +883,19 @@ continue
         elem_nodes(8,nc) = ijkmap(i  ,j+p,k+p)
         !
         ! Fill elem_pts
+        ! NOTE: Only the host roots will store the high-order data
         !
-        n = 0
-        do kp = k,k+p
-          do jp = j,j+p
-            do ip = i,i+p
-              n = n + 1
-              elem_pts(n,nc) = ijkmap(ip,jp,kp)
+        if (i_am_host_root) then
+          n = 0
+          do kp = k,k+p
+            do jp = j,j+p
+              do ip = i,i+p
+                n = n + 1
+                elem_pts(n,nc) = ijkmap(ip,jp,kp)
+              end do
             end do
           end do
-        end do
+        end if
         !
       end do i_cells
     end do j_cells
