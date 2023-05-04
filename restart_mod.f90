@@ -436,6 +436,12 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
   integer :: this_cell,this_geom,this_order
   !
   ! Variables for restart status
+  integer :: ios
+  integer, save :: read_counts = 0
+  !
+  character(len=25) :: statfile
+  !
+  _MPI_COMM_TYPE_ :: file_comm
   _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
   !
   !.. Local Allocatable Arrays ..
@@ -458,6 +464,13 @@ continue
   !
   solution_errors = 0
   !
+  read_counts = read_counts + 1
+  write (statfile,'("read_restart.",i0,".stat")') read_counts
+  file_comm = MPI_COMM_WORLD
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                            open_file=true, &
+                            stat_strng="init stat, before mpi_info")
+  !
   ! Initialize file_info to MPI_INFO_NULL
   !
   file_info = MPI_INFO_NULL
@@ -477,12 +490,18 @@ continue
 #endif
 #endif
   !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                     stat_strng="after mpi_info, before mpi_file_open")
+  !
   ! Open the restart file for MPI I/O
   !
   call debug_timer(start_timer,"calling mpi_file_open")
   call mpi_file_open(MPI_COMM_WORLD,trim(adjustl(file_name)), &
                      MPI_MODE_RDONLY,file_info,file_handle,mpierr)
   call debug_timer(stop_timer,"calling mpi_file_open")
+  !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                            stat_strng="after mpi_file_open")
   !
   ! Have all processors read the header section of the restart file
   !
@@ -497,12 +516,20 @@ continue
                          MPI_INTEGER,istat(1),mpierr)
   call debug_timer(stop_timer,"reading int type for int header")
   !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                            mpistat=istat, &
+                            stat_strng="after reading int type for int header")
+  !
   ! Read the number of integer header items
   !
   call debug_timer(start_timer,"reading # of int header items")
   call mpi_file_read_all(file_handle,n_header_int,1_int_mpi, &
                          MPI_INTEGER,istat(1),mpierr)
   call debug_timer(stop_timer,"reading # of int header items")
+  !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                            mpistat=istat, &
+                            stat_strng="after reading # of int header items")
   !
   ! Allocate the int_header array
   !
@@ -536,6 +563,10 @@ continue
     end select
   end if
   call debug_timer(stop_timer,"reading integer header")
+  !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                            mpistat=istat, &
+                            stat_strng="after reading integer header")
   !
   ! Extract the information from the integer section of the header
   !
@@ -604,6 +635,9 @@ continue
 ! ### Real part of restart header ###
 ! ###################################
   !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                          stat_strng="before reading real type for real header")
+  !
   ! Read the real type for the real part of the restart header
   !
   call debug_timer(start_timer,"reading real type for real header")
@@ -611,12 +645,20 @@ continue
                          MPI_INTEGER,istat(1),mpierr)
   call debug_timer(stop_timer,"reading real type for real header")
   !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                            mpistat=istat, &
+                           stat_strng="after reading real type for real header")
+  !
   ! Read the number of real header items
   !
   call debug_timer(start_timer,"reading # of real header items")
   call mpi_file_read_all(file_handle,n_header_real,1_int_mpi, &
                          MPI_INTEGER,istat(1),mpierr)
   call debug_timer(stop_timer,"reading # of real header items")
+  !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                            mpistat=istat, &
+                            stat_strng="after reading # of real header items")
   !
   ! Allocate the real_header array
   !
@@ -649,6 +691,10 @@ continue
   end if
   call debug_timer(stop_timer,"reading real header")
   !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                            mpistat=istat, &
+                            stat_strng="after reading real header")
+  !
 ! #############################################
 ! ### Ordered_Geom part of the restart file ###
 ! #############################################
@@ -659,6 +705,10 @@ continue
   call mpi_file_read_all(file_handle,restart_ip,1_int_mpi, &
                          MPI_INTEGER,istat(1),mpierr)
   call debug_timer(stop_timer,"reading int type for ordered_geom")
+  !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                            mpistat=istat, &
+                           stat_strng="after reading int type for ordered_geom")
   !
   allocate ( ordered_geom(1:restart_ncells) , source=0_wip , &
              stat=ierr , errmsg=error_message )
@@ -689,6 +739,10 @@ continue
   end if
   call debug_timer(stop_timer,"reading ordered_geom")
   !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                            mpistat=istat, &
+                            stat_strng="after reading ordered_geom")
+  !
   ! Check to see if the form of the restart data matches the
   ! form of the solution data for the current simulation.
   !
@@ -703,10 +757,17 @@ continue
     !
     ! Read the real type for the solution data
     !
+    call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                            stat_strng="before reading int type for var_header")
+    !
     call debug_timer(start_timer,"reading int type for variable header")
     call mpi_file_read_all(file_handle,restart_ip,1_int_mpi, &
                            MPI_INTEGER,istat(1),mpierr)
     call debug_timer(stop_timer,"reading int type for variable header")
+    !
+    call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                              mpistat=istat, &
+                             stat_strng="after reading int type for var_header")
     !
     if (allocated(var_header)) then
       deallocate ( var_header , stat=ierr , errmsg=error_message )
@@ -740,6 +801,10 @@ continue
     end if
     call debug_timer(stop_timer,"reading variable header")
     !
+    call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                              mpistat=istat, &
+                              stat_strng="after reading variable header")
+    !
     if (.not. allocated(solution)) then
       if (flip_sol_indices) then
         allocate ( solution(1:n_solpts,1:restart_nq) , source=zero , &
@@ -764,14 +829,25 @@ continue
                          MPI_INTEGER,istat(1),mpierr)
   call debug_timer(stop_timer,"reading real type for solution data")
   !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                            mpistat=istat, &
+                         stat_strng="after reading real type for solution data")
+  !
   ! Get the updated file displacement
   !
   call debug_timer(start_timer,"getting file position to read solution data")
   call mpi_file_get_position(file_handle,file_offset,mpierr)
   call debug_timer(stop_timer,"getting file position to read solution data")
+  !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+          stat_strng="after getting file position before reading solution data")
+
 call debug_timer(start_timer,"getting byte offset to read solution data")
   call mpi_file_get_byte_offset(file_handle,file_offset,file_disp,mpierr)
 call debug_timer(stop_timer,"getting byte offset to read solution data")
+  !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+            stat_strng="after getting byte offset before reading solution data")
   !
   ! Get the MPI derived types required to read the solution data section
   ! of the restart file if cell_input_data is not allocated
@@ -786,6 +862,9 @@ call debug_timer(stop_timer,"getting byte offset to read solution data")
     call debug_timer(stop_timer,"calling get_input_mpi_datatypes")
     !
   end if
+  !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                  stat_strng="after getting MPI datatype to read solution data")
   !
   ! Deallocate ordered_geom since it is no longer needed
   !
@@ -823,6 +902,9 @@ call debug_timer(stop_timer,"getting byte offset to read solution data")
                          file_info, mpierr)
   call debug_timer(stop_timer,"setting file view to read solution data")
   !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+              stat_strng="after setting file view before reading solution data")
+  !
   ! Allocate the rst_sol array to read in the solution restart data
   !
 !%allocate ( rst_sol(1:restart_nq,1:n_solpts) , source=zero , &
@@ -853,6 +935,10 @@ call debug_timer(stop_timer,"getting byte offset to read solution data")
   end if
   call debug_timer(stop_timer,"reading solution data")
   !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                            mpistat=istat, &
+                            stat_strng="after reading solution data")
+  !
   ! Update the file displacement since we know the total number of
   ! solution points, the number of variables per solution point, and
   ! the byte-size of for each element of the solution array.
@@ -875,6 +961,9 @@ call debug_timer(stop_timer,"getting byte offset to read solution data")
                          file_info, mpierr)
   call debug_timer(stop_timer,"setting file view to read sem data")
   !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+              stat_strng="after setting file view before reading sem data")
+  !
   ! Read in the restart information for the synthetic
   ! inflow turbulence generators
   !
@@ -882,6 +971,9 @@ call debug_timer(stop_timer,"getting byte offset to read solution data")
     call debug_timer(start_timer,"calling read_sem_restart")
     call read_sem_restart(num_sem_boxes,file_handle)
     call debug_timer(stop_timer,"calling read_sem_restart")
+    !
+    call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                stat_strng="after reading all sem data")
   end if
   !
   ! Finally close the restart file
@@ -889,6 +981,10 @@ call debug_timer(stop_timer,"getting byte offset to read solution data")
   call debug_timer(start_timer,"calling mpi_file_close")
   call mpi_file_close(file_handle,mpierr)
   call debug_timer(stop_timer,"calling mpi_file_close")
+  !
+  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                            close_file=true, &
+                            stat_strng="after mpi_file_close")
   !
   !
   !
