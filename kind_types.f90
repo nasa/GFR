@@ -1055,6 +1055,32 @@ module module_kind_types
 #endif
   end interface init_array
   !
+  ! From Functions/all_are_equal.f90
+  !
+  private :: all_are_equal_i4, all_are_equal_i8, &
+             all_are_equal_r4, all_are_equal_r8, all_are_equal_r16
+  !
+  interface all_are_equal
+    module procedure all_are_equal_i4, all_are_equal_i8, &
+                     all_are_equal_r4, all_are_equal_r8
+#ifndef DISABLE_QP
+    module procedure all_are_equal_r16
+#endif
+  end interface all_are_equal
+  !
+  ! From Functions/all_are_equal.f90
+  !
+  private :: all_not_equal_i4, all_not_equal_i8, &
+             all_not_equal_r4, all_not_equal_r8, all_not_equal_r16
+  !
+  interface all_not_equal
+    module procedure all_not_equal_i4, all_not_equal_i8, &
+                     all_not_equal_r4, all_not_equal_r8
+#ifndef DISABLE_QP
+    module procedure all_not_equal_r16
+#endif
+  end interface all_not_equal
+  !
   ! From Functions/cross_product.f90
   !
   private :: cross_product_SP,cross_product_DP,cross_product_QP
