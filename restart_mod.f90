@@ -841,10 +841,10 @@ continue
   !
   call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
           stat_strng="after getting file position before reading solution data")
-
-call debug_timer(start_timer,"getting byte offset to read solution data")
+  !
+  call debug_timer(start_timer,"getting byte offset to read solution data")
   call mpi_file_get_byte_offset(file_handle,file_offset,file_disp,mpierr)
-call debug_timer(stop_timer,"getting byte offset to read solution data")
+  call debug_timer(stop_timer,"getting byte offset to read solution data")
   !
   call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
             stat_strng="after getting byte offset before reading solution data")
