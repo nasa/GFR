@@ -2086,12 +2086,12 @@ continue
   ! Format Statements
   !
   1 format ('VARIABLES = "t*"',/, &
-            '"<greek>e</greek>(E<sub>k</sub>)"',/, &
-            '"<greek>e</greek>(<greek>z</greek>)"',/, &
+            '"<greek>e</greek>(E<sub>k</sub>) (Num+Phys KEDR)"',/, &
+            '"<greek>e</greek>(<greek>z</greek>) (Physical KEDR)"',/, &
             '"<greek>e</greek><sub>1</sub> (Deviatoric Strain Rate)"',/, &
             '"<greek>e</greek><sub>3</sub> (Pressure Dialation)"',/, &
-            '"E<sub>k</sub>"',/, &
-            '"<greek>z</greek>"',/, &
+            '"E<sub>k</sub> (Kinetic Energy)"',/, &
+            '"<greek>z</greek> (Enstrophy)"',/, &
             '"<greek>D</greek>t*"',/, &
             'ZONE T="P',i0,' - ',i0,'<sup>3</sup> ',a,' Grid"',/, &
             'AUXDATA order="',i0,'"',/, &
