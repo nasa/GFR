@@ -1023,6 +1023,91 @@ end function map_general_mesh_elem_to_solpts
 !###############################################################################
 !
 #ifndef DISABLE_PURE
+!pure &
+#endif
+function map_custom_mesh_elem_to_solpts(this_geom,this_order,mesh_order, &
+                                        elem_xyz) result(return_value)
+  !
+  !.. Use Statements ..
+  use element_type_mod, only : std_elem
+  use vandermonde_mod,  only : General_Basis_Matrix
+  use vandermonde_mod,  only : Vandermonde_Inverse
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: this_geom
+  integer,  intent(in) :: this_order
+  integer,  intent(in) :: mesh_order
+  real(wp), intent(in) :: elem_xyz(:,:)
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: grdpts(:,:) ! grid/mesh points
+  real(wp), allocatable :: solpts(:,:) ! solution points
+  real(wp), allocatable :: vmat_m2n(:,:)
+  real(wp), allocatable :: vmat_n2m(:,:)
+  real(wp), allocatable :: bmat(:,:)
+  real(wp), allocatable :: mmat(:,:)
+  !
+continue
+  !
+  ! First get the reference coordinates for the equal distant points
+  ! for the grid/mesh element of order mesh_order
+  !
+  ! F2003 AUTO-REALLOC
+  grdpts = get_custom_quadrature_pts(this_geom,mesh_order,elem_xyz)
+#ifdef USE_CUSTOM_MAPS_TO_FIX_PW
+block
+  integer :: i,j,k,n,np
+  np = mesh_order+1
+  n = 0
+  do k = 1,np
+    do j = 1,np
+      do i = 1,np
+        n = n + 1
+        write (38,'(2x,i4,3(3x,es24.15))') n,grdpts(1,n),grdpts(2,n),grdpts(3,n)
+      end do
+    end do
+  end do
+  write (38,*)
+end block
+#endif
+  !
+  ! First create a modal-to-nodal Vandermonde matrix
+  ! for the equal distant mesh points
+  !
+  ! F2003 AUTO-REALLOC
+  vmat_m2n = General_Basis_Matrix(this_geom,mesh_order,grdpts)
+  !
+  ! Create the nodal-to-modal Vandermonde matrix
+  ! for the equal distant mesh points
+  !
+  vmat_n2m = Vandermonde_Inverse( vmat_m2n ) ! F2003 AUTO-REALLOC
+  !
+  ! Extract the solution points for this geom/order combo
+  !
+  solpts = std_elem(this_geom,this_order)%pts ! F2003 AUTO-REALLOC
+  !
+  ! Create the basis matrix of the mesh-order basis functions
+  ! evaluated at the solution points
+  !
+  bmat = General_Basis_Matrix(this_geom,mesh_order,solpts) ! F2003 AUTO-REALLOC
+  !
+  ! Compute the mapping (interpolation) matrix
+  !
+  mmat = matmul(transpose(vmat_n2m),transpose(bmat)) ! F2003 AUTO-REALLOC
+  !
+  ! Use the chop function to copy mmat into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( real(mmat,kind=qp) ) ! F2003 AUTO-REALLOC
+  !
+end function map_custom_mesh_elem_to_solpts
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
 pure &
 #endif
 function get_custom_quadrature_pts(this_geom,p,xyz) result(return_value)
