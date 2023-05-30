@@ -487,6 +487,15 @@ continue
   call mpi_info_create(file_info,mpierr)
   call debug_timer(stop_timer,"calling mpi_info_create")
   !
+  ! Added read_once to the MPI info object just in case this helps
+  !
+  call mpi_info_set(file_info,"access_style","read_once",mpierr)
+  !
+  ! Added disabling of romio_cb_read (reading with collective buffering) because
+  ! this was causing hangs on Rome nodes while reading the restart header info.
+  !
+  call mpi_info_set(file_info,"romio_cb_read","disable",mpierr)
+  !
 #endif
 #endif
   !
