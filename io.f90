@@ -1571,6 +1571,7 @@ subroutine read_grid_file()
   use ovar,          only : plot3d_cutfile
   use ovar,          only : plot3d_bcsfile
   use ovar,          only : solution_file
+  use ovar,          only : correct_cgns_grid_points
   !
   use periodic_mod, only : match_periodic_faces
   !
@@ -1621,6 +1622,10 @@ continue
     if (i_am_host_root) then
       call create_linear_grid_dt
     end if
+  end if
+  !
+  if (correct_cgns_grid_points) then
+    call check_ho_points_are_equal_distance
   end if
   !
 block
