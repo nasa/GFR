@@ -872,6 +872,8 @@ subroutine open_cgns_file(cgns_file,procedure_name,ifile,ibase,izone, &
   !.. Use Statements ..
   use geovar, only : nr
   use ovar,   only : profile_io_cgns_subs
+  use ovar,   only : lustre_stripe_factor
+  use ovar,   only : lustre_stripe_unit
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: cgns_file
@@ -888,6 +890,8 @@ subroutine open_cgns_file(cgns_file,procedure_name,ifile,ibase,izone, &
   integer(CET) :: cgns_pio_mode
   character(len=300) :: pname
   !
+  _MPI_INFO_TYPE_ :: file_info
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: sub_pname = "open_cgns_file"
   !
@@ -903,6 +907,34 @@ continue
       cgns_pio_mode = CGP_INDEPENDENT
     end if
   end if
+  !
+#ifdef PBS_ENV
+  !
+  ! Set the CGNS parallel IO mode to independent for PBS
+  !
+  cgns_pio_mode = CGP_INDEPENDENT
+  !
+  ! Create an MPI Info object for writing the CGNS file in the PBS environment
+  call mpi_info_create(file_info,mpierr)
+  ! Tell MPI this is a write once operation
+  call mpi_info_set(file_info,"access_style","write_once",mpierr)
+  ! Disable writing with collective buffering
+  call mpi_info_set(file_info,"romio_cb_write","disable",mpierr)
+  ! Add the striping factor to the MPI Info object
+  call mpi_info_set(file_info,"striping_factor", &
+                    trim(adjustl(lustre_stripe_factor)),mpierr)
+  ! Add the striping unit to the MPI Info object
+  call mpi_info_set(file_info,"striping_unit", &
+                    trim(adjustl(lustre_stripe_unit)),mpierr)
+  !
+  ! Send the MPI Info object to the CGNS library before opening the file
+  !
+#ifdef USE_MPI_F08
+  call cgp_mpi_info_f(file_info%mpi_val,cgierr)
+#else
+  call cgp_mpi_info_f(file_info,cgierr)
+#endif
+#endif
   !
   call cgp_pio_mode_f(cgns_pio_mode,cgierr)
   call cgns_error(pname,cgns_file,"cgp_pio_mode_f", &
