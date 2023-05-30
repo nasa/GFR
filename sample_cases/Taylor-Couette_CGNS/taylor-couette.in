@@ -1,0 +1,65 @@
+&input
+
+CGNS_HIGH_ORDER_OUTPUT = F
+
+! Grid information
+GRID_FORMAT = 4 ! CGNS Format
+GRIDFILE = '../grid_files/Taylor-Couette.20x48x24.P3.cgns'
+GRID_SCALING_FACTOR = 2.0 ! Scale the grid by 2X
+
+! Solution order and location of solution points
+ALL_ORDERS = 3 ! P3 solution, 4th order accuracy
+ALL_POINTS = 1 ! Legendre-Gauss points
+
+GOVERNING_EQUATIONS = 2   ! Navier-Stokes equations
+
+! Simulation stops for whichever is first:
+NUM_TIMESTEPS = 100000000  ! Completing NUM_TIMESTEPS time steps
+FINAL_TIME = 75            ! Simulation time reaches FINAL_TIME
+
+TIMESTEP_TYPE = 1         ! Global CFL condition
+
+! SSP 3/3 RK with CFL based time stepping
+RUNGE_KUTTA_SCHEME =  3
+CFL     = 2.0
+CFL_BEG = 0.1
+CFL_END = 2.0
+CFL_CYCLES = 10000
+
+! Output frequencies
+RESTART_INTERVAL = 10000
+OUTPUT_INTERVAL = 10000
+RESULTS_INTERVAL = 10
+ITER_OUT_INTERVAL = 10
+
+! Additional variables to output
+OUTPUT_TEMPERATURE = T
+OUTPUT_CYLINDRICAL_VELOCITY = T
+
+! Initialization
+ITESTCASE =  21 ! Taylor-Couette flow with TGV initialization
+
+! NOTE : For the Taylor-Couette problem, the reference conditions
+!        will default to good values if not provided, including
+!        the isothermal wall temperature.
+
+BC_INPUT(1)%NAME = "InnerWall"
+BC_INPUT(1)%SET_BC_VALUE = 53 ! isothermal no-slip wall
+BC_INPUT(1)%WALL_TEMP = 300.0 ! K
+
+BC_INPUT(2)%NAME = "OuterWall"
+BC_INPUT(2)%SET_BC_VALUE = 52 ! adiabatic no-slip wall
+
+BC_INPUT(3)%NAME = "Inflow"
+BC_INPUT(3)%SET_BC_VALUE = 81 ! periodic BC
+BC_INPUT(3)%PERIODIC%MATCHING_BC_NAME = "Outflow"
+BC_INPUT(3)%PERIODIC%MATCHING_BC_IDX  = 4
+BC_INPUT(3)%PERIODIC%TRANSLATION(1)   = 6.283185307
+
+BC_INPUT(4)%NAME = "Outflow"
+BC_INPUT(4)%SET_BC_VALUE = 81 ! periodic BC
+BC_INPUT(4)%PERIODIC%MATCHING_BC_NAME = "Inflow"
+BC_INPUT(4)%PERIODIC%MATCHING_BC_IDX  = 3
+BC_INPUT(4)%PERIODIC%TRANSLATION(1)   = -6.283185307
+
+/

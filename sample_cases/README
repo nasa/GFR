@@ -175,6 +175,79 @@ How to run this case:
 
 ################################################################################
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%   Taylor-Couette flow problem using internally generated grid   %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ Input File : Taylor-Couette_IG/taylor-couette.in
+  Grid File : [Generated internally within GFR]
+
+Description : This problem is the LES of a Taylor-Couette flow consisting of
+              two concentric cylinders, with the inner cylinder rotating and
+              the outer cylinder remaining still. The inner cylinder is set to
+              a moving isothermal wall with a specified rotation speed, the 
+              outer cylinder is set to a no-slip adiabatic wall, and the
+              inflow/outflow boundaries are set to periodic. The flow is
+              initialized to an analytic laminar solution for this problem with
+              zero axial velocity. A vorticity distribution, inspired by the
+              Taylor-Green vortex problem, is superimposed onto the laminar
+              solution to quickly transition to a turbulent flow.
+
+              This test case will create an output file named
+              'TaylorCouette_KEDR.dat' which provides the integrated kinetic
+              energy and kinetic energy dissipation rates (KEDR) throughout the
+              simulation. This test case will also create four output solution
+              files at t*=[22.058,24.016,27.2,33.5].
+
+              The grid resolution for this test case can be adjusted by changing
+              the a number of input parameters:
+                TCF_Radial_Cells    = [# of cells in the radial direction]
+                TCF_Azimuthal_Cells = [# of cells in the azimuthal direction]
+                TCF_Azial_Cells     = [# of cells in the axial direction]
+                TCF_Inner_Wall_Spacing = [radial spacing of first cell
+                                          on inner cylinder wall]
+                TCF_Outer_Wall_Spacing = [radial spacing of first cell
+                                          on outer cylinder wall]
+                TCF_Inner_Radius = [radius of inner cylinder]
+                TCF_Outer_Radius = [radius of outer cylinder]
+
+              This version of the problem uses the Optimized-Embedded-Pair ERK
+              5-stage/3rd-order(with embedded 2nd-order) method with adaptive
+              time stepping size.
+
+How to run this case:
+              prompt> cd Taylor-Couette_IG
+              prompt> [MPI COMMAND] gfr taylor-couette.in
+
+################################################################################
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%   Taylor-Couette flow problem using high-order CGNS grid   %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ Input File : Taylor-Couette_CGNS/taylor-couette.in
+  Grid File : grid_files/Taylor-Couette.20x48x24.P3.cgns
+
+       NOTE : This grid file needs to be gunzipped first
+
+Description : This is the exact same problem as Taylor-Couette_IG, except this
+              version uses a high-order (P3) CGNS grid created by Pointwise,
+              with the flow domain of the CGNS grid being exactly half that of
+              the internal grid from that problem. The input parameter
+                GRID_SCALING_FACTOR = 2.0
+              is used to scale this CGNS grid to the same dimensions as the
+              version using the internal grid.
+
+              This version of the problem uses the Strong-Stability-Preserving
+              ERK 3-stage/3rd-order method with CFL based time stepping.
+
+How to run this case:
+              prompt> gunzip grid_files/Taylor-Couette.20x48x24.P3.cgns.gz
+              prompt> cd Taylor-Couette_CGNS
+              prompt> [MPI COMMAND] gfr taylor-couette.in
+
+################################################################################
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%   LES of Flow over Cylinder at Re=3900   %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
