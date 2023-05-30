@@ -1713,6 +1713,380 @@ end subroutine read_grid_file
 !
 !###############################################################################
 !
+subroutine check_ho_point_spacings_hexa(p,xyz,dsh,is_eq_dsh,nc,pts)
+  !
+  use ovar,   only : epsval => tvrref
+  use ovar,   only : out_eps => tinref
+  use geovar, only : bface
+  !
+  !.. Formal Arguments ..
+  integer,                   intent(in) :: p
+  real(wp),                  intent(in) :: xyz(:,:)
+  real(wp),    allocatable, intent(out) :: dsh(:,:,:,:)
+  logical(lk), allocatable, intent(out) :: is_eq_dsh(:,:,:)
+  integer,                   intent(in) :: nc
+  integer,                   intent(in) :: pts(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,i1,i2,j1,j2,k1,k2,np
+  real(wp) :: eps,dl,da
+  !
+  integer  :: l,m,n
+  real(wp) :: x,y,z,r,t
+  !
+  real(wp) :: vdsn,vdsh,vdsr
+  character(len=14) :: cdsn,cdsh,cdsr
+  !
+  character(len=15) :: cell_loc
+  !
+  real(wp) :: output_tolerance
+  real(wp) :: dshn_tolerance
+  real(wp) :: dsr_tolerance
+  !
+  logical(lk), save :: first_output_i = true
+  logical(lk), save :: first_output_j = true
+  logical(lk), save :: first_output_k = true
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: ds(:)
+  real(wp), allocatable :: dsn(:,:,:,:)
+  real(wp), allocatable :: dxh(:,:,:)
+  real(wp), allocatable :: dxn(:,:,:)
+  real(wp), allocatable :: dxr(:,:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_ho_point_spacings_hexa"
+  !
+#ifdef PBS_ENV
+  logical(lk), parameter :: debug_output_ho_point_spacings = fals
+#else
+  logical(lk), parameter :: debug_output_ho_point_spacings = fals
+ !logical(lk), parameter :: debug_output_ho_point_spacings = true
+#endif
+  !
+continue
+  !
+  eps = epsval
+ !write (iout,*) "eps = ",eps
+  !
+  dshn_tolerance = eps9
+  dsr_tolerance = eps4
+  !
+  np = p+1
+  !
+  dsh = reshape( [zero] , shape=[p,np,np,3] , pad=[zero] ) ! F2003 AUTO-REALLOC
+  dsn = reshape( [zero] , shape=[p,np,np,3] , pad=[zero] ) ! F2003 AUTO-REALLOC
+  is_eq_dsh = init_array(np,np,3,fals) ! F2003 AUTO-REALLOC
+  ds = init_array(p,zero) ! F2003 AUTO-REALLOC
+  !
+  dxh = init_array(np,np,3,zero) ! F2003 AUTO-REALLOC
+  dxn = init_array(np,np,3,zero) ! F2003 AUTO-REALLOC
+  dxr = init_array(np,np,3,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Check all of the i-direction segments to see if the points
+  ! along each segment are equally spaced from each other.
+  !
+  do k = 1,np
+    do j = 1,np
+      !
+      dl = zero
+      do i = 1,p
+        i1 = map3dto1d(i  ,j,k,np)
+        i2 = map3dto1d(i+1,j,k,np)
+        ds(i) = norm2( xyz(:,i2) - xyz(:,i1) )
+        dl = dl + ds(i)
+      end do
+      !
+      da = dl / real(p,kind=wp)
+      !
+      dsh(1:p,j,k,1) = ds(1:p)
+      !
+      ds(1:p) = ds(1:p) / da
+      dsn(1:p,j,k,1) = ds(1:p)
+      !
+      is_eq_dsh(j,k,1) = all_are_equal( ds(:) , acceptable_error=eps )
+     !write (681,5) minval(ds(:)), maxval(ds(:)), dl, &
+     !    minval(dsh(:,j,k,1)), maxval(dsh(:,j,k,1)), da, is_eq_dsh(j,k,1)
+     !5 format (2(3(2x,es14.6),2x),2x,l1)
+     !write (681,6) abs( maxval(ds(:)) - minval(ds(:)) ), &
+     !    abs( maxval(dsh(:,j,k,1)) - minval(dsh(:,j,k,1)) ), is_eq_dsh(j,k,1)
+     !6 format (2(2x,es14.6),2x,l1)
+      !
+      vdsn = abs( maxval(ds(:)) - minval(ds(:)) )
+      vdsh = abs( maxval(dsh(:,j,k,1)) - minval(dsh(:,j,k,1)) )
+      vdsr = abs( maxval(ds(:)) / minval(ds(:)) )
+      !
+      dxh(j,k,1) = vdsh
+      dxn(j,k,1) = vdsn
+      dxr(j,k,1) = vdsr
+      !
+      cdsn = "  ------------"
+      cdsh = "  ------------"
+      cdsr = "  ------------"
+      !
+      if (vdsn > dshn_tolerance)         write (cdsn,16) vdsn
+      if (vdsh > dshn_tolerance)         write (cdsh,16) vdsh
+      if (abs(vdsr-one) > dsr_tolerance) write (cdsr,16) vdsr
+      !
+      if (debug_output_ho_point_spacings) then
+        write (681,17) adjustr(cdsn),adjustr(cdsh),adjustr(cdsr),is_eq_dsh(j,k,1)
+      end if
+      16 format (es14.6)
+      17 format (3(2x,a14),2x,l1)
+      !
+    end do
+  end do
+  if (debug_output_ho_point_spacings) then
+    write (681,*)
+  end if
+  !
+  ! Check all of the j-direction segments to see if the points
+  ! along each segment are equally spaced from each other.
+  !
+  do i = 1,np
+    do k = 1,np
+      !
+      dl = zero
+      do j = 1,p
+        j1 = map3dto1d(i,j  ,k,np)
+        j2 = map3dto1d(i,j+1,k,np)
+        ds(j) = norm2( xyz(:,j2) - xyz(:,j1) )
+        dl = dl + ds(j)
+      end do
+      !
+      da = dl / real(p,kind=wp)
+      !
+      dsh(1:p,k,i,2) = ds(1:p)
+      !
+      ds(1:p) = ds(1:p) / da
+      dsn(1:p,k,i,2) = ds(1:p)
+      !
+      is_eq_dsh(k,i,2) = all_are_equal( ds(:) , acceptable_error=eps )
+     !write (682,5) minval(ds(:)), maxval(ds(:)), dl, &
+     !    minval(dsh(:,k,i,2)), maxval(dsh(:,k,i,2)), da, is_eq_dsh(k,i,2)
+     !write (682,6) abs( maxval(ds(:)) - minval(ds(:)) ), &
+     !    abs( maxval(dsh(:,k,i,2)) - minval(dsh(:,k,i,2)) ), is_eq_dsh(k,i,2)
+      !
+      vdsn = abs( maxval(ds(:)) - minval(ds(:)) )
+      vdsh = abs( maxval(dsh(:,k,i,2)) - minval(dsh(:,k,i,2)) )
+      vdsr = abs( maxval(ds(:)) / minval(ds(:)) )
+      !
+      dxh(k,i,2) = vdsh
+      dxn(k,i,2) = vdsn
+      dxr(k,i,2) = vdsr
+      !
+      cdsn = "  ------------"
+      cdsh = "  ------------"
+      cdsr = "  ------------"
+      !
+      if (vdsn > dshn_tolerance)         write (cdsn,16) vdsn
+      if (vdsh > dshn_tolerance)         write (cdsh,16) vdsh
+      if (abs(vdsr-one) > dsr_tolerance) write (cdsr,16) vdsr
+      !
+      if (debug_output_ho_point_spacings) then
+        write (682,17) adjustr(cdsn),adjustr(cdsh),adjustr(cdsr),is_eq_dsh(k,i,2)
+      end if
+      !
+    end do
+  end do
+  if (debug_output_ho_point_spacings) then
+    write (682,*)
+  end if
+  !
+  ! Check all of the k-direction segments to see if the points
+  ! along each segment are equally spaced from each other.
+  !
+  do j = 1,np
+    do i = 1,np
+      !
+      dl = zero
+      do k = 1,p
+        k1 = map3dto1d(i,j,k  ,np)
+        k2 = map3dto1d(i,j,k+1,np)
+        ds(k) = norm2( xyz(:,k2) - xyz(:,k1) )
+        dl = dl + ds(k)
+      end do
+      !
+      da = dl / real(p,kind=wp)
+      !
+      dsh(1:p,i,j,3) = ds(1:p)
+      !
+      ds(1:p) = ds(1:p) / da
+      dsn(1:p,i,j,3) = ds(1:p)
+      !
+      is_eq_dsh(i,j,3) = all_are_equal( ds(:) , acceptable_error=eps )
+     !write (683,5) minval(ds(:)), maxval(ds(:)), dl, &
+     !    minval(dsh(:,i,j,3)), maxval(dsh(:,i,j,3)), da, is_eq_dsh(i,j,3)
+     !write (683,6) abs( maxval(ds(:)) - minval(ds(:)) ), &
+     !    abs( maxval(dsh(:,i,j,3)) - minval(dsh(:,i,j,3)) ), is_eq_dsh(i,j,3)
+      !
+      vdsn = abs( maxval(ds(:)) - minval(ds(:)) )
+      vdsh = abs( maxval(dsh(:,i,j,3)) - minval(dsh(:,i,j,3)) )
+      vdsr = abs( maxval(ds(:)) / minval(ds(:)) )
+      !
+      dxh(i,j,3) = vdsh
+      dxn(i,j,3) = vdsn
+      dxr(i,j,3) = vdsr
+      !
+      cdsn = "  ------------"
+      cdsh = "  ------------"
+      cdsr = "  ------------"
+      !
+      if (vdsn > dshn_tolerance)         write (cdsn,16) vdsn
+      if (vdsh > dshn_tolerance)         write (cdsh,16) vdsh
+      if (abs(vdsr-one) > dsr_tolerance) write (cdsr,16) vdsr
+      !
+      if (debug_output_ho_point_spacings) then
+        write (683,17) adjustr(cdsn),adjustr(cdsh),adjustr(cdsr),is_eq_dsh(i,j,3)
+      end if
+      !
+    end do
+  end do
+  if (debug_output_ho_point_spacings) then
+    write (683,*)
+  end if
+  !
+  !=============================================================================
+  !
+  if (debug_output_ho_point_spacings) then
+    !
+    output_tolerance = out_eps
+    !
+    if (any(bface(2,:) == nc)) then
+      cell_loc = "(Boundary Cell)"
+    else
+      cell_loc = "(Interior Cell)"
+    end if
+    !
+    if (any(dxn(:,:,1) > output_tolerance)) then
+      if (first_output_i) then
+        write (691,11) nc, cell_loc
+        first_output_i = fals
+      else
+        write (691,7) nc, cell_loc
+      end if
+      do k = 1,np
+        do j = 1,np
+          if (dxn(j,k,1) > output_tolerance) then
+            i = 1
+            n = map3dto1d(i,j,k,np)
+            x = xyz(1,n)
+            y = xyz(2,n)
+            z = xyz(3,n)
+            r = sqrt(y*y+z*z)
+            t = atan2(z,y)
+            t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
+            write (691,8) pts(n),x,y,z,r,t
+            do l = 1,p
+              i = l+1
+              n = map3dto1d(i,j,k,np)
+              x = xyz(1,n)
+              y = xyz(2,n)
+              z = xyz(3,n)
+              r = sqrt(y*y+z*z)
+              t = atan2(z,y)
+              t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
+              write (691,9) pts(n),x,y,z,r,t,dsh(l,j,k,1),dsn(l,j,k,1)
+            end do
+          end if
+        end do
+      end do
+      write (691,10)
+    end if
+    !
+    if (any(dxn(:,:,2) > output_tolerance)) then
+      if (first_output_j) then
+        write (692,11) nc, cell_loc
+        first_output_j = fals
+      else
+        write (692,7) nc, cell_loc
+      end if
+      do i = 1,np
+        do k = 1,np
+          if (dxn(k,i,2) > output_tolerance) then
+            j = 1
+            n = map3dto1d(i,j,k,np)
+            x = xyz(1,n)
+            y = xyz(2,n)
+            z = xyz(3,n)
+            r = sqrt(y*y+z*z)
+            t = atan2(z,y)
+            t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
+            write (692,8) pts(n),x,y,z,r,t
+            do l = 1,p
+              j = l+1
+              n = map3dto1d(i,j,k,np)
+              x = xyz(1,n)
+              y = xyz(2,n)
+              z = xyz(3,n)
+              r = sqrt(y*y+z*z)
+              t = atan2(z,y)
+              t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
+              write (692,9) pts(n),x,y,z,r,t,dsh(l,k,i,2),dsn(l,k,i,2)
+            end do
+          end if
+        end do
+      end do
+      write (692,10)
+    end if
+    !
+    if (any(dxn(:,:,3) > output_tolerance)) then
+      if (first_output_k) then
+        write (693,11) nc, cell_loc
+        first_output_k = fals
+      else
+        write (693,7) nc, cell_loc
+      end if
+      do j = 1,np
+        do i = 1,np
+          if (dxn(i,j,3) > output_tolerance) then
+            k = 1
+            n = map3dto1d(i,j,k,np)
+            x = xyz(1,n)
+            y = xyz(2,n)
+            z = xyz(3,n)
+            r = sqrt(y*y+z*z)
+            t = atan2(z,y)
+            t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
+            write (693,8) pts(n),x,y,z,r,t
+            do l = 1,p
+              k = l+1
+              n = map3dto1d(i,j,k,np)
+              x = xyz(1,n)
+              y = xyz(2,n)
+              z = xyz(3,n)
+              r = sqrt(y*y+z*z)
+              t = atan2(z,y)
+              t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
+              write (693,9) pts(n),x,y,z,r,t,dsh(l,i,j,3),dsn(l,i,j,3)
+            end do
+          end if
+        end do
+      end do
+      write (693,10)
+    end if
+    !
+  end if
+  !
+  7 format (/,92("#"),/,2x,"Cell # ",i0,2x,a)
+  8 format (92("-"),/,2x,i3,2x,5f11.6)
+  9 format (2x,i3,2x,5f11.6,2(3x,f12.8))
+  10 format (92("-"))
+  11 format (56x,"Theta",/,2x,"Pt#",8x,"X",10x,"Y",10x,"Z",10x,"R", &
+             8x,"Degrees",8x,"|ds|",9x,"|ds|/|da|",/, &
+             92("#"),/,2x,"Cell # ",i0,2x,a)
+  contains
+  !
+  pure function map3dto1d(i,j,k,n) result(return_value)
+    integer, intent(in) :: i,j,k,n
+    integer :: return_value
+    return_value = i + n*(j-1) + n*n*(k-1)
+  end function map3dto1d
+  !
+end subroutine check_ho_point_spacings_hexa
+!
+!###############################################################################
+!
 subroutine get_ho_segments()
   !
   !=============================================================================
