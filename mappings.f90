@@ -116,6 +116,412 @@ end subroutine get_solution_points
 !
 !###############################################################################
 !
+subroutine custom_equidistant_mapping()
+  !
+  use geovar,    only : grid
+  use geovar,    only : nr,nfbnd,ncell,nnode,n_totcel,n_totnod
+  use geovar,    only : n_solpts,n_totpts
+  use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
+  use geovar,    only : bface,xyz_nodes,xyz
+  use geovar,    only : cell_geom,cell_order
+  !
+  use order_mod, only : geom_solpts
+  !
+  use ovar,      only : rhoref,aref
+  use ovar,      only : interpto_input_mode
+  !
+  use flowvar,   only : usp
+  !
+  !.. Local Scalars ..
+  integer :: n,n0,n1,n2,np,p1,p2,ierr
+  integer :: this_cell,mesh_order
+  integer :: this_geom,this_order
+  logical(lk) :: use_nodes_of_cell
+  logical(lk) :: check_grid_for_pts
+  logical(lk) :: grid_sol_is_available
+  real(wp) :: rhoref_inv,rhoa_inv,rhoa2_inv
+  !
+  integer :: l,io,io1,io2
+  !
+  type(geom_family_t) :: elem_family
+  !
+  !.. Local Pointers ..
+  type(matrix), pointer :: this_map
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: pts(:)
+  real(wp), allocatable :: elem_xyz(:,:)
+  real(wp), allocatable :: elem_sol(:,:)
+  real(wp), allocatable :: elem_usp(:,:)
+  real(wp), allocatable :: custom_map(:,:)
+  real(wp), allocatable :: eqd_xyz(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "custom_equidistant_mapping"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  check_grid_for_pts = fals
+  !
+  rhoref_inv = one / rhoref
+  rhoa_inv = rhoref_inv / aref
+  rhoa2_inv = rhoa_inv / aref
+  !
+  ! We need to reset various grid size parameters in case partitioning
+  ! was done for use with multiple processors. If only using with a
+  ! single processor, this should just give the values we already have.
+  !
+  nfbnd = size(bface,dim=2)
+  n_totcel = size(nodes_of_cell_ptr) - 1
+  ncell = minval(bface(10,:)) - 1
+  n_totnod = size(xyz_nodes,dim=2)
+  nnode = maxval(nodes_of_cell(1:nodes_of_cell_ptr(ncell+1)))
+  !
+  ! Allocate the mapping array and the component
+  ! arrays MeshOrder, EdgeDefOrder, and FaceDefOrder
+  !
+  call create_mapping_array(cell_geom,cell_order,grid)
+  !
+  ! Get the total number of interior solution points
+  !
+  n_solpts = 0
+  do n = 1,ncell
+    n_solpts = n_solpts + geom_solpts( cell_geom(n) , cell_order(n) )
+  end do
+  !
+  ! Get the total number of interior plus ghost cell solution points
+  !
+  n_totpts = n_solpts
+  do n = ncell+1,n_totcel
+    n_totpts = n_totpts + geom_solpts( cell_geom(n) , cell_order(n) )
+  end do
+  !
+  ! Now calculate the coordinates of the solution points within each cell
+  !
+  xyz = init_array(nr,n_solpts,zero) ! F2003 AUTO-REALLOC
+  !$ACC UPDATE DEVICE(xyz)
+  !
+  ! Determine whether grid%sol is available
+  !
+  grid_sol_is_available = fals
+  if (allocated(grid)) then
+    if (allocated(grid%sol)) then
+      grid_sol_is_available = true
+      usp = init_array(n_solpts,nq,zero) ! F2003 AUTO-REALLOC
+      !$ACC UPDATE DEVICE(usp)
+    end if
+  end if
+  !
+  ! Initialize the counting index to current
+  ! storage location within the xyz array
+  !
+  n2 = 0
+  !
+  ! Loop over all the cells local to this processor and map the coordinates
+  ! of the points defining each element that were given by the grid file to
+  ! the coordinates of the solution points within each cell
+  !
+!#define OUTPUT_GRID_MAPPINGS
+#ifdef OUTPUT_GRID_MAPPINGS
+  open (newunit=io,file="xyz.dat",status="replace",action="write",iostat=ierr)
+  open (newunit=io1,file="xyz.x",status="replace",action="write",iostat=ierr)
+  open (newunit=io2,file="grid.x",status="replace",action="write",iostat=ierr)
+  !
+  write (io1,*) ncell
+  write (io2,*) ncell
+  do this_cell = 1,ncell
+    this_order = cell_order(this_cell)
+    write (io1,'(3i6)') this_order+1,this_order+1,this_order+1
+    write (io2,'(3i6)') this_order+1,this_order+1,this_order+1
+  end do
+#endif
+  !
+  do this_cell = 1,ncell
+    !
+    this_geom = cell_geom(this_cell)
+    this_order = cell_order(this_cell)
+    !
+    np = geom_solpts(this_geom,this_order) ! number of solution points
+    !
+    n0 = n2       ! offset to location within xyz for this cell
+    n1 = n2 + 1   ! index of first point of this cell within xyz
+    n2 = n2 + np  ! index of last  point of this cell within xyz
+    !
+    ! Get the mesh order and family type for this cell 
+    !
+    mesh_order = grid%elem(this_cell)%prop%order
+    elem_family = grid%elem(this_cell)%prop%family
+    !
+    ! Abort if the family type for this cell is not complete
+    if (elem_family /= Complete) then
+      if (elem_family == Edge_Defined) then
+        write (iout,1) this_cell,"Edge"
+      else if (elem_family == Face_Defined) then
+        write (iout,1) this_cell,"Face"
+      else
+        write (iout,1) this_cell,"Unknown"
+      end if
+      call stop_gfr(abort,pname,__LINE__,__FILE__)
+    end if
+              
+    !
+    ! Collect the coordinates for the points of
+    ! this cell from grid into a local array
+    !
+    pts = grid%elem(this_cell)%pts(:) ! F2003 AUTO-REALLOC
+    !
+    elem_xyz = grid%xyz(1:nr,pts(:)) ! F2003 AUTO-REALLOC
+    !
+!#ifdef DEBUG_ON
+!block
+!    real(wp) :: x,y,z,r,t
+!    if (mypnum == glb_root) then
+!      if (this_cell == 1) then
+!        write (iout,'(///)')
+!        write (iout,184) "mesh_order = ",mesh_order
+!        write (iout,184) "cell_order = ",this_order
+!        do n = 1,size(elem_xyz,dim=2)
+!          x = elem_xyz(1,n)
+!          y = elem_xyz(2,n)
+!          z = elem_xyz(3,n)
+!          r = sqrt(y*y + z*z)
+!          t = atan2(z,y)
+!          if (t < zero) t = t + two*pi
+!          write (iout,185) n,x,y,z,x,r,t*radians2degrees
+!        end do
+!        write (iout,'(///)')
+!      end if
+!    end if
+!    184 format (a,i0)
+!    185 format (i6,2(3x,3f12.6))
+!end block
+!#endif
+    !
+    ! Assign a local pointer to the mapping
+    ! matrix as an alias to simplify the code
+    !
+    if (elem_family == Edge_Defined) then
+      this_map => mapping(this_geom,this_order)%EdgeDefOrder(mesh_order)
+    else if (elem_family == Face_Defined) then
+      this_map => mapping(this_geom,this_order)%FaceDefOrder(mesh_order)
+    else
+      this_map => mapping(this_geom,this_order)%MeshOrder(mesh_order)
+    end if
+    !
+    ! Create the mapping matrix for this combination of cell geometry and
+    ! cell order if the mat component of this_map has not been allocated yet
+    ! NOTE: We dont need this now since we are doing a custom mapping, so this
+    !       is only done just in case the mapping array is used somewhere
+    !       later outside this module. 
+    !
+    if (.not.allocated(this_map%mat)) then
+      !
+      ! F2003 AUTO-REALLOC
+      this_map%mat = map_general_mesh_elem_to_solpts(this_geom, &
+                                                     this_order, &
+                                                     mesh_order)
+      !
+    end if
+    !
+    ! Create a custom mapping matrix for this cell that (possibly/hopefully)
+    ! corrects for any errors with the high-order points from the grid file
+    ! not being defined at equally distant points as defined by the CGNS
+    ! standard.
+    !
+    ! F2003 AUTO-REALLOC
+    custom_map = map_custom_mesh_elem_to_solpts(this_geom,this_order, &
+                                                mesh_order,elem_xyz)
+    !
+    xyz(1:nr,n1:n2) = matmul( elem_xyz(:,:) , custom_map(:,:) )
+    !
+#ifdef USE_CUSTOM_MAPS_TO_FIX_PW
+block
+  real(wp) :: x,y,z,r,t
+    if (ncpu == 1) then
+     !if (this_cell == 26) then
+        write (36,725) this_cell
+        eqd_xyz = matmul( elem_xyz(:,:) , this_map%mat(:,:) ) ! F03 AUTO-REALLOC
+        do n = 1,size(eqd_xyz,dim=2)
+          x = eqd_xyz(1,n)
+          y = eqd_xyz(2,n)
+          z = eqd_xyz(3,n)
+          r = sqrt(y*y+z*z)
+          t = atan2(z,y)
+          t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
+          write (36,726) n,x,y,z,r,t
+        end do
+        write (37,725) this_cell
+        do n = n1,n2
+          x = xyz(1,n)
+          y = xyz(2,n)
+          z = xyz(3,n)
+          r = sqrt(y*y+z*z)
+          t = atan2(z,y)
+          t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
+          write (37,726) n-n1+1,x,y,z,r,t
+        end do
+      end if
+    !nd if
+    725 format (/,2x,"Cell # ",i0)
+    726 format (2x,i4,5(2x,f13.8))
+    if (this_cell == 26) call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+end block
+#endif
+    !
+#ifdef OUTPUT_GRID_MAPPINGS
+    write (io,*)
+    write (io,203) "ell",this_cell
+    do n = 1,size(elem_xyz,dim=2)
+      if (nr == 2) then
+        write (io,204) (elem_xyz(l,n),l=1,nr)
+      else if (nr == 3) then
+        write (io,304) (elem_xyz(l,n),l=1,nr)
+      end if
+    end do
+    if (nr == 2) then
+      write (io,205) (elem_xyz(l,1),l=1,nr)
+    else if (nr == 3) then
+      write (io,305) (elem_xyz(l,1),l=1,nr)
+    end if
+    write (io,206)
+    !
+    write (io,203) "pts",this_cell
+    do n = n1,n2-1
+      if (nr == 2) then
+        write (io,204) (xyz(l,n),l=1,nr)
+      else if (nr == 3) then
+        write (io,304) (xyz(l,n),l=1,nr)
+      end if
+    end do
+    if (nr == 2) then
+      write (io,205) (xyz(l,n2),l=1,nr)
+    else if (nr == 3) then
+      write (io,305) (xyz(l,n2),l=1,nr)
+    end if
+    write (io,206)
+    203 format ("c",a3,i0,"={")
+    204 format ("{",f7.4,",",f7.4,"},")
+    205 format ("{",f7.4,",",f7.4,"}")
+    206 format ("};")
+    304 format ("{",f7.4,",",f7.4,",",f7.4,"},")
+    305 format ("{",f7.4,",",f7.4,",",f7.4,"}")
+    !
+   !write (io,100) this_cell
+   !write (io,*)
+   !do n = 1,size(elem_xyz,dim=2)
+   !  write (io,101) n,(elem_xyz(l,n),l=1,nr)
+   !end do
+   !write (io,*)
+   !do n = n1,n2
+   !  write (io,101) n,(xyz(l,n),l=1,nr)
+   !end do
+    100 format (/," Cell # ",i0)
+    101 format (i8,3x,3f10.4)
+    !
+    do l = 1,nr
+      write (io1,102) (xyz(l,n),n=n1,n2)
+      write (io2,102) (elem_xyz(l,n),n=1,size(elem_xyz,dim=2))
+    end do
+    102 format (5es18.10)
+#endif
+    !
+    if (grid_sol_is_available) then
+      !
+      elem_sol = grid%sol(1:nq,pts(:)) ! F2003 AUTO-REALLOC
+      elem_usp = matmul( elem_sol(:,:), custom_map(:,:) ) ! F2003 AUTO-REALLOC
+      !
+      ! Copy the transposed solution back into usp
+      ! NOTE: elem_usp should be sized elem_usp(1:nq,1:np)
+      ! NOTE: grid%sol is expected to be dimensional and in metric units,
+      !       and thus elem_sol and elem_usp should also be dimensional and
+      !       in metrics units. While we are copying the transpose of elem_usp
+      !       into usp, nondimensionalize the flow variables.
+      !
+      do n = 1,np
+        usp(n0+n,  1:nec) = elem_usp(  1:nec,n) * rhoref_inv
+        usp(n0+n,nmb:nme) = elem_usp(nmb:nme,n) * rhoa_inv
+        usp(n0+n,    nee) = elem_usp(    nee,n) * rhoa2_inv
+      end do
+     !usp(n1:n2,1:nq) = transpose( elem_usp(:,:) )
+      !
+    end if
+    !
+    if (associated(this_map)) this_map => null()
+    !
+  end do
+  !
+#ifdef OUTPUT_GRID_MAPPINGS
+  close (io)
+  close (io1)
+  close (io2)
+#endif
+  !
+  ! Deallocate the local arrays before leaving
+  !
+  if (allocated(pts)) then
+    deallocate ( pts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"pts",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(eqd_xyz)) then
+    deallocate ( eqd_xyz , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"eqd_xyz",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(elem_xyz)) then
+    deallocate ( elem_xyz , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"elem_xyz",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(elem_sol)) then
+    deallocate ( elem_sol , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"elem_sol",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(elem_usp)) then
+    deallocate ( elem_usp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"elem_usp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(mapping)) then
+    deallocate ( mapping , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"mapping",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(custom_map)) then
+    deallocate ( custom_map , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"custom_map",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  !$ACC UPDATE DEVICE(xyz)
+  if (grid_sol_is_available) then
+    !$ACC UPDATE DEVICE(usp)
+  end if
+  !
+  if (interpto_input_mode == 2) then
+    if (ncpu > 1) then
+      call mpi_bcast(xyz,size(xyz,kind=int_mpi),mpi_flttyp,glb_root, &
+                     MPI_COMM_WORLD,mpierr)
+      if (grid_sol_is_available) then
+        call mpi_bcast(usp,size(usp,kind=int_mpi),mpi_flttyp,glb_root, &
+                       MPI_COMM_WORLD,mpierr)
+      end if
+    end if
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (/,"ERROR! Cell # ",i0," is defined using an unsupported",/, &
+                  8x,"family type: ",a,"-Defined",/)
+  !
+end subroutine custom_equidistant_mapping
+!
+!###############################################################################
+!
 subroutine parametrically_corrected_mapping()
   !
   use geovar,           only : grid
