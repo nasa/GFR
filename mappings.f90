@@ -435,8 +435,6 @@ subroutine assume_equidistant_mapping()
   !
   type(geom_family_t) :: elem_family
   !
-  character(len=200) :: array_name
-  !
   !.. Local Pointers ..
   type(matrix), pointer :: this_map
   !
@@ -612,16 +610,10 @@ continue
     !
     if (elem_family == Edge_Defined) then
       this_map => mapping(this_geom,this_order)%EdgeDefOrder(mesh_order)
-      write (array_name,1) Geom_Name(this_geom),this_order, &
-                           "EdgeDefOrder",mesh_order
     else if (elem_family == Face_Defined) then
       this_map => mapping(this_geom,this_order)%FaceDefOrder(mesh_order)
-      write (array_name,1) Geom_Name(this_geom),this_order, &
-                           "FaceDefOrder",mesh_order
     else
       this_map => mapping(this_geom,this_order)%MeshOrder(mesh_order)
-      write (array_name,1) Geom_Name(this_geom),this_order, &
-                           "MeshOrder",mesh_order
     end if
     !
     ! Create the mapping matrix for this combination of cell geometry and
