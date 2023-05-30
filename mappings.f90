@@ -609,8 +609,12 @@ continue
     ! matrix as an alias to simplify the code
     !
     if (elem_family == Edge_Defined) then
+      write (iout,1) this_cell,"Edge"
+      call stop_gfr(abort,pname,__LINE__,__FILE__)
       this_map => mapping(this_geom,this_order)%EdgeDefOrder(mesh_order)
     else if (elem_family == Face_Defined) then
+      write (iout,1) this_cell,"Face"
+      call stop_gfr(abort,pname,__LINE__,__FILE__)
       this_map => mapping(this_geom,this_order)%FaceDefOrder(mesh_order)
     else
       this_map => mapping(this_geom,this_order)%MeshOrder(mesh_order)
@@ -789,7 +793,8 @@ continue
   !
   ! Format Statements
   !
-  1 format ("this_map => mapping(",a,",",i0,")%",a,"(",i0,")%mat")
+  1 format (/,"ERROR! Cell # ",i0," is defined using an unsupported",/, &
+                  8x,"family type: ",a,"-Defined",/)
   !
 end subroutine assume_equidistant_mapping
 !
