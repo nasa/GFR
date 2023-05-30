@@ -4,7 +4,7 @@
 ###########################################################
 
 # MPI compiler wrappers for Fortran and C
-FC := mpif90
+FC := mpif08
 CC := gcc
 
 # Compiler family/brand
