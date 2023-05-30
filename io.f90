@@ -1713,6 +1713,137 @@ end subroutine read_grid_file
 !
 !###############################################################################
 !
+subroutine check_ho_points_are_equal_distance()
+  !
+  !.. Use Statements ..
+  use geovar, only : grid,ncell,nfbnd
+  use module_cgns, only : reorder_to_cgns_pts
+  use ovar,   only : cgns_grid_needs_correction
+  !
+  !.. Local Scalars ..
+  integer :: nc,nf,i,j,k,nd,ncount
+  integer :: this_geom,this_order
+  !
+  !.. Local Allocatable Arrays ..
+  integer,     allocatable :: pts(:)
+  integer,     allocatable :: pts1(:)
+  integer,     allocatable :: pts2(:)
+  integer,     allocatable :: pts3(:)
+  real(wp),    allocatable :: xyz_pts(:,:)
+  real(wp),    allocatable :: dsq(:,:,:)
+  real(wp),    allocatable :: dsh(:,:,:,:)
+  logical(lk), allocatable :: is_eq_dsq(:,:)
+  logical(lk), allocatable :: is_eq_dsh(:,:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_ho_points_are_equal_distance"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (mypnum == glb_root) then
+    ncount = 0
+    do nc = 1,ncell
+      !
+      this_geom = grid%elem(nc)%prop%geom
+      this_order = grid%elem(nc)%prop%order
+      !
+      if (all(this_geom /= [Geom_Quad,Geom_Hexa])) cycle
+      !
+      pts = grid%elem(nc)%pts(:) ! F2003 AUTO-REALLOC
+      ! F2003 AUTO-REALLOC
+      pts1 = reorder_to_cgns_pts(grid%elem(nc)%prop%elem_type,pts)
+      pts2 = reorder_to_cgns_pts(grid%elem(nc)%prop%elem_type, &
+                                 intseq(1,size(pts)),from_cgns=true)
+      !
+      nd = geom_dimen(this_geom)
+      !
+      xyz_pts = grid%xyz(1:nd,pts(:)) ! F2003 AUTO-REALLOC
+      !
+      if (this_geom == Geom_Quad) then
+        call check_ho_point_spacings_quad(this_order,xyz_pts,dsq,is_eq_dsq)
+        if (.not. all(is_eq_dsq(:,:))) then
+          ncount = ncount+1
+#ifndef PBS_ENV
+#ifdef DEBUG_ON
+          write (iout,1) nc
+#endif
+#endif
+        end if
+      else
+        call check_ho_point_spacings_hexa(this_order,xyz_pts,dsh, &
+                                          is_eq_dsh,nc,pts2)
+        if (.not. all(is_eq_dsh(:,:,:))) then
+          ncount = ncount+1
+#ifdef PBS_ENV
+          if (ncount > 0) exit
+#endif
+#ifndef PBS_ENV
+#ifdef DEBUG_ON
+          write (iout,2) nc
+#endif
+#endif
+        end if
+      end if
+      !
+    end do
+#ifdef PBS_ENV
+    if (ncount > 0) write (iout,4)
+#else
+    if (ncount > 0) write (iout,3) ncount
+#endif
+  end if
+  !
+  if (ncpu > 1) then
+    call mpi_bcast(ncount,1_int_mpi,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  if (ncount > 0) then
+    cgns_grid_needs_correction = true
+  end if
+  !
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("The high-order points for quad cell #",i0, &
+            " do not appear to be equally spaced!")
+  2 format ("The high-order points for hex cell #",i0, &
+            " do not appear to be equally spaced!")
+  3 format (/,80("#"),/, &
+              2x,"ERROR: Found ",i0," cells in which the high-order points", &
+                 " do not appear",/, &
+              9x,"to be equally spaced! This has the potential to introduce", &
+                 " additional",/, &
+              9x,"errors into the simulation because the mapping of the cell", &
+                 " coordinates",/, &
+              9x,"from physical space to computational space is based on the", &
+                 " assumption",/, &
+              9x,"that the input grid points in each cell are equally", &
+                 " spaced.",/, &
+              9x,"YOU HAVE BEEN WARNED!",/, &
+              80("#"),/)
+  !
+  4 format (/,80("#"),/, &
+    2x,"ERROR: At least once cell was found to have high-order points that",/, &
+    9x,"do not appear to be equally spaced! This has the potential",/, &
+    9x,"to introduce additional errors into the simulation because",/, &
+    9x,"the mapping of the cell coordinates from physical space to",/, &
+    9x,"computational space is based on the assumption that the",/, &
+    9x,"input grid points in each cell are equally spaced. We will",/, &
+    9x,"attempt a method to correct the grid points in each cell",/, &
+    9x,"so that they will end up equally spaced, but this method",/, &
+    9x,"is very experimental and unproven.",/, &
+    9x,"YOU HAVE BEEN WARNED!",/, &
+              80("#"),/)
+  !
+end subroutine check_ho_points_are_equal_distance
+!
+!###############################################################################
+!
 subroutine check_ho_point_spacings_quad(p,xyz,dsq,is_eq_dsq)
   !
   use ovar, only : epsval => tvrref
