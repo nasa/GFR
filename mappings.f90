@@ -1022,6 +1022,152 @@ end function map_general_mesh_elem_to_solpts
 !
 !###############################################################################
 !
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_custom_quadrature_pts(this_geom,p,xyz) result(return_value)
+  !
+  !.. Use Statements ..
+  use quadrature_mod, only : get_general_quadrature_pts
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: this_geom
+  integer,  intent(in) :: p
+  real(wp), intent(in) :: xyz(:,:)
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,n,np,i1,i2,j1,j2,k1,k2
+  real(wp) :: dl
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: ds(:)
+  real(wp), allocatable :: x(:,:,:)
+  real(wp), allocatable :: y(:,:,:)
+  real(wp), allocatable :: z(:,:,:)
+  !
+continue
+  !
+  if (this_geom /= Geom_Hexa) then
+    ! F2003 AUTO-REALLOC
+    return_value = get_general_quadrature_pts(this_geom,p,Equi_Distant_Points)
+    return
+  end if
+  !
+  np = p+1
+  !
+  x = init_array(np,np,np,zero) ! F2003 AUTO-REALLOC
+  y = init_array(np,np,np,zero) ! F2003 AUTO-REALLOC
+  z = init_array(np,np,np,zero) ! F2003 AUTO-REALLOC
+  ds = init_array(p,zero) ! F2003 AUTO-REALLOC
+  !
+  return_value = init_array(3,np**3,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Create the x/i/xi coordinates
+  !
+  do k = 1,np
+    do j = 1,np
+      !
+      dl = zero
+      do i = 1,p
+        i1 = map3dto1d(i  ,j,k,np)
+        i2 = map3dto1d(i+1,j,k,np)
+        ds(i) = norm2( xyz(:,i2) - xyz(:,i1) )
+        dl = dl + ds(i)
+      end do
+      !
+      ! Normalize ds from the interval [0,dl] to [0,2]
+      !
+      ds(:) = two*ds(:)/dl
+      !
+      x(1,j,k) = -one
+      do i = 1,p-1
+        x(i+1,j,k) = x(i,j,k) + ds(i)
+      end do
+      x(np,j,k) = one
+      !
+    end do
+  end do
+  !
+  ! Create the y/j/eta coordinates
+  !
+  do i = 1,np
+    do k = 1,np
+      !
+      dl = zero
+      do j = 1,p
+        j1 = map3dto1d(i,j  ,k,np)
+        j2 = map3dto1d(i,j+1,k,np)
+        ds(j) = norm2( xyz(:,j2) - xyz(:,j1) )
+        dl = dl + ds(j)
+      end do
+      !
+      ! Normalize ds from the interval [0,dl] to [0,2]
+      !
+      ds(:) = two*ds(:)/dl
+      !
+      y(i,1,k) = -one
+      do j = 1,p-1
+        y(i,j+1,k) = y(i,j,k) + ds(j)
+      end do
+      y(i,np,k) = one
+      !
+    end do
+  end do
+  !
+  ! Create the z/k/zeta coordinates
+  !
+  do j = 1,np
+    do i = 1,np
+      !
+      dl = zero
+      do k = 1,p
+        k1 = map3dto1d(i,j,k  ,np)
+        k2 = map3dto1d(i,j,k+1,np)
+        ds(k) = norm2( xyz(:,k2) - xyz(:,k1) )
+        dl = dl + ds(k)
+      end do
+      !
+      ! Normalize ds from the interval [0,dl] to [0,2]
+      !
+      ds(:) = two*ds(:)/dl
+      !
+      z(i,j,1) = -one
+      do k = 1,p-1
+        z(i,j,k+1) = z(i,j,k) + ds(k)
+      end do
+      z(i,j,np) = one
+      !
+    end do
+  end do
+  !
+  ! Copy x/y/z into return_value
+  !
+  do k = 1,np
+    do j = 1,np
+      do i = 1,np
+        n = map3dto1d(i,j,k,np)
+        return_value(1,n) = x(i,j,k)
+        return_value(2,n) = y(i,j,k)
+        return_value(3,n) = z(i,j,k)
+      end do
+    end do
+  end do
+  !
+  contains
+  !
+  pure function map3dto1d(i,j,k,n) result(return_value)
+    integer, intent(in) :: i,j,k,n
+    integer :: return_value
+    return_value = i + n*(j-1) + n*n*(k-1)
+  end function map3dto1d
+  !
+end function get_custom_quadrature_pts
+!
+!###############################################################################
+!
 function old_mappings(this_geom,this_order,mesh_order,op,np,family,nc) &
                result(return_value)
   !
