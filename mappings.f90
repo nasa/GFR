@@ -84,26 +84,35 @@ subroutine get_solution_points
   use ovar, only : grid_format
   use ovar, only : parametric_agglomeration
   use ovar, only : plot3d_agglomerate_order
+  use ovar, only : cgns_grid_needs_correction
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_solution_points"
   !
 continue
   !
-  if (grid_format == Plot3D_Format .and. &
-      plot3d_agglomerate_order > 0 .and. &
-      parametric_agglomeration /= 0) then
+  if (cgns_grid_needs_correction) then
     !
-    if (parametric_agglomeration == Axisymmetric_Parameterization) then
-      write (error_message,1)
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-    end if
-    !
-    call parametrically_corrected_mapping
+    call custom_equidistant_mapping
     !
   else
     !
-    call assume_equidistant_mapping
+    if (grid_format == Plot3D_Format .and. &
+        plot3d_agglomerate_order > 0 .and. &
+        parametric_agglomeration /= 0) then
+      !
+      if (parametric_agglomeration == Axisymmetric_Parameterization) then
+        write (error_message,1)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      end if
+      !
+      call parametrically_corrected_mapping
+      !
+    else
+      !
+      call assume_equidistant_mapping
+      !
+    end if
     !
   end if
   !
