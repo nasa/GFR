@@ -1713,6 +1713,78 @@ end subroutine read_grid_file
 !
 !###############################################################################
 !
+subroutine check_ho_point_spacings_quad(p,xyz,dsq,is_eq_dsq)
+  !
+  use ovar, only : epsval => tvrref
+  !
+  !.. Formal Arguments ..
+  integer,                   intent(in) :: p
+  real(wp),                  intent(in) :: xyz(:,:)
+  real(wp),    allocatable, intent(out) :: dsq(:,:,:)
+  logical(lk), allocatable, intent(out) :: is_eq_dsq(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,i1,i2,j1,j2,np
+  real(wp) :: eps
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: ds(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_ho_point_spacings_hexa"
+  !
+continue
+  !
+  eps = epsval
+  !
+  np = p+1
+  !
+  dsq = init_array(p,np,2,zero) ! F2003 AUTO-REALLOC
+  is_eq_dsq = init_array(np,2,fals) ! F2003 AUTO-REALLOC
+  ds = init_array(p,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Distances between points in i direction
+  !
+  do j = 1,np
+    !
+    do i = 1,p
+      i1 = map2dto1d(i  ,j,np)
+      i2 = map2dto1d(i+1,j,np)
+      ds(i) = norm2( xyz(:,i2) - xyz(:,i1) )
+      dsq(i,j,1) = ds(i)
+    end do
+    !
+    is_eq_dsq(j,1) = all_are_equal( ds(:) , acceptable_error=eps )
+    !
+  end do
+  !
+  ! Distances between points in j direction
+  !
+  do i = 1,np
+    !
+    do j = 1,p
+      j1 = map2dto1d(i,j  ,np)
+      j2 = map2dto1d(i,j+1,np)
+      ds(j) = norm2( xyz(:,j2) - xyz(:,j1) )
+      dsq(j,i,2) = ds(j)
+    end do
+    !
+    is_eq_dsq(i,2) = all_are_equal( ds(:) , acceptable_error=eps )
+    !
+  end do
+  !
+  contains
+  !
+  pure function map2dto1d(i,j,n) result(return_value)
+    integer, intent(in) :: i,j,n
+    integer :: return_value
+    return_value = i + n*(j-1)
+  end function map2dto1d
+  !
+end subroutine check_ho_point_spacings_quad
+!
+!###############################################################################
+!
 subroutine check_ho_point_spacings_hexa(p,xyz,dsh,is_eq_dsh,nc,pts)
   !
   use ovar,   only : epsval => tvrref
