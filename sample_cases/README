@@ -21,6 +21,18 @@ NOTE: If wanting to run GFR in parallel, replace [MPI COMMAND] with the
 
       where [INPUT FILE] is replaced with the name of the GFR input file.
 
+NOTE: When running in parallel, best performance is achieved if the average
+      number of cells per MPI process is larger than 20 for 2D and 10 for 3D.
+
+NOTE: Unless stated otherwise, all "Runtime" performance numbers were found
+      running the problem on a workstation with dual Intel Xeon 6230R CPUs,
+      each with 26 physical cores (52 total), and 128 GB of memory. These
+      performance numbers are provided to hopefully give you an approximate of
+      how long each problem might take to complete compared to your available
+      computational resources. Of course, any adjustments to the input file
+      affecting the solution order or grid resolution for a problem will also
+      have an effect on the runtime for a problem.
+
 ################################################################################
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -30,19 +42,26 @@ NOTE: If wanting to run GFR in parallel, replace [MPI COMMAND] with the
  Input File : Isentropic_Vortex/euler_vortex.in
   Grid File : [Generated internally within GFR]
 
+Recommended
+ # of MPI
+ processes  : 1-50
+
 Description : This test case concerns the long term transport of a vortex by a
               uniform base flow over a 2D doubly periodic domain. This problem
               is aimed at testing a high-order method’s capability to preserve
               vorticity in an unsteady inviscid flow.
 
               The grid resolution for this test case can be adjusted by changing
-              the 'VortexGrid_DOF' input parameter which specifies the DOF in
-              each direction. The number of grid cells in each direction is
-              determined as:
+              the 'VortexGrid_DOF' input parameter which specifies the
+              degrees-of-freedom (DoF) in each direction. The number of grid
+              cells in each direction is determined as:
                  [# of cells] = nint( VortexGrid_DOF / (solution_order+1) )
               Example: VortexGrid_DOF = 200
                        solution_order = 5
                        Grid = 33x33 Cells
+
+    Runtime : This case reached its final simulation time in
+              about 30 seconds using 52 MPI processes.
 
 How to run this case:
               prompt> cd Isentropic_Vortex
@@ -60,12 +79,30 @@ How to run this case:
  Plot3D  BC File  : grid_files/vortex_circular-grid.bcs.p3d
  Plot3D Cut File  : grid_files/vortex_circular-grid.cut.p3d
 
-Description : This test case is the same as the previous isentropic Euler vortex
-              test case except that this version uses a circular 5-block Plot3D
-              grid file with an O-H topology. Since this grid contains
-              curvature, a P4 agglomeration is used to combine linear grid cells
-              into high-order grid cells, i.e., 4x4 (16) linear grid cells are
-              combined into one P4 grid cell.
+Recommended
+ # of MPI
+ processes  : 1- 50 for *.64.p3d
+              1-150 for *.128.p3d
+
+Description : This test case is the very similar to the previous isentropic
+              Euler vortex test case with a few changes:
+                1) This version uses a circular 5-block Plot3D grid file with an
+                   O-H topology. Since this grid contains curvature, a P4
+                   agglomeration is used to combine linear grid cells into
+                   high-order grid cells, i.e., 4x4 (16) linear grid cells are
+                   combined into one P4 grid cell.
+                2) This version uses a stationary vortex that remains seated at
+                   the coordinate origin. This is mostly because the curved
+                   domain boundary does not allow for periodic boundaries
+                   required to propagate the vortex multiple times through the
+                   grid domain. However, the use of characteristic boundaries
+                   allows this version of the problem to run indefinitely since
+                   the error created by the numerical scheme is allowed to leave
+                   the domain, whereas the fully periodic version will
+                   eventually accumulate enough error where it coalesces,
+                   becoming a flow feature in itself, and destroys the vortex.
+                3) The solution order for this version is P7 (8th order),
+                   whereas the previous version is P3 (4th order).
               
               There are two grid files that can be used with this test case:
                  A) vortex_circular-grid.64.p3d which contains 64 linear cells
@@ -73,6 +110,26 @@ Description : This test case is the same as the previous isentropic Euler vortex
                  B) vortex_circular-grid.128.p3d which contains 128 linear cells
                     per quadrant in the rotational direction.
 
+              If you want to make a DoF comparison between this version and the
+              previous fully periodic version:
+                1) For the previous version, use the "VortexGrid_DOF" input
+                   variable to control the how many DoF to use for that version.
+                2) Using the two available grid files for this version, you
+                   can change the solution order using either the
+                   "Solution_Order" or "All_Orders" input variables to get the
+                   following equivalent DoF:
+                      P   vortex_*.64.p3d   vortex_*.128.p3d
+                     ----------------------------------------------------
+                      1          55               111
+                      2          83               166
+                      3         111               222
+                      4         139               277
+                      5         166               333
+                      6         194               388
+                      7         222               443
+
+    Runtime : This case reached its final simulation time in
+              about 100 seconds using 52 MPI processes.
 
 How to run this case:
               prompt> cd Isentropic_Vortex_Circular-Grid
@@ -90,13 +147,18 @@ Input File  : Inviscid_Gaussian_Bump/bump.in
               grid_files/bump.P3.msh
               grid_files/bump.P4.msh
 
+Recommended
+ # of MPI
+ processes  : 1-16
+
 Description : This test case concerns the subsonic flow over a smooth Gaussian
               bump in a channel. This problem is aimed at testing high-order
               methods for the computation of internal flow with a high-order
               curved boundary representation. In this subsonic flow problem, the
               geometry is smooth, and so is the flow.
 
-              The names of the grid files refer to the order of the cells
+              All grid files contain the same number of grid cells (256), and
+              the names of the grid files refer to the order of the cells
               contained in the grid. The 'bump.P1.msh' grid contains linear (P1)
               cells, the 'bump.P2.msh' grid contains quadratic (P2) cells, the
               'bump.P3.msh' grid contains cubic (P3) cells, and the
@@ -106,6 +168,9 @@ Description : This test case concerns the subsonic flow over a smooth Gaussian
               affects solution accuracy for various solution orders. It is
               recommended that the solution order is greater than or equal to
               the grid order.
+
+    Runtime : This case reached convergence in just over 10 minutes running
+              in serial, and roughly 60 seconds using 16 MPI processes.
 
 How to run this case:
               prompt> cd Inviscid_Gaussian_Bump
@@ -121,12 +186,19 @@ How to run this case:
       Grid File : grid_files/couette.grd
  Plot3D BC File : grid_files/couette.bcs.grd
 
+Recommended
+ # of MPI
+ processes  : 1-2
+
     Description : This is the classic Couette flow problem. It consists of 2D
                   viscous flow in a channel between two parallel walls, with one
                   wall moving at a constant velocity while the other wall stays
                   still. In this specific case, the two walls are treated as
                   isothermal walls with a constant temperature of 300 K, and the
                   top wall has a velocity of 30.0 m/s.
+
+    Runtime : This case reached convergence in about 10 seconds
+              running in serial.
 
 How to run this case:
               prompt> cd Couette_Flow
@@ -140,6 +212,10 @@ How to run this case:
 
  Input File : Taylor-Green_Vortex/tgv.in
   Grid File : [Generated internally within GFR]
+
+Recommended
+ # of MPI
+ processes  : 8-400
 
 Description : This problem is the LES/DNS of a three-dimensional periodic and
               transitional flow defined by a simple initial condition: the
@@ -169,6 +245,15 @@ Description : This problem is the LES/DNS of a three-dimensional periodic and
                        solution_order = 4
                        Grid = 26x26x26 Cells
 
+    Runtime : Using 52 MPI processes, this case took about 23 minutes to reach
+              its final simulation time. Running this case on NAS using 128 MPI
+              processes on 1 Rome node (128 cores per node) took 6 minutes to
+              reach the final simulation time. Running this case on NAS using
+              52 MPI processes on 1 Rome node (128 cores per node) took 15
+              minutes to reach the final simulation time.
+              This case uses between 10GB-20GB of memory.
+              NOTE: Running this in serial will probably take 12+ hours.
+
 How to run this case:
               prompt> cd Taylor-Green_Vortex
               prompt> [MPI COMMAND] gfr tgv.in
@@ -181,6 +266,10 @@ How to run this case:
 
  Input File : Taylor-Couette_IG/taylor-couette.in
   Grid File : [Generated internally within GFR]
+
+Recommended
+ # of MPI
+ processes  : 500-2000
 
 Description : This problem is the LES of a Taylor-Couette flow consisting of
               two concentric cylinders, with the inner cylinder rotating and
@@ -200,10 +289,10 @@ Description : This problem is the LES of a Taylor-Couette flow consisting of
               files at t*=[22.058,24.016,27.2,33.5].
 
               The grid resolution for this test case can be adjusted by changing
-              the a number of input parameters:
+              a number of input parameters:
                 TCF_Radial_Cells    = [# of cells in the radial direction]
                 TCF_Azimuthal_Cells = [# of cells in the azimuthal direction]
-                TCF_Azial_Cells     = [# of cells in the axial direction]
+                TCF_Axial_Cells     = [# of cells in the axial direction]
                 TCF_Inner_Wall_Spacing = [radial spacing of first cell
                                           on inner cylinder wall]
                 TCF_Outer_Wall_Spacing = [radial spacing of first cell
@@ -214,6 +303,22 @@ Description : This problem is the LES of a Taylor-Couette flow consisting of
               This version of the problem uses the Optimized-Embedded-Pair ERK
               5-stage/3rd-order(with embedded 2nd-order) method with adaptive
               time stepping size.
+
+        NOTE: The flow becomes fully turbulent around t*=30 and the final
+              special output for this case occurs at t*=33.5. The final
+              simulation time is set to t*=75; however, any comparisons between
+              different orders/resolutions of this problem is nearly impossible
+              after t*=35 due to the fully turbulent nature of the flow. This
+              means this problem does not need reach its final simulation time
+              for a good analysis of the results, and can probably be stopped
+              around t*=40. Anything beyond that is just for thorough
+              comparisons to previously published results.
+
+    Runtime : It is recommended to run this case on a HPC system. Running this
+              case on a local workstation using 52 MPI processes took nearly
+              6 DAYS (140 hours) to reach the final simulation time of t*=75.
+              Running this case on NAS using 2560 MPI processes across 20 Rome
+              nodes (128 cores per node) took 11 minutes to reach t*=10.
 
 How to run this case:
               prompt> cd Taylor-Couette_IG
@@ -227,8 +332,11 @@ How to run this case:
 
  Input File : Taylor-Couette_CGNS/taylor-couette.in
   Grid File : grid_files/Taylor-Couette.20x48x24.P3.cgns
+                NOTE : This grid file first needs to be decompressed by gzip
 
-       NOTE : This grid file needs to be gunzipped first
+Recommended
+ # of MPI
+ processes  : 500-2000
 
 Description : This is the exact same problem as Taylor-Couette_IG, except this
               version uses a high-order (P3) CGNS grid created by Pointwise,
@@ -241,6 +349,12 @@ Description : This is the exact same problem as Taylor-Couette_IG, except this
               This version of the problem uses the Strong-Stability-Preserving
               ERK 3-stage/3rd-order method with CFL based time stepping.
 
+    Runtime : It is recommended to run this case on a HPC system. Running this
+              case on a local workstation using 52 MPI processes took nearly
+              6 DAYS (136 hours) to reach the final simulation time of t*=75.
+              Running this case on NAS using 2560 MPI processes across 20 Rome
+              nodes (128 cores per node) took 11 minutes to reach t*=10.
+
 How to run this case:
               prompt> gunzip grid_files/Taylor-Couette.20x48x24.P3.cgns.gz
               prompt> cd Taylor-Couette_CGNS
@@ -252,6 +366,13 @@ How to run this case:
 %%%%%   LES of Flow over Cylinder at Re=3900   %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+ Input File : LES_Flow_over_Cylinder/cylinder.in
+  Grid File : grid_files/cylinder.P3.msh
+
+Recommended
+ # of MPI
+ processes  : 16-500
+
 Description : This test case concerns the flow over a cylinder at a Reynolds
               number of 3900. This is based off of the similar test case of
               flow over an infinitely long cylinder at the same flow conditions
@@ -262,32 +383,40 @@ Description : This test case concerns the flow over a cylinder at a Reynolds
               this version of this test case with symmetric/reflecting boundary
               conditions.
 
-------------------------
- Flow Development Phase
-------------------------
- Input File : LES_Flow_over_Cylinder/cylinder_init.in
-  Grid File : grid_files/cylinder.P3.msh
+              This case uses a limiter filter to keep the simulation from
+              diverging. A limiter filter is a two-part process. The first part
+              uses a resolution marker to identify "troubled cells", which are
+              cells that show signs of large energy in the highest polynomial
+              mode. The second part consists of applying a modal filter to only
+              the troubled cells. Inputs for a global filter that is applied
+              to ALL cells are also provided (but commented out) in the input
+              file. Using the global filter will result in a more diffused
+              solution because dissipation will also be added to cells that do
+              not need additional dissipation to remain stable.
 
-Description : This phase of this test case is used to run the simulation
-              starting from the initial conditions to a point at which the flow
-              has become turbulent such that time-average quantities can begin
-              to be accumulated. The initial conditions for this case consist
-              of an infinitely smooth solution with a bias in the spanwise and
-              vertical direction imposed to ensure that the non-symmetric flow
-              is not a consequence of round-off or truncation errors.
+              This case consists of two phases: the initialization phase and the
+              time-averaging phase. The final simulation time is set to t*=800,
+              and the start of time averaging is set to t*=100. These numbers
+              were taken from the description for this problem given by the
+              High-Order CFD Workshops.
 
-----------------------
- Time-Averaging Phase
-----------------------
- Input File : LES_Flow_over_Cylinder/cylinder_ave.in
-  Grid File : grid_files/cylinder.P3.msh
-
-Description : This phase of this test case is used to compute time-averaged flow
-              quantities after the flow over the cylinder has become fully
-              turbulent.
+       NOTE : The grid provided for this test case is very coarse and not good
+              enough to produce a good LES solution. For example, the domain
+              span is only 2x the cylinder diameter, there are only 7 cells in
+              the spanwise direction, and the spanwise BCs are specified as
+              slip walls instead of periodic (periodic BCs are not yet supported
+              with Gmsh). This problem is only intended as an example on how to
+              set up an LES simulation with time averaging. The solution files
+              can be examined to visualize some vortical structures behind the
+              cylinder, but these are not results you would want to compare to
+              good data. Better quality high-order grids can be found at some
+              of the websites for previous High-Order CFD Workshops.
+              
+    Runtime : Running this case on NAS using 672 MPI processes across
+              24 Broadwell nodes (28 cores per node) took 37 minutes to reach
+              the final simulation time of t*=800.
 
 How to run this case:
               prompt> cd LES_Flow_over_Cylinder
-              prompt> [MPI COMMAND] gfr cylinder_init.in
-              prompt> [MPI COMMAND] gfr cylinder_ave.in
+              prompt> [MPI COMMAND] gfr cylinder.in
 
