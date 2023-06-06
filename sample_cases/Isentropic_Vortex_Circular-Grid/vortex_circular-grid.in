@@ -7,7 +7,7 @@ PLOT3D_CUTFILE = "../grid_files/vortex_circular-grid.cut.p3d"
 
 PLOT3D_AGGLOMERATE_ORDER = 4   ! Create P4 grid cells
 
-ALL_ORDERS = 7 ! P3 solution, 4th order accuracy
+ALL_ORDERS = 7 ! P7 solution, 8th order accuracy
 ALL_POINTS = 1 ! Legendre-Gauss points
 
 GOVERNING_EQUATIONS = 1   ! Euler equations
