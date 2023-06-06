@@ -1286,7 +1286,7 @@ continue
   !
   np = element_data_size
   !
-  allocate ( s%elements(1:np) , source=-1_CST, stat=ierr , errmsg=error_message )
+  allocate ( s%elements(1:np) , source=-1_CST, stat=ierr , errmsg=error_message)
   array_name = get_array_name("section",is_g,"elements")
   call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
   !
