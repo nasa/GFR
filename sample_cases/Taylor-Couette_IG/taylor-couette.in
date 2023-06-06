@@ -9,8 +9,8 @@ GRID_FORMAT = -1 ! Internally generated grid
 TCF_Radial_Cells = 20
 TCF_Azimuthal_Cells = 48
 TCF_Axial_Cells = 24
-TCF_Inner_Wall_Spacing = 0.005
-TCF_Outer_Wall_Spacing = 0.004
+TCF_Inner_Wall_Spacing = 0.004
+TCF_Outer_Wall_Spacing = 0.005
 TCF_Inner_Radius = 1.0
 TCF_Outer_Radius = 2.0
 
