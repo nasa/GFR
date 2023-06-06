@@ -3,7 +3,7 @@
 GRID_FORMAT = 2     ! Gmsh file format
 GRIDFILE = "../grid_files/bump.P3.msh"
 
-ALL_ORDERS = 3 ! P4 solution, 5th order accuracy
+ALL_ORDERS = 3 ! P3 solution, 4th order accuracy
 ALL_POINTS = 1 ! Legendre-Gauss points
 ERROR_ORDER = 6
 
