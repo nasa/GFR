@@ -3023,10 +3023,18 @@ subroutine rescale_grid_for_vortex_problems()
   integer  :: l
   real(wp) :: llenmax
   !
+  logical(lk) :: grid_xyz_was_allocated
+  logical(lk) :: xyz_was_allocated
+  !
   !.. Local Arrays ..
   real(wp) :: lmin(1:nr)
   real(wp) :: lmax(1:nr)
   real(wp) :: llen(1:nr)
+  real(wp) :: lave(1:nr)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: tmp_grid_xyz(:,:)
+  real(wp), allocatable :: tmp_xyz(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "rescale_grid_for_vortex_problems"
@@ -3054,38 +3062,63 @@ continue
     lmin(l) = minval(xyz_nodes(l,:))
     lmax(l) = maxval(xyz_nodes(l,:))
     llen(l) = half*(lmax(l)-lmin(l)) ! half length in each direction
+    lave(l) = half*(lmax(l)+lmin(l))
   end do
+  !
+  ! Get the half length for the coordinate with the largest extent
+  !
+  llenmax = maxval(llen)
+  !
+  ! Create temporary arrays for grid%xyz and xyz so we dont have to check
+  ! their allocation status for every adjustment for the grid
+  ! NOTE: xyz shouldnt exist yet, but we will scale it just in case
+  !
+  tmp_grid_xyz = init_array(nr,1,zero) ! F2003 AUTO-REALLOC
+  tmp_xyz = init_array(nr,1,zero)      ! F2003 AUTO-REALLOC
+  !
+  grid_xyz_was_allocated = fals
+  if (allocated(grid)) then
+    if (allocated(grid%xyz)) then
+      grid_xyz_was_allocated = true
+      call move_alloc( from=grid%xyz , to=tmp_grid_xyz )
+    end if
+  end if
+  !
+  xyz_was_allocated = fals
+  if (allocated(xyz)) then
+    xyz_was_allocated = true
+    call move_alloc( from=xyz , to=tmp_xyz )
+  end if
   !
   ! Center the grid coordinates, and scale them so the coordinate
   ! direction with the largest extent is scaled to (-1,1)
   !
-  llenmax = maxval(llen)
-  !
   do l = 1,nr
-    xyz_nodes(l,:) = (xyz_nodes(l,:) - llen(l)) / llenmax
-    if (allocated(grid)) then
-      if (allocated(grid%xyz)) then
-        grid%xyz(l,:) = (grid%xyz(l,:) - llen(l)) / llenmax
-      end if
-    end if
-    ! xyz shouldnt exist yet, but scale it just in case
-    if (allocated(xyz)) then
-      xyz(l,:) = (xyz(l,:) - llen(l)) / llenmax
-    end if
+    xyz_nodes(l,:) = (xyz_nodes(l,:) - lave(l)) / llenmax
+    tmp_grid_xyz(l,:) = (tmp_grid_xyz(l,:) - lave(l)) / llenmax
+    tmp_xyz(l,:) = (tmp_xyz(l,:) - lave(l)) / llenmax
   end do
   !
   ! Finally scale the grid so the coordinate direction with the
   ! largest extent is scaled to (-VortexGrid_Lref,VortexGrid_Lref)
   !
   xyz_nodes(:,:) = xyz_nodes(:,:) * abs(VortexGrid_Lref)
-  if (allocated(grid)) then
-    if (allocated(grid%xyz)) then
-      grid%xyz(:,:) = grid%xyz(:,:) * abs(VortexGrid_Lref)
-    end if
+  tmp_grid_xyz(:,:) = tmp_grid_xyz(:,:) * abs(VortexGrid_Lref)
+  tmp_xyz(:,:) = tmp_xyz(:,:) * abs(VortexGrid_Lref)
+  !
+  ! Move the temporary arrays for grid%xyz and xyz back into the actual
+  ! arrays. We only want to do this if the arrays were already allocated
+  ! before making the adjustments to the grid coordinates. Otherwise,
+  ! we dont want to copy the (nr,1) sized temporary arrays over because
+  ! we want to leave these array unallocated as they were when entering
+  ! this subroutine.
+  !
+  if (grid_xyz_was_allocated) then
+    call move_alloc( from=tmp_grid_xyz , to=grid%xyz )
   end if
-  ! xyz shouldnt exist yet, but scale it just in case
-  if (allocated(xyz)) then
-    xyz(:,:) = xyz(:,:) * abs(VortexGrid_Lref)
+  !
+  if (xyz_was_allocated) then
+    call move_alloc( from=tmp_xyz , to=xyz )
   end if
   !
   call debug_timer(leaving_procedure,pname)
