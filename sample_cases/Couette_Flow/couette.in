@@ -17,15 +17,14 @@ CFL_CYCLES = 1000
 CFL = 0.1
 
 !Flow reference conditions:
-MACHREF = 0.2014712737961417
+MACHREF = 0.2015692993023177    ! = 70 m/s
 GAM = 1.4
-RHOREF = 1.1597335475725683     ! kg/(m^3)
 PREF = 100000.0                 ! Pa [kg/(m*s^2)]
-TREF = -1.0
+TREF = 300.0                    ! K
 REYREF = 200.0
 RGASREF = 287.1428571428571429  ! m^2/(K*s^2)
 
-SUTH_MUREF = 0.417              ! Pa*s [kg/(m*s)]
+SUTH_MUREF = 0.406301824212273  ! Pa*s [kg/(m*s)]
 SUTH_TREF = 300.0               ! K
 SUTH_SREF = 0.0                 ! K
 
@@ -40,11 +39,25 @@ CONVERGENCE_ORDER_MAX_RES = -10.0
 
 ITESTCASE = 1  ! initialize to free stream
 
-BC_INPUT(1)%NAME      = "TOP_WALL"
-BC_INPUT(1)%WALL_TEMP = 300.0    ! K
-BC_INPUT(1)%VX        = 30.0     ! m/s
+BC_INPUT(1)%NAME         = "TOP_WALL"
+BC_INPUT(1)%SET_BC_VALUE = 53 ! isothermal wall
+BC_INPUT(1)%WALL_TEMP    = 300.0    ! K
+BC_INPUT(1)%VX           = 70.0     ! m/s
 
-BC_INPUT(2)%NAME      = "BOT_WALL"
-BC_INPUT(2)%WALL_TEMP = 300.0    ! K
+BC_INPUT(2)%NAME         = "BOT_WALL"
+BC_INPUT(2)%SET_BC_VALUE = 53 ! isothermal wall
+BC_INPUT(2)%WALL_TEMP    = 300.0    ! K
+
+BC_INPUT(3)%NAME                      = "INFLOW"
+BC_INPUT(3)%SET_BC_VALUE              = 81 ! periodic BC
+BC_INPUT(3)%PERIODIC%MATCHING_BC_NAME = "OUTFLOW"
+BC_INPUT(3)%PERIODIC%MATCHING_BC_IDX  = 4
+BC_INPUT(3)%PERIODIC%TRANSLATION(1)   = 2.0
+
+BC_INPUT(4)%NAME                      = "OUTFLOW"
+BC_INPUT(4)%SET_BC_VALUE              = 81 ! periodic BC
+BC_INPUT(4)%PERIODIC%MATCHING_BC_NAME = "INFLOW"
+BC_INPUT(4)%PERIODIC%MATCHING_BC_IDX  = 3
+BC_INPUT(4)%PERIODIC%TRANSLATION(1)   = -2.0
 
 /
