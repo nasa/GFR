@@ -20,6 +20,8 @@ module generic_mod
   !
   character(len=100), save :: iter_out_fmt
   !
+  character(len=:), save, allocatable :: iter_header
+  !
   real(wp),    save :: Density_Maximum_Residual = -huge(zero)
   logical(lk), save :: vortex_has_collapsed = fals
   integer,     save :: final_countdown = 0
@@ -1194,6 +1196,7 @@ subroutine write_iter_stats(walltime_expiring,exit_main_loop)
   use ovar,    only : output_limiter_statistics,nlim
   use ovar,    only : convergence_order_max_res,convergence_order_abs_res
   use ovar,    only : rl2mx,uverr,this_is_final_timestep,iter_out_interval
+  use ovar,    only : restart_interval,output_interval
   use ovar,    only : output_time_averaging,time_scaling_factor,ave_start_time
   use ovar,    only : max_restart_wall_time,max_time_ave_rst_wall_time
   use ovar,    only : max_cgns_wall_time,max_time_ave_cgns_wall_time
@@ -1210,13 +1213,20 @@ subroutine write_iter_stats(walltime_expiring,exit_main_loop)
   !
   !.. Local Scalars ..
   integer  :: hrs_left,min_left,sec_left
-  integer  :: n,nloc,kloc,ierr
-  real(wp) :: xentmax,yentmax
+  integer  :: n,ierr
   real(wp) :: entL2
   real(wp) :: wall_time_left,out_time
+  real(wp) :: current_wte,time_between_outputs
   real(wp) :: orders_converged,output_L2val
   real(wp) :: rltwo,rlim
   real(wp) :: blowing_ratio,mdot_nozzle,mdot_injector
+  !
+  logical(lk) :: output_header
+  !
+  !.. Local Saved Scalars ..
+  real(wp)    :: last_wte = -huge(zero)
+  integer     :: writes_since_last_header = 0
+  logical(lk) :: first_pass = true
   !
   !.. Local Arrays ..
   real(wp) :: max_wall_times(1:4)
@@ -1242,18 +1252,8 @@ continue
   rltwo = uverr(nec,2,1)
   entL2 = uverr(nq+1,2,1)
   !
-  nloc = nint( uverr(nec,4,1) )
-  kloc = nint( uverr(nec,5,1) )
-  !
-  ! Coordinates Location of the max inf norm for entropy
-  xentmax = uverr(nq+1,6,1)
-  if (size(uverr,dim=2) >= 7) then
-    yentmax = uverr(nq+1,7,1)
-  else
-    yentmax = zero
-  end if
-  !
   ! Maximum L2 norm of density for the current simulation
+  !
   rl2mx = max( rltwo , rl2mx )
   !
   if (any(itestcase == Transport_Problems)) then
@@ -1328,9 +1328,34 @@ continue
   !
   call pbs_remaining_walltime(walltime_expiring, &
                               wall_time_remaining=wall_time_left, &
-                              io_time_needed=max_wall_times)
+                              io_time_needed=max_wall_times, &
+                              wall_time_elapsed=current_wte)
+  !
+  ! Compute the time since writing the previous iteration statistics
+  !
+  if (last_wte < zero) then
+    time_between_outputs = zero
+  else
+    time_between_outputs = current_wte - last_wte
+  end if
+  ! Save the current elapsed wall time for next output
+  last_wte = current_wte
+  !
+  ! Check to see if we need to rewrite the header
+  !
+  call check_for_header_output(output_header)
+  !
+  ! Have the global root MPI process write out the iteration statistics
   !
   if (mypnum == glb_root) then
+    !
+    ! Rewrite the header if it has been a while since it was previously written
+    !
+    if (output_header) then
+      write (iout,iter_header)
+    end if
+    !
+    ! Output the limiter statistics if this has been enabled.
     !
     if (output_limiter_statistics) then
       do n = lbound(nlim,dim=1),ubound(nlim,dim=1)
@@ -1340,6 +1365,10 @@ continue
         end if
       end do
     end if
+    !
+    ! Get the current simulation time to output
+    ! NOTE: If time averaging, the output time is how much simulation time
+    !       has elapsed since the start of time averaging.
     !
     out_time = time*time_ref*time_scaling_factor
     if (output_time_averaging) then
@@ -1366,11 +1395,6 @@ continue
     write (*,102) "cfl = ",cfl
     write (*,102) "rltwo = ",rltwo
     write (*,102) "output_L2val = ",output_L2val
-    write (*,101) "nloc = ",nloc
-    write (*,101) "kloc = ",kloc
-    write (*,101) "global_pinc_ptr(nloc) = ",global_pinc_ptr(nloc)
-    write (*,102) "xentmax = ",xentmax
-    write (*,102) "yentmax = ",yentmax
     write (*,101) "hrs_left = ",hrs_left
     write (*,101) "min_left = ",min_left
     write (*,101) "sec_left = ",sec_left
@@ -1381,14 +1405,13 @@ continue
       write (iout,iter_out_fmt) itcur,d_t,out_time, &
                                 cfl,output_L2val, &
                                 mdot_nozzle,mdot_injector,blowing_ratio, &
-                                nloc,global_pinc_ptr(nloc)+kloc, &
+                                time_between_outputs, &
                                 hrs_left,min_left,sec_left
     else
      !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
       write (iout,iter_out_fmt) itcur,d_t,out_time, &
-                                cfl,rltwo,output_L2val,nloc, &
-                                global_pinc_ptr(nloc)+kloc, &
-                                xentmax,yentmax, &
+                                cfl,rltwo,output_L2val, &
+                                time_between_outputs, &
                                 hrs_left,min_left,sec_left
     end if
     !
@@ -1396,10 +1419,8 @@ continue
     !
    !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
     write (iout,iter_out_fmt) itcur,d_t,out_time, &
-                              cfl,rltwo,output_L2val,nloc, &
-                              global_pinc_ptr(nloc)+kloc, &
-                              xentmax,yentmax
-    !
+                              cfl,rltwo,output_L2val, &
+                              time_between_outputs
     !
 #endif
     !
@@ -1413,6 +1434,8 @@ continue
     if (this_is_final_timestep) write (iout,5)
     !
   end if
+  !
+  if (first_pass) first_pass = fals
   !
   ! If a vortex collapse has been detected and final_countdown has reached 0,
   ! activate convergence_reached so that the main_loop can be exited when
@@ -1459,25 +1482,85 @@ end subroutine write_iter_stats
 !
 !###############################################################################
 !
+subroutine check_for_header_output(output_header)
+  !
+  !.. Use Statements ..
+  use ovar, only : itcur,iter_out_interval
+  use ovar, only : restart_interval,output_interval
+  use ovar, only : disable_header_rewrites
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(out) :: output_header
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  !.. Local Saved Scalars ..
+  integer,     save :: writes_since_last_header = 0
+  logical(lk), save :: first_pass = true
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_for_header_output"
+  !
+continue
+  !
+  output_header = fals
+  !
+  if (first_pass) then
+    output_header = true
+    first_pass = fals
+  end if
+  !
+  if (disable_header_rewrites) return
+  !
+  if (writes_since_last_header >= 100) then
+    output_header = true
+  end if
+  !
+  if (writes_since_last_header > 50) then
+    ! Write the header again if a restart file was recently output
+    if (restart_interval > 0) then
+      n = mod(itcur,restart_interval)
+      if (n > 0 .and. n <= iter_out_interval) then
+        output_header = true
+      end if
+    end if
+    ! Write the header again if a solution file was recently output
+    if (output_interval > 0) then
+      n = mod(itcur,output_interval)
+      if (n > 0 .and. n <= iter_out_interval) then
+        output_header = true
+      end if
+    end if
+  end if
+  !
+  if (output_header) then
+    writes_since_last_header = 0
+  else
+    writes_since_last_header = writes_since_last_header + 1
+  end if
+  !
+end subroutine check_for_header_output
+!
+!###############################################################################
+!
 subroutine init_generic_mod
   !
   !.. Use Statements ..
-  use geovar, only : nr,n_global_cell,n_global_solpts
+  use geovar, only : nr
   use ovar,   only : itcur,num_timesteps,itestcase
   use ovar,   only : uverr,output_time_averaging
   !
   use pbs_mod, only : pbs_remaining_walltime
   !
   !.. Local Scalars ..
-  integer     :: ierr
+  integer     :: n,ierr
   integer     :: final_iter_digits
-  integer     :: max_cell_digits
-  integer     :: max_solpt_digits
   integer     :: hrs_left,min_left,sec_left
   logical(lk) :: walltime_expiring
   real(wp)    :: wall_time_left
   character(len=100) :: char_num
-  character(len=1000) :: iter_header
+  character(len=200) :: tmp_header
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_generic_mod"
@@ -1496,22 +1579,22 @@ continue
   end if
   !$ACC UPDATE DEVICE(uverr)
   !
+  ! Get the number of digits needed for different columns of 
+  ! iteration data/statistics that will be output to stdout.
+  !
   write (char_num,1) itcur + num_timesteps
   final_iter_digits = max(4,len_trim(adjustl(char_num)))
   !
-  write (char_num,1) n_global_cell
-  max_cell_digits = max(4,len_trim(adjustl(char_num)))
-  !
-  write (char_num,1) n_global_solpts
-  max_solpt_digits = max(5,len_trim(adjustl(char_num)))
+  ! Using these, create the format string that will be used to
+  ! format the output
   !
   if (abs(itestcase) == THX_Phase_3) then
-    write (iter_out_fmt,102) final_iter_digits,max_cell_digits,max_solpt_digits
+    write (iter_out_fmt,102) final_iter_digits
   else
  !if (output_time_averaging) then
  !  write (iter_out_fmt,101) final_iter_digits
  !else
-    write (iter_out_fmt,100) final_iter_digits,max_cell_digits,max_solpt_digits
+    write (iter_out_fmt,100) final_iter_digits
   end if
   !
   ! Add on the remaining simulation time to the output if
@@ -1525,27 +1608,24 @@ continue
   !
   iter_out_fmt = iter_out_fmt(1:len_trim(iter_out_fmt)) // ")"
   !
+  ! Allocate the module character variable to store the header string for
+  ! identifying what iteration statistics are being written to stdout.
+  !
+  allocate ( character(len=1000) :: iter_header , stat=ierr )
+  !
   ! Now get the format for the header
   !
   if (any(itestcase == Transport_Problems)) then
-    write (iter_header,200) final_iter_digits-3, &
-                            max_cell_digits-2, &
-                            max_solpt_digits-3
+    write (iter_header,200) final_iter_digits-3
   else if (itestcase == Laminar_BndLyr) then
-    write (iter_header,201) final_iter_digits-3, &
-                            max_cell_digits-2, &
-                            max_solpt_digits-3
+    write (iter_header,201) final_iter_digits-3
   else if (any(itestcase == Taylor_Problems)) then
-   !write (iter_header,203) final_iter_digits-3, &
-    write (iter_header,202) final_iter_digits-3, &
-                            max_cell_digits-2, &
-                            max_solpt_digits-3
+   !write (iter_header,203) final_iter_digits-3
+    write (iter_header,202) final_iter_digits-3
  !else if (output_time_averaging) then
  !  write (iter_header,204) final_iter_digits-3
   else
-    write (iter_header,202) final_iter_digits-3, &
-                            max_cell_digits-2, &
-                            max_solpt_digits-3
+    write (iter_header,202) final_iter_digits-3
   end if
   !
 #ifdef PBS_ENV
@@ -1569,11 +1649,27 @@ continue
   !
   ! Put the last ')' onto iter_header
   !
-  iter_header = iter_header(1:len_trim(iter_header)) // ")"
+  iter_header = trim(adjustl(iter_header)) // ")" ! F2003 AUTO-REALLOC
   !
-  ! Write the header for the terminal output
+  ! Get the actual length of the header that will be written to stdout
   !
-  if (mypnum == 0) write (iout,iter_header)
+  write (tmp_header,iter_header)
+  n = len_trim(tmp_header)-1
+  !
+  ! Create the formatting string to append a new line and 'rule' to the header
+  !
+  write (tmp_header,3) n
+  !
+  ! Remove the () from the ends of iter_header
+  !
+  n = len_trim(iter_header)
+  iter_header = iter_header(2:n-1) ! F2003 AUTO-REALLOC
+  !
+  ! Finally, add a new line formatter (and '(') to the beginning
+  ! of iter_header and append the new line and rule to the end.
+  !
+  ! F2003 AUTO-REALLOC
+  iter_header = "(/," // iter_header // trim(adjustl(tmp_header))
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1582,26 +1678,25 @@ continue
   1 format (i0)
   2 format (/,"  After Pre-Processor and Initializations =>", &
               "  Wall Time Remaining = ",i0,2(":",i2.2))
-  100 format ("(1x,i",i0,",5es12.4,2x,i",i0,",2x,i",i0,",2es9.1")
-  101 format ("(1x,i",i0,",8es12.4")
-  102 format ("(1x,i",i0,",7es12.4,2x,i",i0,",2x,i",i0)
-  200 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
-              "'L2-Entropy',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
-  201 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-X-Mmntm',2x,", &
-              "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
-              "x,'Solpt',5x,'x',8x,'y'")
- !202 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',10x,'CFL',5x,", &
-  202 format ("(/,",i0,"x,'iter',3x,'d_t* (ND)',3x,'Time (s)',7x,'CFL',5x,", &
-              "'L2-Density',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
-              "x,'Solpt',5x,'x',8x,'y'")
- !202 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
- !            "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
- !            "x,'Solpt',5x,'x',8x,'y'")
-  203 format ("(/,",i0,"x,'iter',5x,'dt*',8x,'Time*',5x,'L2-Density',2x,", &
-              "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
-              "x,'Solpt',5x,'x',8x,'y'")
-  204 format ("(/,",i0,"x,'iter',5x,'dt*',8x,'Time*',5x,'L2-Density',4x,", &
-              "'L2-Vx',7x,'L2-Vy',7x,'L2-Vz',7x,'L2-Pres'")
+  3 format (",/,1x,",i0,"('-'))")
+  !
+  100 format ("(1x,i",i0,",5es12.4,1x,f11.5")
+  101 format ("(1x,i",i0,",8es12.4,1x,f11.5")
+  102 format ("(1x,i",i0,",7es12.4,1x,f11.5")
+  !
+  200 format ("(",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
+              "'L2-Entropy',2x,'Output-dWT'")
+  201 format ("(",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-X-Mmntm',2x,", &
+              "'OrdersDrop',2x,'Max-DensL2',2x,'Output-dWT'")
+ !202 format ("(",i0,"x,'iter',5x,'d_t',8x,'Time',10x,'CFL',5x,", &
+  202 format ("(",i0,"x,'iter',3x,'d_t* (ND)',3x,'Time (s)',7x,'CFL',5x,", &
+              "'L2-Density',2x,'Max-DensL2',2x,'Output-dWT'")
+ !202 format ("(",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
+ !            "'OrdersDrop',2x,'Max-DensL2',2x,'Output-dWT'")
+  203 format ("(",i0,"x,'iter',5x,'dt*',8x,'Time*',5x,'L2-Density',2x,", &
+              "'OrdersDrop',2x,'Max-DensL2',2x,'Output-dWT'")
+  204 format ("(",i0,"x,'iter',5x,'dt*',8x,'Time*',5x,'L2-Density',4x,", &
+              "'L2-Vx',7x,'L2-Vy',7x,'L2-Vz',7x,'L2-Pres',2x,'Output-dWT'")
   !
 end subroutine init_generic_mod
 !
