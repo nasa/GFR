@@ -1877,7 +1877,7 @@ continue
     !
     ! Adjust the nondimensionalization of muref so it is
     ! nondimensionalized by uref instead of aref
-    muref_star = muref_nd / machref
+    muref_star = muref_nd / machref / kedr_coef
     !
     tgv_dimen(1) = kedr_coef
     ! Two time_refs for square of velocity derivatives (from vorticity**2)
@@ -1891,8 +1891,8 @@ continue
     ! Two time_refs for square of velocity derivatives (from vorticity**2)
     tgv_dimen(6) = ke_coef / time_ref / time_ref
     !
-    ! Set tgv_kedr(7,-1) to time the first time through
-    ! time will have the value zero for a new simulation or the
+    ! Set tgv_kedr(7,-1) to the variable 'time' the first time through.
+    ! The variable 'time' will have the value zero for a new simulation or the
     ! restart time if restarting a simulation
     !
     tgv_kedr(7,-1) = time * time_ref
