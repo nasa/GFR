@@ -1,5 +1,7 @@
 &input
 
+PROFILE_IO_ALL = T
+PROFILE_IO_CGNS_SUBS = T
 CGNS_HIGH_ORDER_OUTPUT = F
 
 ! Grid information
