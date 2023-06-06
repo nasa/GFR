@@ -569,7 +569,7 @@ continue
     !  - initialize to the laminar solution
     ! Else if itestcase == +Taylor_Couette_Flow
     !  - initialize to the Taylor-Green-inspired initial solution
-    ! 
+    !
     if (itestcase < 0) then
       do k = 1,np
         return_value(k,:) = laminar_taylor_couette_init( xyz(:,k) )
@@ -2233,8 +2233,14 @@ continue
   !
   ! Initialize the transport module and compute
   ! the transport reference conditions
+  ! NOTE: For the Taylor-Couette flow problem, the length scale used for the
+  !       reference Reynolds number, reyref, is the difference in radii between
+  !       the two cylinders. This distance was returned as ref_length from
+  !       initialize_taylor_couette_problem. Since reyref has now been set, we
+  !       will pass ref_length to init_transport_mod to scale muref by this
+  !       reference length. For all other problems, ref_length should just be 1.
   !
-  call init_transport_mod(cv_ref,gp_ref)
+  call init_transport_mod(cv_ref,gp_ref,ref_length)
   !
   call check_for_bad_number(__LINE__,__FILE__)
   !
@@ -3219,7 +3225,7 @@ continue
         !
         if (bc_input(bc_idx)%rotation_speed > eps1) then
           write (iout,isorotwall_fmt) t,bc_input(bc_idx)%rotation_speed
-        else 
+        else
           vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
           write (iout,isowall_fmt) t,(vel(ii),ii=1,nr)
         end if

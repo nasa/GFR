@@ -54,7 +54,7 @@ contains
 !
 !###############################################################################
 !
-subroutine init_transport_mod(cv,gp)
+subroutine init_transport_mod(cv,gp,ref_length)
   !
   !.. Use Statements ..
   use ovar, only : itestcase
@@ -67,6 +67,7 @@ subroutine init_transport_mod(cv,gp)
   !.. Formal Arguments ..
   real(wp),    intent(in) :: cv(:)
   real(wp), intent(inout) :: gp(:)
+  real(wp),    intent(in) :: ref_length
   !
   !.. Local Scalars ..
   integer  :: ierr
@@ -149,11 +150,11 @@ continue
         muref = muref_nd * rhoref * aref
         !
         ! NOTE: reciprocal returns 0 if muref is 0, and 1/muref otherwise.
-        reyref = rhoref * machref * aref * reciprocal( muref )
+        reyref = rhoref * machref * aref * ref_length * reciprocal( muref )
         !
       else
         !
-        muref = rhoref * machref * aref / reyref
+        muref = rhoref * machref * aref * ref_length / reyref
         !
         muref_nd = muref / (rhoref * aref)
         !
@@ -174,7 +175,7 @@ continue
       muref_nd = gp(nvisc)
       muref = muref_nd * rhoref * aref
       !
-      reyn = rhoref * machref * aref / muref
+      reyn = rhoref * machref * aref * ref_length / muref
       !
       if (reyref <= zero) then
         reyref = reyn
