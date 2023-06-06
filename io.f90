@@ -829,7 +829,8 @@ continue
       ! Need to adjust the nondimensional final time which uses uref as the
       ! velocity for nondimensionalization and we use aref within the code
       !
-      num_timesteps = nint( Final_Time / constant_dt )
+     !num_timesteps = nint( Final_Time / &
+     !                      (constant_dt*time_ref*time_scaling_factor) )
       !
      !Final_Time = Final_Time * time_ref
       !
