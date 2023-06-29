@@ -861,8 +861,8 @@ continue
         !
         current_rk_stage = nst
         !
-        Apply_Filter = (Filtering_Interval == 0)
-        Apply_Limiter = (Limiting_Interval == 0)
+        Apply_Filter = (Filtering_Interval <= 0)
+        Apply_Limiter = (Limiting_Interval <= 0)
         if (nst == num_rk_stages) then
           if (Filtering_Interval > 0) then
             Apply_Filter = (mod(iter,Filtering_Interval) == 0)
