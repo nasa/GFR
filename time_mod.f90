@@ -2306,18 +2306,6 @@ continue
     call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
-  ! Apply the filter
-  !
-  if (Filter_Option > 0) then
-    if (Apply_Filter) then
-#ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,1) nst
-      1 format (8x,"Applying Standard Filter : RK Stage = ",i0)
-#endif
-      call filter_usp
-    end if
-  end if
-  !
   ! Apply the limiter
   !
   if (Limiter_Option /= 0) then
@@ -2331,6 +2319,18 @@ continue
       else if (Limiter_Option >= 1) then
         call limit_by_projecting
       end if
+    end if
+  end if
+  !
+  ! Apply the filter
+  !
+  if (Filter_Option > 0) then
+    if (Apply_Filter) then
+#ifdef PROFILE_ON
+      if (mypnum == glb_root) write (iout,1) nst
+      1 format (8x,"Applying Standard Filter : RK Stage = ",i0)
+#endif
+      call filter_usp
     end if
   end if
   !
