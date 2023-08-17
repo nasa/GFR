@@ -407,6 +407,8 @@ module module_kind_types
   real(wp), parameter :: radians2degrees = two*nine*ten/pi
   real(wp), parameter :: degrees2radians = one/radians2degrees
   !
+  real(wp), parameter :: rpm_to_mps = two*pi/(six*ten)
+  !
   real(wp), parameter :: rndoff  = epsilon(one)
   real(wp), parameter :: tny     = tiny(one)
   real(wp), parameter :: exp_lim = real( int(log(huge(zero))) , kind=wp )
