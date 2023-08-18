@@ -1613,6 +1613,7 @@ continue
     write (error_message,1) nr
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
+  !$ACC UPDATE DEVICE(facenrm)
   !
   ! Create the interpolated jacobians at the face points
   !
