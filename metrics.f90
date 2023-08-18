@@ -1622,6 +1622,12 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"facenrm",1,__LINE__,__FILE__,ierr,error_message)
   !
+  ! Allocate face_rrf_vel
+  !
+  allocate ( face_rrf_vel(1:nr,1:n_flxpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"face_rrf_vel",1,__LINE__,__FILE__,ierr,error_message)
+  !
   ! Compute the face normals
   !
   if (nr == 3) then
