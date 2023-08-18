@@ -48,6 +48,14 @@ module metrics_mod
   !                           rotating reference frame
   !                   xyz = Cartesian coordinates at the flux point
   ! face_rrf_vel_qdtpts : same as face_rrf_vel but for face quadrature points
+  ! NOTE: These two arrays have been created because the angular velocity
+  !       is needed at each face/flux point (FP) for a rotating reference frame
+  !       in order to compute the interface fluxes. The coordinates of each FP
+  !       is needed to compute this angular velocity, and these coordinates
+  !       arent usually saved to an array. Instead of saving these coordinates
+  !       to the facexyz array and then recomputing the angular velocity at each
+  !       FP each time it is needed, we are instead just precomputing the
+  !       angular velocity and storing that.
   !
   real(wp), public, save, allocatable :: face_rrf_vel(:,:)
   real(wp), public, save, allocatable :: face_rrf_vel_qdtpts(:,:)
