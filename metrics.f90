@@ -2376,6 +2376,61 @@ end subroutine compute_face_normals_1d
 !
 !###############################################################################
 !
+pure function rrf_face_velocity(xyz) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : aref
+  use ovar, only : ref_frame_rotation_vector
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: xyz(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(xyz))
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: x,x_r
+  real(wp) :: y,y_r
+  real(wp) :: z,z_r
+  !
+  !.. Local Arrays ..
+  real(wp) :: av(1:3)
+  !
+continue
+  !
+  return_value(:) = zero
+  !
+  n = size(xyz)
+  !
+  y = zero
+  z = zero
+  !
+  ! NOTE: ref_frame_rotation_vector is the rotation rate vector given in
+  !       RPM. We are pre-multiplying this through by rpm_to_mps/aref to
+  !       convert RPM to m/s and then nondimensionalize by the reference
+  !       speed of sound. Technically, this is converting RPM to rad/s, but
+  !       we will be taking the cross-product of this rotation rate vector
+  !       with the position vector which will convert from rad/s to m/s.
+  !
+  x_r = ref_frame_rotation_vector(1)*rpm_to_mps/aref ! x rotation
+  y_r = ref_frame_rotation_vector(2)*rpm_to_mps/aref ! y rotation
+  z_r = ref_frame_rotation_vector(3)*rpm_to_mps/aref ! z rotation
+  !
+  x = xyz(1)
+  if (n > 1) y = xyz(2)
+  if (n > 2) z = xyz(3)
+  !
+  av(1) = y_r*z - z_r*y ! angular velocity in x direction
+  av(2) = z_r*x - x_r*z ! angular velocity in y direction
+  av(3) = x_r*y - y_r*x ! angular velocity in z direction
+  !
+  return_value(1:n) = av(1:n)
+  !
+end function rrf_face_velocity
+!
+!###############################################################################
+!
 subroutine compute_face_jacobians(fjac)
   !
   !.. Use Statements ..
