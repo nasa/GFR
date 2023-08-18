@@ -1621,17 +1621,19 @@ continue
   allocate ( facenrm(1:nr,1:n_flxpts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"facenrm",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(facenrm)
   !
   ! Allocate face_rrf_vel
   !
   allocate ( face_rrf_vel(1:nr,1:n_flxpts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face_rrf_vel",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(face_rrf_vel)
   !
   ! Compute the face normals
   !
   if (nr == 3) then
-    call compute_face_normals_3d(facenrm)
+    call compute_face_normals_3d(facenrm,face_rrf_vel)
   else if (nr == 2) then
     call compute_face_normals_2d(facenrm)
   else if (nr == 1) then
@@ -1640,7 +1642,7 @@ continue
     write (error_message,1) nr
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
-  !$ACC UPDATE DEVICE(facenrm)
+  !$ACC UPDATE DEVICE(facenrm,face_rrf_vel)
   !
   ! Create the interpolated jacobians at the face points
   !
@@ -1675,7 +1677,7 @@ end subroutine compute_face_normals
 !
 !###############################################################################
 !
-subroutine compute_face_normals_3d(fnrm)
+subroutine compute_face_normals_3d(fnrm,rrf_fvel)
   !
   !.. Use Statements ..
   use order_mod,         only : maxFP
@@ -1695,6 +1697,7 @@ subroutine compute_face_normals_3d(fnrm)
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: fnrm(:,:)
+  real(wp), intent(inout) :: rrf_fvel(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,n,nc,nf,ncf,n0
@@ -1990,6 +1993,11 @@ continue
                           (cell_pt(i),i=1,3),(face_pt(i),i=1,3)
         end if
         95 format (i6,i3,i10,i4,i8,f15.10,6(4x,3f11.6))
+        !
+        ! Compute the angular velocity vector of the
+        ! rotating reference frame at this flux point
+        !
+        rrf_fvel(1:3,f0+kf) = rrf_face_velocity(xyz_face(kf,1:3))
         !
       end do
 #ifdef TIME_METRIC_PROCEDURES
