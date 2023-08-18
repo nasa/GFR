@@ -33,11 +33,11 @@ module metrics_mod
   real(wp), public, save, allocatable :: facenrm(:,:)
   real(wp), public, save, allocatable :: facejac(:,:)
   !
+  !$ACC DECLARE CREATE(facenrm,facejac)
+  !
   ! facenrm_qdtpts : normal of the face at each of the face quadrature points
   !
   real(wp), public, save, allocatable :: facenrm_qdtpts(:,:)
-  !
-  !$ACC DECLARE CREATE(facenrm,facejac)
   !
   ! wtdjac : jacobian * quadrature weight at each solution point
   !
@@ -2021,9 +2021,9 @@ continue
   do n = 1,ncp
     !
     ! If this cell node matches any of the face nodes, we need to skip to
-    ! the next cell node because we need to a cell node that is not on the
-    ! current face to get a vector from the cell interior (direction) to
-    ! the center of the current face.
+    ! the next cell node because we need to find all the cell nodes that are
+    ! not on the current face to get a vector from the cell interior (direction)
+    ! to the center of the current face.
     !
     if (any(cell_nodes(n) == face_nodes(:))) cycle
     !
@@ -2045,7 +2045,7 @@ continue
     cell_pt(l) = cell_pt(l)/real(m,kind=wp)
   end do
   !
-  ! Finally, compute the vector from the from the averaged coordinates
+  ! Finally, compute the vector from the averaged coordinates
   ! of the cell nodes not on the face, to the center of the face
   !
   do l = 1,nl
