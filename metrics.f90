@@ -41,6 +41,19 @@ module metrics_mod
   !
   !$ACC DECLARE CREATE(facenrm_qdtpts)
   !
+  ! face_rrf_vel : array containing the precomputed value of
+  !                      crossproduct(omega,xyz)
+  !                at each flux point where
+  !                   omega = the rotation rate vector of the
+  !                           rotating reference frame
+  !                   xyz = Cartesian coordinates at the flux point
+  ! face_rrf_vel_qdtpts : same as face_rrf_vel but for face quadrature points
+  !
+  real(wp), public, save, allocatable :: face_rrf_vel(:,:)
+  real(wp), public, save, allocatable :: face_rrf_vel_qdtpts(:,:)
+  !
+  !$ACC DECLARE CREATE(face_rrf_vel,face_rrf_vel_qdtpts)
+  !
   ! wtdjac : jacobian * quadrature weight at each solution point
   !
   real(wp), public, save, allocatable :: wtdjac(:)
