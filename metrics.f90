@@ -39,6 +39,8 @@ module metrics_mod
   !
   real(wp), public, save, allocatable :: facenrm_qdtpts(:,:)
   !
+  !$ACC DECLARE CREATE(facenrm_qdtpts)
+  !
   ! wtdjac : jacobian * quadrature weight at each solution point
   !
   real(wp), public, save, allocatable :: wtdjac(:)
