@@ -153,10 +153,10 @@ module flowvar
   real(wp), public, save, allocatable :: faceflx(:,:)
   !$ACC DECLARE CREATE(faceflx)
   !
-  ! FACEXYZ_ARRAY  : coordinates of the interface flux points
+  ! FACEXYZ  : coordinates of the interface flux points
   !
-  real(wp), public, save, allocatable :: facexyz_array(:,:)
-  !$ACC DECLARE CREATE(facexyz_array)
+  real(wp), public, save, allocatable :: facexyz(:,:)
+  !$ACC DECLARE CREATE(facexyz)
   !
   ! FACEGPSP : gas properties at the interface flux points
   !
@@ -393,7 +393,7 @@ call debug_timer(start_timer,message(iwt))
     deallocate ( dusp , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"dusp",2,__LINE__,__FILE__,ierr,error_message)
     !
-    ! The interpolation utility needs facexyz_array to
+    ! The interpolation utility needs facexyz to
     ! be defined for both interior and boundary faces.
     !
     if (.not. allocated(facexyz_dt)) then
@@ -404,9 +404,9 @@ call debug_timer(start_timer,message(iwt))
     !
     call alloc_face_dt_components(facexyz_dt,nfpts,"facexyz_dt")
     !
-    allocate ( facexyz_array(1:nr,1:nfpts) , source=zero , &
+    allocate ( facexyz(1:nr,1:nfpts) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facexyz_array",1,__LINE__,__FILE__, &
+    call alloc_error(pname,"facexyz",1,__LINE__,__FILE__, &
                      ierr,error_message)
     !
     ! Procedure interpsol needs faceusp_dt to print debug info
@@ -630,15 +630,15 @@ call debug_timer(start_timer,message(iwt))
       call alloc_face_dt_components(facexyz_dt,nfpts,"facexyz_dt")
 call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
       !
-  iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_array"
+  iwt = iwt + 1 ; message(iwt) = "Allocating facexyz"
 call debug_timer(start_timer,message(iwt))
-      allocate ( facexyz_array(1:nr,1:nfpts) , source=zero , &
+      allocate ( facexyz(1:nr,1:nfpts) , source=zero , &
                  stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz_array",1,__LINE__,__FILE__, &
+      call alloc_error(pname,"facexyz",1,__LINE__,__FILE__, &
                        ierr,error_message)
 call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
       !
-      !$ACC UPDATE DEVICE(facexyz_array)
+      !$ACC UPDATE DEVICE(facexyz)
       !
     end if
     !

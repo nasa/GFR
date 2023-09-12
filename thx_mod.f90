@@ -189,7 +189,7 @@ subroutine init_blowing_ratio()
   !
   !.. Use Statements ..
   use geovar,           only : ncell,cell,nface,face,xyz
-  use flowvar,          only : facexyz_array
+  use flowvar,          only : facexyz
   use metrics_mod,      only : facenrm
   use element_type_mod, only : std_elem
   !
@@ -245,7 +245,7 @@ continue
         ! mark this face in the injector mask array, and 2) cycle to the next
         ! cell because this cell cant also be on the nozzle outflow surface.
         !
-        if (all(abs(facexyz_array(2,f1:f2)) < eps6)) then
+        if (all(abs(facexyz(2,f1:f2)) < eps6)) then
           inj_msk(nf) = merge(1,-1,sf==1)
           cycle cell_loop
         end if
@@ -278,7 +278,7 @@ continue
         ! 1.0e-6 of zero, then this face is part of the nozzle outflow
         ! surface so mark this face in the nozzle mask array.
         !
-        if (all(abs(facexyz_array(1,f1:f2)) < eps6)) then
+        if (all(abs(facexyz(1,f1:f2)) < eps6)) then
           noz_msk(nf) = merge(1,-1,sf==1)
           cycle cell_loop
         end if

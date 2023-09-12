@@ -59,7 +59,7 @@ subroutine get_faceusp_bc(exit_error)
   !.. Use Statements ..
   use metrics_mod,   only : facenrm
   use flowvar,       only : faceusp_array
-  use flowvar,       only : facexyz_array
+  use flowvar,       only : facexyz
   use flowvar,       only : facegpsp
   use geovar,        only : bc_grps,n_bnd_flxpts
   use ovar,          only : bc_in,itcur
@@ -272,7 +272,7 @@ continue
         !
         if (bc_idx == 0) pv_in(nmb:nme) = zero
         !
-        call get_bc_wall_solution(n1,n2,bc_type,facexyz_array,facenrm, &
+        call get_bc_wall_solution(n1,n2,bc_type,facexyz,facenrm, &
                                   faceusp_array,facegpsp, &
                                   bc_in(bc_idx)%relax,pv_in, &
                                   bc_in(bc_idx)%wall_temperature, &
@@ -296,7 +296,7 @@ continue
         end if
         !
         call get_bc_mms_dirichlet_solution(n1,n2,facenrm, &
-                                           facexyz_array, &
+                                           facexyz, &
                                            faceusp_array)
         !
       case (bc_cpu_bnd)

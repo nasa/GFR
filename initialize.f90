@@ -1811,7 +1811,7 @@ subroutine get_face_and_edge_point_coordinates(force_facexyz)
   use order_mod,         only : maxSP,geom_solpts
   use geovar,            only : nr,cell,face,xyz,fp,nface
   use flowvar,           only : edgexyz_dt,facexyz_dt
-  use flowvar,           only : facexyz_array
+  use flowvar,           only : facexyz
   use interpolation_mod, only : interp
   use ovar,              only : continuous_output
   !
@@ -1856,7 +1856,7 @@ continue
         end do
       end if
       np = face(nface)%end_fp
-      facexyz_array = init_array(nr,np,zero) ! F2003 AUTO-REALLOC
+      facexyz = init_array(nr,np,zero) ! F2003 AUTO-REALLOC
     end if
   end if
   !
@@ -1934,7 +1934,7 @@ continue
             !
           end do
           facexyz_dt(nf)%v(l,kf) = val
-          facexyz_array(l,f0+kf) = val
+          facexyz(l,f0+kf) = val
         end do
         !
       end do
@@ -1947,7 +1947,7 @@ continue
 #endif
 #endif
     !
-    !$ACC UPDATE DEVICE(facexyz_array)
+    !$ACC UPDATE DEVICE(facexyz)
     !
     if (.not. continuous_output) then
       deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )

@@ -2245,7 +2245,7 @@ subroutine find_bad_number()
   use geovar,            only : nr,cell,face,fp,nfbnd,nface
   use geovar,            only : n_solpts,n_bnd_flxpts,n_flxpts,xyz
   use flowvar,           only : usp,gpsp,faceusp_array,facegpsp
-  use flowvar,           only : facexyz_array
+  use flowvar,           only : facexyz
   use interpolation_mod, only : interp
   !
   use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
@@ -2310,8 +2310,8 @@ continue
   !
   use_interp = allocated(interp)
   !
-  if (allocated(facexyz_array)) then
-    if (size(facexyz_array,dim=2) == n_flxpts) then
+  if (allocated(facexyz)) then
+    if (size(facexyz,dim=2) == n_flxpts) then
       use_interp = fals
     end if
   end if
@@ -2479,7 +2479,7 @@ continue
       !
       ! Skip this loop if any of the needed arrays have yet to be allocated
       !
-      if (.not. allocated(facexyz_array) .or. &
+      if (.not. allocated(facexyz) .or. &
           .not. allocated(faceusp_array) .or. &
           .not. allocated(facegpsp)) exit one_pass_noninterp_face_loop
       !
@@ -2496,14 +2496,14 @@ continue
           vars(3) = facegpsp(n,ntemp,sf)
           if (.not. all(ieee_is_finite(vars))) then
             write (iout,inv_fmt) sf, &
-                             (facexyz_array(l,n)/grid_scaling_factor, l=1,nr), &
+                             (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
                              vars(1)*rhoref, &
                              vars(2)*rhoref*aref*aref, &
                              vars(3)*tref
             flush (iout)
           else if (any(ieee_is_negative(vars))) then
             write (iout,neg_fmt) sf, &
-                             (facexyz_array(l,n)/grid_scaling_factor, l=1,nr), &
+                             (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
                              vars(1)*rhoref, &
                              vars(2)*rhoref*aref*aref, &
                              vars(3)*tref
@@ -2525,14 +2525,14 @@ continue
           vars(3) = facegpsp(n,ntemp,sf)
           if (.not. all(ieee_is_finite(vars))) then
             write (iout,inv_fmt) sf, &
-                             (facexyz_array(l,n)/grid_scaling_factor, l=1,nr), &
+                             (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
                              vars(1)*rhoref, &
                              vars(2)*rhoref*aref*aref, &
                              vars(3)*tref
             flush (iout)
           else if (any(ieee_is_negative(vars))) then
             write (iout,neg_fmt) sf, &
-                             (facexyz_array(l,n)/grid_scaling_factor, l=1,nr), &
+                             (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
                              vars(1)*rhoref, &
                              vars(2)*rhoref*aref*aref, &
                              vars(3)*tref

@@ -91,9 +91,9 @@ module synthetic_eddy_mod
     ! R : gives the radial coordinate for this SEM point
     ! T : gives the angular coordinate for this SEM point
     !     These components are to eliminate the need for storing the array
-    !     facexyz_dt or facexyz_array, because those are only really needed
-    !     for MMS [facexyz_array(1:nr,1:n_bnd_flxpts)] or for the continuous
-    !     output feature [facexyz_array(1:nr,1:n_flxpts)]. For SEM, we only
+    !     facexyz_dt or facexyz, because those are only really needed
+    !     for MMS [facexyz(1:nr,1:n_bnd_flxpts)] or for the continuous
+    !     output feature [facexyz(1:nr,1:n_flxpts)]. For SEM, we only
     !     need the subset of (1:n_bnd_flxpts) that are the flux/face points
     !     for the SEM boundary conditions, so we dont want to waste memory
     !     for the flux/face points for which we will never require their xyz
@@ -2891,7 +2891,7 @@ subroutine initialize_sem()
   use ovar,       only : bc_input,bc_in
   use ovar,       only : average_sem_inflow_plane,num_timesteps
   use geovar,     only : bc_grps
-  use flowvar,    only : facexyz_array
+  use flowvar,    only : facexyz
   use random_mod, only : set_random_seed
   !
   !.. Local Scalars ..
@@ -3061,9 +3061,9 @@ continue
         !
         k = my_sem_pts(sem_idx)%sem_fp(n)%idx
         !
-        x = facexyz_array(1,k)
-        y = facexyz_array(2,k)
-        z = facexyz_array(3,k)
+        x = facexyz(1,k)
+        y = facexyz(2,k)
+        z = facexyz(3,k)
         !
         my_sem_pts(sem_idx)%sem_fp(n)%x = x
         my_sem_pts(sem_idx)%sem_fp(n)%y = y
@@ -3544,7 +3544,7 @@ subroutine collect_wall_fp_coordinates(xyz_wall)
   !
   !.. Use Statements ..
   use geovar,      only : bc_grps
-  use flowvar,     only : facexyz_array
+  use flowvar,     only : facexyz
   use metrics_mod, only : facenrm
   !
   !.. Formal Arguments ..
@@ -3625,7 +3625,7 @@ continue
         !
         ! Copy the coordinates of this wall face point into xyz_wall.
         !
-        xyz_wall(1:3,i) = facexyz_array(1:3,n)
+        xyz_wall(1:3,i) = facexyz(1:3,n)
         !
         ! Copy the interior-pointing unit normal to the wall into xyz_wall.
         ! However, facenrm contains the exterior-pointing area normal to the
@@ -3683,7 +3683,7 @@ subroutine debug_normals()
   !
   !.. Use Statements ..
   use geovar, only : nfbnd,ncell,bface,face,grid
-  use flowvar, only : facexyz_array
+  use flowvar, only : facexyz
   !
   !.. Local Scalars ..
   integer  :: i,n,nc,nf
@@ -3723,9 +3723,9 @@ continue
       write (1000,2) i,x,y,z,r,t
     end do
     do i = face(nf)%beg_fp,face(nf)%end_fp
-      x = facexyz_array(1,i)
-      y = facexyz_array(2,i)
-      z = facexyz_array(3,i)
+      x = facexyz(1,i)
+      y = facexyz(2,i)
+      z = facexyz(3,i)
       r = hypot(y,z)
       if (r /= zero) then
         t = atan2(z,y)

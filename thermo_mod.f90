@@ -1679,7 +1679,7 @@ continue
 #ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
     block
       use geovar, only : nr,xyz
-      use flowvar, only : facexyz_array
+      use flowvar, only : facexyz
       use ovar, only : itcur,current_rk_stage,aref,rhoref
       character(len=50) :: fname
       integer :: i,j,m,n,ierr
@@ -1726,17 +1726,17 @@ continue
                 end if
               end if
             else if (trim(adjustl(loc)) == "face") then
-              if (allocated(facexyz_array)) then
-                if (n >= lbound(facexyz_array,dim=2) .and. &
-                    n <= ubound(facexyz_array,dim=2)) then
+              if (allocated(facexyz)) then
+                if (n >= lbound(facexyz,dim=2) .and. &
+                    n <= ubound(facexyz,dim=2)) then
                   do j = 1,nr
-                    write (io,7) "F",cxyz(j),facexyz_array(j,n)
+                    write (io,7) "F",cxyz(j),facexyz(j,n)
                   end do
                   if (nr >= 2) then
-                    r = norm2(facexyz_array(2:,n))
+                    r = norm2(facexyz(2:,n))
                     write (io,7) "F",cxyz(4),r
                     if (nr == 3) then
-                      theta = atan2(facexyz_array(3,n),facexyz_array(2,n))
+                      theta = atan2(facexyz(3,n),facexyz(2,n))
                       if (theta < zero) theta = theta + two*pi
                       theta = theta*radians2degrees
                       write (io,7) "F",cxyz(5),theta

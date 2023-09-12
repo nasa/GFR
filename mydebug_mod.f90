@@ -23,7 +23,7 @@ subroutine mydebug(caller_name,line_num,file_nam,query)
   use geovar,  only : nnode, ncell, nface, nfbnd, nr
   use geovar,  only : grid, xyz_nodes, xyz
  !use flowvar, only : facexyz_dt, faceusp_dt
-  use flowvar, only : facexyz_array, faceusp_array
+  use flowvar, only : facexyz, faceusp_array
   use flowvar, only : sol_nodes, usp
   !
   !.. Formal Arguments ..
@@ -108,21 +108,21 @@ continue
    !  end if
    !end if
     !
-    ! Print info about facexyz_array.
+    ! Print info about facexyz.
     !
     if (index(local_query,'|facexyz|') > 0) then
-      if (allocated(facexyz_array)) then
-        write (iout,3) "facexyz_array", shape(facexyz_array)
+      if (allocated(facexyz)) then
+        write (iout,3) "facexyz", shape(facexyz)
         do n = 1,nr
-          a_minval(n) = minval(facexyz_array(n,:))
-          a_maxval(n) = maxval(facexyz_array(n,:))
+          a_minval(n) = minval(facexyz(n,:))
+          a_maxval(n) = maxval(facexyz(n,:))
         end do
         write (iout,4)
         do n = 1,nr
           write (iout,7) n,a_minval(n),a_maxval(n)
         end do
       else
-        write (iout,2) "facexyz_array"
+        write (iout,2) "facexyz"
       end if
     end if
     !
@@ -294,7 +294,7 @@ subroutine mydebug_g2(caller_name,line_num,file_nam,query)
   use interpsolvar_mod, only : g2_nnode, g2_ncell, g2_nface, g2_nfbnd
   use interpsolvar_mod, only : g2_grid, g2_xyz_nodes, g2_xyz
  !use interpsolvar_mod, only : g2_facexyz_dt, g2_faceusp_dt
-  use interpsolvar_mod, only : g2_facexyz_array, g2_faceusp_array
+  use interpsolvar_mod, only : g2_facexyz, g2_faceusp_array
   use interpsolvar_mod, only : g2_sol_nodes, g2_usp
   !
   !.. Formal Arguments ..
@@ -379,21 +379,21 @@ continue
    !  end if
    !end if
     !
-    ! Print info about facexyz_array.
+    ! Print info about facexyz.
     !
     if (index(local_query,'|facexyz|') > 0) then
-      if (allocated(g2_facexyz_array)) then
-        write (iout,3) "g2_facexyz_array", shape(g2_facexyz_array)
+      if (allocated(g2_facexyz)) then
+        write (iout,3) "g2_facexyz", shape(g2_facexyz)
         do n = 1,nr
-          a_minval(n) = minval(g2_facexyz_array(n,:))
-          a_maxval(n) = maxval(g2_facexyz_array(n,:))
+          a_minval(n) = minval(g2_facexyz(n,:))
+          a_maxval(n) = maxval(g2_facexyz(n,:))
         end do
         write (iout,4)
         do n = 1,nr
           write (iout,7) n,a_minval(n),a_maxval(n)
         end do
       else
-        write (iout,2) "g2_facexyz_array"
+        write (iout,2) "g2_facexyz"
       end if
     end if
     !

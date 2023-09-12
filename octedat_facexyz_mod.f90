@@ -77,7 +77,7 @@ subroutine octedat_facexyz_evalxyz_pt(this,idx,xyz,istat)
   !.. Use Statements ..
   use geovar,  only : cell,face
  !use flowvar, only : facexyz_dt
-  use flowvar, only : facexyz_array
+  use flowvar, only : facexyz
   !
   !.. Passed Argument from Invoking Object ..
   class(octedat_facexyz_type), intent(in) :: this
@@ -107,7 +107,7 @@ continue
     if (ncf >= 1 .and. ncf <= size(cell(nc)%face)) then
       nf = cell(nc)%face(ncf)%idx  ! global face index
       f0 = face(nf)%beg_fp - 1     ! flxpt offset for this face
-      xyz(:) = facexyz_array(:,f0+ifp)
+      xyz(:) = facexyz(:,f0+ifp)
      !xyz(:) = facexyz_dt(nf)%v(:,ifp)
       istat = OCT_STATUS_OK
     end if
@@ -124,7 +124,7 @@ subroutine octedat_facexyz_evalxyz_pts(this,npts,idx,xyz,istat)
   !.. Use Statements ..
   use geovar,  only : cell,face
  !use flowvar, only : facexyz_dt
-  use flowvar, only : facexyz_array
+  use flowvar, only : facexyz
   !
   !.. Passed Argument from Invoking Object ..
   class(octedat_facexyz_type), intent(in) :: this
@@ -170,7 +170,7 @@ continue
         if (ncf >= 1 .and. ncf <= size(cell(nc)%face)) then
           nf = cell(nc)%face(ncf)%idx  ! global face index
           f0 = face(nf)%beg_fp - 1     ! flxpt offset for this face
-          xyz(:,n) = facexyz_array(:,f0+ifp)
+          xyz(:,n) = facexyz(:,f0+ifp)
          !xyz(:,n) = facexyz_dt(nf)%v(:,ifp)
         else
           istat = OCT_STATUS_DATA_ERROR

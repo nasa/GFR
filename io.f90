@@ -4371,7 +4371,7 @@ subroutine check_face_flux_point_orderings()
   use geovar, only : nr,xyz,bface,bc_grps
   use interpolation_mod, only : interp
   use flowvar, only : face_var,faceusp_array
-  use flowvar, only : facexyz_array
+  use flowvar, only : facexyz
   use parallel_mod, only : exchange_faceusp,wait_faceusp
   use parallel_mod, only : exchange_faceusp_dt,wait_faceusp_dt
   use geovar, only : xyz_nodes
@@ -4815,7 +4815,7 @@ subroutine check_periodic_coordinates()
   !
   !.. Use Statements ..
   use geovar,  only : nr,bc_grps
-  use flowvar, only : facexyz_array
+  use flowvar, only : facexyz
   !
   !.. Local Scalars ..
   integer :: i,k,l,n,n1,n2
@@ -4843,8 +4843,8 @@ continue
         !
         k = bc_grps(i)%periodic_list(n-n1+1)
         !
-        write (lpfile,11) n,(facexyz_array(l,n), l=1,nr)
-        write (rpfile,11) k,(facexyz_array(l,k), l=1,nr)
+        write (lpfile,11) n,(facexyz(l,n), l=1,nr)
+        write (rpfile,11) k,(facexyz(l,k), l=1,nr)
         !
         if (mod(n-n1+1,10) == 0) then
           write (lpfile,*)

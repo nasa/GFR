@@ -121,7 +121,7 @@ continue
   call move_alloc( from=gpsp,          to=g2_gpsp          )
   call move_alloc( from=dusp,          to=g2_dusp          )
  !call move_alloc( from=facexyz_dt,    to=g2_facexyz_dt    )
-  call move_alloc( from=facexyz_array, to=g2_facexyz_array )
+  call move_alloc( from=facexyz, to=g2_facexyz )
   !
   ! Variables from ovar.
   call move_alloc( from=bc_names, to=g2_bc_names )
@@ -284,7 +284,7 @@ continue
   call move_alloc( from=g2_gpsp,          to=gpsp          )
   call move_alloc( from=g2_dusp,          to=dusp          )
  !call move_alloc( from=g2_facexyz_dt,    to=facexyz_dt    )
-  call move_alloc( from=g2_facexyz_array, to=facexyz_array )
+  call move_alloc( from=g2_facexyz, to=facexyz )
   !
   !-DEBUG_BEG:
   write (iout,*) "  After  move_alloc(from=g2_usp,to=usp):"
@@ -408,7 +408,7 @@ subroutine interpsol()
   use metrics_mod,       only : geofa,facenrm
   use flowvar,           only : usp
  !use flowvar,           only : facexyz_dt
-  use flowvar,           only : facexyz_array
+  use flowvar,           only : facexyz
   use order_mod,         only : maxSP,geom_solpts
   use octedat_facexyz_mod
   use octtree_mod
@@ -513,8 +513,8 @@ continue
       do l = 1,nr
        !bbox(l,1) = min( bbox(l,1), facexyz_dt(nf)%v(l,ifp) )
        !bbox(l,2) = max( bbox(l,2), facexyz_dt(nf)%v(l,ifp) )
-        bbox(l,1) = min( bbox(l,1), facexyz_array(l,f0+ifp) )
-        bbox(l,2) = max( bbox(l,2), facexyz_array(l,f0+ifp) )
+        bbox(l,1) = min( bbox(l,1), facexyz(l,f0+ifp) )
+        bbox(l,2) = max( bbox(l,2), facexyz(l,f0+ifp) )
       end do
     end do
     !
@@ -528,7 +528,7 @@ continue
   end if
   !
  !octedat%varname = "facexyz_dt(1:nface)%v(1:nr,1:nfp)"
-  octedat%varname = "facexyz_array(1:nr,1:n_flxpts)"
+  octedat%varname = "facexyz(1:nr,1:n_flxpts)"
   octedat%vardesc = "Get facexyz given cell,face,facept = (nc,ncf,nfp)."
  !octedat%facexyz => facexyz
  !octedat%cell    => cell
@@ -607,7 +607,7 @@ continue
           ixyz_pt(3) = ifp  ! cell face facept no.
           f0 = face(nf)%beg_fp - 1
           !
-          xyz_pt = facexyz_array(:,f0+ifp)
+          xyz_pt = facexyz(:,f0+ifp)
          !xyz_pt = facexyz_dt(nf)%v(:,ifp)
           !
           call octtree_addxyz(octtree,ixyz_pt,xyz_pt,istat)
@@ -807,9 +807,9 @@ continue
       f0  = face(nf)%beg_fp - 1
       !
 #ifdef ASSUME_3D
-     !xyz_pt(1) = facexyz_array(1,f0+ifp)
-     !xyz_pt(2) = facexyz_array(2,f0+ifp)
-     !xyz_pt(3) = facexyz_array(3,f0+ifp)
+     !xyz_pt(1) = facexyz(1,f0+ifp)
+     !xyz_pt(2) = facexyz(2,f0+ifp)
+     !xyz_pt(3) = facexyz(3,f0+ifp)
      !!
      !face_to_xyz(1) = g2_xyz_pt(1) - xyz_pt(1)   ! vector from face to dst pt
      !face_to_xyz(2) = g2_xyz_pt(2) - xyz_pt(2)   ! vector from face to dst pt
@@ -821,11 +821,11 @@ continue
       ! 
       ! Dot product of face normal with face_to_xyz vector
       !
-      face_dot = facenrm(1,f0+ifp)*(g2_xyz_pt(1) - facexyz_array(1,f0+ifp)) + &
-                 facenrm(2,f0+ifp)*(g2_xyz_pt(2) - facexyz_array(2,f0+ifp)) + &
-                 facenrm(3,f0+ifp)*(g2_xyz_pt(3) - facexyz_array(3,f0+ifp))
+      face_dot = facenrm(1,f0+ifp)*(g2_xyz_pt(1) - facexyz(1,f0+ifp)) + &
+                 facenrm(2,f0+ifp)*(g2_xyz_pt(2) - facexyz(2,f0+ifp)) + &
+                 facenrm(3,f0+ifp)*(g2_xyz_pt(3) - facexyz(3,f0+ifp))
 #else
-      xyz_pt(:) = facexyz_array(:,f0+ifp)
+      xyz_pt(:) = facexyz(:,f0+ifp)
      !xyz_pt(:) = facexyz_dt(nf)%v(:,ifp)
       face_to_xyz(:) = g2_xyz_pt(:) - xyz_pt(:)   ! vector from face to dst pt
       face_dot = dot( facenrm(:,f0+ifp), face_to_xyz(:) )
@@ -1112,7 +1112,7 @@ subroutine interpsol_debug()
   use metrics_mod,       only : geofa,facenrm
   use flowvar,           only : usp
  !use flowvar,           only : facexyz_dt
-  use flowvar,           only : facexyz_array
+  use flowvar,           only : facexyz
   use flowvar,           only : faceusp_array
   use order_mod,         only : maxSP,geom_solpts
   use octedat_facexyz_mod
@@ -1194,8 +1194,8 @@ continue
       do l = 1,nr
        !bbox(l,1) = min( bbox(l,1), facexyz_dt(nf)%v(l,ifp) )
        !bbox(l,2) = max( bbox(l,2), facexyz_dt(nf)%v(l,ifp) )
-        bbox(l,1) = min( bbox(l,1), facexyz_array(l,f0+ifp) )
-        bbox(l,2) = max( bbox(l,2), facexyz_array(l,f0+ifp) )
+        bbox(l,1) = min( bbox(l,1), facexyz(l,f0+ifp) )
+        bbox(l,2) = max( bbox(l,2), facexyz(l,f0+ifp) )
       end do
     end do
   end do
@@ -1204,7 +1204,7 @@ continue
   write (iout,10) pname, "Init octedat"  ! DEBUG
   flush (iout)
  !octedat%varname = "facexyz_dt(1:nface)%v(1:nr,1:nfp)"
-  octedat%varname = "facexyz_array(1:nr,1:n_flxpts)"
+  octedat%varname = "facexyz(1:nr,1:n_flxpts)"
   octedat%vardesc = "Get facexyz given cell,face,facept = (nc,ncf,nfp)."
  !octedat%facexyz => facexyz
  !octedat%cell    => cell
@@ -1256,7 +1256,7 @@ continue
           ixyz_pt(2) = ncf  ! cell face no.
           ixyz_pt(3) = ifp  ! cell face facept no.
           f0 = face(nf)%beg_fp - 1
-          xyz_pt = facexyz_array(:,f0+ifp)
+          xyz_pt = facexyz(:,f0+ifp)
          !xyz_pt = facexyz_dt(nf)%v(:,ifp)
           call octtree_addxyz(octtree,ixyz_pt,xyz_pt,istat)
           if (istat /= OCT_STATUS_OK) then
@@ -1374,7 +1374,7 @@ continue
       ifp = ixyz_pt(3)  ! cell face face_pt no.
       nf  = cell(nc)%face(ncf)%idx   ! global face index
       f0  = face(nf)%beg_fp - 1
-      xyz_pt(:) = facexyz_array(:,f0+ifp)
+      xyz_pt(:) = facexyz(:,f0+ifp)
      !xyz_pt(:) = facexyz_dt(nf)%v(:,ifp)
       face_to_xyz(:) = g2_xyz_pt(:) - xyz_pt(:)   ! vector from face to dst pt
       !
@@ -1388,7 +1388,7 @@ continue
         write (iout,20) "r-cell     = ",face(nf)%right%cell
         write (iout,20) "l-cell     = ",face(nf)%left%cell
         write (iout,21) "g2_xyz_pt  = ",g2_xyz_pt(:)
-        write (iout,21) "facexyz_pt = ",facexyz_array(:,f0+ifp)
+        write (iout,21) "facexyz_pt = ",facexyz(:,f0+ifp)
        !write (iout,21) "facexyz_pt = ",facexyz_dt(nf)%v(:,ifp)
        !write (iout,21) "normal     = ",geofa(nf)%v(:,ifp)
         write (iout,21) "normal     = ",facenrm(:,f0+ifp)
@@ -1398,7 +1398,7 @@ continue
         ! Output xyz and usp for closest face point on donor grid.
         write (iout,20) "Donor grid/solution info."
        !write (iout,21) "facexyz_dt(:)          = ",facexyz_dt(nf)%v(1:nr,ifp)
-        write (iout,21) "facexyz_array(:)       = ",facexyz_array(1:nr,f0+ifp)
+        write (iout,21) "facexyz(:)       = ",facexyz(1:nr,f0+ifp)
        !write (iout,21) "faceusp_dt(:,left)     = ",faceusp_dt(nf)%v(1:nq,ifp,1)
         write (iout,21) "faceusp_array(:,left)  = ",faceusp_array(f0+ifp,1:nq,1)
        !write (iout,21) "faceusp_dt(:,right)    = ",faceusp_dt(nf)%v(1:nq,ifp,2)
@@ -1610,7 +1610,7 @@ subroutine deallocate_solver_arrays()
   use geovar,      only : face,grid
   use flowvar,     only : faceflx
  !use flowvar,     only : faceusp_dt,facedusp_dt,facexyz_dt
-  use flowvar,     only : faceusp_array,facedusp,facexyz_array
+  use flowvar,     only : faceusp_array,facedusp,facexyz
   use flowvar,     only : residual,dtsp,uoldsp,rk_sum,rssprk
   use flowvar,     only : nodeusp_dt,nodedusp_dt
   use flowvar,     only : edgeusp_dt,edgedusp_dt,edgexyz_dt
@@ -1659,9 +1659,9 @@ continue
     call alloc_error(pname,"faceflx",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(facexyz_array)) then
-    deallocate ( facexyz_array , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facexyz_array",2,__LINE__,__FILE__, &
+  if (allocated(facexyz)) then
+    deallocate ( facexyz , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facexyz",2,__LINE__,__FILE__, &
                      ierr,error_message)
   end if
  !!
