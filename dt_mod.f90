@@ -14,10 +14,6 @@ module dt_mod
   public :: get_dtsp
   public :: checks_on_dtmin
   !
-  interface write_array
-    module procedure write_1d_array, write_2d_array, write_3d_array
-  end interface write_array
-  !
 contains
 !
 !###############################################################################
@@ -1808,76 +1804,6 @@ continue
   end if
   !
 end subroutine check_final_time
-!
-!###############################################################################
-!
-subroutine write_1d_array(io_start,iter,nst,array)
-  !
-  !.. Formal Arguments ..
-  integer,  intent(in) :: io_start,iter,nst
-  real(wp), intent(in) :: array(:)
-  !
-  !.. Local Scalars ..
-  integer :: io,n
-  !
-continue
-  !
-  !$ACC UPDATE SELF(array)
-  io = io_start + 10*(iter-1) + nst
-  do n = 1,size(array,dim=1)
-    write (io,100) array(n)
-  end do
-  100 format (es16.8)
-  !$ACC UPDATE DEVICE(array)
-  !
-end subroutine write_1d_array
-!
-!###############################################################################
-!
-subroutine write_2d_array(io_start,iter,nst,array)
-  !
-  !.. Formal Arguments ..
-  integer,  intent(in) :: io_start,iter,nst
-  real(wp), intent(in) :: array(:,:)
-  !
-  !.. Local Scalars ..
-  integer :: io,n,m
-  !
-continue
-  !
-  !$ACC UPDATE SELF(array)
-  io = io_start + 10*(iter-1) + nst
-  do n = 1,size(array,dim=1)
-    write (io,100) (array(n,m), m=1,size(array,dim=2))
-  end do
-  100 format (5es16.8)
-  !$ACC UPDATE DEVICE(array)
-  !
-end subroutine write_2d_array
-!
-!###############################################################################
-!
-subroutine write_3d_array(io_start,iter,nst,array)
-  !
-  !.. Formal Arguments ..
-  integer,  intent(in) :: io_start,iter,nst
-  real(wp), intent(in) :: array(:,:,:)
-  !
-  !.. Local Scalars ..
-  integer :: io,n,m,l
-  !
-continue
-  !
-  !$ACC UPDATE SELF(array)
-  io = io_start + 10*(iter-1) + nst
-  do n = 1,size(array,dim=1)
-    write (io,100) ((array(n,l,m), l=1,size(array,dim=2)), &
-                                   m=1,size(array,dim=3))
-  end do
-  100 format (15es11.3)
-  !$ACC UPDATE DEVICE(array)
-  !
-end subroutine write_3d_array
 !
 !###############################################################################
 !
