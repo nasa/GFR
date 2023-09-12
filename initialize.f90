@@ -2750,21 +2750,15 @@ continue
           !
         end if
         !
-        if (any(abs(bc_input(n)%rotation_rate(:)) > eps1)) then
-          bc_in(i)%rotation_rate(:) = bc_input(n)%rotation_rate(:)
-        end if
+        ! Get the wall rotation speed from bc_input and save it
+        ! to bc_in in the form that is needed for the solver.
         !
-        ! Copy the velocity for this BC into the temporary array vel(:)
-        ! and nondimensionalize the temporary array.
+        bc_in(i)%rotation_rate(:) = get_bc_rotation( bc_input(n) )
         !
-        if (size(vel) == 1) then
-          vel(:) = [ bc_input(n)%vx ]
-        else if (size(vel) == 2) then
-          vel(:) = [ bc_input(n)%vx , bc_input(n)%vy ]
-        else if (size(vel) == 3) then
-          vel(:) = [ bc_input(n)%vx , bc_input(n)%vy , bc_input(n)%vz ]
-        end if
-        vel(:) = vel(:) / aref
+        ! Get the wall translational velocity from bc_input
+        ! and save it to the temporary array vel(:)
+        !
+        vel(:) = get_bc_velocity( bc_input(n) , dimensional=fals )
         !
         ! Compute the flow conditions for this BC using the reference static
         ! density, the reference static pressure, the specified BC velocity,
@@ -2816,13 +2810,9 @@ continue
           rgas = rgasref
         end if
         !
-        if (size(vel) == 1) then
-          vel(:) = [ bc_input(n)%vx ]
-        else if (size(vel) == 2) then
-          vel(:) = [ bc_input(n)%vx , bc_input(n)%vy ]
-        else if (size(vel) == 3) then
-          vel(:) = [ bc_input(n)%vx , bc_input(n)%vy , bc_input(n)%vz ]
-        end if
+        ! Get the BC velocity from bc_input
+        !
+        vel(:) = get_bc_velocity( bc_input(n) , dimensional=true )
         !
         iterate_bc_conditions: do ii = 1,5
           !
