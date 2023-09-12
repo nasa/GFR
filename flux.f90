@@ -4009,7 +4009,7 @@ subroutine visc_common_fluxes_interior_at_qdtpts()
 continue
   !
   allocate ( faceduqp(1:n_flx_qdtpts,1:nr,1:nq,1:2) )
-  !$ACC ENTER DATA CREATE(facedusp)
+  !$ACC ENTER DATA CREATE(faceduqp)
   !
   nf1 = nfbnd+1
   nf2 = nface
