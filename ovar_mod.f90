@@ -137,6 +137,8 @@ module ovar
     real(wp) :: wall_temp  = -one
     real(wp) :: rotation_rate = zero
     !
+    logical :: is_specified_in_mrf = fals
+    !
 #ifdef ALLOCATABLE_MASS_FRAC
     real(wp), allocatable :: mass_frac(:)
     character(len=10), allocatable :: species_name(:)
@@ -869,6 +871,8 @@ continue
   if (abs(this%wall_temp  - dflt%wall_temp ) > eps6) return
   if (abs(this%rotation_rate - dflt%rotation_rate ) > eps6) return
   !
+  if (this%is_specified_in_mrf .neqv. dflt%is_specified_in_mrf) return
+  !
   if ( this%relax%is_not_default() ) return
   !
   if ( this%sem%is_not_default() ) return
@@ -952,6 +956,8 @@ continue
   if (abs(a%beta_aoa   - b%beta_aoa  ) > eps6) return
   if (abs(a%wall_temp  - b%wall_temp ) > eps6) return
   if (abs(a%rotation_rate - b%rotation_rate ) > eps6) return
+  !
+  if (a%is_specified_in_mrf .neqv. b%is_specified_in_mrf) return
   !
 #ifdef ALLOCATABLE_MASS_FRAC
   !
