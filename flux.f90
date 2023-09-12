@@ -44,6 +44,12 @@ module flux_mod
   real(wp), save, allocatable :: faceduqp(:,:,:,:)
   real(wp), save, allocatable :: flux_qdtpts(:,:)
   !
+  real(wp), save, allocatable :: facexyzqp(:,:)
+  !$ACC DECLARE CREATE(facexyzqp)
+  !
+  real(wp), save, allocatable :: xyzqp(:,:)
+  !$ACC DECLARE CREATE(xyzqp)
+  !
   integer, parameter :: Separate_All_Projections = 0
   integer, parameter :: Separate_BC_Projections = 1
   integer, parameter :: Combine_All_Projections = 2
@@ -1428,6 +1434,95 @@ continue
   end do
   !
 end subroutine interp_cv_to_qdtpts_nd
+!
+!###############################################################################
+!
+subroutine create_xyzqp()
+  !
+  use geovar,            only : nr,n_qdtpts,ncell,cell,xyz
+  use interpolation_mod, only : interp
+  use mrf_mod,           only : is_not_in_mrf
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,l,nc,n0,q0,nqp
+  integer  :: this_geom,this_order,qdtr_order
+  real(wp) :: a,val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_xyzqp"
+  !
+continue
+  !
+  ! If xyzqp is already allocated, this has already been
+  ! done, so we can return without doing anything else.
+  !
+  if (allocated(xyzqp)) return
+  !
+  ! We only need xyzqp if using a moving reference frame, so
+  ! allocate the array to a size of 1 and return without creating
+  ! xyzqp if not in a moving reference frame.
+  !
+  if ( is_not_in_mrf() ) then
+    allocate ( xyzqp(1:nr,1:1) , source=zero )
+    !$ACC UPDATE DEVICE(xyzqp)
+    return
+  end if
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Allocate the xyzqp array
+  !
+  allocate ( xyzqp(1:nr,1:n_qdtpts) )
+  !$ACC UPDATE DEVICE(xyzqp)
+  !
+  ! Loop through each interior cell and interpolate the coordinates
+  ! of the solution points to the quadrature points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(xyz) &
+  !$ACC&                   PRESENT(xyzqp) &
+  !$ACC&                   PRESENT(interp)
+  do nc = 1,ncell
+    !
+    n0  = cell(nc)%beg_sp - 1
+    !
+    q0  = cell(nc)%beg_qp - 1
+    nqp = cell(nc)%end_qp - q0
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    qdtr_order = cell(nc)%qdtr_order
+    !
+    ! Now interpolate the coordinates from the solution points
+    ! to the quadrature points
+    !
+    !$ACC LOOP VECTOR COLLAPSE(2)
+    do k = 1,nqp
+      do l = 1,nr
+        !
+        val = zero
+        !
+        do i = interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k)+1, &
+               interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k+1)
+          !
+          j = interp(this_geom,this_order)%toCell(qdtr_order)%col_idx(i)
+          a = interp(this_geom,this_order)%toCell(qdtr_order)%col_val(i)
+          !
+          val = val + a * xyz(l,n0+j)
+          !
+        end do
+        !
+        xyzqp(l,q0+k) = val
+        !
+      end do
+    end do
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine create_xyzqp
 !
 !###############################################################################
 !
@@ -5242,6 +5337,98 @@ continue
   end do
   !
 end subroutine interp_facedusp_to_faceduqp_nd
+!
+!###############################################################################
+!
+subroutine create_facexyzqp()
+  !
+  !.. Use Statements ..
+  use geovar,            only : nr,n_flx_qdtpts,nface,face
+  use flowvar,           only : facexyz
+  use interpolation_mod, only : interp
+  use mrf_mod,           only : is_not_in_mrf
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,l,nf,f0,q0,nqp
+  integer  :: face_geom,face_order,qdtr_order
+  real(wp) :: a,val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_facexyzqp"
+  !
+continue
+  !
+  ! If facexyzqp is already allocated, this has already been
+  ! done, so we can return without doing anything else.
+  !
+  if (allocated(facexyzqp)) return
+  !
+  ! We only need facexyzqp if using a moving reference frame, so
+  ! allocate the array to a size of 1 and return without creating
+  ! facexyzqp if not in a moving reference frame.
+  !
+  if ( is_not_in_mrf() ) then
+    allocate ( facexyzqp(1:nr,1:1) , source=zero )
+    !$ACC UPDATE DEVICE(facexyzqp)
+    return
+  end if
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Allocate the facexyzqp array
+  !
+  allocate ( facexyzqp(1:nr,1:n_flx_qdtpts) )
+  !$ACC UPDATE DEVICE(facexyzqp)
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(facexyz) &
+  !$ACC&                   PRESENT(facexyzqp) &
+  !$ACC&                   PRESENT(interp)
+  do nf = 1,nface
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    qdtr_order = face(nf)%qdtr_order
+    !
+    f0 = face(nf)%beg_fp - 1
+    !
+    q0 = face(nf)%beg_qp - 1
+    nqp = face(nf)%end_qp - q0
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR COLLAPSE(2)
+    do k = 1,nqp
+      do l = 1,nr
+        !
+        val = zero
+        !
+        do i = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k)+1, &
+               interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k+1)
+          !
+          j = interp(face_geom,face_order)%toCell(qdtr_order)%col_idx(i)
+          a = interp(face_geom,face_order)%toCell(qdtr_order)%col_val(i)
+          !
+          val = val + a * facexyz(l,f0+j)
+          !
+        end do
+        !
+        facexyzqp(l,q0+k) = val
+        !
+      end do
+    end do
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine create_facexyzqp
 !
 !###############################################################################
 !
