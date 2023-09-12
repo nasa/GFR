@@ -160,7 +160,7 @@ subroutine create_taylor_couette_grid()
   use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : grid,cell_geom,cell_order
-  use ovar,      only : grid_format,bc_names
+  use ovar,      only : grid_format,bc_names,itestcase
   !
   use ovar, only : TCF_Inner_Radius,TCF_Inner_Wall_Spacing
   use ovar, only : TCF_Outer_Radius,TCF_Outer_Wall_Spacing
@@ -178,6 +178,7 @@ subroutine create_taylor_couette_grid()
   integer  :: host_cell,host_side,elem_type
   integer  :: inner_wall_idx,outer_wall_idx
   integer  :: inflow_idx,outflow_idx
+  integer  :: inner_wall_bc,outer_wall_bc
   real(wp) :: lx,special_b_coeff
   !
   !.. Local Allocatable Arrays ..
@@ -214,6 +215,14 @@ continue
       outflow_idx = i
     end if
   end do
+  !
+  if (abs(itestcase) == Freestream_TCF) then
+    inner_wall_bc = bc_input(inner_wall_idx)%set_bc_value
+    outer_wall_bc = bc_input(outer_wall_idx)%set_bc_value
+  else
+    inner_wall_bc = bc_isothermal_wall
+    outer_wall_bc = bc_adiabatic_wall
+  end if
   !
   ! Reset the grid format input parameter to identify
   ! the grid as internally generated
@@ -420,7 +429,7 @@ continue
       n1 = n1 + 1 ! j-min face
       n2 = n2 + 1 ! j-max face
       !
-      bface( 1,n1) = bc_isothermal_wall
+      bface( 1,n1) = inner_wall_bc
       bface( 2,n1) = nc_min
       bface( 3,n1) = Geom_Hexa
       bface( 4,n1) = HostFace3D(3)
@@ -428,7 +437,7 @@ continue
       bface( 6,n1) = inner_wall_idx ! index of bc_input for this BC
       bface(10,n1) = ncell + n1
       !
-      bface( 1,n2) = bc_adiabatic_wall
+      bface( 1,n2) = outer_wall_bc
       bface( 2,n2) = nc_max
       bface( 3,n2) = Geom_Hexa
       bface( 4,n2) = HostFace3D(4)
