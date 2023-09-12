@@ -459,4 +459,310 @@ end function turbulent_taylor_couette_init
 !
 !###############################################################################
 !
+function freestream_taylor_couette_init(xyz) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,bc_in,itestcase
+  use ovar, only : moving_ref_frame
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: xyz(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:nq)
+  !
+  !.. Local Scalars ..
+  integer  :: n,ibc
+  real(wp) :: x_r,y_r,z_r
+  real(wp) :: bc_rot,bc_max_rot
+  real(wp) :: gm1,pres,rho,vx,vy,vz
+  !
+continue
+  !
+  gm1 = gam - one
+  !
+  ! Always initialize to freestream conditions
+  !
+  return_value(:) = bc_in(0)%cv(:)
+  !
+  if (.not. allocated(tcf_fs_cv)) then
+    !
+    tcf_fs_cv = bc_in(0)%cv(:) ! F2003 AUTO-REALLOC
+    tcf_fs_pv = bc_in(0)%pv(:) ! F2003 AUTO-REALLOC
+    tcf_fs_gp = bc_in(0)%gp(:) ! F2003 AUTO-REALLOC
+    !
+    rho = bc_in(0)%cv(nec)
+    pres = bc_in(0)%gp(npres)
+    !
+    tcf_fs_pv(nec) = sqrt(gam*pres/rho) ! speed of sound
+    tcf_fs_pv(nee) = pres/gm1 ! internal energy
+    tcf_fs_gp(ngamm) = gam*pres/(gm1*rho) ! enthalpy
+    !
+  end if
+  !
+  ! If itestcase is negative, initialize the y and z velocities to either
+  !   1. If using a MRF, the local MRF y and z velocities, otherwise
+  !   2. The local y and z velocity using the maximum rotation rate of
+  !      all the boundary conditions.
+  !
+  if (itestcase < 0) then
+    !
+    if ( moving_ref_frame%is_active() ) then
+      !
+      x_r = moving_ref_frame%rotation(1)
+      y_r = moving_ref_frame%rotation(2)
+      z_r = moving_ref_frame%rotation(3)
+      !
+    else
+      !
+      bc_max_rot = -huge(zero)
+      do n = 0,ubound(bc_in,dim=1)
+        bc_rot = norm2(bc_in(n)%rotation_rate(:))
+        if (bc_rot > bc_max_rot) then
+          bc_max_rot = bc_rot
+          ibc = n
+        end if
+      end do
+      !
+      x_r = bc_in(ibc)%rotation_rate(1)
+      y_r = bc_in(ibc)%rotation_rate(2)
+      z_r = bc_in(ibc)%rotation_rate(3)
+      !
+    end if
+    !
+    if (.not. allocated(tcf_rotation)) then
+      tcf_rotation = [x_r,y_r,z_r] ! F2003 AUTO-REALLOC
+    end if
+    !
+    ! Get freestream density and pressure
+    !
+    rho = bc_in(0)%cv(nec)
+    pres = bc_in(0)%gp(npres)
+    !
+    ! Get freestream velocity plus rotation
+    !
+    vx = bc_in(0)%pv(nmx) + (y_r*xyz(3) - z_r*xyz(2))
+    vy = bc_in(0)%pv(nmy) + (z_r*xyz(1) - x_r*xyz(3))
+    vz = bc_in(0)%pv(nmz) + (x_r*xyz(2) - y_r*xyz(1))
+    !
+    ! Convert to conserved variables
+    !
+    return_value(nec) = rho
+    return_value(nmx) = rho*vx
+    return_value(nmy) = rho*vy
+    return_value(nmz) = rho*vz
+    return_value(nee) = pres/gm1 + half*rho*(vx*vx + vy*vy + vz*vz)
+    !
+  end if
+  !
+  if (.not. allocated(tcf_rotation)) then
+    tcf_rotation = [zero,zero,zero] ! F2003 AUTO-REALLOC
+  end if
+  !
+end function freestream_taylor_couette_init
+!
+!###############################################################################
+!
+subroutine remove_freestream_tcf_init(nvar,xyz,var)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,aref,rhoref,tref
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nvar
+  real(wp),    intent(in) :: xyz(:,:)
+  real(wp), intent(inout) :: var(:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,npts
+  real(wp) :: x_r,y_r,z_r,varref
+  real(wp) :: gm1,pres,rho,vx,vy,vz,vr
+  !
+continue
+  !
+ !return
+  !
+  ! The input argument nvar selects which variable we are going to subtract
+  ! out the freestream TCF initial conditions from. The following is the list
+  ! of variables for nvar:
+  !
+  !   value of nvar :  variable
+  !   ----------------------------------------------
+  !   nec         : density
+  !   nmx         : x-momentum
+  !   nmy         : y-momentum
+  !   nmz         : z-momentum
+  !   nee         : total energy per unit volume
+  !   nq+npres    : static pressure
+  !   nq+ntemp    : static temperature
+  !   nq+ngamm    : static enthalpy
+  !   -nec        : total density
+  !   -nmx        : x-velocity
+  !   -nmy        : y-velocity
+  !   -nmz        : z-velocity
+  !   -nee        : Mach number
+  !   -(nq+npres) : total pressure
+  !   -(nq+ntemp) : total temperature
+  !   -(nq+ngamm) : total enthalpy
+  !
+  npts = size(var)
+  !
+  gm1 = gam - one
+  !
+  x_r = tcf_rotation(1)
+  y_r = tcf_rotation(2)
+  z_r = tcf_rotation(3)
+  !
+  if (nvar == nec) then
+    ! Static density
+    varref = rhoref
+    do n = 1,npts
+      var(n) = var(n) - varref*tcf_fs_cv(nec)
+    end do
+    !
+  else if (nvar == nmx) then
+    ! x-momentum
+    varref = rhoref*aref
+    do n = 1,npts
+      vr = y_r*xyz(n,3) - z_r*xyz(n,2)
+      var(n) = var(n) - varref*(tcf_fs_cv(nmx) + tcf_fs_cv(nec)*vr)
+    end do
+    !
+  else if (nvar == nmy) then
+    ! y-momentum
+    varref = rhoref*aref
+    do n = 1,npts
+      vr = z_r*xyz(n,1) - x_r*xyz(n,3)
+      var(n) = var(n) - varref*(tcf_fs_cv(nmy) + tcf_fs_cv(nec)*vr)
+    end do
+    !
+  else if (nvar == nmz) then
+    ! z-momentum
+    varref = rhoref*aref
+    do n = 1,npts
+      vr = x_r*xyz(n,2) - y_r*xyz(n,1)
+      var(n) = var(n) - varref*(tcf_fs_cv(nmz) + tcf_fs_cv(nec)*vr)
+    end do
+    !
+  else if (nvar == nee) then
+    ! Total energy per unit volume
+    varref = rhoref*aref*aref
+    do n = 1,npts
+      rho = tcf_fs_cv(nec)
+      pres = tcf_fs_gp(npres)
+      vx = tcf_fs_pv(nmx) + (y_r*xyz(n,3) - z_r*xyz(n,2))
+      vy = tcf_fs_pv(nmy) + (z_r*xyz(n,1) - x_r*xyz(n,3))
+      vz = tcf_fs_pv(nmz) + (x_r*xyz(n,2) - y_r*xyz(n,1))
+      var(n) = var(n) - varref*(pres/gm1 + half*rho*(vx*vx + vy*vy + vz*vz))
+    end do
+    !
+  else if (nvar == nq+npres) then
+    ! Static pressure
+    varref = rhoref*aref*aref
+    do n = 1,npts
+      var(n) = var(n) - varref*tcf_fs_gp(npres)
+    end do
+    !
+  else if (nvar == nq+ntemp) then
+    ! Static temperature
+    varref = tref
+    do n = 1,npts
+      var(n) = var(n) - varref*tcf_fs_gp(ntemp)
+    end do
+    !
+  else if (nvar == nq+ngamm) then
+    ! Static enthalpy
+    varref = aref*aref
+    do n = 1,npts
+      var(n) = var(n) - varref*tcf_fs_gp(ngamm)
+    end do
+    !
+  else if (nvar == -nec) then
+    ! Total density
+    varref = rhoref
+    do n = 1,npts
+      vx = tcf_fs_pv(nmx) + (y_r*xyz(n,3) - z_r*xyz(n,2))
+      vy = tcf_fs_pv(nmy) + (z_r*xyz(n,1) - x_r*xyz(n,3))
+      vz = tcf_fs_pv(nmz) + (x_r*xyz(n,2) - y_r*xyz(n,1))
+      var(n) = var(n) - varref*(tcf_fs_cv(nec) + half*(vx*vx+vy*vy+vz*vz))
+    end do
+    !
+  else if (nvar == -nmx) then
+    ! x-velocity
+    varref = aref
+    do n = 1,npts
+      vr = y_r*xyz(n,3) - z_r*xyz(n,2)
+      var(n) = var(n) - varref*(tcf_fs_pv(nmx) + vr)
+    end do
+    !
+  else if (nvar == -nmy) then
+    ! y-velocity
+    varref = aref
+    do n = 1,npts
+      vr = z_r*xyz(n,1) - x_r*xyz(n,3)
+      var(n) = var(n) - varref*(tcf_fs_pv(nmy) + vr)
+    end do
+    !
+  else if (nvar == -nmz) then
+    ! z-velocity
+    varref = aref
+    do n = 1,npts
+      vr = x_r*xyz(n,2) - y_r*xyz(n,1)
+      var(n) = var(n) - varref*(tcf_fs_pv(nmz) + vr)
+    end do
+    !
+  else if (nvar == -nee) then
+    ! Mach number
+    ! NOTE: Freestream speed of sound was stored in tcf_fs_pv(nec)
+    do n = 1,npts
+      vx = tcf_fs_pv(nmx) + (y_r*xyz(n,3) - z_r*xyz(n,2))
+      vy = tcf_fs_pv(nmy) + (z_r*xyz(n,1) - x_r*xyz(n,3))
+      vz = tcf_fs_pv(nmz) + (x_r*xyz(n,2) - y_r*xyz(n,1))
+      var(n) = var(n) - (sqrt(vx*vx + vy*vy + vz*vz)/tcf_fs_pv(nec))
+    end do
+    !
+  else if (nvar == -nq-npres) then
+    ! Total pressure
+    varref = rhoref*aref*aref
+    do n = 1,npts
+      vx = tcf_fs_pv(nmx) + (y_r*xyz(n,3) - z_r*xyz(n,2))
+      vy = tcf_fs_pv(nmy) + (z_r*xyz(n,1) - x_r*xyz(n,3))
+      vz = tcf_fs_pv(nmz) + (x_r*xyz(n,2) - y_r*xyz(n,1))
+      var(n) = var(n) - varref*(tcf_fs_gp(npres) + half*(vx*vx+vy*vy+vz*vz))
+    end do
+    !
+  else if (nvar == -nq-ntemp) then
+    ! Total temperature
+    varref = tref
+    do n = 1,npts
+      vx = tcf_fs_pv(nmx) + (y_r*xyz(n,3) - z_r*xyz(n,2))
+      vy = tcf_fs_pv(nmy) + (z_r*xyz(n,1) - x_r*xyz(n,3))
+      vz = tcf_fs_pv(nmz) + (x_r*xyz(n,2) - y_r*xyz(n,1))
+      var(n) = var(n) - varref*(tcf_fs_gp(ntemp) + half*(vx*vx+vy*vy+vz*vz))
+    end do
+    !
+  else if (nvar == -nq-ngamm) then
+    ! Total enthalpy
+    varref = aref*aref
+    do n = 1,npts
+      vx = tcf_fs_pv(nmx) + (y_r*xyz(n,3) - z_r*xyz(n,2))
+      vy = tcf_fs_pv(nmy) + (z_r*xyz(n,1) - x_r*xyz(n,3))
+      vz = tcf_fs_pv(nmz) + (x_r*xyz(n,2) - y_r*xyz(n,1))
+      var(n) = var(n) - varref*(tcf_fs_gp(ngamm) + half*(vx*vx+vy*vy+vz*vz))
+    end do
+    !
+  else
+    !
+    ! Static density
+    varref = rhoref
+    do n = 1,npts
+      var(n) = var(n) - varref*tcf_fs_cv(nec)
+    end do
+    !
+  end if
+  !
+end subroutine remove_freestream_tcf_init
+!
+!###############################################################################
+!
 end module taylor_couette_mod
