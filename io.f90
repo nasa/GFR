@@ -541,10 +541,12 @@ continue
   !
   call debug_timer(start_timer,"read_nml_input_file post read_grid_file")
   !
-  ! Change the upwind method to LDFSS if using gas mixture
+  ! If using a gas mixture and the requested upwind method isnt
+  ! compatible, change the upwind method to the Roe solver.
   !
   if (ncs > 0) then
     if (invs_flux_method /= invs_flux_ROE  .and. &
+        invs_flux_method /= invs_flux_Rusanov .and. &
         invs_flux_method /= invs_flux_HLLC .and. &
         invs_flux_method /= invs_flux_LDFSS) then
       invs_flux_method = invs_flux_ROE
@@ -1009,7 +1011,7 @@ continue
       "  BY THE INPUT FILE. THE VALID UPWINDING INVISCID FLUX SCHEMES",/, &
       "  FOR A GAS MIXTURE ARE THE ROE, HLLC, OR LDFSS SCHEMES.",//, &
       "    THE INVISCID FLUX SCHEME HAS BEEN RESET TO THE ROE SCHEME.",//, &
-      " ************************** WARNING!!!! *************************",/)
+      " ************************** WARNING!!!! **************************",/)
   103 format (/, &
      " ********************* WARNING!!! *********************",/, &
      "  IT APPEARS THE FINAL TIME DOES NOT CORRESPOND TO THE",/, &
