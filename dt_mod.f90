@@ -269,7 +269,7 @@ subroutine get_cell_global_timestep(dtmin,dt_sp)
   integer  :: n,kf,nf,f1,f2,n1,n2
   integer  :: left_cell,left_geom,left_order
   integer  :: right_cell,right_geom,right_order
-  real(wp) :: ds,eigni_fp,eignv_fp
+  real(wp) :: eigni_fp,eignv_fp
   real(wp) :: dtl,hl,lcl
   real(wp) :: dtr,hr,rcl
   !
@@ -300,6 +300,10 @@ continue
   n1 = 1
   n2 = n_flxpts
   !
+  ! First, compute the left and right inviscid eigenvalues at each flux point
+  !
+  call invs_eigenvalue(n1,n2,faceusp,facegpsp,facenrm,eigni)
+  !
   if (governing_equations == NavierStokes_Eqns) then
     !$ACC PARALLEL LOOP PRESENT(facegpsp,viscl,viscr)
     do n = n1,n2
@@ -313,8 +317,6 @@ continue
       viscr(n) = zero
     end do
   end if
-  !
-  call invs_eigenvalue(n1,n2,faceusp,facegpsp,facenrm,eigni,dsf)
   !
   dtmin = huge(zero)
   !
@@ -454,7 +456,7 @@ subroutine get_cell_local_timestep(dtmin,dt_sp)
   integer  :: host_cell,host_geom,host_order
   integer  :: left_cell,left_geom,left_order
   integer  :: right_cell,right_geom,right_order
-  real(wp) :: ds,dtc,eigni_fp,eignv_fp
+  real(wp) :: dtc,eigni_fp,eignv_fp
   real(wp) :: dtl,hl,psql
   real(wp) :: dtr,hr,psqr
   !
@@ -485,6 +487,10 @@ continue
   n1 = 1
   n2 = n_flxpts
   !
+  ! First, compute the left and right inviscid eigenvalues at each flux point
+  !
+  call invs_eigenvalue(n1,n2,faceusp,facegpsp,facenrm,eigni)
+  !
   if (governing_equations == NavierStokes_Eqns) then
     !$ACC PARALLEL LOOP PRESENT(facegpsp,viscl,viscr)
     do n = n1,n2
@@ -498,8 +504,6 @@ continue
       viscr(n) = zero
     end do
   end if
-  !
-  call invs_eigenvalue(n1,n2,faceusp,facegpsp,facenrm,eigni,dsf)
   !
   dtmin = huge(zero)
   !$ACC PARALLEL LOOP
@@ -637,7 +641,7 @@ end subroutine get_cell_local_timestep
 !###############################################################################
 !
 !pure &
-subroutine invs_eigenvalue(n1,n2,face_cv,face_gp,facenrm,eigni,ds)
+subroutine invs_eigenvalue(n1,n2,face_cv,face_gp,facenrm,eigni)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -645,7 +649,6 @@ subroutine invs_eigenvalue(n1,n2,face_cv,face_gp,facenrm,eigni,ds)
   real(wp),    intent(in) :: face_gp(:,:,:)
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp), intent(inout) :: eigni(:,:)
-  real(wp), intent(inout) :: ds(:)
   !
   !.. Local Scalars ..
   integer :: nr
@@ -659,12 +662,19 @@ continue
   !
   nr = size(facenrm,dim=1)
   !
+  ! First, compute the speed of sound component of the eigenvalue and
+  ! store it in eigni
+  !
+  call invs_eigenvalue_aspd(n1,n2,face_cv,face_gp,eigni)
+  !
+  ! Now, add the velocity component of the eigenvalue to the eigni array
+  !
   if (nr == 3) then      ! this should also work for ncs > 0
-    call invs_eigenvalue_3d(n1,n2,face_cv,face_gp,facenrm,eigni,ds)
+    call invs_eigenvalue_3d(n1,n2,face_cv,facenrm,eigni)
   else if (nr == 2) then ! this should also work for ncs > 0
-    call invs_eigenvalue_2d(n1,n2,face_cv,face_gp,facenrm,eigni,ds)
+    call invs_eigenvalue_2d(n1,n2,face_cv,facenrm,eigni)
   else
-    call invs_eigenvalue_nd(n1,n2,face_cv,face_gp,facenrm,eigni,ds)
+    call invs_eigenvalue_nd(n1,n2,face_cv,facenrm,eigni)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -721,74 +731,33 @@ end subroutine invs_eigenvalue_aspd
 !
 !###############################################################################
 !
-pure subroutine invs_eigenvalue_3d(n1,n2,face_cv,face_gp,facenrm,eigni,ds)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam
+pure subroutine invs_eigenvalue_3d(n1,n2,face_cv,facenrm,eigni)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp),    intent(in) :: face_gp(:,:,:)
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp), intent(inout) :: eigni(:,:)
-  real(wp), intent(inout) :: ds(:)
   !
   !.. Local Scalars ..
-  integer  :: i,n
-  real(wp) :: rho_inv,pres,gamm
+  integer  :: n
+  real(wp) :: rho_inv
   real(wp) :: velx,vely,velz,vface
-  real(wp) :: rnx,rny,rnz,unx,uny,unz,dl
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: aspd(:,:)
+  real(wp) :: rnx,rny,rnz,unx,uny,unz,ds
   !
 continue
   !
-  allocate ( aspd(n1:n2,1:2) )
-  !$ACC DATA CREATE(aspd)
-  !
-  if (ncs > 0) then
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp,aspd)
-    do i = 1,2
-      do n = n1,n2
-        !
-        rho_inv = one/face_cv(n,nec,i)
-        pres = face_gp(n,npres,i)
-        gamm = face_gp(n,ngamm,i)
-        !
-        aspd(n,i) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
-        !
-      end do
-    end do
-  else
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp,aspd)
-    do i = 1,2
-      do n = n1,n2
-        !
-        rho_inv = one/face_cv(n,nec,i)
-        pres = face_gp(n,npres,i)
-        !
-        aspd(n,i) = sqrt( max( gam*pres*rho_inv , rndoff ) )
-        !
-      end do
-    end do
-  end if
-  !
-  !
-  !
-  !$ACC PARALLEL LOOP PRESENT(face_cv,facenrm,aspd,eigni,ds)
+  !$ACC PARALLEL LOOP PRESENT(face_cv,facenrm,eigni)
   do n = n1,n2
     !
+#ifdef USE_VN_FOR_INVS_EIGENVALUES
     rnx = facenrm(1,n)
     rny = facenrm(2,n)
     rnz = facenrm(3,n)
-    ds(n) = sqrt(rnx*rnx + rny*rny + rnz*rnz)
-#ifdef USE_VN_FOR_INVS_EIGENVALUES
-    dl = one/ds(n)
-    unx = rnx*dl
-    uny = rny*dl
-    unz = rnz*dl
+    ds = sqrt(rnx*rnx + rny*rny + rnz*rnz)
+    unx = rnx/ds
+    uny = rny/ds
+    unz = rnz/ds
 #endif
     !
     ! Left side of face
@@ -805,7 +774,7 @@ continue
     vface = sqrt(velx*velx + vely*vely + velz*velz)
 #endif
     !
-    eigni(n,1) = abs(vface) + aspd(n,1)
+    eigni(n,1) = eigni(n,1) + abs(vface)
     !
     ! Right side of face
     !
@@ -821,81 +790,39 @@ continue
     vface = sqrt(velx*velx + vely*vely + velz*velz)
 #endif
     !
-    eigni(n,2) = abs(vface) + aspd(n,2)
+    eigni(n,2) = eigni(n,2) + abs(vface)
     !
   end do
-  !
-  !$ACC END DATA
-  deallocate ( aspd )
   !
 end subroutine invs_eigenvalue_3d
 !
 !###############################################################################
 !
-pure subroutine invs_eigenvalue_2d(n1,n2,face_cv,face_gp,facenrm,eigni,ds)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam
+pure subroutine invs_eigenvalue_2d(n1,n2,face_cv,facenrm,eigni)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp),    intent(in) :: face_gp(:,:,:)
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp), intent(inout) :: eigni(:,:)
-  real(wp), intent(inout) :: ds(:)
   !
   !.. Local Scalars ..
-  integer  :: i,n
-  real(wp) :: rho_inv,pres,gamm
+  integer  :: n
+  real(wp) :: rho_inv
   real(wp) :: velx,vely,vface
-  real(wp) :: rnx,rny,unx,uny,dl
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: aspd(:,:)
+  real(wp) :: rnx,rny,unx,uny,ds
   !
 continue
   !
-  allocate ( aspd(n1:n2,1:2) )
-  !$ACC DATA CREATE(aspd)
-  !
-  if (ncs > 0) then
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp,aspd)
-    do i = 1,2
-      do n = n1,n2
-        !
-        rho_inv = one/face_cv(n,nec,i)
-        pres = face_gp(n,npres,i)
-        gamm = face_gp(n,ngamm,i)
-        !
-        aspd(n,i) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
-        !
-      end do
-    end do
-  else
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp,aspd)
-    do i = 1,2
-      do n = n1,n2
-        !
-        rho_inv = one/face_cv(n,nec,i)
-        pres = face_gp(n,npres,i)
-        !
-        aspd(n,i) = sqrt( max( gam*pres*rho_inv , rndoff ) )
-        !
-      end do
-    end do
-  end if
-  !
-  !$ACC PARALLEL LOOP PRESENT(face_cv,facenrm,aspd,eigni,ds)
+  !$ACC PARALLEL LOOP PRESENT(face_cv,facenrm,eigni)
   do n = n1,n2
     !
+#ifdef USE_VN_FOR_INVS_EIGENVALUES
     rnx = facenrm(1,n)
     rny = facenrm(2,n)
-    ds(n) = sqrt(rnx*rnx + rny*rny)
-#ifdef USE_VN_FOR_INVS_EIGENVALUES
-    dl = one/ds(n)
-    unx = rnx*dl
-    uny = rny*dl
+    ds = sqrt(rnx*rnx + rny*rny)
+    unx = rnx/ds
+    uny = rny/ds
 #endif
     !
     ! Left side of face
@@ -911,7 +838,7 @@ continue
     vface = sqrt(velx*velx + vely*vely)
 #endif
     !
-    eigni(n,1) = abs(vface) + aspd(n,1)
+    eigni(n,1) = eigni(n,1) + abs(vface)
     !
     ! Right side of face
     !
@@ -926,79 +853,39 @@ continue
     vface = sqrt(velx*velx + vely*vely)
 #endif
     !
-    eigni(n,2) = abs(vface) + aspd(n,2)
+    eigni(n,2) = eigni(n,2) + abs(vface)
     !
   end do
-  !
-  !$ACC END DATA
-  deallocate ( aspd )
   !
 end subroutine invs_eigenvalue_2d
 !
 !###############################################################################
 !
-pure subroutine invs_eigenvalue_nd(n1,n2,face_cv,face_gp,facenrm,eigni,ds)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam
+pure subroutine invs_eigenvalue_nd(n1,n2,face_cv,facenrm,eigni)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: face_cv(:,:,:)
-  real(wp),    intent(in) :: face_gp(:,:,:)
   real(wp),    intent(in) :: facenrm(:,:)
   real(wp), intent(inout) :: eigni(:,:)
-  real(wp), intent(inout) :: ds(:)
   !
   !.. Local Scalars ..
-  integer  :: i,n
-  real(wp) :: rho_inv,pres,gamm,vface
+  integer  :: n,nd
+  real(wp) :: rho_inv,vface
   !
   !.. Local Arrays ..
   real(wp) :: unrm(1:size(facenrm,dim=1))
   real(wp) :: vel(nmb:nme)
   !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: aspd(:,:)
-  !
 continue
   !
-  allocate ( aspd(n1:n2,1:2) )
-  !$ACC DATA CREATE(aspd,unrm,vel)
+  nd = size(facenrm,dim=1)
   !
-  if (ncs > 0) then
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp,aspd)
-    do i = 1,2
-      do n = n1,n2
-        !
-        rho_inv = one/face_cv(n,nec,i)
-        pres = face_gp(n,npres,i)
-        gamm = face_gp(n,ngamm,i)
-        !
-        aspd(n,i) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
-        !
-      end do
-    end do
-  else
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp,aspd)
-    do i = 1,2
-      do n = n1,n2
-        !
-        rho_inv = one/face_cv(n,nec,i)
-        pres = face_gp(n,npres,i)
-        !
-        aspd(n,i) = sqrt( max( gam*pres*rho_inv , rndoff ) )
-        !
-      end do
-    end do
-  end if
-  !
-  !$ACC PARALLEL LOOP PRESENT(face_cv,facenrm,aspd,eigni,ds,unrm,vel)
+  !$ACC PARALLEL LOOP PRESENT(face_cv,facenrm,eigni,unrm,vel)
   do n = n1,n2
     !
-    ds(n) = norm2(facenrm(:,n))
 #ifdef USE_VN_FOR_INVS_EIGENVALUES
-    unrm(:) = facenrm(:,n)/ds(n)
+    unrm(1:nd) = facenrm(1:nd,n)/norm2(facenrm(1:nd,n))
 #endif
     !
     ! Left side of face
@@ -1006,29 +893,26 @@ continue
     vel(nmb:nme) = face_cv(n,nmb:nme,1)/face_cv(n,nec,1)
     !
 #ifdef USE_VN_FOR_INVS_EIGENVALUES
-    vface = dot_product( unrm(:) , vel(nmb:nme) )
+    vface = dot_product( unrm(1:nd) , vel(nmb:nme) )
 #else
     vface = norm2(vel(nmb:nme))
 #endif
     !
-    eigni(n,1) = abs(vface) + aspd(n,1)
+    eigni(n,1) = eigni(n,1) + abs(vface)
     !
     ! Right side of face
     !
     vel(nmb:nme) = face_cv(n,nmb:nme,2)/face_cv(n,nec,2)
     !
 #ifdef USE_VN_FOR_INVS_EIGENVALUES
-    vface = dot_product( facenrm(:,n) , vel(nmb:nme) )
+    vface = dot_product( unrm(1:nd) , vel(nmb:nme) )
 #else
     vface = norm2(vel(nmb:nme))
 #endif
     !
-    eigni(n,2) = abs(vface) + aspd(n,2)
+    eigni(n,2) = eigni(n,2) + abs(vface)
     !
   end do
-  !
-  !$ACC END DATA
-  deallocate ( aspd )
   !
 end subroutine invs_eigenvalue_nd
 !
