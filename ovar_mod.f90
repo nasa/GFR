@@ -185,6 +185,10 @@ module ovar
   type, public :: mrf_t
     real(wp) :: rotation(1:3) = [zero,zero,zero]
     real(wp) :: translation(1:3) = [zero,zero,zero]
+  contains
+    procedure :: is_active => mrf_is_active
+    procedure :: is_not_active => mrf_is_not_active
+    procedure :: make_nondim => nondimensionalize_mrf
   end type mrf_t
   !
   ! ################################
@@ -712,6 +716,8 @@ module ovar
   ! constant output_unit, which historically has the value 6)
   integer, public, save :: matrix_output_unit = iout
  !integer, public, save :: matrix_output_unit = 9203
+  !
+  logical(lk), save :: mrf_is_in_nondim = fals
   !
   ! Interface to check if two boundary condition input derived types are equal
   !
@@ -1252,6 +1258,73 @@ continue
   return_value = .not. (a == b)
   !
 end function periodic_bc_t_not_equal
+!
+!###############################################################################
+!
+pure function mrf_is_active(this) result(return_value)
+  !
+  !.. Use Statements ..
+  use module_kind_types, only : rpm_to_mps
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(mrf_t), intent(in) :: this
+  !
+  !.. Function Result ..
+  logical :: return_value
+  !
+  !.. Local Scalars ..
+  logical  :: in_trf,in_rrf
+  real(wp) :: trf_dim,rrf_dim
+  !
+continue
+  !
+  if (mrf_is_in_nondim) then
+    trf_dim = one/aref
+    rrf_dim = rpm_to_mps/aref
+  else
+    trf_dim = one
+    rrf_dim = one
+  end if
+  !
+  in_rrf = any(abs(this%rotation) >= one*rrf_dim)
+  in_trf = any(abs(this%translation) >= one*trf_dim)
+  !
+  return_value = (in_rrf .or. in_trf)
+  !
+end function mrf_is_active
+!
+!###############################################################################
+!
+pure function mrf_is_not_active(this) result(return_value)
+  !.. Passed Argument from Invoking Object ..
+  class(mrf_t), intent(in) :: this
+  !.. Function Result ..
+  logical :: return_value
+continue
+  return_value = ( .not. this%is_active() )
+end function mrf_is_not_active
+!
+!###############################################################################
+!
+subroutine nondimensionalize_mrf(this)
+  !
+  !.. Use Statements ..
+  use module_kind_types, only : rpm_to_mps
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(mrf_t), intent(inout) :: this
+  !
+continue
+  !
+  if (mrf_is_in_nondim) return
+  !
+  this%rotation(:) = this%rotation(:) * (rpm_to_mps/aref)
+  !
+  this%translation(:) = this%translation(:) / aref
+  !
+  mrf_is_in_nondim = true
+  !
+end subroutine nondimensionalize_mrf
 !
 !###############################################################################
 !
