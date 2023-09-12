@@ -182,6 +182,10 @@ module ovar
   end type bc_in_t
   !
   !
+  type, public :: mrf_t
+    real(wp) :: rotation(1:3) = [zero,zero,zero]
+    real(wp) :: translation(1:3) = [zero,zero,zero]
+  end type mrf_t
   !
   ! ################################
   ! ###  Module Local Variables  ###
@@ -344,7 +348,7 @@ module ovar
   integer, public, save :: turbulence_model    = laminar_flow
   !
   ! MOVING REFERENCE FRAME
-  real(wp), public, save :: moving_ref_frame(1:3) = [zero,zero,zero]
+  type(mrf_t), public, save :: moving_ref_frame
   !
   ! CHEMICAL REACTION SOURCE TERMS
   logical(lk), public, save :: disable_chemical_reactions         = fals
