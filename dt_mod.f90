@@ -277,7 +277,6 @@ subroutine get_cell_global_timestep(dtmin,dt_sp)
   real(wp), allocatable :: viscl(:)
   real(wp), allocatable :: viscr(:)
   real(wp), allocatable :: eigni(:,:)
-  real(wp), allocatable :: dsf(:)
   real(wp), allocatable :: psq(:,:)
   !
   integer, parameter :: make_p_plus_one = 0
@@ -291,11 +290,10 @@ continue
   !
   allocate ( viscl(1:n_flxpts) )
   allocate ( viscr(1:n_flxpts) )
-  allocate ( eigni(1:n_flxpts,1:2) )
-  allocate ( dsf(1:n_flxpts) )
   allocate ( psq(1:n_flxpts,1:2) )
+  allocate ( eigni(1:n_flxpts,1:2) )
   !
-  !$ACC DATA CREATE(viscl,viscr,eigni,dsf,psq)
+  !$ACC DATA CREATE(viscl,viscr,eigni,psq)
   !
   n1 = 1
   n2 = n_flxpts
@@ -423,7 +421,6 @@ continue
   !
   !$ACC END DATA
   deallocate ( psq )
-  deallocate ( dsf )
   deallocate ( eigni )
   deallocate ( viscr )
   deallocate ( viscl )
@@ -465,7 +462,6 @@ subroutine get_cell_local_timestep(dtmin,dt_sp)
   real(wp), allocatable :: viscr(:)
   real(wp), allocatable :: dt_cell(:)
   real(wp), allocatable :: eigni(:,:)
-  real(wp), allocatable :: dsf(:)
   !
   integer, parameter :: make_p_plus_one = 0
  !integer, parameter :: make_p_plus_one = 1
@@ -480,9 +476,8 @@ continue
   allocate ( viscr(1:n_flxpts) )
   allocate ( dt_cell(1:ncell) )
   allocate ( eigni(1:n_flxpts,1:2) )
-  allocate ( dsf(1:n_flxpts) )
   !
-  !$ACC DATA CREATE(viscl,viscr,eigni,dt_cell,dsf)
+  !$ACC DATA CREATE(viscl,viscr,eigni,dt_cell)
   !
   n1 = 1
   n2 = n_flxpts
@@ -617,7 +612,6 @@ continue
   end do
   !
   !$ACC END DATA
-  deallocate ( dsf )
   deallocate ( eigni )
   deallocate ( dt_cell )
   deallocate ( viscr )
