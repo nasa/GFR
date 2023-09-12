@@ -160,7 +160,7 @@ subroutine create_taylor_couette_grid()
   use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : grid,cell_geom,cell_order
-  use ovar,      only : grid_format,bc_names,itestcase
+  use ovar,      only : grid_format,bc_names,itestcase,internal_grid_order
   !
   use ovar, only : TCF_Inner_Radius,TCF_Inner_Wall_Spacing
   use ovar, only : TCF_Outer_Radius,TCF_Outer_Wall_Spacing
@@ -179,6 +179,7 @@ subroutine create_taylor_couette_grid()
   integer  :: inner_wall_idx,outer_wall_idx
   integer  :: inflow_idx,outflow_idx
   integer  :: inner_wall_bc,outer_wall_bc
+  integer  :: grid_order
   real(wp) :: lx,special_b_coeff
   !
   !.. Local Allocatable Arrays ..
@@ -228,6 +229,16 @@ continue
   ! the grid as internally generated
   !
   grid_format = Internally_Generated_Grid
+  !
+  ! Get the grid order if specified for an internally
+  ! generated grid, otherwise set it to the solution order.
+  !
+  grid_order = merge( internal_grid_order , n_order , internal_grid_order>0 )
+  !
+  ! For now we are limiting the grid order to
+  ! the max order allowed by CGNS, which is 4
+  !
+  grid_order = min(grid_order,4)
   !
   ! If we are generating the grid on the fly, make the reference length 1
   !
@@ -350,7 +361,7 @@ continue
   ! grid cell connectivities (elem_pts), the linear grid node coordinates
   ! (xyz_nodes), and the high-order grid point coordinates (xyz_pts).
   !
-  call high_order_TCF_grid_points(ncx,ncr,nca,lx,radial_pts,n_order, &
+  call high_order_TCF_grid_points(ncx,ncr,nca,lx,radial_pts,grid_order, &
                                   elem_nodes,elem_pts,xyz_nodes,xyz_pts)
   !
   ! Deallocate radial_pts since it is no longer needed
@@ -519,13 +530,13 @@ continue
     !
     ! Create grid for the grid cells
     !
-    if (n_order == 1) then
+    if (grid_order == 1) then
       elem_type = int(HEXA_8)
       npts = 8
-    else if (n_order == 2) then
+    else if (grid_order == 2) then
       elem_type = int(HEXA_27)
       npts = 27
-    else if (n_order == 3) then
+    else if (grid_order == 3) then
       elem_type = int(HEXA_64)
       npts = 64
     else ! n_order >= 4
@@ -536,7 +547,7 @@ continue
     do nc = 1,ncell
       !
       grid%elem(nc)%prop%npts = npts
-      grid%elem(nc)%prop%order = min(n_order,4)
+      grid%elem(nc)%prop%order = grid_order
       grid%elem(nc)%prop%geom = Geom_Hexa
       grid%elem(nc)%prop%elem_type = elem_type
       !
@@ -565,10 +576,16 @@ continue
       !         1) %pts(1:size(%nodes)) == %nodes (CGNS ordering), and then
       !            return the face elements %pts array in GFR ordering, or
       !         2) otherwise, it will reverse the GFR ordering of the host
-      !            cells %pts to put it back in CGNS order, the return the
+      !            cells %pts to put it back in CGNS order, then return the
       !            face elements %pts array in GFR ordering
       !
-      grid%elem(nc) = get_face_elem(grid%elem(host_cell),host_side,host_cell)
+      if (grid%elem(host_cell)%prop%order <= 4) then
+        grid%elem(nc) = get_face_elem(grid%elem(host_cell),host_side,host_cell)
+      else
+       !grid%elem(nc) = get_face_elem(grid%elem(host_cell),host_side,host_cell)
+        write (error_message,1)
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+      end if
       !
       ! The get_face_elem function copies the host cells tags array to the
       ! face element, so we need to add the boundary condition to tags.
@@ -585,6 +602,12 @@ continue
     !
   end if
   !
+ !if (mypnum == glb_root) then
+ !  write (iout,2) minval( grid%elem(:)%prop%order ), &
+ !                 maxval( grid%elem(:)%prop%order ), &
+ !                 n_order
+ !end if
+  !
  !call write_internal_grid(ncell,nfbnd)
   !
   ! Deallocate elem_nodes and elem_pts before leaving
@@ -599,6 +622,17 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("ERROR: The internal grid generator for creating the ", &
+                   "Taylor-Couette flow grid is currently limited to ", &
+                   "creating P1-P4 order grids.")
+  !
+  2 format (/,4x,"After creating the Taylor-Couette flow grid:",/, &
+             10x,"Min Grid Order = ",i0,/, &
+             10x,"Max Grid Order = ",i0,/, &
+             10x,"Solution Order = ",i0,/)
   !
   contains
   !
@@ -654,15 +688,16 @@ continue
   nnx = ncx + 1 ! axial     grid nodes
   nnr = ncr + 1 ! radial    grid nodes
   nna = nca     ! azimuthal grid nodes
-  !
-  ! Get the order of the high order grid
-  ! NOTE: For now we are limiting this to P4 to match the maximum allowed
-  !       by CGNS. One reason to do this is because we can then use the
-  !       functions in cgns_mod to extract the high-order connectivity for
-  !       each of the boundary face elements, which are needed for the
-  !       grid derived type.
-  !
-  p = min(order,4)
+ !!
+ !! Get the order of the high order grid
+ !! NOTE: For now we are limiting this to P4 to match the maximum allowed
+ !!       by CGNS. One reason to do this is because we can then use the
+ !!       functions in cgns_mod to extract the high-order connectivity for
+ !!       each of the boundary face elements, which are needed for the
+ !!       grid derived type.
+ !!
+ !p = min(order,4)
+  p = order
   !
   ! Number of high order points in each direction
   !
