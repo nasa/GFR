@@ -2744,8 +2744,8 @@ continue
           !
         end if
         !
-        if (abs(bc_input(n)%rotation_speed) > eps1) then
-          bc_in(i)%rotation_speed = bc_input(n)%rotation_speed
+        if (abs(bc_input(n)%rotation_rate) > eps1) then
+          bc_in(i)%rotation_rate = bc_input(n)%rotation_rate
         end if
         !
         ! Copy the velocity for this BC into the temporary array vel(:)
@@ -3223,8 +3223,8 @@ continue
         !
         t = bc_in(this_bc)%wall_temperature * tdim
         !
-        if (bc_input(bc_idx)%rotation_speed > eps1) then
-          write (iout,isorotwall_fmt) t,bc_input(bc_idx)%rotation_speed
+        if (bc_input(bc_idx)%rotation_rate > eps1) then
+          write (iout,isorotwall_fmt) t,bc_input(bc_idx)%rotation_rate
         else
           vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
           write (iout,isowall_fmt) t,(vel(ii),ii=1,nr)
@@ -3232,8 +3232,8 @@ continue
         !
       else if (bc_type == bc_adiabatic_wall) then
         !
-        if (bc_input(bc_idx)%rotation_speed > eps1) then
-          write (iout,adirotwall_fmt) bc_input(bc_idx)%rotation_speed
+        if (bc_input(bc_idx)%rotation_rate > eps1) then
+          write (iout,adirotwall_fmt) bc_input(bc_idx)%rotation_rate
         else
           vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
           write (iout,adiwall_fmt) (vel(ii),ii=1,nr)

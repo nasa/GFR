@@ -20,7 +20,7 @@ contains
 pure &
 #endif
 subroutine get_bc_wall_solution(n1,n2,bc_type,facexyz,facenrm,face_cv,face_gp, &
-                                relax,pv_in,wall_temperature,rotation_speed)
+                                relax,pv_in,wall_temperature,rotation_rate)
   !
   ! ####################################################################
   ! ####################################################################
@@ -41,7 +41,7 @@ subroutine get_bc_wall_solution(n1,n2,bc_type,facexyz,facenrm,face_cv,face_gp, &
   ! RELAX   : Relaxation parameters for this BC
   ! PV_IN   : Primitive    variables specified for this BC
   ! WALL_TEMPERATURE : Specified wall temperature for isothermal wall BC
-  ! ROTATION_SPEED : RPM for rotating non-slip wall
+  ! ROTATION_RATE : RPM for rotating non-slip wall
   !
   !.. Use Statements ..
   use ovar,         only : relaxation_t
@@ -58,7 +58,7 @@ subroutine get_bc_wall_solution(n1,n2,bc_type,facexyz,facenrm,face_cv,face_gp, &
   type(relaxation_t), intent(in) :: relax
   real(wp),           intent(in) :: pv_in(:)
   real(wp),           intent(in) :: wall_temperature
-  real(wp),           intent(in) :: rotation_speed
+  real(wp),           intent(in) :: rotation_rate
   !
   !.. Local Scalars ..
   integer  :: nr
@@ -76,10 +76,10 @@ continue
   !
   if (nr == 3) then
     call get_bc_wall_vel_solution_3d(n1,n2,bc_type,facexyz,facenrm, &
-                                     face_cv,rlx,pv_in,rotation_speed)
+                                     face_cv,rlx,pv_in,rotation_rate)
   else if (nr == 2) then
     call get_bc_wall_vel_solution_2d(n1,n2,bc_type,facexyz,facenrm, &
-                                     face_cv,rlx,pv_in,rotation_speed)
+                                     face_cv,rlx,pv_in,rotation_rate)
   else
     ! NOTE: This branch and the called subroutine should probably just
     !       be removed entirely because there isnt really a 1D wall
@@ -238,7 +238,7 @@ end subroutine get_bc_wall_gp_solution
 pure &
 #endif
 subroutine get_bc_wall_vel_solution_3d(n1,n2,bc_type,facexyz,facenrm, &
-                                       face_cv,rlx,pv_in,rotation_speed)
+                                       face_cv,rlx,pv_in,rotation_rate)
   !
   ! ####################################################################
   ! ####################################################################
@@ -259,7 +259,7 @@ subroutine get_bc_wall_vel_solution_3d(n1,n2,bc_type,facexyz,facenrm, &
   !                 i.e., face_cv(:,:,2) = primitive variables
   ! RLX     : BC relaxation coefficient
   ! PV_IN   : Primitive    variables specified for this BC
-  ! ROTATION_SPEED : RPM for rotating non-slip wall
+  ! ROTATION_RATE : RPM for rotating non-slip wall
   !
   !.. Use Statements ..
   use ovar, only : aref
@@ -272,7 +272,7 @@ subroutine get_bc_wall_vel_solution_3d(n1,n2,bc_type,facexyz,facenrm, &
   real(wp), intent(inout) :: face_cv(:,:,:)
   real(wp),    intent(in) :: rlx
   real(wp),    intent(in) :: pv_in(:)
-  real(wp),    intent(in) :: rotation_speed
+  real(wp),    intent(in) :: rotation_rate
   !
   !.. Local Scalars ..
   integer  :: n
@@ -293,9 +293,9 @@ subroutine get_bc_wall_vel_solution_3d(n1,n2,bc_type,facexyz,facenrm, &
 continue
   !
   rotating_wall_check: &
-  if (abs(rotation_speed) > eps1) then
+  if (abs(rotation_rate) > eps1) then
     !
-    speed = rotation_speed*rpm_conversion/aref
+    speed = rotation_rate*rpm_conversion/aref
     !
     !#######################################################################
     !#######################################################################
@@ -490,7 +490,7 @@ end subroutine get_bc_wall_vel_solution_3d
 pure &
 #endif
 subroutine get_bc_wall_vel_solution_2d(n1,n2,bc_type,facexyz,facenrm, &
-                                       face_cv,rlx,pv_in,rotation_speed)
+                                       face_cv,rlx,pv_in,rotation_rate)
   !
   ! ####################################################################
   ! ####################################################################
@@ -511,7 +511,7 @@ subroutine get_bc_wall_vel_solution_2d(n1,n2,bc_type,facexyz,facenrm, &
   !                 i.e., face_cv(:,:,2) = primitive variables
   ! RLX     : BC relaxation coefficient
   ! PV_IN   : Primitive    variables specified for this BC
-  ! ROTATION_SPEED : RPM for rotating non-slip wall
+  ! ROTATION_RATE : RPM for rotating non-slip wall
   !
   !.. Use Statements ..
   use ovar, only : aref
@@ -524,7 +524,7 @@ subroutine get_bc_wall_vel_solution_2d(n1,n2,bc_type,facexyz,facenrm, &
   real(wp), intent(inout) :: face_cv(:,:,:)
   real(wp),    intent(in) :: rlx
   real(wp),    intent(in) :: pv_in(:)
-  real(wp),    intent(in) :: rotation_speed
+  real(wp),    intent(in) :: rotation_rate
   !
   !.. Local Scalars ..
   integer  :: n
@@ -544,9 +544,9 @@ subroutine get_bc_wall_vel_solution_2d(n1,n2,bc_type,facexyz,facenrm, &
 continue
   !
   rotating_wall_check: &
-  if (abs(rotation_speed) > eps1) then
+  if (abs(rotation_rate) > eps1) then
     !
-    speed = rotation_speed*rpm_conversion/aref
+    speed = rotation_rate*rpm_conversion/aref
     !
     !#######################################################################
     !#######################################################################

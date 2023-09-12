@@ -57,7 +57,7 @@ subroutine initialize_taylor_couette_problem(ref_length)
   !.. Local Scalars ..
   integer  :: n,bc_idx
   real(wp) :: y,z,r2,ri2,eta2,xmin,xmax,rmin,rmax
-  real(wp) :: rotation_speed,omega,wall_temperature
+  real(wp) :: rotation_rate,omega,wall_temperature
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_taylor_couette_problem"
@@ -168,17 +168,17 @@ continue
   ! Get the rotation speed from the boundary condition.
   ! NOTE: This should be in RPMs
   !
-  rotation_speed = bc_input(bc_idx)%rotation_speed
+  rotation_rate = bc_input(bc_idx)%rotation_rate
   !
-  if (rotation_speed <= eps1) then
+  if (rotation_rate <= eps1) then
     !
     machref = default_Mach
     !
-    rotation_speed = machref*(aref*sec_per_min)/(ri*two*pi)
+    rotation_rate = machref*(aref*sec_per_min)/(ri*two*pi)
     !
   else
     !
-    machref = rotation_speed*(ri*two*pi)/(aref*sec_per_min)
+    machref = rotation_rate*(ri*two*pi)/(aref*sec_per_min)
     !
   end if
   !
@@ -186,13 +186,13 @@ continue
   ! condition in case either of these were updated
   !
   bc_input(bc_idx)%wall_temp = wall_temperature
-  bc_input(bc_idx)%rotation_speed = rotation_speed
+  bc_input(bc_idx)%rotation_rate = rotation_rate
   !
   ! Save the inner cylinder rotation speed.
   ! NOTE: This converts it from rpm to 1/s and when multiplied
   !       by a radius becomes m/s
   !
-  omega = rotation_speed*two*pi/sec_per_min
+  omega = rotation_rate*two*pi/sec_per_min
   !
   ! Compute the remaining module variables that
   ! will be used in the initialization functions

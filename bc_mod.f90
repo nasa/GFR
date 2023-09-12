@@ -276,7 +276,7 @@ continue
                                   faceusp,facegpsp, &
                                   bc_in(bc_idx)%relax,pv_in, &
                                   bc_in(bc_idx)%wall_temperature, &
-                                  bc_in(bc_idx)%rotation_speed)
+                                  bc_in(bc_idx)%rotation_rate)
         !
       case (bc_periodic)
         !
