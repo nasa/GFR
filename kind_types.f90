@@ -523,6 +523,7 @@ module module_kind_types
   integer, parameter :: CH4_Flame_Speed_Test    = 19
   integer, parameter :: THX_Phase_3             = 20
   integer, parameter :: Taylor_Couette_Flow     = 21
+  integer, parameter :: Freestream_TCF          = 22
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
                                                 Entropy_Transport ]
   integer, parameter :: Vortex_Problems(1:3) = [ Shu_Vortex, &
@@ -615,6 +616,7 @@ module module_kind_types
   integer, parameter :: invs_flux_LDFSS        = 3
   integer, parameter :: invs_flux_Rotated_RHLL = 4
   integer, parameter :: invs_flux_AUSM_Plus    = 5
+  integer, parameter :: invs_flux_Rusanov      = 6
   !
   integer, parameter :: visc_flux_BR1 = 1
   integer, parameter :: visc_flux_BR2 = 2
