@@ -343,8 +343,8 @@ module ovar
   integer, public, save :: governing_equations = NavierStokes_Eqns
   integer, public, save :: turbulence_model    = laminar_flow
   !
-  ! ROTATION VECTOR FOR ROTATING REFERENCE FRAME
-  real(wp), public, save :: ref_frame_rotation_vector(1:3) = [zero,zero,zero]
+  ! MOVING REFERENCE FRAME
+  real(wp), public, save :: moving_ref_frame(1:3) = [zero,zero,zero]
   !
   ! CHEMICAL REACTION SOURCE TERMS
   logical(lk), public, save :: disable_chemical_reactions         = fals
@@ -1559,7 +1559,7 @@ module input_namelist_mod
   use ovar,      only : all_points, metis_option, use_old_restart_format
   use ovar,      only : mms_opt, mms_init, mms_output_solution
   use ovar,      only : itestcase, jet_init_func, governing_equations
-  use ovar,      only : ref_frame_rotation_vector
+  use ovar,      only : moving_ref_frame
   use ovar,      only : disable_chemical_reactions, semi_implicit_chemistry
   use ovar,      only : traceback_unconverged_newton_temps
  !use ovar,      only : reactions_start_iter
@@ -1780,8 +1780,8 @@ module input_namelist_mod
                      output_grdnt_species_variables
   ! GOVERNING EQUATIONS
   namelist / input / governing_equations, turbulence_model
-  ! ROTATION VECTOR FOR ROTATING REFERENCE FRAME
-  namelist / input / ref_frame_rotation_vector
+  ! MOVING REFERENCE FRAME
+  namelist / input / moving_ref_frame
   ! CHEMICAL REACTION SOURCE TERMS
   namelist / input / disable_chemical_reactions, semi_implicit_chemistry, &
                      traceback_unconverged_newton_temps
