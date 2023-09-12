@@ -2945,7 +2945,7 @@ continue
         end if
         !
         pv(nec) = r
-        pv(nmb:nme) = vel
+        pv(nmb:nme) = vel(1:nr)
         pv(nee) = p
         !
         gp(npres) = p
