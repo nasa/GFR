@@ -8399,7 +8399,7 @@ subroutine exchange_faceusp()
   !
   !.. Use Statements ..
   use geovar,  only : bface,face
-  use flowvar, only : faceusp_array
+  use flowvar, only : faceusp
   !
   !.. Local Scalars..
   integer :: i,k,m,n,nf,nfp,f0,ibeg,nvar
@@ -8418,7 +8418,7 @@ continue
   call debug_timer(entering_procedure,pname)
 #endif
   !
-  nvar = size(faceusp_array,dim=2)
+  nvar = size(faceusp,dim=2)
   !
   ibeg = 0
   do nf = 1,size(bface,dim=2)
@@ -8432,7 +8432,7 @@ continue
     do k = 1,nfp
       do m = 1,nvar
         i = i + 1
-        fusp_send_buffer(i) = real( faceusp_array(f0+k,m,1) , kind=r8 )
+        fusp_send_buffer(i) = real( faceusp(f0+k,m,1) , kind=r8 )
       end do
     end do
     !
@@ -8485,7 +8485,7 @@ subroutine wait_faceusp()
   !
   !.. Use Statements ..
   use geovar,  only : bface,face
-  use flowvar, only : faceusp_array
+  use flowvar, only : faceusp
   !
   !.. Local Scalars ..
   integer :: i,k,m,nf,nfp,f0,ibeg,nvar
@@ -8502,7 +8502,7 @@ continue
   call debug_timer(entering_procedure,pname)
 #endif
   !
-  nvar = size(faceusp_array,dim=2)
+  nvar = size(faceusp,dim=2)
   !
   ! Wait for all faceusp sends and receives to complete
   !
@@ -8527,7 +8527,7 @@ continue
     do k = 1,nfp
       do m = 1,nvar
         i = i + 1
-        faceusp_array(f0+k,m,2) = real( fusp_recv_buffer(i) , kind=wp )
+        faceusp(f0+k,m,2) = real( fusp_recv_buffer(i) , kind=wp )
       end do
     end do
     !
@@ -8553,7 +8553,7 @@ subroutine exchange_bc_conflicts_usp(override)
   use geovar,  only : bc_conflict,face
   use ovar,    only : loc_flux_pts
   use ovar,    only : use_bc_conflicts
-  use flowvar, only : faceusp_array
+  use flowvar, only : faceusp
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: override
@@ -8636,7 +8636,7 @@ continue
         ks = f0s + bc_conflict(n)%slave(i)%flux_point
         !
         do m = 1,nq
-          faceusp_array(ks,m,2) = faceusp_array(km,m,2)
+          faceusp(ks,m,2) = faceusp(km,m,2)
         end do
         !
       end do
@@ -8655,7 +8655,7 @@ continue
         km = f0m + bc_conflict(n)%master%flux_point
         !
         do m = 1,nq
-          exch_send(m) = real(faceusp_array(km,m,2),kind=r8)
+          exch_send(m) = real(faceusp(km,m,2),kind=r8)
         end do
         !
         do i = 1,size(bc_conflict(n)%slave)
@@ -8672,7 +8672,7 @@ continue
             ks = f0s + bc_conflict(n)%slave(i)%flux_point
             !
             do m = 1,nq
-              faceusp_array(ks,m,2) = real(exch_send(m),kind=wp)
+              faceusp(ks,m,2) = real(exch_send(m),kind=wp)
             end do
             !
           else
@@ -8702,7 +8702,7 @@ continue
             ks = f0s + bc_conflict(n)%slave(i)%flux_point
             !
             do m = 1,nq
-              faceusp_array(ks,m,2) = real(exch_recv(m),kind=wp)
+              faceusp(ks,m,2) = real(exch_recv(m),kind=wp)
             end do
             !
           end if

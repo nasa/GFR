@@ -58,7 +58,7 @@ subroutine get_faceusp_bc(exit_error)
   !
   !.. Use Statements ..
   use metrics_mod,   only : facenrm
-  use flowvar,       only : faceusp_array
+  use flowvar,       only : faceusp
   use flowvar,       only : facexyz
   use flowvar,       only : facegpsp
   use geovar,        only : bc_grps,n_bnd_flxpts
@@ -116,15 +116,15 @@ continue
   n1 = 1
   n2 = n_bnd_flxpts
   !
-  call update_thermo_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1), &
+  call update_thermo_properties(n1,n2,faceusp(:,:,1),facegpsp(:,:,1), &
                                       loc="face",caller_name=pname)
-  call update_transport_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1))
+  call update_transport_properties(n1,n2,faceusp(:,:,1),facegpsp(:,:,1))
   !
   ! Call the SEM turbulence inflow generator before looping
   ! through bc_grps to set the boundary conditions
   !
   if (current_rk_stage == 1) then
-    call sem(faceusp_array,facegpsp)
+    call sem(faceusp,facegpsp)
   end if
   !
   ! Loop over the boundary face groups and compute the conservative variables
@@ -143,7 +143,7 @@ continue
 #ifdef DEBUG_BC_GROUPS
     if (first_output) then
       call output_to_debug_bc_groups(grp_idx,bc_idx,bc_type,n1,n2, &
-                                     facenrm,faceusp_array)
+                                     facenrm,faceusp)
     end if
 #endif
     !
@@ -156,13 +156,13 @@ continue
         !
         ! Free stream boundary condition
         !
-        call get_bc_fixed_solution(n1,n2,faceusp_array(:,:,2),bc_in(0)%cv)
+        call get_bc_fixed_solution(n1,n2,faceusp(:,:,2),bc_in(0)%cv)
         !
       case (bc_fixed)
         !
         ! Fixed boundary condition
         !
-        call get_bc_fixed_solution(n1,n2,faceusp_array(:,:,2),bc_in(bc_idx)%cv)
+        call get_bc_fixed_solution(n1,n2,faceusp(:,:,2),bc_in(bc_idx)%cv)
         !
       case (bc_characteristic)
         !
@@ -175,7 +175,7 @@ continue
         !       boundary condition is not really valid for gas mixtures.
         !
         call get_bc_characteristic_solution(n1,n2,facenrm, &
-                                            faceusp_array,facegpsp, &
+                                            faceusp,facegpsp, &
                                             bc_in(bc_idx)%pv, &
                                             bc_in(0)%pv, &
                                             bc_in(bc_idx)%relax)
@@ -185,7 +185,7 @@ continue
         ! Generic inflow boundary condition
         !
         call get_bc_generic_inflow_solution(n1,n2,facenrm, &
-                                            faceusp_array,facegpsp, &
+                                            faceusp,facegpsp, &
                                             bc_in(bc_idx)%pv, &
                                             bc_in(bc_idx)%gp, &
                                             bc_in(0)%pv, &
@@ -198,7 +198,7 @@ continue
         ! Generic outflow boundary condition
         !
         call get_bc_generic_outflow_solution(n1,n2,facenrm, &
-                                             faceusp_array,facegpsp, &
+                                             faceusp,facegpsp, &
                                              bc_in(bc_idx)%pv, &
                                              bc_in(bc_idx)%gp, &
                                              bc_in(bc_idx)%relax)
@@ -208,7 +208,7 @@ continue
         ! Generic freeflow boundary condition
         !
         call get_bc_generic_freeflow_solution(n1,n2,facenrm, &
-                                              faceusp_array,facegpsp, &
+                                              faceusp,facegpsp, &
                                               bc_in(bc_idx)%pv, &
                                               bc_in(bc_idx)%gp, &
                                               bc_in(0)%pv, &
@@ -221,7 +221,7 @@ continue
         ! Subsonic inflow boundary condition
         !
         call get_bc_sub_inflow_solution(n1,n2,facenrm, &
-                                        faceusp_array,facegpsp, &
+                                        faceusp,facegpsp, &
                                         bc_in(bc_idx)%cv, &
                                         bc_in(bc_idx)%pv, &
                                         bc_in(bc_idx)%gp, &
@@ -235,7 +235,7 @@ continue
         ! Subsonic outflow boundary condition
         !
         call get_bc_sub_outflow_solution(n1,n2,facenrm, &
-                                         faceusp_array,facegpsp, &
+                                         faceusp,facegpsp, &
                                          bc_in(bc_idx)%pv, &
                                          bc_in(bc_idx)%gp, &
                                          bc_in(bc_idx)%relax)
@@ -244,13 +244,13 @@ continue
         !
         ! Supersonic inflow boundary condition
         !
-        call get_bc_fixed_solution(n1,n2,faceusp_array(:,:,2),bc_in(bc_idx)%cv)
+        call get_bc_fixed_solution(n1,n2,faceusp(:,:,2),bc_in(bc_idx)%cv)
         !
       case (bc_sup_outflow)
         !
         ! Supersonic outflow boundary condition
         !
-        call get_bc_sup_outflow_solution(n1,n2,faceusp_array)
+        call get_bc_sup_outflow_solution(n1,n2,faceusp)
         !
       case (bc_slip_wall,bc_symmetry,bc_adiabatic_wall,bc_isothermal_wall)
         !
@@ -273,7 +273,7 @@ continue
         if (bc_idx == 0) pv_in(nmb:nme) = zero
         !
         call get_bc_wall_solution(n1,n2,bc_type,facexyz,facenrm, &
-                                  faceusp_array,facegpsp, &
+                                  faceusp,facegpsp, &
                                   bc_in(bc_idx)%relax,pv_in, &
                                   bc_in(bc_idx)%wall_temperature, &
                                   bc_in(bc_idx)%rotation_speed)
@@ -282,7 +282,7 @@ continue
         !
         ! Periodic boundary condition
         !
-        call get_bc_periodic_solution(n1,n2,faceusp_array, &
+        call get_bc_periodic_solution(n1,n2,faceusp, &
                                       bc_grps(grp_idx)%periodic_list)
         !
       case (bc_mms_dirichlet)
@@ -297,7 +297,7 @@ continue
         !
         call get_bc_mms_dirichlet_solution(n1,n2,facenrm, &
                                            facexyz, &
-                                           faceusp_array)
+                                           faceusp)
         !
       case (bc_cpu_bnd)
         !
@@ -385,7 +385,7 @@ subroutine get_facedusp_bc
   !.. Use Statements ..
   use geovar,       only : bc_grps
   use metrics_mod,  only : facenrm
-  use flowvar,      only : faceusp_array
+  use flowvar,      only : faceusp
   use flowvar,      only : facegpsp
   use flowvar,      only : facedusp
   use flowvar,      only : facegpsp
@@ -429,7 +429,7 @@ continue
       !  - No-slip isothermal wall
       !
       call get_bc_wall_gradient(n1,n2,bc_type,facenrm, &
-                                faceusp_array(:,:,1), &
+                                faceusp(:,:,1), &
                                 facegpsp(:,:,1), &
                                 facedusp)
       !
@@ -577,7 +577,7 @@ end subroutine output_bface
 !###############################################################################
 !
 subroutine output_to_debug_bc_groups(grp_idx,bc_idx,bc_type,beg_fp,end_fp, &
-                                     facenrm,faceusp_array)
+                                     facenrm,faceusp)
   !
   !.. Use Statements ..
   use geovar, only : n_solpts,n_flxpts,n_wall_flxpts,n_bnd_flxpts
@@ -590,7 +590,7 @@ subroutine output_to_debug_bc_groups(grp_idx,bc_idx,bc_type,beg_fp,end_fp, &
   integer,  intent(in) :: beg_fp
   integer,  intent(in) :: end_fp
   real(wp), intent(in) :: facenrm(:,:)
-  real(wp), intent(in) :: faceusp_array(:,:,:)
+  real(wp), intent(in) :: faceusp(:,:,:)
   !
   !.. Local Scalars ..
   integer :: m
@@ -621,9 +621,9 @@ continue
                         ubound(bc_in(bc_idx)%pv,dim=1), &
         lbound(facenrm,dim=1), ubound(facenrm,dim=1), &
         lbound(facenrm,dim=2), ubound(facenrm,dim=2), &
-        lbound(faceusp_array,dim=1), ubound(faceusp_array,dim=1), &
-        lbound(faceusp_array,dim=2), ubound(faceusp_array,dim=2), &
-        lbound(faceusp_array,dim=3), ubound(faceusp_array,dim=3)
+        lbound(faceusp,dim=1), ubound(faceusp,dim=1), &
+        lbound(faceusp,dim=2), ubound(faceusp,dim=2), &
+        lbound(faceusp,dim=3), ubound(faceusp,dim=3)
   !
   if (nq < 10) then
     write (mypnum+500,3) bc_idx, (m,bc_in(bc_idx)%cv(m), m=1,nq)

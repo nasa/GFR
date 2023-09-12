@@ -1113,7 +1113,7 @@ subroutine interpsol_debug()
   use flowvar,           only : usp
  !use flowvar,           only : facexyz_dt
   use flowvar,           only : facexyz
-  use flowvar,           only : faceusp_array
+  use flowvar,           only : faceusp
   use order_mod,         only : maxSP,geom_solpts
   use octedat_facexyz_mod
   use octtree_mod
@@ -1400,9 +1400,9 @@ continue
        !write (iout,21) "facexyz_dt(:)          = ",facexyz_dt(nf)%v(1:nr,ifp)
         write (iout,21) "facexyz(:)       = ",facexyz(1:nr,f0+ifp)
        !write (iout,21) "faceusp_dt(:,left)     = ",faceusp_dt(nf)%v(1:nq,ifp,1)
-        write (iout,21) "faceusp_array(:,left)  = ",faceusp_array(f0+ifp,1:nq,1)
+        write (iout,21) "faceusp(:,left)  = ",faceusp(f0+ifp,1:nq,1)
        !write (iout,21) "faceusp_dt(:,right)    = ",faceusp_dt(nf)%v(1:nq,ifp,2)
-        write (iout,21) "faceusp_array(:,right) = ",faceusp_array(f0+ifp,1:nq,2)
+        write (iout,21) "faceusp(:,right) = ",faceusp(f0+ifp,1:nq,2)
         flush (iout)
       end if
       !-DEBUG_END:
@@ -1610,7 +1610,7 @@ subroutine deallocate_solver_arrays()
   use geovar,      only : face,grid
   use flowvar,     only : faceflx
  !use flowvar,     only : faceusp_dt,facedusp_dt,facexyz_dt
-  use flowvar,     only : faceusp_array,facedusp,facexyz
+  use flowvar,     only : faceusp,facedusp,facexyz
   use flowvar,     only : residual,dtsp,uoldsp,rk_sum,rssprk
   use flowvar,     only : nodeusp_dt,nodedusp_dt
   use flowvar,     only : edgeusp_dt,edgedusp_dt,edgexyz_dt
@@ -1632,9 +1632,9 @@ continue
     call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(faceusp_array)) then
-    deallocate ( faceusp_array , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceusp_array",2,__LINE__,__FILE__, &
+  if (allocated(faceusp)) then
+    deallocate ( faceusp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"faceusp",2,__LINE__,__FILE__, &
                      ierr,error_message)
   end if
   !

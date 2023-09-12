@@ -40,7 +40,7 @@ subroutine compute_blowing_ratio(blowing_ratio,mdot_nozzle,mdot_injector)
   !.. Use Statements ..
   use ovar,             only : rhoref,aref
   use geovar,           only : face
-  use flowvar,          only : faceusp_array
+  use flowvar,          only : faceusp
   use metrics_mod,      only : facenrm
   use element_type_mod, only : std_elem
   !
@@ -101,9 +101,9 @@ continue
      !uny = rny/ds
      !unz = rnz/ds
       !
-      rhou = faceusp_array(f0+k,nmx,sf)
-      rhov = faceusp_array(f0+k,nmy,sf)
-      rhow = faceusp_array(f0+k,nmz,sf)
+      rhou = faceusp(f0+k,nmx,sf)
+      rhov = faceusp(f0+k,nmy,sf)
+      rhow = faceusp(f0+k,nmz,sf)
       !
      !mdot = rhou*unx + rhov*uny + rhow*unz
       mdot = rhou*rnx + rhov*rny + rhow*rnz
@@ -142,9 +142,9 @@ continue
      !uny = rny/ds
      !unz = rnz/ds
       !
-      rhou = faceusp_array(f0+k,nmx,sf)
-      rhov = faceusp_array(f0+k,nmy,sf)
-      rhow = faceusp_array(f0+k,nmz,sf)
+      rhou = faceusp(f0+k,nmx,sf)
+      rhov = faceusp(f0+k,nmy,sf)
+      rhow = faceusp(f0+k,nmz,sf)
       !
      !mdot = rhou*unx + rhov*uny + rhow*unz
       mdot = rhou*rnx + rhov*rny + rhow*rnz

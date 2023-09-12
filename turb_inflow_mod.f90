@@ -83,7 +83,7 @@ module synthetic_eddy_mod
   !
   type :: sem_fp_t
     ! IDX : gives the face point index for this SEM point
-    !          i.e.,   rho = faceusp_array(idx,nec,2)
+    !          i.e.,   rho = faceusp(idx,nec,2)
     integer :: idx
     ! X : gives the x coordinate for this SEM point
     ! Y : gives the y coordinate for this SEM point

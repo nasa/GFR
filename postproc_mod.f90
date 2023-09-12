@@ -4177,7 +4177,7 @@ subroutine get_face_solutions
   !
   !.. Use Statements ..
   use geovar,    only : n_bnd_flxpts,n_flxpts
-  use flowvar,   only : faceusp_array,facegpsp
+  use flowvar,   only : faceusp,facegpsp
   !
   use module_bc, only : get_faceusp_bc
   use module_bc, only : get_facedusp_bc
@@ -4208,8 +4208,8 @@ continue
   n1 = n_bnd_flxpts+1
   n2 = n_flxpts
   !
-  call update_thermo_properties(n1,n2,faceusp_array,facegpsp,caller_name=pname)
-  call update_transport_properties(n1,n2,faceusp_array,facegpsp)
+  call update_thermo_properties(n1,n2,faceusp,facegpsp,caller_name=pname)
+  call update_transport_properties(n1,n2,faceusp,facegpsp)
   !
   ! Exchange the left and right states for faces on communication boundaries
   !
@@ -4228,9 +4228,9 @@ continue
   n1 = 1
   n2 = n_bnd_flxpts
   !
-  call update_thermo_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2), &
+  call update_thermo_properties(n1,n2,faceusp(:,:,2),facegpsp(:,:,2), &
                                       loc="face",caller_name=pname)
-  call update_transport_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2))
+  call update_transport_properties(n1,n2,faceusp(:,:,2),facegpsp(:,:,2))
   !
   call pp_interp_dusp_to_flxpts
   !
@@ -4255,7 +4255,7 @@ subroutine copy_and_average_face_arrays_to_dt()
   !
   !.. Use Statements ..
   use geovar,    only : nfbnd,bface,nface,face,n_flxpts
-  use flowvar,   only : faceusp_dt,faceusp_array
+  use flowvar,   only : faceusp_dt,faceusp
   use flowvar,   only : facegpsp_dt,facegpsp
   use flowvar,   only : facedusp_dt,facedusp
   !
@@ -4298,12 +4298,12 @@ continue
       ! Average left and right states and gradients for
       ! exterior communication and periodic boundary faces
       !
-      do m = 1,size(faceusp_array,dim=2)
+      do m = 1,size(faceusp,dim=2)
         do k = 1,nfp
           !
-          val = half*(faceusp_array(f0+k,m,1) + faceusp_array(f0+k,m,2))
-          faceusp_array(f0+k,m,1) = val
-          faceusp_array(f0+k,m,2) = val
+          val = half*(faceusp(f0+k,m,1) + faceusp(f0+k,m,2))
+          faceusp(f0+k,m,1) = val
+          faceusp(f0+k,m,2) = val
           faceusp_dt(nf)%v(m,k,1) = val
           faceusp_dt(nf)%v(m,k,2) = val
           !
@@ -4323,12 +4323,12 @@ continue
       ! Use the right (exterior) state for exterior
       ! boundary faces with physical boundary conditions
       !
-      do m = 1,size(faceusp_array,dim=2)
+      do m = 1,size(faceusp,dim=2)
         do k = 1,nfp
           !
-          val = faceusp_array(f0+k,m,2)
-          faceusp_array(f0+k,m,1) = val
-          faceusp_array(f0+k,m,2) = val
+          val = faceusp(f0+k,m,2)
+          faceusp(f0+k,m,1) = val
+          faceusp(f0+k,m,2) = val
           faceusp_dt(nf)%v(m,k,1) = val
           faceusp_dt(nf)%v(m,k,2) = val
           !
@@ -4354,12 +4354,12 @@ continue
     f0 = face(nf)%beg_fp - 1
     nfp = face(nf)%end_fp - f0
     !
-    do m = 1,size(faceusp_array,dim=2)
+    do m = 1,size(faceusp,dim=2)
       do k = 1,nfp
         !
-        val = half*(faceusp_array(f0+k,m,1) + faceusp_array(f0+k,m,2))
-        faceusp_array(f0+k,m,1) = val
-        faceusp_array(f0+k,m,2) = val
+        val = half*(faceusp(f0+k,m,1) + faceusp(f0+k,m,2))
+        faceusp(f0+k,m,1) = val
+        faceusp(f0+k,m,2) = val
         faceusp_dt(nf)%v(m,k,1) = val
         faceusp_dt(nf)%v(m,k,2) = val
         !
@@ -4376,14 +4376,14 @@ continue
     !
   end do
   !
-  ! Update the gas properties using the newly updated faceusp_array
+  ! Update the gas properties using the newly updated faceusp
   !
   n1 = 1
   n2 = n_flxpts
   !
-  call update_thermo_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1), &
+  call update_thermo_properties(n1,n2,faceusp(:,:,1),facegpsp(:,:,1), &
                                       loc="face",caller_name=pname)
-  call update_transport_properties(n1,n2,faceusp_array(:,:,1),facegpsp(:,:,1))
+  call update_transport_properties(n1,n2,faceusp(:,:,1),facegpsp(:,:,1))
   !
   ! Copy the updated gas properties to facegpsp_dt
   !
@@ -4416,7 +4416,7 @@ subroutine pp_interp_cv_to_flxpts()
   use geovar,            only : ncell,cell,face,fp
   use interpolation_mod, only : interp
   use flowvar,           only : usp
-  use flowvar,           only : faceusp_array
+  use flowvar,           only : faceusp
   !
   !.. Local Scalars ..
   integer  :: n,nc,n0,n1,n2,k,m,f0
@@ -4488,7 +4488,7 @@ continue
             !
           end do
           !
-          faceusp_array(f0+kf,m,sf) = val
+          faceusp(f0+kf,m,sf) = val
           !
         end do
         !

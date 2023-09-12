@@ -4370,7 +4370,7 @@ subroutine check_face_flux_point_orderings()
   use geovar, only : nfbnd,nface,face,fp
   use geovar, only : nr,xyz,bface,bc_grps
   use interpolation_mod, only : interp
-  use flowvar, only : face_var,faceusp_array
+  use flowvar, only : face_var,faceusp
   use flowvar, only : facexyz
   use parallel_mod, only : exchange_faceusp,wait_faceusp
   use parallel_mod, only : exchange_faceusp_dt,wait_faceusp_dt
@@ -4476,9 +4476,9 @@ continue
   end do
   !
   ntfp = face(nface)%end_fp
-  allocate ( faceusp_array(1:ntfp,1:nq,1:2) , source=zero , &
+  allocate ( faceusp(1:ntfp,1:nq,1:2) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__,ierr,error_message)
+  call alloc_error(pname,"faceusp",1,__LINE__,__FILE__,ierr,error_message)
   !
   do nf = 1,nfbnd
     !
@@ -4643,7 +4643,7 @@ continue
     !
   end do
   !
-  faceusp_array(:,:,:) = zero
+  faceusp(:,:,:) = zero
   !
   do nf = 1,nface
     !
@@ -4656,7 +4656,7 @@ continue
    !    write (iout,100) mypnum,nf,f0,kf,l,i
    !    100 format ("CPU # ",i0," : ",i5,i5,i3,i2,i2)
    !    flush (iout)
-        faceusp_array(f0+kf,l,1) = face_xyz(nf)%v(l,kf,1)
+        faceusp(f0+kf,l,1) = face_xyz(nf)%v(l,kf,1)
       end do
     end do
    !end do
@@ -4664,7 +4664,7 @@ continue
     if (nf > nfbnd) then
       do kf = 1,nfp
         do l = 1,nr
-          faceusp_array(f0+kf,l,2) = face_xyz(nf)%v(l,kf,2)
+          faceusp(f0+kf,l,2) = face_xyz(nf)%v(l,kf,2)
         end do
       end do
     end if
@@ -4683,13 +4683,13 @@ continue
     !
     if (bc_type == bc_periodic) then
       !
-      call transfer_periodic(n1,n2,faceusp_array,bc_grps(i)%periodic_list)
+      call transfer_periodic(n1,n2,faceusp,bc_grps(i)%periodic_list)
       !
     else
       !
       do kf = 1,np
         do l = 1,nr
-          faceusp_array(n0+kf,l,2) = faceusp_array(n0+kf,l,1)
+          faceusp(n0+kf,l,2) = faceusp(n0+kf,l,1)
         end do
       end do
       !
@@ -4754,22 +4754,22 @@ continue
       !
       write (l1file,11) (merge(zero,face_xyz(nf)%v(l,kf,1), &
                                 abs(face_xyz(nf)%v(l,kf,1))<=eps14),l=1,nr)
-      write (l2file,11) (merge(zero,faceusp_array(f0+kf,l,1), &
-                                abs(faceusp_array(f0+kf,l,1))<=eps14),l=1,nr)
+      write (l2file,11) (merge(zero,faceusp(f0+kf,l,1), &
+                                abs(faceusp(f0+kf,l,1))<=eps14),l=1,nr)
       !
       write (r1file,11) (merge(zero,face_xyz(nf)%v(l,kf,2), &
                                 abs(face_xyz(nf)%v(l,kf,2))<=eps14),l=1,nr)
-      write (r2file,11) (merge(zero,faceusp_array(f0+kf,l,2), &
-                                abs(faceusp_array(f0+kf,l,2))<=eps14),l=1,nr)
+      write (r2file,11) (merge(zero,faceusp(f0+kf,l,2), &
+                                abs(faceusp(f0+kf,l,2))<=eps14),l=1,nr)
       !
       write (d1file,11) (abs( face_xyz(nf)%v(l,kf,2) - &
                               face_xyz(nf)%v(l,kf,1)) , l=1,nr), &
                         norm2( face_xyz(nf)%v(1:nr,kf,2) - &
                                face_xyz(nf)%v(1:nr,kf,1) )
-      write (d2file,11) (abs( faceusp_array(f0+kf,l,2) - &
-                              faceusp_array(f0+kf,l,1)) , l=1,nr), &
-                        norm2( faceusp_array(f0+kf,1:nr,2) - &
-                               faceusp_array(f0+kf,1:nr,1) )
+      write (d2file,11) (abs( faceusp(f0+kf,l,2) - &
+                              faceusp(f0+kf,l,1)) , l=1,nr), &
+                        norm2( faceusp(f0+kf,1:nr,2) - &
+                               faceusp(f0+kf,1:nr,1) )
       !
     end do
     !
@@ -4787,8 +4787,8 @@ continue
   deallocate ( face_xyz , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face_xyz",2,__LINE__,__FILE__,ierr,error_message)
   !
-  deallocate ( faceusp_array , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faceusp_array",2,__LINE__,__FILE__,ierr,error_message)
+  deallocate ( faceusp , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faceusp",2,__LINE__,__FILE__,ierr,error_message)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -5053,7 +5053,7 @@ subroutine check_cell_flux_point_orderings()
   use geovar, only : nfbnd,nface,face,fp
   use geovar, only : nr,xyz,bface
   use interpolation_mod, only : interp
-  use flowvar, only : face_var,faceusp_array
+  use flowvar, only : face_var,faceusp
   use parallel_mod, only : exchange_faceusp,wait_faceusp
   use parallel_mod, only : exchange_faceusp_dt,wait_faceusp_dt
   !
@@ -5110,9 +5110,9 @@ continue
   end do
   !
   ntfp = face(nface)%end_fp
-  allocate ( faceusp_array(1:ntfp,1:nq,1:2) , source=zero , &
+  allocate ( faceusp(1:ntfp,1:nq,1:2) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__,ierr,error_message)
+  call alloc_error(pname,"faceusp",1,__LINE__,__FILE__,ierr,error_message)
   !
   do nc = 1,ncell
     !
@@ -5199,7 +5199,7 @@ continue
     !
   end do
   !
-  faceusp_array(:,:,:) = zero
+  faceusp(:,:,:) = zero
   !
   do nf = 1,nface
     !
@@ -5209,7 +5209,7 @@ continue
     do i = 1,2
       do kf = 1,nfp
         do l = 1,nr
-          faceusp_array(f0+kf,l,i) = face_xyz(nf)%v(l,kf,i)
+          faceusp(f0+kf,l,i) = face_xyz(nf)%v(l,kf,i)
         end do
       end do
     end do
@@ -5256,22 +5256,22 @@ continue
       !
       write (l1file,11) (merge(zero,face_xyz(nf)%v(l,kf,1), &
                                 abs(face_xyz(nf)%v(l,kf,1))<=eps14),l=1,nr)
-      write (l2file,11) (merge(zero,faceusp_array(f0+kf,l,1), &
-                                abs(faceusp_array(f0+kf,l,1))<=eps14),l=1,nr)
+      write (l2file,11) (merge(zero,faceusp(f0+kf,l,1), &
+                                abs(faceusp(f0+kf,l,1))<=eps14),l=1,nr)
       !
       write (r1file,11) (merge(zero,face_xyz(nf)%v(l,kf,2), &
                                 abs(face_xyz(nf)%v(l,kf,2))<=eps14),l=1,nr)
-      write (r2file,11) (merge(zero,faceusp_array(f0+kf,l,2), &
-                                abs(faceusp_array(f0+kf,l,2))<=eps14),l=1,nr)
+      write (r2file,11) (merge(zero,faceusp(f0+kf,l,2), &
+                                abs(faceusp(f0+kf,l,2))<=eps14),l=1,nr)
       !
       write (d1file,11) (abs( face_xyz(nf)%v(l,kf,2) - &
                               face_xyz(nf)%v(l,kf,1) ) , l=1,nr), &
                        norm2( face_xyz(nf)%v(1:nr,kf,2) - &
                               face_xyz(nf)%v(1:nr,kf,1) )
-      write (d2file,11) (abs( faceusp_array(f0+kf,l,2) - &
-                              faceusp_array(f0+kf,l,1) ) , l=1,nr), &
-                       norm2( faceusp_array(f0+kf,1:nr,2) - &
-                              faceusp_array(f0+kf,1:nr,1) )
+      write (d2file,11) (abs( faceusp(f0+kf,l,2) - &
+                              faceusp(f0+kf,l,1) ) , l=1,nr), &
+                       norm2( faceusp(f0+kf,1:nr,2) - &
+                              faceusp(f0+kf,1:nr,1) )
       !
     end do
     !
@@ -5280,8 +5280,8 @@ continue
   deallocate ( face_xyz , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face_xyz",2,__LINE__,__FILE__,ierr,error_message)
   !
-  deallocate ( faceusp_array , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faceusp_array",2,__LINE__,__FILE__,ierr,error_message)
+  deallocate ( faceusp , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faceusp",2,__LINE__,__FILE__,ierr,error_message)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -5308,7 +5308,7 @@ subroutine test_communication()
   !
   !.. Use Statements ..
   use geovar, only : nfbnd,nface,face,bface
-  use flowvar, only : face_var,faceusp_array
+  use flowvar, only : face_var,faceusp
   use parallel_mod, only : exchange_faceusp,wait_faceusp
   use parallel_mod, only : exchange_faceusp_dt,wait_faceusp_dt
   !
@@ -5356,9 +5356,9 @@ continue
   end do
   !
   ntfp = face(nface)%end_fp
-  allocate ( faceusp_array(1:ntfp,1:nq,1:2) , source=zero , &
+  allocate ( faceusp(1:ntfp,1:nq,1:2) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__,ierr,error_message)
+  call alloc_error(pname,"faceusp",1,__LINE__,__FILE__,ierr,error_message)
   !
   i = 0
   !
@@ -5403,7 +5403,7 @@ continue
     !
   end do
   !
-  faceusp_array(:,:,:) = zero
+  faceusp(:,:,:) = zero
   !
   do nf = 1,nfbnd
     !
@@ -5413,7 +5413,7 @@ continue
     do i = 1,2
       do kf = 1,nfp
         do l = 1,nq
-          faceusp_array(f0+kf,l,i) = face_xyz(nf)%v(l,kf,i)
+          faceusp(f0+kf,l,i) = face_xyz(nf)%v(l,kf,i)
         end do
       end do
     end do
@@ -5453,19 +5453,19 @@ continue
     do kf = 1,nfp
       !
       write (l1file,13) (nint(face_xyz(nf)%v(l,kf,1)),l=1,nq)
-      write (l2file,13) (nint(faceusp_array(f0+kf,l,1)),l=1,nq)
+      write (l2file,13) (nint(faceusp(f0+kf,l,1)),l=1,nq)
       !
       write (r1file,13) (nint(face_xyz(nf)%v(l,kf,2)),l=1,nq)
-      write (r2file,13) (nint(faceusp_array(f0+kf,l,2)),l=1,nq)
+      write (r2file,13) (nint(faceusp(f0+kf,l,2)),l=1,nq)
       !
       write (d1file,11) (abs( face_xyz(nf)%v(l,kf,2) - &
                               face_xyz(nf)%v(l,kf,1) ) , l=1,nq), &
                        norm2( face_xyz(nf)%v(1:nq,kf,2) - &
                               face_xyz(nf)%v(1:nq,kf,1) )
-      write (d2file,11) (abs( faceusp_array(f0+kf,l,2) - &
-                              faceusp_array(f0+kf,l,1) ) , l=1,nq), &
-                       norm2( faceusp_array(f0+kf,1:nq,2) - &
-                              faceusp_array(f0+kf,1:nq,1) )
+      write (d2file,11) (abs( faceusp(f0+kf,l,2) - &
+                              faceusp(f0+kf,l,1) ) , l=1,nq), &
+                       norm2( faceusp(f0+kf,1:nq,2) - &
+                              faceusp(f0+kf,1:nq,1) )
       !
     end do
     !
@@ -5474,8 +5474,8 @@ continue
   deallocate ( face_xyz , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face_xyz",2,__LINE__,__FILE__,ierr,error_message)
   !
-  deallocate ( faceusp_array , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faceusp_array",2,__LINE__,__FILE__,ierr,error_message)
+  deallocate ( faceusp , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faceusp",2,__LINE__,__FILE__,ierr,error_message)
   !
   call debug_timer(leaving_procedure,pname)
   !

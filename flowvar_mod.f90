@@ -140,11 +140,11 @@ module flowvar
   type(face_vec), public, save, allocatable, dimension(:) :: facedusp_dt
   type(face_xyz), public, save, allocatable, dimension(:) :: facexyz_dt
   !
-  ! FACEUSP_ARRAY  : conservative variables at the interface flx-pts
+  ! FACEUSP  : conservative variables at the interface flx-pts
   ! FACEDUSP : conservative variable gradients at the interface flx-pts
   !
-  real(wp), public, save, allocatable :: faceusp_array(:,:,:)
-  !$ACC DECLARE CREATE(faceusp_array)
+  real(wp), public, save, allocatable :: faceusp(:,:,:)
+  !$ACC DECLARE CREATE(faceusp)
   real(wp), public, save, allocatable :: facedusp(:,:,:,:)
   !$ACC DECLARE CREATE(facedusp)
   !
@@ -416,9 +416,9 @@ call debug_timer(start_timer,message(iwt))
     !
     call alloc_face_dt_components(faceusp_dt,nfpts,"faceusp_dt")
     !
-    allocate ( faceusp_array(1:nfpts,1:nq,1:2) , source=zero , &
+    allocate ( faceusp(1:nfpts,1:nq,1:2) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__, &
+    call alloc_error(pname,"faceusp",1,__LINE__,__FILE__, &
                      ierr,error_message)
     !
     allocate ( facegpsp_dt(1:nface) , stat=ierr , errmsg=error_message )
@@ -471,16 +471,16 @@ call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   !
   if (convert_restart_to_cgns) then
   iwt = iwt + 1
-  message(iwt) = "Allocating faceusp_array for convert_restart_to_cgns"
+  message(iwt) = "Allocating faceusp for convert_restart_to_cgns"
 call debug_timer(start_timer,message(iwt))
     !
     nfpts = face(nface)%end_fp ! end fp index for last face
     !
-    allocate ( faceusp_array(1:nfpts,1:nq,1:2) , source=zero , &
+    allocate ( faceusp(1:nfpts,1:nq,1:2) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__, &
+    call alloc_error(pname,"faceusp",1,__LINE__,__FILE__, &
                      ierr,error_message)
-    !$ACC UPDATE DEVICE(faceusp_array)
+    !$ACC UPDATE DEVICE(faceusp)
    !!
    !allocate ( facedusp(1:nfpts,1:nr,1:nq,1:2) , source=zero , &
    !           stat=ierr , errmsg=error_message )
@@ -597,12 +597,12 @@ call debug_timer(start_timer,message(iwt))
                      ierr,error_message)
     !$ACC UPDATE DEVICE(faceflx)
     !
-    if (.not. allocated(faceusp_array)) then
-      allocate ( faceusp_array(1:nfpts,1:nq,1:2) , source=zero , &
+    if (.not. allocated(faceusp)) then
+      allocate ( faceusp(1:nfpts,1:nq,1:2) , source=zero , &
                  stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__, &
+      call alloc_error(pname,"faceusp",1,__LINE__,__FILE__, &
                        ierr,error_message)
-      !$ACC UPDATE DEVICE(faceusp_array)
+      !$ACC UPDATE DEVICE(faceusp)
     end if
     !
     if (.not. allocated(facedusp)) then
@@ -1723,14 +1723,14 @@ continue
   else
     write (iou,7) "dtsp"
   end if
-  if (allocated(faceusp_array)) then
-    call array%set( storage_size(faceusp_array,kind=inttype) , &
-                            size(faceusp_array,kind=inttype) )
+  if (allocated(faceusp)) then
+    call array%set( storage_size(faceusp,kind=inttype) , &
+                            size(faceusp,kind=inttype) )
     call total%add(array)
-    write (array_name,5) "faceusp_array"
+    write (array_name,5) "faceusp"
     write (iou,2) array_name,array%get_units()
   else
-    write (iou,7) "faceusp_array"
+    write (iou,7) "faceusp"
   end if
   if (allocated(facedusp)) then
     call array%set( storage_size(facedusp,kind=inttype) , &

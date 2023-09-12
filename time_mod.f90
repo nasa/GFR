@@ -272,7 +272,7 @@ subroutine get_cell_global_timestep(dtmin,dt_sp)
   !
   use metrics_mod, only : facenrm,facejac
   !
-  use flowvar, only : faceusp_array
+  use flowvar, only : faceusp
   use flowvar, only : facegpsp
   !
   !.. Formal Arguments ..
@@ -328,7 +328,7 @@ continue
     end do
   end if
   !
-  call invs_eigenvalue(n1,n2,faceusp_array,facegpsp,facenrm,eigni,dsf)
+  call invs_eigenvalue(n1,n2,faceusp,facegpsp,facenrm,eigni,dsf)
   !
   dtmin = huge(zero)
   !
@@ -454,7 +454,7 @@ subroutine get_cell_local_timestep(dtmin,dt_sp)
   !
   use metrics_mod, only : facenrm,facejac
   !
-  use flowvar, only : faceusp_array
+  use flowvar, only : faceusp
   use flowvar, only : facegpsp
   !
   !.. Formal Arguments ..
@@ -511,7 +511,7 @@ continue
     end do
   end if
   !
-  call invs_eigenvalue(n1,n2,faceusp_array,facegpsp,facenrm,eigni,dsf)
+  call invs_eigenvalue(n1,n2,faceusp,facegpsp,facenrm,eigni,dsf)
   !
   dtmin = huge(zero)
   !$ACC PARALLEL LOOP

@@ -2244,7 +2244,7 @@ subroutine find_bad_number()
   use ovar,              only : grid_scaling_factor,rhoref,aref,tref
   use geovar,            only : nr,cell,face,fp,nfbnd,nface
   use geovar,            only : n_solpts,n_bnd_flxpts,n_flxpts,xyz
-  use flowvar,           only : usp,gpsp,faceusp_array,facegpsp
+  use flowvar,           only : usp,gpsp,faceusp,facegpsp
   use flowvar,           only : facexyz
   use interpolation_mod, only : interp
   !
@@ -2329,7 +2329,7 @@ continue
           .not. allocated(cell) .or. &
           .not. allocated(face) .or. &
           .not. allocated(fp) .or. &
-          .not. allocated(faceusp_array) .or. &
+          .not. allocated(faceusp) .or. &
           .not. allocated(facegpsp)) exit one_pass_interp_face_loop
       !
       ! Find a negative density, temperature,
@@ -2352,7 +2352,7 @@ continue
           bnd_sf_loop: &
           do sf = 1,2
             !
-            vars(1) = faceusp_array(f0+kf,nec,sf)
+            vars(1) = faceusp(f0+kf,nec,sf)
             vars(2) = facegpsp(f0+kf,npres,sf)
             vars(3) = facegpsp(f0+kf,ntemp,sf)
             !
@@ -2421,7 +2421,7 @@ continue
           int_sf_loop: &
           do sf = 1,2
             !
-            vars(1) = faceusp_array(f0+kf,nec,sf)
+            vars(1) = faceusp(f0+kf,nec,sf)
             vars(2) = facegpsp(f0+kf,npres,sf)
             vars(3) = facegpsp(f0+kf,ntemp,sf)
             !
@@ -2480,7 +2480,7 @@ continue
       ! Skip this loop if any of the needed arrays have yet to be allocated
       !
       if (.not. allocated(facexyz) .or. &
-          .not. allocated(faceusp_array) .or. &
+          .not. allocated(faceusp) .or. &
           .not. allocated(facegpsp)) exit one_pass_noninterp_face_loop
       !
       ! Find a negative density, temperature,
@@ -2491,7 +2491,7 @@ continue
       !
       do n = 1,n_bnd_flxpts
         do sf = 1,2
-          vars(1) = faceusp_array(n,nec,sf)
+          vars(1) = faceusp(n,nec,sf)
           vars(2) = facegpsp(n,npres,sf)
           vars(3) = facegpsp(n,ntemp,sf)
           if (.not. all(ieee_is_finite(vars))) then
@@ -2520,7 +2520,7 @@ continue
       !
       do n = n_bnd_flxpts+1,n_flxpts
         do sf = 1,2
-          vars(1) = faceusp_array(n,nec,sf)
+          vars(1) = faceusp(n,nec,sf)
           vars(2) = facegpsp(n,npres,sf)
           vars(3) = facegpsp(n,ntemp,sf)
           if (.not. all(ieee_is_finite(vars))) then

@@ -60,7 +60,7 @@ subroutine interp_cv_to_flxpts(iter,nst)
   !
   !.. Use Statements ..
   use geovar,          only : nr,n_bnd_flxpts,n_phys_bnd_flxpts,n_flxpts
-  use flowvar,         only : faceusp_array,facegpsp
+  use flowvar,         only : faceusp,facegpsp
   use thermo_mod,      only : update_thermo_properties
   use thermo_mod,      only : update_mixture_density
   use transport_mod,   only : update_transport_properties
@@ -105,13 +105,13 @@ continue
   n1 = n_bnd_flxpts+1
   n2 = n_flxpts
   !
-  call update_thermo_properties(n1,n2,faceusp_array,facegpsp,caller_name=pname)
+  call update_thermo_properties(n1,n2,faceusp,facegpsp,caller_name=pname)
   !
   ! Check for any negative thermodynamic properties at the flux points
   !
  !call check_face_thermo_properties()
   !
-  call update_transport_properties(n1,n2,faceusp_array,facegpsp)
+  call update_transport_properties(n1,n2,faceusp,facegpsp)
   !
   ! We need to update the mixture density from interpolating the species
   ! densities to the flux points in case the interpolation has caused
@@ -126,7 +126,7 @@ continue
   n1 = n_phys_bnd_flxpts+1
   n2 = n_bnd_flxpts
   !
-  call update_mixture_density(n1,n2,faceusp_array(:,:,1))
+  call update_mixture_density(n1,n2,faceusp(:,:,1))
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -140,7 +140,7 @@ subroutine interp_cv_to_flxpts_3d(iter,nst)
   use interpolation_mod, only : interp
   use flowvar,           only : usp
   use geovar,            only : face
-  use flowvar,           only : faceusp_array
+  use flowvar,           only : faceusp
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: iter,nst
@@ -163,7 +163,7 @@ continue
   ! variables at the solution points to the flux points of each cell
   !
   !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
-  !$ACC&                   PRESENT(faceusp_array) &
+  !$ACC&                   PRESENT(faceusp) &
   !$ACC&                   PRESENT(face) &
   !$ACC&                   PRESENT(fp) &
   !$ACC&                   PRESENT(cell) &
@@ -224,11 +224,11 @@ continue
           !
         end do
         !
-        faceusp_array(f0+kf,nec,sf) = face_ec
-        faceusp_array(f0+kf,nmx,sf) = face_mx
-        faceusp_array(f0+kf,nmy,sf) = face_my
-        faceusp_array(f0+kf,nmz,sf) = face_mz
-        faceusp_array(f0+kf,nee,sf) = face_ee
+        faceusp(f0+kf,nec,sf) = face_ec
+        faceusp(f0+kf,nmx,sf) = face_mx
+        faceusp(f0+kf,nmy,sf) = face_my
+        faceusp(f0+kf,nmz,sf) = face_mz
+        faceusp(f0+kf,nee,sf) = face_ee
         !
       end do
       !
@@ -238,7 +238,7 @@ continue
   !
  !if (present(iter) .and. present(nst)) then
  !  if (iter > 0 .and. nst > 0) then
- !    call write_array(100,iter,nst,faceusp_array(:,:,1))
+ !    call write_array(100,iter,nst,faceusp(:,:,1))
  !  end if
  !end if
   !
@@ -252,7 +252,7 @@ subroutine interp_cv_to_flxpts_2d()
   use interpolation_mod, only : interp
   use flowvar,           only : usp
   use geovar,            only : face
-  use flowvar,           only : faceusp_array
+  use flowvar,           only : faceusp
   !
   !.. Local Scalars ..
   integer :: n,nc,n0,ncf,f0
@@ -272,7 +272,7 @@ continue
   ! variables at the solution points to the flux points of each cell
   !
   !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
-  !$ACC&                   PRESENT(faceusp_array) &
+  !$ACC&                   PRESENT(faceusp) &
   !$ACC&                   PRESENT(face) &
   !$ACC&                   PRESENT(fp) &
   !$ACC&                   PRESENT(cell) &
@@ -331,10 +331,10 @@ continue
           !
         end do
         !
-        faceusp_array(f0+kf,nec,sf) = face_ec
-        faceusp_array(f0+kf,nmx,sf) = face_mx
-        faceusp_array(f0+kf,nmy,sf) = face_my
-        faceusp_array(f0+kf,nee,sf) = face_ee
+        faceusp(f0+kf,nec,sf) = face_ec
+        faceusp(f0+kf,nmx,sf) = face_mx
+        faceusp(f0+kf,nmy,sf) = face_my
+        faceusp(f0+kf,nee,sf) = face_ee
         !
       end do
       !
@@ -352,7 +352,7 @@ subroutine interp_cv_to_flxpts_1d()
   use interpolation_mod, only : interp
   use flowvar,           only : usp
   use geovar,            only : face
-  use flowvar,           only : faceusp_array
+  use flowvar,           only : faceusp
   !
   !.. Local Scalars ..
   integer :: n,nc,n0,ncf,f0
@@ -372,7 +372,7 @@ continue
   ! variables at the solution points to the flux points of each cell
   !
   !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
-  !$ACC&                   PRESENT(faceusp_array) &
+  !$ACC&                   PRESENT(faceusp) &
   !$ACC&                   PRESENT(face) &
   !$ACC&                   PRESENT(fp) &
   !$ACC&                   PRESENT(cell) &
@@ -429,9 +429,9 @@ continue
           !
         end do
         !
-        faceusp_array(f0+kf,nec,sf) = face_ec
-        faceusp_array(f0+kf,nmx,sf) = face_mx
-        faceusp_array(f0+kf,nee,sf) = face_ee
+        faceusp(f0+kf,nec,sf) = face_ec
+        faceusp(f0+kf,nmx,sf) = face_mx
+        faceusp(f0+kf,nee,sf) = face_ee
         !
       end do
       !
@@ -450,7 +450,7 @@ subroutine interp_cv_to_flxpts_nd(mbeg,mend)
   use interpolation_mod, only : interp
   use flowvar,           only : usp
   use geovar,            only : face
-  use flowvar,           only : faceusp_array
+  use flowvar,           only : faceusp
   !
   !.. Formal Arguments ..
   integer, intent(in) :: mbeg,mend
@@ -476,7 +476,7 @@ continue
   ! variables at the solution points to the flux points of each cell
   !
   !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
-  !$ACC&                   PRESENT(faceusp_array) &
+  !$ACC&                   PRESENT(faceusp) &
   !$ACC&                   PRESENT(face) &
   !$ACC&                   PRESENT(fp) &
   !$ACC&                   PRESENT(cell) &
@@ -532,7 +532,7 @@ continue
             !
           end do
           !
-          faceusp_array(f0+kf,m,sf) = val
+          faceusp(f0+kf,m,sf) = val
           !
         end do
         !
@@ -3723,7 +3723,7 @@ subroutine invs_common_fluxes_interior_at_flxpts()
   use geovar,      only : n_bnd_flxpts,n_flxpts
   use ovar,        only : invs_flux_method
   use metrics_mod, only : facenrm
-  use flowvar,     only : faceusp_array
+  use flowvar,     only : faceusp
   use flowvar,     only : facegpsp
   use flowvar,     only : faceflx
   !
@@ -3742,7 +3742,7 @@ continue
   n1 = n_bnd_flxpts+1
   n2 = n_flxpts
   !
-  call upwind_flux_gpu(n1,n2,facenrm,faceusp_array,facegpsp,faceflx)
+  call upwind_flux_gpu(n1,n2,facenrm,faceusp,facegpsp,faceflx)
   !
 #ifdef DEBUG_FLUXES_AND_RESIDUAL
   block
@@ -3760,15 +3760,15 @@ continue
     !
     write (fname,1) "faceusp_L",itcur
     open (newunit=io,file=fname,status="replace",action="write")
-    do n = 1,size(faceusp_array,dim=1)
-      write (io,2) n,(faceusp_array(n,m,1), m=nec,nee)
+    do n = 1,size(faceusp,dim=1)
+      write (io,2) n,(faceusp(n,m,1), m=nec,nee)
     end do
     close(io)
     !
     write (fname,1) "faceusp_R",itcur
     open (newunit=io,file=fname,status="replace",action="write")
-    do n = 1,size(faceusp_array,dim=1)
-      write (io,2) n,(faceusp_array(n,m,2), m=nec,nee)
+    do n = 1,size(faceusp,dim=1)
+      write (io,2) n,(faceusp(n,m,2), m=nec,nee)
     end do
     close(io)
     !
@@ -3789,7 +3789,7 @@ subroutine invs_common_fluxes_interior_at_qdtpts()
   use ovar,        only : invs_flux_method
   use ovar,        only : combine_common_flux_projections
   use metrics_mod, only : facenrm_qdtpts
-  use flowvar,     only : faceusp_array
+  use flowvar,     only : faceusp
   use flowvar,     only : faceflx
   !
   use upwind_flux_mod, only : upwind_flux_gpu
@@ -3812,7 +3812,7 @@ continue
   nf1 = nfbnd+1
   nf2 = nface
   !
-  call interp_faceusp_to_faceuqp(nf1,nf2,faceusp_array,faceuqp,facegpqp)
+  call interp_faceusp_to_faceuqp(nf1,nf2,faceusp,faceuqp,facegpqp)
   !
   n1 = n_bnd_qdtpts+1
   n2 = n_flx_qdtpts
@@ -3857,7 +3857,7 @@ subroutine visc_common_fluxes_interior_at_flxpts()
   use geovar,      only : n_bnd_flxpts,n_flxpts
   use ovar,        only : visc_variables_to_ave
   use metrics_mod, only : facenrm
-  use flowvar,     only : faceusp_array
+  use flowvar,     only : faceusp
   use flowvar,     only : facedusp
   use flowvar,     only : facegpsp
   use flowvar,     only : faceflx
@@ -3878,12 +3878,12 @@ continue
   !
   if (visc_variables_to_ave == visc_interface_fluxes) then
     !
-    call common_vflx_ave_fluxes_gpu(n1,n2,facenrm,faceusp_array,facegpsp, &
+    call common_vflx_ave_fluxes_gpu(n1,n2,facenrm,faceusp,facegpsp, &
                                     facedusp,faceflx)
     !
   else ! visc_variables_to_ave == visc_solution_and_gradients
     !
-    call common_vflx_ave_sol_and_grad_gpu(n1,n2,facenrm,faceusp_array, &
+    call common_vflx_ave_sol_and_grad_gpu(n1,n2,facenrm,faceusp, &
                                           facedusp,faceflx)
     !
   end if
@@ -3948,7 +3948,7 @@ subroutine get_invs_common_fluxes_bc()
   !
   !.. Use Statements ..
   use geovar,        only : using_quadrature,n_bnd_flxpts
-  use flowvar,       only : faceusp_array,facegpsp
+  use flowvar,       only : faceusp,facegpsp
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -3968,9 +3968,9 @@ continue
   n1 = 1
   n2 = n_bnd_flxpts
   !
-  call update_thermo_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2), &
+  call update_thermo_properties(n1,n2,faceusp(:,:,2),facegpsp(:,:,2), &
                                       loc="face",caller_name=pname)
-  call update_transport_properties(n1,n2,faceusp_array(:,:,2),facegpsp(:,:,2))
+  call update_transport_properties(n1,n2,faceusp(:,:,2),facegpsp(:,:,2))
   !
   if (using_quadrature) then
     call invs_common_fluxes_bc_at_qdtpts
@@ -3990,7 +3990,7 @@ subroutine invs_common_fluxes_bc_at_flxpts()
   use geovar,      only : n_wall_flxpts,n_bnd_flxpts
   use ovar,        only : invs_flux_method
   use metrics_mod, only : facenrm
-  use flowvar,     only : faceusp_array
+  use flowvar,     only : faceusp
   use flowvar,     only : facegpsp
   use flowvar,     only : faceflx
   !
@@ -4013,7 +4013,7 @@ continue
   !
   if (n2 >= n1) then
     !
-    call invs_wall_flx_gpu(n1,n2,facenrm,faceusp_array,facegpsp,faceflx)
+    call invs_wall_flx_gpu(n1,n2,facenrm,faceusp,facegpsp,faceflx)
     !
   end if
   !
@@ -4023,7 +4023,7 @@ continue
   n1 = n_wall_flxpts+1
   n2 = n_bnd_flxpts
   !
-  call upwind_flux_gpu(n1,n2,facenrm,faceusp_array,facegpsp,faceflx)
+  call upwind_flux_gpu(n1,n2,facenrm,faceusp,facegpsp,faceflx)
   !
 #ifdef DEBUG_FLUXES_AND_RESIDUAL
   block
@@ -4041,15 +4041,15 @@ continue
     !
     write (fname,1) "faceusp_L",itcur
     open (newunit=io,file=fname,status="replace",action="write")
-    do n = 1,size(faceusp_array,dim=1)
-      write (io,2) n,(faceusp_array(n,m,1), m=nec,nee)
+    do n = 1,size(faceusp,dim=1)
+      write (io,2) n,(faceusp(n,m,1), m=nec,nee)
     end do
     close(io)
     !
     write (fname,1) "faceusp_R",itcur
     open (newunit=io,file=fname,status="replace",action="write")
-    do n = 1,size(faceusp_array,dim=1)
-      write (io,2) n,(faceusp_array(n,m,2), m=nec,nee)
+    do n = 1,size(faceusp,dim=1)
+      write (io,2) n,(faceusp(n,m,2), m=nec,nee)
     end do
     close(io)
     !
@@ -4070,7 +4070,7 @@ subroutine invs_common_fluxes_bc_at_qdtpts()
   use ovar,        only : invs_flux_method
   use ovar,        only : combine_common_flux_projections
   use metrics_mod, only : facenrm_qdtpts
-  use flowvar,     only : faceusp_array
+  use flowvar,     only : faceusp
   use flowvar,     only : faceflx
   !
   use invs_flux_mod, only : invs_wall_flx_gpu
@@ -4090,7 +4090,7 @@ continue
   nf1 = 1
   nf2 = nfbnd
   !
-  call interp_faceusp_to_faceuqp(nf1,nf2,faceusp_array,faceuqp,facegpqp)
+  call interp_faceusp_to_faceuqp(nf1,nf2,faceusp,faceuqp,facegpqp)
   !
   n1 = 1
   n2 = n_wall_qdtpts
@@ -4144,7 +4144,7 @@ subroutine visc_common_fluxes_bc_at_flxpts()
   use geovar,      only : n_wall_flxpts,n_bnd_flxpts
   use ovar,        only : visc_variables_to_ave
   use metrics_mod, only : facenrm
-  use flowvar,     only : faceusp_array
+  use flowvar,     only : faceusp
   use flowvar,     only : facedusp
   use flowvar,     only : facegpsp
   use flowvar,     only : faceflx
@@ -4168,7 +4168,7 @@ continue
   !
   if (n2 >= n1) then
     !
-    call visc_wall_flx_gpu(n1,n2,facenrm,faceusp_array,facegpsp, &
+    call visc_wall_flx_gpu(n1,n2,facenrm,faceusp,facegpsp, &
                            facedusp,faceflx)
     !
   end if
@@ -4181,12 +4181,12 @@ continue
   !
   if (visc_variables_to_ave == visc_interface_fluxes) then
     !
-    call common_vflx_ave_fluxes_gpu(n1,n2,facenrm,faceusp_array,facegpsp, &
+    call common_vflx_ave_fluxes_gpu(n1,n2,facenrm,faceusp,facegpsp, &
                                     facedusp,faceflx)
     !
   else ! visc_variables_to_ave == visc_solution_and_gradients
     !
-    call common_vflx_ave_sol_and_grad_gpu(n1,n2,facenrm,faceusp_array, &
+    call common_vflx_ave_sol_and_grad_gpu(n1,n2,facenrm,faceusp, &
                                           facedusp,faceflx)
     !
   end if
@@ -5743,7 +5743,7 @@ subroutine correct_gradients_at_solpts_gpu_3d()
   use geovar,         only : face,cell,fp
   use metrics_mod,    only : facenrm,jac
   use correction_mod, only : correct
-  use flowvar,        only : dusp,faceusp_array
+  use flowvar,        only : dusp,faceusp
   !
   !.. Local Scalars ..
   integer  :: i,k,l,n,nf,kf,l0,r0,f0,nfp
@@ -5764,13 +5764,13 @@ continue
   ! Precompute the biased interface jumps
   !
   !$ACC PARALLEL LOOP &
-  !$ACC&              PRESENT(faceusp_array,face_jump)
+  !$ACC&              PRESENT(faceusp,face_jump)
   do n = 1,n_flxpts
-    face_jump(n,nec) = faceusp_array(n,nec,2) - faceusp_array(n,nec,1)
-    face_jump(n,nmx) = faceusp_array(n,nmx,2) - faceusp_array(n,nmx,1)
-    face_jump(n,nmy) = faceusp_array(n,nmy,2) - faceusp_array(n,nmy,1)
-    face_jump(n,nmz) = faceusp_array(n,nmz,2) - faceusp_array(n,nmz,1)
-    face_jump(n,nee) = faceusp_array(n,nee,2) - faceusp_array(n,nee,1)
+    face_jump(n,nec) = faceusp(n,nec,2) - faceusp(n,nec,1)
+    face_jump(n,nmx) = faceusp(n,nmx,2) - faceusp(n,nmx,1)
+    face_jump(n,nmy) = faceusp(n,nmy,2) - faceusp(n,nmy,1)
+    face_jump(n,nmz) = faceusp(n,nmz,2) - faceusp(n,nmz,1)
+    face_jump(n,nee) = faceusp(n,nee,2) - faceusp(n,nee,1)
   end do
   !
   ! #######################
@@ -6053,7 +6053,7 @@ subroutine correct_gradients_at_solpts_gpu_2d()
   use geovar,         only : face,cell,fp
   use metrics_mod,    only : facenrm,jac
   use correction_mod, only : correct
-  use flowvar,        only : dusp,faceusp_array
+  use flowvar,        only : dusp,faceusp
   !
   !.. Local Scalars ..
   integer  :: i,k,l,n,nf,kf,l0,r0,f0,nfp
@@ -6074,12 +6074,12 @@ continue
   ! Precompute the biased interface jumps
   !
   !$ACC PARALLEL LOOP &
-  !$ACC&              PRESENT(faceusp_array,face_jump)
+  !$ACC&              PRESENT(faceusp,face_jump)
   do n = 1,n_flxpts
-    face_jump(n,nec) = faceusp_array(n,nec,2) - faceusp_array(n,nec,1)
-    face_jump(n,nmx) = faceusp_array(n,nmx,2) - faceusp_array(n,nmx,1)
-    face_jump(n,nmy) = faceusp_array(n,nmy,2) - faceusp_array(n,nmy,1)
-    face_jump(n,nee) = faceusp_array(n,nee,2) - faceusp_array(n,nee,1)
+    face_jump(n,nec) = faceusp(n,nec,2) - faceusp(n,nec,1)
+    face_jump(n,nmx) = faceusp(n,nmx,2) - faceusp(n,nmx,1)
+    face_jump(n,nmy) = faceusp(n,nmy,2) - faceusp(n,nmy,1)
+    face_jump(n,nee) = faceusp(n,nee,2) - faceusp(n,nee,1)
   end do
   !
   ! #######################
@@ -6332,7 +6332,7 @@ subroutine correct_gradients_at_solpts_gpu_nd()
   use geovar,         only : face,cell,fp
   use metrics_mod,    only : facenrm,jac
   use correction_mod, only : correct
-  use flowvar,        only : dusp,faceusp_array
+  use flowvar,        only : dusp,faceusp
   !
   !.. Local Scalars ..
   integer  :: i,k,l,m,n,nf,l0,r0,f0,nfp
@@ -6352,10 +6352,10 @@ continue
   ! Precompute the biased interface jumps
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) &
-  !$ACC&              PRESENT(faceusp_array,face_jump)
+  !$ACC&              PRESENT(faceusp,face_jump)
   do m = 1,nq
     do n = 1,n_flxpts
-      face_jump(n,m) = faceusp_array(n,m,2) - faceusp_array(n,m,1)
+      face_jump(n,m) = faceusp(n,m,2) - faceusp(n,m,1)
     end do
   end do
   !
@@ -6654,7 +6654,7 @@ subroutine correct_gradients_br2_gpu_3d()
   use metrics_mod,       only : jac,facenrm
   use correction_mod,    only : correct
   use flowvar,           only : dusp
-  use flowvar,           only : faceusp_array
+  use flowvar,           only : faceusp
   use flowvar,           only : facedusp
   use interpolation_mod, only : interp
   !
@@ -6707,15 +6707,15 @@ continue
  !!$OMP&                 decdz,dmxdz,dmydz,dmzdz,deedz)
   !
   !$ACC PARALLEL LOOP &
-  !$ACC&              PRESENT(faceusp_array,cbias,face_jump)
+  !$ACC&              PRESENT(faceusp,cbias,face_jump)
  !!$OMP DO
   do n = 1,n_flxpts
     a = cbias(n)
-    face_jump(n,nec) = a*( faceusp_array(n,nec,2) - faceusp_array(n,nec,1) )
-    face_jump(n,nmx) = a*( faceusp_array(n,nmx,2) - faceusp_array(n,nmx,1) )
-    face_jump(n,nmy) = a*( faceusp_array(n,nmy,2) - faceusp_array(n,nmy,1) )
-    face_jump(n,nmz) = a*( faceusp_array(n,nmz,2) - faceusp_array(n,nmz,1) )
-    face_jump(n,nee) = a*( faceusp_array(n,nee,2) - faceusp_array(n,nee,1) )
+    face_jump(n,nec) = a*( faceusp(n,nec,2) - faceusp(n,nec,1) )
+    face_jump(n,nmx) = a*( faceusp(n,nmx,2) - faceusp(n,nmx,1) )
+    face_jump(n,nmy) = a*( faceusp(n,nmy,2) - faceusp(n,nmy,1) )
+    face_jump(n,nmz) = a*( faceusp(n,nmz,2) - faceusp(n,nmz,1) )
+    face_jump(n,nee) = a*( faceusp(n,nee,2) - faceusp(n,nee,1) )
   end do
  !!$OMP END DO
   !
@@ -7033,7 +7033,7 @@ subroutine correct_gradients_br2_gpu_2d()
   use metrics_mod,       only : jac,facenrm
   use correction_mod,    only : correct
   use flowvar,           only : dusp
-  use flowvar,           only : faceusp_array
+  use flowvar,           only : faceusp
   use flowvar,           only : facedusp
   use interpolation_mod, only : interp
   !
@@ -7071,13 +7071,13 @@ continue
   ! variables at the solution points to the flux points of each cell
   !
   !$ACC PARALLEL LOOP &
-  !$ACC&              PRESENT(faceusp_array,cbias,face_jump)
+  !$ACC&              PRESENT(faceusp,cbias,face_jump)
   do n = 1,n_flxpts
     a = cbias(n)
-    face_jump(n,nec) = a*( faceusp_array(n,nec,2) - faceusp_array(n,nec,1) )
-    face_jump(n,nmx) = a*( faceusp_array(n,nmx,2) - faceusp_array(n,nmx,1) )
-    face_jump(n,nmy) = a*( faceusp_array(n,nmy,2) - faceusp_array(n,nmy,1) )
-    face_jump(n,nee) = a*( faceusp_array(n,nee,2) - faceusp_array(n,nee,1) )
+    face_jump(n,nec) = a*( faceusp(n,nec,2) - faceusp(n,nec,1) )
+    face_jump(n,nmx) = a*( faceusp(n,nmx,2) - faceusp(n,nmx,1) )
+    face_jump(n,nmy) = a*( faceusp(n,nmy,2) - faceusp(n,nmy,1) )
+    face_jump(n,nee) = a*( faceusp(n,nee,2) - faceusp(n,nee,1) )
   end do
   !
   !$ACC PARALLEL LOOP GANG &
@@ -7309,7 +7309,7 @@ subroutine correct_gradients_br2_gpu_1d()
   use metrics_mod,       only : jac,facenrm
   use correction_mod,    only : correct
   use flowvar,           only : dusp
-  use flowvar,           only : faceusp_array
+  use flowvar,           only : faceusp
   use flowvar,           only : facedusp
   use interpolation_mod, only : interp
   !
@@ -7346,12 +7346,12 @@ continue
   ! variables at the solution points to the flux points of each cell
   !
   !$ACC PARALLEL LOOP &
-  !$ACC&              PRESENT(faceusp_array,cbias,face_jump)
+  !$ACC&              PRESENT(faceusp,cbias,face_jump)
   do n = 1,n_flxpts
     a = cbias(n)
-    face_jump(n,nec) = a*( faceusp_array(n,nec,2) - faceusp_array(n,nec,1) )
-    face_jump(n,nmx) = a*( faceusp_array(n,nmx,2) - faceusp_array(n,nmx,1) )
-    face_jump(n,nee) = a*( faceusp_array(n,nee,2) - faceusp_array(n,nee,1) )
+    face_jump(n,nec) = a*( faceusp(n,nec,2) - faceusp(n,nec,1) )
+    face_jump(n,nmx) = a*( faceusp(n,nmx,2) - faceusp(n,nmx,1) )
+    face_jump(n,nee) = a*( faceusp(n,nee,2) - faceusp(n,nee,1) )
   end do
   !
   !$ACC PARALLEL LOOP GANG &
@@ -7525,7 +7525,7 @@ subroutine correct_gradients_br2_gpu_nd(mbeg,mend)
   use metrics_mod,       only : jac,facenrm
   use correction_mod,    only : correct
   use flowvar,           only : dusp
-  use flowvar,           only : faceusp_array
+  use flowvar,           only : faceusp
   use flowvar,           only : facedusp
   use interpolation_mod, only : interp
   !
@@ -7571,11 +7571,11 @@ continue
  !!$OMP&                 lf,i,n,a,cor_m,f0,sf,val)
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) &
-  !$ACC&              PRESENT(faceusp_array,cbias,face_jump)
+  !$ACC&              PRESENT(faceusp,cbias,face_jump)
  !!$OMP DO
   do m = mbeg,mend
     do n = 1,n_flxpts
-      face_jump(n,m) = cbias(n)*( faceusp_array(n,m,2) - faceusp_array(n,m,1) )
+      face_jump(n,m) = cbias(n)*( faceusp(n,m,2) - faceusp(n,m,1) )
     end do
   end do
  !!$OMP END DO
@@ -8309,7 +8309,7 @@ end subroutine write_3d_array
 !!use metrics_mod,       only : facenrm
 !!use correction_mod,    only : correct
 !!use flowvar,           only : residual
-!!use flowvar,           only : faceusp_array,facedusp
+!!use flowvar,           only : faceusp,facedusp
 !!use flowvar,           only : facegpsp
 !!!
 !!use visc_flux_mod, only : common_visc_flx_cv
@@ -8385,9 +8385,9 @@ end subroutine write_3d_array
 !!  do k = 1,nfp
 !!    do m = 1,nq
 !!      ! FP solution from left  cell on face
-!!      luqp(m,k) = faceusp_array(f0+k,m,1)
+!!      luqp(m,k) = faceusp(f0+k,m,1)
 !!      ! FP solution from right cell on face
-!!      ruqp(m,k) = faceusp_array(f0+k,m,2)
+!!      ruqp(m,k) = faceusp(f0+k,m,2)
 !!    end do
 !!  end do
 !!  !
@@ -8550,9 +8550,9 @@ end subroutine write_3d_array
 !!  do k = 1,nfp
 !!    do m = 1,nq
 !!      ! FP solution from left  cell on face
-!!      luqp(m,k) = faceusp_array(f0+k,m,1)
+!!      luqp(m,k) = faceusp(f0+k,m,1)
 !!      ! FP solution from right cell on face
-!!      ruqp(m,k) = faceusp_array(f0+k,m,2)
+!!      ruqp(m,k) = faceusp(f0+k,m,2)
 !!    end do
 !!  end do
 !!  !
@@ -8675,7 +8675,7 @@ end subroutine write_3d_array
 !!use geovar,            only : face,fp
 !!use metrics_mod,       only : facenrm,metrics_dt
 !!use correction_mod,    only : correct
-!!use flowvar,           only : dusp,facedusp,faceusp_array
+!!use flowvar,           only : dusp,facedusp,faceusp
 !!use ovar,              only : walls_are_exact,LDG_beta
 !!use interpolation_mod, only : interp
 !!!
@@ -8776,8 +8776,8 @@ end subroutine write_3d_array
 !!      ! Solution at this flux point for the left and right cells
 !!      !
 !!      do m = 1,nq
-!!        lufp(m) = faceusp_array(f0+kf,m,1)
-!!        rufp(m) = faceusp_array(f0+kf,m,2)
+!!        lufp(m) = faceusp(f0+kf,m,1)
+!!        rufp(m) = faceusp(f0+kf,m,2)
 !!      end do
 !!      !
 !!      ! Get the unit normal at this flux point
@@ -8898,7 +8898,7 @@ end subroutine write_3d_array
 !!use geovar,            only : face,cell,bface,fp
 !!use metrics_mod,       only : facenrm,metrics_dt
 !!use correction_mod,    only : correct
-!!use flowvar,           only : dusp,faceusp_array
+!!use flowvar,           only : dusp,faceusp
 !!use ovar,              only : walls_are_exact
 !!use ovar,              only : LDG_beta
 !!!
@@ -8955,8 +8955,8 @@ end subroutine write_3d_array
 !!  !
 !!  do k = 1,nfp
 !!    do m = 1,nq
-!!      lufp(m,k) = faceusp_array(f0+k,m,1)
-!!      rufp(m,k) = faceusp_array(f0+k,m,2)
+!!      lufp(m,k) = faceusp(f0+k,m,1)
+!!      rufp(m,k) = faceusp(f0+k,m,2)
 !!    end do
 !!  end do
 !!  !
@@ -9092,8 +9092,8 @@ end subroutine write_3d_array
 !!  !
 !!  do k = 1,nfp
 !!    do m = 1,nq
-!!      lufp(m,k) = faceusp_array(f0+k,m,1)
-!!      rufp(m,k) = faceusp_array(f0+k,m,2)
+!!      lufp(m,k) = faceusp(f0+k,m,1)
+!!      rufp(m,k) = faceusp(f0+k,m,2)
 !!    end do
 !!  end do
 !!  !

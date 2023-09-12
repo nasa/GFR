@@ -10,7 +10,7 @@ module interpsolvar_mod
   use geovar,            only : map_t
   use geovar,            only : bc_grp_t
   use flowvar,           only : sol_nodes
- !use flowvar,           only : faceusp_array
+ !use flowvar,           only : faceusp
  !use flowvar,           only : faceusp_dt
  !use flowvar,           only : face_xyz,face_var
   !
@@ -29,7 +29,7 @@ module interpsolvar_mod
   !
   public :: sol_nodes
  !public :: faceusp_dt
- !public :: faceusp_array
+ !public :: faceusp
   !
   ! Grid2 copies of variables from order_mod.
   integer, public, save :: g2_n_order
@@ -102,7 +102,7 @@ module interpsolvar_mod
  !type(face_var), public, save, allocatable :: g2_faceusp_dt(:)
   !
   real(wp), public, save, allocatable :: g2_facexyz(:,:)
-  real(wp), public, save, allocatable :: g2_faceusp_array(:,:,:)
+  real(wp), public, save, allocatable :: g2_faceusp(:,:,:)
   !
   ! Grid2 copies of variables from ovar.
   character(len=32), public, save, allocatable :: g2_bc_names(:)

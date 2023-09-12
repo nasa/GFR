@@ -418,7 +418,7 @@ subroutine check_face_thermo_properties()
   !
   !.. Use Statements ..
   use geovar,  only : ncell,nfbnd,nface,face
-  use flowvar, only : usp,gpsp,faceusp_array,facegpsp
+  use flowvar, only : usp,gpsp,faceusp,facegpsp
   use ovar,    only : rhoref,tref,aref
   !
   use, intrinsic :: ieee_arithmetic, only : ieee_is_negative
@@ -464,8 +464,8 @@ continue
     !
     if (bad_cell(left_cell)) cycle bnd_face_loop
     !
-   !if (any(ieee_is_negative( faceusp_array(f1:f2,nec,1) ))) then
-    if (any( faceusp_array(f1:f2,nec,1) < dens_limit)) then
+   !if (any(ieee_is_negative( faceusp(f1:f2,nec,1) ))) then
+    if (any( faceusp(f1:f2,nec,1) < dens_limit)) then
       bad_cell(left_cell) = true
       bad_cell_found = true
       cycle bnd_face_loop
@@ -503,8 +503,8 @@ continue
     left_cell_check: &
     if (.not. bad_cell(left_cell)) then
       !
-     !if (any(ieee_is_negative( faceusp_array(f1:f2,nec,1) ))) then
-      if (any( faceusp_array(f1:f2,nec,1) < dens_limit)) then
+     !if (any(ieee_is_negative( faceusp(f1:f2,nec,1) ))) then
+      if (any( faceusp(f1:f2,nec,1) < dens_limit)) then
         bad_cell(left_cell) = true
         bad_cell_found = true
         exit left_cell_check
@@ -531,8 +531,8 @@ continue
     right_cell_check: &
     if (.not. bad_cell(right_cell)) then
       !
-      if (any( faceusp_array(f1:f2,nec,2) < dens_limit)) then
-     !if (any(ieee_is_negative( faceusp_array(f1:f2,nec,2) ))) then
+      if (any( faceusp(f1:f2,nec,2) < dens_limit)) then
+     !if (any(ieee_is_negative( faceusp(f1:f2,nec,2) ))) then
         bad_cell(right_cell) = true
         bad_cell_found = true
         exit right_cell_check
@@ -573,7 +573,7 @@ continue
   ! the conserved variables to the face points
   !
   if (bad_cell_found) then
-    call reinterpolate_bad_cells(bad_cell,usp,faceusp_array,facegpsp)
+    call reinterpolate_bad_cells(bad_cell,usp,faceusp,facegpsp)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -596,7 +596,7 @@ end subroutine check_face_thermo_properties
 !###############################################################################
 !###############################################################################
 !
-subroutine reinterpolate_bad_cells(bad_cell,usp,faceusp_array,facegpsp)
+subroutine reinterpolate_bad_cells(bad_cell,usp,faceusp,facegpsp)
   !
   use geovar,     only : nfbnd,nface,face
   use thermo_mod, only : update_thermo_properties
@@ -604,7 +604,7 @@ subroutine reinterpolate_bad_cells(bad_cell,usp,faceusp_array,facegpsp)
   !.. Optional Arguments ..
   logical(lk),    intent(in) :: bad_cell(:)
   real(wp),       intent(in) :: usp(:,:)
-  real(wp),    intent(inout) :: faceusp_array(:,:,:)
+  real(wp),    intent(inout) :: faceusp(:,:,:)
   real(wp),    intent(inout) :: facegpsp(:,:,:)
   !
   !.. Local Scalars ..
@@ -628,19 +628,19 @@ continue
   if (force_nd_subroutines) then
     !
     call reinterpolate_bad_cells_nd(1,nq,bad_cell,usp, &
-                                    faceusp_array,faces_to_update)
+                                    faceusp,faces_to_update)
     !
   else
     !
     if (nr == 3) then
       call reinterpolate_bad_cells_3d(bad_cell,usp, &
-                                      faceusp_array,faces_to_update)
+                                      faceusp,faces_to_update)
     else if (nr == 2) then
       call reinterpolate_bad_cells_2d(bad_cell,usp, &
-                                      faceusp_array,faces_to_update)
+                                      faceusp,faces_to_update)
     else
       call reinterpolate_bad_cells_1d(bad_cell,usp, &
-                                      faceusp_array,faces_to_update)
+                                      faceusp,faces_to_update)
     end if
     !
   end if
@@ -651,7 +651,7 @@ continue
       f1 = face(nf)%beg_fp
       f2 = face(nf)%end_fp
       call update_thermo_properties(f1,f2, &
-                                    faceusp_array(:,:,1),facegpsp(:,:,1), &
+                                    faceusp(:,:,1),facegpsp(:,:,1), &
                                     loc="face",caller_name=pname)
     end if
   end do
@@ -662,7 +662,7 @@ continue
         f1 = face(nf)%beg_fp
         f2 = face(nf)%end_fp
         call update_thermo_properties(f1,f2, &
-                                      faceusp_array(:,:,sf),facegpsp(:,:,sf), &
+                                      faceusp(:,:,sf),facegpsp(:,:,sf), &
                                       loc="face",caller_name=pname)
       end if
     end do
@@ -679,7 +679,7 @@ end subroutine reinterpolate_bad_cells
 !
 pure &
 subroutine reinterpolate_bad_cells_3d(bad_cell,usp, &
-                                      faceusp_array,faces_to_update)
+                                      faceusp,faces_to_update)
   !
   use geovar,            only : ncell,cell,fp
   use interpolation_mod, only : interp
@@ -688,7 +688,7 @@ subroutine reinterpolate_bad_cells_3d(bad_cell,usp, &
   !.. Optional Arguments ..
   logical(lk),    intent(in) :: bad_cell(:)
   real(wp),       intent(in) :: usp(:,:)
-  real(wp),    intent(inout) :: faceusp_array(:,:,:)
+  real(wp),    intent(inout) :: faceusp(:,:,:)
   logical(lk), intent(inout) :: faces_to_update(:,:)
   !
   !.. Local Scalars ..
@@ -709,7 +709,7 @@ continue
   ! variables at the solution points to the flux points of each cell
   !
   !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
-  !$ACC&                   PRESENT(faceusp_array) &
+  !$ACC&                   PRESENT(faceusp) &
   !$ACC&                   PRESENT(face) &
   !$ACC&                   PRESENT(fp) &
   !$ACC&                   PRESENT(cell) &
@@ -779,11 +779,11 @@ continue
           !
         end do
         !
-        faceusp_array(f0+kf,nec,sf) = face_ec
-        faceusp_array(f0+kf,nmx,sf) = face_mx
-        faceusp_array(f0+kf,nmy,sf) = face_my
-        faceusp_array(f0+kf,nmz,sf) = face_mz
-        faceusp_array(f0+kf,nee,sf) = face_ee
+        faceusp(f0+kf,nec,sf) = face_ec
+        faceusp(f0+kf,nmx,sf) = face_mx
+        faceusp(f0+kf,nmy,sf) = face_my
+        faceusp(f0+kf,nmz,sf) = face_mz
+        faceusp(f0+kf,nee,sf) = face_ee
         !
       end do
       !
@@ -797,7 +797,7 @@ end subroutine reinterpolate_bad_cells_3d
 !
 pure &
 subroutine reinterpolate_bad_cells_2d(bad_cell,usp, &
-                                      faceusp_array,faces_to_update)
+                                      faceusp,faces_to_update)
   !
   use geovar,            only : ncell,cell,fp
   use interpolation_mod, only : interp
@@ -806,7 +806,7 @@ subroutine reinterpolate_bad_cells_2d(bad_cell,usp, &
   !.. Optional Arguments ..
   logical(lk),    intent(in) :: bad_cell(:)
   real(wp),       intent(in) :: usp(:,:)
-  real(wp),    intent(inout) :: faceusp_array(:,:,:)
+  real(wp),    intent(inout) :: faceusp(:,:,:)
   logical(lk), intent(inout) :: faces_to_update(:,:)
   !
   !.. Local Scalars ..
@@ -827,7 +827,7 @@ continue
   ! variables at the solution points to the flux points of each cell
   !
   !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
-  !$ACC&                   PRESENT(faceusp_array) &
+  !$ACC&                   PRESENT(faceusp) &
   !$ACC&                   PRESENT(face) &
   !$ACC&                   PRESENT(fp) &
   !$ACC&                   PRESENT(cell) &
@@ -895,10 +895,10 @@ continue
           !
         end do
         !
-        faceusp_array(f0+kf,nec,sf) = face_ec
-        faceusp_array(f0+kf,nmx,sf) = face_mx
-        faceusp_array(f0+kf,nmy,sf) = face_my
-        faceusp_array(f0+kf,nee,sf) = face_ee
+        faceusp(f0+kf,nec,sf) = face_ec
+        faceusp(f0+kf,nmx,sf) = face_mx
+        faceusp(f0+kf,nmy,sf) = face_my
+        faceusp(f0+kf,nee,sf) = face_ee
         !
       end do
       !
@@ -912,7 +912,7 @@ end subroutine reinterpolate_bad_cells_2d
 !
 pure &
 subroutine reinterpolate_bad_cells_1d(bad_cell,usp, &
-                                      faceusp_array,faces_to_update)
+                                      faceusp,faces_to_update)
   !
   use geovar,            only : ncell,cell,fp
   use interpolation_mod, only : interp
@@ -921,7 +921,7 @@ subroutine reinterpolate_bad_cells_1d(bad_cell,usp, &
   !.. Optional Arguments ..
   logical(lk),    intent(in) :: bad_cell(:)
   real(wp),       intent(in) :: usp(:,:)
-  real(wp),    intent(inout) :: faceusp_array(:,:,:)
+  real(wp),    intent(inout) :: faceusp(:,:,:)
   logical(lk), intent(inout) :: faces_to_update(:,:)
   !
   !.. Local Scalars ..
@@ -942,7 +942,7 @@ continue
   ! variables at the solution points to the flux points of each cell
   !
   !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
-  !$ACC&                   PRESENT(faceusp_array) &
+  !$ACC&                   PRESENT(faceusp) &
   !$ACC&                   PRESENT(face) &
   !$ACC&                   PRESENT(fp) &
   !$ACC&                   PRESENT(cell) &
@@ -1008,9 +1008,9 @@ continue
           !
         end do
         !
-        faceusp_array(f0+kf,nec,sf) = face_ec
-        faceusp_array(f0+kf,nmx,sf) = face_mx
-        faceusp_array(f0+kf,nee,sf) = face_ee
+        faceusp(f0+kf,nec,sf) = face_ec
+        faceusp(f0+kf,nmx,sf) = face_mx
+        faceusp(f0+kf,nee,sf) = face_ee
         !
       end do
       !
@@ -1024,7 +1024,7 @@ end subroutine reinterpolate_bad_cells_1d
 !
 pure &
 subroutine reinterpolate_bad_cells_nd(mbeg,mend,bad_cell,usp, &
-                                      faceusp_array,faces_to_update)
+                                      faceusp,faces_to_update)
   !
   use geovar,            only : ncell,cell,fp
   use interpolation_mod, only : interp
@@ -1034,7 +1034,7 @@ subroutine reinterpolate_bad_cells_nd(mbeg,mend,bad_cell,usp, &
   integer,        intent(in) :: mbeg,mend
   logical(lk),    intent(in) :: bad_cell(:)
   real(wp),       intent(in) :: usp(:,:)
-  real(wp),    intent(inout) :: faceusp_array(:,:,:)
+  real(wp),    intent(inout) :: faceusp(:,:,:)
   logical(lk), intent(inout) :: faces_to_update(:,:)
   !
   !.. Local Scalars ..
@@ -1055,7 +1055,7 @@ continue
   ! variables at the solution points to the flux points of each cell
   !
   !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
-  !$ACC&                   PRESENT(faceusp_array) &
+  !$ACC&                   PRESENT(faceusp) &
   !$ACC&                   PRESENT(face) &
   !$ACC&                   PRESENT(fp) &
   !$ACC&                   PRESENT(cell) &
@@ -1118,7 +1118,7 @@ continue
             !
           end do
           !
-          faceusp_array(f0+kf,m,sf) = val
+          faceusp(f0+kf,m,sf) = val
           !
         end do
       end do
