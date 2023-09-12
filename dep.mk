@@ -27,6 +27,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/flux.o \
          $(OBJDIR)/parallel.o \
          $(OBJDIR)/time_mod.o \
+         $(OBJDIR)/erk_mod.o \
          $(OBJDIR)/rhs_mod.o \
          $(OBJDIR)/oerk_mod.o \
          $(OBJDIR)/eperk_mod.o \
@@ -172,6 +173,15 @@ $(OBJDIR)/eperk_mod.o : eperk_mod.f90 \
 $(OBJDIR)/eqn_idx_mod.o : eqn_idx_mod.f90 \
                 $(OBJDIR)/kind_types.o \
                 $(OBJDIR)/ovar_mod.o
+
+$(OBJDIR)/erk_mod.o : erk_mod.f90 \
+            $(OBJDIR)/kind_types.o \
+            $(OBJDIR)/eqn_idx_mod.o \
+            $(OBJDIR)/geovar_mod.o \
+            $(OBJDIR)/ovar_mod.o \
+            $(OBJDIR)/flowvar_mod.o \
+            $(OBJDIR)/rhs_mod.o \
+            $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/filter_mod.o : filter_mod.f90 \
                $(OBJDIR)/kind_types.o \
@@ -687,7 +697,6 @@ $(OBJDIR)/time_mod.o : time_mod.f90 \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/flowvar_mod.o \
              $(OBJDIR)/metrics.o \
-             $(OBJDIR)/rhs_mod.o \
              $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/transport_mod.o : transport_mod.f90 \

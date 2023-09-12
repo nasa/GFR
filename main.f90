@@ -123,11 +123,11 @@ program GFR_main
   use generic_mod, only : compute_KEDR
   !
   use time_mod, only : get_dtsp
-  use time_mod, only : update_Classic_RK
-  use time_mod, only : update_CK_RK4
-  use time_mod, only : update_TVD_RK2
-  use time_mod, only : update_TVD_RK3
-  use time_mod, only : update_TVD_RK4
+  use erk_mod, only : update_Classic_RK
+  use erk_mod, only : update_CK_RK4
+  use erk_mod, only : update_TVD_RK2
+  use erk_mod, only : update_TVD_RK3
+  use erk_mod, only : update_TVD_RK4
   use rhs_mod, only : save_old_solution
   !
   use oerk_mod, only : update_oerk
