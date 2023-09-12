@@ -1398,11 +1398,11 @@ continue
         ! Output xyz and usp for closest face point on donor grid.
         write (iout,20) "Donor grid/solution info."
        !write (iout,21) "facexyz_dt(:)          = ",facexyz_dt(nf)%v(1:nr,ifp)
-        write (iout,21) "facexyz(:)       = ",facexyz(1:nr,f0+ifp)
+        write (iout,21) "facexyz(:)             = ",facexyz(1:nr,f0+ifp)
        !write (iout,21) "faceusp_dt(:,left)     = ",faceusp_dt(nf)%v(1:nq,ifp,1)
-        write (iout,21) "faceusp(:,left)  = ",faceusp(f0+ifp,1:nq,1)
+        write (iout,21) "faceusp(:,left)        = ",faceusp(f0+ifp,1:nq,1)
        !write (iout,21) "faceusp_dt(:,right)    = ",faceusp_dt(nf)%v(1:nq,ifp,2)
-        write (iout,21) "faceusp(:,right) = ",faceusp(f0+ifp,1:nq,2)
+        write (iout,21) "faceusp(:,right)       = ",faceusp(f0+ifp,1:nq,2)
         flush (iout)
       end if
       !-DEBUG_END:

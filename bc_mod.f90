@@ -295,9 +295,7 @@ continue
           call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
         end if
         !
-        call get_bc_mms_dirichlet_solution(n1,n2,facenrm, &
-                                           facexyz, &
-                                           faceusp)
+        call get_bc_mms_dirichlet_solution(n1,n2,facenrm,facexyz,faceusp)
         !
       case (bc_cpu_bnd)
         !
