@@ -41,27 +41,6 @@ module metrics_mod
   !
   !$ACC DECLARE CREATE(facenrm_qdtpts)
   !
-  ! face_rrf_vel : array containing the precomputed value of
-  !                      crossproduct(omega,xyz)
-  !                at each flux point where
-  !                   omega = the rotation rate vector of the
-  !                           rotating reference frame
-  !                   xyz = Cartesian coordinates at the flux point
-  ! face_rrf_vel_qdtpts : same as face_rrf_vel but for face quadrature points
-  ! NOTE: These two arrays have been created because the angular velocity
-  !       is needed at each face/flux point (FP) for a rotating reference frame
-  !       in order to compute the interface fluxes. The coordinates of each FP
-  !       is needed to compute this angular velocity, and these coordinates
-  !       arent usually saved to an array. Instead of saving these coordinates
-  !       to the facexyz array and then recomputing the angular velocity at each
-  !       FP each time it is needed, we are instead just precomputing the
-  !       angular velocity and storing that.
-  !
-  real(wp), public, save, allocatable :: face_rrf_vel(:,:)
-  real(wp), public, save, allocatable :: face_rrf_vel_qdtpts(:,:)
-  !
-  !$ACC DECLARE CREATE(face_rrf_vel,face_rrf_vel_qdtpts)
-  !
   ! wtdjac : jacobian * quadrature weight at each solution point
   !
   real(wp), public, save, allocatable :: wtdjac(:)
@@ -1623,17 +1602,10 @@ continue
   call alloc_error(pname,"facenrm",1,__LINE__,__FILE__,ierr,error_message)
   !$ACC UPDATE DEVICE(facenrm)
   !
-  ! Allocate face_rrf_vel
-  !
-  allocate ( face_rrf_vel(1:nr,1:n_flxpts) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"face_rrf_vel",1,__LINE__,__FILE__,ierr,error_message)
-  !$ACC UPDATE DEVICE(face_rrf_vel)
-  !
   ! Compute the face normals
   !
   if (nr == 3) then
-    call compute_face_normals_3d(facenrm,face_rrf_vel)
+    call compute_face_normals_3d(facenrm)
   else if (nr == 2) then
     call compute_face_normals_2d(facenrm)
   else if (nr == 1) then
@@ -1642,7 +1614,7 @@ continue
     write (error_message,1) nr
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
-  !$ACC UPDATE DEVICE(facenrm,face_rrf_vel)
+  !$ACC UPDATE DEVICE(facenrm)
   !
   ! Create the interpolated jacobians at the face points
   !
@@ -1677,7 +1649,7 @@ end subroutine compute_face_normals
 !
 !###############################################################################
 !
-subroutine compute_face_normals_3d(fnrm,rrf_fvel)
+subroutine compute_face_normals_3d(fnrm)
   !
   !.. Use Statements ..
   use order_mod,         only : maxFP
@@ -1697,7 +1669,6 @@ subroutine compute_face_normals_3d(fnrm,rrf_fvel)
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: fnrm(:,:)
-  real(wp), intent(inout) :: rrf_fvel(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,n,nc,nf,ncf,n0
@@ -1993,11 +1964,6 @@ continue
                           (cell_pt(i),i=1,3),(face_pt(i),i=1,3)
         end if
         95 format (i6,i3,i10,i4,i8,f15.10,6(4x,3f11.6))
-        !
-        ! Compute the angular velocity vector of the
-        ! rotating reference frame at this flux point
-        !
-        rrf_fvel(1:3,f0+kf) = rrf_face_velocity(xyz_face(kf,1:3))
         !
       end do
 #ifdef TIME_METRIC_PROCEDURES
@@ -2387,61 +2353,6 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_face_normals_1d
-!
-!###############################################################################
-!
-pure function rrf_face_velocity(xyz) result(return_value)
-  !
-  !.. Use Statements ..
-  use ovar, only : aref
-  use ovar, only : ref_frame_rotation_vector
-  !
-  !.. Formal Arguments ..
-  real(wp), intent(in) :: xyz(:)
-  !
-  !.. Function Result ..
-  real(wp) :: return_value(1:size(xyz))
-  !
-  !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: x,x_r
-  real(wp) :: y,y_r
-  real(wp) :: z,z_r
-  !
-  !.. Local Arrays ..
-  real(wp) :: av(1:3)
-  !
-continue
-  !
-  return_value(:) = zero
-  !
-  n = size(xyz)
-  !
-  y = zero
-  z = zero
-  !
-  ! NOTE: ref_frame_rotation_vector is the rotation rate vector given in
-  !       RPM. We are pre-multiplying this through by rpm_to_mps/aref to
-  !       convert RPM to m/s and then nondimensionalize by the reference
-  !       speed of sound. Technically, this is converting RPM to rad/s, but
-  !       we will be taking the cross-product of this rotation rate vector
-  !       with the position vector which will convert from rad/s to m/s.
-  !
-  x_r = ref_frame_rotation_vector(1)*rpm_to_mps/aref ! x rotation
-  y_r = ref_frame_rotation_vector(2)*rpm_to_mps/aref ! y rotation
-  z_r = ref_frame_rotation_vector(3)*rpm_to_mps/aref ! z rotation
-  !
-  x = xyz(1)
-  if (n > 1) y = xyz(2)
-  if (n > 2) z = xyz(3)
-  !
-  av(1) = y_r*z - z_r*y ! angular velocity in x direction
-  av(2) = z_r*x - x_r*z ! angular velocity in y direction
-  av(3) = x_r*y - y_r*x ! angular velocity in z direction
-  !
-  return_value(1:n) = av(1:n)
-  !
-end function rrf_face_velocity
 !
 !###############################################################################
 !
