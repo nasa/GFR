@@ -1903,7 +1903,7 @@ subroutine rresi(iter,nst)
   !
   !.. Use Statements ..
   use order_mod,   only : p_order,n_order
-  use geovar,      only : n_solpts,cell
+  use geovar,      only : n_solpts
   use ovar,        only : itestcase
   use metrics_mod, only : jac
   use flowvar,     only : residual
@@ -2822,12 +2822,7 @@ subroutine update_TVD_RK2(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use flowvar, only : residual,usp,uoldsp,dtsp,gpsp
-  use ovar,    only : ideal_total_temperature
-  !
-  use thermo_mod,    only : update_mixture_density
-  use thermo_mod,    only : update_thermo_properties
-  use transport_mod, only : update_transport_properties
+  use flowvar, only : residual,usp,uoldsp,dtsp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
@@ -2961,12 +2956,7 @@ subroutine update_TVD_RK3(nst,Apply_Filter,Apply_Limiter,iter)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use flowvar, only : residual,usp,uoldsp,dtsp,gpsp
-  use ovar,    only : ideal_total_temperature
-  !
-  use thermo_mod,    only : update_mixture_density
-  use thermo_mod,    only : update_thermo_properties
-  use transport_mod, only : update_transport_properties
+  use flowvar, only : residual,usp,uoldsp,dtsp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst,iter
@@ -3158,12 +3148,7 @@ subroutine update_TVD_RK4(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use flowvar, only : rssprk,residual,usp,uoldsp,rk_sum,dtsp,gpsp
-  use ovar,    only : ideal_total_temperature
-  !
-  use thermo_mod,    only : update_mixture_density
-  use thermo_mod,    only : update_thermo_properties
-  use transport_mod, only : update_transport_properties
+  use flowvar, only : residual,usp,uoldsp,rk_sum,dtsp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
@@ -3542,12 +3527,7 @@ subroutine update_Classic_RK(nst,Apply_Filter,Apply_Limiter)
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use ovar,    only : num_rk_stages
-  use flowvar, only : rssprk,residual,usp,uoldsp,dtsp,gpsp
-  use ovar,    only : ideal_total_temperature
-  !
-  use thermo_mod,    only : update_mixture_density
-  use thermo_mod,    only : update_thermo_properties
-  use transport_mod, only : update_transport_properties
+  use flowvar, only : rssprk,residual,usp,uoldsp,dtsp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
