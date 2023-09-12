@@ -387,7 +387,7 @@ subroutine get_facedusp_bc
   use metrics_mod,  only : facenrm
   use flowvar,      only : faceusp_array
   use flowvar,      only : facegpsp
-  use flowvar,      only : facedusp_array
+  use flowvar,      only : facedusp
   use flowvar,      only : facegpsp
   !
   use bc_wall_mod,             only : get_bc_wall_gradient
@@ -431,13 +431,13 @@ continue
       call get_bc_wall_gradient(n1,n2,bc_type,facenrm, &
                                 faceusp_array(:,:,1), &
                                 facegpsp(:,:,1), &
-                                facedusp_array)
+                                facedusp)
       !
     else if (bc_type == bc_periodic) then
       !
       ! Periodic boundary condition
       !
-      call get_bc_periodic_gradient(n1,n2,facedusp_array, &
+      call get_bc_periodic_gradient(n1,n2,facedusp, &
                                     bc_grps(i)%periodic_list)
       !
     else if (bc_type == bc_sem) then
@@ -445,13 +445,13 @@ continue
       ! For now, use the general flow-through boundary conditions for
       ! getting the gradient boundary conditions for SEM boundaries.
       !
-      call get_bc_flowthrough_gradient(n1,n2,facedusp_array)
+      call get_bc_flowthrough_gradient(n1,n2,facedusp)
       !
     else if (all(bc_type /= local_bc_ignore)) then
       !
       ! General flow-through boundary conditions
       !
-      call get_bc_flowthrough_gradient(n1,n2,facedusp_array)
+      call get_bc_flowthrough_gradient(n1,n2,facedusp)
       !
     end if
     !

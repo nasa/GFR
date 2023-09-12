@@ -1610,7 +1610,7 @@ subroutine deallocate_solver_arrays()
   use geovar,      only : face,grid
   use flowvar,     only : faceflx
  !use flowvar,     only : faceusp_dt,facedusp_dt,facexyz_dt
-  use flowvar,     only : faceusp_array,facedusp_array,facexyz_array
+  use flowvar,     only : faceusp_array,facedusp,facexyz_array
   use flowvar,     only : residual,dtsp,uoldsp,rk_sum,rssprk
   use flowvar,     only : nodeusp_dt,nodedusp_dt
   use flowvar,     only : edgeusp_dt,edgedusp_dt,edgexyz_dt
@@ -1638,9 +1638,9 @@ continue
                      ierr,error_message)
   end if
   !
-  if (allocated(facedusp_array)) then
-    deallocate ( facedusp_array , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facedusp_array",2,__LINE__,__FILE__, &
+  if (allocated(facedusp)) then
+    deallocate ( facedusp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facedusp",2,__LINE__,__FILE__, &
                      ierr,error_message)
   end if
  !!

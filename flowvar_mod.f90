@@ -141,12 +141,12 @@ module flowvar
   type(face_xyz), public, save, allocatable, dimension(:) :: facexyz_dt
   !
   ! FACEUSP_ARRAY  : conservative variables at the interface flx-pts
-  ! FACEDUSP_ARRAY : conservative variable gradients at the interface flx-pts
+  ! FACEDUSP : conservative variable gradients at the interface flx-pts
   !
   real(wp), public, save, allocatable :: faceusp_array(:,:,:)
   !$ACC DECLARE CREATE(faceusp_array)
-  real(wp), public, save, allocatable :: facedusp_array(:,:,:,:)
-  !$ACC DECLARE CREATE(facedusp_array)
+  real(wp), public, save, allocatable :: facedusp(:,:,:,:)
+  !$ACC DECLARE CREATE(facedusp)
   !
   ! FACEFLX  : flux normal to cell faces at each interface flux point
   !
@@ -482,11 +482,11 @@ call debug_timer(start_timer,message(iwt))
                      ierr,error_message)
     !$ACC UPDATE DEVICE(faceusp_array)
    !!
-   !allocate ( facedusp_array(1:nfpts,1:nr,1:nq,1:2) , source=zero , &
+   !allocate ( facedusp(1:nfpts,1:nr,1:nq,1:2) , source=zero , &
    !           stat=ierr , errmsg=error_message )
-   !call alloc_error(pname,"facedusp_array",1,__LINE__,__FILE__, &
+   !call alloc_error(pname,"facedusp",1,__LINE__,__FILE__, &
    !                 ierr,error_message)
-   !!$ACC UPDATE DEVICE(facedusp_array)
+   !!$ACC UPDATE DEVICE(facedusp)
     !
 call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   end if
@@ -605,12 +605,12 @@ call debug_timer(start_timer,message(iwt))
       !$ACC UPDATE DEVICE(faceusp_array)
     end if
     !
-    if (.not. allocated(facedusp_array)) then
-      allocate ( facedusp_array(1:nfpts,1:nr,1:nq,1:2) , source=zero , &
+    if (.not. allocated(facedusp)) then
+      allocate ( facedusp(1:nfpts,1:nr,1:nq,1:2) , source=zero , &
                  stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facedusp_array",1,__LINE__,__FILE__, &
+      call alloc_error(pname,"facedusp",1,__LINE__,__FILE__, &
                        ierr,error_message)
-      !$ACC UPDATE DEVICE(facedusp_array)
+      !$ACC UPDATE DEVICE(facedusp)
     end if
     !
     if (.not. allocated(facegpsp)) then
@@ -1732,14 +1732,14 @@ continue
   else
     write (iou,7) "faceusp_array"
   end if
-  if (allocated(facedusp_array)) then
-    call array%set( storage_size(facedusp_array,kind=inttype) , &
-                            size(facedusp_array,kind=inttype) )
+  if (allocated(facedusp)) then
+    call array%set( storage_size(facedusp,kind=inttype) , &
+                            size(facedusp,kind=inttype) )
     call total%add(array)
-    write (array_name,5) "facedusp_array"
+    write (array_name,5) "facedusp"
     write (iou,2) array_name,array%get_units()
   else
-    write (iou,7) "facedusp_array"
+    write (iou,7) "facedusp"
   end if
   if (allocated(faceflx)) then
     call array%set( storage_size(faceflx,kind=inttype) , &

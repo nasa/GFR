@@ -8727,7 +8727,7 @@ subroutine exchange_facedusp()
   !
   !.. Use Statements ..
   use geovar,  only : bface,face
-  use flowvar, only : facedusp_array
+  use flowvar, only : facedusp
   !
   !.. Local Scalars..
   integer :: i,k,l,m,n,nf,nfp,f0,ibeg,nvar,ndim
@@ -8746,8 +8746,8 @@ continue
   call debug_timer(entering_procedure,pname)
 #endif
   !
-  ndim = size(facedusp_array,dim=2)
-  nvar = size(facedusp_array,dim=3)
+  ndim = size(facedusp,dim=2)
+  nvar = size(facedusp,dim=3)
   !
   ibeg = 0
   do nf = 1,size(bface,dim=2)
@@ -8762,7 +8762,7 @@ continue
       do m = 1,nvar
         do l = 1,ndim
           i = i + 1
-          fdusp_send_buffer(i) = real( facedusp_array(f0+k,l,m,1) , kind=r8 )
+          fdusp_send_buffer(i) = real( facedusp(f0+k,l,m,1) , kind=r8 )
         end do
       end do
     end do
@@ -8816,7 +8816,7 @@ subroutine wait_facedusp()
   !
   !.. Use Statements ..
   use geovar,  only : bface,face
-  use flowvar, only : facedusp_array
+  use flowvar, only : facedusp
   !
   !.. Local Scalars ..
   integer :: i,k,l,m,nf,nfp,f0,ibeg,iend,nvar,ndim
@@ -8833,8 +8833,8 @@ continue
   call debug_timer(entering_procedure,pname)
 #endif
   !
-  ndim = size(facedusp_array,dim=2)
-  nvar = size(facedusp_array,dim=3)
+  ndim = size(facedusp,dim=2)
+  nvar = size(facedusp,dim=3)
   !
   ! Wait for all facedusp sends and receives to complete
   !
@@ -8860,7 +8860,7 @@ continue
       do m = 1,nvar
         do l = 1,ndim
           i = i + 1
-          facedusp_array(f0+k,l,m,2) = real( fdusp_recv_buffer(i) , kind=wp )
+          facedusp(f0+k,l,m,2) = real( fdusp_recv_buffer(i) , kind=wp )
         end do
       end do
     end do
@@ -8887,7 +8887,7 @@ subroutine exchange_bc_conflicts_dusp(override)
   use geovar,  only : nr,bc_conflict,face
   use ovar,    only : loc_flux_pts
   use ovar,    only : use_bc_conflicts
-  use flowvar, only : facedusp_array
+  use flowvar, only : facedusp
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: override
@@ -8971,7 +8971,7 @@ continue
         !
         do m = 1,nq
           do l = 1,nr
-            facedusp_array(ks,l,m,2) = facedusp_array(km,l,m,2)
+            facedusp(ks,l,m,2) = facedusp(km,l,m,2)
           end do
         end do
         !
@@ -8992,7 +8992,7 @@ continue
         !
         do m = 1,nq
           do l = 1,nr
-            exch_send(l,m) = real(facedusp_array(km,l,m,2),kind=r8)
+            exch_send(l,m) = real(facedusp(km,l,m,2),kind=r8)
           end do
         end do
         !
@@ -9011,7 +9011,7 @@ continue
             !
             do m = 1,nq
               do l = 1,nr
-                facedusp_array(ks,l,m,2) = real(exch_send(l,m),kind=wp)
+                facedusp(ks,l,m,2) = real(exch_send(l,m),kind=wp)
               end do
             end do
             !
@@ -9043,7 +9043,7 @@ continue
             !
             do m = 1,nq
               do l = 1,nr
-                facedusp_array(ks,l,m,2) = real(exch_recv(l,m),kind=wp)
+                facedusp(ks,l,m,2) = real(exch_recv(l,m),kind=wp)
               end do
             end do
             !

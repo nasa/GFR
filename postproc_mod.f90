@@ -4257,7 +4257,7 @@ subroutine copy_and_average_face_arrays_to_dt()
   use geovar,    only : nfbnd,bface,nface,face,n_flxpts
   use flowvar,   only : faceusp_dt,faceusp_array
   use flowvar,   only : facegpsp_dt,facegpsp
-  use flowvar,   only : facedusp_dt,facedusp_array
+  use flowvar,   only : facedusp_dt,facedusp
   !
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
@@ -4307,10 +4307,10 @@ continue
           faceusp_dt(nf)%v(m,k,1) = val
           faceusp_dt(nf)%v(m,k,2) = val
           !
-          do l = 1,size(facedusp_array,dim=2)
-            val = half*(facedusp_array(f0+k,l,m,1) + facedusp_array(f0+k,l,m,2))
-            facedusp_array(f0+k,l,m,1) = val
-            facedusp_array(f0+k,l,m,2) = val
+          do l = 1,size(facedusp,dim=2)
+            val = half*(facedusp(f0+k,l,m,1) + facedusp(f0+k,l,m,2))
+            facedusp(f0+k,l,m,1) = val
+            facedusp(f0+k,l,m,2) = val
             facedusp_dt(nf)%v(l,m,k,1) = val
             facedusp_dt(nf)%v(l,m,k,2) = val
           end do
@@ -4332,10 +4332,10 @@ continue
           faceusp_dt(nf)%v(m,k,1) = val
           faceusp_dt(nf)%v(m,k,2) = val
           !
-          do l = 1,size(facedusp_array,dim=2)
-            val = facedusp_array(f0+k,l,m,2)
-            facedusp_array(f0+k,l,m,1) = val
-            facedusp_array(f0+k,l,m,2) = val
+          do l = 1,size(facedusp,dim=2)
+            val = facedusp(f0+k,l,m,2)
+            facedusp(f0+k,l,m,1) = val
+            facedusp(f0+k,l,m,2) = val
             facedusp_dt(nf)%v(l,m,k,1) = val
             facedusp_dt(nf)%v(l,m,k,2) = val
           end do
@@ -4363,10 +4363,10 @@ continue
         faceusp_dt(nf)%v(m,k,1) = val
         faceusp_dt(nf)%v(m,k,2) = val
         !
-        do l = 1,size(facedusp_array,dim=2)
-          val = half*(facedusp_array(f0+k,l,m,1) + facedusp_array(f0+k,l,m,2))
-          facedusp_array(f0+k,l,m,1) = val
-          facedusp_array(f0+k,l,m,2) = val
+        do l = 1,size(facedusp,dim=2)
+          val = half*(facedusp(f0+k,l,m,1) + facedusp(f0+k,l,m,2))
+          facedusp(f0+k,l,m,1) = val
+          facedusp(f0+k,l,m,2) = val
           facedusp_dt(nf)%v(l,m,k,1) = val
           facedusp_dt(nf)%v(l,m,k,2) = val
         end do
@@ -4510,7 +4510,7 @@ subroutine pp_interp_dusp_to_flxpts()
   use order_mod,         only : maxFP
   use geovar,            only : nr,ncell,cell,face,fp
   use interpolation_mod, only : interp
-  use flowvar,           only : dusp,facedusp_array
+  use flowvar,           only : dusp,facedusp
   !
   !.. Local Scalars ..
   integer  :: n,nc,n0,k,l,m,f0
@@ -4583,7 +4583,7 @@ continue
               !
             end do
             !
-            facedusp_array(f0+kf,l,m,sf) = val
+            facedusp(f0+kf,l,m,sf) = val
             !
           end do
         end do

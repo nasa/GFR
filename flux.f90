@@ -576,7 +576,7 @@ subroutine interp_dusp_to_flxpts_3d()
   !.. Use Statements ..
   use geovar,            only : ncell,cell,face,fp
   use interpolation_mod, only : interp
-  use flowvar,           only : dusp,facedusp_array
+  use flowvar,           only : dusp,facedusp
   !
   !.. Local Scalars ..
   integer  :: n,nc,n0,k,f0
@@ -602,7 +602,7 @@ continue
   !$ACC&                   PRESENT(fp) &
   !$ACC&                   PRESENT(cell) &
   !$ACC&                   PRESENT(face) &
-  !$ACC&                   PRESENT(facedusp_array) &
+  !$ACC&                   PRESENT(facedusp) &
   !$ACC&                   PRESENT(interp) &
   !$ACC&                   PRESENT(dusp)
   do nc = 1,ncell
@@ -674,25 +674,25 @@ continue
           !
         end do
         !
-        facedusp_array(f0+kf,1,nec,sf) = decdx
-        facedusp_array(f0+kf,2,nec,sf) = decdy
-        facedusp_array(f0+kf,3,nec,sf) = decdz
+        facedusp(f0+kf,1,nec,sf) = decdx
+        facedusp(f0+kf,2,nec,sf) = decdy
+        facedusp(f0+kf,3,nec,sf) = decdz
         !
-        facedusp_array(f0+kf,1,nmx,sf) = dmxdx
-        facedusp_array(f0+kf,2,nmx,sf) = dmxdy
-        facedusp_array(f0+kf,3,nmx,sf) = dmxdz
+        facedusp(f0+kf,1,nmx,sf) = dmxdx
+        facedusp(f0+kf,2,nmx,sf) = dmxdy
+        facedusp(f0+kf,3,nmx,sf) = dmxdz
         !
-        facedusp_array(f0+kf,1,nmy,sf) = dmydx
-        facedusp_array(f0+kf,2,nmy,sf) = dmydy
-        facedusp_array(f0+kf,3,nmy,sf) = dmydz
+        facedusp(f0+kf,1,nmy,sf) = dmydx
+        facedusp(f0+kf,2,nmy,sf) = dmydy
+        facedusp(f0+kf,3,nmy,sf) = dmydz
         !
-        facedusp_array(f0+kf,1,nmz,sf) = dmzdx
-        facedusp_array(f0+kf,2,nmz,sf) = dmzdy
-        facedusp_array(f0+kf,3,nmz,sf) = dmzdz
+        facedusp(f0+kf,1,nmz,sf) = dmzdx
+        facedusp(f0+kf,2,nmz,sf) = dmzdy
+        facedusp(f0+kf,3,nmz,sf) = dmzdz
         !
-        facedusp_array(f0+kf,1,nee,sf) = deedx
-        facedusp_array(f0+kf,2,nee,sf) = deedy
-        facedusp_array(f0+kf,3,nee,sf) = deedz
+        facedusp(f0+kf,1,nee,sf) = deedx
+        facedusp(f0+kf,2,nee,sf) = deedy
+        facedusp(f0+kf,3,nee,sf) = deedz
         !
       end do
       !
@@ -709,7 +709,7 @@ subroutine interp_dusp_to_flxpts_2d()
   !.. Use Statements ..
   use geovar,            only : ncell,cell,face,fp
   use interpolation_mod, only : interp
-  use flowvar,           only : dusp,facedusp_array
+  use flowvar,           only : dusp,facedusp
   !
   !.. Local Scalars ..
   integer  :: n,nc,n0,k,f0
@@ -734,7 +734,7 @@ continue
   !$ACC&                   PRESENT(fp) &
   !$ACC&                   PRESENT(cell) &
   !$ACC&                   PRESENT(face) &
-  !$ACC&                   PRESENT(facedusp_array) &
+  !$ACC&                   PRESENT(facedusp) &
   !$ACC&                   PRESENT(interp) &
   !$ACC&                   PRESENT(dusp)
   do nc = 1,ncell
@@ -797,17 +797,17 @@ continue
           !
         end do
         !
-        facedusp_array(f0+kf,1,nec,sf) = decdx
-        facedusp_array(f0+kf,2,nec,sf) = decdy
+        facedusp(f0+kf,1,nec,sf) = decdx
+        facedusp(f0+kf,2,nec,sf) = decdy
         !
-        facedusp_array(f0+kf,1,nmx,sf) = dmxdx
-        facedusp_array(f0+kf,2,nmx,sf) = dmxdy
+        facedusp(f0+kf,1,nmx,sf) = dmxdx
+        facedusp(f0+kf,2,nmx,sf) = dmxdy
         !
-        facedusp_array(f0+kf,1,nmy,sf) = dmydx
-        facedusp_array(f0+kf,2,nmy,sf) = dmydy
+        facedusp(f0+kf,1,nmy,sf) = dmydx
+        facedusp(f0+kf,2,nmy,sf) = dmydy
         !
-        facedusp_array(f0+kf,1,nee,sf) = deedx
-        facedusp_array(f0+kf,2,nee,sf) = deedy
+        facedusp(f0+kf,1,nee,sf) = deedx
+        facedusp(f0+kf,2,nee,sf) = deedy
         !
       end do
       !
@@ -825,7 +825,7 @@ subroutine interp_dusp_to_flxpts_nd()
   use order_mod,         only : maxFP
   use geovar,            only : nr,ncell,cell,face,fp
   use interpolation_mod, only : interp
-  use flowvar,           only : dusp,facedusp_array
+  use flowvar,           only : dusp,facedusp
   !
   !.. Local Scalars ..
   integer  :: n,nc,n0,k,l,m,f0
@@ -850,7 +850,7 @@ continue
   !$ACC&                   PRESENT(fp) &
   !$ACC&                   PRESENT(cell) &
   !$ACC&                   PRESENT(face) &
-  !$ACC&                   PRESENT(facedusp_array) &
+  !$ACC&                   PRESENT(facedusp) &
   !$ACC&                   PRESENT(interp) &
   !$ACC&                   PRESENT(dusp) &
   !$ACC&                   PRIVATE(fpidx)
@@ -905,11 +905,11 @@ continue
               !
             end do
             !
-            facedusp_array(f0+kf,l,m,sf) = val
+            facedusp(f0+kf,l,m,sf) = val
             !
           end do
         end do
-       !facedusp_array(f0+kf,1:nr,1:nq,sf) = interp(this_geom,this_order)% &
+       !facedusp(f0+kf,1:nr,1:nq,sf) = interp(this_geom,this_order)% &
        !                                            toFace(face_order)% &
        !                                  dot_mat2( lf , tdusp(1:np,1:nr,1:nq) )
       end do
@@ -3858,7 +3858,7 @@ subroutine visc_common_fluxes_interior_at_flxpts()
   use ovar,        only : visc_variables_to_ave
   use metrics_mod, only : facenrm
   use flowvar,     only : faceusp_array
-  use flowvar,     only : facedusp_array
+  use flowvar,     only : facedusp
   use flowvar,     only : facegpsp
   use flowvar,     only : faceflx
   !
@@ -3879,12 +3879,12 @@ continue
   if (visc_variables_to_ave == visc_interface_fluxes) then
     !
     call common_vflx_ave_fluxes_gpu(n1,n2,facenrm,faceusp_array,facegpsp, &
-                                    facedusp_array,faceflx)
+                                    facedusp,faceflx)
     !
   else ! visc_variables_to_ave == visc_solution_and_gradients
     !
     call common_vflx_ave_sol_and_grad_gpu(n1,n2,facenrm,faceusp_array, &
-                                          facedusp_array,faceflx)
+                                          facedusp,faceflx)
     !
   end if
   !
@@ -3899,7 +3899,7 @@ subroutine visc_common_fluxes_interior_at_qdtpts()
   use ovar,        only : visc_variables_to_ave
   use ovar,        only : combine_common_flux_projections
   use metrics_mod, only : facenrm_qdtpts
-  use flowvar,     only : facedusp_array
+  use flowvar,     only : facedusp
   use flowvar,     only : faceflx
   !
   use visc_flux_mod, only : common_vflx_ave_fluxes_gpu
@@ -3919,7 +3919,7 @@ continue
   nf1 = nfbnd+1
   nf2 = nface
   !
-  call interp_facedusp_to_faceduqp(nf1,nf2,facedusp_array,faceduqp)
+  call interp_facedusp_to_faceduqp(nf1,nf2,facedusp,faceduqp)
   !
   n1 = n_bnd_qdtpts+1
   n2 = n_flx_qdtpts
@@ -4145,7 +4145,7 @@ subroutine visc_common_fluxes_bc_at_flxpts()
   use ovar,        only : visc_variables_to_ave
   use metrics_mod, only : facenrm
   use flowvar,     only : faceusp_array
-  use flowvar,     only : facedusp_array
+  use flowvar,     only : facedusp
   use flowvar,     only : facegpsp
   use flowvar,     only : faceflx
   !
@@ -4169,7 +4169,7 @@ continue
   if (n2 >= n1) then
     !
     call visc_wall_flx_gpu(n1,n2,facenrm,faceusp_array,facegpsp, &
-                           facedusp_array,faceflx)
+                           facedusp,faceflx)
     !
   end if
   !
@@ -4182,12 +4182,12 @@ continue
   if (visc_variables_to_ave == visc_interface_fluxes) then
     !
     call common_vflx_ave_fluxes_gpu(n1,n2,facenrm,faceusp_array,facegpsp, &
-                                    facedusp_array,faceflx)
+                                    facedusp,faceflx)
     !
   else ! visc_variables_to_ave == visc_solution_and_gradients
     !
     call common_vflx_ave_sol_and_grad_gpu(n1,n2,facenrm,faceusp_array, &
-                                          facedusp_array,faceflx)
+                                          facedusp,faceflx)
     !
   end if
   !
@@ -4202,7 +4202,7 @@ subroutine visc_common_fluxes_bc_at_qdtpts()
   use ovar,        only : visc_variables_to_ave
   use ovar,        only : combine_common_flux_projections
   use metrics_mod, only : facenrm_qdtpts
-  use flowvar,     only : facedusp_array
+  use flowvar,     only : facedusp
   use flowvar,     only : faceflx
   !
   use visc_flux_mod, only : visc_wall_flx_gpu
@@ -4220,7 +4220,7 @@ continue
   nf1 = 1
   nf2 = nfbnd
   !
-  call interp_facedusp_to_faceduqp(nf1,nf2,facedusp_array,faceduqp)
+  call interp_facedusp_to_faceduqp(nf1,nf2,facedusp,faceduqp)
   !
   n1 = 1
   n2 = n_wall_qdtpts
@@ -6655,7 +6655,7 @@ subroutine correct_gradients_br2_gpu_3d()
   use correction_mod,    only : correct
   use flowvar,           only : dusp
   use flowvar,           only : faceusp_array
-  use flowvar,           only : facedusp_array
+  use flowvar,           only : facedusp
   use interpolation_mod, only : interp
   !
   !.. Local Scalars ..
@@ -6721,7 +6721,7 @@ continue
   !
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(facedusp_array,facenrm) &
+  !$ACC&              PRESENT(facedusp,facenrm) &
   !$ACC&              PRESENT(jac) &
   !$ACC&              PRESENT(face) &
   !$ACC&              PRESENT(cell) &
@@ -6911,25 +6911,25 @@ continue
           !
         end do
         !
-        facedusp_array(k,1,nec,sf) = decdx
-        facedusp_array(k,2,nec,sf) = decdy
-        facedusp_array(k,3,nec,sf) = decdz
+        facedusp(k,1,nec,sf) = decdx
+        facedusp(k,2,nec,sf) = decdy
+        facedusp(k,3,nec,sf) = decdz
         !
-        facedusp_array(k,1,nmx,sf) = dmxdx
-        facedusp_array(k,2,nmx,sf) = dmxdy
-        facedusp_array(k,3,nmx,sf) = dmxdz
+        facedusp(k,1,nmx,sf) = dmxdx
+        facedusp(k,2,nmx,sf) = dmxdy
+        facedusp(k,3,nmx,sf) = dmxdz
         !
-        facedusp_array(k,1,nmy,sf) = dmydx
-        facedusp_array(k,2,nmy,sf) = dmydy
-        facedusp_array(k,3,nmy,sf) = dmydz
+        facedusp(k,1,nmy,sf) = dmydx
+        facedusp(k,2,nmy,sf) = dmydy
+        facedusp(k,3,nmy,sf) = dmydz
         !
-        facedusp_array(k,1,nmz,sf) = dmzdx
-        facedusp_array(k,2,nmz,sf) = dmzdy
-        facedusp_array(k,3,nmz,sf) = dmzdz
+        facedusp(k,1,nmz,sf) = dmzdx
+        facedusp(k,2,nmz,sf) = dmzdy
+        facedusp(k,3,nmz,sf) = dmzdz
         !
-        facedusp_array(k,1,nee,sf) = deedx
-        facedusp_array(k,2,nee,sf) = deedy
-        facedusp_array(k,3,nee,sf) = deedz
+        facedusp(k,1,nee,sf) = deedx
+        facedusp(k,2,nee,sf) = deedy
+        facedusp(k,3,nee,sf) = deedz
         !
       end do interpolate_face
       !
@@ -7034,7 +7034,7 @@ subroutine correct_gradients_br2_gpu_2d()
   use correction_mod,    only : correct
   use flowvar,           only : dusp
   use flowvar,           only : faceusp_array
-  use flowvar,           only : facedusp_array
+  use flowvar,           only : facedusp
   use interpolation_mod, only : interp
   !
   !.. Local Scalars ..
@@ -7083,7 +7083,7 @@ continue
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              WORKER &
   !$ACC&              VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(facedusp_array,facenrm) &
+  !$ACC&              PRESENT(facedusp,facenrm) &
   !$ACC&              PRESENT(jac) &
   !$ACC&              PRESENT(face) &
   !$ACC&              PRESENT(cell) &
@@ -7240,17 +7240,17 @@ continue
           !
         end do
         !
-        facedusp_array(k,1,nec,sf) = decdx
-        facedusp_array(k,2,nec,sf) = decdy
+        facedusp(k,1,nec,sf) = decdx
+        facedusp(k,2,nec,sf) = decdy
         !
-        facedusp_array(k,1,nmx,sf) = dmxdx
-        facedusp_array(k,2,nmx,sf) = dmxdy
+        facedusp(k,1,nmx,sf) = dmxdx
+        facedusp(k,2,nmx,sf) = dmxdy
         !
-        facedusp_array(k,1,nmy,sf) = dmydx
-        facedusp_array(k,2,nmy,sf) = dmydy
+        facedusp(k,1,nmy,sf) = dmydx
+        facedusp(k,2,nmy,sf) = dmydy
         !
-        facedusp_array(k,1,nee,sf) = deedx
-        facedusp_array(k,2,nee,sf) = deedy
+        facedusp(k,1,nee,sf) = deedx
+        facedusp(k,2,nee,sf) = deedy
         !
       end do interpolate_face
       !
@@ -7310,7 +7310,7 @@ subroutine correct_gradients_br2_gpu_1d()
   use correction_mod,    only : correct
   use flowvar,           only : dusp
   use flowvar,           only : faceusp_array
-  use flowvar,           only : facedusp_array
+  use flowvar,           only : facedusp
   use interpolation_mod, only : interp
   !
   !.. Local Scalars ..
@@ -7357,7 +7357,7 @@ continue
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              WORKER &
   !$ACC&              VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(facedusp_array,facenrm) &
+  !$ACC&              PRESENT(facedusp,facenrm) &
   !$ACC&              PRESENT(jac) &
   !$ACC&              PRESENT(face) &
   !$ACC&              PRESENT(cell) &
@@ -7487,9 +7487,9 @@ continue
           !
         end do
         !
-        facedusp_array(k,1,nec,sf) = decdx
-        facedusp_array(k,1,nmx,sf) = dmxdx
-        facedusp_array(k,1,nee,sf) = deedx
+        facedusp(k,1,nec,sf) = decdx
+        facedusp(k,1,nmx,sf) = dmxdx
+        facedusp(k,1,nee,sf) = deedx
         !
       end do interpolate_face
       !
@@ -7526,7 +7526,7 @@ subroutine correct_gradients_br2_gpu_nd(mbeg,mend)
   use correction_mod,    only : correct
   use flowvar,           only : dusp
   use flowvar,           only : faceusp_array
-  use flowvar,           only : facedusp_array
+  use flowvar,           only : facedusp
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -7583,7 +7583,7 @@ continue
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              WORKER &
   !$ACC&              VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(facedusp_array,facenrm) &
+  !$ACC&              PRESENT(facedusp,facenrm) &
   !$ACC&              PRESENT(jac) &
   !$ACC&              PRESENT(fp) &
   !$ACC&              PRESENT(face) &
@@ -7705,7 +7705,7 @@ continue
               !
             end do
             !
-            facedusp_array(f0+kf,l,m,sf) = val
+            facedusp(f0+kf,l,m,sf) = val
             !
           end do
         end do
@@ -8309,7 +8309,7 @@ end subroutine write_3d_array
 !!use metrics_mod,       only : facenrm
 !!use correction_mod,    only : correct
 !!use flowvar,           only : residual
-!!use flowvar,           only : faceusp_array,facedusp_array
+!!use flowvar,           only : faceusp_array,facedusp
 !!use flowvar,           only : facegpsp
 !!!
 !!use visc_flux_mod, only : common_visc_flx_cv
@@ -8405,9 +8405,9 @@ end subroutine write_3d_array
 !!      do m = 1,nq
 !!        do l = 1,nr
 !!          ! Solution gradient at FP from left  cell on face
-!!          lduqp(l,m,k) = facedusp_array(f0+k,l,m,1)
+!!          lduqp(l,m,k) = facedusp(f0+k,l,m,1)
 !!          ! Solution gradient at FP from right cell on face
-!!          rduqp(l,m,k) = facedusp_array(f0+k,l,m,2)
+!!          rduqp(l,m,k) = facedusp(f0+k,l,m,2)
 !!        end do
 !!      end do
 !!    end do
@@ -8561,9 +8561,9 @@ end subroutine write_3d_array
 !!      do m = 1,nq
 !!        do l = 1,nr
 !!          ! Solution gradient at FP from left  cell on face
-!!          lduqp(l,m,k) = facedusp_array(f0+k,l,m,1)
+!!          lduqp(l,m,k) = facedusp(f0+k,l,m,1)
 !!          ! Solution gradient at FP from right cell on face
-!!          rduqp(l,m,k) = facedusp_array(f0+k,l,m,2)
+!!          rduqp(l,m,k) = facedusp(f0+k,l,m,2)
 !!        end do
 !!      end do
 !!    end do
@@ -8675,7 +8675,7 @@ end subroutine write_3d_array
 !!use geovar,            only : face,fp
 !!use metrics_mod,       only : facenrm,metrics_dt
 !!use correction_mod,    only : correct
-!!use flowvar,           only : dusp,facedusp_array,faceusp_array
+!!use flowvar,           only : dusp,facedusp,faceusp_array
 !!use ovar,              only : walls_are_exact,LDG_beta
 !!use interpolation_mod, only : interp
 !!!
@@ -8848,12 +8848,12 @@ end subroutine write_3d_array
 !!                                        rot(cell(nc)%face(ncf)%rotation)% &
 !!                                          pts(kf)
 !!      !
-!!     !facedusp_array(f0+kf,1:nr,1:nq,sf) = interp(this_geom,this_order)% &
+!!     !facedusp(f0+kf,1:nr,1:nq,sf) = interp(this_geom,this_order)% &
 !!     !                                            toFace(face_order)% &
 !!     !                               dot_mat2( lf ,face_dusp(1:np,1:nr,1:nq) )
 !!      do m = 1,nq
 !!        do l = 1,nr
-!!         !facedusp_array(f0+kf,l,m,sf) = interp(this_geom,this_order)% &
+!!         !facedusp(f0+kf,l,m,sf) = interp(this_geom,this_order)% &
 !!         !                                      toFace(face_order)% &
 !!         !                            dot( lf ,face_dusp(1:np,l,m) )
 !!          val = zero
@@ -8868,7 +8868,7 @@ end subroutine write_3d_array
 !!            val = val + a * face_dusp(n,l,m)
 !!            !
 !!          end do
-!!          facedusp_array(f0+kf,l,m,sf) = val
+!!          facedusp(f0+kf,l,m,sf) = val
 !!        end do
 !!      end do
 !!      !
