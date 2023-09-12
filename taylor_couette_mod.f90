@@ -224,6 +224,93 @@ end subroutine initialize_taylor_couette_problem
 !
 !###############################################################################
 !
+subroutine get_tcf_rpm(aspd,mach,tcf_rpm,iw_bc,ow_bc)
+  !
+  !.. Use Statements ..
+  use ovar, only : moving_ref_frame,bc_input_t
+  !
+  !.. Formal Arguments ..
+  real(wp),            intent(in) :: aspd
+  real(wp),         intent(inout) :: mach
+  real(wp),         intent(inout) :: tcf_rpm
+  type(bc_input_t), intent(inout) :: iw_bc
+  type(bc_input_t), intent(inout) :: ow_bc
+  !
+  !.. Local Scalars ..
+  real(wp) :: iw_abs_rpm,ow_abs_rpm
+  real(wp) :: mrf_rpm
+  !
+continue
+  !
+  ! The y- and z-rotations are zero for the TCF problem
+  !
+  moving_ref_frame%rotation(2:3) = zero
+  iw_bc%rotation_rate(2:3) = zero
+  ow_bc%rotation_rate(2:3) = zero
+  !
+  ! Set the MRF translation to zero
+  moving_ref_frame%translation(:) = zero
+  !
+  if ( moving_ref_frame%is_active() ) then
+    !
+    ! Get the MRF RPMs
+    !
+    mrf_rpm = moving_ref_frame%rotation(1)
+    !
+    ! For now, if a rotating reference frame is being used, use the default
+    ! Mach number for this problem to compute the rotation rates for the
+    ! inner and outer wall boundary conditions.
+    !
+    mach = default_Mach
+    !
+    tcf_rpm = mach*aspd/(ri*rpm_to_mps)
+    !
+    ! Set the BC rotations depending on value of
+    ! the flag is_specified_in_mrf for each BC.
+    !
+    if (iw_bc%is_specified_in_mrf) then
+      iw_bc%rotation_rate(1) = tcf_rpm - mrf_rpm
+    else
+      iw_bc%rotation_rate(1) = tcf_rpm
+    end if
+    !
+    if (ow_bc%is_specified_in_mrf) then
+      ow_bc%rotation_rate(1) = -mrf_rpm
+    else
+      ow_bc%rotation_rate(1) = zero
+    end if
+    !
+  else
+    !
+    iw_bc%is_specified_in_mrf = fals
+    ow_bc%is_specified_in_mrf = fals
+    !
+    iw_abs_rpm = iw_bc%rotation_rate(1)
+    ow_abs_rpm = ow_bc%rotation_rate(1)
+    !
+    if (abs(iw_abs_rpm-ow_abs_rpm) >= one) then
+      !
+      tcf_rpm = abs(iw_abs_rpm - ow_abs_rpm)
+      !
+      mach = tcf_rpm*ri*rpm_to_mps/aspd
+      !
+    else
+      !
+      mach = default_Mach
+      !
+      tcf_rpm = mach*aspd/(ri*rpm_to_mps)
+      !
+    end if
+    !
+    iw_bc%rotation_rate(1) = tcf_rpm ! Reset the IW rotation to TCF
+    ow_bc%rotation_rate(1) = zero    ! Reset the OW rotation to zero
+    !
+  end if
+  !
+end subroutine get_tcf_rpm
+!
+!###############################################################################
+!
 #ifndef DISABLE_PURE
 pure &
 #endif
