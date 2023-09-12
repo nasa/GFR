@@ -3168,6 +3168,7 @@ subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   use ovar,             only : tmin,tmax,tref
   use ovar,             only : rhoref,aref,cpref_nd
   use ovar,             only : governing_equations
+  use ovar,             only : moving_ref_frame
   use metrics_mod,      only : facenrm
   use element_type_mod, only : std_elem
   use thermo_mod,       only : species_name
@@ -3191,7 +3192,7 @@ subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   character(len=10) :: cp_units,visc_units,cond_units,q_units,rpm_units
   !
   character(len=2000) :: isowall_fmt,adiwall_fmt,rhovel_fmt
-  character(len=2000) :: isorotwall_fmt,adirotwall_fmt
+  character(len=2000) :: isorotwall_fmt,adirotwall_fmt,mrfrotwall_fmt
   character(len=2000) :: thermo_fmt,transport_fmt
   character(len=2000) :: species_fmt,tmp_fmt,energy_fmt
   !
@@ -3260,6 +3261,7 @@ continue
   write (adiwall_fmt,103) v_units,v_units,v_units
   write (isorotwall_fmt,202) t_units,rpm_units,rpm_units,rpm_units
   write (adirotwall_fmt,203) rpm_units,rpm_units,rpm_units
+  write (mrfrotwall_fmt,204) rpm_units,rpm_units,rpm_units
   write (rhovel_fmt,104) r_units,v_units,v_units,v_units
   write (thermo_fmt,105) p_units,t_units,h_units,v_units,r_units, &
                          p_units,t_units,h_units,cp_units,cp_units
@@ -3353,6 +3355,10 @@ continue
         if (any(abs(bc_in(this_bc)%rotation_rate(:)) >= one_rpm_nd)) then
           rotation(:) = bc_in(this_bc)%rotation_rate(:)
           write (iout,isorotwall_fmt) t, (rotation(ii)*rpm_dim,ii=1,nr)
+          if ( moving_ref_frame%is_active() ) then
+            rotation(:) = rotation(:) - moving_ref_frame%rotation(:)
+            write (iout,mrfrotwall_fmt) (rotation(ii)*rpm_dim,ii=1,nr)
+          end if
         else
           vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
           write (iout,isowall_fmt) t,(vel(ii),ii=1,nr)
@@ -3363,6 +3369,10 @@ continue
         if (any(abs(bc_in(this_bc)%rotation_rate(:)) >= one_rpm_nd)) then
           rotation(:) = bc_in(this_bc)%rotation_rate(:)
           write (iout,adirotwall_fmt) (rotation(ii)*rpm_dim,ii=1,nr)
+          if ( moving_ref_frame%is_active() ) then
+            rotation(:) = rotation(:) - moving_ref_frame%rotation(:)
+            write (iout,mrfrotwall_fmt) (rotation(ii)*rpm_dim,ii=1,nr)
+          end if
         else
           vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
           write (iout,adiwall_fmt) (vel(ii),ii=1,nr)
@@ -3515,6 +3525,9 @@ continue
   203 format ('(4x,"Wall X-Rotation IRF",t27,"= ",es14.6,"',a,'",/,:,', &
                '4x,"Wall Y-Rotation IRF",t27,"= ",es14.6,"',a,'",/,:,', &
                '4x,"Wall Z-Rotation IRF",t27,"= ",es14.6,"',a,'",/)')
+  204 format ('(4x,"Wall X-Rotation MRF",t27,"= ",es14.6,"',a,'",/,:,', &
+               '4x,"Wall Y-Rotation MRF",t27,"= ",es14.6,"',a,'",/,:,', &
+               '4x,"Wall Z-Rotation MRF",t27,"= ",es14.6,"',a,'",/)')
   104 format ('(4x,"Static Density",t27,"= ",es14.6,"',a,'",/,' &
                '4x,"X-velocity",t27,"= ",es14.6,"',a,'",:,/,' &
                '4x,"Y-velocity",t27,"= ",es14.6,"',a,'",:,/,' &
