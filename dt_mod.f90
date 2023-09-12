@@ -673,6 +673,54 @@ end subroutine invs_eigenvalue
 !
 !###############################################################################
 !
+pure subroutine invs_eigenvalue_aspd(n1,n2,face_cv,face_gp,aspd)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: aspd(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,n
+  real(wp) :: rho_inv,pres,gamm
+  !
+continue
+  !
+  if (ncs > 0) then
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp,aspd)
+    do i = 1,2
+      do n = n1,n2
+        !
+        rho_inv = one/face_cv(n,nec,i)
+        pres = face_gp(n,npres,i)
+        gamm = face_gp(n,ngamm,i)
+        !
+        aspd(n,i) = sqrt( max( gamm*pres*rho_inv , rndoff ) )
+        !
+      end do
+    end do
+  else
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,face_gp,aspd)
+    do i = 1,2
+      do n = n1,n2
+        !
+        rho_inv = one/face_cv(n,nec,i)
+        pres = face_gp(n,npres,i)
+        !
+        aspd(n,i) = sqrt( max( gam*pres*rho_inv , rndoff ) )
+        !
+      end do
+    end do
+  end if
+  !
+end subroutine invs_eigenvalue_aspd
+!
+!###############################################################################
+!
 pure subroutine invs_eigenvalue_3d(n1,n2,face_cv,face_gp,facenrm,eigni,ds)
   !
   !.. Use Statements ..
