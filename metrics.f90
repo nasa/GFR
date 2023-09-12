@@ -28,7 +28,7 @@ module metrics_mod
   !
   type(face_nrm_t), public, save, allocatable :: geofa(:)
   !
-  ! facenrm : normal of the face at each of the flux points
+  ! facenrm : area-weighted normal of the face at each of the flux points
   !
   real(wp), public, save, allocatable :: facenrm(:,:)
   real(wp), public, save, allocatable :: facejac(:,:)
