@@ -915,8 +915,9 @@ end subroutine invs_eigenvalue_nd
 subroutine get_point_global_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
-  use geovar,      only : nr,n_solpts
+  use geovar,      only : nr,n_solpts,xyz
   use ovar,        only : gam,CFL
+  use ovar,        only : moving_ref_frame
   use metrics_mod, only : time_metrics
   use flowvar,     only : usp
   use flowvar,     only : gpsp
@@ -930,6 +931,7 @@ subroutine get_point_global_timestep(dtmin,dt_sp)
   real(wp) :: da,dx,dy,dz,dtpt,dtc
   real(wp) :: velx,vely,velz
   real(wp) :: rho_inv,pres,gamm
+  real(wp) :: x,y,z,x_r,y_r,z_r
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: aspd(:)
@@ -946,6 +948,10 @@ continue
   !
   allocate ( aspd(1:n_solpts) )
   !$ACC DATA CREATE(aspd)
+  !
+  x_r = moving_ref_frame%rotation(1) ! x rotation
+  y_r = moving_ref_frame%rotation(2) ! y rotation
+  z_r = moving_ref_frame%rotation(3) ! z rotation
   !
   if (ncs > 0) then
     !$ACC PARALLEL LOOP PRESENT(usp,gpsp,aspd)
@@ -977,8 +983,12 @@ continue
   if (nr == 3) then ! this should also work for ncs > 0
     !
     !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,aspd,time_metrics,dt_sp)
+    !$ACC&              PRESENT(usp,aspd,time_metrics,dt_sp,xyz)
     do n = 1,n_solpts
+      !
+      x = xyz(1,n)
+      y = xyz(2,n)
+      z = xyz(3,n)
       !
       dx = time_metrics(1,n)
       dy = time_metrics(2,n)
@@ -987,9 +997,9 @@ continue
       !
       rho_inv = one/usp(n,nec)
       !
-      velx = usp(n,nmx)*rho_inv
-      vely = usp(n,nmy)*rho_inv
-      velz = usp(n,nmz)*rho_inv
+      velx = usp(n,nmx)*rho_inv - (y_r*z - z_r*y)
+      vely = usp(n,nmy)*rho_inv - (z_r*x - x_r*z)
+      velz = usp(n,nmz)*rho_inv - (x_r*y - y_r*x)
       !
       dtc = dx*abs(velx) + dy*abs(vely) + dz*abs(velz) + da*aspd(n)
       !
@@ -1075,8 +1085,9 @@ end subroutine get_point_global_timestep
 subroutine get_point_local_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
-  use geovar,      only : nr,n_solpts
+  use geovar,      only : nr,n_solpts,xyz
   use ovar,        only : gam,CFL
+  use ovar,        only : moving_ref_frame
   use metrics_mod, only : time_metrics
   use flowvar,     only : usp
   use flowvar,     only : gpsp
@@ -1090,6 +1101,7 @@ subroutine get_point_local_timestep(dtmin,dt_sp)
   real(wp) :: da,dx,dy,dz,dtpt,dtc
   real(wp) :: velx,vely,velz
   real(wp) :: rho_inv,pres,gamm
+  real(wp) :: x,y,z,x_r,y_r,z_r
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: aspd(:)
@@ -1106,6 +1118,10 @@ continue
   !
   allocate ( aspd(1:n_solpts) )
   !$ACC DATA CREATE(aspd)
+  !
+  x_r = moving_ref_frame%rotation(1) ! x rotation
+  y_r = moving_ref_frame%rotation(2) ! y rotation
+  z_r = moving_ref_frame%rotation(3) ! z rotation
   !
   if (ncs > 0) then
     !$ACC PARALLEL LOOP PRESENT(usp,gpsp,aspd)
@@ -1137,8 +1153,12 @@ continue
   if (nr == 3) then ! this should also work for ncs > 0
     !
     !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-    !$ACC&              PRESENT(usp,aspd,time_metrics,dt_sp)
+    !$ACC&              PRESENT(usp,aspd,time_metrics,dt_sp,xyz)
     do n = 1,n_solpts
+      !
+      x = xyz(1,n)
+      y = xyz(2,n)
+      z = xyz(3,n)
       !
       dx = time_metrics(1,n)
       dy = time_metrics(2,n)
@@ -1147,9 +1167,9 @@ continue
       !
       rho_inv = one/usp(n,nec)
       !
-      velx = usp(n,nmx)*rho_inv
-      vely = usp(n,nmy)*rho_inv
-      velz = usp(n,nmz)*rho_inv
+      velx = usp(n,nmx)*rho_inv - (y_r*z - z_r*y)
+      vely = usp(n,nmy)*rho_inv - (z_r*x - x_r*z)
+      velz = usp(n,nmz)*rho_inv - (x_r*y - y_r*x)
       !
       dtc = dx*abs(velx) + dy*abs(vely) + dz*abs(velz) + da*aspd(n)
       !
