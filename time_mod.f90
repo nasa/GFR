@@ -5,7 +5,7 @@ module time_mod
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
-  use eqn_idx, only : ncs,npres,ntemp,nvisc,ngamm
+  use eqn_idx, only : ncs,npres,nvisc,ngamm
   !
   use ovar, only : force_nd_subroutines
   !
@@ -15,14 +15,11 @@ module time_mod
   !
   public :: get_dtsp
   public :: checks_on_dtmin
-  public :: rresi
   public :: update_Classic_RK
   public :: update_CK_RK4
   public :: update_TVD_RK2
   public :: update_TVD_RK3
   public :: update_TVD_RK4
-  public :: save_old_solution
-  public :: stabilize_usp
   !
   interface write_array
     module procedure write_1d_array, write_2d_array, write_3d_array
@@ -1821,543 +1818,12 @@ end subroutine check_final_time
 !
 !###############################################################################
 !
-subroutine save_old_solution()
-  !
-  !.. Use Statements ..
-  use ovar,    only : gam
-  use flowvar, only : usp,uoldsp
-  use flowvar, only : gpsp,gpoldsp
-  !
-  !.. Local Scalars ..
-  integer :: m,n,np,nr
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "save_old_solution"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  nr = nme-nmb+1
-  np = size(uoldsp,dim=1)
-  !
- !!$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp,usp)
- !do m = 1,nq
- !  do n = 1,np
- !    uoldsp(n,m) = usp(n,m)
- !  end do
- !end do
-  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    !$ACC PARALLEL LOOP PRESENT(uoldsp,usp)
-    do n = 1,np
-      uoldsp(n,nec) = usp(n,nec)
-      uoldsp(n,nmx) = usp(n,nmx)
-      uoldsp(n,nmy) = usp(n,nmy)
-      uoldsp(n,nmz) = usp(n,nmz)
-      uoldsp(n,nee) = usp(n,nee)
-    end do
-  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    !$ACC PARALLEL LOOP PRESENT(uoldsp,usp)
-    do n = 1,np
-      uoldsp(n,nec) = usp(n,nec)
-      uoldsp(n,nmx) = usp(n,nmx)
-      uoldsp(n,nmy) = usp(n,nmy)
-      uoldsp(n,nee) = usp(n,nee)
-    end do
-  else
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp,usp)
-    do m = 1,nq
-      do n = 1,np
-        uoldsp(n,m) = usp(n,m)
-      end do
-    end do
-  end if
-  !
-  !$ACC PARALLEL LOOP PRESENT(gpoldsp,gpsp)
-  do n = 1,np
-    gpoldsp(n,npres) = gpsp(n,npres)
-    gpoldsp(n,ntemp) = gpsp(n,ntemp)
-  end do
-  !
-  if (ncs > 0) then
-    !$ACC PARALLEL LOOP PRESENT(gpoldsp,gpsp)
-    do n = 1,np
-      gpoldsp(n,ngamm) = gpsp(n,ngamm)
-    end do
-  else
-    !$ACC PARALLEL LOOP PRESENT(gpoldsp,gpsp)
-    do n = 1,np
-      gpoldsp(n,ngamm) = gam
-    end do
-  end if
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine save_old_solution
-!
-!###############################################################################
-!
-subroutine rresi(iter,nst)
-  !
-  !... calculates d(utd)/dt
-  !
-  !.. Use Statements ..
-  use order_mod,   only : p_order,n_order
-  use geovar,      only : n_solpts
-  use ovar,        only : itestcase
-  use metrics_mod, only : jac
-  use flowvar,     only : residual
-  !
-  use projection_mod, only : project_to_porder
-  !
-  !.. Formal Arguments ..
-  integer, intent(in) :: iter
-  integer, intent(in) :: nst
-  !
-  !.. Local Scalars ..
-  integer  :: io,m,n,nr
-  real(wp) :: jac_inv
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "rresi"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  nr = nme-nmb+1
-  !
-  if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    !$ACC PARALLEL LOOP PRESENT(jac,residual)
-    do n = 1,n_solpts
-      jac_inv = one/jac(n)
-      residual(n,nec) = -residual(n,nec)*jac_inv
-      residual(n,nmx) = -residual(n,nmx)*jac_inv
-      residual(n,nmy) = -residual(n,nmy)*jac_inv
-      residual(n,nmz) = -residual(n,nmz)*jac_inv
-      residual(n,nee) = -residual(n,nee)*jac_inv
-    end do
-  else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-    !$ACC PARALLEL LOOP PRESENT(jac,residual)
-    do n = 1,n_solpts
-      jac_inv = one/jac(n)
-      residual(n,nec) = -residual(n,nec)*jac_inv
-      residual(n,nmx) = -residual(n,nmx)*jac_inv
-      residual(n,nmy) = -residual(n,nmy)*jac_inv
-      residual(n,nee) = -residual(n,nee)*jac_inv
-    end do
-  else
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(jac,residual)
-    do m = 1,nq
-      do n = 1,n_solpts
-        residual(n,m) = -residual(n,m)/jac(n)
-      end do
-    end do
-  end if
-  !
- !io = 100 + 10*iter + nst
- !!$ACC UPDATE SELF(residual)
- !do n = 1,n_solpts
- !  write (io,100) (residual(n,m), m=1,nq)
- !end do
- !100 format (5es16.8)
-  !
-  ! Zero out the residuals for all but the density
-  ! equation if running the density transport test case
-  !
-  if (itestcase == Density_Transport) then
-    if (nr == 3 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-      !$ACC PARALLEL LOOP PRESENT(residual)
-      do n = 1,n_solpts
-        residual(n,nmx) = residual(n,nec)
-        residual(n,nmy) = residual(n,nec)
-        residual(n,nmz) = residual(n,nec)
-        residual(n,nee) = residual(n,nec)
-      end do
-    else if (nr == 2 .and. ncs == 0 .and. .not.force_nd_subroutines) then
-      !$ACC PARALLEL LOOP PRESENT(residual)
-      do n = 1,n_solpts
-        residual(n,nmx) = residual(n,nec)
-        residual(n,nmy) = residual(n,nec)
-        residual(n,nee) = residual(n,nec)
-      end do
-    else
-      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(residual)
-      do m = 1,nec-1
-        do n = 1,n_solpts
-          residual(n,m) = residual(n,nec)
-        end do
-      end do
-      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(residual)
-      do m = nec+1,nq
-        do n = 1,n_solpts
-          residual(n,m) = residual(n,nec)
-        end do
-      end do
-    end if
-  end if
-  !
-  if (p_order < n_order) then
-    call project_to_porder(residual)
-  end if
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine rresi
-!
-!###############################################################################
-!
-subroutine check_total_temperature(np,usp,gpsp,nst)
-  !
-  !.. Use Statements ..
-  use ovar, only : gam,rgasref_nd,tref,tmin,tmax
-  use ovar, only : ideal_total_temperature
-  use ovar, only : limit_total_temperature
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: np
-  integer,     intent(in) :: nst
-  real(wp), intent(inout) :: usp(:,:)
-  real(wp), intent(inout) :: gpsp(:,:)
-  !
-  !.. Local Scalars ..
-  integer  :: n,nr,loc_ttmin,loc_ttmax
-  integer  :: num_min_limits
-  integer  :: num_max_limits
-  real(wp) :: gm1,rgas_inv,gm1_over_2gmR
-  real(wp) :: rho,rho_inv,pres,temp,total_temp
-  real(wp) :: velx,vely,velz,q2,a2
-  real(wp) :: tmin_lim,tmax_lim,ttmin,ttmax
-  !
-  !.. Local Arrays ..
-  integer :: num_temp_limits(1:2)
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "check_total_temperature"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  if (ncs > 0) return
-  !
-  gm1 = gam - one
-  rgas_inv = one / rgasref_nd
-  gm1_over_2gmR = half*gm1*rgas_inv/gam
-  !
-  num_min_limits = 0
-  num_max_limits = 0
-  !
-  ttmin = tmax/tref ! initialize ttmin to the largest  possible temperature
-  ttmax = tmin/tref ! initialize ttmax to the smallest possible temperature
-  !
-  tmin_lim = ideal_total_temperature*(one - limit_total_temperature)
-  tmax_lim = ideal_total_temperature*(one + limit_total_temperature)
-  !
-  nr = nme-nmb+1
-  !
-  if (nr == 3) then
-    !
-    !$ACC PARALLEL LOOP PRESENT(usp,gpsp) &
-    !$ACC&              REDUCTION(+:num_min_limits,num_max_limits) &
-    !$ACC&              REDUCTION(max:ttmax) &
-    !$ACC&              REDUCTION(min:ttmin)
-    do n = 1,np
-      !
-      rho = usp(n,nec)
-      !
-      rho_inv = one/rho
-      !
-      velx = usp(n,nmx)*rho_inv
-      vely = usp(n,nmy)*rho_inv
-      velz = usp(n,nmz)*rho_inv
-      !
-      q2 = velx*velx + vely*vely + velz*velz
-      !
-      pres = gpsp(n,npres)
-      temp = gpsp(n,ntemp)
-      !
-      a2 = max( gam*pres*rho_inv , rndoff )
-      !
-      total_temp = temp*(one + half*gm1*q2/a2)
-      !
-      if (total_temp > ttmax) then
-        ttmax = total_temp
-        loc_ttmax = n
-      else if (total_temp < ttmin) then
-        ttmin = total_temp
-        loc_ttmin = n
-      end if
-      !
-      if (total_temp > tmax_lim) then
-        total_temp = tmax_lim
-        num_max_limits = num_max_limits + 1
-      else if (total_temp < tmin_lim) then
-        total_temp = tmin_lim
-        num_min_limits = num_min_limits + 1
-      end if
-      !
-      temp = total_temp - q2*gm1_over_2gmR
-      gpsp(n,ntemp) = temp
-      !
-!#define APPLY_TTOTAL_LIMIT_TO_PRESSURE
-#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
-      pres = rho*rgasref_nd*temp
-      usp(n,nee) = pres/gm1 + half*rho*q2
-      gpsp(n,npres) = pres
-#else
-      usp(n,nec) = rgas_inv*pres/temp
-#endif
-      !
-    end do
-    !
-  else if (nr == 2) then
-    !
-    !$ACC PARALLEL LOOP PRESENT(usp,gpsp) &
-    !$ACC&              REDUCTION(+:num_min_limits,num_max_limits) &
-    !$ACC&              REDUCTION(max:ttmax) &
-    !$ACC&              REDUCTION(min:ttmin)
-    do n = 1,np
-      !
-      rho = usp(n,nec)
-      !
-      rho_inv = one/rho
-      !
-      velx = usp(n,nmx)*rho_inv
-      vely = usp(n,nmy)*rho_inv
-      !
-      q2 = velx*velx + vely*vely
-      !
-      pres = gpsp(n,npres)
-      temp = gpsp(n,ntemp)
-      !
-      a2 = max( gam*pres*rho_inv , rndoff )
-      !
-      total_temp = temp*(one + half*gm1*q2/a2)
-      !
-      if (total_temp > ttmax) then
-        ttmax = total_temp
-        loc_ttmax = n
-      else if (total_temp < ttmin) then
-        ttmin = total_temp
-        loc_ttmin = n
-      end if
-      !
-      if (total_temp > tmax_lim) then
-        total_temp = tmax_lim
-        num_max_limits = num_max_limits + 1
-      else if (total_temp < tmin_lim) then
-        total_temp = tmin_lim
-        num_min_limits = num_min_limits + 1
-      end if
-      !
-      temp = total_temp - q2*gm1_over_2gmR
-      gpsp(n,ntemp) = temp
-      !
-#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
-      pres = rho*rgasref_nd*temp
-      usp(n,nee) = pres/gm1 + half*rho*q2
-      gpsp(n,npres) = pres
-#else
-      usp(n,nec) = rgas_inv*pres/temp
-#endif
-      !
-    end do
-    !
-  else
-    !
-    !$ACC PARALLEL LOOP PRESENT(usp,gpsp) &
-    !$ACC&              REDUCTION(+:num_min_limits,num_max_limits) &
-    !$ACC&              REDUCTION(max:ttmax) &
-    !$ACC&              REDUCTION(min:ttmin)
-    do n = 1,np
-      !
-      rho = usp(n,nec)
-      !
-      rho_inv = one/rho
-      !
-      velx = usp(n,nmx)*rho_inv
-      !
-      q2 = velx*velx
-      !
-      pres = gpsp(n,npres)
-      temp = gpsp(n,ntemp)
-      !
-      a2 = max( gam*pres*rho_inv , rndoff )
-      !
-      total_temp = temp*(one + half*gm1*q2/a2)
-      !
-      if (total_temp > ttmax) then
-        ttmax = total_temp
-        loc_ttmax = n
-      else if (total_temp < ttmin) then
-        ttmin = total_temp
-        loc_ttmin = n
-      end if
-      !
-      if (total_temp > tmax_lim) then
-        total_temp = tmax_lim
-        num_max_limits = num_max_limits + 1
-      else if (total_temp < tmin_lim) then
-        total_temp = tmin_lim
-        num_min_limits = num_min_limits + 1
-      end if
-      !
-      temp = total_temp - q2*gm1_over_2gmR
-      gpsp(n,ntemp) = temp
-      !
-#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
-      pres = rho*rgasref_nd*temp
-      usp(n,nee) = pres/gm1 + half*rho*q2
-      gpsp(n,npres) = pres
-#else
-      usp(n,nec) = rgas_inv*pres/temp
-#endif
-      !
-    end do
-    !
-  end if
-  !
-!#define OUTPUT_TOTAL_TEMP_LIMITS
-#ifdef OUTPUT_TOTAL_TEMP_LIMITS
-  num_temp_limits(1:2) = [num_min_limits,num_max_limits]
-  if (ncpu > 1) then
-    call mpi_allreduce(MPI_IN_PLACE,num_temp_limits, &
-                       size(num_temp_limits,kind=int_mpi),mpi_inttyp, &
-                       MPI_SUM,MPI_COMM_WORLD,mpierr)
-    call mpi_allreduce(MPI_IN_PLACE,ttmin,1_int_mpi,mpi_flttyp, &
-                       MPI_MIN,MPI_COMM_WORLD,mpierr)
-    call mpi_allreduce(MPI_IN_PLACE,ttmax,1_int_mpi,mpi_flttyp, &
-                       MPI_MAX,MPI_COMM_WORLD,mpierr)
-  end if
-  if (mypnum == glb_root) then
-    if (any(num_temp_limits > 0)) then
-      write (iout,100) nst,num_temp_limits(1),ttmin, &
-                           num_temp_limits(2),ttmax
-      flush (iout)
-    end if
-  end if
-#endif
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-  ! Format Statements
-  !
-  100 format (6x,"RK Stage #",i0,t20,":  # min T0 limits = ",i0,",", &
-                                 t55,"min T0 = ",f8.2,/, &
-                                 t23,"# max T0 limits = ",i0,",", &
-                                 t55,"max T0 = ",f8.2)
-  !
-end subroutine check_total_temperature
-!
-!###############################################################################
-!
-subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name)
-  !
-  !.. Use Statements ..
-  use geovar,          only : n_solpts
-  use flowvar,         only : usp,gpsp
-  use ovar,            only : Limiter_Option,Filter_Option
-  use ovar,            only : ideal_total_temperature
-  use ovar,            only : use_sponge_filter
-  use filter_mod,      only : filter_usp
-  use module_limiters, only : resolution_indicator
-  use module_limiters, only : limit_by_projecting
-  use module_limiters, only : check_cell_thermo_properties
-  use module_limiters, only : apply_sponge_filter
-  !
-  use thermo_mod,      only : update_mixture_density
-  use thermo_mod,      only : update_thermo_properties
-  use transport_mod,   only : update_transport_properties
-  !
-  !.. Formal Arguments ..
-  integer,          intent(in) :: nst
-  logical(lk),      intent(in) :: Apply_Filter
-  logical(lk),      intent(in) :: Apply_Limiter
-  character(len=*), intent(in) :: caller_name
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "stabilize_usp"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  ! Update the mixture density if solving a gas mixture
-  ! NOTE: This will also be called first thing upon entering subroutine
-  !       update_thermo_properties. However, we need to make sure this
-  !       is done before calling stabilize_usp. It is a relatively simple
-  !       operation so the double work shouldnt amount to much additional
-  !       computational cost.
-  !
-  call update_mixture_density(1,n_solpts,usp)
-  !
-  ! Apply the sponge filter to cells in sponge regions
-  !
-  if (use_sponge_filter) then
-    call apply_sponge_filter(usp)
-  end if
-  !
-  ! Apply realizable total temperature limiter
-  !
-  if (ideal_total_temperature > zero) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp, &
-                                  loc="cell",caller_name=caller_name)
-    call check_total_temperature(n_solpts,usp,gpsp,nst)
-  end if
-  !
-  ! Apply the limiter
-  !
-  if (Limiter_Option /= 0) then
-    if (Apply_Limiter) then
-#ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,2) nst
-      2 format (8x,"Applying Limiter : RK Stage = ",i0)
-#endif
-      if (Limiter_Option <= -1) then
-        call resolution_indicator(apply_projection=true)
-      else if (Limiter_Option >= 1) then
-        call limit_by_projecting
-      end if
-    end if
-  end if
-  !
-  ! Apply the filter
-  !
-  if (Filter_Option > 0) then
-    if (Apply_Filter) then
-#ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,1) nst
-      1 format (8x,"Applying Standard Filter : RK Stage = ",i0)
-#endif
-      call filter_usp
-    end if
-  end if
-  !
-  ! Update the thermodynamic and transport properties at the solution points
-  !
-  call update_thermo_properties(1,n_solpts,usp,gpsp, &
-                                loc="cell",caller_name=caller_name)
-  !
-  ! Check for any negative thermodynamic properties at the solution points
-  !
- !call check_cell_thermo_properties()
-  !
-  ! Update the thermodynamic and transport properties at the solution points
-  !
-  call update_transport_properties(1,n_solpts,usp,gpsp)
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine stabilize_usp
-!
-!###############################################################################
-!
 subroutine update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use flowvar, only : rk_sum,residual,usp,dtsp
+  use rhs_mod, only : stabilize_usp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
@@ -2823,6 +2289,7 @@ subroutine update_TVD_RK2(nst,Apply_Filter,Apply_Limiter)
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use flowvar, only : residual,usp,uoldsp,dtsp
+  use rhs_mod, only : stabilize_usp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
@@ -2957,6 +2424,7 @@ subroutine update_TVD_RK3(nst,Apply_Filter,Apply_Limiter,iter)
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use flowvar, only : residual,usp,uoldsp,dtsp
+  use rhs_mod, only : stabilize_usp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst,iter
@@ -3149,6 +2617,7 @@ subroutine update_TVD_RK4(nst,Apply_Filter,Apply_Limiter)
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use flowvar, only : residual,usp,uoldsp,rk_sum,dtsp
+  use rhs_mod, only : stabilize_usp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
@@ -3528,6 +2997,7 @@ subroutine update_Classic_RK(nst,Apply_Filter,Apply_Limiter)
   use geovar,  only : n_solpts
   use ovar,    only : num_rk_stages
   use flowvar, only : rssprk,residual,usp,uoldsp,dtsp
+  use rhs_mod, only : stabilize_usp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst

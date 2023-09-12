@@ -114,6 +114,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/flux.o \
         $(OBJDIR)/filter_mod.o \
         $(OBJDIR)/time_mod.o \
+        $(OBJDIR)/rhs_mod.o \
         $(OBJDIR)/oerk_mod.o \
         $(OBJDIR)/eperk_mod.o \
         $(OBJDIR)/matrix_types_mod.o \

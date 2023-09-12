@@ -1023,7 +1023,7 @@ subroutine update_OERK(nst,Apply_Filter,Apply_Limiter)
   use geovar,  only : n_solpts
   use flowvar, only : residual,usp,uoldsp,rk_sum,dtsp
   use ovar,    only : time
-  use time_mod, only : stabilize_usp
+  use rhs_mod, only : stabilize_usp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst

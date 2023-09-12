@@ -27,6 +27,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/flux.o \
          $(OBJDIR)/parallel.o \
          $(OBJDIR)/time_mod.o \
+         $(OBJDIR)/rhs_mod.o \
          $(OBJDIR)/oerk_mod.o \
          $(OBJDIR)/eperk_mod.o \
          $(OBJDIR)/mms_mod.o \
@@ -165,7 +166,8 @@ $(OBJDIR)/eperk_mod.o : eperk_mod.f90 \
               $(OBJDIR)/geovar_mod.o \
               $(OBJDIR)/ovar_mod.o \
               $(OBJDIR)/flowvar_mod.o \
-              $(OBJDIR)/time_mod.o
+              $(OBJDIR)/time_mod.o \
+              $(OBJDIR)/rhs_mod.o
 
 $(OBJDIR)/eqn_idx_mod.o : eqn_idx_mod.f90 \
                 $(OBJDIR)/kind_types.o \
@@ -495,7 +497,7 @@ $(OBJDIR)/oerk_mod.o : oerk_mod.f90 \
              $(OBJDIR)/geovar_mod.o \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/flowvar_mod.o \
-             $(OBJDIR)/time_mod.o
+             $(OBJDIR)/rhs_mod.o
 
 $(OBJDIR)/order_mod.o : order_mod.f90 \
               $(OBJDIR)/kind_types.o \
@@ -646,6 +648,21 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(FUNDIR)/debug_timer.f90 \
                           mpi_defs.h
 
+$(OBJDIR)/rhs_mod.o : rhs_mod.f90 \
+            $(OBJDIR)/kind_types.o \
+            $(OBJDIR)/eqn_idx_mod.o \
+            $(OBJDIR)/geovar_mod.o \
+            $(OBJDIR)/ovar_mod.o \
+            $(OBJDIR)/order_mod.o \
+            $(OBJDIR)/flowvar_mod.o \
+            $(OBJDIR)/metrics.o \
+            $(OBJDIR)/filter_mod.o \
+            $(OBJDIR)/limiters.o \
+            $(OBJDIR)/projection_mod.o \
+            $(OBJDIR)/thermo_mod.o \
+            $(OBJDIR)/transport_mod.o \
+            $(FUNDIR)/debug_timer.f90
+
 $(OBJDIR)/taylor_couette_mod.o : taylor_couette_mod.f90 \
                        $(OBJDIR)/kind_types.o \
                        $(OBJDIR)/eqn_idx_mod.o \
@@ -668,14 +685,9 @@ $(OBJDIR)/time_mod.o : time_mod.f90 \
              $(OBJDIR)/eqn_idx_mod.o \
              $(OBJDIR)/geovar_mod.o \
              $(OBJDIR)/ovar_mod.o \
-             $(OBJDIR)/order_mod.o \
              $(OBJDIR)/flowvar_mod.o \
              $(OBJDIR)/metrics.o \
-             $(OBJDIR)/filter_mod.o \
-             $(OBJDIR)/limiters.o \
-             $(OBJDIR)/projection_mod.o \
-             $(OBJDIR)/thermo_mod.o \
-             $(OBJDIR)/transport_mod.o \
+             $(OBJDIR)/rhs_mod.o \
              $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/transport_mod.o : transport_mod.f90 \

@@ -128,7 +128,7 @@ program GFR_main
   use time_mod, only : update_TVD_RK2
   use time_mod, only : update_TVD_RK3
   use time_mod, only : update_TVD_RK4
-  use time_mod, only : save_old_solution
+  use rhs_mod, only : save_old_solution
   !
   use oerk_mod, only : update_oerk
   !
@@ -1668,7 +1668,7 @@ subroutine compute_rhs(iter,nst,newton_failures)
   !
   use reactions_mod, only : compute_wdot
   !
-  use time_mod, only : rresi
+  use rhs_mod, only : rresi
   !
   use flux_mod, only : interp_cv_to_flxpts
   use flux_mod, only : discontinuous_gradient_at_solpts

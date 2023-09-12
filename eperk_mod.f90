@@ -60,10 +60,10 @@ subroutine update_EPERK(nst,iter,Apply_Filter,Apply_Limiter)!, &
                        !dtmin,final_timestep_from_stop_request)
   !
   !.. Use Statements ..
-  use geovar,   only : n_solpts
-  use flowvar,  only : residual,usp,uoldsp,rssprk,dtsp,rk_sum
-  use ovar,     only : time,num_rk_stages
-  use time_mod, only : stabilize_usp
+  use geovar,  only : n_solpts
+  use flowvar, only : residual,usp,uoldsp,rssprk,dtsp,rk_sum
+  use ovar,    only : time,num_rk_stages
+  use rhs_mod, only : stabilize_usp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
