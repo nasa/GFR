@@ -1078,8 +1078,8 @@ end subroutine compute_fluxes_at_solpts
 subroutine compute_fluxes_at_qdtpts(usp,dusp,ifluxes)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,n_solpts,n_qdtpts
-  use ovar,    only : governing_equations
+  use geovar, only : nr,n_qdtpts
+  use ovar,   only : governing_equations
   !
   use visc_flux_mod, only : visc_flx_cv_gpu
   use invs_flux_mod, only : invs_flx_cv_gpu
@@ -4881,7 +4881,7 @@ subroutine interp_faceusp_to_faceuqp_nd(nf1,nf2,faceusp,faceuqp)
   real(wp), intent(inout) :: faceuqp(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,m,n,nf,f0,q0,nqp,i1,i2
+  integer  :: i,j,k,m,n,nf,f0,q0,nqp
   integer  :: face_geom,face_order,qdtr_order
   real(wp) :: a,val
   !
