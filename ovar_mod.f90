@@ -200,6 +200,7 @@ module ovar
   character(len=:), public, save, allocatable :: plot3d_cutfile
   character(len=:), public, save, allocatable :: plot3d_bcsfile
   real(wp),         public, save :: grid_scaling_factor = 1.0_wp
+  integer,          public, save :: internal_grid_order = -1
   !
   ! PLOT3D COARSENING OPTIONS
   integer, public, save :: plot3d_i_stride          = -1
@@ -1536,6 +1537,7 @@ module input_namelist_mod
   use ovar,      only : plot3d_i_stride, plot3d_j_stride, plot3d_k_stride
   use ovar,      only : plot3d_agglomerate_order,parametric_agglomeration
   use ovar,      only : plot3d_cutfile, plot3d_bcsfile, grid_scaling_factor
+  use ovar,      only : internal_grid_order
   use ovar,      only : interpto_grid_format, interpto_gridfile
   use ovar,      only : interpto_plot3d_all_strides, interpto_plot3d_i_stride
   use ovar,      only : interpto_plot3d_j_stride, interpto_plot3d_k_stride
@@ -1695,7 +1697,7 @@ module input_namelist_mod
   !
   ! GRID INFORMATION
   namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile, &
-                     grid_scaling_factor
+                     grid_scaling_factor, internal_grid_order
   ! PLOT3D COARSENING OPTIONS
   namelist / input / plot3d_i_stride, plot3d_j_stride, plot3d_k_stride, &
                      plot3d_all_strides, plot3d_agglomerate_order, &
