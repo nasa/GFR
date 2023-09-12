@@ -515,6 +515,7 @@ function initial_conditions(xyz,init_cond) result(return_value)
   !
   use taylor_couette_mod, only : laminar_taylor_couette_init
   use taylor_couette_mod, only : turbulent_taylor_couette_init
+  use taylor_couette_mod, only : freestream_taylor_couette_init
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xyz(:,:)
@@ -576,6 +577,14 @@ continue
         return_value(k,:) = turbulent_taylor_couette_init( xyz(:,k) )
       end do
     end if
+    !
+  else if (abs(itestcase) == Freestream_TCF) then
+    !
+    ! Initialize for freestream preservation using Taylor Couette flow geometry
+    ! 
+    do k = 1,np
+      return_value(k,:) = freestream_taylor_couette_init( xyz(:,k) )
+    end do
     !
   else if (mms_opt /= 0) then
     !
