@@ -71,9 +71,9 @@ module eqn_idx
   ! NG : total number of gas properties
   !       1) pressure
   !       2) temperature
-  !       3) viscosity
-  !       4) thermal conductivity
-  !       5) gamma
+  !       3) gamma
+  !       4) viscosity
+  !       5) thermal conductivity
   !       6) enthalpy
   !       7) Cp
   !
@@ -82,9 +82,9 @@ module eqn_idx
   !
   ! NPRES : index for pressure
   ! NTEMP : index for temperature
+  ! NGAMM : index for gamma
   ! NVISC : index for molecular viscosity
   ! NCOND : index for thermal conductivity
-  ! NGAMM : index for gamma
   ! NENTH : index for enthalpy
   ! NCP   : index for specific heat at constant pressure
   !
@@ -92,18 +92,19 @@ module eqn_idx
 #ifdef NPRES_AND_NTEMP_ARE_CONSTANTS
   integer, public, parameter :: npres = 1
   integer, public, parameter :: ntemp = 2
+  integer, public, parameter :: ngamm = 3
 #else
   integer, public, protected, save :: npres = 1
   !$ACC DECLARE CREATE(npres)
   integer, public, protected, save :: ntemp = 2
   !$ACC DECLARE CREATE(ntemp)
-#endif
-  integer, public, protected, save :: nvisc = 3
-  !$ACC DECLARE CREATE(nvisc)
-  integer, public, protected, save :: ncond = 4
-  !$ACC DECLARE CREATE(ncond)
-  integer, public, protected, save :: ngamm = 5
+  integer, public, protected, save :: ngamm = 3
   !$ACC DECLARE CREATE(ngamm)
+#endif
+  integer, public, protected, save :: nvisc = 4
+  !$ACC DECLARE CREATE(nvisc)
+  integer, public, protected, save :: ncond = 5
+  !$ACC DECLARE CREATE(ncond)
   integer, public, protected, save :: nenth = 6
   !$ACC DECLARE CREATE(nenth)
   integer, public, protected, save :: ncp   = 7
@@ -296,9 +297,9 @@ continue
 #ifndef NPRES_AND_NTEMP_ARE_CONSTANTS
   npres = 1
   ntemp = 2
-  !$ACC UPDATE DEVICE(npres,ntemp)
-#endif
   ngamm = 3
+  !$ACC UPDATE DEVICE(npres,ntemp,ngamm)
+#endif
   ng = 3
   !
   if (ncs > 0) then
