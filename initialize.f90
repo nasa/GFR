@@ -2066,16 +2066,17 @@ end subroutine get_face_and_edge_point_coordinates
 subroutine initialize_reference
   !
   !.. Use Statements ..
-  use ovar,   only : gam,tmin,tmax
-  use ovar,   only : rhoref,aref,tref,pref
-  use ovar,   only : machref,reyref,time_ref
-  use ovar,   only : rgasref_nd,cpref_nd
-  use ovar,   only : cv_ref,pv_ref,gp_ref
-  use ovar,   only : suth_Sref,suth_Tref
-  use ovar,   only : alpha_aoaref,beta_aoaref
-  use ovar,   only : itestcase,Lref
-  use ovar,   only : ideal_total_temperature
-  use ovar,   only : limit_total_temperature
+  use ovar, only : gam,tmin,tmax
+  use ovar, only : rhoref,aref,tref,pref
+  use ovar, only : machref,reyref,time_ref
+  use ovar, only : rgasref_nd,cpref_nd
+  use ovar, only : cv_ref,pv_ref,gp_ref
+  use ovar, only : suth_Sref,suth_Tref
+  use ovar, only : alpha_aoaref,beta_aoaref
+  use ovar, only : itestcase,Lref
+  use ovar, only : ideal_total_temperature
+  use ovar, only : limit_total_temperature
+  use ovar, only : moving_ref_frame
   !
   use thermo_mod,    only : init_thermo_mod
   use transport_mod, only : init_transport_mod
@@ -2255,6 +2256,11 @@ continue
   call initialize_turbulence(cv_ref,pv_ref,gp_ref)
   !
   call check_for_bad_number(__LINE__,__FILE__)
+  !
+  ! Nondimensionalize the moving reference frame rotation rate
+  ! and translational velocity
+  !
+  call moving_ref_frame%make_nondim()
   !
   !$ACC UPDATE DEVICE(aref,rhoref,tref,tmin,tmax, &
   !$ACC&              gam,rgasref_nd,cpref_nd, &
