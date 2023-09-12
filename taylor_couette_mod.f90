@@ -5,6 +5,7 @@ module taylor_couette_mod
   !
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nee,nq
+  use eqn_idx, only : npres,ntemp,ngamm
   !
   implicit none
   !
@@ -13,11 +14,12 @@ module taylor_couette_mod
   public :: initialize_taylor_couette_problem
   public :: laminar_taylor_couette_init
   public :: turbulent_taylor_couette_init
+  public :: freestream_taylor_couette_init
+  public :: remove_freestream_tcf_init
   !
   ! Module constants needed for the initialization functions
   !
   real(wp), parameter :: sig = 0.1_wp
-  real(wp), parameter :: sec_per_min = 60.0_wp
   !
   real(wp), parameter :: default_Re = 4000.0_wp
   real(wp), parameter :: default_Mach = 0.1_wp
@@ -38,6 +40,11 @@ module taylor_couette_mod
   real(wp), save :: bigA ! constant for laminar solution
   real(wp), save :: bigB ! constant for laminar solution
   !
+  real(wp), allocatable, save :: tcf_fs_cv(:)
+  real(wp), allocatable, save :: tcf_fs_pv(:)
+  real(wp), allocatable, save :: tcf_fs_gp(:)
+  real(wp), allocatable, save :: tcf_rotation(:)
+  !
 contains
 !
 !###############################################################################
@@ -55,28 +62,44 @@ subroutine initialize_taylor_couette_problem(ref_length)
   real(wp), intent(inout) :: ref_length
   !
   !.. Local Scalars ..
-  integer  :: n,bc_idx
+  integer  :: n,bc_iw_idx,bc_ow_idx
   real(wp) :: y,z,r2,ri2,eta2,xmin,xmax,rmin,rmax
-  real(wp) :: rotation_rate,omega,wall_temperature
+  real(wp) :: tcf_rpm,omega,wall_temperature
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_taylor_couette_problem"
   !
 continue
   !
-  ! Find the index in bc_input for the inner cylinder boundary conditions
+  ! Find the index in bc_input for the inner cylinder wall BC
   !
-  bc_idx = 0
+  bc_iw_idx = 0
   find_inner_wall_bc: &
   do n = 1,size(bc_input)
     if (trim(adjustl(uppercase(bc_input(n)%name))) == "INNERWALL") then
-      bc_idx = n
+      bc_iw_idx = n
       exit find_inner_wall_bc
     end if
   end do find_inner_wall_bc
   !
-  if (bc_idx == 0) then
-    write (error_message,101)
+  if (bc_iw_idx == 0) then
+    write (error_message,101) "inner","Inner","inner"
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Find the index in bc_input for the outer cylinder wall BC
+  !
+  bc_ow_idx = 0
+  find_outer_wall_bc: &
+  do n = 1,size(bc_input)
+    if (trim(adjustl(uppercase(bc_input(n)%name))) == "OUTERWALL") then
+      bc_ow_idx = n
+      exit find_outer_wall_bc
+    end if
+  end do find_outer_wall_bc
+  !
+  if (bc_ow_idx == 0) then
+    write (error_message,101) "outer","Outer","outer"
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
@@ -121,12 +144,12 @@ continue
   !
   ref_length = ro - ri
   !
-  ! Get the wall temperature from the boundary condition. If the wall
-  ! temperature hasnt been provided, first use the reference temperature
+  ! Get the wall temperature from the inner wall boundary condition. If the
+  ! wall temperature hasnt been provided, first use the reference temperature
   ! if it is > tref, otherwise use the default wall temperature value
   ! from the module header.
   !
-  wall_temperature = bc_input(bc_idx)%wall_temp
+  wall_temperature = bc_input(bc_iw_idx)%wall_temp
   if (wall_temperature <= tmin) then
     if (tref > tmin) then
       wall_temperature = tref
@@ -139,6 +162,11 @@ continue
   ! the wall temperature for the inner rotating cylinder
   !
   tref = wall_temperature
+  !
+  ! Save the wall temperature back into the inner wall
+  ! boundary condition in case it was updated.
+  !
+  bc_input(bc_iw_idx)%wall_temp = wall_temperature
   !
   ! Compute gamma, the reference gas constant, and the reference speed of sound
   !
@@ -165,34 +193,18 @@ continue
     reyref = default_Re
   end if
   !
-  ! Get the rotation speed from the boundary condition.
+  ! Determine the rotation speed for the boundary conditions based on the
+  ! following inputs: moving_ref_frame, bc_input(bc_iw_idx)%rotation_rate,
+  ! and bc_input(bc_ow_idx)%rotation_rate.
   ! NOTE: This should be in RPMs
   !
-  rotation_rate = bc_input(bc_idx)%rotation_rate(1)
-  !
-  if (rotation_rate <= eps1) then
-    !
-    machref = default_Mach
-    !
-    rotation_rate = machref*(aref*sec_per_min)/(ri*two*pi)
-    !
-  else
-    !
-    machref = rotation_rate*(ri*two*pi)/(aref*sec_per_min)
-    !
-  end if
-  !
-  ! Save the wall temperature and rotation speed back into the boundary
-  ! condition in case either of these were updated
-  !
-  bc_input(bc_idx)%wall_temp = wall_temperature
-  bc_input(bc_idx)%rotation_rate(1) = rotation_rate
+  call get_tcf_rpm(aref,machref,tcf_rpm,bc_input(bc_iw_idx),bc_input(bc_ow_idx))
   !
   ! Save the inner cylinder rotation speed.
   ! NOTE: This converts it from rpm to 1/s and when multiplied
   !       by a radius becomes m/s
   !
-  omega = rotation_rate*two*pi/sec_per_min
+  omega = tcf_rpm*rpm_to_mps
   !
   ! Compute the remaining module variables that
   ! will be used in the initialization functions
@@ -214,9 +226,9 @@ continue
   ! Format Statements
   !
   101 format ( &
-    " ERROR: No inner wall boundary condition found! When running the", &
+    " ERROR: No ",a5," wall boundary condition found! When running the", &
     " Taylor-Couette flow problem, one of the boundary conditions must", &
-    " have the name 'InnerWall'. This should correspond to the inner", &
+    " have the name '",a5,"Wall'. This should correspond to the ",a5, &
     " cylinder wall boundary, and should ideally specify the rotation", &
     " speed and wall temperature for the boundary.")
   !
