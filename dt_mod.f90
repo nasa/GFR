@@ -367,10 +367,12 @@ continue
   end do
   !
   !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-  !$ACC&              PRESENT(facejac,dsf,eigni,viscl,psq)
+  !$ACC&              PRESENT(facejac,eigni,viscl,psq)
   do kf = 1,n_bnd_flxpts
     !
-    hl = psq(kf,1) * half * dsf(kf) / facejac(kf,1)
+    ! NOTE: facejac is actually area/facejac
+    !
+    hl = psq(kf,1) * half * facejac(kf,1)
     !
     eigni_fp = eigni(kf,1)
     eignv_fp = hl * viscl(kf)
@@ -382,13 +384,13 @@ continue
   end do
   !
   !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-  !$ACC&              PRESENT(facejac,dsf,eigni,viscl,viscr,psq)
+  !$ACC&              PRESENT(facejac,eigni,viscl,viscr,psq)
   do kf = n_bnd_flxpts+1,n_flxpts
     !
-    ds = half * dsf(kf)
+    ! NOTE: facejac is actually area/facejac
     !
-    hl = ds * psq(kf,1) / facejac(kf,1)
-    hr = ds * psq(kf,2) / facejac(kf,2)
+    hl = half * psq(kf,1) * facejac(kf,1)
+    hr = half * psq(kf,2) * facejac(kf,2)
     !
     eigni_fp = max( eigni(kf,1) , eigni(kf,2) )
     eignv_fp = max( hl * viscl(kf) , hr * viscr(kf) )
@@ -508,7 +510,7 @@ continue
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              VECTOR_LENGTH(32) &
   !$ACC&              PRESENT(face,cell,facejac) &
-  !$ACC&              PRESENT(dt_cell,dsf,eigni,viscl)
+  !$ACC&              PRESENT(dt_cell,eigni,viscl)
   do nf = 1,nfbnd
     !
     left_cell = face(nf)%left%cell  ! left  cell on face
@@ -528,7 +530,9 @@ continue
       !
       kf = f0 + k
       !
-      hl = dsf(kf) * psql / facejac(kf,1)
+      ! NOTE: facejac is actually area/facejac
+      !
+      hl = psql * facejac(kf,1)
       !
       eigni_fp = eigni(kf,1)
       eignv_fp = hl * viscl(kf)
@@ -546,7 +550,7 @@ continue
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              VECTOR_LENGTH(32) &
   !$ACC&              PRESENT(face,cell,facejac) &
-  !$ACC&              PRESENT(dt_cell,dsf,eigni,viscl,viscr)
+  !$ACC&              PRESENT(dt_cell,eigni,viscl,viscr)
   do nf = nfbnd+1,nface
     !
     left_cell  = face(nf)%left%cell  ! left  cell on face
@@ -574,12 +578,11 @@ continue
       !
       kf = f0 + k
       !
-      ds = dsf(kf)
-      !
       ! Left and right cell jacobians at the face point
+      ! NOTE: facejac is actually area/facejac
       !
-      hl = ds * psql / facejac(kf,1)
-      hr = ds * psqr / facejac(kf,2)
+      hl = psql * facejac(kf,1)
+      hr = psqr * facejac(kf,2)
       !
       eigni_fp = max( eigni(kf,1) , eigni(kf,2) )
       eignv_fp = max( hl * viscl(kf) , hr * viscr(kf) )

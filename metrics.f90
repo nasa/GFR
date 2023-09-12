@@ -29,6 +29,17 @@ module metrics_mod
   type(face_nrm_t), public, save, allocatable :: geofa(:)
   !
   ! facenrm : area-weighted normal of the face at each of the flux points
+  ! facejac : For the left and right sides of each FP, this contains the area
+  !           of the face normal divided by the value of the respective sides
+  !           cell jacobian polynomial evaluated at the FP:
+  !
+  !                                     Area of normal @ FP
+  !              facejac(:,1) = ----------------------------------
+  !                             Interpolated jac of left cell @ FP
+  !
+  !                                     Area of normal @ FP
+  !              facejac(:,2) = -----------------------------------
+  !                             Interpolated jac of right cell @ FP
   !
   real(wp), public, save, allocatable :: facenrm(:,:)
   real(wp), public, save, allocatable :: facejac(:,:)
@@ -993,7 +1004,7 @@ subroutine old_compute_face_normals
   integer :: right_cell,right_geom,right_order
   integer :: face_geom,face_order
   integer :: inrm,ierr,npcount,nfpts
-  real(wp) :: a,val
+  real(wp) :: a,val,ds
   character(len=200) :: array_name
   !
   !.. Local Arrays ..
@@ -1485,6 +1496,24 @@ continue
     end do
     !
   end do
+  !
+  ! Now create the final facejac which is actually area/facejac
+  !
+  do nf = 1,nfbnd
+    do n = face(nf)%beg_fp,face(nf)%end_fp
+      ds = norm2( facenrm(1:nr,n) )
+      facejac(n,1) = ds/facejac(n,1)
+    end do
+  end do
+  !
+  do nf = nfbnd+1,nface
+    do n = face(nf)%beg_fp,face(nf)%end_fp
+      ds = norm2( facenrm(1:nr,n) )
+      facejac(n,1) = ds/facejac(n,1)
+      facejac(n,2) = ds/facejac(n,2)
+    end do
+  end do
+  !
 !#ifdef TIME_METRIC_PROCEDURES
 !  call debug_timer(stop_timer,"Computing interior face jacobians")
 !#endif
@@ -1625,7 +1654,7 @@ continue
   !
   ! Interpolate the cell metric jacobians to the face points
   !
-  call compute_face_jacobians(facejac)
+  call compute_face_jacobians(facenrm,facejac)
   !$ACC UPDATE DEVICE(facejac)
   !
 #ifdef TIME_METRIC_PROCEDURES
@@ -2356,10 +2385,10 @@ end subroutine compute_face_normals_1d
 !
 !###############################################################################
 !
-subroutine compute_face_jacobians(fjac)
+subroutine compute_face_jacobians(fnrm,fjac)
   !
   !.. Use Statements ..
-  use geovar,            only : nfbnd,nface,face,cell,fp
+  use geovar,            only : nr,nfbnd,nface,face,cell,fp
   use interpolation_mod, only : interp
   !
 #ifdef DEBUG_ON
@@ -2370,6 +2399,7 @@ subroutine compute_face_jacobians(fjac)
 #endif
   !
   !.. Formal Arguments ..
+  real(wp),    intent(in) :: fnrm(:,:)
   real(wp), intent(inout) :: fjac(:,:)
   !
   !.. Local Scalars ..
@@ -2380,7 +2410,7 @@ subroutine compute_face_jacobians(fjac)
   integer  :: left_cell,left_geom,left_order
   integer  :: right_cell,right_geom,right_order
   integer  :: face_geom,face_order
-  real(wp) :: a,val
+  real(wp) :: a,val,ds
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_face_jacobians"
@@ -2571,6 +2601,24 @@ continue
   !$OMP END PARALLEL
 #endif
 #endif
+  !
+  ! Now create the final facejac which is actually area/facejac
+  !
+  do nf = 1,nfbnd
+    do n = face(nf)%beg_fp,face(nf)%end_fp
+      ds = norm2( fnrm(1:nr,n) )
+      fjac(n,1) = ds/fjac(n,1)
+    end do
+  end do
+  !
+  do nf = nfbnd+1,nface
+    do n = face(nf)%beg_fp,face(nf)%end_fp
+      ds = norm2( fnrm(1:nr,n) )
+      fjac(n,1) = ds/fjac(n,1)
+      fjac(n,2) = ds/fjac(n,2)
+    end do
+  end do
+  !
 #ifdef TIME_METRIC_PROCEDURES
   call debug_timer(stop_timer,"Computing interior face jacobians")
 #endif
