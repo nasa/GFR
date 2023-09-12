@@ -1293,7 +1293,7 @@ continue
     if (itcur > minimum_timesteps) then
       convergence_reached = (-orders_converged <= convergence_order_max_res) &
                             .or. (log10(rltwo) <= convergence_order_abs_res)
-      if (any(itestcase == Taylor_Problems)) then
+      if (any(abs(itestcase) == [Taylor_Problems,Freestream_TCF])) then
         convergence_reached = fals
       end if
     end if

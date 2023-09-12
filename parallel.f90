@@ -4836,7 +4836,7 @@ continue
     else if (grid_format == CGNS_Format) then
       grid%elem(nc)%prop = cgns_element_properties(elem_type)
     else if (grid_format == Internally_Generated_Grid) then
-      if (abs(itestcase) == Taylor_Couette_Flow) then
+      if (any(abs(itestcase) == [Taylor_Couette_Flow,Freestream_TCF])) then
         grid%elem(nc)%prop = cgns_element_properties(elem_type)
       else
         grid%elem(nc)%prop = linear_element_properties(elem_type)

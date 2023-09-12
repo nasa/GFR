@@ -114,7 +114,7 @@ continue
       !
     end if
     !
-  else if (abs(itestcase) == Taylor_Couette_Flow) then
+  else if (any(abs(itestcase) == [Taylor_Couette_Flow,Freestream_TCF])) then
     !
     call create_taylor_couette_grid
     !
