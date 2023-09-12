@@ -3044,6 +3044,132 @@ end subroutine create_bc_in
 !
 !###############################################################################
 !
+pure &
+function get_bc_rotation(bc) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : bc_input_t,aref
+  use ovar, only : moving_ref_frame
+  !
+  !.. Formal Arguments ..
+  type(bc_input_t), intent(in) :: bc
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:3)
+  !
+continue
+  !
+  return_value(:) = zero
+  !
+  ! The values in bc%rotation_rate(:) should be in RPMs. Only copy the
+  ! rotation speeds into return_value if greater than 1 RPM.
+  !
+  if (any(abs(bc%rotation_rate(:)) > one)) then
+    !
+    ! When saving the wall rotation speed into return_value:
+    !   1. multiply by rpm_to_mps to convert from RPM to rad/s, and
+    !   2. divide through by aref to normalize by the speed of sound
+    ! NOTE: We are normalizing by aref now so that we dont have to do this
+    !       later when the rad/s values in the bc_in%rotation_rate vector
+    !       is converted to m/s by multiplying by the position vector.
+    !
+    return_value(:) = bc%rotation_rate(:) * (rpm_to_mps/aref)
+    !
+  end if
+  !
+  ! If we are using a moving reference frame and the rotation_rate in bc
+  ! is specified in the moving reference frame, we need to convert the
+  ! rotation in return_value to the absolute/inertial reference frame.
+  !
+  if ( bc%is_specified_in_mrf ) then
+    if ( moving_ref_frame%is_active() ) then
+      !
+      ! The rotation in return_value is currently in the MRF, so we need to
+      ! add the MRF rotation to it to convert to the absolute/inertial RF.
+      ! NOTE: At this point, moving_ref_frame%rotation(:) should have
+      !       already been nondimensionalized from RPM to (rad/s)/aref.
+      !
+      return_value(:) = return_value(:) + moving_ref_frame%rotation(:)
+      !
+    end if
+  end if
+  !
+end function get_bc_rotation
+!
+!###############################################################################
+!
+pure &
+function get_bc_velocity(bc,dimensional) result(return_value)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : bc_input_t,aref
+  use ovar,   only : moving_ref_frame
+  !
+  !.. Formal Arguments ..
+  type(bc_input_t), intent(in) :: bc
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:nr)
+  !
+  !.. Local Scalars ..
+  real(wp) :: bc_nondim,mrf_nondim
+  !
+  !.. Local Arrays ..
+  real(wp) :: vel(1:3)
+  !
+continue
+  !
+  return_value(:) = zero
+  !
+  ! Get the nondimensionalization coefficients depending on if the
+  ! optional argument dimensional is present with the value true.
+  ! NOTE: This logic makes a nondimensional result the default, and it is
+  !       assumed that the values in bc%vx, bc%vy, and bc%vz are
+  !       dimensional, and the values in moving_ref_frame%translation
+  !       are nondimensional.
+  !
+  bc_nondim = one/aref
+  mrf_nondim = one
+  if (present(dimensional)) then
+    if (dimensional) then
+      bc_nondim = one
+      mrf_nondim = aref
+    end if
+  end if
+  !
+  ! Copy the values in bc%vx, bc%vy, and bc%vz to return_value.
+  !
+  vel(1:3) = [ bc%vx , bc%vy , bc%vz ]
+  !
+  return_value(1:nr) = vel(1:nr) * bc_nondim
+  !
+  ! If we are using a moving reference frame and the velocity in bc
+  ! is specified in the moving reference frame, we need to convert the
+  ! velocity in return_value to the absolute/inertial reference frame.
+  !
+  if ( bc%is_specified_in_mrf ) then
+    if ( moving_ref_frame%is_active() ) then
+      !
+      ! The velocity in return_value is currently in the MRF,
+      ! so we need to add the MRF translational velocity to it
+      ! to convert to the absolute/inertial RF.
+      ! NOTE: At this point, moving_ref_frame%translation(:) should have
+      !       already been nondimensionalized.
+      !
+      return_value(:) = return_value(:) + &
+                        moving_ref_frame%translation(:) * mrf_nondim
+      !
+    end if
+  end if
+  !
+end function get_bc_velocity
+!
+!###############################################################################
+!
 subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   !
   !.. Use Statements ..
