@@ -1990,6 +1990,8 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
   use gpu_mod, only : grad_cv_to_grad_pv_gpu
   !
+  use taylor_couette_mod, only : remove_freestream_tcf_init
+  !
   !.. Formal Arguments ..
   integer(CBT),     intent(in) :: ifile_s
   integer(CBT),     intent(in) :: ibase_s
@@ -2151,6 +2153,13 @@ continue
       !
   end select
   !
+  if (abs(itestcase) == Freestream_TCF) then
+    xyztmp = init_array(npts,nr,zero) ! F2003 AUTO-REALLOC
+    do m = 1,nr
+      call interpolate_for_output( xyz(m,1:n_solpts) , xyztmp(1:npts,m) )
+    end do
+  end if
+  !
   ! Compute the current output variable and write it to the CGNS file
   !
   variable_select: &
@@ -2182,6 +2191,10 @@ continue
         vartmp(n) = cv(n,nec) * rhoref - freestream_ref
       end do
       !
+      if (abs(itestcase) == Freestream_TCF) then
+        call remove_freestream_tcf_init(nec,xyztmp,vartmp)
+      end if
+      !
       call cgns_write_field_data
       !!}}}
     case ("Momentum") ! Momentum
@@ -2195,6 +2208,10 @@ continue
           vartmp(n) = cv(n,m) * rhoa
         end do
         !
+        if (abs(itestcase) == Freestream_TCF) then
+          call remove_freestream_tcf_init(m,xyztmp,vartmp)
+        end if
+        !
         call cgns_write_field_data
         !
       end do
@@ -2207,6 +2224,10 @@ continue
       do n = 1,npts
         vartmp(n) = cv(n,nee) * rhoa2
       end do
+      !
+      if (abs(itestcase) == Freestream_TCF) then
+        call remove_freestream_tcf_init(nee,xyztmp,vartmp)
+      end if
       !
       call cgns_write_field_data
       !!}}}
@@ -2489,6 +2510,10 @@ continue
           vartmp(n) = cv(n,m)/cv(n,nec) * aref - freestream_ref
         end do
         !
+        if (abs(itestcase) == Freestream_TCF) then
+          call remove_freestream_tcf_init(-m,xyztmp,vartmp)
+        end if
+        !
         call cgns_write_field_data
         !
       end do
@@ -2498,10 +2523,12 @@ continue
       !
       ! First we need to get the coordinates for the output points
       !
-      xyztmp = init_array(npts,nr,zero) ! F2003 AUTO-REALLOC
-      do m = 1,nr
-        call interpolate_for_output( xyz(m,1:n_solpts) , xyztmp(1:npts,m) )
-      end do
+      if (.not. allocated(xyztmp)) then
+        xyztmp = init_array(npts,nr,zero) ! F2003 AUTO-REALLOC
+        do m = 1,nr
+          call interpolate_for_output( xyz(m,1:n_solpts) , xyztmp(1:npts,m) )
+        end do
+      end if
       !
       ! Get the indices for the primary and secondary directions
       !
@@ -2568,6 +2595,10 @@ continue
         vartmp(n) = gp(n,npres) * rhoa2 - freestream_ref
       end do
       !
+      if (abs(itestcase) == Freestream_TCF) then
+        call remove_freestream_tcf_init(nq+npres,xyztmp,vartmp)
+      end if
+      !
       call cgns_write_field_data
       !!}}}
     case ("P0") ! Total Pressure
@@ -2587,6 +2618,10 @@ continue
         vartmp(n) = pres*( (one + half*gm1*mach*mach)**gam_over_gm1 )
       end do
       !
+      if (abs(itestcase) == Freestream_TCF) then
+        call remove_freestream_tcf_init(-nq-npres,xyztmp,vartmp)
+      end if
+      !
       call cgns_write_field_data
       !!}}}
     case ("Mach") ! Mach number
@@ -2600,6 +2635,10 @@ continue
         do n = 1,npts
           vartmp(n) = vartmp(n) - machref
         end do
+      end if
+      !
+      if (abs(itestcase) == Freestream_TCF) then
+        call remove_freestream_tcf_init(-nee,xyztmp,vartmp)
       end if
       !
       call cgns_write_field_data
@@ -2639,6 +2678,10 @@ continue
         vartmp(n) = gp(n,ntemp) * tref - freestream_ref
       end do
       !
+      if (abs(itestcase) == Freestream_TCF) then
+        call remove_freestream_tcf_init(nq+ntemp,xyztmp,vartmp)
+      end if
+      !
       call cgns_write_field_data
       !!}}}
     case ("T0") ! Total Temperature
@@ -2656,6 +2699,10 @@ continue
         vartmp(n) = temp*(one + half*gm1*mach*mach)
       end do
       !
+      if (abs(itestcase) == Freestream_TCF) then
+        call remove_freestream_tcf_init(-nq-ntemp,xyztmp,vartmp)
+      end if
+      !
       call cgns_write_field_data
       !!}}}
     case ("Enthalpy") ! Enthalpy
@@ -2672,6 +2719,10 @@ continue
         do n = 1,npts
           vartmp(n) = gam_over_gm1*gp(n,npres)/cv(n,nec) * aref*aref
         end do
+      end if
+      !
+      if (abs(itestcase) == Freestream_TCF) then
+        call remove_freestream_tcf_init(nq+ngamm,xyztmp,vartmp)
       end if
       !
       call cgns_write_field_data
@@ -2714,6 +2765,10 @@ continue
           vx = cv(n,nmx)/cv(n,nec) * aref
           vartmp(n) = vartmp(n) + half*vx*vx
         end do
+      end if
+      !
+      if (abs(itestcase) == Freestream_TCF) then
+        call remove_freestream_tcf_init(-nq-ngamm,xyztmp,vartmp)
       end if
       !
       call cgns_write_field_data
