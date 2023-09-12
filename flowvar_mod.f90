@@ -326,10 +326,12 @@ call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
     return
   end if
   !
-  if (any(abs(bc_in(:)%rotation_rate) > eps1)) then
+  if (any(abs(bc_in(:)%rotation_rate(1)) > eps1) .or. &
+      any(abs(bc_in(:)%rotation_rate(2)) > eps1) .or. &
+      any(abs(bc_in(:)%rotation_rate(3))) then
     need_facexyz = fals
     do i = lbound(bc_in,dim=1),ubound(bc_in,dim=1)
-      if (abs(bc_in(i)%rotation_rate) <= eps1) cycle
+      if (all(abs(bc_in(i)%rotation_rate(:)) <= eps1)) cycle
       if (any(bc_in(i)%bc_type == bc_walls)) then
         need_facexyz = true
         exit

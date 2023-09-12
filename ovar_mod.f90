@@ -135,7 +135,13 @@ module ovar
     real(wp) :: alpha_aoa  = zero
     real(wp) :: beta_aoa   = zero
     real(wp) :: wall_temp  = -one
-    real(wp) :: rotation_rate = zero
+    ! NOTE: WE NEED TO MAKE SURE WE ADD LOGIC THAT SETS ROTATION_RATE(1)
+    !       TO THE ROTATION FOR 2D. TECHNICALLY, ROTATION_RATE(3) SHOULD
+    !       SPECIFY THE ROTATION FOR 2D AND YOU USE THE 3D CROSS PRODUCT
+    !       (OMEGA x XYZ) WITH THE Z COORDINATE SET TO ZERO TO GET THE
+    !       X AND Y ANGULAR VELOCITIES, BUT WE DONT WANT TO BE USING A
+    !       'Z' VALUE FOR 2D.
+    real(wp) :: rotation_rate(1:3) = [zero,zero,zero]
     !
     logical :: is_specified_in_mrf = fals
     !
@@ -176,7 +182,7 @@ module ovar
     real(wp), allocatable :: pv(:)
     real(wp), allocatable :: gp(:)
     real(wp) :: wall_temperature = -one
-    real(wp) :: rotation_rate = zero
+    real(wp) :: rotation_rate(1:3) = [zero,zero,zero]
     type(relaxation_t) :: relax
     type(sem_bc_t) :: sem
     integer :: bc_input_idx
@@ -869,7 +875,10 @@ continue
   if (abs(this%alpha_aoa  - dflt%alpha_aoa ) > eps6) return
   if (abs(this%beta_aoa   - dflt%beta_aoa  ) > eps6) return
   if (abs(this%wall_temp  - dflt%wall_temp ) > eps6) return
-  if (abs(this%rotation_rate - dflt%rotation_rate ) > eps6) return
+  !
+  do n = 1,size(this%rotation_rate)
+    if (abs(this%rotation_rate(n) - dflt%rotation_rate(n)) > eps6) return
+  end do
   !
   if (this%is_specified_in_mrf .neqv. dflt%is_specified_in_mrf) return
   !
@@ -955,7 +964,10 @@ continue
   if (abs(a%alpha_aoa  - b%alpha_aoa ) > eps6) return
   if (abs(a%beta_aoa   - b%beta_aoa  ) > eps6) return
   if (abs(a%wall_temp  - b%wall_temp ) > eps6) return
-  if (abs(a%rotation_rate - b%rotation_rate ) > eps6) return
+  !
+  do n = 1,size(a%rotation_rate)
+    if (abs(a%rotation_rate(n) - b%rotation_rate(n)) > eps6) return
+  end do
   !
   if (a%is_specified_in_mrf .neqv. b%is_specified_in_mrf) return
   !
@@ -1362,7 +1374,7 @@ end subroutine nondimensionalize_mrf
 !!    dtv%alpha_aoa, &
 !!    dtv%beta_aoa, &
 !!    dtv%wall_temp, &
-!!    dtv%rotation_rate, &
+!!    (dtv%rotation_rate(m),m=1,3), &
 !!    dtv%relax%value, &
 !!    dtv%relax%time, &
 !!    dtv%relax%iter
@@ -1389,7 +1401,7 @@ end subroutine nondimensionalize_mrf
 !!            "alpha_aoa     = ",es14.6,/, &
 !!            "beta_aoa     = ",es14.6,/, &
 !!            "wall_temp     = ",es14.6,/, &
-!!            "rotation_rate = ",es14.6,/, &
+!!            "rotation_rate = [",es14.6,2(",",es14.6),"]",/, &
 !!            "relax%value     = ",es14.6,/, &
 !!            "relax%time     = ",es14.6,/, &
 !!            "relax%iter     = ",es14.6,/)
@@ -1430,7 +1442,7 @@ end subroutine nondimensionalize_mrf
 !!    dtv%alpha_aoa, &
 !!    dtv%beta_aoa, &
 !!    dtv%wall_temp, &
-!!    dtv%rotation_rate, &
+!!    (dtv%rotation_rate(m),m=1,3), &
 !!    dtv%relax%value, &
 !!    dtv%relax%time, &
 !!    dtv%relax%iter

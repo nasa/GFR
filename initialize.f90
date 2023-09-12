@@ -2741,8 +2741,8 @@ continue
           !
         end if
         !
-        if (abs(bc_input(n)%rotation_rate) > eps1) then
-          bc_in(i)%rotation_rate = bc_input(n)%rotation_rate
+        if (any(abs(bc_input(n)%rotation_rate(:)) > eps1)) then
+          bc_in(i)%rotation_rate(:) = bc_input(n)%rotation_rate(:)
         end if
         !
         ! Copy the velocity for this BC into the temporary array vel(:)
@@ -3059,7 +3059,7 @@ subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   real(wp) :: r,p,t,h,r0,p0,t0,h0,mach,aspd,visc,cond,reyn
   real(wp) :: vmag,alpha,beta,total_cond,gamm,rgas,cp
   real(wp) :: gm1,gam_over_gm1,one_over_gm1
-  real(wp) :: rdim,adim,tdim,face_area
+  real(wp) :: rdim,adim,tdim,face_area,rpm_dim,one_rpm_nd
   !
   character(len=5)  :: cdim
   character(len=10) :: r_units,t_units,p_units,v_units,h_units
@@ -3073,6 +3073,7 @@ subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   !.. Local Arrays ..
   real(wp) :: vel(1:nr)
   real(wp) :: mass_frac(1:ncs)
+  real(wp) :: rotation(1:3)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_bc_conditions"
@@ -3089,6 +3090,9 @@ continue
   rdim = rhoref
   adim = aref
   tdim = tref
+  rpm_dim = adim/rpm_to_mps
+  !
+  one_rpm_nd = one/rpm_dim
   !
   cdim = "D"
   t_units = " K"
@@ -3108,6 +3112,7 @@ continue
       rdim = one
       adim = one
       tdim = one
+      rpm_dim = one
       !
       cdim = "Non-d"
       t_units = ""
@@ -3119,7 +3124,7 @@ continue
       cp_units = ""
       h_units = ""
       q_units = ""
-      rpm_units = " RPM"
+      rpm_units = " rad/s"
       !
     end if
   end if
@@ -3128,8 +3133,8 @@ continue
   !
   write (isowall_fmt,102) t_units,v_units,v_units,v_units
   write (adiwall_fmt,103) v_units,v_units,v_units
-  write (isorotwall_fmt,202) t_units,rpm_units
-  write (adirotwall_fmt,203) rpm_units
+  write (isorotwall_fmt,202) t_units,rpm_units,rpm_units,rpm_units
+  write (adirotwall_fmt,203) rpm_units,rpm_units,rpm_units
   write (rhovel_fmt,104) r_units,v_units,v_units,v_units
   write (thermo_fmt,105) p_units,t_units,h_units,v_units,r_units, &
                          p_units,t_units,h_units,cp_units,cp_units
@@ -3220,8 +3225,9 @@ continue
         !
         t = bc_in(this_bc)%wall_temperature * tdim
         !
-        if (bc_input(bc_idx)%rotation_rate > eps1) then
-          write (iout,isorotwall_fmt) t,bc_input(bc_idx)%rotation_rate
+        if (any(abs(bc_in(this_bc)%rotation_rate(:)) >= one_rpm_nd)) then
+          rotation(:) = bc_in(this_bc)%rotation_rate(:)
+          write (iout,isorotwall_fmt) t, (rotation(ii)*rpm_dim,ii=1,nr)
         else
           vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
           write (iout,isowall_fmt) t,(vel(ii),ii=1,nr)
@@ -3229,8 +3235,9 @@ continue
         !
       else if (bc_type == bc_adiabatic_wall) then
         !
-        if (bc_input(bc_idx)%rotation_rate > eps1) then
-          write (iout,adirotwall_fmt) bc_input(bc_idx)%rotation_rate
+        if (any(abs(bc_in(this_bc)%rotation_rate(:)) >= one_rpm_nd)) then
+          rotation(:) = bc_in(this_bc)%rotation_rate(:)
+          write (iout,adirotwall_fmt) (rotation(ii)*rpm_dim,ii=1,nr)
         else
           vel(1:nr) = bc_in(this_bc)%pv(nmb:nme) * adim
           write (iout,adiwall_fmt) (vel(ii),ii=1,nr)
@@ -3377,8 +3384,12 @@ continue
                '4x,"Wall Y-velocity",t27,"= ",es14.6,"',a,'",/,:,', &
                '4x,"Wall Z-velocity",t27,"= ",es14.6,"',a,'",/)')
   202 format ('(4x,"Wall Temperature",t27,"= ",es14.6,"',a,'",/,', &
-               '4x,"Wall Rotation Speed",t27,"= ",es14.6,"',a,'",/)')
-  203 format ('(4x,"Wall Rotation Speed",t27,"= ",es14.6,"',a,'",/)')
+               '4x,"Wall X-Rotation IRF",t27,"= ",es14.6,"',a,'",/,:,', &
+               '4x,"Wall Y-Rotation IRF",t27,"= ",es14.6,"',a,'",/,:,', &
+               '4x,"Wall Z-Rotation IRF",t27,"= ",es14.6,"',a,'",/)')
+  203 format ('(4x,"Wall X-Rotation IRF",t27,"= ",es14.6,"',a,'",/,:,', &
+               '4x,"Wall Y-Rotation IRF",t27,"= ",es14.6,"',a,'",/,:,', &
+               '4x,"Wall Z-Rotation IRF",t27,"= ",es14.6,"',a,'",/)')
   104 format ('(4x,"Static Density",t27,"= ",es14.6,"',a,'",/,' &
                '4x,"X-velocity",t27,"= ",es14.6,"',a,'",:,/,' &
                '4x,"Y-velocity",t27,"= ",es14.6,"',a,'",:,/,' &

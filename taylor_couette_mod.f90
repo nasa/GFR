@@ -168,7 +168,7 @@ continue
   ! Get the rotation speed from the boundary condition.
   ! NOTE: This should be in RPMs
   !
-  rotation_rate = bc_input(bc_idx)%rotation_rate
+  rotation_rate = bc_input(bc_idx)%rotation_rate(1)
   !
   if (rotation_rate <= eps1) then
     !
@@ -186,7 +186,7 @@ continue
   ! condition in case either of these were updated
   !
   bc_input(bc_idx)%wall_temp = wall_temperature
-  bc_input(bc_idx)%rotation_rate = rotation_rate
+  bc_input(bc_idx)%rotation_rate(1) = rotation_rate
   !
   ! Save the inner cylinder rotation speed.
   ! NOTE: This converts it from rpm to 1/s and when multiplied

@@ -58,7 +58,7 @@ subroutine get_bc_wall_solution(n1,n2,bc_type,facexyz,facenrm,face_cv,face_gp, &
   type(relaxation_t), intent(in) :: relax
   real(wp),           intent(in) :: pv_in(:)
   real(wp),           intent(in) :: wall_temperature
-  real(wp),           intent(in) :: rotation_rate
+  real(wp),           intent(in) :: rotation_rate(:)
   !
   !.. Local Scalars ..
   integer  :: nr
@@ -79,7 +79,7 @@ continue
                                      face_cv,rlx,pv_in,rotation_rate)
   else if (nr == 2) then
     call get_bc_wall_vel_solution_2d(n1,n2,bc_type,facexyz,facenrm, &
-                                     face_cv,rlx,pv_in,rotation_rate)
+                                     face_cv,rlx,pv_in,rotation_rate(1))
   else
     ! NOTE: This branch and the called subroutine should probably just
     !       be removed entirely because there isnt really a 1D wall
@@ -259,7 +259,7 @@ subroutine get_bc_wall_vel_solution_3d(n1,n2,bc_type,facexyz,facenrm, &
   !                 i.e., face_cv(:,:,2) = primitive variables
   ! RLX     : BC relaxation coefficient
   ! PV_IN   : Primitive    variables specified for this BC
-  ! ROTATION_RATE : RPM for rotating non-slip wall
+  ! ROTATION_RATE : nondim ([m/s]/aref) ang vel for rotating non-slip wall
   !
   !.. Use Statements ..
   use ovar, only : aref
@@ -272,11 +272,11 @@ subroutine get_bc_wall_vel_solution_3d(n1,n2,bc_type,facexyz,facenrm, &
   real(wp), intent(inout) :: face_cv(:,:,:)
   real(wp),    intent(in) :: rlx
   real(wp),    intent(in) :: pv_in(:)
-  real(wp),    intent(in) :: rotation_rate
+  real(wp),    intent(in) :: rotation_rate(:)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz,y,z,speed
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz,x_r,y_r,z_r
   real(wp) :: vx,vx_slip,vx_wall,vx_bc,vtx_bc
   real(wp) :: vy,vy_slip,vy_wall,vy_bc,vty_bc
   real(wp) :: vz,vz_slip,vz_wall,vz_bc,vtz_bc
@@ -293,9 +293,9 @@ subroutine get_bc_wall_vel_solution_3d(n1,n2,bc_type,facexyz,facenrm, &
 continue
   !
   rotating_wall_check: &
-  if (abs(rotation_rate) > eps1) then
+  if (any(abs(rotation_rate(:)) > eps1)) then
     !
-    speed = rotation_rate*rpm_conversion/aref
+    speed = rotation_rate(1)*rpm_conversion/aref
     !
     !#######################################################################
     !#######################################################################
