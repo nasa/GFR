@@ -122,7 +122,7 @@ program GFR_main
   use generic_mod, only : compute_residual_error
   use generic_mod, only : compute_KEDR
   !
-  use time_mod, only : get_dtsp
+  use dt_mod, only : get_dtsp
   use erk_mod, only : update_Classic_RK
   use erk_mod, only : update_CK_RK4
   use erk_mod, only : update_TVD_RK2

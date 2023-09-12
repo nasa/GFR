@@ -1,4 +1,4 @@
-module time_mod
+module dt_mod
   !
 !#define PROFILE_ON
   !
@@ -1885,4 +1885,4 @@ end subroutine write_3d_array
 !
 !###############################################################################
 !
-end module time_mod
+end module dt_mod
