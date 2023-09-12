@@ -4913,7 +4913,7 @@ continue
     ! Now interpolate the derivatives of the conserved variables
     ! from the solution points to the quadrature points
     !
-    !$ACC LOOP VECTOR COLLAPSE(4)
+    !$ACC LOOP VECTOR COLLAPSE(3)
     do k = 1,nqp
       do n = 1,2
         do m = 1,nq
