@@ -557,6 +557,20 @@ continue
     end if
   end if
   !
+  ! If using a moving reference frame and the requested upwind method
+  ! isnt compatible, change the upwind method to the Roe solver.
+  !
+  if ( moving_ref_frame%is_active() ) then
+    if (invs_flux_method /= invs_flux_ROE  .and. &
+        invs_flux_method /= invs_flux_Rusanov) then
+      invs_flux_method = invs_flux_ROE
+      if (mypnum == glb_root) then
+        write (iout,110)
+        flush (iout)
+      end if
+    end if
+  end if
+  !
   ! Make sure the variable index for the resolution marker is valid
   !
   ! Make sure it is non-negative
@@ -1036,6 +1050,14 @@ continue
      "   THE SPECIFIED GRID AND SOLUTION FILE FORMATS ARE NOT",/, &
      "   COMPATIBLE.",/, &
      "***************************** ERROR **********************",/)
+  110 format (/, &
+      " ************************** WARNING!!!! **************************",//, &
+      "  AN INVALID INVISCID FLUX SCHEME FOR A MOVING REFERENCE FRAME",/, &
+      "  WAS REQUESTED BY THE INPUT FILE. THE VALID UPWINDING INVISCID",/, &
+      "  FLUX SCHEMES FOR A MOVING REFERENCE FRAME ARE THE ROE OR",/, &
+      "  RUSANOV SCHEMES. THE INVISCID FLUX SCHEME HAS BEEN RESET TO",/, &
+      "  THE ROE SCHEME.",//, &
+      " ************************** WARNING!!!! **************************",/)
   21 format ("MMS ERROR: MMS solutions 1 and 2 are allowed for 2D and 3D only!")
   22 format ("MMS ERROR: MMS solution 3 is allowed for 1D and 2D only!")
   23 format ("MMS ERROR: MMS solution 4 is allowed for 2D only!")
