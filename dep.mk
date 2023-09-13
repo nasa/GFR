@@ -41,6 +41,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/cgns_mod.o \
          $(OBJDIR)/averaging_mod.o \
          $(OBJDIR)/reactions_mod.o \
+         $(OBJDIR)/mrf_mod.o \
          $(OBJDIR)/turb_inflow_mod.o \
          $(OBJDIR)/cpu_info_mod.o \
          $(OBJDIR)/interpsol_mod.o \

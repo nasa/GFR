@@ -1668,6 +1668,8 @@ subroutine compute_rhs(iter,nst,newton_failures)
   !
   use reactions_mod, only : compute_wdot
   !
+  use mrf_mod, only : mrf_src_cv
+  !
   use rhs_mod, only : rresi
   !
   use flux_mod, only : interp_cv_to_flxpts
@@ -1806,6 +1808,10 @@ continue
   !
   call flux_gradient_at_solpts(iter,nst)
                                     !  call check_for_bad_number(__LINE__)
+  !
+  ! Compute the source terms for a moving reference frame
+  !
+  call mrf_src_cv                   !; call check_for_bad_number(__LINE__)
   !
   ! Compute the source terms for method of manufactured solutions (MMS)
   !
