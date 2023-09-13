@@ -203,6 +203,83 @@ end subroutine roe_upwind_flux_gpu
 !###############################################################################
 !
 !pure &
+subroutine rusanov_upwind_flux_gpu(n1,n2,facenrm,facexyz,face_cv,face_gp, &
+                                   lflux,rflux,return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: facexyz(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp), intent(inout) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: lflux(:)
+  real(wp), intent(inout) :: rflux(:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,n,nr
+  real(wp) :: gam_over_gm1
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  ! Store the static enthalpy for the left and right states in the lflux and
+  ! rflux arrays, respectively. After returning from rusanov_upwind_flux_*,
+  ! the enthalpy stored in lflux and rflux will be replaced with the left and
+  ! right fluxes for the species continuity equations.
+  !
+  if (ncs > 0) then
+    !
+    ! Copy the static enthalpy into lflux and rflux
+    !
+    !$ACC PARALLEL LOOP PRESENT(face_gp,lflux,rflux)
+    do n = n1,n2
+      lflux(n) = face_gp(n,nenth,1)
+      rflux(n) = face_gp(n,nenth,2)
+    end do
+    !
+  else
+    !
+    ! Copy the static enthalpy into lflux and rflux
+    !
+    gam_over_gm1 = gam / (gam - one)
+    !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
+    do n = n1,n2
+      lflux(n) = gam_over_gm1*face_gp(n,npres,1)/face_cv(n,nec,1)
+      rflux(n) = gam_over_gm1*face_gp(n,npres,2)/face_cv(n,nec,2)
+    end do
+    !
+    ! Move gamma into the auxiliary gas property variable spot
+    !
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_gp)
+    do i = 1,2
+      do n = n1,n2
+        face_gp(n,ngamm,i) = gam
+      end do
+    end do
+    !
+  end if
+  !
+  if (nr == 3) then
+    call rusanov_upwind_flux_3d(n1,n2,facenrm,facexyz,face_cv,face_gp, &
+                                lflux,rflux,return_value)
+  else if (nr == 2) then
+    call rusanov_upwind_flux_2d(n1,n2,facenrm,facexyz,face_cv,face_gp, &
+                                lflux,rflux,return_value)
+  else
+    call rusanov_upwind_flux_1d(n1,n2,facenrm,face_cv,face_gp, &
+                                lflux,rflux,return_value)
+  end if
+  !
+end subroutine rusanov_upwind_flux_gpu
+!
+!###############################################################################
+!
+!pure &
 subroutine hllc_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
                                      lflux,rflux,return_value)
   !
@@ -1373,6 +1450,364 @@ continue
   end do
   !
 end subroutine roe_upwind_flux_tpg_1d
+!
+!###############################################################################
+!
+!pure &
+     subroutine rusanov_upwind_flux_3d(n1,n2,facenrm,facexyz,face_cv,face_gp, &
+                                       lflux,rflux,return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : moving_ref_frame
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: facexyz(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: lflux(:)
+  real(wp), intent(inout) :: rflux(:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: ds
+  real(wp) :: rl,mxl,myl,mzl,rel,rl_inv,presl,h0l,gaml,vnl,al
+  real(wp) :: rr,mxr,myr,mzr,rer,rr_inv,presr,h0r,gamr,vnr,ar
+  real(wp) :: unx,uny,unz
+  real(wp) :: rnx,rny,rnz
+  real(wp) :: rrf_nrm,eigen
+  real(wp) :: lfec_i,rfec_i,fec_mrf,fec_d
+  real(wp) :: lfmx_i,rfmx_i,fmx_mrf,fmx_d
+  real(wp) :: lfmy_i,rfmy_i,fmy_mrf,fmy_d
+  real(wp) :: lfmz_i,rfmz_i,fmz_mrf,fmz_d
+  real(wp) :: lfee_i,rfee_i,fee_mrf,fee_d
+  real(wp) :: x_r,y_r,z_r
+  !
+continue
+  !
+  x_r = moving_ref_frame%rotation(1) ! x rotation
+  y_r = moving_ref_frame%rotation(2) ! y rotation
+  z_r = moving_ref_frame%rotation(3) ! z rotation
+  !
+  rrf_nrm = zero
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,facexyz,face_cv,face_gp,return_value)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    rnz = facenrm(3,n)
+    ds = sqrt(rnx*rnx + rny*rny + rnz*rnz)
+    unx = rnx/ds
+    uny = rny/ds
+    unz = rnz/ds
+    !
+    rl  = face_cv(n,nec,1)
+    mxl = face_cv(n,nmx,1)
+    myl = face_cv(n,nmy,1)
+    mzl = face_cv(n,nmz,1)
+    rel = face_cv(n,nee,1)
+    rl_inv = one/rl
+    h0l = lflux(n) + half*(mxl*mxl + myl*myl + mzl*mzl)*rl_inv*rl_inv
+    presl = face_gp(n,npres,1)
+    gaml = face_gp(n,ngamm,1)
+    al = sqrt(gaml*presl*rl_inv)
+    !
+    rr  = face_cv(n,nec,2)
+    mxr = face_cv(n,nmx,2)
+    myr = face_cv(n,nmy,2)
+    mzr = face_cv(n,nmz,2)
+    rer = face_cv(n,nee,2)
+    rr_inv = one/rr
+    h0r = rflux(n) + half*(mxr*mxr + myr*myr + mzr*mzr)*rr_inv*rr_inv
+    presr = face_gp(n,npres,2)
+    gamr = face_gp(n,ngamm,2)
+    ar = sqrt(gamr*presr*rr_inv)
+    !
+    vnl = (mxl*unx + myl*uny + mzl*unz)*rl_inv
+    vnr = (mxr*unx + myr*uny + mzr*unz)*rr_inv
+    !
+    if (size(facexyz,dim=2) >= n2) then
+     !if (abs(facexyz(2,n)*uny + facexyz(3,n)*unz) <= eps6) then
+        rrf_nrm = unx * (y_r*facexyz(3,n) - z_r*facexyz(2,n)) + &
+                  uny * (z_r*facexyz(1,n) - x_r*facexyz(3,n)) + &
+                  unz * (x_r*facexyz(2,n) - y_r*facexyz(1,n))
+     !else
+     !  rrf_nrm = zero
+     !end if
+    end if
+    !
+    eigen = max( abs(vnl-rrf_nrm) + al , abs(vnr-rrf_nrm) + ar )
+    !
+    ! Compute the inviscid interface flux for the left state
+    !
+    lfec_i = vnl*rl
+    lfmx_i = vnl*mxl + presl*unx
+    lfmy_i = vnl*myl + presl*uny
+    lfmz_i = vnl*mzl + presl*unz
+    lfee_i = vnl*rl*h0l
+    !
+    ! Compute the inviscid interface flux for the right state
+    !
+    rfec_i = vnr*rr
+    rfmx_i = vnr*mxr + presr*unx
+    rfmy_i = vnr*myr + presr*uny
+    rfmz_i = vnr*mzr + presr*unz
+    rfee_i = vnr*rr*h0r
+    !
+    ! Compute the moving reference frame component
+    ! of the inviscid interface flux
+    !
+    fec_mrf = rrf_nrm*(rr  + rl )
+    fmx_mrf = rrf_nrm*(mxr + mxl)
+    fmy_mrf = rrf_nrm*(myr + myl)
+    fmz_mrf = rrf_nrm*(mzr + mzl)
+    fee_mrf = rrf_nrm*(rer + rel)
+    !
+    ! Compute the dissipative part of the Roe flux
+    !
+    fec_d = eigen*(rr  - rl )
+    fmx_d = eigen*(mxr - mxl)
+    fmy_d = eigen*(myr - myl)
+    fmz_d = eigen*(mzr - mzl)
+    fee_d = eigen*(rer - rel)
+    !
+    ! Compute the final Roe upwind flux with entropy fix and the
+    ! moving reference frame component (which will be zero for
+    ! a stationary reference frame).
+    !
+    return_value(n,nec) = half*ds*(lfec_i + rfec_i - fec_mrf - fec_d)
+    return_value(n,nmx) = half*ds*(lfmx_i + rfmx_i - fmx_mrf - fmx_d)
+    return_value(n,nmy) = half*ds*(lfmy_i + rfmy_i - fmy_mrf - fmy_d)
+    return_value(n,nmz) = half*ds*(lfmz_i + rfmz_i - fmz_mrf - fmz_d)
+    return_value(n,nee) = half*ds*(lfee_i + rfee_i - fee_mrf - fee_d)
+    !
+    ! Save the left and rigth flux for species continuity equations
+    !
+    lflux(n) = half*ds*(lfec_i + rl*(eigen-rrf_nrm))
+    rflux(n) = half*ds*(rfec_i - rr*(eigen+rrf_nrm))
+    !
+  end do
+  !
+end subroutine rusanov_upwind_flux_3d
+!
+!###############################################################################
+!
+pure subroutine rusanov_upwind_flux_2d(n1,n2,facenrm,facexyz,face_cv,face_gp, &
+                                       lflux,rflux,return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : moving_ref_frame
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: facexyz(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: lflux(:)
+  real(wp), intent(inout) :: rflux(:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: ds
+  real(wp) :: rl,mxl,myl,rel,rl_inv,presl,h0l,gaml,vnl,al
+  real(wp) :: rr,mxr,myr,rer,rr_inv,presr,h0r,gamr,vnr,ar
+  real(wp) :: unx,uny
+  real(wp) :: rnx,rny
+  real(wp) :: rrf_nrm,eigen
+  real(wp) :: lfec_i,rfec_i,fec_mrf,fec_d
+  real(wp) :: lfmx_i,rfmx_i,fmx_mrf,fmx_d
+  real(wp) :: lfmy_i,rfmy_i,fmy_mrf,fmy_d
+  real(wp) :: lfee_i,rfee_i,fee_mrf,fee_d
+  real(wp) :: x_r
+  !
+continue
+  !
+  x_r = moving_ref_frame%rotation(1) ! rotation
+  !
+  rrf_nrm = zero
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,facexyz,face_cv,face_gp,return_value)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    ds = sqrt(rnx*rnx + rny*rny)
+    unx = rnx/ds
+    uny = rny/ds
+    !
+    rl  = face_cv(n,nec,1)
+    mxl = face_cv(n,nmx,1)
+    myl = face_cv(n,nmy,1)
+    rel = face_cv(n,nee,1)
+    rl_inv = one/rl
+    h0l = lflux(n) + half*(mxl*mxl + myl*myl)*rl_inv*rl_inv
+    presl = face_gp(n,npres,1)
+    gaml = face_gp(n,ngamm,1)
+    al = sqrt(gaml*presl*rl_inv)
+    !
+    rr  = face_cv(n,nec,2)
+    mxr = face_cv(n,nmx,2)
+    myr = face_cv(n,nmy,2)
+    rer = face_cv(n,nee,2)
+    rr_inv = one/rr
+    h0r = rflux(n) + half*(mxr*mxr + myr*myr)*rr_inv*rr_inv
+    presr = face_gp(n,npres,2)
+    gamr = face_gp(n,ngamm,2)
+    ar = sqrt(gamr*presr*rr_inv)
+    !
+    vnl = (mxl*unx + myl*uny)*rl_inv
+    vnr = (mxr*unx + myr*uny)*rr_inv
+    !
+   !if (size(facexyz,dim=2) >= n2) then
+   !  rrf_nrm = x_r * (-unx*facexyz(2,n) + uny*facexyz(1,n))
+   !end if
+    !
+    eigen = max( abs(vnl-rrf_nrm) + al , abs(vnr-rrf_nrm) + ar )
+    !
+    ! Compute the inviscid interface flux for the left state
+    !
+    lfec_i = vnl*rl
+    lfmx_i = vnl*mxl + presl*unx
+    lfmy_i = vnl*myl + presl*uny
+    lfee_i = vnl*rl*h0l
+    !
+    ! Compute the inviscid interface flux for the right state
+    !
+    rfec_i = vnr*rr
+    rfmx_i = vnr*mxr + presr*unx
+    rfmy_i = vnr*myr + presr*uny
+    rfee_i = vnr*rr*h0r
+    !
+    ! Compute the moving reference frame component
+    ! of the inviscid interface flux
+    !
+    fec_mrf = rrf_nrm*(rr  + rl )
+    fmx_mrf = rrf_nrm*(mxr + mxl)
+    fmy_mrf = rrf_nrm*(myr + myl)
+    fee_mrf = rrf_nrm*(rer + rel)
+    !
+    ! Compute the dissipative part of the Roe flux
+    !
+    fec_d = eigen*(rr  - rl )
+    fmx_d = eigen*(mxr - mxl)
+    fmy_d = eigen*(myr - myl)
+    fee_d = eigen*(rer - rel)
+    !
+    ! Compute the final Roe upwind flux with entropy fix and the
+    ! moving reference frame component (which will be zero for
+    ! a stationary reference frame).
+    !
+    return_value(n,nec) = half*ds*(lfec_i + rfec_i - fec_mrf - fec_d)
+    return_value(n,nmx) = half*ds*(lfmx_i + rfmx_i - fmx_mrf - fmx_d)
+    return_value(n,nmy) = half*ds*(lfmy_i + rfmy_i - fmy_mrf - fmy_d)
+    return_value(n,nee) = half*ds*(lfee_i + rfee_i - fee_mrf - fee_d)
+    !
+    ! Save the left and rigth flux for species continuity equations
+    !
+    lflux(n) = half*ds*(lfec_i + rl*(eigen-rrf_nrm))
+    rflux(n) = half*ds*(rfec_i - rr*(eigen+rrf_nrm))
+    !
+  end do
+  !
+end subroutine rusanov_upwind_flux_2d
+!
+!###############################################################################
+!
+pure subroutine rusanov_upwind_flux_1d(n1,n2,facenrm,face_cv,face_gp, &
+                                       lflux,rflux,return_value)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: face_gp(:,:,:)
+  real(wp), intent(inout) :: lflux(:)
+  real(wp), intent(inout) :: rflux(:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: ds
+  real(wp) :: rl,mxl,rel,rl_inv,presl,h0l,gaml,vnl,al
+  real(wp) :: rr,mxr,rer,rr_inv,presr,h0r,gamr,vnr,ar
+  real(wp) :: unx
+  real(wp) :: rnx
+  real(wp) :: eigen
+  real(wp) :: lfec_i,rfec_i,fec_mrf,fec_d
+  real(wp) :: lfmx_i,rfmx_i,fmx_mrf,fmx_d
+  real(wp) :: lfee_i,rfee_i,fee_mrf,fee_d
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    ds = sqrt(rnx*rnx)
+    unx = rnx/ds
+    !
+    rl  = face_cv(n,nec,1)
+    mxl = face_cv(n,nmx,1)
+    rel = face_cv(n,nee,1)
+    rl_inv = one/rl
+    h0l = lflux(n) + half*(mxl*mxl)*rl_inv*rl_inv
+    presl = face_gp(n,npres,1)
+    gaml = face_gp(n,ngamm,1)
+    al = sqrt(gaml*presl*rl_inv)
+    !
+    rr  = face_cv(n,nec,2)
+    mxr = face_cv(n,nmx,2)
+    rer = face_cv(n,nee,2)
+    rr_inv = one/rr
+    h0r = rflux(n) + half*(mxr*mxr)*rr_inv*rr_inv
+    presr = face_gp(n,npres,2)
+    gamr = face_gp(n,ngamm,2)
+    ar = sqrt(gamr*presr*rr_inv)
+    !
+    vnl = (mxl*unx)*rl_inv
+    vnr = (mxr*unx)*rr_inv
+    !
+    eigen = max( abs(vnl) + al , abs(vnr) + ar )
+    !
+    ! Compute the inviscid interface flux for the left state
+    !
+    lfec_i = vnl*rl
+    lfmx_i = vnl*mxl + presl*unx
+    lfee_i = vnl*rl*h0l
+    !
+    ! Compute the inviscid interface flux for the right state
+    !
+    rfec_i = vnr*rr
+    rfmx_i = vnr*mxr + presr*unx
+    rfee_i = vnr*rr*h0r
+    !
+    ! Compute the dissipative part of the Roe flux
+    !
+    fec_d = eigen*(rr  - rl )
+    fmx_d = eigen*(mxr - mxl)
+    fee_d = eigen*(rer - rel)
+    !
+    ! Compute the final Roe upwind flux with entropy fix and the
+    ! moving reference frame component (which will be zero for
+    ! a stationary reference frame).
+    !
+    return_value(n,nec) = half*ds*(lfec_i + rfec_i - fec_d)
+    return_value(n,nmx) = half*ds*(lfmx_i + rfmx_i - fmx_d)
+    return_value(n,nee) = half*ds*(lfee_i + rfee_i - fee_d)
+    !
+    ! Save the left and rigth flux for species continuity equations
+    !
+    lflux(n) = half*ds*(lfec_i + rl*eigen)
+    rflux(n) = half*ds*(rfec_i - rr*eigen)
+    !
+  end do
+  !
+end subroutine rusanov_upwind_flux_1d
 !
 !###############################################################################
 !
