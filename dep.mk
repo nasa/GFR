@@ -165,6 +165,7 @@ $(OBJDIR)/dt_mod.o : dt_mod.f90 \
            $(OBJDIR)/ovar_mod.o \
            $(OBJDIR)/flowvar_mod.o \
            $(OBJDIR)/metrics.o \
+           $(OBJDIR)/mrf_mod.o \
            $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/element_type_mod.o : element_type_mod.f90 \
