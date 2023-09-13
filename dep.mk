@@ -469,6 +469,13 @@ $(OBJDIR)/mms_mod.o : mms_mod.f90 \
             $(OBJDIR)/metrics.o \
             $(OBJDIR)/gpu_mod.o
 
+$(OBJDIR)/mrf_mod.o : mrf_mod.f90 \
+            $(OBJDIR)/kind_types.o \
+            $(OBJDIR)/eqn_idx_mod.o \
+            $(OBJDIR)/geovar_mod.o \
+            $(OBJDIR)/ovar_mod.o \
+            $(OBJDIR)/flowvar_mod.o
+
 $(OBJDIR)/mycpu.o : $(FUNDIR)/mycpu.c
 
 $(OBJDIR)/mydebug_mod.o : mydebug_mod.f90 \
