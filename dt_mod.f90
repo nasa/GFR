@@ -260,6 +260,7 @@ subroutine get_cell_global_timestep(dtmin,dt_sp)
   !
   use flowvar, only : faceusp
   use flowvar, only : facegpsp
+  use flowvar, only : facexyz
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
@@ -300,7 +301,14 @@ continue
   !
   ! First, compute the left and right inviscid eigenvalues at each flux point
   !
-  call invs_eigenvalue(n1,n2,faceusp,facegpsp,facenrm,eigni)
+  call invs_eigenvalue(n1,n2,faceusp,facegpsp,facenrm,facexyz,eigni)
+  !
+  ! Copy the left and right viscosities into the local arrays.
+  ! NOTE: This is done because facegpsp(:,nvisc,:) doesnt exist for an
+  !       inviscid simulation, so using a local array with viscosity set to
+  !       zero prevents us from having to have either inviscid and viscous
+  !       versions of this subroutine or if statements at the lowest level
+  !       of the loop to compute the final time step size.
   !
   if (governing_equations == NavierStokes_Eqns) then
     !$ACC PARALLEL LOOP PRESENT(facegpsp,viscl,viscr)
@@ -443,6 +451,7 @@ subroutine get_cell_local_timestep(dtmin,dt_sp)
   !
   use flowvar, only : faceusp
   use flowvar, only : facegpsp
+  use flowvar, only : facexyz
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
@@ -484,7 +493,14 @@ continue
   !
   ! First, compute the left and right inviscid eigenvalues at each flux point
   !
-  call invs_eigenvalue(n1,n2,faceusp,facegpsp,facenrm,eigni)
+  call invs_eigenvalue(n1,n2,faceusp,facegpsp,facenrm,facexyz,eigni)
+  !
+  ! Copy the left and right viscosities into the local arrays.
+  ! NOTE: This is done because facegpsp(:,nvisc,:) doesnt exist for an
+  !       inviscid simulation, so using a local array with viscosity set to
+  !       zero prevents us from having to have either inviscid and viscous
+  !       versions of this subroutine or if statements at the lowest level
+  !       of the loop to compute the final time step size.
   !
   if (governing_equations == NavierStokes_Eqns) then
     !$ACC PARALLEL LOOP PRESENT(facegpsp,viscl,viscr)
@@ -635,13 +651,19 @@ end subroutine get_cell_local_timestep
 !###############################################################################
 !
 !pure &
-subroutine invs_eigenvalue(n1,n2,face_cv,face_gp,facenrm,eigni)
+subroutine invs_eigenvalue(n1,n2,face_cv,face_gp,facenrm,facexyz,eigni)
+  !
+  !.. Use Statements ..
+  use mrf_mod, only : is_in_mrf
+  use mrf_mod, only : abs_to_mrf,mrf_to_abs
+  use mrf_mod, only : switch_vel_ref_frame
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
   real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: facexyz(:,:)
   real(wp), intent(inout) :: eigni(:,:)
   !
   !.. Local Scalars ..
@@ -661,6 +683,13 @@ continue
   !
   call invs_eigenvalue_aspd(n1,n2,face_cv,face_gp,eigni)
   !
+  ! If a rotating reference frame is being used, convert the face
+  ! velocity/momentum from the absolute/inertial frame to the rotating frame.
+  !
+  if ( is_in_mrf() ) then
+    call switch_vel_ref_frame(n1,n2,face_cv,facexyz,abs_to_mrf)
+  end if
+  !
   ! Now, add the velocity component of the eigenvalue to the eigni array
   !
   if (nr == 3) then      ! this should also work for ncs > 0
@@ -669,6 +698,14 @@ continue
     call invs_eigenvalue_2d(n1,n2,face_cv,facenrm,eigni)
   else
     call invs_eigenvalue_nd(n1,n2,face_cv,facenrm,eigni)
+  end if
+  !
+  ! If a rotating reference frame is being used, convert the face
+  ! velocity/momentum from the rotating from back to the
+  ! absolute/inertial frame.
+  !
+  if ( is_in_mrf() ) then
+    call switch_vel_ref_frame(n1,n2,face_cv,facexyz,mrf_to_abs)
   end if
   !
   call debug_timer(leaving_procedure,pname)
