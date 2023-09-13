@@ -223,6 +223,7 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/ovar_mod.o \
          $(OBJDIR)/flowvar_mod.o \
          $(OBJDIR)/metrics.o \
+         $(OBJDIR)/mrf_mod.o \
          $(OBJDIR)/interpolation_mod.o \
          $(OBJDIR)/correction_mod.o \
          $(OBJDIR)/derivatives_mod.o \
@@ -356,10 +357,11 @@ $(OBJDIR)/interpsolvar_mod.o : interpsolvar_mod.f90 \
                      $(OBJDIR)/filter_mod.o
 
 $(OBJDIR)/invs_flux_mod.o : invs_flux_mod.f90 \
-         $(OBJDIR)/kind_types.o \
-         $(OBJDIR)/eqn_idx_mod.o \
-         $(OBJDIR)/geovar_mod.o \
-         $(OBJDIR)/ovar_mod.o
+                  $(OBJDIR)/kind_types.o \
+                  $(OBJDIR)/eqn_idx_mod.o \
+                  $(OBJDIR)/geovar_mod.o \
+                  $(OBJDIR)/ovar_mod.o \
+                  $(OBJDIR)/mrf_mod.o
 
 $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/kind_types.o \

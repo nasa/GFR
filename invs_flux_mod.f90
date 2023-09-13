@@ -19,12 +19,16 @@ contains
 !###############################################################################
 !
 !pure &
-subroutine invs_flx_cv_gpu(usp,gpsp,return_value)
+subroutine invs_flx_cv_gpu(usp,gpsp,return_value,xyz)
+  !
+  !.. Use Statements ..
+  use mrf_mod, only : mrf_flx_cv
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: usp(:,:)
   real(wp), intent(inout) :: gpsp(:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
+  real(wp),    intent(in) :: xyz(:,:)
   !
   !.. Local Scalars ..
   integer :: nr
@@ -40,6 +44,12 @@ continue
   else
     call invs_flx_cv_gpu_nd(usp,gpsp,return_value)
   end if
+  !
+  ! Add the flux terms due to the moving reference frame.
+  ! NOTE: If not using a moving reference frame, this will just
+  !       return without doing anything.
+  !
+  call mrf_flx_cv(usp,xyz,return_value)
   !
 end subroutine invs_flx_cv_gpu
 !
@@ -375,11 +385,15 @@ end subroutine invs_flx_cv_gpu_nd
 !###############################################################################
 !
 !pure &
-subroutine invs_wall_flx_gpu(n1,n2,facenrm,face_cv,face_gp,return_value)
+subroutine invs_wall_flx_gpu(n1,n2,facenrm,facexyz,face_cv,face_gp,return_value)
+  !
+  !.. Use Statements ..
+  use mrf_mod, only : mrf_wall_flx_cv
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: facexyz(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp), intent(inout) :: face_gp(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
@@ -398,6 +412,12 @@ continue
   else
     call invs_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,face_gp,return_value)
   end if
+  !
+  ! Add the flux terms due to the moving reference frame.
+  ! NOTE: If not using a moving reference frame, this will just
+  !       return without doing anything.
+  !
+  call mrf_wall_flx_cv(n1,n2,facenrm,facexyz,face_cv,return_value)
   !
 end subroutine invs_wall_flx_gpu
 !

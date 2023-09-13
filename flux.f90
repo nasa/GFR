@@ -996,7 +996,7 @@ end subroutine flux_gradient_at_solpts
 subroutine compute_fluxes_at_solpts(usp,gpsp,dusp,ifluxes,vfluxes)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,n_solpts
+  use geovar,  only : nr,n_solpts,xyz
   use ovar,    only : governing_equations
   !
   use visc_flux_mod, only : visc_flx_cv_gpu
@@ -1019,7 +1019,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call invs_flx_cv_gpu( usp , gpsp , ifluxes )
+  call invs_flx_cv_gpu( usp , gpsp , ifluxes , xyz )
   !
   if (governing_equations == NavierStokes_Eqns) then
     !
@@ -1106,6 +1106,8 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  call create_xyzqp
+  !
   allocate ( uqp(1:n_qdtpts,1:nq) )
   allocate ( gpqp(1:n_qdtpts,1:ng) )
   allocate ( iflxqp(1:n_qdtpts,1:nr,1:nq) )
@@ -1118,7 +1120,7 @@ continue
   !
   ! Compute the inviscid fluxes at the quadrature points
   !
-  call invs_flx_cv_gpu( uqp , gpqp , iflxqp )
+  call invs_flx_cv_gpu( uqp , gpqp , iflxqp , xyzqp )
   !
   if (governing_equations == NavierStokes_Eqns) then
     !
@@ -3821,6 +3823,7 @@ subroutine invs_common_fluxes_interior_at_flxpts()
   use flowvar,     only : faceusp
   use flowvar,     only : facegpsp
   use flowvar,     only : faceflx
+  use flowvar,     only : facexyz
   !
   use upwind_flux_mod, only : upwind_flux_gpu
   !
@@ -3837,7 +3840,7 @@ continue
   n1 = n_bnd_flxpts+1
   n2 = n_flxpts
   !
-  call upwind_flux_gpu(n1,n2,facenrm,faceusp,facegpsp,faceflx)
+  call upwind_flux_gpu(n1,n2,facenrm,facexyz,faceusp,facegpsp,faceflx)
   !
 #ifdef DEBUG_FLUXES_AND_RESIDUAL
   block
@@ -3897,10 +3900,12 @@ subroutine invs_common_fluxes_interior_at_qdtpts()
   !
 continue
   !
+  call create_facexyzqp
+  !
   allocate ( faceuqp(1:n_flx_qdtpts,1:nq,1:2) )
   allocate ( facegpqp(1:n_flx_qdtpts,1:ng,1:2) )
   allocate ( flux_qdtpts(1:n_flx_qdtpts,1:nq) )
-  !$ACC ENTER DATA CREATE(faceusp,facegpqp,flux_qdtpts)
+  !$ACC ENTER DATA CREATE(faceuqp,facegpqp,flux_qdtpts)
   !
   ! Get the inviscid upwind flux at all of the interior flux points
   !
@@ -3912,7 +3917,8 @@ continue
   n1 = n_bnd_qdtpts+1
   n2 = n_flx_qdtpts
   !
-  call upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,facegpqp,flux_qdtpts)
+  call upwind_flux_gpu(n1,n2,facenrm_qdtpts,facexyzqp, &
+                       faceuqp,facegpqp,flux_qdtpts)
   !
   if (combine_common_flux_projections == Separate_All_Projections) then
     call project_flux_qdtpts_to_faceflx(nf1,nf2,flux_qdtpts,faceflx)
@@ -4088,6 +4094,7 @@ subroutine invs_common_fluxes_bc_at_flxpts()
   use flowvar,     only : faceusp
   use flowvar,     only : facegpsp
   use flowvar,     only : faceflx
+  use flowvar,     only : facexyz
   !
   use invs_flux_mod, only : invs_wall_flx_gpu
   !
@@ -4108,7 +4115,7 @@ continue
   !
   if (n2 >= n1) then
     !
-    call invs_wall_flx_gpu(n1,n2,facenrm,faceusp,facegpsp,faceflx)
+    call invs_wall_flx_gpu(n1,n2,facenrm,facexyz,faceusp,facegpsp,faceflx)
     !
   end if
   !
@@ -4118,7 +4125,7 @@ continue
   n1 = n_wall_flxpts+1
   n2 = n_bnd_flxpts
   !
-  call upwind_flux_gpu(n1,n2,facenrm,faceusp,facegpsp,faceflx)
+  call upwind_flux_gpu(n1,n2,facenrm,facexyz,faceusp,facegpsp,faceflx)
   !
 #ifdef DEBUG_FLUXES_AND_RESIDUAL
   block
@@ -4192,14 +4199,16 @@ continue
   !
   if (n2 >= n1) then
     !
-    call invs_wall_flx_gpu(n1,n2,facenrm_qdtpts,faceuqp,facegpqp,flux_qdtpts)
+    call invs_wall_flx_gpu(n1,n2,facenrm_qdtpts,facexyzqp, &
+                           faceuqp,facegpqp,flux_qdtpts)
     !
   end if
   !
   n1 = n_wall_qdtpts+1
   n2 = n_bnd_qdtpts
   !
-  call upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,facegpqp,flux_qdtpts)
+  call upwind_flux_gpu(n1,n2,facenrm_qdtpts,facexyzqp, &
+                       faceuqp,facegpqp,flux_qdtpts)
   !
   if (combine_common_flux_projections == Separate_All_Projections) then
     call project_flux_qdtpts_to_faceflx(nf1,nf2,flux_qdtpts,faceflx)
@@ -8227,7 +8236,7 @@ end subroutine write_3d_array
 !!!
 !!!.. Use Statements ..
 !!use order_mod,         only : maxSP,maxFP,geom_solpts
-!!use geovar,            only : nr,ncell
+!!use geovar,            only : nr,ncell,xyz
 !!use geovar,            only : cell,face,fp,n_solpts
 !!use interpolation_mod, only : interp
 !!use derivatives_mod,   only : deriv
@@ -8292,7 +8301,7 @@ end subroutine write_3d_array
 !!allocate ( vfluxes(1:n_solpts,1:nr,1:nq) )
 !!!$ACC DATA CREATE(tfluxes,ifluxes,vfluxes)
 !!!
-!!call invs_flx_cv_gpu( usp , gpsp , ifluxes )
+!!call invs_flx_cv_gpu( usp , gpsp , ifluxes , xyz )
 !!!
 !!if (governing_equations == NavierStokes_Eqns) then
 !!  !
