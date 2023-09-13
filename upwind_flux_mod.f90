@@ -27,7 +27,7 @@ contains
 !###############################################################################
 !
 !pure &
-subroutine upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp,return_value)
+subroutine upwind_flux_gpu(n1,n2,facenrm,facexyz,face_cv,face_gp,return_value)
   !
   !.. Use Statements ..
   use ovar, only : invs_flux_method
@@ -35,6 +35,7 @@ subroutine upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp,return_value)
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: facexyz(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp), intent(inout) :: face_gp(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
