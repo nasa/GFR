@@ -256,6 +256,10 @@ module flowvar
                      alloc_edge_vec_dt_components
   end interface alloc_ne_dt_components
   !
+  integer,            save :: iwt = 0
+  real(wp),           save :: wall_time(1:50)
+  character(len=100), save :: message(1:50)
+  !
 contains
 !
 !###############################################################################
@@ -277,14 +281,10 @@ subroutine allocate_flowvar_arrays()
   use ovar,      only : itestcase
   !
   !.. Local Scalars ..
-  integer :: i,iwt,l,m,n,ne,nf,nn,nepts,nfp,nfpts
+  integer :: i,l,m,n,ne,nf,nn,nepts,nfp,nfpts
   integer :: face_geom,face_order,ierr
   character(len=200) :: array_name
   logical(lk) :: need_facexyz
-  !
-  !.. Local Arrays ..
-  real(wp)           :: wall_time(1:50)
-  character(len=100) :: message(1:50)
   !
   !.. Local Constants ..
   character(len=*), parameter :: pname = "allocate_flowvar_arrays"
