@@ -281,6 +281,7 @@ subroutine get_bc_wall_vel_solution_3d(n1,n2,bc_type,facexyz,facenrm, &
   real(wp) :: vy,vy_slip,vy_wall,vy_bc,vty_bc
   real(wp) :: vz,vz_slip,vz_wall,vz_bc,vtz_bc
   real(wp) :: rho,rho_inv,vn,vn_bc,vmag_bc,vmag_tan
+  real(wp) :: y,z,speed
   !
   logical(lk) :: use_relaxation
   logical(lk) :: no_wall_velocity
