@@ -58,7 +58,7 @@ continue
   !
   if (invs_flux_method == invs_flux_ROE) then
     !
-    call roe_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
+    call roe_upwind_flux_gpu(n1,n2,facenrm,facexyz,face_cv,face_gp, &
                              lflux,rflux,return_value)
     !
   else if (invs_flux_method == invs_flux_HLLC) then
@@ -103,7 +103,7 @@ end subroutine upwind_flux_gpu
 !###############################################################################
 !
 !pure &
-subroutine roe_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
+subroutine roe_upwind_flux_gpu(n1,n2,facenrm,facexyz,face_cv,face_gp, &
                                     lflux,rflux,return_value)
   !
   !.. Use Statements ..
@@ -112,6 +112,7 @@ subroutine roe_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: facexyz(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp), intent(inout) :: face_gp(:,:,:)
   real(wp), intent(inout) :: lflux(:)
@@ -119,7 +120,7 @@ subroutine roe_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,n,nr,np
+  integer  :: i,n,nr
   real(wp) :: gam_over_gm1
   !
   !.. Local Parameters ..
@@ -129,7 +130,6 @@ subroutine roe_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
 continue
   !
   nr = size(facenrm,dim=1)
-  np = size(face_cv,dim=1)
   !
   ! Store the static enthalpy for the left and right states in the lflux and
   ! rflux arrays, respectively. After returning from roe_upwind_flux_tpg_*,
@@ -190,11 +190,14 @@ continue
     ! if this is a calorically perfect gas.
     !
     if (nr == 3) then
-      call roe_upwind_flux_cpg_3d(n1,n2,facenrm,face_cv,face_gp,return_value)
+      call roe_upwind_flux_cpg_3d(n1,n2,facenrm,facexyz, &
+                                  face_cv,face_gp,return_value)
     else if (nr == 2) then
-      call roe_upwind_flux_cpg_2d(n1,n2,facenrm,face_cv,face_gp,return_value)
+      call roe_upwind_flux_cpg_2d(n1,n2,facenrm,facexyz, &
+                                  face_cv,face_gp,return_value)
     else
-      call roe_upwind_flux_cpg_1d(n1,n2,facenrm,face_cv,face_gp,return_value)
+      call roe_upwind_flux_cpg_1d(n1,n2,facenrm,facexyz, &
+                                  face_cv,face_gp,return_value)
     end if
     !
   end if
@@ -497,8 +500,8 @@ end subroutine rotated_rhll_upwind_flux_gpu
 !
 !###############################################################################
 !
-pure subroutine roe_upwind_flux_cpg_3d(n1,n2,facenrm,face_cv,face_gp, &
-                                       return_value)
+pure subroutine roe_upwind_flux_cpg_3d(n1,n2,facenrm,facexyz, &
+                                       face_cv,face_gp,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -506,6 +509,7 @@ pure subroutine roe_upwind_flux_cpg_3d(n1,n2,facenrm,face_cv,face_gp, &
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: facexyz(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
@@ -632,8 +636,8 @@ end subroutine roe_upwind_flux_cpg_3d
 !
 !###############################################################################
 !
-!pure &
-subroutine roe_upwind_flux_cpg_2d(n1,n2,facenrm,face_cv,face_gp,return_value)
+pure subroutine roe_upwind_flux_cpg_2d(n1,n2,facenrm,facexyz, &
+                                       face_cv,face_gp,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -641,6 +645,7 @@ subroutine roe_upwind_flux_cpg_2d(n1,n2,facenrm,face_cv,face_gp,return_value)
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: facexyz(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
@@ -783,8 +788,8 @@ end subroutine roe_upwind_flux_cpg_2d
 !
 !###############################################################################
 !
-pure subroutine roe_upwind_flux_cpg_1d(n1,n2,facenrm,face_cv,face_gp, &
-                                       return_value)
+pure subroutine roe_upwind_flux_cpg_1d(n1,n2,facenrm,facexyz, &
+                                       face_cv,face_gp,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -792,6 +797,7 @@ pure subroutine roe_upwind_flux_cpg_1d(n1,n2,facenrm,face_cv,face_gp, &
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: facexyz(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
