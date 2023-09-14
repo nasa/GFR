@@ -531,6 +531,7 @@ pure subroutine roe_upwind_flux_cpg_3d(n1,n2,facenrm,facexyz, &
   real(wp) :: rnx,rny,rnz
   real(wp) :: dw1,hsr1,eta1,udw1,rvnl
   real(wp) :: dw5,hsr5,eta5,udw5,rvnr
+  real(wp) :: eigen
   real(wp) :: ra_ec,ra_h0,ra_a2,ra_a,ra_q2,ra_vn
 !#define PROTECT_AGAINST_ATD_EQUAL_ZERO
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
@@ -599,14 +600,16 @@ continue
     !
     if (ra_vn >= zero) then
       !
+      eigen = ra_vn - ra_a
+      !
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
       dw1  = half*((presr-presl)/atd2nz*atd2rt - (vnr-vnl)*ra_ec/atdnz*atdrt)
 #else
       dw1  = half*((presr-presl)/ra_a2 - (vnr-vnl)*ra_ec/ra_a)
 #endif
       hsr1 = -one4*gp1*dw1*ra_a/ra_ec
-      eta1 = max(-abs(ra_vn-ra_a) + hsr1, zero)
-      udw1 = dw1*(min(ra_vn-ra_a,zero) - half*eta1)
+      eta1 = max(-abs(eigen) + hsr1, zero)
+      udw1 = dw1*(min(eigen,zero) - half*eta1)
       rvnl = rl*vnl
       !
       return_value(n,nec) = ds*(    rvnl + udw1                             )
@@ -617,14 +620,16 @@ continue
       !
     else
       !
+      eigen = ra_vn + ra_a
+      !
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
       dw5  = half*((presr-presl)/atd2nz*atd2rt + (vnr-vnl)*ra_ec/atdnz*atdrt)
 #else
       dw5  = half*((presr-presl)/ra_a2 + (vnr-vnl)*ra_ec/ra_a)
 #endif
       hsr5 = one4*gp1*dw5*ra_a/ra_ec
-      eta5 = max(-abs(ra_vn+ra_a) + hsr5, zero)
-      udw5 = dw5*(max(ra_vn+ra_a,zero) + half*eta5)
+      eta5 = max(-abs(eigen) + hsr5, zero)
+      udw5 = dw5*(max(eigen,zero) + half*eta5)
       rvnr = rr*vnr
       !
       return_value(n,nec) = ds*(    rvnr - udw5                             )
@@ -667,6 +672,7 @@ pure subroutine roe_upwind_flux_cpg_2d(n1,n2,facenrm,facexyz, &
   real(wp) :: rnx,rny
   real(wp) :: dw1,hsr1,eta1,udw1,rvnl
   real(wp) :: dw4,hsr4,eta4,udw4,rvnr
+  real(wp) :: eigen
   real(wp) :: ra_ec,ra_h0,ra_a2,ra_a,ra_q2,ra_vn
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
   real(wp) :: atd2nz,atd2rt,atdnz,atdrt
@@ -729,14 +735,16 @@ continue
     !
     if (ra_vn >= zero) then
       !
+      eigen = ra_vn - ra_a
+      !
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
       dw1  = half*((presr-presl)/atd2nz*atd2rt - (vnr-vnl)*ra_ec/atdnz*atdrt)
 #else
       dw1  = half*((presr-presl)/ra_a2 - (vnr-vnl)*ra_ec/ra_a)
 #endif
       hsr1 = -one4*gp1*dw1*ra_a/ra_ec
-      eta1 = max(-abs(ra_vn-ra_a) + hsr1, zero)
-      udw1 = dw1*(min(ra_vn-ra_a,zero) - half*eta1)
+      eta1 = max(-abs(eigen) + hsr1, zero)
+      udw1 = dw1*(min(eigen,zero) - half*eta1)
       rvnl = rl*vnl
       !
       return_value(n,nec) = ds*(    rvnl + udw1                             )
@@ -752,8 +760,8 @@ continue
       dw4  = half*((presr-presl)/ra_a2 + (vnr-vnl)*ra_ec/ra_a)
 #endif
       hsr4 = one4*gp1*dw4*ra_a/ra_ec
-      eta4 = max(-abs(ra_vn+ra_a) + hsr4, zero)
-      udw4 = dw4*(max(ra_vn+ra_a,zero) + half*eta4)
+      eta4 = max(-abs(eigen) + hsr4, zero)
+      udw4 = dw4*(max(eigen,zero) + half*eta4)
       rvnr = rr*vnr
       !
       return_value(n,nec) = ds*(    rvnr - udw4                             )
@@ -819,6 +827,7 @@ pure subroutine roe_upwind_flux_cpg_1d(n1,n2,facenrm,facexyz, &
   real(wp) :: rnx
   real(wp) :: dw1,hsr1,eta1,udw1,rvnl
   real(wp) :: dw3,hsr3,eta3,udw3,rvnr
+  real(wp) :: eigen
   real(wp) :: ra_ec,ra_h0,ra_a2,ra_a,ra_q2,ra_vn
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
   real(wp) :: atd2nz,atd2rt,atdnz,atdrt
@@ -876,14 +885,16 @@ continue
     !
     if (ra_vn >= zero) then
       !
+      eigen = ra_vn - ra_a
+      !
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
       dw1  = half*((presr-presl)/atd2nz*atd2rt - (vnr-vnl)*ra_ec/atdnz*atdrt)
 #else
       dw1  = half*((presr-presl)/ra_a2 - (vnr-vnl)*ra_ec/ra_a)
 #endif
       hsr1 = -one4*gp1*dw1*ra_a/ra_ec
-      eta1 = max(-abs(ra_vn-ra_a) + hsr1, zero)
-      udw1 = dw1*(min(ra_vn-ra_a,zero) - half*eta1)
+      eta1 = max(-abs(eigen) + hsr1, zero)
+      udw1 = dw1*(min(eigen,zero) - half*eta1)
       rvnl = rl*vnl
       !
       return_value(n,nec) = ds*(    rvnl + udw1                             )
@@ -892,14 +903,16 @@ continue
       !
     else
       !
+      eigen = ra_vn + ra_a
+      !
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
       dw3  = half*((presr-presl)/atd2nz*atd2rt + (vnr-vnl)*ra_ec/atdnz*atdrt)
 #else
       dw3  = half*((presr-presl)/ra_a2 + (vnr-vnl)*ra_ec/ra_a)
 #endif
       hsr3 = one4*gp1*dw3*ra_a/ra_ec
-      eta3 = max(-abs(ra_vn+ra_a) + hsr3, zero)
-      udw3 = dw3*(max(ra_vn+ra_a,zero) + half*eta3)
+      eta3 = max(-abs(eigen) + hsr3, zero)
+      udw3 = dw3*(max(eigen,zero) + half*eta3)
       rvnr = rr*vnr
       !
       return_value(n,nec) = ds*(    rvnr - udw3                             )
