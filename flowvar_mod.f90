@@ -1,29 +1,16 @@
 module flowvar
   !
-  use module_kind_types, only : wp,lk
-  use module_kind_types, only : zero,eps1,ten2,iout
-  use module_kind_types, only : true,fals
+  use module_kind_types, only : wp
+  use module_kind_types, only : zero
   use module_kind_types, only : debug_timer
   use module_kind_types, only : entering_procedure
   use module_kind_types, only : leaving_procedure
-  use module_kind_types, only : Classic_RK
-  use module_kind_types, only : CK4_RK
-  use module_kind_types, only : TVD4_RK
-  use module_kind_types, only : OERK
-  use module_kind_types, only : EPERK
   use module_kind_types, only : alloc_error
-  use module_kind_types, only : skip_alloc_pause
   use module_kind_types, only : error_message
-  use module_kind_types, only : Geom_Edge
-  use module_kind_types, only : bc_sem
   use module_kind_types, only : start_timer
   use module_kind_types, only : stop_timer
   use module_kind_types, only : mypnum
   use module_kind_types, only : glb_root
-  use module_kind_types, only : stop_gfr
-  use module_kind_types, only : stop_mpi
-  use module_kind_types, only : THX_Phase_3
-  use module_kind_types, only : bc_walls
   !
   implicit none
   !
@@ -250,6 +237,15 @@ module flowvar
                      alloc_rank4_array
   end interface alloc_array
   !
+  interface alloc_fen_dt
+    module procedure alloc_face_xyz_dt, &
+                     alloc_face_var_dt, &
+                     alloc_face_vec_dt, &
+                     alloc_ne1d_dt, &
+                     alloc_ne2d_dt, &
+                     alloc_ne3d_dt
+  end interface alloc_fen_dt
+  !
   interface alloc_face_dt_components
     module procedure alloc_face_xyz_dt_components, &
                      alloc_face_var_dt_components, &
@@ -274,24 +270,17 @@ contains
 subroutine allocate_flowvar_arrays()
   !
   !.. Use Statements ..
-  use eqn_idx,   only : nq,ng,npres,ntemp,ngamm,ncs
-  use geovar,    only : nr,n_solpts,n_totpts
-  use geovar,    only : nfbnd,nface,face
-  use geovar,    only : nnode,nedge,edge
-  use order_mod, only : geom_solpts
-  use ovar,      only : Runge_Kutta_Scheme,num_rk_stages,mms_opt
-  use ovar,      only : convert_restart_to_cgns
-  use ovar,      only : continuous_output
-  use ovar,      only : time_average_restart_files
-  use ovar,      only : if_interpto_newgrid
-  use ovar,      only : bc_in
-  use ovar,      only : itestcase
+  use module_kind_types, only : Classic_RK,CK4_RK,TVD4_RK,OERK,EPERK
+  use eqn_idx,           only : nq,ng,npres,ntemp,ngamm
+  use geovar,            only : nr,n_solpts,n_flxpts
+  use geovar,            only : nface,nedge,nnode
+  use ovar,              only : Runge_Kutta_Scheme,num_rk_stages
+  use ovar,              only : continuous_output
+  use ovar,              only : time_average_restart_files
+  use ovar,              only : if_interpto_newgrid
   !
   !.. Local Scalars ..
-  integer :: i,l,m,n,ne,nf,nn,nepts,nfp,nfpts
-  integer :: face_geom,face_order,ierr
-  character(len=200) :: array_name
-  logical(lk) :: need_facexyz
+  integer :: nvar,nf,ne,nn,nfpts,nepts,nspts
   !
   !.. Local Constants ..
   character(len=*), parameter :: pname = "allocate_flowvar_arrays"
@@ -304,26 +293,21 @@ continue
   wall_time(:) = zero
   message(:) = ""
   !
-  iwt = iwt + 1 ; message(iwt) = "Allocating usp, dusp, and gpsp"
-call debug_timer(start_timer,message(iwt))
-  if (.not. allocated(usp)) then
-    allocate ( usp(1:n_solpts,1:nq) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"usp",1,__LINE__,__FILE__,ierr,error_message)
-    !$ACC UPDATE DEVICE(usp)
+  ! For the special case of interpolating the solution to a new grid
+  !
+  if ( if_interpto_newgrid() ) then
+    call alloc_interpto_arrays()
+    call debug_timer(leaving_procedure,pname)
+    return
   end if
   !
+  ! Allocate usp, dusp, and gpsp since these should always be needed
   !
-  allocate ( dusp(1:n_solpts,1:nr,1:nq) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"dusp",1,__LINE__,__FILE__,ierr,error_message)
-  !$ACC UPDATE DEVICE(dusp)
+  call alloc_array(usp,n_solpts,nq,"usp",pname,__LINE__)
   !
-  allocate ( gpsp(1:n_solpts,1:ng) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"gpsp",1,__LINE__,__FILE__,ierr,error_message)
-  !$ACC UPDATE DEVICE(gpsp)
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+  call alloc_array(dusp,n_solpts,nr,nq,"dusp",pname,__LINE__)
+  !
+  call alloc_array(gpsp,n_solpts,ng,"gpsp",pname,__LINE__)
   !
   ! If we are only time averaging restart files, we dont need any of
   ! these other arrays so return out of here
@@ -333,436 +317,92 @@ call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
     return
   end if
   !
-  if (any(abs(bc_in(:)%rotation_rate(1)) > eps1) .or. &
-      any(abs(bc_in(:)%rotation_rate(2)) > eps1) .or. &
-      any(abs(bc_in(:)%rotation_rate(3)) > eps1)) then
-    need_facexyz = fals
-    do i = lbound(bc_in,dim=1),ubound(bc_in,dim=1)
-      if (all(abs(bc_in(i)%rotation_rate(:)) <= eps1)) cycle
-      if (any(bc_in(i)%bc_type == bc_walls)) then
-        need_facexyz = true
-        exit
-      end if
-    end do
-    if (need_facexyz) then
-  iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_dt for rotating wall"
-call debug_timer(start_timer,message(iwt))
-      if (.not. allocated(facexyz_dt)) then
-        allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
-       !allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
-                         ierr,error_message)
-      end if
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-    end if
-  end if
+  ! Allocate the other solution point arrays needed by the solver
   !
-  if (any(bc_in(:)%bc_type == bc_sem) .or. &
-      abs(itestcase) == THX_Phase_3) then
-  iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_dt for SEM"
-call debug_timer(start_timer,message(iwt))
-    if (.not. allocated(facexyz_dt)) then
-      allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
-     !allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-    end if
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-  end if
+  call alloc_array(residual,n_solpts,nq,"residual",pname,__LINE__)
   !
-  if (ncs > 0) then
-  iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_dt for ncs > 0"
-call debug_timer(start_timer,message(iwt))
-    if (allocated(facexyz_dt)) then
-      if (size(facexyz_dt) < nface) then
-        deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__, &
-                         ierr,error_message)
-      end if
-    end if
-    if (.not. allocated(facexyz_dt)) then
-      allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-    end if
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-  end if
+  call alloc_array(dtsp,n_solpts,"dtsp",pname,__LINE__)
   !
+  call alloc_array(uoldsp,n_solpts,nq,"uoldsp",pname,__LINE__)
   !
-  ! If we are only interpolating the solution to a new grid,
-  ! then only need facexyz_dt before returning out of here.
+  ! NOTE: We dont want to use ng for the number of variables in gpoldsp
+  !       because we only care about the values of temp/pres/gamma from the
+  !       previous time step. The number of variables in gpsp, ng, can also
+  !       include viscosity and thermal conductivity (for viscous flows) and
+  !       possibly enthalpy and cp (for multi-species gas / reacting flows).
+  !       There is no need to waste memory here, so just allocate gpoldsp
+  !       to the max variable index out of temp/pres/gamma. This should be
+  !       gamma, since (unless something has changed) these indices default
+  !       to [ntemp,npres,ngamm]=[1,2,3].
+  nvar = max(ntemp,npres,ngamm)
+  call alloc_array(gpoldsp,n_solpts,nvar,"gpoldsp",pname,__LINE__)
   !
-  if ( if_interpto_newgrid() ) then
-  iwt = iwt + 1 ; message(iwt) = "Allocating arrays for interpolation utility"
-call debug_timer(start_timer,message(iwt))
-    !
-    ! Deallocate dusp because we do not need it when interpolating the
-    ! solution to a new grid and it takes up too much memory.
-    !
-    deallocate ( dusp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"dusp",2,__LINE__,__FILE__,ierr,error_message)
-    !
-    ! The interpolation utility needs facexyz to
-    ! be defined for both interior and boundary faces.
-    !
-    if (.not. allocated(facexyz_dt)) then
-      allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-    end if
-    !
-    call alloc_face_dt_components(facexyz_dt,nfpts,"facexyz_dt")
-    !
-    allocate ( facexyz(1:nr,1:nfpts) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facexyz",1,__LINE__,__FILE__, &
-                     ierr,error_message)
-    !
-    ! Procedure interpsol needs faceusp_dt to print debug info
-    !
-    allocate ( faceusp_dt(1:nface) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceusp_dt",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    call alloc_face_dt_components(faceusp_dt,nfpts,"faceusp_dt")
-    !
-    allocate ( faceusp(1:nfpts,1:nq,1:2) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceusp",1,__LINE__,__FILE__, &
-                     ierr,error_message)
-    !
-    allocate ( facegpsp_dt(1:nface) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facegpsp_dt",1,__LINE__,__FILE__, &
-                     ierr,error_message)
-    !
-    call alloc_face_dt_components(facegpsp_dt,nfpts,"facegpsp_dt",num_var=ng)
-    !
-    allocate ( facegpsp(1:nfpts,1:ng,1:2) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facegpsp",1,__LINE__,__FILE__, &
-                     ierr,error_message)
-    !
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-    !
-    call debug_timer(leaving_procedure,pname)
-    !
-    return
-    !
-  end if
+  ! Allocate the face point arrays needed by the solver 
   !
+  call alloc_array(faceflx,n_flxpts,nq,"faceflx",pname,__LINE__)
   !
-  iwt = iwt + 1
-  message(iwt) = "Allocating residual, dtsp, uoldsp, and gpoldsp"
-call debug_timer(start_timer,message(iwt))
-  allocate ( residual(1:n_solpts,1:nq) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"residual",1,__LINE__,__FILE__,ierr,error_message)
-  !$ACC UPDATE DEVICE(residual)
+  call alloc_array(faceusp,n_flxpts,nq,2,"faceusp",pname,__LINE__)
   !
+  call alloc_array(facedusp,n_flxpts,nr,nq,2,"facedusp",pname,__LINE__)
   !
-  allocate ( dtsp(1:n_solpts) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"dtsp",1,__LINE__,__FILE__,ierr,error_message)
-  !$ACC UPDATE DEVICE(dtsp)
+  call alloc_array(facegpsp,n_flxpts,ng,2,"facegpsp",pname,__LINE__)
   !
+  ! Allocate some extra storage needed for certain Runge-Kutta schemes
   !
-  allocate ( uoldsp(1:n_solpts,1:nq) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"uoldsp",1,__LINE__,__FILE__,ierr,error_message)
-  !$ACC UPDATE DEVICE(uoldsp)
+  nspts = merge(n_solpts,0,any(Runge_Kutta_Scheme == [Classic_RK,-EPERK]))
+  call alloc_array(rssprk,nspts,nq,num_rk_stages,"rssprk",pname,__LINE__)
   !
+  nspts = merge(n_solpts,0,any(Runge_Kutta_Scheme==[CK4_RK,TVD4_RK,OERK,EPERK]))
+  call alloc_array(rk_sum,nspts,nq,"rk_sum",pname,__LINE__)
   !
-  allocate ( gpoldsp(1:n_solpts,1:max(ntemp,npres,ngamm)) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"gpoldsp",1,__LINE__,__FILE__,ierr,error_message)
-  !$ACC UPDATE DEVICE(gpoldsp)
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+  ! Find the size needed for the facexyz array
   !
+  call find_facexyz_size(nf,nfpts)
   !
-  if (convert_restart_to_cgns) then
-  iwt = iwt + 1
-  message(iwt) = "Allocating faceusp for convert_restart_to_cgns"
-call debug_timer(start_timer,message(iwt))
-    !
-    nfpts = face(nface)%end_fp ! end fp index for last face
-    !
-    allocate ( faceusp(1:nfpts,1:nq,1:2) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceusp",1,__LINE__,__FILE__, &
-                     ierr,error_message)
-    !$ACC UPDATE DEVICE(faceusp)
-   !!
-   !allocate ( facedusp(1:nfpts,1:nr,1:nq,1:2) , source=zero , &
-   !           stat=ierr , errmsg=error_message )
-   !call alloc_error(pname,"facedusp",1,__LINE__,__FILE__, &
-   !                 ierr,error_message)
-   !!$ACC UPDATE DEVICE(facedusp)
-    !
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-  end if
+  ! Allocate the facexyz and facexyz_dt arrays
   !
-  ! Allocate the outer part of the face solution/flux arrays
+  call alloc_array(facexyz,nr,nfpts,"facexyz",pname,__LINE__)
   !
- !if (.not. convert_restart_to_cgns .or. continuous_output) then
-    !
-    ! If using the continuous output option or MMS,
-    ! allocate the facexyz_dt array
-    !
-    if (continuous_output) then
-      !
-      ! If using continuous output, facexyz_dt needs to be defined
-      ! for both interior and boundary faces
-      !
-  iwt = iwt + 1 
-  message(iwt) = "Allocating face{xyz,usp,gpsp,dusp}_dt for continuous output"
-call debug_timer(start_timer,message(iwt))
-      if (allocated(facexyz_dt)) then
-        if (size(facexyz_dt) < nface) then
-          deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
-          call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__, &
-                           ierr,error_message)
-        end if
-      end if
-      if (.not. allocated(facexyz_dt)) then
-        allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
-                         ierr,error_message)
-      end if
-      !
-      if (.not. allocated(faceusp_dt)) then
-        allocate ( faceusp_dt(1:nface) , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"faceusp_dt",1,__LINE__,__FILE__, &
-                         ierr,error_message)
-      end if
-      !
-      if (.not. allocated(facegpsp_dt)) then
-        allocate ( facegpsp_dt(1:nface) , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"facegpsp_dt",1,__LINE__,__FILE__, &
-                         ierr,error_message)
-      end if
-      !
-      if (.not. allocated(facedusp_dt)) then
-        allocate ( facedusp_dt(1:nface) , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"facedusp_dt",1,__LINE__,__FILE__, &
-                         ierr,error_message)
-      end if
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-      !
-    else if (mms_opt /= 0) then
-      !
-      ! If using MMS but not using continuous output, facexyz_dt only needs
-      ! to be defined for the boundary faces
-      !
-  iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_dt for MMS"
-call debug_timer(start_timer,message(iwt))
-      if (.not. allocated(facexyz_dt)) then
-        allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
-                         ierr,error_message)
-      end if
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-      !
-    end if
-    !
-    ! Allocate the data component of these arrays based on the face geometry
-    !
-    !##########################################################################
-    !##########################################################################
-    !##  NOTE : THE LOOPS ALLOCATING THE INNER COMPONENTS ARE KEPT SEPARATE  ##
-    !##         FROM EACH OTHER TO TRY AND KEEP THE ALLOCATABLE COMPONENTS   ##
-    !##         OF EACH ARRAY CONTIGUOUS IN PHYSICAL MEMORY                  ##
-    !##########################################################################
-    !##########################################################################
-    !
-    if (allocated(faceusp_dt)) then
-  iwt = iwt + 1 ; message(iwt) = "Allocating faceusp_dt components"
-call debug_timer(start_timer,message(iwt))
-      call alloc_face_dt_components(faceusp_dt,nfpts,"faceusp_dt")
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-    end if
-    !
-    if (allocated(facegpsp_dt)) then
-  iwt = iwt + 1 ; message(iwt) = "Allocating facegpsp_dt components"
-call debug_timer(start_timer,message(iwt))
-      call alloc_face_dt_components(facegpsp_dt,nfpts,"facegpsp_dt",num_var=ng)
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-    end if
-    !
-    if (allocated(facedusp_dt)) then
-  iwt = iwt + 1 ; message(iwt) = "Allocating facedusp_dt components"
-call debug_timer(start_timer,message(iwt))
-      call alloc_face_dt_components(facedusp_dt,nfpts,"facedusp_dt")
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-    end if
-    !
-    !
-  iwt = iwt + 1
-  message(iwt) = "Allocating faceflx and face{usp,gpsp,dusp}_array"
-call debug_timer(start_timer,message(iwt))
-    nfpts = face(nface)%end_fp ! end fp index for last face
-    !
-    allocate ( faceflx(1:nfpts,1:nq) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceflx",1,__LINE__,__FILE__, &
-                     ierr,error_message)
-    !$ACC UPDATE DEVICE(faceflx)
-    !
-    if (.not. allocated(faceusp)) then
-      allocate ( faceusp(1:nfpts,1:nq,1:2) , source=zero , &
-                 stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"faceusp",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-      !$ACC UPDATE DEVICE(faceusp)
-    end if
-    !
-    if (.not. allocated(facedusp)) then
-      allocate ( facedusp(1:nfpts,1:nr,1:nq,1:2) , source=zero , &
-                 stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facedusp",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-      !$ACC UPDATE DEVICE(facedusp)
-    end if
-    !
-    if (.not. allocated(facegpsp)) then
-      allocate ( facegpsp(1:nfpts,1:ng,1:2) , source=zero , &
-                 stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facegpsp",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-      !$ACC UPDATE DEVICE(facegpsp)
-    end if
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-    !
-    !
-    if (allocated(facexyz_dt)) then
-      !
-  iwt = iwt + 1 ; message(iwt) = "Allocating facexyz_dt components"
-call debug_timer(start_timer,message(iwt))
-      call alloc_face_dt_components(facexyz_dt,nfpts,"facexyz_dt")
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-      !
-  iwt = iwt + 1 ; message(iwt) = "Allocating facexyz"
-call debug_timer(start_timer,message(iwt))
-      allocate ( facexyz(1:nr,1:nfpts) , source=zero , &
-                 stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-      !
-      !$ACC UPDATE DEVICE(facexyz)
-      !
-    end if
-    !
-    ! If using continuous output, allocate the facegpsp_dt, nodeusp_dt,
-    ! nodegpsp_dt, nodedusp_dt, edgeusp_dt, edgegpsp_dt, and edgedusp_dt arrays
-    !
-    !##########################################################################
-    !##########################################################################
-    !##  NOTE : THE LOOPS ALLOCATING THE INNER COMPONENTS ARE KEPT SEPARATE  ##
-    !##         FROM EACH OTHER TO TRY AND KEEP THE ALLOCATABLE COMPONENTS   ##
-    !##         OF EACH ARRAY CONTIGUOUS IN PHYSICAL MEMORY                  ##
-    !##########################################################################
-    !##########################################################################
-    !
-    if (continuous_output) then
-      !
-      ! Allocate the nodeusp_dt array and its data components
-      !
-  iwt = iwt + 1 ; message(iwt) = "Allocating nodeusp_dt and its components"
-call debug_timer(start_timer,message(iwt))
-      allocate ( nodeusp_dt(1:nnode) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"nodeusp_dt",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-      !
-      call alloc_ne_dt_components(nodeusp_dt,"nodeusp_dt")
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-      !
-      ! Allocate the nodegpsp_dt array and its data components
-      !
-  iwt = iwt + 1 ; message(iwt) = "Allocating nodegpsp_dt and its components"
-call debug_timer(start_timer,message(iwt))
-      allocate ( nodegpsp_dt(1:nnode) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"nodegpsp_dt",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-      !
-      call alloc_ne_dt_components(nodegpsp_dt,"nodegpsp_dt",num_var=ng)
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-      !
-      ! Allocate the nodedusp_dt array and its data components
-      !
-  iwt = iwt + 1 ; message(iwt) = "Allocating nodedusp_dt and its components"
-call debug_timer(start_timer,message(iwt))
-      allocate ( nodedusp_dt(1:nnode) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"nodedusp_dt",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-      !
-      call alloc_ne_dt_components(nodedusp_dt,"nodedusp_dt")
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-      !
-      ! Allocate the edgeusp_dt array and its data components
-      !
-  iwt = iwt + 1 ; message(iwt) = "Allocating edgeusp_dt and its components"
-call debug_timer(start_timer,message(iwt))
-      allocate ( edgeusp_dt(1:nedge) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"edgeusp_dt",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-      !
-      call alloc_ne_dt_components(edgeusp_dt,nepts,"edgeusp_dt")
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-      !
-      ! Allocate the edgegpsp_dt array and its data components
-      !
-  iwt = iwt + 1 ; message(iwt) = "Allocating edgegpsp_dt and its components"
-call debug_timer(start_timer,message(iwt))
-      allocate ( edgegpsp_dt(1:nedge) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"edgegpsp_dt",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-      !
-      call alloc_ne_dt_components(edgegpsp_dt,nepts,"edgegpsp_dt",num_var=ng)
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-      !
-      ! Allocate the edgedusp_dt array and its data components
-      !
-  iwt = iwt + 1 ; message(iwt) = "Allocating edgedusp_dt and its components"
-call debug_timer(start_timer,message(iwt))
-      allocate ( edgedusp_dt(1:nedge) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"edgedusp_dt",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-      !
-      call alloc_ne_dt_components(edgedusp_dt,nepts,"edgedusp_dt")
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-      !
-      ! Allocate the edgexyz_dt array and its data components
-      !
-  iwt = iwt + 1 ; message(iwt) = "Allocating edgexyz_dt and its components"
-call debug_timer(start_timer,message(iwt))
-      allocate ( edgexyz_dt(1:nedge) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"edgexyz_dt",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-      !
-      call alloc_ne_dt_components(edgexyz_dt,nepts,"edgexyz_dt",num_var=nr)
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
-      !
-    end if
-    !
- !end if
+  call alloc_fen_dt(facexyz_dt,nf,"facexyz_dt",pname,__LINE__)
   !
-  ! Allocate the storage for the Runge-Kutta methods
+  ! Allocate the face/edge/node derived type arrays
   !
-  iwt = iwt + 1 ; message(iwt) = "Allocating Runge Kutta arrays"
-call debug_timer(start_timer,message(iwt))
-  if ( any(Runge_Kutta_Scheme == [Classic_RK,-EPERK]) ) then
-    allocate ( rssprk(1:n_solpts,1:nq,1:num_rk_stages) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"rssprk",1,__LINE__,__FILE__,ierr,error_message)
-    !$ACC UPDATE DEVICE(rssprk)
-  end if
+  nf = 0
+  if (continuous_output) nf = nface
   !
-  if ( any(Runge_Kutta_Scheme == [CK4_RK,TVD4_RK,OERK,EPERK]) ) then
-    allocate ( rk_sum(1:n_solpts,1:nq) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"rk_sum",1,__LINE__,__FILE__,ierr,error_message)
-    !$ACC UPDATE DEVICE(rk_sum)
-  end if
-call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+  call alloc_fen_dt(faceusp_dt,nf,"faceusp_dt",pname,__LINE__)
+  !
+  call alloc_fen_dt(facedusp_dt,nf,"facedusp_dt",pname,__LINE__)
+  !
+  call alloc_fen_dt(facegpsp_dt,nf,"facegpsp_dt",pname,__LINE__,num_var=ng)
+  !
+  ! Allocate the edge derived type arrays
+  !
+  ne = 0
+  if (continuous_output .and. nr>=3) ne = nedge
+  !
+  call alloc_fen_dt(edgexyz_dt,ne,"edgexyz_dt",pname,__LINE__, &
+                    num_var=nr,nepts=nepts)
+  !
+  call alloc_fen_dt(edgeusp_dt,ne,"edgeusp_dt",pname,__LINE__,nepts=nepts)
+  !
+  call alloc_fen_dt(edgedusp_dt,ne,"edgedusp_dt",pname,__LINE__)
+  !
+  call alloc_fen_dt(edgegpsp_dt,ne,"edgegpsp_dt",pname,__LINE__, &
+                    num_var=ng,nepts=nepts)
+  !
+  ! Allocate the node derived type arrays
+  !
+  nn = 0
+  if (continuous_output) nn = nnode
+  !
+  call alloc_fen_dt(nodeusp_dt,nf,"nodeusp_dt",pname,__LINE__)
+  !
+  call alloc_fen_dt(nodedusp_dt,nf,"nodedusp_dt",pname,__LINE__)
+  !
+  call alloc_fen_dt(nodegpsp_dt,nf,"nodegpsp_dt",pname,__LINE__,num_var=ng)
+  !
+  ! Finally, sort and output the time taken to allocate all these arrays
   !
   if (mypnum == glb_root) then
     call sort_and_output_wall_times(wall_time(1:iwt),message(1:iwt))
@@ -770,13 +410,188 @@ call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   !
   call debug_timer(leaving_procedure,pname)
   !
-  ! Format Statements
-  !
-  1 format (a,"(",i0,")%v")
-  !
 end subroutine allocate_flowvar_arrays
 !
 !###############################################################################
+!
+subroutine alloc_interpto_arrays()
+  !
+  !.. Use Statements ..
+  use eqn_idx, only : nq,ng
+  use geovar,  only : nr,n_solpts,n_flxpts,nface
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "alloc_interpto_arrays"
+  !
+continue
+  !
+  ! Allocate all the arrays necessary for interpolating a solution to a new grid
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  !##################################
+  !###  1. Allocate usp and gpsp  ###
+  !##################################
+  !
+  call alloc_array(usp,n_solpts,nq,"usp",pname,__LINE__)
+  !
+  call alloc_array(gpsp,n_solpts,ng,"gpsp",pname,__LINE__)
+  !
+  !#############################################################
+  !###  2. The interpolation utility needs facexyz to  ###
+  !###     be defined for both interior and boundary faces.  ###
+  !#############################################################
+  !
+  ! Allocate the derived type array facexyz_dt and
+  ! the derived type components for each face
+  !
+  call alloc_fen_dt(facexyz_dt,nface,"facexyz_dt",pname,__LINE__)
+  !
+  ! Allocate the traditional array version of facexyz_dt
+  !
+  call alloc_array(facexyz,nr,n_flxpts,"facexyz",pname,__LINE__)
+  !
+  !#####################################################################
+  !###  3. Procedure interpsol needs faceusp_dt to print debug info  ###
+  !#####################################################################
+  !
+  ! Allocate the derived type array faceusp_dt and
+  ! the derived type components for each face
+  !
+  call alloc_fen_dt(faceusp_dt,nface,"faceusp_dt",pname,__LINE__)
+  !
+  ! Allocate the traditional array version of faceusp_dt
+  !
+  call alloc_array(faceusp,n_flxpts,nq,2,"faceusp",pname,__LINE__)
+  !
+  !#################################################
+  !###  4. The facegpsp_dt array is also needed  ###
+  !#################################################
+  !
+  ! Allocate the derived type array facegpsp_dt and
+  ! the derived type components for each face
+  !
+  call alloc_fen_dt(facegpsp_dt,nface,"facegpsp_dt",pname,__LINE__,num_var=ng)
+  !
+  ! Allocate the traditional array version of facegpsp_dt
+  ! NOTE: nfp should be equal to n_flxpts
+  !
+  call alloc_array(facegpsp,n_flxpts,ng,2,"facegpsp",pname,__LINE__)
+  !
+  !########################################################################
+  !###  5. Sort and output the time taken to allocate all these arrays  ###
+  !########################################################################
+  !
+  if (mypnum == glb_root) then
+    call sort_and_output_wall_times(wall_time(1:iwt),message(1:iwt))
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine alloc_interpto_arrays
+!
+!###############################################################################
+!
+subroutine find_facexyz_size(nf,nfpts)
+  !
+  !.. Use Statements ..
+  use module_kind_types, only : one,rpm_to_mps,bc_sem,bc_walls,THX_Phase_3
+  use eqn_idx,           only : ncs
+  use geovar,            only : nfbnd,nface,n_bnd_flxpts,n_flxpts
+  use ovar,              only : bc_in,moving_ref_frame,aref
+  use ovar,              only : itestcase,continuous_output,mms_opt
+  !
+  !.. Formal Arguments ..
+  integer, intent(inout) :: nf,nfpts
+  !
+  !.. Local Scalars ..
+  integer :: i
+  !
+continue
+  !
+  ! Initialize nf and nfpts to 0, so that facexyz and facexyz_dt are only
+  ! allocated if nf and nfpts are modified which would mean that the arrays
+  ! are actually needed.
+  !
+  nf = 0
+  nfpts = 0
+  !
+  ! If rotation_rate for a wall BC is nonzero, we need
+  ! facexyz for at least the boundary face points.
+  !
+  rotating_wall_bc_check: &
+  do i = lbound(bc_in,dim=1),ubound(bc_in,dim=1)
+    if (any(bc_in(i)%bc_type == bc_walls)) then
+      if (any(abs(bc_in(i)%rotation_rate(:)) >= one*rpm_to_mps/aref)) then
+        nf = max(nf,nfbnd)
+        nfpts = max(nfpts,n_bnd_flxpts)
+        exit rotating_wall_bc_check
+      end if
+    end if
+  end do rotating_wall_bc_check
+  !
+  ! If using an SEM BC, we need facexyz for at least the boundary face points.
+  ! NOTE: facexyz can be deallocated after initializing the SEM module for
+  !       assuming it isnt needed for another reason.
+  !
+  if (any(bc_in(:)%bc_type == bc_sem)) then
+    nf = max(nf,nfbnd)
+    nfpts = max(nfpts,n_bnd_flxpts)
+  end if
+  !
+  ! If using MMS, we need facexyz for at least the boundary face points.
+  !
+  if (mms_opt /= 0) then
+    nf = max(nf,nfbnd)
+    nfpts = max(nfpts,n_bnd_flxpts)
+  end if
+  !
+  ! If using a rotating reference frame, we need facexyz for all face points.
+  !
+  if ( moving_ref_frame%is_active() ) then
+    nf = nface
+    nfpts = n_flxpts
+    ! Just return since these are the max values possible
+    return
+  end if
+  !
+  ! If running the THX3 case, we need facexyz for all face points.
+  ! NOTE: facexyz can be deallocated after initializing the code
+  !       for computing the blowing ratio for the THX3 case,
+  !       assuming it isnt needed for another reason.
+  !
+  if (abs(itestcase) == THX_Phase_3) then
+    nf = nface
+    nfpts = n_flxpts
+    ! Just return since these are the max values possible
+    return
+  end if
+  !
+  ! If running a multi-species gas flow (with or without reactions), we need
+  ! facexyz for all face points in case the Newton solver for temperature 
+  ! fails to converge, so that the coordinates where it failed can be output
+  ! to help with troubleshooting.
+  !
+  if (ncs > 0) then
+    nf = nface
+    nfpts = n_flxpts
+    ! Just return since these are the max values possible
+    return
+  end if
+  !
+  ! If using continuous output, we need facexyz for all face points.
+  !
+  if (continuous_output) then
+    nf = nface
+    nfpts = n_flxpts
+    ! Just return since these are the max values possible
+    return
+  end if
+  !
+end subroutine find_facexyz_size
 !
 !###############################################################################
 !###############################################################################
@@ -966,20 +781,336 @@ end subroutine alloc_rank4_array
 !###############################################################################
 !###############################################################################
 !
-subroutine sort_and_output_wall_times(wall_time,message)
+subroutine alloc_face_xyz_dt(dt_array,n1,aname,pname,line_num,imsg)
   !
   !.. Formal Arguments ..
-  real(wp),         intent(in) :: wall_time(:)
-  character(len=*), intent(in) :: message(:)
+  type(face_xyz), allocatable, intent(inout) :: dt_array(:)
+  integer,                        intent(in) :: n1,line_num
+  character(len=*),               intent(in) :: aname,pname
+  !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: imsg
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+continue
+  !
+  ! If n1 is <= 0, deallocate dt_array and return
+  !
+  if (n1 <= 0) then
+    if (allocated(dt_array)) then
+      deallocate ( dt_array , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,aname,2,line_num,__FILE__,ierr,error_message)
+    end if
+    return
+  end if
+  !
+  iwt = iwt + 1
+  message(iwt) = "Allocating " // trim(adjustl(aname)) // " and its components"
+  if (present(imsg)) then
+    message(iwt) = trim(adjustl(message(iwt))) // " " // trim(adjustl(imsg))
+  end if
+  call debug_timer(start_timer,message(iwt))
+  !
+  ! First allocate the derived type array
+  !
+  if (.not. allocated(dt_array)) then
+    allocate ( dt_array(1:n1) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,aname,1,line_num,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Now allocate the components of each element of the array dt_array
+  !
+  call alloc_face_dt_components(dt_array,aname,pname,line_num)
+  !
+  call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+  !
+end subroutine alloc_face_xyz_dt
+!
+!###############################################################################
+!
+subroutine alloc_face_var_dt(dt_array,n1,aname,pname,line_num,num_var,imsg)
+  !
+  !.. Formal Arguments ..
+  type(face_var), allocatable, intent(inout) :: dt_array(:)
+  integer,                        intent(in) :: n1,line_num
+  character(len=*),               intent(in) :: aname,pname
+  !
+  !.. Optional Arguments ..
+  integer,          optional, intent(in) :: num_var
+  character(len=*), optional, intent(in) :: imsg
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+continue
+  !
+  ! If n1 is <= 0, deallocate dt_array and return
+  !
+  if (n1 <= 0) then
+    if (allocated(dt_array)) then
+      deallocate ( dt_array , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,aname,2,line_num,__FILE__,ierr,error_message)
+    end if
+    return
+  end if
+  !
+  iwt = iwt + 1
+  message(iwt) = "Allocating " // trim(adjustl(aname)) // " and its components"
+  if (present(imsg)) then
+    message(iwt) = trim(adjustl(message(iwt))) // " " // trim(adjustl(imsg))
+  end if
+  call debug_timer(start_timer,message(iwt))
+  !
+  ! First allocate the derived type array
+  !
+  if (.not. allocated(dt_array)) then
+    allocate ( dt_array(1:n1) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,aname,1,line_num,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Now allocate the components of each element of the array dt_array
+  !
+  call alloc_face_dt_components(dt_array,aname,pname,line_num,num_var)
+  !
+  call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+  !
+end subroutine alloc_face_var_dt
+!
+!###############################################################################
+!
+subroutine alloc_face_vec_dt(dt_array,n1,aname,pname,line_num,num_var,imsg)
+  !
+  !.. Formal Arguments ..
+  type(face_vec), allocatable, intent(inout) :: dt_array(:)
+  integer,                        intent(in) :: n1,line_num
+  character(len=*),               intent(in) :: aname,pname
+  !
+  !.. Optional Arguments ..
+  integer,          optional, intent(in) :: num_var
+  character(len=*), optional, intent(in) :: imsg
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+continue
+  !
+  ! If n1 is <= 0, deallocate dt_array and return
+  !
+  if (n1 <= 0) then
+    if (allocated(dt_array)) then
+      deallocate ( dt_array , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,aname,2,line_num,__FILE__,ierr,error_message)
+    end if
+    return
+  end if
+  !
+  iwt = iwt + 1
+  message(iwt) = "Allocating " // trim(adjustl(aname)) // " and its components"
+  if (present(imsg)) then
+    message(iwt) = trim(adjustl(message(iwt))) // " " // trim(adjustl(imsg))
+  end if
+  call debug_timer(start_timer,message(iwt))
+  !
+  ! First allocate the derived type array
+  !
+  if (.not. allocated(dt_array)) then
+    allocate ( dt_array(1:n1) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,aname,1,line_num,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Now allocate the components of each element of the array dt_array
+  !
+  call alloc_face_dt_components(dt_array,aname,pname,line_num,num_var)
+  !
+  call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+  !
+end subroutine alloc_face_vec_dt
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+subroutine alloc_ne1d_dt(dt_array,n1,aname,pname,line_num,num_var,imsg)
+  !
+  !.. Formal Arguments ..
+  type(ne1d_t), allocatable, intent(inout) :: dt_array(:)
+  integer,                      intent(in) :: n1,line_num
+  character(len=*),             intent(in) :: aname,pname
+  !
+  !.. Optional Arguments ..
+  integer,          optional, intent(in) :: num_var
+  character(len=*), optional, intent(in) :: imsg
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+continue
+  !
+  ! If n1 is <= 0, deallocate dt_array and return
+  !
+  if (n1 <= 0) then
+    if (allocated(dt_array)) then
+      deallocate ( dt_array , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,aname,2,line_num,__FILE__,ierr,error_message)
+    end if
+    return
+  end if
+  !
+  iwt = iwt + 1
+  message(iwt) = "Allocating " // trim(adjustl(aname)) // " and its components"
+  if (present(imsg)) then
+    message(iwt) = trim(adjustl(message(iwt))) // " " // trim(adjustl(imsg))
+  end if
+  call debug_timer(start_timer,message(iwt))
+  !
+  ! First allocate the derived type array
+  !
+  if (.not. allocated(dt_array)) then
+    allocate ( dt_array(1:n1) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,aname,1,line_num,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Now allocate the components of each element of the array dt_array
+  !
+  call alloc_ne_dt_components(dt_array,aname,pname,line_num,num_var)
+  !
+  call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+  !
+end subroutine alloc_ne1d_dt
+!
+!###############################################################################
+!
+subroutine alloc_ne2d_dt(dt_array,n1,aname,pname,line_num,num_var,nepts,imsg)
+  !
+  !.. Formal Arguments ..
+  type(ne2d_t), allocatable, intent(inout) :: dt_array(:)
+  integer,                      intent(in) :: n1,line_num
+  character(len=*),             intent(in) :: aname,pname
+  !
+  !.. Optional Arguments ..
+  integer,          optional,    intent(in) :: num_var
+  integer,          optional, intent(inout) :: nepts
+  character(len=*), optional,    intent(in) :: imsg
+  !
+  !.. Local Scalars ..
+  integer :: ierr,nep
+  !
+continue
+  !
+  ! If n1 is <= 0, deallocate dt_array and return
+  !
+  if (n1 <= 0) then
+    if (allocated(dt_array)) then
+      deallocate ( dt_array , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,aname,2,line_num,__FILE__,ierr,error_message)
+    end if
+    return
+  end if
+  !
+  iwt = iwt + 1
+  message(iwt) = "Allocating " // trim(adjustl(aname)) // " and its components"
+  if (present(imsg)) then
+    message(iwt) = trim(adjustl(message(iwt))) // " " // trim(adjustl(imsg))
+  end if
+  call debug_timer(start_timer,message(iwt))
+  !
+  ! First allocate the derived type array
+  !
+  if (.not. allocated(dt_array)) then
+    allocate ( dt_array(1:n1) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,aname,1,line_num,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Now allocate the components of each element of the array dt_array
+  !
+  if (present(nepts)) then
+    call alloc_ne_dt_components(dt_array,nep,aname,pname,line_num,num_var)
+    nepts = nep
+  else
+    call alloc_ne_dt_components(dt_array,aname,pname,line_num,num_var)
+  end if
+  !
+  call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+  !
+end subroutine alloc_ne2d_dt
+!
+!###############################################################################
+!
+subroutine alloc_ne3d_dt(dt_array,n1,aname,pname,line_num,num_var,imsg)
+  !
+  !.. Formal Arguments ..
+  type(ne3d_t), allocatable, intent(inout) :: dt_array(:)
+  integer,                      intent(in) :: n1,line_num
+  character(len=*),             intent(in) :: aname,pname
+  !
+  !.. Optional Arguments ..
+  integer,          optional, intent(in) :: num_var
+  character(len=*), optional, intent(in) :: imsg
+  !
+  !.. Local Scalars ..
+  integer :: ierr,nep
+  !
+continue
+  !
+  ! If n1 is <= 0, deallocate dt_array and return
+  !
+  if (n1 <= 0) then
+    if (allocated(dt_array)) then
+      deallocate ( dt_array , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,aname,2,line_num,__FILE__,ierr,error_message)
+    end if
+    return
+  end if
+  !
+  iwt = iwt + 1
+  message(iwt) = "Allocating " // trim(adjustl(aname)) // " and its components"
+  if (present(imsg)) then
+    message(iwt) = trim(adjustl(message(iwt))) // " " // trim(adjustl(imsg))
+  end if
+  call debug_timer(start_timer,message(iwt))
+  !
+  ! First allocate the derived type array
+  !
+  if (.not. allocated(dt_array)) then
+    allocate ( dt_array(1:n1) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,aname,1,line_num,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Now allocate the components of each element of the array dt_array
+  !
+  call alloc_ne_dt_components(dt_array,nep,aname,pname,line_num,num_var)
+  !
+  call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+  !
+end subroutine alloc_ne3d_dt
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+subroutine sort_and_output_wall_times(wt,msg)
+  !
+  !.. Use Statements ..
+  use module_kind_types, only : iout,ten2
+  !
+  !.. Formal Arguments ..
+  real(wp),         intent(in) :: wt(:)
+  character(len=*), intent(in) :: msg(:)
   !
   !.. Local Scalars ..
   integer  :: i,n,nwt
   real(wp) :: total_time
   !
   !.. Local Arrays ..
-  integer  :: sort_order(1:size(wall_time))
-  real(wp) :: temp_time(1:size(wall_time))
-  real(wp) :: percent_time(1:size(wall_time))
+  integer  :: sort_order(1:size(wt))
+  real(wp) :: temp_time(1:size(wt))
+  real(wp) :: percent_time(1:size(wt))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "sort_and_output_wall_times"
@@ -987,10 +1118,10 @@ subroutine sort_and_output_wall_times(wall_time,message)
 continue
   !
 #ifdef PROFILE_ON
-  nwt = size(wall_time)
+  nwt = size(wt)
   !
   do n = 1,nwt
-    temp_time(n) = max(zero,wall_time(n))
+    temp_time(n) = max(zero,wt(n))
   end do
   !
   total_time = sum(temp_time(:))
@@ -1010,7 +1141,7 @@ continue
   write (iout,1)
   do n = 1,nwt
     i = sort_order(n)
-    write (iout,2) wall_time(i),percent_time(i),trim(adjustl(message(i)))
+    write (iout,2) wt(i),percent_time(i),trim(adjustl(msg(i)))
   end do
   write (iout,*)
   flush (iout)
@@ -1025,16 +1156,17 @@ end subroutine sort_and_output_wall_times
 !
 !###############################################################################
 !
-subroutine alloc_face_xyz_dt_components(array,npts,aname,num_var)
+subroutine alloc_face_xyz_dt_components(array,aname,pname,line_num,num_var)
   !
   !.. Use Statements ..
-  use geovar,    only : nr,face
-  use order_mod, only : geom_solpts
+  use module_kind_types, only : skip_alloc_pause
+  use geovar,            only : nr,face
+  use order_mod,         only : geom_solpts
   !
   !.. Formal Arguments ..
   type(face_xyz), intent(inout) :: array(:)
-  integer,        intent(inout) :: npts
-  character(len=*),  intent(in) :: aname
+  character(len=*),  intent(in) :: aname,pname
+  integer,           intent(in) :: line_num
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: num_var
@@ -1045,17 +1177,12 @@ subroutine alloc_face_xyz_dt_components(array,npts,aname,num_var)
   !
   character(len=200) :: array_name
   !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "alloc_face_xyz_dt_components"
-  !
 continue
   !
   nvar = nr
   if (present(num_var)) then
     nvar = num_var
   end if
-  !
-  npts = 0
   !
   do nf = lbound(array,dim=1),ubound(array,dim=1)
     !
@@ -1064,13 +1191,11 @@ continue
     !
     nfp = geom_solpts(face_geom,face_order)
     !
-    npts = npts + nfp
-    !
     allocate ( array(nf)%v(1:nvar,1:nfp) , source=zero , &
                stat=ierr , errmsg=error_message )
 #ifndef DEBUG_ON
     write (array_name,1) trim(adjustl(aname)),nf
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+    call alloc_error(pname,array_name,1,line_num,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
 #endif
     !
@@ -1084,17 +1209,18 @@ end subroutine alloc_face_xyz_dt_components
 !
 !###############################################################################
 !
-subroutine alloc_face_var_dt_components(array,npts,aname,num_var)
+subroutine alloc_face_var_dt_components(array,aname,pname,line_num,num_var)
   !
   !.. Use Statements ..
-  use eqn_idx,   only : nq
-  use geovar,    only : face
-  use order_mod, only : geom_solpts
+  use module_kind_types, only : skip_alloc_pause
+  use eqn_idx,           only : nq
+  use geovar,            only : face
+  use order_mod,         only : geom_solpts
   !
   !.. Formal Arguments ..
   type(face_var), intent(inout) :: array(:)
-  integer,        intent(inout) :: npts
-  character(len=*),  intent(in) :: aname
+  character(len=*),  intent(in) :: aname,pname
+  integer,           intent(in) :: line_num
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: num_var
@@ -1105,17 +1231,12 @@ subroutine alloc_face_var_dt_components(array,npts,aname,num_var)
   !
   character(len=200) :: array_name
   !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "alloc_face_var_dt_components"
-  !
 continue
   !
   nvar = nq
   if (present(num_var)) then
     nvar = num_var
   end if
-  !
-  npts = 0
   !
   do nf = lbound(array,dim=1),ubound(array,dim=1)
     !
@@ -1124,13 +1245,11 @@ continue
     !
     nfp = geom_solpts(face_geom,face_order)
     !
-    npts = npts + nfp
-    !
     allocate ( array(nf)%v(1:nvar,1:nfp,1:2) , source=zero , &
                stat=ierr , errmsg=error_message )
 #ifndef DEBUG_ON
     write (array_name,1) trim(adjustl(aname)),nf
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+    call alloc_error(pname,array_name,1,line_num,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
 #endif
     !
@@ -1144,17 +1263,18 @@ end subroutine alloc_face_var_dt_components
 !
 !###############################################################################
 !
-subroutine alloc_face_vec_dt_components(array,npts,aname,num_var)
+subroutine alloc_face_vec_dt_components(array,aname,pname,line_num,num_var)
   !
   !.. Use Statements ..
-  use eqn_idx,   only : nq
-  use geovar,    only : nr,face
-  use order_mod, only : geom_solpts
+  use module_kind_types, only : skip_alloc_pause
+  use eqn_idx,           only : nq
+  use geovar,            only : nr,face
+  use order_mod,         only : geom_solpts
   !
   !.. Formal Arguments ..
   type(face_vec), intent(inout) :: array(:)
-  integer,        intent(inout) :: npts
-  character(len=*),  intent(in) :: aname
+  character(len=*),  intent(in) :: aname,pname
+  integer,           intent(in) :: line_num
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: num_var
@@ -1165,17 +1285,12 @@ subroutine alloc_face_vec_dt_components(array,npts,aname,num_var)
   !
   character(len=200) :: array_name
   !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "alloc_face_vec_dt_components"
-  !
 continue
   !
   nvar = nq
   if (present(num_var)) then
     nvar = num_var
   end if
-  !
-  npts = 0
   !
   do nf = lbound(array,dim=1),ubound(array,dim=1)
     !
@@ -1184,13 +1299,11 @@ continue
     !
     nfp = geom_solpts(face_geom,face_order)
     !
-    npts = npts + nfp
-    !
     allocate ( array(nf)%v(1:nr,1:nvar,1:nfp,1:2) , source=zero , &
                stat=ierr , errmsg=error_message )
 #ifndef DEBUG_ON
     write (array_name,1) trim(adjustl(aname)),nf
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+    call alloc_error(pname,array_name,1,line_num,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
 #endif
     !
@@ -1204,14 +1317,16 @@ end subroutine alloc_face_vec_dt_components
 !
 !###############################################################################
 !
-subroutine alloc_node_var_dt_components(array,aname,num_var)
+subroutine alloc_node_var_dt_components(array,aname,pname,line_num,num_var)
   !
   !.. Use Statements ..
-  use eqn_idx, only : nq
+  use module_kind_types, only : skip_alloc_pause
+  use eqn_idx,           only : nq
   !
   !.. Formal Arguments ..
   type(ne1d_t),  intent(inout) :: array(:)
-  character(len=*), intent(in) :: aname
+  character(len=*), intent(in) :: aname,pname
+  integer,          intent(in) :: line_num
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: num_var
@@ -1220,9 +1335,6 @@ subroutine alloc_node_var_dt_components(array,aname,num_var)
   integer :: nn,nvar,ierr
   !
   character(len=200) :: array_name
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "alloc_node_var_dt_components"
   !
 continue
   !
@@ -1237,7 +1349,7 @@ continue
                stat=ierr , errmsg=error_message )
 #ifndef DEBUG_ON
     write (array_name,1) trim(adjustl(aname)),nn
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+    call alloc_error(pname,array_name,1,line_num,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
 #endif
     !
@@ -1251,15 +1363,17 @@ end subroutine alloc_node_var_dt_components
 !
 !###############################################################################
 !
-subroutine alloc_node_vec_dt_components(array,aname,num_var)
+subroutine alloc_node_vec_dt_components(array,aname,pname,line_num,num_var)
   !
   !.. Use Statements ..
-  use eqn_idx, only : nq
-  use geovar,  only : nr
+  use module_kind_types, only : skip_alloc_pause
+  use eqn_idx,           only : nq
+  use geovar,            only : nr
   !
   !.. Formal Arguments ..
   type(ne2d_t),  intent(inout) :: array(:)
-  character(len=*), intent(in) :: aname
+  character(len=*), intent(in) :: aname,pname
+  integer,          intent(in) :: line_num
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: num_var
@@ -1268,9 +1382,6 @@ subroutine alloc_node_vec_dt_components(array,aname,num_var)
   integer :: nn,nvar,ierr
   !
   character(len=200) :: array_name
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "alloc_node_vec_dt_components"
   !
 continue
   !
@@ -1285,7 +1396,7 @@ continue
                stat=ierr , errmsg=error_message )
 #ifndef DEBUG_ON
     write (array_name,1) trim(adjustl(aname)),nn
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+    call alloc_error(pname,array_name,1,line_num,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
 #endif
     !
@@ -1299,17 +1410,19 @@ end subroutine alloc_node_vec_dt_components
 !
 !###############################################################################
 !
-subroutine alloc_edge_var_dt_components(array,npts,aname,num_var)
+subroutine alloc_edge_var_dt_components(array,npts,aname,pname,line_num,num_var)
   !
   !.. Use Statements ..
-  use eqn_idx,   only : nq
-  use geovar,    only : edge
-  use order_mod, only : geom_solpts
+  use module_kind_types, only : Geom_Edge,skip_alloc_pause
+  use eqn_idx,           only : nq
+  use geovar,            only : edge
+  use order_mod,         only : geom_solpts
   !
   !.. Formal Arguments ..
   type(ne2d_t),  intent(inout) :: array(:)
   integer,       intent(inout) :: npts
-  character(len=*), intent(in) :: aname
+  character(len=*), intent(in) :: aname,pname
+  integer,          intent(in) :: line_num
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: num_var
@@ -1318,9 +1431,6 @@ subroutine alloc_edge_var_dt_components(array,npts,aname,num_var)
   integer :: ne,nepts,nvar,ierr
   !
   character(len=200) :: array_name
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "alloc_edge_var_dt_components"
   !
 continue
   !
@@ -1341,7 +1451,7 @@ continue
                stat=ierr , errmsg=error_message )
 #ifndef DEBUG_ON
     write (array_name,1) trim(adjustl(aname)),ne
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+    call alloc_error(pname,array_name,1,line_num,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
 #endif
     !
@@ -1355,18 +1465,19 @@ end subroutine alloc_edge_var_dt_components
 !
 !###############################################################################
 !
-subroutine alloc_edge_vec_dt_components(array,npts,aname,num_var)
+subroutine alloc_edge_vec_dt_components(array,npts,aname,pname,line_num,num_var)
   !
   !.. Use Statements ..
-  use eqn_idx,   only : nq
-  use geovar,    only : nr
-  use geovar,    only : edge
-  use order_mod, only : geom_solpts
+  use module_kind_types, only : Geom_Edge,skip_alloc_pause
+  use eqn_idx,           only : nq
+  use geovar,            only : nr,edge
+  use order_mod,         only : geom_solpts
   !
   !.. Formal Arguments ..
   type(ne3d_t),  intent(inout) :: array(:)
   integer,       intent(inout) :: npts
-  character(len=*), intent(in) :: aname
+  character(len=*), intent(in) :: aname,pname
+  integer,          intent(in) :: line_num
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: num_var
@@ -1375,9 +1486,6 @@ subroutine alloc_edge_vec_dt_components(array,npts,aname,num_var)
   integer :: ne,nepts,nvar,ierr
   !
   character(len=200) :: array_name
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "alloc_edge_vec_dt_components"
   !
 continue
   !
@@ -1398,7 +1506,7 @@ continue
                stat=ierr , errmsg=error_message )
 #ifndef DEBUG_ON
     write (array_name,1) trim(adjustl(aname)),ne
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+    call alloc_error(pname,array_name,1,line_num,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
 #endif
     !
@@ -1487,6 +1595,7 @@ subroutine flowvar_memory_usage(iunit)
   !
   !.. Use Statements ..
   use module_memory
+  use module_kind_types, only : iout
   !
   !.. Formal Arguments ..
   integer, optional, intent(in) :: iunit
@@ -1946,6 +2055,15 @@ continue
     write (iou,2) array_name,array%get_units()
   else
     write (iou,7) "faceflx"
+  end if
+  if (allocated(facexyz)) then
+    call array%set( storage_size(facexyz,kind=inttype) , &
+                            size(facexyz,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "facexyz"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "facexyz"
   end if
   if (allocated(facegpsp)) then
     call array%set( storage_size(facegpsp,kind=inttype) , &
