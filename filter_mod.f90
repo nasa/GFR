@@ -380,8 +380,8 @@ continue
             else
               !
               filter(this_geom,this_order)%limiter%mat = &
-                 FilterMatrix_Hexa( vand(this_geom,this_order)%modal2nodal%mat , &
-                                    vand(this_geom,this_order)%nodal2modal%mat , &
+                 FilterMatrix_Hexa( vand(this_geom,this_order)%modal2nodal%mat,&
+                                    vand(this_geom,this_order)%nodal2modal%mat,&
                                     cutoff_order=-1 )
               !
             end if
