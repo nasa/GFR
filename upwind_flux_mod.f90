@@ -529,10 +529,12 @@ pure subroutine roe_upwind_flux_cpg_3d(n1,n2,facenrm,facexyz, &
   real(wp) :: ra_mx,ra_my,ra_mz
   real(wp) :: unx,uny,unz
   real(wp) :: rnx,rny,rnz
-  real(wp) :: dw1,hsr1,eta1,udw1,rvnl
-  real(wp) :: dw5,hsr5,eta5,udw5,rvnr
-  real(wp) :: eigen
+  real(wp) :: dw1,hsr1,eta1
+  real(wp) :: dw5,hsr5,eta5
+  real(wp) :: eigen,udw,diss_sign
   real(wp) :: ra_ec,ra_h0,ra_a2,ra_a,ra_q2,ra_vn
+  real(wp) :: fec_i,fmx_i,fmy_i,fmz_i,fee_i
+  real(wp) :: fec_d,fmx_d,fmy_d,fmz_d,fee_d
 !#define PROTECT_AGAINST_ATD_EQUAL_ZERO
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
   real(wp) :: atd2nz,atd2rt,atdnz,atdrt
@@ -609,14 +611,17 @@ continue
 #endif
       hsr1 = -one4*gp1*dw1*ra_a/ra_ec
       eta1 = max(-abs(eigen) + hsr1, zero)
-      udw1 = dw1*(min(eigen,zero) - half*eta1)
-      rvnl = rl*vnl
       !
-      return_value(n,nec) = ds*(    rvnl + udw1                             )
-      return_value(n,nmx) = ds*(vxl*rvnl + udw1*(ra_mx-ra_a*unx) + presl*unx)
-      return_value(n,nmy) = ds*(vyl*rvnl + udw1*(ra_my-ra_a*uny) + presl*uny)
-      return_value(n,nmz) = ds*(vzl*rvnl + udw1*(ra_mz-ra_a*unz) + presl*unz)
-      return_value(n,nee) = ds*(h0l*rvnl + udw1*(ra_h0-ra_a*ra_vn)          )
+      udw = dw1*(min(eigen,zero) - half*eta1)
+      diss_sign = -one
+      !
+      ! Compute the inviscid interface flux
+      !
+      fec_i = vnl*rl
+      fmx_i = vnl*rl*vxl + presl*unx
+      fmy_i = vnl*rl*vyl + presl*uny
+      fmz_i = vnl*rl*vzl + presl*unz
+      fee_i = vnl*rl*h0l
       !
     else
       !
@@ -629,16 +634,37 @@ continue
 #endif
       hsr5 = one4*gp1*dw5*ra_a/ra_ec
       eta5 = max(-abs(eigen) + hsr5, zero)
-      udw5 = dw5*(max(eigen,zero) + half*eta5)
-      rvnr = rr*vnr
       !
-      return_value(n,nec) = ds*(    rvnr - udw5                             )
-      return_value(n,nmx) = ds*(vxr*rvnr - udw5*(ra_mx+ra_a*unx) + presr*unx)
-      return_value(n,nmy) = ds*(vyr*rvnr - udw5*(ra_my+ra_a*uny) + presr*uny)
-      return_value(n,nmz) = ds*(vzr*rvnr - udw5*(ra_mz+ra_a*unz) + presr*unz)
-      return_value(n,nee) = ds*(h0r*rvnr - udw5*(ra_h0+ra_a*ra_vn)          )
+      udw = -dw5*(max(eigen,zero) + half*eta5)
+      diss_sign = one
+      !
+      ! Compute the inviscid interface flux
+      !
+      fec_i = vnr*rr
+      fmx_i = vnr*rr*vxr + presr*unx
+      fmy_i = vnr*rr*vyr + presr*uny
+      fmz_i = vnr*rr*vzr + presr*unz
+      fee_i = vnr*rr*h0r
       !
     end if
+    !
+    ! Compute the dissipative part of the Roe flux
+    !
+    fec_d = udw
+    fmx_d = udw*(ra_mx + diss_sign*ra_a*unx)
+    fmy_d = udw*(ra_my + diss_sign*ra_a*uny)
+    fmz_d = udw*(ra_mz + diss_sign*ra_a*unz)
+    fee_d = udw*(ra_h0 + diss_sign*ra_a*ra_vn)
+    !
+    ! Compute the final Roe upwind flux with entropy fix and the
+    ! moving reference frame component (which will be zero for
+    ! a stationary reference frame).
+    !
+    return_value(n,nec) = ds*(fec_i + fec_d)
+    return_value(n,nmx) = ds*(fmx_i + fmx_d)
+    return_value(n,nmy) = ds*(fmy_i + fmy_d)
+    return_value(n,nmz) = ds*(fmz_i + fmz_d)
+    return_value(n,nee) = ds*(fee_i + fee_d)
     !
   end do
   !
@@ -670,10 +696,12 @@ pure subroutine roe_upwind_flux_cpg_2d(n1,n2,facenrm,facexyz, &
   real(wp) :: ra_mx,ra_my
   real(wp) :: unx,uny
   real(wp) :: rnx,rny
-  real(wp) :: dw1,hsr1,eta1,udw1,rvnl
-  real(wp) :: dw4,hsr4,eta4,udw4,rvnr
-  real(wp) :: eigen
+  real(wp) :: dw1,hsr1,eta1
+  real(wp) :: dw4,hsr4,eta4
+  real(wp) :: eigen,udw,diss_sign
   real(wp) :: ra_ec,ra_h0,ra_a2,ra_a,ra_q2,ra_vn
+  real(wp) :: fec_i,fmx_i,fmy_i,fee_i
+  real(wp) :: fec_d,fmx_d,fmy_d,fee_d
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
   real(wp) :: atd2nz,atd2rt,atdnz,atdrt
 #endif
@@ -744,15 +772,20 @@ continue
 #endif
       hsr1 = -one4*gp1*dw1*ra_a/ra_ec
       eta1 = max(-abs(eigen) + hsr1, zero)
-      udw1 = dw1*(min(eigen,zero) - half*eta1)
-      rvnl = rl*vnl
       !
-      return_value(n,nec) = ds*(    rvnl + udw1                             )
-      return_value(n,nmx) = ds*(vxl*rvnl + udw1*(ra_mx-ra_a*unx) + presl*unx)
-      return_value(n,nmy) = ds*(vyl*rvnl + udw1*(ra_my-ra_a*uny) + presl*uny)
-      return_value(n,nee) = ds*(h0l*rvnl + udw1*(ra_h0-ra_a*ra_vn)          )
+      udw = dw1*(min(eigen,zero) - half*eta1)
+      diss_sign = -one
+      !
+      ! Compute the inviscid interface flux
+      !
+      fec_i = vnl*rl
+      fmx_i = vnl*rl*vxl + presl*unx
+      fmy_i = vnl*rl*vyl + presl*uny
+      fee_i = vnl*rl*h0l
       !
     else
+      !
+      eigen = ra_vn + ra_a
       !
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
       dw4  = half*((presr-presl)/atd2nz*atd2rt + (vnr-vnl)*ra_ec/atdnz*atdrt)
@@ -761,15 +794,34 @@ continue
 #endif
       hsr4 = one4*gp1*dw4*ra_a/ra_ec
       eta4 = max(-abs(eigen) + hsr4, zero)
-      udw4 = dw4*(max(eigen,zero) + half*eta4)
-      rvnr = rr*vnr
       !
-      return_value(n,nec) = ds*(    rvnr - udw4                             )
-      return_value(n,nmx) = ds*(vxr*rvnr - udw4*(ra_mx+ra_a*unx) + presr*unx)
-      return_value(n,nmy) = ds*(vyr*rvnr - udw4*(ra_my+ra_a*uny) + presr*uny)
-      return_value(n,nee) = ds*(h0r*rvnr - udw4*(ra_h0+ra_a*ra_vn)          )
+      udw = -dw4*(max(eigen,zero) + half*eta4)
+      diss_sign = one
+      !
+      ! Compute the inviscid interface flux
+      !
+      fec_i = vnr*rr
+      fmx_i = vnr*rr*vxr + presr*unx
+      fmy_i = vnr*rr*vyr + presr*uny
+      fee_i = vnr*rr*h0r
       !
     end if
+    !
+    ! Compute the dissipative part of the Roe flux
+    !
+    fec_d = udw
+    fmx_d = udw*(ra_mx + diss_sign*ra_a*unx)
+    fmy_d = udw*(ra_my + diss_sign*ra_a*uny)
+    fee_d = udw*(ra_h0 + diss_sign*ra_a*ra_vn)
+    !
+    ! Compute the final Roe upwind flux with entropy fix and the
+    ! moving reference frame component (which will be zero for
+    ! a stationary reference frame).
+    !
+    return_value(n,nec) = ds*(fec_i + fec_d)
+    return_value(n,nmx) = ds*(fmx_i + fmx_d)
+    return_value(n,nmy) = ds*(fmy_i + fmy_d)
+    return_value(n,nee) = ds*(fee_i + fee_d)
 !#define DEBUG_UPWIND_FLUXES
 #ifdef DEBUG_UPWIND_FLUXES
     block
@@ -825,10 +877,12 @@ pure subroutine roe_upwind_flux_cpg_1d(n1,n2,facenrm,facexyz, &
   real(wp) :: ra_mx
   real(wp) :: unx
   real(wp) :: rnx
-  real(wp) :: dw1,hsr1,eta1,udw1,rvnl
-  real(wp) :: dw3,hsr3,eta3,udw3,rvnr
-  real(wp) :: eigen
+  real(wp) :: dw1,hsr1,eta1
+  real(wp) :: dw3,hsr3,eta3
+  real(wp) :: eigen,udw,diss_sign
   real(wp) :: ra_ec,ra_h0,ra_a2,ra_a,ra_q2,ra_vn
+  real(wp) :: fec_i,fmx_i,fee_i
+  real(wp) :: fec_d,fmx_d,fee_d
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
   real(wp) :: atd2nz,atd2rt,atdnz,atdrt
 #endif
@@ -844,7 +898,7 @@ continue
   do n = n1,n2
     !
     rnx = facenrm(1,n)
-    ds = sqrt( rnx*rnx )
+    ds = sqrt(rnx*rnx)
     unx = rnx/ds
     !
     rl = face_cv(n,nec,1)
@@ -894,12 +948,15 @@ continue
 #endif
       hsr1 = -one4*gp1*dw1*ra_a/ra_ec
       eta1 = max(-abs(eigen) + hsr1, zero)
-      udw1 = dw1*(min(eigen,zero) - half*eta1)
-      rvnl = rl*vnl
       !
-      return_value(n,nec) = ds*(    rvnl + udw1                             )
-      return_value(n,nmx) = ds*(vxl*rvnl + udw1*(ra_mx-ra_a*unx) + presl*unx)
-      return_value(n,nee) = ds*(h0l*rvnl + udw1*(ra_h0-ra_a*ra_vn)          )
+      udw = dw1*(min(eigen,zero) - half*eta1)
+      diss_sign = -one
+      !
+      ! Compute the inviscid interface flux
+      !
+      fec_i = vnl*rl
+      fmx_i = vnl*rl*vxl + presl*unx
+      fee_i = vnl*rl*h0l
       !
     else
       !
@@ -912,14 +969,31 @@ continue
 #endif
       hsr3 = one4*gp1*dw3*ra_a/ra_ec
       eta3 = max(-abs(eigen) + hsr3, zero)
-      udw3 = dw3*(max(eigen,zero) + half*eta3)
-      rvnr = rr*vnr
       !
-      return_value(n,nec) = ds*(    rvnr - udw3                             )
-      return_value(n,nmx) = ds*(vxr*rvnr - udw3*(ra_mx+ra_a*unx) + presr*unx)
-      return_value(n,nee) = ds*(h0r*rvnr - udw3*(ra_h0+ra_a*ra_vn)          )
+      udw = -dw3*(max(eigen,zero) + half*eta3)
+      diss_sign = one
+      !
+      ! Compute the inviscid interface flux
+      !
+      fec_i = vnr*rr
+      fmx_i = vnr*rr*vxr + presr*unx
+      fee_i = vnr*rr*h0r
       !
     end if
+    !
+    ! Compute the dissipative part of the Roe flux
+    !
+    fec_d = udw
+    fmx_d = udw*(ra_mx + diss_sign*ra_a*unx)
+    fee_d = udw*(ra_h0 + diss_sign*ra_a*ra_vn)
+    !
+    ! Compute the final Roe upwind flux with entropy fix and the
+    ! moving reference frame component (which will be zero for
+    ! a stationary reference frame).
+    !
+    return_value(n,nec) = ds*(fec_i + fec_d)
+    return_value(n,nmx) = ds*(fmx_i + fmx_d)
+    return_value(n,nee) = ds*(fee_i + fee_d)
     !
   end do
   !
