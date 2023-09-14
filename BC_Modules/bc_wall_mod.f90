@@ -281,50 +281,49 @@ subroutine get_bc_wall_vel_solution_3d(n1,n2,bc_type,facexyz,facenrm, &
   real(wp) :: vy,vy_slip,vy_wall,vy_bc,vty_bc
   real(wp) :: vz,vz_slip,vz_wall,vz_bc,vtz_bc
   real(wp) :: rho,rho_inv,vn,vn_bc,vmag_bc,vmag_tan
-  real(wp) :: y,z,speed
   !
   logical(lk) :: use_relaxation
   logical(lk) :: no_wall_velocity
-  !
-  !.. Local Parameters ..
-  ! RPM_CONVERSION : converts RPM to velocity magnitude when multiplied
-  !                  with the distance r from the rotational axis.
-  real(wp), parameter :: rpm_conversion = two*pi/(six*ten)
+  logical(lk) :: wall_is_rotating
   !
 continue
   !
-  rotating_wall_check: &
-  if (any(abs(rotation_rate(:)) > eps1)) then
+  slip_wall_check: &
+  if (any(bc_type == [bc_slip_wall,bc_symmetry])) then
     !
-    speed = rotation_rate(1)*rpm_conversion/aref
+    ! For a slip wall or symmetry BC, set the boundary velocity to 
+    ! the projection of the interior velocity tangent to the boundary.
     !
-    !#######################################################################
-    !#######################################################################
-    ! NOTE: This assumes that the rotation axis is aligned with the x-axis
-    !#######################################################################
-    !#######################################################################
-    !
-    !$ACC PARALLEL LOOP PRESENT(facexyz,face_cv)
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
     do n = n1,n2
       !
-      y = facexyz(2,n)
-      z = facexyz(3,n)
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      rnz = facenrm(3,n)
+      ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+      unx = rnx/ds
+      uny = rny/ds
+      unz = rnz/ds
       !
-      ! NOTE: With the assumption that the rotation axis is aligned with the
-      !       x-axis, we can make the simplification that y=r*cos(theta) and
-      !       z=r*sin(theta). With the rotational velocity, omega, only being
-      !       in the theta direction (no radial velocity), the y and z
-      !       direction velocities should be
-      !          vy = -(omega*r)*sin(theta) = -z*omega
-      !          vz =  (omega*r)*cos(theta) =  y*omega
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      vz = face_cv(n,nmz,1)*rho_inv
       !
-      face_cv(n,nmx,2) = zero
-      face_cv(n,nmy,2) = -z * speed
-      face_cv(n,nmz,2) =  y * speed
+      vn = vx*unx + vy*uny + vz*unz
+      !
+      vx_slip = vx - vn*unx
+      vy_slip = vy - vn*uny
+      vz_slip = vz - vn*unz
+      !
+      face_cv(n,nmx,2) = vx_slip
+      face_cv(n,nmy,2) = vy_slip
+      face_cv(n,nmz,2) = vz_slip
       !
     end do
     !
-  else rotating_wall_check
+  else slip_wall_check
     !
     vx_bc = pv_in(nmx)
     vy_bc = pv_in(nmy)
@@ -332,44 +331,17 @@ continue
     vmag_bc = sqrt( vx_bc*vx_bc + vy_bc*vy_bc + vz_bc*vz_bc )
     !
     use_relaxation = (abs(one-rlx) > eps6)
-    no_wall_velocity = (vmag_bc < eps6)
+    !
+    x_r = rotation_rate(1)
+    y_r = rotation_rate(2)
+    z_r = rotation_rate(3)
+    !
+    wall_is_rotating = any(abs(rotation_rate(:)) >= one*rpm_to_mps/aref)
+    !
+    no_wall_velocity = ( (vmag_bc < eps6) .and. (.not. wall_is_rotating) )
     !
     fixed_wall_vel_if: &
-    if (any(bc_type == [bc_slip_wall,bc_symmetry])) then
-      !
-      ! For a slip wall or symmetry BC, set the boundary velocity to 
-      ! the projection of the interior velocity tangent to the boundary.
-      !
-      !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
-      do n = n1,n2
-        !
-        rnx = facenrm(1,n)
-        rny = facenrm(2,n)
-        rnz = facenrm(3,n)
-        ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
-        unx = rnx/ds
-        uny = rny/ds
-        unz = rnz/ds
-        !
-        rho = face_cv(n,nec,1)
-        rho_inv = one/rho
-        vx = face_cv(n,nmx,1)*rho_inv
-        vy = face_cv(n,nmy,1)*rho_inv
-        vz = face_cv(n,nmz,1)*rho_inv
-        !
-        vn = vx*unx + vy*uny + vz*unz
-        !
-        vx_slip = vx - vn*unx
-        vy_slip = vy - vn*uny
-        vz_slip = vz - vn*unz
-        !
-        face_cv(n,nmx,2) = vx_slip
-        face_cv(n,nmy,2) = vy_slip
-        face_cv(n,nmz,2) = vz_slip
-        !
-      end do
-      !
-    else if (no_wall_velocity .and. .not.use_relaxation) then fixed_wall_vel_if
+    if (no_wall_velocity .and. .not.use_relaxation) then
       !
       ! No-slip wall with no imposed wall velocity, and no relaxation
       !
@@ -416,72 +388,88 @@ continue
       !
     else fixed_wall_vel_if
       !
-      ! No-slip wall with non-zero imposed wall velocity,
-      ! with or without relaxation
-      !
-      !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
-      do n = n1,n2
+      rotating_wall_check: &
+      if (wall_is_rotating) then
         !
-        rnx = facenrm(1,n)
-        rny = facenrm(2,n)
-        rnz = facenrm(3,n)
-        ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
-        unx = rnx/ds
-        uny = rny/ds
-        unz = rnz/ds
+        !$ACC PARALLEL LOOP PRESENT(facexyz,face_cv)
+        do n = n1,n2
+          !
+          face_cv(n,nmx,2) = y_r*facexyz(3,n) - z_r*facexyz(2,n)
+          face_cv(n,nmy,2) = z_r*facexyz(1,n) - x_r*facexyz(3,n)
+          face_cv(n,nmz,2) = x_r*facexyz(2,n) - y_r*facexyz(1,n)
+          !
+        end do
         !
-        ! Magnitude of the imposed wall velocity normal to the surface
-        vn_bc = vx_bc*unx + vy_bc*uny + vz_bc*unz
+      else rotating_wall_check
         !
-        ! Imposed wall velocity components tangent to the surface
-        vtx_bc = vx_bc - vn_bc*unx
-        vty_bc = vy_bc - vn_bc*uny
-        vtz_bc = vz_bc - vn_bc*unz
+        ! No-slip wall with non-zero imposed wall velocity,
+        ! with or without relaxation
         !
-        ! Magnitude of the imposed wall velocity tangent to the surface
-        vmag_tan = sqrt( vtx_bc*vtx_bc + vty_bc*vty_bc + vtz_bc*vtz_bc )
+        !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+        do n = n1,n2
+          !
+          rnx = facenrm(1,n)
+          rny = facenrm(2,n)
+          rnz = facenrm(3,n)
+          ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+          unx = rnx/ds
+          uny = rny/ds
+          unz = rnz/ds
+          !
+          ! Magnitude of the imposed wall velocity normal to the surface
+          vn_bc = vx_bc*unx + vy_bc*uny + vz_bc*unz
+          !
+          ! Imposed wall velocity components tangent to the surface
+          vtx_bc = vx_bc - vn_bc*unx
+          vty_bc = vy_bc - vn_bc*uny
+          vtz_bc = vz_bc - vn_bc*unz
+          !
+          ! Magnitude of the imposed wall velocity tangent to the surface
+          vmag_tan = sqrt( vtx_bc*vtx_bc + vty_bc*vty_bc + vtz_bc*vtz_bc )
+          !
+          if (vmag_tan < eps6) then
+            ! Not really sure what to do if the magnitude of the imposed wall
+            ! velocity tangent to the surface is very close to zero. This would
+            ! be an odd case with the boundary normal being in the same direction
+            ! as the imposed wall velocity, which I dont think should happen.
+            ! For now, just set the imposed wall velocity to zero.
+            vx_wall = zero
+            vy_wall = zero
+            vz_wall = zero
+          else
+            vx_wall = vmag_bc * (vtx_bc/vmag_tan)
+            vy_wall = vmag_bc * (vty_bc/vmag_tan)
+            vz_wall = vmag_bc * (vtz_bc/vmag_tan)
+          end if
+          !
+          ! Compute the slip wall boundary velocity
+          !
+          rho = face_cv(n,nec,1)
+          rho_inv = one/rho
+          vx = face_cv(n,nmx,1)*rho_inv
+          vy = face_cv(n,nmy,1)*rho_inv
+          vz = face_cv(n,nmz,1)*rho_inv
+          !
+          vn = vx*unx + vy*uny + vz*unz
+          !
+          vx_slip = vx - vn*unx
+          vy_slip = vy - vn*uny
+          vz_slip = vz - vn*unz
+          !
+          ! Set the wall boundary velocity to a relaxation combination of the
+          ! slip wall boundary velocity and the imposed wall velocity
+          !
+          face_cv(n,nmx,2) = vx_slip*(one-rlx) + vx_wall*rlx
+          face_cv(n,nmy,2) = vy_slip*(one-rlx) + vy_wall*rlx
+          face_cv(n,nmz,2) = vz_slip*(one-rlx) + vz_wall*rlx
+          !
+        end do
         !
-        if (vmag_tan < eps6) then
-          ! Not really sure what to do if the magnitude of the imposed wall
-          ! velocity tangent to the surface is very close to zero. This would
-          ! be an odd case with the boundary normal being in the same direction
-          ! as the imposed wall velocity, which I dont think should happen.
-          ! For now, just set the imposed wall velocity to zero.
-          vx_wall = zero
-          vy_wall = zero
-          vz_wall = zero
-        else
-          vx_wall = vmag_bc * (vtx_bc/vmag_tan)
-          vy_wall = vmag_bc * (vty_bc/vmag_tan)
-          vz_wall = vmag_bc * (vtz_bc/vmag_tan)
-        end if
-        !
-        ! Compute the slip wall boundary velocity
-        !
-        rho = face_cv(n,nec,1)
-        rho_inv = one/rho
-        vx = face_cv(n,nmx,1)*rho_inv
-        vy = face_cv(n,nmy,1)*rho_inv
-        vz = face_cv(n,nmz,1)*rho_inv
-        !
-        vn = vx*unx + vy*uny + vz*unz
-        !
-        vx_slip = vx - vn*unx
-        vy_slip = vy - vn*uny
-        vz_slip = vz - vn*unz
-        !
-        ! Set the wall boundary velocity to a relaxation combination of the
-        ! slip wall boundary velocity and the imposed wall velocity
-        !
-        face_cv(n,nmx,2) = vx_slip*(one-rlx) + vx_wall*rlx
-        face_cv(n,nmy,2) = vy_slip*(one-rlx) + vy_wall*rlx
-        face_cv(n,nmz,2) = vz_slip*(one-rlx) + vz_wall*rlx
-        !
-      end do
+      end if rotating_wall_check
       !
     end if fixed_wall_vel_if
     !
-  end if rotating_wall_check
+  end if slip_wall_check
   !
 end subroutine get_bc_wall_vel_solution_3d
 !
@@ -512,7 +500,7 @@ subroutine get_bc_wall_vel_solution_2d(n1,n2,bc_type,facexyz,facenrm, &
   !                 i.e., face_cv(:,:,2) = primitive variables
   ! RLX     : BC relaxation coefficient
   ! PV_IN   : Primitive    variables specified for this BC
-  ! ROTATION_RATE : RPM for rotating non-slip wall
+  ! ROTATION_RATE : nondim ([m/s]/aref) ang vel for rotating non-slip wall
   !
   !.. Use Statements ..
   use ovar, only : aref
@@ -529,83 +517,61 @@ subroutine get_bc_wall_vel_solution_2d(n1,n2,bc_type,facexyz,facenrm, &
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: ds,rnx,rny,unx,uny,x,y,speed
+  real(wp) :: ds,rnx,rny,unx,uny
   real(wp) :: vx,vx_slip,vx_wall,vx_bc,vtx_bc
   real(wp) :: vy,vy_slip,vy_wall,vy_bc,vty_bc
   real(wp) :: rho,rho_inv,vn,vn_bc,vmag_bc,vmag_tan
   !
   logical(lk) :: use_relaxation
   logical(lk) :: no_wall_velocity
-  !
-  !.. Local Parameters ..
-  ! RPM_CONVERSION : converts RPM to velocity magnitude when multiplied
-  !                  with the distance r from the rotational axis.
-  real(wp), parameter :: rpm_conversion = two*pi/(six*ten)
+  logical(lk) :: wall_is_rotating
   !
 continue
   !
-  rotating_wall_check: &
-  if (abs(rotation_rate) > eps1) then
+  slip_wall_check: &
+  if (any(bc_type == [bc_slip_wall,bc_symmetry])) then
     !
-    speed = rotation_rate*rpm_conversion/aref
+    ! For a slip wall or symmetry BC, set the boundary velocity to 
+    ! the projection of the interior velocity tangent to the boundary.
     !
-    !#######################################################################
-    !#######################################################################
-    ! NOTE: This assumes that the rotation axis is aligned with the x-axis
-    !#######################################################################
-    !#######################################################################
-    !
-    !$ACC PARALLEL LOOP PRESENT(facexyz,face_cv)
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
     do n = n1,n2
       !
-      x = facexyz(1,n)
-      y = facexyz(2,n)
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      ds = sqrt( rnx*rnx + rny*rny )
+      unx = rnx/ds
+      uny = rny/ds
       !
-      face_cv(n,nmx,2) = -y * speed
-      face_cv(n,nmy,2) =  x * speed
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      !
+      vn = vx*unx + vy*uny
+      !
+      vx_slip = vx - vn*unx
+      vy_slip = vy - vn*uny
+      !
+      face_cv(n,nmx,2) = vx_slip
+      face_cv(n,nmy,2) = vy_slip
       !
     end do
     !
-  else rotating_wall_check
+  else slip_wall_check
     !
     vx_bc = pv_in(nmx)
     vy_bc = pv_in(nmy)
     vmag_bc = sqrt( vx_bc*vx_bc + vy_bc*vy_bc )
     !
     use_relaxation = (abs(one-rlx) > eps6)
-    no_wall_velocity = (vmag_bc < eps6)
+    !
+    wall_is_rotating = (abs(rotation_rate) >= one*rpm_to_mps/aref)
+    !
+    no_wall_velocity = ( (vmag_bc < eps6) .and. (.not. wall_is_rotating) )
     !
     fixed_wall_vel_if: &
-    if (any(bc_type == [bc_slip_wall,bc_symmetry])) then
-      !
-      ! For a slip wall or symmetry BC, set the boundary velocity to 
-      ! the projection of the interior velocity tangent to the boundary.
-      !
-      !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
-      do n = n1,n2
-        !
-        rnx = facenrm(1,n)
-        rny = facenrm(2,n)
-        ds = sqrt( rnx*rnx + rny*rny )
-        unx = rnx/ds
-        uny = rny/ds
-        !
-        rho = face_cv(n,nec,1)
-        rho_inv = one/rho
-        vx = face_cv(n,nmx,1)*rho_inv
-        vy = face_cv(n,nmy,1)*rho_inv
-        !
-        vn = vx*unx + vy*uny
-        !
-        vx_slip = vx - vn*unx
-        vy_slip = vy - vn*uny
-        !
-        face_cv(n,nmx,2) = vx_slip
-        face_cv(n,nmy,2) = vy_slip
-        !
-      end do
-      !
-    else if (no_wall_velocity .and. .not.use_relaxation) then fixed_wall_vel_if
+    if (no_wall_velocity .and. .not.use_relaxation) then
       !
       ! No-slip wall with no imposed wall velocity, and no relaxation
       !
@@ -646,64 +612,79 @@ continue
       !
     else fixed_wall_vel_if
       !
-      ! No-slip wall with non-zero imposed wall velocity,
-      ! with or without relaxation
-      !
-      !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
-      do n = n1,n2
+      rotating_wall_check: &
+      if (wall_is_rotating) then
         !
-        rnx = facenrm(1,n)
-        rny = facenrm(2,n)
-        ds = sqrt( rnx*rnx + rny*rny )
-        unx = rnx/ds
-        uny = rny/ds
+        !$ACC PARALLEL LOOP PRESENT(facexyz,face_cv)
+        do n = n1,n2
+          !
+          face_cv(n,nmx,2) = -facexyz(2,n) * rotation_rate
+          face_cv(n,nmy,2) =  facexyz(1,n) * rotation_rate
+          !
+        end do
         !
-        ! Magnitude of the imposed wall velocity normal to the surface
-        vn_bc = vx_bc*unx + vy_bc*uny
+      else rotating_wall_check
         !
-        ! Imposed wall velocity components tangent to the surface
-        vtx_bc = vx_bc - vn_bc*unx
-        vty_bc = vy_bc - vn_bc*uny
+        ! No-slip wall with non-zero imposed wall velocity,
+        ! with or without relaxation
         !
-        ! Magnitude of the imposed wall velocity tangent to the surface
-        vmag_tan = sqrt( vtx_bc*vtx_bc + vty_bc*vty_bc )
+        !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+        do n = n1,n2
+          !
+          rnx = facenrm(1,n)
+          rny = facenrm(2,n)
+          ds = sqrt( rnx*rnx + rny*rny )
+          unx = rnx/ds
+          uny = rny/ds
+          !
+          ! Magnitude of the imposed wall velocity normal to the surface
+          vn_bc = vx_bc*unx + vy_bc*uny
+          !
+          ! Imposed wall velocity components tangent to the surface
+          vtx_bc = vx_bc - vn_bc*unx
+          vty_bc = vy_bc - vn_bc*uny
+          !
+          ! Magnitude of the imposed wall velocity tangent to the surface
+          vmag_tan = sqrt( vtx_bc*vtx_bc + vty_bc*vty_bc )
+          !
+          if (vmag_tan < eps6) then
+            ! Not really sure what to do if the magnitude of the imposed wall
+            ! velocity tangent to the surface is very close to zero. This would
+            ! be an odd case with the boundary normal being in the same direction
+            ! as the imposed wall velocity, which I dont think should happen.
+            ! For now, just set the imposed wall velocity to zero.
+            vx_wall = zero
+            vy_wall = zero
+          else
+            vx_wall = vmag_bc * (vtx_bc/vmag_tan)
+            vy_wall = vmag_bc * (vty_bc/vmag_tan)
+          end if
+          !
+          ! Compute the slip wall boundary velocity
+          !
+          rho = face_cv(n,nec,1)
+          rho_inv = one/rho
+          vx = face_cv(n,nmx,1)*rho_inv
+          vy = face_cv(n,nmy,1)*rho_inv
+          !
+          vn = vx*unx + vy*uny
+          !
+          vx_slip = vx - vn*unx
+          vy_slip = vy - vn*uny
+          !
+          ! Set the wall boundary velocity to a relaxation combination of the
+          ! slip wall boundary velocity and the imposed wall velocity
+          !
+          face_cv(n,nmx,2) = vx_slip*(one-rlx) + vx_wall*rlx
+          face_cv(n,nmy,2) = vy_slip*(one-rlx) + vy_wall*rlx
+          !
+        end do
         !
-        if (vmag_tan < eps6) then
-          ! Not really sure what to do if the magnitude of the imposed wall
-          ! velocity tangent to the surface is very close to zero. This would
-          ! be an odd case with the boundary normal being in the same direction
-          ! as the imposed wall velocity, which I dont think should happen.
-          ! For now, just set the imposed wall velocity to zero.
-          vx_wall = zero
-          vy_wall = zero
-        else
-          vx_wall = vmag_bc * (vtx_bc/vmag_tan)
-          vy_wall = vmag_bc * (vty_bc/vmag_tan)
-        end if
-        !
-        ! Compute the slip wall boundary velocity
-        !
-        rho = face_cv(n,nec,1)
-        rho_inv = one/rho
-        vx = face_cv(n,nmx,1)*rho_inv
-        vy = face_cv(n,nmy,1)*rho_inv
-        !
-        vn = vx*unx + vy*uny
-        !
-        vx_slip = vx - vn*unx
-        vy_slip = vy - vn*uny
-        !
-        ! Set the wall boundary velocity to a relaxation combination of the
-        ! slip wall boundary velocity and the imposed wall velocity
-        !
-        face_cv(n,nmx,2) = vx_slip*(one-rlx) + vx_wall*rlx
-        face_cv(n,nmy,2) = vy_slip*(one-rlx) + vy_wall*rlx
-        !
-      end do
+      end if rotating_wall_check
       !
     end if fixed_wall_vel_if
     !
-  end if rotating_wall_check
+  end if slip_wall_check
   !
 end subroutine get_bc_wall_vel_solution_2d
 !
