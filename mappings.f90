@@ -1072,8 +1072,9 @@ continue
 !        write (iout,'(///)')
 !      end if
 !    end if
-!   !184 format (a,i0)
-!   !185 format (i6,2(3x,3f12.6))
+!   !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+!    184 format (a,i0)
+!    185 format (i6,2(3x,3f12.6))
 !end block
 !#endif
     !
@@ -1166,6 +1167,48 @@ continue
   close (io2)
 #endif
   !
+  !
+  !
+#ifdef DEBUG_ON
+!#define DEBUG_MRF_FREESTREAM_TCF
+#ifdef DEBUG_MRF_FREESTREAM_TCF
+block
+  use ovar, only : itestcase
+  if (abs(itestcase) == Freestream_TCF) then
+    call exact_TCF_solution_points()
+  end if
+end block
+  !
+!block
+!    real(wp) :: x,y,z,r,t
+!    if (mypnum == glb_root) then
+!      n2 = 0
+!      do this_cell = 1,ncell
+!        this_geom = cell_geom(this_cell)
+!        this_order = cell_order(this_cell)
+!        np = geom_solpts(this_geom,this_order) ! number of solution points
+!        n0 = n2
+!        n1 = n2 + 1
+!        n2 = n2 + np
+!        write (701,284) "this_cell = ",this_cell
+!        do n = n1,n2
+!          x = xyz(1,n)
+!          y = xyz(2,n)
+!          z = xyz(3,n)
+!          r = sqrt(y*y + z*z)
+!          t = atan2(z,y)
+!          if (t < zero) t = t + two*pi
+!          write (701,285) n,x,y,z,x,r,t*radians2degrees
+!        end do
+!      end do
+!    end if
+!    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+!    284 format (a,i0)
+!    285 format (i6,3x,3f16.12,3x,2f16.12,f18.12)
+!end block
+#endif
+#endif
+  !
   ! Deallocate the local arrays before leaving
   !
   if (allocated(elem_xyz)) then
@@ -1212,6 +1255,105 @@ continue
                   8x,"family type: ",a,"-Defined",/)
   !
 end subroutine assume_equidistant_mapping
+!
+!###############################################################################
+!
+subroutine exact_TCF_solution_points()
+  !
+  !.. Use Statements ..
+  use geovar,           only : nr,ncell
+  use geovar,           only : nodes_of_cell_ptr,nodes_of_cell
+  use geovar,           only : xyz_nodes,xyz
+  use geovar,           only : cell_order
+  !
+  use element_type_mod, only : std_elem
+  !
+  !.. Local Scalars ..
+  integer  :: this_cell,this_order
+  integer  :: i,j,k,n,np,p1,p2
+  real(wp) :: y,z,r,t
+  real(wp) :: x_min,x_max,r_min,r_max,t_min,t_max
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: elem_xrt(:,:)
+  real(wp), allocatable :: edge_pts(:)
+  real(wp), allocatable :: xpts(:)
+  real(wp), allocatable :: rpts(:)
+  real(wp), allocatable :: tpts(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "exact_TCF_solution_points"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Initialize the counting index to current
+  ! storage location within the xyz array
+  !
+  n = 0
+  !
+  ! Loop over all the cells local to this processor and map the coordinates
+  ! of the points defining each element that were given by the grid file to
+  ! the coordinates of the solution points within each cell
+  !
+  do this_cell = 1,ncell
+    !
+    this_order = cell_order(this_cell)
+    !
+    p1 = nodes_of_cell_ptr(this_cell)+1
+    p2 = nodes_of_cell_ptr(this_cell+1)
+    !
+    elem_xrt = xyz_nodes(1:nr, nodes_of_cell(p1:p2) ) ! F2003 AUTO-REALLOC
+    !
+    ! Convert elem_xrt from Cartesian to cylindrical coordinates
+    !
+    do k = 1,size(elem_xrt,dim=2)
+      y = elem_xrt(2,k)
+      z = elem_xrt(3,k)
+      r = sqrt(y*y + z*z)
+      t = atan2(z,y)
+      elem_xrt(2,k) = r
+      elem_xrt(3,k) = t + merge(two*pi,zero,t<zero)
+    end do
+    !
+    x_min = elem_xrt(1,1)
+    x_max = elem_xrt(1,2)
+    !
+    r_min = elem_xrt(2,1)
+    r_max = elem_xrt(2,4)
+    !
+    t_min = elem_xrt(3,1)
+    t_max = elem_xrt(3,5)
+    if (t_max < t_min) t_max = two*pi
+    !
+    edge_pts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+    !
+    edge_pts(:) = half*(edge_pts(:) + one)
+    !
+    xpts = x_min + edge_pts(:)*(x_max-x_min) ! F2003 AUTO-REALLOC
+    rpts = r_min + edge_pts(:)*(r_max-r_min) ! F2003 AUTO-REALLOC
+    tpts = t_min + edge_pts(:)*(t_max-t_min) ! F2003 AUTO-REALLOC
+    !
+    do k = 1,size(tpts)
+      do j = 1,size(rpts)
+        do i = 1,size(xpts)
+          !
+          n = n + 1
+          !
+          xyz(1,n) = xpts(i)
+          xyz(2,n) = rpts(j)*cos(tpts(k))
+          xyz(3,n) = rpts(j)*sin(tpts(k))
+          !
+        end do
+      end do
+    end do
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine exact_TCF_solution_points
 !
 !###############################################################################
 !

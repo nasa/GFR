@@ -206,6 +206,33 @@ continue
     end if
   end if
   !
+#ifdef DEBUG_ON
+#define DEBUG_MRF_FREESTREAM_TCF
+#ifdef DEBUG_MRF_FREESTREAM_TCF
+block
+  use geovar, only : xyz
+  use flowvar, only : dtsp
+  real(wp) :: x,y,z,r,t
+  if (abs(itestcase) == Freestream_TCF) then
+    write (371,1) iter,nst
+    do n = 1,n_solpts
+      if (any(abs(dtsp(n)*residual(n,:)) > rndoff)) then
+        x = xyz(1,n)
+        y = xyz(2,n)
+        z = xyz(3,n)
+        r = sqrt(y*y+z*z)
+        t = atan2(z,y)
+        t = (t + merge(two*pi,zero,t<zero))*radians2degrees
+        write (371,2) n,x,r,t,(dtsp(n)*residual(n,m), m=1,nq)
+      end if
+    end do
+  end if
+  1 format (/,2x,"Iteration = ",i4,5x,"RK stage = ",i1,/,80("-"))
+  2 format (i8,3x,3(2x,f12.6),3x,5es20.10)
+end block
+#endif
+#endif
+  !
   if (p_order < n_order) then
     call project_to_porder(residual)
   end if

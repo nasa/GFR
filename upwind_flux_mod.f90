@@ -1669,6 +1669,21 @@ continue
   !
   rrf_nrm = zero
   !
+#ifdef DEBUG_ON
+#define DEBUG_MRF_FREESTREAM_TCF
+#ifdef DEBUG_MRF_FREESTREAM_TCF
+block
+  use ovar, only : itcur,current_rk_stage,itestcase
+  if (abs(itestcase) == Freestream_TCF) then
+    write (361,1) itcur,current_rk_stage
+    write (362,1) itcur,current_rk_stage
+    write (363,1) itcur,current_rk_stage
+  end if
+  1 format (/,2x,"Iteration = ",i4,5x,"RK stage = ",i1,/,80("-"))
+end block
+#endif
+#endif
+  !
   !$ACC PARALLEL LOOP PRESENT(facenrm,facexyz,face_cv,face_gp,return_value)
   do n = n1,n2
     !
@@ -1764,6 +1779,42 @@ continue
     !
     lflux(n) = half*ds*(lfec_i + rl*(eigen-rrf_nrm))
     rflux(n) = half*ds*(rfec_i - rr*(eigen+rrf_nrm))
+    !
+#ifdef DEBUG_ON
+#ifdef DEBUG_MRF_FREESTREAM_TCF
+block
+    use ovar, only : itestcase
+    real(wp) :: x,y,z,r,t
+    if (abs(itestcase) == Freestream_TCF) then
+      x = facexyz(1,n)
+      y = facexyz(2,n)
+      z = facexyz(3,n)
+      r = sqrt(y*y+z*z)
+      t = atan2(z,y)
+      t = (t + merge(two*pi,zero,t<zero))*radians2degrees
+      write (361,2) n,x,r,t, &
+                    half*ds*(lfec_i + rfec_i), &
+                    half*ds*(lfmx_i + rfmx_i), &
+                    half*ds*(lfmy_i + rfmy_i), &
+                    half*ds*(lfmz_i + rfmz_i), &
+                    half*ds*(lfee_i + rfee_i)
+      write (362,2) n,x,r,t, &
+                    half*ds*fec_mrf, &
+                    half*ds*fmx_mrf, &
+                    half*ds*fmy_mrf, &
+                    half*ds*fmz_mrf, &
+                    half*ds*fee_mrf
+      write (363,2) n,x,r,t, &
+                    half*ds*fec_d, &
+                    half*ds*fmx_d, &
+                    half*ds*fmy_d, &
+                    half*ds*fmz_d, &
+                    half*ds*fee_d
+    end if
+    2 format (i8,3x,3(2x,f12.6),3x,5es20.10)
+end block
+#endif
+#endif
     !
   end do
   !

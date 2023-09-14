@@ -1602,7 +1602,8 @@ subroutine compute_face_normals
   real(wp) :: xyz_face(1:maxFP,1:nr)
   !
   !.. Local Allocatable Arrays ..
-  integer, allocatable :: ipface(:,:)
+  integer,  allocatable :: ipface(:,:)
+  real(wp), allocatable :: face_xyz(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_face_normals"
@@ -1631,10 +1632,12 @@ continue
   call alloc_error(pname,"facenrm",1,__LINE__,__FILE__,ierr,error_message)
   !$ACC UPDATE DEVICE(facenrm)
   !
+  face_xyz = init_array(nr,n_flxpts,zero) ! F2003 AUTO-REALLOC
+  !
   ! Compute the face normals
   !
   if (nr == 3) then
-    call compute_face_normals_3d(facenrm)
+    call compute_face_normals_3d(facenrm,face_xyz)
   else if (nr == 2) then
     call compute_face_normals_2d(facenrm)
   else if (nr == 1) then
@@ -1643,6 +1646,17 @@ continue
     write (error_message,1) nr
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
+#ifdef DEBUG_ON
+!#define DEBUG_MRF_FREESTREAM_TCF
+#ifdef DEBUG_MRF_FREESTREAM_TCF
+block
+  use ovar, only : itestcase
+  if (abs(itestcase) == Freestream_TCF) then
+    call exact_TCF_face_normals(facenrm,face_xyz)
+  end if
+end block
+#endif
+#endif
   !$ACC UPDATE DEVICE(facenrm)
   !
   ! Create the interpolated jacobians at the face points
@@ -1678,7 +1692,162 @@ end subroutine compute_face_normals
 !
 !###############################################################################
 !
-subroutine compute_face_normals_3d(fnrm)
+subroutine exact_TCF_face_normals(fnrm,fxyz)
+  !
+  !.. Use Statements ..
+  use geovar,           only : nr,nface,face
+  use geovar,           only : xyz_nodes
+  !
+  use element_type_mod, only : std_elem
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: fnrm(:,:)
+  real(wp),    intent(in) :: fxyz(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: nf,f0,nfp,idir,k,i
+  real(wp) :: rnx,rny,rnz,unx,uny,unz,ds,y,z,r,t,face_area
+  real(wp) :: x_min,x_max,r_min,r_max,t_min,t_max,exact_area
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: old_fnrm(:,:)
+  real(wp), allocatable :: fxrt_nodes(:,:)
+  real(wp), allocatable :: fp_ds(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "exact_TCF_face_normals"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  old_fnrm = fnrm(:,:) ! F2003 AUTO-REALLOC
+  !
+  do nf = 1,nface
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    ! Find the direction (x/r/theta) for the normals of this face
+    !
+    rnx = fnrm(1,f0+1)
+    rny = fnrm(2,f0+1)
+    rnz = fnrm(3,f0+1)
+    ds = sqrt(rnx*rnx+rny*rny+rnz*rnz)
+    unx = rnx/ds
+    uny = rny/ds
+    unz = rnz/ds
+    !
+    if (abs(unx) > 0.9_wp) then
+      ! This is an axial face
+      idir = 1
+    else if (abs(fxyz(2,f0+1)*uny + fxyz(3,f0+1)*unz) <= eps6) then
+      ! This is a circumferential face
+      idir = 3
+    else
+      ! This is a radial face
+      idir = 2
+    end if
+    !
+    fxrt_nodes = xyz_nodes(1:nr,face(nf)%nodes(:)) ! F2003 AUTO-REALLOC
+    !
+    do k = 1,4
+      y = fxrt_nodes(2,k)
+      z = fxrt_nodes(3,k)
+      r = sqrt(y*y + z*z)
+      t = atan2(z,y)
+      fxrt_nodes(2,k) = r
+      fxrt_nodes(3,k) = t + merge(two*pi,zero,t<zero)
+    end do
+    !
+    x_min = zero
+    x_max = zero
+    r_min = zero
+    r_max = zero
+    t_min = zero
+    t_max = zero
+    if (idir == 1) then
+      r_min = minval( fxrt_nodes(2,:) )
+      r_max = maxval( fxrt_nodes(2,:) )
+      t_min = minval( fxrt_nodes(3,:) )
+      t_max = maxval( fxrt_nodes(3,:) )
+      if (t_max - t_min > pi) then
+        t_min = t_max
+        t_max = two*pi
+      end if
+      exact_area = half*(t_max-t_min)*(r_max*r_max-r_min*r_min)
+    else if (idir == 2) then
+      x_min = minval( fxrt_nodes(1,:) )
+      x_max = maxval( fxrt_nodes(1,:) )
+      t_min = minval( fxrt_nodes(3,:) )
+      t_max = maxval( fxrt_nodes(3,:) )
+      if (t_max - t_min > pi) then
+        t_min = t_max
+        t_max = two*pi
+      end if
+      exact_area = (x_max-x_min)*(t_max-t_min)*fxrt_nodes(2,1)
+    else
+      x_min = minval( fxrt_nodes(1,:) )
+      x_max = maxval( fxrt_nodes(1,:) )
+      r_min = minval( fxrt_nodes(2,:) )
+      r_max = maxval( fxrt_nodes(2,:) )
+      exact_area = (x_max-x_min)*(r_max-r_min)
+    end if
+    !
+    fp_ds = init_array(nfp,zero) ! F2003 AUTO-REALLOC
+    !
+    do k = 1,nfp
+      fp_ds(k) = norm2(fnrm(1:nr,f0+k))
+    end do
+    !
+    face_area = dot(fp_ds,std_elem(Geom_Quad,face(nf)%order)%wts)
+    !
+    if (idir == 1) then
+      do k = 1,nfp
+        ds = fp_ds(k)*exact_area/face_area
+        fnrm(1,f0+k) = ds
+        fnrm(2,f0+k) = zero
+        fnrm(3,f0+k) = zero
+      end do
+    else if (idir == 2) then
+      do k = 1,nfp
+        ds = fp_ds(k)*exact_area/face_area
+        fnrm(1,f0+k) = zero
+        fnrm(2,f0+k) = sign(ds*fxyz(2,f0+k)/norm2(fxyz(2:3,f0+k)), &
+                            fnrm(2,f0+k))
+        fnrm(3,f0+k) = sign(ds*fxyz(3,f0+k)/norm2(fxyz(2:3,f0+k)), &
+                            fnrm(3,f0+k))
+      end do
+    else
+      do k = 1,nfp
+        ds = fp_ds(k)*exact_area/face_area
+        fnrm(1,f0+k) = zero
+        fnrm(2,f0+k) = sign(-ds*fxyz(3,f0+k)/norm2(fxyz(2:3,f0+k)), &
+                            fnrm(2,f0+k))
+        fnrm(3,f0+k) = sign( ds*fxyz(2,f0+k)/norm2(fxyz(2:3,f0+k)), &
+                            fnrm(3,f0+k))
+      end do
+    end if
+    !
+   !write (711,1) nf,idir
+   !write (712,1) nf,idir
+   !do k = 1,nfp
+   !  write (711,2) (fnrm(i,f0+k),i=1,nr)
+   !  write (712,2) (old_fnrm(i,f0+k),i=1,nr)
+   !end do
+   !1 format ("this_face = ",i0,"  idir = ",i0)
+   !2 format (3es22.12)
+    !
+  end do
+  !
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine exact_TCF_face_normals
+!
+!###############################################################################
+!
+subroutine compute_face_normals_3d(fnrm,fxyz)
   !
   !.. Use Statements ..
   use order_mod,         only : maxFP
@@ -1698,6 +1867,7 @@ subroutine compute_face_normals_3d(fnrm)
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: fnrm(:,:)
+  real(wp), intent(inout) :: fxyz(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,n,nc,nf,ncf,n0
@@ -1834,6 +2004,10 @@ continue
         xyz_face(kf,1) = xval
         xyz_face(kf,2) = yval
         xyz_face(kf,3) = zval
+        !
+        fxyz(1,f0+kf) = xval
+        fxyz(2,f0+kf) = yval
+        fxyz(3,f0+kf) = zval
         !
       end do
 #ifdef TIME_METRIC_PROCEDURES
