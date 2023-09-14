@@ -243,6 +243,13 @@ module flowvar
   ! ###  MODULE GENERIC INTERFACES  ###
   ! ###################################
   !
+  interface alloc_array
+    module procedure alloc_rank1_array, &
+                     alloc_rank2_array, &
+                     alloc_rank3_array, &
+                     alloc_rank4_array
+  end interface alloc_array
+  !
   interface alloc_face_dt_components
     module procedure alloc_face_xyz_dt_components, &
                      alloc_face_var_dt_components, &
@@ -769,6 +776,194 @@ call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
   !
 end subroutine allocate_flowvar_arrays
 !
+!###############################################################################
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+subroutine alloc_rank1_array(array,n1,aname,pname,line_num,imsg)
+  !
+  !.. Formal Arguments ..
+  real(wp), allocatable, intent(inout) :: array(:)
+  integer,                  intent(in) :: n1,line_num
+  character(len=*),         intent(in) :: aname,pname
+  !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: imsg
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+continue
+  !
+  ! If n1 is <= 0, deallocate array and return
+  !
+  if (n1 <= 0) then
+    if (allocated(array)) then
+      deallocate ( array , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,aname,2,line_num,__FILE__,ierr,error_message)
+    end if
+    return
+  end if
+  !
+  iwt = iwt + 1
+  message(iwt) = "Allocating " // trim(adjustl(aname))
+  if (present(imsg)) then
+    message(iwt) = trim(adjustl(message(iwt))) // " " // trim(adjustl(imsg))
+  end if
+  call debug_timer(start_timer,message(iwt))
+  !
+  if (.not. allocated(array)) then
+    allocate ( array(1:n1) , source=zero , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,aname,1,line_num,__FILE__,ierr,error_message)
+    !$ACC UPDATE DEVICE(array)
+  end if
+  !
+  call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+  !
+end subroutine alloc_rank1_array
+!
+!###############################################################################
+!
+subroutine alloc_rank2_array(array,n1,n2,aname,pname,line_num,imsg)
+  !
+  !.. Formal Arguments ..
+  real(wp), allocatable, intent(inout) :: array(:,:)
+  integer,                  intent(in) :: n1,n2,line_num
+  character(len=*),         intent(in) :: aname,pname
+  !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: imsg
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+continue
+  !
+  ! If any of [n1,n2] is <= 0, deallocate array and return
+  !
+  if (any([n1,n2] <= 0)) then
+    if (allocated(array)) then
+      deallocate ( array , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,aname,2,line_num,__FILE__,ierr,error_message)
+    end if
+    return
+  end if
+  !
+  iwt = iwt + 1
+  message(iwt) = "Allocating " // trim(adjustl(aname))
+  if (present(imsg)) then
+    message(iwt) = trim(adjustl(message(iwt))) // " " // trim(adjustl(imsg))
+  end if
+  call debug_timer(start_timer,message(iwt))
+  !
+  if (.not. allocated(array)) then
+    allocate ( array(1:n1,1:n2) , source=zero, stat=ierr, errmsg=error_message )
+    call alloc_error(pname,aname,1,line_num,__FILE__,ierr,error_message)
+    !$ACC UPDATE DEVICE(array)
+  end if
+  !
+  call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+  !
+end subroutine alloc_rank2_array
+!
+!###############################################################################
+!
+subroutine alloc_rank3_array(array,n1,n2,n3,aname,pname,line_num,imsg)
+  !
+  !.. Formal Arguments ..
+  real(wp), allocatable, intent(inout) :: array(:,:,:)
+  integer,                  intent(in) :: n1,n2,n3,line_num
+  character(len=*),         intent(in) :: aname,pname
+  !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: imsg
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+continue
+  !
+  ! If any of [n1,n2,n3] is <= 0, deallocate array and return
+  !
+  if (any([n1,n2,n3] <= 0)) then
+    if (allocated(array)) then
+      deallocate ( array , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,aname,2,line_num,__FILE__,ierr,error_message)
+    end if
+    return
+  end if
+  !
+  iwt = iwt + 1
+  message(iwt) = "Allocating " // trim(adjustl(aname))
+  if (present(imsg)) then
+    message(iwt) = trim(adjustl(message(iwt))) // " " // trim(adjustl(imsg))
+  end if
+  call debug_timer(start_timer,message(iwt))
+  !
+  if (.not. allocated(array)) then
+    allocate ( array(1:n1,1:n2,1:n3) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,aname,1,line_num,__FILE__,ierr,error_message)
+    !$ACC UPDATE DEVICE(array)
+  end if
+  !
+  call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+  !
+end subroutine alloc_rank3_array
+!
+!###############################################################################
+!
+subroutine alloc_rank4_array(array,n1,n2,n3,n4,aname,pname,line_num,imsg)
+  !
+  !.. Formal Arguments ..
+  real(wp), allocatable, intent(inout) :: array(:,:,:,:)
+  integer,                  intent(in) :: n1,n2,n3,n4,line_num
+  character(len=*),         intent(in) :: aname,pname
+  !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: imsg
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+continue
+  !
+  ! If any of [n1,n2,n3,n4] is <= 0, deallocate array and return
+  !
+  if (any([n1,n2,n3,n4] <= 0)) then
+    if (allocated(array)) then
+      deallocate ( array , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,aname,2,line_num,__FILE__,ierr,error_message)
+    end if
+    return
+  end if
+  !
+  iwt = iwt + 1
+  message(iwt) = "Allocating " // trim(adjustl(aname))
+  if (present(imsg)) then
+    message(iwt) = trim(adjustl(message(iwt))) // " " // trim(adjustl(imsg))
+  end if
+  call debug_timer(start_timer,message(iwt))
+  !
+  if (.not. allocated(array)) then
+    allocate ( array(1:n1,1:n2,1:n3,1:n4) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,aname,1,line_num,__FILE__,ierr,error_message)
+    !$ACC UPDATE DEVICE(array)
+  end if
+  !
+  call debug_timer(stop_timer,message(iwt),return_time=wall_time(iwt))
+  !
+end subroutine alloc_rank4_array
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !###############################################################################
 !
 subroutine sort_and_output_wall_times(wall_time,message)
