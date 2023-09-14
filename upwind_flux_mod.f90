@@ -822,30 +822,6 @@ continue
     return_value(n,nmx) = ds*(fmx_i + fmx_d)
     return_value(n,nmy) = ds*(fmy_i + fmy_d)
     return_value(n,nee) = ds*(fee_i + fee_d)
-!#define DEBUG_UPWIND_FLUXES
-#ifdef DEBUG_UPWIND_FLUXES
-    block
-      use ovar, only : itcur
-      write (200+itcur,1) n,return_value(n,nec),return_value(n,nmx), &
-                            return_value(n,nmy),return_value(n,nee)
-      write (210+itcur,1) n,rl,rl_inv,vxl,vyl,q2l,presl,h0l,vnl
-      write (220+itcur,1) n,rr,rr_inv,vxr,vyr,q2r,presr,h0r,vnr
-      write (230+itcur,1) n,ra_ec,betal,betar,ra_mx,ra_my, &
-                            ra_h0,ra_q2,ra_a2,ra_a,ra_vn
-#ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
-      write (240+itcur,1) n,atd2nz,atdnz,atd2rt,atdrt
-#endif
-      if (ra_vn >= zero) then
-        write (250+itcur,2) n,"ra_vn >= 0",dw1,hsr1,eta1,udw1,rvnl
-      else
-        write (250+itcur,2) n,"ra_vn <  0",dw4,hsr4,eta4,udw4,rvnr
-      end if
-      write (260+itcur,3) n,presr,presl,presr-presl,vnr,vnl,vnr-vnl
-      1 format (i6,2x,10es18.10)
-      2 format (i6,2x,a,2x,5es18.10)
-      3 format (i6,2x,6es23.15)
-    end block
-#endif
     !
   end do
   !
