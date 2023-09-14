@@ -510,6 +510,7 @@ pure subroutine roe_upwind_flux_cpg_3d(n1,n2,facenrm,facexyz, &
   !
   !.. Use Statements ..
   use ovar, only : gam
+  use ovar, only : moving_ref_frame
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -522,8 +523,8 @@ pure subroutine roe_upwind_flux_cpg_3d(n1,n2,facenrm,facexyz, &
   !.. Local Scalars ..
   integer  :: n
   real(wp) :: gm1,gp1,gam_over_gm1,ds
-  real(wp) :: rl,presl,h0l,q2l,vnl,betal
-  real(wp) :: rr,presr,h0r,q2r,vnr,betar
+  real(wp) :: rl,etotl,presl,h0l,q2l,vnl,betal
+  real(wp) :: rr,etotr,presr,h0r,q2r,vnr,betar
   real(wp) :: rl_inv,vxl,vyl,vzl
   real(wp) :: rr_inv,vxr,vyr,vzr
   real(wp) :: ra_mx,ra_my,ra_mz
@@ -531,10 +532,12 @@ pure subroutine roe_upwind_flux_cpg_3d(n1,n2,facenrm,facexyz, &
   real(wp) :: rnx,rny,rnz
   real(wp) :: dw1,hsr1,eta1
   real(wp) :: dw5,hsr5,eta5
-  real(wp) :: eigen,udw,diss_sign
+  real(wp) :: rrf_nrm,eigen,udw,diss_sign
   real(wp) :: ra_ec,ra_h0,ra_a2,ra_a,ra_q2,ra_vn
   real(wp) :: fec_i,fmx_i,fmy_i,fmz_i,fee_i
+  real(wp) :: fec_mrf,fmx_mrf,fmy_mrf,fmz_mrf,fee_mrf
   real(wp) :: fec_d,fmx_d,fmy_d,fmz_d,fee_d
+  real(wp) :: x_r,y_r,z_r
 !#define PROTECT_AGAINST_ATD_EQUAL_ZERO
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
   real(wp) :: atd2nz,atd2rt,atdnz,atdrt
@@ -547,7 +550,13 @@ continue
   !
   gam_over_gm1 = gam / gm1
   !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
+  x_r = moving_ref_frame%rotation(1) ! x rotation
+  y_r = moving_ref_frame%rotation(2) ! y rotation
+  z_r = moving_ref_frame%rotation(3) ! z rotation
+  !
+  rrf_nrm = zero
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,facexyz,face_cv,face_gp,return_value)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -564,6 +573,7 @@ continue
     vyl = face_cv(n,nmy,1)*rl_inv
     vzl = face_cv(n,nmz,1)*rl_inv
     q2l = vxl*vxl + vyl*vyl + vzl*vzl
+    etotl = face_cv(n,nee,1)
     presl = face_gp(n,npres,1)
     h0l = half*q2l + gam_over_gm1*presl*rl_inv
     !
@@ -573,6 +583,7 @@ continue
     vyr = face_cv(n,nmy,2)*rr_inv
     vzr = face_cv(n,nmz,2)*rr_inv
     q2r = vxr*vxr + vyr*vyr + vzr*vzr
+    etotr = face_cv(n,nee,2)
     presr = face_gp(n,npres,2)
     h0r = half*q2r + gam_over_gm1*presr*rr_inv
     !
@@ -600,6 +611,14 @@ continue
     atdrt = ra_a / atdnz
 #endif
     !
+    if (size(facexyz,dim=2) >= n2) then
+      rrf_nrm = unx * (y_r*facexyz(3,n) - z_r*facexyz(2,n)) + &
+                uny * (z_r*facexyz(1,n) - x_r*facexyz(3,n)) + &
+                unz * (x_r*facexyz(2,n) - y_r*facexyz(1,n))
+    end if
+    !
+    ra_vn = ra_vn - rrf_nrm
+    !
     if (ra_vn >= zero) then
       !
       eigen = ra_vn - ra_a
@@ -622,6 +641,15 @@ continue
       fmy_i = vnl*rl*vyl + presl*uny
       fmz_i = vnl*rl*vzl + presl*unz
       fee_i = vnl*rl*h0l
+      !
+      ! Compute the moving reference frame component
+      ! of the inviscid interface flux
+      !
+      fec_mrf = rrf_nrm*rl
+      fmx_mrf = rrf_nrm*rl*vxl
+      fmy_mrf = rrf_nrm*rl*vyl
+      fmz_mrf = rrf_nrm*rl*vzl
+      fee_mrf = rrf_nrm*etotl
       !
     else
       !
@@ -646,6 +674,15 @@ continue
       fmz_i = vnr*rr*vzr + presr*unz
       fee_i = vnr*rr*h0r
       !
+      ! Compute the moving reference frame component
+      ! of the inviscid interface flux
+      !
+      fec_mrf = rrf_nrm*rr
+      fmx_mrf = rrf_nrm*rr*vxr
+      fmy_mrf = rrf_nrm*rr*vyr
+      fmz_mrf = rrf_nrm*rr*vzr
+      fee_mrf = rrf_nrm*etotr
+      !
     end if
     !
     ! Compute the dissipative part of the Roe flux
@@ -660,11 +697,11 @@ continue
     ! moving reference frame component (which will be zero for
     ! a stationary reference frame).
     !
-    return_value(n,nec) = ds*(fec_i + fec_d)
-    return_value(n,nmx) = ds*(fmx_i + fmx_d)
-    return_value(n,nmy) = ds*(fmy_i + fmy_d)
-    return_value(n,nmz) = ds*(fmz_i + fmz_d)
-    return_value(n,nee) = ds*(fee_i + fee_d)
+    return_value(n,nec) = ds*(fec_i - fec_mrf + fec_d)
+    return_value(n,nmx) = ds*(fmx_i - fmx_mrf + fmx_d)
+    return_value(n,nmy) = ds*(fmy_i - fmy_mrf + fmy_d)
+    return_value(n,nmz) = ds*(fmz_i - fmz_mrf + fmz_d)
+    return_value(n,nee) = ds*(fee_i - fee_mrf + fee_d)
     !
   end do
   !
@@ -677,6 +714,7 @@ pure subroutine roe_upwind_flux_cpg_2d(n1,n2,facenrm,facexyz, &
   !
   !.. Use Statements ..
   use ovar, only : gam
+  use ovar, only : moving_ref_frame
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -689,8 +727,8 @@ pure subroutine roe_upwind_flux_cpg_2d(n1,n2,facenrm,facexyz, &
   !.. Local Scalars ..
   integer  :: n
   real(wp) :: gm1,gp1,gam_over_gm1,ds
-  real(wp) :: rl,presl,h0l,q2l,vnl,betal
-  real(wp) :: rr,presr,h0r,q2r,vnr,betar
+  real(wp) :: rl,etotl,presl,h0l,q2l,vnl,betal
+  real(wp) :: rr,etotr,presr,h0r,q2r,vnr,betar
   real(wp) :: rl_inv,vxl,vyl
   real(wp) :: rr_inv,vxr,vyr
   real(wp) :: ra_mx,ra_my
@@ -698,10 +736,13 @@ pure subroutine roe_upwind_flux_cpg_2d(n1,n2,facenrm,facexyz, &
   real(wp) :: rnx,rny
   real(wp) :: dw1,hsr1,eta1
   real(wp) :: dw4,hsr4,eta4
-  real(wp) :: eigen,udw,diss_sign
+  real(wp) :: rrf_nrm,eigen,udw,diss_sign
   real(wp) :: ra_ec,ra_h0,ra_a2,ra_a,ra_q2,ra_vn
   real(wp) :: fec_i,fmx_i,fmy_i,fee_i
+  real(wp) :: fec_mrf,fmx_mrf,fmy_mrf,fee_mrf
   real(wp) :: fec_d,fmx_d,fmy_d,fee_d
+  real(wp) :: x_r,y_r
+!#define PROTECT_AGAINST_ATD_EQUAL_ZERO
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
   real(wp) :: atd2nz,atd2rt,atdnz,atdrt
 #endif
@@ -713,7 +754,12 @@ continue
   !
   gam_over_gm1 = gam / gm1
   !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
+  x_r = moving_ref_frame%rotation(1) ! x rotation
+  y_r = moving_ref_frame%rotation(2) ! y rotation
+  !
+  rrf_nrm = zero
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,facexyz,face_cv,face_gp,return_value)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -727,6 +773,7 @@ continue
     vxl = face_cv(n,nmx,1)*rl_inv
     vyl = face_cv(n,nmy,1)*rl_inv
     q2l = vxl*vxl + vyl*vyl
+    etotl = face_cv(n,nee,1)
     presl = face_gp(n,npres,1)
     h0l = half*q2l + gam_over_gm1*presl*rl_inv
     !
@@ -735,6 +782,7 @@ continue
     vxr = face_cv(n,nmx,2)*rr_inv
     vyr = face_cv(n,nmy,2)*rr_inv
     q2r = vxr*vxr + vyr*vyr
+    etotr = face_cv(n,nee,2)
     presr = face_gp(n,npres,2)
     h0r = half*q2r + gam_over_gm1*presr*rr_inv
     !
@@ -761,6 +809,13 @@ continue
     atdrt = ra_a / atdnz
 #endif
     !
+   !if (size(facexyz,dim=2) >= n2) then
+   !  rrf_nrm = unx * (y_r*facexyz(1,n) - x_r*facexyz(2,n)) + &
+   !            uny * (x_r*facexyz(2,n) - y_r*facexyz(1,n))
+   !end if
+    !
+    ra_vn = ra_vn - rrf_nrm
+    !
     if (ra_vn >= zero) then
       !
       eigen = ra_vn - ra_a
@@ -782,6 +837,14 @@ continue
       fmx_i = vnl*rl*vxl + presl*unx
       fmy_i = vnl*rl*vyl + presl*uny
       fee_i = vnl*rl*h0l
+      !
+      ! Compute the moving reference frame component
+      ! of the inviscid interface flux
+      !
+      fec_mrf = rrf_nrm*rl
+      fmx_mrf = rrf_nrm*rl*vxl
+      fmy_mrf = rrf_nrm*rl*vyl
+      fee_mrf = rrf_nrm*etotl
       !
     else
       !
@@ -805,6 +868,14 @@ continue
       fmy_i = vnr*rr*vyr + presr*uny
       fee_i = vnr*rr*h0r
       !
+      ! Compute the moving reference frame component
+      ! of the inviscid interface flux
+      !
+      fec_mrf = rrf_nrm*rr
+      fmx_mrf = rrf_nrm*rr*vxr
+      fmy_mrf = rrf_nrm*rr*vyr
+      fee_mrf = rrf_nrm*etotr
+      !
     end if
     !
     ! Compute the dissipative part of the Roe flux
@@ -818,10 +889,10 @@ continue
     ! moving reference frame component (which will be zero for
     ! a stationary reference frame).
     !
-    return_value(n,nec) = ds*(fec_i + fec_d)
-    return_value(n,nmx) = ds*(fmx_i + fmx_d)
-    return_value(n,nmy) = ds*(fmy_i + fmy_d)
-    return_value(n,nee) = ds*(fee_i + fee_d)
+    return_value(n,nec) = ds*(fec_i - fec_mrf + fec_d)
+    return_value(n,nmx) = ds*(fmx_i - fmx_mrf + fmx_d)
+    return_value(n,nmy) = ds*(fmy_i - fmy_mrf + fmy_d)
+    return_value(n,nee) = ds*(fee_i - fee_mrf + fee_d)
     !
   end do
   !
@@ -834,6 +905,7 @@ pure subroutine roe_upwind_flux_cpg_1d(n1,n2,facenrm,facexyz, &
   !
   !.. Use Statements ..
   use ovar, only : gam
+  use ovar, only : moving_ref_frame
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -846,8 +918,8 @@ pure subroutine roe_upwind_flux_cpg_1d(n1,n2,facenrm,facexyz, &
   !.. Local Scalars ..
   integer  :: n
   real(wp) :: gm1,gp1,gam_over_gm1,ds
-  real(wp) :: rl,presl,h0l,q2l,vnl,betal
-  real(wp) :: rr,presr,h0r,q2r,vnr,betar
+  real(wp) :: rl,etotl,presl,h0l,q2l,vnl,betal
+  real(wp) :: rr,etotr,presr,h0r,q2r,vnr,betar
   real(wp) :: rl_inv,vxl
   real(wp) :: rr_inv,vxr
   real(wp) :: ra_mx
@@ -855,10 +927,13 @@ pure subroutine roe_upwind_flux_cpg_1d(n1,n2,facenrm,facexyz, &
   real(wp) :: rnx
   real(wp) :: dw1,hsr1,eta1
   real(wp) :: dw3,hsr3,eta3
-  real(wp) :: eigen,udw,diss_sign
+  real(wp) :: rrf_nrm,eigen,udw,diss_sign
   real(wp) :: ra_ec,ra_h0,ra_a2,ra_a,ra_q2,ra_vn
   real(wp) :: fec_i,fmx_i,fee_i
+  real(wp) :: fec_mrf,fmx_mrf,fee_mrf
   real(wp) :: fec_d,fmx_d,fee_d
+  real(wp) :: x_r
+!#define PROTECT_AGAINST_ATD_EQUAL_ZERO
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
   real(wp) :: atd2nz,atd2rt,atdnz,atdrt
 #endif
@@ -870,7 +945,11 @@ continue
   !
   gam_over_gm1 = gam / gm1
   !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
+  x_r = moving_ref_frame%rotation(1) ! x rotation
+  !
+  rrf_nrm = zero
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,facexyz,face_cv,face_gp,return_value)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -881,6 +960,7 @@ continue
     rl_inv = one/rl
     vxl = face_cv(n,nmx,1)*rl_inv
     q2l = vxl*vxl
+    etotl = face_cv(n,nee,1)
     presl = face_gp(n,npres,1)
     h0l = half*q2l + gam_over_gm1*presl*rl_inv
     !
@@ -888,6 +968,7 @@ continue
     rr_inv = one/rr
     vxr = face_cv(n,nmx,2)*rr_inv
     q2r = vxr*vxr
+    etotr = face_cv(n,nee,2)
     presr = face_gp(n,npres,2)
     h0r = half*q2r + gam_over_gm1*presr*rr_inv
     !
@@ -913,6 +994,12 @@ continue
     atdrt = ra_a / atdnz
 #endif
     !
+   !if (size(facexyz,dim=2) >= n2) then
+   !  rrf_nrm = x_r*facexyz(1,n)*unx
+   !end if
+    !
+    ra_vn = ra_vn - rrf_nrm
+    !
     if (ra_vn >= zero) then
       !
       eigen = ra_vn - ra_a
@@ -933,6 +1020,13 @@ continue
       fec_i = vnl*rl
       fmx_i = vnl*rl*vxl + presl*unx
       fee_i = vnl*rl*h0l
+      !
+      ! Compute the moving reference frame component
+      ! of the inviscid interface flux
+      !
+      fec_mrf = rrf_nrm*rl
+      fmx_mrf = rrf_nrm*rl*vxl
+      fee_mrf = rrf_nrm*etotl
       !
     else
       !
@@ -955,6 +1049,13 @@ continue
       fmx_i = vnr*rr*vxr + presr*unx
       fee_i = vnr*rr*h0r
       !
+      ! Compute the moving reference frame component
+      ! of the inviscid interface flux
+      !
+      fec_mrf = rrf_nrm*rr
+      fmx_mrf = rrf_nrm*rr*vxr
+      fee_mrf = rrf_nrm*etotr
+      !
     end if
     !
     ! Compute the dissipative part of the Roe flux
@@ -967,9 +1068,9 @@ continue
     ! moving reference frame component (which will be zero for
     ! a stationary reference frame).
     !
-    return_value(n,nec) = ds*(fec_i + fec_d)
-    return_value(n,nmx) = ds*(fmx_i + fmx_d)
-    return_value(n,nee) = ds*(fee_i + fee_d)
+    return_value(n,nec) = ds*(fec_i - fec_mrf + fec_d)
+    return_value(n,nmx) = ds*(fmx_i - fmx_mrf + fmx_d)
+    return_value(n,nee) = ds*(fee_i - fee_mrf + fee_d)
     !
   end do
   !
