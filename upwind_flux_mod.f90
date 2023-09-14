@@ -61,6 +61,11 @@ continue
     call roe_upwind_flux_gpu(n1,n2,facenrm,facexyz,face_cv,face_gp, &
                              lflux,rflux,return_value)
     !
+  else if (invs_flux_method == invs_flux_Rusanov) then
+    !
+    call rusanov_upwind_flux_gpu(n1,n2,facenrm,facexyz,face_cv,face_gp, &
+                                 lflux,rflux,return_value)
+    !
   else if (invs_flux_method == invs_flux_HLLC) then
     !
     call hllc_upwind_flux_gpu(n1,n2,facenrm,face_cv,face_gp, &
