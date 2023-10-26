@@ -24,17 +24,30 @@ module mrf_mod
   logical(lk) :: wall_flux_check_not_completed = true
   logical(lk) :: mrf_wall_fluxes_are_zero = fals
   !
+  real(wp), parameter :: wall_default_sign = -one
+  real(wp), parameter :: flx_default_sign = -one
+  real(wp), parameter :: src_default_sign = one
+  real(wp), parameter :: upwind_default_sign = -one
+  !
   real(wp), parameter :: switch_sign = one
  !real(wp), parameter :: switch_sign = -one
+ !real(wp), parameter :: switch_sign = zero
   !
- !real(wp), parameter :: wall_sign =  one*switch_sign
-  real(wp), parameter :: wall_sign = -one*switch_sign
+  real(wp), parameter :: wall_sign =  switch_sign*wall_default_sign
+ !real(wp), parameter :: wall_sign = -switch_sign*wall_default_sign
+ !real(wp), parameter :: wall_sign = zero*wall_default_sign
   !
- !real(wp), parameter :: flx_sign =  one*switch_sign
-  real(wp), parameter :: flx_sign = -one*switch_sign
+  real(wp), parameter :: flx_sign =  switch_sign*flx_default_sign
+ !real(wp), parameter :: flx_sign = -switch_sign*flx_default_sign
+ !real(wp), parameter :: flx_sign = zero*flx_default_sign
   !
-  real(wp), parameter :: src_sign =  one*switch_sign
- !real(wp), parameter :: src_sign = -one*switch_sign
+  real(wp), parameter :: src_sign =  switch_sign*src_default_sign
+ !real(wp), parameter :: src_sign = -switch_sign*src_default_sign
+ !real(wp), parameter :: src_sign = zero*src_default_sign
+  !
+  real(wp), public, parameter :: upwind_sign =  switch_sign*upwind_default_sign
+ !real(wp), public, parameter :: upwind_sign = -switch_sign*upwind_default_sign
+ !real(wp), public, parameter :: upwind_sign = zero*upwind_default_sign
   !
   ! #########################################
   ! #####   MODULE GENERIC INTERFACES   #####
@@ -140,7 +153,7 @@ continue
   z_r = moving_ref_frame%rotation(3) ! z rotation
   !
 #ifdef DEBUG_ON
-#define DEBUG_MRF_FREESTREAM_TCF
+!#define DEBUG_MRF_FREESTREAM_TCF
 #ifdef DEBUG_MRF_FREESTREAM_TCF
 block
   use ovar, only : itcur,current_rk_stage
@@ -508,8 +521,10 @@ end block
   else
     !
   end if
+#ifdef DEBUG_MRF_FREESTREAM_TCF
   write (iout,1) mypnum,"max_omega_nrm = ",max_omega_nrm
   1 format ("CPU #",i3," ",a,es15.8)
+#endif
   !
   ! Set mrf_wall_fluxes_are_zero to true if the maximum omega_nrm was smaller
   ! than eps12. This will prevent the wasted computations of computing the
@@ -529,8 +544,9 @@ end subroutine check_if_wall_fluxes_are_needed
 subroutine mrf_src_cv()
   !
   !.. Use Statements ..
-  use geovar,  only : nr
-  use flowvar, only : usp,residual
+  use geovar,      only : nr
+  use flowvar,     only : usp,residual
+  use metrics_mod, only : jac
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "mrf_src_cv"
@@ -545,7 +561,7 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   if (nr == 3) then
-    call mrf_src_cv_3d(usp,residual)
+    call mrf_src_cv_3d(jac,usp,residual)
   else if (nr == 2) then
    !call mrf_src_cv_2d(usp,residual)
   else
@@ -558,12 +574,13 @@ end subroutine mrf_src_cv
 !
 !###############################################################################
 !
-subroutine mrf_src_cv_3d(cv,rhs)
+subroutine mrf_src_cv_3d(jac,cv,rhs)
   !
   !.. Use Statements ..
   use ovar, only : moving_ref_frame
   !
   !.. Formal Arguments ..
+  real(wp),    intent(in) :: jac(:)
   real(wp),    intent(in) :: cv(:,:)
   real(wp), intent(inout) :: rhs(:,:)
   !
@@ -634,9 +651,9 @@ block
     2 format (i8,3x,3(2x,f12.6),3x,5es20.10)
 end block
 #else
-    rhs(n,nmx) = rhs(n,nmx) + src_sign*(y_r*cv(n,nmz) - z_r*cv(n,nmy))
-    rhs(n,nmy) = rhs(n,nmy) + src_sign*(z_r*cv(n,nmx) - x_r*cv(n,nmz))
-    rhs(n,nmz) = rhs(n,nmz) + src_sign*(x_r*cv(n,nmy) - y_r*cv(n,nmx))
+    rhs(n,nmx) = rhs(n,nmx) + src_sign*(y_r*cv(n,nmz) - z_r*cv(n,nmy))*jac(n)
+    rhs(n,nmy) = rhs(n,nmy) + src_sign*(z_r*cv(n,nmx) - x_r*cv(n,nmz))*jac(n)
+    rhs(n,nmz) = rhs(n,nmz) + src_sign*(x_r*cv(n,nmy) - y_r*cv(n,nmx))*jac(n)
 #endif
     !
   end do
