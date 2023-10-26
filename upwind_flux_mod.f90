@@ -1670,7 +1670,7 @@ continue
   rrf_nrm = zero
   !
 #ifdef DEBUG_ON
-#define DEBUG_MRF_FREESTREAM_TCF
+!#define DEBUG_MRF_FREESTREAM_TCF
 #ifdef DEBUG_MRF_FREESTREAM_TCF
 block
   use ovar, only : itcur,current_rk_stage,itestcase
