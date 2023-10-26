@@ -207,7 +207,7 @@ continue
   end if
   !
 #ifdef DEBUG_ON
-#define DEBUG_MRF_FREESTREAM_TCF
+!#define DEBUG_MRF_FREESTREAM_TCF
 #ifdef DEBUG_MRF_FREESTREAM_TCF
 block
   use geovar, only : xyz
