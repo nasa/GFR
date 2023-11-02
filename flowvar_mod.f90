@@ -516,8 +516,8 @@ continue
   ! allocated if nf and nfpts are modified which would mean that the arrays
   ! are actually needed.
   !
-  nf = 0
-  nfpts = 0
+  nf = nfbnd
+  nfpts = n_bnd_flxpts
   !
   ! If rotation_rate for a wall BC is nonzero, we need
   ! facexyz for at least the boundary face points.
