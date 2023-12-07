@@ -1267,7 +1267,7 @@ continue
     else if (nst == 3) then
       call update_Classic_RK3_S3(n_solpts,uoldsp,rssprk,dtsp,usp)
     end if
-  else if (num_rk_stages == 3) then
+  else if (num_rk_stages == 4) then
     if (nst == 1) then
       call update_Classic_RK4_S1(n_solpts,uoldsp,rssprk,dtsp,usp)
     else if (nst == 2) then
