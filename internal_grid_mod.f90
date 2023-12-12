@@ -2500,19 +2500,33 @@ end subroutine create_periodic_cube_pyramid_grid
 !
 !###############################################################################
 !
-subroutine reset_bc_input_for_internal_grid()
+subroutine reset_bc_input_for_internal_grid(Lref_x,Lref_y,Lref_z)
   !
   !.. Use Statements ..
   use ovar,   only : bc_input
   use geovar, only : nr
   !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(in) :: Lref_x
+  real(wp), optional, intent(in) :: Lref_y
+  real(wp), optional, intent(in) :: Lref_z
+  !
   !.. Local Scalars ..
-  integer :: ierr
+  integer  :: ierr
+  real(wp) :: lx,ly,lz
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "reset_bc_input_for_internal_grid"
   !
 continue
+  !
+  lx = one
+  ly = one
+  lz = one
+  !
+  if (present(Lref_x)) lx = Lref_x
+  if (present(Lref_y)) ly = Lref_y
+  if (present(Lref_z)) lz = Lref_z
   !
   if (allocated(bc_input)) then
     deallocate ( bc_input , stat=ierr , errmsg=error_message )
@@ -2527,35 +2541,35 @@ continue
   bc_input(1)%name = "xmin"
   bc_input(1)%periodic%matching_bc_name = "xmax"
   bc_input(1)%periodic%matching_bc_idx  = 2
-  bc_input(1)%periodic%translation(1)   = one
+  bc_input(1)%periodic%translation(1)   = lx
   !
   bc_input(2)%name = "xmax"
   bc_input(2)%periodic%matching_bc_name = "xmin"
   bc_input(2)%periodic%matching_bc_idx  = 1
-  bc_input(2)%periodic%translation(1)   = -one
+  bc_input(2)%periodic%translation(1)   = -lx
   !
   if (nr > 1) then
     bc_input(3)%name = "ymin"
     bc_input(3)%periodic%matching_bc_name = "ymax"
     bc_input(3)%periodic%matching_bc_idx  = 4
-    bc_input(3)%periodic%translation(2)   = one
+    bc_input(3)%periodic%translation(2)   = ly
     !
     bc_input(4)%name = "ymax"
     bc_input(4)%periodic%matching_bc_name = "ymin"
     bc_input(4)%periodic%matching_bc_idx  = 3
-    bc_input(4)%periodic%translation(2)   = -one
+    bc_input(4)%periodic%translation(2)   = -ly
   end if
   !
   if (nr > 2) then
     bc_input(5)%name = "zmin"
     bc_input(5)%periodic%matching_bc_name = "zmax"
     bc_input(5)%periodic%matching_bc_idx  = 6
-    bc_input(5)%periodic%translation(3)   = one
+    bc_input(5)%periodic%translation(3)   = lz
     !
     bc_input(6)%name = "zmax"
     bc_input(6)%periodic%matching_bc_name = "zmin"
     bc_input(6)%periodic%matching_bc_idx  = 5
-    bc_input(6)%periodic%translation(3)   = -one
+    bc_input(6)%periodic%translation(3)   = -lz
   end if
   !
 end subroutine reset_bc_input_for_internal_grid
