@@ -1616,7 +1616,13 @@ continue
     !
     ! Get the flux point rotation for the right cell
     !
-    if (this_is_periodic_face) then
+    if (face_geom == Geom_Node) then
+      !
+      ! The face rotation for a boundary node (1D simulation) is always 1
+      !
+      rotation = 1
+      !
+    else if (this_is_periodic_face) then
       !
       ! Special logic to get rotation if this is a periodic boundary face
       !
