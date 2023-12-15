@@ -645,6 +645,14 @@ continue
     end if
     !
   end if
+  !
+  Limiter_Marker_c1 = marker_c1
+  Limiter_Marker_c2 = marker_c2
+  Limiter_Marker_dpsi = marker_dpsi
+  !
+  psi0 = -one*(marker_c1 + marker_c2*log10(real(n_order,kind=wp)))
+  Limiter_Marker_Min = psi0 - marker_dpsi
+  Limiter_Marker_Max = psi0 + marker_dpsi
  !!
  !if (mypnum == glb_root) then
  !  psi0 = -one*(marker_c1+marker_c2*log10(real(n_order,kind=wp)))
