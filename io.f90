@@ -1096,7 +1096,9 @@ continue
   ! Allocate all the variables within the input namelist
   ! to their default sizes and values
   !
-  call allocate_namelist_variables
+  call allocate_namelist_variables(opt_n_bc_input=4, &
+                                   opt_n_species=3, &
+                                   opt_char_len=0)
   !
   if (mypnum == glb_root) then
     open (newunit=ionml,file=output_fname,status="new",action="write", &
