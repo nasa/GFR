@@ -2016,7 +2016,8 @@ contains
 !
 !###############################################################################
 !
-subroutine allocate_namelist_variables
+subroutine allocate_namelist_variables(opt_n_bc_input,opt_char_len, &
+                                       opt_n_species)
   !
   !.. Use Statements ..
   use module_kind_types, only : zero,alloc_error,error_message
@@ -2024,17 +2025,32 @@ subroutine allocate_namelist_variables
   use module_kind_types, only : entering_procedure
   use module_kind_types, only : leaving_procedure
   !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: opt_n_bc_input
+  integer, optional, intent(in) :: opt_char_len
+  integer, optional, intent(in) :: opt_n_species
+  !
   !.. Local Scalars ..
   integer :: n,ierr
+  integer :: default_len,n_species,n_bc_input
   character(len=20) :: blanks
   character(len=50) :: array_name
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "allocate_namelist_variables"
-  integer, parameter :: default_len = 150
-  integer, parameter :: max_ncs = 7
+  integer, parameter :: max_default_len = 150
+  integer, parameter :: max_n_species = 7
+  integer, parameter :: max_n_bc_input = 20
   !
 continue
+  !
+  n_bc_input = max_n_bc_input
+  n_species = max_n_species
+  default_len = max_default_len
+  !
+  if (present(opt_n_bc_input)) n_bc_input = opt_n_bc_input
+  if (present(opt_n_species)) n_species = opt_n_species
+  if (present(opt_char_len)) default_len = opt_char_len
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -2123,7 +2139,7 @@ continue
   !
   ! Allocate bc_input before reading the namelist
   !
-  allocate ( bc_input(1:20) , stat=ierr , errmsg=error_message )
+  allocate ( bc_input(1:n_bc_input) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bc_input",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Allocate the mass_frac and species_name components
@@ -2131,11 +2147,11 @@ continue
   !
 #ifdef ALLOCATABLE_MASS_FRAC
   do n = 1,size(bc_input)
-    allocate ( bc_input(n)%mass_frac(1:max_ncs) , source=zero , &
+    allocate ( bc_input(n)%mass_frac(1:n_species) , source=zero , &
                stat=ierr , errmsg=error_message )
     write (array_name,2) n,"mass_frac"
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-    allocate ( bc_input(n)%species_name(1:max_ncs) , source="" , &
+    allocate ( bc_input(n)%species_name(1:n_species) , source="" , &
                stat=ierr , errmsg=error_message )
     write (array_name,2) n,"species_name"
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
@@ -2206,26 +2222,49 @@ continue
   !
   ! Set all the character input variables to their default values
   !
-  write (blanks,1) default_len
+  if (default_len > 0) then
+    !
+    write (blanks,1) default_len
+    !
+    write (gridfile,blanks)
+    write (plot3d_cutfile,blanks)
+    write (plot3d_bcsfile,blanks)
+    write (interpto_gridfile,blanks)
+    write (interpto_plot3d_cutfile,blanks)
+    write (interpto_plot3d_bcsfile,blanks)
+    write (restart_file,blanks)
+    write (solution_file,blanks)
+    write (output_dir,blanks)
+    write (channel_init_file,blanks)
+    write (lustre_stripe_size,blanks)
+    write (time_ave_file,blanks)
+    write (restart_list_file,blanks)
+    !
+  end if
   !
-  write (gridfile,blanks)
-  write (plot3d_cutfile,blanks)
-  write (plot3d_bcsfile,blanks)
-  write (interpto_gridfile,blanks)
-  write (interpto_plot3d_cutfile,blanks)
-  write (interpto_plot3d_bcsfile,blanks)
-  write (restart_file,blanks)
-  write (solution_file,blanks)
-  write (output_dir,blanks)
-  write (channel_init_file,blanks)
-  write (lustre_stripe_size,blanks)
-  write (time_ave_file,blanks)
-  write (restart_list_file,blanks)
+  if (len_trim(restart_file) >= 7) then
+    restart_file(1:7) = "out.rst"
+  else
+    restart_file = "out.rst" ! F2003 AUTO-REALLOC
+  end if
   !
-  restart_file(1:7) = "out.rst"
-  output_dir(1:1) = "."
-  lustre_stripe_size(1:2)  = "4m"
-  time_ave_file(1:7) = "out.ave"
+  if (len_trim(output_dir) >= 1) then
+    output_dir(1:1) = "."
+  else
+    output_dir = "." ! F2003 AUTO-REALLOC
+  end if
+  !
+  if (len_trim(lustre_stripe_size) >= 2) then
+    lustre_stripe_size(1:2) = "4m"
+  else
+    lustre_stripe_size = "4m" ! F2003 AUTO-REALLOC
+  end if
+  !
+  if (len_trim(time_ave_file) >= 7) then
+    time_ave_file(1:7) = "out.ave"
+  else
+    time_ave_file = "out.ave" ! F2003 AUTO-REALLOC
+  end if
   !
   call debug_timer(leaving_procedure,pname)
   !
