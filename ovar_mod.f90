@@ -496,10 +496,10 @@ module ovar
   logical(lk),      public, save :: channel_nondim_output_coord = fals
   !
   real(wp), public, save :: channel_yplus_of_one       = 8.42134e-6_wp
-  real(wp), public, save :: channel_grid_ave_xplus     = 50.0_wp
-  real(wp), public, save :: channel_grid_ave_yplus     = 25.0_wp
-  real(wp), public, save :: channel_grid_ave_zplus     = 25.0_wp
-  real(wp), public, save :: channel_grid_yplus_wall    = -1.0_wp
+  real(wp), public, save :: channel_grid_ave_xplus     = -30.0_wp
+  real(wp), public, save :: channel_grid_ave_yplus     = -15.0_wp
+  real(wp), public, save :: channel_grid_ave_zplus     = -15.0_wp
+  real(wp), public, save :: channel_grid_yplus_wall    = 2.0_wp
   integer,  public, save :: channel_rake_save_interval = 100
   !
   ! OPTIONS FOR MODIFYING BC ALGORITHMS
