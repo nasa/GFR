@@ -2242,25 +2242,25 @@ continue
     !
   end if
   !
-  if (len_trim(restart_file) >= 7) then
+  if (len(restart_file) >= 7) then
     restart_file(1:7) = "out.rst"
   else
     restart_file = "out.rst" ! F2003 AUTO-REALLOC
   end if
   !
-  if (len_trim(output_dir) >= 1) then
+  if (len(output_dir) >= 1) then
     output_dir(1:1) = "."
   else
     output_dir = "." ! F2003 AUTO-REALLOC
   end if
   !
-  if (len_trim(lustre_stripe_size) >= 2) then
+  if (len(lustre_stripe_size) >= 2) then
     lustre_stripe_size(1:2) = "4m"
   else
     lustre_stripe_size = "4m" ! F2003 AUTO-REALLOC
   end if
   !
-  if (len_trim(time_ave_file) >= 7) then
+  if (len(time_ave_file) >= 7) then
     time_ave_file(1:7) = "out.ave"
   else
     time_ave_file = "out.ave" ! F2003 AUTO-REALLOC
