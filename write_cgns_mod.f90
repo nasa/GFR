@@ -571,75 +571,10 @@ continue
       !
     end do
     !
-    !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_biter_write_f",override_barrier=true)
-    call cg_biter_write_f(ifile_t,ibase_t,'TimeIterValues', &
-                          size(soltime,kind=CBT),cgierr)
-    call cgns_error(pname,cgns_time_file,"cg_biter_write_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_biter_write_f",override_barrier=true)
-    !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_goto_f",override_barrier=true)
-    call cg_goto_f(ifile_t,ibase_t,cgierr, &
-                   "BaseIterativeData_t",iiter_t, &
-                   CGNS_GOTO_END)
-    call cgns_error(pname,cgns_time_file,"cg_goto_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_goto_f",override_barrier=true)
-    !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_array_write_f",override_barrier=true)
-    call cg_array_write_f("TimeValues",CGNS_KIND_REAL,1_CBT, &
-                          size(soltime,kind=CST),soltime,cgierr)
-    call cgns_error(pname,cgns_time_file,"cg_array_write_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_array_write_f",override_barrier=true)
-    !
-    ! Update the zone iterative node
-    !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_ziter_write_f",override_barrier=true)
-    call cg_ziter_write_f(ifile_t,ibase_t,izone_t,"ZoneIterativeData",cgierr)
-    call cgns_error(pname,cgns_time_file,"cg_ziter_write_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_ziter_write_f",override_barrier=true)
-    !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_goto_f",override_barrier=true)
-    call cg_goto_f(ifile_t,ibase_t,cgierr, &
-                   "Zone_t",izone_t, &
-                   "ZoneIterativeData_t",iiter_t, &
-                   CGNS_GOTO_END)
-    call cgns_error(pname,cgns_time_file,"cg_goto_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_goto_f",override_barrier=true)
-    !
-    idata(:) = int( [32,size(solname)] , kind=kind(idata) )
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_array_write_f",override_barrier=true)
-    call cg_array_write_f("FlowSolutionPointers",CHARACTER,2_CBT, &
-                          idata,solname,cgierr)
-    call cgns_error(pname,cgns_time_file,"cg_array_write_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_array_write_f",override_barrier=true)
-    !
-    ! Identify the flow solution within the CGNS file as time dependent
-    !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_simulation_type_write_f",override_barrier=true)
-    call cg_simulation_type_write_f(ifile_t,ibase_t,TIMEACCURATE,cgierr)
-    call cgns_error(pname,cgns_time_file,"cg_simulation_type_write_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
-                    "cg_simulation_type_write_f",override_barrier=true)
+    call write_iterative_data_to_cgns_file(cgns_time_file,pname, &
+                                           ifile_t,ibase_t,izone_t, &
+                                           soltime,solname, &
+                                           not_parallel=true)
     !
     ! Close the CGNS FILE
     !
@@ -682,6 +617,123 @@ continue
             "' = ",f12.6," seconds",/)
   !
 end subroutine write_parallel_cgns_time_file
+!
+!###############################################################################
+!
+subroutine write_iterative_data_to_cgns_file(cgns_file,procedure_name, &
+                                             ifile,ibase,izone, &
+                                             sol_times,sol_names,not_parallel)
+  !
+  !.. Use Statements ..
+  use ovar, only : profile_io_cgns_subs
+  !
+  !.. Formal Arguments ..
+  character(len=*),     intent(in) :: cgns_file
+  character(len=*),     intent(in) :: procedure_name
+  integer(CBT),         intent(in) :: ifile
+  integer(CBT),         intent(in) :: ibase
+  integer(CBT),         intent(in) :: izone
+  real(sp),             intent(in) :: sol_times(:)
+  character(len=CGLEN), intent(in) :: sol_names(:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: not_parallel
+  !
+  !.. Local Scalars ..
+  integer(CBT) :: iiter_t
+  !
+  character(len=300) :: pname
+  !
+  !.. Local Arrays ..
+  integer(CST) :: idata(1:2)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: sub_pname = "write_iterative_data_to_cgns_file"
+  !
+continue
+  !
+#ifndef SPECIAL_FOR_PGI
+  !
+  write (pname,1) sub_pname,trim(adjustl(procedure_name))
+  !
+  iiter_t = 1_CBT
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_biter_write_f",override_barrier=not_parallel)
+  call cg_biter_write_f(ifile,ibase,'TimeIterValues', &
+                        size(sol_times,kind=CBT),cgierr)
+  call cgns_error(pname,cgns_file,"cg_biter_write_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_biter_write_f",override_barrier=not_parallel)
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_goto_f",override_barrier=not_parallel)
+  call cg_goto_f(ifile,ibase,cgierr, &
+                 "BaseIterativeData_t",iiter_t, &
+                 CGNS_GOTO_END)
+  call cgns_error(pname,cgns_file,"cg_goto_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_goto_f",override_barrier=not_parallel)
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_array_write_f",override_barrier=not_parallel)
+  call cg_array_write_f("TimeValues",CGNS_KIND_REAL,1_CBT, &
+                        size(sol_times,kind=CST),sol_times,cgierr)
+  call cgns_error(pname,cgns_file,"cg_array_write_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_array_write_f",override_barrier=not_parallel)
+  !
+  ! Update the zone iterative node
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_ziter_write_f",override_barrier=not_parallel)
+  call cg_ziter_write_f(ifile,ibase,izone,"ZoneIterativeData",cgierr)
+  call cgns_error(pname,cgns_file,"cg_ziter_write_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_ziter_write_f",override_barrier=not_parallel)
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_goto_f",override_barrier=not_parallel)
+  call cg_goto_f(ifile,ibase,cgierr, &
+                 "Zone_t",izone, &
+                 "ZoneIterativeData_t",iiter_t, &
+                 CGNS_GOTO_END)
+  call cgns_error(pname,cgns_file,"cg_goto_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_goto_f",override_barrier=not_parallel)
+  !
+  idata(:) = int( [32,size(sol_names)] , kind=kind(idata) )
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_array_write_f",override_barrier=not_parallel)
+  call cg_array_write_f("FlowSolutionPointers",CHARACTER,2_CBT, &
+                        idata,sol_names,cgierr)
+  call cgns_error(pname,cgns_file,"cg_array_write_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_array_write_f",override_barrier=not_parallel)
+  !
+  ! Identify the flow solution within the CGNS file as time dependent
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_simulation_type_write_f",override_barrier=not_parallel)
+  call cg_simulation_type_write_f(ifile,ibase,TIMEACCURATE,cgierr)
+  call cgns_error(pname,cgns_file,"cg_simulation_type_write_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_simulation_type_write_f",override_barrier=not_parallel)
+  !
+#endif
+  !
+  ! Format Statements
+  !
+  1 format (a," (called from ",a,")")
+  !
+end subroutine write_iterative_data_to_cgns_file
 !
 !###############################################################################
 !
@@ -1243,6 +1295,9 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !.. Local Scalars ..
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
   !
+  real(sp)             :: sol_time(1)
+  character(len=CGLEN) :: sol_name(1)
+  !
   !.. Local Allocatable Arrays ..
   integer(CBT), allocatable, dimension(:) :: isvar_s
   !
@@ -1432,6 +1487,14 @@ continue
   ! ################################################
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
   ! ################################################
+  !
+  ! Add the time information to the solution file
+  !
+  sol_time(1) = soltime(size(soltime))
+  sol_name(1) = solname(size(solname))
+  call write_iterative_data_to_cgns_file(cgns_sol_file,pname, &
+                                         ifile_s,ibase_s,izone_s, &
+                                         sol_time,sol_name)
   !
   ! Close the CGNS FILE
   !
