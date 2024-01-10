@@ -333,6 +333,7 @@ module ovar
   !        every 100 iter_out_intervals. This allows the user to disable the
   !        header from being rewritten after the first time it is written.
   logical(lk), public, save :: disable_header_rewrites = fals
+  logical(lk), public, save :: output_summary_file = fals
   !
   ! SOLUTION OUTPUT OPTIONS
   character(len=:), public, save, allocatable :: output_dir
@@ -1676,6 +1677,7 @@ module input_namelist_mod
   use ovar,      only : CFL_reduction_for_NaN_restart
   use ovar,      only : iter_out_interval, results_interval
   use ovar,      only : output_eperk_cfl, disable_header_rewrites
+  use ovar,      only : output_summary_file
   use ovar,      only : output_dir, output_interval, output_frequency
   use ovar,      only : continuous_output
   use ovar,      only : postproc_debug_grid
@@ -1860,7 +1862,7 @@ module input_namelist_mod
   namelist / input / average_sem_inflow_plane
   ! STATISTICAL OUTPUT OPTIONS
   namelist / input / iter_out_interval, results_interval, output_eperk_cfl, &
-                     disable_header_rewrites
+                     disable_header_rewrites, output_summary_file
   ! SOLUTION OUTPUT OPTIONS
   namelist / input / output_dir, output_interval, continuous_output, &
                      output_order, loc_output_pts, output_frequency
