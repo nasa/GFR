@@ -1558,6 +1558,45 @@ end subroutine gfr_cpu_time
 !
 !###############################################################################
 !
+pure &
+function get_sbu_cost(wall_time) result(return_value)
+  !
+  ! NOTE: WALL_TIME IS EXPECTED IN UNITS OF SECONDS
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: wall_time
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer  :: i
+  real(wp) :: rnum_nodes,sbu_rate,sbu_time
+  !
+  !.. Local Parameters ..
+  real(wp), parameter :: sec_to_hours = one/3600.0_wp
+  !
+continue
+  !
+  return_value = zero
+  !
+  ! Convert the input wall time from seconds to hours
+  ! to get the time used to compute the total SBU cost
+  !
+  sbu_time = wall_time * sec_to_hours
+  !
+  if (allocated(resource_list)) then
+    do i = 1,size(resource_list)
+      rnum_nodes = real(resource_list(i)%n,kind=wp)
+      sbu_rate = resource_list(i)%sbu_rate
+      return_value = return_value + rnum_nodes*sbu_rate*sbu_time
+    end do
+  end if
+  !
+end function get_sbu_cost
+!
+!###############################################################################
+!
 subroutine ovar_memory_usage(iunit)
   !
   !.. Use Statements ..
