@@ -1550,6 +1550,7 @@ subroutine init_generic_mod
   use geovar, only : nr
   use ovar,   only : itcur,num_timesteps,itestcase
   use ovar,   only : uverr,output_time_averaging
+  use ovar,   only : time_scaling_factor
   !
   use pbs_mod, only : pbs_remaining_walltime
   !
@@ -1625,7 +1626,11 @@ continue
  !else if (output_time_averaging) then
  !  write (iter_header,204) final_iter_digits-3
   else
-    write (iter_header,202) final_iter_digits-3
+    if (abs(time_scaling_factor-one) > eps6) then
+      write (iter_header,205) final_iter_digits-3
+    else
+      write (iter_header,202) final_iter_digits-3
+    end if
   end if
   !
 #ifdef PBS_ENV
@@ -1697,6 +1702,8 @@ continue
               "'OrdersDrop',2x,'Max-DensL2',2x,'Output-dWT'")
   204 format ("(",i0,"x,'iter',5x,'dt*',8x,'Time*',5x,'L2-Density',4x,", &
               "'L2-Vx',7x,'L2-Vy',7x,'L2-Vz',7x,'L2-Pres',2x,'Output-dWT'")
+  205 format ("(",i0,"x,'iter',3x,'d_t* (ND)',3x,'Time (T*)',6x,'CFL',5x,", &
+              "'L2-Density',2x,'Max-DensL2',2x,'Output-dWT'")
   !
 end subroutine init_generic_mod
 !
