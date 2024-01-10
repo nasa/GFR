@@ -503,6 +503,8 @@ continue
   !#####################################################################
   !#####################################################################
   !
+  call get_resource_list()
+  !
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   flush (iout)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -510,6 +512,202 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_cpu_locality
+!
+!###############################################################################
+!
+subroutine get_resource_list()
+  !
+  !.. Use Statements ..
+  use ovar, only : resource_list
+  !
+  !.. Local Scalars ..
+  integer :: i,j,i0,io,ierr,n,maxlen,exitstat,cmndstat,num_resources
+  !
+  character(len=7)     :: model
+  character(len=16)    :: tmpfile
+  character(len=300)   :: cmndmsg
+  character(len=10000) :: cvalue
+  !
+  !.. Local Allocatable Variables ..
+  integer,          allocatable :: rl(:)
+  character(len=:), allocatable :: jobid
+  character(len=:), allocatable :: command
+  character(len=:), allocatable :: job_nodes(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_resource_list"
+  !
+  logical(ldk),     parameter :: wait_for_completion = .true.
+  character(len=*), parameter :: model_name(1:9) = ["local  ", &
+                                                    "san    ","ivy    ", &
+                                                    "has    ","bro    ", &
+                                                    "bro_ele","sky_ele", &
+                                                    "cas_ait","rom_ait"]
+  real(wp),         parameter :: sbu_rate(1:9) = [zero, &
+                                                  0.47_wp,0.66_wp, &
+                                                  0.80_wp,one    , &
+                                                  one    ,1.59_wp, &
+                                                  1.64_wp,4.06_wp]
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  root_uses_qstat: &
+  if (mypnum == glb_root) then
+    !
+    ! Initialize num_resources and rl to 1 localhost as the default
+    !
+    num_resources = 1
+    rl = init_array(2*num_resources,1) ! F2003 AUTO-REALLOC
+    !
+#ifdef PBS_ENV
+    !
+    ! Get a random integer to create a unique temporary file name
+    !
+    write (tmpfile,'("tmp.",i8.8,".tmp")') random(99999999)
+    !
+    ! Get the PBS job ID for this job
+    !
+    call get_environment_variable("PBS_JOBID",cvalue,length=n,status=ierr)
+    !
+    jobid = trim(adjustl(cvalue)) ! F2003 AUTO-REALLOC
+    !
+    if (len_trim(jobid) >= 8) then
+      !
+      ! Create the qstat command to get the model details for this job
+      !
+      ! F2003 AUTO-REALLOC
+      command = "/PBS/bin/qstat -W o=Model " // jobid // &
+                " |& /usr/bin/tail -n 1 " // &
+                " |& /usr/bin/sed -e 's/:/ /g' -e 's/+/\n/g' >| " // tmpfile
+      !
+      ! Run qstat on this job ID to get the number of nodes and model
+      ! type for this PBS job
+      !
+      call execute_command(command,wait_for_completion,exitstat, &
+                           cmndstat,cmndmsg,pname)
+      !
+      n = 0
+      maxlen = 0
+      !
+      ! Open the temporary file containing the qstat results
+      !
+      open (newunit=io,file=tmpfile,status="old",action="read", &
+                       iostat=ierr,iomsg=error_message)
+      call io_error(pname,tmpfile,1,__LINE__,__FILE__,ierr,error_message)
+      !
+      ! Count the number of lines from the qstat results
+      ! as well as the maximum line length for the file
+      !
+      count_num_lines: &
+      do
+        read (io,'(a)',iostat=ierr) cvalue
+        if (is_iostat_end(ierr)) exit count_num_lines
+        maxlen = max( maxlen , len_trim(adjustl(cvalue)) )
+        n = n + 1
+      end do count_num_lines
+      !
+      ! Create the job_nodes array which we will use to read in the
+      ! contents of the temporary file containing the qstat results
+      !
+      allocate ( character(len=maxlen) :: job_nodes(1:n) , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"job_nodes",1,__LINE__,__FILE__,ierr,error_message)
+      !
+      ! Rewinde the qstat results so we can now actually read its contents
+      !
+      rewind (io)
+      !
+      ! Read each line of the qstat results to job_nodes
+      !
+      do i = 1,n
+        read (io,'(a)') cvalue
+        job_nodes(i) = trim(adjustl(cvalue))
+      end do
+      !
+      ! Close the temporary file containing the qstat results and delete it
+      !
+      close (io,status="delete",iostat=ierr,iomsg=error_message)
+      call io_error(pname,tmpfile,2,__LINE__,__FILE__,ierr,error_message)
+      !
+      ! Now process the job details that were read into job_nodes
+      !
+      num_resources = max(1,n)
+      !
+      ! Initialize the rl array to say that each of the num_resources is
+      ! 1 localhost. This is in case n=0 which means the qstat temporary
+      ! file was empty.
+      !
+      rl = init_array(2*num_resources,1) ! F2003 AUTO-REALLOC
+      !
+      process_job_nodes: &
+      do i = 1,size(job_nodes)
+        !
+        i0 = 2*(i-1)
+        !
+       !read (job_nodes(i),'(i,a)') rl(i0+1),model
+        read (job_nodes(i),*) rl(i0+1),model
+        !
+        do j = 2,size(model_name)
+          if (trim(adjustl(model)) == trim(adjustl(model_name(j)))) then
+            rl(i0+2) = j
+            cycle process_job_nodes
+          end if
+        end do
+        !
+      end do process_job_nodes
+      !
+    end if
+#endif
+    !
+  end if root_uses_qstat
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  call mpi_bcast(num_resources,1_int_mpi,mpi_inttyp, &
+                 glb_root,MPI_COMM_WORLD,mpierr)
+  !
+  if (mypnum /= glb_root) then
+    rl = init_array(2*num_resources,0) ! F2003 AUTO-REALLOC
+  end if
+  !
+  call mpi_bcast(rl,size(rl,kind=int_mpi),mpi_inttyp, &
+                 glb_root,MPI_COMM_WORLD,mpierr)
+  !
+  allocate ( resource_list(1:num_resources) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"resource_list",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do n = 1,num_resources
+    i0 = 2*(n-1)
+    resource_list(n)%n = rl(i0+1)
+    resource_list(n)%sbu_rate = sbu_rate(rl(i0+2))
+    resource_list(n)%model = trim(model_name(rl(i0+2))) ! F2003 AUTO-REALLOC
+  end do
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+#ifdef DEBUG_ON
+  if (mypnum == ncpu-1) then
+    write (iout,*)
+    do n = 1,num_resources
+      write (iout,1) n,resource_list(n)%n, &
+                     n,resource_list(n)%sbu_rate, &
+                     n,resource_list(n)%model
+    end do
+    write (iout,*)
+    flush(iout)
+  end if
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
+  !
+  1 format (2x,"resource_list(",i0,")%n = ",i0,/, &
+            2x,"resource_list(",i0,")%sbu_rate = ",f5.2,/, &
+            2x,"resource_list(",i0,")%model = ",a)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_resource_list
 !
 !###############################################################################
 !
