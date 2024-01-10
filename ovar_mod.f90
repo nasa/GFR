@@ -702,6 +702,7 @@ module ovar
   real(wp),         save :: end_wall_time
   real(wp), public, save :: elapsed_wall_time
   real(wp), public, save :: work_units
+  real(wp), public, save :: total_sbu_cost = zero
   !
   real(wp), public, save :: max_restart_wall_time       = zero
   real(wp), public, save :: max_time_ave_rst_wall_time  = zero
@@ -1542,8 +1543,9 @@ continue
     call gfr_timer( end_wall_time )
     elapsed_wall_time = end_wall_time-beg_wall_time
     work_units = elapsed_wall_time/one_work_unit
+    total_sbu_cost = get_sbu_cost(elapsed_wall_time)
     !
-  else if (time_flag == -1) then
+  else if (time_flag < 0) then
     !
     total_sec = nint(elapsed_wall_time)
     !
@@ -1551,16 +1553,23 @@ continue
     minutes = (total_sec - hours*3600) / 60
     seconds = total_sec - hours*3600 - minutes*60
     !
-    write (io,1) elapsed_wall_time, &
-                 hours,minutes,seconds,work_units
+    write (io,1) elapsed_wall_time, hours,minutes,seconds
+    !
+    if (time_flag == -99) then
+      write (io,2) work_units
+    else
+      write (io,3) total_sbu_cost
+    end if
+    !
     !
   end if
   !
   call debug_timer(leaving_procedure,pname)
   !
   1 format (/,"TOTAL SIMULATION WALL TIME WAS ",f18.6," s.", &
-              " (",i0,":",i2.2,":",i2.2,")",/, &
-              "TOTAL COMPUTATIONAL COST WAS   ",f18.6," work units.")
+              " (",i0,":",i2.2,":",i2.2,")")
+  2 format (  "TOTAL COMPUTATIONAL COST WAS   ",f18.6," work units.")
+  3 format (  "TOTAL SBU COST WAS             ",f18.6," SBUs.")
   !
 end subroutine gfr_cpu_time
 !
