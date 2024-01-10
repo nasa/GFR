@@ -1506,7 +1506,7 @@ end subroutine adjust_cfl_cycles
 !
 !###############################################################################
 !
-subroutine gfr_cpu_time(time_flag)
+subroutine gfr_cpu_time(time_flag,io_unit)
   !
   !.. Use Statements ..
   use module_kind_types, only : gfr_timer
@@ -1514,8 +1514,11 @@ subroutine gfr_cpu_time(time_flag)
   !.. Formal Arguments ..
   integer, intent(in) :: time_flag
   !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: io_unit
+  !
   !.. Local Scalars ..
-  integer :: hours,minutes,seconds,total_sec
+  integer :: hours,minutes,seconds,total_sec,io
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "gfr_cpu_time"
@@ -1523,6 +1526,11 @@ subroutine gfr_cpu_time(time_flag)
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  io = iout
+  if (present(io_unit)) then
+    io = io_unit
+  end if
   !
   if (time_flag == 0) then
     !
@@ -1543,8 +1551,8 @@ continue
     minutes = (total_sec - hours*3600) / 60
     seconds = total_sec - hours*3600 - minutes*60
     !
-    write (iout,1) elapsed_wall_time, &
-                   hours,minutes,seconds,work_units
+    write (io,1) elapsed_wall_time, &
+                 hours,minutes,seconds,work_units
     !
   end if
   !
