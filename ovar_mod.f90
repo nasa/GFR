@@ -733,6 +733,14 @@ module ovar
   !
   logical(lk), save :: mrf_is_in_nondim = fals
   !
+  type, public :: resource_list_t
+    integer  :: n = 1
+    real(wp) :: sbu_rate = zero
+    character(len=:), allocatable :: model
+  end type resource_list_t
+  !
+  type(resource_list_t), public, save, allocatable :: resource_list(:)
+  !
   ! Interface to check if two boundary condition input derived types are equal
   !
   interface operator(==)
