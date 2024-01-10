@@ -327,6 +327,11 @@ module ovar
   integer,     public, save :: iter_out_interval       = 1
   integer,     public, save :: results_interval        = 0
   logical(lk), public, save :: output_eperk_cfl        = true
+  !     disable_header_rewrites : 
+  !        The column headers for the iteration statistics are written to stdout
+  !        before the first iteration, and by default are rewritten about once
+  !        every 100 iter_out_intervals. This allows the user to disable the
+  !        header from being rewritten after the first time it is written.
   logical(lk), public, save :: disable_header_rewrites = fals
   !
   ! SOLUTION OUTPUT OPTIONS
