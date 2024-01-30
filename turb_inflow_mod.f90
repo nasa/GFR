@@ -394,6 +394,8 @@ module synthetic_eddy_mod
   !
  !real(wp), allocatable :: xyz_sem(:,:)
   !
+  integer, parameter :: sem_walls(1:2) = [bc_adiabatic_wall,bc_isothermal_wall]
+  !
 contains
 !
 !###############################################################################
@@ -3572,7 +3574,7 @@ continue
   !
   do grp_idx = 1,size(bc_grps)
     !
-    if (any(bc_grps(grp_idx)%bc_type == bc_physical_walls)) then
+    if (any(bc_grps(grp_idx)%bc_type == sem_walls)) then
       !
       n1 = bc_grps(grp_idx)%beg_fp
       n2 = bc_grps(grp_idx)%end_fp
@@ -3614,7 +3616,7 @@ continue
   !
   do grp_idx = 1,size(bc_grps)
     !
-    if (any(bc_grps(grp_idx)%bc_type == bc_physical_walls)) then
+    if (any(bc_grps(grp_idx)%bc_type == sem_walls)) then
       !
       n1 = bc_grps(grp_idx)%beg_fp
       n2 = bc_grps(grp_idx)%end_fp
@@ -6488,7 +6490,7 @@ continue
     msk = init_array(nnode,fals) ! F2003 AUTO-REALLOC
     !
     do nf = 1,nfbnd
-      if (any(bface(1,nf) == bc_physical_walls)) then
+      if (any(bface(1,nf) == sem_walls)) then
         msk( grid%elem(ncell+nf)%nodes(:) ) = true
       end if
     end do
