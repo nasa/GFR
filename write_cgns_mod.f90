@@ -131,7 +131,7 @@ subroutine convert_restart_files_to_cgns()
   !.. Use Statements ..
   use ovar,          only : restart_list_file,restart_file
   use ovar,          only : output_time_averaging,read_time_ave_restart
-  use ovar,          only : ave_start_time,prev_ave_time
+  use ovar,          only : ave_start_time
   use ovar,          only : time,itcur,tmrst,itrst
   use ovar,          only : time_ref,time_scaling_factor
   use ovar,          only : delete_converted_restart_files
