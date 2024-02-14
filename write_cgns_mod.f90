@@ -4137,6 +4137,9 @@ end subroutine write_parallel_cgns_time_ave_file
 !
 subroutine get_cgns_time_ave_variables(variable_list)
   !
+  !.. Use Statements ..
+  use ovar, only : time_ave_vel_is_axisymm
+  !
   !.. Formal Arguments ..
 #ifdef SPECIAL_FOR_INTEL
   character(len=:), allocatable, intent(out) :: variable_list(:)
@@ -4153,8 +4156,10 @@ subroutine get_cgns_time_ave_variables(variable_list)
   !.. Local Allocatable Arrays ..
 #ifdef SPECIAL_FOR_INTEL
   character(len=:), allocatable :: temp_variables(:)
+  character(len=:), allocatable :: output_variables(:)
 #else
   character(len=CGLEN), allocatable :: temp_variables(:)
+  character(len=CGLEN), allocatable :: output_variables(:)
 #endif
   !
   !.. Local Parameters ..
@@ -4175,9 +4180,54 @@ subroutine get_cgns_time_ave_variables(variable_list)
                                                        "vT         ", &
                                                        "wT         "]
   !
+  character(len=*), parameter :: axi_list(1:15) = ["Density            ", &
+                                                   "Velocity           ", &
+                                                   "CylindricalVelocity", &
+                                                   "Pressure           ", &
+                                                   "Temperature        ", &
+                                                   "uu                 ", &
+                                                   "rr                 ", &
+                                                   "ff                 ", &
+                                                   "ur                 ", &
+                                                   "uf                 ", &
+                                                   "rf                 ", &
+                                                   "TT                 ", &
+                                                   "uT                 ", &
+                                                   "rT                 ", &
+                                                   "fT                 "]
+  !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(size(default_list)) = default_list(:)
+  character(len=*), parameter :: var_order(1:30) = ["Density            ", &
+                                                    "Velocity           ", &
+                                                    "CylindricalVelocity", &
+                                                    "Pressure           ", &
+                                                    "Temperature        ", &
+                                                    "uu                 ", &
+                                                    "vv                 ", &
+                                                    "ww                 ", &
+                                                    "rr                 ", &
+                                                    "ff                 ", &
+                                                    "uv                 ", &
+                                                    "uw                 ", &
+                                                    "vw                 ", &
+                                                    "ur                 ", &
+                                                    "uf                 ", &
+                                                    "rf                 ", &
+                                                    "TT                 ", &
+                                                    "uT                 ", &
+                                                    "vT                 ", &
+                                                    "wT                 ", &
+                                                    "rT                 ", &
+                                                    "fT                 ", &
+                                                    "dd                 ", &
+                                                    "du                 ", &
+                                                    "dv                 ", &
+                                                    "dw                 ", &
+                                                    "dr                 ", &
+                                                    "df                 ", &
+                                                    "dT                 ", &
+                                                    "PP                 "]
   !
 continue
   !
@@ -4185,7 +4235,11 @@ continue
   !
   ! Allocate variable_list to the default_list
   !
-  call add_sol_variables(variable_list,default_list)
+  if (time_ave_vel_is_axisymm) then
+    call add_sol_variables(variable_list,axi_list)
+  else
+    call add_sol_variables(variable_list,default_list)
+  end if
   !
   ! Make sure there are no duplicate variables being output
   !
@@ -4274,6 +4328,8 @@ subroutine output_time_ave_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
   integer(CBT) :: ivar_s
   !
+  character(len=1) :: char_axi
+  !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: vartmp_at_sp(:)
   real(wp), allocatable :: v1(:)
@@ -4337,6 +4393,38 @@ continue
           ! F2003 AUTO-REALLOC
           ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
           if (ta_var == char_xyz(l)) then
+            idx1 = m
+            exit
+          end if
+        end do
+        !
+        if (idx1 > 0) then
+          call interpolate_for_output( uavesp(:,idx1) , vartmp )
+        end if
+        !
+        do n = 1,npts
+          vartmp(n) = vartmp(n) * aref
+        end do
+        !
+        call cgns_write_field_data
+        !
+        idx1 = 0
+        !
+      end do
+      !!}}}
+    case ("CylindricalVelocity") ! Cylindrical Velocities (Vr and Vtheta)
+      !!{{{
+      do l = 1,2
+        !
+        char_axi = merge("R","F",l==1)
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do m = 1,size(time_ave_variables)
+          ! F2003 AUTO-REALLOC
+          ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+          if (ta_var == char_axi) then
             idx1 = m
             exit
           end if
@@ -4524,6 +4612,86 @@ continue
       !
       call cgns_write_field_data
       !!}}}
+    case ("rr") ! radial velocity fluctuation
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "R") then
+          idx1 = m
+        else if (ta_var == "RR") then
+          idx2 = m
+        end if
+        if (all([idx1,idx2] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx2) - uavesp(:,idx1)*uavesp(:,idx1)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          do n = 1,npts
+            vartmp(n) = v2(n) - v1(n)*v1(n)
+          end do
+          deallocate ( v1 , v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * aref*aref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("ff") ! azimuthal velocity fluctuation
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "F") then
+          idx1 = m
+        else if (ta_var == "FF") then
+          idx2 = m
+        end if
+        if (all([idx1,idx2] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx2) - uavesp(:,idx1)*uavesp(:,idx1)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          do n = 1,npts
+            vartmp(n) = v2(n) - v1(n)*v1(n)
+          end do
+          deallocate ( v1 , v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * aref*aref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
     case ("uv") ! X-Y shear stress
       !!{{{
       nv = nv + 1
@@ -4656,6 +4824,138 @@ continue
       !
       call cgns_write_field_data
       !!}}}
+    case ("ur") ! X-R shear stress
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "X") then
+          idx1 = m
+        else if (ta_var == "R") then
+          idx2 = m
+        else if (ta_var == "XR") then
+          idx3 = m
+        end if
+        if (all([idx1,idx2,idx3] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2,idx3] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx3) - uavesp(:,idx1)*uavesp(:,idx2)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v1v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          call interpolate_for_output( uavesp(:,idx3) , v1v2 )
+          do n = 1,npts
+            vartmp(n) = v1v2(n) - v1(n)*v2(n)
+          end do
+          deallocate ( v1 , v2 , v1v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * aref*aref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("uf") ! X-Theta shear stress
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "X") then
+          idx1 = m
+        else if (ta_var == "F") then
+          idx2 = m
+        else if (ta_var == "XF") then
+          idx3 = m
+        end if
+        if (all([idx1,idx2,idx3] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2,idx3] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx3) - uavesp(:,idx1)*uavesp(:,idx2)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v1v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          call interpolate_for_output( uavesp(:,idx3) , v1v2 )
+          do n = 1,npts
+            vartmp(n) = v1v2(n) - v1(n)*v2(n)
+          end do
+          deallocate ( v1 , v2 , v1v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * aref*aref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("rf") ! R-Theta shear stress
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "R") then
+          idx1 = m
+        else if (ta_var == "F") then
+          idx2 = m
+        else if (ta_var == "RF") then
+          idx3 = m
+        end if
+        if (all([idx1,idx2,idx3] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2,idx3] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx3) - uavesp(:,idx1)*uavesp(:,idx2)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v1v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          call interpolate_for_output( uavesp(:,idx3) , v1v2 )
+          do n = 1,npts
+            vartmp(n) = v1v2(n) - v1(n)*v2(n)
+          end do
+          deallocate ( v1 , v2 , v1v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * aref*aref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
     case ("TT") ! Temperature Fluctuation
       !!{{{
       nv = nv + 1
@@ -4735,7 +5035,7 @@ continue
       end if
       !
       do n = 1,npts
-        vartmp(n) = vartmp(n) * aref*aref
+        vartmp(n) = vartmp(n) * aref*tref
       end do
       !
       call cgns_write_field_data
@@ -4779,7 +5079,7 @@ continue
       end if
       !
       do n = 1,npts
-        vartmp(n) = vartmp(n) * aref*aref
+        vartmp(n) = vartmp(n) * aref*tref
       end do
       !
       call cgns_write_field_data
@@ -4823,7 +5123,439 @@ continue
       end if
       !
       do n = 1,npts
-        vartmp(n) = vartmp(n) * aref*aref
+        vartmp(n) = vartmp(n) * aref*tref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("rT") ! Radial heat flux
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "R") then
+          idx1 = m
+        else if (ta_var == "T") then
+          idx2 = m
+        else if (ta_var == "RT") then
+          idx3 = m
+        end if
+        if (all([idx1,idx2,idx3] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2,idx3] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx3) - uavesp(:,idx1)*uavesp(:,idx2)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v1v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          call interpolate_for_output( uavesp(:,idx3) , v1v2 )
+          do n = 1,npts
+            vartmp(n) = v1v2(n) - v1(n)*v2(n)
+          end do
+          deallocate ( v1 , v2 , v1v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * aref*tref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("fT") ! Azimuthal heat flux
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "F") then
+          idx1 = m
+        else if (ta_var == "T") then
+          idx2 = m
+        else if (ta_var == "FT") then
+          idx3 = m
+        end if
+        if (all([idx1,idx2,idx3] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2,idx3] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx3) - uavesp(:,idx1)*uavesp(:,idx2)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v1v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          call interpolate_for_output( uavesp(:,idx3) , v1v2 )
+          do n = 1,npts
+            vartmp(n) = v1v2(n) - v1(n)*v2(n)
+          end do
+          deallocate ( v1 , v2 , v1v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * aref*tref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("dd") ! Density Fluctuation
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "D") then
+          idx1 = m
+        else if (ta_var == "DD") then
+          idx2 = m
+        end if
+        if (all([idx1,idx2] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx2) - uavesp(:,idx1)*uavesp(:,idx1)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          do n = 1,npts
+            vartmp(n) = v2(n) - v1(n)*v1(n)
+          end do
+          deallocate ( v1 , v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * rhoref*rhoref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("du") ! Axial momentum fluctuation
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "D") then
+          idx1 = m
+        else if (ta_var == "X") then
+          idx2 = m
+        else if (ta_var == "DX") then
+          idx3 = m
+        end if
+        if (all([idx1,idx2,idx3] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2,idx3] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx3) - uavesp(:,idx1)*uavesp(:,idx2)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v1v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          call interpolate_for_output( uavesp(:,idx3) , v1v2 )
+          do n = 1,npts
+            vartmp(n) = v1v2(n) - v1(n)*v2(n)
+          end do
+          deallocate ( v1 , v2 , v1v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * rhoref*aref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("dv") ! Vertical momentum fluctuation
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "D") then
+          idx1 = m
+        else if (ta_var == "Y") then
+          idx2 = m
+        else if (ta_var == "DY") then
+          idx3 = m
+        end if
+        if (all([idx1,idx2,idx3] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2,idx3] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx3) - uavesp(:,idx1)*uavesp(:,idx2)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v1v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          call interpolate_for_output( uavesp(:,idx3) , v1v2 )
+          do n = 1,npts
+            vartmp(n) = v1v2(n) - v1(n)*v2(n)
+          end do
+          deallocate ( v1 , v2 , v1v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * rhoref*aref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("dw") ! Spanwise momentum fluctuation
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "D") then
+          idx1 = m
+        else if (ta_var == "Z") then
+          idx2 = m
+        else if (ta_var == "DZ") then
+          idx3 = m
+        end if
+        if (all([idx1,idx2,idx3] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2,idx3] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx3) - uavesp(:,idx1)*uavesp(:,idx2)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v1v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          call interpolate_for_output( uavesp(:,idx3) , v1v2 )
+          do n = 1,npts
+            vartmp(n) = v1v2(n) - v1(n)*v2(n)
+          end do
+          deallocate ( v1 , v2 , v1v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * rhoref*aref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("dr") ! Radial momentum fluctuation
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "D") then
+          idx1 = m
+        else if (ta_var == "R") then
+          idx2 = m
+        else if (ta_var == "DR") then
+          idx3 = m
+        end if
+        if (all([idx1,idx2,idx3] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2,idx3] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx3) - uavesp(:,idx1)*uavesp(:,idx2)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v1v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          call interpolate_for_output( uavesp(:,idx3) , v1v2 )
+          do n = 1,npts
+            vartmp(n) = v1v2(n) - v1(n)*v2(n)
+          end do
+          deallocate ( v1 , v2 , v1v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * rhoref*aref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("df") ! Azimuthal momentum fluctuation
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "D") then
+          idx1 = m
+        else if (ta_var == "F") then
+          idx2 = m
+        else if (ta_var == "DF") then
+          idx3 = m
+        end if
+        if (all([idx1,idx2,idx3] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2,idx3] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx3) - uavesp(:,idx1)*uavesp(:,idx2)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v1v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          call interpolate_for_output( uavesp(:,idx3) , v1v2 )
+          do n = 1,npts
+            vartmp(n) = v1v2(n) - v1(n)*v2(n)
+          end do
+          deallocate ( v1 , v2 , v1v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * rhoref*aref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("dT") ! Density-temperature fluctuation
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "D") then
+          idx1 = m
+        else if (ta_var == "T") then
+          idx2 = m
+        else if (ta_var == "DT") then
+          idx3 = m
+        end if
+        if (all([idx1,idx2,idx3] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2,idx3] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx3) - uavesp(:,idx1)*uavesp(:,idx2)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v1v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          call interpolate_for_output( uavesp(:,idx3) , v1v2 )
+          do n = 1,npts
+            vartmp(n) = v1v2(n) - v1(n)*v2(n)
+          end do
+          deallocate ( v1 , v2 , v1v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * rhoref*tref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("PP") ! Pressure Fluctuation
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+        if (ta_var == "P") then
+          idx1 = m
+        else if (ta_var == "PP") then
+          idx2 = m
+        end if
+        if (all([idx1,idx2] > 0)) exit
+      end do
+      !
+      if (all([idx1,idx2] > 0)) then
+        if (interpolate_before_output_variable) then
+          ! F2003 AUTO-REALLOC
+          vartmp_at_sp = uavesp(:,idx2) - uavesp(:,idx1)*uavesp(:,idx1)
+          call interpolate_for_output( vartmp_at_sp , vartmp )
+          deallocate ( vartmp_at_sp , stat=ierr )
+        else
+          v1 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          v2 = init_array(npts,zero) ! F2003 AUTO-REALLOC
+          call interpolate_for_output( uavesp(:,idx1) , v1 )
+          call interpolate_for_output( uavesp(:,idx2) , v2 )
+          do n = 1,npts
+            vartmp(n) = v2(n) - v1(n)*v1(n)
+          end do
+          deallocate ( v1 , v2 , stat=ierr )
+        end if
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * (rhoref*aref*aref)**2
       end do
       !
       call cgns_write_field_data
