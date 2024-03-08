@@ -1602,7 +1602,7 @@ continue
   ! running in the PBS environment
   !
 #ifdef PBS_ENV
-  iter_out_fmt = iter_out_fmt(1:len_trim(iter_out_fmt)) // ',1x,i0,2(":",i2.2)'
+  iter_out_fmt = iter_out_fmt(1:len_trim(iter_out_fmt)) // ',1x,i3,2(":",i2.2)'
 #endif
   !
   ! Put the last ')' onto iter_out_fmt
