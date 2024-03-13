@@ -3165,12 +3165,38 @@ continue
       !
       vartmp_at_sp = vartmp(:) ! F2003 AUTO-REALLOC
       !
-      ! Normalize the whole Q-criterion to the interval 0->1
+      ! Get the min/max values of the Q-criterion on this partition
       !
       qmin = minval(vartmp(:))
       qmax = maxval(vartmp(:))
       !
-      vartmp(:) = (vartmp(:) - qmin)/(qmax-qmin)
+      ! Get the collective min/max Q-criterion values across all partitions
+      !
+      !##################################################################
+      !##################################################################
+      !##################################################################
+      ! NOTE: IF WE EVER CHANGE CGNS OUTPUT TO SOMETHING LIKE RESTART
+      !       FILES WHERE ONLY THE HOST MPI PROCESS ON EACH NODE
+      !       PARTICIPATES IN WRITING THE CGNS FILE (I.E., SEE INPUT
+      !       RESTART_OUTPUT_USES_HOST_ROOTS), WE WILL HAVE TO CHANGE
+      !       THE COMMUNICATOR USED IN THE FOLLOWING MPI CALLS.
+      !##################################################################
+      !##################################################################
+      !##################################################################
+      !
+      call mpi_allreduce(MPI_IN_PLACE,qmin,1_int_mpi,mpi_flttyp, &
+                         MPI_MIN,MPI_COMM_WORLD,mpierr)
+      !
+      call mpi_allreduce(MPI_IN_PLACE,qmax,1_int_mpi,mpi_flttyp, &
+                         MPI_MAX,MPI_COMM_WORLD,mpierr)
+      !
+      ! Normalize the Q-criterion to the interval [0,1]
+      !
+      if (abs(qmax-qmin) > eps9) then
+        vartmp(:) = (vartmp(:) - qmin)/(qmax-qmin)
+      else
+        vartmp(:) = vartmp(:) - qmin
+      end if
       !
       call cgns_write_field_data
       !
