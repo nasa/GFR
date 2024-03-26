@@ -1671,6 +1671,7 @@ end block
   !
   ! Match periodic faces specified using bc_input
   !
+  call write_namelist
   call match_periodic_faces
   !
   ! If running certain special cases and the grid was not internally generated,
@@ -1750,6 +1751,32 @@ end block
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_grid_file
+!
+!###############################################################################
+!
+subroutine write_namelist()
+  use input_namelist_mod
+#ifdef DEBUG_ON
+!#define DUMP_NAMELIST_BEFORE_PERIODIC
+#ifdef DUMP_NAMELIST_BEFORE_PERIODIC
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  if (mypnum == glb_root) then
+    write (iout,104)
+    write (iout,nml=input,delim='apostrophe')
+    write (iout,105)
+    flush (iout)
+  end if
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  104 format (/,"#######################################",/, &
+                "#####      INPUT PARAMETERS       #####",/, &
+                "#######################################",/)
+  105 format (/,"#######################################",/, &
+                "#####   END OF INPUT PARAMETERS   #####",/, &
+                "#######################################",/)
+#endif
+#endif
+end subroutine write_namelist
 !
 !###############################################################################
 !
