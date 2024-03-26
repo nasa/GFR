@@ -1584,7 +1584,7 @@ continue
                '  n_bnd_qdtpts  = ',i0,/, &
                '  n_wall_qdtpts = ',i0,//, &
                '  Total Grid Volume = ',g16.8," [m^",i1,"]",/, &
-               '  1D Solution Points = ',100(6f9.5,:,/,23x))
+               '  1D Solution Points = ',100(9f9.5,:,/,23x))
   !
   19 format (/,' Lowest  Cell Order = ',i4,/, &
                ' Highest Cell Order = ',i4,/)
