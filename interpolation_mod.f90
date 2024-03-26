@@ -24,6 +24,7 @@ module interpolation_mod
   public :: outerp_mv_mult
   public :: init_ref_vectors
   public :: compute_generic_interp_matrix
+  public :: General_Interp_Matrix
   !
   !
   !
