@@ -29,6 +29,10 @@ module io_mod
   !
   integer, save :: current_cell
   !
+  interface g2c
+    module procedure g2c_i4, g2c_i8, g2c_r4, g2c_r8, g2c_r16
+  end interface g2c
+  !
 contains
 !
 !###############################################################################
@@ -5886,6 +5890,591 @@ continue
  !5 format (i10,*(es17.9))
   !
 end subroutine write_residual_file
+!
+!###############################################################################
+!
+pure &
+function g2c_i4(val,width,digit,include_comma) result(cval)
+  !
+  use, intrinsic :: iso_fortran_env, only : lp => int32
+  !
+  !.. Formal Arguments ..
+  integer(lp), intent(in) :: val
+  !
+  !.. Optional Arguments ..
+  integer,     optional, intent(in) :: width
+  integer,     optional, intent(in) :: digit
+  logical(lk), optional, intent(in) :: include_comma
+  !
+  !.. Function Result ..
+  character(len=:), allocatable :: cval
+  !
+  !.. Local Scalars ..
+  integer :: w,d
+  !
+  logical(lk) :: add_commas
+  !
+  character(len=20)  :: cfmt
+  character(len=100) :: ctmp
+  !
+  !.. Local Parameters ..
+  logical(lk), parameter :: add_commas_default = true
+  !
+continue
+  !
+  w = 14
+  d = -1
+  if (present(width)) w = merge( width , w , width >= 0 )
+  if (present(digit)) d = merge( digit , d , digit >= 0 )
+  !
+  add_commas = add_commas_default
+  if (present(include_comma)) add_commas = include_comma
+  !
+  if (w == 0) then
+    d = -1
+  end if
+  !
+  ! Create the format string for reading val
+  !
+  write (cfmt,1) w
+  !
+  if (d >= 0) then
+    write (cfmt,2) trim(adjustl(cfmt)),d
+  end if
+  !
+  write (cfmt,3) trim(adjustl(cfmt))
+  !
+  ! Write val into ctmp
+  write (ctmp,cfmt) val
+  !
+  ! Add thousands separators if add_commas is true
+  if (add_commas) ctmp = add_thousands_separators(trim(ctmp))
+  !
+  ! Copy only the trimmed value of ctmp into cval as the function result.
+  ! NOTE: Using only trim(ctmp) instead of trim(adjustl(ctmp))
+  !       preserves the width value used to create ctmp.
+  cval = trim(ctmp) ! F2003 AUTO-REALLOC
+  !
+  ! Format Statements
+  !
+  1 format ("(i",i0)
+  2 format (a,".",i0)
+  3 format (a,")")
+  !
+end function g2c_i4
+!
+!###############################################################################
+!
+pure &
+function g2c_i8(val,width,digit,include_comma) result(cval)
+  !
+  use, intrinsic :: iso_fortran_env, only : lp => int64
+  !
+  !.. Formal Arguments ..
+  integer(lp), intent(in) :: val
+  !
+  !.. Optional Arguments ..
+  integer,     optional, intent(in) :: width
+  integer,     optional, intent(in) :: digit
+  logical(lk), optional, intent(in) :: include_comma
+  !
+  !.. Function Result ..
+  character(len=:), allocatable :: cval
+  !
+  !.. Local Scalars ..
+  integer :: w,d
+  !
+  logical(lk) :: add_commas
+  !
+  character(len=20)  :: cfmt
+  character(len=100) :: ctmp
+  !
+  !.. Local Parameters ..
+  logical(lk), parameter :: add_commas_default = true
+  !
+continue
+  !
+  w = 14
+  d = -1
+  if (present(width)) w = merge( width , w , width >= 0 )
+  if (present(digit)) d = merge( digit , d , digit >= 0 )
+  !
+  add_commas = add_commas_default
+  if (present(include_comma)) add_commas = include_comma
+  !
+  if (w == 0) then
+    d = -1
+  end if
+  !
+  ! Create the format string for reading val
+  !
+  write (cfmt,1) w
+  !
+  if (d >= 0) then
+    write (cfmt,2) trim(adjustl(cfmt)),d
+  end if
+  !
+  write (cfmt,3) trim(adjustl(cfmt))
+  !
+  ! Write val into ctmp
+  write (ctmp,cfmt) val
+  !
+  ! Add thousands separators if add_commas is true
+  if (add_commas) ctmp = add_thousands_separators(trim(ctmp))
+  !
+  ! Copy only the trimmed value of ctmp into cval as the function result.
+  ! NOTE: Using only trim(ctmp) instead of trim(adjustl(ctmp))
+  !       preserves the width value used to create ctmp.
+  cval = trim(ctmp) ! F2003 AUTO-REALLOC
+  !
+  ! Format Statements
+  !
+  1 format ("(i",i0)
+  2 format (a,".",i0)
+  3 format (a,")")
+  !
+end function g2c_i8
+!
+!###############################################################################
+!
+pure &
+function g2c_r4(val,width,digit,include_comma) result(cval)
+  !
+  use, intrinsic :: iso_fortran_env, only : lp => real32
+  !
+  !.. Formal Arguments ..
+  real(lp), intent(in) :: val
+  !
+  !.. Optional Arguments ..
+  integer,     optional, intent(in) :: width
+  integer,     optional, intent(in) :: digit
+  logical(lk), optional, intent(in) :: include_comma
+  !
+  !.. Function Result ..
+  character(len=:), allocatable :: cval
+  !
+  !.. Local Scalars ..
+  integer :: i,n,w,d
+  !
+  logical(lk) :: add_commas
+  !
+  character(len=20)  :: cfmt,cfmt1
+  character(len=100) :: ctmp,cdec
+  !
+  character(len=:), allocatable :: csig
+  !
+  !.. Local Parameters ..
+  logical(lk), parameter :: add_commas_default = true
+  !
+continue
+  !
+  w = 14
+  d = 7
+  if (present(width)) w = merge( width , w , width >= 0 )
+  if (present(digit)) d = merge( digit , d , digit >= 0 )
+  !
+  add_commas = add_commas_default
+  if (present(include_comma)) add_commas = include_comma
+  !
+  ! Extract the significand of the number as a character including
+  ! the minus sign if negative, and thousand separators if desired
+  csig = get_significand(val) ! F2003 AUTO-REALLOC
+  !
+  ! Get the length of the significand + 1 for the decimal point
+  n = len_trim(adjustl(csig)) + 1
+  !
+  if (w-n >= d) then
+    !
+    ! This number will fit the specified width using F formatting
+    !
+    if (d == 0) then
+      !
+      write (cfmt,1) w-1
+      write (ctmp,cfmt) trim(adjustl(csig))
+      !
+    else
+      !
+      ! Get the non-integer part of val and convert this to an integer value
+      ! with d-digits, and then write that integer to a character string
+      !
+      i = nint( (val - real(int(val),kind=lp)) * (real(10,kind=lp)**d) )
+      !
+      write (cfmt1,2) d,d
+      write (cdec,cfmt1) i
+      !
+      ! Write the significand and decimal part of val to ctmp
+      !
+      write (cfmt,3) w-d-1,d
+      write (ctmp,cfmt) trim(adjustl(csig)),trim(adjustl(cdec))
+      !
+    end if
+    !
+  else
+    !
+    ! This number will not fit the specified width using F formatting,
+    ! so use ES formatting instead.
+    !
+    ! Adjust the number of digits behind the decimal point if the specified
+    ! number of digits will not be able to fit the specified width.
+    !
+    if (w-d < 7) d = w-7
+    !
+    ! Create the write format for val using ES formatting with w and d
+    write (cfmt,4) w,d
+    !
+    ! Write val into ctmp
+    write (ctmp,cfmt) val
+    !
+  end if
+  !
+  cval = trim(ctmp) ! F2003 AUTO-REALLOC
+  !
+  ! Format Statements
+  !
+  1 format ("(a",i0,",'.')")
+  2 format ("(i",i0,".",i0,")")
+  3 format ("(a",i0,",'.',a",i0,")")
+  4 format ("(es",i0,".",i0,")")
+  !
+  contains
+  !=============================================================================
+  pure &
+  function get_significand(a) result(return_value)
+    real(lp), intent(in) :: a
+    character(len=:), allocatable :: return_value
+    character(len=100) :: c
+    write (c,'(i0)') int(abs(a))
+    if (add_commas) c = add_thousands_separators(trim(c))
+    return_value = trim(adjustl(c)) ! F2003 AUTO-REALLOC
+    if (a < real(0,kind=lp)) then
+      return_value = '-' // return_value ! F2003 AUTO-REALLOC
+    end if
+  end function get_significand
+  !=============================================================================
+end function g2c_r4
+!
+!###############################################################################
+!
+pure &
+function g2c_r8(val,width,digit,include_comma) result(cval)
+  !
+  use, intrinsic :: iso_fortran_env, only : lp => real64
+  !
+  !.. Formal Arguments ..
+  real(lp), intent(in) :: val
+  !
+  !.. Optional Arguments ..
+  integer,     optional, intent(in) :: width
+  integer,     optional, intent(in) :: digit
+  logical(lk), optional, intent(in) :: include_comma
+  !
+  !.. Function Result ..
+  character(len=:), allocatable :: cval
+  !
+  !.. Local Scalars ..
+  integer :: i,n,w,d
+  !
+  logical(lk) :: add_commas
+  !
+  character(len=20)  :: cfmt,cfmt1
+  character(len=100) :: ctmp,cdec
+  !
+  character(len=:), allocatable :: csig
+  !
+  !.. Local Parameters ..
+  logical(lk), parameter :: add_commas_default = true
+  !
+continue
+  !
+  w = 14
+  d = 7
+  if (present(width)) w = merge( width , w , width >= 0 )
+  if (present(digit)) d = merge( digit , d , digit >= 0 )
+  !
+  add_commas = add_commas_default
+  if (present(include_comma)) add_commas = include_comma
+  !
+  ! Extract the significand of the number as a character including
+  ! the minus sign if negative, and thousand separators if desired
+  csig = get_significand(val) ! F2003 AUTO-REALLOC
+  !
+  ! Get the length of the significand + 1 for the decimal point
+  n = len_trim(adjustl(csig)) + 1
+  !
+  if (w-n >= d) then
+    !
+    ! This number will fit the specified width using F formatting
+    !
+    if (d == 0) then
+      !
+      write (cfmt,1) w-1
+      write (ctmp,cfmt) trim(adjustl(csig))
+      !
+    else
+      !
+      ! Get the non-integer part of val and convert this to an integer value
+      ! with d-digits, and then write that integer to a character string
+      !
+      i = nint( (val - real(int(val),kind=lp)) * (real(10,kind=lp)**d) )
+      !
+      write (cfmt1,2) d,d
+      write (cdec,cfmt1) i
+      !
+      ! Write the significand and decimal part of val to ctmp
+      !
+      write (cfmt,3) w-d-1,d
+      write (ctmp,cfmt) trim(adjustl(csig)),trim(adjustl(cdec))
+      !
+    end if
+    !
+  else
+    !
+    ! This number will not fit the specified width using F formatting,
+    ! so use ES formatting instead.
+    !
+    ! Adjust the number of digits behind the decimal point if the specified
+    ! number of digits will not be able to fit the specified width.
+    !
+    if (w-d < 7) d = w-7
+    !
+    ! Create the write format for val using ES formatting with w and d
+    write (cfmt,4) w,d
+    !
+    ! Write val into ctmp
+    write (ctmp,cfmt) val
+    !
+  end if
+  !
+  cval = trim(ctmp) ! F2003 AUTO-REALLOC
+  !
+  ! Format Statements
+  !
+  1 format ("(a",i0,",'.')")
+  2 format ("(i",i0,".",i0,")")
+  3 format ("(a",i0,",'.',a",i0,")")
+  4 format ("(es",i0,".",i0,")")
+  !
+  contains
+  !=============================================================================
+  pure &
+  function get_significand(a) result(return_value)
+    real(lp), intent(in) :: a
+    character(len=:), allocatable :: return_value
+    character(len=100) :: c
+    write (c,'(i0)') int(abs(a))
+    if (add_commas) c = add_thousands_separators(trim(c))
+    return_value = trim(adjustl(c)) ! F2003 AUTO-REALLOC
+    if (a < real(0,kind=lp)) then
+      return_value = '-' // return_value ! F2003 AUTO-REALLOC
+    end if
+  end function get_significand
+  !=============================================================================
+end function g2c_r8
+!
+!###############################################################################
+!
+pure &
+function g2c_r16(val,width,digit,include_comma) result(cval)
+  !
+  use, intrinsic :: iso_fortran_env, only : lp => real128
+  !
+  !.. Formal Arguments ..
+  real(lp), intent(in) :: val
+  !
+  !.. Optional Arguments ..
+  integer,     optional, intent(in) :: width
+  integer,     optional, intent(in) :: digit
+  logical(lk), optional, intent(in) :: include_comma
+  !
+  !.. Function Result ..
+  character(len=:), allocatable :: cval
+  !
+  !.. Local Scalars ..
+  integer :: i,n,w,d
+  !
+  logical(lk) :: add_commas
+  !
+  character(len=20)  :: cfmt,cfmt1
+  character(len=100) :: ctmp,cdec
+  !
+  character(len=:), allocatable :: csig
+  !
+  !.. Local Parameters ..
+  logical(lk), parameter :: add_commas_default = true
+  !
+continue
+  !
+  w = 14
+  d = 7
+  if (present(width)) w = merge( width , w , width >= 0 )
+  if (present(digit)) d = merge( digit , d , digit >= 0 )
+  !
+  add_commas = add_commas_default
+  if (present(include_comma)) add_commas = include_comma
+  !
+  ! Extract the significand of the number as a character including
+  ! the minus sign if negative, and thousand separators if desired
+  csig = get_significand(val) ! F2003 AUTO-REALLOC
+  !
+  ! Get the length of the significand + 1 for the decimal point
+  n = len_trim(adjustl(csig)) + 1
+  !
+  if (w-n >= d) then
+    !
+    ! This number will fit the specified width using F formatting
+    !
+    if (d == 0) then
+      !
+      write (cfmt,1) w-1
+      write (ctmp,cfmt) trim(adjustl(csig))
+      !
+    else
+      !
+      ! Get the non-integer part of val and convert this to an integer value
+      ! with d-digits, and then write that integer to a character string
+      !
+      i = nint( (val - real(int(val),kind=lp)) * (real(10,kind=lp)**d) )
+      !
+      write (cfmt1,2) d,d
+      write (cdec,cfmt1) i
+      !
+      ! Write the significand and decimal part of val to ctmp
+      !
+      write (cfmt,3) w-d-1,d
+      write (ctmp,cfmt) trim(adjustl(csig)),trim(adjustl(cdec))
+      !
+    end if
+    !
+  else
+    !
+    ! This number will not fit the specified width using F formatting,
+    ! so use ES formatting instead.
+    !
+    ! Adjust the number of digits behind the decimal point if the specified
+    ! number of digits will not be able to fit the specified width.
+    !
+    if (w-d < 7) d = w-7
+    !
+    ! Create the write format for val using ES formatting with w and d
+    write (cfmt,4) w,d
+    !
+    ! Write val into ctmp
+    write (ctmp,cfmt) val
+    !
+  end if
+  !
+  cval = trim(ctmp) ! F2003 AUTO-REALLOC
+  !
+  ! Format Statements
+  !
+  1 format ("(a",i0,",'.')")
+  2 format ("(i",i0,".",i0,")")
+  3 format ("(a",i0,",'.',a",i0,")")
+  4 format ("(es",i0,".",i0,")")
+  !
+  contains
+  !=============================================================================
+  pure &
+  function get_significand(a) result(return_value)
+    real(lp), intent(in) :: a
+    character(len=:), allocatable :: return_value
+    character(len=100) :: c
+    write (c,'(i0)') int(abs(a))
+    if (add_commas) c = add_thousands_separators(trim(c))
+    return_value = trim(adjustl(c)) ! F2003 AUTO-REALLOC
+    if (a < real(0,kind=lp)) then
+      return_value = '-' // return_value ! F2003 AUTO-REALLOC
+    end if
+  end function get_significand
+  !=============================================================================
+end function g2c_r16
+!
+!###############################################################################
+!
+pure &
+function add_thousands_separators(cnum) result(return_value)
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: cnum
+  !
+  !.. Function Result ..
+  character(len=:), allocatable :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n
+  !
+  character(len=100) :: cr1,cr2
+  character(len=1)   :: c
+  character(len=len_trim(cnum)) :: csep
+  !
+continue
+  !
+  cr1 = ''
+  cr2 = ''
+  csep = ''
+  !
+  ! Create a reversed version of the input cnum
+  !
+  i = 0
+  do n = len_trim(cnum),1,-1
+    i = i + 1
+    cr1(i:i) = cnum(n:n)
+  end do
+  !
+  ! Use cr1, the reversed version of cnum, to add a comma every
+  ! third digit and save the result in cr2. If a space or minus
+  ! sign is encountered at any time, pad the remaining part of
+  ! cr2 with spaces and exit the loop.
+  !
+  i = 0
+  j = 0
+  create_cr2: &
+  do n = 1,len_trim(cnum)
+    i = i + 1
+    j = j + 1
+    c = cr1(n:n)
+    cr2(i:i) = c
+    if (c == '-' .or. c == ' ') then
+      cr2(i+1:) = ' '
+      exit create_cr2
+    end if
+    if (j == 3) then
+      j = 0
+      i = i + 1
+      c = cr1(n+1:n+1)
+      if (c /= '-' .and. c /= ' ') then
+        cr2(i:i) = ','
+      else
+        cr2(i:i) = c
+        cr2(i+1:) = ' '
+        exit create_cr2
+      end if
+    end if
+  end do create_cr2
+  !
+  ! Reverse the reversed number containing commas for thousands separators
+  ! into cr1 to create a regular/forward version of the number including
+  ! the thousands separators.
+  !
+  i = 0
+  do n = len_trim(cr2),1,-1
+    i = i + 1
+    cr1(i:i) = cr2(n:n)
+  end do
+  !
+  ! Copy the comma separated version of the number into the function result,
+  ! and make sure to include left space padding if the cnum input is longer
+  ! than the thousands separated result.
+  !
+  if (len_trim(cnum) > len_trim(cr1)) then
+    csep = trim(cr1)
+    csep = adjustr(csep)
+    return_value = csep ! F2003 AUTO-REALLOC
+  else
+    return_value = trim(adjustl(cr1)) ! F2003 AUTO-REALLOC
+  end if
+  !
+end function add_thousands_separators
 !
 !###############################################################################
 !
