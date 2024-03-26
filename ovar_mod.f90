@@ -309,6 +309,7 @@ module ovar
   logical(lk),      public, save :: restart_output_uses_host_roots = true
   real(wp),         public, save :: CFL_reduction_for_NaN_restart  = 2.0_wp
   integer,          public, save :: num_saved_time_ave_restarts    = 2
+  real(wp),         public, save :: restart_frequency              = -one
   !
   ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
   integer,          public, save :: solution_format = Unknown_Format
@@ -685,6 +686,7 @@ module ovar
   integer,  public, save :: Total_Periods
   !
   logical(lk),  public, save :: is_at_output_frequency = fals
+  logical(lk),  public, save :: is_at_restart_frequency = fals
   !
   logical(lk),  public, save :: write_TaylorGreen_8s_solution = fals
   logical(lk),  public, save :: write_TaylorGreen_full_solution = fals
@@ -1741,6 +1743,7 @@ module input_namelist_mod
   use ovar,      only : restart_output_uses_host_roots
   use ovar,      only : CFL_reduction_for_NaN_restart
   use ovar,      only : num_saved_time_ave_restarts
+  use ovar,      only : restart_frequency
   use ovar,      only : iter_out_interval, results_interval
   use ovar,      only : output_eperk_cfl, disable_header_rewrites
   use ovar,      only : output_summary_file
@@ -1916,7 +1919,8 @@ module input_namelist_mod
                      use_old_restart_format, restart_file, &
                      restart_output_uses_host_roots, &
                      CFL_reduction_for_NaN_restart, &
-                     num_saved_time_ave_restarts
+                     num_saved_time_ave_restarts, &
+                     restart_frequency
   ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
   namelist / input / solution_format, solution_file
   ! OPTIONS FOR SEM
