@@ -478,7 +478,8 @@ $(OBJDIR)/mrf_mod.o : mrf_mod.f90 \
             $(OBJDIR)/eqn_idx_mod.o \
             $(OBJDIR)/geovar_mod.o \
             $(OBJDIR)/ovar_mod.o \
-            $(OBJDIR)/flowvar_mod.o
+            $(OBJDIR)/flowvar_mod.o \
+            $(OBJDIR)/metrics.o
 
 $(OBJDIR)/mycpu.o : $(FUNDIR)/mycpu.c
 
