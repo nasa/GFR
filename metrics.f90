@@ -2553,6 +2553,11 @@ continue
     !
   end do cell_loop
   !
+  ! The face normal for the left face of the first cell is -1 because
+  ! the boundary normals always point outside the domain.
+  !
+  fnrm(1,1) = -one
+  !
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_face_normals_1d
