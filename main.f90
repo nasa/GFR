@@ -33,6 +33,7 @@ program GFR_main
   use ovar, only : results_interval,iter_out_interval,output_eperk_cfl
   use ovar, only : restart_interval,output_interval
   use ovar, only : is_at_output_frequency
+  use ovar, only : is_at_restart_frequency
   use ovar, only : dump_memory_usage,mms_opt
   use ovar, only : gfr_cpu_time,this_is_final_timestep
   use ovar, only : write_TaylorGreen_8s_solution
@@ -1385,8 +1386,13 @@ continue
           end if
         end if
         !
+        if (is_at_restart_frequency) then
+          output_restart = true
+        end if
+        !
         if (output_restart .and. .not.request_restart) then
           call write_restart_file(itcur)
+          is_at_restart_frequency = fals
         end if
         !
         ! Output the solution at the specified interval
