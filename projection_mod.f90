@@ -313,11 +313,17 @@ continue
           !
           ! NOTE: USE OF COMPUTE_BASIS_MATRIX WITH OPTIONAL ARGUMENT
           !       NODAL_POINTS CAN BE PROBLEMATIC FOR QUADS AND HEXES. THIS
-          !       FUNCTION IS EXPECTING A 1D NODAL SET FOR THIS ELEMENTS.
+          !       FUNCTION IS EXPECTING A 1D NODAL SET FOR THESE ELEMENTS.
           !
-          vmat(:,:) = Compute_Basis_Matrix( &
-                          this_geom,elem_order, &
-                          nodal_points=face_elem(this_geom,elem_order)%pts)
+          if (any(this_geom == [Geom_Quad,Geom_Hexa])) then
+            vmat(:,:) = Compute_Basis_Matrix( &
+                            this_geom,elem_order, &
+                            nodal_points=face_elem(Geom_Edge,elem_order)%pts)
+          else
+            vmat(:,:) = Compute_Basis_Matrix( &
+                            this_geom,elem_order, &
+                            nodal_points=face_elem(this_geom,elem_order)%pts)
+          end if
           !
           ! Compute the basis matrix for the quadrature points in the
           ! solution polynomial space
@@ -330,11 +336,17 @@ continue
           !
           ! NOTE: USE OF COMPUTE_BASIS_MATRIX WITH OPTIONAL ARGUMENT
           !       NODAL_POINTS CAN BE PROBLEMATIC FOR QUADS AND HEXES. THIS
-          !       FUNCTION IS EXPECTING A 1D NODAL SET FOR THIS ELEMENTS.
+          !       FUNCTION IS EXPECTING A 1D NODAL SET FOR THESE ELEMENTS.
           !
-          bmat(:,:) = Compute_Basis_Matrix( &
-                          this_geom,fq_order,basis_order=elem_order, &
-                          nodal_points=face_elem(this_geom,fq_order)%pts)
+          if (any(this_geom == [Geom_Quad,Geom_Hexa])) then
+            bmat(:,:) = Compute_Basis_Matrix( &
+                            this_geom,fq_order,basis_order=elem_order, &
+                            nodal_points=face_elem(Geom_Edge,fq_order)%pts)
+          else
+            bmat(:,:) = Compute_Basis_Matrix( &
+                            this_geom,fq_order,basis_order=elem_order, &
+                            nodal_points=face_elem(this_geom,fq_order)%pts)
+          end if
           !
           ! Allocate the projection matrix for this quadrature order
           ! NOTE : proj is actually the transpose of the projection matrix
