@@ -155,7 +155,7 @@ continue
     rny = facenrm(2,n)
     rnz = facenrm(3,n)
     ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
-    unx = rnx/ds
+    unx = rnx/ds ! These point outside the domain
     uny = rny/ds
     unz = rnz/ds
     !
@@ -189,9 +189,12 @@ continue
     ! Set the boundary pressure to the reference pressure if the normal
     ! velocity from the interior is subsonic, otherwise set the boundary
     ! pressure to the reference total pressure
+    ! NOTE: This computes a boundary density using the assumption that
+    !       the boundary temperature is equal to the interior temperature.
     !
     pres_ext = (one-rlx)*pres + rlx*pres_bc
     rho_ext = rho*pres_ext/pres
+   !enth_ext = gamm*pres_ext / ((gamm-one)*rho_ext)
     !
     if (mach >= one) then
       total_cond = one + half*(gamm-one)*mach*mach
@@ -200,11 +203,26 @@ continue
       rho_ext = rho*pres_ext/ptot
     end if
     !
+    ! THESE COMPUTE THE BOUNDARY STATES USING
+    !     INTERIOR : enthalpy (temperature) and velocities
+    !     EXTERIOR : pressure
+    !
     face_cv(n,nec,2) = rho_ext
     face_cv(n,nmx,2) = rho_ext*vx
     face_cv(n,nmy,2) = rho_ext*vy
     face_cv(n,nmz,2) = rho_ext*vz
     face_cv(n,nee,2) = rho_ext*enth - pres_ext + half*rho_ext*q2
+    !
+    ! THESE COMMENTED OUT LINES COMPUTE THE BOUNDARY STATES USING
+    !     INTERIOR : rho and velocities
+    !     EXTERIOR : pressure
+    ! NOTE: I THINK THE ENTHALPY/TEMPERATURE BASED STATES WORK BETTER???
+    !
+   !face_cv(n,nec,2) = rho
+   !face_cv(n,nmx,2) = rho*vx
+   !face_cv(n,nmy,2) = rho*vy
+   !face_cv(n,nmz,2) = rho*vz
+   !face_cv(n,nee,2) = pres_ext/(gamm-one) + half*rho*q2
     !
   end do
   !
