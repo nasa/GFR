@@ -2,7 +2,7 @@ module synthetic_eddy_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nee,nq,ntemp,npres
+  use eqn_idx, only : ncs,nec,nmx,nmy,nmz,nee,nq,ntemp,npres,ncp
   !
   implicit none
   !
@@ -1661,9 +1661,10 @@ subroutine sem(face_cv,face_gp)
   !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
   !
   !.. Use Statements ..
-  use ovar, only : d_t,gam,rgasref_nd,time_ref,itcur
+  use ovar, only : d_t,gam,rgasref_nd,cpref_nd,time_ref,itcur
   use ovar, only : use_improved_SEM_normalization
   use ovar, only : jet_init_func
+  use ovar, only : SEM_include_thermo_fluctuations
   !
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
@@ -1680,6 +1681,7 @@ subroutine sem(face_cv,face_gp)
   real(wp) :: x,epx,elx,eix,tfx,ufluc,ufluc2,uavg,vx
   real(wp) :: y,epy,ely,eiy,tfy,vfluc,vfluc2,vavg,vy
   real(wp) :: z,epz,elz,eiz,tfz,wfluc,wfluc2,wavg,vz
+  real(wp) :: cp,tfluc,rfluc
   real(wp) :: st,ct,vr,vt,aoa,boa
   real(wp) :: boxmaxx,new_x
   !
@@ -1705,6 +1707,9 @@ continue
     call debug_timer(leaving_procedure,pname)
     return
   end if
+  !
+  tfluc = zero
+  rfluc = zero
   !
   ! Get the time step size for the synthetic eddies
   !
@@ -1938,8 +1943,22 @@ continue
         !
         ! Use SEM density, SEM velocities, and SEM temperature/presssure
         !
-        rho  = ravg
-        temp = tavg
+        if (SEM_include_thermo_fluctuations) then
+          !
+          ! Compute SEM fluctuations for temperature and density based on
+          ! the Strong Reynolds Analogy for temperature flucuations from
+          ! eqs. 38 and 39 in Touber and Sandham AIAA 2008-4170.
+          !
+          cp = cpref_nd
+          if (ncs > 0) cp = face_gp(k,ncp,1)
+          !
+          tfluc = -ufluc*uavg/cp
+          rfluc = -tfluc*(ravg/tavg)
+          !
+        end if
+        !
+        rho  = ravg + rfluc
+        temp = tavg + tfluc
        !rho  = one  ! = rhoref / rhoref
        !temp = one  ! = tref / tref
         pres = rho*rgasref_nd*temp
