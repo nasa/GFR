@@ -2538,7 +2538,8 @@ pure &
 #endif
 function compute_generic_interp_matrix(this_geom, &
                                        from_order,from_loc, &
-                                       to_order,to_loc) &
+                                       to_order,to_loc, &
+                                       return_transpose) &
                                 result(return_value)
   !
   !.. Use Statements ..
@@ -2552,6 +2553,9 @@ function compute_generic_interp_matrix(this_geom, &
   integer, intent(in) :: from_loc
   integer, intent(in) :: to_order
   integer, intent(in) :: to_loc
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: return_transpose
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -2608,7 +2612,8 @@ continue
   !
   ! F2003 AUTO-REALLOC
   return_value = General_Interp_Matrix(this_geom,from_order,xyz, &
-                                       opt_vmat=vmat)
+                                       opt_vmat=vmat, &
+                                       return_transpose=return_transpose)
   !
 end function compute_generic_interp_matrix
 !
