@@ -6692,15 +6692,15 @@ continue
         !
       else
         !
-        ! Use the column sparse arrays for interpolating
+        ! Use the row sparse arrays for interpolating
         !
         do i = rst_interp(this_geom,this_order)% &
-                            fromCell(rst_order)%col_ptr(n)+1, &
+                            fromCell(rst_order)%row_ptr(n)+1, &
                rst_interp(this_geom,this_order)% &
-                            fromCell(rst_order)%col_ptr(n+1)
+                            fromCell(rst_order)%row_ptr(n+1)
           !
-          j = rst_interp(this_geom,this_order)%fromCell(rst_order)%col_idx(i)
-          a = rst_interp(this_geom,this_order)%fromCell(rst_order)%col_val(i)
+          j = rst_interp(this_geom,this_order)%fromCell(rst_order)%row_idx(i)
+          a = rst_interp(this_geom,this_order)%fromCell(rst_order)%row_val(i)
           !
           val(1:nq) = val(1:nq) + a * rst_sol(1:nq,l0+j)
           !
