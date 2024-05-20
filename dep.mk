@@ -748,7 +748,8 @@ $(OBJDIR)/upwind_flux_mod.o : upwind_flux_mod.f90 \
          $(OBJDIR)/kind_types.o \
          $(OBJDIR)/eqn_idx_mod.o \
          $(OBJDIR)/geovar_mod.o \
-         $(OBJDIR)/ovar_mod.o
+         $(OBJDIR)/ovar_mod.o \
+         $(OBJDIR)/mrf_mod.o
 
 $(OBJDIR)/vandermonde_mod.o : vandermonde_mod.f90 \
                     $(OBJDIR)/kind_types.o \

@@ -509,8 +509,9 @@ pure subroutine roe_upwind_flux_cpg_3d(n1,n2,facenrm,facexyz, &
                                        face_cv,face_gp,return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam
-  use ovar, only : moving_ref_frame
+  use ovar,    only : gam
+  use ovar,    only : moving_ref_frame
+  use mrf_mod, only : mrf_sign => upwind_sign
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -645,11 +646,11 @@ continue
       ! Compute the moving reference frame component
       ! of the inviscid interface flux
       !
-      fec_mrf = rrf_nrm*rl
-      fmx_mrf = rrf_nrm*rl*vxl
-      fmy_mrf = rrf_nrm*rl*vyl
-      fmz_mrf = rrf_nrm*rl*vzl
-      fee_mrf = rrf_nrm*etotl
+      fec_mrf = mrf_sign*rrf_nrm*rl
+      fmx_mrf = mrf_sign*rrf_nrm*rl*vxl
+      fmy_mrf = mrf_sign*rrf_nrm*rl*vyl
+      fmz_mrf = mrf_sign*rrf_nrm*rl*vzl
+      fee_mrf = mrf_sign*rrf_nrm*etotl
       !
     else
       !
@@ -677,11 +678,11 @@ continue
       ! Compute the moving reference frame component
       ! of the inviscid interface flux
       !
-      fec_mrf = rrf_nrm*rr
-      fmx_mrf = rrf_nrm*rr*vxr
-      fmy_mrf = rrf_nrm*rr*vyr
-      fmz_mrf = rrf_nrm*rr*vzr
-      fee_mrf = rrf_nrm*etotr
+      fec_mrf = mrf_sign*rrf_nrm*rr
+      fmx_mrf = mrf_sign*rrf_nrm*rr*vxr
+      fmy_mrf = mrf_sign*rrf_nrm*rr*vyr
+      fmz_mrf = mrf_sign*rrf_nrm*rr*vzr
+      fee_mrf = mrf_sign*rrf_nrm*etotr
       !
     end if
     !
@@ -697,11 +698,11 @@ continue
     ! moving reference frame component (which will be zero for
     ! a stationary reference frame).
     !
-    return_value(n,nec) = ds*(fec_i - fec_mrf + fec_d)
-    return_value(n,nmx) = ds*(fmx_i - fmx_mrf + fmx_d)
-    return_value(n,nmy) = ds*(fmy_i - fmy_mrf + fmy_d)
-    return_value(n,nmz) = ds*(fmz_i - fmz_mrf + fmz_d)
-    return_value(n,nee) = ds*(fee_i - fee_mrf + fee_d)
+    return_value(n,nec) = ds*(fec_i + fec_mrf + fec_d)
+    return_value(n,nmx) = ds*(fmx_i + fmx_mrf + fmx_d)
+    return_value(n,nmy) = ds*(fmy_i + fmy_mrf + fmy_d)
+    return_value(n,nmz) = ds*(fmz_i + fmz_mrf + fmz_d)
+    return_value(n,nee) = ds*(fee_i + fee_mrf + fee_d)
     !
   end do
   !
@@ -713,8 +714,9 @@ pure subroutine roe_upwind_flux_cpg_2d(n1,n2,facenrm,facexyz, &
                                        face_cv,face_gp,return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam
-  use ovar, only : moving_ref_frame
+  use ovar,    only : gam
+  use ovar,    only : moving_ref_frame
+  use mrf_mod, only : mrf_sign => upwind_sign
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -841,10 +843,10 @@ continue
       ! Compute the moving reference frame component
       ! of the inviscid interface flux
       !
-      fec_mrf = rrf_nrm*rl
-      fmx_mrf = rrf_nrm*rl*vxl
-      fmy_mrf = rrf_nrm*rl*vyl
-      fee_mrf = rrf_nrm*etotl
+      fec_mrf = mrf_sign*rrf_nrm*rl
+      fmx_mrf = mrf_sign*rrf_nrm*rl*vxl
+      fmy_mrf = mrf_sign*rrf_nrm*rl*vyl
+      fee_mrf = mrf_sign*rrf_nrm*etotl
       !
     else
       !
@@ -871,10 +873,10 @@ continue
       ! Compute the moving reference frame component
       ! of the inviscid interface flux
       !
-      fec_mrf = rrf_nrm*rr
-      fmx_mrf = rrf_nrm*rr*vxr
-      fmy_mrf = rrf_nrm*rr*vyr
-      fee_mrf = rrf_nrm*etotr
+      fec_mrf = mrf_sign*rrf_nrm*rr
+      fmx_mrf = mrf_sign*rrf_nrm*rr*vxr
+      fmy_mrf = mrf_sign*rrf_nrm*rr*vyr
+      fee_mrf = mrf_sign*rrf_nrm*etotr
       !
     end if
     !
@@ -889,10 +891,10 @@ continue
     ! moving reference frame component (which will be zero for
     ! a stationary reference frame).
     !
-    return_value(n,nec) = ds*(fec_i - fec_mrf + fec_d)
-    return_value(n,nmx) = ds*(fmx_i - fmx_mrf + fmx_d)
-    return_value(n,nmy) = ds*(fmy_i - fmy_mrf + fmy_d)
-    return_value(n,nee) = ds*(fee_i - fee_mrf + fee_d)
+    return_value(n,nec) = ds*(fec_i + fec_mrf + fec_d)
+    return_value(n,nmx) = ds*(fmx_i + fmx_mrf + fmx_d)
+    return_value(n,nmy) = ds*(fmy_i + fmy_mrf + fmy_d)
+    return_value(n,nee) = ds*(fee_i + fee_mrf + fee_d)
     !
   end do
   !
@@ -904,8 +906,9 @@ pure subroutine roe_upwind_flux_cpg_1d(n1,n2,facenrm,facexyz, &
                                        face_cv,face_gp,return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam
-  use ovar, only : moving_ref_frame
+  use ovar,    only : gam
+  use ovar,    only : moving_ref_frame
+  use mrf_mod, only : mrf_sign => upwind_sign
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -1024,9 +1027,9 @@ continue
       ! Compute the moving reference frame component
       ! of the inviscid interface flux
       !
-      fec_mrf = rrf_nrm*rl
-      fmx_mrf = rrf_nrm*rl*vxl
-      fee_mrf = rrf_nrm*etotl
+      fec_mrf = mrf_sign*rrf_nrm*rl
+      fmx_mrf = mrf_sign*rrf_nrm*rl*vxl
+      fee_mrf = mrf_sign*rrf_nrm*etotl
       !
     else
       !
@@ -1052,9 +1055,9 @@ continue
       ! Compute the moving reference frame component
       ! of the inviscid interface flux
       !
-      fec_mrf = rrf_nrm*rr
-      fmx_mrf = rrf_nrm*rr*vxr
-      fee_mrf = rrf_nrm*etotr
+      fec_mrf = mrf_sign*rrf_nrm*rr
+      fmx_mrf = mrf_sign*rrf_nrm*rr*vxr
+      fee_mrf = mrf_sign*rrf_nrm*etotr
       !
     end if
     !
@@ -1068,9 +1071,9 @@ continue
     ! moving reference frame component (which will be zero for
     ! a stationary reference frame).
     !
-    return_value(n,nec) = ds*(fec_i - fec_mrf + fec_d)
-    return_value(n,nmx) = ds*(fmx_i - fmx_mrf + fmx_d)
-    return_value(n,nee) = ds*(fee_i - fee_mrf + fee_d)
+    return_value(n,nec) = ds*(fec_i + fec_mrf + fec_d)
+    return_value(n,nmx) = ds*(fmx_i + fmx_mrf + fmx_d)
+    return_value(n,nee) = ds*(fee_i + fee_mrf + fee_d)
     !
   end do
   !
@@ -1634,7 +1637,8 @@ end subroutine roe_upwind_flux_tpg_1d
                                        lflux,rflux,return_value)
   !
   !.. Use Statements ..
-  use ovar, only : moving_ref_frame
+  use ovar,    only : moving_ref_frame
+  use mrf_mod, only : mrf_sign => upwind_sign
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -1751,11 +1755,11 @@ end block
     ! Compute the moving reference frame component
     ! of the inviscid interface flux
     !
-    fec_mrf = rrf_nrm*(rr  + rl )
-    fmx_mrf = rrf_nrm*(mxr + mxl)
-    fmy_mrf = rrf_nrm*(myr + myl)
-    fmz_mrf = rrf_nrm*(mzr + mzl)
-    fee_mrf = rrf_nrm*(rer + rel)
+    fec_mrf = mrf_sign*rrf_nrm*(rr  + rl )
+    fmx_mrf = mrf_sign*rrf_nrm*(mxr + mxl)
+    fmy_mrf = mrf_sign*rrf_nrm*(myr + myl)
+    fmz_mrf = mrf_sign*rrf_nrm*(mzr + mzl)
+    fee_mrf = mrf_sign*rrf_nrm*(rer + rel)
     !
     ! Compute the dissipative part of the Roe flux
     !
@@ -1769,13 +1773,13 @@ end block
     ! moving reference frame component (which will be zero for
     ! a stationary reference frame).
     !
-    return_value(n,nec) = half*ds*(lfec_i + rfec_i - fec_mrf - fec_d)
-    return_value(n,nmx) = half*ds*(lfmx_i + rfmx_i - fmx_mrf - fmx_d)
-    return_value(n,nmy) = half*ds*(lfmy_i + rfmy_i - fmy_mrf - fmy_d)
-    return_value(n,nmz) = half*ds*(lfmz_i + rfmz_i - fmz_mrf - fmz_d)
-    return_value(n,nee) = half*ds*(lfee_i + rfee_i - fee_mrf - fee_d)
+    return_value(n,nec) = half*ds*(lfec_i + rfec_i + fec_mrf - fec_d)
+    return_value(n,nmx) = half*ds*(lfmx_i + rfmx_i + fmx_mrf - fmx_d)
+    return_value(n,nmy) = half*ds*(lfmy_i + rfmy_i + fmy_mrf - fmy_d)
+    return_value(n,nmz) = half*ds*(lfmz_i + rfmz_i + fmz_mrf - fmz_d)
+    return_value(n,nee) = half*ds*(lfee_i + rfee_i + fee_mrf - fee_d)
     !
-    ! Save the left and rigth flux for species continuity equations
+    ! Save the left and right flux for species continuity equations
     !
     lflux(n) = half*ds*(lfec_i + rl*(eigen-rrf_nrm))
     rflux(n) = half*ds*(rfec_i - rr*(eigen+rrf_nrm))
@@ -1826,7 +1830,8 @@ pure subroutine rusanov_upwind_flux_2d(n1,n2,facenrm,facexyz,face_cv,face_gp, &
                                        lflux,rflux,return_value)
   !
   !.. Use Statements ..
-  use ovar, only : moving_ref_frame
+  use ovar,    only : moving_ref_frame
+  use mrf_mod, only : mrf_sign => upwind_sign
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -1913,10 +1918,10 @@ continue
     ! Compute the moving reference frame component
     ! of the inviscid interface flux
     !
-    fec_mrf = rrf_nrm*(rr  + rl )
-    fmx_mrf = rrf_nrm*(mxr + mxl)
-    fmy_mrf = rrf_nrm*(myr + myl)
-    fee_mrf = rrf_nrm*(rer + rel)
+    fec_mrf = mrf_sign*rrf_nrm*(rr  + rl )
+    fmx_mrf = mrf_sign*rrf_nrm*(mxr + mxl)
+    fmy_mrf = mrf_sign*rrf_nrm*(myr + myl)
+    fee_mrf = mrf_sign*rrf_nrm*(rer + rel)
     !
     ! Compute the dissipative part of the Roe flux
     !
@@ -1929,10 +1934,10 @@ continue
     ! moving reference frame component (which will be zero for
     ! a stationary reference frame).
     !
-    return_value(n,nec) = half*ds*(lfec_i + rfec_i - fec_mrf - fec_d)
-    return_value(n,nmx) = half*ds*(lfmx_i + rfmx_i - fmx_mrf - fmx_d)
-    return_value(n,nmy) = half*ds*(lfmy_i + rfmy_i - fmy_mrf - fmy_d)
-    return_value(n,nee) = half*ds*(lfee_i + rfee_i - fee_mrf - fee_d)
+    return_value(n,nec) = half*ds*(lfec_i + rfec_i + fec_mrf - fec_d)
+    return_value(n,nmx) = half*ds*(lfmx_i + rfmx_i + fmx_mrf - fmx_d)
+    return_value(n,nmy) = half*ds*(lfmy_i + rfmy_i + fmy_mrf - fmy_d)
+    return_value(n,nee) = half*ds*(lfee_i + rfee_i + fee_mrf - fee_d)
     !
     ! Save the left and rigth flux for species continuity equations
     !
@@ -1965,9 +1970,9 @@ pure subroutine rusanov_upwind_flux_1d(n1,n2,facenrm,face_cv,face_gp, &
   real(wp) :: unx
   real(wp) :: rnx
   real(wp) :: eigen
-  real(wp) :: lfec_i,rfec_i,fec_mrf,fec_d
-  real(wp) :: lfmx_i,rfmx_i,fmx_mrf,fmx_d
-  real(wp) :: lfee_i,rfee_i,fee_mrf,fee_d
+  real(wp) :: lfec_i,rfec_i,fec_d
+  real(wp) :: lfmx_i,rfmx_i,fmx_d
+  real(wp) :: lfee_i,rfee_i,fee_d
   !
 continue
   !
