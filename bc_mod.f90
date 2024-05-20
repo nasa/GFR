@@ -62,9 +62,9 @@ subroutine get_faceusp_bc(exit_error)
   use flowvar,       only : facexyz
   use flowvar,       only : facegpsp
   use geovar,        only : bc_grps,n_bnd_flxpts
+  use geovar,        only : output_bface
   use ovar,          only : bc_in,itcur
   use ovar,          only : current_rk_stage
-  use ovar,          only : output_bface_array
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -107,7 +107,7 @@ continue
   if (present(exit_error)) exit_error = 0
   !
   if (first_output) then
-    if (output_bface_array) call output_bface
+    call output_bface(strng="bc_")
   end if
   !
   ! First, update the thermodynamic and transport gas properties for the
@@ -460,117 +460,6 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_facedusp_bc
-!
-!###############################################################################
-!
-subroutine output_bface
-  !
-  !.. Use Statements ..
-  use geovar, only : bface,face
-  !
-  !.. Local Scalars ..
-  integer :: i,n,maxint,myio,ierr
-  character(len=100) :: write_format
-  character(len=100) :: file_format
-  character(len=100) :: my_file
-  !
-  !.. Local Arrays ..
-  integer :: intlen(1:size(bface,dim=1)+3)
-  integer :: temp_bface(1:size(bface,dim=1)+2,1:size(bface,dim=2))
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "output_bface"
-  !
-continue
-  !
-  do n = 1,size(bface,dim=2)
-    do i = 1,size(bface,dim=1)
-      temp_bface(i,n) = bface(i,n)
-    end do
-    temp_bface(size(bface,dim=1)+1,n) = face(n)%beg_fp
-    temp_bface(size(bface,dim=1)+2,n) = face(n)%end_fp
-  end do
-  !
-  ! Get the maximum length of the string containing the name of the BC types
-  !
-  intlen(1) = maxval( len_trim( bc_integer_to_string(temp_bface(1,:)) ) )
-  !
-  do i = 1,size(intlen)-1
-    n = 1
-    maxint = maxval(temp_bface(i,:))
-    check_bface_size: do
-      if (maxint/(10**n) == 0) then
-        intlen(i+1) = n+1
-        exit check_bface_size
-      else
-        n = n + 1
-        cycle check_bface_size
-      end if
-    end do check_bface_size
-  end do
-  !
-  ! Primary write of the format statement which has an unlimited
-  ! '*' repetition multiplier on the last quantity to allow for
-  ! an arbitrarily large number of values contained in intlen.
-  ! The ":" within the part that is unlimitedly repeated serves
-  ! to terminate the format statement at that point preventing
-  ! it from going back and adding on an extra ',3x,i' at the end.
-  !
-  write (write_format,1) (intlen(i),i=1,size(intlen))
- !write (iout,'(a,a,a)') "write_format = '",trim(write_format),"'"
-  !
-  ! Finally, add on the parentheses to the format statement
-  !
-  write (write_format,2) trim(write_format)
- !write (iout,'(a,a,a)') "write_format = '",trim(write_format),"'"
-  !
-  ! Get the number of digits of the integer for the number of cpus
-  !
-  n = 1
-  check_ncpu_size: do
-    if (ncpu/(10**n) == 0) then
-      write (file_format,3) n
-      exit check_ncpu_size
-    else
-      n = n + 1
-      cycle check_ncpu_size
-    end if
-  end do check_ncpu_size
-  !
-  ! Create the name of the output file
-  !
-  write (my_file,fmt=trim(file_format)) mypnum
-  !
-  ! Open the output file
-  !
-  open (newunit=myio,file=trim(my_file),status="replace",action="write", &
-                     form="formatted",position="rewind", &
-                     iostat=ierr,iomsg=error_message)
-  call io_error(pname,trim(my_file),1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Output the bface array
-  !
-  do n = 1,size(temp_bface,dim=2)
-    write (myio,fmt=trim(write_format)) &
-                               trim(bc_integer_to_string(temp_bface(1,n))), &
-                                   (temp_bface(i,n),i=1,size(temp_bface,dim=1))
-  end do
-  !
-  ! Close the output file
-  !
-  close (myio,iostat=ierr,iomsg=error_message)
-  call io_error(pname,trim(my_file),2,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Format Statements
-  !
-  1 format ('a',i0,',i',i0,',": ",1x,i',i0,',1x,i',i0,',1x,i',i0, &
-            ',5x,1x,i',i0,',1x,i',i0,',1x,i',i0,',1x,i',i0,',1x,i',i0, &
-            100(',3x,i',i0,:))
-           !*(',3x,i',i0,:))
-  2 format ('(',a,')')
-  3 format ('("bface.",i0.',i0,',".dat")')
-  !
-end subroutine output_bface
 !
 !###############################################################################
 !
