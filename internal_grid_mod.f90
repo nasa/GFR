@@ -2609,6 +2609,213 @@ end subroutine reset_bc_input_for_internal_grid
 !
 !###############################################################################
 !
+subroutine reset_bc_input_for_channel_grid(lx,lz)
+  !
+  !.. Use Statements ..
+  use ovar, only : bc_input,bc_input_t
+  use ovar, only : bc_names
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: lx,lz
+  !
+  !.. Local Scalars ..
+  integer :: i,n,bc_idx
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: bcname
+  !
+  !.. Local Allocatable Arrays ..
+  type(bc_input_t), allocatable :: tmp_bc_input(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "reset_bc_input_for_channel_grid"
+  !
+continue
+  !
+  ! Create a default bc_input for the channel flow case
+  !
+  ! F2003 AUTO-REALLOC
+  tmp_bc_input = get_default_channel_grid_bc_input()
+  !
+  ! If bc_input is not allocated, use move_alloc to allocate
+  ! bc_input to tmp_bc_input and return from the subroutine.
+  !
+  if (.not. allocated(bc_input)) then
+    call move_alloc( from=tmp_bc_input , to=bc_input )
+    return
+  end if
+  !
+  ! Find the inflow BC in bc_input if it exists
+  !
+  bc_idx = 1
+  n = 0
+  find_inflow_loop: &
+  do i = 1,size(bc_input)
+    !
+    bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
+    if (bcname == "XMIN") n = i
+    if (bcname == "INFLOW") n = i
+    if (bc_input(i)%set_bc_value == bc_sem) n = i
+    !
+    if (n > 0) then
+      tmp_bc_input(bc_idx) = bc_input(n)
+      tmp_bc_input(bc_idx)%name = "INFLOW"
+      exit find_inflow_loop
+    end if
+    !
+  end do find_inflow_loop
+  !
+  ! Find the outflow bc in bc_input if it exists
+  !
+  bc_idx = 2
+  n = 0
+  find_outflow_loop: &
+  do i = 1,size(bc_input)
+    !
+    bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
+    if (bcname == "XMAX") n = i
+    if (bcname == "OUTFLOW") n = i
+    !
+    if (n > 0) then
+      tmp_bc_input(bc_idx) = bc_input(n)
+      tmp_bc_input(bc_idx)%name = "OUTFLOW"
+      exit find_outflow_loop
+    end if
+    !
+  end do find_outflow_loop
+  !
+  ! Find the bottom wall bc in bc_input if it exists
+  !
+  bc_idx = 3
+  n = 0
+  find_bwall_loop: &
+  do i = 1,size(bc_input)
+    !
+    bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
+    if (bcname == "BOTTOM WALL") n = i
+    if (bcname == "BOTTOM_WALL") n = i
+    if (bcname == "BOTTOMWALL") n = i
+    if (bcname == "YMIN") n = i
+    !
+    if (n > 0) then
+      tmp_bc_input(bc_idx) = bc_input(n)
+      tmp_bc_input(bc_idx)%name = "BOTTOM WALL"
+      exit find_bwall_loop
+    end if
+    !
+  end do find_bwall_loop
+  !
+  ! Find the top wall bc in bc_input if it exists
+  !
+  bc_idx = 4
+  n = 0
+  find_twall_loop: &
+  do i = 1,size(bc_input)
+    !
+    bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
+    if (bcname == "TOP WALL") n = i
+    if (bcname == "TOP_WALL") n = i
+    if (bcname == "TOPWALL") n = i
+    if (bcname == "YMAX") n = i
+    !
+    if (n > 0) then
+      tmp_bc_input(bc_idx) = bc_input(n)
+      tmp_bc_input(bc_idx)%name = "TOP WALL"
+      exit find_twall_loop
+    end if
+    !
+  end do find_twall_loop
+  !
+  ! Find the z-min periodic bc in bc_input if it exists
+  !
+  bc_idx = 5
+  n = 0
+  find_zmin_loop: &
+  do i = 1,size(bc_input)
+    !
+    bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
+    if (bcname == "ZMIN") n = i
+    !
+    if (n > 0) then
+      tmp_bc_input(bc_idx) = bc_input(n)
+      tmp_bc_input(bc_idx)%name = "ZMIN"
+      exit find_zmin_loop
+    end if
+    !
+  end do find_zmin_loop
+  !
+  ! Find the z-max periodic bc in bc_input if it exists
+  !
+  bc_idx = 6
+  n = 0
+  find_zmax_loop: &
+  do i = 1,size(bc_input)
+    !
+    bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
+    if (bcname == "ZMAX") n = i
+    !
+    if (n > 0) then
+      tmp_bc_input(bc_idx) = bc_input(n)
+      tmp_bc_input(bc_idx)%name = "ZMAX"
+      exit find_zmax_loop
+    end if
+    !
+  end do find_zmax_loop
+  !
+  ! Finally, use move_alloc to replace whatever might be in bc_input
+  ! with the reconstructed complete bc_input contained in tmp_bc_input.
+  !
+  call move_alloc( from=tmp_bc_input , to=bc_input )
+  !
+  ! Reset bc_names to the names just assigned to bc_input for each BC
+  !
+  bc_names = bc_input(1:6)%name ! F2003 AUTO-REALLOC
+  !
+  contains
+  !
+  pure function get_default_channel_grid_bc_input() result(return_value)
+    !
+    !.. Function Result ..
+    type(bc_input_t) :: return_value(1:6)
+    !
+  continue
+    !
+    return_value(1)%name = "INFLOW"
+    return_value(1)%set_bc_value = bc_periodic
+    return_value(1)%periodic%matching_bc_name = "OUTFLOW"
+    return_value(1)%periodic%matching_bc_idx  = 2
+    return_value(1)%periodic%translation(1)   = lx
+    !
+    return_value(2)%name = "OUTFLOW"
+    return_value(2)%set_bc_value = bc_periodic
+    return_value(2)%periodic%matching_bc_name = "INFLOW"
+    return_value(2)%periodic%matching_bc_idx  = 1
+    return_value(2)%periodic%translation(1)   = -lx
+    !
+    return_value(3)%name = "BOTTOM WALL"
+    return_value(3)%set_bc_value = bc_adiabatic_wall
+    !
+    return_value(4)%name = "TOP WALL"
+    return_value(4)%set_bc_value = bc_adiabatic_wall
+    !
+    return_value(5)%name = "ZMIN"
+    return_value(5)%set_bc_value = bc_periodic
+    return_value(5)%periodic%matching_bc_name = "ZMAX"
+    return_value(5)%periodic%matching_bc_idx  = 6
+    return_value(5)%periodic%translation(3)   = lz
+    !
+    return_value(6)%name = "ZMAX"
+    return_value(6)%set_bc_value = bc_periodic
+    return_value(6)%periodic%matching_bc_name = "ZMIN"
+    return_value(6)%periodic%matching_bc_idx  = 5
+    return_value(6)%periodic%translation(3)   = -lz
+    !
+  end function get_default_channel_grid_bc_input
+  !
+end subroutine reset_bc_input_for_channel_grid
+!
+!###############################################################################
+!
 subroutine create_channel_flow_grid()
   !
   !.. Use Statements ..
