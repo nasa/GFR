@@ -16,7 +16,8 @@ contains
 !
 !###############################################################################
 !
-pure subroutine get_bc_periodic_solution(n1,n2,face_cv,periodic_list)
+pure subroutine get_bc_periodic_solution(n1,n2,face_cv,periodic_list, &
+                                         rotation_matrix)
   !
   ! #############################################################
   ! #############################################################
@@ -35,9 +36,10 @@ pure subroutine get_bc_periodic_solution(n1,n2,face_cv,periodic_list)
   !                   face_cv(periodic_list(n-n1+1),:,2) = face_cv(n,:,1)
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  integer,     intent(in) :: periodic_list(:)
-  real(wp), intent(inout) :: face_cv(:,:,:)
+  integer,               intent(in) :: n1,n2
+  integer,               intent(in) :: periodic_list(:)
+  real(wp), allocatable, intent(in) :: rotation_matrix(:,:)
+  real(wp),           intent(inout) :: face_cv(:,:,:)
   !
   !.. Local Scalars ..
   integer :: nr
@@ -46,12 +48,31 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3) then
-    call get_bc_periodic_solution_3d(n1,n2,face_cv,periodic_list)
-  else if (nr == 2) then
-    call get_bc_periodic_solution_2d(n1,n2,face_cv,periodic_list)
+  if (allocated(rotation_matrix)) then
+    !
+    ! Compute the rotated periodic boundary condition solution
+    ! NOTE: A rotated periodic BC can only be 2D or 3D
+    !
+    if (nr == 3) then
+      call get_bc_periodic_rotated_sol_3d(n1,n2,face_cv,periodic_list, &
+                                          rotation_matrix)
+    else if (nr == 2) then
+      call get_bc_periodic_rotated_sol_2d(n1,n2,face_cv,periodic_list, &
+                                          rotation_matrix)
+    end if
+    !
   else
-    call get_bc_periodic_solution_nd(n1,n2,face_cv,periodic_list)
+    !
+    ! Copy over the periodic boundary condition solution
+    !
+    if (nr == 3) then
+      call get_bc_periodic_solution_3d(n1,n2,face_cv,periodic_list)
+    else if (nr == 2) then
+      call get_bc_periodic_solution_2d(n1,n2,face_cv,periodic_list)
+    else
+      call get_bc_periodic_solution_nd(n1,n2,face_cv,periodic_list)
+    end if
+    !
   end if
   !
 end subroutine get_bc_periodic_solution
@@ -360,7 +381,8 @@ end subroutine get_bc_periodic_solution_nd
 !
 !###############################################################################
 !
-pure subroutine get_bc_periodic_gradient(n1,n2,face_dcvdx,periodic_list)
+pure subroutine get_bc_periodic_gradient(n1,n2,face_dcvdx,periodic_list, &
+                                         rotation_matrix)
   !
   ! #############################################################
   ! #############################################################
@@ -379,9 +401,10 @@ pure subroutine get_bc_periodic_gradient(n1,n2,face_dcvdx,periodic_list)
   !           face_dcvdx(periodic_list(n-n1+1),:,:,2) = face_dcvdx(n,:,:,1)
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: n1,n2
-  integer,     intent(in) :: periodic_list(:)
-  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  integer,               intent(in) :: n1,n2
+  integer,               intent(in) :: periodic_list(:)
+  real(wp), allocatable, intent(in) :: rotation_matrix(:,:)
+  real(wp),           intent(inout) :: face_dcvdx(:,:,:,:)
   !
   !.. Local Scalars ..
   integer :: nr
@@ -390,12 +413,31 @@ continue
   !
   nr = size(face_dcvdx,dim=2)
   !
-  if (nr == 3) then
-    call get_bc_periodic_gradient_3d(n1,n2,face_dcvdx,periodic_list)
-  else if (nr == 2) then
-    call get_bc_periodic_gradient_2d(n1,n2,face_dcvdx,periodic_list)
+  if (allocated(rotation_matrix)) then
+    !
+    ! Compute the rotated periodic boundary condition gradients
+    ! NOTE: A rotated periodic BC can only be 2D or 3D
+    !
+    if (nr == 3) then
+      call get_bc_periodic_rotated_grad_3d(n1,n2,face_dcvdx,periodic_list, &
+                                           rotation_matrix)
+    else if (nr == 2) then
+      call get_bc_periodic_rotated_grad_2d(n1,n2,face_dcvdx,periodic_list, &
+                                           rotation_matrix)
+    end if
+    !
   else
-    call get_bc_periodic_gradient_nd(n1,n2,face_dcvdx,periodic_list)
+    !
+    ! Copy over the periodic boundary condition gradients
+    !
+    if (nr == 3) then
+      call get_bc_periodic_gradient_3d(n1,n2,face_dcvdx,periodic_list)
+    else if (nr == 2) then
+      call get_bc_periodic_gradient_2d(n1,n2,face_dcvdx,periodic_list)
+    else
+      call get_bc_periodic_gradient_nd(n1,n2,face_dcvdx,periodic_list)
+    end if
+    !
   end if
   !
 end subroutine get_bc_periodic_gradient

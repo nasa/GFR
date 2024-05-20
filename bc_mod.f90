@@ -283,7 +283,8 @@ continue
         ! Periodic boundary condition
         !
         call get_bc_periodic_solution(n1,n2,faceusp, &
-                                      bc_grps(grp_idx)%periodic_list)
+                                      bc_grps(grp_idx)%periodic_list, &
+                                      bc_in(bc_idx)%pbc_rotation%mat)
         !
       case (bc_mms_dirichlet)
         !
@@ -382,6 +383,7 @@ subroutine get_facedusp_bc
   !
   !.. Use Statements ..
   use geovar,       only : bc_grps
+  use ovar,         only : bc_in
   use metrics_mod,  only : facenrm
   use flowvar,      only : faceusp
   use flowvar,      only : facegpsp
@@ -393,7 +395,7 @@ subroutine get_facedusp_bc
   use bc_flowthrough_grad_mod, only : get_bc_flowthrough_gradient
   !
   !.. Local Scalars ..
-  integer :: i,n1,n2,bc_type
+  integer :: grp_idx,n1,n2,bc_type,bc_idx
   !
   !.. Local Parameters ..
   integer, parameter :: local_bc_ignore(1:3) = [ bc_cpu_bnd, &
@@ -408,12 +410,13 @@ continue
   ! Loop over the boundary face groups and compute the conservative variables
   ! at the boundary flux points based on the face boundary condition.
   !
-  do i = 1,size(bc_grps)
+  do grp_idx = 1,size(bc_grps)
     !
-    n1 = bc_grps(i)%beg_fp
-    n2 = bc_grps(i)%end_fp
+    n1 = bc_grps(grp_idx)%beg_fp ! beginning face point for this BC group
+    n2 = bc_grps(grp_idx)%end_fp ! ending    face point for this BC group
     !
-    bc_type = bc_grps(i)%bc_type
+    bc_type = bc_grps(grp_idx)%bc_type ! BC for this group
+    bc_idx = bc_grps(grp_idx)%bc_idx   ! index within bc_in for this BC group
     !
     ! Compute the solution at the boundary flux points
     ! based on the specified boundary condition
@@ -436,7 +439,8 @@ continue
       ! Periodic boundary condition
       !
       call get_bc_periodic_gradient(n1,n2,facedusp, &
-                                    bc_grps(i)%periodic_list)
+                                    bc_grps(grp_idx)%periodic_list, &
+                                    bc_in(bc_idx)%pbc_rotation%mat)
       !
     else if (bc_type == bc_sem) then
       !
