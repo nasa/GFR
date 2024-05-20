@@ -254,7 +254,8 @@ $(OBJDIR)/generic.o : generic.f90 \
             $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/geovar_mod.o : geovar_mod.f90 \
-               $(OBJDIR)/kind_types.o
+               $(OBJDIR)/kind_types.o \
+               $(OBJDIR)/ovar_mod.o
 
 $(OBJDIR)/gmsh_mod.o : gmsh_mod.f90 \
              $(OBJDIR)/kind_types.o \

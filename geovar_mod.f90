@@ -9,6 +9,7 @@ module geovar
   !
   private
   !
+  public :: output_bface
   public :: geovar_memory_usage
   public :: move_cell_to_device
   public :: move_face_to_device
@@ -551,6 +552,183 @@ module geovar
   type(map_t), public, save, allocatable :: node_map(:)
   !
 contains
+!
+!###############################################################################
+!
+subroutine output_bface(strng,only_glb_root)
+  !
+  !.. Use Statements ..
+  use module_kind_types, only : ncpu,mypnum,glb_root,error_message
+  use module_kind_types, only : init_array
+  use module_kind_types, only : bc_integer_to_string
+  use module_kind_types, only : io_error
+  !
+  use ovar, only : output_bface_array
+  !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: strng
+  logical(lk),      optional, intent(in) :: only_glb_root
+  !
+  !.. Local Scalars ..
+  integer :: i,n,maxint,myio,ierr
+  integer :: ibfai,lbfai,lfbnd
+  character(len=100) :: write_format
+  character(len=100) :: file_format
+  character(len=100) :: my_file
+  logical(lk) :: output_my_bface
+  logical(lk) :: glb_root_only
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: intlen(:)
+  integer, allocatable :: tmp_bface(:,:)
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: file_base
+  !
+  !.. Local Saved Scalars ..
+  integer, save :: local_count = 1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_bface"
+  !
+continue
+  !
+  if (.not. output_bface_array) return
+  !
+  output_my_bface = true
+  glb_root_only = fals
+  if (present(only_glb_root)) then
+    if (only_glb_root) then
+      output_my_bface = (mypnum == glb_root)
+      glb_root_only = true
+    end if
+  end if
+  !
+  if (output_my_bface) then
+    !
+    file_base = "bface" ! F2003 AUTO-REALLOC
+    if (present(strng)) then
+      if (len_trim(adjustl(strng)) > 0) then
+        file_base = trim(adjustl(strng)) // "bface" ! F2003 AUTO-REALLOC
+      end if
+    end if
+    !
+    ibfai = size(bface,dim=1)
+    lbfai = ibfai + merge(2,0,allocated(face))
+    lfbnd = size(bface,dim=2)
+    !
+    ! F2003 AUTO-REALLOC
+    intlen = init_array(lbfai+1,0) ! F2003 AUTO-REALLOC
+    tmp_bface = init_array(lbfai,lfbnd,0) ! F2003 AUTO-REALLOC
+    !
+    do n = 1,lfbnd
+      do i = 1,ibfai
+        tmp_bface(i,n) = bface(i,n)
+      end do
+    end do
+    !
+    if (allocated(face)) then
+      do n = 1,lfbnd
+        tmp_bface(ibfai+1,n) = face(n)%beg_fp
+        tmp_bface(ibfai+2,n) = face(n)%end_fp
+      end do
+    end if
+    !
+    ! Get the maximum length of the string containing the name of the BC types
+    !
+    intlen(1) = maxval( len_trim( bc_integer_to_string(tmp_bface(1,:)) ) )
+    !
+    do i = 1,size(intlen)-1
+      n = 1
+      maxint = maxval(tmp_bface(i,:))
+      check_bface_size: do
+        if (maxint/(10**n) == 0) then
+          intlen(i+1) = n+1
+          exit check_bface_size
+        else
+          n = n + 1
+          cycle check_bface_size
+        end if
+      end do check_bface_size
+    end do
+    !
+    ! Primary write of the format statement which has an unlimited
+    ! '*' repetition multiplier on the last quantity to allow for
+    ! an arbitrarily large number of values contained in intlen.
+    ! The ":" within the part that is unlimitedly repeated serves
+    ! to terminate the format statement at that point preventing
+    ! it from going back and adding on an extra ',3x,i' at the end.
+    !
+    write (write_format,1) (intlen(i),i=1,size(intlen))
+   !write (iout,'(a,a,a)') "write_format = '",trim(write_format),"'"
+    !
+    ! Finally, add on the parentheses to the format statement
+    !
+    write (write_format,2) trim(write_format)
+   !write (iout,'(a,a,a)') "write_format = '",trim(write_format),"'"
+    !
+    ! Get the number of digits of the integer for the number of cpus
+    !
+    if (glb_root_only) then
+      !
+      write (my_file,4) file_base,local_count
+      !
+    else
+      !
+      n = 1
+      check_ncpu_size: do
+        if (ncpu/(10**n) == 0) then
+          write (file_format,3) file_base,local_count,n
+          exit check_ncpu_size
+        else
+          n = n + 1
+          cycle check_ncpu_size
+        end if
+      end do check_ncpu_size
+      !
+      ! Create the name of the output file
+      !
+      write (my_file,fmt=trim(file_format)) mypnum
+      !
+    end if
+    !
+    ! Open the output file
+    !
+    open (newunit=myio,file=trim(my_file),status="replace",action="write", &
+                       form="formatted",position="rewind", &
+                       iostat=ierr,iomsg=error_message)
+    call io_error(pname,trim(my_file),1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Output the bface array
+    !
+    do n = 1,lfbnd
+      write (myio,fmt=trim(write_format)) &
+                                 trim(bc_integer_to_string(tmp_bface(1,n))), &
+                                     (tmp_bface(i,n),i=1,lbfai)
+    end do
+    !
+    ! Close the output file
+    !
+    close (myio,iostat=ierr,iomsg=error_message)
+    call io_error(pname,trim(my_file),2,__LINE__,__FILE__,ierr,error_message)
+    !
+  end if
+  !
+  ! Update the count for the next time this might be called
+  !
+  local_count = local_count + 1
+  !
+  ! Format Statements
+  !
+  1 format ('a',i0,',i',i0,',": ",1x,i',i0,',1x,i',i0,',1x,i',i0, &
+            ',5x,1x,i',i0,',1x,i',i0,',1x,i',i0,',1x,i',i0,',1x,i',i0, &
+            100(',3x,i',i0,:))
+           !*(',3x,i',i0,:))
+  2 format ('(',a,')')
+  3 format ('("',a,'.num-',i0,'.cpu-",i0.',i0,',".dat")')
+  4 format (a,'.num-',i0,'.cpu-ALL.dat')
+  !
+end subroutine output_bface
 !
 !###############################################################################
 !###############################################################################
