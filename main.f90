@@ -72,6 +72,7 @@ program GFR_main
   use io_mod, only : read_input_file
   use io_mod, only : write_final_error
   use io_mod, only : write_residual_file
+  use io_mod, only : write_summary_file
   use io_mod, only : test_communication
   use io_mod, only : check_face_flux_point_orderings
   use io_mod, only : check_cell_flux_point_orderings
@@ -1511,6 +1512,10 @@ continue
   ! Get the elapsed wall time
   !
   call gfr_cpu_time(1)
+  !
+  ! Write out a file providing a summary of the simulation
+  !
+  call write_summary_file(iter)
   !
   ! If solving the Taylor-Green Vortex problem,
   ! finalize the kinetic energy dissipation rates
