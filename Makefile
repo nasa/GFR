@@ -116,17 +116,29 @@ clean-sky: clean-skylake
 # BROADWELL (Essentially the same as Haswell)
 
 .PHONY: broadwell
-broadwell: haswell
-broadwell: link-to-haswell
+broadwell: BDIR := optimize_broadwell
+broadwell: EXEF := gfr_broadwell
+broadwell: TRGT := broadwell
+broadwell: build
 
 .PHONY: rebuild-broadwell
-rebuild-broadwell: rebuild-haswell
-rebuild-broadwell: link-to-haswell
+rebuild-broadwell: BDIR := optimize_broadwell
+rebuild-broadwell: EXEF := gfr_broadwell
+rebuild-broadwell: TRGT := broadwell
+rebuild-broadwell: clean-build
+rebuild-broadwell: broadwell
+
+.PHONY: clean-broadwell
+clean-broadwell: BDIR := optimize_broadwell
+clean-broadwell: EXEF := gfr_broadwell
+clean-broadwell: clean-build
 
 .PHONY: bro
 bro: broadwell
 .PHONY: rebuild-bro
 rebuild-bro: rebuild-broadwell
+.PHONY: clean-bro
+clean-bro: clean-broadwell
 
 # HASWELL
 
