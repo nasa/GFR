@@ -456,6 +456,8 @@ module ovar
   real(wp), public, save :: Filter_Alpha  = 36.0_wp
   real(wp), public, save :: Filter_eps    = 0.0_wp
   !
+  integer,  public, save :: Pyramid_Filter_Option = 1
+  !
   ! LIMITER FILTER OPTIONS
   integer,  public, save :: Limiter_Filter_Option = 0
   real(wp), public, save :: Limiter_Filter_etac   = 0.0_wp
@@ -1788,6 +1790,7 @@ module input_namelist_mod
   use ovar,      only : Filter_Order,  Limiter_Filter_Order
   use ovar,      only : Filter_Alpha,  Limiter_Filter_Alpha
   use ovar,      only : Filter_eps,    Limiter_Filter_eps
+  use ovar,      only : Pyramid_Filter_Option
   use ovar,      only : use_sponge_filter
   use ovar,      only : Sponge_Filter_etac
   use ovar,      only : Sponge_Filter_Order
@@ -2015,7 +2018,7 @@ module input_namelist_mod
   namelist / input / suth_muref, suth_Tref, suth_Sref
   ! FILTER OPTIONS
   namelist / input / Filter_Option, Filter_etac, Filter_Order, &
-                     Filter_Alpha, Filter_eps
+                     Filter_Alpha, Filter_eps, Pyramid_Filter_Option
   ! LIMITER FILTER OPTIONS
   namelist / input / Limiter_Filter_Option, Limiter_Filter_etac, &
                      Limiter_Filter_Order, Limiter_Filter_Alpha, &
