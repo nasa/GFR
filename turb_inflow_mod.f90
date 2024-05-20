@@ -6458,7 +6458,6 @@ subroutine separate_sem_boundary_faces()
   use geovar, only : nfbnd,ncell,nnode
   use geovar, only : bface,grid,xyz_nodes
   use ovar,   only : bc_input,bc_input_t,bc_names
-  use ovar,   only : output_bface_array
   !
   !.. Local Scalars ..
   integer  :: i,ierr,n,nc,nf,nn,npts,bc_idx,grp_idx
@@ -6487,8 +6486,6 @@ subroutine separate_sem_boundary_faces()
   character(len=*), parameter :: pname = "separate_sem_boundary_faces"
   !
 continue
-  !
-  if (output_bface_array) call output_bface
   !
   ! Make sure that there are SEM boundary conditions. If not,
   ! dont do anything and just return to the calling procedure.
@@ -8750,133 +8747,6 @@ continue
   !
 #endif
 end subroutine dump_sem_data
-!
-!###############################################################################
-!
-subroutine output_bface
-  !
-  !.. Use Statements ..
-  use geovar, only : bface,face
-  !
-  !.. Local Scalars ..
-  integer :: i,ii,n,nf,maxint,myio,ierr
-  character(len=100) :: write_format
-  character(len=100) :: file_format
-  character(len=100) :: my_file
-  !
-  !.. Local Arrays ..
-  integer :: intlen(1:size(bface,dim=1)+1)
-  !
-  !.. Local Allocatable Arrays ..
-  integer, allocatable :: tmp_bface(:,:)
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "output_bface"
-  !
-continue
-  !
-  tmp_bface = bface ! F2003 AUTO-REALLOC
-  !
- !do nf = 1,size(bface,dim=2)
- !  !
- !  ii = huge(0)
- !  do i = 1,size(bface,dim=2)
- !    if (bface(1,i) < 0) cycle
- !    if (bface(2,i) < ii) then
- !      ii = bface(2,i)
- !      n = i
- !    end if
- !  end do
- ! !n = minloc(bface(2,:),dim=1,mask=bface(1,:)<0)
- !  !
- !  tmp_bface(:,nf) = bface(:,n)
- !  bface(1,n) = -abs(bface(1,n))
- !  write (iout,'("nf,n = ",i0,", ",i0,", ",i0)') nf,n,bface(2,n)
- !  !
- !end do
- !!
- !bface(1,:) = abs(bface(1,:))
-  !
-  ! Get the maximum length of the string containing the name of the BC types
-  !
-  intlen(1) = maxval( len_trim( bc_integer_to_string(tmp_bface(1,:)) ) )
-  !
-  do i = 1,size(intlen)-1
-    n = 1
-    maxint = maxval(tmp_bface(i,:))
-    check_bface_size: do
-      if (maxint/(10**n) == 0) then
-        intlen(i+1) = n+1
-        exit check_bface_size
-      else
-        n = n + 1
-        cycle check_bface_size
-      end if
-    end do check_bface_size
-  end do
-  !
-  ! Primary write of the format statement which has an unlimited
-  ! '*' repetition multiplier on the last quantity to allow for
-  ! an arbitrarily large number of values contained in intlen.
-  ! The ":" within the part that is unlimitedly repeated serves
-  ! to terminate the format statement at that point preventing
-  ! it from going back and adding on an extra ',3x,i' at the end.
-  !
-  write (write_format,1) (intlen(i),i=1,size(intlen))
- !write (iout,'(a,a,a)') "write_format = '",trim(write_format),"'"
-  !
-  ! Finally, add on the parentheses to the format statement
-  !
-  write (write_format,2) trim(write_format)
- !write (iout,'(a,a,a)') "write_format = '",trim(write_format),"'"
-  !
-  ! Get the number of digits of the integer for the number of cpus
-  !
-  n = 1
-  check_ncpu_size: do
-    if (ncpu/(10**n) == 0) then
-      write (file_format,3) n
-      exit check_ncpu_size
-    else
-      n = n + 1
-      cycle check_ncpu_size
-    end if
-  end do check_ncpu_size
-  !
-  ! Create the name of the output file
-  !
-  write (my_file,fmt=trim(file_format)) mypnum
-  !
-  ! Open the output file
-  !
-  open (newunit=myio,file=trim(my_file),status="replace",action="write", &
-                     form="formatted",position="rewind", &
-                     iostat=ierr,iomsg=error_message)
-  call io_error(pname,trim(my_file),1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Output the bface array
-  !
-  do n = 1,size(tmp_bface,dim=2)
-    write (myio,fmt=trim(write_format)) &
-                               trim(bc_integer_to_string(tmp_bface(1,n))), &
-                                   (tmp_bface(i,n),i=1,size(tmp_bface,dim=1))
-  end do
-  !
-  ! Close the output file
-  !
-  close (myio,iostat=ierr,iomsg=error_message)
-  call io_error(pname,trim(my_file),2,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Format Statements
-  !
-  1 format ('a',i0,',i',i0,',": ",1x,i',i0,',1x,i',i0,',1x,i',i0, &
-            ',5x,1x,i',i0,',1x,i',i0,',1x,i',i0,',1x,i',i0,',1x,i',i0, &
-            100(',3x,i',i0,:))
-           !*(',3x,i',i0,:))
-  2 format ('(',a,')')
-  3 format ('("sem_bface.",i0.',i0,',".dat")')
-  !
-end subroutine output_bface
 !
 !###############################################################################
 !
