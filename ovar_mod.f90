@@ -103,7 +103,20 @@ module ovar
     !                  interface. If rotating about more than one axis, the
     !                  rotation is performed first about the x-axis, then the
     !                  y-axis, then the z-axis.
+    !                  NOTE: EITHER RotationAngle OR RotationAxis can be used
+    !                        to define rotated periodic boundary conditions,
+    !                        but not both. If both are specified, RotationAxis
+    !                        will be ignored and RotationAngle will be used.
     real(wp) :: RotationAngle(1:3)  = [zero,zero,zero]
+    ! RotationAxis   : defines the axis of rotation as a vector and rotation
+    !                  angle about this axis
+    !                     RotationAxis(1:3) = vector providing axis of rotation
+    !                     RotationAxis(4) = rotation angle about this axis
+    !                  NOTE: EITHER RotationAngle OR RotationAxis can be used
+    !                        to define rotated periodic boundary conditions,
+    !                        but not both. If both are specified, RotationAxis
+    !                        will be ignored and RotationAngle will be used.
+    real(wp) :: RotationAxis(1:4)  = [zero,zero,zero,zero]
     ! Translation    : defines the translation from the current periodic
     !                  boundary interface to the connecting periodic boundary
     !                  interface.
@@ -1267,6 +1280,10 @@ continue
   !
   do n = 1,size(a%RotationAngle)
     if (abs(a%RotationAngle(n) - b%RotationAngle(n)) > eps6) return 
+  end do
+  !
+  do n = 1,size(a%RotationAxis)
+    if (abs(a%RotationAxis(n) - b%RotationAxis(n)) > eps6) return 
   end do
   !
   do n = 1,size(a%Translation)
