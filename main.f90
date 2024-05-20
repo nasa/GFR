@@ -2573,6 +2573,154 @@ end subroutine find_bad_number
 !
 !###############################################################################
 !
+subroutine add_bad_pt(n,loc,nc,xyz,xyz_bad_pts)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  !
+  !.. Formal Arguments ..
+  integer,               intent(inout) :: n
+  integer,                  intent(in) :: loc
+  integer,                  intent(in) :: nc
+  real(wp),                 intent(in) :: xyz(:)
+  real(wp), allocatable, intent(inout) :: xyz_bad_pts(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: l
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: tmp(:,:)
+  !
+continue
+  !
+  if (.not. allocated(xyz_bad_pts)) then
+    xyz_bad_pts = init_array(5,1,zero) ! F2003 AUTO-REALLOC
+  end if
+  !
+  n = n + 1
+  !
+  l = size(xyz_bad_pts,dim=2)
+  !
+  if (n > l) then
+    tmp = init_array(5,n,zero) ! F2003 AUTO-REALLOC
+    tmp(1:5,1:l) = xyz_bad_pts(1:5,1:l)
+    call move_alloc( from=tmp , to=xyz_bad_pts )
+  end if
+  !
+  xyz_bad_pts(1:nr,n) = xyz(1:nr)
+  xyz_bad_pts(4,n) = real(loc,kind=wp)
+  xyz_bad_pts(5,n) = real(nc,kind=wp)
+  !
+end subroutine add_bad_pt
+!
+!###############################################################################
+!
+subroutine report_bad_pts(npts,xyz)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,xyz_nodes,nodes_of_cell_ptr,nodes_of_cell
+  use ovar, only : yplus1 => channel_yplus_of_one
+  use ovar, only : itestcase,grid_scaling_factor
+  use internal_grid_mod, only : xplus_cell_ave
+  use internal_grid_mod, only : zplus_cell_ave
+  use internal_grid_mod, only : yplus_cell_wall
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: npts
+  real(wp), intent(in) :: xyz(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,loc,nc,k1,k2,kp,k,l,i
+  real(wp) :: xp_frst_cell,zp_frst_cell,yp_bot_wall
+  real(wp) :: xp_last_cell,zp_last_cell,yp_top_wall
+  !
+  !.. Local Arrays ..
+  real(wp) :: xyz_cell(1:nr)
+  real(wp) :: xp_cell(1:nr)
+  logical(lk) :: bnd_cell(1:2,1:nr)
+  !
+continue
+  !
+  if (abs(itestcase) == Channel_Flow) then
+    !
+    xp_frst_cell = xplus_cell_ave
+    xp_last_cell = (channel_grid_Lx/yplus1) - xplus_cell_ave
+    !
+    zp_frst_cell = zplus_cell_ave
+    zp_last_cell = (channel_grid_Lz/yplus1) - zplus_cell_ave
+    !
+    yp_bot_wall = yplus_cell_wall
+    yp_top_wall = (channel_grid_Ly/yplus1) - yplus_cell_wall
+    !
+  end if
+  !
+  do n = 1,npts
+    !
+    loc = nint(xyz(4,n))
+    nc = nint(xyz(5,n))
+    !
+    xyz_cell(:) = zero
+    !
+    k1 = nodes_of_cell_ptr(nc)+1
+    k2 = nodes_of_cell_ptr(nc+1)
+    kp = k2-k1+1
+    do k = k1,k2
+      i = nodes_of_cell(k)
+      do l = 1,nr
+        xyz_cell(l) = xyz_cell(l) + xyz_nodes(l,i)/real(kp,kind=wp)
+      end do
+    end do
+    !
+    xyz_cell(:) = xyz_cell(:)/grid_scaling_factor
+    !
+    if (abs(itestcase) == Channel_Flow) then
+      !
+      xp_cell(:) = xyz_cell(:)/yplus1
+      !
+      bnd_cell(1,1) = ( xp_cell(1) < xp_frst_cell )
+      bnd_cell(2,1) = ( xp_cell(1) > xp_last_cell )
+      !
+      bnd_cell(1,2) = ( xp_cell(2) < yp_bot_wall )
+      bnd_cell(2,2) = ( xp_cell(2) > yp_top_wall )
+      !
+      bnd_cell(1,3) = ( xp_cell(3) < zp_frst_cell )
+      bnd_cell(2,3) = ( xp_cell(3) > zp_last_cell )
+      !
+      xyz_cell(1) = ten*ten*xyz_cell(1)/channel_grid_Lx
+      xyz_cell(2) = ten*ten*xyz_cell(2)/channel_grid_Ly
+      xyz_cell(3) = ten*ten*xyz_cell(3)/channel_grid_Lz
+      !
+      write (iout,1) (xp_cell(l), l=1,nr), (xyz_cell(l), l=1,nr)
+      !
+      if (bnd_cell(1,1)) write (iout,2) "first cell","x"
+      if (bnd_cell(2,1)) write (iout,2) "last  cell","x"
+      if (bnd_cell(1,2)) write (iout,2) "first cell on bottom wall","y"
+      if (bnd_cell(2,2)) write (iout,2) "first cell on top    wall","y"
+      if (bnd_cell(1,3)) write (iout,2) "first cell","z"
+      if (bnd_cell(2,3)) write (iout,2) "last  cell","z"
+      !
+    end if
+    !
+   !write (iout,*) (xyz(l,n), l=1,nr)
+    !
+  end do
+  !
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  1 format (/,2x,"For cell that encountered a bad number:",/, &
+              4x,"Cell center coordinates in       +-coordinates: ", &
+                 "[x+,y+,z+] = [",f9.3,",",f9.3,",",f9.3,"]",/, &
+              4x,"Cell center coordinates in   % of grid extents: ", &
+                 "[x%,y%,z%] = [",f8.2,"%,",f8.2,"%,",f8.2,"%]")
+  2 format (4x,"Bad number was found in ",a," of ",a," direction.")
+  !
+end subroutine report_bad_pts
+!
+!###############################################################################
+!
 subroutine reset_fp_exceptions
   !
 #ifndef SPECIAL_FOR_GCC
