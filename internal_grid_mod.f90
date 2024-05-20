@@ -7,8 +7,22 @@ module internal_grid_mod
   !
   private
   !
+  !.. Module public procedures ..
   public :: create_internal_grid
   public :: write_internal_grid
+  public :: write_channel_grid_info
+  !
+  !.. Module public scalars ..
+  real(wp), public, save :: xplus_cell_ave
+  real(wp), public, save :: yplus_cell_ave
+  real(wp), public, save :: yplus_cell_wall
+  real(wp), public, save :: yplus_cell_centerline
+  real(wp), public, save :: zplus_cell_ave
+  !
+  !.. Module public allocatable arrays ..
+  real(wp), public, save, allocatable :: yplus_dof_wall(:)
+  !
+  !.. Module Parameters ..
   !
   logical(lk), parameter :: randomly_rotate_cells_debug = fals
  !logical(lk), parameter :: randomly_rotate_cells_debug = true
@@ -3132,6 +3146,89 @@ continue
   end function map3dto1d
   !
 end subroutine create_channel_flow_grid
+!
+!###############################################################################
+!
+subroutine write_channel_grid_info(iunit,ncx,ncy,ncz)
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order
+  use ovar,      only : yplus1 => channel_yplus_of_one
+  use geovar,    only : n_global_cell
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: iunit,ncx,ncy,ncz
+  !
+  !.. Local Scalars ..
+  integer  :: i,io,icx,icy,icz
+  real(wp) :: pp1
+  real(wp) :: xplus_dof_ave
+  real(wp) :: yplus_dof_ave
+  real(wp) :: zplus_dof_ave
+  real(wp) :: yplus_dof_centerline
+  !
+continue
+  !
+  io = iout
+  if (present(iunit)) io = iunit
+  !
+  pp1 = real(n_order+1,kind=wp)
+  !
+  xplus_dof_ave = xplus_cell_ave / pp1
+  yplus_dof_ave = yplus_cell_ave / pp1
+  zplus_dof_ave = zplus_cell_ave / pp1
+  yplus_dof_centerline = yplus_cell_centerline / pp1
+  !
+  if (present(ncx)) then
+    icx = ncx
+  else
+    icx = nint( channel_grid_Lx / (xplus_cell_ave*yplus1) )
+  end if
+  !
+  if (present(ncz)) then
+    icz = ncz
+  else
+    icz = nint( channel_grid_Lz / (zplus_cell_ave*yplus1) )
+  end if
+  !
+  if (present(ncy)) then
+    icy = ncy
+  else
+    icy = n_global_cell / (icx*icz)
+  end if
+  !
+  write (io,1)
+  write (io,2) icx,icy,icz
+  write (io,3) &
+    "dx+",xplus_cell_ave,xplus_dof_ave, &
+    "(centerline) dy+",yplus_cell_centerline,yplus_dof_centerline, &
+    "(grid) dy+",yplus_cell_ave,yplus_dof_ave, &
+    "dz+",zplus_cell_ave,zplus_dof_ave
+  !
+  if (allocated(yplus_dof_wall)) then
+    write (io,4) yplus_cell_wall
+    do i = 1,size(yplus_dof_wall)
+      write (io,5) i,yplus_dof_wall(i)
+    end do
+  else
+    write (io,6) yplus_cell_wall
+  end if
+  write (io,1)
+  !
+  ! Format Statements
+  !
+  1 format (/,80("="),/)
+  2 format (2x,"Details of internally generated grid used for channel flow",/, &
+            80("-"),//, &
+            4x,"Cells [nx,ny,nz] = [",i5,",",i5,",",i5,"]")
+  3 format (/,26x,"Cell Ave",7x,"DoF Ave",/, &
+            4(a22,f12.2,2x,f12.2,/))
+  4 format (4x,"y+ spacing  for first cell off wall",/,24x,f10.5,//, &
+            4x,"y+ spacings for DoF in first cell off wall")
+  5 format (14x,"xi+(",i2,") = ",f10.5)
+  6 format (4x,"y+ spacing  for first cell off wall",/,24x,f10.5)
+  !
+end subroutine write_channel_grid_info
 !
 !###############################################################################
 !
