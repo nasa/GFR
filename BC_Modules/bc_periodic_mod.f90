@@ -94,11 +94,7 @@ continue
     face_cv(n,nec,2) =  face_cv(periodic_list(n-n1+1),nec,1)
     face_cv(n,nmx,2) =  face_cv(periodic_list(n-n1+1),nmx,1)
     face_cv(n,nmy,2) =  face_cv(periodic_list(n-n1+1),nmy,1)
-#ifdef REVERSE_PERIODIC
-    face_cv(n,nmz,2) = -face_cv(periodic_list(n-n1+1),nmz,1)
-#else
     face_cv(n,nmz,2) =  face_cv(periodic_list(n-n1+1),nmz,1)
-#endif
     face_cv(n,nee,2) =  face_cv(periodic_list(n-n1+1),nee,1)
   end do
   !
@@ -150,11 +146,7 @@ continue
   do n = n1,n2
     face_cv(n,nec,2) =  face_cv(periodic_list(n-n1+1),nec,1)
     face_cv(n,nmx,2) =  face_cv(periodic_list(n-n1+1),nmx,1)
-#ifdef REVERSE_PERIODIC
-    face_cv(n,nmy,2) = -face_cv(periodic_list(n-n1+1),nmy,1)
-#else
     face_cv(n,nmy,2) =  face_cv(periodic_list(n-n1+1),nmy,1)
-#endif
     face_cv(n,nee,2) =  face_cv(periodic_list(n-n1+1),nee,1)
   end do
   !
@@ -206,16 +198,6 @@ continue
       face_cv(n,m,2) = face_cv(periodic_list(n-n1+1),m,1)
     end do
   end do
-#ifdef REVERSE_PERIODIC
-  !
-  ! NOTE: We may need to reverse the copy order, i.e.,
-  !          gufp(:,k) = pufp(:,nfp+1-k)
-  !
-  !$ACC PARALLEL LOOP PRESENT(face_cv,periodic_list)
-  do n = n1,n2
-    face_cv(n,nme,2) = -face_cv(periodic_list(n-n1+1),nme,1)
-  end do
-#endif
   !
   if (ncs > 0) then
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(face_cv,periodic_list)
