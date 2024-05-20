@@ -186,6 +186,10 @@ module ovar
     !
   end type bc_input_t
   !
+  type, public :: pbc_rotation_t
+    real(wp), allocatable :: mat(:,:)
+  end type pbc_rotation_t
+  !
   ! bc_in_t : derived type that contains the boundary condition flow parameters
   !           used by the solver. This is a consolidated version of what is
   !           specified in the input namelist using bc_input_t.
@@ -198,6 +202,7 @@ module ovar
     real(wp) :: rotation_rate(1:3) = [zero,zero,zero]
     type(relaxation_t) :: relax
     type(sem_bc_t) :: sem
+    type(pbc_rotation_t) :: pbc_rotation
     integer :: bc_input_idx
     integer :: bc_type = bc_unknown
   end type bc_in_t
