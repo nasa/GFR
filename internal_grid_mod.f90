@@ -654,6 +654,9 @@ end subroutine create_taylor_couette_grid
 subroutine high_order_TCF_grid_points(ncx,ncr,nca,length,radial_pts,order, &
                                       elem_nodes,elem_pts,xyz_nodes,xyz_pts)
   !
+  !.. Use Statements ..
+  use ovar, only : TCF_Theta_Shift
+  !
   !.. Formal Arguments ..
   integer,                intent(in) :: ncx
   integer,                intent(in) :: ncr
@@ -670,11 +673,13 @@ subroutine high_order_TCF_grid_points(ncx,ncr,nca,length,radial_pts,order, &
   integer  :: nnx,nnr,nna,npx,npr,npa,p
   integer  :: i,j,k,ic,jc,kc,ip,jp,kp
   integer  :: n,nc,lcell,lnode,cpts,npts
-  real(wp) :: y,z,theta,divp,dr,dlpa,dlpx
+  real(wp) :: y,z,theta,divp,dr,dlpa,dlpx,dlca
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: ijkmap(:,:,:)
   real(wp), allocatable :: rpts(:)
+  real(wp), allocatable :: xpts(:)
+  real(wp), allocatable :: apts(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "high_order_TCF_grid_points"
@@ -732,6 +737,20 @@ continue
   dlpx = length / real(npx-1,kind=wp)
   ! Compute the uniform azimuthal high-order point spacing
   dlpa = two*pi / real(npa,kind=wp)
+  ! Compute the uniform azimuthal cell spacing
+  dlca = dlpa*real(p,kind=wp)
+  !
+  xpts = dlpx * real( intseq(0,npx-1) , kind=wp ) ! F2003 AUTO-REALLOC
+  apts = dlpa * real( intseq(0,npa-1) , kind=wp ) ! F2003 AUTO-REALLOC
+  !
+  ! Shift the azimuthal points
+  !
+  if (abs(TCF_Theta_Shift) > eps6) then
+    ! NOTE: TCF_Theta_Shift gives the shift relative to the uniform cell size
+    apts(:) = apts(:) + TCF_Theta_Shift*dlca
+    ! Move any theta coordinates beyond 2*pi back to the interval [0,2*pi]
+    where (apts > two*pi) apts = apts - two*pi
+  end if
   !
   !###################################################################
   !###################################################################
@@ -772,7 +791,7 @@ continue
     !
     kp = (k-1)*p + 1
     !
-    theta = dlpa * real(kp-1,kind=wp)
+    theta = apts(kp)
     !
     do j = 1,nnr
       !
@@ -793,7 +812,7 @@ continue
         !
         ! Compute the coordinates for this point and save it to xyz_nodes
         !
-        xyz_nodes(1,n) = dlpx * real(ip-1,kind=wp)
+        xyz_nodes(1,n) = xpts(ip)
         xyz_nodes(2,n) = y
         xyz_nodes(3,n) = z
         !
@@ -825,7 +844,7 @@ continue
   !
   n = lnode ! n should already be equal to lnode, but just in case
   do kp = 1,npa
-    theta = dlpa * real(kp-1,kind=wp)
+    theta = apts(kp)
     do jp = 1,npr
       do ip = 1,npx
         !
@@ -847,7 +866,7 @@ continue
         ! NOTE: Only the host roots will store the high-order data
         !
         if (i_am_host_root) then
-          xyz_pts(1,n) = dlpx * real(ip-1,kind=wp)
+          xyz_pts(1,n) = xpts(ip)
           xyz_pts(2,n) = rpts(jp)*cos(theta)
           xyz_pts(3,n) = rpts(jp)*sin(theta)
         end if
