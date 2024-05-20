@@ -17,6 +17,7 @@ module io_mod
   public :: read_grid_file
   public :: write_final_error
   public :: write_residual_file
+  public :: write_summary_file
   public :: check_face_flux_point_orderings
   public :: check_cell_flux_point_orderings
   public :: test_communication
@@ -5890,6 +5891,151 @@ continue
  !5 format (i10,*(es17.9))
   !
 end subroutine write_residual_file
+!
+!###############################################################################
+!
+subroutine write_summary_file(iter)
+  !
+  use geovar, only : n_global_solpts,n_global_cell
+  !
+  use order_mod, only : n_order
+  !
+  use ovar, only : output_summary_file
+  use ovar, only : itestcase,grid_format,itcur,tmrst
+  use ovar, only : time,time_ref,time_scaling_factor
+  use ovar, only : output_time_averaging,ave_start_time
+  use ovar, only : resource_list
+  use ovar, only : gfr_cpu_time
+  !
+  use internal_grid_mod, only : write_channel_grid_info
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: iter
+  !
+  !.. Local Scalars ..
+  integer  :: i,io,ierr
+  real(wp) :: out_tstar_ave,out_tstar_total,out_tstar_job,ave_tstar_job
+  real(wp) :: out_time_ave,out_time_total,out_time_job,ave_time_job
+  !
+  character(len=14) :: c_out_tstar_ave,c_ave_tstar_job
+  character(len=14) :: c_out_tstar_total,c_out_tstar_job
+  character(len=14) :: c_out_time_ave,c_ave_time_job
+  character(len=14) :: c_out_time_total,c_out_time_job
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_summary_file"
+  character(len=*), parameter :: fname = "summary.log"
+  !
+continue
+  !
+  if (.not. output_summary_file) return
+  !
+  if (mypnum == glb_root) then
+    !
+    ! Final physical time completed across all jobs including restarts
+    out_time_total = time*time_ref
+    ! Final tstar completed across all jobs including restarts
+    out_tstar_total = out_time_total*time_scaling_factor
+    !
+    ! Physical time completed during this job
+    out_time_job = out_time_total - tmrst*time_ref
+    ! Tstar completed during this job
+    out_tstar_job = out_time_job*time_scaling_factor
+    !
+    if (output_time_averaging) then
+      ! Total physical time averaged across all jobs including restarts
+      out_time_ave = out_time_total - ave_start_time*time_ref
+      ! Physical time averaged during this job
+      ave_time_job = out_time_job - merge(ave_start_time*time_ref,zero, &
+                                          ave_start_time>tmrst)
+    else
+      out_time_ave = zero
+      ave_time_job = zero
+    end if
+    ! Total tstar time-averaged across all jobs including restarts
+    out_tstar_ave = out_time_ave*time_scaling_factor
+    ! Tstar time-averaged during this job
+    ave_tstar_job = ave_time_job*time_scaling_factor
+    !
+    c_out_tstar_ave = g2c(out_tstar_ave)
+    c_ave_tstar_job = g2c(ave_tstar_job)
+    c_out_tstar_total = g2c(out_tstar_total)
+    c_out_tstar_job = g2c(out_tstar_job)
+    c_out_time_ave = g2c(out_time_ave)
+    c_ave_time_job = g2c(ave_time_job)
+    c_out_time_total = g2c(out_time_total)
+    c_out_time_job = g2c(out_time_job)
+    !
+    open (newunit=io,file=fname,status="replace",action="write", &
+                     iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    write (io,2) g2c(n_global_cell),"global cells"
+    write (io,2) g2c(n_global_solpts),"global DoF"
+    write (io,1) n_order,"solution order"
+    write (io,2) g2c(iter),"iterations completed with this job"
+    write (io,2) g2c(itcur), &
+               "total iterations completed across all jobs (including restarts)"
+    !
+    !
+    !
+    if (abs(time_scaling_factor-one) > eps6) then
+      write (io,2) c_out_tstar_total,"final t-star reached across all jobs"
+      write (io,2) c_out_tstar_job,"t-star elapsed during this job"
+    end if
+    write (io,2) c_out_time_total,"final physical time reached across all jobs"
+    write (io,2) c_out_time_job, &
+                              "simulation physical time elapsed during this job"
+    !
+    !
+    !
+    if (output_time_averaging) then
+      if (abs(time_scaling_factor-one) > eps6) then
+        write (io,2) c_out_tstar_ave, &
+                      "total t-star that has been time-averaged across all jobs"
+        write (io,2) c_ave_tstar_job, &
+                      "total t-star time-averaged during this job"
+      end if
+      write (io,2) c_out_time_ave, &
+               "total physical time that has been time-averaged across all jobs"
+      write (io,2) c_ave_time_job, &
+               "total physical time time-averaged during this job"
+    end if
+    !
+    !
+    !
+    if (allocated(resource_list)) then
+      write (io,3) (resource_list(i)%n, &
+                    resource_list(i)%model, &
+                    trim(merge("s"," ",resource_list(i)%n>1)), &
+                    i=1,size(resource_list))
+    end if
+    !
+    write (io,1) ncpu,"MPI process",trim(merge("es","  ",ncpu>1))
+    !
+    call gfr_cpu_time(-1,io_unit=io)
+    write (io,*)
+    !
+    if (itestcase == Channel_Flow) then
+      if (grid_format == Internally_Generated_Grid) then
+        call write_channel_grid_info(iunit=io)
+      end if
+    end if
+    !
+    close (io,iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  1 format (2x,i14," : ",a,:,a)
+  2 format (2x,a14," : ",a)
+  3 format (/,6x,"Job run on : ",100(i0,1x,a," node",a,:,", "))
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+end subroutine write_summary_file
 !
 !###############################################################################
 !
