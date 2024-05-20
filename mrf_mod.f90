@@ -563,9 +563,9 @@ continue
   if (nr == 3) then
     call mrf_src_cv_3d(jac,usp,residual)
   else if (nr == 2) then
-   !call mrf_src_cv_2d(usp,residual)
+   !call mrf_src_cv_2d(jac,usp,residual)
   else
-   !call mrf_src_cv_1d(usp,residual)
+   !call mrf_src_cv_1d(jac,usp,residual)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -637,9 +637,9 @@ block
     t = (t + merge(two*pi,zero,t<zero))*radians2degrees
     !
     sec = zero
-    smx = src_sign*(y_r*cv(n,nmz) - z_r*cv(n,nmy))
-    smy = src_sign*(z_r*cv(n,nmx) - x_r*cv(n,nmz))
-    smz = src_sign*(x_r*cv(n,nmy) - y_r*cv(n,nmx))
+    smx = src_sign*(y_r*cv(n,nmz) - z_r*cv(n,nmy))*jac(n)
+    smy = src_sign*(z_r*cv(n,nmx) - x_r*cv(n,nmz))*jac(n)
+    smz = src_sign*(x_r*cv(n,nmy) - y_r*cv(n,nmx))*jac(n)
     see = zero
     !
     write (331,2) n,x,r,t,sec,smx,smy,smz,see
