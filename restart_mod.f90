@@ -4338,6 +4338,171 @@ end subroutine create_restart_link
 !
 !###############################################################################
 !
+subroutine create_symlink(existing_file,link_file)
+  !
+  !.. Use Statements ..
+  use, intrinsic :: iso_c_binding, only : c_int
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: existing_file
+  character(len=*), intent(in) :: link_file
+  !
+  !.. Local Scalars ..
+  integer :: l
+  integer(c_int) :: ierr
+  logical(ldk) :: file_exists
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: efile
+  character(len=:), allocatable :: lfile
+  character(len=:), allocatable :: efile_with_path
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_symlink"
+  !
+continue
+  !
+  efile = trim(adjustl(existing_file)) ! F2003 AUTO-REALLOC
+  lfile = trim(adjustl(link_file))     ! F2003 AUTO-REALLOC
+  !
+  efile_with_path = trim(adjustl(restart_dir)) // efile ! F2003 AUTO-REALLOC
+  !
+  inquire (file=efile_with_path,exist=file_exists)
+  if (.not. file_exists) then
+    write (iout,1) pname,efile_with_path,lfile
+    flush (iout)
+    return
+  end if
+  !
+  retry_loop: &
+  do l = 1,5
+    !
+    ierr = unlink_f(lfile)
+    if (ierr /= 0) then
+      write (iout,2) pname,lfile,ierr
+      flush (iout)
+    end if
+    !
+    ierr = symlink_f(efile,lfile)
+    !
+    if (ierr /= 0) then
+      write (iout,3) pname,efile,lfile,ierr
+      flush (iout)
+    else
+      exit retry_loop
+    end if
+    !
+  end do retry_loop
+  !
+  1 format (/,2x,"ERROR CREATING SYMLINK FOR RESTART FILE BECAUSE ", &
+                 "RESTART FILE DOES NOT EXIST!!!",/, &
+              6x,"    procedure = '",a,"'",/, &
+              6x,"existing_file = '",a,"'",/, &
+              6x,"    link_file = '",a,"'",/, &
+              2x,"ABORTING THIS ATTEMPT TO CREATE A SYMLINK FILE AND ", & 
+                 "CONTINUING ON!!!",/)
+  2 format (/,2x,"ERROR RETURNED FROM C FUNCTION unlink!!!",/, &
+              6x,"    procedure = '",a,"'",/, &
+              6x,"    link_file = '",a,"'",/, &
+              6x,"         ierr = ",i0,/)
+  3 format (/,2x,"ERROR RETURNED FROM C FUNCTION symlink!!!",/, &
+              6x,"    procedure = '",a,"'",/, &
+              6x,"existing_file = '",a,"'",/, &
+              6x,"    link_file = '",a,"'",/, &
+              6x,"         ierr = ",i0,/)
+  !
+end subroutine create_symlink
+!
+!###############################################################################
+!
+function symlink_f(existing_file,link_file) result(return_value)
+  !
+  !.. Use Statements ..
+  use, intrinsic :: iso_c_binding, only : c_int,c_null_char
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: existing_file
+  character(len=*), intent(in) :: link_file
+  !
+  !.. Function Result ..
+  integer(c_int) :: return_value
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: efile_null
+  character(len=:), allocatable :: lfile_null
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "symlink_f"
+  !
+  !.. C Function Interfaces ..
+  interface
+    integer(c_int) function symlink(existing_file,link_file) &
+                               bind(c,name="symlink")
+      use iso_c_binding, only : c_int,c_char
+      implicit none
+      character(kind=c_char), dimension(*), intent(in) :: existing_file
+      character(kind=c_char), dimension(*), intent(in) :: link_file
+    end function symlink
+  end interface
+  !
+continue
+  !
+  efile_null = trim(adjustl(existing_file)) // c_null_char ! F2003 AUTO-REALLOC
+  lfile_null = trim(adjustl(link_file)) // c_null_char     ! F2003 AUTO-REALLOC
+  !
+  return_value = symlink(efile_null,lfile_null)
+  !
+end function symlink_f
+!
+!###############################################################################
+!
+function unlink_f(link_file) result(return_value)
+  !
+  !.. Use Statements ..
+  use, intrinsic :: iso_c_binding, only : c_int,c_null_char
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: link_file
+  !
+  !.. Function Result ..
+  integer(c_int) :: return_value
+  !
+  !.. Local Scalars ..
+  logical(ldk) :: file_exists
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: lfile
+  character(len=:), allocatable :: lfile_null
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "unlink_f"
+  !
+  !.. C Function Interfaces ..
+  interface
+    integer(c_int) function unlink(link_file) &
+                               bind(c,name="unlink")
+      use iso_c_binding, only : c_int,c_char
+      implicit none
+      character(kind=c_char), dimension(*), intent(in) :: link_file
+    end function unlink
+  end interface
+  !
+continue
+  !
+  return_value = int(0,kind=c_int)
+  !
+  lfile = trim(adjustl(link_file))  ! F2003 AUTO-REALLOC
+  lfile_null = lfile // c_null_char ! F2003 AUTO-REALLOC
+  !
+  inquire (file=lfile,exist=file_exists)
+  if (file_exists) then
+    return_value = unlink(lfile_null)
+  end if
+  !
+end function unlink_f
+!
+!###############################################################################
+!
 subroutine get_host_output_mpi_datatypes()
   !
   !.. Use Statement ..
