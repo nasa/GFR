@@ -617,9 +617,15 @@ module ovar
   ! ####   Non-Input Variables   ####
   ! #################################
   !
+  real(wp), public, parameter :: Default_Marker_c1_RI = 4.0_wp
+  real(wp), public, parameter :: Default_Marker_c2_RI = 4.25_wp
+  !
+  real(wp), public, parameter :: Default_Marker_c1_JI = 2.25_wp
+  real(wp), public, parameter :: Default_Marker_c2_JI = 3.0_wp
+  !
   real(wp), public, parameter :: Default_Marker_dpsi = 0.5_wp
-  real(wp), public, parameter :: Default_Marker_c1   = 4.0_wp
-  real(wp), public, parameter :: Default_Marker_c2   = 4.25_wp
+  real(wp), public, save      :: Default_Marker_c1   = Default_Marker_c1_RI
+  real(wp), public, save      :: Default_Marker_c2   = Default_Marker_c2_RI
   !
  !integer, public, parameter :: dflux_opt = project_derivatives
   integer, public, parameter :: dflux_opt = derivative_of_proj_fluxes
@@ -677,8 +683,8 @@ module ovar
   real(wp), public, save :: dtrst = zero
   !
   real(wp), public, save :: marker_dpsi = Default_Marker_dpsi
-  real(wp), public, save :: marker_c1   = Default_Marker_c1
-  real(wp), public, save :: marker_c2   = Default_Marker_c2
+  real(wp), public, save :: marker_c1   = Default_Marker_c1_RI
+  real(wp), public, save :: marker_c2   = Default_Marker_c2_RI
   !
   real(wp), public, save, allocatable :: cv_ref(:)
   real(wp), public, save, allocatable :: pv_ref(:)
