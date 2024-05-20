@@ -345,11 +345,18 @@ continue
     !
     xyz(1:nr,n1:n2) = matmul( elem_xyz(:,:) , custom_map(:,:) )
     !
+!#define USE_CUSTOM_MAPS_TO_FIX_PW
 #ifdef USE_CUSTOM_MAPS_TO_FIX_PW
 block
-  real(wp) :: x,y,z,r,t
+  real(wp) :: x,y,z,r,t,xmin,xmax,rmin,rmax
     if (ncpu == 1) then
+      xmin = minval(elem_xyz(1,:))
+      xmax = maxval(elem_xyz(1,:))
+      rmin = minval( sqrt( (elem_xyz(2,:)**2) + (elem_xyz(3,:)**2) ) )
+      rmax = maxval( sqrt( (elem_xyz(2,:)**2) + (elem_xyz(3,:)**2) ) )
      !if (this_cell == 26) then
+     !if (xmin > -3.45_wp .and. xmax < -3.25_wp .and. &
+     !    rmin > 0.88_wp .and. rmax < one) then
         write (36,725) this_cell
         eqd_xyz = matmul( elem_xyz(:,:) , this_map%mat(:,:) ) ! F03 AUTO-REALLOC
         do n = 1,size(eqd_xyz,dim=2)
@@ -371,11 +378,11 @@ block
           t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
           write (37,726) n-n1+1,x,y,z,r,t
         end do
-      end if
-    !nd if
+     !end if
+    end if
     725 format (/,2x,"Cell # ",i0)
     726 format (2x,i4,5(2x,f13.8))
-    if (this_cell == 26) call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+   !if (this_cell == 26) call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
 end block
 #endif
     !
@@ -465,6 +472,9 @@ end block
   close (io)
   close (io1)
   close (io2)
+#endif
+#ifdef USE_CUSTOM_MAPS_TO_FIX_PW
+   call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
 #endif
   !
   ! Deallocate the local arrays before leaving
