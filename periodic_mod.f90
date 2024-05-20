@@ -13,6 +13,7 @@ module periodic_mod
   !
   public :: match_periodic_faces
   public :: check_periodic_list_indices
+  public :: get_pbc_matrix
   !
   ! ##############################
   ! ###  Module Derived Types  ###
@@ -912,6 +913,151 @@ continue
   end do
   !
 end function periodic_transformation
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_pbc_matrix(periodic,ignore_translation) result(return_value)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : periodic_bc_t
+  !
+  !.. Formal Arguments ..
+  type(periodic_bc_t), intent(in) :: periodic
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: ignore_translation
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  real(wp), allocatable :: return_value(1:nr+1,1:nr)
+  !
+  !.. Local Scalars ..
+  real(wp) :: rtn_angle,unx,uny,unz,xc,yc,zc
+  real(wp) :: rxx,rxy,rxz,ryx,ryy,ryz,rzx,rzy,rzz
+  real(wp) :: c,cx,cy,cz,s,sx,sy,sz
+  !
+  logical(lk) :: rotation_only
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: rtn_angles(:)
+  real(wp), allocatable :: rtn_axis(:)
+  real(wp), allocatable :: rmat(:,:)
+  !
+continue
+  !
+  rtn_angles = periodic%RotationAngle(1:3) ! F2003 AUTO-REALLOC
+  rtn_axis = periodic%RotationAxis(1:3) ! F2003 AUTO-REALLOC
+  rtn_angle = periodic%RotationAxis(4)
+  !
+  rmat = identity_matrix(one,4) ! F2003 AUTO-REALLOC
+  !
+  xc = periodic%RotationCenter(1)
+  yc = periodic%RotationCenter(2)
+  zc = periodic%RotationCenter(3)
+  !
+  if (any(abs(rtn_angles(:)) > eps6)) then
+    !
+    ! Use the angles of rotation about each coordinate axis to form
+    ! the rotation matrix
+    ! NOTE: This creates a single rotation matrix using three rotations
+    !       about the Cartesian axes, with the three rotation angles not
+    !       necessarily being equal. The rotations are performed in the
+    !       order of x-axis, then y-axis, and finally z-axis.
+    !
+    cx = cos( rtn_angles(1)*degrees2radians )
+    sx = sin( rtn_angles(1)*degrees2radians )
+    !
+    cy = cos( rtn_angles(2)*degrees2radians )
+    sy = sin( rtn_angles(2)*degrees2radians )
+    !
+    cz = cos( rtn_angles(3)*degrees2radians )
+    sz = sin( rtn_angles(3)*degrees2radians )
+    !
+    rxx =    cy*cz
+    rxy = sx*sy*cz - cx*sz
+    rxz = cx*sy*cz + sx*sz
+    !
+    ryx =    cy*sz
+    ryy = sx*sy*sz + cx*cz
+    ryz = cx*sy*sz - sx*cz
+    !
+    rzx =   -sy
+    rzy = sx*cy
+    rzz = cx*cy
+    !
+  else (any(abs(rtn_axis(:)) > eps6) .and. abs(rtn_angle) > eps6) then
+    !
+    ! Use rotation axis and angle of rotation about the axis to form
+    ! the rotation matrix
+    ! NOTE: These equations came from a Word document from FUN3D titled
+    !       Transformation Matrices. It references the 2009 AIAA paper
+    !       "Recent Enhancements to the FUN3D Flow Solver for Moving-Mesh
+    !       Applications" by Biedron and Thomas, AIAA 2009-1360.
+    !
+    c = cos( rtn_angle*degrees2radians )
+    s = sin( rtn_angle*degrees2radians )
+    !
+    ! Compute the components of the normal vector used as the rotation axis
+    !
+    unx = rtn_axis(1)/norm2(rtn_axis)
+    uny = rtn_axis(2)/norm2(rtn_axis)
+    unz = rtn_axis(3)/norm2(rtn_axis)
+    !
+    rxx = (one-c)*unx*unx + c
+    ryy = (one-c)*uny*uny + c
+    rzz = (one-c)*unz*unz + c
+    !
+    rxy = (one-c)*unx*uny - unz*s
+    rxz = (one-c)*unx*unz + uny*s
+    ryz = (one-c)*uny*unz - unx*s
+    !
+    ryx = (one-c)*unx*uny + unz*s
+    rzx = (one-c)*unx*unz - uny*s
+    rzy = (one-c)*uny*unz + unx*s
+    !
+  else
+    !
+    rxx = one  ; rxy = zero ; rxz = zero ; xc = zero
+    ryx = zero ; ryy = one  ; ryz = zero ; yc = zero
+    rzx = zero ; rzy = zero ; rzz = one  ; zc = zero
+    !
+  end if
+  !
+  rmat(1,1) = rxx
+  rmat(2,1) = rxy
+  rmat(3,1) = rxz
+  rmat(4,1) = xc - rxx*xc - rxy*yc - rxz*zc + periodic%Translation(1)
+  !
+  rmat(1,2) = ryx
+  rmat(2,2) = ryy
+  rmat(3,2) = ryz
+  rmat(4,2) = yc - ryx*xc - ryy*yc - ryz*zc + periodic%Translation(2)
+  !
+  rmat(1,3) = rzx
+  rmat(2,3) = rzy
+  rmat(3,3) = rzz
+  rmat(4,3) = zc - rzx*xc - rzy*yc - rzz*zc + periodic%Translation(3)
+  !
+  ! Copy the relevant parts of rmat to return_value
+  !
+  rotation_only = fals
+  if (present(ignore_tranlation)) then
+    rotation_only = ignore_translation
+  end if
+  !
+  if (rotation_only) then
+    return_value = rmat(1:nr,1:nr) ! F2003 AUTO-REALLOC
+  else
+    return_value = init_array(nr+1,nr,zero) ! F2003 AUTO-REALLOC
+    return_value(1:nr,1:nr) = rmat(1:nr,1:nr)
+    return_value(nr+1,1:nr) = rmat(4,1:nr)
+  end if
+  !
+end function get_pbc_matrix
 !
 !###############################################################################
 !
