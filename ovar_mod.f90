@@ -932,6 +932,11 @@ continue
   !
   if ( this%sem%is_not_default() ) return
   !
+  ! CHECK ON this%periodic%is_not_default() IS NOT DONE BECAUSE WHETHER OR
+  ! NOT THE PERIODIC COMPONENT HAS DEFAULT CONDITIONS HAS NOTHING TO DO WITH
+  ! WHETHER OR NOT THIS BC_INPUT ELEMENT HAS DEFAULT FLOW CONDITIONS WHICH
+  ! IS WHAT THIS FUNCTION IS CHECKING.
+  !
 #ifdef ALLOCATABLE_MASS_FRAC
   !
   if (allocated(this%mass_frac   ) .neqv. allocated(dflt%mass_frac   )) return
