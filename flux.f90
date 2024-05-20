@@ -1268,11 +1268,11 @@ continue
       cv_mz = zero
       cv_ee = zero
       !
-      do i = interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k)+1, &
-             interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k+1)
+      do i = interp(this_geom,this_order)%toCell(qdtr_order)%row_ptr(k)+1, &
+             interp(this_geom,this_order)%toCell(qdtr_order)%row_ptr(k+1)
         !
-        j = interp(this_geom,this_order)%toCell(qdtr_order)%col_idx(i)
-        a = interp(this_geom,this_order)%toCell(qdtr_order)%col_val(i)
+        j = interp(this_geom,this_order)%toCell(qdtr_order)%row_idx(i)
+        a = interp(this_geom,this_order)%toCell(qdtr_order)%row_val(i)
         !
         cv_ec = cv_ec + a * usp(n0+j,nec)
         cv_mx = cv_mx + a * usp(n0+j,nmx)
@@ -1345,11 +1345,11 @@ continue
       cv_my = zero
       cv_ee = zero
       !
-      do i = interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k)+1, &
-             interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k+1)
+      do i = interp(this_geom,this_order)%toCell(qdtr_order)%row_ptr(k)+1, &
+             interp(this_geom,this_order)%toCell(qdtr_order)%row_ptr(k+1)
         !
-        j = interp(this_geom,this_order)%toCell(qdtr_order)%col_idx(i)
-        a = interp(this_geom,this_order)%toCell(qdtr_order)%col_val(i)
+        j = interp(this_geom,this_order)%toCell(qdtr_order)%row_idx(i)
+        a = interp(this_geom,this_order)%toCell(qdtr_order)%row_val(i)
         !
         cv_ec = cv_ec + a * usp(n0+j,nec)
         cv_mx = cv_mx + a * usp(n0+j,nmx)
@@ -1418,11 +1418,11 @@ continue
         !
         val = zero
         !
-        do i = interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k)+1, &
-               interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k+1)
+        do i = interp(this_geom,this_order)%toCell(qdtr_order)%row_ptr(k)+1, &
+               interp(this_geom,this_order)%toCell(qdtr_order)%row_ptr(k+1)
           !
-          j = interp(this_geom,this_order)%toCell(qdtr_order)%col_idx(i)
-          a = interp(this_geom,this_order)%toCell(qdtr_order)%col_val(i)
+          j = interp(this_geom,this_order)%toCell(qdtr_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toCell(qdtr_order)%row_val(i)
           !
           val = val + a * usp(n0+j,m)
           !
@@ -1505,11 +1505,11 @@ continue
         !
         val = zero
         !
-        do i = interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k)+1, &
-               interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k+1)
+        do i = interp(this_geom,this_order)%toCell(qdtr_order)%row_ptr(k)+1, &
+               interp(this_geom,this_order)%toCell(qdtr_order)%row_ptr(k+1)
           !
-          j = interp(this_geom,this_order)%toCell(qdtr_order)%col_idx(i)
-          a = interp(this_geom,this_order)%toCell(qdtr_order)%col_val(i)
+          j = interp(this_geom,this_order)%toCell(qdtr_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toCell(qdtr_order)%row_val(i)
           !
           val = val + a * xyz(l,n0+j)
           !
@@ -1611,11 +1611,11 @@ continue
       dmzdx = zero ; dmzdy = zero ; dmzdz = zero
       deedx = zero ; deedy = zero ; deedz = zero
       !
-      do i = interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k)+1, &
-             interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k+1)
+      do i = interp(this_geom,this_order)%toCell(qdtr_order)%row_ptr(k)+1, &
+             interp(this_geom,this_order)%toCell(qdtr_order)%row_ptr(k+1)
         !
-        j = interp(this_geom,this_order)%toCell(qdtr_order)%col_idx(i)
-        a = interp(this_geom,this_order)%toCell(qdtr_order)%col_val(i)
+        j = interp(this_geom,this_order)%toCell(qdtr_order)%row_idx(i)
+        a = interp(this_geom,this_order)%toCell(qdtr_order)%row_val(i)
         !
         decdx = decdx + a * dusp(n0+j,1,nec)
         decdy = decdy + a * dusp(n0+j,2,nec)
@@ -1718,11 +1718,11 @@ continue
       dmydx = zero ; dmydy = zero
       deedx = zero ; deedy = zero
       !
-      do i = interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k)+1, &
-             interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k+1)
+      do i = interp(this_geom,this_order)%toCell(qdtr_order)%row_ptr(k)+1, &
+             interp(this_geom,this_order)%toCell(qdtr_order)%row_ptr(k+1)
         !
-        j = interp(this_geom,this_order)%toCell(qdtr_order)%col_idx(i)
-        a = interp(this_geom,this_order)%toCell(qdtr_order)%col_val(i)
+        j = interp(this_geom,this_order)%toCell(qdtr_order)%row_idx(i)
+        a = interp(this_geom,this_order)%toCell(qdtr_order)%row_val(i)
         !
         decdx = decdx + a * dusp(n0+j,1,nec)
         decdy = decdy + a * dusp(n0+j,2,nec)
@@ -1806,11 +1806,11 @@ continue
           !
           val = zero
           !
-          do i = interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k)+1, &
-                 interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k+1)
+          do i = interp(this_geom,this_order)%toCell(qdtr_order)%row_ptr(k)+1, &
+                 interp(this_geom,this_order)%toCell(qdtr_order)%row_ptr(k+1)
             !
-            j = interp(this_geom,this_order)%toCell(qdtr_order)%col_idx(i)
-            a = interp(this_geom,this_order)%toCell(qdtr_order)%col_val(i)
+            j = interp(this_geom,this_order)%toCell(qdtr_order)%row_idx(i)
+            a = interp(this_geom,this_order)%toCell(qdtr_order)%row_val(i)
             !
             val = val + a * dusp(n0+j,l,m)
             !
@@ -4741,11 +4741,11 @@ continue
       r_mz = zero
       r_ee = zero
       !
-      do i = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k)+1, &
-             interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k+1)
+      do i = interp(face_geom,face_order)%toCell(qdtr_order)%row_ptr(k)+1, &
+             interp(face_geom,face_order)%toCell(qdtr_order)%row_ptr(k+1)
         !
-        j = interp(face_geom,face_order)%toCell(qdtr_order)%col_idx(i)
-        a = interp(face_geom,face_order)%toCell(qdtr_order)%col_val(i)
+        j = interp(face_geom,face_order)%toCell(qdtr_order)%row_idx(i)
+        a = interp(face_geom,face_order)%toCell(qdtr_order)%row_val(i)
         !
         l_ec = l_ec + a * faceusp(f0+j,nec,1)
         l_mx = l_mx + a * faceusp(f0+j,nmx,1)
@@ -4841,11 +4841,11 @@ continue
       r_my = zero
       r_ee = zero
       !
-      do i = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k)+1, &
-             interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k+1)
+      do i = interp(face_geom,face_order)%toCell(qdtr_order)%row_ptr(k)+1, &
+             interp(face_geom,face_order)%toCell(qdtr_order)%row_ptr(k+1)
         !
-        j = interp(face_geom,face_order)%toCell(qdtr_order)%col_idx(i)
-        a = interp(face_geom,face_order)%toCell(qdtr_order)%col_val(i)
+        j = interp(face_geom,face_order)%toCell(qdtr_order)%row_idx(i)
+        a = interp(face_geom,face_order)%toCell(qdtr_order)%row_val(i)
         !
         l_ec = l_ec + a * faceusp(f0+j,nec,1)
         l_mx = l_mx + a * faceusp(f0+j,nmx,1)
@@ -4929,11 +4929,11 @@ continue
           !
           val = zero
           !
-          do i = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k)+1, &
-                 interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k+1)
+          do i = interp(face_geom,face_order)%toCell(qdtr_order)%row_ptr(k)+1, &
+                 interp(face_geom,face_order)%toCell(qdtr_order)%row_ptr(k+1)
             !
-            j = interp(face_geom,face_order)%toCell(qdtr_order)%col_idx(i)
-            a = interp(face_geom,face_order)%toCell(qdtr_order)%col_val(i)
+            j = interp(face_geom,face_order)%toCell(qdtr_order)%row_idx(i)
+            a = interp(face_geom,face_order)%toCell(qdtr_order)%row_val(i)
             !
             val = val + a * faceusp(f0+j,m,n)
             !
@@ -5049,11 +5049,11 @@ continue
       dmzdxr = zero ; dmzdyr = zero ; dmzdzr = zero
       deedxr = zero ; deedyr = zero ; deedzr = zero
       !
-      do i = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k)+1, &
-             interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k+1)
+      do i = interp(face_geom,face_order)%toCell(qdtr_order)%row_ptr(k)+1, &
+             interp(face_geom,face_order)%toCell(qdtr_order)%row_ptr(k+1)
         !
-        j = interp(face_geom,face_order)%toCell(qdtr_order)%col_idx(i)
-        a = interp(face_geom,face_order)%toCell(qdtr_order)%col_val(i)
+        j = interp(face_geom,face_order)%toCell(qdtr_order)%row_idx(i)
+        a = interp(face_geom,face_order)%toCell(qdtr_order)%row_val(i)
         !
         decdxl = decdxl + a * facedusp(f0+j,1,nec,1)
         decdyl = decdyl + a * facedusp(f0+j,2,nec,1)
@@ -5207,11 +5207,11 @@ continue
       dmydxr = zero ; dmydyr = zero
       deedxr = zero ; deedyr = zero
       !
-      do i = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k)+1, &
-             interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k+1)
+      do i = interp(face_geom,face_order)%toCell(qdtr_order)%row_ptr(k)+1, &
+             interp(face_geom,face_order)%toCell(qdtr_order)%row_ptr(k+1)
         !
-        j = interp(face_geom,face_order)%toCell(qdtr_order)%col_idx(i)
-        a = interp(face_geom,face_order)%toCell(qdtr_order)%col_val(i)
+        j = interp(face_geom,face_order)%toCell(qdtr_order)%row_idx(i)
+        a = interp(face_geom,face_order)%toCell(qdtr_order)%row_val(i)
         !
         decdxl = decdxl + a * facedusp(f0+j,1,nec,1)
         decdyl = decdyl + a * facedusp(f0+j,2,nec,1)
@@ -5324,13 +5324,13 @@ continue
             !
             val = zero
             !
-            i1 = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k)+1
-            i2 = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k+1)
+            i1 = interp(face_geom,face_order)%toCell(qdtr_order)%row_ptr(k)+1
+            i2 = interp(face_geom,face_order)%toCell(qdtr_order)%row_ptr(k+1)
             !
             do i = i1,i2
               !
-              j = interp(face_geom,face_order)%toCell(qdtr_order)%col_idx(i)
-              a = interp(face_geom,face_order)%toCell(qdtr_order)%col_val(i)
+              j = interp(face_geom,face_order)%toCell(qdtr_order)%row_idx(i)
+              a = interp(face_geom,face_order)%toCell(qdtr_order)%row_val(i)
               !
               val = val + a * facedusp(f0+j,l,m,n)
               !
@@ -5418,11 +5418,11 @@ continue
         !
         val = zero
         !
-        do i = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k)+1, &
-               interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k+1)
+        do i = interp(face_geom,face_order)%toCell(qdtr_order)%row_ptr(k)+1, &
+               interp(face_geom,face_order)%toCell(qdtr_order)%row_ptr(k+1)
           !
-          j = interp(face_geom,face_order)%toCell(qdtr_order)%col_idx(i)
-          a = interp(face_geom,face_order)%toCell(qdtr_order)%col_val(i)
+          j = interp(face_geom,face_order)%toCell(qdtr_order)%row_idx(i)
+          a = interp(face_geom,face_order)%toCell(qdtr_order)%row_val(i)
           !
           val = val + a * facexyz(l,f0+j)
           !

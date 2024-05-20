@@ -8229,11 +8229,11 @@ continue
           !
           val = zero
           !
-          do i = interp(this_geom,this_order)%toCell(t_order)%col_ptr(n)+1, &
-                 interp(this_geom,this_order)%toCell(t_order)%col_ptr(n+1)
+          do i = interp(this_geom,this_order)%toCell(t_order)%row_ptr(n)+1, &
+                 interp(this_geom,this_order)%toCell(t_order)%row_ptr(n+1)
             !
-            j = interp(this_geom,this_order)%toCell(t_order)%col_idx(i)
-            a = interp(this_geom,this_order)%toCell(t_order)%col_val(i)
+            j = interp(this_geom,this_order)%toCell(t_order)%row_idx(i)
+            a = interp(this_geom,this_order)%toCell(t_order)%row_val(i)
             !
             val = val + a * usp(n0+j,m)
             !
