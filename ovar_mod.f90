@@ -494,6 +494,7 @@ module ovar
   integer,  public, save :: TCF_Axial_Cells        = 24
   integer,  public, save :: TCF_Radial_Cells       = 20
   integer,  public, save :: TCF_Azimuthal_Cells    = 48
+  real(wp), public, save :: TCF_Theta_Shift        = zero
   !
   ! FLAME SPEED TEST PARAMETERS
   integer, public, save :: flame_speed_test_dof = 0
@@ -1792,6 +1793,7 @@ module input_namelist_mod
   use ovar,      only : TCF_Outer_Radius,TCF_Outer_Wall_Spacing
   use ovar,      only : TCF_Aspect_Ratio,TCF_Axial_Cells
   use ovar,      only : TCF_Radial_Cells,TCF_Azimuthal_Cells
+  use ovar,      only : TCF_Theta_Shift
   use ovar,      only : flame_speed_test_dof
   use ovar,      only : channel_body_force,channel_init_file
   use ovar,      only : channel_spatial_ave_restart
@@ -2024,7 +2026,8 @@ module input_namelist_mod
   namelist / input / TCF_Inner_Radius, TCF_Inner_Wall_Spacing, &
                      TCF_Outer_Radius, TCF_Outer_Wall_Spacing, &
                      TCF_Aspect_Ratio, TCF_Axial_Cells, &
-                     TCF_Radial_Cells, TCF_Azimuthal_Cells
+                     TCF_Radial_Cells, TCF_Azimuthal_Cells, &
+                     TCF_Theta_Shift
   ! FLAME SPEED TEST PARAMETERS
   namelist / input / flame_speed_test_dof
   ! CHANNEL FLOW PARAMETERS
