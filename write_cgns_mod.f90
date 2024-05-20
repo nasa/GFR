@@ -4191,7 +4191,8 @@ subroutine get_cgns_time_ave_variables(variable_list)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_cgns_time_ave_variables"
   !
-  character(len=*), parameter :: default_list(1:14) = ["Density    ", &
+  character(len=*), parameter :: default_list(1:15) = ["Density    ", &
+                                                       "Momentum   ", &
                                                        "Velocity   ", &
                                                        "Pressure   ", &
                                                        "Temperature", &
@@ -4224,7 +4225,8 @@ subroutine get_cgns_time_ave_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:30) = ["Density            ", &
+  character(len=*), parameter :: var_order(1:31) = ["Density            ", &
+                                                    "Momentum           ", &
                                                     "Velocity           ", &
                                                     "CylindricalVelocity", &
                                                     "Pressure           ", &
@@ -4408,7 +4410,7 @@ continue
       !
       call cgns_write_field_data
       !!}}}
-    case ("Velocity") ! Velocity
+    case ("Velocity") ! Mean Velocity
       !!{{{
       do l = 1,nr
         !
@@ -4430,6 +4432,36 @@ continue
         !
         do n = 1,npts
           vartmp(n) = vartmp(n) * aref
+        end do
+        !
+        call cgns_write_field_data
+        !
+        idx1 = 0
+        !
+      end do
+      !!}}}
+    case ("Momentum") ! Mean momentum
+      !!{{{
+      do l = 1,nr
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do m = 1,size(time_ave_variables)
+          ! F2003 AUTO-REALLOC
+          ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+          if (ta_var == "D"//char_xyz(l)) then
+            idx1 = m
+            exit
+          end if
+        end do
+        !
+        if (idx1 > 0) then
+          call interpolate_for_output( uavesp(:,idx1) , vartmp )
+        end if
+        !
+        do n = 1,npts
+          vartmp(n) = vartmp(n) * rhoref * aref
         end do
         !
         call cgns_write_field_data
