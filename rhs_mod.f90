@@ -542,7 +542,11 @@ continue
     call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
-  ! Apply the limiter
+  ! Apply the shock/troubled-cell limiter. The cells will first be checked
+  ! to find any with signs of instability or shocks, and these cells will
+  ! be marked as 'troubled'. The limiting method (filtering, projection, etc.)
+  ! will then be applied to only the troubled cells and all other cells
+  ! will remain unchanged.
   !
   if (Limiter_Option /= 0) then
     if (Apply_Limiter) then
@@ -558,7 +562,9 @@ continue
     end if
   end if
   !
-  ! Apply the filter
+  ! Apply the global/background exponential filter. This filter is applied
+  ! to every cell regardless of whether or not the solution in the cell
+  ! is stable/smooth/well-resolved.
   !
   if (Filter_Option > 0) then
     if (Apply_Filter) then
