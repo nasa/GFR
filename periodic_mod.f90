@@ -65,9 +65,6 @@ subroutine match_periodic_faces()
   character(len=CGLEN) :: match_jnam,jname,iname,match_inam
   !
   !.. Local Arrays ..
-  real(wp) :: pbc_rotation_center(1:nr)
-  real(wp) :: pbc_rotation_angle(1:nr)
-  real(wp) :: pbc_translation(1:nr)
   real(wp) :: xyz_ip(1:nr)
   !
   integer :: ipn(1:4)
@@ -96,6 +93,11 @@ subroutine match_periodic_faces()
   integer, allocatable :: rcell_nodes(:)
   !
   real(wp), allocatable :: ds(:)
+  real(wp), allocatable :: pbc_matrix(:,:)
+ !real(wp), allocatable :: pbc_rotation_center(:)
+ !real(wp), allocatable :: pbc_rotation_angle(:)
+ !real(wp), allocatable :: pbc_rotation_axis(:)
+ !real(wp), allocatable :: pbc_translation(:)
   !
   logical(lk), allocatable :: msk(:)
   logical(lk), allocatable :: matched(:)
@@ -416,7 +418,7 @@ continue
   !#############################################################################
   !#############################################################################
   !
-  ! Go through each periodic pair and find the matching boundary faces an
+  ! Go through each periodic pair and find the matching boundary faces and
   ! save the necessary matching information into bface
   !
   match_pair_faces: &
@@ -425,9 +427,15 @@ continue
     iidx = pbc_idxs( pairs(1,this_pair) )
     jidx = pbc_idxs( pairs(2,this_pair) )
     !
-    pbc_rotation_center(1:nr) = bc_input(iidx)%periodic%RotationCenter(1:nr)
-    pbc_rotation_angle(1:nr) = bc_input(iidx)%periodic%RotationAngle(1:nr)
-    pbc_translation(1:nr) = bc_input(iidx)%periodic%Translation(1:nr)
+   !! F2003 AUTO-REALLOC
+   !pbc_rotation_center = bc_input(iidx)%periodic%RotationCenter(:)
+   !pbc_rotation_angle = bc_input(iidx)%periodic%RotationAngle(:)
+   !pbc_rotation_axis = bc_input(iidx)%periodic%RotationAxis(:)
+   !pbc_translation = bc_input(iidx)%periodic%Translation(:)
+    !
+    ! Get the transformation matrix for the periodic BC
+    !
+    pbc_matrix = get_pbc_matrix(bc_input(iidx)%periodic) ! F2003 AUTO-REALLOC
     !
     ! F2003 AUTO-REALLOC
     ifaces = pack( intseq(1,nfbnd) , bnd_face(:)%bc_idx==iidx )
@@ -467,10 +475,11 @@ continue
     do i = 1,npn
       !
       ip = inodes(i)
-      xyz_ip(1:nr) = periodic_transformation_old(xyz_nodes(1:nr,ip), &
-                                                 pbc_rotation_center, &
-                                                 pbc_rotation_angle, &
-                                                 pbc_translation)
+      xyz_ip(1:nr) = periodic_transformation(xyz_nodes(1:nr,ip),pbc_matrix)
+     !xyz_ip(1:nr) = periodic_transformation_old(xyz_nodes(1:nr,ip), &
+     !                                           pbc_rotation_center, &
+     !                                           pbc_rotation_angle, &
+     !                                           pbc_translation)
       !
       ds(:) = huge(zero) ! reset all to a large number so we can find the min
       jnode_loop: &
