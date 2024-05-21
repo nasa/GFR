@@ -3027,53 +3027,88 @@ continue
     ii = 0
     bface_loop: do nf = 1,size(bface,dim=2)
       !
-      if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
+     !if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
+      if (bface(1,nf) == bc_cpu_bnd .or. bface(5,nf) == 0) cycle bface_loop
       !
-      ! We need to use bface(5) to
-      ! extract the name of the BC for this face from bc_names to see if
-      ! it is the same as the name of the current bc_input, meaning this
-      ! face is part of the current bc_input. If it is:
-      !   1) add this face to the count of total boundary faces for the
-      !      current bc_input
-      !   2) save the index for this boundary condition within bc_in to
-      !      bface(6) for this face
-      !   3) save the index for this boundary condition within bc_in to
-      !      bface(11) for this face
-      !      NOTE: this is only done because periodic BCs use bface(6)
-      !      to store periodic connectivity information and instead
-      !      use bface(11) to store their bc_in index, and we just
-      !      want to make it so all faces can access their bc_in index
-      !      from bface(11).
-      !   4) if the BC type for this BC has been set in the input file,
-      !      i.e., bc_input(n)%set_bc_value /= bc_unknown,
-      !      reset bface(1) to this BC type
-      !   5) save the BC type to bc_in if it still bc_unknown
-      !      
-      bcnam = trim(adjustl( uppercase( bc_names(bface(5,nf)) ) ))
-      bcinp = trim(adjustl( uppercase( bc_input(n)%name      ) ))
+     !if (mypnum == glb_root) then
+     !  write (630,173) n,nf,bface(5,nf),mod(bface(11,nf),10000), &
+     !                  trim(adjustl(bc_integer_to_string(bface(1,nf))))
+     !  173 format (i3,i8,i8,i8,4x,a)
+     !end if
       !
-      if (bcnam == bcinp) then
+      if (bface(1,nf) == bc_periodic) then
         !
-        ii = ii + 1
+        ! If this is a periodic BC, we need to extract bc_idx from bface(11)
+        ! to see if this is the same as the current bc_input index, meaning
+        ! this face is part of the current bc_input and add it to the count
+        ! of total boundary faces for the current bc_input. If it is:
+        !   1) add this face to the count of total boundary faces for the
+        !      current bc_input
+        !   2) save the BC type to bc_in if it still bc_unknown
         !
-        ! Save the index for this boundary condition
-        ! within the bc_in array to bface(6,:)
+        bc_idx = mod(bface(11,nf),10000)
         !
-        bface(6,nf) = i
-        !
-        bface(11,nf) = i
-        !
-        ! Force the boundary condition to that specified in the input file
-        ! if the value of set_bc_value is not equal to bc_unknown
-        !
-        if (bc_input(n)%set_bc_value /= bc_unknown) then
-          bface(1,nf) = bc_input(n)%set_bc_value
+        if (bc_idx == n) then
+          !
+          ii = ii + 1
+          !
+          ! Save the boundary condition type to bc_in
+          !
+          if (bc_in(i)%bc_type == bc_unknown) then
+            bc_in(i)%bc_type = bface(1,nf)
+          end if
+          !
         end if
         !
-        ! Save the boundary condition type to bc_in
+      else
         !
-        if (bc_in(i)%bc_type == bc_unknown) then
-          bc_in(i)%bc_type = bface(1,nf)
+        ! If this is anything but a periodic BC, we need to use bface(5) to
+        ! extract the name of the BC for this face from bc_names to see if
+        ! it is the same as the name of the current bc_input, meaning this
+        ! face is part of the current bc_input. If it is:
+        !   1) add this face to the count of total boundary faces for the
+        !      current bc_input
+        !   2) save the index for this boundary condition within bc_in to
+        !      bface(6) for this face
+        !   3) save the index for this boundary condition within bc_in to
+        !      bface(11) for this face
+        !      NOTE: this is only done because periodic BCs use bface(6)
+        !      to store periodic connectivity information and instead
+        !      use bface(11) to store their bc_in index, and we just
+        !      want to make it so all faces can access their bc_in index
+        !      from bface(11).
+        !   4) if the BC type for this BC has been set in the input file,
+        !      i.e., bc_input(n)%set_bc_value /= bc_unknown,
+        !      reset bface(1) to this BC type
+        !   5) save the BC type to bc_in if it still bc_unknown
+        !      
+        bcnam = trim(adjustl( uppercase( bc_names(bface(5,nf)) ) ))
+        bcinp = trim(adjustl( uppercase( bc_input(n)%name      ) ))
+        !
+        if (bcnam == bcinp) then
+          !
+          ii = ii + 1
+          !
+          ! Save the index for this boundary condition
+          ! within the bc_in array to bface(6,:)
+          !
+          bface(6,nf) = i
+          !
+          bface(11,nf) = i
+          !
+          ! Force the boundary condition to that specified in the input file
+          ! if the value of set_bc_value is not equal to bc_unknown
+          !
+          if (bc_input(n)%set_bc_value /= bc_unknown) then
+            bface(1,nf) = bc_input(n)%set_bc_value
+          end if
+          !
+          ! Save the boundary condition type to bc_in
+          !
+          if (bc_in(i)%bc_type == bc_unknown) then
+            bc_in(i)%bc_type = bface(1,nf)
+          end if
+          !
         end if
         !
       end if
