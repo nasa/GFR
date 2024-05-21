@@ -1246,7 +1246,8 @@ end subroutine get_dudy
 !
 !pure &
 subroutine get_normalized_profile(y_vals,u,uu,v,vv,w,ww,uv,rho,t,dudy, &
-                                  prof,aux_data,averaging_channel_flow,ix)
+                                  prof,aux_data,averaging_channel_flow,ix, &
+                                  opt_debug_output)
   !
   !.. Use Statements ..
   use order_mod,        only : n_order
@@ -1272,6 +1273,9 @@ subroutine get_normalized_profile(y_vals,u,uu,v,vv,w,ww,uv,rho,t,dudy, &
   logical(lk), intent(in) :: averaging_channel_flow
   integer,     intent(in) :: ix
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: opt_debug_output
+  !
   !.. Local Scalars ..
   integer  :: n,nc,n0,npts,n1d
   real(wp) :: rnum,height,half_height,dudy_wall,gsf
@@ -1280,10 +1284,15 @@ subroutine get_normalized_profile(y_vals,u,uu,v,vv,w,ww,uv,rho,t,dudy, &
   real(wp) :: dy,wt,udt,umt,udtm,udtp,umtm,umtp
   real(wp) :: displacement_thickness,momentum_thickness
   !
+  logical(lk) :: debug_output
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_normalized_profile"
   !
 continue
+  !
+  debug_output = fals
+  if (present(opt_debug_output)) debug_output = opt_debug_output
   !
   n1d = n_order+1
   !
@@ -1428,6 +1437,19 @@ continue
   aux_data(16) = tau_wall / (half * rho_avg * u_bulk * u_bulk)
   ! Skin friction based on center-line velocity (Pope eq. 7.14)
   aux_data(17) = tau_wall / (half * rho_avg * u_cl * u_cl)
+  !
+  if (debug_output) then
+    if (mod(npts,n1d) == 0) then
+      write (iout,*)
+      write (iout,801) "u_Bulk",u_bulk*aref
+      write (iout,901) " dstar",displacement_thickness
+      write (iout,901) " theta",momentum_thickness
+      write (iout,*)
+    end if
+    write (iout,*)
+  end if
+  801 format (2x,"Using     Quadrature:  ",a6," = ",f11.6," m/s")
+  901 format (2x,"Using     Quadrature:  ",a6," = ",es14.6)
   !
 end subroutine get_normalized_profile
 !
