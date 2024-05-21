@@ -1599,6 +1599,7 @@ subroutine read_grid_file()
   !
   !.. Use Statements ..
   use geovar,        only : nr,grid
+  use geovar,        only : output_bface
   use module_cgns,   only : read_cgns_gridfile
   use module_gmsh,   only : read_gmsh_gridfile
   use module_plot3d, only : read_plot3d_gridfile
@@ -1650,10 +1651,13 @@ continue
     call check_for_bad_number(__LINE__,__FILE__)
   end if
   !
+  call output_bface(strng="after.grid_read.",only_glb_root=true)
+  !
   ! Alter bface due to the input boundary conditions
   ! NOTE: This will apply the correct BC to bface(1,:) and fill bface(6,:)
   !
   call apply_bc_input_to_bface
+  call output_bface(strng="after.apply_bc_input.",only_glb_root=true)
   !
   ! Create the grid derived type if it hasnt already been created.
   ! This means that the grid is linear.
@@ -1678,6 +1682,7 @@ end block
   !
   call write_namelist
   call match_periodic_faces
+  call output_bface(strng="after.match_periodic.",only_glb_root=true)
   !
   ! If running certain special cases and the grid was not internally generated,
   ! make sure the grid extents are valid for the current test case
@@ -1705,17 +1710,20 @@ end block
   ! height into new subsonic inflow boundaries.
   !
   call separate_sem_boundary_faces
+  call output_bface(strng="after.separate_sem.",only_glb_root=true)
   !
   ! First, initialize the bc_in array
   ! NOTE: This will also fill bface(6,:) with the correct value
   !
   call create_bc_in
   call check_for_bad_number(__LINE__,__FILE__)
+  call output_bface(strng="after.create_bc_in.",only_glb_root=true)
   !
   ! Reorder the boundary faces
   !
   call reorder_boundary_faces
   call check_for_bad_number(__LINE__,__FILE__)
+  call output_bface(strng="after.reorder_bface.",only_glb_root=true)
   !
   ! Check that all the nodes are in counter-clockwise
   ! ordering for each cell and adjust if needed
