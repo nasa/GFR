@@ -94,10 +94,6 @@ subroutine match_periodic_faces()
   !
   real(wp), allocatable :: ds(:)
   real(wp), allocatable :: pbc_matrix(:,:)
- !real(wp), allocatable :: pbc_rotation_center(:)
- !real(wp), allocatable :: pbc_rotation_angle(:)
- !real(wp), allocatable :: pbc_rotation_axis(:)
- !real(wp), allocatable :: pbc_translation(:)
   !
   logical(lk), allocatable :: msk(:)
   logical(lk), allocatable :: matched(:)
@@ -427,12 +423,6 @@ continue
     iidx = pbc_idxs( pairs(1,this_pair) )
     jidx = pbc_idxs( pairs(2,this_pair) )
     !
-   !! F2003 AUTO-REALLOC
-   !pbc_rotation_center = bc_input(iidx)%periodic%RotationCenter(:)
-   !pbc_rotation_angle = bc_input(iidx)%periodic%RotationAngle(:)
-   !pbc_rotation_axis = bc_input(iidx)%periodic%RotationAxis(:)
-   !pbc_translation = bc_input(iidx)%periodic%Translation(:)
-    !
     ! Get the transformation matrix for the periodic BC
     !
     pbc_matrix = get_pbc_matrix(bc_input(iidx)%periodic) ! F2003 AUTO-REALLOC
@@ -476,10 +466,6 @@ continue
       !
       ip = inodes(i)
       xyz_ip(1:nr) = periodic_transformation(xyz_nodes(1:nr,ip),pbc_matrix)
-     !xyz_ip(1:nr) = periodic_transformation_old(xyz_nodes(1:nr,ip), &
-     !                                           pbc_rotation_center, &
-     !                                           pbc_rotation_angle, &
-     !                                           pbc_translation)
       !
       ds(:) = huge(zero) ! reset all to a large number so we can find the min
       jnode_loop: &
@@ -891,37 +877,6 @@ continue
                     t24,"'",a,"'",t60,i8)
   !
 end subroutine match_periodic_faces
-!
-!###############################################################################
-!
-#ifndef DISABLE_PURE
-pure &
-#endif
-function periodic_transformation_old(xyz,center,angle,translate) &
-                              result(return_value)
-  !
-  !.. Formal Arguments ..
-  real(wp), intent(in) :: xyz(:)
-  real(wp), intent(in) :: center(:)
-  real(wp), intent(in) :: angle(:)
-  real(wp), intent(in) :: translate(:)
-  !
-  !.. Function Result ..
-  real(wp) :: return_value(1:size(xyz))
-  !
-  !.. Local Scalars ..
-  integer :: l
-  !
-continue
-  !
-  ! NOT SURE WHAT TO DO YET WITH ROTATION SO TRANSLATION IS ONLY THING
-  ! USED AT THIS POINT
-  !
-  do l = 1,size(xyz)
-    return_value(l) = xyz(l) + translate(l)
-  end do
-  !
-end function periodic_transformation_old
 !
 !###############################################################################
 !
