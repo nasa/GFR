@@ -207,12 +207,23 @@ continue
   !
   solpts_loop: do n = 2,n_solpts
     !
+    ! If the y-coordinate for the current solution point is equal to any of
+    ! the previously found unique y coordinates in y_vals, set y_ptr for the
+    ! current solution point to the index within y_vals of the matching
+    ! y coordinate value, then continue on to the next solution point.
+    !
     do j = 1,ny
       if (abs(y_vals(j)-xyz(2,n)) <= eps6) then
         y_ptr(n) = j
         cycle solpts_loop
       end if
     end do
+    !
+    ! If we are here, that means the y-coordinate for the current solution
+    ! point doesnt exist yet in y_vals, so we need to update the counter
+    ! ny for number of unique y coordinate values, save the unique y coordinate
+    ! value to y_vals, and set y_ptr for this solution point to the new
+    ! counter value.
     !
     ny = ny + 1
     y_vals(ny) = xyz(2,n)
@@ -1167,13 +1178,15 @@ continue
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
     !
-    ! Compute the gradient of the conservative variables at each solution point
+    ! Compute the derivative of vx with respect to y
     !
     do n = 1,np
       !
       dudi = zero
       dudj = zero
       dudk = zero
+      !
+      ! Compute du/dxi
       !
       do i = deriv(this_geom,this_order)%d(1)%row_ptr(n)+1, &
              deriv(this_geom,this_order)%d(1)%row_ptr(n+1)
@@ -1185,6 +1198,8 @@ continue
         !
       end do
       !
+      ! Compute du/deta
+      !
       do i = deriv(this_geom,this_order)%d(2)%row_ptr(n)+1, &
              deriv(this_geom,this_order)%d(2)%row_ptr(n+1)
         !
@@ -1195,6 +1210,8 @@ continue
         !
       end do
       !
+      ! Compute du/dzeta
+      !
       do i = deriv(this_geom,this_order)%d(3)%row_ptr(n)+1, &
              deriv(this_geom,this_order)%d(3)%row_ptr(n+1)
         !
@@ -1204,6 +1221,13 @@ continue
         dudk = dudk + a * vx(n0+j)
         !
       end do
+      !
+      ! Finally, compute d(vx)/d(y) by transforming the reference space
+      ! derivatives computed above and the metrics terms
+      !
+      !   du/dy = (du/dxi)*(dxi/dy) + 
+      !           (du/deta)*(deta/dy) + 
+      !           (du/dzeta)*(dzeta/dy)
       !
       dudy(n0+n) = dudi*metrics_array(n0+n,1,2) + &
                    dudj*metrics_array(n0+n,2,2) + &
