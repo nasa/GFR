@@ -3034,6 +3034,8 @@ continue
         !
         bface(6,nf) = i
         !
+        bface(11,nf) = i
+        !
         ! Force the boundary condition to that specified in the input file
         ! if the value of set_bc_value is not equal to bc_unknown
         !
