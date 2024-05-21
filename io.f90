@@ -2033,11 +2033,12 @@ subroutine check_ho_point_spacings_hexa(p,xyz,dsh,is_eq_dsh,nc,pts)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_ho_point_spacings_hexa"
   !
+  logical(lk) :: debug_output_ho_point_spacings
 #ifdef PBS_ENV
-  logical(lk), parameter :: debug_output_ho_point_spacings = fals
+  logical(lk), parameter :: turn_off_output_override = true
 #else
-  logical(lk), parameter :: debug_output_ho_point_spacings = fals
- !logical(lk), parameter :: debug_output_ho_point_spacings = true
+  logical(lk), parameter :: turn_off_output_override = true
+ !logical(lk), parameter :: turn_off_output_override = fals
 #endif
   !
 continue
@@ -2058,6 +2059,12 @@ continue
   dxh = init_array(np,np,3,zero) ! F2003 AUTO-REALLOC
   dxn = init_array(np,np,3,zero) ! F2003 AUTO-REALLOC
   dxr = init_array(np,np,3,zero) ! F2003 AUTO-REALLOC
+  !
+  debug_output_ho_point_spacings = fals
+  !
+  if (turn_off_output_override) then
+    debug_output_ho_point_spacings = fals
+  end if
   !
   ! Check all of the i-direction segments to see if the points
   ! along each segment are equally spaced from each other.
