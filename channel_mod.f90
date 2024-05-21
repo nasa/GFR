@@ -618,7 +618,8 @@ continue
   ix_ptr = init_array(nix,0) ! F2003 AUTO-REALLOC
   !
   do n = 1,nix
-    ix_ptr(n) = minloc( abs(abs(x_vals(1:nx)-xmin)*rnum - real(n-1,kind=wp)) , dim=1 )
+    ix_ptr(n) = minloc( abs(abs(x_vals(1:nx)-xmin)*rnum - real(n-1,kind=wp)) , &
+                        dim=1 )
   end do
   write (iout,*) "xmin = ",xmin
   write (iout,*) "xmax = ",xmax
