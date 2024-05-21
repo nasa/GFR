@@ -1992,6 +1992,7 @@ subroutine check_ho_point_spacings_hexa(p,xyz,dsh,is_eq_dsh,nc,pts)
   !
   use ovar,   only : epsval => tvrref
   use ovar,   only : out_eps => tinref
+  use ovar,   only : gsf => grid_scaling_factor
   use geovar, only : bface
   !
   !.. Formal Arguments ..
@@ -2251,7 +2252,7 @@ continue
             r = sqrt(y*y+z*z)
             t = atan2(z,y)
             t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
-            write (691,8) pts(n),x,y,z,r,t
+            write (691,8) pts(n),x/gsf,y/gsf,z/gsf,r/gsf,t
             do l = 1,p
               i = l+1
               n = map3dto1d(i,j,k,np)
@@ -2261,7 +2262,7 @@ continue
               r = sqrt(y*y+z*z)
               t = atan2(z,y)
               t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
-              write (691,9) pts(n),x,y,z,r,t,dsh(l,j,k,1),dsn(l,j,k,1)
+              write (691,9) pts(n),x/gsf,y/gsf,z/gsf,r/gsf,t,dsh(l,j,k,1),dsn(l,j,k,1)
             end do
           end if
         end do
@@ -2287,7 +2288,7 @@ continue
             r = sqrt(y*y+z*z)
             t = atan2(z,y)
             t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
-            write (692,8) pts(n),x,y,z,r,t
+            write (692,8) pts(n),x/gsf,y/gsf,z/gsf,r/gsf,t
             do l = 1,p
               j = l+1
               n = map3dto1d(i,j,k,np)
@@ -2297,7 +2298,7 @@ continue
               r = sqrt(y*y+z*z)
               t = atan2(z,y)
               t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
-              write (692,9) pts(n),x,y,z,r,t,dsh(l,k,i,2),dsn(l,k,i,2)
+              write (692,9) pts(n),x/gsf,y/gsf,z/gsf,r/gsf,t,dsh(l,k,i,2),dsn(l,k,i,2)
             end do
           end if
         end do
@@ -2323,7 +2324,7 @@ continue
             r = sqrt(y*y+z*z)
             t = atan2(z,y)
             t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
-            write (693,8) pts(n),x,y,z,r,t
+            write (693,8) pts(n),x/gsf,y/gsf,z/gsf,r/gsf,t
             do l = 1,p
               k = l+1
               n = map3dto1d(i,j,k,np)
@@ -2333,7 +2334,7 @@ continue
               r = sqrt(y*y+z*z)
               t = atan2(z,y)
               t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
-              write (693,9) pts(n),x,y,z,r,t,dsh(l,i,j,3),dsn(l,i,j,3)
+              write (693,9) pts(n),x/gsf,y/gsf,z/gsf,r/gsf,t,dsh(l,i,j,3),dsn(l,i,j,3)
             end do
           end if
         end do
