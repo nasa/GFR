@@ -467,10 +467,10 @@ continue
     do i = 1,npn
       !
       ip = inodes(i)
-      xyz_ip(1:nr) = periodic_transformation(xyz_nodes(1:nr,ip), &
-                                             pbc_rotation_center, &
-                                             pbc_rotation_angle, &
-                                             pbc_translation)
+      xyz_ip(1:nr) = periodic_transformation_old(xyz_nodes(1:nr,ip), &
+                                                 pbc_rotation_center, &
+                                                 pbc_rotation_angle, &
+                                                 pbc_translation)
       !
       ds(:) = huge(zero) ! reset all to a large number so we can find the min
       jnode_loop: &
@@ -888,8 +888,8 @@ end subroutine match_periodic_faces
 #ifndef DISABLE_PURE
 pure &
 #endif
-function periodic_transformation(xyz,center,angle,translate) &
-                          result(return_value)
+function periodic_transformation_old(xyz,center,angle,translate) &
+                              result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xyz(:)
@@ -912,7 +912,7 @@ continue
     return_value(l) = xyz(l) + translate(l)
   end do
   !
-end function periodic_transformation
+end function periodic_transformation_old
 !
 !###############################################################################
 !
