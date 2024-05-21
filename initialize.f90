@@ -299,7 +299,7 @@ continue
   ! Create the character format strings for the
   ! restart file names and the linking commands
   !
-  call create_restart_fname_formats
+  call create_restart_fname_formats(itcur)
   !
   ! Initialization of time-averaging has been moved to the main program
   !

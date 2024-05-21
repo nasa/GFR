@@ -4187,10 +4187,13 @@ end subroutine check_restart_dir
 !
 !###############################################################################
 !
-subroutine create_restart_fname_formats
+subroutine create_restart_fname_formats(starting_iteration)
   !
   !.. Use Statements ..
-  use ovar, only : itcur,num_timesteps
+  use ovar, only : num_timesteps
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: starting_iteration
   !
   !.. Local Scalars ..
   integer :: final_iter_digits
@@ -4205,11 +4208,8 @@ continue
   !
   ! Get the final/maximum iteration number for this simulation and extract
   ! the number of digits needed for an integer of this size.
-  ! NOTE: This procedure should be called after initializing the solution from
-  !       a restart file or by other means and itcur is given the value of
-  !       itrst from the restart file or 0 if not using a restart file.
   !
-  write (char_num,1) itcur + num_timesteps
+  write (char_num,1) starting_iteration + num_timesteps
   final_iter_digits = max(4,len_trim(adjustl(char_num)))
   !
   ! Create the format strings for creating the restart file names and commands
