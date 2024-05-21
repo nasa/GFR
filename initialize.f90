@@ -2495,6 +2495,20 @@ end subroutine initialize_turbulence
 !
 subroutine create_bc_in
   !
+  ! This subroutine takes the bc_input derived type (which is used in the
+  ! namelist input file to specify the flow parameters for each boundary
+  ! condition) and creates the bc_in derived type (which, for each boundary
+  ! condition, contains the actual boundary states and other boundary
+  ! information [SEM, MRF, periodic rotations, etc.] that are needed/used
+  ! in the solver.
+  !
+  ! This should be called before partitioning, but after 1) initializing the
+  ! reference conditions (rhoref, aref, tref, etc.), 2) matching all periodic
+  ! boundary faces, and 3) separating out the boundary faces on an SEM
+  ! boundary condition that are outside the SEM profile height and moving
+  ! those faces to a separate traditional (i.e., steady) inflow boundary
+  ! condition.
+  !
   !.. Use Statements ..
   use geovar, only : nr,ncell,grid,bface
   use ovar,   only : bc_input,bc_in,bc_names
@@ -2977,6 +2991,26 @@ continue
       !
       if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
       !
+      ! We need to use bface(5) to
+      ! extract the name of the BC for this face from bc_names to see if
+      ! it is the same as the name of the current bc_input, meaning this
+      ! face is part of the current bc_input. If it is:
+      !   1) add this face to the count of total boundary faces for the
+      !      current bc_input
+      !   2) save the index for this boundary condition within bc_in to
+      !      bface(6) for this face
+      !   3) save the index for this boundary condition within bc_in to
+      !      bface(11) for this face
+      !      NOTE: this is only done because periodic BCs use bface(6)
+      !      to store periodic connectivity information and instead
+      !      use bface(11) to store their bc_in index, and we just
+      !      want to make it so all faces can access their bc_in index
+      !      from bface(11).
+      !   4) if the BC type for this BC has been set in the input file,
+      !      i.e., bc_input(n)%set_bc_value /= bc_unknown,
+      !      reset bface(1) to this BC type
+      !   5) save the BC type to bc_in if it still bc_unknown
+      !      
       bcnam = trim(adjustl( uppercase( bc_names(bface(5,nf)) ) ))
       bcinp = trim(adjustl( uppercase( bc_input(n)%name      ) ))
       !
