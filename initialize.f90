@@ -3635,7 +3635,7 @@ continue
         one_pass_loop: &
         do idx = 1,1
           !
-         !if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
+         !if (any(bface(1,nf) == bc_comm) .or. bface(5,nf)==0) cycle bface_loop
           if (bface(5,nf) == 0) cycle bface_loop
           !
           ! Check for non-communication BC

@@ -1711,7 +1711,8 @@ continue
       l = output_face_pts(nf)%out_idx(k) - my_pts_beg + 1
       !
 #ifdef DEBUG_POST_PROCESSOR
-      write (1000+mypnum,4) k,l,(facexyz_dt(face_idx)%v(n,k), n=1,size(var,dim=1))
+      write (1000+mypnum,4) k,l, &
+                            (facexyz_dt(face_idx)%v(n,k), n=1,size(var,dim=1))
 #endif
       var(:,l) = facexyz_dt(face_idx)%v(:,k)
       !
@@ -1750,7 +1751,8 @@ continue
       l = output_edge_pts(ne)%out_idx(k) - my_pts_beg + 1
       !
 #ifdef DEBUG_POST_PROCESSOR
-      write (1000+mypnum,6) k,l,(edgexyz_dt(edge_idx)%v(n,k), n=1,size(var,dim=1))
+      write (1000+mypnum,6) k,l, &
+                            (edgexyz_dt(edge_idx)%v(n,k), n=1,size(var,dim=1))
 #endif
       var(:,l) = edgexyz_dt(edge_idx)%v(:,k)
       !
@@ -1760,8 +1762,10 @@ continue
   !
   !
  !write (iout,1000) "size(output_node_pts) = ",size(output_node_pts(:))
- !write (iout,1000) "minval(output_node_pts) = ",minval(output_node_pts(:)%out_idx)
- !write (iout,1000) "maxval(output_node_pts) = ",maxval(output_node_pts(:)%out_idx)
+ !write (iout,1000) "minval(output_node_pts) = ", &
+ !                   minval(output_node_pts(:)%out_idx)
+ !write (iout,1000) "maxval(output_node_pts) = ", &
+ !                   maxval(output_node_pts(:)%out_idx)
   !
 #ifdef DEBUG_POST_PROCESSOR
   write (1000+mypnum,7)
@@ -1774,7 +1778,8 @@ continue
     l = output_node_pts(nn)%out_idx - my_pts_beg + 1
     !
 #ifdef DEBUG_POST_PROCESSOR
-    write (1000+mypnum,8) node_idx,l,(xyz_nodes(n,node_idx), n=1,size(var,dim=1))
+    write (1000+mypnum,8) node_idx,l, &
+                          (xyz_nodes(n,node_idx), n=1,size(var,dim=1))
 #endif
     var(:,l) = xyz_nodes(:,node_idx)
     !
@@ -8030,7 +8035,8 @@ continue
  !write (io,1) "nodedusp_dt"
  !do n = 1,size(nodedusp_dt)
  !  do l = 1,size(nodedusp_dt(n)%v,dim=1)
- !    write (io,3) n,l,(nint(nodedusp_dt(n)%v(l,m)), m=1,size(nodedusp_dt(n)%v,dim=2))
+ !    write (io,3) n,l, &
+ !               (nint(nodedusp_dt(n)%v(l,m)), m=1,size(nodedusp_dt(n)%v,dim=2))
  !  end do
  !end do
   !
@@ -8053,7 +8059,8 @@ continue
  !do n = 1,size(edgedusp_dt)
  !  do k = 1,size(edgedusp_dt(n)%v,dim=3)
  !    do l = 1,size(edgedusp_dt(n)%v,dim=1)
- !      write (io,5) n,l,k,(nint(edgedusp_dt(n)%v(l,m,k)), m=1,size(edgedusp_dt(n)%v,dim=2))
+ !      write (io,5) n,l,k, &
+ !             (nint(edgedusp_dt(n)%v(l,m,k)), m=1,size(edgedusp_dt(n)%v,dim=2))
  !    end do
  !  end do
  !end do
@@ -8165,12 +8172,14 @@ continue
   !
   if (allocated(time_metrics)) then
     deallocate ( time_metrics , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"time_metrics",2,__LINE__,__FILE__,ierr,error_message)
+    call alloc_error(pname,"time_metrics",2,__LINE__,__FILE__, &
+                     ierr,error_message)
   end if
   !
   if (allocated(metrics_array)) then
     deallocate ( metrics_array , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"metrics_array",2,__LINE__,__FILE__,ierr,error_message)
+    call alloc_error(pname,"metrics_array",2,__LINE__,__FILE__, &
+                     ierr,error_message)
   end if
   !
   if (allocated(metrics_dt)) then

@@ -1433,8 +1433,8 @@ continue
                                            cells_surr_cell, &
                                            cells_surr_cell_ptr, &
                                            passes_inspection, &
-                               contiguity_setting=options(METIS_OPTION_CONTIG), &
-                               metis_option=metis_option)
+                              contiguity_setting=options(METIS_OPTION_CONTIG), &
+                              metis_option=metis_option)
      !end if
       !
       ! Broadcast the logical passes_inspection to all processors so

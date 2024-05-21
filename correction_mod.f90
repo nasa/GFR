@@ -482,7 +482,8 @@ continue
     !
     ! Get the node indices of the current face for the reference element
     !
-    ip = get_ref_elem_node_idx_for_face(this_geom,this_face) ! F2003 AUTO-REALLOC
+    ! F2003 AUTO-REALLOC
+    ip = get_ref_elem_node_idx_for_face(this_geom,this_face)
     !
     ! Get the coordinates of the nodes for the current face
     !
@@ -500,7 +501,8 @@ continue
     ! Compute a basis matrix containing the values of the cell orthonormal
     ! basis functions evaluated at the face integration points
     !
-    bmat = General_Basis_Matrix(this_geom,this_order,face_pts) ! F2003 AUTO-REALLOC
+    ! F2003 AUTO-REALLOC
+    bmat = General_Basis_Matrix(this_geom,this_order,face_pts)
  !  !
  !  write (error_message,1) "bmat",this_face
  !  tmp%mat = transpose(bmat) ! F2003 AUTO-REALLOC
@@ -526,7 +528,8 @@ continue
  !                   error_message,this_geom,this_order)
   !
   ! F2003 AUTO-REALLOC
-  cmat = matmul( bwimat , transpose(vand(this_geom,this_order)%modal2nodal%mat) )
+  cmat = matmul( bwimat , &
+                 transpose(vand(this_geom,this_order)%modal2nodal%mat) )
  !!
  !error_message = "cmat"
  !tmp%mat = cmat ! F2003 AUTO-REALLOC

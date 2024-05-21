@@ -2130,7 +2130,8 @@ continue
       if (abs(vdsr-one) > dsr_tolerance) write (cdsr,16) vdsr
       !
       if (debug_output_ho_point_spacings) then
-        write (681,17) adjustr(cdsn),adjustr(cdsh),adjustr(cdsr),is_eq_dsh(j,k,1)
+        write (681,17) adjustr(cdsn),adjustr(cdsh),adjustr(cdsr), &
+                       is_eq_dsh(j,k,1)
       end if
       16 format (es14.6)
       17 format (3(2x,a14),2x,l1)
@@ -2185,7 +2186,8 @@ continue
       if (abs(vdsr-one) > dsr_tolerance) write (cdsr,16) vdsr
       !
       if (debug_output_ho_point_spacings) then
-        write (682,17) adjustr(cdsn),adjustr(cdsh),adjustr(cdsr),is_eq_dsh(k,i,2)
+        write (682,17) adjustr(cdsn),adjustr(cdsh),adjustr(cdsr), &
+                       is_eq_dsh(k,i,2)
       end if
       !
     end do
@@ -2238,7 +2240,8 @@ continue
       if (abs(vdsr-one) > dsr_tolerance) write (cdsr,16) vdsr
       !
       if (debug_output_ho_point_spacings) then
-        write (683,17) adjustr(cdsn),adjustr(cdsh),adjustr(cdsr),is_eq_dsh(i,j,3)
+        write (683,17) adjustr(cdsn),adjustr(cdsh),adjustr(cdsr), &
+                       is_eq_dsh(i,j,3)
       end if
       !
     end do
@@ -2287,7 +2290,8 @@ continue
               r = sqrt(y*y+z*z)
               t = atan2(z,y)
               t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
-              write (691,9) pts(n),x/gsf,y/gsf,z/gsf,r/gsf,t,dsh(l,j,k,1),dsn(l,j,k,1)
+              write (691,9) pts(n),x/gsf,y/gsf,z/gsf,r/gsf,t, &
+                            dsh(l,j,k,1),dsn(l,j,k,1)
             end do
           end if
         end do
@@ -2323,7 +2327,8 @@ continue
               r = sqrt(y*y+z*z)
               t = atan2(z,y)
               t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
-              write (692,9) pts(n),x/gsf,y/gsf,z/gsf,r/gsf,t,dsh(l,k,i,2),dsn(l,k,i,2)
+              write (692,9) pts(n),x/gsf,y/gsf,z/gsf,r/gsf,t, &
+                            dsh(l,k,i,2),dsn(l,k,i,2)
             end do
           end if
         end do
@@ -2359,7 +2364,8 @@ continue
               r = sqrt(y*y+z*z)
               t = atan2(z,y)
               t = (t + merge(two*pi,zero,t<zero)) * radians2degrees
-              write (693,9) pts(n),x/gsf,y/gsf,z/gsf,r/gsf,t,dsh(l,i,j,3),dsn(l,i,j,3)
+              write (693,9) pts(n),x/gsf,y/gsf,z/gsf,r/gsf,t, &
+                            dsh(l,i,j,3),dsn(l,i,j,3)
             end do
           end if
         end do
@@ -5011,7 +5017,7 @@ continue
       !
       write (f1,1) Geom_Short_Name(this_geom),this_order
       !
-      open (newunit=io1,file=trim(adjustl(f1)),status="replace",action="write", &
+      open (newunit=io1,file=trim(adjustl(f1)),status="replace",action="write",&
                         iostat=ierr,iomsg=error_message)
       call io_error(pname,f1,1,__LINE__,__FILE__,ierr,error_message)
       !
@@ -5083,8 +5089,10 @@ continue
      !    !
      !    do l = 1,ndim
      !      val = zero
-     !      do i = interp(this_geom,this_order)%toFace(this_order)%row_ptr(lf)+1, &
-     !             interp(this_geom,this_order)%toFace(this_order)%row_ptr(lf+1)
+     !      do i = interp(this_geom,this_order)% &
+     !                       toFace(this_order)%row_ptr(lf)+1, &
+     !             interp(this_geom,this_order)% &
+     !                       toFace(this_order)%row_ptr(lf+1)
      !        !
      !        j = interp(this_geom,this_order)%toFace(this_order)%row_idx(i)
      !        a = interp(this_geom,this_order)%toFace(this_order)%row_val(i)

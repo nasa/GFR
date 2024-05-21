@@ -430,9 +430,9 @@ continue
           if (vmag_tan < eps6) then
             ! Not really sure what to do if the magnitude of the imposed wall
             ! velocity tangent to the surface is very close to zero. This would
-            ! be an odd case with the boundary normal being in the same direction
-            ! as the imposed wall velocity, which I dont think should happen.
-            ! For now, just set the imposed wall velocity to zero.
+            ! be an odd case with the boundary normal being in the same
+            ! direction as the imposed wall velocity, which I dont think should
+            ! happen. For now, just set the imposed wall velocity to zero.
             vx_wall = zero
             vy_wall = zero
             vz_wall = zero
@@ -650,9 +650,9 @@ continue
           if (vmag_tan < eps6) then
             ! Not really sure what to do if the magnitude of the imposed wall
             ! velocity tangent to the surface is very close to zero. This would
-            ! be an odd case with the boundary normal being in the same direction
-            ! as the imposed wall velocity, which I dont think should happen.
-            ! For now, just set the imposed wall velocity to zero.
+            ! be an odd case with the boundary normal being in the same
+            ! direction as the imposed wall velocity, which I dont think should
+            ! happen. For now, just set the imposed wall velocity to zero.
             vx_wall = zero
             vy_wall = zero
           else

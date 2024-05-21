@@ -301,9 +301,14 @@ continue
              "                     OF THE FILE '",a,"'")
   13 format (" ***************************************************** ",//)
   20 format (2x,"Checking error for: ",a)
-  30 format (//,2x,72("#"),//,6x,"BEFORE CALL TO CG_ERROR_PRINT_F",//,2x,72("-"),/)
-  31 format (/,2x,72("-"),//,6x,"AFTER  CALL TO CG_ERROR_PRINT_F",//,2x,72("#"),//, &
-               6x,"BEFORE CALL TO CG_ERROR_EXIT_F",//,2x,72("-"),/)
+  30 format (//,2x,72("#"),//, &
+                6x,"BEFORE CALL TO CG_ERROR_PRINT_F",//, &
+                2x,72("-"),/)
+  31 format (/,2x,72("-"),//, &
+               6x,"AFTER  CALL TO CG_ERROR_PRINT_F",//, &
+               2x,72("#"),//, &
+               6x,"BEFORE CALL TO CG_ERROR_EXIT_F",//, &
+               2x,72("-"),/)
   !
 end subroutine cgns_error
 !

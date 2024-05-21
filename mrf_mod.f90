@@ -264,9 +264,9 @@ end block
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv,xyz,iflx)
     do m = 1,ncs
       do n = 1,np
-        iflx(n,1,m) = iflx(n,1,m) + flx_sign*cv(n,m)*(y_r*xyz(3,n) - z_r*xyz(2,n))
-        iflx(n,2,m) = iflx(n,2,m) + flx_sign*cv(n,m)*(z_r*xyz(1,n) - x_r*xyz(3,n))
-        iflx(n,3,m) = iflx(n,3,m) + flx_sign*cv(n,m)*(x_r*xyz(2,n) - y_r*xyz(1,n))
+        iflx(n,1,m) = iflx(n,1,m) + flx_sign*cv(n,m)*(y_r*xyz(3,n)-z_r*xyz(2,n))
+        iflx(n,2,m) = iflx(n,2,m) + flx_sign*cv(n,m)*(z_r*xyz(1,n)-x_r*xyz(3,n))
+        iflx(n,3,m) = iflx(n,3,m) + flx_sign*cv(n,m)*(x_r*xyz(2,n)-y_r*xyz(1,n))
       end do
     end do
   end if

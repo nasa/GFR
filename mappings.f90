@@ -2388,7 +2388,8 @@ continue
               ! the reference space coordinates for solution point (ni,nj,nk)
               !
               l = l + 1
-              return_value(l,nl) = eval_tetrahedra_lagrange(i,j,k,pm,rst(1:3,nl))
+              return_value(l,nl) = eval_tetrahedra_lagrange(i,j,k,pm, &
+                                                            rst(1:3,nl))
               !
             end do
           end do
