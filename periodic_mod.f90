@@ -1115,6 +1115,7 @@ subroutine check_periodic_list_indices()
   use geovar, only : bc_grps
   use geovar, only : bface,face,fp
   use geovar, only : cell_map
+  use ovar,   only : bc_in
   !
   !.. Local Scalars ..
   integer :: nf,nfp,i,k,pf,ipf
@@ -1129,8 +1130,19 @@ continue
   !
 #ifndef PBS_ENV
 #ifdef DEBUG_ON
-  write (iout,981) mypnum,count(bface(1,:)==bc_periodic)
-  981 format ("CPU ",i2," : # of periodic faces = ",i0)
+  n = 0
+  do nf = 1,size(bface,dim=2)
+    if (bface(1,nf) == bc_cpu_bnd) then
+      if (bface(11,nf) > 0) then
+        if (bc_in(mod(bface(11,nf),10000))%bc_type == bc_periodic) then
+          n = n + 1
+        end if
+      end if
+    end if
+  end do
+  write (iout,981) mypnum,"MPI",n
+  write (iout,981) mypnum,"local",count(bface(1,:)==bc_periodic)
+  981 format ("CPU ",i6," : # of ",a5," periodic faces = ",i0)
 #endif
 #endif
   return
