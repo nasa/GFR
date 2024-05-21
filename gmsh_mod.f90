@@ -2031,13 +2031,14 @@ continue
  !  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
  !end if
   !
-  if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
-      loc_flux_pts /= Legendre_Gauss_Lobatto) then
-    if (any(cell_geom == Geom_Tria)) then
-      write (error_message,7)
-      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
-    end if
-  end if
+ !Legendre_Gauss_Lobatto restriction no longer needed.
+ !if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
+ !    loc_flux_pts /= Legendre_Gauss_Lobatto) then
+ !  if (any(cell_geom == Geom_Tria)) then
+ !    write (error_message,7)
+ !    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+ !  end if
+ !end if
   !
   call debug_timer(leaving_procedure,pname)
   !
