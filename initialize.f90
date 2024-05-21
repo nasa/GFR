@@ -2566,6 +2566,33 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+#ifdef DEBUG_ON
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  if (mypnum == glb_root) then
+    write (iout,260)
+    do n = lbound(bc_input,dim=1),ubound(bc_input,dim=1)
+      write (iout,261) "bc_input",n,trim(adjustl(bc_input(n)%name)), &
+                       bc_integer_to_string(bc_input(n)%set_bc_value)
+    end do
+    write (iout,260)
+    flush (iout)
+    write (iout,260)
+    do n = lbound(bc_names,dim=1),ubound(bc_names,dim=1)
+      write (iout,261) "bc_names",n,trim(adjustl(bc_names(n)))
+    end do
+    write (iout,260)
+    flush (iout)
+  end if
+  260 format (/,2(2x,60("#"),/))
+  261 format (2x,a,"(",i0.2,") = '",a,"'",:," ;  BC_Type = ",a)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
+  !
   ! Change all no-slip wall boundary conditions to
   ! slip walls if we are solving the Euler equations.
   !
