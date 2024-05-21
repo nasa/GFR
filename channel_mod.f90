@@ -1283,6 +1283,7 @@ subroutine get_normalized_profile(y_vals,u,uu,v,vv,w,ww,uv,rho,t,dudy, &
   real(wp) :: xi_min,xi_max,y1,y2,tau_wall
   real(wp) :: dy,wt,udt,umt,udtm,udtp,umtm,umtp
   real(wp) :: displacement_thickness,momentum_thickness
+  real(wp) :: u_bulk_tr,displacement_thickness_tr,momentum_thickness_tr
   !
   logical(lk) :: debug_output
   !
@@ -1361,6 +1362,24 @@ continue
   !
   ! Compute the bulk velocity (Eq. 7.3 from Turbulent Flows by Pope)
   !
+  ! Use trapezoid rule to integrate bulk velocity
+  !
+  u_bulk_tr = zero
+  displacement_thickness_tr = zero
+  momentum_thickness_tr = zero
+  do n = 1,npts-1
+    dy = abs(y_vals(n+1)-y_vals(n))
+    u_bulk_tr = u_bulk_tr + half*(u(n) + u(n+1))*dy
+    udtm = (one - u(n  )/u_cl)
+    udtp = (one - u(n+1)/u_cl)
+    umtm = udtm*u(n  )/u_cl
+    umtp = udtp*u(n+1)/u_cl
+    displacement_thickness_tr = displacement_thickness_tr + half*(udtm+udtp)*dy
+    momentum_thickness_tr = momentum_thickness_tr + half*(umtm+umtp)*dy
+  end do
+  !
+  ! Use quadrature to integrate the bulk velocity
+  !
   u_bulk = zero
   momentum_thickness = zero
   displacement_thickness = zero
@@ -1394,22 +1413,14 @@ continue
     !
   else
     !
-    ! Use trapezoid rule to integrate bulk velocity
-    !
-    do n = 1,npts-1
-      dy = abs(y_vals(n+1)-y_vals(n))
-      u_bulk = u_bulk + half*(u(n) + u(n+1))*dy
-      udtm = (one - u(n  )/u_cl)
-      udtp = (one - u(n+1)/u_cl)
-      umtm = udtm*u(n  )/u_cl
-      umtp = udtp*u(n+1)/u_cl
-      displacement_thickness = displacement_thickness + half*(udtm+udtp)*dy
-      momentum_thickness = momentum_thickness + half*(umtm+umtp)*dy
-    end do
+    u_bulk = u_bulk_tr
+    displacement_thickness = displacement_thickness_tr
+    momentum_thickness = momentum_thickness_tr
     !
   end if
   !
   u_bulk = u_bulk / height
+  u_bulk_tr = u_bulk_tr / height
   !
   ! Save the auxiliary data for this profile
   !
@@ -1447,9 +1458,14 @@ continue
       write (iout,*)
     end if
     write (iout,*)
+    write (iout,802) "u_Bulk",u_bulk_tr*aref
+    write (iout,902) " dstar",displacement_thickness_tr
+    write (iout,902) " theta",momentum_thickness_tr
   end if
   801 format (2x,"Using     Quadrature:  ",a6," = ",f11.6," m/s")
   901 format (2x,"Using     Quadrature:  ",a6," = ",es14.6)
+  802 format (2x,"Using Trapezoid Rule:  ",a6," = ",f11.6," m/s")
+  902 format (2x,"Using Trapezoid Rule:  ",a6," = ",es14.6)
   !
 end subroutine get_normalized_profile
 !
