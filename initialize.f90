@@ -2522,7 +2522,7 @@ subroutine create_bc_in
   use thermo_mod, only : compute_mixture_gamma
   !
   !.. Local Scalars ..
-  integer     :: i,ii,m,n,nc,nf,nbc,ierr
+  integer     :: i,ii,m,n,nc,nf,nbc,ierr,bc_idx
   real(wp)    :: r,p,t,tnd,r0,p0,t0,mach,aspd,visc,reyn,rgas,gamm
   real(wp)    :: alpha,beta,total_cond
   real(wp)    :: gm1,gam_over_gm1,one_over_gm1
@@ -2544,6 +2544,7 @@ subroutine create_bc_in
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable :: bc_list(:)
+  integer, allocatable :: rev_bc_list(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_bc_in"
@@ -3043,6 +3044,37 @@ continue
 #ifdef DEBUG_ON
     call write_bc_conditions(ibc_end=i,dimensional=true,num_bc_faces=ii)
 #endif
+    !
+  end do
+  !
+  ! For periodic boundary faces, mod(bface(11,:),10000) still gives the
+  ! corresponding index for bc_input. We need to change this to the
+  ! corresponding index for bc_in.
+  !
+  ! The array bc_list maps the bc_in index, i, to the corresponding bc_input
+  ! index, n, i.e., bc_input(n) == bc_input(bc_list(i)). We need to create
+  ! a reverse mapping array that maps the bc_input index, n, to the
+  ! corresponding bc_in index, i, i.e., bc_in(i) == bc_in(rev_bc_list(n)).
+  !
+  rev_bc_list = init_array(size(bc_input),0) ! F2003 AUTO-REALLOC
+  do i = 1,size(bc_list)
+    rev_bc_list(bc_list(i)) = i
+  end do
+  !
+  ! Use the reverse bc_list array to convert the bc_input index saved in
+  ! bface(11) for periodic boundary faces, to the corresponding bc_in index.
+  !
+  do nf = 1,size(bface,dim=2)
+    !
+    if (bface(1,nf) == bc_periodic) then
+      !
+      bc_idx = mod(bface(11,nf),10000)
+      !
+      if (rev_bc_list(bc_idx) > 0) then
+        bface(11,nf) = bface(11,nf) - bc_idx + rev_bc_list(bc_idx)
+      end if
+      !
+    end if
     !
   end do
   !
