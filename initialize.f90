@@ -3220,7 +3220,7 @@ subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   integer,     optional, intent(in) :: num_bc_faces
   !
   !.. Local Scalars ..
-  integer  :: ii,k,m,nf,nfp,f0
+  integer  :: ii,k,m,nf,nfp,f0,idx
   integer  :: this_bc,bc_type,bc_beg,bc_end,bc_idx
   real(wp) :: r,p,t,h,r0,p0,t0,h0,mach,aspd,visc,cond,reyn
   real(wp) :: vmag,alpha,beta,total_cond,gamm,rgas,cp
@@ -3510,18 +3510,49 @@ continue
       face_area = zero
       bface_loop: do nf = 1,size(bface,dim=2)
         !
-        if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
+        ! If one of the conditionals hit, prematurely exit the one-pass loop
+        ! which will continue on with adding the current face to the boundary
+        ! faces for this boundary condition. If none of the conditions hit,
+        ! the end of the one-pass loop will be reached which contains a
+        ! cycle statement for the bface loop, so it will continue on to the
+        ! next boundary face without adding the current face.
         !
-        if (bface(6,nf) == this_bc) then
-          ii = ii + 1
-          if (allocated(face) .and. allocated(facenrm)) then
-            f0 = face(nf)%beg_fp - 1
-            nfp = face(nf)%end_fp - f0
-            do k = 1,nfp
-              face_area = face_area + norm2(facenrm(:,f0+k))* &
-                          std_elem( face(nf)%geom , face(nf)%order )%wts(k)
-            end do
+        one_pass_loop: &
+        do idx = 1,1
+          !
+         !if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
+          if (bface(5,nf) == 0) cycle bface_loop
+          !
+          ! Check for non-communication BC
+          !
+          if (all(bface(1,nf) /= bc_comm)) then
+            if (bface(6,nf) == this_bc) then
+              exit one_pass_loop
+            end if
           end if
+          !
+          ! Check for local periodic BC [bface(1)==bc_periodic] or
+          ! MPI communication periodic BC [bface(1)=bc_cpu_bnd.and.bface(11)>0]
+          !
+          if ( (bface(1,nf) == bc_periodic) .or. &
+               (bface(1,nf) == bc_cpu_bnd .and. bface(11,nf) > 9999) ) then
+            if (mod(bface(11,nf),10000) == this_bc) then
+              exit one_pass_loop
+            end if
+          end if
+          !
+          cycle bface_loop
+          !
+        end do one_pass_loop
+        !
+        ii = ii + 1
+        if (allocated(face) .and. allocated(facenrm)) then
+          f0 = face(nf)%beg_fp - 1
+          nfp = face(nf)%end_fp - f0
+          do k = 1,nfp
+            face_area = face_area + norm2(facenrm(:,f0+k))* &
+                        std_elem( face(nf)%geom , face(nf)%order )%wts(k)
+          end do
         end if
         !
       end do bface_loop
