@@ -291,6 +291,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/transport_mod.o \
                $(OBJDIR)/reactions_mod.o \
                $(OBJDIR)/turb_inflow_mod.o \
+               $(OBJDIR)/periodic_mod.o \
                $(OBJDIR)/gpu_mod.o \
                $(OBJDIR)/taylor_couette_mod.o \
                $(FUNDIR)/taylor_green.f90 \

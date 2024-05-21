@@ -2518,6 +2518,8 @@ subroutine create_bc_in
   use ovar,   only : governing_equations
   use ovar,   only : iso_wall_temp
   !
+  use periodic_mod, only : get_pbc_matrix
+  !
   use thermo_mod, only : compute_mixture_rgas
   use thermo_mod, only : compute_mixture_gamma
   !
@@ -2740,6 +2742,13 @@ continue
       bc_in(i)%cv = cv(:) ! Using F2003 auto-reallocation
       bc_in(i)%pv = pv(:) ! Using F2003 auto-reallocation
       bc_in(i)%gp = gp(:) ! Using F2003 auto-reallocation
+      !
+      ! If this is a periodic BC, we need to create the rotation matrix
+      ! if this is a rotated periodic BC.
+      !
+      ! F2003 AUTO-REALLOC
+      bc_in(i)%pbc_rotation%mat = get_pbc_matrix(bc_input(n)%periodic, &
+                                                 ignore_translation=true)
       !
     else
       !
