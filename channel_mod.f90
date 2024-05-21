@@ -1255,6 +1255,7 @@ subroutine get_normalized_profile(y_vals,u,uu,v,vv,w,ww,uv,rho,t,dudy, &
   use ovar,             only : grid_scaling_factor
   use element_type_mod, only : std_elem
   use transport_mod,    only : compute_viscosity_cpg
+  use interpolation_mod, only : interp,General_Interp_Matrix
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: y_vals(:)
@@ -1286,6 +1287,12 @@ subroutine get_normalized_profile(y_vals,u,uu,v,vv,w,ww,uv,rho,t,dudy, &
   real(wp) :: u_bulk_tr,displacement_thickness_tr,momentum_thickness_tr
   !
   logical(lk) :: debug_output
+  !
+  real(wp) :: ymin,ymax,length
+  real(wp) :: dsplt,mmntt,ublk
+  real(wp), allocatable :: ycell(:)
+  real(wp), allocatable :: xifp(:,:)
+  real(wp), allocatable :: mat(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_normalized_profile"
@@ -1384,9 +1391,16 @@ continue
   momentum_thickness = zero
   displacement_thickness = zero
   !
+  ublk = zero
+  dsplt = zero
+  mmntt = zero
+  !
   if (mod(npts,n1d) == 0) then
     !
-    ! Use quadrature to integrate the bulk velocity
+    xifp = std_elem(Geom_Edge,n1d-1)%face_pts(:,:) ! F2003 AUTO-REALLOC
+    xifp(1,1) = -one
+    xifp(1,2) =  one
+    mat = General_Interp_Matrix(Geom_Edge,n1d-1,xifp) ! F2003 AUTO-REALLOC
     !
     xi_min = std_elem(Geom_Edge,n_order)%pts(1,1)
     xi_max = std_elem(Geom_Edge,n_order)%pts(1,n1d)
@@ -1395,18 +1409,33 @@ continue
       !
       n0 = (nc-1)*n1d
       !
+      ycell = y_vals(n0+1:n0+n1d) ! F2003 AUTO-REALLOC
+      !
+      ymin = dot_product(ycell,mat(:,1))
+      ymax = dot_product(ycell,mat(:,2))
+      length = abs(ymax-ymin)
+      !
       y1 = y_vals(n0+1)
       y2 = y_vals(n0+n1d)
       !
       rnum = (y2 - y1) / (xi_max - xi_min) ! Simplified using Mathematica
       !
       do n = 1,n1d
-        wt = rnum*std_elem(Geom_Edge,n_order)%wts(n)
+        !
+        wt = half*length*std_elem(Geom_Edge,n_order)%wts(n)
         u_bulk = u_bulk + u(n0+n)*wt
         udt = (one - u(n0+n)/u_cl)
         umt = udt*u(n0+n)/u_cl
         displacement_thickness = displacement_thickness + udt*wt
         momentum_thickness = momentum_thickness + umt*wt
+        !
+        wt = rnum*std_elem(Geom_Edge,n_order)%wts(n)
+        ublk = ublk + u(n0+n)*wt
+        udt = (one - u(n0+n)/u_cl)
+        umt = udt*u(n0+n)/u_cl
+        dsplt = dsplt + udt*wt
+        mmntt = mmntt + umt*wt
+        !
       end do
       !
     end do
@@ -1421,6 +1450,7 @@ continue
   !
   u_bulk = u_bulk / height
   u_bulk_tr = u_bulk_tr / height
+  ublk = ublk / height
   !
   ! Save the auxiliary data for this profile
   !
@@ -1456,6 +1486,9 @@ continue
       write (iout,901) " dstar",displacement_thickness
       write (iout,901) " theta",momentum_thickness
       write (iout,*)
+      write (iout,803) "u_Bulk",ublk*aref
+      write (iout,903) " dstar",dsplt
+      write (iout,903) " theta",mmntt
     end if
     write (iout,*)
     write (iout,802) "u_Bulk",u_bulk_tr*aref
@@ -1466,6 +1499,8 @@ continue
   901 format (2x,"Using     Quadrature:  ",a6," = ",es14.6)
   802 format (2x,"Using Trapezoid Rule:  ",a6," = ",f11.6," m/s")
   902 format (2x,"Using Trapezoid Rule:  ",a6," = ",es14.6)
+  803 format (2x,"Using Old Quadrature:  ",a6," = ",f11.6," m/s")
+  903 format (2x,"Using Old Quadrature:  ",a6," = ",es14.6)
   !
 end subroutine get_normalized_profile
 !
