@@ -919,6 +919,34 @@ end function periodic_transformation_old
 #ifndef DISABLE_PURE
 pure &
 #endif
+function periodic_transformation(xyz,pbc_matrix) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: xyz(:)
+  real(wp), intent(in) :: pbc_matrix(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(xyz))
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  n = size(xyz)
+  !
+  do l = 1,n
+    return_value(l) = dot_product(xyz(1:n),pbc_matrix(1:n,l)) + &
+                      pbc_matrix(n+1,l)
+  end do
+  !
+end function periodic_transformation
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
 function get_pbc_matrix(periodic,ignore_translation) result(return_value)
   !
   !.. Use Statements ..
