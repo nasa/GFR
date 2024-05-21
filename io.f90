@@ -2461,6 +2461,20 @@ continue
     !
     bface_loop: do nf = 1,size(bface,dim=2)
       !
+      ! NOTE: This check on bc_comm will only cycle periodic boundary faces
+      !       that have already had bface(1,nf) set to bc_periodic. This will
+      !       only happen for
+      !         1) most of the internal grid cases (TGV, TCF, vortex, etc.)
+      !         2) when the string giving the BC name in either the CGNS grid
+      !            file or the Plot3D BCS file contains the substring
+      !            'periodic', e.g., 'x-periodic-1'. (This was the old way of
+      !            specifying periodic BCs, and the new way of using
+      !            bc_input to specify periodic BCs is preferred.)
+      !
+      ! NOTE: The new way of specifying periodic BCs using bc_input(:)%periodic
+      !       will not yet have set bface(1,nf)=bc_periodic, so this cycle
+      !       statement will get ignored.
+      !
       if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
       !
       bcnam = trim(adjustl( uppercase( bc_names(bface(5,nf)) ) ))
