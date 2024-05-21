@@ -2005,7 +2005,7 @@ subroutine check_ho_point_spacings_hexa(p,xyz,dsh,is_eq_dsh,nc,pts)
   !
   !.. Local Scalars ..
   integer  :: i,j,k,i1,i2,j1,j2,k1,k2,np
-  real(wp) :: eps,dl,da
+  real(wp) :: eps,dl,da,xmin,xmax,rmin,rmax
   !
   integer  :: l,m,n
   real(wp) :: x,y,z,r,t
@@ -2061,6 +2061,16 @@ continue
   dxr = init_array(np,np,3,zero) ! F2003 AUTO-REALLOC
   !
   debug_output_ho_point_spacings = fals
+  xmin = minval(xyz(1,:))/gsf
+  xmax = maxval(xyz(1,:))/gsf
+  rmin = minval( sqrt( (xyz(2,:)**2) + (xyz(3,:)**2) ) )/gsf
+  rmax = maxval( sqrt( (xyz(2,:)**2) + (xyz(3,:)**2) ) )/gsf
+ !if (xmin > -3.45_wp .and. xmax < -3.25_wp .and. &
+ !    rmin > 0.88_wp .and. rmax < one) then
+  if (xmin > -3.55_wp .and. xmax < -3.15_wp .and. &
+      rmax < one .and. any(bface(2,:)==nc)) then
+      debug_output_ho_point_spacings = true
+  end if
   !
   if (turn_off_output_override) then
     debug_output_ho_point_spacings = fals
