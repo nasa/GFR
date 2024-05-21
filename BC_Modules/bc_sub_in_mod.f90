@@ -298,9 +298,9 @@ continue
                pv_bc(nmy)*pv_bc(nmy) + &
                pv_bc(nmz)*pv_bc(nmz) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
-  dir_cosy = pv_bc(nmy) / vmag
-  dir_cosz = pv_bc(nmz) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
+  dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
+  dir_cosz = pv_bc(nmz) / max(vmag,rndoff)
   !
   aoa = atan2(dir_cosy,dir_cosx)
   tan_aoa = tan( aoa )
@@ -763,8 +763,8 @@ continue
   vmag = sqrt( pv_bc(nmx)*pv_bc(nmx) + &
                pv_bc(nmy)*pv_bc(nmy) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
-  dir_cosy = pv_bc(nmy) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
+  dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
   !
   aoa = atan2(dir_cosy,dir_cosx)
   tan_aoa = tan( aoa )
@@ -1201,7 +1201,7 @@ continue
   !
   vmag = sqrt( pv_bc(nmx)*pv_bc(nmx) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
   !
   ! Get the boundary total density and total pressure
   ! NOTE: These total conditions have been saved into static
@@ -1799,9 +1799,9 @@ continue
                pv_bc(nmy)*pv_bc(nmy) + &
                pv_bc(nmz)*pv_bc(nmz) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
-  dir_cosy = pv_bc(nmy) / vmag
-  dir_cosz = pv_bc(nmz) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
+  dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
+  dir_cosz = pv_bc(nmz) / max(vmag,rndoff)
  !!
  !aoa = atan2(pv_bc(nmy),pv_bc(nmx))
  !tan_aoa = tan( aoa )
@@ -1949,8 +1949,8 @@ continue
   vmag = sqrt( pv_bc(nmx)*pv_bc(nmx) + &
                pv_bc(nmy)*pv_bc(nmy) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
-  dir_cosy = pv_bc(nmy) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
+  dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
  !!
  !aoa = atan2(pv_bc(nmy),pv_bc(nmx))
  !tan_aoa = tan( aoa )
@@ -2090,7 +2090,7 @@ continue
   !
   vmag = sqrt( pv_bc(nmx)*pv_bc(nmx) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
  !!
  !aoa = atan2(pv_bc(nmy),pv_bc(nmx))
  !tan_aoa = tan( aoa )
@@ -2220,9 +2220,9 @@ continue
                pv_bc(nmy)*pv_bc(nmy) + &
                pv_bc(nmz)*pv_bc(nmz) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
-  dir_cosy = pv_bc(nmy) / vmag
-  dir_cosz = pv_bc(nmz) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
+  dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
+  dir_cosz = pv_bc(nmz) / max(vmag,rndoff)
  !!
  !aoa = atan2(pv_bc(nmy),pv_bc(nmx))
  !tan_aoa = tan( aoa )
@@ -2340,8 +2340,8 @@ continue
   vmag = sqrt( pv_bc(nmx)*pv_bc(nmx) + &
                pv_bc(nmy)*pv_bc(nmy) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
-  dir_cosy = pv_bc(nmy) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
+  dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
  !!
  !aoa = atan2(pv_bc(nmy),pv_bc(nmx))
  !tan_aoa = tan( aoa )
@@ -2451,7 +2451,7 @@ continue
   !
   vmag = sqrt( pv_bc(nmx)*pv_bc(nmx) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
  !!
  !aoa = atan2(pv_bc(nmy),pv_bc(nmx))
  !tan_aoa = tan( aoa )
@@ -2582,9 +2582,9 @@ continue
                pv_bc(nmy)*pv_bc(nmy) + &
                pv_bc(nmz)*pv_bc(nmz) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
-  dir_cosy = pv_bc(nmy) / vmag
-  dir_cosz = pv_bc(nmz) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
+  dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
+  dir_cosz = pv_bc(nmz) / max(vmag,rndoff)
   !
   ! Stagnation pressure and temperature specified, Mach number extrapolated
   !
@@ -2896,8 +2896,8 @@ continue
   vmag = sqrt( pv_bc(nmx)*pv_bc(nmx) + &
                pv_bc(nmy)*pv_bc(nmy) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
-  dir_cosy = pv_bc(nmy) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
+  dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
   !
   ! Stagnation pressure and temperature specified, Mach number extrapolated
   !
@@ -3204,7 +3204,7 @@ continue
   !
   vmag = sqrt( pv_bc(nmx)*pv_bc(nmx) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
   !
   ! Stagnation pressure and temperature specified, Mach number extrapolated
   !

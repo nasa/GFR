@@ -201,9 +201,9 @@ continue
                pv_bc(nmy)*pv_bc(nmy) + &
                pv_bc(nmz)*pv_bc(nmz) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
-  dir_cosy = pv_bc(nmy) / vmag
-  dir_cosz = pv_bc(nmz) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
+  dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
+  dir_cosz = pv_bc(nmz) / max(vmag,rndoff)
   !
   !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,cv_bc)
   do n = n1,n2
@@ -382,8 +382,8 @@ continue
   vmag = sqrt( pv_bc(nmx)*pv_bc(nmx) + &
                pv_bc(nmy)*pv_bc(nmy) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
-  dir_cosy = pv_bc(nmy) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
+  dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
   !
   !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,cv_bc)
   do n = n1,n2
@@ -552,7 +552,7 @@ continue
   !
   vmag = sqrt( pv_bc(nmx)*pv_bc(nmx) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
   !
   !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,cv_bc)
   do n = n1,n2
@@ -731,9 +731,9 @@ continue
                pv_bc(nmy)*pv_bc(nmy) + &
                pv_bc(nmz)*pv_bc(nmz) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
-  dir_cosy = pv_bc(nmy) / vmag
-  dir_cosz = pv_bc(nmz) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
+  dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
+  dir_cosz = pv_bc(nmz) / max(vmag,rndoff)
   !
   ! Compute the mixture gas constant at the inflow plane
   !
@@ -1048,8 +1048,8 @@ continue
   vmag = sqrt( pv_bc(nmx)*pv_bc(nmx) + &
                pv_bc(nmy)*pv_bc(nmy) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
-  dir_cosy = pv_bc(nmy) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
+  dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
   !
   ! Compute the mixture gas constant at the inflow plane
   !
@@ -1358,7 +1358,7 @@ continue
   !
   vmag = sqrt( pv_bc(nmx)*pv_bc(nmx) )
   !
-  dir_cosx = pv_bc(nmx) / vmag
+  dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
   !
   ! Compute the mixture gas constant at the inflow plane
   !

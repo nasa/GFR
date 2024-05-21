@@ -354,7 +354,7 @@ continue
   !
   q2 = dot_product( pv_bc(nmb:nme) , pv_bc(nmb:nme) )
   !
-  dir_cos(nmb:nme) = pv_bc(nmb:nme)/sqrt(q2)
+  dir_cos(nmb:nme) = pv_bc(nmb:nme)/max(sqrt(q2),rndoff)
   !
   mach_bc = sqrt(q2) / aspd_bc
   !
