@@ -295,7 +295,8 @@ continue
                               y_dudy(1:ny), &
                               y_prof(:,1:ny), &
                               aux_data(:), &
-                              averaging_channel_flow,1)
+                              averaging_channel_flow,1, &
+                              opt_debug_output=true)
   !
   !#############################################################################
   !
