@@ -273,7 +273,7 @@ continue
   end do
   !
   if (averaging_channel_flow) then
-    rnum = one/ymax
+    rnum = one/(half*ymax)
   else
     rnum = one/grid_scaling_factor
   end if
@@ -605,10 +605,10 @@ continue
   !#############################################################################
   !
   ! Get the spatially averaged profiles at axial locations
-  ! equal to integer multiples of the channel height.
+  ! equal to integer multiples of the channel half height.
   !
   if (averaging_channel_flow) then
-    rnum = one/ymax
+    rnum = one/(half*ymax)
   else
     rnum = one/grid_scaling_factor
   end if
