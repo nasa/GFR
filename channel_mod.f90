@@ -21,6 +21,9 @@ module channel_mod
   !.. Local Module Variables ..
   real(wp), allocatable, save :: init_sol(:,:)
   !
+  !.. Local Module Parameters ..
+  real(wp), parameter :: match_tolerance = eps9
+  !
 contains
 !
 !###############################################################################
@@ -213,7 +216,7 @@ continue
     ! y coordinate value, then continue on to the next solution point.
     !
     do j = 1,ny
-      if (abs(y_vals(j)-xyz(2,n)) <= eps6) then
+      if (abs(y_vals(j)-xyz(2,n)) <= match_tolerance) then
         y_ptr(n) = j
         cycle solpts_loop
       end if
@@ -513,7 +516,7 @@ continue
   do n = 2,n_solpts
     !
     do i = 1,nx
-      if (abs(x_vals(i)-xyz(1,n)) <= eps6) then
+      if (abs(x_vals(i)-xyz(1,n)) <= match_tolerance) then
         x_ptr(n) = i
         cycle find_unique_x_loc_loop
       end if
@@ -544,7 +547,7 @@ continue
   do n = 2,n_solpts
     !
     do j = 1,ny
-      if (abs(y_vals(j)-xyz(2,n)) <= eps6) then
+      if (abs(y_vals(j)-xyz(2,n)) <= match_tolerance) then
         y_ptr(n) = j
         cycle find_unique_y_loc_loop
       end if
@@ -1671,7 +1674,7 @@ continue
   do n = 2,npts
     !
     do j = 1,ny
-      if (abs(y_vals(j)-my_sem_pts(1)%sem_fp(n)%y) <= eps6) then
+      if (abs(y_vals(j)-my_sem_pts(1)%sem_fp(n)%y) <= match_tolerance) then
         y_ptr(n) = j
         cycle find_unique_y_loc_loop
       end if
