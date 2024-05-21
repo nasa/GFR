@@ -893,7 +893,7 @@ subroutine read_gmsh_section_nodes
   !.. Local Scalars ..
   integer :: i,j,n,npts,ierr
   logical(lk) :: end_of_file
-  real(wp) :: minz,maxz
+  real(wp) :: miny,maxy,minz,maxz
   character(len=80) :: text
   !
   !.. Local Allocatable Arrays ..
@@ -933,7 +933,15 @@ continue
   minz = minval(temp_nodes(nr,:))
   maxz = maxval(temp_nodes(nr,:))
   !
-  if (abs(maxz-minz) <= eps6) nr = 2
+  if (abs(maxz-minz) <= eps6) then
+    nr = 2
+    !
+    ! If min/max values in 2nd dim are equal, reduce nr to 1 since a 1D grid.
+    !
+    miny = minval(temp_nodes(nr,:))
+    maxy = maxval(temp_nodes(nr,:))
+    if (abs(maxy-miny) <= eps6) nr = 1
+  endif
   !
   ! Allocate grid if it has not yet been allocated
   !
