@@ -2656,10 +2656,20 @@ continue
     !
     this_is_a_wall_bc = ( any(bc_input(n)%set_bc_value == bc_walls) )
     !
-    if ( bc_input(n)%has_default_flow_conditions() ) then
+    if ( bc_input(n)%has_default_flow_conditions() .or. &
+         bc_input(n)%set_bc_value == bc_periodic ) then
       !
-      ! This boundary condition has all the default flow conditions
-      ! but it contains a non-zero-length name or specified BC type.
+      ! This boundary condition has either:
+      !   1) all the default flow conditions but it contains a 
+      !      non-zero-length name or specified BC type, or
+      !   2) it is a periodic BC.
+      !      NOTE: We include this exception in case any of the flow conditions
+      !            in bc_input have been altered from the default values for a
+      !            periodic BC, in which case the BC flow conditions dont
+      !            matter since the left and right states will just be
+      !            communicated between matching periodic faces, so just set
+      !            the BC flow conditions to the reference flow conditions.
+      !
       ! Set the flow conditions for this boundary to the reference
       ! flow conditions.
       !
