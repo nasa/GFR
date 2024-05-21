@@ -2535,14 +2535,17 @@ end subroutine create_periodic_cube_pyramid_grid
 !
 subroutine reset_bc_input_for_internal_grid(Lref_x,Lref_y,Lref_z)
   !
+  ! Reset bc_input for a fully periodic grid so that the subroutine
+  ! match_periodic_faces can correctly match all the periodic faces.
+  !
   !.. Use Statements ..
   use ovar,   only : bc_input
   use geovar, only : nr
   !
   !.. Optional Arguments ..
-  real(wp), optional, intent(in) :: Lref_x
-  real(wp), optional, intent(in) :: Lref_y
-  real(wp), optional, intent(in) :: Lref_z
+  real(wp), optional, intent(in) :: Lref_x  !< x-translation distance (def=1.)
+  real(wp), optional, intent(in) :: Lref_y  !< y-translation distance (def=1.)
+  real(wp), optional, intent(in) :: Lref_z  !< z-translation distance (def=1.)
   !
   !.. Local Scalars ..
   integer  :: ierr
