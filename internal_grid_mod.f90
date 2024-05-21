@@ -2820,7 +2820,7 @@ subroutine create_channel_flow_grid()
   !
   !.. Use Statements ..
   use order_mod, only : n_order
-  use ovar,      only : Lref,loc_solution_pts,itestcase
+  use ovar,      only : Lref,loc_solution_pts
   use ovar,      only : channel_grid_ave_xplus
   use ovar,      only : channel_grid_ave_yplus
   use ovar,      only : channel_grid_ave_zplus
@@ -2829,22 +2829,28 @@ subroutine create_channel_flow_grid()
   use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : cell_geom,cell_order
-  use ovar,      only : grid_format
+  use ovar,      only : grid_format,bc_input,bc_names
   !
   use polynomial_mod, only : legendre_gauss_quadrature
   use polynomial_mod, only : legendre_gauss_lobatto_quadrature
   !
   !.. Local Scalars ..
-  integer  :: ierr,i,j,k,l,n,n1,n2
-  integer  :: nx,ny,nz,nf_min,nf_max
-  real(wp) :: xplus_ave,yplus_ave,zplus_ave,dx,dy,dz
+  integer  :: i,j,k,n,n1,n2
+  integer  :: ncx,ncy,ncz,nhy,bc1_idx,bc2_idx
+  real(wp) :: xplus_ave,yplus_ave,zplus_ave,dx,dz,yplus1
   real(wp) :: ds1,ds2,dl1,dl2,a,b,sf,rnum,rden,sferr,val,ue,se
+  real(wp) :: lx_plus,ly_plus,lz_plus,yplus_wall,pp1
+  !
+  integer :: inflow_idx,outflow_idx
+  integer :: bottom_wall_idx,top_wall_idx
+  integer :: zmin_idx,zmax_idx
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: xi(:)
   real(wp), allocatable :: x(:)
   real(wp), allocatable :: y(:)
   real(wp), allocatable :: z(:)
+  real(wp), allocatable :: yhalf(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_channel_flow_grid"
@@ -2866,6 +2872,40 @@ continue
   !
   nr = 3
   !
+  ! Reset bc_input for this axially and spanwise periodic grid so that the
+  ! subroutine match_periodic_faces can correctly match all the periodic faces.
+  !
+  call reset_bc_input_for_channel_grid(channel_grid_Lx,channel_grid_Lz)
+  !
+  ! Find the index in bc_input for the 6 different boundary conditions
+  !
+  inflow_idx = -1
+  outflow_idx = -1
+  zmin_idx = -1
+  zmax_idx = -1
+  bottom_wall_idx = -1
+  top_wall_idx = -1
+  !
+  do i = 1,size(bc_names)
+    if (trim(adjustl(uppercase(bc_names(i)))) == "INFLOW") then
+      inflow_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "OUTFLOW") then
+      outflow_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "ZMIN") then
+      zmin_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "ZMAX") then
+      zmax_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "BOTTOM WALL") then
+      bottom_wall_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "TOP WALL") then
+      top_wall_idx = i
+    end if
+  end do
+  !
+  ! Precompute P+1 as a real
+  !
+  pp1 = real(n_order+1,kind=wp)
+  !
   ! #######
   ! #######
   ! ## 1 ##
@@ -2875,48 +2915,77 @@ continue
   ! Reset any of the grid parameters to their default values if they are zero
   !
   if (channel_yplus_of_one    == zero) channel_yplus_of_one = 8.42134e-6_wp
-  if (channel_grid_ave_xplus  == zero) channel_grid_ave_xplus = five*ten
-  if (channel_grid_ave_yplus  == zero) channel_grid_ave_yplus = five*five
-  if (channel_grid_ave_zplus  == zero) channel_grid_ave_zplus = five*five
-  if (channel_grid_yplus_wall == zero) channel_grid_yplus_wall = -one
+  if (channel_grid_ave_xplus  == zero) channel_grid_ave_xplus = -three*ten
+  if (channel_grid_ave_yplus  == zero) channel_grid_ave_yplus = -three*five
+  if (channel_grid_ave_zplus  == zero) channel_grid_ave_zplus = -three*five
+  if (channel_grid_yplus_wall == zero) channel_grid_yplus_wall = two
+  !
+  ! Save the channel grid parameters to local variables
+  !
+  yplus1 = channel_yplus_of_one
+  xplus_ave = channel_grid_ave_xplus
+  yplus_ave = channel_grid_ave_yplus
+  zplus_ave = channel_grid_ave_zplus
+  yplus_wall = channel_grid_yplus_wall
+  !
+  ! Get the length of the domain in each direction in y+ dimensions
+  !
+  lx_plus = channel_grid_Lx / yplus1
+  ly_plus = channel_grid_Ly / yplus1
+  lz_plus = channel_grid_Lz / yplus1
   !
   ! Compute the cell average x+,y+,z+ for the grid
+  ! NOTE: We are assuming the y+ cell average is the y+ spacing in the middle
+  !       of the channel and not the actual average y+ spacing including the
+  !       near wall cells. This will tend towards finer y+ spacing in the
+  !       middle of the channel, but it makes the input more directly
+  !       comparable to the x+ and z+ inputs. Otherwise, if the average y+
+  !       spacing includes the near wall cells in the average, the spacing
+  !       in the middle of the channel will be larger than the equivalent
+  !       x+ or z+ spacing given by the respective inputs.
+  !
+  ! If the inputs channel_grid_ave_[xyz]plus are:
+  !   > 0 : the input specifies the average cell spacing
+  !   < 0 : the abs(input) specifies the average DoF spacing
+  !
   ! For a given coordinate direction (say [i]), the cell average [i]+ is
   !   if (channel_grid_ave_[i]plus > zero) then
   !     [i]plus_ave = channel_grid_ave_[i]plus
   !   else
-  !     [i]plus_ave = abs(channel_grid_ave_[i]plus)*real(n_order+2,kind=wp)
+  !     [i]plus_ave = abs(channel_grid_ave_[i]plus)*real(n_order+1,kind=wp)
   !   end if
-  ! NOTE: We use (P+2) here because the delta plus value is the
+  ! NOTE: We use (P+1) here because the delta plus value is the
   !       average distance between the DoF within a cell (or the
-  !       subcells), and there are P+2 subcells in each cell.
+  !       subcells), and there are P+1 subcells in each cell (the
+  !       subcells between the end points and the cell boundaries
+  !       are kind of 1/2 a subcell each).
   !
-  xplus_ave = abs(channel_grid_ave_xplus)*merge(one, &
-                                                real(n_order+2,kind=wp), &
-                                                channel_grid_ave_xplus > zero)
-  yplus_ave = abs(channel_grid_ave_yplus)*merge(one, &
-                                                real(n_order+2,kind=wp), &
-                                                channel_grid_ave_yplus > zero)
-  zplus_ave = abs(channel_grid_ave_zplus)*merge(one, &
-                                                real(n_order+2,kind=wp), &
-                                                channel_grid_ave_zplus > zero)
+  xplus_ave = abs(xplus_ave)*merge(one , pp1 , xplus_ave > zero)
+  yplus_ave = abs(yplus_ave)*merge(one , pp1 , yplus_ave > zero)
+  zplus_ave = abs(zplus_ave)*merge(one , pp1 , zplus_ave > zero)
   !
-  ! Get the number of grid points in each direction
+  ! Get the number of cells in the x and z directions
   !
-  nx = nint( channel_grid_Lx / (channel_yplus_of_one*xplus_ave) )
-  ny = nint( channel_grid_Ly / (channel_yplus_of_one*yplus_ave) )
-  nz = nint( channel_grid_Lz / (channel_yplus_of_one*zplus_ave) )
+  ncx = nint( lx_plus / xplus_ave )
+  ncz = nint( lz_plus / zplus_ave )
   !
-  ! Compute the x and z cell spacings
+  ! Compute the actual (non-plus) x and z cell spacings
+  ! NOTE: These will most likely not be equal to xplus_ave and zplus_ave
+  !       since lx_plus and lz_plus will probably not be evenly divisible
+  !       by these respective numbers.
   !
-  dx = channel_grid_Lx / real(nx,kind=wp)
-  dz = channel_grid_Lz / real(nz,kind=wp)
+  dx = channel_grid_Lx / real(ncx,kind=wp)
+  dz = channel_grid_Lz / real(ncz,kind=wp)
   !
-  ! Initialize the x,y,z grid spacing arrays
+  ! Save the x+ and z+ spacings to the module variables
   !
-  x = init_array(nx+1,zero) ! F2003 AUTO-REALLOC
-  y = init_array(ny+1,zero) ! F2003 AUTO-REALLOC
-  z = init_array(nz+1,zero) ! F2003 AUTO-REALLOC
+  xplus_cell_ave = dx / yplus1
+  zplus_cell_ave = dz / yplus1
+  !
+  ! Initialize the x and z grid spacing arrays
+  !
+  x = init_array(ncx+1,zero) ! F2003 AUTO-REALLOC
+  z = init_array(ncz+1,zero) ! F2003 AUTO-REALLOC
   !
   ! #######
   ! #######
@@ -2924,7 +2993,7 @@ continue
   ! #######
   ! #######
   !
-  ! Get the grid cell spacings for x,y,z
+  ! Get the grid cell spacings for x and z
   !
   ! ######
   ! # 2A #
@@ -2932,7 +3001,7 @@ continue
   !
   ! Get the grid point locations for x
   !
-  do n = 2,nx
+  do n = 2,ncx+1
     x(n) = x(n-1) + dx
   end do
   !
@@ -2942,7 +3011,7 @@ continue
   !
   ! Get the grid point locations for z
   !
-  do n = 2,nz
+  do n = 2,ncz+1
     z(n) = z(n-1) + dz
   end do
   !
@@ -2950,52 +3019,92 @@ continue
   ! # 2C #
   ! ######
   !
+  ! 2C.0 Get the location of the 1D solution points in reference space
+  !
+  xi = init_array(n_order+1,zero) ! F2003 AUTO-REALLOC
+  !
+  if (loc_solution_pts == Legendre_Gauss_Lobatto) then
+    call legendre_gauss_lobatto_quadrature(xi)
+  else
+    call legendre_gauss_quadrature(xi)
+  end if
+  !
+  ! Scale xi from [-1,1] to [0,1]
+  !
+  xi(:) = half*(xi(:) + one)
+  !
   ! 2C.1 : Get the beginning and ending spacings needed
   !        to generate the tanh spacing
   !
   ! Need to get dl1/ds1 and dl2/ds2 to create tanh spacing for y spacing
   !
-  if (channel_grid_yplus_wall < zero) then
+  if (yplus_wall < zero) then
     !
-    ! The i-th point of the first cell is at y+=1
+   !! OLD VERSION: The 1st DoF off the wall is located at abs(yplus_wall)
+   !!
+   !! OLD VERSION:
+   !! Divide the abs(yplus_wall) by the location of the 1st solution point
+   !! on the interval [0,1] to get the height of the first cell off the wall.
+   !!
+   !dl1 = abs(yplus_wall) / xi(1)
     !
-    i = min( n_order+1 , max( 1 , nint(abs(channel_grid_yplus_wall)) ) )
+    ! NEW VERSION: The nint(abs(yplus_wall))-th DoF
+    !              off the wall is located at y+=1.
+    ! NEW VERSION:
+    ! The location of y+=1 is at the nint(abs(yplus_wall))-th DoF off the wall,
+    ! so 1/xi(nint(abs(yplus_wall))) gives the y+ spacing of the first cell off
+    ! the wall.
+    ! NOTE: This assumes xi is on the interval [0,1].
+    ! NOTE: We need to use min/max to make sure nint(abs(yplus_wall))
+    !       is a valid index for the array xi.
     !
-    ! Get the location of the 1D solution points in reference space
-    !
-    xi = init_array(n_order+1,zero) ! F2003 AUTO-REALLOC
-    !
-    if (loc_solution_pts == Legendre_Gauss_Lobatto) then
-      i = min(i+1,n_order+1) ! Offset for 1st Lobatto point being at the wall
-      call legendre_gauss_lobatto_quadrature(xi)
-    else
-      call legendre_gauss_quadrature(xi)
-    end if
-    !
-    xi(:) = half*(xi(:) + one)
-    !
-    dl1 = channel_yplus_of_one / xi(i)
+    n = max( 1 , min( size(xi) , nint(abs(yplus_wall)) ) )
+    dl1 = one / xi(n)
     !
   else
     !
-    ! The height of the first cell off the wall is channel_grid_yplus_wall
+    ! The height of the first cell off the wall is yplus_wall
     !
-    dl1 = channel_yplus_of_one * channel_grid_yplus_wall
+    dl1 = yplus_wall
     !
   end if
   !
-  dl2 = dl1
+  ! Get the centerline y+ spacing
   !
-  ! Map the beginning and ending grid cell
-  ! spacings to the reference interval [0,1].
+  dl2 = yplus_ave
   !
-  ds1 = dl1 / channel_grid_Ly
-  ds2 = dl2 / channel_grid_Ly
+  ! Map the beginning and ending grid cell spacings to the reference
+  ! interval [0,1]. We are only worried about half the channel so we
+  ! need to half of the channel height in plus coordinates.
+  !
+  ds1 = dl1 / (half*ly_plus)
+  ds2 = dl2 / (half*ly_plus)
+  !
+  ! Compute the approximate number of cells (for half of the channel height)
+  ! needed to get a constant stretching with end spacings ds1 and ds2.
+  !
+  nhy = nint( log(ds2/ds1) / log((ds1-one)/(ds2-one)) )
+  !
+  ! The total number of y cells is just twice nhy,
+  ! since nhy is for half of the channel height
+  !
+  ncy = nhy*2
+  !
+  ! Save all the various y+ spacings to the module variables
+  !
+  yplus_cell_wall = dl1
+  yplus_dof_wall = xi(:)*dl1 ! F2003 AUTO-REALLOC
+  yplus_cell_centerline = dl2
+  yplus_cell_ave = ly_plus / real(ncy,kind=wp)
+  !
+  ! Initialize the y grid spacing for half the channel
+  !
+  yhalf = init_array(nhy+1,zero) ! F2003 AUTO-REALLOC
   !
   ! 2C.2 : Get the a and b parameters to begin solving for the tanh y-spacing
   !
   a = sqrt(ds2/ds1)
-  b = one / (real(ny,kind=wp)*sqrt(ds1*ds2))
+  b = one / (real(nhy,kind=wp)*sqrt(ds1*ds2))
   !
   ! 2C.3 : Use b to solve the stretching factor function, then use the
   !        stretching factor to get the y-spacing.
@@ -3038,13 +3147,13 @@ continue
     !
     sf = abs(sf)
     !
-    ! Get the distribution y(n)
+    ! Get the distribution yhalf(n)
     !
-    do n = 0,ny
-      val = real(n,kind=wp)/real(ny,kind=wp)
+    do n = 0,nhy
+      val = real(n,kind=wp)/real(nhy,kind=wp)
       ue = half*(one + tanh(sf*(val-half))/tanh(sf*half))
       se = ue / (a + (one-a)*ue)
-      y(n) = se * channel_grid_Ly
+      yhalf(n+1) = se * half*channel_grid_Ly
     end do
     !
   else if (b <= 0.9_wp) then
@@ -3085,13 +3194,13 @@ continue
     !
     sf = abs(sf)
     !
-    ! Get the distribution y(n)
+    ! Get the distribution yhalf(n)
     !
-    do n = 0,ny
-      val = real(n,kind=wp)/real(ny,kind=wp)
+    do n = 0,nhy
+      val = real(n,kind=wp)/real(nhy,kind=wp)
       ue = half*(one + tan(sf*(val-half))/tan(sf*half))
       se = ue / (a + (one-a)*ue)
-      y(n) = se * channel_grid_Ly
+      yhalf(n+1) = se * half*channel_grid_Ly
     end do
     !
   else
@@ -3100,14 +3209,27 @@ continue
     ! if the stretching factor is close to 1, therefore use this simpler
     ! stretching function that doesnt require a Newton iteration.
     !
-    do n = 0,ny
-      val = real(n,kind=wp)/real(ny,kind=wp)
+    do n = 0,nhy
+      val = real(n,kind=wp)/real(nhy,kind=wp)
       ue = val*(one + two*(b-one)*(val-half)*(one-val))
       se = ue / (a + (one-a)*ue)
-      y(n) = se * channel_grid_Ly
+      yhalf(n+1) = se * half*channel_grid_Ly
     end do
     !
   end if
+  !
+  ! Create the y grid spacing for the whole channel
+  !
+  y = init_array(ncy+1,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Get the grid points for the bottom half of the channel
+  do n = 1,nhy+1
+    y(n) = yhalf(n)
+  end do
+  ! Get the grid points for the top half of the channel
+  do n = 1,nhy
+    y(ncy+2-n) = channel_grid_Ly - yhalf(n)
+  end do
   !
   ! #######
   ! #######
@@ -3117,36 +3239,18 @@ continue
   !
   ! We can finish creating the grid now that we have the x,y,z grid spacings
   !
-  ncell = nx*ny*nz                    ! total number of grid cells
-  nnode = (nx+1)*(ny+1)*(nz+1)        ! total number of grid nodes
-  nfbnd = 2*nx*ny + 2*nx*nz + 2*ny*nz ! total number of boundary faces
+  ncell = ncx*ncy*ncz                       ! total number of grid cells
+  nnode = (ncx+1)*(ncy+1)*(ncz+1)           ! total number of grid nodes
+  nfbnd = 2*ncx*ncy + 2*ncx*ncz + 2*ncy*ncz ! total number of boundary faces
   !
   ! Allocate all the arrays needed to define the grid
   !
-  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"xyz_nodes",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"nodes_of_cell_ptr",1,__LINE__,__FILE__,ierr, &
-                   error_message)
-  !
-  allocate ( nodes_of_cell(1:geom_nodes(Geom_Hexa)*ncell) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"nodes_of_cell",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bface",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( cell_geom(1:ncell) , source=Geom_Hexa , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_geom",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( cell_order(1:ncell) , source=n_order , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
+  xyz_nodes = init_array(nr,nnode,zero) ! F2003 AUTO-REALLOC
+  nodes_of_cell_ptr = init_array(ncell+1,0) ! F2003 AUTO-REALLOC
+  nodes_of_cell = init_array(geom_nodes(Geom_Hexa)*ncell,0) ! F2003 AUTO-REALLOC
+  bface = init_array(nbfai,nfbnd,0) ! F2003 AUTO-REALLOC
+  cell_geom = init_array(ncell,Geom_Hexa) ! F2003 AUTO-REALLOC
+  cell_order = init_array(ncell,n_order) ! F2003 AUTO-REALLOC
   !
   ! #######
   ! #######
@@ -3163,20 +3267,20 @@ continue
   !
   ! Create the nodes_of_cell array
   !
-  do k = 1,nz
-    do j = 1,ny
-      do i = 1,nx
+  do k = 1,ncz
+    do j = 1,ncy
+      do i = 1,ncx
         !
-        n = nodes_of_cell_ptr( map3dto1d(i,j,k,nx,ny) )
+        n = nodes_of_cell_ptr( map3dto1d(i,j,k,ncx,ncy) )
         !
-        nodes_of_cell(n+1) = map3dto1d(i  ,j  ,k  ,nx+1,ny+1)
-        nodes_of_cell(n+2) = map3dto1d(i+1,j  ,k  ,nx+1,ny+1)
-        nodes_of_cell(n+3) = map3dto1d(i+1,j+1,k  ,nx+1,ny+1)
-        nodes_of_cell(n+4) = map3dto1d(i  ,j+1,k  ,nx+1,ny+1)
-        nodes_of_cell(n+5) = map3dto1d(i  ,j  ,k+1,nx+1,ny+1)
-        nodes_of_cell(n+6) = map3dto1d(i+1,j  ,k+1,nx+1,ny+1)
-        nodes_of_cell(n+7) = map3dto1d(i+1,j+1,k+1,nx+1,ny+1)
-        nodes_of_cell(n+8) = map3dto1d(i  ,j+1,k+1,nx+1,ny+1)
+        nodes_of_cell(n+1) = map3dto1d(i  ,j  ,k  ,ncx+1,ncy+1)
+        nodes_of_cell(n+2) = map3dto1d(i+1,j  ,k  ,ncx+1,ncy+1)
+        nodes_of_cell(n+3) = map3dto1d(i+1,j+1,k  ,ncx+1,ncy+1)
+        nodes_of_cell(n+4) = map3dto1d(i  ,j+1,k  ,ncx+1,ncy+1)
+        nodes_of_cell(n+5) = map3dto1d(i  ,j  ,k+1,ncx+1,ncy+1)
+        nodes_of_cell(n+6) = map3dto1d(i+1,j  ,k+1,ncx+1,ncy+1)
+        nodes_of_cell(n+7) = map3dto1d(i+1,j+1,k+1,ncx+1,ncy+1)
+        nodes_of_cell(n+8) = map3dto1d(i  ,j+1,k+1,ncx+1,ncy+1)
         !
       end do
     end do
@@ -3190,11 +3294,11 @@ continue
   !
   ! Create the grid node coordinates
   !
-  do k = 1,nz+1
-    do j = 1,ny+1
-      do i = 1,nx+1
+  do k = 1,ncz+1
+    do j = 1,ncy+1
+      do i = 1,ncx+1
         !
-        n = map3dto1d(i,j,k,nx+1,ny+1)
+        n = map3dto1d(i,j,k,ncx+1,ncy+1)
         !
         xyz_nodes(1,n) = x(i)
         xyz_nodes(2,n) = y(j)
@@ -3212,135 +3316,106 @@ continue
   !
   ! Create the bface array
   !
-  nf_max = 0
-  !
   ! Loop through the 6 grid boundaries
   ! NOTE: This corresponds to the grid boundaries in
   !       the order [imin,imax,jmin,jmax,kmin,kmax]
   !
-  nf_min = nf_max
+  bc1_idx = inflow_idx
+  bc2_idx = outflow_idx
   !
-  do k = 1,nz
-    do j = 1,ny
+  n2 = 0
+  !
+  n1 = n2
+  n2 = n2 + ncy*ncz
+  do k = 1,ncz
+    do j = 1,ncy
       !
-      n1 = nf_min + 1
-      n2 = nf_min + 1 + ny*nz
+      n1 = n1 + 1
+      n2 = n2 + 1
       !
-      if (itestcase == -Channel_Flow) then
-        !
-        bface( 1,n1) = bc_sem
-        bface( 2,n1) = map3dto1d(1 ,j,k,nx,ny)
-        bface( 3,n1) = Geom_Hexa
-        bface( 4,n1) = HostFace3D(1)
-        bface( 5,n1) = 1
-        bface( 6,n1) = 1
-        bface(10,n1) = ncell + n1
-        !
-        bface( 1,n2) = bc_sub_outflow
-        bface( 2,n2) = map3dto1d(nx,j,k,nx,ny)
-        bface( 3,n2) = Geom_Hexa
-        bface( 4,n2) = HostFace3D(2)
-        bface( 5,n2) = 2
-        bface( 6,n2) = 2
-        bface(10,n2) = ncell + n2
-        !
-      else
-        !
-        bface( 1,n1) = bc_periodic
-        bface( 2,n1) = map3dto1d(1 ,j,k,nx,ny)
-        bface( 3,n1) = Geom_Hexa
-        bface( 4,n1) = HostFace3D(1)
-        bface( 5,n1) = n2
-        bface( 6,n1) = map3dto1d(nx,j,k,nx,ny)
-        bface( 8,n1) = Geom_Hexa
-        bface( 9,n1) = HostFace3D(2)
-        bface(10,n1) = ncell + n1
-        !
-        bface( 1,n2) = bc_periodic
-        bface( 2,n2) = bface(6,n1)
-        bface( 3,n2) = bface(8,n1)
-        bface( 4,n2) = bface(9,n1)
-        bface( 5,n2) = n1
-        bface( 6,n2) = bface(2,n1)
-        bface( 8,n2) = bface(3,n1)
-        bface( 9,n2) = bface(4,n1)
-        bface(10,n2) = ncell + n2
-        !
-      end if
+      bface( 1,n1) = bc_input(bc1_idx)%set_bc_value
+      bface( 2,n1) = map3dto1d(1 ,j,k,ncx,ncy)
+      bface( 3,n1) = Geom_Hexa
+      bface( 4,n1) = HostFace3D(1)
+      bface( 5,n1) = bc1_idx ! group for boundary face
+      bface( 6,n1) = bc1_idx ! index for bc_input needed by match_periodic_faces
+      bface(10,n1) = ncell + n1
       !
-      nf_min = n1
-      nf_max = n2
+      bface( 1,n2) = bc_input(bc2_idx)%set_bc_value
+      bface( 2,n2) = map3dto1d(ncx,j,k,ncx,ncy)
+      bface( 3,n2) = Geom_Hexa
+      bface( 4,n2) = HostFace3D(2)
+      bface( 5,n2) = bc2_idx ! group for boundary face
+      bface( 6,n2) = bc2_idx ! index for bc_input needed by match_periodic_faces
+      bface(10,n2) = ncell + n2
       !
     end do
   end do
   !
-  nf_min = nf_max
+  bc1_idx = bottom_wall_idx
+  bc2_idx = top_wall_idx
   !
-  do k = 1,nz
-    do i = 1,nx
+  n1 = n2
+  n2 = n2 + ncx*ncz
+  do k = 1,ncz
+    do i = 1,ncx
       !
-      n1 = nf_min + 1
-      n2 = nf_min + 1 + nx*nz
+      n1 = n1 + 1
+      n2 = n2 + 1
       !
-      bface( 1,n1) = bc_periodic
-      bface( 2,n1) = map3dto1d(i,1 ,k,nx,ny)
+      bface( 1,n1) = bc_input(bc1_idx)%set_bc_value
+      bface( 2,n1) = map3dto1d(i,1 ,k,ncx,ncy)
       bface( 3,n1) = Geom_Hexa
       bface( 4,n1) = HostFace3D(3)
-      bface( 5,n1) = n2
-      bface( 6,n1) = map3dto1d(i,ny,k,nx,ny)
-      bface( 8,n1) = Geom_Hexa
-      bface( 9,n1) = HostFace3D(4)
+      bface( 5,n1) = bc1_idx ! group for boundary face
+      bface( 6,n1) = bc1_idx ! index for bc_input
       bface(10,n1) = ncell + n1
       !
-      bface( 1,n2) = bc_periodic
-      bface( 2,n2) = bface(6,n1)
-      bface( 3,n2) = bface(8,n1)
-      bface( 4,n2) = bface(9,n1)
-      bface( 5,n2) = n1
-      bface( 6,n2) = bface(2,n1)
-      bface( 8,n2) = bface(3,n1)
-      bface( 9,n2) = bface(4,n1)
-      bface(10,n2) = ncell + n2
       !
-      nf_min = n1
-      nf_max = n2
+      bface( 1,n2) = bc_input(bc2_idx)%set_bc_value
+      bface( 2,n2) = map3dto1d(i,ncy,k,ncx,ncy)
+      bface( 3,n2) = Geom_Hexa
+      bface( 4,n2) = HostFace3D(4)
+      bface( 5,n2) = bc2_idx ! group for boundary face
+      bface( 6,n2) = bc2_idx ! index for bc_input
+      bface(10,n2) = ncell + n2
       !
     end do
   end do
   !
-  nf_min = nf_max
+  bc1_idx = zmin_idx
+  bc2_idx = zmax_idx
   !
-  do j = 1,ny
-    do i = 1,nx
+  n1 = n2
+  n2 = n2 + ncx*ncy
+  do j = 1,ncy
+    do i = 1,ncx
       !
-      n1 = nf_min + 1
-      n2 = nf_min + 1 + nx*ny
+      n1 = n1 + 1
+      n2 = n2 + 1
       !
-      bface( 1,n1) = bc_periodic
-      bface( 2,n1) = map3dto1d(i,j,1 ,nx,ny)
+      bface( 1,n1) = bc_input(bc1_idx)%set_bc_value
+      bface( 2,n1) = map3dto1d(i,j,1 ,ncx,ncy)
       bface( 3,n1) = Geom_Hexa
       bface( 4,n1) = HostFace3D(5)
-      bface( 5,n1) = n2
-      bface( 6,n1) = map3dto1d(i,j,nz,nx,ny)
-      bface( 8,n1) = Geom_Hexa
-      bface( 9,n1) = HostFace3D(6)
+      bface( 5,n1) = bc1_idx ! group for boundary face
+      bface( 6,n1) = bc1_idx ! index for bc_input needed by match_periodic_faces
       bface(10,n1) = ncell + n1
       !
-      bface( 1,n2) = bc_periodic
-      bface( 2,n2) = bface(6,n1)
-      bface( 3,n2) = bface(8,n1)
-      bface( 4,n2) = bface(9,n1)
-      bface( 5,n2) = n1
-      bface( 6,n2) = bface(2,n1)
-      bface( 8,n2) = bface(3,n1)
-      bface( 9,n2) = bface(4,n1)
+      bface( 1,n2) = bc_input(bc2_idx)%set_bc_value
+      bface( 2,n2) = map3dto1d(i,j,ncz,ncx,ncy)
+      bface( 3,n2) = Geom_Hexa
+      bface( 4,n2) = HostFace3D(6)
+      bface( 5,n2) = bc2_idx ! group for boundary face
+      bface( 6,n2) = bc2_idx ! index for bc_input needed by match_periodic_faces
       bface(10,n2) = ncell + n2
-      !
-      nf_min = n1
-      nf_max = n2
       !
     end do
   end do
+  !
+  if (mypnum == glb_root) then
+    call write_channel_grid_info(iout,ncx,ncy,ncz)
+  end if
   !
   call debug_timer(leaving_procedure,pname)
   !
