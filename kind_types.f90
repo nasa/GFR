@@ -2498,6 +2498,22 @@ end function geom_family_type_not_equal
 !
 !###############################################################################
 !
+!> Replace all instances of one character in a string with another character.
+function replace_char(string,old_char,new_char) result(new_string)
+  character(len=*), intent(in) :: string
+  character(len=1), intent(in) :: old_char
+  character(len=1), intent(in) :: new_char
+  character(len=len(string))   :: new_string
+  integer n
+
+  new_string = string
+  do n = 1, len(new_string)
+    if ( new_string(n:n) == old_char ) new_string(n:n) = new_char
+  enddo
+end function replace_char
+!
+!###############################################################################
+!
 ! Include statements for functions that have a generic interface
 !
 #include "Functions/reallocate.f90"
