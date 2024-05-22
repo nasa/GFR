@@ -2332,7 +2332,7 @@ end subroutine finalize_mpi_environment
 !###############################################################################
 !
 subroutine stop_gfr(iend,procedure_name,line_number,file_name, &
-                      optional_message)
+                    optional_message, optional_newline_char)
   !
 #ifdef SPECIAL_FOR_INTEL
   !.. Use Statements ..
@@ -2347,14 +2347,21 @@ subroutine stop_gfr(iend,procedure_name,line_number,file_name, &
   !
   !.. Optional Arguments ..
   character(len=*), optional, intent(in) :: optional_message
+  character(len=1), optional, intent(in) :: optional_newline_char
   !
   !.. Local Scalars ..
   real(wp) :: val
   integer(int_mpi) :: iflag,io
   character(len=10000) :: strng
   character(len=10000) :: output_message
+  character(len=1)     :: newline_char
   !
 continue
+  !
+  ! Placeholder char in error_message to be converted to newline.
+  !
+  newline_char = "$"  ! default: $ becomes newline
+  if ( present(optional_newline_char) ) newline_char = optional_newline_char
   !
   iflag = int( iend , kind=kind(iflag) )
   !
@@ -2362,20 +2369,29 @@ continue
   !
   if (present(optional_message)) then
     !
-    if (scan(optional_message,new_line('a')) == 0) then
+    if (scan(optional_message,new_line('a')) > 0) then
       !
-      ! optional_message does NOT contain any new line characters so reformat
+      ! Optional_message already contains new line characters so just copy
+      ! it straight into output_message.
+      !
+      output_message = trim(adjustl(optional_message))
+      !
+    elseif (scan(optional_message,newline_char) > 0) then
+      !
+      ! Optional message contains a placeholder char for new_line.
+      ! Replace placeholder with new_line and copy to output_message.
+      !
+      output_message = replace_char( optional_message, &
+                                     newline_char, new_line('a') )
+      output_message = trim(adjustl(output_message))
+      !
+    else
+      !
+      ! Optional_message does NOT contain any new line characters so reformat
       ! the string so that it is multiple lines with a max of 50 characters
       ! per line.
       !
       output_message = reformat_string( optional_message )
-      !
-    else
-      !
-      ! optional_message already contains new line characters so just copy
-      ! it straight into output_message
-      !
-      output_message = trim(adjustl(optional_message))
       !
     end if
     !
