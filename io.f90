@@ -579,13 +579,6 @@ continue
   !
   ! Make sure the variable index for the resolution marker is valid
   !
-  if (Limiter_Option == 2) then
-    Default_Marker_c1 = Default_Marker_c1_JI
-    Default_Marker_c2 = Default_Marker_c2_JI
-    marker_c1 = Default_Marker_c1
-    marker_c2 = Default_Marker_c2
-  end if
-  !
   ! Make sure it is non-negative
   Resolution_Marker_Variable = max(0,Resolution_Marker_Variable)
   ! Make sure it is one of the mean flow variables if greater than 0
@@ -599,6 +592,15 @@ continue
     end if
   end if
  !!
+  ! Reset default marker controls when using jump indicator.
+  !
+  if (Limiter_Option == 2) then
+    Default_Marker_c1 = Default_Marker_c1_JI
+    Default_Marker_c2 = Default_Marker_c2_JI
+    marker_c1 = Default_Marker_c1
+    marker_c2 = Default_Marker_c2
+  end if
+  !
  !if (mypnum == glb_root) then
  !  psi0 = -one*(marker_c1+marker_c2*log10(real(n_order,kind=wp)))
  !  write (iout,582) "BEFORE", &
@@ -658,6 +660,9 @@ continue
     end if
     !
   end if
+  !
+  ! Copy the computed values back into the input parameters,
+  ! so that the echoed user inputs reflect what the code really uses.
   !
   Limiter_Marker_c1 = marker_c1
   Limiter_Marker_c2 = marker_c2
