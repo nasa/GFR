@@ -715,25 +715,29 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-  ! Format statements
+  ! Format statements ($=new_line)
   !
   1 format (a)
-  2 format (/,"******************** ERROR! *********************",/, &
-              "  Aborting because there was an error reading the",/, &
-              "  'MeshFormat' section of the GMSH grid file!",/, &
-              "******************** ERROR! *********************",/)
-  3 format (/,"******************** ERROR! *********************",/, &
-              "  Aborting because there was an error reading the",/, &
-              "  'Nodes' section of the GMSH grid file!",/, &
-              "******************** ERROR! *********************",/)
-  4 format (/,"******************** ERROR! *********************",/, &
-              "  Aborting because there was an error reading the",/, &
-              "  'Elements' section of the GMSH grid file!",/, &
-              "******************** ERROR! *********************",/)
-  5 format (/,"******************** ERROR! *********************",/, &
-              "  Aborting because there was an error reading the",/, &
-              "  'PhysicalNames' section of the GMSH grid file!",/, &
-              "******************** ERROR! *********************",/)
+  2 format (                                                    "$", &
+            "******************** ERROR! *********************","$", &
+            "  Aborting because there was an error reading the","$", &
+            "  'MeshFormat' section of the GMSH grid file!"    ,"$", &
+            "******************** ERROR! *********************","$")
+  3 format (                                                    "$", &
+            "******************** ERROR! *********************","$", &
+            "  Aborting because there was an error reading the","$", &
+            "  'Nodes' section of the GMSH grid file!"         ,"$", &
+            "******************** ERROR! *********************","$")
+  4 format (                                                    "$", &
+            "******************** ERROR! *********************","$", &
+            "  Aborting because there was an error reading the","$", &
+            "  'Elements' section of the GMSH grid file!"      ,"$", &
+            "******************** ERROR! *********************","$")
+  5 format (                                                    "$", &
+            "******************** ERROR! *********************","$", &
+            "  Aborting because there was an error reading the","$", &
+            "  'PhysicalNames' section of the GMSH grid file!" ,"$", &
+            "******************** ERROR! *********************","$")
   !
 end subroutine read_gmsh_gridfile
 !
@@ -791,13 +795,14 @@ continue
   101 write (error_message,2) ierr
       call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
-  ! Format Statements
+  ! Format Statements ($=new_line)
   !
   1 format (a)
-  2 format (/,"******************** ERROR! *********************",/, &
-              "    Error trying to read the input grid file!", &
-              "       IO Error = ",i0,/, &
-              "******************** ERROR! *********************",/)
+  2 format (                                                    "$", &
+            "******************** ERROR! *********************","$", &
+            "    Error trying to read the input grid file!"    ,"$", &
+            "       IO Error = ",i0                            ,"$", &
+            "******************** ERROR! *********************","$")
   !
 end subroutine find_gmsh_section
 !
@@ -857,28 +862,32 @@ continue
   101 write (error_message,4) ierr
       call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
-  ! Format Statements
+  ! Format Statements ($=new_line)
   !
-  1 format (/,"******************** ERROR! *********************",/, &
-              "  The version of the GMSH grid file is",/, &
-              "  not supported! Currently, only version",/, &
-              "  2.2 of the GMSH format is supported!",/, &
-              "******************** ERROR! *********************",/)
-  2 format (/,"******************** ERROR! *********************",/, &
-              "  Pre-mature end-of-file while trying to read",/, &
-              "  the 'MeshFormat' section of the GMSH grid file!",/, &
-              "******************** ERROR! *********************",/)
-  3 format (/,"*********************** ERROR! ************************",/, &
-              "  While trying to read the 'MeshFormat' section of the",/, &
-              "  GMSH grid file, an unknown and invalid section",/, &
-              "  header was found before the required '$EndMeshFormat'",/, &
-              "  line signifiying the end of the 'MeshFormat' section!",/, &
-              "*********************** ERROR! ************************",/)
-  4 format (/,"******************** ERROR! *********************",/, &
-              "  Error trying to read the 'MeshFormat'",/, &
-              "  section of the GMSH grid file!", &
-              "       IO Error = ",i0,/, &
-              "******************** ERROR! *********************",/)
+  1 format (                                                    "$", &
+            "******************** ERROR! *********************","$", &
+            "  The version of the GMSH grid file is"           ,"$", &
+            "  not supported! Currently, only version"         ,"$", &
+            "  2.2 of the GMSH format is supported!"           ,"$", &
+            "******************** ERROR! *********************","$")
+  2 format (                                                    "$", &
+            "******************** ERROR! *********************","$", &
+            "  Pre-mature end-of-file while trying to read"    ,"$", &
+            "  the 'MeshFormat' section of the GMSH grid file!","$", &
+            "******************** ERROR! *********************","$")
+  3 format (                                                          "$", &
+            "*********************** ERROR! ************************","$", &
+            "  While trying to read the 'MeshFormat' section of the" ,"$", &
+            "  GMSH grid file, an unknown and invalid section"       ,"$", &
+            "  header was found before the required '$EndMeshFormat'","$", &
+            "  line signifiying the end of the 'MeshFormat' section!","$", &
+            "*********************** ERROR! ************************","$")
+  4 format (                                                    "$", &
+            "******************** ERROR! *********************","$", &
+            "  Error trying to read the 'MeshFormat'"          ,"$", &
+            "  section of the GMSH grid file!"                 ,"$", &
+            "       IO Error = ",i0                            ,"$", &
+            "******************** ERROR! *********************","$")
   !
 end subroutine read_gmsh_section_meshformat
 !
@@ -980,8 +989,10 @@ continue
     return
   else if (end_of_file) then
     write (error_message,1)
+    error_message = replace_char(error_message,"#",new_line('a'))
   else
     write (error_message,2)
+    error_message = replace_char(error_message,"#",new_line('a'))
   end if
   !
   call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
@@ -989,28 +1000,33 @@ continue
   ! Read error continuation statements
   !
   100 write (error_message,1) ierr
+      error_message = replace_char(error_message,"#",new_line('a'))
       call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   101 write (error_message,3) ierr
+      error_message = replace_char(error_message,"#",new_line('a'))
       call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
-  ! Format Statements
+  ! Format Statements (#=new_line, since $ appears in text)
   !
-  1 format (/,"******************** ERROR! *********************",/, &
-              "  Pre-mature end-of-file while trying to read",/, &
-              "  the 'Nodes' section of the GMSH grid file!",/, &
-              "******************** ERROR! *********************",/)
-  2 format (/,"*********************** ERROR! ************************",/, &
-              "  While trying to read the 'Nodes' section of the",/, &
-              "  GMSH grid file, an unknown and invalid section",/, &
-              "  header was found before the required '$EndNodes'",/, &
-              "  line signifiying the end of the 'Nodes' section!",/, &
-              "*********************** ERROR! ************************",/)
-  3 format (/,"******************** ERROR! *********************",/, &
-              "  Error trying to read the 'Nodes'",/, &
-              "  section of the GMSH grid file!", &
-              "       IO Error = ",i0,/, &
-              "******************** ERROR! *********************",/)
+  1 format (                                                    "#", &
+            "******************** ERROR! *********************","#", &
+            "  Pre-mature end-of-file while trying to read"    ,"#", &
+            "  the 'Nodes' section of the GMSH grid file!"     ,"#", &
+            "******************** ERROR! *********************","#")
+  2 format (                                                          "#", &
+            "*********************** ERROR! ************************","#", &
+            "  While trying to read the 'Nodes' section of the"      ,"#", &
+            "  GMSH grid file, an unknown and invalid section"       ,"#", &
+            "  header was found before the required '$EndNodes'"     ,"#", &
+            "  line signifiying the end of the 'Nodes' section!"     ,"#", &
+            "*********************** ERROR! ************************","#")
+  3 format (                                                    "#", &
+            "******************** ERROR! *********************","#", &
+            "  Error trying to read the 'Nodes'"               ,"#", &
+            "  section of the GMSH grid file!"                 ,"#", &
+            "       IO Error = ",i0                            ,"#", &
+            "******************** ERROR! *********************","#")
   !
 end subroutine read_gmsh_section_nodes
 !
@@ -1071,11 +1087,13 @@ continue
          (grid%elem(i)%prop%geom == Geom_Unknown) ) then
       !
       write (error_message,5) ntype
+      error_message = replace_char(error_message,"#",new_line('a'))
       call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       !
    !else if (grid%elem(i)%prop%family /= Complete) then
    !  !
    !  write (error_message,6) ntype
+   !  error_message = replace_char(error_message,"#",new_line('a'))
    !  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
    !  !
     else if (grid%elem(i)%prop%warning) then
@@ -1142,8 +1160,10 @@ continue
     return
   else if (end_of_file) then
     write (error_message,1)
+    error_message = replace_char(error_message,"#",new_line('a'))
   else
     write (error_message,2)
+    error_message = replace_char(error_message,"#",new_line('a'))
   end if
   !
   call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
@@ -1151,28 +1171,33 @@ continue
   ! Read error continuation statements
   !
   100 write (error_message,1) ierr
+      error_message = replace_char(error_message,"#",new_line('a'))
       call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   101 write (error_message,3) ierr
+      error_message = replace_char(error_message,"#",new_line('a'))
       call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
-  ! Format Statements
+  ! Format Statements (#=new_line, since $ appears in text)
   !
-  1 format (/,"******************** ERROR! *********************",/, &
-              "  Pre-mature end-of-file while trying to read",/, &
-              "  the 'Elements' section of the GMSH grid file!",/, &
-              "******************** ERROR! *********************",/)
-  2 format (/,"*********************** ERROR! ************************",/, &
-              "  While trying to read the 'Elements' section of the",/, &
-              "  GMSH grid file, an unknown and invalid section",/, &
-              "  header was found before the required '$EndElements'",/, &
-              "  line signifiying the end of the 'Elements' section!",/, &
-              "*********************** ERROR! ************************",/)
-  3 format (/,"******************** ERROR! *********************",/, &
-              "  Error trying to read the 'Elements'",/, &
-              "  section of the GMSH grid file!", &
-              "       IO Error = ",i0,/, &
-              "******************** ERROR! *********************",/)
+  1 format (                                                    "#", &
+            "******************** ERROR! *********************","#", &
+            "  Pre-mature end-of-file while trying to read"    ,"#", &
+            "  the 'Elements' section of the GMSH grid file!"  ,"#", &
+            "******************** ERROR! *********************","#")
+  2 format (                                                    "#", &
+            "*********************** ERROR! ************************","#", &
+            "  While trying to read the 'Elements' section of the"   ,"#", &
+            "  GMSH grid file, an unknown and invalid section"       ,"#", &
+            "  header was found before the required '$EndElements'"  ,"#", &
+            "  line signifiying the end of the 'Elements' section!"  ,"#", &
+            "*********************** ERROR! ************************","#")
+  3 format (                                                    "#", &
+            "******************** ERROR! *********************","#", &
+            "  Error trying to read the 'Elements'"            ,"#", &
+            "  section of the GMSH grid file!"                 ,"#", &
+            "       IO Error = ",i0                            ,"#", &
+            "******************** ERROR! *********************","#")
   4 format (a,i0,a)
   5 format (" ERROR!!! ENCOUNTERED INVALID ELEMENT TYPE (",i0, &
             ") IN THE GMSH GRID FILE!")
@@ -1246,8 +1271,10 @@ continue
     return
   else if (end_of_file) then
     write (error_message,1)
+    error_message = replace_char(error_message,"#",new_line('a'))
   else
     write (error_message,2)
+    error_message = replace_char(error_message,"#",new_line('a'))
   end if
   !
   call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
@@ -1255,28 +1282,33 @@ continue
   ! Read error continuation statements
   !
   100 write (error_message,1) ierr
+      error_message = replace_char(error_message,"#",new_line('a'))
       call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   101 write (error_message,3) ierr
+      error_message = replace_char(error_message,"#",new_line('a'))
       call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
-  ! Format Statements
+  ! Format Statements (#=new_line, since $ appears in text)
   !
-  1 format (/,"******************** ERROR! *********************",/, &
-              "  Pre-mature end-of-file while trying to read",/, &
-              "  the 'PhysicalNames' section of the GMSH grid file!",/, &
-              "******************** ERROR! *********************",/)
-  2 format (/,"*********************** ERROR! ************************",/, &
-              "  While trying to read the 'PhysicalNames' section of the",/, &
-              "  GMSH grid file, an unknown and invalid section",/, &
-              "  header was found before the required '$EndPhysicalNames'",/, &
-              "  line signifiying the end of the 'PhysicalNames' section!",/, &
-              "*********************** ERROR! ************************",/)
-  3 format (/,"******************** ERROR! *********************",/, &
-              "  Error trying to read the 'PhysicalNames'",/, &
-              "  section of the GMSH grid file!", &
-              "       IO Error = ",i0,/, &
-              "******************** ERROR! *********************",/)
+  1 format (                                                       "#", &
+            "******************** ERROR! *********************"   ,"#", &
+            "  Pre-mature end-of-file while trying to read"       ,"#", &
+            "  the 'PhysicalNames' section of the GMSH grid file!","#", &
+            "******************** ERROR! *********************"   ,"#")
+  2 format (                                                             "#", &
+            "*********************** ERROR! ************************"   ,"#", &
+            "  While trying to read the 'PhysicalNames' section of the" ,"#", &
+            "  GMSH grid file, an unknown and invalid section"          ,"#", &
+            "  header was found before the required '$EndPhysicalNames'","#", &
+            "  line signifiying the end of the 'PhysicalNames' section!","#", &
+            "*********************** ERROR! ************************"   ,"#")
+  3 format (                                                    "#", &
+            "******************** ERROR! *********************","#", &
+            "  Error trying to read the 'PhysicalNames'"       ,"#", &
+            "  section of the GMSH grid file!"                 ,"#", &
+            "       IO Error = ",i0                            ,"#", &
+            "******************** ERROR! *********************","#")
   !
 end subroutine read_gmsh_section_physicalnames
 !
@@ -1966,7 +1998,12 @@ continue
       if (ifa < 0) then
         !
         if (.not. error_found) then
-          if (mypnum == glb_root) write (iout,4)
+          if (mypnum == glb_root) then
+            write (error_message,4)
+            write (iout,'(a)') &
+              trim( replace_char(error_message,'$',new_line('a')) )
+            error_message = ''
+          endif
           error_found = true
         end if
         !
@@ -2050,49 +2087,54 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-  ! Format Statements
+  ! Format Statements ($=new_line)
   !
-  1 format (/,"************************ ERROR! **************************",/, &
-              "  The number of interior and boundary physical groups is",/, &
-              "  inconsistent with the total number of physical groups!",/, &
-              "     number of     interior groups = ",i0,/, &
-              "     number of     boundary groups = ",i0,/, &
-              "     number of 0-D boundary groups = ",i0,/, &
-              "            total number of groups = ",i0,/, &
-              "************************ ERROR! **************************",/)
-  2 format (/,"************************ ERROR! ************************",/, &
-              "  The number of interior cells and boundary faces is",/, &
-              "  inconsistent with the total number of grid elements!",/, &
-              "          number of interior cells = ",i0,/, &
-              "          number of boundary faces = ",i0,/, &
-              "     total number of grid elements = ",i0,/, &
-              "************************ ERROR! ************************",/)
+  1 format (                                                             "$",&
+            "************************ ERROR! **************************","$",&
+            "  The number of interior and boundary physical groups is"  ,"$",&
+            "  inconsistent with the total number of physical groups!"  ,"$",&
+            "     number of     interior groups = ",i0                  ,"$",&
+            "     number of     boundary groups = ",i0                  ,"$",&
+            "     number of 0-D boundary groups = ",i0                  ,"$",&
+            "            total number of groups = ",i0                  ,"$",&
+            "************************ ERROR! **************************","$")
+  2 format (                                                             "$",&
+            "************************ ERROR! ************************"  ,"$",&
+            "  The number of interior cells and boundary faces is"      ,"$",&
+            "  inconsistent with the total number of grid elements!"    ,"$",&
+            "          number of interior cells = ",i0                  ,"$",&
+            "          number of boundary faces = ",i0                  ,"$",&
+            "     total number of grid elements = ",i0                  ,"$",&
+            "************************ ERROR! ************************"  ,"$")
   3 format (a,i0,:,a)
-  4 format (/,"**********************************************************",/, &
-              "************************ ERROR! **************************",/, &
-              "**********************************************************",/)
-  5 format ("  ",a," host element was found on a boundary!",/, &
-            "     Host Cell = ",i0,";    Boundary Face = ",i0,/, &
-            "  This element type is not currently supported!",/)
-  6 format ("  Unable to find which face of host cell ",i0,/, &
-            "  that makes up the boundary face ",i0," !",/)
-  7 format (/," Quadrature points besides Gauss-Lobatto nodes are not",/, &
-              " currently supported for a grid containing triangle cells.",//)
-  8 format (///," Triangles are temporarily disabled due to significant",/, &
-                " changes in the quadrilateral part of the code. These ",/, &
-                " changes have yet to be applied to triangles.",///)
-  9 format ("  The final counter for tmp_cell_data does not",/, &
-            "  match the size of the grid%elem array!",/, &
-            "                             size(grid%elem) = ",i0,/, &
-            "                 number of 0-D grid elements = ",i0,/, &
-            "         size(grid%elem) - 0-D grid elements = ",i0,/, &
-            "                 final tmp_cell_data counter = ",i0,/)
-  10 format ("  The final counter for tmp_phys_grps does not",/, &
-             "  match the size of the phys_grps array!",/, &
-             "                             size(phys_grps) = ",i0,/, &
-             "               number of 0-D physical groups = ",i0,/, &
-             "       size(phys_grps) - 0-D physical groups = ",i0,/, &
-             "                 final tmp_phys_grps counter = ",i0,/)
+  4 format (                                                             "$",&
+            "**********************************************************","$",&
+            "************************ ERROR! **************************","$",&
+            "**********************************************************","$")
+  5 format ("  ",a," host element was found on a boundary!"             ,/  ,&
+            "     Host Cell = ",i0,";    Boundary Face = ",i0           ,/  ,&
+            "  This element type is not currently supported!"           ,/  )
+  6 format ("  Unable to find which face of host cell ",i0              ,/  ,&
+            "  that makes up the boundary face ",i0," !"                ,/  )
+  7 format (                                                             "$",&
+            " Quadrature points besides Gauss-Lobatto nodes are not"    ,"$",&
+            " currently supported for a grid containing triangle cells.","$$")
+  8 format (                                                           "$$$",&
+            " Triangles are temporarily disabled due to significant"    ,"$",&
+                " changes in the quadrilateral part of the code. These" ,"$",&
+                " changes have yet to be applied to triangles."         ,"$")
+  9 format ("  The final counter for tmp_cell_data does not"            ,"$",&
+            "  match the size of the grid%elem array!"                  ,"$",&
+            "                             size(grid%elem) = ",i0        ,"$",&
+            "                 number of 0-D grid elements = ",i0        ,"$",&
+            "         size(grid%elem) - 0-D grid elements = ",i0        ,"$",&
+            "                 final tmp_cell_data counter = ",i0        ,"$")
+  10 format ("  The final counter for tmp_phys_grps does not"           ,"$",&
+             "  match the size of the phys_grps array!"                 ,"$",&
+             "                             size(phys_grps) = ",i0       ,"$",&
+             "               number of 0-D physical groups = ",i0       ,"$",&
+             "       size(phys_grps) - 0-D physical groups = ",i0       ,"$",&
+             "                 final tmp_phys_grps counter = ",i0       ,"$")
   !
   1092 format ("    ERROR finding host cell for boundary face ",i10,", ",i10)
   !
@@ -2132,24 +2174,28 @@ continue
     return
   else if (end_of_file) then
     write (error_message,1)
+    error_message = replace_char(error_message,"#",new_line('a'))
   else
     write (error_message,2)
+    error_message = replace_char(error_message,"#",new_line('a'))
   end if
   !
   call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
-  ! Format Statements
+  ! Format Statements (#=new_line, since $ appears in text)
   !
-  1 format (/,"******************** ERROR! *********************",/, &
-              "  Pre-mature end-of-file while trying to read",/, &
-              "  the 'Periodic' section of the GMSH grid file!",/, &
-              "******************** ERROR! *********************",/)
-  2 format (/,"*********************** ERROR! ************************",/, &
-              "  While trying to read the 'Periodic' section of the",/, &
-              "  GMSH grid file, an unknown and invalid section",/, &
-              "  header was found before the required '$EndPeriodic'",/, &
-              "  line signifiying the end of the 'Periodic' section!",/, &
-              "*********************** ERROR! ************************",/)
+  1 format (                                                    "#", &
+            "******************** ERROR! *********************","#", &
+            "  Pre-mature end-of-file while trying to read"    ,"#", &
+            "  the 'Periodic' section of the GMSH grid file!"  ,"#", &
+            "******************** ERROR! *********************","#")
+  2 format (                                                          "#", &
+            "*********************** ERROR! ************************","#", &
+            "  While trying to read the 'Periodic' section of the"   ,"#", &
+            "  GMSH grid file, an unknown and invalid section"       ,"#", &
+            "  header was found before the required '$EndPeriodic'"  ,"#", &
+            "  line signifiying the end of the 'Periodic' section!"  ,"#", &
+            "*********************** ERROR! ************************","#")
   !
 end subroutine read_gmsh_section_periodic
 !
@@ -2179,24 +2225,28 @@ continue
     return
   else if (end_of_file) then
     write (error_message,1)
+    error_message = replace_char(error_message,"#",new_line('a'))
   else
     write (error_message,2)
+    error_message = replace_char(error_message,"#",new_line('a'))
   end if
   !
   call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
-  ! Format Statements
+  ! Format Statements (#=new_line, since $ appears in text)
   !
-  1 format (/,"******************** ERROR! *********************",/, &
-              "  Pre-mature end-of-file while trying to read",/, &
-              "  the 'NodeData' section of the GMSH grid file!",/, &
-              "******************** ERROR! *********************",/)
-  2 format (/,"*********************** ERROR! ************************",/, &
-              "  While trying to read the 'NodeData' section of the",/, &
-              "  GMSH grid file, an unknown and invalid section",/, &
-              "  header was found before the required '$EndNodeData'",/, &
-              "  line signifiying the end of the 'NodeData' section!",/, &
-              "*********************** ERROR! ************************",/)
+  1 format (                                                    "#", &
+            "******************** ERROR! *********************","#", &
+            "  Pre-mature end-of-file while trying to read"    ,"#", &
+            "  the 'NodeData' section of the GMSH grid file!"  ,"#", &
+            "******************** ERROR! *********************","#")
+  2 format (                                                          "#", &
+            "*********************** ERROR! ************************","#", &
+            "  While trying to read the 'NodeData' section of the"   ,"#", &
+            "  GMSH grid file, an unknown and invalid section"       ,"#", &
+            "  header was found before the required '$EndNodeData'"  ,"#", &
+            "  line signifiying the end of the 'NodeData' section!"  ,"#", &
+            "*********************** ERROR! ************************","#")
   !
 end subroutine read_gmsh_section_nodedata
 !
@@ -2226,24 +2276,28 @@ continue
     return
   else if (end_of_file) then
     write (error_message,1)
+    error_message = replace_char(error_message,"#",new_line('a'))
   else
     write (error_message,2)
+    error_message = replace_char(error_message,"#",new_line('a'))
   end if
   !
   call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
-  ! Format Statements
+  ! Format Statements (#=new_line, since $ appears in text)
   !
-  1 format (/,"******************** ERROR! *********************",/, &
-              "  Pre-mature end-of-file while trying to read",/, &
-              "  the 'ElementData' section of the GMSH grid file!",/, &
-              "******************** ERROR! *********************",/)
-  2 format (/,"*********************** ERROR! ************************",/, &
-              "  While trying to read the 'ElementData' section of the",/, &
-              "  GMSH grid file, an unknown and invalid section",/, &
-              "  header was found before the required '$EndElementData'",/, &
-              "  line signifiying the end of the 'ElementData' section!",/, &
-              "*********************** ERROR! ************************",/)
+  1 format (                                                     "#", &
+            "******************** ERROR! *********************" ,"#", &
+            "  Pre-mature end-of-file while trying to read"     ,"#", &
+            "  the 'ElementData' section of the GMSH grid file!","#", &
+            "******************** ERROR! *********************" ,"#")
+  2 format (                                                           "#", &
+            "*********************** ERROR! ************************" ,"#", &
+            "  While trying to read the 'ElementData' section of the" ,"#", &
+            "  GMSH grid file, an unknown and invalid section"        ,"#", &
+            "  header was found before the required '$EndElementData'","#", &
+            "  line signifiying the end of the 'ElementData' section!","#", &
+            "*********************** ERROR! ************************" ,"#")
   !
 end subroutine read_gmsh_section_elementdata
 !
@@ -2273,26 +2327,28 @@ continue
     return
   else if (end_of_file) then
     write (error_message,1)
+    error_message = replace_char(error_message,"#",new_line('a'))
   else
     write (error_message,2)
+    error_message = replace_char(error_message,"#",new_line('a'))
   end if
   !
   call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
-  ! Format Statements
+  ! Format Statements (#=new_line, since $ appears in text)
   !
-  1 format (/, &
-            "******************** ERROR! *********************",/, &
-            "  Pre-mature end-of-file while trying to read",/, &
-            "  the 'ElementNodeData' section of the GMSH grid file!",/, &
-            "******************** ERROR! *********************",/)
-  2 format (/, &
-            "*********************** ERROR! ************************",/, &
-            "  While trying to read the 'ElementNodeData' section of the",/, &
-            "  GMSH grid file, an unknown and invalid section",/, &
-            "  header was found before the required '$EndElementNodeData'",/, &
-            "  line signifiying the end of the 'ElementNodeData' section!",/, &
-            "*********************** ERROR! ************************",/)
+  1 format (                                                         "#", &
+            "******************** ERROR! *********************"     ,"#", &
+            "  Pre-mature end-of-file while trying to read"         ,"#", &
+            "  the 'ElementNodeData' section of the GMSH grid file!","#", &
+            "******************** ERROR! *********************"     ,"#")
+  2 format (                                                               "#",&
+            "*********************** ERROR! ************************"     ,"#",&
+            "  While trying to read the 'ElementNodeData' section of the" ,"#",&
+            "  GMSH grid file, an unknown and invalid section"            ,"#",&
+            "  header was found before the required '$EndElementNodeData'","#",&
+            "  line signifiying the end of the 'ElementNodeData' section!","#",&
+            "*********************** ERROR! ************************"     ,"#")
   !
 end subroutine read_gmsh_section_elementnodedata
 !
@@ -2322,20 +2378,23 @@ continue
     return
   else if (end_of_file) then
     write (error_message,1)
+    error_message = replace_char(error_message,"#",new_line('a'))
   else
     write (error_message,2)
+    error_message = replace_char(error_message,"#",new_line('a'))
   end if
   !
   call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   ! Format Statements
   !
-  1 format ("Pre-mature end-of-file while trying to read the ", &
+  1 format ("Pre-mature end-of-file while trying to read the "    ,"#" &
             "'InterpolationScheme' section of the GMSH grid file!")
-  2 format ("While trying to read the 'InterpolationScheme' section of the ", &
-            "GMSH grid file, an unknown and invalid section header was ", &
-            "found before the required '$EndInterpolationScheme' line ", &
-            "signifiying the end of the 'InterpolationScheme' section!")
+  2 format ( &
+        "While trying to read the 'InterpolationScheme' section of the ","#", &
+        "GMSH grid file, an unknown and invalid section header was "    ,"#", &
+        "found before the required '$EndInterpolationScheme' line "     ,"#", &
+        "signifiying the end of the 'InterpolationScheme' section!")
   !
 end subroutine read_gmsh_section_interpolationscheme
 !
@@ -2365,19 +2424,21 @@ continue
     return
   else if (end_of_file) then
     write (error_message,1)
+    error_message = replace_char(error_message,"#",new_line('a'))
   else
     write (error_message,2)
+    error_message = replace_char(error_message,"#",new_line('a'))
   end if
   !
   call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
-  ! Format Statements
+  ! Format Statements (#=new_line, since $ appears in text)
   !
-  1 format ("Pre-mature end-of-file while trying to read the ", &
+  1 format ("Pre-mature end-of-file while trying to read the "          ,"#", &
             "'Comments' section of the GMSH grid file!")
-  2 format ("While trying to read the 'Comments' section of the ", &
-            "GMSH grid file, an unknown and invalid section header was ", &
-            "found before the required '$EndComments' line ", &
+  2 format ("While trying to read the 'Comments' section of the "       ,"#", &
+            "GMSH grid file, an unknown and invalid section header was ","#", &
+            "found before the required '$EndComments' line "            ,"#", &
             "signifiying the end of the 'Comments' section!")
   !
 end subroutine read_gmsh_section_comments
