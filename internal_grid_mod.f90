@@ -3861,6 +3861,166 @@ end subroutine create_sod_test_grid
 !
 !###############################################################################
 !
+subroutine create_pulse_test_grid()
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order
+  use ovar,      only : Lref,itestcase
+  use ovar,      only : pulse_test_dof, pulse_test_length
+  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geovar,    only : cell_geom,cell_order
+  use ovar,      only : grid_format,bc_names
+  !
+  !.. Local Scalars ..
+  integer  :: n,nc,nf,np,ierr
+  real(wp) :: dl
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_pulse_test_grid"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Reset the grid format input parameter to identify
+  ! the grid as internally generated
+  !
+  grid_format = Internally_Generated_Grid
+  !
+  ! Make the reference length one meter for this test case
+  !
+  Lref = one
+  !
+  ! The pulse test case is always 1D
+  !
+  nr = 1
+  !
+  ! Reset bc_input for this fully periodic grid so that the subroutine
+  ! match_periodic_faces can correctly match all the periodic faces.
+  !
+  call reset_bc_input_for_internal_grid( Lref_x = pulse_test_length )
+  !
+  ! Estimate the number of cells required to get the requested DOF
+  !
+  if ( pulse_test_dof > 0 ) then
+    nc = nint( real(pulse_test_dof,kind=wp) / real(n_order+1,kind=wp) )
+  else
+    nc = abs(pulse_test_dof)  ! directly specify number of cells
+  endif
+  !
+  np = nc + 1 ! number of grid nodes in each direction
+  !
+  ncell = nc    ! total number of grid cells
+  nnode = np    ! total number of grid nodes
+  nfbnd = 2     ! total number of boundary faces
+  !
+  ! Allocate all the arrays needed to define the grid
+  !
+  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xyz_nodes",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell_ptr",1,__LINE__,__FILE__,ierr, &
+                   error_message)
+  !
+  allocate ( nodes_of_cell(1:geom_nodes(Geom_Edge)*ncell) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bface",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( cell_geom(1:ncell) , source=Geom_Edge , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_geom",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( cell_order(1:ncell) , source=n_order , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! #######
+  ! #######
+  ! ## 1 ##
+  ! #######
+  ! #######
+  !
+  ! Create the nodes_of_cell_ptr array
+  !
+  nodes_of_cell_ptr(1) = 0
+  do n = 2,size(nodes_of_cell_ptr)
+    nodes_of_cell_ptr(n) = nodes_of_cell_ptr(n-1) + geom_nodes(Geom_Edge)
+  end do
+  !
+  ! Create the nodes_of_cell array
+  !
+  do n = 1,ncell
+    nodes_of_cell( nodes_of_cell_ptr(n)+1 ) = n
+    nodes_of_cell( nodes_of_cell_ptr(n)+2 ) = n+1
+  end do
+  !
+  ! #######
+  ! #######
+  ! ## 2 ##
+  ! #######
+  ! #######
+  !
+  ! Compute the cell size for a Cartesian/uniform grid of total length
+  !
+  dl = pulse_test_length / real(ncell,kind=wp)
+  !
+  ! Create the grid node coordinates as a uniform 1D grid from 0:length
+  !
+  do n = 1,nnode
+    xyz_nodes(1,n) = dl*real(n-1,kind=wp)
+  end do
+  !
+  ! #######
+  ! #######
+  ! ## 3 ##
+  ! #######
+  ! #######
+  !
+  ! Create the bface array
+  !
+  ! Since this is a 1D grid, there are only 2 boundary faces: i-min and i-max
+  ! NOTE: The subroutine match_periodic_faces will set the values of
+  !       bface([5,6,8,9],:), so we dont need to do that here.
+  !
+  !
+  ! Create the i-min boundary face
+  !
+  nf = 1
+  !
+  bface( 1,nf) = bc_periodic
+  bface( 2,nf) = 1      ! host cell index
+  bface( 3,nf) = Geom_Edge
+  bface( 4,nf) = 1      ! x-min face
+! bface( 5,nf) = 1      ! this face belongs to boundary group 1
+  bface( 6,nf) = 1      ! index of array bc_input(:) to get BC flow conditions
+  bface(10,nf) = ncell + nf ! index of ghost cell/face
+  !
+  ! Create the i-max boundary face
+  !
+  nf = 2
+  !
+  bface( 1,nf) = bc_periodic
+  bface( 2,nf) = ncell  ! host cell index
+  bface( 3,nf) = Geom_Edge
+  bface( 4,nf) = 2      ! x-max face
+! bface( 5,nf) = 2      ! this face belongs to boundary group 2
+  bface( 6,nf) = 2      ! index of array bc_input(:) to get BC flow conditions
+  bface(10,nf) = ncell + nf ! index of ghost cell/face
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine create_pulse_test_grid
+!
+!!###############################################################################
+!
 subroutine create_postproc_debug_grid
   !
   !.. Use Statements ..
