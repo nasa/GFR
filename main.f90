@@ -2269,7 +2269,7 @@ subroutine find_bad_number()
   use, intrinsic :: ieee_arithmetic, only : ieee_is_negative
   !
   !.. Local Scalars ..
-  integer  :: n,nc,nf,nfp,n0,sf,f0,i,i1,i2,j,kf,lf,l
+  integer  :: n,nc,nf,nfp,n0,sf,f0,i,i1,i2,j,kf,lf,l,n_bad_pts,ic
   integer  :: this_geom,this_order
   integer  :: face_geom,face_order
   integer  :: one_pass
@@ -2283,9 +2283,16 @@ subroutine find_bad_number()
   real(wp) :: vars(1:3)
   real(wp) :: xyz_fp(1:nr)
   !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: xyz_of_bad_pts(:,:)
+  !
+  !.. Local Parameters ..
   character(len=*), parameter :: pname = "find_bad_number"
   !
 continue
+  !
+  n_bad_pts = 0
+ !xyz_of_bad_pts = init_array(5,1000,zero) ! F2003 AUTO-REALLOC
   !
   one_pass_solpt_loop: &
   do one_pass = 1,1
@@ -2301,23 +2308,28 @@ continue
     write (inv_fmt,1) "Invalid",nr
     write (neg_fmt,1) "Negative",nr
     !
-    do n = 1,n_solpts
-      vars(1) = usp(n,nec)
-      vars(2) = gpsp(n,npres)
-      vars(3) = gpsp(n,ntemp)
-      if (.not. all(ieee_is_finite(vars))) then
-        write (iout,inv_fmt) (xyz(l,n)/grid_scaling_factor, l=1,nr), &
-                             vars(1)*rhoref, &
-                             vars(2)*rhoref*aref*aref, &
-                             vars(3)*tref
-        flush (iout)
-      else if (any(ieee_is_negative(vars))) then
-        write (iout,neg_fmt) (xyz(l,n)/grid_scaling_factor, l=1,nr), &
-                             vars(1)*rhoref, &
-                             vars(2)*rhoref*aref*aref, &
-                             vars(3)*tref
-        flush (iout)
-      end if
+   !do n = 1,n_solpts
+    do nc = 1,ncell
+      do n = cell(nc)%beg_sp,cell(nc)%end_sp
+        vars(1) = usp(n,nec)
+        vars(2) = gpsp(n,npres)
+        vars(3) = gpsp(n,ntemp)
+        if (.not. all(ieee_is_finite(vars))) then
+          call add_bad_pt(n_bad_pts,1,nc,xyz(:,n),xyz_of_bad_pts)
+          write (iout,inv_fmt) (xyz(l,n)/grid_scaling_factor, l=1,nr), &
+                               vars(1)*rhoref, &
+                               vars(2)*rhoref*aref*aref, &
+                               vars(3)*tref
+          flush (iout)
+        else if (any(ieee_is_negative(vars))) then
+          call add_bad_pt(n_bad_pts,1,nc,xyz(:,n),xyz_of_bad_pts)
+          write (iout,neg_fmt) (xyz(l,n)/grid_scaling_factor, l=1,nr), &
+                               vars(1)*rhoref, &
+                               vars(2)*rhoref*aref*aref, &
+                               vars(3)*tref
+          flush (iout)
+        end if
+      end do
     end do
     !
   end do one_pass_solpt_loop
@@ -2398,6 +2410,7 @@ continue
               end do
               !
               if (.not. all(ieee_is_finite(vars))) then
+                call add_bad_pt(n_bad_pts,2,nc,xyz_fp(:),xyz_of_bad_pts)
                 write (iout,inv_fmt) sf, &
                                      (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
                                      vars(1)*rhoref, &
@@ -2405,6 +2418,7 @@ continue
                                      vars(3)*tref
                 flush (iout)
               else if (any(ieee_is_negative(vars))) then
+                call add_bad_pt(n_bad_pts,2,nc,xyz_fp(:),xyz_of_bad_pts)
                 write (iout,neg_fmt) sf, &
                                      (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
                                      vars(1)*rhoref, &
@@ -2467,6 +2481,8 @@ continue
               end do
               !
               if (.not. all(ieee_is_finite(vars))) then
+                ic = merge(face(nf)%left%cell,face(nf)%right%cell,sf==1)
+                call add_bad_pt(n_bad_pts,3,ic,xyz_fp(:),xyz_of_bad_pts)
                 write (iout,inv_fmt) sf, &
                                      (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
                                      vars(1)*rhoref, &
@@ -2474,6 +2490,8 @@ continue
                                      vars(3)*tref
                 flush (iout)
               else if (any(ieee_is_negative(vars))) then
+                ic = merge(face(nf)%left%cell,face(nf)%right%cell,sf==1)
+                call add_bad_pt(n_bad_pts,3,ic,xyz_fp(:),xyz_of_bad_pts)
                 write (iout,neg_fmt) sf, &
                                      (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
                                      vars(1)*rhoref, &
@@ -2506,26 +2524,38 @@ continue
       write (inv_fmt,2) "Invalid boundary",nr
       write (neg_fmt,2) "Negative boundary",nr
       !
-      do n = 1,n_bnd_flxpts
-        do sf = 1,2
-          vars(1) = faceusp(n,nec,sf)
-          vars(2) = facegpsp(n,npres,sf)
-          vars(3) = facegpsp(n,ntemp,sf)
-          if (.not. all(ieee_is_finite(vars))) then
-            write (iout,inv_fmt) sf, &
-                             (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
-                             vars(1)*rhoref, &
-                             vars(2)*rhoref*aref*aref, &
-                             vars(3)*tref
-            flush (iout)
-          else if (any(ieee_is_negative(vars))) then
-            write (iout,neg_fmt) sf, &
-                             (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
-                             vars(1)*rhoref, &
-                             vars(2)*rhoref*aref*aref, &
-                             vars(3)*tref
-            flush (iout)
-          end if
+     !do n = 1,n_bnd_flxpts
+      do nf = 1,nfbnd
+        !
+        f0 = face(nf)%beg_fp - 1
+        nfp = face(nf)%end_fp - f0
+        !
+        nc = face(nf)%left%cell
+        !
+        do kf = 1,nfp
+          n = f0 + kf
+          do sf = 1,2
+            vars(1) = faceusp(n,nec,sf)
+            vars(2) = facegpsp(n,npres,sf)
+            vars(3) = facegpsp(n,ntemp,sf)
+            if (.not. all(ieee_is_finite(vars))) then
+              call add_bad_pt(n_bad_pts,2,nc,facexyz(:,n),xyz_of_bad_pts)
+              write (iout,inv_fmt) sf, &
+                               (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
+                               vars(1)*rhoref, &
+                               vars(2)*rhoref*aref*aref, &
+                               vars(3)*tref
+              flush (iout)
+            else if (any(ieee_is_negative(vars))) then
+              call add_bad_pt(n_bad_pts,2,nc,facexyz(:,n),xyz_of_bad_pts)
+              write (iout,neg_fmt) sf, &
+                               (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
+                               vars(1)*rhoref, &
+                               vars(2)*rhoref*aref*aref, &
+                               vars(3)*tref
+              flush (iout)
+            end if
+          end do
         end do
       end do
       !
@@ -2535,26 +2565,37 @@ continue
       write (inv_fmt,2) "Invalid interior",nr
       write (neg_fmt,2) "Negative interior",nr
       !
-      do n = n_bnd_flxpts+1,n_flxpts
-        do sf = 1,2
-          vars(1) = faceusp(n,nec,sf)
-          vars(2) = facegpsp(n,npres,sf)
-          vars(3) = facegpsp(n,ntemp,sf)
-          if (.not. all(ieee_is_finite(vars))) then
-            write (iout,inv_fmt) sf, &
-                             (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
-                             vars(1)*rhoref, &
-                             vars(2)*rhoref*aref*aref, &
-                             vars(3)*tref
-            flush (iout)
-          else if (any(ieee_is_negative(vars))) then
-            write (iout,neg_fmt) sf, &
-                             (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
-                             vars(1)*rhoref, &
-                             vars(2)*rhoref*aref*aref, &
-                             vars(3)*tref
-            flush (iout)
-          end if
+     !do n = n_bnd_flxpts+1,n_flxpts
+      do nf = nfbnd+1,nface
+        !
+        f0 = face(nf)%beg_fp - 1
+        nfp = face(nf)%end_fp - f0
+        !
+        do kf = 1,nfp
+          n = f0 + kf
+          do sf = 1,2
+            nc = merge(face(nf)%left%cell,face(nf)%right%cell,sf==1)
+            vars(1) = faceusp(n,nec,sf)
+            vars(2) = facegpsp(n,npres,sf)
+            vars(3) = facegpsp(n,ntemp,sf)
+            if (.not. all(ieee_is_finite(vars))) then
+              call add_bad_pt(n_bad_pts,3,nc,facexyz(:,n),xyz_of_bad_pts)
+              write (iout,inv_fmt) sf, &
+                               (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
+                               vars(1)*rhoref, &
+                               vars(2)*rhoref*aref*aref, &
+                               vars(3)*tref
+              flush (iout)
+            else if (any(ieee_is_negative(vars))) then
+              call add_bad_pt(n_bad_pts,3,nc,facexyz(:,n),xyz_of_bad_pts)
+              write (iout,neg_fmt) sf, &
+                               (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
+                               vars(1)*rhoref, &
+                               vars(2)*rhoref*aref*aref, &
+                               vars(3)*tref
+              flush (iout)
+            end if
+          end do
         end do
       end do
       !
@@ -2566,6 +2607,8 @@ continue
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   flush (iout)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  call report_bad_pts(n_bad_pts,xyz_of_bad_pts)
   !
   ! Format Statements
   !
