@@ -535,6 +535,34 @@ module ovar
   real(wp), public, save :: sod_test_right_vector(3) = [1.,0.,0.]
     !< Sod shock tube diaphram right side normal vector.
   !
+  ! DENSITY PULSE CONVECTION TEST PARAMETERS
+  integer,  public, save :: pulse_test_form = 0
+    !< Form of the density pulse test shape:
+    !<   0 = Combo (Gauss,Square,Triangle,Ellipse),
+    !<   1 = Gauss,
+    !<   2 = Square,
+    !<   3 = Triangle,
+    !<   4 = Ellipse.
+  integer,  public, save :: pulse_test_form_dim = 1
+    !< Dimension of the density test shape:
+    !<   1 = 1d,
+    !<   2 = 2d.
+  integer,  public, save :: pulse_test_dof = 0
+    !< Resolution for density pulse test internal grid:
+    !<   (<0) user specified number of cells,
+    !<   (=0) 512 degrees of freedom,
+    !<   (>0) user specified degrees of freedom.
+  real(wp), public, save :: pulse_test_length = 1.0
+    !< 1d domain length for density pulse test internal grid.
+  real(wp), public, save :: pulse_test_center(3) = [0.5,0.0,0.0]
+    !< xyz at center of first density pulse.
+  real(wp), public, save :: pulse_test_width  = 0.2
+    !< Width of density pulse.
+  real(wp), public, save :: pulse_test_gap    = 0.2
+    !< Gap between density pulses.
+  integer,  public, save :: pulse_test_repeat = 0
+    !< Number of repeat density pulses.
+  !
   ! CHANNEL FLOW PARAMETERS
   real(wp),         public, save :: channel_body_force          = 0.0_wp
   character(len=:), public, save, allocatable :: channel_init_file
@@ -1851,6 +1879,9 @@ module input_namelist_mod
   use ovar,      only : TCF_Theta_Shift
   use ovar,      only : flame_speed_test_dof
   use ovar,      only : sod_test_dof, sod_test_right_vector
+  use ovar,      only : pulse_test_form, pulse_test_form_dim
+  use ovar,      only : pulse_test_dof, pulse_test_length, pulse_test_center
+  use ovar,      only : pulse_test_width, pulse_test_gap, pulse_test_repeat
   use ovar,      only : channel_body_force,channel_init_file
   use ovar,      only : channel_spatial_ave_restart
   use ovar,      only : channel_nondim_output_coord
@@ -2090,6 +2121,10 @@ module input_namelist_mod
   namelist / input / flame_speed_test_dof
   ! SOD SHOCK TUBE TEST PARAMETERS
   namelist / input / sod_test_dof, sod_test_right_vector
+  ! DENSITY PULSE CONVECTION TEST PARAMETERS
+  namelist / input / pulse_test_form, pulse_test_form_dim, &
+                     pulse_test_dof, pulse_test_length, pulse_test_center, &
+                     pulse_test_width, pulse_test_gap, pulse_test_repeat
   ! CHANNEL FLOW PARAMETERS
   namelist / input / channel_body_force, channel_init_file, &
                      channel_spatial_ave_restart, channel_nondim_output_coord, &
