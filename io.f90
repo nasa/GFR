@@ -316,7 +316,7 @@ subroutine read_nml_input_file(input_fname,input_mode)
   !.. Local Scalars ..
   integer  :: i,it1,it2,ierr,ival,inpt
   integer  :: Period_Timesteps_X,Period_Timesteps_Y
-  logical(lk)  :: use_qdtr_face_pts,mms_error
+  logical(lk)  :: use_qdtr_face_pts,mms_error,pulse_test_error
   real(wp) :: Period_Time_X,Period_Time_Y
   real(wp) :: real_Total_Periods
   real(wp) :: aoa_radians
@@ -790,6 +790,30 @@ continue
  !  call check_for_bad_number(__LINE__,__FILE__)
  !end if
   !
+  ! Check that input for density pulse test case is valid.
+  !
+  if (itestcase == Density_Pulse_Test) then
+    pulse_test_error = true
+    if      ( .not. any( pulse_test_form == [0,1,2,3,4] ) ) then
+      write (error_message,41)
+    else if ( .not. any( pulse_test_form_dim == [1,2] ) ) then
+      write (error_message,42)
+    else if ( pulse_test_length .le. 0._wp ) then
+      write (error_message,43)
+    else if ( pulse_test_width  .le. 0._wp ) then
+      write (error_message,44)
+    else if ( pulse_test_gap    .lt. 0._wp ) then
+      write (error_message,45)
+    else if ( pulse_test_repeat .lt. 0 ) then
+      write (error_message,46)
+    else
+      pulse_test_error = fals
+    endif
+    if (pulse_test_error) then
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+  end if
+  !
   ! Compute periodic information for the transport problems
   !
   if (any(itestcase == Transport_Problems)) then
@@ -1100,6 +1124,13 @@ continue
   24 format ("MMS ERROR: The MMS solution chosen is invalid!")
   !
   31 format ("RUNGE-KUTTA ERROR: Requested Runge-Kutta scheme is invalid!")
+  !
+  41 format('ERROR: Density pulse test requres  pulse_test_form between 0:4.')
+  42 format('ERROR: Density pulse test requres  pulse_test_form_dim between 1:2.')
+  43 format('ERROR: Density pulse test requres  pulse_test_length >0.')
+  44 format('ERROR: Density pulse test requres  pulse_test_width >0.')
+  45 format('ERROR: Density pulse test requres  pulse_test_gap >=0.')
+  46 format('ERROR: Density pulse test requres  pulse_test_repeat >=0.')
   !
 end subroutine read_nml_input_file
 !
