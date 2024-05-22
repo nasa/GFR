@@ -5802,7 +5802,17 @@ continue
     else
       write (iores,2) "Time" // '",'
     end if
-    write (iores,2) "Wall Time",'"'
+    write (iores,2) "Wall Time" // '",'
+    if     ( nr == 1 ) then
+      write (iores,2) "xloc" // '"'
+    elseif ( nr == 2 ) then
+      write (iores,2) "xloc" // '",'
+      write (iores,2) "yloc" // '"'
+    else
+      write (iores,2) "xloc" // '",'
+      write (iores,2) "yloc" // '",'
+      write (iores,2) "zloc" // '"'
+    endif
     !
     write (iores,4) p_order, one/sqrt(real(n_global_solpts,kind=wp))
     !
@@ -5912,7 +5922,8 @@ continue
   end if
   !
   write (iores,5) icount,(u2(i),i=1,nq+1), (v2(i),i=1,nq+1), &
-                  comp_cost, elapsed_wall_time
+                  comp_cost, elapsed_wall_time, &
+                  real(uverr(1,6:6+nr-1,1),sp)
   flush (iores)
   !
 #ifdef OUTPUT_LINF_AND_L1_RESIDUALS
