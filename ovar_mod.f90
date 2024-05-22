@@ -526,6 +526,15 @@ module ovar
   ! FLAME SPEED TEST PARAMETERS
   integer, public, save :: flame_speed_test_dof = 0
   !
+  ! SOD SHOCK TUBE TEST PARAMETERS
+  integer,  public, save :: sod_test_dof = 0
+    !< Sod shock tube resolution for 1d internal grid:
+    !<   (<0) user specified number of cells,
+    !<   (=0) 512 degrees of freedom,
+    !<   (>0) user specified degrees of freedom.
+  real(wp), public, save :: sod_test_right_vector(3) = [1.,0.,0.]
+    !< Sod shock tube diaphram right side normal vector.
+  !
   ! CHANNEL FLOW PARAMETERS
   real(wp),         public, save :: channel_body_force          = 0.0_wp
   character(len=:), public, save, allocatable :: channel_init_file
@@ -1841,6 +1850,7 @@ module input_namelist_mod
   use ovar,      only : TCF_Radial_Cells,TCF_Azimuthal_Cells
   use ovar,      only : TCF_Theta_Shift
   use ovar,      only : flame_speed_test_dof
+  use ovar,      only : sod_test_dof, sod_test_right_vector
   use ovar,      only : channel_body_force,channel_init_file
   use ovar,      only : channel_spatial_ave_restart
   use ovar,      only : channel_nondim_output_coord
@@ -2078,6 +2088,8 @@ module input_namelist_mod
                      TCF_Theta_Shift
   ! FLAME SPEED TEST PARAMETERS
   namelist / input / flame_speed_test_dof
+  ! SOD SHOCK TUBE TEST PARAMETERS
+  namelist / input / sod_test_dof, sod_test_right_vector
   ! CHANNEL FLOW PARAMETERS
   namelist / input / channel_body_force, channel_init_file, &
                      channel_spatial_ave_restart, channel_nondim_output_coord, &
