@@ -485,8 +485,14 @@ module ovar
   real(wp), public, save :: Limiter_Marker_dpsi = -1.0_wp
   !
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
-  integer, public, save :: Filtering_Interval = 0
-  integer, public, save :: Limiting_Interval  = 0
+  integer, public, save :: Filtering_Interval        = 0
+  integer, public, save :: Limiting_Interval         = 0
+  integer, public, save :: Limiting_Interval_Output  = 1
+  !< frequency to store limiter marker and scaled marker data:
+  !<   =0  store each Runge-Kutta stage,
+  !<   >0  store last Runge-Kutta stage,
+  !<   <0  mimic the frequency of Limiting_Interval.
+  !< Storing markers each stage increases memory and file size.
   !
   ! OUTPUT THE STATISTICS OF THE LIMITER
   logical(lk), public, save :: output_limiter_statistics = fals
@@ -1815,6 +1821,7 @@ module input_namelist_mod
   use ovar,      only : Limiter_Marker_dpsi
   use ovar,      only : Limiter_Marker_c1, Limiter_Marker_c2
   use ovar,      only : Filtering_Interval, Limiting_Interval
+  use ovar,      only : Limiting_Interval_Output
   use ovar,      only : loc_output_pts, loc_init_pts, loc_error_pts
   use ovar,      only : vortex_bigR, vortex_bigGam
   use ovar,      only : output_plot3d_to_tecplot, output_bface_array
@@ -2051,7 +2058,8 @@ module input_namelist_mod
                      Limiter_Marker_c1, Limiter_Marker_c2, &
                      Limiter_Marker_dpsi
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
-  namelist / input / Filtering_Interval, Limiting_Interval
+  namelist / input / Filtering_Interval, Limiting_Interval, &
+                     Limiting_Interval_Output
   ! OUTPUT THE STATISTICS OF THE LIMITER
   namelist / input / output_limiter_statistics
   ! OPTION TO OUTPUT FILTER DIAGONALS TO FILE
