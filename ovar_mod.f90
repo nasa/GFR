@@ -730,6 +730,12 @@ module ovar
   real(wp), public, save :: marker_c1   = Default_Marker_c1_RI
   real(wp), public, save :: marker_c2   = Default_Marker_c2_RI
   !
+  ! jump indicator: weight and var-index for gas prop and usp
+  real(wp), public, save :: ji_gwt
+  real(wp), public, save :: ji_uwt
+  integer,  public, save :: ji_gvar
+  integer,  public, save :: ji_uvar
+  !
   real(wp), public, save, allocatable :: cv_ref(:)
   real(wp), public, save, allocatable :: pv_ref(:)
   real(wp), public, save, allocatable :: gp_ref(:)
