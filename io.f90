@@ -321,7 +321,7 @@ subroutine read_nml_input_file(input_fname,input_mode)
   real(wp) :: real_Total_Periods
   real(wp) :: aoa_radians
   real(wp) :: cfl_sum,cfl_time
-  real(wp) :: xmin,xmax,psi0
+  real(wp) :: xmin,xmax,psi0,l10p
   !
   !.. Local Arrays ..
   character(len=80), dimension(12) :: input_text
@@ -638,6 +638,8 @@ continue
     Limiter_Marker_Max = Limiter_Marker_Min + two*marker_dpsi
   end if
   !
+  l10p = log10(real(n_order,kind=wp))
+  !
   if (all([Limiter_Marker_Min,Limiter_Marker_Max] < zero)) then
     !
     marker_dpsi = half*abs(Limiter_Marker_Min-Limiter_Marker_Max)
@@ -650,11 +652,9 @@ continue
     ! result in the SAME psi0, which makes them equivalent.
     !
     if (marker_c1 /= Default_Marker_c1) then
-      marker_c2 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c1) / &
-                   log10(real(n_order,kind=wp))
+      marker_c2 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c1) / l10p
     else
-      marker_c1 = -one*(Limiter_Marker_Min + &
-                        marker_dpsi + marker_c2*log10(real(n_order,kind=wp)))
+      marker_c1 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c2*l10p)
     end if
     !
   end if
@@ -663,9 +663,8 @@ continue
   Limiter_Marker_c2 = marker_c2
   Limiter_Marker_dpsi = marker_dpsi
   !
-  psi0 = -one*(marker_c1 + marker_c2*log10(real(n_order,kind=wp)))
-  Limiter_Marker_Min = psi0 - marker_dpsi
-  Limiter_Marker_Max = psi0 + marker_dpsi
+  Limiter_Marker_Min = -one*(marker_c1 + marker_c2*l10p) - marker_dpsi
+  Limiter_Marker_Max = -one*(marker_c1 + marker_c2*l10p) + marker_dpsi
  !!
  !if (mypnum == glb_root) then
  !  psi0 = -one*(marker_c1+marker_c2*log10(real(n_order,kind=wp)))
