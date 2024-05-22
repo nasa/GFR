@@ -295,7 +295,8 @@ subroutine read_nml_input_file(input_fname,input_mode)
   use ovar,   only : Grid_Length
   use ovar,   only : LDG_beta,LDG_tau
   use ovar,   only : marker_c1,marker_c2,marker_dpsi
-  use ovar,   only : Default_Marker_c1
+  use ovar,   only : Default_Marker_c1,Default_Marker_c1_JI
+  use ovar,   only : Default_Marker_c2,Default_Marker_c2_JI
   use ovar,   only : disable_cgns_output
   use ovar,   only : output_KEDR
   !
@@ -577,6 +578,13 @@ continue
   end if
   !
   ! Make sure the variable index for the resolution marker is valid
+  !
+  if (Limiter_Option == 2) then
+    Default_Marker_c1 = Default_Marker_c1_JI
+    Default_Marker_c2 = Default_Marker_c2_JI
+    marker_c1 = Default_Marker_c1
+    marker_c2 = Default_Marker_c2
+  end if
   !
   ! Make sure it is non-negative
   Resolution_Marker_Variable = max(0,Resolution_Marker_Variable)
