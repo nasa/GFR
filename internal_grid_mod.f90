@@ -98,7 +98,7 @@ subroutine create_internal_grid()
   !.. Use Statements ..
   use ovar, only : itestcase,postproc_debug_grid
   use ovar, only : VortexGrid_is_3D,VortexGrid_Hex_to_Pyramids
-  use ovar, only : flame_speed_test_dof
+  use ovar, only : flame_speed_test_dof, sod_test_dof
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_internal_grid"
@@ -139,6 +139,12 @@ continue
     end if
     !
     call create_flame_speed_test_grid
+    !
+  else if (abs(itestcase) == Sod_Shock_Tube) then
+    !
+    if (sod_test_dof == 0) sod_test_dof = 512
+    !
+    call create_sod_test_grid
     !
   else if (abs(itestcase) == Channel_Flow) then
     !
