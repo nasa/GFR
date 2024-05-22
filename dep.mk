@@ -297,6 +297,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(FUNDIR)/taylor_green.f90 \
                $(FUNDIR)/smc000_interior_wall_radius.f90 \
                $(FUNDIR)/arn2_interior_wall_radius.f90 \
+               $(FUNDIR)/sod.f90 \
                $(FUNDIR)/check_for_bad_number.f90
 
 $(OBJDIR)/internal_grid_mod.o : internal_grid_mod.f90 \

@@ -556,6 +556,10 @@ continue
     !
     return_value(:,:) = channel_initialization( xyz(:,:) )
     !
+  else if (abs(itestcase) == Sod_Shock_Tube ) then
+    do k = 1,np
+      return_value(k,:) = sod_init( xyz(:,k) )
+    end do
   else if (abs(itestcase) == Taylor_Couette_Flow) then
     !
     ! These initializations for the Taylor-Couette flow come from
@@ -4697,6 +4701,7 @@ end subroutine compute_flow_conditions_from_pvt
 !###############################################################################
 !
 include "Functions/taylor_green.f90"
+include "Functions/sod.f90"
 include "Functions/smc000_interior_wall_radius.f90"
 include "Functions/arn2_interior_wall_radius.f90"
 #include "Functions/check_for_bad_number.f90"
