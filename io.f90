@@ -591,7 +591,20 @@ continue
       Resolution_Marker_Variable = Resolution_Marker_Variable + ncs
     end if
   end if
- !!
+  !
+  ! Make sure the jump marker variable is valid
+  !
+  if (Jump_Marker_Variable > nr+2) then
+    ! If it is greater than the energy equation (nr+2), reset it to density
+    Jump_Marker_Variable = nec
+  else if ( Jump_Marker_Variable > 0) then
+    ! Otherwise, offset the variable by the number of species equations
+    Jump_Marker_Variable = Jump_Marker_Variable + ncs
+  else
+    ! Make sure it is non-negative
+    Jump_Marker_Variable = max(0,Jump_Marker_Variable)
+  end if
+  !
   ! Reset default marker controls when using jump indicator.
   !
   if (Limiter_Option == 2) then
