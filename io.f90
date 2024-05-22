@@ -601,34 +601,37 @@ continue
     marker_c2 = Default_Marker_c2
   end if
   !
- !if (mypnum == glb_root) then
- !  psi0 = -one*(marker_c1+marker_c2*log10(real(n_order,kind=wp)))
- !  write (iout,582) "BEFORE", &
- !                   Limiter_Marker_c1, &
- !                   Limiter_Marker_c2, &
- !                   Limiter_Marker_dpsi, &
- !                   Limiter_Marker_Min, &
- !                   Limiter_Marker_Max, &
- !                   marker_c1, &
- !                   marker_c2, &
- !                   marker_dpsi, &
- !                   psi0, &
- !                   psi0-marker_dpsi, &
- !                   psi0+marker_dpsi
- !end if
- !flush (iout)
- !582 format (//,2x,a," modifying marker parameters:",//, &
- !               4x,"Limiter_Marker_c1   = ",f10.6,/, &
- !               4x,"Limiter_Marker_c2   = ",f10.6,/, &
- !               4x,"Limiter_Marker_dpsi = ",f10.6,/, &
- !               4x,"Limiter_Marker_Min  = ",f10.6,/, &
- !               4x,"Limiter_Marker_Max  = ",f10.6,//, &
- !               4x,"        marker_c1   = ",f10.6,/, &
- !               4x,"        marker_c2   = ",f10.6,/, &
- !               4x,"        marker_dpsi = ",f10.6,/, &
- !               4x,"        marker_psi0 = ",f10.6,/, &
- !               4x,"        marker_min  = ",f10.6,/, &
- !               4x,"        marker_max  = ",f10.6,//)
+#if DUMP_MARKER_INPUTS == 2
+  ! Dump marker inputs before they are processed.
+  if (mypnum == glb_root) then
+    psi0 = -one*(marker_c1+marker_c2*log10(real(n_order,kind=wp)))
+    write (iout,582) "BEFORE", &
+                     Limiter_Marker_c1, &
+                     Limiter_Marker_c2, &
+                     Limiter_Marker_dpsi, &
+                     Limiter_Marker_Min, &
+                     Limiter_Marker_Max, &
+                     marker_c1, &
+                     marker_c2, &
+                     marker_dpsi, &
+                     psi0, &
+                     psi0-marker_dpsi, &
+                     psi0+marker_dpsi
+  end if
+  flush (iout)
+  582 format (//,2x,a," modifying marker parameters:",//, &
+                 4x,"Limiter_Marker_c1   = ",f10.6,/, &
+                 4x,"Limiter_Marker_c2   = ",f10.6,/, &
+                 4x,"Limiter_Marker_dpsi = ",f10.6,/, &
+                 4x,"Limiter_Marker_Min  = ",f10.6,/, &
+                 4x,"Limiter_Marker_Max  = ",f10.6,//, &
+                 4x,"        marker_c1   = ",f10.6,/, &
+                 4x,"        marker_c2   = ",f10.6,/, &
+                 4x,"        marker_dpsi = ",f10.6,/, &
+                 4x,"        marker_psi0 = ",f10.6,/, &
+                 4x,"        marker_min  = ",f10.6,/, &
+                 4x,"        marker_max  = ",f10.6,//)
+#endif
   !
   if (Limiter_Marker_c1   > zero) marker_c1   = Limiter_Marker_c1
   if (Limiter_Marker_c2   > zero) marker_c2   = Limiter_Marker_c2
@@ -671,35 +674,43 @@ continue
   Limiter_Marker_Min = -one*(marker_c1 + marker_c2*l10p) - marker_dpsi
   Limiter_Marker_Max = -one*(marker_c1 + marker_c2*l10p) + marker_dpsi
  !!
- !if (mypnum == glb_root) then
- !  psi0 = -one*(marker_c1+marker_c2*log10(real(n_order,kind=wp)))
- !  write (iout,582) " AFTER", &
- !                   Limiter_Marker_c1, &
- !                   Limiter_Marker_c2, &
- !                   Limiter_Marker_dpsi, &
- !                   Limiter_Marker_Min, &
- !                   Limiter_Marker_Max, &
- !                   marker_c1, &
- !                   marker_c2, &
- !                   marker_dpsi, &
- !                   psi0, &
- !                   psi0-marker_dpsi, &
- !                   psi0+marker_dpsi
- !end if
- !flush (iout)
- !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"Dumping marker parameters!")
+#if DUMP_MARKER_INPUTS == 2
+  ! Dump marker inputs after they are processed. Then stop.
+  if (mypnum == glb_root) then
+    psi0 = -one*(marker_c1+marker_c2*log10(real(n_order,kind=wp)))
+    write (iout,582) " AFTER", &
+                     Limiter_Marker_c1, &
+                     Limiter_Marker_c2, &
+                     Limiter_Marker_dpsi, &
+                     Limiter_Marker_Min, &
+                     Limiter_Marker_Max, &
+                     marker_c1, &
+                     marker_c2, &
+                     marker_dpsi, &
+                     psi0, &
+                     psi0-marker_dpsi, &
+                     psi0+marker_dpsi
+  end if
+#endif
   !
-!!if (mypnum == glb_root) then
-!!  psi0 = -one*(marker_c1 + marker_c2*log10(real(n_order,kind=wp)))
-!!  write (iout,30) marker_c1,marker_c2,marker_dpsi, &
-!!                  psi0-marker_dpsi,psi0,psi0+marker_dpsi
-!!end if
-!!30 format (/,2x,"marker_c1   = ",f11.6,/, &
-!!             2x,"marker_c2   = ",f11.6,/, &
-!!             2x,"marker_dpsi = ",f11.6,//, &
-!!             2x,"psi0 - dpsi = ",f11.6,/, &
-!!             2x,"psi0        = ",f11.6,/, &
-!!             2x,"psi0 + dpsi = ",f11.6,/)
+#if DUMP_MARKER_INPUTS == 1
+  if (mypnum == glb_root) then
+    psi0 = -one*(marker_c1 + marker_c2*log10(real(n_order,kind=wp)))
+    write (iout,30) marker_c1,marker_c2,marker_dpsi, &
+                    psi0-marker_dpsi,psi0,psi0+marker_dpsi
+  end if
+  30 format (/,2x,"marker_c1   = ",f11.6,/, &
+               2x,"marker_c2   = ",f11.6,/, &
+               2x,"marker_dpsi = ",f11.6,//, &
+               2x,"psi0 - dpsi = ",f11.6,/, &
+               2x,"psi0        = ",f11.6,/, &
+               2x,"psi0 + dpsi = ",f11.6,/)
+#endif
+  !
+#if DUMP_MARKER_INPUTS && DUMP_MARKER_INPUTS_THEN_STOP
+  flush (iout)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"Dumping marker parameters!")
+#endif
   !
   ! Make sure the number of RK stages is correct for some RK types
   !
