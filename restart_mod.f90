@@ -4219,36 +4219,32 @@ continue
   !
   rstdir = trim(adjustl(restart_dir)) ! F2003 AUTO-REALLOC
   !
-  write (rstfile_fmt,2) rstdir, final_iter_digits
-  write (lnkcmnd_fmt,3) final_iter_digits, rstdir
+  write (rstfile_fmt,2) rstdir, final_iter_digits, "rst"
+  write (lnkcmnd_fmt,3) final_iter_digits, "rst", rstdir, "rst"
   write (statfile_fmt,4) rstdir, final_iter_digits
   write (tafile_fmt,5) rstdir
   write (talink_fmt,6) rstdir
   write (tastat_fmt,7) rstdir
-  write (tadone_fmt,8) rstdir, final_iter_digits
-  write (talkdn_fmt,9) final_iter_digits, rstdir
+  write (tadone_fmt,2) rstdir, final_iter_digits, "ave"
+  write (talkdn_fmt,3) final_iter_digits, "ave", rstdir, "ave"
   !
-  write (rstfname_fmt,20) final_iter_digits
+  write (rstfname_fmt,2) "", final_iter_digits, "rst"
   write (tafname_fmt,21)
-  write (tadonefname_fmt,22) final_iter_digits
+  write (tadonefname_fmt,2) "", final_iter_digits, "ave"
   !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
   1 format (i0)
-  2 format ("('",a,"out.',i0.",i0,",a,'.rst')")
-  3 format ("('/bin/ln -sf out.',i0.",i0,",a,'.rst ",a,"out.current.rst')")
+  2 format ("('",a,"out.',i0.",i0,",a,'.",a,"')")
+  3 format ("('/bin/ln -sf out.',i0.",i0,",a,'.",a," ",a,"out.current.",a,"')")
   4 format ("('",a,"out.',i0.",i0,",a,'.stat')")
   5 format ("('",a,"out.',i0,a,'.ave')")
   6 format ("('/bin/ln -sf out.',i0,a,'.ave ",a,"out.current.ave')")
   7 format ("('",a,"out.',i0,a,'.ave.stat')")
-  8 format ("('",a,"out.',i0.",i0,",a,'.ave')")
-  9 format ("('/bin/ln -sf out.',i0.",i0,",a,'.ave ",a,"out.current.ave')")
   !
-  20 format ("('out.',i0.",i0,",a,'.rst')")  ! rstfile_fmt
   21 format ("('out.',i0,a,'.ave')")         ! tafile_fmt
-  22 format ("('out.',i0.",i0,",a,'.ave')")  ! tadone_fmt
   !
 end subroutine create_restart_fname_formats
 !
