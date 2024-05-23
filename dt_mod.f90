@@ -1624,6 +1624,7 @@ subroutine check_output_frequency(dtmin,dt_sp,skip_updates)
   use ovar,    only : is_at_output_frequency ! modified
   use ovar,    only : restart_frequency
   use ovar,    only : is_at_restart_frequency ! modified
+  use ovar,    only : output_time_averaging,ave_start_time
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: dtmin
@@ -1658,6 +1659,11 @@ continue
   !
   old_time = time*time_ref*time_scaling_factor
   new_time = old_time + dtmin*time_ref*time_scaling_factor
+  !
+  if (output_time_averaging) then
+    old_time = old_time - ave_start_time*time_ref*time_scaling_factor
+    new_time = new_time - ave_start_time*time_ref*time_scaling_factor
+  end if
   !
   ! Number of output frequency intervals that have
   ! been completed at the end of the previous timestep.
@@ -1722,7 +1728,12 @@ continue
     !
     ! Compute the new dtmin
     !
-    dtmin = min(new_out_time,new_rst_time) - time
+    if (output_time_averaging) then
+      dtmin = min(new_out_time,new_rst_time) + ave_start_time - time
+    else
+      dtmin = min(new_out_time,new_rst_time) - time
+    end if
+    !$ACC UPDATE DEVICE(dtmin)
     !
     !$ACC PARALLEL LOOP PRESENT(dt_sp)
     do n = 1,n_solpts
