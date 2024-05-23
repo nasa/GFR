@@ -33,6 +33,8 @@ module filter_mod
   !
   ! Module public arrays
   !
+  !-----------------------------------------------------------------------------
+  !
   ! filter_t : derived type that contains various types of filtering matrices
   !
   type, public :: filter_t
@@ -53,6 +55,38 @@ module filter_mod
   !          cell order that are possible in the current simulation
   !
   type(filter_t), public, save, allocatable :: filter(:,:)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  ! filt_coef_t : derived type that stores 1D filter coefficients
+  !
+  type :: filt_coef_t
+    ! coef : array that contains the 1D filter coefficients
+    real(wp), allocatable :: coef(:)
+  end type filt_coef_t
+  !
+  ! global_filt : array containing filter coefficients of varying P
+  !               for the global filter, e.g. global_filt(i)%coef(1:i+1)
+  !               are the 1D global filter coefficients for a polynomial
+  !               of degree i.
+  !
+  type(filt_coef_t), allocatable :: global_filt(:)
+  !
+  ! limiter_filt : array containing filter coefficients of varying P
+  !                for the limiter filter, e.g. limiter_filt(i)%coef(1:i+1)
+  !                are the 1D limiter filter coefficients for a polynomial
+  !                of degree i.
+  !
+  type(filt_coef_t), allocatable :: limiter_filt(:)
+  !
+  ! sponge_filt : array containing filter coefficients of varying P
+  !               for the sponge filter, e.g. sponge_filt(i)%coef(1:i+1)
+  !               are the 1D sponge filter coefficients for a polynomial
+  !               of degree i.
+  !
+  type(filt_coef_t), allocatable :: sponge_filt(:)
+  !
+  !-----------------------------------------------------------------------------
   !
   ! Cutoff_Filter_Option : method used to compute the cutoff filter matrices
   !          = 1 : use a tensor product of the 1D filter with the filter cutoff
