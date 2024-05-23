@@ -104,6 +104,340 @@ contains
 !
 !###############################################################################
 !
+subroutine new_init_filter_matrices()
+  !
+  !.. Use Statements ..
+  use ovar,            only : output_filter_diagonals
+  use ovar,            only : use_sponge_filter
+  use order_mod,       only : geom_solpts
+  use order_mod,       only : n_min_geom,n_max_geom
+  use order_mod,       only : n_min_order,n_max_order
+  use order_mod,       only : geom_is_used
+  use vandermonde_mod, only : vand
+  !
+  !.. Local Scalars ..
+  integer :: ierr,gmin,gmax,omin,omax
+  integer :: this_geom,this_order,npts
+  integer :: cutoff_order,i,j
+  character(len=200) :: array_name
+  character(len=300) :: timer_message
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "new_init_filter_matrices"
+  character(len=*), parameter :: fname = "filter_diagonals.dat"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (output_filter_diagonals .and. mypnum == glb_root) then
+    open (newunit=io,file=fname,status="replace",action="write", &
+                     iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Allocate the filter array
+  !
+  gmin = n_min_geom
+  gmax = n_max_geom
+  omin = n_min_order
+  omax = n_max_order
+  !
+  allocate ( filter(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"filter",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  geom_loop: do this_geom = gmin,gmax
+    !
+    if (.not. geom_is_used(this_geom)) cycle geom_loop
+    if (all(this_geom /= Geom_Valid)) cycle geom_loop
+    if (this_geom == Geom_Node) cycle geom_loop
+    !
+    order_loop: do this_order = omin,omax
+      !
+      ! Get the number of solution points for this cell
+      !
+      npts = geom_solpts(this_geom,this_order)
+      !
+      ! ###################################
+      ! #####  1. Exponential Filter  #####
+      ! ###################################
+      !
+      if (Filter_Option > 0 .or. output_filter_diagonals) then
+        !
+        write (timer_message,200) trim(adjustl(Geom_Name(this_geom))),this_order
+        200 format ("Exponential filter: Geometry = ",a,"  ;  Order = ",i0)
+        call debug_timer(start_timer,timer_message)
+        !
+        ! Allocate the exponential filter matrix
+        !
+        allocate ( filter(this_geom,this_order)%exponential , &
+                   stat=ierr , errmsg=error_message )
+        write (array_name,1) Geom_Name(this_geom),this_order,"exponential"
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
+                         ierr,error_message)
+        !
+        ! Compute the exponential global filter matrix
+        !
+        call create_exp_filter_matrix(this_geom,this_order, &
+                       Filter_Option,Filter_etac,Filter_Order,Filter_alpha, &
+                       global_filt,filter(this_geom,this_order)%exponential%mat)
+        !
+        ! Write out the filter diagonals if requested
+        !
+        if (output_filter_diagonals .and. mypnum == glb_root) then
+          write (io,800) trim(Geom_Full_Name(this_geom)), " Global Filter"
+          if (Filter_Option == 0) write (io,802)
+          do j = npts,1,-1
+            write (io,801) (filter(this_geom,this_order)% &
+                                             exponential%mat(i,j), i=1,npts)
+          end do
+        end if
+        !
+#ifdef SPECIAL_OUTPUT_SPARSITY
+        ! Output the sparsity if requested
+        !
+        write (array_name,10) Geom_Short_Name(this_geom),this_order,"exp"
+        call output_sparsity( filter(this_geom,this_order)%exponential , &
+                              array_name )
+#endif
+        !
+        call debug_timer(stop_timer,timer_message)
+        !
+      end if
+      !
+      ! ###############################
+      ! #####  2. Limiter Filter  #####
+      ! ###############################
+      !
+      if (Limiter_Filter_Option /= 0 .or. output_filter_diagonals) then
+        !
+        write (timer_message,201) trim(adjustl(Geom_Name(this_geom))),this_order
+        201 format ("Limiter filter: Geometry = ",a,"  ;  Order = ",i0)
+        call debug_timer(start_timer,timer_message)
+        !
+        ! Allocate the limiter filter matrix
+        !
+        allocate ( filter(this_geom,this_order)%limiter , &
+                   stat=ierr , errmsg=error_message )
+        write (array_name,1) Geom_Name(this_geom),this_order,"limiter"
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
+                         ierr,error_message)
+        !
+        ! Compute the exponential limiter filter matrix
+        !
+        call create_exp_filter_matrix(this_geom,this_order, &
+                       Limiter_Filter_Option,Limiter_Filter_etac, &
+                       Limiter_Filter_Order,Limiter_Filter_alpha, &
+                       limiter_filt,filter(this_geom,this_order)%limiter%mat)
+        !
+        ! Write out the filter diagonals if requested
+        !
+        if (output_filter_diagonals .and. mypnum == glb_root) then
+          !
+          write (io,800) trim(Geom_Full_Name(this_geom)), "Limiter Filter"
+          if (Limiter_Filter_Option == 0) write (io,802)
+          do j = npts,1,-1
+            write (io,801) (filter(this_geom,this_order)% &
+                                                 limiter%mat(i,j), i=1,npts)
+          end do
+          !
+        end if
+        !
+#ifdef SPECIAL_OUTPUT_SPARSITY
+        ! Output the sparsity if requested
+        !
+        write (array_name,10) Geom_Short_Name(this_geom),this_order,"lim"
+        call output_sparsity( filter(this_geom,this_order)%limiter , &
+                              array_name )
+#endif
+        !
+        call debug_timer(stop_timer,timer_message)
+        !
+      end if
+      !
+      ! ################################
+      ! #####  3. Cut-Off Filters  #####
+      ! ################################
+      !
+      ! Allocate the cutoff filter matrix
+      !
+      allocate ( filter(this_geom,this_order)%cutoff(1:this_order) , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"cutoff"
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      !
+      cutoff_loop: do cutoff_order = 1,this_order
+        write (timer_message,202) trim(adjustl(Geom_Name(this_geom))), &
+                                  this_order,cutoff_order
+        202 format ("Cutoff filter: Geometry = ",a,"  ;  Order = ",i0, &
+                    "  ;  Cutoff Order = ",i0)
+        call debug_timer(start_timer,timer_message)
+        !
+        ! Special cutoff filter for an edge element using cutoff_order+1
+        ! NOTE: This will be replaced with the cutoff filter using cutoff_order
+        !
+        if (output_filter_diagonals .and. mypnum == glb_root) then
+          if (cutoff_order == this_order .and. this_geom == Geom_Edge) then
+            ! F2003 AUTO-REALLOC
+            filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
+                       create_cutoff_filter(this_geom,this_order,cutoff_order+1)
+            write (io,800) trim(Geom_Full_Name(this_geom)), "Cutoff Filter",&
+                           " for P-",this_order+1-(cutoff_order+1)
+            do j = npts,1,-1
+              write (io,801) (filter(this_geom,this_order)% &
+                                      cutoff(cutoff_order)%mat(i,j), i=1,npts)
+            end do
+          end if
+        end if
+        !
+        ! Compute the cutoff filter of order cutoff_order
+        !
+        ! F2003 AUTO-REALLOC
+        filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
+                         create_cutoff_filter(this_geom,this_order,cutoff_order)
+        !
+        ! Write out the filter diagonals if requested
+        !
+        if (output_filter_diagonals .and. mypnum == glb_root) then
+          write (io,800) trim(Geom_Full_Name(this_geom)), "Cutoff Filter",&
+                         " for P-",this_order+1-cutoff_order
+          do j = npts,1,-1
+            write (io,801) (filter(this_geom,this_order)% &
+                                    cutoff(cutoff_order)%mat(i,j), i=1,npts)
+          end do
+        end if
+        !
+#ifdef SPECIAL_OUTPUT_SPARSITY
+        ! Output the sparsity if requested
+        !
+        write (array_name,11) Geom_Short_Name(this_geom),this_order,cutoff_order
+        call output_sparsity( filter(this_geom,this_order)% &
+                                      cutoff(cutoff_order) , array_name )
+#endif
+        !
+        call debug_timer(stop_timer,timer_message)
+        !
+      end do cutoff_loop
+      !
+      ! #################################
+      ! #####  3. Sponge Filter  #####
+      ! #################################
+      !
+      write (timer_message,203) trim(adjustl(Geom_Name(this_geom))),this_order
+      203 format ("Sponge filter: Geometry = ",a,"  ;  Order = ",i0)
+      call debug_timer(start_timer,timer_message)
+      !
+      ! Allocate the sponge filter matrix
+      !
+      allocate ( filter(this_geom,this_order)%sponge , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"sponge"
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      ! Compute the exponential sponge filter matrix
+      !
+      call create_exp_filter_matrix(this_geom,this_order, &
+                 1,Sponge_Filter_etac,Sponge_Filter_Order,Sponge_Filter_alpha, &
+                 sponge_filt,filter(this_geom,this_order)%sponge%mat)
+      !
+      ! Write out the filter diagonals if requested
+      !
+      if (output_filter_diagonals .and. mypnum == glb_root) then
+        !
+        write (io,800) trim(Geom_Full_Name(this_geom)), "Sponge Filter"
+        if (.not. use_sponge_filter) write (io,802)
+        do j = npts,1,-1
+          write (io,801) (filter(this_geom,this_order)% &
+                                                sponge%mat(i,j), i=1,npts)
+        end do
+        !
+      end if
+      !
+#ifdef SPECIAL_OUTPUT_SPARSITY
+      ! Output the sparsity if requested
+      !
+      write (array_name,10) Geom_Short_Name(this_geom),this_order,"spg"
+      call output_sparsity( filter(this_geom,this_order)%sponge , &
+                            array_name )
+#endif
+      !
+      call debug_timer(stop_timer,timer_message)
+      !
+    end do order_loop
+    !
+  end do geom_loop
+  !
+  if (output_filter_diagonals) then
+    if (mypnum == glb_root) then
+      flush (io)
+      close (io,iostat=ierr,iomsg=error_message)
+      call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    write (error_message,803)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Check for sparsity
+  !
+  do this_geom = gmin,gmax
+    do this_order = omin,omax
+      if (allocated(filter(this_geom,this_order)%exponential)) then
+        write (timer_message,300) trim(adjustl(Geom_Name(this_geom))),this_order
+        300 format ("Exponential filter sparsity check:  Geometry = ", &
+                    a,"  ;  Order = ",i0)
+        call debug_timer(start_timer,timer_message)
+        call create_matrix_sparsity( filter(this_geom,this_order)%exponential )
+        call debug_timer(stop_timer,timer_message)
+      end if
+      if (allocated(filter(this_geom,this_order)%limiter)) then
+        write (timer_message,301) trim(adjustl(Geom_Name(this_geom))),this_order
+        301 format ("Limiter filter sparsity check:  Geometry = ", &
+                    a,"  ;  Order = ",i0)
+        call debug_timer(start_timer,timer_message)
+        call create_matrix_sparsity( filter(this_geom,this_order)%limiter )
+        call debug_timer(stop_timer,timer_message)
+      end if
+      if (allocated(filter(this_geom,this_order)%cutoff)) then
+        write (timer_message,302) trim(adjustl(Geom_Name(this_geom))),this_order
+        302 format ("Cutoff filter sparsity check:  Geometry = ", &
+                    a,"  ;  Order = ",i0)
+        call debug_timer(start_timer,timer_message)
+        call create_matrix_sparsity( filter(this_geom,this_order)%cutoff )
+        call debug_timer(stop_timer,timer_message)
+      end if
+      if (allocated(filter(this_geom,this_order)%sponge)) then
+        write (timer_message,303) trim(adjustl(Geom_Name(this_geom))),this_order
+        303 format ("Sponge filter sparsity check:  Geometry = ", &
+                    a,"  ;  Order = ",i0)
+        call debug_timer(start_timer,timer_message)
+        call create_matrix_sparsity( filter(this_geom,this_order)%sponge )
+        call debug_timer(stop_timer,timer_message)
+      end if
+    end do
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("filter(",a,",",i0,")%",a,:,"(",i0,")%mat")
+  100 format (" A grid cell of an unknown geometry type was found!")
+  !
+  800 format (/,a,1x,a,:,a,i0)
+  801 format (100(2x,es14.6))
+  802 format ("  NOTE: CURRENTLY NOT USED BECAUSE ", &
+              "IT IS TURNED OFF IN THE INPUT FILE!")
+  803 format ("AFTER WRITING OUT THE FILTER DIAGONALS ", &
+              "TO 'filter_diagonals.dat'.")
+  !
+  10 format (a4,".filter.p",i0,".",a3,".tec.dat")
+  11 format (a4,".filter.p",i0,".cut-p",i0,".tec.dat")
+  !
+end subroutine new_init_filter_matrices
+!
+!###############################################################################
+!
 subroutine init_filter_matrices()
   !
   !.. Use Statements ..
