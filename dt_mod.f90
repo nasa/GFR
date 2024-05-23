@@ -143,6 +143,7 @@ subroutine checks_on_dtmin(dtmin,dt_sp,final_timestep_from_stop_request, &
   !.. Use Statements ..
   use ovar, only : itestcase,Final_Time
   use ovar, only : output_frequency
+  use ovar, only : restart_frequency
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: dtmin
@@ -163,10 +164,10 @@ continue
     call check_tstar_for_TaylorCouette(dtmin,dt_sp,skip_updates)
   end if
   !
-  ! Check to see if we need to output a new
-  ! solution file based on output_frequency
+  ! Check to see if we need to output a new solution or restart
+  ! file based on output_frequency or restart_frequency
   !
-  if (output_frequency > zero) then
+  if (output_frequency > zero .or. restart_frequency > zero) then
     call check_output_frequency(dtmin,dt_sp,skip_updates)
   end if
   !
@@ -1621,6 +1622,8 @@ subroutine check_output_frequency(dtmin,dt_sp,skip_updates)
   use ovar,    only : time,time_ref,time_scaling_factor
   use ovar,    only : output_frequency
   use ovar,    only : is_at_output_frequency ! modified
+  use ovar,    only : restart_frequency
+  use ovar,    only : is_at_restart_frequency ! modified
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: dtmin
@@ -1630,9 +1633,13 @@ subroutine check_output_frequency(dtmin,dt_sp,skip_updates)
   logical(lk), optional, intent(in) :: skip_updates
   !
   !.. Local Scalars ..
-  integer     :: n,old_int,new_int
+  integer     :: n
+  integer     :: old_out_int,new_out_int
+  integer     :: old_rst_int,new_rst_int
   real(wp)    :: old_time,new_time
+  real(wp)    :: new_out_time,new_rst_time
   logical(lk) :: is_at_output_freq
+  logical(lk) :: is_at_restart_freq
   logical(lk) :: perform_updates
   !
   !.. Local Parameters ..
@@ -1647,6 +1654,7 @@ continue
   end if
   !
   is_at_output_freq = is_at_output_frequency
+  is_at_restart_freq = is_at_restart_frequency
   !
   old_time = time*time_ref*time_scaling_factor
   new_time = old_time + dtmin*time_ref*time_scaling_factor
@@ -1654,19 +1662,37 @@ continue
   ! Number of output frequency intervals that have
   ! been completed at the end of the previous timestep.
   !
-  old_int = floor( old_time/output_frequency )
+  old_out_int = floor( old_time/output_frequency )
   !
   ! Number of output frequency intervals that will have
   ! been completed after finishing the current timestep.
   !
-  new_int = floor( new_time/output_frequency )
+  new_out_int = floor( new_time/output_frequency )
   !
   ! If the number of output frequency intervals completed increases
   ! after completing the current timestep, set the logical flag that
   ! tells the main loop to output a new solution file.
   !
-  if (new_int > old_int) then
+  if (new_out_int > old_out_int) then
     is_at_output_freq = true
+  end if
+  !
+  ! Number of restart frequency intervals that have
+  ! been completed at the end of the previous timestep.
+  !
+  old_rst_int = floor( old_time/restart_frequency )
+  !
+  ! Number of restart frequency intervals that will have
+  ! been completed after finishing the current timestep.
+  !
+  new_rst_int = floor( new_time/restart_frequency )
+  !
+  ! If the number of restart frequency intervals completed increases
+  ! after completing the current timestep, set the logical flag that
+  ! tells the main loop to output a new restart file.
+  !
+  if (new_rst_int > old_rst_int) then
+    is_at_restart_freq = true
   end if
   !
   ! NOTE: WITHOUT ALTERING DTMIN, WE ARE ASSUMING THAT THE TIMESTEP SIZE IS
@@ -1678,28 +1704,36 @@ continue
   !       TIME AT THE END OF THE CURRENT TIMESTEP IS ACTUALLY AT A MULTIPLE OF
   !       THE OUTPUT FREQUENCY?
   !
-  if (update_dtmin_for_output_frequency) then
+  if ( (is_at_output_freq .or. is_at_restart_freq) .and. &
+       (update_dtmin_for_output_frequency) ) then
+    !
+    new_out_time = new_time
+    new_rst_time = new_time
     !
     if (is_at_output_freq) then
-      !
-      new_time = output_frequency*real(new_int,kind=wp)
-      !
-      ! Nondimensionalize new_time to match time and dtmin
-      !
-      dtmin = time - new_time/time_ref/time_scaling_factor
-      !$ACC UPDATE DEVICE(dtmin)
-      !
-      !$ACC PARALLEL LOOP PRESENT(dt_sp)
-      do n = 1,n_solpts
-        dt_sp(n) = dtmin
-      end do
-      !
+      new_out_time = output_frequency*real(new_out_int,kind=wp) / &
+                     (time_ref*time_scaling_factor)
     end if
+    !
+    if (is_at_restart_freq) then
+      new_rst_time = restart_frequency*real(new_rst_int,kind=wp) / &
+                     (time_ref*time_scaling_factor)
+    end if
+    !
+    ! Compute the new dtmin
+    !
+    dtmin = min(new_out_time,new_rst_time) - time
+    !
+    !$ACC PARALLEL LOOP PRESENT(dt_sp)
+    do n = 1,n_solpts
+      dt_sp(n) = dtmin
+    end do
     !
   end if
   !
   if (perform_updates) then
     is_at_output_frequency = is_at_output_freq
+    is_at_restart_frequency = is_at_restart_freq
   end if
   !
 end subroutine check_output_frequency
