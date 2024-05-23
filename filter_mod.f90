@@ -13,12 +13,6 @@ module filter_mod
   use matrix_types_mod, only : create_matrix_sparsity
   use matrix_types_mod, only : output_sparsity
   !
-  use ovar, only : Filter_Option,Limiter_Filter_Option
-  use ovar, only : Filter_etac,  Limiter_Filter_etac,  Sponge_Filter_etac
-  use ovar, only : Filter_Order, Limiter_Filter_Order, Sponge_Filter_Order
-  use ovar, only : Filter_Alpha, Limiter_Filter_Alpha, Sponge_Filter_Alpha
-  use ovar, only : Filter_eps,   Limiter_Filter_eps
-  !
   implicit none
   !
   private
@@ -96,6 +90,10 @@ subroutine init_filter_matrices()
   !
   !.. Use Statements ..
   use ovar,      only : output_filter_diagonals
+  use ovar,      only : Filter_Option,Limiter_Filter_Option
+  use ovar,      only : Filter_etac,  Limiter_Filter_etac,  Sponge_Filter_etac
+  use ovar,      only : Filter_Order, Limiter_Filter_Order, Sponge_Filter_Order
+  use ovar,      only : Filter_Alpha, Limiter_Filter_Alpha, Sponge_Filter_Alpha
   use order_mod, only : geom_solpts
   use order_mod, only : n_min_geom,n_max_geom
   use order_mod, only : n_min_order,n_max_order
