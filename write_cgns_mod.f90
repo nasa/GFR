@@ -3540,6 +3540,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !.. Use Statements ..
   use geovar, only : nr
   use ovar,   only : itestcase,governing_equations
+  use ovar,   only : limiter_option
   use ovar,   only : output_vorticity
   use ovar,   only : output_cylindrical_velocity
   use ovar,   only : output_qcriterion
@@ -3553,6 +3554,7 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,   only : output_stagnation_variables
   use ovar,   only : output_marker_variables
   use ovar,   only : Resolution_Marker_Variable
+  use ovar,   only : Jump_Marker_Variable
   use ovar,   only : output_species_mass_fractions
   use ovar,   only : output_species_mole_fractions
   use ovar,   only : output_extra_species_variables
@@ -3732,18 +3734,34 @@ continue
   ! Output the marker quantities if requested
   !
   if (output_marker_variables) then
-    call add_sol_variable(variable_list,"ResolutionMarker")
-    if (Resolution_Marker_Variable > 0) then
-      if (Resolution_Marker_Variable == nec .or. ncs > 1) then
-        m = 1
-      else if (Resolution_Marker_Variable == nee) then
-        m = 3
+    if ( limiter_option == 2 ) then
+      call add_sol_variable(variable_list,"JumpMarker")
+      if (Jump_Marker_Variable > 0) then
+        if (Jump_Marker_Variable == nec .or. ncs > 1) then
+          m = 1
+        else if (Jump_Marker_Variable == nee) then
+          m = 3
+        else
+          m = 2
+        end if
+        call add_sol_variable(variable_list,trim(consv_var(m)))
       else
-        m = 2
+        call add_sol_variable(variable_list,'Pressure')
       end if
-      call add_sol_variable(variable_list,trim(consv_var(m)))
     else
-      call add_sol_variables(variable_list,consv_var)
+      call add_sol_variable(variable_list,"ResolutionMarker")
+      if (Resolution_Marker_Variable > 0) then
+        if (Resolution_Marker_Variable == nec .or. ncs > 1) then
+          m = 1
+        else if (Resolution_Marker_Variable == nee) then
+          m = 3
+        else
+          m = 2
+        end if
+        call add_sol_variable(variable_list,trim(consv_var(m)))
+      else
+        call add_sol_variables(variable_list,consv_var)
+      end if
     end if
   end if
   !
