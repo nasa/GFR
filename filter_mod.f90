@@ -1197,6 +1197,705 @@ end subroutine filter_usp_nd
 !
 !###############################################################################
 !
+function get_1D_exp_filter_coef(p,alpha,etac,s) result(return_value)
+  !
+  ! Routine to compute the 1D exponential filter coefficients.
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: p
+  real(wp), intent(in) :: alpha
+  real(wp), intent(in) :: etac
+  integer,  intent(in) :: s
+  !
+  !.. Function Return Value ..
+  real(wp) :: return_value(1:p+1)
+  !
+  !.. Local Scalars ..
+  integer  :: i
+  real(wp) :: rd,rn
+  !
+continue
+  !
+  ! Create the 1D exponential filter coefficients
+  !
+  if (p == 0) then
+    !
+    return_value(1) = one
+    !
+  else
+    !
+    do i = 0,p
+      !
+      rn = real(i,kind=wp)/real(p,kind=wp) - etac
+      !
+      if (rn > zero) then
+        !
+        rd = max( zero , one - etac )
+        !
+        if (rd == zero) then
+          ! This protection from rd=0 shouldnt be needed. rd is only zero
+          ! when etac>=1. However, when etac>=1, rn<=0, so we shouldnt be
+          ! here when rd=0. Im keeping it here just in case.
+          return_value(i+1) = exp(-alpha)
+        else
+          return_value(i+1) = exp(-alpha*(rn/rd)**s)
+        end if
+        !
+      else
+        !
+        return_value(i+1) = one
+        !
+      end if
+      !
+    end do
+    !
+  end if
+  !
+end function get_1D_exp_filter_coef
+!
+!###############################################################################
+!
+function get_2P_quad_filter_coef(p,alpha,etac,s) result(return_value)
+  !
+  ! Routine to compute the exponential filter coefficients for a quad
+  ! element based on the sum of the modal exponent, i.e., from [0:2*P]
+  ! instead of [0:P].
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: p
+  real(wp), intent(in) :: alpha
+  real(wp), intent(in) :: etac
+  integer,  intent(in) :: s
+  !
+  !.. Function Return Value ..
+  real(wp) :: return_value(1:(p+1)**2)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,l
+  real(wp) :: rd,rn
+  !
+continue
+  !
+  ! Create the exponential filter coefficients
+  !
+  if (p == 0) then
+    !
+    return_value(1) = one
+    !
+  else
+    !
+    l = 0
+    do j = 0,p
+      do i = 0,p
+        !
+        l = l + 1
+        !
+        rn = real(i+j,kind=wp)/real(2*p,kind=wp) - etac
+        !
+        if (rn > zero) then
+          !
+          rd = max( zero , one - etac )
+          !
+          if (rd == zero) then
+            ! This protection from rd=0 shouldnt be needed. rd is only zero
+            ! when etac>=1. However, when etac>=1, rn<=0, so we shouldnt be
+            ! here when rd=0. Im keeping it here just in case.
+            return_value(l) = exp(-alpha)
+          else
+            return_value(l) = exp(-alpha*(rn/rd)**s)
+          end if
+          !
+        else
+          !
+          return_value(l) = one
+          !
+        end if
+        !
+      end do
+    end do
+    !
+  end if
+  !
+end function get_2P_quad_filter_coef
+!
+!###############################################################################
+!
+function get_3P_hex_filter_coef(p,alpha,etac,s) result(return_value)
+  !
+  ! Routine to compute the exponential filter coefficients for a hex
+  ! element based on the sum of the modal exponent, i.e., from [0:3*P]
+  ! instead of [0:P].
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: p
+  real(wp), intent(in) :: alpha
+  real(wp), intent(in) :: etac
+  integer,  intent(in) :: s
+  !
+  !.. Function Return Value ..
+  real(wp) :: return_value(1:(p+1)**3)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,l
+  real(wp) :: rd,rn
+  !
+continue
+  !
+  ! Create the exponential filter coefficients
+  !
+  if (p == 0) then
+    !
+    return_value(1) = one
+    !
+  else
+    !
+    l = 0
+    do k = 0,p
+      do j = 0,p
+        do i = 0,p
+          !
+          l = l + 1
+          !
+          rn = real(i+j+k,kind=wp)/real(3*p,kind=wp) - etac
+          !
+          if (rn > zero) then
+            !
+            rd = max( zero , one - etac )
+            !
+            if (rd == zero) then
+              ! This protection from rd=0 shouldnt be needed. rd is only zero
+              ! when etac>=1. However, when etac>=1, rn<=0, so we shouldnt be
+              ! here when rd=0. Im keeping it here just in case.
+              return_value(l) = exp(-alpha)
+            else
+              return_value(l) = exp(-alpha*(rn/rd)**s)
+            end if
+            !
+          else
+            !
+            return_value(l) = one
+            !
+          end if
+          !
+        end do
+      end do
+    end do
+    !
+  end if
+  !
+end function get_3P_hex_filter_coef
+!
+!###############################################################################
+!
+subroutine create_exp_filter_matrix(geom,p, &
+                                    loc_filt_option,loc_filt_etac, &
+                                    loc_filt_order,loc_filt_alpha, &
+                                    filt,fmat)
+  !
+  ! Routine to compute an exponential filter matrix
+  !
+  !.. Use Statements ..
+  use order_mod, only : geom_solpts
+  use ovar,      only : Pyramid_Filter_Option
+  !
+  !.. Formal Arguments ..
+  integer,                           intent(in) :: geom
+  integer,                           intent(in) :: p
+  integer,                           intent(in) :: loc_filt_option
+  real(wp),                          intent(in) :: loc_filt_etac
+  integer,                           intent(in) :: loc_filt_order
+  real(wp),                          intent(in) :: loc_filt_alpha
+  type(filt_coef_t), allocatable, intent(inout) :: filt(:)
+  real(wp),          allocatable,   intent(out) :: fmat(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,ierr,nsp
+  integer  :: s
+  real(wp) :: alpha,etac
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp),          allocatable :: filt_diag(:)
+  type(filt_coef_t), allocatable :: tmp_filt(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_exp_filter_matrix"
+  !
+continue
+  !
+  nsp = geom_solpts(geom,p)
+  !
+  etac = loc_filt_etac
+  alpha = loc_filt_alpha
+  s = loc_filt_order
+  !
+  ! Allocate the filt array if it has not yet been allocated,
+  ! and compute the degree-P filter coefficients
+  !
+  if (.not. allocated(filt)) then
+    !
+    ! Allocate the derived type to store the filter coefficients
+    !
+    allocate ( filt(0:p) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"filt",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Compute the degree-P filter coefficients because these will
+    ! always be needed. The rest of the filter coefficients will
+    ! be special cases that will be computed as needed.
+    !
+    ! F2003 AUTO-REALLOC
+    filt(p)%coef = get_1D_exp_filter_coef(p,alpha,etac,s)
+    !
+  end if
+  !
+  if (geom == Geom_Quad .and. loc_filt_option == 2) then
+    !
+    ! Special case of filter for quad element based on the sum of the modal
+    ! exponents, i.e., for [0:2*P] instead of [0:P]
+    !
+    if (ubound(filt,dim=1) < 2*p) then
+      !
+      ! Expand filt
+      !
+      allocate ( tmp_filt(0:2*p) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"tmp_filt",1,__LINE__,__FILE__,ierr,error_message)
+      !
+      i = ubound(filt,dim=1)
+      !
+      tmp_filt(0:i) = filt(0:i)
+      !
+      call move_alloc( from=tmp_filt , to=filt )
+      !
+      ! F2003 AUTO-REALLOC
+      filt(2*p)%coef = get_2P_quad_filter_coef(p,alpha,etac,s)
+      !
+    end if
+    !
+    filt_diag = filt(2*p)%coef(:) ! F2003 AUTO-REALLOC
+    !
+  else if (geom == Geom_Hexa .and. loc_filt_option == 2) then
+    !
+    ! Special case of filter for hex element based on the sum of the modal
+    ! exponents, i.e., for [0:3*P] instead of [0:P]
+    !
+    if (ubound(filt,dim=1) < 3*p) then
+      !
+      ! Expand filt
+      !
+      allocate ( tmp_filt(0:3*p) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"tmp_filt",1,__LINE__,__FILE__,ierr,error_message)
+      !
+      i = ubound(filt,dim=1)
+      !
+      tmp_filt(0:i) = filt(0:i)
+      !
+      call move_alloc( from=tmp_filt , to=filt )
+      !
+      ! F2003 AUTO-REALLOC
+      filt(3*p)%coef = get_3P_hex_filter_coef(p,alpha,etac,s)
+      !
+    end if
+    !
+    filt_diag = filt(3*p)%coef(:) ! F2003 AUTO-REALLOC
+    !
+  else if (geom == Geom_Pyra .and. Pyramid_Filter_Option /= 3) then
+    !
+    ! Special case of pyramid elements where the tensor products for k/=0
+    ! layers use P-k 1D filter coefficients for the tensor product.
+    !
+    do i = 0,p-1
+      if (.not. allocated(filt(i)%coef)) then
+        if (Pyramid_Filter_Option == 1) then
+          !
+          ! This option keeps the cutoff order Pc relative to P for all i,
+          ! where Pc = loc_filt_etac*real(P). To do this, we need to compute
+          ! a new etac, etac_i, for i using
+          !     etac_i = loc_filt_etac*real(p)/real(i)
+          ! For smaller i, this may mean that Pc > i which would result in
+          ! etac_i > 1, but etac_i should be in the interval [0:1]. For that
+          ! reason, we add the min(1,max(0,...)) limiting on etac_i.
+          !
+          ! NOTE: Make sure we dont divide by zero when i=0. When i=0,
+          !       we dont care about the value of etac because it doesnt
+          !       affect the filter coefficient.
+          !
+          etac = loc_filt_etac*real(p,kind=wp)/real(max(1,i),kind=wp)
+          etac = min( one , max(zero,etac) )
+          !
+          ! F2003 AUTO-REALLOC
+          filt(i)%coef = get_1D_exp_filter_coef(i,alpha,etac,s)
+          !
+        else if (Pyramid_Filter_Option == 2) then
+          !
+          ! This option keeps etac at the same value loc_filt_etac for all i.
+          ! This has the effect that the cutoff order Pc changes with each i.
+          ! So if loc_filt_etac=0.5 and P=4, Pc takes the following values:
+          !    i = P : Pc = etac*P = 0.5*4 = 2
+          !    i = 3 : Pc = 1.5
+          !    i = 2 : Pc = 1
+          !    i = 1 : Pc = 0.5
+          ! This results in a stronger filter compared to
+          ! Pyramid_Filter_Option=1.
+          !
+          etac = loc_filt_etac
+          !
+          ! F2003 AUTO-REALLOC
+          filt(i)%coef = get_1D_exp_filter_coef(i,alpha,etac,s)
+          !
+        end if
+      end if
+    end do
+    !
+    filt_diag = get_pyra_diag(filt(0:p)) ! F2003 AUTO-REALLOC
+    !
+  else
+    !
+    filt_diag = get_filt_diag(geom,filt(p)%coef) ! F2003 AUTO-REALLOC
+    !
+  end if
+  ! 
+  ! Finally, compute the filter matrix operator from the filter diagonal
+  !
+  return_value = compute_filter_matrix(geom,p,filt_diag) ! F2003 AUTO-REALLOC
+  !
+end subroutine create_exp_filter_matrix
+!
+!###############################################################################
+!
+function get_pyra_diag(filt) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(filt_coef_t), intent(in) :: filt(0:)
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,l,p,nsp
+  !
+continue
+  !
+  p = size(filt)-1
+  nsp = geom_solpts(Geom_Pyra,p)
+  !
+  return_value = init_array(nsp,zero) ! F2003 AUTO-REALLOC
+  !
+  l = 0
+  do k = 0,p
+    do j = 0,p-k
+      do i = 0,p-k
+        l = l + 1
+        return_value(l) = filt(p-k)%coef(i+1) * &
+                          filt(p-k)%coef(j+1) * &
+                          filt(p  )%coef(k+1)
+      end do
+    end do
+  end do
+  !
+end function get_pyra_diag
+!
+!###############################################################################
+!
+function get_filt_diag(geom,filt_1D_coef) result(return_value)
+  !
+  !.. Use Statements ..
+  use order_mod, only : geom_solpts
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: geom
+  real(wp), intent(in) :: filt_1D_coef(:)
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,l,p,np,nsp
+  !
+continue
+  !
+  np = size(filt_1D_coef)
+  p = np - 1
+  nsp = geom_solpts(geom,p)
+  !
+  return_value = init_array(nsp,zero) ! F2003 AUTO-REALLOC
+  !
+  if (geom == Geom_Edge) then
+    !
+    do i = 1,np
+      return_value(i) = filt_1D_coef(i)
+    end do
+    !
+  else if (geom == Geom_Quad) then
+    !
+    l = 0
+    do j = 1,np
+      do i = 1,np
+        l = l + 1
+        return_value(l) = filt_1D_coef(i)*filt_1D_coef(j)
+      end do
+    end do
+    !
+  else if (geom == Geom_Tria) then
+    !
+    l = 0
+    do j = 0,p
+      do i = 0,p-j
+        l = l + 1
+        return_value(l) = filt_1D_coef(i+j+1)
+      end do
+    end do
+    !
+  else if (geom == Geom_Tetr) then
+    !
+    l = 0
+    do k = 0,p
+      do j = 0,p-k
+        do i = 0,p-k-j
+          l = l + 1
+          return_value(l) = filt_1D_coef(i+j+k+1)
+        end do
+      end do
+    end do
+    !
+  else if (geom == Geom_Pyra) then
+    !
+    ! NOTE: This is probably not the best way to create the pyramid
+    !       filter coefficients. We should only get here if the input
+    !       Pyramid_Filter_Option = 3, and it will be recommended to
+    !       set Pyramid_Filter_Option to 1 (default) or 2.
+    !
+    l = 0
+    do k = 0,p
+      do j = 1,np-k
+        do i = 1,np-k
+          l = l + 1
+          return_value(l) = filt_1D_coef(i)*filt_1D_coef(j)*filt_1D_coef(k+1)
+        end do
+      end do
+    end do
+    !
+  else if (geom == Geom_Pris) then
+    !
+    l = 0
+    do k = 1,np
+      do j = 0,p
+        do i = 0,p-j
+          l = l + 1
+          return_value(l) = filt_1D_coef(i+j+1)*filt_1D_coef(k)
+        end do
+      end do
+    end do
+    !
+  else if (geom == Geom_Hexa) then
+    !
+    l = 0
+    do k = 1,np
+      do j = 1,np
+        do i = 1,np
+          l = l + 1
+          return_value(l) = filt_1D_coef(i)*filt_1D_coef(j)*filt_1D_coef(k)
+        end do
+      end do
+    end do
+    !
+  end if
+  !
+end function get_filt_diag
+!
+!###############################################################################
+!
+function compute_filter_matrix(geom,p,filt_diag) result(return_value)
+  !
+  ! Function to compute the final filter matrix operator
+  ! provided the filter diagonal.
+  !
+  !.. Use Statements ..
+  use vandermonde_mod, only : vand
+#ifdef SPECIAL_FOR_INTEL
+  use blas95, only : gemm
+#endif
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: geom
+  integer,  intent(in) :: p
+  real(wp), intent(in) :: filt_diag(:)
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,nsp
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: fmat(:,:)
+  !
+continue
+  !
+  nsp = size(filt_diag,dim=1)
+  !
+#ifdef SPECIAL_FOR_INTEL
+  !
+  fmat = init_array(nsp,nsp,zero) ! F2003 AUTO-REALLOC
+  return_value = init_array(nsp,nsp,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Perform the matrix multiplication of (V x F) where F is the diagonal matrix
+  ! with the filter coefficients on the diagonal.
+  !
+  do j = 1,nsp
+    do i = 1,nsp
+      fmat(i,j) = vand(geom,p)%modal2nodal%mat(i,j)*filt_diag(j)
+    end do
+  end do
+  !
+  ! Finally, multiply (V x F) x V_inv
+  !
+  call gemm(fmat,vand(geom,p)%nodal2modal%mat,return_value)
+  !
+#else
+  !
+  ! Perform the matrix multiplication of (V x F) where F is the diagonal matrix
+  ! with the filter coefficients on the diagonal.
+  !
+  ! F2003 AUTO-REALLOC
+  fmat = vand(geom,p)%modal2nodal%mat(:,:) * spread(filt_diag,dim=1,ncopies=nsp)
+  !
+  ! Finally, multiply (V x F) x V_inv
+  !
+  ! F2003 AUTO-REALLOC
+  return_value = matmul( fmat(:,:) , vand(geom,p)%nodal2modal%mat(:,:) )
+  !
+#endif
+  !
+end function compute_filter_matrix
+!
+!###############################################################################
+!
+function create_cutoff_filter(geom,p,cutoff_order) result(return_value)
+  !
+  ! Routine to compute the cutoff filter matrix of degree P
+  ! that cuts off all modes of degree cutoff_order and higher.
+  !
+  !.. Use Statements ..
+  use order_mod, only : geom_solpts
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: geom
+  integer, intent(in) :: p
+  integer, intent(in) :: cutoff_order
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,l,nsp
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: filt_diag(:)
+  !
+continue
+  !
+  nsp = geom_solpts(geom,p)
+  !
+  ! Initialize the filter diagonal to all ones. We will go through and change
+  ! any locations on the diagonal to zero that need to be cutoff.
+  !
+  filt_diag = init_array(nsp,one) ! F2003 AUTO-REALLOC
+  !
+  if (geom == Geom_Edge) then
+    !
+    do i = cutoff_order,p
+      filt_diag(i+1) = zero
+    end do
+    !
+  else if (geom == Geom_Quad) then
+    !
+    l = 0
+    do j = 0,p
+      do i = 0,p
+        l = l + 1
+        if (any([i,j] >= cutoff_order)) then
+          filt_diag(l) = zero
+        end if
+      end do
+    end do
+    !
+  else if (geom == Geom_Tria) then
+    !
+    l = 0
+    do j = 0,p
+      do i = 0,p-j
+        l = l + 1
+        if (i+j >= cutoff_order) then
+          filt_diag(l) = zero
+        end if
+      end do
+    end do
+    !
+  else if (geom == Geom_Tetr) then
+    !
+    l = 0
+    do k = 0,p
+      do j = 0,p-k
+        do i = 0,p-k-j
+          l = l + 1
+          if (i+j+k >= cutoff_order) then
+            filt_diag(l) = zero
+          end if
+        end do
+      end do
+    end do
+    !
+  else if (geom == Geom_Pyra) then
+    !
+    l = 0
+    do k = 0,p
+      do j = 0,p-k
+        do i = 0,p-k
+          l = l + 1
+          if (any([i,j] >= cutoff_order-k .or. k >= cutoff_order)) then
+            filt_diag(l) = zero
+          end if
+        end do
+      end do
+    end do
+    !
+  else if (geom == Geom_Pris) then
+    !
+    l = 0
+    do k = 0,p
+      do j = 0,p
+        do i = 0,p-j
+          l = l + 1
+          if (any([i+j,k] >= cutoff_order)) then
+            filt_diag(l) = zero
+          end if
+        end do
+      end do
+    end do
+    !
+  else if (geom == Geom_Hexa) then
+    !
+    l = 0
+    do k = 0,p
+      do j = 0,p
+        do i = 0,p
+          l = l + 1
+          if (any([i,j,k] >= cutoff_order)) then
+            filt_diag(l) = zero
+          end if
+        end do
+      end do
+    end do
+    !
+  end if
+  ! 
+  ! Finally, compute the filter matrix operator from the filter diagonal
+  !
+  return_value = compute_filter_matrix(geom,p,filt_diag) ! F2003 AUTO-REALLOC
+  !
+end function create_cutoff_filter
+!
+!###############################################################################
+!
 #ifndef DISABLE_PURE
 pure &
 #endif
