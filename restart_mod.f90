@@ -4199,6 +4199,9 @@ subroutine create_restart_fname_formats(starting_iteration)
   integer :: final_iter_digits
   character(len=100) :: char_num
   !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: rstdir
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_restart_fname_formats"
   !
@@ -4214,14 +4217,16 @@ continue
   !
   ! Create the format strings for creating the restart file names and commands
   !
-  write (rstfile_fmt,2) trim(adjustl(restart_dir)),final_iter_digits
-  write (lnkcmnd_fmt,3) final_iter_digits,trim(adjustl(restart_dir))
-  write (statfile_fmt,4) trim(adjustl(restart_dir)),final_iter_digits
-  write (tafile_fmt,5) trim(adjustl(restart_dir))
-  write (talink_fmt,6) trim(adjustl(restart_dir))
-  write (tastat_fmt,7) trim(adjustl(restart_dir))
-  write (tadone_fmt,8) trim(adjustl(restart_dir)),final_iter_digits
-  write (talkdn_fmt,9) final_iter_digits,trim(adjustl(restart_dir))
+  rstdir = trim(adjustl(restart_dir)) ! F2003 AUTO-REALLOC
+  !
+  write (rstfile_fmt,2) rstdir,final_iter_digits
+  write (lnkcmnd_fmt,3) final_iter_digits,rstdir
+  write (statfile_fmt,4) rstdir,final_iter_digits
+  write (tafile_fmt,5) rstdir
+  write (talink_fmt,6) rstdir
+  write (tastat_fmt,7) rstdir
+  write (tadone_fmt,8) rstdir,final_iter_digits
+  write (talkdn_fmt,9) final_iter_digits,rstdir
   !
   write (rstfname_fmt,20) final_iter_digits
   write (tafname_fmt,21)
