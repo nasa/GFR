@@ -3627,6 +3627,503 @@ end function int_cutoff_function
 !
 !###############################################################################
 !
+subroutine output_all_filters()
+  !
+  !.. Use Statements ..
+  use ovar, only : use_sponge_filter
+  use ovar, only : Filter_Option
+  use ovar, only : Limiter_Filter_Option
+  !
+  !.. Local Scalars ..
+  integer :: geom,p,ierr,co,i,j
+  integer :: io,iog,iol,ioc,ios
+  character(len=200) :: array_name
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: filt_diag(:)
+  real(wp), allocatable :: fmat(:,:)
+  integer,  allocatable :: idx(:,:)
+  !
+  character(len=:), allocatable :: gfname,lfname,cfname,sfname
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_all_filters"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (mypnum == glb_root) then
+    !
+    ! Open a file for each filter type
+    !
+    gfname = filt_fname("global")  ! F2003 AUTO-REALLOC
+    lfname = filt_fname("limiter") ! F2003 AUTO-REALLOC
+    cfname = filt_fname("cutoff")  ! F2003 AUTO-REALLOC
+    sfname = filt_fname("sponge")  ! F2003 AUTO-REALLOC
+    !
+    open (newunit=iog,file=gfname,status="replace",action="write", &
+                      iostat=ierr,iomsg=error_message)
+    call io_error(pname,gfname,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    open (newunit=iol,file=lfname,status="replace",action="write", &
+                      iostat=ierr,iomsg=error_message)
+    call io_error(pname,lfname,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    open (newunit=ioc,file=cfname,status="replace",action="write", &
+                      iostat=ierr,iomsg=error_message)
+    call io_error(pname,cfname,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    open (newunit=ios,file=sfname,status="replace",action="write", &
+                      iostat=ierr,iomsg=error_message)
+    call io_error(pname,sfname,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    !
+    !
+    geom_loop: &
+    do geom = lbound(filter,dim=1),ubound(filter,dim=1)
+      !
+      write (iog,100) trim(Geom_Full_Name(geom))
+      write (iol,100) trim(Geom_Full_Name(geom))
+      write (ioc,100) trim(Geom_Full_Name(geom))
+      write (ios,100) trim(Geom_Full_Name(geom))
+      !
+      order_loop: &
+      do p = lbound(filter,dim=2),ubound(filter,dim=2)
+        !
+        ! Get the indexing for each diagonal term. This is the same
+        ! regardless of the filter type
+        !
+        idx = get_geom_indices(geom,p) ! F2003 AUTO-REALLOC
+        !
+        !#################################
+        !#################################
+        !###  Global filter
+        !#################################
+        !#################################
+        !
+        io = iog
+        !
+        if (.not. allocated(filter(geom,p)%exponential)) then
+          write (array_name,1) Geom_Name(geom),p,"exponential"
+          write (io,900) trim(adjustl(array_name))
+          goto 1001
+        end if
+        !
+        if (.not. allocated(filter(geom,p)%exponential%mat)) then
+          write (array_name,1) Geom_Name(geom),p,"exponential"
+          write (io,901) trim(adjustl(array_name))
+          goto 1001
+        end if
+        !
+        write (io,101) "Global",p,trim(Geom_Full_Name(geom))
+        !
+        fmat = filter(geom,p)%exponential%mat(:,:) ! F2003 AUTO-REALLOC
+        !
+        filt_diag = extract_filter_diag(geom,p,fmat) ! F2003 AUTO-REALLOC
+        !
+        ! Write out the filter diagonal and indices
+        !
+        write (io,200)
+        do i = 1,size(filt_diag)
+          write (io,201) filt_diag(i), (idx(j,i), j=1,size(idx,dim=1))
+        end do
+        !
+        ! Write out the actual filter matrix
+        !
+        write (io,300)
+        if (Filter_Option == 0) write (io,302)
+        do j = size(fmat,dim=2),1,-1
+          write (io,301) (fmat(i,j), i=1,size(fmat,dim=1))
+        end do
+        !
+        1001 continue
+        !
+        !#################################
+        !#################################
+        !###  Limiter filter
+        !#################################
+        !#################################
+        !
+        io = iol
+        !
+        if (.not. allocated(filter(geom,p)%limiter)) then
+          write (array_name,1) Geom_Name(geom),p,"limiter"
+          write (io,900) trim(adjustl(array_name))
+          goto 1002
+        end if
+        !
+        if (.not. allocated(filter(geom,p)%limiter%mat)) then
+          write (array_name,1) Geom_Name(geom),p,"limiter"
+          write (io,901) trim(adjustl(array_name))
+          goto 1002
+        end if
+        !
+        write (io,101) "Limiter",p,trim(Geom_Full_Name(geom))
+        !
+        fmat = filter(geom,p)%limiter%mat(:,:) ! F2003 AUTO-REALLOC
+        !
+        filt_diag = extract_filter_diag(geom,p,fmat) ! F2003 AUTO-REALLOC
+        !
+        ! Write out the filter diagonal and indices
+        !
+        write (io,200)
+        do i = 1,size(filt_diag)
+          write (io,201) filt_diag(i), (idx(j,i), j=1,size(idx,dim=1))
+        end do
+        !
+        ! Write out the actual filter matrix
+        !
+        write (io,300)
+        if (Limiter_Filter_Option == 0) write (io,302)
+        do j = size(fmat,dim=2),1,-1
+          write (io,301) (fmat(i,j), i=1,size(fmat,dim=1))
+        end do
+        !
+        1002 continue
+        !
+        !#################################
+        !#################################
+        !###  Sponge filter
+        !#################################
+        !#################################
+        !
+        io = ios
+        !
+        if (.not. allocated(filter(geom,p)%sponge)) then
+          write (array_name,1) Geom_Name(geom),p,"sponge"
+          write (io,900) trim(adjustl(array_name))
+          goto 1003
+        end if
+        !
+        if (.not. allocated(filter(geom,p)%sponge%mat)) then
+          write (array_name,1) Geom_Name(geom),p,"sponge"
+          write (io,901) trim(adjustl(array_name))
+          goto 1003
+        end if
+        !
+        write (io,101) "Sponge",p,trim(Geom_Full_Name(geom))
+        !
+        fmat = filter(geom,p)%sponge%mat(:,:) ! F2003 AUTO-REALLOC
+        !
+        filt_diag = extract_filter_diag(geom,p,fmat) ! F2003 AUTO-REALLOC
+        !
+        ! Write out the filter diagonal and indices
+        !
+        write (io,200)
+        do i = 1,size(filt_diag)
+          write (io,201) filt_diag(i), (idx(j,i), j=1,size(idx,dim=1))
+        end do
+        !
+        ! Write out the actual filter matrix
+        !
+        write (io,300)
+        if (.not. use_sponge_filter) write (io,302)
+        do j = size(fmat,dim=2),1,-1
+          write (io,301) (fmat(i,j), i=1,size(fmat,dim=1))
+        end do
+        !
+        1003 continue
+        !
+        !#################################
+        !#################################
+        !###  Cutoff filters
+        !#################################
+        !#################################
+        !
+        io = ioc
+        !
+        if (.not. allocated(filter(geom,p)%cutoff)) then
+          write (array_name,1) Geom_Name(geom),p,"cutoff"
+          write (io,900) trim(adjustl(array_name))
+          goto 1004
+        end if
+        !
+        co_loop: &
+        do co = ubound(filter(geom,p)%cutoff,dim=1), &
+                lbound(filter(geom,p)%cutoff,dim=1),-1
+          !
+          if (.not. allocated(filter(geom,p)%cutoff(co)%mat)) then
+            write (array_name,1) Geom_Name(geom),p,"cutoff",co
+            write (io,901) trim(adjustl(array_name))
+            cycle co_loop
+          end if
+          !
+          write (io,102) p+1-co,"Cutoff",p,trim(Geom_Full_Name(geom))
+          !
+          fmat = filter(geom,p)%cutoff(co)%mat(:,:) ! F2003 AUTO-REALLOC
+          !
+          filt_diag = extract_filter_diag(geom,p,fmat) ! F2003 AUTO-REALLOC
+          !
+          ! Write out the filter diagonal and indices
+          !
+          write (io,200)
+          do i = 1,size(filt_diag)
+            write (io,201) filt_diag(i), (idx(j,i), j=1,size(idx,dim=1))
+          end do
+          !
+          ! Write out the actual filter matrix
+          !
+          write (io,300)
+          do j = size(fmat,dim=2),1,-1
+            write (io,301) (fmat(i,j), i=1,size(fmat,dim=1))
+          end do
+          !
+        end do co_loop
+        !
+        1004 continue
+        !
+      end do order_loop
+      !
+    end do geom_loop
+    !
+    ! Close all of the files
+    !
+    flush (iog)
+    close (iog,iostat=ierr,iomsg=error_message)
+    call io_error(pname,gfname,2,__LINE__,__FILE__,ierr,error_message)
+    !
+    flush (iol)
+    close (iol,iostat=ierr,iomsg=error_message)
+    call io_error(pname,lfname,2,__LINE__,__FILE__,ierr,error_message)
+    !
+    flush (ioc)
+    close (ioc,iostat=ierr,iomsg=error_message)
+    call io_error(pname,cfname,2,__LINE__,__FILE__,ierr,error_message)
+    !
+    flush (ios)
+    close (ios,iostat=ierr,iomsg=error_message)
+    call io_error(pname,sfname,2,__LINE__,__FILE__,ierr,error_message)
+    !
+  end if
+  !
+  write (error_message,903)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1   format ("filter(",a,",",i0,")%",a,:,"(",i0,")")
+  100 format (//,3(80("#"),/), &
+              4x,"Filter matrices for ",a," elements",/, &
+              3(80("#"),/),/)
+  101 format (/,80("="),/, &
+              4x,a,1x,"filter for P",i0,1x,a," elements",/, &
+              80("="),/)
+  102 format (/,80("="),/, &
+              4x,"P-",i0,1x,a,1x,"filter for P",i0,1x,a," elements",/, &
+              80("="),/)
+  200 format (2x,"Filter diagonal coefficients with modal indices",/)
+  201 format (4x,es18.10,6x,i2,:,", ",i2,:,", ",i2)
+  300 format (/,80("-"),//,2x,"Actual filter matrix operator",/)
+  301 format (125(2x,es14.6))
+  302 format ("  NOTE: CURRENTLY NOT USED BECAUSE ", &
+              "IT IS TURNED OFF IN THE INPUT FILE!")
+  !
+  900 format ("The filter matrix ---  ",a,"  --- is not allocated")
+  901 format ("The filter matrix ---  ",a,"  --- IS allocated,", &
+              " the %mat array is NOT allocated!")
+  903 format ("AFTER WRITING OUT THE FILTER DIAGONALS ", &
+              "TO 'filter_diagonals.dat'.")
+  !
+end subroutine output_all_filters
+!
+!###############################################################################
+!
+function extract_filter_diag(geom,p,fmat) result(return_value)
+  !
+  ! Function to extract the filter diagonal from the filter matrix
+  !
+  !.. Use Statements ..
+  use vandermonde_mod, only : vand
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: geom
+  integer,  intent(in) :: p
+  real(wp), intent(in) :: fmat(:,:)
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,nsp
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: filt(:,:)
+  !
+continue
+  !
+  nsp = size(fmat,dim=1)
+  !
+  return_value = init_array(nsp,zero) ! F2003 AUTO-REALLOC
+  !
+  filt = matmul(vand(geom,p)%nodal2modal%mat,fmat) ! F2003 AUTO-REALLOC
+  filt(:,:) = matmul(filt,vand(geom,p)%modal2nodal%mat)
+  !
+  do i = 1,nsp
+    return_value(i) = filt(i,i)
+  end do
+  !
+end function extract_filter_diag
+!
+!###############################################################################
+!
+function filt_fname(filt_type) result(return_value)
+  !
+  !.. Use Statements ..
+  use order_mod, only : geom_solpts
+  use ovar,      only : Filter_Alpha,Limiter_Filter_Alpha,Sponge_Filter_Alpha
+  use ovar,      only : Filter_etac, Limiter_Filter_etac, Sponge_Filter_etac
+  use ovar,      only : Filter_order,Limiter_Filter_order,Sponge_Filter_order
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: filt_type
+  !
+  !.. Function Result ..
+  character(len=:), allocatable :: return_value
+  !
+  !.. Local Scalars ..
+  character(len=100) :: fname
+  character(len=:), allocatable :: ftype
+  !
+continue
+  !
+  ftype = trim(adjustl(filt_type)) ! F2003 AUTO-REALLOC
+  !
+  if (uppercase(ftype) == "GLOBAL") then
+    !
+    write (fname,1) ftype,nint(Filter_Alpha),Filter_Order,Filter_etac
+    !
+  else if (uppercase(ftype) == "LIMITER") then
+    !
+    write (fname,1) ftype,nint(Limiter_Filter_Alpha), &
+                    Limiter_Filter_Order,Limiter_Filter_etac
+    !
+  else if (uppercase(ftype) == "SPONGE") then
+    !
+    write (fname,1) ftype,nint(Sponge_Filter_Alpha), &
+                    Sponge_Filter_Order,Sponge_Filter_etac
+    !
+  else if (uppercase(ftype) == "CUTOFF") then
+    !
+    fname = "filter_diagonal.cutoff.dat"
+    !
+  end if
+  !
+  return_value = trim(adjustl(fname)) ! F2003 AUTO-REALLOC
+  !
+  1 format ("filter_diagonal.",a,".a-",i0,"_s-",i0,"_eta-",f4.2,".dat")
+  !
+end function filt_fname
+!
+!###############################################################################
+!
+function get_geom_indices(geom,p) result(return_value)
+  !
+  !.. Use Statements ..
+  use order_mod, only : geom_solpts
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: geom
+  integer, intent(in) :: p
+  !
+  !.. Function Result ..
+  integer, allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,l,nd,nsp
+  !
+continue
+  !
+  nsp = geom_solpts(geom,p)
+  !
+  nd = geom_dimen(geom)
+  !
+  return_value = init_array(nd,nsp,0) ! F2003 AUTO-REALLOC
+  !
+  if (geom == Geom_Edge) then
+    !
+    l = 0
+    do i = 0,p
+      l = l + 1
+      return_value(1:nd,l) = [i]
+    end do
+    !
+  else if (geom == Geom_Quad) then
+    !
+    l = 0
+    do j = 0,p
+      do i = 0,p
+        l = l + 1
+        return_value(1:nd,l) = [i,j]
+      end do
+    end do
+    !
+  else if (geom == Geom_Tria) then
+    !
+    l = 0
+    do j = 0,p
+      do i = 0,p-j
+        l = l + 1
+        return_value(1:nd,l) = [i,j]
+      end do
+    end do
+    !
+  else if (geom == Geom_Tetr) then
+    !
+    l = 0
+    do k = 0,p
+      do j = 0,p-k
+        do i = 0,p-k-j
+          l = l + 1
+          return_value(1:nd,l) = [i,j,k]
+        end do
+      end do
+    end do
+    !
+  else if (geom == Geom_Pyra) then
+    !
+    l = 0
+    do k = 0,p
+      do j = 0,p-k
+        do i = 0,p-k
+          l = l + 1
+          return_value(1:nd,l) = [i,j,k]
+        end do
+      end do
+    end do
+    !
+  else if (geom == Geom_Pris) then
+    !
+    l = 0
+    do k = 0,p
+      do j = 0,p
+        do i = 0,p-j
+          l = l + 1
+          return_value(1:nd,l) = [i,j,k]
+        end do
+      end do
+    end do
+    !
+  else if (geom == Geom_Hexa) then
+    !
+    l = 0
+    do k = 0,p
+      do j = 0,p
+        do i = 0,p
+          l = l + 1
+          return_value(1:nd,l) = [i,j,k]
+        end do
+      end do
+    end do
+    !
+  end if
+  !
+end function get_geom_indices
+!
+!###############################################################################
+!
 subroutine filter_memory_usage(iunit)
   !
   !.. Use Statements ..
