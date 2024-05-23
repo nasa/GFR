@@ -4566,6 +4566,10 @@ subroutine jump_indicator(troubled_cell)
   use element_type_mod, only : std_elem
   use flowvar,          only : facegpsp
   use metrics_mod,      only : facenrm
+  use ovar,             only : dpsi => marker_dpsi
+  use ovar,             only : marker_c1,marker_c2
+  use ovar,             only : Default_Marker_c1_RI,Default_Marker_c2_RI
+  use ovar,             only : Default_Marker_c1_JI,Default_Marker_c2_JI
   !
   !.. Optional Arguments ..
   logical(ldk), optional, intent(inout) :: troubled_cell(:)
@@ -4577,17 +4581,30 @@ subroutine jump_indicator(troubled_cell)
   real(wp) :: ds,rnx,rny,rnz,val,psi0
   real(wp) :: presl,presr,p_jump,area
   real(wp) :: numer,denom,wt
+  real(wp) :: c1,c2
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "jump_indicator"
-  real(wp), parameter :: dpsi = half
-  real(wp), parameter :: c1 = 2.25_wp
-  real(wp), parameter :: c2 = three
   !
   real(wp), parameter :: face_sign(1:2) = [one,-one]
   integer,  parameter :: other_side(1:2) = [2,1]
   !
 continue
+  !
+  ! If the values contained in marker_c1 and marker_c2 are respectively
+  ! the same as Default_Marker_c1_RI and Default_Marker_c2_RI, that means
+  ! the marker values are currently set to the default values for the
+  ! resolution indicator. If this is the case, switch these over to the
+  ! default values for the jump indicator.
+  !
+  if (abs(marker_c1-Default_Marker_c1_RI) <= eps6 .and. &
+      abs(marker_c2-Default_Marker_c2_RI) <= eps6) then
+    c1 = Default_Marker_c1_JI
+    c2 = Default_Marker_c2_JI
+  else
+    c1 = marker_c1
+    c2 = marker_c2
+  end if
   !
   if (.not. allocated(marker)) then
     allocate ( marker(1:ncell) , source=zero , &
