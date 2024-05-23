@@ -301,6 +301,8 @@ subroutine read_nml_input_file(input_fname,input_mode)
   use ovar,   only : disable_cgns_output
   use ovar,   only : output_KEDR
   !
+  use module_limiters, only : get_marker_index, nmarker
+  !
   use quadrature_mod, only : init_geom_quadrature_rules
   use quadrature_mod, only : init_face_quadrature_rules
   !
@@ -763,6 +765,11 @@ continue
       Runge_Kutta_Scheme = -EPERK
     end if
   end if
+  !
+  ! Make sure to set the number of marker values.
+  !
+  nmarker = 999  ! unlimited, to fool function get_marker_index
+  nmarker = get_marker_index(num_rk_stages)
   !
   ! Make sure the initialization and error locations are valid
   !

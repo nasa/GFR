@@ -19,6 +19,7 @@ module module_limiters
   public :: initialize_limiters
   public :: limit_by_projecting
   public :: limiters_memory_usage
+  public :: get_marker_index
   public :: resolution_indicator
   public :: jump_indicator
   public :: check_cell_thermo_properties
@@ -49,8 +50,10 @@ module module_limiters
   !
   !.. Module Public Protected Allocatable Arrays ..
   !
-  real(wp), save, public, protected, allocatable :: marker(:)
-  real(wp), save, public, protected, allocatable :: scaled_marker(:)
+  real(wp), save, public, protected, allocatable :: marker(:,:)
+  real(wp), save, public, protected, allocatable :: scaled_marker(:,:)
+  !> maximum marker index. Is reset after user inputs.
+  integer, public :: nmarker = 1
   !
   !
   !.. Module Parameters ..
@@ -209,13 +212,16 @@ end subroutine moment_limiter
 !
 !###############################################################################
 !
-subroutine limit_by_projecting
+subroutine limit_by_projecting(nst)
   !
   !.. Use Statements ..
   use order_mod, only : n_max_order,n_order
   use flowvar,   only : usp
   use ovar,      only : Limiter_Filter_Option
   use ovar,      only : output_limiter_statistics,nlim
+  !
+  !.. Arguments ..
+  integer, intent(in) :: nst  !< Runge-Kutta stage
   !
   !.. Local Scalars ..
   integer     :: ntc,dropped_orders,ierr
@@ -236,7 +242,7 @@ continue
   ! Initialize the array troubled_cell to identify all troubled cells before
   ! attempting to use the projection limiter.
   !
-  call identify_troubled_cells(troubled_cell,init_troubled_cells, &
+  call identify_troubled_cells(nst,troubled_cell,init_troubled_cells, &
                                there_are_no_troubles)
   !
   if (output_limiter_statistics) then
@@ -297,7 +303,7 @@ continue
     ! Recheck the troubled cells to see if there are no longer
     ! troubled due to the previous projection.
     !
-    call identify_troubled_cells(troubled_cell,dropped_orders, &
+    call identify_troubled_cells(nst,troubled_cell,dropped_orders, &
                                  there_are_no_troubles)
     !
     ! Exit this loop if there are no more troubled cells remaining
@@ -2916,7 +2922,7 @@ end subroutine apply_projct_limiter_to_usp_nd
 !###############################################################################
 !###############################################################################
 !
-subroutine identify_troubled_cells(troubled_cell,dropped_orders, &
+subroutine identify_troubled_cells(nst,troubled_cell,dropped_orders, &
                                    there_are_no_troubles)
   !
   !.. Use Statements ..
@@ -2925,6 +2931,7 @@ subroutine identify_troubled_cells(troubled_cell,dropped_orders, &
   use order_mod, only : p_order,n_order
   !
   !.. Formal Arguments ..
+  integer,         intent(in) :: nst                   !< Runge-Kutta stage
   integer,         intent(in) :: dropped_orders
   logical(lk),    intent(out) :: there_are_no_troubles
   logical(ldk), intent(inout) :: troubled_cell(:)
@@ -2980,10 +2987,10 @@ continue
   if (Limiter_Option == 1) then
    !orders_to_cutoff = proj_order+1
     orders_to_cutoff = proj_order
-    call resolution_indicator(troubled_cell=troubled_cell, &
+    call resolution_indicator(nst=nst,troubled_cell=troubled_cell, &
                               orders_to_cutoff=orders_to_cutoff)
   else
-    call jump_indicator(troubled_cell=troubled_cell)
+    call jump_indicator(nst=nst,troubled_cell=troubled_cell)
   end if
   !
   ord_mlt = 1
@@ -3043,7 +3050,41 @@ end subroutine identify_troubled_cells
 !
 !###############################################################################
 !
-subroutine resolution_indicator(apply_projection,troubled_cell, &
+!> Determine which marker position to fill based on the Runge-Kutta stage
+!> and user output preference.  The returned value is to be used as the
+!> second index to marker(:,:) or scaled_marker(:,:).
+!
+pure function get_marker_index(nst) result(return_value)
+
+  use ovar, only : Limiting_Interval, Limiting_Interval_Output
+
+  integer                       :: return_value
+  integer, optional, intent(in) :: nst           !< Runge-Kutta stage
+
+  integer :: interval
+
+  return_value = 1  ! only one stage is stored (default)
+
+  if ( present(nst) ) then
+    if ( Limiting_Interval_Output == -1 ) then
+      interval = Limiting_Interval         ! mimic limiter interval
+    else
+      interval = Limiting_Interval_Output  ! follow user interval
+    end if
+    !
+    ! Can save the marker each stage only if the limiter is applied each stage.
+    ! Else the marker is only computed once and need only store 1 value.
+    !
+    if ( interval == 0 .and. Limiting_Interval == 0 ) then
+      return_value = min(nst,nmarker)  ! current stage, don't exceed max
+    end if
+  end if
+
+end function get_marker_index
+!
+!###############################################################################
+!
+subroutine resolution_indicator(nst,apply_projection,troubled_cell, &
                                 orders_to_cutoff)
   !
   !.. Use Statements ..
@@ -3054,6 +3095,7 @@ subroutine resolution_indicator(apply_projection,troubled_cell, &
   use ovar,      only : Limiter_Option
   !
   !.. Optional Arguments ..
+  integer,      optional,    intent(in) :: nst              !< Runge-Kutta stage
   logical(lk),  optional,    intent(in) :: apply_projection
   logical(ldk), optional, intent(inout) :: troubled_cell(:)
   integer,      optional,    intent(in) :: orders_to_cutoff
@@ -3062,6 +3104,7 @@ subroutine resolution_indicator(apply_projection,troubled_cell, &
   integer :: n,nc,nr,ord_mlt,ord_add
   integer :: this_order,limit_order
   integer :: num_limited_cells,ierr
+  integer :: imarker
   !
   !.. Local Allocatable Arrays ..
   logical(ldk), allocatable :: skip_cell(:)
@@ -3078,14 +3121,14 @@ continue
   ! if they havent been allocated yet
   !
   if (.not. allocated(marker)) then
-    allocate ( marker(1:ncell) , source=zero , &
+    allocate ( marker(1:ncell,1:nmarker) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"marker",1,__LINE__,__FILE__,ierr,error_message)
     !$ACC UPDATE DEVICE(marker)
   end if
   !
   if (.not. allocated(scaled_marker)) then
-    allocate ( scaled_marker(1:ncell) , source=zero , &
+    allocate ( scaled_marker(1:ncell,1:nmarker) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"scaled_marker",1,__LINE__,__FILE__, &
                      ierr,error_message)
@@ -3162,16 +3205,21 @@ continue
     end if
   end do
   !
+  ! Determine which marker position to fill based on Runge-Kutta stage.
+  !
+  imarker = get_marker_index(nst)
+  !
   ! Use the resolution indicator to compute marker and scaled_marker
   !
-  call compute_resolution_marker(usp,skip_cell,lmtr_order,marker,scaled_marker)
+  call compute_resolution_marker(usp,skip_cell,lmtr_order, &
+                                 marker(:,imarker),scaled_marker(:,imarker))
   !
   ! Update the troubled_cell indicator if it is present
   !
   if (present(troubled_cell)) then
     !$ACC PARALLEL LOOP PRESENT(scaled_marker,troubled_cell,skip_cell)
     do nc = 1,ncell
-      troubled_cell(nc) = (scaled_marker(nc) >= 1.0e-8_wp)
+      troubled_cell(nc) = (scaled_marker(nc,imarker) >= 1.0e-8_wp)
       skip_cell(nc) = .not. troubled_cell(nc)
     end do
   end if
@@ -3212,7 +3260,8 @@ continue
         if (skip_cell(nc)) then
           lmtr_order(nc) = this_order
         else
-          limit_order = int( real(this_order,kind=wp)*(one-scaled_marker(nc)) )
+          limit_order = int( real(this_order,kind=wp) &
+                           * (one-scaled_marker(nc,imarker)) )
           if (this_order <= 1 .or. Limiter_Option == -2) then
             lmtr_order(nc) = max(0,min(this_order,limit_order))
           else
@@ -4559,7 +4608,7 @@ end subroutine res_ind_apply_proj_nd
 !###############################################################################
 !###############################################################################
 !
-subroutine jump_indicator(troubled_cell)
+subroutine jump_indicator(nst,troubled_cell)
   !
   !.. Use Statements ..
   use geovar,           only : nr,ncell,cell,face
@@ -4572,12 +4621,14 @@ subroutine jump_indicator(troubled_cell)
   use ovar,             only : Default_Marker_c1_JI,Default_Marker_c2_JI
   !
   !.. Optional Arguments ..
+  integer,      optional, intent(in)    :: nst              !< Runge-Kutta stage
   logical(ldk), optional, intent(inout) :: troubled_cell(:)
   !
   !.. Local Scalars ..
   integer  :: nc,ncf,nf,k,nfp,f0,ierr
   integer  :: sf,sl,sr
   integer  :: face_geom,face_order
+  integer  :: imarker
   real(wp) :: ds,rnx,rny,rnz,val,psi0
   real(wp) :: presl,presr,p_jump,area
   real(wp) :: numer,denom,wt
@@ -4607,19 +4658,23 @@ continue
   end if
   !
   if (.not. allocated(marker)) then
-    allocate ( marker(1:ncell) , source=zero , &
+    allocate ( marker(1:ncell,1:nmarker) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"marker",1,__LINE__,__FILE__,ierr,error_message)
     !$ACC UPDATE DEVICE(marker)
   end if
   !
   if (.not. allocated(scaled_marker)) then
-    allocate ( scaled_marker(1:ncell) , source=zero , &
+    allocate ( scaled_marker(1:ncell,1:nmarker) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"scaled_marker",1,__LINE__,__FILE__, &
                      ierr,error_message)
     !$ACC UPDATE DEVICE(scaled_marker)
   end if
+  !
+  ! Determine which marker position to fill based on Runge-Kutta stage.
+  !
+  imarker = get_marker_index(nst)
   !
   if (nr == 3) then
     !
@@ -4668,7 +4723,7 @@ continue
         !
       end do
       !
-      marker(nc) = log10( max( val/area , rndoff ) )
+      marker(nc,imarker) = log10( max( val/area , rndoff ) )
       !
     end do
     !
@@ -4716,7 +4771,7 @@ continue
         !
       end do
       !
-      marker(nc) = log10( max( val/area , rndoff ) )
+      marker(nc,imarker) = log10( max( val/area , rndoff ) )
       !
     end do
     !
@@ -4763,7 +4818,7 @@ continue
         !
       end do
       !
-      marker(nc) = log10( max( val/area , rndoff ) )
+      marker(nc,imarker) = log10( max( val/area , rndoff ) )
       !
     end do
     !
@@ -4774,12 +4829,13 @@ continue
     !
     psi0 = -one*(c1 + c2*log10(real(cell(nc)%order,kind=wp)))
     !
-    if (marker(nc) <= psi0-dpsi) then
-      scaled_marker(nc) = zero
-    else if (marker(nc) >= psi0+dpsi) then
-      scaled_marker(nc) = one
+    if      (marker(nc,imarker) <= psi0-dpsi) then
+      scaled_marker(nc,imarker) = zero
+    else if (marker(nc,imarker) >= psi0+dpsi) then
+      scaled_marker(nc,imarker) = one
     else
-      scaled_marker(nc) = half*(one + sin(half*pi*(marker(nc)-psi0)/dpsi))
+      scaled_marker(nc,imarker) = half*( one &
+                                + sin(half*pi*(marker(nc,imarker)-psi0)/dpsi) )
     end if
     !
   end do
@@ -4787,7 +4843,7 @@ continue
   if (present(troubled_cell)) then
     !$ACC PARALLEL LOOP PRESENT(scaled_marker,troubled_cell)
     do nc = 1,ncell
-      troubled_cell(nc) = (scaled_marker(nc) >= 1.0e-8_wp)
+      troubled_cell(nc) = (scaled_marker(nc,imarker) >= 1.0e-8_wp)
     end do
   end if
   !

@@ -555,9 +555,9 @@ continue
       2 format (8x,"Applying Limiter : RK Stage = ",i0)
 #endif
       if (Limiter_Option <= -1) then
-        call resolution_indicator(apply_projection=true)
+        call resolution_indicator(nst=nst,apply_projection=true)
       else if (Limiter_Option >= 1) then
-        call limit_by_projecting
+        call limit_by_projecting(nst=nst)
       end if
     end if
   end if

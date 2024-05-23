@@ -1156,6 +1156,7 @@ subroutine get_num_cgns_variables(char_sname,npvar)
   use ovar,   only : governing_equations
   !
   use metrics_mod, only : time_metrics
+! use module_limiters, only : nmarker
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: char_sname(:)
@@ -1203,9 +1204,9 @@ continue
         npvar = npvar + 1
       end if
   ! else if (trim(char_sname(l)) == "ResolutionMarker") then
-  !   npvar = npvar + 2
+  !   npvar = npvar + 2*nmarker
   ! else if (trim(char_sname(l)) == "JumpMarker") then
-  !   npvar = npvar + 2
+  !   npvar = npvar + 2*nmarker
   ! else if (trim(char_sname(l)) == "TimeMetrics") then
   !   if (allocated(time_metrics)) then
   !     npvar = npvar + nr + 1
@@ -1272,6 +1273,7 @@ subroutine write_field_headers(ifile,ibase,izone,isol,isvar_s, &
   use ovar,   only : profile_io_cgns_subs
   !
   use metrics_mod, only : time_metrics
+! use module_limiters, only : nmarker
   !
   use thermo_mod, only : species_name
   !
@@ -1286,6 +1288,7 @@ subroutine write_field_headers(ifile,ibase,izone,isol,isvar_s, &
   !
   !.. Local Scalars ..
   integer :: i,k,l,n,m
+! integer :: imarker
   !
   character(len=CGLEN) :: varname
   !
@@ -1387,23 +1390,35 @@ continue
       end if
   ! else if (trim(char_sname(k)) == "ResolutionMarker") then
   !   !
-  !   n = n + 1
-  !   varname = trim(char_sname(k))
-  !   call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !   do imarker = 1, nmarker
+  !     n = n + 1
+  !     varname = trim(char_sname(k))
+  !     if ( imarker > 1 ) write(varname,'(a,i2.2)') trim(varname),imarker
+  !     call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !   end do
   !   !
-  !   n = n + 1
-  !   varname = "Scaled"//trim(char_sname(k))
-  !   call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !   do imarker = 1, nmarker
+  !     n = n + 1
+  !     varname = "Scaled"//trim(char_sname(k))
+  !     if ( imarker > 1 ) write(varname,'(a,i2.2)') trim(varname),imarker
+  !     call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !   end do
   !   !
   ! else if (trim(char_sname(k)) == "JumpMarker") then
   !   !
-  !   n = n + 1
-  !   varname = trim(char_sname(k))
-  !   call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !   do imarker = 1, nmarker
+  !     n = n + 1
+  !     varname = trim(char_sname(k))
+  !     if ( imarker > 1 ) write(varname,'(a,i2.2)') trim(varname),imarker
+  !     call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !   end do
   !   !
-  !   n = n + 1
-  !   varname = "Scaled"//trim(char_sname(k))
-  !   call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !   do imarker = 1, nmarker
+  !     n = n + 1
+  !     varname = "Scaled"//trim(char_sname(k))
+  !     if ( imarker > 1 ) write(varname,'(a,i2.2)') trim(varname),imarker
+  !     call cgns_write_field_header(n,varname,isvar_s(n),__LINE__,__FILE__)
+  !   end do
   !   !
   ! else if (trim(char_sname(k)) == "CoMetrics") then
   !!  do m = 1,nr
@@ -1990,7 +2005,7 @@ subroutine get_output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
   use metrics_mod, only : time_metrics,metrics_array,jac
   !
-  use module_limiters, only : marker,scaled_marker
+  use module_limiters, only : marker,scaled_marker,nmarker
   use module_limiters, only : resolution_indicator
   use module_limiters, only : jump_indicator
   use module_limiters, only : deallocate_marker
@@ -2024,6 +2039,7 @@ subroutine get_output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   integer  :: i,j,l,m,n,nc,np,n0,npts,ierr
   integer  :: nmi,nmj,l_comp,l_phys,nvar
   integer  :: this_order,limit_order
+  integer  :: imarker
   real(wp) :: freestream_ref,rhoa,rhoa2,time_ref_inv
   real(wp) :: cp_dim,cond_dim,dim_val
   real(wp) :: rho_inv,vx,vy,vz,a2,q2,s
@@ -3042,56 +3058,62 @@ continue
   !   if (.not. allocated(marker) .or. .not. allocated(scaled_marker)) then
   !     marker_was_not_allocated = ( .not. allocated(marker) )
   !     scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
-  !     call resolution_indicator(apply_projection=fals)
+  !     call resolution_indicator(nst=1,apply_projection=fals)
   !   end if
   !   !
   !   ! Actual resolution marker value
   !   !
-  !   nv = nv + 1
-  !   ivar_s = isvar_s(nv)
-  !   !
-  !   do nc = 1,ncell
-  !     n0 = cell(nc)%beg_sp - 1
-  !     np = cell(nc)%end_sp - n0
-  !     do n = 1,np
-  !       vartmp_at_sp(n0+n) = marker(nc)
+  !   do imarker = 1, marker
+  !     nv = nv + 1
+  !     ivar_s = isvar_s(nv)
+  !     !
+  !     do nc = 1,ncell
+  !       n0 = cell(nc)%beg_sp - 1
+  !       np = cell(nc)%end_sp - n0
+  !       do n = 1,np
+  !         vartmp_at_sp(n0+n) = marker(nc,imarker)
+  !       end do
   !     end do
+  !     !
+  !     call interpolate_for_output( vartmp_at_sp , vartmp )
+  !     !
+  !     call cgns_write_field_data
+  !     !
   !   end do
-  !   !
-  !   call interpolate_for_output( vartmp_at_sp , vartmp )
-  !   !
-  !   call cgns_write_field_data
   !   !
   !   ! Scaled resolution marker value
   !   !
-  !   nv = nv + 1
-  !   ivar_s = isvar_s(nv)
-  !   !
-  !   if (Limiter_Option <= -1) then
-  !     do nc = 1,ncell
-  !       n0 = cell(nc)%beg_sp - 1
-  !       np = cell(nc)%end_sp - n0
-  !       this_order = cell(nc)%order
-  !       limit_order = int( real(this_order,kind=wp) * &
-  !                          (one-scaled_marker(nc)) )
-  !       limit_order = max(1,min(this_order,limit_order))
-  !       do n = 1,np
-  !         vartmp_at_sp(n0+n) = limit_order
+  !   do imarker = 1, marker
+  !     nv = nv + 1
+  !     ivar_s = isvar_s(nv)
+  !     !
+  !     if (Limiter_Option <= -1) then
+  !       do nc = 1,ncell
+  !         n0 = cell(nc)%beg_sp - 1
+  !         np = cell(nc)%end_sp - n0
+  !         this_order = cell(nc)%order
+  !         limit_order = int( real(this_order,kind=wp) * &
+  !                            (one-scaled_marker(nc,imarker)) )
+  !         limit_order = max(1,min(this_order,limit_order))
+  !         do n = 1,np
+  !           vartmp_at_sp(n0+n) = limit_order
+  !         end do
   !       end do
-  !     end do
-  !   else
-  !     do nc = 1,ncell
-  !       n0 = cell(nc)%beg_sp - 1
-  !       np = cell(nc)%end_sp - n0
-  !       do n = 1,np
-  !         vartmp_at_sp(n0+n) = scaled_marker(nc)
+  !     else
+  !       do nc = 1,ncell
+  !         n0 = cell(nc)%beg_sp - 1
+  !         np = cell(nc)%end_sp - n0
+  !         do n = 1,np
+  !           vartmp_at_sp(n0+n) = scaled_marker(nc,imarker)
+  !         end do
   !       end do
-  !     end do
-  !   end if
-  !   !
-  !   call interpolate_for_output( vartmp_at_sp , vartmp )
-  !   !
-  !   call cgns_write_field_data
+  !     end if
+  !     !
+  !     call interpolate_for_output( vartmp_at_sp , vartmp )
+  !     !
+  !     call cgns_write_field_data
+  !     !
+  !   end do
   !   !
   !   ! Deallocate marker and/or scaled_marker if they were not originally
   !   ! allocated when this case construct was entered.
@@ -3117,42 +3139,48 @@ continue
   !   if (Limiter_Option <= 1 .or. &
   !       .not. allocated(marker) .or. &
   !       .not. allocated(scaled_marker)) then
-  !     call jump_indicator
+  !     call jump_indicator(nst=1)
   !   end if
   !   !
   !   ! Actual pressure jump marker value
   !   !
-  !   nv = nv + 1
-  !   ivar_s = isvar_s(nv)
-  !   !
-  !   do nc = 1,ncell
-  !     n0 = cell(nc)%beg_sp - 1
-  !     np = cell(nc)%end_sp - n0
-  !     do n = 1,np
-  !       vartmp_at_sp(n0+n) = marker(nc)
+  !   do imarker = 1, marker
+  !     nv = nv + 1
+  !     ivar_s = isvar_s(nv)
+  !     !
+  !     do nc = 1,ncell
+  !       n0 = cell(nc)%beg_sp - 1
+  !       np = cell(nc)%end_sp - n0
+  !       do n = 1,np
+  !         vartmp_at_sp(n0+n) = marker(nc,imarker)
+  !       end do
   !     end do
+  !     !
+  !     call interpolate_for_output( vartmp_at_sp , vartmp )
+  !     !
+  !     call cgns_write_field_data
+  !     !
   !   end do
-  !   !
-  !   call interpolate_for_output( vartmp_at_sp , vartmp )
-  !   !
-  !   call cgns_write_field_data
   !   !
   !   ! Scaled pressure jump marker value
   !   !
-  !   nv = nv + 1
-  !   ivar_s = isvar_s(nv)
-  !   !
-  !   do nc = 1,ncell
-  !     n0 = cell(nc)%beg_sp - 1
-  !     np = cell(nc)%end_sp - n0
-  !     do n = 1,np
-  !       vartmp_at_sp(n0+n) = scaled_marker(nc)
+  !   do imarker = 1, marker
+  !     nv = nv + 1
+  !     ivar_s = isvar_s(nv)
+  !     !
+  !     do nc = 1,ncell
+  !       n0 = cell(nc)%beg_sp - 1
+  !       np = cell(nc)%end_sp - n0
+  !       do n = 1,np
+  !         vartmp_at_sp(n0+n) = scaled_marker(nc,imarker)
+  !       end do
   !     end do
+  !     !
+  !     call interpolate_for_output( vartmp_at_sp , vartmp )
+  !     !
+  !     call cgns_write_field_data
+  !     !
   !   end do
-  !   !
-  !   call interpolate_for_output( vartmp_at_sp , vartmp )
-  !   !
-  !   call cgns_write_field_data
   !   !!}}}
   ! case ("Partition")
   !   !!{{{
