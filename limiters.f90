@@ -4562,7 +4562,226 @@ end subroutine res_ind_apply_proj_nd
 subroutine jump_indicator(troubled_cell)
   !
   !.. Use Statements ..
-  use geovar,           only : nr,n_flxpts,ncell,cell,nface,face
+  use geovar,           only : nr,ncell,cell,face
+  use element_type_mod, only : std_elem
+  use flowvar,          only : facegpsp
+  use metrics_mod,      only : facenrm
+  !
+  !.. Optional Arguments ..
+  logical(ldk), optional, intent(inout) :: troubled_cell(:)
+  !
+  !.. Local Scalars ..
+  integer  :: nc,ncf,nf,k,nfp,f0,ierr
+  integer  :: sf,sl,sr
+  integer  :: face_geom,face_order
+  real(wp) :: ds,rnx,rny,rnz,val,psi0
+  real(wp) :: presl,presr,p_jump,area
+  real(wp) :: numer,denom,wt
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "jump_indicator"
+  real(wp), parameter :: dpsi = half
+  real(wp), parameter :: c1 = 2.25_wp
+  real(wp), parameter :: c2 = three
+  !
+  real(wp), parameter :: face_sign(1:2) = [one,-one]
+  integer,  parameter :: other_side(1:2) = [2,1]
+  !
+continue
+  !
+  if (.not. allocated(marker)) then
+    allocate ( marker(1:ncell) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"marker",1,__LINE__,__FILE__,ierr,error_message)
+    !$ACC UPDATE DEVICE(marker)
+  end if
+  !
+  if (.not. allocated(scaled_marker)) then
+    allocate ( scaled_marker(1:ncell) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"scaled_marker",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+    !$ACC UPDATE DEVICE(scaled_marker)
+  end if
+  !
+  if (nr == 3) then
+    !
+    do nc = 1,ncell
+      !
+      val = zero
+      area = zero
+      !
+      do ncf = 1,size(cell(nc)%face)
+        !
+        nf = cell(nc)%face(ncf)%idx
+        sf = cell(nc)%face(ncf)%side
+        !
+        sl = sf
+        sr = other_side(sl)
+        !
+        face_geom = face(nf)%geom
+        face_order = face(nf)%order
+        !
+        f0 = face(nf)%beg_fp - 1
+        nfp = face(nf)%end_fp - f0
+        !
+        do k = 1,nfp
+          !
+          rnx = facenrm(1,f0+k)*face_sign(sl)
+          rny = facenrm(2,f0+k)*face_sign(sl)
+          rnz = facenrm(3,f0+k)*face_sign(sl)
+          ds = sqrt(rnx*rnx + rny*rny + rnz*rnz)
+          !
+          presl = facegpsp(f0+k,npres,sl)
+          presr = facegpsp(f0+k,npres,sr)
+          !
+          p_jump = presl - presr
+          !
+          numer = rnx*abs(p_jump*rnx) + &
+                  rny*abs(p_jump*rny) + &
+                  rnz*abs(p_jump*rnz)
+          denom = half*(presl + presr)
+          !
+          wt = std_elem(face_geom,face_order)%wts(k)
+          !
+          val = val + wt*numer/denom
+          area = area + wt*ds
+          !
+        end do
+        !
+      end do
+      !
+      marker(nc) = log10( max( val/area , rndoff ) )
+      !
+    end do
+    !
+  else if (nr == 2) then
+    !
+    do nc = 1,ncell
+      !
+      val = zero
+      area = zero
+      !
+      do ncf = 1,size(cell(nc)%face)
+        !
+        nf = cell(nc)%face(ncf)%idx
+        sf = cell(nc)%face(ncf)%side
+        !
+        sl = sf
+        sr = other_side(sl)
+        !
+        face_geom = face(nf)%geom
+        face_order = face(nf)%order
+        !
+        f0 = face(nf)%beg_fp - 1
+        nfp = face(nf)%end_fp - f0
+        !
+        do k = 1,nfp
+          !
+          rnx = facenrm(1,f0+k)*face_sign(sl)
+          rny = facenrm(2,f0+k)*face_sign(sl)
+          ds = sqrt(rnx*rnx + rny*rny)
+          !
+          presl = facegpsp(f0+k,npres,sl)
+          presr = facegpsp(f0+k,npres,sr)
+          !
+          p_jump = presl - presr
+          !
+          numer = rnx*abs(p_jump*rnx) + rny*abs(p_jump*rny)
+          denom = half*(presl + presr)
+          !
+          wt = std_elem(face_geom,face_order)%wts(k)
+          !
+          val = val + wt*numer/denom
+          area = area + wt*ds
+          !
+        end do
+        !
+      end do
+      !
+      marker(nc) = log10( max( val/area , rndoff ) )
+      !
+    end do
+    !
+  else
+    !
+    do nc = 1,ncell
+      !
+      val = zero
+      area = zero
+      !
+      do ncf = 1,size(cell(nc)%face)
+        !
+        nf = cell(nc)%face(ncf)%idx
+        sf = cell(nc)%face(ncf)%side
+        !
+        sl = sf
+        sr = other_side(sl)
+        !
+        face_geom = face(nf)%geom
+        face_order = face(nf)%order
+        !
+        f0 = face(nf)%beg_fp - 1
+        nfp = face(nf)%end_fp - f0
+        !
+        do k = 1,nfp
+          !
+          rnx = facenrm(1,f0+k)*face_sign(sl)
+          ds = sqrt(rnx*rnx)
+          !
+          presl = facegpsp(f0+k,npres,sl)
+          presr = facegpsp(f0+k,npres,sr)
+          !
+          p_jump = presl - presr
+          !
+          numer = rnx*abs(p_jump*rnx)
+          denom = half*(presl + presr)
+          !
+          wt = std_elem(face_geom,face_order)%wts(k)
+          !
+          val = val + wt*numer/denom
+          area = area + wt*ds
+          !
+        end do
+        !
+      end do
+      !
+      marker(nc) = log10( max( val/area , rndoff ) )
+      !
+    end do
+    !
+  end if
+  !
+  !$ACC PARALLEL LOOP PRESENT(cell,marker,scaled_marker)
+  do nc = 1,ncell
+    !
+    psi0 = -one*(c1 + c2*log10(real(cell(nc)%order,kind=wp)))
+    !
+    if (marker(nc) <= psi0-dpsi) then
+      scaled_marker(nc) = zero
+    else if (marker(nc) >= psi0+dpsi) then
+      scaled_marker(nc) = one
+    else
+      scaled_marker(nc) = half*(one + sin(half*pi*(marker(nc)-psi0)/dpsi))
+    end if
+    !
+  end do
+  !
+  if (present(troubled_cell)) then
+    !$ACC PARALLEL LOOP PRESENT(scaled_marker,troubled_cell)
+    do nc = 1,ncell
+      troubled_cell(nc) = (scaled_marker(nc) >= 1.0e-8_wp)
+    end do
+  end if
+  !
+end subroutine jump_indicator
+!
+!###############################################################################
+!
+subroutine old_jump_indicator(troubled_cell)
+  !
+  !.. Use Statements ..
+  use geovar,           only : nr,ncell,cell,nface,face
   use element_type_mod, only : std_elem
   use flowvar,          only : facegpsp
   use metrics_mod,      only : facenrm
@@ -4581,7 +4800,7 @@ subroutine jump_indicator(troubled_cell)
   real(wp), allocatable :: pres_jump(:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "jump_indicator"
+  character(len=*), parameter :: pname = "old_jump_indicator"
   real(wp), parameter :: dpsi = half
   real(wp), parameter :: c1 = 2.25_wp
   real(wp), parameter :: c2 = three
@@ -4759,7 +4978,7 @@ continue
     end do
   end if
   !
-end subroutine jump_indicator
+end subroutine old_jump_indicator
 !
 !###############################################################################
 !###############################################################################
