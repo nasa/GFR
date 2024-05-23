@@ -4624,12 +4624,13 @@ subroutine jump_indicator(nst,troubled_cell)
   !.. Use Statements ..
   use geovar,           only : nr,ncell,cell,face
   use element_type_mod, only : std_elem
-  use flowvar,          only : facegpsp
+  use flowvar,          only : facegpsp,faceusp
   use metrics_mod,      only : facenrm
   use ovar,             only : dpsi => marker_dpsi
   use ovar,             only : marker_c1,marker_c2
   use ovar,             only : Default_Marker_c1_RI,Default_Marker_c2_RI
   use ovar,             only : Default_Marker_c1_JI,Default_Marker_c2_JI
+  use ovar,             only : ji_gwt,ji_uwt,ji_gvar,ji_uvar
   !
   !.. Optional Arguments ..
   integer,      optional, intent(in)    :: nst              !< Runge-Kutta stage
@@ -4641,7 +4642,7 @@ subroutine jump_indicator(nst,troubled_cell)
   integer  :: face_geom,face_order
   integer  :: imarker
   real(wp) :: ds,rnx,rny,rnz,val,psi0
-  real(wp) :: presl,presr,p_jump,area
+  real(wp) :: vall,valr,area
   real(wp) :: numer,denom,wt
   real(wp) :: c1,c2
   !
@@ -4715,16 +4716,13 @@ continue
           rnz = facenrm(3,f0+k)*face_sign(sl)
           ds = sqrt(rnx*rnx + rny*rny + rnz*rnz)
           !
-          presl = facegpsp(f0+k,npres,sl)
-          presr = facegpsp(f0+k,npres,sr)
+          vall = ji_gwt *      facegpsp(f0+k,ji_gvar,sl) &
+               + ji_uwt * faceusp(f0+k,ji_uvar,sl)
+          valr = ji_gwt *      facegpsp(f0+k,ji_gvar,sr) &
+               + ji_uwt * faceusp(f0+k,ji_uvar,sr)
           !
-          p_jump = presl - presr
-          !
-!         numer = rnx*abs(p_jump*rnx) + &
-!                 rny*abs(p_jump*rny) + &
-!                 rnz*abs(p_jump*rnz)
-          numer = abs(p_jump) * ds
-          denom = half*(presl + presr)
+          numer = abs( vall - valr ) * ds
+          denom =    ( vall + valr ) * half
           !
           wt = std_elem(face_geom,face_order)%wts(k)
           !
@@ -4766,14 +4764,13 @@ continue
           rny = facenrm(2,f0+k)*face_sign(sl)
           ds = sqrt(rnx*rnx + rny*rny)
           !
-          presl = facegpsp(f0+k,npres,sl)
-          presr = facegpsp(f0+k,npres,sr)
+          vall = ji_gwt *      facegpsp(f0+k,ji_gvar,sl) &
+               + ji_uwt * faceusp(f0+k,ji_uvar,sl)
+          valr = ji_gwt *      facegpsp(f0+k,ji_gvar,sr) &
+               + ji_uwt * faceusp(f0+k,ji_uvar,sr)
           !
-          p_jump = presl - presr
-          !
-!         numer = rnx*abs(p_jump*rnx) + rny*abs(p_jump*rny)
-          numer = abs(p_jump) * ds
-          denom = half*(presl + presr)
+          numer = abs( vall - valr ) * ds
+          denom =    ( vall + valr ) * half
           !
           wt = std_elem(face_geom,face_order)%wts(k)
           !
@@ -4814,14 +4811,13 @@ continue
           rnx = facenrm(1,f0+k)*face_sign(sl)
           ds = sqrt(rnx*rnx)
           !
-          presl = facegpsp(f0+k,npres,sl)
-          presr = facegpsp(f0+k,npres,sr)
+          vall = ji_gwt *      facegpsp(f0+k,ji_gvar,sl) &
+               + ji_uwt * faceusp(f0+k,ji_uvar,sl)
+          valr = ji_gwt *      facegpsp(f0+k,ji_gvar,sr) &
+               + ji_uwt * faceusp(f0+k,ji_uvar,sr)
           !
-          p_jump = presl - presr
-          !
-!         numer = rnx*abs(p_jump*rnx)
-          numer = abs(p_jump) * ds
-          denom = half*(presl + presr)
+          numer = abs( vall - valr ) * ds
+          denom =    ( vall + valr ) * half
           !
           wt = std_elem(face_geom,face_order)%wts(k)
           !
