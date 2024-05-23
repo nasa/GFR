@@ -88,8 +88,6 @@ module filter_mod
   !
   !-----------------------------------------------------------------------------
   !
-  integer, save :: io
-  !
 contains
 !
 !###############################################################################
@@ -97,34 +95,25 @@ contains
 subroutine init_filter_matrices()
   !
   !.. Use Statements ..
-  use ovar,            only : output_filter_diagonals
-  use ovar,            only : use_sponge_filter
-  use order_mod,       only : geom_solpts
-  use order_mod,       only : n_min_geom,n_max_geom
-  use order_mod,       only : n_min_order,n_max_order
-  use order_mod,       only : geom_is_used
-  use vandermonde_mod, only : vand
+  use ovar,      only : output_filter_diagonals
+  use order_mod, only : geom_solpts
+  use order_mod, only : n_min_geom,n_max_geom
+  use order_mod, only : n_min_order,n_max_order
+  use order_mod, only : geom_is_used
   !
   !.. Local Scalars ..
   integer :: ierr,gmin,gmax,omin,omax
-  integer :: this_geom,this_order,npts
-  integer :: cutoff_order,i,j
+  integer :: this_geom,this_order
+  integer :: cutoff_order
   character(len=200) :: array_name
   character(len=300) :: timer_message
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_filter_matrices"
-  character(len=*), parameter :: fname = "filter_diagonals.dat"
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
-  !
-  if (output_filter_diagonals .and. mypnum == glb_root) then
-    open (newunit=io,file=fname,status="replace",action="write", &
-                     iostat=ierr,iomsg=error_message)
-    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
-  end if
   !
   ! Allocate the filter array
   !
@@ -143,10 +132,6 @@ continue
     if (this_geom == Geom_Node) cycle geom_loop
     !
     order_loop: do this_order = omin,omax
-      !
-      ! Get the number of solution points for this cell
-      !
-      npts = geom_solpts(this_geom,this_order)
       !
       ! ###################################
       ! #####  1. Exponential Filter  #####
@@ -171,17 +156,6 @@ continue
         call create_exp_filter_matrix(this_geom,this_order, &
                        Filter_Option,Filter_etac,Filter_Order,Filter_alpha, &
                        global_filt,filter(this_geom,this_order)%exponential%mat)
-        !
-        ! Write out the filter diagonals if requested
-        !
-        if (output_filter_diagonals .and. mypnum == glb_root) then
-          write (io,800) trim(Geom_Full_Name(this_geom)), " Global Filter"
-          if (Filter_Option == 0) write (io,802)
-          do j = npts,1,-1
-            write (io,801) (filter(this_geom,this_order)% &
-                                             exponential%mat(i,j), i=1,npts)
-          end do
-        end if
         !
 #ifdef SPECIAL_OUTPUT_SPARSITY
         ! Output the sparsity if requested
@@ -220,19 +194,6 @@ continue
                        Limiter_Filter_Order,Limiter_Filter_alpha, &
                        limiter_filt,filter(this_geom,this_order)%limiter%mat)
         !
-        ! Write out the filter diagonals if requested
-        !
-        if (output_filter_diagonals .and. mypnum == glb_root) then
-          !
-          write (io,800) trim(Geom_Full_Name(this_geom)), "Limiter Filter"
-          if (Limiter_Filter_Option == 0) write (io,802)
-          do j = npts,1,-1
-            write (io,801) (filter(this_geom,this_order)% &
-                                                 limiter%mat(i,j), i=1,npts)
-          end do
-          !
-        end if
-        !
 #ifdef SPECIAL_OUTPUT_SPARSITY
         ! Output the sparsity if requested
         !
@@ -263,39 +224,11 @@ continue
                     "  ;  Cutoff Order = ",i0)
         call debug_timer(start_timer,timer_message)
         !
-        ! Special cutoff filter for an edge element using cutoff_order+1
-        ! NOTE: This will be replaced with the cutoff filter using cutoff_order
-        !
-        if (output_filter_diagonals .and. mypnum == glb_root) then
-          if (cutoff_order == this_order .and. this_geom == Geom_Edge) then
-            ! F2003 AUTO-REALLOC
-            filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
-                       create_cutoff_filter(this_geom,this_order,cutoff_order+1)
-            write (io,800) trim(Geom_Full_Name(this_geom)), "Cutoff Filter",&
-                           " for P-",this_order+1-(cutoff_order+1)
-            do j = npts,1,-1
-              write (io,801) (filter(this_geom,this_order)% &
-                                      cutoff(cutoff_order)%mat(i,j), i=1,npts)
-            end do
-          end if
-        end if
-        !
         ! Compute the cutoff filter of order cutoff_order
         !
         ! F2003 AUTO-REALLOC
         filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
                          create_cutoff_filter(this_geom,this_order,cutoff_order)
-        !
-        ! Write out the filter diagonals if requested
-        !
-        if (output_filter_diagonals .and. mypnum == glb_root) then
-          write (io,800) trim(Geom_Full_Name(this_geom)), "Cutoff Filter",&
-                         " for P-",this_order+1-cutoff_order
-          do j = npts,1,-1
-            write (io,801) (filter(this_geom,this_order)% &
-                                    cutoff(cutoff_order)%mat(i,j), i=1,npts)
-          end do
-        end if
         !
 #ifdef SPECIAL_OUTPUT_SPARSITY
         ! Output the sparsity if requested
@@ -331,19 +264,6 @@ continue
                  1,Sponge_Filter_etac,Sponge_Filter_Order,Sponge_Filter_alpha, &
                  sponge_filt,filter(this_geom,this_order)%sponge%mat)
       !
-      ! Write out the filter diagonals if requested
-      !
-      if (output_filter_diagonals .and. mypnum == glb_root) then
-        !
-        write (io,800) trim(Geom_Full_Name(this_geom)), "Sponge Filter"
-        if (.not. use_sponge_filter) write (io,802)
-        do j = npts,1,-1
-          write (io,801) (filter(this_geom,this_order)% &
-                                                sponge%mat(i,j), i=1,npts)
-        end do
-        !
-      end if
-      !
 #ifdef SPECIAL_OUTPUT_SPARSITY
       ! Output the sparsity if requested
       !
@@ -357,16 +277,6 @@ continue
     end do order_loop
     !
   end do geom_loop
-  !
-  if (output_filter_diagonals) then
-    if (mypnum == glb_root) then
-      flush (io)
-      close (io,iostat=ierr,iomsg=error_message)
-      call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
-    end if
-    write (error_message,803)
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-  end if
   !
   ! Check for sparsity
   !
@@ -406,6 +316,10 @@ continue
       end if
     end do
   end do
+  !
+  if (output_filter_diagonals) then
+    call output_all_filters
+  end if
   !
   call debug_timer(leaving_procedure,pname)
   !
