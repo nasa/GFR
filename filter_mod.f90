@@ -1579,6 +1579,214 @@ end function FilterMatrix_Quad
 !
 !###############################################################################
 !
+function FilterMatrix_Quad_with_output(vand,vand_inv,cutoff_order) result(return_value)
+  !
+  ! Routine to compute the spectral filter matrices
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: vand
+  real(wp), dimension(:,:), intent(in) :: vand_inv
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: cutoff_order
+  !
+  !.. Function Return Value ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,np,nsp,order
+  integer  :: Filter_Cutoff,ierr
+  integer  :: local_Filter_Option
+  integer  :: filt_order
+  real(qp) :: rd_qp,fetac_qp
+  real(qp) :: rn_qp,falpha_qp
+  real(qp) :: feps_qp
+  !
+  !.. Local Arrays ..
+  real(qp), allocatable :: filter_1D_qp(:)
+  real(qp), allocatable :: fmat_qp(:,:)
+  !
+continue
+  !
+  ! Get the number of solution points
+  !
+  nsp = size(vand,dim=1)
+  order = solpts2order_quad(nsp)
+  np = order+1
+ !np = nint( sqrt(real(nsp,kind=wp)) )
+ !order = np-1
+  !
+  ! Covert Filter_Alpha and Filter_etac to quad precision
+  !
+  falpha_qp = real( Filter_Alpha , kind=qp )
+  !
+  filt_order = Filter_Order
+  !
+  if (present(cutoff_order)) then
+    if (cutoff_order >= 0) then
+      local_Filter_Option = Cutoff_Filter_Option
+      i = merge(2,1,local_Filter_Option==2)
+      Filter_Cutoff = i*cutoff_order
+      fetac_qp = real(Filter_Cutoff,kind=qp) / real(i*order,kind=qp)
+      feps_qp = qzero
+    else if (cutoff_order == -2) then
+      fetac_qp = real( Sponge_Filter_etac , kind=qp )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Sponge_Filter_etac)) * &
+                        real(order,kind=wp) )
+      local_Filter_Option = 1
+      feps_qp = qone
+      falpha_qp = real( Sponge_Filter_Alpha , kind=qp )
+      filt_order = Sponge_Filter_Order
+    else
+      fetac_qp = real( Limiter_Filter_etac , kind=qp )
+      Filter_Cutoff = int_cutoff_function( &
+                        max(zero,min(one,Limiter_Filter_etac)) * &
+                        real(order,kind=wp) )
+      local_Filter_Option = Limiter_Filter_Option
+      feps_qp = real( one - Limiter_Filter_eps , kind=qp )
+      falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
+      filt_order = Limiter_Filter_Order
+    end if
+  else
+    fetac_qp  = real( Filter_etac , kind=qp )
+    Filter_Cutoff = int_cutoff_function( &
+                      max(zero,min(one,Filter_etac)) * &
+                      real(order,kind=wp) )
+    local_Filter_Option = Filter_Option
+    feps_qp = real( one - Filter_eps , kind=qp )
+  end if
+  !
+  ! Allocate the return array containing the working
+  ! precision filter matrix
+  !
+  allocate ( return_value(1:nsp,1:nsp) , source=zero , stat=ierr )
+  !
+  ! Create the filter matrix using quad precision
+  !
+  allocate ( fmat_qp(1:nsp,1:nsp) , source=qzero , stat=ierr )
+  !
+  ! Initialize the local filter matrices to identity matrices
+  !
+  do i = 1,nsp
+    fmat_qp(i,i) = qone
+  end do
+  !
+  ! Compute the filter diagonal for quadrilaterals
+  !
+  if (local_Filter_Option == 1) then
+    !
+    ! Option 1 - Tensor product of the 1D filter
+    !           (Equivalent to using a 1D filter in each direction)
+    !
+    ! Allocate the 1D filter vector and set all its values to one
+    !
+    allocate ( filter_1D_qp(1:np) , source=qone , stat=ierr )
+    !
+    ! First get the 1D filter diagonal
+    !
+    do i = 0,order
+      if (i >= Filter_Cutoff) then
+        !
+        rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
+        rd_qp = max( qzero , qone - fetac_qp )
+        !
+        if (rd_qp == qzero) then
+          filter_1D_qp(i+1) = feps_qp
+        else
+          filter_1D_qp(i+1) = feps_qp * &
+                              exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
+        end if
+        !
+      end if
+    end do
+    !
+    ! Now fill the filter diagonal for quads
+    !
+    do j = 0,order
+      do i = 0,order
+        !
+        k = np*j + i + 1
+        !
+        fmat_qp(k,k) = filter_1D_qp(i+1)*filter_1D_qp(j+1)
+        !
+      end do
+    end do
+    !
+  else if (local_Filter_Option == 2) then
+    !
+    ! Option 2 - The quad basis functions actually contains cross polynomial
+    !            terms up to order 2*p (as opposed to just 1*p for triangles).
+    !            This filter applies the cut-off frequency based on 2*p as
+    !            opposed to basing it on just p in 1D like Option 1.
+    !
+    do i = 0,order
+      do j = 0,order
+        !
+        if (i+j >= Filter_Cutoff) then
+          !
+          k = np*j + i + 1
+          !
+          rn_qp = real(i+j-Filter_Cutoff,kind=qp)
+          rd_qp = max( qzero , real(2*order-Filter_Cutoff,kind=qp) )
+          !
+          if (rd_qp == qzero) then
+            fmat_qp(k,k) = feps_qp
+          else
+            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
+          end if
+          !
+        end if
+        !
+      end do
+    end do
+    !
+  end if
+  !
+  if (local_Filter_Option /= 0) then
+    !
+    if (mypnum == glb_root) then
+      if (present(cutoff_order)) then
+        if (cutoff_order == -1) then
+          write (io,102)
+          102 format (/,"Diagonal for quad limiter filter")
+        else
+          write (io,104) order+1-(Filter_cutoff)
+          104 format (/,"1D Diagonal for quad cutoff filter for P-",i0)
+          write (io,105) (filter_1d_qp(i),i=1,order+1)
+          105 format (100(2x,es14.6,:))
+          write (io,101) order+1-(Filter_cutoff)
+          101 format (/,"Diagonal for quad cutoff filter for P-",i0)
+        end if
+      else
+        write (io,103)
+        103 format (/,"Diagonal for quad standard filter")
+      end if
+      do j = 0,order
+        do i = 0,order
+          k = np*j + i + 1
+          write (io,100) i,j,fmat_qp(k,k)
+        end do
+      end do
+      100 format (2x,i2,1x,i2,4x,es14.6)
+    end if
+    !
+  end if
+  !
+  ! Compute the final filter matrix for quadrilaterals
+  !
+  fmat_qp = matmul( real(vand,kind=qp) , fmat_qp )
+  fmat_qp = matmul( fmat_qp , real(vand_inv,kind=qp) )
+  !
+  ! Use the chop function to copy fmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( fmat_qp )
+  !
+end function FilterMatrix_Quad_with_output
+!
+!###############################################################################
+!
 #ifndef DISABLE_PURE
 pure &
 #endif
