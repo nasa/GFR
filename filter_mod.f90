@@ -1923,7 +1923,7 @@ continue
         !
         if (i+j >= Filter_Cutoff) then
           !
-          rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
+          rn_qp = real(i+j,kind=qp)/real(order,kind=qp) - fetac_qp
           rd_qp = max( qzero , qone - fetac_qp )
           !
           if (rd_qp == qzero) then
@@ -2059,7 +2059,7 @@ continue
           !
           if (i+j+k >= Filter_Cutoff) then
             !
-            rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
+            rn_qp = real(i+j+k,kind=qp)/real(order,kind=qp) - fetac_qp
             rd_qp = max( qzero , qone - fetac_qp )
             !
             if (rd_qp == qzero) then
@@ -2196,7 +2196,7 @@ continue
           !
           if (i+j+k >= Filter_Cutoff) then
             !
-            rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
+            rn_qp = real(i+j+k,kind=qp)/real(order,kind=qp) - fetac_qp
             rd_qp = max( qzero , qone - fetac_qp )
             !
             if (rd_qp == qzero) then
@@ -2333,7 +2333,7 @@ continue
           !
           if (i+j+k >= Filter_Cutoff) then
             !
-            rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
+            rn_qp = real(i+j+k,kind=qp)/real(order,kind=qp) - fetac_qp
             rd_qp = max( qzero , qone - fetac_qp )
             !
             if (rd_qp == qzero) then
