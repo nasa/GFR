@@ -1711,7 +1711,7 @@ subroutine check_final_time(dtmin,dt_sp,final_timestep_from_stop_request, &
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : itcur,time,Final_Time,time_ref
+  use ovar,    only : itcur,time,Final_Time,time_ref,time_scaling_factor
   use ovar,    only : this_is_final_timestep ! modified
   !
   !.. Formal Arguments ..
@@ -1742,7 +1742,7 @@ continue
   !
   if (Final_Time > zero) then
     !
-    chk_time = Final_Time/time_ref + eps9
+    chk_time = (Final_Time/time_scaling_factor)/time_ref + eps9
     !
     ichk = check_against_ideal_time(time,dtmin,chk_time)
     !
@@ -1756,13 +1756,13 @@ continue
       !
       reset_dtsp = true
       !
-      dtmin = Final_Time/time_ref - time
+      dtmin = (Final_Time/time_scaling_factor)/time_ref - time
       !
     else if (ichk == 2) then
       !
       reset_dtsp = true
       !
-      dtmin = half * (Final_Time/time_ref - time)
+      dtmin = half * ((Final_Time/time_scaling_factor)/time_ref - time)
       !
     end if
     !
