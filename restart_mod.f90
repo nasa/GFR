@@ -75,8 +75,12 @@ module restart_mod
   character(len=170), save :: rstfname_fmt
   character(len=170), save :: tafname_fmt
   character(len=170), save :: tadonefname_fmt
+  character(len=170), save :: taiterlk_fmt
+  character(len=170), save :: rmtalink_fmt
   !
   integer, save :: averaging_file_switch = 1
+  !
+  integer, allocatable, save :: output_iterations(:)
   !
   _MPI_DATA_TYPE_, save :: read_type
   _MPI_DATA_TYPE_, save :: read_block_type
@@ -3406,6 +3410,8 @@ subroutine write_time_averaged_solution(itnum,ordered_geom,int_header, &
   use ovar,    only : time,prev_ave_time,ave_start_time,itcur,rl2mx
   use ovar,    only : restart_output_uses_host_roots
   use ovar,    only : max_time_ave_rst_wall_time
+  use ovar,    only : num_saved_time_ave_restarts
+  use ovar,    only : is_at_restart_frequency
   use flowvar, only : uavesp,time_ave_variables
   !
   !.. Formal Arguments ..
@@ -3426,7 +3432,9 @@ subroutine write_time_averaged_solution(itnum,ordered_geom,int_header, &
   character(len=100) :: fname
   character(len=200) :: fullname
   character(len=100) :: statfile
-  character(len=300) :: command
+  character(len=300) :: link_current_command
+  character(len=300) :: link_iter_command
+  character(len=300) :: rm_iter_link_command
   character(len=300) :: cmndmsg
   !
   _MPI_COMM_TYPE_ :: timeave_comm
@@ -3458,6 +3466,9 @@ continue
       call get_time_ave_mpi_datatypes
     end if
     !
+    ! F2003 AUTO-REALLOC
+    output_iterations = init_array(num_saved_time_ave_restarts,0)
+    !
     ! Unset the restart initialization flag since this has now been done
     !
     time_ave_needs_initialization = fals
@@ -3471,16 +3482,35 @@ continue
   !
   ! Get the name for the current time averaged solution file
   !
+  ! RDIR = trim(adjustl(restart_dir))
+  ! FID = final_iter_digits = # of digits for itrst + num_timesteps
+  ! TAD = time_ave_digits   = # of digits for averaging_file_switch
+  !
+  ! tafname_fmt     =      "('out.',i0.TAD,a,'.ave')"
+  ! tafile_fmt      = "('RDIR/out.',i0.TAD,a,'.ave')"
+  ! tadonefname_fmt =      "('out.',i0.FID,a,'.ave')"
+  ! tadone_fmt      = "('RDIR/out.',i0.FID,a,'.ave')"
+  !
   if (itnum > 0) then
-    write (fname,tafname_fmt) averaging_file_switch,""
-    write (fullname,tafile_fmt) averaging_file_switch,""
-    write (command,talink_fmt) averaging_file_switch,""
-    write (statfile,tastat_fmt) averaging_file_switch,""
+    if (is_at_restart_frequency) then
+      write (fname,tadonefname_fmt) itcur,""   ! file name only
+      write (fullname,tadone_fmt) itcur,""     ! file with path
+      write (link_current_command,talkdn_fmt) itcur,""
+      write (statfile,tadone_fmt) itcur,""
+      statfile = trim(adjustl(statfile)) // ".stat"
+    else
+      write (fname,tafname_fmt) averaging_file_switch,""   ! file name only
+      write (fullname,tafile_fmt) averaging_file_switch,"" ! file with path
+      write (link_current_command,talink_fmt) averaging_file_switch,""
+      write (statfile,tastat_fmt) averaging_file_switch,""
+    end if
   else
     write (fname,tadonefname_fmt) itcur,".done"
     write (fullname,tadone_fmt) itcur,".done"
-    write (command,talkdn_fmt) itcur,".done"
-    write (statfile,tastat_fmt) itcur,".done"
+    write (link_current_command,talkdn_fmt) itcur,".done"
+   !write (statfile,tastat_fmt) itcur,".done"
+    write (statfile,tadone_fmt) itcur,".done"
+    statfile = trim(adjustl(statfile)) // ".stat"
   end if
   !
   ! Create the time averaged information to write to the averaging file
@@ -3547,14 +3577,42 @@ continue
   ! Create a link to the most recent restart file for piggy-backing jobs
   !
   if (mypnum == glb_root) then
-    call create_restart_link(fname)
+    call create_restart_link(fname,iteration=itcur)
   end if
 #else
   !
   ! Create a link to the most recent restart file for piggy-backing jobs
   !
-  call execute_command(command,wait_for_completion,exitstat, &
+  call execute_command(link_current_command,wait_for_completion,exitstat, &
                        cmndstat,cmndmsg,pname)
+  !
+  if (.not. is_at_restart_frequency) then
+    !
+    if (output_iterations(averaging_file_switch) /= 0) then
+      n = output_iterations(averaging_file_switch)
+      write (rm_iter_link_command,rmtalink_fmt) n
+    else
+      rm_iter_link_command = ''
+    end if
+    write (link_iter_command,taiterlk_fmt) averaging_file_switch, itcur
+    output_iterations(averaging_file_switch) = itcur
+    !
+    ! Create a link to this time averaged restart file that contains the
+    ! iteration number in the link files name.
+    !
+    call execute_command(link_iter_command,wait_for_completion,exitstat, &
+                         cmndstat,cmndmsg,pname)
+    !
+    ! Remove the old iteration link if we have begun to start
+    ! overwriting previous time average restart files.
+    !
+    if (len_trim(adjustl(rm_iter_link_command)) > 0) then
+      call execute_command(rm_iter_link_command,wait_for_completion,exitstat, &
+                           cmndstat,cmndmsg,pname)
+    end if
+    !
+  end if
+  !
 #endif
   !
   ! Deallocate the solution array since its no longer needed
@@ -3566,8 +3624,16 @@ continue
   end if
   !
   ! Toggle the averaging for the next time we write the averaged solution
+  ! NOTE: num_saved_time_ave_restarts should be > 0, but we will use abs
+  !       just to make sure that is the case.
   !
-  averaging_file_switch = merge(2,1,averaging_file_switch==1)
+  if (.not. is_at_restart_frequency) then
+    if (averaging_file_switch >= abs(num_saved_time_ave_restarts)) then
+      averaging_file_switch = 1
+    else
+      averaging_file_switch = averaging_file_switch + 1
+    end if
+  end if
   !
   call global_debug_timer(leaving_procedure,pname)
   !
@@ -4129,23 +4195,9 @@ continue
   call mpi_bcast(restart_dir(1:clen),int(clen,kind=int_mpi),MPI_CHARACTER, &
                  glb_root,MPI_COMM_WORLD,mpierr)
   !
-  ! Create the format string for creating the restart file names
+  ! Create the various format strings needed for reading/writing restart files
   !
-  write (char_num,1) itrst + num_timesteps
-  final_iter_digits = max(4,len_trim(adjustl(char_num)))
-  !
-  write (rstfile_fmt,2) trim(adjustl(restart_dir)),final_iter_digits
-  write (lnkcmnd_fmt,5) final_iter_digits,trim(adjustl(restart_dir))
-  write (statfile_fmt,6) trim(adjustl(restart_dir)),final_iter_digits
-  write (tafile_fmt,7) trim(adjustl(restart_dir))
-  write (talink_fmt,8) trim(adjustl(restart_dir))
-  write (tastat_fmt,9) trim(adjustl(restart_dir))
-  write (tadone_fmt,10) trim(adjustl(restart_dir)),final_iter_digits
-  write (talkdn_fmt,11) final_iter_digits,trim(adjustl(restart_dir))
-  !
-  write (rstfname_fmt,20) final_iter_digits
-  write (tafname_fmt,21)
-  write (tadonefname_fmt,22) final_iter_digits
+  call create_restart_fname_formats(itrst)
   !
   ! Make sure restart_output_uses_host_roots is
   ! false if only one processor is being used.
@@ -4158,17 +4210,8 @@ continue
   !
   ! Format Statements
   !
-  1  format (i0)
-  2  format ("('",a,"out.',i0.",i0,",a,'.rst')")
   3  format ("lfs setstripe -c ",i0," -S ",a,1x,a)
   4  format ("Lustre striping command = '",a,"'")
-  5  format ("('/bin/ln -sf out.',i0.",i0,",a,'.rst ",a,"out.current.rst')")
-  6  format ("('",a,"out.',i0.",i0,",a,'.stat')")
-  7  format ("('",a,"out.',i0,a,'.ave')")
-  8  format ("('/bin/ln -sf out.',i0,a,'.ave ",a,"out.current.ave')")
-  9  format ("('",a,"out.',i0,a,'.ave.stat')")
-  10 format ("('",a,"out.',i0.",i0,",a,'.ave')")
-  11 format ("('/bin/ln -sf out.',i0.",i0,",a,'.ave ",a,"out.current.ave')")
   !
   100 format (/,1x,"A simulation restart was requested but", &
                 1x,"the restart file given in the input file",/, &
@@ -4179,10 +4222,6 @@ continue
                 1x,"the input file. The simulation will proceed", &
                 1x,"as if a restart was not requested.")
   !
-  20 format ("('out.',i0.",i0,",a,'.rst')")  ! rstfile_fmt
-  21 format ("('out.',i0,a,'.ave')")         ! tafile_fmt
-  22 format ("('out.',i0.",i0,",a,'.ave')")  ! tadone_fmt
-  !
 end subroutine check_restart_dir
 !
 !###############################################################################
@@ -4191,12 +4230,13 @@ subroutine create_restart_fname_formats(starting_iteration)
   !
   !.. Use Statements ..
   use ovar, only : num_timesteps
+  use ovar, only : num_saved_time_ave_restarts
   !
   !.. Formal Arguments ..
   integer, intent(in) :: starting_iteration
   !
   !.. Local Scalars ..
-  integer :: final_iter_digits
+  integer :: final_iter_digits,time_ave_digits
   character(len=100) :: char_num
   !
   !.. Local Allocatable Scalars ..
@@ -4215,123 +4255,122 @@ continue
   write (char_num,1) starting_iteration + num_timesteps
   final_iter_digits = max(4,len_trim(adjustl(char_num)))
   !
+  ! Get the number of digits for time averaged restart file
+  ! NOTE: num_saved_time_ave_restarts should be > 0, but we will use abs
+  !       just to make sure that is the case.
+  !
+  write (char_num,1) abs(num_saved_time_ave_restarts)
+  time_ave_digits = max(1,len_trim(adjustl(char_num)))
+  !
   ! Create the format strings for creating the restart file names and commands
   !
   rstdir = trim(adjustl(restart_dir)) ! F2003 AUTO-REALLOC
   !
-  write (rstfile_fmt,2) rstdir, final_iter_digits, "rst"
-  write (lnkcmnd_fmt,3) final_iter_digits, "rst", rstdir, "rst"
-  write (statfile_fmt,4) rstdir, final_iter_digits
-  write (tafile_fmt,5) rstdir
-  write (talink_fmt,6) rstdir
-  write (tastat_fmt,7) rstdir
-  write (tadone_fmt,2) rstdir, final_iter_digits, "ave"
-  write (talkdn_fmt,3) final_iter_digits, "ave", rstdir, "ave"
+  write (rstfile_fmt,12) rstdir, final_iter_digits, "rst"
+  write (lnkcmnd_fmt,13) final_iter_digits, "rst", rstdir, "rst"
+  write (statfile_fmt,12) rstdir, final_iter_digits, "stat"
+  write (tafile_fmt,12) rstdir, time_ave_digits, "ave"
+  write (talink_fmt,13) time_ave_digits, "ave", rstdir, "ave"
+  write (tastat_fmt,12) rstdir, time_ave_digits, "ave.stat"
+  write (tadone_fmt,12) rstdir, final_iter_digits, "ave"
+  write (talkdn_fmt,13) final_iter_digits, "ave", rstdir, "ave"
+  write (taiterlk_fmt,14) time_ave_digits, rstdir, final_iter_digits
+  write (rmtalink_fmt,15) rstdir, final_iter_digits
   !
-  write (rstfname_fmt,2) "", final_iter_digits, "rst"
-  write (tafname_fmt,21)
-  write (tadonefname_fmt,2) "", final_iter_digits, "ave"
+  write (rstfname_fmt,12) "", final_iter_digits, "rst"
+  write (tafname_fmt,12) "", time_ave_digits, "ave"
+  write (tadonefname_fmt,12) "", final_iter_digits, "ave"
   !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
   1 format (i0)
-  2 format ("('",a,"out.',i0.",i0,",a,'.",a,"')")
-  3 format ("('/bin/ln -sf out.',i0.",i0,",a,'.",a," ",a,"out.current.",a,"')")
-  4 format ("('",a,"out.',i0.",i0,",a,'.stat')")
-  5 format ("('",a,"out.',i0,a,'.ave')")
-  6 format ("('/bin/ln -sf out.',i0,a,'.ave ",a,"out.current.ave')")
-  7 format ("('",a,"out.',i0,a,'.ave.stat')")
-  !
-  21 format ("('out.',i0,a,'.ave')")         ! tafile_fmt
+  12 format ("('",a,"out.',i0.",i0,",a,'.",a,"')")
+  13 format ("('/bin/ln -sf out.',i0.",i0,",a,'.",a," ",a,"out.current.",a,"')")
+  14 format ("('/bin/ln -sf out.',i0.",i0,",'.ave ",a,"out.',i0.",i0,".ave')")
+  15 format ("('/bin/rm -f ",a,"out.',i0.",i0,",'.ave')")
   !
 end subroutine create_restart_fname_formats
 !
 !###############################################################################
 !
-subroutine create_restart_link(fname)
+subroutine create_restart_link(fname,iteration)
   !
   !.. Use Statements ..
-  use iso_c_binding, only : c_int,c_null_char
+  use, intrinsic :: iso_c_binding, only : c_int
+  !
+  use ovar, only : is_at_restart_frequency
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: fname
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: iteration
   !
   !.. Local Scalars ..
   integer :: l,n
   integer(c_int) :: ierr
   logical(ldk) :: file_exists
-  character(len=300) :: existing_file
-  character(len=300) :: existing_file_null
-  character(len=300) :: link_file
-  character(len=300) :: link_file_null
+  logical(lk) :: linking_ta_file
+  character(len=300) :: ta_fname
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: existing_file
+  character(len=:), allocatable :: link_file
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_restart_link"
   !
-  !.. C Function Interfaces ..
-  interface
-    integer(c_int) function unlink(link_file) &
-                               bind(c,name="unlink")
-      use iso_c_binding, only : c_int,c_char
-      implicit none
-      character(kind=c_char), dimension(*), intent(in) :: link_file
-    end function unlink
-    integer(c_int) function symlink(existing_file,link_file) &
-                               bind(c,name="symlink")
-      use iso_c_binding, only : c_int,c_char
-      implicit none
-      character(kind=c_char), dimension(*), intent(in) :: existing_file
-      character(kind=c_char), dimension(*), intent(in) :: link_file
-    end function symlink
-  end interface
-  !
 continue
   !
-  existing_file = trim(adjustl(fname))
-  existing_file_null = trim(adjustl(existing_file)) // c_null_char
-  existing_file_null = trim(adjustl(existing_file_null))
+  linking_ta_file = fals
+  !
+  existing_file = trim(adjustl(fname)) ! F2003 AUTO-REALLOC
   !
   n = len_trim(existing_file)
   !
   if (uppercase(existing_file(n-2:n)) == "AVE") then
+    ! F2003 AUTO-REALLOC
     link_file = trim(adjustl(restart_dir)) // "out.current.ave"
+    if (uppercase(existing_file(n-7:n)) /= "DONE.AVE") then
+      linking_ta_file = true
+    end if
   else
+    ! F2003 AUTO-REALLOC
     link_file = trim(adjustl(restart_dir)) // "out.current.rst"
   end if
-  link_file = trim(adjustl(link_file))
-  link_file_null = trim(adjustl(link_file)) // c_null_char
-  link_file_null = trim(adjustl(link_file_null))
   !
-  do l = 1,5
-    !
-    inquire (file=link_file,exist=file_exists)
-    if (file_exists) then
-      ierr = unlink(link_file_null)
-      if (ierr /= 0) then
-        write (iout,1) trim(adjustl(link_file)),ierr
-        flush (iout)
+  call create_symlink(existing_file,link_file)
+  !
+  if (linking_ta_file .and. .not. is_at_restart_frequency) then
+    if (present(iteration)) then
+      !
+      write (ta_fname,tadone_fmt) iteration,""
+      link_file = trim(adjustl(ta_fname)) ! F2003 AUTO-REALLOC
+      !
+      call create_symlink(existing_file,link_file)
+      !
+      if (output_iterations(averaging_file_switch) /= 0) then
+        !
+        write (ta_fname,tadone_fmt) output_iterations(averaging_file_switch),""
+        link_file = trim(adjustl(ta_fname)) ! F2003 AUTO-REALLOC
+        !
+        ierr = unlink_f(link_file)
+        if (ierr /= 0) then
+          write (iout,1) pname,link_file,ierr
+          flush (iout)
+        end if
+        !
       end if
+      !
+      output_iterations(averaging_file_switch) = iteration
+      !
     end if
-    !
-    ierr = symlink(existing_file_null,link_file_null)
-    !
-    if (ierr /= 0) then
-      write (iout,2) trim(adjustl(existing_file)), &
-                     trim(adjustl(link_file)),ierr
-      flush (iout)
-    else
-      exit
-    end if
-    !
-  end do
+  end if
   !
   1 format (/,2x,"ERROR RETURNED FROM C FUNCTION unlink!!!",/, &
-              6x,"    link_file = '",a,"'",/, &
-              6x,"         ierr = ",i0,/)
-  2 format (/,2x,"ERROR RETURNED FROM C FUNCTION symlink!!!",/, &
-              6x,"existing_file = '",a,"'",/, &
+              6x,"    procedure = '",a,"'",/, &
               6x,"    link_file = '",a,"'",/, &
               6x,"         ierr = ",i0,/)
   !
