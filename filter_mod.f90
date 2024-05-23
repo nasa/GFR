@@ -104,7 +104,7 @@ contains
 !
 !###############################################################################
 !
-subroutine new_init_filter_matrices()
+subroutine init_filter_matrices()
   !
   !.. Use Statements ..
   use ovar,            only : output_filter_diagonals
@@ -123,7 +123,7 @@ subroutine new_init_filter_matrices()
   character(len=300) :: timer_message
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "new_init_filter_matrices"
+  character(len=*), parameter :: pname = "init_filter_matrices"
   character(len=*), parameter :: fname = "filter_diagonals.dat"
   !
 continue
@@ -434,11 +434,11 @@ continue
   10 format (a4,".filter.p",i0,".",a3,".tec.dat")
   11 format (a4,".filter.p",i0,".cut-p",i0,".tec.dat")
   !
-end subroutine new_init_filter_matrices
+end subroutine init_filter_matrices
 !
 !###############################################################################
 !
-subroutine init_filter_matrices()
+subroutine old_init_filter_matrices()
   !
   !.. Use Statements ..
   use ovar,            only : output_filter_diagonals
@@ -456,7 +456,7 @@ subroutine init_filter_matrices()
   character(len=300) :: timer_message
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "init_filter_matrices"
+  character(len=*), parameter :: pname = "old_init_filter_matrices"
   character(len=*), parameter :: fname = "filter_diagonals.dat"
   !
 continue
@@ -1114,7 +1114,7 @@ continue
   10 format (a4,".filter.p",i0,".",a3,".tec.dat")
   11 format (a4,".filter.p",i0,".cut-p",i0,".tec.dat")
   !
-end subroutine init_filter_matrices
+end subroutine old_init_filter_matrices
 !
 !###############################################################################
 !
