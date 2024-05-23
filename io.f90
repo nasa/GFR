@@ -612,13 +612,13 @@ continue
   ! Linear weighting between conserved variable and pressure.
   !
   if ( Jump_Marker_Variable > 0 ) then  ! conserved variable
-    ji_uwt = 1.
+    ji_uwt = one
     ji_uvar = Jump_Marker_Variable
   else                                  ! pressure
-    ji_uwt = 0.
+    ji_uwt = zero
     ji_uvar = nec
   end if
-  ji_gwt = 1. - ji_uwt
+  ji_gwt = one - ji_uwt
   ji_gvar = npres
   !
   ! Reset default marker controls when using jump indicator.
