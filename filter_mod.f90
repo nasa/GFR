@@ -1889,13 +1889,16 @@ continue
   ! 
   ! Finally, compute the filter matrix operator from the filter diagonal
   !
-  return_value = compute_filter_matrix(geom,p,filt_diag) ! F2003 AUTO-REALLOC
+  fmat = compute_filter_matrix(geom,p,filt_diag) ! F2003 AUTO-REALLOC
   !
 end subroutine create_exp_filter_matrix
 !
 !###############################################################################
 !
 function get_pyra_diag(filt) result(return_value)
+  !
+  !.. Use Statements ..
+  use order_mod, only : geom_solpts
   !
   !.. Formal Arguments ..
   type(filt_coef_t), intent(in) :: filt(0:)
