@@ -4610,6 +4610,17 @@ end subroutine res_ind_apply_proj_nd
 !
 subroutine jump_indicator(nst,troubled_cell)
   !
+  !> Compute the local marker using the jump indicator across adjacent cells.
+  !>
+  !> Refs:
+  !>  -(2008) Barter,      PhD MIT,        http://hdl.handle.net/1721.1/57606
+  !>  -(2007) Barter,      AIAA-2007-3823, doi:10.2514/6.2007-3823
+  !> See Also:
+  !>  -(2004) Krivodonova, Appl.Num.Math., doi:10.1016/j.apnum.2003.11.002
+  !>  -(2013) Bhatia,      AIAA-2013-0302, doi:10.2514/6.2013-302
+  !>  -(2014) Bhatia,      PhD U.Florida,
+  !>                       https://apps.dtic.mil/sti/citations/tr/ADA624182
+  !
   !.. Use Statements ..
   use geovar,           only : nr,ncell,cell,face
   use element_type_mod, only : std_elem
@@ -4709,9 +4720,10 @@ continue
           !
           p_jump = presl - presr
           !
-          numer = rnx*abs(p_jump*rnx) + &
-                  rny*abs(p_jump*rny) + &
-                  rnz*abs(p_jump*rnz)
+!         numer = rnx*abs(p_jump*rnx) + &
+!                 rny*abs(p_jump*rny) + &
+!                 rnz*abs(p_jump*rnz)
+          numer = abs(p_jump) * ds
           denom = half*(presl + presr)
           !
           wt = std_elem(face_geom,face_order)%wts(k)
@@ -4759,7 +4771,8 @@ continue
           !
           p_jump = presl - presr
           !
-          numer = rnx*abs(p_jump*rnx) + rny*abs(p_jump*rny)
+!         numer = rnx*abs(p_jump*rnx) + rny*abs(p_jump*rny)
+          numer = abs(p_jump) * ds
           denom = half*(presl + presr)
           !
           wt = std_elem(face_geom,face_order)%wts(k)
@@ -4806,7 +4819,8 @@ continue
           !
           p_jump = presl - presr
           !
-          numer = rnx*abs(p_jump*rnx)
+!         numer = rnx*abs(p_jump*rnx)
+          numer = abs(p_jump) * ds
           denom = half*(presl + presr)
           !
           wt = std_elem(face_geom,face_order)%wts(k)
