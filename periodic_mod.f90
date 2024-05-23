@@ -893,7 +893,7 @@ function periodic_transformation(xyz,pbc_matrix) result(return_value)
   real(wp) :: return_value(1:size(xyz))
   !
   !.. Local Scalars ..
-  integer :: n
+  integer :: n,l
   !
 continue
   !
@@ -925,7 +925,6 @@ function get_pbc_matrix(periodic,ignore_translation) result(return_value)
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
-  real(wp), allocatable :: return_value(1:nr+1,1:nr)
   !
   !.. Local Scalars ..
   real(wp) :: rtn_angle,unx,uny,unz,xc,yc,zc
@@ -981,7 +980,7 @@ continue
     rzy = sx*cy
     rzz = cx*cy
     !
-  else (any(abs(rtn_axis(:)) > eps6) .and. abs(rtn_angle) > eps6) then
+  else if (any(abs(rtn_axis(:)) > eps6) .and. abs(rtn_angle) > eps6) then
     !
     ! Use rotation axis and angle of rotation about the axis to form
     ! the rotation matrix
@@ -1037,7 +1036,7 @@ continue
   ! Copy the relevant parts of rmat to return_value
   !
   rotation_only = fals
-  if (present(ignore_tranlation)) then
+  if (present(ignore_translation)) then
     rotation_only = ignore_translation
   end if
   !
