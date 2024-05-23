@@ -478,10 +478,27 @@ continue
             !
           case (Geom_Quad)
             !
-            filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
-               FilterMatrix_Quad( vand(this_geom,this_order)%modal2nodal%mat , &
-                                  vand(this_geom,this_order)%nodal2modal%mat , &
-                                  cutoff_order )
+            if (output_filter_diagonals .and. mypnum == glb_root) then
+              !
+              filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
+                 FilterMatrix_Quad_with_output( vand(this_geom,this_order)%modal2nodal%mat , &
+                                    vand(this_geom,this_order)%nodal2modal%mat , &
+                                    cutoff_order )
+              write (io,800) "Quad Cutoff Filter",&
+                             " for P-",this_order+1-cutoff_order
+              do j = npts,1,-1
+                write (io,801) (filter(this_geom,this_order)% &
+                                        cutoff(cutoff_order)%mat(i,j), i=1,npts)
+              end do
+              !
+            else
+              !
+              filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
+                 FilterMatrix_Quad( vand(this_geom,this_order)%modal2nodal%mat , &
+                                    vand(this_geom,this_order)%nodal2modal%mat , &
+                                    cutoff_order )
+              !
+            end if
 #ifdef SPECIAL_OUTPUT_SPARSITY
             write (array_name,11) "quad",this_order,cutoff_order
             call output_sparsity( filter(this_geom,this_order)% &
@@ -526,10 +543,27 @@ continue
             !
           case (Geom_Hexa)
             !
-            filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
-              FilterMatrix_Hexa( vand(this_geom,this_order)%modal2nodal%mat , &
-                                 vand(this_geom,this_order)%nodal2modal%mat , &
-                                 cutoff_order )
+            if (output_filter_diagonals .and. mypnum == glb_root) then
+              !
+              filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
+                FilterMatrix_Hexa_with_output( vand(this_geom,this_order)%modal2nodal%mat , &
+                                   vand(this_geom,this_order)%nodal2modal%mat , &
+                                   cutoff_order )
+              write (io,800) "Hexa Cutoff Filter",&
+                             " for P-",this_order+1-cutoff_order
+              do j = npts,1,-1
+                write (io,801) (filter(this_geom,this_order)% &
+                                        cutoff(cutoff_order)%mat(i,j), i=1,npts)
+              end do
+              !
+            else
+              !
+              filter(this_geom,this_order)%cutoff(cutoff_order)%mat = &
+                FilterMatrix_Hexa( vand(this_geom,this_order)%modal2nodal%mat , &
+                                   vand(this_geom,this_order)%nodal2modal%mat , &
+                                   cutoff_order )
+              !
+            end if
 #ifdef SPECIAL_OUTPUT_SPARSITY
             write (array_name,11) "hexa",this_order,cutoff_order
             call output_sparsity( filter(this_geom,this_order)% &
