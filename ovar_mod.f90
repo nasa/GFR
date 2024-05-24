@@ -368,6 +368,7 @@ module ovar
   logical(lk), public, save :: output_cylindrical_velocity    = fals
   logical(lk), public, save :: output_qcriterion              = fals
   logical(lk), public, save :: output_conserved_variables     = fals
+  logical(lk), public, save :: output_momentum                = fals
   logical(lk), public, save :: output_temperature             = fals
   logical(lk), public, save :: output_thermo_variables        = fals
   logical(lk), public, save :: output_gradients               = fals
@@ -1912,6 +1913,7 @@ module input_namelist_mod
   use ovar,      only : output_cylindrical_velocity
   use ovar,      only : output_qcriterion
   use ovar,      only : output_conserved_variables
+  use ovar,      only : output_momentum
   use ovar,      only : output_temperature
   use ovar,      only : output_thermo_variables
   use ovar,      only : output_gradients
@@ -2037,7 +2039,7 @@ module input_namelist_mod
                      output_order, loc_output_pts, output_frequency
   ! SELECTION OF OUTPUT VARIABLES IN THE CGNS SOLUTION FILES
   namelist / input / output_vorticity, output_conserved_variables, &
-                     output_cylindrical_velocity, &
+                     output_momentum, output_cylindrical_velocity, &
                      output_temperature, output_thermo_variables, &
                      output_gradients, output_transport_variables, &
                      output_stagnation_temperature, &

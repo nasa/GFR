@@ -3545,6 +3545,7 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,   only : output_cylindrical_velocity
   use ovar,   only : output_qcriterion
   use ovar,   only : output_conserved_variables
+  use ovar,   only : output_momentum
   use ovar,   only : output_temperature
   use ovar,   only : output_thermo_variables
   use ovar,   only : output_gradients
@@ -3703,6 +3704,10 @@ continue
     if (ncs > 1) then
       call add_sol_variable(variable_list,"SpeciesDensities")
     end if
+  end if
+  !
+  if (output_momentum) then
+    call add_sol_variable(variable_list,"Momentum")
   end if
   !
   if (output_temperature) then
