@@ -828,6 +828,35 @@ end function initial_conditions
 !
 !###############################################################################
 !
+pure function pv_to_cv(pv) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: pv(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:nq)
+  !
+  !.. Local Scalars ..
+  real(wp) :: r,p,q2
+  !
+continue
+  !
+  r = pv(nec)
+  p = pv(nee)
+  !
+  q2 = dot_product( pv(nmb:nme) , pv(nmb:nme) )
+  !
+  return_value(nec) = r
+  return_value(nmb:nme) = r*pv(nmb:nme)
+  return_value(nee) = p/(gam-one) + half*r*q2
+  !
+end function pv_to_cv
+!
+!###############################################################################
+!
 pure function jet_profile(r,r0,div,fs_pv,bc_pv) result(return_value)
   !
   !.. Use Statements ..
