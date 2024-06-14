@@ -389,13 +389,18 @@ module module_kind_types
   real(wp), parameter :: eps2  = 1.0e-02_wp
   real(wp), parameter :: eps3  = 1.0e-03_wp
   real(wp), parameter :: eps4  = 1.0e-04_wp
+  real(wp), parameter :: eps5  = 1.0e-05_wp
   real(wp), parameter :: eps6  = 1.0e-06_wp
   real(wp), parameter :: eps7  = 1.0e-07_wp
+  real(wp), parameter :: eps8  = 1.0e-08_wp
   real(wp), parameter :: eps9  = 1.0e-09_wp
   real(wp), parameter :: eps10 = 1.0e-10_wp
   real(wp), parameter :: eps11 = 1.0e-11_wp
   real(wp), parameter :: eps12 = 1.0e-12_wp
+  real(wp), parameter :: eps13 = 1.0e-13_wp
   real(wp), parameter :: eps14 = 1.0e-14_wp
+  real(wp), parameter :: eps15 = 1.0e-15_wp
+  real(wp), parameter :: eps16 = 1.0e-16_wp
   real(wp), parameter :: eps17 = 1.0e-17_wp
   real(wp), parameter :: small = eps17
   !
