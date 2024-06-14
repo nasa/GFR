@@ -537,9 +537,17 @@ continue
   !
   if (any(itestcase == Transport_Problems)) then
     !
+    !###########################################################################
+    !##### 2D ISENTROPIC VORTEX PROBLEM
+    !###########################################################################
+    !
     call vortex_solution_gpu(1,np,xyz,return_value)
     !
   else if (itestcase == Taylor_Green_Vortex) then
+    !
+    !###########################################################################
+    !##### TAYLOR-GREEN VORTEX PROBLEM
+    !###########################################################################
     !
     adj_xyz = xyz ! F2003 AUTO-REALLOCATION
     !
@@ -554,17 +562,37 @@ continue
     !
   else if (itestcase == Channel_Flow) then
     !
+    !###########################################################################
+    !##### CHANNEL FLOW
+    !###########################################################################
+    !
     return_value(:,:) = channel_initialization( xyz(:,:) )
     !
   else if (abs(itestcase) == Sod_Shock_Tube ) then
+    !
+    !###########################################################################
+    !##### 1D SOD SHOCK TUBE PROBLEM
+    !###########################################################################
+    !
     do k = 1,np
       return_value(k,:) = sod_init( xyz(:,k) )
     end do
+    !
   else if (abs(itestcase) == Density_Pulse_Test ) then
+    !
+    !###########################################################################
+    !##### !D PERIODIC DENSITY PULSE
+    !###########################################################################
+    !
     do k = 1,np
       return_value(k,:) = pulse_test_init( xyz(:,k) )
     end do
+    !
   else if (abs(itestcase) == Taylor_Couette_Flow) then
+    !
+    !###########################################################################
+    !##### TAYLOR-COUETTE FLOW TEST CASE
+    !###########################################################################
     !
     ! These initializations for the Taylor-Couette flow come from
     ! the 2021 Advances in Aerodynamics journal article by ZJ Wang:
@@ -588,6 +616,10 @@ continue
     !
   else if (abs(itestcase) == Freestream_TCF) then
     !
+    !###########################################################################
+    !##### TAYLOR-COUETTE FLOW FREESTREAM PRESERVATION
+    !###########################################################################
+    !
     ! Initialize for freestream preservation using Taylor Couette flow geometry
     ! 
     do k = 1,np
@@ -595,6 +627,10 @@ continue
     end do
     !
   else if (mms_opt /= 0) then
+    !
+    !###########################################################################
+    !##### METHOD OF MANUFACTURED SOLUTIONS
+    !###########################################################################
     !
     do k = 1,np
       return_value(k,:) = mms_init * mms_solution_at_xyz( xyz(:,k) , &
@@ -604,7 +640,15 @@ continue
     !
   else if (abs(itestcase) == Subsonic_Jet) then
     !
+    !###########################################################################
+    !##### SUBSONIC JETS
+    !###########################################################################
+    !
     if (init_cond == 2) then
+      !
+      !=======================================================================
+      ! NOTE: This hardwires a mach=0.05 condition at the nozzle inflow plane
+      !=======================================================================
       !
       nozzle_len = merge(9.875_wp,7.74_wp,itestcase > 0)
       !
@@ -613,6 +657,10 @@ continue
       end do
       !
     else if (init_cond == 4) then
+      !
+      !======================================================================
+      ! NOTE: This only works if the nozzle inflow BC is located in bc_in(1)
+      !======================================================================
       !
       nozzle_len = merge(9.875_wp,7.74_wp,itestcase > 0)
       !
@@ -623,6 +671,10 @@ continue
       end do
       !
     else if (init_cond == 3) then
+      !
+      !======================================================================
+      ! NOTE: This only works if the nozzle inflow BC is located in bc_in(1)
+      !======================================================================
       !
       nozzle_len = merge(9.875_wp,7.74_wp,itestcase > 0)
       !
@@ -684,11 +736,19 @@ continue
     !
   else if (itestcase == Infinite_Cylinder) then
     !
+    !###########################################################################
+    !##### INFINITE CYLINDER TEST CASE
+    !###########################################################################
+    !
     do k = 1,np
       return_value(k,:) = initialize_cylinder(xyz(:,k),bc_in(0)%pv(:))
     end do
     !
   else if (any(abs(itestcase) == Dual_Stream_Mixing_Flows)) then
+    !
+    !###########################################################################
+    !##### DUAL STREAM MIXING FLOW
+    !###########################################################################
     !
     do k = 1,np
       ibc = merge( 2 , 1 , xyz(2,k) > zero )
@@ -698,6 +758,10 @@ continue
     end do
     !
   else if (abs(itestcase) == CH4_3D_Diffusion_Flame) then
+    !
+    !###########################################################################
+    !##### METHANE DIFFUSION FLAME TEST CASE
+    !###########################################################################
     !
     if (jet_init_func == 0) then
       do k = 1,np
@@ -725,6 +789,10 @@ continue
     !
   else if (abs(itestcase) == CH4_Flame_Speed_Test) then
     !
+    !###########################################################################
+    !##### METHANE FLAME SPEED TEST
+    !###########################################################################
+    !
     do k = 1,np
       ibc = merge( 2 , 1 , xyz(1,k) >= zero )
       do m = 1,nq
@@ -733,6 +801,10 @@ continue
     end do
     !
   else
+    !
+    !###########################################################################
+    !##### GENERIC INITIALIZATION USING FREESTREAM OR A BC
+    !###########################################################################
     !
     ibc = init_cond
     !
