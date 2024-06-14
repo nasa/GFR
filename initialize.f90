@@ -859,9 +859,6 @@ end function pv_to_cv
 !
 pure function jet_profile(r,r0,div,fs_pv,bc_pv) result(return_value)
   !
-  !.. Use Statements ..
-  use ovar, only : gam
-  !
   !.. Formal Arguments ..
   real(wp), intent(in) :: r
   real(wp), intent(in) :: r0
@@ -873,7 +870,10 @@ pure function jet_profile(r,r0,div,fs_pv,bc_pv) result(return_value)
   real(wp) :: return_value(1:size(fs_pv))
   !
   !.. Local Scalars ..
-  real(wp) :: func,rho,pres,q2
+  real(wp) :: func
+  !
+  !.. Local Arrays ..
+  real(wp) :: pv(1:size(fs_pv))
   !
 continue
  !!
@@ -910,19 +910,15 @@ continue
   !
   func = half * (one - erf((r-r0)/div))
   !
-  return_value(nec) = func*bc_pv(nec) + (one-func)*fs_pv(nec)
-  return_value(nmx) = func*bc_pv(nmx) + (one-func)*fs_pv(nmx)
-  return_value(nmx+1:nme) = zero
- !return_value(nmz) = zero
-  return_value(nee) = fs_pv(nee)
+  pv(nec) = func*bc_pv(nec) + (one-func)*fs_pv(nec)
+  pv(nmx) = func*bc_pv(nmx) + (one-func)*fs_pv(nmx)
+  pv(nmx+1:nme) = zero
+ !pv(nmz) = zero
+  pv(nee) = fs_pv(nee)
   !
-  rho = return_value(nec)
-  pres = return_value(nee)
+  ! Convert the primitive variables to conserved variables
   !
-  q2 = dot_product( return_value(nmb:nme) , return_value(nmb:nme) )
-  !
-  return_value(nmb:nme) = return_value(nmb:nme)*rho
-  return_value(nee) = pres/(gam-one) + half*rho*q2
+  return_value(:) = pv_to_cv(pv)
   !
 end function jet_profile
 !
@@ -948,16 +944,17 @@ pure function jet_profile3(nozzle_len,x,r,r0,div,bc_pv,fs_pv) &
   real(wp) :: return_value(1:size(fs_pv))
   !
   !.. Local Scalars ..
-  real(wp) :: xbeg,func,xfunc,rfunc,rho,pres,q2
+  real(wp) :: xbeg,func,xfunc,rfunc
   !
   !.. Local Arrays ..
   real(wp) :: vel(1:nr)
+  real(wp) :: pv(1:size(fs_pv))
   !
 continue
   !
   ! Initialize to the free-stream primitive variables
   !
-  return_value(:) = fs_pv(:)
+  pv(:) = fs_pv(:)
   !
   ! If within the nozzle, initialize the velocity mach number to
   ! a minimum of 0.05 at the inflow plane and use the error function
@@ -972,20 +969,16 @@ continue
     xfunc = half * (one + erf((ten/xbeg)*abs(x)-seven))
     func = rfunc * xfunc
     !
-    return_value(nec) = func*bc_pv(nec) + (one-func)*fs_pv(nec)
-    return_value(nmx) = func*bc_pv(nmx) + (one-func)*fs_pv(nmx)
-    return_value(nmx+1:nme) = zero
-    return_value(nee) = fs_pv(nee)
+    pv(nec) = func*bc_pv(nec) + (one-func)*fs_pv(nec)
+    pv(nmx) = func*bc_pv(nmx) + (one-func)*fs_pv(nmx)
+    pv(nmx+1:nme) = zero
+    pv(nee) = fs_pv(nee)
     !
   end if
   !
-  rho = return_value(nec)
-  pres = return_value(nee)
+  ! Convert the primitive variables to conserved variables
   !
-  q2 = dot_product( return_value(nmb:nme) , return_value(nmb:nme) )
-  !
-  return_value(nmb:nme) = return_value(nmb:nme)*rho
-  return_value(nee) = pres/(gam-one) + half*rho*q2
+  return_value(:) = pv_to_cv(pv)
   !
 end function jet_profile3
 !
@@ -1006,16 +999,17 @@ pure function jet_profile2(nozzle_len,x,fs_pv) result(return_value)
   real(wp) :: return_value(1:size(fs_pv))
   !
   !.. Local Scalars ..
-  real(wp) :: aspd,mach,xbeg,func,rho,pres,q2
+  real(wp) :: aspd,mach,xbeg,func
   !
   !.. Local Arrays ..
   real(wp) :: vel(1:nr)
+  real(wp) :: pv(1:size(fs_pv))
   !
 continue
   !
   ! Initialize to the free-stream primitive variables
   !
-  return_value(:) = fs_pv(:)
+  pv(:) = fs_pv(:)
   !
   ! If within the nozzle, initialize the velocity mach number to
   ! a minimum of 0.05 at the inflow plane and use the error function
@@ -1035,13 +1029,13 @@ continue
       !
       if (x <= -xbeg) then
         !
-        return_value(nmb:nme) = vel(:)
+        pv(nmb:nme) = vel(:)
         !
       else
         !
         func = half * (one - erf((ten/xbeg)*abs(x)-seven))
         !
-        return_value(nmb:nme) = func*fs_pv(nmb:nme) + (one-func)*vel(:)
+        pv(nmb:nme) = func*fs_pv(nmb:nme) + (one-func)*vel(:)
         !
       end if
       !
@@ -1049,13 +1043,9 @@ continue
     !
   end if
   !
-  rho = return_value(nec)
-  pres = return_value(nee)
+  ! Convert the primitive variables to conserved variables
   !
-  q2 = dot_product( return_value(nmb:nme) , return_value(nmb:nme) )
-  !
-  return_value(nmb:nme) = return_value(nmb:nme)*rho
-  return_value(nee) = pres/(gam-one) + half*rho*q2
+  return_value(:) = pv_to_cv(pv)
   !
 end function jet_profile2
 !
@@ -1081,10 +1071,11 @@ pure function jet_profile4(nozzle_len,x,fs_pv,bc_pv) result(return_value)
   real(wp) :: aspd_bc,mach_bc,temp_bc,ttot_bc,ptot_bc
   real(wp) :: aspd_fs,mach_fs,mach_init,total_cond
   real(wp) :: temp_init,pres_init,rho_init,vel_init
-  real(wp) :: pres,rho,vel,mach,aspd,q2
+  real(wp) :: pres,rho,vmag,mach,aspd
   !
   !.. Local Arrays ..
   real(wp) :: dir(1:nr)
+  real(wp) :: pv(1:size(fs_pv))
   !
 continue
   !
@@ -1092,7 +1083,7 @@ continue
   !
   ! Initialize to the free-stream primitive variables
   !
-  return_value(:) = fs_pv(:)
+  pv(:) = fs_pv(:)
   !
   ! If within the nozzle, initialize the velocity mach number to
   ! a minimum of 0.05 at the inflow plane and use the error function
@@ -1130,9 +1121,9 @@ continue
     !
     if (x <= -xbeg) then
       !
-      return_value(nec)     = rho_init
-      return_value(nmb:nme) = vel_init*dir(:)
-      return_value(nee)     = pres_init
+      pv(nec)     = rho_init
+      pv(nmb:nme) = vel_init*dir(:)
+      pv(nee)     = pres_init
       !
     else
       !
@@ -1144,23 +1135,19 @@ continue
       !
       aspd = sqrt(max(gam*pres/rho,rndoff))
       !
-      vel = mach*aspd
+      vmag = mach*aspd
       !
-      return_value(nec)     = rho
-      return_value(nmb:nme) = vel*dir(:)
-      return_value(nee)     = pres
+      pv(nec)     = rho
+      pv(nmb:nme) = vmag*dir(:)
+      pv(nee)     = pres
       !
     end if
     !
   end if
   !
-  rho = return_value(nec)
-  pres = return_value(nee)
+  ! Convert the primitive variables to conserved variables
   !
-  q2 = dot_product( return_value(nmb:nme) , return_value(nmb:nme) )
-  !
-  return_value(nmb:nme) = return_value(nmb:nme)*rho
-  return_value(nee) = pres/gm1 + half*rho*q2
+  return_value(:) = pv_to_cv(pv)
   !
 end function jet_profile4
 !
