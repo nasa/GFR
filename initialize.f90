@@ -172,6 +172,8 @@ continue
       call find_elem_for_initial_jet_profile(point_is_in_smc000_nozzle)
     else if (itestcase == -Subsonic_Jet) then
       call find_elem_for_initial_jet_profile(point_is_in_arn2_nozzle)
+    else if (abs(itestcase) == Supersonic_Jet) then
+      call find_elem_for_initial_jet_profile(point_is_in_ssjet_nozzle)
     end if
     !
     allocate ( xyz_init(1:nr,1:maxpts) , source=zero , &
@@ -724,6 +726,27 @@ continue
         return_value(k,:) = jet_profile(r,r0,div,bc_in(0)%pv(:), &
                                         bc_in(init_cond)%pv(:))
         !
+      end do
+      !
+    else
+      !
+      do k = 1,np
+        return_value(k,:) = bc_in(init_cond)%cv(:)
+      end do
+      !
+    end if
+    !
+  else if (abs(itestcase) == Supersonic_Jet) then
+    !
+    !###########################################################################
+    !##### SUPERSONIC JET
+    !###########################################################################
+    !
+    if (init_cond /= 0) then
+      !
+      do k = 1,np
+        return_value(k,:) = ssjet_profile(xyz(:,k),bc_in(0)%pv(:), &
+                                          bc_in(init_cond)%pv(:))
       end do
       !
     else
