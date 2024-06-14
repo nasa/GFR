@@ -857,6 +857,313 @@ end function pv_to_cv
 !
 !###############################################################################
 !
+pure &
+function ssjet_profile(xyz,fs_pv,bc_pv) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd,aref
+  use ovar, only : jet_init_func
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: xyz(:)
+  real(wp), intent(in) :: fs_pv(:)
+  real(wp), intent(in) :: bc_pv(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(fs_pv))
+  !
+  !.. Local Scalars ..
+  integer  :: ierr
+  real(wp) :: x,radius,nozzle_radius
+  real(wp) :: gam_over_gm1,total_cond
+  real(wp) :: p0,t0,asoa,mach0,mach1
+  real(wp) :: p_bc,t_bc,aspd_bc,mach_bc
+  real(wp) :: p,t,aspd,mach,blend
+  !
+  !.. Local Arrays ..
+  real(wp) :: pv(1:size(fs_pv))
+  real(wp) :: pv_init(1:size(fs_pv))
+  !
+  !.. Local Parameters ..
+  ! This is the axial location that the axial blending begins which
+  ! jet_init_func = 2 or 3.
+  real(wp), parameter :: start_xblend  = three*ten*inches_to_meters
+  ! Axial location of the nozzle throat
+  real(wp), parameter :: throat_xloc   = -2.54585414585415_wp*inches_to_meters
+  ! Radius of the nozzle at the throat
+  real(wp), parameter :: throat_radius =  0.87762738764425_wp*inches_to_meters
+  !
+continue
+  !
+  gam_over_gm1 = gam/(gam-one)
+  !
+  ! Get the nozzle radius at this axial location and the radius at this point
+  !
+  x = xyz(1)
+  radius = norm2(xyz(2:))
+  nozzle_radius = ssjet_interior_wall_radius(x)
+  !
+  ! Compute the total pressure and total temperature for the BC
+  !
+  p_bc = bc_pv(nee)
+  t_bc = p_bc / (rgasref_nd*bc_pv(nec))
+  !
+  aspd_bc = sqrt(gam*rgasref_nd*t_bc)
+  mach_bc = norm2(bc_pv(nmb:nme))/aspd_bc
+  !
+  total_cond = one + half*(gam-one)*mach_bc*mach_bc
+  !
+  p0 = p_bc * (total_cond**gam_over_gm1)
+  t0 = t_bc * total_cond
+  !
+  ! Compute A*/A
+  !
+  asoa = throat_radius/nozzle_radius
+  !
+  ! Initial guess for computing mach number based on location up or
+  ! downstream of the nozzle throat (subsonic or supersonic)
+  !
+  if (x <= throat_xloc) then
+    mach0 = eps15
+    mach1 = one
+  else
+    mach0 = one
+    mach1 = ten
+  end if
+  !
+  ! Get Mach number from A*/A using
+  !
+  call get_mach_from_astar_over_a(mach0,mach1,asoa,mach,ierr)
+  !
+  ! Compute the primitive variables based on the A*/A mach number
+  ! and BC total conditions
+  !
+  total_cond = one + half*(gam-one)*mach*mach
+  !
+  t = t0 / total_cond
+  p = p0 / (total_cond**gam_over_gm1)
+  !
+  aspd = sqrt(gam*rgasref_nd*t)
+  !
+  pv(nec) = p/(rgasref_nd*t)
+  pv(nmx) = mach*aspd
+  pv(nmx+1:nme) = zero
+  pv(nee) = p
+  !
+  ! Compute the blending coefficient between the freestream and BC states
+  !
+  blend = ssjet_blending(jet_init_func,x,start_xblend,radius,nozzle_radius)
+  !
+  ! Compute the primitive variables for the blended initial conditions
+  ! 
+  pv_init(nec) = blend*pv(nec) + (one-blend)*fs_pv(nec)
+  pv_init(nmx) = blend*pv(nmx) + (one-blend)*fs_pv(nmx)
+  pv_init(nmx+1:nme) = zero
+  pv_init(nmy) = blend/aref
+  pv_init(nee) = fs_pv(nee)
+  !
+  ! Convert the primitive variables to conserved variables
+  !
+  return_value(:) = pv_to_cv(pv_init)
+  !
+end function ssjet_profile
+!
+!###############################################################################
+!
+pure subroutine get_mach_from_astar_over_a(mach0,mach1,asoa,machc,ierr)
+  !
+  ! Solves for mach number given A*/A using the bisection method
+  ! initial guess is either subsonic (M0=0/M1=1) or supersonic (M0=1/M1=10)
+  !
+  ! bisection method
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: mach0
+  real(wp),    intent(in) :: mach1
+  real(wp),    intent(in) :: asoa
+  real(wp), intent(inout) :: machc
+  integer,  intent(inout) :: ierr
+  !
+  !.. Local Scalars ..
+  integer  :: n,siga,sigb,sigc
+  real(wp) :: fa,fb,fc,res,macha,machb
+  !
+  !.. Local Parameters ..
+  integer,  parameter :: maxcount = 1000    ! max iterations
+  real(wp), parameter :: c0 = (six/five)**3 ! constant for computing fa,fb,fc
+  real(wp), parameter :: res_limit = eps8   ! iteration goal
+  !
+continue
+  !
+  macha = mach0
+  machb = mach1
+  !
+  ! initial guess
+  !
+  res = huge(zero)
+  !
+  ierr = 1
+  bisec: &
+  do n = 1,maxcount
+    !
+    machc = (macha+machb)*half
+    !
+    fa = c0*macha*( (one+macha*macha/five)**(-3) ) - asoa
+    fb = c0*machb*( (one+machb*machb/five)**(-3) ) - asoa
+    fc = c0*machc*( (one+machc*machc/five)**(-3) ) - asoa
+    !
+    siga = int((fa)/abs(fa))
+    sigb = int((fb)/abs(fb))
+    sigc = int((fc)/abs(fc))
+    !
+    if (siga /= sigc) then
+      res = abs(machc-macha)
+      machb = machc
+    else if (sigb /= sigc) then
+      res = abs(machc-machb)
+      macha = machc
+    else
+     !write(*,*) 'oops',siga,sigb,sigc
+    end if
+    !
+    if (res <= res_limit) then
+      ierr = 0
+      exit bisec
+    end if
+    !
+  end do bisec
+  !
+end subroutine get_mach_from_astar_over_a
+!
+!###############################################################################
+!
+pure function ssjet_blending(init_func,x,x0,r,r0) result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: init_func
+  real(wp), intent(in) :: x,x0
+  real(wp), intent(in) :: r,r0
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  real(wp) :: xblend,xref,xdiv
+  real(wp) :: rblend,rref,rdiv
+  real(wp) :: val,div_exp,a,b,val_exp,val_spread,val_ref,ref_exp
+  !
+continue
+  !
+  xblend = one
+  rblend = one
+  !
+  if (x < zero) then
+    !
+    ! This is upstream of the nozzle exit, so set the blending to 1
+    ! so that it uses the flow conditions computed from the nozzle
+    ! inflow BC.
+    !
+    xblend = one
+    rblend = one
+    !
+  else
+    !
+    ! This is downstream of the nozzle exit
+    !
+    if (init_func == 1) then
+      !
+      ! Use a constant radial blending only
+      !
+      xblend = one
+      !
+      rref = (1.02_wp)*r0
+      val_exp = one/four
+      val = max( zero , min( x/(x0/(ten)) , one ) )**val_exp
+      div_exp = three/two
+      a = (one-val)**div_exp
+      b = val**div_exp
+      rdiv = rref/(ten*five*a + four*b)
+      rblend = erf_blend(half,r,rref,rdiv)
+      !
+    else if (init_func == 2) then
+      !
+      ! Use a blending in both x and r with a constant radial spreading
+      !
+      xref = x0
+      xdiv = half*xref
+      xblend = erf_blend(half,x,xref,xdiv)
+      !
+      rref = (1.02_wp)*r0
+      val_exp = one/four
+      val = max( zero , min( x/(x0/(ten)) , one ) )**val_exp
+      div_exp = three/two
+      a = (one-val)**div_exp
+      b = val**div_exp
+      rdiv = rref/(ten*five*a + four*b)
+      rblend = erf_blend(half,r,rref,rdiv)
+      !
+    else if (init_func == 3) then
+      !
+      ! Use a blending in both x and r with a downstream radial spreading,
+      ! i.e., variable rref and rdiv
+      !
+      xref = x0
+      xdiv = half*xref
+      xblend = erf_blend(half,x,xref,xdiv)
+      !
+     !rref = r0  + x/xref
+     !rdiv = half*rref + (2.5_wp*x)/xref
+      !
+      val_ref = one/(two*ten)
+      ref_exp = one
+      val_spread = 1.5_wp*0.0254_wp/one
+     !val_spread = zero
+      rref = (1.02_wp)*r0 + val_ref*(x/xref)**ref_exp
+      val_exp = one/four
+      val = max( zero , min( x/(x0/(ten)) , one ) )**val_exp
+      div_exp = three/two
+      a = (one-val)**div_exp
+      b = val**div_exp
+      rdiv = rref/(ten*five*a + four*b) + (val_spread*x)/xref
+      rblend = erf_blend(half,r,rref,rdiv)
+      !
+    else
+      !
+      ! This will set the initial conditions to the free stream conditions
+      !
+      xblend = zero
+      rblend = zero
+      !
+    end if
+    !
+  end if
+  !
+  return_value = xblend*rblend
+  !
+end function ssjet_blending
+!
+!###############################################################################
+!
+pure function erf_blend(value_at_zero,x,xref,xdiv) result(return_value)
+  !
+  ! Function to compute a blending coefficient using the error function
+  !
+  real(wp), intent(in) :: value_at_zero ! value to take for erf(0)
+  real(wp), intent(in) :: x
+  real(wp), intent(in) :: xref
+  real(wp), intent(in) :: xdiv
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+continue
+  !
+  return_value = value_at_zero*( one - erf((x-xref)/xdiv) )
+  !
+end function erf_blend
+!
+!###############################################################################
+!
 pure function jet_profile(r,r0,div,fs_pv,bc_pv) result(return_value)
   !
   !.. Formal Arguments ..
@@ -4851,6 +5158,7 @@ include "Functions/sod.f90"
 #include "Functions/pulse.f90"
 include "Functions/smc000_interior_wall_radius.f90"
 include "Functions/arn2_interior_wall_radius.f90"
+include "Functions/ssjet_interior_wall_radius.f90"
 #include "Functions/check_for_bad_number.f90"
 !
 !###############################################################################
