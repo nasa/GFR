@@ -536,8 +536,8 @@ module module_kind_types
   integer, parameter :: Density_Transport       = 7
   integer, parameter :: Entropy_Transport       = 8
   integer, parameter :: Taylor_Green_Vortex     = 9
-  integer, parameter :: Nozzle_Jet              = 10
-  integer, parameter :: Double_Mach_Reflection  = 11
+  integer, parameter :: Subsonic_Jet            = 10
+  integer, parameter :: Supersonic_Jet          = 11
   integer, parameter :: Infinite_Cylinder       = 12
   integer, parameter :: Freestream_Preservation = 13
   integer, parameter :: Reacting_Backstep       = 14
