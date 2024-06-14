@@ -487,6 +487,21 @@ module module_kind_types
                                                    bc_isothermal_wall ]
   integer, parameter :: bc_noslip_walls(1:2) = [ bc_adiabatic_wall, &
                                                  bc_isothermal_wall ]
+  integer, parameter :: bc_inflows(1:9) = [ bc_generic_inflow, &
+                                            bc_sub_inflow, &
+                                            bc_sup_inflow, &
+                                            bc_mdot_inflow, &
+                                            bc_sem, &
+                                            bc_characteristic, &
+                                            bc_generic_freeflow, &
+                                            bc_freestream, &
+                                            bc_fixed ]
+  integer, parameter :: bc_outflows(1:6) = [ bc_generic_outflow, &
+                                             bc_sub_outflow, &
+                                             bc_sup_outflow, &
+                                             bc_mdot_outflow, &
+                                             bc_characteristic, &
+                                             bc_generic_freeflow ]
   !$ACC DECLARE COPYIN(bc_walls)
   !
   integer, parameter :: bc_heirarchy(1:18) = [ bc_isothermal_wall, &
