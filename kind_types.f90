@@ -409,7 +409,9 @@ module module_kind_types
   !
   real(wp), parameter :: pi = 3.14159265358979323846_wp
   !
-  real(wp), parameter :: radians2degrees = two*nine*ten/pi
+  real(wp), parameter :: one80   = two*nine*ten
+  real(wp), parameter :: three60 = two*one80
+  real(wp), parameter :: radians2degrees = one80/pi
   real(wp), parameter :: degrees2radians = one/radians2degrees
   !
   real(wp), parameter :: rpm_to_mps = two*pi/(six*ten)
