@@ -551,6 +551,7 @@ module module_kind_types
   integer, parameter :: Freestream_TCF          = 22
   integer, parameter :: Sod_Shock_Tube          = 23
   integer, parameter :: Density_Pulse_Test      = 24
+  integer, parameter :: Pipe_Channel_Flow       = 25
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
                                                 Entropy_Transport ]
   integer, parameter :: Vortex_Problems(1:3) = [ Shu_Vortex, &
