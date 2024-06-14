@@ -541,7 +541,7 @@ continue
     !
     call transfer_cgns_data_to_grid_dt
     !
-    if (itestcase == Nozzle_Jet) then
+    if (itestcase == Subsonic_Jet) then
       if (create_nozzle_interior_cgns_gridfile) then
         call extract_nozzle_grid
       else

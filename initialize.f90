@@ -168,9 +168,9 @@ continue
     !
     ! Initialize the solution based on the input parameter itestcase
     !
-    if (itestcase == Nozzle_Jet) then
+    if (itestcase == Subsonic_Jet) then
       call find_elem_for_initial_jet_profile(point_is_in_smc000_nozzle)
-    else if (itestcase == -Nozzle_Jet) then
+    else if (itestcase == -Subsonic_Jet) then
       call find_elem_for_initial_jet_profile(point_is_in_arn2_nozzle)
     end if
     !
@@ -602,7 +602,7 @@ continue
                                                           return_cv=true )
     end do
     !
-  else if (abs(itestcase) == Nozzle_Jet) then
+  else if (abs(itestcase) == Subsonic_Jet) then
     !
     if (init_cond == 2) then
       !
@@ -626,17 +626,17 @@ continue
       !
       nozzle_len = merge(9.875_wp,7.74_wp,itestcase > 0)
       !
-      if (itestcase == Nozzle_Jet) then
+      if (itestcase == Subsonic_Jet) then
         div = eps1*smc000_interior_wall_radius(one)
-      else if (itestcase == -Nozzle_Jet) then
+      else if (itestcase == -Subsonic_Jet) then
         div = eps1*arn2_interior_wall_radius(one)
       end if
       !
       do k = 1,np
         !
-        if (itestcase == Nozzle_Jet) then
+        if (itestcase == Subsonic_Jet) then
           r0 = smc000_interior_wall_radius(xyz(1,k))
-        else if (itestcase == -Nozzle_Jet) then
+        else if (itestcase == -Subsonic_Jet) then
           r0 = arn2_interior_wall_radius(xyz(1,k))
         end if
         r = norm2(xyz(2:,k))
@@ -654,18 +654,18 @@ continue
       !       greater than 0.0 into the function smc000_interior_wall_radius
       !       should return the radius of the nozzle at the lip.
       !
-      if (itestcase == Nozzle_Jet) then
+      if (itestcase == Subsonic_Jet) then
         div = eps1*smc000_interior_wall_radius(one)
-      else if (itestcase == -Nozzle_Jet) then
+      else if (itestcase == -Subsonic_Jet) then
        !div = eps1*arn2_interior_wall_radius(one)
         div = 0.04_wp*arn2_interior_wall_radius(one)
       end if
       !
       do k = 1,np
         !
-        if (itestcase == Nozzle_Jet) then
+        if (itestcase == Subsonic_Jet) then
           r0 = smc000_interior_wall_radius(xyz(1,k))
-        else if (itestcase == -Nozzle_Jet) then
+        else if (itestcase == -Subsonic_Jet) then
           r0 = arn2_interior_wall_radius(xyz(1,k))
         end if
         r = norm2(xyz(2:,k))
