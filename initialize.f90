@@ -644,7 +644,7 @@ continue
     !##### SUBSONIC JETS
     !###########################################################################
     !
-    if (init_cond == 2) then
+    if (jet_init_func == 2) then
       !
       !=======================================================================
       ! NOTE: This hardwires a mach=0.05 condition at the nozzle inflow plane
@@ -656,7 +656,7 @@ continue
         return_value(k,:) = jet_profile2(nozzle_len,xyz(1,k),bc_in(0)%pv(:))
       end do
       !
-    else if (init_cond == 4) then
+    else if (jet_init_func == 4) then
       !
       !======================================================================
       ! NOTE: This only works if the nozzle inflow BC is located in bc_in(1)
@@ -667,10 +667,10 @@ continue
       do k = 1,np
         return_value(k,:) = jet_profile4(nozzle_len,xyz(1,k), &
                                          bc_in(0)%pv(:), &
-                                         bc_in(1)%pv(:))
+                                         bc_in(init_cond)%pv(:))
       end do
       !
-    else if (init_cond == 3) then
+    else if (jet_init_func == 3) then
       !
       !======================================================================
       ! NOTE: This only works if the nozzle inflow BC is located in bc_in(1)
@@ -693,12 +693,12 @@ continue
         end if
         r = norm2(xyz(2:,k))
         return_value(k,:) = jet_profile3(nozzle_len,xyz(1,k),r,r0,div, &
-                                         bc_in(1)%pv(:), &
+                                         bc_in(init_cond)%pv(:), &
                                          bc_in(0)%pv(:))
         !
       end do
       !
-    else if (init_cond /= 0) then
+    else if (jet_init_func /= 0) then
       !
       ! div = thickness parameter for shear layer
       !     = (radius of nozzle at the lip) * 0.1
@@ -1157,7 +1157,9 @@ subroutine find_elem_for_initial_jet_profile(point_is_in_nozzle_interior)
   !
   !.. Use Statements ..
   use geovar, only : grid
+  use ovar,   only : itestcase
   use ovar,   only : jet_init_func
+  use ovar,   only : bc_in,bc_input
   !
   !.. Dummy Function Interface ..
   interface
@@ -1169,13 +1171,15 @@ subroutine find_elem_for_initial_jet_profile(point_is_in_nozzle_interior)
   end interface
   !
   !.. Local Scalars ..
-  integer :: l,n,init
+  integer :: l,n,init,bc_idx
+  integer :: nozzle_inflow_bc_idx
   !
   !.. Local Arrays ..
   real(wp) :: xyz_ave(1:3)
   !
   !.. Local Allocatable Arrays ..
-  integer, allocatable :: pts(:)
+  integer,          allocatable :: pts(:)
+  character(len=:), allocatable :: bc_input_name
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "find_elem_for_initial_jet_profile"
@@ -1186,7 +1190,35 @@ subroutine find_elem_for_initial_jet_profile(point_is_in_nozzle_interior)
   !
 continue
   !
+  ! Find the index of bc_in for the nozzle inflow boundary condition
+  !
+  nozzle_inflow_bc_idx = 1
+  l = 0
+  !
+  do n = lbound(bc_in,dim=1),ubound(bc_in,dim=1)
+    bc_idx = bc_in(n)%bc_input_idx
+    if (bc_idx >= lbound(bc_input,dim=1) .and. &
+        bc_idx <= ubound(bc_input,dim=1)) then
+      ! F2003 AUTO-REALLOC
+      bc_input_name = uppercase( trim(adjustl(bc_input(bc_idx)%name)) )
+      if (bc_input_name == "NOZZLEINFLOW") l = n
+      if (bc_input_name == "NOZZLE_INFLOW") l = n
+      if (bc_input_name == "NOZZLE INFLOW") l = n
+      if (bc_input_name == "INFLOWNOZZLE") l = n
+      if (bc_input_name == "INFLOW_NOZZLE") l = n
+      if (bc_input_name == "INFLOW NOZZLE") l = n
+      if (bc_input_name == "INFLOWSUBSONIC") l = n
+      if (l > 0) then
+        nozzle_inflow_bc_idx = l
+        exit
+      end if
+    end if
+  end do
+  !
   xyz_ave(:) = zero
+  !
+  ! Loop through all the grid cells and update the initial condition tag
+  ! depending on whether or not the cell is inside or outside the nozzle
   !
   do n = 1,size(grid%elem)
     !
@@ -1194,19 +1226,41 @@ continue
       !
       pts = grid%elem(n)%pts(:) ! USING F2003 AUTO-REALLOCATION
       !
+      ! Get the coordinates for the cell center by averaging
+      ! all the coordinates of the cells grid points
+      !
       do l = 1,size(grid%xyz,dim=1)
         xyz_ave(l) = sum(grid%xyz(l,pts(:))) / real(size(pts),kind=wp)
       end do
       !
       if (xyz_ave(1) > zero) then
-        if (any(jet_init_func == [2,3])) then
+        !
+        ! If the axial location of the cell center is downstream of the
+        ! nozzle exit (x > 0), mark the initial condition depending on
+        ! the test case being run and the jet initialization function
+        ! being used
+        !
+        if (abs(itestcase)==Subsonic_Jet .and. any(jet_init_func==[2,3])) then
           init = 0
         else
-          init = jet_init_func
+         !init = jet_init_func
+          init = nozzle_inflow_bc_idx
         end if
+        !
       else
-        init = merge(jet_init_func,0,point_is_in_nozzle_interior(xyz_ave))
+        !
+        ! If the axial location of the cell center is upstream of the
+        ! nozzle exit, use the point_is_in_nozzle_interior to determine
+        ! if this cell is inside or outside the nozzle, and set the initial
+        ! condition if this cell is inside the nozzle.
+        !
+       !init = merge(jet_init_func,0,point_is_in_nozzle_interior(xyz_ave))
+        init = merge(nozzle_inflow_bc_idx,0, &
+                     point_is_in_nozzle_interior(xyz_ave))
+        !
       end if
+      !
+      ! Update the cell tags with the new initial condition
       !
       if (size(grid%elem(n)%tags) < 2) then
         grid%elem(n)%tags = [grid%elem(n)%tags(1),init] ! F2003 AUTO-REALLOC
