@@ -814,10 +814,12 @@ continue
     !
     ! Output the initialized solution
     !
-    if (continuous_output) then
-      call new_write_parallel_cgns(open_CGNS)
-    else
-      call write_parallel_cgns(open_CGNS)
+    if (num_timesteps > 0) then
+      if (continuous_output) then
+        call new_write_parallel_cgns(open_CGNS)
+      else
+        call write_parallel_cgns(open_CGNS)
+      end if
     end if
     !
   end if
