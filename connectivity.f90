@@ -3586,6 +3586,7 @@ subroutine create_bc_grps(bface,face,fp)
   use geovar, only : face_t,fp_t
   use geovar, only : n_wall_flxpts,n_wall_qdtpts
   use geovar, only : nr
+  use ovar,   only : bc_in
   !
   !.. Formal Arguments ..
   integer,      intent(in) :: bface(:,:)
@@ -3593,29 +3594,42 @@ subroutine create_bc_grps(bface,face,fp)
   type(fp_t),   intent(in) :: fp
   !
   !.. Local Scalars ..
-  integer :: i,k,n,nf,pf,p1,p2,q1,q2,lfbnd,ierr
-  integer :: bc_idx,bc_grp,periodic_pts,ngrps
-  integer :: left_cell,left_geom,left_side
-  integer :: right_cell,right_geom,right_side
+  integer :: i,k,n,lfbnd,ierr
+  integer :: nf,nf1,nf2,nq1,nq2
+  integer :: pf,pf1,pf2,pq1,pq2
+  integer ::     f1, f2, q1, q2
+  integer :: bc_idx,bc_grp,ngrps
   integer :: face_geom,face_order,nfp,irot
+  integer :: grp_idx,num_rpbc,num_tpbc
+  integer :: line_counter
+  !
+  logical(lk) :: contains_periodic_faces
   !
   character(len=50) :: array_name
   !
   !.. Local Allocatable Arrays ..
+  integer,        allocatable :: pbc_pts(:)
+  integer,        allocatable :: rpbc_idx(:)
   type(bc_grp_t), allocatable :: tmp_bc_grps(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_bc_grps"
+  logical(lk), parameter :: use_pf_idx = fals
+ !logical(lk), parameter :: use_pf_idx = true
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  periodic_pts = 0
+  line_counter = -1
   !
   lfbnd = size(bface,dim=2)
   !
-!#define DEBUG_BC_GROUPS
+  contains_periodic_faces = any(bface(1,1:lfbnd) == bc_periodic)
+  !
+#ifdef DEBUG_ON
+#define DEBUG_BC_GROUPS
+#endif
 #ifdef DEBUG_BC_GROUPS
   if (mypnum == glb_root) then
     write (iout,*) "num_bc_grps = ",num_bc_grps
@@ -3627,21 +3641,21 @@ continue
   call alloc_error(pname,"bc_grps",1,__LINE__,__FILE__,ierr,error_message)
   !
 #ifdef DEBUG_BC_GROUPS
-  p1 = count(bface(1,:) == bc_cpu_bnd)
-  p2 = count(bface(1,:) == bc_periodic)
+  nf = count(bface(1,:) == bc_cpu_bnd)
+  pf = count(bface(1,:) == bc_periodic)
   flush (iout)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   do i = 0,ncpu-1
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
     if (mypnum == i) then
-      if (p1 > 0 .or. p2 > 0) then
+      if (nf > 0 .or. pf > 0) then
         write (iout,*)
         write (iout,*) "For CPU # ",mypnum
-        if (p1 > 0) then
-          write (iout,*) "number of communication BC = ",p1
+        if (nf > 0) then
+          write (iout,*) "number of communication BC = ",nf
         end if
-        if (p2 > 0) then
-          write (iout,*) "number of periodic      BC = ",p2
+        if (pf > 0) then
+          write (iout,*) "number of periodic      BC = ",pf
         end if
         write (iout,*)
         flush (iout)
@@ -3654,39 +3668,54 @@ continue
   flush (iout)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
-  n = 0
+  !
+  ! Initialize the BC group index
+  !
+  grp_idx = 0
+  !
+  ! First, create the bc_grps entries for all the physical BC groups
+  !
   bc_idx = bc_unknown
   bc_grp = bc_unknown
-  !
   do nf = 1,lfbnd
     !
-    if (bface(1,nf) == bc_cpu_bnd) then
-      cycle
-    else if (bface(1,nf) == bc_periodic) then
-      periodic_pts = periodic_pts + face(nf)%end_fp - face(nf)%beg_fp + 1
-      cycle
-    end if
+    ! Skip to the next face if this is a periodic or communication boundary face
+    ! NOTE: We will deal with periodic boundary face groups after this loop.
+    !
+    if (any(bface(1,nf) == bc_comm)) cycle
     !
     if (bface(5,nf) /= bc_grp .or. bface(6,nf) /= bc_idx) then
       !
-      n = n + 1
+      ! If bface(5) and bface(6) dont respectively match the current values of
+      ! bc_grp and bc_idx, this is a new BC group so
+      !   1) increment the BC group index
+      !   2) reset bc_grp and bc_idx to the values for this new BC group
+      !   3) save the beginning and ending face flux and quadrature points
+      !      to bc_grps
+      !   4) save the BC type from bface(1) to bc_grps
+      !   5) save the corresponding index for bc_in to bc_grps
+      !
+      grp_idx = grp_idx + 1
       !
       bc_grp = bface(5,nf)
       bc_idx = bface(6,nf)
       !
-      bc_grps(n)%beg_fp = face(nf)%beg_fp
-      bc_grps(n)%end_fp = face(nf)%end_fp
-      bc_grps(n)%beg_qp = face(nf)%beg_qp
-      bc_grps(n)%end_qp = face(nf)%end_qp
-      bc_grps(n)%bc_type = bface(1,nf)
-      bc_grps(n)%bc_idx = bc_idx
+      bc_grps(grp_idx)%beg_fp = face(nf)%beg_fp
+      bc_grps(grp_idx)%end_fp = face(nf)%end_fp
+      bc_grps(grp_idx)%beg_qp = face(nf)%beg_qp
+      bc_grps(grp_idx)%end_qp = face(nf)%end_qp
+      bc_grps(grp_idx)%bc_type = bface(1,nf)
+      bc_grps(grp_idx)%bc_idx = bc_idx
       !
     else
       !
-      ! This keeps incrementing end_fp and end_qp until a new BC group is found
+      ! If bface(5) and bface(6) respectively match the current values of
+      ! bc_grp and bc_idx, this face also goes with the current BC group,
+      ! so update the ending face flux and quadrature point indices and
+      ! continue doing this until a new BC group is found.
       !
-      bc_grps(n)%end_fp = face(nf)%end_fp
-      bc_grps(n)%end_qp = face(nf)%end_qp
+      bc_grps(grp_idx)%end_fp = face(nf)%end_fp
+      bc_grps(grp_idx)%end_qp = face(nf)%end_qp
       !
     end if
     !
@@ -3697,67 +3726,288 @@ continue
  !                         face(bface(5,nf))%beg_fp, &
  !                         face(bface(5,nf))%end_fp
  !end do
-  100 format (i5,i4,i4,i6,i6)
+ !100 format (i5,i4,i4,i6,i6)
   !
-  if (periodic_pts > 0) then
+  if (contains_periodic_faces) then
     !
-    n = n + 1
+    ! Allocate the array to count the number of periodic
+    ! boundary face points for each periodic BC group
     !
-    bc_grps(n)%beg_fp =  huge(0)
-    bc_grps(n)%end_fp = -huge(0)
-    bc_grps(n)%beg_qp =  huge(0)
-    bc_grps(n)%end_qp = -huge(0)
-    bc_grps(n)%bc_type = bc_periodic
-    bc_grps(n)%bc_idx = 0
+    pbc_pts = init_array(num_bc_grps,0) ! F2003 AUTO-REALLOC
     !
-    allocate ( bc_grps(n)%periodic_list(1:periodic_pts) , source=0 , &
-               stat=ierr , errmsg=error_message )
-    write (array_name,1) n
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+    ! Allocate the array to store the rotated periodic BC group indices
     !
-    i = 0
+    rpbc_idx = init_array(num_bc_grps,0)
     !
+    ! Count the number of rotated periodic BCs and
+    ! if there are any translation-only periodic BCs
+    !
+    num_rpbc = 0
+    num_tpbc = 0
+    !
+    bc_idx = bc_unknown
     do nf = 1,lfbnd
       !
-      if (bface(1,nf) /= bc_periodic) cycle
+      if (bface(1,nf) == bc_periodic) then
+        !
+        n = mod(bface(11,nf),10000)
+        !
+        if (allocated(bc_in(n)%pbc_rotation%mat)) then
+          !
+          if (n /= bc_idx) then
+            !
+            ! We have found a new rotated periodic BC group
+            ! so increment num_rpbc
+            !
+            num_rpbc = num_rpbc + 1
+            !
+            ! Update bc_idx to the new rotated periodic BC group index
+            !
+            bc_idx = n
+            !
+            ! Save this BC group index to rpbc_idx
+            !
+            rpbc_idx(num_rpbc) = bc_idx
+            !
+          end if
+          !
+          ! Add the number of periodic face points for this boundary face
+          ! to the current rotated periodic BC group index in pbc_pts
+          !
+          nf1 = face(nf)%beg_fp
+          nf2 = face(nf)%end_fp
+          !
+          pbc_pts(num_rpbc) = pbc_pts(num_rpbc) + nf2-nf1+1
+          !
+        else
+          !
+          ! We have found a translation-only periodic BC group so set
+          ! num_tpbc=1 to indicate that one or more translation-only
+          ! periodic BCs exist
+          !
+          num_tpbc = 1
+          !
+          ! Update bc_idx to the new translation-only periodic BC group index
+          ! NOTE: I dont think this will affect anything since the periodic
+          !       BCs should be sorted so that all translation-only periodic
+          !       BCs are after any rotated periodic BCs.
+          !
+          bc_idx = n
+          !
+          ! Add the number of periodic face points for this boundary face
+          ! to the last element of pbc_pts which will hold the total number
+          ! of translation-only periodic face points for this partition
+          !
+          nf1 = face(nf)%beg_fp
+          nf2 = face(nf)%end_fp
+          !
+          pbc_pts(num_bc_grps) = pbc_pts(num_bc_grps) + nf2-nf1+1
+          !
+        end if
+      end if
       !
-      pf = bface(5,nf)
-      p1 = face(pf)%beg_fp
-      p2 = face(pf)%end_fp
-      q1 = face(pf)%beg_qp
-      q2 = face(pf)%end_qp
+    end do
+    !
+    ! Loop over the rotated periodic BC groups to create the necessary
+    ! information in bc_grps for each one
+    !
+    do n = 1,num_rpbc
       !
-      left_cell = bface(2,nf)
-      left_geom = bface(3,nf)
-      left_side = bface(4,nf)
+      ! Increment the BC group index
       !
-      right_cell = bface(2,pf)
-      right_geom = bface(3,pf)
-      right_side = bface(4,pf)
+      grp_idx = grp_idx + 1
       !
-      bc_grps(n)%beg_fp = min(bc_grps(n)%beg_fp,p1)
-      bc_grps(n)%end_fp = max(bc_grps(n)%end_fp,p2)
-      bc_grps(n)%beg_qp = min(bc_grps(n)%beg_qp,q1)
-      bc_grps(n)%end_qp = max(bc_grps(n)%end_qp,q2)
+      ! Get the bc_in index for this BC group
       !
-      face_geom = face(nf)%geom
-      face_order = face(nf)%order
-      nfp = p2-p1+1
+      bc_idx = rpbc_idx(n)
       !
-      irot = bface(11,nf)/10000
+      ! Set the BC type and bc_in index for this BC group
+      ! and initialize the face point and quadrature point indices
       !
-      do k = 1,nfp
-        i = i + 1
-        bc_grps(n)%periodic_list(i) = p1 + fp%geord(face_geom,face_order)% &
-                                                                rot(irot)% &
-                                           pts(k)
+      bc_grps(grp_idx)%beg_fp =  huge(0)
+      bc_grps(grp_idx)%end_fp = -huge(0)
+      bc_grps(grp_idx)%beg_qp =  huge(0)
+      bc_grps(grp_idx)%end_qp = -huge(0)
+      bc_grps(grp_idx)%bc_type = bc_periodic
+      bc_grps(grp_idx)%bc_idx = bc_idx
+      !
+      ! Allocate the periodic_list component array for this BC group
+      !
+      ! F2003 AUTO-REALLOC
+      bc_grps(grp_idx)%periodic_list = init_array(pbc_pts(n),0)
+     !allocate ( bc_grps(grp_idx)%periodic_list(1:periodic_pts) , source=0 , &
+     !           stat=ierr , errmsg=error_message )
+     !write (array_name,1) grp_idx
+     !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      !
+      ! Find all the boundary faces for this rotated periodic BC group and
+      ! get the beginning and ending flux and quadrature point indices and
+      ! add the flux point indices to the periodic list
+      !
+      i = 0
+      do nf = 1,lfbnd
+        !
+        ! Skip to the next boundary face if this one isnt periodic
+        if (bface(1,nf) /= bc_periodic) cycle
+        !
+        ! Skip to the next boundary face if this periodic boundary face
+        ! doesnt have the same bc_in index
+        if (mod(bface(11,nf),10000) /= bc_idx) cycle
+        !
+        nf1 = face(nf)%beg_fp
+        nf2 = face(nf)%end_qp
+        nq1 = face(nf)%beg_fp
+        nq2 = face(nf)%end_qp
+        !
+        pf = bface(5,nf)
+        pf1 = face(pf)%beg_fp
+        pf2 = face(pf)%end_fp
+        pq1 = face(pf)%beg_qp
+        pq2 = face(pf)%end_qp
+        !
+        f1 = merge(pf1,nf1,use_pf_idx)
+        f2 = merge(pf2,nf2,use_pf_idx)
+        q1 = merge(pq1,nq1,use_pf_idx)
+        q2 = merge(pq2,nq2,use_pf_idx)
+        !
+        bc_grps(grp_idx)%beg_fp = min(bc_grps(grp_idx)%beg_fp, f1)
+        bc_grps(grp_idx)%end_fp = max(bc_grps(grp_idx)%end_fp, f2)
+        bc_grps(grp_idx)%beg_qp = min(bc_grps(grp_idx)%beg_qp, q1)
+        bc_grps(grp_idx)%end_qp = max(bc_grps(grp_idx)%end_qp, q2)
+        !
+        face_geom = face(nf)%geom
+        face_order = face(nf)%order
+        nfp =  f2- f1+1
+        !
+        irot = bface(11,nf)/10000
+        !
+#ifdef DEBUG_BC_GROUPS
+        write (mypnum+600,5) nf,nf1,nf2,pf,pf1,pf2,irot,grp_idx, &
+                             bc_grps(grp_idx)%beg_fp,bc_grps(grp_idx)%end_fp
+#endif
+        do k = 1,nfp
+          i = i + 1
+          bc_grps(grp_idx)%periodic_list(i) = &
+                           pf1 + fp%geord(face_geom,face_order)%rot(irot)%pts(k)
+#ifdef DEBUG_BC_GROUPS
+          write (mypnum+600,4) &
+                           k,fp%geord(face_geom,face_order)%rot(irot)%pts(k), &
+                           i,bc_grps(grp_idx)%periodic_list(i), &
+                           nf1+k-1,bc_grps(grp_idx)%periodic_list(i)
+#endif
+        end do
+        !
       end do
       !
     end do
     !
+    ! Finally create the necessary information in bc_grps for all the
+    ! translation-only periodic BCs, if any exist.
+    !
+    if (num_tpbc == 1) then
+      !
+      ! Increment the BC group index
+      !
+      grp_idx = grp_idx + 1
+      !
+      ! Set the BC type and bc_in index for this BC group
+      ! and initialize the face point and quadrature point indices
+      !
+      bc_grps(grp_idx)%beg_fp =  huge(0)
+      bc_grps(grp_idx)%end_fp = -huge(0)
+      bc_grps(grp_idx)%beg_qp =  huge(0)
+      bc_grps(grp_idx)%end_qp = -huge(0)
+      bc_grps(grp_idx)%bc_type = bc_periodic
+      bc_grps(grp_idx)%bc_idx = 0
+      !
+      ! Allocate the periodic_list component array for this BC group
+      !
+      ! F2003 AUTO-REALLOC
+      bc_grps(grp_idx)%periodic_list = init_array(pbc_pts(num_bc_grps),0)
+      !
+      ! Find all the boundary faces with translation-only periodic BCs and
+      ! get the beginning and ending flux and quadrature point indices and
+      ! add the flux point indices to the periodic list
+      !
+      i = 0
+      do nf = 1,lfbnd
+        !
+        ! Skip to the next boundary face if this one isnt periodic
+        if (bface(1,nf) /= bc_periodic) cycle
+        !
+        ! Get the bc_in index for this periodic boundary face
+        !
+        bc_idx = mod(bface(11,nf),10000)
+        !
+        ! Skip to the next boundary face if bc_in(bc_idx)%pbc_rotation%mat
+        ! is allocated for this periodic boundary face which means this is
+        ! a rotated periodic boundary face.
+        if (allocated(bc_in(bc_idx)%pbc_rotation%mat)) cycle
+        !
+        nf1 = face(nf)%beg_fp
+        nf2 = face(nf)%end_qp
+        nq1 = face(nf)%beg_fp
+        nq2 = face(nf)%end_qp
+        !
+        pf = bface(5,nf)
+        pf1 = face(pf)%beg_fp
+        pf2 = face(pf)%end_fp
+        pq1 = face(pf)%beg_qp
+        pq2 = face(pf)%end_qp
+        !
+        f1 = merge(pf1,nf1,use_pf_idx)
+        f2 = merge(pf2,nf2,use_pf_idx)
+        q1 = merge(pq1,nq1,use_pf_idx)
+        q2 = merge(pq2,nq2,use_pf_idx)
+        !
+        bc_grps(grp_idx)%beg_fp = min(bc_grps(grp_idx)%beg_fp, f1)
+        bc_grps(grp_idx)%end_fp = max(bc_grps(grp_idx)%end_fp, f2)
+        bc_grps(grp_idx)%beg_qp = min(bc_grps(grp_idx)%beg_qp, q1)
+        bc_grps(grp_idx)%end_qp = max(bc_grps(grp_idx)%end_qp, q2)
+        !
+        face_geom = face(nf)%geom
+        face_order = face(nf)%order
+        nfp =  f2- f1+1
+        !
+        irot = bface(11,nf)/10000
+        !
+#ifdef DEBUG_BC_GROUPS
+        write (mypnum+600,5) nf,nf1,nf2,pf,pf1,pf2,irot,grp_idx, &
+                             bc_grps(grp_idx)%beg_fp,bc_grps(grp_idx)%end_fp
+#endif
+        do k = 1,nfp
+          i = i + 1
+          bc_grps(grp_idx)%periodic_list(i) = &
+                            pf1 + fp%geord(face_geom,face_order)%rot(irot)%pts(k)
+#ifdef DEBUG_BC_GROUPS
+          write (mypnum+600,4) &
+                           k,fp%geord(face_geom,face_order)%rot(irot)%pts(k), &
+                           i,bc_grps(grp_idx)%periodic_list(i), &
+                           nf1+k-1,bc_grps(grp_idx)%periodic_list(i)
+#endif
+  4 format (2x,"pts(k=",i3,")=",i3,5x,"periodic_list(",i5,") = ",i0, &
+            "  =>  face_cv(",i6,",:,2) = face_cv(",i6,",:,1)")
+  5 format (95("="),/, &
+            " face(nf)%[beg_fp,end_fp]   face(pf)%[beg_fp,end_fp]", &
+            3x,"irot",3x,"grp_idx",3x,"bc_grps%[beg_fp,end_fp]",/, &
+            " (",i6,")%[",i6,",",i6"]",2x," (",i6,")%[",i6,",",i6"]", &
+            5x,i1,5x,i3,14x,"[",i6,",",i6,"]",/, &
+            95("-"))
+        end do
+        !
+      end do
+      !
+    end if
+    !
   end if
   !
-  ngrps = n
+  ! Save the total number of BC groups found on this partition
+  ! NOTE: This should be the same as num_bc_grps when running in serial,
+  !       but could be smaller when running with more than one MPI process.
+  !
+  ngrps = grp_idx
+  !
+  ! Count the total number of physical wall flux points and quadrature points
   !
   n_wall_flxpts = 0
   n_wall_qdtpts = 0
@@ -3768,29 +4018,37 @@ continue
     end if
   end do
   !
+  ! Condense the size of bc_grps to the total number
+  ! of BC groups found on this partition
+  ! NOTE: This should just be unneccessary work if running in serial, but could
+  !       reduce the allocated size of bc_grps when running with more than
+  !       one MPI process.
+  !
   allocate ( tmp_bc_grps(1:ngrps) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"tmp_bc_grps",1,__LINE__,__FILE__,ierr,error_message)
   !
-  do n = 1,ngrps
-    tmp_bc_grps(n) = bc_grps(n)
+  do grp_idx = 1,ngrps
+    tmp_bc_grps(grp_idx) = bc_grps(grp_idx)
   end do
   !
   call move_alloc( from=tmp_bc_grps , to=bc_grps )
+  !
+  ! We are finished creating the BC groups information in bc_grps
   !
   flush (iout)
 #ifdef DEBUG_BC_GROUPS
   if (allocated(bc_grps)) then
     if (size(bc_grps) >= 1) then
-      do n = 1,size(bc_grps)
-        write (mypnum+500,2) n,bc_grps(n)%beg_fp, &
-                             n,bc_grps(n)%end_fp, &
-                             n,bc_grps(n)%beg_qp, &
-                             n,bc_grps(n)%end_qp, &
-                             n,bc_grps(n)%bc_type, &
-         trim(adjustl(bc_integer_to_string(bc_grps(n)%bc_type))), &
-                       n,bc_grps(n)%bc_idx
-        if (allocated(bc_grps(n)%periodic_list)) then
-          write (mypnum+500,3) n
+      do grp_idx = 1,size(bc_grps)
+        write (mypnum+500,2) grp_idx, bc_grps(grp_idx)%beg_fp, &
+                             grp_idx, bc_grps(grp_idx)%end_fp, &
+                             grp_idx, bc_grps(grp_idx)%beg_qp, &
+                             grp_idx, bc_grps(grp_idx)%end_qp, &
+                             grp_idx, bc_grps(grp_idx)%bc_type, &
+         trim(adjustl(bc_integer_to_string(bc_grps(grp_idx)%bc_type))), &
+                       grp_idx,bc_grps(grp_idx)%bc_idx
+        if (allocated(bc_grps(grp_idx)%periodic_list)) then
+          write (mypnum+500,3) grp_idx
         end if
         flush (mypnum+500)
       end do
@@ -3812,16 +4070,16 @@ continue
       if (size(bc_grps) >= 1) then
         write (iout,*)
         write (iout,*) "For CPU # ",mypnum
-        do n = 1,size(bc_grps)
-          write (iout,2) n,bc_grps(n)%beg_fp, &
-                         n,bc_grps(n)%end_fp, &
-                         n,bc_grps(n)%beg_qp, &
-                         n,bc_grps(n)%end_qp, &
-                         n,bc_grps(n)%bc_type, &
-         trim(adjustl(bc_integer_to_string(bc_grps(n)%bc_type))), &
-                         n,bc_grps(n)%bc_idx
-          if (allocated(bc_grps(n)%periodic_list)) then
-            write (iout,3) n
+        do grp_idx = 1,size(bc_grps)
+          write (iout,2) grp_idx, bc_grps(grp_idx)%beg_fp, &
+                         grp_idx, bc_grps(grp_idx)%end_fp, &
+                         grp_idx, bc_grps(grp_idx)%beg_qp, &
+                         grp_idx, bc_grps(grp_idx)%end_qp, &
+                         grp_idx, bc_grps(grp_idx)%bc_type, &
+         trim(adjustl(bc_integer_to_string(bc_grps(grp_idx)%bc_type))), &
+                         grp_idx,bc_grps(grp_idx)%bc_idx
+          if (allocated(bc_grps(grp_idx)%periodic_list)) then
+            write (iout,3) grp_idx
           end if
         end do
         flush (iout)
