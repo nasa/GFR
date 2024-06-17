@@ -4,7 +4,7 @@ module channel_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nee,nq
+  use eqn_idx, only : nec,nmx,nmy,nmz,nee,nq
   !
   implicit none
   !
@@ -13,6 +13,7 @@ module channel_mod
   !.. Public procedures
   public :: read_channel_init_file
   public :: channel_initialization
+  public :: pipe_initialization
   public :: channel_source
   public :: spatial_ave_channel_flow
   public :: spatial_ave_z_planes
@@ -72,6 +73,56 @@ continue
   end if
   !
 end function channel_initialization
+!
+!###############################################################################
+!
+pure function pipe_initialization( xyz ) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : bc_in
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: xyz
+  !
+  !.. Function Result ..
+  real(wp), dimension(1:size(xyz,dim=2),1:nq) :: return_value
+  !
+  !.. Local Scalars ..
+  integer  :: k,np
+  real(wp) :: rho,rhou,rhov,rhow,rhoe
+  real(wp) :: x,y,z,r,t
+  !
+continue
+  !
+  np = size(xyz,dim=2)
+  !
+  if (allocated(init_sol)) then
+    !
+    !
+  else
+    !
+    do k = 1,np
+      !
+      x = xyz(1,k)
+      y = xyz(2,k)
+      z = xyz(3,k)
+      r = y*y + z*z
+      t = atan2(z,y)
+      t = t + merge(two*pi,zero,t<zero)
+      !
+      rho  = bc_in(0)%cv(nec)
+      rhou = bc_in(0)%cv(nmx)
+      rhov = bc_in(0)%cv(nmy)
+      rhow = bc_in(0)%cv(nmz)
+      rhoe = bc_in(0)%cv(nee)
+      !
+      return_value(k,:) = bc_in(0)%cv(:)
+      !
+    end do
+    !
+  end if
+  !
+end function pipe_initialization
 !
 !###############################################################################
 !
