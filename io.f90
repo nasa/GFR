@@ -2760,9 +2760,10 @@ continue
   !   4. translation-only periodic BCs
   !   5. parallel communication BCs
   !
-  allocate ( sorted_grps(1:2,1:ngrps) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"sorted_grps",1,__LINE__,__FILE__,ierr,error_message)
+  sorted_grps = init_array(2,ngrps,0) ! F2003 AUTO-REALLOC
+ !allocate ( sorted_grps(1:2,1:ngrps) , source=0 , &
+ !           stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"sorted_grps",1,__LINE__,__FILE__,ierr,error_message)
   !
   n = 0
   !
@@ -2808,11 +2809,13 @@ continue
   ! new2old(nf) = the old face number for a  new face nf
   ! old2new(nf) = the new face number for an old face nf
   !
-  allocate ( new2old(1:nfbnd) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"new2old",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( old2new(1:nfbnd) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"old2new",1,__LINE__,__FILE__,ierr,error_message)
+  new2old = init_array(nfbnd,0) ! F2003 AUTO-REALLOC
+  old2new = init_array(nfbnd,0) ! F2003 AUTO-REALLOC
+ !allocate ( new2old(1:nfbnd) , source=0 , stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"new2old",1,__LINE__,__FILE__,ierr,error_message)
+ !!
+ !allocate ( old2new(1:nfbnd) , source=0 , stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"old2new",1,__LINE__,__FILE__,ierr,error_message)
   !
   i = 0
   do n = 1,ngrps
