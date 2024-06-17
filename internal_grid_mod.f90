@@ -132,6 +132,10 @@ continue
     !
     call create_taylor_couette_grid
     !
+  else if (abs(itestcase) == Pipe_Channel_Flow) then
+    !
+    call create_pipe_channel_grid
+    !
   else if (abs(itestcase) == CH4_Flame_Speed_Test) then
     !
     if (flame_speed_test_dof <= 0) then
@@ -178,6 +182,297 @@ end subroutine create_internal_grid
 !
 !###############################################################################
 !
+subroutine reset_bc_input_for_tcf_grid(lx,rotation_angle,inner_wall_bc)
+  !
+  !.. Use Statements ..
+  use ovar, only : bc_input,bc_input_t,periodic_bc_t
+  use ovar, only : bc_names
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: lx,rotation_angle
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: inner_wall_bc
+  !
+  !.. Local Scalars ..
+  integer :: i,n,nbc,bc_idx
+  !
+  type(periodic_bc_t) :: tmp_periodic_bc1
+  type(periodic_bc_t) :: tmp_periodic_bc2
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: bcname
+  !
+  !.. Local Allocatable Arrays ..
+  type(bc_input_t), allocatable :: tmp_bc_input(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "reset_bc_input_for_tcf_grid"
+  !
+  logical(lk), parameter :: use_rotation_axis = fals
+ !logical(lk), parameter :: use_rotation_axis = true
+  !
+continue
+  !
+  ! Create a default bc_input for the TCF flow case
+  !
+  ! F2003 AUTO-REALLOC
+  tmp_bc_input = get_default_tcf_grid_bc_input(inner_wall_bc)
+  !
+  nbc = size(tmp_bc_input)
+  !
+  ! If bc_input is not allocated, use move_alloc to allocate
+  ! bc_input to tmp_bc_input and return from the subroutine.
+  !
+  if (.not. allocated(bc_input)) then
+    call move_alloc( from=tmp_bc_input , to=bc_input )
+    return
+  end if
+  !
+  ! Find the inflow BC in bc_input if it exists
+  !
+  bc_idx = 1
+  n = 0
+  tmp_periodic_bc1 = tmp_bc_input(bc_idx)%periodic
+  find_inflow_loop: &
+  do i = 1,size(bc_input)
+    !
+    bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
+    if (bcname == "XMIN") n = i
+    if (bcname == "INFLOW") n = i
+    if (bc_input(i)%set_bc_value == bc_sem) n = i
+    !
+    if (n > 0) then
+      tmp_bc_input(bc_idx) = bc_input(n)
+      tmp_bc_input(bc_idx)%name = "INFLOW"
+      exit find_inflow_loop
+    end if
+    !
+  end do find_inflow_loop
+  !
+  ! Find the outflow bc in bc_input if it exists
+  !
+  bc_idx = 2
+  n = 0
+  tmp_periodic_bc2 = tmp_bc_input(bc_idx)%periodic
+  find_outflow_loop: &
+  do i = 1,size(bc_input)
+    !
+    bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
+    if (bcname == "XMAX") n = i
+    if (bcname == "OUTFLOW") n = i
+    if (any(bc_input(i)%set_bc_value == bc_outflows(:))) n = i
+    !
+    if (n > 0) then
+      tmp_bc_input(bc_idx) = bc_input(n)
+      tmp_bc_input(bc_idx)%name = "OUTFLOW"
+      exit find_outflow_loop
+    end if
+    !
+  end do find_outflow_loop
+  !
+  ! If the inflow and outflow BCs are periodic, copy the default values for
+  ! the periodic BCs back into tmp_bc_input
+  !
+  if (all(tmp_bc_input(1:2)%set_bc_value == bc_periodic)) then
+    tmp_bc_input(1)%periodic = tmp_periodic_bc1
+    tmp_bc_input(2)%periodic = tmp_periodic_bc2
+  end if
+  !
+  ! Find the inner cylinder wall bc in bc_input if it exists
+  !
+  bc_idx = 3
+  n = 0
+  find_iwall_loop: &
+  do i = 1,size(bc_input)
+    !
+    bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
+    if (bcname == "INNER WALL") n = i
+    if (bcname == "INNER_WALL") n = i
+    if (bcname == "INNERWALL") n = i
+    if (bcname == "BOTTOM WALL") n = i
+    if (bcname == "BOTTOM_WALL") n = i
+    if (bcname == "BOTTOMWALL") n = i
+    if (bcname == "YMIN") n = i
+    if (bcname == "RMIN") n = i
+    !
+    if (n > 0) then
+      tmp_bc_input(bc_idx) = bc_input(n)
+      tmp_bc_input(bc_idx)%name = "INNERWALL"
+      exit find_iwall_loop
+    end if
+    !
+  end do find_iwall_loop
+  !
+  ! Find the outer cylinder wall bc in bc_input if it exists
+  !
+  bc_idx = 4
+  n = 0
+  find_owall_loop: &
+  do i = 1,size(bc_input)
+    !
+    bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
+    if (bcname == "OUTER WALL") n = i
+    if (bcname == "OUTER_WALL") n = i
+    if (bcname == "OUTERWALL") n = i
+    if (bcname == "TOP WALL") n = i
+    if (bcname == "TOP_WALL") n = i
+    if (bcname == "TOPWALL") n = i
+    if (bcname == "YMAX") n = i
+    if (bcname == "RMAX") n = i
+    !
+    if (n > 0) then
+      tmp_bc_input(bc_idx) = bc_input(n)
+      tmp_bc_input(bc_idx)%name = "OUTERWALL"
+      exit find_owall_loop
+    end if
+    !
+  end do find_owall_loop
+  !
+  ! Find the rotationally periodic BCs in bc_input
+  ! if running only a sector of the TCF problem
+  !
+  if (nbc > 4) then
+    !
+    ! Find the theta-min rotationally periodic bc in bc_input if it exists
+    !
+    bc_idx = 5
+    n = 0
+    tmp_periodic_bc1 = tmp_bc_input(bc_idx)%periodic
+    find_thetamin_loop: &
+    do i = 1,size(bc_input)
+      !
+      bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
+      if (bcname == "ZMIN") n = i
+      if (bcname == "THETAMIN") n = i
+      !
+      if (n > 0) then
+        tmp_bc_input(bc_idx) = bc_input(n)
+        tmp_bc_input(bc_idx)%name = "THETAMIN"
+        exit find_thetamin_loop
+      end if
+      !
+    end do find_thetamin_loop
+    !
+    ! Find the theta-max rotationally periodic bc in bc_input if it exists
+    !
+    bc_idx = 6
+    n = 0
+    tmp_periodic_bc2 = tmp_bc_input(bc_idx)%periodic
+    find_thetamax_loop: &
+    do i = 1,size(bc_input)
+      !
+      bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
+      if (bcname == "ZMAX") n = i
+      if (bcname == "THETAMAX") n = i
+      !
+      if (n > 0) then
+        tmp_bc_input(bc_idx) = bc_input(n)
+        tmp_bc_input(bc_idx)%name = "THETAMAX"
+        exit find_thetamax_loop
+      end if
+      !
+    end do find_thetamax_loop
+    !
+    ! Copy the default values for the periodic BCs back into tmp_bc_input
+    !
+    tmp_bc_input(5)%periodic = tmp_periodic_bc1
+    tmp_bc_input(6)%periodic = tmp_periodic_bc2
+    !
+  end if
+  !
+  ! Finally, use move_alloc to replace whatever might be in bc_input
+  ! with the reconstructed complete bc_input contained in tmp_bc_input.
+  !
+  call move_alloc( from=tmp_bc_input , to=bc_input )
+  !
+  ! Reset bc_names to the names just assigned to bc_input for each BC
+  !
+  bc_names = bc_input(1:nbc)%name ! F2003 AUTO-REALLOC
+  !
+  contains
+  !
+  pure function get_default_tcf_grid_bc_input(iw_bc) result(return_value)
+    !
+    !.. Optional Arguments ..
+    integer, optional, intent(in) :: iw_bc
+    !
+    !.. Function Result ..
+    type(bc_input_t), allocatable :: return_value(:)
+    !
+    !.. Local Scalars ..
+    integer :: n,ierr
+    !
+  continue
+    !
+    n = merge( 6 , 4 , rotation_angle > zero )
+    !
+    allocate ( return_value(1:n) , stat=ierr )
+    !
+    return_value(1)%name = "INFLOW"
+    return_value(1)%set_bc_value = bc_periodic
+    return_value(1)%periodic%matching_bc_name = "OUTFLOW"
+    return_value(1)%periodic%matching_bc_idx  = 2
+    return_value(1)%periodic%translation(1)   = lx
+    !
+    return_value(2)%name = "OUTFLOW"
+    return_value(2)%set_bc_value = bc_periodic
+    return_value(2)%periodic%matching_bc_name = "INFLOW"
+    return_value(2)%periodic%matching_bc_idx  = 1
+    return_value(2)%periodic%translation(1)   = -lx
+    !
+    return_value(3)%name = "INNERWALL"
+    return_value(3)%set_bc_value = bc_isothermal_wall
+    if (present(iw_bc)) then
+      if (any(iw_bc == bc_heirarchy(:))) then
+        ! Use iw_bc as the BC if iw_bc is a valid physical BC
+        return_value(3)%set_bc_value = iw_bc
+      end if
+    end if
+    if (return_value(3)%set_bc_value == bc_isothermal_wall) then
+      return_value(3)%wall_temp = three*ten2 ! 300.0 K
+    end if
+    !
+    return_value(4)%name = "OUTERWALL"
+    return_value(4)%set_bc_value = bc_adiabatic_wall
+    !
+    ! Create the rotationally periodic boundary conditions
+    ! if running only a sector of the TCF problem
+    !
+    if (n > 4) then
+      !
+      ! Create the rotationally periodic boundary conditions
+      !
+      return_value(5)%name = "THETAMIN"
+      return_value(5)%set_bc_value = bc_periodic
+      return_value(5)%periodic%matching_bc_name = "THETAMAX"
+      return_value(5)%periodic%matching_bc_idx  = 6
+      if (use_rotation_axis) then
+        return_value(5)%periodic%RotationAxis(1) = one
+        return_value(5)%periodic%RotationAxis(4) = rotation_angle
+      else
+        return_value(5)%periodic%RotationAngle(1) = rotation_angle
+      end if
+      !
+      return_value(6)%name = "THETAMAX"
+      return_value(6)%set_bc_value = bc_periodic
+      return_value(6)%periodic%matching_bc_name = "THETAMIN"
+      return_value(6)%periodic%matching_bc_idx  = 5
+      if (use_rotation_axis) then
+        return_value(6)%periodic%RotationAxis(1) = one
+        return_value(6)%periodic%RotationAxis(4) = -rotation_angle
+      else
+        return_value(6)%periodic%RotationAngle(1) = -rotation_angle
+      end if
+      !
+    end if
+    !
+  end function get_default_tcf_grid_bc_input
+  !
+end subroutine reset_bc_input_for_tcf_grid
+!
+!###############################################################################
+!
 subroutine create_taylor_couette_grid()
   !
   !.. Use Statements ..
@@ -192,21 +487,24 @@ subroutine create_taylor_couette_grid()
   use ovar, only : TCF_Outer_Radius,TCF_Outer_Wall_Spacing
   use ovar, only : TCF_Aspect_Ratio,TCF_Axial_Cells
   use ovar, only : TCF_Radial_Cells,TCF_Azimuthal_Cells
+  use ovar, only : TCF_Periodic_Sectors
   !
   use module_cgns_types, only : HEXA_8,HEXA_27,HEXA_64,HEXA_125
   !
   use module_cgns, only : get_face_elem
   !
   !.. Local Scalars ..
-  integer  :: ierr,i,j,k,imin,imax,jmin,jmax
-  integer  :: nc,nf,n1,n2,nc_min,nc_max
+  integer  :: ierr,i,j,k,imax,jmax,azp1
+  integer  :: nc,nf,n1,n2,bc1_idx,bc2_idx
   integer  :: ncx,ncr,nca,npx,npr,npa,npts
   integer  :: host_cell,host_side,elem_type
   integer  :: inner_wall_idx,outer_wall_idx
   integer  :: inflow_idx,outflow_idx
-  integer  :: inner_wall_bc,outer_wall_bc
+  integer  :: theta_min_idx,theta_max_idx
   integer  :: grid_order
-  real(wp) :: lx,special_b_coeff
+  real(wp) :: lx,special_b_coeff,angle
+  !
+  logical(lk) :: rotationally_periodic
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: elem_nodes(:,:)
@@ -221,15 +519,36 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
- !bc_names = ["Inflow","InnerWall","OuterWall","Outflow"]
- !bc_names = ["InnerWall","OuterWall","Inflow","Outflow"]
+  ! Get the length of the cylinders
+  !
+  lx = TCF_Aspect_Ratio * abs(TCF_Outer_Radius-TCF_Inner_Radius)
+  !
+  ! Get the periodic rotation angle if running only a sector of the TCF problem
+  ! NOTE: First make sure that TCF_Periodic_Sectors is one or greater
+  !
+  TCF_Periodic_Sectors = max(1,TCF_Periodic_Sectors)
+  !
+  angle = -huge(zero)
+  rotationally_periodic = fals
+  if (TCF_Periodic_Sectors > 1) then
+    angle = three60/real(TCF_Periodic_Sectors,kind=wp)
+    rotationally_periodic = true
+  end if
+  !
+  ! Reset bc_input for this axially (and possibly rotationally) periodic grid
+  ! so that the subroutine match_periodic_faces can correctly match all the
+  ! periodic faces.
+  !
+  call reset_bc_input_for_tcf_grid(lx,angle)
+  !
+  ! Find the index in bc_input for the 4 (maybe 6) different boundary conditions
   !
   inner_wall_idx = -1
   outer_wall_idx = -1
   inflow_idx = -1
   outflow_idx = -1
-  !
-  bc_names = bc_input(1:4)%name ! F2003 AUTO-REALLOC
+  theta_min_idx = merge(-1,0,rotationally_periodic)
+  theta_max_idx = merge(-1,0,rotationally_periodic)
   !
   do i = 1,size(bc_names)
     if (trim(adjustl(uppercase(bc_names(i)))) == "INNERWALL") then
@@ -240,16 +559,44 @@ continue
       inflow_idx = i
     else if (trim(adjustl(uppercase(bc_names(i)))) == "OUTFLOW") then
       outflow_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "THETAMIN") then
+      theta_min_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "THETAMAX") then
+      theta_max_idx = i
     end if
   end do
   !
-  if (abs(itestcase) == Freestream_TCF) then
-    inner_wall_bc = bc_input(inner_wall_idx)%set_bc_value
-    outer_wall_bc = bc_input(outer_wall_idx)%set_bc_value
-  else
-    inner_wall_bc = bc_isothermal_wall
-    outer_wall_bc = bc_adiabatic_wall
+  ! If any of the above BC indices are still -1, there is a missing BC in
+  ! bc_input needed for the TCF problem, so write out an error for that
+  ! missing BC and stop the simulation.
+  !
+  if (any([inner_wall_idx,outer_wall_idx,inflow_idx, &
+           outflow_idx,theta_min_idx,theta_max_idx] == -1)) then
+    if (mypnum == glb_root) then
+      write (iout,10)
+      if (inner_wall_idx == -1) write (iout,11) "INNERWALL"
+      if (outer_wall_idx == -1) write (iout,11) "OUTERWALL"
+      if (inflow_idx == -1)     write (iout,11) "INFLOW"
+      if (outflow_idx == -1)    write (iout,11) "OUTFLOW"
+      if (theta_min_idx == -1)  write (iout,11) "THETAMIN"
+      if (theta_max_idx == -1)  write (iout,11) "THETAMAX"
+      write (iout,12)
+    end if
+    flush (iout)
+    write (error_message,13)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
+ !!
+ !! I believe the following logic is no longer needed after adding
+ !! the subroutine reset_bc_input_for_tcf_grid.
+ !!
+ !if (abs(itestcase) == Freestream_TCF) then
+ !  inner_wall_bc = bc_input(inner_wall_idx)%set_bc_value
+ !  outer_wall_bc = bc_input(outer_wall_idx)%set_bc_value
+ !else
+ !  inner_wall_bc = bc_isothermal_wall
+ !  outer_wall_bc = bc_adiabatic_wall
+ !end if
   !
   ! Reset the grid format input parameter to identify
   ! the grid as internally generated
@@ -270,10 +617,6 @@ continue
   !
   Lref = one
   !
-  ! Get the length of the cylinders
-  !
-  lx = TCF_Aspect_Ratio * abs(TCF_Outer_Radius-TCF_Inner_Radius)
-  !
   ! The Taylor-Couette flow problem is always 3D
   !
   nr = 3
@@ -281,32 +624,36 @@ continue
   ! Get the number of grid cells in each direction from the TCF inputs
   !
   ncr = TCF_Radial_Cells
-  nca = TCF_Azimuthal_Cells
+  nca = max(1,TCF_Azimuthal_Cells/TCF_Periodic_Sectors)
   ncx = TCF_Axial_Cells
+  !
+  ! If the TCF grid is rotationally periodic, the grid will not be
+  ! self-connecting and computing the number of nodes from the
+  ! number of cells needs a +1, i.e.,
+  !   azp1 = 1    if rotationally periodic in theta
+  !   azp1 = 0    if self-connecting in theta (full 360 degree)
+  !
+  azp1 = merge(1,0,rotationally_periodic)
   !
   ! Get the number of grid nodes in each direction
   !
-  npr = ncr+1 ! radial nodes
-  npa = nca   ! azimuthal nodes NOTE: self-connecting so no +1
-  npx = ncx+1 ! axial nodes
+  npr = ncr + 1    ! radial nodes
+  npa = nca + azp1 ! azimuthal nodes
+  npx = ncx + 1    ! axial nodes
   !
   ncell = ncr*nca*ncx ! total number of grid cells
-  ! NOTE: The following is still true, but we have changed npa=nca (instead of
-  !       npa=nca+1) which simplifies the logic for a bunch of the following
-  !       code. This means anywhere it says to use nca and NOT npa, we can now
-  !       use npa in those places since npa==nca.
-  ! We have to be careful when computing the number of grid nodes for this grid.
-  ! Because the grid in the azimuthal direction reconnects with itself,
-  ! the number of grid nodes isnt just npr*npa*npx like for other simple
-  ! structured grids. To get the total number of grid nodes, we need to multiply
-  ! the number of nodes on an axial plane is (npr*nca) by the number of axial
-  ! planes (number axial nodes).
-  nnode = npr*npa*npx ! total number of grid nodes (NOTE use nca NOT npa)
+  ! The term azp1 used to compute the number of azimuthal nodes, npa, accounts
+  ! for whether this grid is self-connecting (full 360 degrees) or only a
+  ! sector using rotationally periodic BCs, so we can compute the total number
+  ! of grid nodes in the normal way for structured grids.
+  nnode = npr*npa*npx ! total number of grid nodes
   ! total number of boundary faces
-  nfbnd = ncx*nca & ! number of boundary faces for inner cylinder
-        + ncx*nca & ! number of boundary faces for outer cylinder
-        + ncr*nca & ! number of boundary faces for  inflow/periodic-A
-        + ncr*nca   ! number of boundary faces for outflow/periodic-B
+  nfbnd = ncx*nca &      ! number of boundary faces for inner cylinder
+        + ncx*nca &      ! number of boundary faces for outer cylinder
+        + ncr*nca &      ! number of boundary faces for  inflow/periodic-1.A
+        + ncr*nca &      ! number of boundary faces for outflow/periodic-1.B
+        + ncx*ncr*azp1 & ! number of boundary faces for kmin/periodic-2.A
+        + ncx*ncr*azp1   ! number of boundary faces for kmax/periodic-2.A
   !
   ! Allocate all the arrays needed to define the grid
   ! NOTE: xyz_nodes and elem_nodes are allocated in high_order_TCF_grid_points
@@ -387,7 +734,7 @@ continue
   ! grid cell connectivities (elem_pts), the linear grid node coordinates
   ! (xyz_nodes), and the high-order grid point coordinates (xyz_pts).
   !
-  call high_order_TCF_grid_points(ncx,ncr,nca,lx,radial_pts,grid_order, &
+  call high_order_TCF_grid_points(ncx,ncr,nca,lx,angle,radial_pts,grid_order, &
                                   elem_nodes,elem_pts,xyz_nodes,xyz_pts)
   !
   ! Deallocate radial_pts since it is no longer needed
@@ -443,43 +790,45 @@ continue
   !
   ! Create the bface array
   !
-  ! Loop through the 4 grid boundaries
+  ! Loop through the 4 (possibly 6) grid boundaries
   ! NOTE: This corresponds to the grid boundaries in
   !       the order [InnerWall,OuterWall,Inflow,Outflow] which
   !       correspond to the [jmin,jmax,imin,imax] boundaries.
-  ! NOTE: There are no kmin and kmax boundaries because
+  ! NOTE: If running only a sector of the TCF problem, there will
+  !       be kmin and kmax boundaries that are rotationally periodic.
+  !       If running a full 360 degree version of the TCF problem,
+  !       there are no kmin and kmax boundaries because
   !       the k-direction self-connects with itself.
   !
   ! InnerWall/j-min and OuterWall/j-max boundaries
   !
-  n1 = 0            ! j-min counter
-  n2 = n1 + ncx*nca ! j-max counter
+  n2 = 0
+  !
+  bc1_idx = inner_wall_idx
+  bc2_idx = outer_wall_idx
+  !
+  n1 = n2           ! j-min (r-min) counter
+  n2 = n2 + ncx*nca ! j-max (r-max) counter
   do k = 1,nca
     do i = 1,ncx
       !
-      jmin = 1
-      jmax = ncr
+      n1 = n1 + 1 ! j-min (r-min) face
+      n2 = n2 + 1 ! j-max (r-max) face
       !
-      nc_min = map3dto1d(i,jmin,k,ncx,ncr,nca)
-      nc_max = map3dto1d(i,jmax,k,ncx,ncr,nca)
-      !
-      n1 = n1 + 1 ! j-min face
-      n2 = n2 + 1 ! j-max face
-      !
-      bface( 1,n1) = inner_wall_bc
-      bface( 2,n1) = nc_min
+      bface( 1,n1) = bc_input(bc1_idx)%set_bc_value
+      bface( 2,n1) = map3dto1d(i,  1,k,ncx,ncr,nca)
       bface( 3,n1) = Geom_Hexa
       bface( 4,n1) = HostFace3D(3)
-      bface( 5,n1) = inner_wall_idx ! group for boundary face
-      bface( 6,n1) = inner_wall_idx ! index of bc_input for this BC
+      bface( 5,n1) = bc1_idx ! group for boundary face
+      bface( 6,n1) = bc1_idx ! index for bc_input for this BC
       bface(10,n1) = ncell + n1
       !
-      bface( 1,n2) = outer_wall_bc
-      bface( 2,n2) = nc_max
+      bface( 1,n2) = bc_input(bc2_idx)%set_bc_value
+      bface( 2,n2) = map3dto1d(i,ncr,k,ncx,ncr,nca)
       bface( 3,n2) = Geom_Hexa
       bface( 4,n2) = HostFace3D(4)
-      bface( 5,n2) = outer_wall_idx ! group for boundary face
-      bface( 6,n2) = outer_wall_idx ! index of bc_input for this BC
+      bface( 5,n2) = bc2_idx ! group for boundary face
+      bface( 6,n2) = bc2_idx ! index for bc_input for this BC
       bface(10,n2) = ncell + n2
       !
     end do
@@ -487,16 +836,13 @@ continue
   !
   ! Min-X and Max-X boundary faces
   !
-  n1 = 2*ncx*nca    ! min-x counter
-  n2 = n1 + ncr*nca ! max-x counter
+  bc1_idx = inflow_idx
+  bc2_idx = outflow_idx
+  !
+  n1 = n2           ! min-x counter
+  n2 = n2 + ncr*nca ! max-x counter
   do k = 1,nca
     do j = 1,ncr
-      !
-      imin = 1
-      imax = ncx
-      !
-      nc_min = map3dto1d(imin,j,k,ncx,ncr,nca)
-      nc_max = map3dto1d(imax,j,k,ncx,ncr,nca)
       !
       n1 = n1 + 1 ! x-min face
       n2 = n2 + 1 ! x-max face
@@ -504,20 +850,62 @@ continue
       ! NOTE: The subroutine match_periodic_faces will set the values of
       !       bface([5,6,8,9],:), so we dont need to do that here.
       !
-      bface( 1,n1) = bc_periodic
-      bface( 2,n1) = nc_min
+      bface( 1,n1) = bc_input(bc1_idx)%set_bc_value
+      bface( 2,n1) = map3dto1d(  1,j,k,ncx,ncr,nca)
       bface( 3,n1) = Geom_Hexa
       bface( 4,n1) = HostFace3D(1)
-      bface( 5,n1) = inflow_idx ! group for boundary face
-      bface( 6,n1) = inflow_idx ! idx needed by match_periodic_faces
+      bface( 5,n1) = bc1_idx ! group for boundary face
+      bface( 6,n1) = bc1_idx ! index for bc_input needed by match_periodic_faces
       bface(10,n1) = ncell + n1
       !
-      bface( 1,n2) = bc_periodic
-      bface( 2,n2) = nc_max
+      bface( 1,n2) = bc_input(bc2_idx)%set_bc_value
+      bface( 2,n2) = map3dto1d(ncx,j,k,ncx,ncr,nca)
       bface( 3,n2) = Geom_Hexa
       bface( 4,n2) = HostFace3D(2)
-      bface( 5,n2) = outflow_idx ! group for boundary face
-      bface( 6,n2) = outflow_idx ! idx needed by match_periodic_faces
+      bface( 5,n2) = bc2_idx ! group for boundary face
+      bface( 6,n2) = bc2_idx ! index for bc_input needed by match_periodic_faces
+      bface(10,n2) = ncell + n2
+      !
+    end do
+  end do
+  !
+  ! Min-Theta/K and Max-Theta/K rotationally periodic boundary faces
+  !
+  ! Create imax and jmax so that the following loop to create the rotationally
+  ! periodic boundary faces in bface is skipped if running the full 360 degree
+  ! version of the TCF problem (i.e., rotationally_periodic=F).
+  !
+  imax = merge(ncx,0,rotationally_periodic)
+  jmax = merge(ncr,0,rotationally_periodic)
+  !
+  bc1_idx = theta_min_idx
+  bc2_idx = theta_max_idx
+  !
+  n1 = n2           ! min-theta/k counter
+  n2 = n2 + ncx*ncr ! max-theta/k counter
+  do j = 1,jmax
+    do i = 1,imax
+      !
+      n1 = n1 + 1 ! x-min face
+      n2 = n2 + 1 ! x-max face
+      !
+      ! NOTE: The subroutine match_periodic_faces will set the values of
+      !       bface([5,6,8,9],:), so we dont need to do that here.
+      !
+      bface( 1,n1) = bc_input(bc1_idx)%set_bc_value
+      bface( 2,n1) = map3dto1d(i,j,  1,ncx,ncr,nca)
+      bface( 3,n1) = Geom_Hexa
+      bface( 4,n1) = HostFace3D(5)
+      bface( 5,n1) = bc1_idx ! group for boundary face
+      bface( 6,n1) = bc1_idx ! index for bc_input needed by match_periodic_faces
+      bface(10,n1) = ncell + n1
+      !
+      bface( 1,n2) = bc_input(bc2_idx)%set_bc_value
+      bface( 2,n2) = map3dto1d(i,j,nca,ncx,ncr,nca)
+      bface( 3,n2) = Geom_Hexa
+      bface( 4,n2) = HostFace3D(6)
+      bface( 5,n2) = bc2_idx ! group for boundary face
+      bface( 6,n2) = bc2_idx ! index for bc_input needed by match_periodic_faces
       bface(10,n2) = ncell + n2
       !
     end do
@@ -660,6 +1048,15 @@ continue
              10x,"Max Grid Order = ",i0,/, &
              10x,"Solution Order = ",i0,/)
   !
+  10 format (/,80("#"),//, &
+               2x,"ERROR: There is a missing boundary condition that ", &
+                  "is needed",/,9x,"to run the Taylor-Couette problem:")
+  11 format (12x,"The ",a9," boundary condition is missing!")
+  12 format (/,80("#"),/)
+  13 format ("WHEN TRYING TO INTERNALLY GENERATE THE GRID FOR THE ", &
+             "TAYLOR-COUETTE FLOW PROBLEM, THERE IS A MISSING BOUNDARY ", &
+             "CONDITION THAT IS NEEDED TO BE ABLE TO RUN THIS PROBLEM!")
+  !
   contains
   !
   pure function map3dto1d(i,j,k,ni,nj,nk) result(return_value)
@@ -677,8 +1074,9 @@ end subroutine create_taylor_couette_grid
 !
 !###############################################################################
 !
-subroutine high_order_TCF_grid_points(ncx,ncr,nca,length,radial_pts,order, &
-                                      elem_nodes,elem_pts,xyz_nodes,xyz_pts)
+subroutine high_order_TCF_grid_points(ncx,ncr,nca,length,angle,radial_pts, &
+                                      order,elem_nodes,elem_pts,xyz_nodes, &
+                                      xyz_pts)
   !
   !.. Use Statements ..
   use ovar, only : TCF_Theta_Shift
@@ -688,6 +1086,7 @@ subroutine high_order_TCF_grid_points(ncx,ncr,nca,length,radial_pts,order, &
   integer,                intent(in) :: ncr
   integer,                intent(in) :: nca
   real(wp),               intent(in) :: length
+  real(wp),               intent(in) :: angle
   real(wp),               intent(in) :: radial_pts(:)
   integer,                intent(in) :: order
   integer,  allocatable, intent(out) :: elem_nodes(:,:)
@@ -696,7 +1095,7 @@ subroutine high_order_TCF_grid_points(ncx,ncr,nca,length,radial_pts,order, &
   real(wp), allocatable, intent(out) :: xyz_pts(:,:)
   !
   !.. Local Scalars ..
-  integer  :: nnx,nnr,nna,npx,npr,npa,p
+  integer  :: nnx,nnr,nna,npx,npr,npa,p,azp1
   integer  :: i,j,k,ic,jc,kc,ip,jp,kp
   integer  :: n,nc,lcell,lnode,cpts,npts
   real(wp) :: y,z,theta,divp,dr,dlpa,dlpx,dlca
@@ -714,11 +1113,18 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  ! If angle > zero, the TCF grid is rotationally periodic which means the
+  ! grid will not be self connecting and computing the number of nodes
+  ! from the number of cells needs a +1.
+  !
+  azp1 = merge(1,0,angle>zero)
+  !
+  !
   ! Number of grid nodes in each direction
   !
-  nnx = ncx + 1 ! axial     grid nodes
-  nnr = ncr + 1 ! radial    grid nodes
-  nna = nca     ! azimuthal grid nodes
+  nnx = ncx + 1    ! axial     grid nodes
+  nnr = ncr + 1    ! radial    grid nodes
+  nna = nca + azp1 ! azimuthal grid nodes
  !!
  !! Get the order of the high order grid
  !! NOTE: For now we are limiting this to P4 to match the maximum allowed
@@ -732,9 +1138,9 @@ continue
   !
   ! Number of high order points in each direction
   !
-  npx = ncx*p + 1 ! axial     high order points
-  npr = ncr*p + 1 ! radial    high order points
-  npa = nca*p     ! azimuthal high order points
+  npx = ncx*p + 1    ! axial     high order points
+  npr = ncr*p + 1    ! radial    high order points
+  npa = nca*p + azp1 ! azimuthal high order points
   !
   !################################################################
   !################################################################
@@ -762,14 +1168,18 @@ continue
   ! Compute the uniform axial high-order point spacing
   dlpx = length / real(npx-1,kind=wp)
   ! Compute the uniform azimuthal high-order point spacing
-  dlpa = two*pi / real(npa,kind=wp)
+  if (angle > zero) then
+    dlpa = (angle*degrees2radians) / real(npa-1,kind=wp)
+  else
+    dlpa = two*pi / real(npa,kind=wp)
+  end if
   ! Compute the uniform azimuthal cell spacing
   dlca = dlpa*real(p,kind=wp)
   !
   xpts = dlpx * real( intseq(0,npx-1) , kind=wp ) ! F2003 AUTO-REALLOC
   apts = dlpa * real( intseq(0,npa-1) , kind=wp ) ! F2003 AUTO-REALLOC
   !
-  ! Shift the azimuthal points
+  ! Shift the azimuthal points (only do this for full 360 grid version)
   !
   if (abs(TCF_Theta_Shift) > eps6) then
     ! NOTE: TCF_Theta_Shift gives the shift relative to the uniform cell size
@@ -807,7 +1217,7 @@ continue
   ! NOTE: We initialize this to -1 so that we will know which i,j,k
   !       points have already been given a 1D index
   !
-  ijkmap = init_array(npx,npr,npa+1,-1)
+  ijkmap = init_array(npx,npr,npa+1-azp1,-1)
   !
   ! First create the indices for the linear grid nodes, and also
   ! fill in xyz_nodes for these nodes
@@ -901,10 +1311,11 @@ continue
     end do
   end do
   !
-  ! Finally fill the self-connected kmax plane in ijkmap
-  ! by copying over the indices from the kmin plane
+  ! Finally, if not using a rotationally periodic grid, fill the
+  ! self-connected kmax plane in ijkmap by copying over the indices
+  ! from the kmin plane
   !
-  ijkmap(:,:,npa+1) = ijkmap(:,:,1)
+  if (angle <= zero) ijkmap(:,:,npa+1) = ijkmap(:,:,1)
   !
   !####################################################################
   !####################################################################
@@ -2690,6 +3101,7 @@ continue
     bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
     if (bcname == "XMAX") n = i
     if (bcname == "OUTFLOW") n = i
+    if (any(bc_input(i)%set_bc_value == bc_outflows(:))) n = i
     !
     if (n > 0) then
       tmp_bc_input(bc_idx) = bc_input(n)
@@ -2835,7 +3247,8 @@ subroutine create_channel_flow_grid()
   !
   !.. Use Statements ..
   use order_mod, only : n_order
-  use ovar,      only : Lref,loc_solution_pts
+  use ovar,      only : Lref
+  use ovar,      only : loc_solution_pts
   use ovar,      only : channel_grid_ave_xplus
   use ovar,      only : channel_grid_ave_yplus
   use ovar,      only : channel_grid_ave_zplus
@@ -2851,7 +3264,8 @@ subroutine create_channel_flow_grid()
   !
   !.. Local Scalars ..
   integer  :: i,j,k,n,n1,n2
-  integer  :: ncx,ncy,ncz,nhy,bc1_idx,bc2_idx
+  integer  :: ncx,ncy,ncz,bc1_idx,bc2_idx
+  integer  :: nhy
   real(wp) :: xplus_ave,yplus_ave,zplus_ave,dx,dz,yplus1
   real(wp) :: ds1,ds2,dl1,dl2,a,b,sf,rnum,rden,sferr,val,ue,se
   real(wp) :: lx_plus,ly_plus,lz_plus,yplus_wall,pp1
@@ -2866,6 +3280,8 @@ subroutine create_channel_flow_grid()
   real(wp), allocatable :: y(:)
   real(wp), allocatable :: z(:)
   real(wp), allocatable :: yhalf(:)
+  real(wp), allocatable :: y1(:)
+  real(wp), allocatable :: y2(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_channel_flow_grid"
@@ -2916,6 +3332,27 @@ continue
       top_wall_idx = i
     end if
   end do
+  !
+  ! If any of the above BC indices are still -1, there is a missing BC in
+  ! bc_input needed for the TCF problem, so write out an error for that
+  ! missing BC and stop the simulation.
+  !
+  if (any([bottom_wall_idx,top_wall_idx,inflow_idx, &
+           outflow_idx,zmin_idx,zmax_idx] == -1)) then
+    if (mypnum == glb_root) then
+      write (iout,10)
+      if (bottom_wall_idx == -1) write (iout,11) "BOTTOM WALL"
+      if (top_wall_idx == -1)    write (iout,11) "TOP WALL"
+      if (inflow_idx == -1)      write (iout,11) "INFLOW"
+      if (outflow_idx == -1)     write (iout,11) "OUTFLOW"
+      if (zmin_idx == -1)        write (iout,11) "ZMIN"
+      if (zmax_idx == -1)        write (iout,11) "ZMAX"
+      write (iout,12)
+    end if
+    flush (iout)
+    write (error_message,13)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
   !
   ! Precompute P+1 as a real
   !
@@ -3033,6 +3470,16 @@ continue
   ! ######
   ! # 2C #
   ! ######
+  !
+  ! Get the grid point locations for y
+  !
+  y = channel_y_spacing(yplus_wall,yplus_ave,ly_plus) ! F2003 AUTO-REALLOC
+  ncy = size(y)-1
+  !
+#ifdef DEBUG_ON
+!#define DEBUG_CHANNEL_Y_SPACING
+#ifdef DEBUG_CHANNEL_Y_SPACING
+  y1 = old_channel_y_spacing(yplus_wall,yplus_ave,ly_plus) ! F2003 AUTO-REALLOC
   !
   ! 2C.0 Get the location of the 1D solution points in reference space
   !
@@ -3235,16 +3682,29 @@ continue
   !
   ! Create the y grid spacing for the whole channel
   !
-  y = init_array(ncy+1,zero) ! F2003 AUTO-REALLOC
+  y2 = init_array(ncy+1,zero) ! F2003 AUTO-REALLOC
   !
   ! Get the grid points for the bottom half of the channel
   do n = 1,nhy+1
-    y(n) = yhalf(n)
+    y2(n) = yhalf(n)
   end do
   ! Get the grid points for the top half of the channel
   do n = 1,nhy
-    y(ncy+2-n) = channel_grid_Ly - yhalf(n)
+    y2(ncy+2-n) = channel_grid_Ly - yhalf(n)
   end do
+  if (mypnum == glb_root) then
+    do n = 1,max(size(y),size(y1),size(y2))
+      val = -huge(zero)
+      a = val
+      b = val
+      if (n <= size(y)) val = y(n)
+      if (n <= size(y1)) a = y1(n)
+      if (n <= size(y2)) b = y2(n)
+      write (9517,'(3es20.10)') val,a,b
+    end do
+  end if
+#endif
+#endif
   !
   ! #######
   ! #######
@@ -3335,10 +3795,10 @@ continue
   ! NOTE: This corresponds to the grid boundaries in
   !       the order [imin,imax,jmin,jmax,kmin,kmax]
   !
+  n2 = 0
+  !
   bc1_idx = inflow_idx
   bc2_idx = outflow_idx
-  !
-  n2 = 0
   !
   n1 = n2
   n2 = n2 + ncy*ncz
@@ -3434,6 +3894,17 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
+  ! Format Statements
+  !
+  10 format (/,80("#"),//, &
+               2x,"ERROR: There is a missing boundary condition that ", &
+                  "is needed",/,9x,"to run the channel flow problem:")
+  11 format (12x,"The ",a9," boundary condition is missing!")
+  12 format (/,80("#"),/)
+  13 format ("WHEN TRYING TO INTERNALLY GENERATE THE GRID FOR THE ", &
+             "CHANNEL FLOW PROBLEM, THERE IS A MISSING BOUNDARY ", &
+             "CONDITION THAT IS NEEDED TO BE ABLE TO RUN THIS PROBLEM!")
+  !
   contains
   !
   pure function map3dto1d(i,j,k,nx,ny) result(return_value)
@@ -3443,6 +3914,423 @@ continue
   end function map3dto1d
   !
 end subroutine create_channel_flow_grid
+!
+!###############################################################################
+!
+function channel_y_spacing(yplus_wall,yplus_ave,ly_plus,inner_wall_radius) &
+                    result(return_value)
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order
+  use ovar,      only : loc_solution_pts
+  !
+  use polynomial_mod, only : legendre_gauss_quadrature
+  use polynomial_mod, only : legendre_gauss_lobatto_quadrature
+  
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: yplus_wall
+  real(wp), intent(in) :: yplus_ave
+  real(wp), intent(in) :: ly_plus
+  !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(in) :: inner_wall_radius
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nhy,ncy
+  real(wp) :: dl1,dl2,ds1,ds2,ymin,ymax
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: xi(:)
+  real(wp), allocatable :: yhalf(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "channel_y_spacing"
+  !
+continue
+  !
+  ! Get y location of the bottom wall (inner wall radius
+  ! for pipe channel) and the y location of the top wall
+  !
+  ymin = zero
+  if (present(inner_wall_radius)) then
+    ymin = inner_wall_radius
+  end if
+  ymax = ymin + half*channel_grid_Ly
+  !
+  ! 2C.0 Get the location of the 1D solution points in reference space
+  !
+  xi = init_array(n_order+1,zero) ! F2003 AUTO-REALLOC
+  !
+  if (loc_solution_pts == Legendre_Gauss_Lobatto) then
+    call legendre_gauss_lobatto_quadrature(xi)
+  else
+    call legendre_gauss_quadrature(xi)
+  end if
+  !
+  ! Scale xi from [-1,1] to [0,1]
+  !
+  xi(:) = half*(xi(:) + one)
+  !
+  ! 2C.1 : Get the beginning and ending spacings needed
+  !        to generate the tanh spacing
+  !
+  ! Need to get dl1/ds1 and dl2/ds2 to create tanh spacing for y spacing
+  !
+  if (yplus_wall < zero) then
+    !
+   !! OLD VERSION: The 1st DoF off the wall is located at abs(yplus_wall)
+   !!
+   !! OLD VERSION:
+   !! Divide the abs(yplus_wall) by the location of the 1st solution point
+   !! on the interval [0,1] to get the height of the first cell off the wall.
+   !!
+   !dl1 = abs(yplus_wall) / xi(1)
+    !
+    ! NEW VERSION: The nint(abs(yplus_wall))-th DoF
+    !              off the wall is located at y+=1.
+    ! NEW VERSION:
+    ! The location of y+=1 is at the nint(abs(yplus_wall))-th DoF off the wall,
+    ! so 1/xi(nint(abs(yplus_wall))) gives the y+ spacing of the first cell off
+    ! the wall.
+    ! NOTE: This assumes xi is on the interval [0,1].
+    ! NOTE: We need to use min/max to make sure nint(abs(yplus_wall))
+    !       is a valid index for the array xi.
+    !
+    n = max( 1 , min( size(xi) , nint(abs(yplus_wall)) ) )
+    dl1 = one / xi(n)
+    !
+  else
+    !
+    ! The height of the first cell off the wall is yplus_wall
+    !
+    dl1 = yplus_wall
+    !
+  end if
+  !
+  ! Get the centerline y+ spacing
+  !
+  dl2 = yplus_ave
+  !
+  ! Map the beginning and ending grid cell spacings to the reference
+  ! interval [0,1]. We are only worried about half the channel so we
+  ! need to half of the channel height in plus coordinates.
+  !
+  ds1 = dl1 / (half*ly_plus)
+  ds2 = dl2 / (half*ly_plus)
+  !
+  ! Compute the approximate number of cells (for half of the channel height)
+  ! needed to get a constant stretching with end spacings ds1 and ds2.
+  !
+  nhy = nint( log(ds2/ds1) / log((ds1-one)/(ds2-one)) )
+  !
+  ! The total number of y cells is just twice nhy,
+  ! since nhy is for half of the channel height
+  !
+  ncy = nhy*2
+  !
+  ! Save all the various y+ spacings to the module variables
+  !
+  yplus_cell_wall = dl1
+  yplus_dof_wall = xi(:)*dl1 ! F2003 AUTO-REALLOC
+  yplus_cell_centerline = dl2
+  yplus_cell_ave = ly_plus / real(ncy,kind=wp)
+  !
+  ! The tanh_spacing functions require the end spacings in the same scale
+  ! as the end coordinates (the spacings and coordinates will be scaled
+  ! to the interval [0,1] inside the function), so unscale ds1 and ds2 from
+  ! the interval [0,1] to the actual scale of the end coordinates.
+  !
+  ds1 = ds1 * (ymax-ymin)
+  ds2 = ds2 * (ymax-ymin)
+  !
+  ! Get the y grid spacing for half the channel using a tanh spacing
+  ! NOTE: The optional argument fixed_end_spacings determines if the tanh
+  !       solver is either
+  !         1) (when true) enforcing the end spacings ds1 and ds2 and solving
+  !            for the np-3 interior spacings between points 2 and np-1, or
+  !         2) (when false) not strictly enforcing the end spacings ds1 and ds2
+  !            and solving for the np-1 interior spacings between the end points
+  !
+  yhalf = tanh_spacing(ymin,ymax,ds1,ds2,nhy+1, & ! F2003 AUTO-REALLOC
+                       fixed_end_spacings=fals) 
+  !
+  ! Create the y grid spacing for the whole channel
+  !
+  return_value = init_array(ncy+1,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Get the grid points for the bottom half of the channel
+  do n = 1,nhy+1
+    return_value(n) = yhalf(n)
+  end do
+  ! Get the grid points for the top half of the channel
+  do n = 1,nhy
+    return_value(ncy+2-n) = two*ymin + channel_grid_Ly - yhalf(n)
+  end do
+  !
+end function channel_y_spacing
+!
+!###############################################################################
+!
+function old_channel_y_spacing(yplus_wall,yplus_ave,ly_plus,inner_wall_radius) &
+                        result(return_value)
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order
+  use ovar,      only : loc_solution_pts
+  !
+  use polynomial_mod, only : legendre_gauss_quadrature
+  use polynomial_mod, only : legendre_gauss_lobatto_quadrature
+  
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: yplus_wall
+  real(wp), intent(in) :: yplus_ave
+  real(wp), intent(in) :: ly_plus
+  !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(in) :: inner_wall_radius
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nhy,ncy,i
+  real(wp) :: dl1,dl2,ds1,ds2,a,b,sf,rnum,rden,sferr
+  real(wp) :: val,ue,se,ymin,ymax
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: xi(:)
+  real(wp), allocatable :: yhalf(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "old_channel_y_spacing"
+  !
+continue
+  !
+  ! Get y location of the bottom wall (inner wall radius
+  ! for pipe channel) and the y location of the top wall
+  !
+  ymin = zero
+  if (present(inner_wall_radius)) then
+    ymin = inner_wall_radius
+  end if
+  ymax = ymin + half*channel_grid_Ly
+  !
+  ! 2C.0 Get the location of the 1D solution points in reference space
+  !
+  xi = init_array(n_order+1,zero) ! F2003 AUTO-REALLOC
+  !
+  if (loc_solution_pts == Legendre_Gauss_Lobatto) then
+    call legendre_gauss_lobatto_quadrature(xi)
+  else
+    call legendre_gauss_quadrature(xi)
+  end if
+  !
+  ! Scale xi from [-1,1] to [0,1]
+  !
+  xi(:) = half*(xi(:) + one)
+  !
+  ! 2C.1 : Get the beginning and ending spacings needed
+  !        to generate the tanh spacing
+  !
+  ! Need to get dl1/ds1 and dl2/ds2 to create tanh spacing for y spacing
+  !
+  if (yplus_wall < zero) then
+    !
+   !! OLD VERSION: The 1st DoF off the wall is located at abs(yplus_wall)
+   !!
+   !! OLD VERSION:
+   !! Divide the abs(yplus_wall) by the location of the 1st solution point
+   !! on the interval [0,1] to get the height of the first cell off the wall.
+   !!
+   !dl1 = abs(yplus_wall) / xi(1)
+    !
+    ! NEW VERSION: The nint(abs(yplus_wall))-th DoF
+    !              off the wall is located at y+=1.
+    ! NEW VERSION:
+    ! The location of y+=1 is at the nint(abs(yplus_wall))-th DoF off the wall,
+    ! so 1/xi(nint(abs(yplus_wall))) gives the y+ spacing of the first cell off
+    ! the wall.
+    ! NOTE: This assumes xi is on the interval [0,1].
+    ! NOTE: We need to use min/max to make sure nint(abs(yplus_wall))
+    !       is a valid index for the array xi.
+    !
+    n = max( 1 , min( size(xi) , nint(abs(yplus_wall)) ) )
+    dl1 = one / xi(n)
+    !
+  else
+    !
+    ! The height of the first cell off the wall is yplus_wall
+    !
+    dl1 = yplus_wall
+    !
+  end if
+  !
+  ! Get the centerline y+ spacing
+  !
+  dl2 = yplus_ave
+  !
+  ! Map the beginning and ending grid cell spacings to the reference
+  ! interval [0,1]. We are only worried about half the channel so we
+  ! need to half of the channel height in plus coordinates.
+  !
+  ds1 = dl1 / (half*ly_plus)
+  ds2 = dl2 / (half*ly_plus)
+  !
+  ! Compute the approximate number of cells (for half of the channel height)
+  ! needed to get a constant stretching with end spacings ds1 and ds2.
+  !
+  nhy = nint( log(ds2/ds1) / log((ds1-one)/(ds2-one)) )
+  !
+  ! The total number of y cells is just twice nhy,
+  ! since nhy is for half of the channel height
+  !
+  ncy = nhy*2
+  !
+  ! Save all the various y+ spacings to the module variables
+  !
+  yplus_cell_wall = dl1
+  yplus_dof_wall = xi(:)*dl1 ! F2003 AUTO-REALLOC
+  yplus_cell_centerline = dl2
+  yplus_cell_ave = ly_plus / real(ncy,kind=wp)
+  !
+  ! Initialize the y grid spacing for half the channel
+  !
+  yhalf = init_array(nhy+1,zero) ! F2003 AUTO-REALLOC
+  !
+  ! 2C.2 : Get the a and b parameters to begin solving for the tanh y-spacing
+  !
+  a = sqrt(ds2/ds1)
+  b = one / (real(nhy,kind=wp)*sqrt(ds1*ds2))
+  !
+  ! 2C.3 : Use b to solve the stretching factor function, then use the
+  !        stretching factor to get the y-spacing.
+  !
+  if (b >= 1.1_wp) then
+    !
+    ! Use a Newton iteration to solve the stretching factor function
+    !    sinh(sf)/sf = b
+    ! for the stretching factor, sf.
+    !
+    sf = two ! initial guess for sf
+    !
+    newton_tanh_loop: &
+    do i = 1,100
+      !
+      rnum = sinh(sf)/sf - b
+      rden = cosh(sf)/sf - sinh(sf)/(sf*sf)
+      !
+      sferr = rnum / rden
+      !
+      if (abs(sferr) < eps6) then
+        exit newton_tanh_loop
+      end if
+      !
+      sf = sf - sferr
+      !
+      ! Make sure sf doesnt become 0
+      !
+      if (abs(sf) < 0.01_wp) then
+        sf = 0.01_wp
+      end if
+      !
+    end do newton_tanh_loop
+    !
+    ! The stretching factor function has two solutions for sf given any
+    ! value of b (ignoring sf=0). Since the stretching factor function is
+    ! an even function, the two possible solutions are +sf and -sf. We only
+    ! care about +sf so take the absolute value of whatever result we get
+    ! from the Newton iteration.
+    !
+    sf = abs(sf)
+    !
+    ! Get the distribution yhalf(n)
+    !
+    do n = 0,nhy
+      val = real(n,kind=wp)/real(nhy,kind=wp)
+      ue = half*(one + tanh(sf*(val-half))/tanh(sf*half))
+      se = ue / (a + (one-a)*ue)
+      yhalf(n+1) = se  * half*channel_grid_Ly
+    end do
+    !
+  else if (b <= 0.9_wp) then
+    !
+    ! Use a Newton iteration to solve the stretching factor function
+    !    sin(sf)/sf = b
+    ! for the stretching factor, sf.
+    !
+    sf = two ! initial guess for sf
+    !
+    newton_tan_loop: &
+    do i = 1,100
+      !
+      rnum = sin(sf)/sf - b
+      rden = cos(sf)/sf - sin(sf)/(sf*sf)
+      !
+      sferr = rnum / rden
+      !
+      if (abs(sferr) < eps6) then
+        exit newton_tan_loop
+      end if
+      !
+      sf = sf - sferr
+      !
+      ! Make sure sf doesnt become 0
+      !
+      if (abs(sf) < 0.01_wp) then
+        sf = 0.01_wp
+      end if
+      !
+    end do newton_tan_loop
+    !
+    ! The stretching factor function has two solutions for sf given any
+    ! value of b (ignoring sf=0). Since the stretching factor function is
+    ! an even function, the two possible solutions are +sf and -sf. We only
+    ! care about +sf so take the absolute value of whatever result we get
+    ! from the Newton iteration.
+    !
+    sf = abs(sf)
+    !
+    ! Get the distribution yhalf(n)
+    !
+    do n = 0,nhy
+      val = real(n,kind=wp)/real(nhy,kind=wp)
+      ue = half*(one + tan(sf*(val-half))/tan(sf*half))
+      se = ue / (a + (one-a)*ue)
+      yhalf(n+1) = se  * half*channel_grid_Ly
+    end do
+    !
+  else
+    !
+    ! Both of the above Newton iterations can have numerical difficulties
+    ! if the stretching factor is close to 1, therefore use this simpler
+    ! stretching function that doesnt require a Newton iteration.
+    !
+    do n = 0,nhy
+      val = real(n,kind=wp)/real(nhy,kind=wp)
+      ue = val*(one + two*(b-one)*(val-half)*(one-val))
+      se = ue / (a + (one-a)*ue)
+      yhalf(n+1) = se  * half*channel_grid_Ly
+    end do
+    !
+  end if
+  !
+  ! Create the y grid spacing for the whole channel
+  !
+  return_value = init_array(ncy+1,zero) ! F2003 AUTO-REALLOC
+  !
+  ! Get the grid points for the bottom half of the channel
+  do n = 1,nhy+1
+    return_value(n) = yhalf(n)
+  end do
+  ! Get the grid points for the top half of the channel
+  do n = 1,nhy
+    return_value(ncy+2-n) = two*ymin + channel_grid_Ly - yhalf(n)
+  end do
+  !
+end function old_channel_y_spacing
 !
 !###############################################################################
 !
@@ -3526,6 +4414,579 @@ continue
   6 format (4x,"y+ spacing  for first cell off wall",/,24x,f10.5)
   !
 end subroutine write_channel_grid_info
+!
+!###############################################################################
+!
+subroutine create_pipe_channel_grid()
+  !
+  ! This subroutine internally generates a grid for the pipe channel flow (PCF)
+  ! problem. It is sort a combination of the grid generators for the TCF and
+  ! channel flow problems, so it utilizes input variables from both problems.
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order
+  use ovar,      only : Lref,bc_input
+  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geovar,    only : grid,cell_geom,cell_order
+  use ovar,      only : grid_format,bc_names,internal_grid_order
+  !
+  use ovar, only : channel_grid_ave_xplus
+  use ovar, only : channel_grid_ave_yplus
+  use ovar, only : channel_grid_ave_zplus
+  use ovar, only : channel_grid_yplus_wall
+  use ovar, only : channel_yplus_of_one
+  use ovar, only : pipe_channel_angle
+  !
+  use module_cgns_types, only : HEXA_8,HEXA_27,HEXA_64,HEXA_125
+  !
+  use module_cgns, only : get_face_elem
+  !
+  !.. Local Scalars ..
+  integer  :: ierr,i,j,k
+  integer  :: nc,nf,n1,n2,bc1_idx,bc2_idx
+  integer  :: ncx,ncy,ncz,npts
+  integer  :: host_cell,host_side,elem_type
+  integer  :: inner_wall_idx,outer_wall_idx
+  integer  :: inflow_idx,outflow_idx
+  integer  :: theta_min_idx,theta_max_idx
+  integer  :: grid_order
+  real(wp) :: lx,ly,lz,angle,ri,ro
+  real(wp) :: xplus_ave,yplus_ave,zplus_ave,dx,dz,yplus1
+  real(wp) :: lx_plus,ly_plus,lz_plus,yplus_wall,pp1
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: elem_nodes(:,:)
+  integer,  allocatable :: elem_pts(:,:)
+  real(wp), allocatable :: y(:)
+  real(wp), allocatable :: xyz_pts(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_pipe_channel_grid"
+  !
+ !logical(lk), parameter :: lz_is_inner_wall = true
+  logical(lk), parameter :: lz_is_inner_wall = fals
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Reset the grid format input parameter to identify
+  ! the grid as internally generated
+  !
+  grid_format = Internally_Generated_Grid
+  !
+  ! If we are generating the grid on the fly, make the reference length 1
+  !
+  Lref = one
+  !
+  ! The Taylor-Couette flow problem is always 3D
+  !
+  nr = 3
+  !
+  ! Get the length of the cylinders
+  !
+  lx = channel_grid_Lx
+  ly = channel_grid_Ly
+  lz = channel_grid_Lz
+  !
+  angle = min(nine*ten,max(eps1,pipe_channel_angle))
+  !
+  ! Get the inner and outer radii for the pipe walls
+  !
+  if (lz_is_inner_wall) then
+    ri = lz/(angle*degrees2radians)
+    ro = ri + ly
+  else
+    ro = lz/(angle*degrees2radians)
+    ri = ro - ly
+  end if
+  !
+  ! Reset bc_input for this axially (and possibly rotationally) periodic grid
+  ! so that the subroutine match_periodic_faces can correctly match all the
+  ! periodic faces.
+  !
+  call reset_bc_input_for_tcf_grid(lx,angle,inner_wall_bc=bc_adiabatic_wall)
+  !
+  ! Find the index in bc_input for the 4 (maybe 6) different boundary conditions
+  !
+  inner_wall_idx = -1
+  outer_wall_idx = -1
+  inflow_idx = -1
+  outflow_idx = -1
+  theta_min_idx = -1
+  theta_max_idx = -1
+  !
+  do i = 1,size(bc_names)
+    if (trim(adjustl(uppercase(bc_names(i)))) == "INNERWALL") then
+      inner_wall_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "OUTERWALL") then
+      outer_wall_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "INFLOW") then
+      inflow_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "OUTFLOW") then
+      outflow_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "THETAMIN") then
+      theta_min_idx = i
+    else if (trim(adjustl(uppercase(bc_names(i)))) == "THETAMAX") then
+      theta_max_idx = i
+    end if
+  end do
+  !
+  ! If any of the above BC indices are still -1, there is a missing BC in
+  ! bc_input needed for the TCF problem, so write out an error for that
+  ! missing BC and stop the simulation.
+  !
+  if (any([inner_wall_idx,outer_wall_idx,inflow_idx, &
+           outflow_idx,theta_min_idx,theta_max_idx] == -1)) then
+    if (mypnum == glb_root) then
+      write (iout,10)
+      if (inner_wall_idx == -1) write (iout,11) "INNERWALL"
+      if (outer_wall_idx == -1) write (iout,11) "OUTERWALL"
+      if (inflow_idx == -1)     write (iout,11) "INFLOW"
+      if (outflow_idx == -1)    write (iout,11) "OUTFLOW"
+      if (theta_min_idx == -1)  write (iout,11) "THETAMIN"
+      if (theta_max_idx == -1)  write (iout,11) "THETAMAX"
+      write (iout,12)
+    end if
+    flush (iout)
+    write (error_message,13)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Get the grid order if specified for an internally
+  ! generated grid, otherwise set it to the solution order.
+  !
+  grid_order = merge( internal_grid_order , n_order , internal_grid_order>0 )
+  !
+  ! For now we are limiting the grid order to
+  ! the max order allowed by CGNS, which is 4
+  !
+  grid_order = min(grid_order,4)
+  !
+  ! Precompute P+1 as a real
+  !
+  pp1 = real(n_order+1,kind=wp)
+  !
+  ! #######
+  ! #######
+  ! ## 1 ##
+  ! #######
+  ! #######
+  !
+  ! Reset any of the grid parameters to their default values if they are zero
+  !
+  if (channel_yplus_of_one    == zero) channel_yplus_of_one = 8.42134e-6_wp
+  if (channel_grid_ave_xplus  == zero) channel_grid_ave_xplus = -three*ten
+  if (channel_grid_ave_yplus  == zero) channel_grid_ave_yplus = -three*five
+  if (channel_grid_ave_zplus  == zero) channel_grid_ave_zplus = -three*five
+  if (channel_grid_yplus_wall == zero) channel_grid_yplus_wall = two
+  !
+  ! Save the channel grid parameters to local variables
+  !
+  yplus1 = channel_yplus_of_one
+  xplus_ave = channel_grid_ave_xplus
+  yplus_ave = channel_grid_ave_yplus
+  zplus_ave = channel_grid_ave_zplus
+  yplus_wall = channel_grid_yplus_wall
+  !
+  ! Get the length of the domain in each direction in y+ dimensions
+  !
+  lx_plus = lx / yplus1
+  ly_plus = ly / yplus1
+  lz_plus = lz / yplus1
+  !
+  ! Compute the cell average x+,y+,z+ for the grid
+  ! NOTE: We are assuming the y+ cell average is the y+ spacing in the middle
+  !       of the channel and not the actual average y+ spacing including the
+  !       near wall cells. This will tend towards finer y+ spacing in the
+  !       middle of the channel, but it makes the input more directly
+  !       comparable to the x+ and z+ inputs. Otherwise, if the average y+
+  !       spacing includes the near wall cells in the average, the spacing
+  !       in the middle of the channel will be larger than the equivalent
+  !       x+ or z+ spacing given by the respective inputs.
+  !
+  ! If the inputs channel_grid_ave_[xyz]plus are:
+  !   > 0 : the input specifies the average cell spacing
+  !   < 0 : the abs(input) specifies the average DoF spacing
+  !
+  ! For a given coordinate direction (say [i]), the cell average [i]+ is
+  !   if (channel_grid_ave_[i]plus > zero) then
+  !     [i]plus_ave = channel_grid_ave_[i]plus
+  !   else
+  !     [i]plus_ave = abs(channel_grid_ave_[i]plus)*real(n_order+1,kind=wp)
+  !   end if
+  ! NOTE: We use (P+1) here because the delta plus value is the
+  !       average distance between the DoF within a cell (or the
+  !       subcells), and there are P+1 subcells in each cell (the
+  !       subcells between the end points and the cell boundaries
+  !       are kind of 1/2 a subcell each).
+  !
+  xplus_ave = abs(xplus_ave)*merge(one , pp1 , xplus_ave > zero)
+  yplus_ave = abs(yplus_ave)*merge(one , pp1 , yplus_ave > zero)
+  zplus_ave = abs(zplus_ave)*merge(one , pp1 , zplus_ave > zero)
+  !
+  ! Get the number of cells in the x and z directions
+  !
+  ncx = nint( lx_plus / xplus_ave )
+  ncz = nint( lz_plus / zplus_ave )
+  !
+  ! Compute the actual (non-plus) x and z cell spacings
+  ! NOTE: These will most likely not be equal to xplus_ave and zplus_ave
+  !       since lx_plus and lz_plus will probably not be evenly divisible
+  !       by these respective numbers.
+  !
+  dx = channel_grid_Lx / real(ncx,kind=wp)
+  dz = channel_grid_Lz / real(ncz,kind=wp)
+  
+  !
+  ! Save the x+ and z+ spacings to the module variables
+  !
+  xplus_cell_ave = dx / yplus1
+  zplus_cell_ave = dz / yplus1
+  !
+  ! #######
+  ! #######
+  ! ## 2 ##
+  ! #######
+  ! #######
+  !
+  ! Get the grid point locations for y
+  !
+  y = channel_y_spacing(yplus_wall,yplus_ave,ly_plus, & ! F2003 AUTO-REALLOC
+                        inner_wall_radius=ri)
+  ncy = size(y)-1
+  !
+  ! Create the linear grid cell connectivities (elem_nodes), the high-order
+  ! grid cell connectivities (elem_pts), the linear grid node coordinates
+  ! (xyz_nodes), and the high-order grid point coordinates (xyz_pts).
+  !
+  call high_order_TCF_grid_points(ncx,ncy,ncz,lx,angle,y,grid_order, &
+                                  elem_nodes,elem_pts,xyz_nodes,xyz_pts)
+  !
+  ! Deallocate y since it is no longer needed
+  !
+  if (allocated(y)) then
+    deallocate ( y , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"y",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! #######
+  ! #######
+  ! ## 3 ##
+  ! #######
+  ! #######
+  !
+  ! We can finish creating the grid now that we have the x,y,z grid spacings
+  !
+  ncell = ncx*ncy*ncz                       ! total number of grid cells
+  nnode = (ncx+1)*(ncy+1)*(ncz+1)           ! total number of grid nodes
+  nfbnd = 2*ncx*ncy + 2*ncx*ncz + 2*ncy*ncz ! total number of boundary faces
+  !
+  ! Allocate all the arrays needed to define the grid
+  ! NOTE: xyz_nodes and elem_nodes are allocated in high_order_TCF_grid_points
+  !
+  nodes_of_cell_ptr = init_array(ncell+1,0) ! F2003 AUTO-REALLOC
+  !
+  nodes_of_cell = init_array(geom_nodes(Geom_Hexa)*ncell,0) ! F03 AUTO-REALLOC
+  !
+  bface = init_array(nbfai,nfbnd,0) ! F2003 AUTO-REALLOC
+  !
+  cell_geom = init_array(ncell,Geom_Hexa) ! F2003 AUTO-REALLOC
+  !
+  cell_order = init_array(ncell,n_order) ! F2003 AUTO-REALLOC
+  !
+  ! Create the nodes_of_cell and nodes_of_cell_ptr arrays. nodes_of_cell is
+  ! just a 1D version of elem_nodes, and nodes_of_cell_ptr is an indexing
+  ! array that gives the beginning/ending index in nodes_of_cell for each
+  ! cell.
+  !
+  ! Create the nodes_of_cell_ptr array
+  !
+  nodes_of_cell_ptr = intseq(0,ncell)*geom_nodes(Geom_Hexa) ! F2003 AUTO-REALLOC
+  !
+  ! Create the nodes_of_cell array
+  !
+  ! F2003 AUTO-REALLOC
+  nodes_of_cell = reshape( elem_nodes(:,:) , shape=[size(elem_nodes)] )
+  !
+  ! #######
+  ! #######
+  ! ## 4 ##
+  ! #######
+  ! #######
+  !
+  ! Create the bface array
+  !
+  ! Loop through the 6 grid boundaries
+  ! NOTE: This corresponds to the grid boundaries in
+  !       the order [InnerWall,OuterWall,Inflow,Outflow,ThetaMin,ThetaMax] which
+  !       correspond to the [jmin,jmax,imin,imax,kmin,kmax] boundaries.
+  !
+  ! InnerWall/j-min and OuterWall/j-max boundaries
+  !
+  n2 = 0
+  !
+  bc1_idx = inner_wall_idx
+  bc2_idx = outer_wall_idx
+  !
+  n1 = n2           ! j-min (r-min) counter
+  n2 = n2 + ncx*ncz ! j-max (r-max) counter
+  do k = 1,ncz
+    do i = 1,ncx
+      !
+      n1 = n1 + 1 ! j-min (r-min) face
+      n2 = n2 + 1 ! j-max (r-max) face
+      !
+      bface( 1,n1) = bc_input(bc1_idx)%set_bc_value
+      bface( 2,n1) = map3dto1d(i,  1,k,ncx,ncy,ncz)
+      bface( 3,n1) = Geom_Hexa
+      bface( 4,n1) = HostFace3D(3)
+      bface( 5,n1) = bc1_idx ! group for boundary face
+      bface( 6,n1) = bc1_idx ! index for bc_input for this BC
+      bface(10,n1) = ncell + n1
+      !
+      bface( 1,n2) = bc_input(bc2_idx)%set_bc_value
+      bface( 2,n2) = map3dto1d(i,ncy,k,ncx,ncy,ncz)
+      bface( 3,n2) = Geom_Hexa
+      bface( 4,n2) = HostFace3D(4)
+      bface( 5,n2) = bc2_idx ! group for boundary face
+      bface( 6,n2) = bc2_idx ! index for bc_input for this BC
+      bface(10,n2) = ncell + n2
+      !
+    end do
+  end do
+  !
+  ! Min-X and Max-X boundary faces
+  !
+  bc1_idx = inflow_idx
+  bc2_idx = outflow_idx
+  !
+  n1 = n2           ! min-x counter
+  n2 = n2 + ncy*ncz ! max-x counter
+  do k = 1,ncz
+    do j = 1,ncy
+      !
+      n1 = n1 + 1 ! x-min face
+      n2 = n2 + 1 ! x-max face
+      !
+      ! NOTE: The subroutine match_periodic_faces will set the values of
+      !       bface([5,6,8,9],:), so we dont need to do that here.
+      !
+      bface( 1,n1) = bc_input(bc1_idx)%set_bc_value
+      bface( 2,n1) = map3dto1d(  1,j,k,ncx,ncy,ncz)
+      bface( 3,n1) = Geom_Hexa
+      bface( 4,n1) = HostFace3D(1)
+      bface( 5,n1) = bc1_idx ! group for boundary face
+      bface( 6,n1) = bc1_idx ! index for bc_input needed by match_periodic_faces
+      bface(10,n1) = ncell + n1
+      !
+      bface( 1,n2) = bc_input(bc2_idx)%set_bc_value
+      bface( 2,n2) = map3dto1d(ncx,j,k,ncx,ncy,ncz)
+      bface( 3,n2) = Geom_Hexa
+      bface( 4,n2) = HostFace3D(2)
+      bface( 5,n2) = bc2_idx ! group for boundary face
+      bface( 6,n2) = bc2_idx ! index for bc_input needed by match_periodic_faces
+      bface(10,n2) = ncell + n2
+      !
+    end do
+  end do
+  !
+  ! Min-Theta/K and Max-Theta/K rotationally periodic boundary faces
+  !
+  bc1_idx = theta_min_idx
+  bc2_idx = theta_max_idx
+  !
+  n1 = n2           ! min-theta/k counter
+  n2 = n2 + ncx*ncy ! max-theta/k counter
+  do j = 1,ncy
+    do i = 1,ncx
+      !
+      n1 = n1 + 1 ! x-min face
+      n2 = n2 + 1 ! x-max face
+      !
+      ! NOTE: The subroutine match_periodic_faces will set the values of
+      !       bface([5,6,8,9],:), so we dont need to do that here.
+      !
+      bface( 1,n1) = bc_input(bc1_idx)%set_bc_value
+      bface( 2,n1) = map3dto1d(i,j,  1,ncx,ncy,ncz)
+      bface( 3,n1) = Geom_Hexa
+      bface( 4,n1) = HostFace3D(5)
+      bface( 5,n1) = bc1_idx ! group for boundary face
+      bface( 6,n1) = bc1_idx ! index for bc_input needed by match_periodic_faces
+      bface(10,n1) = ncell + n1
+      !
+      bface( 1,n2) = bc_input(bc2_idx)%set_bc_value
+      bface( 2,n2) = map3dto1d(i,j,ncz,ncx,ncy,ncz)
+      bface( 3,n2) = Geom_Hexa
+      bface( 4,n2) = HostFace3D(6)
+      bface( 5,n2) = bc2_idx ! group for boundary face
+      bface( 6,n2) = bc2_idx ! index for bc_input needed by match_periodic_faces
+      bface(10,n2) = ncell + n2
+      !
+    end do
+  end do
+  !
+  ! #######
+  ! #######
+  ! ## 5 ##
+  ! #######
+  ! #######
+  !
+  ! We need to create the grid derived type for the Taylor-Couette grids
+  ! because we need to make the high-order grid points for the curved
+  ! boundaries
+  !
+  if (allocated(grid)) then
+    deallocate ( grid , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Only have the host roots create the grid derived type. The high-order
+  ! data it will contain can take up a lot of memory. Only having the root
+  ! process on each host/node store this data will save a lot of memory
+  ! instead of having [# of cores per node] copies of the same data on each
+  ! node. The partitioning code only expects the host root to have this
+  ! information, so storing this information on non-root processes is just
+  ! a waste of memory anyways.
+  !
+  if (i_am_host_root) then
+    !
+    allocate ( grid , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( grid%elem(1:ncell+nfbnd) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid%elem",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Create grid for the grid cells
+    !
+    if (grid_order == 1) then
+      elem_type = int(HEXA_8)
+      npts = 8
+    else if (grid_order == 2) then
+      elem_type = int(HEXA_27)
+      npts = 27
+    else if (grid_order == 3) then
+      elem_type = int(HEXA_64)
+      npts = 64
+    else ! n_order >= 4
+      elem_type = int(HEXA_125)
+      npts = 125
+    end if
+    !
+    do nc = 1,ncell
+      !
+      grid%elem(nc)%prop%npts = npts
+      grid%elem(nc)%prop%order = grid_order
+      grid%elem(nc)%prop%geom = Geom_Hexa
+      grid%elem(nc)%prop%elem_type = elem_type
+      !
+      grid%elem(nc)%nodes = elem_nodes(1:8,nc) ! F2003 AUTO-REALLOC
+      grid%elem(nc)%pts = elem_pts(1:npts,nc) ! F2003 AUTO-REALLOC
+      !
+      grid%elem(nc)%tags = [0,0] ! F2003 AUTO-REALLOC
+      !
+    end do
+    !
+    ! Create grid for the boundary faces
+    !
+    do nf = 1,nfbnd
+      !
+      nc = ncell + nf
+      !
+      host_cell = bface(2,nf)
+      host_side = bface(4,nf)
+      !
+      ! Use get_face_elem to get the face connectivity
+      ! NOTE: This will assign all the %prop values, create the %nodes
+      !       and %pts arrays, and copy the host cells %tags array.
+      ! NOTE: The get_face_elem function works correctly whether the host
+      !       cells point connectivity is in CGNS or GFR ordering. It will check
+      !       to see if
+      !         1) %pts(1:size(%nodes)) == %nodes (CGNS ordering), and then
+      !            return the face elements %pts array in GFR ordering, or
+      !         2) otherwise, it will reverse the GFR ordering of the host
+      !            cells %pts to put it back in CGNS order, then return the
+      !            face elements %pts array in GFR ordering
+      !
+      if (grid%elem(host_cell)%prop%order <= 4) then
+        grid%elem(nc) = get_face_elem(grid%elem(host_cell),host_side,host_cell)
+      else
+       !grid%elem(nc) = get_face_elem(grid%elem(host_cell),host_side,host_cell)
+        write (error_message,1)
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+      end if
+      !
+      ! The get_face_elem function copies the host cells tags array to the
+      ! face element, so we need to add the boundary condition to tags.
+      !
+      grid%elem(nc)%tags = [bface(1,nf),0] ! F2003 AUTO-REALLOC
+      !
+    end do
+    !
+    ! Copy the xyz_pts array into grid%xyz using the move_alloc subroutine
+    ! NOTE: This will allocate grid%xyz with the same size and shape as xyz_pts,
+    !       copy over the values, then deallocate xyz_pts.
+    !
+    call move_alloc( from=xyz_pts , to=grid%xyz )
+    !
+  end if
+  !
+ !if (mypnum == glb_root) then
+ !  write (iout,2) minval( grid%elem(:)%prop%order ), &
+ !                 maxval( grid%elem(:)%prop%order ), &
+ !                 n_order
+ !end if
+  !
+ !call write_internal_grid(ncell,nfbnd)
+  !
+  ! Deallocate elem_nodes and elem_pts before leaving
+  !
+  if (allocated(elem_nodes)) then
+    deallocate ( elem_nodes , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"elem_nodes",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  if (allocated(elem_pts)) then
+    deallocate ( elem_pts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"elem_pts",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("ERROR: The internal grid generator for creating the ", &
+                   "Taylor-Couette flow grid is currently limited to ", &
+                   "creating P1-P4 order grids.")
+  !
+  2 format (/,4x,"After creating the Taylor-Couette flow grid:",/, &
+             10x,"Min Grid Order = ",i0,/, &
+             10x,"Max Grid Order = ",i0,/, &
+             10x,"Solution Order = ",i0,/)
+  !
+  10 format (/,80("#"),//, &
+               2x,"ERROR: There is a missing boundary condition that ", &
+                  "is needed",/,9x,"to run the Taylor-Couette problem:")
+  11 format (12x,"The ",a9," boundary condition is missing!")
+  12 format (/,80("#"),/)
+  13 format ("WHEN TRYING TO INTERNALLY GENERATE THE GRID FOR THE ", &
+             "TAYLOR-COUETTE FLOW PROBLEM, THERE IS A MISSING BOUNDARY ", &
+             "CONDITION THAT IS NEEDED TO BE ABLE TO RUN THIS PROBLEM!")
+  !
+  contains
+  !
+  pure function map3dto1d(i,j,k,ni,nj,nk) result(return_value)
+    integer, intent(in) :: i,j,k,ni,nj,nk
+    integer :: return_value
+    integer :: kk
+    ! If k>nk, this should mean that we are looking at a cell on the
+    ! self-connecting azimuthal plane. For these cells, the k+1 nodes are
+    ! actually the k=1 nodes so zero out the k part of the mapping.
+    kk = merge( 0 , ni*nj*(k-1) , k > nk )
+    return_value = i + ni*(j-1) + kk
+  end function map3dto1d
+  !
+end subroutine create_pipe_channel_grid
 !
 !###############################################################################
 !
@@ -4745,8 +6206,8 @@ end subroutine create_postproc_debug_grid
 #ifndef DISABLE_PURE
 pure &
 #endif
-function tanh_spacing_1d(x1in,x2in,ds1in,ds2in,npts,special_b_coeff) &
-                  result(return_value)
+function tanh_spacing_1d(x1in,x2in,ds1in,ds2in,npts,special_b_coeff, &
+                         fixed_end_spacings) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: x1in
@@ -4756,14 +6217,17 @@ function tanh_spacing_1d(x1in,x2in,ds1in,ds2in,npts,special_b_coeff) &
   integer,  intent(in) :: npts
   !
   !.. Optional Arguments ..
-  real(wp), optional, intent(in) :: special_b_coeff
+  real(wp),    optional, intent(in) :: special_b_coeff
+  logical(lk), optional, intent(in) :: fixed_end_spacings
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:)
   !
   !.. Local Scalars ..
-  integer  :: nl,np,l
-  real(wp) :: dl,x
+  integer  :: nl,np,n1,n2,l
+  real(wp) :: dl,x,c0
+  !
+  logical(lk) :: enforce_end_spacings
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: x1(:)
@@ -4774,11 +6238,37 @@ function tanh_spacing_1d(x1in,x2in,ds1in,ds2in,npts,special_b_coeff) &
   !
 continue
   !
-  ! We are going to enforce the end spacings ds1in and ds2in,
-  ! so we only want to solve for the npts-3 interior spacings
-  ! (meaning npts-2 points on the line).
+  enforce_end_spacings = true
+  if (present(fixed_end_spacings)) then
+    enforce_end_spacings = fixed_end_spacings
+  end if
   !
-  np = npts-2
+  if (enforce_end_spacings) then
+    !
+    ! We are going to enforce the end spacings ds1in and ds2in,
+    ! so we only want to solve for the npts-3 interior spacings
+    ! (meaning npts-2 points on the line).
+    !
+    np = npts-2
+    !
+    n1 = 2
+    n2 = np+1
+    !
+    c0 = one
+    !
+  else
+    !
+    ! We are not enforcing the end spacings, so we need to solve for
+    ! all npts-1 interior spacings (meaning npts points on the line).
+    !
+    np = npts
+    !
+    n1 = 1
+    n2 = np
+    !
+    c0 = zero ! cancel the adjustment to x1i and x2i
+    !
+  end if
   !
   ! Allocate the function result
   !
@@ -4818,10 +6308,12 @@ continue
   x2i = init_array(nl,zero) ! F2003 AUTO-REALLOC
   !
   ! Modify x1i and x2i to be the location for the 2nd and npts-1 points
+  ! NOTE: If not enforcing end spacings, c0=zero and
+  !       this just sets [x1i,x2i] = [x1,x2]
   !
   do l = 1,nl
-    x1i(l) = x1(l) + (x2(l)-x1(l))*ds1in/dl
-    x2i(l) = x2(l) - (x2(l)-x1(l))*ds2in/dl
+    x1i(l) = x1(l) + c0*(x2(l)-x1(l))*ds1in/dl
+    x2i(l) = x2(l) - c0*(x2(l)-x1(l))*ds2in/dl
   end do
   !
   ! F2003 AUTO-REALLOC
@@ -4829,7 +6321,7 @@ continue
   !
   ! Copy the interior point spacings to the function result
   !
-  return_value(2:np+1) = xp(1,1:np)
+  return_value(n1:n2) = xp(1,1:np)
   !
 end function tanh_spacing_1d
 !
@@ -4872,8 +6364,8 @@ end function average_1p_spacing_md
 #ifndef DISABLE_PURE
 pure &
 #endif
-function tanh_spacing_md(x1in,x2in,ds1in,ds2in,npts,special_b_coeff) &
-                  result(return_value)
+function tanh_spacing_md(x1in,x2in,ds1in,ds2in,npts,special_b_coeff, &
+                         fixed_end_spacings) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: x1in(:)
@@ -4883,14 +6375,17 @@ function tanh_spacing_md(x1in,x2in,ds1in,ds2in,npts,special_b_coeff) &
   integer,  intent(in) :: npts
   !
   !.. Optional Arguments ..
-  real(wp), optional, intent(in) :: special_b_coeff
+  real(wp),    optional, intent(in) :: special_b_coeff
+  logical(lk), optional, intent(in) :: fixed_end_spacings
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: nl,np,l
-  real(wp) :: dl
+  integer  :: nl,np,n1,n2,l
+  real(wp) :: dl,c0
+  !
+  logical(lk) :: enforce_end_spacings
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: x1(:)
@@ -4901,11 +6396,37 @@ function tanh_spacing_md(x1in,x2in,ds1in,ds2in,npts,special_b_coeff) &
   !
 continue
   !
-  ! We are going to enforce the end spacings ds1in and ds2in,
-  ! so we only want to solve for the npts-3 interior spacings
-  ! (meaning npts-2 points on the line).
+  enforce_end_spacings = true
+  if (present(fixed_end_spacings)) then
+    enforce_end_spacings = fixed_end_spacings
+  end if
   !
-  np = npts-2
+  if (enforce_end_spacings) then
+    !
+    ! We are going to enforce the end spacings ds1in and ds2in,
+    ! so we only want to solve for the npts-3 interior spacings
+    ! (meaning npts-2 points on the line).
+    !
+    np = npts-2
+    !
+    n1 = 2
+    n2 = np+1
+    !
+    c0 = one
+    !
+  else
+    !
+    ! We are not enforcing the end spacings, so we need to solve for
+    ! all npts-1 interior spacings (meaning npts points on the line).
+    !
+    np = npts
+    !
+    n1 = 1
+    n2 = np
+    !
+    c0 = zero ! cancel the adjustment to x1i and x2i
+    !
+  end if
   !
   ! Make sure x1 and x2 have the same dimensions
   !
@@ -4946,10 +6467,12 @@ continue
   x2i = init_array(nl,zero) ! F2003 AUTO-REALLOC
   !
   ! Modify x1i and x2i to be the location for the 2nd and npts-1 points
+  ! NOTE: If not enforcing end spacings, c0=zero and
+  !       this just sets [x1i,x2i] = [x1,x2]
   !
   do l = 1,nl
-    x1i(l) = x1(l) + (x2(l)-x1(l))*ds1in/dl
-    x2i(l) = x2(l) - (x2(l)-x1(l))*ds2in/dl
+    x1i(l) = x1(l) + c0*(x2(l)-x1(l))*ds1in/dl
+    x2i(l) = x2(l) - c0*(x2(l)-x1(l))*ds2in/dl
   end do
   !
   ! F2003 AUTO-REALLOC
@@ -4957,7 +6480,7 @@ continue
   !
   ! Copy the interior point spacings to the function result
   !
-  return_value(1:nl,2:np+1) = xp(1:nl,1:np)
+  return_value(1:nl,n1:n2) = xp(1:nl,1:np)
   !
 end function tanh_spacing_md
 !
