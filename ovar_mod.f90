@@ -10,7 +10,7 @@ module ovar
   use module_kind_types, only : visc_interface_fluxes
   use module_kind_types, only : laminar_flow
   use module_kind_types, only : one_work_unit
-  use module_kind_types, only : iout,zero,one,half,two,pi,eps6,eps12
+  use module_kind_types, only : iout,zero,one,half,two,five,pi,eps6,eps12
   use module_kind_types, only : mpi_wtime
   use module_kind_types, only : Correction_gDG
   use module_kind_types, only : bc_unknown
@@ -578,6 +578,9 @@ module ovar
   real(wp), public, save :: channel_grid_ave_zplus     = -15.0_wp
   real(wp), public, save :: channel_grid_yplus_wall    = 2.0_wp
   integer,  public, save :: channel_rake_save_interval = 100
+  !
+  ! PIPE CHANNEL FLOW PARAMETERS
+  real(wp), public, save :: pipe_channel_angle = five
   !
   ! OPTIONS FOR MODIFYING BC ALGORITHMS
   logical(lk), public, save :: walls_are_exact   = true
@@ -1897,6 +1900,7 @@ module input_namelist_mod
   use ovar,      only : channel_yplus_of_one, channel_rake_save_interval
   use ovar,      only : channel_grid_ave_xplus, channel_grid_ave_zplus
   use ovar,      only : channel_grid_ave_yplus, channel_grid_yplus_wall
+  use ovar,      only : pipe_channel_angle
   use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
   use ovar,      only : delete_converted_restart_files
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
@@ -2141,6 +2145,8 @@ module input_namelist_mod
                      channel_grid_ave_xplus, channel_grid_ave_zplus, &
                      channel_grid_ave_yplus, channel_grid_yplus_wall, &
                      channel_yplus_of_one, channel_rake_save_interval
+  ! PIPE CHANNEL FLOW PARAMETERS
+  namelist / input / pipe_channel_angle
   ! OPTIONS FOR MODIFYING BC ALGORITHMS
   namelist / input / walls_are_exact, sub_inflow_method, use_bc_conflicts
   ! CGNS OUTPUT OPTIONS
