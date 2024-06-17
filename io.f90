@@ -5140,10 +5140,16 @@ subroutine check_periodic_coordinates()
   !.. Use Statements ..
   use geovar,  only : nr,bc_grps
   use flowvar, only : facexyz
+  use ovar,    only : bc_in
   !
   !.. Local Scalars ..
-  integer :: i,k,l,n,n1,n2
+  integer :: grp_idx,k,l,n,n1,n2,bc_idx
   integer :: lpfile,rpfile
+  !
+  real(wp) :: xyz_lp(1:nr),xyz_lp_rot(1:nr)
+  real(wp) :: xyz_rp(1:nr),xyz_rp_rot(1:nr)
+  real(wp) :: rmat(1:nr,1:nr)
+  real(wp) :: rinv(1:nr,1:nr)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_periodic_coordinates"
@@ -5153,36 +5159,122 @@ continue
   lpfile = 3101 + mypnum
   rpfile = 3201 + mypnum
   !
-  do i = 1,size(bc_grps)
+  do grp_idx = 1,size(bc_grps)
     !
-    if (bc_grps(i)%bc_type == bc_periodic) then
+    if (bc_grps(grp_idx)%bc_type == bc_periodic) then
       !
-      write (lpfile,10) i
-      write (rpfile,10) i
+      bc_idx = bc_grps(grp_idx)%bc_idx
       !
-      n1 = bc_grps(i)%beg_fp
-      n2 = bc_grps(i)%end_fp
+      write (lpfile,10) grp_idx,bc_idx
+      write (rpfile,10) grp_idx,bc_idx
       !
-      do n = n1,n2
+      n1 = bc_grps(grp_idx)%beg_fp
+      n2 = bc_grps(grp_idx)%end_fp
+      !
+      if (allocated(bc_in(bc_idx)%pbc_rotation%mat)) then
         !
-        k = bc_grps(i)%periodic_list(n-n1+1)
+        rmat(1:nr,1:nr) = bc_in(bc_idx)%pbc_rotation%mat(1:nr,1:nr)
+        rinv(1:nr,1:nr) = transpose(rmat(1:nr,1:nr))
         !
-        write (lpfile,11) n,(facexyz(l,n), l=1,nr)
-        write (rpfile,11) k,(facexyz(l,k), l=1,nr)
-        !
-        if (mod(n-n1+1,10) == 0) then
+        if (nr == 3) then
           write (lpfile,*)
           write (rpfile,*)
+          do k = 1,nr
+            write (lpfile,23) &
+              (merge(rmat(n,k),zero,abs(rmat(n,k))>eps12), n=1,nr), &
+              (merge(rinv(n,k),zero,abs(rinv(n,k))>eps12), n=1,nr)
+            write (rpfile,23) &
+              (merge(rinv(n,k),zero,abs(rinv(n,k))>eps12), n=1,nr), &
+              (merge(rmat(n,k),zero,abs(rmat(n,k))>eps12), n=1,nr)
+          end do
+          write (lpfile,'(/,60("-"))')
+          write (rpfile,'(/,60("-"))')
+        else if (nr == 2) then
+          write (lpfile,*)
+          write (rpfile,*)
+          do k = 1,nr
+            write (lpfile,23) &
+              (merge(rmat(n,k),zero,abs(rmat(n,k))>eps12), n=1,nr), &
+              (merge(rinv(n,k),zero,abs(rinv(n,k))>eps12), n=1,nr)
+            write (rpfile,23) &
+              (merge(rinv(n,k),zero,abs(rinv(n,k))>eps12), n=1,nr), &
+              (merge(rmat(n,k),zero,abs(rmat(n,k))>eps12), n=1,nr)
+          end do
+          write (lpfile,'(/,60("-"))')
+          write (rpfile,'(/,60("-"))')
         end if
         !
-      end do
+        do n = n1,n2
+          !
+          k = bc_grps(grp_idx)%periodic_list(n-n1+1)
+          !
+          xyz_lp(1:nr) = facexyz(1:nr,n)
+          xyz_rp(1:nr) = facexyz(1:nr,k)
+          !
+         !xyz_lp_rot(1:nr) = matmul( rmat(1:nr,1:nr) , xyz_lp(1:nr) )
+         !xyz_rp_rot(1:nr) = matmul( rinv(1:nr,1:nr) , xyz_rp(1:nr) )
+          xyz_lp_rot(1:nr) = matmul( rinv(1:nr,1:nr) , xyz_lp(1:nr) )
+          xyz_rp_rot(1:nr) = matmul( rmat(1:nr,1:nr) , xyz_rp(1:nr) )
+          !
+          where ( abs(xyz_lp) < eps12 ) xyz_lp = zero
+          where ( abs(xyz_rp) < eps12 ) xyz_rp = zero
+          where ( abs(xyz_lp_rot) < eps12 ) xyz_lp_rot = zero
+          where ( abs(xyz_rp_rot) < eps12 ) xyz_rp_rot = zero
+          !
+          if (nr == 3) then
+            write (lpfile,13) n,k, (xyz_lp(l), l=1,nr), (xyz_rp_rot(l), l=1,nr)
+            write (rpfile,13) k,n, (xyz_rp(l), l=1,nr), (xyz_lp_rot(l), l=1,nr)
+          else if (nr == 2) then
+            write (lpfile,12) n,k, (xyz_lp(l), l=1,nr), (xyz_rp_rot(l), l=1,nr)
+            write (rpfile,12) k,n, (xyz_rp(l), l=1,nr), (xyz_lp_rot(l), l=1,nr)
+          else
+            write (lpfile,11) n,k, (xyz_lp(l), l=1,nr), (xyz_rp_rot(l), l=1,nr)
+            write (rpfile,11) k,n, (xyz_rp(l), l=1,nr), (xyz_lp_rot(l), l=1,nr)
+          end if
+          !
+          if (mod(n-n1+1,10) == 0) then
+            write (lpfile,*)
+            write (rpfile,*)
+          end if
+          !
+        end do
+        !
+      else
+        !
+        do n = n1,n2
+          !
+          k = bc_grps(grp_idx)%periodic_list(n-n1+1)
+          !
+          xyz_lp(1:nr) = facexyz(1:nr,n)
+          xyz_rp(1:nr) = facexyz(1:nr,k)
+          !
+          where ( abs(xyz_lp) < eps12 ) xyz_lp = zero
+          where ( abs(xyz_rp) < eps12 ) xyz_rp = zero
+          !
+          write (lpfile,11) n,k,(xyz_lp(l), l=1,nr)
+          write (rpfile,11) k,n,(xyz_rp(l), l=1,nr)
+          !
+          if (mod(n-n1+1,10) == 0) then
+            write (lpfile,*)
+            write (rpfile,*)
+          end if
+          !
+        end do
+        !
+      end if
       !
     end if
     !
   end do
   !
-  10 format ("BC_GRP(",i0,")",/,60("="))
-  11 format (i8,100(es12.4))
+  10 format ("BC_GRP(",i0,") : BC_IN(",i0,")",/,60("="))
+  11 format (i8,1x,"(",i8,")",100(f11.7))
+  12 format (i8,1x,"(",i8,")",1x,"[",f10.7," , ",f10.7,"]   <-   ", &
+                                 "[",f10.7," , ",f10.7,"]")
+  13 format (i8,1x,"(",i8,")",1x,"[",f10.7,2(" , ",f10.7),"]   <-   ", &
+                                 "[",f10.7,2(" , ",f10.7),"]")
+  22 format (2x,"|",f10.7,1x,f10.7,"|   <-   |",f10.7,1x,f10.7,"|")
+  23 format (2x,"|",f10.7,2(1x,f10.7),"|   <-   |",f10.7,2(1x,f10.7),"|")
   !
 end subroutine check_periodic_coordinates
 !
