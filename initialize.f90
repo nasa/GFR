@@ -3235,10 +3235,16 @@ continue
       !
       ! If this is a periodic BC, we need to create the rotation matrix
       ! if this is a rotated periodic BC.
+      ! NOTE: Only allocate pbc_rotation%mat if this is a rotated periodic BC
+      !       and do NOT allocate if this is a translation-only periodic BC.
       !
-      ! F2003 AUTO-REALLOC
-      bc_in(i)%pbc_rotation%mat = get_pbc_matrix(bc_input(n)%periodic, &
-                                                 ignore_translation=true)
+      if ((any(abs(bc_input(n)%periodic%RotationAxis(1:3)) > eps6) .and. &
+           abs(bc_input(n)%periodic%RotationAxis(4)) > eps6) .or. &
+          (any(abs(bc_input(n)%periodic%RotationAngle(1:3)) > eps6))) then
+        ! F2003 AUTO-REALLOC
+        bc_in(i)%pbc_rotation%mat = get_pbc_matrix(bc_input(n)%periodic, &
+                                                   ignore_translation=true)
+      end if
       !
     else
       !
