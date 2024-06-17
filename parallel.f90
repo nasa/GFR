@@ -8540,11 +8540,248 @@ continue
   !
   call exchange_bc_conflicts_usp
   !
+  ! Rotate any communicated solutions that were originally part of
+  ! a rotated periodic boundary condition
+  !
+  call rotate_periodic_mpi_solutions(faceusp)
+  !
 #ifdef DEBUG_ON
   call debug_timer(leaving_procedure,pname)
 #endif
   !
 end subroutine wait_faceusp
+!
+!###############################################################################
+!
+subroutine rotate_periodic_mpi_solutions(face_cv)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,nfbnd,bface,face
+  use ovar,   only : bc_in
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nf,n1,n2,bc_idx
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "rotate_periodic_mpi_solutions"
+  !
+  logical(lk), parameter :: use_nd_rotation = true
+ !logical(lk), parameter :: use_nd_rotation = fals
+  !
+continue
+  !
+  if (use_nd_rotation) then
+    !
+    call rotate_periodic_mpi_solutions_nd(face_cv)
+    !
+  else
+    !
+    do nf = 1,nfbnd
+      !
+      if (bface(1,nf) /= bc_cpu_bnd) cycle
+      !
+      if (bface(11,nf) <= 9999) cycle
+      !
+      bc_idx = mod(bface(11,nf),10000)
+      !
+      if (.not. allocated(bc_in(bc_idx)%pbc_rotation%mat)) cycle
+      !
+      n1 = face(nf)%beg_fp
+      n2 = face(nf)%end_fp
+      !
+      if (nr == 3) then
+        call rotate_periodic_mpi_solutions_3d(bc_in(bc_idx)%pbc_rotation%mat, &
+                                              face_cv(n1:n2,1:nq,2))
+      else if (nr == 2) then
+        call rotate_periodic_mpi_solutions_2d(bc_in(bc_idx)%pbc_rotation%mat, &
+                                              face_cv(n1:n2,1:nq,2))
+      end if
+      !
+    end do
+    !
+  end if
+  !
+end subroutine rotate_periodic_mpi_solutions
+!
+!###############################################################################
+!
+pure subroutine rotate_periodic_mpi_solutions_3d(rotation_matrix,face_cv)
+  !
+  ! #############################################################
+  ! #############################################################
+  ! ##  Rotate Periodic Boundary Conditio for solutions after communicationn
+  ! #############################################################
+  ! #############################################################
+  !
+  ! ROTATION_MATRIX : coordinate transformation matrix used to rotate the
+  !                   velocity vector for a rotated periodic BC
+  ! FACE_CV         : Conserved variables at the flux points
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: rotation_matrix(:,:)
+  real(wp), intent(inout) :: face_cv(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: rhou,rhov,rhow
+  real(wp) :: rxx,rxy,rxz,ryx,ryy,ryz,rzx,rzy,rzz
+  !
+continue
+  !
+  ! Extract the components of the rotation matrix
+  !
+  rxx = rotation_matrix(1,1)
+  rxy = rotation_matrix(1,2)
+  rxz = rotation_matrix(1,3)
+  !
+  ryx = rotation_matrix(2,1)
+  ryy = rotation_matrix(2,2)
+  ryz = rotation_matrix(2,3)
+  !
+  rzx = rotation_matrix(3,1)
+  rzy = rotation_matrix(3,2)
+  rzz = rotation_matrix(3,3)
+  !
+  do n = 1,size(face_cv,dim=1)
+    !
+    rhou = face_cv(n,nmx)
+    rhov = face_cv(n,nmy)
+    rhow = face_cv(n,nmz)
+    !
+    face_cv(n,nmx) = rhou*rxx + rhov*rxy + rhow*rxz
+    face_cv(n,nmy) = rhou*ryx + rhov*ryy + rhow*ryz
+    face_cv(n,nmz) = rhou*rzx + rhov*rzy + rhow*rzz
+    !
+  end do
+  !
+end subroutine rotate_periodic_mpi_solutions_3d
+!
+!###############################################################################
+!
+pure subroutine rotate_periodic_mpi_solutions_2d(rotation_matrix,face_cv)
+  !
+  ! #############################################################
+  ! #############################################################
+  ! ##  Rotate Periodic Boundary Condition for solutions after communication
+  ! #############################################################
+  ! #############################################################
+  !
+  ! ROTATION_MATRIX : coordinate transformation matrix used to rotate the
+  !                   velocity vector for a rotated periodic BC
+  ! FACE_CV         : Conserved variables at the flux points
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: rotation_matrix(:,:)
+  real(wp), intent(inout) :: face_cv(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: rhou,rhov
+  real(wp) :: rxx,rxy,ryx,ryy
+  !
+continue
+  !
+  ! Extract the components of the rotation matrix
+  !
+  rxx = rotation_matrix(1,1)
+  rxy = rotation_matrix(1,2)
+  !
+  ryx = rotation_matrix(2,1)
+  ryy = rotation_matrix(2,2)
+  !
+  do n = 1,size(face_cv,dim=1)
+    !
+    rhou = face_cv(n,nmx)
+    rhov = face_cv(n,nmy)
+    !
+    face_cv(n,nmx) = rhou*rxx + rhov*rxy
+    face_cv(n,nmy) = rhou*ryx + rhov*ryy
+    !
+  end do
+  !
+end subroutine rotate_periodic_mpi_solutions_2d
+!
+!###############################################################################
+!
+!pure &
+subroutine rotate_periodic_mpi_solutions_nd(face_cv)
+  !
+  ! #############################################################
+  ! #############################################################
+  ! ##  Rotate Periodic Boundary Condition for solutions after communication
+  ! #############################################################
+  ! #############################################################
+  !
+  ! FACE_CV : Conserved variables at the flux points
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,nfbnd,bface,face
+  use ovar,   only : bc_in
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,nf,bc_idx,m
+  !
+  !.. Local Arrays ..
+  real(wp) :: vel(1:nr)
+  real(wp) :: rmat(1:nr,1:nr)
+  !
+  !.. Local Parameters ..
+ !logical(lk), parameter :: transpose_rmat = true
+  logical(lk), parameter :: transpose_rmat = fals
+  !
+continue
+  !
+#ifdef DEBUG_ON
+#define DEBUG_PERIODIC_ROTATIONS
+#endif
+#ifdef DEBUG_PERIODIC_ROTATIONS
+  write (mypnum+7500,'(80("="))')
+#endif
+  bnd_face_loop: &
+  do nf = 1,nfbnd
+    !
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    !
+    if (bface(11,nf) <= 9999) cycle
+    !
+    bc_idx = mod(bface(11,nf),10000)
+    !
+    if (.not. allocated(bc_in(bc_idx)%pbc_rotation%mat)) cycle
+    !
+    n1 = face(nf)%beg_fp
+    n2 = face(nf)%end_fp
+    !
+    rmat(1:nr,1:nr) = bc_in(bc_idx)%pbc_rotation%mat(1:nr,1:nr)
+    if (transpose_rmat) rmat(:,:) = transpose( rmat(:,:) )
+    !
+    do n = n1,n2
+      !
+     !face_cv(n,nmb:nme,2) = matmul( rmat , face_cv(n,nmb:nme,2) )
+      !
+      vel(1:nr) = face_cv(n,nmb:nme,2)
+      face_cv(n,nmb:nme,2) = matmul( rmat , vel )
+      !
+#ifdef DEBUG_PERIODIC_ROTATIONS
+      write (mypnum+7500,1) &
+                            n, (face_cv(n,m,1),m=nmx,nmz), &
+                               (vel(m),m=1,3), &
+                               (face_cv(n,m,2),m=nmx,nmz)
+      !
+#endif
+    end do
+    !
+  end do bnd_face_loop
+  !
+  1 format (1x,"n=",i5," : ",3es12.4,"   ;", &
+            4x,3es12.4," -> ",3es12.4)
+  !
+end subroutine rotate_periodic_mpi_solutions_nd
 !
 !###############################################################################
 !
@@ -8874,11 +9111,494 @@ continue
   !
   call exchange_bc_conflicts_dusp
   !
+  ! Rotate any communicated gradients that were originally part of
+  ! a rotated periodic boundary condition
+  !
+  call rotate_periodic_mpi_gradients(facedusp)
+  !
 #ifdef DEBUG_ON
   call debug_timer(leaving_procedure,pname)
 #endif
   !
 end subroutine wait_facedusp
+!
+!###############################################################################
+!
+subroutine rotate_periodic_mpi_gradients(face_dcvdx)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,nfbnd,bface,face
+  use ovar,   only : bc_in
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nf,n1,n2,bc_idx
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "rotate_periodic_mpi_gradients"
+  !
+  logical(lk), parameter :: use_nd_rotation = true
+ !logical(lk), parameter :: use_nd_rotation = fals
+  !
+continue
+  !
+  if (use_nd_rotation) then
+    !
+    call rotate_periodic_mpi_gradients_nd(face_dcvdx)
+    !
+  else
+    !
+    do nf = 1,nfbnd
+      !
+      if (bface(1,nf) /= bc_cpu_bnd) cycle
+      !
+      if (bface(11,nf) <= 9999) cycle
+      !
+      bc_idx = mod(bface(11,nf),10000)
+      !
+      if (.not. allocated(bc_in(bc_idx)%pbc_rotation%mat)) cycle
+      !
+      n1 = face(nf)%beg_fp
+      n2 = face(nf)%end_fp
+      !
+      if (nr == 3) then
+        call rotate_periodic_mpi_gradients_3d(bc_in(bc_idx)%pbc_rotation%mat, &
+                                              face_dcvdx(n1:n2,1:nr,1:nq,2))
+      else if (nr == 2) then
+        call rotate_periodic_mpi_gradients_2d(bc_in(bc_idx)%pbc_rotation%mat, &
+                                              face_dcvdx(n1:n2,1:nr,1:nq,2))
+      end if
+      !
+    end do
+    !
+  end if
+  !
+end subroutine rotate_periodic_mpi_gradients
+!
+!###############################################################################
+!
+pure subroutine rotate_periodic_mpi_gradients_3d(rotation_matrix,face_dcvdx)
+  !
+  ! #############################################################
+  ! #############################################################
+  ! ##  Rotate Periodic Boundary Condition for gradients after communication
+  ! #############################################################
+  ! #############################################################
+  !
+  ! ROTATION_MATRIX : coordinate transformation matrix used to rotate the
+  !                   velocity vector for a rotated periodic BC
+  ! FACE_DCVDX      : Gradients of the conserved variables at the flux points
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: rotation_matrix(:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: m,n
+  real(wp) :: decdx,dmxdx,dmydx,dmzdx,deedx,rdmxdx,rdmydx,rdmzdx
+  real(wp) :: decdy,dmxdy,dmydy,dmzdy,deedy,rdmxdy,rdmydy,rdmzdy
+  real(wp) :: decdz,dmxdz,dmydz,dmzdz,deedz,rdmxdz,rdmydz,rdmzdz
+  real(wp) :: rxx,rxy,rxz,ryx,ryy,ryz,rzx,rzy,rzz
+  real(wp) :: axx,axy,axz,ayx,ayy,ayz,azx,azy,azz
+  !
+  !.. Local Arrays ..
+  real(wp) :: rmat(1:3,1:3)
+  real(wp) :: tnsr(1:3,1:3)
+  real(wp) :: rslt(1:3,1:3)
+  !
+  !.. Local Parameters ..
+  logical(lk), parameter :: use_matmul = true
+ !logical(lk), parameter :: use_matmul = fals
+  !
+continue
+  !
+  ! Extract the components of the rotation matrix
+  !
+  rxx = rotation_matrix(1,1)
+  rxy = rotation_matrix(1,2)
+  rxz = rotation_matrix(1,3)
+  !
+  ryx = rotation_matrix(2,1)
+  ryy = rotation_matrix(2,2)
+  ryz = rotation_matrix(2,3)
+  !
+  rzx = rotation_matrix(3,1)
+  rzy = rotation_matrix(3,2)
+  rzz = rotation_matrix(3,3)
+  !
+ !rmat(1:3,1:3) = rotation_matrix(1:3,1:3)
+  rmat(1:3,1:3) = transpose(rotation_matrix(1:3,1:3))
+  !
+  do n = 1,size(face_dcvdx,dim=1)
+    !
+    ! Extract the gradients from the matching periodic face point
+    !
+    decdx = face_dcvdx(n,1,nec)
+    decdy = face_dcvdx(n,2,nec)
+    decdz = face_dcvdx(n,3,nec)
+    !
+    dmxdx = face_dcvdx(n,1,nmx)
+    dmxdy = face_dcvdx(n,2,nmx)
+    dmxdz = face_dcvdx(n,3,nmx)
+    !
+    dmydx = face_dcvdx(n,1,nmy)
+    dmydy = face_dcvdx(n,2,nmy)
+    dmydz = face_dcvdx(n,3,nmy)
+    !
+    dmzdx = face_dcvdx(n,1,nmz)
+    dmzdy = face_dcvdx(n,2,nmz)
+    dmzdz = face_dcvdx(n,3,nmz)
+    !
+    deedx = face_dcvdx(n,1,nee)
+    deedy = face_dcvdx(n,2,nee)
+    deedz = face_dcvdx(n,3,nee)
+    !
+    ! tnsr(1:3,1) = [dmxdx,dmxdy,dmxdz]
+    ! tnsr(1:3,2) = [dmydx,dmydy,dmydz]
+    ! tnsr(1:3,3) = [dmzdx,dmzdy,dmzdz]
+    tnsr(1:3,1:3) = face_dcvdx(n,1:3,nmx:nmz)
+   !!
+   !! tnsr(1:3,1) = [dmxdx,dmydx,dmzdx]
+   !! tnsr(1:3,2) = [dmxdy,dmydy,dmzdy]
+   !! tnsr(1:3,3) = [dmxdz,dmydz,dmzdz]
+   !tnsr(:,:) = transpose(tnsr(:,:))
+    !
+    rslt(1:3,1:3) = matmul( rmat , matmul( tnsr , transpose(rmat) ) )
+    !
+    ! Compute matrix components resulting from matrix-matrix product of
+    ! [rotation-matrix] x [velocity-gradient-tensor]
+    !
+    axx = dmxdx*rxx + dmxdy*rxy + dmxdz*rxz
+    axy = dmydx*rxx + dmydy*rxy + dmydz*rxz
+    axz = dmzdx*rxx + dmzdy*rxy + dmzdz*rxz
+    !
+    ayx = dmxdx*ryx + dmxdy*ryy + dmxdz*ryz
+    ayy = dmydx*ryx + dmydy*ryy + dmydz*ryz
+    ayz = dmzdx*ryx + dmzdy*ryy + dmzdz*ryz
+    !
+    azx = dmxdx*rzx + dmxdy*rzy + dmxdz*rzz
+    azy = dmydx*rzx + dmydy*rzy + dmydz*rzz
+    azz = dmzdx*rzx + dmzdy*rzy + dmzdz*rzz
+    !
+    rdmxdx = axx*rxx + axy*rxy + axz*rxz
+    rdmxdy = ayx*rxx + ayy*rxy + ayz*rxz
+    rdmxdz = azx*rxx + azy*rxy + azz*rxz
+    !
+    rdmydx = axx*ryx + axy*ryy + axz*ryz
+    rdmydy = ayx*ryx + ayy*ryy + ayz*ryz
+    rdmydz = azx*ryx + azy*ryy + azz*ryz
+    !
+    rdmzdx = axx*rzx + axy*rzy + axz*rzz
+    rdmzdy = ayx*rzx + ayy*rzy + ayz*rzz
+    rdmzdz = azx*rzx + azy*rzy + azz*rzz
+    !
+    ! Rotate the gradients of the matching periodic face point and save
+    ! to face_dcvdx
+    ! NOTE: The density and energy gradients are vector rotations which
+    !       is just a matrix-vector product of
+    !       [rotation-matrix] x [gradient-vector].
+    !       The velocity gradient is a tensor rotation which is a
+    !       matrix-matrix-matrix product of
+    !       [rotation-matrix] x [grad-vel-tensor] x [Transpose(rotation-matrix)]
+    !
+    face_dcvdx(n,1,nec) = decdx*rxx + decdy*rxy + decdz*rxz
+    face_dcvdx(n,2,nec) = decdx*ryx + decdy*ryy + decdz*ryz
+    face_dcvdx(n,3,nec) = decdx*rzx + decdy*rzy + decdz*rzz
+    !
+    face_dcvdx(n,1,nmx) = merge( rslt(1,1) , rdmxdx , use_matmul )
+    face_dcvdx(n,2,nmx) = merge( rslt(2,1) , rdmxdy , use_matmul )
+    face_dcvdx(n,3,nmx) = merge( rslt(3,1) , rdmxdz , use_matmul )
+    !
+    face_dcvdx(n,1,nmy) = merge( rslt(1,2) , rdmydx , use_matmul )
+    face_dcvdx(n,2,nmy) = merge( rslt(2,2) , rdmydy , use_matmul )
+    face_dcvdx(n,3,nmy) = merge( rslt(3,2) , rdmydz , use_matmul )
+    !
+    face_dcvdx(n,1,nmz) = merge( rslt(1,3) , rdmzdx , use_matmul )
+    face_dcvdx(n,2,nmz) = merge( rslt(2,3) , rdmzdy , use_matmul )
+    face_dcvdx(n,3,nmz) = merge( rslt(3,3) , rdmzdz , use_matmul )
+    !
+    face_dcvdx(n,1,nee) = deedx*rxx + deedy*rxy + deedz*rxz
+    face_dcvdx(n,2,nee) = deedx*ryx + deedy*ryy + deedz*ryz
+    face_dcvdx(n,3,nee) = deedx*rzx + deedy*rzy + deedz*rzz
+    !
+  end do
+  !
+  if (ncs > 0) then
+    do m = 1,ncs
+      do n = 1,size(face_dcvdx,dim=1)
+        !
+        ! Extract the gradients from the matching periodic face point
+        !
+        decdx = face_dcvdx(n,1,m)
+        decdy = face_dcvdx(n,2,m)
+        decdz = face_dcvdx(n,3,m)
+        !
+        face_dcvdx(n,1,m) = decdx*rxx + decdy*rxy + decdz*rxz
+        face_dcvdx(n,2,m) = decdx*ryx + decdy*ryy + decdz*ryz
+        face_dcvdx(n,3,m) = decdx*rzx + decdy*rzy + decdz*rzz
+        !
+      end do
+    end do
+  end if
+  !
+end subroutine rotate_periodic_mpi_gradients_3d
+!
+!###############################################################################
+!
+pure subroutine rotate_periodic_mpi_gradients_2d(rotation_matrix,face_dcvdx)
+  !
+  ! #############################################################
+  ! #############################################################
+  ! ##  Rotate Periodic Boundary Condition for gradients after communication
+  ! #############################################################
+  ! #############################################################
+  !
+  ! ROTATION_MATRIX : coordinate transformation matrix used to rotate the
+  !                   velocity vector for a rotated periodic BC
+  ! FACE_DCVDX      : Gradients of the conserved variables at the flux points
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: rotation_matrix(:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: m,n
+  real(wp) :: decdx,dmxdx,dmydx,deedx,rdmxdx,rdmydx
+  real(wp) :: decdy,dmxdy,dmydy,deedy,rdmxdy,rdmydy
+  real(wp) :: rxx,rxy,ryx,ryy
+  real(wp) :: axx,axy,ayx,ayy
+  !
+  !.. Local Arrays ..
+  real(wp) :: rmat(1:2,1:2)
+  real(wp) :: tnsr(1:2,1:2)
+  real(wp) :: rslt(1:2,1:2)
+  !
+  !.. Local Parameters ..
+  logical(lk), parameter :: use_matmul = true
+ !logical(lk), parameter :: use_matmul = fals
+  !
+continue
+  !
+  ! Extract the components of the rotation matrix
+  !
+  rxx = rotation_matrix(1,1)
+  rxy = rotation_matrix(1,2)
+  !
+  ryx = rotation_matrix(2,1)
+  ryy = rotation_matrix(2,2)
+  !
+ !rmat(1:2,1:2) = rotation_matrix(1:2,1:2)
+  rmat(1:2,1:2) = transpose(rotation_matrix(1:2,1:2))
+  !
+  do n = 1,size(face_dcvdx,dim=1)
+    !
+    ! Extract the gradients from the matching periodic face point
+    !
+    decdx = face_dcvdx(n,1,nec)
+    decdy = face_dcvdx(n,2,nec)
+    !
+    dmxdx = face_dcvdx(n,1,nmx)
+    dmxdy = face_dcvdx(n,2,nmx)
+    !
+    dmydx = face_dcvdx(n,1,nmy)
+    dmydy = face_dcvdx(n,2,nmy)
+    !
+    deedx = face_dcvdx(n,1,nee)
+    deedy = face_dcvdx(n,2,nee)
+    !
+    ! tnsr(1:2,1) = [dmxdx,dmxdy]
+    ! tnsr(1:2,2) = [dmydx,dmydy]
+    tnsr(1:2,1:2) = face_dcvdx(n,1:2,nmx:nmy)
+   !!
+   !! tnsr(1:2,1) = [dmxdx,dmydx]
+   !! tnsr(1:2,2) = [dmxdy,dmydy]
+   !tnsr(:,:) = transpose(tnsr(:,:))
+    !
+    rslt(1:2,1:2) = matmul( rmat , matmul( tnsr , transpose(rmat) ) )
+    !
+    ! Compute matrix components resulting from matrix-matrix product of
+    ! [rotation-matrix] x [velocity-gradient-tensor]
+    !
+    axx = dmxdx*rxx + dmxdy*rxy
+    axy = dmydx*rxx + dmydy*rxy
+    !
+    ayx = dmxdx*ryx + dmxdy*ryy
+    ayy = dmydx*ryx + dmydy*ryy
+    !
+    rdmxdx = axx*rxx + axy*rxy
+    rdmxdy = ayx*rxx + ayy*rxy
+    !
+    rdmydx = axx*ryx + axy*ryy
+    rdmydy = ayx*ryx + ayy*ryy
+    !
+    ! Rotate the gradients of the matching periodic face point and save
+    ! to face_dcvdx
+    ! NOTE: The density and energy gradients are vector rotations which
+    !       is just a matrix-vector product of
+    !       [rotation-matrix] x [gradient-vector].
+    !       The velocity gradient is a tensor rotation which is a
+    !       matrix-matrix-matrix product of
+    !       [rotation-matrix] x [grad-vel-tensor] x [Transpose(rotation-matrix)]
+    !
+    face_dcvdx(n,1,nec) = decdx*rxx + decdy*rxy
+    face_dcvdx(n,2,nec) = decdx*ryx + decdy*ryy
+    !
+    face_dcvdx(n,1,nmx) = merge( rslt(1,1) , rdmxdx , use_matmul )
+    face_dcvdx(n,2,nmx) = merge( rslt(2,1) , rdmxdy , use_matmul )
+    !
+    face_dcvdx(n,1,nmy) = merge( rslt(1,2) , rdmydx , use_matmul )
+    face_dcvdx(n,2,nmy) = merge( rslt(2,2) , rdmydy , use_matmul )
+    !
+    face_dcvdx(n,1,nee) = deedx*rxx + deedy*rxy
+    face_dcvdx(n,2,nee) = deedx*ryx + deedy*ryy
+    !
+  end do
+  !
+  if (ncs > 0) then
+    do m = 1,ncs
+      do n = 1,size(face_dcvdx,dim=1)
+        !
+        ! Extract the gradients from the matching periodic face point
+        !
+        decdx = face_dcvdx(n,1,m)
+        decdy = face_dcvdx(n,2,m)
+        !
+        face_dcvdx(n,1,m) = decdx*rxx + decdy*rxy
+        face_dcvdx(n,2,m) = decdx*ryx + decdy*ryy
+        !
+      end do
+    end do
+  end if
+  !
+end subroutine rotate_periodic_mpi_gradients_2d
+!
+!###############################################################################
+!
+!pure &
+subroutine rotate_periodic_mpi_gradients_nd(face_dcvdx)
+  !
+  ! #############################################################
+  ! #############################################################
+  ! ##  Rotate Periodic Boundary Condition for gradients after communication
+  ! #############################################################
+  ! #############################################################
+  !
+  ! FACE_DCVDX : Gradients of the conserved variables at the flux points
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,nfbnd,bface,face
+  use ovar,   only : bc_in
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,nf,m,bc_idx
+  !
+  !.. Local Arrays ..
+  real(wp) :: grad_ec(1:nr)
+  real(wp) :: grad_ee(1:nr)
+  real(wp) :: rmat(1:nr,1:nr)
+  real(wp) :: tnsr(1:nr,1:nr)
+  real(wp) :: rslt(1:nr,1:nr)
+  !
+  !.. Local Parameters ..
+ !logical(lk), parameter :: transpose_rmat = true
+  logical(lk), parameter :: transpose_rmat = fals
+  !
+ !logical(lk), parameter :: transpose_tnsr = true
+  logical(lk), parameter :: transpose_tnsr = fals
+  !
+continue
+  !
+#ifdef DEBUG_PERIODIC_ROTATIONS
+  write (mypnum+8500,'(80("#"))')
+#endif
+  bnd_face_loop: &
+  do nf = 1,nfbnd
+    !
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    !
+    if (bface(11,nf) <= 9999) cycle
+    !
+    bc_idx = mod(bface(11,nf),10000)
+    !
+    if (.not. allocated(bc_in(bc_idx)%pbc_rotation%mat)) cycle
+    !
+    n1 = face(nf)%beg_fp
+    n2 = face(nf)%end_fp
+    !
+    rmat(1:nr,1:nr) = bc_in(bc_idx)%pbc_rotation%mat(1:nr,1:nr)
+    if (transpose_rmat) rmat(:,:) = transpose( rmat(:,:) )
+    !
+    do n = n1,n2
+      !
+      grad_ec(1:nr) = face_dcvdx(n,1:nr,nec,2)
+      !
+      tnsr(1:nr,1:nr) = face_dcvdx(n,1:nr,nmb:nme,2)
+      if (transpose_tnsr) tnsr(:,:) = transpose( tnsr(:,:) )
+      !
+      grad_ee(1:nr) = face_dcvdx(n,1:nr,nee,2)
+      !
+      rslt(1:nr,1:nr) = matmul( rmat , matmul( tnsr , transpose(rmat) ) )
+      !
+      ! Rotate the gradients of the matching periodic face point and save
+      ! to face_dcvdx
+      ! NOTE: The density and energy gradients are vector rotations which
+      !       is just a matrix-vector product of
+      !       [rotation-matrix] x [gradient-vector].
+      !       The velocity gradient is a tensor rotation which is a
+      !       matrix-matrix-matrix product of
+      !     [rotation-matrix] x [grad-vel-tensor] x [Transpose(rotation-matrix)]
+      !
+      face_dcvdx(n,1:nr,nec,2) = matmul( rmat , grad_ec )
+      face_dcvdx(n,1:nr,nmb:nme,2) = rslt(1:nr,1:nr)
+      face_dcvdx(n,1:nr,nee,2) = matmul( rmat , grad_ee )
+#ifdef DEBUG_PERIODIC_ROTATIONS
+block
+  character(len=*), parameter :: ceq(1:5) = ["ec","mx","my","mz","ee"]
+      write (mypnum+8500,1) nf,n,bface(11,nf),bc_idx, &
+           ceq(nec),(face_dcvdx(n,m,nec,1),m=1,3), &
+                    (face_dcvdx(n,m,nec,2),m=1,3), &
+                    (grad_ec(m),m=1,3), &
+           ceq(nmx),(face_dcvdx(n,m,nmx,1),m=1,3), &
+                    (face_dcvdx(n,m,nmx,2),m=1,3), &
+                    (tnsr(m,1),m=1,3), &
+           ceq(nmy),(face_dcvdx(n,m,nmy,1),m=1,3), &
+                    (face_dcvdx(n,m,nmy,2),m=1,3), &
+                    (tnsr(m,2),m=1,3), &
+           ceq(nmz),(face_dcvdx(n,m,nmz,1),m=1,3), &
+                    (face_dcvdx(n,m,nmz,2),m=1,3), &
+                    (tnsr(m,3),m=1,3), &
+           ceq(nee),(face_dcvdx(n,m,nee,1),m=1,3), &
+                    (face_dcvdx(n,m,nee,2),m=1,3), &
+                    (grad_ee(m),m=1,3)
+end block
+  1 format (80("="),/, &
+            10x,"nf = ",i5,3x,"n = ",i6,3x,"bface(11) = ",i6, &
+                           3x,"bc_idx = ",i3,/, &
+            80("-"),/, &
+            5(" d",a2,3x,3es12.4,"  ;  ",3es12.4," <- ",3es12.4,:,/))
+#endif
+      !
+      if (ncs > 0) then
+        do m = 1,ncs
+          !
+         !face_dcvdx(n,1:nr,m,2) = matmul( rmat , face_dcvdx(n,1:nr,m,2) )
+          !
+          grad_ec(1:nr) = face_dcvdx(n,1:nr,m,2)
+          face_dcvdx(n,1:nr,m,2) = matmul( rmat , grad_ec )
+          !
+        end do
+      end if
+      !
+    end do
+    !
+  end do bnd_face_loop
+  !
+end subroutine rotate_periodic_mpi_gradients_nd
 !
 !###############################################################################
 !
