@@ -523,6 +523,8 @@ module ovar
   integer,  public, save :: TCF_Radial_Cells       = 20
   integer,  public, save :: TCF_Azimuthal_Cells    = 48
   real(wp), public, save :: TCF_Theta_Shift        = zero
+  integer,  public, save :: TCF_Periodic_Sectors   = 1
+  ! TCF_Periodic_Sectors : periodic rotation angle = 360/TCF_Periodic_Sectors
   !
   ! FLAME SPEED TEST PARAMETERS
   integer, public, save :: flame_speed_test_dof = 0
@@ -1883,7 +1885,7 @@ module input_namelist_mod
   use ovar,      only : TCF_Outer_Radius,TCF_Outer_Wall_Spacing
   use ovar,      only : TCF_Aspect_Ratio,TCF_Axial_Cells
   use ovar,      only : TCF_Radial_Cells,TCF_Azimuthal_Cells
-  use ovar,      only : TCF_Theta_Shift
+  use ovar,      only : TCF_Theta_Shift, TCF_Periodic_Sectors
   use ovar,      only : flame_speed_test_dof
   use ovar,      only : sod_test_dof, sod_test_right_vector
   use ovar,      only : pulse_test_form, pulse_test_form_dim
@@ -2124,7 +2126,7 @@ module input_namelist_mod
                      TCF_Outer_Radius, TCF_Outer_Wall_Spacing, &
                      TCF_Aspect_Ratio, TCF_Axial_Cells, &
                      TCF_Radial_Cells, TCF_Azimuthal_Cells, &
-                     TCF_Theta_Shift
+                     TCF_Theta_Shift,  TCF_Periodic_Sectors
   ! FLAME SPEED TEST PARAMETERS
   namelist / input / flame_speed_test_dof
   ! SOD SHOCK TUBE TEST PARAMETERS
