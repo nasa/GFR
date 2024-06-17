@@ -104,7 +104,9 @@ module write_cgns_mod
   type(geord_t), save, allocatable :: geord(:,:)
   !
   !
+  integer, save, allocatable :: cell_k0(:)
   !
+  logical(lk), save :: interpolated_dusp_is_needed
   !
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
   !
@@ -7962,6 +7964,46 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_vort_face_solution
+!
+!###############################################################################
+!
+pure function create_cell_output_offsets() result(return_value)
+  !
+  !.. Use Statements ..
+  use geovar,            only : ncell,cell
+  use interpolation_mod, only : outerp
+  !
+  !.. Function Result ..
+  integer, allocatable :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer :: nc,this_geom,this_order,k0,kp
+  !
+continue
+  !
+  return_value = init_array(ncell,0) ! F2003 AUTO-REALLOC
+  !
+  k0 = 0
+  kp = 0
+  !
+  do nc = 1,ncell
+    !
+    k0 = k0 + kp
+    !
+    return_value(nc) = k0
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    if (allocated(outerp(this_geom,this_order)%output)) then
+      kp = size(outerp(this_geom,this_order)%output%mat,dim=1)
+    else
+      kp = cell(nc)%end_sp - cell(nc)%beg_sp + 1
+    end if
+    !
+  end do
+  !
+end function create_cell_output_offsets
 !
 !###############################################################################
 !
