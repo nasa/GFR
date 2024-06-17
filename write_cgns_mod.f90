@@ -3651,6 +3651,24 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "QCriterion          ", &
                                                     "DivergenceOfVelocity"]
   !
+  !.. Variables requiring dusp for output
+  character(len=*), parameter :: grad_vars(1:16) = ["GradSpeciesDensities", &
+                                                    "GradDensity         ", &
+                                                    "GradDensityMagnitude", &
+                                                    "GradMomentum        ", &
+                                                    "GradEnergy          ", &
+                                                    "GradMassFractions   ", &
+                                                    "GradVelocity        ", &
+                                                    "GradTemperature     ", &
+                                                    "GradTempMagnitude   ", &
+                                                    "dTdx_Breakdown      ", &
+                                                    "DmatTemperature     ", &
+                                                    "Vorticity           ", &
+                                                    "VorticityMagnitude  ", &
+                                                    "StrainRateMagnitude ", &
+                                                    "QCriterion          ", &
+                                                    "DivergenceOfVelocity"]
+  !
   ! Conserved Variables
   character(len=*), parameter :: consv_var(1:3) = ["Density ", &
                                                    "Momentum", &
