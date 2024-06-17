@@ -2641,10 +2641,12 @@ subroutine reorder_boundary_faces()
   use geovar, only : ncell,nfbnd,bface
   use geovar, only : num_bc_grps
   use geovar, only : grid,grid_t
+  use ovar,   only : bc_in
   !
   !.. Local Scalars ..
   integer :: i,j,k,n,nc,nf,ngrps,ierr
   integer :: min_grp,max_grp,min_bcin,max_bcin
+  integer :: bc_idx,num_rpbc,num_tpbc
   !
   logical(lk) :: contains_periodic_faces
   logical(lk) :: errors_found
@@ -2665,24 +2667,46 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  contains_periodic_faces = fals
+ !contains_periodic_faces = fals
   errors_found = fals
+  !
+  ! Check if there are any periodic boundary faces
+  !
+  contains_periodic_faces = any(bface(1,1:nfbnd) == bc_periodic) .or. &
+                            any(bc_in(:)%bc_type == bc_periodic)
+!!!
+!!face_bc    = bface(1,1:nfbnd)     ! F2003 AUTO-REALLOC
+!!face_bcidx = init_array(nfbnd,0)  ! F2003 AUTO-REALLOC
+!!face_group = init_array(nfbnd,0)  ! F2003 AUTO-REALLOC
+!!!
+!!do nf = 1,nfbnd
+!!  if (all(face_bc(nf) /= [bc_periodic,bc_cpu_bnd])) then
+!!    face_group(nf) = bface(5,nf)
+!!    face_bcidx(nf) = bface(6,nf)
+!!  else if (face_bc(nf) == bc_periodic) then
+!!    bc_idx = mod(bface(11,nf),10000)
+!!    if (allocated(bc_in(bc_idx)%pbc_rotation%mat)) then
+!!      face_bcidx(nf) = -bc_idx
+!!    else
+!!      contains_periodic_faces = true
+!!    end if
+!!  end if
+!!end do
+!!!
+!!msk = (face_bcidx(:) > 0) ! F2003 AUTO-REALLOC
+!!!
+!!min_grp = minval( face_group(:) )
+!!max_grp = maxval( face_group(:) )
+!!!
+!!min_bcin = minval( abs(face_bcidx(:)) , mask=(face_bcidx(:)/=0) )
+!!max_bcin = maxval( abs(face_bcidx(:)) , mask=(face_bcidx(:)/=0) )
   !
   ! Find all the physical boundary faces
   !
-  allocate ( msk(1:nfbnd) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
+  msk = ( ( bface(1,1:nfbnd) /= bc_periodic ) .and. & ! F2003 AUTO-REALLOC
+          ( bface(1,1:nfbnd) /= bc_cpu_bnd  ) )
   !
-  do nf = 1,nfbnd
-    if (bface(1,nf) /= bc_periodic .and. bface(1,nf) /= bc_cpu_bnd) then
-      msk(nf) = true
-    end if
-    if (bface(1,nf) == bc_periodic) then
-      contains_periodic_faces = true
-    end if
-  end do
-  !
-  ! Find the maximum BC group number
+  ! Find the maximum BC group number for all the physical boundary faces
   !
   if (count(msk) == 0) then
     min_grp = 1
@@ -2735,7 +2759,33 @@ continue
   ! Count the number of unique physical boundary condition groups
   !
   ngrps = count( face_grps(1,:,:) > 0 )
-  if (contains_periodic_faces) ngrps = ngrps + 1
+  !
+  ! Count the number of unique periodic boundary condition groups
+  ! NOTE: All translation-only periodic BCs will be lumped into a single
+  !       BC group, and each half of a rotated periodic BC pair will be its
+  !       own BC group since each one will have its own rotation matrix.
+  !
+  num_rpbc = 0
+  num_tpbc = 0
+  !
+  if (contains_periodic_faces) then
+    do bc_idx = lbound(bc_in,dim=1),ubound(bc_in,dim=1)
+      if (bc_in(bc_idx)%bc_type == bc_periodic) then
+        if (allocated(bc_in(bc_idx)%pbc_rotation%mat)) then
+          ! Add one more to the number of rotationally periodic BC that exist
+          num_rpbc = num_rpbc + 1
+        else
+          ! Set num_tpbc=1 to indicate that one or more
+          ! translation-only periodic BCs exist
+          num_tpbc = 1
+        end if
+      end if
+    end do
+  end if
+  !
+  ! Add the periodic BCs to the total number of BC groups 
+  !
+  ngrps = ngrps + num_rpbc + num_tpbc
   !
   ! Save the total number of BC groups to num_bc_grps
   !
@@ -2743,12 +2793,15 @@ continue
   !
   flush (iout)
   if (mypnum == glb_root) then
-    write (iout,100) pname,min_grp,max_grp,min_bcin,max_bcin,num_bc_grps
+    write (iout,100) pname,min_grp,max_grp,min_bcin,max_bcin, &
+                     num_rpbc,num_tpbc,num_bc_grps
     100 format (/,2x,"In procedure ",a," : ",/, &
                   6x,"   min_grp  = ",i0,/, &
                   6x,"   max_grp  = ",i0,/, &
                   6x,"   min_bcin = ",i0,/, &
                   6x,"   max_bcin = ",i0,/, &
+                  6x,"   num_rpbc = ",i0,/, &
+                  6x,"   num_tpbc = ",i0,/, &
                   6x,"num_bc_grps = ",i0,/)
   end if
   flush (iout)
@@ -2800,6 +2853,19 @@ continue
   deallocate ( face_grps , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face_grps",2,__LINE__,__FILE__,ierr,error_message)
   !
+  ! Then find all the rotated periodic boundary groups
+  !
+  j = 0
+  do bc_idx = lbound(bc_in,dim=1),ubound(bc_in,dim=1)
+    if (bc_in(bc_idx)%bc_type == bc_periodic) then
+      if (allocated(bc_in(bc_idx)%pbc_rotation%mat)) then
+        n = n + 1
+        sorted_grps(1,n) = -bc_periodic
+        sorted_grps(2,n) = bc_idx
+      end if
+    end if
+  end do
+  !
   ! At this point, n should be equal to ngrps-1 since the n=ngrps is the
   ! BC group for all translation-only periodic BCs
   !
@@ -2820,13 +2886,32 @@ continue
   i = 0
   do n = 1,ngrps
     !
-    if (n == ngrps .and. contains_periodic_faces) then
+    if (n == ngrps .and. num_tpbc == 1) then
+      !
+      ! The final BC group is for all translation-only periodic BCs
       !
       do nf = 1,nfbnd
         if (bface(1,nf) == bc_periodic) then
-          i = i + 1
-          new2old(i) = nf
-          old2new(nf) = i
+          bc_idx = mod(bface(11,nf),10000)
+          if (.not. allocated(bc_in(bc_idx)%pbc_rotation%mat)) then
+            i = i + 1
+            new2old(i) = nf
+            old2new(nf) = i
+          end if
+        end if
+      end do
+      !
+    else if (sorted_grps(1,n) == -bc_periodic) then
+      !
+      ! This BC group is for a rotated periodic BC
+      !
+      do nf = 1,nfbnd
+        if (bface(1,nf) == bc_periodic) then
+          if (mod(bface(11,nf),10000) == sorted_grps(2,n)) then
+            i = i + 1
+            new2old(i) = nf
+            old2new(nf) = i
+          end if
         end if
       end do
       !
