@@ -23,6 +23,7 @@ program GFR_main
   use geovar, only : cell
   use geovar, only : n_flxpts,n_bnd_flxpts,n_wall_flxpts
   use geovar, only : n_qdtpts,n_flx_qdtpts,n_bnd_qdtpts,n_wall_qdtpts
+  use geovar, only : output_bface
   !
   use eqn_idx, only : nq,ng
   !
@@ -337,6 +338,8 @@ continue
       interpto_input_mode = input_mode
     end if
     !
+    call output_bface(strng="after.read_input.",only_glb_root=true)
+    !
     ! Partition the grid if using more than one processor.
     ! Upon entry:  These arrays define the global grid
     ! Upon return: These arrays define the partition local
@@ -358,6 +361,8 @@ continue
       call root_broadcasts_grid_dt
     end if
     !
+    call output_bface(strng="after.partitioning.",only_glb_root=true)
+    !
     ! Get the coordinates of the solution points within each grid cell
     !
 !-DEBUG_BEG:
@@ -374,10 +379,14 @@ continue
     call memory_pause("getting the solution points","getting grid connectivity")
     call check_for_bad_number(__LINE__)
     !
+    call output_bface(strng="after.get_sp.",only_glb_root=true)
+    !
     ! Get the grid connectivity and metrics
     !
     call get_grid_connectivity(bface,cell_geom,cell_order,xyz_nodes, &
                                nodes_of_cell,nodes_of_cell_ptr,input_mode)
+    !
+    call output_bface(strng="after.grid_connectivity.",only_glb_root=true)
     !
     call memory_pause("getting grid connectivity", &
                       "initializing vandermonde matrices")
