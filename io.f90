@@ -2732,8 +2732,12 @@ continue
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
+  ! Count the number of unique physical boundary condition groups
+  !
   ngrps = count( face_grps(1,:,:) > 0 )
   if (contains_periodic_faces) ngrps = ngrps + 1
+  !
+  ! Save the total number of BC groups to num_bc_grps
   !
   num_bc_grps = ngrps
   !
@@ -2749,6 +2753,13 @@ continue
   end if
   flush (iout)
   !
+  ! Now go through and sort the BC groups so that they are ordered:
+  !   1. physical wall BCs
+  !   2. physical non-wall BCs
+  !   3. rotated periodic BCs
+  !   4. translation-only periodic BCs
+  !   5. parallel communication BCs
+  !
   allocate ( sorted_grps(1:2,1:ngrps) , source=0 , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"sorted_grps",1,__LINE__,__FILE__,ierr,error_message)
@@ -2762,8 +2773,8 @@ continue
       do i = lbound(face_grps,dim=2),ubound(face_grps,dim=2)
         if (face_grps(2,i,j) == bc_walls(k)) then
           n = n + 1
-          sorted_grps(1,n) = j
-          sorted_grps(2,n) = i
+          sorted_grps(1,n) = j ! bface(5) value : BC Group index
+          sorted_grps(2,n) = i ! bface(6) value : bc_in(:) index
           face_grps(2,i,j) = bc_unknown
         end if
       end do
@@ -2776,15 +2787,23 @@ continue
     do i = lbound(face_grps,dim=2),ubound(face_grps,dim=2)
       if (face_grps(2,i,j) /= bc_unknown) then
         n = n + 1
-        sorted_grps(1,n) = j
-        sorted_grps(2,n) = i
+        sorted_grps(1,n) = j ! bface(5) value : BC Group index
+        sorted_grps(2,n) = i ! bface(6) value : bc_in(:) index
         face_grps(2,i,j) = bc_unknown
       end if
     end do
   end do
   !
+  ! Deallocate face_grps since it is no longer needed
+  !
   deallocate ( face_grps , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face_grps",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! At this point, n should be equal to ngrps-1 since the n=ngrps is the
+  ! BC group for all translation-only periodic BCs
+  !
+  ! Now create the mapping (and reverse mapping) from the old BC face indices
+  ! to the new sorted BC face indices
   !
   ! new2old(nf) = the old face number for a  new face nf
   ! old2new(nf) = the new face number for an old face nf
@@ -2810,6 +2829,8 @@ continue
       !
     else
       !
+      ! This BC group is for a physical BC
+      !
       do nf = 1,nfbnd
         if (bface(5,nf) == sorted_grps(1,n) .and. &
             bface(6,nf) == sorted_grps(2,n)) then
@@ -2823,14 +2844,25 @@ continue
     !
   end do
   !
+  ! Deallocate sorted_grps since it is no longer needed
+  !
   deallocate ( sorted_grps , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"sorted_grps",2,__LINE__,__FILE__,ierr,error_message)
   !
+  ! Create a temporary copy of bface to save the sorted version
+  !
   tmp_bface = bface ! F2003 AUTO-REALLOCATION
+  !
+  ! Copy the information from the old location in bface to the new sorted
+  ! location in tmp_bface
   !
   do nf = 1,nfbnd
     !
     tmp_bface(:,nf) = bface(:,new2old(nf))
+    !
+    ! If this is a periodic boundary face, use the boundary face mapping
+    ! arrays to map the old face index for the matching periodic boundary
+    ! face stored in bface(5) to the new face index
     !
     if (tmp_bface(1,nf) == bc_periodic) then
       tmp_bface(5,nf) = old2new( bface(5,new2old(nf)) )
@@ -2838,7 +2870,11 @@ continue
     !
   end do
   !
+  ! Use move_alloc to copy tmp_bface back into bface and deallocate tmp_bface
+  !
   call move_alloc( from=tmp_bface , to=bface )
+  !
+  ! Deallocate the face index mapping arrays since we no longer need them
   !
   deallocate ( new2old , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"new2old",2,__LINE__,__FILE__,ierr,error_message)
