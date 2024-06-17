@@ -999,7 +999,7 @@ continue
   !
   ! Set the time scaling factor to the flow-through-time for the channel flow
   !
-  if (abs(itestcase) == Channel_Flow) then
+  if (any(abs(itestcase) == [Channel_Flow,Pipe_Channel_Flow])) then
     !
     xmin = minval(xyz_nodes(1,:))
     xmax = maxval(xyz_nodes(1,:))
@@ -6163,7 +6163,7 @@ continue
     call gfr_cpu_time(-1,io_unit=io)
     write (io,*)
     !
-    if (itestcase == Channel_Flow) then
+    if (any(itestcase == [Channel_Flow,Pipe_Channel_Flow])) then
       if (grid_format == Internally_Generated_Grid) then
         call write_channel_grid_info(iunit=io)
       end if

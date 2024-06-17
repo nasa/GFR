@@ -1843,7 +1843,7 @@ continue
   !
   ! Compute the source terms for the channel flow
   !
-  if (itestcase == Channel_Flow) then
+  if (any(itestcase == [Channel_Flow,Pipe_Channel_Flow])) then
     call channel_source             !; call check_for_bad_number(__LINE__)
   end if
   !
@@ -2700,7 +2700,7 @@ subroutine report_bad_pts(npts,xyz)
   !
 continue
   !
-  if (abs(itestcase) == Channel_Flow) then
+  if (any(abs(itestcase) == [Channel_Flow,Pipe_Channel_Flow])) then
     !
     xp_frst_cell = xplus_cell_ave
     xp_last_cell = (channel_grid_Lx/yplus1) - xplus_cell_ave
@@ -2732,7 +2732,7 @@ continue
     !
     xyz_cell(:) = xyz_cell(:)/grid_scaling_factor
     !
-    if (abs(itestcase) == Channel_Flow) then
+    if (any(abs(itestcase) == [Channel_Flow,Pipe_Channel_Flow])) then
       !
       xp_cell(:) = xyz_cell(:)/yplus1
       !
