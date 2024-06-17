@@ -8007,11 +8007,19 @@ end function create_cell_output_offsets
 !
 !###############################################################################
 !
-pure subroutine interpolate_for_output_1d(array,return_value,nondim)
+!pure &
+subroutine interpolate_for_output_1d(array,return_value,nondim)
   !
   !.. Use Statements ..
   use geovar,            only : ncell,cell
   use interpolation_mod, only : outerp
+  !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  use omp_lib, only : omp_get_thread_num
+  use omp_lib, only : omp_get_num_threads
+#endif
+#endif
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: array(:)
@@ -8025,13 +8033,44 @@ pure subroutine interpolate_for_output_1d(array,return_value,nondim)
   integer  :: this_geom,this_order
   real(wp) :: a,val
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interpolate_for_output_1d"
+  !
 continue
   !
+  if (.not. allocated(cell_k0)) then
+    cell_k0 = create_cell_output_offsets() ! F2003 AUTO-REALLOC
+  end if
+! !
   ! Interpolate the data
   !
   k0 = 0
   kp = 0
   !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP PARALLEL &
+  !$OMP&         DEFAULT(SHARED) &
+  !$OMP&         PRIVATE(nc,this_geom,this_order,n0,np,k0,kp,k,val,i,n,a,tid)
+  !
+  tid = omp_get_thread_num()
+  nthreads = omp_get_num_threads()
+  !
+  if (mypnum == glb_root) then
+    if (tid == glb_root) then
+      write (iout,thread_report) pname,nthreads
+    end if
+  end if
+  !
+  chunk_size = ceiling( real(ncell,kind=wp) / real(nthreads,kind=wp) )
+  chunk_size = chunk_size / 10
+  !
+  !$OMP DO
+ !!$OMP DO SCHEDULE(RUNTIME)
+ !!$OMP DO SCHEDULE(GUIDED,chunk_size)
+ !!$OMP DO SCHEDULE(STATIC,chunk_size)
+#endif
+#endif
   do nc = 1,ncell
     !
     this_geom = cell(nc)%geom
@@ -8040,7 +8079,8 @@ continue
     n0 = cell(nc)%beg_sp - 1
     np = cell(nc)%end_sp - n0
     !
-    k0 = k0 + kp
+   !k0 = k0 + kp
+    k0 = cell_k0(nc)
     !
     if (allocated(outerp(this_geom,this_order)%output)) then
       !
@@ -8075,24 +8115,55 @@ continue
     end if
     !
   end do
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP END DO
+#endif
+#endif
   !
   ! Dimensionalize the variable if the nondimensionalization factor is present
   !
   if (present(nondim)) then
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+    !$OMP DO
+   !!$OMP DO SCHEDULE(RUNTIME)
+   !!$OMP DO SCHEDULE(GUIDED,chunk_size)
+   !!$OMP DO SCHEDULE(STATIC,chunk_size)
+#endif
+#endif
     do n = 1,size(return_value)
       return_value(n) = return_value(n) * nondim
     end do
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+    !$OMP END DO
+#endif
+#endif
   end if
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP END PARALLEL
+#endif
+#endif
   !
 end subroutine interpolate_for_output_1d
 !
 !###############################################################################
 !
-pure subroutine interpolate_for_output_2d(array,return_value,nondim)
+!pure &
+subroutine interpolate_for_output_2d(array,return_value,nondim)
   !
   !.. Use Statements ..
   use geovar,            only : ncell,cell
   use interpolation_mod, only : outerp
+  !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  use omp_lib, only : omp_get_thread_num
+  use omp_lib, only : omp_get_num_threads
+#endif
+#endif
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: array(:,:)
@@ -8106,7 +8177,14 @@ pure subroutine interpolate_for_output_2d(array,return_value,nondim)
   integer  :: this_geom,this_order
   real(wp) :: a,val
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interpolate_for_output_2d"
+  !
 continue
+  !
+  if (.not. allocated(cell_k0)) then
+    cell_k0 = create_cell_output_offsets() ! F2003 AUTO-REALLOC
+  end if
   !
   nvar = size(array,dim=2)
   !
@@ -8115,6 +8193,30 @@ continue
   k0 = 0
   kp = 0
   !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP PARALLEL &
+  !$OMP&         DEFAULT(SHARED) &
+  !$OMP&         PRIVATE(nc,this_geom,this_order,n0,np,k0,kp,k,val,i,n,m,a,tid)
+  !
+  tid = omp_get_thread_num()
+  nthreads = omp_get_num_threads()
+  !
+  if (mypnum == glb_root) then
+    if (tid == glb_root) then
+      write (iout,thread_report) pname,nthreads
+    end if
+  end if
+  !
+  chunk_size = ceiling( real(ncell,kind=wp) / real(nthreads,kind=wp) )
+  chunk_size = chunk_size / 10
+  !
+  !$OMP DO
+ !!$OMP DO SCHEDULE(RUNTIME)
+ !!$OMP DO SCHEDULE(GUIDED,chunk_size)
+ !!$OMP DO SCHEDULE(STATIC,chunk_size)
+#endif
+#endif
   do nc = 1,ncell
     !
     this_geom = cell(nc)%geom
@@ -8123,7 +8225,8 @@ continue
     n0 = cell(nc)%beg_sp - 1
     np = cell(nc)%end_sp - n0
     !
-    k0 = k0 + kp
+   !k0 = k0 + kp
+    k0 = cell_k0(nc)
     !
     if (allocated(outerp(this_geom,this_order)%output)) then
       !
@@ -8162,26 +8265,57 @@ continue
     end if
     !
   end do
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP END DO
+#endif
+#endif
   !
   ! Dimensionalize the variables if the nondimensionalization factor is present
   !
   if (present(nondim)) then
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+    !$OMP DO
+   !!$OMP DO SCHEDULE(RUNTIME)
+   !!$OMP DO SCHEDULE(GUIDED,chunk_size)
+   !!$OMP DO SCHEDULE(STATIC,chunk_size)
+#endif
+#endif
     do m = 1,size(return_value,dim=2)
       do n = 1,size(return_value,dim=1)
         return_value(n,m) = return_value(n,m) * nondim
       end do
     end do
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+    !$OMP END DO
+#endif
+#endif
   end if
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP END PARALLEL
+#endif
+#endif
   !
 end subroutine interpolate_for_output_2d
 !
 !###############################################################################
 !
-pure subroutine interpolate_for_output_3d(array,return_value,nondim)
+!pure &
+subroutine interpolate_for_output_3d(array,return_value,nondim)
   !
   !.. Use Statements ..
   use geovar,            only : ncell,cell
   use interpolation_mod, only : outerp
+  !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  use omp_lib, only : omp_get_thread_num
+  use omp_lib, only : omp_get_num_threads
+#endif
+#endif
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: array(:,:,:)
@@ -8195,7 +8329,14 @@ pure subroutine interpolate_for_output_3d(array,return_value,nondim)
   integer  :: this_geom,this_order
   real(wp) :: a,val
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interpolate_for_output_3d"
+  !
 continue
+  !
+  if (.not. allocated(cell_k0)) then
+    cell_k0 = create_cell_output_offsets() ! F2003 AUTO-REALLOC
+  end if
   !
   ndim = size(array,dim=2)
   nvar = size(array,dim=3)
@@ -8205,6 +8346,31 @@ continue
   k0 = 0
   kp = 0
   !
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP PARALLEL &
+  !$OMP&         DEFAULT(SHARED) &
+  !$OMP&         PRIVATE(nc,this_geom,this_order,n0,np,k0,kp,k, &
+  !$OMP&                 val,i,n,m,l,a,tid)
+  !
+  tid = omp_get_thread_num()
+  nthreads = omp_get_num_threads()
+  !
+  if (mypnum == glb_root) then
+    if (tid == glb_root) then
+      write (iout,thread_report) pname,nthreads
+    end if
+  end if
+  !
+  chunk_size = ceiling( real(ncell,kind=wp) / real(nthreads,kind=wp) )
+  chunk_size = chunk_size / 10
+  !
+  !$OMP DO
+ !!$OMP DO SCHEDULE(RUNTIME)
+ !!$OMP DO SCHEDULE(GUIDED,chunk_size)
+ !!$OMP DO SCHEDULE(STATIC,chunk_size)
+#endif
+#endif
   do nc = 1,ncell
     !
     this_geom = cell(nc)%geom
@@ -8213,7 +8379,8 @@ continue
     n0 = cell(nc)%beg_sp - 1
     np = cell(nc)%end_sp - n0
     !
-    k0 = k0 + kp
+   !k0 = k0 + kp
+    k0 = cell_k0(nc)
     !
     if (allocated(outerp(this_geom,this_order)%output)) then
       !
@@ -8256,10 +8423,23 @@ continue
     end if
     !
   end do
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP END DO
+#endif
+#endif
   !
   ! Dimensionalize the variables if the nondimensionalization factor is present
   !
   if (present(nondim)) then
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+    !$OMP DO
+   !!$OMP DO SCHEDULE(RUNTIME)
+   !!$OMP DO SCHEDULE(GUIDED,chunk_size)
+   !!$OMP DO SCHEDULE(STATIC,chunk_size)
+#endif
+#endif
     do m = 1,size(return_value,dim=3)
       do l = 1,size(return_value,dim=2)
         do n = 1,size(return_value,dim=1)
@@ -8267,7 +8447,17 @@ continue
         end do
       end do
     end do
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+    !$OMP END DO
+#endif
+#endif
   end if
+#ifdef DEBUG_ON
+#ifdef ENABLE_OPENMP
+  !$OMP END PARALLEL
+#endif
+#endif
   !
 end subroutine interpolate_for_output_3d
 !
