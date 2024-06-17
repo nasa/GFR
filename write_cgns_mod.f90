@@ -407,6 +407,12 @@ continue
   !
   if (this_is_initial_output) then
     !
+    ! Create the cell_k0 array if running in debug mode and using OpenMP
+    ! which will allow using OpenMP to speed up the interpolations
+    ! computed in interpolate_for_output.
+    !
+    cell_k0 = create_cell_output_offsets() ! F2003 AUTO-REALLOC
+    !
     ! Create the format string for creating the CGNS file names
     !
     write (char_num,4) itrst + num_timesteps
