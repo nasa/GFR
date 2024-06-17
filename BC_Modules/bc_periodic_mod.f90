@@ -16,8 +16,9 @@ contains
 !
 !###############################################################################
 !
-pure subroutine get_bc_periodic_solution(n1,n2,face_cv,periodic_list, &
-                                         rotation_matrix)
+!pure &
+subroutine get_bc_periodic_solution(n1,n2,face_cv,periodic_list, &
+                                    rotation_matrix)
   !
   ! #############################################################
   ! #############################################################
@@ -79,8 +80,9 @@ end subroutine get_bc_periodic_solution
 !
 !###############################################################################
 !
-pure subroutine get_bc_periodic_rotated_sol_3d(n1,n2,face_cv,periodic_list, &
-                                               rotation_matrix)
+!pure &
+subroutine get_bc_periodic_rotated_sol_3d(n1,n2,face_cv,periodic_list, &
+                                          rotation_matrix)
   !
   ! #############################################################
   ! #############################################################
@@ -127,6 +129,13 @@ continue
   rzy = rotation_matrix(2,3)
   rzz = rotation_matrix(3,3)
   !
+#ifdef DEBUG_ON
+!#define DEBUG_PERIODIC_ROTATIONS
+#endif
+#ifdef DEBUG_PERIODIC_ROTATIONS
+  write (mypnum+7000,'(80("="))')
+#endif
+  !
   !$ACC PARALLEL LOOP PRESENT(face_cv,periodic_list)
   do n = n1,n2
     !
@@ -141,6 +150,12 @@ continue
     face_cv(n,nmy,2) = rhou*ryx + rhov*ryy + rhow*ryz
     face_cv(n,nmz,2) = rhou*rzx + rhov*rzy + rhow*rzz
     face_cv(n,nee,2) = rhoe
+#ifdef DEBUG_PERIODIC_ROTATIONS
+    write (mypnum+7000,1) &
+                          n, (face_cv(n,m,1),m=nmx,nmz), &
+      periodic_list(n-n1+1), rhou,rhov,rhow, &
+                             (face_cv(n,m,2),m=nmx,nmz)
+#endif
     !
   end do
   !
@@ -152,6 +167,9 @@ continue
       end do
     end do
   end if
+  !
+  1 format (1x,"n=",i5," : ",3es12.4,"   ;", &
+            1x,"k=",i5," : ",3es12.4," -> ",3es12.4)
   !
 end subroutine get_bc_periodic_rotated_sol_3d
 !
@@ -381,8 +399,9 @@ end subroutine get_bc_periodic_solution_nd
 !
 !###############################################################################
 !
-pure subroutine get_bc_periodic_gradient(n1,n2,face_dcvdx,periodic_list, &
-                                         rotation_matrix)
+!pure &
+subroutine get_bc_periodic_gradient(n1,n2,face_dcvdx,periodic_list, &
+                                    rotation_matrix)
   !
   ! #############################################################
   ! #############################################################
@@ -444,8 +463,9 @@ end subroutine get_bc_periodic_gradient
 !
 !###############################################################################
 !
-pure subroutine get_bc_periodic_rotated_grad_3d(n1,n2,face_dcvdx, &
-                                                periodic_list,rotation_matrix)
+!pure &
+subroutine get_bc_periodic_rotated_grad_3d(n1,n2,face_dcvdx, &
+                                           periodic_list,rotation_matrix)
   !
   ! #############################################################
   ! #############################################################
@@ -506,6 +526,9 @@ continue
   !
   rmat(1:3,1:3) = rotation_matrix(1:3,1:3)
  !rmat(1:3,1:3) = transpose(rotation_matrix(1:3,1:3))
+#ifdef DEBUG_PERIODIC_ROTATIONS
+  write (mypnum+8000,'(80("#"))')
+#endif
   !
   !$ACC PARALLEL LOOP PRESENT(face_dcvdx,periodic_list,rmat,rtrn,tnsr,rslt)
   do n = n1,n2
@@ -599,6 +622,31 @@ continue
     face_dcvdx(n,1,nee,2) = deedx*rxx + deedy*rxy + deedz*rxz
     face_dcvdx(n,2,nee,2) = deedx*ryx + deedy*ryy + deedz*ryz
     face_dcvdx(n,3,nee,2) = deedx*rzx + deedy*rzy + deedz*rzz
+#ifdef DEBUG_PERIODIC_ROTATIONS
+block
+  character(len=*), parameter :: ceq(1:5) = ["ec","mx","my","mz","ee"]
+    write (mypnum+8000,1) n,periodic_list(n-n1+1), &
+         ceq(nec),(face_dcvdx(n,m,nec,1),m=1,3), &
+                  (face_dcvdx(n,m,nec,2),m=1,3), &
+                  decdx,decdy,decdz, &
+         ceq(nmx),(face_dcvdx(n,m,nmx,1),m=1,3), &
+                  (face_dcvdx(n,m,nmx,2),m=1,3), &
+                  dmxdx,dmxdy,dmxdz, &
+         ceq(nmy),(face_dcvdx(n,m,nmy,1),m=1,3), &
+                  (face_dcvdx(n,m,nmy,2),m=1,3), &
+                  dmydx,dmydy,dmydz, &
+         ceq(nmz),(face_dcvdx(n,m,nmz,1),m=1,3), &
+                  (face_dcvdx(n,m,nmz,2),m=1,3), &
+                  dmzdx,dmzdy,dmzdz, &
+         ceq(nee),(face_dcvdx(n,m,nee,1),m=1,3), &
+                  (face_dcvdx(n,m,nee,2),m=1,3), &
+                  deedx,deedy,deedz
+end block
+  1 format (80("="),/, &
+            21x,"n = ",i6,14x,";",16x,"k = ",i6,/, &
+            80("-"),/, &
+            5(" d",a2,3x,3es12.4,"  ;  ",3es12.4," <- ",3es12.4,:,/))
+#endif
     !
   end do
   !
