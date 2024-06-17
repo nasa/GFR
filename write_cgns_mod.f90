@@ -1397,7 +1397,9 @@ continue
       !
     end if
     !
-    call interpolate_for_output( dusp , interp_dusp )
+    if (interpolated_dusp_is_needed) then
+      call interpolate_for_output( dusp , interp_dusp )
+    end if
     !
     if (output_discontinuous_gradients) then
       !
@@ -3940,6 +3942,22 @@ continue
   ! Use move_alloc to over-write variable_list with temp_variables
   !
   call move_alloc( from=temp_variables , to=variable_list )
+  !
+  ! Check to see if any of the gradients are needed for an output variable.
+  ! If not, we wont need to call interpolate_for_output on dusp.
+  !
+  interpolated_dusp_is_needed = fals
+  dusp_check_loop: &
+  do i = 1,size(variable_list)
+    varname = uppercase( trim(adjustl(variable_list(i))) )
+    do j = 1,size(grad_vars)
+      varcheck = uppercase( trim(adjustl(grad_vars(j))) )
+      if (varname == varcheck) then
+        interpolated_dusp_is_needed = true
+        exit dusp_check_loop
+      end if
+    end do
+  end do dusp_check_loop
   !
   call debug_timer(leaving_procedure,pname)
   !
