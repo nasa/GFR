@@ -118,15 +118,15 @@ continue
   ! Extract the components of the rotation matrix
   !
   rxx = rotation_matrix(1,1)
-  rxy = rotation_matrix(2,1)
-  rxz = rotation_matrix(3,1)
+  rxy = rotation_matrix(1,2)
+  rxz = rotation_matrix(1,3)
   !
-  ryx = rotation_matrix(1,2)
+  ryx = rotation_matrix(2,1)
   ryy = rotation_matrix(2,2)
-  ryz = rotation_matrix(3,2)
+  ryz = rotation_matrix(2,3)
   !
-  rzx = rotation_matrix(1,3)
-  rzy = rotation_matrix(2,3)
+  rzx = rotation_matrix(3,1)
+  rzy = rotation_matrix(3,2)
   rzz = rotation_matrix(3,3)
   !
 #ifdef DEBUG_ON
@@ -212,9 +212,9 @@ continue
   ! Extract the components of the rotation matrix
   !
   rxx = rotation_matrix(1,1)
-  rxy = rotation_matrix(2,1)
+  rxy = rotation_matrix(1,2)
   !
-  ryx = rotation_matrix(1,2)
+  ryx = rotation_matrix(2,1)
   ryy = rotation_matrix(2,2)
   !
   !$ACC PARALLEL LOOP PRESENT(face_cv,periodic_list)
@@ -513,19 +513,19 @@ continue
   ! Extract the components of the rotation matrix
   !
   rxx = rotation_matrix(1,1)
-  rxy = rotation_matrix(2,1)
-  rxz = rotation_matrix(3,1)
+  rxy = rotation_matrix(1,2)
+  rxz = rotation_matrix(1,3)
   !
-  ryx = rotation_matrix(1,2)
+  ryx = rotation_matrix(2,1)
   ryy = rotation_matrix(2,2)
-  ryz = rotation_matrix(3,2)
+  ryz = rotation_matrix(2,3)
   !
-  rzx = rotation_matrix(1,3)
-  rzy = rotation_matrix(2,3)
+  rzx = rotation_matrix(3,1)
+  rzy = rotation_matrix(3,2)
   rzz = rotation_matrix(3,3)
   !
-  rmat(1:3,1:3) = rotation_matrix(1:3,1:3)
- !rmat(1:3,1:3) = transpose(rotation_matrix(1:3,1:3))
+ !rmat(1:3,1:3) = rotation_matrix(1:3,1:3)
+  rmat(1:3,1:3) = transpose(rotation_matrix(1:3,1:3))
 #ifdef DEBUG_PERIODIC_ROTATIONS
   write (mypnum+8000,'(80("#"))')
 #endif
@@ -721,13 +721,13 @@ continue
   ! Extract the components of the rotation matrix
   !
   rxx = rotation_matrix(1,1)
-  rxy = rotation_matrix(2,1)
+  rxy = rotation_matrix(1,2)
   !
-  ryx = rotation_matrix(1,2)
+  ryx = rotation_matrix(2,1)
   ryy = rotation_matrix(2,2)
   !
-  rmat(1:2,1:2) = rotation_matrix(1:2,1:2)
- !rmat(1:2,1:2) = transpose(rotation_matrix(1:2,1:2))
+ !rmat(1:2,1:2) = rotation_matrix(1:2,1:2)
+  rmat(1:2,1:2) = transpose(rotation_matrix(1:2,1:2))
   !
   !$ACC PARALLEL LOOP PRESENT(face_dcvdx,periodic_list,rmat,rtrn,tnsr,rslt)
   do n = n1,n2
