@@ -513,6 +513,7 @@ function initial_conditions(xyz,init_cond) result(return_value)
   use ovar, only : jet_init_func
   use mms_mod, only : mms_solution_at_xyz
   use channel_mod, only : channel_initialization
+  use channel_mod, only : pipe_initialization
   use gpu_mod, only : vortex_solution_gpu
   !
   use taylor_couette_mod, only : laminar_taylor_couette_init
@@ -569,6 +570,15 @@ continue
     !###########################################################################
     !
     return_value(:,:) = channel_initialization( xyz(:,:) )
+    !
+  else if (itestcase == Pipe_Channel_Flow) then
+    !
+    !###########################################################################
+    !##### PIPE CHANNEL FLOW
+    !###########################################################################
+    !
+    return_value(:,:) = channel_initialization( xyz(:,:) )
+   !return_value(:,:) = pipe_initialization( xyz(:,:) )
     !
   else if (abs(itestcase) == Sod_Shock_Tube ) then
     !
