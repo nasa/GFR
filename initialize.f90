@@ -992,7 +992,7 @@ continue
   pv_init(nec) = blend*pv(nec) + (one-blend)*fs_pv(nec)
   pv_init(nmx) = blend*pv(nmx) + (one-blend)*fs_pv(nmx)
   pv_init(nmx+1:nme) = zero
-  pv_init(nmy) = blend/aref
+ !pv_init(nmy) = blend/aref
   pv_init(nee) = fs_pv(nee)
   !
   ! Convert the primitive variables to conserved variables
