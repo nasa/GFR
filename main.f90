@@ -1537,7 +1537,9 @@ continue
     end if
   end if
   !
-  call write_restart_file(-1)
+  if (itcur /= 0) then
+    call write_restart_file(-1)
+  end if
   !
   if (continuous_output) then
     call new_write_parallel_cgns(close_CGNS)
