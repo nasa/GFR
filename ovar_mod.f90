@@ -208,6 +208,11 @@ module ovar
   end type bc_in_t
   !
   !
+  type, public :: mrf_spinup_t
+    integer  :: iter = 0
+    real(wp) :: tstar = zero
+  end type mrf_spinup_t
+  !
   type, public :: mrf_t
     real(wp) :: rotation(1:3) = [zero,zero,zero]
     real(wp) :: translation(1:3) = [zero,zero,zero]
