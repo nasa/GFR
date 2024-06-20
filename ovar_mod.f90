@@ -216,6 +216,7 @@ module ovar
   type, public :: mrf_t
     real(wp) :: rotation(1:3) = [zero,zero,zero]
     real(wp) :: translation(1:3) = [zero,zero,zero]
+    type(mrf_spinup_t) :: spinup
   contains
     procedure :: is_active => mrf_is_active
     procedure :: is_not_active => mrf_is_not_active
