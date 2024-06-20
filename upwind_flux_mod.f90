@@ -715,7 +715,6 @@ pure subroutine roe_upwind_flux_cpg_2d(n1,n2,facenrm,facexyz, &
   !
   !.. Use Statements ..
   use ovar,    only : gam
-  use ovar,    only : moving_ref_frame
   use mrf_mod, only : mrf_sign => upwind_sign
   !
   !.. Formal Arguments ..
@@ -743,7 +742,6 @@ pure subroutine roe_upwind_flux_cpg_2d(n1,n2,facenrm,facexyz, &
   real(wp) :: fec_i,fmx_i,fmy_i,fee_i
   real(wp) :: fec_mrf,fmx_mrf,fmy_mrf,fee_mrf
   real(wp) :: fec_d,fmx_d,fmy_d,fee_d
-  real(wp) :: x_r,y_r
 !#define PROTECT_AGAINST_ATD_EQUAL_ZERO
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
   real(wp) :: atd2nz,atd2rt,atdnz,atdrt
@@ -755,9 +753,6 @@ continue
   gp1 = gam + one
   !
   gam_over_gm1 = gam / gm1
-  !
-  x_r = moving_ref_frame%rotation(1) ! x rotation
-  y_r = moving_ref_frame%rotation(2) ! y rotation
   !
   rrf_nrm = zero
   !
@@ -810,11 +805,6 @@ continue
     atd2rt = ra_a2 / atd2nz
     atdrt = ra_a / atdnz
 #endif
-    !
-   !if (size(facexyz,dim=2) >= n2) then
-   !  rrf_nrm = unx * (y_r*facexyz(1,n) - x_r*facexyz(2,n)) + &
-   !            uny * (x_r*facexyz(2,n) - y_r*facexyz(1,n))
-   !end if
     !
     ra_vn = ra_vn - rrf_nrm
     !
@@ -907,7 +897,6 @@ pure subroutine roe_upwind_flux_cpg_1d(n1,n2,facenrm,facexyz, &
   !
   !.. Use Statements ..
   use ovar,    only : gam
-  use ovar,    only : moving_ref_frame
   use mrf_mod, only : mrf_sign => upwind_sign
   !
   !.. Formal Arguments ..
@@ -935,7 +924,6 @@ pure subroutine roe_upwind_flux_cpg_1d(n1,n2,facenrm,facexyz, &
   real(wp) :: fec_i,fmx_i,fee_i
   real(wp) :: fec_mrf,fmx_mrf,fee_mrf
   real(wp) :: fec_d,fmx_d,fee_d
-  real(wp) :: x_r
 !#define PROTECT_AGAINST_ATD_EQUAL_ZERO
 #ifdef PROTECT_AGAINST_ATD_EQUAL_ZERO
   real(wp) :: atd2nz,atd2rt,atdnz,atdrt
@@ -947,8 +935,6 @@ continue
   gp1 = gam + one
   !
   gam_over_gm1 = gam / gm1
-  !
-  x_r = moving_ref_frame%rotation(1) ! x rotation
   !
   rrf_nrm = zero
   !
@@ -996,10 +982,6 @@ continue
     atd2rt = ra_a2 / atd2nz
     atdrt = ra_a / atdnz
 #endif
-    !
-   !if (size(facexyz,dim=2) >= n2) then
-   !  rrf_nrm = x_r*facexyz(1,n)*unx
-   !end if
     !
     ra_vn = ra_vn - rrf_nrm
     !
@@ -1830,7 +1812,6 @@ pure subroutine rusanov_upwind_flux_2d(n1,n2,facenrm,facexyz,face_cv,face_gp, &
                                        lflux,rflux,return_value)
   !
   !.. Use Statements ..
-  use ovar,    only : moving_ref_frame
   use mrf_mod, only : mrf_sign => upwind_sign
   !
   !.. Formal Arguments ..
@@ -1855,11 +1836,8 @@ pure subroutine rusanov_upwind_flux_2d(n1,n2,facenrm,facexyz,face_cv,face_gp, &
   real(wp) :: lfmx_i,rfmx_i,fmx_mrf,fmx_d
   real(wp) :: lfmy_i,rfmy_i,fmy_mrf,fmy_d
   real(wp) :: lfee_i,rfee_i,fee_mrf,fee_d
-  real(wp) :: x_r
   !
 continue
-  !
-  x_r = moving_ref_frame%rotation(1) ! rotation
   !
   rrf_nrm = zero
   !
@@ -1894,10 +1872,6 @@ continue
     !
     vnl = (mxl*unx + myl*uny)*rl_inv
     vnr = (mxr*unx + myr*uny)*rr_inv
-    !
-   !if (size(facexyz,dim=2) >= n2) then
-   !  rrf_nrm = x_r * (-unx*facexyz(2,n) + uny*facexyz(1,n))
-   !end if
     !
     eigen = max( abs(vnl-rrf_nrm) + al , abs(vnr-rrf_nrm) + ar )
     !
