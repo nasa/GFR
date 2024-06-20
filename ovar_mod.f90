@@ -221,6 +221,7 @@ module ovar
     procedure :: is_active => mrf_is_active
     procedure :: is_not_active => mrf_is_not_active
     procedure :: make_nondim => nondimensionalize_mrf
+    procedure :: get_rotation => get_mrf_rotation
   end type mrf_t
   !
   ! ################################
@@ -1461,6 +1462,54 @@ continue
   mrf_is_in_nondim = true
   !
 end subroutine nondimensionalize_mrf
+!
+!###############################################################################
+!
+pure &
+subroutine get_mrf_rotation(this,x_r,y_r,z_r)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(mrf_t), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: x_r,y_r,z_r
+  !
+  !.. Local Scalars ..
+  real(wp) :: current_tstar,spinup_iter,spinup_tstar,spinup_ratio
+  !
+continue
+  !
+  spinup_iter = one
+  spinup_tstar = one
+  spinup_ratio = one
+  !
+  ! First check the current iteration versus the spinup%iter value
+  !
+  if (itcur < this%spinup%iter) then
+    spinup_iter = real(itcur,kind=wp) / real(this%spinup%iter,kind=wp)
+  end if
+  !
+  ! Next check the current tstar versus the spinup%tstar value
+  !
+  if (this%spinup%tstar > eps6) then
+    current_tstar = time*time_ref*time_scaling_factor
+    if (current_tstar < this%spinup%tstar) then
+      spinup_tstar = current_tstar / this%spinup%tstar
+    end if
+  end if
+  !
+  ! Set the spinup ratio as the smaller of the spinup iteration ratio and
+  ! the spinup tstar ratio, and make sure the value is between zero and one.
+  !
+  spinup_ratio = max( zero , min( spinup_tstar, spinup_iter, one ) )
+  !
+  ! Multiply the final rotation speeds by the spinup ratio
+  !
+  x_r = spinup_ratio * this%rotation(1)
+  y_r = spinup_ratio * this%rotation(2)
+  z_r = spinup_ratio * this%rotation(3)
+  !
+end subroutine get_mrf_rotation
 !
 !###############################################################################
 !
