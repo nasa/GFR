@@ -987,9 +987,7 @@ continue
   allocate ( aspd(1:n_solpts) )
   !$ACC DATA CREATE(aspd)
   !
-  x_r = moving_ref_frame%rotation(1) ! x rotation
-  y_r = moving_ref_frame%rotation(2) ! y rotation
-  z_r = moving_ref_frame%rotation(3) ! z rotation
+  call moving_ref_frame%get_rotation(x_r,y_r,z_r)
   !
   if (ncs > 0) then
     !$ACC PARALLEL LOOP PRESENT(usp,gpsp,aspd)
@@ -1157,9 +1155,7 @@ continue
   allocate ( aspd(1:n_solpts) )
   !$ACC DATA CREATE(aspd)
   !
-  x_r = moving_ref_frame%rotation(1) ! x rotation
-  y_r = moving_ref_frame%rotation(2) ! y rotation
-  z_r = moving_ref_frame%rotation(3) ! z rotation
+  call moving_ref_frame%get_rotation(x_r,y_r,z_r)
   !
   if (ncs > 0) then
     !$ACC PARALLEL LOOP PRESENT(usp,gpsp,aspd)

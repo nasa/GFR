@@ -521,9 +521,7 @@ continue
     !
     if ( moving_ref_frame%is_active() ) then
       !
-      x_r = moving_ref_frame%rotation(1)
-      y_r = moving_ref_frame%rotation(2)
-      z_r = moving_ref_frame%rotation(3)
+      call moving_ref_frame%get_rotation(x_r,y_r,z_r)
       !
     else
       !

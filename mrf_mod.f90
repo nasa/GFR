@@ -148,9 +148,7 @@ continue
   !
   np = size(iflx,dim=1)
   !
-  x_r = moving_ref_frame%rotation(1) ! x rotation
-  y_r = moving_ref_frame%rotation(2) ! y rotation
-  z_r = moving_ref_frame%rotation(3) ! z rotation
+  call moving_ref_frame%get_rotation(x_r,y_r,z_r)
   !
 #ifdef DEBUG_ON
 !#define DEBUG_MRF_FREESTREAM_TCF
@@ -358,9 +356,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  x_r = moving_ref_frame%rotation(1) ! x rotation
-  y_r = moving_ref_frame%rotation(2) ! y rotation
-  z_r = moving_ref_frame%rotation(3) ! z rotation
+  call moving_ref_frame%get_rotation(x_r,y_r,z_r)
   !
 #ifdef DEBUG_MRF_FREESTREAM_TCF
 block
@@ -474,9 +470,7 @@ continue
   !
   wall_flux_check_not_completed = fals
   !
-  x_r = moving_ref_frame%rotation(1) ! x rotation
-  y_r = moving_ref_frame%rotation(2) ! y rotation
-  z_r = moving_ref_frame%rotation(3) ! z rotation
+  call moving_ref_frame%get_rotation(x_r,y_r,z_r)
   !
   nr = size(facexyz,dim=1)
   !
@@ -599,9 +593,7 @@ continue
   !
   np = size(rhs,dim=1)
   !
-  x_r = moving_ref_frame%rotation(1) ! x rotation
-  y_r = moving_ref_frame%rotation(2) ! y rotation
-  z_r = moving_ref_frame%rotation(3) ! z rotation
+  call moving_ref_frame%get_rotation(x_r,y_r,z_r)
   !
 #ifdef DEBUG_MRF_FREESTREAM_TCF
 block
@@ -696,9 +688,7 @@ continue
   !
   add_sub = mrf_sign%add_sub
   !
-  x_r = moving_ref_frame%rotation(1) ! x rotation
-  y_r = moving_ref_frame%rotation(2) ! y rotation
-  z_r = moving_ref_frame%rotation(3) ! z rotation
+  call moving_ref_frame%get_rotation(x_r,y_r,z_r)
   !
   if (nr == 3) then
     !$ACC PARALLEL LOOP PRESENT(cv,fxyz)
@@ -785,9 +775,7 @@ continue
   !
   add_sub = mrf_sign%add_sub
   !
-  x_r = moving_ref_frame%rotation(1) ! x rotation
-  y_r = moving_ref_frame%rotation(2) ! y rotation
-  z_r = moving_ref_frame%rotation(3) ! z rotation
+  call moving_ref_frame%get_rotation(x_r,y_r,z_r)
   !
   if (nr == 3) then
     !$ACC PARALLEL LOOP PRESENT(cv,xyz)

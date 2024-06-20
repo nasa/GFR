@@ -551,9 +551,7 @@ continue
   !
   gam_over_gm1 = gam / gm1
   !
-  x_r = moving_ref_frame%rotation(1) ! x rotation
-  y_r = moving_ref_frame%rotation(2) ! y rotation
-  z_r = moving_ref_frame%rotation(3) ! z rotation
+  call moving_ref_frame%get_rotation(x_r,y_r,z_r)
   !
   rrf_nrm = zero
   !
@@ -1649,9 +1647,7 @@ end subroutine roe_upwind_flux_tpg_1d
   !
 continue
   !
-  x_r = moving_ref_frame%rotation(1) ! x rotation
-  y_r = moving_ref_frame%rotation(2) ! y rotation
-  z_r = moving_ref_frame%rotation(3) ! z rotation
+  call moving_ref_frame%get_rotation(x_r,y_r,z_r)
   !
   rrf_nrm = zero
   !
