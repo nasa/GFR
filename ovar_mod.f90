@@ -1468,6 +1468,49 @@ end subroutine nondimensionalize_mrf
 !###############################################################################
 !
 pure &
+function get_mrf_spinup_ratio(this) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(mrf_spinup_t), intent(in) :: this
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  real(wp) :: current_tstar,spinup_iter,spinup_tstar,spinup_ratio
+  !
+continue
+  !
+  return_value = one
+  !
+  spinup_iter = one
+  spinup_tstar = one
+  !
+  ! First check the current iteration versus the spinup%iter value
+  !
+  if (itcur < this%iter) then
+    spinup_iter = real(itcur,kind=wp) / real(this%iter,kind=wp)
+  end if
+  !
+  ! Next check the current tstar versus the spinup%tstar value
+  !
+  if (this%tstar > eps6) then
+    current_tstar = time*time_ref*time_scaling_factor
+    if (current_tstar < this%tstar) then
+      spinup_tstar = current_tstar / this%tstar
+    end if
+  end if
+  !
+  ! Set the spinup ratio as the smaller of the spinup iteration ratio and
+  ! the spinup tstar ratio, and make sure the value is between zero and one.
+  !
+  return_value = max( zero , min( spinup_tstar, spinup_iter, one ) )
+  !
+end function get_mrf_spinup_ratio
+!
+!###############################################################################
+!
+pure &
 subroutine get_mrf_rotation(this,x_r,y_r,z_r)
   !
   !.. Passed Argument from Invoking Object ..
