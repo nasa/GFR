@@ -17,7 +17,7 @@ contains
 !###############################################################################
 !
 #ifdef DISABLE_FOR_GPU
-pure &
+!pure &
 #endif
 subroutine get_bc_wall_solution(n1,n2,bc_type,facexyz,facenrm,face_cv,face_gp, &
                                 relax,pv_in,wall_temperature,rotation_rate)
@@ -91,6 +91,10 @@ continue
   !
   call get_bc_wall_gp_solution(n1,n2,bc_type,face_cv,face_gp, &
                                rlx,wall_temperature)
+  !
+ !if (ncpu <= 1) then
+ !  call debug_mrf_wall(n1,n2,facexyz,face_cv,face_gp,rotation_rate)
+ !end if
   !
   ! The above subroutines will return the boundary condition states as
   ! primitive variables. These need to be converted to conservative variables.
