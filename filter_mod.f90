@@ -1117,6 +1117,36 @@ end subroutine create_exp_filter_matrix
 !
 !###############################################################################
 !
+subroutine expand_filt_coef(new_p,filt)
+  !
+  !.. Formal Arguments ..
+  integer,                           intent(in) :: new_p
+  type(filt_coef_t), allocatable, intent(inout) :: filt(:)
+  !
+  !.. Local Scalars ..
+  integer :: old_p,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  type(filt_coef_t), allocatable :: tmp_filt(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "expand_filt_coef"
+  !
+continue
+  !
+  allocate ( tmp_filt(0:new_p) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_filt",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  old_p = ubound(filt,dim=1)
+  !
+  tmp_filt(0:old_p) = filt(0:old_p)
+  !
+  call move_alloc( from=tmp_filt , to=filt )
+  !
+end subroutine expand_filt_coef
+!
+!###############################################################################
+!
 function get_pyra_diag(filt) result(return_value)
   !
   !.. Use Statements ..
