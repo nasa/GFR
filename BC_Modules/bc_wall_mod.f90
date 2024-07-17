@@ -472,7 +472,8 @@ continue
     y_r = rotation_rate(2)
     z_r = rotation_rate(3)
     !
-    wall_is_rotating = any(abs(rotation_rate(:)) >= one*rpm_to_mps/aref)
+    wall_is_rotating = any(abs(rotation_rate(:)) >= eps12)
+   !wall_is_rotating = any(abs(rotation_rate(:)) >= one*rpm_to_mps/aref)
     !
     no_wall_velocity = ( (vmag_bc < eps6) .and. (.not. wall_is_rotating) )
     !
