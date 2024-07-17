@@ -1001,6 +1001,25 @@ continue
     ! F2003 AUTO-REALLOC
     filt(p)%coef = get_1D_exp_filter_coef(p,alpha,etac,s)
     !
+  else
+    !
+    ! Make sure filt is large enough to continue
+    !
+    if (ubound(filt,1) < p) then
+      !
+      ! Expand filt
+      !
+      call expand_filt_coef(p,filt)
+      !
+      ! Compute the degree-P filter coefficients because these will
+      ! always be needed. The rest of the filter coefficients will
+      ! be special cases that will be computed as needed.
+      !
+      ! F2003 AUTO-REALLOC
+      filt(p)%coef = get_1D_exp_filter_coef(p,alpha,etac,s)
+      !
+    end if
+    !
   end if
   !
   if (geom == Geom_Quad .and. loc_filt_option == 2) then
@@ -1012,14 +1031,7 @@ continue
       !
       ! Expand filt
       !
-      allocate ( tmp_filt(0:2*p) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"tmp_filt",1,__LINE__,__FILE__,ierr,error_message)
-      !
-      i = ubound(filt,dim=1)
-      !
-      tmp_filt(0:i) = filt(0:i)
-      !
-      call move_alloc( from=tmp_filt , to=filt )
+      call expand_filt_coef(2*p,filt)
       !
       ! F2003 AUTO-REALLOC
       filt(2*p)%coef = get_2P_quad_filter_coef(p,alpha,etac,s)
@@ -1037,14 +1049,7 @@ continue
       !
       ! Expand filt
       !
-      allocate ( tmp_filt(0:3*p) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"tmp_filt",1,__LINE__,__FILE__,ierr,error_message)
-      !
-      i = ubound(filt,dim=1)
-      !
-      tmp_filt(0:i) = filt(0:i)
-      !
-      call move_alloc( from=tmp_filt , to=filt )
+      call expand_filt_coef(3*p,filt)
       !
       ! F2003 AUTO-REALLOC
       filt(3*p)%coef = get_3P_hex_filter_coef(p,alpha,etac,s)
