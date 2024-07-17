@@ -5,6 +5,7 @@ module oerk_mod
   use eqn_idx, only : ncs
   !
   use ovar, only : force_nd_subroutines
+  use timer_mod, only : solver_timer
   !
   implicit none
   !
@@ -1036,10 +1037,15 @@ subroutine update_OERK(nst,Apply_Filter,Apply_Limiter)
   real(wp) :: u1ec,u1mx,u1my,u1mz,u1ee,u1m
   real(wp) :: u2ec,u2mx,u2my,u2mz,u2ee,u2m
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "update_OERK"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -1140,6 +1146,8 @@ continue
   call stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name=pname)
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine update_OERK
 !

@@ -45,6 +45,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/turb_inflow_mod.o \
          $(OBJDIR)/cpu_info_mod.o \
          $(OBJDIR)/interpsol_mod.o \
+         $(OBJDIR)/timer_mod.o \
          $(OBJDIR)/mydebug_mod.o \
          $(FUNDIR)/debug_timer.f90
 
@@ -68,6 +69,7 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/thermo_mod.o \
            $(OBJDIR)/transport_mod.o \
            $(OBJDIR)/turb_inflow_mod.o \
+           $(OBJDIR)/timer_mod.o \
            $(OBJDIR)/bc_wall_mod.o \
            $(OBJDIR)/bc_fixed_mod.o \
            $(OBJDIR)/bc_flowthrough_grad_mod.o \
@@ -167,6 +169,7 @@ $(OBJDIR)/dt_mod.o : dt_mod.f90 \
            $(OBJDIR)/flowvar_mod.o \
            $(OBJDIR)/metrics.o \
            $(OBJDIR)/mrf_mod.o \
+           $(OBJDIR)/timer_mod.o \
            $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/element_type_mod.o : element_type_mod.f90 \
@@ -179,6 +182,7 @@ $(OBJDIR)/eperk_mod.o : eperk_mod.f90 \
               $(OBJDIR)/ovar_mod.o \
               $(OBJDIR)/flowvar_mod.o \
               $(OBJDIR)/dt_mod.o \
+              $(OBJDIR)/timer_mod.o \
               $(OBJDIR)/rhs_mod.o
 
 $(OBJDIR)/eqn_idx_mod.o : eqn_idx_mod.f90 \
@@ -192,6 +196,7 @@ $(OBJDIR)/erk_mod.o : erk_mod.f90 \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/rhs_mod.o \
+            $(OBJDIR)/timer_mod.o \
             $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/filter_mod.o : filter_mod.f90 \
@@ -235,6 +240,7 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/thermo_mod.o \
          $(OBJDIR)/transport_mod.o \
          $(OBJDIR)/limiters.o \
+         $(OBJDIR)/timer_mod.o \
          $(FUNDIR)/debug_timer.f90 \
          $(FUNDIR)/check_for_bad_number.f90
 
@@ -251,6 +257,7 @@ $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/gpu_mod.o \
             $(OBJDIR)/mms_mod.o \
             $(OBJDIR)/thx_mod.o \
+            $(OBJDIR)/timer_mod.o \
             $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/geovar_mod.o : geovar_mod.f90 \
@@ -366,6 +373,7 @@ $(OBJDIR)/invs_flux_mod.o : invs_flux_mod.f90 \
                   $(OBJDIR)/eqn_idx_mod.o \
                   $(OBJDIR)/geovar_mod.o \
                   $(OBJDIR)/ovar_mod.o \
+                  $(OBJDIR)/timer_mod.o \
                   $(OBJDIR)/mrf_mod.o
 
 $(OBJDIR)/io.o : io.f90 \
@@ -484,6 +492,7 @@ $(OBJDIR)/mrf_mod.o : mrf_mod.f90 \
             $(OBJDIR)/geovar_mod.o \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/flowvar_mod.o \
+            $(OBJDIR)/timer_mod.o \
             $(OBJDIR)/metrics.o
 
 $(OBJDIR)/mycpu.o : $(FUNDIR)/mycpu.c
@@ -533,6 +542,7 @@ $(OBJDIR)/oerk_mod.o : oerk_mod.f90 \
              $(OBJDIR)/geovar_mod.o \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/flowvar_mod.o \
+             $(OBJDIR)/timer_mod.o \
              $(OBJDIR)/rhs_mod.o
 
 $(OBJDIR)/order_mod.o : order_mod.f90 \
@@ -556,6 +566,7 @@ $(OBJDIR)/parallel.o : parallel.f90 \
              $(OBJDIR)/gmsh_mod.o \
              $(OBJDIR)/cgns_mod.o \
              $(OBJDIR)/plot3d_mod.o \
+             $(OBJDIR)/timer_mod.o \
              $(FUNDIR)/cell_solpts.f90 \
              $(FUNDIR)/last.f90 \
              $(FUNDIR)/debug_timer.f90 \
@@ -697,6 +708,7 @@ $(OBJDIR)/rhs_mod.o : rhs_mod.f90 \
             $(OBJDIR)/projection_mod.o \
             $(OBJDIR)/thermo_mod.o \
             $(OBJDIR)/transport_mod.o \
+            $(OBJDIR)/timer_mod.o \
             $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/taylor_couette_mod.o : taylor_couette_mod.f90 \
@@ -757,6 +769,7 @@ $(OBJDIR)/upwind_flux_mod.o : upwind_flux_mod.f90 \
          $(OBJDIR)/eqn_idx_mod.o \
          $(OBJDIR)/geovar_mod.o \
          $(OBJDIR)/ovar_mod.o \
+         $(OBJDIR)/timer_mod.o \
          $(OBJDIR)/mrf_mod.o
 
 $(OBJDIR)/vandermonde_mod.o : vandermonde_mod.f90 \
@@ -776,6 +789,7 @@ $(OBJDIR)/visc_flux_mod.o : visc_flux_mod.f90 \
          $(OBJDIR)/ovar_mod.o \
          $(OBJDIR)/gpu_mod.o \
          $(OBJDIR)/thermo_mod.o \
+         $(OBJDIR)/timer_mod.o \
          $(OBJDIR)/transport_mod.o
 
 $(OBJDIR)/write_cgns_mod.o : write_cgns_mod.f90 \

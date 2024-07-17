@@ -14,6 +14,7 @@ module parallel_mod
   use geovar,  only : face_t
   use geovar,  only : fp_t
   use geovar,  only : map_t,cell_map
+  use timer_mod, only : solver_timer
   !
 #ifdef METIS_5
   use metis5_mod
@@ -8410,10 +8411,15 @@ subroutine exchange_faceusp()
   integer(int_mpi) :: mesg_tag
   _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "exchange_faceusp"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
 #ifdef DEBUG_ON
   call debug_timer(entering_procedure,pname)
@@ -8478,6 +8484,8 @@ continue
   call debug_timer(leaving_procedure,pname)
 #endif
   !
+  call solver_timer(leaving_procedure,pname,idx)
+  !
 end subroutine exchange_faceusp
 !
 !###############################################################################
@@ -8494,10 +8502,15 @@ subroutine wait_faceusp()
   !.. Local Allocatable Arrays ..
   _MPI_STATUS_TYPE_, allocatable :: fstat(:)
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "wait_faceusp"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
 #ifdef DEBUG_ON
   call debug_timer(entering_procedure,pname)
@@ -8548,6 +8561,8 @@ continue
 #ifdef DEBUG_ON
   call debug_timer(leaving_procedure,pname)
 #endif
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine wait_faceusp
 !
@@ -8975,10 +8990,15 @@ subroutine exchange_facedusp()
   integer(int_mpi) :: mesg_tag
   _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "exchange_facedusp"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
 #ifdef DEBUG_ON
   call debug_timer(entering_procedure,pname)
@@ -9046,6 +9066,8 @@ continue
   call debug_timer(leaving_procedure,pname)
 #endif
   !
+  call solver_timer(leaving_procedure,pname,idx)
+  !
 end subroutine exchange_facedusp
 !
 !###############################################################################
@@ -9062,10 +9084,15 @@ subroutine wait_facedusp()
   !.. Local Allocatable Arrays ..
   _MPI_STATUS_TYPE_, allocatable :: fstat(:)
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "wait_facedusp"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
 #ifdef DEBUG_ON
   call debug_timer(entering_procedure,pname)
@@ -9119,6 +9146,8 @@ continue
 #ifdef DEBUG_ON
   call debug_timer(leaving_procedure,pname)
 #endif
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine wait_facedusp
 !

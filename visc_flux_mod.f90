@@ -4,6 +4,7 @@ module visc_flux_mod
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   use eqn_idx, only : ncs,ntemp,nvisc,ncond,ng
+  use timer_mod, only : solver_timer
   !
   implicit none
   !
@@ -46,7 +47,15 @@ subroutine visc_flx_cv_gpu(n1,n2,cv,gp,dcvdx,return_value,output_visc_fluxes)
   !.. Local Scalars ..
   integer :: nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "visc_flx_cv_gpu"
+  !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   nr = size(return_value,dim=2)
   !
@@ -57,6 +66,8 @@ continue
   else
     call visc_flx_cv_gpu_1d(n1,n2,cv,gp,dcvdx,return_value)
   end if
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine visc_flx_cv_gpu
 !
@@ -722,7 +733,7 @@ end function normal_visc_flx_cv
 !###############################################################################
 !
 #ifndef DISABLE_PURE
-pure &
+!pure &
 #endif
 subroutine visc_wall_flx_gpu(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                              return_value)
@@ -738,7 +749,15 @@ subroutine visc_wall_flx_gpu(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
   !.. Local Scalars ..
   integer :: nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "visc_wall_flx_gpu"
+  !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   nr = size(facenrm,dim=1)
   !
@@ -752,6 +771,8 @@ continue
     call visc_wall_flx_gpu_1d(n1,n2,facenrm,face_cv,face_gp,face_dcvdx, &
                               return_value)
   end if
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine visc_wall_flx_gpu
 !
@@ -1383,7 +1404,15 @@ end function visc_wall_flx_cv
   !.. Local Scalars ..
   integer :: nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "common_vflx_ave_fluxes_gpu"
+  !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   nr = size(facenrm,dim=1)
   !
@@ -1397,6 +1426,8 @@ continue
     call common_vflx_ave_fluxes_gpu_1d(n1,n2,facenrm,face_cv,face_gp, &
                                        face_dcvdx,return_value)
   end if
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine common_vflx_ave_fluxes_gpu
 !
@@ -1753,7 +1784,15 @@ end subroutine common_vflx_ave_fluxes_gpu_1d
   !.. Local Scalars ..
   integer :: nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "common_vflx_ave_sol_and_grad_gpu"
+  !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   nr = size(facenrm,dim=1)
   !
@@ -1767,6 +1806,8 @@ continue
     call common_vflx_ave_sol_and_grad_gpu_1d(n1,n2,facenrm,face_cv, &
                                              face_dcvdx,return_value)
   end if
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine common_vflx_ave_sol_and_grad_gpu
 !

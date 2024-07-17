@@ -9,6 +9,7 @@ module flux_mod
   use eqn_idx, only : ncs,ng
   !
   use ovar,    only : force_nd_subroutines
+  use timer_mod, only : solver_timer
   !
   implicit none
   !
@@ -78,10 +79,15 @@ subroutine interp_cv_to_flxpts(iter,nst)
   !.. Local Scalars ..
   integer :: n1,n2
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "interp_cv_to_flxpts"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -135,6 +141,8 @@ continue
   call update_mixture_density(n1,n2,faceusp(:,:,1))
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine interp_cv_to_flxpts
 !
@@ -556,10 +564,15 @@ subroutine interp_dusp_to_flxpts()
   !
   use geovar, only : nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "interp_dusp_to_flxpts"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -572,6 +585,8 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine interp_dusp_to_flxpts
 !
@@ -956,10 +971,15 @@ subroutine flux_gradient_at_solpts(iter,nst)
   real(wp), allocatable :: ifluxes(:,:,:)
   real(wp), allocatable :: vfluxes(:,:,:)
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "flux_gradient_at_solpts"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -988,6 +1008,8 @@ continue
   deallocate ( ifluxes )
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine flux_gradient_at_solpts
 !
@@ -2137,10 +2159,15 @@ subroutine transform_fluxes(tfluxes,rfluxes)
   !.. Local Scalars ..
   integer :: nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "transform_fluxes"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -2167,6 +2194,8 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine transform_fluxes
 !
@@ -2490,10 +2519,15 @@ subroutine compute_flux_divergence(rfluxes,iter,nst)
   !.. Local Scalars ..
   integer  :: nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_flux_divergence"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -2520,6 +2554,8 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine compute_flux_divergence
 !
@@ -2972,10 +3008,15 @@ subroutine add_flux_correction(tfluxes)
   !.. Local Scalars ..
   integer  :: nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "add_flux_correction"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -3002,6 +3043,8 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine add_flux_correction
 !
@@ -3785,10 +3828,15 @@ subroutine get_invs_common_fluxes_interior()
   !.. Local Scalars ..
   integer :: m,n
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_invs_common_fluxes_interior"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -3809,6 +3857,8 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine get_invs_common_fluxes_interior
 !
@@ -3933,10 +3983,15 @@ subroutine get_visc_common_fluxes_interior()
   !.. Use Statements ..
   use geovar, only : using_quadrature
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_visc_common_fluxes_interior"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -3947,6 +4002,8 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine get_visc_common_fluxes_interior
 !
@@ -4056,10 +4113,15 @@ subroutine get_invs_common_fluxes_bc()
   !.. Local Scalars ..
   integer :: n1,n2
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_invs_common_fluxes_bc"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -4080,6 +4142,8 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine get_invs_common_fluxes_bc
 !
@@ -4223,10 +4287,15 @@ subroutine get_visc_common_fluxes_bc()
   !.. Use Statements ..
   use geovar, only : using_quadrature
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_visc_common_fluxes_bc"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -4237,6 +4306,8 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine get_visc_common_fluxes_bc
 !
@@ -5461,10 +5532,15 @@ subroutine discontinuous_gradient_at_solpts()
   !.. Use Statements ..
   use geovar, only : nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "discontinuous_gradient_at_solpts"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -5489,6 +5565,8 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine discontinuous_gradient_at_solpts
 !
@@ -5911,10 +5989,15 @@ subroutine correct_gradients_at_solpts_gpu()
   !.. Use Statements ..
   use geovar, only : nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "correct_gradients_at_solpts_gpu"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -5927,6 +6010,8 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine correct_gradients_at_solpts_gpu
 !
@@ -6810,10 +6895,15 @@ subroutine correct_gradients_br2_gpu()
   !.. Use Statements ..
   use geovar, only : nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "correct_gradients_br2_gpu"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -6838,6 +6928,8 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine correct_gradients_br2_gpu
 !

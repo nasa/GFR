@@ -5,6 +5,7 @@ module eperk_mod
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ncs
   !
   use ovar, only : force_nd_subroutines
+  use timer_mod, only : solver_timer
   !
   implicit none
   !
@@ -73,10 +74,15 @@ subroutine update_EPERK(nst,iter,Apply_Filter,Apply_Limiter)!, &
  !real(wp),   intent(out) :: dtmin
  !integer,     intent(in) :: final_timestep_from_stop_request
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "update_EPERK"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -175,6 +181,8 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
+  call solver_timer(leaving_procedure,pname,idx)
+  !
 end subroutine update_EPERK
 !
 !###############################################################################
@@ -201,6 +209,9 @@ subroutine get_EPERK_adaptive_dtsp(iter,dtmin,next_dtmin, &
   integer  :: n,m
   real(wp) :: dtmin_save
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_EPERK_adaptive_dtsp"
   !
@@ -208,6 +219,8 @@ subroutine get_EPERK_adaptive_dtsp(iter,dtmin,next_dtmin, &
   logical(lk), parameter :: use_CFL_dtsp = fals
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -336,6 +349,8 @@ continue
   d_t = next_dtmin
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine get_EPERK_adaptive_dtsp
 !

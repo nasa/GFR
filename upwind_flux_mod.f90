@@ -4,6 +4,7 @@ module upwind_flux_mod
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   use eqn_idx, only : ncs,npres,ngamm,nenth
+  use timer_mod, only : solver_timer
   !
   implicit none
   !
@@ -48,7 +49,15 @@ subroutine upwind_flux_gpu(n1,n2,facenrm,facexyz,face_cv,face_gp,return_value)
   real(wp), allocatable :: lflux(:)
   real(wp), allocatable :: rflux(:)
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "upwind_flux_gpu"
+  !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   np = size(face_cv,dim=1)
   !
@@ -102,6 +111,8 @@ continue
   !$ACC END DATA
   deallocate ( lflux )
   deallocate ( rflux )
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine upwind_flux_gpu
 !

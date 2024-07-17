@@ -2,6 +2,7 @@ module mrf_mod
   !
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ncs
+  use timer_mod, only : solver_timer
   !
   implicit none
   !
@@ -95,6 +96,9 @@ subroutine mrf_flx_cv(cv,xyz,iflx)
   !.. Local Scalars ..
   integer :: nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "mrf_flx_cv"
   !
@@ -104,6 +108,8 @@ continue
   ! the flux terms needed for a rotating reference frame.
   !
   if ( is_not_in_mrf() ) return
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -118,6 +124,8 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine mrf_flx_cv
 !
@@ -289,6 +297,9 @@ subroutine mrf_wall_flx_cv(n1,n2,facenrm,facexyz,face_cv,faceflx)
   !.. Local Scalars ..
   integer :: nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "mrf_wall_flx_cv"
   !
@@ -313,6 +324,8 @@ continue
   !
   ! Continue on to compute the wall fluxes for a rotating reference frame
   !
+  call solver_timer(entering_procedure,pname,idx)
+  !
   call debug_timer(entering_procedure,pname)
   !
   nr = size(facexyz,dim=1)
@@ -326,6 +339,8 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine mrf_wall_flx_cv
 !
@@ -541,6 +556,9 @@ subroutine mrf_src_cv()
   use flowvar,     only : usp,residual
   use metrics_mod, only : jac
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "mrf_src_cv"
   !
@@ -550,6 +568,8 @@ continue
   ! the source terms needed for a rotating reference frame.
   !
   if ( is_not_in_mrf() ) return
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -562,6 +582,8 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine mrf_src_cv
 !

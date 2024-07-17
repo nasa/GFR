@@ -8,6 +8,7 @@ module erk_mod
   use eqn_idx, only : ncs
   !
   use ovar, only : force_nd_subroutines
+  use timer_mod, only : solver_timer
   !
   implicit none
   !
@@ -35,10 +36,15 @@ subroutine update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
   logical(lk), intent(in) :: Apply_Filter
   logical(lk), intent(in) :: Apply_Limiter
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "update_CK_RK4"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -60,6 +66,8 @@ continue
   call stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name=pname)
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine update_CK_RK4
 !
@@ -501,10 +509,15 @@ subroutine update_TVD_RK2(nst,Apply_Filter,Apply_Limiter)
   logical(lk), intent(in) :: Apply_Filter
   logical(lk), intent(in) :: Apply_Limiter
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "update_TVD_RK2"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -520,6 +533,8 @@ continue
   call stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name=pname)
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine update_TVD_RK2
 !
@@ -639,10 +654,15 @@ subroutine update_TVD_RK3(nst,Apply_Filter,Apply_Limiter,iter)
   !.. Local Scalars ..
   integer :: n
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "update_TVD_RK3"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -660,6 +680,8 @@ continue
   call stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name=pname)
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine update_TVD_RK3
 !
@@ -829,10 +851,15 @@ subroutine update_TVD_RK4(nst,Apply_Filter,Apply_Limiter)
   logical(lk), intent(in) :: Apply_Filter
   logical(lk), intent(in) :: Apply_Limiter
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "update_TVD_RK4"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -854,6 +881,8 @@ continue
   call stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name=pname)
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine update_TVD_RK4
 !
@@ -1212,10 +1241,15 @@ subroutine update_Classic_RK(nst,Apply_Filter,Apply_Limiter)
   !.. Local Scalars ..
   integer :: m,n,nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "update_Classic_RK"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -1285,6 +1319,8 @@ continue
   call stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name=pname)
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine update_Classic_RK
 !

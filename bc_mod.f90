@@ -11,6 +11,7 @@ module module_bc
   !
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   use eqn_idx, only : ncs
+  use timer_mod, only : solver_timer
   !
   implicit none
   !
@@ -92,6 +93,7 @@ subroutine get_faceusp_bc(exit_error)
   !
   !.. Local Saved Scalars ..
   logical(lk), save :: first_output = true
+  integer, save :: idx = -1
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: pv_in(:)
@@ -100,6 +102,8 @@ subroutine get_faceusp_bc(exit_error)
   character(len=*), parameter :: pname = "get_faceusp_bc"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -357,6 +361,8 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
+  call solver_timer(leaving_procedure,pname,idx)
+  !
   ! Format Statements
   !
   1 format (/," ********************* ERROR! **********************",/, &
@@ -397,6 +403,9 @@ subroutine get_facedusp_bc
   !.. Local Scalars ..
   integer :: grp_idx,n1,n2,bc_type,bc_idx
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   integer, parameter :: local_bc_ignore(1:3) = [ bc_cpu_bnd, &
                                                  bc_unknown, &
@@ -404,6 +413,8 @@ subroutine get_facedusp_bc
   character(len=*), parameter :: pname = "get_facedusp_bc"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -462,6 +473,8 @@ continue
  !call exchange_bc_conflicts_dusp(facedusp)
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine get_facedusp_bc
 !

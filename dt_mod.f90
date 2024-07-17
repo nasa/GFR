@@ -6,6 +6,7 @@ module dt_mod
                     pure_global_debug_timer => pure_debug_timer
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme
   use eqn_idx, only : ncs,npres,nvisc,ngamm
+  use timer_mod, only : solver_timer
   !
   implicit none
   !
@@ -41,10 +42,15 @@ subroutine get_dtsp(dtmin,final_timestep_from_stop_request,skip_updates)
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: dt_sp(:)
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_dtsp"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -132,6 +138,8 @@ continue
   deallocate ( dt_sp )
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine get_dtsp
 !

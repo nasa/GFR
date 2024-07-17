@@ -4,6 +4,7 @@ module invs_flux_mod
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
   use eqn_idx, only : ncs,npres,ngamm,ng
+  use timer_mod, only : solver_timer
   !
   implicit none
   !
@@ -33,7 +34,15 @@ subroutine invs_flx_cv_gpu(usp,gpsp,return_value,xyz)
   !.. Local Scalars ..
   integer :: nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "invs_flx_cv_gpu"
+  !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   nr = size(return_value,dim=2)
   !
@@ -50,6 +59,8 @@ continue
   !       return without doing anything.
   !
   call mrf_flx_cv(usp,xyz,return_value)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine invs_flx_cv_gpu
 !
@@ -401,7 +412,15 @@ subroutine invs_wall_flx_gpu(n1,n2,facenrm,facexyz,face_cv,face_gp,return_value)
   !.. Local Scalars ..
   integer :: nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "invs_wall_flx_gpu"
+  !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   nr = size(facenrm,dim=1)
   !
@@ -418,6 +437,8 @@ continue
   !       return without doing anything.
   !
   call mrf_wall_flx_cv(n1,n2,facenrm,facexyz,face_cv,return_value)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine invs_wall_flx_gpu
 !

@@ -8,6 +8,7 @@ module rhs_mod
   use eqn_idx, only : ncs,npres,ntemp,ngamm
   !
   use ovar, only : force_nd_subroutines
+  use timer_mod, only : solver_timer
   !
   implicit none
   !
@@ -40,10 +41,15 @@ subroutine save_old_solution()
   !.. Local Scalars ..
   integer :: m,n,np,nr
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "save_old_solution"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -102,6 +108,8 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
+  call solver_timer(leaving_procedure,pname,idx)
+  !
 end subroutine save_old_solution
 !
 !###############################################################################
@@ -127,10 +135,15 @@ subroutine rresi(iter,nst)
   integer  :: io,m,n,nr
   real(wp) :: jac_inv
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "rresi"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -238,6 +251,8 @@ end block
   end if
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine rresi
 !
@@ -512,10 +527,15 @@ subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name)
   logical(lk),      intent(in) :: Apply_Limiter
   character(len=*), intent(in) :: caller_name
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "stabilize_usp"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -590,6 +610,8 @@ continue
   call update_transport_properties(1,n_solpts,usp,gpsp)
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine stabilize_usp
 !

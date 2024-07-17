@@ -184,6 +184,9 @@ program GFR_main
   !
   use periodic_mod, only : check_periodic_list_indices
   !
+  use timer_mod, only : solver_timer
+  use timer_mod, only : check_solver_timer
+  !
   use, intrinsic :: iso_c_binding,   only : c_long
   !
   implicit none
@@ -242,6 +245,8 @@ program GFR_main
   integer, parameter :: max_CFL_restarts = 0
   !
   real(wp) :: br,mdot_inj,mdot_noz
+  !
+  integer, save :: idx1 = -1
   !
 #ifndef SPECIAL_FOR_GCC
   type(ieee_status_type) :: default_ieee_status
@@ -857,6 +862,8 @@ continue
     !
     main_loop: &
     do iter = 1, num_timesteps
+      !
+      call solver_timer(entering_procedure,pname,idx1)
       !
       ! Current iteration count including restart iterations
       !
@@ -1479,6 +1486,10 @@ continue
       request_restart = .false.
       request_solution = .false.
       !
+      call solver_timer(leaving_procedure,pname,idx1)
+      !
+      call check_solver_timer()
+      !
     end do main_loop
     !
     ! For now, always exit the restart loop
@@ -1714,10 +1725,15 @@ subroutine compute_rhs(iter,nst,newton_failures)
   integer,    intent(in) :: nst
   integer, intent(inout) :: newton_failures
   !
+  !.. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_rhs"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call global_debug_timer(entering_procedure,pname)
   !
@@ -1858,6 +1874,8 @@ continue
   call rresi(iter,nst)              !; call check_for_bad_number(__LINE__)
   !
   call global_debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine compute_rhs
 !

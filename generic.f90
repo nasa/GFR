@@ -6,6 +6,7 @@ module generic_mod
                     pure_global_debug_timer => pure_debug_timer
   use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
   use eqn_idx, only : ncs,ncb,nce,npres,ntemp,ngamm
+  use timer_mod, only : solver_timer
   !
   implicit none
   !
@@ -84,10 +85,15 @@ subroutine compute_residual_error()
   real(wp), allocatable :: uold(:,:)
   real(wp), allocatable :: error(:,:,:)
   !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_residual_error"
   !
 continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -346,6 +352,8 @@ continue
 #endif
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine compute_residual_error
 !
@@ -1227,6 +1235,7 @@ subroutine write_iter_stats(walltime_expiring,exit_main_loop)
   real(wp)    :: last_wte = -huge(zero)
   integer     :: writes_since_last_header = 0
   logical(lk) :: first_pass = true
+  integer, save :: idx = -1
   !
   !.. Local Arrays ..
   real(wp) :: max_wall_times(1:4)
@@ -1237,6 +1246,8 @@ subroutine write_iter_stats(walltime_expiring,exit_main_loop)
 continue
   !
   exit_main_loop = fals
+  !
+  call solver_timer(entering_procedure,pname,idx)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -1451,6 +1462,8 @@ continue
   if (walltime_expiring) exit_main_loop = true
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
   !
   ! Format Statements
   !
