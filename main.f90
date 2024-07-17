@@ -65,6 +65,7 @@ program GFR_main
   use input_namelist_mod, only : restart_interupt
   !
   use flowvar, only : usp,gpsp,dusp
+  use flowvar, only : faceusp,facegpsp
   !
   use order_mod, only : n_order,p_order,q_order
   !
@@ -183,6 +184,10 @@ program GFR_main
   use module_cgns, only : root_broadcasts_grid_dt
   !
   use periodic_mod, only : check_periodic_list_indices
+  !
+  use thermo_mod, only : update_thermo_properties
+  !
+  use transport_mod, only : update_transport_properties
   !
   use timer_mod, only : solver_timer
   use timer_mod, only : check_solver_timer
@@ -742,6 +747,11 @@ continue
     end if
     call memory_pause("waiting for C.V. exchanges to complete", &
                       "initial TGV KEDR evaluation")
+    call check_for_bad_number(__LINE__)
+    !
+    call update_thermo_properties(1,n_bnd_flxpts,faceusp,facegpsp,caller_name=pname)
+    call check_for_bad_number(__LINE__)
+    call update_transport_properties(1,n_bnd_flxpts,faceusp,facegpsp)
     call check_for_bad_number(__LINE__)
     !
     ! Get initial time step values in case they are needed for CGNS output
