@@ -485,7 +485,9 @@ continue
   !
   wall_flux_check_not_completed = fals
   !
-  call moving_ref_frame%get_rotation(x_r,y_r,z_r)
+  ! Get the full speed (i.e., after any spinup) rotation rates
+  !
+  call moving_ref_frame%get_rotation(x_r,y_r,z_r,full_speed=true)
   !
   nr = size(facexyz,dim=1)
   !
@@ -542,6 +544,9 @@ continue
     mrf_wall_fluxes_are_zero = true
   end if
  !mrf_wall_fluxes_are_zero = true
+! write (iout,1) mypnum,"mrf_wall_fluxes_are_zero = ",mrf_wall_fluxes_are_zero
+  !
+! call debug_mrf_walls(n1,n2,x_r,y_r,z_r,facenrm,facexyz)
   !
   call debug_timer(leaving_procedure,pname)
   !
