@@ -3984,6 +3984,7 @@ continue
   !
   if (combine_common_flux_projections == Separate_All_Projections) then
     call project_flux_qdtpts_to_faceflx(nf1,nf2,flux_qdtpts,faceflx)
+    flux_qdtpts(:,:) = zero
   end if
   !
 end subroutine invs_common_fluxes_interior_at_qdtpts
@@ -4112,6 +4113,7 @@ continue
   !
   if (combine_common_flux_projections /= Combine_All_Projections) then
     call project_flux_qdtpts_to_faceflx(nf1,nf2,flux_qdtpts,faceflx)
+    flux_qdtpts(:,:) = zero
   end if
   !
 end subroutine visc_common_fluxes_interior_at_qdtpts
@@ -4292,6 +4294,7 @@ continue
   !
   if (combine_common_flux_projections == Separate_All_Projections) then
     call project_flux_qdtpts_to_faceflx(nf1,nf2,flux_qdtpts,faceflx)
+    flux_qdtpts(:,:) = zero
   end if
   !
 end subroutine invs_common_fluxes_bc_at_qdtpts
