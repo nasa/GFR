@@ -3952,10 +3952,22 @@ continue
   !
   call create_facexyzqp
   !
-  allocate ( faceuqp(1:n_flx_qdtpts,1:nq,1:2) )
-  allocate ( facegpqp(1:n_flx_qdtpts,1:ng,1:2) )
-  allocate ( flux_qdtpts(1:n_flx_qdtpts,1:nq) )
-  !$ACC ENTER DATA CREATE(faceuqp,facegpqp,flux_qdtpts)
+  if (.not. allocated(faceuqp)) then
+    faceuqp = init_array(n_flx_qdtpts,nq,2,zero) ! F2003 AUTO-REALLOC
+    !$ACC ENTER DATA CREATE(faceuqp)
+  end if
+  if (.not. allocated(facegpqp)) then
+    facegpqp = init_array(n_flx_qdtpts,ng,2,zero) ! F2003 AUTO-REALLOC
+    !$ACC ENTER DATA CREATE(facegpqp)
+  end if
+  if (.not. allocated(flux_qdtpts)) then
+    flux_qdtpts = init_array(n_flx_qdtpts,nq,zero)   ! F2003 AUTO-REALLOC
+    !$ACC ENTER DATA CREATE(flux_qdtpts)
+  end if
+ !allocate ( faceuqp(1:n_flx_qdtpts,1:nq,1:2) )
+ !allocate ( facegpqp(1:n_flx_qdtpts,1:ng,1:2) )
+ !allocate ( flux_qdtpts(1:n_flx_qdtpts,1:nq) )
+ !!$ACC ENTER DATA CREATE(faceuqp,facegpqp,flux_qdtpts)
   !
   ! Get the inviscid upwind flux at all of the interior flux points
   !
@@ -4064,15 +4076,19 @@ subroutine visc_common_fluxes_interior_at_qdtpts()
   use visc_flux_mod, only : common_vflx_ave_sol_and_grad_gpu
   !
   !.. Local Scalars ..
-  integer :: n1,n2,nf1,nf2
+  integer :: n1,n2,nf1,nf2,ierr
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "visc_common_fluxes_interior_at_qdtpts"
   !
 continue
   !
-  allocate ( faceduqp(1:n_flx_qdtpts,1:nr,1:nq,1:2) )
-  !$ACC ENTER DATA CREATE(faceduqp)
+  if (.not. allocated(faceduqp)) then
+    allocate ( faceduqp(1:n_flx_qdtpts,1:nr,1:nq,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"faceduqp",1,__LINE__,__FILE__,ierr,error_message)
+    !$ACC ENTER DATA CREATE(faceduqp)
+  end if
   !
   nf1 = nfbnd+1
   nf2 = nface
