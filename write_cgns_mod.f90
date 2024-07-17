@@ -2156,6 +2156,9 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "output_variable"
   !
+  real(wp), parameter :: qcriterion_ref_vel = one
+ !real(wp), parameter :: qcriterion_ref_vel = zero
+  !
 continue
   !
   npts = size(vartmp)
@@ -3384,18 +3387,20 @@ continue
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
+      call moving_ref_frame%get_rotation(x_r,y_r,z_r)
+      !
       do n = 1,npts
         !
         dudx = dpvdx(n,1,nmx)
-        dudy = dpvdx(n,2,nmx)
-        dudz = dpvdx(n,3,nmx)
+        dudy = dpvdx(n,2,nmx) + z_r*qcriterion_ref_vel
+        dudz = dpvdx(n,3,nmx) - y_r*qcriterion_ref_vel
         !
-        dvdx = dpvdx(n,1,nmy)
+        dvdx = dpvdx(n,1,nmy) - z_r*qcriterion_ref_vel
         dvdy = dpvdx(n,2,nmy)
-        dvdz = dpvdx(n,3,nmy)
+        dvdz = dpvdx(n,3,nmy) + x_r*qcriterion_ref_vel
         !
-        dwdx = dpvdx(n,1,nmz)
-        dwdy = dpvdx(n,2,nmz)
+        dwdx = dpvdx(n,1,nmz) + y_r*qcriterion_ref_vel
+        dwdy = dpvdx(n,2,nmz) - x_r*qcriterion_ref_vel
         dwdz = dpvdx(n,3,nmz)
         !
         w12 = half * (dudy - dvdx)
