@@ -812,6 +812,7 @@ $(OBJDIR)/write_cgns_mod.o : write_cgns_mod.f90 \
                    $(OBJDIR)/gpu_mod.o \
                    $(OBJDIR)/restart_mod.o \
                    $(OBJDIR)/taylor_couette_mod.o \
+                   $(OBJDIR)/mrf_mod.o \
                    $(FUNDIR)/cgns_write_field_data.f90 \
                    $(FUNDIR)/cgns_write_field_header.f90 \
                              mpi_defs.h

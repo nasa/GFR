@@ -1596,11 +1596,17 @@ continue
   do l = 1,size(variable_names)
     if (trim(variable_names(l)) == "Velocity") then
       n = n + nr
+    else if (trim(variable_names(l)) == "RelativeVelocity") then
+      n = n + nr
     else if (trim(variable_names(l)) == "CylindricalVelocity") then
+      n = n + 2
+    else if (trim(variable_names(l)) == "RCylindricalVelocity") then
       n = n + 2
     else if (trim(variable_names(l)) == "Vorticity") then
       n = n + merge(nr,1,nr==3)
     else if (trim(variable_names(l)) == "Momentum") then
+      n = n + nr
+    else if (trim(variable_names(l)) == "RelativeMomentum") then
       n = n + nr
     else if (trim(variable_names(l)) == "GradDensity") then
       n = n + nr
@@ -1728,10 +1734,22 @@ continue
         varname = "Velocity"//char_xyz(m)
         call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       end do
+    else if (trim(variable_names(k)) == "RelativeVelocity") then
+      do m = 1,nr
+        n = n + 1
+        varname = "RelativeVelocity"//char_xyz(m)
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
     else if (trim(variable_names(k)) == "CylindricalVelocity") then
       do m = 1,2
         n = n + 1
         varname = "Velocity"//trim(adjustl(char_cyl(m)))
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+    else if (trim(variable_names(k)) == "RCylindricalVelocity") then
+      do m = 1,2
+        n = n + 1
+        varname = "RelativeVelocity"//trim(adjustl(char_cyl(m)))
         call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       end do
     else if (trim(variable_names(k)) == "Vorticity") then
@@ -1745,6 +1763,12 @@ continue
       do m = 1,nr
         n = n + 1
         varname = "Momentum"//char_xyz(m)
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+    else if (trim(variable_names(k)) == "RelativeMomentum") then
+      do m = 1,nr
+        n = n + 1
+        varname = "RelativeMomentum"//char_xyz(m)
         call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       end do
     else if (trim(variable_names(k)) == "GradDensity") then
@@ -2060,6 +2084,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use ovar,    only : itestcase,governing_equations
   use ovar,    only : profile_io_cgns_subs
   use ovar,    only : Limiter_Option
+  use ovar,    only : moving_ref_frame
   use flowvar, only : dtsp
   !
   use metrics_mod, only : time_metrics,metrics_array,jac
@@ -2113,6 +2138,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   real(wp) :: dvdx,dvdy,dvdz
   real(wp) :: dwdx,dwdy,dwdz
   real(wp) :: qmin,qmax
+  real(wp) :: x_r,y_r,z_r,vel_r,r1,r2,vx_r,vy_r,vz_r
   !
   integer(CBT) :: ivar_s
   !
@@ -2296,6 +2322,46 @@ continue
         !
         do n = 1,npts
           vartmp(n) = cv(n,m) * rhoa
+        end do
+        !
+        if (abs(itestcase) == Freestream_TCF) then
+          call remove_freestream_tcf_init(m,xyztmp,vartmp)
+        end if
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !!}}}
+    case ("RelativeMomentum") ! Relative Momentum
+      !!{{{
+      !
+      ! First we need to get the coordinates for the output points
+      !
+      if (.not. allocated(xyztmp)) then
+        xyztmp = init_array(npts,nr,zero) ! F2003 AUTO-REALLOC
+        do m = 1,nr
+          call interpolate_for_output( xyz(m,1:n_solpts) , xyztmp(1:npts,m) )
+        end do
+      end if
+      !
+      call moving_ref_frame%get_rotation(x_r,y_r,z_r)
+      !
+      do m = nmb,nme
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        if (m == nmx) then
+          r1 = y_r ; m1 = 3 ; r2 = z_r ; m2 = 2
+        else if (m == nmy) then
+          r1 = z_r ; m1 = 1 ; r2 = x_r ; m2 = 3
+        else if (m == nmz) then
+          r1 = x_r ; m1 = 2 ; r2 = y_r ; m2 = 1
+        end if
+        !
+        do n = 1,npts
+          vel_r = r1*xyztmp(n,m1) - r2*xyztmp(n,m2)
+          vartmp(n) = (cv(n,m) - cv(n,nec)*vel_r) * rhoa
         end do
         !
         if (abs(itestcase) == Freestream_TCF) then
@@ -2608,6 +2674,50 @@ continue
         !
       end do
       !!}}}
+    case ("RelativeVelocity") ! Relative Velocity
+      !!{{{
+      !
+      ! First we need to get the coordinates for the output points
+      !
+      if (.not. allocated(xyztmp)) then
+        xyztmp = init_array(npts,nr,zero) ! F2003 AUTO-REALLOC
+        do m = 1,nr
+          call interpolate_for_output( xyz(m,1:n_solpts) , xyztmp(1:npts,m) )
+        end do
+      end if
+      !
+      call moving_ref_frame%get_rotation(x_r,y_r,z_r)
+      !
+      do m = nmb,nme
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        if (itestcase == Freestream_Preservation) then
+          freestream_ref = merge( aref*machref , zero , m==nmb )
+        end if
+        !
+        if (m == nmx) then
+          r1 = y_r ; m1 = 3 ; r2 = z_r ; m2 = 2
+        else if (m == nmy) then
+          r1 = z_r ; m1 = 1 ; r2 = x_r ; m2 = 3
+        else if (m == nmz) then
+          r1 = x_r ; m1 = 2 ; r2 = y_r ; m2 = 1
+        end if
+        !
+        do n = 1,npts
+          vel_r = r1*xyztmp(n,m1) - r2*xyztmp(n,m2)
+          vartmp(n) = (cv(n,m)/cv(n,nec) - vel_r) * aref - freestream_ref
+        end do
+        !
+        if (abs(itestcase) == Freestream_TCF) then
+          call remove_freestream_tcf_init(-m,xyztmp,vartmp)
+        end if
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !!}}}
     case ("CylindricalVelocity") ! Cylindrical Velocity
       !!{{{
       !
@@ -2637,6 +2747,77 @@ continue
         !
         v1 = cv(n,nec+m1)/cv(n,nec) * aref
         v2 = cv(n,nec+m2)/cv(n,nec) * aref
+        !
+        x1 = xyztmp(n,m1)
+        x2 = xyztmp(n,m2)
+        !
+        theta = atan2(x2,x1)
+        !
+        vr = v2*sin(theta) + v1*cos(theta)
+        vt = v2*cos(theta) - v1*sin(theta)
+        !
+        vartmp(n) = vr
+        vartmp_at_sp(n) = vt
+        !
+      end do
+      !
+      ! Deallocate xyztmp since it is no longer needed
+      !
+      if (allocated(xyztmp)) then
+        deallocate ( xyztmp , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"xyztmp",2,__LINE__,__FILE__,ierr,error_message)
+      end if
+      !
+      ! Write Vr which is in vartmp to the CGNS solution file
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      call cgns_write_field_data
+      !
+      ! Copy Vtheta which is in vartmp_to_sp to vartmp
+      !
+      vartmp(1:npts) = vartmp_at_sp(1:npts)
+      !
+      ! Write Vtheta which is now in vartmp to the CGNS solution file
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      call cgns_write_field_data
+      !!}}}
+    case ("RCylindricalVelocity") ! Relative Cylindrical Velocity
+      !!{{{
+      !
+      ! First we need to get the coordinates for the output points
+      !
+      if (.not. allocated(xyztmp)) then
+        xyztmp = init_array(npts,nr,zero) ! F2003 AUTO-REALLOC
+        do m = 1,nr
+          call interpolate_for_output( xyz(m,1:n_solpts) , xyztmp(1:npts,m) )
+        end do
+      end if
+      !
+      ! Get the indices for the primary and secondary directions
+      !
+      m2 = nr   ! z for 3D, y for 2D
+      m1 = m2-1 ! y for 3D, x for 2D
+      !
+      call moving_ref_frame%get_rotation(x_r,y_r,z_r)
+      !
+      ! Use vartmp_at_sp to temporarily store Vtheta while Vr is saved
+      ! to vartmp. This is so we dont have to do the following loop twice.
+      ! After the loop, we will write Vr (in vartmp) to the CGNS solution
+      ! file, then we can just copy Vtheta (in vartmp_at_sp) into vartmp
+      ! to output Vtheta to the CGNS solution file.
+      !
+      vartmp_at_sp = init_array(npts,zero) ! F2003 AUTO-REALLOC
+      !
+      do n = 1,npts
+        !
+        vy_r = z_r*xyztmp(n,1) - x_r*xyztmp(n,3)
+        vz_r = x_r*xyztmp(n,2) - y_r*xyztmp(n,1)
+        !
+        v1 = (cv(n,nec+m1)/cv(n,nec) - vy_r) * aref
+        v2 = (cv(n,nec+m2)/cv(n,nec) - vz_r) * aref
         !
         x1 = xyztmp(n,m1)
         x2 = xyztmp(n,m2)
@@ -2720,6 +2901,58 @@ continue
       ivar_s = isvar_s(nv)
       !
       ! NOTE: vartmp has been pre-loaded with the Mach number
+      !
+      if (itestcase == Freestream_Preservation) then
+        do n = 1,npts
+          vartmp(n) = vartmp(n) - machref
+        end do
+      end if
+      !
+      if (abs(itestcase) == Freestream_TCF) then
+        call remove_freestream_tcf_init(-nee,xyztmp,vartmp)
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("RelativeMach") ! Relative Mach number
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      ! NOTE: vartmp has been pre-loaded with the Mach number
+      !
+      if (nr == 3) then
+        !
+        ! First we need to get the coordinates for the output points
+        !
+        if (.not. allocated(xyztmp)) then
+          xyztmp = init_array(npts,nr,zero) ! F2003 AUTO-REALLOC
+          do m = 1,nr
+            call interpolate_for_output( xyz(m,1:n_solpts) , xyztmp(1:npts,m) )
+          end do
+        end if
+        !
+        call moving_ref_frame%get_rotation(x_r,y_r,z_r)
+        !
+        do n = 1,npts
+          !
+          rho_inv = one/cv(n,nec)
+          !
+          vx_r = y_r*xyztmp(n,3) - z_r*xyztmp(n,2)
+          vy_r = z_r*xyztmp(n,1) - x_r*xyztmp(n,3)
+          vz_r = x_r*xyztmp(n,2) - y_r*xyztmp(n,1)
+          !
+          vx = cv(n,nmx)*rho_inv - vx_r
+          vy = cv(n,nmy)*rho_inv - vy_r
+          vz = cv(n,nmz)*rho_inv - vz_r
+          
+          a2 = max( gp(n,ngamm)*gp(n,npres)*rho_inv , rndoff )
+          q2 = vx*vx + vy*vy + vz*vz
+          vartmp(n) = sqrt( q2 / a2 ) - freestream_ref
+          !
+        end do
+        !
+      end if
       !
       if (itestcase == Freestream_Preservation) then
         do n = 1,npts
@@ -3554,6 +3787,8 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,   only : limiter_option
   use ovar,   only : output_vorticity
   use ovar,   only : output_cylindrical_velocity
+  use ovar,   only : output_relative_velocity
+  use ovar,   only : output_relative_conditions
   use ovar,   only : output_qcriterion
   use ovar,   only : output_conserved_variables
   use ovar,   only : output_momentum
@@ -3603,7 +3838,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:50) = ["Density             ", &
+  character(len=*), parameter :: var_order(1:54) = ["Density             ", &
                                                     "Momentum            ", &
                                                     "Energy              ", &
                                                     "Velocity            ", &
@@ -3637,6 +3872,10 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "GradVelocity        ", &
                                                     "Vorticity           ", &
                                                     "CylindricalVelocity ", &
+                                                    "RelativeMomentum    ", &
+                                                    "RelativeVelocity    ", &
+                                                    "RCylindricalVelocity", &
+                                                    "RelativeMach        ", &
                                                     "GradTemperature     ", &
                                                     "ResolutionMarker    ", &
                                                     "JumpMarker          ", &
@@ -3710,7 +3949,20 @@ continue
   if (output_cylindrical_velocity) then
     if (nr >= 2) then
       call add_sol_variable(variable_list,"CylindricalVelocity")
+      if (output_relative_conditions .or. output_relative_velocity) then
+        call add_sol_variable(variable_list,"RCylindricalVelocity")
+      end if
     end if
+  end if
+  !
+  ! Output the relative velocities
+  !
+  if (output_relative_velocity) then
+    call add_sol_variable(variable_list,"RelativeVelocity")
+  else if (output_relative_conditions) then
+    call add_sol_variable(variable_list,"RelativeVelocity")
+    call add_sol_variable(variable_list,"RelativeMomentum")
+    call add_sol_variable(variable_list,"RelativeMach")
   end if
   !
   ! Output Q-criterion without all the other vorticity variables
