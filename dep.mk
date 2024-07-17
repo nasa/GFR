@@ -716,6 +716,10 @@ $(OBJDIR)/thermo_mod.o : thermo_mod.f90 \
                $(OBJDIR)/ovar_mod.o \
                $(OBJDIR)/flowvar_mod.o
 
+$(OBJDIR)/timer_mod.o : timer_mod.f90 \
+              $(OBJDIR)/kind_types.o \
+              $(OBJDIR)/ovar_mod.o
+
 $(OBJDIR)/transport_mod.o : transport_mod.f90 \
                   $(OBJDIR)/kind_types.o \
                   $(OBJDIR)/eqn_idx_mod.o \

@@ -156,6 +156,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/transport_mod.o \
         $(OBJDIR)/reactions_mod.o \
         $(OBJDIR)/mrf_mod.o \
+        $(OBJDIR)/timer_mod.o \
         $(OBJDIR)/turb_inflow_mod.o \
         $(OBJDIR)/thx_mod.o \
         $(OBJDIR)/taylor_couette_mod.o \
