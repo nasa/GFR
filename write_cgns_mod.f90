@@ -4744,8 +4744,8 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "D") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "d") then
           idx1 = m
           exit
         end if
@@ -4770,8 +4770,8 @@ continue
         !
         do m = 1,size(time_ave_variables)
           ! F2003 AUTO-REALLOC
-          ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-          if (ta_var == char_xyz(l)) then
+          ta_var = trim(adjustl( time_ave_variables(m) ))
+          if (ta_var == char_lc_xyz(l)) then
             idx1 = m
             exit
           end if
@@ -4800,8 +4800,8 @@ continue
         !
         do m = 1,size(time_ave_variables)
           ! F2003 AUTO-REALLOC
-          ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-          if (ta_var == "D"//char_xyz(l)) then
+          ta_var = trim(adjustl( time_ave_variables(m) ))
+          if (ta_var == "d"//char_lc_xyz(l)) then
             idx1 = m
             exit
           end if
@@ -4825,14 +4825,14 @@ continue
       !!{{{
       do l = 1,2
         !
-        char_axi = merge("R","F",l==1)
+        char_axi = merge("r","f",l==1)
         !
         nv = nv + 1
         ivar_s = isvar_s(nv)
         !
         do m = 1,size(time_ave_variables)
           ! F2003 AUTO-REALLOC
-          ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
+          ta_var = trim(adjustl( time_ave_variables(m) ))
           if (ta_var == char_axi) then
             idx1 = m
             exit
@@ -4860,8 +4860,8 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "P") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "p") then
           idx1 = m
           exit
         end if
@@ -4884,8 +4884,8 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "T") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "t") then
           idx1 = m
           exit
         end if
@@ -4908,10 +4908,10 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "X") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "x") then
           idx1 = m
-        else if (ta_var == "XX") then
+        else if (ta_var == "xx") then
           idx2 = m
         end if
         if (all([idx1,idx2] > 0)) exit
@@ -4948,10 +4948,10 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "Y") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "y") then
           idx1 = m
-        else if (ta_var == "YY") then
+        else if (ta_var == "yy") then
           idx2 = m
         end if
         if (all([idx1,idx2] > 0)) exit
@@ -4988,10 +4988,10 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "Z") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "z") then
           idx1 = m
-        else if (ta_var == "ZZ") then
+        else if (ta_var == "zz") then
           idx2 = m
         end if
         if (all([idx1,idx2] > 0)) exit
@@ -5028,10 +5028,10 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "R") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "r") then
           idx1 = m
-        else if (ta_var == "RR") then
+        else if (ta_var == "rr") then
           idx2 = m
         end if
         if (all([idx1,idx2] > 0)) exit
@@ -5068,10 +5068,10 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "F") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "f") then
           idx1 = m
-        else if (ta_var == "FF") then
+        else if (ta_var == "ff") then
           idx2 = m
         end if
         if (all([idx1,idx2] > 0)) exit
@@ -5108,12 +5108,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "X") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "x") then
           idx1 = m
-        else if (ta_var == "Y") then
+        else if (ta_var == "y") then
           idx2 = m
-        else if (ta_var == "XY") then
+        else if (ta_var == "xy") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5152,12 +5152,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "X") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "x") then
           idx1 = m
-        else if (ta_var == "Z") then
+        else if (ta_var == "z") then
           idx2 = m
-        else if (ta_var == "XZ") then
+        else if (ta_var == "xz") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5196,12 +5196,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "Y") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "y") then
           idx1 = m
-        else if (ta_var == "Z") then
+        else if (ta_var == "z") then
           idx2 = m
-        else if (ta_var == "YZ") then
+        else if (ta_var == "yz") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5240,12 +5240,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "X") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "x") then
           idx1 = m
-        else if (ta_var == "R") then
+        else if (ta_var == "r") then
           idx2 = m
-        else if (ta_var == "XR") then
+        else if (ta_var == "xr") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5284,12 +5284,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "X") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "x") then
           idx1 = m
-        else if (ta_var == "F") then
+        else if (ta_var == "f") then
           idx2 = m
-        else if (ta_var == "XF") then
+        else if (ta_var == "xf") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5328,12 +5328,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "R") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "r") then
           idx1 = m
-        else if (ta_var == "F") then
+        else if (ta_var == "f") then
           idx2 = m
-        else if (ta_var == "RF") then
+        else if (ta_var == "rf") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5372,10 +5372,10 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "T") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "t") then
           idx1 = m
-        else if (ta_var == "TT") then
+        else if (ta_var == "tt") then
           idx2 = m
         end if
         if (all([idx1,idx2] > 0)) exit
@@ -5412,12 +5412,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "X") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "x") then
           idx1 = m
-        else if (ta_var == "T") then
+        else if (ta_var == "t") then
           idx2 = m
-        else if (ta_var == "XT") then
+        else if (ta_var == "xt") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5456,12 +5456,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "Y") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "y") then
           idx1 = m
-        else if (ta_var == "T") then
+        else if (ta_var == "t") then
           idx2 = m
-        else if (ta_var == "YT") then
+        else if (ta_var == "yt") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5500,12 +5500,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "Z") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "z") then
           idx1 = m
-        else if (ta_var == "T") then
+        else if (ta_var == "t") then
           idx2 = m
-        else if (ta_var == "ZT") then
+        else if (ta_var == "zt") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5544,12 +5544,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "R") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "r") then
           idx1 = m
-        else if (ta_var == "T") then
+        else if (ta_var == "t") then
           idx2 = m
-        else if (ta_var == "RT") then
+        else if (ta_var == "rt") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5588,12 +5588,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "F") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "f") then
           idx1 = m
-        else if (ta_var == "T") then
+        else if (ta_var == "t") then
           idx2 = m
-        else if (ta_var == "FT") then
+        else if (ta_var == "ft") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5632,10 +5632,10 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "D") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "d") then
           idx1 = m
-        else if (ta_var == "DD") then
+        else if (ta_var == "dd") then
           idx2 = m
         end if
         if (all([idx1,idx2] > 0)) exit
@@ -5672,12 +5672,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "D") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "d") then
           idx1 = m
-        else if (ta_var == "X") then
+        else if (ta_var == "x") then
           idx2 = m
-        else if (ta_var == "DX") then
+        else if (ta_var == "dx") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5716,12 +5716,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "D") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "d") then
           idx1 = m
-        else if (ta_var == "Y") then
+        else if (ta_var == "y") then
           idx2 = m
-        else if (ta_var == "DY") then
+        else if (ta_var == "dy") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5760,12 +5760,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "D") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "d") then
           idx1 = m
-        else if (ta_var == "Z") then
+        else if (ta_var == "z") then
           idx2 = m
-        else if (ta_var == "DZ") then
+        else if (ta_var == "dz") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5804,12 +5804,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "D") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "d") then
           idx1 = m
-        else if (ta_var == "R") then
+        else if (ta_var == "r") then
           idx2 = m
-        else if (ta_var == "DR") then
+        else if (ta_var == "dr") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5848,12 +5848,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "D") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "d") then
           idx1 = m
-        else if (ta_var == "F") then
+        else if (ta_var == "f") then
           idx2 = m
-        else if (ta_var == "DF") then
+        else if (ta_var == "df") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5892,12 +5892,12 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "D") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "d") then
           idx1 = m
-        else if (ta_var == "T") then
+        else if (ta_var == "t") then
           idx2 = m
-        else if (ta_var == "DT") then
+        else if (ta_var == "dt") then
           idx3 = m
         end if
         if (all([idx1,idx2,idx3] > 0)) exit
@@ -5936,10 +5936,10 @@ continue
       !
       do m = 1,size(time_ave_variables)
         ! F2003 AUTO-REALLOC
-        ta_var = uppercase( trim(adjustl( time_ave_variables(m) )) )
-        if (ta_var == "P") then
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "p") then
           idx1 = m
-        else if (ta_var == "PP") then
+        else if (ta_var == "pp") then
           idx2 = m
         end if
         if (all([idx1,idx2] > 0)) exit
