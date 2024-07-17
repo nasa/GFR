@@ -35,6 +35,7 @@ subroutine initialize_time_ave()
   use ovar,    only : time_ave_vel_is_axisymm
   use flowvar, only : time_ave_variables
   use flowvar, only : uavesp
+  use mrf_mod, only : is_in_mrf
   !
   !.. Local Scalars ..
   integer :: l,m,nv,nvar,ierr
@@ -152,8 +153,6 @@ continue
       time_ave_variables = [ character(len=len(time_ave_variables)) :: &
                              time_ave_variables(:) , "d" // v3 // "t" ]
       !
-      nvar = size(time_ave_variables)
-      !
     else
       !
       ! First 4 are the conserved variables
@@ -179,9 +178,28 @@ continue
       time_ave_variables = [ character(len=len(time_ave_variables)) :: &
                              time_ave_variables(:) , "xy" ]
       !
-      nvar = size(time_ave_variables)
+    end if
+    !
+    ! Add total temperature and total pressure to the list of variables
+    ! to average if using a moving reference frame
+    !
+    if ( is_in_mrf() ) then
+      !
+      ! Total temperature
+      !
+      ! USING F2003 AUTO-REALLOCATION
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "T" ]
+      !
+      ! Total pressure
+      !
+      ! USING F2003 AUTO-REALLOCATION
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "P" ]
       !
     end if
+    !
+    nvar = size(time_ave_variables)
     !
   else
     !
