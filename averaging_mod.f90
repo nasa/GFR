@@ -306,19 +306,12 @@ end subroutine initialize_time_ave
 subroutine update_time_ave()
   !
   !.. Use Statements ..
-  use geovar,  only : xyz,n_solpts
-  use flowvar, only : usp,gpsp,uavesp
-  use ovar,    only : time,prev_ave_time
-  use ovar,    only : ave_start_time,saved_ave_time
-  !
-  !.. Local Scalars ..
-  integer  :: m,n,nvar
-  integer  :: nc1,nc2,nm1,nm2
-  real(wp) :: a,b,y,z,st,ct,theta
+  use geovar, only : nr
+  use ovar,   only : time,prev_ave_time
+  use ovar,   only : ave_start_time,saved_ave_time
   !
   !.. Local Arrays ..
   real(wp) :: time_val(1:2)
-  real(wp) :: ave_var(1:nq+3)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "update_time_ave"
@@ -344,80 +337,13 @@ continue
   call mpi_bcast(time_val,size(time_val,kind=int_mpi),mpi_flttyp, &
                  glb_root,MPI_COMM_WORLD,mpierr)
   !
-  a = time_val(1)
-  b = time_val(2)
-  !
-  nvar = size(time_ave_var)
-  !
-  ! Adjust the coordinate and momentum indices for conversion to cylindrical
-  ! coordinates depending whether this is a 2D or 3D simulation
-  !
-  if (size(xyz,dim=1) == 2) then
-    nc1 = 1; nc2 = 2; nm1 = nmx; nm2 = nmy
-  else
-    nc1 = 2; nc2 = 3; nm1 = nmy; nm2 = nmz
+  if (nr == 3) then
+    call update_time_ave_3d(time_val(1),time_val(2))
+  else if (nr == 2) then
+    call update_time_ave_2d(time_val(1),time_val(2))
   end if
   !
-  do n = 1,n_solpts
-    !
-    y = xyz(nc1,n)
-    z = xyz(nc2,n)
-    !
-    if (all([y,z] == zero)) then
-      !
-      st = zero
-      ct = zero
-      !
-    else
-      !
-      theta = atan2(z,y)
-      if (theta < zero) theta = theta + two*pi
-      !
-      st = sin(theta)
-      ct = cos(theta)
-      !
-    end if
-    !
-    ! Primitive variables
-    ave_var(nec) = usp(n,nec)
-    ave_var(nmb:nme) = usp(n,nmb:nme)/usp(n,nec)
-    ave_var(nee) = gpsp(n,npres)
-    !
-    ! Temperature
-    ave_var(nq+1) = gpsp(n,ntemp)
-    !
-    ! Radial    instantaneous velocity
-    ave_var(nq+2) = st*ave_var(nm2) + ct*ave_var(nm1)
-    ! Azimuthal instantaneous velocity
-    ave_var(nq+3) = ct*ave_var(nm2) - st*ave_var(nm1)
-    !
-    ! First, update the time-averaged conservative variables
-    !
-    do m = 1,nq
-      uavesp(n,m) = a*uavesp(n,m) + b*usp(n,m)
-    end do
-    !
-    ! Next, update the time-averaged primitive variables
-    ! (with temperature instead of density)
-    !
-    uavesp(n,nq+1) = a*uavesp(n,nq+1) + b*ave_var(nq+1)
-    do m = 2,nq
-      uavesp(n,nq+m) = a*uavesp(n,nq+m) + b*ave_var(m)
-    end do
-    !
-    ! Update the remaining time-averaged variables
-    !
-    do m = 2*nq+1,nvar
-      uavesp(n,m) = a*uavesp(n,m) + b*product( ave_var(time_ave_var(m)%idx) )
-    end do
-    !
-  end do
-  !
-  ! Update prev_ave_time to the current time
-  !
-  prev_ave_time = time
-  !
-  call debug_timer(leaving_procedure,pname)
+  call debug_timer(entering_procedure,pname)
   !
 end subroutine update_time_ave
 !
