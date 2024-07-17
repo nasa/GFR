@@ -549,6 +549,91 @@ end subroutine check_if_wall_fluxes_are_needed
 !
 !###############################################################################
 !
+subroutine debug_mrf_walls(n1,n2,x_r,y_r,z_r,facenrm,facexyz)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd,face,bface
+  use ovar,   only : aref,grid_scaling_factor
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: n1,n2
+  real(wp), intent(in) :: x_r,y_r,z_r
+  real(wp), intent(in) :: facenrm(:,:)
+  real(wp), intent(in) :: facexyz(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nf,f1,f2
+  real(wp) :: r,t,ds,omega_nrm
+  real(wp) :: x,x_rpm,rnx,unx,omegax
+  real(wp) :: y,y_rpm,rny,uny,omegay
+  real(wp) :: z,z_rpm,rnz,unz,omegaz
+  !
+continue
+  !
+  x_rpm = x_r*aref/rpm_to_mps
+  y_rpm = y_r*aref/rpm_to_mps
+  z_rpm = z_r*aref/rpm_to_mps
+  !
+  write (1000+mypnum,1) n1,n2,x_r,x_rpm,y_r,y_rpm,z_r,z_rpm
+  !
+  bnd_face_loop: &
+  do nf = 1,nfbnd
+    !
+    if (face(nf)%beg_fp > n2) exit bnd_face_loop
+    !
+    f1 = face(nf)%beg_fp
+    f2 = face(nf)%end_fp
+    !
+    do n = f1,f2
+      !
+      x = facexyz(1,n)
+      y = facexyz(2,n)
+      z = facexyz(3,n)
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      rnz = facenrm(3,n)
+      ds = sqrt(rnx*rnx + rny*rny + rnz*rnz)
+      unx = rnx/ds
+      uny = rny/ds
+      unz = rnz/ds
+      !
+      ! [x_r,y_r,z_r] are in rad/s, [x,y,z] are in meters,
+      ! so [omegax,omegay,omegaz] are in m/s (and nondimensionalized by aref)
+      !
+      omegax = y_r*z - z_r*y
+      omegay = z_r*x - x_r*z
+      omegaz = x_r*y - y_r*x
+      !
+      ! [rnx,rny,rnz] are in m**2
+      !
+      omega_nrm = rnx*omegax + rny*omegay + rnz*omegaz
+      !
+      x = x/grid_scaling_factor
+      y = y/grid_scaling_factor
+      z = z/grid_scaling_factor
+      !
+      r = sqrt(y*y+z*z)
+      t = (atan2(z,y)+merge(two*pi,zero,atan2(z,y)<zero))*radians2degrees
+      !
+      write (1000+mypnum,2) n,bface(1,nf),x,y,z,r,t,unx,uny,unz,rnx,rny,rnz, &
+                            omegax,omegay,omegaz,omega_nrm
+      !
+    end do
+    !
+  end do bnd_face_loop
+  !
+  1 format ("[n1,n2] = [",i0,",",i0,"]",/, &
+            "x_r = ",es20.10," ( ",f12.6," RPM )",/, &
+            "y_r = ",es20.10," ( ",f12.6," RPM )",/, &
+            "z_r = ",es20.10," ( ",f12.6," RPM )",/, &
+            100("="))
+  2 format (i8,1x,i3,3x,3(1x,f10.6),2x,2(1x,f10.6),3(3x,3es14.6),3x,es20.10)
+  !
+end subroutine debug_mrf_walls
+!
+!###############################################################################
+!
 subroutine mrf_src_cv()
   !
   !.. Use Statements ..
