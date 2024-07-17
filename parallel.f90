@@ -8753,7 +8753,7 @@ subroutine rotate_periodic_mpi_solutions_nd(face_cv)
 continue
   !
 #ifdef DEBUG_ON
-#define DEBUG_PERIODIC_ROTATIONS
+!#define DEBUG_PERIODIC_ROTATIONS
 #endif
 #ifdef DEBUG_PERIODIC_ROTATIONS
   write (mypnum+7500,'(80("="))')
