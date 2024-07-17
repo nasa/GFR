@@ -109,6 +109,7 @@ module write_cgns_mod
   logical(lk), save :: interpolated_dusp_is_needed
   !
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
+  character(len=*), parameter :: char_lc_xyz(1:3) = ["x","y","z"]
   !
   !.. CGNS Parallel Point Indices ..
   integer(CST), save :: my_pts_beg
