@@ -107,6 +107,138 @@ end subroutine get_bc_wall_solution
 !
 !###############################################################################
 !
+subroutine debug_mrf_wall(n1,n2,facexyz,face_pv,face_gp,rotation_rate)
+  !
+  !.. Use Statements ..
+  use ovar, only : aref,tref,rhoref
+  use ovar, only : itcur,current_rk_stage
+  use ovar, only : grid_scaling_factor
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: n1,n2
+  real(wp), intent(in) :: facexyz(:,:)
+  real(wp), intent(in) :: face_pv(:,:,:)
+  real(wp), intent(in) :: face_gp(:,:,:)
+  real(wp), intent(in) :: rotation_rate(:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,ierr,io1,io2
+  real(wp) :: x,x_r,x_rpm,vx_r,vxl,vxr
+  real(wp) :: y,y_r,y_rpm,vy_r,vyl,vyr
+  real(wp) :: z,z_r,z_rpm,vz_r,vzl,vzr
+  real(wp) :: r,theta,st,ct,vr_r,vt_r,vrl,vtl,vrr,vtr
+  real(wp) :: rl,pl,tl,rr,pr,tr
+  !
+  character(len=100) :: tmpfname
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: fname1,fname2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "debug_mrf_wall"
+  !
+continue
+  !
+  if (all(abs(rotation_rate(:)) < eps12)) then
+    return
+  end if
+  !
+  !----------------------------------------------------------------------
+  !
+  write (tmpfname,1) itcur,current_rk_stage,"L"
+  fname1 = trim(adjustl(tmpfname)) ! F2003 AUTO-REALLOC
+  open (newunit=io1,file=fname1,status="replace",action="write", &
+                    iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname1,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  !----------------------------------------------------------------------
+  !
+  write (tmpfname,1) itcur,current_rk_stage,"R"
+  fname2 = trim(adjustl(tmpfname)) ! F2003 AUTO-REALLOC
+  open (newunit=io2,file=fname2,status="replace",action="write", &
+                    iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname2,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  !----------------------------------------------------------------------
+  !
+  x_r = rotation_rate(1)
+  y_r = rotation_rate(2)
+  z_r = rotation_rate(3)
+  !
+  x_rpm = x_r*aref/rpm_to_mps
+  y_rpm = y_r*aref/rpm_to_mps
+  z_rpm = z_r*aref/rpm_to_mps
+  !
+  write (io1,10) x_rpm,y_rpm,z_rpm
+  write (io2,10) x_rpm,y_rpm,z_rpm
+  !
+  do n = n1,n2
+    !
+    x = facexyz(1,n)/grid_scaling_factor
+    y = facexyz(2,n)/grid_scaling_factor
+    z = facexyz(3,n)/grid_scaling_factor
+    !
+    r = sqrt(y*y + z*z)
+    theta = atan2(z,y) + merge(two*pi,zero,atan2(z,y)<zero)
+    st = sin(theta)
+    ct = cos(theta)
+    theta = theta*radians2degrees
+    !
+    vx_r = (y_r*facexyz(3,n) - z_r*facexyz(2,n))*aref
+    vy_r = (z_r*facexyz(1,n) - x_r*facexyz(3,n))*aref
+    vz_r = (x_r*facexyz(2,n) - y_r*facexyz(1,n))*aref
+    vr_r = st*vz_r + ct*vy_r
+    vt_r = ct*vz_r - st*vy_r
+    !
+    rl  = face_pv(n,nec,1)*rhoref
+    vxl = face_pv(n,nmx,1)*aref
+    vyl = face_pv(n,nmy,1)*aref
+    vzl = face_pv(n,nmz,1)*aref
+    vrl = st*vzl + ct*vyl
+    vtl = ct*vzl - st*vyl
+    pl  = face_gp(n,npres,1)*rhoref*aref*aref
+    tl  = face_gp(n,ntemp,1)*tref
+    !
+    rr  = face_pv(n,nec,2)*rhoref
+    vxr = face_pv(n,nmx,2)*aref
+    vyr = face_pv(n,nmy,2)*aref
+    vzr = face_pv(n,nmz,2)*aref
+    vrr = st*vzr + ct*vyr
+    vtr = ct*vzr - st*vyr
+    pr  = face_gp(n,npres,2)*rhoref*aref*aref
+    tr  = face_gp(n,ntemp,2)*tref
+    !
+    write (io1,11) n,x,y,z,r,theta, &
+                   rl,vxl,vyl,vzl,vrl,vtl,pl,tl, &
+                   vx_r,vy_r,vz_r,vr_r,vt_r
+    write (io2,11) n,x,y,z,r,theta, &
+                   rr,vxr,vyr,vzr,vrr,vtr,pr,tr, &
+                   vx_r,vy_r,vz_r,vr_r,vt_r
+    !
+  end do
+  !
+  close (io1,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname1,2,__LINE__,__FILE__,ierr,error_message)
+  close (io2,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname2,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  1  format ("blade_wall_states.",i0,"-",i0,".",a1,".log")
+  10 format ("X-Axis RPMs = ",f20.10,/, &
+             "Y-Axis RPMs = ",f20.10,/, &
+             "Z-Axis RPMs = ",f20.10,/, &
+             226("="),/, &
+             3x,"FP",10x,"X",10x,"Y",10x,"Z",12x,"R",7x,"Theta", &
+             9x,"Rho",10x,"Vx",11x,"Vy",11x,"Vz",11x,"Vr",9x,"Vtheta", &
+             8x,"P",12x,"T",11x,"MRF Vx",5x,"MRF Vy",5x,"MRF Vz", &
+             5x,"MRF Vr",2x,"MRF Vtheta",/, &
+             226("-"))
+  11 format (1x,i6,1x,3(1x,f10.6),2x,2(1x,f10.6),4x,f9.6, &
+                      5(1x,f12.8),1x,f11.3,1x,f11.5,4x,5(1x,f10.6))
+  !
+end subroutine debug_mrf_wall
+!
+!###############################################################################
+!
 #ifdef DISABLE_FOR_GPU
 pure &
 #endif
