@@ -3628,7 +3628,7 @@ continue
   contains_periodic_faces = any(bface(1,1:lfbnd) == bc_periodic)
   !
 #ifdef DEBUG_ON
-#define DEBUG_BC_GROUPS
+!#define DEBUG_BC_GROUPS
 #endif
 #ifdef DEBUG_BC_GROUPS
   if (mypnum == glb_root) then

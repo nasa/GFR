@@ -150,21 +150,21 @@ continue
   !
   call moving_ref_frame%get_rotation(x_r,y_r,z_r)
   !
-#ifdef DEBUG_ON
-!#define DEBUG_MRF_FREESTREAM_TCF
-#ifdef DEBUG_MRF_FREESTREAM_TCF
-block
-  use ovar, only : itcur,current_rk_stage
-  write (341,1) itcur,current_rk_stage
-  write (342,1) itcur,current_rk_stage
-  write (343,1) itcur,current_rk_stage
-  write (347,1) itcur,current_rk_stage
-  write (348,1) itcur,current_rk_stage
-  write (349,1) itcur,current_rk_stage
-  1 format (/,2x,"Iteration = ",i4,5x,"RK stage = ",i1,/,80("-"))
-end block
-#endif
-#endif
+!#ifdef DEBUG_ON
+!!#define DEBUG_MRF_FREESTREAM_TCF
+!#ifdef DEBUG_MRF_FREESTREAM_TCF
+!block
+!  use ovar, only : itcur,current_rk_stage
+!  write (341,1) itcur,current_rk_stage
+!  write (342,1) itcur,current_rk_stage
+!  write (343,1) itcur,current_rk_stage
+!  write (347,1) itcur,current_rk_stage
+!  write (348,1) itcur,current_rk_stage
+!  write (349,1) itcur,current_rk_stage
+!  1 format (/,2x,"Iteration = ",i4,5x,"RK stage = ",i1,/,80("-"))
+!end block
+!#endif
+!#endif
   !
   !$ACC PARALLEL LOOP PRESENT(cv,xyz,iflx)
   do n = 1,np
@@ -177,64 +177,64 @@ end block
     omegay = z_r*x - x_r*z
     omegaz = x_r*y - y_r*x
     !
-#ifdef DEBUG_MRF_FREESTREAM_TCF
-block
-    real(wp) :: fec_x,fmx_x,fmy_x,fmz_x,fee_x
-    real(wp) :: fec_y,fmx_y,fmy_y,fmz_y,fee_y
-    real(wp) :: fec_z,fmx_z,fmy_z,fmz_z,fee_z
-    real(wp) :: r,t
-    !
-    r = sqrt(y*y+z*z)
-    t = atan2(z,y)
-    t = (t + merge(two*pi,zero,t<zero))*radians2degrees
-    !
-    fec_x = flx_sign*cv(n,nec)*omegax
-    fmx_x = flx_sign*cv(n,nmx)*omegax
-    fmy_x = flx_sign*cv(n,nmy)*omegax
-    fmz_x = flx_sign*cv(n,nmz)*omegax
-    fee_x = flx_sign*cv(n,nee)*omegax
-    !
-    fec_y = flx_sign*cv(n,nec)*omegay
-    fmx_y = flx_sign*cv(n,nmx)*omegay
-    fmy_y = flx_sign*cv(n,nmy)*omegay
-    fmz_y = flx_sign*cv(n,nmz)*omegay
-    fee_y = flx_sign*cv(n,nee)*omegay
-    !
-    fec_z = flx_sign*cv(n,nec)*omegaz
-    fmx_z = flx_sign*cv(n,nmx)*omegaz
-    fmy_z = flx_sign*cv(n,nmy)*omegaz
-    fmz_z = flx_sign*cv(n,nmz)*omegaz
-    fee_z = flx_sign*cv(n,nee)*omegaz
-    !
-    write (341,2) n,x,r,t,fec_x,fmx_x,fmy_x,fmz_x,fee_x
-    write (342,2) n,x,r,t,fec_y,fmx_y,fmy_y,fmz_y,fee_y
-    write (343,2) n,x,r,t,fec_z,fmx_z,fmy_z,fmz_z,fee_z
-    !
-    write (347,2) n,x,r,t,(iflx(n,1,m), m=1,nq)
-    write (348,2) n,x,r,t,(iflx(n,2,m), m=1,nq)
-    write (349,2) n,x,r,t,(iflx(n,3,m), m=1,nq)
-    !
-    iflx(n,1,nec) = iflx(n,1,nec) + fec_x
-    iflx(n,1,nmx) = iflx(n,1,nmx) + fmx_x
-    iflx(n,1,nmy) = iflx(n,1,nmy) + fmy_x
-    iflx(n,1,nmz) = iflx(n,1,nmz) + fmz_x
-    iflx(n,1,nee) = iflx(n,1,nee) + fee_x
-    !
-    iflx(n,2,nec) = iflx(n,2,nec) + fec_y
-    iflx(n,2,nmx) = iflx(n,2,nmx) + fmx_y
-    iflx(n,2,nmy) = iflx(n,2,nmy) + fmy_y
-    iflx(n,2,nmz) = iflx(n,2,nmz) + fmz_y
-    iflx(n,2,nee) = iflx(n,2,nee) + fee_y
-    !
-    iflx(n,3,nec) = iflx(n,3,nec) + fec_z
-    iflx(n,3,nmx) = iflx(n,3,nmx) + fmx_z
-    iflx(n,3,nmy) = iflx(n,3,nmy) + fmy_z
-    iflx(n,3,nmz) = iflx(n,3,nmz) + fmz_z
-    iflx(n,3,nee) = iflx(n,3,nee) + fee_z
-    !
-    2 format (i8,3x,3(2x,f12.6),3x,5es20.10)
-end block
-#else
+!#ifdef DEBUG_MRF_FREESTREAM_TCF
+!block
+!    real(wp) :: fec_x,fmx_x,fmy_x,fmz_x,fee_x
+!    real(wp) :: fec_y,fmx_y,fmy_y,fmz_y,fee_y
+!    real(wp) :: fec_z,fmx_z,fmy_z,fmz_z,fee_z
+!    real(wp) :: r,t
+!    !
+!    r = sqrt(y*y+z*z)
+!    t = atan2(z,y)
+!    t = (t + merge(two*pi,zero,t<zero))*radians2degrees
+!    !
+!    fec_x = flx_sign*cv(n,nec)*omegax
+!    fmx_x = flx_sign*cv(n,nmx)*omegax
+!    fmy_x = flx_sign*cv(n,nmy)*omegax
+!    fmz_x = flx_sign*cv(n,nmz)*omegax
+!    fee_x = flx_sign*cv(n,nee)*omegax
+!    !
+!    fec_y = flx_sign*cv(n,nec)*omegay
+!    fmx_y = flx_sign*cv(n,nmx)*omegay
+!    fmy_y = flx_sign*cv(n,nmy)*omegay
+!    fmz_y = flx_sign*cv(n,nmz)*omegay
+!    fee_y = flx_sign*cv(n,nee)*omegay
+!    !
+!    fec_z = flx_sign*cv(n,nec)*omegaz
+!    fmx_z = flx_sign*cv(n,nmx)*omegaz
+!    fmy_z = flx_sign*cv(n,nmy)*omegaz
+!    fmz_z = flx_sign*cv(n,nmz)*omegaz
+!    fee_z = flx_sign*cv(n,nee)*omegaz
+!    !
+!    write (341,2) n,x,r,t,fec_x,fmx_x,fmy_x,fmz_x,fee_x
+!    write (342,2) n,x,r,t,fec_y,fmx_y,fmy_y,fmz_y,fee_y
+!    write (343,2) n,x,r,t,fec_z,fmx_z,fmy_z,fmz_z,fee_z
+!    !
+!    write (347,2) n,x,r,t,(iflx(n,1,m), m=1,nq)
+!    write (348,2) n,x,r,t,(iflx(n,2,m), m=1,nq)
+!    write (349,2) n,x,r,t,(iflx(n,3,m), m=1,nq)
+!    !
+!    iflx(n,1,nec) = iflx(n,1,nec) + fec_x
+!    iflx(n,1,nmx) = iflx(n,1,nmx) + fmx_x
+!    iflx(n,1,nmy) = iflx(n,1,nmy) + fmy_x
+!    iflx(n,1,nmz) = iflx(n,1,nmz) + fmz_x
+!    iflx(n,1,nee) = iflx(n,1,nee) + fee_x
+!    !
+!    iflx(n,2,nec) = iflx(n,2,nec) + fec_y
+!    iflx(n,2,nmx) = iflx(n,2,nmx) + fmx_y
+!    iflx(n,2,nmy) = iflx(n,2,nmy) + fmy_y
+!    iflx(n,2,nmz) = iflx(n,2,nmz) + fmz_y
+!    iflx(n,2,nee) = iflx(n,2,nee) + fee_y
+!    !
+!    iflx(n,3,nec) = iflx(n,3,nec) + fec_z
+!    iflx(n,3,nmx) = iflx(n,3,nmx) + fmx_z
+!    iflx(n,3,nmy) = iflx(n,3,nmy) + fmy_z
+!    iflx(n,3,nmz) = iflx(n,3,nmz) + fmz_z
+!    iflx(n,3,nee) = iflx(n,3,nee) + fee_z
+!    !
+!    2 format (i8,3x,3(2x,f12.6),3x,5es20.10)
+!end block
+!#else
     iflx(n,1,nec) = iflx(n,1,nec) + flx_sign*cv(n,nec)*omegax
     iflx(n,1,nmx) = iflx(n,1,nmx) + flx_sign*cv(n,nmx)*omegax
     iflx(n,1,nmy) = iflx(n,1,nmy) + flx_sign*cv(n,nmy)*omegax
@@ -252,7 +252,7 @@ end block
     iflx(n,3,nmy) = iflx(n,3,nmy) + flx_sign*cv(n,nmy)*omegaz
     iflx(n,3,nmz) = iflx(n,3,nmz) + flx_sign*cv(n,nmz)*omegaz
     iflx(n,3,nee) = iflx(n,3,nee) + flx_sign*cv(n,nee)*omegaz
-#endif
+!#endif
     !
   end do
   !
@@ -302,9 +302,9 @@ continue
   ! Check to see if the wall fluxes for a rotating reference frame
   ! will actually be needed or if they will always be zero.
   !
-  if (wall_flux_check_not_completed) then
-    call check_if_wall_fluxes_are_needed(n1,n2,facenrm,facexyz)
-  end if
+!!if (wall_flux_check_not_completed) then
+!!  call check_if_wall_fluxes_are_needed(n1,n2,facenrm,facexyz)
+!!end if
   !
   ! Return without computing the wall fluxes for a rotating reference frame
   ! if the wall fluxes were previously determined to all be zero.
@@ -358,14 +358,14 @@ continue
   !
   call moving_ref_frame%get_rotation(x_r,y_r,z_r)
   !
-#ifdef DEBUG_MRF_FREESTREAM_TCF
-block
-  use ovar, only : itcur,current_rk_stage
-  write (351,1) itcur,current_rk_stage
-  write (357,1) itcur,current_rk_stage
-  1 format (/,2x,"Iteration = ",i4,5x,"RK stage = ",i1,/,80("-"))
-end block
-#endif
+!#ifdef DEBUG_MRF_FREESTREAM_TCF
+!block
+!  use ovar, only : itcur,current_rk_stage
+!  write (351,1) itcur,current_rk_stage
+!  write (357,1) itcur,current_rk_stage
+!  1 format (/,2x,"Iteration = ",i4,5x,"RK stage = ",i1,/,80("-"))
+!end block
+!#endif
   !
   !$ACC PARALLEL LOOP PRESENT(facenrm,facexyz,face_cv,faceflx)
   do n = n1,n2
@@ -379,43 +379,43 @@ end block
                 facenrm(2,n)*(z_r*facexyz(1,n) - x_r*facexyz(3,n)) + &
                 facenrm(3,n)*(x_r*facexyz(2,n) - y_r*facexyz(1,n))
     !
-#ifdef DEBUG_MRF_FREESTREAM_TCF
-block
-    real(wp) :: fec,fmx,fmy,fmz,fee
-    real(wp) :: x,y,z,r,t
-    !
-    x = facexyz(1,n)
-    y = facexyz(2,n)
-    z = facexyz(3,n)
-    r = sqrt(y*y+z*z)
-    t = atan2(z,y)
-    t = (t + merge(two*pi,zero,t<zero))*radians2degrees
-    !
-    fec = wall_sign*face_cv(n,nec,2)*omega_nrm
-    fmx = wall_sign*face_cv(n,nmx,2)*omega_nrm
-    fmy = wall_sign*face_cv(n,nmy,2)*omega_nrm
-    fmz = wall_sign*face_cv(n,nmz,2)*omega_nrm
-    fee = wall_sign*face_cv(n,nee,2)*omega_nrm
-    !
-    write (351,2) n,x,r,t,fec,fmx,fmy,fmz,fee
-    !
-    write (357,2) n,x,r,t,(faceflx(n,m), m=1,nq)
-    !
-    faceflx(n,nec) = faceflx(n,nec) + fec
-    faceflx(n,nmx) = faceflx(n,nmx) + fmx
-    faceflx(n,nmy) = faceflx(n,nmy) + fmy
-    faceflx(n,nmz) = faceflx(n,nmz) + fmz
-    faceflx(n,nee) = faceflx(n,nee) + fee
-    !
-    2 format (i8,3x,3(2x,f12.6),3x,5es20.10)
-end block
-#else
+!#ifdef DEBUG_MRF_FREESTREAM_TCF
+!block
+!    real(wp) :: fec,fmx,fmy,fmz,fee
+!    real(wp) :: x,y,z,r,t
+!    !
+!    x = facexyz(1,n)
+!    y = facexyz(2,n)
+!    z = facexyz(3,n)
+!    r = sqrt(y*y+z*z)
+!    t = atan2(z,y)
+!    t = (t + merge(two*pi,zero,t<zero))*radians2degrees
+!    !
+!    fec = wall_sign*face_cv(n,nec,2)*omega_nrm
+!    fmx = wall_sign*face_cv(n,nmx,2)*omega_nrm
+!    fmy = wall_sign*face_cv(n,nmy,2)*omega_nrm
+!    fmz = wall_sign*face_cv(n,nmz,2)*omega_nrm
+!    fee = wall_sign*face_cv(n,nee,2)*omega_nrm
+!    !
+!    write (351,2) n,x,r,t,fec,fmx,fmy,fmz,fee
+!    !
+!    write (357,2) n,x,r,t,(faceflx(n,m), m=1,nq)
+!    !
+!    faceflx(n,nec) = faceflx(n,nec) + fec
+!    faceflx(n,nmx) = faceflx(n,nmx) + fmx
+!    faceflx(n,nmy) = faceflx(n,nmy) + fmy
+!    faceflx(n,nmz) = faceflx(n,nmz) + fmz
+!    faceflx(n,nee) = faceflx(n,nee) + fee
+!    !
+!    2 format (i8,3x,3(2x,f12.6),3x,5es20.10)
+!end block
+!#else
     faceflx(n,nec) = faceflx(n,nec) + wall_sign*face_cv(n,nec,2)*omega_nrm
     faceflx(n,nmx) = faceflx(n,nmx) + wall_sign*face_cv(n,nmx,2)*omega_nrm
     faceflx(n,nmy) = faceflx(n,nmy) + wall_sign*face_cv(n,nmy,2)*omega_nrm
     faceflx(n,nmz) = faceflx(n,nmz) + wall_sign*face_cv(n,nmz,2)*omega_nrm
     faceflx(n,nee) = faceflx(n,nee) + wall_sign*face_cv(n,nee,2)*omega_nrm
-#endif
+!#endif
     !
   end do
   !
@@ -488,24 +488,23 @@ continue
                   facenrm(2,n)*(z_r*facexyz(1,n) - x_r*facexyz(3,n)) + &
                   facenrm(3,n)*(x_r*facexyz(2,n) - y_r*facexyz(1,n))
       !
-#ifdef DEBUG_MRF_FREESTREAM_TCF
-block
-      integer  :: l
-      real(wp) :: x,y,z,r,t
-      x = facexyz(1,n)
-      y = facexyz(2,n)
-      z = facexyz(3,n)
-      r = sqrt(y*y+z*z)
-      t = atan2(z,y)
-      t = (t + merge(two*pi,zero,t<zero))*radians2degrees
-      write (381,2) n,x,r,t,omega_nrm,(facenrm(l,n),l=1,3), &
-                    facenrm(2,n),facexyz(3,n), &
-                    facenrm(3,n),facexyz(2,n), &
-                    -facenrm(2,n)*x_r*facexyz(3,n), &
-                     facenrm(3,n)*x_r*facexyz(2,n)
-      2 format (i8,3x,3(1x,f12.6),3x,es20.10,3x,3es20.10,3(3x,2es20.10))
-end block
-#endif
+!#ifdef DEBUG_MRF_FREESTREAM_TCF
+!block
+!      integer  :: l
+!      real(wp) :: x,y,z,r,t
+!      x = facexyz(1,n)
+!      y = facexyz(2,n)
+!      z = facexyz(3,n)
+!      r = sqrt(y*y+z*z)
+!      t = (atan2(z,y)+merge(two*pi,zero,atan2(z,y)<zero))*radians2degrees
+!      write (381,2) n,x,r,t,omega_nrm,(facenrm(l,n),l=1,3), &
+!                    facenrm(2,n),facexyz(3,n), &
+!                    facenrm(3,n),facexyz(2,n), &
+!                    -facenrm(2,n)*x_r*facexyz(3,n), &
+!                     facenrm(3,n)*x_r*facexyz(2,n)
+!      2 format (i8,3x,3(1x,f12.6),3x,es20.10,3x,3es20.10,3(3x,2es20.10))
+!end block
+!#endif
       max_omega_nrm = max( max_omega_nrm , abs(omega_nrm) )
       !
     end do
@@ -515,10 +514,10 @@ end block
   else
     !
   end if
-#ifdef DEBUG_MRF_FREESTREAM_TCF
-  write (iout,1) mypnum,"max_omega_nrm = ",max_omega_nrm
-  1 format ("CPU #",i3," ",a,es15.8)
-#endif
+!#ifdef DEBUG_MRF_FREESTREAM_TCF
+!  write (iout,1) mypnum,"max_omega_nrm = ",max_omega_nrm
+!  1 format ("CPU #",i5," ",a,g15.8)
+!#endif
   !
   ! Set mrf_wall_fluxes_are_zero to true if the maximum omega_nrm was smaller
   ! than eps12. This will prevent the wasted computations of computing the
@@ -595,13 +594,13 @@ continue
   !
   call moving_ref_frame%get_rotation(x_r,y_r,z_r)
   !
-#ifdef DEBUG_MRF_FREESTREAM_TCF
-block
-  use ovar, only : itcur,current_rk_stage
-  write (331,1) itcur,current_rk_stage
-  1 format (/,2x,"Iteration = ",i4,5x,"RK stage = ",i1,/,80("-"))
-end block
-#endif
+!#ifdef DEBUG_MRF_FREESTREAM_TCF
+!block
+!  use ovar, only : itcur,current_rk_stage
+!  write (331,1) itcur,current_rk_stage
+!  1 format (/,2x,"Iteration = ",i4,5x,"RK stage = ",i1,/,80("-"))
+!end block
+!#endif
   !
   ! NOTE: In the governing equations, the source terms have a leading negative
   !       sign when they are located on the RHS of the equation. However, the
@@ -615,38 +614,38 @@ end block
   !$ACC PARALLEL LOOP PRESENT(cv,rhs)
   do n = 1,np
     !
-#ifdef DEBUG_MRF_FREESTREAM_TCF
-block
-    use geovar, only : xyz
-    real(wp) :: sec,smx,smy,smz,see
-    real(wp) :: x,y,z,r,t
-    !
-    x = xyz(1,n)
-    y = xyz(2,n)
-    z = xyz(3,n)
-    r = sqrt(y*y+z*z)
-    t = atan2(z,y)
-    t = (t + merge(two*pi,zero,t<zero))*radians2degrees
-    !
-    sec = zero
-    smx = src_sign*(y_r*cv(n,nmz) - z_r*cv(n,nmy))*jac(n)
-    smy = src_sign*(z_r*cv(n,nmx) - x_r*cv(n,nmz))*jac(n)
-    smz = src_sign*(x_r*cv(n,nmy) - y_r*cv(n,nmx))*jac(n)
-    see = zero
-    !
-    write (331,2) n,x,r,t,sec,smx,smy,smz,see
-    !
-    rhs(n,nmx) = rhs(n,nmx) + smx
-    rhs(n,nmy) = rhs(n,nmy) + smy
-    rhs(n,nmz) = rhs(n,nmz) + smz
-    !
-    2 format (i8,3x,3(2x,f12.6),3x,5es20.10)
-end block
-#else
+!#ifdef DEBUG_MRF_FREESTREAM_TCF
+!block
+!    use geovar, only : xyz
+!    real(wp) :: sec,smx,smy,smz,see
+!    real(wp) :: x,y,z,r,t
+!    !
+!    x = xyz(1,n)
+!    y = xyz(2,n)
+!    z = xyz(3,n)
+!    r = sqrt(y*y+z*z)
+!    t = atan2(z,y)
+!    t = (t + merge(two*pi,zero,t<zero))*radians2degrees
+!    !
+!    sec = zero
+!    smx = src_sign*(y_r*cv(n,nmz) - z_r*cv(n,nmy))*jac(n)
+!    smy = src_sign*(z_r*cv(n,nmx) - x_r*cv(n,nmz))*jac(n)
+!    smz = src_sign*(x_r*cv(n,nmy) - y_r*cv(n,nmx))*jac(n)
+!    see = zero
+!    !
+!    write (331,2) n,x,r,t,sec,smx,smy,smz,see
+!    !
+!    rhs(n,nmx) = rhs(n,nmx) + smx
+!    rhs(n,nmy) = rhs(n,nmy) + smy
+!    rhs(n,nmz) = rhs(n,nmz) + smz
+!    !
+!    2 format (i8,3x,3(2x,f12.6),3x,5es20.10)
+!end block
+!#else
     rhs(n,nmx) = rhs(n,nmx) + src_sign*(y_r*cv(n,nmz) - z_r*cv(n,nmy))*jac(n)
     rhs(n,nmy) = rhs(n,nmy) + src_sign*(z_r*cv(n,nmx) - x_r*cv(n,nmz))*jac(n)
     rhs(n,nmz) = rhs(n,nmz) + src_sign*(x_r*cv(n,nmy) - y_r*cv(n,nmx))*jac(n)
-#endif
+!#endif
     !
   end do
   !
