@@ -64,8 +64,9 @@ subroutine get_faceusp_bc(exit_error)
   use flowvar,       only : facegpsp
   use geovar,        only : bc_grps,n_bnd_flxpts
   use geovar,        only : output_bface
-  use ovar,          only : bc_in,itcur
+  use ovar,          only : bc_in,itcur,aref
   use ovar,          only : current_rk_stage
+  use ovar,          only : moving_ref_frame
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -95,6 +96,9 @@ subroutine get_faceusp_bc(exit_error)
   logical(lk), save :: first_output = true
   integer, save :: idx = -1
   !
+  !.. Local Arrays ..
+  real(wp) :: rotation_rate(1:3)
+  !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: pv_in(:)
   !
@@ -113,6 +117,10 @@ continue
   if (first_output) then
     call output_bface(strng="bc_")
   end if
+  !
+  ! Default the rotation rate to zero
+  !
+  rotation_rate(:) = zero
   !
   ! First, update the thermodynamic and transport gas properties for the
   ! interior flux points of the boundary faces
@@ -276,11 +284,20 @@ continue
         !
         if (bc_idx == 0) pv_in(nmb:nme) = zero
         !
+        ! If this BC has a specified wall rotation rate, multiply it by the
+        ! moving reference frame spinup ratio to make sure any BCs specified
+        ! in the MRF use a consistent rotation rate with the MRF.
+        !
+        if (any(abs(bc_in(bc_idx)%rotation_rate(:)) >= rpm_to_mps/aref)) then
+          rotation_rate(:) = bc_in(bc_idx)%rotation_rate(:) * &
+                             moving_ref_frame%spinup%get_spinup_ratio()
+        end if
+        !
         call get_bc_wall_solution(n1,n2,bc_type,facexyz,facenrm, &
                                   faceusp,facegpsp, &
                                   bc_in(bc_idx)%relax,pv_in, &
                                   bc_in(bc_idx)%wall_temperature, &
-                                  bc_in(bc_idx)%rotation_rate)
+                                  rotation_rate)
         !
       case (bc_periodic)
         !
