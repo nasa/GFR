@@ -211,6 +211,8 @@ module ovar
   type, public :: mrf_spinup_t
     integer  :: iter = 0
     real(wp) :: tstar = zero
+  contains
+    procedure :: get_spinup_ratio => get_mrf_spinup_ratio
   end type mrf_spinup_t
   !
   type, public :: mrf_t
