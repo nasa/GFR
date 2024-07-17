@@ -211,30 +211,34 @@ continue
     !
     do l = 1,nv
       !
-      ta_char = uppercase( time_ave_variables(m)(l:l) )
+      ta_char = time_ave_variables(m)(l:l)
       !
       select case (ta_char)
-        case ("D")
+        case ("d") ! density
           time_ave_var(m)%idx(l) = nec
-        case ("X")
+        case ("x") ! axial velocity
           time_ave_var(m)%idx(l) = nmx
-        case ("Y")
+        case ("y") ! y velocity
           time_ave_var(m)%idx(l) = nmy
-        case ("Z")
+        case ("z") ! spanwise velocity
           time_ave_var(m)%idx(l) = nmz
-        case ("E")
+        case ("e") ! total energy
           time_ave_var(m)%idx(l) = nee
-        case ("P")
+        case ("p") ! static pressure
           time_ave_var(m)%idx(l) = nee
-        case ("T")
+        case ("t") ! static temperature
           time_ave_var(m)%idx(l) = nq+1
-        case ("R")
+        case ("r") ! radial velocity
           time_ave_var(m)%idx(l) = nq+2
-        case ("F")
+        case ("f") ! theta velocity
           time_ave_var(m)%idx(l) = nq+3
-        case ("K")
+        case ("P") ! total pressure
+          time_ave_var(m)%idx(l) = nq+4
+        case ("T") ! total temperature
+          time_ave_var(m)%idx(l) = nq+5
+        case ("k") ! turbulent kinetic energy
           time_ave_var(m)%idx(l) = ntk
-        case ("W")
+        case ("w") ! turbulence frequency/dissipation
           time_ave_var(m)%idx(l) = ntl
         case default
           ! ??? Should probably produce an error message and abort
