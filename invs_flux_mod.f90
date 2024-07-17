@@ -461,6 +461,8 @@ subroutine invs_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,face_gp,return_value)
   !.. Local Scalars ..
   integer  :: m,n
   real(wp) :: gm1,kflx,pres
+  real(wp) :: rnx,rny,rnz,r_inv
+  real(wp) :: vx_bc,vy_bc,vz_bc,vn_bc
   !
 continue
   !
@@ -478,13 +480,23 @@ continue
   !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
   do n = n1,n2
     !
-    pres = face_gp(n,npres,1)
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    rnz = facenrm(3,n)
     !
-    return_value(n,nec) = zero
-    return_value(n,nmx) = facenrm(1,n)*pres
-    return_value(n,nmy) = facenrm(2,n)*pres
-    return_value(n,nmz) = facenrm(3,n)*pres
-    return_value(n,nee) = zero
+    r_inv = one/face_cv(n,nec,2)
+    vx_bc = face_cv(n,nmx,2)*r_inv
+    vy_bc = face_cv(n,nmy,2)*r_inv
+    vz_bc = face_cv(n,nmz,2)*r_inv
+    vn_bc = vx_bc*rnx + vy_bc*rny + vz_bc*rnz
+    !
+    pres = face_gp(n,npres,2)
+    !
+    return_value(n,nec) = vn_bc*face_cv(n,nec,2)
+    return_value(n,nmx) = vn_bc*face_cv(n,nmx,2) + pres*rnx
+    return_value(n,nmy) = vn_bc*face_cv(n,nmy,2) + pres*rny
+    return_value(n,nmz) = vn_bc*face_cv(n,nmz,2) + pres*rnz
+    return_value(n,nee) = vn_bc*face_cv(n,nee,2) + pres*vn_bc
     !
   end do
   !
@@ -526,6 +538,8 @@ subroutine invs_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,face_gp,return_value)
   !.. Local Scalars ..
   integer  :: m,n
   real(wp) :: gm1,pres,kflx
+  real(wp) :: rnx,rny,rnz,r_inv
+  real(wp) :: vx_bc,vy_bc,vn_bc
   !
 continue
   !
@@ -543,12 +557,20 @@ continue
   !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp,return_value)
   do n = n1,n2
     !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    !
+    r_inv = one/face_cv(n,nec,2)
+    vx_bc = face_cv(n,nmx,2)*r_inv
+    vy_bc = face_cv(n,nmy,2)*r_inv
+    vn_bc = vx_bc*rnx + vy_bc*rny
+    !
     pres = face_gp(n,npres,1)
     !
-    return_value(n,nec) = zero
-    return_value(n,nmx) = facenrm(1,n)*pres
-    return_value(n,nmy) = facenrm(2,n)*pres
-    return_value(n,nee) = zero
+    return_value(n,nec) = vn_bc*face_cv(n,nec,2)
+    return_value(n,nmx) = vn_bc*face_cv(n,nmx,2) + rnx*pres
+    return_value(n,nmy) = vn_bc*face_cv(n,nmy,2) + rny*pres
+    return_value(n,nee) = vn_bc*(face_cv(n,nee,2) + pres)
     !
   end do
   !
@@ -590,6 +612,7 @@ subroutine invs_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,face_gp,return_value)
   !.. Local Scalars ..
   integer  :: l,m,n
   real(wp) :: gm1,pres,kflx
+  real(wp) :: vn_bc
   !
 continue
   !
@@ -607,9 +630,17 @@ continue
     !
     pres = face_gp(n,npres,1)
     !
+    vn_bc = dot_product(facenrm(1:nr,n),face_cv(n,nmb:nme,2))/face_cv(n,nec,2)
+    !
     !$ACC LOOP SEQ
     do l = 1,nr
       return_value(n,nec+l) = facenrm(l,n)*pres
+    end do
+    return_value(n,nee) = vn_bc*pres
+    !
+    !$ACC LOOP SEQ
+    do m = 1,nq
+      return_value(n,m) = return_value(n,m) + vn_bc*face_cv(n,m,2)
     end do
     !
   end do
