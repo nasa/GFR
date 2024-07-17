@@ -401,6 +401,259 @@ end subroutine update_time_ave
 !
 !###############################################################################
 !
+subroutine update_time_ave_3d(a,b)
+  !
+  !.. Use Statements ..
+  use geovar,  only : xyz,n_solpts
+  use flowvar, only : usp,gpsp,uavesp
+  use ovar,    only : gam,time,prev_ave_time
+  use ovar,    only : ave_start_time,saved_ave_time
+  use ovar,    only : moving_ref_frame
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: a
+  real(wp), intent(in) :: b
+  !
+  !.. Local Scalars ..
+  integer  :: m,n,nvar
+  real(wp) :: x,x_r,vx_r,vx
+  real(wp) :: y,y_r,vy_r,vy
+  real(wp) :: z,z_r,vz_r,vz
+  real(wp) :: st,ct,theta,gm1,gam_over_gm1
+  real(wp) :: r,p,t,q2,a2,m2,total_cond
+  !
+  !.. Local Arrays ..
+  real(wp) :: ave_var(1:nq+5)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_time_ave_3d"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  gm1 = gam - one
+  gam_over_gm1 = gam/gm1
+  !
+  nvar = size(time_ave_var)
+  !
+  call moving_ref_frame%get_rotation(x_r,y_r,z_r)
+  !
+  do n = 1,n_solpts
+    !
+    x = xyz(1,n)
+    y = xyz(2,n)
+    z = xyz(3,n)
+    !
+    if (all([y,z] == zero)) then
+      !
+      st = zero
+      ct = zero
+      !
+    else
+      !
+      theta = atan2(z,y)
+      if (theta < zero) theta = theta + two*pi
+      !
+      st = sin(theta)
+      ct = cos(theta)
+      !
+    end if
+    !
+    r = usp(n,nec)
+    p = gpsp(n,npres)
+    t = gpsp(n,ntemp)
+    !
+    ! Compute the reference frame velocity
+    !
+    vx_r = y_r*z - z_r*y
+    vy_r = z_r*x - x_r*z
+    vz_r = x_r*y - y_r*x
+    !
+    ! Compute the relative velocity
+    !
+    vx = usp(n,nmx)/r - vx_r
+    vy = usp(n,nmy)/r - vy_r
+    vz = usp(n,nmz)/r - vz_r
+    !
+    q2 = vx*vx + vy*vy + vz*vz
+    a2 = max( gam*p/r , rndoff )
+    !
+    m2 = q2/a2
+    !
+    total_cond = one + half*gm1*m2
+    !
+    ! Primitive variables
+    ave_var(nec) = r
+    ave_var(nmx) = vx
+    ave_var(nmy) = vy
+    ave_var(nmz) = vz
+    ave_var(nee) = p
+    !
+    ! Temperature
+    ave_var(nq+1) = t
+    !
+    ! Radial    instantaneous velocity
+    ave_var(nq+2) = st*vz + ct*vy
+    ! Azimuthal instantaneous velocity
+    ave_var(nq+3) = ct*vz - st*vy
+    !
+    ! Total temperature
+    ave_var(nq+4) = t*total_cond
+    ! Total pressure
+    ave_var(nq+5) = p*(total_cond**gam_over_gm1)
+    !
+    ! First, update the time-averaged conservative variables
+    !
+    do m = 1,nq
+      uavesp(n,m) = a*uavesp(n,m) + b*usp(n,m)
+    end do
+    !
+    ! Next, update the time-averaged primitive variables
+    ! (with temperature instead of density)
+    !
+    uavesp(n,nq+1) = a*uavesp(n,nq+1) + b*ave_var(nq+1)
+    do m = 2,nq
+      uavesp(n,nq+m) = a*uavesp(n,nq+m) + b*ave_var(m)
+    end do
+    !
+    ! Update the remaining time-averaged variables
+    !
+    do m = 2*nq+1,nvar
+      uavesp(n,m) = a*uavesp(n,m) + b*product( ave_var(time_ave_var(m)%idx) )
+    end do
+    !
+  end do
+  !
+  ! Update prev_ave_time to the current time
+  !
+  prev_ave_time = time
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine update_time_ave_3d
+!
+!###############################################################################
+!
+subroutine update_time_ave_2d(a,b)
+  !
+  !.. Use Statements ..
+  use geovar,  only : xyz,n_solpts
+  use flowvar, only : usp,gpsp,uavesp
+  use ovar,    only : gam,time,prev_ave_time
+  use ovar,    only : ave_start_time,saved_ave_time
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: a
+  real(wp), intent(in) :: b
+  !
+  !.. Local Scalars ..
+  integer  :: m,n,nvar
+  real(wp) :: x,x_r,vx_r,vx
+  real(wp) :: y,y_r,vy_r,vy
+  real(wp) :: st,ct,theta,gm1,gam_over_gm1
+  real(wp) :: r,p,t,q2,a2,m2,total_cond
+  !
+  !.. Local Arrays ..
+  real(wp) :: ave_var(1:nq+5)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_time_ave_2d"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  gm1 = gam - one
+  gam_over_gm1 = gam/gm1
+  !
+  nvar = size(time_ave_var)
+  !
+  do n = 1,n_solpts
+    !
+    x = xyz(1,n)
+    y = xyz(2,n)
+    !
+    if (all([x,y] == zero)) then
+      !
+      st = zero
+      ct = zero
+      !
+    else
+      !
+      theta = atan2(y,x)
+      if (theta < zero) theta = theta + two*pi
+      !
+      st = sin(theta)
+      ct = cos(theta)
+      !
+    end if
+    !
+    r = usp(n,nec)
+    p = gpsp(n,npres)
+    t = gpsp(n,ntemp)
+    !
+    vx = usp(n,nmx)/r
+    vy = usp(n,nmy)/r
+    !
+    q2 = vx*vx + vy*vy
+    a2 = max( gam*p/r , rndoff )
+    !
+    m2 = q2/a2
+    !
+    total_cond = one + half*gm1*m2
+    !
+    ! Primitive variables
+    ave_var(nec) = r
+    ave_var(nmx) = vx
+    ave_var(nmy) = vy
+    ave_var(nee) = p
+    !
+    ! Temperature
+    ave_var(nq+1) = t
+    !
+    ! Radial    instantaneous velocity
+    ave_var(nq+2) = st*vy + ct*vx
+    ! Azimuthal instantaneous velocity
+    ave_var(nq+3) = ct*vy - st*vx
+    !
+    ! Total temperature
+    ave_var(nq+4) = t*total_cond
+    ! Total pressure
+    ave_var(nq+5) = p*(total_cond**gam_over_gm1)
+    !
+    ! First, update the time-averaged conservative variables
+    !
+    do m = 1,nq
+      uavesp(n,m) = a*uavesp(n,m) + b*usp(n,m)
+    end do
+    !
+    ! Next, update the time-averaged primitive variables
+    ! (with temperature instead of density)
+    !
+    uavesp(n,nq+1) = a*uavesp(n,nq+1) + b*ave_var(nq+1)
+    do m = 2,nq
+      uavesp(n,nq+m) = a*uavesp(n,nq+m) + b*ave_var(m)
+    end do
+    !
+    ! Update the remaining time-averaged variables
+    !
+    do m = 2*nq+1,nvar
+      uavesp(n,m) = a*uavesp(n,m) + b*product( ave_var(time_ave_var(m)%idx) )
+    end do
+    !
+  end do
+  !
+  ! Update prev_ave_time to the current time
+  !
+  prev_ave_time = time
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine update_time_ave_2d
+!
+!###############################################################################
+!
 subroutine average_restart_files()
   !
   !.. Use Statements ..

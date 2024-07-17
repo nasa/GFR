@@ -57,7 +57,8 @@ $(OBJDIR)/averaging_mod.o : averaging_mod.f90 \
                   $(OBJDIR)/flowvar_mod.o \
                   $(OBJDIR)/write_cgns_mod.o \
                   $(OBJDIR)/restart_mod.o \
-                  $(OBJDIR)/metrics.o
+                  $(OBJDIR)/metrics.o \
+                  $(OBJDIR)/mrf_mod.o
 
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/kind_types.o \
