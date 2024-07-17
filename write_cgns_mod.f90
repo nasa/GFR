@@ -4515,7 +4515,8 @@ end subroutine write_parallel_cgns_time_ave_file
 subroutine get_cgns_time_ave_variables(variable_list)
   !
   !.. Use Statements ..
-  use ovar, only : time_ave_vel_is_axisymm
+  use ovar,    only : time_ave_vel_is_axisymm
+  use mrf_mod, only : is_in_mrf
   !
   !.. Formal Arguments ..
 #ifdef SPECIAL_FOR_INTEL
@@ -4576,12 +4577,14 @@ subroutine get_cgns_time_ave_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:31) = ["Density            ", &
+  character(len=*), parameter :: var_order(1:33) = ["Density            ", &
                                                     "Momentum           ", &
                                                     "Velocity           ", &
                                                     "CylindricalVelocity", &
                                                     "Pressure           ", &
                                                     "Temperature        ", &
+                                                    "P0                 ", &
+                                                    "T0                 ", &
                                                     "uu                 ", &
                                                     "vv                 ", &
                                                     "ww                 ", &
@@ -4618,6 +4621,13 @@ continue
     call add_sol_variables(variable_list,axi_list)
   else
     call add_sol_variables(variable_list,default_list)
+  end if
+  !
+  ! Add total temperature and pressure if in a moving reference frame
+  !
+  if ( is_in_mrf() ) then
+    call add_sol_variable(variable_list,"T0")
+    call add_sol_variable(variable_list,"P0")
   end if
   !
   ! Make sure there are no duplicate variables being output
@@ -4886,6 +4896,54 @@ continue
         ! F2003 AUTO-REALLOC
         ta_var = trim(adjustl( time_ave_variables(m) ))
         if (ta_var == "t") then
+          idx1 = m
+          exit
+        end if
+      end do
+      !
+      if (idx1 > 0) then
+        call interpolate_for_output( uavesp(:,idx1) , vartmp )
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * tref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("P0") ! Pressure
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "P") then
+          idx1 = m
+          exit
+        end if
+      end do
+      !
+      if (idx1 > 0) then
+        call interpolate_for_output( uavesp(:,idx1) , vartmp )
+      end if
+      !
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * rhoref*aref*aref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("T0") ! Temperature
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do m = 1,size(time_ave_variables)
+        ! F2003 AUTO-REALLOC
+        ta_var = trim(adjustl( time_ave_variables(m) ))
+        if (ta_var == "T") then
           idx1 = m
           exit
         end if
