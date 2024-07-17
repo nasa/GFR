@@ -1513,7 +1513,7 @@ end function get_mrf_spinup_ratio
 !###############################################################################
 !
 pure &
-subroutine get_mrf_rotation(this,x_r,y_r,z_r)
+subroutine get_mrf_rotation(this,x_r,y_r,z_r,full_speed)
   !
   !.. Passed Argument from Invoking Object ..
   class(mrf_t), intent(in) :: this
@@ -1521,34 +1521,27 @@ subroutine get_mrf_rotation(this,x_r,y_r,z_r)
   !.. Formal Arguments ..
   real(wp), intent(inout) :: x_r,y_r,z_r
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: full_speed
+  !
   !.. Local Scalars ..
-  real(wp) :: current_tstar,spinup_iter,spinup_tstar,spinup_ratio
+  real(wp)    :: spinup_ratio
+  logical(lk) :: ignore_spinup
   !
 continue
   !
-  spinup_iter = one
-  spinup_tstar = one
-  spinup_ratio = one
-  !
-  ! First check the current iteration versus the spinup%iter value
-  !
-  if (itcur < this%spinup%iter) then
-    spinup_iter = real(itcur,kind=wp) / real(this%spinup%iter,kind=wp)
+  ignore_spinup = fals
+  if (present(full_speed)) then
+    ignore_spinup = full_speed
   end if
   !
-  ! Next check the current tstar versus the spinup%tstar value
+  ! Get the spinup ratio
   !
-  if (this%spinup%tstar > eps6) then
-    current_tstar = time*time_ref*time_scaling_factor
-    if (current_tstar < this%spinup%tstar) then
-      spinup_tstar = current_tstar / this%spinup%tstar
-    end if
+  if (ignore_spinup) then
+    spinup_ratio = one
+  else
+    spinup_ratio = this%spinup%get_spinup_ratio()
   end if
-  !
-  ! Set the spinup ratio as the smaller of the spinup iteration ratio and
-  ! the spinup tstar ratio, and make sure the value is between zero and one.
-  !
-  spinup_ratio = max( zero , min( spinup_tstar, spinup_iter, one ) )
   !
   ! Multiply the final rotation speeds by the spinup ratio
   !
