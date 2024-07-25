@@ -446,10 +446,10 @@ continue
     ! Azimuthal instantaneous velocity
     ave_var(nq+3) = ct*vz - st*vy
     !
-    ! Total temperature
-    ave_var(nq+4) = t*total_cond
     ! Total pressure
-    ave_var(nq+5) = p*(total_cond**gam_over_gm1)
+    ave_var(nq+4) = p*(total_cond**gam_over_gm1)
+    ! Total temperature
+    ave_var(nq+5) = t*total_cond
     !
     ! First, update the time-averaged conservative variables
     !
