@@ -1,7 +1,7 @@
 module restart_mod
   !
 #include <mpi_defs.h>
-#define PROFILE_ON
+!!#define PROFILE_ON
 !!!#define VERBOSE_RESTART
 #ifdef VERBOSE_RESTART
 #define ONLY_READ_RESTARTS_ARE_VERBOSE

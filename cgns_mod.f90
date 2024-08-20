@@ -1,7 +1,7 @@
 module module_cgns
   !
 #include <mpi_defs.h>
-#define PROFILE_ON
+!!#define PROFILE_ON
 !!!#define DEBUG_HOST_HANG
   !.. Use Statements
   use module_kind_types, global_debug_timer =>      debug_timer, &
