@@ -226,6 +226,19 @@ module ovar
     procedure :: get_rotation => get_mrf_rotation
   end type mrf_t
   !
+  !
+  type, public :: geom_wts_t
+    integer :: edge = 1
+    integer :: tria = 1
+    integer :: quad = 1
+    integer :: tetr = 1
+    integer :: pyra = 1
+    integer :: pris = 1
+    integer :: hexa = 1
+    integer :: face_tria = 1
+    integer :: face_quad = 1
+  end type geom_wts_t
+  !
   ! ################################
   ! ###  Module Local Variables  ###
   ! ################################
@@ -236,6 +249,9 @@ module ovar
   ! #############################
   ! ####   Input Variables   ####
   ! #############################
+  !
+  ! GEOMETRY WEIGHTS FOR METIS PARTITIONING
+  type(geom_wts_t), public, save :: geom_wts(1:5)
   !
   ! GRID INFORMATION
   integer,          public, save :: grid_format = Internally_Generated_Grid
@@ -2000,6 +2016,7 @@ module input_namelist_mod
   use ovar,      only : delete_converted_restart_files
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
   use ovar,      only : bc_input!,bc_input_t
+  use ovar,      only : geom_wts!,geom_wts_t
   use ovar,      only : output_time_averaging, time_ave_file
   use ovar,      only : start_averaging_timestep, start_averaging_tstar
   use ovar,      only : time_ave_vel_is_axisymm
@@ -2292,6 +2309,9 @@ module input_namelist_mod
                      chemistry_sub_iterations, ignore_thermo_newton_warnings
   ! INPUT BOUNDARY CONDITIONS
   namelist / input / bc_input
+  !
+  ! GEOMETRY WEIGHTS FOR METIS PARTITIONING
+  namelist / input / geom_wts
   !
   ! CFL ADJUSTMENT NAMELIST
   !
