@@ -503,6 +503,72 @@ continue
   !#####################################################################
   !#####################################################################
   !
+#ifdef DEBUG_ON
+!#define DUMP_CPU_LOCALITY
+#ifdef DUMP_CPU_LOCALITY
+  if (mypnum == glb_root) then
+    !
+    write (iout,1)
+    do n = 1,ncpu
+      write (iout,2) n-1,trim(adjustl(all_host_name(n))),all_cpu_num(n)
+    end do
+    flush (iout)
+    !
+    write (iout,10)
+    do n = 1,size(host)
+      write (iout,11) n,trim(adjustl(unique_hosts(n))), &
+                      host(n)%num_cpus,host(n)%num_cores
+      do i = 1,size(host(n)%mpi_num)
+        write (iout,12) host(n)%mpi_num(i), &
+                        host(n)%cpu_num(i), &
+                        host(n)%new_cpu_num(i)
+      end do
+    end do
+    flush (iout)
+    !
+    write (iout,20)
+    flush (iout)
+    !
+  end if
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  do n = 0,ncpu-1
+    if (mypnum == n) then
+      write (iout,21) mypnum,trim(adjustl(my_host_name)), &
+                      my_host_num,my_cpu_num, &
+                      my_host_rank,my_cpu_rank, &
+                      my_host_root,my_cpu_root
+      
+      flush (iout)
+    end if
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end do
+  write (error_message,"(a)") "after dumping CPU locality"
+ !call stop_gfr(STOP_MPI,pname,__LINE__,__FILE__,error_message)
+  !
+  1 format (//,80("#"),//," MPI Process     Hostname    CPU #",/,80("-"))
+  2 format (4x,i8,2x,a11,1x,i8)
+  !
+  10 format (80("-"),//,80("#"),//, &
+             "   Host #     Hostname    # Host CPUs    # Host Cores")
+  11 format (80("="),/,1x,i8,2x,a11,8x,i7,9x,i7,/, &
+             8x,":->",6x,"MPI #",9x,"CPU #",5x,"New CPU #",/,80("-"))
+  12 format (14x,i8,6x,i8,6x,i8)
+  !
+  20 format (80("="),//,80("#"),//,2x, &
+             "mypnum     hostname  my_host_num  my_cpu num  ", &
+             "my_host_rank  my_cpu_rank  ", &
+             "my_host_root  my_cpu_root",/,80("-"))
+  21 format (1x,i8,2x,a11,5x,i8,4x,i8,6x,i8,5x,i8,6x,i8,5x,i8)
+#endif
+#endif
+  !
+  !#####################################################################
+  !#####################################################################
+  !
   call get_resource_list()
   !
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
