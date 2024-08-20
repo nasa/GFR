@@ -507,7 +507,7 @@ continue
       !
       call memory_pause("Before: calling partition_using_metis_5")
       call partition_using_metis_5(metis_option_requested,npart, &
-                                   xadj,adjncy,epart, &
+                                   xadj,adjncy,epart,cell_geom,cell_order, &
                                    cells_surr_cell, &
                                    cells_surr_cell_ptr)
       !
@@ -554,6 +554,12 @@ continue
     end if
     !
   end if
+  !
+!#define OUTPUT_PARTITION_GEOM_DETAILS
+#ifdef OUTPUT_PARTITION_GEOM_DETAILS
+  call output_partition_geom_info(npart,cell_geom,epart)
+#endif
+  !
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call mpi_bcast(n_global_face,1_int_mpi,mpi_inttyp, &
                  glb_root,MPI_COMM_WORLD,mpierr)
@@ -888,6 +894,62 @@ end subroutine partition_grid
 !
 !###############################################################################
 !
+#ifdef OUTPUT_PARTITION_GEOM_DETAILS
+subroutine output_partition_geom_info(npart,cell_geom,epart)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: npart
+  integer, intent(in) :: cell_geom(:)
+  integer, intent(in) :: epart(:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nc,g,io,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: part_geom(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_partition_geom_info"
+  !
+continue
+  !
+  allocate ( part_geom(Geom_Edge:Geom_Hexa,1:npart) , source=0 , stat=ierr )
+  !
+  do nc = 1,size(epart)
+    !
+    n = epart(nc)
+    g = cell_geom(nc)
+    !
+    part_geom(g,n) = part_geom(g,n) + 1
+    !
+  end do
+  !
+  if (mypnum == glb_root) then
+    open (newunit=io,file="part_geom.dat",status="replace", &
+                     action="write",iostat=ierr)
+    write (io,1)
+    do n = 1,npart
+      write (io,2) n,part_geom(Geom_Edge,n), &
+                     part_geom(Geom_Tria,n), part_geom(Geom_Quad,n), &
+                     part_geom(Geom_Tetr,n), part_geom(Geom_Pyra,n), &
+                     part_geom(Geom_Pris,n), part_geom(Geom_Hexa,n)
+    end do
+    close (io,iostat=ierr)
+  end if
+  call stop_gfr(STOP_MPI,pname,__LINE__,__FILE__, &
+                "end of output_paritition_geom_info")
+  !
+  ! Format Statements
+  !
+  1 format ("  Part #    Edges    Trias    Quads    ", &
+            "Tetrs    Pyras    Prism    Hexas")
+  2 format (1x,i7,2x,i7,6(1x,i8))
+  !
+end subroutine output_partition_geom_info
+#endif
+!
+!###############################################################################
+!
 subroutine partition_into_quarters(nodes_of_cell,nodes_of_cell_ptr, &
                                    cells_surr_cell,cells_surr_cell_ptr, &
                                    xyz_nodes,epart)
@@ -1186,7 +1248,7 @@ end subroutine partition_using_metis_4
 !###############################################################################
 !
 subroutine partition_using_metis_5(metis_option_requested,npart, &
-                                   xadj,adjncy,epart, &
+                                   xadj,adjncy,epart,cell_geom,cell_order, &
                                    cells_surr_cell,cells_surr_cell_ptr)
   !
   !.. Formal Arguments ..
@@ -1195,11 +1257,13 @@ subroutine partition_using_metis_5(metis_option_requested,npart, &
   integer(idx_t),    intent(in) :: xadj(:)
   integer(idx_t),    intent(in) :: adjncy(:)
   integer(idx_t), intent(inout) :: epart(:)
+  integer,           intent(in) :: cell_geom(:)
+  integer,           intent(in) :: cell_order(:)
   integer,           intent(in) :: cells_surr_cell(:)
   integer,           intent(in) :: cells_surr_cell_ptr(:)
   !
   !.. Local Scalars ..
-  integer        :: n,ip,ierr,lcell,metis_option
+  integer        :: n,nc,i,ip,ierr,lcell,metis_option
   integer(idx_t) :: nvtxs,ncon,nparts,objval
   logical(ldk)   :: passes_inspection
   character(len=19) :: method
@@ -1256,17 +1320,17 @@ continue
   ! Allocate the local arrays
   !
 #ifdef DEBUG_ON
-  allocate ( vwgt(1:ncon*lcell) , source=1_idx_t , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"vwgt",1,__LINE__,__FILE__,ierr,error_message)
+ !allocate ( vwgt(1:ncon*lcell) , source=1_idx_t , &
+ !           stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"vwgt",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( vsize(1:lcell) , source=1_idx_t , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"vsize",1,__LINE__,__FILE__,ierr,error_message)
   !
-  allocate ( adjwgt(1:size(adjncy)) , source=1_idx_t , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"adjwgt",1,__LINE__,__FILE__,ierr,error_message)
+ !allocate ( adjwgt(1:size(adjncy)) , source=1_idx_t , &
+ !           stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"adjwgt",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( tpwgts(0:ncon*nparts-1) , &
              source=1.0_real_t/real(nparts,kind=real_t) , &
@@ -1312,6 +1376,8 @@ continue
         weight = "non-weighted"
         minmzd = "      edge cut      "
         !
+        ! Partition the grid using METIS
+        !
         call debug_timer(start_timer, &
                          "calling metis_partgraphrecursive, metis_option=1")
         call metis_partgraphrecursive(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
@@ -1336,6 +1402,8 @@ continue
         method = "k-way partitioning "
         weight = "non-weighted"
         minmzd = "      edge cut      "
+        !
+        ! Partition the grid using METIS
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_CUT
         !
@@ -1363,6 +1431,8 @@ continue
         weight = "non-weighted"
         method = "k-way partitioning "
         !
+        ! Partition the grid using METIS
+        !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_VOL
         !
         call debug_timer(start_timer, &
@@ -1389,15 +1459,11 @@ continue
         weight = "  weighted  "
         minmzd = "communication volume"
         !
-        !##############################################################
-        !##############################################################
+        ! Compute the partition weights for the cells and faces
         !
-        ! NEED TO SET SOMETHING UP TO COMPUTE PARTITION WEIGHTS.
-        ! FOR NOW, THE PARTITION WEIGHTS ARE EQUAL AND THIS IS
-        ! JUST EQUIVALENT TO (metis_option == 3).
+        call get_grid_weights(cell_geom,cell_order,xadj,adjncy,vwgt,adjwgt)
         !
-        !##############################################################
-        !##############################################################
+        ! Partition the grid using METIS
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_VOL
         !
@@ -1415,6 +1481,68 @@ continue
                                     objval,epart,method,weight,minmzd)
 #endif
         !
+      else if (metis_option == 5) then
+        !
+        ! This METIS routine computes weighted partitions using a
+        ! multilevel k-way partitioning algorithm while minimizing
+        ! the edge cuts. This is equivalent to metis_option==2 but
+        ! with cell weights.
+        !
+        method = "k-way partitioning "
+        weight = "  weighted  "
+        minmzd = "      edge cut      "
+        !
+        ! Compute the partition weights for the cells and faces
+        !
+        call get_grid_weights(cell_geom,cell_order,xadj,adjncy,vwgt,adjwgt)
+        !
+        ! Partition the grid using METIS
+        !
+        options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_CUT
+        !
+        call debug_timer(start_timer, &
+                         "calling metis_partgraphkway, metis_option=5")
+        call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
+                                 adjwgt,nparts,tpwgts,ubvec,options, &
+                                 objval,epart)
+        call debug_timer(stop_timer, &
+                         "calling metis_partgraphkway, metis_option=5")
+        !
+#ifdef DUMP_METIS_ARGUMENTS
+        call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
+                                    adjwgt,nparts,tpwgts,ubvec,options, &
+                                    objval,epart,method,weight,minmzd)
+#endif
+        !
+      else if (metis_option == 6) then
+        !
+        ! This METIS routine computes non-weighted partitions using a
+        ! multilevel recursive bisection while minimizing the edge cut.
+        !
+        method = "recursive bisection"
+        weight = "  weighted  "
+        minmzd = "      edge cut      "
+        !
+        ! Compute the partition weights for the cells and faces
+        !
+        call get_grid_weights(cell_geom,cell_order,xadj,adjncy,vwgt,adjwgt)
+        !
+        ! Partition the grid using METIS
+        !
+        call debug_timer(start_timer, &
+                         "calling metis_partgraphrecursive, metis_option=1")
+        call metis_partgraphrecursive(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
+                                      adjwgt,nparts,tpwgts,ubvec,options, &
+                                      objval,epart)
+        call debug_timer(stop_timer, &
+                         "calling metis_partgraphrecursive, metis_option=1")
+        !
+!#define DUMP_METIS_ARGUMENTS
+#ifdef DUMP_METIS_ARGUMENTS
+        call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
+                                    adjwgt,nparts,tpwgts,ubvec,options, &
+                                    objval,epart,method,weight,minmzd)
+#endif
       else
         !
         ! The METIS option requested is invalid!
@@ -1514,6 +1642,134 @@ continue
   !
 #endif
 end subroutine partition_using_metis_5
+!
+!###############################################################################
+!
+subroutine get_grid_weights(cell_geom,cell_order,xadj,adjncy,vwgt,adjwgt)
+  !
+  !.. Use Statements ..
+  use ovar, only : geom_wts
+  !
+  !.. Formal Arguments ..
+  integer,                      intent(in) :: cell_geom(:)
+  integer,                      intent(in) :: cell_order(:)
+  integer(idx_t),               intent(in) :: xadj(:)
+  integer(idx_t),               intent(in) :: adjncy(:)
+  integer(idx_t), allocatable, intent(out) :: vwgt(:)
+  integer(idx_t), allocatable, intent(out) :: adjwgt(:)
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,lcell,ladj
+  integer :: p,pmin,pmax,ndim
+  integer :: this_cell,adj_cell
+  integer :: this_geom,adj_geom
+  integer :: this_order,adj_order
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_grid_weights"
+  !
+  logical(lk), parameter :: include_face_weighting = fals
+ !logical(lk), parameter :: include_face_weighting = true
+  !
+continue
+  !
+  pmin = lbound(geom_wts,dim=1)
+  pmax = ubound(geom_wts,dim=1)
+  !
+  lcell = size(cell_geom)
+  ladj = size(adjncy)
+  ndim = 1
+  !
+  ! Get the partitioning weights for the cells
+  !
+  vwgt = init_array(lcell,1_idx_t) ! F2003 AUTO-REALLOC
+  !
+  do this_cell = 1,lcell
+    
+    p = max( pmin , min(pmax,cell_order(this_cell)) )
+    !
+    select case (cell_geom(this_cell))
+      case (Geom_Edge)
+        vwgt(this_cell) = int( geom_wts(p)%edge , kind=kind(vwgt) )
+      case (Geom_Tria)
+        vwgt(this_cell) = int( geom_wts(p)%tria , kind=kind(vwgt) )
+        ndim = max(ndim,2)
+      case (Geom_Quad)
+        vwgt(this_cell) = int( geom_wts(p)%quad , kind=kind(vwgt) )
+        ndim = max(ndim,2)
+      case (Geom_Tetr)
+        vwgt(this_cell) = int( geom_wts(p)%tetr , kind=kind(vwgt) )
+        ndim = max(ndim,3)
+      case (Geom_Pyra)
+        vwgt(this_cell) = int( geom_wts(p)%pyra , kind=kind(vwgt) )
+        ndim = max(ndim,3)
+      case (Geom_Pris)
+        vwgt(this_cell) = int( geom_wts(p)%pris , kind=kind(vwgt) )
+        ndim = max(ndim,3)
+      case (Geom_Hexa)
+        vwgt(this_cell) = int( geom_wts(p)%hexa , kind=kind(vwgt) )
+        ndim = max(ndim,3)
+      case default
+        vwgt(this_cell) = 1_idx_t
+    end select
+    !
+  end do
+  !
+  ! Get the partitioning weights for the faces
+  !
+  if (include_face_weighting) then
+    !
+    adjwgt = init_array(ladj,1_idx_t) ! F2003 AUTO-REALLOC
+    !
+    if (ndim == 3) then
+      !
+      do this_cell = 1,lcell
+        !
+        this_geom = cell_geom(this_cell)
+        this_order = cell_order(this_cell)
+        !
+        n1 = int( xadj(this_cell) , kind=kind(n1) )
+        n2 = int( xadj(this_cell+1)-1_idx_t , kind=kind(n2) )
+        !
+        do n = n1,n2
+          !
+          adj_cell = int( adjncy(n) , kind=kind(adj_cell) )
+          adj_geom = cell_geom(adj_cell)
+          adj_order = cell_order(adj_cell)
+          !
+          p = max( pmin , min( pmax , max(this_order,adj_order) ) )
+          !
+          if (this_geom == Geom_Tetr) then
+            !
+            adjwgt(n) = int( geom_wts(p)%face_tria , kind=kind(adjwgt) )
+            !
+          else if (this_geom == Geom_Hexa) then
+            !
+            adjwgt(n) = int( geom_wts(p)%face_quad , kind=kind(adjwgt) )
+            !
+          else if (any(this_geom == [Geom_Pyra,Geom_Pris])) then
+            !
+            if (this_geom == Geom_Tetr) then
+              adjwgt(n) = int( geom_wts(p)%face_tria , kind=kind(adjwgt) )
+            else if (adj_geom == Geom_Hexa) then
+              adjwgt(n) = int( geom_wts(p)%face_quad , kind=kind(adjwgt) )
+            else if (adj_geom == Geom_Pyra) then
+              ! NEED TO FIGURE OUT HOW TO DETERMINE
+              ! IF THIS IS A TRIANGLE OR QUAD FACE
+            else if (adj_geom == Geom_Pris) then
+              ! NEED TO FIGURE OUT HOW TO DETERMINE
+              ! IF THIS IS A TRIANGLE OR QUAD FACE
+            end if
+          end if
+          !
+        end do
+        !
+      end do
+      !
+    end if
+  end if
+  !
+end subroutine get_grid_weights
 !
 !###############################################################################
 !
