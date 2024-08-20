@@ -111,6 +111,191 @@ end subroutine initialize_limiters
 !
 !###############################################################################
 !
+subroutine compute_cell_ave_var(meq,cell_ave)
+  !
+  !.. Use Statements ..
+  use ovar,            only : gam,rgasref_nd
+  use geovar,          only : ncell,cell
+  use flowvar,         only : usp
+  use vandermonde_mod, only : vand
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: meq
+  real(wp), intent(inout) :: cell_ave(:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nc,nr,n0,np
+  integer  :: this_geom,this_order
+  real(wp) :: a,val,val_ec,val_mx,val_my,val_mz,val_ee
+  real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2
+  real(wp) :: gm1,rgasref_nd_inv,p
+  !
+  !.. Local Arrays ..
+  real(wp) :: geom_coef(Geom_Edge:Geom_Hexa)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_cell_ave_var"
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  gm1 = gam - one
+  rgasref_nd_inv = one/rgasref_nd
+  !
+  call get_geom_coef
+  !
+  if (meq <= nq) then
+    !
+    do nc = 1,ncell
+      !
+      n0 = cell(nc)%beg_sp-1
+      np = cell(nc)%end_sp-n0
+      !
+      this_geom = cell(nc)%geom
+      this_order = cell(nc)%order
+      !
+      val = zero
+      !
+      do n = 1,np
+        a = vand(this_geom,this_order)%nodal2modal%mat(1,n)
+        val = val + a * usp(n0+n,meq)
+      end do
+      !
+      cell_ave(nc) = geom_coef(this_geom) * val
+      !
+    end do
+    !
+  else
+    !
+    if (nr == 3) then
+      !
+      do nc = 1,ncell
+        !
+        n0 = cell(nc)%beg_sp-1
+        np = cell(nc)%end_sp-n0
+        !
+        this_geom = cell(nc)%geom
+        this_order = cell(nc)%order
+        !
+        val_ec = zero
+        val_mx = zero
+        val_my = zero
+        val_mz = zero
+        val_ee = zero
+        !
+        do n = 1,np
+          a = vand(this_geom,this_order)%nodal2modal%mat(1,n)
+          val_ec = val_ec + a * usp(n0+n,nec)
+          val_mx = val_mx + a * usp(n0+n,nmx)
+          val_my = val_my + a * usp(n0+n,nmy)
+          val_mz = val_mz + a * usp(n0+n,nmz)
+          val_ee = val_ee + a * usp(n0+n,nee)
+        end do
+        !
+        rho  = val_ec * geom_coef(this_geom)
+        rhou = val_mx * geom_coef(this_geom)
+        rhov = val_my * geom_coef(this_geom)
+        rhow = val_mz * geom_coef(this_geom)
+        rhoe = val_ee * geom_coef(this_geom)
+        !
+        rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+        !
+        p = gm1*(rhoe - half*rhoq2/rho)
+        !
+        cell_ave(nc) = merge(p,p*rgasref_nd_inv/rho,meq==nq+1)
+        !
+      end do
+      !
+    else if (nr == 2) then
+      !
+      do nc = 1,ncell
+        !
+        n0 = cell(nc)%beg_sp-1
+        np = cell(nc)%end_sp-n0
+        !
+        this_geom = cell(nc)%geom
+        this_order = cell(nc)%order
+        !
+        val_ec = zero
+        val_mx = zero
+        val_my = zero
+        val_ee = zero
+        !
+        do n = 1,np
+          a = vand(this_geom,this_order)%nodal2modal%mat(1,n)
+          val_ec = val_ec + a * usp(n0+n,nec)
+          val_mx = val_mx + a * usp(n0+n,nmx)
+          val_my = val_my + a * usp(n0+n,nmy)
+          val_ee = val_ee + a * usp(n0+n,nee)
+        end do
+        !
+        rho  = val_ec * geom_coef(this_geom)
+        rhou = val_mx * geom_coef(this_geom)
+        rhov = val_my * geom_coef(this_geom)
+        rhoe = val_ee * geom_coef(this_geom)
+        !
+        rhoq2 = rhou*rhou + rhov*rhov
+        !
+        p = gm1*(rhoe - half*rhoq2/rho)
+        !
+        cell_ave(nc) = merge(p,p*rgasref_nd_inv/rho,meq==nq+1)
+        !
+      end do
+      !
+    else
+      !
+      do nc = 1,ncell
+        !
+        n0 = cell(nc)%beg_sp-1
+        np = cell(nc)%end_sp-n0
+        !
+        this_geom = cell(nc)%geom
+        this_order = cell(nc)%order
+        !
+        val_ec = zero
+        val_mx = zero
+        val_ee = zero
+        !
+        do n = 1,np
+          a = vand(this_geom,this_order)%nodal2modal%mat(1,n)
+          val_ec = val_ec + a * usp(n0+n,nec)
+          val_mx = val_mx + a * usp(n0+n,nmx)
+          val_ee = val_ee + a * usp(n0+n,nee)
+        end do
+        !
+        rho  = val_ec * geom_coef(this_geom)
+        rhou = val_mx * geom_coef(this_geom)
+        rhoe = val_ee * geom_coef(this_geom)
+        !
+        rhoq2 = rhou*rhou
+        !
+        p = gm1*(rhoe - half*rhoq2/rho)
+        !
+        cell_ave(nc) = merge(p,p*rgasref_nd_inv/rho,meq==nq+1)
+        !
+      end do
+      !
+    end if
+    !
+  end if
+  !
+contains
+!===============================================================================
+subroutine get_geom_coef()
+  geom_coef(Geom_Edge) = half * sqrt(two)
+  geom_coef(Geom_Tria) = half * sqrt(two)
+  geom_coef(Geom_Quad) = half
+  geom_coef(Geom_Tetr) = half * sqrt(three)
+  geom_coef(Geom_Pyra) = half * sqrt(three) / sqrt(two)
+  geom_coef(Geom_Pris) = half
+  geom_coef(Geom_Hexa) = sqrt(two)/four
+end subroutine get_geom_coef
+!===============================================================================
+end subroutine compute_cell_ave_var
+!
+!###############################################################################
+!
 subroutine compute_cell_ave
   !
   !.. Use Statements ..
