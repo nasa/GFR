@@ -656,86 +656,11 @@ continue
     !##### SUBSONIC JETS
     !###########################################################################
     !
-    if (jet_init_func == 2) then
-      !
-      !=======================================================================
-      ! NOTE: This hardwires a mach=0.05 condition at the nozzle inflow plane
-      !=======================================================================
-      !
-      nozzle_len = merge(9.875_wp,7.74_wp,itestcase > 0)
+    if (init_cond /= 0) then
       !
       do k = 1,np
-        return_value(k,:) = jet_profile2(nozzle_len,xyz(1,k),bc_in(0)%pv(:))
-      end do
-      !
-    else if (jet_init_func == 4) then
-      !
-      !======================================================================
-      ! NOTE: This only works if the nozzle inflow BC is located in bc_in(1)
-      !======================================================================
-      !
-      nozzle_len = merge(9.875_wp,7.74_wp,itestcase > 0)
-      !
-      do k = 1,np
-        return_value(k,:) = jet_profile4(nozzle_len,xyz(1,k), &
-                                         bc_in(0)%pv(:), &
-                                         bc_in(init_cond)%pv(:))
-      end do
-      !
-    else if (jet_init_func == 3) then
-      !
-      !======================================================================
-      ! NOTE: This only works if the nozzle inflow BC is located in bc_in(1)
-      !======================================================================
-      !
-      nozzle_len = merge(9.875_wp,7.74_wp,itestcase > 0)
-      !
-      if (itestcase == Subsonic_Jet) then
-        div = eps1*smc000_interior_wall_radius(one)
-      else if (itestcase == -Subsonic_Jet) then
-        div = eps1*arn2_interior_wall_radius(one)
-      end if
-      !
-      do k = 1,np
-        !
-        if (itestcase == Subsonic_Jet) then
-          r0 = smc000_interior_wall_radius(xyz(1,k))
-        else if (itestcase == -Subsonic_Jet) then
-          r0 = arn2_interior_wall_radius(xyz(1,k))
-        end if
-        r = norm2(xyz(2:,k))
-        return_value(k,:) = jet_profile3(nozzle_len,xyz(1,k),r,r0,div, &
-                                         bc_in(init_cond)%pv(:), &
-                                         bc_in(0)%pv(:))
-        !
-      end do
-      !
-    else if (jet_init_func /= 0) then
-      !
-      ! div = thickness parameter for shear layer
-      !     = (radius of nozzle at the lip) * 0.1
-      ! NOTE: The nozzle lip should be located at x=0.0 so sending any value
-      !       greater than 0.0 into the function smc000_interior_wall_radius
-      !       should return the radius of the nozzle at the lip.
-      !
-      if (itestcase == Subsonic_Jet) then
-        div = eps1*smc000_interior_wall_radius(one)
-      else if (itestcase == -Subsonic_Jet) then
-       !div = eps1*arn2_interior_wall_radius(one)
-        div = 0.04_wp*arn2_interior_wall_radius(one)
-      end if
-      !
-      do k = 1,np
-        !
-        if (itestcase == Subsonic_Jet) then
-          r0 = smc000_interior_wall_radius(xyz(1,k))
-        else if (itestcase == -Subsonic_Jet) then
-          r0 = arn2_interior_wall_radius(xyz(1,k))
-        end if
-        r = norm2(xyz(2:,k))
-        return_value(k,:) = jet_profile(r,r0,div,bc_in(0)%pv(:), &
-                                        bc_in(init_cond)%pv(:))
-        !
+        return_value(k,:) = subsonic_jet_profile(xyz(:,k),bc_in(0)%pv(:), &
+                                                 bc_in(init_cond)%pv(:))
       end do
       !
     else
@@ -1197,299 +1122,118 @@ end function erf_blend
 !
 !###############################################################################
 !
-pure function jet_profile(r,r0,div,fs_pv,bc_pv) result(return_value)
-  !
-  !.. Formal Arguments ..
-  real(wp), intent(in) :: r
-  real(wp), intent(in) :: r0
-  real(wp), intent(in) :: div
-  real(wp), intent(in) :: fs_pv(:)
-  real(wp), intent(in) :: bc_pv(:)
-  !
-  !.. Function Result ..
-  real(wp) :: return_value(1:size(fs_pv))
-  !
-  !.. Local Scalars ..
-  real(wp) :: func
-  !
-  !.. Local Arrays ..
-  real(wp) :: pv(1:size(fs_pv))
-  !
-continue
- !!
- !! Initial profile for a jet
- !!
- !!  r0     = radius of jet profile
- !!  div    = thickness parameter for shear layer
- !!  ujet   = jet velocity
- !!  rhojet = jet density
- !!
- !r0   = 1._wp/12._wp
- !div  = 0.1*r0
- !ujet = 558.31_wp       ! (feet / second)
- !rhojet = 2.5019e-03_wp ! (slugs / cubic-feet)
- !!
- !do k = 1,mk(nb)
- !  do j = 1,mj(nb)
- !    do i = 1,mi(nb)
- !      if (nb < 2) then
- !        r0 = sqrt(x(i,mj(nb),k,2)**2+x(i,mj(nb),k,3)**2)
- !      end if
- !      r = sqrt(x(i,j,k,2)**2+x(i,j,k,3)**2)
- !      func  = half*(one-erf((r-r0)/(div)))
- !      uinit   = ujet*func   + (one-func)*fsvel
- !      rhoinit = rhojet*func + (one-func)*fsrho
- !      q(i,j,k,1) = rhoinit
- !      q(i,j,k,2) = rhoinit*uinit
- !      q(i,j,k,3) = zero
- !      q(i,j,k,4) = zero
- !      q(i,j,k,5) = rhoinit*(pinf/(rhoinit*(gam-one)) + half*uinit**2)
- !    end do
- !  end do
- !end do
-  !
-  func = half * (one - erf((r-r0)/div))
-  !
-  pv(nec) = func*bc_pv(nec) + (one-func)*fs_pv(nec)
-  pv(nmx) = func*bc_pv(nmx) + (one-func)*fs_pv(nmx)
-  pv(nmx+1:nme) = zero
- !pv(nmz) = zero
-  pv(nee) = fs_pv(nee)
-  !
-  ! Convert the primitive variables to conserved variables
-  !
-  return_value(:) = pv_to_cv(pv)
-  !
-end function jet_profile
-!
-!###############################################################################
-!
-pure function jet_profile3(nozzle_len,x,r,r0,div,bc_pv,fs_pv) &
-                    result(return_value)
+pure &
+function subsonic_jet_profile(xyz,fs_pv,bc_pv) result(return_value)
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : gam,grid_scaling_factor
+  use ovar, only : gam,rgasref_nd,aref
+  use ovar, only : jet_init_func,itestcase,grid_scaling_factor
   !
   !.. Formal Arguments ..
-  real(wp), intent(in) :: nozzle_len
-  real(wp), intent(in) :: x
-  real(wp), intent(in) :: r
-  real(wp), intent(in) :: r0
-  real(wp), intent(in) :: div
-  real(wp), intent(in) :: bc_pv(:)
+  real(wp), intent(in) :: xyz(:)
   real(wp), intent(in) :: fs_pv(:)
+  real(wp), intent(in) :: bc_pv(:)
   !
   !.. Function Result ..
   real(wp) :: return_value(1:size(fs_pv))
   !
   !.. Local Scalars ..
-  real(wp) :: xbeg,func,xfunc,rfunc
+  integer  :: ierr
+  real(wp) :: x,radius,nozzle_radius,xbeg
+  real(wp) :: gam_over_gm1,total_cond
+  real(wp) :: p_bc,t_bc,aspd_bc,mach_bc
+  real(wp) :: p0,r_jet,p_jet,t_jet,mach_jet
+  real(wp) :: blend_fs,blend_bc,blend_jt
+  real(wp) :: div,rfunc,xfunc
   !
   !.. Local Arrays ..
-  real(wp) :: vel(1:nr)
   real(wp) :: pv(1:size(fs_pv))
+  real(wp) :: pv_init(1:size(fs_pv))
+  !
+  !.. Local Parameters ..
+  ! This is the axial location that the axial blending begins which
+  ! jet_init_func = 2 or 3.
+  real(wp), parameter :: start_xblend  = three*ten*inches_to_meters
+  !
+  ! This is a fudge factor for making sure a point is inside the nozzle
+  ! interior. The lip is 0.03 inches thick, so any radius greater than the
+  ! (nozzle radius at a given axial location + 0.025 inches) is definitely
+  ! outside the nozzle
+  real(wp), parameter :: radius_eps = 0.025_wp*inches_to_meters
   !
 continue
   !
-  ! Initialize to the free-stream primitive variables
+  gam_over_gm1 = gam/(gam-one)
   !
-  pv(:) = fs_pv(:)
+  ! Get the nozzle radius at this axial location and the radius at this point
   !
-  ! If within the nozzle, initialize the velocity mach number to
-  ! a minimum of 0.05 at the inflow plane and use the error function
-  ! to smoothly transition this to the free-stream mach number within
-  ! the interior of the nozzle.
-  !
-  if (x < zero) then
-    !
-    xbeg = nozzle_len*grid_scaling_factor
-    !
-    rfunc = half * (one - erf((r-r0)/div))
-    xfunc = half * (one + erf((ten/xbeg)*abs(x)-seven))
-    func = rfunc * xfunc
-    !
-    pv(nec) = func*bc_pv(nec) + (one-func)*fs_pv(nec)
-    pv(nmx) = func*bc_pv(nmx) + (one-func)*fs_pv(nmx)
-    pv(nmx+1:nme) = zero
-    pv(nee) = fs_pv(nee)
-    !
+  x = xyz(1)
+  radius = norm2(xyz(2:))
+  if (itestcase < 0) then
+    nozzle_radius = arn2_interior_wall_radius(x)
+    xbeg = 7.74_wp*grid_scaling_factor
+  else
+    nozzle_radius = smc000_interior_wall_radius(x)
+    xbeg = 9.875_wp*grid_scaling_factor
   end if
   !
-  ! Convert the primitive variables to conserved variables
+  ! Compute the total pressure and total temperature for the BC
   !
-  return_value(:) = pv_to_cv(pv)
+  p_bc = bc_pv(nee)
+  t_bc = p_bc / (rgasref_nd*bc_pv(nec))
   !
-end function jet_profile3
-!
-!###############################################################################
-!
-pure function jet_profile2(nozzle_len,x,fs_pv) result(return_value)
+  aspd_bc = sqrt(gam*rgasref_nd*t_bc)
+  mach_bc = norm2(bc_pv(nmb:nme))/aspd_bc
   !
-  !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : gam,grid_scaling_factor
+  total_cond = one + half*(gam-one)*mach_bc*mach_bc
   !
-  !.. Formal Arguments ..
-  real(wp), intent(in) :: nozzle_len
-  real(wp), intent(in) :: x
-  real(wp), intent(in) :: fs_pv(:)
+  p0 = p_bc * (total_cond**gam_over_gm1)
   !
-  !.. Function Result ..
-  real(wp) :: return_value(1:size(fs_pv))
+  ! Compute the jet mach number using the BC total pressure and the
+  ! freestream static pressure
   !
-  !.. Local Scalars ..
-  real(wp) :: aspd,mach,xbeg,func
+  r_jet = fs_pv(nec)
+  p_jet = fs_pv(nee)
+  t_jet = p_jet/(rgasref_nd*r_jet)
   !
-  !.. Local Arrays ..
-  real(wp) :: vel(1:nr)
-  real(wp) :: pv(1:size(fs_pv))
+  mach_jet = sqrt( (two/(gam-one))*( ((p0/p_jet)**(one/gam_over_gm1)) - one ) )
   !
-continue
+  pv(nec) = r_jet
+  pv(nmx) = mach_jet * sqrt(gam*rgasref_nd*t_jet)
+  pv(nee) = p_jet
   !
-  ! Initialize to the free-stream primitive variables
-  !
-  pv(:) = fs_pv(:)
-  !
-  ! If within the nozzle, initialize the velocity mach number to
-  ! a minimum of 0.05 at the inflow plane and use the error function
-  ! to smoothly transition this to the free-stream mach number within
-  ! the interior of the nozzle.
-  !
-  if (x < zero) then
-    !
-    aspd = sqrt(max(gam*fs_pv(nee)/fs_pv(nec),rndoff))
-    mach = norm2(fs_pv(nmb:nme)) / aspd
-    !
-    if (mach < 0.05_wp) then
-      !
-      xbeg = nozzle_len*grid_scaling_factor
-      !
-      vel(:) = 0.05_wp * aspd * unit_vector( fs_pv(nmb:nme) )
-      !
-      if (x <= -xbeg) then
-        !
-        pv(nmb:nme) = vel(:)
-        !
-      else
-        !
-        func = half * (one - erf((ten/xbeg)*abs(x)-seven))
-        !
-        pv(nmb:nme) = func*fs_pv(nmb:nme) + (one-func)*vel(:)
-        !
-      end if
-      !
-    end if
-    !
-  end if
-  !
-  ! Convert the primitive variables to conserved variables
-  !
-  return_value(:) = pv_to_cv(pv)
-  !
-end function jet_profile2
-!
-!###############################################################################
-!
-pure function jet_profile4(nozzle_len,x,fs_pv,bc_pv) result(return_value)
-  !
-  !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : gam,grid_scaling_factor,rgasref_nd
-  !
-  !.. Formal Arguments ..
-  real(wp), intent(in) :: nozzle_len
-  real(wp), intent(in) :: x
-  real(wp), intent(in) :: fs_pv(:)
-  real(wp), intent(in) :: bc_pv(:)
-  !
-  !.. Function Result ..
-  real(wp) :: return_value(1:size(fs_pv))
-  !
-  !.. Local Scalars ..
-  real(wp) :: gm1,gam_over_gm1,xbeg,func
-  real(wp) :: aspd_bc,mach_bc,temp_bc,ttot_bc,ptot_bc
-  real(wp) :: aspd_fs,mach_fs,mach_init,total_cond
-  real(wp) :: temp_init,pres_init,rho_init,vel_init
-  real(wp) :: pres,rho,vmag,mach,aspd
-  !
-  !.. Local Arrays ..
-  real(wp) :: dir(1:nr)
-  real(wp) :: pv(1:size(fs_pv))
-  !
-continue
-  !
-  gm1 = gam - one
-  !
-  ! Initialize to the free-stream primitive variables
-  !
-  pv(:) = fs_pv(:)
-  !
-  ! If within the nozzle, initialize the velocity mach number to
-  ! a minimum of 0.05 at the inflow plane and use the error function
-  ! to smoothly transition this to the free-stream mach number within
-  ! the interior of the nozzle.
-  !
-  if (x < zero) then
-    !
-    gam_over_gm1 = gam / gm1
-    !
-    aspd_fs = sqrt(max(gam*fs_pv(nee)/fs_pv(nec),rndoff))
-    mach_fs = norm2(fs_pv(nmb:nme)) / aspd_fs
-    !
-    aspd_bc = sqrt(max(gam*bc_pv(nee)/bc_pv(nec),rndoff))
-    mach_bc = norm2(bc_pv(nmb:nme)) / aspd_bc
-    !
-    total_cond = one + half*gm1*mach_bc*mach_bc
-    !
-    temp_bc = bc_pv(nee)/bc_pv(nec)/rgasref_nd
-    ttot_bc = temp_bc*total_cond
-    ptot_bc = bc_pv(nee) * total_cond**gam_over_gm1
-    !
-    mach_init = 0.05_wp
-    !
-    total_cond = one + half*gm1*mach*mach
-    !
-    temp_init = ttot_bc / total_cond
-    pres_init = ptot_bc / (total_cond**gam_over_gm1)
-    rho_init  = pres_init / temp_init / rgasref_nd
-    vel_init  = mach_init*aspd_bc
-    !
-    dir(:) = unit_vector( bc_pv(nmb:nme) )
-    !
-    xbeg = nozzle_len*grid_scaling_factor
-    !
-    if (x <= -xbeg) then
-      !
-      pv(nec)     = rho_init
-      pv(nmb:nme) = vel_init*dir(:)
-      pv(nee)     = pres_init
-      !
+  ! Compute the primitive variables for the blended initial conditions
+  ! 
+  if (x <= zero) then
+    if (radius > nozzle_radius+radius_eps) then
+      blend_fs = one
+      blend_bc = zero
+      blend_jt = zero
     else
-      !
-      func = half * (one - erf((ten/xbeg)*abs(x)-seven))
-      !
-      rho  = func*fs_pv(nec) + (one-func)*rho_init
-      pres = func*fs_pv(nee) + (one-func)*pres_init
-      mach = func*mach_fs    + (one-func)*mach_init
-      !
-      aspd = sqrt(max(gam*pres/rho,rndoff))
-      !
-      vmag = mach*aspd
-      !
-      pv(nec)     = rho
-      pv(nmb:nme) = vmag*dir(:)
-      pv(nee)     = pres
-      !
+      div = eps1*nozzle_radius
+      rfunc = half * (one - erf((radius-nozzle_radius)/div))
+      xfunc = half * (one + erf((ten/xbeg)*abs(x)-seven))
+      blend_bc = rfunc*xfunc
+      blend_jt = one-blend_bc
+      blend_fs = zero
     end if
-    !
+  else
+    blend_jt = ssjet_blending(jet_init_func,x,start_xblend,radius,nozzle_radius)
+    blend_fs = one-blend_jt
+    blend_bc = zero
   end if
+  !
+  pv_init(nec) = blend_bc*bc_pv(nec) + blend_jt*pv(nec) + blend_fs*fs_pv(nec)
+  pv_init(nmx) = blend_bc*bc_pv(nmx) + blend_jt*pv(nmx) + blend_fs*fs_pv(nmx)
+  pv_init(nmx+1:nme) = zero
+ !pv_init(nmy) = blend/aref
+  pv_init(nee) = fs_pv(nee)
   !
   ! Convert the primitive variables to conserved variables
   !
-  return_value(:) = pv_to_cv(pv)
+  return_value(:) = pv_to_cv(pv_init)
   !
-end function jet_profile4
+end function subsonic_jet_profile
 !
 !###############################################################################
 !
@@ -1580,12 +1324,7 @@ continue
         ! the test case being run and the jet initialization function
         ! being used
         !
-        if (abs(itestcase)==Subsonic_Jet .and. any(jet_init_func==[2,3])) then
-          init = 0
-        else
-         !init = jet_init_func
-          init = nozzle_inflow_bc_idx
-        end if
+        init = nozzle_inflow_bc_idx
         !
       else
         !
