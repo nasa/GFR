@@ -2213,6 +2213,7 @@ subroutine write_restart_file(itnum)
   use ovar,               only : output_time_averaging
   use ovar,               only : restart_output_uses_host_roots
   use ovar,               only : max_restart_wall_time
+  use ovar,               only : completely_disable_restart_output
   use flowvar,            only : usp
   use synthetic_eddy_mod, only : sem_box
   use synthetic_eddy_mod, only : dump_sem_data
@@ -2255,6 +2256,8 @@ subroutine write_restart_file(itnum)
   logical(ldk), parameter :: wait_for_completion = .true.
   !
 continue
+  !
+  if (completely_disable_restart_output) return
   !
   call global_debug_timer(entering_procedure,pname)
   !
