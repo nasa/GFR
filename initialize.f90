@@ -659,8 +659,11 @@ continue
     if (init_cond /= 0) then
       !
       do k = 1,np
-        return_value(k,:) = subsonic_jet_profile(xyz(:,k),bc_in(0)%pv(:), &
-                                                 bc_in(init_cond)%pv(:))
+        return_value(k,:) = subsonic_jet_profile_using_astar(xyz(:,k), &
+                                                         bc_in(0)%pv(:), &
+                                                         bc_in(init_cond)%pv(:))
+       !return_value(k,:) = subsonic_jet_profile(xyz(:,k),bc_in(0)%pv(:), &
+       !                                         bc_in(init_cond)%pv(:))
       end do
       !
     else
@@ -1119,6 +1122,232 @@ continue
   return_value = value_at_zero*( one - erf((x-xref)/xdiv) )
   !
 end function erf_blend
+!
+!###############################################################################
+!
+pure &
+function compute_astar_radius(radius,mach) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  real(wp), intent(in) :: radius
+  real(wp), intent(in) :: mach
+  !
+  real(wp) :: return_value
+  !
+  real(wp) :: area,gp1,gm1,gexp,b,c,astar
+  !
+continue
+  !
+  gp1 = gam+one
+  gm1 = gam-one
+  gexp = half*gp1/gm1
+  !
+  area = radius*radius*pi
+  !
+  b = (half*gp1)**(-gexp)
+  c = (one + half*gm1*mach*mach)**(gexp)
+  !
+  astar = area*mach/(b*c)
+  return_value = sqrt(astar/pi)
+  !
+end function compute_astar_radius
+!
+!###############################################################################
+!
+pure &
+function subsonic_jet_profile_using_astar(xyz,fs_pv,bc_pv) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd,aref
+  use ovar, only : jet_init_func,itestcase
+  use ovar, only : grid_scaling_factor
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: xyz(:)
+  real(wp), intent(in) :: fs_pv(:)
+  real(wp), intent(in) :: bc_pv(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(fs_pv))
+  !
+  !.. Local Scalars ..
+  integer  :: ierr
+  real(wp) :: x,radius,nozzle_radius,xbeg,rbeg
+  real(wp) :: gam_over_gm1,two_over_gm1,gm1_over_gam
+  real(wp) :: p,t,aspd,mach,p0,t0,total_cond
+  real(wp) :: p_bc,t_bc,aspd_bc,mach_bc,p0_bc,t0_bc
+  real(wp) :: p_fs,t_fs,aspd_fs,mach_fs,p0_fs,t0_fs
+  real(wp) :: mach_jet,p0_jet,t0_jet,astar,asoa
+  real(wp) :: theta,aoa,vx,vy,vz,vr,vmag
+  real(wp) :: div,rfunc,xfunc,blend
+  !
+  !.. Local Arrays ..
+  real(wp) :: pv_init(1:size(fs_pv))
+  !
+  !.. Local Parameters ..
+  ! This is the axial location that the axial blending begins which
+  ! jet_init_func = 2 or 3.
+  real(wp), parameter :: start_xblend  = three*ten*inches_to_meters
+  !
+  ! This is a fudge factor for making sure a point is inside the nozzle
+  ! interior. The lip is 0.03 inches thick, so any radius greater than the
+  ! (nozzle radius at a given axial location + 0.025 inches) is definitely
+  ! outside the nozzle.
+  real(wp), parameter :: radius_eps = 0.025_wp*inches_to_meters
+  !
+  ! This controls the radial blending of the mach number inside the nozzle.
+  ! It is used to approximate a boundary layer near the surface, with a
+  ! smaller number creating a thinner boundary layer.
+  real(wp), parameter :: radius_bl = 0.05_wp
+  !
+  real(wp), parameter :: vr_div = three/five
+  !
+continue
+  !
+  gam_over_gm1 = gam/(gam-one)
+  two_over_gm1 = two/(gam-one)
+  gm1_over_gam = one/gam_over_gm1
+  !
+  ! Get the nozzle radius at this axial location and the radius at this point
+  !
+  x = xyz(1)
+  radius = norm2(xyz(2:))
+  if (itestcase < 0) then
+    nozzle_radius = arn2_interior_wall_radius(x)
+    xbeg = 7.74_wp*grid_scaling_factor
+    rbeg = arn2_interior_wall_radius(xbeg)
+  else
+    nozzle_radius = smc000_interior_wall_radius(x)
+    xbeg = 9.875_wp*grid_scaling_factor
+    rbeg = smc000_interior_wall_radius(xbeg)
+  end if
+  !
+  theta = atan2(xyz(3),xyz(2))
+  !
+  ! Compute the Mach number, P0, and T0 for the BC
+  !
+  p_bc = bc_pv(nee)
+  t_bc = p_bc / (rgasref_nd*bc_pv(nec))
+  !
+  aspd_bc = sqrt(gam*rgasref_nd*t_bc)
+  mach_bc = norm2(bc_pv(nmb:nme))/aspd_bc
+  !
+  total_cond = one + half*(gam-one)*mach_bc*mach_bc
+  !
+  p0_bc = p_bc * (total_cond**gam_over_gm1)
+  t0_bc = t_bc * total_cond
+  !
+  ! Compute the freestream Mach number, P0, and T0
+  !
+  p_fs = fs_pv(nee)
+  t_fs = p_fs / (rgasref_nd*fs_pv(nec))
+  !
+  aspd_fs = sqrt(gam*rgasref_nd*t_fs)
+  mach_fs = norm2(fs_pv(nmb:nme))/aspd_bc
+  !
+  total_cond = one + half*(gam-one)*mach_fs*mach_fs
+  !
+  p0_fs = p_fs * (total_cond**gam_over_gm1)
+  t0_fs = t_fs * total_cond
+  !
+  ! Get the Mach number, P0, and T0 for the jet
+  ! NOTE: P0 and T0 are assumed constant from the nozzle inflow to the exit
+  !
+  p0_jet = p0_bc
+  t0_jet = t0_bc
+  ! Use the freestream pressure to get the ideal jet Mach no. at the nozzle exit
+  mach_jet = sqrt( two_over_gm1*( ((p0_jet/p_fs)**gm1_over_gam) - one ) )
+  !
+  ! Compute A* from the BC mach number and inflow radius
+  !
+ !astar = compute_astar_radius(rbeg,mach_bc)
+  astar = compute_astar_radius(0.0254_wp,mach_jet)
+  !
+  ! Compute A*/A at this location
+  !
+  asoa = astar/(nozzle_radius)
+ !asoa = astar*astar/(nozzle_radius*nozzle_radius)
+  !
+  ! Compute the primitive variables for the blended initial conditions
+  ! 
+  if (x <= zero) then
+    if (radius > nozzle_radius+radius_eps) then
+      !
+      ! I dont think it will get here because the subroutine
+      ! find_elem_for_initial_jet_profile should leave this section of the
+      ! domain with an initialization cell tag of 0 indicating that it
+      ! should not use the subsonic jet initialization and just initialize
+      ! these cells to the freestream conditions.
+      !
+      p0 = p0_fs
+      t0 = t0_fs
+      mach = mach_fs
+      !
+      aoa = zero
+      !
+    else
+      !
+      call get_mach_from_astar_over_a(eps15,one,asoa,mach,ierr)
+     !call get_mach_from_astar_over_a(mach_bc,one,asoa,mach,ierr)
+      !
+      div = radius_bl*nozzle_radius
+      blend = half * (one + erf((four/xbeg)*abs(x)-two))
+      !
+      t0   = blend*t0_bc   + (one-blend)*t0_jet
+      p0   = blend*p0_bc   + (one-blend)*p0_jet
+     !mach = blend*mach_bc + (one-blend)*mach_jet
+      !
+      ! Add a radial blending on the Mach number to approximate a boundary layer
+      !
+      rfunc = half * (one - erf((radius-nozzle_radius)/div))
+      mach = mach*rfunc
+      !
+      div = vr_div*nozzle_radius
+      rfunc = half * (one - erf((radius-nozzle_radius)/div))
+      aoa = atan2( arn2_interior_wall_slope(x) , one ) * (one-rfunc)
+      !
+    end if
+  else
+    !
+    blend = ssjet_blending(jet_init_func,x,start_xblend,radius,nozzle_radius)
+    !
+    t0   = blend*t0_jet   + (one-blend)*t0_fs
+    p0   = blend*p0_jet   + (one-blend)*p0_fs
+    mach = blend*mach_jet + (one-blend)*mach_fs
+    !
+    aoa = zero
+    !
+  end if
+  !
+  total_cond = one + half*(gam-one)*mach*mach
+  !
+  t = t0 / total_cond
+  p = p0 / (total_cond**gam_over_gm1)
+  !
+  vmag = mach*sqrt(gam*rgasref_nd*t)
+  !
+  vx = vmag*cos(aoa)
+  vr = vmag*sin(aoa)
+  !
+  vy = vr*cos(theta)
+  vz = vr*sin(theta)
+  !
+  pv_init(nec) = p / (rgasref_nd*t)
+  pv_init(nmx) = vx
+ !pv_init(nmy) = astar/aref
+  pv_init(nmy) = vy
+ !pv_init(nmy) = real(ierr,kind=wp)/aref
+  pv_init(nmz) = vz
+ !pv_init(nmz) = asoa/aref
+  pv_init(nee) = p
+  !
+  ! Convert the primitive variables to conserved variables
+  !
+  return_value(:) = pv_to_cv(pv_init)
+  !
+end function subsonic_jet_profile_using_astar
 !
 !###############################################################################
 !

@@ -41,6 +41,40 @@ end function arn2_interior_wall_radius
 !
 !###############################################################################
 !
+pure function arn2_interior_wall_slope(x) result(return_value)
+  !
+  ! NOTE: This function assumes the incoming xyz is in meters
+  !       since all the parameter coordinates are in meters.
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: x
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Parameters ..
+  real(wp), parameter :: pa(2) = [-0.179705_wp,0.0762_wp]
+  real(wp), parameter :: pb(2) = [-0.006350_wp,0.0254_wp]
+  !
+  real(wp), parameter :: c0 =  0.0256084_wp
+  real(wp), parameter :: c1 =  0.0667531_wp
+  real(wp), parameter :: c2 =  5.4427200_wp
+  real(wp), parameter :: c3 = 19.5023000_wp
+  !
+continue
+  !
+  if (x <= pa(1)) then
+    return_value = zero
+  else if (x >= pb(1)) then
+    return_value = zero
+  else
+    return_value = c1 + two*c2*x + three*c3*x*x
+  end if
+  !
+end function arn2_interior_wall_slope
+!
+!###############################################################################
+!
 pure function point_is_in_arn2_nozzle(xyz) result(return_value)
   !
   ! NOTE: This function assumes the incoming xyz is in meters
