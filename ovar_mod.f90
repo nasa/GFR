@@ -494,6 +494,7 @@ module ovar
   real(wp), public, save :: Limiter_Filter_Alpha  = 36.0_wp
   real(wp), public, save :: Limiter_Filter_eps    = 0.0_wp
   logical(lk), public, save :: Limiter_Use_Dynamic_Filter = fals
+  logical(lk), public, save :: Track_Limiter_Filter_Dissipation = fals
   !
   ! SPONGE FILTER OPTIONS
   logical(lk), public, save :: use_sponge_filter    = fals
@@ -1972,6 +1973,7 @@ module input_namelist_mod
   use ovar,      only : Filter_Alpha,  Limiter_Filter_Alpha
   use ovar,      only : Filter_eps,    Limiter_Filter_eps
   use ovar,      only : Limiter_Use_Dynamic_Filter
+  use ovar,      only : Track_Limiter_Filter_Dissipation
   use ovar,      only : Pyramid_Filter_Option
   use ovar,      only : use_sponge_filter
   use ovar,      only : Sponge_Filter_etac
@@ -2217,7 +2219,8 @@ module input_namelist_mod
   ! LIMITER FILTER OPTIONS
   namelist / input / Limiter_Filter_Option, Limiter_Filter_etac, &
                      Limiter_Filter_Order, Limiter_Filter_Alpha, &
-                     Limiter_Filter_eps, Limiter_Use_Dynamic_Filter
+                     Limiter_Filter_eps, Limiter_Use_Dynamic_Filter, &
+                     Track_Limiter_Filter_Dissipation
   ! SPONGE FILTER OPTIONS
   namelist / input / use_sponge_filter, &
                      Sponge_Filter_etac, &
