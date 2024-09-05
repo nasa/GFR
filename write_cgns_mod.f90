@@ -3300,11 +3300,11 @@ continue
         nv = nv + 1
         ivar_s = isvar_s(nv)
         !
-        i = (l+1) - ( (l+1)/4 )*3
-        j = (l+2) - ( (l+2)/4 )*3
+        i = (l+1) - ( (l+1)/4 )*3  ! [2-(2/4)*3,3-(3/4)*3,4-(4/4)*3] = [2-0*3,3-0*3,4-1*3] = [2,3,1]
+        j = (l+2) - ( (l+2)/4 )*3  ! [3-(3/4)*3,4-(4/4)*3,5-(5/4)*3] = [3-0*3,4-1*3,5-1*3] = [3,1,2]
         !
-        nmi = nmb-1+i
-        nmj = nmb-1+j
+        nmi = nmb-1+i ! [y,z,x]
+        nmj = nmb-1+j ! [z,x,y]
         !
         do n = 1,npts
           !
@@ -3386,6 +3386,11 @@ continue
       !!{{{
       nv = nv + 1
       ivar_s = isvar_s(nv)
+      !
+      ! Q = 0.5*( div(u)**2 + ||rotation||^2 - ||strain||^2 )
+      !
+      ! div(u) = dudx + dvdy + dwdz
+      ! rotation[x,y,z] = 0.5*[dwdy-dvdz,dudz-dwdx,dvdx-dudy]
       !
       call moving_ref_frame%get_rotation(x_r,y_r,z_r)
       !
