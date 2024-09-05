@@ -1,6 +1,10 @@
 module module_cgns
   !
 #include <mpi_defs.h>
+!!#define DEBUG_CGNS_MPI_BCAST_ERROR
+#ifdef DEBUG_CGNS_MPI_BCAST_ERROR
+#define PROFILE_ON
+#endif
 !!#define PROFILE_ON
 !!!#define DEBUG_HOST_HANG
   !.. Use Statements
@@ -3985,12 +3989,36 @@ continue
       if (mypnum == glb_root) then
         write (iout,1000) "grid_elem : ",nn,n1,n2,np
         ival = grid_elem(n1:n2) ! F2003 AUTO-REALLOC
+#ifdef DEBUG_CGNS_MPI_BCAST_ERROR
+        write (iout,714) mypnum,size(ival),size(grid_elem)
+        write (iout,*) mypnum, "here 1"
+#endif
       else
         ival = init_array(np,int(0,kind=kind(grid_elem))) ! F2003 AUTO-REALLOC
+#ifdef DEBUG_CGNS_MPI_BCAST_ERROR
+        write (iout,714) mypnum,size(ival),size(grid_elem)
+        write (iout,*) mypnum, "here 2"
+#endif
       end if
+#ifdef DEBUG_CGNS_MPI_BCAST_ERROR
+      do n = 1,ncpu
+        if (mypnum == n-1) then
+          write (iout,714) mypnum,size(ival),size(grid_elem)
+          flush (iout)
+        end if
+        call mpi_barrier(host_roots_comm,mpierr)
+      end do
+      flush(iout)
+      call mpi_barrier(host_roots_comm,mpierr)
+  714 format (2x,"CPU # ",i5," : size(ival) = ",i10,"  ; size(grid_elem) = ",i10)
+  715 format (2x,"CPU # ",i5," : mpierr = ",i0)
+#endif
       !
       call mpi_bcast(ival,int(np,kind=int_mpi),mpi_inttyp, &
                      glb_root,host_roots_comm,mpierr)
+#ifdef DEBUG_CGNS_MPI_BCAST_ERROR
+      write (iout,715) mypnum,mpierr
+#endif
       !
       if (mypnum /= glb_root) then
         do n = 1,np
@@ -4003,6 +4031,11 @@ continue
     end do
   end if
   1000 format (2x,a,"div # ",i0," : n1=",i0,", n2=",i0,", np=",i0)
+#ifdef DEBUG_CGNS_MPI_BCAST_ERROR
+  if (mypnum == glb_root) then
+    write (iout,*) "Finished broadcasting grid_elem to host roots."
+  end if
+#endif
   !
   if (allocated(ival)) then
     deallocate ( ival , stat=ierr , errmsg=error_message )
