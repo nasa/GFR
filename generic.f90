@@ -1208,6 +1208,9 @@ subroutine write_iter_stats(walltime_expiring,exit_main_loop)
   use ovar,    only : output_time_averaging,time_scaling_factor,ave_start_time
   use ovar,    only : max_restart_wall_time,max_time_ave_rst_wall_time
   use ovar,    only : max_cgns_wall_time,max_time_ave_cgns_wall_time
+  use ovar,    only : moving_ref_frame
+  !
+  use bc_flow_stats_mod, only : compute_bc_stats
   !
   use order_mod, only : n_order
   !
@@ -1256,6 +1259,8 @@ continue
     uverr(nmx,2,2) = mdot_nozzle
     uverr(nmy,2,2) = mdot_injector
     uverr(nmz,2,2) = blowing_ratio
+ !else if (moving_ref_frame%is_active()) then
+ !  call compute_bc_stats()
   end if
   !
   ! Get the density and entropy residual stats from uverr
