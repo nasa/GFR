@@ -3668,7 +3668,7 @@ subroutine remove_duplicate_nodes(sol_nodes)
   !.. Local Scalars ..
   integer :: i,ip,ip1,ip2,ipn1,ipn2,ipcut,ierr
   integer :: n,nc,new_pt,old_pt,duplicate_node
-  integer :: l,lpts_new,lpts_old
+  integer :: l,lpts_new,lpts_old,k
   logical(lk) :: error_removing_nodes
   logical(lk) :: no_changes
  !real(wp) :: diff
@@ -3767,12 +3767,20 @@ continue
   !
   call debug_timer(start_timer,"Third loop")
   lpoin_dt_convergence: &
-  do
+  do k = 1,1000000
     !
     ! Update the list of duplicate nodes for each of the nodes on cut boundaries
     !
+   !if (mypnum == glb_root) then
+   !  write (iout,820) k,lpts_old
+   !end if
+   !820 format (16x,"iteration ",i6,"  lpts_old = ",i0)
     do n = 1,lpts_old
       !
+     !if (mypnum == glb_root) then
+     !  write (iout,830) n
+     !end if
+     !830 format (36x,"pt = ",i0)
       if (.not. allocated(lpoin_dt(n)%nodes)) cycle
       !
       ! For each of the nodes 'ip' that have already been found to be a
@@ -3798,20 +3806,35 @@ continue
         end do
         !
       end do
+     !if (mypnum == glb_root) then
+     !  write (iout,831) "Finished first subsubloop, now packing"
+     !end if
+     !831 format (40x," : ",a)
       !
       ! Create a new list of all the marked duplicate nodes for the
       ! current node using the pack function with the mask array.
       ! 
       ! F2003 AUTO-REALLOCATION
       lpoin_dt(n)%nodes = pack( intseq(1,lpts_old) , msk(1:lpts_old) )
+     !if (mypnum == glb_root) then
+     !  write (iout,831) "Finished packing, now reseting marked nodes"
+     !end if
       !
       ! Reset all the marked nodes in msk to fals
       !
       do l = 1,size(lpoin_dt(n)%nodes)
         msk( lpoin_dt(n)%nodes(l) ) = fals
       end do
+     !if (mypnum == glb_root) then
+     !  write (iout,831) "Finished reseting marked nodes, now going to next pt"
+     !end if
       !
     end do
+    !
+   !821 format (32x," : ",a)
+   !if (mypnum == glb_root) then
+   !  write (iout,821) "Finished first subloop, starting second"
+   !end if
     !
     no_changes = true
     !
@@ -3830,10 +3853,19 @@ continue
       end if
       !
     end do
+   !if (mypnum == glb_root) then
+   !  write (iout,821) "Finished second subloop, checking for convergence"
+   !end if
     !
     ! Exit the outer loop if no changes were made from the previous update.
     !
     if (no_changes) exit lpoin_dt_convergence
+    !
+   !if (mod(k,10) == 0) then
+   !  if (mypnum == glb_root) then
+   !    write (iout,821) "Not converged, starting next iteration"
+   !  end if
+   !end if
     !
   end do lpoin_dt_convergence
   call debug_timer( stop_timer,"Third loop")
