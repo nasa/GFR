@@ -2208,6 +2208,9 @@ end subroutine mark_sponge_filter_cells
 !
 subroutine apply_filter_limiter_to_usp(troubled_cell,usp)
   !
+  !.. Use Statements ..
+  use flowvar, only : cell_diss
+  !
   !.. Formal Arguments ..
   logical(ldk), intent(inout) :: troubled_cell(:)
   real(wp),     intent(inout) :: usp(:,:)
@@ -2226,20 +2229,20 @@ continue
   !
   if (force_nd_subroutines) then
     !
-    call apply_filter_limiter_to_usp_nd(1,nq,troubled_cell,usp)
+    call apply_filter_limiter_to_usp_nd(1,nq,troubled_cell,usp,cell_diss)
     !
   else
     !
     if (nr == 3) then
-      call apply_filter_limiter_to_usp_3d(troubled_cell,usp)
+      call apply_filter_limiter_to_usp_3d(troubled_cell,usp,cell_diss)
     else if (nr == 2) then
-      call apply_filter_limiter_to_usp_2d(troubled_cell,usp)
+      call apply_filter_limiter_to_usp_2d(troubled_cell,usp,cell_diss)
     else
-      call apply_filter_limiter_to_usp_1d(troubled_cell,usp)
+      call apply_filter_limiter_to_usp_1d(troubled_cell,usp,cell_diss)
     end if
     !
     if (ncs > 0) then
-      call apply_filter_limiter_to_usp_nd(1,ncs,troubled_cell,usp)
+      call apply_filter_limiter_to_usp_nd(1,ncs,troubled_cell,usp,cell_diss)
     end if
     !
   end if
@@ -2251,21 +2254,25 @@ end subroutine apply_filter_limiter_to_usp
 !###############################################################################
 !
 pure &
-subroutine apply_filter_limiter_to_usp_3d(troubled_cell,usp)
+subroutine apply_filter_limiter_to_usp_3d(troubled_cell,usp,cell_diss)
   !
   !.. Use Statements ..
   use order_mod,  only : maxSP
   use geovar,     only : ncell,cell
   use filter_mod, only : filter
+  use ovar,       only : Track_Limiter_Filter_Dissipation
+  use metrics_mod, only : wtdjac
   !
   !.. Formal Arguments ..
   logical(ldk), intent(inout) :: troubled_cell(:)
   real(wp),     intent(inout) :: usp(:,:)
+  real(wp),     intent(inout) :: cell_diss(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,k,n,nc,np,n0
   integer  :: this_geom,this_order
   real(wp) :: a,filt_ec,filt_mx,filt_my,filt_mz,filt_ee
+  real(wp) :: diss_ec,diss_mx,diss_my,diss_mz,diss_ee
   !
   !.. Local Arrays ..
   real(wp) :: old_usp(1:maxSP,1:nq)
@@ -2340,6 +2347,30 @@ continue
       !
     end do
     !
+#define DISS_FUNC( a , b ) (a-b)
+!#define DISS_FUNC( a , b ) (abs(a-b))
+!#define DISS_FUNC( a , b ) (abs(a-b)**2)
+
+    if (Track_Limiter_Filter_Dissipation) then
+      diss_ec = zero
+      diss_mx = zero
+      diss_my = zero
+      diss_mz = zero
+      diss_ee = zero
+      do n = 1,np
+        diss_ec = diss_ec + DISS_FUNC(old_usp(n,nec),usp(n0+n,nec))*wtdjac(n0+n)
+        diss_mx = diss_mx + DISS_FUNC(old_usp(n,nmx),usp(n0+n,nmx))*wtdjac(n0+n)
+        diss_my = diss_my + DISS_FUNC(old_usp(n,nmy),usp(n0+n,nmy))*wtdjac(n0+n)
+        diss_mz = diss_mz + DISS_FUNC(old_usp(n,nmz),usp(n0+n,nmz))*wtdjac(n0+n)
+        diss_ee = diss_ee + DISS_FUNC(old_usp(n,nee),usp(n0+n,nee))*wtdjac(n0+n)
+      end do
+      cell_diss(nc,nec) = cell_diss(nc,nec) + diss_ec
+      cell_diss(nc,nmx) = cell_diss(nc,nmx) + diss_mx
+      cell_diss(nc,nmy) = cell_diss(nc,nmy) + diss_my
+      cell_diss(nc,nmz) = cell_diss(nc,nmz) + diss_mz
+      cell_diss(nc,nee) = cell_diss(nc,nee) + diss_ee
+    end if
+    !
     ! Unmark this cell as troubled because we only want to filter once
     !
     if (ncs == 0) then
@@ -2353,21 +2384,25 @@ end subroutine apply_filter_limiter_to_usp_3d
 !###############################################################################
 !
 pure &
-subroutine apply_filter_limiter_to_usp_2d(troubled_cell,usp)
+subroutine apply_filter_limiter_to_usp_2d(troubled_cell,usp,cell_diss)
   !
   !.. Use Statements ..
   use order_mod,  only : maxSP
   use geovar,     only : ncell,cell
   use filter_mod, only : filter
+  use ovar,       only : Track_Limiter_Filter_Dissipation
+  use metrics_mod, only : wtdjac
   !
   !.. Formal Arguments ..
   logical(ldk), intent(inout) :: troubled_cell(:)
   real(wp),     intent(inout) :: usp(:,:)
+  real(wp),     intent(inout) :: cell_diss(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,k,n,nc,np,n0
   integer  :: this_geom,this_order
   real(wp) :: a,filt_ec,filt_mx,filt_my,filt_ee
+  real(wp) :: diss_ec,diss_mx,diss_my,diss_ee
   !
   !.. Local Arrays ..
   real(wp) :: old_usp(1:maxSP,1:nq)
@@ -2438,6 +2473,23 @@ continue
       !
     end do
     !
+    if (Track_Limiter_Filter_Dissipation) then
+      diss_ec = zero
+      diss_mx = zero
+      diss_my = zero
+      diss_ee = zero
+      do n = 1,np
+        diss_ec = diss_ec + DISS_FUNC(old_usp(n,nec),usp(n0+n,nec))*wtdjac(n0+n)
+        diss_mx = diss_mx + DISS_FUNC(old_usp(n,nmx),usp(n0+n,nmx))*wtdjac(n0+n)
+        diss_my = diss_my + DISS_FUNC(old_usp(n,nmy),usp(n0+n,nmy))*wtdjac(n0+n)
+        diss_ee = diss_ee + DISS_FUNC(old_usp(n,nee),usp(n0+n,nee))*wtdjac(n0+n)
+      end do
+      cell_diss(nc,nec) = cell_diss(nc,nec) + diss_ec
+      cell_diss(nc,nmx) = cell_diss(nc,nmx) + diss_mx
+      cell_diss(nc,nmy) = cell_diss(nc,nmy) + diss_my
+      cell_diss(nc,nee) = cell_diss(nc,nee) + diss_ee
+    end if
+    !
     ! Unmark this cell as troubled because we only want to filter once
     !
     if (ncs == 0) then
@@ -2451,21 +2503,25 @@ end subroutine apply_filter_limiter_to_usp_2d
 !###############################################################################
 !
 pure &
-subroutine apply_filter_limiter_to_usp_1d(troubled_cell,usp)
+subroutine apply_filter_limiter_to_usp_1d(troubled_cell,usp,cell_diss)
   !
   !.. Use Statements ..
   use order_mod,  only : maxSP
   use geovar,     only : ncell,cell
   use filter_mod, only : filter
+  use ovar,       only : Track_Limiter_Filter_Dissipation
+  use metrics_mod, only : wtdjac
   !
   !.. Formal Arguments ..
   logical(ldk), intent(inout) :: troubled_cell(:)
   real(wp),     intent(inout) :: usp(:,:)
+  real(wp),     intent(inout) :: cell_diss(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,k,n,nc,np,n0
   integer  :: this_geom,this_order
   real(wp) :: a,filt_ec,filt_mx,filt_ee
+  real(wp) :: diss_ec,diss_mx,diss_ee
   !
   !.. Local Arrays ..
   real(wp) :: old_usp(1:maxSP,1:nq)
@@ -2532,6 +2588,20 @@ continue
       !
     end do
     !
+    if (Track_Limiter_Filter_Dissipation) then
+      diss_ec = zero
+      diss_mx = zero
+      diss_ee = zero
+      do n = 1,np
+        diss_ec = diss_ec + DISS_FUNC(old_usp(n,nec),usp(n0+n,nec))*wtdjac(n0+n)
+        diss_mx = diss_mx + DISS_FUNC(old_usp(n,nmx),usp(n0+n,nmx))*wtdjac(n0+n)
+        diss_ee = diss_ee + DISS_FUNC(old_usp(n,nee),usp(n0+n,nee))*wtdjac(n0+n)
+      end do
+      cell_diss(nc,nec) = cell_diss(nc,nec) + diss_ec
+      cell_diss(nc,nmx) = cell_diss(nc,nmx) + diss_mx
+      cell_diss(nc,nee) = cell_diss(nc,nee) + diss_ee
+    end if
+    !
     ! Unmark this cell as troubled because we only want to filter once
     !
     if (ncs == 0) then
@@ -2545,22 +2615,25 @@ end subroutine apply_filter_limiter_to_usp_1d
 !###############################################################################
 !
 pure &
-subroutine apply_filter_limiter_to_usp_nd(mbeg,mend,troubled_cell,usp)
+subroutine apply_filter_limiter_to_usp_nd(mbeg,mend,troubled_cell,usp,cell_diss)
   !
   !.. Use Statements ..
   use order_mod,  only : maxSP
   use geovar,     only : ncell,cell
   use filter_mod, only : filter
+  use ovar,       only : Track_Limiter_Filter_Dissipation
+  use metrics_mod, only : wtdjac
   !
   !.. Formal Arguments ..
   integer,         intent(in) :: mbeg,mend
   logical(ldk), intent(inout) :: troubled_cell(:)
   real(wp),     intent(inout) :: usp(:,:)
+  real(wp),     intent(inout) :: cell_diss(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,k,m,n,nc,np,n0
   integer  :: this_geom,this_order
-  real(wp) :: a,val
+  real(wp) :: a,val,diss
   !
   !.. Local Arrays ..
   real(wp) :: old_usp(1:maxSP,1:nq)
@@ -2622,6 +2695,16 @@ continue
         !
       end do
     end do
+    !
+    if (Track_Limiter_Filter_Dissipation) then
+      do m = mbeg,mend
+        diss = zero
+        do n = 1,np
+          diss = diss + DISS_FUNC(old_usp(n,m),usp(n0+n,m))*wtdjac(n0+n)
+        end do
+        cell_diss(nc,m) = cell_diss(nc,m) + diss
+      end do
+    end if
     !
     ! Unmark this cell as troubled because we only want to filter once
     !
