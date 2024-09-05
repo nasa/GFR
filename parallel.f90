@@ -1320,17 +1320,17 @@ continue
   ! Allocate the local arrays
   !
 #ifdef DEBUG_ON
- !allocate ( vwgt(1:ncon*lcell) , source=1_idx_t , &
- !           stat=ierr , errmsg=error_message )
- !call alloc_error(pname,"vwgt",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( vwgt(1:ncon*lcell) , source=1_idx_t , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"vwgt",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( vsize(1:lcell) , source=1_idx_t , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"vsize",1,__LINE__,__FILE__,ierr,error_message)
   !
- !allocate ( adjwgt(1:size(adjncy)) , source=1_idx_t , &
- !           stat=ierr , errmsg=error_message )
- !call alloc_error(pname,"adjwgt",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( adjwgt(1:size(adjncy)) , source=1_idx_t , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"adjwgt",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( tpwgts(0:ncon*nparts-1) , &
              source=1.0_real_t/real(nparts,kind=real_t) , &
