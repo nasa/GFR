@@ -107,6 +107,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/initialize.o \
         $(OBJDIR)/generic.o \
         $(OBJDIR)/bc_mod.o \
+        $(OBJDIR)/bc_flow_stats_mod.o \
         $(OBJDIR)/bnd_profiles_mod.o \
         $(OBJDIR)/triangle.o \
         $(OBJDIR)/tetrahedra.o \

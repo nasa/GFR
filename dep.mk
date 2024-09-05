@@ -85,6 +85,16 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/bc_sup_out_mod.o \
                      mpi_defs.h
 
+$(OBJDIR)/bc_flow_stats_mod.o : bc_flow_stats_mod.f90 \
+                      $(OBJDIR)/kind_types.o \
+                      $(OBJDIR)/eqn_idx_mod.o \
+                      $(OBJDIR)/geovar_mod.o \
+                      $(OBJDIR)/ovar_mod.o \
+                      $(OBJDIR)/flowvar_mod.o \
+                      $(OBJDIR)/metrics.o \
+                      $(OBJDIR)/element_type_mod.o \
+                      $(FUNDIR)/debug_timer.f90
+
 $(OBJDIR)/bnd_profiles_mod.o : bnd_profiles_mod.f90 \
                      $(OBJDIR)/kind_types.o \
                      $(OBJDIR)/eqn_idx_mod.o \
@@ -258,6 +268,7 @@ $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/gpu_mod.o \
             $(OBJDIR)/mms_mod.o \
             $(OBJDIR)/thx_mod.o \
+            $(OBJDIR)/bc_flow_stats_mod.o \
             $(OBJDIR)/timer_mod.o \
             $(FUNDIR)/debug_timer.f90
 
