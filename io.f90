@@ -741,6 +741,19 @@ continue
   call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"Dumping marker parameters!")
 #endif
   !
+  ! Only allow Track_Limiter_Filter_Dissipation to be active if using the
+  ! limiter filter.
+  !
+  if (Track_Limiter_Filter_Dissipation) then
+    if (Limiter_Option /= 0) then
+      if (Limiter_Filter_Option == 0) then
+        Track_Limiter_Filter_Dissipation = fals
+      end if
+    else
+      Track_Limiter_Filter_Dissipation = fals
+    end if
+  end if
+  !
   ! Make sure the number of RK stages is correct for some RK types
   !
   if (.not. any(abs(Runge_Kutta_Scheme) == Valid_RK_Schemes(:))) then
