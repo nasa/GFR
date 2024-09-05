@@ -55,8 +55,8 @@ continue
   !
   w   = pulse_test_width
   gap = pulse_test_gap
-  delta = w / 40.
-  alpha = 2. / w
+  delta = w / (four*ten)
+  alpha = two / w
   !
   !
   ! Determine the unit flow direction based on freestream angle.
@@ -106,15 +106,15 @@ continue
         ! 1d Streamwise distance to pulse center.
         dist(i) =  abs( sum( ( xyz(1:nx) - c(1:nx,i) )*flow_dir(1:nx) ) )
       end do
-      wt(1:4) = [1.,1.,4.,6.]  ! weights for Gauss & ellipse
-      beta  = log10(2.) / (36.*delta**2)  ! Gauss "slope"
+      wt(1:4) = [one,one,four,six]  ! weights for Gauss & ellipse
+      beta  = log10(two) / ((six*delta)**2)  ! Gauss "slope"
     else  ! 2d pulse form
       do i = 1, 4  ! pulse types
         ! 2d Radial distance to pulse center.
         dist(i) = sqrt( sum( ( xyz(1:nx) - c(1:nx,i) )**2 ) )
       end do
-      wt(1:4) = [1.,1.,4.,6.]  ! weights for Gauss & ellipse
-      beta  = log10(2.) / (36.*delta**2)  ! Gauss "slope"
+      wt(1:4) = [one,one,four,six]  ! weights for Gauss & ellipse
+      beta  = log10(two) / ((six*delta)**2)  ! Gauss "slope"
       !
       ! Park & Kim (2014) use this 3d form for Gauss & ellipse.
       ! http://dx.doi.org/10.1016/j.compfluid.2013.11.030
@@ -125,21 +125,21 @@ continue
     !
     ! Compute pulse amplitude at point xyz. Peak value is generally 1.
     !
-    if      ( any(pulse_test_form==[0,1]) .and. dist(1) .le. w/2. ) then
+    if      ( any(pulse_test_form==[0,1]) .and. dist(1) .le. w/two ) then
       ! Gauss
       pulse = ( fun_gauss1d( dist(1), -delta, beta )*wt(1) &
               + fun_gauss1d( dist(1),  delta, beta )*wt(2) &
               + fun_gauss1d( dist(1),   zero, beta )*wt(3) ) / wt(4)
       exit loop_pulse_test_repeat
-    else if ( any(pulse_test_form==[0,2]) .and. dist(2) .le. w/2. ) then
+    else if ( any(pulse_test_form==[0,2]) .and. dist(2) .le. w/two ) then
       ! Square
-      pulse = 1.
+      pulse = one
       exit loop_pulse_test_repeat
-    else if ( any(pulse_test_form==[0,3]) .and. dist(3) .le. w/2. ) then
+    else if ( any(pulse_test_form==[0,3]) .and. dist(3) .le. w/two ) then
       ! Triangle
-      pulse = max( 1. - dist(3) / (w/2.) , zero )
+      pulse = max( one - dist(3) / (w/two) , zero )
       exit loop_pulse_test_repeat
-    else if ( any(pulse_test_form==[0,4]) .and. dist(4) .le. w/2. ) then
+    else if ( any(pulse_test_form==[0,4]) .and. dist(4) .le. w/two ) then
       ! Ellipse
       pulse = ( fun_ellip1d( dist(4), -delta, alpha )*wt(1) &
               + fun_ellip1d( dist(4),  delta, alpha )*wt(2) &
@@ -205,7 +205,7 @@ function fun_ellip1d(x,x0,alpha) result(return_value)
   real(wp) :: return_value
   real(wp) ,intent(in) :: x, x0, alpha
 
-  return_value = sqrt( max( 1. - alpha**2 * (x-x0)**2, 0. ) )
+  return_value = sqrt( max( one - alpha**2 * (x-x0)**2, zero ) )
 
 end function fun_ellip1d
 !=====================================================================
