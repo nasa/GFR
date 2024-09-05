@@ -69,6 +69,11 @@ module flowvar
   real(wp), public, save, allocatable :: uavesp(:,:)
   !$ACC DECLARE CREATE(uavesp)
   !
+  ! CELL_DISS : array to keep track of the dissipation added to each
+  !             cell by the limiter filter
+  !
+  real(wp), public, save, allocatable :: cell_diss(:,:)
+  ! 
   ! TIME_AVE_VARIABLES : character identifier for variables included
   !                      in the time averaging
   !
@@ -273,11 +278,12 @@ subroutine allocate_flowvar_arrays()
   use module_kind_types, only : Classic_RK,CK4_RK,TVD4_RK,OERK,EPERK
   use eqn_idx,           only : nq,ng,npres,ntemp,ngamm
   use geovar,            only : nr,n_solpts,n_flxpts
-  use geovar,            only : nface,nedge,nnode
+  use geovar,            only : ncell,nface,nedge,nnode
   use ovar,              only : Runge_Kutta_Scheme,num_rk_stages
   use ovar,              only : continuous_output
   use ovar,              only : time_average_restart_files
   use ovar,              only : if_interpto_newgrid
+  use ovar,              only : Track_Limiter_Filter_Dissipation
   !
   !.. Local Scalars ..
   integer :: nvar,nf,ne,nn,nfpts,nepts,nspts
@@ -401,6 +407,12 @@ continue
   call alloc_fen_dt(nodedusp_dt,nf,"nodedusp_dt",pname,__LINE__)
   !
   call alloc_fen_dt(nodegpsp_dt,nf,"nodegpsp_dt",pname,__LINE__,num_var=ng)
+  !
+  ! Allocate the limiter filter dissipation array
+  !
+  if (Track_Limiter_Filter_Dissipation) then
+    call alloc_array(cell_diss,ncell,nq,"cell_diss",pname,__LINE__)
+  end if
   !
   ! Finally, sort and output the time taken to allocate all these arrays
   !
