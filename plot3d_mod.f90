@@ -1,7 +1,10 @@
 module module_plot3d
   !
+!!#define PROFILE_ON
   !.. Use Statements ..
-  use module_kind_types
+ !use module_kind_types
+  use module_kind_types, global_debug_timer =>      debug_timer, &
+                    pure_global_debug_timer => pure_debug_timer
   use ovar, only : output_plot3d_to_tecplot
   !
   implicit none
@@ -7102,6 +7105,10 @@ continue
   !
 #endif
 end subroutine plot3d_memory_usage
+!
+!###############################################################################
+!
+#include "Functions/debug_timer.f90"
 !
 !###############################################################################
 !
