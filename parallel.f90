@@ -1320,17 +1320,11 @@ continue
   ! Allocate the local arrays
   !
 #ifdef DEBUG_ON
-  allocate ( vwgt(1:ncon*lcell) , source=1_idx_t , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"vwgt",1,__LINE__,__FILE__,ierr,error_message)
+  vwgt = init_array(ncon*lcell,1_idx_t) ! F2003 AUTO-REALLOC
   !
-  allocate ( vsize(1:lcell) , source=1_idx_t , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"vsize",1,__LINE__,__FILE__,ierr,error_message)
+  vsize = init_array(lcell,1_idx_t) ! F2003 AUTO-REALLOC
   !
-  allocate ( adjwgt(1:size(adjncy)) , source=1_idx_t , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"adjwgt",1,__LINE__,__FILE__,ierr,error_message)
+  adjwgt = init_array(size(adjncy),1_idx_t) ! F2003 AUTO-REALLOC
   !
   allocate ( tpwgts(0:ncon*nparts-1) , &
              source=1.0_real_t/real(nparts,kind=real_t) , &
@@ -1340,9 +1334,7 @@ continue
   tpwgts(:) = real( one/real(nparts,kind=wp) , kind=kind(tpwgts) )
   tpwgts(:) = tpwgts(:) / sum(tpwgts(:))
   !
-  allocate ( ubvec(1:ncon) , source=1.01_real_t , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"ubvec",1,__LINE__,__FILE__,ierr,error_message)
+  ubvec = init_array(ncon,1.01_real_t) ! F2003 AUTO-REALLOC
   !
   if (mypnum == glb_root) write (iout,5) mypnum,sum(tpwgts)
 #endif
