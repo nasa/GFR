@@ -18,6 +18,8 @@ module rhs_mod
   public :: rresi
   public :: save_old_solution
   public :: stabilize_usp
+  public :: update_faceusp
+  public :: update_facegpsp
   !
 contains
 !
@@ -614,6 +616,108 @@ continue
   call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine stabilize_usp
+!
+!###############################################################################
+!
+subroutine update_faceusp(iter,nst,newton_failures)
+  !
+  !.. Use Statements ..
+  use module_bc, only : get_faceusp_bc
+  !
+  use parallel_mod, only : exchange_faceusp
+  use parallel_mod, only : wait_faceusp
+  !
+  use flux_mod, only : interp_cv_to_flxpts
+  !
+  !.. Formal Arguments ..
+  integer,    intent(in) :: iter
+  integer,    intent(in) :: nst
+  integer, intent(inout) :: newton_failures
+  !
+  !.. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_faceusp"
+  !
+continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Interpolate the conserved variables from
+  ! the solution points to the face/flux points
+  ! NOTE: Skip this if this is the first Runge-Kutta stage, since this is
+  !       done immediately after the last RK stage.
+  !
+  call interp_cv_to_flxpts(iter,nst)
+                                    !  call check_for_bad_number(__LINE__)
+  !
+  ! Initiate the exchange of face/flux point solutions
+  ! between adjacent partitions
+  !
+  if (ncpu > 1) then
+    call exchange_faceusp           !; call check_for_bad_number(__LINE__)
+#ifdef IMMEDIATE_WAIT_FOR_MPI
+    call wait_faceusp               !; call check_for_bad_number(__LINE__)
+#endif
+  end if
+  !
+  ! Get the boundary conditions for the boundary face/flux points
+  !
+  call get_faceusp_bc(newton_failures)
+ !call check_for_bad_number(__LINE__,newton_failures)
+  !
+  ! Ensure that the exchange of face/flux point solutions between adjacent
+  ! partitions has been completed, because that information will be needed
+  ! in the next step.
+  !
+  if (ncpu > 1) then
+#ifndef IMMEDIATE_WAIT_FOR_MPI
+    call wait_faceusp               !; call check_for_bad_number(__LINE__)
+#endif
+  end if
+  !
+  ! Finally, update facegpsp using the updated faceusp
+  !
+  call update_facegpsp
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
+  !
+end subroutine update_faceusp
+!
+!###############################################################################
+!
+subroutine update_facegpsp()
+  !
+  !.. Use Statements ..
+  use geovar,        only : n_bnd_flxpts
+  use flowvar,       only : faceusp,facegpsp
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_facegpsp"
+  !
+continue
+  !
+  ! Update the thermo and transport properties for all the
+  ! exterior flux points of all the boundary faces.
+  !
+  n1 = 1
+  n2 = n_bnd_flxpts
+  !
+  call update_thermo_properties(n1,n2,faceusp(:,:,2),facegpsp(:,:,2), &
+                                      loc="face",caller_name=pname)
+  call update_transport_properties(n1,n2,faceusp(:,:,2),facegpsp(:,:,2))
+  !
+end subroutine update_facegpsp
 !
 !###############################################################################
 !

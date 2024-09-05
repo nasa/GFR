@@ -703,9 +703,12 @@ $(OBJDIR)/rhs_mod.o : rhs_mod.f90 \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/order_mod.o \
             $(OBJDIR)/flowvar_mod.o \
+            $(OBJDIR)/bc_mod.o \
+            $(OBJDIR)/flux.o \
             $(OBJDIR)/metrics.o \
             $(OBJDIR)/filter_mod.o \
             $(OBJDIR)/limiters.o \
+            $(OBJDIR)/parallel.o \
             $(OBJDIR)/projection_mod.o \
             $(OBJDIR)/thermo_mod.o \
             $(OBJDIR)/transport_mod.o \
