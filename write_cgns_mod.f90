@@ -1678,6 +1678,8 @@ continue
       end if
     else if (trim(variable_names(l)) == "QCriterion") then
       n = n + 2
+    else if (trim(variable_names(l)) == "FilterDissipation") then
+      n = n + nq
     else
       n = n + 1
     end if
@@ -1866,6 +1868,22 @@ continue
         if ( imarker > 1 ) write(varname,'(a,i2.2)') trim(varname),imarker
         call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       end do
+      !
+    else if (trim(variable_names(k)) == "FilterDissipation") then
+      !
+      n = n + 1
+      varname = "DensityFilterDissipation"
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
+      do m = 1,nr
+        n = n + 1
+        varname = "Momentum"//char_xyz(m)//"FilterDissipation"
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+      !
+      n = n + 1
+      varname = "EnergyFilterDissipation"
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       !
     else if (trim(variable_names(k)) == "CoMetrics") then
    !  do m = 1,nr
@@ -2085,7 +2103,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use ovar,    only : profile_io_cgns_subs
   use ovar,    only : Limiter_Option
   use ovar,    only : moving_ref_frame
-  use flowvar, only : dtsp
+  use flowvar, only : dtsp,cell_diss
   !
   use metrics_mod, only : time_metrics,metrics_array,jac
   !
@@ -3630,6 +3648,33 @@ continue
         call cgns_write_field_data
       end do
       !!}}}
+    case ("FilterDissipation")
+      !!{{{
+      !
+      allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      do m = 1,nq
+        !
+        ! Save the limiter filter dissipation for this equation to vartmp_at_sp
+        !
+        do nc = 1,ncell
+          n0 = cell(nc)%beg_sp - 1
+          np = cell(nc)%end_sp - n0
+          do n = 1,np
+            vartmp_at_sp(n0+n) = cell_diss(nc,m)
+          end do
+        end do
+        !
+        call interpolate_for_output( vartmp_at_sp , vartmp )
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !
+      !!}}}
     case ("Partition")
       !!{{{
       allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
@@ -3817,6 +3862,7 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,   only : output_extra_species_variables
   use ovar,   only : output_debug_species_variables
   use ovar,   only : output_grdnt_species_variables
+  use ovar,   only : Track_Limiter_Filter_Dissipation
   !
   !.. Formal Arguments ..
 #ifdef SPECIAL_FOR_INTEL
@@ -3848,7 +3894,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:54) = ["Density             ", &
+  character(len=*), parameter :: var_order(1:55) = ["Density             ", &
                                                     "Momentum            ", &
                                                     "Energy              ", &
                                                     "Velocity            ", &
@@ -3901,7 +3947,8 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "VorticityMagnitude  ", &
                                                     "StrainRateMagnitude ", &
                                                     "QCriterion          ", &
-                                                    "DivergenceOfVelocity"]
+                                                    "DivergenceOfVelocity", &
+                                                    "FilterDissipation   "]
   !
   !.. Variables requiring dusp for output
   character(len=*), parameter :: grad_vars(1:16) = ["GradSpeciesDensities", &
@@ -4059,6 +4106,10 @@ continue
         call add_sol_variables(variable_list,consv_var)
       end if
     end if
+  end if
+  !
+  if (Track_Limiter_Filter_Dissipation) then
+    call add_sol_variable(variable_list,"FilterDissipation")
   end if
   !
   ! Add species mass fractions to the variable list if using a gas mixture.
