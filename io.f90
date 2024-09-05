@@ -832,13 +832,13 @@ continue
       write (error_message,41)
     else if ( .not. any( pulse_test_form_dim == [1,2] ) ) then
       write (error_message,42)
-    else if ( pulse_test_length .le. 0._wp ) then
+    else if ( pulse_test_length <= zero ) then
       write (error_message,43)
-    else if ( pulse_test_width  .le. 0._wp ) then
+    else if ( pulse_test_width <= zero ) then
       write (error_message,44)
-    else if ( pulse_test_gap    .lt. 0._wp ) then
+    else if ( pulse_test_gap < zero ) then
       write (error_message,45)
-    else if ( pulse_test_repeat .lt. 0 ) then
+    else if ( pulse_test_repeat < 0 ) then
       write (error_message,46)
     else
       pulse_test_error = fals

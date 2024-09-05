@@ -125,21 +125,21 @@ continue
     !
     ! Compute pulse amplitude at point xyz. Peak value is generally 1.
     !
-    if      ( any(pulse_test_form==[0,1]) .and. dist(1) .le. w/two ) then
+    if      ( any(pulse_test_form==[0,1]) .and. dist(1) <= w/two ) then
       ! Gauss
       pulse = ( fun_gauss1d( dist(1), -delta, beta )*wt(1) &
               + fun_gauss1d( dist(1),  delta, beta )*wt(2) &
               + fun_gauss1d( dist(1),   zero, beta )*wt(3) ) / wt(4)
       exit loop_pulse_test_repeat
-    else if ( any(pulse_test_form==[0,2]) .and. dist(2) .le. w/two ) then
+    else if ( any(pulse_test_form==[0,2]) .and. dist(2) <= w/two ) then
       ! Square
       pulse = one
       exit loop_pulse_test_repeat
-    else if ( any(pulse_test_form==[0,3]) .and. dist(3) .le. w/two ) then
+    else if ( any(pulse_test_form==[0,3]) .and. dist(3) <= w/two ) then
       ! Triangle
       pulse = max( one - dist(3) / (w/two) , zero )
       exit loop_pulse_test_repeat
-    else if ( any(pulse_test_form==[0,4]) .and. dist(4) .le. w/two ) then
+    else if ( any(pulse_test_form==[0,4]) .and. dist(4) <= w/two ) then
       ! Ellipse
       pulse = ( fun_ellip1d( dist(4), -delta, alpha )*wt(1) &
               + fun_ellip1d( dist(4),  delta, alpha )*wt(2) &
