@@ -1717,6 +1717,10 @@ continue
   !
   ! Get the partitioning weights for the faces
   !
+#ifdef DEBUG_ON
+  adjwgt = init_array(ladj,1_idx_t) ! F2003 AUTO-REALLOC
+#endif
+  !
   if (include_face_weighting) then
     !
     adjwgt = init_array(ladj,1_idx_t) ! F2003 AUTO-REALLOC
