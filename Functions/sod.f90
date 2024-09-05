@@ -70,9 +70,9 @@ continue
   nx = size(xyz,dim=1)  ! grid dim: 1d,2d,or 3d
   dist_right = sum( xyz(1:nx) * sod_test_right_vector(1:nx) )
   !
-  if ( dist_right > 0.0_wp ) then
-    pres = pres * 0.10_wp
-    rho  = rho  * 0.125_wp
+  if ( dist_right > zero ) then
+    pres = pres * eps1
+    rho  = rho  * one8
   end if
   !
   ! Evaluate the dimensional initial conditions using conserved variables
