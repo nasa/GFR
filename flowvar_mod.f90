@@ -412,6 +412,8 @@ continue
   !
   if (Track_Limiter_Filter_Dissipation) then
     call alloc_array(cell_diss,ncell,nq,"cell_diss",pname,__LINE__)
+  else
+    call alloc_array(cell_diss,1,nq,"cell_diss",pname,__LINE__)
   end if
   !
   ! Finally, sort and output the time taken to allocate all these arrays
