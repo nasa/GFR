@@ -1679,7 +1679,7 @@ continue
     else if (trim(variable_names(l)) == "QCriterion") then
       n = n + 2
     else if (trim(variable_names(l)) == "FilterDissipation") then
-      n = n + nq
+      n = n + nq + 1
     else
       n = n + 1
     end if
@@ -1883,6 +1883,10 @@ continue
       !
       n = n + 1
       varname = "EnergyFilterDissipation"
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
+      n = n + 1
+      varname = "MarkerCounter"
       call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       !
     else if (trim(variable_names(k)) == "CoMetrics") then
@@ -2103,7 +2107,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use ovar,    only : profile_io_cgns_subs
   use ovar,    only : Limiter_Option
   use ovar,    only : moving_ref_frame
-  use flowvar, only : dtsp,cell_diss
+  use flowvar, only : dtsp,cell_diss,cell_num_marks
   !
   use metrics_mod, only : time_metrics,metrics_array,jac
   !
@@ -3673,6 +3677,20 @@ continue
         call cgns_write_field_data
         !
       end do
+      !
+      ! Save the number of times each cell has been marked to vartmp_at_sp
+      !
+      do nc = 1,ncell
+        n0 = cell(nc)%beg_sp - 1
+        np = cell(nc)%end_sp - n0
+        do n = 1,np
+          vartmp_at_sp(n0+n) = cell_num_marks(nc)
+        end do
+      end do
+      !
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      call cgns_write_field_data
       !
       !!}}}
     case ("Partition")
