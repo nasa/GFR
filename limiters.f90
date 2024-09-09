@@ -3196,7 +3196,9 @@ subroutine identify_troubled_cells(nst,troubled_cell,dropped_orders, &
   !.. Use Statements ..
   use geovar,    only : ncell,cell
   use ovar,      only : Limiter_Option
+  use ovar,      only : Track_Limiter_Filter_Dissipation
   use order_mod, only : p_order,n_order
+  use flowvar,   only : cell_num_marks
   !
   !.. Formal Arguments ..
   integer,         intent(in) :: nst                   !< Runge-Kutta stage
@@ -3301,6 +3303,12 @@ continue
     !
     if (troubled_cell(nc)) then
       there_are_troubles = true
+    end if
+    !
+    ! Update the counter for how many times this cell has been marked
+    !
+    if (Track_Limiter_Filter_Dissipation) then
+      cell_num_marks(nc) = cell_num_marks(nc) + one
     end if
     !
   end do
