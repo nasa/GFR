@@ -71,8 +71,11 @@ module flowvar
   !
   ! CELL_DISS : array to keep track of the dissipation added to each
   !             cell by the limiter filter
+  ! CELL_NUM_MARKS : number of times each cell has been marked
+  !                  NOTE: this is real solely because it is output
   !
   real(wp), public, save, allocatable :: cell_diss(:,:)
+  real(wp), public, save, allocatable :: cell_num_marks(:)
   ! 
   ! TIME_AVE_VARIABLES : character identifier for variables included
   !                      in the time averaging
@@ -412,8 +415,10 @@ continue
   !
   if (Track_Limiter_Filter_Dissipation) then
     call alloc_array(cell_diss,ncell,nq,"cell_diss",pname,__LINE__)
+    call alloc_array(cell_num_marks,ncell,"cell_num_marks",pname,__LINE__)
   else
     call alloc_array(cell_diss,1,nq,"cell_diss",pname,__LINE__)
+    call alloc_array(cell_num_marks,1,"cell_num_marks",pname,__LINE__)
   end if
   !
   ! Finally, sort and output the time taken to allocate all these arrays
