@@ -2347,9 +2347,11 @@ continue
       !
     end do
     !
-#define DISS_FUNC( a , b ) (a-b)
+!#define DISS_FUNC( a , b ) (a-b)
+!#define DISS_TOTAL( a ) (a)
 !#define DISS_FUNC( a , b ) (abs(a-b))
-!#define DISS_FUNC( a , b ) (abs(a-b)**2)
+#define DISS_FUNC( a , b ) ((a-b)**2)
+#define DISS_TOTAL( a ) (sqrt(a))
 
     if (Track_Limiter_Filter_Dissipation) then
       diss_ec = zero
@@ -2364,11 +2366,11 @@ continue
         diss_mz = diss_mz + DISS_FUNC(old_usp(n,nmz),usp(n0+n,nmz))*wtdjac(n0+n)
         diss_ee = diss_ee + DISS_FUNC(old_usp(n,nee),usp(n0+n,nee))*wtdjac(n0+n)
       end do
-      cell_diss(nc,nec) = cell_diss(nc,nec) + diss_ec
-      cell_diss(nc,nmx) = cell_diss(nc,nmx) + diss_mx
-      cell_diss(nc,nmy) = cell_diss(nc,nmy) + diss_my
-      cell_diss(nc,nmz) = cell_diss(nc,nmz) + diss_mz
-      cell_diss(nc,nee) = cell_diss(nc,nee) + diss_ee
+      cell_diss(nc,nec) = cell_diss(nc,nec) + DISS_TOTAL(diss_ec)
+      cell_diss(nc,nmx) = cell_diss(nc,nmx) + DISS_TOTAL(diss_mx)
+      cell_diss(nc,nmy) = cell_diss(nc,nmy) + DISS_TOTAL(diss_my)
+      cell_diss(nc,nmz) = cell_diss(nc,nmz) + DISS_TOTAL(diss_mz)
+      cell_diss(nc,nee) = cell_diss(nc,nee) + DISS_TOTAL(diss_ee)
     end if
     !
     ! Unmark this cell as troubled because we only want to filter once
@@ -2484,10 +2486,10 @@ continue
         diss_my = diss_my + DISS_FUNC(old_usp(n,nmy),usp(n0+n,nmy))*wtdjac(n0+n)
         diss_ee = diss_ee + DISS_FUNC(old_usp(n,nee),usp(n0+n,nee))*wtdjac(n0+n)
       end do
-      cell_diss(nc,nec) = cell_diss(nc,nec) + diss_ec
-      cell_diss(nc,nmx) = cell_diss(nc,nmx) + diss_mx
-      cell_diss(nc,nmy) = cell_diss(nc,nmy) + diss_my
-      cell_diss(nc,nee) = cell_diss(nc,nee) + diss_ee
+      cell_diss(nc,nec) = cell_diss(nc,nec) + DISS_TOTAL(diss_ec)
+      cell_diss(nc,nmx) = cell_diss(nc,nmx) + DISS_TOTAL(diss_mx)
+      cell_diss(nc,nmy) = cell_diss(nc,nmy) + DISS_TOTAL(diss_my)
+      cell_diss(nc,nee) = cell_diss(nc,nee) + DISS_TOTAL(diss_ee)
     end if
     !
     ! Unmark this cell as troubled because we only want to filter once
@@ -2597,9 +2599,9 @@ continue
         diss_mx = diss_mx + DISS_FUNC(old_usp(n,nmx),usp(n0+n,nmx))*wtdjac(n0+n)
         diss_ee = diss_ee + DISS_FUNC(old_usp(n,nee),usp(n0+n,nee))*wtdjac(n0+n)
       end do
-      cell_diss(nc,nec) = cell_diss(nc,nec) + diss_ec
-      cell_diss(nc,nmx) = cell_diss(nc,nmx) + diss_mx
-      cell_diss(nc,nee) = cell_diss(nc,nee) + diss_ee
+      cell_diss(nc,nec) = cell_diss(nc,nec) + DISS_TOTAL(diss_ec)
+      cell_diss(nc,nmx) = cell_diss(nc,nmx) + DISS_TOTAL(diss_mx)
+      cell_diss(nc,nee) = cell_diss(nc,nee) + DISS_TOTAL(diss_ee)
     end if
     !
     ! Unmark this cell as troubled because we only want to filter once
@@ -2702,7 +2704,7 @@ continue
         do n = 1,np
           diss = diss + DISS_FUNC(old_usp(n,m),usp(n0+n,m))*wtdjac(n0+n)
         end do
-        cell_diss(nc,m) = cell_diss(nc,m) + diss
+        cell_diss(nc,m) = cell_diss(nc,m) + DISS_TOTAL(diss)
       end do
     end if
     !
