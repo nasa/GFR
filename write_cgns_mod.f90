@@ -3655,12 +3655,17 @@ continue
     case ("FilterDissipation")
       !!{{{
       !
-      allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
-                 stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
-                       ierr,error_message)
+      if (.not. allocated(vartmp_at_sp)) then
+        allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
       !
       do m = 1,nq
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
         !
         ! Save the limiter filter dissipation for this equation to vartmp_at_sp
         !
@@ -3679,6 +3684,9 @@ continue
       end do
       !
       ! Save the number of times each cell has been marked to vartmp_at_sp
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
       !
       do nc = 1,ncell
         n0 = cell(nc)%beg_sp - 1
