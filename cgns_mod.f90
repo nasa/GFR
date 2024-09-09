@@ -1256,7 +1256,7 @@ subroutine read_cgns_section(s)
   !
   !.. Local Scalars ..
   integer      :: ierr
-  integer(CST) :: l,nsplit,ibeg,iend,ncell,jbeg,jend
+  integer(CST) :: l,nsplit,ibeg,iend,ncell,jbeg,jend,lbeg,lend
   integer(CST) :: np,nelem,element_data_size,partial_size
   !
   !.. Local Allocatable Arrays ..
@@ -1319,7 +1319,10 @@ continue
         ibeg = iend + 1_CST
         iend = min( iend+nmax_cell , nelem )
         !
-        call cg_elementpartialsize_f(if_g,ib_g,iz_g,is_g,ibeg,iend, &
+        lbeg = ibeg + (s%start - 1_CST)
+        lend = iend + (s%start - 1_CST)
+        !
+        call cg_elementpartialsize_f(if_g,ib_g,iz_g,is_g,lbeg,lend, &
                                      partial_size,cgierr)
         call cgns_error(pname,gridfile,"cg_elementpartialsize_f",cgierr, &
                         __LINE__,__FILE__,not_parallel=true)
@@ -1328,10 +1331,10 @@ continue
         jend = jend + partial_size
         !
 #ifdef DEBUG_ON
-        write (iout,4) l,ibeg,iend,jbeg,jend
+        write (iout,4) l,ibeg,iend,lbeg,lend,jbeg,jend
 #endif
         !
-        call cg_elements_partial_read_f(if_g,ib_g,iz_g,is_g,ibeg,iend, &
+        call cg_elements_partial_read_f(if_g,ib_g,iz_g,is_g,lbeg,lend, &
                                         s%elements(jbeg:jend),c_null_ptr,cgierr)
         call cgns_error(pname,gridfile,"cg_elements_partial_read_f",cgierr, &
                         __LINE__,__FILE__,not_parallel=true)
@@ -1356,6 +1359,7 @@ continue
   2 format ("count(s%elements(:) == -1) = ",i0)
   3 format ("count(s%elements(:) == 0) = ",i0)
   4 format ("partial read # ",i0," : ibeg = ",i0,", iend = ",i0, &
+                                  ", lbeg = ",i0,", lend = ",i0, &
                                   ", jbeg = ",i0,", jend = ",i0)
 #endif
   !
