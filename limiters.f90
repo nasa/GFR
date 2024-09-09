@@ -2260,6 +2260,8 @@ subroutine apply_filter_limiter_to_usp_3d(troubled_cell,usp,cell_diss)
   use order_mod,  only : maxSP
   use geovar,     only : ncell,cell
   use filter_mod, only : filter
+  use ovar,       only : nst => current_rk_stage
+  use ovar,       only : Limiter_Use_Dynamic_Filter
   use ovar,       only : Track_Limiter_Filter_Dissipation
   use metrics_mod, only : wtdjac
   !
@@ -2269,9 +2271,9 @@ subroutine apply_filter_limiter_to_usp_3d(troubled_cell,usp,cell_diss)
   real(wp),     intent(inout) :: cell_diss(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,k,n,nc,np,n0
+  integer  :: i,k,n,nc,np,n0,midx
   integer  :: this_geom,this_order
-  real(wp) :: a,filt_ec,filt_mx,filt_my,filt_mz,filt_ee
+  real(wp) :: a,filt_ec,filt_mx,filt_my,filt_mz,filt_ee,s,oms
   real(wp) :: diss_ec,diss_mx,diss_my,diss_mz,diss_ee
   !
   !.. Local Arrays ..
@@ -2281,6 +2283,9 @@ subroutine apply_filter_limiter_to_usp_3d(troubled_cell,usp,cell_diss)
   character(len=*), parameter :: pname = "apply_filter_limiter_to_usp_3d"
   !
 continue
+  !
+  midx = get_marker_index(nst)
+  s = one
   !
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              VECTOR_LENGTH(32) &
@@ -2313,17 +2318,28 @@ continue
       old_usp(n,nee) = usp(n0+n,nee)
     end do
     !
+    ! Extract the scaled marker value for this cell if
+    ! using the scaled marker for dynamic filtering
+    ! NOTE: If not using dynamic filtering, s will remain unchanged from
+    !       its initial value of 1, which will leave the diagonal values
+    !       of the filter matrix unmodified.
+    !
+    if (Limiter_Use_Dynamic_Filter) then
+      s = scaled_marker(nc,midx)
+    end if
+    oms = one-s
+    !
     ! Apply the filter limiter by multplying the filter
     ! matrix with the solution in the current cell
     !
     !$ACC LOOP VECTOR
     do n = 1,np
       !
-      filt_ec = zero
-      filt_mx = zero
-      filt_my = zero
-      filt_mz = zero
-      filt_ee = zero
+      filt_ec = oms*old_usp(n,nec)
+      filt_mx = oms*old_usp(n,nmx)
+      filt_my = oms*old_usp(n,nmy)
+      filt_mz = oms*old_usp(n,nmz)
+      filt_ee = oms*old_usp(n,nee)
       !
       do i = filter(this_geom,this_order)%limiter%col_ptr(n)+1, &
              filter(this_geom,this_order)%limiter%col_ptr(n+1)
@@ -2331,11 +2347,29 @@ continue
         k = filter(this_geom,this_order)%limiter%col_idx(i)
         a = filter(this_geom,this_order)%limiter%col_val(i)
         !
-        filt_ec = filt_ec + a * old_usp(k,nec)
-        filt_mx = filt_mx + a * old_usp(k,nmx)
-        filt_my = filt_my + a * old_usp(k,nmy)
-        filt_mz = filt_mz + a * old_usp(k,nmz)
-        filt_ee = filt_ee + a * old_usp(k,nee)
+        ! Use the scaled marker to linearly scale the strength of the 
+        ! filter. The scaling is applied to all elements of the base
+        ! filter matrix, and a (1-scaling) term needs to be added to
+        ! the diagonal elements of the matrix.
+        ! NOTE: Fmat = Vmat.f.Vinv   
+        !          where : Fmat = base filter matrix
+        !                  f = diagonal matrix of the filter coefficients
+        !       Scaled(Fmat) = SFmat = Vmat.[(1-s)*I + s*f).Vinv
+        !          where : s = scaled marker (0=no filter, 1=full filter)
+        !                  I = identity matrix
+        !       SFmat = (1-s)*Vmat.I.Vinv + s*Vmat.f.Vinv
+        !             = (1-s)*I + s*Fmat
+        !       We can use the (1-s)*I part as the initialization of the
+        !       filter sums because that value is independent of the actual
+        !       filter matrix.
+        !
+       !a = a*s + merge(one-s,zero,n==k)
+        !
+        filt_ec = filt_ec + a * s * old_usp(k,nec)
+        filt_mx = filt_mx + a * s * old_usp(k,nmx)
+        filt_my = filt_my + a * s * old_usp(k,nmy)
+        filt_mz = filt_mz + a * s * old_usp(k,nmz)
+        filt_ee = filt_ee + a * s * old_usp(k,nee)
         !
       end do
       !
@@ -2392,6 +2426,8 @@ subroutine apply_filter_limiter_to_usp_2d(troubled_cell,usp,cell_diss)
   use order_mod,  only : maxSP
   use geovar,     only : ncell,cell
   use filter_mod, only : filter
+  use ovar,       only : nst => current_rk_stage
+  use ovar,       only : Limiter_Use_Dynamic_Filter
   use ovar,       only : Track_Limiter_Filter_Dissipation
   use metrics_mod, only : wtdjac
   !
@@ -2401,9 +2437,9 @@ subroutine apply_filter_limiter_to_usp_2d(troubled_cell,usp,cell_diss)
   real(wp),     intent(inout) :: cell_diss(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,k,n,nc,np,n0
+  integer  :: i,k,n,nc,np,n0,midx
   integer  :: this_geom,this_order
-  real(wp) :: a,filt_ec,filt_mx,filt_my,filt_ee
+  real(wp) :: a,filt_ec,filt_mx,filt_my,filt_ee,s,oms
   real(wp) :: diss_ec,diss_mx,diss_my,diss_ee
   !
   !.. Local Arrays ..
@@ -2413,6 +2449,9 @@ subroutine apply_filter_limiter_to_usp_2d(troubled_cell,usp,cell_diss)
   character(len=*), parameter :: pname = "apply_filter_limiter_to_usp_2d"
   !
 continue
+  !
+  midx = get_marker_index(nst)
+  s = one
   !
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              VECTOR_LENGTH(32) &
@@ -2444,16 +2483,27 @@ continue
       old_usp(n,nee) = usp(n0+n,nee)
     end do
     !
+    ! Extract the scaled marker value for this cell if
+    ! using the scaled marker for dynamic filtering
+    ! NOTE: If not using dynamic filtering, s will remain unchanged from
+    !       its initial value of 1, which will leave the diagonal values
+    !       of the filter matrix unmodified.
+    !
+    if (Limiter_Use_Dynamic_Filter) then
+      s = scaled_marker(nc,midx)
+    end if
+    oms = one-s
+    !
     ! Apply the filter limiter by multplying the filter
     ! matrix with the solution in the current cell
     !
     !$ACC LOOP VECTOR
     do n = 1,np
       !
-      filt_ec = zero
-      filt_mx = zero
-      filt_my = zero
-      filt_ee = zero
+      filt_ec = oms*old_usp(n,nec)
+      filt_mx = oms*old_usp(n,nmx)
+      filt_my = oms*old_usp(n,nmy)
+      filt_ee = oms*old_usp(n,nee)
       !
       do i = filter(this_geom,this_order)%limiter%col_ptr(n)+1, &
              filter(this_geom,this_order)%limiter%col_ptr(n+1)
@@ -2461,10 +2511,28 @@ continue
         k = filter(this_geom,this_order)%limiter%col_idx(i)
         a = filter(this_geom,this_order)%limiter%col_val(i)
         !
-        filt_ec = filt_ec + a * old_usp(k,nec)
-        filt_mx = filt_mx + a * old_usp(k,nmx)
-        filt_my = filt_my + a * old_usp(k,nmy)
-        filt_ee = filt_ee + a * old_usp(k,nee)
+        ! Use the scaled marker to linearly scale the strength of the 
+        ! filter. The scaling is applied to all elements of the base
+        ! filter matrix, and a (1-scaling) term needs to be added to
+        ! the diagonal elements of the matrix.
+        ! NOTE: Fmat = Vmat.f.Vinv   
+        !          where : Fmat = base filter matrix
+        !                  f = diagonal matrix of the filter coefficients
+        !       Scaled(Fmat) = SFmat = Vmat.[(1-s)*I + s*f).Vinv
+        !          where : s = scaled marker (0=no filter, 1=full filter)
+        !                  I = identity matrix
+        !       SFmat = (1-s)*Vmat.I.Vinv + s*Vmat.f.Vinv
+        !             = (1-s)*I + s*Fmat
+        !       We can use the (1-s)*I part as the initialization of the
+        !       filter sums because that value is independent of the actual
+        !       filter matrix.
+        !
+       !a = a*s + merge(one-s,zero,n==k)
+        !
+        filt_ec = filt_ec + a * s * old_usp(k,nec)
+        filt_mx = filt_mx + a * s * old_usp(k,nmx)
+        filt_my = filt_my + a * s * old_usp(k,nmy)
+        filt_ee = filt_ee + a * s * old_usp(k,nee)
         !
       end do
       !
@@ -2511,6 +2579,8 @@ subroutine apply_filter_limiter_to_usp_1d(troubled_cell,usp,cell_diss)
   use order_mod,  only : maxSP
   use geovar,     only : ncell,cell
   use filter_mod, only : filter
+  use ovar,       only : nst => current_rk_stage
+  use ovar,       only : Limiter_Use_Dynamic_Filter
   use ovar,       only : Track_Limiter_Filter_Dissipation
   use metrics_mod, only : wtdjac
   !
@@ -2520,9 +2590,9 @@ subroutine apply_filter_limiter_to_usp_1d(troubled_cell,usp,cell_diss)
   real(wp),     intent(inout) :: cell_diss(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,k,n,nc,np,n0
+  integer  :: i,k,n,nc,np,n0,midx
   integer  :: this_geom,this_order
-  real(wp) :: a,filt_ec,filt_mx,filt_ee
+  real(wp) :: a,filt_ec,filt_mx,filt_ee,s,oms
   real(wp) :: diss_ec,diss_mx,diss_ee
   !
   !.. Local Arrays ..
@@ -2532,6 +2602,9 @@ subroutine apply_filter_limiter_to_usp_1d(troubled_cell,usp,cell_diss)
   character(len=*), parameter :: pname = "apply_filter_limiter_to_usp_1d"
   !
 continue
+  !
+  midx = get_marker_index(nst)
+  s = one
   !
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              VECTOR_LENGTH(32) &
@@ -2562,15 +2635,26 @@ continue
       old_usp(n,nee) = usp(n0+n,nee)
     end do
     !
+    ! Extract the scaled marker value for this cell if
+    ! using the scaled marker for dynamic filtering
+    ! NOTE: If not using dynamic filtering, s will remain unchanged from
+    !       its initial value of 1, which will leave the diagonal values
+    !       of the filter matrix unmodified.
+    !
+    if (Limiter_Use_Dynamic_Filter) then
+      s = scaled_marker(nc,midx)
+    end if
+    oms = one-s
+    !
     ! Apply the filter limiter by multplying the filter
     ! matrix with the solution in the current cell
     !
     !$ACC LOOP VECTOR
     do n = 1,np
       !
-      filt_ec = zero
-      filt_mx = zero
-      filt_ee = zero
+      filt_ec = oms*old_usp(n,nec)
+      filt_mx = oms*old_usp(n,nmx)
+      filt_ee = oms*old_usp(n,nee)
       !
       do i = filter(this_geom,this_order)%limiter%col_ptr(n)+1, &
              filter(this_geom,this_order)%limiter%col_ptr(n+1)
@@ -2578,9 +2662,27 @@ continue
         k = filter(this_geom,this_order)%limiter%col_idx(i)
         a = filter(this_geom,this_order)%limiter%col_val(i)
         !
-        filt_ec = filt_ec + a * old_usp(k,nec)
-        filt_mx = filt_mx + a * old_usp(k,nmx)
-        filt_ee = filt_ee + a * old_usp(k,nee)
+        ! Use the scaled marker to linearly scale the strength of the 
+        ! filter. The scaling is applied to all elements of the base
+        ! filter matrix, and a (1-scaling) term needs to be added to
+        ! the diagonal elements of the matrix.
+        ! NOTE: Fmat = Vmat.f.Vinv   
+        !          where : Fmat = base filter matrix
+        !                  f = diagonal matrix of the filter coefficients
+        !       Scaled(Fmat) = SFmat = Vmat.[(1-s)*I + s*f).Vinv
+        !          where : s = scaled marker (0=no filter, 1=full filter)
+        !                  I = identity matrix
+        !       SFmat = (1-s)*Vmat.I.Vinv + s*Vmat.f.Vinv
+        !             = (1-s)*I + s*Fmat
+        !       We can use the (1-s)*I part as the initialization of the
+        !       filter sums because that value is independent of the actual
+        !       filter matrix.
+        !
+       !a = a*s + merge(one-s,zero,n==k)
+        !
+        filt_ec = filt_ec + a * s * old_usp(k,nec)
+        filt_mx = filt_mx + a * s * old_usp(k,nmx)
+        filt_ee = filt_ee + a * s * old_usp(k,nee)
         !
       end do
       !
@@ -2623,6 +2725,8 @@ subroutine apply_filter_limiter_to_usp_nd(mbeg,mend,troubled_cell,usp,cell_diss)
   use order_mod,  only : maxSP
   use geovar,     only : ncell,cell
   use filter_mod, only : filter
+  use ovar,       only : nst => current_rk_stage
+  use ovar,       only : Limiter_Use_Dynamic_Filter
   use ovar,       only : Track_Limiter_Filter_Dissipation
   use metrics_mod, only : wtdjac
   !
@@ -2633,9 +2737,9 @@ subroutine apply_filter_limiter_to_usp_nd(mbeg,mend,troubled_cell,usp,cell_diss)
   real(wp),     intent(inout) :: cell_diss(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,k,m,n,nc,np,n0
+  integer  :: i,k,m,n,nc,np,n0,midx
   integer  :: this_geom,this_order
-  real(wp) :: a,val,diss
+  real(wp) :: a,val,diss,s,oms
   !
   !.. Local Arrays ..
   real(wp) :: old_usp(1:maxSP,1:nq)
@@ -2644,6 +2748,9 @@ subroutine apply_filter_limiter_to_usp_nd(mbeg,mend,troubled_cell,usp,cell_diss)
   character(len=*), parameter :: pname = "apply_filter_limiter_to_usp_nd"
   !
 continue
+  !
+  midx = get_marker_index(nst)
+  s = one
   !
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              VECTOR_LENGTH(32) &
@@ -2674,6 +2781,17 @@ continue
       end do
     end do
     !
+    ! Extract the scaled marker value for this cell if
+    ! using the scaled marker for dynamic filtering
+    ! NOTE: If not using dynamic filtering, s will remain unchanged from
+    !       its initial value of 1, which will leave the diagonal values
+    !       of the filter matrix unmodified.
+    !
+    if (Limiter_Use_Dynamic_Filter) then
+      s = scaled_marker(nc,midx)
+    end if
+    oms = one-s
+    !
     ! Apply the filter limiter by multplying the filter
     ! matrix with the solution in the current cell
     !
@@ -2681,7 +2799,7 @@ continue
     do m = mbeg,mend
       do n = 1,np
         !
-        val = zero
+        val = oms*old_usp(n,m)
         !
         do i = filter(this_geom,this_order)%limiter%col_ptr(n)+1, &
                filter(this_geom,this_order)%limiter%col_ptr(n+1)
@@ -2689,7 +2807,25 @@ continue
           k = filter(this_geom,this_order)%limiter%col_idx(i)
           a = filter(this_geom,this_order)%limiter%col_val(i)
           !
-          val = val + a * old_usp(k,m)
+          ! Use the scaled marker to linearly scale the strength of the 
+          ! filter. The scaling is applied to all elements of the base
+          ! filter matrix, and a (1-scaling) term needs to be added to
+          ! the diagonal elements of the matrix.
+          ! NOTE: Fmat = Vmat.f.Vinv   
+          !          where : Fmat = base filter matrix
+          !                  f = diagonal matrix of the filter coefficients
+          !       Scaled(Fmat) = SFmat = Vmat.[(1-s)*I + s*f).Vinv
+          !          where : s = scaled marker (0=no filter, 1=full filter)
+          !                  I = identity matrix
+          !       SFmat = (1-s)*Vmat.I.Vinv + s*Vmat.f.Vinv
+          !             = (1-s)*I + s*Fmat
+          !       We can use the (1-s)*I part as the initialization of the
+          !       filter sums because that value is independent of the actual
+          !       filter matrix.
+          !
+         !a = a*s + merge(one-s,zero,n==k)
+          !
+          val = val + a * s * old_usp(k,m)
           !
         end do
         !
