@@ -65,7 +65,7 @@ subroutine match_periodic_faces()
   character(len=CGLEN) :: match_jnam,jname,iname,match_inam
   !
   !.. Local Arrays ..
-  real(wp) :: xyz_ip(1:nr)
+  real(wp) :: xyz_ip(1:nr),xyz_jp(1:nr)
   !
   integer :: ipn(1:4)
   integer :: jpn(1:4)
@@ -482,6 +482,8 @@ continue
       matched(j) = true
       !
       ! Mark jp negative if ds(j) is > eps6
+      ! NOTE: This will cause an out-of-bounds error
+      !       when using jp in node_match_j2i
       !
       jp = jnodes(j)
       if (ds(j) > eps3) then
@@ -492,6 +494,40 @@ continue
       node_match_j2i(jp) = ip
       !
     end do inode_loop
+    !
+!#define WRITE_PERIODIC_MATCH_DISTANCES
+#ifdef WRITE_PERIODIC_MATCH_DISTANCES
+    if (mypnum == glb_root) then
+      matching_node_check: &
+      do i = 1,npn
+        ip = inodes(i)
+        jp = node_match_i2j(ip)
+        xyz_ip(1:nr) = periodic_transformation(xyz_nodes(1:nr,ip),pbc_matrix)
+        xyz_jp(1:nr) = xyz_nodes(1:nr,jp)
+        if (nr == 3) then
+          write (240+this_pair,8243) ip,xyz_nodes(1,ip), &
+                                        xyz_nodes(2,ip), &
+                                        xyz_nodes(3,ip), &
+                                        xyz_ip(1),xyz_ip(2),xyz_ip(3), &
+                                     jp,xyz_jp(1),xyz_jp(2),xyz_jp(3), &
+                                     norm2(xyz_ip(1:nr)-xyz_jp(1:nr))
+        else if (nr == 2) then
+          write (240+this_pair,8242) ip,xyz_nodes(1,ip),xyz_nodes(2,ip), &
+                                        xyz_ip(1),xyz_ip(2), &
+                                     jp,xyz_jp(1),xyz_jp(2), &
+                                     norm2(xyz_ip(1:nr)-xyz_jp(1:nr))
+        end if
+      end do matching_node_check
+    end if
+    8242 format (2x,"ip = ",i8," : [",es16.8,1(",",es16.8), &
+                             "] -> [",es16.8,1(",",es16.8),2x, &
+                  "; jp = ",i8," : [",es16.8,1(",",es16.8),4x, &
+                  "=> ds = ",es20.12)
+    8243 format (2x,"ip = ",i8," : [",es16.8,2(",",es16.8), &
+                             "] -> [",es16.8,2(",",es16.8),2x, &
+                  "; jp = ",i8," : [",es16.8,2(",",es16.8),4x, &
+                  "=> ds = ",es20.12)
+#endif
     !
     ! Now used the matched nodes to find the matching faces
     !
