@@ -1,7 +1,7 @@
 module module_cgns
   !
 #include <mpi_defs.h>
-!!#define DEBUG_CGNS_MPI_BCAST_ERROR
+!#define DEBUG_CGNS_MPI_BCAST_ERROR
 #ifdef DEBUG_CGNS_MPI_BCAST_ERROR
 #define PROFILE_ON
 #endif
@@ -3998,7 +3998,15 @@ continue
         write (iout,*) mypnum, "here 1"
 #endif
       else
-        ival = init_array(np,int(0,kind=kind(grid_elem))) ! F2003 AUTO-REALLOC
+        ! NOTE: This use of F2003 automatic reallocation was causing the code
+        !       to occasionally crash due to it running out of stack memory.
+        !       Replacing this with a traditional Fortran allocate statement 
+        !       puts this array in heap memory fixing the stack issue.
+       !ival = init_array(np,int(0,kind=kind(grid_elem))) ! F2003 AUTO-REALLOC
+        if (allocated(ival)) deallocate ( ival )
+        allocate ( ival(1:np), source=int(0,kind=kind(grid_elem)) , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"ival",1,__LINE__,__FILE__,ierr,error_message)
 #ifdef DEBUG_CGNS_MPI_BCAST_ERROR
         write (iout,714) mypnum,size(ival),size(grid_elem)
         write (iout,*) mypnum, "here 2"
@@ -4078,7 +4086,14 @@ continue
           write (iout,1001) "grid_xyz : ",nn,n1,n2,np,l
           val = grid_xyz(l,n1:n2) ! F2003 AUTO-REALLOC
         else
-          val = init_array(np,zero) ! F2003 AUTO-REALLOC
+          ! NOTE: This use of F2003 automatic reallocation was causing the code
+          !       to occasionally crash due to it running out of stack memory.
+          !       Replacing this with a traditional Fortran allocate statement 
+          !       puts this array in heap memory fixing the stack issue.
+         !val = init_array(np,zero) ! F2003 AUTO-REALLOC
+          if (allocated(val)) deallocate ( val )
+          allocate ( val(1:np) , source=zero , stat=ierr , errmsg=error_message )
+          call alloc_error(pname,"val",1,__LINE__,__FILE__,ierr,error_message)
         end if
         !
         call mpi_bcast(val,int(np,kind=int_mpi),mpi_flttyp, &
