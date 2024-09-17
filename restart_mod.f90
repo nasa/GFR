@@ -2,6 +2,8 @@ module restart_mod
   !
 #include <mpi_defs.h>
 !!#define PROFILE_ON
+#define _DEBUG_WRITE_TIMER_ global_debug_timer
+!#define _DEBUG_WRITE_TIMER_ debug_timer
 !!!#define VERBOSE_RESTART
 #ifdef VERBOSE_RESTART
 #define ONLY_READ_RESTARTS_ARE_VERBOSE
@@ -2259,7 +2261,7 @@ continue
   !
   if (completely_disable_restart_output) return
   !
-  call global_debug_timer(entering_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
   !
   sol_is_transposed = true
   !
@@ -2474,7 +2476,7 @@ continue
     !
   end if
   !
-  call global_debug_timer(leaving_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(leaving_procedure,pname)
   !
 end subroutine write_restart_file
 !
@@ -2532,7 +2534,7 @@ subroutine write_solution_file(file_name,int_header,real_header,file_comm, &
   !
 continue
   !
-  call global_debug_timer(entering_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
   !
   ! Check if there is restart information for
   ! the synthetic inflow turbulence generators
@@ -2852,7 +2854,7 @@ continue
   end if
   call mpi_barrier(file_comm,mpierr)
   !
-  call global_debug_timer(leaving_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -3456,7 +3458,7 @@ subroutine write_time_averaged_solution(itnum,ordered_geom,int_header, &
   !
 continue
   !
-  call global_debug_timer(entering_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
   !
   if (time_ave_needs_initialization) then
     !
@@ -3638,7 +3640,7 @@ continue
     end if
   end if
   !
-  call global_debug_timer(leaving_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -3677,7 +3679,7 @@ subroutine get_restart_arrays(current_sol,output_sol,ordered_geom, &
   !
 continue
   !
-  call global_debug_timer(entering_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
   !
   flip_sol_indices = fals
   if (present(sol_is_transposed)) then
@@ -3752,7 +3754,7 @@ continue
     !
   end do
   !
-  call global_debug_timer(leaving_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(leaving_procedure,pname)
   !
 end subroutine get_restart_arrays
 !
@@ -3788,7 +3790,7 @@ subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom, &
   !
 continue
   !
-  call global_debug_timer(entering_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
   !
   flip_sol_indices = fals
   if (present(sol_is_transposed)) then
@@ -3883,7 +3885,7 @@ continue
     output_sol(:,:) = reorder_host_solution( output_sol(:,:) )
   end if
   !
-  call global_debug_timer(leaving_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(leaving_procedure,pname)
   !
 end subroutine collect_restart_arrays
 !
@@ -4576,7 +4578,7 @@ subroutine get_host_output_mpi_datatypes()
   !
 continue
   !
-  call global_debug_timer(entering_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
   !
   ! Get the number of cells for each of the
   ! processes that is in the current host group
@@ -4943,7 +4945,7 @@ continue
     call alloc_error(pname,"og_offset",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  call global_debug_timer(leaving_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(leaving_procedure,pname)
   !
 end subroutine get_host_output_mpi_datatypes
 !
@@ -4973,7 +4975,7 @@ subroutine get_output_mpi_datatypes()
   !
 continue
   !
-  call global_debug_timer(entering_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
   !
   ! Allocate the local arrays
   !
@@ -5128,7 +5130,7 @@ continue
     call alloc_error(pname,"sol_blklen",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  call global_debug_timer(leaving_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(leaving_procedure,pname)
   !
 end subroutine get_output_mpi_datatypes
 !
@@ -5147,7 +5149,7 @@ subroutine get_host_time_ave_mpi_datatypes()
   !
 continue
   !
-  call global_debug_timer(entering_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
   !
   ! Create the cell offsets as well as the block lengths
   ! and offsets for the solution data
@@ -5188,7 +5190,7 @@ continue
     call alloc_error(pname,"pts_blklen",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  call global_debug_timer(leaving_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(leaving_procedure,pname)
   !
 end subroutine get_host_time_ave_mpi_datatypes
 !
@@ -5212,7 +5214,7 @@ subroutine get_time_ave_mpi_datatypes()
   !
 continue
   !
-  call global_debug_timer(entering_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
   !
   ! Create the MPI derived datatype for writing the
   ! time averaged solution data to the averaging file
@@ -5256,7 +5258,7 @@ continue
     call alloc_error(pname,"ave_blklen",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  call global_debug_timer(leaving_procedure,pname)
+  call _DEBUG_WRITE_TIMER_(leaving_procedure,pname)
   !
 end subroutine get_time_ave_mpi_datatypes
 !
