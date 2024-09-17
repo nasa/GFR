@@ -3897,13 +3897,24 @@ pure function reorder_host_solution(solution) result(return_value)
   real(wp), intent(in) :: solution(:,:)
   !
   !.. Function Result ..
-  real(wp) :: return_value(1:size(solution,dim=1), &
-                           1:size(solution,dim=2))
+  ! NOTE: Changed the function result to allocatable because having it as an
+  !       automatic array based on the size of the input solution caused the
+  !       compiler to put return_value on the stack, which sometimes caused
+  !       the code to crash due to it running out of stack memory. Changing
+  !       return_value to allocatable causes the compiler to put the array
+  !       in heap memory.
+  real(wp), allocatable :: return_value(:,:)
+ !real(wp) :: return_value(1:size(solution,dim=1), &
+ !                         1:size(solution,dim=2))
   !
   !.. Local Scalars ..
   integer :: nc,n1,n2,l1,l2
   !
 continue
+  !
+  n1 = size(solution,dim=1)
+  n2 = size(solution,dim=2)
+  allocate ( return_value(1:n1,1:n2) , source=zero )
   !
   l2 = 0
   do nc = 1,size(host_output_order)
