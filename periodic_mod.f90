@@ -44,6 +44,7 @@ subroutine match_periodic_faces()
   use geovar, only : bface,xyz_nodes
   use geovar, only : nodes_of_cell,nodes_of_cell_ptr
   use ovar,   only : bc_input
+  use ovar,   only : grid_scaling_factor
   !
   use module_cgns_types, only : CGLEN
   !
@@ -65,7 +66,7 @@ subroutine match_periodic_faces()
   character(len=CGLEN) :: match_jnam,jname,iname,match_inam
   !
   !.. Local Arrays ..
-  real(wp) :: xyz_ip(1:nr),xyz_jp(1:nr)
+  real(wp) :: xyz_ip(1:nr),xyz_jp(1:nr),xyz_ipt(1:nr)
   !
   integer :: ipn(1:4)
   integer :: jpn(1:4)
@@ -502,20 +503,21 @@ continue
       do i = 1,npn
         ip = inodes(i)
         jp = node_match_i2j(ip)
-        xyz_ip(1:nr) = periodic_transformation(xyz_nodes(1:nr,ip),pbc_matrix)
-        xyz_jp(1:nr) = xyz_nodes(1:nr,jp)
+        xyz_ip(1:nr) = xyz_nodes(1:nr,ip)
+        xyz_ipt(1:nr) = periodic_transformation(xyz_ip(1:nr),pbc_matrix)
+        xyz_ip(1:nr) = xyz_ip(1:nr)/grid_scaling_factor
+        xyz_ipt(1:nr) = xyz_ipt(1:nr)/grid_scaling_factor
+        xyz_jp(1:nr) = xyz_nodes(1:nr,abs(jp))/grid_scaling_factor
         if (nr == 3) then
-          write (240+this_pair,8243) ip,xyz_nodes(1,ip), &
-                                        xyz_nodes(2,ip), &
-                                        xyz_nodes(3,ip), &
-                                        xyz_ip(1),xyz_ip(2),xyz_ip(3), &
+          write (240+this_pair,8243) ip,xyz_ip(1),xyz_ip(2),xyz_ip(3), &
+                                        xyz_ipt(1),xyz_ipt(2),xyz_ipt(3), &
                                      jp,xyz_jp(1),xyz_jp(2),xyz_jp(3), &
-                                     norm2(xyz_ip(1:nr)-xyz_jp(1:nr))
+                                     norm2(xyz_ipt(1:nr)-xyz_jp(1:nr))
         else if (nr == 2) then
-          write (240+this_pair,8242) ip,xyz_nodes(1,ip),xyz_nodes(2,ip), &
-                                        xyz_ip(1),xyz_ip(2), &
+          write (240+this_pair,8242) ip,xyz_ip(1),xyz_ip(2), &
+                                        xyz_ipt(1),xyz_ipt(2), &
                                      jp,xyz_jp(1),xyz_jp(2), &
-                                     norm2(xyz_ip(1:nr)-xyz_jp(1:nr))
+                                     norm2(xyz_ipt(1:nr)-xyz_jp(1:nr))
         end if
       end do matching_node_check
     end if
