@@ -1,3 +1,6 @@
+!###############################################################################
+!> Routines to enable parallel communication.
+!###############################################################################
 module parallel_mod
   !
 #include <mpi_defs.h>
@@ -43,7 +46,7 @@ module parallel_mod
   public :: exch_connectivity
  !public :: exchange_modes
   !
-  integer, save :: nr
+  integer, save :: nr  !< Flow dimension: 1,2,3 = 1d,2d,3d.
   !
   ! Number of communication partners
   !
@@ -1022,7 +1025,8 @@ continue
 end subroutine partition_into_quarters
 !
 !###############################################################################
-!
+!> Partition the grid using the METIS 4 library.
+!###############################################################################
 subroutine partition_using_metis_4(metis_option_requested,npart, &
                                    cell_geom,cell_order, &
                                    xadj,adjncy,epart, &
@@ -1246,7 +1250,8 @@ continue
 end subroutine partition_using_metis_4
 !
 !###############################################################################
-!
+!> Partition the grid using the METIS 5 library.
+!###############################################################################
 subroutine partition_using_metis_5(metis_option_requested,npart, &
                                    xadj,adjncy,epart,cell_geom,cell_order, &
                                    cells_surr_cell,cells_surr_cell_ptr)
@@ -1768,7 +1773,8 @@ continue
 end subroutine get_grid_weights
 !
 !###############################################################################
-!
+!> Output the METIS arguments to a file for debugging.
+!###############################################################################
 subroutine output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
                                   adjwgt,nparts,tpwgts,ubvec,options, &
                                   objval,epart,in_method,in_weight,in_minmzd)
@@ -2110,12 +2116,11 @@ continue
 end subroutine get_global_connectivity
 !
 !###############################################################################
-!
+!> From the grid cells and nodes, create the dual graph arrays required by
+!> METIS to partition the global grid.
+!###############################################################################
 subroutine create_metis_dual_graph(cells_surr_cell,cells_surr_cell_ptr, &
                                    xadj,adjncy)
-  !
-  ! This subroutine takes the grid cells and nodes and creates the
-  ! dual graph arrays required by METIS to partition the global grid
   !
   !.. Formal Arguments ..
   integer,                        intent(in) :: cells_surr_cell(:)
@@ -2650,7 +2655,33 @@ continue
 end subroutine output_continuous_grid
 !
 !###############################################################################
-!
+!> Create and fill much of the node and edge derived type arrays.
+!>
+!> For nodes (indexed by global node):
+!> ``` {.f90}
+!>    node(1:gnode)%is_on_boundary
+!>    node(1:gnode)%controlling_partition
+!>    node(1:gnode)%cpu(1:num_cpus)%partition
+!>    node(1:gnode)%cpu(1:num_cpus)%num_cells
+!> ```
+!> Not filled here:
+!> ``` {.f90}
+!>    node(1:gnode)%cpu(1:num_cpus)%loc_node  ! See sub create_node_map
+!> ```
+!> For edges (indexed by global edge):
+!> ``` {.f90}
+!>    edge(1:gedge)%is_on_boundary
+!>    edge(1:gedge)%order
+!>    edge(1:gedge)%controlling_partition
+!>    edge(1:gedge)%cpu(1:num_cpus)%partition
+!>    edge(1:gedge)%cpu(1:num_cpus)%num_cells
+!>    edge(1:gedge)%cpu(1:num_cpus)%edgepts(1:num_edgepts_in_cell)
+!> ```
+!> Not filled here:
+!> ``` {.f90}
+!>    edge(1:gedge)%cpu(1:num_cpus)%loc_edge  ! See sub create_node_map
+!> ```
+!###############################################################################
 subroutine create_node_and_edge_arrays(nodes_of_cell,nodes_of_cell_ptr, &
                                        cells_with_node,cells_with_node_ptr, &
                                        cells_with_edge,cells_with_edge_ptr, &
@@ -2714,14 +2745,18 @@ continue
   ! given node/edge, and the array to store the BCs for those boundary faces
   ! with a given node/edge.
   !
-  n = max(n1,n2)
+  n = max(n1,n2)  ! max number of cells with a single node/edge
   !
-  cell_list = init_array(n,0) ! F2003 AUTO-REALLOC
-  part_list = init_array(n,0) ! F2003 AUTO-REALLOC
+  cell_list = init_array(n,0) ! F2003 AUTO-REALLOC, cells with given node/edge
+  part_list = init_array(n,0) ! F2003 AUTO-REALLOC, parts with given node/edge
   !
   bc_list = init_array(n,not_a_bc) ! F2003 AUTO-REALLOC
   !
   ! Create the node array
+  !   node(1:gnode)%is_on_boundary
+  !   node(1:gnode)%controlling_partition
+  !   node(1:gnode)%cpu(1:num_cpus)%partition
+  !   node(1:gnode)%cpu(1:num_cpus)%num_cells
   !
   allocate ( node(1:lnode) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"node",1,__LINE__,__FILE__,ierr,error_message)
@@ -2832,7 +2867,7 @@ continue
     !
     ! Sum the number of cells containing this node on each partition
     !
-    do i = 1,np
+    do i = 1,np  ! loop number of cells contining this node
       !
       ! Mark this partition as having a cell containing this node
       ! NOTE: For a boundary node, we want to keep all partitions
@@ -2898,6 +2933,12 @@ continue
   end do create_node_loop
   !
   ! Create the edge array
+  !   edge(1:gedge)%is_on_boundary
+  !   edge(1:gedge)%order
+  !   edge(1:gedge)%controlling_partition
+  !   edge(1:gedge)%cpu(1:num_cpus)%partition
+  !   edge(1:gedge)%cpu(1:num_cpus)%num_cells
+  !   edge(1:gedge)%cpu(1:num_cpus)%edgepts(1:num_edgepts_in_cell)
   !
   allocate ( edge(1:ledge) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"edge",1,__LINE__,__FILE__,ierr,error_message)
@@ -3773,7 +3814,8 @@ continue
 end subroutine create_face_rotations
 !
 !###############################################################################
-!
+!> Output the node arrays for debugging.
+!###############################################################################
 subroutine output_node_arrays(node,node_map,bnd_nodes)
   !
   type(node_t),     allocatable, optional, intent(in) :: node(:)
@@ -3783,6 +3825,8 @@ subroutine output_node_arrays(node,node_map,bnd_nodes)
   integer :: i,n,io
   !
 continue
+  !
+  ! Output the node array.
   !
   if (present(node)) then
     if (allocated(node)) then
@@ -3814,6 +3858,8 @@ continue
   16 format (10x,"%num_cells = ",i0)
   17 format (" THE node ARRAY IS NOT ALLOCATED!!!")
   !
+  ! Output the node_map array.
+  !
   if (present(node_map)) then
     if (allocated(node_map)) then
       io = mypnum+150
@@ -3837,6 +3883,8 @@ continue
   21 format ("   loc = ",i5," => glb = ",i5)
   22 format (30("#"))
   23 format (" THE node_map ARRAY IS NOT ALLOCATED!!!")
+  !
+  ! Output the bnd_nodes array.
   !
   if (present(bnd_nodes)) then
     if (allocated(bnd_nodes)) then
@@ -3940,7 +3988,28 @@ continue
 end subroutine create_cell_map
 !
 !###############################################################################
-!
+!> Create/fill the `node_map` array and fill the `loc_node` sub-subcomponent
+!> of the `node` derived type.
+!>
+!> Allocate `node_map` and fill the `loc_to_glb` subcomponent array with
+!> the local to global index mapping for each node on each partition.
+!> ``` {.f90}
+!>     ! npart = number of partitions,
+!>     ! lnode = number of local nodes on that partition.
+!>     node_map(1:npart)%loc_to_glb(1:lnode)
+!> ```
+!>
+!>
+!> Fill the `loc_node` subcomponent of the `node` derived type with the local
+!> node index for each node of this partition that also exists on another
+!> partition.
+!> ``` {.f90}
+!>     ! gnode    = global node index,  
+!>     ! ncpu     = number of cpus with that node,  
+!>     ! loc_node = local index of the node on that cpu.
+!>     node(1:gnode)%cpu(1:ncpu)%loc_node  
+!> ```
+!###############################################################################
 subroutine create_node_map(npart,epart,node,cells_with_node, &
                            cells_with_node_ptr,node_map)
   !
@@ -3960,7 +4029,7 @@ subroutine create_node_map(npart,epart,node,cells_with_node, &
   !
   !.. Local Arrays ..
   integer     :: node_count(1:npart)
-  logical(lk) :: part_mask(1:npart)
+  logical(lk) :: part_mask(1:npart)   ! partitions with current node
   !
   !.. Local Allocatable Arrays ..
   type(map_t), allocatable :: tmp_map(:)
@@ -3972,7 +4041,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  gnode = size(cells_with_node_ptr)-1
+  gnode = size(cells_with_node_ptr)-1  ! global number of nodes
   !
   ! #######
   ! ## 1 ##
@@ -3993,19 +4062,23 @@ continue
   end do
   !
   node_count(:) = 0
-  do nn = 1,gnode
-    part_mask(:) = fals
-    n1 = cells_with_node_ptr(nn)+1
-    n2 = cells_with_node_ptr(nn+1)
-    do n = n1,n2
+  do nn = 1,gnode  ! loop global nodes
+    part_mask(:) = fals             ! part_mask(1:npart), part uses node
+    n1 = cells_with_node_ptr(nn)+1  ! beg global cell with global node nn
+    n2 = cells_with_node_ptr(nn+1)  ! end global cell with global node nn
+    do n = n1,n2  ! loop global cells with node
       if (cells_with_node(n) > 0) then
-        this_part = epart(cells_with_node(n))
-        if (part_mask(this_part)) cycle
+        this_part = epart(cells_with_node(n))  ! part with this cell
+        if (part_mask(this_part)) cycle        ! part uses node, skip ahead
+        !
+        ! Resize loc_to_glb(:) if too small for all local nodes.
         i = node_count(this_part) + 1
         if (i > size(tmp_map(this_part)%loc_to_glb)) then
           tmp_map(this_part)%loc_to_glb = [tmp_map(this_part)%loc_to_glb(:), &
                                            (0,j=1,node_div)]
         end if
+        !
+        ! Map local node i on this partition to global node nn.
         tmp_map(this_part)%loc_to_glb(i) = nn
         node_count(this_part) = i
         part_mask(this_part) = true
@@ -4039,7 +4112,7 @@ continue
   !
   if (allocated(node)) then
     !
-    do this_part = 1,size(node_map)
+    do this_part = 1,size(node_map)  ! loop partitions
       !
       local_nodes: do loc_node = 1,size(node_map(this_part)%loc_to_glb)
         !
@@ -4047,7 +4120,7 @@ continue
         !
         if (.not. allocated(node(glb_node)%cpu)) cycle local_nodes
         !
-        do n = 1,size(node(glb_node)%cpu)
+        do n = 1,size(node(glb_node)%cpu)  ! loop cpus with node
           if (this_part == node(glb_node)%cpu(n)%partition) then
             node(glb_node)%cpu(n)%loc_node = loc_node
             cycle local_nodes
@@ -7669,7 +7742,41 @@ continue
 end subroutine bcast_node_and_edge_arrays
 !
 !###############################################################################
-!
+!> Create/fill module variables for node/edge communication.
+!> These include the boundary nodes, boundary edges, and the
+!> communication info for exchanging node/edge data.
+!>
+!> * Total buffer size for node/edge points to pass solution & gradient info:
+!> ``` {.f90}
+!>     n_node_edge_pts
+!> ```
+!> * Array of boundary nodes shared between multiple processors:
+!> ``` {.f90}
+!>     ! n = number of nodes located on multiple processors
+!>     bnd_nodes(1:n)
+!>     bnd_nodes(1:n)%idx
+!>     bnd_nodes(1:n)%ave_correction
+!>     bnd_nodes(1:n)%my_responsibility
+!> ```
+!> * Array of boundary edges shared between multiple processors:
+!> ``` {.f90}
+!>     ! n = number of edges located on multiple processors
+!>     bnd_edges(1:n)
+!>     bnd_edges(1:n)%idx
+!>     bnd_edges(1:n)%ave_correction
+!>     bnd_edges(1:n)%my_responsibility
+!> ```
+!> * Communication info for exchanging node/edge solution and gradient data:
+!> ``` {.f90}
+!>     ! npair = number of cpu communication pairs
+!>     exch_neusp(1:npair)
+!>     exch_neusp(1:npair)%adj_cpu        ! cpu id of commun. partner
+!>     exch_neusp(1:npair)%send_tag       ! MPI tag    for send
+!>     exch_neusp(1:npair)%recv_tag       ! MPI tag    for recv
+!>     exch_neusp(1:npair)%send_datatype  ! MPI handle for send
+!>     exch_neusp(1:npair)%recv_datatype  ! MPI handle for recv
+!> ```
+!###############################################################################
 subroutine create_node_and_edge_datatypes(node,node_map,edge,edge_map)
   !
   !.. Formal Arguments ..
@@ -7719,10 +7826,11 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   call debug_timer(start_timer,"section 1")
+  !
   my_part = mypnum + 1
   !
-  lnode = size( node_map(my_part)%loc_to_glb )
-  ledge = size( edge_map(my_part)%loc_to_glb )
+  lnode = size( node_map(my_part)%loc_to_glb )  ! number of local nodes
+  ledge = size( edge_map(my_part)%loc_to_glb )  ! number of local edges
   !
   ! Count the number of nodes located on multiple processors
   !
@@ -7858,7 +7966,8 @@ continue
   call debug_timer(stop_timer,"section 1")
   call debug_timer(start_timer,"section 2")
   !
-  ! Number of variables being stored for each node or edge point
+  ! Number of variables being stored for each node or edge point.
+  ! Num flow eqs * ( 1 scalar + nr gradient values ).
   !
   nvar = nq * (nr + 1)
   !
@@ -8149,7 +8258,7 @@ continue
   call debug_timer(stop_timer,"section 5c")
   call debug_timer(start_timer,"section 5d")
   !
-  ! Allocate the array containing the communication information
+  ! Allocate the array containing the exch_neusp communication information
   !
   allocate ( exch_neusp(1:npair) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"exch_neusp",1,__LINE__,__FILE__,ierr,error_message)
@@ -8573,6 +8682,7 @@ continue
   1 format (a)
   !
 contains
+!> Output nodpt_offset on current processor for debugging.
 subroutine output_nodpt_offsets(nodpt_offset,method,size_bnd_nodes)
   !
   integer, intent(in) :: nodpt_offset(:)
@@ -8605,6 +8715,7 @@ continue
             "       size(bnd_nodes) = ",i0)
   !
 end subroutine output_nodpt_offsets
+!> Output bnd_nodes data of current processor for debugging.
 subroutine output_bnd_nodes(bnd_nodes,node,node_map)
   !
   type(bnd_data_t), intent(in) :: bnd_nodes(:)
@@ -10751,7 +10862,7 @@ continue
   !
   ! Loop through all the communication pairs and exchange solutions
   ! for the nodes and edge points, adding the received values to the
-  ! current solutions before going to the next pair
+  ! current solutions before going to the next pair.
   !
   exchange_loop: do this_pair = 1,size(exch_neusp)
     !
@@ -10777,9 +10888,13 @@ continue
                         recv_buffer,1_int_mpi,recv_dtype,adj_cpu,recv_tag, &
                         MPI_COMM_WORLD,istat(1),mpierr)
       !
-      ! Add the received data to the solutions at the nodes and edges
-      ! NOTE: This will unfortunately add a bunch of zeros because of
-      !       how its implemented
+      ! Add the received data to the solutions at the nodes and edges.
+      !
+      ! Not every bnd_node is part of communication for this_pair.
+      ! In this case, the recv_buffer for that bnd_node will have the
+      ! default value of zero, which can be added to the average 
+      ! without affecting the result. This will unfortunately add a
+      ! bunch of zeros because of how its implemented.
       !
       iend = 0
       !
