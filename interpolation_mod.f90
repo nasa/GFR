@@ -1892,27 +1892,19 @@ continue
       !#########################################################################
       !#########################################################################
       !
-      ! Only compute the node interpolation matrices for non-edge geometries.
-      ! For edge geometries, the nodes are the faces, so those interpolation
-      ! matrices have already been computed for interp%toFace(:)%mat.
+      ! Allocate the interp%toNode component of interp
       !
-      if (this_geom /= Geom_Edge) then
-        !
-        ! Allocate the interp%toNode component of interp
-        !
-       !allocate ( interp(this_geom,this_order)%toNode , &
-       !           stat=ierr , errmsg=error_message )
-       !write (array_name,1) Geom_Name(this_geom),this_order,"toNode"
-       !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-       !                 error_message)
-        !
-        ! Compute the node interpolation matrix for this geom/order combo
-        !
-       !interp(this_geom,this_order)%toNode%mat = & ! F2003 AUTO-REALLOC
-        interp(this_geom,this_order)%toNode = & ! F2003 AUTO-REALLOC
-                                       Node_Interp_Matrix(this_geom,this_order)
-        !
-      end if
+     !allocate ( interp(this_geom,this_order)%toNode , &
+     !           stat=ierr , errmsg=error_message )
+     !write (array_name,1) Geom_Name(this_geom),this_order,"toNode"
+     !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+     !                 error_message)
+      !
+      ! Compute the node interpolation matrix for this geom/order combo
+      !
+     !interp(this_geom,this_order)%toNode%mat = & ! F2003 AUTO-REALLOC
+      interp(this_geom,this_order)%toNode = & ! F2003 AUTO-REALLOC
+                                     Node_Interp_Matrix(this_geom,this_order)
       !
     end do order_loop
     !
