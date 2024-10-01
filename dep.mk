@@ -312,6 +312,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/turb_inflow_mod.o \
                $(OBJDIR)/periodic_mod.o \
                $(OBJDIR)/gpu_mod.o \
+               $(OBJDIR)/shu_osher_mod.o \
                $(OBJDIR)/taylor_couette_mod.o \
                $(FUNDIR)/taylor_green.f90 \
                $(FUNDIR)/smc000_interior_wall_radius.f90 \
@@ -725,6 +726,11 @@ $(OBJDIR)/rhs_mod.o : rhs_mod.f90 \
             $(OBJDIR)/transport_mod.o \
             $(OBJDIR)/timer_mod.o \
             $(FUNDIR)/debug_timer.f90
+
+$(OBJDIR)/shu_osher_mod.o : shu_osher_mod.f90 \
+                $(OBJDIR)/kind_types.o \
+                $(OBJDIR)/ovar_mod.o \
+                $(OBJDIR)/thermo_mod.o
 
 $(OBJDIR)/taylor_couette_mod.o : taylor_couette_mod.f90 \
                        $(OBJDIR)/kind_types.o \

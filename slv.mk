@@ -161,6 +161,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/turb_inflow_mod.o \
         $(OBJDIR)/thx_mod.o \
         $(OBJDIR)/taylor_couette_mod.o \
+        $(OBJDIR)/shu_osher_mod.o \
         $(OBJDIR)/mydebug_mod.o \
         $(OBJDIR)/bc_wall_mod.o \
         $(OBJDIR)/bc_fixed_mod.o \

@@ -596,6 +596,13 @@ module ovar
   integer,  public, save :: pulse_test_repeat = 0
     !< Number of repeat density pulses.
   !
+  ! SHU-OSHER SHOCK TUBE TEST PARAMETERS
+  integer,  public, save :: shu_osher_test_dof = 0
+    !< Shu-Osher shock tube resolution for 1d internal grid:
+    !<   (<0) user specified number of cells,
+    !<   (=0) 512 degrees of freedom,
+    !<   (>0) user specified degrees of freedom.
+  !
   ! CHANNEL FLOW PARAMETERS
   real(wp),         public, save :: channel_body_force          = 0.0_wp
   character(len=:), public, save, allocatable :: channel_init_file
@@ -2010,6 +2017,7 @@ module input_namelist_mod
   use ovar,      only : pulse_test_form, pulse_test_form_dim
   use ovar,      only : pulse_test_dof, pulse_test_length, pulse_test_center
   use ovar,      only : pulse_test_width, pulse_test_gap, pulse_test_repeat
+  use ovar,      only : shu_osher_test_dof
   use ovar,      only : channel_body_force,channel_init_file
   use ovar,      only : channel_spatial_ave_restart
   use ovar,      only : channel_nondim_output_coord
@@ -2261,6 +2269,8 @@ module input_namelist_mod
   namelist / input / pulse_test_form, pulse_test_form_dim, &
                      pulse_test_dof, pulse_test_length, pulse_test_center, &
                      pulse_test_width, pulse_test_gap, pulse_test_repeat
+  ! SHU-OSHER SHOCK TUBE TEST PARAMETERS
+  namelist / input / shu_osher_test_dof
   ! CHANNEL FLOW PARAMETERS
   namelist / input / channel_body_force, channel_init_file, &
                      channel_spatial_ave_restart, channel_nondim_output_coord, &

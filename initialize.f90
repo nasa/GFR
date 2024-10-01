@@ -516,6 +516,7 @@ function initial_conditions(xyz,init_cond) result(return_value)
   use channel_mod, only : pipe_initialization
   use gpu_mod, only : vortex_solution_gpu
   !
+  use shu_osher_mod,      only : shu_osher_init
   use taylor_couette_mod, only : laminar_taylor_couette_init
   use taylor_couette_mod, only : turbulent_taylor_couette_init
   use taylor_couette_mod, only : freestream_taylor_couette_init
@@ -593,11 +594,21 @@ continue
   else if (abs(itestcase) == Density_Pulse_Test ) then
     !
     !###########################################################################
-    !##### !D PERIODIC DENSITY PULSE
+    !##### 1D PERIODIC DENSITY PULSE
     !###########################################################################
     !
     do k = 1,np
       return_value(k,:) = pulse_test_init( xyz(:,k) )
+    end do
+    !
+  else if (abs(itestcase) == Shu_Osher_Test ) then
+    !
+    !###########################################################################
+    !##### 1D SHU-OSHER PROBLEM
+    !###########################################################################
+    !
+    do k = 1,np
+      return_value(k,:) = shu_osher_init( xyz(:,k) )
     end do
     !
   else if (abs(itestcase) == Taylor_Couette_Flow) then
@@ -2580,6 +2591,7 @@ subroutine initialize_reference
   use transport_mod, only : init_transport_mod
   use reactions_mod, only : init_reactions_mod
   !
+  use shu_osher_mod,      only : initialize_shu_osher_problem
   use taylor_couette_mod, only : initialize_taylor_couette_problem
   !
   !.. Local Scalars ..
@@ -2690,6 +2702,12 @@ continue
       !       not evaluated in this subroutine.
       !
       call initialize_taylor_couette_problem(ref_length)
+      !
+    else if (abs(itestcase) == Shu_Osher_Test) then
+      !
+      ! Set the reference conditions for the Shu-Osher test problem
+      !
+      call initialize_shu_osher_problem()
       !
     end if
     !
