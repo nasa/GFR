@@ -27,25 +27,30 @@ module order_mod
   ! ### Public Scalars ###
   ! ######################
   !
-  integer, public, save :: n_order = 3
-  integer, public, save :: p_order = 3
-  integer, public, save :: q_order = 3
-  integer, public, save :: o_order = -3
-  integer, public, save :: e_order = -3
-  integer, public, save :: t_order = -1
+  ! Order variables get overwritten by more verbosely named user inputs.
+  integer, public, save :: n_order = 3   !< Solution    order.
+  integer, public, save :: p_order = 3   !< Projection  order.
+  integer, public, save :: q_order = 3   !< Quadrature  order.
+  integer, public, save :: o_order = -3  !< Output      order.
+  integer, public, save :: e_order = -3  !< Error       order.
+  integer, public, save :: t_order = -1  !< Temperature order.
+  !< If temperature gradient is an output variable, t_order is the order
+  !< at which to over-sample temperature. That over-sample is projected
+  !< down to n_order, and the derivative matrices are applied to that
+  !< projected temperature to get the output temperature gradient.
   !
-  integer, public, save :: n_min_geom
-  integer, public, save :: n_max_geom
-  integer, public, save :: n_min_order
-  integer, public, save :: n_max_order
+  integer, public, save :: n_min_geom   !< Min index of geometry entities used.
+  integer, public, save :: n_max_geom   !< Max index of geometry entities used.
+  integer, public, save :: n_min_order  !< Min(n_order,p_order,q_order,t_order)
+  integer, public, save :: n_max_order  !< Max(n_order,p_order,q_order,t_order)
   !
-  integer, public, save :: maxpts
-  integer, public, save :: maxSP ! maximum number of cell solution points
-  integer, public, save :: maxQP ! maximum number of cell quadrature points
-  integer, public, save :: maxFP ! maximum number of flux points
-  integer, public, save :: maxGP ! maximum number of flux quadrature points
-  integer, public, save :: maxOP ! maximum number of cell output points
-  integer, public, save :: maxEP ! maximum number of cell error points
+  integer, public, save :: maxpts  !< max(maxSP,maxQP,maxFP,maxGP,maxOP,maxEP)
+  integer, public, save :: maxSP   !< Maximum number of cell solution points.
+  integer, public, save :: maxQP   !< Maximum number of cell quadrature points.
+  integer, public, save :: maxFP   !< Maximum number of flux points.
+  integer, public, save :: maxGP   !< Maximum number of flux quadrature points.
+  integer, public, save :: maxOP   !< Maximum number of cell output points.
+  integer, public, save :: maxEP   !< Maximum number of cell error points.
   !
   ! Number of solution points for each cell geometry type
   !
@@ -112,8 +117,8 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  do j = lbound(geom_solpts,dim=2),ubound(geom_solpts,dim=2)
-    do i = lbound(geom_solpts,dim=1),ubound(geom_solpts,dim=1)
+  do j = lbound(geom_solpts,dim=2),ubound(geom_solpts,dim=2)  ! loop order
+    do i = lbound(geom_solpts,dim=1),ubound(geom_solpts,dim=1)  ! loop geom
       geom_solpts(i,j) = Cell_Solpts(i,j)
       geom_flxpts(i,j) = Cell_Flxpts(i,j)
       geom_edgpts(i,j) = Cell_Edgpts(i,j)
