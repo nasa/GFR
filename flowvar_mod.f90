@@ -405,11 +405,11 @@ continue
   nn = 0
   if (continuous_output) nn = nnode
   !
-  call alloc_fen_dt(nodeusp_dt,nf,"nodeusp_dt",pname,__LINE__)
+  call alloc_fen_dt(nodeusp_dt,nn,"nodeusp_dt",pname,__LINE__)
   !
-  call alloc_fen_dt(nodedusp_dt,nf,"nodedusp_dt",pname,__LINE__)
+  call alloc_fen_dt(nodedusp_dt,nn,"nodedusp_dt",pname,__LINE__)
   !
-  call alloc_fen_dt(nodegpsp_dt,nf,"nodegpsp_dt",pname,__LINE__,num_var=ng)
+  call alloc_fen_dt(nodegpsp_dt,nn,"nodegpsp_dt",pname,__LINE__,num_var=ng)
   !
   ! Allocate the limiter filter dissipation array
   !
