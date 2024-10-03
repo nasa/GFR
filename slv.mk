@@ -125,6 +125,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/correction_mod.o \
         $(OBJDIR)/derivatives_mod.o \
         $(OBJDIR)/interpolation_mod.o \
+        $(OBJDIR)/cell_ave_mod.o \
         $(OBJDIR)/projection_mod.o \
         $(OBJDIR)/vandermonde_mod.o \
         $(OBJDIR)/periodic_mod.o \
