@@ -40,7 +40,9 @@ module thermofix_mod
 contains
 !
 !###############################################################################
-!
+!> Check volume points for bad thermo properties
+!> (pressure, temperature, density) and limit the cell. Do not update faces.
+!###############################################################################
 subroutine check_cell_thermo_properties()
   !
   !.. Use Statements ..
@@ -129,7 +131,9 @@ continue
 end subroutine check_cell_thermo_properties
 !
 !###############################################################################
-!
+!> Check face points for bad thermo properties
+!> (pressure, temperature, density), limit the cell, and update the face.
+!###############################################################################
 subroutine check_face_thermo_properties()
   !
   !.. Use Statements ..
@@ -288,7 +292,9 @@ end subroutine check_face_thermo_properties
 !###############################################################################
 !###############################################################################
 !###############################################################################
-!
+!> For cells marked as bad, reinterpolate the cell volume solution data to the
+!> face points and update the face gas property values.
+!###############################################################################
 subroutine reinterpolate_bad_cells(bad_cell,usp,faceusp,facegpsp)
   !
   use geovar,     only : nfbnd,nface,face
@@ -372,7 +378,11 @@ continue
 end subroutine reinterpolate_bad_cells
 !
 !###############################################################################
-!
+!> For cells marked as bad, reinterpolate the cell volume solution data to the
+!> face points and update the face gas property values.
+!>
+!> Optimized routine for 3d.
+!###############################################################################
 pure &
 subroutine reinterpolate_bad_cells_3d(bad_cell,usp, &
                                       faceusp,faces_to_update)
@@ -490,7 +500,11 @@ continue
 end subroutine reinterpolate_bad_cells_3d
 !
 !###############################################################################
-!
+!> For cells marked as bad, reinterpolate the cell volume solution data to the
+!> face points and update the face gas property values.
+!>
+!> Optimized routine for 2d.
+!###############################################################################
 pure &
 subroutine reinterpolate_bad_cells_2d(bad_cell,usp, &
                                       faceusp,faces_to_update)
@@ -605,7 +619,11 @@ continue
 end subroutine reinterpolate_bad_cells_2d
 !
 !###############################################################################
-!
+!> For cells marked as bad, reinterpolate the cell volume solution data to the
+!> face points and update the face gas property values.
+!>
+!> Optimized routine for 1d.
+!###############################################################################
 pure &
 subroutine reinterpolate_bad_cells_1d(bad_cell,usp, &
                                       faceusp,faces_to_update)
@@ -717,7 +735,11 @@ continue
 end subroutine reinterpolate_bad_cells_1d
 !
 !###############################################################################
-!
+!> For cells marked as bad, reinterpolate the cell volume solution data to the
+!> face points and update the face gas property values.
+!>
+!> General routine for nd.
+!###############################################################################
 pure &
 subroutine reinterpolate_bad_cells_nd(mbeg,mend,bad_cell,usp, &
                                       faceusp,faces_to_update)
@@ -833,7 +855,9 @@ end subroutine reinterpolate_bad_cells_nd
 !###############################################################################
 !###############################################################################
 !###############################################################################
-!
+!> Apply the sponge filter to bad cells and
+!> update the volume solution and thermo in usp and gpsp.
+!###############################################################################
 subroutine emergency_limit_bad_cells(bad_cell,usp,gpsp)
   !
   !.. Use Statements ..
@@ -889,7 +913,11 @@ continue
 end subroutine emergency_limit_bad_cells
 !
 !###############################################################################
-!
+!> Apply the sponge filter to bad cells and
+!> update the volume solution and thermo in usp and gpsp.
+!>
+!> Optimized routine for 3d.
+!###############################################################################
 pure &
 subroutine emergency_limit_bad_cells_3d(bad_cell,usp)
   !
@@ -986,7 +1014,11 @@ continue
 end subroutine emergency_limit_bad_cells_3d
 !
 !###############################################################################
-!
+!> Apply the sponge filter to bad cells and
+!> update the volume solution and thermo in usp and gpsp.
+!>
+!> Optimized routine for 2d.
+!###############################################################################
 pure &
 subroutine emergency_limit_bad_cells_2d(bad_cell,usp)
   !
@@ -1079,7 +1111,11 @@ continue
 end subroutine emergency_limit_bad_cells_2d
 !
 !###############################################################################
-!
+!> Apply the sponge filter to bad cells and
+!> update the volume solution and thermo in usp and gpsp.
+!>
+!> Optimized routine for 1d.
+!###############################################################################
 pure &
 subroutine emergency_limit_bad_cells_1d(bad_cell,usp)
   !
@@ -1168,7 +1204,11 @@ continue
 end subroutine emergency_limit_bad_cells_1d
 !
 !###############################################################################
-!
+!> Apply the sponge filter to bad cells and
+!> update the volume solution and thermo in usp and gpsp.
+!>
+!> General routine for nd.
+!###############################################################################
 pure &
 subroutine emergency_limit_bad_cells_nd(mbeg,mend,bad_cell,usp)
   !
