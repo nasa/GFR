@@ -621,6 +621,19 @@ continue
   ji_gwt = one - ji_uwt
   ji_gvar = npres
   !
+  ! Make sure the multidim limiting process (MLP) marker variable is valid
+  !
+  if (MLP_Marker_Variable > nr+2) then
+    ! If it is greater than the energy equation (nr+2), reset it to density
+    MLP_Marker_Variable = nec
+  else if ( MLP_Marker_Variable > 0) then
+    ! Otherwise, offset the variable by the number of species equations
+    MLP_Marker_Variable = MLP_Marker_Variable + ncs
+  else
+    ! Default to density
+    MLP_Marker_Variable = nec
+  end if
+  !
   ! Reset default marker controls when using jump indicator.
   !
   if (Limiter_Option == 2) then

@@ -3225,7 +3225,7 @@ subroutine create_cell_derived_type(nodes_of_cell,nodes_of_cell_ptr, &
   use geovar,    only : cell_geom
   use geovar,    only : cell_order
   use order_mod, only : geom_solpts,q_order
-  use ovar,      only : continuous_output
+  use ovar,      only : continuous_output, Limiter_Option
   !
   !.. Formal Arguments ..
   integer,              dimension(:),   intent(in) :: nodes_of_cell
@@ -3248,6 +3248,7 @@ subroutine create_cell_derived_type(nodes_of_cell,nodes_of_cell_ptr, &
   integer :: qbeg,qend,qdtr_order
   real(wp) :: ave
   character(len=200) :: array_name
+  logical(lk) :: need_cell_face,need_cell_edge,need_cell_node
   !
   !.. Local Arrays ..
   integer, dimension(1:2) :: cp,ep
@@ -3307,6 +3308,10 @@ continue
   ! While we are doing this, store the geometry, solution order, first solution
   ! point, and last solution point of each cell within the cell array.
   !
+  need_cell_face =   true
+  need_cell_edge =   continuous_output
+  need_cell_node = ( continuous_output .or. Limiter_Option == 3 )
+  !
   iend = 0
   qend = 0
   !
@@ -3330,14 +3335,17 @@ continue
     cell(nc)%beg_qp = qbeg
     cell(nc)%end_qp = qend
     !
-    num_faces = geom_faces(this_geom)
+    if (need_cell_face) then
+      !
+      num_faces = geom_faces(this_geom)
+      !
+      allocate ( cell(nc)%face(1:num_faces) , stat=ierr , errmsg=error_message )
+      write (array_name,1) nc
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                       error_message,skip_alloc_pause)
+    end if ! need_cell_face
     !
-    allocate ( cell(nc)%face(1:num_faces) , stat=ierr , errmsg=error_message )
-    write (array_name,1) nc
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                     error_message,skip_alloc_pause)
-    !
-    if (continuous_output) then
+    if (need_cell_edge) then
       !
       num_edges = geom_edges(this_geom)
       !
@@ -3346,6 +3354,10 @@ continue
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                        error_message,skip_alloc_pause)
       !
+    end if ! need_cell_edge
+    !
+    if (need_cell_node) then
+      !
       num_nodes = geom_nodes(this_geom)
       !
       allocate ( cell(nc)%node(1:num_nodes) , stat=ierr , errmsg=error_message )
@@ -3353,215 +3365,221 @@ continue
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                        error_message,skip_alloc_pause)
       !
-    end if
+    end if ! need_cell_node
     !
   end do
   !
   n_qdtpts = cell(ncell)%end_qp
   !
-  ! Loop through the faces and create the flx-pt information for each
-  ! cell attached to the face.
-  !
-  ! Start with only the boundary faces
-  !
-  do nf = 1,nfbnd
+  if ( need_cell_face ) then
     !
-    host_cell  = face(nf)%left%cell
-    host_face  = face(nf)%left%cell_face
-    face_geom  = face(nf)%geom
-    face_order = face(nf)%order
-    qdtr_order = face(nf)%qdtr_order
+    ! Loop through the faces and create the flx-pt information for each
+    ! cell attached to the face.
     !
-    ! Copy in the face information for the current cell face
+    ! Start with only the boundary faces
     !
-    cell(host_cell)%face(host_face)%idx = nf
-    cell(host_cell)%face(host_face)%side = left_side
-    cell(host_cell)%face(host_face)%geom = face_geom
-    cell(host_cell)%face(host_face)%order = face_order
-    cell(host_cell)%face(host_face)%qdtr_order = qdtr_order
-    !
-    cell(host_cell)%face(host_face)%fp_offset = face(nf)%left%fp_offset
-    cell(host_cell)%face(host_face)%rotation = face(nf)%left%rotation
-    cell(host_cell)%face(host_face)%qp_offset = face(nf)%left%qp_offset
-    !
-  end do
-  !
-  ! Now do the interior faces
-  !
-  do nf = nfbnd+1,nface
-    !
-    ! Information for this face and its attached cells
-    !
-    left_cell  = face(nf)%left%cell
-    right_cell = face(nf)%right%cell
-    left_face  = face(nf)%left%cell_face
-    right_face = face(nf)%right%cell_face
-    face_geom  = face(nf)%geom
-    face_order = face(nf)%order
-    qdtr_order = face(nf)%qdtr_order
-    !
-    ! ####################################
-    ! ####################################
-    ! #####  Left cell on this face  #####
-    ! ####################################
-    ! ####################################
-    !
-    ! Copy in the face information for the left cell face.
-    ! For now, initialize the face_idx component to [1:nfp]
-    !
-    cell(left_cell)%face(left_face)%idx = nf
-    cell(left_cell)%face(left_face)%side = left_side
-    cell(left_cell)%face(left_face)%geom = face_geom
-    cell(left_cell)%face(left_face)%order = face_order
-    cell(left_cell)%face(left_face)%qdtr_order = qdtr_order
-    !
-    cell(left_cell)%face(left_face)%fp_offset = face(nf)%left%fp_offset
-    cell(left_cell)%face(left_face)%rotation = face(nf)%left%rotation
-    cell(left_cell)%face(left_face)%qp_offset = face(nf)%left%qp_offset
-    !
-    ! #####################################
-    ! #####################################
-    ! #####  Right cell on this face  #####
-    ! #####################################
-    ! #####################################
-    !
-    ! Copy in the face information for the right cell face.
-    ! For now, initialize the face_idx component to [1:nfp]
-    !
-    cell(right_cell)%face(right_face)%idx = nf
-    cell(right_cell)%face(right_face)%side = right_side
-    cell(right_cell)%face(right_face)%geom = face_geom
-    cell(right_cell)%face(right_face)%order = face_order
-    cell(right_cell)%face(right_face)%qdtr_order = qdtr_order
-    !
-    cell(right_cell)%face(right_face)%fp_offset = face(nf)%right%fp_offset
-    cell(right_cell)%face(right_face)%rotation = face(nf)%right%rotation
-    cell(right_cell)%face(right_face)%qp_offset = face(nf)%right%qp_offset
-    !
-  end do
-  !
-  if (.not. continuous_output) then
-    call debug_timer(leaving_procedure,pname)
-    return
-  end if
-  !
-  ! Loop through the edges and create the edg-pt information for each
-  ! cell attached to the edge
-  !
-  nedge = size(nodes_on_edge,dim=2)
-  !
-  bad_edges = 0
-  !
-  do this_edge = 1,size(nodes_on_edge,dim=2)
-    !
-    ep(1:2) = nodes_on_edge(1:2,this_edge)
-    !
-    nc1 = cells_with_edge_ptr(this_edge)+1
-    nc2 = cells_with_edge_ptr(this_edge+1)
-    ave = one / real(nc2-nc1+1,kind=wp)
-    !
-    cell_loop: do nc = nc1,nc2
+    do nf = 1,nfbnd
       !
-      this_cell = cells_with_edge(nc)
+      host_cell  = face(nf)%left%cell
+      host_face  = face(nf)%left%cell_face
+      face_geom  = face(nf)%geom
+      face_order = face(nf)%order
+      qdtr_order = face(nf)%qdtr_order
       !
-      if (this_cell > ncell) cycle cell_loop
+      ! Copy in the face information for the current cell face
       !
-      this_geom = cell(this_cell)%geom
-      this_order = cell(this_cell)%order
+      cell(host_cell)%face(host_face)%idx = nf
+      cell(host_cell)%face(host_face)%side = left_side
+      cell(host_cell)%face(host_face)%geom = face_geom
+      cell(host_cell)%face(host_face)%order = face_order
+      cell(host_cell)%face(host_face)%qdtr_order = qdtr_order
       !
-      np1 = nodes_of_cell_ptr(this_cell)+1
-      np2 = nodes_of_cell_ptr(this_cell+1)
-      np  = np2-np1+1
-      !
-      nep = geom_solpts(Geom_Edge,this_order)
-      !
-      ip(1:np) = nodes_of_cell(np1:np2)
-      !
-      ! Loop through the edges of this cell to find the edge with the same nodes
-      !
-      one_pass: do l = 1,1
-        !
-        find_cell_edge: do i = 1,geom_edges(this_geom)
-          !
-          cp(1:2) = ip( edge_nodes(1:2,i,this_geom) + 1 )
-          !
-          if (cp(1)==ep(1) .and. cp(2)==ep(2)) then
-            !
-            cell_edge = i
-            ibeg = nep*(i-1) + 1
-            iend = nep*i
-            interval = 1
-            !
-            exit one_pass
-            !
-          else if (cp(1)==ep(2) .and. cp(2)==ep(1)) then
-            !
-            cell_edge = i
-            ibeg = nep*i
-            iend = nep*(i-1) + 1
-            interval = -1
-            !
-            exit one_pass
-            !
-          else
-            !
-            ! This nodes for this cell edge do not match so cycle to the
-            ! next cell edge
-            !
-            cycle find_cell_edge
-            !
-          end if
-          !
-        end do find_cell_edge
-        !
-        if (bad_edges == 0) write (iout,10)
-        !
-        bad_edges = bad_edges + 1
-        write (iout,11) this_edge,this_cell
-        !
-      end do one_pass
-      !
-      !
-      !
-      cell(this_cell)%edge(cell_edge)%idx = this_edge
-      cell(this_cell)%edge(cell_edge)%ave_coef = ave
-      !
-      cell(this_cell)%edge(cell_edge)%ep_offset = nep*(cell_edge-1)
-      cell(this_cell)%edge(cell_edge)%rev_dir = (interval == -1)
-      !
-    end do cell_loop
-    !
-  end do
-  !
-  ! Kill the program with an error message if any bad edges were found
-  !
-  if (bad_edges /= 0) then
-    write (error_message,12)
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-  end if
-  !
-  ! Loop through the cells and create the information for each node of the cell
-  !
-  do this_cell = 1,ncell
-    !
-    np1 = nodes_of_cell_ptr(this_cell)+1
-    np2 = nodes_of_cell_ptr(this_cell+1)
-    !
-    do n = np1,np2
-      !
-      this_node = nodes_of_cell(n)
-      !
-      nc1 = cells_with_node_ptr(this_node)+1
-      nc2 = cells_with_node_ptr(this_node+1)
-      !
-      l = n-np1+1
-      !
-      cell(this_cell)%node(l)%idx = this_node
-      cell(this_cell)%node(l)%ave_coef = one / real(nc2-nc1+1,kind=wp)
+      cell(host_cell)%face(host_face)%fp_offset = face(nf)%left%fp_offset
+      cell(host_cell)%face(host_face)%rotation = face(nf)%left%rotation
+      cell(host_cell)%face(host_face)%qp_offset = face(nf)%left%qp_offset
       !
     end do
     !
-  end do
+    ! Now do the interior faces
+    !
+    do nf = nfbnd+1,nface
+      !
+      ! Information for this face and its attached cells
+      !
+      left_cell  = face(nf)%left%cell
+      right_cell = face(nf)%right%cell
+      left_face  = face(nf)%left%cell_face
+      right_face = face(nf)%right%cell_face
+      face_geom  = face(nf)%geom
+      face_order = face(nf)%order
+      qdtr_order = face(nf)%qdtr_order
+      !
+      ! ####################################
+      ! ####################################
+      ! #####  Left cell on this face  #####
+      ! ####################################
+      ! ####################################
+      !
+      ! Copy in the face information for the left cell face.
+      ! For now, initialize the face_idx component to [1:nfp]
+      !
+      cell(left_cell)%face(left_face)%idx = nf
+      cell(left_cell)%face(left_face)%side = left_side
+      cell(left_cell)%face(left_face)%geom = face_geom
+      cell(left_cell)%face(left_face)%order = face_order
+      cell(left_cell)%face(left_face)%qdtr_order = qdtr_order
+      !
+      cell(left_cell)%face(left_face)%fp_offset = face(nf)%left%fp_offset
+      cell(left_cell)%face(left_face)%rotation = face(nf)%left%rotation
+      cell(left_cell)%face(left_face)%qp_offset = face(nf)%left%qp_offset
+      !
+      ! #####################################
+      ! #####################################
+      ! #####  Right cell on this face  #####
+      ! #####################################
+      ! #####################################
+      !
+      ! Copy in the face information for the right cell face.
+      ! For now, initialize the face_idx component to [1:nfp]
+      !
+      cell(right_cell)%face(right_face)%idx = nf
+      cell(right_cell)%face(right_face)%side = right_side
+      cell(right_cell)%face(right_face)%geom = face_geom
+      cell(right_cell)%face(right_face)%order = face_order
+      cell(right_cell)%face(right_face)%qdtr_order = qdtr_order
+      !
+      cell(right_cell)%face(right_face)%fp_offset = face(nf)%right%fp_offset
+      cell(right_cell)%face(right_face)%rotation = face(nf)%right%rotation
+      cell(right_cell)%face(right_face)%qp_offset = face(nf)%right%qp_offset
+      !
+    end do
+  end if ! need_cell_face
+  !
+  if ( need_cell_edge ) then
+    !
+    ! Loop through the edges and create the edg-pt information for each
+    ! cell attached to the edge
+    !
+    nedge = size(nodes_on_edge,dim=2)
+    !
+    bad_edges = 0
+    !
+    do this_edge = 1,size(nodes_on_edge,dim=2)
+      !
+      ep(1:2) = nodes_on_edge(1:2,this_edge)
+      !
+      nc1 = cells_with_edge_ptr(this_edge)+1
+      nc2 = cells_with_edge_ptr(this_edge+1)
+      ave = one / real(nc2-nc1+1,kind=wp)
+      !
+      cell_loop: do nc = nc1,nc2
+        !
+        this_cell = cells_with_edge(nc)
+        !
+        if (this_cell > ncell) cycle cell_loop
+        !
+        this_geom = cell(this_cell)%geom
+        this_order = cell(this_cell)%order
+        !
+        np1 = nodes_of_cell_ptr(this_cell)+1
+        np2 = nodes_of_cell_ptr(this_cell+1)
+        np  = np2-np1+1
+        !
+        nep = geom_solpts(Geom_Edge,this_order)
+        !
+        ip(1:np) = nodes_of_cell(np1:np2)
+        !
+        ! Loop through the edges of this cell to find the edge with the same nodes
+        !
+        one_pass: do l = 1,1
+          !
+          find_cell_edge: do i = 1,geom_edges(this_geom)
+            !
+            cp(1:2) = ip( edge_nodes(1:2,i,this_geom) + 1 )
+            !
+            if (cp(1)==ep(1) .and. cp(2)==ep(2)) then
+              !
+              cell_edge = i
+              ibeg = nep*(i-1) + 1
+              iend = nep*i
+              interval = 1
+              !
+              exit one_pass
+              !
+            else if (cp(1)==ep(2) .and. cp(2)==ep(1)) then
+              !
+              cell_edge = i
+              ibeg = nep*i
+              iend = nep*(i-1) + 1
+              interval = -1
+              !
+              exit one_pass
+              !
+            else
+              !
+              ! This nodes for this cell edge do not match so cycle to the
+              ! next cell edge
+              !
+              cycle find_cell_edge
+              !
+            end if
+            !
+          end do find_cell_edge
+          !
+          if (bad_edges == 0) write (iout,10)
+          !
+          bad_edges = bad_edges + 1
+          write (iout,11) this_edge,this_cell
+          !
+        end do one_pass
+        !
+        !
+        !
+        cell(this_cell)%edge(cell_edge)%idx = this_edge
+        cell(this_cell)%edge(cell_edge)%ave_coef = ave
+        !
+        cell(this_cell)%edge(cell_edge)%ep_offset = nep*(cell_edge-1)
+        cell(this_cell)%edge(cell_edge)%rev_dir = (interval == -1)
+        !
+      end do cell_loop
+      !
+    end do
+    !
+    ! Kill the program with an error message if any bad edges were found
+    !
+    if (bad_edges /= 0) then
+      write (error_message,12)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+    !
+  end if ! need_cell_edge
+  !
+  if ( need_cell_node ) then
+    !
+    ! Loop through the cells and create the information for each node of cell
+    !
+    do this_cell = 1,ncell
+      !
+      np1 = nodes_of_cell_ptr(this_cell)+1
+      np2 = nodes_of_cell_ptr(this_cell+1)
+      !
+      do n = np1,np2
+        !
+        this_node = nodes_of_cell(n)
+        !
+        nc1 = cells_with_node_ptr(this_node)+1
+        nc2 = cells_with_node_ptr(this_node+1)
+        !
+        l = n-np1+1
+        !
+        cell(this_cell)%node(l)%idx = this_node
+        cell(this_cell)%node(l)%ave_coef = one / real(nc2-nc1+1,kind=wp)
+        !
+      end do
+      !
+    end do
+    !
+  end if ! need_cell_node
   !
   call debug_timer(leaving_procedure,pname)
   !

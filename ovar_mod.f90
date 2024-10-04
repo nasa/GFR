@@ -507,6 +507,7 @@ module ovar
   integer, public, save :: Limiter_Option             = 0
   integer, public, save :: Resolution_Marker_Variable = 0
   integer, public, save ::       Jump_Marker_Variable = 0
+  integer, public, save ::        MLP_Marker_Variable = 0
   !
   ! LIMITER MARKER SENSITIVITY OPTIONS
   real(wp), public, save :: Limiter_Marker_Min  =  1.0_wp
@@ -892,7 +893,7 @@ module ovar
   !$ACC&               LDG_beta,LDG_tau,visc_variables_to_ave, &
   !$ACC&               ideal_total_temperature,limit_total_temperature, &
   !$ACC&               invs_flux_method,Resolution_Marker_Variable, &
-  !$ACC&               Jump_Marker_Variable)
+  !$ACC&               Jump_Marker_Variable,MLP_Marker_Variable)
 contains
 !
 !###############################################################################
@@ -1988,7 +1989,7 @@ module input_namelist_mod
   use ovar,      only : Sponge_Filter_Alpha
   use ovar,      only : Sponge_Beyond_X
   use ovar,      only : Limiter_Option, Resolution_Marker_Variable
-  use ovar,      only : Jump_Marker_Variable
+  use ovar,      only : Jump_Marker_Variable, MLP_Marker_Variable
   use ovar,      only : Limiter_Marker_Min, Limiter_Marker_Max
   use ovar,      only : Limiter_Marker_dpsi
   use ovar,      only : Limiter_Marker_c1, Limiter_Marker_c2
@@ -2237,7 +2238,7 @@ module input_namelist_mod
                      Sponge_Beyond_X
   ! LIMITER OPTIONS
   namelist / input / Limiter_Option, Resolution_Marker_Variable, &
-                     Jump_Marker_Variable
+                     Jump_Marker_Variable, MLP_Marker_Variable
   ! LIMITER MARKER SENSITIVITY OPTIONS
   namelist / input / Limiter_Marker_Min, Limiter_Marker_Max, &
                      Limiter_Marker_c1, Limiter_Marker_c2, &

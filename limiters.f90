@@ -47,11 +47,14 @@ module module_limiters
   !$ACC DECLARE CREATE(sponge_cell)
   !
   !
-  !.. Module Public Protected Allocatable Arrays ..
+  !.. Module Public Allocatable Arrays ..
   !
-  real(wp), save, public, protected, allocatable :: marker(:,:)
-  real(wp), save, public, protected, allocatable :: scaled_marker(:,:)
-  !> maximum marker index. Is reset after user inputs.
+  real(wp), save, public, allocatable :: marker(:,:)
+  real(wp), save, public, allocatable :: scaled_marker(:,:)
+  !
+  !.. Module Public Scalars ..
+  !
+  !> Maximum marker index. Is reset after user inputs.
   integer, public :: nmarker = 1
   !
   !
@@ -112,7 +115,7 @@ subroutine moment_limiter
   !
  !use parallel_mod, only : exchange_modes
   !
-  !.. Local Scalars
+  !.. Local Scalars ..
   integer  :: i,k,m,n,nc,n0,np
   integer  :: this_geom,this_order
   real(wp) :: a,val
@@ -238,7 +241,7 @@ continue
       end if
     end if
     100 format (6x,"=> ",i8," troubled cells at P",i0)
-    101 format (9x,i8," troubled cells at P",i0)
+    101 format (9x,      i8," troubled cells at P",i0)
 #endif
     !
     if (Limiter_Filter_Option /= 0) then
@@ -3115,6 +3118,9 @@ subroutine identify_troubled_cells(nst,troubled_cell,dropped_orders, &
   !
   logical(lk) :: there_are_troubles
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "identify_troubled_cells"
+  !
 continue
   !
   proj_order = dropped_orders
@@ -3160,8 +3166,12 @@ continue
     orders_to_cutoff = proj_order
     call resolution_indicator(nst=nst,troubled_cell=troubled_cell, &
                               orders_to_cutoff=orders_to_cutoff)
-  else
+  else if (Limiter_Option == 2) then
     call jump_indicator(nst=nst,troubled_cell=troubled_cell)
+  else
+    ! Other values of Limiter_Option should never reach this routine.
+    write (error_message,100) Limiter_Option
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ord_mlt = 1
@@ -3222,6 +3232,8 @@ continue
                      MPI_MIN,MPI_COMM_WORLD,mpierr)
   there_are_no_troubles = (nc == 1)
 #endif
+  !
+100 format( "Unexpected value, Limiter_Option = ", i0 )
   !
 end subroutine identify_troubled_cells
 !

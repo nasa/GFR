@@ -518,6 +518,7 @@ subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name)
   use module_limiters, only : limit_by_projecting
   use module_limiters, only : check_cell_thermo_properties
   use module_limiters, only : apply_sponge_filter
+  use mlp_mod,         only : limit_by_mlp
   !
   use thermo_mod,      only : update_mixture_density
   use thermo_mod,      only : update_thermo_properties
@@ -578,8 +579,10 @@ continue
 #endif
       if (Limiter_Option <= -1) then
         call resolution_indicator(nst=nst,apply_projection=true)
-      else if (Limiter_Option >= 1) then
+      else if (Limiter_Option == 1 .or. Limiter_Option == 2) then
         call limit_by_projecting(nst=nst)
+      else if (Limiter_Option == 3) then
+        call limit_by_mlp(nst=nst,relax=one)
       end if
     end if
   end if

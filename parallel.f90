@@ -42,6 +42,7 @@ module parallel_mod
   public :: wait_facedusp,wait_facedusp_dt
   public :: exchange_facedusp,exchange_facedusp_dt
   public :: exch_edge_and_node_solutions
+  public :: exch_mlp_data
   public :: parallel_memory_usage
   public :: exch_connectivity
  !public :: exchange_modes
@@ -251,6 +252,12 @@ module parallel_mod
   !
   type(exch_data_t), save, allocatable :: exch_neusp(:)
   !
+  ! EXCH_MLP   : Array containing the information for all the communication
+  !              pairs that need to exchange data for the multidimensional
+  !              limiting process
+  !
+  type(exch_data_t), save, allocatable :: exch_mlp(:)
+  !
   !
   ! #########################################
   ! #####   MODULE GENERIC INTERFACES   #####
@@ -403,7 +410,7 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   !
   !.. Use Statements ..
   use geovar, only : n_global_face
-  use ovar,   only : continuous_output
+  use ovar,   only : continuous_output, Limiter_Option
   use geovar, only : geo_face_map => face_map
   use geovar, only : geo_edge_map => edge_map
   use geovar, only : geo_node_map => node_map
@@ -419,6 +426,7 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   real(wp), allocatable, dimension(:,:), intent(inout) :: xyz_nodes
   !
   !.. Local Scalars ..
+  logical(lk) :: need_node, need_edge, need_exch_neusp, need_exch_mlp
   integer :: lcell,ierr
   character(len=200) :: array_name
   !
@@ -611,12 +619,20 @@ continue
     !
     ! Create the node and edge arrays
     !
-    if (continuous_output) then
+    need_node = (continuous_output .or. Limiter_Option == 3)
+    need_edge = (continuous_output)
+    ! ToDo:
+    ! subroutine create_node_and_edge_datatypes still relies on
+    ! having edge available. When that is upgraded, can just
+    ! use the line above. For now, treat same as need_node.
+    need_edge = need_node
+    if ( need_node .or. need_edge ) then
       call memory_pause("Before: calling create_node_and_edge_arrays")
       call create_node_and_edge_arrays(nodes_of_cell,nodes_of_cell_ptr, &
                                        cells_with_node,cells_with_node_ptr, &
                                        cells_with_edge,cells_with_edge_ptr, &
-                                       cell_order,epart,bface,node,edge)
+                                       cell_order,epart,bface, &
+                                       need_node,need_edge,node,edge)
     end if
     !
     ! Deallocate nodes_on_edge since it is no longer needed
@@ -781,8 +797,11 @@ continue
  !                                  nodes_on_edge,face_rotation,flx,fp, &
  !                                  node_map,edge_map,face_map)
   !
-  if (continuous_output) then
-    call create_node_and_edge_datatypes(node,node_map,edge,edge_map)
+  need_exch_neusp = ( continuous_output )
+  need_exch_mlp   = ( Limiter_Option == 3 )
+  if ( need_exch_neusp .or. need_exch_mlp ) then
+    call create_node_and_edge_datatypes(node,node_map,edge,edge_map, &
+                                        need_exch_neusp,need_exch_mlp)
   end if
   !
   ! Deallocate the node and edge arrays and the node and edge
@@ -2685,7 +2704,8 @@ end subroutine output_continuous_grid
 subroutine create_node_and_edge_arrays(nodes_of_cell,nodes_of_cell_ptr, &
                                        cells_with_node,cells_with_node_ptr, &
                                        cells_with_edge,cells_with_edge_ptr, &
-                                       cell_order,epart,bface,node,edge)
+                                       cell_order,epart,bface, &
+                                       need_node,need_edge,node,edge)
   !
   !.. Formal Arguments ..
   integer,                      intent(in) :: nodes_of_cell(:)
@@ -2697,6 +2717,8 @@ subroutine create_node_and_edge_arrays(nodes_of_cell,nodes_of_cell_ptr, &
   integer(idx_t),               intent(in) :: epart(:)
   integer,                      intent(in) :: cell_order(:)
   integer,                      intent(in) :: bface(:,:)
+  logical(lk),                  intent(in) :: need_node  !< flag to fill node
+  logical(lk),                  intent(in) :: need_edge  !< flag to fill edge
   type(node_t), allocatable, intent(inout) :: node(:)
   type(edge_t), allocatable, intent(inout) :: edge(:)
   !
@@ -2758,179 +2780,184 @@ continue
   !   node(1:gnode)%cpu(1:num_cpus)%partition
   !   node(1:gnode)%cpu(1:num_cpus)%num_cells
   !
-  allocate ( node(1:lnode) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"node",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Loop through the grid nodes and find any nodes that exist on multiple
-  ! partitions. Save these partition numbers to the node array
-  !
-  create_node_loop: do n = 1,lnode
+  if_need_node : &
+  if ( need_node ) then
     !
-    ! Reset the local arrays for this node
+    allocate ( node(1:lnode) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"node",1,__LINE__,__FILE__,ierr,error_message)
     !
-    cpu_mask(:) = fals
-    cpu_cells(:) = 0
-    part_list(:) = 0
-    cell_list(:) = 0
-    bc_list(:) = not_a_bc
+    ! Loop through the grid nodes and find any nodes that exist on multiple
+    ! partitions. Save these partition numbers to the node array
     !
-    n1 = cells_with_node_ptr(n)+1 ! index of first cell containing this node
-    n2 = cells_with_node_ptr(n+1) ! index of last  cell containing this node
-    np = n2-n1+1                  ! number of cells containing this node
-    !
-    ! We first need to check if this node lies
-    ! on a non-communication boundary face
-    !
-    if (any( cells_with_node(n1:n2) < 0 )) then
+    create_node_loop: do n = 1,lnode
       !
-      ! One or more of the cells containing this node are actually a
-      ! non-communication boundary face so we need to treat this node
-      ! a little differently
+      ! Reset the local arrays for this node
       !
-      ! Set the logical flag that identifies
-      ! this node is part of a boundary face
+      cpu_mask(:) = fals
+      cpu_cells(:) = 0
+      part_list(:) = 0
+      cell_list(:) = 0
+      bc_list(:) = not_a_bc
       !
-      node(n)%is_on_boundary = true
+      n1 = cells_with_node_ptr(n)+1 ! index of first cell containing this node
+      n2 = cells_with_node_ptr(n+1) ! index of last  cell containing this node
+      np = n2-n1+1                  ! number of cells containing this node
       !
-      np = 0
+      ! We first need to check if this node lies
+      ! on a non-communication boundary face
       !
-      do i = n1,n2
+      if (any( cells_with_node(n1:n2) < 0 )) then
         !
-        if (cells_with_node(i) < 0) then
+        ! One or more of the cells containing this node are actually a
+        ! non-communication boundary face so we need to treat this node
+        ! a little differently
+        !
+        ! Set the logical flag that identifies
+        ! this node is part of a boundary face
+        !
+        node(n)%is_on_boundary = true
+        !
+        np = 0  ! number of cells containing this node
+        !
+        do i = n1,n2  ! loop number of cells with this node
           !
-          np = np + 1
-          !
-          nf = abs(cells_with_node(i)) - lcell
-          !
-          host_cell  = bface(2,nf)
-          ghost_cell = bface(10,nf)
-          !
-          if (abs(cells_with_node(i)) /= ghost_cell) then
-            write (error_message,2) n,n,nf,cells_with_node(i), &
-                                    ghost_cell,host_cell
-            call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+          if (cells_with_node(i) < 0) then
+            !
+            np = np + 1  ! number of cells containing this node
+            !
+            nf = abs(cells_with_node(i)) - lcell
+            !
+            host_cell  = bface(2,nf)
+            ghost_cell = bface(10,nf)
+            !
+            if (abs(cells_with_node(i)) /= ghost_cell) then
+              write (error_message,2) n,n,nf,cells_with_node(i), &
+                                      ghost_cell,host_cell
+              call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+            end if
+            !
+            ! Store the host cell for this boundary face
+            !
+            cell_list(np) = host_cell
+            !
+            ! Store the B.C. for this boundary face
+            !
+            bc_list(np) = bface(1,nf)
+            !
           end if
           !
-          ! Store the host cell for this boundary face
-          !
-          cell_list(np) = host_cell
-          !
-          ! Store the B.C. for this boundary face
-          !
-          bc_list(np) = bface(1,nf)
-          !
+        end do
+        !
+        ! Save the partitions numbers of cells with this edge to a local array
+        !
+        part_list(1:np) = epart( cell_list(1:np) )
+        !
+        ! Find the boundary faces with this node that have the highest
+        ! BC priority, and set the BC to bc_unknown for all the other
+        ! boundary faces with a BC of lesser priority.
+        !
+        call find_priority_bc( bc_list(1:np) , cell_list(1:np) )
+        !
+      else
+        !
+        ! This node is not part of a boundary face
+        !
+        ! Set bc_list to not_a_bc to indicate that we want
+        ! to add each of these cells to cpu_cells
+        !
+        bc_list(1:np) = not_a_bc
+        !
+        ! Save the cells with this node to a local array
+        !
+        cell_list(1:np) = cells_with_node(n1:n2)
+        !
+        ! Save the partition numbers of cells with this edge to a local array
+        !
+        part_list(1:np) = epart( cell_list(1:np) )
+        !
+      end if
+      !
+      ! Get the lower and upper bounds of the partitions with this node
+      !
+      lcpu = minval( part_list(1:np) )
+      ucpu = maxval( part_list(1:np) )
+      !
+      ! Skip this node if the partition number is
+      ! the same for all cells with this node
+      !
+      if (lcpu == ucpu) then
+        node(n)%controlling_partition = lcpu
+        cycle create_node_loop
+      end if
+      !
+      ! Sum the number of cells containing this node on each partition
+      !
+      do i = 1,np  ! loop number of cells contining this node
+        !
+        ! Mark this partition as having a cell containing this node
+        ! NOTE: For a boundary node, we want to keep all partitions
+        !       that contain this node, not just the ones with
+        !       bc_list /= bc_unknown, because all partitions will
+        !       still have to provide the connectivity for this node.
+        !       To make sure that those partitions with
+        !       bc_list == bc_unknown dont contribute to the solution
+        !       at this node, the num_cells component will be 0 for
+        !       these partitions.
+        !
+        cpu_mask( part_list(i) ) = true
+        !
+        ! Only add another cell to this partition if this is not
+        ! a boundary face (i.e., bc_list(i) == not_a_bc) or this
+        ! is a boundary face with the BC of highest priority for
+        ! this node (i.e., bc_list(i) /= bc_unknown).
+        !
+        if (bc_list(i) /= bc_unknown) then
+          cpu_cells( part_list(i) ) = cpu_cells( part_list(i) ) + 1
         end if
         !
       end do
       !
-      ! Save the partitions numbers of the cells with this edge to a local array
+      ! Count the number of cpus that contain this node
       !
-      part_list(1:np) = epart( cell_list(1:np) )
+      num_cpus = count( cpu_mask(lcpu:ucpu) )
       !
-      ! Find the boundary faces with this node that have the highest
-      ! BC priority, and set the BC to bc_unknown for all the other
-      ! boundary faces with a BC of lesser priority.
+      ! Allocate the cpu component of the node array for this node
       !
-      call find_priority_bc( bc_list(1:np) , cell_list(1:np) )
+      allocate ( node(n)%cpu(1:num_cpus) , stat=ierr , errmsg=error_message )
+      write (array_name,1) "node",n
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                       error_message,skip_alloc_pause)
       !
-    else
+      node(n)%cpu(1:num_cpus)%partition = pack( intseq(lcpu,ucpu) , &
+                                                cpu_mask(lcpu:ucpu) )
       !
-      ! This node is not part of a boundary face
+      ! Save the number of cells that contain this node on each partition
+      ! NOTE: This may be zero for a partition if:
+      !         1) this node is on a boundary face, and
+      !         2) on this partition, all the boundary faces with this node
+      !            have BCs that are of lesser priority than a higher
+      !            priority BC for a boundary face on another partition.
+      !       In such a case, we want this to be zero because that means the
+      !       averaging correction for this node (computed later in subroutine
+      !       create_node_and_edge_datatypes) will also be zero for this
+      !       partition, and therefore the contribution to the solution for
+      !       this node from this partition will be canceled out.
       !
-      ! Set bc_list to not_a_bc to indicate that we want
-      ! to add each of these cells to cpu_cells
+      do i = 1,size(node(n)%cpu)
+        node(n)%cpu(i)%num_cells = cpu_cells( node(n)%cpu(i)%partition )
+      end do
       !
-      bc_list(1:np) = not_a_bc
+      ! Assign the partition that contains the cell with the lowest index
+      ! value with this node as the controlling partition for this node
       !
-      ! Save the cells with this node to a local array
+      i = minval( cell_list(1:np) , &
+                  mask=(cell_list(1:np)>0 .and. cell_list(1:np)<=lcell) )
       !
-      cell_list(1:np) = cells_with_node(n1:n2)
+      node(n)%controlling_partition = epart(i)
       !
-      ! Save the partitions numbers of the cells with this edge to a local array
-      !
-      part_list(1:np) = epart( cell_list(1:np) )
-      !
-    end if
+    end do create_node_loop
     !
-    ! Get the lower and upper bounds of the partitions with this node
-    !
-    lcpu = minval( part_list(1:np) )
-    ucpu = maxval( part_list(1:np) )
-    !
-    ! Skip this node if the partition number is
-    ! the same for all cells with this node
-    !
-    if (lcpu == ucpu) then
-      node(n)%controlling_partition = lcpu
-      cycle create_node_loop
-    end if
-    !
-    ! Sum the number of cells containing this node on each partition
-    !
-    do i = 1,np  ! loop number of cells contining this node
-      !
-      ! Mark this partition as having a cell containing this node
-      ! NOTE: For a boundary node, we want to keep all partitions
-      !       that contain this node, not just the ones with
-      !       bc_list /= bc_unknown, because all partitions will
-      !       still have to provide the connectivity for this node.
-      !       To make sure that those partitions with
-      !       bc_list == bc_unknown dont contribute to the solution
-      !       at this node, the num_cells component will be 0 for
-      !       these partitions.
-      !
-      cpu_mask( part_list(i) ) = true
-      !
-      ! Only add another cell to this partition if this is not
-      ! a boundary face (i.e., bc_list(i) == not_a_bc) or this
-      ! is a boundary face with the BC of highest priority for
-      ! this node (i.e., bc_list(i) /= bc_unknown).
-      !
-      if (bc_list(i) /= bc_unknown) then
-        cpu_cells( part_list(i) ) = cpu_cells( part_list(i) ) + 1
-      end if
-      !
-    end do
-    !
-    ! Count the number of cpus that contain this node
-    !
-    num_cpus = count( cpu_mask(lcpu:ucpu) )
-    !
-    ! Allocate the cpu component of the node array for this node
-    !
-    allocate ( node(n)%cpu(1:num_cpus) , stat=ierr , errmsg=error_message )
-    write (array_name,1) "node",n
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                     error_message,skip_alloc_pause)
-    !
-    node(n)%cpu(1:num_cpus)%partition = pack( intseq(lcpu,ucpu) , &
-                                              cpu_mask(lcpu:ucpu) )
-    !
-    ! Save the number of cells that contain this node on each partition
-    ! NOTE: This may be zero for a partition if:
-    !         1) this node is on a boundary face, and
-    !         2) on this partition, all the boundary faces with this node
-    !            have BCs that are of lesser priority than a higher
-    !            priority BC for a boundary face on another partition.
-    !       In such a case, we want this to be zero because that means the
-    !       averaging correction for this node (computed later in subroutine
-    !       create_node_and_edge_datatypes) will also be zero for this
-    !       partition, and therefore the contribution to the solution for
-    !       this node from this partition will be canceled out.
-    !
-    do i = 1,size(node(n)%cpu)
-      node(n)%cpu(i)%num_cells = cpu_cells( node(n)%cpu(i)%partition )
-    end do
-    !
-    ! Assign the partition that contains the cell with the lowest index
-    ! value with this node as the controlling partition for this node
-    !
-    i = minval( cell_list(1:np) , &
-                mask=(cell_list(1:np)>0 .and. cell_list(1:np)<=lcell) )
-    !
-    node(n)%controlling_partition = epart(i)
-    !
-  end do create_node_loop
+  end if if_need_node
   !
   ! Create the edge array
   !   edge(1:gedge)%is_on_boundary
@@ -2940,215 +2967,220 @@ continue
   !   edge(1:gedge)%cpu(1:num_cpus)%num_cells
   !   edge(1:gedge)%cpu(1:num_cpus)%edgepts(1:num_edgepts_in_cell)
   !
-  allocate ( edge(1:ledge) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"edge",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Loop through the grid edges and find any edges that exist on multiple
-  ! partitions. Save these partition numbers to the edge array
-  !
-  create_edge_loop: do n = 1,ledge
+  if_need_edge : &
+  if ( need_edge ) then
     !
-    ! Reset the local arrays for this edge
+    allocate ( edge(1:ledge) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"edge",1,__LINE__,__FILE__,ierr,error_message)
     !
-    cpu_mask(:) = fals
-    cpu_cells(:) = 0
-    part_list(:) = 0
-    cell_list(:) = 0
-    bc_list(:) = not_a_bc
+    ! Loop through the grid edges and find any edges that exist on multiple
+    ! partitions. Save these partition numbers to the edge array
     !
-    n1 = cells_with_edge_ptr(n)+1 ! index of first cell containing this edge
-    n2 = cells_with_edge_ptr(n+1) ! index of last  cell containing this edge
-    np = n2-n1+1                  ! number of cells containing this edge
-    !
-    ! We first need to check if this edge lies
-    ! on a non-communication boundary face
-    !
-    if (any( cells_with_edge(n1:n2) < 0 )) then
+    create_edge_loop: do n = 1,ledge
       !
-      ! One or more of the cells containing this edge are actually a
-      ! non-communication boundary face so we need to treat this edge
-      ! a little differently
+      ! Reset the local arrays for this edge
       !
-      ! Set the logical flag that identifies
-      ! this edge is part of a boundary face
+      cpu_mask(:) = fals
+      cpu_cells(:) = 0
+      part_list(:) = 0
+      cell_list(:) = 0
+      bc_list(:) = not_a_bc
       !
-      edge(n)%is_on_boundary = true
+      n1 = cells_with_edge_ptr(n)+1 ! index of first cell containing this edge
+      n2 = cells_with_edge_ptr(n+1) ! index of last  cell containing this edge
+      np = n2-n1+1                  ! number of cells containing this edge
       !
-      edge(n)%order = 0
-      np = 0
+      ! We first need to check if this edge lies
+      ! on a non-communication boundary face
       !
-      do i = n1,n2
+      if (any( cells_with_edge(n1:n2) < 0 )) then
         !
-        if (cells_with_edge(i) < 0) then
+        ! One or more of the cells containing this edge are actually a
+        ! non-communication boundary face so we need to treat this edge
+        ! a little differently
+        !
+        ! Set the logical flag that identifies
+        ! this edge is part of a boundary face
+        !
+        edge(n)%is_on_boundary = true
+        !
+        edge(n)%order = 0
+        np = 0
+        !
+        do i = n1,n2
           !
-          np = np + 1
-          !
-          nf = abs(cells_with_edge(i)) - lcell
-          !
-          host_cell  = bface(2,nf)
-          ghost_cell = bface(10,nf)
-          !
-          if (abs(cells_with_edge(i)) /= ghost_cell) then
-            write (error_message,3) n,n,nf,cells_with_edge(i), &
-                                    ghost_cell,host_cell
-            call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+          if (cells_with_edge(i) < 0) then
+            !
+            np = np + 1
+            !
+            nf = abs(cells_with_edge(i)) - lcell
+            !
+            host_cell  = bface(2,nf)
+            ghost_cell = bface(10,nf)
+            !
+            if (abs(cells_with_edge(i)) /= ghost_cell) then
+              write (error_message,3) n,n,nf,cells_with_edge(i), &
+                                      ghost_cell,host_cell
+              call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+            end if
+            !
+            ! Store the host cell for this boundary face
+            !
+            cell_list(np) = host_cell
+            !
+            ! Store the B.C. for this boundary face
+            !
+            bc_list(np) = bface(1,nf)
+            !
           end if
           !
-          ! Store the host cell for this boundary face
-          !
-          cell_list(np) = host_cell
-          !
-          ! Store the B.C. for this boundary face
-          !
-          bc_list(np) = bface(1,nf)
-          !
-        end if
+        end do
         !
-      end do
-      !
-      ! Temporarily store the host cells in part_list
-      !
-      part_list(1:np) = cell_list(1:np)
-      !
-      ! Find the boundary faces with this edge that have the highest
-      ! BC priority, and set the BC to bc_unknown for all the other
-      ! boundary faces with a BC of lesser priority.
-      !
-      call find_priority_bc( bc_list(1:np) , cell_list(1:np) )
-      !
-      ! Now that we have removed all the boundary faces with BC of lower
-      ! priority, find the maximum order of all the host cells for the
-      ! remaining boundary faces. Also replace the index for the host cells
-      ! that are temporarily stored in part_list with the partition numbers
-      ! for each of these host cells.
-      !
-      do i = 1,np
-        host_cell = part_list(i)
-        if (bc_list(i) /= bc_unknown) then
-          edge(n)%order = max( edge(n)%order , cell_order(host_cell) )
-        end if
-        part_list(i) = epart( host_cell )
-      end do
-      !
-    else
-      !
-      ! This edge is not part of a boundary face
-      !
-      ! Set bc_list to not_a_bc to indicate that we want
-      ! to add each of these cells to cpu_cells
-      !
-      bc_list(1:np) = not_a_bc
-      !
-      ! Save the cells with this edge to a local array
-      !
-      cell_list(1:np) = cells_with_edge(n1:n2)
-      !
-      ! Save the partitions numbers of the cells with this edge to a local array
-      !
-      part_list(1:np) = epart( cell_list(1:np) )
-      !
-      ! Get the maximum order of the cells with this edge
-      ! and save this to the edge array
-      !
-      edge(n)%order = maxval( cell_order(cell_list(1:np)) )
-      !
-    end if
-    !
-    ! Get the lower and upper bounds of the partitions with this edge
-    !
-    lcpu = minval( part_list(1:np) )
-    ucpu = maxval( part_list(1:np) )
-    !
-    ! Skip this edge if the partition number is
-    ! the same for all cells with this edge
-    !
-    if (lcpu == ucpu) then
-      edge(n)%controlling_partition = lcpu
-      cycle create_edge_loop
-    end if
-    !
-    ! Sum the number of cells containing this edge on each partition
-    !
-    do i = 1,np
-      !
-      ! Mark this partition as having a cell containing this edge
-      !
-      cpu_mask( part_list(i) ) = true
-      !
-      ! Only add another cell to this partition if this is not
-      ! a boundary face (i.e., bc_list(i) == not_a_bc) or this
-      ! is a boundary face with the BC of highest priority for
-      ! this edge (i.e., bc_list(i) /= bc_unknown).
-      !
-      if (bc_list(i) /= bc_unknown) then
-        cpu_cells( part_list(i) ) = cpu_cells( part_list(i) ) + 1
+        ! Temporarily store the host cells in part_list
+        !
+        part_list(1:np) = cell_list(1:np)
+        !
+        ! Find the boundary faces with this edge that have the highest
+        ! BC priority, and set the BC to bc_unknown for all the other
+        ! boundary faces with a BC of lesser priority.
+        !
+        call find_priority_bc( bc_list(1:np) , cell_list(1:np) )
+        !
+        ! Now that we have removed all the boundary faces with BC of lower
+        ! priority, find the maximum order of all the host cells for the
+        ! remaining boundary faces. Also replace the index for the host cells
+        ! that are temporarily stored in part_list with the partition numbers
+        ! for each of these host cells.
+        !
+        do i = 1,np
+          host_cell = part_list(i)
+          if (bc_list(i) /= bc_unknown) then
+            edge(n)%order = max( edge(n)%order , cell_order(host_cell) )
+          end if
+          part_list(i) = epart( host_cell )
+        end do
+        !
+      else
+        !
+        ! This edge is not part of a boundary face
+        !
+        ! Set bc_list to not_a_bc to indicate that we want
+        ! to add each of these cells to cpu_cells
+        !
+        bc_list(1:np) = not_a_bc
+        !
+        ! Save the cells with this edge to a local array
+        !
+        cell_list(1:np) = cells_with_edge(n1:n2)
+        !
+        ! Save the partitions numbers of the cells with this edge to a local array
+        !
+        part_list(1:np) = epart( cell_list(1:np) )
+        !
+        ! Get the maximum order of the cells with this edge
+        ! and save this to the edge array
+        !
+        edge(n)%order = maxval( cell_order(cell_list(1:np)) )
+        !
       end if
       !
-    end do
-    !
-    ! Count the number of cpus that contain this edge
-    !
-    num_cpus = count( cpu_mask(lcpu:ucpu) )
-    !
-    ! Allocate the cpu component of the edge array for this edge
-    !
-    allocate ( edge(n)%cpu(1:num_cpus) , stat=ierr , errmsg=error_message )
-    write (array_name,1) "edge",n
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                     error_message,skip_alloc_pause)
-    !
-    edge(n)%cpu(1:num_cpus)%partition = pack( intseq(lcpu,ucpu) , &
-                                              cpu_mask(lcpu:ucpu) )
-    !
-    ! Save the number of cells that contain this edge on each partition
-    ! NOTE: This may be zero for a partition if:
-    !         1) this edge is on a boundary face, and
-    !         2) on this partition, all the boundary faces with this edge
-    !            have BCs that are of lesser priority than a higher
-    !            priority BC for a boundary face on another partition.
-    !       In such a case, we want this to be zero because that means the
-    !       averaging correction for this edge (computed later in subroutine
-    !       create_node_and_edge_datatypes) will also be zero for this
-    !       partition, and therefore the contribution to the solution for
-    !       this edge from this partition will be canceled out.
-    !
-    do i = 1,size(edge(n)%cpu)
-      edge(n)%cpu(i)%num_cells = cpu_cells( edge(n)%cpu(i)%partition )
-    end do
-    !
-    ! Assign the partition that contains the cell with the lowest index
-    ! value with this edge as the controlling partition for this edge
-    !
-    i = minval( cell_list(1:np) , &
-                mask=(cell_list(1:np)>0 .and. cell_list(1:np)<=lcell) )
-    !
-    edge(n)%controlling_partition = epart(i)
-    !
-    ! Finally, we need to create the ordering of the edge points
-    !
-    if (use_edgpts) then
+      ! Get the lower and upper bounds of the partitions with this edge
       !
-      np = Cell_Solpts( Geom_Edge , edge(n)%order )
+      lcpu = minval( part_list(1:np) )
+      ucpu = maxval( part_list(1:np) )
       !
-      do i = 1,size(edge(n)%cpu)
+      ! Skip this edge if the partition number is
+      ! the same for all cells with this edge
+      !
+      if (lcpu == ucpu) then
+        edge(n)%controlling_partition = lcpu
+        cycle create_edge_loop
+      end if
+      !
+      ! Sum the number of cells containing this edge on each partition
+      !
+      do i = 1,np
         !
-        allocate ( edge(n)%cpu(i)%edgpts(1:np) , source=0 , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) "edge",n,i
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
+        ! Mark this partition as having a cell containing this edge
         !
-        ! NOT SURE IF THIS IS CORRECT. WE MIGHT NEED TO CHECK THE NODES ON
-        ! THE EDGE AND THE ORDERING AND USE intseq(np,1,-1) IF THE NODES ARE
-        ! REVERSED
+        cpu_mask( part_list(i) ) = true
         !
-        edge(n)%cpu(i)%edgpts(1:np) = intseq(1,np)
+        ! Only add another cell to this partition if this is not
+        ! a boundary face (i.e., bc_list(i) == not_a_bc) or this
+        ! is a boundary face with the BC of highest priority for
+        ! this edge (i.e., bc_list(i) /= bc_unknown).
+        !
+        if (bc_list(i) /= bc_unknown) then
+          cpu_cells( part_list(i) ) = cpu_cells( part_list(i) ) + 1
+        end if
         !
       end do
       !
-    end if
+      ! Count the number of cpus that contain this edge
+      !
+      num_cpus = count( cpu_mask(lcpu:ucpu) )
+      !
+      ! Allocate the cpu component of the edge array for this edge
+      !
+      allocate ( edge(n)%cpu(1:num_cpus) , stat=ierr , errmsg=error_message )
+      write (array_name,1) "edge",n
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                       error_message,skip_alloc_pause)
+      !
+      edge(n)%cpu(1:num_cpus)%partition = pack( intseq(lcpu,ucpu) , &
+                                                cpu_mask(lcpu:ucpu) )
+      !
+      ! Save the number of cells that contain this edge on each partition
+      ! NOTE: This may be zero for a partition if:
+      !         1) this edge is on a boundary face, and
+      !         2) on this partition, all the boundary faces with this edge
+      !            have BCs that are of lesser priority than a higher
+      !            priority BC for a boundary face on another partition.
+      !       In such a case, we want this to be zero because that means the
+      !       averaging correction for this edge (computed later in subroutine
+      !       create_node_and_edge_datatypes) will also be zero for this
+      !       partition, and therefore the contribution to the solution for
+      !       this edge from this partition will be canceled out.
+      !
+      do i = 1,size(edge(n)%cpu)
+        edge(n)%cpu(i)%num_cells = cpu_cells( edge(n)%cpu(i)%partition )
+      end do
+      !
+      ! Assign the partition that contains the cell with the lowest index
+      ! value with this edge as the controlling partition for this edge
+      !
+      i = minval( cell_list(1:np) , &
+                  mask=(cell_list(1:np)>0 .and. cell_list(1:np)<=lcell) )
+      !
+      edge(n)%controlling_partition = epart(i)
+      !
+      ! Finally, we need to create the ordering of the edge points
+      !
+      if (use_edgpts) then
+        !
+        np = Cell_Solpts( Geom_Edge , edge(n)%order )
+        !
+        do i = 1,size(edge(n)%cpu)
+          !
+          allocate ( edge(n)%cpu(i)%edgpts(1:np) , source=0 , &
+                     stat=ierr , errmsg=error_message )
+          write (array_name,1) "edge",n,i
+          call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                           error_message,skip_alloc_pause)
+          !
+          ! NOT SURE IF THIS IS CORRECT. WE MIGHT NEED TO CHECK THE NODES ON
+          ! THE EDGE AND THE ORDERING AND USE intseq(np,1,-1) IF THE NODES ARE
+          ! REVERSED
+          !
+          edge(n)%cpu(i)%edgpts(1:np) = intseq(1,np)
+          !
+        end do
+        !
+      end if
+      !
+    end do create_edge_loop
     !
-  end do create_edge_loop
+  end if if_need_edge
   !
   ! Deallocate cell_list, part_list, and bc_list before we leave
   !
@@ -7776,17 +7808,30 @@ end subroutine bcast_node_and_edge_arrays
 !>     exch_neusp(1:npair)%send_datatype  ! MPI handle for send
 !>     exch_neusp(1:npair)%recv_datatype  ! MPI handle for recv
 !> ```
+!> * Communication info for exchanging node MLP data:
+!> ``` {.f90}
+!>     ! npair = number of cpu communication pairs
+!>     exch_mlp(1:npair)
+!>     exch_mlp(1:npair)%adj_cpu        ! cpu id of commun. partner
+!>     exch_mlp(1:npair)%send_tag       ! MPI tag    for send
+!>     exch_mlp(1:npair)%recv_tag       ! MPI tag    for recv
+!>     exch_mlp(1:npair)%send_datatype  ! MPI handle for send
+!>     exch_mlp(1:npair)%recv_datatype  ! MPI handle for recv
+!> ```
 !###############################################################################
-subroutine create_node_and_edge_datatypes(node,node_map,edge,edge_map)
+subroutine create_node_and_edge_datatypes(node,node_map,edge,edge_map, &
+                                          need_exch_neusp,need_exch_mlp)
   !
   !.. Formal Arguments ..
   type(node_t), allocatable, intent(in) :: node(:)
   type(map_t),               intent(in) :: node_map(:)
   type(edge_t), allocatable, intent(in) :: edge(:)
   type(map_t),               intent(in) :: edge_map(:)
+  logical(lk),               intent(in) :: need_exch_neusp
+  logical(lk),               intent(in) :: need_exch_mlp
   !
   !.. Local Scalars ..
-  integer :: i,ierr,n,n1,n2,nep,nvar,scnt,rcnt,rmin,rmax
+  integer :: i,ierr,n,n1,n2,nep,nvar,scnt,rcnt,scnt_nodes,rcnt_nodes,rmin,rmax
   integer :: my_part,adj_part,npair,this_pair,last_offset
   integer :: lnode,loc_node,glb_node,adj_node,node_part
   integer :: ledge,loc_edge,glb_edge,adj_edge,edge_part
@@ -8258,42 +8303,78 @@ continue
   call debug_timer(stop_timer,"section 5c")
   call debug_timer(start_timer,"section 5d")
   !
-  ! Allocate the array containing the exch_neusp communication information
-  !
-  allocate ( exch_neusp(1:npair) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"exch_neusp",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Fill in the adj_cpu and tag parts of exch_neusp
-  !
-  do this_pair = 1,size(exch_neusp)
+  if ( need_exch_neusp ) then
     !
-    tag12 = int( this_pair                    , kind=int_mpi )
-    tag21 = int( this_pair + size(exch_neusp) , kind=int_mpi )
+    ! Allocate the array containing the exch_neusp communication information
     !
-    if (comm_pair(1,this_pair) == mypnum) then
-      !
-      exch_neusp(this_pair)%adj_cpu  = int(comm_pair(2,this_pair),kind=int_mpi)
-      exch_neusp(this_pair)%send_tag = tag12
-      exch_neusp(this_pair)%recv_tag = tag21
-     !exch_neusp(this_pair)%send_tag = mypnum
-     !exch_neusp(this_pair)%recv_tag = int(comm_pair(2,this_pair),kind=int_mpi)
-      !
-    else if (comm_pair(2,this_pair) == mypnum) then
-      !
-      exch_neusp(this_pair)%adj_cpu  = int(comm_pair(1,this_pair),kind=int_mpi)
-      exch_neusp(this_pair)%send_tag = tag21
-      exch_neusp(this_pair)%recv_tag = tag12
-     !exch_neusp(this_pair)%send_tag = mypnum
-     !exch_neusp(this_pair)%recv_tag = int(comm_pair(1,this_pair),kind=int_mpi)
-      !
-    end if
+    allocate ( exch_neusp(1:npair) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"exch_neusp",1,__LINE__,__FILE__,ierr,error_message)
     !
-  end do
+    ! Fill in the adj_cpu and tag parts of exch_neusp
+    !
+    do this_pair = 1,size(exch_neusp)
+      !
+      tag12 = int( this_pair                    , kind=int_mpi )
+      tag21 = int( this_pair + size(exch_neusp) , kind=int_mpi )
+      !
+      if (comm_pair(1,this_pair) == mypnum) then
+        !
+        exch_neusp(this_pair)%adj_cpu  = int(comm_pair(2,this_pair), &
+                                             kind=int_mpi)
+        exch_neusp(this_pair)%send_tag = tag12
+        exch_neusp(this_pair)%recv_tag = tag21
+       !exch_neusp(this_pair)%send_tag = mypnum
+       !exch_neusp(this_pair)%recv_tag = int(comm_pair(2,this_pair), &
+       !                                     kind=int_mpi)
+        !
+      else if (comm_pair(2,this_pair) == mypnum) then
+        !
+        exch_neusp(this_pair)%adj_cpu  = int(comm_pair(1,this_pair), &
+                                             kind=int_mpi)
+        exch_neusp(this_pair)%send_tag = tag21
+        exch_neusp(this_pair)%recv_tag = tag12
+       !exch_neusp(this_pair)%send_tag = mypnum
+       !exch_neusp(this_pair)%recv_tag = int(comm_pair(1,this_pair), &
+       !                                     kind=int_mpi)
+        !
+      end if
+      !
+    end do
+    !
+  end if ! ( need_exch_neusp )
   !
-  ! Deallocate comm_pair since it is no longer needed
+  if ( need_exch_mlp ) then
+    !
+    ! Allocate the array containing the exch_mlp communication information
+    !
+    allocate ( exch_mlp(1:npair) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"exch_mlp",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Fill in the adj_cpu and tag parts of exch_mlp
+    !
+    do this_pair = 1,size(exch_mlp)
+      !
+      tag12 = int( this_pair                  , kind=int_mpi )
+      tag21 = int( this_pair + size(exch_mlp) , kind=int_mpi )
+      !
+      if (comm_pair(1,this_pair) == mypnum) then
+        !
+        exch_mlp(this_pair)%adj_cpu  = int(comm_pair(2,this_pair),kind=int_mpi)
+        exch_mlp(this_pair)%send_tag = tag12
+        exch_mlp(this_pair)%recv_tag = tag21
+        !
+      else if (comm_pair(2,this_pair) == mypnum) then
+        !
+        exch_mlp(this_pair)%adj_cpu  = int(comm_pair(1,this_pair),kind=int_mpi)
+        exch_mlp(this_pair)%send_tag = tag21
+        exch_mlp(this_pair)%recv_tag = tag12
+        !
+      end if
+      !
+    end do
+    !
+  end if ! ( need_exch_mlp )
   !
-  deallocate ( comm_pair , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"comm_pair",2,__LINE__,__FILE__,ierr,error_message)
   call debug_timer(stop_timer,"section 5d")
   call debug_timer(start_timer,"section 6: pair_loop")
 !% #############################################################################
@@ -8315,9 +8396,15 @@ continue
   ! Loop through each of the node/edge communication pairs and create the
   ! send and receive MPI datatypes for the two processors of this pair
   !
-  pair_loop: do this_pair = 1,size(exch_neusp)
+  pair_loop: do this_pair = 1,npair
     !
-    adj_cpu = exch_neusp(this_pair)%adj_cpu
+    if (comm_pair(1,this_pair) == mypnum) then
+      adj_cpu = int(comm_pair(2,this_pair),kind=int_mpi)
+    else if (comm_pair(2,this_pair) == mypnum) then
+      adj_cpu = int(comm_pair(1,this_pair),kind=int_mpi)
+    else
+      adj_cpu = -1_int_mpi
+    end if
     !
     if (adj_cpu < 0_int_mpi) cycle pair_loop
     !
@@ -8478,6 +8565,8 @@ continue
       !
     end do node_send_disp
     !
+    scnt_nodes = scnt  ! send counter for nodes only, no edges
+    !
     ! Create the send displacement offsets for the edge points
     !
     edge_send_disp: do loc_edge = 1,ledge
@@ -8553,6 +8642,8 @@ continue
       !
     end do node_recv_disp
     !
+    rcnt_nodes = rcnt  ! receive counter for nodes only, no edges
+    !
     ! Create the receive displacement offsets for the edge points
     !
     edge_recv_disp: do adj_edge = lbound(recv_edge_map,dim=1), &
@@ -8622,31 +8713,77 @@ continue
     !##########################################################
     !##########################################################
     !
-    ! The block size is the number of data values for each node or edge point
-    ! i.e., nq + nr*nq
+    if ( need_exch_neusp ) then
+      ! The block size is the number of data values for each node or edge point
+      ! i.e., nq + nr*nq
+      !
+      block_size = int( nvar , kind=int_mpi )
+      !
+      ! Adjust send_disp and recv_disp to account for the block size
+      !
+      send_disp(:) = send_disp(:) * block_size
+      recv_disp(:) = recv_disp(:) * block_size
+      !
+      ! Create and commit the send MPI datatype for this communication pair
+      !
+      np = size( send_disp , kind=int_mpi )
+      call mpi_type_create_indexed_block(np,block_size,send_disp,mpi_flttyp, &
+                                         exch_neusp(this_pair)%send_datatype, &
+                                         mpierr)
+      call mpi_type_commit(exch_neusp(this_pair)%send_datatype,mpierr)
+      !
+      ! Create and commit the receive MPI datatype for this communication pair
+      !
+      np = size( recv_disp , kind=int_mpi )
+      call mpi_type_create_indexed_block(np,block_size,recv_disp,mpi_flttyp, &
+                                         exch_neusp(this_pair)%recv_datatype, &
+                                         mpierr)
+      call mpi_type_commit(exch_neusp(this_pair)%recv_datatype,mpierr)
+      !
+      ! Revert the block size scaling so not to affect mlp exchange below
+      !
+      send_disp(:) = send_disp(:) / block_size
+      recv_disp(:) = recv_disp(:) / block_size
+      !
+    end if ! ( need_exch_neusp )
     !
-    block_size = int( nvar , kind=int_mpi )
+    !##########################################################
+    !##########################################################
+    ! Create the MPI datatypes for exchanging MLP node
+    ! solution data between adjacent partitions
+    !##########################################################
+    !##########################################################
     !
-    ! Adjust send_disp and recv_disp to account for the block size
-    !
-    send_disp(:) = send_disp(:) * block_size
-    recv_disp(:) = recv_disp(:) * block_size
-    !
-    ! Create and commit the send MPI datatype for this communication pair
-    !
-    np = size( send_disp , kind=int_mpi )
-    call mpi_type_create_indexed_block(np,block_size,send_disp,mpi_flttyp, &
-                                       exch_neusp(this_pair)%send_datatype, &
-                                       mpierr)
-    call mpi_type_commit(exch_neusp(this_pair)%send_datatype,mpierr)
-    !
-    ! Create and commit the receive MPI datatype for this communication pair
-    !
-    np = size( recv_disp , kind=int_mpi )
-    call mpi_type_create_indexed_block(np,block_size,recv_disp,mpi_flttyp, &
-                                       exch_neusp(this_pair)%recv_datatype, &
-                                       mpierr)
-    call mpi_type_commit(exch_neusp(this_pair)%recv_datatype,mpierr)
+    if ( need_exch_mlp ) then
+      !
+      ! The block size is the number of data values for each node or edge point
+      ! MLP passes only the min/max of the chosen marker variable at shared
+      ! nodes.  [1:2] = min/max of chosen marker variable.
+      !
+      block_size = int( 2, kind=int_mpi )
+      !
+      ! Adjust send_disp and recv_disp to account for the block size.
+      !
+      send_disp(:) = send_disp(:) * block_size
+      recv_disp(:) = recv_disp(:) * block_size
+      !
+      ! Create and commit the send MPI datatype for this communication pair
+      !
+      np = scnt_nodes
+      call mpi_type_create_indexed_block(np,block_size,send_disp,mpi_flttyp, &
+                                         exch_mlp(this_pair)%send_datatype, &
+                                         mpierr)
+      call mpi_type_commit(exch_mlp(this_pair)%send_datatype,mpierr)
+      !
+      ! Create and commit the receive MPI datatype for this communication pair
+      !
+      np = rcnt_nodes
+      call mpi_type_create_indexed_block(np,block_size,recv_disp,mpi_flttyp, &
+                                         exch_mlp(this_pair)%recv_datatype, &
+                                         mpierr)
+      call mpi_type_commit(exch_mlp(this_pair)%recv_datatype,mpierr)
+      !
+    end if ! ( need_exch_mlp )
     !
     ! Deallocate the arrays for this communication
     ! pair before continuing to the next pair
@@ -8658,6 +8795,12 @@ continue
     call alloc_error(pname,"recv_disp",2,__LINE__,__FILE__,ierr,error_message)
     !
   end do pair_loop
+  !
+  ! Deallocate comm_pair since it is no longer needed
+  !
+  deallocate ( comm_pair , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"comm_pair",2,__LINE__,__FILE__,ierr,error_message)
+  !
   call debug_timer(stop_timer,"section 6: pair_loop")
   !
   ! Deallocate send_node_msk, send_edge_msk, nodpt_offset,
@@ -8710,7 +8853,7 @@ continue
   ! Format Statements
   !
   1 format ("nodpt_offsets/",i4.4,".",i1,".dat")
-  2 format ("nodpt_offset(",i4,") = ",i0)
+  2 format ("nodpt_offset(",i6,") = ",i0)
   3 format ("maxval(nodpt_offset)+1 = ",i0,/, &
             "       size(bnd_nodes) = ",i0)
   !
@@ -10980,6 +11123,186 @@ continue
   end if
   !
 end subroutine exch_edge_and_node_solutions
+!
+!###############################################################################
+!> Exchange data for the multidimensional limiting process (mlp).
+!###############################################################################
+subroutine exch_mlp_data(mlp_node_data)
+  !
+  !.. Formal Arguments ..
+  !
+  !> Min/max value of the chosen marker variable for all cells on this
+  !> partition that share the given node. Dim=(1:2,1:lnode).
+  real(wp), dimension(:,:), intent(inout) :: mlp_node_data
+  !
+  !.. Local Scalars..
+  integer  :: io  ! DEBUG_CMT: tecplot io
+  integer  :: n,n1,nsz
+  integer  :: i,ibeg,iend,ierr,buf_size
+  integer  :: this_pair
+  character(len=80) :: fname
+  !
+  !.. MPI integers ..
+  integer(int_mpi) :: adj_cpu
+  integer(int_mpi) :: send_tag
+  integer(int_mpi) :: recv_tag
+  _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
+  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
+  !
+  !.. Local Allocatable Arrays ..
+  real(r8), allocatable, dimension(:) :: send_buffer
+  real(r8), allocatable, dimension(:) :: recv_buffer
+  !
+  !.. Local Parameters ..
+  !> Buffer default value should be a value unlikely to occur among
+  !> the actual data being exchanged, because it is used to detect
+  !> whether a bnd_node was actually passed.
+  real(r8),         parameter :: buf_def_val = -999.0_r8
+  character(len=*), parameter :: pname = "exch_mlp_data"
+  !
+continue
+  !
+  ! Allocate the send and receive buffer arrays
+  !
+  ! Node solution points are 1-to-1 with the grid nodes so initialize
+  ! buf_size to just num variables times the number of grid nodes located
+  ! on partition boundaries. MLP exchanges just 2 variable values.
+  !
+  buf_size = 2 * size(bnd_nodes)
+  !
+  allocate ( send_buffer(1:buf_size) , source=buf_def_val , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"send_buffer",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( recv_buffer(1:buf_size) , source=buf_def_val , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"recv_buffer",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Create the send buffer
+  !
+  iend = 0
+  !
+  ! Gather and pack up the mlp data.
+  ! NOTE: This data will be stored in the 1D send_buffer array such that
+  !       it would be equivalent to send_buffer(1:2,,:) where
+  !       send_buffer(1,,:) is the min solution variable and
+  !       send_buffer(2,,:) is the max solution variable
+  !       at the shared node point for the chosen MLP marker variable.
+  !
+  pack_nodes: do i = 1,size(bnd_nodes)
+    !
+    n = bnd_nodes(i)%idx
+    !
+    ! Pack the min/max of this conserved solution variable for this node point
+    !
+    nsz = size(mlp_node_data,dim=1)  ! expect =2, [1:2]=min/max value
+    ibeg = iend + 1
+    iend = iend + nsz
+    send_buffer(ibeg:iend) = real(mlp_node_data(:,n),kind=r8)
+    !
+  end do pack_nodes
+  !
+  ! Loop through all the communication pairs and exchange solutions
+  ! for the node points, including the received values into the
+  ! current solutions before going to the next pair.
+  !
+  exchange_loop: do this_pair = 1,size(exch_mlp)
+    !
+    ! If exch_mlp(this_pair)%adj_cpu is not the default value, this processor
+    ! is one of the two processors making up this communication pair.
+    !
+    if (exch_mlp(this_pair)%adj_cpu >= 0_int_mpi) then
+      !
+      adj_cpu = exch_mlp(this_pair)%adj_cpu
+      !
+      send_tag = exch_mlp(this_pair)%send_tag
+      recv_tag = exch_mlp(this_pair)%recv_tag
+      !
+      send_dtype = exch_mlp(this_pair)%send_datatype
+      recv_dtype = exch_mlp(this_pair)%recv_datatype
+      !
+      ! Use MPI_SENDRECV to concurrently send and receive the necessary
+      ! solution data from the adjacent processor. This is essentially
+      ! the same as processor 1 calling MPI_SEND then MPI_RECV while
+      ! processor 2 calls MPI_RECV then MPI_SEND.
+      !
+      call mpi_sendrecv(send_buffer,1_int_mpi,send_dtype,adj_cpu,send_tag, &
+                        recv_buffer,1_int_mpi,recv_dtype,adj_cpu,recv_tag, &
+                        MPI_COMM_WORLD,istat(1),mpierr)
+      !
+      ! Add the received data to the solutions at the nodes.
+      !
+      iend = 0
+      !
+      ! Unpack the received node solution
+      !
+      unpack_nodes: do i = 1,size(bnd_nodes)
+        !
+        n = bnd_nodes(i)%idx
+        !
+        ! Unpack the variable data for this node point
+        ! and include with the local node values
+        !
+        n1 = size(mlp_node_data,dim=1)  ! expect =2, [1:2]=min/max value
+        ibeg = iend + 1
+        iend = iend + n1
+        !
+        ! Not every bnd_node is part of communication for this_pair.
+        ! In this case, the recv_buffer for that bnd_node will have the
+        ! buf_def_val and we should ignore this bnd_node. In this case,
+        ! the entire block recv_buffer(ibeg:iend) should be buf_def_val,
+        ! but we test independently anyway.
+        !
+        if ( recv_buffer(ibeg) /= buf_def_val ) then
+          mlp_node_data(1,n) = min( mlp_node_data(1,n), &
+                                    real(recv_buffer(ibeg), kind=wp) )
+        end if
+        !
+        if ( recv_buffer(iend) /= buf_def_val ) then
+          mlp_node_data(2,n) = max( mlp_node_data(2,n), &
+                                    real(recv_buffer(iend), kind=wp) )
+        end if
+!       !
+!       ! An alternate way to test whether bnd_node is part of
+!       ! communication for this_pair is to check the node derived type.
+!       ! But this requires keeping that derived type in memory all the
+!       ! time. This code is untested.
+!       ! 
+!       if ( any( node(n)%cpu(:)%partition == adj_cpu+1 )) then
+!         mlp_node_data(1,n) = min( mlp_node_data(1,n), &
+!                                   real(recv_buffer(ibeg), kind=wp) )
+!         mlp_node_data(2,n) = max( mlp_node_data(2,n), &
+!                                   real(recv_buffer(iend), kind=wp) )
+!       end if
+        !
+      end do unpack_nodes
+      !
+      ! Reset the receiver buffer for the next communication
+      !
+      recv_buffer(:) = buf_def_val
+      !
+    end if
+    !
+    ! Have all processors wait for the current communication to complete
+    ! before going on to the next communication pair.  This is to ensure
+    ! there are no hangups and shouldnt be too much of a slowdown since
+    ! relatively little data is passed.
+    !
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    !
+  end do exchange_loop
+  !
+  if (allocated(send_buffer)) then
+    deallocate ( send_buffer , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"send_buffer",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(recv_buffer)) then
+    deallocate ( recv_buffer , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"recv_buffer",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+end subroutine exch_mlp_data
 !
 !###############################################################################
 !

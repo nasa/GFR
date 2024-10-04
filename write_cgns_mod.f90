@@ -1632,6 +1632,8 @@ continue
       n = n + 2*nmarker
     else if (trim(variable_names(l)) == "JumpMarker") then
       n = n + 2*nmarker
+    else if (trim(variable_names(l)) == "MLPMarker") then
+      n = n + 2*nmarker
     else if (trim(variable_names(l)) == "TimeMetrics") then
       if (allocated(time_metrics)) then
         n = n + nr + 1
@@ -1854,6 +1856,22 @@ continue
       end do
       !
     else if (trim(variable_names(k)) == "JumpMarker") then
+      !
+      do imarker = 1, nmarker
+        n = n + 1
+        varname = trim(variable_names(k))
+        if ( imarker > 1 ) write(varname,'(a,i2.2)') trim(varname),imarker
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+      !
+      do imarker = 1, nmarker
+        n = n + 1
+        varname = "Scaled"//trim(variable_names(k))
+        if ( imarker > 1 ) write(varname,'(a,i2.2)') trim(varname),imarker
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+      !
+    else if (trim(variable_names(k)) == "MLPMarker") then
       !
       do imarker = 1, nmarker
         n = n + 1
@@ -2116,6 +2134,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use module_limiters, only : jump_indicator
   use module_limiters, only : deallocate_marker
   use module_limiters, only : deallocate_scaled_marker
+  use mlp_mod,         only : limit_by_mlp
   !
   use thermo_mod, only : rspec
   use thermo_mod, only : compute_mixture_rgas
@@ -3524,12 +3543,14 @@ continue
       end if
       !
       ! Compute the resolution marker if it has yet to be computed
+      ! or was computed using a different marker type.
       !
-      marker_was_not_allocated = fals
-      scaled_marker_was_not_allocated = fals
-      if (.not. allocated(marker) .or. .not. allocated(scaled_marker)) then
-        marker_was_not_allocated = ( .not. allocated(marker) )
-        scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
+      marker_was_not_allocated        = ( .not. allocated(marker) )
+      scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
+      !
+      if (  all(Limiter_Option /= [-1,1]) .or. &
+                 marker_was_not_allocated .or. &
+          scaled_marker_was_not_allocated ) then
         call resolution_indicator(nst=1,apply_projection=fals)
       end if
       !
@@ -3608,9 +3629,12 @@ continue
       !
       ! Compute the pressure jump marker if it has yet to be computed
       !
-      if (Limiter_Option <= 1 .or. &
-          .not. allocated(marker) .or. &
-          .not. allocated(scaled_marker)) then
+      marker_was_not_allocated        = ( .not. allocated(marker) )
+      scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
+      !
+      if (            Limiter_Option /= 2 .or. &
+                 marker_was_not_allocated .or. &
+          scaled_marker_was_not_allocated ) then
         call jump_indicator(nst=1)
       end if
       !
@@ -3651,7 +3675,91 @@ continue
         !
         call cgns_write_field_data
       end do
+      !
+      ! Deallocate marker and/or scaled_marker if they were not originally
+      ! allocated when this case construct was entered.
+      !
+      if (marker_was_not_allocated) then
+        call deallocate_marker(pname)
+      end if
+      !
+      if (scaled_marker_was_not_allocated) then
+        call deallocate_scaled_marker(pname)
+      end if
+      !
       !!}}}
+    case ("MLPMarker")
+      !!{{{
+      if (.not. allocated(vartmp_at_sp)) then
+        allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+      !
+      ! Compute the mlp marker if it has yet to be computed
+      !
+      marker_was_not_allocated        = ( .not. allocated(marker) )
+      scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
+      !
+      if (            Limiter_Option /= 3 .or. &
+                 marker_was_not_allocated .or. &
+          scaled_marker_was_not_allocated ) then
+        ! Use relax=0 so solution is not updated with limited values.
+        call limit_by_mlp(nst=1,relax=zero)
+      end if
+      !
+      ! Actual marker value
+      !
+      do imarker = 1, nmarker
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do nc = 1,ncell
+          n0 = cell(nc)%beg_sp - 1
+          np = cell(nc)%end_sp - n0
+          do n = 1,np
+            vartmp_at_sp(n0+n) = marker(nc,imarker)
+          end do
+        end do
+        !
+        call interpolate_for_output( vartmp_at_sp , vartmp )
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !
+      ! Scaled marker value
+      !
+      do imarker = 1, nmarker
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do nc = 1,ncell
+          n0 = cell(nc)%beg_sp - 1
+          np = cell(nc)%end_sp - n0
+          do n = 1,np
+            vartmp_at_sp(n0+n) = scaled_marker(nc,imarker)
+          end do
+        end do
+        !
+        call interpolate_for_output( vartmp_at_sp , vartmp )
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !
+      ! Deallocate marker and/or scaled_marker if they were not originally
+      ! allocated when this case construct was entered.
+      !
+      if (marker_was_not_allocated) then
+        call deallocate_marker(pname)
+      end if
+      !
+      if (scaled_marker_was_not_allocated) then
+        call deallocate_scaled_marker(pname)
+      end if
+      !
     case ("FilterDissipation")
       !!{{{
       !
@@ -3883,6 +3991,7 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,   only : output_marker_variables
   use ovar,   only : Resolution_Marker_Variable
   use ovar,   only : Jump_Marker_Variable
+  use ovar,   only : MLP_Marker_Variable
   use ovar,   only : output_species_mass_fractions
   use ovar,   only : output_species_mole_fractions
   use ovar,   only : output_extra_species_variables
@@ -4103,7 +4212,21 @@ continue
   ! Output the marker quantities if requested
   !
   if (output_marker_variables) then
-    if ( limiter_option == 2 ) then
+    if ( limiter_option == 3 ) then
+      call add_sol_variable(variable_list,"MLPMarker")
+      if (MLP_Marker_Variable > 0) then
+        if (MLP_Marker_Variable == nec .or. ncs > 1) then
+          m = 1
+        else if (MLP_Marker_Variable == nee) then
+          m = 3
+        else
+          m = 2
+        end if
+        call add_sol_variable(variable_list,trim(consv_var(m)))
+      else
+        call add_sol_variables(variable_list,consv_var)
+      end if
+    else if ( limiter_option == 2 ) then
       call add_sol_variable(variable_list,"JumpMarker")
       if (Jump_Marker_Variable > 0) then
         if (Jump_Marker_Variable == nec .or. ncs > 1) then
