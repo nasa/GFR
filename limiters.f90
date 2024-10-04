@@ -285,7 +285,7 @@ subroutine check_cell_thermo_properties()
   use, intrinsic :: ieee_arithmetic, only : ieee_is_negative
   !
   !.. Local Scalars ..
-  integer :: nc,n1,n2
+  integer :: nc,n1,n2,n
   logical(lk) :: bad_cell_found
   real(wp) :: dens_limit,temp_limit,pres_limit
   !
@@ -319,39 +319,32 @@ continue
     n1 = cell(nc)%beg_sp
     n2 = cell(nc)%end_sp
     !
-   !if (any(ieee_is_negative( usp(n1:n2,nec) ))) then
-    if (any( usp(n1:n2,nec) < dens_limit)) then
-      bad_cell(nc) = true
-      bad_cell_found = true
-      cycle cell_loop
-    end if
-    !
-   !if (any(ieee_is_negative( gpsp(n1:n2,npres) ))) then
-    if (any( gpsp(n1:n2,npres) < temp_limit)) then
-      bad_cell(nc) = true
-      bad_cell_found = true
-      cycle cell_loop
-    end if
-    !
-   !if (any(ieee_is_negative( gpsp(n1:n2,ntemp) ))) then
-    if (any( gpsp(n1:n2,ntemp) < pres_limit )) then
-      bad_cell(nc) = true
-      bad_cell_found = true
-      cycle cell_loop
-    end if
+    do n = n1,n2
+     !if ( ieee_is_negative(  usp(n,nec)   ) .or. &
+     !     ieee_is_negative( gpsp(n,npres) ) .or. &
+     !     ieee_is_negative( gpsp(n,ntemp) ) ) then
+      if (  usp(n,nec)   < dens_limit .or. &
+           gpsp(n,ntemp) < temp_limit .or. &
+           gpsp(n,npres) < pres_limit ) then
+        bad_cell(nc)   = true
+        bad_cell_found = true
+        cycle cell_loop
+      end if
+    end do
     !
   end do cell_loop
   !$ACC UPDATE DEVICE(bad_cell)
   !
   if (bad_cell_found) then
+    !
+    ! Warning message
+    !
     write (iout,1) mypnum
     flush (iout)
-  end if
-  !
-  ! Use the emergency filter to limit any cells with
-  ! a negative density, temperature, or pressure
-  !
-  if (bad_cell_found) then
+    !
+    ! Use the emergency filter to limit any cells with
+    ! a negative density, temperature, or pressure
+    !
     call emergency_limit_bad_cells(bad_cell,usp,gpsp)
   end if
   !
@@ -381,7 +374,7 @@ subroutine check_face_thermo_properties()
   use, intrinsic :: ieee_arithmetic, only : ieee_is_negative
   !
   !.. Local Scalars ..
-  integer :: nf,f1,f2,left_cell,right_cell
+  integer :: nf,f1,f2,n,left_cell,right_cell
   logical(lk) :: bad_cell_found
   real(wp) :: dens_limit,temp_limit,pres_limit
   !
@@ -419,27 +412,21 @@ continue
     !
     left_cell = face(nf)%left%cell
     !
-    if (bad_cell(left_cell)) cycle bnd_face_loop
-    !
-   !if (any(ieee_is_negative( faceusp(f1:f2,nec,1) ))) then
-    if (any( faceusp(f1:f2,nec,1) < dens_limit)) then
-      bad_cell(left_cell) = true
-      bad_cell_found = true
-      cycle bnd_face_loop
-    end if
-    !
-   !if (any(ieee_is_negative( facegpsp(f1:f2,npres,1) ))) then
-    if (any( facegpsp(f1:f2,npres,1) < temp_limit)) then
-      bad_cell(left_cell) = true
-      bad_cell_found = true
-      cycle bnd_face_loop
-    end if
-    !
-   !if (any(ieee_is_negative( facegpsp(f1:f2,ntemp,1) ))) then
-    if (any( facegpsp(f1:f2,ntemp,1) < pres_limit)) then
-      bad_cell(left_cell) = true
-      bad_cell_found = true
-      cycle bnd_face_loop
+    if (.not. bad_cell(left_cell)) then
+      !
+      do n = f1,f2
+       !if ( ieee_is_negative(  faceusp(n,nec  ,1) ) .or. &
+       !     ieee_is_negative( facegpsp(n,ntemp,1) ) .or. &
+       !     ieee_is_negative( facegpsp(n,npres,1) ) ) then
+        if (  faceusp(n,nec  ,1) < dens_limit .or. &
+             facegpsp(n,ntemp,1) < temp_limit .or. &
+             facegpsp(n,npres,1) < pres_limit ) then
+          bad_cell(left_cell) = true
+          bad_cell_found      = true
+          cycle bnd_face_loop
+        end if
+      end do
+      !
     end if
     !
   end do bnd_face_loop
@@ -460,26 +447,18 @@ continue
     left_cell_check: &
     if (.not. bad_cell(left_cell)) then
       !
-     !if (any(ieee_is_negative( faceusp(f1:f2,nec,1) ))) then
-      if (any( faceusp(f1:f2,nec,1) < dens_limit)) then
-        bad_cell(left_cell) = true
-        bad_cell_found = true
-        exit left_cell_check
-      end if
-      !
-     !if (any(ieee_is_negative( facegpsp(f1:f2,npres,1) ))) then
-      if (any( facegpsp(f1:f2,npres,1) < temp_limit)) then
-        bad_cell(left_cell) = true
-        bad_cell_found = true
-        exit left_cell_check
-      end if
-      !
-     !if (any(ieee_is_negative( facegpsp(f1:f2,ntemp,1) ))) then
-      if (any( facegpsp(f1:f2,ntemp,1) < pres_limit)) then
-        bad_cell(left_cell) = true
-        bad_cell_found = true
-        exit left_cell_check
-      end if
+      do n = f1,f2
+       !if ( ieee_is_negative(  faceusp(n,nec  ,1) ) .or. &
+       !     ieee_is_negative( facegpsp(n,ntemp,1) ) .or. &
+       !     ieee_is_negative( facegpsp(n,npres,1) ) ) then
+        if (  faceusp(n,nec  ,1) < dens_limit .or. &
+             facegpsp(n,ntemp,1) < temp_limit .or. &
+             facegpsp(n,npres,1) < pres_limit ) then
+          bad_cell(left_cell) = true
+          bad_cell_found      = true
+          exit left_cell_check
+        end if
+      end do
       !
     end if left_cell_check
     !
@@ -488,26 +467,18 @@ continue
     right_cell_check: &
     if (.not. bad_cell(right_cell)) then
       !
-      if (any( faceusp(f1:f2,nec,2) < dens_limit)) then
-     !if (any(ieee_is_negative( faceusp(f1:f2,nec,2) ))) then
-        bad_cell(right_cell) = true
-        bad_cell_found = true
-        exit right_cell_check
-      end if
-      !
-     !if (any(ieee_is_negative( facegpsp(f1:f2,npres,2) ))) then
-      if (any( facegpsp(f1:f2,npres,2) < temp_limit)) then
-        bad_cell(right_cell) = true
-        bad_cell_found = true
-        exit right_cell_check
-      end if
-      !
-     !if (any(ieee_is_negative( facegpsp(f1:f2,ntemp,2) ))) then
-      if (any( facegpsp(f1:f2,ntemp,2) < pres_limit)) then
-        bad_cell(right_cell) = true
-        bad_cell_found = true
-        exit right_cell_check
-      end if
+      do n = f1,f2
+       !if ( ieee_is_negative(  faceusp(n,nec  ,2) ) .or. &
+       !     ieee_is_negative( facegpsp(n,ntemp,2) ) .or. &
+       !     ieee_is_negative( facegpsp(n,npres,2) ) ) then
+        if (  faceusp(n,nec  ,2) < dens_limit .or. &
+             facegpsp(n,ntemp,2) < temp_limit .or. &
+             facegpsp(n,npres,2) < pres_limit ) then
+          bad_cell(right_cell) = true
+          bad_cell_found       = true
+          exit right_cell_check
+        end if
+      end do
       !
     end if right_cell_check
     !
@@ -515,21 +486,20 @@ continue
   !$ACC UPDATE DEVICE(bad_cell)
   !
   if (bad_cell_found) then
+    !
+    ! Warning message
+    !
     write (iout,1) mypnum
     flush (iout)
-  end if
-  !
-  ! Use the emergency filter to limit any cells with
-  ! a negative density, temperature, or pressure
-  !
-  if (bad_cell_found) then
+    !
+    ! Use the emergency filter to limit any cells with
+    ! a negative density, temperature, or pressure
+    !
     call emergency_limit_bad_cells(bad_cell,usp,gpsp)
-  end if
-  !
-  ! Now go back and for all bad cells, re-interpolate
-  ! the conserved variables to the face points
-  !
-  if (bad_cell_found) then
+    !
+    ! Now go back and for all bad cells, re-interpolate
+    ! the conserved variables to the face points
+    !
     call reinterpolate_bad_cells(bad_cell,usp,faceusp,facegpsp)
   end if
   !
@@ -603,7 +573,9 @@ continue
   end if
   !$ACC UPDATE HOST(faces_to_update)
   !
-  do nf = 1,nfbnd
+  ! Update boundary faces, side-of-face=1 for interior solution.
+  ! Do not update......... side-of-face=2 for boundary values.
+  do nf = 1,nfbnd  ! loop boundary faces
     if (faces_to_update(nf,1)) then
       f1 = face(nf)%beg_fp
       f2 = face(nf)%end_fp
@@ -613,8 +585,9 @@ continue
     end if
   end do
   !
-  do sf = 1,2
-    do nf = nfbnd+1,nface
+  ! Update interior faces, side-of-face=1:2 for left:right solutions.
+  do sf = 1,2  ! loop side of face
+    do nf = nfbnd+1,nface  ! loop interior faces
       if (faces_to_update(nf,sf)) then
         f1 = face(nf)%beg_fp
         f2 = face(nf)%end_fp
