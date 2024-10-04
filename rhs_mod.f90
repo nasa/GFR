@@ -516,10 +516,10 @@ subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name)
   use filter_mod,      only : filter_usp
   use module_limiters, only : resolution_indicator
   use module_limiters, only : limit_by_projecting
-  use module_limiters, only : check_cell_thermo_properties
   use module_limiters, only : apply_sponge_filter
   use mlp_mod,         only : limit_by_mlp
   !
+  use thermofix_mod,   only : check_cell_thermo_properties
   use thermo_mod,      only : update_mixture_density
   use thermo_mod,      only : update_thermo_properties
   use transport_mod,   only : update_transport_properties

@@ -258,7 +258,7 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/matrix_types_mod.o \
          $(OBJDIR)/thermo_mod.o \
          $(OBJDIR)/transport_mod.o \
-         $(OBJDIR)/limiters.o \
+         $(OBJDIR)/thermofix_mod.o \
          $(OBJDIR)/timer_mod.o \
          $(FUNDIR)/debug_timer.f90 \
          $(FUNDIR)/check_for_bad_number.f90
@@ -745,6 +745,7 @@ $(OBJDIR)/rhs_mod.o : rhs_mod.f90 \
             $(OBJDIR)/mlp_mod.o \
             $(OBJDIR)/parallel.o \
             $(OBJDIR)/projection_mod.o \
+            $(OBJDIR)/thermofix_mod.o \
             $(OBJDIR)/thermo_mod.o \
             $(OBJDIR)/transport_mod.o \
             $(OBJDIR)/timer_mod.o \
@@ -765,6 +766,18 @@ $(OBJDIR)/taylor_couette_mod.o : taylor_couette_mod.f90 \
 $(OBJDIR)/tetrahedra.o : tetrahedra.f90 \
                $(OBJDIR)/kind_types.o \
                $(OBJDIR)/poly.o
+
+$(OBJDIR)/thermofix_mod.o : thermofix_mod.f90 \
+               $(OBJDIR)/kind_types.o \
+               $(OBJDIR)/eqn_idx_mod.o \
+               $(OBJDIR)/filter_mod.o \
+               $(OBJDIR)/flowvar_mod.o \
+               $(OBJDIR)/geovar_mod.o \
+               $(OBJDIR)/interpolation_mod.o \
+               $(OBJDIR)/order_mod.o \
+               $(OBJDIR)/ovar_mod.o \
+               $(OBJDIR)/thermo_mod.o \
+               $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/thermo_mod.o : thermo_mod.f90 \
                $(OBJDIR)/kind_types.o \

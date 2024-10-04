@@ -71,7 +71,7 @@ subroutine interp_cv_to_flxpts(iter,nst)
   use thermo_mod,      only : update_thermo_properties
   use thermo_mod,      only : update_mixture_density
   use transport_mod,   only : update_transport_properties
-  use module_limiters, only : check_face_thermo_properties
+  use thermofix_mod,   only : check_face_thermo_properties
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: iter,nst
