@@ -647,6 +647,7 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(OBJDIR)/interpolation_mod.o \
                  $(OBJDIR)/parallel.o \
                  $(OBJDIR)/connectivity.o \
+                 $(OBJDIR)/thermofix_mod.o \
                  $(OBJDIR)/thermo_mod.o \
                  $(OBJDIR)/transport_mod.o \
                  $(OBJDIR)/gpu_mod.o \
@@ -769,14 +770,17 @@ $(OBJDIR)/tetrahedra.o : tetrahedra.f90 \
 
 $(OBJDIR)/thermofix_mod.o : thermofix_mod.f90 \
                $(OBJDIR)/kind_types.o \
+               $(OBJDIR)/cell_ave_mod.o \
                $(OBJDIR)/eqn_idx_mod.o \
                $(OBJDIR)/filter_mod.o \
                $(OBJDIR)/flowvar_mod.o \
                $(OBJDIR)/geovar_mod.o \
                $(OBJDIR)/interpolation_mod.o \
+               $(OBJDIR)/mlp_mod.o \
                $(OBJDIR)/order_mod.o \
                $(OBJDIR)/ovar_mod.o \
                $(OBJDIR)/thermo_mod.o \
+               $(OBJDIR)/transport_mod.o \
                $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/thermo_mod.o : thermo_mod.f90 \
@@ -863,6 +867,7 @@ $(OBJDIR)/write_cgns_mod.o : write_cgns_mod.f90 \
                    $(OBJDIR)/projection_mod.o \
                    $(OBJDIR)/limiters.o \
                    $(OBJDIR)/mlp_mod.o \
+                   $(OBJDIR)/thermofix_mod.o \
                    $(OBJDIR)/thermo_mod.o \
                    $(OBJDIR)/transport_mod.o \
                    $(OBJDIR)/flux.o \

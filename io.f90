@@ -300,6 +300,7 @@ subroutine read_nml_input_file(input_fname,input_mode)
   use ovar,   only : ji_gwt,ji_uwt,ji_gvar,ji_uvar
   use ovar,   only : disable_cgns_output
   use ovar,   only : output_KEDR
+  use ovar,   only : thermofix
   !
   use module_limiters, only : get_marker_index, nmarker
   !
@@ -792,6 +793,23 @@ continue
     end if
   end if
   !
+  ! Check thermofix inputs.
+  !
+  if (.not. any(thermofix%method == Valid_TFM(:))) then
+    write(error_message,61)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  if ( thermofix%iterations <= zero ) then
+    write(error_message,62)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  if ( thermofix%scale_factor < zero .or. thermofix%scale_factor > one ) then
+    write(error_message,63)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
   ! Make sure to set the number of marker values.
   !
   nmarker = 999  ! unlimited, to fool function get_marker_index
@@ -1191,6 +1209,10 @@ continue
   44 format('ERROR: Density pulse test requres  pulse_test_width >0.')
   45 format('ERROR: Density pulse test requres  pulse_test_gap >=0.')
   46 format('ERROR: Density pulse test requres  pulse_test_repeat >=0.')
+  !
+  61 format('THERMOFIX ERROR:  Requested thermofix method is invalid!')
+  62 format('THERMOFIX ERROR:  Thermofix iterations must be positive.')
+  63 format('THERMOFIX ERROR:  Thermofix scaling factor must be within [0:1].')
   !
 end subroutine read_nml_input_file
 !

@@ -375,6 +375,8 @@ subroutine write_parallel_cgns(iflag)
   use ovar, only : output_time_averaging
   use ovar, only : time_scaling_factor
   use ovar, only : disable_cgns_output
+  use ovar, only : thermofix
+  use thermofix_mod, only : check_thermo_properties
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
@@ -452,6 +454,12 @@ continue
   soltime(size(soltime)) = real(time*time_ref*time_scaling_factor,kind(soltime))
   solname(size(solname)) = tname
   solfile(size(solfile)) = sol_file
+  !
+  ! Check/fix bad thermo properties
+  !
+  call check_thermo_properties( thermofix%check_cells, thermofix%check_faces, &
+                                thermofix%check_nodes, update_faces=true, &
+                                verbose=thermofix%verbose )
   !
   ! Write the solution file
   !

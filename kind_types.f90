@@ -723,6 +723,13 @@ module module_kind_types
                                                   OERK_Schemes(:), &
                                                   EPERK_Schemes(:)]
   !
+  ! Choices for thermofix%method
+  integer, parameter :: TFM_OFF   = 0  !< No check/fix.
+  integer, parameter :: TFM_LIMIT = 1  !< Limit HO modes via sponge filter.
+  integer, parameter :: TFM_SCALE = 2  !< Scale HO modes by a user factor.
+  !> Valid choices for thermofix%method.
+  integer, parameter :: Valid_TFM(1:3) = [TFM_OFF,TFM_LIMIT,TFM_SCALE]
+  !
   ! Equation Types
   integer, parameter :: Euler_Eqns = 1
   integer, parameter :: NavierStokes_Eqns = 2

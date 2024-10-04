@@ -68,10 +68,12 @@ subroutine interp_cv_to_flxpts(iter,nst)
   !.. Use Statements ..
   use geovar,          only : nr,n_bnd_flxpts,n_phys_bnd_flxpts,n_flxpts
   use flowvar,         only : faceusp,facegpsp
+  use ovar,            only : thermofix
   use thermo_mod,      only : update_thermo_properties
   use thermo_mod,      only : update_mixture_density
   use transport_mod,   only : update_transport_properties
   use thermofix_mod,   only : check_face_thermo_properties
+  use thermofix_mod,   only : check_thermo_properties
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: iter,nst
@@ -121,7 +123,10 @@ continue
   !
   ! Check for any negative thermodynamic properties at the flux points
   !
- !call check_face_thermo_properties()
+ !call check_face_thermo_properties()  ! obsolete
+  call check_thermo_properties( thermofix%check_cells, thermofix%check_faces, &
+                                thermofix%check_nodes, update_faces=true, &
+                                verbose=thermofix%verbose )
   !
   call update_transport_properties(n1,n2,faceusp,facegpsp)
   !

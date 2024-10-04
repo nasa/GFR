@@ -13,6 +13,7 @@ module ovar
   use module_kind_types, only : iout,zero,one,half,two,five,pi,eps6,eps12
   use module_kind_types, only : mpi_wtime
   use module_kind_types, only : Correction_gDG
+  use module_kind_types, only : TFM_OFF
   use module_kind_types, only : bc_unknown
   use module_kind_types, only : project_derivatives
   use module_kind_types, only : derivative_of_proj_fluxes
@@ -226,6 +227,22 @@ module ovar
     procedure :: get_rotation => get_mrf_rotation
   end type mrf_t
   !
+  ! thermofix_t : derived type to provide information to use the
+  !               check/fix of bad thermo properties
+  !               (pressure,temperature,density)
+  !
+  type, public :: thermofix_t
+    integer     :: method          = TFM_OFF
+    integer     :: iterations      = 10
+    logical(lk) :: check_cells     = true
+    logical(lk) :: check_faces     = true
+    logical(lk) :: check_nodes     = true
+    logical(lk) :: verbose         = true
+    real(wp)    :: scale_factor    = 0.5_wp     ! between [0,1]
+    real(wp)    :: min_pressure    = 10000._wp  ! [Pa]
+    real(wp)    :: min_temperature =   100._wp  ! [K]
+    real(wp)    :: min_density     =  0.001_wp  ! [kg/m3]
+  end type thermofix_t
   !
   type, public :: geom_wts_t
     integer :: edge = 1
@@ -417,6 +434,9 @@ module ovar
   !
   ! MOVING REFERENCE FRAME
   type(mrf_t), public, save :: moving_ref_frame
+  !
+  ! CHECK/FIX BAD THERMO PROPERTIES (PRES,TEMP,DENS)
+  type(thermofix_t), public :: thermofix
   !
   ! CHEMICAL REACTION SOURCE TERMS
   logical(lk), public, save :: disable_chemical_reactions         = fals
@@ -1995,6 +2015,7 @@ module input_namelist_mod
   use ovar,      only : Limiter_Marker_c1, Limiter_Marker_c2
   use ovar,      only : Filtering_Interval, Limiting_Interval
   use ovar,      only : Limiting_Interval_Output
+  use ovar,      only : thermofix
   use ovar,      only : loc_output_pts, loc_init_pts, loc_error_pts
   use ovar,      only : vortex_bigR, vortex_bigGam
   use ovar,      only : output_plot3d_to_tecplot, output_bface_array
@@ -2246,6 +2267,8 @@ module input_namelist_mod
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
   namelist / input / Filtering_Interval, Limiting_Interval, &
                      Limiting_Interval_Output
+  ! CHECK/FIX BAD THERMO PROPERTIES (PRES,TEMP,DENS)
+  namelist / input / thermofix
   ! OUTPUT THE STATISTICS OF THE LIMITER
   namelist / input / output_limiter_statistics
   ! OPTION TO OUTPUT FILTER DIAGONALS TO FILE

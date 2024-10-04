@@ -1,6 +1,6 @@
 !###############################################################################
 !> Module for finding and limiting cells with bad thermo properties
-!> (pressure, temperature, density).
+!> (pressure, temperature, density) in either the volume, face, or node points.
 !###############################################################################
 module thermofix_mod
   !
@@ -9,7 +9,7 @@ module thermofix_mod
                     pure_global_debug_timer => pure_debug_timer
   !
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
-  use eqn_idx, only : ncs,npres,ntemp
+  use eqn_idx, only : ncs,npres,ntemp,ng
   !
   use ovar, only : force_nd_subroutines
   !
@@ -20,12 +20,15 @@ module thermofix_mod
   !
   !.. Public Procedures ..
   !
-  public :: check_cell_thermo_properties
-  public :: check_face_thermo_properties
+  public  :: check_cell_thermo_properties  ! obsolete
+  public  :: check_face_thermo_properties  ! obsolete
+  public  :: check_thermo_properties
   !
   !
   !.. Private Procedures ..
   !
+  private :: find_bad_thermo_cells
+  private :: mend_bad_thermo_cells
   private :: reinterpolate_bad_cells
   private :: reinterpolate_bad_cells_3d
   private :: reinterpolate_bad_cells_2d
@@ -36,26 +39,33 @@ module thermofix_mod
   private :: emergency_limit_bad_cells_2d
   private :: emergency_limit_bad_cells_1d
   private :: emergency_limit_bad_cells_nd
+  private :: emergency_scale_bad_cells
+  private :: emergency_scale_bad_cells_3d
+  private :: emergency_scale_bad_cells_2d
+  private :: emergency_scale_bad_cells_1d
+  private :: emergency_scale_bad_cells_nd
   !
 contains
 !
 !###############################################################################
 !> Check volume points for bad thermo properties
-!> (pressure, temperature, density) and limit the cell. Do not update faces.
+!> (pressure, temperature, density) and limit the cell.
+!>
+!> This routine is obsolete. Use check_face_properties instead.
 !###############################################################################
 subroutine check_cell_thermo_properties()
   !
   !.. Use Statements ..
   use geovar,  only : ncell,cell
   use flowvar, only : usp,gpsp
-  use ovar,    only : rhoref,tref,aref
+  use ovar,    only : thermofix,rhoref,tref,aref
   !
   use, intrinsic :: ieee_arithmetic, only : ieee_is_negative
   !
   !.. Local Scalars ..
   integer :: nc,n1,n2,n
   logical(lk) :: bad_cell_found
-  real(wp) :: dens_limit,temp_limit,pres_limit
+  real(wp) :: min_dens_limit,min_temp_limit,min_pres_limit
   !
   !.. Local Allocatable Arrays ..
   logical(lk), allocatable :: bad_cell(:)
@@ -67,9 +77,9 @@ continue
   !
   if (ncs > 0) return
   !
-  dens_limit = 0.1_wp/rhoref
-  temp_limit = 100.0_wp/tref
-  pres_limit = 40000.0_wp/(rhoref*aref*aref)
+  min_dens_limit = thermofix%min_density / rhoref
+  min_temp_limit = thermofix%min_temperature / tref
+  min_pres_limit = thermofix%min_pressure / (rhoref*aref*aref)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -91,9 +101,9 @@ continue
      !if ( ieee_is_negative(  usp(n,nec)   ) .or. &
      !     ieee_is_negative( gpsp(n,npres) ) .or. &
      !     ieee_is_negative( gpsp(n,ntemp) ) ) then
-      if (  usp(n,nec)   < dens_limit .or. &
-           gpsp(n,ntemp) < temp_limit .or. &
-           gpsp(n,npres) < pres_limit ) then
+      if (  usp(n,nec)   < min_dens_limit .or. &
+           gpsp(n,ntemp) < min_temp_limit .or. &
+           gpsp(n,npres) < min_pres_limit ) then
         bad_cell(nc)   = true
         bad_cell_found = true
         cycle cell_loop
@@ -110,10 +120,12 @@ continue
     write (iout,1) mypnum
     flush (iout)
     !
-    ! Use the emergency filter to limit any cells with
-    ! a negative density, temperature, or pressure
+    ! Use the emergency procedures to limit any cells with
+    ! a negative density, temperature, or pressure.
+    ! Update solution, thermo and transport values at volume points
+    ! and face points.
     !
-    call emergency_limit_bad_cells(bad_cell,usp,gpsp)
+    call mend_bad_thermo_cells(bad_cell,mend_faces=true)
   end if
   !
   !$ACC END DATA
@@ -133,20 +145,22 @@ end subroutine check_cell_thermo_properties
 !###############################################################################
 !> Check face points for bad thermo properties
 !> (pressure, temperature, density), limit the cell, and update the face.
+!>
+!> This routine is obsolete. Use check_face_properties instead.
 !###############################################################################
 subroutine check_face_thermo_properties()
   !
   !.. Use Statements ..
   use geovar,  only : ncell,nfbnd,nface,face
-  use flowvar, only : usp,gpsp,faceusp,facegpsp
-  use ovar,    only : rhoref,tref,aref
+  use flowvar, only : faceusp,facegpsp
+  use ovar,    only : thermofix,rhoref,tref,aref
   !
   use, intrinsic :: ieee_arithmetic, only : ieee_is_negative
   !
   !.. Local Scalars ..
   integer :: nf,f1,f2,n,left_cell,right_cell
   logical(lk) :: bad_cell_found
-  real(wp) :: dens_limit,temp_limit,pres_limit
+  real(wp) :: min_dens_limit,min_temp_limit,min_pres_limit
   !
   !.. Local Allocatable Arrays ..
   logical(lk), allocatable :: bad_cell(:)
@@ -158,9 +172,9 @@ continue
   !
   if (ncs > 0) return
   !
-  dens_limit = 0.1_wp/rhoref
-  temp_limit = 100.0_wp/tref
-  pres_limit = 40000.0_wp/(rhoref*aref*aref)
+  min_dens_limit = thermofix%min_density / rhoref
+  min_temp_limit = thermofix%min_temperature / tref
+  min_pres_limit = thermofix%min_pressure / (rhoref*aref*aref)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -188,9 +202,9 @@ continue
        !if ( ieee_is_negative(  faceusp(n,nec  ,1) ) .or. &
        !     ieee_is_negative( facegpsp(n,ntemp,1) ) .or. &
        !     ieee_is_negative( facegpsp(n,npres,1) ) ) then
-        if (  faceusp(n,nec  ,1) < dens_limit .or. &
-             facegpsp(n,ntemp,1) < temp_limit .or. &
-             facegpsp(n,npres,1) < pres_limit ) then
+        if (  faceusp(n,nec  ,1) < min_dens_limit .or. &
+             facegpsp(n,ntemp,1) < min_temp_limit .or. &
+             facegpsp(n,npres,1) < min_pres_limit ) then
           bad_cell(left_cell) = true
           bad_cell_found      = true
           cycle bnd_face_loop
@@ -221,9 +235,9 @@ continue
        !if ( ieee_is_negative(  faceusp(n,nec  ,1) ) .or. &
        !     ieee_is_negative( facegpsp(n,ntemp,1) ) .or. &
        !     ieee_is_negative( facegpsp(n,npres,1) ) ) then
-        if (  faceusp(n,nec  ,1) < dens_limit .or. &
-             facegpsp(n,ntemp,1) < temp_limit .or. &
-             facegpsp(n,npres,1) < pres_limit ) then
+        if (  faceusp(n,nec  ,1) < min_dens_limit .or. &
+             facegpsp(n,ntemp,1) < min_temp_limit .or. &
+             facegpsp(n,npres,1) < min_pres_limit ) then
           bad_cell(left_cell) = true
           bad_cell_found      = true
           exit left_cell_check
@@ -241,9 +255,9 @@ continue
        !if ( ieee_is_negative(  faceusp(n,nec  ,2) ) .or. &
        !     ieee_is_negative( facegpsp(n,ntemp,2) ) .or. &
        !     ieee_is_negative( facegpsp(n,npres,2) ) ) then
-        if (  faceusp(n,nec  ,2) < dens_limit .or. &
-             facegpsp(n,ntemp,2) < temp_limit .or. &
-             facegpsp(n,npres,2) < pres_limit ) then
+        if (  faceusp(n,nec  ,2) < min_dens_limit .or. &
+             facegpsp(n,ntemp,2) < min_temp_limit .or. &
+             facegpsp(n,npres,2) < min_pres_limit ) then
           bad_cell(right_cell) = true
           bad_cell_found       = true
           exit right_cell_check
@@ -262,15 +276,12 @@ continue
     write (iout,1) mypnum
     flush (iout)
     !
-    ! Use the emergency filter to limit any cells with
-    ! a negative density, temperature, or pressure
+    ! Use the emergency procedures to limit any cells with
+    ! a negative density, temperature, or pressure.
+    ! Update solution, thermo and transport values at volume points
+    ! and face points.
     !
-    call emergency_limit_bad_cells(bad_cell,usp,gpsp)
-    !
-    ! Now go back and for all bad cells, re-interpolate
-    ! the conserved variables to the face points
-    !
-    call reinterpolate_bad_cells(bad_cell,usp,faceusp,facegpsp)
+    call mend_bad_thermo_cells(bad_cell,mend_faces=true)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -285,20 +296,383 @@ continue
 end subroutine check_face_thermo_properties
 !
 !###############################################################################
+!
+!> Check cells, faces, nodes for bad thermo properties
+!> (pressure, temperature, density), apply a correction, and update values.
+!>
+!> Updates the solution, thermo and transport values:
+!> - at volume points in     usp,     gpsp.
+!> - at face   points in faceusp, facegpsp, if requested.
+!>
+!> Assumes that the solution and thermo values for the volume and face are
+!> current upon entry.
+!
+!###############################################################################
+subroutine check_thermo_properties(check_cells,check_faces,check_nodes, &
+                                   update_faces,verbose)
+  !
+  !.. Use Statements ..
+  use geovar,       only : ncell
+  use cell_ave_mod, only : allocate_cell_ave, deallocate_cell_ave, &
+                           compute_cell_ave_sol
+  use ovar,         only : thermofix
+!-DEBUG_BEG:
+  use geovar,       only : cell, xyz_nodes
+  use flowvar,      only : usp,gpsp
+  use cell_ave_mod, only : cell_ave_sol
+  real(wp) :: xyz_ctr(3)
+  integer  :: nc,n,n1,n2,nn,nr,num_cell_nodes
+!-DEBUG_END:
+  !
+  !.. Arguments ..
+  logical(lk), intent(in) :: check_cells  !< Check cell volumes.
+  logical(lk), intent(in) :: check_faces  !< Check cell faces.
+  logical(lk), intent(in) :: check_nodes  !< Check cell nodes.
+  logical(lk), intent(in) :: update_faces !< Update face values.
+  logical(lk), intent(in) :: verbose      !< Output warnings.
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_thermo_properties"
+  !
+  !.. Local Allocatable Arrays ..
+  logical(lk), allocatable :: bad_cell(:)
+  !
+  !.. Local Scalars ..
+  integer     :: iter_mend, max_iter_mend, num_bad_Cell
+  logical(lk) :: bad_cell_found, bad_face_found, bad_node_found, any_bad_found
+  logical(lk) :: need_cell_ave, mend_faces
+  !
+continue
+  !
+  ! Skip thermo check
+  !
+  if ( ncs > 0 ) return  ! multi-species flow
+  if ( thermofix%method == TFM_OFF ) return
+  if ( .not. (check_cells .or. check_faces .or. check_nodes) ) return
+  !
+  ! Cell ave does not change with repair, so compute once now if needed.
+  !
+  need_cell_ave = ( thermofix%method == TFM_SCALE )
+!-DEBUG_BEG:
+!-DEBUG_CMT: need cell ave to print below
+  need_cell_ave = true
+!-DEBUG_END:
+  if ( need_cell_ave ) then
+    call allocate_cell_ave()
+    call  compute_cell_ave_sol()
+  end if
+  !
+  ! Determine whether to mend face values too.
+  !
+  mend_faces = ( check_faces .or. update_faces )
+  !
+  ! Init bad_cell(:)=true so all cells are checked/repaired.
+  !
+  bad_cell = init_array(ncell,true) ! F2003 AUTO-REALLOC
+  !
+  loop_iter_mend : &
+  do iter_mend = 1, thermofix%iterations
+    !
+    call find_bad_thermo_cells( check_cells, check_faces, &
+                                check_nodes, bad_cell, &
+                                bad_cell_found, bad_face_found, bad_node_found )
+    !
+    any_bad_found = ( bad_cell_found .or. bad_face_found .or. bad_node_found )
+    if ( .not. any_bad_found ) then  ! all cells good
+      exit loop_iter_mend
+    end if
+    !
+    ! Write message
+    !
+    if ( verbose == true ) then
+      num_bad_cell = count(bad_cell==true)
+      write (iout,1) iter_mend, mypnum, num_bad_cell
+!-DEBUG_BEG:
+!-DEBUG_CMT: Print more bad_cell info
+      !
+      ! If only 1 bad cell, write cell centroid xyz.
+      !
+!     if ( num_bad_cell == 1 .and. iter_mend == thermofix%iterations ) then
+      if ( num_bad_cell == 1 ) then
+        do nc = 1, ncell  ! cell loop
+          if ( bad_cell(nc) ) then
+            xyz_ctr(3) = zero
+            nr = nme-nmb+1
+            n1 = cell(nc)%beg_sp        ! beginning sol-pt in this cell
+            n2 = cell(nc)%end_sp        ! ending    sol-pt in this cell
+            num_cell_nodes = size(cell(nc)%node)
+            do n = 1,num_cell_nodes
+              nn = cell(nc)%node(n)%idx   ! index in nodeusp
+              xyz_ctr(1:nr) = xyz_ctr(1:nr) + xyz_nodes(1:nr,nn)
+            end do
+            xyz_ctr(:) = xyz_ctr(:) / real(num_cell_nodes,wp)
+            write(iout,2) mypnum,nc, &
+                          bad_cell_found,bad_face_found,bad_node_found
+            write(iout,3) xyz_ctr(1:3)
+            write(iout,4) minval(  usp(n1:n2,nec  ) ), &
+                          minval( gpsp(n1:n2,npres) ), &
+                          minval( gpsp(n1:n2,ntemp) )
+            write(iout,5) cell_ave_sol(nec,nc)
+2           format(2x,'part,cell,bad_cell,bad_face,bad_node =',i6,i8,3l2)
+3           format(2x,'Cell x,y,z =',3es13.5)
+4           format(2x,'Cell r,p,t =',3es13.5)
+5           format(2x,'Ave  r     =',3es13.5)
+            exit  ! exit cell loop
+          end if
+        end do
+      end if
+!-DEBUG_END:
+      flush (iout)
+    end if
+    !
+    ! Update solution, thermo, transport for volume points only in bad cells.
+    ! Update face points too if requested.
+    !
+    call mend_bad_thermo_cells(bad_cell,mend_faces)
+    !
+  end do loop_iter_mend
+  !
+  ! Deallocate memory.
+  !
+  if (allocated(bad_cell)) deallocate ( bad_cell )
+  if ( need_cell_ave ) then
+    call deallocate_cell_ave()
+  end if
+  !
+  ! Format Statements
+  !
+  1 format (2x,"THERMOFIX WARNING!!! ITER # ",i0,": CPU # ",i6, &
+               " IS REPAIRING ",i0," CELLS.")
+  !
+end subroutine check_thermo_properties
+!
+!###############################################################################
+!
+!> Find cells with bad thermo properties in cells, faces, and/or nodes.
+!>
+!> - Checks density, pressure, and temperature.
+!> - Assumes  the volume solution and thermo in     usp and     gpsp is current.
+!> - Assumes  the face   solution and thermo in faceusp and facegpsp is current.
+!> - Computes the node   solution and thermo as needed.
+!
+!###############################################################################
+subroutine find_bad_thermo_cells(check_cells,check_faces,check_nodes,bad_cell, &
+                                 bad_cell_found,bad_face_found,bad_node_found)
+  !
+  !.. Use Statements ..
+  use geovar,          only : ncell,cell,face
+  use flowvar,         only : usp,gpsp,faceusp,facegpsp
+  use ovar,            only : thermofix,rhoref,tref,aref
+  use thermo_mod,      only : update_thermo_properties
+  use order_mod,       only : maxSP
+  use mlp_mod,         only : interp_cv_to_nodepts
+  !
+  !.. Arguments ..
+  logical(lk), intent(in)    :: check_cells  !< Check cell volumes.
+  logical(lk), intent(in)    :: check_faces  !< Check cell faces.
+  logical(lk), intent(in)    :: check_nodes  !< Check cell nodes.
+  !> On input,  marks the cells to be checked.
+  !> On output, marks the bad cells that were found.
+  logical(lk), intent(inout) :: bad_cell(:)
+  logical(lk), intent(out)   :: bad_cell_found !< Found bad volume value.
+  logical(lk), intent(out)   :: bad_face_found !< Found bad face   value.
+  logical(lk), intent(out)   :: bad_node_found !< Found bad node   value.
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "find_bad_thermo_cells"
+  integer, parameter :: maxNP = 8   ! Max node points per cell
+  !
+  !.. Local Arrays ..
+  !> conserved variables at node points of one cell
+  real(wp), dimension(1:maxNP,1:nq) :: thiscell_nodeusp
+  !> gas property variables at node points of one cell
+  real(wp), dimension(1:maxNP,1:ng) :: thiscell_nodegpsp
+  !
+  !.. Local Scalars ..
+  integer :: this_geom,this_order
+  integer :: num_cell_faces,num_cell_nodes
+  integer :: nc,n0,n1,n2,np,n,m
+  integer :: ncf,nf,sf,f1,f2
+  real(wp) :: min_dens_limit,min_pres_limit,min_temp_limit
+  !
+continue
+  !
+  bad_cell_found = fals
+  bad_face_found = fals
+  bad_node_found = fals
+  !
+  if ( .not. (check_cells .or. check_faces .or. check_nodes) ) then
+    ! Nothing to check. Mark cells good and exit.
+    bad_cell(:) = fals
+    return
+  end if
+  !
+  min_dens_limit = thermofix%min_density / rhoref
+  min_temp_limit = thermofix%min_temperature / tref
+  min_pres_limit = thermofix%min_pressure / (rhoref*aref*aref)
+  !
+  loop_cells: &
+  do nc = 1, ncell
+    if ( bad_cell(nc) ) then
+      !
+      ! cell info
+      !
+      this_geom  = cell(nc)%geom  ! geometry of this cell
+      this_order = cell(nc)%order ! order of this cell
+      n1 = cell(nc)%beg_sp        ! beginning sol-pt in this cell
+      n2 = cell(nc)%end_sp        ! ending    sol-pt in this cell
+      n0 = cell(nc)%beg_sp - 1    ! offset index for sol-pts in this cell
+      np = cell(nc)%end_sp - n0   ! number of sol-pts in this cell
+      num_cell_faces = size(cell(nc)%face)
+      num_cell_nodes = size(cell(nc)%node)
+      !
+      ! Check cell volume
+      !
+      if ( check_cells ) then
+        loop_vol_points: &
+        do n = n1,n2
+          if ( gpsp(n,npres) <= min_pres_limit .or. &
+               gpsp(n,ntemp) <= min_temp_limit .or. &
+                usp(n,nec)   <= min_dens_limit ) then
+            bad_cell_found = true
+            cycle loop_cells
+          end if
+        end do loop_vol_points ! n
+      end if ! check_cells
+      !
+      !
+      ! Check cell faces
+      !
+      if ( check_faces ) then
+        loop_faces: &
+        do ncf = 1,num_cell_faces
+          nf  = cell(nc)%face(ncf)%idx  ! index of the current face
+          sf  = cell(nc)%face(ncf)%side ! side of face that cell nc is on
+          f1  = face(nf)%beg_fp
+          f2  = face(nf)%end_fp
+          loop_face_points: &
+          do n = f1,f2
+            ! Test face points of this cell for negative values.
+            if ( facegpsp(n,npres,sf) <= min_pres_limit .or. &
+                 facegpsp(n,ntemp,sf) <= min_temp_limit .or. &
+                  faceusp(n,nec  ,sf) <= min_dens_limit ) then
+              bad_face_found = true
+              cycle loop_cells
+            end if
+          end do loop_face_points ! n
+        end do loop_faces ! ncf
+      end if ! check_faces
+      !
+      !
+      ! Check cell nodes
+      !
+      if ( check_nodes ) then
+        !
+        ! Update flow for node points of this cell.
+        call interp_cv_to_nodepts( cell(nc), n0, usp, thiscell_nodeusp )
+        !
+        ! Update thermo for node points of this cell.
+        call update_thermo_properties(1,num_cell_nodes, &
+                                      thiscell_nodeusp,thiscell_nodegpsp, &
+                                      loc='node',caller_name=pname)
+        !
+        ! Test node points of this cell for negative values.
+        loop_node_points : &
+        do n = 1,num_cell_nodes
+          if ( thiscell_nodegpsp(n,npres) <= min_pres_limit .or. &
+               thiscell_nodegpsp(n,ntemp) <= min_temp_limit .or. &
+                thiscell_nodeusp(n,nec)   <= min_dens_limit ) then
+            bad_node_found = true
+            cycle loop_cells
+          end if
+        end do loop_node_points ! n
+        !
+      end if ! check_nodes
+      !
+      ! Passed all checks
+      !
+      bad_cell(nc) = fals
+      !
+    end if ! bad_cell
+  end do loop_cells
+  !
+end subroutine find_bad_thermo_cells
+!
+!###############################################################################
+!
+!> Mend cells with bad thermo properties.
+!>
+!> Applies an emergency procedure to the volume solution.
+!> Updates the solution, thermo, and transport properties  
+!> - for volume points in     usp and     gpsp.  
+!> - for face   points in faceusp and facegpsp, if requested.
+!
+!###############################################################################
+subroutine mend_bad_thermo_cells(bad_cell,mend_faces)
+  !
+  !.. Use Statements ..
+  use flowvar,    only : usp,gpsp,faceusp,facegpsp
+  use ovar,       only : thermofix
+  !
+  !.. Arguments ..
+  !> Marks the cells to be repaired.
+  logical(lk), intent(inout) :: bad_cell(:)
+  !
+  !> Update the solution, thermo and transport properties at face points
+  !> of bad cells.
+  logical(lk), intent(in)    :: mend_faces
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "mend_bad_thermo_cells"
+  !
+continue
+  !
+  ! Apply correction to the solution at volume points of bad cells.
+  !
+  select case (thermofix%method)
+  case (TFM_OFF)
+    return
+  case (TFM_LIMIT)
+    call emergency_limit_bad_cells(bad_cell,usp)
+  case (TFM_SCALE)
+    call emergency_scale_bad_cells(bad_cell,usp)
+  case default
+    write (error_message,100) thermofix%method
+    100 format( "Unexpected value, thermo_limiter_method = ", i0 )
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
+  !
+  ! Update thermo and transport properties at volume points of bad cells.
+  !
+  call bad_cell_update_properties_sp(bad_cell,usp,gpsp)
+  !
+  ! Update solution, thermo and transport properties at face points of
+  ! bad cells.
+  !
+  if ( mend_faces ) then
+    call reinterpolate_bad_cells(bad_cell,usp,faceusp,facegpsp)
+  end if
+  !
+end subroutine mend_bad_thermo_cells
+!
 !###############################################################################
 !###############################################################################
 !###############################################################################
 !###############################################################################
 !###############################################################################
 !###############################################################################
+!###############################################################################
+!###############################################################################
+!
 !###############################################################################
 !> For cells marked as bad, reinterpolate the cell volume solution data to the
-!> face points and update the face gas property values.
+!> face points and update the face thermo and transport property values.
 !###############################################################################
 subroutine reinterpolate_bad_cells(bad_cell,usp,faceusp,facegpsp)
   !
-  use geovar,     only : nfbnd,nface,face
-  use thermo_mod, only : update_thermo_properties
+  use geovar,        only : nfbnd,nface,face
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
   !
   !.. Optional Arguments ..
   logical(lk),    intent(in) :: bad_cell(:)
@@ -354,6 +728,8 @@ continue
       call update_thermo_properties(f1,f2, &
                                     faceusp(:,:,1),facegpsp(:,:,1), &
                                     loc="face",caller_name=pname)
+      call update_transport_properties(f1,f2, &
+                                       faceusp(:,:,1),facegpsp(:,:,1))
     end if
   end do
   !
@@ -366,6 +742,8 @@ continue
         call update_thermo_properties(f1,f2, &
                                       faceusp(:,:,sf),facegpsp(:,:,sf), &
                                       loc="face",caller_name=pname)
+        call update_transport_properties(f1,f2, &
+                                         faceusp(:,:,sf),facegpsp(:,:,sf))
       end if
     end do
   end do
@@ -379,7 +757,7 @@ end subroutine reinterpolate_bad_cells
 !
 !###############################################################################
 !> For cells marked as bad, reinterpolate the cell volume solution data to the
-!> face points and update the face gas property values.
+!> face points. Only updates solution, not thermo or transport.
 !>
 !> Optimized routine for 3d.
 !###############################################################################
@@ -501,7 +879,7 @@ end subroutine reinterpolate_bad_cells_3d
 !
 !###############################################################################
 !> For cells marked as bad, reinterpolate the cell volume solution data to the
-!> face points and update the face gas property values.
+!> face points. Only updates solution, not thermo or transport.
 !>
 !> Optimized routine for 2d.
 !###############################################################################
@@ -620,7 +998,7 @@ end subroutine reinterpolate_bad_cells_2d
 !
 !###############################################################################
 !> For cells marked as bad, reinterpolate the cell volume solution data to the
-!> face points and update the face gas property values.
+!> face points. Only updates solution, not thermo or transport.
 !>
 !> Optimized routine for 1d.
 !###############################################################################
@@ -736,7 +1114,7 @@ end subroutine reinterpolate_bad_cells_1d
 !
 !###############################################################################
 !> For cells marked as bad, reinterpolate the cell volume solution data to the
-!> face points and update the face gas property values.
+!> face points. Only updates solution, not thermo or transport.
 !>
 !> General routine for nd.
 !###############################################################################
@@ -855,19 +1233,18 @@ end subroutine reinterpolate_bad_cells_nd
 !###############################################################################
 !###############################################################################
 !###############################################################################
-!> Apply the sponge filter to bad cells and
-!> update the volume solution and thermo in usp and gpsp.
+!
 !###############################################################################
-subroutine emergency_limit_bad_cells(bad_cell,usp,gpsp)
+!> Apply the sponge filter to bad cells and update the volume solution in usp.
+!###############################################################################
+subroutine emergency_limit_bad_cells(bad_cell,usp)
   !
   !.. Use Statements ..
-  use geovar,     only : ncell,cell
-  use thermo_mod, only : update_thermo_properties
+  use geovar,        only : ncell,cell
   !
   !.. Formal Arguments ..
   logical(lk), intent(in) :: bad_cell(:)
   real(wp), intent(inout) :: usp(:,:)
-  real(wp), intent(inout) :: gpsp(:,:)
   !
   !.. Local Scalars ..
   integer :: nc,nr,n1,n2
@@ -897,24 +1274,12 @@ continue
     !
   end if
   !
-  ! Update the thermodynamic properties for any cells that had to be limited
-  !
-  do nc = 1,ncell
-    if (bad_cell(nc)) then
-      n1 = cell(nc)%beg_sp
-      n2 = cell(nc)%beg_sp
-      call update_thermo_properties(n1,n2,usp,gpsp, &
-                                    loc="cell",caller_name=pname)
-    end if
-  end do
-  !
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine emergency_limit_bad_cells
 !
 !###############################################################################
-!> Apply the sponge filter to bad cells and
-!> update the volume solution and thermo in usp and gpsp.
+!> Apply the sponge filter to bad cells and update the volume solution in usp.
 !>
 !> Optimized routine for 3d.
 !###############################################################################
@@ -1014,8 +1379,7 @@ continue
 end subroutine emergency_limit_bad_cells_3d
 !
 !###############################################################################
-!> Apply the sponge filter to bad cells and
-!> update the volume solution and thermo in usp and gpsp.
+!> Apply the sponge filter to bad cells and update the volume solution in usp.
 !>
 !> Optimized routine for 2d.
 !###############################################################################
@@ -1111,8 +1475,7 @@ continue
 end subroutine emergency_limit_bad_cells_2d
 !
 !###############################################################################
-!> Apply the sponge filter to bad cells and
-!> update the volume solution and thermo in usp and gpsp.
+!> Apply the sponge filter to bad cells and update the volume solution in usp.
 !>
 !> Optimized routine for 1d.
 !###############################################################################
@@ -1204,8 +1567,7 @@ continue
 end subroutine emergency_limit_bad_cells_1d
 !
 !###############################################################################
-!> Apply the sponge filter to bad cells and
-!> update the volume solution and thermo in usp and gpsp.
+!> Apply the sponge filter to bad cells and update the volume solution in usp.
 !>
 !> General routine for nd.
 !###############################################################################
@@ -1292,6 +1654,313 @@ continue
   end do filt_cell_loop
   !
 end subroutine emergency_limit_bad_cells_nd
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+!###############################################################################
+!> Scale down the higher modes of bad cells and
+!> update the volume solution in usp.
+!>
+!> Keep mode 0, but scale modes 1+ by factor=[0:1]. Xu uses 0.5.
+!>   q = qave + (q-qave)*factor = factor*usp + (1-factor)*qave
+!> Scales the solution towards qave.
+!>
+!> Ref:
+!>   Xu (2009) doi:10.1016/j.jcp.2008.11.025
+!###############################################################################
+subroutine emergency_scale_bad_cells(bad_cell,usp)
+  !
+  !.. Use Statements ..
+  use geovar,       only : ncell,cell
+  use thermo_mod,   only : update_thermo_properties
+  !
+  !.. Arguments ..
+  !> Marks the cells to be repaired.
+  logical(lk), intent(in)    :: bad_cell(:)
+  !
+  !> Conserved variables at solution points for all cells.
+  real(wp),    intent(inout) :: usp(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_scale_bad_cells"
+  !
+  !.. Local Scalars ..
+  integer     :: nc,nr,n1,n2
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nr = nme-nmb+1
+  !
+  if (force_nd_subroutines) then
+    !
+    call emergency_scale_bad_cells_nd(1,nq,bad_cell,usp)
+    !
+  else
+    !
+    if (nr == 3) then
+      call emergency_scale_bad_cells_3d(bad_cell,usp)
+    else if (nr == 2) then
+      call emergency_scale_bad_cells_2d(bad_cell,usp)
+    else
+      call emergency_scale_bad_cells_1d(bad_cell,usp)
+    end if
+    !
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine emergency_scale_bad_cells
+!
+!###############################################################################
+!> Scale down the higher modes of bad cells and
+!> update the volume solution in usp.
+!>
+!> Optimized routine for 3d.
+!###############################################################################
+subroutine emergency_scale_bad_cells_3d(bad_cell,usp)
+  !
+  !.. Use Statements ..
+  use geovar,       only : ncell,cell
+  use thermo_mod,   only : update_thermo_properties
+  use cell_ave_mod, only : cell_ave_sol
+  use ovar,         only : thermofix
+  !
+  !.. Arguments ..
+  !> Marks the cells to be repaired.
+  logical(lk), intent(in)    :: bad_cell(:)
+  !
+  !> Conserved variables at solution points for all cells.
+  real(wp),    intent(inout) :: usp(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_scale_bad_cells_3d"
+  !
+  !.. Local Scalars ..
+  integer :: n,nc,n0,np
+  real(wp) :: f1  ! solution scaling factor
+  real(wp) :: f2  ! f2=1-f1
+  !
+continue
+  !
+  ! Scale the solution.
+  !
+  f1 = thermofix%scale_factor
+  f2 = one - f1
+  !
+  loop_cells: &
+  do nc = 1,ncell
+    if ( bad_cell(nc) ) then
+      n0 = cell(nc)%beg_sp - 1    ! offset index for sol-pts in this cell
+      np = cell(nc)%end_sp - n0   ! number of sol-pts in this cell
+      do n = 1,np  ! loop solution points
+        usp(n0+n,nec) = f1*usp(n0+n,nec) + f2*cell_ave_sol(nec,nc)
+        usp(n0+n,nmx) = f1*usp(n0+n,nmx) + f2*cell_ave_sol(nmx,nc)
+        usp(n0+n,nmy) = f1*usp(n0+n,nmy) + f2*cell_ave_sol(nmy,nc)
+        usp(n0+n,nmz) = f1*usp(n0+n,nmz) + f2*cell_ave_sol(nmz,nc)
+        usp(n0+n,nee) = f1*usp(n0+n,nee) + f2*cell_ave_sol(nee,nc)
+      end do ! n
+    end if
+  end do loop_cells
+  !
+end subroutine emergency_scale_bad_cells_3d
+!
+!###############################################################################
+!> Scale down the higher modes of bad cells and
+!> update the volume solution in usp.
+!>
+!> Optimized routine for 2d.
+!###############################################################################
+subroutine emergency_scale_bad_cells_2d(bad_cell,usp)
+  !
+  !.. Use Statements ..
+  use geovar,       only : ncell,cell
+  use thermo_mod,   only : update_thermo_properties
+  use cell_ave_mod, only : cell_ave_sol
+  !
+  !.. Arguments ..
+  !> Marks the cells to be repaired.
+  logical(lk), intent(in)    :: bad_cell(:)
+  !
+  !> Conserved variables at solution points for all cells.
+  real(wp),    intent(inout) :: usp(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_scale_bad_cells_2d"
+  !
+  real(wp), parameter :: f1 = half       ! solution scaling factor
+  real(wp), parameter :: f2 = one - f1
+  !
+  !.. Local Scalars ..
+  integer :: n,nc,n0,np
+  !
+continue
+  !
+  ! Scale the solution.
+  !
+  loop_cells: &
+  do nc = 1,ncell
+    if ( bad_cell(nc) ) then
+      n0 = cell(nc)%beg_sp - 1    ! offset index for sol-pts in this cell
+      np = cell(nc)%end_sp - n0   ! number of sol-pts in this cell
+      do n = 1,np  ! loop solution points
+        usp(n0+n,nec) = f1*usp(n0+n,nec) + f2*cell_ave_sol(nec,nc)
+        usp(n0+n,nmx) = f1*usp(n0+n,nmx) + f2*cell_ave_sol(nmx,nc)
+        usp(n0+n,nmy) = f1*usp(n0+n,nmy) + f2*cell_ave_sol(nmy,nc)
+        usp(n0+n,nee) = f1*usp(n0+n,nee) + f2*cell_ave_sol(nee,nc)
+      end do ! n
+    end if
+  end do loop_cells
+  !
+end subroutine emergency_scale_bad_cells_2d
+!
+!###############################################################################
+!> Scale down the higher modes of bad cells and
+!> update the volume solution in usp.
+!>
+!> Optimized routine for 1d.
+!###############################################################################
+subroutine emergency_scale_bad_cells_1d(bad_cell,usp)
+  !
+  !.. Use Statements ..
+  use geovar,       only : ncell,cell
+  use thermo_mod,   only : update_thermo_properties
+  use cell_ave_mod, only : cell_ave_sol
+  !
+  !.. Arguments ..
+  !> Marks the cells to be repaired.
+  logical(lk), intent(in)    :: bad_cell(:)
+  !
+  !> Conserved variables at solution points for all cells.
+  real(wp),    intent(inout) :: usp(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_scale_bad_cells_1d"
+  !
+  real(wp), parameter :: f1 = half       ! solution scaling factor
+  real(wp), parameter :: f2 = one - f1
+  !
+  !.. Local Scalars ..
+  integer :: n,nc,n0,np
+  !
+continue
+  !
+  ! Scale the solution.
+  !
+  loop_cells: &
+  do nc = 1,ncell
+    if ( bad_cell(nc) ) then
+      n0 = cell(nc)%beg_sp - 1    ! offset index for sol-pts in this cell
+      np = cell(nc)%end_sp - n0   ! number of sol-pts in this cell
+      do n = 1,np  ! loop solution points
+        usp(n0+n,nec) = f1*usp(n0+n,nec) + f2*cell_ave_sol(nec,nc)
+        usp(n0+n,nmx) = f1*usp(n0+n,nmx) + f2*cell_ave_sol(nmx,nc)
+        usp(n0+n,nee) = f1*usp(n0+n,nee) + f2*cell_ave_sol(nee,nc)
+      end do ! n
+    end if
+  end do loop_cells
+  !
+end subroutine emergency_scale_bad_cells_1d
+!
+!###############################################################################
+!> Scale down the higher modes of bad cells and
+!> update the volume solution in usp.
+!>
+!> General routine for nd.
+!###############################################################################
+subroutine emergency_scale_bad_cells_nd(mbeg,mend,bad_cell,usp)
+  !
+  !.. Use Statements ..
+  use geovar,       only : ncell,cell
+  use thermo_mod,   only : update_thermo_properties
+  use cell_ave_mod, only : cell_ave_sol
+  !
+  !.. Arguments ..
+  integer,     intent(in)    :: mbeg        !< Beginning solution variable.
+  integer,     intent(in)    :: mend        !< Ending    solution variable.
+  logical(lk), intent(in)    :: bad_cell(:) !< Marks the cells to be repaired.
+  !
+  !> Conserved variables at solution points for all cells.
+  real(wp),    intent(inout) :: usp(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_scale_bad_cells_nd"
+  !
+  real(wp), parameter :: f1 = half       ! solution scaling factor
+  real(wp), parameter :: f2 = one - f1
+  !
+  !.. Local Scalars ..
+  integer     :: m,n,nc,n0,np
+  !
+continue
+  !
+  ! Scale the solution.
+  !
+  loop_cells: &
+  do nc = 1,ncell
+    if ( bad_cell(nc) ) then
+      n0 = cell(nc)%beg_sp - 1    ! offset index for sol-pts in this cell
+      np = cell(nc)%end_sp - n0   ! number of sol-pts in this cell
+      do m = mbeg,mend  ! loop solution variables
+        do n = 1,np  ! loop solution points
+          usp(n0+n,m) = f1*usp(n0+n,m) + f2*cell_ave_sol(m,nc)
+        end do ! n
+      end do ! m
+    end if
+  end do loop_cells
+  !
+end subroutine emergency_scale_bad_cells_nd
+!
+!###############################################################################
+!> Update thermo and transport properties at volume points of bad cells.
+!###############################################################################
+subroutine bad_cell_update_properties_sp(bad_cell,usp,gpsp)
+  !
+  !.. Use Statements ..
+  use geovar,        only : ncell,cell
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(in) :: bad_cell(:)
+  real(wp), intent(inout) :: usp(:,:)
+  real(wp), intent(inout) :: gpsp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nc,n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "bad_cell_update_properties"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  !
+  ! Update the thermodynamic properties for any cells that had to be limited
+  ! Update the transport     properties for any cells that had to be limited
+  !
+  do nc = 1,ncell
+    if (bad_cell(nc)) then
+      n1 = cell(nc)%beg_sp
+      n2 = cell(nc)%beg_sp
+      call update_thermo_properties(n1,n2,usp,gpsp, &
+                                    loc="cell",caller_name=pname)
+      call update_transport_properties(n1,n2,usp,gpsp)
+    end if
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine bad_cell_update_properties_sp
 !
 !###############################################################################
 !###############################################################################

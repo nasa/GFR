@@ -608,7 +608,7 @@ continue
   !
   ! Check for any negative thermodynamic properties at the solution points
   !
- !call check_cell_thermo_properties()
+ !call check_cell_thermo_properties()  ! obsolete
   !
   ! Update the thermodynamic and transport properties at the solution points
   !
