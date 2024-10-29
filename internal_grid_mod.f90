@@ -496,7 +496,7 @@ subroutine create_taylor_couette_grid()
   use ovar, only : TCF_Radial_Cells,TCF_Azimuthal_Cells
   use ovar, only : TCF_Periodic_Sectors
   !
-  use module_cgns_types, only : HEXA_8,HEXA_27,HEXA_64,HEXA_125
+  use cgns_types_mod, only : HEXA_8,HEXA_27,HEXA_64,HEXA_125
   !
   use cgns_mod, only : get_face_elem
   !
@@ -4445,7 +4445,7 @@ subroutine create_pipe_channel_grid()
   use ovar, only : channel_yplus_of_one
   use ovar, only : pipe_channel_angle
   !
-  use module_cgns_types, only : HEXA_8,HEXA_27,HEXA_64,HEXA_125
+  use cgns_types_mod, only : HEXA_8,HEXA_27,HEXA_64,HEXA_125
   !
   use cgns_mod, only : get_face_elem
   !

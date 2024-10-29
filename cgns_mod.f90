@@ -10,7 +10,7 @@ module cgns_mod
   !.. Use Statements
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
-  use module_cgns_types
+  use cgns_types_mod
   use geovar, only : grid_t
   use geovar, only : elem_t
   use geovar, only : prop_t

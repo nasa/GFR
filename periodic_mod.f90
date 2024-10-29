@@ -46,7 +46,7 @@ subroutine match_periodic_faces()
   use ovar,   only : bc_input
   use ovar,   only : grid_scaling_factor
   !
-  use module_cgns_types, only : CGLEN
+  use cgns_types_mod, only : CGLEN
   !
   use connectivity_mod, only : init_tri_face_rotation_values
   use connectivity_mod, only : GetFluxPointRotation_Edge

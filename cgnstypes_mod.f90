@@ -1,4 +1,4 @@
-module module_cgns_types
+module cgns_types_mod
   !
 #ifdef USE_C_NULL_CHAR
 #define _CGNS_GOTO_END_ C_NULL_CHAR
@@ -409,7 +409,7 @@ end subroutine cgns_timer
 !
 !###############################################################################
 !
-end module module_cgns_types
+end module cgns_types_mod
 !
 !###############################################################################
 !

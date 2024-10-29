@@ -2092,7 +2092,7 @@ module input_namelist_mod
   use ovar,      only : force_nd_subroutines, newton_rlx, conv_temp
   use ovar,      only : chemistry_sub_iterations
   use ovar,      only : ignore_thermo_newton_warnings
-  use module_cgns_types, only : cgns_use_queue
+  use cgns_types_mod, only : cgns_use_queue
   !
   implicit none
   !
