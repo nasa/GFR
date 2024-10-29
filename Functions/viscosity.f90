@@ -2,11 +2,11 @@ pure function viscosity_cv(uu) result(return_value)
  !!$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
-  use eqn_idx, only : nec,nmb,nme,nee,ntk
-  use ovar,    only : tref,rhoref,aref
-  use ovar,    only : suth_c1,suth_sref
-  use ovar,    only : gam,rgasref_nd
-  use ovar,    only : include_tke_in_energy
+  use eqn_idx_mod, only : nec,nmb,nme,nee,ntk
+  use ovar,        only : tref,rhoref,aref
+  use ovar,        only : suth_c1,suth_sref
+  use ovar,        only : gam,rgasref_nd
+  use ovar,        only : include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: uu
@@ -48,11 +48,11 @@ pure function viscosity_cv_sp(uu) result(return_value)
 ! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
-  use eqn_idx, only : nec,nmb,nme,nee,ntk
-  use ovar,    only : tref,rhoref,aref
-  use ovar,    only : suth_c1,suth_sref
-  use ovar,    only : gam,rgasref_nd
-  use ovar,    only : include_tke_in_energy
+  use eqn_idx_mod, only : nec,nmb,nme,nee,ntk
+  use ovar,        only : tref,rhoref,aref
+  use ovar,        only : suth_c1,suth_sref
+  use ovar,        only : gam,rgasref_nd
+  use ovar,        only : include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(1:nq), intent(in) :: uu
@@ -88,9 +88,9 @@ pure function viscosity_pv(vv) result(return_value)
  !!$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
-  use eqn_idx, only : nec,nee
-  use ovar,    only : tref,rhoref,aref,rgasref_nd
-  use ovar,    only : suth_c1,suth_sref
+  use eqn_idx_mod, only : nec,nee
+  use ovar,        only : tref,rhoref,aref,rgasref_nd
+  use ovar,        only : suth_c1,suth_sref
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: vv
@@ -121,9 +121,9 @@ pure function viscosity_pv_sp(vv) result(return_value)
  !!$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
-  use eqn_idx, only : nec,nee
-  use ovar,    only : tref,rhoref,aref,rgasref_nd
-  use ovar,    only : suth_c1,suth_sref
+  use eqn_idx_mod, only : nec,nee
+  use ovar,        only : tref,rhoref,aref,rgasref_nd
+  use ovar,        only : suth_c1,suth_sref
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: vv

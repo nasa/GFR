@@ -3,9 +3,9 @@ module reactions_mod
   !.. Use Statements ..
   use module_kind_types
   !
-  use eqn_idx, only : nec,nee,nq
-  use eqn_idx, only : ncs,ntemp,ngamm,ncp,ng
-  use eqn_idx, only : ncr
+  use eqn_idx_mod, only : nec,nee,nq
+  use eqn_idx_mod, only : ncs,ntemp,ngamm,ncp,ng
+  use eqn_idx_mod, only : ncr
   !
   use thermo_mod, only : runivl_millijoules => runivl
   !

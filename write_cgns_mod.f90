@@ -5,8 +5,8 @@ module write_cgns_mod
   !.. Use Statements ..
   use module_kind_types
   use cgns_types_mod
-  use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
-  use eqn_idx, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ncond,ng
+  use eqn_idx_mod, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
+  use eqn_idx_mod, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ncond,ng
   !
   implicit none
   !

@@ -2,8 +2,8 @@ pure function pressure_cv(uu) result(return_value)
 ! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
-  use eqn_idx, only : nec,nmb,nme,nee,ntk
-  use ovar,    only : gam, include_tke_in_energy
+  use eqn_idx_mod, only : nec,nmb,nme,nee,ntk
+  use ovar,        only : gam, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: uu
@@ -41,8 +41,8 @@ pure function pressure_cv_sp(uu) result(return_value)
 ! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
-  use eqn_idx, only : nec,nmb,nme,nee,ntk
-  use ovar,    only : gam, include_tke_in_energy
+  use eqn_idx_mod, only : nec,nmb,nme,nee,ntk
+  use ovar,        only : gam, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: uu

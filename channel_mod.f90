@@ -4,7 +4,7 @@ module channel_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nee,nq
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nee,nq
   !
   implicit none
   !

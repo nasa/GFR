@@ -3,7 +3,7 @@ module mappings_mod
   !.. Global Use Statements ..
   use module_kind_types
   use matrix_types_mod, only : matrix
-  use eqn_idx, only : nec,nmb,nme,nee,nq
+  use eqn_idx_mod, only : nec,nmb,nme,nee,nq
   !
   implicit none
   !

@@ -6,8 +6,8 @@ module filter_mod
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
   !
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
-  use eqn_idx, only : ncs
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
+  use eqn_idx_mod, only : ncs
   !
   use matrix_types_mod, only : matrix
   use matrix_types_mod, only : create_matrix_sparsity

@@ -9,7 +9,7 @@ module projection_mod
   use matrix_types_mod, only : matrix
   use matrix_types_mod, only : create_matrix_sparsity
   !
-  use eqn_idx, only : ncs,nec,nmx,nmy,nmz,nmb,nme,nee,nq
+  use eqn_idx_mod, only : ncs,nec,nmx,nmy,nmz,nmb,nme,nee,nq
   !
   implicit none
   !

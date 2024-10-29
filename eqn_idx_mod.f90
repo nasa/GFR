@@ -1,4 +1,4 @@
-module eqn_idx
+module eqn_idx_mod
   !
   !.. Use Statements ..
   use module_kind_types
@@ -418,7 +418,7 @@ end function aux_var_is_not_cp
 !
 !###############################################################################
 !
-end module eqn_idx
+end module eqn_idx_mod
 !
 !###############################################################################
 !

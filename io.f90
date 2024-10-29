@@ -2,8 +2,8 @@ module io_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nq
-  use eqn_idx, only : ncs,npres
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nq
+  use eqn_idx_mod, only : ncs,npres
   !
   implicit none
   !
@@ -1758,7 +1758,7 @@ subroutine read_grid_file()
   use internal_grid_mod, only : create_internal_grid
   use internal_grid_mod, only : write_internal_grid
   !
-  use eqn_idx, only : create_equation_indices
+  use eqn_idx_mod, only : create_equation_indices
   !
   use synthetic_eddy_mod, only : separate_sem_boundary_faces
   !

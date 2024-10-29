@@ -4,8 +4,8 @@ module generic_mod
   !
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
-  use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
-  use eqn_idx, only : ncs,ncb,nce,npres,ntemp,ngamm
+  use eqn_idx_mod, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
+  use eqn_idx_mod, only : ncs,ncb,nce,npres,ntemp,ngamm
   use timer_mod, only : solver_timer
   !
   implicit none

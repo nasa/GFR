@@ -2,8 +2,8 @@ module bc_fixed_mod
   !
   !.. Use Statements
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee
-  use eqn_idx, only : ncs
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nmb,nme,nee
+  use eqn_idx_mod, only : ncs
   !
   implicit none
   !

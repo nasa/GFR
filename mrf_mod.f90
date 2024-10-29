@@ -1,7 +1,7 @@
 module mrf_mod
   !
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ncs
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ncs
   use timer_mod, only : solver_timer
   !
   implicit none

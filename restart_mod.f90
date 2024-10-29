@@ -11,7 +11,7 @@ module restart_mod
   !
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
-  use eqn_idx, only : nq,nec,ncs
+  use eqn_idx_mod, only : nq,nec,ncs
   !
   use iso_fortran_env, only : int8,int16,int32,int64
   use iso_fortran_env, only : real32,real64,real128

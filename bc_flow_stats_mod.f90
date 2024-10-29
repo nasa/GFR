@@ -5,7 +5,7 @@ module bc_flow_stats_mod
   !.. Use Statements ..
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
-  use eqn_idx, only : nec,nmx,nmy,nmz,npres,ntemp
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,npres,ntemp
   !
   implicit none
   !

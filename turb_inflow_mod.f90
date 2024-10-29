@@ -2,7 +2,7 @@ module synthetic_eddy_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : ncs,nec,nmx,nmy,nmz,nee,nq,ntemp,npres,ncp
+  use eqn_idx_mod, only : ncs,nec,nmx,nmy,nmz,nee,nq,ntemp,npres,ncp
   !
   implicit none
   !
@@ -8816,7 +8816,7 @@ module digital_filtering_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nee
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nee
   !
   implicit none
   !

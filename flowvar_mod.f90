@@ -279,7 +279,7 @@ subroutine allocate_flowvar_arrays()
   !
   !.. Use Statements ..
   use module_kind_types, only : Classic_RK,CK4_RK,TVD4_RK,OERK,EPERK
-  use eqn_idx,           only : nq,ng,npres,ntemp,ngamm
+  use eqn_idx_mod,       only : nq,ng,npres,ntemp,ngamm
   use geovar,            only : nr,n_solpts,n_flxpts
   use geovar,            only : ncell,nface,nedge,nnode
   use ovar,              only : Runge_Kutta_Scheme,num_rk_stages
@@ -436,7 +436,7 @@ end subroutine allocate_flowvar_arrays
 subroutine alloc_interpto_arrays()
   !
   !.. Use Statements ..
-  use eqn_idx, only : nq,ng
+  use eqn_idx_mod, only : nq,ng
   use geovar,  only : nr,n_solpts,n_flxpts,nface
   !
   !.. Local Scalars ..
@@ -518,7 +518,7 @@ subroutine find_facexyz_size(nf,nfpts)
   !
   !.. Use Statements ..
   use module_kind_types, only : one,rpm_to_mps,bc_sem,bc_walls,THX_Phase_3
-  use eqn_idx,           only : ncs
+  use eqn_idx_mod,       only : ncs
   use geovar,            only : nfbnd,nface,n_bnd_flxpts,n_flxpts
   use ovar,              only : bc_in,moving_ref_frame,aref
   use ovar,              only : itestcase,continuous_output,mms_opt
@@ -1232,7 +1232,7 @@ subroutine alloc_face_var_dt_components(array,aname,pname,line_num,num_var)
   !
   !.. Use Statements ..
   use module_kind_types, only : skip_alloc_pause
-  use eqn_idx,           only : nq
+  use eqn_idx_mod,       only : nq
   use geovar,            only : face
   use order_mod,         only : geom_solpts
   !
@@ -1286,7 +1286,7 @@ subroutine alloc_face_vec_dt_components(array,aname,pname,line_num,num_var)
   !
   !.. Use Statements ..
   use module_kind_types, only : skip_alloc_pause
-  use eqn_idx,           only : nq
+  use eqn_idx_mod,       only : nq
   use geovar,            only : nr,face
   use order_mod,         only : geom_solpts
   !
@@ -1340,7 +1340,7 @@ subroutine alloc_node_var_dt_components(array,aname,pname,line_num,num_var)
   !
   !.. Use Statements ..
   use module_kind_types, only : skip_alloc_pause
-  use eqn_idx,           only : nq
+  use eqn_idx_mod,       only : nq
   !
   !.. Formal Arguments ..
   type(ne1d_t),  intent(inout) :: array(:)
@@ -1386,7 +1386,7 @@ subroutine alloc_node_vec_dt_components(array,aname,pname,line_num,num_var)
   !
   !.. Use Statements ..
   use module_kind_types, only : skip_alloc_pause
-  use eqn_idx,           only : nq
+  use eqn_idx_mod,       only : nq
   use geovar,            only : nr
   !
   !.. Formal Arguments ..
@@ -1433,7 +1433,7 @@ subroutine alloc_edge_var_dt_components(array,npts,aname,pname,line_num,num_var)
   !
   !.. Use Statements ..
   use module_kind_types, only : Geom_Edge,skip_alloc_pause
-  use eqn_idx,           only : nq
+  use eqn_idx_mod,       only : nq
   use geovar,            only : edge
   use order_mod,         only : geom_solpts
   !
@@ -1488,7 +1488,7 @@ subroutine alloc_edge_vec_dt_components(array,npts,aname,pname,line_num,num_var)
   !
   !.. Use Statements ..
   use module_kind_types, only : Geom_Edge,skip_alloc_pause
-  use eqn_idx,           only : nq
+  use eqn_idx_mod,       only : nq
   use geovar,            only : nr,edge
   use order_mod,         only : geom_solpts
   !

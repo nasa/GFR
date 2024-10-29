@@ -13,7 +13,7 @@ module parallel_mod
   !.. Use Statements ..
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
-  use eqn_idx, only : nq,nec,nmx,nmy,nmz,nmb,nme,nee,ncs
+  use eqn_idx_mod, only : nq,nec,nmx,nmy,nmz,nmb,nme,nee,ncs
   use geovar,  only : face_t
   use geovar,  only : fp_t
   use geovar,  only : map_t,cell_map

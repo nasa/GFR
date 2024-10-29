@@ -4,8 +4,8 @@ module initialization_mod
   ! initialize the solution
   !
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
-  use eqn_idx, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ncond,ng
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
+  use eqn_idx_mod, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ncond,ng
   !
   implicit none
   !

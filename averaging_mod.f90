@@ -1,8 +1,8 @@
 module averaging_mod
   !
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ntk,ntl
-  use eqn_idx, only : npres,ntemp
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ntk,ntl
+  use eqn_idx_mod, only : npres,ntemp
   !
   implicit none
   !

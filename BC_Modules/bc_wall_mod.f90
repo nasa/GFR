@@ -2,8 +2,8 @@ module bc_wall_mod
   !
   !.. Use Statements
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nee,nq
-  use eqn_idx, only : ncs,npres,ntemp,ngamm
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nee,nq
+  use eqn_idx_mod, only : ncs,npres,ntemp,ngamm
   !
   implicit none
   !

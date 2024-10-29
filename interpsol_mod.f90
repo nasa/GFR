@@ -8,7 +8,7 @@ module interpsol_mod
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
   use interpsolvar_mod
-  use eqn_idx, only : nec,nmx,nmy,nmz,nee,nq
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nee,nq
   !
   implicit none
   !

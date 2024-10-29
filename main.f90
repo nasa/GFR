@@ -25,7 +25,7 @@ program GFR_main
   use geovar, only : n_qdtpts,n_flx_qdtpts,n_bnd_qdtpts,n_wall_qdtpts
   use geovar, only : output_bface
   !
-  use eqn_idx, only : nq,ng
+  use eqn_idx_mod, only : nq,ng
   !
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
@@ -1894,7 +1894,7 @@ end subroutine compute_rhs
 subroutine check_for_bad_number(line_num,newton_failures,force_signaling)
   !
   !.. Use Statements ..
-  use eqn_idx, only : nq
+  use eqn_idx_mod, only : nq
   use geovar,  only : n_solpts
   use flowvar, only : usp,uoldsp
 !#ifndef SPECIAL_FOR_GCC
@@ -2088,7 +2088,7 @@ end subroutine check_for_bad_number
 subroutine timed_check_for_bad_number(line_num,newton_failures,force_signaling)
   !
   !.. Use Statements ..
-  use eqn_idx, only : nq
+  use eqn_idx_mod, only : nq
   use geovar,  only : n_solpts
   use flowvar, only : usp,uoldsp
 !#ifndef SPECIAL_FOR_GCC
@@ -2298,7 +2298,7 @@ end subroutine timed_check_for_bad_number
 subroutine find_bad_number()
   !
   !.. Use Statements ..
-  use eqn_idx,           only : nq,nec,ntemp,npres
+  use eqn_idx_mod,       only : nq,nec,ntemp,npres
   use ovar,              only : grid_scaling_factor,rhoref,aref,tref
   use geovar,            only : nr,cell,face,fp,nfbnd,nface
   use geovar,            only : n_solpts,n_bnd_flxpts,n_flxpts,xyz

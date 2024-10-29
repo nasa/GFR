@@ -3,9 +3,9 @@ module thermo_mod
   !.. Use Statements ..
   use module_kind_types
   !
-  use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
-  use eqn_idx, only : ncs,ncr
-  use eqn_idx, only : npres,ntemp,ncp,ngamm,nenth,ng
+  use eqn_idx_mod, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
+  use eqn_idx_mod, only : ncs,ncr
+  use eqn_idx_mod, only : npres,ntemp,ncp,ngamm,nenth,ng
   !
   implicit none
   !

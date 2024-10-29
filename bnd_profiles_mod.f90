@@ -1,8 +1,8 @@
 module bnd_profiles_mod
   !
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
-  use eqn_idx, only : ncs,npres,ntemp,nvisc,ng
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
+  use eqn_idx_mod, only : ncs,npres,ntemp,nvisc,ng
   !
   implicit none
   !

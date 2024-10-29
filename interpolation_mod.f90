@@ -6,7 +6,7 @@ module interpolation_mod
   use matrix_types_mod, only : create_matrix_sparsity
   use matrix_types_mod, only : output_matrix
   use matrix_types_mod, only : output_sparsity
-  use eqn_idx, only : nec,nmx,nmy,nmz,nee
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nee
   !
   implicit none
   !

@@ -5,7 +5,7 @@ module thx_mod
   !.. Use Statements ..
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
-  use eqn_idx, only : nmx,nmy,nmz
+  use eqn_idx_mod, only : nmx,nmy,nmz
   !
   implicit none
   !

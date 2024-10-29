@@ -4,8 +4,8 @@ module module_limiters
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
   !
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
-  use eqn_idx, only : ncs,npres,ntemp
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
+  use eqn_idx_mod, only : ncs,npres,ntemp
   !
   use ovar, only : force_nd_subroutines
   !

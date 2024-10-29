@@ -10,8 +10,8 @@ module postprocessor_mod
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
   use cgns_types_mod
-  use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
-  use eqn_idx, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ncond,ng
+  use eqn_idx_mod, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
+  use eqn_idx_mod, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ncond,ng
   !
   implicit none
   !

@@ -1,8 +1,8 @@
 module transport_mod
   !
   use module_kind_types
-  use eqn_idx, only : nec,ncs,nq
-  use eqn_idx, only : ntemp,ncp,nvisc,ncond,ng
+  use eqn_idx_mod, only : nec,ncs,nq
+  use eqn_idx_mod, only : ntemp,ncp,nvisc,ncond,ng
   !
   implicit none
   !

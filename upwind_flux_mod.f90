@@ -2,8 +2,8 @@ module upwind_flux_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
-  use eqn_idx, only : ncs,npres,ngamm,nenth
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
+  use eqn_idx_mod, only : ncs,npres,ngamm,nenth
   use timer_mod, only : solver_timer
   !
   implicit none
