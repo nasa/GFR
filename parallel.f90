@@ -5125,7 +5125,7 @@ subroutine unpack_localized_grid_dt(lcell,grid_elem,grid_xyz,grid_sol,grid)
   use geovar,        only : grid_t
   use ovar,          only : grid_format,plot3d_agglomerate_order
   use ovar,          only : itestcase
-  use module_cgns,   only : cgns_element_properties
+  use cgns_mod,      only : cgns_element_properties
   use module_gmsh,   only : gmsh_element_properties
   use module_plot3d, only : plot3d_element_properties
   !
@@ -12791,7 +12791,7 @@ subroutine report_parallel_memory_usage(xadj,adjncy,epart,node,edge,face, &
   use flowvar,       only : flowvar_memory_usage
   use module_plot3d, only : plot3d_memory_usage
   use module_gmsh,   only : gmsh_memory_usage
-  use module_cgns,   only : cgns_memory_usage
+  use cgns_mod,      only : cgns_memory_usage
   !
   !.. Formal Arguments ..
   integer(idx_t),   allocatable, intent(in) :: xadj(:)

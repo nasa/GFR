@@ -7208,7 +7208,7 @@ end subroutine get_unmixed_connectivities
 subroutine create_geord(cell_geom,cell_order,gmin,gmax,omin,omax)
   !
   !.. Use Statements ..
-  use module_cgns, only : reorder_to_cgns_pts
+  use cgns_mod, only : reorder_to_cgns_pts
   !
   !.. Formal Arguments ..
   integer,    intent(in) :: cell_geom(:)

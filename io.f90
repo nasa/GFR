@@ -1736,7 +1736,7 @@ subroutine read_grid_file()
   !.. Use Statements ..
   use geovar,        only : nr,grid
   use geovar,        only : output_bface
-  use module_cgns,   only : read_cgns_gridfile
+  use cgns_mod,      only : read_cgns_gridfile
   use module_gmsh,   only : read_gmsh_gridfile
   use module_plot3d, only : read_plot3d_gridfile
   use order_mod,     only : find_valid_geometries
@@ -1933,7 +1933,7 @@ subroutine check_ho_points_are_equal_distance()
   !
   !.. Use Statements ..
   use geovar, only : grid,ncell,nfbnd
-  use module_cgns, only : reorder_to_cgns_pts
+  use cgns_mod, only : reorder_to_cgns_pts
   use ovar,   only : cgns_grid_needs_correction
   !
   !.. Local Scalars ..

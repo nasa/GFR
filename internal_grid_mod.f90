@@ -498,7 +498,7 @@ subroutine create_taylor_couette_grid()
   !
   use module_cgns_types, only : HEXA_8,HEXA_27,HEXA_64,HEXA_125
   !
-  use module_cgns, only : get_face_elem
+  use cgns_mod, only : get_face_elem
   !
   !.. Local Scalars ..
   integer  :: ierr,i,j,k,imax,jmax,azp1
@@ -4447,7 +4447,7 @@ subroutine create_pipe_channel_grid()
   !
   use module_cgns_types, only : HEXA_8,HEXA_27,HEXA_64,HEXA_125
   !
-  use module_cgns, only : get_face_elem
+  use cgns_mod, only : get_face_elem
   !
   !.. Local Scalars ..
   integer  :: ierr,i,j,k

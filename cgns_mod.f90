@@ -1,4 +1,4 @@
-module module_cgns
+module cgns_mod
   !
 #include <mpi_defs.h>
 !#define DEBUG_CGNS_MPI_BCAST_ERROR
@@ -8795,7 +8795,7 @@ continue
   !
   ! Format Statements
   !
-  1 format (/,"Status of arrays in module module_cgns")
+  1 format (/,"Status of arrays in module cgns_mod")
   2 format (" Array: ",a,dt)
   3 format (" Total memory = ",f8.2,1x,a)
   4 format (a,"(",i0,")%",a)
@@ -8819,7 +8819,7 @@ include "Functions/smc000_interior_wall_radius.f90"
 !
 !###############################################################################
 !
-end module module_cgns
+end module cgns_mod
 !
 !###############################################################################
 !

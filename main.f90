@@ -181,7 +181,7 @@ program GFR_main
   use mydebug_mod,   only : mydebug
 !-DEBUG_END:
   !
-  use module_cgns, only : root_broadcasts_grid_dt
+  use cgns_mod, only : root_broadcasts_grid_dt
   !
   use periodic_mod, only : check_periodic_list_indices
   !
@@ -2859,7 +2859,7 @@ subroutine report_memory_usage(n,request_stop)
   use bnd_profiles_mod,  only : bnd_profiles_memory_usage
   use module_plot3d,     only : plot3d_memory_usage
   use module_gmsh,       only : gmsh_memory_usage
-  use module_cgns,       only : cgns_memory_usage
+  use cgns_mod,          only : cgns_memory_usage
   !
   !.. Optional Arguments ..
   integer,     optional, intent(in) :: n
