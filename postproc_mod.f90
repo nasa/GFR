@@ -4220,8 +4220,8 @@ subroutine get_face_solutions
   use geovar,    only : n_bnd_flxpts,n_flxpts
   use flowvar,   only : faceusp,facegpsp
   !
-  use module_bc, only : get_faceusp_bc
-  use module_bc, only : get_facedusp_bc
+  use bc_mod, only : get_faceusp_bc
+  use bc_mod, only : get_facedusp_bc
   !
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties

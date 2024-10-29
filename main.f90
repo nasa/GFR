@@ -118,7 +118,7 @@ program GFR_main
   use initialization_mod, only : initialize_dusp
   use initialization_mod, only : get_face_and_edge_point_coordinates
   !
-  use module_bc, only : get_faceusp_bc
+  use bc_mod, only : get_faceusp_bc
   !
   use generic_mod, only : init_generic_mod
   use generic_mod, only : write_iter_stats
@@ -1699,8 +1699,8 @@ subroutine compute_rhs(iter,nst,newton_failures)
   use ovar, only : mms_opt
   use ovar, only : itestcase
   !
-  use module_bc, only : get_faceusp_bc
-  use module_bc, only : get_facedusp_bc
+  use bc_mod, only : get_faceusp_bc
+  use bc_mod, only : get_facedusp_bc
   !
   use parallel_mod, only : exchange_faceusp
   use parallel_mod, only : wait_faceusp

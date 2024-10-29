@@ -1,4 +1,4 @@
-module module_bc
+module bc_mod
   !
 #include <mpi_defs.h>
 !#define PROFILE_ON
@@ -587,4 +587,4 @@ end subroutine output_to_debug_bc_groups
 !
 !###############################################################################
 !
-end module module_bc
+end module bc_mod

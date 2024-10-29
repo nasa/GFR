@@ -625,7 +625,7 @@ end subroutine stabilize_usp
 subroutine update_faceusp(iter,nst,newton_failures)
   !
   !.. Use Statements ..
-  use module_bc, only : get_faceusp_bc
+  use bc_mod, only : get_faceusp_bc
   !
   use parallel_mod, only : exchange_faceusp
   use parallel_mod, only : wait_faceusp
