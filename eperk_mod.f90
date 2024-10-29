@@ -61,10 +61,10 @@ subroutine update_EPERK(nst,iter,Apply_Filter,Apply_Limiter)!, &
                        !dtmin,final_timestep_from_stop_request)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts
-  use flowvar, only : residual,usp,uoldsp,rssprk,dtsp,rk_sum
-  use ovar,    only : time,num_rk_stages
-  use rhs_mod, only : stabilize_usp
+  use geovar,      only : n_solpts
+  use flowvar_mod, only : residual,usp,uoldsp,rssprk,dtsp,rk_sum
+  use ovar,        only : time,num_rk_stages
+  use rhs_mod,     only : stabilize_usp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
@@ -192,11 +192,11 @@ subroutine get_EPERK_adaptive_dtsp(iter,dtmin,next_dtmin, &
                                    previous_timestep_rejected)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts
-  use flowvar, only : residual,usp,uoldsp,rssprk,dtsp
-  use ovar,    only : d_t,time,num_rk_stages
-  use dt_mod,  only : get_dtsp
-  use dt_mod,  only : checks_on_dtmin
+  use geovar,      only : n_solpts
+  use flowvar_mod, only : residual,usp,uoldsp,rssprk,dtsp
+  use ovar,        only : d_t,time,num_rk_stages
+  use dt_mod,      only : get_dtsp
+  use dt_mod,      only : checks_on_dtmin
   !
   !.. Formal Arguments ..
   integer,      intent(in) :: iter

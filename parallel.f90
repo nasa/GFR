@@ -8906,8 +8906,8 @@ end subroutine create_node_and_edge_datatypes
 subroutine exchange_faceusp()
   !
   !.. Use Statements ..
-  use geovar,  only : bface,face
-  use flowvar, only : faceusp
+  use geovar,      only : bface,face
+  use flowvar_mod, only : faceusp
   !
   !.. Local Scalars..
   integer :: i,k,m,n,nf,nfp,f0,ibeg,nvar
@@ -8999,8 +8999,8 @@ end subroutine exchange_faceusp
 subroutine wait_faceusp()
   !
   !.. Use Statements ..
-  use geovar,  only : bface,face
-  use flowvar, only : faceusp
+  use geovar,      only : bface,face
+  use flowvar_mod, only : faceusp
   !
   !.. Local Scalars ..
   integer :: i,k,m,nf,nfp,f0,ibeg,nvar
@@ -9309,10 +9309,10 @@ end subroutine rotate_periodic_mpi_solutions_nd
 subroutine exchange_bc_conflicts_usp(override)
   !
   !.. Use Statements ..
-  use geovar,  only : bc_conflict,face
-  use ovar,    only : loc_flux_pts
-  use ovar,    only : use_bc_conflicts
-  use flowvar, only : faceusp
+  use geovar,      only : bc_conflict,face
+  use ovar,        only : loc_flux_pts
+  use ovar,        only : use_bc_conflicts
+  use flowvar_mod, only : faceusp
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: override
@@ -9485,8 +9485,8 @@ end subroutine exchange_bc_conflicts_usp
 subroutine exchange_facedusp()
   !
   !.. Use Statements ..
-  use geovar,  only : bface,face
-  use flowvar, only : facedusp
+  use geovar,      only : bface,face
+  use flowvar_mod, only : facedusp
   !
   !.. Local Scalars..
   integer :: i,k,l,m,n,nf,nfp,f0,ibeg,nvar,ndim
@@ -9581,8 +9581,8 @@ end subroutine exchange_facedusp
 subroutine wait_facedusp()
   !
   !.. Use Statements ..
-  use geovar,  only : bface,face
-  use flowvar, only : facedusp
+  use geovar,      only : bface,face
+  use flowvar_mod, only : facedusp
   !
   !.. Local Scalars ..
   integer :: i,k,l,m,nf,nfp,f0,ibeg,iend,nvar,ndim
@@ -10140,10 +10140,10 @@ end subroutine rotate_periodic_mpi_gradients_nd
 subroutine exchange_bc_conflicts_dusp(override)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,bc_conflict,face
-  use ovar,    only : loc_flux_pts
-  use ovar,    only : use_bc_conflicts
-  use flowvar, only : facedusp
+  use geovar,      only : nr,bc_conflict,face
+  use ovar,        only : loc_flux_pts
+  use ovar,        only : use_bc_conflicts
+  use flowvar_mod, only : facedusp
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: override
@@ -10336,8 +10336,8 @@ end subroutine exchange_bc_conflicts_dusp
 subroutine exchange_faceusp_dt(faceusp_dt)
   !
   !.. Use Statements ..
-  use geovar,  only : bface
-  use flowvar, only : face_var
+  use geovar,      only : bface
+  use flowvar_mod, only : face_var
   !
   !.. Formal Arguments ..
   type(face_var), dimension(:), intent(in) :: faceusp_dt
@@ -10402,8 +10402,8 @@ end subroutine exchange_faceusp_dt
 subroutine wait_faceusp_dt(faceusp_dt)
   !
   !.. Use Statements ..
-  use geovar,  only : bface
-  use flowvar, only : face_var
+  use geovar,      only : bface
+  use flowvar_mod, only : face_var
   !
   !.. Formal Arguments ..
   type(face_var), dimension(:), intent(inout) :: faceusp_dt
@@ -10450,10 +10450,10 @@ end subroutine wait_faceusp_dt
 subroutine exchange_bc_conflicts_usp_dt(faceusp_dt,override)
   !
   !.. Use Statements ..
-  use geovar,  only : bc_conflict
-  use ovar,    only : loc_flux_pts
-  use ovar,    only : use_bc_conflicts
-  use flowvar, only : face_var
+  use geovar,      only : bc_conflict
+  use ovar,        only : loc_flux_pts
+  use ovar,        only : use_bc_conflicts
+  use flowvar_mod, only : face_var
   !
   !.. Formal Arguments ..
   type(face_var), intent(inout) :: faceusp_dt(:)
@@ -10605,8 +10605,8 @@ end subroutine exchange_bc_conflicts_usp_dt
 subroutine exchange_facedusp_dt(facedusp_dt)
   !
   !.. Use Statements ..
-  use geovar,  only : bface
-  use flowvar, only : face_vec
+  use geovar,      only : bface
+  use flowvar_mod, only : face_vec
   !
   !.. Formal Arguments ..
   type(face_vec), dimension(:), intent(in) :: facedusp_dt
@@ -10671,8 +10671,8 @@ end subroutine exchange_facedusp_dt
 subroutine wait_facedusp_dt(facedusp_dt)
   !
   !.. Use Statements ..
-  use geovar,  only : bface
-  use flowvar, only : face_vec
+  use geovar,      only : bface
+  use flowvar_mod, only : face_vec
   !
   !.. Formal Arguments ..
   type(face_vec), dimension(:), intent(inout) :: facedusp_dt
@@ -10720,10 +10720,10 @@ end subroutine wait_facedusp_dt
 subroutine exchange_bc_conflicts_dusp_dt(facedusp_dt,override)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,bc_conflict
-  use ovar,    only : loc_flux_pts
-  use ovar,    only : use_bc_conflicts
-  use flowvar, only : face_vec
+  use geovar,      only : nr,bc_conflict
+  use ovar,        only : loc_flux_pts
+  use ovar,        only : use_bc_conflicts
+  use flowvar_mod, only : face_vec
   !
   !.. Formal Arguments ..
   type(face_vec), intent(inout) :: facedusp_dt(:)
@@ -10876,7 +10876,7 @@ subroutine exch_edge_and_node_solutions(nodeusp_dt,nodedusp_dt, &
                                         edgeusp_dt,edgedusp_dt)
   !
   !.. Use Statements ..
-  use flowvar, only : ne1d_t,ne2d_t,ne3d_t
+  use flowvar_mod, only : ne1d_t,ne2d_t,ne3d_t
   !
   !.. Formal Arguments ..
   type(ne1d_t), dimension(:), intent(inout) :: nodeusp_dt
@@ -11310,7 +11310,7 @@ subroutine exch_connectivity(nodeusp_dt,nodedusp_dt, &
                              edgeusp_dt,edgedusp_dt,faceusp_dt)
   !
   !.. Use Statements ..
-  use flowvar, only : ne1d_t,ne2d_t,ne3d_t,face_var
+  use flowvar_mod, only : ne1d_t,ne2d_t,ne3d_t,face_var
   !
   !.. Formal Arguments ..
   type(ne1d_t),   dimension(:), intent(inout) :: nodeusp_dt
@@ -11713,8 +11713,8 @@ end subroutine exch_connectivity
 subroutine collect_global_solution
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts
-  use flowvar, only : usp,global_usp
+  use geovar,      only : n_solpts
+  use flowvar_mod, only : usp,global_usp
   !
   !.. Local Scalars ..
   integer :: i,icpu,n,ierr
@@ -12788,7 +12788,7 @@ subroutine report_parallel_memory_usage(xadj,adjncy,epart,node,edge,face, &
   !.. Use Statements ..
   use geovar,        only : geovar_memory_usage
   use ovar,          only : ovar_memory_usage
-  use flowvar,       only : flowvar_memory_usage
+  use flowvar_mod,   only : flowvar_memory_usage
   use module_plot3d, only : plot3d_memory_usage
   use module_gmsh,   only : gmsh_memory_usage
   use cgns_mod,      only : cgns_memory_usage

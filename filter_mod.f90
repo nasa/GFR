@@ -343,9 +343,9 @@ end subroutine init_filter_matrices
 subroutine filter_usp(update_gpsp)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts
-  use flowvar, only : usp,gpsp
-  use ovar,    only : force_nd_subroutines
+  use geovar,      only : n_solpts
+  use flowvar_mod, only : usp,gpsp
+  use ovar,        only : force_nd_subroutines
   !
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties

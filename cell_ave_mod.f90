@@ -184,7 +184,7 @@ subroutine compute_cell_ave_sol_3d
   !
   !.. Use Statements ..
   use geovar,          only : ncell,cell
-  use flowvar,         only : usp
+  use flowvar_mod,     only : usp
   use vandermonde_mod, only : vand
   !
   !.. Local Scalars ..
@@ -242,7 +242,7 @@ subroutine compute_cell_ave_sol_2d
   !
   !.. Use Statements ..
   use geovar,          only : ncell,cell
-  use flowvar,         only : usp
+  use flowvar_mod,     only : usp
   use vandermonde_mod, only : vand
   !
   !.. Local Scalars ..
@@ -297,7 +297,7 @@ subroutine compute_cell_ave_sol_1d
   !
   !.. Use Statements ..
   use geovar,          only : ncell,cell
-  use flowvar,         only : usp
+  use flowvar_mod,     only : usp
   use vandermonde_mod, only : vand
   !
   !.. Local Scalars ..
@@ -349,7 +349,7 @@ subroutine compute_cell_ave_sol_nd
   !
   !.. Use Statements ..
   use geovar,          only : ncell,cell
-  use flowvar,         only : usp
+  use flowvar_mod,     only : usp
   use vandermonde_mod, only : vand
   !
   !.. Local Scalars ..
@@ -398,7 +398,7 @@ subroutine compute_cell_ave_var(meq,cell_ave)
   !.. Use Statements ..
   use ovar,            only : gam,rgasref_nd
   use geovar,          only : ncell,cell
-  use flowvar,         only : usp
+  use flowvar_mod,     only : usp
   use vandermonde_mod, only : vand
   !
   !.. Formal Arguments ..

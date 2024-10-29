@@ -610,10 +610,10 @@ end subroutine project_to_porder_vector
 subroutine project_to_porder_array(array,proj_order,update_gpsp)
   !
   !.. Use Statements ..
-  use order_mod, only : p_order
-  use geovar,    only : n_solpts
-  use ovar,      only : force_nd_subroutines
-  use flowvar,   only : gpsp
+  use order_mod,     only : p_order
+  use geovar,        only : n_solpts
+  use ovar,          only : force_nd_subroutines
+  use flowvar_mod,   only : gpsp
   !
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties

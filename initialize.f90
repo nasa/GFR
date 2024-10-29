@@ -39,8 +39,8 @@ subroutine initialize_flow()
   use ovar, only : solution_file, solution_format
   use ovar, only : use_SEM_profile_for_initialization
   !
-  use flowvar, only : usp,uoldsp,gpsp
-  use flowvar, only : allocate_flowvar_arrays
+  use flowvar_mod, only : usp,uoldsp,gpsp
+  use flowvar_mod, only : allocate_flowvar_arrays
   !
   use order_mod, only : maxpts
   !
@@ -90,7 +90,7 @@ continue
   rhoa_inv = one / rhoa
   rhoa2_inv = one / rhoa2
   !
-  ! Allocate the arrays within the module flowvar
+  ! Allocate the arrays within the module flowvar_mod
   !
   call allocate_flowvar_arrays
   !
@@ -1821,9 +1821,9 @@ end subroutine detach_lip_flame
 subroutine initialize_dusp()
   !
   !.. Use Statements ..
-  use geovar,  only : nr
-  use flowvar, only : dusp
-  use ovar,    only : force_nd_subroutines
+  use geovar,      only : nr
+  use flowvar_mod, only : dusp
+  use ovar,        only : force_nd_subroutines
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_dusp"
@@ -1870,7 +1870,7 @@ subroutine initialize_dusp_3d()
   use geovar,          only : ncell,cell
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
-  use flowvar,         only : usp,dusp
+  use flowvar_mod,     only : usp,dusp
   !
 #ifdef DEBUG_ON
 #ifdef ENABLE_OPENMP
@@ -2048,7 +2048,7 @@ subroutine initialize_dusp_2d()
   use geovar,          only : ncell,cell
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
-  use flowvar,         only : usp,dusp
+  use flowvar_mod,     only : usp,dusp
   !
   !.. Local Scalars ..
   integer  :: i,j,n,nc,n0,np
@@ -2147,7 +2147,7 @@ subroutine initialize_dusp_1d()
   use geovar,          only : ncell,cell
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
-  use flowvar,         only : usp,dusp
+  use flowvar_mod,     only : usp,dusp
   !
   !.. Local Scalars ..
   integer  :: i,j,n,nc,n0,np
@@ -2214,7 +2214,7 @@ subroutine initialize_dusp_nd(mbeg,mend)
   use geovar,          only : nr,ncell,cell
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
-  use flowvar,         only : usp,dusp
+  use flowvar_mod,     only : usp,dusp
   !
   !.. Formal Arguments ..
   integer, intent(in) :: mbeg,mend
@@ -2325,8 +2325,8 @@ subroutine get_face_and_edge_point_coordinates(force_facexyz)
   !
   use order_mod,         only : maxSP,geom_solpts
   use geovar,            only : nr,cell,face,xyz,fp,nface
-  use flowvar,           only : edgexyz_dt,facexyz_dt
-  use flowvar,           only : facexyz
+  use flowvar_mod,       only : edgexyz_dt,facexyz_dt
+  use flowvar_mod,       only : facexyz
   use interpolation_mod, only : interp
   use ovar,              only : continuous_output
   !

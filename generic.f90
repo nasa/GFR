@@ -54,7 +54,7 @@ subroutine compute_residual_error()
   use ovar,         only : total_volume,uverr
   use ovar,         only : use_async_for_error
   use ovar,         only : itcur
-  use flowvar,      only : usp,uoldsp
+  use flowvar_mod,  only : usp,uoldsp
   !
   !.. Local Scalars ..
   integer  :: k,l,m,n,nc,n1,n2,l1,l2,l3,e1,e2,e3
@@ -613,11 +613,11 @@ end subroutine compute_error_gpu_async
 subroutine get_unew_solpts_gpu(unew)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts
-  use flowvar, only : usp,uavesp,gpsp
-  use ovar,    only : itestcase,pref_nd,gam
-  use ovar,    only : output_time_averaging
-  use ovar,    only : force_nd_subroutines
+  use geovar,      only : n_solpts
+  use flowvar_mod, only : usp,uavesp,gpsp
+  use ovar,        only : itestcase,pref_nd,gam
+  use ovar,        only : output_time_averaging
+  use ovar,        only : force_nd_subroutines
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: unew(:,:)
@@ -737,13 +737,13 @@ end subroutine get_unew_solpts_gpu
 subroutine get_uold_solpts_gpu(uold)
   !
   !.. Use Statements ..
-  use ovar,    only : prev_ave_time,saved_ave_time,ave_start_time
-  use ovar,    only : output_time_averaging,read_time_ave_restart
-  use ovar,    only : itcur,itrst,bc_in,itestcase,mms_opt
-  use flowvar, only : usp,uoldsp,uavesp,gpoldsp
-  use geovar,  only : n_solpts,xyz
-  use mms_mod, only : mms_solution_at_xyz_gpu
-  use gpu_mod, only : vortex_solution_gpu
+  use ovar,        only : prev_ave_time,saved_ave_time,ave_start_time
+  use ovar,        only : output_time_averaging,read_time_ave_restart
+  use ovar,        only : itcur,itrst,bc_in,itestcase,mms_opt
+  use flowvar_mod, only : usp,uoldsp,uavesp,gpoldsp
+  use geovar,      only : n_solpts,xyz
+  use mms_mod,     only : mms_solution_at_xyz_gpu
+  use gpu_mod,     only : vortex_solution_gpu
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: uold(:,:)
@@ -855,9 +855,9 @@ end subroutine get_uold_solpts_gpu
 subroutine get_vnew_solpts_gpu(vnew)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts
-  use flowvar, only : uavesp,gpsp
-  use ovar,    only : output_time_averaging
+  use geovar,      only : n_solpts
+  use flowvar_mod, only : uavesp,gpsp
+  use ovar,        only : output_time_averaging
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: vnew(:,:)
@@ -1003,11 +1003,11 @@ end subroutine get_vnew_solpts_gpu
 subroutine get_vold_solpts_gpu(vold)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts
-  use flowvar, only : usp,uavesp,gpsp,gpoldsp
-  use ovar,    only : prev_ave_time,saved_ave_time,ave_start_time
-  use ovar,    only : output_time_averaging,read_time_ave_restart
-  use ovar,    only : itcur,itrst
+  use geovar,      only : n_solpts
+  use flowvar_mod, only : usp,uavesp,gpsp,gpoldsp
+  use ovar,        only : prev_ave_time,saved_ave_time,ave_start_time
+  use ovar,        only : output_time_averaging,read_time_ave_restart
+  use ovar,        only : itcur,itrst
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: vold(:,:)
@@ -1772,7 +1772,7 @@ subroutine compute_KEDR(iter,dtmin)
   use ovar,             only : VortexGrid_DOF
   use ovar,             only : iter_out_interval,itrst
   use ovar,             only : itestcase
-  use flowvar,          only : usp,dusp,gpsp
+  use flowvar_mod,      only : usp,dusp,gpsp
   use element_type_mod, only : std_elem
   use metrics_mod,      only : wtdjac
   use gpu_mod,          only : grad_cv_to_grad_pv_gpu

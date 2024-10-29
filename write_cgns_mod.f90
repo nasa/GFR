@@ -139,7 +139,7 @@ subroutine convert_restart_files_to_cgns()
   use ovar,          only : time_ref,time_scaling_factor
   use ovar,          only : delete_converted_restart_files
   use geovar,        only : n_solpts
-  use flowvar,       only : usp,gpsp
+  use flowvar_mod,   only : usp,gpsp
   use restart_mod,   only : read_restart_file
   use flux_mod,      only : discontinuous_gradient_at_solpts
   use thermo_mod,    only : update_thermo_properties
@@ -1273,13 +1273,13 @@ end subroutine write_cgns_section
 subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !
   !.. Use Statements ..
-  use geovar,  only : nr
-  use ovar,    only : itcur
-  use ovar,    only : tref,rgasref_nd,tmin
-  use ovar,    only : profile_io_cgns,profile_io_cgns_subs
-  use ovar,    only : max_wall_time => max_cgns_wall_time
-  use ovar,    only : cgns_dir
-  use flowvar, only : usp,dusp,gpsp
+  use geovar,      only : nr
+  use ovar,        only : itcur
+  use ovar,        only : tref,rgasref_nd,tmin
+  use ovar,        only : profile_io_cgns,profile_io_cgns_subs
+  use ovar,        only : max_wall_time => max_cgns_wall_time
+  use ovar,        only : cgns_dir
+  use flowvar_mod, only : usp,dusp,gpsp
   !
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
@@ -2124,16 +2124,16 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
                            cv,gp,dcvdx,vartmp,var)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,n_solpts,ncell,cell
-  use geovar,  only : xyz
-  use ovar,    only : aref,rhoref,time_ref,tref
-  use ovar,    only : gam,pref,pref_nd,machref
-  use ovar,    only : rgasref,cpref,Pr
-  use ovar,    only : itestcase,governing_equations
-  use ovar,    only : profile_io_cgns_subs
-  use ovar,    only : Limiter_Option
-  use ovar,    only : moving_ref_frame
-  use flowvar, only : dtsp,cell_diss,cell_num_marks
+  use geovar,      only : nr,n_solpts,ncell,cell
+  use geovar,      only : xyz
+  use ovar,        only : aref,rhoref,time_ref,tref
+  use ovar,        only : gam,pref,pref_nd,machref
+  use ovar,        only : rgasref,cpref,Pr
+  use ovar,        only : itestcase,governing_equations
+  use ovar,        only : profile_io_cgns_subs
+  use ovar,        only : Limiter_Option
+  use ovar,        only : moving_ref_frame
+  use flowvar_mod, only : dtsp,cell_diss,cell_num_marks
   !
   use metrics_mod, only : time_metrics,metrics_array,jac
   !
@@ -4539,10 +4539,10 @@ end subroutine add_sol_variables
 subroutine write_parallel_cgns_time_ave_file()
   !
   !.. Use Statements ..
-  use ovar,    only : profile_io_cgns,profile_io_cgns_subs
-  use ovar,    only : max_wall_time => max_time_ave_cgns_wall_time
-  use ovar,    only : cgns_dir,itcur,itrst,num_timesteps
-  use flowvar, only : uavesp
+  use ovar,        only : profile_io_cgns,profile_io_cgns_subs
+  use ovar,        only : max_wall_time => max_time_ave_cgns_wall_time
+  use ovar,        only : cgns_dir,itcur,itrst,num_timesteps
+  use flowvar_mod, only : uavesp
   !
   !.. Local Scalars ..
   integer :: l,n,npts,ierr
@@ -4905,11 +4905,11 @@ subroutine output_time_ave_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
                                     uavesp,vartmp,var)
   !
   !.. Use Statements ..
-  use geovar,  only : nr
-  use ovar,    only : aref,rhoref,tref
-  use ovar,    only : profile_io_cgns_subs
-  use ovar,    only : interpolate_before_output_variable
-  use flowvar, only : time_ave_variables
+  use geovar,      only : nr
+  use ovar,        only : aref,rhoref,tref
+  use ovar,        only : profile_io_cgns_subs
+  use ovar,        only : interpolate_before_output_variable
+  use flowvar_mod, only : time_ave_variables
   !
   !.. Formal Arguments ..
   integer(CBT),     intent(in) :: ifile_s
@@ -8383,7 +8383,7 @@ subroutine get_vort_face_solution(my_vort_faces,vorticity)
   use ovar, only : time_ref
   use interpolation_mod, only : interp
   use interpolation_mod, only : outerp,outerp_mv_mult
-  use flowvar, only : usp,dusp
+  use flowvar_mod, only : usp,dusp
   !
   !.. Formal Arguments ..
   integer,   dimension(:),    intent(in) :: my_vort_faces
@@ -9043,7 +9043,7 @@ subroutine compute_dmatrix_grad_temperature(dtdx)
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   use projection_mod,    only : projct
-  use flowvar,           only : usp,gpsp
+  use flowvar_mod,       only : usp,gpsp
   !
   use thermo_mod, only : update_thermo_properties
   !

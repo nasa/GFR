@@ -132,7 +132,7 @@ subroutine channel_source()
   use geovar,      only : n_solpts
   use ovar,        only : channel_body_force
   use ovar,        only : rhoref,aref
-  use flowvar,     only : residual,usp
+  use flowvar_mod, only : residual,usp
   use metrics_mod, only : jac
   !
   !.. Local Scalars ..
@@ -183,11 +183,11 @@ end subroutine spatial_ave_channel_flow
 subroutine spatial_ave_x_and_z_planes(called_from_channel_mod)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts,xyz
-  use flowvar, only : uavesp
-  use ovar,    only : itcur,time,time_ref,time_scaling_factor
-  use ovar,    only : ave_start_time,output_time_averaging
-  use ovar,    only : grid_scaling_factor
+  use geovar,      only : n_solpts,xyz
+  use flowvar_mod, only : uavesp
+  use ovar,        only : itcur,time,time_ref,time_scaling_factor
+  use ovar,        only : ave_start_time,output_time_averaging
+  use ovar,        only : grid_scaling_factor
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: called_from_channel_mod
@@ -480,11 +480,11 @@ end subroutine spatial_ave_x_and_z_planes
 subroutine spatial_ave_z_planes(called_from_channel_mod)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts,xyz
-  use flowvar, only : uavesp
-  use ovar,    only : itcur,time,time_ref,time_scaling_factor
-  use ovar,    only : ave_start_time,output_time_averaging
-  use ovar,    only : grid_scaling_factor
+  use geovar,      only : n_solpts,xyz
+  use flowvar_mod, only : uavesp
+  use ovar,        only : itcur,time,time_ref,time_scaling_factor
+  use ovar,        only : ave_start_time,output_time_averaging
+  use ovar,        only : grid_scaling_factor
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: called_from_channel_mod
@@ -1088,8 +1088,8 @@ subroutine get_variable_names(varnames,var_dim,nvx,nvxvx,nvy,nvyvy, &
                               nvz,nvzvz,nvxvy,nrho,nt)
   !
   !.. Use Statements ..
-  use ovar,    only : rhoref,aref,tref,tkeref,tlsref
-  use flowvar, only : time_ave_variables
+  use ovar,        only : rhoref,aref,tref,tkeref,tlsref
+  use flowvar_mod, only : time_ave_variables
   !
   !.. Formal Arguments ..
   integer,          intent(inout) :: nvx

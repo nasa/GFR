@@ -36,9 +36,9 @@ contains
 subroutine save_old_solution()
   !
   !.. Use Statements ..
-  use ovar,    only : gam
-  use flowvar, only : usp,uoldsp
-  use flowvar, only : gpsp,gpoldsp
+  use ovar,        only : gam
+  use flowvar_mod, only : usp,uoldsp
+  use flowvar_mod, only : gpsp,gpoldsp
   !
   !.. Local Scalars ..
   integer :: m,n,np,nr
@@ -125,7 +125,7 @@ subroutine rresi(iter,nst)
   use geovar,      only : n_solpts
   use ovar,        only : itestcase
   use metrics_mod, only : jac
-  use flowvar,     only : residual
+  use flowvar_mod, only : residual
   !
   use projection_mod, only : project_to_porder
   !
@@ -225,8 +225,8 @@ continue
 !#define DEBUG_MRF_FREESTREAM_TCF
 #ifdef DEBUG_MRF_FREESTREAM_TCF
 block
-  use geovar, only : xyz
-  use flowvar, only : dtsp
+  use geovar,     only : xyz
+  use flowvar_mod, only : dtsp
   real(wp) :: x,y,z,r,t
   if (abs(itestcase) == Freestream_TCF) then
     write (371,1) iter,nst
@@ -509,7 +509,7 @@ subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name)
   !
   !.. Use Statements ..
   use geovar,          only : n_solpts
-  use flowvar,         only : usp,gpsp
+  use flowvar_mod,     only : usp,gpsp
   use ovar,            only : Limiter_Option,Filter_Option
   use ovar,            only : ideal_total_temperature
   use ovar,            only : use_sponge_filter
@@ -698,7 +698,7 @@ subroutine update_facegpsp()
   !
   !.. Use Statements ..
   use geovar,        only : n_bnd_flxpts
-  use flowvar,       only : faceusp,facegpsp
+  use flowvar_mod,   only : faceusp,facegpsp
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !

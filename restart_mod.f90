@@ -256,13 +256,13 @@ end subroutine restart_from_backup
 subroutine read_restart_file(restart_fname,force_serial_read)
   !
   !.. Use Statements ..
-  use ovar,    only : itrst,tmrst,dtrst,rl2mx
-  use ovar,    only : prev_ave_time,ave_start_time
-  use ovar,    only : restart_file,time_ave_file
-  use ovar,    only : output_time_averaging
-  use ovar,    only : read_time_ave_restart
-  use ovar,    only : use_old_restart_format
-  use flowvar, only : usp,uavesp,time_ave_variables
+  use ovar,        only : itrst,tmrst,dtrst,rl2mx
+  use ovar,        only : prev_ave_time,ave_start_time
+  use ovar,        only : restart_file,time_ave_file
+  use ovar,        only : output_time_averaging
+  use ovar,        only : read_time_ave_restart
+  use ovar,        only : use_old_restart_format
+  use flowvar_mod, only : usp,uavesp,time_ave_variables
   !
   !.. Optional Arguments ..
   character(len=*), optional, intent(in) :: restart_fname
@@ -2121,7 +2121,7 @@ subroutine read_restart_old_format(file_name,solution,sol_is_transposed)
   use geovar,       only : n_global_totpts
   use geovar,       only : global_pinc_ptr
   use ovar,         only : itrst,tmrst,dtrst
-  use flowvar,      only : global_usp
+  use flowvar_mod,  only : global_usp
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: file_name
@@ -2216,13 +2216,13 @@ subroutine write_restart_file(itnum)
   use ovar,               only : restart_output_uses_host_roots
   use ovar,               only : max_restart_wall_time
   use ovar,               only : completely_disable_restart_output
-  use flowvar,            only : usp
+  use flowvar_mod,        only : usp
   use synthetic_eddy_mod, only : sem_box
   use synthetic_eddy_mod, only : dump_sem_data
   !.. Use Statements for old restart files ..
   use geovar,             only : n_global_totpts
   use ovar,               only : use_old_restart_format
-  use flowvar,            only : global_usp
+  use flowvar_mod,        only : global_usp
   use parallel_mod,       only : collect_global_solution
   !
   !.. Formal Arguments ..
@@ -3412,12 +3412,12 @@ subroutine write_time_averaged_solution(itnum,ordered_geom,int_header, &
                                         sol_is_transposed)
   !
   !.. Use Statements ..
-  use ovar,    only : time,prev_ave_time,ave_start_time,itcur,rl2mx
-  use ovar,    only : restart_output_uses_host_roots
-  use ovar,    only : max_time_ave_rst_wall_time
-  use ovar,    only : num_saved_time_ave_restarts
-  use ovar,    only : is_at_restart_frequency
-  use flowvar, only : uavesp,time_ave_variables
+  use ovar,        only : time,prev_ave_time,ave_start_time,itcur,rl2mx
+  use ovar,        only : restart_output_uses_host_roots
+  use ovar,        only : max_time_ave_rst_wall_time
+  use ovar,        only : num_saved_time_ave_restarts
+  use ovar,        only : is_at_restart_frequency
+  use flowvar_mod, only : uavesp,time_ave_variables
   !
   !.. Formal Arguments ..
   integer,         intent(in) :: itnum
@@ -4562,9 +4562,9 @@ end function unlink_f
 subroutine get_host_output_mpi_datatypes()
   !
   !.. Use Statement ..
-  use geovar,  only : ncell,cell,n_solpts,cell_map
-  use geovar,  only : global_pinc_ptr
-  use flowvar, only : uavesp
+  use geovar,      only : ncell,cell,n_solpts,cell_map
+  use geovar,      only : global_pinc_ptr
+  use flowvar_mod, only : uavesp
   !
   !.. Local Scalars ..
   integer :: n,nc,n1,n2,naq,l1,l2,ierr
@@ -4965,9 +4965,9 @@ end subroutine get_host_output_mpi_datatypes
 subroutine get_output_mpi_datatypes()
   !
   !.. Use Statement ..
-  use geovar,  only : ncell,cell,cell_map
-  use geovar,  only : global_pinc_ptr
-  use flowvar, only : uavesp
+  use geovar,      only : ncell,cell,cell_map
+  use geovar,      only : global_pinc_ptr
+  use flowvar_mod, only : uavesp
   !
   !.. Local Scalars ..
   integer :: n,nc,n1,n2,naq,ierr
@@ -5150,7 +5150,7 @@ end subroutine get_output_mpi_datatypes
 subroutine get_host_time_ave_mpi_datatypes()
   !
   !.. Use Statement ..
-  use flowvar, only : uavesp
+  use flowvar_mod, only : uavesp
   !
   !.. Local Scalars ..
   integer :: naq,ierr
@@ -5210,7 +5210,7 @@ end subroutine get_host_time_ave_mpi_datatypes
 subroutine get_time_ave_mpi_datatypes()
   !
   !.. Use Statement ..
-  use flowvar, only : uavesp
+  use flowvar_mod, only : uavesp
   !
   !.. Local Scalars ..
   integer :: naq,ierr

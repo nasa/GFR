@@ -108,7 +108,7 @@ subroutine moment_limiter
   !
   !.. Use Statements ..
   use geovar,          only : ncell,cell
-  use flowvar,         only : usp
+  use flowvar_mod,     only : usp
   use vandermonde_mod, only : vand
   !
  !use parallel_mod, only : exchange_modes
@@ -164,10 +164,10 @@ end subroutine moment_limiter
 subroutine limit_by_projecting(nst)
   !
   !.. Use Statements ..
-  use order_mod, only : n_max_order,n_order
-  use flowvar,   only : usp
-  use ovar,      only : Limiter_Filter_Option
-  use ovar,      only : output_limiter_statistics,nlim
+  use order_mod,   only : n_max_order,n_order
+  use flowvar_mod, only : usp
+  use ovar,        only : Limiter_Filter_Option
+  use ovar,        only : output_limiter_statistics,nlim
   !
   !.. Arguments ..
   integer, intent(in) :: nst  !< Runge-Kutta stage
@@ -732,7 +732,7 @@ end subroutine mark_sponge_filter_cells
 subroutine apply_filter_limiter_to_usp(troubled_cell,usp)
   !
   !.. Use Statements ..
-  use flowvar, only : cell_diss
+  use flowvar_mod, only : cell_diss
   !
   !.. Formal Arguments ..
   logical(ldk), intent(inout) :: troubled_cell(:)
@@ -1859,7 +1859,7 @@ subroutine identify_troubled_cells(nst,troubled_cell,dropped_orders, &
   use ovar,      only : Limiter_Option
   use ovar,      only : Track_Limiter_Filter_Dissipation
   use order_mod, only : p_order,n_order
-  use flowvar,   only : cell_num_marks
+  use flowvar_mod, only : cell_num_marks
   !
   !.. Formal Arguments ..
   integer,         intent(in) :: nst                   !< Runge-Kutta stage
@@ -2034,11 +2034,11 @@ subroutine resolution_indicator(nst,apply_projection,troubled_cell, &
                                 orders_to_cutoff)
   !
   !.. Use Statements ..
-  use order_mod, only : p_order,n_order
-  use geovar,    only : ncell,cell
-  use flowvar,   only : usp
-  use ovar,      only : output_limiter_statistics,nlim
-  use ovar,      only : Limiter_Option
+  use order_mod,   only : p_order,n_order
+  use geovar,      only : ncell,cell
+  use flowvar_mod, only : usp
+  use ovar,        only : output_limiter_statistics,nlim
+  use ovar,        only : Limiter_Option
   !
   !.. Optional Arguments ..
   integer,      optional,    intent(in) :: nst              !< Runge-Kutta stage
@@ -3570,7 +3570,7 @@ subroutine jump_indicator(nst,troubled_cell)
   !.. Use Statements ..
   use geovar,           only : nr,ncell,cell,face
   use element_type_mod, only : std_elem
-  use flowvar,          only : facegpsp,faceusp
+  use flowvar_mod,      only : facegpsp,faceusp
   use metrics_mod,      only : facenrm
   use ovar,             only : dpsi => marker_dpsi
   use ovar,             only : marker_c1,marker_c2

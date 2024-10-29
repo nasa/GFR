@@ -215,9 +215,9 @@ end subroutine compute_mlp_node_data
 subroutine get_proj_to_usp(cell,proj_order,cell_usp_proj)
   !
   !.. Use Statements ..
-  use geovar,     only : cell_t
-  use flowvar,    only : usp
-  use filter_mod, only : filter
+  use geovar,      only : cell_t
+  use flowvar_mod, only : usp
+  use filter_mod,  only : filter
   !
   !.. Formal Arguments ..
   !> Cell information.
@@ -273,9 +273,9 @@ end subroutine get_proj_to_usp
 subroutine get_proj_to_usp_3d(cell,proj_order,cell_usp_proj)
   !
   !.. Use Statements ..
-  use geovar,     only : cell_t
-  use flowvar,    only : usp
-  use filter_mod, only : filter
+  use geovar,      only : cell_t
+  use flowvar_mod, only : usp
+  use filter_mod,  only : filter
   !
   !.. Formal Arguments ..
   !> Cell information.
@@ -368,9 +368,9 @@ end subroutine get_proj_to_usp_3d
 subroutine get_proj_to_usp_2d(cell,proj_order,cell_usp_proj)
   !
   !.. Use Statements ..
-  use geovar,     only : cell_t
-  use flowvar,    only : usp
-  use filter_mod, only : filter
+  use geovar,      only : cell_t
+  use flowvar_mod, only : usp
+  use filter_mod,  only : filter
   !
   !.. Formal Arguments ..
   !> Cell information.
@@ -459,9 +459,9 @@ end subroutine get_proj_to_usp_2d
 subroutine get_proj_to_usp_1d(cell,proj_order,cell_usp_proj)
   !
   !.. Use Statements ..
-  use geovar,     only : cell_t
-  use flowvar,    only : usp
-  use filter_mod, only : filter
+  use geovar,      only : cell_t
+  use flowvar_mod, only : usp
+  use filter_mod,  only : filter
   !
   !.. Formal Arguments ..
   !> Cell information.
@@ -546,9 +546,9 @@ end subroutine get_proj_to_usp_1d
 subroutine get_proj_to_usp_nd(cell,proj_order,cell_usp_proj)
   !
   !.. Use Statements ..
-  use geovar,     only : cell_t
-  use flowvar,    only : usp
-  use filter_mod, only : filter
+  use geovar,      only : cell_t
+  use flowvar_mod, only : usp
+  use filter_mod,  only : filter
   !
   !.. Formal Arguments ..
   !> Cell information.
@@ -649,7 +649,7 @@ subroutine interp_cv_to_nodepts(cell,n0,usp,cell_nodeusp)
   integer,      intent(in)  :: n0
   !
   !> Conserved variables at cell solution points.
-  !> This could be flowvar:usp which contains data at all cells,
+  !> This could be flowvar_mod:usp which contains data at all cells,
   !> or a local usp array sized for only a single cell.
   !> Working range is (n0+1:n0+np,1:nq), but array may be sized larger.
   real(wp),     intent(in)  :: usp(:,:)
@@ -717,7 +717,7 @@ subroutine interp_cv_to_nodepts_3d(cell,n0,usp,cell_nodeusp)
   integer,      intent(in)  :: n0
   !
   !> Conserved variables at cell solution points.
-  !> This could be flowvar:usp which contains data at all cells,
+  !> This could be flowvar_mod:usp which contains data at all cells,
   !> or a local usp array sized for only a single cell.
   !> Working range is (n0+1:n0+np,1:nq), but array may be sized larger.
   real(wp),     intent(in)  :: usp(:,:)
@@ -795,7 +795,7 @@ subroutine interp_cv_to_nodepts_2d(cell,n0,usp,cell_nodeusp)
   integer,      intent(in)  :: n0
   !
   !> Conserved variables at cell solution points.
-  !> This could be flowvar:usp which contains data at all cells,
+  !> This could be flowvar_mod:usp which contains data at all cells,
   !> or a local usp array sized for only a single cell.
   !> Working range is (n0+1:n0+np,1:nq), but array may be sized larger.
   real(wp),     intent(in)  :: usp(:,:)
@@ -870,7 +870,7 @@ subroutine interp_cv_to_nodepts_1d(cell,n0,usp,cell_nodeusp)
   integer,      intent(in)  :: n0
   !
   !> Conserved variables at cell solution points.
-  !> This could be flowvar:usp which contains data at all cells,
+  !> This could be flowvar_mod:usp which contains data at all cells,
   !> or a local usp array sized for only a single cell.
   !> Working range is (n0+1:n0+np,1:nq), but array may be sized larger.
   real(wp),     intent(in)  :: usp(:,:)
@@ -942,7 +942,7 @@ subroutine interp_cv_to_nodepts_nd(cell,n0,usp,cell_nodeusp)
   integer,      intent(in)  :: n0
   !
   !> Conserved variables at cell solution points.
-  !> This could be flowvar:usp which contains data at all cells,
+  !> This could be flowvar_mod:usp which contains data at all cells,
   !> or a local usp array sized for only a single cell.
   !> Working range is (n0+1:n0+np,1:nq), but array may be sized larger.
   real(wp),     intent(in)  :: usp(:,:)
@@ -1009,7 +1009,7 @@ subroutine limit_by_mlp(nst,relax)
   !
   !.. Use Statements ..
   use geovar,          only : ncell,cell,face,bface,nfbnd
-  use flowvar,         only : usp
+  use flowvar_mod,     only : usp
   use cell_ave_mod,    only : allocate_cell_ave,deallocate_cell_ave, &
                               compute_cell_ave_sol,cell_ave_sol
   use module_limiters, only : marker,scaled_marker,get_marker_index

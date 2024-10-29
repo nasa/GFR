@@ -22,9 +22,9 @@ subroutine mydebug(caller_name,line_num,file_nam,query)
   use eqn_idx_mod, only : nq
   use geovar,  only : nnode, ncell, nface, nfbnd, nr
   use geovar,  only : grid, xyz_nodes, xyz
- !use flowvar, only : facexyz_dt, faceusp_dt
-  use flowvar, only : facexyz, faceusp
-  use flowvar, only : sol_nodes, usp
+ !use flowvar_mod, only : facexyz_dt, faceusp_dt
+  use flowvar_mod, only : facexyz, faceusp
+  use flowvar_mod, only : sol_nodes, usp
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: caller_name

@@ -828,7 +828,7 @@ subroutine mms_src()
   !.. Use Statements ..
   use geovar, only : nr,xyz,ncell,cell
   use ovar, only : gam,rhoref,aref,tmin,tmax,Pr
-  use flowvar, only : residual
+  use flowvar_mod, only : residual
   use metrics_mod, only : metrics_dt
   !
   !.. Local Scalars ..

@@ -1022,7 +1022,7 @@ subroutine update_OERK(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use flowvar, only : residual,usp,uoldsp,rk_sum,dtsp
+  use flowvar_mod, only : residual,usp,uoldsp,rk_sum,dtsp
   use ovar,    only : time
   use rhs_mod, only : stabilize_usp
   !

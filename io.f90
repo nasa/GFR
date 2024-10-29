@@ -4742,8 +4742,8 @@ subroutine check_face_flux_point_orderings()
   use geovar, only : nfbnd,nface,face,fp
   use geovar, only : nr,xyz,bface,bc_grps
   use interpolation_mod, only : interp
-  use flowvar, only : face_var,faceusp
-  use flowvar, only : facexyz
+  use flowvar_mod, only : face_var,faceusp
+  use flowvar_mod, only : facexyz
   use parallel_mod, only : exchange_faceusp,wait_faceusp
   use parallel_mod, only : exchange_faceusp_dt,wait_faceusp_dt
   use geovar, only : xyz_nodes
@@ -5186,9 +5186,9 @@ end subroutine check_face_flux_point_orderings
 subroutine check_periodic_coordinates()
   !
   !.. Use Statements ..
-  use geovar,  only : nr,bc_grps
-  use flowvar, only : facexyz
-  use ovar,    only : bc_in
+  use geovar,      only : nr,bc_grps
+  use flowvar_mod, only : facexyz
+  use ovar,        only : bc_in
   !
   !.. Local Scalars ..
   integer :: grp_idx,k,l,n,n1,n2,bc_idx
@@ -5519,7 +5519,7 @@ subroutine check_cell_flux_point_orderings()
   use geovar, only : nfbnd,nface,face,fp
   use geovar, only : nr,xyz,bface
   use interpolation_mod, only : interp
-  use flowvar, only : face_var,faceusp
+  use flowvar_mod, only : face_var,faceusp
   use parallel_mod, only : exchange_faceusp,wait_faceusp
   use parallel_mod, only : exchange_faceusp_dt,wait_faceusp_dt
   !
@@ -5774,7 +5774,7 @@ subroutine test_communication()
   !
   !.. Use Statements ..
   use geovar, only : nfbnd,nface,face,bface
-  use flowvar, only : face_var,faceusp
+  use flowvar_mod, only : face_var,faceusp
   use parallel_mod, only : exchange_faceusp,wait_faceusp
   use parallel_mod, only : exchange_faceusp_dt,wait_faceusp_dt
   !

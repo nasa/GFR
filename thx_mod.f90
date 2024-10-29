@@ -40,7 +40,7 @@ subroutine compute_blowing_ratio(blowing_ratio,mdot_nozzle,mdot_injector)
   !.. Use Statements ..
   use ovar,             only : rhoref,aref
   use geovar,           only : face
-  use flowvar,          only : faceusp
+  use flowvar_mod,      only : faceusp
   use metrics_mod,      only : facenrm
   use element_type_mod, only : std_elem
   !
@@ -189,7 +189,7 @@ subroutine init_blowing_ratio()
   !
   !.. Use Statements ..
   use geovar,           only : ncell,cell,nface,face,xyz
-  use flowvar,          only : facexyz
+  use flowvar_mod,      only : facexyz
   use metrics_mod,      only : facenrm
   use element_type_mod, only : std_elem
   !

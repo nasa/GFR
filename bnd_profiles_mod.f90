@@ -85,7 +85,7 @@ subroutine compute_bnd_profiles
   use ovar,              only : cpref_nd,Pr
   use ovar,              only : output_bnd_profiles
  !use metrics_mod,       only : facenrm
-  use flowvar,           only : usp,dusp
+  use flowvar_mod,       only : usp,dusp
   use interpolation_mod, only : interp
   use interpolation_mod, only : outerp,outerp_mv_mult
   !

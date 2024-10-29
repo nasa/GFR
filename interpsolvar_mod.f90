@@ -9,10 +9,10 @@ module interpsolvar_mod
   use geovar,            only : cell_t, face_t, grid_t
   use geovar,            only : map_t
   use geovar,            only : bc_grp_t
-  use flowvar,           only : sol_nodes
- !use flowvar,           only : faceusp
- !use flowvar,           only : faceusp_dt
- !use flowvar,           only : face_xyz,face_var
+  use flowvar_mod,       only : sol_nodes
+ !use flowvar_mod,       only : faceusp
+ !use flowvar_mod,       only : faceusp_dt
+ !use flowvar_mod,       only : face_xyz,face_var
   !
   use matrix_types_mod,  only : matrix
   use element_type_mod,  only : element_t
@@ -92,7 +92,7 @@ module interpsolvar_mod
   !
   type(bc_grp_t), public, save, allocatable :: g2_bc_grps(:)
   !
-  ! Grid2 copies of variables from flowvar.
+  ! Grid2 copies of variables from flowvar_mod.
   real(wp), public, save, allocatable :: g2_sol_nodes(:,:)
   real(wp), public, save, allocatable :: g2_usp(:,:)
   real(wp), public, save, allocatable :: g2_gpsp(:,:)

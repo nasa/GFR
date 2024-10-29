@@ -7,7 +7,7 @@ module octedat_facexyz_mod
 #ifdef DEBUG_OCTEDAT_FACEXYZ
   use module_kind_types, only : iout  ! DEBUG
 #endif
- !use flowvar,           only : face_xyz
+ !use flowvar_mod,       only : face_xyz
  !use geovar,            only : cell_t
   use octedat_mod
   use octstat_mod
@@ -76,8 +76,8 @@ subroutine octedat_facexyz_evalxyz_pt(this,idx,xyz,istat)
   !
   !.. Use Statements ..
   use geovar,  only : cell,face
- !use flowvar, only : facexyz_dt
-  use flowvar, only : facexyz
+ !use flowvar_mod, only : facexyz_dt
+  use flowvar_mod, only : facexyz
   !
   !.. Passed Argument from Invoking Object ..
   class(octedat_facexyz_type), intent(in) :: this
@@ -123,8 +123,8 @@ subroutine octedat_facexyz_evalxyz_pts(this,npts,idx,xyz,istat)
   !
   !.. Use Statements ..
   use geovar,  only : cell,face
- !use flowvar, only : facexyz_dt
-  use flowvar, only : facexyz
+ !use flowvar_mod, only : facexyz_dt
+  use flowvar_mod, only : facexyz
   !
   !.. Passed Argument from Invoking Object ..
   class(octedat_facexyz_type), intent(in) :: this

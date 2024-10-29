@@ -2909,11 +2909,11 @@ subroutine initialize_sem()
   !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
   !
   !.. Use Statements ..
-  use ovar,       only : bc_input,bc_in
-  use ovar,       only : average_sem_inflow_plane,num_timesteps
-  use geovar,     only : bc_grps
-  use flowvar,    only : facexyz
-  use random_mod, only : set_random_seed
+  use ovar,        only : bc_input,bc_in
+  use ovar,        only : average_sem_inflow_plane,num_timesteps
+  use geovar,      only : bc_grps
+  use flowvar_mod, only : facexyz
+  use random_mod,  only : set_random_seed
   !
   !.. Local Scalars ..
   integer  :: ierr,k,n,np,n1,n2
@@ -3565,7 +3565,7 @@ subroutine collect_wall_fp_coordinates(xyz_wall)
   !
   !.. Use Statements ..
   use geovar,      only : bc_grps
-  use flowvar,     only : facexyz
+  use flowvar_mod, only : facexyz
   use metrics_mod, only : facenrm
   !
   !.. Formal Arguments ..
@@ -3703,8 +3703,8 @@ end subroutine collect_wall_fp_coordinates
 subroutine debug_normals()
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,ncell,bface,face,grid
-  use flowvar, only : facexyz
+  use geovar,      only : nfbnd,ncell,bface,face,grid
+  use flowvar_mod, only : facexyz
   !
   !.. Local Scalars ..
   integer  :: i,n,nc,nf

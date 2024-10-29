@@ -59,9 +59,9 @@ subroutine get_faceusp_bc(exit_error)
   !
   !.. Use Statements ..
   use metrics_mod,   only : facenrm
-  use flowvar,       only : faceusp
-  use flowvar,       only : facexyz
-  use flowvar,       only : facegpsp
+  use flowvar_mod,   only : faceusp
+  use flowvar_mod,   only : facexyz
+  use flowvar_mod,   only : facegpsp
   use geovar,        only : bc_grps,n_bnd_flxpts
   use geovar,        only : output_bface
   use ovar,          only : bc_in,itcur,aref
@@ -408,10 +408,10 @@ subroutine get_facedusp_bc
   use geovar,       only : bc_grps
   use ovar,         only : bc_in
   use metrics_mod,  only : facenrm
-  use flowvar,      only : faceusp
-  use flowvar,      only : facegpsp
-  use flowvar,      only : facedusp
-  use flowvar,      only : facegpsp
+  use flowvar_mod,  only : faceusp
+  use flowvar_mod,  only : facegpsp
+  use flowvar_mod,  only : facedusp
+  use flowvar_mod,  only : facegpsp
   !
   use bc_wall_mod,             only : get_bc_wall_gradient
   use bc_periodic_mod,         only : get_bc_periodic_gradient

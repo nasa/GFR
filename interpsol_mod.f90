@@ -29,7 +29,7 @@ subroutine mv_global_to_grid2()
   !
   !.. Use Statements ..
   use geovar
-  use flowvar
+  use flowvar_mod
   use ovar,   only : bc_names
   !
   use element_type_mod,  only : std_elem,face_elem
@@ -116,7 +116,7 @@ continue
   !
   call move_alloc( from=bc_grps, to=g2_bc_grps )
   !
-  ! Variables from flowvar.
+  ! Variables from flowvar_mod.
   call move_alloc( from=usp,           to=g2_usp           )
   call move_alloc( from=gpsp,          to=g2_gpsp          )
   call move_alloc( from=dusp,          to=g2_dusp          )
@@ -172,7 +172,7 @@ subroutine mv_grid2_to_global()
   !
   !.. Use Statements ..
   use geovar
-  use flowvar
+  use flowvar_mod
   use ovar,    only : bc_names
   !
   use element_type_mod,  only : std_elem,face_elem
@@ -279,7 +279,7 @@ continue
   flush (iout)
   !-DEBUG_END:
   !
-  ! Variables from flowvar.
+  ! Variables from flowvar_mod.
   call move_alloc( from=g2_usp,           to=usp           )
   call move_alloc( from=g2_gpsp,          to=gpsp          )
   call move_alloc( from=g2_dusp,          to=dusp          )
@@ -362,7 +362,7 @@ subroutine partition_usp_to_g2()
   !
   !.. Use Statements ..
   use geovar,  only : cell
-  use flowvar, only : usp
+  use flowvar_mod, only : usp
   !
   !.. Local Scalars ..
   integer :: g1,g2,l1,l2,mypart,loc_cell,glb_cell
@@ -406,9 +406,9 @@ subroutine interpsol()
   use geovar,            only : cell,face,fp
   use flux_mod,          only : interp_cv_to_flxpts  ! DEBUG: for debug output
   use metrics_mod,       only : geofa,facenrm
-  use flowvar,           only : usp
- !use flowvar,           only : facexyz_dt
-  use flowvar,           only : facexyz
+  use flowvar_mod,       only : usp
+ !use flowvar_mod,       only : facexyz_dt
+  use flowvar_mod,       only : facexyz
   use order_mod,         only : maxSP,geom_solpts
   use octedat_facexyz_mod
   use octtree_mod
@@ -1110,10 +1110,10 @@ subroutine interpsol_debug()
   use geovar,            only : xyz
   use flux_mod,          only : interp_cv_to_flxpts  ! DEBUG: for debug output
   use metrics_mod,       only : geofa,facenrm
-  use flowvar,           only : usp
- !use flowvar,           only : facexyz_dt
-  use flowvar,           only : facexyz
-  use flowvar,           only : faceusp
+  use flowvar_mod,       only : usp
+ !use flowvar_mod,       only : facexyz_dt
+  use flowvar_mod,       only : facexyz
+  use flowvar_mod,       only : faceusp
   use order_mod,         only : maxSP,geom_solpts
   use octedat_facexyz_mod
   use octtree_mod
@@ -1608,13 +1608,13 @@ subroutine deallocate_solver_arrays()
   !
   !.. Use Statements ..
   use geovar,      only : face,grid
-  use flowvar,     only : faceflx
- !use flowvar,     only : faceusp_dt,facedusp_dt,facexyz_dt
-  use flowvar,     only : faceusp,facedusp,facexyz
-  use flowvar,     only : residual,dtsp,uoldsp,rk_sum,rssprk
-  use flowvar,     only : nodeusp_dt,nodedusp_dt
-  use flowvar,     only : edgeusp_dt,edgedusp_dt,edgexyz_dt
-  use flowvar,     only : global_usp,global_var
+  use flowvar_mod, only : faceflx
+ !use flowvar_mod, only : faceusp_dt,facedusp_dt,facexyz_dt
+  use flowvar_mod, only : faceusp,facedusp,facexyz
+  use flowvar_mod, only : residual,dtsp,uoldsp,rk_sum,rssprk
+  use flowvar_mod, only : nodeusp_dt,nodedusp_dt
+  use flowvar_mod, only : edgeusp_dt,edgedusp_dt,edgexyz_dt
+  use flowvar_mod, only : global_usp,global_var
   use metrics_mod, only : metrics_dt,geofa
   !
   !.. Local Scalars ..

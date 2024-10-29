@@ -1,4 +1,4 @@
-module flowvar
+module flowvar_mod
   !
   use module_kind_types, only : wp
   use module_kind_types, only : zero
@@ -2099,7 +2099,7 @@ continue
   !
   ! Format Statements
   !
-  1 format (/,"Status of arrays in module flowvar")
+  1 format (/,"Status of arrays in module flowvar_mod")
   2 format (" Array: ",a,dt)
   3 format (" Total memory = ",f8.2,1x,a)
   4 format (a,"(",i0,")%",a)
@@ -2113,7 +2113,7 @@ end subroutine flowvar_memory_usage
 !
 !###############################################################################
 !
-end module flowvar
+end module flowvar_mod
 !
 !###############################################################################
 !

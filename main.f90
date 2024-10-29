@@ -64,8 +64,8 @@ program GFR_main
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
   !
-  use flowvar, only : usp,gpsp,dusp
-  use flowvar, only : faceusp,facegpsp
+  use flowvar_mod, only : usp,gpsp,dusp
+  use flowvar_mod, only : faceusp,facegpsp
   !
   use order_mod, only : n_order,p_order,q_order
   !
@@ -1896,7 +1896,7 @@ subroutine check_for_bad_number(line_num,newton_failures,force_signaling)
   !.. Use Statements ..
   use eqn_idx_mod, only : nq
   use geovar,  only : n_solpts
-  use flowvar, only : usp,uoldsp
+  use flowvar_mod, only : usp,uoldsp
 !#ifndef SPECIAL_FOR_GCC
 !  use, intrinsic :: ieee_exceptions, only : ieee_usual
 !  use, intrinsic :: ieee_exceptions, only : ieee_get_flag
@@ -2090,7 +2090,7 @@ subroutine timed_check_for_bad_number(line_num,newton_failures,force_signaling)
   !.. Use Statements ..
   use eqn_idx_mod, only : nq
   use geovar,  only : n_solpts
-  use flowvar, only : usp,uoldsp
+  use flowvar_mod, only : usp,uoldsp
 !#ifndef SPECIAL_FOR_GCC
 !  use, intrinsic :: ieee_exceptions, only : ieee_usual
 !  use, intrinsic :: ieee_exceptions, only : ieee_get_flag
@@ -2302,8 +2302,8 @@ subroutine find_bad_number()
   use ovar,              only : grid_scaling_factor,rhoref,aref,tref
   use geovar,            only : nr,cell,face,fp,nfbnd,nface
   use geovar,            only : n_solpts,n_bnd_flxpts,n_flxpts,xyz
-  use flowvar,           only : usp,gpsp,faceusp,facegpsp
-  use flowvar,           only : facexyz
+  use flowvar_mod,       only : usp,gpsp,faceusp,facegpsp
+  use flowvar_mod,       only : facexyz
   use interpolation_mod, only : interp
   !
   use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
@@ -2844,7 +2844,7 @@ subroutine report_memory_usage(n,request_stop)
   !.. Use Statements ..
   use geovar,            only : geovar_memory_usage
   use ovar,              only : ovar_memory_usage
-  use flowvar,           only : flowvar_memory_usage
+  use flowvar_mod,       only : flowvar_memory_usage
   use quadrature_mod,    only : quadrature_memory_usage
   use metrics_mod,       only : metrics_memory_usage
   use vandermonde_mod,   only : vandermonde_memory_usage

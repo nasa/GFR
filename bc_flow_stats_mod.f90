@@ -65,7 +65,7 @@ subroutine compute_bc_stats()
   use ovar,             only : gam,rhoref,aref,tref
   use ovar,             only : moving_ref_frame
   use geovar,           only : face
-  use flowvar,          only : faceusp,facegpsp,facexyz
+  use flowvar_mod,      only : faceusp,facegpsp,facexyz
   use metrics_mod,      only : facenrm
   use element_type_mod, only : std_elem
   !

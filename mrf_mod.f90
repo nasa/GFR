@@ -643,7 +643,7 @@ subroutine mrf_src_cv()
   !
   !.. Use Statements ..
   use geovar,      only : nr
-  use flowvar,     only : usp,residual
+  use flowvar_mod, only : usp,residual
   use metrics_mod, only : jac
   !
   !. Local Saved Scalars ..

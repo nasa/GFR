@@ -813,13 +813,13 @@ end subroutine initialize_H2_7x7_reactions
 subroutine compute_wdot(iter)
   !
   !.. Use Statements ..
-  use ovar,    only : itestcase,itcur
-  use ovar,    only : semi_implicit_chemistry
-  use ovar,    only : ignition_start_timestep
-  use ovar,    only : ignition_duration
-  use ovar,    only : ignition_source_magnitude
-  use geovar,  only : n_solpts
-  use flowvar, only : usp,gpsp,residual
+  use ovar,        only : itestcase,itcur
+  use ovar,        only : semi_implicit_chemistry
+  use ovar,        only : ignition_start_timestep
+  use ovar,        only : ignition_duration
+  use ovar,        only : ignition_source_magnitude
+  use geovar,      only : n_solpts
+  use flowvar_mod, only : usp,gpsp,residual
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iter
@@ -903,7 +903,7 @@ subroutine compute_ignition_source_ncc(n1,n2,cv,gp,residual)
   use ovar,        only : ignition_source_location
   use ovar,        only : ignition_duration
   use geovar,      only : xyz
-  use flowvar,     only : dtsp
+  use flowvar_mod, only : dtsp
   use metrics_mod, only : jac
   !
   !.. Formal Arguments ..
@@ -1156,7 +1156,7 @@ subroutine compute_ignition_source(n1,n2,cv,gp,residual)
   use ovar,        only : ignition_source_radius
   use ovar,        only : ignition_source_location
   use geovar,      only : xyz
-  use flowvar,     only : dtsp
+  use flowvar_mod, only : dtsp
   use metrics_mod, only : jac
   !
   !.. Formal Arguments ..
@@ -1384,7 +1384,7 @@ subroutine compute_CH4_hardcoded_wdot(n1,n2,cv,gp,residual,iter)
   !======================================================================
   !
   use ovar,        only : rhoref,aref
-  use flowvar,     only : dtsp
+  use flowvar_mod, only : dtsp
   use metrics_mod, only : jac
   !
   !.. Formal Arguments ..
@@ -2639,7 +2639,7 @@ pure &
 subroutine compute_generic_wdot(n1,n2,usp,gpsp,residual)
   !
   !.. Use Statements ..
-  use flowvar, only : dtsp
+  use flowvar_mod, only : dtsp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -2740,12 +2740,12 @@ subroutine semi_implicit_exact_jac(n1,n2,cv,gp,frrate,brrate,specon,wdot)
   ! WDOT   : residual of the species continuity eq.s
   !
   !.. Use Statements ..
-  use ovar,       only : rhoref,aref,tref
-  use flowvar,    only : dtsp
+  use ovar,        only : rhoref,aref,tref
+  use flowvar_mod, only : dtsp
   !
-  use thermo_mod, only : wtmol
-  use thermo_mod, only : compute_dgbdt
-  use thermo_mod, only : compute_species_energy
+  use thermo_mod,  only : wtmol
+  use thermo_mod,  only : compute_dgbdt
+  use thermo_mod,  only : compute_species_energy
   !
   ! Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -3125,11 +3125,11 @@ subroutine semi_implicit_numerical_jac(n1,n2,cv,gp,frrate,brrate, &
   ! WDOT   : residual of the species continuity eq.s
   !
   !.. Use Statements ..
-  use ovar,       only : rhoref,tref
-  use flowvar,    only : dtsp
+  use ovar,        only : rhoref,tref
+  use flowvar_mod, only : dtsp
   !
-  use thermo_mod, only : wtmol
-  use thermo_mod, only : compute_species_energy
+  use thermo_mod,  only : wtmol
+  use thermo_mod,  only : compute_species_energy
   !
   ! Formal Arguments ..
   integer,     intent(in) :: n1,n2

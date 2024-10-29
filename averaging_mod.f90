@@ -30,12 +30,12 @@ contains
 subroutine initialize_time_ave()
   !
   !.. Use Statements ..
-  use geovar,  only : nr,n_solpts
-  use ovar,    only : time,ave_start_time
-  use ovar,    only : time_ave_vel_is_axisymm
-  use flowvar, only : time_ave_variables
-  use flowvar, only : uavesp
-  use mrf_mod, only : is_in_mrf
+  use geovar,      only : nr,n_solpts
+  use ovar,        only : time,ave_start_time
+  use ovar,        only : time_ave_vel_is_axisymm
+  use flowvar_mod, only : time_ave_variables
+  use flowvar_mod, only : uavesp
+  use mrf_mod,     only : is_in_mrf
   !
   !.. Local Scalars ..
   integer :: l,m,nv,nvar,ierr
@@ -352,11 +352,11 @@ end subroutine update_time_ave
 subroutine update_time_ave_3d(a,b)
   !
   !.. Use Statements ..
-  use geovar,  only : xyz,n_solpts
-  use flowvar, only : usp,gpsp,uavesp
-  use ovar,    only : gam,time,prev_ave_time
-  use ovar,    only : ave_start_time,saved_ave_time
-  use ovar,    only : moving_ref_frame
+  use geovar,      only : xyz,n_solpts
+  use flowvar_mod, only : usp,gpsp,uavesp
+  use ovar,        only : gam,time,prev_ave_time
+  use ovar,        only : ave_start_time,saved_ave_time
+  use ovar,        only : moving_ref_frame
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: a
@@ -486,10 +486,10 @@ end subroutine update_time_ave_3d
 subroutine update_time_ave_2d(a,b)
   !
   !.. Use Statements ..
-  use geovar,  only : xyz,n_solpts
-  use flowvar, only : usp,gpsp,uavesp
-  use ovar,    only : gam,time,prev_ave_time
-  use ovar,    only : ave_start_time,saved_ave_time
+  use geovar,      only : xyz,n_solpts
+  use flowvar_mod, only : usp,gpsp,uavesp
+  use ovar,        only : gam,time,prev_ave_time
+  use ovar,        only : ave_start_time,saved_ave_time
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: a
@@ -609,7 +609,7 @@ subroutine average_restart_files()
   use ovar,           only : output_time_averaging,read_time_ave_restart
   use ovar,           only : ave_start_time,prev_ave_time
   use ovar,           only : time,itcur,tmrst,itrst
-  use flowvar,        only : uavesp
+  use flowvar_mod,    only : uavesp
   use restart_mod,    only : read_restart_file,write_restart_file
   use write_cgns_mod, only : write_parallel_cgns
   !
@@ -755,11 +755,11 @@ subroutine deallocate_solver_arrays()
   !
   !.. Use Statements ..
   use geovar,      only : face,grid
-  use flowvar,     only : faceusp_dt,facedusp_dt,faceflx,facexyz_dt
-  use flowvar,     only : residual,dtsp,uoldsp,rk_sum,rssprk
-  use flowvar,     only : nodeusp_dt,nodedusp_dt
-  use flowvar,     only : edgeusp_dt,edgedusp_dt,edgexyz_dt
-  use flowvar,     only : global_usp,global_var
+  use flowvar_mod, only : faceusp_dt,facedusp_dt,faceflx,facexyz_dt
+  use flowvar_mod, only : residual,dtsp,uoldsp,rk_sum,rssprk
+  use flowvar_mod, only : nodeusp_dt,nodedusp_dt
+  use flowvar_mod, only : edgeusp_dt,edgedusp_dt,edgexyz_dt
+  use flowvar_mod, only : global_usp,global_var
   use metrics_mod, only : metrics_dt,geofa,facenrm
   !
   !.. Local Scalars ..

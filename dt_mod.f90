@@ -22,10 +22,10 @@ contains
 subroutine get_dtsp(dtmin,final_timestep_from_stop_request,skip_updates)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts
-  use ovar,    only : Timestep_Type
-  use ovar,    only : d_t,cfl ! modified
-  use flowvar, only : dtsp ! modified
+  use geovar,      only : n_solpts
+  use ovar,        only : Timestep_Type
+  use ovar,        only : d_t,cfl ! modified
+  use flowvar_mod, only : dtsp ! modified
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: dtmin
@@ -267,9 +267,9 @@ subroutine get_cell_global_timestep(dtmin,dt_sp)
   !
   use metrics_mod, only : facenrm,facejac
   !
-  use flowvar, only : faceusp
-  use flowvar, only : facegpsp
-  use flowvar, only : facexyz
+  use flowvar_mod, only : faceusp
+  use flowvar_mod, only : facegpsp
+  use flowvar_mod, only : facexyz
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
@@ -458,9 +458,9 @@ subroutine get_cell_local_timestep(dtmin,dt_sp)
   !
   use metrics_mod, only : facenrm,facejac
   !
-  use flowvar, only : faceusp
-  use flowvar, only : facegpsp
-  use flowvar, only : facexyz
+  use flowvar_mod, only : faceusp
+  use flowvar_mod, only : facegpsp
+  use flowvar_mod, only : facexyz
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
@@ -965,8 +965,8 @@ subroutine get_point_global_timestep(dtmin,dt_sp)
   use ovar,        only : gam,CFL
   use ovar,        only : moving_ref_frame
   use metrics_mod, only : time_metrics
-  use flowvar,     only : usp
-  use flowvar,     only : gpsp
+  use flowvar_mod, only : usp
+  use flowvar_mod, only : gpsp
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
@@ -1133,8 +1133,8 @@ subroutine get_point_local_timestep(dtmin,dt_sp)
   use ovar,        only : gam,CFL
   use ovar,        only : moving_ref_frame
   use metrics_mod, only : time_metrics
-  use flowvar,     only : usp
-  use flowvar,     only : gpsp
+  use flowvar_mod, only : usp
+  use flowvar_mod, only : gpsp
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin

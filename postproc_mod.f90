@@ -1639,11 +1639,11 @@ end subroutine write_field_headers
 subroutine collect_coordinates_for_output(var)
   !
   !.. Use Statements ..
-  use geovar,  only : nfbnd,ncell,cell
-  use geovar,  only : xyz,xyz_nodes
-  use flowvar, only : edgexyz_dt,facexyz_dt
-  use flowvar, only : face_xyz
-  use ovar,    only : mms_opt
+  use geovar,      only : nfbnd,ncell,cell
+  use geovar,      only : xyz,xyz_nodes
+  use flowvar_mod, only : edgexyz_dt,facexyz_dt
+  use flowvar_mod, only : face_xyz
+  use ovar,        only : mms_opt
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(out) :: var
@@ -1845,11 +1845,11 @@ end subroutine collect_coordinates_for_output
 subroutine collect_solution_for_output(cv,gp,dcvdx)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,ncell,cell
-  use flowvar, only : usp,gpsp,dusp
-  use flowvar, only : faceusp_dt,facegpsp_dt,facedusp_dt
-  use flowvar, only : nodeusp_dt,nodegpsp_dt,nodedusp_dt
-  use flowvar, only : edgeusp_dt,edgegpsp_dt,edgedusp_dt
+  use geovar,      only : nr,ncell,cell
+  use flowvar_mod, only : usp,gpsp,dusp
+  use flowvar_mod, only : faceusp_dt,facegpsp_dt,facedusp_dt
+  use flowvar_mod, only : nodeusp_dt,nodegpsp_dt,nodedusp_dt
+  use flowvar_mod, only : edgeusp_dt,edgegpsp_dt,edgedusp_dt
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: cv(:,:)
@@ -2002,14 +2002,14 @@ subroutine get_output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
                                cv,gp,dcvdx,vartmp,var)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,n_solpts,ncell,cell
-  use ovar,    only : aref,rhoref,time_ref,tref
-  use ovar,    only : gam,pref,pref_nd,machref
-  use ovar,    only : rgasref,cpref,Pr
-  use ovar,    only : itestcase,governing_equations
-  use ovar,    only : profile_io_cgns_subs
-  use ovar,    only : Limiter_Option
-  use flowvar, only : dtsp
+  use geovar,      only : nr,n_solpts,ncell,cell
+  use ovar,        only : aref,rhoref,time_ref,tref
+  use ovar,        only : gam,pref,pref_nd,machref
+  use ovar,        only : rgasref,cpref,Pr
+  use ovar,        only : itestcase,governing_equations
+  use ovar,        only : profile_io_cgns_subs
+  use ovar,        only : Limiter_Option
+  use flowvar_mod, only : dtsp
   !
   use metrics_mod, only : time_metrics,metrics_array,jac
   !
@@ -3996,13 +3996,13 @@ end subroutine add_sol_variables
 subroutine pp_update_gas_properties()
   !
   !.. Use Statements ..
-  use order_mod, only : geom_solpts
-  use geovar,    only : face,edge
-  use geovar,    only : n_solpts,n_flxpts
-  use flowvar,   only : usp,gpsp
-  use flowvar,   only : faceusp_dt,facegpsp_dt
-  use flowvar,   only : edgeusp_dt,edgegpsp_dt
-  use flowvar,   only : nodeusp_dt,nodegpsp_dt
+  use order_mod,     only : geom_solpts
+  use geovar,        only : face,edge
+  use geovar,        only : n_solpts,n_flxpts
+  use flowvar_mod,   only : usp,gpsp
+  use flowvar_mod,   only : faceusp_dt,facegpsp_dt
+  use flowvar_mod,   only : edgeusp_dt,edgegpsp_dt
+  use flowvar_mod,   only : nodeusp_dt,nodegpsp_dt
   !
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
@@ -4217,8 +4217,8 @@ end subroutine pp_update_gas_properties
 subroutine get_face_solutions
   !
   !.. Use Statements ..
-  use geovar,    only : n_bnd_flxpts,n_flxpts
-  use flowvar,   only : faceusp,facegpsp
+  use geovar,        only : n_bnd_flxpts,n_flxpts
+  use flowvar_mod,   only : faceusp,facegpsp
   !
   use bc_mod, only : get_faceusp_bc
   use bc_mod, only : get_facedusp_bc
@@ -4295,10 +4295,10 @@ end subroutine get_face_solutions
 subroutine copy_and_average_face_arrays_to_dt()
   !
   !.. Use Statements ..
-  use geovar,    only : nfbnd,bface,nface,face,n_flxpts
-  use flowvar,   only : faceusp_dt,faceusp
-  use flowvar,   only : facegpsp_dt,facegpsp
-  use flowvar,   only : facedusp_dt,facedusp
+  use geovar,        only : nfbnd,bface,nface,face,n_flxpts
+  use flowvar_mod,   only : faceusp_dt,faceusp
+  use flowvar_mod,   only : facegpsp_dt,facegpsp
+  use flowvar_mod,   only : facedusp_dt,facedusp
   !
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
@@ -4456,8 +4456,8 @@ subroutine pp_interp_cv_to_flxpts()
   use order_mod,         only : maxSP,maxFP
   use geovar,            only : ncell,cell,face,fp
   use interpolation_mod, only : interp
-  use flowvar,           only : usp
-  use flowvar,           only : faceusp
+  use flowvar_mod,       only : usp
+  use flowvar_mod,       only : faceusp
   !
   !.. Local Scalars ..
   integer  :: n,nc,n0,n1,n2,k,m,f0
@@ -4551,7 +4551,7 @@ subroutine pp_interp_dusp_to_flxpts()
   use order_mod,         only : maxFP
   use geovar,            only : nr,ncell,cell,face,fp
   use interpolation_mod, only : interp
-  use flowvar,           only : dusp,facedusp
+  use flowvar_mod,       only : dusp,facedusp
   !
   !.. Local Scalars ..
   integer  :: n,nc,n0,k,l,m,f0
@@ -4644,11 +4644,11 @@ end subroutine pp_interp_dusp_to_flxpts
 subroutine get_edge_and_node_solutions
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,     only : nr,ncell,cell
-  use flowvar,    only : usp,dusp
-  use flowvar,    only : edgeusp_dt,edgedusp_dt
-  use flowvar,    only : nodeusp_dt,nodedusp_dt
+  use order_mod,         only : maxSP
+  use geovar,            only : nr,ncell,cell
+  use flowvar_mod,       only : usp,dusp
+  use flowvar_mod,       only : edgeusp_dt,edgedusp_dt
+  use flowvar_mod,       only : nodeusp_dt,nodedusp_dt
   use interpolation_mod, only : interp
   !
   use parallel_mod, only : exch_edge_and_node_solutions
@@ -4786,18 +4786,17 @@ end subroutine get_edge_and_node_solutions
 subroutine create_cell_subconnectivity(my_cells_beg,my_cells_end,ipelem)
   !
   !.. Use Statements ..
-  use order_mod, only : gmin => n_min_geom
-  use order_mod, only : gmax => n_max_geom
-  use order_mod, only : omin => n_min_order
-  use order_mod, only : omax => n_max_order
-  use order_mod, only : geom_solpts
-  use geovar,    only : n_solpts,ncell,cell
-  use geovar,    only : pst_geom,nr,fp
-  use flowvar,   only : faceusp_dt
-  use flowvar,   only : edgeusp_dt,edgedusp_dt
-  use flowvar,   only : nodeusp_dt,nodedusp_dt
-  use ovar,      only : postproc_debug_grid
-  !
+  use order_mod,    only : gmin => n_min_geom
+  use order_mod,    only : gmax => n_max_geom
+  use order_mod,    only : omin => n_min_order
+  use order_mod,    only : omax => n_max_order
+  use order_mod,    only : geom_solpts
+  use geovar,       only : n_solpts,ncell,cell
+  use geovar,       only : pst_geom,nr,fp
+  use flowvar_mod,  only : faceusp_dt
+  use flowvar_mod,  only : edgeusp_dt,edgedusp_dt
+  use flowvar_mod,  only : nodeusp_dt,nodedusp_dt
+  use ovar,         only : postproc_debug_grid
   use parallel_mod, only : exch_connectivity
   !
   !.. Formal Arguments ..
@@ -8035,8 +8034,8 @@ subroutine write_node_edge_face_dt(io,nodeusp_dt,nodedusp_dt, &
                                    edgeusp_dt,edgedusp_dt,faceusp_dt)
   !
   !.. Use Statements ..
-  use flowvar, only : ne1d_t,ne2d_t,ne3d_t,face_var
-  use geovar,  only : face_map,edge_map,node_map
+  use flowvar_mod, only : ne1d_t,ne2d_t,ne3d_t,face_var
+  use geovar,      only : face_map,edge_map,node_map
   !
   !.. Formal Arguments ..
   integer,     intent(inout) :: io
@@ -8140,9 +8139,9 @@ subroutine deallocate_solver_arrays()
   !
   !.. Use Statements ..
   use geovar,      only : grid
-  use flowvar,     only : faceflx,gpoldsp
-  use flowvar,     only : residual,dtsp,uoldsp,rk_sum,rssprk
-  use flowvar,     only : global_usp,global_var
+  use flowvar_mod, only : faceflx,gpoldsp
+  use flowvar_mod, only : residual,dtsp,uoldsp,rk_sum,rssprk
+  use flowvar_mod, only : global_usp,global_var
   use metrics_mod, only : metrics_dt,geofa,facenrm,metrics_array
   use metrics_mod, only : facejac,jac,wtdjac,time_metrics
   !

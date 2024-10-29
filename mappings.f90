@@ -139,7 +139,7 @@ subroutine custom_equidistant_mapping()
   use ovar,      only : rhoref,aref
   use ovar,      only : interpto_input_mode
   !
-  use flowvar,   only : usp
+  use flowvar_mod, only : usp
   !
   !.. Local Scalars ..
   integer :: n,n0,n1,n2,np,p1,p2,ierr
@@ -556,7 +556,7 @@ subroutine parametrically_corrected_mapping()
   !
   use ovar,             only : rhoref,aref
   !
-  use flowvar,          only : usp
+  use flowvar_mod,      only : usp
   !
   use element_type_mod, only : std_elem
   !
@@ -845,7 +845,7 @@ subroutine assume_equidistant_mapping()
   use ovar,             only : rhoref,aref
   use ovar,             only : interpto_input_mode
   !
-  use flowvar,          only : usp
+  use flowvar_mod,      only : usp
   !
   !.. Local Scalars ..
   integer :: n,n0,n1,n2,np,p1,p2,ierr

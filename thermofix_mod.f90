@@ -56,9 +56,9 @@ contains
 subroutine check_cell_thermo_properties()
   !
   !.. Use Statements ..
-  use geovar,  only : ncell,cell
-  use flowvar, only : usp,gpsp
-  use ovar,    only : thermofix,rhoref,tref,aref
+  use geovar,      only : ncell,cell
+  use flowvar_mod, only : usp,gpsp
+  use ovar,        only : thermofix,rhoref,tref,aref
   !
   use, intrinsic :: ieee_arithmetic, only : ieee_is_negative
   !
@@ -151,9 +151,9 @@ end subroutine check_cell_thermo_properties
 subroutine check_face_thermo_properties()
   !
   !.. Use Statements ..
-  use geovar,  only : ncell,nfbnd,nface,face
-  use flowvar, only : faceusp,facegpsp
-  use ovar,    only : thermofix,rhoref,tref,aref
+  use geovar,      only : ncell,nfbnd,nface,face
+  use flowvar_mod, only : faceusp,facegpsp
+  use ovar,        only : thermofix,rhoref,tref,aref
   !
   use, intrinsic :: ieee_arithmetic, only : ieee_is_negative
   !
@@ -318,7 +318,7 @@ subroutine check_thermo_properties(check_cells,check_faces,check_nodes, &
   use ovar,         only : thermofix
 !-DEBUG_BEG:
   use geovar,       only : cell, xyz_nodes
-  use flowvar,      only : usp,gpsp
+  use flowvar_mod,  only : usp,gpsp
   use cell_ave_mod, only : cell_ave_sol
   real(wp) :: xyz_ctr(3)
   integer  :: nc,n,n1,n2,nn,nr,num_cell_nodes
@@ -461,7 +461,7 @@ subroutine find_bad_thermo_cells(check_cells,check_faces,check_nodes,bad_cell, &
   !
   !.. Use Statements ..
   use geovar,          only : ncell,cell,face
-  use flowvar,         only : usp,gpsp,faceusp,facegpsp
+  use flowvar_mod,     only : usp,gpsp,faceusp,facegpsp
   use ovar,            only : thermofix,rhoref,tref,aref
   use thermo_mod,      only : update_thermo_properties
   use order_mod,       only : maxSP
@@ -611,8 +611,8 @@ end subroutine find_bad_thermo_cells
 subroutine mend_bad_thermo_cells(bad_cell,mend_faces)
   !
   !.. Use Statements ..
-  use flowvar,    only : usp,gpsp,faceusp,facegpsp
-  use ovar,       only : thermofix
+  use flowvar_mod, only : usp,gpsp,faceusp,facegpsp
+  use ovar,        only : thermofix
   !
   !.. Arguments ..
   !> Marks the cells to be repaired.
