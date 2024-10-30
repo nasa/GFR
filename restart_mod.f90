@@ -403,10 +403,10 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
                               var_header,sol_is_transposed)
   !
   !.. Use Statements ..
-  use geovar,     only : ncell,cell,n_solpts
-  use geovar,     only : n_global_cell,n_global_solpts
-  use ovar,       only : time_average_restart_files
-  use thermo_mod, only : inert_species_map
+  use geomvar_mod, only : ncell,cell,n_solpts
+  use geomvar_mod, only : n_global_cell,n_global_solpts
+  use ovar,        only : time_average_restart_files
+  use thermo_mod,  only : inert_species_map
   !
   !.. Formal Arguments ..
   character(len=*),          intent(in   ) :: file_name
@@ -1435,9 +1435,9 @@ subroutine read_solution_file_serial(file_name,int_header,real_header, &
                                      solution,var_header,sol_is_transposed)
   !
   !.. Use Statements ..
-  use geovar, only : ncell,cell,n_solpts
-  use geovar, only : n_global_cell
-  use ovar,   only : time_average_restart_files
+  use geomvar_mod, only : ncell,cell,n_solpts
+  use geomvar_mod, only : n_global_cell
+  use ovar,        only : time_average_restart_files
   !
   !.. Formal Arguments ..
   character(len=*),              intent(in   ) :: file_name
@@ -2117,11 +2117,11 @@ end subroutine read_sem_restart_serial
 subroutine read_restart_old_format(file_name,solution,sol_is_transposed)
   !
   !.. Use Statements ..
-  use geovar,       only : ncell,cell,cell_map
-  use geovar,       only : n_global_totpts
-  use geovar,       only : global_pinc_ptr
-  use ovar,         only : itrst,tmrst,dtrst
-  use flowvar_mod,  only : global_usp
+  use geomvar_mod, only : ncell,cell,cell_map
+  use geomvar_mod, only : n_global_totpts
+  use geomvar_mod, only : global_pinc_ptr
+  use ovar,        only : itrst,tmrst,dtrst
+  use flowvar_mod, only : global_usp
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: file_name
@@ -2209,7 +2209,7 @@ end subroutine read_restart_old_format
 subroutine write_restart_file(itnum)
   !
   !.. Use Statements ..
-  use geovar,             only : n_global_cell
+  use geomvar_mod,        only : n_global_cell
   use ovar,               only : itcur,time,d_t,rl2mx
   use ovar,               only : loc_solution_pts
   use ovar,               only : output_time_averaging
@@ -2220,7 +2220,7 @@ subroutine write_restart_file(itnum)
   use synthetic_eddy_mod, only : sem_box
   use synthetic_eddy_mod, only : dump_sem_data
   !.. Use Statements for old restart files ..
-  use geovar,             only : n_global_totpts
+  use geomvar_mod,        only : n_global_totpts
   use ovar,               only : use_old_restart_format
   use flowvar_mod,        only : global_usp
   use parallel_mod,       only : collect_global_solution
@@ -2487,11 +2487,11 @@ subroutine write_solution_file(file_name,int_header,real_header,file_comm, &
                                sol_blktyp,max_wall_time,var_header,statfile)
   !
   !.. Use Statements ..
-  use geovar,  only : n_global_solpts
-  use ovar,    only : lustre_stripe_factor
-  use ovar,    only : lustre_stripe_unit
-  use ovar,    only : restart_output_uses_host_roots
-  use ovar,    only : profile_io_restart
+  use geomvar_mod, only : n_global_solpts
+  use ovar,        only : lustre_stripe_factor
+  use ovar,        only : lustre_stripe_unit
+  use ovar,        only : restart_output_uses_host_roots
+  use ovar,        only : profile_io_restart
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: file_name
@@ -3659,7 +3659,7 @@ subroutine get_restart_arrays(current_sol,output_sol,ordered_geom, &
                               sol_is_transposed)
   !
   !.. Use Statements ..
-  use geovar,  only : ncell,cell,n_solpts
+  use geomvar_mod, only : ncell,cell,n_solpts
   !
   !.. Formal Arguments ..
   real(wp),                 intent(in) :: current_sol(:,:)
@@ -3764,7 +3764,7 @@ subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom, &
                                   sol_is_transposed)
   !
   !.. Use Statements ..
-  use geovar,  only : ncell,cell,n_solpts
+  use geomvar_mod, only : ncell,cell,n_solpts
   !
   !.. Formal Arguments ..
   real(wp),                 intent(in) :: current_sol(:,:)
@@ -4562,8 +4562,8 @@ end function unlink_f
 subroutine get_host_output_mpi_datatypes()
   !
   !.. Use Statement ..
-  use geovar,      only : ncell,cell,n_solpts,cell_map
-  use geovar,      only : global_pinc_ptr
+  use geomvar_mod, only : ncell,cell,n_solpts,cell_map
+  use geomvar_mod, only : global_pinc_ptr
   use flowvar_mod, only : uavesp
   !
   !.. Local Scalars ..
@@ -4965,8 +4965,8 @@ end subroutine get_host_output_mpi_datatypes
 subroutine get_output_mpi_datatypes()
   !
   !.. Use Statement ..
-  use geovar,      only : ncell,cell,cell_map
-  use geovar,      only : global_pinc_ptr
+  use geomvar_mod, only : ncell,cell,cell_map
+  use geomvar_mod, only : global_pinc_ptr
   use flowvar_mod, only : uavesp
   !
   !.. Local Scalars ..
@@ -5281,8 +5281,8 @@ subroutine get_input_mpi_datatypes(restart_nq,restart_rp,real_type, &
                                    ordered_geom,cell_input_data)
   !
   !.. Use Statements ..
-  use geovar, only : ncell ! ncell is recomputed after cell_map is created
-  use geovar, only : cell_map
+  use geomvar_mod, only : ncell ! ncell is recomputed after cell_map is created
+  use geomvar_mod, only : cell_map
   !
   !.. Formal Arguments ..
   integer(wip),                     intent(in) :: restart_nq
@@ -5539,9 +5539,9 @@ subroutine check_restart_solution_form(restart_solution_form,ordered_geom, &
                                        rst_form_matches_sol_form)
   !
   !.. Use Statements ..
-  use ovar,   only : loc_solution_pts
-  use geovar, only : global_cell_geom
-  use geovar, only : global_cell_order
+  use ovar,        only : loc_solution_pts
+  use geomvar_mod, only : global_cell_geom
+  use geomvar_mod, only : global_cell_order
   !
   !.. Formal Arguments ..
   integer,        intent(in) :: restart_solution_form
@@ -6680,13 +6680,13 @@ subroutine interp_restart_solution(restart_solution_form,flip_sol_indices, &
   !.. Use Statements ..
   use order_mod,         only : n_min_geom,n_min_order
   use order_mod,         only : n_max_geom,n_max_order
-  use geovar,            only : ncell,cell
+  use geomvar_mod,       only : ncell,cell
   use ovar,              only : loc_solution_pts
   use interpolation_mod, only : compute_generic_interp_matrix
   use projection_mod,    only : compute_generic_projct_matrix
   !
-  use matrix_types_mod, only : matrix
-  use matrix_types_mod, only : create_matrix_sparsity
+  use matrix_types_mod,  only : matrix
+  use matrix_types_mod,  only : create_matrix_sparsity
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: restart_solution_form

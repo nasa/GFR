@@ -129,7 +129,7 @@ end function pipe_initialization
 subroutine channel_source()
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use ovar,        only : channel_body_force
   use ovar,        only : rhoref,aref
   use flowvar_mod, only : residual,usp
@@ -183,7 +183,7 @@ end subroutine spatial_ave_channel_flow
 subroutine spatial_ave_x_and_z_planes(called_from_channel_mod)
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts,xyz
+  use geomvar_mod, only : n_solpts,xyz
   use flowvar_mod, only : uavesp
   use ovar,        only : itcur,time,time_ref,time_scaling_factor
   use ovar,        only : ave_start_time,output_time_averaging
@@ -480,7 +480,7 @@ end subroutine spatial_ave_x_and_z_planes
 subroutine spatial_ave_z_planes(called_from_channel_mod)
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts,xyz
+  use geomvar_mod, only : n_solpts,xyz
   use flowvar_mod, only : uavesp
   use ovar,        only : itcur,time,time_ref,time_scaling_factor
   use ovar,        only : ave_start_time,output_time_averaging
@@ -1208,7 +1208,7 @@ pure &
 subroutine get_dudy(vx,dudy)
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
   !

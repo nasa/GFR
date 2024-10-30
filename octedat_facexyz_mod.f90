@@ -8,7 +8,7 @@ module octedat_facexyz_mod
   use module_kind_types, only : iout  ! DEBUG
 #endif
  !use flowvar_mod,       only : face_xyz
- !use geovar,            only : cell_t
+ !use geomvar_mod,       only : cell_t
   use octedat_mod
   use octstat_mod
   !
@@ -75,7 +75,7 @@ subroutine octedat_facexyz_evalxyz_pt(this,idx,xyz,istat)
   ! Evaluate xyz at a single point given by the index values in idx.
   !
   !.. Use Statements ..
-  use geovar,  only : cell,face
+  use geomvar_mod, only : cell,face
  !use flowvar_mod, only : facexyz_dt
   use flowvar_mod, only : facexyz
   !
@@ -122,7 +122,7 @@ subroutine octedat_facexyz_evalxyz_pts(this,npts,idx,xyz,istat)
   ! Evaluate xyz at multiple points given by the index values in idx.
   !
   !.. Use Statements ..
-  use geovar,  only : cell,face
+  use geomvar_mod, only : cell,face
  !use flowvar_mod, only : facexyz_dt
   use flowvar_mod, only : facexyz
   !

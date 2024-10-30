@@ -138,7 +138,7 @@ subroutine convert_restart_files_to_cgns()
   use ovar,          only : time,itcur,tmrst,itrst
   use ovar,          only : time_ref,time_scaling_factor
   use ovar,          only : delete_converted_restart_files
-  use geovar,        only : n_solpts
+  use geomvar_mod,   only : n_solpts
   use flowvar_mod,   only : usp,gpsp
   use restart_mod,   only : read_restart_file
   use flux_mod,      only : discontinuous_gradient_at_solpts
@@ -757,11 +757,11 @@ end subroutine write_iterative_data_to_cgns_file
 subroutine write_parallel_cgns_grid_file()
   !
   !.. Use Statements ..
-  use geovar, only : nr,n_solpts,xyz
-  use ovar,   only : profile_io_cgns,profile_io_cgns_subs
-  use ovar,   only : grid_scaling_factor
-  use ovar,   only : channel_nondim_output_coord
-  use ovar,   only : cgns_dir
+  use geomvar_mod, only : nr,n_solpts,xyz
+  use ovar,        only : profile_io_cgns,profile_io_cgns_subs
+  use ovar,        only : grid_scaling_factor
+  use ovar,        only : channel_nondim_output_coord
+  use ovar,        only : cgns_dir
   !
   !.. Local Scalars ..
   integer :: n,ierr
@@ -939,10 +939,10 @@ subroutine open_cgns_file(cgns_file,procedure_name,ifile,ibase,izone, &
                           cgpio_mode,not_parallel)
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : profile_io_cgns_subs
-  use ovar,   only : lustre_stripe_factor
-  use ovar,   only : lustre_stripe_unit
+  use geomvar_mod, only : nr
+  use ovar,        only : profile_io_cgns_subs
+  use ovar,        only : lustre_stripe_factor
+  use ovar,        only : lustre_stripe_unit
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: cgns_file
@@ -1054,8 +1054,8 @@ subroutine link_cgns_grid_file(cgns_file,procedure_name, &
                                ifile,ibase,izone,not_parallel)
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : profile_io_cgns_subs
+  use geomvar_mod, only : nr
+  use ovar,        only : profile_io_cgns_subs
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: cgns_file
@@ -1273,7 +1273,7 @@ end subroutine write_cgns_section
 subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !
   !.. Use Statements ..
-  use geovar,      only : nr
+  use geomvar_mod, only : nr
   use ovar,        only : itcur
   use ovar,        only : tref,rgasref_nd,tmin
   use ovar,        only : profile_io_cgns,profile_io_cgns_subs
@@ -1580,7 +1580,7 @@ pure &
 function count_output_variables(variable_names) result(return_value)
   !
   !.. Use Statements ..
-  use geovar,          only : nr
+  use geomvar_mod,     only : nr
   use ovar,            only : governing_equations
   use metrics_mod,     only : time_metrics
   use module_limiters, only : nmarker
@@ -1705,7 +1705,7 @@ subroutine write_field_headers(cgns_sol_file,ifile,ibase,izone,isol, &
                                variable_names,ifld)
   !
   !.. Use Statements ..
-  use geovar,          only : nr
+  use geomvar_mod,     only : nr
   use ovar,            only : governing_equations
   use ovar,            only : profile_io_cgns_subs
   use thermo_mod,      only : species_name
@@ -2124,8 +2124,8 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
                            cv,gp,dcvdx,vartmp,var)
   !
   !.. Use Statements ..
-  use geovar,      only : nr,n_solpts,ncell,cell
-  use geovar,      only : xyz
+  use geomvar_mod, only : nr,n_solpts,ncell,cell
+  use geomvar_mod, only : xyz
   use ovar,        only : aref,rhoref,time_ref,tref
   use ovar,        only : gam,pref,pref_nd,machref
   use ovar,        only : rgasref,cpref,Pr
@@ -3979,33 +3979,33 @@ end subroutine output_variable
 subroutine get_cgns_sol_variables(variable_list)
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : itestcase,governing_equations
-  use ovar,   only : limiter_option
-  use ovar,   only : output_vorticity
-  use ovar,   only : output_cylindrical_velocity
-  use ovar,   only : output_relative_velocity
-  use ovar,   only : output_relative_conditions
-  use ovar,   only : output_qcriterion
-  use ovar,   only : output_conserved_variables
-  use ovar,   only : output_momentum
-  use ovar,   only : output_temperature
-  use ovar,   only : output_thermo_variables
-  use ovar,   only : output_gradients
-  use ovar,   only : output_transport_variables
-  use ovar,   only : output_stagnation_temperature
-  use ovar,   only : output_stagnation_pressure
-  use ovar,   only : output_stagnation_variables
-  use ovar,   only : output_marker_variables
-  use ovar,   only : Resolution_Marker_Variable
-  use ovar,   only : Jump_Marker_Variable
-  use ovar,   only : MLP_Marker_Variable
-  use ovar,   only : output_species_mass_fractions
-  use ovar,   only : output_species_mole_fractions
-  use ovar,   only : output_extra_species_variables
-  use ovar,   only : output_debug_species_variables
-  use ovar,   only : output_grdnt_species_variables
-  use ovar,   only : Track_Limiter_Filter_Dissipation
+  use geomvar_mod, only : nr
+  use ovar,        only : itestcase,governing_equations
+  use ovar,        only : limiter_option
+  use ovar,        only : output_vorticity
+  use ovar,        only : output_cylindrical_velocity
+  use ovar,        only : output_relative_velocity
+  use ovar,        only : output_relative_conditions
+  use ovar,        only : output_qcriterion
+  use ovar,        only : output_conserved_variables
+  use ovar,        only : output_momentum
+  use ovar,        only : output_temperature
+  use ovar,        only : output_thermo_variables
+  use ovar,        only : output_gradients
+  use ovar,        only : output_transport_variables
+  use ovar,        only : output_stagnation_temperature
+  use ovar,        only : output_stagnation_pressure
+  use ovar,        only : output_stagnation_variables
+  use ovar,        only : output_marker_variables
+  use ovar,        only : Resolution_Marker_Variable
+  use ovar,        only : Jump_Marker_Variable
+  use ovar,        only : MLP_Marker_Variable
+  use ovar,        only : output_species_mass_fractions
+  use ovar,        only : output_species_mole_fractions
+  use ovar,        only : output_extra_species_variables
+  use ovar,        only : output_debug_species_variables
+  use ovar,        only : output_grdnt_species_variables
+  use ovar,        only : Track_Limiter_Filter_Dissipation
   !
   !.. Formal Arguments ..
 #ifdef SPECIAL_FOR_INTEL
@@ -4905,7 +4905,7 @@ subroutine output_time_ave_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
                                     uavesp,vartmp,var)
   !
   !.. Use Statements ..
-  use geovar,      only : nr
+  use geomvar_mod, only : nr
   use ovar,        only : aref,rhoref,tref
   use ovar,        only : profile_io_cgns_subs
   use ovar,        only : interpolate_before_output_variable
@@ -6292,11 +6292,11 @@ end subroutine output_time_ave_variable
 subroutine get_connectivity_for_cgns()
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use geovar, only : global_cell_geom
-  use geovar, only : global_cell_order
-  use ovar,   only : cgns_high_order_output
-  use ovar,   only : cgns_mixed_output
+  use geomvar_mod, only : nr
+  use geomvar_mod, only : global_cell_geom
+  use geomvar_mod, only : global_cell_order
+  use ovar,        only : cgns_high_order_output
+  use ovar,        only : cgns_mixed_output
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -6367,12 +6367,12 @@ subroutine get_linear_subcell_connectivity(all_cells_beg,all_cells_end, &
                                            my_cells_beg,my_cells_end,ElemConn)
   !
   !.. Use Statements ..
-  use geovar,    only : ncell,n_global_cell,cell
-  use geovar,    only : pst_geom
-  use geovar,    only : global_cell_geom
-  use geovar,    only : global_cell_order
-  use geovar,    only : cell_map
-  use order_mod, only : o_order,geom_solpts
+  use geomvar_mod,    only : ncell,n_global_cell,cell
+  use geomvar_mod,    only : pst_geom
+  use geomvar_mod,    only : global_cell_geom
+  use geomvar_mod,    only : global_cell_order
+  use geomvar_mod,    only : cell_map
+  use order_mod,      only : o_order,geom_solpts
   !
   !.. Formal Arguments ..
   integer(CST),              intent(inout) :: all_cells_beg
@@ -6583,10 +6583,10 @@ subroutine get_mixed_connectivity()
   ! geord
   !
   !.. Use Statements ..
-  use geovar, only : n_global_cell,ncell
-  use geovar, only : global_cell_geom,cell_geom
-  use geovar, only : global_cell_order,cell_order
-  use geovar, only : cell_map
+  use geomvar_mod, only : n_global_cell,ncell
+  use geomvar_mod, only : global_cell_geom,cell_geom
+  use geomvar_mod, only : global_cell_order,cell_order
+  use geomvar_mod, only : cell_map
   !
   !.. Formal Arguments ..
   !
@@ -6792,10 +6792,10 @@ end subroutine get_mixed_connectivity
 subroutine get_unmixed_connectivities()
   !
   !.. Use Statements ..
-  use geovar, only : ncell,n_global_cell
-  use geovar, only : global_cell_geom,cell_geom
-  use geovar, only : global_cell_order,cell_order
-  use geovar, only : cell_map
+  use geomvar_mod, only : ncell,n_global_cell
+  use geomvar_mod, only : global_cell_geom,cell_geom
+  use geomvar_mod, only : global_cell_order,cell_order
+  use geomvar_mod, only : cell_map
   !
   !.. Local Scalars ..
   integer :: nc,icpu,gmin,gmax,omin,omax,ierr
@@ -7526,7 +7526,7 @@ subroutine create_cgns_connectivity(ptsbeg,ptsend,celbeg,celend, &
                                     ElemConn,Offsets,mixed_grid)
   !
   !.. Use Statements ..
-  use geovar, only : ncell,cell_geom,cell_order
+  use geomvar_mod, only : ncell,cell_geom,cell_order
   !
   !.. Formal Arguments ..
   integer(CST),               intent(in) :: ptsbeg
@@ -7990,10 +7990,10 @@ subroutine get_data_for_8s_vorticity_solution(my_vort_pts, &
                                               ipelem)
   !
   !.. Use Statements ..
-  use ovar, only : Lref,VortexGrid_DOF
-  use geovar, only : nfbnd,face
-  use geovar, only : xyz_nodes,pst_geom
-  use order_mod, only : geom_solpts,n_order
+  use ovar,        only : Lref,VortexGrid_DOF
+  use geomvar_mod, only : nfbnd,face
+  use geomvar_mod, only : xyz_nodes,pst_geom
+  use order_mod,   only : geom_solpts,n_order
   !
   !.. Formal Arguments ..
   integer(CST),              intent(inout) :: my_vort_pts(1:3)
@@ -8273,7 +8273,7 @@ subroutine get_vort_face_coordinates(my_vort_faces,y,z)
   !.. Use Statements ..
   use order_mod,         only : maxSP,maxFP
   use order_mod,         only : geom_solpts
-  use geovar,            only : face,cell,xyz,fp
+  use geomvar_mod,       only : face,cell,xyz,fp
   use interpolation_mod, only : interp
   use interpolation_mod, only : outerp,outerp_mv_mult
   !
@@ -8379,7 +8379,7 @@ subroutine get_vort_face_solution(my_vort_faces,vorticity)
   !.. Use Statements ..
   use order_mod, only : maxSP,maxFP
   use order_mod, only : geom_solpts
-  use geovar, only : nr,face,cell,fp
+  use geomvar_mod, only : nr,face,cell,fp
   use ovar, only : time_ref
   use interpolation_mod, only : interp
   use interpolation_mod, only : outerp,outerp_mv_mult
@@ -8541,7 +8541,7 @@ end subroutine get_vort_face_solution
 pure function create_cell_output_offsets() result(return_value)
   !
   !.. Use Statements ..
-  use geovar,            only : ncell,cell
+  use geomvar_mod,       only : ncell,cell
   use interpolation_mod, only : outerp
   !
   !.. Function Result ..
@@ -8582,7 +8582,7 @@ end function create_cell_output_offsets
 subroutine interpolate_for_output_1d(array,return_value,nondim)
   !
   !.. Use Statements ..
-  use geovar,            only : ncell,cell
+  use geomvar_mod,       only : ncell,cell
   use interpolation_mod, only : outerp
   !
 #ifdef DEBUG_ON
@@ -8726,7 +8726,7 @@ end subroutine interpolate_for_output_1d
 subroutine interpolate_for_output_2d(array,return_value,nondim)
   !
   !.. Use Statements ..
-  use geovar,            only : ncell,cell
+  use geomvar_mod,       only : ncell,cell
   use interpolation_mod, only : outerp
   !
 #ifdef DEBUG_ON
@@ -8878,7 +8878,7 @@ end subroutine interpolate_for_output_2d
 subroutine interpolate_for_output_3d(array,return_value,nondim)
   !
   !.. Use Statements ..
-  use geovar,            only : ncell,cell
+  use geomvar_mod,       only : ncell,cell
   use interpolation_mod, only : outerp
   !
 #ifdef DEBUG_ON
@@ -9037,7 +9037,7 @@ end subroutine interpolate_for_output_3d
 subroutine compute_dmatrix_grad_temperature(dtdx)
   !
   !.. Use Statements
-  use geovar,            only : nr,n_solpts,ncell,cell
+  use geomvar_mod,       only : nr,n_solpts,ncell,cell
   use order_mod,         only : n_order,t_order,geom_solpts
   use metrics_mod,       only : metrics_array
   use interpolation_mod, only : interp

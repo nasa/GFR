@@ -216,7 +216,7 @@ end subroutine find_geom_max_interp_order
 subroutine find_valid_geometries()
   !
   !.. Use Statements ..
-  use geovar, only : cell_geom,cell_order
+  use geomvar_mod, only : cell_geom,cell_order
   !
   !.. Local Scalars ..
   integer :: nc,ne,no,this_geom

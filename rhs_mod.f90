@@ -122,7 +122,7 @@ subroutine rresi(iter,nst)
   !
   !.. Use Statements ..
   use order_mod,   only : p_order,n_order
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use ovar,        only : itestcase
   use metrics_mod, only : jac
   use flowvar_mod, only : residual
@@ -225,7 +225,7 @@ continue
 !#define DEBUG_MRF_FREESTREAM_TCF
 #ifdef DEBUG_MRF_FREESTREAM_TCF
 block
-  use geovar,     only : xyz
+  use geomvar_mod,only : xyz
   use flowvar_mod, only : dtsp
   real(wp) :: x,y,z,r,t
   if (abs(itestcase) == Freestream_TCF) then
@@ -508,7 +508,7 @@ end subroutine check_total_temperature
 subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name)
   !
   !.. Use Statements ..
-  use geovar,          only : n_solpts
+  use geomvar_mod,     only : n_solpts
   use flowvar_mod,     only : usp,gpsp
   use ovar,            only : Limiter_Option,Filter_Option
   use ovar,            only : ideal_total_temperature
@@ -697,7 +697,7 @@ end subroutine update_faceusp
 subroutine update_facegpsp()
   !
   !.. Use Statements ..
-  use geovar,        only : n_bnd_flxpts
+  use geomvar_mod,   only : n_bnd_flxpts
   use flowvar_mod,   only : faceusp,facegpsp
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties

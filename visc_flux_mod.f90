@@ -318,7 +318,7 @@ continue
       block
         !
         use ovar, only : itcur
-        use geovar, only : xyz
+        use geomvar_mod, only : xyz
         integer :: io,l,m,n
         character(len=50) :: fname
         !
@@ -380,7 +380,7 @@ continue
         block
           !
           use ovar, only : itcur
-          use geovar, only : xyz
+          use geomvar_mod, only : xyz
           integer :: io,l,m,n
           character(len=50) :: fname
           !

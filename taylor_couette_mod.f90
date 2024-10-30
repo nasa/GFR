@@ -52,11 +52,11 @@ contains
 subroutine initialize_taylor_couette_problem(ref_length)
   !
   !.. Use Statements ..
-  use geovar,     only : xyz_nodes
-  use ovar,       only : rhoref,tref,aref,pref,tmin
-  use ovar,       only : gam,rgasref,reyref,machref
-  use ovar,       only : bc_input
-  use thermo_mod, only : rgas_cpg
+  use geomvar_mod, only : xyz_nodes
+  use ovar,        only : rhoref,tref,aref,pref,tmin
+  use ovar,        only : gam,rgasref,reyref,machref
+  use ovar,        only : bc_input
+  use thermo_mod,  only : rgas_cpg
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: ref_length

@@ -171,7 +171,7 @@ subroutine octnode_init(octnode,octroot,bbox,istat,parent)
   ! Initialize non-default components of an octnode.
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   type(octnode_type), intent(inout) :: octnode
@@ -231,7 +231,7 @@ subroutine octnode_addxyz(octnode,octroot,octedat,ixyz_pt,xyz_pt,istat)
   ! Add an xyz point to this octnode or one of the subnodes.
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   type(octnode_type), intent(inout) :: octnode
@@ -395,7 +395,7 @@ subroutine octnode_makechildren(octnode,octroot,octedat,istat)
   ! Assumes children do not already exist.
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   type(octnode_type), intent(inout) :: octnode
@@ -595,7 +595,7 @@ subroutine octnode_find_containing_octnode(octnode,octroot,octedat,xyz_pt, &
   ! have data.
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   type(octnode_type), target,   intent(in) :: octnode
@@ -676,7 +676,7 @@ subroutine octnode_find_nearest_xyz(octnode,octroot,octedat,xyz_pt,xyz_bbox, &
   !   OCT_STATUS_DATA_ERROR  Error evaluating data within the octtree.
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   type(octnode_type), target,     intent(in) :: octnode
@@ -794,7 +794,7 @@ subroutine octnode_print(octnode,octedat,istat,filename)
   ! Print the octnode to file for debugging.
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   type(octnode_type),  intent(in) :: octnode

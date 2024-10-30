@@ -56,7 +56,7 @@ contains
 subroutine check_cell_thermo_properties()
   !
   !.. Use Statements ..
-  use geovar,      only : ncell,cell
+  use geomvar_mod, only : ncell,cell
   use flowvar_mod, only : usp,gpsp
   use ovar,        only : thermofix,rhoref,tref,aref
   !
@@ -151,7 +151,7 @@ end subroutine check_cell_thermo_properties
 subroutine check_face_thermo_properties()
   !
   !.. Use Statements ..
-  use geovar,      only : ncell,nfbnd,nface,face
+  use geomvar_mod, only : ncell,nfbnd,nface,face
   use flowvar_mod, only : faceusp,facegpsp
   use ovar,        only : thermofix,rhoref,tref,aref
   !
@@ -312,12 +312,12 @@ subroutine check_thermo_properties(check_cells,check_faces,check_nodes, &
                                    update_faces,verbose)
   !
   !.. Use Statements ..
-  use geovar,       only : ncell
+  use geomvar_mod,  only : ncell
   use cell_ave_mod, only : allocate_cell_ave, deallocate_cell_ave, &
                            compute_cell_ave_sol
   use ovar,         only : thermofix
 !-DEBUG_BEG:
-  use geovar,       only : cell, xyz_nodes
+  use geomvar_mod,  only : cell, xyz_nodes
   use flowvar_mod,  only : usp,gpsp
   use cell_ave_mod, only : cell_ave_sol
   real(wp) :: xyz_ctr(3)
@@ -460,7 +460,7 @@ subroutine find_bad_thermo_cells(check_cells,check_faces,check_nodes,bad_cell, &
                                  bad_cell_found,bad_face_found,bad_node_found)
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,cell,face
+  use geomvar_mod,     only : ncell,cell,face
   use flowvar_mod,     only : usp,gpsp,faceusp,facegpsp
   use ovar,            only : thermofix,rhoref,tref,aref
   use thermo_mod,      only : update_thermo_properties
@@ -670,7 +670,7 @@ end subroutine mend_bad_thermo_cells
 !###############################################################################
 subroutine reinterpolate_bad_cells(bad_cell,usp,faceusp,facegpsp)
   !
-  use geovar,        only : nfbnd,nface,face
+  use geomvar_mod,   only : nfbnd,nface,face
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -765,9 +765,9 @@ pure &
 subroutine reinterpolate_bad_cells_3d(bad_cell,usp, &
                                       faceusp,faces_to_update)
   !
-  use geovar,            only : ncell,cell,fp
+  use geomvar_mod,       only : ncell,cell,fp
   use interpolation_mod, only : interp
-  use geovar,            only : face
+  use geomvar_mod,       only : face
   !
   !.. Optional Arguments ..
   logical(lk),    intent(in) :: bad_cell(:)
@@ -887,9 +887,9 @@ pure &
 subroutine reinterpolate_bad_cells_2d(bad_cell,usp, &
                                       faceusp,faces_to_update)
   !
-  use geovar,            only : ncell,cell,fp
+  use geomvar_mod,       only : ncell,cell,fp
   use interpolation_mod, only : interp
-  use geovar,            only : face
+  use geomvar_mod,       only : face
   !
   !.. Optional Arguments ..
   logical(lk),    intent(in) :: bad_cell(:)
@@ -1006,9 +1006,9 @@ pure &
 subroutine reinterpolate_bad_cells_1d(bad_cell,usp, &
                                       faceusp,faces_to_update)
   !
-  use geovar,            only : ncell,cell,fp
+  use geomvar_mod,       only : ncell,cell,fp
   use interpolation_mod, only : interp
-  use geovar,            only : face
+  use geomvar_mod,       only : face
   !
   !.. Optional Arguments ..
   logical(lk),    intent(in) :: bad_cell(:)
@@ -1122,9 +1122,9 @@ pure &
 subroutine reinterpolate_bad_cells_nd(mbeg,mend,bad_cell,usp, &
                                       faceusp,faces_to_update)
   !
-  use geovar,            only : ncell,cell,fp
+  use geomvar_mod,       only : ncell,cell,fp
   use interpolation_mod, only : interp
-  use geovar,            only : face
+  use geomvar_mod,       only : face
   !
   !.. Optional Arguments ..
   integer,        intent(in) :: mbeg,mend
@@ -1240,7 +1240,7 @@ end subroutine reinterpolate_bad_cells_nd
 subroutine emergency_limit_bad_cells(bad_cell,usp)
   !
   !.. Use Statements ..
-  use geovar,        only : ncell,cell
+  use geomvar_mod, only : ncell,cell
   !
   !.. Formal Arguments ..
   logical(lk), intent(in) :: bad_cell(:)
@@ -1287,9 +1287,9 @@ pure &
 subroutine emergency_limit_bad_cells_3d(bad_cell,usp)
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,     only : ncell,cell
-  use filter_mod, only : filter
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
   !
   !.. Formal Arguments ..
   logical(lk), intent(in) :: bad_cell(:)
@@ -1387,9 +1387,9 @@ pure &
 subroutine emergency_limit_bad_cells_2d(bad_cell,usp)
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,     only : ncell,cell
-  use filter_mod, only : filter
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
   !
   !.. Formal Arguments ..
   logical(lk), intent(in) :: bad_cell(:)
@@ -1483,9 +1483,9 @@ pure &
 subroutine emergency_limit_bad_cells_1d(bad_cell,usp)
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,     only : ncell,cell
-  use filter_mod, only : filter
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
   !
   !.. Formal Arguments ..
   logical(lk), intent(in) :: bad_cell(:)
@@ -1575,9 +1575,9 @@ pure &
 subroutine emergency_limit_bad_cells_nd(mbeg,mend,bad_cell,usp)
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,     only : ncell,cell
-  use filter_mod, only : filter
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: mbeg,mend
@@ -1678,7 +1678,7 @@ end subroutine emergency_limit_bad_cells_nd
 subroutine emergency_scale_bad_cells(bad_cell,usp)
   !
   !.. Use Statements ..
-  use geovar,       only : ncell,cell
+  use geomvar_mod,  only : ncell,cell
   use thermo_mod,   only : update_thermo_properties
   !
   !.. Arguments ..
@@ -1729,7 +1729,7 @@ end subroutine emergency_scale_bad_cells
 subroutine emergency_scale_bad_cells_3d(bad_cell,usp)
   !
   !.. Use Statements ..
-  use geovar,       only : ncell,cell
+  use geomvar_mod,  only : ncell,cell
   use thermo_mod,   only : update_thermo_properties
   use cell_ave_mod, only : cell_ave_sol
   use ovar,         only : thermofix
@@ -1782,7 +1782,7 @@ end subroutine emergency_scale_bad_cells_3d
 subroutine emergency_scale_bad_cells_2d(bad_cell,usp)
   !
   !.. Use Statements ..
-  use geovar,       only : ncell,cell
+  use geomvar_mod,  only : ncell,cell
   use thermo_mod,   only : update_thermo_properties
   use cell_ave_mod, only : cell_ave_sol
   !
@@ -1831,7 +1831,7 @@ end subroutine emergency_scale_bad_cells_2d
 subroutine emergency_scale_bad_cells_1d(bad_cell,usp)
   !
   !.. Use Statements ..
-  use geovar,       only : ncell,cell
+  use geomvar_mod,  only : ncell,cell
   use thermo_mod,   only : update_thermo_properties
   use cell_ave_mod, only : cell_ave_sol
   !
@@ -1879,7 +1879,7 @@ end subroutine emergency_scale_bad_cells_1d
 subroutine emergency_scale_bad_cells_nd(mbeg,mend,bad_cell,usp)
   !
   !.. Use Statements ..
-  use geovar,       only : ncell,cell
+  use geomvar_mod,  only : ncell,cell
   use thermo_mod,   only : update_thermo_properties
   use cell_ave_mod, only : cell_ave_sol
   !
@@ -1925,7 +1925,7 @@ end subroutine emergency_scale_bad_cells_nd
 subroutine bad_cell_update_properties_sp(bad_cell,usp,gpsp)
   !
   !.. Use Statements ..
-  use geovar,        only : ncell,cell
+  use geomvar_mod,   only : ncell,cell
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !

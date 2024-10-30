@@ -1678,7 +1678,7 @@ continue
     if (dtmx <= conv_temp .or. k == newton_iter) then
 #ifdef DEBUG_TEMPERATURE_NEWTON_SOLVE
     block
-      use geovar,      only : nr,xyz
+      use geomvar_mod, only : nr,xyz
       use flowvar_mod, only : facexyz
       use ovar,        only : itcur,current_rk_stage,aref,rhoref
       character(len=50) :: fname

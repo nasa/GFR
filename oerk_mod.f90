@@ -1021,10 +1021,10 @@ end subroutine init_optimized_erk_coefficients
 subroutine update_OERK(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts
+  use geomvar_mod, only : n_solpts
   use flowvar_mod, only : residual,usp,uoldsp,rk_sum,dtsp
-  use ovar,    only : time
-  use rhs_mod, only : stabilize_usp
+  use ovar,        only : time
+  use rhs_mod,     only : stabilize_usp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst

@@ -28,7 +28,7 @@ subroutine initialize_flow()
   !.. Use Statements ..
   use matrix_types_mod, only : matrix
   !
-  use geovar, only : nr,n_solpts,ncell,cell,xyz,grid
+  use geomvar_mod, only : nr,n_solpts,ncell,cell,xyz,grid
   !
   use ovar, only : bc_in
   use ovar, only : rhoref,aref,itestcase,jet_init_func
@@ -417,7 +417,7 @@ end subroutine initialize_flow
 subroutine old_output_freestream_conditions
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   use ovar,   only : itestcase
   use ovar,   only : rhoref,aref
   use ovar,   only : pref,tref,gam,rgasref,cpref
@@ -505,7 +505,7 @@ end subroutine old_output_freestream_conditions
 function initial_conditions(xyz,init_cond) result(return_value)
   !
   !.. Use Statements ..
-  use geovar, only : ncell
+  use geomvar_mod, only : ncell
   use ovar, only : bc_in
   use ovar, only : itestcase
   use ovar, only : mms_opt,mms_init
@@ -1520,7 +1520,7 @@ end function subsonic_jet_profile
 subroutine find_elem_for_initial_jet_profile(point_is_in_nozzle_interior)
   !
   !.. Use Statements ..
-  use geovar, only : grid
+  use geomvar_mod, only : grid
   use ovar,   only : itestcase
   use ovar,   only : jet_init_func
   use ovar,   only : bc_in,bc_input
@@ -1821,7 +1821,7 @@ end subroutine detach_lip_flame
 subroutine initialize_dusp()
   !
   !.. Use Statements ..
-  use geovar,      only : nr
+  use geomvar_mod, only : nr
   use flowvar_mod, only : dusp
   use ovar,        only : force_nd_subroutines
   !
@@ -1867,7 +1867,7 @@ subroutine initialize_dusp_3d()
   ! This routine computes the discontinuous gradient at each solution point
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
   use flowvar_mod,     only : usp,dusp
@@ -2045,7 +2045,7 @@ subroutine initialize_dusp_2d()
   ! This routine computes the discontinuous gradient at each solution point
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
   use flowvar_mod,     only : usp,dusp
@@ -2144,7 +2144,7 @@ subroutine initialize_dusp_1d()
   ! This routine computes the discontinuous gradient at each solution point
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
   use flowvar_mod,     only : usp,dusp
@@ -2211,7 +2211,7 @@ subroutine initialize_dusp_nd(mbeg,mend)
   !
   !.. Use Statements ..
   use order_mod,       only : maxSP
-  use geovar,          only : nr,ncell,cell
+  use geomvar_mod,     only : nr,ncell,cell
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
   use flowvar_mod,     only : usp,dusp
@@ -2324,7 +2324,7 @@ end subroutine initialize_dusp_nd
 subroutine get_face_and_edge_point_coordinates(force_facexyz)
   !
   use order_mod,         only : maxSP,geom_solpts
-  use geovar,            only : nr,cell,face,xyz,fp,nface
+  use geomvar_mod,       only : nr,cell,face,xyz,fp,nface
   use flowvar_mod,       only : edgexyz_dt,facexyz_dt
   use flowvar_mod,       only : facexyz
   use interpolation_mod, only : interp
@@ -3026,7 +3026,7 @@ subroutine create_bc_in
   ! condition.
   !
   !.. Use Statements ..
-  use geovar, only : nr,ncell,grid,bface
+  use geomvar_mod, only : nr,ncell,grid,bface
   use ovar,   only : bc_input,bc_in,bc_names
   use ovar,   only : tmin,tmax,tref,rgasref
   use ovar,   only : rhoref,aref,gam
@@ -3769,7 +3769,7 @@ pure &
 function get_bc_velocity(bc,dimensional) result(return_value)
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   use ovar,   only : bc_input_t,aref
   use ovar,   only : moving_ref_frame
   !
@@ -3840,7 +3840,7 @@ end function get_bc_velocity
 subroutine write_bc_conditions(ibc_beg,ibc_end,dimensional,num_bc_faces)
   !
   !.. Use Statements ..
-  use geovar,           only : nr,bface,face
+  use geomvar_mod,      only : nr,bface,face
   use ovar,             only : bc_input,bc_in
   use ovar,             only : tmin,tmax,tref
   use ovar,             only : rhoref,aref,cpref_nd
@@ -4465,8 +4465,8 @@ end subroutine dump_bc_conditions
 subroutine check_bc_input(bc,pv,gp,n)
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : bc_input_t
+  use geomvar_mod, only : nr
+  use ovar,        only : bc_input_t
   !
   !.. Formal Arguments ..
   type(bc_input_t), intent(in) :: bc

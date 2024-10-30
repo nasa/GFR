@@ -557,8 +557,8 @@ end subroutine check_if_wall_fluxes_are_needed
 subroutine debug_mrf_walls(n1,n2,x_r,y_r,z_r,facenrm,facexyz)
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,face,bface
-  use ovar,   only : aref,grid_scaling_factor
+  use geomvar_mod, only : nfbnd,face,bface
+  use ovar,        only : aref,grid_scaling_factor
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: n1,n2
@@ -642,7 +642,7 @@ end subroutine debug_mrf_walls
 subroutine mrf_src_cv()
   !
   !.. Use Statements ..
-  use geovar,      only : nr
+  use geomvar_mod, only : nr
   use flowvar_mod, only : usp,residual
   use metrics_mod, only : jac
   !
@@ -728,7 +728,7 @@ continue
     !
 !#ifdef DEBUG_MRF_FREESTREAM_TCF
 !block
-!    use geovar, only : xyz
+!    use geomvar_mod, only : xyz
 !    real(wp) :: sec,smx,smy,smz,see
 !    real(wp) :: x,y,z,r,t
 !    !

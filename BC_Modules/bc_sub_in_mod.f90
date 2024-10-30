@@ -234,7 +234,7 @@ subroutine get_bc_sub_inflow_newton_3d(n1,n2,facenrm,face_cv,face_gp, &
   use ovar, only : tmin,tmax,tref
 #ifndef DISABLE_FOR_GPU
   use ovar, only : rhoref,aref
-  use geovar, only : face
+  use geomvar_mod, only : face
 #endif
   !
   !.. Formal Arguments ..
@@ -701,7 +701,7 @@ subroutine get_bc_sub_inflow_newton_2d(n1,n2,facenrm,face_cv,face_gp, &
   use ovar, only : tmin,tmax,tref
 #ifndef DISABLE_FOR_GPU
   use ovar, only : rhoref,aref
-  use geovar, only : face
+  use geomvar_mod, only : face
 #endif
   !
   !.. Formal Arguments ..
@@ -1140,7 +1140,7 @@ subroutine get_bc_sub_inflow_newton_1d(n1,n2,facenrm,face_cv,face_gp, &
   use ovar, only : tmin,tmax,tref
 #ifndef DISABLE_FOR_GPU
   use ovar, only : rhoref,aref
-  use geovar, only : face
+  use geomvar_mod, only : face
 #endif
   !
   !.. Formal Arguments ..
@@ -1527,7 +1527,7 @@ subroutine get_xyz_for_bnd_face_point(nf,kf,xyz_fp)
   !
   !.. Use Statements ..
   use order_mod,         only : maxSP
-  use geovar,            only : cell,face,fp,xyz
+  use geomvar_mod,       only : cell,face,fp,xyz
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..

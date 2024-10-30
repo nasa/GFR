@@ -2911,7 +2911,7 @@ subroutine initialize_sem()
   !.. Use Statements ..
   use ovar,        only : bc_input,bc_in
   use ovar,        only : average_sem_inflow_plane,num_timesteps
-  use geovar,      only : bc_grps
+  use geomvar_mod, only : bc_grps
   use flowvar_mod, only : facexyz
   use random_mod,  only : set_random_seed
   !
@@ -3564,7 +3564,7 @@ end subroutine compute_sem_fp_wall_distance
 subroutine collect_wall_fp_coordinates(xyz_wall)
   !
   !.. Use Statements ..
-  use geovar,      only : bc_grps
+  use geomvar_mod, only : bc_grps
   use flowvar_mod, only : facexyz
   use metrics_mod, only : facenrm
   !
@@ -3703,7 +3703,7 @@ end subroutine collect_wall_fp_coordinates
 subroutine debug_normals()
   !
   !.. Use Statements ..
-  use geovar,      only : nfbnd,ncell,bface,face,grid
+  use geomvar_mod, only : nfbnd,ncell,bface,face,grid
   use flowvar_mod, only : facexyz
   !
   !.. Local Scalars ..
@@ -6455,8 +6455,8 @@ subroutine separate_sem_boundary_faces()
   !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,ncell,nnode
-  use geovar, only : bface,grid,xyz_nodes
+  use geomvar_mod, only : nfbnd,ncell,nnode
+  use geomvar_mod, only : bface,grid,xyz_nodes
   use ovar,   only : bc_input,bc_input_t,bc_names
   !
   !.. Local Scalars ..
@@ -7684,7 +7684,7 @@ end subroutine write_sem_profile_data
 subroutine collect_output_sem_connectivities(num_sem_pts)
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,bface,face
+  use geomvar_mod, only : nfbnd,bface,face
   !
   !.. Formal Arguments ..
   integer, intent(in) :: num_sem_pts(:,:)
@@ -7972,7 +7972,7 @@ end subroutine collect_output_sem_connectivities
 subroutine create_my_sem_connectivity(num_sem_faces,my_sem_conn)
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,bface,face,n_bnd_flxpts
+  use geomvar_mod, only : nfbnd,bface,face,n_bnd_flxpts
   !
   !.. Formal Arguments ..
   integer,                        intent(in) :: num_sem_faces(:,:)

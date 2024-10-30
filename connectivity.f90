@@ -89,8 +89,8 @@ subroutine get_grid_connectivity(bface,cell_geom,cell_order,xyz_nodes, &
                                  nodes_of_cell,nodes_of_cell_ptr,input_mode)
   !
   !.. Use Statements ..
-  use ovar,   only : continuous_output
-  use geovar, only : nface,face,fp
+  use ovar,        only : continuous_output
+  use geomvar_mod, only : nface,face,fp
   !
   !.. Formal Arguments ..
   integer,  dimension(:,:), intent(in) :: bface
@@ -709,9 +709,9 @@ end subroutine find_cells_surrounding_each_cell
 subroutine initialize_flxpts(fp)
   !
   !.. Use Statements ..
-  use order_mod, only : geom_solpts
-  use order_mod, only : n_min_order,n_max_order
-  use geovar,    only : fp_t
+  use order_mod,   only : geom_solpts
+  use order_mod,   only : n_min_order,n_max_order
+  use geomvar_mod, only : fp_t
   !
   !.. Formal Arguments ..
   type(fp_t), allocatable, intent(inout) :: fp
@@ -904,15 +904,15 @@ subroutine create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
                                     group_comm,input_mode,creating_global_face)
   !
   ! Procedure that creates the face array.
-  ! Look in the module geovar for the definition of the derived type.
+  ! Look in the module geomvar_mod for the definition of the derived type.
   !
   !.. Use Statements ..
-  use order_mod, only : maxFP,q_order
-  use order_mod, only : geom_solpts
-  use order_mod, only : find_geom_max_interp_order
-  use geovar,    only : face_t,fp_t,n_flxpts,n_bnd_flxpts
-  use geovar,    only : n_phys_bnd_flxpts
-  use geovar,    only : n_bnd_qdtpts,n_flx_qdtpts
+  use order_mod,   only : maxFP,q_order
+  use order_mod,   only : geom_solpts
+  use order_mod,   only : find_geom_max_interp_order
+  use geomvar_mod, only : face_t,fp_t,n_flxpts,n_bnd_flxpts
+  use geomvar_mod, only : n_phys_bnd_flxpts
+  use geomvar_mod, only : n_bnd_qdtpts,n_flx_qdtpts
   !
   !.. Formal Arguments ..
   integer,                      intent(in) :: bface(:,:)
@@ -1765,14 +1765,14 @@ subroutine output_face_nodes(nf,nfnods,nfp,face_geom,face_order,qdtr_order, &
                              rotation,creating_local_face)
   !
   !.. Use Statements ..
-  use geovar, only : n_global_cell
-  use geovar, only : n_global_node
-  use geovar, only : n_global_fbnd
-  use geovar, only : n_global_face
-  use geovar, only : bface
-  use geovar, only : node_map
-  use geovar, only : cell_map
-  use geovar, only : face_map
+  use geomvar_mod, only : n_global_cell
+  use geomvar_mod, only : n_global_node
+  use geomvar_mod, only : n_global_fbnd
+  use geomvar_mod, only : n_global_face
+  use geomvar_mod, only : bface
+  use geomvar_mod, only : node_map
+  use geomvar_mod, only : cell_map
+  use geomvar_mod, only : face_map
   !
   !.. Formal Arguments ..
   integer, intent(in) :: nf
@@ -3220,12 +3220,12 @@ subroutine create_cell_derived_type(nodes_of_cell,nodes_of_cell_ptr, &
                                     cells_with_edge,cells_with_edge_ptr)
   !
   !.. Use Statements ..
-  use geovar,    only : ncell,cell,nedge,n_qdtpts
-  use geovar,    only : nfbnd,nface,face
-  use geovar,    only : cell_geom
-  use geovar,    only : cell_order
-  use order_mod, only : geom_solpts,q_order
-  use ovar,      only : continuous_output, Limiter_Option
+  use geomvar_mod, only : ncell,cell,nedge,n_qdtpts
+  use geomvar_mod, only : nfbnd,nface,face
+  use geomvar_mod, only : cell_geom
+  use geomvar_mod, only : cell_order
+  use order_mod,   only : geom_solpts,q_order
+  use ovar,        only : continuous_output, Limiter_Option
   !
   !.. Formal Arguments ..
   integer,              dimension(:),   intent(in) :: nodes_of_cell
@@ -3600,11 +3600,11 @@ end subroutine create_cell_derived_type
 subroutine create_bc_grps(bface,face,fp)
   !
   !.. Use Statements ..
-  use geovar, only : num_bc_grps,bc_grps,bc_grp_t
-  use geovar, only : face_t,fp_t
-  use geovar, only : n_wall_flxpts,n_wall_qdtpts
-  use geovar, only : nr
-  use ovar,   only : bc_in
+  use geomvar_mod, only : num_bc_grps,bc_grps,bc_grp_t
+  use geomvar_mod, only : face_t,fp_t
+  use geomvar_mod, only : n_wall_flxpts,n_wall_qdtpts
+  use geomvar_mod, only : nr
+  use ovar,        only : bc_in
   !
   !.. Formal Arguments ..
   integer,      intent(in) :: bface(:,:)
@@ -4132,10 +4132,10 @@ end subroutine create_bc_grps
 subroutine get_unit_cell_subconnectivity()
   !
   !.. Use Statements ..
-  use geovar,    only : pst_geom
-  use geovar,    only : global_cell_order
-  use ovar,      only : continuous_output
-  use order_mod, only : o_order
+  use geomvar_mod, only : pst_geom
+  use geomvar_mod, only : global_cell_order
+  use ovar,        only : continuous_output
+  use order_mod,   only : o_order
   !
   !.. Local Scalars ..
   integer :: i,j,k,sk,ierr
@@ -5212,7 +5212,7 @@ subroutine create_edge_derived_type(cells_with_edge,cells_with_edge_ptr, &
                                     nodes_on_edge)
   !
   !.. Use Statements ..
-  use geovar, only : edge,cell
+  use geomvar_mod, only : edge,cell
   !
   !.. Formal Arguments ..
   integer, dimension(:),   intent(in) :: cells_with_edge

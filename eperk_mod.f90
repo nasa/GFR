@@ -61,7 +61,7 @@ subroutine update_EPERK(nst,iter,Apply_Filter,Apply_Limiter)!, &
                        !dtmin,final_timestep_from_stop_request)
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use flowvar_mod, only : residual,usp,uoldsp,rssprk,dtsp,rk_sum
   use ovar,        only : time,num_rk_stages
   use rhs_mod,     only : stabilize_usp
@@ -192,7 +192,7 @@ subroutine get_EPERK_adaptive_dtsp(iter,dtmin,next_dtmin, &
                                    previous_timestep_rejected)
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use flowvar_mod, only : residual,usp,uoldsp,rssprk,dtsp
   use ovar,        only : d_t,time,num_rk_stages
   use dt_mod,      only : get_dtsp
@@ -359,8 +359,8 @@ end subroutine get_EPERK_adaptive_dtsp
 subroutine get_embedded_pair_time_error_dop853(np,uoldsp,usp,rssprk,dt_error)
   !
   !.. Use Statements ..
-  use geovar, only : n_global_solpts
- !use ovar,   only : err_dt_atol,err_dt_rtol
+  use geomvar_mod, only : n_global_solpts
+ !use ovar,        only : err_dt_atol,err_dt_rtol
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: np
@@ -439,8 +439,8 @@ end subroutine get_embedded_pair_time_error_dop853
 subroutine get_embedded_pair_time_error_wtd_nrm(np,usp,uepsp,uoldsp,dt_error)
   !
   !.. Use Statements ..
-  use geovar, only : n_global_solpts
- !use ovar,   only : err_dt_atol,err_dt_rtol
+  use geomvar_mod, only : n_global_solpts
+ !use ovar,        only : err_dt_atol,err_dt_rtol
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: np
@@ -511,8 +511,8 @@ end subroutine get_embedded_pair_time_error_wtd_nrm
 subroutine get_embedded_pair_time_error_reg_nrm(np,usp,uepsp,dt_error)
   !
   !.. Use Statements ..
-  use geovar, only : n_global_solpts
- !use ovar,   only : err_dt_atol
+  use geomvar_mod, only : n_global_solpts
+ !use ovar,        only : err_dt_atol
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: np
@@ -581,8 +581,8 @@ end subroutine get_embedded_pair_time_error_reg_nrm
 subroutine compute_adaptive_time_step(np,dt_error,dtsp,dtmin)
   !
   !.. Use Statements ..
-  use geovar, only : n_global_solpts
- !use ovar,   only : err_dt_atol
+  use geomvar_mod, only : n_global_solpts
+ !use ovar,        only : err_dt_atol
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: np
@@ -626,9 +626,9 @@ subroutine compute_adaptive_time_step_with_rejection(np,dt_error,dtsp,dtmin, &
                                                      previous_timestep_rejected)
   !
   !.. Use Statements ..
-  use geovar, only : n_global_solpts
- !use ovar,   only : err_dt_atol
-  use ovar,   only : itcur
+  use geomvar_mod, only : n_global_solpts
+ !use ovar,        only : err_dt_atol
+  use ovar,        only : itcur
   !
   !.. Formal Arguments ..
   integer,      intent(in) :: np

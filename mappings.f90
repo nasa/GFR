@@ -127,17 +127,17 @@ end subroutine get_solution_points
 !
 subroutine custom_equidistant_mapping()
   !
-  use geovar,    only : grid
-  use geovar,    only : nr,nfbnd,ncell,nnode,n_totcel,n_totnod
-  use geovar,    only : n_solpts,n_totpts
-  use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : bface,xyz_nodes,xyz
-  use geovar,    only : cell_geom,cell_order
+  use geomvar_mod, only : grid
+  use geomvar_mod, only : nr,nfbnd,ncell,nnode,n_totcel,n_totnod
+  use geomvar_mod, only : n_solpts,n_totpts
+  use geomvar_mod, only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : bface,xyz_nodes,xyz
+  use geomvar_mod, only : cell_geom,cell_order
   !
-  use order_mod, only : geom_solpts
+  use order_mod,   only : geom_solpts
   !
-  use ovar,      only : rhoref,aref
-  use ovar,      only : interpto_input_mode
+  use ovar,        only : rhoref,aref
+  use ovar,        only : interpto_input_mode
   !
   use flowvar_mod, only : usp
   !
@@ -543,12 +543,12 @@ end subroutine custom_equidistant_mapping
 !
 subroutine parametrically_corrected_mapping()
   !
-  use geovar,           only : grid
-  use geovar,           only : nr,nfbnd,ncell,nnode,n_totcel,n_totnod
-  use geovar,           only : n_solpts,n_totpts
-  use geovar,           only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar,           only : bface,xyz_nodes,xyz
-  use geovar,           only : cell_geom,cell_order
+  use geomvar_mod,      only : grid
+  use geomvar_mod,      only : nr,nfbnd,ncell,nnode,n_totcel,n_totnod
+  use geomvar_mod,      only : n_solpts,n_totpts
+  use geomvar_mod,      only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod,      only : bface,xyz_nodes,xyz
+  use geomvar_mod,      only : cell_geom,cell_order
   !
   use order_mod,        only : geom_solpts
   use order_mod,        only : n_min_geom,n_max_geom
@@ -833,12 +833,12 @@ end subroutine parametrically_corrected_mapping
 !
 subroutine assume_equidistant_mapping()
   !
-  use geovar,           only : grid
-  use geovar,           only : nr,nfbnd,ncell,nnode,n_totcel,n_totnod
-  use geovar,           only : n_solpts,n_totpts
-  use geovar,           only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar,           only : bface,xyz_nodes,xyz
-  use geovar,           only : cell_geom,cell_order
+  use geomvar_mod,      only : grid
+  use geomvar_mod,      only : nr,nfbnd,ncell,nnode,n_totcel,n_totnod
+  use geomvar_mod,      only : n_solpts,n_totpts
+  use geomvar_mod,      only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod,      only : bface,xyz_nodes,xyz
+  use geomvar_mod,      only : cell_geom,cell_order
   !
   use order_mod,        only : geom_solpts
   !
@@ -1271,10 +1271,10 @@ end subroutine assume_equidistant_mapping
 subroutine exact_TCF_solution_points()
   !
   !.. Use Statements ..
-  use geovar,           only : nr,ncell
-  use geovar,           only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar,           only : xyz_nodes,xyz
-  use geovar,           only : cell_order
+  use geomvar_mod,      only : nr,ncell
+  use geomvar_mod,      only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod,      only : xyz_nodes,xyz
+  use geomvar_mod,      only : cell_order
   !
   use element_type_mod, only : std_elem
   !
@@ -1370,7 +1370,7 @@ end subroutine exact_TCF_solution_points
 subroutine create_mapping_array(cell_geom,cell_order,grid)
   !
   !.. Use Statements ..
-  use geovar, only : grid_t
+  use geomvar_mod, only : grid_t
   !
   !.. Formal Arguments ..
   integer,                   intent(in) :: cell_geom(:)

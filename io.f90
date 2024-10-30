@@ -285,7 +285,7 @@ subroutine read_nml_input_file(input_fname,input_mode)
   use order_mod, only : initialize_geom_solpts
   use order_mod, only : n_order,p_order,q_order,o_order,e_order,t_order
   !
-  use geovar, only : nr,using_quadrature,xyz_nodes
+  use geomvar_mod, only : nr,using_quadrature,xyz_nodes
   !
   use input_namelist_mod ! use all the variables in the input namelist
   !
@@ -1734,8 +1734,8 @@ end subroutine check_cgns_dir
 subroutine read_grid_file()
   !
   !.. Use Statements ..
-  use geovar,        only : nr,grid
-  use geovar,        only : output_bface
+  use geomvar_mod,   only : nr,grid
+  use geomvar_mod,   only : output_bface
   use cgns_mod,      only : read_cgns_gridfile
   use module_gmsh,   only : read_gmsh_gridfile
   use module_plot3d, only : read_plot3d_gridfile
@@ -1809,7 +1809,7 @@ continue
   end if
   !
 block
-  use geovar, only : ncell,nfbnd
+  use geomvar_mod, only : ncell,nfbnd
  !call write_internal_grid(ncell,nfbnd)
  !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
 end block
@@ -1932,7 +1932,7 @@ end subroutine write_namelist
 subroutine check_ho_points_are_equal_distance()
   !
   !.. Use Statements ..
-  use geovar, only : grid,ncell,nfbnd
+  use geomvar_mod, only : grid,ncell,nfbnd
   use cgns_mod, only : reorder_to_cgns_pts
   use ovar,   only : cgns_grid_needs_correction
   !
@@ -2137,7 +2137,7 @@ subroutine check_ho_point_spacings_hexa(p,xyz,dsh,is_eq_dsh,nc,pts)
   use ovar,   only : epsval => tvrref
   use ovar,   only : out_eps => tinref
   use ovar,   only : gsf => grid_scaling_factor
-  use geovar, only : bface
+  use geomvar_mod, only : bface
   !
   !.. Formal Arguments ..
   integer,                   intent(in) :: p
@@ -2610,7 +2610,7 @@ end subroutine get_ho_segments
 subroutine apply_bc_input_to_bface()
   !
   !.. Use Statements ..
-  use geovar, only : bface
+  use geomvar_mod, only : bface
   use ovar,   only : bc_input,bc_names
   !
   !.. Local Scalars ..
@@ -2686,9 +2686,9 @@ end subroutine apply_bc_input_to_bface
 subroutine reorder_boundary_faces()
   !
   !.. Use Statements ..
-  use geovar, only : ncell,nfbnd,bface
-  use geovar, only : num_bc_grps
-  use geovar, only : grid,grid_t
+  use geomvar_mod, only : ncell,nfbnd,bface
+  use geomvar_mod, only : num_bc_grps
+  use geomvar_mod, only : grid,grid_t
   use ovar,   only : bc_in
   !
   !.. Local Scalars ..
@@ -3063,9 +3063,9 @@ subroutine read_gambit_neutral_gridfile()
   !
   ! Routine to read in a grid file using Gambit Neutral formatting.
   !
-  use geovar, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
-  use geovar, only : bface,nodes_of_cell_ptr,nodes_of_cell
-  use geovar, only : cell_geom,cell_order
+  use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : cell_geom,cell_order
   use ovar,   only : loc_solution_pts,loc_flux_pts
   use ovar,   only : gridfile,grid_scaling_factor
   use order_mod, only : n_order
@@ -3390,7 +3390,7 @@ subroutine rescale_grid_for_vortex_problems()
   !.. Use Statements ..
   use ovar,   only : itestcase
   use ovar,   only : Lref,VortexGrid_Lref
-  use geovar, only : nr,grid,xyz_nodes,xyz
+  use geomvar_mod, only : nr,grid,xyz_nodes,xyz
   !
   !.. Local Scalars ..
   integer  :: l
@@ -3503,8 +3503,8 @@ end subroutine rescale_grid_for_vortex_problems
 subroutine create_linear_grid_dt()
   !
   !.. Use Statements ..
-  use geovar, only : ncell,nfbnd,grid,xyz_nodes,cell_geom
-  use geovar, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : ncell,nfbnd,grid,xyz_nodes,cell_geom
+  use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
   !
   !.. Local Scalars ..
   integer :: n,nc,nf,np,n1,n2,ierr
@@ -3602,7 +3602,7 @@ pure &
 function reorder_linear_pts(elem,reverse) result(return_value)
   !
   !.. Use Statements ..
-  use geovar, only : elem_t
+  use geomvar_mod, only : elem_t
   !
   !.. Formal Arguments ..
   type(elem_t), intent(in) :: elem
@@ -3846,8 +3846,8 @@ end subroutine tecplot_cell_rotations
 subroutine check_node_ordering()
   !
   !.. Use Statements ..
-  use geovar, only : nr,ncell,nfbnd,nodes_of_cell_ptr,cell_geom
-  use geovar, only : xyz_nodes,nodes_of_cell,bface
+  use geomvar_mod, only : nr,ncell,nfbnd,nodes_of_cell_ptr,cell_geom
+  use geomvar_mod, only : xyz_nodes,nodes_of_cell,bface
   !
   !.. Local Scalars ..
   integer  :: i,n,nf,np,n1,n2,ip2,ip4
@@ -4132,9 +4132,9 @@ subroutine adjust_for_ghost_cells()
   ! to account for ghost cells and new nodes associated with them
   !
   !.. Use Statements ..
-  use geovar, only : nr,ncell,nfbnd,nnode,n_totcel,n_totnod
-  use geovar, only : bface,nodes_of_cell_ptr,nodes_of_cell,xyz_nodes
-  use geovar, only : cell_geom,cell_order
+  use geomvar_mod, only : nr,ncell,nfbnd,nnode,n_totcel,n_totnod
+  use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell,xyz_nodes
+  use geomvar_mod, only : cell_geom,cell_order
   use ovar,   only : Grid_Min,Grid_Max,Grid_Length
   !
   !.. Local Scalars ..
@@ -4326,17 +4326,17 @@ end subroutine adjust_for_ghost_cells
 subroutine save_global_grid
   !
   !.. Use Statements ..
-  use geovar,    only : nr,nnode,ncell,nfbnd,n_totnod,n_totcel
-  use geovar,    only : n_global_node,n_global_cell,n_global_fbnd
-  use geovar,    only : n_global_totnod,n_global_totcel
-  use geovar,    only : n_global_solpts,n_global_totpts
-  use geovar,    only : xyz_nodes,global_xyz_nodes
-  use geovar,    only : nodes_of_cell_ptr,global_nofc_ptr
-  use geovar,    only : nodes_of_cell,global_nofc
-  use geovar,    only : global_pinc_ptr
-  use geovar,    only : cell_geom,global_cell_geom
-  use geovar,    only : cell_order,global_cell_order
-  use order_mod, only : geom_solpts
+  use geomvar_mod, only : nr,nnode,ncell,nfbnd,n_totnod,n_totcel
+  use geomvar_mod, only : n_global_node,n_global_cell,n_global_fbnd
+  use geomvar_mod, only : n_global_totnod,n_global_totcel
+  use geomvar_mod, only : n_global_solpts,n_global_totpts
+  use geomvar_mod, only : xyz_nodes,global_xyz_nodes
+  use geomvar_mod, only : nodes_of_cell_ptr,global_nofc_ptr
+  use geomvar_mod, only : nodes_of_cell,global_nofc
+  use geomvar_mod, only : global_pinc_ptr
+  use geomvar_mod, only : cell_geom,global_cell_geom
+  use geomvar_mod, only : cell_order,global_cell_order
+  use order_mod,   only : geom_solpts
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,this_geom,this_order,ierr
@@ -4417,11 +4417,11 @@ end subroutine save_global_grid
 subroutine find_bc_conflicts
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,bface,nnode
-  use order_mod, only : n_fp1de
-  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar, only : bc_conflict
-  use geovar, only : cell_geom
+  use geomvar_mod, only : nfbnd,bface,nnode
+  use geomvar_mod, only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : bc_conflict
+  use geomvar_mod, only : cell_geom
+  use order_mod,   only : n_fp1de
   !
   !.. Local Scalars ..
   integer :: n,nf,i,ip,is,j,n1,n2,nf1,nf2,ierr
@@ -4737,18 +4737,18 @@ end subroutine find_bc_conflicts
 subroutine check_face_flux_point_orderings()
   !
   !.. Use Statements ..
-  use order_mod, only : geom_solpts
-  use geovar, only : ncell,cell
-  use geovar, only : nfbnd,nface,face,fp
-  use geovar, only : nr,xyz,bface,bc_grps
+  use geomvar_mod,       only : ncell,cell
+  use geomvar_mod,       only : nfbnd,nface,face,fp
+  use geomvar_mod,       only : nr,xyz,bface,bc_grps
+  use geomvar_mod,       only : xyz_nodes
+  use geomvar_mod,       only : nodes_of_cell,nodes_of_cell_ptr
+  use flowvar_mod,       only : face_var,faceusp
+  use flowvar_mod,       only : facexyz
   use interpolation_mod, only : interp
-  use flowvar_mod, only : face_var,faceusp
-  use flowvar_mod, only : facexyz
-  use parallel_mod, only : exchange_faceusp,wait_faceusp
-  use parallel_mod, only : exchange_faceusp_dt,wait_faceusp_dt
-  use geovar, only : xyz_nodes
-  use ovar, only : VortexGrid_Lref
-  use geovar, only : nodes_of_cell,nodes_of_cell_ptr
+  use parallel_mod,      only : exchange_faceusp,wait_faceusp
+  use parallel_mod,      only : exchange_faceusp_dt,wait_faceusp_dt
+  use order_mod,         only : geom_solpts
+  use ovar,              only : VortexGrid_Lref
   !
   !.. Local Scalars ..
   integer :: i,j,nf,nfp,kf,kl,kr,l,ierr
@@ -5186,7 +5186,7 @@ end subroutine check_face_flux_point_orderings
 subroutine check_periodic_coordinates()
   !
   !.. Use Statements ..
-  use geovar,      only : nr,bc_grps
+  use geomvar_mod, only : nr,bc_grps
   use flowvar_mod, only : facexyz
   use ovar,        only : bc_in
   !
@@ -5335,7 +5335,7 @@ subroutine output_element_solpts_and_flxpts()
   use order_mod,         only : n_min_geom,n_min_order
   use order_mod,         only : n_max_geom,n_max_order
   use order_mod,         only : geom_is_used,geom_solpts
-  use geovar,            only : fp
+  use geomvar_mod,       only : fp
   use interpolation_mod, only : interp
   !
   !.. Local Scalars ..
@@ -5514,14 +5514,14 @@ end subroutine transfer_periodic
 subroutine check_cell_flux_point_orderings()
   !
   !.. Use Statements ..
-  use order_mod, only : maxSP,geom_solpts
-  use geovar, only : ncell,cell
-  use geovar, only : nfbnd,nface,face,fp
-  use geovar, only : nr,xyz,bface
+  use geomvar_mod,       only : ncell,cell
+  use geomvar_mod,       only : nfbnd,nface,face,fp
+  use geomvar_mod,       only : nr,xyz,bface
+  use flowvar_mod,       only : face_var,faceusp
   use interpolation_mod, only : interp
-  use flowvar_mod, only : face_var,faceusp
-  use parallel_mod, only : exchange_faceusp,wait_faceusp
-  use parallel_mod, only : exchange_faceusp_dt,wait_faceusp_dt
+  use order_mod,         only : maxSP,geom_solpts
+  use parallel_mod,      only : exchange_faceusp,wait_faceusp
+  use parallel_mod,      only : exchange_faceusp_dt,wait_faceusp_dt
   !
   !.. Local Scalars ..
   integer :: i,j,nf,nc,np,n1,n2,l,n,sf,kf,lf,pf,nfp,ierr
@@ -5773,8 +5773,8 @@ end subroutine check_cell_flux_point_orderings
 subroutine test_communication()
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,nface,face,bface
-  use flowvar_mod, only : face_var,faceusp
+  use geomvar_mod,  only : nfbnd,nface,face,bface
+  use flowvar_mod,  only : face_var,faceusp
   use parallel_mod, only : exchange_faceusp,wait_faceusp
   use parallel_mod, only : exchange_faceusp_dt,wait_faceusp_dt
   !
@@ -5964,11 +5964,11 @@ end subroutine test_communication
 !
 subroutine write_final_error
   !
-  use geovar, only : nr,n_global_cell
-  use geovar, only : n_global_solpts,global_pinc_ptr
-  use ovar,   only : itestcase,flux_divergence
-  use ovar,   only : uverr
-  use order_mod, only : n_order
+  use geomvar_mod, only : nr,n_global_cell
+  use geomvar_mod, only : n_global_solpts,global_pinc_ptr
+  use ovar,        only : itestcase,flux_divergence
+  use ovar,        only : uverr
+  use order_mod,   only : n_order
   !
   !.. Local Scalars ..
   integer :: n,k
@@ -6020,14 +6020,14 @@ end subroutine write_final_error
 !
 subroutine write_residual_file(iflag,icount)
   !
-  use geovar,    only : nr,n_global_solpts
-  use ovar,      only : elapsed_wall_time,work_units
-  use ovar,      only : uverr,total_volume
-  use ovar,      only : time,time_ref,time_scaling_factor
-  use ovar,      only : output_time_averaging,ave_start_time
-  use ovar,      only : itestcase
-  use order_mod, only : p_order
-  use thermo_mod, only : species_name
+  use geomvar_mod, only : nr,n_global_solpts
+  use ovar,        only : elapsed_wall_time,work_units
+  use ovar,        only : uverr,total_volume
+  use ovar,        only : time,time_ref,time_scaling_factor
+  use ovar,        only : output_time_averaging,ave_start_time
+  use ovar,        only : itestcase
+  use order_mod,   only : p_order
+  use thermo_mod,  only : species_name
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
@@ -6307,7 +6307,7 @@ end subroutine write_residual_file
 !
 subroutine write_summary_file(iter)
   !
-  use geovar, only : n_global_solpts,n_global_cell
+  use geomvar_mod, only : n_global_solpts,n_global_cell
   !
   use order_mod, only : n_order
   !

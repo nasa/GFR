@@ -67,7 +67,7 @@ contains
 subroutine initialize_limiters
   !
   !.. Use Statements ..
-  use geovar, only : ncell,n_totpts
+  use geomvar_mod, only : ncell,n_totpts
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -107,7 +107,7 @@ end subroutine initialize_limiters
 subroutine moment_limiter
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use flowvar_mod,     only : usp
   use vandermonde_mod, only : vand
   !
@@ -331,9 +331,9 @@ pure &
 subroutine apply_sponge_filter_3d(usp)
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,     only : ncell,cell
-  use filter_mod, only : filter
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: usp(:,:)
@@ -426,9 +426,9 @@ pure &
 subroutine apply_sponge_filter_2d(usp)
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,     only : ncell,cell
-  use filter_mod, only : filter
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: usp(:,:)
@@ -517,9 +517,9 @@ pure &
 subroutine apply_sponge_filter_1d(usp)
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,     only : ncell,cell
-  use filter_mod, only : filter
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: usp(:,:)
@@ -604,9 +604,9 @@ pure &
 subroutine apply_sponge_filter_nd(mbeg,mend,usp)
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,     only : ncell,cell
-  use filter_mod, only : filter
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: mbeg,mend
@@ -687,8 +687,8 @@ end subroutine apply_sponge_filter_nd
 subroutine mark_sponge_filter_cells()
   !
   !.. Use Statements ..
-  use ovar,   only : Sponge_Beyond_X,grid_scaling_factor
-  use geovar, only : ncell,cell,xyz
+  use ovar,        only : Sponge_Beyond_X,grid_scaling_factor
+  use geomvar_mod, only : ncell,cell,xyz
   !
   !.. Local Scalars ..
   integer  :: nc,n1,n2
@@ -780,12 +780,12 @@ pure &
 subroutine apply_filter_limiter_to_usp_3d(troubled_cell,usp,cell_diss)
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,     only : ncell,cell
-  use filter_mod, only : filter
-  use ovar,       only : nst => current_rk_stage
-  use ovar,       only : Limiter_Use_Dynamic_Filter
-  use ovar,       only : Track_Limiter_Filter_Dissipation
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
+  use ovar,        only : nst => current_rk_stage
+  use ovar,        only : Limiter_Use_Dynamic_Filter
+  use ovar,        only : Track_Limiter_Filter_Dissipation
   use metrics_mod, only : wtdjac
   !
   !.. Formal Arguments ..
@@ -946,12 +946,12 @@ pure &
 subroutine apply_filter_limiter_to_usp_2d(troubled_cell,usp,cell_diss)
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,     only : ncell,cell
-  use filter_mod, only : filter
-  use ovar,       only : nst => current_rk_stage
-  use ovar,       only : Limiter_Use_Dynamic_Filter
-  use ovar,       only : Track_Limiter_Filter_Dissipation
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
+  use ovar,        only : nst => current_rk_stage
+  use ovar,        only : Limiter_Use_Dynamic_Filter
+  use ovar,        only : Track_Limiter_Filter_Dissipation
   use metrics_mod, only : wtdjac
   !
   !.. Formal Arguments ..
@@ -1099,12 +1099,12 @@ pure &
 subroutine apply_filter_limiter_to_usp_1d(troubled_cell,usp,cell_diss)
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,     only : ncell,cell
-  use filter_mod, only : filter
-  use ovar,       only : nst => current_rk_stage
-  use ovar,       only : Limiter_Use_Dynamic_Filter
-  use ovar,       only : Track_Limiter_Filter_Dissipation
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
+  use ovar,        only : nst => current_rk_stage
+  use ovar,        only : Limiter_Use_Dynamic_Filter
+  use ovar,        only : Track_Limiter_Filter_Dissipation
   use metrics_mod, only : wtdjac
   !
   !.. Formal Arguments ..
@@ -1245,12 +1245,12 @@ pure &
 subroutine apply_filter_limiter_to_usp_nd(mbeg,mend,troubled_cell,usp,cell_diss)
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP
-  use geovar,     only : ncell,cell
-  use filter_mod, only : filter
-  use ovar,       only : nst => current_rk_stage
-  use ovar,       only : Limiter_Use_Dynamic_Filter
-  use ovar,       only : Track_Limiter_Filter_Dissipation
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
+  use ovar,        only : nst => current_rk_stage
+  use ovar,        only : Limiter_Use_Dynamic_Filter
+  use ovar,        only : Track_Limiter_Filter_Dissipation
   use metrics_mod, only : wtdjac
   !
   !.. Formal Arguments ..
@@ -1435,7 +1435,7 @@ subroutine apply_projct_limiter_to_usp_3d(troubled_cell,usp,dropped_orders)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
-  use geovar,         only : ncell,cell
+  use geomvar_mod,    only : ncell,cell
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
@@ -1544,7 +1544,7 @@ subroutine apply_projct_limiter_to_usp_2d(troubled_cell,usp,dropped_orders)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
-  use geovar,         only : ncell,cell
+  use geomvar_mod,    only : ncell,cell
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
@@ -1649,7 +1649,7 @@ subroutine apply_projct_limiter_to_usp_1d(troubled_cell,usp,dropped_orders)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
-  use geovar,         only : ncell,cell
+  use geomvar_mod,    only : ncell,cell
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
@@ -1751,7 +1751,7 @@ subroutine apply_projct_limiter_to_usp_nd(mbeg,mend,troubled_cell,usp, &
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
-  use geovar,         only : ncell,cell
+  use geomvar_mod,    only : ncell,cell
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
@@ -1855,10 +1855,10 @@ subroutine identify_troubled_cells(nst,troubled_cell,dropped_orders, &
                                    there_are_no_troubles)
   !
   !.. Use Statements ..
-  use geovar,    only : ncell,cell
-  use ovar,      only : Limiter_Option
-  use ovar,      only : Track_Limiter_Filter_Dissipation
-  use order_mod, only : p_order,n_order
+  use geomvar_mod, only : ncell,cell
+  use ovar,        only : Limiter_Option
+  use ovar,        only : Track_Limiter_Filter_Dissipation
+  use order_mod,   only : p_order,n_order
   use flowvar_mod, only : cell_num_marks
   !
   !.. Formal Arguments ..
@@ -2035,7 +2035,7 @@ subroutine resolution_indicator(nst,apply_projection,troubled_cell, &
   !
   !.. Use Statements ..
   use order_mod,   only : p_order,n_order
-  use geovar,      only : ncell,cell
+  use geomvar_mod, only : ncell,cell
   use flowvar_mod, only : usp
   use ovar,        only : output_limiter_statistics,nlim
   use ovar,        only : Limiter_Option
@@ -2348,7 +2348,7 @@ subroutine compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
   !
   !.. Use Statements ..
   use order_mod,        only : maxSP
-  use geovar,           only : n_solpts,ncell,cell
+  use geomvar_mod,      only : n_solpts,ncell,cell
   use filter_mod,       only : filter
   use element_type_mod, only : std_elem
   !
@@ -2508,7 +2508,7 @@ pure &
 subroutine compute_resolution_marker_2d(usp,skip_cell,cutoff_order,marker)
   !
   !.. Use Statements ..
-  use geovar,           only : n_solpts,ncell,cell
+  use geomvar_mod,      only : n_solpts,ncell,cell
   use filter_mod,       only : filter
   use element_type_mod, only : std_elem
   !
@@ -2667,7 +2667,7 @@ pure &
 subroutine compute_resolution_marker_1d(usp,skip_cell,cutoff_order,marker)
   !
   !.. Use Statements ..
-  use geovar,           only : n_solpts,ncell,cell
+  use geomvar_mod,      only : n_solpts,ncell,cell
   use filter_mod,       only : filter
   use element_type_mod, only : std_elem
   !
@@ -2816,7 +2816,7 @@ subroutine compute_resolution_marker_nd(mbeg,mend,usp,skip_cell, &
   !
   !.. Use Statements ..
   use order_mod,        only : maxSP
-  use geovar,           only : n_solpts,ncell,cell
+  use geomvar_mod,      only : n_solpts,ncell,cell
   use filter_mod,       only : filter
   use element_type_mod, only : std_elem
   !
@@ -2968,7 +2968,7 @@ subroutine compute_resolution_marker_1var(var,skip_cell,cutoff_order,marker)
   !
   !.. Use Statements ..
   use order_mod,        only : maxSP
-  use geovar,           only : n_solpts,ncell,cell
+  use geomvar_mod,      only : n_solpts,ncell,cell
   use filter_mod,       only : filter
   use element_type_mod, only : std_elem
   !
@@ -3078,10 +3078,10 @@ pure &
 subroutine compute_scaled_marker(skip_cell,marker,scaled_marker)
   !
   !.. Use Statements ..
-  use geovar, only : ncell,cell
-  use ovar,   only : dpsi => marker_dpsi
-  use ovar,   only : c1 => marker_c1
-  use ovar,   only : c2 => marker_c2
+  use geomvar_mod, only : ncell,cell
+  use ovar,        only : dpsi => marker_dpsi
+  use ovar,        only : c1 => marker_c1
+  use ovar,        only : c2 => marker_c2
   !
   !.. Formal Arguments ..
   logical(ldk), intent(in) :: skip_cell(:)
@@ -3187,7 +3187,7 @@ subroutine res_ind_apply_proj_3d(usp,skip_cell,lmtr_order)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
-  use geovar,         only : ncell,cell
+  use geomvar_mod,    only : ncell,cell
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
@@ -3284,7 +3284,7 @@ subroutine res_ind_apply_proj_2d(usp,skip_cell,lmtr_order)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
-  use geovar,         only : ncell,cell
+  use geomvar_mod,    only : ncell,cell
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
@@ -3377,7 +3377,7 @@ subroutine res_ind_apply_proj_1d(usp,skip_cell,lmtr_order)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
-  use geovar,         only : ncell,cell
+  use geomvar_mod,    only : ncell,cell
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
@@ -3466,7 +3466,7 @@ subroutine res_ind_apply_proj_nd(mbeg,mend,usp,skip_cell,lmtr_order)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
-  use geovar,         only : ncell,cell
+  use geomvar_mod,    only : ncell,cell
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
@@ -3568,7 +3568,7 @@ subroutine jump_indicator(nst,troubled_cell)
   !>                       https://apps.dtic.mil/sti/citations/tr/ADA624182
   !
   !.. Use Statements ..
-  use geovar,           only : nr,ncell,cell,face
+  use geomvar_mod,      only : nr,ncell,cell,face
   use element_type_mod, only : std_elem
   use flowvar_mod,      only : facegpsp,faceusp
   use metrics_mod,      only : facenrm

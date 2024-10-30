@@ -64,7 +64,7 @@ subroutine compute_bc_stats()
   !.. Use Statements ..
   use ovar,             only : gam,rhoref,aref,tref
   use ovar,             only : moving_ref_frame
-  use geovar,           only : face
+  use geomvar_mod,      only : face
   use flowvar_mod,      only : faceusp,facegpsp,facexyz
   use metrics_mod,      only : facenrm
   use element_type_mod, only : std_elem
@@ -259,7 +259,7 @@ end subroutine compute_bc_stats
 subroutine init_bc_stats()
   !
   !.. Use Statements ..
-  use geovar,           only : nfbnd,bface,cell,face,bc_grps
+  use geomvar_mod,      only : nfbnd,bface,cell,face,bc_grps
   use metrics_mod,      only : facenrm
   use element_type_mod, only : std_elem
   !

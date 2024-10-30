@@ -5,10 +5,10 @@ module interpsolvar_mod
   !
   !.. Use Statements ..
   use module_kind_types, only : wp,lk
-  use geovar,            only : geom_conn, conflict, fp_t
-  use geovar,            only : cell_t, face_t, grid_t
-  use geovar,            only : map_t
-  use geovar,            only : bc_grp_t
+  use geomvar_mod,       only : geom_conn, conflict, fp_t
+  use geomvar_mod,       only : cell_t, face_t, grid_t
+  use geomvar_mod,       only : map_t
+  use geomvar_mod,       only : bc_grp_t
   use flowvar_mod,       only : sol_nodes
  !use flowvar_mod,       only : faceusp
  !use flowvar_mod,       only : faceusp_dt
@@ -39,7 +39,7 @@ module interpsolvar_mod
   integer, public, save :: g2_e_order
   integer, public, save :: g2_t_order
   !
-  ! Grid2 copies of variables from geovar.
+  ! Grid2 copies of variables from geomvar_mod.
   integer,     public, save :: g2_n_solpts
   integer,     public, save :: g2_n_flxpts
   logical(lk), public, save :: g2_using_quadrature

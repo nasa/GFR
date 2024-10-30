@@ -7,23 +7,23 @@ program GFR_main
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
   !
-  use geovar, only : ncell,n_global_cell
-  use geovar, only : nnode,n_global_node
-  use geovar, only : nfbnd,n_global_fbnd,n_global_face
-  use geovar, only : nr,n_solpts
-  use geovar, only : n_global_solpts
-  use geovar, only : bface,xyz_nodes,nface
-  use geovar, only : cell_geom,cell_order,global_cell_order
-  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar, only : move_face_to_device
-  use geovar, only : move_cell_to_device
-  use geovar, only : move_fp_to_device
-  use geovar, only : move_bcgrps_to_device
-  use geovar, only : move_cellmap_to_device
-  use geovar, only : cell
-  use geovar, only : n_flxpts,n_bnd_flxpts,n_wall_flxpts
-  use geovar, only : n_qdtpts,n_flx_qdtpts,n_bnd_qdtpts,n_wall_qdtpts
-  use geovar, only : output_bface
+  use geomvar_mod, only : ncell,n_global_cell
+  use geomvar_mod, only : nnode,n_global_node
+  use geomvar_mod, only : nfbnd,n_global_fbnd,n_global_face
+  use geomvar_mod, only : nr,n_solpts
+  use geomvar_mod, only : n_global_solpts
+  use geomvar_mod, only : bface,xyz_nodes,nface
+  use geomvar_mod, only : cell_geom,cell_order,global_cell_order
+  use geomvar_mod, only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : move_face_to_device
+  use geomvar_mod, only : move_cell_to_device
+  use geomvar_mod, only : move_fp_to_device
+  use geomvar_mod, only : move_bcgrps_to_device
+  use geomvar_mod, only : move_cellmap_to_device
+  use geomvar_mod, only : cell
+  use geomvar_mod, only : n_flxpts,n_bnd_flxpts,n_wall_flxpts
+  use geomvar_mod, only : n_qdtpts,n_flx_qdtpts,n_bnd_qdtpts,n_wall_qdtpts
+  use geomvar_mod, only : output_bface
   !
   use eqn_idx_mod, only : nq,ng
   !
@@ -1895,7 +1895,7 @@ subroutine check_for_bad_number(line_num,newton_failures,force_signaling)
   !
   !.. Use Statements ..
   use eqn_idx_mod, only : nq
-  use geovar,  only : n_solpts
+  use geomvar_mod, only : n_solpts
   use flowvar_mod, only : usp,uoldsp
 !#ifndef SPECIAL_FOR_GCC
 !  use, intrinsic :: ieee_exceptions, only : ieee_usual
@@ -2089,7 +2089,7 @@ subroutine timed_check_for_bad_number(line_num,newton_failures,force_signaling)
   !
   !.. Use Statements ..
   use eqn_idx_mod, only : nq
-  use geovar,  only : n_solpts
+  use geomvar_mod, only : n_solpts
   use flowvar_mod, only : usp,uoldsp
 !#ifndef SPECIAL_FOR_GCC
 !  use, intrinsic :: ieee_exceptions, only : ieee_usual
@@ -2300,8 +2300,8 @@ subroutine find_bad_number()
   !.. Use Statements ..
   use eqn_idx_mod,       only : nq,nec,ntemp,npres
   use ovar,              only : grid_scaling_factor,rhoref,aref,tref
-  use geovar,            only : nr,cell,face,fp,nfbnd,nface
-  use geovar,            only : n_solpts,n_bnd_flxpts,n_flxpts,xyz
+  use geomvar_mod,       only : nr,cell,face,fp,nfbnd,nface
+  use geomvar_mod,       only : n_solpts,n_bnd_flxpts,n_flxpts,xyz
   use flowvar_mod,       only : usp,gpsp,faceusp,facegpsp
   use flowvar_mod,       only : facexyz
   use interpolation_mod, only : interp
@@ -2665,7 +2665,7 @@ end subroutine find_bad_number
 subroutine add_bad_pt(n,loc,nc,xyz,xyz_bad_pts)
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   integer,               intent(inout) :: n
@@ -2707,7 +2707,7 @@ end subroutine add_bad_pt
 subroutine report_bad_pts(npts,xyz)
   !
   !.. Use Statements ..
-  use geovar, only : nr,xyz_nodes,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : nr,xyz_nodes,nodes_of_cell_ptr,nodes_of_cell
   use ovar, only : yplus1 => channel_yplus_of_one
   use ovar, only : itestcase,grid_scaling_factor
   use internal_grid_mod, only : xplus_cell_ave
@@ -2842,7 +2842,7 @@ end subroutine reset_fp_exceptions
 subroutine report_memory_usage(n,request_stop)
   !
   !.. Use Statements ..
-  use geovar,            only : geovar_memory_usage
+  use geomvar_mod,       only : geomvar_memory_usage
   use ovar,              only : ovar_memory_usage
   use flowvar_mod,       only : flowvar_memory_usage
   use quadrature_mod,    only : quadrature_memory_usage
@@ -2906,7 +2906,7 @@ continue
         iostat=ierr,iomsg=error_message)
   call io_error(pname,memfile,1,__LINE__,__FILE__,ierr,error_message)
   !
-  call geovar_memory_usage(i)
+  call geomvar_memory_usage(i)
   call vandermonde_memory_usage(i)
   call derivatives_memory_usage(i)
   call correction_memory_usage(i)

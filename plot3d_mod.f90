@@ -94,8 +94,8 @@ contains
 subroutine read_plot3d_gridfile ( gridfile , solfile , cutfile , bcsfile )
   !
   !.. Use Statements ..
-  use geovar, only : grid
-  use ovar,   only : itestcase
+  use geomvar_mod, only : grid
+  use ovar,        only : itestcase
   !
   ! This routine reads in a multi-block grid in plot3d
   ! format and converts it to an unstructured grid.
@@ -117,7 +117,7 @@ subroutine read_plot3d_gridfile ( gridfile , solfile , cutfile , bcsfile )
   !
   ! NOTE: In order for this Plot3D grid to be used by the FR unstructured
   !       solver, this subroutine and the helper subroutines that it calls need
-  !       to define the following arrays/variables in the module geovar_mod:
+  !       to define the following arrays/variables in the module geomvar_mod:
   !             NR : Number of grid dimensions
   !             NNODE : Total number of grid nodes
   !             NCELL : Total number of grid cells
@@ -295,17 +295,17 @@ subroutine readplot3d(gridfile,solfile,sol_nodes)
   !     ijkpts(3,iblk) : number of points in the z-direction for iblk
   !
   !.. Use Statements ..
-  use geovar, only : nr,xyz_nodes
-  use geovar, only : grid
-  use geovar, only : ncell,nnode
-  use ovar,   only : plot3d_agglomerate_order
-  use ovar,   only : plot3d_all_strides
-  use ovar,   only : plot3d_i_stride
-  use ovar,   only : plot3d_j_stride
-  use ovar,   only : plot3d_k_stride
-  use ovar,   only : grid_scaling_factor
-  use ovar,   only : solution_format
-  use ovar,   only : itestcase
+  use geomvar_mod, only : nr,xyz_nodes
+  use geomvar_mod, only : grid
+  use geomvar_mod, only : ncell,nnode
+  use ovar,        only : plot3d_agglomerate_order
+  use ovar,        only : plot3d_all_strides
+  use ovar,        only : plot3d_i_stride
+  use ovar,        only : plot3d_j_stride
+  use ovar,        only : plot3d_k_stride
+  use ovar,        only : grid_scaling_factor
+  use ovar,        only : solution_format
+  use ovar,        only : itestcase
   !
   use plot3dio_mod, only : type_plot3dinfo
   use plot3dio_mod, only : plot3dio_read
@@ -751,15 +751,15 @@ subroutine readplot3d_old(gridfile,solfile)
   !     ijkpts(3,iblk) : number of points in the z-direction for iblk
   !
   !.. Use Statements ..
-  use geovar, only : nr,xyz_nodes
-  use geovar, only : grid
-  use geovar, only : ncell,nnode
-  use ovar,   only : plot3d_agglomerate_order
-  use ovar,   only : plot3d_all_strides
-  use ovar,   only : plot3d_i_stride
-  use ovar,   only : plot3d_j_stride
-  use ovar,   only : plot3d_k_stride
-  use ovar,   only : grid_scaling_factor
+  use geomvar_mod, only : nr,xyz_nodes
+  use geomvar_mod, only : grid
+  use geomvar_mod, only : ncell,nnode
+  use ovar,        only : plot3d_agglomerate_order
+  use ovar,        only : plot3d_all_strides
+  use ovar,        only : plot3d_i_stride
+  use ovar,        only : plot3d_j_stride
+  use ovar,        only : plot3d_k_stride
+  use ovar,        only : grid_scaling_factor
   !
   use plot3dio_mod, only : type_plot3dinfo
   use plot3dio_mod, only : plot3dio_read
@@ -1244,7 +1244,7 @@ end subroutine readplot3d_old
 subroutine read_p3d_formatted_header(iogrd,gridfile,is_multiblock)
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   integer,          intent(in) :: iogrd
@@ -1467,7 +1467,7 @@ end subroutine read_p3d_formatted_header
 subroutine read_p3d_unformatted_header(iogrd,gridfile,is_multiblock)
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   integer,          intent(in) :: iogrd
@@ -1643,7 +1643,7 @@ end subroutine read_p3d_unformatted_header
 !                                                      blk_header_is_dbl_prec)
 !  !
 !  !.. Use Statements ..
-!  use geovar, only : nr
+!  use geomvar_mod, only : nr
 !  !
 !  !.. Formal Arguments ..
 !  integer,          intent(in) :: iogrd
@@ -2370,9 +2370,9 @@ end subroutine read_p3d_unformatted_header
 subroutine create_plot3d_grid_cells()
   !
   !.. Use Statements ..
-  use geovar, only : nr,ncell,nnode,xyz_nodes,grid
-  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
-  use ovar,   only : plot3d_agglomerate_order
+  use geomvar_mod, only : nr,ncell,nnode,xyz_nodes,grid
+  use geomvar_mod, only : nodes_of_cell_ptr,nodes_of_cell
+  use ovar,        only : plot3d_agglomerate_order
   !
   !.. Local Scalars ..
   integer :: l,n,nb,nc,nf,nn,np,location,dir,ie
@@ -2936,7 +2936,7 @@ subroutine readbcsinfo( bcsfile )
   ! Blank lines and comment lines with '!' in first column are skipped.
   !
   !.. Use Statements ..
-  use geovar, only : nr,nfbnd
+  use geomvar_mod, only : nr,nfbnd
   use ovar, only : bc_names
   !
   !.. Formal Arguments ..
@@ -3233,7 +3233,7 @@ subroutine readcutinfo( cutfile )
   ! Blank lines and comment lines with '!' in first column are skipped.
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   character(len=*), intent(inout) :: cutfile
@@ -3513,7 +3513,7 @@ subroutine findcutpoints()
   ! This subs reads cuts information by vulcan input file
   !
   !.. Use Statements ..
-  use geovar, only : nr,xyz_nodes
+  use geomvar_mod, only : nr,xyz_nodes
   !
   !.. Local Scalars ..
   integer :: i,j,k,l,m,n,np,iblk,ierr
@@ -3663,7 +3663,7 @@ end subroutine findcutpoints
 subroutine remove_duplicate_nodes(sol_nodes)
   !
   !.. Use Statements ..
-  use geovar, only : ncell,xyz_nodes,grid,nodes_of_cell
+  use geomvar_mod, only : ncell,xyz_nodes,grid,nodes_of_cell
   !
   !.. Formal Arguments ..
   real(wp), allocatable, intent(inout) :: sol_nodes(:,:)
@@ -3983,7 +3983,7 @@ continue
         if (mypnum == glb_root) then
           write (iout,103) ipcut, n, ip1, ip2, ipn1, ipn2
         block
-          use geovar, only : nr
+          use geomvar_mod, only : nr
           write (iout,104) 1,(xyz_nodes(l,ip1), l=1,nr)
           write (iout,104) 2,(xyz_nodes(l,ip2), l=1,nr)
           104 format (12x,"coordinates for ip",i1," : ",3(es14.6,:,","))
@@ -4136,7 +4136,7 @@ end subroutine remove_duplicate_nodes
 subroutine old_remove_duplicate_nodes(sol_nodes)
   !
   !.. Use Statements ..
-  use geovar, only : ncell,xyz_nodes,grid,nodes_of_cell
+  use geomvar_mod, only : ncell,xyz_nodes,grid,nodes_of_cell
   !
   !.. Formal Arguments ..
   real(wp), allocatable, intent(inout) :: sol_nodes(:,:)
@@ -4448,8 +4448,8 @@ end subroutine old_remove_duplicate_nodes
 subroutine reorder_plot3d_nodes(sol_nodes)
   !
   !.. Use Statements ..
-  use geovar, only : ncell,nnode,xyz_nodes,grid
-  use geovar, only : nodes_of_cell
+  use geomvar_mod, only : ncell,nnode,xyz_nodes,grid
+  use geomvar_mod, only : nodes_of_cell
   !
   !.. Formal Arguments ..
   real(wp), allocatable, intent(inout) :: sol_nodes(:,:)
@@ -4552,9 +4552,9 @@ subroutine create_nodes_of_cells(old2new)
   !
   !.. Use Statements ..
   use order_mod, only : n_order
-  use geovar, only : ncell,nr
-  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar, only : cell_geom,cell_order
+  use geomvar_mod, only : ncell,nr
+  use geomvar_mod, only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : cell_geom,cell_order
   !
   !.. Formal Arguments ..
   integer, intent(in) :: old2new(:)
@@ -4660,7 +4660,7 @@ end subroutine create_nodes_of_cells
 subroutine getbface()
   !
   !.. Use Statements ..
-  use geovar, only : nr,nbfai,ncell,nfbnd,bface,grid
+  use geomvar_mod, only : nr,nbfai,ncell,nfbnd,bface,grid
   !
   !.. Local Scalars ..
   integer :: nf,nb,bc_type,iblk,ierr
@@ -4829,7 +4829,7 @@ end subroutine getbface
 subroutine get_bface_from_grid_dt()
   !
   !.. Use Statements ..
-  use geovar, only : nr,nbfai,ncell,nfbnd,bface,grid
+  use geomvar_mod, only : nr,nbfai,ncell,nfbnd,bface,grid
   !
   !.. Local Scalars ..
   integer :: nb,nc,nf,ierr,location,host_cell
@@ -4886,8 +4886,8 @@ end subroutine get_bface_from_grid_dt
 subroutine match_plot3d_periodic_boundaries()
   !
   !.. Use Statements ..
-  use geovar, only : nr,nfbnd,bface,xyz_nodes
-  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : nr,nfbnd,bface,xyz_nodes
+  use geomvar_mod, only : nodes_of_cell_ptr,nodes_of_cell
   !
   !.. Local Scalars ..
   integer :: n,npf,nf,pf,p1,p2,ierr
@@ -5104,11 +5104,11 @@ end subroutine match_plot3d_periodic_boundaries
 subroutine create_grid_dt(sol_nodes)
   !
   !.. Use Statements ..
-  use geovar, only : grid
-  use geovar, only : ncell,cell_geom
-  use geovar, only : nfbnd,bface
-  use geovar, only : nodes_of_cell,nodes_of_cell_ptr
-  use geovar, only : nr,xyz_nodes
+  use geomvar_mod, only : grid
+  use geomvar_mod, only : ncell,cell_geom
+  use geomvar_mod, only : nfbnd,bface
+  use geomvar_mod, only : nodes_of_cell,nodes_of_cell_ptr
+  use geomvar_mod, only : nr,xyz_nodes
   !
   !.. Formal Arguments ..
   real(wp), allocatable, intent(inout) :: sol_nodes(:,:)
@@ -5190,7 +5190,7 @@ end subroutine create_grid_dt
 pure function create_element(elem_type,pts) result(return_value)
   !
   !.. Use Statements ..
-  use geovar, only : elem_t
+  use geomvar_mod, only : elem_t
   !
   !.. Formal Arguments ..
   integer, intent(in) :: elem_type
@@ -5225,7 +5225,7 @@ end function create_element
 elemental function reorder_plot3d_pts(elem,reverse) result(return_value)
   !
   !.. Use Statements ..
-  use geovar, only : elem_t
+  use geomvar_mod, only : elem_t
   !
   !.. Formal Arguments ..
   type(elem_t), intent(in) :: elem
@@ -5340,7 +5340,7 @@ end function reorder_plot3d_hexa_pts
 subroutine root_broadcasts_grid_dt()
   !
   !.. Use Statements ..
-  use geovar, only : grid
+  use geomvar_mod, only : grid
   !
   !.. Local Scalars ..
   integer          :: n1,n2,ierr
@@ -5550,7 +5550,7 @@ end subroutine root_broadcasts_grid_dt
 subroutine root_packs_grid_dt(grid_elem,grid_xyz,grid_sol,grid)
   !
   !.. Use Statements ..
-  use geovar, only : grid_t
+  use geomvar_mod, only : grid_t
   !
   !.. Formal Arguments ..
   integer,      allocatable, intent(inout) :: grid_elem(:)
@@ -5829,7 +5829,7 @@ end subroutine root_packs_grid_dt
 subroutine unpack_grid_dt(num_cells,grid_elem,grid_xyz,grid_sol,grid)
   !
   !.. Use Statements ..
-  use geovar, only : grid_t
+  use geomvar_mod, only : grid_t
   !
   !.. Formal Arguments ..
   integer,                      intent(in) :: num_cells
@@ -5982,11 +5982,11 @@ end subroutine unpack_grid_dt
 subroutine broadcast_solver_geom_arrays
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use geovar,    only : nr,ncell,nnode,nfbnd,nbfai,bface
-  use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : cell_geom,cell_order,xyz_nodes
-  use ovar,      only : loc_solution_pts,loc_flux_pts,bc_names
+  use order_mod,   only : n_order
+  use geomvar_mod, only : nr,ncell,nnode,nfbnd,nbfai,bface
+  use geomvar_mod, only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : cell_geom,cell_order,xyz_nodes
+  use ovar,        only : loc_solution_pts,loc_flux_pts,bc_names
   !
   !.. Local Scalars ..
   integer :: n,nocsz,ierr,nbcnm
@@ -6157,11 +6157,11 @@ end subroutine broadcast_solver_geom_arrays
 subroutine create_serial_geom_arrays
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use geovar,    only : nr,ncell
-  use geovar,    only : nodes_of_cell_ptr
-  use geovar,    only : cell_geom,cell_order
-  use ovar,      only : loc_solution_pts,loc_flux_pts
+  use order_mod,   only : n_order
+  use geomvar_mod, only : nr,ncell
+  use geomvar_mod, only : nodes_of_cell_ptr
+  use geomvar_mod, only : cell_geom,cell_order
+  use ovar,        only : loc_solution_pts,loc_flux_pts
   !
   !.. Local Scalars ..
   integer :: n,ierr
@@ -6221,7 +6221,7 @@ end subroutine create_serial_geom_arrays
 pure function element_properties(elem_type,elem_order) result(return_value)
   !
   !.. Use Statements ..
-  use geovar, only : prop_t
+  use geomvar_mod, only : prop_t
   !
   !.. Formal Arguments ..
   integer, intent(in) :: elem_type
@@ -6289,8 +6289,8 @@ end function element_properties
 subroutine writetecplot()
   !
   !.. Use Statements ..
-  use geovar, only : nr,ncell,nnode,xyz_nodes
-  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : nr,ncell,nnode,xyz_nodes
+  use geomvar_mod, only : nodes_of_cell_ptr,nodes_of_cell
   !
   !.. Local Scalars ..
   integer :: l,n,n1,n2,ierr

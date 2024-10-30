@@ -124,7 +124,7 @@ contains
 subroutine init_projection_matrices()
   !
   !.. Use Statements ..
-  use geovar,           only : nr
+  use geomvar_mod,      only : nr
   use order_mod,        only : geom_solpts,p_order
   use order_mod,        only : n_min_geom,n_max_geom
   use order_mod,        only : n_min_order,n_max_order
@@ -525,8 +525,8 @@ end subroutine init_projection_matrices
 subroutine project_to_porder_vector(vector,proj_order)
   !
   !.. Use Statements ..
-  use order_mod,  only : maxSP,p_order
-  use geovar,     only : ncell,cell
+  use order_mod,   only : maxSP,p_order
+  use geomvar_mod, only : ncell,cell
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: vector(:)
@@ -611,7 +611,7 @@ subroutine project_to_porder_array(array,proj_order,update_gpsp)
   !
   !.. Use Statements ..
   use order_mod,     only : p_order
-  use geovar,        only : n_solpts
+  use geomvar_mod,   only : n_solpts
   use ovar,          only : force_nd_subroutines
   use flowvar_mod,   only : gpsp
   !
@@ -687,8 +687,8 @@ pure &
 subroutine project_to_porder_3d(array,order)
   !
   !.. Use Statements ..
-  use order_mod, only : maxSP
-  use geovar,    only : ncell,cell
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: order
@@ -780,8 +780,8 @@ pure &
 subroutine project_to_porder_2d(array,order)
   !
   !.. Use Statements ..
-  use order_mod, only : maxSP
-  use geovar,    only : ncell,cell
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: order
@@ -869,8 +869,8 @@ pure &
 subroutine project_to_porder_1d(array,order)
   !
   !.. Use Statements ..
-  use order_mod, only : maxSP
-  use geovar,    only : ncell,cell
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: order
@@ -954,8 +954,8 @@ pure &
 subroutine project_to_porder_nd(mbeg,mend,array,order)
   !
   !.. Use Statements ..
-  use order_mod, only : maxSP
-  use geovar,    only : ncell,cell
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: mbeg,mend

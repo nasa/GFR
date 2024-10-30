@@ -70,7 +70,7 @@ contains
 subroutine allocate_mlp
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,nnode
+  use geomvar_mod,     only : ncell,nnode
   use ovar,            only : output_marker_variables,MLP_Marker_Variable
   use module_limiters, only : marker,scaled_marker,nmarker
   !
@@ -154,9 +154,9 @@ end subroutine deallocate_mlp
 !###############################################################################
 subroutine compute_mlp_node_data(cell_ave_sol)
   !
-  use geovar, only : ncell,cell, &
-                     nodes_of_cell_ptr, nodes_of_cell
-! use geovar, only : cells_with_node_ptr, cells_with_node
+  use geomvar_mod,  only : ncell,cell, &
+                           nodes_of_cell_ptr, nodes_of_cell
+! use geomvar_mod,  only : cells_with_node_ptr, cells_with_node
   use parallel_mod, only : exch_mlp_data
   !
   !.. Arguments ..
@@ -215,7 +215,7 @@ end subroutine compute_mlp_node_data
 subroutine get_proj_to_usp(cell,proj_order,cell_usp_proj)
   !
   !.. Use Statements ..
-  use geovar,      only : cell_t
+  use geomvar_mod, only : cell_t
   use flowvar_mod, only : usp
   use filter_mod,  only : filter
   !
@@ -273,7 +273,7 @@ end subroutine get_proj_to_usp
 subroutine get_proj_to_usp_3d(cell,proj_order,cell_usp_proj)
   !
   !.. Use Statements ..
-  use geovar,      only : cell_t
+  use geomvar_mod, only : cell_t
   use flowvar_mod, only : usp
   use filter_mod,  only : filter
   !
@@ -368,7 +368,7 @@ end subroutine get_proj_to_usp_3d
 subroutine get_proj_to_usp_2d(cell,proj_order,cell_usp_proj)
   !
   !.. Use Statements ..
-  use geovar,      only : cell_t
+  use geomvar_mod, only : cell_t
   use flowvar_mod, only : usp
   use filter_mod,  only : filter
   !
@@ -459,7 +459,7 @@ end subroutine get_proj_to_usp_2d
 subroutine get_proj_to_usp_1d(cell,proj_order,cell_usp_proj)
   !
   !.. Use Statements ..
-  use geovar,      only : cell_t
+  use geomvar_mod, only : cell_t
   use flowvar_mod, only : usp
   use filter_mod,  only : filter
   !
@@ -546,7 +546,7 @@ end subroutine get_proj_to_usp_1d
 subroutine get_proj_to_usp_nd(cell,proj_order,cell_usp_proj)
   !
   !.. Use Statements ..
-  use geovar,      only : cell_t
+  use geomvar_mod, only : cell_t
   use flowvar_mod, only : usp
   use filter_mod,  only : filter
   !
@@ -636,7 +636,7 @@ end subroutine get_proj_to_usp_nd
 subroutine interp_cv_to_nodepts(cell,n0,usp,cell_nodeusp)
   !
   !.. Use Statements ..
-  use geovar,            only : cell_t
+  use geomvar_mod,       only : cell_t
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -704,7 +704,7 @@ pure &
 subroutine interp_cv_to_nodepts_3d(cell,n0,usp,cell_nodeusp)
   !
   !.. Use Statements ..
-  use geovar,            only : cell_t
+  use geomvar_mod,       only : cell_t
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -782,7 +782,7 @@ pure &
 subroutine interp_cv_to_nodepts_2d(cell,n0,usp,cell_nodeusp)
   !
   !.. Use Statements ..
-  use geovar,            only : cell_t
+  use geomvar_mod,       only : cell_t
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -857,7 +857,7 @@ pure &
 subroutine interp_cv_to_nodepts_1d(cell,n0,usp,cell_nodeusp)
   !
   !.. Use Statements ..
-  use geovar,            only : cell_t
+  use geomvar_mod,       only : cell_t
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -929,7 +929,7 @@ pure &
 subroutine interp_cv_to_nodepts_nd(cell,n0,usp,cell_nodeusp)
   !
   !.. Use Statements ..
-  use geovar,            only : cell_t
+  use geomvar_mod,       only : cell_t
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -1008,7 +1008,7 @@ end subroutine interp_cv_to_nodepts_nd
 subroutine limit_by_mlp(nst,relax)
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,cell,face,bface,nfbnd
+  use geomvar_mod,     only : ncell,cell,face,bface,nfbnd
   use flowvar_mod,     only : usp
   use cell_ave_mod,    only : allocate_cell_ave,deallocate_cell_ave, &
                               compute_cell_ave_sol,cell_ave_sol

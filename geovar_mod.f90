@@ -1,4 +1,4 @@
-module geovar
+module geomvar_mod
   !
   use module_kind_types, only : wp,lk,iout,int_mpi
   use module_kind_types, only : true,fals,eps6
@@ -10,7 +10,7 @@ module geovar
   private
   !
   public :: output_bface
-  public :: geovar_memory_usage
+  public :: geomvar_memory_usage
   public :: move_cell_to_device
   public :: move_face_to_device
   public :: move_bcgrps_to_device
@@ -1075,7 +1075,7 @@ end function get_face_fp_index
 !###############################################################################
 !###############################################################################
 !
-subroutine geovar_memory_usage(iunit)
+subroutine geomvar_memory_usage(iunit)
   !
   !.. Use Statements ..
   use module_memory
@@ -1782,7 +1782,7 @@ continue
   !
   ! Format Statements
   !
-  1 format (/,"Status of arrays in module geovar")
+  1 format (/,"Status of arrays in module geomvar_mod")
   2 format (" Array: ",a,dt)
   3 format (" Total memory = ",f8.2,1x,a,:,a)
   4 format (a,"(",a,",",i0,")%",a,:,"(",i0,")%mat")
@@ -1792,13 +1792,13 @@ continue
   8 format ("pst_geom(",a,",",i0,")%connectivity")
   !
 #endif
-end subroutine geovar_memory_usage
+end subroutine geomvar_memory_usage
 !
 !###############################################################################
 !###############################################################################
 !###############################################################################
 !
-end module geovar
+end module geomvar_mod
 !
 !###############################################################################
 !

@@ -343,9 +343,9 @@ end subroutine init_filter_matrices
 subroutine filter_usp(update_gpsp)
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
-  use flowvar_mod, only : usp,gpsp
-  use ovar,        only : force_nd_subroutines
+  use geomvar_mod,   only : n_solpts
+  use flowvar_mod,   only : usp,gpsp
+  use ovar,          only : force_nd_subroutines
   !
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
@@ -413,8 +413,8 @@ pure &
 subroutine filter_usp_3d(usp)
   !
   !.. Use Statements ..
-  use order_mod, only : maxSP
-  use geovar,    only : ncell,cell
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: usp(:,:)
@@ -502,8 +502,8 @@ pure &
 subroutine filter_usp_2d(usp)
   !
   !.. Use Statements ..
-  use order_mod, only : maxSP
-  use geovar,    only : ncell,cell
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: usp(:,:)
@@ -587,8 +587,8 @@ pure &
 subroutine filter_usp_1d(usp)
   !
   !.. Use Statements ..
-  use order_mod, only : maxSP
-  use geovar,    only : ncell,cell
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: usp(:,:)
@@ -668,8 +668,8 @@ pure &
 subroutine filter_usp_nd(mbeg,mend,usp)
   !
   !.. Use Statements ..
-  use order_mod, only : maxSP
-  use geovar,    only : ncell,cell
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
   !
   use thermo_mod, only : update_mixture_density
   !

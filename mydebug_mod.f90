@@ -20,8 +20,8 @@ subroutine mydebug(caller_name,line_num,file_nam,query)
   ! Debug the global solution variables.
   !
   use eqn_idx_mod, only : nq
-  use geovar,  only : nnode, ncell, nface, nfbnd, nr
-  use geovar,  only : grid, xyz_nodes, xyz
+  use geomvar_mod, only : nnode, ncell, nface, nfbnd, nr
+  use geomvar_mod, only : grid, xyz_nodes, xyz
  !use flowvar_mod, only : facexyz_dt, faceusp_dt
   use flowvar_mod, only : facexyz, faceusp
   use flowvar_mod, only : sol_nodes, usp
@@ -290,7 +290,7 @@ subroutine mydebug_g2(caller_name,line_num,file_nam,query)
   ! Debug the global solution variables for g2 grid.
   !
   use eqn_idx_mod,      only : nq
-  use geovar,           only : nr
+  use geomvar_mod,      only : nr
   use interpsolvar_mod, only : g2_nnode, g2_ncell, g2_nface, g2_nfbnd
   use interpsolvar_mod, only : g2_grid, g2_xyz_nodes, g2_xyz
  !use interpsolvar_mod, only : g2_facexyz_dt, g2_faceusp_dt

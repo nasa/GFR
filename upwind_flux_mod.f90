@@ -4459,8 +4459,8 @@ pure function upwind_flux_cv(unrm,cvl,cvr) result(return_value)
   !... output: f1,f2,f3,f4 : fluxes.
   !... Roe's flux with Osher's simple wave model (Huynh, SIAM J. Num. 1995)
   !
-  use geovar, only : nr
-  use ovar, only : gam
+  use geomvar_mod, only : nr
+  use ovar,        only : gam
   !
   real(wp), dimension(1:nr), intent(in) :: unrm
   real(wp), dimension(1:nq), intent(in) :: cvl
@@ -4550,8 +4550,8 @@ pure function upwind_flux_pv(unrm,pvl,pvr) result(return_value)
   !... output: f1,f2,f3,f4 : fluxes.
   !... Roe's flux with Osher's simple wave model (Huynh, SIAM J. Num. 1995)
   !
-  use geovar, only : nr
-  use ovar, only : gam
+  use geomvar_mod, only : nr
+  use ovar,        only : gam
   !
   real(wp), dimension(1:nr), intent(in) :: unrm
   real(wp), dimension(1:nq), intent(in) :: pvl
@@ -4633,8 +4633,8 @@ pure function hllc_upwind_flux_cv(unrm,cvl,cvr) result(return_value)
   !... output: f1,f2,f3,f4 : fluxes.
   !... Roe's flux with Osher's simple wave model (Huynh, SIAM J. Num. 1995)
   !
-  use geovar, only : nr
-  use ovar, only : gam
+  use geomvar_mod, only : nr
+  use ovar,        only : gam
   !
   real(wp), dimension(1:nr), intent(in) :: unrm
   real(wp), dimension(1:nq), intent(in) :: cvl
@@ -4739,8 +4739,8 @@ pure function ldfss_upwind_flux_cv(unrm,cvl,cvr) result(return_value)
   !... output: f1,f2,f3,f4 : fluxes.
   !... Roe's flux with Osher's simple wave model (Huynh, SIAM J. Num. 1995)
   !
-  use geovar, only : nr
-  use ovar, only : gam
+  use geomvar_mod, only : nr
+  use ovar,        only : gam
   !
   real(wp), dimension(1:nr), intent(in) :: unrm
   real(wp), dimension(1:nq), intent(in) :: cvl
@@ -4828,8 +4828,8 @@ pure function ausm_plus_upwind_flux(unrm,pvl,pvr) result(return_value)
   !... input unit normal unx,uny, edge length ds, rl,ul,vl,presl, rr,ur,vr,presr
   !... output: f1,f2,f3,f4 : fluxes
   !
-  use geovar, only : nr
-  use ovar, only : gam
+  use geomvar_mod, only : nr
+  use ovar,        only : gam
   !
   real(wp), dimension(1:nr), intent(in) :: unrm
   real(wp), dimension(1:nq), intent(in) :: pvl
@@ -4940,8 +4940,8 @@ end function ausm_plus_upwind_flux
 pure function rotated_rhll_upwind_flux_cv_2d(unrm,cvl,cvr) result(return_value)
  !
  !.. Use Statements ..
- use geovar, only : nr
- use ovar,   only : gam
+ use geomvar_mod, only : nr
+ use ovar,        only : gam
  !
  !.. Formal Arguments ..
  real(wp), dimension(1:nr), intent(in) :: unrm ! unit face normal
@@ -5158,8 +5158,8 @@ end function rotated_rhll_upwind_flux_cv_2d
 pure function rotated_rhll_upwind_flux_cv_3d(unrm,cvl,cvr) result(return_value)
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : gam
+  use geomvar_mod, only : nr
+  use ovar,        only : gam
   !
   !.. Formal Arguments ..
   real(wp), dimension(1:nr), intent(in) :: unrm ! unit face normal

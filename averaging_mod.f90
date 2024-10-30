@@ -30,7 +30,7 @@ contains
 subroutine initialize_time_ave()
   !
   !.. Use Statements ..
-  use geovar,      only : nr,n_solpts
+  use geomvar_mod, only : nr,n_solpts
   use ovar,        only : time,ave_start_time
   use ovar,        only : time_ave_vel_is_axisymm
   use flowvar_mod, only : time_ave_variables
@@ -306,9 +306,9 @@ end subroutine initialize_time_ave
 subroutine update_time_ave()
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : time,prev_ave_time
-  use ovar,   only : ave_start_time,saved_ave_time
+  use geomvar_mod, only : nr
+  use ovar,        only : time,prev_ave_time
+  use ovar,        only : ave_start_time,saved_ave_time
   !
   !.. Local Arrays ..
   real(wp) :: time_val(1:2)
@@ -352,7 +352,7 @@ end subroutine update_time_ave
 subroutine update_time_ave_3d(a,b)
   !
   !.. Use Statements ..
-  use geovar,      only : xyz,n_solpts
+  use geomvar_mod, only : xyz,n_solpts
   use flowvar_mod, only : usp,gpsp,uavesp
   use ovar,        only : gam,time,prev_ave_time
   use ovar,        only : ave_start_time,saved_ave_time
@@ -486,7 +486,7 @@ end subroutine update_time_ave_3d
 subroutine update_time_ave_2d(a,b)
   !
   !.. Use Statements ..
-  use geovar,      only : xyz,n_solpts
+  use geomvar_mod, only : xyz,n_solpts
   use flowvar_mod, only : usp,gpsp,uavesp
   use ovar,        only : gam,time,prev_ave_time
   use ovar,        only : ave_start_time,saved_ave_time
@@ -754,7 +754,7 @@ end subroutine average_restart_files
 subroutine deallocate_solver_arrays()
   !
   !.. Use Statements ..
-  use geovar,      only : face,grid
+  use geomvar_mod, only : face,grid
   use flowvar_mod, only : faceusp_dt,facedusp_dt,faceflx,facexyz_dt
   use flowvar_mod, only : residual,dtsp,uoldsp,rk_sum,rssprk
   use flowvar_mod, only : nodeusp_dt,nodedusp_dt

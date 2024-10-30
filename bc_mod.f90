@@ -62,8 +62,8 @@ subroutine get_faceusp_bc(exit_error)
   use flowvar_mod,   only : faceusp
   use flowvar_mod,   only : facexyz
   use flowvar_mod,   only : facegpsp
-  use geovar,        only : bc_grps,n_bnd_flxpts
-  use geovar,        only : output_bface
+  use geomvar_mod,   only : bc_grps,n_bnd_flxpts
+  use geomvar_mod,   only : output_bface
   use ovar,          only : bc_in,itcur,aref
   use ovar,          only : current_rk_stage
   use ovar,          only : moving_ref_frame
@@ -405,7 +405,7 @@ subroutine get_facedusp_bc
   ! face boundary condition.
   !
   !.. Use Statements ..
-  use geovar,       only : bc_grps
+  use geomvar_mod,  only : bc_grps
   use ovar,         only : bc_in
   use metrics_mod,  only : facenrm
   use flowvar_mod,  only : faceusp
@@ -501,8 +501,8 @@ subroutine output_to_debug_bc_groups(grp_idx,bc_idx,bc_type,beg_fp,end_fp, &
                                      facenrm,faceusp)
   !
   !.. Use Statements ..
-  use geovar, only : n_solpts,n_flxpts,n_wall_flxpts,n_bnd_flxpts
-  use ovar,   only : bc_in
+  use geomvar_mod, only : n_solpts,n_flxpts,n_wall_flxpts,n_bnd_flxpts
+  use ovar,        only : bc_in
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: grp_idx

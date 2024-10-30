@@ -22,7 +22,7 @@ contains
 subroutine get_dtsp(dtmin,final_timestep_from_stop_request,skip_updates)
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use ovar,        only : Timestep_Type
   use ovar,        only : d_t,cfl ! modified
   use flowvar_mod, only : dtsp ! modified
@@ -227,8 +227,8 @@ end subroutine get_current_cfl
 subroutine get_constant_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
-  use ovar,    only : constant_dt,CFL
-  use geovar,  only : n_solpts
+  use ovar,        only : constant_dt,CFL
+  use geomvar_mod, only : n_solpts
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
@@ -260,8 +260,8 @@ end subroutine get_constant_timestep
 subroutine get_cell_global_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,nface,n_solpts
-  use geovar, only : face,cell,n_bnd_flxpts,n_flxpts
+  use geomvar_mod, only : nfbnd,nface,n_solpts
+  use geomvar_mod, only : face,cell,n_bnd_flxpts,n_flxpts
   !
   use ovar, only : CFL,governing_equations
   !
@@ -451,8 +451,8 @@ end subroutine get_cell_global_timestep
 subroutine get_cell_local_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,nface,ncell
-  use geovar, only : face,cell,n_flxpts
+  use geomvar_mod, only : nfbnd,nface,ncell
+  use geomvar_mod, only : face,cell,n_flxpts
   !
   use ovar, only : CFL,governing_equations
   !
@@ -961,7 +961,7 @@ end subroutine invs_eigenvalue_nd
 subroutine get_point_global_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
-  use geovar,      only : nr,n_solpts,xyz
+  use geomvar_mod, only : nr,n_solpts,xyz
   use ovar,        only : gam,CFL
   use ovar,        only : moving_ref_frame
   use metrics_mod, only : time_metrics
@@ -1129,7 +1129,7 @@ end subroutine get_point_global_timestep
 subroutine get_point_local_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
-  use geovar,      only : nr,n_solpts,xyz
+  use geomvar_mod, only : nr,n_solpts,xyz
   use ovar,        only : gam,CFL
   use ovar,        only : moving_ref_frame
   use metrics_mod, only : time_metrics
@@ -1292,10 +1292,10 @@ end subroutine get_point_local_timestep
 subroutine check_tstar_for_TaylorGreen(dtmin,dt_sp,skip_updates)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts
-  use ovar,    only : time,time_ref
-  use ovar,    only : write_TaylorGreen_8s_solution ! modified
-  use ovar,    only : write_TaylorGreen_full_solution ! modified
+  use geomvar_mod, only : n_solpts
+  use ovar,        only : time,time_ref
+  use ovar,        only : write_TaylorGreen_8s_solution ! modified
+  use ovar,        only : write_TaylorGreen_full_solution ! modified
   !
   !.. Formal Arguments ..
   real(wp),    intent(inout) :: dtmin
@@ -1431,9 +1431,9 @@ end subroutine check_tstar_for_TaylorGreen
 subroutine check_tstar_for_TaylorCouette(dtmin,dt_sp,skip_updates)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts
-  use ovar,    only : time,time_ref
-  use ovar,    only : write_TaylorGreen_full_solution ! modified
+  use geomvar_mod, only : n_solpts
+  use ovar,        only : time,time_ref
+  use ovar,        only : write_TaylorGreen_full_solution ! modified
   !
   !.. Formal Arguments ..
   real(wp),    intent(inout) :: dtmin
@@ -1622,13 +1622,13 @@ end function check_against_ideal_time
 subroutine check_output_frequency(dtmin,dt_sp,skip_updates)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts
-  use ovar,    only : time,time_ref,time_scaling_factor
-  use ovar,    only : output_frequency
-  use ovar,    only : is_at_output_frequency ! modified
-  use ovar,    only : restart_frequency
-  use ovar,    only : is_at_restart_frequency ! modified
-  use ovar,    only : output_time_averaging,ave_start_time
+  use geomvar_mod, only : n_solpts
+  use ovar,        only : time,time_ref,time_scaling_factor
+  use ovar,        only : output_frequency
+  use ovar,        only : is_at_output_frequency ! modified
+  use ovar,        only : restart_frequency
+  use ovar,        only : is_at_restart_frequency ! modified
+  use ovar,        only : output_time_averaging,ave_start_time
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: dtmin
@@ -1759,9 +1759,9 @@ subroutine check_final_time(dtmin,dt_sp,final_timestep_from_stop_request, &
                             skip_updates)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts
-  use ovar,    only : itcur,time,Final_Time,time_ref,time_scaling_factor
-  use ovar,    only : this_is_final_timestep ! modified
+  use geomvar_mod, only : n_solpts
+  use ovar,        only : itcur,time,Final_Time,time_ref,time_scaling_factor
+  use ovar,        only : this_is_final_timestep ! modified
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: dtmin

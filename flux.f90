@@ -66,7 +66,7 @@ contains
 subroutine interp_cv_to_flxpts(iter,nst)
   !
   !.. Use Statements ..
-  use geovar,          only : nr,n_bnd_flxpts,n_phys_bnd_flxpts,n_flxpts
+  use geomvar_mod,     only : nr,n_bnd_flxpts,n_phys_bnd_flxpts,n_flxpts
   use flowvar_mod,     only : faceusp,facegpsp
   use ovar,            only : thermofix
   use thermo_mod,      only : update_thermo_properties
@@ -155,11 +155,11 @@ end subroutine interp_cv_to_flxpts
 !
 subroutine interp_cv_to_flxpts_3d(iter,nst)
   !
-  use geovar,            only : ncell,cell,fp
+  use geomvar_mod,       only : ncell,cell,fp
   use interpolation_mod, only : interp
   use flowvar_mod,       only : usp
   use flowvar_mod,       only : faceusp
-  use geovar,            only : face
+  use geomvar_mod,       only : face
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: iter,nst
@@ -267,11 +267,11 @@ end subroutine interp_cv_to_flxpts_3d
 !
 subroutine interp_cv_to_flxpts_2d()
   !
-  use geovar,            only : ncell,cell,fp
+  use geomvar_mod,       only : ncell,cell,fp
   use interpolation_mod, only : interp
   use flowvar_mod,       only : usp
   use flowvar_mod,       only : faceusp
-  use geovar,            only : face
+  use geomvar_mod,       only : face
   !
   !.. Local Scalars ..
   integer :: n,nc,n0,ncf,f0
@@ -367,11 +367,11 @@ end subroutine interp_cv_to_flxpts_2d
 !
 subroutine interp_cv_to_flxpts_1d()
   !
-  use geovar,            only : ncell,cell,fp
+  use geomvar_mod,       only : ncell,cell,fp
   use interpolation_mod, only : interp
   use flowvar_mod,       only : usp
   use flowvar_mod,       only : faceusp
-  use geovar,            only : face
+  use geomvar_mod,       only : face
   !
   !.. Local Scalars ..
   integer :: n,nc,n0,ncf,f0
@@ -465,11 +465,11 @@ end subroutine interp_cv_to_flxpts_1d
 subroutine interp_cv_to_flxpts_nd(mbeg,mend)
   !
   use order_mod,         only : maxSP,maxFP
-  use geovar,            only : ncell,cell,fp
+  use geomvar_mod,       only : ncell,cell,fp
   use interpolation_mod, only : interp
   use flowvar_mod,       only : usp
   use flowvar_mod,       only : faceusp
-  use geovar,            only : face
+  use geomvar_mod,       only : face
   !
   !.. Formal Arguments ..
   integer, intent(in) :: mbeg,mend
@@ -567,7 +567,7 @@ end subroutine interp_cv_to_flxpts_nd
 !
 subroutine interp_dusp_to_flxpts()
   !
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !. Local Saved Scalars ..
   integer, save :: idx = -1
@@ -600,7 +600,7 @@ end subroutine interp_dusp_to_flxpts
 subroutine interp_dusp_to_flxpts_3d()
   !
   !.. Use Statements ..
-  use geovar,            only : ncell,cell,face,fp
+  use geomvar_mod,       only : ncell,cell,face,fp
   use interpolation_mod, only : interp
   use flowvar_mod,       only : dusp,facedusp
   !
@@ -733,7 +733,7 @@ end subroutine interp_dusp_to_flxpts_3d
 subroutine interp_dusp_to_flxpts_2d()
   !
   !.. Use Statements ..
-  use geovar,            only : ncell,cell,face,fp
+  use geomvar_mod,       only : ncell,cell,face,fp
   use interpolation_mod, only : interp
   use flowvar_mod,       only : dusp,facedusp
   !
@@ -849,7 +849,7 @@ subroutine interp_dusp_to_flxpts_nd()
   !
   !.. Use Statements ..
   use order_mod,         only : maxFP
-  use geovar,            only : nr,ncell,cell,face,fp
+  use geomvar_mod,       only : nr,ncell,cell,face,fp
   use interpolation_mod, only : interp
   use flowvar_mod,       only : dusp,facedusp
   !
@@ -962,8 +962,8 @@ subroutine flux_gradient_at_solpts(iter,nst)
   !... for each cell, get f, g, ftd, gtd at the solution points
   !
   !.. Use Statements ..
-  use geovar,      only : nr,n_solpts
-  use geovar,      only : using_quadrature
+  use geomvar_mod, only : nr,n_solpts
+  use geomvar_mod, only : using_quadrature
   use flowvar_mod, only : usp,gpsp,dusp
   !
   !.. Formal Arguments ..
@@ -1023,8 +1023,8 @@ end subroutine flux_gradient_at_solpts
 subroutine compute_fluxes_at_solpts(usp,gpsp,dusp,ifluxes,vfluxes)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,n_solpts,xyz
-  use ovar,    only : governing_equations
+  use geomvar_mod,   only : nr,n_solpts,xyz
+  use ovar,          only : governing_equations
   !
   use visc_flux_mod, only : visc_flx_cv_gpu
   use invs_flux_mod, only : invs_flx_cv_gpu
@@ -1105,8 +1105,8 @@ end subroutine compute_fluxes_at_solpts
 subroutine compute_fluxes_at_qdtpts(usp,dusp,ifluxes)
   !
   !.. Use Statements ..
-  use geovar, only : nr,n_qdtpts
-  use ovar,   only : governing_equations
+  use geomvar_mod,   only : nr,n_qdtpts
+  use ovar,          only : governing_equations
   !
   use visc_flux_mod, only : visc_flx_cv_gpu
   use invs_flux_mod, only : invs_flx_cv_gpu
@@ -1204,7 +1204,7 @@ end subroutine compute_fluxes_at_qdtpts
 subroutine interp_cv_to_qdtpts(usp,uqp,gpqp)
   !
   !.. Use Statements ..
-  use geovar,        only : nr
+  use geomvar_mod,   only : nr
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -1247,7 +1247,7 @@ end subroutine interp_cv_to_qdtpts
 !
 subroutine interp_cv_to_qdtpts_3d(usp,uqp)
   !
-  use geovar,            only : ncell,cell
+  use geomvar_mod,       only : ncell,cell
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -1325,7 +1325,7 @@ end subroutine interp_cv_to_qdtpts_3d
 !
 subroutine interp_cv_to_qdtpts_2d(usp,uqp)
   !
-  use geovar,            only : ncell,cell
+  use geomvar_mod,       only : ncell,cell
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -1400,7 +1400,7 @@ end subroutine interp_cv_to_qdtpts_2d
 !
 subroutine interp_cv_to_qdtpts_nd(usp,uqp)
   !
-  use geovar,            only : ncell,cell
+  use geomvar_mod,       only : ncell,cell
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -1468,7 +1468,7 @@ end subroutine interp_cv_to_qdtpts_nd
 !
 subroutine create_xyzqp()
   !
-  use geovar,            only : nr,n_qdtpts,ncell,cell,xyz
+  use geomvar_mod,       only : nr,n_qdtpts,ncell,cell,xyz
   use interpolation_mod, only : interp
   use mrf_mod,           only : is_not_in_mrf
   !
@@ -1558,7 +1558,7 @@ end subroutine create_xyzqp
 subroutine interp_dusp_to_qdtpts(dusp,duqp)
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: dusp(:,:,:)
@@ -1587,7 +1587,7 @@ end subroutine interp_dusp_to_qdtpts
 !
 subroutine interp_dusp_to_qdtpts_3d(dusp,duqp)
   !
-  use geovar,            only : ncell,cell
+  use geomvar_mod,       only : ncell,cell
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -1696,7 +1696,7 @@ end subroutine interp_dusp_to_qdtpts_3d
 !
 subroutine interp_dusp_to_qdtpts_2d(dusp,duqp)
   !
-  use geovar,            only : ncell,cell
+  use geomvar_mod,       only : ncell,cell
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -1787,7 +1787,7 @@ end subroutine interp_dusp_to_qdtpts_2d
 !
 subroutine interp_dusp_to_qdtpts_nd(dusp,duqp)
   !
-  use geovar,            only : nr,ncell,cell
+  use geomvar_mod,       only : nr,ncell,cell
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -1858,7 +1858,7 @@ end subroutine interp_dusp_to_qdtpts_nd
 subroutine project_fluxes_to_solpts(iflxqp,ifluxes)
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: iflxqp(:,:,:)
@@ -1887,7 +1887,7 @@ end subroutine project_fluxes_to_solpts
 !
 subroutine project_fluxes_to_solpts_3d(iflxqp,ifluxes)
   !
-  use geovar,         only : ncell,cell
+  use geomvar_mod,    only : ncell,cell
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
@@ -1996,7 +1996,7 @@ end subroutine project_fluxes_to_solpts_3d
 !
 subroutine project_fluxes_to_solpts_2d(iflxqp,ifluxes)
   !
-  use geovar,         only : ncell,cell
+  use geomvar_mod,    only : ncell,cell
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
@@ -2087,7 +2087,7 @@ end subroutine project_fluxes_to_solpts_2d
 !
 subroutine project_fluxes_to_solpts_nd(iflxqp,ifluxes)
   !
-  use geovar,         only : nr,ncell,cell
+  use geomvar_mod,    only : nr,ncell,cell
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
@@ -2573,7 +2573,7 @@ subroutine compute_flux_divergence_3d(rfluxes,iter,nst)
   !
   !.. Use Statements ..
   use order_mod,       only : maxSP
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use derivatives_mod, only : deriv
   use flowvar_mod,     only : residual
   !
@@ -2691,7 +2691,7 @@ subroutine compute_flux_divergence_2d(rfluxes)
   !
   !.. Use Statements ..
   use order_mod,       only : maxSP
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use derivatives_mod, only : deriv
   use flowvar_mod,     only : residual
   !
@@ -2805,7 +2805,7 @@ subroutine compute_flux_divergence_1d(rfluxes)
   !
   !.. Use Statements ..
   use order_mod,       only : maxSP
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use derivatives_mod, only : deriv
   use flowvar_mod,     only : residual
   !
@@ -2900,7 +2900,7 @@ subroutine compute_flux_divergence_nd(mbeg,mend,rfluxes)
   !
   !.. Use Statements ..
   use order_mod,       only : maxSP
-  use geovar,          only : nr,ncell,cell
+  use geomvar_mod,     only : nr,ncell,cell
   use derivatives_mod, only : deriv
   use flowvar_mod,     only : residual
   !
@@ -3062,7 +3062,7 @@ subroutine add_flux_correction_3d(tfluxes)
   !
   !.. Use Statements ..
   use order_mod,         only : maxFP,geom_solpts
-  use geovar,            only : ncell,cell,fp,face
+  use geomvar_mod,       only : ncell,cell,fp,face
   use interpolation_mod, only : interp
   use metrics_mod,       only : facenrm
   use flowvar_mod,       only : residual,faceflx
@@ -3239,7 +3239,7 @@ subroutine add_flux_correction_2d(tfluxes)
   !
   !.. Use Statements ..
   use order_mod,         only : maxFP,geom_solpts
-  use geovar,            only : ncell,cell,fp,face
+  use geomvar_mod,       only : ncell,cell,fp,face
   use interpolation_mod, only : interp
   use metrics_mod,       only : facenrm
   use flowvar_mod,       only : residual,faceflx
@@ -3451,7 +3451,7 @@ subroutine add_flux_correction_1d(tfluxes)
   !
   !.. Use Statements ..
   use order_mod,         only : maxFP,geom_solpts
-  use geovar,            only : ncell,cell,fp,face
+  use geomvar_mod,       only : ncell,cell,fp,face
   use interpolation_mod, only : interp
   use metrics_mod,       only : facenrm
   use flowvar_mod,       only : residual,faceflx
@@ -3650,7 +3650,7 @@ subroutine add_flux_correction_nd(mbeg,mend,tfluxes)
   !
   !.. Use Statements ..
   use order_mod,         only : maxFP,geom_solpts
-  use geovar,            only : nr,ncell,cell,fp,face
+  use geomvar_mod,       only : nr,ncell,cell,fp,face
   use interpolation_mod, only : interp
   use metrics_mod,       only : facenrm
   use flowvar_mod,       only : residual,faceflx
@@ -3827,7 +3827,7 @@ end subroutine add_flux_correction_nd
 subroutine get_invs_common_fluxes_interior()
   !
   !.. Use Statements ..
-  use geovar,      only : using_quadrature
+  use geomvar_mod, only : using_quadrature
   use flowvar_mod, only : faceflx
   !
   !.. Local Scalars ..
@@ -3872,7 +3872,7 @@ end subroutine get_invs_common_fluxes_interior
 subroutine invs_common_fluxes_interior_at_flxpts()
   !
   !.. Use Statements ..
-  use geovar,      only : n_bnd_flxpts,n_flxpts
+  use geomvar_mod, only : n_bnd_flxpts,n_flxpts
   use ovar,        only : invs_flux_method
   use metrics_mod, only : facenrm
   use flowvar_mod, only : faceusp
@@ -3938,7 +3938,7 @@ end subroutine invs_common_fluxes_interior_at_flxpts
 subroutine invs_common_fluxes_interior_at_qdtpts()
   !
   !.. Use Statements ..
-  use geovar,      only : nfbnd,nface,n_bnd_qdtpts,n_flx_qdtpts
+  use geomvar_mod, only : nfbnd,nface,n_bnd_qdtpts,n_flx_qdtpts
   use ovar,        only : invs_flux_method
   use ovar,        only : combine_common_flux_projections
   use metrics_mod, only : facenrm_qdtpts
@@ -3999,7 +3999,7 @@ end subroutine invs_common_fluxes_interior_at_qdtpts
 subroutine get_visc_common_fluxes_interior()
   !
   !.. Use Statements ..
-  use geovar, only : using_quadrature
+  use geomvar_mod, only : using_quadrature
   !
   !. Local Saved Scalars ..
   integer, save :: idx = -1
@@ -4030,7 +4030,7 @@ end subroutine get_visc_common_fluxes_interior
 subroutine visc_common_fluxes_interior_at_flxpts()
   !
   !.. Use Statements ..
-  use geovar,      only : n_bnd_flxpts,n_flxpts
+  use geomvar_mod, only : n_bnd_flxpts,n_flxpts
   use ovar,        only : visc_variables_to_ave
   use metrics_mod, only : facenrm
   use flowvar_mod, only : faceusp
@@ -4071,7 +4071,7 @@ end subroutine visc_common_fluxes_interior_at_flxpts
 subroutine visc_common_fluxes_interior_at_qdtpts()
   !
   !.. Use Statements ..
-  use geovar,      only : nr,nfbnd,nface,n_bnd_qdtpts,n_flx_qdtpts
+  use geomvar_mod, only : nr,nfbnd,nface,n_bnd_qdtpts,n_flx_qdtpts
   use ovar,        only : visc_variables_to_ave
   use ovar,        only : combine_common_flux_projections
   use metrics_mod, only : facenrm_qdtpts
@@ -4128,7 +4128,7 @@ end subroutine visc_common_fluxes_interior_at_qdtpts
 subroutine get_invs_common_fluxes_bc()
   !
   !.. Use Statements ..
-  use geovar,        only : using_quadrature,n_bnd_flxpts
+  use geomvar_mod,   only : using_quadrature,n_bnd_flxpts
   use flowvar_mod,   only : faceusp,facegpsp
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
@@ -4175,7 +4175,7 @@ end subroutine get_invs_common_fluxes_bc
 subroutine invs_common_fluxes_bc_at_flxpts()
   !
   !.. Use Statements ..
-  use geovar,      only : n_wall_flxpts,n_bnd_flxpts
+  use geomvar_mod, only : n_wall_flxpts,n_bnd_flxpts
   use ovar,        only : invs_flux_method
   use metrics_mod, only : facenrm
   use flowvar_mod, only : faceusp
@@ -4255,7 +4255,7 @@ end subroutine invs_common_fluxes_bc_at_flxpts
 subroutine invs_common_fluxes_bc_at_qdtpts()
   !
   !.. Use Statements ..
-  use geovar,      only : nfbnd,n_wall_qdtpts,n_bnd_qdtpts
+  use geomvar_mod, only : nfbnd,n_wall_qdtpts,n_bnd_qdtpts
   use ovar,        only : invs_flux_method
   use ovar,        only : combine_common_flux_projections
   use metrics_mod, only : facenrm_qdtpts
@@ -4309,7 +4309,7 @@ end subroutine invs_common_fluxes_bc_at_qdtpts
 subroutine get_visc_common_fluxes_bc()
   !
   !.. Use Statements ..
-  use geovar, only : using_quadrature
+  use geomvar_mod, only : using_quadrature
   !
   !. Local Saved Scalars ..
   integer, save :: idx = -1
@@ -4340,7 +4340,7 @@ end subroutine get_visc_common_fluxes_bc
 subroutine visc_common_fluxes_bc_at_flxpts()
   !
   !.. Use Statements ..
-  use geovar,      only : n_wall_flxpts,n_bnd_flxpts
+  use geomvar_mod, only : n_wall_flxpts,n_bnd_flxpts
   use ovar,        only : visc_variables_to_ave
   use metrics_mod, only : facenrm
   use flowvar_mod, only : faceusp
@@ -4397,7 +4397,7 @@ end subroutine visc_common_fluxes_bc_at_flxpts
 subroutine visc_common_fluxes_bc_at_qdtpts()
   !
   !.. Use Statements ..
-  use geovar,      only : nfbnd,nface,n_wall_qdtpts,n_bnd_qdtpts
+  use geomvar_mod, only : nfbnd,nface,n_wall_qdtpts,n_bnd_qdtpts
   use ovar,        only : visc_variables_to_ave
   use ovar,        only : combine_common_flux_projections
   use metrics_mod, only : facenrm_qdtpts
@@ -4466,7 +4466,7 @@ end subroutine visc_common_fluxes_bc_at_qdtpts
 subroutine project_flux_qdtpts_to_faceflx(nf1,nf2,flxqp,flxfp)
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nf1
@@ -4498,7 +4498,7 @@ end subroutine project_flux_qdtpts_to_faceflx
 subroutine project_flux_qdtpts_to_faceflx_3d(nf1,nf2,flxqp,flxfp)
   !
   !.. Use Statements ..
-  use geovar,         only : face
+  use geomvar_mod,    only : face
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
@@ -4580,7 +4580,7 @@ end subroutine project_flux_qdtpts_to_faceflx_3d
 subroutine project_flux_qdtpts_to_faceflx_2d(nf1,nf2,flxqp,flxfp)
   !
   !.. Use Statements ..
-  use geovar,         only : face
+  use geomvar_mod,    only : face
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
@@ -4659,7 +4659,7 @@ end subroutine project_flux_qdtpts_to_faceflx_2d
 subroutine project_flux_qdtpts_to_faceflx_nd(nf1,nf2,flxqp,flxfp)
   !
   !.. Use Statements ..
-  use geovar,         only : face
+  use geomvar_mod,    only : face
   use projection_mod, only : projct
   !
   !.. Formal Arguments ..
@@ -4731,7 +4731,7 @@ end subroutine project_flux_qdtpts_to_faceflx_nd
 subroutine interp_faceusp_to_faceuqp(nf1,nf2,faceusp,faceuqp,facegpqp)
   !
   !.. Use Statements ..
-  use geovar,        only : nr,face
+  use geomvar_mod,   only : nr,face
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
   !
@@ -4777,7 +4777,7 @@ end subroutine interp_faceusp_to_faceuqp
 subroutine interp_faceusp_to_faceuqp_3d(nf1,nf2,faceusp,faceuqp)
   !
   !.. Use Statements ..
-  use geovar,            only : face
+  use geomvar_mod,       only : face
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -4879,7 +4879,7 @@ end subroutine interp_faceusp_to_faceuqp_3d
 subroutine interp_faceusp_to_faceuqp_2d(nf1,nf2,faceusp,faceuqp)
   !
   !.. Use Statements ..
-  use geovar,            only : face
+  use geomvar_mod,       only : face
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -4975,7 +4975,7 @@ end subroutine interp_faceusp_to_faceuqp_2d
 subroutine interp_faceusp_to_faceuqp_nd(nf1,nf2,faceusp,faceuqp)
   !
   !.. Use Statements ..
-  use geovar,            only : face
+  use geomvar_mod,       only : face
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -5049,7 +5049,7 @@ end subroutine interp_faceusp_to_faceuqp_nd
 subroutine interp_facedusp_to_faceduqp(nf1,nf2,facedusp,faceduqp)
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nf1
@@ -5081,7 +5081,7 @@ end subroutine interp_facedusp_to_faceduqp
 subroutine interp_facedusp_to_faceduqp_3d(nf1,nf2,facedusp,faceduqp)
   !
   !.. Use Statements ..
-  use geovar,            only : face
+  use geomvar_mod,       only : face
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -5243,7 +5243,7 @@ end subroutine interp_facedusp_to_faceduqp_3d
 subroutine interp_facedusp_to_faceduqp_2d(nf1,nf2,facedusp,faceduqp)
   !
   !.. Use Statements ..
-  use geovar,            only : face
+  use geomvar_mod,       only : face
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -5369,7 +5369,7 @@ end subroutine interp_facedusp_to_faceduqp_2d
 subroutine interp_facedusp_to_faceduqp_nd(nf1,nf2,facedusp,faceduqp)
   !
   !.. Use Statements ..
-  use geovar,            only : nr,face
+  use geomvar_mod,       only : nr,face
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
@@ -5447,7 +5447,7 @@ end subroutine interp_facedusp_to_faceduqp_nd
 subroutine create_facexyzqp()
   !
   !.. Use Statements ..
-  use geovar,            only : nr,n_flx_qdtpts,nface,face
+  use geomvar_mod,       only : nr,n_flx_qdtpts,nface,face
   use flowvar_mod,       only : facexyz
   use interpolation_mod, only : interp
   use mrf_mod,           only : is_not_in_mrf
@@ -5554,7 +5554,7 @@ subroutine discontinuous_gradient_at_solpts()
   ! This routine computes the discontinuous gradient at each solution point
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !. Local Saved Scalars ..
   integer, save :: idx = -1
@@ -5602,7 +5602,7 @@ subroutine discontinuous_gradient_at_solpts_3d()
   !
   !.. Use Statements ..
   use order_mod,       only : maxSP
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
   use flowvar_mod,     only : usp,dusp
@@ -5748,7 +5748,7 @@ subroutine discontinuous_gradient_at_solpts_2d()
   !
   !.. Use Statements ..
   use order_mod,       only : maxSP
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
   use flowvar_mod,     only : usp,dusp
@@ -5855,7 +5855,7 @@ subroutine discontinuous_gradient_at_solpts_1d()
   !
   !.. Use Statements ..
   use order_mod,       only : maxSP
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
   use flowvar_mod,     only : usp,dusp
@@ -5929,7 +5929,7 @@ subroutine discontinuous_gradient_at_solpts_nd(mbeg,mend)
   !
   !.. Use Statements ..
   use order_mod,       only : maxSP
-  use geovar,          only : nr,ncell,cell
+  use geomvar_mod,     only : nr,ncell,cell
  !use metrics_mod,     only : metrics_dt
   use metrics_mod,     only : metrics_array
   use derivatives_mod, only : deriv
@@ -6011,7 +6011,7 @@ end subroutine discontinuous_gradient_at_solpts_nd
 subroutine correct_gradients_at_solpts_gpu()
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !. Local Saved Scalars ..
   integer, save :: idx = -1
@@ -6044,8 +6044,8 @@ end subroutine correct_gradients_at_solpts_gpu
 subroutine correct_gradients_at_solpts_gpu_3d()
   !
   !.. Use Statements ..
-  use geovar,         only : nr,nfbnd,nface,n_flxpts
-  use geovar,         only : face,cell,fp
+  use geomvar_mod,    only : nr,nfbnd,nface,n_flxpts
+  use geomvar_mod,    only : face,cell,fp
   use metrics_mod,    only : facenrm,jac
   use correction_mod, only : correct
   use flowvar_mod,    only : dusp,faceusp
@@ -6354,8 +6354,8 @@ end subroutine correct_gradients_at_solpts_gpu_3d
 subroutine correct_gradients_at_solpts_gpu_2d()
   !
   !.. Use Statements ..
-  use geovar,         only : nr,nfbnd,nface,n_flxpts
-  use geovar,         only : face,cell,fp
+  use geomvar_mod,    only : nr,nfbnd,nface,n_flxpts
+  use geomvar_mod,    only : face,cell,fp
   use metrics_mod,    only : facenrm,jac
   use correction_mod, only : correct
   use flowvar_mod,    only : dusp,faceusp
@@ -6633,8 +6633,8 @@ end subroutine correct_gradients_at_solpts_gpu_2d
 subroutine correct_gradients_at_solpts_gpu_nd()
   !
   !.. Use Statements ..
-  use geovar,         only : nr,nfbnd,nface,n_flxpts
-  use geovar,         only : face,cell,fp
+  use geomvar_mod,    only : nr,nfbnd,nface,n_flxpts
+  use geomvar_mod,    only : face,cell,fp
   use metrics_mod,    only : facenrm,jac
   use correction_mod, only : correct
   use flowvar_mod,    only : dusp,faceusp
@@ -6868,7 +6868,7 @@ end subroutine correct_gradients_at_solpts_gpu_nd
 subroutine init_cbias()
   !
   !.. Use Statements ..
-  use geovar,      only : nr,n_flxpts,nfbnd,bface,face
+  use geomvar_mod, only : nr,n_flxpts,nfbnd,bface,face
   use ovar,        only : walls_are_exact,visc_flux_method,LDG_beta
   use metrics_mod, only : facenrm
   !
@@ -6917,7 +6917,7 @@ end subroutine init_cbias
 subroutine correct_gradients_br2_gpu()
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !. Local Saved Scalars ..
   integer, save :: idx = -1
@@ -6962,7 +6962,7 @@ end subroutine correct_gradients_br2_gpu
 subroutine correct_gradients_br2_gpu_3d()
   !
   use order_mod,         only : maxSP
-  use geovar,            only : n_flxpts,ncell,cell,fp,face
+  use geomvar_mod,       only : n_flxpts,ncell,cell,fp,face
   use metrics_mod,       only : jac,facenrm
   use correction_mod,    only : correct
   use flowvar_mod,       only : dusp
@@ -7341,7 +7341,7 @@ end subroutine correct_gradients_br2_gpu_3d
 subroutine correct_gradients_br2_gpu_2d()
   !
   use order_mod,         only : maxSP
-  use geovar,            only : n_flxpts,ncell,cell,fp,face
+  use geomvar_mod,       only : n_flxpts,ncell,cell,fp,face
   use metrics_mod,       only : jac,facenrm
   use correction_mod,    only : correct
   use flowvar_mod,       only : dusp
@@ -7617,7 +7617,7 @@ end subroutine correct_gradients_br2_gpu_2d
 subroutine correct_gradients_br2_gpu_1d()
   !
   use order_mod,         only : maxSP
-  use geovar,            only : n_flxpts,ncell,cell,fp,face
+  use geomvar_mod,       only : n_flxpts,ncell,cell,fp,face
   use metrics_mod,       only : jac,facenrm
   use correction_mod,    only : correct
   use flowvar_mod,       only : dusp
@@ -7833,7 +7833,7 @@ end subroutine correct_gradients_br2_gpu_1d
 subroutine correct_gradients_br2_gpu_nd(mbeg,mend)
   !
   use order_mod,         only : maxSP
-  use geovar,            only : nr,n_flxpts,ncell,cell,fp,face
+  use geomvar_mod,       only : nr,n_flxpts,ncell,cell,fp,face
   use metrics_mod,       only : jac,facenrm
   use correction_mod,    only : correct
   use flowvar_mod,       only : dusp
@@ -8120,8 +8120,8 @@ end subroutine write_3d_array
 !!!
 !!!.. Use Statements ..
 !!use order_mod,         only : maxSP,maxFP,geom_solpts
-!!use geovar,            only : nr,ncell
-!!use geovar,            only : cell,face,fp
+!!use geomvar_mod,       only : nr,ncell
+!!use geomvar_mod,       only : cell,face,fp
 !!use interpolation_mod, only : interp
 !!use derivatives_mod,   only : deriv
 !!use metrics_mod,       only : metrics_dt,facenrm
@@ -8352,8 +8352,8 @@ end subroutine write_3d_array
 !!!
 !!!.. Use Statements ..
 !!use order_mod,         only : maxSP,maxFP,geom_solpts
-!!use geovar,            only : nr,ncell,xyz
-!!use geovar,            only : cell,face,fp,n_solpts
+!!use geomvar_mod,       only : nr,ncell,xyz
+!!use geomvar_mod,       only : cell,face,fp,n_solpts
 !!use interpolation_mod, only : interp
 !!use derivatives_mod,   only : deriv
 !!use metrics_mod,       only : metrics_array,jac,facenrm
@@ -8614,8 +8614,8 @@ end subroutine write_3d_array
 !!subroutine correct_interface_flux_visc(time_step,rk_step)
 !!!
 !!use order_mod,         only : maxFP,geom_solpts
-!!use geovar,            only : nr,nfbnd,nface
-!!use geovar,            only : bface,face,cell,fp
+!!use geomvar_mod,       only : nr,nfbnd,nface
+!!use geomvar_mod,       only : bface,face,cell,fp
 !!use ovar,              only : invs_flux_method,governing_equations
 !!use ovar,              only : output_dir,dump_fluxes
 !!use metrics_mod,       only : facenrm
@@ -8982,9 +8982,9 @@ end subroutine write_3d_array
 !!!
 !!use matrix_types_mod,  only : matrix
 !!use order_mod,         only : maxSP,maxFP,geom_solpts
-!!use geovar,            only : cell
-!!use geovar,            only : nr,ncell,nfbnd,bface
-!!use geovar,            only : face,fp
+!!use geomvar_mod,       only : cell
+!!use geomvar_mod,       only : nr,ncell,nfbnd,bface
+!!use geomvar_mod,       only : face,fp
 !!use metrics_mod,       only : facenrm,metrics_dt
 !!use correction_mod,    only : correct
 !!use flowvar_mod,       only : dusp,facedusp,faceusp
@@ -9206,8 +9206,8 @@ end subroutine write_3d_array
 !!!
 !!!.. Use Statements ..
 !!use order_mod,         only : maxpts,geom_solpts
-!!use geovar,            only : nfbnd,nface,nr,n_solpts,ncell
-!!use geovar,            only : face,cell,bface,fp
+!!use geomvar_mod,       only : nfbnd,nface,nr,n_solpts,ncell
+!!use geomvar_mod,       only : face,cell,bface,fp
 !!use metrics_mod,       only : facenrm,metrics_dt
 !!use correction_mod,    only : correct
 !!use flowvar_mod,       only : dusp,faceusp

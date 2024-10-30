@@ -2,9 +2,9 @@ module module_gmsh
   !
   !.. Use Statements ..
   use module_kind_types
-  use geovar, only : grid
-  use geovar, only : elem_t
-  use geovar, only : prop_t
+  use geomvar_mod, only : grid
+  use geomvar_mod, only : elem_t
+  use geomvar_mod, only : prop_t
   !
   implicit none
   !
@@ -896,8 +896,8 @@ end subroutine read_gmsh_section_meshformat
 subroutine read_gmsh_section_nodes
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : grid_scaling_factor
+  use geomvar_mod, only : nr
+  use ovar,        only : grid_scaling_factor
   !
   !.. Local Scalars ..
   integer :: i,j,n,npts,ierr
@@ -1321,11 +1321,11 @@ subroutine create_solver_geom_arrays_gmsh
   !
   !.. Use Statements ..
   use order_mod, only : n_order
-  use geovar, only : nr,ncell,nnode,nfbnd,nbfai,bface
-  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar, only : cell_geom,cell_order,xyz_nodes
-  use ovar,   only : loc_solution_pts,loc_flux_pts
-  use ovar,   only : bc_names
+  use geomvar_mod, only : nr,ncell,nnode,nfbnd,nbfai,bface
+  use geomvar_mod, only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : cell_geom,cell_order,xyz_nodes
+  use ovar,        only : loc_solution_pts,loc_flux_pts
+  use ovar,        only : bc_names
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,ifa,nf,h1,h2,i,j,ie

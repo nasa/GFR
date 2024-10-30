@@ -27,7 +27,7 @@ contains
 subroutine update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use flowvar_mod, only : rk_sum,residual,usp,dtsp
   use rhs_mod,     only : stabilize_usp
   !
@@ -500,7 +500,7 @@ end subroutine update_CK_RK4_S5
 subroutine update_TVD_RK2(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use flowvar_mod, only : residual,usp,uoldsp,dtsp
   use rhs_mod,     only : stabilize_usp
   !
@@ -642,7 +642,7 @@ end subroutine update_TVD_RK2_S2
 subroutine update_TVD_RK3(nst,Apply_Filter,Apply_Limiter,iter)
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use flowvar_mod, only : residual,usp,uoldsp,dtsp
   use rhs_mod,     only : stabilize_usp
   !
@@ -842,7 +842,7 @@ end subroutine update_TVD_RK3_S3
 subroutine update_TVD_RK4(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use flowvar_mod, only : residual,usp,uoldsp,rk_sum,dtsp
   use rhs_mod,     only : stabilize_usp
   !
@@ -1228,7 +1228,7 @@ subroutine update_Classic_RK(nst,Apply_Filter,Apply_Limiter)
   ! stepping then update usp
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use ovar,        only : num_rk_stages
   use flowvar_mod, only : rssprk,residual,usp,uoldsp,dtsp
   use rhs_mod,     only : stabilize_usp

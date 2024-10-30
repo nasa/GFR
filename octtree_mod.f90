@@ -145,7 +145,7 @@ subroutine octtree_init(octtree,bbox,istat)
   ! do not know anything about octedat structure here.
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   type(octtree_type), intent(inout) :: octtree
@@ -200,7 +200,7 @@ subroutine octtree_addxyz(octtree,ixyz_pt,xyz_pt,istat)
   ! Add an xyz point to this octtree.
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   type(octtree_type), intent(inout) :: octtree
@@ -259,7 +259,7 @@ subroutine octtree_find_nearest_xyz(octtree,xyz_pt, ixyz_pt,istat,tid,acc)
   ! from routine octtree%octedat%evalxyz_pt(idx,xyz,istat).
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   type(octtree_type), intent(in) :: octtree

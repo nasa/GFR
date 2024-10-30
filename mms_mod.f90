@@ -58,7 +58,7 @@ subroutine initialize_mms()
   ! Routine to apply source terms for the method of manufactured solutions
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   use ovar, only : gam,rgasref,muref
   use ovar, only : governing_equations,mms_opt
   !
@@ -826,7 +826,7 @@ subroutine mms_src()
   ! Routine to apply source terms for the method of manufactured solutions
   !
   !.. Use Statements ..
-  use geovar, only : nr,xyz,ncell,cell
+  use geomvar_mod, only : nr,xyz,ncell,cell
   use ovar, only : gam,rhoref,aref,tmin,tmax,Pr
   use flowvar_mod, only : residual
   use metrics_mod, only : metrics_dt

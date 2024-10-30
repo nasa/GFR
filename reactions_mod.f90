@@ -818,7 +818,7 @@ subroutine compute_wdot(iter)
   use ovar,        only : ignition_start_timestep
   use ovar,        only : ignition_duration
   use ovar,        only : ignition_source_magnitude
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use flowvar_mod, only : usp,gpsp,residual
   !
   !.. Formal Arguments ..
@@ -902,7 +902,7 @@ subroutine compute_ignition_source_ncc(n1,n2,cv,gp,residual)
   use ovar,        only : ignition_source_radius
   use ovar,        only : ignition_source_location
   use ovar,        only : ignition_duration
-  use geovar,      only : xyz
+  use geomvar_mod, only : xyz
   use flowvar_mod, only : dtsp
   use metrics_mod, only : jac
   !
@@ -1155,7 +1155,7 @@ subroutine compute_ignition_source(n1,n2,cv,gp,residual)
   use ovar,        only : ignition_source_magnitude
   use ovar,        only : ignition_source_radius
   use ovar,        only : ignition_source_location
-  use geovar,      only : xyz
+  use geomvar_mod, only : xyz
   use flowvar_mod, only : dtsp
   use metrics_mod, only : jac
   !

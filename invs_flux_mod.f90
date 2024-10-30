@@ -598,9 +598,9 @@ end subroutine invs_wall_flx_gpu_2d
 subroutine invs_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,face_gp,return_value)
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : gam
-  use ovar,   only : include_tke_in_energy
+  use geomvar_mod, only : nr
+  use ovar,        only : gam
+  use ovar,        only : include_tke_in_energy
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -752,10 +752,10 @@ end function invs_flx_pv
 !
 pure function invs_flx_jacobian_cv(uu,dir) result(return_value)
   !
-  use geovar, only : nr
-  use ovar,   only : gam
-  use ovar,   only : turb_is_on
-  use ovar,   only : include_tke_in_energy
+  use geomvar_mod, only : nr
+  use ovar,        only : gam
+  use ovar,        only : turb_is_on
+  use ovar,        only : include_tke_in_energy
   !
   integer,                   intent(in) :: dir
   real(wp), dimension(1:nq), intent(in) :: uu
@@ -846,10 +846,10 @@ end function invs_flx_jacobian_cv
 !
 pure function invs_wall_flx_cv(unrm,uu) result(return_value)
   !
-  use geovar, only : nr
-  use ovar,   only : gam
-  use ovar,   only : turb_is_on
-  use ovar,   only : include_tke_in_energy
+  use geomvar_mod, only : nr
+  use ovar,        only : gam
+  use ovar,        only : turb_is_on
+  use ovar,        only : include_tke_in_energy
   !
   real(wp), dimension(1:nr), intent(in) :: unrm
   real(wp), dimension(1:nq), intent(in) :: uu

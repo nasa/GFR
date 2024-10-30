@@ -483,12 +483,12 @@ end subroutine reset_bc_input_for_tcf_grid
 subroutine create_taylor_couette_grid()
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use ovar,      only : Lref,bc_input
-  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
-  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : grid,cell_geom,cell_order
-  use ovar,      only : grid_format,bc_names,itestcase,internal_grid_order
+  use order_mod,   only : n_order
+  use ovar,        only : Lref,bc_input
+  use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : grid,cell_geom,cell_order
+  use ovar,        only : grid_format,bc_names,itestcase,internal_grid_order
   !
   use ovar, only : TCF_Inner_Radius,TCF_Inner_Wall_Spacing
   use ovar, only : TCF_Outer_Radius,TCF_Outer_Wall_Spacing
@@ -1431,7 +1431,7 @@ end subroutine high_order_TCF_grid_points
 subroutine write_internal_grid(lcell,lfbnd)
   !
   !.. Use Statements ..
-  use geovar, only : nr,grid,bface
+  use geomvar_mod, only : nr,grid,bface
   !
   !.. Formal Arguments ..
   integer, intent(in) :: lcell
@@ -1592,15 +1592,15 @@ end subroutine write_internal_grid
 subroutine create_periodic_square_quad_grid()
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use ovar,      only : Lref,itestcase
-  use ovar,      only : VortexGrid_DOF,VortexGrid_Lref
-  use ovar,      only : VortexGrid_random_perturb
-  use ovar,      only : VortexGrid_perturb_percent
-  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
-  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : cell_geom,cell_order
-  use ovar,      only : grid_format
+  use order_mod,   only : n_order
+  use ovar,        only : Lref,itestcase
+  use ovar,        only : VortexGrid_DOF,VortexGrid_Lref
+  use ovar,        only : VortexGrid_random_perturb
+  use ovar,        only : VortexGrid_perturb_percent
+  use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : cell_geom,cell_order
+  use ovar,        only : grid_format
   !
   !.. Local Scalars ..
   integer :: nc,np,ierr,i,j,l,n
@@ -1857,14 +1857,14 @@ end subroutine create_periodic_square_quad_grid
 subroutine create_periodic_cube_hex_grid()
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use ovar,      only : VortexGrid_DOF,Lref
-  use ovar,      only : VortexGrid_random_perturb
-  use ovar,      only : VortexGrid_perturb_percent
-  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
-  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : cell_geom,cell_order
-  use ovar,      only : grid_format
+  use order_mod,   only : n_order
+  use ovar,        only : VortexGrid_DOF,Lref
+  use ovar,        only : VortexGrid_random_perturb
+  use ovar,        only : VortexGrid_perturb_percent
+  use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : cell_geom,cell_order
+  use ovar,        only : grid_format
   !
   !.. Local Scalars ..
   integer :: nc,np,ierr,i,j,k,l,n,n1,n2
@@ -2490,14 +2490,14 @@ end subroutine create_periodic_cube_hex_grid
 subroutine create_periodic_cube_pyramid_grid()
   !
   !.. Use Statements ..
-  use order_mod, only : n_order,geom_solpts
-  use ovar,      only : VortexGrid_DOF,Lref
-  use ovar,      only : VortexGrid_random_perturb
-  use ovar,      only : VortexGrid_perturb_percent
-  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
-  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : cell_geom,cell_order
-  use ovar,      only : grid_format
+  use order_mod,   only : n_order,geom_solpts
+  use ovar,        only : VortexGrid_DOF,Lref
+  use ovar,        only : VortexGrid_random_perturb
+  use ovar,        only : VortexGrid_perturb_percent
+  use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : cell_geom,cell_order
+  use ovar,        only : grid_format
   !
   !.. Local Scalars ..
   integer :: nc,np,ierr,i,j,k,l,n,n1,n2,n0
@@ -2970,7 +2970,7 @@ subroutine reset_bc_input_for_internal_grid(Lref_x,Lref_y,Lref_z)
   !
   !.. Use Statements ..
   use ovar,   only : bc_input
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Optional Arguments ..
   real(wp), optional, intent(in) :: Lref_x  !< x-translation distance (def=1.)
@@ -3253,18 +3253,18 @@ end subroutine reset_bc_input_for_channel_grid
 subroutine create_channel_flow_grid()
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use ovar,      only : Lref
-  use ovar,      only : loc_solution_pts
-  use ovar,      only : channel_grid_ave_xplus
-  use ovar,      only : channel_grid_ave_yplus
-  use ovar,      only : channel_grid_ave_zplus
-  use ovar,      only : channel_grid_yplus_wall
-  use ovar,      only : channel_yplus_of_one
-  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
-  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : cell_geom,cell_order
-  use ovar,      only : grid_format,bc_input,bc_names
+  use order_mod,      only : n_order
+  use ovar,           only : Lref
+  use ovar,           only : loc_solution_pts
+  use ovar,           only : channel_grid_ave_xplus
+  use ovar,           only : channel_grid_ave_yplus
+  use ovar,           only : channel_grid_ave_zplus
+  use ovar,           only : channel_grid_yplus_wall
+  use ovar,           only : channel_yplus_of_one
+  use geomvar_mod,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geomvar_mod,    only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod,    only : cell_geom,cell_order
+  use ovar,           only : grid_format,bc_input,bc_names
   !
   use polynomial_mod, only : legendre_gauss_quadrature
   use polynomial_mod, only : legendre_gauss_lobatto_quadrature
@@ -4344,9 +4344,9 @@ end function old_channel_y_spacing
 subroutine write_channel_grid_info(iunit,ncx,ncy,ncz)
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use ovar,      only : yplus1 => channel_yplus_of_one
-  use geovar,    only : n_global_cell
+  use order_mod,   only : n_order
+  use ovar,        only : yplus1 => channel_yplus_of_one
+  use geomvar_mod, only : n_global_cell
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: iunit,ncx,ncy,ncz
@@ -4431,12 +4431,12 @@ subroutine create_pipe_channel_grid()
   ! channel flow problems, so it utilizes input variables from both problems.
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use ovar,      only : Lref,bc_input
-  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
-  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : grid,cell_geom,cell_order
-  use ovar,      only : grid_format,bc_names,internal_grid_order
+  use order_mod,   only : n_order
+  use ovar,        only : Lref,bc_input
+  use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : grid,cell_geom,cell_order
+  use ovar,        only : grid_format,bc_names,internal_grid_order
   !
   use ovar, only : channel_grid_ave_xplus
   use ovar, only : channel_grid_ave_yplus
@@ -5000,13 +5000,13 @@ end subroutine create_pipe_channel_grid
 subroutine create_flame_speed_test_grid()
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use ovar,      only : Lref,itestcase
-  use ovar,      only : flame_speed_test_dof
-  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
-  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : cell_geom,cell_order
-  use ovar,      only : grid_format,bc_names
+  use order_mod,   only : n_order
+  use ovar,        only : Lref,itestcase
+  use ovar,        only : flame_speed_test_dof
+  use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : cell_geom,cell_order
+  use ovar,        only : grid_format,bc_names
   !
   !.. Local Scalars ..
   integer  :: n,nc,nf,np,ierr
@@ -5168,13 +5168,13 @@ end subroutine create_flame_speed_test_grid
 subroutine create_sod_test_grid()
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use ovar,      only : Lref,itestcase
-  use ovar,      only : sod_test_dof
-  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
-  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : cell_geom,cell_order
-  use ovar,      only : grid_format,bc_names
+  use order_mod,   only : n_order
+  use ovar,        only : Lref,itestcase
+  use ovar,        only : sod_test_dof
+  use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : cell_geom,cell_order
+  use ovar,        only : grid_format,bc_names
   !
   !.. Local Scalars ..
   integer  :: n,nc,nf,np,ierr
@@ -5344,13 +5344,13 @@ end subroutine create_sod_test_grid
 subroutine create_pulse_test_grid()
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use ovar,      only : Lref,itestcase
-  use ovar,      only : pulse_test_dof, pulse_test_length
-  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
-  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : cell_geom,cell_order
-  use ovar,      only : grid_format,bc_names
+  use order_mod,   only : n_order
+  use ovar,        only : Lref,itestcase
+  use ovar,        only : pulse_test_dof, pulse_test_length
+  use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : cell_geom,cell_order
+  use ovar,        only : grid_format,bc_names
   !
   !.. Local Scalars ..
   integer  :: n,nc,nf,np,ierr
@@ -5504,13 +5504,13 @@ end subroutine create_pulse_test_grid
 subroutine create_shu_osher_test_grid()
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use ovar,      only : Lref,itestcase
-  use ovar,      only : shu_osher_test_dof
-  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
-  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : cell_geom,cell_order
-  use ovar,      only : grid_format,bc_names
+  use order_mod,   only : n_order
+  use ovar,        only : Lref,itestcase
+  use ovar,        only : shu_osher_test_dof
+  use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : cell_geom,cell_order
+  use ovar,        only : grid_format,bc_names
   !
   !.. Local Scalars ..
   integer  :: n,nc,nf,np,ierr
@@ -5680,14 +5680,14 @@ end subroutine create_shu_osher_test_grid
 subroutine create_postproc_debug_grid
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use ovar,      only : Lref
-  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
-  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : cell_geom,cell_order
-  use ovar,      only : VortexGrid_random_perturb
-  use ovar,      only : VortexGrid_perturb_percent
-  use ovar,      only : grid_format
+  use order_mod,   only : n_order
+  use ovar,        only : Lref
+  use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : cell_geom,cell_order
+  use ovar,        only : VortexGrid_random_perturb
+  use ovar,        only : VortexGrid_perturb_percent
+  use ovar,        only : grid_format
   !
   !.. Local Scalars ..
   integer :: nc,np,ierr,i,j,k,l,n

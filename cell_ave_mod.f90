@@ -63,7 +63,7 @@ contains
 subroutine allocate_cell_ave
   !
   !.. Use Statements ..
-  use geovar,  only : ncell
+  use geomvar_mod, only : ncell
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -183,7 +183,7 @@ end subroutine compute_cell_ave_sol
 subroutine compute_cell_ave_sol_3d
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use flowvar_mod,     only : usp
   use vandermonde_mod, only : vand
   !
@@ -241,7 +241,7 @@ end subroutine compute_cell_ave_sol_3d
 subroutine compute_cell_ave_sol_2d
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use flowvar_mod,     only : usp
   use vandermonde_mod, only : vand
   !
@@ -296,7 +296,7 @@ end subroutine compute_cell_ave_sol_2d
 subroutine compute_cell_ave_sol_1d
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use flowvar_mod,     only : usp
   use vandermonde_mod, only : vand
   !
@@ -348,7 +348,7 @@ end subroutine compute_cell_ave_sol_1d
 subroutine compute_cell_ave_sol_nd
   !
   !.. Use Statements ..
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use flowvar_mod,     only : usp
   use vandermonde_mod, only : vand
   !
@@ -397,7 +397,7 @@ subroutine compute_cell_ave_var(meq,cell_ave)
   !
   !.. Use Statements ..
   use ovar,            only : gam,rgasref_nd
-  use geovar,          only : ncell,cell
+  use geomvar_mod,     only : ncell,cell
   use flowvar_mod,     only : usp
   use vandermonde_mod, only : vand
   !

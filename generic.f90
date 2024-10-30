@@ -50,7 +50,7 @@ contains
 subroutine compute_residual_error()
   !
   !.. Use Statements ..
-  use geovar,       only : nr,n_solpts,ncell,cell,cell_map
+  use geomvar_mod,  only : nr,n_solpts,ncell,cell,cell_map
   use ovar,         only : total_volume,uverr
   use ovar,         only : use_async_for_error
   use ovar,         only : itcur
@@ -362,7 +362,7 @@ end subroutine compute_residual_error
 subroutine compute_error_gpu(unew,uold,error,cv_pv_switch)
   !
   !.. Use Statements ..
-  use geovar,      only : nr,n_solpts,xyz
+  use geomvar_mod, only : nr,n_solpts,xyz
   use metrics_mod, only : wtdjac
   !
   !.. Formal Arguments ..
@@ -484,7 +484,7 @@ end subroutine compute_error_gpu
 subroutine compute_error_gpu_async(unew,uold,error)
   !
   !.. Use Statements ..
-  use geovar,      only : nr,n_solpts,xyz
+  use geomvar_mod, only : nr,n_solpts,xyz
   use metrics_mod, only : wtdjac
   !
   !.. Formal Arguments ..
@@ -613,7 +613,7 @@ end subroutine compute_error_gpu_async
 subroutine get_unew_solpts_gpu(unew)
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use flowvar_mod, only : usp,uavesp,gpsp
   use ovar,        only : itestcase,pref_nd,gam
   use ovar,        only : output_time_averaging
@@ -741,7 +741,7 @@ subroutine get_uold_solpts_gpu(uold)
   use ovar,        only : output_time_averaging,read_time_ave_restart
   use ovar,        only : itcur,itrst,bc_in,itestcase,mms_opt
   use flowvar_mod, only : usp,uoldsp,uavesp,gpoldsp
-  use geovar,      only : n_solpts,xyz
+  use geomvar_mod, only : n_solpts,xyz
   use mms_mod,     only : mms_solution_at_xyz_gpu
   use gpu_mod,     only : vortex_solution_gpu
   !
@@ -855,7 +855,7 @@ end subroutine get_uold_solpts_gpu
 subroutine get_vnew_solpts_gpu(vnew)
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use flowvar_mod, only : uavesp,gpsp
   use ovar,        only : output_time_averaging
   !
@@ -1003,7 +1003,7 @@ end subroutine get_vnew_solpts_gpu
 subroutine get_vold_solpts_gpu(vold)
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use flowvar_mod, only : usp,uavesp,gpsp,gpoldsp
   use ovar,        only : prev_ave_time,saved_ave_time,ave_start_time
   use ovar,        only : output_time_averaging,read_time_ave_restart
@@ -1198,7 +1198,7 @@ end subroutine get_vold_solpts_gpu
 subroutine write_iter_stats(walltime_expiring,exit_main_loop)
   !
   !.. Use Statements ..
-  use geovar,  only : global_pinc_ptr,n_global_cell
+  use geomvar_mod, only : global_pinc_ptr,n_global_cell
   use ovar,    only : itcur,d_t,cfl,time,minimum_timesteps,time_ref
   use ovar,    only : convergence_reached,itestcase,Period_Timesteps
   use ovar,    only : output_limiter_statistics,nlim
@@ -1565,10 +1565,10 @@ end subroutine check_for_header_output
 subroutine init_generic_mod
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : itcur,num_timesteps,itestcase
-  use ovar,   only : uverr,output_time_averaging
-  use ovar,   only : time_scaling_factor
+  use geomvar_mod, only : nr
+  use ovar,        only : itcur,num_timesteps,itestcase
+  use ovar,        only : uverr,output_time_averaging
+  use ovar,        only : time_scaling_factor
   !
   use pbs_mod, only : pbs_remaining_walltime
   !
@@ -1765,8 +1765,8 @@ subroutine compute_KEDR(iter,dtmin)
   !
   !.. Use Statements ..
   use order_mod,        only : n_order
-  use geovar,           only : nr,ncell,n_solpts,n_global_solpts
-  use geovar,           only : n_global_cell,global_cell_geom
+  use geomvar_mod,      only : nr,ncell,n_solpts,n_global_solpts
+  use geomvar_mod,      only : n_global_cell,global_cell_geom
   use ovar,             only : muref_nd,total_volume
   use ovar,             only : time,time_ref,machref
   use ovar,             only : VortexGrid_DOF

@@ -79,8 +79,8 @@ subroutine compute_bnd_profiles
   !.. Use Statements ..
   use order_mod,         only : maxSP,maxFP,geom_solpts
   use element_type_mod,  only : std_elem
-  use geovar,            only : nr,bface,face,cell,xyz_nodes,fp
-  use geovar,            only : nodes_of_cell,nodes_of_cell_ptr
+  use geomvar_mod,       only : nr,bface,face,cell,xyz_nodes,fp
+  use geomvar_mod,       only : nodes_of_cell,nodes_of_cell_ptr
   use ovar,              only : machref,rhoref,aref,muref,tref
   use ovar,              only : cpref_nd,Pr
   use ovar,              only : output_bnd_profiles
@@ -474,8 +474,8 @@ subroutine init_bnd_profile_structures
   !
   !.. Use Statements ..
   use order_mod,         only : maxSP,geom_solpts
-  use geovar,            only : nr,nfbnd,nbfai,bface,fp
-  use geovar,            only : xyz,face,cell,pst_geom
+  use geomvar_mod,       only : nr,nfbnd,nbfai,bface,fp
+  use geomvar_mod,       only : xyz,face,cell,pst_geom
   use ovar,              only : output_bnd_profiles
   use interpolation_mod, only : interp
   use interpolation_mod, only : outerp,outerp_mv_mult

@@ -163,7 +163,7 @@ subroutine original_interp_cell_sol_to_xyz(nc,xyz_pt,return_value)
   use order_mod,        only : maxSP
   use order_mod,        only : n_min_geom,n_min_order
   use order_mod,        only : n_max_geom,n_max_order
-  use geovar,           only : nr,cell,xyz
+  use geomvar_mod,      only : nr,cell,xyz
   use flowvar_mod,      only : usp
   use element_type_mod, only : std_elem,solpts_edge
   !
@@ -370,7 +370,7 @@ end subroutine original_interp_cell_sol_to_xyz
 subroutine interp_cell_sol_to_xyz(nc,xyz_pt,return_value)
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geomvar_mod, only : nr
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nc
@@ -400,7 +400,7 @@ subroutine interp_cell_sol_to_xyz_3d(nc,xyz_pt,return_value)
   use order_mod,        only : maxSP
   use order_mod,        only : n_min_geom,n_min_order
   use order_mod,        only : n_max_geom,n_max_order
-  use geovar,           only : cell,xyz
+  use geomvar_mod,      only : cell,xyz
   use flowvar_mod,      only : usp
   use element_type_mod, only : std_elem,solpts_edge
   !
@@ -731,7 +731,7 @@ subroutine interp_cell_sol_to_xyz_2d(nc,xyz_pt,return_value)
   use order_mod,        only : maxSP
   use order_mod,        only : n_min_geom,n_min_order
   use order_mod,        only : n_max_geom,n_max_order
-  use geovar,           only : cell,xyz
+  use geomvar_mod,      only : cell,xyz
   use flowvar_mod,      only : usp
   use element_type_mod, only : std_elem,solpts_edge
   !

@@ -193,8 +193,8 @@ pure function grad_cv_to_grad_pv(rusp,dcdx,dcdy) result(return_value)
   ! This routine computes the discontinuous gradient at each solution point
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : rgasref_nd,gam
+  use geomvar_mod, only : nr
+  use ovar,        only : rgasref_nd,gam
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rusp
@@ -278,8 +278,8 @@ pure function grad_cv_to_grad_pv_sp(rusp,dcvdx) result(return_value)
   ! This routine computes the discontinuous gradient at each solution point
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : rgasref_nd,gam
+  use geomvar_mod, only : nr
+  use ovar,        only : rgasref_nd,gam
   !
   !.. Formal Arguments ..
   real(wp), dimension(:),   intent(in) :: rusp
@@ -344,8 +344,8 @@ pure subroutine grad_cv_to_grad_pv_sp_sub(rusp,dcvdx,return_value)
   ! This routine computes the discontinuous gradient at each solution point
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : rgasref_nd,gam
+  use geomvar_mod, only : nr
+  use ovar,        only : rgasref_nd,gam
   !
   !.. Formal Arguments ..
   real(wp), dimension(1:nq),   intent(in) :: rusp

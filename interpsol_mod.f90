@@ -28,7 +28,7 @@ subroutine mv_global_to_grid2()
   ! Move the global variables to grid2, leaving globals deallocated.
   !
   !.. Use Statements ..
-  use geovar
+  use geomvar_mod
   use flowvar_mod
   use ovar,   only : bc_names
   !
@@ -61,7 +61,7 @@ continue
   g2_e_order = e_order
   g2_t_order = t_order
   !
-  ! Variables from geovar.
+  ! Variables from geomvar_mod.
   g2_n_solpts         = n_solpts
   g2_n_flxpts         = n_flxpts
   g2_using_quadrature = using_quadrature
@@ -171,7 +171,7 @@ subroutine mv_grid2_to_global()
   ! Move the grid2 variables to global, leaving grid2 deallocated.
   !
   !.. Use Statements ..
-  use geovar
+  use geomvar_mod
   use flowvar_mod
   use ovar,    only : bc_names
   !
@@ -361,7 +361,7 @@ end subroutine mv_grid2_to_global
 subroutine partition_usp_to_g2()
   !
   !.. Use Statements ..
-  use geovar,  only : cell
+  use geomvar_mod,  only : cell
   use flowvar_mod, only : usp
   !
   !.. Local Scalars ..
@@ -402,8 +402,8 @@ subroutine interpsol()
   !
   !.. Use Statements ..
   use module_kind_types, only : dot,lk,fals
-  use geovar,            only : ncell,nface,nfbnd,nr
-  use geovar,            only : cell,face,fp
+  use geomvar_mod,       only : ncell,nface,nfbnd,nr
+  use geomvar_mod,       only : cell,face,fp
   use flux_mod,          only : interp_cv_to_flxpts  ! DEBUG: for debug output
   use metrics_mod,       only : geofa,facenrm
   use flowvar_mod,       only : usp
@@ -1105,9 +1105,9 @@ subroutine interpsol_debug()
   !
   !.. Use Statements ..
   use module_kind_types, only : dot,lk,fals
-  use geovar,            only : nnode,ncell,nface,nfbnd,nr
-  use geovar,            only : cell,face,fp
-  use geovar,            only : xyz
+  use geomvar_mod,       only : nnode,ncell,nface,nfbnd,nr
+  use geomvar_mod,       only : cell,face,fp
+  use geomvar_mod,       only : xyz
   use flux_mod,          only : interp_cv_to_flxpts  ! DEBUG: for debug output
   use metrics_mod,       only : geofa,facenrm
   use flowvar_mod,       only : usp
@@ -1607,7 +1607,7 @@ subroutine deallocate_solver_arrays()
   ! enough memory for interpolation.
   !
   !.. Use Statements ..
-  use geovar,      only : face,grid
+  use geomvar_mod, only : face,grid
   use flowvar_mod, only : faceflx
  !use flowvar_mod, only : faceusp_dt,facedusp_dt,facexyz_dt
   use flowvar_mod, only : faceusp,facedusp,facexyz

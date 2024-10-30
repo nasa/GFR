@@ -11,10 +11,10 @@ module cgns_mod
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
   use cgns_types_mod
-  use geovar, only : grid_t
-  use geovar, only : elem_t
-  use geovar, only : prop_t
- !use geovar, only : cgns_idx_t
+  use geomvar_mod, only : grid_t
+  use geomvar_mod, only : elem_t
+  use geomvar_mod, only : prop_t
+ !use geomvar_mod, only : cgns_idx_t
   !
   implicit none
   !
@@ -1714,10 +1714,10 @@ end function get_array_name
 subroutine transfer_cgns_data_to_grid_dt
   !
   !.. Use Statements ..
-  use geovar, only : grid
-  use ovar,   only : grid_scaling_factor
-  use ovar,   only : governing_equations
-  use ovar,   only : itestcase
+  use geomvar_mod, only : grid
+  use ovar,        only : grid_scaling_factor
+  use ovar,        only : governing_equations
+  use ovar,        only : itestcase
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,n3,np,nc,nf
@@ -2325,12 +2325,12 @@ subroutine create_solver_geom_arrays_cgns
   ! the information stored in the arrays grid%elem and cell_grps.
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use geovar,    only : nr,ncell,nnode,nfbnd,nbfai,bface
-  use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : xyz_nodes
-  use geovar,    only : grid
-  use ovar,      only : bc_names
+  use order_mod,   only : n_order
+  use geomvar_mod, only : nr,ncell,nnode,nfbnd,nbfai,bface
+  use geomvar_mod, only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : xyz_nodes
+  use geomvar_mod, only : grid
+  use ovar,        only : bc_names
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,ifa,nf,h1,h2,i,j,ie
@@ -3248,9 +3248,9 @@ end subroutine create_solver_geom_arrays_cgns
 subroutine match_cgns_periodic_boundaries()
   !
   !.. Use Statements ..
-  use geovar, only : nr,nfbnd,bface,xyz_nodes
-  use geovar, only : grid
-  use ovar,   only : bc_names
+  use geomvar_mod, only : nr,nfbnd,bface,xyz_nodes
+  use geomvar_mod, only : grid
+  use ovar,        only : bc_names
   !
   !.. Local Scalars ..
   integer :: n,npbc,npf,nfnods,npair,ierr,l1,l2
@@ -3901,7 +3901,7 @@ end subroutine char_diff
 subroutine root_broadcasts_grid_dt()
   !
   !.. Use Statements ..
-  use geovar, only : grid
+  use geomvar_mod, only : grid
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,m1,m2,ierr,nsplit,npts,nn,np,m,l,i
@@ -4140,7 +4140,7 @@ end subroutine root_broadcasts_grid_dt
 subroutine root_packs_grid_dt(grid_elem,grid_xyz,grid)
   !
   !.. Use Statements ..
-  use geovar, only : grid_t
+  use geomvar_mod, only : grid_t
   !
   !.. Formal Arguments ..
   integer,      allocatable, intent(inout) :: grid_elem(:)
@@ -4394,7 +4394,7 @@ end subroutine root_packs_grid_dt
 subroutine unpack_grid_dt(num_cells,grid_elem,grid_xyz,grid)
   !
   !.. Use Statements ..
-  use geovar, only : grid_t
+  use geomvar_mod, only : grid_t
   !
   !.. Formal Arguments ..
   integer,                      intent(in) :: num_cells
@@ -4526,7 +4526,7 @@ end subroutine unpack_grid_dt
 subroutine extract_nozzle_grid
   !
   !.. Use Statements ..
-  use geovar, only : grid
+  use geomvar_mod, only : grid
   use ovar,   only : grid_scaling_factor
   !
   !.. Local Scalars ..
@@ -4953,7 +4953,7 @@ end subroutine extract_nozzle_grid
 subroutine create_nozzle_outflow_faces(lcells,lfaces,nozzle)
   !
   !.. Use Statements ..
-  use geovar,           only : nbfai
+  use geomvar_mod,      only : nbfai
   use connectivity_mod, only : find_cells_surrounding_each_node
   use connectivity_mod, only : find_cells_surrounding_each_cell
   !
@@ -5202,7 +5202,7 @@ end subroutine create_nozzle_outflow_faces
 subroutine find_elem_for_initial_jet_profile
   !
   !.. Use Statements ..
-  use geovar, only : grid
+  use geomvar_mod, only : grid
   !
   !.. Local Scalars ..
   integer :: l,n,init
@@ -5564,11 +5564,11 @@ end subroutine write_cgns_gridfile
 subroutine broadcast_solver_geom_arrays
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use geovar,    only : nr,ncell,nnode,nfbnd,nbfai,bface
-  use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : cell_geom,cell_order,xyz_nodes
-  use ovar,      only : bc_names
+  use order_mod,   only : n_order
+  use geomvar_mod, only : nr,ncell,nnode,nfbnd,nbfai,bface
+  use geomvar_mod, only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : cell_geom,cell_order,xyz_nodes
+  use ovar,        only : bc_names
   !
   !.. Local Scalars ..
   integer :: n,nocsz,ierr,nbcnm
@@ -5693,10 +5693,10 @@ end subroutine broadcast_solver_geom_arrays
 subroutine create_serial_geom_arrays
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
-  use geovar,    only : nr,ncell
-  use geovar,    only : nodes_of_cell_ptr
-  use geovar,    only : cell_geom,cell_order
+  use order_mod,   only : n_order
+  use geomvar_mod, only : nr,ncell
+  use geomvar_mod, only : nodes_of_cell_ptr
+  use geomvar_mod, only : cell_geom,cell_order
   !
   !.. Local Scalars ..
   integer :: n,ierr

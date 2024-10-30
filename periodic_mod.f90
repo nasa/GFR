@@ -40,11 +40,11 @@ contains
 subroutine match_periodic_faces()
   !
   !.. Use Statements ..
-  use geovar, only : nr,nfbnd,nnode,ncell
-  use geovar, only : bface,xyz_nodes
-  use geovar, only : nodes_of_cell,nodes_of_cell_ptr
-  use ovar,   only : bc_input
-  use ovar,   only : grid_scaling_factor
+  use geomvar_mod, only : nr,nfbnd,nnode,ncell
+  use geomvar_mod, only : bface,xyz_nodes
+  use geomvar_mod, only : nodes_of_cell,nodes_of_cell_ptr
+  use ovar,        only : bc_input
+  use ovar,        only : grid_scaling_factor
   !
   use cgns_types_mod, only : CGLEN
   !
@@ -952,8 +952,8 @@ pure &
 function get_pbc_matrix(periodic,ignore_translation) result(return_value)
   !
   !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : periodic_bc_t
+  use geomvar_mod, only : nr
+  use ovar,        only : periodic_bc_t
   !
   !.. Formal Arguments ..
   type(periodic_bc_t), intent(in) :: periodic
@@ -1093,8 +1093,8 @@ end function get_pbc_matrix
 subroutine get_boundary_face_nodes(bnd_face)
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,bface
-  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : nfbnd,bface
+  use geomvar_mod, only : nodes_of_cell_ptr,nodes_of_cell
   !
   !.. Formal Arguments ..
   type(bnd_face_t), allocatable, intent(inout) :: bnd_face(:)
@@ -1149,10 +1149,10 @@ end subroutine get_boundary_face_nodes
 subroutine check_periodic_list_indices()
   !
   !.. Use Statements ..
-  use geovar, only : bc_grps
-  use geovar, only : bface,face,fp
-  use geovar, only : cell_map
-  use ovar,   only : bc_in
+  use geomvar_mod, only : bc_grps
+  use geomvar_mod, only : bface,face,fp
+  use geomvar_mod, only : cell_map
+  use ovar,        only : bc_in
   !
   !.. Local Scalars ..
   integer :: nf,nfp,i,k,pf,ipf

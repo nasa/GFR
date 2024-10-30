@@ -14,10 +14,10 @@ module parallel_mod
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
   use eqn_idx_mod, only : nq,nec,nmx,nmy,nmz,nmb,nme,nee,ncs
-  use geovar,  only : face_t
-  use geovar,  only : fp_t
-  use geovar,  only : map_t,cell_map
-  use timer_mod, only : solver_timer
+  use geomvar_mod, only : face_t
+  use geomvar_mod, only : fp_t
+  use geomvar_mod, only : map_t,cell_map
+  use timer_mod,   only : solver_timer
   !
 #ifdef METIS_5
   use metis5_mod
@@ -155,7 +155,7 @@ module parallel_mod
   !
   ! EDGE_T : Derived type to store information for each grid edge
   !          NOTE: This is different from the derived type
-  !                of the same name in the module geovar
+  !                of the same name in the module geomvar_mod
   !
   type :: edge_t
     ! is_on_boundary : logical that identifies if this edge is on a
@@ -190,7 +190,7 @@ module parallel_mod
   !
   ! NODE_T : Derived type to store information for each grid node
   !          NOTE: This is different from the derived type
-  !                of the same name in the module geovar
+  !                of the same name in the module geomvar_mod
   !
   type :: node_t
     ! is_on_boundary : logical that identifies if this edge is on a
@@ -341,8 +341,8 @@ contains
 subroutine create_serial_cell_map(lcell)
   !
   !.. Use Statements ..
-  use geovar, only : nnode,node_map
-  use geovar, only : nface,face_map
+  use geomvar_mod, only : nnode,node_map
+  use geomvar_mod, only : nface,face_map
   !
   !.. Formal Arguments ..
   integer, intent(in) :: lcell
@@ -409,11 +409,11 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
                           nodes_of_cell_ptr,xyz_nodes,cell_geom,cell_order)
   !
   !.. Use Statements ..
-  use geovar, only : n_global_face
-  use ovar,   only : continuous_output, Limiter_Option
-  use geovar, only : geo_face_map => face_map
-  use geovar, only : geo_edge_map => edge_map
-  use geovar, only : geo_node_map => node_map
+  use geomvar_mod, only : n_global_face
+  use ovar,        only : continuous_output, Limiter_Option
+  use geomvar_mod, only : geo_face_map => face_map
+  use geomvar_mod, only : geo_edge_map => edge_map
+  use geomvar_mod, only : geo_node_map => node_map
   !
   !.. Formal Arguments ..
   integer,                                  intent(in) :: npart
@@ -4819,7 +4819,7 @@ subroutine root_localizes_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
                                face,node_map,face_map,cell_map)
   !
   !.. Use Statements ..
-  use geovar, only : grid_t,grid
+  use geomvar_mod, only : grid_t,grid
   !
   !.. Formal Arguments ..
   type(face_t), allocatable,    intent(in) :: face(:)
@@ -5122,7 +5122,7 @@ end subroutine root_localizes_grid
 subroutine unpack_localized_grid_dt(lcell,grid_elem,grid_xyz,grid_sol,grid)
   !
   !.. Use Statements ..
-  use geovar,        only : grid_t
+  use geomvar_mod,   only : grid_t
   use ovar,          only : grid_format,plot3d_agglomerate_order
   use ovar,          only : itestcase
   use cgns_mod,      only : cgns_element_properties
@@ -5304,7 +5304,7 @@ end subroutine unpack_localized_grid_dt
 pure function linear_element_properties(elem_type) result(return_value)
   !
   !.. Use Statements ..
-  use geovar, only : prop_t
+  use geomvar_mod, only : prop_t
   !
   !.. Formal Arguments ..
   integer, intent(in) :: elem_type
@@ -6218,7 +6218,7 @@ subroutine root_localizes_grid_dt(this_part,cell_map,global_grid, &
                                   grid_elem,grid_xyz,grid_sol)
   !
   !.. Use Statements ..
-  use geovar, only : grid_t
+  use geomvar_mod, only : grid_t
   !
   !.. Formal Arguments ..
   integer,                  intent(in) :: this_part
@@ -6626,7 +6626,7 @@ end subroutine root_localizes_grid_dt
 subroutine localize_bc_conflict(global_bface,face_map,part_id)
   !
   !.. Use Statements ..
-  use geovar, only : bc_conflict
+  use geomvar_mod, only : bc_conflict
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: global_bface(:,:)
@@ -8906,7 +8906,7 @@ end subroutine create_node_and_edge_datatypes
 subroutine exchange_faceusp()
   !
   !.. Use Statements ..
-  use geovar,      only : bface,face
+  use geomvar_mod, only : bface,face
   use flowvar_mod, only : faceusp
   !
   !.. Local Scalars..
@@ -8999,7 +8999,7 @@ end subroutine exchange_faceusp
 subroutine wait_faceusp()
   !
   !.. Use Statements ..
-  use geovar,      only : bface,face
+  use geomvar_mod, only : bface,face
   use flowvar_mod, only : faceusp
   !
   !.. Local Scalars ..
@@ -9077,7 +9077,7 @@ end subroutine wait_faceusp
 subroutine rotate_periodic_mpi_solutions(face_cv)
   !
   !.. Use Statements ..
-  use geovar, only : nr,nfbnd,bface,face
+  use geomvar_mod, only : nr,nfbnd,bface,face
   use ovar,   only : bc_in
   !
   !.. Formal Arguments ..
@@ -9239,7 +9239,7 @@ subroutine rotate_periodic_mpi_solutions_nd(face_cv)
   ! FACE_CV : Conserved variables at the flux points
   !
   !.. Use Statements ..
-  use geovar, only : nr,nfbnd,bface,face
+  use geomvar_mod, only : nr,nfbnd,bface,face
   use ovar,   only : bc_in
   !
   !.. Formal Arguments ..
@@ -9309,7 +9309,7 @@ end subroutine rotate_periodic_mpi_solutions_nd
 subroutine exchange_bc_conflicts_usp(override)
   !
   !.. Use Statements ..
-  use geovar,      only : bc_conflict,face
+  use geomvar_mod, only : bc_conflict,face
   use ovar,        only : loc_flux_pts
   use ovar,        only : use_bc_conflicts
   use flowvar_mod, only : faceusp
@@ -9485,7 +9485,7 @@ end subroutine exchange_bc_conflicts_usp
 subroutine exchange_facedusp()
   !
   !.. Use Statements ..
-  use geovar,      only : bface,face
+  use geomvar_mod, only : bface,face
   use flowvar_mod, only : facedusp
   !
   !.. Local Scalars..
@@ -9581,7 +9581,7 @@ end subroutine exchange_facedusp
 subroutine wait_facedusp()
   !
   !.. Use Statements ..
-  use geovar,      only : bface,face
+  use geomvar_mod, only : bface,face
   use flowvar_mod, only : facedusp
   !
   !.. Local Scalars ..
@@ -9662,7 +9662,7 @@ end subroutine wait_facedusp
 subroutine rotate_periodic_mpi_gradients(face_dcvdx)
   !
   !.. Use Statements ..
-  use geovar, only : nr,nfbnd,bface,face
+  use geomvar_mod, only : nr,nfbnd,bface,face
   use ovar,   only : bc_in
   !
   !.. Formal Arguments ..
@@ -10023,7 +10023,7 @@ subroutine rotate_periodic_mpi_gradients_nd(face_dcvdx)
   ! FACE_DCVDX : Gradients of the conserved variables at the flux points
   !
   !.. Use Statements ..
-  use geovar, only : nr,nfbnd,bface,face
+  use geomvar_mod, only : nr,nfbnd,bface,face
   use ovar,   only : bc_in
   !
   !.. Formal Arguments ..
@@ -10140,7 +10140,7 @@ end subroutine rotate_periodic_mpi_gradients_nd
 subroutine exchange_bc_conflicts_dusp(override)
   !
   !.. Use Statements ..
-  use geovar,      only : nr,bc_conflict,face
+  use geomvar_mod, only : nr,bc_conflict,face
   use ovar,        only : loc_flux_pts
   use ovar,        only : use_bc_conflicts
   use flowvar_mod, only : facedusp
@@ -10336,7 +10336,7 @@ end subroutine exchange_bc_conflicts_dusp
 subroutine exchange_faceusp_dt(faceusp_dt)
   !
   !.. Use Statements ..
-  use geovar,      only : bface
+  use geomvar_mod, only : bface
   use flowvar_mod, only : face_var
   !
   !.. Formal Arguments ..
@@ -10402,7 +10402,7 @@ end subroutine exchange_faceusp_dt
 subroutine wait_faceusp_dt(faceusp_dt)
   !
   !.. Use Statements ..
-  use geovar,      only : bface
+  use geomvar_mod, only : bface
   use flowvar_mod, only : face_var
   !
   !.. Formal Arguments ..
@@ -10450,7 +10450,7 @@ end subroutine wait_faceusp_dt
 subroutine exchange_bc_conflicts_usp_dt(faceusp_dt,override)
   !
   !.. Use Statements ..
-  use geovar,      only : bc_conflict
+  use geomvar_mod, only : bc_conflict
   use ovar,        only : loc_flux_pts
   use ovar,        only : use_bc_conflicts
   use flowvar_mod, only : face_var
@@ -10605,7 +10605,7 @@ end subroutine exchange_bc_conflicts_usp_dt
 subroutine exchange_facedusp_dt(facedusp_dt)
   !
   !.. Use Statements ..
-  use geovar,      only : bface
+  use geomvar_mod, only : bface
   use flowvar_mod, only : face_vec
   !
   !.. Formal Arguments ..
@@ -10671,7 +10671,7 @@ end subroutine exchange_facedusp_dt
 subroutine wait_facedusp_dt(facedusp_dt)
   !
   !.. Use Statements ..
-  use geovar,      only : bface
+  use geomvar_mod, only : bface
   use flowvar_mod, only : face_vec
   !
   !.. Formal Arguments ..
@@ -10720,7 +10720,7 @@ end subroutine wait_facedusp_dt
 subroutine exchange_bc_conflicts_dusp_dt(facedusp_dt,override)
   !
   !.. Use Statements ..
-  use geovar,      only : nr,bc_conflict
+  use geomvar_mod, only : nr,bc_conflict
   use ovar,        only : loc_flux_pts
   use ovar,        only : use_bc_conflicts
   use flowvar_mod, only : face_vec
@@ -11713,7 +11713,7 @@ end subroutine exch_connectivity
 subroutine collect_global_solution
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
+  use geomvar_mod, only : n_solpts
   use flowvar_mod, only : usp,global_usp
   !
   !.. Local Scalars ..
@@ -12786,7 +12786,7 @@ subroutine report_parallel_memory_usage(xadj,adjncy,epart,node,edge,face, &
                                         n,request_stop)
   !
   !.. Use Statements ..
-  use geovar,        only : geovar_memory_usage
+  use geomvar_mod,   only : geomvar_memory_usage
   use ovar,          only : ovar_memory_usage
   use flowvar_mod,   only : flowvar_memory_usage
   use module_plot3d, only : plot3d_memory_usage
@@ -12858,7 +12858,7 @@ continue
         iostat=ierr,iomsg=error_message)
   call io_error(pname,memfile,1,__LINE__,__FILE__,ierr,error_message)
   !
-  call geovar_memory_usage(i)
+  call geomvar_memory_usage(i)
  !call ovar_memory_usage(i)
  !call plot3d_memory_usage(i)
  !call gmsh_memory_usage(i)

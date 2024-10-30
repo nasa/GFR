@@ -228,11 +228,11 @@ contains
 subroutine get_metrics()
   !
   !.. Use Statements ..
-  use geovar, only : nr,ncell,nnode
-  use geovar, only : nfbnd,nface,n_solpts
-  use geovar, only : using_quadrature
-  use ovar,   only : local_volume,total_volume
-  use ovar,   only : Timestep_Type
+  use geomvar_mod, only : nr,ncell,nnode
+  use geomvar_mod, only : nfbnd,nface,n_solpts
+  use geomvar_mod, only : using_quadrature
+  use ovar,        only : local_volume,total_volume
+  use ovar,        only : Timestep_Type
   !
   !.. Local Scalars ..
   integer  :: ierr
@@ -479,10 +479,10 @@ end subroutine get_metrics
 subroutine old_get_metrics()
   !
   !.. Use Statements ..
-  use geovar, only : nr,n_totpts,n_totcel
-  use geovar, only : ncell,cell,xyz
-  use geovar, only : nnode,nfbnd,nface,n_solpts
-  use geovar, only : using_quadrature
+  use geomvar_mod, only : nr,n_totpts,n_totcel
+  use geomvar_mod, only : ncell,cell,xyz
+  use geomvar_mod, only : nnode,nfbnd,nface,n_solpts
+  use geomvar_mod, only : using_quadrature
   !
   use element_type_mod, only : std_elem
   !
@@ -991,9 +991,9 @@ subroutine old_compute_face_normals
   !.. Use Statements ..
   use order_mod,         only : maxSP,maxFP
   use order_mod,         only : geom_solpts
-  use geovar,            only : ncell,cell,fp
-  use geovar,            only : nfbnd,nface,face,n_flxpts
-  use geovar,            only : nr,xyz,bface
+  use geomvar_mod,       only : ncell,cell,fp
+  use geomvar_mod,       only : nfbnd,nface,face,n_flxpts
+  use geomvar_mod,       only : nr,xyz,bface
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   !
@@ -1580,9 +1580,9 @@ subroutine compute_face_normals
   !.. Use Statements ..
   use order_mod,         only : maxSP,maxFP
   use order_mod,         only : geom_solpts
-  use geovar,            only : ncell,cell,fp
-  use geovar,            only : nfbnd,nface,face,n_flxpts
-  use geovar,            only : nr,xyz,bface
+  use geomvar_mod,       only : ncell,cell,fp
+  use geomvar_mod,       only : nfbnd,nface,face,n_flxpts
+  use geomvar_mod,       only : nr,xyz,bface
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   !
@@ -1695,8 +1695,8 @@ end subroutine compute_face_normals
 subroutine exact_TCF_face_normals(fnrm,fxyz)
   !
   !.. Use Statements ..
-  use geovar,           only : nr,nface,face
-  use geovar,           only : xyz_nodes
+  use geomvar_mod,      only : nr,nface,face
+  use geomvar_mod,      only : xyz_nodes
   !
   use element_type_mod, only : std_elem
   !
@@ -1852,9 +1852,9 @@ subroutine compute_face_normals_3d(fnrm,fxyz)
   !.. Use Statements ..
   use order_mod,         only : maxFP
   use order_mod,         only : geom_solpts
-  use geovar,            only : nfbnd,ncell,cell,fp,face
-  use geovar,            only : xyz,xyz_nodes
-  use geovar,            only : nodes_of_cell,nodes_of_cell_ptr
+  use geomvar_mod,       only : nfbnd,ncell,cell,fp,face
+  use geomvar_mod,       only : xyz,xyz_nodes
+  use geomvar_mod,       only : nodes_of_cell,nodes_of_cell_ptr
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   !
@@ -2359,8 +2359,8 @@ subroutine compute_face_normals_2d(fnrm)
   !.. Use Statements ..
   use order_mod,         only : maxFP
   use order_mod,         only : geom_solpts
-  use geovar,            only : ncell,cell,fp,face
-  use geovar,            only : xyz
+  use geomvar_mod,       only : ncell,cell,fp,face
+  use geomvar_mod,       only : xyz
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   !
@@ -2509,7 +2509,7 @@ end subroutine compute_face_normals_2d
 subroutine compute_face_normals_1d(fnrm)
   !
   !.. Use Statements ..
-  use geovar, only : ncell,cell,face
+  use geomvar_mod, only : ncell,cell,face
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: fnrm(:,:)
@@ -2570,7 +2570,7 @@ end subroutine compute_face_normals_1d
 subroutine compute_face_jacobians(fnrm,fjac)
   !
   !.. Use Statements ..
-  use geovar,            only : nr,nfbnd,nface,face,cell,fp
+  use geomvar_mod,       only : nr,nfbnd,nface,face,cell,fp
   use interpolation_mod, only : interp
   !
 #ifdef DEBUG_ON
@@ -2817,9 +2817,9 @@ subroutine compute_quadrature_face_normals
   !.. Use Statements ..
   use order_mod,         only : maxSP,maxGP
   use order_mod,         only : geom_solpts
-  use geovar,            only : ncell,cell,fp
-  use geovar,            only : nface,face,n_flx_qdtpts
-  use geovar,            only : nr,xyz
+  use geomvar_mod,       only : ncell,cell,fp
+  use geomvar_mod,       only : nface,face,n_flx_qdtpts
+  use geomvar_mod,       only : nr,xyz
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   !
@@ -3130,7 +3130,7 @@ end subroutine compute_quadrature_face_normals
 subroutine create_time_metrics()
   !
   !.. Use Statements ..
-  use geovar,           only : nr,ncell,cell,n_solpts
+  use geomvar_mod,      only : nr,ncell,cell,n_solpts
   use element_type_mod, only : element_t,std_elem
   !
   !.. Local Scalars ..
@@ -3524,7 +3524,7 @@ end subroutine create_cell_metrics
 subroutine compute_cell_metrics_3d(met,jcb,wjac)
   !
   !.. Use Statements ..
-  use geovar,            only : ncell,cell,xyz
+  use geomvar_mod,       only : ncell,cell,xyz
   use element_type_mod,  only : std_elem
   use derivatives_mod,   only : deriv
   !
@@ -3684,7 +3684,7 @@ end subroutine compute_cell_metrics_3d
 subroutine compute_cell_metrics_2d(met,jcb,wjac)
   !
   !.. Use Statements ..
-  use geovar,            only : ncell,cell,xyz
+  use geomvar_mod,       only : ncell,cell,xyz
   use element_type_mod,  only : std_elem
   use derivatives_mod,   only : deriv
   !
@@ -3776,7 +3776,7 @@ end subroutine compute_cell_metrics_2d
 subroutine compute_cell_metrics_1d(met,jcb,wjac)
   !
   !.. Use Statements ..
-  use geovar,            only : ncell,cell,xyz
+  use geomvar_mod,       only : ncell,cell,xyz
   use element_type_mod,  only : std_elem
   use derivatives_mod,   only : deriv
   !
@@ -3844,8 +3844,8 @@ subroutine compute_volume_statistics(min_ncv,max_ncv,vol_min,vol_max, &
                                      jac_min,jac_max,jcb,wjac)
   !
   !.. Use Statements ..
-  use geovar, only : ncell,cell
-  use ovar,   only : local_volume
+  use geomvar_mod, only : ncell,cell
+  use ovar,        only : local_volume
   !
   !.. Formal Arguments ..
   integer,  intent(inout) :: min_ncv,max_ncv
