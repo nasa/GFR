@@ -133,7 +133,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/parallel.o \
         $(OBJDIR)/mappings.o \
         $(OBJDIR)/connectivity.o \
-        $(OBJDIR)/limiters.o \
+        $(OBJDIR)/limiters_mod.o \
         $(OBJDIR)/mlp_mod.o \
         $(OBJDIR)/mms_mod.o \
         $(OBJDIR)/channel_mod.o \

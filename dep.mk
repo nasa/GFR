@@ -33,7 +33,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/eperk_mod.o \
          $(OBJDIR)/mms_mod.o \
          $(OBJDIR)/channel_mod.o \
-         $(OBJDIR)/limiters.o \
+         $(OBJDIR)/limiters_mod.o \
          $(OBJDIR)/postproc_mod.o \
          $(OBJDIR)/restart_mod.o \
          $(OBJDIR)/plot3d_mod.o \
@@ -454,7 +454,7 @@ $(OBJDIR)/kind_types.o : kind_types.f90 \
                $(FUNDIR)/debug_timer.f90 \
                          mpi_defs.h
 
-$(OBJDIR)/limiters.o : limiters.f90 \
+$(OBJDIR)/limiters_mod.o : limiters_mod.f90 \
              $(OBJDIR)/kind_types.o \
              $(OBJDIR)/eqn_idx_mod.o \
              $(OBJDIR)/geomvar_mod.o \
@@ -506,7 +506,7 @@ $(OBJDIR)/mlp_mod.o : mlp_mod.f90 \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/geomvar_mod.o \
             $(OBJDIR)/interpolation_mod.o \
-            $(OBJDIR)/limiters.o \
+            $(OBJDIR)/limiters_mod.o \
             $(OBJDIR)/order_mod.o \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/parallel.o
@@ -652,7 +652,7 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(OBJDIR)/transport_mod.o \
                  $(OBJDIR)/gpu_mod.o \
                  $(OBJDIR)/metrics.o \
-                 $(OBJDIR)/limiters.o \
+                 $(OBJDIR)/limiters_mod.o \
                  $(OBJDIR)/restart_mod.o \
                  $(FUNDIR)/cgns_write_field_data.f90 \
                  $(FUNDIR)/cgns_write_field_header.f90 \
@@ -742,7 +742,7 @@ $(OBJDIR)/rhs_mod.o : rhs_mod.f90 \
             $(OBJDIR)/flux.o \
             $(OBJDIR)/metrics.o \
             $(OBJDIR)/filter_mod.o \
-            $(OBJDIR)/limiters.o \
+            $(OBJDIR)/limiters_mod.o \
             $(OBJDIR)/mlp_mod.o \
             $(OBJDIR)/parallel.o \
             $(OBJDIR)/projection_mod.o \
@@ -865,7 +865,7 @@ $(OBJDIR)/write_cgns_mod.o : write_cgns_mod.f90 \
                    $(OBJDIR)/interpolation_mod.o \
                    $(OBJDIR)/derivatives_mod.o \
                    $(OBJDIR)/projection_mod.o \
-                   $(OBJDIR)/limiters.o \
+                   $(OBJDIR)/limiters_mod.o \
                    $(OBJDIR)/mlp_mod.o \
                    $(OBJDIR)/thermofix_mod.o \
                    $(OBJDIR)/thermo_mod.o \
