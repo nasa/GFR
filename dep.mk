@@ -19,7 +19,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/write_cgns_mod.o \
          $(OBJDIR)/metrics.o \
          $(OBJDIR)/mappings.o \
-         $(OBJDIR)/connectivity.o \
+         $(OBJDIR)/connectivity_mod.o \
          $(OBJDIR)/initialize.o \
          $(OBJDIR)/generic.o \
          $(OBJDIR)/bc_mod.o \
@@ -123,7 +123,7 @@ $(OBJDIR)/cgns_mod.o : cgns_mod.f90 \
              $(OBJDIR)/geomvar_mod.o \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/order_mod.o \
-             $(OBJDIR)/connectivity.o \
+             $(OBJDIR)/connectivity_mod.o \
              $(FUNDIR)/bc_string_to_integer.f90 \
              $(FUNDIR)/smc000_interior_wall_radius.f90 \
              $(FUNDIR)/last.f90 \
@@ -145,7 +145,7 @@ $(OBJDIR)/channel_mod.o : channel_mod.f90 \
                 $(OBJDIR)/transport_mod.o \
                 $(OBJDIR)/turb_inflow_mod.o
 
-$(OBJDIR)/connectivity.o : connectivity.f90 \
+$(OBJDIR)/connectivity_mod.o : connectivity_mod.f90 \
                  $(OBJDIR)/kind_types.o \
                  $(OBJDIR)/geomvar_mod.o \
                  $(OBJDIR)/ovar_mod.o \
@@ -596,7 +596,7 @@ $(OBJDIR)/parallel.o : parallel.f90 \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/order_mod.o \
              $(OBJDIR)/flowvar_mod.o \
-             $(OBJDIR)/connectivity.o \
+             $(OBJDIR)/connectivity_mod.o \
              $(OBJDIR)/gmsh_mod.o \
              $(OBJDIR)/cgns_mod.o \
              $(OBJDIR)/plot3d_mod.o \
@@ -616,7 +616,7 @@ $(OBJDIR)/periodic_mod.o : periodic_mod.f90 \
                  $(OBJDIR)/geomvar_mod.o \
                  $(OBJDIR)/ovar_mod.o \
                  $(OBJDIR)/cgnstypes_mod.o \
-                 $(OBJDIR)/connectivity.o
+                 $(OBJDIR)/connectivity_mod.o
 
 $(OBJDIR)/plot3d_mod.o : plot3d_mod.f90 \
                $(OBJDIR)/kind_types.o \
@@ -646,7 +646,7 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(OBJDIR)/order_mod.o \
                  $(OBJDIR)/interpolation_mod.o \
                  $(OBJDIR)/parallel.o \
-                 $(OBJDIR)/connectivity.o \
+                 $(OBJDIR)/connectivity_mod.o \
                  $(OBJDIR)/thermofix_mod.o \
                  $(OBJDIR)/thermo_mod.o \
                  $(OBJDIR)/transport_mod.o \
