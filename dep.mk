@@ -14,7 +14,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/interpolation_mod.o \
          $(OBJDIR)/projection_mod.o \
          $(OBJDIR)/filter_mod.o \
-         $(OBJDIR)/io.o \
+         $(OBJDIR)/io_mod.o \
          $(OBJDIR)/periodic_mod.o \
          $(OBJDIR)/write_cgns_mod.o \
          $(OBJDIR)/metrics.o \
@@ -397,7 +397,7 @@ $(OBJDIR)/invs_flux_mod.o : invs_flux_mod.f90 \
                   $(OBJDIR)/timer_mod.o \
                   $(OBJDIR)/mrf_mod.o
 
-$(OBJDIR)/io.o : io.f90 \
+$(OBJDIR)/io_mod.o : io_mod.f90 \
        $(OBJDIR)/kind_types.o \
        $(OBJDIR)/eqn_idx_mod.o \
        $(OBJDIR)/order_mod.o \
