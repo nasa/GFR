@@ -21,7 +21,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/mappings.o \
          $(OBJDIR)/connectivity_mod.o \
          $(OBJDIR)/initialize.o \
-         $(OBJDIR)/generic.o \
+         $(OBJDIR)/generic_mod.o \
          $(OBJDIR)/bc_mod.o \
          $(OBJDIR)/bnd_profiles_mod.o \
          $(OBJDIR)/flux_mod.o \
@@ -263,7 +263,7 @@ $(OBJDIR)/flux_mod.o : flux_mod.f90 \
          $(FUNDIR)/debug_timer.f90 \
          $(FUNDIR)/check_for_bad_number.f90
 
-$(OBJDIR)/generic.o : generic.f90 \
+$(OBJDIR)/generic_mod.o : generic_mod.f90 \
             $(OBJDIR)/kind_types.o \
             $(OBJDIR)/pbs_mod.o \
             $(OBJDIR)/eqn_idx_mod.o \

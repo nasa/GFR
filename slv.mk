@@ -105,7 +105,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/metrics.o \
         $(OBJDIR)/poly.o \
         $(OBJDIR)/initialize.o \
-        $(OBJDIR)/generic.o \
+        $(OBJDIR)/generic_mod.o \
         $(OBJDIR)/bc_mod.o \
         $(OBJDIR)/bc_flow_stats_mod.o \
         $(OBJDIR)/bnd_profiles_mod.o \
