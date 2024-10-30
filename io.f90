@@ -1737,7 +1737,7 @@ subroutine read_grid_file()
   use geomvar_mod,   only : nr,grid
   use geomvar_mod,   only : output_bface
   use cgns_mod,      only : read_cgns_gridfile
-  use module_gmsh,   only : read_gmsh_gridfile
+  use gmsh_mod,      only : read_gmsh_gridfile
   use module_plot3d, only : read_plot3d_gridfile
   use order_mod,     only : find_valid_geometries
   use ovar,          only : use_bc_conflicts

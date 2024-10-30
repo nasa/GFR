@@ -1,4 +1,4 @@
-module module_gmsh
+module gmsh_mod
   !
   !.. Use Statements ..
   use module_kind_types
@@ -4714,7 +4714,7 @@ continue
   !
   ! Format Statements
   !
-  1 format (/,"Status of arrays in module module_gmsh")
+  1 format (/,"Status of arrays in module gmsh_mod")
   2 format (" Array: ",a,dt)
   3 format (" Total memory = ",f8.2,1x,a)
   4 format (a,"(",i0,")%",a)
@@ -4731,7 +4731,7 @@ include "Functions/last.f90"
 !
 !###############################################################################
 !
-end module module_gmsh
+end module gmsh_mod
 !
 !###############################################################################
 !
