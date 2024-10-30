@@ -24,7 +24,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/generic.o \
          $(OBJDIR)/bc_mod.o \
          $(OBJDIR)/bnd_profiles_mod.o \
-         $(OBJDIR)/flux.o \
+         $(OBJDIR)/flux_mod.o \
          $(OBJDIR)/parallel.o \
          $(OBJDIR)/dt_mod.o \
          $(OBJDIR)/erk_mod.o \
@@ -239,7 +239,7 @@ $(OBJDIR)/flowvar_mod.o : flowvar_mod.f90 \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/order_mod.o
 
-$(OBJDIR)/flux.o : flux.f90 \
+$(OBJDIR)/flux_mod.o : flux_mod.f90 \
          $(OBJDIR)/kind_types.o \
          $(OBJDIR)/eqn_idx_mod.o \
          $(OBJDIR)/geomvar_mod.o \
@@ -360,7 +360,7 @@ $(OBJDIR)/interpsol_mod.o : interpsol_mod.f90 \
                   $(OBJDIR)/ovar_mod.o \
                   $(OBJDIR)/order_mod.o \
                   $(OBJDIR)/flowvar_mod.o \
-                  $(OBJDIR)/flux.o \
+                  $(OBJDIR)/flux_mod.o \
                   $(OBJDIR)/element_type_mod.o \
                   $(OBJDIR)/vandermonde_mod.o \
                   $(OBJDIR)/derivatives_mod.o \
@@ -739,7 +739,7 @@ $(OBJDIR)/rhs_mod.o : rhs_mod.f90 \
             $(OBJDIR)/order_mod.o \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/bc_mod.o \
-            $(OBJDIR)/flux.o \
+            $(OBJDIR)/flux_mod.o \
             $(OBJDIR)/metrics.o \
             $(OBJDIR)/filter_mod.o \
             $(OBJDIR)/limiters_mod.o \
@@ -870,7 +870,7 @@ $(OBJDIR)/write_cgns_mod.o : write_cgns_mod.f90 \
                    $(OBJDIR)/thermofix_mod.o \
                    $(OBJDIR)/thermo_mod.o \
                    $(OBJDIR)/transport_mod.o \
-                   $(OBJDIR)/flux.o \
+                   $(OBJDIR)/flux_mod.o \
                    $(OBJDIR)/gpu_mod.o \
                    $(OBJDIR)/restart_mod.o \
                    $(OBJDIR)/taylor_couette_mod.o \
