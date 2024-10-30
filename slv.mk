@@ -92,7 +92,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/order_mod.o \
         $(OBJDIR)/element_type_mod.o \
         $(OBJDIR)/quadrature_mod.o \
-        $(OBJDIR)/geovar_mod.o \
+        $(OBJDIR)/geomvar_mod.o \
         $(OBJDIR)/flowvar_mod.o \
         $(OBJDIR)/ovar_mod.o \
         $(OBJDIR)/gmsh_mod.o \

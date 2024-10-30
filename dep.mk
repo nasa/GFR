@@ -3,7 +3,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/eqn_idx_mod.o \
          $(OBJDIR)/pbs_mod.o \
          $(OBJDIR)/order_mod.o \
-         $(OBJDIR)/geovar_mod.o \
+         $(OBJDIR)/geomvar_mod.o \
          $(OBJDIR)/ovar_mod.o \
          $(OBJDIR)/flowvar_mod.o \
          $(OBJDIR)/element_type_mod.o \
@@ -52,7 +52,7 @@ $(OBJDIR)/main.o : main.f90 \
 $(OBJDIR)/averaging_mod.o : averaging_mod.f90 \
                   $(OBJDIR)/kind_types.o \
                   $(OBJDIR)/eqn_idx_mod.o \
-                  $(OBJDIR)/geovar_mod.o \
+                  $(OBJDIR)/geomvar_mod.o \
                   $(OBJDIR)/ovar_mod.o \
                   $(OBJDIR)/flowvar_mod.o \
                   $(OBJDIR)/write_cgns_mod.o \
@@ -63,7 +63,7 @@ $(OBJDIR)/averaging_mod.o : averaging_mod.f90 \
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/kind_types.o \
            $(OBJDIR)/eqn_idx_mod.o \
-           $(OBJDIR)/geovar_mod.o \
+           $(OBJDIR)/geomvar_mod.o \
            $(OBJDIR)/ovar_mod.o \
            $(OBJDIR)/flowvar_mod.o \
            $(OBJDIR)/metrics.o \
@@ -88,7 +88,7 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
 $(OBJDIR)/bc_flow_stats_mod.o : bc_flow_stats_mod.f90 \
                       $(OBJDIR)/kind_types.o \
                       $(OBJDIR)/eqn_idx_mod.o \
-                      $(OBJDIR)/geovar_mod.o \
+                      $(OBJDIR)/geomvar_mod.o \
                       $(OBJDIR)/ovar_mod.o \
                       $(OBJDIR)/flowvar_mod.o \
                       $(OBJDIR)/metrics.o \
@@ -99,7 +99,7 @@ $(OBJDIR)/bnd_profiles_mod.o : bnd_profiles_mod.f90 \
                      $(OBJDIR)/kind_types.o \
                      $(OBJDIR)/eqn_idx_mod.o \
                      $(OBJDIR)/order_mod.o \
-                     $(OBJDIR)/geovar_mod.o \
+                     $(OBJDIR)/geomvar_mod.o \
                      $(OBJDIR)/ovar_mod.o \
                      $(OBJDIR)/flowvar_mod.o \
                      $(OBJDIR)/element_type_mod.o \
@@ -113,14 +113,14 @@ $(OBJDIR)/cell_ave_mod.o : cell_ave_mod.f90 \
                  $(OBJDIR)/kind_types.o \
                  $(OBJDIR)/eqn_idx_mod.o \
                  $(OBJDIR)/flowvar_mod.o \
-                 $(OBJDIR)/geovar_mod.o \
+                 $(OBJDIR)/geomvar_mod.o \
                  $(OBJDIR)/ovar_mod.o \
                  $(OBJDIR)/vandermonde_mod.o
 
 $(OBJDIR)/cgns_mod.o : cgns_mod.f90 \
              $(OBJDIR)/kind_types.o \
              $(OBJDIR)/cgnstypes_mod.o \
-             $(OBJDIR)/geovar_mod.o \
+             $(OBJDIR)/geomvar_mod.o \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/order_mod.o \
              $(OBJDIR)/connectivity.o \
@@ -136,7 +136,7 @@ $(OBJDIR)/channel_mod.o : channel_mod.f90 \
                 $(OBJDIR)/kind_types.o \
                 $(OBJDIR)/eqn_idx_mod.o \
                 $(OBJDIR)/order_mod.o \
-                $(OBJDIR)/geovar_mod.o \
+                $(OBJDIR)/geomvar_mod.o \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/flowvar_mod.o \
                 $(OBJDIR)/element_type_mod.o \
@@ -147,7 +147,7 @@ $(OBJDIR)/channel_mod.o : channel_mod.f90 \
 
 $(OBJDIR)/connectivity.o : connectivity.f90 \
                  $(OBJDIR)/kind_types.o \
-                 $(OBJDIR)/geovar_mod.o \
+                 $(OBJDIR)/geomvar_mod.o \
                  $(OBJDIR)/ovar_mod.o \
                  $(OBJDIR)/order_mod.o \
                  $(FUNDIR)/last.f90 \
@@ -183,7 +183,7 @@ $(OBJDIR)/derivatives_mod.o : derivatives_mod.f90 \
 $(OBJDIR)/dt_mod.o : dt_mod.f90 \
            $(OBJDIR)/kind_types.o \
            $(OBJDIR)/eqn_idx_mod.o \
-           $(OBJDIR)/geovar_mod.o \
+           $(OBJDIR)/geomvar_mod.o \
            $(OBJDIR)/ovar_mod.o \
            $(OBJDIR)/flowvar_mod.o \
            $(OBJDIR)/metrics.o \
@@ -197,7 +197,7 @@ $(OBJDIR)/element_type_mod.o : element_type_mod.f90 \
 $(OBJDIR)/eperk_mod.o : eperk_mod.f90 \
               $(OBJDIR)/kind_types.o \
               $(OBJDIR)/eqn_idx_mod.o \
-              $(OBJDIR)/geovar_mod.o \
+              $(OBJDIR)/geomvar_mod.o \
               $(OBJDIR)/ovar_mod.o \
               $(OBJDIR)/flowvar_mod.o \
               $(OBJDIR)/dt_mod.o \
@@ -211,7 +211,7 @@ $(OBJDIR)/eqn_idx_mod.o : eqn_idx_mod.f90 \
 $(OBJDIR)/erk_mod.o : erk_mod.f90 \
             $(OBJDIR)/kind_types.o \
             $(OBJDIR)/eqn_idx_mod.o \
-            $(OBJDIR)/geovar_mod.o \
+            $(OBJDIR)/geomvar_mod.o \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/rhs_mod.o \
@@ -224,7 +224,7 @@ $(OBJDIR)/filter_mod.o : filter_mod.f90 \
                $(OBJDIR)/matrix_types_mod.o \
                $(OBJDIR)/ovar_mod.o \
                $(OBJDIR)/order_mod.o \
-               $(OBJDIR)/geovar_mod.o \
+               $(OBJDIR)/geomvar_mod.o \
                $(OBJDIR)/flowvar_mod.o \
                $(OBJDIR)/vandermonde_mod.o \
                $(OBJDIR)/thermo_mod.o \
@@ -235,14 +235,14 @@ $(OBJDIR)/filter_mod.o : filter_mod.f90 \
 $(OBJDIR)/flowvar_mod.o : flowvar_mod.f90 \
                 $(OBJDIR)/kind_types.o \
                 $(OBJDIR)/eqn_idx_mod.o \
-                $(OBJDIR)/geovar_mod.o \
+                $(OBJDIR)/geomvar_mod.o \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/order_mod.o
 
 $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/kind_types.o \
          $(OBJDIR)/eqn_idx_mod.o \
-         $(OBJDIR)/geovar_mod.o \
+         $(OBJDIR)/geomvar_mod.o \
          $(OBJDIR)/order_mod.o \
          $(OBJDIR)/ovar_mod.o \
          $(OBJDIR)/flowvar_mod.o \
@@ -267,7 +267,7 @@ $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/kind_types.o \
             $(OBJDIR)/pbs_mod.o \
             $(OBJDIR)/eqn_idx_mod.o \
-            $(OBJDIR)/geovar_mod.o \
+            $(OBJDIR)/geomvar_mod.o \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/order_mod.o \
             $(OBJDIR)/metrics.o \
@@ -280,13 +280,13 @@ $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/timer_mod.o \
             $(FUNDIR)/debug_timer.f90
 
-$(OBJDIR)/geovar_mod.o : geovar_mod.f90 \
+$(OBJDIR)/geomvar_mod.o : geomvar_mod.f90 \
                $(OBJDIR)/kind_types.o \
                $(OBJDIR)/ovar_mod.o
 
 $(OBJDIR)/gmsh_mod.o : gmsh_mod.f90 \
              $(OBJDIR)/kind_types.o \
-             $(OBJDIR)/geovar_mod.o \
+             $(OBJDIR)/geomvar_mod.o \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/order_mod.o \
              $(FUNDIR)/bc_string_to_integer.f90 \
@@ -302,7 +302,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/kind_types.o \
                $(OBJDIR)/matrix_types_mod.o \
                $(OBJDIR)/eqn_idx_mod.o \
-               $(OBJDIR)/geovar_mod.o \
+               $(OBJDIR)/geomvar_mod.o \
                $(OBJDIR)/ovar_mod.o \
                $(OBJDIR)/order_mod.o \
                $(OBJDIR)/flowvar_mod.o \
@@ -333,7 +333,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
 $(OBJDIR)/internal_grid_mod.o : internal_grid_mod.f90 \
                       $(OBJDIR)/kind_types.o \
                       $(OBJDIR)/order_mod.o \
-                      $(OBJDIR)/geovar_mod.o \
+                      $(OBJDIR)/geomvar_mod.o \
                       $(OBJDIR)/ovar_mod.o \
                       $(OBJDIR)/cgns_mod.o \
                       $(OBJDIR)/poly.o
@@ -342,7 +342,7 @@ $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(OBJDIR)/kind_types.o \
                       $(OBJDIR)/eqn_idx_mod.o \
                       $(OBJDIR)/matrix_types_mod.o \
-                      $(OBJDIR)/geovar_mod.o \
+                      $(OBJDIR)/geomvar_mod.o \
                       $(OBJDIR)/ovar_mod.o \
                       $(OBJDIR)/order_mod.o \
                       $(OBJDIR)/element_type_mod.o \
@@ -356,7 +356,7 @@ $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
 $(OBJDIR)/interpsol_mod.o : interpsol_mod.f90 \
                   $(OBJDIR)/kind_types.o \
                   $(OBJDIR)/eqn_idx_mod.o \
-                  $(OBJDIR)/geovar_mod.o \
+                  $(OBJDIR)/geomvar_mod.o \
                   $(OBJDIR)/ovar_mod.o \
                   $(OBJDIR)/order_mod.o \
                   $(OBJDIR)/flowvar_mod.o \
@@ -378,7 +378,7 @@ $(OBJDIR)/interpsol_mod.o : interpsol_mod.f90 \
 
 $(OBJDIR)/interpsolvar_mod.o : interpsolvar_mod.f90 \
                      $(OBJDIR)/kind_types.o \
-                     $(OBJDIR)/geovar_mod.o \
+                     $(OBJDIR)/geomvar_mod.o \
                      $(OBJDIR)/flowvar_mod.o \
                      $(OBJDIR)/matrix_types_mod.o \
                      $(OBJDIR)/element_type_mod.o \
@@ -392,7 +392,7 @@ $(OBJDIR)/interpsolvar_mod.o : interpsolvar_mod.f90 \
 $(OBJDIR)/invs_flux_mod.o : invs_flux_mod.f90 \
                   $(OBJDIR)/kind_types.o \
                   $(OBJDIR)/eqn_idx_mod.o \
-                  $(OBJDIR)/geovar_mod.o \
+                  $(OBJDIR)/geomvar_mod.o \
                   $(OBJDIR)/ovar_mod.o \
                   $(OBJDIR)/timer_mod.o \
                   $(OBJDIR)/mrf_mod.o
@@ -401,7 +401,7 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/kind_types.o \
        $(OBJDIR)/eqn_idx_mod.o \
        $(OBJDIR)/order_mod.o \
-       $(OBJDIR)/geovar_mod.o \
+       $(OBJDIR)/geomvar_mod.o \
        $(OBJDIR)/ovar_mod.o \
        $(OBJDIR)/flowvar_mod.o \
        $(OBJDIR)/gmsh_mod.o \
@@ -457,7 +457,7 @@ $(OBJDIR)/kind_types.o : kind_types.f90 \
 $(OBJDIR)/limiters.o : limiters.f90 \
              $(OBJDIR)/kind_types.o \
              $(OBJDIR)/eqn_idx_mod.o \
-             $(OBJDIR)/geovar_mod.o \
+             $(OBJDIR)/geomvar_mod.o \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/order_mod.o \
              $(OBJDIR)/flowvar_mod.o \
@@ -476,7 +476,7 @@ $(OBJDIR)/matrix_types_mod.o : matrix_types_mod.f90 \
 $(OBJDIR)/mappings.o : mappings.f90 \
              $(OBJDIR)/kind_types.o \
              $(OBJDIR)/eqn_idx_mod.o \
-             $(OBJDIR)/geovar_mod.o \
+             $(OBJDIR)/geomvar_mod.o \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/order_mod.o \
              $(OBJDIR)/flowvar_mod.o \
@@ -491,7 +491,7 @@ $(OBJDIR)/metis.o : metis.f90
 
 $(OBJDIR)/metrics.o : metrics.f90 \
             $(OBJDIR)/kind_types.o \
-            $(OBJDIR)/geovar_mod.o \
+            $(OBJDIR)/geomvar_mod.o \
             $(OBJDIR)/order_mod.o \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/element_type_mod.o \
@@ -504,7 +504,7 @@ $(OBJDIR)/mlp_mod.o : mlp_mod.f90 \
             $(OBJDIR)/eqn_idx_mod.o \
             $(OBJDIR)/filter_mod.o \
             $(OBJDIR)/flowvar_mod.o \
-            $(OBJDIR)/geovar_mod.o \
+            $(OBJDIR)/geomvar_mod.o \
             $(OBJDIR)/interpolation_mod.o \
             $(OBJDIR)/limiters.o \
             $(OBJDIR)/order_mod.o \
@@ -514,7 +514,7 @@ $(OBJDIR)/mlp_mod.o : mlp_mod.f90 \
 $(OBJDIR)/mms_mod.o : mms_mod.f90 \
             $(OBJDIR)/kind_types.o \
             $(OBJDIR)/eqn_idx_mod.o \
-            $(OBJDIR)/geovar_mod.o \
+            $(OBJDIR)/geomvar_mod.o \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/metrics.o \
@@ -523,7 +523,7 @@ $(OBJDIR)/mms_mod.o : mms_mod.f90 \
 $(OBJDIR)/mrf_mod.o : mrf_mod.f90 \
             $(OBJDIR)/kind_types.o \
             $(OBJDIR)/eqn_idx_mod.o \
-            $(OBJDIR)/geovar_mod.o \
+            $(OBJDIR)/geomvar_mod.o \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/timer_mod.o \
@@ -534,13 +534,13 @@ $(OBJDIR)/mycpu.o : $(FUNDIR)/mycpu.c
 $(OBJDIR)/mydebug_mod.o : mydebug_mod.f90 \
                 $(OBJDIR)/kind_types.o \
                 $(OBJDIR)/eqn_idx_mod.o \
-                $(OBJDIR)/geovar_mod.o \
+                $(OBJDIR)/geomvar_mod.o \
                 $(OBJDIR)/flowvar_mod.o \
                 $(OBJDIR)/interpsolvar_mod.o
 
 $(OBJDIR)/octedat_facexyz_mod.o : octedat_facexyz_mod.f90 \
                         $(OBJDIR)/kind_types.o \
-                        $(OBJDIR)/geovar_mod.o \
+                        $(OBJDIR)/geomvar_mod.o \
                         $(OBJDIR)/flowvar_mod.o \
                         $(OBJDIR)/octedat_mod.o \
                         $(OBJDIR)/octstat_mod.o
@@ -551,7 +551,7 @@ $(OBJDIR)/octedat_mod.o : octedat_mod.f90 \
 
 $(OBJDIR)/octnode_mod.o : octnode_mod.f90 \
                 $(OBJDIR)/kind_types.o \
-                $(OBJDIR)/geovar_mod.o \
+                $(OBJDIR)/geomvar_mod.o \
                 $(OBJDIR)/octedat_mod.o \
                 $(OBJDIR)/octroot_mod.o \
                 $(OBJDIR)/octstat_mod.o
@@ -563,7 +563,7 @@ $(OBJDIR)/octstat_mod.o : octstat_mod.f90
 
 $(OBJDIR)/octtree_mod.o : octtree_mod.f90 \
                 $(OBJDIR)/kind_types.o \
-                $(OBJDIR)/geovar_mod.o \
+                $(OBJDIR)/geomvar_mod.o \
                 $(OBJDIR)/octedat_mod.o \
                 $(OBJDIR)/octnode_mod.o \
                 $(OBJDIR)/octroot_mod.o \
@@ -573,7 +573,7 @@ $(OBJDIR)/octtree_mod.o : octtree_mod.f90 \
 $(OBJDIR)/oerk_mod.o : oerk_mod.f90 \
              $(OBJDIR)/kind_types.o \
              $(OBJDIR)/eqn_idx_mod.o \
-             $(OBJDIR)/geovar_mod.o \
+             $(OBJDIR)/geomvar_mod.o \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/flowvar_mod.o \
              $(OBJDIR)/timer_mod.o \
@@ -581,7 +581,7 @@ $(OBJDIR)/oerk_mod.o : oerk_mod.f90 \
 
 $(OBJDIR)/order_mod.o : order_mod.f90 \
               $(OBJDIR)/kind_types.o \
-              $(OBJDIR)/geovar_mod.o \
+              $(OBJDIR)/geomvar_mod.o \
               $(FUNDIR)/cell_solpts.f90
 
 $(OBJDIR)/ovar_mod.o : ovar_mod.f90 \
@@ -592,7 +592,7 @@ $(OBJDIR)/parallel.o : parallel.f90 \
              $(OBJDIR)/kind_types.o \
              $(OBJDIR)/eqn_idx_mod.o \
              $(OBJDIR)/metis.o \
-             $(OBJDIR)/geovar_mod.o \
+             $(OBJDIR)/geomvar_mod.o \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/order_mod.o \
              $(OBJDIR)/flowvar_mod.o \
@@ -613,14 +613,14 @@ $(OBJDIR)/pbs_time_left.o : $(FUNDIR)/pbs_time_left.c
 
 $(OBJDIR)/periodic_mod.o : periodic_mod.f90 \
                  $(OBJDIR)/kind_types.o \
-                 $(OBJDIR)/geovar_mod.o \
+                 $(OBJDIR)/geomvar_mod.o \
                  $(OBJDIR)/ovar_mod.o \
                  $(OBJDIR)/cgnstypes_mod.o \
                  $(OBJDIR)/connectivity.o
 
 $(OBJDIR)/plot3d_mod.o : plot3d_mod.f90 \
                $(OBJDIR)/kind_types.o \
-               $(OBJDIR)/geovar_mod.o \
+               $(OBJDIR)/geomvar_mod.o \
                $(OBJDIR)/ovar_mod.o \
                $(OBJDIR)/order_mod.o \
                $(OBJDIR)/plot3dio_mod.o \
@@ -639,7 +639,7 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(OBJDIR)/kind_types.o \
                  $(OBJDIR)/cgnstypes_mod.o \
                  $(OBJDIR)/eqn_idx_mod.o \
-                 $(OBJDIR)/geovar_mod.o \
+                 $(OBJDIR)/geomvar_mod.o \
                  $(OBJDIR)/ovar_mod.o \
                  $(OBJDIR)/flowvar_mod.o \
                  $(OBJDIR)/bc_mod.o \
@@ -669,7 +669,7 @@ $(OBJDIR)/projection_mod.o : projection_mod.f90 \
                    $(OBJDIR)/kind_types.o \
                    $(OBJDIR)/eqn_idx_mod.o \
                    $(OBJDIR)/matrix_types_mod.o \
-                   $(OBJDIR)/geovar_mod.o \
+                   $(OBJDIR)/geomvar_mod.o \
                    $(OBJDIR)/order_mod.o \
                    $(OBJDIR)/ovar_mod.o \
                    $(OBJDIR)/element_type_mod.o \
@@ -685,7 +685,7 @@ $(OBJDIR)/pyramid.o : pyramid.f90 \
 
 $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(OBJDIR)/kind_types.o \
-                   $(OBJDIR)/geovar_mod.o \
+                   $(OBJDIR)/geomvar_mod.o \
                    $(OBJDIR)/order_mod.o \
                    $(OBJDIR)/ovar_mod.o \
                    $(OBJDIR)/element_type_mod.o \
@@ -715,7 +715,7 @@ $(OBJDIR)/reactions_mod.o : reactions_mod.f90 \
 $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/kind_types.o \
                 $(OBJDIR)/eqn_idx_mod.o \
-                $(OBJDIR)/geovar_mod.o \
+                $(OBJDIR)/geomvar_mod.o \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/flowvar_mod.o \
                 $(OBJDIR)/random_mod.o \
@@ -734,7 +734,7 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
 $(OBJDIR)/rhs_mod.o : rhs_mod.f90 \
             $(OBJDIR)/kind_types.o \
             $(OBJDIR)/eqn_idx_mod.o \
-            $(OBJDIR)/geovar_mod.o \
+            $(OBJDIR)/geomvar_mod.o \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/order_mod.o \
             $(OBJDIR)/flowvar_mod.o \
@@ -760,7 +760,7 @@ $(OBJDIR)/shu_osher_mod.o : shu_osher_mod.f90 \
 $(OBJDIR)/taylor_couette_mod.o : taylor_couette_mod.f90 \
                        $(OBJDIR)/kind_types.o \
                        $(OBJDIR)/eqn_idx_mod.o \
-                       $(OBJDIR)/geovar_mod.o \
+                       $(OBJDIR)/geomvar_mod.o \
                        $(OBJDIR)/ovar_mod.o \
                        $(OBJDIR)/thermo_mod.o
 
@@ -774,7 +774,7 @@ $(OBJDIR)/thermofix_mod.o : thermofix_mod.f90 \
                $(OBJDIR)/eqn_idx_mod.o \
                $(OBJDIR)/filter_mod.o \
                $(OBJDIR)/flowvar_mod.o \
-               $(OBJDIR)/geovar_mod.o \
+               $(OBJDIR)/geomvar_mod.o \
                $(OBJDIR)/interpolation_mod.o \
                $(OBJDIR)/mlp_mod.o \
                $(OBJDIR)/order_mod.o \
@@ -807,7 +807,7 @@ $(OBJDIR)/turb_inflow_mod.o : turb_inflow_mod.f90 \
                     $(OBJDIR)/kind_types.o \
                     $(OBJDIR)/random_mod.o \
                     $(OBJDIR)/eqn_idx_mod.o \
-                    $(OBJDIR)/geovar_mod.o \
+                    $(OBJDIR)/geomvar_mod.o \
                     $(OBJDIR)/ovar_mod.o \
                     $(OBJDIR)/flowvar_mod.o \
                     $(OBJDIR)/metrics.o \
@@ -818,7 +818,7 @@ $(OBJDIR)/turb_inflow_mod.o : turb_inflow_mod.f90 \
 $(OBJDIR)/thx_mod.o : thx_mod.f90 \
             $(OBJDIR)/kind_types.o \
             $(OBJDIR)/eqn_idx_mod.o \
-            $(OBJDIR)/geovar_mod.o \
+            $(OBJDIR)/geomvar_mod.o \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/metrics.o \
@@ -828,7 +828,7 @@ $(OBJDIR)/thx_mod.o : thx_mod.f90 \
 $(OBJDIR)/upwind_flux_mod.o : upwind_flux_mod.f90 \
          $(OBJDIR)/kind_types.o \
          $(OBJDIR)/eqn_idx_mod.o \
-         $(OBJDIR)/geovar_mod.o \
+         $(OBJDIR)/geomvar_mod.o \
          $(OBJDIR)/ovar_mod.o \
          $(OBJDIR)/timer_mod.o \
          $(OBJDIR)/mrf_mod.o
@@ -846,7 +846,7 @@ $(OBJDIR)/vandermonde_mod.o : vandermonde_mod.f90 \
 $(OBJDIR)/visc_flux_mod.o : visc_flux_mod.f90 \
          $(OBJDIR)/kind_types.o \
          $(OBJDIR)/eqn_idx_mod.o \
-         $(OBJDIR)/geovar_mod.o \
+         $(OBJDIR)/geomvar_mod.o \
          $(OBJDIR)/ovar_mod.o \
          $(OBJDIR)/gpu_mod.o \
          $(OBJDIR)/thermo_mod.o \
@@ -858,7 +858,7 @@ $(OBJDIR)/write_cgns_mod.o : write_cgns_mod.f90 \
                    $(OBJDIR)/cgnstypes_mod.o \
                    $(OBJDIR)/eqn_idx_mod.o \
                    $(OBJDIR)/order_mod.o \
-                   $(OBJDIR)/geovar_mod.o \
+                   $(OBJDIR)/geomvar_mod.o \
                    $(OBJDIR)/ovar_mod.o \
                    $(OBJDIR)/metrics.o \
                    $(OBJDIR)/flowvar_mod.o \
@@ -942,7 +942,7 @@ $(OBJDIR)/bc_sub_in_mod.o : $(BCDIR)/bc_sub_in_mod.f90 \
                   $(OBJDIR)/kind_types.o \
                   $(OBJDIR)/eqn_idx_mod.o \
                   $(OBJDIR)/order_mod.o \
-                  $(OBJDIR)/geovar_mod.o \
+                  $(OBJDIR)/geomvar_mod.o \
                   $(OBJDIR)/ovar_mod.o \
                   $(OBJDIR)/interpolation_mod.o \
                   $(OBJDIR)/thermo_mod.o \
