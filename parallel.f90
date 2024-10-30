@@ -5127,7 +5127,7 @@ subroutine unpack_localized_grid_dt(lcell,grid_elem,grid_xyz,grid_sol,grid)
   use ovar,          only : itestcase
   use cgns_mod,      only : cgns_element_properties
   use gmsh_mod,      only : gmsh_element_properties
-  use module_plot3d, only : plot3d_element_properties
+  use plot3d_mod,    only : plot3d_element_properties
   !
   !.. Formal Arguments ..
   integer,                      intent(in) :: lcell
@@ -12789,7 +12789,7 @@ subroutine report_parallel_memory_usage(xadj,adjncy,epart,node,edge,face, &
   use geomvar_mod,   only : geomvar_memory_usage
   use ovar,          only : ovar_memory_usage
   use flowvar_mod,   only : flowvar_memory_usage
-  use module_plot3d, only : plot3d_memory_usage
+  use plot3d_mod,    only : plot3d_memory_usage
   use gmsh_mod,      only : gmsh_memory_usage
   use cgns_mod,      only : cgns_memory_usage
   !

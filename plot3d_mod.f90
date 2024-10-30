@@ -1,4 +1,4 @@
-module module_plot3d
+module plot3d_mod
   !
 !!#define PROFILE_ON
   !.. Use Statements ..
@@ -7096,7 +7096,7 @@ continue
   !
   ! Format Statements
   !
-  1 format (/,"Status of arrays in module module_plot3d")
+  1 format (/,"Status of arrays in module plot3d_mod")
   2 format (" Array: ",a,dt)
   3 format (" Total memory = ",f8.2,1x,a)
   4 format ("cut_info(",a,",",i0,")%nodes")
@@ -7117,7 +7117,7 @@ include "Functions/last.f90"
 !
 !###############################################################################
 !
-end module module_plot3d
+end module plot3d_mod
 !
 !###############################################################################
 !###############################################################################

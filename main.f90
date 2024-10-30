@@ -2857,7 +2857,7 @@ subroutine report_memory_usage(n,request_stop)
   use parallel_mod,      only : parallel_memory_usage
   use limiters_mod,      only : limiters_memory_usage
   use bnd_profiles_mod,  only : bnd_profiles_memory_usage
-  use module_plot3d,     only : plot3d_memory_usage
+  use plot3d_mod,        only : plot3d_memory_usage
   use gmsh_mod,          only : gmsh_memory_usage
   use cgns_mod,          only : cgns_memory_usage
   !
