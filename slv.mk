@@ -86,7 +86,7 @@ ADDFLAGS = $(MKLFLAG) $(MOD) $(FINC) $(OMPADD) $(FCADD) $(CMPFLAGS)
 COBJS := $(OBJDIR)/mycpu.o \
          $(OBJDIR)/pbs_time_left.o
 
-OBJS := $(OBJDIR)/kind_types.o \
+OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/main.o \
         $(OBJDIR)/random_mod.o \
         $(OBJDIR)/order_mod.o \
