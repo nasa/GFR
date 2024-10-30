@@ -147,7 +147,7 @@ program GFR_main
   use parallel_mod, only : exchange_faceusp
   use parallel_mod, only : wait_faceusp
   !
-  use module_limiters, only : initialize_limiters
+  use limiters_mod, only : initialize_limiters
   !
   use mms_mod, only : initialize_mms
   !
@@ -2855,7 +2855,7 @@ subroutine report_memory_usage(n,request_stop)
   use filter_mod,        only : filter_memory_usage
   use generic_mod,       only : generic_memory_usage
   use parallel_mod,      only : parallel_memory_usage
-  use module_limiters,   only : limiters_memory_usage
+  use limiters_mod,      only : limiters_memory_usage
   use bnd_profiles_mod,  only : bnd_profiles_memory_usage
   use module_plot3d,     only : plot3d_memory_usage
   use gmsh_mod,          only : gmsh_memory_usage

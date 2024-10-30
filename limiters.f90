@@ -1,4 +1,4 @@
-module module_limiters
+module limiters_mod
   !
   !.. Use Statements ..
   use module_kind_types, global_debug_timer =>      debug_timer, &
@@ -3909,7 +3909,7 @@ continue
   !
   ! Format Statements
   !
-  1 format (/,"Status of arrays in module module_limiters")
+  1 format (/,"Status of arrays in module limiters_mod")
   2 format (" Array: ",a7,dt)
   3 format (" Total memory = ",f8.2,1x,a)
   5 format ("'",a,"'")
@@ -3924,4 +3924,4 @@ end subroutine limiters_memory_usage
 !
 !###############################################################################
 !
-end module module_limiters
+end module limiters_mod

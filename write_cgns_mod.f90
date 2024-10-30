@@ -1583,7 +1583,7 @@ function count_output_variables(variable_names) result(return_value)
   use geomvar_mod,     only : nr
   use ovar,            only : governing_equations
   use metrics_mod,     only : time_metrics
-  use module_limiters, only : nmarker
+  use limiters_mod,    only : nmarker
   !
   !.. Formal Arguments ..
 #ifdef SPECIAL_FOR_INTEL
@@ -1710,7 +1710,7 @@ subroutine write_field_headers(cgns_sol_file,ifile,ibase,izone,isol, &
   use ovar,            only : profile_io_cgns_subs
   use thermo_mod,      only : species_name
   use metrics_mod,     only : time_metrics
-  use module_limiters, only : nmarker
+  use limiters_mod,    only : nmarker
   !
   !.. Formal Arguments ..
   character(len=*),     intent(in) :: cgns_sol_file
@@ -2137,12 +2137,12 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
   use metrics_mod, only : time_metrics,metrics_array,jac
   !
-  use module_limiters, only : marker,scaled_marker,nmarker
-  use module_limiters, only : resolution_indicator
-  use module_limiters, only : jump_indicator
-  use module_limiters, only : deallocate_marker
-  use module_limiters, only : deallocate_scaled_marker
-  use mlp_mod,         only : limit_by_mlp
+  use limiters_mod, only : marker,scaled_marker,nmarker
+  use limiters_mod, only : resolution_indicator
+  use limiters_mod, only : jump_indicator
+  use limiters_mod, only : deallocate_marker
+  use limiters_mod, only : deallocate_scaled_marker
+  use mlp_mod,      only : limit_by_mlp
   !
   use thermo_mod, only : rspec
   use thermo_mod, only : compute_mixture_rgas

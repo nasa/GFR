@@ -514,9 +514,9 @@ subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name)
   use ovar,            only : ideal_total_temperature
   use ovar,            only : use_sponge_filter
   use filter_mod,      only : filter_usp
-  use module_limiters, only : resolution_indicator
-  use module_limiters, only : limit_by_projecting
-  use module_limiters, only : apply_sponge_filter
+  use limiters_mod,    only : resolution_indicator
+  use limiters_mod,    only : limit_by_projecting
+  use limiters_mod,    only : apply_sponge_filter
   use mlp_mod,         only : limit_by_mlp
   !
   use thermofix_mod,   only : check_cell_thermo_properties
