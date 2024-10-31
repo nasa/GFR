@@ -692,7 +692,7 @@ $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(OBJDIR)/poly.o \
                    $(OBJDIR)/vandermonde_mod.o \
                    $(OBJDIR)/triangle.o \
-                   $(OBJDIR)/tetrahedra.o \
+                   $(OBJDIR)/tetrahedra_mod.o \
                    $(OBJDIR)/pyramid_mod.o \
                    $(OBJDIR)/prism_mod.o \
                    $(FUNDIR)/solpts2order.f90 \
@@ -764,7 +764,7 @@ $(OBJDIR)/taylor_couette_mod.o : taylor_couette_mod.f90 \
                        $(OBJDIR)/ovar_mod.o \
                        $(OBJDIR)/thermo_mod.o
 
-$(OBJDIR)/tetrahedra.o : tetrahedra.f90 \
+$(OBJDIR)/tetrahedra_mod.o : tetrahedra_mod.f90 \
                $(OBJDIR)/kind_types_mod.o \
                $(OBJDIR)/poly.o
 

@@ -110,7 +110,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/bc_flow_stats_mod.o \
         $(OBJDIR)/bnd_profiles_mod.o \
         $(OBJDIR)/triangle.o \
-        $(OBJDIR)/tetrahedra.o \
+        $(OBJDIR)/tetrahedra_mod.o \
         $(OBJDIR)/pyramid_mod.o \
         $(OBJDIR)/prism_mod.o \
         $(OBJDIR)/flux_mod.o \
