@@ -663,7 +663,7 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
 $(OBJDIR)/prism_mod.o : prism_mod.f90 \
           $(OBJDIR)/kind_types_mod.o \
           $(OBJDIR)/poly.o \
-          $(OBJDIR)/triangle.o
+          $(OBJDIR)/triangle_mod.o
 
 $(OBJDIR)/projection_mod.o : projection_mod.f90 \
                    $(OBJDIR)/kind_types_mod.o \
@@ -691,7 +691,7 @@ $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(OBJDIR)/element_type_mod.o \
                    $(OBJDIR)/poly.o \
                    $(OBJDIR)/vandermonde_mod.o \
-                   $(OBJDIR)/triangle.o \
+                   $(OBJDIR)/triangle_mod.o \
                    $(OBJDIR)/tetrahedra_mod.o \
                    $(OBJDIR)/pyramid_mod.o \
                    $(OBJDIR)/prism_mod.o \
@@ -799,7 +799,7 @@ $(OBJDIR)/transport_mod.o : transport_mod.f90 \
                   $(OBJDIR)/ovar_mod.o \
                   $(OBJDIR)/thermo_mod.o
 
-$(OBJDIR)/triangle.o : triangle.f90 \
+$(OBJDIR)/triangle_mod.o : triangle_mod.f90 \
              $(OBJDIR)/kind_types_mod.o \
              $(OBJDIR)/poly.o
 
