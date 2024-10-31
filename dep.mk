@@ -25,7 +25,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/bc_mod.o \
          $(OBJDIR)/bnd_profiles_mod.o \
          $(OBJDIR)/flux_mod.o \
-         $(OBJDIR)/parallel.o \
+         $(OBJDIR)/parallel_mod.o \
          $(OBJDIR)/dt_mod.o \
          $(OBJDIR)/erk_mod.o \
          $(OBJDIR)/rhs_mod.o \
@@ -408,7 +408,7 @@ $(OBJDIR)/io_mod.o : io_mod.f90 \
        $(OBJDIR)/plot3d_mod.o \
        $(OBJDIR)/cgns_mod.o \
        $(OBJDIR)/internal_grid_mod.o \
-       $(OBJDIR)/parallel.o \
+       $(OBJDIR)/parallel_mod.o \
        $(OBJDIR)/quadrature_mod.o \
        $(OBJDIR)/interpolation_mod.o \
        $(OBJDIR)/initialize.o \
@@ -509,7 +509,7 @@ $(OBJDIR)/mlp_mod.o : mlp_mod.f90 \
             $(OBJDIR)/limiters_mod.o \
             $(OBJDIR)/order_mod.o \
             $(OBJDIR)/ovar_mod.o \
-            $(OBJDIR)/parallel.o
+            $(OBJDIR)/parallel_mod.o
 
 $(OBJDIR)/mms_mod.o : mms_mod.f90 \
             $(OBJDIR)/kind_types_mod.o \
@@ -588,7 +588,7 @@ $(OBJDIR)/ovar_mod.o : ovar_mod.f90 \
              $(OBJDIR)/kind_types_mod.o \
              $(OBJDIR)/cgnstypes_mod.o
 
-$(OBJDIR)/parallel.o : parallel.f90 \
+$(OBJDIR)/parallel_mod.o : parallel_mod.f90 \
              $(OBJDIR)/kind_types_mod.o \
              $(OBJDIR)/eqn_idx_mod.o \
              $(OBJDIR)/metis.o \
@@ -645,7 +645,7 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(OBJDIR)/bc_mod.o \
                  $(OBJDIR)/order_mod.o \
                  $(OBJDIR)/interpolation_mod.o \
-                 $(OBJDIR)/parallel.o \
+                 $(OBJDIR)/parallel_mod.o \
                  $(OBJDIR)/connectivity_mod.o \
                  $(OBJDIR)/thermofix_mod.o \
                  $(OBJDIR)/thermo_mod.o \
@@ -719,7 +719,7 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/flowvar_mod.o \
                 $(OBJDIR)/random_mod.o \
-                $(OBJDIR)/parallel.o \
+                $(OBJDIR)/parallel_mod.o \
                 $(OBJDIR)/thermo_mod.o \
                 $(OBJDIR)/turb_inflow_mod.o \
                 $(OBJDIR)/order_mod.o \
@@ -744,7 +744,7 @@ $(OBJDIR)/rhs_mod.o : rhs_mod.f90 \
             $(OBJDIR)/filter_mod.o \
             $(OBJDIR)/limiters_mod.o \
             $(OBJDIR)/mlp_mod.o \
-            $(OBJDIR)/parallel.o \
+            $(OBJDIR)/parallel_mod.o \
             $(OBJDIR)/projection_mod.o \
             $(OBJDIR)/thermofix_mod.o \
             $(OBJDIR)/thermo_mod.o \
