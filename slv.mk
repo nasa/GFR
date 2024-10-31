@@ -111,7 +111,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/bnd_profiles_mod.o \
         $(OBJDIR)/triangle.o \
         $(OBJDIR)/tetrahedra.o \
-        $(OBJDIR)/pyramid.o \
+        $(OBJDIR)/pyramid_mod.o \
         $(OBJDIR)/prism_mod.o \
         $(OBJDIR)/flux_mod.o \
         $(OBJDIR)/filter_mod.o \

@@ -679,7 +679,7 @@ $(OBJDIR)/projection_mod.o : projection_mod.f90 \
                    $(OBJDIR)/transport_mod.o \
                    $(FUNDIR)/debug_timer.f90
 
-$(OBJDIR)/pyramid.o : pyramid.f90 \
+$(OBJDIR)/pyramid_mod.o : pyramid_mod.f90 \
             $(OBJDIR)/kind_types_mod.o \
             $(OBJDIR)/poly.o
 
@@ -693,7 +693,7 @@ $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(OBJDIR)/vandermonde_mod.o \
                    $(OBJDIR)/triangle.o \
                    $(OBJDIR)/tetrahedra.o \
-                   $(OBJDIR)/pyramid.o \
+                   $(OBJDIR)/pyramid_mod.o \
                    $(OBJDIR)/prism_mod.o \
                    $(FUNDIR)/solpts2order.f90 \
                    $(FUNDIR)/check_for_bad_number.f90 \
