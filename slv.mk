@@ -102,7 +102,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/internal_grid_mod.o \
         $(OBJDIR)/io_mod.o \
         $(OBJDIR)/write_cgns_mod.o \
-        $(OBJDIR)/metrics.o \
+        $(OBJDIR)/metrics_mod.o \
         $(OBJDIR)/poly.o \
         $(OBJDIR)/initialize.o \
         $(OBJDIR)/generic_mod.o \
