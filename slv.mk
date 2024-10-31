@@ -131,7 +131,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/periodic_mod.o \
         $(OBJDIR)/metis.o \
         $(OBJDIR)/parallel.o \
-        $(OBJDIR)/mappings.o \
+        $(OBJDIR)/mappings_mod.o \
         $(OBJDIR)/connectivity_mod.o \
         $(OBJDIR)/limiters_mod.o \
         $(OBJDIR)/mlp_mod.o \

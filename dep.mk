@@ -18,7 +18,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/periodic_mod.o \
          $(OBJDIR)/write_cgns_mod.o \
          $(OBJDIR)/metrics.o \
-         $(OBJDIR)/mappings.o \
+         $(OBJDIR)/mappings_mod.o \
          $(OBJDIR)/connectivity_mod.o \
          $(OBJDIR)/initialize.o \
          $(OBJDIR)/generic_mod.o \
@@ -473,7 +473,7 @@ $(OBJDIR)/matrix_types_mod.o : matrix_types_mod.f90 \
                      $(OBJDIR)/kind_types_mod.o \
                      $(OBJDIR)/ovar_mod.o
 
-$(OBJDIR)/mappings.o : mappings.f90 \
+$(OBJDIR)/mappings_mod.o : mappings_mod.f90 \
              $(OBJDIR)/kind_types_mod.o \
              $(OBJDIR)/eqn_idx_mod.o \
              $(OBJDIR)/geomvar_mod.o \
