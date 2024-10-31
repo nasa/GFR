@@ -660,7 +660,7 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(FUNDIR)/debug_timer.f90 \
                  $(FUNDIR)/cell_solpts.f90
 
-$(OBJDIR)/prism.o : prism.f90 \
+$(OBJDIR)/prism_mod.o : prism_mod.f90 \
           $(OBJDIR)/kind_types_mod.o \
           $(OBJDIR)/poly.o \
           $(OBJDIR)/triangle.o
@@ -694,7 +694,7 @@ $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(OBJDIR)/triangle.o \
                    $(OBJDIR)/tetrahedra.o \
                    $(OBJDIR)/pyramid.o \
-                   $(OBJDIR)/prism.o \
+                   $(OBJDIR)/prism_mod.o \
                    $(FUNDIR)/solpts2order.f90 \
                    $(FUNDIR)/check_for_bad_number.f90 \
                    $(FUNDIR)/debug_timer.f90

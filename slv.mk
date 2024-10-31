@@ -112,7 +112,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/triangle.o \
         $(OBJDIR)/tetrahedra.o \
         $(OBJDIR)/pyramid.o \
-        $(OBJDIR)/prism.o \
+        $(OBJDIR)/prism_mod.o \
         $(OBJDIR)/flux_mod.o \
         $(OBJDIR)/filter_mod.o \
         $(OBJDIR)/dt_mod.o \
