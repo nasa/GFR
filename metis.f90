@@ -1,4 +1,4 @@
-module metis5_mod
+module metis_mod
   !
   use, intrinsic :: iso_c_binding, only : c_float,c_double
   use, intrinsic :: iso_c_binding, only : c_int32_t,c_int64_t
@@ -590,4 +590,4 @@ end subroutine METIS_SetDefaultOptions
 !
 !###############################################################################
 !
-end module metis5_mod
+end module metis_mod

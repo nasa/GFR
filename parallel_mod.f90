@@ -20,7 +20,7 @@ module parallel_mod
   use timer_mod,   only : solver_timer
   !
 #ifdef METIS_5
-  use metis5_mod
+  use metis_mod
 #else
   use intrinsic :: iso_fortran_env, only : idx_t => int32
   use intrinsic :: iso_fortran_env, only : real_t => real32
