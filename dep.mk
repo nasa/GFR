@@ -487,7 +487,7 @@ $(OBJDIR)/mappings_mod.o : mappings_mod.f90 \
              $(OBJDIR)/vandermonde_mod.o \
              $(FUNDIR)/solpts2order.f90
 
-$(OBJDIR)/metis.o : metis.f90
+$(OBJDIR)/metis_mod.o : metis_mod.f90
 
 $(OBJDIR)/metrics_mod.o : metrics_mod.f90 \
             $(OBJDIR)/kind_types_mod.o \
@@ -591,7 +591,7 @@ $(OBJDIR)/ovar_mod.o : ovar_mod.f90 \
 $(OBJDIR)/parallel_mod.o : parallel_mod.f90 \
              $(OBJDIR)/kind_types_mod.o \
              $(OBJDIR)/eqn_idx_mod.o \
-             $(OBJDIR)/metis.o \
+             $(OBJDIR)/metis_mod.o \
              $(OBJDIR)/geomvar_mod.o \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/order_mod.o \

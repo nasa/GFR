@@ -129,7 +129,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/projection_mod.o \
         $(OBJDIR)/vandermonde_mod.o \
         $(OBJDIR)/periodic_mod.o \
-        $(OBJDIR)/metis.o \
+        $(OBJDIR)/metis_mod.o \
         $(OBJDIR)/parallel_mod.o \
         $(OBJDIR)/mappings_mod.o \
         $(OBJDIR)/connectivity_mod.o \
