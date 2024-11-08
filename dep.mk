@@ -161,7 +161,7 @@ $(OBJDIR)/correction_mod.o : correction_mod.f90 \
                    $(OBJDIR)/element_type_mod.o \
                    $(OBJDIR)/quadrature_mod.o \
                    $(OBJDIR)/vandermonde_mod.o \
-                   $(OBJDIR)/poly.o \
+                   $(OBJDIR)/poly_mod.o \
                    $(FUNDIR)/solpts2order.f90
 
 $(OBJDIR)/cpu_info_mod.o : cpu_info_mod.f90 \
@@ -174,7 +174,7 @@ $(OBJDIR)/derivatives_mod.o : derivatives_mod.f90 \
                     $(OBJDIR)/order_mod.o \
                     $(OBJDIR)/ovar_mod.o \
                     $(OBJDIR)/element_type_mod.o \
-                    $(OBJDIR)/poly.o \
+                    $(OBJDIR)/poly_mod.o \
                     $(OBJDIR)/vandermonde_mod.o \
                     $(FUNDIR)/solpts2order.f90 \
                     $(FUNDIR)/check_for_bad_number.f90 \
@@ -336,7 +336,7 @@ $(OBJDIR)/internal_grid_mod.o : internal_grid_mod.f90 \
                       $(OBJDIR)/geomvar_mod.o \
                       $(OBJDIR)/ovar_mod.o \
                       $(OBJDIR)/cgns_mod.o \
-                      $(OBJDIR)/poly.o
+                      $(OBJDIR)/poly_mod.o
 
 $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(OBJDIR)/kind_types_mod.o \
@@ -348,7 +348,7 @@ $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(OBJDIR)/element_type_mod.o \
                       $(OBJDIR)/quadrature_mod.o \
                       $(OBJDIR)/vandermonde_mod.o \
-                      $(OBJDIR)/poly.o \
+                      $(OBJDIR)/poly_mod.o \
                       $(OBJDIR)/flowvar_mod.o \
                       $(FUNDIR)/solpts2order.f90 \
                       $(FUNDIR)/cell_solpts.f90
@@ -482,7 +482,7 @@ $(OBJDIR)/mappings_mod.o : mappings_mod.f90 \
              $(OBJDIR)/flowvar_mod.o \
              $(OBJDIR)/element_type_mod.o \
              $(OBJDIR)/matrix_types_mod.o \
-             $(OBJDIR)/poly.o \
+             $(OBJDIR)/poly_mod.o \
              $(OBJDIR)/quadrature_mod.o \
              $(OBJDIR)/vandermonde_mod.o \
              $(FUNDIR)/solpts2order.f90
@@ -631,7 +631,7 @@ $(OBJDIR)/plot3d_mod.o : plot3d_mod.f90 \
 $(OBJDIR)/plot3dio_mod.o : plot3dio_mod.f90 \
                  $(OBJDIR)/kind_types_mod.o
 
-$(OBJDIR)/poly.o : poly.f90 \
+$(OBJDIR)/poly_mod.o : poly_mod.f90 \
          $(OBJDIR)/kind_types_mod.o \
          $(FUNDIR)/check_for_bad_number.f90
 
@@ -662,7 +662,7 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
 
 $(OBJDIR)/prism_mod.o : prism_mod.f90 \
           $(OBJDIR)/kind_types_mod.o \
-          $(OBJDIR)/poly.o \
+          $(OBJDIR)/poly_mod.o \
           $(OBJDIR)/triangle_mod.o
 
 $(OBJDIR)/projection_mod.o : projection_mod.f90 \
@@ -681,7 +681,7 @@ $(OBJDIR)/projection_mod.o : projection_mod.f90 \
 
 $(OBJDIR)/pyramid_mod.o : pyramid_mod.f90 \
             $(OBJDIR)/kind_types_mod.o \
-            $(OBJDIR)/poly.o
+            $(OBJDIR)/poly_mod.o
 
 $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(OBJDIR)/kind_types_mod.o \
@@ -689,7 +689,7 @@ $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(OBJDIR)/order_mod.o \
                    $(OBJDIR)/ovar_mod.o \
                    $(OBJDIR)/element_type_mod.o \
-                   $(OBJDIR)/poly.o \
+                   $(OBJDIR)/poly_mod.o \
                    $(OBJDIR)/vandermonde_mod.o \
                    $(OBJDIR)/triangle_mod.o \
                    $(OBJDIR)/tetrahedra_mod.o \
@@ -766,7 +766,7 @@ $(OBJDIR)/taylor_couette_mod.o : taylor_couette_mod.f90 \
 
 $(OBJDIR)/tetrahedra_mod.o : tetrahedra_mod.f90 \
                $(OBJDIR)/kind_types_mod.o \
-               $(OBJDIR)/poly.o
+               $(OBJDIR)/poly_mod.o
 
 $(OBJDIR)/thermofix_mod.o : thermofix_mod.f90 \
                $(OBJDIR)/kind_types_mod.o \
@@ -801,7 +801,7 @@ $(OBJDIR)/transport_mod.o : transport_mod.f90 \
 
 $(OBJDIR)/triangle_mod.o : triangle_mod.f90 \
              $(OBJDIR)/kind_types_mod.o \
-             $(OBJDIR)/poly.o
+             $(OBJDIR)/poly_mod.o
 
 $(OBJDIR)/turb_inflow_mod.o : turb_inflow_mod.f90 \
                     $(OBJDIR)/kind_types_mod.o \
@@ -838,7 +838,7 @@ $(OBJDIR)/vandermonde_mod.o : vandermonde_mod.f90 \
                     $(OBJDIR)/matrix_types_mod.o \
                     $(OBJDIR)/order_mod.o \
                     $(OBJDIR)/element_type_mod.o \
-                    $(OBJDIR)/poly.o \
+                    $(OBJDIR)/poly_mod.o \
                     $(FUNDIR)/solpts2order.f90 \
                     $(FUNDIR)/cell_solpts.f90 \
                     $(FUNDIR)/debug_timer.f90
