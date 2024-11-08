@@ -1,3 +1,6 @@
+!###############################################################################
+!> This module provides support for Metis 5.
+!###############################################################################
 module metis_mod
   !
   use, intrinsic :: iso_c_binding, only : c_float,c_double
