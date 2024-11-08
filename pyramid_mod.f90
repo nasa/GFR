@@ -46,9 +46,9 @@ pure &
 function PyrNodes3D(p,location) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : nodes_legendre_gauss
-  use polynomial_mod, only : nodes_legendre_gauss_lobatto
-  use polynomial_mod, only : equal_distant_quadrature
+  use poly_mod, only : nodes_legendre_gauss
+  use poly_mod, only : nodes_legendre_gauss_lobatto
+  use poly_mod, only : equal_distant_quadrature
   !
   !.. Formal Arguments ..
   integer, intent(in) :: p
@@ -142,7 +142,7 @@ function get_pyramid_weights_at_solpts(rst,nquadrature) result(return_value)
   !#############################################################################
   !
   !.. Use Statements ..
-  use polynomial_mod, only : legendre_gauss_quadrature
+  use poly_mod, only : legendre_gauss_quadrature
   !
   !.. Formal Arguments ..
   real(lp), intent(in) :: rst(:,:)

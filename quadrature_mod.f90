@@ -615,9 +615,9 @@ pure &
 function get_edge_quadrature(n,location) result(return_value)
   !
   use order_mod,      only : geom_solpts
-  use polynomial_mod, only : legendre_gauss_quadrature
-  use polynomial_mod, only : legendre_gauss_lobatto_quadrature
-  use polynomial_mod, only : equal_distant_quadrature
+  use poly_mod,       only : legendre_gauss_quadrature
+  use poly_mod,       only : legendre_gauss_lobatto_quadrature
+  use poly_mod,       only : equal_distant_quadrature
   !
   integer, intent(in) :: n
   integer, intent(in) :: location
@@ -1668,8 +1668,8 @@ continue
     !
     !.. Use Statements ..
     use order_mod,      only : geom_solpts
-    use polynomial_mod, only : legendre_gauss_quadrature
-    use polynomial_mod, only : legendre_gauss_lobatto_quadrature
+    use poly_mod,       only : legendre_gauss_quadrature
+    use poly_mod,       only : legendre_gauss_lobatto_quadrature
     !
     !.. Formal Arguments ..
     integer, intent(in) :: n

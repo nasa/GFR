@@ -1,4 +1,4 @@
-module polynomial_mod
+module poly_mod
   !
 !!!#define DISABLE_PURE
   !
@@ -2146,4 +2146,4 @@ end function eval_DLagrangeDx
 !
 !###############################################################################
 !
-end module polynomial_mod
+end module poly_mod

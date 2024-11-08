@@ -1924,8 +1924,8 @@ function equidistant_map_edge_to_solpts(op,np,xi,mesh_order) &
                                  result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : eval_LagrangePoly
-  use polynomial_mod, only : equal_distant_quadrature
+  use poly_mod, only : eval_LagrangePoly
+  use poly_mod, only : equal_distant_quadrature
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: op
@@ -2213,9 +2213,9 @@ function equidistant_map_quad_to_solpts(op,np,xi,mesh_order,family) &
                                  result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : eval_LagrangePoly
-  use polynomial_mod, only : eval_LagrangePoly2D
-  use polynomial_mod, only : equal_distant_quadrature
+  use poly_mod, only : eval_LagrangePoly
+  use poly_mod, only : eval_LagrangePoly2D
+  use poly_mod, only : equal_distant_quadrature
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: op
@@ -2521,9 +2521,9 @@ function equidistant_map_hexa_to_solpts(op,np,xi,mesh_order,family) &
                                  result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : eval_LagrangePoly
-  use polynomial_mod, only : eval_LagrangePoly3D
-  use polynomial_mod, only : equal_distant_quadrature
+  use poly_mod, only : eval_LagrangePoly
+  use poly_mod, only : eval_LagrangePoly3D
+  use poly_mod, only : equal_distant_quadrature
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: op
@@ -2686,8 +2686,8 @@ pure &
 function parametric_map_edge_to_solpts(np,xi,elem_xyz) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : eval_LagrangePoly
-  use ovar,           only : parametric_agglomeration
+  use poly_mod, only : eval_LagrangePoly
+  use ovar,     only : parametric_agglomeration
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: np
@@ -2755,8 +2755,8 @@ function parametric_map_quad_to_solpts(np,xi,elem_xyz,mesh_order) &
                                 result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : eval_LagrangePoly2D
-  use ovar,           only : parametric_agglomeration
+  use poly_mod, only : eval_LagrangePoly2D
+  use ovar,     only : parametric_agglomeration
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: np
@@ -2878,9 +2878,9 @@ function parametric_map_hexa_to_solpts(np,xi,elem_xyz,mesh_order) &
                                 result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : eval_LagrangePoly1D
-  use polynomial_mod, only : eval_LagrangePoly3D
-  use ovar,           only : parametric_agglomeration
+  use poly_mod, only : eval_LagrangePoly1D
+  use poly_mod, only : eval_LagrangePoly3D
+  use ovar,     only : parametric_agglomeration
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: np

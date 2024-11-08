@@ -115,7 +115,7 @@ pure &
 function TetNodes3D_EqualDistant(p) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : equal_distant_quadrature
+  use poly_mod, only : equal_distant_quadrature
   !
   !.. Formal Arguments ..
   integer, intent(in) :: p
@@ -432,8 +432,8 @@ pure &
 subroutine WarpShiftFace3D(p,alpha,l1,l2,l3,warpx,warpy,use_Gauss)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : nodes_legendre_gauss_lobatto
-  use polynomial_mod, only : nodes_legendre_gauss
+  use poly_mod, only : nodes_legendre_gauss_lobatto
+  use poly_mod, only : nodes_legendre_gauss
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: p
@@ -564,8 +564,8 @@ pure &
 function TetNodes3D_Barycentric(p,location) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : nodes_legendre_gauss
-  use polynomial_mod, only : nodes_legendre_gauss_lobatto
+  use poly_mod, only : nodes_legendre_gauss
+  use poly_mod, only : nodes_legendre_gauss_lobatto
   !
   !.. Formal Arguments ..
   integer, intent(in) :: p
@@ -649,7 +649,7 @@ pure &
 function get_tetrahedron_weights_at_solpts(rst) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : legendre_gauss_quadrature
+  use poly_mod, only : legendre_gauss_quadrature
   !
   !.. Formal Arguments ..
   real(lp), intent(in) :: rst(:,:)

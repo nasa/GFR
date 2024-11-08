@@ -3266,8 +3266,8 @@ subroutine create_channel_flow_grid()
   use geomvar_mod,    only : cell_geom,cell_order
   use ovar,           only : grid_format,bc_input,bc_names
   !
-  use polynomial_mod, only : legendre_gauss_quadrature
-  use polynomial_mod, only : legendre_gauss_lobatto_quadrature
+  use poly_mod,       only : legendre_gauss_quadrature
+  use poly_mod,       only : legendre_gauss_lobatto_quadrature
   !
   !.. Local Scalars ..
   integer  :: i,j,k,n,n1,n2
@@ -3931,8 +3931,8 @@ function channel_y_spacing(yplus_wall,yplus_ave,ly_plus,inner_wall_radius) &
   use order_mod, only : n_order
   use ovar,      only : loc_solution_pts
   !
-  use polynomial_mod, only : legendre_gauss_quadrature
-  use polynomial_mod, only : legendre_gauss_lobatto_quadrature
+  use poly_mod,  only : legendre_gauss_quadrature
+  use poly_mod,  only : legendre_gauss_lobatto_quadrature
   
   !.. Formal Arguments ..
   real(wp), intent(in) :: yplus_wall
@@ -4088,8 +4088,8 @@ function old_channel_y_spacing(yplus_wall,yplus_ave,ly_plus,inner_wall_radius) &
   use order_mod, only : n_order
   use ovar,      only : loc_solution_pts
   !
-  use polynomial_mod, only : legendre_gauss_quadrature
-  use polynomial_mod, only : legendre_gauss_lobatto_quadrature
+  use poly_mod,  only : legendre_gauss_quadrature
+  use poly_mod,  only : legendre_gauss_lobatto_quadrature
   
   !.. Formal Arguments ..
   real(wp), intent(in) :: yplus_wall

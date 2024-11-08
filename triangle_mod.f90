@@ -111,7 +111,7 @@ pure &
 function TriNodes2D_EqualDistant(p) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : equal_distant_quadrature
+  use poly_mod, only : equal_distant_quadrature
   !
   !.. Formal Arguments ..
   integer, intent(in) :: p
@@ -286,9 +286,9 @@ pure &
 function Warpfactor(p,r,use_Gauss) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : nodes_legendre_gauss
-  use polynomial_mod, only : nodes_legendre_gauss_lobatto
-  use polynomial_mod, only : JacobiP => normalized_jacobi_poly
+  use poly_mod, only : nodes_legendre_gauss
+  use poly_mod, only : nodes_legendre_gauss_lobatto
+  use poly_mod, only : JacobiP => normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: p
@@ -377,8 +377,8 @@ pure &
 function TriNodes2D_Barycentric(p,use_Gauss) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : nodes_legendre_gauss
-  use polynomial_mod, only : nodes_legendre_gauss_lobatto
+  use poly_mod, only : nodes_legendre_gauss
+  use poly_mod, only : nodes_legendre_gauss_lobatto
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: p
@@ -450,7 +450,7 @@ pure &
 function get_triangle_weights_at_solpts(rs) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : legendre_gauss_quadrature
+  use poly_mod, only : legendre_gauss_quadrature
   !
   !.. Formal Arguments ..
   real(lp), intent(in) :: rs(:,:)
@@ -607,8 +607,8 @@ function old_get_triangle_weights_at_solpts(rs) result(return_value)
   ! NOTE : This seems to fail for large n_order (>15)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : nodes_legendre_gauss
-  use polynomial_mod, only : weights_legendre_gauss
+  use poly_mod, only : nodes_legendre_gauss
+  use poly_mod, only : weights_legendre_gauss
   !
   !.. Formal Arguments ..
   real(lp), intent(in) :: rs(:,:)

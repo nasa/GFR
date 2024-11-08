@@ -448,7 +448,7 @@ pure &
 function Vandermonde_Edge(xi,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : normalized_jacobi_poly
+  use poly_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xi(:)
@@ -507,7 +507,7 @@ pure &
 function Vandermonde_Quad(xi,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : normalized_jacobi_poly
+  use poly_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xi(:)
@@ -588,7 +588,7 @@ pure &
 function General_Basis_Quad(basis_order,xy) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : normalized_jacobi_poly
+  use poly_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: basis_order
@@ -651,7 +651,7 @@ pure &
 function Vandermonde_Tria(rs,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : normalized_jacobi_poly
+  use poly_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: rs(:,:)
@@ -746,7 +746,7 @@ pure &
 function Vandermonde_Tetr(rs,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : normalized_jacobi_poly
+  use poly_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: rs(:,:)
@@ -850,7 +850,7 @@ pure &
 function Vandermonde_Pyra(rs,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : normalized_jacobi_poly
+  use poly_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: rs(:,:)
@@ -953,7 +953,7 @@ pure &
 function Vandermonde_Pris(rs,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : normalized_jacobi_poly
+  use poly_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: rs(:,:)
@@ -1056,7 +1056,7 @@ pure &
 function Vandermonde_Hexa(xi,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : normalized_jacobi_poly
+  use poly_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xi(:)
@@ -1189,7 +1189,7 @@ pure &
 function General_Basis_Hexa(basis_order,xyz) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : normalized_jacobi_poly
+  use poly_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: basis_order

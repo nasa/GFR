@@ -364,8 +364,8 @@ pure &
 function Dmatrix_Edge(n,location) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : derivative_matrix_legendre_gauss
-  use polynomial_mod, only : derivative_matrix_legendre_gauss_lobatto
+  use poly_mod, only : derivative_matrix_legendre_gauss
+  use poly_mod, only : derivative_matrix_legendre_gauss_lobatto
   !
   !.. Formal Arguments ..
   integer, intent(in) :: n
@@ -727,7 +727,7 @@ pure &
 function GradVandermonde_Edge(r) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : normalized_jacobi_poly
+  use poly_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: r(:)
@@ -774,8 +774,8 @@ pure &
 function GradVandermonde_Tria(rs) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : normalized_jacobi_poly
-  use polynomial_mod, only : grad_normalized_jacobi_poly
+  use poly_mod, only : normalized_jacobi_poly
+  use poly_mod, only : grad_normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: rs(:,:)
@@ -877,8 +877,8 @@ pure &
 function GradVandermonde_Tetr(rst) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : normalized_jacobi_poly
-  use polynomial_mod, only : grad_normalized_jacobi_poly
+  use poly_mod, only : normalized_jacobi_poly
+  use poly_mod, only : grad_normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: rst(:,:)
@@ -1021,8 +1021,8 @@ pure &
 function GradVandermonde_Pyra(rst) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : normalized_jacobi_poly
-  use polynomial_mod, only : grad_normalized_jacobi_poly
+  use poly_mod, only : normalized_jacobi_poly
+  use poly_mod, only : grad_normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: rst(:,:)
@@ -1146,8 +1146,8 @@ pure &
 function GradVandermonde_Pris(rst) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : normalized_jacobi_poly
-  use polynomial_mod, only : grad_normalized_jacobi_poly
+  use poly_mod, only : normalized_jacobi_poly
+  use poly_mod, only : grad_normalized_jacobi_poly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: rst(:,:)

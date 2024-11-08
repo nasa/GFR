@@ -1316,7 +1316,7 @@ pure &
 function InterpToPoint_Edge(xi_sp,xi_pt) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : eval_LagrangePoly
+  use poly_mod, only : eval_LagrangePoly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xi_sp(:)
@@ -1353,7 +1353,7 @@ pure &
 function InterpToPoint_Quad(xi_sp,xi_pt) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : eval_LagrangePoly
+  use poly_mod, only : eval_LagrangePoly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xi_sp(:)
@@ -1562,7 +1562,7 @@ pure &
 function InterpToPoint_Hexa(xi_sp,xi_pt) result(return_value)
   !
   !.. Use Statements ..
-  use polynomial_mod, only : eval_LagrangePoly
+  use poly_mod, only : eval_LagrangePoly
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xi_sp(:)
