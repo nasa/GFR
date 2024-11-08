@@ -20,7 +20,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/metrics_mod.o \
          $(OBJDIR)/mappings_mod.o \
          $(OBJDIR)/connectivity_mod.o \
-         $(OBJDIR)/initialize.o \
+         $(OBJDIR)/initialization_mod.o \
          $(OBJDIR)/generic_mod.o \
          $(OBJDIR)/bc_mod.o \
          $(OBJDIR)/bnd_profiles_mod.o \
@@ -298,7 +298,7 @@ $(OBJDIR)/gpu_mod.o : gpu_mod.f90 \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/thermo_mod.o
 
-$(OBJDIR)/initialize.o : initialize.f90 \
+$(OBJDIR)/initialization_mod.o : initialization_mod.f90 \
                $(OBJDIR)/kind_types_mod.o \
                $(OBJDIR)/matrix_types_mod.o \
                $(OBJDIR)/eqn_idx_mod.o \
@@ -411,7 +411,7 @@ $(OBJDIR)/io_mod.o : io_mod.f90 \
        $(OBJDIR)/parallel_mod.o \
        $(OBJDIR)/quadrature_mod.o \
        $(OBJDIR)/interpolation_mod.o \
-       $(OBJDIR)/initialize.o \
+       $(OBJDIR)/initialization_mod.o \
        $(OBJDIR)/oerk_mod.o \
        $(OBJDIR)/eperk_mod.o \
        $(OBJDIR)/restart_mod.o \

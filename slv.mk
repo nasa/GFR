@@ -104,7 +104,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/write_cgns_mod.o \
         $(OBJDIR)/metrics_mod.o \
         $(OBJDIR)/poly.o \
-        $(OBJDIR)/initialize.o \
+        $(OBJDIR)/initialization_mod.o \
         $(OBJDIR)/generic_mod.o \
         $(OBJDIR)/bc_mod.o \
         $(OBJDIR)/bc_flow_stats_mod.o \
