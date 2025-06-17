@@ -1859,6 +1859,7 @@ subroutine compute_face_normals_3d(fnrm,fxyz)
   use geomvar_mod,       only : nfbnd,ncell,cell,fp,face
   use geomvar_mod,       only : xyz,xyz_nodes
   use geomvar_mod,       only : nodes_of_cell,nodes_of_cell_ptr
+  use ovar,              only : alpha_aoaref,beta_aoaref
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   !
@@ -1884,7 +1885,7 @@ subroutine compute_face_normals_3d(fnrm,fxyz)
   real(wp) :: dxdj,dydj,dzdj
   real(wp) :: xval,yval,zval
   real(wp) :: xnrm,ynrm,znrm
-  real(wp) :: x,y,z,r,theta,angle
+  real(wp) :: x,y,z,v2,v3,r,theta,angle
   real(qp) :: xqp,yqp,zqp
   !
   !.. Local Arrays ..
@@ -1917,7 +1918,7 @@ continue
   !$OMP&                 dxdi,dxdj,dydi,dydj,dzdi,dzdj, &
   !$OMP&                 xnrm,ynrm,znrm,xqp,yqp,zqp, &
   !$OMP&                 cell_nodes,cell_xyz,face_nodes,face_xyz, &
-  !$OMP&                 i1,i2,x,y,z,r,theta,angle,facenrm_coeff, &
+  !$OMP&                 i1,i2,x,y,z,v2,v3,r,theta,angle,facenrm_coeff, &
   !$OMP&                 cell_pt,face_pt,cell_vec)
   !
   tid = omp_get_thread_num()
@@ -2168,16 +2169,31 @@ continue
           x = xyz_face(kf,1)
           y = xyz_face(kf,2)
           z = xyz_face(kf,3)
-          r = sqrt(y*y + z*z)
-          theta = atan2(z,y)
+         !r = sqrt(y*y + z*z)
+         !theta = atan2(z,y)
+          if (abs(beta_aoaref-nine*ten) < eps6) then
+            v2 = x
+            v3 = y
+          else if (abs(alpha_aoaref-nine*ten) < eps6) then
+            v2 = z
+            v3 = x
+          else
+            v2 = y
+            v3 = z
+          end if
+          r = sqrt(v2*v2 + v3*v3)
+          theta = atan2(v3,v2)
           angle = (theta + merge(two*pi,zero,theta<zero))*radians2degrees
           write (9101,95) nc,this_geom,f0+kf,kf,ncf, &
                           dot(fnrm(1:3,f0+kf),cell_vec(1:3)), &
                           x,y,z,r,theta,angle, &
                           (fnrm(i,f0+kf),i=1,3),(cell_vec(i),i=1,3), &
                           (cell_pt(i),i=1,3),(face_pt(i),i=1,3)
+          write (9101,96) ((cell_xyz(i,k), i=1,size(cell_xyz,dim=1)), &
+                                           k=1,size(cell_xyz,dim=2))
         end if
-        95 format (i6,i3,i10,i4,i8,f15.10,6(4x,3f11.6))
+        95 format (i6,i3,i10,i4,i8,es18.10,6(4x,3f11.6))
+        96 format (8(8x,3(2x,es18.10),:,/))
         !
       end do
 #ifdef TIME_METRIC_PROCEDURES
