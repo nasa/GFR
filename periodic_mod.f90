@@ -485,7 +485,7 @@ continue
       ! This would happen for a pole boundary condition (rotated periodic
       ! boundary conditions that meet at the rotation axis).
       !
-      if (any( ip == jnodes(:) , mask=(.not.matched(:)) )) then
+      if (any( ip == pack(jnodes(:),mask=(.not.matched(:))) )) then
         !
         ! This i-node is also in the list of j-nodes,
         ! so this is most likely a pole boundary condition.
