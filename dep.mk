@@ -673,8 +673,8 @@ $(OBJDIR)/projection_mod.o : projection_mod.f90 \
                    $(OBJDIR)/order_mod.o \
                    $(OBJDIR)/ovar_mod.o \
                    $(OBJDIR)/element_type_mod.o \
-                   $(OBJDIR)/vandermonde_mod.o \
                    $(OBJDIR)/quadrature_mod.o \
+                   $(OBJDIR)/vandermonde_mod.o \
                    $(OBJDIR)/thermo_mod.o \
                    $(OBJDIR)/transport_mod.o \
                    $(FUNDIR)/debug_timer.f90
