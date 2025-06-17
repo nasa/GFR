@@ -29,6 +29,7 @@ HDF5DIR  := $(HDF5_ROOT)
 SZIPDIR  := $(SZIP_ROOT)
 CGNSDIR  := $(CGNS_ROOT)
 METISDIR := $(METIS_ROOT)
+PARMETISDIR := $(PARMETIS_ROOT)
 #TECDIR   := /home/sspiegel/Downloads/tecio/tecio/install
 
 # Fortran Preprocessor Definitions
@@ -38,6 +39,9 @@ METISDIR := $(METIS_ROOT)
 #     METISFPP := -DMETIS_5 -DMETIS_64_BIT => METIS 5.1.0 (built 64-bit)
 #     METISFPP := -DMETIS_4                => METIS 4.0.3
 METISFPP := -DMETIS_5 -DMETIS_32_BIT
+ifdef PARMETISDIR
+  PARMETISFPP := -DENABLE_PARMETIS
+endif
 
 # Enable/Disable code accessing the PBS environment
 #     PBSFPP := -DPBS_ENV  => Enable  code for PBS environment

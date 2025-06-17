@@ -26,6 +26,9 @@ CSFXFLG = .c
 HDF5LIB  := -lhdf5 -ldl
 CGNSLIB  := -lcgns
 METISLIB := -lmetis
+ifdef PARMETISDIR
+  METISLIB := -lparmetis $(METISLIB)
+endif
 ifdef TECDIR
   TECLIB  := -lteciompi -lstdc++
 endif
@@ -68,7 +71,7 @@ ifeq "$(COMPFAMILY)" "gcc"
 else
  #INCDIR = $(sort $(CGNSDIR))
 endif
-LIBDIR = $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR) $(TECDIR))
+LIBDIR = $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR) $(PARMETISDIR) $(TECDIR))
 
 FINC = $(foreach i,$(INCDIR),-I$(i)/include) -I./ $(MKLINC) $(OTHERINCDIR)
 FLIB = $(foreach i,$(LIBDIR),-L$(i)/lib) $(PBSDIR) $(OTHERLIBDIR)
@@ -130,6 +133,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/vandermonde_mod.o \
         $(OBJDIR)/periodic_mod.o \
         $(OBJDIR)/metis_mod.o \
+        $(OBJDIR)/parmetis_mod.o \
         $(OBJDIR)/parallel_mod.o \
         $(OBJDIR)/mappings_mod.o \
         $(OBJDIR)/connectivity_mod.o \
