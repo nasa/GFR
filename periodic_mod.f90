@@ -61,6 +61,8 @@ subroutine match_periodic_faces()
   integer :: lg,ls,rg,rs,rotation_i2j,rotation_j2i
   integer :: i1,i2,j1,j2,ihost,jhost,np
   !
+  character(len=1) :: ips,jps
+  !
   logical(lk) :: error_found
   !
   character(len=CGLEN) :: match_jnam,jname,iname,match_inam
@@ -519,8 +521,6 @@ continue
       matched(j) = true
       !
       ! Mark jp negative if ds(j) is > eps6
-      ! NOTE: This will cause an out-of-bounds error
-      !       when using jp in node_match_j2i
       !
       jp = jnodes(j)
       if (ds(j) > eps3) then
@@ -528,44 +528,54 @@ continue
       end if
       ! 
       node_match_i2j(ip) = jp
-      node_match_j2i(jp) = ip
+      node_match_j2i(abs(jp)) = sign(ip,jp)
       !
     end do inode_loop
     !
-!#define WRITE_PERIODIC_MATCH_DISTANCES
-#ifdef WRITE_PERIODIC_MATCH_DISTANCES
-    if (mypnum == glb_root) then
-      matching_node_check: &
-      do i = 1,npn
-        ip = inodes(i)
-        jp = node_match_i2j(ip)
-        xyz_ip(1:nr) = xyz_nodes(1:nr,ip)
-        xyz_ipt(1:nr) = periodic_transformation(xyz_ip(1:nr),pbc_matrix)
-        xyz_ip(1:nr) = xyz_ip(1:nr)/grid_scaling_factor
-        xyz_ipt(1:nr) = xyz_ipt(1:nr)/grid_scaling_factor
-        xyz_jp(1:nr) = xyz_nodes(1:nr,abs(jp))/grid_scaling_factor
-        if (nr == 3) then
-          write (240+this_pair,8243) ip,xyz_ip(1),xyz_ip(2),xyz_ip(3), &
-                                        xyz_ipt(1),xyz_ipt(2),xyz_ipt(3), &
-                                     jp,xyz_jp(1),xyz_jp(2),xyz_jp(3), &
-                                     norm2(xyz_ipt(1:nr)-xyz_jp(1:nr))
-        else if (nr == 2) then
-          write (240+this_pair,8242) ip,xyz_ip(1),xyz_ip(2), &
-                                        xyz_ipt(1),xyz_ipt(2), &
-                                     jp,xyz_jp(1),xyz_jp(2), &
-                                     norm2(xyz_ipt(1:nr)-xyz_jp(1:nr))
-        end if
-      end do matching_node_check
+    ! If any of the node matches have a negative value, write out all
+    ! the information about the node matches and abort.
+    ! 
+    if (any(node_match_i2j(:) <= 0) .or. any(node_match_j2i(:) <= 0)) then
+      ! 
+      if (mypnum == glb_root) then
+        matching_node_check: &
+        do i = 1,npn
+          ip = inodes(i)
+          jp = abs(node_match_i2j(ip))
+          jps = merge("+","-",node_match_i2j(ip)>0)
+          ips = merge("+","-",node_match_j2i(jp)>0)
+          xyz_ip(1:nr) = xyz_nodes(1:nr,ip)
+          xyz_ipt(1:nr) = periodic_transformation(xyz_ip(1:nr),pbc_matrix)
+          xyz_ip(1:nr) = xyz_ip(1:nr)/grid_scaling_factor
+          xyz_ipt(1:nr) = xyz_ipt(1:nr)/grid_scaling_factor
+          xyz_jp(1:nr) = xyz_nodes(1:nr,jp)/grid_scaling_factor
+          if (nr == 3) then
+            write (240+this_pair,8243) ips,ip,xyz_ip(1),xyz_ip(2),xyz_ip(3), &
+                                          xyz_ipt(1),xyz_ipt(2),xyz_ipt(3), &
+                                       jps,jp,xyz_jp(1),xyz_jp(2),xyz_jp(3), &
+                                       norm2(xyz_ipt(1:nr)-xyz_jp(1:nr))
+          else if (nr == 2) then
+            write (240+this_pair,8242) ips,ip,xyz_ip(1),xyz_ip(2), &
+                                          xyz_ipt(1),xyz_ipt(2), &
+                                       jps,jp,xyz_jp(1),xyz_jp(2), &
+                                       norm2(xyz_ipt(1:nr)-xyz_jp(1:nr))
+          end if
+        end do matching_node_check
+      end if
+      !
+      write (error_message,112)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      !
+      8242 format (2x,"ip = ",a1,i8," : [",es16.8,1(",",es16.8), &
+                                  "] -> [",es16.8,1(",",es16.8),2x, &
+                    "; jp = ",a1,i8," : [",es16.8,1(",",es16.8),4x, &
+                    "=> ds = ",es20.12)
+      8243 format (2x,"ip = ",a1,i8," : [",es16.8,2(",",es16.8), &
+                                  "] -> [",es16.8,2(",",es16.8),2x, &
+                    "; jp = ",a1,i8," : [",es16.8,2(",",es16.8),4x, &
+                    "=> ds = ",es20.12)
+      !
     end if
-    8242 format (2x,"ip = ",i8," : [",es16.8,1(",",es16.8), &
-                             "] -> [",es16.8,1(",",es16.8),2x, &
-                  "; jp = ",i8," : [",es16.8,1(",",es16.8),4x, &
-                  "=> ds = ",es20.12)
-    8243 format (2x,"ip = ",i8," : [",es16.8,2(",",es16.8), &
-                             "] -> [",es16.8,2(",",es16.8),2x, &
-                  "; jp = ",i8," : [",es16.8,2(",",es16.8),4x, &
-                  "=> ds = ",es20.12)
-#endif
     !
     ! Now used the matched nodes to find the matching faces
     !
@@ -949,6 +959,14 @@ continue
               4x,"PERIODIC PAIR #",t25,"GROUP-NAME",t62,"NCELLS")
   111 format (7x,i5,t24,"'",a,"'",t60,i8,/, &
                     t24,"'",a,"'",t60,i8)
+  112 format (" A NEGATIVE NODE INDEX WAS FOUND IN EITHER NODE_MATCH_I2J OR", &
+              " NODE_MATCH_J2I. THIS MEANS ONE OR MORE NODES ON A PAIR OF", &
+              " PERIODIC BOUNDARY FACES WERE UNABLE TO FIND A MATCHING NODE", &
+              " FROM THE OPPOSITE FACE. THIS IS MOST LIKELY DUE TO AN ERROR", &
+              " IN THE VALUES SPECIFIED IN THE INPUT FILE. FOR EXAMPLE, THE", &
+              " TRANSLATION DISTANCE OR ROTATION ANGLE MIGHT SWITCHED TO THE", &
+              " OPPOSITE DIRECTION, OR BE SPECIFIED IN THE WRONG COORDINATE", &
+              " DIRECTION.")
   !
 end subroutine match_periodic_faces
 !
