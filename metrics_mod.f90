@@ -3959,6 +3959,62 @@ end subroutine compute_volume_statistics
 !
 !###############################################################################
 !
+pure function compute_partition_weight() result(return_value)
+  !
+  !.. Use Statements ..
+  use geomvar_mod, only : ncell,cell
+  use ovar,        only : geom_wts
+  !
+  !.. Function Result ..
+  integer :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: o,omin,omax
+  integer :: p,pmax,g,nc
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: gwts(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_partition_weight"
+  !
+continue
+  !
+  pmax = ubound(geom_wts,dim=1)
+  !
+  omin = minval(cell(1:ncell)%order,dim=1)
+  omax = maxval(cell(1:ncell)%order,dim=1)
+  !
+  allocate ( gwts(Geom_Min:Geom_Max,omin:omax) , source=1 )
+  !
+  do o = omin,omax
+    !
+    p = max( 1 , min(o,pmax) )
+    !
+    gwts(Geom_Edge,o) = geom_wts(p)%edge
+    gwts(Geom_Tria,o) = geom_wts(p)%tria
+    gwts(Geom_Quad,o) = geom_wts(p)%quad
+    gwts(Geom_Tetr,o) = geom_wts(p)%tetr
+    gwts(Geom_Pyra,o) = geom_wts(p)%pyra
+    gwts(Geom_Pris,o) = geom_wts(p)%pris
+    gwts(Geom_Hexa,o) = geom_wts(p)%hexa
+    !
+  end do
+  !
+  ! Compute the total computational weight of the partition cells
+  !
+  return_value = 0
+  do nc = 1,ncell
+    return_value = return_value + gwts(cell(nc)%geom,cell(nc)%order)
+  end do
+  !
+  ! What should we do about the computing the total
+  ! computational weight of the partition faces?
+  !
+end function compute_partition_weight
+!
+!###############################################################################
+!
 subroutine metrics_memory_usage(iunit)
   !
   !.. Use Statements ..
