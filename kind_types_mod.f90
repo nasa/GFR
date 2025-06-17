@@ -415,7 +415,7 @@ module module_kind_types
   real(wp), parameter :: radians2degrees = one80/pi
   real(wp), parameter :: degrees2radians = one/radians2degrees
   !
-  real(wp), parameter :: inches_to_meters = 0.0254
+  real(wp), parameter :: inches_to_meters = 0.0254_wp
   real(wp), parameter :: meters_to_inches = one/inches_to_meters
   !
   real(wp), parameter :: rpm_to_mps = two*pi/(six*ten)
