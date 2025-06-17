@@ -1128,6 +1128,8 @@ subroutine update_mixture_density(n1,n2,cv)
   !
 continue
   !
+  call pure_debug_timer(entering_procedure,pname)
+  !
   ! Update the mixture density by summing the species densities
   !
   if (ncs > 0) then
@@ -1154,6 +1156,8 @@ continue
     end do
     !
   end if
+  !
+  call pure_debug_timer(leaving_procedure,pname)
   !
 end subroutine update_mixture_density
 !
