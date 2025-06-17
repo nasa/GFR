@@ -9,6 +9,7 @@ module cgns_types_mod
   !.. Use Statements
   use, intrinsic :: iso_c_binding, only : C_CHAR,C_NULL_CHAR
   use module_kind_types, only : i4,i8,r4,r8,wp,lk,fals,true
+  use module_kind_types, only : zero,eps6
   use module_kind_types, only : MPI_COMM_WORLD,mpierr
   use module_kind_types, only : mpi_barrier,mpi_wtime
   use module_kind_types, only : mypnum,glb_root,iout
@@ -333,6 +334,10 @@ subroutine cgns_timer(time_flag,profile_io_cgns,message,override_barrier)
   !
   real(wp)       :: wall_time
   !
+  ! Initialized to zero in case start_cgns_file_timer isnt first use
+  ! of this subroutine.
+  real(wp), save :: total_sub_time = zero
+  !
   logical(lk) :: skip_barrier
   !
 continue
@@ -353,6 +358,8 @@ continue
     !
     if (time_flag == start_cgns_file_timer) then
       !
+      total_sub_time = zero
+      !
       beg_file_time = mpi_wtime()
      !beg_file_time = dclock()
      !call cpu_time( beg_file_time )
@@ -366,7 +373,13 @@ continue
      !call cpu_time( end_file_time )
       wall_time = end_file_time - beg_file_time
       !
-      write (iout,2) trim(adjustl(message)),wall_time
+      if (total_sub_time > eps6) then
+        write (iout,5) trim(adjustl(message)), &
+                       wall_time-total_sub_time, &
+                       total_sub_time, wall_time
+      else
+        write (iout,2) trim(adjustl(message)),wall_time
+      end if
       !
     else if (time_flag == start_cgns_procedure_timer) then
       !
@@ -386,6 +399,8 @@ continue
       !call cpu_time( end_procedure_time )
       wall_time = end_procedure_time - beg_procedure_time
       !
+      total_sub_time = total_sub_time + wall_time
+      !
       write (iout,3) trim(adjustl(message)),wall_time
       !
     end if
@@ -404,6 +419,10 @@ continue
   2 format (2x,"Total wall time to write ",a," : ",f12.6," seconds",/)
   3 format (4x,"Time to complete call to ",a," : ",f12.6," seconds")
   4 format (10x,"Starting timer for ",a)
+  5 format (2x,"Total wall time to write ",a,/, &
+            20x,"Time spent on computations : ",f12.6," seconds",/, &
+            20x,"Time spent    in CGNS subs : ",f12.6," seconds",/, &
+            20x,"Total wall time   combined : ",f12.6," seconds",/)
   !
 end subroutine cgns_timer
 !
