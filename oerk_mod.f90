@@ -1,5 +1,24 @@
 module oerk_mod
   !
+  !#############################################################################
+  !#############################################################################
+  !#############################################################################
+  !
+  ! These methods came from the 2022 article
+  !    Optimized Explicit Runge-Kutta Schemes for High-Order Collocated
+  !    Discontinuous Galerkin Methods for Compressible Fluid Dynamics
+  ! by
+  !    R. Al Jahdali, L. Dalcin, R. Boukharfane, I.R. Nolasco, 
+  !    D.E. Keyes, and M. Parsani
+  ! published in 
+  !    Computers and Mathematics with Applications, 118 (2022), pp. 1-17
+  !
+  ! NOTE: The coefficients are found in the supplementary material
+  !
+  !#############################################################################
+  !#############################################################################
+  !#############################################################################
+  !
   use module_kind_types
   use eqn_idx_mod, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   use eqn_idx_mod, only : ncs
@@ -38,7 +57,7 @@ subroutine init_optimized_erk_coefficients()
   !#############################################################################
   !#############################################################################
   !
-  ! OERK( 5,3) Advection
+  ! OERK( 5,3) Advection   [Page 15 of the supplementary material]
   real(wp), parameter :: OERK_AdvOpt_5_3_Coef_c(1:5) =  &
                                  [ zero, &
                                    0.45856781616602760_wp, &
@@ -75,7 +94,7 @@ subroutine init_optimized_erk_coefficients()
                                    0.41362358361664514_wp, &
                                    1.3996987363764017_wp, &
                                    zero]
-  ! OERK(11,3) Advection
+  ! OERK(11,3) Advection   [Page 15 of the supplementary material]
   real(wp), parameter :: OERK_AdvOpt_11_3_Coef_c(1:11) =  &
                                  [ zero, &
                                    0.34265082399352331_wp, &
@@ -148,7 +167,7 @@ subroutine init_optimized_erk_coefficients()
                                    0.075626364539691890_wp, &
                                    0.032833858934593507_wp, &
                                    zero]
-  ! OERK( 6,4) Advection
+  ! OERK( 6,4) Advection   [Page 16 of the supplementary material]
   real(wp), parameter :: OERK_AdvOpt_6_4_Coef_c(1:6) =  &
                                  [ zero, &
                                    0.20946280727123126_wp, &
@@ -191,7 +210,7 @@ subroutine init_optimized_erk_coefficients()
                                    0.43188950109764523_wp, &
                                    4.9993539933470394_wp, &
                                    zero]
-  ! OERK(15,4) Advection
+  ! OERK(15,4) Advection   [Page 16 of the supplementary material]
   real(wp), parameter :: OERK_AdvOpt_15_4_Coef_c(1:15) =  &
                                  [ zero, &
                                    0.097843202094165249_wp, &
@@ -288,7 +307,7 @@ subroutine init_optimized_erk_coefficients()
                                    0.62338064063237775_wp, &
                                    0.24556126899972405_wp, &
                                    zero]
-  ! OERK( 8,5) Advection
+  ! OERK( 8,5) Advection   [Page 16 of the supplementary material]
   real(wp), parameter :: OERK_AdvOpt_8_5_Coef_c(1:8) =  &
                                  [ zero, &
                                    1.0818930581200179_wp, &
@@ -343,7 +362,7 @@ subroutine init_optimized_erk_coefficients()
                                    1.3435851121319775_wp, &
                                    4.9999175102767168_wp, &
                                    zero]
-  ! OERK(16,5) Advection
+  ! OERK(16,5) Advection   [Page 16 of the supplementary material]
   real(wp), parameter :: OERK_AdvOpt_16_5_Coef_c(1:16) =  &
                                  [ zero, &
                                    0.062690753851696035_wp, &
@@ -453,7 +472,7 @@ subroutine init_optimized_erk_coefficients()
   !#############################################################################
   !#############################################################################
   !
-  ! OERK( 5,3) Isentropic Vortex
+  ! OERK( 5,3) Isentropic Vortex   [Page 17 of the supplementary material]
   real(wp), parameter :: OERK_VtxOpt_5_3_Coef_c(1:5) =  &
                                  [ zero, &
                                    0.37469540309464722_wp, &
@@ -490,7 +509,7 @@ subroutine init_optimized_erk_coefficients()
                                    0.82580645444239575_wp, &
                                    0.72658540605340605_wp, &
                                    zero]
-  ! OERK(11,3) Isentropic Vortex
+  ! OERK(11,3) Isentropic Vortex   [Page 17 of the supplementary material]
   real(wp), parameter :: OERK_VtxOpt_11_3_Coef_c(1:11) =  &
                                  [ zero, &
                                    0.58181031460609789_wp, &
@@ -563,7 +582,7 @@ subroutine init_optimized_erk_coefficients()
                                    0.58398397350741205_wp, &
                                    0.28348149453599064_wp, &
                                    zero]
-  ! OERK( 6,4) Isentropic Vortex
+  ! OERK( 6,4) Isentropic Vortex   [Page 17 of the supplementary material]
   real(wp), parameter :: OERK_VtxOpt_6_4_Coef_c(1:6) =  &
                                  [ zero, &
                                    0.28981892906393802_wp, &
@@ -606,7 +625,7 @@ subroutine init_optimized_erk_coefficients()
                                    1.7557750651227597_wp, &
                                    4.9990064771339968_wp, &
                                    zero]
-  ! OERK(15,4) Isentropic Vortex
+  ! OERK(15,4) Isentropic Vortex   [Page 18 of the supplementary material]
   real(wp), parameter :: OERK_VtxOpt_15_4_Coef_c(1:15) =  &
                                  [ zero, &
                                    0.092984658650707375_wp, &
@@ -703,7 +722,7 @@ subroutine init_optimized_erk_coefficients()
                                    0.47833505246801084_wp, &
                                   -0.37942930946202830_wp, &
                                    zero]
-  ! OERK( 8,5) Isentropic Vortex
+  ! OERK( 8,5) Isentropic Vortex   [Page 18 of the supplementary material]
   real(wp), parameter :: OERK_VtxOpt_8_5_Coef_c(1:8) =  &
                                  [ zero, &
                                    0.098497679597418508_wp, &
@@ -758,7 +777,7 @@ subroutine init_optimized_erk_coefficients()
                                    3.1369658815807226_wp, &
                                    4.9527700049270607_wp, &
                                    zero]
-  ! OERK(16,5) Isentropic Vortex
+  ! OERK(16,5) Isentropic Vortex   [Page 18 of the supplementary material]
   real(wp), parameter :: OERK_VtxOpt_16_5_Coef_c(1:16) =  &
                                  [ zero, &
                                    0.13562787772737289_wp, &
