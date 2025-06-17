@@ -147,57 +147,52 @@ continue
         call get_bc_sub_inflow_sol_cpg_v2_1d(n1,n2,face_cv,cv_in)
       end if
       !
+    else if (sub_inflow_method == 3) then
+      !
+      ! This method uses the method specified in NASA TM-2011-217181
+      ! and was the old method used by VULCAN (it is now commented out).
+      !   1) The interior pressure, total enthalpy, and the outward
+      !      propagating Riemann invariant, R+, are extrapolated
+      !      from the interior to the boundary.
+      !   2) Uses the total pressure and total temperature specified
+      !      for this boundary condition.
+      !   3) The boundary speed of sound is found by solving a quadratic
+      !      equation created by using some adiabatic and isentropic
+      !      assumptions/relations with the conditions from 1) and 2).
+      !   4) The boundary speed of sound is then used to compute the
+      !      inflow velocity and Mach number.
+      !   5) The inflow Mach number is used with the boundary total
+      !      conditions to get the boundary static density, and total
+      !      energy.
+      !
+      if (nr == 3) then
+        call get_bc_sub_inflow_sol_cpg_v3_3d(n1,n2,face_cv,face_gp,pv_bc)
+      else if (nr == 2) then
+        call get_bc_sub_inflow_sol_cpg_v3_2d(n1,n2,face_cv,face_gp,pv_bc)
+      else
+        call get_bc_sub_inflow_sol_cpg_v3_1d(n1,n2,face_cv,face_gp,pv_bc)
+      end if
+      !
     else
       !
-      if (sub_inflow_method == 3) then
-        !
-        ! This method uses the method specified in NASA TM-2011-217181
-        ! and was the old method used by VULCAN (it is now commented out).
-        !   1) The interior pressure, total enthalpy, and the outward
-        !      propagating Riemann invariant, R+, are extrapolated
-        !      from the interior to the boundary.
-        !   2) Uses the total pressure and total temperature specified
-        !      for this boundary condition.
-        !   3) The boundary speed of sound is found by solving a quadratic
-        !      equation created by using some adiabatic and isentropic
-        !      assumptions/relations with the conditions from 1) and 2).
-        !   4) The boundary speed of sound is then used to compute the
-        !      inflow velocity and Mach number.
-        !   5) The inflow Mach number is used with the boundary total
-        !      conditions to get the boundary static density, and total
-        !      energy.
-        !
-        if (nr == 3) then
-          call get_bc_sub_inflow_sol_cpg_v3_3d(n1,n2,facenrm, &
-                                               face_cv,face_gp,pv_bc)
-        else if (nr == 2) then
-          call get_bc_sub_inflow_sol_cpg_v3_2d(n1,n2,facenrm, &
-                                               face_cv,face_gp,pv_bc)
-        else
-          call get_bc_sub_inflow_sol_cpg_v3_1d(n1,n2,facenrm, &
-                                               face_cv,face_gp,pv_bc)
-        end if
-        !
+      ! This is the new method used by VULCAN in their subroutine sbibc.
+      ! This method is similar to 'v3' above, except that it extrapolates
+      ! the velocity magnitude to the boundary face from the interior to get
+      ! the boundary Mach number. From there, the specified boundary total
+      ! pressure, total temperature, and angle of attack can be used to
+      ! back out the inflow conserved variables at the boundary.
+      ! NOTE: This contains a bug fix for when a non-zero angle of attack
+      !       is specified for the boundary condition. Originally, it used
+      !       the interior velocity normal at the boundary face to get the
+      !       boundary Mach number, but now it correctly uses the magnitude
+      !       of the interior velocity at the boundary face instead.
+      !
+      if (nr == 3) then
+        call get_bc_sub_inflow_sol_cpg_v4_3d(n1,n2,face_cv,face_gp,pv_bc)
+      else if (nr == 2) then
+        call get_bc_sub_inflow_sol_cpg_v4_2d(n1,n2,face_cv,face_gp,pv_bc)
       else
-        !
-        ! This is the new method used by VULCAN in their subroutine sbibc.
-        ! This method is similar to 'v3' above, except that it extrapolates
-        ! the velocity normal to the boundary face from the interior to get
-        ! the boundary Mach number. From there, the specified boundary total
-        ! pressure, total temperature, and angle of attack can be used to
-        ! back out the inflow conserved variables at the boundary.
-        !
-        if (nr == 3) then
-          call get_bc_sub_inflow_sol_cpg_v4_3d(n1,n2,facenrm, &
-                                               face_cv,face_gp,pv_bc)
-        else if (nr == 2) then
-          call get_bc_sub_inflow_sol_cpg_v4_2d(n1,n2,facenrm, &
-                                               face_cv,face_gp,pv_bc)
-        else
-          call get_bc_sub_inflow_sol_cpg_v4_1d(n1,n2,facenrm, &
-                                               face_cv,face_gp,pv_bc)
-        end if
-        !
+        call get_bc_sub_inflow_sol_cpg_v4_1d(n1,n2,face_cv,face_gp,pv_bc)
       end if
       !
     end if
@@ -345,7 +340,6 @@ continue
   ! Compute the boundary speeed of sound
   !
   aspd_bc = sqrt(max(gam*temp_bc*rgasref_nd,rndoff))
-  !
   !
 #ifdef DTERR_USES_TEMP_EXT
   conv_temp = eps6
@@ -1751,14 +1745,13 @@ end subroutine get_bc_sub_inflow_sol_cpg_v2_1d
 !###############################################################################
 !
 pure &
-subroutine get_bc_sub_inflow_sol_cpg_v3_3d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
+subroutine get_bc_sub_inflow_sol_cpg_v3_3d(n1,n2,face_cv,face_gp,pv_bc)
   !
   !.. Use Statements ..
   use ovar, only : gam
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: pv_bc(:)
   real(wp), intent(inout) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
@@ -1766,8 +1759,6 @@ subroutine get_bc_sub_inflow_sol_cpg_v3_3d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
   !.. Local Scalars ..
   integer  :: n
   real(wp) :: a,b,c,d,rplus,htot,aspd_p,aspd_m
-  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
- !real(wp) :: aoa,tan_aoa
   real(wp) :: vmag,dir_cosx,dir_cosy,dir_cosz
   real(wp) :: total_cond,rtot_bc,ptot_bc
   real(wp) :: gm1,gam_over_1mg
@@ -1802,26 +1793,9 @@ continue
   dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
   dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
   dir_cosz = pv_bc(nmz) / max(vmag,rndoff)
- !!
- !aoa = atan2(pv_bc(nmy),pv_bc(nmx))
- !tan_aoa = tan( aoa )
- !!
- !dir_cosx = one / sqrt(one + tan_aoa**2)
- !dir_cosy = tan_aoa * dir_cosx
- !dir_cosz = zero
   !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp)
+  !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
   do n = n1,n2
-    !
-    ! Unit normal at this flux point
-    !
-    rnx = facenrm(1,n)
-    rny = facenrm(2,n)
-    rnz = facenrm(3,n)
-    ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
-    unx = rnx/ds
-    uny = rny/ds
-    unz = rnz/ds
     !
     ! Get the host cell primitive variables at this flux point
     !
@@ -1835,9 +1809,11 @@ continue
     pres = face_gp(n,npres,1)
     !
     ! Magnitude of velocity of the interior/host cell at this flux point
+    ! NOTE: Using the normal velocity from the interior as vel_int does not
+    !       work when the inflow BC has a non-zero angle of attack, so the
+    !       velocity magnitude is the correct term to use here.
     !
-   !vel_int = sqrt( q2 )
-    vel_int = vx*unx + vy*uny + vz*unz
+    vel_int = sqrt( q2 )
     !
     ! Compute the speed of sound at this flux point
     !
@@ -1883,11 +1859,7 @@ continue
     vy = abs(vel)*dir_cosy
     vz = abs(vel)*dir_cosz
     !
-    ! Set the boundary velocity normal to the boundary face
-    !
-   !vx = vel*unx
-   !vy = vel*uny
-   !vz = vel*unz
+    ! Compute the final conserved variables for the boundary state
     !
     face_cv(n,nec,2) = rho
     face_cv(n,nmx,2) = rho*vx
@@ -1902,14 +1874,13 @@ end subroutine get_bc_sub_inflow_sol_cpg_v3_3d
 !###############################################################################
 !
 pure &
-subroutine get_bc_sub_inflow_sol_cpg_v3_2d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
+subroutine get_bc_sub_inflow_sol_cpg_v3_2d(n1,n2,face_cv,face_gp,pv_bc)
   !
   !.. Use Statements ..
   use ovar, only : gam
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: pv_bc(:)
   real(wp), intent(inout) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
@@ -1917,8 +1888,6 @@ subroutine get_bc_sub_inflow_sol_cpg_v3_2d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
   !.. Local Scalars ..
   integer  :: n
   real(wp) :: a,b,c,d,rplus,htot,aspd_p,aspd_m
-  real(wp) :: ds,rnx,rny,unx,uny
- !real(wp) :: aoa,tan_aoa
   real(wp) :: vmag,dir_cosx,dir_cosy
   real(wp) :: total_cond,rtot_bc,ptot_bc
   real(wp) :: gm1,gam_over_1mg
@@ -1951,23 +1920,9 @@ continue
   !
   dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
   dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
- !!
- !aoa = atan2(pv_bc(nmy),pv_bc(nmx))
- !tan_aoa = tan( aoa )
- !!
- !dir_cosx = one / sqrt(one + tan_aoa**2)
- !dir_cosy = tan_aoa * dir_cosx
   !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp)
+  !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
   do n = n1,n2
-    !
-    ! Unit normal at this flux point
-    !
-    rnx = facenrm(1,n)
-    rny = facenrm(2,n)
-    ds = sqrt( rnx*rnx + rny*rny )
-    unx = rnx/ds
-    uny = rny/ds
     !
     ! Get the host cell primitive variables at this flux point
     !
@@ -1980,9 +1935,11 @@ continue
     pres = face_gp(n,npres,1)
     !
     ! Magnitude of velocity of the interior/host cell at this flux point
+    ! NOTE: Using the normal velocity from the interior as vel_int does not
+    !       work when the inflow BC has a non-zero angle of attack, so the
+    !       velocity magnitude is the correct term to use here.
     !
-   !vel_int = sqrt( q2 )
-    vel_int = vx*unx + vy*uny
+    vel_int = sqrt( q2 )
     !
     ! Compute the speed of sound at this flux point
     !
@@ -2027,10 +1984,7 @@ continue
     vx = abs(vel)*dir_cosx
     vy = abs(vel)*dir_cosy
     !
-    ! Set the boundary velocity normal to the boundary face
-    !
-   !vx = vel*unx
-   !vy = vel*uny
+    ! Compute the final conserved variables for the boundary state
     !
     face_cv(n,nec,2) = rho
     face_cv(n,nmx,2) = rho*vx
@@ -2044,14 +1998,13 @@ end subroutine get_bc_sub_inflow_sol_cpg_v3_2d
 !###############################################################################
 !
 pure &
-subroutine get_bc_sub_inflow_sol_cpg_v3_1d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
+subroutine get_bc_sub_inflow_sol_cpg_v3_1d(n1,n2,face_cv,face_gp,pv_bc)
   !
   !.. Use Statements ..
   use ovar, only : gam
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: pv_bc(:)
   real(wp), intent(inout) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
@@ -2059,8 +2012,6 @@ subroutine get_bc_sub_inflow_sol_cpg_v3_1d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
   !.. Local Scalars ..
   integer  :: n
   real(wp) :: a,b,c,d,rplus,htot,aspd_p,aspd_m
-  real(wp) :: ds,rnx,unx
- !real(wp) :: aoa,tan_aoa
   real(wp) :: vmag,dir_cosx
   real(wp) :: total_cond,rtot_bc,ptot_bc
   real(wp) :: gm1,gam_over_1mg
@@ -2091,21 +2042,9 @@ continue
   vmag = sqrt( pv_bc(nmx)*pv_bc(nmx) )
   !
   dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
- !!
- !aoa = atan2(pv_bc(nmy),pv_bc(nmx))
- !tan_aoa = tan( aoa )
- !!
- !dir_cosx = one / sqrt(one + tan_aoa**2)
- !dir_cosy = tan_aoa * dir_cosx
   !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp)
+  !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
   do n = n1,n2
-    !
-    ! Unit normal at this flux point
-    !
-    rnx = facenrm(1,n)
-    ds = sqrt( rnx*rnx )
-    unx = rnx/ds
     !
     ! Get the host cell primitive variables at this flux point
     !
@@ -2117,9 +2056,11 @@ continue
     pres = face_gp(n,npres,1)
     !
     ! Magnitude of velocity of the interior/host cell at this flux point
+    ! NOTE: Using the normal velocity from the interior as vel_int does not
+    !       work when the inflow BC has a non-zero angle of attack, so the
+    !       velocity magnitude is the correct term to use here.
     !
-   !vel_int = sqrt( q2 )
-    vel_int = vx*unx
+    vel_int = sqrt( q2 )
     !
     ! Compute the speed of sound at this flux point
     !
@@ -2163,9 +2104,7 @@ continue
     !
     vx = abs(vel)*dir_cosx
     !
-    ! Set the boundary velocity normal to the boundary face
-    !
-   !vx = vel*unx
+    ! Compute the final conserved variables for the boundary state
     !
     face_cv(n,nec,2) = rho
     face_cv(n,nmx,2) = rho*vx
@@ -2178,26 +2117,23 @@ end subroutine get_bc_sub_inflow_sol_cpg_v3_1d
 !###############################################################################
 !
 pure &
-subroutine get_bc_sub_inflow_sol_cpg_v4_3d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
+subroutine get_bc_sub_inflow_sol_cpg_v4_3d(n1,n2,face_cv,face_gp,pv_bc)
   !
   !.. Use Statements ..
   use ovar, only : gam
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: pv_bc(:)
   real(wp), intent(inout) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
- !real(wp) :: aoa,tan_aoa
   real(wp) :: vmag,dir_cosx,dir_cosy,dir_cosz
   real(wp) :: total_cond,rtot_bc,ptot_bc
   real(wp) :: rho,vx,vy,vz,vel,pres
-  real(wp) :: rho_inv,aspd_int,mach_int,veln_int
+  real(wp) :: rho_inv,aspd_int,mach_int,vmag_int
   real(wp) :: gm1,one_over_gm1,one_over_1mg,gam_over_1mg
   !
 continue
@@ -2223,26 +2159,9 @@ continue
   dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
   dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
   dir_cosz = pv_bc(nmz) / max(vmag,rndoff)
- !!
- !aoa = atan2(pv_bc(nmy),pv_bc(nmx))
- !tan_aoa = tan( aoa )
- !!
- !dir_cosx = one / sqrt(one + tan_aoa**2)
- !dir_cosy = tan_aoa * dir_cosx
- !dir_cosz = zero
   !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp)
+  !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
   do n = n1,n2
-    !
-    ! Unit normal at this flux point
-    !
-    rnx = facenrm(1,n)
-    rny = facenrm(2,n)
-    rnz = facenrm(3,n)
-    ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
-    unx = rnx/ds
-    uny = rny/ds
-    unz = rnz/ds
     !
     ! Get the host cell primitive variables at this flux point
     !
@@ -2254,14 +2173,17 @@ continue
     !
     pres = face_gp(n,npres,1)
     !
-    ! Normal velocity of the interior/host cell at this flux point
+    ! Magnitude of velocity of the interior/host cell at this flux point
+    ! NOTE: Using the normal velocity from the interior as vel_int does not
+    !       work when the inflow BC has a non-zero angle of attack, so the
+    !       velocity magnitude is the correct term to use here.
     !
-    veln_int = vx*unx + vy*uny + vz*unz
+    vmag_int = sqrt(vx*vx + vy*vy + vz*vz)
     !
     ! Compute the speed of sound at this flux point
     !
     aspd_int = sqrt( max( gam*pres*rho_inv , rndoff ) )
-    mach_int = veln_int / aspd_int
+    mach_int = vmag_int / aspd_int
     !
     total_cond = one + half*gm1*mach_int*mach_int
     !
@@ -2280,11 +2202,7 @@ continue
     vy = abs(vel)*dir_cosy
     vz = abs(vel)*dir_cosz
     !
-    ! Set the boundary velocity normal to the boundary face
-    !
-   !vx = vel*unx
-   !vy = vel*uny
-   !vz = vel*unz
+    ! Compute the final conserved variables for the boundary state
     !
     face_cv(n,nec,2) = rho
     face_cv(n,nmx,2) = rho*vx
@@ -2299,26 +2217,23 @@ end subroutine get_bc_sub_inflow_sol_cpg_v4_3d
 !###############################################################################
 !
 pure &
-subroutine get_bc_sub_inflow_sol_cpg_v4_2d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
+subroutine get_bc_sub_inflow_sol_cpg_v4_2d(n1,n2,face_cv,face_gp,pv_bc)
   !
   !.. Use Statements ..
   use ovar, only : gam
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: pv_bc(:)
   real(wp), intent(inout) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: ds,rnx,rny,unx,uny
- !real(wp) :: aoa,tan_aoa
   real(wp) :: vmag,dir_cosx,dir_cosy
   real(wp) :: total_cond,rtot_bc,ptot_bc
   real(wp) :: rho,vx,vy,vel,pres
-  real(wp) :: rho_inv,aspd_int,mach_int,veln_int
+  real(wp) :: rho_inv,aspd_int,mach_int,vmag_int
   real(wp) :: gm1,one_over_gm1,one_over_1mg,gam_over_1mg
   !
 continue
@@ -2342,23 +2257,9 @@ continue
   !
   dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
   dir_cosy = pv_bc(nmy) / max(vmag,rndoff)
- !!
- !aoa = atan2(pv_bc(nmy),pv_bc(nmx))
- !tan_aoa = tan( aoa )
- !!
- !dir_cosx = one / sqrt(one + tan_aoa**2)
- !dir_cosy = tan_aoa * dir_cosx
   !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp)
+  !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
   do n = n1,n2
-    !
-    ! Unit normal at this flux point
-    !
-    rnx = facenrm(1,n)
-    rny = facenrm(2,n)
-    ds = sqrt( rnx*rnx + rny*rny )
-    unx = rnx/ds
-    uny = rny/ds
     !
     ! Get the host cell primitive variables at this flux point
     !
@@ -2369,14 +2270,17 @@ continue
     !
     pres = face_gp(n,npres,1)
     !
-    ! Normal velocity of the interior/host cell at this flux point
+    ! Magnitude of velocity of the interior/host cell at this flux point
+    ! NOTE: Using the normal velocity from the interior as vel_int does not
+    !       work when the inflow BC has a non-zero angle of attack, so the
+    !       velocity magnitude is the correct term to use here.
     !
-    veln_int = vx*unx + vy*uny
+    vmag_int = sqrt(vx*vx + vy*vy)
     !
     ! Compute the speed of sound at this flux point
     !
     aspd_int = sqrt( max( gam*pres*rho_inv , rndoff ) )
-    mach_int = veln_int / aspd_int
+    mach_int = vmag_int / aspd_int
     !
     total_cond = one + half*gm1*mach_int*mach_int
     !
@@ -2394,10 +2298,7 @@ continue
     vx = abs(vel)*dir_cosx
     vy = abs(vel)*dir_cosy
     !
-    ! Set the boundary velocity normal to the boundary face
-    !
-   !vx = vel*unx
-   !vy = vel*uny
+    ! Compute the final conserved variables for the boundary state
     !
     face_cv(n,nec,2) = rho
     face_cv(n,nmx,2) = rho*vx
@@ -2411,26 +2312,23 @@ end subroutine get_bc_sub_inflow_sol_cpg_v4_2d
 !###############################################################################
 !
 pure &
-subroutine get_bc_sub_inflow_sol_cpg_v4_1d(n1,n2,facenrm,face_cv,face_gp,pv_bc)
+subroutine get_bc_sub_inflow_sol_cpg_v4_1d(n1,n2,face_cv,face_gp,pv_bc)
   !
   !.. Use Statements ..
   use ovar, only : gam
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: pv_bc(:)
   real(wp), intent(inout) :: face_cv(:,:,:)
   real(wp),    intent(in) :: face_gp(:,:,:)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: ds,rnx,unx
- !real(wp) :: aoa,tan_aoa
   real(wp) :: vmag,dir_cosx
   real(wp) :: total_cond,rtot_bc,ptot_bc
   real(wp) :: rho,vx,vel,pres
-  real(wp) :: rho_inv,aspd_int,mach_int,veln_int
+  real(wp) :: rho_inv,aspd_int,mach_int,vmag_int
   real(wp) :: gm1,one_over_gm1,one_over_1mg,gam_over_1mg
   !
 continue
@@ -2452,20 +2350,9 @@ continue
   vmag = sqrt( pv_bc(nmx)*pv_bc(nmx) )
   !
   dir_cosx = pv_bc(nmx) / max(vmag,rndoff)
- !!
- !aoa = atan2(pv_bc(nmy),pv_bc(nmx))
- !tan_aoa = tan( aoa )
- !!
- !dir_cosx = one / sqrt(one + tan_aoa**2)
   !
-  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_gp)
+  !$ACC PARALLEL LOOP PRESENT(face_cv,face_gp)
   do n = n1,n2
-    !
-    ! Unit normal at this flux point
-    !
-    rnx = facenrm(1,n)
-    ds = sqrt( rnx*rnx )
-    unx = rnx/ds
     !
     ! Get the host cell primitive variables at this flux point
     !
@@ -2475,14 +2362,17 @@ continue
     !
     pres = face_gp(n,npres,1)
     !
-    ! Normal velocity of the interior/host cell at this flux point
+    ! Magnitude of velocity of the interior/host cell at this flux point
+    ! NOTE: Using the normal velocity from the interior as vel_int does not
+    !       work when the inflow BC has a non-zero angle of attack, so the
+    !       velocity magnitude is the correct term to use here.
     !
-    veln_int = vx*unx
+    vmag_int = sqrt(vx*vx)
     !
     ! Compute the speed of sound at this flux point
     !
     aspd_int = sqrt( max( gam*pres*rho_inv , rndoff ) )
-    mach_int = veln_int / aspd_int
+    mach_int = vmag_int / aspd_int
     !
     total_cond = one + half*gm1*mach_int*mach_int
     !
@@ -2499,9 +2389,7 @@ continue
     !
     vx = abs(vel)*dir_cosx
     !
-    ! Set the boundary velocity normal to the boundary face
-    !
-   !vx = vel*unx
+    ! Compute the final conserved variables for the boundary state
     !
     face_cv(n,nec,2) = rho
     face_cv(n,nmx,2) = rho*vx
