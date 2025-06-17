@@ -2,7 +2,7 @@
 
 PROFILE_IO_ALL = T
 PROFILE_IO_CGNS_SUBS = T
-CGNS_HIGH_ORDER_OUTPUT = F
+CGNS_HIGH_ORDER_OUTPUT = T
 
 ! Grid information
 GRID_FORMAT = -1 ! Internally generated grid
