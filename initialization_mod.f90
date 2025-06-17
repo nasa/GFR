@@ -757,6 +757,10 @@ continue
           return_value(k,m) = bc_in(ibc)%cv(m)
         end do
       end do
+    else
+      do k = 1,np
+        return_value(k,:) = bc_in(init_cond)%cv(:)
+      end do
     end if
     !
   else if (abs(itestcase) == CH4_Flame_Speed_Test) then
