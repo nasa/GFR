@@ -497,8 +497,8 @@ subroutine update_time_ave_2d(a,b)
   !
   !.. Local Scalars ..
   integer  :: m,n,nvar
-  real(wp) :: x,x_r,vx_r,vx
-  real(wp) :: y,y_r,vy_r,vy
+  real(wp) :: x,x_r,vx
+  real(wp) :: y,y_r,vy
   real(wp) :: st,ct,theta,gm1,gam_over_gm1
   real(wp) :: r,p,t,q2,a2,m2,total_cond
   !
