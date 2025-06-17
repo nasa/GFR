@@ -179,6 +179,7 @@ continue
     !
     match_jidx = bc_input(iidx)%periodic%matching_bc_idx
     match_jnam = trim(adjustl(bc_input(iidx)%periodic%matching_bc_name))
+    match_jnam = uppercase( match_jnam )
     !
     ! Check the values specified for finding the periodic match, and
     ! complete the matching information if needed
@@ -190,10 +191,17 @@ continue
       ! isnt treat matching_bc_idx as the good information
       !
       jname = trim(adjustl(bc_input(match_jidx)%name))
+      jname = uppercase( jname )
       !
       if (match_jnam /= jname) then
         !
-        if (mypnum == glb_root) write (iout,102)
+        if (mypnum == glb_root) then
+          write (iout,102) iidx,match_jidx, &
+                  trim(adjustl(bc_input(iidx)%name)), &
+                  trim(adjustl(jname)), &
+                  trim(adjustl(match_jnam)), &
+                  trim(adjustl(bc_input(match_jidx)%periodic%matching_bc_name))
+        end if
         !
         bc_input(iidx)%periodic%matching_bc_name = bc_input(match_jidx)%name
         !
@@ -296,16 +304,20 @@ continue
     iidx = pbc_idxs(i)
     !
     iname = trim(adjustl(pbc_names(i)))
+    iname = uppercase( iname )
     !
     match_jidx = bc_input(iidx)%periodic%matching_bc_idx
     match_jnam = trim(adjustl(bc_input(iidx)%periodic%matching_bc_name))
+    match_jnam = uppercase( match_jnam )
     !
     ! Use match_jidx to find the match
     !
     jname = trim(adjustl(bc_input(match_jidx)%name))
+    jname = uppercase( jname )
     !
     match_iidx = bc_input(match_jidx)%periodic%matching_bc_idx
     match_inam = trim(adjustl(bc_input(match_jidx)%periodic%matching_bc_name))
+    match_inam = uppercase( match_inam )
     !
     if (iname == match_inam .and. iidx == match_iidx) then
       !
