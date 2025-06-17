@@ -214,6 +214,10 @@ continue
   !
   call get_std_elem_face_pts()
   !
+  ! Output the quadrature rules
+  !
+ !call output_quadrature_rules()
+  !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
@@ -1387,6 +1391,218 @@ continue
   6 format (38x,f10.6)
   !
 end subroutine output_pts_and_wts
+!
+!###############################################################################
+!
+subroutine output_quadrature_rules()
+  !
+  !.. Use Statements ..
+  use element_type_mod, only : std_elem
+  !
+  !.. Local Scalars ..
+  integer :: n,np,io,ierr
+  integer :: this_geom,this_order
+  !
+  character(len=100) :: zone_name
+  !
+  character(len=:), allocatable :: fname
+  !
+  !.. Local Arrays ..
+  logical(lk) :: need_ref_elem(Geom_Min:Geom_Max)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: pts(:,:)
+  real(wp), allocatable :: wts(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_quadrature_rules"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  need_ref_elem(:) = true
+  !
+  fname = "geom_quadrature_rules.dat" ! F2003 AUTO-REALLOC
+  !
+  open (newunit=io,file=fname,form="formatted",status="replace", &
+                   action="write",position="rewind",iostat=ierr, &
+                   iomsg=error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  write (io,1)
+  !
+  order_loop: do this_order = lbound(std_elem,dim=2),ubound(std_elem,dim=2)
+    geom_loop: do this_geom = lbound(std_elem,dim=1),ubound(std_elem,dim=1)
+      !
+      if (.not. allocated(std_elem(this_geom,this_order)%pts)) cycle geom_loop
+      if (.not. allocated(std_elem(this_geom,this_order)%wts)) cycle geom_loop
+      !
+      pts = std_elem(this_geom,this_order)%pts(:,:) ! F2003 AUTO-REALLOC
+      wts = std_elem(this_geom,this_order)%wts(:)   ! F2003 AUTO-REALLOC
+      !
+      np = size(pts,dim=2)
+      !
+      if (need_ref_elem(this_geom)) then
+        call output_reference_element(io,this_geom)
+        need_ref_elem(this_geom) = fals
+      end if
+      !
+      write (zone_name,20) this_order, Geom_Full_Name(this_geom)
+      write (io,2) trim(adjustl(zone_name)), np
+      !
+      select case (this_geom)
+        case (Geom_Edge)
+          !
+          do n = 1,np
+            write (io,10) pts(1,n), zero, zero, wts(n)
+          end do
+          !
+        case (Geom_Quad,Geom_Tria)
+          !
+          do n = 1,np
+            write (io,10) pts(1,n), pts(2,n), zero, wts(n)
+          end do
+          !
+        case (Geom_Tetr,Geom_Pyra,Geom_Pris,Geom_Hexa)
+          !
+          do n = 1,np
+            write (io,10) pts(1,n), pts(2,n), pts(3,n), wts(n)
+          end do
+          !
+      end select
+      !
+    end do geom_loop
+  end do order_loop
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"writing quadrature rules")
+  !
+  ! Format Statements
+  !
+  1  format ('VARIABLES = "<greek>x</greek>" "<greek>h</greek>" ', &
+             '"<greek>z</greek>" "Weight"')
+  2  format ('Zone T="',a,'", I=',i0,', DATAPACKING=POINT')
+  !
+  10 format (4(1x,f15.10))
+  11 format (8(1x,i0,:))
+  !
+  20 format ("P",i0," ",a)
+  !
+end subroutine output_quadrature_rules
+!
+!###############################################################################
+!
+subroutine output_reference_element(io,this_geom)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: io
+  integer, intent(in) :: this_geom
+  !
+  !.. Local Scalars ..
+  integer :: n,np
+  character(len=100) :: zone_name
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: pts(:,:)
+  !
+continue
+  !
+  write (zone_name,20) Geom_Full_Name(this_geom)
+  !
+  select case (this_geom)
+    case (Geom_Edge)
+      !
+      pts = ref_edge_nodes_xyz(:,:) ! F2003 AUTO-REALLOC
+      np = size(pts,dim=2)
+      !
+      write (io,1) trim(adjustl(zone_name)), np, "FELINESEG"
+      do n = 1,np
+        write (io,10) pts(1,n),zero,zero,one
+      end do
+      write (io,11) 1, 2
+      !
+    case (Geom_Quad)
+      !
+      pts = ref_quad_nodes_xyz(:,:) ! F2003 AUTO-REALLOC
+      np = size(pts,dim=2)
+      !
+      write (io,1) trim(adjustl(zone_name)), np, "FEQUADRILATERAL"
+      do n = 1,np
+        write (io,10) pts(1,n),pts(2,n),zero,one
+      end do
+      write (io,11) 1, 2, 3, 4
+      !
+    case (Geom_Tria)
+      !
+      pts = ref_tria_nodes_xyz(:,:) ! F2003 AUTO-REALLOC
+      np = size(pts,dim=2)
+      !
+      write (io,1) trim(adjustl(zone_name)), np, "FETRIANGLE"
+      do n = 1,np
+        write (io,10) pts(1,n),pts(2,n),zero,one
+      end do
+      write (io,11) 1, 2, 3
+      !
+    case (Geom_Tetr)
+      !
+      pts = ref_tetr_nodes_xyz(:,:) ! F2003 AUTO-REALLOC
+      np = size(pts,dim=2)
+      !
+      write (io,1) trim(adjustl(zone_name)), np, "FETETRAHEDRON"
+      do n = 1,np
+        write (io,10) pts(1,n),pts(2,n),pts(3,n),one
+      end do
+      write (io,11) 1, 2, 3, 4
+      !
+    case (Geom_Pyra)
+      !
+      pts = ref_pyra_nodes_xyz(:,:) ! F2003 AUTO-REALLOC
+      np = size(pts,dim=2)
+      !
+      write (io,1) trim(adjustl(zone_name)), np, "FEBRICK"
+      do n = 1,np
+        write (io,10) pts(1,n),pts(2,n),pts(3,n),one
+      end do
+      write (io,11) 1, 2, 3, 4, 5, 5, 5, 5
+      !
+    case (Geom_Pris)
+      !
+      pts = ref_pris_nodes_xyz(:,:) ! F2003 AUTO-REALLOC
+      np = size(pts,dim=2)
+      !
+      write (io,1) trim(adjustl(zone_name)), np, "FEBRICK"
+      do n = 1,np
+        write (io,10) pts(1,n),pts(2,n),pts(3,n),one
+      end do
+      write (io,11) 1, 2, 3, 3, 4, 5, 6, 6
+      !
+    case (Geom_Hexa)
+      !
+      pts = ref_hexa_nodes_xyz(:,:) ! F2003 AUTO-REALLOC
+      np = size(pts,dim=2)
+      !
+      write (io,1) trim(adjustl(zone_name)), np, "FEBRICK"
+      do n = 1,np
+        write (io,10) pts(1,n),pts(2,n),pts(3,n),one
+      end do
+      write (io,11) 1, 2, 3, 4, 5, 6, 7, 8
+      !
+  end select
+  !
+  ! Format Statements
+  !
+  1  format ('Zone T="',a,'", N=',i0,', E=1, DATAPACKING=POINT, ZONETYPE=',a)
+  !
+  10 format (4(1x,f15.10))
+  11 format (8(1x,i0,:))
+  !
+  20 format ("Reference ",a)
+  !
+end subroutine output_reference_element
 !
 !###############################################################################
 !
