@@ -4728,8 +4728,9 @@ end subroutine write_parallel_cgns_time_ave_file
 subroutine get_cgns_time_ave_variables(variable_list)
   !
   !.. Use Statements ..
-  use ovar,    only : time_ave_vel_is_axisymm
-  use mrf_mod, only : is_in_mrf
+  use ovar,        only : time_ave_vel_is_axisymm
+  use mrf_mod,     only : is_in_mrf
+  use flowvar_mod, only : time_ave_variables
   !
   !.. Formal Arguments ..
 #ifdef SPECIAL_FOR_INTEL
@@ -4835,13 +4836,33 @@ continue
   else
     call add_sol_variables(variable_list,default_list)
   end if
+ !!
+ !! Add total temperature and pressure if in a moving reference frame
+ !!
+ !if ( is_in_mrf() ) then
+ !  call add_sol_variable(variable_list,"T0")
+ !  call add_sol_variable(variable_list,"P0")
+ !end if
   !
-  ! Add total temperature and pressure if in a moving reference frame
+  ! Add total temperature if it exists in the time averaged variables
   !
-  if ( is_in_mrf() ) then
-    call add_sol_variable(variable_list,"T0")
-    call add_sol_variable(variable_list,"P0")
-  end if
+  t0_check: &
+  do m = 1,size(time_ave_variables)
+    if (trim(adjustl( time_ave_variables(m) )) == "T") then
+      call add_sol_variable(variable_list,"T0")
+      exit t0_check
+    end if
+  end do t0_check
+  !
+  ! Add total pressure if it exists in the time averaged variables
+  !
+  p0_check: &
+  do m = 1,size(time_ave_variables)
+    if (trim(adjustl( time_ave_variables(m) )) == "P") then
+      call add_sol_variable(variable_list,"P0")
+      exit p0_check
+    end if
+  end do p0_check
   !
   ! Make sure there are no duplicate variables being output
   !

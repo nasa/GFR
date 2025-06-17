@@ -183,7 +183,7 @@ continue
     ! Add total temperature and total pressure to the list of variables
     ! to average if using a moving reference frame
     !
-    if ( is_in_mrf() ) then
+   !if ( is_in_mrf() ) then
       !
       ! Total temperature
       !
@@ -197,7 +197,7 @@ continue
       time_ave_variables = [ character(len=len(time_ave_variables)) :: &
                              time_ave_variables(:) , "P" ]
       !
-    end if
+   !end if
     !
     nvar = size(time_ave_variables)
     !
