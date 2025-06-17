@@ -239,7 +239,7 @@ subroutine get_metrics()
   use ovar,        only : Timestep_Type
   !
   !.. Local Scalars ..
-  integer  :: ierr
+  integer  :: ierr,my_part_weight
   integer  :: min_jsp,min_jcl,min_jac_cpu,min_vol_cpu
   integer  :: max_jsp,max_jcl,max_jac_cpu,max_vol_cpu
   integer  :: min_ncell_cpu,max_ncell_cpu
@@ -247,16 +247,21 @@ subroutine get_metrics()
   integer  :: min_nfbnd_cpu,max_nfbnd_cpu
   integer  :: min_nface_cpu,max_nface_cpu
   integer  :: min_nspts_cpu,max_nspts_cpu
+  integer  :: min_prtwt_cpu,max_prtwt_cpu
   integer  :: min_ncv,max_ncv,min_ncv_cpu,max_ncv_cpu
   real(wp) :: ave_ncell,ave_nnode,ave_vol,ave_cell_vol
-  real(wp) :: ave_nfbnd,ave_nface,ave_nspts
+  real(wp) :: ave_nfbnd,ave_nface,ave_nspts,ave_prtwt
   real(wp) :: jac_min,jac_max,vol_min,vol_max
   !
+  !.. Local Indexing Parameters ..
+  integer, parameter :: npinf = 6
+  integer, parameter :: njinf = 11
+  !
   !.. Local Arrays ..
-  integer  :: part_info(1:5)
-  integer  :: all_part_info(1:5,1:ncpu)
-  real(wp) :: jac_info(1:11)
-  real(wp) :: all_jac_info(1:11,1:ncpu)
+  integer  :: part_info(1:npinf)
+  integer  :: all_part_info(1:npinf,1:ncpu)
+  real(wp) :: jac_info(1:njinf)
+  real(wp) :: all_jac_info(1:njinf,1:ncpu)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_metrics"
@@ -304,7 +309,8 @@ continue
   !
   call compute_volume_statistics(min_ncv,max_ncv,vol_min,vol_max, &
                                  min_jcl,max_jcl,min_jsp,max_jsp, &
-                                 jac_min,jac_max,jac,wtdjac)
+                                 jac_min,jac_max,my_part_weight, &
+                                 jac,wtdjac)
   !
   jac_info(1) = real(min_jsp,kind=wp)
   jac_info(2) = real(min_jcl,kind=wp)
@@ -323,6 +329,7 @@ continue
   part_info(3) = nfbnd
   part_info(4) = nface
   part_info(5) = n_solpts
+  part_info(6) = my_part_weight
   !
   if (ncpu > 1) then
     !
@@ -378,6 +385,8 @@ continue
   max_nface_cpu = maxloc( all_part_info(4,:) , dim=1 )
   min_nspts_cpu = minloc( all_part_info(5,:) , dim=1 )
   max_nspts_cpu = maxloc( all_part_info(5,:) , dim=1 )
+  min_prtwt_cpu = minloc( all_part_info(6,:) , dim=1 )
+  max_prtwt_cpu = maxloc( all_part_info(6,:) , dim=1 )
   !
   ave_ncell = real( sum( all_part_info(1,:) ) , kind=kind(ave_ncell) ) / &
               real( size(all_part_info,dim=2) , kind=kind(ave_ncell) )
@@ -388,6 +397,8 @@ continue
   ave_nface = real( sum( all_part_info(4,:) ) , kind=kind(ave_nface) ) / &
               real( size(all_part_info,dim=2) , kind=kind(ave_nface) )
   ave_nspts = real( sum( all_part_info(5,:) ) , kind=kind(ave_nspts) ) / &
+              real( size(all_part_info,dim=2) , kind=kind(ave_nspts) )
+  ave_prtwt = real( sum( all_part_info(6,:) ) , kind=kind(ave_nspts) ) / &
               real( size(all_part_info,dim=2) , kind=kind(ave_nspts) )
   ave_vol   = sum( all_jac_info(7,:) ) / &
               real( size(all_jac_info(7,:)) , kind=kind(ave_vol) )
@@ -420,7 +431,10 @@ continue
                    nint(ave_nspts), &
                    all_jac_info(7,min_vol_cpu),min_vol_cpu, &
                    all_jac_info(7,max_vol_cpu),max_vol_cpu, &
-                   ave_vol
+                   ave_vol, &
+                   all_part_info(6,min_prtwt_cpu),min_prtwt_cpu, &
+                   all_part_info(6,max_prtwt_cpu),max_prtwt_cpu, &
+                   nint(ave_prtwt)
     !
   end if
   !
@@ -471,7 +485,11 @@ continue
           " Ave n_solpts = ",i0,//, &
           " Min partition volume =",es16.8," on CPU # ",i0,/, &
           " Max partition volume =",es16.8," on CPU # ",i0,/, &
-          " Ave partition volume =",es16.8,/)
+          " Ave partition volume =",es16.8,//, &
+          " Min partition weight = ",i0,t34,"on CPU # ",i0,/, &
+          " Max partition weight = ",i0,t34,"on CPU # ",i0,/, &
+          " Ave partition weight = ",i0, &
+          /)
   !
   100  format ("ERROR in subroutine get_metrics! The value of nr ", &
                "should be in the range of [1-3], but nr = ",i0,"!")
@@ -3865,7 +3883,8 @@ end subroutine compute_cell_metrics_1d
 !
 subroutine compute_volume_statistics(min_ncv,max_ncv,vol_min,vol_max, &
                                      min_jcl,max_jcl,min_jsp,max_jsp, &
-                                     jac_min,jac_max,jcb,wjac)
+                                     jac_min,jac_max,partition_weight, &
+                                     jcb,wjac)
   !
   !.. Use Statements ..
   use geomvar_mod, only : ncell,cell
@@ -3877,6 +3896,7 @@ subroutine compute_volume_statistics(min_ncv,max_ncv,vol_min,vol_max, &
   integer,  intent(inout) :: min_jsp,max_jsp
   real(wp), intent(inout) :: vol_min,vol_max
   real(wp), intent(inout) :: jac_min,jac_max
+  integer,  intent(inout) :: partition_weight
   real(wp),    intent(in) :: jcb(:)
   real(wp),    intent(in) :: wjac(:)
   !
@@ -3893,6 +3913,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  ! Compute the total computational weight of this partition
+  !
+  partition_weight = compute_partition_weight()
   !
   ! Compute the volume of each cell
   !
