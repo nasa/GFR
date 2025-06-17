@@ -12,6 +12,7 @@
 #define _MPI_COMM_SELF_VAL_  MPI_COMM_SELF%MPI_VAL
 #define _MPI_OP_TYPE_        type(MPI_OP)
 #define _MPI_USER_FUNCTION_  procedure(MPI_USER_FUNCTION)
+#define _MPI_TYPE_VAL_(a)    a ## %mpi_val       
 
 #else
 
@@ -27,5 +28,6 @@
 #define _MPI_COMM_SELF_VAL_  MPI_COMM_SELF
 #define _MPI_OP_TYPE_        integer(INT_MPI)
 #define _MPI_USER_FUNCTION_  external
+#define _MPI_TYPE_VAL_(a)    a
 
 #endif
