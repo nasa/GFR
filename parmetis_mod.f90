@@ -11,19 +11,22 @@ module parmetis_mod
   use module_kind_types, only : INT_MPI
 #endif
   !
+  use metis_mod, only : idx_t, real_t
+  !
   implicit none
   !
-  public
+  private
   !
-  private :: c_float, c_double, c_int32_t, c_int64_t
-  !
-#ifdef METIS_64_BIT
-  integer, parameter :: idx_t = c_int64_t
-  integer, parameter :: real_t = c_double
-#else
-  integer, parameter :: idx_t = c_int32_t
-  integer, parameter :: real_t = c_float
-#endif
+  public :: ParMETIS_PartKway
+  public :: ParMETIS_PartGeomKway
+  public :: ParMETIS_PartGeom
+  public :: ParMETIS_RefineKway
+  public :: ParMETIS_AdaptiveRepart
+  public :: ParMETIS_Mesh2Dual
+  public :: ParMETIS_PartMeshKway
+  public :: ParMETIS_NodeND
+  public :: ParMETIS_V32_NodeND
+  public :: ParMETIS_SerialNodeND
   !
   interface
     !===========================================================================
@@ -367,6 +370,7 @@ subroutine ParMETIS_PartKway(vtxdist,xadj,adjncy,vwgt,adjwgt, &
   integer(c_int) :: ierr
   !
 continue
+#ifdef ENABLE_PARMETIS
   !
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL,0_idx_t] ! F03 AUTO-REALLOC
   !
@@ -377,6 +381,7 @@ continue
   !
   if (allocated(options)) deallocate ( options )
   !
+#endif
 end subroutine ParMETIS_PartKway
 !
 !###############################################################################
@@ -410,6 +415,7 @@ subroutine ParMETIS_PartGeomKway(vtxdist,xadj,adjncy,vwgt,adjwgt, &
   integer(c_int) :: ierr
   !
 continue
+#ifdef ENABLE_PARMETIS
   !
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL,0_idx_t] ! F03 AUTO-REALLOC
   !
@@ -420,6 +426,7 @@ continue
   !
   if (allocated(options)) deallocate ( options )
   !
+#endif
 end subroutine ParMETIS_PartGeomKway
 !
 !###############################################################################
@@ -440,10 +447,12 @@ subroutine ParMETIS_PartGeom(vtxdist,ndims,xyz,part,comm)
   integer(c_int) :: ierr
   !
 continue
+#ifdef ENABLE_PARMETIS
   !
   ierr = ParMETIS_V3_PartGeom_C_Interface(vtxdist,ndims,xyz,part, &
                                           _MPI_TYPE_VAL_(comm))
   !
+#endif
 end subroutine ParMETIS_PartGeom
 !
 !###############################################################################
@@ -475,6 +484,7 @@ subroutine ParMETIS_RefineKway(vtxdist,xadj,adjncy,vwgt,adjwgt, &
   integer(c_int) :: ierr
   !
 continue
+#ifdef ENABLE_PARMETIS
   !
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL, & ! F2003 AUTO-REALLOC
              0_idx_t,0_idx_t]
@@ -486,6 +496,7 @@ continue
   !
   if (allocated(options)) deallocate ( options )
   !
+#endif
 end subroutine ParMETIS_RefineKway
 !
 !###############################################################################
@@ -519,6 +530,7 @@ subroutine ParMETIS_AdaptiveRepart(vtxdist,xadj,adjncy,vwgt,vsize,adjwgt, &
   integer(c_int) :: ierr
   !
 continue
+#ifdef ENABLE_PARMETIS
   !
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL, & ! F2003 AUTO-REALLOC
              0_idx_t,0_idx_t]
@@ -532,6 +544,7 @@ continue
   !
   if (allocated(options)) deallocate ( options )
   !
+#endif
 end subroutine ParMETIS_AdaptiveRepart
 !
 !###############################################################################
@@ -543,7 +556,7 @@ subroutine ParMETIS_Mesh2Dual(elmdist,eptr,eind,numflag,ncommonnodes, &
   use, intrinsic :: iso_c_binding, only : c_int,c_ptr
   use, intrinsic :: iso_c_binding, only : c_f_pointer
   !
-  use metis5_mod, only : METIS_Free
+  use metis_mod, only : METIS_Free
   !
   !.. Formal Arguments ..
   integer(idx_t),                 intent(in) :: elmdist(:)
@@ -569,13 +582,15 @@ continue
   if (allocated(xadj)) deallocate ( xadj )
   if (allocated(adjncy)) deallocate ( adjncy )
   !
+  ne = int(elmdist(size(elmdist)),kind=kind(ne))
+  n = ne+1
+  !
+#ifdef ENABLE_PARMETIS
+  !
   ierr = ParMETIS_V3_Mesh2Dual_C_Interface(elmdist,eptr,eind,numflag, &
                                            ncommonnodes,r_xadj,r_adjncy, &
                                            _MPI_TYPE_VAL_(comm))
   !
-  ne = int(elmdist(size(elmdist)),kind=kind(ne))
-  !
-  n = ne+1
   call c_f_pointer( cptr=r_xadj , fptr=ptr , shape=[n] )
   !
   allocate ( xadj(1:n) )
@@ -592,6 +607,12 @@ continue
   ierr = METIS_Free(r_xadj)
   ierr = METIS_Free(r_adjncy)
   !
+#else
+  !
+  allocate ( xadj(1:n) , source=0_idx_t )
+  allocate ( adjncy(1:1) , source=0_idx_t )
+  !
+#endif
 end subroutine ParMETIS_Mesh2Dual
 !
 !###############################################################################
@@ -623,6 +644,7 @@ subroutine ParMETIS_PartMeshKway(elmdist,eptr,eind,elmwgt, &
   integer(c_int) :: ierr
   !
 continue
+#ifdef ENABLE_PARMETIS
   !
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL,0_idx_t] ! F03 AUTO-REALLOC
   !
@@ -635,6 +657,7 @@ continue
   !
   if (allocated(options)) deallocate ( options )
   !
+#endif
 end subroutine ParMETIS_PartMeshKway
 !
 !###############################################################################
@@ -657,6 +680,7 @@ subroutine ParMETIS_NodeND(vtxdist,xadj,adjncy,numflag,order,sizes,comm)
   integer(c_int) :: ierr
   !
 continue
+#ifdef ENABLE_PARMETIS
   !
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL,0_idx_t] ! F03 AUTO-REALLOC
   !
@@ -666,6 +690,7 @@ continue
   !
   if (allocated(options)) deallocate ( options )
   !
+#endif
 end subroutine ParMETIS_NodeND
 !
 !###############################################################################
@@ -696,6 +721,7 @@ subroutine ParMETIS_V32_NodeND(vtxdist,xadj,adjncy,vwgt,numflag,mtype,rtype, &
   integer(idx_t) :: seed,dbglvl
   !
 continue
+#ifdef ENABLE_PARMETIS
   !
   seed = 0_idx_t
   dbglvl = merge(PARMETIS_DEBUG_VAL,0_idx_t,PARMETIS_DEBUG_FLAG > 0) 
@@ -705,6 +731,7 @@ continue
                                          ubfrac,seed,dbglvl,order,sizes, &
                                          _MPI_TYPE_VAL_(comm))
   !
+#endif
 end subroutine ParMETIS_V32_NodeND
 !
 !###############################################################################
@@ -727,6 +754,7 @@ subroutine ParMETIS_SerialNodeND(vtxdist,xadj,adjncy,numflag,order,sizes,comm)
   integer(c_int) :: ierr
   !
 continue
+#ifdef ENABLE_PARMETIS
   !
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL,0_idx_t] ! F03 AUTO-REALLOC
   !
@@ -736,6 +764,7 @@ continue
   !
   if (allocated(options)) deallocate ( options )
   !
+#endif
 end subroutine ParMETIS_SerialNodeND
 !
 !###############################################################################
