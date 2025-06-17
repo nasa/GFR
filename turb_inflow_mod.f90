@@ -1866,6 +1866,11 @@ continue
         fsig = tfx*tfy*tfz
         !
         if (use_improved_SEM_normalization) then
+          ! From the 2016 paper
+          !   "Accuracy and efficiency improvements in synthetic eddy methods"
+          !   by Skillen et al., Int Journal of Head and Fluid Flow, pp 386-394.
+          ! This computes the term [phi(t+delta_t)] in equation 12 that is
+          ! multiplied by alpha (which will be done after completing this loop).
           ave = ave + fsig*fsig
         else
           fsig = fsig * eddy_vol
@@ -1881,9 +1886,20 @@ continue
       !
       if (use_improved_SEM_normalization) then
         !
+        ! From the 2016 paper
+        !   "Accuracy and efficiency improvements in synthetic eddy methods"
+        !   by Skillen et al., Int Journal of Head and Fluid Flow, pp 386-394.
+        !
+        ! This computes equation 12 with running_ave representing
+        ! the left-hand-side and c1 representing alpha.
+        !
         c1 = dt/time_scale
         !
         running_ave = c1*ave + (one-c1)*running_ave
+        !
+        ! This computes equation 6 with [uvw]fluc2 representing the
+        ! left-hand-side of the equation for each coordinate direction
+        ! and [uvw]fluc representing the numerator in that same direction.
         !
         ufluc2 = zero
         vfluc2 = zero
@@ -1892,6 +1908,9 @@ continue
         if (ufluc /= zero) ufluc2 = ufluc / sqrt(running_ave)
         if (vfluc /= zero) vfluc2 = vfluc / sqrt(running_ave)
         if (wfluc /= zero) wfluc2 = wfluc / sqrt(running_ave)
+        !
+        ! Save the update of the running average (equation 12)
+        ! to use for the next time step.
         !
         my_sem_pts(sem_idx)%sem_fp(n)%running_ave = running_ave
         !
