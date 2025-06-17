@@ -1366,6 +1366,7 @@ continue
     !
     if (checking_for_eight) then
       write_tgv_8s_solution = true
+      write_tgv_full_solution = true
     else
       write_tgv_full_solution = true
     end if
@@ -1384,6 +1385,7 @@ continue
     !
     if (checking_for_eight) then
       write_tgv_8s_solution = true
+      write_tgv_full_solution = true
     else
       write_tgv_full_solution = true
     end if
