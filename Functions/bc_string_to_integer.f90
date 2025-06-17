@@ -85,7 +85,8 @@ continue
   !
   n = index(text,"PERIODIC")
   if (n > 0) then
-    return_value = bc_periodic
+   !return_value = bc_periodic
+    return_value = bc_slip_wall
     return
   end if
   !
