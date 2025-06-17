@@ -149,6 +149,9 @@ module cgns_mod
   logical(lk), parameter :: create_nozzle_interior_cgns_gridfile = fals
  !logical(lk), parameter :: create_nozzle_interior_cgns_gridfile = true
   !
+  integer, parameter :: Pointwise_CGNS = 1
+  integer, parameter :: GridPro_CGNS = 2
+  !
   ! ###################################
   ! ###  Module Derived Data Types  ###
   ! ###################################
@@ -231,6 +234,7 @@ module cgns_mod
     integer(CBT) :: cell_dim, phys_dim
     type(cg_zone_t),   allocatable :: zone(:)
     type(cg_family_t), allocatable :: family(:)
+    type(cg_descriptor_t), allocatable :: descriptor(:)
   end type cg_base_t
   !
   ! ################################
@@ -256,6 +260,10 @@ module cgns_mod
   integer, save :: npnts_correct ! total # of grid points
   integer, save :: ncell_correct ! total # of interior cells
   integer, save :: nfbnd_correct ! total # of boundary faces
+  !
+  ! Variable giving the grid generator used to create the CGNS file
+  !
+  integer, save :: CGNS_Grid_Generator = Pointwise_CGNS
   !
   ! ##################################
   ! ###  Module Fixed-Size Arrays  ###
@@ -767,10 +775,12 @@ subroutine read_cgns_base(b)
   !
   !.. Local Scalars ..
   integer      :: ierr,nfam
-  integer(CBT) :: nzones
+  integer(CBT) :: nzones,ndescriptors
   !
   character(len=CGLEN) :: bcname
   character(len=CGLEN) :: famname
+  !
+  character(len=:), allocatable :: d
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_cgns_base"
@@ -784,6 +794,56 @@ continue
   call cg_base_read_f(if_g,ib_g,b%name,b%cell_dim,b%phys_dim,cgierr)
   call cgns_error(pname,gridfile,"cg_base_read_f",cgierr, &
                   __LINE__,__FILE__,not_parallel=true)
+  !
+  generator_check: &
+  if (uppercase(b%name(1:7)) == "GRIDPRO") then
+    !
+    write (iout,2) "GridPro"
+    CGNS_Grid_Generator = GridPro_CGNS
+    !
+  else
+    !
+    ! Manually move to the end of the current family node
+    ! so that we can read any descriptors that might exist.
+    !
+    call cg_goto_f(if_g,ib_g,cgierr, &
+                   CGNS_GOTO_END)
+    call cgns_error(pname,gridfile,"cg_goto_f",cgierr, &
+                    __LINE__,__FILE__,not_parallel=true)
+    !
+    call cg_ndescriptors_f(ndescriptors,cgierr)
+    call cgns_error(pname,gridfile,"cg_ndescriptors_f",cgierr, &
+                    __LINE__,__FILE__,not_parallel=true)
+    !
+    ! Allocate the descriptor component for the current base
+    !
+    allocate ( b%descriptor(1:ndescriptors) , stat=ierr , errmsg=error_message )
+    array_name = get_array_name(not_a_zone="descriptor")
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Read the descriptors for the current base
+    !
+    do id_g = 1,size(b%descriptor)
+      if (debug_cgns) write (iout,1) mypnum,"reading CGNS descriptor node #",id_g
+      call read_cgns_descriptor( b%descriptor(id_g) )
+    end do
+    !
+    ! Check to see if any of the descriptors mention Pointwise or HPCurveMesh
+    !
+    do id_g = 1,size(b%descriptor)
+      if (allocated(b%descriptor(id_g)%text)) then
+        d = uppercase( b%descriptor(id_g)%text )
+        if (index(d,"HPCURVEMESH") > 0 .or. index(d,"POINTWISE") > 0) then
+          write (iout,2) "Pointwise"
+          CGNS_Grid_Generator = Pointwise_CGNS
+          exit generator_check
+        end if
+      end if
+    end do
+    !
+    write (iout,3)
+    !
+  end if generator_check
   !
   ! Read the number of zones in the current base
   !
@@ -875,6 +935,10 @@ continue
   ! Format Statements
   !
   1 format (" CPU #",i0,": ",a,:,i0)
+  2 format (/,2x,"CGNS grid appears to be created by ",a,".",/)
+  3 format (/,2x, &
+              "Unable to determine what grid generator was used to create",/, &
+              "this CGNS grid file, therefore Pointwise is assumed.",/)
   !
 end subroutine read_cgns_base
 !
@@ -979,6 +1043,12 @@ continue
     call read_cgns_bc( z%bc(ibc_g) )
   end do
   !
+  ! If this is a GridPro CGNS file, delete all the NULL Element_t and BC_t nodes
+  !
+  if (CGNS_Grid_Generator == GridPro_CGNS) then
+    call delete_null_CGNS_nodes(z)
+  end if
+  !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
@@ -989,6 +1059,159 @@ continue
   2 format (" CPU #",i0,": ",a,:,i0)
   !
 end subroutine read_cgns_zone
+!
+!###############################################################################
+!
+subroutine delete_null_CGNS_nodes(z)
+  !
+  !.. Formal Arguments ..
+  type(cg_zone_t), intent(inout) :: z
+  !
+  !.. Local Scalars ..
+  integer      :: ierr,nkeep
+  integer(CST) :: n,nelem,old_pt
+  !
+  !.. Local Allocatable Arrays ..
+  integer(CST), allocatable :: old2new(:)
+  !
+  !.. Local Allocatable Derived Types ..
+  type(cg_bc_t), allocatable :: bc(:)
+  type(cg_section_t), allocatable :: s(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "delete_null_CGNS_nodes"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  old2new = intseq( 1_CST , maxval(z%section(:)%end) ) ! F2003 AUTO-REALLOC
+  !
+  ! Loop over the Element_t nodes and delete any named NULL*
+  !
+  nkeep = 0
+  n = 0_CST
+  do is_g = 1,size(z%section)
+    !
+    if (uppercase(z%section(is_g)%name(1:4)) == "NULL") then
+      !
+      old2new(z%section(is_g)%start:z%section(is_g)%end) = 0_CST
+      !
+      z%section(is_g)%start = 0_CST
+      z%section(is_g)%end   = 0_CST
+      if (allocated(z%section(is_g)%elements)) then
+        deallocate ( z%section(is_g)%elements , &
+                     stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"null elements",2,__LINE__,__FILE__,ierr, &
+                         error_message)
+      end if
+      !
+    else
+      !
+      nkeep = nkeep + 1
+      nelem = z%section(is_g)%end - z%section(is_g)%start + 1_CST
+      !
+      old2new(z%section(is_g)%start:z%section(is_g)%end) = n+intseq(1_CST,nelem)
+      !
+      z%section(is_g)%start = n + 1_CST
+      z%section(is_g)%end   = n + nelem
+      !
+      n = z%section(is_g)%end
+      !
+    end if
+    !
+  end do
+  !
+  ! Create a temporary array without any of the NULL Element_t nodes
+  !
+  allocate ( s(1:nkeep) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"s",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  nkeep = 0
+  copy_sections: &
+  do is_g = 1,size(z%section)
+    !
+    if (z%section(is_g)%start == 0_CST .and. &
+        z%section(is_g)%end   == 0_CST .and. &
+        .not.allocated(z%section(is_g)%elements)) cycle copy_sections
+    !
+    nkeep = nkeep + 1
+    !
+    s(nkeep) = z%section(is_g) ! deep copy with F2003 AUTO-REALLOC
+    !
+  end do copy_sections
+  !
+  ! Use move_alloc to rebuild z%section with the cleaned up sections
+  ! copied over to the temporary s array.
+  !
+  call move_alloc( from=s , to=z%section )
+  !
+  !-------------------------------------------------------------------
+  !
+  ! Loop over the BC_t nodes and delete any named NULL*
+  !
+  nkeep = 0
+  do ibc_g = 1,size(z%bc)
+    !
+    if (uppercase(z%bc(ibc_g)%name(1:4)) == "NULL") then
+      !
+      z%bc(ibc_g)%npnts = 0_CST
+      if (allocated(z%bc(ibc_g)%pnts)) then
+        deallocate ( z%bc(ibc_g)%pnts , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"null bc%pnts",2,__LINE__,__FILE__,ierr, &
+                         error_message)
+      end if
+      !
+    else
+      !
+      nkeep = nkeep + 1
+      !
+      do n = 1_CST,size(z%bc(ibc_g)%pnts)
+        old_pt = z%bc(ibc_g)%pnts(n)
+        z%bc(ibc_g)%pnts(n) = old2new(old_pt)
+      end do
+      !
+    end if
+    !
+  end do
+  !
+  ! Deallocate old2new since it is no longer needed
+  !
+  if (allocated(old2new)) then
+    deallocate ( old2new , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"old2new",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Create a temporary array without any of the NULL BC_t nodes
+  !
+  allocate ( bc(1:nkeep) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bc",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  nkeep = 0
+  copy_bcs: &
+  do ibc_g = 1,size(z%bc)
+    !
+    if (z%bc(ibc_g)%npnts == 0_CST .and. &
+        .not.allocated(z%bc(ibc_g)%pnts)) cycle copy_bcs
+    !
+    nkeep = nkeep + 1
+    !
+    bc(nkeep) = z%bc(ibc_g) ! deep copy with F2003 AUTO-REALLOC
+    !
+  end do copy_bcs
+  !
+  ! Use move_alloc to rebuild z%bc with the cleaned up BCs
+  ! copied over to the temporary bc array.
+  !
+  call move_alloc( from=bc , to=z%bc )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (" CPU #",i0,": ",a,:,i0)
+  !
+end subroutine delete_null_CGNS_nodes
 !
 !###############################################################################
 !
@@ -3015,6 +3238,12 @@ continue
     np = bnd_grps(i)
     !
     bc_names(i) = trim(adjustl(cell_grps(np)%name))
+#ifdef DEBUG_ON
+    if (mypnum == glb_root) then
+      write (iout,2847) i,trim(adjustl(bc_names(i)))
+      2847 format (4x,"bc_names(",i3,") = ",a)
+    end if
+#endif
     !
     current_cell_grp: do j = 1,size(cell_grps(np)%cells)
       !
