@@ -1,6 +1,10 @@
 module metrics_mod
   !
 !#define TIME_METRIC_PROCEDURES
+! Define CHOP_FUNC to use the chop function in Functions/chop.f90
+!#define CHOP_FUNC( a ) (chop(a))
+! Define CHOP_FUNC to disable chopping
+#define CHOP_FUNC( a ) (real(a,kind=wp))
   !
   !.. Global Use Statements ..
   use module_kind_types
@@ -1255,7 +1259,7 @@ continue
 !#ifdef TIME_METRIC_PROCEDURES
 !        call debug_timer(start_accumulation,"Chopping dvec into geofa",acc=7)
 !#endif
-        geofa(nf)%v(1:nr,k) = chop( real(dvec(1:nr,3),kind=qp)/qten ) * ten
+        geofa(nf)%v(1:nr,k) = CHOP_FUNC( real(dvec(1:nr,3),kind=qp)/qten ) * ten
 !#ifdef TIME_METRIC_PROCEDURES
 !        call debug_timer(stop_accumulation,"Chopping dvec into geofa",acc=7)
 !#endif
@@ -2136,17 +2140,21 @@ continue
 #ifdef TIME_METRIC_PROCEDURES
         call debug_timer(start_accumulation,"Chopping into facenrm",acc=6)
 #endif
-        xqp = real(xnrm,kind=qp)
-        yqp = real(ynrm,kind=qp)
-        zqp = real(znrm,kind=qp)
+       !xqp = real(xnrm,kind=qp)
+       !yqp = real(ynrm,kind=qp)
+       !zqp = real(znrm,kind=qp)
+       !!
+       !xqp = merge( xqp , qzero , abs(xqp/qten)>real(rndoff,kind=qp) )
+       !yqp = merge( yqp , qzero , abs(yqp/qten)>real(rndoff,kind=qp) )
+       !zqp = merge( zqp , qzero , abs(zqp/qten)>real(rndoff,kind=qp) )
+       !!
+       !fnrm(1,f0+kf) = real(xqp,kind=wp)
+       !fnrm(2,f0+kf) = real(yqp,kind=wp)
+       !fnrm(3,f0+kf) = real(zqp,kind=wp)
+        fnrm(1,f0+kf) = CHOP_FUNC( real(xnrm,kind=qp)/qten ) * ten
+        fnrm(2,f0+kf) = CHOP_FUNC( real(ynrm,kind=qp)/qten ) * ten
+        fnrm(3,f0+kf) = CHOP_FUNC( real(znrm,kind=qp)/qten ) * ten
         !
-        xqp = merge( xqp , qzero , abs(xqp/qten)>real(rndoff,kind=qp) )
-        yqp = merge( yqp , qzero , abs(yqp/qten)>real(rndoff,kind=qp) )
-        zqp = merge( zqp , qzero , abs(zqp/qten)>real(rndoff,kind=qp) )
-        !
-        fnrm(1,f0+kf) = real(xqp,kind=wp)
-        fnrm(2,f0+kf) = real(yqp,kind=wp)
-        fnrm(3,f0+kf) = real(zqp,kind=wp)
 #ifdef TIME_METRIC_PROCEDURES
         call debug_timer(stop_accumulation,"Chopping into facenrm",acc=6)
 #endif
@@ -2484,8 +2492,8 @@ continue
 #ifdef TIME_METRIC_PROCEDURES
         call debug_timer(start_accumulation,"Chopping into facenrm",acc=6)
 #endif
-        fnrm(1,f0+kf) = chop( real( dydi,kind=qp)/qten ) * ten
-        fnrm(2,f0+kf) = chop( real(-dxdi,kind=qp)/qten ) * ten
+        fnrm(1,f0+kf) = CHOP_FUNC( real( dydi,kind=qp)/qten ) * ten
+        fnrm(2,f0+kf) = CHOP_FUNC( real(-dxdi,kind=qp)/qten ) * ten
 #ifdef TIME_METRIC_PROCEDURES
         call debug_timer(stop_accumulation,"Chopping into facenrm",acc=6)
 #endif
@@ -3022,7 +3030,7 @@ continue
         !
         ! Zero/chop all the normals less than 10*roundoff
         !
-        geofq(nf)%v(1:nr,k) = chop( real(dvec(1:nr,3),kind=qp)/qten ) * ten
+        geofq(nf)%v(1:nr,k) = CHOP_FUNC( real(dvec(1:nr,3),kind=qp)/qten ) * ten
         !
         if (output_face_normals) then
           !
