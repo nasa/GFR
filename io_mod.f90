@@ -2625,28 +2625,31 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  do n = 1,size(bc_input)
+  bface_loop: &
+  do nf = 1,size(bface,dim=2)
     !
-    bface_loop: do nf = 1,size(bface,dim=2)
+    ! NOTE: This check on bc_comm will only cycle periodic boundary faces
+    !       that have already had bface(1,nf) set to bc_periodic. This will
+    !       only happen for
+    !         1) most of the internal grid cases (TGV, TCF, vortex, etc.)
+    !         2) when the string giving the BC name in either the CGNS grid
+    !            file or the Plot3D BCS file contains the substring
+    !            'periodic', e.g., 'x-periodic-1'. (This was the old way of
+    !            specifying periodic BCs, and the new way of using
+    !            bc_input to specify periodic BCs is preferred.)
+    !
+    ! NOTE: The new way of specifying periodic BCs using bc_input(:)%periodic
+    !       will not yet have set bface(1,nf)=bc_periodic, so this cycle
+    !       statement will get ignored.
+    !
+    if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
+    !
+    bcnam = trim(adjustl( uppercase( bc_names(bface(5,nf)) ) ))
+    !
+    bc_input_loop: &
+    do n = 1,size(bc_input)
       !
-      ! NOTE: This check on bc_comm will only cycle periodic boundary faces
-      !       that have already had bface(1,nf) set to bc_periodic. This will
-      !       only happen for
-      !         1) most of the internal grid cases (TGV, TCF, vortex, etc.)
-      !         2) when the string giving the BC name in either the CGNS grid
-      !            file or the Plot3D BCS file contains the substring
-      !            'periodic', e.g., 'x-periodic-1'. (This was the old way of
-      !            specifying periodic BCs, and the new way of using
-      !            bc_input to specify periodic BCs is preferred.)
-      !
-      ! NOTE: The new way of specifying periodic BCs using bc_input(:)%periodic
-      !       will not yet have set bface(1,nf)=bc_periodic, so this cycle
-      !       statement will get ignored.
-      !
-      if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
-      !
-      bcnam = trim(adjustl( uppercase( bc_names(bface(5,nf)) ) ))
-      bcinp = trim(adjustl( uppercase( bc_input(n)%name      ) ))
+      bcinp = trim(adjustl( uppercase( bc_input(n)%name ) ))
       !
       if (bcnam == bcinp) then
         !
@@ -2671,11 +2674,13 @@ continue
           bface(1,nf) = bc_input(n)%set_bc_value
         end if
         !
+        exit bc_input_loop
+        !
       end if
       !
-    end do bface_loop
+    end do bc_input_loop
     !
-  end do
+  end do bface_loop
   !
   call debug_timer(leaving_procedure,pname)
   !
