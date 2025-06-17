@@ -117,6 +117,13 @@ module write_cgns_mod
   !
   integer(CST), dimension(1:3) :: zone_size
   !
+  ! HARDWIRED CONSTANT TO ENABLE (DEFAULT IS DISABLED) WRITING
+  ! THE ACTUAL TIME AVERAGED DATA TO A CGNS SOLUTION FILE NAMED
+  !       solution.ta_data.[iteration #].cgns
+  !
+ !logical(lk), parameter :: output_actual_time_ave_data = fals
+  logical(lk), parameter :: output_actual_time_ave_data = true
+  !
   ! Generic interface for interpolate_for_output
   !
   interface interpolate_for_output
@@ -469,6 +476,9 @@ continue
   !
   if (output_time_averaging .and. iflag /= -3) then
     call write_parallel_cgns_time_ave_file
+    if (output_actual_time_ave_data) then
+      call write_parallel_cgns_timeave_data_file
+    end if
   end if
   !
   ! ################################################
@@ -6307,6 +6317,335 @@ continue
   !-----------------------------------------------------------------------------
   !
 end subroutine output_time_ave_variable
+!
+!###############################################################################
+!
+subroutine write_parallel_cgns_timeave_data_file()
+  !
+  !.. Use Statements ..
+  use ovar,    only : profile_io_cgns,profile_io_cgns_subs
+  use ovar,    only : max_wall_time => max_time_ave_cgns_wall_time
+  use ovar,    only : cgns_dir,itcur,itrst,num_timesteps
+  use flowvar_mod, only : uavesp
+  !
+  !.. Local Scalars ..
+  integer :: l,n,nv,nvar,npts,ierr
+  integer :: final_iter_digits
+  !
+  real(wp) :: beg_wall_time
+  real(wp) :: end_wall_time
+  real(wp) :: cgns_wall_time
+  !
+  character(len=100) :: char_num
+  character(len=170) :: cgns_sol_file
+  !
+  character(len=CGLEN) :: varname
+  !
+  integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s,ivar_s
+  integer(CBT) :: ifile,ibase,izone,isol
+  !
+  !.. Local Allocatable Arrays ..
+  integer(CBT), allocatable :: isvar_s(:)
+  !
+  real(CRT), allocatable :: var(:)
+  real(wp),  allocatable :: vartmp(:)
+  real(wp),  allocatable :: variable_ref(:)
+  !
+#ifdef SPECIAL_FOR_INTEL
+  character(len=:), allocatable :: char_sname(:)
+#else
+  character(len=CGLEN), allocatable :: char_sname(:)
+#endif
+  !
+  !.. Local Saved Variables ..
+  logical(lk),        save :: this_is_initial_time_ave_output = true
+  character(len=170), save :: tafile_fmt
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_parallel_cgns_timeave_data_file"
+  character(len=*), parameter :: tname = "TimeAveragedData"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+#ifndef SPECIAL_FOR_PGI
+  !
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      write (iout,1) pname
+      flush (iout)
+      beg_wall_time = mpi_wtime()
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  ! Create the format for the file name
+  !
+  if (this_is_initial_time_ave_output) then
+    write (char_num,4) itrst + num_timesteps
+    final_iter_digits = max(4,len_trim(adjustl(char_num)))
+    write (tafile_fmt,3) trim(adjustl(cgns_dir)), final_iter_digits
+    this_is_initial_time_ave_output = fals
+  end if
+  !
+  ! Get the list of variables that will be written
+  ! to the CGNS time averaged solution file
+  !
+  call create_time_ave_data_names(char_sname,variable_ref)
+  !
+  ! Get the name of the current time averaged solution file
+  !
+  write (cgns_sol_file,tafile_fmt) itcur
+  !
+  ! Start the timer for writing this time averaged solution file
+  !
+  call cgns_timer(start_cgns_file_timer,profile_io_cgns_subs,cgns_sol_file)
+  !
+  ! Open the time averaged solution file.
+  ! NOTE: This opens the CGNS file and creates the base and zone sections.
+  !
+  call open_cgns_file(cgns_sol_file,pname,ifile_s,ibase_s,izone_s)
+  !
+  ! Create the grid coordinates and element connectivity sections by
+  ! using links to these respective sections within the CGNS grid file.
+  !
+  call link_cgns_grid_file(cgns_sol_file,pname,ifile_s,ibase_s,izone_s)
+  !
+  ! Create the flow solution section of the CGNS file
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_sol_write_f")
+  call cg_sol_write_f(ifile_s,ibase_s,izone_s,tname,VERTEX,isol_s,cgierr)
+  call cgns_error(pname,cgns_sol_file,"cg_sol_write_f",cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_sol_write_f")
+  !
+  !
+  ! ##############################################################
+  ! #####   WRITING TIME AVERAGED SOLUTION FIELD VARIABLES   #####
+  ! ##############################################################
+  !
+  ! Count the total number of time averaged variables that will be written
+  ! and allocate isvar_s accordingly
+  !
+  nvar = count_output_variables(char_sname)
+  !
+  isvar_s = init_array(nvar,0_CBT) ! F2003 AUTO-REALLOC
+  !
+  ! Create data nodes for the time averaged solution variables
+  !
+  do nv = 1,nvar
+    varname = trim(adjustl(char_sname(nv)))
+    ifile = ifile_s
+    ibase = ibase_s
+    izone = izone_s
+    isol = isol_s
+    call cgns_write_field_header(nv,varname,isvar_s(nv),__LINE__,__FILE__)
+  end do
+ !call write_field_headers(cgns_sol_file,ifile_s,ibase_s,izone_s,isol_s, &
+ !                         char_sname,isvar_s)
+  !
+  ! Preallocate var for writing variables in the correct precision
+  ! to the CGNS file
+  !
+  npts = int( my_pts_end - my_pts_beg + 1_CST , kind=kind(npts) )
+  !
+  vartmp = init_array(npts,zero)          ! F2003 AUTO-REALLOC
+  var = init_array(npts,real(0,kind=CRT)) ! F2003 AUTO-REALLOC
+  !
+  ! Create the output data and write it to the CGNS file in parallel
+  !
+  do nv = 1,nvar
+    !
+    ivar_s = isvar_s(nv)
+    !
+    call interpolate_for_output( uavesp(:,nv) , vartmp )
+    !
+    do n = 1,npts
+      vartmp(n) = vartmp(n) * variable_ref(nv)
+    end do
+    !
+    call cgns_write_field_data
+    !
+  end do
+ !n = 0
+ !do l = 1,size(char_sname)
+ !  call output_time_ave_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
+ !                                cgns_sol_file,char_sname(l),n, &
+ !                                uavesp,vartmp,var)
+ !end do
+  !
+  ! ################################################
+  ! #####   FINISHED WRITING FIELD VARIABLES   #####
+  ! ################################################
+  !
+  ! Close the CGNS FILE
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_close_f")
+  call cgp_close_f(ifile_s,cgierr)
+  call io_error(pname,cgns_sol_file,2,__LINE__,__FILE__,cgierr)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_close_f")
+  !
+  call cgns_timer(stop_cgns_file_timer,profile_io_cgns_subs,cgns_sol_file)
+  !
+  ! Deallocate the arrays var and vartmp
+  !
+  if (allocated(var)) then
+    deallocate ( var , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"var",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  if (allocated(vartmp)) then
+    deallocate ( vartmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vartmp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  if (allocated(isvar_s)) then
+    deallocate ( isvar_s , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"isvar_s",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      end_wall_time = mpi_wtime()
+      cgns_wall_time = end_wall_time - beg_wall_time
+      max_wall_time = max(max_wall_time,cgns_wall_time)
+      write (iout,2) pname,trim(adjustl(cgns_sol_file)),cgns_wall_time
+      flush (iout)
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  !
+#endif
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (/," Entering ",a)
+  2 format (1x,"Leaving ",a,/,:, &
+            5x,"Wall time taken to write the file '",a, &
+            "' = ",f12.6," seconds",/)
+  3 format ("('",a,"solution.ta_data.',i0.",i0,",'.cgns')")
+  4 format (i0)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  contains
+  !
+#include "Functions/cgns_write_field_header.f90"
+#include "Functions/cgns_write_field_data.f90"
+  !
+  !-----------------------------------------------------------------------------
+  !
+end subroutine write_parallel_cgns_timeave_data_file
+!
+!###############################################################################
+!
+subroutine create_time_ave_data_names(variable_list,variable_ref)
+  !
+  !.. Use Statements ..
+  use ovar,    only : rhoref,aref,tref
+  use flowvar_mod, only : time_ave_variables
+  !
+  !.. Formal Arguments ..
+#ifdef SPECIAL_FOR_INTEL
+  character(len=:), allocatable, intent(out) :: variable_list(:)
+#else
+  character(len=CGLEN), allocatable, intent(out) :: variable_list(:)
+#endif
+  real(wp), allocatable, intent(out) :: variable_ref(:)
+  !
+  !.. Local Scalars ..
+  integer  :: l,n,nl,nvar
+  real(wp) :: ta_ref
+  !
+  character(len=CGLEN) :: ta_var
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: tmp_var
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_time_ave_data_names"
+  !
+continue
+  !
+  if (.not. allocated(time_ave_variables)) return
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nvar = size(time_ave_variables)
+  !
+  variable_ref = init_array(nvar,one) ! F2003 AUTO-REALLOC
+  !
+  do n = 1,nvar
+    !
+    ta_ref = one
+    ta_var = "ave("
+    !
+    tmp_var = trim(adjustl(time_ave_variables(n))) ! F2003 AUTO-REALLOC
+    nl = len_trim(tmp_var)
+    !
+    do l = 1,nl
+      !
+      select case ( tmp_var(l:l) )
+        !
+        case ("d")
+          ta_var = trim(adjustl(ta_var)) // "rho"
+          ta_ref = ta_ref * rhoref
+        case ("e")
+          ta_var = trim(adjustl(ta_var)) // "rho*e0"
+          ta_ref = ta_ref * rhoref*aref*aref
+        case ("p")
+          ta_var = trim(adjustl(ta_var)) // "P"
+          ta_ref = ta_ref * rhoref*aref*aref
+        case ("P")
+          ta_var = trim(adjustl(ta_var)) // "P0"
+          ta_ref = ta_ref * rhoref*aref*aref
+        case ("t")
+          ta_var = trim(adjustl(ta_var)) // "T"
+          ta_ref = ta_ref * tref
+        case ("T")
+          ta_var = trim(adjustl(ta_var)) // "T0"
+          ta_ref = ta_ref * tref
+        case ("x")
+          ta_var = trim(adjustl(ta_var)) // "vx"
+          ta_ref = ta_ref * aref
+        case ("y")
+          ta_var = trim(adjustl(ta_var)) // "vy"
+          ta_ref = ta_ref * aref
+        case ("z")
+          ta_var = trim(adjustl(ta_var)) // "vz"
+          ta_ref = ta_ref * aref
+        case ("r")
+          ta_var = trim(adjustl(ta_var)) // "vr"
+          ta_ref = ta_ref * aref
+        case ("f")
+          ta_var = trim(adjustl(ta_var)) // "vt"
+          ta_ref = ta_ref * aref
+          !
+      end select
+      !
+      ta_var = trim(adjustl(ta_var)) // merge(")","*",l==nl)
+      !
+    end do
+    !
+    ! Save the final nondimensionalization value
+    ! for this time-averaged variable to variable_ref
+    !
+    variable_ref(n) = ta_ref
+    !
+    ! Save the final variable name for this
+    ! time-averaged variable to variable_list
+    !
+    call add_sol_variable(variable_list,trim(adjustl(ta_var)))
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine create_time_ave_data_names
 !
 !###############################################################################
 !
