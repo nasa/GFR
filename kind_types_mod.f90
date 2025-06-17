@@ -252,11 +252,7 @@ module base_kind_types
   !
   integer, public, parameter :: R4 = real32
   integer, public, parameter :: R8 = real64
-#ifdef DISABLE_QP
-  integer, public, parameter :: R16 = real64
-#else
   integer, public, parameter :: R16 = max( real64 , real128 )
-#endif
   !
   ! KIND definitions for logical variables
   !
@@ -329,7 +325,11 @@ module module_kind_types
   ! 'Double Precision' (64-bit/8-byte) real
   integer, parameter :: DP = r8
   ! 'Quadruple Precision' (128-bit/16-byte) real (or DP if DISABLE_QP active)
+#ifdef DISABLE_QP
+  integer, parameter :: QP = r8
+#else
   integer, parameter :: QP = r16
+#endif
   ! 'Working Precision' real: Used for most real scalars/arrays
   integer, parameter :: WP = r8
   ! 'Matrix Precision' real: Used for polynomial evals and creating matrices
