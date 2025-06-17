@@ -465,21 +465,45 @@ continue
     inode_loop: &
     do i = 1,npn
       !
-      ip = inodes(i)
-      xyz_ip(1:nr) = periodic_transformation(xyz_nodes(1:nr,ip),pbc_matrix)
-      !
       ds(:) = huge(zero) ! reset all to a large number so we can find the min
-      jnode_loop: &
-      do j = 1,npn
-        !
-        ! Skip to the next j-node if this one has already been matched
-        if (matched(j)) cycle jnode_loop
-        !
-        ds(j) = norm2( xyz_ip(1:nr) - xyz_nodes(1:nr,jnodes(j)) )
-        !
-      end do jnode_loop
       !
-      j = minloc( ds , dim=1 )
+      ip = inodes(i)
+      !
+      ! Check to see if the i-node is also in the list of j-nodes.
+      ! This would happen for a pole boundary condition (rotated periodic
+      ! boundary conditions that meet at the rotation axis).
+      !
+      if (any( ip == jnodes(:) , mask=(.not.matched(:)) )) then
+        !
+        ! This i-node is also in the list of j-nodes,
+        ! so this is most likely a pole boundary condition.
+        ! Find the index of ip/jp within the jnodes array.
+        !
+        j = findloc(jnodes,ip,dim=1)
+        !
+        ! Manually set the distance for this index of jnode to zero
+        ! to deal with the logic after the end of this conditional.
+        !
+        ds(j) = zero
+        !
+      else
+        !
+        xyz_ip(1:nr) = periodic_transformation(xyz_nodes(1:nr,ip),pbc_matrix)
+        !
+        jnode_loop: &
+        do j = 1,npn
+          !
+          ! Skip to the next j-node if this one has already been matched
+          if (matched(j)) cycle jnode_loop
+          !
+          ds(j) = norm2( xyz_ip(1:nr) - xyz_nodes(1:nr,jnodes(j)) )
+          !
+        end do jnode_loop
+        !
+        j = minloc( ds , dim=1 )
+        !
+      end if
+      !
       matched(j) = true
       !
       ! Mark jp negative if ds(j) is > eps6
