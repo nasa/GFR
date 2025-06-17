@@ -412,6 +412,19 @@ continue
     p = gpsp(n,npres)
     t = gpsp(n,ntemp)
     !
+    ! Compute the absolute velocity, aspd, Mach, and total conditions from usp
+    !
+    vx = usp(n,nmx)/r
+    vy = usp(n,nmy)/r
+    vz = usp(n,nmz)/r
+    !
+    q2 = vx*vx + vy*vy + vz*vz
+    a2 = max( gam*p/r , rndoff )
+    !
+    m2 = q2/a2
+    !
+    total_cond = one + half*gm1*m2
+    !
     ! Compute the reference frame velocity
     !
     vx_r = y_r*z - z_r*y
@@ -420,16 +433,9 @@ continue
     !
     ! Compute the relative velocity
     !
-    vx = usp(n,nmx)/r - vx_r
-    vy = usp(n,nmy)/r - vy_r
-    vz = usp(n,nmz)/r - vz_r
-    !
-    q2 = vx*vx + vy*vy + vz*vz
-    a2 = max( gam*p/r , rndoff )
-    !
-    m2 = q2/a2
-    !
-    total_cond = one + half*gm1*m2
+    vx = vx - vx_r
+    vy = vy - vy_r
+    vz = vz - vz_r
     !
     ! Primitive variables
     ave_var(nec) = r
