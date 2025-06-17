@@ -2196,7 +2196,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   real(wp) :: dudx,dudy,dudz
   real(wp) :: dvdx,dvdy,dvdz
   real(wp) :: dwdx,dwdy,dwdz
-  real(wp) :: qmin,qmax
+  real(wp) :: qmin,qmax,qave,qpts,qsum,qstddev
   real(wp) :: x_r,y_r,z_r,vel_r,r1,r2,vx_r,vy_r,vz_r
   !
   integer(CBT) :: ivar_s
@@ -2215,8 +2215,8 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "output_variable"
   !
-  real(wp), parameter :: qcriterion_ref_vel = one
- !real(wp), parameter :: qcriterion_ref_vel = zero
+ !real(wp), parameter :: qcriterion_ref_vel = one
+  real(wp), parameter :: qcriterion_ref_vel = zero
   !
 continue
   !
@@ -3526,6 +3526,44 @@ continue
       else
         vartmp(:) = vartmp(:) - qmin
       end if
+      !
+#define STDDEV_NORMALIZED_QCRITERION
+#ifdef STDDEV_NORMALIZED_QCRITERION
+      !
+      ! Compute the average of the normalized Q-criterion
+      !
+      qave = sum(vartmp(:))
+      qpts = real(size(vartmp),kind=kind(qpts))
+      !
+      call mpi_allreduce(MPI_IN_PLACE,qave,1_int_mpi,mpi_flttyp, &
+                         MPI_SUM,MPI_COMM_WORLD,mpierr)
+      !
+      call mpi_allreduce(MPI_IN_PLACE,qpts,1_int_mpi,mpi_flttyp, &
+                         MPI_SUM,MPI_COMM_WORLD,mpierr)
+      !
+      qave = qave / qpts
+      !
+      ! Compute the standard deviation
+      !
+      qsum = zero
+      do n = 1,npts
+        qsum = qsum + (vartmp(n)-qave)**2
+      end do
+      !
+      call mpi_allreduce(MPI_IN_PLACE,qsum,1_int_mpi,mpi_flttyp, &
+                         MPI_SUM,MPI_COMM_WORLD,mpierr)
+      !
+      qstddev = sqrt( qsum / (qpts-one) )
+      !
+      ! Scale the Q-criterion so that the average value is 0, and plus/minus
+      ! one is plus/minus one/100 standard deviation from the average.
+      !
+      if (qstddev > eps14) then
+        vartmp(:) = (vartmp(:) - qave) / (eps2*qstddev)
+      else
+        vartmp(:) = vartmp(:) - qave
+      end if
+#endif
       !
       call cgns_write_field_data
       !
