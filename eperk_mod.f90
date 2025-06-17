@@ -3801,9 +3801,18 @@ subroutine init_eperk_coefficients()
   !#############################################################################
   !#############################################################################
   ! 5-Stage/3rd-order with embedded 2nd-order
+  ! NOTE: Some of these coefficients come from Table B1 on page 31
+  !       but all of them can be found in the file
+  !       https://github.com/ranocha/Optimized-RK-CFD/blob/main/3Sstarp35.txt
   !#############################################################################
   !#############################################################################
   !
+  ! NOTE: This is the diagonal component of the beta matrix from the file. The
+  !       algorithm in the paper refers to using the beta_i coefficients
+  !       provided in the paper, but these coefficients are being used instead
+  !       for some reason that I cant figure out or remember why. Some quick
+  !       tests show that this beta array works better than the b array below,
+  !       so this may be correct.
   real(wp), parameter :: OEPERK_5_3_Coef_beta(1:5) = &
                               [ 0.2300285062878154351930669430512780706_wp, &
                                 0.3021457892454169700189445968126242994_wp, &
@@ -3811,6 +3820,7 @@ subroutine init_eperk_coefficients()
                                 0.4362158997637629844305216319994356355_wp, &
                                 0.1129268494470295369172265188216779157_wp]
   !
+  ! NOTE: This is beta_i from the table, but vector b from the file
   real(wp), parameter :: OEPERK_5_3_Coef_b(1:6) = &
                               [ 0.1147931563369900682037379182772608287_wp, &
                                 0.08933559295232859013880114997436974196_wp, &
@@ -3827,6 +3837,8 @@ subroutine init_eperk_coefficients()
                                 0.1070116530120251819121660365003405564_wp, &
                                 zero]
   !
+  ! NOTE: This is only found in the file, and can be computed by summing each
+  !       row of the A matrix of the Butcher coefficients.
   real(wp), parameter :: OEPERK_5_3_Coef_c(1:5) = &
                               [ zero, &
                                 0.2300285062878154351930669430512780706_wp, &
@@ -3865,9 +3877,18 @@ subroutine init_eperk_coefficients()
   !#############################################################################
   !#############################################################################
   ! FSAL 5-Stage/3rd-order with embedded 2nd-order
+  ! NOTE: Some of these coefficients come from Table B2 on page 31
+  !       but all of them can be found in the file
+  !      https://github.com/ranocha/Optimized-RK-CFD/blob/main/3SstarpFSAL35.txt
   !#############################################################################
   !#############################################################################
   !
+  ! NOTE: This is the diagonal component of the beta matrix from the file. The
+  !       algorithm in the paper refers to using the beta_i coefficients
+  !       provided in the paper, but these coefficients are being used instead
+  !       for some reason that I cant figure out or remember why. Some quick
+  !       tests show that this beta array works better than the b array below,
+  !       so this may be correct.
   real(wp), parameter :: OEPERK_5_3_FSAL_Coef_beta(1:5) = &
                               [ 0.2300298624518076223899418286314123354_wp, &
                                 0.3021434166948288809034402119555380003_wp, &
@@ -3875,6 +3896,7 @@ subroutine init_eperk_coefficients()
                                 0.4362158943603440930655148245148766471_wp, &
                                 0.1129272530455059129782111662594436580_wp]
   !
+  ! NOTE: This is beta_i from the table, but vector b from the file
   real(wp), parameter :: OEPERK_5_3_FSAL_Coef_b(1:6) = &
                               [ 0.1147935971023541171733601324486904546_wp, &
                                 0.08933442853113315592708384523126474636_wp, &
@@ -3891,6 +3913,8 @@ subroutine init_eperk_coefficients()
                                 0.05881914422155740300718268359027168467_wp, &
                                 0.1020760551185952388626787099944507877_wp]
   !
+  ! NOTE: This is only found in the file, and can be computed by summing each
+  !       row of the A matrix of the Butcher coefficients.
   real(wp), parameter :: OEPERK_5_3_FSAL_Coef_c(1:5) = &
                               [ zero, &
                                 0.2300298624518076223899418286314123354_wp, &
@@ -3973,9 +3997,18 @@ subroutine init_eperk_coefficients()
   !#############################################################################
   !#############################################################################
   ! 9-Stage/4th-order with embedded 3rd-order
+  ! NOTE: Some of these coefficients come from Table B3 on page 32
+  !       but all of them can be found in the file
+  !       https://github.com/ranocha/Optimized-RK-CFD/blob/main/3Sstarp49.txt
   !#############################################################################
   !#############################################################################
   !
+  ! NOTE: This is the diagonal component of the beta matrix from the file. The
+  !       algorithm in the paper refers to using the beta_i coefficients
+  !       provided in the paper, but these coefficients are being used instead
+  !       for some reason that I cant figure out or remember why. Some quick
+  !       tests show that this beta array works better than the b array below,
+  !       so this may be correct.
   real(wp), parameter :: OEPERK_9_4_Coef_beta(1:9) = &
                               [ 0.2836343531977826022543660465926414772_wp, &
                                 0.9736497978646965372894268287659773644_wp, &
@@ -3987,6 +4020,7 @@ subroutine init_eperk_coefficients()
                                 0.1605771316794521018947553625079465692_wp, &
                                 0.2952226811394310028003810072027839487_wp]
   !
+  ! NOTE: This is beta_i from the table, but vector b from the file
   real(wp), parameter :: OEPERK_9_4_Coef_b(1:10) = &
                               [ 0.04503731969165884304041981629148469971_wp, &
                                 0.1859217322011968812563859888433403777_wp, &
@@ -4011,6 +4045,8 @@ subroutine init_eperk_coefficients()
                                 0.2169318087627035072893925375820310602_wp, &
                                 zero]
   !
+  ! NOTE: This is only found in the file, and can be computed by summing each
+  !       row of the A matrix of the Butcher coefficients.
   real(wp), parameter :: OEPERK_9_4_Coef_c(1:9) = &
                               [ zero, &
                                 0.2836343531977826022543660465926414772_wp, &
@@ -4069,9 +4105,18 @@ subroutine init_eperk_coefficients()
   !#############################################################################
   !#############################################################################
   ! FSAL 9-Stage/4th-order with embedded 3rd-order
+  ! NOTE: Some of these coefficients come from Table B4 on page 32
+  !       but all of them can be found in the file
+  !      https://github.com/ranocha/Optimized-RK-CFD/blob/main/3SstarpFSAL49.txt
   !#############################################################################
   !#############################################################################
   !
+  ! NOTE: This is the diagonal component of the beta matrix from the file. The
+  !       algorithm in the paper refers to using the beta_i coefficients
+  !       provided in the paper, but these coefficients are being used instead
+  !       for some reason that I cant figure out or remember why. Some quick
+  !       tests show that this beta array works better than the b array below,
+  !       so this may be correct.
   real(wp), parameter :: OEPERK_9_4_FSAL_Coef_beta(1:9) = &
                               [ 0.2836343005184365275160654678626695428_wp, &
                                 0.9736500104654741223716056170419660217_wp, &
@@ -4083,6 +4128,7 @@ subroutine init_eperk_coefficients()
                                 0.1605770645946802213926893453819236685_wp, &
                                 0.2952227015964591648775833803635147962_wp]
   !
+  ! NOTE: This is beta_i from the table, but vector b from the file
   real(wp), parameter :: OEPERK_9_4_FSAL_Coef_b(1:10) = &
                               [ 0.04503732627263753698356970706617404465_wp, &
                                 0.1859217303699847950262276860012454333_wp, &
@@ -4107,6 +4153,8 @@ subroutine init_eperk_coefficients()
                                 0.1613697079523505006226025497715177578_wp, &
                                 0.04955424859358438183052504342394102722_wp]
   !
+  ! NOTE: This is only found in the file, and can be computed by summing each
+  !       row of the A matrix of the Butcher coefficients.
   real(wp), parameter :: OEPERK_9_4_FSAL_Coef_c(1:9) = &
                               [ zero, &
                                 0.2836343005184365275160654678626695428_wp, &
@@ -4165,9 +4213,18 @@ subroutine init_eperk_coefficients()
   !#############################################################################
   !#############################################################################
   ! FSAL 10-Stage/5th-order with embedded 4th-order
+  ! NOTE: Some of these coefficients come from Table B5 on page 33
+  !       but all of them can be found in the file
+  !       https://github.com/ranocha/Optimized-RK-CFD/blob/main/3Sstarp510.txt
   !#############################################################################
   !#############################################################################
   !
+  ! NOTE: This is the diagonal component of the beta matrix from the file. The
+  !       algorithm in the paper refers to using the beta_i coefficients
+  !       provided in the paper, but these coefficients are being used instead
+  !       for some reason that I cant figure out or remember why. Some quick
+  !       tests show that this beta array works better than the b array below,
+  !       so this may be correct.
   real(wp), parameter :: OEPERK_10_5_Coef_beta(1:10) = &
                               [ 0.2597883575710995826783320802193635406_wp, &
                                 0.01777008800169541694837687556103565007_wp, &
@@ -4180,6 +4237,7 @@ subroutine init_eperk_coefficients()
                                 0.2118093299943235065178000892467421832_wp, &
                                 0.1559392340339606299335442956580114440_wp]
   !
+  ! NOTE: This is beta_i from the table, but vector b from the file
   real(wp), parameter :: OEPERK_10_5_Coef_b(1:11) = &
                               [-0.002280102305596364773323878383881954511_wp, &
                                 0.01407393020823230537861040991952849386_wp, &
@@ -4206,6 +4264,8 @@ subroutine init_eperk_coefficients()
                                 0.1456284232223684285998448928597043056_wp, &
                                 zero]
   !
+  ! NOTE: This is only found in the file, and can be computed by summing each
+  !       row of the A matrix of the Butcher coefficients.
   real(wp), parameter :: OEPERK_10_5_Coef_c(1:10) = &
                               [ zero, &
                                 0.2597883575710995826783320802193635406_wp, &
@@ -4269,9 +4329,18 @@ subroutine init_eperk_coefficients()
   !#############################################################################
   !#############################################################################
   ! FSAL 10-Stage/5th-order with embedded 4th-order
+  ! NOTE: Some of these coefficients come from Table B6 on page 34
+  !       but all of them can be found in the file
+  !     https://github.com/ranocha/Optimized-RK-CFD/blob/main/3SstarpFSAL510.txt
   !#############################################################################
   !#############################################################################
   !
+  ! NOTE: This is the diagonal component of the beta matrix from the file. The
+  !       algorithm in the paper refers to using the beta_i coefficients
+  !       provided in the paper, but these coefficients are being used instead
+  !       for some reason that I cant figure out or remember why. Some quick
+  !       tests show that this beta array works better than the b array below,
+  !       so this may be correct.
   real(wp), parameter :: OEPERK_10_5_FSAL_Coef_beta(1:10) = &
                               [ 0.2597883554788674084039539165398464630_wp, &
                                 0.01777008889438867858759149597539211023_wp, &
@@ -4284,6 +4353,7 @@ subroutine init_eperk_coefficients()
                                 0.2118093284937153836908655490906875007_wp, &
                                 0.1559392342362059886106995325687547506_wp]
   !
+  ! NOTE: This is beta_i from the table, but vector b from the file
   real(wp), parameter :: OEPERK_10_5_FSAL_Coef_b(1:11) = &
                               [-0.002280100321836980811830528665041532799_wp, &
                                 0.01407393115790186300730580636032878435_wp, &
@@ -4310,6 +4380,8 @@ subroutine init_eperk_coefficients()
                                 0.08432289325330803924891866923939606351_wp, &
                                 0.04529095628204896774513180907141004447_wp]
   !
+  ! NOTE: This is only found in the file, and can be computed by summing each
+  !       row of the A matrix of the Butcher coefficients.
   real(wp), parameter :: OEPERK_10_5_FSAL_Coef_c(1:10) = &
                               [ zero, &
                                 0.2597883554788674084039539165398464630_wp, &
