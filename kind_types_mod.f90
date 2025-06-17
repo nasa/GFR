@@ -407,7 +407,8 @@ module module_kind_types
   real(wp), parameter :: ten2  = ten**2
   real(wp), parameter :: ten3  = ten**3
   !
-  real(wp), parameter :: pi = 3.14159265358979323846_wp
+  real(wp),  parameter :: pi = real(acos(-1.0_r16),kind=wp)
+ !real(wp),  parameter :: pi = 3.14159265358979323846_wp
   !
   real(wp), parameter :: one80   = two*nine*ten
   real(wp), parameter :: three60 = two*one80
