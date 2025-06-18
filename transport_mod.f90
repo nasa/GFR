@@ -22,12 +22,16 @@ module transport_mod
   real(wp), save :: visc_temp_min = 10.0_wp
   real(wp), save :: cond_temp_min = 10.0_wp
   !
-  integer, parameter :: CHEMKIN_Curve_Fit = 1
-  integer, parameter :: Sutherlands_Law = 2
+  integer, parameter :: CHEMKIN_Curve_Fit_2 = 0
+  integer, parameter :: CHEMKIN_Curve_Fit   = 1
+  integer, parameter :: Sutherlands_Law     = 2
   !
   integer, parameter :: Constant_Prandtl_Model = 0
   integer, parameter :: NCC_Method = 1
   integer, parameter :: Wassiljewas_Formula = 2
+  !
+  real(wp), parameter :: avogadro    = 6.02214857e23_wp
+  real(wp), parameter :: kboltzmann  = 1.38064852e-16_wp
   !
   !
   !
@@ -100,6 +104,9 @@ continue
       else if (itestcase == N2_O2_Diffusion) then
         cond_mix_model = Wassiljewas_Formula
         Transport_Model = Sutherlands_Law
+      else if (itestcase == UIUC_Scramjet) then
+        cond_mix_model = Constant_Prandtl_Model
+        Transport_Model = CHEMKIN_Curve_Fit_2
       end if
       !
       if (Transport_Model == CHEMKIN_Curve_Fit) then
@@ -108,6 +115,9 @@ continue
       else if (Transport_Model == Sutherlands_Law) then
         nmvc = 2
         nmcc = 2
+      else if (Transport_Model == CHEMKIN_Curve_Fit_2) then
+        nmvc = 2
+        nmcc = 1 ! Because a 0 here would break allocate statement
       end if
       !
       if (.not. allocated(visc_coef)) then
@@ -130,6 +140,13 @@ continue
         cond_temp_min = 10.0_wp
         !
         call hardwired_CHEMKIN_coefficients
+        !
+      else if (Transport_Model == CHEMKIN_Curve_Fit_2) then
+        !
+        visc_temp_min = 10.0_wp
+        cond_temp_min = 10.0_wp
+        !
+        call hardwired_CHEMKIN_coefficients_2
         !
       else if (Transport_Model == Sutherlands_Law) then
         !
@@ -691,6 +708,7 @@ pure subroutine compute_species_viscosities(n1,n2,t,rmui,imodel)
   !
   !.. Use Statements ..
   use ovar, only : rhoref,aref,tref
+  use thermo_mod, only : wtmol
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -704,6 +722,8 @@ pure subroutine compute_species_viscosities(n1,n2,t,rmui,imodel)
   real(wp) :: logt,a1,a2,a3,a4
   real(wp) :: tnd,c1_suth,s_suth
   real(wp) :: tdim,viscref_inv
+  real(wp) :: sigd,wt,tstar,numerator,denominator
+  real(wp) :: collint
   !
   !.. Local Parameters ..
   real(wp), parameter :: chemkin_cgs_to_mks = 1.0e-1_wp
@@ -755,6 +775,37 @@ continue
        !rmui(n,i) = chemkin_cgs_to_mks * &
        !            exp(a1 + logt*(a2 + logt*(a3 + logt*a4)))
         rmui(n,i) = viscref_inv * exp(a1 + logt*(a2 + logt*(a3 + logt*a4)))
+        !
+      end do
+    end do
+    !
+  else if (imodel == CHEMKIN_Curve_Fit_2) then
+    !
+    ! ChemKin fit
+    !
+    ! Constant to convert the curve fit results from
+    ! CGS (centimeters-grams-seconds) units to
+    ! SI/MKS (meters-kilograms-seconds) units,
+    ! and non-dimensionalize the MKS results.
+    !
+    viscref_inv = chemkin_cgs_to_mks / rhoref / aref
+    !
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(visc_coef,t,rmui)
+    do i = 1,ncs
+        !
+        wt          = wtmol(i)          ! Species molecular weight
+        sigd        = visc_coef(2,i)    ! L-J Collision diameter
+        !
+      do n = n1,n2
+        !
+        tdim        = max( t(n)*tref , visc_temp_min ) ! Dimensional temperature
+        tstar       = tdim/visc_coef(1,i);
+        !
+        collint     = 1.147_wp*(tstar)**(-0.145_wp) + (tstar + half)**(-two)
+        numerator   = five*sqrt((pi/(wt*avogadro)*kboltzmann*tdim))
+        denominator = (four*four*pi*sigd*sigd*collint*1e-16_wp)
+        !
+        rmui(n,i)   = viscref_inv * numerator / denominator
         !
       end do
     end do
@@ -1038,6 +1089,8 @@ continue
 end subroutine mixture_transport_properties
 !
 !###############################################################################
+!###############################################################################
+!###############################################################################
 !
 subroutine hardwired_CHEMKIN_coefficients
   !
@@ -1314,6 +1367,138 @@ continue
   !
 end subroutine hardwired_CHEMKIN_coefficients
 !
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+subroutine hardwired_CHEMKIN_coefficients_2
+  !
+  !.. Use Statements ..
+  use thermo_mod, only : species_name
+  !
+  !======================================================================
+  !
+  ! COEFFICIENTS FOR SPECIES VISCOSITIES
+  !
+  !     Format: [epsilon/k_b, sigmd_d]
+  !         1st term is a temperature normalization parameter
+  !         2nd term is the Lennard-Jones collision diamter
+  !
+  ! Source: Chemkin
+  !         
+  !     H2       38.000     2.920          
+  !     O2      107.400     3.458          
+  !     H2O     572.400     2.605          
+  !     CO       98.100     3.650          
+  !     CO2     244.000     3.763          
+  !     C2H4    280.800     3.971          
+  !     N2       97.530     3.621 
+  !
+  !======================================================================
+  !
+  real(wp), parameter :: H2_visc_temp_min = 10.0_wp
+  !
+  real(wp), parameter :: H2_visc(1:2) = [38.00_wp, &
+                                         2.920_wp]
+  !
+  real(wp), parameter :: O2_visc_temp_min = 10.0_wp
+  !
+  real(wp), parameter :: O2_visc(1:2) = [107.40_wp, &
+                                         3.458_wp]
+  !
+  real(wp), parameter :: H2O_visc_temp_min = 10.0_wp
+  !
+  real(wp), parameter :: H2O_visc(1:2) = [572.40_wp, &
+                                          2.605_wp]
+  !
+  real(wp), parameter :: CO_visc_temp_min = 10.0_wp
+  !
+  real(wp), parameter :: CO_visc(1:2) = [98.10_wp, &
+                                         3.650_wp]
+  !
+  real(wp), parameter :: CO2_visc_temp_min = 10.0_wp
+  !
+  real(wp), parameter :: CO2_visc(1:2) = [244.00_wp, &
+                                          3.763_wp]
+  !
+  real(wp), parameter :: C2H4_visc_temp_min = 10.0_wp
+  !
+  real(wp), parameter :: C2H4_visc(1:2) = [280.8_wp, &
+                                           3.971_wp]
+  !
+  real(wp), parameter :: N2_visc_temp_min = 10.0_wp
+  !
+  real(wp), parameter :: N2_visc(1:2) = [97.530_wp, &
+                                         3.621_wp]
+  !
+  !======================================================================
+  !
+  ! COEFFICIENTS FOR SPECIES CONDUCTIVITIES
+  !
+  !  Just assuming const Pr
+  !
+  integer :: i
+  !
+  character(len=len(species_name)) :: species
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "hardwired_CHEMKIN_coefficients_2"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  do i = 1,ncs
+    !
+    species = uppercase( trim(adjustl(species_name(i))) )
+    !
+    select case (trim(adjustl(species)))
+      !
+      case ("CO2")
+        !
+        visc_coef(1:2,i) = CO2_visc(1:2)
+        cond_coef(1:1,i) = zero 
+        !
+      case ("CO")
+        !
+        visc_coef(1:2,i) = CO_visc(1:2)
+        cond_coef(1:1,i) = zero
+        !
+      case ("H2O")
+        !
+        visc_coef(1:2,i) = H2O_visc(1:2)
+        cond_coef(1:1,i) = zero 
+        !
+      case ("C2H4")
+        !
+        visc_coef(1:2,i) = C2H4_visc(1:2)
+        cond_coef(1:1,i) = zero
+        !
+      case ("N2")
+        !
+        visc_coef(1:2,i) = N2_visc(1:2)
+        cond_coef(1:1,i) = zero
+        !
+      case ("O2")
+        !
+        visc_coef(1:2,i) = O2_visc(1:2)
+        cond_coef(1:1,i) = zero
+        !
+      case ("H2")
+        !
+        visc_coef(1:2,i) = H2_visc(1:2)
+        cond_coef(1:1,i) = zero
+        !
+    end select
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine hardwired_CHEMKIN_coefficients_2
+!
+!###############################################################################
+!###############################################################################
 !###############################################################################
 !
 subroutine hardwired_Sutherlands_coefficients
