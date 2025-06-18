@@ -135,6 +135,8 @@ continue
           nH2O = m
         case ("CH4")
           nCH4 = m
+        case ("C2H4")
+          nC2H4 = m
         case ("N2")
           nN2  = m
         case ("O2")
