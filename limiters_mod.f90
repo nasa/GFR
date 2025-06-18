@@ -1927,7 +1927,8 @@ continue
                               orders_to_cutoff=orders_to_cutoff)
   else if (abs(Limiter_Option) == 2) then
     call jump_indicator(nst=nst,troubled_cell=troubled_cell)
-   !call ducros_indicator(nst=nst,troubled_cell=troubled_cell)
+  else if (abs(Limiter_Option) == 4) then
+    call ducros_indicator(nst=nst,troubled_cell=troubled_cell)
   else
     ! Other values of Limiter_Option should never reach this routine.
     write (error_message,100) Limiter_Option
@@ -2119,7 +2120,7 @@ continue
   !
   if (present(apply_projection)) then
    !if (apply_projection) then
-      if (Limiter_Option < -2) then
+      if (Limiter_Option < -2 .and. Limiter_Option /= -4) then
         ord_add = 0
       end if
    !end if
@@ -2211,7 +2212,8 @@ continue
         else
           limit_order = int( real(this_order,kind=wp) &
                            * (one-scaled_marker(nc,imarker)) )
-          if (this_order <= 1 .or. Limiter_Option < -2) then
+          if (this_order <= 1 .or. &
+              (Limiter_Option < -2 .and. Limiter_Option /= -4)) then
             lmtr_order(nc) = max(0,min(this_order,limit_order))
           else
             lmtr_order(nc) = max(1,min(this_order,limit_order))
@@ -3586,9 +3588,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (Limiter_Option == 2) then
+  if (Limiter_Option > 0) then
     call jump_indicator_original(nst,troubled_cell)
-  else if (Limiter_Option == -2) then
+  else if (Limiter_Option < 0) then
     call jump_indicator_modified(nst,troubled_cell)
   end if
   !
@@ -3883,6 +3885,7 @@ subroutine jump_indicator_modified(nst,troubled_cell)
   use ovar,             only : Default_Marker_c1_RI,Default_Marker_c2_RI
   use ovar,             only : Default_Marker_c1_JI,Default_Marker_c2_JI
   use ovar,             only : ji_gwt,ji_uwt,ji_gvar,ji_uvar
+  use cell_ave_mod,     only : compute_cell_ave_var
   !
   !.. Optional Arguments ..
   integer,      optional, intent(in)    :: nst              !< Runge-Kutta stage

@@ -3688,7 +3688,7 @@ continue
       marker_was_not_allocated        = ( .not. allocated(marker) )
       scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
       !
-      if (       abs(Limiter_Option) /= 2 .or. &
+      if (   all(abs(Limiter_Option) /= [2,4]) .or. &
                  marker_was_not_allocated .or. &
           scaled_marker_was_not_allocated ) then
         call jump_indicator(nst=1)
@@ -4282,7 +4282,7 @@ continue
       else
         call add_sol_variables(variable_list,consv_var)
       end if
-    else if ( abs(limiter_option) == 2 ) then
+    else if ( any(abs(limiter_option) == [2,4]) ) then
       call add_sol_variable(variable_list,"JumpMarker")
       if (Jump_Marker_Variable > 0) then
         if (Jump_Marker_Variable == nec .or. ncs > 1) then
