@@ -68,9 +68,11 @@ module thermo_mod
   !
   integer, parameter :: Use_VULCAN_Coefficients = 1
   integer, parameter :: Use_NCC_Coefficients = 2
+  integer, parameter :: Use_Burcat_Coefficients = 3
   !
- !integer, parameter :: Thermo_Coefficients = Use_NCC_Coefficients
-  integer, parameter :: Thermo_Coefficients = Use_Vulcan_Coefficients
+!  integer, parameter :: Thermo_Coefficients = Use_NCC_Coefficients
+!  integer, parameter :: Thermo_Coefficients = Use_Vulcan_Coefficients
+  integer, parameter :: Thermo_Coefficients = Use_Burcat_Coefficients
   !
   logical(lk), save :: file_is_opened = fals
   integer, save :: last_itcur_output = 0
@@ -325,6 +327,48 @@ continue
         !
       end if
       !
+    else if (itestcase == UIUC_Scramjet) then
+      !
+      if (disable_chemical_reactions) then
+        !
+        species_name(1) = "O2"
+        species_name(2) = "C2H4"
+        species_name(3) = "N2"
+        !
+        mass_frac_ref(1) = 0.29_wp ! O2
+        mass_frac_ref(2) = zero    ! C2H4
+        mass_frac_ref(3) = 0.71_wp ! N2
+        !
+        inert_species_map = [1,2,3] ! F2003 AUTO REALLOCATION
+        !
+      else
+        !
+        species_name(1) = "H2"
+        species_name(2) = "O2"
+        species_name(3) = "H2O"
+        species_name(4) = "CO"
+        species_name(5) = "CO2"
+        species_name(6) = "C2H4"
+        species_name(7) = "N2"
+        !
+        mass_frac_ref(1) = zero     ! H2
+        mass_frac_ref(2) = 0.24_wp  ! O2
+        mass_frac_ref(3) = zero     ! H2O
+        mass_frac_ref(4) = zero     ! CO
+        mass_frac_ref(5) = zero     ! CO2
+        mass_frac_ref(6) = zero     ! C2H4
+        mass_frac_ref(7) = 0.76_wp  ! N2
+        !
+        ! Create the map from inert species indices to
+        ! reacting species indices. This is needed if a
+        ! previous simulation was run with reactions turned off, 
+        ! and the new simulation is restarting with reactions
+        ! turned on.
+        !
+        inert_species_map = [2,7,7] ! F2003 AUTO REALLOCATIO
+        !
+      end if
+      !
     else if (itestcase == Reacting_Backstep) then
       !
       species_name(1) = "N2"
@@ -399,6 +443,8 @@ continue
       call hardwired_NCC_coefficients
     else if (Thermo_Coefficients == Use_Vulcan_Coefficients) then
       call hardwired_VULCAN_coefficients
+    else if (Thermo_Coefficients == Use_Burcat_Coefficients) then
+      call hardwired_BURCAT2005_coefficients
     end if
     !
     do m = 1,ncs
@@ -4315,6 +4361,392 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine hardwired_VULCAN_coefficients
+!
+!###############################################################################
+!
+subroutine hardwired_BURCAT2005_coefficients
+  !
+  real(wp), parameter :: bur_min_temperature = 300.0_wp
+  real(wp), parameter :: bur_interval_switch = 1000.0_wp
+  !
+  !
+  ! Source: burcat 2005 
+  ! "Third Millennium Ideal Gas and Condensed Phase
+  !  Thermochemical Database for Combustion
+  !  with Updates from Active Thermochemical Tables"
+  !
+  real(wp), parameter :: CO2_wtmol = 44.0095000_wp
+  !
+  real(wp), parameter :: CO2_cp(1:7,1:2) = reshape( [ 0.23568130E+01_wp, &
+                                                      0.89841299E-02_wp, &
+                                                     -0.71220632E-05_wp, &
+                                                      0.24573008E-08_wp, &
+                                                     -0.14288548E-12_wp, &
+                                                     -0.48371971E+05_wp, &
+                                                      0.99009035E+01_wp, &
+                                                      0.46365111E+01_wp, &
+                                                      0.27414569E-02_wp, &
+                                                     -0.99589759E-06_wp, &
+                                                      0.16038666E-09_wp, &
+                                                     -0.91619857E-14_wp, &
+                                                     -0.49024904E+05_wp, &
+                                                     -0.19348955E+01_wp] , &
+                                                      [7,2] )
+  !
+  !
+  !
+  !
+  real(wp), parameter :: CO_wtmol = 28.0101000_wp
+  !
+  real(wp), parameter :: CO_cp(1:7,1:2) = reshape( [  0.35795335E+01_wp, &
+                                                     -0.61035369E-03_wp, &
+                                                      0.10168143E-05_wp, &
+                                                      0.90700586E-09_wp, &
+                                                     -0.90442449E-12_wp, &
+                                                     -0.14344086E+05_wp, &
+                                                      0.35084093E+01_wp, &
+                                                      0.30484859E+01_wp, &
+                                                      0.13517281E-02_wp, &
+                                                     -0.48579405E-06_wp, &
+                                                      0.78853644E-10_wp, &
+                                                     -0.46980746E-14_wp, &
+                                                     -0.14266117E+05_wp, &
+                                                      0.60170977E+01_wp] , &
+                                                    [7,2] )
+   
+  !
+  !
+  !
+  !
+  real(wp), parameter :: H2O_wtmol = 18.0152800_wp
+  !
+  real(wp), parameter :: H2O_cp(1:7,1:2) = reshape( [  0.41986352E+01_wp, &
+                                                      -0.20364017E-02_wp, &
+                                                       0.65203416E-05_wp, &
+                                                      -0.54879269E-08_wp, &
+                                                       0.17719680E-11_wp, &
+                                                      -0.30293726E+05_wp, &
+                                                      -0.84900901E+00_wp, &
+                                                       0.26770389E+01_wp, &
+                                                       0.29731816E-02_wp, &
+                                                      -0.77376889E-06_wp, &
+                                                       0.94433514E-10_wp, &
+                                                      -0.42689991E-14_wp, &
+                                                      -0.29885894E+05_wp, &
+                                                       0.68825500E+01_wp] , &
+                                                       [7,2] )
+ !
+ !
+ !
+ !
+ real(wp), parameter :: C2H4_wtmol = 28.0531600_wp
+ !
+ real(wp), parameter :: C2H4_cp(1:7,1:2) = reshape( [ 3.95920063E+00_wp, &
+                                                     -7.57051373E-03_wp, &
+                                                      5.70989993E-05_wp, &
+                                                     -6.91588352E-08_wp, &
+                                                      2.69884190E-11_wp, &
+                                                      5.08977598E+03_wp, &
+                                                      4.09730213E+00_wp, &
+                                                      3.99182724E+00_wp, &
+                                                      1.04833908E-02_wp, &
+                                                     -3.71721342E-06_wp, &
+                                                      5.94628366E-10_wp, &
+                                                     -3.53630386E-14_wp, &
+                                                      4.26865851E+03_wp, &
+                                                     -2.69081762E-01_wp] , &
+                                                    [ 7,2] )
+  !
+  !
+  !
+  !
+  real(wp), parameter :: N2_wtmol = 28.0134000_wp
+  !
+  real(wp), parameter :: N2_cp(1:7,1:2) = reshape( [ 0.03298677E+02_wp, &
+                                                     0.14082404E-02_wp, &
+                                                    -0.03963222E-04_wp, &
+                                                     0.05641515E-07_wp, &
+                                                    -0.02444854E-10_wp, &
+                                                    -0.10208999E+04_wp, &
+                                                     0.03950372E+02_wp, &
+                                                     0.02926640E+02_wp, &
+                                                     0.14879768E-02_wp, &
+                                                    -0.05684760E-05_wp, &
+                                                     0.10097038E-09_wp, &
+                                                    -0.06753351E-13_wp, &
+                                                    -0.09227977E+04_wp, &
+                                                     0.05980528E+02_wp] , &
+                                                    [7,2] )
+  !
+  !
+  !
+  !
+  real(wp), parameter :: O2_wtmol = 31.9988000_wp
+  !
+  real(wp), parameter :: O2_cp(1:7,1:2) = reshape( [ 3.78245636E+00_wp, &
+                                                    -2.99673416E-03_wp, &
+                                                     9.84730201E-06_wp, &
+                                                    -9.68129509E-09_wp, &
+                                                     3.24372837E-12_wp, &
+                                                    -1.06394356E+03_wp, &
+                                                     3.65767573E+00_wp, &
+                                                     3.66096065E+00_wp, &
+                                                     6.56365811E-04_wp, &
+                                                    -1.41149627E-07_wp, &
+                                                     2.05797935E-11_wp, &
+                                                    -1.29913436E-15_wp, &
+                                                    -1.21597718E+03_wp, &
+                                                     3.41536279E+00_wp] , &
+                                                    [7,2] )
+  !
+  real(wp), parameter :: H2_wtmol = 2.0158800_wp
+  !
+  real(wp), parameter :: H2_cp(1:7,1:2) = reshape( [ 2.34433112E+00_wp, &
+                                                     7.98052075E-03_wp, &
+                                                    -1.94781510E-05_wp, &
+                                                     2.01572094E-08_wp, &
+                                                    -7.37611761E-12_wp, &
+                                                    -9.17935173E+02_wp, &
+                                                     6.83010238E-01_wp, &
+                                                     2.93286575E+00_wp, &
+                                                     8.26608026E-04_wp, &
+                                                    -1.46402364E-07_wp, &
+                                                     1.54100414E-11_wp, &
+                                                    -6.88804800E-16_wp, &
+                                                    -8.13065581E+02_wp, &
+                                                    -1.02432865E+00_wp] , &
+                                                   [7,2] )
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,m,ni
+  real(wp) :: t,tlog
+  !
+  character(len=len(species_name)) :: species
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: bur_cp(:,:,:)
+  real(wp), allocatable :: tmp_coef(:)
+  real(wp), allocatable :: cpi(:)
+  real(wp), allocatable :: hsi(:)
+  real(wp), allocatable :: gbfe(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "hardwired_BURCAT2005_coefficients"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  allocate ( bur_cp(1:7,1:2,1:ncs) , source=zero )
+  !
+  do m = 1,ncs
+    !
+    species = uppercase( trim(adjustl(species_name(m))) )
+    !
+    select case (trim(adjustl(species)))
+      !
+      case ("CO2")
+        !
+        wtmol(m) = CO2_wtmol
+        bur_cp(1:7,1:2,m) = CO2_cp(1:7,1:2)
+        !
+      case ("CO")
+        !
+        wtmol(m) = CO_wtmol
+        bur_cp(1:7,1:2,m) = CO_cp(1:7,1:2)
+        !
+      case ("H2O")
+        !
+        wtmol(m) = H2O_wtmol
+        bur_cp(1:7,1:2,m) = H2O_cp(1:7,1:2)
+        !
+      case ("C2H4")
+        !
+        wtmol(m) = C2H4_wtmol
+        bur_cp(1:7,1:2,m) = C2H4_cp(1:7,1:2)
+        !
+      case ("N2")
+        !
+        wtmol(m) = N2_wtmol
+        bur_cp(1:7,1:2,m) = N2_cp(1:7,1:2)
+        !
+      case ("O2")
+        !
+        wtmol(m) = O2_wtmol
+        bur_cp(1:7,1:2,m) = O2_cp(1:7,1:2)
+        !
+      case ("H2")
+        !
+        wtmol(m) = H2_wtmol
+        bur_cp(1:7,1:2,m) = H2_cp(1:7,1:2)
+        !
+    end select
+    !
+  end do
+  !
+  do m = 1,ncs
+    rspec(m) = runivl / wtmol(m)
+  end do
+  !
+  do m = 1,ncs
+    do i = 1,size(bur_cp,dim=2)
+      do j = 1,ncpc
+        cp_coef(j,i,m) = bur_cp(j,i,m) * rspec(m)
+      end do
+    end do
+  end do
+  !
+  if (ncpc == 5) then
+    tmp_coef = one / [one,two,three,four,five,one] ! F2003 AUTO-REALLOC
+  end if
+  !
+  do m = 1,ncs
+    do i = 1,size(bur_cp,dim=2)
+      do j = 1,ncpc+1
+        enth_coef(j,i,m) = bur_cp(j,i,m) * rspec(m) * tmp_coef(j)
+      end do
+    end do
+  end do
+  !
+  if (ncpc == 5) then
+    tmp_coef = one / [one,two,six,twelve,two*ten,one,one] ! F2003 AUTO-REALLOC
+  end if
+  !
+  do m = 1,ncs
+    do i = 1,size(bur_cp,dim=2)
+      do j = 1,ncpc+2
+        gbfe_coef(j,i,m) = bur_cp(j,i,m) * tmp_coef(j)
+      end do
+    end do
+  end do
+  !
+  if (ncpc == 5) then
+    tmp_coef = [one,one,two,three,four,one] ! F2003 AUTO-REALLOC
+  end if
+  !
+  do m = 1,ncs
+    do i = 1,size(bur_cp,dim=2)
+      do j = 1,ncpc+1
+        dgbfe_coef(j,i,m) = gbfe_coef(j,i,m) * tmp_coef(j)
+      end do
+    end do
+  end do
+  !
+  temperature_low  = bur_min_temperature
+  temperature_high = bur_interval_switch
+  !
+  ! Build special low temperature coefficients
+  ! for each of the thermodynamic curve fits
+  !
+  allocate ( cpi(1:ncs) , source=zero )
+  allocate ( hsi(1:ncs) , source=zero )
+  allocate ( gbfe(1:ncs) , source=zero )
+  !
+  call compute_cp_low_temperature(cpi)
+  call compute_enthalpy_low_temperature(hsi)
+  call compute_gbfe_low_temperature(gbfe)
+  !
+  ni = 0
+  !
+  t = temperature_low
+  tlog = log(t)
+  !
+  do m = 1,ncs
+    !
+    ! Null the coefficients for Cp(T)
+    !
+    do j = 1,size(cp_coef,dim=1)
+      cp_coef(j,ni,m) = zero
+    end do
+    !
+    ! Null coefficients for Hs(T)
+    !
+    do j = 1,size(enth_coef,dim=1)
+      enth_coef(j,ni,m) = zero
+    end do
+    !
+    ! Null coefficients for Gb(T)
+    !
+    do j = 1,size(gbfe_coef,dim=1)
+      gbfe_coef(j,ni,m) = zero
+    end do
+    !
+    ! Set coefficients for d/dT[Gb(T)] = coefficients from
+    ! low temperature interval of d/dT[Gb(T)]
+    !
+    do j = 1,size(dgbfe_coef,dim=1)
+      dgbfe_coef(j,ni,m) = dgbfe_coef(j,ni+1,m)
+    end do
+    !
+    ! Compute special low temperature coefficients for Cp(T) , Hs(T) , and Gb(T)
+    !
+    j = 1
+    !
+    cp_coef(j,ni,m) = cpi(m)
+    enth_coef(j,ni,m) = cpi(m)
+    gbfe_coef(j,ni,m) = cpi(m)/ rspec(m)
+    !
+    j = size(enth_coef,dim=1)
+    enth_coef(j,ni,m) = hsi(m)- cpi(m)*t
+    !
+    j = size(gbfe_coef,dim=1)-1
+    gbfe_coef(j,ni,m) = (hsi(m)-cpi(m)*t) / rspec(m)
+    !
+    j = size(gbfe_coef,dim=1)
+    gbfe_coef(j,ni,m) = gbfe(m) + (hsi(m)-cpi(m)*t*tlog) / (rspec(m)*t)
+    !
+  end do
+  !
+#ifdef DEBUG_ON
+#ifdef DEBUG_THERMO_ON
+  if (mypnum == glb_root) then
+    do m = 1,ncs
+      !
+      write (610,50) trim(adjustl(species_name(m)))
+      !
+      write (610,53) "cpi ",cpi(m)
+      write (610,53) "hsi ",hsi(m)
+      write (610,53) "gpfe",gbfe(m)
+      !
+      write (610,52) "cp_coef"
+      do ni = lbound(cp_coef,dim=2),ubound(cp_coef,dim=2)
+        write (610,51) (cp_coef(j,ni,m), j=1,size(cp_coef,dim=1))
+      end do
+      !
+      write (610,52) "enth_coef"
+      do ni = lbound(enth_coef,dim=2),ubound(enth_coef,dim=2)
+        write (610,51) (enth_coef(j,ni,m), j=1,size(enth_coef,dim=1))
+      end do
+      !
+      write (610,52) "gbfe_coef"
+      do ni = lbound(gbfe_coef,dim=2),ubound(gbfe_coef,dim=2)
+        write (610,51) (gbfe_coef(j,ni,m), j=1,size(gbfe_coef,dim=1))
+      end do
+      !
+      write (610,52) "dgbfe_coef"
+      do ni = lbound(dgbfe_coef,dim=2),ubound(dgbfe_coef,dim=2)
+        write (610,51) (dgbfe_coef(j,ni,m), j=1,size(dgbfe_coef,dim=1))
+      end do
+      !
+    end do
+    flush (610)
+  end if
+  50 format (//,6x,a,/)
+  51 format (4x,10es14.6)
+  52 format (/,a,:," = ",es14.6)
+  53 format (a," = ",es14.6)
+#endif
+#endif
+  !
+  if (allocated(gbfe)) deallocate ( gbfe )
+  if (allocated(hsi)) deallocate ( hsi )
+  if (allocated(cpi)) deallocate ( cpi )
+  if (allocated(bur_cp)) deallocate ( bur_cp )
+  if (allocated(tmp_coef)) deallocate ( tmp_coef )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine hardwired_BURCAT2005_coefficients
 !
 !###############################################################################
 !
