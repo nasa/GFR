@@ -940,7 +940,13 @@ continue
   !
   100 format (/,2x,70("*"),/,2x,31("*")," ERROR! ",31("*"),/,2x,70("*"),/)
   101 format (2x,"Number of periodic boundary groups (",i0,") is odd!")
-  102 format ("match_jnam /= jname, so resetting matching_bc_name")
+  102 format ("match_jnam /= jname, so resetting matching_bc_name",//, &
+              8x,"ibc = ",i0,/, &
+              8x,"jbc = bc_input(ibc)%periodic%matching_bc_idx = ",i0,//, &
+              8x,"iname = bc_input(ibc)%name = ",a,/, &
+              8x,"jname = bc_input(jbc)%name = ",a,//, &
+              8x,"match_jnam = bc_input(ibc)%periodic%matching_bc_name = ",a,/, &
+              8x,"match_inam = bc_input(jbc)%periodic%matching_bc_name = ",a,//)
   103 format ("could not find matching periodic name")
   104 format ("neither match_jidx or match_jnam were specified and npbc > 2")
   105 format ("the specified matching periodic boundary doesnt have the",/, &
