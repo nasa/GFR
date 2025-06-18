@@ -227,6 +227,14 @@ continue
       ncs = 6
       ncr = 3
     end if
+  else if (itestcase == UIUC_Scramjet) then
+    if (disable_chemical_reactions) then
+      ncs = 3
+      ncr = 0
+    else
+      ncs = 7
+      ncr = 3
+    end if
   else if (itestcase == N2_O2_Diffusion) then
     ncs = 2
     ncr = 0
