@@ -690,10 +690,11 @@ subroutine mark_sponge_filter_cells()
   !
   !.. Use Statements ..
   use ovar,        only : Sponge_Beyond_X,grid_scaling_factor
+  use ovar,        only : beta_aoaref,alpha_aoaref
   use geomvar_mod, only : ncell,cell,xyz
   !
   !.. Local Scalars ..
-  integer  :: nc,n1,n2
+  integer  :: nc,n1,n2,i
   real(wp) :: xmax
   !
   !.. Local Parameters ..
@@ -710,13 +711,20 @@ continue
   !
   xmax = Sponge_Beyond_X * grid_scaling_factor
   !
+  if (abs(beta_aoaref-nine*ten) < eps6) then
+    i = 3
+  else if (abs(alpha_aoaref-nine*ten) < eps6) then
+    i = 2
+  else
+    i = 1
+  end if
   !$ACC PARALLEL LOOP PRESENT(cell,xyz,sponge_cell)
   do nc = 1,ncell
     !
     n1 = cell(nc)%beg_sp
     n2 = cell(nc)%end_sp
     !
-    if (all(xyz(1,n1:n2) > xmax)) sponge_cell(nc) = .true.
+    if (all(xyz(i,n1:n2) > xmax)) sponge_cell(nc) = .true.
     !
   end do
   !
