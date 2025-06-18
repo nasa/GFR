@@ -49,17 +49,18 @@ module reactions_mod
   !
   !
   !
-  integer, save :: nCO2 = 0
-  integer, save :: nCO  = 0
-  integer, save :: nH2O = 0
-  integer, save :: nCH4 = 0
-  integer, save :: nN2  = 0
-  integer, save :: nO2  = 0
+  integer, save :: nCO2  = 0
+  integer, save :: nCO   = 0
+  integer, save :: nH2O  = 0
+  integer, save :: nCH4  = 0
+  integer, save :: nC2H4 = 0
+  integer, save :: nN2   = 0
+  integer, save :: nO2   = 0
   !
-  integer, save :: nH2  = 0
-  integer, save :: nOH  = 0
-  integer, save :: nO   = 0
-  integer, save :: nH   = 0
+  integer, save :: nH2   = 0
+  integer, save :: nOH   = 0
+  integer, save :: nO    = 0
+  integer, save :: nH    = 0
   !
   ! nHP : Hydrodgen product from CH4 reaction.
   !
@@ -1488,7 +1489,7 @@ continue
       qf = arrh*exp(-tact/temp) * (rhoi(n,nCH4)**fwd_exp(nCH4,ir)) &
                                 * (rhoi(n,nO2 )**fwd_exp(nO2 ,ir))
       !
-      ! If ( rhoi(nCH4) = 0 ) and/or ( rhoi(nO2) = 0 ), then qf = 0, 
+      ! If ( rhoi(nCH4) = 0 ) and/or ( rhoi(nO2) = 0 ), then qf = 0,
       ! so q1 = q2 = qref = 0, and then domega = 0.
       !
       q1 = qf*fwd_stoich_coef(nCH4,ir)/max(rhoi(n,nCH4),rndoff)
@@ -1552,7 +1553,7 @@ continue
       qf = arrh*exp(-tact/temp) * (rhoi(n,nCO)**fwd_exp(nCO,ir)) &
                                 * (rhoi(n,nO2)**fwd_exp(nO2,ir))
       !
-      ! If ( rhoi(nCO) = 0 ) and/or ( rhoi(nO2) = 0 ), then qf = 0, 
+      ! If ( rhoi(nCO) = 0 ) and/or ( rhoi(nO2) = 0 ), then qf = 0,
       ! so q1 = q2 = qref = 0, and then domega = 0.
       !
       q1 = qf*fwd_stoich_coef(nCO,ir)/max(rhoi(n,nCO),rndoff)
@@ -2426,7 +2427,7 @@ pure &
 subroutine compute_species_production_rates(n1,n2,specon,frrate,brrate,wdot)
   !
   ! Routine to calculate the species production term based on
-  ! the law of mass action. 
+  ! the law of mass action.
   !                        .
   !  Note: At the end the production term is converted from
   !        [g-mole / (cm**3-sec)] into [kg / (m**3-sec)],
