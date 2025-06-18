@@ -233,6 +233,13 @@ module flowvar_mod
   type(ne2d_t), public, save, allocatable, dimension(:) :: edgexyz_dt
   !
   !
+  ! FLAGS TO INDICATE IF DUSP, FACEUSP, AND FACEDUSP
+  ! ARE CURRENT, I.E., THEY ARE CONSISTENT WITH USP
+  !
+  logical(lk), public, save :: dusp_is_current = fals
+  logical(lk), public, save :: faceusp_is_current = fals
+  logical(lk), public, save :: facedusp_is_current = fals
+  !
   !
   ! ###################################
   ! ###  MODULE GENERIC INTERFACES  ###
