@@ -577,9 +577,9 @@ continue
       if (mypnum == glb_root) write (iout,2) nst
       2 format (8x,"Applying Limiter : RK Stage = ",i0)
 #endif
-      if (Limiter_Option <= -1) then
+      if (Limiter_Option <= -1 .and. Limiter_Option /= -2) then
         call resolution_indicator(nst=nst,apply_projection=true)
-      else if (Limiter_Option == 1 .or. Limiter_Option == 2) then
+      else if (Limiter_Option == 1 .or. abs(Limiter_Option) == 2) then
         call limit_by_projecting(nst=nst)
       else if (Limiter_Option == 3) then
         call limit_by_mlp(nst=nst,relax=one)

@@ -637,7 +637,7 @@ continue
   !
   ! Reset default marker controls when using jump indicator.
   !
-  if (Limiter_Option == 2) then
+  if (abs(Limiter_Option) == 2) then
     Default_Marker_c1 = Default_Marker_c1_JI
     Default_Marker_c2 = Default_Marker_c2_JI
     marker_c1 = Default_Marker_c1

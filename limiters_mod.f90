@@ -1925,8 +1925,9 @@ continue
     orders_to_cutoff = proj_order
     call resolution_indicator(nst=nst,troubled_cell=troubled_cell, &
                               orders_to_cutoff=orders_to_cutoff)
-  else if (Limiter_Option == 2) then
+  else if (abs(Limiter_Option) == 2) then
     call jump_indicator(nst=nst,troubled_cell=troubled_cell)
+   !call ducros_indicator(nst=nst,troubled_cell=troubled_cell)
   else
     ! Other values of Limiter_Option should never reach this routine.
     write (error_message,100) Limiter_Option
@@ -2118,7 +2119,7 @@ continue
   !
   if (present(apply_projection)) then
    !if (apply_projection) then
-      if (Limiter_Option == -2) then
+      if (Limiter_Option < -2) then
         ord_add = 0
       end if
    !end if
@@ -2210,7 +2211,7 @@ continue
         else
           limit_order = int( real(this_order,kind=wp) &
                            * (one-scaled_marker(nc,imarker)) )
-          if (this_order <= 1 .or. Limiter_Option == -2) then
+          if (this_order <= 1 .or. Limiter_Option < -2) then
             lmtr_order(nc) = max(0,min(this_order,limit_order))
           else
             lmtr_order(nc) = max(1,min(this_order,limit_order))
@@ -3559,6 +3560,48 @@ end subroutine res_ind_apply_proj_nd
 subroutine jump_indicator(nst,troubled_cell)
   !
   !> Compute the local marker using the jump indicator across adjacent cells.
+  !> This is a wrapper subroutine to either call the original version
+  !> or the modified version.
+  !>
+  !> Refs:
+  !>  -(2008) Barter,      PhD MIT,        http://hdl.handle.net/1721.1/57606
+  !>  -(2007) Barter,      AIAA-2007-3823, doi:10.2514/6.2007-3823
+  !> See Also:
+  !>  -(2004) Krivodonova, Appl.Num.Math., doi:10.1016/j.apnum.2003.11.002
+  !>  -(2013) Bhatia,      AIAA-2013-0302, doi:10.2514/6.2013-302
+  !>  -(2014) Bhatia,      PhD U.Florida,
+  !>                       https://apps.dtic.mil/sti/citations/tr/ADA624182
+  !
+  !.. Use Statements ..
+  use ovar, only : Limiter_Option
+  !
+  !.. Optional Arguments ..
+  integer,      optional, intent(in)    :: nst              !< Runge-Kutta stage
+  logical(ldk), optional, intent(inout) :: troubled_cell(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "jump_indicator"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (Limiter_Option == 2) then
+    call jump_indicator_original(nst,troubled_cell)
+  else if (Limiter_Option == -2) then
+    call jump_indicator_modified(nst,troubled_cell)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine jump_indicator
+!
+!###############################################################################
+!
+subroutine jump_indicator_original(nst,troubled_cell)
+  !
+  !> Compute the local marker using the jump indicator across adjacent cells.
+  !> This is the original version without any modifications
   !>
   !> Refs:
   !>  -(2008) Barter,      PhD MIT,        http://hdl.handle.net/1721.1/57606
@@ -3595,7 +3638,7 @@ subroutine jump_indicator(nst,troubled_cell)
   real(wp) :: c1,c2
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "jump_indicator"
+  character(len=*), parameter :: pname = "jump_indicator_original"
   !
   real(wp), parameter :: face_sign(1:2) = [one,-one]
   integer,  parameter :: other_side(1:2) = [2,1]
@@ -3805,7 +3848,316 @@ continue
     end do
   end if
   !
-end subroutine jump_indicator
+end subroutine jump_indicator_original
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+subroutine jump_indicator_modified(nst,troubled_cell)
+  !
+  !> Compute the local marker using the jump indicator across adjacent cells.
+  !> This is a modified version of the jump indicator.
+  !>
+  !> Refs:
+  !>  -(2008) Barter,      PhD MIT,        http://hdl.handle.net/1721.1/57606
+  !>  -(2007) Barter,      AIAA-2007-3823, doi:10.2514/6.2007-3823
+  !> See Also:
+  !>  -(2004) Krivodonova, Appl.Num.Math., doi:10.1016/j.apnum.2003.11.002
+  !>  -(2013) Bhatia,      AIAA-2013-0302, doi:10.2514/6.2013-302
+  !>  -(2014) Bhatia,      PhD U.Florida,
+  !>                       https://apps.dtic.mil/sti/citations/tr/ADA624182
+  !
+  !.. Use Statements ..
+  use geomvar_mod,      only : nr,ncell,cell,face,nfbnd,bface
+  use element_type_mod, only : std_elem
+  use flowvar_mod,      only : facegpsp,faceusp
+  use metrics_mod,      only : facenrm
+  use ovar,             only : dpsi => marker_dpsi
+  use ovar,             only : marker_c1,marker_c2
+  use ovar,             only : Default_Marker_c1_RI,Default_Marker_c2_RI
+  use ovar,             only : Default_Marker_c1_JI,Default_Marker_c2_JI
+  use ovar,             only : ji_gwt,ji_uwt,ji_gvar,ji_uvar
+  !
+  !.. Optional Arguments ..
+  integer,      optional, intent(in)    :: nst              !< Runge-Kutta stage
+  logical(ldk), optional, intent(inout) :: troubled_cell(:)
+  !
+  !.. Local Scalars ..
+  integer  :: nc,ncf,nf,k,nfp,f0,ierr
+  integer  :: sf,sl,sr
+  integer  :: face_geom,face_order
+  integer  :: imarker
+  real(wp) :: ds,rnx,rny,rnz,val,psi0
+  real(wp) :: vall,valr,area,valave,pointmx
+  real(wp) :: numer,denom,wt
+  real(wp) :: c1,c2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "jump_indicator_modified"
+  !
+  real(wp), parameter :: face_sign(1:2) = [one,-one]
+  integer,  parameter :: other_side(1:2) = [2,1]
+  !
+  real(wp), allocatable :: cell_ave_p(:)
+continue
+  !
+  !
+  ! If the values contained in marker_c1 and marker_c2 are respectively
+  ! the same as Default_Marker_c1_RI and Default_Marker_c2_RI, that means
+  ! the marker values are currently set to the default values for the
+  ! resolution indicator. If this is the case, switch these over to the
+  ! default values for the jump indicator.
+  !
+  if (abs(marker_c1-Default_Marker_c1_RI) <= eps6 .and. &
+      abs(marker_c2-Default_Marker_c2_RI) <= eps6) then
+    c1 = Default_Marker_c1_JI
+    c2 = Default_Marker_c2_JI
+  else
+    c1 = marker_c1
+    c2 = marker_c2
+  end if
+  !
+  if (.not. allocated(marker)) then
+    allocate ( marker(1:ncell,1:nmarker) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"marker",1,__LINE__,__FILE__,ierr,error_message)
+    !$ACC UPDATE DEVICE(marker)
+  end if
+  !
+  if (.not. allocated(scaled_marker)) then
+    allocate ( scaled_marker(1:ncell,1:nmarker) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"scaled_marker",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+    !$ACC UPDATE DEVICE(scaled_marker)
+  end if
+  !
+  ! Determine which marker position to fill based on Runge-Kutta stage.
+  !
+  imarker = get_marker_index(nst)
+  !
+  cell_ave_p = init_array(ncell,zero) ! f2003 auto-realloc
+  call compute_cell_ave_var(nq+1,cell_ave_p)
+  !
+  if (nr == 3) then
+    !
+    do nc = 1,ncell
+      !
+      val      = zero
+      area     = zero
+      pointmx  = rndoff
+      !
+      do ncf = 1,size(cell(nc)%face)
+        !
+        nf = cell(nc)%face(ncf)%idx
+        sf = cell(nc)%face(ncf)%side
+        !
+        if (nf<=nfbnd) then 
+          if (any(bface(1,nf) == bc_walls)) cycle
+        end if
+        !
+        sl = sf
+        sr = other_side(sl)
+        !
+        face_geom = face(nf)%geom
+        face_order = face(nf)%order
+        !
+        f0 = face(nf)%beg_fp - 1
+        nfp = face(nf)%end_fp - f0
+        !
+        do k = 1,nfp
+                    !
+          rnx = facenrm(1,f0+k)*face_sign(sl)
+          rny = facenrm(2,f0+k)*face_sign(sl)
+          rnz = facenrm(3,f0+k)*face_sign(sl)
+          ds = sqrt(rnx*rnx + rny*rny + rnz*rnz)
+          !
+          vall = ji_gwt *      facegpsp(f0+k,ji_gvar,sl) &
+               + ji_uwt * faceusp(f0+k,ji_uvar,sl)
+          valr = ji_gwt *      facegpsp(f0+k,ji_gvar,sr) &
+               + ji_uwt * faceusp(f0+k,ji_uvar,sr)
+          !
+          numer = abs( vall - valr ) * ds
+          denom = ( vall + valr ) * half
+          !
+          wt = std_elem(face_geom,face_order)%wts(k)
+          !
+          !!! if (ji_gwt >= 0.99) then
+            !!!Determine if filtering would help this jump of not (i.e. if slope helps or hurts the jump)
+            valave = cell_ave_p(nc)
+            !if ( (vall-valave) * (valr-vall) >= zero) then
+            !        numer = zero
+            !endif
+            !!!! endif
+          !
+          val = val + wt*numer/denom
+          area = area + wt*ds
+          pointmx = max(numer/(ds*denom) , pointmx)
+          !
+        end do
+        !
+      end do
+      !
+      marker(nc,imarker) = log10(pointmx)
+      ! marker(nc,imarker) = log10( max( val/area , rndoff ) )
+      !
+    end do
+    !
+  else if (nr == 2) then
+    !
+    do nc = 1,ncell
+      !
+      val      = zero
+      area     = zero
+      pointmx  = rndoff
+      !
+      do ncf = 1,size(cell(nc)%face)
+        !
+        nf = cell(nc)%face(ncf)%idx
+        sf = cell(nc)%face(ncf)%side
+        !
+        if (nf<=nfbnd) then 
+          if (any(bface(1,nf) == bc_walls)) cycle
+        end if
+        !
+        sl = sf
+        sr = other_side(sl)
+        !
+        face_geom = face(nf)%geom
+        face_order = face(nf)%order
+        !
+        f0 = face(nf)%beg_fp - 1
+        nfp = face(nf)%end_fp - f0
+        !
+        do k = 1,nfp
+          !
+          rnx = facenrm(1,f0+k)*face_sign(sl)
+          rny = facenrm(2,f0+k)*face_sign(sl)
+          ds = sqrt(rnx*rnx + rny*rny)
+          !
+          vall = ji_gwt *      facegpsp(f0+k,ji_gvar,sl) &
+               + ji_uwt * faceusp(f0+k,ji_uvar,sl)
+          valr = ji_gwt *      facegpsp(f0+k,ji_gvar,sr) &
+               + ji_uwt * faceusp(f0+k,ji_uvar,sr)
+          !
+          numer = abs( vall - valr ) * ds
+          denom = ( vall + valr ) * half
+          !
+          wt = std_elem(face_geom,face_order)%wts(k)
+          !
+          !!! if (ji_gwt >= 0.99) then
+          !!!Determine if filtering would help this jump of not (i.e. if slope helps or hurts the jump)
+            !if ((vall-valave) * (valr-vall) >= zero) then
+            !   numer = zero
+            !endif
+          !!!! endif
+          !
+          val = val + wt*numer/denom
+          area = area + wt*ds
+          pointmx = max( numer/(ds*denom) , pointmx)
+          !
+        end do
+        !
+      end do
+      !
+      marker(nc,imarker) = log10(pointmx)
+      !marker(nc,imarker) = log10( max( val/area , rndoff ) )
+      !
+    end do
+    !
+  else
+    !
+    do nc = 1,ncell
+      !
+      val      = zero
+      area     = zero
+      pointmx  = rndoff
+      !
+      do ncf = 1,size(cell(nc)%face)
+        !
+        nf = cell(nc)%face(ncf)%idx
+        sf = cell(nc)%face(ncf)%side
+        !
+        if (nf<=nfbnd) then 
+          if (any(bface(1,nf) == bc_walls)) cycle
+        end if
+        !
+        sl = sf
+        sr = other_side(sl)
+        !
+        face_geom = face(nf)%geom
+        face_order = face(nf)%order
+        !
+        f0 = face(nf)%beg_fp - 1
+        nfp = face(nf)%end_fp - f0
+        !
+        do k = 1,nfp
+          !
+          rnx = facenrm(1,f0+k)*face_sign(sl)
+          ds = sqrt(rnx*rnx)
+          !
+          vall = ji_gwt *      facegpsp(f0+k,ji_gvar,sl) &
+               + ji_uwt * faceusp(f0+k,ji_uvar,sl)
+          valr = ji_gwt *      facegpsp(f0+k,ji_gvar,sr) &
+               + ji_uwt * faceusp(f0+k,ji_uvar,sr)
+          !
+          numer = abs( vall - valr ) * ds
+          denom = ( vall + valr ) * half
+          !
+          wt = std_elem(face_geom,face_order)%wts(k)
+          !
+          !!! if (ji_gwt >= 0.99) then
+            !!!Determine if filtering would help this jump of not (i.e. if slope helps or hurts the jump)
+            !if ((vall-valave) * (valr-vall) >= zero) then
+            !        numer = zero
+            !endif
+          !!! endif
+          !
+          val = val + wt*numer/denom
+          area = area + wt*ds
+          pointmx = max( numer/(ds*denom) , rndoff)
+          !
+        end do
+        !
+      end do
+      !
+      !marker(nc,imarker) = log10(pointmx)
+      marker(nc,imarker) = log10( max( val/area , rndoff ) )
+      !
+    end do
+    !
+  end if
+  !
+  !$ACC PARALLEL LOOP PRESENT(cell,marker,scaled_marker)
+  do nc = 1,ncell
+    !
+    psi0 = -one*(c1 + c2*log10(real(cell(nc)%order,kind=wp)))
+    !
+    if      (marker(nc,imarker) <= psi0-dpsi) then
+      scaled_marker(nc,imarker) = zero
+    else if (marker(nc,imarker) >= psi0+dpsi) then
+      scaled_marker(nc,imarker) = one
+    else
+      scaled_marker(nc,imarker) = half*( one &
+                                + sin(half*pi*(marker(nc,imarker)-psi0)/dpsi) )
+    end if
+    !
+  end do
+  !
+  if (present(troubled_cell)) then
+    !$ACC PARALLEL LOOP PRESENT(scaled_marker,troubled_cell)
+    do nc = 1,ncell
+      troubled_cell(nc) = (scaled_marker(nc,imarker) >= 1.0e-8_wp)
+    end do
+  end if
+  !
+end subroutine jump_indicator_modified
 !
 !###############################################################################
 !###############################################################################

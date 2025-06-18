@@ -3636,7 +3636,7 @@ continue
         nv = nv + 1
         ivar_s = isvar_s(nv)
         !
-        if (Limiter_Option <= -1) then
+        if (Limiter_Option <= -1 .and. Limiter_Option /= -2) then
           do nc = 1,ncell
             n0 = cell(nc)%beg_sp - 1
             np = cell(nc)%end_sp - n0
@@ -3688,7 +3688,7 @@ continue
       marker_was_not_allocated        = ( .not. allocated(marker) )
       scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
       !
-      if (            Limiter_Option /= 2 .or. &
+      if (       abs(Limiter_Option) /= 2 .or. &
                  marker_was_not_allocated .or. &
           scaled_marker_was_not_allocated ) then
         call jump_indicator(nst=1)
@@ -4282,7 +4282,7 @@ continue
       else
         call add_sol_variables(variable_list,consv_var)
       end if
-    else if ( limiter_option == 2 ) then
+    else if ( abs(limiter_option) == 2 ) then
       call add_sol_variable(variable_list,"JumpMarker")
       if (Jump_Marker_Variable > 0) then
         if (Jump_Marker_Variable == nec .or. ncs > 1) then
