@@ -5,7 +5,7 @@ module cell_ave_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ncs
   !
   implicit none
   !
@@ -166,13 +166,23 @@ continue
   end if
   !
   if (force_nd_subroutines) then
-    call compute_cell_ave_sol_nd
-  else if (nr == 3) then
-    call compute_cell_ave_sol_3d
-  else if (nr == 2) then
-    call compute_cell_ave_sol_2d
-  else if (nr == 1) then
-    call compute_cell_ave_sol_1d
+    !
+    call compute_cell_ave_sol_nd(1,nq)
+    !
+  else
+    !
+    else if (nr == 3) then
+      call compute_cell_ave_sol_3d
+    else if (nr == 2) then
+      call compute_cell_ave_sol_2d
+    else if (nr == 1) then
+      call compute_cell_ave_sol_1d
+    end if
+    !
+    if (ncs > 0) then
+      call compute_cell_ave_sol_nd(1,ncs)
+    end if
+    !
   end if
   !
 end subroutine compute_cell_ave_sol
@@ -345,12 +355,15 @@ end subroutine compute_cell_ave_sol_1d
 !> Compute the conserved variables cell average solution values for each cell.
 !> General routine for nd cells.
 !###############################################################################
-subroutine compute_cell_ave_sol_nd
+subroutine compute_cell_ave_sol_nd(mbeg,mend)
   !
   !.. Use Statements ..
   use geomvar_mod,     only : ncell,cell
   use flowvar_mod,     only : usp
   use vandermonde_mod, only : vand
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: mbeg,mend
   !
   !.. Local Scalars ..
   integer  :: m,n,nc,n0,np
@@ -372,7 +385,7 @@ continue
     this_order = cell(nc)%order
     !
     ! loop solution variables
-    do m = 1,nq
+    do m = mbeg,mend
       !
       val = zero
       !
