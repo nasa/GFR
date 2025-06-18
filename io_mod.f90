@@ -598,23 +598,28 @@ continue
   !
   ! Make sure the jump marker variable is valid
   !
-  if (Jump_Marker_Variable > nr+2) then
+  if (Jump_Marker_Variable > nr+2 .or. Jump_Marker_Variable < -(nr+2)) then
     ! If it is greater than the energy equation (nr+2), reset it to density
     Jump_Marker_Variable = nec
   else if ( Jump_Marker_Variable > 0) then
     ! Otherwise, offset the variable by the number of species equations
     Jump_Marker_Variable = Jump_Marker_Variable + ncs
   else
-    ! Make sure it is non-negative
-    Jump_Marker_Variable = max(0,Jump_Marker_Variable)
+    ! Make sure it is non-negative                              #####
+    !Jump_Marker_Variable = max(0,Jump_Marker_Variable)
   end if
   !
   ! Set the jump marker parameters.
   ! Linear weighting between conserved variable and pressure.
   !
-  if ( Jump_Marker_Variable > 0 ) then  ! conserved variable
-    ji_uwt = one
-    ji_uvar = Jump_Marker_Variable
+  if ( Jump_Marker_Variable /= 0 ) then  ! conserved variable   #####
+          if (Jump_Marker_Variable < 0) then
+                ji_uwt = half
+                ji_uvar = -Jump_Marker_Variable - ncs 
+          else
+                ji_uwt = one
+                ji_uvar = Jump_Marker_Variable
+          endif !                                               ######
   else                                  ! pressure
     ji_uwt = zero
     ji_uvar = nec
