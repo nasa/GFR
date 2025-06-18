@@ -4284,6 +4284,7 @@ continue
      do nsp = cell(nc)%beg_sp, cell(nc)%end_sp
        !
        ! Calculate Divergence squared
+       dudx = zero
        dvdy = zero
        dwdz = zero
        !
@@ -4297,7 +4298,13 @@ continue
        dwdz = aref * dpvdx(nsp,3,nmz)
        end if
        !
-       divv = min(dudx + dvdy , zero)**2  !dwdz
+       divv = dudx + dvdy
+       !
+       if (nr ==3) then
+       divv = divv + dwdz
+       endif
+       !
+       divv = sqrt(divv*divv)
        !
        ! Calculate Vorticity Magnitude Squared
        vortmags = zero
@@ -4323,11 +4330,11 @@ continue
        trm = zero
        !
        ! Calculate S quantity
-       S = min((divv * cell_lengths(nc)) / (asp * 1000_wp) , one) ! / 100
+       S = min((divv * cell_lengths(nc) * half) / (asp) , one) 
        S = S * S
        !
        val = max( val, min( one, max( S, trm, min(ducros_fs, f_duc))))
-       valS = max( valS, abs(dusp(nsp,1,nmx))+abs(dusp(nsp,2,nmy))+abs(dusp(nsp,2,nmx)) + abs(dusp(nsp,1,nmy)))
+       valS = max( valS, (divv * cell_lengths(nc) * half) / (asp))
      end do
      !
      ! For now the same scaling as the version from REACTMB
@@ -4361,29 +4368,31 @@ subroutine cell_length_scale_max_box(cell_lengths)
   !
   ! Finds the longest dimension of the x,y,z bounding box of the cell
   !
-  use geomvar_mod, only : ncell,nodes_of_cell_ptr,nodes_of_cell,xyz_nodes
+  use geomvar_mod, only : ncell,nodes_of_cell_ptr,nodes_of_cell,xyz_nodes, nr
   !
   !.. I/O Arrays ..
   real(wp),intent(out)     :: cell_lengths(:)
   !
   !.. Local Scalars ..
   real(wp)      :: xmin, xmax, ymin, ymax, zmin, zmax
-  integer       :: ibeg,iend,jj,j,i,nc,nn, ii
+  integer       :: ibeg,iend,jj,j,i,nc,nn,ii,maxnodes
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable      :: cell_nodes_xyz(:,:)
   !
-  allocate(cell_nodes_xyz(2,4))
+  maxnodes = 8 !?
+  !
+  allocate(cell_nodes_xyz(nr,maxnodes))
   !
   do nc = 1,ncell
     jj = 0
     ibeg = nodes_of_cell_ptr(nc) + 1
     iend = nodes_of_cell_ptr(nc+1)
-    do i = 1, min(iend-ibeg, 4)
+    do i = 1, (iend-ibeg)
       ii  = i + ibeg - 1
       nn = nodes_of_cell(ii)
       jj = jj+1
-      cell_nodes_xyz(1:2,jj) = xyz_nodes(1:2,nn)        !   3333333
+      cell_nodes_xyz(1:nr,jj) = xyz_nodes(1:nr,nn) 
     enddo
     !
     !  Initialize with coords of 1st node
@@ -4394,9 +4403,10 @@ subroutine cell_length_scale_max_box(cell_lengths)
     ymax = cell_nodes_xyz(2,1)
     ymin = cell_nodes_xyz(2,1)
     !
-!    zmin = cell_nodes_xyz(3,1)
-!    zmax = cell_nodes_xyz(3,1)
-    
+    if (nr ==3 ) then
+      zmin = cell_nodes_xyz(3,1)
+      zmax = cell_nodes_xyz(3,1)
+    endif
     ! loop through nodes to find extrema
     do j = 2,jj
       !
@@ -4406,13 +4416,19 @@ subroutine cell_length_scale_max_box(cell_lengths)
       ymax = max(ymax, cell_nodes_xyz(2,j))
       ymin = min(ymin, cell_nodes_xyz(2,j))
       !
-!      zmax = max(zmax, cell_nodes_xyz(3,j))
-!      zmin = min(zmin, cell_nodes_xyz(3,j))
+      if (nr ==3 ) then
+        zmax = max(zmax, cell_nodes_xyz(3,j))
+        zmin = min(zmin, cell_nodes_xyz(3,j))
+      endif
       !
     enddo
     !
     ! Find the maximum distance between dx,dy,dz
-    cell_lengths(nc) = max( xmax-xmin , ymax-ymin)! , zmax-zmin )
+      if (nr >=3 ) then
+        cell_lengths(nc) = max( xmax-xmin , ymax-ymin , zmax-zmin )
+      else
+        cell_lengths(nc) = max( xmax-xmin , ymax-ymin)
+      endif
     !
   enddo
     deallocate(cell_nodes_xyz)
