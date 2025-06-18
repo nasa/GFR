@@ -479,7 +479,7 @@ continue
         val_mz = zero
         val_ee = zero
         !
-	! loop solution points
+        ! loop solution points
         do n = 1,np
           a = vand(this_geom,this_order)%nodal2modal%mat(1,n)
           val_ec = val_ec + a * usp(n0+n,nec)
