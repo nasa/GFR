@@ -181,6 +181,15 @@ continue
     !
     if (ncs > 0) then
       call compute_cell_ave_sol_nd(1,ncs)
+      ! Mathematically, the cell average of the mixture density polynomial
+      ! computed in the *_[123]d subroutines above should be equivalent to
+      ! summing the cell averages of the species densities.  If you are
+      ! concerned that there is enough numerical roundoff to make these
+      ! inconsistent, enabling the following call to update_cell_ave_density
+      ! will recompute the cell average of the mixture density by summing
+      ! the averages of the species densities to make sure the cell averages
+      ! are consistent.
+     !call update_cell_ave_density
     end if
     !
   end if
@@ -403,6 +412,28 @@ continue
   end do ! loop nc
   !
 end subroutine compute_cell_ave_sol_nd
+!###############################################################################
+!> Compute the cell average mixture density from the cell averages of the
+!> species densities. This is only used for a thermally perfect gas mixture.
+!###############################################################################
+subroutine update_cell_ave_density
+  !
+  !.. Use Statements ..
+  use geomvar_mod, only : ncell
+  !
+  !.. Local Scalars ..
+  integer :: nc
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_cell_ave_density"
+  !
+continue
+  !
+  do nc = 1,ncell
+    cell_ave_sol(nec,nc) = sum(cell_ave_sol(1:ncs,nc))
+  end do
+  !
+end subroutine update_cell_ave_density
 !###############################################################################
 !> Compute cell average value of one flow variable for each cell.
 !###############################################################################
