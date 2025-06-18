@@ -1004,6 +1004,8 @@ continue
       else
         call compute_H2_wdot(n1,n2,usp,gpsp,residual,iter)
       end if
+    else if (itestcase == UIUC_Scramjet) then
+        call compute_H2_wdot(n1,n2,usp,gpsp,residual,iter)
     else
       call compute_generic_wdot(n1,n2,usp,gpsp,residual)
     end if
