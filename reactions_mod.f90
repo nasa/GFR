@@ -213,6 +213,23 @@ continue
       reactant_species_list = [nO2,nH2,nN2] ! F2003 AUTO REALLOCATION
       product_species_list  = [nOH,nH2O,nO,nH] ! F2003 AUTO REALLOCATION
       !
+    else if ( itestcase == UIUC_Scramjet) then
+      !
+      !-----------------------------------------------
+      ! Species:  O2  H2  H2O  C2H4  N2 CO CO2
+      !-----------------------------------------------
+      ! Reaction 1:   C2H4 + 02    <=>  2CO + 2H2
+      ! Reaction 2:   2CO + O2     <=>  2CO2
+      ! Reaction 3:   2H2 + O2     <=>  2H2O
+      !-----------------------------------------------
+      !
+      call initialize_Ethylene_7x3_reactions
+      !
+      ! Create the lists of reactant and product species
+      !
+      reactant_species_list = [nO2,nC2H4,nN2] ! F2003 AUTO REALLOCATION
+      product_species_list  = [nCO,nCO2,nH2O,nH2] ! F2003 AUTO REALLOCATION
+      !
     else
       !
       write (error_message,1)
