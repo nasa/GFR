@@ -813,6 +813,134 @@ end subroutine initialize_H2_7x7_reactions
 !
 !###############################################################################
 !
+subroutine initialize_Ethylene_7x3_reactions
+  !
+  !.. Use Statements ..
+  use thermo_mod, only : species_name
+  !
+  !.. Local Scalars ..
+  integer :: m,ir,ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_Ethylene_7x3_reactions"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Allocate all the arrays needed for H2 reactions
+  ! NOTE: cbeffc is initialized to 1 instead of 0
+  !
+  if (.not. allocated(frcoef)) then
+    allocate ( frcoef(1:3,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"frcoef",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (.not. allocated(scoerp)) then
+    allocate ( scoerp(1:2,1:ncs+1,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"scoerp",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (.not. allocated(fwd_exp)) then
+    allocate ( fwd_exp(1:ncs,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"fwd_exp",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (.not. allocated(bwd_exp)) then
+    allocate ( bwd_exp(1:ncs,1:ncr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bwd_exp",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (.not. allocated(cbeffc)) then
+    allocate ( cbeffc(1:ncs,1:ncr) , source=one , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cbeffc",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  !##############################################
+  !
+  !     Species:  O2  H2  H2O  C2H4  N2 CO CO2
+  !
+  !##############################################
+  !
+  ! Reaction 1:  C2H4 + O2 <=> 2CO + 2H2
+  !
+  ir = 1
+  !
+  scoerp(1,nC2H4,ir) = one
+  scoerp(1,nO2,ir)   = one
+  !
+  scoerp(2,nCO,ir)   = two
+  scoerp(2,nH2O,ir)  = two
+  !
+  frcoef(1,ir) = 1.04e13_wp
+  frcoef(2,ir) = zero
+  frcoef(3,ir) = 21511.0_wp
+  !
+  !##############################################
+  !
+  ! Reaction 2:  2CO + O2 <=> 2CO2
+  !
+  ir = 2
+  !
+  scoerp(1,nCO,ir)  = two
+  scoerp(1,nO2,ir)  = one
+  !
+  scoerp(2,nCO2,ir) = two
+  !
+  frcoef(1,ir) = 7.21e7_wp
+  frcoef(2,ir) = 1.92_wp
+  frcoef(3,ir) = 16478.0_wp
+  !
+  !##############################################
+  !
+  ! Reaction 3:  OH + H2 <=> H2O + H
+  ! Reaction 3:  2H2 + O2 <=> 2H2O
+  !
+  ir = 3
+  !
+  scoerp(1,nH2 ,ir) = two
+  scoerp(1,nO2 ,ir) = one
+  !
+  scoerp(2,nH2O,ir) = two
+  !
+  frcoef(1,ir) =  9.47e16_wp
+  frcoef(2,ir) = -0.9_wp
+  frcoef(3,ir) =  1.00_wp
+  !
+  !##############################################
+  !
+  do ir = 1,ncr
+    frcoef(1,ir) = log( frcoef(1,ir) )
+  end do
+  !
+  !##############################################
+  !
+  ! Identify any species that are non-reacting. All species are initially
+  ! marked as non-reacting and are marked reacting if either the forward
+  ! or backward stoichiometric coefficents for the species are non-zero
+  ! for any of the chemical reactions.
+  !
+  do m = 1,ncs
+    nonreacting_species(m) = all(abs(scoerp(1:2,m,1:ncr)) < eps6)
+  end do
+  !
+  ! The forwards and backwards exponents are
+  ! the same as the stoichiometric coefficients.
+  !
+  fwd_exp(1:ncs,1:ncr) = scoerp(1,1:ncs,1:ncr)
+  bwd_exp(1:ncs,1:ncr) = scoerp(2,1:ncs,1:ncr)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine initialize_Ethylene_7x3_reactions
+!
+!###############################################################################
+!
 subroutine compute_wdot(iter)
   !
   !.. Use Statements ..
