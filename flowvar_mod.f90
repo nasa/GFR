@@ -1,7 +1,7 @@
 module flowvar_mod
   !
-  use module_kind_types, only : wp
-  use module_kind_types, only : zero
+  use module_kind_types, only : wp,lk
+  use module_kind_types, only : zero,fals
   use module_kind_types, only : debug_timer
   use module_kind_types, only : entering_procedure
   use module_kind_types, only : leaving_procedure

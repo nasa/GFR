@@ -171,7 +171,7 @@ continue
     !
   else
     !
-    else if (nr == 3) then
+    if (nr == 3) then
       call compute_cell_ave_sol_3d
     else if (nr == 2) then
       call compute_cell_ave_sol_2d
