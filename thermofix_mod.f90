@@ -716,6 +716,11 @@ continue
                                       faceusp,faces_to_update)
     end if
     !
+    if (ncs > 0) then
+      call reinterpolate_bad_cells_nd(1,ncs,bad_cell,usp, &
+                                      faceusp,faces_to_update)
+    end if
+    !
   end if
   !$ACC UPDATE HOST(faces_to_update)
   !
@@ -1272,6 +1277,10 @@ continue
       call emergency_limit_bad_cells_1d(bad_cell,usp)
     end if
     !
+    if (ncs > 0) then
+      call emergency_limit_bad_cells_nd(1,ncs,bad_cell,usp)
+    end if
+    !
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -1712,6 +1721,10 @@ continue
       call emergency_scale_bad_cells_2d(bad_cell,usp)
     else
       call emergency_scale_bad_cells_1d(bad_cell,usp)
+    end if
+    !
+    if (ncs > 0) then
+      call emergency_scale_bad_cells_nd(1,ncs,bad_cell,usp)
     end if
     !
   end if
