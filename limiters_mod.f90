@@ -3882,7 +3882,7 @@ subroutine jump_indicator_modified(nst,troubled_cell)
   real(wp), parameter :: face_sign(1:2) = [one,-one]
   integer,  parameter :: other_side(1:2) = [2,1]
   !
-  real(wp), allocatable :: cell_ave_p(:)
+ !real(wp), allocatable :: cell_ave_p(:)
 continue
   !
   !
@@ -3920,8 +3920,8 @@ continue
   !
   imarker = get_marker_index(nst)
   !
-  cell_ave_p = init_array(ncell,zero) ! f2003 auto-realloc
-  call compute_cell_ave_var(nq+1,cell_ave_p)
+ !cell_ave_p = init_array(ncell,zero) ! f2003 auto-realloc
+ !call compute_cell_ave_var(nq+1,cell_ave_p)
   !
   if (nr == 3) then
     !
@@ -3968,7 +3968,7 @@ continue
           !
           !!! if (ji_gwt >= 0.99) then
             !!!Determine if filtering would help this jump of not (i.e. if slope helps or hurts the jump)
-            valave = cell_ave_p(nc)
+            !valave = cell_ave_p(nc)
             !if ( (vall-valave) * (valr-vall) >= zero) then
             !        numer = zero
             !endif
