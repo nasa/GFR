@@ -35,10 +35,9 @@ PARMETISDIR := $(PARMETIS_ROOT)
 # Fortran Preprocessor Definitions
 
 # Select which version of the METIS library to use
-#     METISFPP := -DMETIS_5 -DMETIS_32_BIT => METIS 5.1.0 (built 32-bit)
-#     METISFPP := -DMETIS_5 -DMETIS_64_BIT => METIS 5.1.0 (built 64-bit)
-#     METISFPP := -DMETIS_4                => METIS 4.0.3
-METISFPP := -DMETIS_5 -DMETIS_32_BIT
+#     METISFPP :=                => METIS 5.1.0 (built 32-bit)
+#     METISFPP := -DMETIS_64_BIT => METIS 5.1.0 (built 64-bit)
+METISFPP := 
 ifdef PARMETISDIR
   PARMETISFPP := -DENABLE_PARMETIS
 endif

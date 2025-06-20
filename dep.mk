@@ -131,6 +131,7 @@ $(OBJDIR)/cgns_mod.o : cgns_mod.f90 \
 
 $(OBJDIR)/cgnstypes_mod.o : cgnstypes_mod.f90 \
                   $(OBJDIR)/kind_types_mod.o
+$(OBJDIR)/cgnstypes_mod.o : OTHERFPP += $(CGNSFPP)
 
 $(OBJDIR)/channel_mod.o : channel_mod.f90 \
                 $(OBJDIR)/kind_types_mod.o \
@@ -490,6 +491,7 @@ $(OBJDIR)/mappings_mod.o : mappings_mod.f90 \
              $(FUNDIR)/solpts2order.f90
 
 $(OBJDIR)/metis_mod.o : metis_mod.f90
+$(OBJDIR)/metis.o : OTHERFPP += $(METISFPP)
 
 $(OBJDIR)/metrics_mod.o : metrics_mod.f90 \
             $(OBJDIR)/kind_types_mod.o \
@@ -610,6 +612,7 @@ $(OBJDIR)/parallel_mod.o : parallel_mod.f90 \
 $(OBJDIR)/parmetis_mod.o : parmetis_mod.f90 \
                  $(OBJDIR)/kind_types_mod.o \
                  $(OBJDIR)/metis_mod.o
+$(OBJDIR)/parmetis_mod.o : OTHERFPP += $(PARMETISFPP)
 
 $(OBJDIR)/pbs_mod.o : pbs_mod.f90 \
             $(OBJDIR)/kind_types_mod.o
