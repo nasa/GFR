@@ -302,7 +302,7 @@ subroutine read_nml_input_file(input_fname,input_mode)
   use ovar,   only : output_KEDR
   use ovar,   only : thermofix
   !
-  use limiters_mod, only : get_marker_index, nmarker
+  use flowvar_mod, only : get_marker_index, nmarker
   !
   use quadrature_mod, only : init_geom_quadrature_rules
   use quadrature_mod, only : init_face_quadrature_rules

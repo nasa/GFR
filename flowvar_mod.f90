@@ -18,6 +18,9 @@ module flowvar_mod
   !
   public :: flowvar_memory_usage
   public :: allocate_flowvar_arrays
+  public :: get_marker_index
+  public :: deallocate_marker
+  public :: deallocate_scaled_marker
   !
   ! SOL_NODES : conservation variables at plot3d nodes
   !
@@ -68,6 +71,16 @@ module flowvar_mod
   !
   real(wp), public, save, allocatable :: uavesp(:,:)
   !$ACC DECLARE CREATE(uavesp)
+  !
+  ! MARKER VARIABLES AND ARRAYS
+  ! NOTE: THIS IS TEMPORARY UNTIL THE MARKING/LIMITING CODE CAN BE CLEANED
+  !       UP WHEN THIS SHOULD BE MOVED TO A NEW MODULE NAMED MARKER_MOD.
+  !
+  !> Maximum marker index. Is reset after user inputs.
+  integer, save, public :: nmarker = 1
+  !
+  real(wp), save, public, allocatable :: marker(:,:)
+  real(wp), save, public, allocatable :: scaled_marker(:,:)
   !
   ! CELL_DISS : array to keep track of the dissipation added to each
   !             cell by the limiter filter
@@ -618,6 +631,88 @@ continue
   end if
   !
 end subroutine find_facexyz_size
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!#####    SUPPORT FUNCTIONS/SUBROUTINES FOR MARKER VARIABLES               #####
+!#####    NOTE: THIS IS TEMPORARY UNTIL THE MARKING/LIMITING CODE          #####
+!#####          CAN BE CLEANED UP WHEN THIS SHOULD BE MOVED TO A           #####
+!#####          NEW MODULE NAMED MARKER_MOD.                               #####
+!###############################################################################
+!###############################################################################
+!
+!> Determine which marker position to fill based on the Runge-Kutta stage
+!> and user output preference.  The returned value is to be used as the
+!> second index to marker(:,:) or scaled_marker(:,:).
+!
+pure function get_marker_index(nst) result(return_value)
+
+  use ovar, only : Limiting_Interval, Limiting_Interval_Output
+
+  integer                       :: return_value
+  integer, optional, intent(in) :: nst           !< Runge-Kutta stage
+
+  integer :: interval
+
+  return_value = 1  ! only one stage is stored (default)
+
+  if ( present(nst) ) then
+    if ( Limiting_Interval_Output == -1 ) then
+      interval = Limiting_Interval         ! mimic limiter interval
+    else
+      interval = Limiting_Interval_Output  ! follow user interval
+    end if
+    !
+    ! Can save the marker each stage only if the limiter is applied each stage.
+    ! Else the marker is only computed once and need only store 1 value.
+    !
+    if ( interval == 0 .and. Limiting_Interval == 0 ) then
+      return_value = min(nst,nmarker)  ! current stage, don't exceed max
+    end if
+  end if
+
+end function get_marker_index
+!
+!###############################################################################
+!
+subroutine deallocate_marker(caller_name)
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: caller_name
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+continue
+  !
+  if (allocated(marker)) then
+    deallocate ( marker , stat=ierr , errmsg=error_message )
+    call alloc_error(caller_name,"marker",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+end subroutine deallocate_marker
+!
+!###############################################################################
+!
+subroutine deallocate_scaled_marker(caller_name)
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: caller_name
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+continue
+  !
+  if (allocated(scaled_marker)) then
+    deallocate ( scaled_marker , stat=ierr , errmsg=error_message )
+    call alloc_error(caller_name,"scaled_marker",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+end subroutine deallocate_scaled_marker
 !
 !###############################################################################
 !###############################################################################

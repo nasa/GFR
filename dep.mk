@@ -508,7 +508,6 @@ $(OBJDIR)/mlp_mod.o : mlp_mod.f90 \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/geomvar_mod.o \
             $(OBJDIR)/interpolation_mod.o \
-            $(OBJDIR)/limiters_mod.o \
             $(OBJDIR)/order_mod.o \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/parallel_mod.o

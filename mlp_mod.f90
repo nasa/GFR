@@ -72,7 +72,7 @@ subroutine allocate_mlp
   !.. Use Statements ..
   use geomvar_mod,  only : ncell,nnode
   use ovar,         only : output_marker_variables,MLP_Marker_Variable
-  use limiters_mod, only : marker,scaled_marker,nmarker
+  use flowvar_mod,  only : marker,scaled_marker,nmarker
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -1012,7 +1012,7 @@ subroutine limit_by_mlp(nst,relax)
   use flowvar_mod,     only : usp
   use cell_ave_mod,    only : allocate_cell_ave,deallocate_cell_ave, &
                               compute_cell_ave_sol,cell_ave_sol
-  use limiters_mod,    only : marker,scaled_marker,get_marker_index
+  use flowvar_mod,     only : marker,scaled_marker,get_marker_index
   use order_mod,       only : maxSP
   use ovar,            only : output_marker_variables
   !

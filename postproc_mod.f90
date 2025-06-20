@@ -1164,7 +1164,7 @@ subroutine get_num_cgns_variables(char_sname,npvar)
   use ovar,        only : governing_equations
   !
   use metrics_mod, only : time_metrics
-! use limiters_mod, only : nmarker
+! use flowvar_mod,  only : nmarker
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: char_sname(:)
@@ -1281,7 +1281,7 @@ subroutine write_field_headers(ifile,ibase,izone,isol,isvar_s, &
   use ovar,        only : profile_io_cgns_subs
   !
   use metrics_mod, only : time_metrics
-! use limiters_mod, only : nmarker
+! use flowvar_mod,  only : nmarker
   !
   use thermo_mod, only : species_name
   !
@@ -2013,11 +2013,11 @@ subroutine get_output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
   use metrics_mod, only : time_metrics,metrics_array,jac
   !
-  use limiters_mod, only : marker,scaled_marker,nmarker
+  use flowvar_mod,  only : marker,scaled_marker,nmarker
   use limiters_mod, only : resolution_indicator
   use limiters_mod, only : jump_indicator
-  use limiters_mod, only : deallocate_marker
-  use limiters_mod, only : deallocate_scaled_marker
+  use flowvar_mod,  only : deallocate_marker
+  use flowvar_mod,  only : deallocate_scaled_marker
   !
   use thermo_mod, only : rspec
   use thermo_mod, only : compute_mixture_rgas

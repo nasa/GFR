@@ -9,6 +9,14 @@ module limiters_mod
   !
   use ovar, only : force_nd_subroutines
   !
+  ! Use nmarker, marker, and scaled_marker from their new temporary location
+  ! in flowvar_mod to remove module circular dependency. This use statement is
+  ! added to the module header since a lot of functions/subroutines in this
+  ! module assume these entities exists in this module header and access them
+  ! using "host association". This module will be cleaned up and reorganized in
+  ! the near future, and this simplifies the temporary "fix" until that happens.
+  use flowvar_mod, only : nmarker,marker,scaled_marker
+  !
   implicit none
   !
   private
@@ -19,14 +27,11 @@ module limiters_mod
   public :: initialize_limiters
   public :: limit_by_projecting
   public :: limiters_memory_usage
-  public :: get_marker_index
   public :: resolution_indicator
   public :: jump_indicator
   public :: ducros_indicator
   public :: cell_length_scale_max_box
   public :: apply_sponge_filter
-  public :: deallocate_marker
-  public :: deallocate_scaled_marker
   !
   !
   !.. Module Local Scalars ..
@@ -45,17 +50,6 @@ module limiters_mod
   !
   logical(ldk), save, allocatable :: sponge_cell(:)
   !$ACC DECLARE CREATE(sponge_cell)
-  !
-  !
-  !.. Module Public Allocatable Arrays ..
-  !
-  real(wp), save, public, allocatable :: marker(:,:)
-  real(wp), save, public, allocatable :: scaled_marker(:,:)
-  !
-  !.. Module Public Scalars ..
-  !
-  !> Maximum marker index. Is reset after user inputs.
-  integer, public :: nmarker = 1
   !
   !
   !.. Module Parameters ..
@@ -792,6 +786,7 @@ subroutine apply_filter_limiter_to_usp_3d(troubled_cell,usp,cell_diss)
   !.. Use Statements ..
   use order_mod,   only : maxSP
   use geomvar_mod, only : ncell,cell
+  use flowvar_mod, only : get_marker_index
   use filter_mod,  only : filter
   use ovar,        only : nst => current_rk_stage
   use ovar,        only : Limiter_Use_Dynamic_Filter
@@ -958,6 +953,7 @@ subroutine apply_filter_limiter_to_usp_2d(troubled_cell,usp,cell_diss)
   !.. Use Statements ..
   use order_mod,   only : maxSP
   use geomvar_mod, only : ncell,cell
+  use flowvar_mod, only : get_marker_index
   use filter_mod,  only : filter
   use ovar,        only : nst => current_rk_stage
   use ovar,        only : Limiter_Use_Dynamic_Filter
@@ -1111,6 +1107,7 @@ subroutine apply_filter_limiter_to_usp_1d(troubled_cell,usp,cell_diss)
   !.. Use Statements ..
   use order_mod,   only : maxSP
   use geomvar_mod, only : ncell,cell
+  use flowvar_mod, only : get_marker_index
   use filter_mod,  only : filter
   use ovar,        only : nst => current_rk_stage
   use ovar,        only : Limiter_Use_Dynamic_Filter
@@ -1257,6 +1254,7 @@ subroutine apply_filter_limiter_to_usp_nd(mbeg,mend,troubled_cell,usp,cell_diss)
   !.. Use Statements ..
   use order_mod,   only : maxSP
   use geomvar_mod, only : ncell,cell
+  use flowvar_mod, only : get_marker_index
   use filter_mod,  only : filter
   use ovar,        only : nst => current_rk_stage
   use ovar,        only : Limiter_Use_Dynamic_Filter
@@ -2008,40 +2006,6 @@ end subroutine identify_troubled_cells
 !
 !###############################################################################
 !
-!> Determine which marker position to fill based on the Runge-Kutta stage
-!> and user output preference.  The returned value is to be used as the
-!> second index to marker(:,:) or scaled_marker(:,:).
-!
-pure function get_marker_index(nst) result(return_value)
-
-  use ovar, only : Limiting_Interval, Limiting_Interval_Output
-
-  integer                       :: return_value
-  integer, optional, intent(in) :: nst           !< Runge-Kutta stage
-
-  integer :: interval
-
-  return_value = 1  ! only one stage is stored (default)
-
-  if ( present(nst) ) then
-    if ( Limiting_Interval_Output == -1 ) then
-      interval = Limiting_Interval         ! mimic limiter interval
-    else
-      interval = Limiting_Interval_Output  ! follow user interval
-    end if
-    !
-    ! Can save the marker each stage only if the limiter is applied each stage.
-    ! Else the marker is only computed once and need only store 1 value.
-    !
-    if ( interval == 0 .and. Limiting_Interval == 0 ) then
-      return_value = min(nst,nmarker)  ! current stage, don't exceed max
-    end if
-  end if
-
-end function get_marker_index
-!
-!###############################################################################
-!
 subroutine resolution_indicator(nst,apply_projection,troubled_cell, &
                                 orders_to_cutoff)
   !
@@ -2049,6 +2013,7 @@ subroutine resolution_indicator(nst,apply_projection,troubled_cell, &
   use order_mod,   only : p_order,n_order
   use geomvar_mod, only : ncell,cell
   use flowvar_mod, only : usp
+  use flowvar_mod, only : get_marker_index
   use ovar,        only : output_limiter_statistics,nlim
   use ovar,        only : Limiter_Option
   !
@@ -3626,6 +3591,7 @@ subroutine jump_indicator_original(nst,troubled_cell)
   use geomvar_mod,      only : nr,ncell,cell,face
   use element_type_mod, only : std_elem
   use flowvar_mod,      only : facegpsp,faceusp
+  use flowvar_mod,      only : get_marker_index
   use metrics_mod,      only : facenrm
   use ovar,             only : dpsi => marker_dpsi
   use ovar,             only : marker_c1,marker_c2
@@ -3887,6 +3853,7 @@ subroutine jump_indicator_modified(nst,troubled_cell)
   use geomvar_mod,      only : nr,ncell,cell,face,nfbnd,bface
   use element_type_mod, only : std_elem
   use flowvar_mod,      only : facegpsp,faceusp
+  use flowvar_mod,      only : get_marker_index
   use metrics_mod,      only : facenrm
   use ovar,             only : dpsi => marker_dpsi
   use ovar,             only : marker_c1,marker_c2
@@ -4198,6 +4165,7 @@ subroutine ducros_indicator(nst,troubled_cell)
   use ovar,             only : gam,rgasref,machref,tref,pref,rhoref,aref,velref,Lref
   use gpu_mod,          only : grad_cv_to_grad_pv_gpu
   use flowvar_mod,      only : usp,gpsp,dusp
+  use flowvar_mod,      only : get_marker_index
   use flux_mod,         only : discontinuous_gradient_at_solpts
   !
   !.. Optional Arguments ..
@@ -4433,53 +4401,6 @@ subroutine cell_length_scale_max_box(cell_lengths)
   enddo
     deallocate(cell_nodes_xyz)
 end subroutine cell_length_scale_max_box
-!
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!
-subroutine deallocate_marker(caller_name)
-  !
-  !.. Formal Arguments ..
-  character(len=*), intent(in) :: caller_name
-  !
-  !.. Local Scalars ..
-  integer :: ierr
-  !
-continue
-  !
-  if (allocated(marker)) then
-    deallocate ( marker , stat=ierr , errmsg=error_message )
-    call alloc_error(caller_name,"marker",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
-end subroutine deallocate_marker
-!
-!###############################################################################
-!
-subroutine deallocate_scaled_marker(caller_name)
-  !
-  !.. Formal Arguments ..
-  character(len=*), intent(in) :: caller_name
-  !
-  !.. Local Scalars ..
-  integer :: ierr
-  !
-continue
-  !
-  if (allocated(scaled_marker)) then
-    deallocate ( scaled_marker , stat=ierr , errmsg=error_message )
-    call alloc_error(caller_name,"scaled_marker",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
-end subroutine deallocate_scaled_marker
 !
 !###############################################################################
 !###############################################################################
