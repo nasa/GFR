@@ -1636,19 +1636,13 @@ continue
   !
   if (any(itestcase == Transport_Problems)) then
     write (iter_header,200) final_iter_digits-3
-  else if (itestcase == Laminar_BndLyr) then
-    write (iter_header,201) final_iter_digits-3
-  else if (any(itestcase == Taylor_Problems)) then
-   !write (iter_header,203) final_iter_digits-3
-    write (iter_header,202) final_iter_digits-3
  !else if (output_time_averaging) then
  !  write (iter_header,204) final_iter_digits-3
-  else
-    if (abs(time_scaling_factor-one) > eps6) then
+  else if (abs(time_scaling_factor-one) > eps6 .or. &
+           any(itestcase == Taylor_Problems)) then
       write (iter_header,205) final_iter_digits-3
-    else
+  else
       write (iter_header,202) final_iter_digits-3
-    end if
   end if
   !
 #ifdef PBS_ENV
@@ -1707,22 +1701,18 @@ continue
   101 format ("(1x,i",i0,",8es12.4,1x,f11.5")
   102 format ("(1x,i",i0,",7es12.4,1x,f11.5")
   !
-  200 format ("(",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
-              "'L2-Entropy',2x,'Output-dWT'")
-  201 format ("(",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-X-Mmntm',2x,", &
+  200 format ("(",i0,"x,'iter',3x,'d_t* (ND)',3x,'Time (T*)',6x,'CFL',5x,", &
+              "'L2-Density',2x,'L2-Entropy',2x,'Output-dWT'")
+  201 format ("(",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'CFL',5x,", &
               "'OrdersDrop',2x,'Max-DensL2',2x,'Output-dWT'")
- !202 format ("(",i0,"x,'iter',5x,'d_t',8x,'Time',10x,'CFL',5x,", &
   202 format ("(",i0,"x,'iter',3x,'d_t* (ND)',3x,'Time (s)',7x,'CFL',5x,", &
               "'L2-Density',2x,'Max-DensL2',2x,'Output-dWT'")
- !202 format ("(",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
- !            "'OrdersDrop',2x,'Max-DensL2',2x,'Output-dWT'")
   203 format ("(",i0,"x,'iter',5x,'dt*',8x,'Time*',5x,'L2-Density',2x,", &
               "'OrdersDrop',2x,'Max-DensL2',2x,'Output-dWT'")
   204 format ("(",i0,"x,'iter',5x,'dt*',8x,'Time*',5x,'L2-Density',4x,", &
               "'L2-Vx',7x,'L2-Vy',7x,'L2-Vz',7x,'L2-Pres',2x,'Output-dWT'")
   205 format ("(",i0,"x,'iter',3x,'d_t* (ND)',3x,'Time (T*)',6x,'CFL',5x,", &
               "'L2-Density',2x,'Max-DensL2',2x,'Output-dWT'")
-  !
 end subroutine init_generic_mod
 !
 !###############################################################################
