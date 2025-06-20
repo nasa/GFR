@@ -535,7 +535,7 @@ continue
     ! If any of the node matches have a negative value, write out all
     ! the information about the node matches and abort.
     ! 
-    if (any(node_match_i2j(:) <= 0) .or. any(node_match_j2i(:) <= 0)) then
+    if (any(node_match_i2j(:) < 0) .or. any(node_match_j2i(:) < 0)) then
       ! 
       if (mypnum == glb_root) then
         matching_node_check: &
