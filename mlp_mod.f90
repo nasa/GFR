@@ -244,7 +244,7 @@ continue
   !
   if (force_nd_subroutines) then
     !
-    call get_proj_to_usp_nd(cell,proj_order,cell_usp_proj)
+    call get_proj_to_usp_nd(1,nq,cell,proj_order,cell_usp_proj)
     !
   else
     !
@@ -257,7 +257,7 @@ continue
     end if
     !
     if (ncs > 0) then
-      call get_proj_to_usp_nd(cell,proj_order,cell_usp_proj)
+      call get_proj_to_usp_nd(1,ncs,cell,proj_order,cell_usp_proj)
     end if
     !
   end if
@@ -543,7 +543,7 @@ end subroutine get_proj_to_usp_1d
 !>
 !> General routine for nd.
 !###############################################################################
-subroutine get_proj_to_usp_nd(cell,proj_order,cell_usp_proj)
+subroutine get_proj_to_usp_nd(mbeg,mend,cell,proj_order,cell_usp_proj)
   !
   !.. Use Statements ..
   use geomvar_mod, only : cell_t
@@ -551,6 +551,9 @@ subroutine get_proj_to_usp_nd(cell,proj_order,cell_usp_proj)
   use filter_mod,  only : filter
   !
   !.. Formal Arguments ..
+  integer, intent(in) :: mbeg ! beginning equation for loop over equations
+  integer, intent(in) :: mend ! ending    equation for loop over equations
+  !
   !> Cell information.
   type(cell_t), intent(in)  :: cell
   !
@@ -582,7 +585,7 @@ continue
     !
     ! Project to same order, simply copy values.
     !
-    do m = 1,nq  ! solution variables
+    do m = mbeg,mend  ! solution variables
       do n = 1,np  ! solution points
         cell_usp_proj(n,m) = usp(n0+n,m)
       end do ! loop n
@@ -596,7 +599,7 @@ continue
     ! To project to a given order, must cutoff all higher modes.
     cutoff_order = proj_order + 1   ! cut modes at/above this order
     !
-    do m = 1,nq  ! solution variables
+    do m = mbeg,mend  ! solution variables
       do n = 1,np  ! solution points
         var = zero
         do i = filter(this_geom,this_order)%cutoff(cutoff_order)%col_ptr(n)+1, &
@@ -609,7 +612,7 @@ continue
           !
         end do ! loop i
         !
-        ! cell_usp_proj(1:np,1:nq) for 1 cell.  No n0 offset to first index.
+        ! cell_usp_proj(1:np,mbeg:mend) for 1 cell. No n0 offset to first index.
         ! Array size may be larger than working range.
         cell_usp_proj(n,m) = var
         !
@@ -672,7 +675,7 @@ continue
   !
   if (force_nd_subroutines) then
     !
-    call interp_cv_to_nodepts_nd(cell,n0,usp,cell_nodeusp)
+    call interp_cv_to_nodepts_nd(1,nq,cell,n0,usp,cell_nodeusp)
     !
   else
     !
@@ -685,7 +688,7 @@ continue
     end if
     !
     if (ncs > 0) then
-      call interp_cv_to_nodepts_nd(cell,n0,usp,cell_nodeusp)
+      call interp_cv_to_nodepts_nd(1,ncs,cell,n0,usp,cell_nodeusp)
     end if
     !
   end if
@@ -926,13 +929,16 @@ end subroutine interp_cv_to_nodepts_1d
 !> General routine for nd.
 !###############################################################################
 pure &
-subroutine interp_cv_to_nodepts_nd(cell,n0,usp,cell_nodeusp)
+subroutine interp_cv_to_nodepts_nd(mbeg,mend,cell,n0,usp,cell_nodeusp)
   !
   !.. Use Statements ..
   use geomvar_mod,       only : cell_t
   use interpolation_mod, only : interp
   !
   !.. Formal Arguments ..
+  integer, intent(in) :: mbeg ! beginning equation for loop over equations
+  integer, intent(in) :: mend ! ending    equation for loop over equations
+  !
   !> Cell information.
   type(cell_t), intent(in)  :: cell
   !
@@ -968,7 +974,7 @@ continue
     !
     lf = n
     !
-    do m = 1,nq  ! solution variables
+    do m = mbeg,mend  ! solution variables
       var = zero
       do i = interp(this_geom,this_order)%toNode%row_ptr(lf)+1, &
              interp(this_geom,this_order)%toNode%row_ptr(lf+1)
