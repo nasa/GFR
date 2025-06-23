@@ -1181,11 +1181,16 @@ continue
   if (ncs > 0) then
     !
     ! Make sure the species densities are >= zero
+    ! NOTE: Change made so that it only zeros out a negative species
+    !       density if it is negative and very close to zero.
     !
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv)
     do m = 1,ncs
       do n = n1,n2
-        cv(n,m) = max(cv(n,m),zero)
+        if (cv(n,m) < zero .and. abs(cv(n,m)) < eps6) then
+          cv(n,m) = zero
+        end if
+       !cv(n,m) = max(cv(n,m),zero)
       end do
     end do
     !
