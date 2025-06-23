@@ -346,7 +346,9 @@ continue
   !
   ! Skip thermo check
   !
-  if ( ncs > 0 ) return  ! multi-species flow
+  ! Multi-species should work here (untested)
+ !if ( ncs > 0 ) return  ! multi-species flow
+  !
   if ( thermofix%method == TFM_OFF ) return
   if ( .not. (check_cells .or. check_faces .or. check_nodes) ) return
   !
