@@ -177,6 +177,7 @@ module ovar
     !
     procedure :: is_not_default => is_not_default_bc_input
     procedure :: has_default_flow_conditions
+    procedure :: copy_nonflow_conditions
   !!procedure, private :: write_bc_input_t
   !!procedure, private :: read_bc_input_t
     !
@@ -1088,6 +1089,47 @@ continue
   return_value = true
   !
 end function has_default_flow_conditions
+!
+!###############################################################################
+!
+pure subroutine copy_nonflow_conditions(this,copy_src)
+  !
+  ! This function copies the non-flow-condition parts of the input copy_src
+  ! to the current element of type bc_input_t.
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(bc_input_t), intent(inout) :: this
+  class(bc_input_t),    intent(in) :: copy_src
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  !.. Local Allocatable Scalars ..
+  type(bc_input_t), allocatable :: dflt
+  !
+continue
+  !
+  ! Copy the name component
+  !
+  this%name = trim(adjustl(copy_src%name))
+  !
+  ! Copy the BC type
+  !
+  this%set_bc_value = copy_src%set_bc_value
+  !
+  ! Copy the relax component and its subcomponents
+  !
+  this%relax = copy_src%relax
+  !
+  ! Copy the sem component and its subcomponents
+  !
+  this%sem = copy_src%sem
+  !
+  ! Copy the periodic component and its subcomponents
+  !
+  this%periodic = copy_src%periodic
+  !
+end subroutine copy_nonflow_conditions
 !
 !###############################################################################
 !
