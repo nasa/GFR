@@ -2355,6 +2355,7 @@ continue
   !
   ! Finalize the overall MPI session
   !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call mpi_finalize(mpierr)
   !
   ! Stop execution
