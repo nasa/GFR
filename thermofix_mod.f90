@@ -130,7 +130,7 @@ continue
     ! Update solution, thermo and transport values at volume points
     ! and face points.
     !
-    call mend_bad_thermo_cells(bad_cell,mend_faces=true)
+    call mend_bad_thermo_cells(bad_cell,mend_faces=true,mend_iter=0)
   end if
   !
   !$ACC END DATA
@@ -286,7 +286,7 @@ continue
     ! Update solution, thermo and transport values at volume points
     ! and face points.
     !
-    call mend_bad_thermo_cells(bad_cell,mend_faces=true)
+    call mend_bad_thermo_cells(bad_cell,mend_faces=true,mend_iter=0)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -437,7 +437,7 @@ continue
     ! Update solution, thermo, transport for volume points only in bad cells.
     ! Update face points too if requested.
     !
-    call mend_bad_thermo_cells(bad_cell,mend_faces)
+    call mend_bad_thermo_cells(bad_cell,mend_faces,iter_mend)
     !
   end do loop_iter_mend
   !
@@ -617,7 +617,7 @@ end subroutine find_bad_thermo_cells
 !> - for face   points in faceusp and facegpsp, if requested.
 !
 !###############################################################################
-subroutine mend_bad_thermo_cells(bad_cell,mend_faces)
+subroutine mend_bad_thermo_cells(bad_cell,mend_faces,mend_iter)
   !
   !.. Use Statements ..
   use flowvar_mod, only : usp,gpsp,faceusp,facegpsp
@@ -630,6 +630,9 @@ subroutine mend_bad_thermo_cells(bad_cell,mend_faces)
   !> Update the solution, thermo and transport properties at face points
   !> of bad cells.
   logical(lk), intent(in)    :: mend_faces
+  !
+  !> Current mend iteration
+  integer, intent(in)        :: mend_iter
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "mend_bad_thermo_cells"
