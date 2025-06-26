@@ -34,6 +34,11 @@ module thermofix_mod
   private :: reinterpolate_bad_cells_2d
   private :: reinterpolate_bad_cells_1d
   private :: reinterpolate_bad_cells_nd
+  private :: emergency_dynamic_filter_bad_cells
+  private :: emergency_dynamic_filter_bad_cells_3d
+  private :: emergency_dynamic_filter_bad_cells_2d
+  private :: emergency_dynamic_filter_bad_cells_1d
+  private :: emergency_dynamic_filter_bad_cells_nd
   private :: emergency_limit_bad_cells
   private :: emergency_limit_bad_cells_3d
   private :: emergency_limit_bad_cells_2d
@@ -1231,6 +1236,567 @@ continue
   end do cell_loop
   !
 end subroutine reinterpolate_bad_cells_nd
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+!###############################################################################
+!> Apply the dynamically scaled sponge filter to bad cells and update
+!> the volume solution in usp.
+!###############################################################################
+subroutine emergency_dynamic_filter_bad_cells(bad_cell,usp,mend_iter)
+  !
+  !.. Use Statements ..
+  use ovar, only : thermofix
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(in) :: bad_cell(:)
+  real(wp), intent(inout) :: usp(:,:)
+  integer,     intent(in) :: mend_iter
+  !
+  !.. Local Scalars ..
+  integer  :: nr
+  real(wp) :: df_coef
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_dynamic_filter_bad_cells"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nr = nme-nmb+1
+  !
+  ! Get the dynamic filter coefficient, which is a value between 0 and 1.
+  ! A value of 0 will do no filtering, and a value of 1 will apply the
+  ! full filter.
+  !
+  if (any([mend_iter,thermofix%iterations] == 0)) then
+    !
+    ! Some logic to set df_coef to 1 if mend_iter is 0.
+    ! This is just in case someone ends up using the
+    ! check_cell_thermo_properties or check_face_thermo_properties
+    ! subroutines which are currently not used anywhere.
+    !
+    df_coef = one
+    !
+  else
+    !
+    ! We will use mend_iter/thermofix%iterations as the dynamic filter
+    ! coefficient. For example, if thermofix%iterations is 10, the dynamic
+    ! filter coefficient will be [0.1, 0.2, 0.3, ..., 1.0] as mend_iter
+    ! progresses from [1, 2, 3, ..., 10].
+    !
+    df_coef = real(mend_iter,kind=wp)/real(thermofix%iterations,kind=wp)
+    !
+  end if
+  !
+  if (force_nd_subroutines) then
+    !
+    call emergency_dynamic_filter_bad_cells_nd(1,nq,bad_cell,usp,df_coef)
+    !
+  else
+    !
+    if (nr == 3) then
+      call emergency_dynamic_filter_bad_cells_3d(bad_cell,usp,df_coef)
+    else if (nr == 2) then
+      call emergency_dynamic_filter_bad_cells_2d(bad_cell,usp,df_coef)
+    else
+      call emergency_dynamic_filter_bad_cells_1d(bad_cell,usp,df_coef)
+    end if
+    !
+    if (ncs > 0) then
+      call emergency_dynamic_filter_bad_cells_nd(1,ncs,bad_cell,usp,df_coef)
+    end if
+    !
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine emergency_dynamic_filter_bad_cells
+!
+!###############################################################################
+!> Apply the dynamically scaled sponge filter to bad cells and update
+!> the volume solution in usp.
+!>
+!> Optimized routine for 3d.
+!###############################################################################
+pure &
+subroutine emergency_dynamic_filter_bad_cells_3d(bad_cell,usp,df_coef)
+  !
+  !.. Use Statements ..
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(in) :: bad_cell(:)
+  real(wp), intent(inout) :: usp(:,:)
+  real(wp),    intent(in) :: df_coef
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,filt_ec,filt_mx,filt_my,filt_mz,filt_ee,s,oms
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_usp(1:maxSP,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_dynamic_filter_bad_cells_3d"
+  !
+continue
+  !
+  ! Save the dynamic filter coefficient to local variable s and precompute 1-s.
+  ! NOTE: This is mostly done to keep this code as similar as possible to the
+  !       dynamic filtering code in the limiters module.
+  !
+  s = df_coef
+  oms = one-s
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,usp,bad_cell,filter) &
+  !$ACC&              PRIVATE(old_usp)
+  filt_cell_loop: &
+  do nc = 1,ncell
+    !
+    ! If the current cell is not troubled, skip to the next one
+    !
+    if (.not.bad_cell(nc)) then
+      cycle filt_cell_loop
+    end if
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    ! Store a copy of usp for this cell because the individual
+    ! solutions at the solution points within the cell will be
+    ! altered during the projection computation.
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      old_usp(n,nec) = usp(n0+n,nec)
+      old_usp(n,nmx) = usp(n0+n,nmx)
+      old_usp(n,nmy) = usp(n0+n,nmy)
+      old_usp(n,nmz) = usp(n0+n,nmz)
+      old_usp(n,nee) = usp(n0+n,nee)
+    end do
+    !
+    ! Apply the filter emergency limiter by multplying the filter
+    ! matrix with the solution in the current cell
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      !
+      filt_ec = oms*old_usp(n,nec)
+      filt_mx = oms*old_usp(n,nmx)
+      filt_my = oms*old_usp(n,nmy)
+      filt_mz = oms*old_usp(n,nmz)
+      filt_ee = oms*old_usp(n,nee)
+      !
+      do i = filter(this_geom,this_order)%sponge%col_ptr(n)+1, &
+             filter(this_geom,this_order)%sponge%col_ptr(n+1)
+        !
+        k = filter(this_geom,this_order)%sponge%col_idx(i)
+        a = filter(this_geom,this_order)%sponge%col_val(i)
+        !
+        ! Use the scaled marker to linearly scale the strength of the 
+        ! filter. The scaling is applied to all elements of the base
+        ! filter matrix, and a (1-scaling) term needs to be added to
+        ! the diagonal elements of the matrix.
+        ! NOTE: Fmat = Vmat.f.Vinv   
+        !          where : Fmat = base filter matrix
+        !                  f = diagonal matrix of the filter coefficients
+        !       Scaled(Fmat) = SFmat = Vmat.[(1-s)*I + s*f).Vinv
+        !          where : s = scaled marker (0=no filter, 1=full filter)
+        !                  I = identity matrix
+        !       SFmat = (1-s)*Vmat.I.Vinv + s*Vmat.f.Vinv
+        !             = (1-s)*I + s*Fmat
+        !       We can use the (1-s)*I part as the initialization of the
+        !       filter sums because that value is independent of the actual
+        !       filter matrix.
+        !
+        filt_ec = filt_ec + a * s * old_usp(k,nec)
+        filt_mx = filt_mx + a * s * old_usp(k,nmx)
+        filt_my = filt_my + a * s * old_usp(k,nmy)
+        filt_mz = filt_mz + a * s * old_usp(k,nmz)
+        filt_ee = filt_ee + a * s * old_usp(k,nee)
+        !
+      end do
+      !
+      usp(n0+n,nec) = filt_ec
+      usp(n0+n,nmx) = filt_mx
+      usp(n0+n,nmy) = filt_my
+      usp(n0+n,nmz) = filt_mz
+      usp(n0+n,nee) = filt_ee
+      !
+    end do
+    !
+  end do filt_cell_loop
+  !
+end subroutine emergency_dynamic_filter_bad_cells_3d
+!
+!###############################################################################
+!> Apply the dynamically scaled sponge filter to bad cells and update
+!> the volume solution in usp.
+!>
+!> Optimized routine for 2d.
+!###############################################################################
+pure &
+subroutine emergency_dynamic_filter_bad_cells_2d(bad_cell,usp,df_coef)
+  !
+  !.. Use Statements ..
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(in) :: bad_cell(:)
+  real(wp), intent(inout) :: usp(:,:)
+  real(wp),    intent(in) :: df_coef
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,filt_ec,filt_mx,filt_my,filt_ee,s,oms
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_usp(1:maxSP,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_dynamic_filter_bad_cells_2d"
+  !
+continue
+  !
+  ! Save the dynamic filter coefficient to local variable s and precompute 1-s.
+  ! NOTE: This is mostly done to keep this code as similar as possible to the
+  !       dynamic filtering code in the limiters module.
+  !
+  s = df_coef
+  oms = one-s
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,usp,bad_cell,filter) &
+  !$ACC&              PRIVATE(old_usp)
+  filt_cell_loop: &
+  do nc = 1,ncell
+    !
+    ! If the current cell is not troubled, skip to the next one
+    !
+    if (.not.bad_cell(nc)) then
+      cycle filt_cell_loop
+    end if
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    ! Store a copy of usp for this cell because the individual
+    ! solutions at the solution points within the cell will be
+    ! altered during the projection computation.
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      old_usp(n,nec) = usp(n0+n,nec)
+      old_usp(n,nmx) = usp(n0+n,nmx)
+      old_usp(n,nmy) = usp(n0+n,nmy)
+      old_usp(n,nee) = usp(n0+n,nee)
+    end do
+    !
+    ! Apply the filter emergency limiter by multplying the filter
+    ! matrix with the solution in the current cell
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      !
+      filt_ec = oms*old_usp(n,nec)
+      filt_mx = oms*old_usp(n,nmx)
+      filt_my = oms*old_usp(n,nmy)
+      filt_ee = oms*old_usp(n,nee)
+      !
+      do i = filter(this_geom,this_order)%sponge%col_ptr(n)+1, &
+             filter(this_geom,this_order)%sponge%col_ptr(n+1)
+        !
+        k = filter(this_geom,this_order)%sponge%col_idx(i)
+        a = filter(this_geom,this_order)%sponge%col_val(i)
+        !
+        ! Use the scaled marker to linearly scale the strength of the 
+        ! filter. The scaling is applied to all elements of the base
+        ! filter matrix, and a (1-scaling) term needs to be added to
+        ! the diagonal elements of the matrix.
+        ! NOTE: Fmat = Vmat.f.Vinv   
+        !          where : Fmat = base filter matrix
+        !                  f = diagonal matrix of the filter coefficients
+        !       Scaled(Fmat) = SFmat = Vmat.[(1-s)*I + s*f).Vinv
+        !          where : s = scaled marker (0=no filter, 1=full filter)
+        !                  I = identity matrix
+        !       SFmat = (1-s)*Vmat.I.Vinv + s*Vmat.f.Vinv
+        !             = (1-s)*I + s*Fmat
+        !       We can use the (1-s)*I part as the initialization of the
+        !       filter sums because that value is independent of the actual
+        !       filter matrix.
+        !
+        filt_ec = filt_ec + a * s * old_usp(k,nec)
+        filt_mx = filt_mx + a * s * old_usp(k,nmx)
+        filt_my = filt_my + a * s * old_usp(k,nmy)
+        filt_ee = filt_ee + a * s * old_usp(k,nee)
+        !
+      end do
+      !
+      usp(n0+n,nec) = filt_ec
+      usp(n0+n,nmx) = filt_mx
+      usp(n0+n,nmy) = filt_my
+      usp(n0+n,nee) = filt_ee
+      !
+    end do
+    !
+  end do filt_cell_loop
+  !
+end subroutine emergency_dynamic_filter_bad_cells_2d
+!
+!###############################################################################
+!> Apply the dynamically scaled sponge filter to bad cells and update
+!> the volume solution in usp.
+!>
+!> Optimized routine for 1d.
+!###############################################################################
+pure &
+subroutine emergency_dynamic_filter_bad_cells_1d(bad_cell,usp,df_coef)
+  !
+  !.. Use Statements ..
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(in) :: bad_cell(:)
+  real(wp), intent(inout) :: usp(:,:)
+  real(wp),    intent(in) :: df_coef
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,filt_ec,filt_mx,filt_ee,s,oms
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_usp(1:maxSP,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_dynamic_filter_bad_cells_1d"
+  !
+continue
+  !
+  ! Save the dynamic filter coefficient to local variable s and precompute 1-s.
+  ! NOTE: This is mostly done to keep this code as similar as possible to the
+  !       dynamic filtering code in the limiters module.
+  !
+  s = df_coef
+  oms = one-s
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,usp,bad_cell,filter) &
+  !$ACC&              PRIVATE(old_usp)
+  filt_cell_loop: &
+  do nc = 1,ncell
+    !
+    ! If the current cell is not troubled, skip to the next one
+    !
+    if (.not.bad_cell(nc)) then
+      cycle filt_cell_loop
+    end if
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    ! Store a copy of usp for this cell because the individual
+    ! solutions at the solution points within the cell will be
+    ! altered during the projection computation.
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      old_usp(n,nec) = usp(n0+n,nec)
+      old_usp(n,nmx) = usp(n0+n,nmx)
+      old_usp(n,nee) = usp(n0+n,nee)
+    end do
+    !
+    ! Apply the filter emergency limiter by multplying the filter
+    ! matrix with the solution in the current cell
+    !
+    !$ACC LOOP VECTOR
+    do n = 1,np
+      !
+      filt_ec = oms*old_usp(n,nec)
+      filt_mx = oms*old_usp(n,nmx)
+      filt_ee = oms*old_usp(n,nee)
+      !
+      do i = filter(this_geom,this_order)%sponge%col_ptr(n)+1, &
+             filter(this_geom,this_order)%sponge%col_ptr(n+1)
+        !
+        k = filter(this_geom,this_order)%sponge%col_idx(i)
+        a = filter(this_geom,this_order)%sponge%col_val(i)
+        !
+        ! Use the scaled marker to linearly scale the strength of the 
+        ! filter. The scaling is applied to all elements of the base
+        ! filter matrix, and a (1-scaling) term needs to be added to
+        ! the diagonal elements of the matrix.
+        ! NOTE: Fmat = Vmat.f.Vinv   
+        !          where : Fmat = base filter matrix
+        !                  f = diagonal matrix of the filter coefficients
+        !       Scaled(Fmat) = SFmat = Vmat.[(1-s)*I + s*f).Vinv
+        !          where : s = scaled marker (0=no filter, 1=full filter)
+        !                  I = identity matrix
+        !       SFmat = (1-s)*Vmat.I.Vinv + s*Vmat.f.Vinv
+        !             = (1-s)*I + s*Fmat
+        !       We can use the (1-s)*I part as the initialization of the
+        !       filter sums because that value is independent of the actual
+        !       filter matrix.
+        !
+        filt_ec = filt_ec + a * s * old_usp(k,nec)
+        filt_mx = filt_mx + a * s * old_usp(k,nmx)
+        filt_ee = filt_ee + a * s * old_usp(k,nee)
+        !
+      end do
+      !
+      usp(n0+n,nec) = filt_ec
+      usp(n0+n,nmx) = filt_mx
+      usp(n0+n,nee) = filt_ee
+      !
+    end do
+    !
+  end do filt_cell_loop
+  !
+end subroutine emergency_dynamic_filter_bad_cells_1d
+!
+!###############################################################################
+!> Apply the dynamically scaled sponge filter to bad cells and update
+!> the volume solution in usp.
+!>
+!> General routine for nd.
+!###############################################################################
+pure &
+subroutine emergency_dynamic_filter_bad_cells_nd(mbeg,mend,bad_cell,usp,df_coef)
+  !
+  !.. Use Statements ..
+  use order_mod,   only : maxSP
+  use geomvar_mod, only : ncell,cell
+  use filter_mod,  only : filter
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: mbeg,mend
+  logical(lk), intent(in) :: bad_cell(:)
+  real(wp), intent(inout) :: usp(:,:)
+  real(wp),    intent(in) :: df_coef
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,m,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,val,s,oms
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_usp(1:maxSP,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_dynamic_filter_bad_cells_nd"
+  !
+continue
+  !
+  ! Save the dynamic filter coefficient to local variable s and precompute 1-s.
+  ! NOTE: This is mostly done to keep this code as similar as possible to the
+  !       dynamic filtering code in the limiters module.
+  !
+  s = df_coef
+  oms = one-s
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,usp,bad_cell,filter) &
+  !$ACC&              PRIVATE(old_usp)
+  filt_cell_loop: &
+  do nc = 1,ncell
+    !
+    ! If the current cell is not troubled, skip to the next one
+    !
+    if (.not.bad_cell(nc)) then
+      cycle filt_cell_loop
+    end if
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    ! Store a copy of usp for this cell because the individual
+    ! solutions at the solution points within the cell will be
+    ! altered during the projection computation.
+    !
+    !$ACC LOOP VECTOR COLLAPSE(2)
+    do m = mbeg,mend
+      do n = 1,np
+        old_usp(n,m) = usp(n0+n,m)
+      end do
+    end do
+    !
+    ! Apply the filter emergency limiter by multplying the filter
+    ! matrix with the solution in the current cell
+    !
+    !$ACC LOOP VECTOR COLLAPSE(2)
+    do m = mbeg,mend
+      do n = 1,np
+        !
+        val = oms*old_usp(n,m)
+        !
+        do i = filter(this_geom,this_order)%sponge%col_ptr(n)+1, &
+               filter(this_geom,this_order)%sponge%col_ptr(n+1)
+          !
+          k = filter(this_geom,this_order)%sponge%col_idx(i)
+          a = filter(this_geom,this_order)%sponge%col_val(i)
+          !
+          ! Use the scaled marker to linearly scale the strength of the 
+          ! filter. The scaling is applied to all elements of the base
+          ! filter matrix, and a (1-scaling) term needs to be added to
+          ! the diagonal elements of the matrix.
+          ! NOTE: Fmat = Vmat.f.Vinv   
+          !          where : Fmat = base filter matrix
+          !                  f = diagonal matrix of the filter coefficients
+          !       Scaled(Fmat) = SFmat = Vmat.[(1-s)*I + s*f).Vinv
+          !          where : s = scaled marker (0=no filter, 1=full filter)
+          !                  I = identity matrix
+          !       SFmat = (1-s)*Vmat.I.Vinv + s*Vmat.f.Vinv
+          !             = (1-s)*I + s*Fmat
+          !       We can use the (1-s)*I part as the initialization of the
+          !       filter sums because that value is independent of the actual
+          !       filter matrix.
+          !
+          val = val + a * s * old_usp(k,m)
+          !
+        end do
+        !
+        usp(n0+n,m) = val
+        !
+      end do
+    end do
+    !
+  end do filt_cell_loop
+  !
+end subroutine emergency_dynamic_filter_bad_cells_nd
 !
 !###############################################################################
 !###############################################################################
