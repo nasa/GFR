@@ -37,53 +37,22 @@ contains
 subroutine initialize_shu_osher_problem()
   !
   !.. Use Statements ..
-  use ovar, only : bc_input_t, bc_input
-  use ovar, only : rgasref,gam
-  use ovar, only : alpha_aoaref,beta_aoaref
-  use ovar, only : rhoref,pref,tref,uref,aref,machref,reyref
+  use ovar,       only : bc_input_t,bc_input
+  use ovar,       only : rgasref,gam
+  use ovar,       only : alpha_aoaref,beta_aoaref
+  use ovar,       only : rhoref,pref,tref,uref,aref,machref,reyref
   use thermo_mod, only : rgas_cpg
-
   !
   !.. Local Variables ..
-  type(bc_input_t ) :: default_bc_input
-  integer :: n, bc_idx
-  real(wp) :: muref_scale,tref_scale,reyn
+  integer :: n,bc_idx,ierr
+  !
+  !.. Allocatable Scalars ...
+  type(bc_input_t), allocatable :: tmp_bc_input
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_shu_osher_problem"
   !
 continue
-  !
-  ! Find the index in bc_input for the supersonic inflow.
-  ! If missing, find the first empty name.
-  !
-  bc_idx = 0
-  find_sup_inflow_bc: &
-  do n = 1,size(bc_input)
-    if (trim(adjustl(uppercase(bc_input(n)%name))) == "SUP_INFLOW") then
-      bc_idx = n
-      exit find_sup_inflow_bc
-    else if (trim(adjustl(uppercase(bc_input(n)%name))) == "" .and. &
-             bc_idx == 0 ) then
-      bc_idx = n
-    end if
-  end do find_sup_inflow_bc
-  !
-  ! Override user input with correct supersonic inflow boundary condition.
-  !
-  bc_input(bc_idx)%rho_static = default_rho
-  bc_input(bc_idx)%vx         = default_vx
-  bc_input(bc_idx)%vy         = default_vy
-  bc_input(bc_idx)%vz         = default_vz
-  bc_input(bc_idx)%p_static   = default_pres
-  !
-  bc_input(bc_idx)%t_static   = default_bc_input%t_static
-  bc_input(bc_idx)%t_total    = default_bc_input%t_total
-  bc_input(bc_idx)%p_total    = default_bc_input%p_total
-  bc_input(bc_idx)%rho_total  = default_bc_input%rho_total
-  bc_input(bc_idx)%alpha_aoa  = default_bc_input%alpha_aoa
-  bc_input(bc_idx)%beta_aoa   = default_bc_input%beta_aoa
-  bc_input(bc_idx)%wall_temp  = default_bc_input%wall_temp
   !
   ! Override reference conditions with supersonic freestream condition.
   !
@@ -99,6 +68,59 @@ continue
   aref         = sqrt( max( gam*rgasref*tref , rndoff ) )
   machref      = uref / aref
   reyref       = -one
+  !
+  ! Return if bc_input is not allocated
+  !
+  if (.not. allocated(bc_input)) then
+    return
+  end if
+  !
+  ! Find the index in bc_input for the supersonic inflow.
+  ! If missing, find the first empty name.
+  !
+  bc_idx = 0
+  find_sup_inflow_bc: &
+  do n = 1,size(bc_input)
+    if (trim(adjustl(uppercase(bc_input(n)%name))) == "INFLOW") then
+      bc_idx = n
+      exit find_sup_inflow_bc
+    else if (trim(adjustl(uppercase(bc_input(n)%name))) == "" .and. &
+             bc_idx == 0 ) then
+      bc_idx = n
+    end if
+  end do find_sup_inflow_bc
+  !
+  ! Return if bc_idx is out of the bounds of bc_input,
+  !  e.g., bc_input has a size of 0
+  !
+  if (bc_idx < lbound(bc_input,dim=1) .or. &
+      bc_idx > ubound(bc_input,dim=1)) then
+    return
+  end if
+  !
+  ! Allocate the tmp_bc_input scalar with default bc_input_t conditions
+  !
+  allocate ( tmp_bc_input , stat=ierr )
+  !
+  ! Save the non-flow-conditions part of bc_input to tmp_bc_input
+  !
+  call tmp_bc_input%copy_nonflow_conditions( bc_input(bc_idx) )
+  !
+  ! Set the inflow conditions for the Shu-Osher problem
+  !
+  tmp_bc_input%rho_static = default_rho
+  tmp_bc_input%vx         = default_vx
+  tmp_bc_input%vy         = default_vy
+  tmp_bc_input%vz         = default_vz
+  tmp_bc_input%p_static   = default_pres
+  !
+  ! Copy tmp_bc_input into bc_input(bc_idx)
+  !
+  bc_input(bc_idx) = tmp_bc_input
+  !
+  ! Deallocate tmp_bc_input
+  !
+  if (allocated(tmp_bc_input)) deallocate ( tmp_bc_input , stat=ierr )
   !
 end subroutine initialize_shu_osher_problem
 !
