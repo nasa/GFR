@@ -622,6 +622,84 @@ end subroutine stabilize_usp
 !
 !###############################################################################
 !
+subroutine update_gp_face_dusp_arrays(caller_name,skip_thermo_check)
+  !
+  !.. Use Statements ..
+  use geomvar_mod,     only : n_solpts
+  use flowvar_mod,     only : usp,gpsp
+  use ovar,            only : thermofix
+  use ovar,            only : governing_equations
+  use flux_mod,        only : interp_cv_to_flxpts
+  use flux_mod,        only : discontinuous_gradient_at_solpts
+  !
+  use thermofix_mod,   only : check_thermo_properties
+  use thermo_mod,      only : update_mixture_density
+  use thermo_mod,      only : update_thermo_properties
+  use transport_mod,   only : update_transport_properties
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: caller_name
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: skip_thermo_check
+  !
+  !.. Local Scalars ..
+  logical(lk) :: perform_thermo_check
+  !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_gp_face_dusp_arrays"
+  !
+continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  perform_thermo_check = true
+  if (present(skip_thermo_check)) then
+    perform_thermo_check = (.not. skip_thermo_check)
+  end if
+  !
+  ! Update the thermodynamic and transport properties at the solution points
+  !
+  call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                loc="cell",caller_name=caller_name)
+  !
+  ! Update the thermodynamic and transport properties at the solution points
+  !
+  call update_transport_properties(1,n_solpts,usp,gpsp)
+  !
+  ! Interpolate the new updated solution to the face points
+  !
+  call interp_cv_to_flxpts
+  !
+  ! Check for any negative thermodynamic properties
+  ! at the solution points or flux points
+  !
+  if (perform_thermo_check) then
+    call check_thermo_properties(thermofix%check_cells, thermofix%check_faces, &
+                                 thermofix%check_nodes, update_faces=true, &
+                                 verbose=thermofix%verbose )
+  end if
+  !
+  ! Compute the discontinuous gradient at the solution points
+  !
+  if (governing_equations == NavierStokes_Eqns) then
+    call discontinuous_gradient_at_solpts
+  end if
+  !
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  call solver_timer(leaving_procedure,pname,idx)
+  !
+end subroutine update_gp_face_dusp_arrays
+!
+!###############################################################################
+!
 subroutine update_faceusp(iter,nst,newton_failures)
   !
   !.. Use Statements ..
