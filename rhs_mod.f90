@@ -513,12 +513,17 @@ subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name)
   use ovar,            only : Limiter_Option,Filter_Option
   use ovar,            only : ideal_total_temperature
   use ovar,            only : use_sponge_filter
+  use ovar,            only : thermofix
+  use ovar,            only : governing_equations
   use filter_mod,      only : filter_usp
   use limiters_mod,    only : resolution_indicator
   use limiters_mod,    only : limit_by_projecting
   use limiters_mod,    only : apply_sponge_filter
   use mlp_mod,         only : limit_by_mlp
+  use flux_mod,        only : interp_cv_to_flxpts
+  use flux_mod,        only : discontinuous_gradient_at_solpts
   !
+  use thermofix_mod,   only : check_thermo_properties
   use thermofix_mod,   only : check_cell_thermo_properties
   use thermo_mod,      only : update_mixture_density
   use thermo_mod,      only : update_thermo_properties
@@ -613,6 +618,23 @@ continue
   ! Update the thermodynamic and transport properties at the solution points
   !
   call update_transport_properties(1,n_solpts,usp,gpsp)
+  !
+  ! Interpolate the new updated solution to the face points
+  !
+  call interp_cv_to_flxpts
+  !
+  ! Check the cell and face thermo properties
+  !
+  call check_thermo_properties( thermofix%check_cells, thermofix%check_faces, &
+                                thermofix%check_nodes, update_faces=true, &
+                                verbose=thermofix%verbose )
+  !
+  ! Compute the discontinuous gradient at the solution points
+  !
+  if (governing_equations == NavierStokes_Eqns) then
+    call discontinuous_gradient_at_solpts
+  end if
+  !
   !
   call debug_timer(leaving_procedure,pname)
   !

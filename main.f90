@@ -1750,8 +1750,8 @@ continue
   ! Interpolate the conserved variables from
   ! the solution points to the face/flux points
   !
-  call interp_cv_to_flxpts(iter,nst)
-                                    !  call check_for_bad_number(__LINE__)
+ !call interp_cv_to_flxpts(iter,nst)
+ !                                  !  call check_for_bad_number(__LINE__)
   !
   ! Initiate the exchange of face/flux point solutions
   ! between adjacent partitions
@@ -1765,10 +1765,10 @@ continue
   !
   ! Compute the discontinuous gradient of the solution at the solution points
   !
-  if (governing_equations == NavierStokes_Eqns) then
-    call discontinuous_gradient_at_solpts
-                                    !  call check_for_bad_number(__LINE__)
-  end if
+ !if (governing_equations == NavierStokes_Eqns) then
+ !  call discontinuous_gradient_at_solpts
+ !                                  !  call check_for_bad_number(__LINE__)
+ !end if
   !
   ! Get the boundary conditions for the boundary face/flux points
   !

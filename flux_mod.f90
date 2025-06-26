@@ -124,9 +124,9 @@ continue
   ! Check for any negative thermodynamic properties at the flux points
   !
  !call check_face_thermo_properties()  ! obsolete
-  call check_thermo_properties( thermofix%check_cells, thermofix%check_faces, &
-                                thermofix%check_nodes, update_faces=true, &
-                                verbose=thermofix%verbose )
+ !call check_thermo_properties( thermofix%check_cells, thermofix%check_faces, &
+ !                              thermofix%check_nodes, update_faces=true, &
+ !                              verbose=thermofix%verbose )
   !
   call update_transport_properties(n1,n2,faceusp,facegpsp)
   !
