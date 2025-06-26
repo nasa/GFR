@@ -403,7 +403,7 @@ continue
       if ( num_bad_cell == 1 ) then
         do nc = 1, ncell  ! cell loop
           if ( bad_cell(nc) ) then
-            xyz_ctr(3) = zero
+            xyz_ctr(:) = zero
             nr = nme-nmb+1
             n1 = cell(nc)%beg_sp        ! beginning sol-pt in this cell
             n2 = cell(nc)%end_sp        ! ending    sol-pt in this cell
