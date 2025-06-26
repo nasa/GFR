@@ -646,6 +646,8 @@ continue
     return
   case (TFM_LIMIT)
     call emergency_limit_bad_cells(bad_cell,usp)
+  case (-TFM_LIMIT)
+    call emergency_dynamic_filter_bad_cells(bad_cell,usp,mend_iter)
   case (TFM_SCALE)
     call emergency_scale_bad_cells(bad_cell,usp)
   case default
