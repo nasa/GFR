@@ -5514,6 +5514,7 @@ subroutine create_shu_osher_test_grid()
   !
   !.. Local Scalars ..
   integer  :: n,nc,nf,np,ierr
+  integer  :: inflow_idx,outflow_idx
   real(wp) :: dl
   !
   !.. Local Parameters ..
@@ -5522,6 +5523,40 @@ subroutine create_shu_osher_test_grid()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  ! Reset bc_input for the 1D Shu-Osher problem
+  !
+  call reset_bc_input_for_1d_grid(inflow=bc_sup_inflow)
+  !
+  ! Find the inflow and outflow indices in bc_input
+  ! NOTE: The subroutine reset_bc_input_for_1d_grid should force the
+  !       names of the boundary conditions to INFLOW and OUTFLOW.
+  !
+  inflow_idx = -1
+  outflow_idx = -1
+  do n = 1,size(bc_names)
+    if (trim(adjustl(uppercase(bc_names(n)))) == "INFLOW") then
+      inflow_idx = n
+    else if (trim(adjustl(uppercase(bc_names(n)))) == "OUTFLOW") then
+      outflow_idx = n
+    end if
+  end do
+  !
+  ! If any of the above BC indices are still -1, there is a missing BC in
+  ! bc_input needed for the 1D Shu-Osher problem, so write out an error for
+  ! that missing BC and stop the simulation.
+  !
+  if (any([inflow_idx,outflow_idx] == -1)) then
+    if (mypnum == glb_root) then
+      write (iout,1)
+      if (inflow_idx == -1)  write (iout,2) "INFLOW"
+      if (outflow_idx == -1) write (iout,2) "OUTFLOW"
+      write (iout,3)
+    end if
+    flush (iout)
+    write (error_message,4)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
   !
   ! Reset the grid format input parameter to identify
   ! the grid as internally generated
@@ -5627,8 +5662,7 @@ continue
   !
   nf = 1
   !
-! bface( 1,nf) = bc_sup_inflow
-  bface( 1,nf) = bc_sup_outflow
+  bface( 1,nf) = inflow_idx
   bface( 2,nf) = 1      ! host cell index
   bface( 3,nf) = Geom_Edge
   bface( 4,nf) = 1      ! x-min face
@@ -5643,8 +5677,7 @@ continue
   !
   nf = 2
   !
-! bface( 1,nf) = bc_slip_wall
-  bface( 1,nf) = bc_sup_outflow
+  bface( 1,nf) = outflow_idx
   bface( 2,nf) = ncell  ! host cell index
   bface( 3,nf) = Geom_Edge
   bface( 4,nf) = 2      ! x-max face
@@ -5655,23 +5688,18 @@ continue
   bface( 9,nf) = 0      ! not used for physical boundary
   bface(10,nf) = ncell + nf ! index of ghost cell/face
   !
-  ! #######
-  ! #######
-  ! ## 3 ##
-  ! #######
-  ! #######
-  !
-  ! Create the bc_names array
-  !
-  allocate ( bc_names(1:2) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bc_names",1,__LINE__,__FILE__,ierr,error_message)
-  !
-! bc_names(1) = "SUP_INFLOW"
-! bc_names(2) = "SLIPWALL"
-  bc_names(1) = "SUP_OUTFLOW"
-  bc_names(2) = "SUP_OUTFLOW"
-  !
   call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (/,80("#"),//, &
+              2x,"ERROR: There is a missing boundary condition that ", &
+                 "is needed",/,9x,"to run the 1D Shu-Osher problem:")
+  2 format (12x,"The ",a9," boundary condition is missing!")
+  3 format (/,80("#"),/)
+  4 format ("WHEN TRYING TO INTERNALLY GENERATE THE GRID FOR THE ", &
+            "1D SHU-OSHER FLOW PROBLEM, THERE IS A MISSING BOUNDARY ", &
+            "CONDITION THAT IS NEEDED TO BE ABLE TO RUN THIS PROBLEM!")
   !
 end subroutine create_shu_osher_test_grid
 !
