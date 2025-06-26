@@ -464,9 +464,9 @@ continue
   !
   ! Check/fix bad thermo properties
   !
-  call check_thermo_properties( thermofix%check_cells, thermofix%check_faces, &
-                                thermofix%check_nodes, update_faces=true, &
-                                verbose=thermofix%verbose )
+ !call check_thermo_properties( thermofix%check_cells, thermofix%check_faces, &
+ !                              thermofix%check_nodes, update_faces=true, &
+ !                              verbose=thermofix%verbose )
   !
   ! Write the solution file
   !
