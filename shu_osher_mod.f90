@@ -91,7 +91,11 @@ continue
   end do find_sup_inflow_bc
   !
   ! Return if bc_idx is out of the bounds of bc_input,
-  !  e.g., bc_input has a size of 0
+  ! e.g., bc_idx has a value 0, or bc_input has a size of 0
+  ! which should mean bc_input is allocated as bc_input(1:0).
+  ! NOTE: If the flow conditions of bc_input are still the
+  !       default values, it will set the boundary flow
+  !       conditions to the freestream/reference conditions.
   !
   if (bc_idx < lbound(bc_input,dim=1) .or. &
       bc_idx > ubound(bc_input,dim=1)) then
@@ -183,6 +187,7 @@ continue
   ! -------------------------------------------
   !
   if ( xyz(1) >= -4.0_wp ) then
+ !if ( xyz(1) >= -3.0_wp ) then
     rho    = one + 0.2_wp * sin( five * xyz(1) )  ! [kg/m3]
     vel(1) = zero  ! [m/s]
     vel(2) = zero  ! [m/s]
