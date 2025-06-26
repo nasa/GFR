@@ -788,14 +788,8 @@ continue
     num_rk_stages = 5
   else if (any(abs(Runge_Kutta_Scheme) == OERK_Schemes)) then
     call init_optimized_erk_coefficients
-    Runge_Kutta_Scheme = OERK
   else if (any(abs(Runge_Kutta_Scheme) == EPERK_Schemes)) then
     call init_eperk_coefficients
-    if (any(abs(Runge_Kutta_Scheme) == OEPERK_Schemes)) then
-      Runge_Kutta_Scheme = EPERK
-    else
-      Runge_Kutta_Scheme = -EPERK
-    end if
   end if
   !
   ! Check thermofix inputs.
@@ -1141,6 +1135,19 @@ continue
       !
     end if
     !
+  end if
+  !
+  ! Reset the Runge_Kutta_Scheme value to the family specific
+  ! value if using one of the OERK or EPERK schemes
+  !
+  if (any(abs(Runge_Kutta_Scheme) == OERK_Schemes)) then
+    Runge_Kutta_Scheme = OERK
+  else if (any(abs(Runge_Kutta_Scheme) == EPERK_Schemes)) then
+    if (any(abs(Runge_Kutta_Scheme) == OEPERK_Schemes)) then
+      Runge_Kutta_Scheme = EPERK
+    else
+      Runge_Kutta_Scheme = -EPERK
+    end if
   end if
   !
   !$ACC UPDATE DEVICE(nr,pr,walls_are_exact,sub_inflow_method, &
