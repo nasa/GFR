@@ -325,6 +325,7 @@ subroutine check_thermo_properties(check_cells,check_faces,check_nodes, &
   use geomvar_mod,  only : cell, xyz_nodes
   use flowvar_mod,  only : usp,gpsp
   use cell_ave_mod, only : cell_ave_sol
+  use ovar,         only : itcur,current_rk_stage
   real(wp) :: xyz_ctr(3)
   integer  :: nc,n,n1,n2,nn,nr,num_cell_nodes
 !-DEBUG_END:
@@ -393,6 +394,7 @@ continue
     !
     if ( verbose == true ) then
       num_bad_cell = count(bad_cell==true)
+      if (iter_mend == 1) write (iout,10) itcur, current_rk_stage
       write (iout,1) iter_mend, mypnum, num_bad_cell
 !-DEBUG_BEG:
 !-DEBUG_CMT: Print more bad_cell info
@@ -420,10 +422,10 @@ continue
                           minval( gpsp(n1:n2,npres) ), &
                           minval( gpsp(n1:n2,ntemp) )
             write(iout,5) cell_ave_sol(nec,nc)
-2           format(2x,'part,cell,bad_cell,bad_face,bad_node =',i6,i8,3l2)
-3           format(2x,'Cell x,y,z =',3es13.5)
-4           format(2x,'Cell r,p,t =',3es13.5)
-5           format(2x,'Ave  r     =',3es13.5)
+2           format(10x,'part,cell,bad_cell,bad_face,bad_node =',i6,i8,3l2)
+3           format(10x,'Cell x,y,z =',3es13.5)
+4           format(10x,'Cell r,p,t =',3es13.5)
+5           format(10x,'Ave  r     =',3es13.5)
             exit  ! exit cell loop
           end if
         end do
@@ -448,8 +450,8 @@ continue
   !
   ! Format Statements
   !
-  1 format (2x,"THERMOFIX WARNING!!! ITER # ",i0,": CPU # ",i6, &
-               " IS REPAIRING ",i0," CELLS.")
+  1 format (6x,"MEND ITER # ",i0,": CPU # ",i6," IS REPAIRING ",i0," CELLS.")
+  10 format (2x,"THERMOFIX WARNING!!! ITER # ",i0," (RK Stage ",i0,"):")
   !
 end subroutine check_thermo_properties
 !
