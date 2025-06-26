@@ -2532,7 +2532,7 @@ continue
   do nc = 1,ncell
     if (bad_cell(nc)) then
       n1 = cell(nc)%beg_sp
-      n2 = cell(nc)%beg_sp
+      n2 = cell(nc)%end_sp
       call update_thermo_properties(n1,n2,usp,gpsp, &
                                     loc="cell",caller_name=pname)
       call update_transport_properties(n1,n2,usp,gpsp)
