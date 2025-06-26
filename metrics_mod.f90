@@ -2552,13 +2552,15 @@ subroutine compute_face_normals_1d(fnrm)
   !
   !.. Use Statements ..
   use geomvar_mod, only : ncell,cell,face
+  use geomvar_mod, only : bface,nfbnd
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: fnrm(:,:)
   !
   !.. Local Scalars ..
-  integer :: nc,nf,ncf,f0
-  integer :: kf,nfp
+  integer  :: nc,nf,ncf,f0
+  integer  :: kf,nfp
+  real(wp) :: nrm_val
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_face_normals_1d"
@@ -2581,27 +2583,31 @@ continue
       !
       nf = cell(nc)%face(ncf)%idx
       !
+      ! The face normal for 1D cells is almost always +1
+      !
+      nrm_val = one
+      !
+      if (nf <= nfbnd) then ! this is a boundary face
+        if (ncf == 1) then ! this is the left face of the cell
+          ! This appears to be a BC on the left face of the cell.
+          ! The face normal needs to be -1 because the boundary
+          ! normals always point outside the domain.
+          nrm_val = -one
+        end if
+      end if
+      !
+      ! Set the face normal for the flux points of this face
+      !
       f0 = face(nf)%beg_fp - 1
       nfp = face(nf)%end_fp - f0
       !
-      ! Now compute the derivative of the flux point coordinates
-      !
       do kf = 1,nfp
-        !
-        ! The face normal for 1D cells is always +1
-        !
-        fnrm(1,f0+kf) = one
-        !
+        fnrm(1,f0+kf) = nrm_val
       end do
       !
     end do cell_face_loop
     !
   end do cell_loop
-  !
-  ! The face normal for the left face of the first cell is -1 because
-  ! the boundary normals always point outside the domain.
-  !
-  fnrm(1,1) = -one
   !
   call debug_timer(leaving_procedure,pname)
   !
