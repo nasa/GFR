@@ -2326,7 +2326,7 @@ subroutine emergency_scale_bad_cells_3d(bad_cell,usp)
   character(len=*), parameter :: pname = "emergency_scale_bad_cells_3d"
   !
   !.. Local Scalars ..
-  integer :: n,nc,n0,np
+  integer  :: n,nc,n0,np
   real(wp) :: f1  ! solution scaling factor
   real(wp) :: f2  ! f2=1-f1
   !
@@ -2366,6 +2366,7 @@ subroutine emergency_scale_bad_cells_2d(bad_cell,usp)
   use geomvar_mod,  only : ncell,cell
   use thermo_mod,   only : update_thermo_properties
   use cell_ave_mod, only : cell_ave_sol
+  use ovar,         only : thermofix
   !
   !.. Arguments ..
   !> Marks the cells to be repaired.
@@ -2377,15 +2378,17 @@ subroutine emergency_scale_bad_cells_2d(bad_cell,usp)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "emergency_scale_bad_cells_2d"
   !
-  real(wp), parameter :: f1 = half       ! solution scaling factor
-  real(wp), parameter :: f2 = one - f1
-  !
   !.. Local Scalars ..
-  integer :: n,nc,n0,np
+  integer  :: n,nc,n0,np
+  real(wp) :: f1  ! solution scaling factor
+  real(wp) :: f2  ! f2=1-f1
   !
 continue
   !
   ! Scale the solution.
+  !
+  f1 = thermofix%scale_factor
+  f2 = one - f1
   !
   loop_cells: &
   do nc = 1,ncell
@@ -2415,6 +2418,7 @@ subroutine emergency_scale_bad_cells_1d(bad_cell,usp)
   use geomvar_mod,  only : ncell,cell
   use thermo_mod,   only : update_thermo_properties
   use cell_ave_mod, only : cell_ave_sol
+  use ovar,         only : thermofix
   !
   !.. Arguments ..
   !> Marks the cells to be repaired.
@@ -2426,15 +2430,17 @@ subroutine emergency_scale_bad_cells_1d(bad_cell,usp)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "emergency_scale_bad_cells_1d"
   !
-  real(wp), parameter :: f1 = half       ! solution scaling factor
-  real(wp), parameter :: f2 = one - f1
-  !
   !.. Local Scalars ..
-  integer :: n,nc,n0,np
+  integer  :: n,nc,n0,np
+  real(wp) :: f1  ! solution scaling factor
+  real(wp) :: f2  ! f2=1-f1
   !
 continue
   !
   ! Scale the solution.
+  !
+  f1 = thermofix%scale_factor
+  f2 = one - f1
   !
   loop_cells: &
   do nc = 1,ncell
@@ -2463,6 +2469,7 @@ subroutine emergency_scale_bad_cells_nd(mbeg,mend,bad_cell,usp)
   use geomvar_mod,  only : ncell,cell
   use thermo_mod,   only : update_thermo_properties
   use cell_ave_mod, only : cell_ave_sol
+  use ovar,         only : thermofix
   !
   !.. Arguments ..
   integer,     intent(in)    :: mbeg        !< Beginning solution variable.
@@ -2475,15 +2482,17 @@ subroutine emergency_scale_bad_cells_nd(mbeg,mend,bad_cell,usp)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "emergency_scale_bad_cells_nd"
   !
-  real(wp), parameter :: f1 = half       ! solution scaling factor
-  real(wp), parameter :: f2 = one - f1
-  !
   !.. Local Scalars ..
-  integer     :: m,n,nc,n0,np
+  integer  :: m,n,nc,n0,np
+  real(wp) :: f1  ! solution scaling factor
+  real(wp) :: f2  ! f2=1-f1
   !
 continue
   !
   ! Scale the solution.
+  !
+  f1 = thermofix%scale_factor
+  f2 = one - f1
   !
   loop_cells: &
   do nc = 1,ncell
