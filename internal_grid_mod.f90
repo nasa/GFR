@@ -5675,7 +5675,179 @@ continue
   !
 end subroutine create_shu_osher_test_grid
 !
-!!###############################################################################
+!###############################################################################
+!
+subroutine reset_bc_input_for_1d_grid(periodic_distance,inflow,outflow)
+  !
+  !.. Use Statements ..
+  use ovar, only : bc_input,bc_input_t,periodic_bc_t
+  use ovar, only : bc_names
+  !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(in) :: periodic_distance
+  integer,  optional, intent(in) :: inflow
+  integer,  optional, intent(in) :: outflow
+  !
+  !.. Local Scalars ..
+  integer :: i,n,nbc,bc_idx
+  !
+  type(periodic_bc_t) :: tmp_periodic_bc1
+  type(periodic_bc_t) :: tmp_periodic_bc2
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: bcname
+  !
+  !.. Local Allocatable Arrays ..
+  type(bc_input_t), allocatable :: tmp_bc_input(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "reset_bc_input_for_1d_grid"
+  !
+continue
+  !
+  ! Create a default bc_input for one of the 1D test cases
+  !
+  ! F2003 AUTO-REALLOC
+  tmp_bc_input = get_default_1d_bc_input(periodic_distance,inflow,outflow)
+  !
+  nbc = size(tmp_bc_input)
+  !
+  ! If bc_input is not allocated, use move_alloc to allocate
+  ! bc_input to tmp_bc_input and return from the subroutine.
+  !
+  if (.not. allocated(bc_input)) then
+    call move_alloc( from=tmp_bc_input , to=bc_input )
+    return
+  end if
+  !
+  ! Find the inflow BC in bc_input if it exists
+  !
+  bc_idx = 1
+  n = 0
+  tmp_periodic_bc1 = tmp_bc_input(bc_idx)%periodic
+  find_inflow_loop: &
+  do i = 1,size(bc_input)
+    !
+    bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
+    if (bcname == "XMIN") n = i
+    if (bcname == "INFLOW") n = i
+    if (any(bc_input(i)%set_bc_value == bc_inflows(:))) n = i
+    !
+    if (n > 0) then
+      tmp_bc_input(bc_idx) = bc_input(n)
+      tmp_bc_input(bc_idx)%name = "INFLOW"
+      exit find_inflow_loop
+    end if
+    !
+  end do find_inflow_loop
+  !
+  ! Find the outflow bc in bc_input if it exists
+  !
+  bc_idx = 2
+  n = 0
+  tmp_periodic_bc2 = tmp_bc_input(bc_idx)%periodic
+  find_outflow_loop: &
+  do i = 1,size(bc_input)
+    !
+    bcname = trim(adjustl(uppercase(bc_input(i)%name))) ! F2003 AUTO-REALLOC
+    if (bcname == "XMAX") n = i
+    if (bcname == "OUTFLOW") n = i
+    if (any(bc_input(i)%set_bc_value == bc_outflows(:))) n = i
+    !
+    if (n > 0) then
+      tmp_bc_input(bc_idx) = bc_input(n)
+      tmp_bc_input(bc_idx)%name = "OUTFLOW"
+      exit find_outflow_loop
+    end if
+    !
+  end do find_outflow_loop
+  !
+  ! If the inflow and outflow BCs are periodic, copy the default values for
+  ! the periodic BCs back into tmp_bc_input
+  !
+  if (all(tmp_bc_input(1:2)%set_bc_value == bc_periodic)) then
+    tmp_bc_input(1)%periodic = tmp_periodic_bc1
+    tmp_bc_input(2)%periodic = tmp_periodic_bc2
+  end if
+  !
+  ! Finally, use move_alloc to replace whatever might be in bc_input
+  ! with the reconstructed complete bc_input contained in tmp_bc_input.
+  !
+  call move_alloc( from=tmp_bc_input , to=bc_input )
+  !
+  ! Reset bc_names to the names just assigned to bc_input for each BC
+  !
+  bc_names = bc_input(1:nbc)%name ! F2003 AUTO-REALLOC
+  !
+  contains
+  !
+  pure function get_default_1d_bc_input(periodic_distance,inflow,outflow) &
+                                 result(return_value)
+    !
+    !.. Optional Arguments ..
+    real(wp), optional, intent(in) :: periodic_distance
+    integer,  optional, intent(in) :: inflow
+    integer,  optional, intent(in) :: outflow
+    !
+    !.. Function Result ..
+    type(bc_input_t), allocatable :: return_value(:)
+    !
+    !.. Local Scalars ..
+    integer :: ierr,inflow_bc,outflow_bc
+    logical(lk) :: set_periodic
+    !
+  continue
+    !
+    set_periodic = fals
+    if (present(periodic_distance)) then
+      if (abs(periodic_distance) > eps6) then
+        set_periodic = true
+      end if
+    end if
+    !
+    inflow_bc = bc_sup_outflow
+    if (present(inflow)) then
+      inflow_bc = inflow
+    end if
+    !
+    outflow_bc = bc_sup_outflow
+    if (present(outflow)) then
+      outflow_bc = outflow
+    end if
+    !
+    allocate ( return_value(1:2) , stat=ierr )
+    !
+    ! Default both boundary conditions to supersonic outflow
+    ! NOTE: This has seemed to work best for non-periodic 1D problems
+    !
+    return_value(1)%name = "INFLOW"
+    return_value(1)%set_bc_value = inflow_bc
+    !
+    return_value(2)%name = "OUTFLOW"
+    return_value(2)%set_bc_value = outflow_bc
+    !
+    if (set_periodic) then
+      !
+      ! Set the boundary conditions to periodic if periodic_distance
+      ! is present and has a magnitude greater than 1.0e-6.
+      !
+      return_value(1)%set_bc_value = bc_periodic
+      return_value(1)%periodic%matching_bc_name = "OUTFLOW"
+      return_value(1)%periodic%matching_bc_idx  = 2
+      return_value(1)%periodic%translation(1)   = periodic_distance
+      !
+      return_value(2)%set_bc_value = bc_periodic
+      return_value(2)%periodic%matching_bc_name = "INFLOW"
+      return_value(2)%periodic%matching_bc_idx  = 1
+      return_value(2)%periodic%translation(1)   = -periodic_distance
+      !
+    end if
+    !
+  end function get_default_1d_bc_input
+  !
+end subroutine reset_bc_input_for_1d_grid
+!
+!###############################################################################
 !
 subroutine create_postproc_debug_grid
   !
