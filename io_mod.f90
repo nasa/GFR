@@ -794,7 +794,8 @@ continue
   !
   ! Check thermofix inputs.
   !
-  if (.not. any(thermofix%method == Valid_TFM(:))) then
+  if (.not. any(thermofix%method == Valid_TFM(:)) .and. &
+      abs(thermofix%method) /= TFM_LIMIT) then
     write(error_message,61)
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
