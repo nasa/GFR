@@ -506,7 +506,7 @@ function initial_conditions(xyz,init_cond) result(return_value)
   !
   !.. Use Statements ..
   use geomvar_mod, only : ncell
-  use ovar, only : bc_in
+  use ovar, only : bc_in,bc_input
   use ovar, only : itestcase
   use ovar, only : mms_opt,mms_init
   use ovar, only : postproc_debug_grid
@@ -531,6 +531,8 @@ function initial_conditions(xyz,init_cond) result(return_value)
   !.. Local Scalars ..
   integer  :: ibc,k,m,np,ierr
   real(wp) :: div,dl,r,r0,nozzle_len
+  !
+  character(len=32) :: bcnam
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: adj_xyz(:,:)
@@ -775,6 +777,26 @@ continue
         return_value(k,m) = bc_in(ibc)%cv(m)
       end do
     end do
+    !
+  else if (abs(itestcase) == UIUC_Scramjet) then
+    !
+    !###########################################################################
+    !##### UIUC scramjet combustor
+    !###########################################################################
+    !
+    find_inj_bc: &
+    do k = 1,ubound(bc_in,dim=1)
+      bcnam = bc_input(bc_in(k)%bc_input_idx)%name
+      if (uppercase(bcnam(1:8)) == "INJECTOR" .or. &
+          uppercase(bcnam(1:2)) == "I1") then
+        ibc = k
+        exit find_inj_bc
+      end if
+    end do find_inj_bc
+    !
+    return_value(1:np,1:nq) = uiuc_scramjet_combustor_init(xyz, &
+                                                           bc_in(ibc), &
+                                                           bc_in(0))
     !
   else
     !
@@ -5236,6 +5258,7 @@ include "Functions/sod.f90"
 include "Functions/smc000_interior_wall_radius.f90"
 include "Functions/arn2_interior_wall_radius.f90"
 include "Functions/ssjet_interior_wall_radius.f90"
+#include "Functions/uiuc_combustor.f90"
 #include "Functions/check_for_bad_number.f90"
 !
 !###############################################################################

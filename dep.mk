@@ -329,6 +329,7 @@ $(OBJDIR)/initialization_mod.o : initialization_mod.f90 \
                $(FUNDIR)/ssjet_interior_wall_radius.f90 \
                $(FUNDIR)/sod.f90 \
                $(FUNDIR)/pulse.f90 \
+               $(FUNDIR)/uiuc_combustor.f90 \
                $(FUNDIR)/check_for_bad_number.f90
 
 $(OBJDIR)/internal_grid_mod.o : internal_grid_mod.f90 \
