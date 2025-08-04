@@ -2665,10 +2665,10 @@ end subroutine compute_total_temp_tpg_sp
 #ifndef DISABLE_PURE
 pure &
 #endif
-subroutine compute_total_pressure_sp(n1,n2,cv,gp,p0,dimensional)
+subroutine compute_total_pressure_sp(n1,n2,cv,gp,p0,dimensional,t0)
   !
   !.. Use Statements ..
-  use ovar, only : rhoref,aref
+  use ovar, only : rhoref,aref,tref
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -2678,7 +2678,8 @@ subroutine compute_total_pressure_sp(n1,n2,cv,gp,p0,dimensional)
   real(wp), intent(inout) :: p0(:)
   !
   !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: dimensional
+  logical(lk), optional,    intent(in) :: dimensional
+  real(wp),    optional, intent(inout) :: t0(:)
   !
   !.. Local Scalars ..
   integer :: n
@@ -2689,9 +2690,9 @@ subroutine compute_total_pressure_sp(n1,n2,cv,gp,p0,dimensional)
 continue
   !
   if (ncs > 0) then
-    call compute_total_pres_tpg_sp(n1,n2,cv,gp,p0)
+    call compute_total_pres_tpg_sp(n1,n2,cv,gp,p0,t0)
   else
-    call compute_total_pres_cpg_sp(n1,n2,cv,gp,p0)
+    call compute_total_pres_cpg_sp(n1,n2,cv,gp,p0,t0)
   end if
   !
   if (present(dimensional)) then
@@ -2699,6 +2700,11 @@ continue
       do n = n1,n2
         p0(n) = p0(n)*rhoref*aref*aref
       end do
+      if (present(t0)) then
+        do n = n1,n2
+          t0(n) = t0(n)*tref
+        end do
+      end if
     end if
   end if
   !
@@ -2709,7 +2715,7 @@ end subroutine compute_total_pressure_sp
 #ifndef DISABLE_PURE
 pure &
 #endif
-subroutine compute_total_pres_tpg_sp(n1,n2,cv,gp,p0)
+subroutine compute_total_pres_tpg_sp(n1,n2,cv,gp,p0,t0)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -2718,12 +2724,15 @@ subroutine compute_total_pres_tpg_sp(n1,n2,cv,gp,p0)
   real(wp),    intent(in) :: gp(:,:)
   real(wp), intent(inout) :: p0(:)
   !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(inout) :: t0(:)
+  !
   !.. Local Scalars ..
   integer  :: n,np,m
   real(wp) :: p,rmix,val
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: t0(:)
+  real(wp), allocatable :: ttot(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_total_pres_tpg_sp"
@@ -2732,9 +2741,9 @@ continue
   !
   np = size(cv,dim=1)
   !
-  allocate ( t0(1:np) )
+  allocate ( ttot(1:np) )
   !
-  call compute_total_temp_sp(n1,n2,cv,gp,t0)
+  call compute_total_temp_sp(n1,n2,cv,gp,ttot)
   !
   ! Convert species densities to mass fractions
   !
@@ -2744,9 +2753,15 @@ continue
     end do
   end do
   !
-  call compute_cp_over_temp_integral_sp(n1,n2,cv(:,1:ncs),p0,gp(:,ntemp),t0)
+  call compute_cp_over_temp_integral_sp(n1,n2,cv(:,1:ncs),p0,gp(:,ntemp),ttot)
   !
-  if (allocated(t0)) deallocate ( t0 )
+  if (present(t0)) then
+    do n = n1,n2
+      t0(n) = ttot(n)
+    end do
+  end if
+  !
+  if (allocated(ttot)) deallocate ( ttot )
   !
   ! Convert mass fractions back to densities
   !
@@ -2777,7 +2792,7 @@ end subroutine compute_total_pres_tpg_sp
 #ifndef DISABLE_PURE
 pure &
 #endif
-subroutine compute_total_pres_cpg_sp(n1,n2,cv,gp,p0)
+subroutine compute_total_pres_cpg_sp(n1,n2,cv,gp,p0,t0)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -2789,9 +2804,12 @@ subroutine compute_total_pres_cpg_sp(n1,n2,cv,gp,p0)
   real(wp),    intent(in) :: gp(:,:)
   real(wp), intent(inout) :: p0(:)
   !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(inout) :: t0(:)
+  !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: p,t,t0,gam_over_gm1
+  real(wp) :: p,t,ttot,gam_over_gm1
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_total_pres_cpg_sp"
@@ -2806,9 +2824,13 @@ continue
     !
     p = gp(n,npres)
     t = gp(n,ntemp)
-    t0 = p0(n)
+    ttot = p0(n)
     !
-    p0(n) = p * ( (t0/t)**gam_over_gm1 )
+    p0(n) = p * ( (ttot/t)**gam_over_gm1 )
+    !
+    if (present(t0)) then
+      t0(n) = ttot
+    end if
     !
   end do
   !
@@ -2819,10 +2841,10 @@ end subroutine compute_total_pres_cpg_sp
 #ifndef DISABLE_PURE
 pure &
 #endif
-subroutine compute_total_pressure_1p(cv,gp,p0,dimensional)
+subroutine compute_total_pressure_1p(cv,gp,p0,dimensional,t0)
   !
   !.. Use Statements ..
-  use ovar, only : rhoref,aref
+  use ovar, only : rhoref,aref,tref
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: cv(:)
@@ -2830,10 +2852,11 @@ subroutine compute_total_pressure_1p(cv,gp,p0,dimensional)
   real(wp), intent(inout) :: p0
   !
   !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: dimensional
+  logical(lk), optional,    intent(in) :: dimensional
+  real(wp),    optional, intent(inout) :: t0
   !
   !.. Local Scalars ..
-  real(wp) :: r,p,t,t0,val,gam,rmix
+  real(wp) :: r,p,t,ttot,val,gam,rmix
   !
   !.. Local Arrays ..
   real(wp) :: smf(1:ncs)
@@ -2843,7 +2866,7 @@ subroutine compute_total_pressure_1p(cv,gp,p0,dimensional)
   !
 continue
   !
-  call compute_total_temp_1p(cv,gp,t0)
+  call compute_total_temp_1p(cv,gp,ttot)
   !
   if (ncs > 0) then
     !
@@ -2853,7 +2876,7 @@ continue
     !
     smf(1:ncs) = cv(1:ncs)/sum(cv(1:ncs)) ! species mass fractions
     !
-    call compute_cp_over_temp_integral_1p(smf,val,t,t0)
+    call compute_cp_over_temp_integral_1p(smf,val,t,ttot)
     !
     rmix = p / (r*t)
     !
@@ -2865,13 +2888,20 @@ continue
     t = gp(ntemp)
     gam = gp(ngamm)
 
-    p0 = p * ( (t0/t)**(gam/(gam-one)) )
+    p0 = p * ( (ttot/t)**(gam/(gam-one)) )
     !
+  end if
+  !
+  if (present(t0)) then
+    t0 = ttot
   end if
   !
   if (present(dimensional)) then
     if (dimensional) then
       p0 = p0*rhoref*aref*aref
+      if (present(t0)) then
+        t0 = t0*tref
+      end if
     end if
   end if
   !
