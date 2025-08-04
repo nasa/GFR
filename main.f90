@@ -233,6 +233,7 @@ program GFR_main
   logical(lk), parameter :: ignore_errors = fals
   !
   real(wp) :: cfl_tmp(1:5)
+  real(wp) :: cfl_save(1:5)
   !
   integer :: n_par_fbnd,nfint
   integer :: n_sum_fbnd,n_sum_fint
@@ -1222,13 +1223,32 @@ continue
               !
               write (iout,95)
               !
+              ! Save the current CFL settings for the global root process
+              !
+              cfl_save = [cfl,cfl_beg,cfl_end, &
+                          real(cfl_cycles,kind=wp), &
+                          real(cfl_start_iter,kind=wp)]
+              !
               open (newunit=i,file="ADJUST_CFL",iostat=ierr)
               read (i,nml=cfl_adjustment)
               close (i,status="delete",iostat=ierr)
               !
+              ! Copy the CFL adjustment inputs into cfl_tmp so the global
+              ! root processes can broadcast them to all the other processes.
+              !
               cfl_tmp = [cfl,cfl_beg,cfl_end, &
                          real(cfl_cycles,kind=wp), &
                          real(cfl_start_iter,kind=wp)]
+              !
+              ! Restore the saved CFL values for the global root process
+              ! now that the inputs from the CFL adjustment file have been
+              ! copied into cfl_tmp
+              !
+              cfl = cfl_save(1)
+              cfl_beg = cfl_save(2)
+              cfl_end = cfl_save(3)
+              cfl_cycles = nint(cfl_save(4))
+              cfl_start_iter = nint(cfl_save(5))
               !
               ! If we are adjusting the CFL cycling, automatically
               ! write out a restart file of the solution before the
@@ -1365,15 +1385,16 @@ continue
             call mpi_bcast(cfl_tmp,size(cfl_tmp,kind=int_mpi),mpi_flttyp, &
                            0_int_mpi,MPI_COMM_WORLD,mpierr)
             !
-            cfl = cfl_tmp(1)
-            cfl_beg = cfl_tmp(2)
-            cfl_end = cfl_tmp(3)
-            cfl_cycles = nint(cfl_tmp(4))
-            cfl_start_iter = nint(cfl_tmp(5))
-            !
-            if (cfl_start_iter < itcur) then
-              call adjust_cfl_cycles
-            end if
+           !cfl = cfl_tmp(1)
+           !cfl_beg = cfl_tmp(2)
+           !cfl_end = cfl_tmp(3)
+           !cfl_cycles = nint(cfl_tmp(4))
+           !cfl_start_iter = nint(cfl_tmp(5))
+           !!
+           !if (cfl_start_iter < itcur) then
+           !  call adjust_cfl_cycles
+           !end if
+            call adjust_cfl_cycles(cfl_tmp)
             !
           end if
           !

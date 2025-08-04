@@ -1779,12 +1779,62 @@ end function if_interpto_newgrid
 !
 !###############################################################################
 !
-subroutine adjust_cfl_cycles
+subroutine adjust_cfl_cycles(new_cfl_inputs)
+  !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(in) :: new_cfl_inputs(:)
+  !
+  !.. Local Saved Scalars ..
+  integer :: inp_cfl_cycles = 1
+  integer :: inp_cfl_start_iter = 0
+  !
+  real(wp) :: inp_cfl     = -one
+  real(wp) :: inp_cfl_beg = -one
+  real(wp) :: inp_cfl_end = -one
+  !
+  logical(lk) :: cfl_adjustment_is_set = fals
   !
 continue
   !
-  cfl_cycle_start = itcur
-  cfl_cycle_end = itcur + cfl_cycles
+  if (present(new_cfl_inputs)) then
+    !
+    cfl_adjustment_is_set = true
+    !
+    inp_cfl = new_cfl_inputs(1)
+    inp_cfl_beg = new_cfl_inputs(2)
+    inp_cfl_end = new_cfl_inputs(3)
+    inp_cfl_cycles = nint(new_cfl_inputs(4))
+    inp_cfl_start_iter = nint(new_cfl_inputs(5))
+    !
+    if (inp_cfl_start_iter <= itcur) then
+      cfl_start_iter = itcur
+    else
+      cfl_start_iter = inp_cfl_start_iter
+    end if
+    !
+  else
+    !
+    if (cfl_adjustment_is_set) then
+      !
+      cfl = inp_cfl
+      if (inp_cfl_cycles < 2) then
+        cfl_beg = inp_cfl
+        cfl_end = inp_cfl
+        cfl_cycles = 1
+      else
+        cfl_beg = min(inp_cfl_beg,inp_cfl_end)
+        cfl_end = max(inp_cfl_beg,inp_cfl_end)
+        cfl_cycles = inp_cfl_cycles
+      end if
+      !
+      cfl_adjustment_is_set = fals
+      !
+    end if
+    !
+    cfl_cycle_start = itcur
+    cfl_cycle_end = itcur + cfl_cycles
+    !
+  end if
   !
 end subroutine adjust_cfl_cycles
 !
