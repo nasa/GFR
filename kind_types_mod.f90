@@ -669,6 +669,7 @@ module module_kind_types
   integer, parameter :: Pipe_Channel_Flow       = 25
   integer, parameter :: Shu_Osher_Test          = 26
   integer, parameter :: UIUC_Scramjet           = 70
+  integer, parameter :: C2H4_Flame_Speed_Test    = 71
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
                                                 Entropy_Transport ]
   integer, parameter :: Vortex_Problems(1:3) = [ Shu_Vortex, &
@@ -679,11 +680,13 @@ module module_kind_types
   integer, parameter :: Taylor_Problems(1:3) = [ Taylor_Green_Vortex, &
                                                  Taylor_Couette_Flow, &
                                                 -Taylor_Couette_Flow ]
-  integer, parameter :: Reacting_Flows(1:5) = [Reacting_Backstep, &
+  integer, parameter :: Reacting_Flows(1:7) = [Reacting_Backstep, &
                                                H2_2D_Diffusion_Flame, &
                                                CH4_3D_Diffusion_Flame, &
                                                Compression_Corner, &
-                                               CH4_Flame_Speed_Test]
+                                               CH4_Flame_Speed_Test, &
+                                               UIUC_Scramjet, &
+                                               C2H4_Flame_Speed_Test]
   integer, parameter :: Dual_Stream_Mixing_Flows(1:2) = &
                                           [H2_2D_Diffusion_Flame, &
                                            N2_O2_Diffusion]
