@@ -281,6 +281,124 @@ end module base_kind_types
 !
 !###############################################################################
 !
+module ieee_mod
+  !
+#ifndef SPECIAL_FOR_GCC
+  !
+  use, intrinsic :: ieee_arithmetic, only : is_nan => ieee_is_nan
+  use, intrinsic :: ieee_arithmetic, only : is_finite => ieee_is_finite
+  use, intrinsic :: ieee_arithmetic, only : is_negative => ieee_is_negative
+  !
+  use, intrinsic :: ieee_exceptions
+  !
+#endif
+  !
+  implicit none
+  !
+  public
+  !
+#ifndef SPECIAL_FOR_GCC
+  !
+  type(ieee_status_type) :: default_ieee_status
+  !
+#else
+  !
+  integer, parameter :: ieee_usual(1:5) = 0
+  !
+  ! From Functions/checks_for_bad_numbers.f90
+  !
+  private :: is_nan_SP,is_nan_DP,is_nan_QP
+  !
+  interface is_nan
+    module procedure is_nan_SP
+    module procedure is_nan_DP
+#ifndef DISABLE_QP
+    module procedure is_nan_QP
+#endif
+  end interface is_nan
+  !
+  ! From Functions/checks_for_bad_numbers.f90
+  !
+  private :: is_finite_SP,is_finite_DP,is_finite_QP
+  !
+  interface is_finite
+    module procedure is_finite_SP
+    module procedure is_finite_DP
+#ifndef DISABLE_QP
+    module procedure is_finite_QP
+#endif
+  end interface is_finite
+  !
+  ! From Functions/checks_for_bad_numbers.f90
+  !
+  private :: is_negative_SP,is_negative_DP,is_negative_QP
+  !
+  interface is_negative
+    module procedure is_negative_SP
+    module procedure is_negative_DP
+#ifndef DISABLE_QP
+    module procedure is_negative_QP
+#endif
+  end interface is_negative
+  !
+#endif
+  !
+contains
+!
+!###############################################################################
+!
+subroutine get_default_ieee_status()
+  ! This should only be called at code startup
+continue
+#ifndef SPECIAL_FOR_GCC
+  call ieee_get_status(default_ieee_status)
+#endif
+end subroutine get_default_ieee_status
+!
+!###############################################################################
+!
+subroutine reset_ieee_status()
+continue
+#ifndef SPECIAL_FOR_GCC
+  call ieee_set_status(default_ieee_status)
+#endif
+end subroutine reset_ieee_status
+!
+!###############################################################################
+!
+subroutine reset_fp_exceptions()
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  !.. Local Arrays ..
+  logical :: reset_exceptions(1:size(ieee_usual))
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "reset_fp_exceptions"
+  !
+continue
+  !
+  do n = 1,size(reset_exceptions)
+    reset_exceptions(n) = .false.
+  end do
+  !
+#ifndef SPECIAL_FOR_GCC
+  call ieee_set_flag(ieee_usual,reset_exceptions)
+#endif
+  !
+end subroutine reset_fp_exceptions
+!
+!###############################################################################
+!
+include "Functions/checks_for_bad_numbers.f90"
+!
+!###############################################################################
+!
+end module ieee_mod
+!
+!###############################################################################
+!
 module module_kind_types
   !
 #include <mpi_defs.h>
@@ -293,11 +411,7 @@ module module_kind_types
 #else
   use rename_intrinsics, only : dot => dot_product
 #endif
-#ifndef SPECIAL_FOR_GCC
-  use, intrinsic :: ieee_arithmetic, only : is_nan => ieee_is_nan
-  use, intrinsic :: ieee_arithmetic, only : is_finite => ieee_is_finite
-  use, intrinsic :: ieee_arithmetic, only : is_negative => ieee_is_negative
-#endif
+  use ieee_mod
   !
   implicit none
   !
@@ -1460,48 +1574,6 @@ module module_kind_types
                      big_to_little_endian_r8
   end interface big_to_little_endian
   !
-  ! From Functions/checks_for_bad_numbers.f90
-  !
-  private :: is_nan_SP,is_nan_DP,is_nan_QP
-  !
-  interface is_nan
-#ifdef SPECIAL_FOR_GCC
-    module procedure is_nan_SP
-    module procedure is_nan_DP
-#ifndef DISABLE_QP
-    module procedure is_nan_QP
-#endif
-#endif
-  end interface is_nan
-  !
-  ! From Functions/checks_for_bad_numbers.f90
-  !
-  private :: is_finite_SP,is_finite_DP,is_finite_QP
-  !
-  interface is_finite
-#ifdef SPECIAL_FOR_GCC
-    module procedure is_finite_SP
-    module procedure is_finite_DP
-#ifndef DISABLE_QP
-    module procedure is_finite_QP
-#endif
-#endif
-  end interface is_finite
-  !
-  ! From Functions/checks_for_bad_numbers.f90
-  !
-  private :: is_negative_SP,is_negative_DP,is_negative_QP
-  !
-  interface is_negative
-#ifdef SPECIAL_FOR_GCC
-    module procedure is_negative_SP
-    module procedure is_negative_DP
-#ifndef DISABLE_QP
-    module procedure is_negative_QP
-#endif
-#endif
-  end interface is_negative
-  !
 contains
 !
 !###############################################################################
@@ -2591,7 +2663,6 @@ include "Functions/reverse_metrics.f90"
 include "Functions/chop.f90"
 include "Functions/intseq.f90"
 include "Functions/big_to_little_endian.f90"
-include "Functions/checks_for_bad_numbers.f90"
 !
 ! Include statements for functions that DO NOT have a generic interface
 !

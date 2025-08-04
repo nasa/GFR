@@ -1,9 +1,5 @@
 program GFR_main
   !
-#ifndef SPECIAL_FOR_GCC
-  use, intrinsic :: ieee_exceptions
-#endif
-  !
   use module_kind_types, global_debug_timer =>      debug_timer, &
                     pure_global_debug_timer => pure_debug_timer
   !
@@ -253,18 +249,11 @@ program GFR_main
   !
   integer, save :: idx1 = -1
   !
-#ifndef SPECIAL_FOR_GCC
-  type(ieee_status_type) :: default_ieee_status
-#endif
-  !
 continue
-  !
-#ifndef SPECIAL_FOR_GCC
   !
   ! Save the default IEEE floating point status
   !
-  call ieee_get_status(default_ieee_status)
-#endif
+  call get_default_ieee_status
   !
   request_restart = .false.
   request_solution = .false.
@@ -812,7 +801,7 @@ continue
   !
   ! Reset the IEEE floating point status to the default values
   !
-  call ieee_set_status(default_ieee_status)
+  call reset_ieee_status
   !
   if (convert_restart_to_cgns) then
     !
@@ -846,7 +835,7 @@ continue
   !
   ! Reset the IEEE floating point status to the default values
   !
-  call ieee_set_status(default_ieee_status)
+  call reset_ieee_status
   !
   ! Initialize uoldsp and gpoldsp if num_timesteps is zero
   !
@@ -1362,7 +1351,7 @@ continue
               call write_parallel_cgns(dump_CGNS)
             end if
             ! Reset the IEEE floating point status to the default values
-            call ieee_set_status(default_ieee_status)
+            call reset_ieee_status
             CGNS_action = reopen_CGNS
           end if
           !
@@ -1445,7 +1434,7 @@ continue
             call write_parallel_cgns(CGNS_action)
           end if
           ! Reset the IEEE floating point status to the default values
-          call ieee_set_status(default_ieee_status)
+          call reset_ieee_status
         end if
         !
       end if
@@ -1466,7 +1455,7 @@ continue
           end if
           call write_restart_file(itcur)
           ! Reset the IEEE floating point status to the default values
-          call ieee_set_status(default_ieee_status)
+          call reset_ieee_status
           write_TaylorGreen_full_solution = fals
         end if
       end if
@@ -1518,7 +1507,7 @@ continue
       !
       ! Reset the IEEE floating point status to the default values
       !
-      call ieee_set_status(default_ieee_status)
+      call reset_ieee_status
       !
     end if
     !
@@ -1568,7 +1557,7 @@ continue
     call write_parallel_cgns(close_CGNS)
   end if
   ! Reset the IEEE floating point status to the default values
-  call ieee_set_status(default_ieee_status)
+  call reset_ieee_status
   !
   call output_sem_averages()
   !
@@ -2306,8 +2295,8 @@ subroutine find_bad_number()
   use flowvar_mod,       only : facexyz
   use interpolation_mod, only : interp
   !
-  use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
-  use, intrinsic :: ieee_arithmetic, only : ieee_is_negative
+ !use, intrinsic :: ieee_arithmetic, only : is_finite => ieee_is_finite
+ !use, intrinsic :: ieee_arithmetic, only : is_negative => ieee_is_negative
   !
   !.. Local Scalars ..
   integer  :: n,nc,nf,nfp,n0,sf,f0,i,i1,i2,j,kf,lf,l,n_bad_pts,ic
@@ -2355,14 +2344,14 @@ continue
         vars(1) = usp(n,nec)
         vars(2) = gpsp(n,npres)
         vars(3) = gpsp(n,ntemp)
-        if (.not. all(ieee_is_finite(vars))) then
+        if (.not. all(is_finite(vars))) then
           call add_bad_pt(n_bad_pts,1,nc,xyz(:,n),xyz_of_bad_pts)
           write (iout,inv_fmt) (xyz(l,n)/grid_scaling_factor, l=1,nr), &
                                vars(1)*rhoref, &
                                vars(2)*rhoref*aref*aref, &
                                vars(3)*tref
           flush (iout)
-        else if (any(ieee_is_negative(vars))) then
+        else if (any(is_negative(vars))) then
           call add_bad_pt(n_bad_pts,1,nc,xyz(:,n),xyz_of_bad_pts)
           write (iout,neg_fmt) (xyz(l,n)/grid_scaling_factor, l=1,nr), &
                                vars(1)*rhoref, &
@@ -2426,8 +2415,8 @@ continue
             vars(2) = facegpsp(f0+kf,npres,sf)
             vars(3) = facegpsp(f0+kf,ntemp,sf)
             !
-            if (.not. all(ieee_is_finite(vars)) .or. &
-                any(ieee_is_negative(vars))) then
+            if (.not. all(is_finite(vars)) .or. &
+                any(is_negative(vars))) then
               !
               nc = face(nf)%left%cell
               !
@@ -2450,7 +2439,7 @@ continue
                 xyz_fp(1:nr) = xyz_fp(1:nr) + a * xyz(1:nr,n0+j)
               end do
               !
-              if (.not. all(ieee_is_finite(vars))) then
+              if (.not. all(is_finite(vars))) then
                 call add_bad_pt(n_bad_pts,2,nc,xyz_fp(:),xyz_of_bad_pts)
                 write (iout,inv_fmt) sf, &
                                      (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
@@ -2458,7 +2447,7 @@ continue
                                      vars(2)*rhoref*aref*aref, &
                                      vars(3)*tref
                 flush (iout)
-              else if (any(ieee_is_negative(vars))) then
+              else if (any(is_negative(vars))) then
                 call add_bad_pt(n_bad_pts,2,nc,xyz_fp(:),xyz_of_bad_pts)
                 write (iout,neg_fmt) sf, &
                                      (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
@@ -2497,8 +2486,8 @@ continue
             vars(2) = facegpsp(f0+kf,npres,sf)
             vars(3) = facegpsp(f0+kf,ntemp,sf)
             !
-            if (.not. all(ieee_is_finite(vars)) .or. &
-                any(ieee_is_negative(vars))) then
+            if (.not. all(is_finite(vars)) .or. &
+                any(is_negative(vars))) then
               !
               nc = face(nf)%left%cell
               !
@@ -2521,7 +2510,7 @@ continue
                 xyz_fp(1:nr) = xyz_fp(1:nr) + a * xyz(1:nr,n0+j)
               end do
               !
-              if (.not. all(ieee_is_finite(vars))) then
+              if (.not. all(is_finite(vars))) then
                 ic = merge(face(nf)%left%cell,face(nf)%right%cell,sf==1)
                 call add_bad_pt(n_bad_pts,3,ic,xyz_fp(:),xyz_of_bad_pts)
                 write (iout,inv_fmt) sf, &
@@ -2530,7 +2519,7 @@ continue
                                      vars(2)*rhoref*aref*aref, &
                                      vars(3)*tref
                 flush (iout)
-              else if (any(ieee_is_negative(vars))) then
+              else if (any(is_negative(vars))) then
                 ic = merge(face(nf)%left%cell,face(nf)%right%cell,sf==1)
                 call add_bad_pt(n_bad_pts,3,ic,xyz_fp(:),xyz_of_bad_pts)
                 write (iout,neg_fmt) sf, &
@@ -2579,7 +2568,7 @@ continue
             vars(1) = faceusp(n,nec,sf)
             vars(2) = facegpsp(n,npres,sf)
             vars(3) = facegpsp(n,ntemp,sf)
-            if (.not. all(ieee_is_finite(vars))) then
+            if (.not. all(is_finite(vars))) then
               call add_bad_pt(n_bad_pts,2,nc,facexyz(:,n),xyz_of_bad_pts)
               write (iout,inv_fmt) sf, &
                                (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
@@ -2587,7 +2576,7 @@ continue
                                vars(2)*rhoref*aref*aref, &
                                vars(3)*tref
               flush (iout)
-            else if (any(ieee_is_negative(vars))) then
+            else if (any(is_negative(vars))) then
               call add_bad_pt(n_bad_pts,2,nc,facexyz(:,n),xyz_of_bad_pts)
               write (iout,neg_fmt) sf, &
                                (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
@@ -2619,7 +2608,7 @@ continue
             vars(1) = faceusp(n,nec,sf)
             vars(2) = facegpsp(n,npres,sf)
             vars(3) = facegpsp(n,ntemp,sf)
-            if (.not. all(ieee_is_finite(vars))) then
+            if (.not. all(is_finite(vars))) then
               call add_bad_pt(n_bad_pts,3,nc,facexyz(:,n),xyz_of_bad_pts)
               write (iout,inv_fmt) sf, &
                                (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
@@ -2627,7 +2616,7 @@ continue
                                vars(2)*rhoref*aref*aref, &
                                vars(3)*tref
               flush (iout)
-            else if (any(ieee_is_negative(vars))) then
+            else if (any(is_negative(vars))) then
               call add_bad_pt(n_bad_pts,3,nc,facexyz(:,n),xyz_of_bad_pts)
               write (iout,neg_fmt) sf, &
                                (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
@@ -2810,32 +2799,32 @@ end subroutine report_bad_pts
 !
 !###############################################################################
 !
-subroutine reset_fp_exceptions
-  !
-#ifndef SPECIAL_FOR_GCC
-  use, intrinsic :: ieee_exceptions, only : ieee_usual
-  use, intrinsic :: ieee_exceptions, only : ieee_set_flag
-  !
-  !.. Local Scalars ..
-  integer :: n
-  !
-  !.. Local Arrays ..
-  logical(ldk) :: reset_exceptions(1:size(ieee_usual))
-  !
-  character(len=*), parameter :: pname = "reset_fp_exceptions"
-  !
-continue
-  !
-  do n = 1,size(reset_exceptions)
-    reset_exceptions(n) = .false.
-  end do
-  !
-  ! First check to make sure that no floating-point exceptions are signaling
-  !
-  call ieee_set_flag(ieee_usual,reset_exceptions)
-#endif
-  !
-end subroutine reset_fp_exceptions
+!subroutine reset_fp_exceptions
+!  !
+!#ifndef SPECIAL_FOR_GCC
+!  use, intrinsic :: ieee_exceptions, only : ieee_usual
+!  use, intrinsic :: ieee_exceptions, only : ieee_set_flag
+!  !
+!  !.. Local Scalars ..
+!  integer :: n
+!  !
+!  !.. Local Arrays ..
+!  logical(ldk) :: reset_exceptions(1:size(ieee_usual))
+!  !
+!  character(len=*), parameter :: pname = "reset_fp_exceptions"
+!  !
+!continue
+!  !
+!  do n = 1,size(reset_exceptions)
+!    reset_exceptions(n) = .false.
+!  end do
+!  !
+!  ! First check to make sure that no floating-point exceptions are signaling
+!  !
+!  call ieee_set_flag(ieee_usual,reset_exceptions)
+!#endif
+!  !
+!end subroutine reset_fp_exceptions
 !
 !###############################################################################
 !
