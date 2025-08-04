@@ -260,7 +260,7 @@ end subroutine get_constant_timestep
 subroutine get_cell_global_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
-  use geomvar_mod, only : nfbnd,nface,n_solpts
+  use geomvar_mod, only : nfbnd,nface,n_solpts,ncell
   use geomvar_mod, only : face,cell,n_bnd_flxpts,n_flxpts
   !
   use ovar, only : CFL,governing_equations
@@ -270,13 +270,14 @@ subroutine get_cell_global_timestep(dtmin,dt_sp)
   use flowvar_mod, only : faceusp
   use flowvar_mod, only : facegpsp
   use flowvar_mod, only : facexyz
+  use flowvar_mod, only : dt_save
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
   real(wp), intent(out) :: dt_sp(:)
   !
   !.. Local Scalars ..
-  integer  :: n,kf,nf,f1,f2,n1,n2
+  integer  :: n,kf,nc,nf,f1,f2,n1,n2
   integer  :: left_cell,left_geom,left_order
   integer  :: right_cell,right_geom,right_order
   real(wp) :: eigni_fp,eignv_fp
@@ -288,6 +289,8 @@ subroutine get_cell_global_timestep(dtmin,dt_sp)
   real(wp), allocatable :: viscr(:)
   real(wp), allocatable :: eigni(:,:)
   real(wp), allocatable :: psq(:,:)
+  real(wp), allocatable :: dt_fp(:,:)
+  real(wp), allocatable :: dt_cell(:)
   !
   integer, parameter :: make_p_plus_one = 0
  !integer, parameter :: make_p_plus_one = 1
@@ -302,8 +305,9 @@ continue
   allocate ( viscr(1:n_flxpts) )
   allocate ( psq(1:n_flxpts,1:2) )
   allocate ( eigni(1:n_flxpts,1:2) )
+  allocate ( dt_fp(1:n_flxpts,1:2) )
   !
-  !$ACC DATA CREATE(viscl,viscr,eigni,psq)
+  !$ACC DATA CREATE(viscl,viscr,eigni,psq,dt_fp)
   !
   n1 = 1
   n2 = n_flxpts
@@ -384,7 +388,7 @@ continue
   end do
   !
   !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-  !$ACC&              PRESENT(facejac,eigni,viscl,psq)
+  !$ACC&              PRESENT(facejac,eigni,viscl,psq,dt_fp)
   do kf = 1,n_bnd_flxpts
     !
     ! NOTE: facejac is actually area/facejac
@@ -398,10 +402,13 @@ continue
     !
     dtmin = min(dtmin,dtl)
     !
+    dt_fp(kf,1) = dtl
+    dt_fp(kf,2) = dtl
+    !
   end do
   !
   !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
-  !$ACC&              PRESENT(facejac,eigni,viscl,viscr,psq)
+  !$ACC&              PRESENT(facejac,eigni,viscl,viscr,psq,dt_fp)
   do kf = n_bnd_flxpts+1,n_flxpts
     !
     ! NOTE: facejac is actually area/facejac
@@ -418,7 +425,37 @@ continue
    !dtr = CFL / (hr * (eigni_fp + eignv_fp))
    !dtmin = min(dtmin,dtl,dtr)
     !
+    dt_fp(kf,1) = CFL / (hl * (eigni(kf,1) + hl*viscl(kf)) )
+    dt_fp(kf,2) = CFL / (hr * (eigni(kf,2) + hr*viscr(kf)) )
+    !
   end do
+  !
+  if (allocated(dt_save)) then
+    dt_cell = init_array(ncell,huge(zero)) ! F2003 AUTO-REALLOC
+    do nf = 1,nfbnd
+      f1 = face(nf)%beg_fp
+      f2 = face(nf)%end_fp
+      left_cell = face(nf)%left%cell
+      dtl = minval(dt_fp(f1:f2,1))
+      dt_cell(left_cell) = min(dt_cell(left_cell),dtl)
+    end do
+    do nf = nfbnd+1,nface
+      f1 = face(nf)%beg_fp
+      f2 = face(nf)%end_fp
+      left_cell = face(nf)%left%cell
+      right_cell = face(nf)%right%cell
+      dtl = minval(dt_fp(f1:f2,1))
+      dtr = minval(dt_fp(f1:f2,2))
+      dt_cell(left_cell) = min(dt_cell(left_cell),dtl)
+      dt_cell(right_cell) = min(dt_cell(right_cell),dtr)
+    end do
+    do nc = 1,ncell
+      n1 = cell(nc)%beg_sp
+      n2 = cell(nc)%end_sp
+      dt_save(n1:n2) = dt_cell(nc)
+    end do
+    deallocate ( dt_cell )
+  end if
   !
   ! Get the minimum timestep across all processors
   !
@@ -441,6 +478,7 @@ continue
   deallocate ( eigni )
   deallocate ( viscr )
   deallocate ( viscl )
+  deallocate ( dt_fp )
   !
   call debug_timer(leaving_procedure,pname)
   !

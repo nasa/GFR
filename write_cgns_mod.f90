@@ -1698,6 +1698,8 @@ continue
       end if
     else if (trim(variable_names(l)) == "QCriterion") then
       n = n + 2
+    else if (trim(variable_names(l)) == "LocalTimestep") then
+      n = n + 2
     else if (trim(variable_names(l)) == "FilterDissipation") then
       n = n + nq + 1
     else
@@ -2090,6 +2092,16 @@ continue
       varname = trim(variable_names(k))//"_Positive"
       call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       !
+    else if (trim(variable_names(k)) == "LocalTimestep") then
+      !
+      n = n + 1
+      varname = trim(variable_names(k))
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
+      n = n + 1
+      varname = trim(variable_names(k))//"_Scaled"
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
     else
       n = n + 1
       if (trim(variable_names(k)) == "Energy") then
@@ -2137,13 +2149,13 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use geomvar_mod, only : nr,n_solpts,ncell,cell
   use geomvar_mod, only : xyz
   use ovar,        only : aref,rhoref,time_ref,tref
-  use ovar,        only : gam,pref,pref_nd,machref
+  use ovar,        only : gam,pref,pref_nd,machref,d_t
   use ovar,        only : rgasref,cpref,Pr
   use ovar,        only : itestcase,governing_equations
   use ovar,        only : profile_io_cgns_subs
   use ovar,        only : Limiter_Option
   use ovar,        only : moving_ref_frame
-  use flowvar_mod, only : dtsp,cell_diss,cell_num_marks
+  use flowvar_mod, only : dtsp,dt_save,cell_diss,cell_num_marks
   !
   use metrics_mod, only : time_metrics,metrics_array,jac
   !
@@ -3892,6 +3904,28 @@ continue
       !
       call cgns_write_field_data
       !!}}}
+    case ("LocalTimestep")
+      !!{{{
+      !
+      ! Write out the actual dimensional time step size
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      call interpolate_for_output( dt_save(1:n_solpts) , vartmp , nondim=time_ref )
+      !
+      call cgns_write_field_data(flush_to_zero=fals)
+      !
+      ! Write out the time step sizes scaled by the minimum time step
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      dt_save(:) = dt_save(:) / d_t
+      call interpolate_for_output( dt_save(1:n_solpts) , vartmp , nondim=time_ref )
+      !
+      call cgns_write_field_data
+      !!}}}
     case ("CoMetrics")
      !!!{{{
      !allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
@@ -4045,6 +4079,7 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,        only : output_stagnation_pressure
   use ovar,        only : output_stagnation_variables
   use ovar,        only : output_marker_variables
+  use ovar,        only : output_local_timestep
   use ovar,        only : Resolution_Marker_Variable
   use ovar,        only : Jump_Marker_Variable
   use ovar,        only : MLP_Marker_Variable
@@ -4086,7 +4121,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:55) = ["Density             ", &
+  character(len=*), parameter :: var_order(1:56) = ["Density             ", &
                                                     "Momentum            ", &
                                                     "Energy              ", &
                                                     "Velocity            ", &
@@ -4128,6 +4163,7 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "ResolutionMarker    ", &
                                                     "JumpMarker          ", &
                                                     "Timestep            ", &
+                                                    "LocalTimestep       ", &
                                                     "Partition           ", &
                                                     "ContraMetrics       ", &
                                                     "TimeMetrics         ", &
@@ -4264,6 +4300,10 @@ continue
     call add_sol_variable(variable_list,"P0")
     call add_sol_variable(variable_list,"T0")
     call add_sol_variable(variable_list,"H0")
+  end if
+  !
+  if (output_local_timestep) then
+    call add_sol_variable(variable_list,"LocalTimestep")
   end if
   !
   ! Output the marker quantities if requested
