@@ -13,6 +13,7 @@ module generic_mod
   private
   !
   public :: init_generic_mod
+  public :: write_iter_header
   public :: write_iter_stats
   public :: getmaxent
   public :: compute_residual_error
@@ -1192,6 +1193,26 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_vold_solpts_gpu
+!
+!###############################################################################
+!
+subroutine write_iter_header(output_header)
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(in) :: output_header
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_iter_header"
+  !
+continue
+  !
+  if (mypnum == glb_root) then
+    if (output_header) then
+      write (iout,iter_header)
+    end if
+  end if
+  !
+end subroutine write_iter_header
 !
 !###############################################################################
 !
