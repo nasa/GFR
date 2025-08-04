@@ -158,12 +158,14 @@ subroutine convert_restart_files_to_cgns()
   !
   logical(ldk) :: file_exists
   !
-  character(len=150) :: fname
   character(len=150) :: text
   !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: fname
+  !
   !.. Local Allocatable Arrays ..
-  character(len=100), allocatable :: restart_file_list(:)
-  character(len=100), allocatable :: temp_list(:)
+  character(len=300), allocatable :: restart_file_list(:)
+  character(len=300), allocatable :: temp_list(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "convert_restart_files_to_cgns"
@@ -210,7 +212,7 @@ continue
   !
   ! Read in the list of restart files that will be averaged
   !
-  fname = trim(adjustl(restart_list_file))
+  fname = trim(adjustl(restart_list_file)) ! F2003 AUTO-REALLOC
   !
   open (newunit=io,file=fname,status="old",action="read", &
                    iostat=ierr,iomsg=error_message)
@@ -260,7 +262,7 @@ continue
   !
   i = 0
   do n = 1,size(restart_file_list)
-    fname = trim(adjustl(restart_file_list(n)))
+    fname = trim(adjustl(restart_file_list(n))) ! F2003 AUTO-REALLOC
     if (mypnum == glb_root) write (iout,10) n,trim(adjustl(fname))
     if (fname(1:1) /= "!") then
       if (mypnum == glb_root) write (iout,11) trim(adjustl(fname))
