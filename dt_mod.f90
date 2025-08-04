@@ -400,6 +400,13 @@ continue
     !
     dtl = CFL / (hl * (eigni_fp + eignv_fp))
     !
+#define IGNORE_NEGATIVE_TIMESTEPS
+#ifdef IGNORE_NEGATIVE_TIMESTEPS
+    if (dtl <= zero) then
+      dtl = huge(zero)
+    end if
+#endif
+    !
     dtmin = min(dtmin,dtl)
     !
     dt_fp(kf,1) = dtl
@@ -420,6 +427,11 @@ continue
     eignv_fp = max( hl * viscl(kf) , hr * viscr(kf) )
     !
     dtl = CFL / (max(hl,hr) * (eigni_fp + eignv_fp))
+#ifdef IGNORE_NEGATIVE_TIMESTEPS
+    if (dtl <= zero) then
+      dtl = huge(zero)
+    end if
+#endif
     dtmin = min(dtmin,dtl)
    !dtl = CFL / (hl * (eigni_fp + eignv_fp))
    !dtr = CFL / (hr * (eigni_fp + eignv_fp))
