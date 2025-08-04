@@ -1205,10 +1205,10 @@ continue
     !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(cv)
     do m = 1,ncs
       do n = n1,n2
-        if (cv(n,m) < zero .and. abs(cv(n,m)) < eps6) then
-          cv(n,m) = zero
-        end if
-       !cv(n,m) = max(cv(n,m),zero)
+       !if (cv(n,m) < zero .and. abs(cv(n,m)) < eps6) then
+       !  cv(n,m) = zero
+       !end if
+        cv(n,m) = max(cv(n,m),zero)
       end do
     end do
     !
