@@ -250,3 +250,156 @@ continue
   !-----------------------------------------------------------------------------
   !
 end function uiuc_scramjet_combustor_init
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_uiuc_scramjet_location(xyz,wall_radius_sensitivity) &
+                             result(return_value)
+  !
+  ! This function will test to see if the coordinates specified by xyz are
+  ! located within the injector or cavity regions of the UIUC scramjet
+  ! combustor geometry. The returned value from this function will be:
+  !
+  ! return_value = 
+  !     0 : the xyz coordinates are neither inside the injector or cavity
+  !     1 : the xyz coordinates are inside the injector
+  !     2 : the xyz coordinates are inside the cavity
+  !
+  ! Optional Arguments:
+  !   wall_radius_sensitivity
+  !       this is a way to override the default 'fudge' factor to identify cells
+  !       that might not be fully inside the injector or cavity, but are enough
+  !       of the cell is to warrant it being identified as such. So far, this
+  !       is only used to identify cells within the injector to apply the
+  !       sponge filter to, since we want to be less generous in that situation
+  !       to mark what cells are inside the injector.
+  !
+  !.. Use Statements ..
+  use eqn_idx_mod, only : NCD_Axial,NCD_Vert,NCD_Span
+  use ovar,        only : grid_scaling_factor
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: xyz(:,:)
+  !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(in) :: wall_radius_sensitivity
+  !
+  !.. Function Result ..
+  integer :: return_value
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,np
+  real(wp) :: radius_sensitivity
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: x(:),y(:),z(:),r(:)
+  !
+  !.. Local Parameters ..
+  real(wp), parameter :: inj_inflow_axial_min = 296.8_wp ! [mm]
+  !
+  real(wp), parameter :: inj_outflow_axial_min = 300.91_wp ! [mm]
+  real(wp), parameter :: inj_outflow_axial_max = 301.97_wp ! [mm]
+  !
+  real(wp), parameter :: cavity_axial_min = 343.4_wp ! [mm]
+  real(wp), parameter :: cavity_axial_max = 406.0_wp ! [mm]
+  !
+  ! Radius of the outer wall 
+  real(wp), parameter :: wall_radius = 17.45_wp ! [mm]
+  ! Radius that would definitely be an inside cell
+  real(wp), parameter :: max_inside_radius = 17.25_wp ! [mm]
+  real(wp), parameter :: default_radius_sensitivity = 0.030_wp ! [mm]
+ !real(wp), parameter :: default_radius_sensitivity = 0.005_wp ! [mm]
+  !
+continue
+  !
+  np = size(xyz,dim=2)
+  !
+  ! Initialze the function result as being neither inside the
+  ! injector or cavity. This will only be changed if the following
+  ! loops determine these xyz coordinates are inside either the
+  ! injector or cavity.
+  !
+  return_value = 0
+  !
+  radius_sensitivity = default_radius_sensitivity
+  if (present(wall_radius_sensitivity)) then
+    radius_sensitivity = wall_radius_sensitivity
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  ! Save the axial, vertical, and spanwise coordinates into arrays with
+  ! names that make sense for calculations below while also removing the
+  ! grid scaling. Also precompute the radial coordinate
+  !
+  x = xyz(NCD_Axial,:) / grid_scaling_factor ! F2003 AUTO-REALLOC
+  y = xyz(NCD_Vert ,:) / grid_scaling_factor ! F2003 AUTO-REALLOC
+  z = xyz(NCD_Span ,:) / grid_scaling_factor ! F2003 AUTO-REALLOC
+  r = init_array(np,zero)                    ! F2003 AUTO-REALLOC
+  do k = 1,np
+    r(k) = sqrt( y(k)*y(k) + z(k)*z(k) )
+  end do
+  !
+  !-----------------------------------------------------------------------------
+  !
+  ! Check the coordinates of this cell to determine if
+  ! it is in the injector, cavity, or somewhere else.
+  !
+  one_pass_loop: &
+  do i = 1,1
+    !
+    ! Eliminate all the easy cells that are definitely not
+    ! in the injector or cavity.
+    !
+    if ( all(r(:) < max_inside_radius) ) exit one_pass_loop
+    if ( all(x(:) < inj_inflow_axial_min) ) exit one_pass_loop
+    if ( all(x(:) > cavity_axial_max) ) exit one_pass_loop
+    !
+    ! Check to see if this cell is inside the injector
+    !
+    injector_test_loop: &
+    do j = 1,1
+      !
+      do k = 1,np
+        !
+        if (x(k) > inj_outflow_axial_max) exit injector_test_loop
+        !
+        if (x(k) < inj_outflow_axial_min) then
+          if (r(k) < wall_radius) exit injector_test_loop
+        end if
+        !
+      end do
+      !
+      ! If we have made it here, this cell is most likely in the injector if
+      ! any of the solution points are larger or very close to the wall radius.
+      !
+      if ( any(r(:) >= wall_radius-radius_sensitivity) ) then
+        return_value = 1
+        exit one_pass_loop
+      end if
+      !
+    end do injector_test_loop
+    !
+    ! Check to see if this cell is inside the cavity
+    !
+    cavity_test_loop: &
+    do j = 1,1
+      !
+      if ( all(x(:) < cavity_axial_min) ) exit cavity_test_loop
+      !
+      ! If we have made it here, this cell is most likely in the cavity if
+      ! any of the solution points are larger or very close to the wall radius.
+      !
+      if ( any(r(:) > wall_radius-radius_sensitivity) ) then
+        return_value = 2
+        exit one_pass_loop
+      end if
+      !
+    end do cavity_test_loop
+    !
+  end do one_pass_loop
+  !
+end function get_uiuc_scramjet_location
