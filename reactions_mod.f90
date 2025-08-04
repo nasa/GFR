@@ -19,8 +19,8 @@ module reactions_mod
   !
   logical(lk), save, allocatable :: nonreacting_species(:)
   !
-  integer, save, allocatable :: reactant_species_list(:)
-  integer, save, allocatable :: product_species_list(:)
+  integer, public, save, allocatable :: reactant_species_list(:)
+  integer, public, save, allocatable :: product_species_list(:)
   !
   ! Reaction arrays for CH4
   !

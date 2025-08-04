@@ -279,6 +279,7 @@ $(OBJDIR)/generic_mod.o : generic_mod.f90 \
             $(OBJDIR)/thx_mod.o \
             $(OBJDIR)/bc_flow_stats_mod.o \
             $(OBJDIR)/timer_mod.o \
+            $(OBJDIR)/reactions_mod.o \
             $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/geomvar_mod.o : geomvar_mod.f90 \

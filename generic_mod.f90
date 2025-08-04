@@ -6,6 +6,7 @@ module generic_mod
                     pure_global_debug_timer => pure_debug_timer
   use eqn_idx_mod, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
   use eqn_idx_mod, only : ncs,ncb,nce,npres,ntemp,ngamm
+  use eqn_idx_mod, only : ncr
   use timer_mod, only : solver_timer
   !
   implicit none
@@ -1239,6 +1240,8 @@ subroutine write_iter_stats(walltime_expiring,exit_main_loop)
   !
   use thx_mod, only : compute_blowing_ratio
   !
+  use reactions_mod, only : reactant_species_list,product_species_list
+  !
   !.. Formal Arguments ..
   logical(lk), intent(inout) :: walltime_expiring
   logical(lk), intent(  out) :: exit_main_loop
@@ -1252,6 +1255,7 @@ subroutine write_iter_stats(walltime_expiring,exit_main_loop)
   real(wp) :: orders_converged,output_L2val
   real(wp) :: rltwo,rlim
   real(wp) :: blowing_ratio,mdot_nozzle,mdot_injector
+  real(wp) :: products_L2_sum,reactants_L2_sum
   !
   logical(lk) :: output_header
   !
@@ -1319,6 +1323,18 @@ continue
       end if
       !
     end if
+    !
+  else if (ncr > 0) then
+    !
+    products_L2_sum  = sum( uverr( product_species_list(:),2,2) )
+    reactants_L2_sum = sum( uverr(reactant_species_list(:),2,2) )
+    !
+    if (reactants_L2_sum /= zero) then
+      output_L2val = products_L2_sum / reactants_L2_sum
+    else
+      output_L2val = zero
+    end if
+    convergence_reached = fals
     !
   else
     !
@@ -1662,6 +1678,8 @@ continue
   else if (abs(time_scaling_factor-one) > eps6 .or. &
            any(itestcase == Taylor_Problems)) then
       write (iter_header,205) final_iter_digits-3
+  else if (ncr > 0) then
+      write (iter_header,206) final_iter_digits-3
   else
       write (iter_header,202) final_iter_digits-3
   end if
@@ -1734,6 +1752,9 @@ continue
               "'L2-Vx',7x,'L2-Vy',7x,'L2-Vz',7x,'L2-Pres',2x,'Output-dWT'")
   205 format ("(",i0,"x,'iter',3x,'d_t* (ND)',3x,'Time (T*)',6x,'CFL',5x,", &
               "'L2-Density',2x,'Max-DensL2',2x,'Output-dWT'")
+  206 format ("(",i0,"x,'iter',3x,'d_t* (ND)',3x,'Time (s)',7x,'CFL',5x,", &
+              "'L2-Density',2x,'L2-Reactns',2x,'Output-dWT'")
+  !
 end subroutine init_generic_mod
 !
 !###############################################################################
