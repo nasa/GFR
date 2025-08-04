@@ -555,11 +555,13 @@ continue
   !       computational cost.
   !
   call update_mixture_density(1,n_solpts,usp)
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Apply the sponge filter to cells in sponge regions
   !
   if (use_sponge_filter) then
     call apply_sponge_filter(usp)
+    call check_for_bad_number(__LINE__,__FILE__)
   end if
   !
   ! Apply realizable total temperature limiter
@@ -589,6 +591,7 @@ continue
       else if (Limiter_Option == 3) then
         call limit_by_mlp(nst=nst,relax=one)
       end if
+      call check_for_bad_number(__LINE__,__FILE__)
     end if
   end if
   !
@@ -603,6 +606,7 @@ continue
       1 format (8x,"Applying Standard Filter : RK Stage = ",i0)
 #endif
       call filter_usp
+      call check_for_bad_number(__LINE__,__FILE__)
     end if
   end if
   !
@@ -610,6 +614,7 @@ continue
   !
   call update_thermo_properties(1,n_solpts,usp,gpsp, &
                                 loc="cell",caller_name=caller_name)
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Check for any negative thermodynamic properties at the solution points
   !
@@ -618,21 +623,25 @@ continue
   ! Update the thermodynamic and transport properties at the solution points
   !
   call update_transport_properties(1,n_solpts,usp,gpsp)
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Interpolate the new updated solution to the face points
   !
   call interp_cv_to_flxpts
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Check the cell and face thermo properties
   !
   call check_thermo_properties( thermofix%check_cells, thermofix%check_faces, &
                                 thermofix%check_nodes, update_faces=true, &
                                 verbose=thermofix%verbose )
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Compute the discontinuous gradient at the solution points
   !
   if (governing_equations == NavierStokes_Eqns) then
     call discontinuous_gradient_at_solpts
+    call check_for_bad_number(__LINE__,__FILE__)
   end if
   !
   !
@@ -825,6 +834,9 @@ end subroutine update_facegpsp
 !###############################################################################
 !
 #include "Functions/debug_timer.f90"
+! The following FPP definition disables the body of check_for_bad_number
+#define DISABLE_CHECK_FOR_BAD_NUMBER
+#include "Functions/check_for_bad_number.f90"
 !
 !###############################################################################
 !
