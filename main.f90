@@ -871,7 +871,8 @@ continue
       !
       ! Store a copy of the solution from the previous time step
       !
-      call save_old_solution              !; call check_for_bad_number(__LINE__)
+      call save_old_solution
+      call debugging_checks_for_bad_number(__LINE__)
       !
       ! Loop over the Runge-Kutta stages
       !
@@ -915,11 +916,11 @@ continue
         if (nst == 1) then
           if (Runge_Kutta_Scheme /= EPERK) then
             call get_dtsp(dtmin,final_timestep_from_stop_request)
-                                          !  call check_for_bad_number(__LINE__)
+            call debugging_checks_for_bad_number(__LINE__)
           else ! Runge_Kutta_Scheme == EPERK
             if (iter == 1) then
               call get_dtsp(dtmin,final_timestep_from_stop_request)
-                                          !  call check_for_bad_number(__LINE__)
+              call debugging_checks_for_bad_number(__LINE__)
             else if (output_eperk_cfl) then
               call get_dtsp(dtmin,final_timestep_from_stop_request, &
                             skip_updates=true)
@@ -945,7 +946,7 @@ continue
           call update_EPERK(nst,iter,Apply_Filter,Apply_Limiter)!, &
                            !dtmin,final_timestep_from_stop_request)
         end if
-       !call check_for_bad_number(__LINE__)
+        call check_for_bad_number(__LINE__)
         !
       end do rk_loop
       !
@@ -1009,13 +1010,14 @@ continue
       !
       completed_timesteps = iter - n_rejected_timesteps
       !
-     !call check_for_bad_number(__LINE__)
+      call debugging_checks_for_bad_number(__LINE__)
       !
       ! Update the time averaged variables
       !
       if (output_time_averaging) then
         call update_time_ave
       end if
+      call debugging_checks_for_bad_number(__LINE__)
       !
       ! Compute and output the residual error at the specified interval
       !
@@ -1050,7 +1052,7 @@ continue
         !
       end if
       !
-      call check_for_bad_number(__LINE__)
+      call debugging_checks_for_bad_number(__LINE__)
       !
       ! Initialize time averaging if start_averaging_timestep
       ! is equal to the current time step
@@ -1740,15 +1742,17 @@ continue
   ! the solution points to the face/flux points
   !
  !call interp_cv_to_flxpts(iter,nst)
- !                                  !  call check_for_bad_number(__LINE__)
+ !call debugging_checks_for_bad_number(__LINE__)
   !
   ! Initiate the exchange of face/flux point solutions
   ! between adjacent partitions
   !
   if (ncpu > 1) then
-    call exchange_faceusp           !; call check_for_bad_number(__LINE__)
+    call exchange_faceusp
+    call debugging_checks_for_bad_number(__LINE__)
 #ifdef IMMEDIATE_WAIT_FOR_MPI
-    call wait_faceusp               !; call check_for_bad_number(__LINE__)
+    call wait_faceusp
+    call debugging_checks_for_bad_number(__LINE__)
 #endif
   end if
   !
@@ -1756,19 +1760,19 @@ continue
   !
  !if (governing_equations == NavierStokes_Eqns) then
  !  call discontinuous_gradient_at_solpts
- !                                  !  call check_for_bad_number(__LINE__)
+ !  call debugging_checks_for_bad_number(__LINE__)
  !end if
   !
   ! Get the boundary conditions for the boundary face/flux points
   !
   call get_faceusp_bc(newton_failures)
-  call check_for_bad_number(__LINE__,newton_failures)
+  call debugging_checks_for_bad_number(__LINE__,newton_failures)
   !
   ! Compute the inviscid common fluxes at all the face/flux points that
   ! are not on a boundary face
   !
   call get_invs_common_fluxes_interior
-                                    !  call check_for_bad_number(__LINE__)
+  call debugging_checks_for_bad_number(__LINE__)
   !
   ! Ensure that the exchange of face/flux point solutions between adjacent
   ! partitions has been completed, because that information will be needed
@@ -1776,7 +1780,8 @@ continue
   !
   if (ncpu > 1) then
 #ifndef IMMEDIATE_WAIT_FOR_MPI
-    call wait_faceusp               !; call check_for_bad_number(__LINE__)
+    call wait_faceusp
+    call debugging_checks_for_bad_number(__LINE__)
 #endif
   end if
   !
@@ -1788,39 +1793,44 @@ continue
     if (visc_flux_method == visc_flux_BR2) then
      !call correct_gradients_br2
       call correct_gradients_br2_gpu
-                                    !  call check_for_bad_number(__LINE__)
+      call debugging_checks_for_bad_number(__LINE__)
     else
       call correct_gradients_at_solpts_gpu
-                                    !  call check_for_bad_number(__LINE__)
+      call debugging_checks_for_bad_number(__LINE__)
      !call correct_gradients_at_solpts
-                                    !  call check_for_bad_number(__LINE__)
-      call interp_dusp_to_flxpts    !; call check_for_bad_number(__LINE__)
+     !call debugging_checks_for_bad_number(__LINE__)
+      call interp_dusp_to_flxpts
+      call debugging_checks_for_bad_number(__LINE__)
     end if
     !
     ! Initiate the exchange of face/flux point corrected
     ! gradients between adjacent partitions
     !
     if (ncpu > 1) then
-      call exchange_facedusp        !; call check_for_bad_number(__LINE__)
+      call exchange_facedusp
+      call debugging_checks_for_bad_number(__LINE__)
 #ifdef IMMEDIATE_WAIT_FOR_MPI
-      call wait_facedusp            !; call check_for_bad_number(__LINE__)
+      call wait_facedusp
+      call debugging_checks_for_bad_number(__LINE__)
 #endif
     end if
     !
     ! Compute the gradient boundary conditions for the boundary face/flux points
     !
-    call get_facedusp_bc            !; call check_for_bad_number(__LINE__)
+    call get_facedusp_bc
+    call debugging_checks_for_bad_number(__LINE__)
     !
     ! Compute the viscous common fluxes at all the face/flux points that
     ! are not on a boundary face
     !
     call get_visc_common_fluxes_interior
-                                    !  call check_for_bad_number(__LINE__)
+    call debugging_checks_for_bad_number(__LINE__)
   end if
   !
   ! Compute the inviscid common fluxes for all boundary face/flux points
   !
-  call get_invs_common_fluxes_bc    !; call check_for_bad_number(__LINE__)
+  call get_invs_common_fluxes_bc
+  call debugging_checks_for_bad_number(__LINE__)
   !
   if (governing_equations == NavierStokes_Eqns) then
     !
@@ -1830,13 +1840,15 @@ continue
     !
     if (ncpu > 1) then
 #ifndef IMMEDIATE_WAIT_FOR_MPI
-      call wait_facedusp            !; call check_for_bad_number(__LINE__)
+      call wait_facedusp
+      call debugging_checks_for_bad_number(__LINE__)
 #endif
     end if
     !
     ! Compute the viscous common fluxes for all the boundary face/flux points
     !
-    call get_visc_common_fluxes_bc  !; call check_for_bad_number(__LINE__)
+    call get_visc_common_fluxes_bc
+    call debugging_checks_for_bad_number(__LINE__)
     !
   end if
   !
@@ -1846,37 +1858,78 @@ continue
   !       actually does.
   !
   call flux_gradient_at_solpts(iter,nst)
-                                    !  call check_for_bad_number(__LINE__)
+  call debugging_checks_for_bad_number(__LINE__)
   !
   ! Compute the source terms for a moving reference frame
   !
-  call mrf_src_cv                   !; call check_for_bad_number(__LINE__)
+  call mrf_src_cv
+  call debugging_checks_for_bad_number(__LINE__)
   !
   ! Compute the source terms for method of manufactured solutions (MMS)
   !
   if (mms_opt /= 0) then
-    call mms_src                    !; call check_for_bad_number(__LINE__)
+    call mms_src
+    call debugging_checks_for_bad_number(__LINE__)
   end if
   !
   ! Compute the source terms for the channel flow
   !
   if (any(itestcase == [Channel_Flow,Pipe_Channel_Flow])) then
-    call channel_source             !; call check_for_bad_number(__LINE__)
+    call channel_source
+    call debugging_checks_for_bad_number(__LINE__)
   end if
   !
   ! Compute the species source terms for chemically reacting flows
   !
-  call compute_wdot(iter)           !; call check_for_bad_number(__LINE__)
+  call compute_wdot(iter)
+  call debugging_checks_for_bad_number(__LINE__)
   !
   ! Compute the final residual for each solution point
   !
-  call rresi(iter,nst)              !; call check_for_bad_number(__LINE__)
+  call rresi(iter,nst)
+  call debugging_checks_for_bad_number(__LINE__)
   !
   call global_debug_timer(leaving_procedure,pname)
   !
   call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine compute_rhs
+!
+!###############################################################################
+!
+#define DISABLE_DEBUGGING_CHECKS_FOR_BAD_NUMBER
+subroutine debugging_checks_for_bad_number(line_num,newton_failures, &
+                                           force_signaling)
+  !
+  ! This subroutine is a wrapper to quickly enable a high-frequency check for
+  ! floating point exceptions within the solver. This will add significant
+  ! overhead to the computational cost per iteration due to frequent use of
+  ! MPI reductions and interpolations to find bad points.
+  ! NOTE: If this is "disabled", it will still be enabled if newton_failures
+  !       is present and non-zero to stop execution when a Newton iteration
+  !       fails to converge.
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: line_num
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: newton_failures
+  integer, optional, intent(in) :: force_signaling
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "debugging_checks_for_bad_number"
+  !
+continue
+#ifndef DISABLE_DEBUGGING_CHECKS_FOR_BAD_NUMBER
+  call check_for_bad_number(line_num,newton_failures,force_signaling)
+#else
+  if (present(newton_failures)) then
+    if (newton_failures > 0) then
+      call check_for_bad_number(line_num,newton_failures,force_signaling)
+    end if
+  end if
+#endif
+end subroutine debugging_checks_for_bad_number
 !
 !###############################################################################
 !
