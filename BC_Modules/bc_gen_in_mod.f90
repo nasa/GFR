@@ -559,6 +559,8 @@ subroutine get_bc_gen_inflow_sol_tpg_3d(n1,n2,facenrm,face_cv,face_gp, &
   real(wp) :: gamm,htot,mach,temp,enth,cp,rmix,val
   real(wp) :: rmix_bc,rtot_bc,ptot_bc,ttot_bc,htot_bc
   real(wp) :: dtemp,dtmx,dterr,func,dfunc,tmin_nd,tmax_nd
+  real(wp) :: vmag_int,vnrm_int,aspd_int
+  real(wp) :: mach_mag_int,mach_nrm_int
   !
   logical(lk) :: convergence_reached
   !
@@ -637,7 +639,9 @@ continue
     vy = face_cv(n,nmy,1)*rho_inv
     vz = face_cv(n,nmz,1)*rho_inv
     !
-    vn = vx*unx + vy*uny + vz*unz
+   !vn = vx*unx + vy*uny + vz*unz
+    vnrm_int = vx*unx + vy*uny + vz*unz
+    vmag_int = sqrt(vx*vx + vy*vy + vz*vz)
     !
     ! Extract gas properties from the interior face point
     !
@@ -645,7 +649,11 @@ continue
     temp = face_gp(n,ntemp,1)
     gamm = face_gp(n,ngamm,1)
     !
-    mach = vn / sqrt(max(gamm*pres*rho_inv,rndoff))
+    aspd_int = sqrt(max(gamm*pres*rho_inv,rndoff))
+    mach_nrm_int = vnrm_int / aspd_int
+    mach_mag_int = vmag_int / aspd_int
+    !
+    mach = mach_nrm_int
     !
     if (mach <= -one) then
       !
@@ -748,7 +756,8 @@ continue
       !
       ! Compute the velocity at the boundary using a fixed Mach number.
       !
-      vel = abs(mach) * sqrt(max(gamm*pres/rho,rndoff))
+     !vel = abs(mach) * sqrt(max(gamm*pres/rho,rndoff))
+      vel =     mach  * sqrt(max(gamm*pres/rho,rndoff))
       !
       ! Compute the conserved variables for this boundary point
       !
@@ -758,9 +767,12 @@ continue
       end do
       !
       face_cv(n,nec,2) = rho
-      face_cv(n,nmx,2) = rho*vel*dir_cosx
-      face_cv(n,nmy,2) = rho*vel*dir_cosy
-      face_cv(n,nmz,2) = rho*vel*dir_cosz
+     !face_cv(n,nmx,2) = rho*vel*dir_cosx
+     !face_cv(n,nmy,2) = rho*vel*dir_cosy
+     !face_cv(n,nmz,2) = rho*vel*dir_cosz
+      face_cv(n,nmx,2) = rho*vel*unx
+      face_cv(n,nmy,2) = rho*vel*uny
+      face_cv(n,nmz,2) = rho*vel*unz
      !face_cv(n,nee,2) = rho*enth - pres + half*rho*vel*vel
       face_cv(n,nee,2) = rho*htot_bc - rho*rmix_bc*temp
       !
