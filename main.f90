@@ -2758,6 +2758,61 @@ end subroutine find_bad_number
 !
 !###############################################################################
 !
+subroutine get_xyz_out(xyz,xyz_out,cxyz_out)
+  !
+  !.. Use Statements ..
+  use eqn_idx_mod, only : NCD_Axial,NCD_Vert,NCD_Span
+  use geomvar_mod, only : nr
+  use ovar,        only : grid_scaling_factor,itestcase
+  !
+  !.. Formal Arguments ..
+  real(wp),            intent(in) :: xyz(:)
+  real(wp),         intent(inout) :: xyz_out(:)
+  character(len=*), intent(inout) :: cxyz_out
+  !
+  !.. Local Scalars ..
+  real(wp)    :: x,y,z,r,theta
+  logical(lk) :: report_axisymmetric_xyz
+  !
+continue
+  !
+  report_axisymmetric_xyz = fals
+  !
+  if (nr < 3) then
+    report_axisymmetric_xyz = fals
+  else if (any(abs(itestcase) == [Subsonic_Jet, &
+                                  Supersonic_Jet, &
+                                  Taylor_Couette_Flow, &
+                                  Pipe_Channel_Flow, &
+                                  UIUC_Scramjet])) then
+    report_axisymmetric_xyz = true
+  end if
+  !
+  if (report_axisymmetric_xyz) then
+    !
+    x = xyz(NCD_Axial)/grid_scaling_factor
+    y = xyz(NCD_Vert )/grid_scaling_factor
+    z = xyz(NCD_Span )/grid_scaling_factor
+    !
+    r = sqrt(y*y + z*z)
+    theta = atan2(z,y)
+    if (theta < zero) theta = theta + two*pi
+    theta = theta*radians2degrees
+    !
+    xyz_out(1:3) = [x,r,theta]
+    cxyz_out = "Axial,R,Theta"
+    !
+  else
+    !
+    xyz_out(1:nr) = xyz(1:nr)/grid_scaling_factor
+    cxyz_out = "x,y,z"
+    !
+  end if
+  !
+end subroutine get_xyz_out
+!
+!###############################################################################
+!
 subroutine add_bad_pt(n,loc,nc,xyz,xyz_bad_pts)
   !
   !.. Use Statements ..
