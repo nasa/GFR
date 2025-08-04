@@ -685,10 +685,12 @@ subroutine mark_sponge_filter_cells()
   !.. Use Statements ..
   use eqn_idx_mod, only : NCD_Axial
   use ovar,        only : Sponge_Beyond_X,grid_scaling_factor
+  use ovar,        only : itestcase
   use geomvar_mod, only : ncell,cell,xyz
   !
   !.. Local Scalars ..
   integer  :: nc,n1,n2,i
+  integer  :: scramjet_location
   real(wp) :: xmax
   !
   !.. Local Parameters ..
@@ -715,6 +717,26 @@ continue
     !
   end do
   !
+  if (abs(itestcase) == UIUC_Scramjet) then
+    !$ACC PARALLEL LOOP PRESENT(cell,xyz,sponge_cell)
+    do nc = 1,ncell
+      !
+      n1 = cell(nc)%beg_sp
+      n2 = cell(nc)%end_sp
+      !
+      scramjet_location = &
+              get_uiuc_scramjet_location(xyz(:,n1:n2), &
+                                         wall_radius_sensitivity=-0.05_wp)
+      !
+      if (scramjet_location == 1) sponge_cell(nc) = .true.
+      !
+    end do
+  end if
+  !
+contains
+!
+#include "Functions/uiuc_combustor.f90"
+!
 end subroutine mark_sponge_filter_cells
 !
 !###############################################################################

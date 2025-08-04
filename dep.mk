@@ -472,6 +472,7 @@ $(OBJDIR)/limiters_mod.o : limiters_mod.f90 \
              $(OBJDIR)/thermo_mod.o \
              $(OBJDIR)/cell_ave_mod.o \
              $(OBJDIR)/flux_mod.o \
+             $(FUNDIR)/uiuc_combustor.f90 \
              $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/matrix_types_mod.o : matrix_types_mod.f90 \
