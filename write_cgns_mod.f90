@@ -7,6 +7,7 @@ module write_cgns_mod
   use cgns_types_mod
   use eqn_idx_mod, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
   use eqn_idx_mod, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ncond,ng
+  use eqn_idx_mod, only : NCD_Axial,NCD_Vert,NCD_Span
   !
   implicit none
   !
@@ -110,6 +111,7 @@ module write_cgns_mod
   !
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
   character(len=*), parameter :: char_lc_xyz(1:3) = ["x","y","z"]
+  character(len=*), parameter :: char_cyl(1:3) = ["Axial","R    ","Theta"]
   !
   !.. CGNS Parallel Point Indices ..
   integer(CST), save :: my_pts_beg
@@ -772,13 +774,14 @@ subroutine write_parallel_cgns_grid_file()
   use geomvar_mod, only : nr,n_solpts,xyz
   use ovar,        only : profile_io_cgns,profile_io_cgns_subs
   use ovar,        only : grid_scaling_factor
-  use ovar,        only : channel_nondim_output_coord
+  use ovar,        only : itestcase,channel_nondim_output_coord
   use ovar,        only : cgns_dir
+  use ovar,        only : output_cylindrical_coordinates
   !
   !.. Local Scalars ..
-  integer :: n,ierr
+  integer :: l,n,ierr
   !
-  integer(CBT) :: ifile_g,ibase_g,izone_g
+  integer(CBT) :: ifile_g,ibase_g,izone_g,isol_g,igrid_g
   !
   integer(CST) :: npts
   !
@@ -787,15 +790,18 @@ subroutine write_parallel_cgns_grid_file()
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
   real(wp) :: cgns_wall_time
+  real(wp) :: coord_output_scaling,theta
   !
   character(len=CGLEN) :: varname
   !
   !.. Local Arrays ..
   integer(CBT) :: ixyz_g(1:nr)
+  integer(CBT) :: iarray_g(1:nr)
   !
   !.. Local Allocatable Arrays ..
   real(CRT), allocatable :: var(:)
   real(wp),  allocatable :: vartmp(:)
+  real(wp),  allocatable :: xyztmp(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_grid_file"
@@ -847,14 +853,35 @@ continue
   !
   ! Create data nodes for the coordinates
   !
-  do n = 1,nr
-    varname = "Coordinate"//char_xyz(n)
+  !
+  ! Create a new GridCoordinates_t node for the Cartesian coordinates
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_grid_write_f")
+  call cg_grid_write_f(ifile_g,ibase_g,izone_g, &
+                       "GridCoordinates",igrid_g,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cg_grid_write_f", &
+                  cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_grid_write_f")
+  !
+  ! Move to the end of the CGNS file to write the Cartesian coordinate
+  ! data using the cgp_array_write functions to this 
+  !
+  call cg_goto_f(ifile_g,ibase_g,cgierr, &
+                 "Zone_t",izone_g, &
+                 "GridCoordinates_t",igrid_g, &
+                 CGNS_GOTO_END)
+  call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr,__LINE__,__FILE__)
+  !
+  do l = 1,nr
+    varname = "Coordinate"//char_xyz(l)
     call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_coord_write_f")
     call cgp_coord_write_f(ifile_g,ibase_g,izone_g,CGNS_KIND_REAL, &
-                           trim(varname),ixyz_g(n),cgierr)
+                           trim(varname),ixyz_g(l),cgierr)
     call cgns_error(pname,cgns_grid_file,"cgp_coord_write_f", &
-                    cgierr,__LINE__,__FILE__,"Write node: Coordinate",n)
+                    cgierr,__LINE__,__FILE__,"Write node: Coordinate",l)
     call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_coord_write_f")
   end do
@@ -865,34 +892,146 @@ continue
   !
   npts = my_pts_end - my_pts_beg + 1_CST
   !
+  xyztmp = init_array(npts,int(nr,kind=CST),zero)  ! F2003 AUTO-REALLOC
   vartmp = init_array(npts,zero)     ! F2003 AUTO-REALLOC
   var = init_array(npts,real(0,CRT)) ! F2003 AUTO-REALLOC
   !
-  do n = 1,nr
+  ! Interpolate the coordinates to the output locations and
+  ! store in the temporary array xyztmp
+  !
+  do l = 1,nr
     !
-    ! Interpolate vartmp to the desired output locations and
-    ! convert to the real type required for the CGNS file.
+    ! Interpolate this coordinate to the output locations
     !
-    call interpolate_for_output( xyz(n,1:n_solpts) , vartmp )
+    call interpolate_for_output( xyz(l,1:n_solpts) , xyztmp(1:npts,l) )
     !
-    if (channel_nondim_output_coord) then
-      vartmp(:) = vartmp(:) / 0.003048_wp
-    end if
+  end do
+  !
+  ! Get the scaling constant used to remove the grid scaling factor or
+  ! apply any other nondimensionalization to the coordinates
+  !
+  coord_output_scaling = one/grid_scaling_factor
+  !
+  if (itestcase == abs(Channel_Flow) .and. channel_nondim_output_coord) then
+    ! Nondimensionalize the grid coordinates by the channel-half-height
+    coord_output_scaling = coord_output_scaling / (half*channel_grid_Ly)
+  end if
+  !
+  ! Apply the output coordinate scaling to the output coordinates
+  !
+  do l = 1,nr
+    do n = 1,npts
+      xyztmp(n,l) = xyztmp(n,l) * coord_output_scaling
+    end do
+  end do
+  !
+  ! Write the output coordinate data to the CGNS file
+  !
+  do l = 1,nr
     !
-    var(:) = real( vartmp/grid_scaling_factor , kind(var) )
+    ! Convert this output coordinate to the real type required for the CGNS file
+    !
+    var(:) = real( xyztmp(1:npts,l) , kind(var) )
     !
     ! Write the current coordinate variable to the CGNS file
     !
     call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_coord_write_data_f")
-    call cgp_coord_write_data_f(ifile_g,ibase_g,izone_g,ixyz_g(n), &
+    call cgp_coord_write_data_f(ifile_g,ibase_g,izone_g,ixyz_g(l), &
                                 my_pts_beg,my_pts_end,var,cgierr)
     call cgns_error(pname,cgns_grid_file,"cgp_coord_write_data_f", &
-                    cgierr,__LINE__,__FILE__,"Write data: Coordinate",n)
+                    cgierr,__LINE__,__FILE__,"Write data: Coordinate",l)
     call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_coord_write_data_f")
     !
   end do
+  !
+  ! Write the cylindrical coordinates as flow variables to the grid file
+  !
+  if (output_cylindrical_coordinates .and. nr == 3) then
+    !
+    ! Create a new GridCoordinates_t node for the cylindrical coordinates
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_grid_write_f")
+    call cg_grid_write_f(ifile_g,ibase_g,izone_g, &
+                         "CylindricalCoordinates",igrid_g,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_grid_write_f", &
+                    cgierr,__LINE__,__FILE__)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_grid_write_f")
+    !
+    ! Move to the end of the CGNS file to write the cylindrical coordinate
+    ! data using the cgp_array_write functions to this GridCoordinates_t node.
+    !
+    call cg_goto_f(ifile_g,ibase_g,cgierr, &
+                   "Zone_t",izone_g, &
+                   "GridCoordinates_t",igrid_g, &
+                   CGNS_GOTO_END)
+    call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr,__LINE__,__FILE__)
+    !
+    do l = 1,nr
+      varname = "Coordinate"//char_cyl(l)
+      call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                      "cgp_array_write_f")
+      call cgp_array_write_f(trim(varname),CGNS_KIND_REAL,1_CBT,zone_size, &
+                             iarray_g(l),cgierr)
+      call cgns_error(pname,cgns_grid_file,"cgp_array_write_f", &
+                      cgierr,__LINE__,__FILE__,"Write node: Coordinate Array",l)
+      call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                      "cgp_array_write_f")
+    end do
+    !
+    ! Compute the axial coordinate and write it to the CGNS grid file
+    !
+    do n = 1,npts
+      vartmp(n) = xyztmp(n,NCD_Axial)
+    end do
+    var(:) = real( vartmp , kind=kind(var) )
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_array_write_data_f")
+    call cgp_array_write_data_f(iarray_g(1),my_pts_beg,my_pts_end,var,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_array_write_data_f", &
+                    cgierr,__LINE__,__FILE__,"Write data: Coordinate Array",1)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_array_write_data_f")
+    !
+    ! Compute the radial coordinate and write it to the CGNS grid file
+    !
+    do n = 1,npts
+      vartmp(n) = sqrt(xyztmp(n,NCD_Vert)**2 + xyztmp(n,NCD_Span)**2)
+    end do
+    var(:) = real( vartmp , kind=kind(var) )
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_array_write_data_f")
+    call cgp_array_write_data_f(iarray_g(2),my_pts_beg,my_pts_end,var,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_array_write_data_f", &
+                    cgierr,__LINE__,__FILE__,"Write data: Coordinate Array",2)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_array_write_data_f")
+    !
+    ! Compute the theta coordinate and write it to the CGNS grid file
+    !
+    do n = 1,npts
+      theta = atan2(xyztmp(n,NCD_Span),xyztmp(n,NCD_Vert))
+      if (theta < zero) theta = theta + two*pi
+      vartmp(n) = theta*radians2degrees
+    end do
+    var(:) = real( vartmp , kind=kind(var) )
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_array_write_data_f")
+    call cgp_array_write_data_f(iarray_g(3),my_pts_beg,my_pts_end,var,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_array_write_data_f", &
+                    cgierr,__LINE__,__FILE__,"Write data: Coordinate Array",3)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_array_write_data_f")
+    !
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   ! Deallocate the var and vartmp arrays
   !
@@ -903,6 +1042,10 @@ continue
   if (allocated(vartmp)) then
     deallocate ( vartmp , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"vartmp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  if (allocated(xyztmp)) then
+    deallocate ( xyztmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyztmp",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Write all of the CGNS sections which contain the element connectivities
