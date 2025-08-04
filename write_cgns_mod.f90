@@ -1302,6 +1302,105 @@ end subroutine link_cgns_grid_file
 !
 !###############################################################################
 !
+subroutine link_cylindrical_coordinates(cgns_file,procedure_name, &
+                                        ifile,ibase,izone,isol)
+  !
+  !.. Use Statements ..
+  use ovar, only : profile_io_cgns_subs
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: cgns_file
+  character(len=*), intent(in) :: procedure_name
+  integer(CBT),     intent(in) :: ifile
+  integer(CBT),     intent(in) :: ibase
+  integer(CBT),     intent(in) :: izone
+  integer(CBT),     intent(in) :: isol
+  !
+  !.. Local Scalars ..
+  character(len=300) :: link_path
+  character(len=300) :: pname
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: sub_pname = "link_cylindrical_coordinates"
+  !
+continue
+  !
+  write (pname,1) sub_pname,trim(adjustl(procedure_name))
+  !
+  ! Create a link to the axial grid coordinates in the grid file
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
+  call cg_goto_f(ifile,ibase,cgierr, &
+                 "Zone_t",izone, &
+                 "FlowSolution_t",isol, &
+                 CGNS_GOTO_END)
+  call cgns_error(pname,cgns_file,"cg_goto_f",cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
+  !
+  link_path = base_name//"/"//zone_name// &
+              "/CylindricalCoordinates/CoordinateAxial"
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
+  call cg_link_write_f("CoordinateAxial",trim(cgns_grid_fname), &
+                       trim(link_path),cgierr)
+  call cgns_error(pname,cgns_file,"cg_link_write_f(CoordinateAxial)", &
+                  cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
+  !
+  ! Create a link to the radial grid coordinates in the grid file
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
+  call cg_goto_f(ifile,ibase,cgierr, &
+                 "Zone_t",izone, &
+                 "FlowSolution_t",isol, &
+                 CGNS_GOTO_END)
+  call cgns_error(pname,cgns_file,"cg_goto_f",cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
+  !
+  link_path = base_name//"/"//zone_name// &
+              "/CylindricalCoordinates/CoordinateR"
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
+  call cg_link_write_f("CoordinateR",trim(cgns_grid_fname), &
+                       trim(link_path),cgierr)
+  call cgns_error(pname,cgns_file,"cg_link_write_f(CoordinateR)", &
+                  cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
+  !
+  ! Create a link to the theta grid coordinates in the grid file
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
+  call cg_goto_f(ifile,ibase,cgierr, &
+                 "Zone_t",izone, &
+                 "FlowSolution_t",isol, &
+                 CGNS_GOTO_END)
+  call cgns_error(pname,cgns_file,"cg_goto_f",cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
+  !
+  link_path = base_name//"/"//zone_name// &
+              "/CylindricalCoordinates/CoordinateTheta"
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
+  call cg_link_write_f("CoordinateTheta",trim(cgns_grid_fname), &
+                       trim(link_path),cgierr)
+  call cgns_error(pname,cgns_file,"cg_link_write_f(CoordinateTheta)", &
+                  cgierr,__LINE__,__FILE__)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
+  !
+  ! Format Statements
+  !
+  1 format (a," (called from ",a,")")
+  !
+end subroutine link_cylindrical_coordinates
+!
+!###############################################################################
+!
 subroutine write_cgns_section(ifil,ibas,izon,s,sect_idx)
   !
   !.. Use Statements ..
