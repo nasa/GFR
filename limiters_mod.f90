@@ -51,6 +51,10 @@ module limiters_mod
   logical(ldk), save, allocatable :: sponge_cell(:)
   !$ACC DECLARE CREATE(sponge_cell)
   !
+  real(wp), public, save, allocatable :: cell_lengths(:)
+  !$ACC DECLARE CREATE(cell_lengths)
+  !
+  logical(lk), save :: ducros_needs_initialization = true
   !
   !.. Module Parameters ..
   !
