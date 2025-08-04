@@ -16,6 +16,7 @@ module thermo_mod
   public :: update_mixture_density
   public :: compute_total_temperature
   public :: compute_total_pressure
+  public :: compute_total_temp_and_pres
   public :: compute_mixture_enthalpy
   public :: compute_species_enthalpy
   public :: compute_species_energy
@@ -101,6 +102,11 @@ module thermo_mod
     module procedure compute_total_pressure_sp, &
                      compute_total_pressure_1p
   end interface compute_total_pressure
+  !
+  interface compute_total_temp_and_pres
+    module procedure compute_total_temp_and_pres_sp, &
+                     compute_total_temp_and_pres_1p
+  end interface compute_total_temp_and_pres
   !
   interface compute_mixture_enthalpy
     module procedure compute_mixture_enthalpy_sp, &
@@ -2906,6 +2912,58 @@ continue
   end if
   !
 end subroutine compute_total_pressure_1p
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_total_temp_and_pres_sp(n1,n2,cv,gp,t0,p0,dimensional)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp),    intent(in) :: cv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
+  real(wp), intent(inout) :: t0(:)
+  real(wp), intent(inout) :: p0(:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_total_temp_and_pres_sp"
+  !
+continue
+  !
+  call compute_total_pressure_sp(n1,n2,cv,gp,p0,dimensional=dimensional,t0=t0)
+  !
+end subroutine compute_total_temp_and_pres_sp
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_total_temp_and_pres_1p(cv,gp,t0,p0,dimensional)
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: cv(:)
+  real(wp),    intent(in) :: gp(:)
+  real(wp), intent(inout) :: t0
+  real(wp), intent(inout) :: p0
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_total_temp_and_pres_1p"
+  !
+continue
+  !
+  call compute_total_pressure_1p(cv,gp,p0,dimensional=dimensional,t0=t0)
+  !
+end subroutine compute_total_temp_and_pres_1p
 !
 !###############################################################################
 !
