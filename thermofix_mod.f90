@@ -44,6 +44,7 @@ module thermofix_mod
   private :: emergency_limit_bad_cells_2d
   private :: emergency_limit_bad_cells_1d
   private :: emergency_limit_bad_cells_nd
+  private :: emergency_limit2_bad_cells
   private :: emergency_scale_bad_cells
   private :: emergency_scale_bad_cells_3d
   private :: emergency_scale_bad_cells_2d
@@ -414,6 +415,7 @@ continue
               nn = cell(nc)%node(n)%idx   ! index in nodeusp
               xyz_ctr(1:nr) = xyz_ctr(1:nr) + xyz_nodes(1:nr,nn)
             end do
+            !
             xyz_ctr(:) = xyz_ctr(:) / real(num_cell_nodes,wp)
             write(iout,2) mypnum,nc, &
                           bad_cell_found,bad_face_found,bad_node_found
@@ -650,6 +652,8 @@ continue
     call emergency_dynamic_filter_bad_cells(bad_cell,usp,mend_iter)
   case (TFM_SCALE)
     call emergency_scale_bad_cells(bad_cell,usp)
+  case (TFM_LIMI2)
+    call emergency_limit2_bad_cells(bad_cell,usp,gpsp)
   case default
     write (error_message,100) thermofix%method
     100 format( "Unexpected value, thermo_limiter_method = ", i0 )
@@ -2515,6 +2519,147 @@ continue
   end do loop_cells
   !
 end subroutine emergency_scale_bad_cells_nd
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+!###############################################################################
+!> Positivity Preserving limiting procedure of Sheshadri (thesis stanford)
+!>
+!> Scale density to a threshold, update solution
+!> Scale conserved variables based off of a pressure threshold
+!> *scale about the cell average
+!>
+!> Ref:
+!> https://stacks.stanford.edu/file/nk877ng0918/Abhishek_thesis_e_version2-augmented.pdf
+!###############################################################################
+subroutine emergency_limit2_bad_cells(bad_cell,usp,gpsp)
+  !
+  !.. Use Statements ..
+  use geomvar_mod,  only : ncell,cell,face
+  use cell_ave_mod, only : cell_ave_sol, compute_cell_ave_var
+  use ovar,         only : thermofix, rgasref_nd, rhoref, aref
+  use flowvar_mod,  only : faceusp,facegpsp
+  !
+  !.. Arguments ..
+  logical(lk), intent(in)    :: bad_cell(:) !< Marks the cells to be repaired.
+  real(wp),    intent(inout) :: gpsp(:,:)
+  !
+  !> Conserved variables at solution points for all cells.
+  real(wp),    intent(inout) :: usp(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "emergency_limit2_bad_cells"
+  !
+  !.. Local Scalars ..
+  integer  :: m,n,nc,n1,n2,ncf,nf,f1,f2,sf
+  real(wp) :: rhomin, pmin ! minimum density/pressure
+  real(wp) :: rhoave ! average density
+  real(wp), allocatable, dimension(:) :: pave ! average pressure
+  real(wp) :: theta,tau ! scaling param
+  real(wp) :: asdf
+  real(wp) :: rholimit, plimit 
+  !
+  !  NEED TO GET RHOLIMIT and PRESSURELIMIT
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  allocate( pave(ncell), source=zero )
+  !
+  rholimit = thermofix%min_density / rhoref
+  plimit = thermofix%min_pressure / (rhoref*aref*aref)
+  !
+  loop_cells: &
+  do nc = 1,ncell
+    if ( bad_cell(nc) ) then
+      !
+      n1 = cell(nc)%beg_sp ! beginning solution point index for this cell
+      n2 = cell(nc)%end_sp ! ending    solution point index for this cell
+      !
+      ! Get the minimum value of density from the solution points
+      !
+      rhomin = minval( usp(n1:n2,nec) )
+      !
+      ! Get the minimum value of density from the face/flux points
+      !
+      do ncf = 1,size(cell(nc)%face)
+        nf = cell(nc)%face(ncf)%idx  ! index of current cell on face
+        sf = cell(nc)%face(ncf)%side ! side of face that nc is on
+        f1 = face(nf)%beg_fp ! beginning face point index for this face
+        f2 = face(nf)%end_fp ! ending    face point index for this face
+        rhomin = min( rhomin , minval(faceusp(f1:f2,nec,sf)) )
+      end do
+      !
+      ! Extract the cell average density
+      !
+      rhoave = cell_ave_sol(nec,nc)
+      !
+      ! Find the theta_1 scaling parameter
+      theta = min(one, (rhoave - rholimit) / (rhoave - rhomin))
+      !
+      ! Scale the conserved variables to accound for the new density
+      do n = n1,n2  ! loop solution points
+        usp(n,nec) = theta*(usp(n,nec)-rhoave) + rhoave
+      end do ! n
+      !
+    end if
+  end do loop_cells
+  !
+  call bad_cell_update_properties_sp(bad_cell,usp,gpsp)
+  !
+  call reinterpolate_bad_cells(bad_cell,usp,faceusp,facegpsp)
+  !
+  call compute_cell_ave_var(nq+1, pave)
+  !
+  ! Now limit based on pressure (i.e. entropy limiting)
+  !
+  loop_cells2: &
+  do nc = 1,ncell
+    if ( bad_cell(nc) ) then
+      !
+      n1 = cell(nc)%beg_sp ! beginning solution point index for this cell
+      n2 = cell(nc)%end_sp ! ending    solution point index for this cell
+      !
+      ! Get the minimum value of pressure from the solution points
+      !
+      pmin = minval( gpsp(n1:n2,npres) )
+      !
+      ! Get the minimum value of pressure from the face/flux points
+      !
+      do ncf = 1,size(cell(nc)%face)
+        nf = cell(nc)%face(ncf)%idx  ! index of current cell on face
+        sf = cell(nc)%face(ncf)%side ! side of face that nc is on
+        f1 = face(nf)%beg_fp ! beginning face point index for this face
+        f2 = face(nf)%end_fp ! ending    face point index for this face
+        pmin = min( pmin , minval(facegpsp(f1:f2,npres,sf)) )
+      end do
+      !
+      ! tau parameter
+      tau = min(zero, pmin-plimit)
+      !
+      theta = tau / (tau - (pave(nc)-plimit))
+      !
+      ! scale solution
+      do n = n1,n2  ! loop solution points
+        do m = 1,nq  ! loop solution variables
+          usp(n,m) = usp(n,m) + theta*(cell_ave_sol(m,nc) - usp(n,m))
+        end do ! m
+      end do ! n
+      !
+    end if
+  end do loop_cells2
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine emergency_limit2_bad_cells
 !
 !###############################################################################
 !> Update thermo and transport properties at volume points of bad cells.

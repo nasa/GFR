@@ -843,8 +843,10 @@ module module_kind_types
   integer, parameter :: TFM_OFF   = 0  !< No check/fix.
   integer, parameter :: TFM_LIMIT = 1  !< Limit HO modes via sponge filter.
   integer, parameter :: TFM_SCALE = 2  !< Scale HO modes by a user factor.
+  integer, parameter :: TFM_LIMI2 = 3  !< Use Positivity Preservation
+                                 !(Sheshadri Stanford Thesis, S0 -> -\infty)
   !> Valid choices for thermofix%method.
-  integer, parameter :: Valid_TFM(1:3) = [TFM_OFF,TFM_LIMIT,TFM_SCALE]
+  integer, parameter :: Valid_TFM(1:4) = [TFM_OFF,TFM_LIMIT,TFM_SCALE,TFM_LIMI2]
   !
   ! Equation Types
   integer, parameter :: Euler_Eqns = 1
