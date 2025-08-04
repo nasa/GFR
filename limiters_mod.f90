@@ -1953,6 +1953,9 @@ continue
   else if (abs(Limiter_Option) == 2) then
     call jump_indicator(nst=nst,troubled_cell=troubled_cell)
   else if (abs(Limiter_Option) == 4) then
+   !orders_to_cutoff = proj_order
+   !call resolution_indicator(nst=nst,troubled_cell=troubled_cell, &
+   !                          orders_to_cutoff=orders_to_cutoff)
     call ducros_indicator(nst=nst,troubled_cell=troubled_cell)
   else
     ! Other values of Limiter_Option should never reach this routine.
