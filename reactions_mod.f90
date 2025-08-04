@@ -1013,7 +1013,11 @@ continue
         call compute_H2_wdot(n1,n2,usp,gpsp,residual,iter)
       end if
     else if (itestcase == UIUC_Scramjet) then
+      if (semi_implicit_chemistry == -1) then
+        call compute_C2H4_hardcoded_wdot(n1,n2,usp,gpsp,residual)
+      else
         call compute_H2_wdot(n1,n2,usp,gpsp,residual,iter)
+      end if
     else
       call compute_generic_wdot(n1,n2,usp,gpsp,residual)
     end if
@@ -2130,6 +2134,222 @@ continue
   call pure_debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_H2_hardcoded_wdot
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_C2H4_hardcoded_wdot(n1,n2,cv,gp,residual)
+  !
+  ! Routine to compute the chemical source terms
+  !
+  ! Subroutine COMPUTE_C2H4_HARDCODED_WDOT computes:
+  !  2) The species concentrations
+  !  2) The forward and backward reaction rate coefficients
+  !  3) The species production rate
+  !
+  ! N1     : beginning point
+  ! N2     : ending    point
+  ! CV     : conserved variables
+  ! T      : static temperature
+  ! SPECON : species concentrations
+  ! FRRATE : forward reaction rate coefficient
+  ! BRRATE : backward reaction rate coefficient
+  ! WDOT   : species source terms
+  !
+  !.. Use Statements ..
+  use ovar,        only : rhoref,aref,tref
+  use metrics_mod, only : jac
+  use thermo_mod,  only : runivl,wtmol
+  use thermo_mod,  only : compute_gibbs_free_energy
+  !
+  ! .. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: cv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
+  real(wp), intent(inout) :: residual(:,:)
+  !
+  ! .. Local Scalars ..
+  integer  :: ir,m,n,np
+  real(wp) :: val,log_a,expnt,tpwr,rulog,tactiv
+  real(wp) :: temp,logt,tbe
+  real(wp) :: qf,qb,dgibrt,prdctf,prdctb
+  real(wp) :: scO2,scH2,scCO,scH2O,scCO2,scC2H4,scN2
+  real(wp) :: wdotO2,wdotH2,wdotCO,wdotH2O,wdotCO2,wdotC2H4
+  real(wp) :: prd1,prd2,prd3,prd4,prd5,prd6,prd7
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: t(:)
+  real(wp), allocatable :: tlog(:)
+  real(wp), allocatable :: gibrt(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_C2H4_hardcoded_wdot"
+  !
+continue
+  !
+  call pure_debug_timer(entering_procedure,pname)
+  !
+  np = size(cv,dim=1)
+  !
+  rulog = log(runivl)
+  !
+  val = dens_cgs_to_si  / (rhoref*aref)
+  !
+  ! Compute the Gibbs free energy / (Runiv*T)
+  !
+  allocate ( gibrt(1:np,1:ncs) , source=zero )
+  !
+  call compute_gibbs_free_energy(n1,n2,gp(:,ntemp),gibrt)
+  !
+  ! Calculate the forwards and backward rates
+  !
+  do n = n1,n2
+    !
+    ! Compute the forward reaction rate coefficient
+    !
+    temp = gp(n,ntemp)*tref
+    logt = log(temp)
+    !
+    ! Compute the dimensional species concentrations in moles/cm^3
+    !
+    scH2   = cv(n,nH2  ) * dens_si_to_cgs * rhoref / wtmol(nH2  )
+    scO2   = cv(n,nO2  ) * dens_si_to_cgs * rhoref / wtmol(nO2  )
+    scH2O  = cv(n,nH2O ) * dens_si_to_cgs * rhoref / wtmol(nH2O )
+    scCO   = cv(n,nCO  ) * dens_si_to_cgs * rhoref / wtmol(nCO  )
+    scCO2  = cv(n,nCO2 ) * dens_si_to_cgs * rhoref / wtmol(nCO2 )
+    scC2H4 = cv(n,nC2H4) * dens_si_to_cgs * rhoref / wtmol(nC2H4)
+    scN2   = cv(n,nN2  ) * dens_si_to_cgs * rhoref / wtmol(nN2  )
+    !
+    ! There are no third body efficiencies for this reaction mechanism
+    !
+    tbe = 0
+    !
+    !=========================================================================
+    !=========================================================================
+    !=========================================================================
+    !
+    !    REACTION 1:  C2H4 + O2 <=> 2CO + 2H2
+    !
+    !-------------------------------------------------------------------------
+    !
+    ir = 1
+    !
+    log_a = frcoef(1,ir)
+    tpwr = frcoef(2,ir)
+    tactiv = frcoef(3,ir)
+    !
+    expnt = log_a + tpwr*logt - tactiv/temp
+    qf = exp( min(exp_lim,expnt) )
+    !
+    ! Compute the backwards reaction rate coefficient
+    ! using an equilibrium assumption
+    !
+    dgibrt = (gibrt(n,nC2H4) + gibrt(n,nO2)) - two*(gibrt(n,nCO) + gibrt(n,nH2))
+    qb = exp( min(exp_lim,expnt+dgibrt) )
+    !
+    ! Calculate the species source terms
+    !
+    prdctf = qf * scC2H4 * scO2
+    prdctb = qb * scCO*scCO * scH2*scH2
+    !
+    ! Compute net effect of forward and backward reactions
+    !
+    prd1 = prdctf - prdctb
+    !
+    !=========================================================================
+    !=========================================================================
+    !=========================================================================
+    !
+    !    REACTION 2:  2CO + O2 <=> 2CO2
+    !
+    !-------------------------------------------------------------------------
+    !
+    ir = 2
+    !
+    log_a = frcoef(1,ir)
+    tpwr = frcoef(2,ir)
+    tactiv = frcoef(3,ir)
+    !
+    expnt = log_a + tpwr*logt - tactiv/temp
+    qf = exp( min(exp_lim,expnt) )
+    !
+    ! Compute the backwards reaction rate coefficient
+    ! using an equilibrium assumption
+    !
+    dgibrt = (two*gibrt(n,nCO) + gibrt(n,nO2)) - (two*gibrt(n,nCO2))
+    qb = exp( min(exp_lim,expnt+dgibrt) )
+    !
+    ! Calculate the species source terms
+    !
+    prdctf = qf * scCO*scCO * scO2
+    prdctb = qb * scCO2*scCO2
+    !
+    prd2 = prdctf - prdctb
+    !
+    !=========================================================================
+    !=========================================================================
+    !=========================================================================
+    !
+    !    REACTION 3:  2H2 + O2 <=> 2H2O
+    !
+    !-------------------------------------------------------------------------
+    !
+    ir = 3
+    !
+    log_a = frcoef(1,ir)
+    tpwr = frcoef(2,ir)
+    tactiv = frcoef(3,ir)
+    !
+    expnt = log_a + tpwr*logt - tactiv/temp
+    qf = exp( min(exp_lim,expnt) )
+    !
+    ! Compute the backwards reaction rate coefficient
+    ! using an equilibrium assumption
+    !
+    dgibrt = (two*gibrt(n,nH2) + gibrt(n,nO2)) - (two*gibrt(n,nH2O))
+    qb = exp( min(exp_lim,expnt+dgibrt) )
+    !
+    ! Calculate the species source terms
+    !
+    prdctf = qf * scH2*scH2  * scO2
+    prdctb = qb * scH2O*scH2O
+    !
+    ! Compute net effect of forward and backward reactions
+    !
+    prd3 = prdctf - prdctb
+    !
+    !=========================================================================
+    !=========================================================================
+    !=========================================================================
+    !
+    ! Compute net effect of forward and backward reactions
+    !
+    wdotH2   = two*prd1            - two*prd3
+    wdotO2   =    -prd1 -     prd2 -     prd3
+    wdotH2O  =                       two*prd3
+    wdotCO   = two*prd1 - two*prd2
+    wdotCO2  =            two*prd2
+    wdotC2H4 =    -prd1
+    !
+    ! Convert species production rate to kg/(m**3-sec), non-dimensionalize,
+    ! and add the species source terms to the residual
+    !
+    residual(n,nH2  ) = residual(n,nH2  ) - jac(n)*wdotH2  *wtmol(nH2  )*val
+    residual(n,nO2  ) = residual(n,nO2  ) - jac(n)*wdotO2  *wtmol(nO2  )*val
+    residual(n,nH2O ) = residual(n,nH2O ) - jac(n)*wdotH2O *wtmol(nH2O )*val
+    residual(n,nCO  ) = residual(n,nCO  ) - jac(n)*wdotCO  *wtmol(nCO  )*val
+    residual(n,nCO2 ) = residual(n,nCO2 ) - jac(n)*wdotCO2 *wtmol(nCO2 )*val
+    residual(n,nC2H4) = residual(n,nC2H4) - jac(n)*wdotC2H4*wtmol(nC2H4)*val
+    !
+  end do
+  !
+  if (allocated(gibrt)) deallocate ( gibrt )
+  !
+  call pure_debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_C2H4_hardcoded_wdot
 !
 !###############################################################################
 !
