@@ -2200,7 +2200,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   integer  :: this_order,limit_order
   integer  :: imarker
   real(wp) :: freestream_ref,rhoa,rhoa2,time_ref_inv
-  real(wp) :: cp_dim,cond_dim,dim_val
+  real(wp) :: cp_dim,cond_dim,dim_val,val
   real(wp) :: rho_inv,vx,vy,vz,a2,q2,s
   real(wp) :: x1,x2,v1,v2,theta,vr,vt
   real(wp) :: gamm,gm1,gam_over_gm1,mach,pres,temp
@@ -2471,7 +2471,7 @@ continue
         ivar_s = isvar_s(nv)
         !
         do n = 1,npts
-          vartmp(n) = cv(n,m)
+          vartmp(n) = cv(n,m) * rhoref
         end do
         !
         call cgns_write_field_data
