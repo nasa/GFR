@@ -1,11 +1,16 @@
-  subroutine cgns_write_field_data()
+  subroutine cgns_write_field_data(flush_to_zero)
     !
     ! This routine is placed here simply to prevent from having to place this
     ! whole chunk of code after each variable that needs to be written to the
     ! CGNS file. Everything used here is inherited from the parent routine.
     !
+    !.. Optional Arguments ..
+    logical(lk), optional, intent(in) :: flush_to_zero
+    !
     !.. Local Scalars ..
     integer :: n
+    !
+    logical(lk) :: use_ftz
     !
     !.. Local Parameters ..
     ! ZERO_CRT : The value 0.0 in CRT precision, i.e. the precision
@@ -23,11 +28,18 @@
     !
   continue
     !
+    use_ftz = true
+    if (present(flush_to_zero)) then
+      use_ftz = flush_to_zero
+    end if
+    !
     ! Flush-to-zero all elements of the vartmp array which are smaller than
     ! machine precision for the real precision used for writing to CGNS files.
     !
-    if (CRT /= wp) then
-      where (abs(vartmp(:)) <= ftz_CRT) vartmp = zero
+    if (use_ftz) then
+      if (CRT /= wp) then
+        where (abs(vartmp(:)) <= ftz_CRT) vartmp = zero
+      end if
     end if
     !
     ! Copy the vartmp array over to the var array, which
