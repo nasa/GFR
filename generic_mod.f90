@@ -1398,15 +1398,13 @@ continue
   !
   call check_for_header_output(output_header)
   !
+  ! Rewrite the header if it has been a while since it was previously written
+  !
+  call write_iter_header(output_header)
+  !
   ! Have the global root MPI process write out the iteration statistics
   !
   if (mypnum == glb_root) then
-    !
-    ! Rewrite the header if it has been a while since it was previously written
-    !
-    if (output_header) then
-      write (iout,iter_header)
-    end if
     !
     ! Output the limiter statistics if this has been enabled.
     !
@@ -1562,7 +1560,9 @@ continue
   output_header = fals
   !
   if (first_pass) then
-    output_header = true
+    ! Dont output on first pass since the header is
+    ! output just before starting the main solver loop.
+    output_header = fals
     first_pass = fals
   end if
   !

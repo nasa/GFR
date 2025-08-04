@@ -117,6 +117,7 @@ program GFR_main
   use bc_mod, only : get_faceusp_bc
   !
   use generic_mod, only : init_generic_mod
+  use generic_mod, only : write_iter_header
   use generic_mod, only : write_iter_stats
   use generic_mod, only : getmaxent
   use generic_mod, only : compute_residual_error
@@ -851,6 +852,8 @@ continue
   if (itcur == 0) then
     call write_restart_file(itcur)
   end if
+  !
+  call write_iter_header(output_header=true)
   !
   ! Initialize the wall time
   !
