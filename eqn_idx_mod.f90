@@ -10,6 +10,7 @@ module eqn_idx_mod
   ! Public Procedures
   !
   public :: create_equation_indices
+  public :: set_reference_coordinate_directions
   public :: set_auxiliary_variable
   public :: aux_var_is_not_gamma
   public :: aux_var_is_not_enthalpy
@@ -55,6 +56,24 @@ module eqn_idx_mod
   !
   integer, public, protected, save :: nee
   !$ACC DECLARE CREATE(nee)
+  !
+  ! NCD_Axial : index for the axial coordinate direction
+  ! NCD_Vert  : index for the vertical coordinate direction
+  !             i.e., the coordinate direction at theta = 0 degrees
+  ! NCD_Span  : index for the spanwise coordinate direction
+  !             i.e., the coordinate direction at theta = 90 degrees
+  !
+  integer, public, protected, save :: NCD_Axial
+  integer, public, protected, save :: NCD_Vert
+  integer, public, protected, save :: NCD_Span
+  !
+  ! NM_Axial : index for the momentum eq in the axial coordinate direction
+  ! NM_Vert  : index for the momentum eq in the vertical coordinate direction
+  ! NM_Span  : index for the momentum eq in the spanwise coordinate direction
+  !
+  integer, public, protected, save :: NM_Axial
+  integer, public, protected, save :: NM_Vert
+  integer, public, protected, save :: NM_Span
   !
   ! NTK : index for turbulence kinetic energy equation
   ! NTL : index for turbulence length scale equation
@@ -352,6 +371,76 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine create_equation_indices
+!
+!###############################################################################
+!
+subroutine set_reference_coordinate_directions()
+  !
+  !.. Use Statements ..
+  use ovar, only : alpha_aoaref,beta_aoaref
+  !
+continue
+  !
+  ! Default to X being the axial coordinate direction
+  !
+  NCD_Axial = 1                       ! set X as axial    coordinate direction
+  NCD_Vert  = merge( 2 , 0 , nmy > 0) ! set Y as vertical coordinate direction
+  NCD_Span  = merge( 3 , 0 , nmz > 0) ! set Z as spanwise coordinate direction
+  !
+  NM_Axial = nmx ! set X-momentum as axial    momentum equation
+  NM_Vert  = nmy ! set Y-momentum as vertical momentum equation
+  NM_Span  = nmz ! set Z-momentum as spanwise momentum equation
+  !
+  ! Change the reference coordinate directions for
+  ! specific reference angle of attack conditions
+  !
+  if (nmz == 0 .and. nmy > 0) then ! this is a 2D flow
+    !
+    if (abs(alpha_aoaref-nine*ten) < eps6) then
+      !
+      ! If alpha_aoaref is 90 degrees, set Y as the axial coordinate direction
+      !
+      NCD_Axial = 2  ! set Y as axial    coordinate direction
+      NCD_Vert  = 1  ! set X as vertical coordinate direction
+      !
+      NM_Axial = nmy ! set Y-momentum as axial    momentum equation
+      NM_Vert  = nmx ! set X-momentum as vertical momentum equation
+      !
+    end if
+    !
+  else if (nmz > 0) then ! this is a 3D flow
+    !
+    if (all(abs([beta_aoaref-nine*ten,alpha_aoaref]) < eps6)) then
+      !
+      ! If beta_aoaref is 90 degrees and alpha_aoaref is 0 degrees,
+      ! set Z as the axial coordinate direction
+      !
+      NCD_Axial = 3  ! set Z as axial    coordinate direction
+      NCD_Vert  = 1  ! set X as vertical coordinate direction
+      NCD_Span  = 2  ! set Y as spanwise coordinate direction
+      !
+      NM_Axial = nmz ! set Z-momentum as axial    momentum equation
+      NM_Vert  = nmx ! set X-momentum as vertical momentum equation
+      NM_Span  = nmy ! set Y-momentum as spanwise momentum equation
+      !
+    else if (all(abs([alpha_aoaref-nine*ten,beta_aoaref]) < eps6)) then
+      !
+      ! If alpha_aoaref is 90 degrees and beta_aoaref is 0 degrees,
+      ! set Y as the axial coordinate direction
+      !
+      NCD_Axial = 2  ! set Y as axial    coordinate direction
+      NCD_Vert  = 3  ! set Z as vertical coordinate direction
+      NCD_Span  = 1  ! set X as spanwise coordinate direction
+      !
+      NM_Axial = nmy ! set Y-momentum as axial    momentum equation
+      NM_Vert  = nmz ! set Z-momentum as vertical momentum equation
+      NM_Span  = nmx ! set X-momentum as spanwise momentum equation
+      !
+    end if
+    !
+  end if
+  !
+end subroutine set_reference_coordinate_directions
 !
 !###############################################################################
 !
