@@ -774,6 +774,7 @@ module ovar
   real(wp), public, save :: dt_global
   !
   integer,  public, save :: itcur
+  real(wp), public, save :: current_cfl
   real(wp), public, save :: d_t
   real(wp), public, save :: time
   real(wp), public, save :: time_ref = 1.0_wp

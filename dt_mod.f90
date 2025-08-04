@@ -24,7 +24,7 @@ subroutine get_dtsp(dtmin,final_timestep_from_stop_request,skip_updates)
   !.. Use Statements ..
   use geomvar_mod, only : n_solpts
   use ovar,        only : Timestep_Type
-  use ovar,        only : d_t,cfl ! modified
+  use ovar,        only : d_t,current_cfl ! modified
   use flowvar_mod, only : dtsp ! modified
   !
   !.. Formal Arguments ..
@@ -64,13 +64,13 @@ continue
   !
   if (Timestep_Type == Constant_Timestep) then
     !
-    call get_current_cfl(cfl)
+    call get_current_cfl(current_cfl)
     !
     call get_constant_timestep(dtmin_new,dt_sp)
     !
   else if (abs(Timestep_Type) == Cell_Timestep) then
     !
-    call get_current_cfl(cfl)
+    call get_current_cfl(current_cfl)
     !
     if (Timestep_Type == Global_Cell_Timestep) then
       call get_cell_global_timestep(dtmin_new,dt_sp)
@@ -80,7 +80,7 @@ continue
     !
   else if (abs(Timestep_Type) == Point_Timestep) then
     !
-    call get_current_cfl(cfl)
+    call get_current_cfl(current_cfl)
     !
     if (Timestep_Type == Global_Point_Timestep) then
       call get_point_global_timestep(dtmin_new,dt_sp)
@@ -123,14 +123,14 @@ continue
     ! dtmin_new with the input argument dtmin that was computed by the EPERK
     ! method.
     !
-    dtmin_new = dtmin_new / CFL
+    dtmin_new = dtmin_new / current_CFL
     !
     ! Now get the approximate CFL by dividing the input argument
     ! dtmin (which was computed by the EPERK adaptive time step
     ! controller) by dtmin_new (which is the CFL-based dtmin with
     ! an assumed CFL of 1).
     !
-    CFL = dtmin / dtmin_new
+    current_CFL = dtmin / dtmin_new
     !
   end if
   !
@@ -190,14 +190,14 @@ end subroutine checks_on_dtmin
 !
 !###############################################################################
 !
-subroutine get_current_cfl(cfl)
+subroutine get_current_cfl(current_cfl)
   !
   !.. Use Statements ..
   use ovar, only : cfl_beg,cfl_end,cfl_cycles,itcur
   use ovar, only : cfl_cycle_start,cfl_cycle_end
   !
   !.. Formal Arguments ..
-  real(wp), intent(inout) :: cfl
+  real(wp), intent(inout) :: current_cfl
   !
   !.. Local Scalars ..
   real(wp) :: cycle_ratio
@@ -215,9 +215,9 @@ continue
                     real(cfl_cycles-1,kind=wp)
     end if
     !
-    cfl = cfl_beg + (cfl_end - cfl_beg) * cycle_ratio
+    current_cfl = cfl_beg + (cfl_end - cfl_beg) * cycle_ratio
   else
-    cfl = cfl_end
+    current_cfl = cfl_end
   end if
   !
 end subroutine get_current_cfl
@@ -227,7 +227,7 @@ end subroutine get_current_cfl
 subroutine get_constant_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
-  use ovar,        only : constant_dt,CFL
+  use ovar,        only : constant_dt,current_CFL
   use geomvar_mod, only : n_solpts
   !
   !.. Formal Arguments ..
@@ -244,7 +244,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  dtmin = CFL * constant_dt
+  dtmin = current_CFL * constant_dt
   !
   !$ACC PARALLEL LOOP PRESENT(dt_sp)
   do n = 1,n_solpts
@@ -263,7 +263,7 @@ subroutine get_cell_global_timestep(dtmin,dt_sp)
   use geomvar_mod, only : nfbnd,nface,n_solpts,ncell
   use geomvar_mod, only : face,cell,n_bnd_flxpts,n_flxpts
   !
-  use ovar, only : CFL,governing_equations
+  use ovar, only : current_CFL,governing_equations
   !
   use metrics_mod, only : facenrm,facejac
   !
@@ -398,7 +398,7 @@ continue
     eigni_fp = eigni(kf,1)
     eignv_fp = hl * viscl(kf)
     !
-    dtl = CFL / (hl * (eigni_fp + eignv_fp))
+    dtl = current_CFL / (hl * (eigni_fp + eignv_fp))
     !
 #define IGNORE_NEGATIVE_TIMESTEPS
 #ifdef IGNORE_NEGATIVE_TIMESTEPS
@@ -426,7 +426,7 @@ continue
     eigni_fp = max( eigni(kf,1) , eigni(kf,2) )
     eignv_fp = max( hl * viscl(kf) , hr * viscr(kf) )
     !
-    dtl = CFL / (max(hl,hr) * (eigni_fp + eignv_fp))
+    dtl = current_CFL / (max(hl,hr) * (eigni_fp + eignv_fp))
 #ifdef IGNORE_NEGATIVE_TIMESTEPS
     if (dtl <= zero) then
       dtl = huge(zero)
@@ -437,8 +437,8 @@ continue
    !dtr = CFL / (hr * (eigni_fp + eignv_fp))
    !dtmin = min(dtmin,dtl,dtr)
     !
-    dt_fp(kf,1) = CFL / (hl * (eigni(kf,1) + hl*viscl(kf)) )
-    dt_fp(kf,2) = CFL / (hr * (eigni(kf,2) + hr*viscr(kf)) )
+    dt_fp(kf,1) = current_CFL / (hl * (eigni(kf,1) + hl*viscl(kf)) )
+    dt_fp(kf,2) = current_CFL / (hr * (eigni(kf,2) + hr*viscr(kf)) )
     !
   end do
   !
@@ -504,7 +504,7 @@ subroutine get_cell_local_timestep(dtmin,dt_sp)
   use geomvar_mod, only : nfbnd,nface,ncell
   use geomvar_mod, only : face,cell,n_flxpts
   !
-  use ovar, only : CFL,governing_equations
+  use ovar, only : current_CFL,governing_equations
   !
   use metrics_mod, only : facenrm,facejac
   !
@@ -613,7 +613,7 @@ continue
       !
       ! Compute the timestep for this flux point
       !
-      dtl = min( dtl , CFL / (hl * (eigni_fp + eignv_fp) ) )
+      dtl = min( dtl , current_CFL / (hl * (eigni_fp + eignv_fp) ) )
       !
     end do
     !
@@ -663,8 +663,8 @@ continue
       !
       ! Compute the timestep for this flux point
       !
-      dtl = min( dtl , CFL / (hl * (eigni_fp + eignv_fp)) )
-      dtr = min( dtr , CFL / (hr * (eigni_fp + eignv_fp)) )
+      dtl = min( dtl , current_CFL / (hl * (eigni_fp + eignv_fp)) )
+      dtr = min( dtr , current_CFL / (hr * (eigni_fp + eignv_fp)) )
       !
     end do
     !
@@ -1012,7 +1012,7 @@ subroutine get_point_global_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
   use geomvar_mod, only : nr,n_solpts,xyz
-  use ovar,        only : gam,CFL
+  use ovar,        only : gam,current_CFL
   use ovar,        only : moving_ref_frame
   use metrics_mod, only : time_metrics
   use flowvar_mod, only : usp
@@ -1097,7 +1097,7 @@ continue
       !
       dtc = dx*abs(velx) + dy*abs(vely) + dz*abs(velz) + da*aspd(n)
       !
-      dtpt = CFL/dtc
+      dtpt = current_CFL/dtc
       !
       dtmin = min( dtpt , dtmin )
       !
@@ -1122,7 +1122,7 @@ continue
       !
       dtc = dx*abs(velx) + dy*abs(vely) + da*aspd(n)
       !
-      dtpt = CFL/dtc
+      dtpt = current_CFL/dtc
       !
       dtmin = min( dtpt , dtmin )
       !
@@ -1141,7 +1141,7 @@ continue
       !
       dtc = dx*abs(usp(n,nmx))/usp(n,nec) + da*aspd(n)
       !
-      dtpt = CFL/dtc
+      dtpt = current_CFL/dtc
       !
       dtmin = min( dtpt , dtmin )
       !
@@ -1180,7 +1180,7 @@ subroutine get_point_local_timestep(dtmin,dt_sp)
   !
   !.. Use Statements ..
   use geomvar_mod, only : nr,n_solpts,xyz
-  use ovar,        only : gam,CFL
+  use ovar,        only : gam,current_CFL
   use ovar,        only : moving_ref_frame
   use metrics_mod, only : time_metrics
   use flowvar_mod, only : usp
@@ -1265,7 +1265,7 @@ continue
       !
       dtc = dx*abs(velx) + dy*abs(vely) + dz*abs(velz) + da*aspd(n)
       !
-      dtpt = CFL/dtc
+      dtpt = current_CFL/dtc
       !
       dtmin = min( dtpt , dtmin )
       !
@@ -1290,7 +1290,7 @@ continue
       !
       dtc = dx*abs(velx) + dy*abs(vely) + da*aspd(n)
       !
-      dtpt = CFL/dtc
+      dtpt = current_CFL/dtc
       !
       dtmin = min( dtpt , dtmin )
       !
@@ -1309,7 +1309,7 @@ continue
       !
       dtc = dx*abs(usp(n,nmx))/usp(n,nec) + da*aspd(n)
       !
-      dtpt = CFL/dtc
+      dtpt = current_CFL/dtc
       !
       dtmin = min( dtpt , dtmin )
       !

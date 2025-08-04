@@ -1221,7 +1221,7 @@ subroutine write_iter_stats(walltime_expiring,exit_main_loop)
   !
   !.. Use Statements ..
   use geomvar_mod, only : global_pinc_ptr,n_global_cell
-  use ovar,    only : itcur,d_t,cfl,time,minimum_timesteps,time_ref
+  use ovar,    only : itcur,d_t,current_cfl,time,minimum_timesteps,time_ref
   use ovar,    only : convergence_reached,itestcase,Period_Timesteps
   use ovar,    only : output_limiter_statistics,nlim
   use ovar,    only : convergence_order_max_res,convergence_order_abs_res
@@ -1443,7 +1443,7 @@ continue
     write (*,101) "itcur = ",itcur
     write (*,102) "d_t = ",d_t
     write (*,102) "out_time = ",out_time
-    write (*,102) "cfl = ",cfl
+    write (*,102) "cfl = ",current_cfl
     write (*,102) "rltwo = ",rltwo
     write (*,102) "output_L2val = ",output_L2val
     write (*,101) "hrs_left = ",hrs_left
@@ -1454,14 +1454,14 @@ continue
     if (abs(itestcase) == THX_Phase_3) then
      !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
       write (iout,iter_out_fmt) itcur,d_t,out_time, &
-                                cfl,output_L2val, &
+                                current_cfl,output_L2val, &
                                 mdot_nozzle,mdot_injector,blowing_ratio, &
                                 time_between_outputs, &
                                 hrs_left,min_left,sec_left
     else
      !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
       write (iout,iter_out_fmt) itcur,d_t,out_time, &
-                                cfl,rltwo,output_L2val, &
+                                current_cfl,rltwo,output_L2val, &
                                 time_between_outputs, &
                                 hrs_left,min_left,sec_left
     end if
@@ -1470,7 +1470,7 @@ continue
     !
    !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
     write (iout,iter_out_fmt) itcur,d_t,out_time, &
-                              cfl,rltwo,output_L2val, &
+                              current_cfl,rltwo,output_L2val, &
                               time_between_outputs
     !
 #endif
