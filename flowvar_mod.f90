@@ -315,6 +315,7 @@ subroutine allocate_flowvar_arrays()
   use ovar,              only : time_average_restart_files
   use ovar,              only : if_interpto_newgrid
   use ovar,              only : Track_Limiter_Filter_Dissipation
+  use ovar,              only : output_local_timestep
   !
   !.. Local Scalars ..
   integer :: nvar,nf,ne,nn,nfpts,nepts,nspts
@@ -359,6 +360,10 @@ continue
   call alloc_array(residual,n_solpts,nq,"residual",pname,__LINE__)
   !
   call alloc_array(dtsp,n_solpts,"dtsp",pname,__LINE__)
+  !
+  if (output_local_timestep) then
+    call alloc_array(dt_save,n_solpts,"dt_save",pname,__LINE__)
+  end if
   !
   call alloc_array(uoldsp,n_solpts,nq,"uoldsp",pname,__LINE__)
   !
