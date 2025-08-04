@@ -423,6 +423,8 @@ module ovar
   logical(lk), public, save :: output_stagnation_pressure     = fals
   logical(lk), public, save :: output_stagnation_variables    = fals
   logical(lk), public, save :: output_marker_variables        = fals
+  logical(lk), public, save :: output_local_timestep          = fals
+  logical(lk), public, save :: output_species_densities       = fals
   logical(lk), public, save :: output_species_mass_fractions  = true
   logical(lk), public, save :: output_species_mole_fractions  = fals
   logical(lk), public, save :: output_extra_species_variables = fals
@@ -2119,6 +2121,8 @@ module input_namelist_mod
   use ovar,      only : output_stagnation_pressure
   use ovar,      only : output_stagnation_variables
   use ovar,      only : output_marker_variables
+  use ovar,      only : output_local_timestep
+  use ovar,      only : output_species_densities
   use ovar,      only : output_species_mass_fractions
   use ovar,      only : output_species_mole_fractions
   use ovar,      only : output_extra_species_variables
@@ -2244,7 +2248,8 @@ module input_namelist_mod
                      output_stagnation_temperature, &
                      output_stagnation_pressure, &
                      output_stagnation_variables, output_marker_variables, &
-                     output_qcriterion, &
+                     output_local_timestep, output_qcriterion, &
+                     output_species_densities, &
                      output_species_mass_fractions, &
                      output_species_mole_fractions, &
                      output_extra_species_variables, &
