@@ -2923,7 +2923,7 @@ subroutine compute_total_temp_and_pres_sp(n1,n2,cv,gp,t0,p0,dimensional)
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
   integer,     intent(in) :: n2
-  real(wp),    intent(in) :: cv(:,:)
+  real(wp), intent(inout) :: cv(:,:)
   real(wp),    intent(in) :: gp(:,:)
   real(wp), intent(inout) :: t0(:)
   real(wp), intent(inout) :: p0(:)
