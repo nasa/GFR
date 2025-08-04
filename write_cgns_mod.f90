@@ -2168,6 +2168,8 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
   use thermo_mod, only : rspec
   use thermo_mod, only : compute_mixture_rgas
+  use thermo_mod, only : compute_total_temperature
+  use thermo_mod, only : compute_total_pressure
   use thermo_mod, only : compute_species_enthalpy
   use thermo_mod, only : compute_species_cp
   !
@@ -2951,20 +2953,28 @@ continue
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
-      ! NOTE: vartmp has been pre-loaded with the Mach number, and the auxiliary
-      !       variable in gp has already been switched to gamma
-      !
-      do n = 1,npts
-        mach = vartmp(n)
-        pres = gp(n,npres) * rhoa2
-        gamm = gp(n,ngamm)
-        gm1 = gamm - one
-        gam_over_gm1 = gamm / gm1
-        vartmp(n) = pres*( (one + half*gm1*mach*mach)**gam_over_gm1 )
-      end do
-      !
-      if (abs(itestcase) == Freestream_TCF) then
-        call remove_freestream_tcf_init(-nq-npres,xyztmp,vartmp)
+      if (ncs > 0) then
+        !
+        call compute_total_pressure(1,npts,cv,gp,vartmp,dimensional=true)
+        !
+      else
+        !
+        ! NOTE: vartmp has been pre-loaded with the Mach number, and the
+        !       auxiliary variable in gp has already been switched to gamma
+        !
+        do n = 1,npts
+          mach = vartmp(n)
+          pres = gp(n,npres) * rhoa2
+          gamm = gp(n,ngamm)
+          gm1 = gamm - one
+          gam_over_gm1 = gamm / gm1
+          vartmp(n) = pres*( (one + half*gm1*mach*mach)**gam_over_gm1 )
+        end do
+        !
+        if (abs(itestcase) == Freestream_TCF) then
+          call remove_freestream_tcf_init(-nq-npres,xyztmp,vartmp)
+        end if
+        !
       end if
       !
       call cgns_write_field_data
@@ -3086,18 +3096,26 @@ continue
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
-      ! NOTE: vartmp has been pre-loaded with the Mach number, and the auxiliary
-      !       variable in gp has already been switched to gamma
-      !
-      do n = 1,npts
-        mach = vartmp(n)
-        temp = gp(n,ntemp) * tref
-        gm1 = gp(n,ngamm) - one
-        vartmp(n) = temp*(one + half*gm1*mach*mach)
-      end do
-      !
-      if (abs(itestcase) == Freestream_TCF) then
-        call remove_freestream_tcf_init(-nq-ntemp,xyztmp,vartmp)
+      if (ncs > 0) then
+        !
+        call compute_total_temperature(1,npts,cv,gp,vartmp,dimensional=true)
+        !
+      else
+        !
+        ! NOTE: vartmp has been pre-loaded with the Mach number, and the auxiliary
+        !       variable in gp has already been switched to gamma
+        !
+        do n = 1,npts
+          mach = vartmp(n)
+          temp = gp(n,ntemp) * tref
+          gm1 = gp(n,ngamm) - one
+          vartmp(n) = temp*(one + half*gm1*mach*mach)
+        end do
+        !
+        if (abs(itestcase) == Freestream_TCF) then
+          call remove_freestream_tcf_init(-nq-ntemp,xyztmp,vartmp)
+        end if
+        !
       end if
       !
       call cgns_write_field_data
