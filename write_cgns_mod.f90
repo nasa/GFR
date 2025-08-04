@@ -1533,6 +1533,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   use ovar,        only : profile_io_cgns,profile_io_cgns_subs
   use ovar,        only : max_wall_time => max_cgns_wall_time
   use ovar,        only : cgns_dir
+  use ovar,        only : output_cylindrical_coordinates
   use flowvar_mod, only : usp,dusp,gpsp
   !
   use thermo_mod,    only : update_thermo_properties
@@ -1756,6 +1757,13 @@ continue
                          interp_usp,interp_gpsp,interp_dusp,vartmp,var)
     !
   end do
+  !
+  ! Create a link to the grid coordinates in the grid file
+  !
+  if (output_cylindrical_coordinates .and. nr == 3) then
+    call link_cylindrical_coordinates(cgns_sol_file,pname, &
+                                      ifile_s,ibase_s,izone_s,isol_s)
+  end if
   !
   ! ################################################
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
