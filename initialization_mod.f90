@@ -2579,6 +2579,8 @@ end subroutine get_face_and_edge_point_coordinates
 subroutine initialize_reference
   !
   !.. Use Statements ..
+  use eqn_idx_mod, only : set_reference_coordinate_directions
+  !
   use ovar, only : gam,tmin,tmax
   use ovar, only : rhoref,aref,tref,pref
   use ovar, only : machref,reyref,time_ref
@@ -2732,6 +2734,12 @@ continue
     call check_for_bad_number(__LINE__,__FILE__)
     !
   end if
+  !
+  ! Now that alpha_aoaref and beta_aoaref should be set, assign values to the
+  ! indices used to specify the axial, vertical, and spanwise coordinate
+  ! directions and momentum equations.
+  !
+  call set_reference_coordinate_directions
   !
   ! Set the reference time
   !
