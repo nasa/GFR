@@ -81,8 +81,8 @@ module reactions_mod
   ! ###  Module Parameters  ###
   ! ###########################
   !
-  real(wp), parameter :: dens_cgs_to_si = 1000.0_wp
-  real(wp), parameter :: dens_si_to_cgs = one/dens_cgs_to_si
+  real(wp), save :: dens_cgs_to_si = 1000.0_wp
+  real(wp), save :: dens_si_to_cgs = one/1000.0_wp
   !
   real(wp), parameter :: joules_per_calorie = 4.184_wp
   real(wp), parameter :: calories_per_joule = one/joules_per_calorie
@@ -878,6 +878,14 @@ continue
     call alloc_error(pname,"cbeffc",1,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  ! Forward rate coefficient 1 [frcoef(1,:)] is given in mks not cgs like
+  ! the other reaction mechanisms, so change the density unit conversion
+  ! variables to 1.0 since no unit conversion is needed for this reaction
+  ! mechanism.
+  !
+  dens_cgs_to_si = one
+  dens_si_to_cgs = one
+  !
   !##############################################
   !
   !     Species:  O2  H2  H2O  C2H4  N2 CO CO2
@@ -892,7 +900,7 @@ continue
   scoerp(1,nO2,ir)   = one
   !
   scoerp(2,nCO,ir)   = two
-  scoerp(2,nH2O,ir)  = two
+  scoerp(2,nH2,ir)   = two
   !
   frcoef(1,ir) = 1.04e13_wp
   frcoef(2,ir) = zero
