@@ -6,6 +6,7 @@ module cell_ave_mod
   !.. Use Statements ..
   use module_kind_types
   use eqn_idx_mod, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ncs
+  use eqn_idx_mod, only : npres,ntemp,ng
   !
   implicit none
   !
@@ -440,10 +441,10 @@ end subroutine update_cell_ave_density
 subroutine compute_cell_ave_var(meq,cell_ave)
   !
   !.. Use Statements ..
-  use ovar,            only : gam,rgasref_nd
   use geomvar_mod,     only : ncell,cell
   use flowvar_mod,     only : usp
   use vandermonde_mod, only : vand
+  use thermo_mod,      only : update_thermo_properties
   !
   !.. Formal Arguments ..
   !
@@ -457,11 +458,13 @@ subroutine compute_cell_ave_var(meq,cell_ave)
   real(wp), intent(inout) :: cell_ave(:)
   !
   !.. Local Scalars ..
-  integer  :: n,nc,nr,n0,np
+  integer  :: n,nc,nr,n0,np,m
   integer  :: this_geom,this_order
   real(wp) :: a,val,val_ec,val_mx,val_my,val_mz,val_ee
-  real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2
-  real(wp) :: gm1,rgasref_nd_inv,p
+  !
+  !.. Local Automatic Arrays ..
+  real(wp) :: cv(1:nq)
+  real(wp) :: gp(1:ng)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_cell_ave_var"
@@ -469,9 +472,6 @@ subroutine compute_cell_ave_var(meq,cell_ave)
 continue
   !
   nr = nme-nmb+1
-  !
-  gm1 = gam - one
-  rgasref_nd_inv = one/rgasref_nd
   !
   call set_cell_ave_coef
   !
@@ -533,17 +533,27 @@ continue
           val_ee = val_ee + a * usp(n0+n,nee)
         end do
         !
-        rho  = val_ec * cell_ave_coef(this_geom)
-        rhou = val_mx * cell_ave_coef(this_geom)
-        rhov = val_my * cell_ave_coef(this_geom)
-        rhow = val_mz * cell_ave_coef(this_geom)
-        rhoe = val_ee * cell_ave_coef(this_geom)
+        cv(nec) = val_ec * cell_ave_coef(this_geom)
+        cv(nmx) = val_mx * cell_ave_coef(this_geom)
+        cv(nmy) = val_my * cell_ave_coef(this_geom)
+        cv(nmz) = val_mz * cell_ave_coef(this_geom)
+        cv(nee) = val_ee * cell_ave_coef(this_geom)
         !
-        rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+        if (ncs > 0) then
+          do m = 1,ncs
+            val_ec = zero
+            do n = 1,np
+              a = vand(this_geom,this_order)%nodal2modal%mat(1,n)
+              val_ec = val_ec + a * usp(n0+n,m)
+            end do
+            cv(m) = val_ec * cell_ave_coef(this_geom)
+          end do
+          cv(nec) = sum(cv(1:ncs))
+        end if
         !
-        p = gm1*(rhoe - half*rhoq2/rho)
+        call update_thermo_properties(cv,gp,caller_name=pname)
         !
-        cell_ave(nc) = merge(p,p*rgasref_nd_inv/rho,meq==nq+1)
+        cell_ave(nc) = merge(gp(npres),gp(ntemp),meq==nq+1)
         !
       end do  ! loop nc
       !
@@ -572,16 +582,26 @@ continue
           val_ee = val_ee + a * usp(n0+n,nee)
         end do
         !
-        rho  = val_ec * cell_ave_coef(this_geom)
-        rhou = val_mx * cell_ave_coef(this_geom)
-        rhov = val_my * cell_ave_coef(this_geom)
-        rhoe = val_ee * cell_ave_coef(this_geom)
+        cv(nec) = val_ec * cell_ave_coef(this_geom)
+        cv(nmx) = val_mx * cell_ave_coef(this_geom)
+        cv(nmy) = val_my * cell_ave_coef(this_geom)
+        cv(nee) = val_ee * cell_ave_coef(this_geom)
         !
-        rhoq2 = rhou*rhou + rhov*rhov
+        if (ncs > 0) then
+          do m = 1,ncs
+            val_ec = zero
+            do n = 1,np
+              a = vand(this_geom,this_order)%nodal2modal%mat(1,n)
+              val_ec = val_ec + a * usp(n0+n,m)
+            end do
+            cv(m) = val_ec * cell_ave_coef(this_geom)
+          end do
+          cv(nec) = sum(cv(1:ncs))
+        end if
         !
-        p = gm1*(rhoe - half*rhoq2/rho)
+        call update_thermo_properties(cv,gp,caller_name=pname)
         !
-        cell_ave(nc) = merge(p,p*rgasref_nd_inv/rho,meq==nq+1)
+        cell_ave(nc) = merge(gp(npres),gp(ntemp),meq==nq+1)
         !
       end do  ! loop nc
       !
@@ -608,15 +628,25 @@ continue
           val_ee = val_ee + a * usp(n0+n,nee)
         end do
         !
-        rho  = val_ec * cell_ave_coef(this_geom)
-        rhou = val_mx * cell_ave_coef(this_geom)
-        rhoe = val_ee * cell_ave_coef(this_geom)
+        cv(nec) = val_ec * cell_ave_coef(this_geom)
+        cv(nmx) = val_mx * cell_ave_coef(this_geom)
+        cv(nee) = val_ee * cell_ave_coef(this_geom)
         !
-        rhoq2 = rhou*rhou
+        if (ncs > 0) then
+          do m = 1,ncs
+            val_ec = zero
+            do n = 1,np
+              a = vand(this_geom,this_order)%nodal2modal%mat(1,n)
+              val_ec = val_ec + a * usp(n0+n,m)
+            end do
+            cv(m) = val_ec * cell_ave_coef(this_geom)
+          end do
+          cv(nec) = sum(cv(1:ncs))
+        end if
         !
-        p = gm1*(rhoe - half*rhoq2/rho)
+        call update_thermo_properties(cv,gp,caller_name=pname)
         !
-        cell_ave(nc) = merge(p,p*rgasref_nd_inv/rho,meq==nq+1)
+        cell_ave(nc) = merge(gp(npres),gp(ntemp),meq==nq+1)
         !
       end do  ! loop nc
       !
