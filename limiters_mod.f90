@@ -4314,7 +4314,7 @@ continue
   if (present(troubled_cell)) then
     !$ACC PARALLEL LOOP PRESENT(scaled_marker,troubled_cell)
     do nc = 1,ncell
-      troubled_cell(nc) = (scaled_marker(nc,imarker) >= 1.0e-8_wp)
+      troubled_cell(nc) = (scaled_marker(nc,imarker) >= 2.0e-2_wp)
     end do
   end if
   !
