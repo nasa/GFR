@@ -722,7 +722,7 @@ continue
       pres = gpsp(n,npres)
       gamm = gpsp(n,ngamm)
       !
-      unew(n,nq+1) = log(pres) - gamm*log(rho)
+      unew(n,nq+1) = log(max(pres,rndoff)) - gamm*log(max(rho,rndoff))
       !
     end do
     !
@@ -840,7 +840,7 @@ continue
       pres = gpoldsp(n,npres)
       gamm = gpoldsp(n,ngamm)
       !
-      uold(n,nq+1) = log(pres) - gamm*log(rho)
+      uold(n,nq+1) = log(max(pres,rndoff)) - gamm*log(max(rho,rndoff))
       !
     end do
     !
