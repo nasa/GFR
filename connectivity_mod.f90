@@ -3226,6 +3226,7 @@ subroutine create_cell_derived_type(nodes_of_cell,nodes_of_cell_ptr, &
   use geomvar_mod, only : cell_order
   use order_mod,   only : geom_solpts,q_order
   use ovar,        only : continuous_output, Limiter_Option
+  use ovar,        only : thermofix
   !
   !.. Formal Arguments ..
   integer,              dimension(:),   intent(in) :: nodes_of_cell
@@ -3310,7 +3311,8 @@ continue
   !
   need_cell_face =   true
   need_cell_edge =   continuous_output
-  need_cell_node = ( continuous_output .or. Limiter_Option == 3 )
+  need_cell_node = ( continuous_output .or. Limiter_Option == 3 .or. &
+                     thermofix%method /= TFM_OFF )
   !
   iend = 0
   qend = 0
