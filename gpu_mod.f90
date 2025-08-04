@@ -657,7 +657,7 @@ end subroutine grad_cv_to_grad_pv_sp
 pure &
 #endif
 subroutine grad_cv_to_grad_pv_gpu(n1,n2,usp,gpsp,dcvdx,return_value, &
-                                  output_variables)
+                                  output_variables,velocity_only)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -667,14 +667,22 @@ subroutine grad_cv_to_grad_pv_gpu(n1,n2,usp,gpsp,dcvdx,return_value, &
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Optional Arguments ..
-  real(wp), optional, intent(inout) :: output_variables(:,:)
+  real(wp),    optional, intent(inout) :: output_variables(:,:)
+  logical(lk), optional,    intent(in) :: velocity_only
   !
   !.. Local Scalars ..
   integer  :: nr
   !
+  logical(lk) :: adjust_temp_gradient
+  !
 continue
   !
   nr = size(dcvdx,dim=2)
+  !
+  adjust_temp_gradient = true
+  if (present(velocity_only)) then
+    adjust_temp_gradient = (.not. velocity_only)
+  end if
   !
   if (nr == 3) then
     call grad_cv_to_grad_pv_cpg_3d(n1,n2,usp,dcvdx,return_value)
@@ -684,7 +692,7 @@ continue
     call grad_cv_to_grad_pv_cpg_1d(n1,n2,usp,dcvdx,return_value)
   end if
   !
-  if (ncs > 0) then
+  if (ncs > 0 .and. adjust_temp_gradient) then
     if (present(output_variables)) then
       if (nr == 3) then
         call adjust_temp_grad_for_tpg_3d(n1,n2,usp,gpsp,dcvdx,return_value, &
