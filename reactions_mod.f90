@@ -42,6 +42,11 @@ module reactions_mod
   real(wp), save, allocatable :: frcoef(:,:)   ! frcoef(1:3,1:ncr)
   real(wp), save, allocatable :: cbeffc(:,:)   ! cbeffc(1:ncs,1:ncr)
   !
+  ! Ignition variables
+  !
+  real(wp), save, allocatable :: ign_src_loc(:,:)
+  real(wp), save              :: ign_src_radius
+  !
   ! N_REAC_SUB_ITER: # of sub-iterations for computing
   !                  source terms from reaction kinetics
   !
@@ -1064,7 +1069,9 @@ subroutine compute_ignition_source_ncc(n1,n2,cv,gp,residual)
   use ovar,        only : ignition_source_radius
   use ovar,        only : ignition_source_location
   use ovar,        only : ignition_duration
-  use geomvar_mod, only : xyz
+  use ovar,        only : itestcase,grid_scaling_factor
+  use eqn_idx_mod, only : NCD_Axial,NCD_Vert,NCD_Span
+  use geomvar_mod, only : nr,xyz
   use flowvar_mod, only : dtsp
   use metrics_mod, only : jac
   !
@@ -1075,8 +1082,8 @@ subroutine compute_ignition_source_ncc(n1,n2,cv,gp,residual)
   real(wp), intent(inout) :: residual(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: r,x,y,z,spark
+  integer  :: i,n
+  real(wp) :: r,x,y,z,theta,spark
   real(wp) :: p2r,energy_source
   real(wp) :: products_L2_sum
   real(wp) :: reactants_L2_sum
@@ -1123,11 +1130,47 @@ continue
     ignition_max_temperature = ignition_max_temperature / tref
     ignition_spark_cap = ignition_spark_cap / (rhoref*aref*aref)
     !
+    ! Scale the ignition source location and radius from grid units 
+    !
+    if (abs(itestcase) == UIUC_Scramjet) then
+      !
+      ign_src_loc = init_array(nr,2,zero) ! F2003 AUTO-REALLOC
+      !
+      x = ignition_source_location(NCD_Axial)*grid_scaling_factor
+      r = ignition_source_location(NCD_Vert)*grid_scaling_factor
+      !
+      theta = 22.5_wp*degrees2radians
+      ign_src_loc(NCD_Axial,1) = x
+      ign_src_loc(NCD_Vert ,1) = r*cos(theta)
+      ign_src_loc(NCD_Span ,1) = r*sin(theta)
+      !
+      theta = 67.5_wp*degrees2radians
+      ign_src_loc(NCD_Axial,2) = x
+      ign_src_loc(NCD_Vert ,2) = r*cos(theta)
+      ign_src_loc(NCD_Span ,2) = r*sin(theta)
+      !
+    else
+      !
+      ign_src_loc = init_array(nr,1,zero) ! F2003 AUTO-REALLOC
+      !
+      ign_src_loc(1:nr,1) = ignition_source_location(1:nr)*grid_scaling_factor
+      !
+    end if
+    !
+    ign_src_radius = ignition_source_radius*grid_scaling_factor
+    !
     if (mypnum == glb_root) then
+      write (iout,*)
+      write (iout,5) 1,(ign_src_loc(i,1)/grid_scaling_factor, i=1,nr)
+      write (iout,5) 2,(ign_src_loc(i,2)/grid_scaling_factor, i=1,nr)
+      write (iout,6) ign_src_radius/grid_scaling_factor
+      write (iout,*)
       write (iout,1) itcur
     end if
     !
   end if
+  5 format ("Ignition source location ",i1," = ",3(f8.4,:,", "))
+  6 format ("Ignition source radius          = ",f8.4)
  !!
  !! Check if the ratio of [the sum of the product species L2 norms] to
  !! [the sum of the reactant species L2 norms] has met the input goal.
@@ -1164,17 +1207,22 @@ continue
  !  !
  !end if
   !
-  x = zero
-  y = zero
-  z = zero
+  !
+ !x = zero
+ !y = zero
+ !z = zero
   !
   do n = n1,n2
     !
-    x = xyz(1,n) - ignition_source_location(1)
-    if (size(xyz,dim=1) >= 2) y = xyz(2,n) - ignition_source_location(2)
-    if (size(xyz,dim=1) == 3) z = xyz(3,n) - ignition_source_location(3)
+   !x = xyz(1,n) - ignition_source_location(1)
+   !if (size(xyz,dim=1) >= 2) y = xyz(2,n) - ignition_source_location(2)
+   !if (size(xyz,dim=1) == 3) z = xyz(3,n) - ignition_source_location(3)
+   !r = sqrt( x*x + y*y + z*z )
     !
-    r = sqrt( x*x + y*y + z*z )
+    r = norm2(xyz(1:nr,n)-ign_src_loc(1:nr,1))
+    do i = 2,size(ign_src_loc,dim=2)
+      r = min( r , norm2(xyz(1:nr,n)-ign_src_loc(1:nr,i)) )
+    end do
     !
     energy_source = zero
     !
@@ -1194,7 +1242,7 @@ continue
       ! Compute the value of the energy source term, with the method used
       ! depending on the value of the input ignition_source_radius.
       !
-      if (ignition_source_radius < zero) then
+      if (ign_src_radius < zero) then
         !
         ! If ignition_source_radius is less than zero, use a Gaussian function
         ! based on radial distance from the input ignition location as the
@@ -1203,9 +1251,9 @@ continue
         ! from the ignition location at which the Gaussian energy source term
         ! reaches machine precision.
         !
-        if (r <= abs(ignition_source_radius)) then
+        if (r <= abs(ign_src_radius)) then
           !
-          r = r/abs(ignition_source_radius)
+          r = r/abs(ign_src_radius)
           !
           spark = cv(n,nec) * gp(n,ncp) * ignition_source_magnitude
           !
@@ -1222,15 +1270,15 @@ continue
         ! points outside the ignition_source_radius from the input ignition
         ! location will be an exponential decay based on radius.
         !
-      else if (ignition_source_radius > zero) then
+      else if (ign_src_radius > zero) then
         !
         spark = cv(n,nec) * gp(n,ncp) * ignition_source_magnitude
         !
         energy_source = min(spark,ignition_spark_cap)
         !
-        if (r >= ignition_source_radius) then
+        if (r >= ign_src_radius) then
           !
-          r = (r-ignition_source_radius) / ignition_source_radius
+          r = (r-ign_src_radius) / ign_src_radius
           !
           energy_source = energy_source*exp(-36.0_wp*r*r*r)
           !
@@ -1317,7 +1365,9 @@ subroutine compute_ignition_source(n1,n2,cv,gp,residual)
   use ovar,        only : ignition_source_magnitude
   use ovar,        only : ignition_source_radius
   use ovar,        only : ignition_source_location
-  use geomvar_mod, only : xyz
+  use ovar,        only : itestcase,grid_scaling_factor
+  use eqn_idx_mod, only : NCD_Axial,NCD_Vert,NCD_Span
+  use geomvar_mod, only : nr,xyz
   use flowvar_mod, only : dtsp
   use metrics_mod, only : jac
   !
@@ -1328,8 +1378,8 @@ subroutine compute_ignition_source(n1,n2,cv,gp,residual)
   real(wp), intent(inout) :: residual(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: r,x,y,z,spark
+  integer  :: i,n
+  real(wp) :: r,x,y,z,theta,spark
   real(wp) :: p2r,energy_source
   real(wp) :: products_L2_sum
   real(wp) :: reactants_L2_sum
@@ -1370,6 +1420,35 @@ continue
     ignition_max_temperature = ignition_max_temperature / tref
     ignition_spark_cap = ignition_spark_cap / (rhoref*aref*aref)
     !
+    ! Scale the ignition source location and radius from grid units 
+    !
+    if (abs(itestcase) == UIUC_Scramjet) then
+      !
+      ign_src_loc = init_array(nr,2,zero) ! F2003 AUTO-REALLOC
+      !
+      x = ignition_source_location(NCD_Axial)*grid_scaling_factor
+      r = ignition_source_location(NCD_Vert)*grid_scaling_factor
+      !
+      theta = 22.5_wp*degrees2radians
+      ign_src_loc(NCD_Axial,1) = x
+      ign_src_loc(NCD_Vert ,1) = r*cos(theta)
+      ign_src_loc(NCD_Span ,1) = r*sin(theta)
+      !
+      theta = 67.5_wp*degrees2radians
+      ign_src_loc(NCD_Axial,2) = x
+      ign_src_loc(NCD_Vert ,2) = r*cos(theta)
+      ign_src_loc(NCD_Span ,2) = r*sin(theta)
+      !
+    else
+      !
+      ign_src_loc = init_array(nr,1,zero) ! F2003 AUTO-REALLOC
+      !
+      ign_src_loc(1:nr,1) = ignition_source_location(1:nr)*grid_scaling_factor
+      !
+    end if
+    !
+    ign_src_radius = ignition_source_radius*grid_scaling_factor
+    !
     if (mypnum == glb_root) then
       write (iout,1) itcur
     end if
@@ -1378,14 +1457,6 @@ continue
   !
   ! Check if the ratio of [the sum of the product species L2 norms] to
   ! [the sum of the reactant species L2 norms] has met the input goal.
-  !
-  !
-  if (.not. ignition_started) then
-    ignition_started = true
-    if (mypnum == glb_root) then
-      write (iout,1) itcur
-    end if
-  end if
   !
   if (allocated(uverr)) then
     !
@@ -1423,21 +1494,25 @@ continue
   !
   spark = min(ign_mag,ignition_spark_cap)
   !
-  x = zero
-  y = zero
-  z = zero
+ !x = zero
+ !y = zero
+ !z = zero
   !
   do n = n1,n2
     !
-    x = xyz(1,n) - ignition_source_location(1)
-    if (size(xyz,dim=1) >= 2) y = xyz(2,n) - ignition_source_location(2)
-    if (size(xyz,dim=1) == 3) z = xyz(3,n) - ignition_source_location(3)
+   !x = xyz(1,n) - ignition_source_location(1)
+   !if (size(xyz,dim=1) >= 2) y = xyz(2,n) - ignition_source_location(2)
+   !if (size(xyz,dim=1) == 3) z = xyz(3,n) - ignition_source_location(3)
+   !r = sqrt( x*x + y*y + z*z )
     !
-    r = sqrt( x*x + y*y + z*z )
+    r = norm2(xyz(1:nr,n)-ign_src_loc(1:nr,1))
+    do i = 2,size(ign_src_loc,dim=2)
+      r = min( r , norm2(xyz(1:nr,n)-ign_src_loc(1:nr,i)) )
+    end do
     !
     energy_source = zero
     !
-    if (ignition_source_radius < zero) then
+    if (ign_src_radius < zero) then
       !
       ! If ignition_source_radius is less than zero, use a Gaussian function
       ! based on radial distance from the input ignition location as the
@@ -1446,9 +1521,9 @@ continue
       ! the ignition location at which the Gaussian energy source term reaches
       ! machine precision.
       !
-      if (r <= abs(ignition_source_radius)) then
+      if (r <= abs(ign_src_radius)) then
         !
-        r = r/abs(ignition_source_radius)
+        r = r/abs(ign_src_radius)
         !
         energy_source = spark*exp(-36.0_wp*r*r)
         !
@@ -1469,13 +1544,13 @@ continue
       ! the ignition_source_radius from the input ignition location will be an
       ! exponential decay based on radius.
       !
-    else if (ignition_source_radius > zero) then
+    else if (ign_src_radius > zero) then
       !
       energy_source = spark
       !
-      if (r >= ignition_source_radius) then
+      if (r >= ign_src_radius) then
         !
-        r = (r-ignition_source_radius)/ignition_source_radius
+        r = (r-ign_src_radius)/ign_src_radius
         !
         energy_source = energy_source*exp(-36.0_wp*r*r*r)
         !
