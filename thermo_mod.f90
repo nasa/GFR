@@ -383,7 +383,7 @@ continue
         ! and the new simulation is restarting with reactions
         ! turned on.
         !
-        inert_species_map = [2,7,7] ! F2003 AUTO REALLOCATIO
+        inert_species_map = [2,6,7] ! F2003 AUTO REALLOCATIO
         !
       end if
       !
