@@ -14,6 +14,8 @@ module thermo_mod
   public :: init_thermo_mod
   public :: update_thermo_properties
   public :: update_mixture_density
+  public :: compute_total_temperature
+  public :: compute_total_pressure
   public :: compute_mixture_enthalpy
   public :: compute_species_enthalpy
   public :: compute_species_energy
@@ -89,6 +91,16 @@ module thermo_mod
                      update_thermo_properties_fp, &
                      update_thermo_properties_1p
   end interface update_thermo_properties
+  !
+  interface compute_total_temperature
+    module procedure compute_total_temp_sp, &
+                     compute_total_temp_1p
+  end interface compute_total_temperature
+  !
+  interface compute_total_pressure
+    module procedure compute_total_pressure_sp, &
+                     compute_total_pressure_1p
+  end interface compute_total_pressure
   !
   interface compute_mixture_enthalpy
     module procedure compute_mixture_enthalpy_sp, &
@@ -2013,6 +2025,857 @@ continue
   end if
   !
 end subroutine compute_internal_energy
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_total_temp_sp(n1,n2,cv,gp,t0,dimensional)
+  !
+  !.. Use Statements ..
+  use ovar, only : tref
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp), intent(inout) :: cv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
+  real(wp), intent(inout) :: t0(:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_total_temp_sp"
+  !
+continue
+  !
+  if (ncs > 0) then
+    call compute_total_temp_tpg_sp(n1,n2,cv,gp,t0)
+  else
+    call compute_total_temp_cpg_sp(n1,n2,cv,gp,t0)
+  end if
+  !
+  if (present(dimensional)) then
+    if (dimensional) then
+      do n = n1,n2
+        t0(n) = t0(n)*tref
+      end do
+    end if
+  end if
+  !
+end subroutine compute_total_temp_sp
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_total_temp_1p(cv,gp,t0,dimensional,mach)
+  !
+  !.. Use Statements ..
+  use ovar, only : tref
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: cv(:)
+  real(wp),    intent(in) :: gp(:)
+  real(wp), intent(inout) :: t0
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  real(wp),    optional, intent(in) :: mach
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_total_temp_1p"
+  !
+continue
+  !
+  if (ncs > 0) then
+    !
+    call compute_total_temp_tpg_1p(cv,gp,t0)
+    !
+  else
+    !
+    if (present(mach)) then
+      call compute_total_temp_cpg_from_mach(gp(ntemp),mach,t0)
+    else
+      call compute_total_temp_cpg_1p(cv,gp,t0)
+    end if
+    !
+  end if
+  !
+  if (present(dimensional)) then
+    if (dimensional) then
+      t0 = t0*tref
+    end if
+  end if
+  !
+end subroutine compute_total_temp_1p
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_total_temp_cpg_sp(n1,n2,cv,gp,t0)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp),    intent(in) :: cv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
+  real(wp), intent(inout) :: t0(:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: rho_inv,vx,vy,vz,q2,a2,m2,hgm1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_total_temp_cpg_sp"
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  hgm1 = half*(gam-one)
+  !
+  if (nr == 3) then
+    do n = n1,n2
+      !
+      rho_inv = one/cv(n,nec)
+      !
+      vx = cv(n,nmx)*rho_inv
+      vy = cv(n,nmy)*rho_inv
+      vz = cv(n,nmz)*rho_inv
+      !
+      q2 = vx*vx + vy*vy + vz*vz
+      !
+      a2 = max( gam*gp(n,npres)*rho_inv , rndoff )
+      m2 = q2/a2
+      !
+      t0 = gp(n,ntemp) * (one + hgm1*m2)
+      !
+    end do
+  else if (nr == 2) then
+    do n = n1,n2
+      !
+      rho_inv = one/cv(n,nec)
+      !
+      vx = cv(n,nmx)*rho_inv
+      vy = cv(n,nmy)*rho_inv
+      !
+      q2 = vx*vx + vy*vy
+      !
+      a2 = max( gam*gp(n,npres)*rho_inv , rndoff )
+      m2 = q2/a2
+      !
+      t0 = gp(n,ntemp) * (one + hgm1*m2)
+      !
+    end do
+  else
+    do n = n1,n2
+      !
+      rho_inv = one/cv(n,nec)
+      !
+      vx = cv(n,nmx)*rho_inv
+      !
+      q2 = vx*vx
+      !
+      a2 = max( gam*gp(n,npres)*rho_inv , rndoff )
+      m2 = q2/a2
+      !
+      t0 = gp(n,ntemp) * (one + hgm1*m2)
+      !
+    end do
+  end if
+  !
+end subroutine compute_total_temp_cpg_sp
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_total_temp_cpg_1p(cv,gp,t0)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: cv(:)
+  real(wp),    intent(in) :: gp(:)
+  real(wp), intent(inout) :: t0
+  !
+  !.. Local Scalars ..
+  integer  :: nr
+  real(wp) :: rho_inv,vx,vy,vz,q2,a2,m2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_total_temp_cpg_1p"
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  rho_inv = one/cv(nec)
+  !
+  if (nr == 3) then
+    vx = cv(nmx)*rho_inv
+    vy = cv(nmy)*rho_inv
+    vz = cv(nmz)*rho_inv
+    q2 = vx*vx + vy*vy + vz*vz
+  else if (nr == 2) then
+    vx = cv(nmx)*rho_inv
+    vy = cv(nmy)*rho_inv
+    q2 = vx*vx + vy*vy
+  else
+    vx = cv(nmx)*rho_inv
+    q2 = vx*vx
+  end if
+  !
+  a2 = max( gam*gp(npres)*rho_inv , rndoff )
+  m2 = q2/a2
+  !
+  t0 = gp(ntemp) * (one + half*(gam-one)*m2)
+  !
+end subroutine compute_total_temp_cpg_1p
+!
+!###############################################################################
+!
+elemental &
+subroutine compute_total_temp_cpg_from_mach(t,mach,t0)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: t
+  real(wp),    intent(in) :: mach
+  real(wp), intent(inout) :: t0
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_total_temp_cpg_from_mach"
+  !
+continue
+  !
+  t0 = t * (one + half*(gam-one)*mach*mach)
+  !
+end subroutine compute_total_temp_cpg_from_mach
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_total_temp_tpg_1p(cv,gp,t0)
+  !
+  !.. Use Statements ..
+  use ovar, only : tref,tmin,tmax
+  use ovar, only : conv_temp
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: cv(:)
+  real(wp),    intent(in) :: gp(:)
+  real(wp), intent(inout) :: t0
+  !
+  !.. Local Scalars ..
+  integer  :: nr,k
+  real(wp) :: r,vx,vy,vz,q2,h0,hmix,cpmix
+  real(wp) :: tmin_nd,tmax_nd,delt,dterr
+  !
+  !.. Local Arrays ..
+  real(wp) :: smf(1:ncs)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_total_temp_tpg_1p"
+  !
+  integer, parameter :: newton_iter = 20
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  tmin_nd = tmin / tref
+  tmax_nd = tmax / tref
+  !
+  r = cv(nec)
+  !
+  if (nr == 3) then
+    vx = cv(nmx)/r
+    vy = cv(nmy)/r
+    vz = cv(nmz)/r
+    q2 = vx*vx + vy*vy + vz*vz
+  else if (nr == 2) then
+    vx = cv(nmx)/r
+    vy = cv(nmy)/r
+    q2 = vx*vx + vy*vy
+  else
+    vx = cv(nmx)/r
+    q2 = vx*vx
+  end if
+  !
+  h0 = gp(nenth) + half*q2         ! actual total enthalpy
+  t0 = gp(ntemp) + half*q2/gp(ncp) ! initial guess
+  !
+  smf(1:ncs) = cv(1:ncs)/sum(cv(1:ncs)) ! species mass fractions
+  !
+  call compute_mixture_enthalpy(smf,t0,hmix)
+  call compute_mixture_cp(smf,t0,cpmix)
+  !
+  newton_iteration: &
+  do k = 1,newton_iter
+    !
+    delt = (hmix-h0)/cpmix
+    t0 = min( tmax_nd , max(tmin_nd,t0-delt) )
+    !
+    dterr = abs(delt) / t0
+    !
+    if (dterr <= conv_temp) then
+      exit newton_iteration
+    end if
+    !
+    ! hmix and cpmix are based off total temperature, so we only need to
+    ! update these if we are doing another Newton iteration
+    !
+    call compute_mixture_enthalpy(smf,t0,hmix)
+    call compute_mixture_cp(smf,t0,cpmix)
+    !
+  end do newton_iteration
+  !
+end subroutine compute_total_temp_tpg_1p
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_total_temp_tpg_sp(n1,n2,cv,gp,t0)
+  !
+  !.. Use Statements ..
+  use ovar, only : tref,tmin,tmax
+  use ovar, only : conv_temp
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp), intent(inout) :: cv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
+  real(wp), intent(inout) :: t0(:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,np,nr,k,m,ndnc
+  real(wp) :: r,vx,vy,vz,q2,rho_inv,dtmx
+  real(wp) :: tmin_nd,tmax_nd,delt,dterr
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: h0(:)
+  real(wp), allocatable :: hmix(:)
+  real(wp), allocatable :: cpmix(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_total_temp_tpg_sp"
+  !
+  integer, parameter :: newton_iter = 20
+  !
+continue
+  !
+  np = size(cv,dim=1)
+  nr = nme-nmb+1
+  !
+  tmin_nd = tmin / tref
+  tmax_nd = tmax / tref
+  !
+  allocate ( h0(1:np) )
+  allocate ( hmix(1:np) )
+  allocate ( cpmix(1:np) )
+  !
+  ! Convert species densities to mass fractions
+  !
+  do m = 1,ncs
+    do n = n1,n2
+      cv(n,m) = cv(n,m)/cv(n,nec)
+    end do
+  end do
+  !
+  if (nr == 3) then
+    do n = n1,n2
+      !
+      rho_inv = one/cv(n,nec)
+      !
+      vx = cv(n,nmx)*rho_inv
+      vy = cv(n,nmy)*rho_inv
+      vz = cv(n,nmz)*rho_inv
+      q2 = vx*vx + vy*vy + vz*vz
+      !
+      h0(n) = gp(n,nenth) + half*q2           ! actual total enthalpy
+      t0(n) = gp(n,ntemp) + half*q2/gp(n,ncp) ! initial guess
+      !
+    end do
+  else if (nr == 2) then
+    do n = n1,n2
+      !
+      rho_inv = one/cv(n,nec)
+      !
+      vx = cv(n,nmx)*rho_inv
+      vy = cv(n,nmy)*rho_inv
+      q2 = vx*vx + vy*vy
+      !
+      h0(n) = gp(n,nenth) + half*q2           ! actual total enthalpy
+      t0(n) = gp(n,ntemp) + half*q2/gp(n,ncp) ! initial guess
+      !
+    end do
+  else
+    do n = n1,n2
+      !
+      rho_inv = one/cv(n,nec)
+      !
+      vx = cv(n,nmx)*rho_inv
+      q2 = vx*vx
+      !
+      h0(n) = gp(n,nenth) + half*q2           ! actual total enthalpy
+      t0(n) = gp(n,ntemp) + half*q2/gp(n,ncp) ! initial guess
+      !
+    end do
+  end if
+  !
+  call compute_mixture_enthalpy(n1,n2,cv(:,1:ncs),t0,hmix)
+  call compute_mixture_cp(n1,n2,cv(:,1:ncs),t0,cpmix)
+  !
+  newton_iteration: &
+  do k = 1,newton_iter
+    !
+    ndnc = 0
+    dtmx = zero
+    !
+    do n = n1,n2
+      !
+      delt = (hmix(n)-h0(n))/cpmix(n)
+      t0(n) = min( tmax_nd , max(tmin_nd,t0(n)-delt) )
+      !
+      dterr = abs(delt) / t0(n)
+      !
+      if (dterr > dtmx) dtmx = dterr
+      !
+      if (dterr > conv_temp) then
+        ndnc = ndnc + 1
+      end if
+      !
+    end do
+    !
+    if (k == newton_iter) then
+      ndnc = 0
+      do n = n1,n2
+        if (any( [ abs(t0(n)-tmin_nd) , abs(t0(n)-tmax_nd) ] <= eps9 )) then
+          ndnc = ndnc + 1
+        end if
+      end do
+      if (ndnc == 0) then
+        dtmx = half*conv_temp
+        exit newton_iteration
+      else
+        ! write out error message?
+        exit newton_iteration
+      end if
+    end if
+    !
+    if (dtmx <= conv_temp) then
+      exit newton_iteration
+    end if
+    !
+    ! hmix and cpmix are based off total temperature, so we only need to
+    ! update these if we are doing another Newton iteration
+    !
+    call compute_mixture_enthalpy(n1,n2,cv(:,1:ncs),t0,hmix)
+    call compute_mixture_cp(n1,n2,cv(:,1:ncs),t0,cpmix)
+    !
+  end do newton_iteration
+  !
+  if (allocated(h0)) deallocate ( h0 )
+  if (allocated(hmix)) deallocate ( hmix )
+  if (allocated(cpmix)) deallocate ( cpmix )
+  !
+  ! Convert mass fractions back to densities
+  !
+  do m = 1,ncs
+    do n = n1,n2
+      cv(n,m) = cv(n,m)*cv(n,nec)
+    end do
+  end do
+  !
+end subroutine compute_total_temp_tpg_sp
+!
+!###############################################################################
+!
+!#ifndef DISABLE_PURE
+!pure &
+!#endif
+!subroutine compute_total_temperature_sp(n1,n2,cv,gp,t0,dimensional)
+!  !
+!  !.. Formal Arguments ..
+!  integer,     intent(in) :: n1
+!  integer,     intent(in) :: n2
+!  real(wp),    intent(in) :: cv(:,:)
+!  real(wp),    intent(in) :: gp(:,:)
+!  real(wp), intent(inout) :: t0(:)
+!  !
+!  !.. Optional Arguments ..
+!  logical(lk), optional, intent(in) :: dimensional
+!  !
+!  !.. Local Scalars ..
+!  integer :: n
+!  !
+!  !.. Local Parameters ..
+!  character(len=*), parameter :: pname = "compute_total_temperature_sp"
+!  !
+!continue
+!  !
+!  do n = n1,n2
+!    call compute_total_temperature_1p(cv(n,:),gp(n,:),t0(n),dimensional)
+!  end do
+!  !
+!end subroutine compute_total_temperature_sp
+!!
+!!###############################################################################
+!!
+!#ifndef DISABLE_PURE
+!pure &
+!#endif
+!subroutine compute_total_temperature_1p(cv,gp,t0,dimensional)
+!  !
+!  !.. Use Statements ..
+!  use ovar, only : tref,tmin,tmax
+!  use ovar, only : conv_temp
+!  !
+!  !.. Formal Arguments ..
+!  real(wp),    intent(in) :: cv(:)
+!  real(wp),    intent(in) :: gp(:)
+!  real(wp), intent(inout) :: t0
+!  !
+!  !.. Optional Arguments ..
+!  logical(lk), optional, intent(in) :: dimensional
+!  !
+!  !.. Local Scalars ..
+!  integer  :: nr,k
+!  real(wp) :: r,vx,vy,vz,q2,a2,m2,h0,hmix,cpmix
+!  real(wp) :: tmin_nd,tmax_nd,delt,dterr
+!  !
+!  !.. Local Arrays ..
+!  real(wp) :: smf(1:ncs)
+!  !
+!  !.. Local Parameters ..
+!  character(len=*), parameter :: pname = "compute_total_temperature_1p"
+!  !
+!  integer, parameter :: newton_iter = 20
+!  !
+!continue
+!  !
+!  nr = nme-nmb+1
+!  !
+!  if (ncs > 0) then
+!    !
+!    tmin_nd = tmin / tref
+!    tmax_nd = tmax / tref
+!    !
+!    r = cv(nec)
+!    !
+!    if (nr == 3) then
+!      vx = cv(nmx)/r
+!      vy = cv(nmy)/r
+!      vz = cv(nmz)/r
+!      q2 = vx*vx + vy*vy + vz*vz
+!    else if (nr == 2) then
+!      vx = cv(nmx)/r
+!      vy = cv(nmy)/r
+!      q2 = vx*vx + vy*vy
+!    else
+!      vx = cv(nmx)/r
+!      q2 = vx*vx
+!    end if
+!    !
+!    h0 = gp(nenth) + half*q2         ! actual total enthalpy
+!    t0 = gp(ntemp) + half*q2/gp(ncp) ! initial guess
+!    !
+!    smf(1:ncs) = cv(1:ncs)/sum(cv(1:ncs)) ! species mass fractions
+!    !
+!    call compute_mixture_enthalpy(smf,t0,hmix)
+!    call compute_mixture_cp(smf,t0,cpmix)
+!    !
+!    newton_iteration: &
+!    do k = 1,newton_iter
+!      !
+!      delt = (hmix-h0)/cpmix
+!      t0 = min( tmax_nd , max(tmin_nd,t0-delt) )
+!      !
+!      dterr = abs(delt) / t0
+!      !
+!      if (dterr <= conv_temp) then
+!        exit newton_iteration
+!      end if
+!      !
+!      ! hmix and cpmix are based off total temperature, so we only need to
+!      ! update these if we are doing another Newton iteration
+!      !
+!      call compute_mixture_enthalpy(smf,t0,hmix)
+!      call compute_mixture_cp(smf,t0,cpmix)
+!      !
+!    end do newton_iteration
+!    !
+!  else
+!    !
+!    r = cv(nec)
+!    !
+!    if (nr == 3) then
+!      vx = cv(nmx)/r
+!      vy = cv(nmy)/r
+!      vz = cv(nmz)/r
+!      q2 = vx*vx + vy*vy + vz*vz
+!    else if (nr == 2) then
+!      vx = cv(nmx)/r
+!      vy = cv(nmy)/r
+!      q2 = vx*vx + vy*vy
+!    else
+!      vx = cv(nmx)/r
+!      q2 = vx*vx
+!    end if
+!    !
+!    a2 = max( gp(ngamm)*gp(npres)/r , rndoff )
+!    m2 = q2/a2
+!    !
+!    t0 = gp(ntemp) * (one + half*(gp(ngamm)-one)*m2)
+!    !
+!  end if
+!  !
+!  if (present(dimensional)) then
+!    if (dimensional) then
+!      t0 = t0*tref
+!    end if
+!  end if
+!  !
+!end subroutine compute_total_temperature_1p
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_total_pressure_sp(n1,n2,cv,gp,p0,dimensional)
+  !
+  !.. Use Statements ..
+  use ovar, only : rhoref,aref
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp), intent(inout) :: cv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
+  real(wp), intent(inout) :: p0(:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_total_pressure_sp"
+  !
+continue
+  !
+  if (ncs > 0) then
+    call compute_total_pres_tpg_sp(n1,n2,cv,gp,p0)
+  else
+    call compute_total_pres_cpg_sp(n1,n2,cv,gp,p0)
+  end if
+  !
+  if (present(dimensional)) then
+    if (dimensional) then
+      do n = n1,n2
+        p0(n) = p0(n)*rhoref*aref*aref
+      end do
+    end if
+  end if
+  !
+end subroutine compute_total_pressure_sp
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_total_pres_tpg_sp(n1,n2,cv,gp,p0)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp), intent(inout) :: cv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
+  real(wp), intent(inout) :: p0(:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,np,m
+  real(wp) :: p,rmix,val
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: t0(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_total_pres_tpg_sp"
+  !
+continue
+  !
+  np = size(cv,dim=1)
+  !
+  allocate ( t0(1:np) )
+  !
+  call compute_total_temp_sp(n1,n2,cv,gp,t0)
+  !
+  ! Convert species densities to mass fractions
+  !
+  do m = 1,ncs
+    do n = n1,n2
+      cv(n,m) = cv(n,m)/cv(n,nec)
+    end do
+  end do
+  !
+  call compute_cp_over_temp_integral_sp(n1,n2,cv(:,1:ncs),p0,gp(:,ntemp),t0)
+  !
+  if (allocated(t0)) deallocate ( t0 )
+  !
+  ! Convert mass fractions back to densities
+  !
+  do m = 1,ncs
+    do n = n1,n2
+      cv(n,m) = cv(n,m)*cv(n,nec)
+    end do
+  end do
+  !
+  ! Compute total pressure
+  !
+  do n = n1,n2
+    !
+    val = p0(n)
+    !
+    p = gp(n,npres)
+    !
+    rmix = p / (cv(n,nec)*gp(n,ntemp))
+    !
+    p0(n) = p * exp(val/rmix)
+    !
+  end do
+  !
+end subroutine compute_total_pres_tpg_sp
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_total_pres_cpg_sp(n1,n2,cv,gp,p0)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp), intent(inout) :: cv(:,:)
+  real(wp),    intent(in) :: gp(:,:)
+  real(wp), intent(inout) :: p0(:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: p,t,t0,gam_over_gm1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_total_pres_cpg_sp"
+  !
+continue
+  !
+  gam_over_gm1 = gam/(gam-one)
+  !
+  call compute_total_temp_sp(n1,n2,cv,gp,p0)
+  !
+  do n = n1,n2
+    !
+    p = gp(n,npres)
+    t = gp(n,ntemp)
+    t0 = p0(n)
+    !
+    p0(n) = p * ( (t0/t)**gam_over_gm1 )
+    !
+  end do
+  !
+end subroutine compute_total_pres_cpg_sp
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_total_pressure_1p(cv,gp,p0,dimensional)
+  !
+  !.. Use Statements ..
+  use ovar, only : rhoref,aref
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: cv(:)
+  real(wp),    intent(in) :: gp(:)
+  real(wp), intent(inout) :: p0
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: dimensional
+  !
+  !.. Local Scalars ..
+  real(wp) :: r,p,t,t0,val,gam,rmix
+  !
+  !.. Local Arrays ..
+  real(wp) :: smf(1:ncs)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_total_pressure_1p"
+  !
+continue
+  !
+  call compute_total_temp_1p(cv,gp,t0)
+  !
+  if (ncs > 0) then
+    !
+    r = cv(nec)
+    p = gp(npres)
+    t = gp(ntemp)
+    !
+    smf(1:ncs) = cv(1:ncs)/sum(cv(1:ncs)) ! species mass fractions
+    !
+    call compute_cp_over_temp_integral_1p(smf,val,t,t0)
+    !
+    rmix = p / (r*t)
+    !
+    p0 = p * exp(val/rmix)
+    !
+  else
+    !
+    p = gp(npres)
+    t = gp(ntemp)
+    gam = gp(ngamm)
+
+    p0 = p * ( (t0/t)**(gam/(gam-one)) )
+    !
+  end if
+  !
+  if (present(dimensional)) then
+    if (dimensional) then
+      p0 = p0*rhoref*aref*aref
+    end if
+  end if
+  !
+end subroutine compute_total_pressure_1p
 !
 !###############################################################################
 !
