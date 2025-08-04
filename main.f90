@@ -1954,7 +1954,7 @@ subroutine check_for_bad_number(line_num,newton_failures,force_signaling)
 #ifndef SPECIAL_FOR_GCC
   !
   !.. Local Scalars ..
-  integer  :: n,m
+  integer  :: n,m,n_bad_pts,num_newton_failures
   real(wp) :: out_time
   !
   logical(lk) :: error_found
@@ -1972,6 +1972,9 @@ subroutine check_for_bad_number(line_num,newton_failures,force_signaling)
   !
   character(len=*), parameter :: pname = "check_for_bad_number"
   !
+  logical(lk), parameter :: report_fpe_after_bad_point_confirmation = true
+ !logical(lk), parameter :: report_fpe_after_bad_point_confirmation = fals
+  !
 continue
 #ifndef DISABLE_CHECK_FOR_BAD_NUMBER
   !
@@ -1982,6 +1985,11 @@ continue
   invalid_error = ""
   newton_error = ""
   output_message = ""
+  !
+  num_newton_failures = 0
+  if (present(newton_failures)) then
+    num_newton_failures = newton_failures
+  end if
   !
   ! First check to make sure that no floating-point exceptions are signaling
   !
@@ -2003,11 +2011,9 @@ continue
                        mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
   end if
   !
-  if (present(newton_failures)) then
-    if (newton_failures > 0) then
-      error_found = true
-      write (newton_error,104) newton_failures
-    end if
+  if (num_newton_failures > 0) then
+    error_found = true
+    write (newton_error,104) num_newton_failures
   end if
   !
   if (sum(bad_number_found) > 0) then
@@ -2019,83 +2025,73 @@ continue
   !
   if (error_found) then
     !
-    if (len_trim(adjustl(src_file_with_bad_number)) == 0) then
-      src_file_with_bad_number = __FILE__
-      line_num_with_bad_number = line_num
+    if (.not. report_fpe_after_bad_point_confirmation) then
+      call report_signaling_exception_found(line_num,overflow_error, &
+                                            divide_by_zero_error, &
+                                            invalid_error, &
+                                            newton_error)
     end if
     !
-    ! A floating-point exception was detected or the subsonic inflow
-    ! Newton iteration failed. Dump solution and restart files for the
-    ! solution at the previous time step and abort the simulation.
+    call find_bad_number(n_bad_pts)
     !
-    ! Copy the solution from the previous time step back into
-    ! usp so we can dump the solution and restart files before
-    ! aborting the simulation
+    if (ncpu > 1) then
+      call mpi_allreduce(MPI_IN_PLACE,n_bad_pts,1_int_mpi, &
+                         mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    end if
     !
-    if (mypnum == glb_root) then
+    if (n_bad_pts > 0 .or. num_newton_failures > 0) then
       !
-      write (error_message,200) itcur,current_rk_stage
-      output_message = reformat_string(error_message, &
-                                       line_length=70, &
-                                       leading_blanks=5)
+      if (report_fpe_after_bad_point_confirmation) then
+        call report_signaling_exception_found(line_num,overflow_error, &
+                                              divide_by_zero_error, &
+                                              invalid_error, &
+                                              newton_error)
+      end if
       !
-      write (iout,1) trim(output_message)
-      flush (iout)
+      if (completed_initial_cgns_output) then
+        if (allocated(usp) .and. allocated(uoldsp)) then
+          !
+          !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp,usp)
+          do m = 1,nq
+            do n = 1,n_solpts
+              usp(n,m) = uoldsp(n,m)
+            end do
+          end do
+          !
+          if (continuous_output) then
+            call new_write_parallel_cgns(-3)
+          else
+            call write_parallel_cgns(-3)
+          end if
+          !
+          call write_restart_file(-2)
+          !
+        end if
+      end if
       !
-      write (iout,202) line_num_with_bad_number, &
-                       trim(adjustl(src_file_with_bad_number))
-      flush (iout)
-      !
-      write (error_message,201) trim(adjustl(overflow_error)), &
+      out_time = time*time_ref*time_scaling_factor
+      write (error_message,100) itcur,current_rk_stage,out_time, &
+                                trim(adjustl(overflow_error)), &
                                 trim(adjustl(divide_by_zero_error)), &
                                 trim(adjustl(invalid_error)), &
                                 trim(adjustl(newton_error))
-      output_message = reformat_string(error_message, &
-                                       line_length=53, &
-                                       leading_blanks=21)
       !
-      write (iout,2) trim(adjustl(output_message))
-      flush (iout)
+      call stop_gfr(stop_mpi,pname,line_num_with_bad_number, &
+                    src_file_with_bad_number,error_message)
+      !
+    else
+      !
+      ! If are here, a floating point exception seemed to be found, but the
+      ! density, pressure, and temperature all seem to be fine at both the
+      ! solution points and face points. Reset the IEEE floating point status
+      ! to the default values in case this was a false positive.
+      !
+     !call reset_ieee_status
+      call reset_fp_exceptions
       !
     end if
-    !
-    call find_bad_number()
-    !
-    if (completed_initial_cgns_output) then
-      if (allocated(usp) .and. allocated(uoldsp)) then
-        !
-        !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp,usp)
-        do m = 1,nq
-          do n = 1,n_solpts
-            usp(n,m) = uoldsp(n,m)
-          end do
-        end do
-        !
-        if (continuous_output) then
-          call new_write_parallel_cgns(-3)
-        else
-          call write_parallel_cgns(-3)
-        end if
-        !
-        call write_restart_file(-2)
-        !
-      end if
-    end if
-    !
-    out_time = time*time_ref*time_scaling_factor
-    write (error_message,100) itcur,current_rk_stage,out_time, &
-                              trim(adjustl(overflow_error)), &
-                              trim(adjustl(divide_by_zero_error)), &
-                              trim(adjustl(invalid_error)), &
-                              trim(adjustl(newton_error))
-    !
-    call stop_gfr(stop_mpi,pname,line_num_with_bad_number, &
-                  src_file_with_bad_number,error_message)
     !
   end if
-  !
-  1 format (//,1x,79("#"),//,5x,a,/)
-  2 format (5x,"ERROR MESSAGE: '",a,"'",//,1x,79("#"),//)
   !
   100 format ("A SIGNALING FLOATING POINT EXCEPTION WAS ", &
               "DETECTED AFTER UPDATING THE SOLUTION AFTER ", &
@@ -2111,15 +2107,6 @@ continue
   104 format (" FAILURES WERE DETECTED USING NEWTON'S METHOD", &
               " TO COMPUTE THE SUBSONIC INFLOW TEMPERATURE!", &
               "       newton_failures = ",i0)
-  !
-  200 format ("A SIGNALING FLOATING POINT EXCEPTION WAS ", &
-              "DETECTED AFTER UPDATING THE SOLUTION AFTER ", &
-              "TIME STEP # ",i0,", RK STAGE # ",i0," !!! ", &
-              "DUMPING SOLUTION AND RESTART FILES FOR THE ", &
-              "PREVIOUS TIME STEP!!!")
-  201 format (4(2x,a,:))
-  202 format (5x,"FLOATING POINT CHECK WAS CALLED ON LINE #  ",i0,/,&
-              35x,"OF THE FILE '",a,"'",/)
 #endif
 #endif
   !
@@ -2148,7 +2135,7 @@ subroutine timed_check_for_bad_number(line_num,newton_failures,force_signaling)
 #ifndef SPECIAL_FOR_GCC
   !
   !.. Local Scalars ..
-  integer  :: n,m
+  integer  :: n,m,n_bad_pts,num_newton_failures
   real(wp) :: out_time
   !
   logical(lk) :: error_found
@@ -2167,6 +2154,9 @@ subroutine timed_check_for_bad_number(line_num,newton_failures,force_signaling)
   !
   character(len=*), parameter :: pname = "timed_check_for_bad_number"
   !
+  logical(lk), parameter :: report_fpe_after_bad_point_confirmation = true
+ !logical(lk), parameter :: report_fpe_after_bad_point_confirmation = fals
+  !
 continue
 #ifndef DISABLE_CHECK_FOR_BAD_NUMBER
   !
@@ -2182,6 +2172,11 @@ continue
   invalid_error = ""
   newton_error = ""
   output_message = ""
+  !
+  num_newton_failures = 0
+  if (present(newton_failures)) then
+    num_newton_failures = newton_failures
+  end if
   !
   ! First check to make sure that no floating-point exceptions are signaling
   !
@@ -2211,11 +2206,9 @@ continue
                      "mpi_allreduce in timed_check_for_bad_number(main)")
   end if
   !
-  if (present(newton_failures)) then
-    if (newton_failures > 0) then
-      error_found = true
-      write (newton_error,104) newton_failures
-    end if
+  if (num_newton_failures > 0) then
+    error_found = true
+    write (newton_error,104) num_newton_failures
   end if
   !
   if (sum(bad_number_found) > 0) then
@@ -2227,85 +2220,80 @@ continue
   !
   if (error_found) then
     !
-    if (len_trim(adjustl(src_file_with_bad_number)) == 0) then
-      src_file_with_bad_number = __FILE__
-      line_num_with_bad_number = line_num
+    if (.not. report_fpe_after_bad_point_confirmation) then
+      call report_signaling_exception_found(line_num,overflow_error, &
+                                            divide_by_zero_error, &
+                                            invalid_error, &
+                                            newton_error)
     end if
     !
-    ! A floating-point exception was detected or the subsonic inflow
-    ! Newton iteration failed. Dump solution and restart files for the
-    ! solution at the previous time step and abort the simulation.
+    call find_bad_number(n_bad_pts)
     !
-    ! Copy the solution from the previous time step back into
-    ! usp so we can dump the solution and restart files before
-    ! aborting the simulation
+    if (ncpu > 1) then
+      call mpi_allreduce(MPI_IN_PLACE,n_bad_pts,1_int_mpi, &
+                         mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    end if
     !
-    if (mypnum == glb_root) then
+    if (n_bad_pts > 0 .or. num_newton_failures > 0) then
       !
-      write (error_message,200) itcur,current_rk_stage
-      output_message = reformat_string(error_message, &
-                                       line_length=70, &
-                                       leading_blanks=5)
+      if (report_fpe_after_bad_point_confirmation) then
+        call report_signaling_exception_found(line_num,overflow_error, &
+                                              divide_by_zero_error, &
+                                              invalid_error, &
+                                              newton_error)
+      end if
       !
-      write (iout,1) trim(output_message)
       flush (iout)
-      !
-      write (iout,202) line_num_with_bad_number, &
-                       trim(adjustl(src_file_with_bad_number))
+      call mpi_barrier(MPI_COMM_WORLD,mpierr)
       flush (iout)
+      call mpi_barrier(MPI_COMM_WORLD,mpierr)
       !
-      write (error_message,201) trim(adjustl(overflow_error)), &
+      if (completed_initial_cgns_output) then
+        if (allocated(usp) .and. allocated(uoldsp)) then
+          !
+          !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp,usp)
+          do m = 1,nq
+            do n = 1,n_solpts
+              usp(n,m) = uoldsp(n,m)
+            end do
+          end do
+          !
+          if (continuous_output) then
+            call new_write_parallel_cgns(-3)
+          else
+            call write_parallel_cgns(-3)
+          end if
+          !
+          call write_restart_file(-2)
+          !
+        end if
+      end if
+      !
+      out_time = time*time_ref*time_scaling_factor
+      write (error_message,100) itcur,current_rk_stage,out_time, &
+                                trim(adjustl(overflow_error)), &
                                 trim(adjustl(divide_by_zero_error)), &
                                 trim(adjustl(invalid_error)), &
                                 trim(adjustl(newton_error))
-      output_message = reformat_string(error_message, &
-                                       line_length=53, &
-                                       leading_blanks=21)
       !
-      write (iout,2) trim(adjustl(output_message))
-      flush (iout)
+      call stop_gfr(stop_mpi,pname,line_num_with_bad_number, &
+                    src_file_with_bad_number,error_message)
+      !
+    else
+      !
+      ! If are here, a floating point exception seemed to be found, but the
+      ! density, pressure, and temperature all seem to be fine at both the
+      ! solution points and face points. Reset the IEEE floating point status
+      ! to the default values in case this was a false positive.
+      !
+     !call reset_ieee_status
+      call reset_fp_exceptions
       !
     end if
-    !
-    call find_bad_number()
-    !
-    if (completed_initial_cgns_output) then
-      if (allocated(usp) .and. allocated(uoldsp)) then
-        !
-        !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp,usp)
-        do m = 1,nq
-          do n = 1,n_solpts
-            usp(n,m) = uoldsp(n,m)
-          end do
-        end do
-        !
-        if (continuous_output) then
-          call new_write_parallel_cgns(-3)
-        else
-          call write_parallel_cgns(-3)
-        end if
-        !
-        call write_restart_file(-2)
-        !
-      end if
-    end if
-    !
-    out_time = time*time_ref*time_scaling_factor
-    write (error_message,100) itcur,current_rk_stage,out_time, &
-                              trim(adjustl(overflow_error)), &
-                              trim(adjustl(divide_by_zero_error)), &
-                              trim(adjustl(invalid_error)), &
-                              trim(adjustl(newton_error))
-    !
-    call stop_gfr(stop_mpi,pname,line_num_with_bad_number, &
-                  src_file_with_bad_number,error_message)
     !
   end if
   !
   call debug_timer(leaving_procedure,timer_message)
-  !
-  1 format (//,1x,79("#"),//,5x,a,/)
-  2 format (5x,"ERROR MESSAGE: '",a,"'",//,1x,79("#"),//)
   !
   100 format ("A SIGNALING FLOATING POINT EXCEPTION WAS ", &
               "DETECTED AFTER UPDATING THE SOLUTION AFTER ", &
@@ -2321,15 +2309,6 @@ continue
   104 format (" FAILURES WERE DETECTED USING NEWTON'S METHOD", &
               " TO COMPUTE THE SUBSONIC INFLOW TEMPERATURE!", &
               "       newton_failures = ",i0)
-  !
-  200 format ("A SIGNALING FLOATING POINT EXCEPTION WAS ", &
-              "DETECTED AFTER UPDATING THE SOLUTION AFTER ", &
-              "TIME STEP # ",i0,", RK STAGE # ",i0," !!! ", &
-              "DUMPING SOLUTION AND RESTART FILES FOR THE ", &
-              "PREVIOUS TIME STEP!!!")
-  201 format (4(2x,a,:))
-  202 format (/,5x,"FLOATING POINT CHECK WAS CALLED ON LINE #  ",i0,/,&
-               35x,"OF THE FILE '",a,"'")
 #endif
 #endif
   !
@@ -2337,11 +2316,86 @@ end subroutine timed_check_for_bad_number
 !
 !###############################################################################
 !
-subroutine find_bad_number()
+subroutine report_signaling_exception_found(line_num,overflow_error, &
+                                            divide_by_zero_error, &
+                                            invalid_error,newton_error)
+  !
+  !.. Formal Arguments ..
+  integer,          intent(in) :: line_num
+  character(len=*), intent(in) :: overflow_error
+  character(len=*), intent(in) :: divide_by_zero_error
+  character(len=*), intent(in) :: invalid_error
+  character(len=*), intent(in) :: newton_error
+  !
+  !.. Local Scalars ..
+  character(len=10000) :: output_message
+  !
+continue
+  !
+  if (len_trim(adjustl(src_file_with_bad_number)) == 0) then
+    src_file_with_bad_number = __FILE__
+    line_num_with_bad_number = line_num
+  end if
+  !
+  ! A floating-point exception was detected or the subsonic inflow
+  ! Newton iteration failed. Dump solution and restart files for the
+  ! solution at the previous time step and abort the simulation.
+  !
+  ! Copy the solution from the previous time step back into
+  ! usp so we can dump the solution and restart files before
+  ! aborting the simulation
+  !
+  if (mypnum == glb_root) then
+    !
+    write (error_message,200) itcur,current_rk_stage
+    output_message = reformat_string(error_message, &
+                                     line_length=70, &
+                                     leading_blanks=5)
+    !
+    write (iout,1) trim(output_message)
+    flush (iout)
+    !
+    write (iout,202) line_num_with_bad_number, &
+                     trim(adjustl(src_file_with_bad_number))
+    flush (iout)
+    !
+    write (error_message,201) trim(adjustl(overflow_error)), &
+                              trim(adjustl(divide_by_zero_error)), &
+                              trim(adjustl(invalid_error)), &
+                              trim(adjustl(newton_error))
+    output_message = reformat_string(error_message, &
+                                     line_length=53, &
+                                     leading_blanks=21)
+    !
+    write (iout,2) trim(adjustl(output_message))
+    flush (iout)
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  1 format (//,1x,79("#"),//,5x,a,/)
+  2 format (5x,"ERROR MESSAGE: '",a,"'",//,1x,79("#"),//)
+  !
+  200 format ("A SIGNALING FLOATING POINT EXCEPTION WAS ", &
+              "DETECTED AFTER UPDATING THE SOLUTION AFTER ", &
+              "TIME STEP # ",i0,", RK STAGE # ",i0," !!! ", &
+              "DUMPING SOLUTION AND RESTART FILES FOR THE ", &
+              "PREVIOUS TIME STEP!!!")
+  201 format (4(2x,a,:))
+  202 format (5x,"FLOATING POINT CHECK WAS CALLED ON LINE #  ",i0,/,&
+              35x,"OF THE FILE '",a,"'",/)
+  !
+end subroutine report_signaling_exception_found
+!
+!###############################################################################
+!
+subroutine find_bad_number(n_bad_pts)
   !
   !.. Use Statements ..
   use eqn_idx_mod,       only : nq,nec,ntemp,npres
   use ovar,              only : grid_scaling_factor,rhoref,aref,tref
+  use ovar,              only : itestcase
   use geomvar_mod,       only : nr,cell,face,fp,nfbnd,nface
   use geomvar_mod,       only : n_solpts,n_bnd_flxpts,n_flxpts,xyz
   use flowvar_mod,       only : usp,gpsp,faceusp,facegpsp
@@ -2351,8 +2405,11 @@ subroutine find_bad_number()
  !use, intrinsic :: ieee_arithmetic, only : is_finite => ieee_is_finite
  !use, intrinsic :: ieee_arithmetic, only : is_negative => ieee_is_negative
   !
+  !.. Formal Arguments ..
+  integer, intent(inout) :: n_bad_pts
+  !
   !.. Local Scalars ..
-  integer  :: n,nc,nf,nfp,n0,sf,f0,i,i1,i2,j,kf,lf,l,n_bad_pts,ic
+  integer  :: n,nc,nf,nfp,n0,sf,f0,i,i1,i2,j,kf,lf,l,ic
   integer  :: this_geom,this_order
   integer  :: face_geom,face_order
   integer  :: one_pass
@@ -2686,12 +2743,9 @@ continue
     !
   end if
   !
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  !
-  call report_bad_pts(n_bad_pts,xyz_of_bad_pts)
+  if (any(abs(itestcase) == [Channel_Flow,Pipe_Channel_Flow])) then
+    call report_bad_pts(n_bad_pts,xyz_of_bad_pts)
+  end if
   !
   ! Format Statements
   !
@@ -2835,11 +2889,6 @@ continue
    !write (iout,*) (xyz(l,n), l=1,nr)
     !
   end do
-  !
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   1 format (/,2x,"For cell that encountered a bad number:",/, &
               4x,"Cell center coordinates in       +-coordinates: ", &
