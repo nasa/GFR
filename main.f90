@@ -2420,11 +2420,13 @@ subroutine find_bad_number(n_bad_pts)
   !
   logical(lk) :: use_interp
   !
+  character(len=15)  :: cxyz_out
   character(len=200) :: inv_fmt,neg_fmt
   !
   !.. Local Arrays ..
   real(wp) :: vars(1:3)
   real(wp) :: xyz_fp(1:nr)
+  real(wp) :: xyz_out(1:nr)
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: xyz_of_bad_pts(:,:)
@@ -2459,14 +2461,18 @@ continue
         vars(3) = gpsp(n,ntemp)
         if (.not. all(is_finite(vars))) then
           call add_bad_pt(n_bad_pts,1,nc,xyz(:,n),xyz_of_bad_pts)
-          write (iout,inv_fmt) (xyz(l,n)/grid_scaling_factor, l=1,nr), &
+          call get_xyz_out(xyz(:,n),xyz_out,cxyz_out)
+         !write (iout,inv_fmt) (xyz(l,n)/grid_scaling_factor, l=1,nr), &
+          write (iout,inv_fmt) trim(adjustl(cxyz_out)), (xyz_out(l), l=1,nr), &
                                vars(1)*rhoref, &
                                vars(2)*rhoref*aref*aref, &
                                vars(3)*tref
           flush (iout)
         else if (any(is_negative(vars))) then
           call add_bad_pt(n_bad_pts,1,nc,xyz(:,n),xyz_of_bad_pts)
-          write (iout,neg_fmt) (xyz(l,n)/grid_scaling_factor, l=1,nr), &
+          call get_xyz_out(xyz(:,n),xyz_out,cxyz_out)
+         !write (iout,neg_fmt) (xyz(l,n)/grid_scaling_factor, l=1,nr), &
+          write (iout,neg_fmt) trim(adjustl(cxyz_out)), (xyz_out(l), l=1,nr), &
                                vars(1)*rhoref, &
                                vars(2)*rhoref*aref*aref, &
                                vars(3)*tref
@@ -2554,16 +2560,22 @@ continue
               !
               if (.not. all(is_finite(vars))) then
                 call add_bad_pt(n_bad_pts,2,nc,xyz_fp(:),xyz_of_bad_pts)
+                call get_xyz_out(xyz_fp,xyz_out,cxyz_out)
                 write (iout,inv_fmt) sf, &
-                                     (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
+                                    !(xyz_fp(l)/grid_scaling_factor, l=1,nr), &
+                                     trim(adjustl(cxyz_out)), &
+                                     (xyz_out(l), l=1,nr), &
                                      vars(1)*rhoref, &
                                      vars(2)*rhoref*aref*aref, &
                                      vars(3)*tref
                 flush (iout)
               else if (any(is_negative(vars))) then
                 call add_bad_pt(n_bad_pts,2,nc,xyz_fp(:),xyz_of_bad_pts)
+                call get_xyz_out(xyz_fp,xyz_out,cxyz_out)
                 write (iout,neg_fmt) sf, &
-                                     (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
+                                    !(xyz_fp(l)/grid_scaling_factor, l=1,nr), &
+                                     trim(adjustl(cxyz_out)), &
+                                     (xyz_out(l), l=1,nr), &
                                      vars(1)*rhoref, &
                                      vars(2)*rhoref*aref*aref, &
                                      vars(3)*tref
@@ -2626,8 +2638,11 @@ continue
               if (.not. all(is_finite(vars))) then
                 ic = merge(face(nf)%left%cell,face(nf)%right%cell,sf==1)
                 call add_bad_pt(n_bad_pts,3,ic,xyz_fp(:),xyz_of_bad_pts)
+                call get_xyz_out(xyz_fp,xyz_out,cxyz_out)
                 write (iout,inv_fmt) sf, &
-                                     (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
+                                    !(xyz_fp(l)/grid_scaling_factor, l=1,nr), &
+                                     trim(adjustl(cxyz_out)), &
+                                     (xyz_out(l), l=1,nr), &
                                      vars(1)*rhoref, &
                                      vars(2)*rhoref*aref*aref, &
                                      vars(3)*tref
@@ -2635,8 +2650,11 @@ continue
               else if (any(is_negative(vars))) then
                 ic = merge(face(nf)%left%cell,face(nf)%right%cell,sf==1)
                 call add_bad_pt(n_bad_pts,3,ic,xyz_fp(:),xyz_of_bad_pts)
+                call get_xyz_out(xyz_fp,xyz_out,cxyz_out)
                 write (iout,neg_fmt) sf, &
-                                     (xyz_fp(l)/grid_scaling_factor, l=1,nr), &
+                                    !(xyz_fp(l)/grid_scaling_factor, l=1,nr), &
+                                     trim(adjustl(cxyz_out)), &
+                                     (xyz_out(l), l=1,nr), &
                                      vars(1)*rhoref, &
                                      vars(2)*rhoref*aref*aref, &
                                      vars(3)*tref
@@ -2683,16 +2701,20 @@ continue
             vars(3) = facegpsp(n,ntemp,sf)
             if (.not. all(is_finite(vars))) then
               call add_bad_pt(n_bad_pts,2,nc,facexyz(:,n),xyz_of_bad_pts)
+              call get_xyz_out(facexyz(:,n),xyz_out,cxyz_out)
               write (iout,inv_fmt) sf, &
-                               (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
+                              !(facexyz(l,n)/grid_scaling_factor, l=1,nr), &
+                               trim(adjustl(cxyz_out)), (xyz_out(l), l=1,nr), &
                                vars(1)*rhoref, &
                                vars(2)*rhoref*aref*aref, &
                                vars(3)*tref
               flush (iout)
             else if (any(is_negative(vars))) then
               call add_bad_pt(n_bad_pts,2,nc,facexyz(:,n),xyz_of_bad_pts)
+              call get_xyz_out(facexyz(:,n),xyz_out,cxyz_out)
               write (iout,neg_fmt) sf, &
-                               (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
+                              !(facexyz(l,n)/grid_scaling_factor, l=1,nr), &
+                               trim(adjustl(cxyz_out)), (xyz_out(l), l=1,nr), &
                                vars(1)*rhoref, &
                                vars(2)*rhoref*aref*aref, &
                                vars(3)*tref
@@ -2723,16 +2745,20 @@ continue
             vars(3) = facegpsp(n,ntemp,sf)
             if (.not. all(is_finite(vars))) then
               call add_bad_pt(n_bad_pts,3,nc,facexyz(:,n),xyz_of_bad_pts)
+              call get_xyz_out(facexyz(:,n),xyz_out,cxyz_out)
               write (iout,inv_fmt) sf, &
-                               (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
+                              !(facexyz(l,n)/grid_scaling_factor, l=1,nr), &
+                               trim(adjustl(cxyz_out)), (xyz_out(l), l=1,nr), &
                                vars(1)*rhoref, &
                                vars(2)*rhoref*aref*aref, &
                                vars(3)*tref
               flush (iout)
             else if (any(is_negative(vars))) then
               call add_bad_pt(n_bad_pts,3,nc,facexyz(:,n),xyz_of_bad_pts)
+              call get_xyz_out(facexyz(:,n),xyz_out,cxyz_out)
               write (iout,neg_fmt) sf, &
-                               (facexyz(l,n)/grid_scaling_factor, l=1,nr), &
+                              !(facexyz(l,n)/grid_scaling_factor, l=1,nr), &
+                               trim(adjustl(cxyz_out)), (xyz_out(l), l=1,nr), &
                                vars(1)*rhoref, &
                                vars(2)*rhoref*aref*aref, &
                                vars(3)*tref
@@ -2752,9 +2778,11 @@ continue
   !
   ! Format Statements
   !
-  1 format ('(2x,"',a,' SP value found at [x,y,z] = ",', &
+ !1 format ('(2x,"',a,' SP value found at [x,y,z] = ",', &
+  1 format ('(2x,"',a,' SP value found at [",a,"] = ",', &
             i0,'es14.6,4x,"r,p,t = ",3es14.6)')
-  2 format ('(2x,"',a,' FP value found at side ",i1," of [x,y,z] = ",', &
+ !2 format ('(2x,"',a,' FP value found at side ",i1," of [x,y,z] = ",', &
+  2 format ('(2x,"',a,' FP value found at side ",i1," of [",a,"] = ",', &
             i0,'es14.6,4x,"r,p,t = ",3es14.6)')
   !
 end subroutine find_bad_number
