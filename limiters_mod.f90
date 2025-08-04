@@ -4355,70 +4355,51 @@ subroutine cell_length_scale_max_box(cell_lengths)
   !
   ! Finds the longest dimension of the x,y,z bounding box of the cell
   !
-  use geomvar_mod, only : ncell,nodes_of_cell_ptr,nodes_of_cell,xyz_nodes, nr
+  use geomvar_mod, only : nr,ncell,xyz_nodes
+  use geomvar_mod, only : nodes_of_cell_ptr,nodes_of_cell
   !
   !.. I/O Arrays ..
-  real(wp),intent(out)     :: cell_lengths(:)
+  real(wp), intent(out) :: cell_lengths(:)
   !
   !.. Local Scalars ..
-  real(wp)      :: xmin, xmax, ymin, ymax, zmin, zmax
-  integer       :: ibeg,iend,jj,j,i,nc,nn,ii,maxnodes
+  integer :: ibeg,iend,jj,nc
   !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable      :: cell_nodes_xyz(:,:)
+  !.. Local Automatic Arrays ..
+  real(wp) :: xyz_min(1:nr)
+  real(wp) :: xyz_max(1:nr)
+  real(wp) :: cell_nodes_xyz(1:nr,1:8)
   !
-  maxnodes = 8 !?
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "cell_length_scale_max_box"
   !
-  allocate(cell_nodes_xyz(nr,maxnodes))
+continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   do nc = 1,ncell
-    jj = 0
+    !
     ibeg = nodes_of_cell_ptr(nc) + 1
     iend = nodes_of_cell_ptr(nc+1)
-    do i = 1, (iend-ibeg)
-      ii  = i + ibeg - 1
-      nn = nodes_of_cell(ii)
-      jj = jj+1
-      cell_nodes_xyz(1:nr,jj) = xyz_nodes(1:nr,nn) 
-    enddo
     !
-    !  Initialize with coords of 1st node
+    jj = iend-ibeg+1
     !
-    xmax = cell_nodes_xyz(1,1)
-    xmin = cell_nodes_xyz(1,1)
+    cell_nodes_xyz(1:nr,1:jj) = xyz_nodes(1:nr,nodes_of_cell(ibeg:iend))
     !
-    ymax = cell_nodes_xyz(2,1)
-    ymin = cell_nodes_xyz(2,1)
+    !  Find the extrema of each coordinate direction across all the nodes
+    !  of this cell
     !
-    if (nr ==3 ) then
-      zmin = cell_nodes_xyz(3,1)
-      zmax = cell_nodes_xyz(3,1)
-    endif
-    ! loop through nodes to find extrema
-    do j = 2,jj
-      !
-      xmax = max(xmax, cell_nodes_xyz(1,j))
-      xmin = min(xmin, cell_nodes_xyz(1,j))
-      !
-      ymax = max(ymax, cell_nodes_xyz(2,j))
-      ymin = min(ymin, cell_nodes_xyz(2,j))
-      !
-      if (nr ==3 ) then
-        zmax = max(zmax, cell_nodes_xyz(3,j))
-        zmin = min(zmin, cell_nodes_xyz(3,j))
-      endif
-      !
-    enddo
+    xyz_min(1:nr) = minval( cell_nodes_xyz(1:nr,1:jj) , dim=2 )
+    xyz_max(1:nr) = maxval( cell_nodes_xyz(1:nr,1:jj) , dim=2 )
     !
-    ! Find the maximum distance between dx,dy,dz
-      if (nr >=3 ) then
-        cell_lengths(nc) = max( xmax-xmin , ymax-ymin , zmax-zmin )
-      else
-        cell_lengths(nc) = max( xmax-xmin , ymax-ymin)
-      endif
+    ! Find the maximum distance between the extremas of each coordinate
+    ! direction, and use that value as the length scale for the Ducros sensor.
+    !
+    cell_lengths(nc) = maxval( xyz_max(1:nr) - xyz_min(1:nr) )
     !
   enddo
-    deallocate(cell_nodes_xyz)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine cell_length_scale_max_box
 !
 !###############################################################################
