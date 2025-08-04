@@ -67,6 +67,14 @@ module flowvar_mod
   real(wp), public, save, allocatable, dimension(:) :: dtsp
   !$ACC DECLARE CREATE(dtsp)
   !
+  ! DT_SAVE : Time step computed for each solution point. This is mostly for
+  !           output purposes when wanting to see the actual computed time
+  !           step for each solution point before taking the minimum if
+  !           using a global time step.
+  !
+  real(wp), public, save, allocatable, dimension(:) :: dt_save
+  !$ACC DECLARE CREATE(dt_save)
+  !
   ! UAVESP : time averaged variables at the solution points
   !
   real(wp), public, save, allocatable :: uavesp(:,:)
