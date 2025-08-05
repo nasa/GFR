@@ -2741,7 +2741,7 @@ continue
           vartmp(n) = cv(n,m)/cv(n,nec)
         end do
         !
-        call cgns_write_field_data
+        call cgns_write_field_data(flush_to_zero=fals)
         !
       end do
       !!}}}
