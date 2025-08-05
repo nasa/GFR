@@ -8,6 +8,7 @@ module write_cgns_mod
   use eqn_idx_mod, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
   use eqn_idx_mod, only : ncs,npres,ntemp,ngamm,nenth,ncp,nvisc,ncond,ng
   use eqn_idx_mod, only : NCD_Axial,NCD_Vert,NCD_Span
+  use eqn_idx_mod, only : NM_Axial,NM_Vert,NM_Span
   !
   implicit none
   !
@@ -3073,11 +3074,11 @@ continue
       !
       do n = 1,npts
         !
-        v1 = cv(n,nec+m1)/cv(n,nec) * aref
-        v2 = cv(n,nec+m2)/cv(n,nec) * aref
+        v1 = cv(n,NM_Vert)/cv(n,nec) * aref
+        v2 = cv(n,NM_Span)/cv(n,nec) * aref
         !
-        x1 = xyztmp(n,m1)
-        x2 = xyztmp(n,m2)
+        x1 = xyztmp(n,NCD_Vert)
+        x2 = xyztmp(n,NCD_Span)
         !
         theta = atan2(x2,x1)
         !
