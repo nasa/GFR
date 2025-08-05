@@ -4336,6 +4336,7 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,        only : itestcase,governing_equations
   use ovar,        only : limiter_option
   use ovar,        only : output_vorticity
+  use ovar,        only : output_cylindrical_coordinates
   use ovar,        only : output_cylindrical_velocity
   use ovar,        only : output_relative_velocity
   use ovar,        only : output_relative_conditions
@@ -4502,7 +4503,7 @@ continue
   end if
   !
   ! Output the cylindrical velocity components (vr,vtheta)
-  if (output_cylindrical_velocity) then
+  if (output_cylindrical_coordinates .or. output_cylindrical_velocity) then
     if (nr >= 2) then
       call add_sol_variable(variable_list,"CylindricalVelocity")
       if (output_relative_conditions .or. output_relative_velocity) then
