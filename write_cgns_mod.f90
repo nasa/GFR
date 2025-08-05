@@ -1903,6 +1903,8 @@ continue
       n = n + 2*nmarker
     else if (trim(variable_names(l)) == "JumpMarker") then
       n = n + 2*nmarker
+    else if (trim(variable_names(l)) == "DucrosMarker") then
+      n = n + 2*nmarker + 3
     else if (trim(variable_names(l)) == "MLPMarker") then
       n = n + 2*nmarker
     else if (trim(variable_names(l)) == "TimeMetrics") then
@@ -2133,6 +2135,35 @@ continue
       do imarker = 1, nmarker
         n = n + 1
         varname = trim(variable_names(k))
+        if ( imarker > 1 ) write(varname,'(a,i2.2)') trim(varname),imarker
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+      !
+      do imarker = 1, nmarker
+        n = n + 1
+        varname = "Scaled"//trim(variable_names(k))
+        if ( imarker > 1 ) write(varname,'(a,i2.2)') trim(varname),imarker
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+      !
+    else if (trim(variable_names(k)) == "DucrosMarker") then
+      !
+      n = n + 1
+      varname = "DucrosFunction"
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
+      n = n + 1
+      varname = "DucrosDivergence"
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
+      n = n + 1
+      varname = "DucrosSensor"
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
+      do imarker = 1, nmarker
+        n = n + 1
+        varname = "JumpMarker"
+       !varname = trim(variable_names(k))
         if ( imarker > 1 ) write(varname,'(a,i2.2)') trim(varname),imarker
         call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       end do
@@ -2415,6 +2446,8 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use flowvar_mod,  only : marker,scaled_marker,nmarker
   use limiters_mod, only : resolution_indicator
   use limiters_mod, only : jump_indicator
+  use limiters_mod, only : ducros_indicator
+  use limiters_mod, only : cell_lengths
   use flowvar_mod,  only : deallocate_marker
   use flowvar_mod,  only : deallocate_scaled_marker
   use mlp_mod,      only : limit_by_mlp
@@ -2448,13 +2481,13 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   real(CRT),     intent(inout) :: var(:)
   !
   !.. Local Scalars ..
-  integer  :: i,j,l,m,m1,m2,n,nc,np,n0,npts,ierr
+  integer  :: i,j,l,m,m1,m2,n,nc,np,n0,n1,n2,npts,ierr
   integer  :: nmi,nmj,l_comp,l_phys,nvar
   integer  :: this_order,limit_order
   integer  :: imarker
   real(wp) :: freestream_ref,rhoa,rhoa2,time_ref_inv
-  real(wp) :: cp_dim,cond_dim,dim_val,val
-  real(wp) :: rho_inv,vx,vy,vz,a2,q2,s
+  real(wp) :: cp_dim,cond_dim,dim_val,val,eps
+  real(wp) :: rho_inv,vx,vy,vz,a2,q2,s,fval
   real(wp) :: x1,x2,v1,v2,theta,vr,vt
   real(wp) :: gamm,gm1,gam_over_gm1,mach,pres,temp
   real(wp) :: mi,mj,drhodi,drhodj,dmjdi,dmidj
@@ -2536,9 +2569,16 @@ continue
         end do
       end if
       !
-    case ("GradVelocity","GradTemperature","GradMassFractions", &
-          "GradTempMagnitude","VorticityMagnitude","StrainRateMagnitude", &
-          "QCriterion","DivergenceOfVelocity")
+    case ("GradVelocity","VorticityMagnitude","StrainRateMagnitude", &
+          "QCriterion","DivergenceOfVelocity","DucrosMarker")
+      !
+      allocate ( dpvdx(1:npts,1:nr,1:nq) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"dpvdx",1,__LINE__,__FILE__,ierr,error_message)
+      !
+      call grad_cv_to_grad_pv_gpu(1,npts,cv,gp,dcvdx,dpvdx,velocity_only=true)
+      !
+    case ("GradTemperature","GradMassFractions","GradTempMagnitude")
       !
       allocate ( dpvdx(1:npts,1:nr,1:nq) , source=zero , &
                  stat=ierr , errmsg=error_message )
@@ -4027,6 +4067,163 @@ continue
       end if
       !
       !!}}}
+    case ("DucrosMarker")
+      !!{{{
+      allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      ! Compute the Ducros marker if it has yet to be computed
+      !
+      marker_was_not_allocated        = ( .not. allocated(marker) )
+      scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
+      !
+      if (       abs(Limiter_Option) /= 4 .or. &
+                 marker_was_not_allocated .or. &
+          scaled_marker_was_not_allocated ) then
+        call ducros_indicator(nst=1,update_gradients=fals)
+      end if
+      !
+      ! Compute the value of the Ducros function at each solution point
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do nc = 1,ncell
+        n1 = cell(nc)%beg_sp
+        n2 = cell(nc)%end_sp
+        eps = eps8 * machref / cell_lengths(nc)
+        do n = n1,n2
+          !
+          skk = dpvdx(n,1,nmx) + dpvdx(n,2,nmy) + dpvdx(n,3,nmz)
+          !
+          w12 = dpvdx(n,2,nmx) - dpvdx(n,1,nmy)
+          w13 = dpvdx(n,3,nmx) - dpvdx(n,1,nmz)
+          w23 = dpvdx(n,3,nmy) - dpvdx(n,2,nmz)
+          !
+          wijwij = w12*w12 + w13*w13 + w23*w23
+          !
+          vartmp_at_sp(n) = (skk*skk + eps) / (skk*skk + wijwij + eps)
+          !
+        end do
+      end do
+      !
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      call cgns_write_field_data
+      !
+      ! Compute the value of the Ducros 'S' value at each solution point
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do nc = 1,ncell
+        n1 = cell(nc)%beg_sp
+        n2 = cell(nc)%end_sp
+        val = half*cell_lengths(nc)
+        do n = n1,n2
+          !
+          skk = dpvdx(n,1,nmx) + dpvdx(n,2,nmy) + dpvdx(n,3,nmz)
+          !
+          a2 = gp(n,ngamm)*gp(n,npres)/max(cv(n,nec),rndoff)
+          !
+          vartmp_at_sp(n) = abs(skk) * val / sqrt(a2)
+          !
+        end do
+      end do
+      !
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      call cgns_write_field_data
+      !
+      ! Compute the value of the actual Ducros sensor at each solution point
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do nc = 1,ncell
+        n1 = cell(nc)%beg_sp
+        n2 = cell(nc)%end_sp
+        val = half*cell_lengths(nc)
+        eps = eps8 * machref / cell_lengths(nc)
+        do n = n1,n2
+          !
+          skk = dpvdx(n,1,nmx) + dpvdx(n,2,nmy) + dpvdx(n,3,nmz)
+          !
+          w12 = dpvdx(n,2,nmx) - dpvdx(n,1,nmy)
+          w13 = dpvdx(n,3,nmx) - dpvdx(n,1,nmz)
+          w23 = dpvdx(n,3,nmy) - dpvdx(n,2,nmz)
+          !
+          wijwij = w12*w12 + w13*w13 + w23*w23
+          !
+          a2 = gp(n,ngamm)*gp(n,npres)/max(cv(n,nec),rndoff)
+          !
+          fval = (skk*skk + eps) / (skk*skk + wijwij + eps)
+          fval = min( one , fval )
+
+          s = min( one , abs(skk)*val/sqrt(a2) )
+          !
+          vartmp_at_sp(n) = min( one , max( s*s , min(0.01_wp,fval) ) )
+          !
+        end do
+      end do
+      !
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      call cgns_write_field_data
+      !
+      ! Value of the jump marker
+      !
+      do imarker = 1, nmarker
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do nc = 1,ncell
+          n0 = cell(nc)%beg_sp - 1
+          np = cell(nc)%end_sp - n0
+          do n = 1,np
+            vartmp_at_sp(n0+n) = marker(nc,imarker)
+          end do
+        end do
+        !
+        call interpolate_for_output( vartmp_at_sp , vartmp )
+        !
+        call cgns_write_field_data
+      end do
+      !
+      ! Scaled Ducros marker which is the Ducros sensor multiplied
+      ! by the scaled jump_marker
+      !
+      do imarker = 1, nmarker
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do nc = 1,ncell
+          n0 = cell(nc)%beg_sp - 1
+          np = cell(nc)%end_sp - n0
+          do n = 1,np
+            vartmp_at_sp(n0+n) = scaled_marker(nc,imarker)
+          end do
+        end do
+        !
+        call interpolate_for_output( vartmp_at_sp , vartmp )
+        !
+        call cgns_write_field_data
+      end do
+      !
+      ! Deallocate marker and/or scaled_marker if they were not originally
+      ! allocated when this case construct was entered.
+      !
+      if (marker_was_not_allocated) then
+        call deallocate_marker(pname)
+      end if
+      !
+      if (scaled_marker_was_not_allocated) then
+        call deallocate_scaled_marker(pname)
+      end if
+      !
+      !!}}}
     case ("MLPMarker")
       !!{{{
       if (.not. allocated(vartmp_at_sp)) then
@@ -4393,7 +4590,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:56) = ["Density             ", &
+  character(len=*), parameter :: var_order(1:57) = ["Density             ", &
                                                     "Momentum            ", &
                                                     "Energy              ", &
                                                     "Velocity            ", &
@@ -4434,6 +4631,7 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "GradTemperature     ", &
                                                     "ResolutionMarker    ", &
                                                     "JumpMarker          ", &
+                                                    "DucrosMarker        ", &
                                                     "Timestep            ", &
                                                     "LocalTimestep       ", &
                                                     "Partition           ", &
@@ -4451,7 +4649,7 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "FilterDissipation   "]
   !
   !.. Variables requiring dusp for output
-  character(len=*), parameter :: grad_vars(1:16) = ["GradSpeciesDensities", &
+  character(len=*), parameter :: grad_vars(1:17) = ["GradSpeciesDensities", &
                                                     "GradDensity         ", &
                                                     "GradDensityMagnitude", &
                                                     "GradMomentum        ", &
@@ -4466,7 +4664,8 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "VorticityMagnitude  ", &
                                                     "StrainRateMagnitude ", &
                                                     "QCriterion          ", &
-                                                    "DivergenceOfVelocity"]
+                                                    "DivergenceOfVelocity", &
+                                                    "DucrosMarker        "]
   !
   ! Conserved Variables
   character(len=*), parameter :: consv_var(1:3) = ["Density ", &
@@ -4597,6 +4796,20 @@ continue
       end if
     else if ( abs(limiter_option) == 2 ) then
       call add_sol_variable(variable_list,"JumpMarker")
+      if (Jump_Marker_Variable > 0) then
+        if (Jump_Marker_Variable == nec .or. ncs > 1) then
+          m = 1
+        else if (Jump_Marker_Variable == nee) then
+          m = 3
+        else
+          m = 2
+        end if
+        call add_sol_variable(variable_list,trim(consv_var(m)))
+      else
+        call add_sol_variable(variable_list,'Pressure')
+      end if
+    else if ( abs(limiter_option) == 4 ) then
+      call add_sol_variable(variable_list,"DucrosMarker")
       if (Jump_Marker_Variable > 0) then
         if (Jump_Marker_Variable == nec .or. ncs > 1) then
           m = 1
