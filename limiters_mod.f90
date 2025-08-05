@@ -4168,9 +4168,9 @@ end subroutine jump_indicator_modified
 !###############################################################################
 !###############################################################################
 !
-subroutine ducros_indicator(nst,troubled_cell)
+subroutine ducros_indicator(nst,troubled_cell,update_gradients)
   !
-  !> Compute the local marker using a modified ducross shock sensor.
+  !> Compute the local marker using a modified ducros shock sensor.
   !>
   !> Refs:                              ##### Reminder to find links for these #####
   !>  - Caleb's or other paper
@@ -4178,170 +4178,22 @@ subroutine ducros_indicator(nst,troubled_cell)
   !>  - OG Ducros and common mods
   !>
   !
-  !.. Use Statements ..
-
-
-  use geomvar_mod,      only : nr,ncell,cell,face,nfbnd,bface,n_solpts,cell_order
-  use element_type_mod, only : std_elem
-  use eqn_idx_mod,      only : nmx,nmy,nmz,ntemp, nq
-  use ovar,             only : gam,rgasref,machref,tref,pref,rhoref,aref,velref,Lref
-  use gpu_mod,          only : grad_cv_to_grad_pv_gpu
-  use flowvar_mod,      only : usp,gpsp,dusp
-  use flowvar_mod,      only : get_marker_index
-  use flux_mod,         only : discontinuous_gradient_at_solpts
-  !
   !.. Optional Arguments ..
   integer,      optional, intent(in)    :: nst              !< Runge-Kutta stage
   logical(ldk), optional, intent(inout) :: troubled_cell(:)
-  !
-  !.. Local Scalars ..
-  real(wp)      :: ducros_fs,eps_factor,char_len,val,cell_len,eps_d, &
-                   dudx,dvdy,dwdz,divv,vortmags,f_duc,asp,velrefmag,S,valS, &
-                   trm,dist,deld,musp,mumax,muscale,cbeta,cmax
-  integer       :: ierr,imarker,nc,nsp,n1,n2
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: dpvdx(:,:,:), cell_lengths(:)
-  real(wp) :: dvdxref
+  logical(lk),  optional, intent(in)    :: update_gradients
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "ducros_indicator"
   !
-  !.. Constant Model Parameters ..
-  ducros_fs  = 0.01_wp
-  eps_factor = 1.0e-8_wp
-  dist = 1e-4_wp
-  deld = 0.2_wp * dist
-  cbeta = 1
-  cmax = 0.5
-  !
 continue
   !
-  call jump_indicator(nst,troubled_cell) 
+  call debug_timer(entering_procedure,pname)
   !
-  call discontinuous_gradient_at_solpts()
+  call ducros_indicator_classic(nst,troubled_cell,update_gradients)
+ !call ducros_indicator_reactmb(nst,troubled_cell,update_gradients)
   !
-  allocate(cell_lengths(ncell), source=zero, stat=ierr , errmsg=error_message)
-  call alloc_error(pname,"cell_lengths",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  if (.not. allocated(dpvdx)) then
-     allocate(dpvdx(1:n_solpts,1:nr,1:nq), source=zero, stat=ierr , errmsg=error_message) 
-     call alloc_error(pname,"dpvdx",1,__LINE__,__FILE__,ierr,error_message)
-  endif
-  !
-  if (.not. allocated(marker)) then
-    allocate ( marker(1:ncell,1:nmarker) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"marker",1,__LINE__,__FILE__,ierr,error_message)
-    !$ACC UPDATE DEVICE(marker)
-  end if
-  !
-  if (.not. allocated(scaled_marker)) then
-    allocate ( scaled_marker(1:ncell,1:nmarker) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"scaled_marker",1,__LINE__,__FILE__, &
-                     ierr,error_message)
-    !$ACC UPDATE DEVICE(scaled_marker)
-  end if
-  !
-  !  Determine which marker position to fill based on R-K stage
-  imarker = get_marker_index(nst)
-  !
-  !Refference velocity magnitude
-  !
-  n1 = cell(1)%beg_sp
-  n2 = cell(ncell)%end_sp
-  call grad_cv_to_grad_pv_gpu(n1,n2,usp,gpsp,dusp,dpvdx)
-  !
-  call cell_length_scale_max_box(cell_lengths)
-  !
-  ! test outputs
-  ! write(iout,*) 'velref(1,2,3): ', velref(1), velref(2), velref(3)
-  ! write(iout,*) 'Lref: ', Lref
-  ! write(iout,*) 'cell(1)%beg_sp, cell(nc)%end_sp, n_solpts', n1, n2, n_solpts
-  ! write(iout,*) 'nmx, nmy: ', nmx, nmy
-  ! write (iout,*) 'sum(dusp)', sum(abs(dusp))
-  !
-  do nc = 1,ncell
-     !
-     val = zero
-     valS = zero
-     !
-     ! calculate epsilon normalization factor
-     eps_d = (eps_factor * aref * machref )/ cell_lengths(nc)  
-     !
-     ! Now Loop Through Solution Points
-     do nsp = cell(nc)%beg_sp, cell(nc)%end_sp
-       !
-       ! Calculate Divergence squared
-       dudx = zero
-       dvdy = zero
-       dwdz = zero
-       !
-       dudx = aref * dpvdx(nsp,1,nmx)
-       !
-       if (nr >= 2) then
-       dvdy = aref * dpvdx(nsp,2,nmy)
-       end if
-       !
-       if (nr == 3) then
-       dwdz = aref * dpvdx(nsp,3,nmz)
-       end if
-       !
-       divv = dudx + dvdy
-       !
-       if (nr ==3) then
-       divv = divv + dwdz
-       endif
-       !
-       divv = sqrt(divv*divv)
-       !
-       ! Calculate Vorticity Magnitude Squared
-       vortmags = zero
-       !
-       if (nr >= 2) then
-       vortmags = vortmags + (aref*dpvdx(nsp,2,nmx) - aref*dpvdx(nsp,1,nmy))**2
-       endif
-       !
-       if (nr == 3) then
-       vortmags = vortmags + (aref*dpvdx(nsp,3,nmy) - aref*dpvdx(nsp,2,nmz))**2
-       vortmags = vortmags + (aref*dpvdx(nsp,3,nmx) - aref*dpvdx(nsp,1,nmz))**2
-       end if
-       !
-       ! Calculate the ducros sensor
-       f_duc = (divv + eps_d) / (divv + vortmags + eps_d)
-       f_duc = min( f_duc, one)
-       !
-       ! Calculate Sound Speed (modified to be tolerant to non-physical negative vals)
-       asp = aref * sqrt(gam*max(gpsp(nsp,npres)/usp(nsp,nec), 1e-8_wp))
-       !
-       ! (don't) Calculate trm (requires wall distance: ydc)
-       !trm = half * (one - tanh((ydc-dist)/deld))
-       trm = zero
-       !
-       ! Calculate S quantity
-       S = min((divv * cell_lengths(nc) * half) / (asp) , one) 
-       S = S * S
-       !
-       val = max( val, min( one, max( S, trm, min(ducros_fs, f_duc))))
-       valS = max( valS, (divv * cell_lengths(nc) * half) / (asp))
-     end do
-     !
-     ! For now the same scaling as the version from REACTMB
-     marker(nc,imarker) = valS
-     scaled_marker(nc,imarker) = scaled_marker(nc,imarker)*val !!! can swap mult for max for very heavy marking
-     !
-  end do
-  !
-  if (present(troubled_cell)) then
-    !$ACC PARALLEL LOOP PRESENT(scaled_marker,troubled_cell)
-    do nc = 1,ncell
-      troubled_cell(nc) = (scaled_marker(nc,imarker) >= 2.0e-2_wp)
-    end do
-  end if
-  !
-  deallocate(cell_lengths)
-  !deallocate(dpvdx)
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine ducros_indicator
 !
