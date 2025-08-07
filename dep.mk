@@ -115,6 +115,7 @@ $(OBJDIR)/cell_ave_mod.o : cell_ave_mod.f90 \
                  $(OBJDIR)/flowvar_mod.o \
                  $(OBJDIR)/geomvar_mod.o \
                  $(OBJDIR)/ovar_mod.o \
+                 $(OBJDIR)/thermo_mod.o \
                  $(OBJDIR)/vandermonde_mod.o
 
 $(OBJDIR)/cgns_mod.o : cgns_mod.f90 \
