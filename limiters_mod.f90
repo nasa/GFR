@@ -4240,6 +4240,8 @@ subroutine ducros_indicator_reactmb(nst,troubled_cell,update_gradients)
   real(wp), parameter :: eps_factor = 1.0e-8_wp
   real(wp), parameter :: dist = 1e-4_wp
   real(wp), parameter :: deld = 0.2_wp * dist
+  real(wp), parameter :: troubled_cell_limit = 1.0e-8_wp
+  integer,  parameter :: S_exponent = 4
   !
 continue
   !
@@ -4300,6 +4302,50 @@ continue
   !  Determine which marker position to fill based on R-K stage
   imarker = get_marker_index(nst)
   !
+  ! Compute the divergence of velocity and save it in the d(rho)/dx location
+  ! of dpvdx, and compute the vorticity magnitude squared and save it in the
+  ! d(temp)/dx location. Neither of these will be needed and this allows us
+  ! to precompute the parts of the Ducros sensor that depend on the dimensions
+  ! of the grid domain. These locations are chosen because they exist
+  ! regardless of the dimension of the grid domain.
+  !
+  if (nr == 3) then
+    !
+    do n = 1,n_solpts
+      ! Compute the divergence of velocity and
+      ! save it to the d(rho)/dx location of dpvdx
+      dpvdx(n,1,nec) = dpvdx(n,1,nmx) + dpvdx(n,2,nmy) + dpvdx(n,3,nmz)
+      ! Calculate vorticity magnitude squared and
+      ! save it to the d(temp)/dx location of dpvdx
+      dpvdx(n,1,nee) = (dpvdx(n,2,nmx) - dpvdx(n,1,nmy))**2 + &
+                       (dpvdx(n,3,nmx) - dpvdx(n,1,nmz))**2 + &
+                       (dpvdx(n,3,nmy) - dpvdx(n,2,nmz))**2
+    end do
+    !
+  else if (nr == 2) then
+    !
+    do n = 1,n_solpts
+      ! Compute the divergence of velocity and
+      ! save it to the d(rho)/dx location of dpvdx
+      dpvdx(n,1,nec) = dpvdx(n,1,nmx) + dpvdx(n,2,nmy)
+      ! Calculate vorticity magnitude squared and
+      ! save it to the d(temp)/dx location of dpvdx
+      dpvdx(n,1,nee) = (dpvdx(n,2,nmx) - dpvdx(n,1,nmy))**2
+    end do
+    !
+  else if (nr == 1) then
+    !
+    do n = 1,n_solpts
+      ! Compute the divergence of velocity and
+      ! save it to the d(rho)/dx location of dpvdx
+      dpvdx(n,1,nec) = dpvdx(n,1,nmx)
+      ! Calculate vorticity magnitude squared and
+      ! save it to the d(temp)/dx location of dpvdx
+      dpvdx(n,1,nee) = zero
+    end do
+    !
+  end if
+  !
   ! test outputs
   ! write(iout,*) 'velref(1,2,3): ', velref(1), velref(2), velref(3)
   ! write(iout,*) 'Lref: ', Lref
@@ -4307,179 +4353,63 @@ continue
   ! write(iout,*) 'nmx, nmy: ', nmx, nmy
   ! write (iout,*) 'sum(dusp)', sum(abs(dusp))
   !
-  if (nr == 3) then
-    !
-    do nc = 1,ncell
+  do nc = 1,ncell
+     !
+     val = zero
+     valS = zero
+     !
+     ! calculate epsilon normalization factor
+     eps_d = (eps_factor * aref * machref )/ cell_lengths(nc)  
+     !
+     n1 = cell(nc)%beg_sp
+     n2 = cell(nc)%end_sp
+     !
+     dl = two*cell_lengths(nc)/real(cell(nc)%order+1,kind=wp)
+     !
+     ! Now Loop Through Solution Points
+     do n = n1,n2
        !
-       val = zero
-       valS = zero
+       ! Calculate Divergence squared
        !
-       ! calculate epsilon normalization factor
-       eps_d = (eps_factor * aref * machref )/ cell_lengths(nc)  
+       divv = aref*dpvdx(n,1,nec)
        !
-       n1 = cell(nc)%beg_sp
-       n2 = cell(nc)%end_sp
+      !divv = sqrt(divv*divv)
+       divv = max(-divv,zero)
        !
-       dl = half*cell_lengths(nc)
+       ! Calculate Vorticity Magnitude Squared
        !
-       ! Now Loop Through Solution Points
-       do n = n1,n2
-         !
-         ! Calculate Divergence squared
-         !
-         divv = aref*(dpvdx(n,1,nmx) + dpvdx(n,2,nmy) + dpvdx(n,3,nmz))
-         !
-         divv = sqrt(divv*divv)
-         !
-         ! Calculate Vorticity Magnitude Squared
-         !
-         vortmags = (aref**2) * ( (dpvdx(n,2,nmx) - dpvdx(n,1,nmy))**2 + &
-                                  (dpvdx(n,3,nmx) - dpvdx(n,1,nmz))**2 + &
-                                  (dpvdx(n,3,nmy) - dpvdx(n,2,nmz))**2 )
-         !
-         ! Calculate the ducros sensor
-         f_duc = (divv + eps_d) / (divv + vortmags + eps_d)
-         f_duc = min( f_duc, one)
-         !
-         ! Calculate Sound Speed (modified to be tolerant to non-physical negative vals)
-         asp = aref * sqrt(gpsp(n,ngamm)*max(gpsp(n,npres)/usp(n,nec), 1e-8_wp))
-         !
-         ! (don't) Calculate trm (requires wall distance: ydc)
-         !trm = half * (one - tanh((ydc-dist)/deld))
-         trm = zero
-         !
-         ! Calculate S quantity
-         S = min((divv * dl) / (asp) , one) 
-         S = S * S
-         !
-         val = max( val, min( one, max( S, trm, min(ducros_fs, f_duc))))
-         valS = max( valS, (divv * dl) / (asp))
-       end do
+       vortmags = (aref**2) * dpvdx(n,1,nee)
        !
-      !! For now the same scaling as the version from REACTMB
-      !! Save the value of S to the marker array
-      !marker(nc,imarker) = valS
-       !!! can swap mult for max for very heavy marking
-       ! Multiply the scaled jump marker saved in scaled_marker by the
-       ! scaled Ducros marker (val) and save to scaled_marker
-       scaled_marker(nc,imarker) = scaled_marker(nc,imarker)*val
+       ! Calculate the ducros sensor
+       !f_duc = (divv + eps_d) / (divv + vortmags + eps_d)
+       !f_duc = min( f_duc, one)
+       f_duc = zero
        !
-    end do
-    !
-  else if (nr == 2) then
-    !
-    do nc = 1,ncell
+       ! Calculate Sound Speed (modified to be tolerant to non-physical negative vals)
+       asp = aref * sqrt(gpsp(n,ngamm)*max(gpsp(n,npres)/usp(n,nec), 1e-8_wp))
        !
-       val = zero
-       valS = zero
+       ! (don't) Calculate trm (requires wall distance: ydc)
+       !trm = half * (one - tanh((ydc-dist)/deld))
+       trm = zero
        !
-       ! calculate epsilon normalization factor
-       eps_d = (eps_factor * aref * machref )/ cell_lengths(nc)  
+       ! Calculate S quantity
+       S = min((divv * dl) / (asp) , one) 
+       S = S**S_exponent
        !
-       n1 = cell(nc)%beg_sp
-       n2 = cell(nc)%end_sp
-       !
-       dl = half*cell_lengths(nc)
-       !
-       ! Now Loop Through Solution Points
-       do n = n1,n2
-         !
-         ! Calculate Divergence squared
-         !
-         divv = aref*(dpvdx(n,1,nmx) + dpvdx(n,2,nmy))
-         !
-         divv = sqrt(divv*divv)
-         !
-         ! Calculate Vorticity Magnitude Squared
-         !
-         vortmags = (aref**2) * ( (dpvdx(n,2,nmx) - dpvdx(n,1,nmy))**2 )
-         !
-         ! Calculate the ducros sensor
-         f_duc = (divv + eps_d) / (divv + vortmags + eps_d)
-         f_duc = min( f_duc, one)
-         !
-         ! Calculate Sound Speed (modified to be tolerant to non-physical negative vals)
-         asp = aref * sqrt(gpsp(n,ngamm)*max(gpsp(n,npres)/usp(n,nec), 1e-8_wp))
-         !
-         ! (don't) Calculate trm (requires wall distance: ydc)
-         !trm = half * (one - tanh((ydc-dist)/deld))
-         trm = zero
-         !
-         ! Calculate S quantity
-         S = min((divv * dl) / (asp) , one) 
-         S = S * S
-         !
-         val = max( val, min( one, max( S, trm, min(ducros_fs, f_duc))))
-         valS = max( valS, (divv * dl) / (asp))
-       end do
-       !
-      !! For now the same scaling as the version from REACTMB
-      !! Save the value of S to the marker array
-      !marker(nc,imarker) = valS
-       !!! can swap mult for max for very heavy marking
-       ! Multiply the scaled jump marker saved in scaled_marker by the
-       ! scaled Ducros marker (val) and save to scaled_marker
-       scaled_marker(nc,imarker) = scaled_marker(nc,imarker)*val
-       !
-    end do
-    !
-  else if (nr == 1) then
-    !
-    do nc = 1,ncell
-       !
-       val = zero
-       valS = zero
-       !
-       ! calculate epsilon normalization factor
-       eps_d = (eps_factor * aref * machref )/ cell_lengths(nc)  
-       !
-       n1 = cell(nc)%beg_sp
-       n2 = cell(nc)%end_sp
-       !
-       dl = half*cell_lengths(nc)
-       !
-       ! Now Loop Through Solution Points
-       do n = n1,n2
-         !
-         ! Calculate Divergence squared
-         !
-         divv = aref*abs(dpvdx(n,1,nmx))
-         !
-         ! Calculate Vorticity Magnitude Squared
-         !
-         vortmags = zero
-         !
-         ! Ducros sensor is one since vortmags is zero
-         !    f_duc = (divv + eps_d) / (divv + vortmags + eps_d)
-         !
-         f_duc = one
-         !
-         ! Calculate Sound Speed (modified to be tolerant to non-physical negative vals)
-         asp = aref * sqrt(gpsp(n,ngamm)*max(gpsp(n,npres)/usp(n,nec), 1e-8_wp))
-         !
-         ! (don't) Calculate trm (requires wall distance: ydc)
-         !trm = half * (one - tanh((ydc-dist)/deld))
-         trm = zero
-         !
-         ! Calculate S quantity
-         S = min((divv * dl) / (asp) , one) 
-         S = S * S
-         !
-         val = max( val, min( one, max( S, trm, ducros_fs) ) )
-         valS = max( valS, (divv * dl) / (asp))
-       end do
-       !
-      !! For now the same scaling as the version from REACTMB
-      !! Save the value of S to the marker array
-      !marker(nc,imarker) = valS
-       !!! can swap mult for max for very heavy marking
-       ! Multiply the scaled jump marker saved in scaled_marker by the
-       ! scaled Ducros marker (val) and save to scaled_marker
-       scaled_marker(nc,imarker) = scaled_marker(nc,imarker)*val
-       !
-    end do
-    !
-  end if
+       !val = max( val, min( one, max( S, trm, min(ducros_fs, f_duc))))
+       val = max( val, S)
+       valS = max( valS, vortmags)
+     end do
+     !
+    !! For now the same scaling as the version from REACTMB
+    !! Save the value of S to the marker array
+    !marker(nc,imarker) = valS
+     !!! can swap mult for max for very heavy marking
+     ! Multiply the scaled jump marker saved in scaled_marker by the
+     ! scaled Ducros marker (val) and save to scaled_marker
+     scaled_marker(nc,imarker) = scaled_marker(nc,imarker)*val
+     !
+  end do
   !
   if (allocated(dpvdx)) then
     deallocate ( dpvdx )
@@ -4489,7 +4419,7 @@ continue
     !$ACC PARALLEL LOOP PRESENT(scaled_marker,troubled_cell)
     do nc = 1,ncell
       if (.not. troubled_cell(nc)) then
-        troubled_cell(nc) = (scaled_marker(nc,imarker) >= 2.0e-2_wp)
+        troubled_cell(nc) = (scaled_marker(nc,imarker) >= troubled_cell_limit)
       end if
     end do
   end if
