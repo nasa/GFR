@@ -784,6 +784,8 @@ continue
     !##### UIUC scramjet combustor
     !###########################################################################
     !
+    ibc = 0
+    !
     find_inj_bc: &
     do k = 1,ubound(bc_in,dim=1)
       bcnam = bc_input(bc_in(k)%bc_input_idx)%name
