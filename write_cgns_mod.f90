@@ -4590,7 +4590,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:57) = ["Density             ", &
+  character(len=*), parameter :: var_order(1:58) = ["Density             ", &
                                                     "Momentum            ", &
                                                     "Energy              ", &
                                                     "Velocity            ", &
@@ -4632,6 +4632,7 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "ResolutionMarker    ", &
                                                     "JumpMarker          ", &
                                                     "DucrosMarker        ", &
+                                                    "MLPMarker           ", &
                                                     "Timestep            ", &
                                                     "LocalTimestep       ", &
                                                     "Partition           ", &
