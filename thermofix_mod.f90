@@ -2562,11 +2562,10 @@ subroutine emergency_limit2_bad_cells(bad_cell,usp,gpsp)
   real(wp) :: rhomin, pmin ! minimum density/pressure
   real(wp) :: rhoave ! average density
   real(wp), allocatable, dimension(:) :: pave ! average pressure
+  real(wp), dimension(ncs) :: ysp
   real(wp) :: theta,tau ! scaling param
   real(wp) :: asdf
   real(wp) :: rholimit, plimit 
-  !
-  !  NEED TO GET RHOLIMIT and PRESSURELIMIT
   !
 continue
   !
@@ -2600,18 +2599,47 @@ continue
       !
       ! Extract the cell average density
       !
-      rhoave = cell_ave_sol(nec,nc)
+      rhoave = max(rholimit,cell_ave_sol(nec,nc))
       !
       ! Find the theta_1 scaling parameter
       theta = min(one, (rhoave - rholimit) / (rhoave - rhomin))
       !
       ! Scale the conserved variables to accound for the new density
       do n = n1,n2  ! loop solution points
+        !
+        if (ncs > 0) then
+          ! calculate mass fractions
+          !do m = 1,ncs
+          !  ysp(m) = usp(n,m)/max(eps6, usp(n,nec))
+          !end do
+          !asdf = sum(ysp)
+          !do m = 1,ncs
+          !  ysp(m) = ysp(m) / asdf
+          !end do
+          !
+          !do m = 1,ncs  ! loop solution variables
+          !  ! limit species density
+          !  usp(n,m) = theta*(usp(n,m)-rhoave*ysp(m)) + rhoave*ysp(m)
+          !  !
+          !end do
+        end if
+        !
+        if (ncs > 0) then
+          ! realculate species density
+          do m = 1,ncs
+            usp(n,m) = usp(n,m) * (theta*(usp(n,nec)-rhoave) + rhoave) / usp(n,nec)
+          end do
+        end if
+        !
+        ! limit mixture density
         usp(n,nec) = theta*(usp(n,nec)-rhoave) + rhoave
       end do ! n
       !
     end if
   end do loop_cells
+  !
+  call debug_timer(leaving_procedure,pname)
+  return
   !
   call bad_cell_update_properties_sp(bad_cell,usp,gpsp)
   !
@@ -2645,7 +2673,7 @@ continue
       ! tau parameter
       tau = min(zero, pmin-plimit)
       !
-      theta = tau / (tau - (pave(nc)-plimit))
+      theta = tau / (tau - (pave(nc)-plimit)) 
       !
       ! scale solution
       do n = n1,n2  ! loop solution points
