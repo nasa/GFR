@@ -94,26 +94,26 @@ void pbs_time_left_(long *time_ret) {
       if ( strcasestr(line,"used.walltime =") != NULL ) {
 	strncpy(time_str,strstr(line," = "),1024);
         if ( !strncmp(&time_str[6],":",1) ) {
-	  strncpy(short_str,&time_str[3],3); hu = atoi(short_str);
-	  strncpy(short_str,&time_str[7],2); mu = atoi(short_str);
-	  strncpy(short_str,&time_str[10],2); su = atoi(short_str);
+	  strncpy(short_str,&time_str[3],3); short_str[3] = '\0'; hu = atoi(short_str);
+	  strncpy(short_str,&time_str[7],2); short_str[2] = '\0'; mu = atoi(short_str);
+	  strncpy(short_str,&time_str[10],2); short_str[2] = '\0'; su = atoi(short_str);
         } else {
-	  strncpy(short_str,&time_str[3],2); hu = atoi(short_str);
-	  strncpy(short_str,&time_str[6],2); mu = atoi(short_str);
-	  strncpy(short_str,&time_str[9],2); su = atoi(short_str);
+	  strncpy(short_str,&time_str[3],2); short_str[2] = '\0'; hu = atoi(short_str);
+	  strncpy(short_str,&time_str[6],2); short_str[2] = '\0'; mu = atoi(short_str);
+	  strncpy(short_str,&time_str[9],2); short_str[2] = '\0'; su = atoi(short_str);
         }
       }
 
       if ( strcasestr(line,"List.walltime =") != NULL ) {
 	strncpy(time_str,strstr(line," = "),1024);
         if ( !strncmp(&time_str[6],":",1) ) {
-	  strncpy(short_str,&time_str[3],3); ht = atoi(short_str);
-	  strncpy(short_str,&time_str[7],2); mt = atoi(short_str);
-	  strncpy(short_str,&time_str[10],2); st = atoi(short_str);
+	  strncpy(short_str,&time_str[3],3); short_str[3] = '\0'; ht = atoi(short_str);
+	  strncpy(short_str,&time_str[7],2); short_str[2] = '\0'; mt = atoi(short_str);
+	  strncpy(short_str,&time_str[10],2); short_str[2] = '\0'; st = atoi(short_str);
         } else {
-	  strncpy(short_str,&time_str[3],2); ht = atoi(short_str);
-	  strncpy(short_str,&time_str[6],2); mt = atoi(short_str);
-	  strncpy(short_str,&time_str[9],2); st = atoi(short_str);
+	  strncpy(short_str,&time_str[3],2); short_str[2] = '\0'; ht = atoi(short_str);
+	  strncpy(short_str,&time_str[6],2); short_str[2] = '\0'; mt = atoi(short_str);
+	  strncpy(short_str,&time_str[9],2); short_str[2] = '\0'; st = atoi(short_str);
         }
       }
 
