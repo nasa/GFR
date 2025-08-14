@@ -301,6 +301,14 @@ $(OBJDIR)/gpu_mod.o : gpu_mod.f90 \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/thermo_mod.o
 
+$(OBJDIR)/ignition_mod.o : ignition_mod.f90 \
+                 $(OBJDIR)/kind_types_mod.o \
+                 $(OBJDIR)/eqn_idx_mod.o \
+                 $(OBJDIR)/geomvar_mod.o \
+                 $(OBJDIR)/ovar_mod.o \
+                 $(OBJDIR)/flowvar_mod.o \
+                 $(OBJDIR)/metrics_mod.o
+
 $(OBJDIR)/initialization_mod.o : initialization_mod.f90 \
                $(OBJDIR)/kind_types_mod.o \
                $(OBJDIR)/matrix_types_mod.o \
@@ -722,6 +730,7 @@ $(OBJDIR)/reactions_mod.o : reactions_mod.f90 \
                   $(OBJDIR)/flowvar_mod.o \
                   $(OBJDIR)/metrics_mod.o \
                   $(OBJDIR)/thermo_mod.o \
+                  $(OBJDIR)/ignition_mod.o \
                   $(FUNDIR)/check_for_bad_number.f90
 
 $(OBJDIR)/restart_mod.o : restart_mod.f90 \

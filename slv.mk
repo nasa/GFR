@@ -163,6 +163,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/thermo_mod.o \
         $(OBJDIR)/transport_mod.o \
         $(OBJDIR)/reactions_mod.o \
+        $(OBJDIR)/ignition_mod.o \
         $(OBJDIR)/mrf_mod.o \
         $(OBJDIR)/timer_mod.o \
         $(OBJDIR)/turb_inflow_mod.o \
