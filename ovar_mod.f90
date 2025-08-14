@@ -13,7 +13,7 @@ module ovar
   use module_kind_types, only : iout,zero,one,half,two,five,pi,eps6,eps12
   use module_kind_types, only : mpi_wtime
   use module_kind_types, only : Correction_gDG
-  use module_kind_types, only : TFM_OFF
+  use module_kind_types, only : TFM_OFF,IGN_OFF
   use module_kind_types, only : bc_unknown
   use module_kind_types, only : project_derivatives
   use module_kind_types, only : derivative_of_proj_fluxes
@@ -450,6 +450,7 @@ module ovar
   !
   ! IGNITION CONTROL SOURCE TERMS
   integer,  public, save :: &
+      ignition_method = IGN_OFF, & ! method to use for the ignition source term
       ignition_start_timestep = 0, & ! timestep to begin ignition
       ignition_duration = 1   ! number of timesteps to maintain max temperature
   real(wp), public, save :: &
@@ -2063,6 +2064,7 @@ module input_namelist_mod
   use ovar,      only : disable_chemical_reactions, semi_implicit_chemistry
   use ovar,      only : traceback_unconverged_newton_temps
  !use ovar,      only : reactions_start_iter
+  use ovar,      only : ignition_method
   use ovar,      only : ignition_start_timestep
   use ovar,      only : ignition_duration
   use ovar,      only : ignition_prod2reac_L2_ratio_goal
@@ -2320,7 +2322,8 @@ module input_namelist_mod
                     !reactions_start_iter
   !
   ! IGNITION CONTROL SOURCE TERMS
-  namelist / input / ignition_start_timestep, &
+  namelist / input / ignition_method, &
+                     ignition_start_timestep, &
                      ignition_duration, &
                      ignition_prod2reac_L2_ratio_goal, &
                      ignition_max_temperature, &
