@@ -4552,7 +4552,7 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,        only : Resolution_Marker_Variable
   use ovar,        only : Jump_Marker_Variable
   use ovar,        only : MLP_Marker_Variable
-  use ovar,        only : output_species_densities
+  use ovar,        only : output_species_density
   use ovar,        only : output_species_mass_fractions
   use ovar,        only : output_species_mole_fractions
   use ovar,        only : output_extra_species_variables
@@ -4849,7 +4849,7 @@ continue
   !
   if (ncs > 0) then
     !
-    if (output_species_densities) then
+    if (output_species_density) then
       call add_sol_variable(variable_list,"SpeciesDensities")
     end if
     !
