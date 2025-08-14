@@ -851,6 +851,21 @@ module module_kind_types
   !> Valid choices for thermofix%method.
   integer, parameter :: Valid_TFM(1:4) = [TFM_OFF,TFM_LIMIT,TFM_SCALE,TFM_LIMI2]
   !
+  ! Choices for ignition method
+  integer, parameter :: IGN_OFF        = 0  ! No ignition source term
+  ! IGN_DELTA_TEMP : delta temperature based source term added to energy eqn
+  integer, parameter :: IGN_DELTA_TEMP = 1
+  ! IGN_EREF_SPARK : percent of ref rho*E is added as source to energy eqn
+  integer, parameter :: IGN_EREF_SPARK = 2
+  ! IGN_REACT_TEMP : specified temperature used to compute reaction rates
+  integer, parameter :: IGN_REACT_TEMP = 3
+  !
+  ! Valid choices for ignition method
+  integer, parameter :: Valid_IGN(1:4) = [IGN_OFF, &
+                                          IGN_DELTA_TEMP, &
+                                          IGN_EREF_SPARK, &
+                                          IGN_REACT_TEMP]
+  !
   ! Equation Types
   integer, parameter :: Euler_Eqns = 1
   integer, parameter :: NavierStokes_Eqns = 2
