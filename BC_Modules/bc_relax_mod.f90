@@ -25,7 +25,7 @@ subroutine get_relax_coefficient(relax,rlx)
   !
   !.. Use Statements ..
   use ovar, only : relaxation_t
-  use ovar, only : itcur,time
+  use ovar, only : itcur,time,time_ref,time_scaling_factor
   !
   !.. Formal Arguments ..
   type(relaxation_t), intent(in) :: relax
@@ -45,7 +45,7 @@ continue
     rlx_iter = min( one , real(itcur,kind=wp)/real(relax%iter,kind=wp) )
   end if
   if (relax%time > zero) then
-    rlx_time = min( one , time/relax%time )
+    rlx_time = min( one , (time*time_ref*time_scaling_factor)/relax%time )
   end if
   rlx = max( zero , min(relax%value,rlx_iter,rlx_time,one) )
   !
