@@ -4020,7 +4020,7 @@ continue
     !
     p = max( 1 , min(o,pmax) )
     !
-    gwts(Geom_Edge,o) = geom_wts(p)%edge
+    gwts(Geom_Edge,o) = 1
     gwts(Geom_Tria,o) = geom_wts(p)%tria
     gwts(Geom_Quad,o) = geom_wts(p)%quad
     gwts(Geom_Tetr,o) = geom_wts(p)%tetr

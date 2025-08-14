@@ -246,7 +246,6 @@ module ovar
   end type thermofix_t
   !
   type, public :: geom_wts_t
-    integer :: edge = 1
     integer :: tria = 1
     integer :: quad = 1
     integer :: tetr = 1

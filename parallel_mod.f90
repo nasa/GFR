@@ -1847,8 +1847,6 @@ continue
     p = max( pmin , min(pmax,cell_order(this_cell)) )
     !
     select case (cell_geom(this_cell))
-      case (Geom_Edge)
-        vwgt(this_cell) = int( geom_wts(p)%edge , kind=kind(vwgt) )
       case (Geom_Tria)
         vwgt(this_cell) = int( geom_wts(p)%tria , kind=kind(vwgt) )
         ndim = max(ndim,2)
