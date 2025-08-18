@@ -1250,14 +1250,6 @@ continue
               cfl_cycles = nint(cfl_save(4))
               cfl_start_iter = nint(cfl_save(5))
               !
-              ! If we are adjusting the CFL cycling, automatically
-              ! write out a restart file of the solution before the
-              ! new CFL cycling takes effect.
-              !
-              if (cfl_start_iter < itcur) then
-                request_restart = .true.
-              end if
-              !
             end if
             !
             ! Check for a start time-averaging request
