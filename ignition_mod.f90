@@ -56,8 +56,6 @@ subroutine compute_ignition_source_term(n1,n2,cv,gp,residual,react_temp, &
   !.. Local Scalars ..
   integer :: n
   !
-  logical(lk) :: ignition_is_on
-  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_ignition_source_term"
   !
