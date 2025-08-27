@@ -513,8 +513,6 @@ continue
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
   ! ################################################
   !
-  call set_cgns_queue(STOP_CGNS_QUEUE,pname,cgns_grid_file)
-  !
   ! Write the time iterative solution file
   !
   if (any(iflag == [close_CGNS,-3])) then
@@ -676,10 +674,6 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Stop/Disable the CGNS queue if it is not to be used
-  !
-  call disable_cgns_queue(pname,cgns_grid_file)
-  !
   ! Collect the coordinates for all the output points that this processor
   ! is responsible for writing to the CGNS files
   !
@@ -713,10 +707,6 @@ continue
     !
     var(:) = real( vartmp(n,:)/grid_scaling_factor , kind=kind(var) )
     !
-    ! Reset the queue.
-    !
-    call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_grid_file)
-    !
     ! Add the data for current coordinate variable to the output queue.
     !
     call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
@@ -727,11 +717,6 @@ continue
                     cgierr,__LINE__,__FILE__,"Write data: Coordinate",n)
     call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_coord_write_data_f")
-    !
-    ! Finally, flush the queue containing the
-    ! current coordinate variable to the CGNS file.
-    !
-    call flush_cgns_queue(pname,cgns_grid_file)
     !
   end do
   !
@@ -770,10 +755,6 @@ continue
   !
   ! Write the element connectivity in parallel
   !
-  ! Reset the queue.
-  !
-  call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_grid_file)
-  !
   ! Add the element connectivity data to the output queue.
   !
   write (600+mypnum,10) my_cells_beg,my_cells_end,my_cells_end-my_cells_beg+1
@@ -793,11 +774,6 @@ continue
                   cgierr,__LINE__,__FILE__)
   call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cgp_elements_write_data_f")
-  !
-  ! Finally, flush the queue containing the
-  ! element connectivity to the CGNS file.
-  !
-  call flush_cgns_queue(pname,cgns_grid_file)
   !
   ! Deallocate ipelem
   !
@@ -1076,8 +1052,6 @@ continue
   ! ################################################
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
   ! ################################################
-  !
-  call set_cgns_queue(STOP_CGNS_QUEUE,pname,cgns_sol_file)
   !
   ! Close the CGNS FILE
   !

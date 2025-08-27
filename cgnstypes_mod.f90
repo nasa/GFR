@@ -90,11 +90,6 @@ module cgns_types_mod
       cgns_kind_real = merge(REALDOUBLE,REALSINGLE,CRT == r8)
 #endif
   !
-  ! Constants to control the CGNS I/O queue
-  !
-  integer(CBT), parameter :: begin_cgns_queue = 1_cbt
-  integer(CBT), parameter :: stop_cgns_queue  = 0_cbt
-  !
   ! Last argument required for calls to cg_goto_f
   !
   character(len=*,kind=C_CHAR), parameter :: CGNS_GOTO_END = _CGNS_GOTO_END_
@@ -102,11 +97,6 @@ module cgns_types_mod
   ! CGNS error variable
   !
   integer(CBT), save :: cgierr
-  !
-  !
-  ! Logical to activate/deactivate using CGNS queue functions
-  !
-  logical(lk), save :: cgns_use_queue = .false.
   !
   ! Integer parameters for CGNS timer
   !
@@ -116,67 +106,6 @@ module cgns_types_mod
   integer, parameter :: stop_cgns_procedure_timer  = 4
   !
 contains
-!
-!###############################################################################
-!
-subroutine disable_cgns_queue(pname,cgns_grid_file)
-  !
-  !.. Formal Arguments ..
-  character(len=*), intent(in) :: pname
-  character(len=*), intent(in) :: cgns_grid_file
-  !
-continue
-  !
-#ifndef CGNS_3_3
-  if (.not. cgns_use_queue) then
-    call cgp_queue_set_f(STOP_CGNS_QUEUE,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_queue_set_f", &
-                    cgierr,__LINE__,__FILE__)
-  end if
-#endif
-  !
-end subroutine disable_cgns_queue
-!
-!###############################################################################
-!
-subroutine set_cgns_queue(queue_operation,pname,cgns_grid_file)
-  !
-  !.. Formal Arguments ..
-  integer(CBT),     intent(in) :: queue_operation
-  character(len=*), intent(in) :: pname
-  character(len=*), intent(in) :: cgns_grid_file
-  !
-continue
-  !
-#ifndef CGNS_3_3
-  if (cgns_use_queue) then
-    call cgp_queue_set_f(BEGIN_CGNS_QUEUE,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_queue_set_f", &
-                    cgierr,__LINE__,__FILE__)
-  end if
-#endif
-  !
-end subroutine set_cgns_queue
-!
-!###############################################################################
-!
-subroutine flush_cgns_queue(pname,cgns_grid_file)
-  !
-  !.. Formal Arguments ..
-  character(len=*), intent(in) :: pname
-  character(len=*), intent(in) :: cgns_grid_file
-  !
-continue
-  !
-#ifndef CGNS_3_3
-  if (cgns_use_queue) then
-    call cgp_queue_flush_f(cgierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_queue_flush_f", &
-                    cgierr,__LINE__,__FILE__)
-  end if
-#endif
-  !
-end subroutine flush_cgns_queue
 !
 !###############################################################################
 !

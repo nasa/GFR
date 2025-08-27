@@ -8727,10 +8727,6 @@ continue
     !
     ! Now create and write the coordinate data in parallel
     !
-    ! Stop/Disable the CGNS queue if it is not to be used
-    !
-    call disable_cgns_queue(pname,cgns_vort_file)
-    !
     ! For each boundary face within the grid region of interest, interpolate the
     ! coordinates of the solution points for the host cell to the boundary face
     ! and this interpolate those face points to the output face points.
@@ -8771,11 +8767,6 @@ continue
                     cgierr,__LINE__,__FILE__,"Write data: Coordinate = 2 (Z)", &
                     not_parallel=true)
     !
-    ! Finally, flush the queue containing the
-    ! coordinate variables to the CGNS file
-    !
-    call flush_cgns_queue(pname,cgns_vort_file)
-    !
     ! Create the data node for the grid connectivity
     !
     call cgp_section_write_f(ifile_v,ibase_v,izone_v,"Quadrilaterals", &
@@ -8785,10 +8776,6 @@ continue
                     cgierr,__LINE__,__FILE__,not_parallel=true)
     !
     ! Write the element connectivity in parallel
-    !
-    ! Reset the queue.
-    !
-    call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_vort_file)
     !
     my_beg = my_vort_cells(2)
     my_end = my_vort_cells(3)
@@ -8803,11 +8790,6 @@ continue
                                    my_beg,my_end,ipelem,cgierr)
     call cgns_error(pname,cgns_vort_file,"cgp_elements_write_data_f", &
                     cgierr,__LINE__,__FILE__,not_parallel=true)
-    !
-    ! Finally, flush the queue containing the
-    ! element connectivity to the CGNS file.
-    !
-    call flush_cgns_queue(pname,cgns_vort_file)
     !
     ! Deallocate the arrays varz, and ipelem
     ! NOTE: Keep vary allocated and use it to store the vorticity variable
@@ -8846,10 +8828,6 @@ continue
     !
     call get_vort_face_solution(my_vort_faces,vary)
     !
-    ! Reset the queue.
-    !
-    call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_vort_file)
-    !
     ! Add the data for current variable to the output queue.
     ! NOTE: It is an error for a processor to try an write data if it doesnt
     !       have any data to write, so make sure that only those processors
@@ -8862,11 +8840,6 @@ continue
                     cgierr,__LINE__,__FILE__, &
                     "Write data: Solution variable = 1 (VorticityMagnitude)", &
                     not_parallel=true)
-    !
-    ! Finally, flush the queue containing
-    ! the current variable to the CGNS file.
-    !
-    call flush_cgns_queue(pname,cgns_vort_file)
     !
     ! Deallocate vary now that we are finished with it
     !

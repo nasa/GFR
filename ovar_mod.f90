@@ -2192,7 +2192,6 @@ module input_namelist_mod
   use ovar,      only : force_nd_subroutines, newton_rlx, conv_temp
   use ovar,      only : chemistry_sub_iterations
   use ovar,      only : ignore_thermo_newton_warnings
-  use cgns_types_mod, only : cgns_use_queue
   !
   implicit none
   !
@@ -2409,7 +2408,7 @@ module input_namelist_mod
   ! OPTIONS FOR MODIFYING BC ALGORITHMS
   namelist / input / walls_are_exact, sub_inflow_method, use_bc_conflicts
   ! CGNS OUTPUT OPTIONS
-  namelist / input / cgns_use_queue, interpolate_before_output_variable, &
+  namelist / input / interpolate_before_output_variable, &
                      cgns_high_order_output, cgns_mixed_output, &
                      convert_restart_to_cgns, completely_disable_cgns, &
                      delete_converted_restart_files
