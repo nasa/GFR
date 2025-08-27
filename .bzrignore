@@ -37,3 +37,10 @@
 ./gfr_gpu_mm
 ./grid_files
 ./other
+run.tcsh
+run_gfr.tcsh
+*.log
+residual.dat
+*_KEDR.dat
+Restart_files
+CGNS_files
