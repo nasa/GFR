@@ -14,54 +14,14 @@ module cgns_types_mod
   use module_kind_types, only : mpi_barrier,mpi_wtime
   use module_kind_types, only : mypnum,glb_root,iout
   use module_kind_types, only : dbg_mpi_frmt
-#ifdef CGNS_3_3
+  !
   use cgns
-#endif
   !
   implicit none
   !
   public
   !
   private :: i4,i8,r4,r8,lk,fals,true
-  !
-#ifndef CGNS_3_3
-  include "cgnslib_f95.h"
-  !
-  enum, bind(c)
-    enumerator :: ElementTypeNull = CG_NULL
-    enumerator :: BAR_5 = HEXA_64+1
-    enumerator :: TRI_12
-    enumerator :: TRI_15
-    enumerator :: QUAD_P4_16
-    enumerator :: QUAD_25
-    enumerator :: TETRA_22
-    enumerator :: TETRA_34
-    enumerator :: TETRA_35
-    enumerator :: PYRA_P4_29
-    enumerator :: PYRA_50
-    enumerator :: PYRA_55
-    enumerator :: PENTA_33
-    enumerator :: PENTA_66
-    enumerator :: PENTA_75
-    enumerator :: HEXA_44
-    enumerator :: HEXA_98
-    enumerator :: HEXA_125
-  end enum
-  !
-  enum, bind(c)
-    enumerator :: BCTypeNull = CG_NULL
-  end enum
-  !
-  enum, bind(c)
-    enumerator :: test_enumerator = 0
-  end enum
-  private :: test_enumerator
-  !
-  integer, parameter :: cgsize_t = merge(i8,kind(0),CG_BUILD_64BIT==1)
- !integer, parameter :: cgsize_t = i8
-  integer, parameter :: cgenum_t = kind(test_enumerator)
-  !
-#endif
   !
   ! Make cgsize_t and cgenum_t private to force the use of CBT, CST, and CET
   !

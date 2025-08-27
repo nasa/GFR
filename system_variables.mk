@@ -47,11 +47,6 @@ endif
 #     PBSFPP :=            => Disable code for PBS environment
 PBSFPP :=
 
-# Select which version of the CGNS library to use
-#     CGNSFPP := -DCGNS_3_3  => CGNS 3.3.x
-#     CGNSFPP :=             => CGNS 3.2.x
-CGNSFPP := -DCGNS_3_3
-
 # Select the MPI Fortran module to access
 #     MPIFPP := -DUSE_MPI_F08  => USE MPI_F08
 #     MPIFPP :=                => USE MPI

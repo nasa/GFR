@@ -132,7 +132,7 @@ $(OBJDIR)/cgns_mod.o : cgns_mod.f90 \
 
 $(OBJDIR)/cgnstypes_mod.o : cgnstypes_mod.f90 \
                   $(OBJDIR)/kind_types_mod.o
-$(OBJDIR)/cgnstypes_mod.o : OTHERFPP += $(CGNSFPP)
+#$(OBJDIR)/cgnstypes_mod.o : OTHERFPP += $(CGNSFPP)
 
 $(OBJDIR)/channel_mod.o : channel_mod.f90 \
                 $(OBJDIR)/kind_types_mod.o \
