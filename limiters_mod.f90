@@ -43,8 +43,6 @@ module limiters_mod
   !
   !.. Module Local Allocatable Arrays ..
   !
-  real(wp), save, allocatable :: umodes(:,:)
-  !
   logical(ldk), save, allocatable :: troubled_cell(:)
   !$ACC DECLARE CREATE(troubled_cell)
   !
@@ -88,16 +86,6 @@ continue
                      error_message)
     !$ACC UPDATE DEVICE(troubled_cell)
     !
- !end if
-  !
-  ! Create the array for storing the moments of each cell
-  !
- !if (using_moment_limiter) then
- !  !
- !  allocate ( umodes(1:n_totpts,1:nq) , source=zero , &
- !             stat=ierr , errmsg=error_message )
- !  call alloc_error(pname,"umodes",1,__LINE__,__FILE__,ierr,error_message)
- !  !
  !end if
   !
 end subroutine initialize_limiters
@@ -4771,15 +4759,6 @@ continue
   !
   write (iou,1)
   !
-  if (allocated(umodes)) then
-    call array%set( storage_size(umodes,kind=inttype) , &
-                            size(umodes,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "umodes"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "umodes"
-  end if
   if (allocated(troubled_cell)) then
     call array%set( storage_size(troubled_cell,kind=inttype) , &
                             size(troubled_cell,kind=inttype) )
