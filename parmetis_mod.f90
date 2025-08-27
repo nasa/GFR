@@ -5,10 +5,10 @@ module parmetis_mod
   use, intrinsic :: iso_c_binding, only : c_float,c_double
   use, intrinsic :: iso_c_binding, only : c_int32_t,c_int64_t
   !
+  use module_kind_types, only : INT_MPI
+  !
 #ifdef USE_MPI_F08
   use _MPI_MODULE_, only : MPI_COMM
-#else
-  use module_kind_types, only : INT_MPI
 #endif
   !
   use metis_mod, only : idx_t, real_t
@@ -345,6 +345,12 @@ module parmetis_mod
   !
   logical, parameter :: create_tpwgts = .false.
  !logical, parameter :: create_tpwgts = .true.
+  !
+  ! Module Scalars
+  !
+  integer(int_mpi), save :: my_pm_rank
+  integer(int_mpi), save :: num_pm_ranks
+  integer(int_mpi), save :: mpierr
   !
   ! Module Allocatable Arrays
   !
