@@ -433,6 +433,39 @@ end subroutine ParMETIS_PartGeomKway
 !
 !###############################################################################
 !
+pure &
+function get_number_of_vertex_weights(xadj,vwgt) result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer(idx_t),              intent(in) :: xadj(:)
+  integer(idx_t), allocatable, intent(in) :: vwgt(:)
+  !
+  !.. Function Result ..
+  integer(idx_t) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: i,n
+  !
+continue
+  !
+  n = size(xadj)-1 ! number of vertices in the dual graph (i.e., grid cells)
+  !
+  if (allocated(vwgt)) then
+    ! the size of vwgt should be an integer multiple of the number of vertices
+    ! in the dual graph, but make sure it is >= n
+    i = max( size(vwgt) , n )
+  else
+    i = n ! give i an initial value
+  end if
+  !
+  ! Make sure the returned value for ncon is >= 1
+  !
+  return_value = int( max( 1 , i/n ) , kind=kind(return_value) )
+  !
+end function get_number_of_vertex_weights
+!
+!###############################################################################
+!
 subroutine ParMETIS_PartGeom(vtxdist,ndims,xyz,part,comm)
   !
   !.. Use Statements ..
