@@ -434,6 +434,41 @@ end subroutine ParMETIS_PartGeomKway
 !###############################################################################
 !
 pure &
+function get_weight_flag(vwgt,adjwgt) result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer(idx_t), allocatable, intent(in) :: vwgt(:)
+  integer(idx_t), allocatable, intent(in) :: adjwgt(:)
+  !
+  !.. Function Result ..
+  integer(idx_t) :: return_value
+  !
+continue
+  !
+  ! The argument wgtflag for the parmetis functions tells parmetis what type of
+  ! weighting to use to compute the partitions. The possible values are
+  !
+  !   wgtflag = 0   : no weighting
+  !                   (vwgt is NOT allocated  ; adjwgt is NOT allocated)
+  !   wgtflag = 1   : only use the edge weights
+  !                   (vwgt is NOT allocated  ; adjwgt IS     allocated)
+  !   wgtflag = 2   : only use the vertex weights
+  !                   (vwgt IS     allocated  ; adjwgt is NOT allocated)
+  !   wgtflag = 3   : use both the edge and vertex weights
+  !                   (vwgt IS     allocated  ; adjwgt IS     allocated)
+  !
+  ! NOTE: The terms vertex and edge refer to components of the METIS dual graph
+  !       which respectively correspond to grid cells and grid faces.
+  !
+  return_value = 0_idx_t
+  if (allocated(adjwgt)) return_value = return_value + 1_idx_t
+  if (allocated(vwgt))   return_value = return_value + 2_idx_t
+  !
+end function get_weight_flag
+!
+!###############################################################################
+!
+pure &
 function get_number_of_vertex_weights(xadj,vwgt) result(return_value)
   !
   !.. Formal Arguments ..
