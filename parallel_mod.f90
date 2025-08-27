@@ -2507,6 +2507,7 @@ subroutine check_quality_of_partitioning(nparts,epart, &
   integer :: n,nc,l,lcell,ierr
   !
   logical(lk) :: check_contiguity
+  logical(lk) :: partitioned_using_parmetis
   !
   character(len=15) :: fname
   !
@@ -2522,10 +2523,15 @@ continue
   !
 #ifdef DEBUG_ON
   check_contiguity = fals
+  partitioned_using_parmetis = fals
 #else
   check_contiguity = true
+  partitioned_using_parmetis = fals
   if (present(contiguity_setting)) then
-    check_contiguity = (contiguity_setting == 0_idx_t)
+    check_contiguity = (contiguity_setting < 1_idx_t)
+    if (contiguity_setting < 0_idx_t) then
+      partitioned_using_parmetis = true
+    end if
   end if
 #endif
   !
@@ -2535,7 +2541,11 @@ continue
   !
   do n = 1,nparts
     if (any(epart == n)) cycle
-    write (iout,100) n
+    if (mypnum == glb_root) then
+      write (iout,1) "ERROR! "
+      write (iout,100) n
+      write (iout,2)
+    end if
     passes_inspection = .false.
    !call stop_gfr(abort,pname,__LINE__,__FILE__)
   end do
@@ -2603,8 +2613,20 @@ continue
       ! the case, the partition is not contiguous.
       !
       if (.not. all(msk(1:lcell))) then
-        write (iout,101) n
-        passes_inspection = .false.
+        if (partitioned_using_parmetis) then
+          if (mypnum == glb_root) then
+            write (iout,1) "WARNING!"
+            write (iout,102) n
+            write (iout,2)
+          end if
+        else
+          if (mypnum == glb_root) then
+            write (iout,1) "ERROR! "
+            write (iout,101) n
+            write (iout,2)
+          end if
+          passes_inspection = .false.
+        end if
       end if
       !
     end do
@@ -2618,14 +2640,24 @@ continue
   !
   ! Format statements
   !
-  100 format(/,' Error: Processor ',i0,' was excluded from the          ',/, &
-               ' partitioning of the elements. More than likely too many',/, &
-               ' processors were used in the paritioning of this mesh.  ',/, &
-               ' Please decrease number of processors and try again.    ',/)
-  101 format(/,' Error: The partition created by METIS for processor ',i0, &
-               ' appears to not be contiguous. More than likely too many',/, &
-               ' processors were used in the paritioning of this mesh.  ',/, &
-               ' Please decrease number of processors and try again.    ',/)
+  1   format (/,70("#"),/, &
+               31x,a8,/, &
+               70("-"))
+  2   format (70("#"),/)
+  !
+  100 format (' Processor ',i0,' was excluded from the partitioning',/, &
+              ' of the elements. More than likely too many processors',/, &
+              ' were used in the paritioning of this mesh.',/, &
+              ' Please decrease number of processors and try again.')
+  101 format (' The partition created by METIS for processor ',i0, &
+              ' appears to not be contiguous. More than likely too many',/, &
+              ' processors were used in the paritioning of this mesh.  ',/, &
+              ' Please decrease number of processors and try again.')
+  102 format (' The partition created by ParMETIS for processor ',i0, &
+              ' appears to not be contiguous. More than likely too many',/, &
+              ' processors were used in the paritioning of this mesh.',/, &
+              ' This is only a WARNING since ParMETIS does not provide',/, &
+              ' the option to enforce contiguous partitions.')
   !
 end subroutine check_quality_of_partitioning
 !
