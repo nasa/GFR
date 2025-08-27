@@ -983,9 +983,6 @@ subroutine compute_wdot(iter)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_wdot"
   !
- !logical(lk), parameter :: use_hardcoded_H2_wdot = true
-  logical(lk), parameter :: use_hardcoded_H2_wdot = fals
-  !
 continue
   !
   call debug_timer(entering_procedure,pname)
