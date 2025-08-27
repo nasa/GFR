@@ -353,9 +353,9 @@ continue
         species_name(2) = "C2H4"
         species_name(3) = "N2"
         !
-        mass_frac_ref(1) = 0.29_wp ! O2
+        mass_frac_ref(1) = 0.233_wp ! O2
         mass_frac_ref(2) = zero    ! C2H4
-        mass_frac_ref(3) = 0.71_wp ! N2
+        mass_frac_ref(3) = 0.767_wp ! N2
         !
         inert_species_map = [1,2,3] ! F2003 AUTO REALLOCATION
         !
@@ -370,12 +370,12 @@ continue
         species_name(7) = "N2"
         !
         mass_frac_ref(1) = zero     ! H2
-        mass_frac_ref(2) = 0.24_wp  ! O2
+        mass_frac_ref(2) = 0.233_wp  ! O2
         mass_frac_ref(3) = zero     ! H2O
         mass_frac_ref(4) = zero     ! CO
         mass_frac_ref(5) = zero     ! CO2
         mass_frac_ref(6) = zero     ! C2H4
-        mass_frac_ref(7) = 0.76_wp  ! N2
+        mass_frac_ref(7) = 0.767_wp  ! N2
         !
         ! Create the map from inert species indices to
         ! reacting species indices. This is needed if a
