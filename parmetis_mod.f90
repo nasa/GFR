@@ -454,6 +454,80 @@ end subroutine ParMETIS_PartGeomKway
 !
 !###############################################################################
 !
+subroutine recombine_global_epart(vtxdist,part,epart,comm) 
+  !
+  !.. Use Statements .
+  use _MPI_MODULE_, only : MPI_INTEGER
+  use _MPI_MODULE_, only : MPI_IN_PLACE
+  !
+  !.. Formal Arguments ..
+  integer(idx_t),    intent(in) :: vtxdist(:)
+  integer(idx_t),    intent(in) :: part(:)
+  integer(idx_t), intent(inout) :: epart(:)
+  _MPI_COMM_TYPE_,   intent(in) :: comm
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2
+  integer(int_mpi) :: this_ncell,max_ncell
+  !
+  !.. Local Allocatable Arrays ..
+  integer(idx_t), allocatable :: padded_epart(:)
+  !
+continue
+  !
+  ! Get the maximum number of cells on any given MPI process involved
+  ! with the parallel partitioning.
+  !
+  max_ncell = 0_int_mpi
+  do n = 2,size(vtxdist)
+    this_ncell = int( vtxdist(n)-vtxdist(n-1) , kind=kind(max_ncell) )
+    max_ncell = max( max_ncell , this_ncell )
+  end do
+  !
+  ! Allocate a padded version of the global epart array where every MPI
+  ! process has the same number of cells equal to the max number of cells.
+  !
+  allocate ( padded_epart(1:num_pm_ranks*max_ncell) , source=-99_idx_t )
+  !
+  ! Get the index for the first cell of this MPI process within the padded
+  ! epart array, and the index for the last cell without padding.
+  !
+  n1 = my_pm_rank*max_ncell + 1
+  n2 = n1-1 + size(part)
+  !
+  ! Copy the local piece of the global partitioning into the padded version
+  ! of the global epart array.
+  !
+  padded_epart(n1:n2) = part(:)
+  !
+  ! Use mpi_allgather to combine the individual padded_epart arrays
+  ! to create a global version.
+  !
+  call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_INTEGER, &
+                     padded_epart,max_ncell,pm_mpi_inttyp, &
+                     comm,mpierr)
+  !
+  ! Count the number of non-negative values in padded_epart. This should be
+  ! equal to the total number of global cells for this simulation.
+  !
+  n = count( padded_epart(:) >= 0 )
+  !
+  ! If the number of non-negative values is correct, copy only the non-negative
+  ! values into the epart array; otherwise, assign all cells the invalid
+  ! partition number of -99.
+  !
+  if (size(epart) == n) then
+    epart(:) = pack( padded_epart(:) , mask=padded_epart(:)>=0 )
+  else
+    epart(:) = -99_idx_t
+  end if
+  !
+  if (allocated(padded_epart)) deallocate ( padded_epart )
+  !
+end subroutine recombine_global_epart
+!
+!###############################################################################
+!
 subroutine create_partition_weights(nparts,ncon,tpwgts,ubvec) 
   !
   !.. Formal Arguments ..
