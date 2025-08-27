@@ -496,7 +496,7 @@ $(OBJDIR)/mappings_mod.o : mappings_mod.f90 \
              $(FUNDIR)/solpts2order.f90
 
 $(OBJDIR)/metis_mod.o : metis_mod.f90
-$(OBJDIR)/metis.o : OTHERFPP += $(METISFPP)
+$(OBJDIR)/metis_mod.o : OTHERFPP += $(METISFPP)
 
 $(OBJDIR)/metrics_mod.o : metrics_mod.f90 \
             $(OBJDIR)/kind_types_mod.o \
