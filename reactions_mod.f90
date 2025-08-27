@@ -1867,7 +1867,7 @@ subroutine compute_H2_wdot(n1,n2,cv,gp,residual,iter)
   integer,     intent(in) :: n1,n2
   integer,     intent(in) :: iter
   real(wp),    intent(in) :: cv(:,:)
-  real(wp), intent(inout) :: gp(:,:)
+  real(wp),    intent(in) :: gp(:,:)
   real(wp), intent(inout) :: residual(:,:)
   !
   !.. Local Scalars ..
