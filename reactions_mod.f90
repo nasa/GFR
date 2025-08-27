@@ -1003,22 +1003,22 @@ continue
     if (abs(itestcase) == CH4_3D_Diffusion_Flame .or. &
         abs(itestcase) == CH4_Flame_Speed_Test) then
       if (itestcase > 0) then
-        call compute_CH4_hardcoded_wdot(n1,n2,usp,gpsp,residual,iter)
+        call compute_CH4_hardcoded_wdot(n1,n2,usp,react_temp,residual)
       else
-        call compute_H2_wdot(n1,n2,usp,gpsp,residual,iter)
+        call compute_H2_wdot(n1,n2,usp,gpsp,react_temp,residual)
       end if
     else if (itestcase == H2_2D_Diffusion_Flame .or. &
              itestcase == Compression_Corner) then
       if (semi_implicit_chemistry == -1) then
-        call compute_H2_hardcoded_wdot(n1,n2,usp,gpsp,residual)
+        call compute_H2_hardcoded_wdot(n1,n2,usp,react_temp,residual)
       else
-        call compute_H2_wdot(n1,n2,usp,gpsp,residual,iter)
+        call compute_H2_wdot(n1,n2,usp,gpsp,react_temp,residual)
       end if
     else if (itestcase == UIUC_Scramjet) then
       if (semi_implicit_chemistry == -1) then
-        call compute_C2H4_hardcoded_wdot(n1,n2,usp,gpsp,residual)
+        call compute_C2H4_hardcoded_wdot(n1,n2,usp,react_temp,residual)
       else
-        call compute_H2_wdot(n1,n2,usp,gpsp,residual,iter)
+        call compute_H2_wdot(n1,n2,usp,gpsp,react_temp,residual)
       end if
     else
       call compute_generic_wdot(n1,n2,usp,gpsp,residual)
@@ -1037,7 +1037,7 @@ end subroutine compute_wdot
 #ifndef DISABLE_PURE
 pure &
 #endif
-subroutine compute_CH4_hardcoded_wdot(n1,n2,cv,gp,residual,iter)
+subroutine compute_CH4_hardcoded_wdot(n1,n2,cv,react_temp,residual)
   !
   !======================================================================
   !
@@ -1050,15 +1050,20 @@ subroutine compute_CH4_hardcoded_wdot(n1,n2,cv,gp,residual,iter)
   !      where Old_con is the original mass fraction.
   !======================================================================
   !
+  ! N1         : beginning point
+  ! N2         : ending    point
+  ! CV         : conserved variables
+  ! REACT_TEMP : temperature to use for reaction rates in not semi-implicit
+  ! RESIDUAL   : RHS residual
+  !
   use ovar,        only : rhoref,aref
   use flowvar_mod, only : dtsp
   use metrics_mod, only : jac
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  integer,     intent(in) :: iter
   real(wp),    intent(in) :: cv(:,:)
-  real(wp),    intent(in) :: gp(:,:)
+  real(wp),    intent(in) :: react_temp(:)
   real(wp), intent(inout) :: residual(:,:)
   !
   !.. Local Scalars ..
@@ -1133,7 +1138,7 @@ continue
       !
       dt_chem = dtsp(n) / real(n_reac_sub_iter,kind=wp)
       !
-      temp = gp(n,ntemp)
+      temp = react_temp(n)
       !
       !=========================================================================
       !=========================================================================
@@ -1301,7 +1306,7 @@ end subroutine compute_CH4_hardcoded_wdot
 #ifndef DISABLE_PURE
 pure &
 #endif
-subroutine compute_H2_hardcoded_wdot(n1,n2,cv,gp,residual)
+subroutine compute_H2_hardcoded_wdot(n1,n2,cv,react_temp,residual)
   !
   ! Routine to compute the chemical source terms
   !
@@ -1310,14 +1315,11 @@ subroutine compute_H2_hardcoded_wdot(n1,n2,cv,gp,residual)
   !  2) The forward and backward reaction rate coefficients
   !  3) The species production rate
   !
-  ! N1     : beginning point
-  ! N2     : ending    point
-  ! CV     : conserved variables
-  ! T      : static temperature
-  ! SPECON : species concentrations
-  ! FRRATE : forward reaction rate coefficient
-  ! BRRATE : backward reaction rate coefficient
-  ! WDOT   : species source terms
+  ! N1         : beginning point
+  ! N2         : ending    point
+  ! CV         : conserved variables
+  ! REACT_TEMP : temperature to use for reaction rates in not semi-implicit
+  ! RESIDUAL   : RHS residual
   !
   !.. Use Statements ..
   use ovar,        only : rhoref,aref,tref
@@ -1328,7 +1330,7 @@ subroutine compute_H2_hardcoded_wdot(n1,n2,cv,gp,residual)
   ! .. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: cv(:,:)
-  real(wp),    intent(in) :: gp(:,:)
+  real(wp),    intent(in) :: react_temp(:)
   real(wp), intent(inout) :: residual(:,:)
   !
   ! .. Local Scalars ..
@@ -1362,7 +1364,7 @@ continue
   !
   allocate ( gibrt(1:np,1:ncs) , source=zero )
   !
-  call compute_gibbs_free_energy(n1,n2,gp(:,ntemp),gibrt)
+  call compute_gibbs_free_energy(n1,n2,react_temp,gibrt)
   !
   ! Calculate the forwards and backward rates
   !
@@ -1370,7 +1372,7 @@ continue
     !
     ! Compute the forward reaction rate coefficient
     !
-    temp = gp(n,ntemp)*tref
+    temp = react_temp(n)*tref
     logt = log(temp)
     !
     ! Compute the dimensional species concentrations in moles/cm^3
@@ -1645,7 +1647,7 @@ end subroutine compute_H2_hardcoded_wdot
 #ifndef DISABLE_PURE
 pure &
 #endif
-subroutine compute_C2H4_hardcoded_wdot(n1,n2,cv,gp,residual)
+subroutine compute_C2H4_hardcoded_wdot(n1,n2,cv,react_temp,residual)
   !
   ! Routine to compute the chemical source terms
   !
@@ -1654,14 +1656,11 @@ subroutine compute_C2H4_hardcoded_wdot(n1,n2,cv,gp,residual)
   !  2) The forward and backward reaction rate coefficients
   !  3) The species production rate
   !
-  ! N1     : beginning point
-  ! N2     : ending    point
-  ! CV     : conserved variables
-  ! T      : static temperature
-  ! SPECON : species concentrations
-  ! FRRATE : forward reaction rate coefficient
-  ! BRRATE : backward reaction rate coefficient
-  ! WDOT   : species source terms
+  ! N1         : beginning point
+  ! N2         : ending    point
+  ! CV         : conserved variables
+  ! REACT_TEMP : temperature to use for reaction rates in not semi-implicit
+  ! RESIDUAL   : RHS residual
   !
   !.. Use Statements ..
   use ovar,        only : rhoref,aref,tref
@@ -1672,7 +1671,7 @@ subroutine compute_C2H4_hardcoded_wdot(n1,n2,cv,gp,residual)
   ! .. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: cv(:,:)
-  real(wp),    intent(in) :: gp(:,:)
+  real(wp),    intent(in) :: react_temp(:)
   real(wp), intent(inout) :: residual(:,:)
   !
   ! .. Local Scalars ..
@@ -1706,7 +1705,7 @@ continue
   !
   allocate ( gibrt(1:np,1:ncs) , source=zero )
   !
-  call compute_gibbs_free_energy(n1,n2,gp(:,ntemp),gibrt)
+  call compute_gibbs_free_energy(n1,n2,react_temp,gibrt)
   !
   ! Calculate the forwards and backward rates
   !
@@ -1714,7 +1713,7 @@ continue
     !
     ! Compute the forward reaction rate coefficient
     !
-    temp = gp(n,ntemp)*tref
+    temp = react_temp(n)*tref
     logt = log(temp)
     !
     ! Compute the dimensional species concentrations in moles/cm^3
@@ -1861,13 +1860,14 @@ end subroutine compute_C2H4_hardcoded_wdot
 #ifndef DISABLE_PURE
 pure &
 #endif
-subroutine compute_H2_wdot(n1,n2,cv,gp,residual,iter)
+subroutine compute_H2_wdot(n1,n2,cv,gp,react_temp,residual)
   !
-  ! N1       : beginning point
-  ! N2       : ending    point
-  ! CV       : conserved variables
-  ! GP       : gas properties
-  ! RESIDUAL : RHS residual
+  ! N1         : beginning point
+  ! N2         : ending    point
+  ! CV         : conserved variables
+  ! GP         : gas properties
+  ! REACT_TEMP : temperature to use for reaction rates in not semi-implicit
+  ! RESIDUAL   : RHS residual
   !
   !.. Use Statements ..
   use ovar,        only : semi_implicit_chemistry
@@ -1875,9 +1875,9 @@ subroutine compute_H2_wdot(n1,n2,cv,gp,residual,iter)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  integer,     intent(in) :: iter
   real(wp),    intent(in) :: cv(:,:)
   real(wp),    intent(in) :: gp(:,:)
+  real(wp), intent(inout) :: react_temp(:)
   real(wp), intent(inout) :: residual(:,:)
   !
   !.. Local Scalars ..
@@ -1904,12 +1904,12 @@ continue
   allocate ( brrate(1:np,1:ncs) , source=zero )
   allocate ( specon(1:np,1:ncs) , source=zero )
   !
-  ! Calculate the species source terms
-  !
-  call compute_species_source_terms(n1,n2,cv,gp(:,ntemp),specon, &
-                                    frrate,brrate,wdot)
-  !
   if (semi_implicit_chemistry > 0) then
+    !
+    ! Calculate the species source terms
+    !
+    call compute_species_source_terms(n1,n2,cv,gp(:,ntemp),specon, &
+                                      frrate,brrate,wdot)
     !
     if (semi_implicit_chemistry == 2) then
       wdotsv = wdot(1:np,1:ncs) ! F2003 AUTO-REALLOCATION
@@ -1961,6 +1961,11 @@ continue
     end do
     !
   else
+    !
+    ! Calculate the species source terms
+    !
+    call compute_species_source_terms(n1,n2,cv,react_temp,specon, &
+                                      frrate,brrate,wdot)
     !
     do m = 1,ncs
       !
