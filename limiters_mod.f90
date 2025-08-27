@@ -104,63 +104,6 @@ end subroutine initialize_limiters
 !
 !###############################################################################
 !
-subroutine moment_limiter
-  !
-  !.. Use Statements ..
-  use geomvar_mod,     only : ncell,cell
-  use flowvar_mod,     only : usp
-  use vandermonde_mod, only : vand
-  !
- !use parallel_mod, only : exchange_modes
-  !
-  !.. Local Scalars ..
-  integer  :: i,k,m,n,nc,n0,np
-  integer  :: this_geom,this_order
-  real(wp) :: a,val
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "moment_limiter"
-  !
-continue
-  !
-  if (init_all_as_marked) troubled_cell(:) = .true.
-  !
-  ! Get the solution modes in each cell of this partition
-  !
-  do nc = 1,ncell
-    !
-    n0 = cell(nc)%beg_sp-1
-    np = cell(nc)%end_sp-n0
-    !
-    this_geom = cell(nc)%geom
-    this_order = cell(nc)%order
-    !
-    do m = 1,nq
-      do n = 1,np
-        !
-        val = zero
-        !
-        do i = vand(this_geom,this_order)%nodal2modal%col_ptr(n)+1, &
-               vand(this_geom,this_order)%nodal2modal%col_ptr(n+1)
-          !
-          k = vand(this_geom,this_order)%nodal2modal%col_idx(i)
-          a = vand(this_geom,this_order)%nodal2modal%col_val(i)
-          !
-          val = val + a * usp(n0+k,m)
-          !
-        end do
-        !
-        umodes(n,m) = val
-        !
-      end do
-    end do
-    !
-  end do
-  !
-end subroutine moment_limiter
-!
-!###############################################################################
-!
 subroutine limit_by_projecting(nst)
   !
   !.. Use Statements ..
