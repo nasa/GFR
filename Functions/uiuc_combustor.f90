@@ -54,7 +54,7 @@ continue
   !
   if (scramjet_location == 1) then
     inside_injector = true
-  else if (scramjet_location == 2) then
+  else if (abs(scramjet_location) == 2) then
     inside_cavity = true
   end if
   !
@@ -213,6 +213,7 @@ function get_uiuc_scramjet_location(xyz,wall_radius_sensitivity) &
   !
   !.. Use Statements ..
   use eqn_idx_mod, only : NCD_Axial,NCD_Vert,NCD_Span
+  use geomvar_mod, only : n_global_cell
   use ovar,        only : grid_scaling_factor
   !
   !.. Formal Arguments ..
@@ -242,10 +243,14 @@ function get_uiuc_scramjet_location(xyz,wall_radius_sensitivity) &
   !
   ! Radius of the outer wall 
   real(wp), parameter :: wall_radius = 17.45_wp ! [mm]
+  real(wp), parameter :: cavity_radius = 28.48926_wp ! [mm]
   ! Radius that would definitely be an inside cell
   real(wp), parameter :: max_inside_radius = 17.25_wp ! [mm]
   real(wp), parameter :: default_radius_sensitivity = 0.030_wp ! [mm]
  !real(wp), parameter :: default_radius_sensitivity = 0.005_wp ! [mm]
+  !
+  real(wp), parameter :: cavity_sponge_axial  = cavity_axial_min + 0.3_wp ! [mm]
+  real(wp), parameter :: cavity_sponge_radius = cavity_radius - 0.045_wp  ! [mm]
   !
 continue
   !
@@ -328,8 +333,27 @@ continue
       ! any of the solution points are larger or very close to the wall radius.
       !
       if ( any(r(:) > wall_radius-radius_sensitivity) ) then
+        !
         return_value = 2
+        !
+        ! This next set of conditionals is a hack for the initial full-length
+        ! 90-degree sector grid created with GridPro. This is to add a few cells
+        ! cavity cells to the sponge filter. This should only catch one layer of
+        ! cells off the cavity outer wall that are adjacent and just downstream
+        ! of the cavity 'backstep' wall. This hack is attempting to prevent
+        ! these particular cells from causing simulations to crash, which they
+        ! have done quite regularly.
+        !
+        if (n_global_cell == 367344) then
+          if (any(r(:) > cavity_sponge_radius)) then
+            if (any(x(:) < cavity_sponge_axial)) then
+              return_value = -2
+            end if
+          end if
+        end if
+        !
         exit one_pass_loop
+        !
       end if
       !
     end do cavity_test_loop

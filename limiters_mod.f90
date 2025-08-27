@@ -732,7 +732,7 @@ continue
               get_uiuc_scramjet_location(xyz(:,n1:n2), &
                                          wall_radius_sensitivity=-0.05_wp)
       !
-      if (scramjet_location == 1) sponge_cell(nc) = .true.
+      if (any(scramjet_location == [1,-2])) sponge_cell(nc) = .true.
       !
     end do
   end if
