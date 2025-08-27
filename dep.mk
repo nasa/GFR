@@ -439,29 +439,22 @@ $(OBJDIR)/io_mod.o : io_mod.f90 \
 $(OBJDIR)/kind_types_mod.o : kind_types_mod.f90 \
                $(FUNDIR)/all_are_equal.f90 \
                $(FUNDIR)/bc_integer_to_string.f90 \
-               $(FUNDIR)/big_to_little_endian.f90 \
                $(FUNDIR)/checks_for_bad_numbers.f90 \
                $(FUNDIR)/chop.f90 \
                $(FUNDIR)/cross_product.f90 \
                $(FUNDIR)/deltafun.f90 \
                $(FUNDIR)/face_normal.f90 \
                $(FUNDIR)/findloc.f90 \
-               $(FUNDIR)/ghost_nodes.f90 \
                $(FUNDIR)/init_array.f90 \
                $(FUNDIR)/intseq.f90 \
                $(FUNDIR)/jacobians.f90 \
                $(FUNDIR)/matrix_ops.f90 \
-               $(FUNDIR)/node_center.f90 \
                $(FUNDIR)/norms.f90 \
-               $(FUNDIR)/outerprod.f90 \
                $(FUNDIR)/random.f90 \
                $(FUNDIR)/reallocate.f90 \
                $(FUNDIR)/reciprocal.f90 \
-               $(FUNDIR)/reflect.f90 \
                $(FUNDIR)/reformat_string.f90 \
                $(FUNDIR)/reverse_metrics.f90 \
-               $(FUNDIR)/rotate.f90 \
-               $(FUNDIR)/rotate_2d.f90 \
                $(FUNDIR)/uppercase.f90 \
                $(FUNDIR)/debug_timer.f90 \
                          mpi_defs.h

@@ -1325,17 +1325,6 @@ module module_kind_types
 #endif
   end interface unit_vector
   !
-  ! From Functions/outerprod.f90
-  !
-  private :: outerprod_DP,outerprod_QP
-  !
-  interface outerprod
-    module procedure outerprod_DP
-#ifndef DISABLE_QP
-    module procedure outerprod_QP
-#endif
-  end interface outerprod
-  !
   ! From Functions/reciprocal.f90
   !
   private :: reciprocal_SP,reciprocal_DP,reciprocal_QP
@@ -1360,51 +1349,6 @@ module module_kind_types
     module procedure chop_QP
 #endif
   end interface chop
-  !
-  ! From Functions/reflect.f90
-  !
-  private :: reflect_DP,reflect_QP
-  !
-  interface reflect
-    module procedure reflect_DP
-#ifndef DISABLE_QP
-    module procedure reflect_QP
-#endif
-  end interface reflect
-  !
-  ! From Functions/rotate_2d.f90
-  !
-  private :: rotate_2d_DP,rotate_2d_QP
-  !
-  interface rotate_2d
-    module procedure rotate_2d_DP
-#ifndef DISABLE_QP
-    module procedure rotate_2d_QP
-#endif
-  end interface rotate_2d
-  !
-  ! From Functions/rotate.f90
-  !
-  private :: rotate_DP,rotate_QP
-  !
-  interface rotate
-    module procedure rotate_DP
-#ifndef DISABLE_QP
-    module procedure rotate_QP
-#endif
-  end interface rotate
-  !
-  ! From Functions/node_center.f90
-  !
-  private :: node_center_SP,node_center_DP,node_center_QP
-  !
-  interface node_center
-    module procedure node_center_SP
-    module procedure node_center_DP
-#ifndef DISABLE_QP
-    module procedure node_center_QP
-#endif
-  end interface node_center
   !
   ! From Functions/face_normal.f90
   !
@@ -1577,22 +1521,6 @@ module module_kind_types
       intseq_no_interval_i4,intseq_with_interval_i4,intseq_rev_dir_i4, &
       intseq_no_interval_i8,intseq_with_interval_i8,intseq_rev_dir_i8
   end interface intseq
-  !
-  ! From Functions/big_to_little_endian.f90
-  !
-  private :: big_to_little_endian_i2
-  private :: big_to_little_endian_i4
-  private :: big_to_little_endian_i8
-  private :: big_to_little_endian_r4
-  private :: big_to_little_endian_r8
-  !
-  interface big_to_little_endian
-    module procedure big_to_little_endian_i2, &
-                     big_to_little_endian_i4, &
-                     big_to_little_endian_i8, &
-                     big_to_little_endian_r4, &
-                     big_to_little_endian_r8
-  end interface big_to_little_endian
   !
 contains
 !
@@ -2666,23 +2594,17 @@ include "Functions/init_array.f90"
 include "Functions/cross_product.f90"
 include "Functions/deltafun.f90"
 include "Functions/norms.f90"
-include "Functions/outerprod.f90"
 include "Functions/reciprocal.f90"
-include "Functions/reflect.f90"
-include "Functions/rotate.f90"
-include "Functions/rotate_2d.f90"
 #include "Functions/matrix_ops.f90"
 include "Functions/random.f90"
 #ifndef USE_INTRINSIC_FINDLOC
 include "Functions/findloc.f90"
 #endif
-include "Functions/node_center.f90"
 include "Functions/face_normal.f90"
 include "Functions/jacobians.f90"
 include "Functions/reverse_metrics.f90"
 include "Functions/chop.f90"
 include "Functions/intseq.f90"
-include "Functions/big_to_little_endian.f90"
 !
 ! Include statements for functions that DO NOT have a generic interface
 !
@@ -2690,7 +2612,6 @@ include "Functions/uppercase.f90"
 include "Functions/bc_integer_to_string.f90"
 include "Functions/all_are_equal.f90"
 include "Functions/reformat_string.f90"
-include "Functions/ghost_nodes.f90"
 !
 !###############################################################################
 !
