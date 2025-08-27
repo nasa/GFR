@@ -454,11 +454,68 @@ end subroutine ParMETIS_PartGeomKway
 !
 !###############################################################################
 !
+subroutine create_vtxdist(my_ncell,vtxdist,comm) 
+  !
+  !.. Use Statements .
+  use _MPI_MODULE_, only : mpi_comm_size
+  use _MPI_MODULE_, only : mpi_comm_rank
+  use _MPI_MODULE_, only : mpi_allgather
+  !
+  !.. Formal Arguments ..
+  integer(idx_t),               intent(in) :: my_ncell
+  integer(idx_t), allocatable, intent(out) :: vtxdist(:)
+  _MPI_COMM_TYPE_,              intent(in) :: comm
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  !.. Local Allocatable Arrays ..
+  integer(idx_t), allocatable :: cell_counts(:)
+  !
+continue
+  !
+  ! Get the number of parmetis ranks and the rank of this MPI process
+  ! for this MPI communicator.
+  !
+  call mpi_comm_size(comm,num_pm_ranks,mpierr)
+  !
+  call mpi_comm_rank(comm,my_pm_rank,mpierr)
+  !
+  ! Allocate the temporary cell_counts array
+  !
+  allocate ( cell_counts(1:num_pm_ranks) , source=0_idx_t )
+  !
+  ! Use mpi_allgather to combine the individual cell counts
+  !
+  call mpi_allgather(my_ncell,1_int_mpi,pm_mpi_inttyp, &
+                     cell_counts,1_int_mpi,pm_mpi_inttyp, &
+                     comm,mpierr)
+  !
+  ! Allocate the vtxdist array
+  !
+  allocate ( vtxdist(1:num_pm_ranks+1) , source=0_idx_t )
+  !
+  ! Create the vtxdist array so it contains the global range of cells 
+  ! local to each MPI process involved in the parallel partitioning:
+  !   MPI process i contains the cells vtxdist(i+1) to vtxdist(i+2)-1.
+  !
+  vtxdist(1) = 1_idx_t
+  do n = 1,num_pm_ranks
+    vtxdist(n+1) = vtxdist(n) + cell_counts(n)
+  end do
+  !
+  if (allocated(cell_counts)) deallocate ( cell_counts )
+  !
+end subroutine create_vtxdist
+!
+!###############################################################################
+!
 subroutine recombine_global_epart(vtxdist,part,epart,comm) 
   !
   !.. Use Statements .
   use _MPI_MODULE_, only : MPI_INTEGER
   use _MPI_MODULE_, only : MPI_IN_PLACE
+  use _MPI_MODULE_, only : mpi_allgather
   !
   !.. Formal Arguments ..
   integer(idx_t),    intent(in) :: vtxdist(:)
