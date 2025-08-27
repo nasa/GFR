@@ -34,13 +34,6 @@ module limiters_mod
   public :: apply_sponge_filter
   !
   !
-  !.. Module Local Scalars ..
-  !
-  logical(lk), save :: using_markers = fals
-  logical(lk), save :: using_moment_limiter = fals
-  logical(lk), save :: init_all_as_marked = true
-  !
-  !
   !.. Module Local Allocatable Arrays ..
   !
   logical(ldk), save, allocatable :: troubled_cell(:)
@@ -75,18 +68,13 @@ subroutine initialize_limiters
   !
 continue
   !
- !if (using_markers) then
-    !
-    !
-    ! Create the array for identifying troubled cells
-    !
-    allocate ( troubled_cell(1:ncell) , source=.false. , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"troubled_cell",1,__LINE__,__FILE__,ierr, &
-                     error_message)
-    !$ACC UPDATE DEVICE(troubled_cell)
-    !
- !end if
+  ! Create the array for identifying troubled cells
+  !
+  allocate ( troubled_cell(1:ncell) , source=.false. , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"troubled_cell",1,__LINE__,__FILE__,ierr, &
+                   error_message)
+  !$ACC UPDATE DEVICE(troubled_cell)
   !
 end subroutine initialize_limiters
 !
