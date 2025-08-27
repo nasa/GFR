@@ -39,6 +39,7 @@ module parmetis_mod
       use, intrinsic :: iso_c_binding, only : c_int
       import :: idx_t, real_t
       integer(c_int) :: ParMETIS_V3_PartKway_C_Interface
+      !
       integer(idx_t) :: vtxdist(*)
       integer(idx_t) :: xadj(*)
       integer(idx_t) :: adjncy(*)
@@ -54,6 +55,7 @@ module parmetis_mod
       integer(idx_t) :: edgecut
       integer(idx_t) :: part(*)
       integer(c_int) :: comm
+      !
     end function ParMETIS_V3_PartKway_C_Interface
     !===========================================================================
     !===========================================================================
