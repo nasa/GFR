@@ -2,9 +2,6 @@ module parmetis_mod
   !
 #include <mpi_defs.h>
   !
-  use, intrinsic :: iso_c_binding, only : c_float,c_double
-  use, intrinsic :: iso_c_binding, only : c_int32_t,c_int64_t
-  !
   use module_kind_types, only : INT_MPI
   !
 #ifdef USE_MPI_F08
