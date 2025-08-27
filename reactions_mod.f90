@@ -980,6 +980,9 @@ subroutine compute_wdot(iter)
   !.. Local Scalars ..
   integer :: n1,n2
   !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: react_temp(:)
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_wdot"
   !
@@ -991,6 +994,11 @@ continue
     !
     n1 = 1
     n2 = n_solpts
+    !
+    ! Compute the ignition source term or reaction temperature
+    !
+    react_temp = init_array(n_solpts,zero) ! F2003 AUTO-REALLOC
+    react_temp(n1:n2) = gpsp(n1:n2,ntemp)
     !
     if (abs(itestcase) == CH4_3D_Diffusion_Flame .or. &
         abs(itestcase) == CH4_Flame_Speed_Test) then
@@ -1015,6 +1023,8 @@ continue
     else
       call compute_generic_wdot(n1,n2,usp,gpsp,residual)
     end if
+    !
+    if (allocated(react_temp)) deallocate ( react_temp )
     !
   end if
   !
