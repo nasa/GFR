@@ -974,6 +974,8 @@ subroutine compute_wdot(iter)
   use geomvar_mod, only : n_solpts
   use flowvar_mod, only : usp,gpsp,residual
   !
+  use ignition_mod, only : compute_ignition_source_term
+  !
   !.. Formal Arguments ..
   integer, intent(in) :: iter
   !
@@ -999,6 +1001,10 @@ continue
     !
     react_temp = init_array(n_solpts,zero) ! F2003 AUTO-REALLOC
     react_temp(n1:n2) = gpsp(n1:n2,ntemp)
+    !
+    call compute_ignition_source_term(n1,n2,usp,gpsp,residual,react_temp, &
+                                      reactant_species_list, &
+                                      product_species_list)
     !
     if (abs(itestcase) == CH4_3D_Diffusion_Flame .or. &
         abs(itestcase) == CH4_Flame_Speed_Test) then
