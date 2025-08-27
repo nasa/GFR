@@ -42,7 +42,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/averaging_mod.o \
          $(OBJDIR)/reactions_mod.o \
          $(OBJDIR)/mrf_mod.o \
-         $(OBJDIR)/turb_inflow_mod.o \
+         $(OBJDIR)/synthetic_eddy_mod.o \
          $(OBJDIR)/cpu_info_mod.o \
          $(OBJDIR)/interpsol_mod.o \
          $(OBJDIR)/timer_mod.o \
@@ -69,7 +69,7 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/metrics_mod.o \
            $(OBJDIR)/thermo_mod.o \
            $(OBJDIR)/transport_mod.o \
-           $(OBJDIR)/turb_inflow_mod.o \
+           $(OBJDIR)/synthetic_eddy_mod.o \
            $(OBJDIR)/timer_mod.o \
            $(OBJDIR)/bc_wall_mod.o \
            $(OBJDIR)/bc_fixed_mod.o \
@@ -145,7 +145,7 @@ $(OBJDIR)/channel_mod.o : channel_mod.f90 \
                 $(OBJDIR)/metrics_mod.o \
                 $(OBJDIR)/derivatives_mod.o \
                 $(OBJDIR)/transport_mod.o \
-                $(OBJDIR)/turb_inflow_mod.o
+                $(OBJDIR)/synthetic_eddy_mod.o
 
 $(OBJDIR)/connectivity_mod.o : connectivity_mod.f90 \
                  $(OBJDIR)/kind_types_mod.o \
@@ -328,7 +328,7 @@ $(OBJDIR)/initialization_mod.o : initialization_mod.f90 \
                $(OBJDIR)/thermo_mod.o \
                $(OBJDIR)/transport_mod.o \
                $(OBJDIR)/reactions_mod.o \
-               $(OBJDIR)/turb_inflow_mod.o \
+               $(OBJDIR)/synthetic_eddy_mod.o \
                $(OBJDIR)/periodic_mod.o \
                $(OBJDIR)/gpu_mod.o \
                $(OBJDIR)/shu_osher_mod.o \
@@ -428,7 +428,7 @@ $(OBJDIR)/io_mod.o : io_mod.f90 \
        $(OBJDIR)/eperk_mod.o \
        $(OBJDIR)/restart_mod.o \
        $(OBJDIR)/thermo_mod.o \
-       $(OBJDIR)/turb_inflow_mod.o \
+       $(OBJDIR)/synthetic_eddy_mod.o \
        $(OBJDIR)/periodic_mod.o \
        $(FUNDIR)/last.f90 \
        $(FUNDIR)/bc_priority.f90 \
@@ -742,7 +742,7 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/random_mod.o \
                 $(OBJDIR)/parallel_mod.o \
                 $(OBJDIR)/thermo_mod.o \
-                $(OBJDIR)/turb_inflow_mod.o \
+                $(OBJDIR)/synthetic_eddy_mod.o \
                 $(OBJDIR)/order_mod.o \
                 $(OBJDIR)/interpolation_mod.o \
                 $(OBJDIR)/projection_mod.o \
@@ -824,17 +824,17 @@ $(OBJDIR)/triangle_mod.o : triangle_mod.f90 \
              $(OBJDIR)/kind_types_mod.o \
              $(OBJDIR)/poly_mod.o
 
-$(OBJDIR)/turb_inflow_mod.o : turb_inflow_mod.f90 \
-                    $(OBJDIR)/kind_types_mod.o \
-                    $(OBJDIR)/random_mod.o \
-                    $(OBJDIR)/eqn_idx_mod.o \
-                    $(OBJDIR)/geomvar_mod.o \
-                    $(OBJDIR)/ovar_mod.o \
-                    $(OBJDIR)/flowvar_mod.o \
-                    $(OBJDIR)/metrics_mod.o \
-                    $(OBJDIR)/thermo_mod.o \
-                    $(OBJDIR)/transport_mod.o \
-                    $(FUNDIR)/check_for_bad_number.f90
+$(OBJDIR)/synthetic_eddy_mod.o : synthetic_eddy_mod.f90 \
+                       $(OBJDIR)/kind_types_mod.o \
+                       $(OBJDIR)/random_mod.o \
+                       $(OBJDIR)/eqn_idx_mod.o \
+                       $(OBJDIR)/geomvar_mod.o \
+                       $(OBJDIR)/ovar_mod.o \
+                       $(OBJDIR)/flowvar_mod.o \
+                       $(OBJDIR)/metrics_mod.o \
+                       $(OBJDIR)/thermo_mod.o \
+                       $(OBJDIR)/transport_mod.o \
+                       $(FUNDIR)/check_for_bad_number.f90
 
 $(OBJDIR)/thx_mod.o : thx_mod.f90 \
             $(OBJDIR)/kind_types_mod.o \
