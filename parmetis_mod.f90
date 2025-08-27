@@ -9,6 +9,12 @@ module parmetis_mod
   !
 #ifdef USE_MPI_F08
   use _MPI_MODULE_, only : MPI_COMM
+  use _MPI_MODULE_, only : MPI_DATATYPE
+#endif
+#ifdef METIS_64_BIT
+  use _MPI_MODULE_, only : pm_mpi_inttyp => MPI_LONG_LONG_INT
+#else
+  use _MPI_MODULE_, only : pm_mpi_inttyp => MPI_INT
 #endif
   !
   use metis_mod, only : idx_t, real_t
