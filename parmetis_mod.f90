@@ -323,17 +323,17 @@ module parmetis_mod
   integer(idx_t), parameter :: PARMETIS_DEBUG_FLAG = 0_idx_t
  !integer(idx_t), parameter :: PARMETIS_DEBUG_FLAG = 1_idx_t
   !
-  integer, parameter :: PARMETIS_DBGLVL_TIME = 1
-  integer, parameter :: PARMETIS_DBGLVL_INFO = 2
-  integer, parameter :: PARMETIS_DBGLVL_PROGRESS = 4
-  integer, parameter :: PARMETIS_DBGLVL_REFINEINFO = 8
-  integer, parameter :: PARMETIS_DBGLVL_MATCHINFO = 16
-  integer, parameter :: PARMETIS_DBGLVL_RMOVEINFO = 32
-  integer, parameter :: PARMETIS_DBGLVL_REMAP = 64
-  integer, parameter :: PARMETIS_DBGLVL_TWOHOP = 128
-  integer, parameter :: PARMETIS_DBGLVL_DROPEDGES = 256
-  integer, parameter :: PARMETIS_DBGLVL_FAST = 512
-  integer, parameter :: PARMETIS_DBGLVL_ONDISK = 1024
+  integer(idx_t), parameter :: PARMETIS_DBGLVL_TIME = 1_idx_t
+  integer(idx_t), parameter :: PARMETIS_DBGLVL_INFO = 2_idx_t
+  integer(idx_t), parameter :: PARMETIS_DBGLVL_PROGRESS = 4_idx_t
+  integer(idx_t), parameter :: PARMETIS_DBGLVL_REFINEINFO = 8_idx_t
+  integer(idx_t), parameter :: PARMETIS_DBGLVL_MATCHINFO = 16_idx_t
+  integer(idx_t), parameter :: PARMETIS_DBGLVL_RMOVEINFO = 32_idx_t
+  integer(idx_t), parameter :: PARMETIS_DBGLVL_REMAP = 64_idx_t
+  integer(idx_t), parameter :: PARMETIS_DBGLVL_TWOHOP = 128_idx_t
+  integer(idx_t), parameter :: PARMETIS_DBGLVL_DROPEDGES = 256_idx_t
+  integer(idx_t), parameter :: PARMETIS_DBGLVL_FAST = 512_idx_t
+  integer(idx_t), parameter :: PARMETIS_DBGLVL_ONDISK = 1024_idx_t
   !
   integer(idx_t), parameter :: PARMETIS_DEBUG_VAL = 0_idx_t
   !
