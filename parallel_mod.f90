@@ -515,8 +515,7 @@ continue
         call memory_pause("Before: calling partition_using_metis_5")
         call partition_using_metis_5(metis_option_requested,npart, &
                                      xadj,adjncy,epart,cell_geom,cell_order, &
-                                     cells_surr_cell, &
-                                     cells_surr_cell_ptr)
+                                     cells_surr_cell,cells_surr_cell_ptr)
         !
       end if
       !
