@@ -1415,6 +1415,85 @@ end subroutine partition_using_parmetis
 !
 !###############################################################################
 !
+subroutine report_parmetis_results(nparts,metis_option,edgecut)
+  !
+  !.. Use Statements ..
+  use parmetis_mod, only : num_pm_ranks
+  !
+  !.. Formal Arguments ..
+  integer(idx_t), intent(in) :: nparts
+  integer,        intent(in) :: metis_option
+  integer(idx_t), intent(in) :: edgecut
+  !
+  character(len=12) :: weight
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "report_parmetis_results"
+  !
+continue
+  !
+  if (any(metis_option == [1,2,3])) then
+    weight = "non-weighted"
+  else
+    weight = "  weighted  "
+  end if
+  !
+  if (mypnum == glb_root) then
+    !
+    if (edgecut > 0_idx_t) then
+      !
+      write (iout,100)
+      write (iout,1) num_pm_ranks
+      write (iout,101)
+      write (iout,2) nparts,weight
+      if (any(metis_option == [1,6])) then
+        write (iout,3)
+      end if
+      write (iout,4)
+      write (iout,102) edgecut
+      write (iout,100)
+      !
+    else
+      !
+      write (iout,200)
+      write (iout,1) num_pm_ranks
+      write (iout,201)
+      write (iout,2) nparts,weight
+      if (any(metis_option == [1,6])) then
+        write (iout,3)
+      end if
+      write (iout,4)
+      write (iout,210)
+      !
+    end if
+    !
+    flush (iout)
+    !
+  end if
+  !
+  ! Format statements
+  !
+  1   format (13x,'ParMETIS 4.0.x across ',i7,' processes')
+  2   format (14x,'into ',i7,1x,a12,' partitions')
+  3   format (3x,'using cell coordinates to pre-distribute the graph prior to')
+  4   format (9x,'using a multilevel k-way partitioning algorithm.')
+  !
+  100 format (/,66('-'),/)
+  101 format (10x,'SUCCESSFULLY partitioned the grid in parallel')
+  102 format (14x,'The minimized edge cut was ',i0,'.')
+  !
+  200 format (///,66('#'),/, &
+                  15('#'),' !! PARTITIONING ATTEMPT FAILED !! ',16('#'),/, &
+                  66('#'),//)
+  201 format (6x,'FAILED to successfully partition the grid in parallel')
+  210 format (/,66('#'),/, &
+                15('#'),' !! PARTITIONING ATTEMPT FAILED !! ',16('#'),/, &
+                66('#'),///)
+  !
+end subroutine report_parmetis_results
+!
+!###############################################################################
+!
 subroutine predistribute_for_parmetis(glb_xadj,glb_adjncy,glb_vwgt,glb_adjwgt, &
                                       my_xadj,my_adjncy,my_vwgt,my_adjwgt, &
                                       my_xyz_cc,part_comm)
