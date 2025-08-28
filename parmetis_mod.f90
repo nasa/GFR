@@ -394,7 +394,21 @@ subroutine ParMETIS_PartKway(nparts,xadj,adjncy,vwgt,adjwgt,edgecut,epart,comm)
 continue
 #ifdef ENABLE_PARMETIS
   !
+  numflag = 1_idx_t ! set numbering to Fortran style (begins at 1)
+  !
+  ncon = get_number_of_vertex_weights(xadj,vwgt)
+  !
+  wgtflag = get_weight_flag(vwgt,adjwgt)
+  !
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL,0_idx_t] ! F03 AUTO-REALLOC
+  !
+  my_ncell = size(xadj,kind=idx_t) - 1_idx_t
+  !
+  call create_vtxdist(my_ncell,vtxdist,comm)
+  !
+  call create_partition_weights(nparts,ncon,tpwgts,ubvec)
+  !
+  allocate ( part(1:my_ncell) , source=0_idx_t )
   !
   ierr = ParMETIS_V3_PartKway_C_Interface(vtxdist, &
                                           xadj,adjncy,vwgt,adjwgt, &
@@ -403,6 +417,12 @@ continue
                                           options,edgecut,part, &
                                           _MPI_TYPE_VAL_(comm))
   !
+  call recombine_global_epart(vtxdist,part,epart,comm)
+  !
+  if (allocated(part   )) deallocate ( part )
+  if (allocated(ubvec  )) deallocate ( ubvec )
+  if (allocated(tpwgts )) deallocate ( tpwgts )
+  if (allocated(vtxdist)) deallocate ( vtxdist )
   if (allocated(options)) deallocate ( options )
   !
 #endif
@@ -444,7 +464,23 @@ subroutine ParMETIS_PartGeomKway(nparts,xadj,adjncy,vwgt,adjwgt, &
 continue
 #ifdef ENABLE_PARMETIS
   !
+  numflag = 1_idx_t ! set numbering to Fortran style (begins at 1)
+  !
+  ndims = size(xyz,dim=1,kind=idx_t)
+  !
+  ncon = get_number_of_vertex_weights(xadj,vwgt)
+  !
+  wgtflag = get_weight_flag(vwgt,adjwgt)
+  !
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL,0_idx_t] ! F03 AUTO-REALLOC
+  !
+  my_ncell = size(xadj,kind=idx_t) - 1_idx_t
+  !
+  call create_vtxdist(my_ncell,vtxdist,comm)
+  !
+  call create_partition_weights(nparts,ncon,tpwgts,ubvec)
+  !
+  allocate ( part(1:my_ncell) , source=0_idx_t )
   !
   ierr = ParMETIS_V3_PartGeomKway_C_Interface(vtxdist, &
                                               xadj,adjncy,vwgt,adjwgt, &
@@ -453,6 +489,12 @@ continue
                                               options,edgecut,part, &
                                               _MPI_TYPE_VAL_(comm))
   !
+  call recombine_global_epart(vtxdist,part,epart,comm)
+  !
+  if (allocated(part   )) deallocate ( part )
+  if (allocated(ubvec  )) deallocate ( ubvec )
+  if (allocated(tpwgts )) deallocate ( tpwgts )
+  if (allocated(vtxdist)) deallocate ( vtxdist )
   if (allocated(options)) deallocate ( options )
   !
 #endif
