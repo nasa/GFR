@@ -1030,43 +1030,48 @@ end subroutine partition_into_quarters
 !###############################################################################
 !
 subroutine partition_using_parmetis(metis_option_requested,npart, &
-                                    xadj,adjncy,epart,cell_geom,cell_order, &
-                                    cells_surr_cell,cells_surr_cell_ptr)
+                                    glb_xadj,glb_adjncy,epart, &
+                                    cell_geom,cell_order, &
+                                    cells_surr_cell,cells_surr_cell_ptr, &
+                                    part_comm)
+  !
+  !.. Use Statements ..
+  use parmetis_mod, only : ParMETIS_PartGraphKway
   !
   !.. Formal Arguments ..
   integer,           intent(in) :: metis_option_requested
   integer,           intent(in) :: npart
-  integer(idx_t),    intent(in) :: xadj(:)
-  integer(idx_t),    intent(in) :: adjncy(:)
+  integer(idx_t),    intent(in) :: glb_xadj(:)
+  integer(idx_t),    intent(in) :: glb_adjncy(:)
   integer(idx_t), intent(inout) :: epart(:)
   integer,           intent(in) :: cell_geom(:)
   integer,           intent(in) :: cell_order(:)
   integer,           intent(in) :: cells_surr_cell(:)
   integer,           intent(in) :: cells_surr_cell_ptr(:)
+  _MPI_COMM_TYPE_,   intent(in) :: part_comm
   !
   !.. Local Scalars ..
-  integer        :: n,nc,i,ip,ierr,lcell,metis_option
-  integer(idx_t) :: nvtxs,ncon,nparts,objval
+  integer        :: n,ip,lcell,metis_option
+  integer(idx_t) :: ncon,nparts,edgecut
   logical(ldk)   :: passes_inspection
-  character(len=19) :: method
-  character(len=12) :: weight
-  character(len=20) :: minmzd
+  character(len=50) :: timer_message
   !
   !.. Local Arrays ..
   integer, allocatable :: metis_option_hierarchy(:)
-  integer(idx_t) :: options(0:METIS_NOPTIONS-1)
   !
   !.. Local Allocatable Arrays ..
+  integer(idx_t), allocatable :: glb_vwgt(:)
+  integer(idx_t), allocatable :: glb_adjwgt(:)
+  integer(idx_t), allocatable :: xadj(:)
+  integer(idx_t), allocatable :: adjncy(:)
   integer(idx_t), allocatable :: vwgt(:)
-  integer(idx_t), allocatable :: vsize(:)
   integer(idx_t), allocatable :: adjwgt(:)
-  real(real_t),   allocatable :: tpwgts(:)
-  real(real_t),   allocatable :: ubvec(:)
+  real(real_t),   allocatable :: xyz_cc(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "partition_using_parmetis"
   !
-  integer, parameter :: metis_option_defaults(1:4) = [3,2,1,4]
+  integer, parameter :: metis_option_defaults(1:4) = [3,1,4,6]
   !
   !
 continue
@@ -1075,47 +1080,17 @@ continue
   !
   lcell = size(epart)
   !
-  ! Set the default options for METIS
-  !
-  call debug_timer(start_timer,"call METIS_SetDefaultOptions")
-  call METIS_SetDefaultOptions(options)
-  call debug_timer(stop_timer,"call METIS_SetDefaultOptions")
-  !
-  ! Customize some of these options
-  !
-  ! Set numbering to Fortran style (begins at 1)
-  options(METIS_OPTION_NUMBERING) = 1
-  ! Force contiguous partitions
-  options(METIS_OPTION_CONTIG) = 1
-  ! Explicitly minimize the maximum connectivity
-  options(METIS_OPTION_MINCONN) = 1
-  !
   ! Define other METIS variables
   !
-  nvtxs = int(lcell,kind=idx_t)
-  ncon = 1_idx_t ! number of weights associated with each vertex (>= 1)
   nparts = int(npart,kind=idx_t)
   !
   ! Allocate the local arrays
   !
 #ifdef DEBUG_ON
-  vwgt = init_array(ncon*lcell,1_idx_t) ! F2003 AUTO-REALLOC
+  ncon = 1_idx_t
+  glb_vwgt = init_array(ncon*lcell,1_idx_t) ! F2003 AUTO-REALLOC
   !
-  vsize = init_array(lcell,1_idx_t) ! F2003 AUTO-REALLOC
-  !
-  adjwgt = init_array(size(adjncy),1_idx_t) ! F2003 AUTO-REALLOC
-  !
-  allocate ( tpwgts(0:ncon*nparts-1) , &
-             source=1.0_real_t/real(nparts,kind=real_t) , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"tpwgts",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  tpwgts(:) = real( one/real(nparts,kind=wp) , kind=kind(tpwgts) )
-  tpwgts(:) = tpwgts(:) / sum(tpwgts(:))
-  !
-  ubvec = init_array(ncon,1.01_real_t) ! F2003 AUTO-REALLOC
-  !
-  if (mypnum == glb_root) write (iout,5) mypnum,sum(tpwgts)
+  glb_adjwgt = init_array(size(glb_adjncy),1_idx_t) ! F2003 AUTO-REALLOC
 #endif
   !
   ! Create the hierarchy of METIS algorithms to try
@@ -1124,6 +1099,11 @@ continue
   metis_option_hierarchy = [metis_option_requested, &
                 pack(metis_option_defaults, &
                      mask=(metis_option_defaults/=metis_option_requested))]
+  !
+  ! Compute the partition weights for the cells and faces
+  !
+  call get_grid_weights(cell_geom,cell_order, &
+                        glb_xadj,glb_adjncy,glb_vwgt,glb_adjwgt)
   !
   ! One-pass loop to allow for easy error handling if none of the
   ! partitioning methods produce a quality grid partitioning
@@ -1136,205 +1116,67 @@ continue
       !
       metis_option = metis_option_hierarchy(n)
       !
-      ! Partition the grid using one of the METIS routines
+      ! Predistribute the partitioning arrays across the MPI processes that are
+      ! involved with the parallel paritioning.
+      ! NOTE: All of the local arrays (vtxdist, xadj, adjncy, vwgt, adjwgt,
+      !       xyz_cc, and epart) are all declared as intent(out) in subroutine
+      !       predistribute_for_parmetis, so they will be deallocated upon
+      !       entering the subroutine.
       !
-      if (metis_option == 1) then
-        !
-        ! This METIS routine computes non-weighted partitions using a
-        ! multilevel recursive bisection while minimizing the edge cut.
-        !
-        method = "recursive bisection"
-        weight = "non-weighted"
-        minmzd = "      edge cut      "
-        !
-        ! Partition the grid using METIS
-        !
-        call debug_timer(start_timer, &
-                         "calling metis_partgraphrecursive, metis_option=1")
-        call metis_partgraphrecursive(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
-                                      adjwgt,nparts,tpwgts,ubvec,options, &
-                                      objval,epart)
-        call debug_timer(stop_timer, &
-                         "calling metis_partgraphrecursive, metis_option=1")
-        !
-!#define DUMP_METIS_ARGUMENTS
-#ifdef DUMP_METIS_ARGUMENTS
-        call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
-                                    adjwgt,nparts,tpwgts,ubvec,options, &
-                                    objval,epart,method,weight,minmzd)
-#endif
-        !
-      else if (metis_option == 2) then
-        !
-        ! This METIS routine computes non-weighted partitions using
-        ! a multilevel k-way partitioning algorithm while minimizing
-        ! the edge cut.
-        !
-        method = "k-way partitioning "
-        weight = "non-weighted"
-        minmzd = "      edge cut      "
-        !
-        ! Partition the grid using METIS
-        !
-        options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_CUT
-        !
-        call debug_timer(start_timer, &
-                         "calling metis_partgraphkway, metis_option=2")
-        call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
-                                 adjwgt,nparts,tpwgts,ubvec,options, &
-                                 objval,epart)
-        call debug_timer(stop_timer, &
-                         "calling metis_partgraphkway, metis_option=2")
-        !
-#ifdef DUMP_METIS_ARGUMENTS
-        call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
-                                    adjwgt,nparts,tpwgts,ubvec,options, &
-                                    objval,epart,method,weight,minmzd)
-#endif
-        !
-      else if (metis_option == 3) then
-        !
-        ! This METIS routine computes non-weighted partitions using a
-        ! a multilevel k-way partitioning algorithm while minimizing
-        ! the total communication volume.
-        !
-        minmzd = "communication volume"
-        weight = "non-weighted"
-        method = "k-way partitioning "
-        !
-        ! Partition the grid using METIS
-        !
-        options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_VOL
-        !
-        call debug_timer(start_timer, &
-                         "calling metis_partgraphkway, metis_option=3")
-        call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
-                                 adjwgt,nparts,tpwgts,ubvec,options, &
-                                 objval,epart)
-        call debug_timer(stop_timer, &
-                         "calling metis_partgraphkway, metis_option=3")
-        !
-#ifdef DUMP_METIS_ARGUMENTS
-        call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
-                                    adjwgt,nparts,tpwgts,ubvec,options, &
-                                    objval,epart,method,weight,minmzd)
-#endif
-        !
-      else if (metis_option == 4) then
-        !
-        ! This METIS routine computes weighted partitions using a
-        ! multilevel k-way partitioning algorithm while minimizing
-        ! the total communication volume.
-        !
-        method = "k-way partitioning "
-        weight = "  weighted  "
-        minmzd = "communication volume"
-        !
-        ! Compute the partition weights for the cells and faces
-        !
-        call get_grid_weights(cell_geom,cell_order,xadj,adjncy,vwgt,adjwgt)
-        !
-        ! Partition the grid using METIS
-        !
-        options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_VOL
-        !
-        call debug_timer(start_timer, &
-                         "calling metis_partgraphkway, metis_option=4")
-        call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
-                                 adjwgt,nparts,tpwgts,ubvec,options, &
-                                 objval,epart)
-        call debug_timer(stop_timer, &
-                         "calling metis_partgraphkway, metis_option=4")
-        !
-#ifdef DUMP_METIS_ARGUMENTS
-        call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
-                                    adjwgt,nparts,tpwgts,ubvec,options, &
-                                    objval,epart,method,weight,minmzd)
-#endif
-        !
-      else if (metis_option == 5) then
-        !
-        ! This METIS routine computes weighted partitions using a
-        ! multilevel k-way partitioning algorithm while minimizing
-        ! the edge cuts. This is equivalent to metis_option==2 but
-        ! with cell weights.
-        !
-        method = "k-way partitioning "
-        weight = "  weighted  "
-        minmzd = "      edge cut      "
-        !
-        ! Compute the partition weights for the cells and faces
-        !
-        call get_grid_weights(cell_geom,cell_order,xadj,adjncy,vwgt,adjwgt)
-        !
-        ! Partition the grid using METIS
-        !
-        options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_CUT
-        !
-        call debug_timer(start_timer, &
-                         "calling metis_partgraphkway, metis_option=5")
-        call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
-                                 adjwgt,nparts,tpwgts,ubvec,options, &
-                                 objval,epart)
-        call debug_timer(stop_timer, &
-                         "calling metis_partgraphkway, metis_option=5")
-        !
-#ifdef DUMP_METIS_ARGUMENTS
-        call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
-                                    adjwgt,nparts,tpwgts,ubvec,options, &
-                                    objval,epart,method,weight,minmzd)
-#endif
-        !
-      else if (metis_option == 6) then
-        !
-        ! This METIS routine computes non-weighted partitions using a
-        ! multilevel recursive bisection while minimizing the edge cut.
-        !
-        method = "recursive bisection"
-        weight = "  weighted  "
-        minmzd = "      edge cut      "
-        !
-        ! Compute the partition weights for the cells and faces
-        !
-        call get_grid_weights(cell_geom,cell_order,xadj,adjncy,vwgt,adjwgt)
-        !
-        ! Partition the grid using METIS
-        !
-        call debug_timer(start_timer, &
-                         "calling metis_partgraphrecursive, metis_option=1")
-        call metis_partgraphrecursive(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
-                                      adjwgt,nparts,tpwgts,ubvec,options, &
-                                      objval,epart)
-        call debug_timer(stop_timer, &
-                         "calling metis_partgraphrecursive, metis_option=1")
-        !
-!#define DUMP_METIS_ARGUMENTS
-#ifdef DUMP_METIS_ARGUMENTS
-        call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
-                                    adjwgt,nparts,tpwgts,ubvec,options, &
-                                    objval,epart,method,weight,minmzd)
-#endif
-      else
-        !
-        ! The METIS option requested is invalid!
-        !
-        write (error_message,3)
-        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
-        !
+      call predistribute_for_parmetis(glb_xadj,glb_adjncy,glb_vwgt,glb_adjwgt, &
+                                      xadj,adjncy,vwgt,adjwgt, &
+                                      xyz_cc,part_comm)
+      !
+      ! Set up the weight flag for parmetis and deallocate the weight arrays
+      ! if the current metis option is a non-weighted option.
+      !
+      if (any(metis_option == [1,2,3])) then
+        if (allocated(vwgt)) deallocate ( vwgt )
+        if (allocated(adjwgt)) deallocate ( adjwgt )
       end if
+      !
+      ! Deallocate the xyz_cc array if no using the ParMETIS_PartGeomKway
+      ! function.
+      !
+      if (all(metis_option /= [1,6])) then
+        if (allocated(xyz_cc)) deallocate ( xyz_cc )
+        write (timer_message,1) "Kway",metis_option
+      else
+        write (timer_message,1) "GeomKway",metis_option
+      end if
+      !
+      ! Partition the grid using ParMETIS
+      !
+      call debug_timer(start_timer,timer_message)
+      call ParMETIS_PartGraphKway(nparts,xadj,adjncy,vwgt,adjwgt, &
+                                  edgecut,epart,part_comm,xyz_cc)
+      call debug_timer(stop_timer,timer_message)
+      !
+!#define DUMP_PARMETIS_ARGUMENTS
+#ifdef DUMP_PARMETIS_ARGUMENTS
+      ! NEED TO CREATE PARMETIS VERSION OF OUTPUT_METIS_ARGUMENTS
+     !call output_parmetis_arguments(nparts,glb_xadj,glb_adjncy, &
+     !                               glb_vwgt,glb_adjwgt, &
+     !                               edgecut,epart, &
+     !                               method,weight,minmzd)
+#endif
       !
       ! I dont trust that the METIS routines will compute identical
       ! partitioning on each processor so have the root process check
       ! its local partitioning for errors and then broadcast that
       ! partitioning to the other processes if none are found.
+      ! NOTE: ParMETIS doesnt have the option to enforce contiguity, so setting
+      !       the argument contiguity_setting to -99 tells the subroutine to
+      !       check contiguity, but to let the partitioning pass inspection
+      !       with a warning if it isnt contiguous.
       !
      !if (mypnum == 0) then
         call check_quality_of_partitioning(nparts,epart, &
                                            cells_surr_cell, &
                                            cells_surr_cell_ptr, &
                                            passes_inspection, &
-                              contiguity_setting=options(METIS_OPTION_CONTIG), &
-                              metis_option=metis_option)
+                                           contiguity_setting=-99_idx_t, &
+                                           metis_option=metis_option)
      !end if
       !
       ! Broadcast the logical passes_inspection to all processors so
@@ -1347,69 +1189,34 @@ continue
       ! output the results of the partitioning and exit from part_loop.
       !
       if (passes_inspection) then
-        write (iout,1) method,nparts,weight,minmzd,objval
+        call report_parmetis_results(nparts,metis_option,edgecut)
         exit part_loop
       end if
       !
-      write (iout,4) method,nparts,weight,minmzd
+      edgecut = -99_idx_t
+      call report_parmetis_results(nparts,metis_option,edgecut)
       !
     end do
     !
     write (error_message,2)
-    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+   !call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+    epart(:) = 0_idx_t
     !
   end do part_loop
   !
   ! Deallocate all the local arrays before leaving
   !
-  if (allocated(vwgt)) then
-    deallocate ( vwgt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vwgt",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  if (allocated(vsize)) then
-    deallocate ( vsize , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vsize",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  if (allocated(adjwgt)) then
-    deallocate ( adjwgt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"adjwgt",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  if (allocated(tpwgts)) then
-    deallocate ( tpwgts , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"tpwgts",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  if (allocated(ubvec)) then
-    deallocate ( ubvec , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ubvec",2,__LINE__,__FILE__,ierr,error_message)
-  end if
+  if (allocated(glb_vwgt  )) deallocate ( glb_vwgt )
+  if (allocated(glb_adjwgt)) deallocate ( glb_adjwgt )
+  if (allocated(xyz_cc    )) deallocate ( xyz_cc )
   !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format statements
   !
-  1 format (/,'-------------------------------------------------------',//, &
-              '         Used METIS 5.1 to partition the graph         ',/, &
-              '    using a multilevel ',a,' algorithm    ',/, &
-              '           into ',i0,' ',a,' partitions.          ',/, &
-              '     The minimized ',a,' was ',i0,'.    ',//, &
-              '-------------------------------------------------------',/)
-  2 format (" None of the partitioning methods available in METIS 5.1 were", &
-            " able to find a quality partitioning of the grid!")
-  3 format (" The METIS partitioning method requested in the input file is", &
-            " invalid!")
-  4 format (///,'########################################################',/, &
-                '########## !! PARTITIONING ATTEMPT FAILED !! ###########',/, &
-                '########################################################',//, &
-                '  METIS 5.1 failed to successfully partition the graph  ',/, &
-                '    using a multilevel ',a,' algorithm    ',/, &
-                '       into ',i0,' ',a,' partitions',/, &
-                '   while minimizing the ',a,'!',/, &
-                '         Switching to the next METIS algorithm         ',/, &
-                '               to partition the graph...               ',//, &
-                '########################################################',/, &
-                '########## !! PARTITIONING ATTEMPT FAILED !! ###########',/, &
-                '########################################################',///)
-  5 format (" CPU # ",i0," : sum(tpwgts) = ",es14.6)
+  1 format ("calling ParMETIS_Part",a,", metis_option=",i0)
+  2 format (" None of the partitioning methods available in ParMETIS 4.0.x", &
+            " were able to find a quality partitioning of the grid!")
   !
 end subroutine partition_using_parmetis
 !
