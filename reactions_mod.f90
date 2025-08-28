@@ -7,6 +7,8 @@ module reactions_mod
   use eqn_idx_mod, only : ncs,ntemp,ngamm,ncp,ng
   use eqn_idx_mod, only : ncr
   !
+  use eqn_idx_mod, only : nCO2,nCO,nH2O,nCH4,nC2H4,nN2,nO2,nH2,nOH,nO,nH
+  !
   use thermo_mod, only : runivl_millijoules => runivl
   !
   implicit none
@@ -49,18 +51,8 @@ module reactions_mod
   !
   !
   !
-  integer, save :: nCO2  = 0
-  integer, save :: nCO   = 0
-  integer, save :: nH2O  = 0
-  integer, save :: nCH4  = 0
-  integer, save :: nC2H4 = 0
-  integer, save :: nN2   = 0
-  integer, save :: nO2   = 0
-  !
-  integer, save :: nH2   = 0
-  integer, save :: nOH   = 0
-  integer, save :: nO    = 0
-  integer, save :: nH    = 0
+  ! NOTE: The equation indices for the different chemical species
+  !       was moved to eqn_idx_mod
   !
   ! nHP : Hydrodgen product from CH4 reaction.
   !
@@ -121,38 +113,9 @@ continue
       n_reac_sub_iter = chemistry_sub_iterations
     end if
     !
-    do m = 1,ncs
-      !
-      species = uppercase( trim(adjustl(species_name(m))) )
-      !
-      select case (trim(adjustl(species)))
-        !
-        case ("CO2")
-          nCO2 = m
-        case ("CO")
-          nCO  = m
-        case ("H2O")
-          nH2O = m
-        case ("CH4")
-          nCH4 = m
-        case ("C2H4")
-          nC2H4 = m
-        case ("N2")
-          nN2  = m
-        case ("O2")
-          nO2  = m
-        case ("O")
-          nO   = m
-        case ("H2")
-          nH2  = m
-        case ("H")
-          nH   = m
-        case ("OH")
-          nOH  = m
-          !
-      end select
-      !
-    end do
+    ! NOTE: Creating the equation indices for each species was moved to
+    !       subroutine get_species_indices in eqn_idx_mod which is now
+    !       called in init_thermo_mod.
     !
     if (.not. allocated(nonreacting_species)) then
       allocate ( nonreacting_species(1:ncs) , source=true , &
