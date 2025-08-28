@@ -29,6 +29,7 @@ subroutine initialize_flow()
   use matrix_types_mod, only : matrix
   !
   use geomvar_mod, only : nr,n_solpts,ncell,cell,xyz,grid
+  use geomvar_mod, only : n_global_cell
   !
   use ovar, only : bc_in
   use ovar, only : rhoref,aref,itestcase,jet_init_func
@@ -117,6 +118,12 @@ continue
     !
     call read_restart_file(solution_file)
    !call read_restart_file(solution_file,force_serial_read=true)
+    !
+    if (itestcase == UIUC_Scramjet) then
+      if (n_global_cell == 367344) then
+        call fix_upstream_air_mixture
+      end if
+    end if
     !
     ! Do not initialize the iteration counter, time step,
     ! and elapsed time to that in the restart file.
