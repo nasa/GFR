@@ -31,6 +31,7 @@ module parmetis_mod
   public :: ParMETIS_NodeND
   public :: ParMETIS_V32_NodeND
   public :: ParMETIS_SerialNodeND
+  public :: get_ParMETIS_comm_ranks
   !
   interface
     !===========================================================================
@@ -588,6 +589,32 @@ continue
   !
 #endif
 end subroutine ParMETIS_PartGeomKway
+!
+!###############################################################################
+!
+subroutine get_ParMETIS_comm_ranks(comm,my_rank,num_ranks) 
+  !
+  !.. Use Statements .
+  use _MPI_MODULE_, only : mpi_comm_size
+  use _MPI_MODULE_, only : mpi_comm_rank
+  !
+  !.. Formal Arguments ..
+  _MPI_COMM_TYPE_, intent(in) :: comm
+  integer,      intent(inout) :: my_rank
+  integer,      intent(inout) :: num_ranks
+  !
+continue
+  !
+  ! Get the number of parmetis ranks and the rank of this MPI process
+  ! for this MPI communicator.
+  !
+  call mpi_comm_size(comm,num_pm_ranks,mpierr)
+  num_ranks = int(num_pm_ranks,kind=kind(num_ranks))
+  !
+  call mpi_comm_rank(comm,my_pm_rank,mpierr)
+  my_rank = int(my_pm_rank,kind=kind(my_rank))
+  !
+end subroutine get_ParMETIS_comm_ranks
 !
 !###############################################################################
 !
