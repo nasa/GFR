@@ -1414,6 +1414,126 @@ continue
 end subroutine partition_using_parmetis
 !
 !###############################################################################
+!
+subroutine predistribute_for_parmetis(glb_xadj,glb_adjncy,glb_vwgt,glb_adjwgt, &
+                                      my_xadj,my_adjncy,my_vwgt,my_adjwgt, &
+                                      my_xyz_cc,part_comm)
+  !
+  !.. Use Statements ..
+  use geomvar_mod,  only : nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod,  only : nr,xyz_nodes
+  use parmetis_mod, only : get_ParMETIS_comm_ranks
+  !
+  !.. Formal Arguments ..
+  integer(idx_t),               intent(in) :: glb_xadj(:)
+  integer(idx_t),               intent(in) :: glb_adjncy(:)
+  integer(idx_t), allocatable,  intent(in) :: glb_vwgt(:)
+  integer(idx_t), allocatable,  intent(in) :: glb_adjwgt(:)
+  integer(idx_t), allocatable, intent(out) :: my_xadj(:)
+  integer(idx_t), allocatable, intent(out) :: my_adjncy(:)
+  integer(idx_t), allocatable, intent(out) :: my_vwgt(:)
+  integer(idx_t), allocatable, intent(out) :: my_adjwgt(:)
+  real(real_t),   allocatable, intent(out) :: my_xyz_cc(:,:)
+  _MPI_COMM_TYPE_,              intent(in) :: part_comm
+  !
+  !.. Local Scalars ..
+  integer :: n,nc,i,i1,i2,ip
+  integer :: my_ncell,my_cell_beg,my_cell_end
+  integer :: glb_ncell,num_ranks,my_rank,ncells_per_rank
+  !
+  integer(idx_t) :: my_offset_adjustment
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "predistribute_for_parmetis"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Get the number of MPI processes involved with parallel partitioning.
+  ! Having part_comm as an input to this subroutine allows us to easily
+  ! switch between using all or sonly some of the MPI processes to participate
+  ! in the partitioning process.
+  !
+  call get_ParMETIS_comm_ranks(part_comm,my_rank,num_ranks)
+  !
+  glb_ncell = size(nodes_of_cell_ptr)-1
+  !
+  ! Get the approximate number of cells per rank
+  !
+  ncells_per_rank = glb_ncell/num_ranks
+  !
+  my_cell_beg = my_rank*ncells_per_rank + 1
+  my_cell_end = min( glb_ncell , my_cell_beg + ncells_per_rank-1 )
+  !
+  ! Get the begin and end indices for the global xadj and adjncy arrays
+  !
+  my_ncell = my_cell_end - my_cell_beg + 1
+  !
+  i1 = glb_xadj(my_cell_beg)
+  i2 = glb_xadj(my_cell_end+1)-1
+  ip = i2 - i1 + 1
+  !
+  ! Allocate the localized xadj and adjncy arrays
+  !
+  my_xadj = init_array(my_ncell+1,0_idx_t) ! F2003 AUTO-REALLOC
+  my_adjncy = init_array(ip,0_idx_t) ! F2003 AUTO-REALLOC
+  !
+  ! Reset my_xadj to begin at 1.
+  !   glb_xadj(my_cell_beg+n) - glb_xadj(my_cell_beg)
+  ! takes care of shifting the offset array to get the localized offsets.
+  !   + glb_xadj(1)
+  ! takes care of shifting all of the offsets by either 0 or 1 depending on
+  ! what the starting offset is in glb_xadj
+  !
+  my_offset_adjustment = glb_xadj(1) - glb_xadj(my_cell_beg)
+  do n = 0,my_ncell
+    my_xadj(n+1) = glb_xadj(my_cell_beg+n) + my_offset_adjustment
+  end do
+  !
+  ! Copy the contents of glb_adjncy straight into my_adjncy
+  !
+  my_adjncy(1:ip) = glb_adjncy(i1:i2)
+  !
+  ! Create localized version of vwgt
+  !
+  if (allocated(glb_vwgt)) then
+    my_vwgt = glb_vwgt(my_cell_beg:my_cell_end) ! F2003 AUTO-REALLOC
+  end if
+  !
+  ! Create localized version of adjwgt
+  !
+  if (allocated(glb_adjwgt)) then
+    my_adjwgt = glb_adjwgt(i1:i2) ! F2003 AUTO-REALLOC
+  end if
+  !
+  ! Create an array that contains the cell-center coordinates for each
+  ! cell on this MPI process.
+  !
+  my_xyz_cc = init_array(nr,my_ncell,real(0.0,kind=real_t)) ! F2003 AUTO-REALLOC
+  !
+  nc = 0
+  do n = my_cell_beg,my_cell_end
+    !
+    nc = nc + 1
+    !
+    i1 = nodes_of_cell_ptr(n)+1
+    i2 = nodes_of_cell_ptr(n+1)
+    ip = i2-i1+1
+    !
+    do i = i1,i2
+      my_xyz_cc(1:nr,nc) = my_xyz_cc(1:nr,nc) + &
+                           real(xyz_nodes(1:nr,i),kind=real_t)
+    end do
+    my_xyz_cc(1:nr,nc) = my_xyz_cc(1:nr,nc)/real(ip,kind=real_t)
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine predistribute_for_parmetis
+!
+!###############################################################################
 !> Partition the grid using the METIS 5 library.
 !###############################################################################
 subroutine partition_using_metis_5(metis_option_requested,npart, &
