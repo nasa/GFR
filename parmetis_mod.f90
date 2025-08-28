@@ -351,8 +351,9 @@ module parmetis_mod
   !
   ! Module Scalars
   !
-  integer(int_mpi), save :: my_pm_rank
-  integer(int_mpi), save :: num_pm_ranks
+  integer(int_mpi), public, protected, save :: my_pm_rank
+  integer(int_mpi), public, protected, save :: num_pm_ranks
+  !
   integer(int_mpi), save :: mpierr
   !
   ! Module Allocatable Arrays
