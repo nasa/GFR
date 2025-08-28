@@ -499,9 +499,10 @@ continue
     ! is not available, this will return without modifying epart, in
     ! which case we will attempt to partition the grid with serial METIS.
     !
-   !call partition_using_parmetis(metis_option_requested,npart, &
-   !                              xadj,adjncy,epart,cell_geom,cell_order, &
-   !                              cells_surr_cell,cells_surr_cell_ptr)
+    call partition_using_parmetis(metis_option_requested,npart, &
+                                  xadj,adjncy,epart,cell_geom,cell_order, &
+                                  cells_surr_cell,cells_surr_cell_ptr, &
+                                  host_roots_comm)
     !
     ! Use serial METIS if epart is still all 0.
     !
