@@ -115,7 +115,7 @@ continue
   if (itcur <= ignition_final_timestep) then
     if (itcur >= ignition_first_timestep) then
       !
-      if (itcur == ignition_first_timestep) then
+      if (itcur == ignition_first_timestep .and. .not.ignition_is_on) then
         if (mypnum == glb_root) then
           write (iout,*)
           write (iout,2) 1,(ign_src_loc(i,1)/grid_scaling_factor, i=1,nr)
