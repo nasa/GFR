@@ -10,6 +10,7 @@ module eqn_idx_mod
   ! Public Procedures
   !
   public :: create_equation_indices
+  public :: get_species_indices
   public :: set_reference_coordinate_directions
   public :: set_auxiliary_variable
   public :: aux_var_is_not_gamma
@@ -128,6 +129,33 @@ module eqn_idx_mod
   !$ACC DECLARE CREATE(nenth)
   integer, public, protected, save :: ncp   = 7
   !$ACC DECLARE CREATE(ncp)
+  !
+  !############################################################################
+  ! EQUATION INDICES FOR EACH OF THE POSSIBLE CHEMICAL SPECIES
+  !----------------------------------------------------------------------------
+  integer, public, protected, save :: nCO2  = 0
+  !$ACC DECLARE CREATE(nCO2)
+  integer, public, protected, save :: nCO   = 0
+  !$ACC DECLARE CREATE(nCO)
+  integer, public, protected, save :: nH2O  = 0
+  !$ACC DECLARE CREATE(nH2O)
+  integer, public, protected, save :: nCH4  = 0
+  !$ACC DECLARE CREATE(nCH4)
+  integer, public, protected, save :: nC2H4 = 0
+  !$ACC DECLARE CREATE(nC2H4)
+  integer, public, protected, save :: nN2   = 0
+  !$ACC DECLARE CREATE(nN2)
+  integer, public, protected, save :: nO2   = 0
+  !$ACC DECLARE CREATE(nO2)
+  integer, public, protected, save :: nH2   = 0
+  !$ACC DECLARE CREATE(nH2)
+  integer, public, protected, save :: nOH   = 0
+  !$ACC DECLARE CREATE(nOH)
+  integer, public, protected, save :: nO    = 0
+  !$ACC DECLARE CREATE(nO)
+  integer, public, protected, save :: nH    = 0
+  !$ACC DECLARE CREATE(nH)
+  !############################################################################
   !
   ! NGOV : Equation control parameters
   !
@@ -371,6 +399,63 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine create_equation_indices
+!
+!###############################################################################
+!
+subroutine get_species_indices(species_name)
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: species_name(:)
+  !
+  !.. Local Scalars ..
+  integer :: m
+  character(len=10) :: species
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_species_indices"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  do m = 1,size(species_name)
+    !
+    species = uppercase( trim(adjustl(species_name(m))) )
+    !
+    select case (trim(adjustl(species)))
+      !
+      case ("CO2")
+        nCO2 = m
+      case ("CO")
+        nCO  = m
+      case ("H2O")
+        nH2O = m
+      case ("CH4")
+        nCH4 = m
+      case ("C2H4")
+        nC2H4 = m
+      case ("N2")
+        nN2  = m
+      case ("O2")
+        nO2  = m
+      case ("O")
+        nO   = m
+      case ("H2")
+        nH2  = m
+      case ("H")
+        nH   = m
+      case ("OH")
+        nOH  = m
+        !
+    end select
+    !
+  end do
+  !
+  !$ACC UPDATE DEVICE(nCO2,nCO,nH2O,nCH4,nC2H4,nN2,nO2,nH2,nOH,nO,nH)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_species_indices
 !
 !###############################################################################
 !
