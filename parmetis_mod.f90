@@ -363,6 +363,93 @@ contains
 !
 !###############################################################################
 !
+subroutine ParMETIS_PartGraphKway(nparts,xadj,adjncy,vwgt,adjwgt, &
+                                  edgecut,epart,comm,xyz)
+  !
+  !.. Use Statements ..
+  use, intrinsic :: iso_c_binding, only : c_int
+  !
+  !.. Formal Arguments ..
+  integer(idx_t),              intent(in) :: nparts
+  integer(idx_t),              intent(in) :: xadj(:)
+  integer(idx_t),              intent(in) :: adjncy(:)
+  integer(idx_t), allocatable, intent(in) :: vwgt(:)
+  integer(idx_t), allocatable, intent(in) :: adjwgt(:)
+  integer(idx_t),           intent(inout) :: edgecut
+  integer(idx_t),           intent(inout) :: epart(:)
+  _MPI_COMM_TYPE_,             intent(in) :: comm
+  !
+  !.. Optional Arguments ..
+  real(real_t), optional, intent(in) :: xyz(:,:)
+  !
+  !.. Local Scalars ..
+  integer(c_int) :: ierr
+  integer(idx_t) :: numflag
+  integer(idx_t) :: wgtflag
+  integer(idx_t) :: ncon
+  integer(idx_t) :: ndims
+  integer(idx_t) :: my_ncell
+  !
+  !.. Local Allocatable Arrays ..
+  integer(idx_t), allocatable :: vtxdist(:)
+  integer(idx_t), allocatable :: part(:)
+  real(real_t),   allocatable :: tpwgts(:)
+  real(real_t),   allocatable :: ubvec(:)
+  !
+continue
+#ifdef ENABLE_PARMETIS
+  !
+  numflag = 1_idx_t ! set numbering to Fortran style (begins at 1)
+  !
+  ncon = get_number_of_vertex_weights(xadj,vwgt)
+  !
+  wgtflag = get_weight_flag(vwgt,adjwgt)
+  !
+  options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL,0_idx_t] ! F03 AUTO-REALLOC
+  !
+  my_ncell = size(xadj,kind=idx_t) - 1_idx_t
+  !
+  call create_vtxdist(my_ncell,vtxdist,comm)
+  !
+  call create_partition_weights(nparts,ncon,tpwgts,ubvec)
+  !
+  allocate ( part(1:my_ncell) , source=0_idx_t )
+  !
+  if (present(xyz)) then
+    !
+    ndims = size(xyz,dim=1,kind=idx_t)
+    !
+    ierr = ParMETIS_V3_PartGeomKway_C_Interface(vtxdist, &
+                                                xadj,adjncy,vwgt,adjwgt, &
+                                                wgtflag,numflag,ndims,xyz, &
+                                                ncon,nparts,tpwgts,ubvec, &
+                                                options,edgecut,part, &
+                                                _MPI_TYPE_VAL_(comm))
+    !
+  else
+    !
+    ierr = ParMETIS_V3_PartKway_C_Interface(vtxdist, &
+                                            xadj,adjncy,vwgt,adjwgt, &
+                                            wgtflag,numflag, &
+                                            ncon,nparts,tpwgts,ubvec, &
+                                            options,edgecut,part, &
+                                            _MPI_TYPE_VAL_(comm))
+    !
+  end if
+  !
+  call recombine_global_epart(vtxdist,part,epart,comm)
+  !
+  if (allocated(part   )) deallocate ( part )
+  if (allocated(ubvec  )) deallocate ( ubvec )
+  if (allocated(tpwgts )) deallocate ( tpwgts )
+  if (allocated(vtxdist)) deallocate ( vtxdist )
+  if (allocated(options)) deallocate ( options )
+  !
+#endif
+end subroutine ParMETIS_PartGraphKway
+!
+!###############################################################################
+!
 subroutine ParMETIS_PartKway(nparts,xadj,adjncy,vwgt,adjwgt,edgecut,epart,comm)
   !
   !.. Use Statements ..
