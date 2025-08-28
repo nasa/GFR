@@ -363,31 +363,33 @@ contains
 !
 !###############################################################################
 !
-subroutine ParMETIS_PartKway(vtxdist,xadj,adjncy,vwgt,adjwgt, &
-                             wgtflag,numflag,ncon,nparts, &
-                             tpwgts,ubvec,edgecut,part,comm)
+subroutine ParMETIS_PartKway(nparts,xadj,adjncy,vwgt,adjwgt,edgecut,epart,comm)
   !
   !.. Use Statements ..
   use, intrinsic :: iso_c_binding, only : c_int
   !
   !.. Formal Arguments ..
-  integer(idx_t),    intent(in) :: vtxdist(:)
-  integer(idx_t),    intent(in) :: xadj(:)
-  integer(idx_t),    intent(in) :: adjncy(:)
-  integer(idx_t),    intent(in) :: vwgt(:)
-  integer(idx_t),    intent(in) :: adjwgt(:)
-  integer(idx_t),    intent(in) :: wgtflag
-  integer(idx_t),    intent(in) :: numflag
-  integer(idx_t),    intent(in) :: ncon
-  integer(idx_t),    intent(in) :: nparts
-  real(real_t),      intent(in) :: tpwgts(:)
-  real(real_t),      intent(in) :: ubvec(:)
-  integer(idx_t), intent(inout) :: edgecut
-  integer(idx_t), intent(inout) :: part(:)
-  _MPI_COMM_TYPE_,   intent(in) :: comm
+  integer(idx_t),              intent(in) :: nparts
+  integer(idx_t),              intent(in) :: xadj(:)
+  integer(idx_t),              intent(in) :: adjncy(:)
+  integer(idx_t), allocatable, intent(in) :: vwgt(:)
+  integer(idx_t), allocatable, intent(in) :: adjwgt(:)
+  integer(idx_t),           intent(inout) :: edgecut
+  integer(idx_t),           intent(inout) :: epart(:)
+  _MPI_COMM_TYPE_,             intent(in) :: comm
   !
   !.. Local Scalars ..
   integer(c_int) :: ierr
+  integer(idx_t) :: numflag
+  integer(idx_t) :: wgtflag
+  integer(idx_t) :: ncon
+  integer(idx_t) :: my_ncell
+  !
+  !.. Local Allocatable Arrays ..
+  integer(idx_t), allocatable :: vtxdist(:)
+  integer(idx_t), allocatable :: part(:)
+  real(real_t),   allocatable :: tpwgts(:)
+  real(real_t),   allocatable :: ubvec(:)
   !
 continue
 #ifdef ENABLE_PARMETIS
@@ -408,33 +410,36 @@ end subroutine ParMETIS_PartKway
 !
 !###############################################################################
 !
-subroutine ParMETIS_PartGeomKway(vtxdist,xadj,adjncy,vwgt,adjwgt, &
-                                 wgtflag,numflag,ndims,xyz,ncon,nparts, &
-                                 tpwgts,ubvec,edgecut,part,comm)
+subroutine ParMETIS_PartGeomKway(nparts,xadj,adjncy,vwgt,adjwgt, &
+                                 xyz,edgecut,epart,comm)
   !
   !.. Use Statements ..
   use, intrinsic :: iso_c_binding, only : c_int
   !
   !.. Formal Arguments ..
-  integer(idx_t),    intent(in) :: vtxdist(:)
-  integer(idx_t),    intent(in) :: xadj(:)
-  integer(idx_t),    intent(in) :: adjncy(:)
-  integer(idx_t),    intent(in) :: vwgt(:)
-  integer(idx_t),    intent(in) :: adjwgt(:)
-  integer(idx_t),    intent(in) :: wgtflag
-  integer(idx_t),    intent(in) :: numflag
-  integer(idx_t),    intent(in) :: ndims
-  real(real_t),      intent(in) :: xyz(:)
-  integer(idx_t),    intent(in) :: ncon
-  integer(idx_t),    intent(in) :: nparts
-  real(real_t),      intent(in) :: tpwgts(:)
-  real(real_t),      intent(in) :: ubvec(:)
-  integer(idx_t), intent(inout) :: edgecut
-  integer(idx_t), intent(inout) :: part(:)
-  _MPI_COMM_TYPE_,   intent(in) :: comm
+  integer(idx_t),              intent(in) :: nparts
+  integer(idx_t),              intent(in) :: xadj(:)
+  integer(idx_t),              intent(in) :: adjncy(:)
+  integer(idx_t), allocatable, intent(in) :: vwgt(:)
+  integer(idx_t), allocatable, intent(in) :: adjwgt(:)
+  real(real_t),                intent(in) :: xyz(:,:)
+  integer(idx_t),           intent(inout) :: edgecut
+  integer(idx_t),           intent(inout) :: epart(:)
+  _MPI_COMM_TYPE_,             intent(in) :: comm
   !
   !.. Local Scalars ..
   integer(c_int) :: ierr
+  integer(idx_t) :: numflag
+  integer(idx_t) :: wgtflag
+  integer(idx_t) :: ncon
+  integer(idx_t) :: ndims
+  integer(idx_t) :: my_ncell
+  !
+  !.. Local Allocatable Arrays ..
+  integer(idx_t), allocatable :: vtxdist(:)
+  integer(idx_t), allocatable :: part(:)
+  real(real_t),   allocatable :: tpwgts(:)
+  real(real_t),   allocatable :: ubvec(:)
   !
 continue
 #ifdef ENABLE_PARMETIS
