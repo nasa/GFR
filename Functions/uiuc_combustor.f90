@@ -361,3 +361,119 @@ continue
   end do one_pass_loop
   !
 end function get_uiuc_scramjet_location
+!
+!###############################################################################
+!
+subroutine fix_upstream_air_mixture()
+  !
+  ! This function will test to see if the coordinates specified by xyz are
+  ! located within the injector or cavity regions of the UIUC scramjet
+  ! combustor geometry. The returned value from this function will be:
+  !
+  ! return_value = 
+  !     0 : the xyz coordinates are neither inside the injector or cavity
+  !     1 : the xyz coordinates are inside the injector
+  !     2 : the xyz coordinates are inside the cavity
+  !
+  ! Optional Arguments:
+  !   wall_radius_sensitivity
+  !       this is a way to override the default 'fudge' factor to identify cells
+  !       that might not be fully inside the injector or cavity, but are enough
+  !       of the cell is to warrant it being identified as such. So far, this
+  !       is only used to identify cells within the injector to apply the
+  !       sponge filter to, since we want to be less generous in that situation
+  !       to mark what cells are inside the injector.
+  !
+  !.. Use Statements ..
+  use eqn_idx_mod,   only : NCD_Axial
+  use eqn_idx_mod,   only : nO2,nN2
+  use geomvar_mod,   only : ncell,cell,xyz
+  use ovar,          only : grid_scaling_factor,pv_ref
+  use flowvar_mod,   only : usp
+  !
+  !.. Local Scalars ..
+  integer  :: n,nc,n1,n2
+  real(wp) :: x,xmin,blend,rho_air
+  real(wp) :: yO2_ref,yO2_rst,yO2
+  real(wp) :: yN2_ref,yN2_rst,yN2
+  !
+  !.. Local Parameters ..
+  real(wp), parameter :: inj_inflow_axial_min = 296.8_wp ! [mm]
+  !
+  ! BLEND_END : Axial location just upstream of the injector to end the
+  !             blending so that the mass fractions take the restart values.
+  real(wp), parameter :: blend_end = inj_inflow_axial_min - one ! [mm]
+  ! BLEND_BEG : Axial location upstream of the injector to begin blending
+  !             between the new reference mass fractions and the mass fractions
+  !             from the restart file solution.
+  real(wp), parameter :: blend_beg = blend_end - five ! [mm]
+  ! BLEND_INV : Reciprocal of the length of the blending region
+  real(wp), parameter :: blend_inv = one/abs(blend_end-blend_beg) ! [1/mm]
+  !
+continue
+  !
+  ! Get the reference mass fractions for O2 and N2. We arent using the values
+  ! in pv_ref directly just in case there are any other species with
+  ! nonzero reference mass fractions.
+  !
+  yO2_ref = pv_ref(nO2)/(pv_ref(nO2) + pv_ref(nN2))
+  yN2_ref = one - yO2_ref ! make sure yO2+yN2=1
+  !
+  cell_loop: &
+  do nc = 1,ncell
+    !
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
+    !
+    ! Get the minimum axial location of this cell (with grid scaling removed)
+    !
+    xmin = minval( xyz(NCD_Axial,n1:n2) ) / grid_scaling_factor
+    !
+    ! If the axial location of all the solution points in this cell are beyond
+    ! the end of the blending region, we can just skip this cell since we want
+    ! to keep the restart file mass fractions.
+    !
+    if (xmin > blend_end) cycle cell_loop
+    !
+    do n = n1,n2
+      !
+      ! Get axial location of this sol-pt (with grid scaling removed)
+      !
+      x = xyz(NCD_Axial,n) / grid_scaling_factor
+      !
+      ! Compute the linear blending function based on the axial
+      ! location of this solution point within the blending region
+      !
+      blend = (blend_end-x)*blend_inv
+      !
+      ! Limit the blending function to between 0 and 1
+      !
+      blend = max( min(blend,one) , zero )
+      !
+      ! We only want to redistribute the air (O2+N2) part of the mixture density
+      ! This is in case there are any other species besides O2 and N2 that
+      ! are non-zero within the mixture density at this solution point.
+      !
+      rho_air = usp(n,nO2) + usp(n,nN2)
+      !
+      ! Compute the restart solution O2 and N2 mass fractions
+      ! relative to the air part of the mixture density
+      !
+      yO2_rst = usp(n,nO2)/rho_air
+      yN2_rst = one - yO2_rst ! make sure yO2+yN2=1
+      !
+      ! Compute the blended O2 and N2 mass fractions
+      !
+      yO2 = blend*yO2_ref + (one-blend)*yO2_rst
+      yN2 = one - yO2 ! make sure yO2+yN2=1
+      !
+      ! Recompute the blended O2 and N2 densities
+      !
+      usp(n,nO2) = yO2*rho_air
+      usp(n,nN2) = yN2*rho_air
+      !
+    end do
+    !
+  end do cell_loop
+  !
+end subroutine fix_upstream_air_mixture
