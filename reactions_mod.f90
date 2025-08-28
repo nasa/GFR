@@ -93,8 +93,6 @@ subroutine init_reactions_mod()
   use ovar, only : itestcase
   use ovar, only : chemistry_sub_iterations
   !
-  use thermo_mod, only : species_name
-  !
   !.. Local Scalars ..
   integer :: m,ierr
   !
@@ -215,7 +213,6 @@ subroutine initialize_CH4_6x3_reactions
   !.. Use Statements ..
   use ovar, only : rhoref,aref,tref
   use thermo_mod, only : wtmol
-  use thermo_mod, only : species_name
   !
   !.. Local Scalars ..
   integer  :: i,j,ir,ierr
@@ -445,9 +442,6 @@ end subroutine initialize_CH4_6x3_reactions
 !
 subroutine initialize_CH4_6x3_Vulcan_reactions
   !
-  !.. Use Statements ..
-  use thermo_mod, only : species_name
-  !
   !.. Local Scalars ..
   integer  :: m,ir,ierr
   real(wp) :: c1,c2,c3
@@ -596,9 +590,6 @@ end subroutine initialize_CH4_6x3_Vulcan_reactions
 !###############################################################################
 !
 subroutine initialize_H2_7x7_reactions
-  !
-  !.. Use Statements ..
-  use thermo_mod, only : species_name
   !
   !.. Local Scalars ..
   integer :: m,ir,ierr
@@ -794,9 +785,6 @@ end subroutine initialize_H2_7x7_reactions
 !###############################################################################
 !
 subroutine initialize_Ethylene_7x3_reactions
-  !
-  !.. Use Statements ..
-  use thermo_mod, only : species_name
   !
   !.. Local Scalars ..
   integer :: m,ir,ierr
