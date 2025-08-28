@@ -20,6 +20,7 @@ module parmetis_mod
   !
   private
   !
+  public :: ParMETIS_PartGraphKway
   public :: ParMETIS_PartKway
   public :: ParMETIS_PartGeomKway
   public :: ParMETIS_PartGeom
