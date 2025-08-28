@@ -621,8 +621,6 @@ end subroutine get_ParMETIS_comm_ranks
 subroutine create_vtxdist(my_ncell,vtxdist,comm) 
   !
   !.. Use Statements .
-  use _MPI_MODULE_, only : mpi_comm_size
-  use _MPI_MODULE_, only : mpi_comm_rank
   use _MPI_MODULE_, only : mpi_allgather
   !
   !.. Formal Arguments ..
@@ -637,13 +635,6 @@ subroutine create_vtxdist(my_ncell,vtxdist,comm)
   integer(idx_t), allocatable :: cell_counts(:)
   !
 continue
-  !
-  ! Get the number of parmetis ranks and the rank of this MPI process
-  ! for this MPI communicator.
-  !
-  call mpi_comm_size(comm,num_pm_ranks,mpierr)
-  !
-  call mpi_comm_rank(comm,my_pm_rank,mpierr)
   !
   ! Allocate the temporary cell_counts array
   !
