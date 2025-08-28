@@ -394,9 +394,11 @@ continue
   !
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL,0_idx_t] ! F03 AUTO-REALLOC
   !
-  ierr = ParMETIS_V3_PartKway_C_Interface(vtxdist,xadj,adjncy,vwgt,adjwgt, &
-                                          wgtflag,numflag,ncon,nparts, &
-                                          tpwgts,ubvec,options,edgecut,part, &
+  ierr = ParMETIS_V3_PartKway_C_Interface(vtxdist, &
+                                          xadj,adjncy,vwgt,adjwgt, &
+                                          wgtflag,numflag, &
+                                          ncon,nparts,tpwgts,ubvec, &
+                                          options,edgecut,part, &
                                           _MPI_TYPE_VAL_(comm))
   !
   if (allocated(options)) deallocate ( options )
@@ -439,10 +441,12 @@ continue
   !
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL,0_idx_t] ! F03 AUTO-REALLOC
   !
-  ierr = ParMETIS_V3_PartGeomKway_C_Interface(vtxdist,xadj,adjncy,vwgt,adjwgt, &
-                                 wgtflag,numflag,ndims,xyz,ncon,nparts, &
-                                 tpwgts,ubvec,options,edgecut,part, &
-                                 _MPI_TYPE_VAL_(comm))
+  ierr = ParMETIS_V3_PartGeomKway_C_Interface(vtxdist, &
+                                              xadj,adjncy,vwgt,adjwgt, &
+                                              wgtflag,numflag,ndims,xyz, &
+                                              ncon,nparts,tpwgts,ubvec, &
+                                              options,edgecut,part, &
+                                              _MPI_TYPE_VAL_(comm))
   !
   if (allocated(options)) deallocate ( options )
   !
