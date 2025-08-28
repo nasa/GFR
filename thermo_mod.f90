@@ -162,6 +162,8 @@ subroutine init_thermo_mod(cv,pv,gp)
   use ovar, only : pref_nd,rgasref_nd,cpref_nd
   use ovar, only : bc_input,disable_chemical_reactions
   !
+  use eqn_idx_mod, only : get_species_indices
+  !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: cv(:)
   real(wp), intent(inout) :: pv(:)
@@ -408,6 +410,10 @@ continue
       inert_species_map = [1,2] ! F2003 AUTO REALLOCATION
       !
     end if
+    !
+    ! Create the equation indices for each of the chemical species being used
+    !
+    call get_species_indices(species_name)
     !
     ! Make sure the reference mass fractions sum to 1
     !
