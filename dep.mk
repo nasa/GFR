@@ -613,6 +613,7 @@ $(OBJDIR)/parallel_mod.o : parallel_mod.f90 \
              $(FUNDIR)/last.f90 \
              $(FUNDIR)/debug_timer.f90 \
                        mpi_defs.h
+$(OBJDIR)/parallel_mod.o : OTHERFPP += $(PARMETISFPP)
 
 $(OBJDIR)/parmetis_mod.o : parmetis_mod.f90 \
                  $(OBJDIR)/kind_types_mod.o \

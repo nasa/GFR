@@ -495,6 +495,7 @@ continue
    !  call output_partitions(99,nodes_of_cell,nodes_of_cell_ptr,xyz_nodes)
    !end if
     !
+#ifdef ENABLE_PARMETIS
     ! First attempt to partition the grid using ParMETIS. If ParMETIS
     ! is not available, this will return without modifying epart, in
     ! which case we will attempt to partition the grid with serial METIS.
@@ -503,6 +504,7 @@ continue
                                   xadj,adjncy,epart,cell_geom,cell_order, &
                                   cells_surr_cell,cells_surr_cell_ptr, &
                                   host_roots_comm)
+#endif
     !
     ! Use serial METIS if epart is still all 0.
     !
