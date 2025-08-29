@@ -26,7 +26,7 @@ CSFXFLG = .c
 HDF5LIB  := -lhdf5 -ldl
 CGNSLIB  := -lcgns
 METISLIB := -lmetis
-ifdef PARMETISDIR
+ifeq "$(PARMETISFPP)" "-DENABLE_PARMETIS"
   METISLIB := -lparmetis $(METISLIB)
 endif
 ifdef TECDIR
