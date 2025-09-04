@@ -1957,6 +1957,8 @@ continue
       n = n + 2
     else if (trim(variable_names(l)) == "FilterDissipation") then
       n = n + nq + 1
+    else if (trim(variable_names(l)) == "CellSize") then
+      n = n + 2
     else
       n = n + 1
     end if
@@ -2211,6 +2213,16 @@ continue
       varname = "MarkerCounter"
       call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       !
+    else if (trim(variable_names(k)) == "CellSize") then
+      !
+      n = n + 1
+      varname = "CellVolume"
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
+      n = n + 1
+      varname = "CellLengthScale"
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
     else if (trim(variable_names(k)) == "CoMetrics") then
    !  do m = 1,nr
    !    do i = 1,nr
@@ -2441,7 +2453,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use ovar,        only : moving_ref_frame
   use flowvar_mod, only : dtsp,dt_save,cell_diss,cell_num_marks
   !
-  use metrics_mod, only : time_metrics,metrics_array,jac
+  use metrics_mod, only : time_metrics,metrics_array,jac,wtdjac
   !
   use flowvar_mod,  only : marker,scaled_marker,nmarker
   use limiters_mod, only : resolution_indicator
@@ -4363,6 +4375,42 @@ continue
       !
       call cgns_write_field_data
       !!}}}
+    case ("CellSize")
+      !!{{{
+      allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      ! Compute and output the cell volumes
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do nc = 1,ncell
+        n1 = cell(nc)%beg_sp
+        n2 = cell(nc)%end_sp
+        val = sum( wtdjac(n1:n2) )
+        do n = n1,n2
+          vartmp_at_sp(n) = val
+        end do
+      end do
+      !
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      ! Compute and output the cell edge lengths (vol**(1/3))
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,n_solpts
+        vartmp_at_sp(n) = vartmp_at_sp(n)**one3
+      end do
+      !
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      call cgns_write_field_data
+      !!}}}
     case ("Timestep")
       !!{{{
       nv = nv + 1
@@ -4548,6 +4596,7 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,        only : output_stagnation_pressure
   use ovar,        only : output_stagnation_variables
   use ovar,        only : output_marker_variables
+  use ovar,        only : output_grid_details
   use ovar,        only : output_local_timestep
   use ovar,        only : Resolution_Marker_Variable
   use ovar,        only : Jump_Marker_Variable
@@ -4590,7 +4639,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:58) = ["Density             ", &
+  character(len=*), parameter :: var_order(1:59) = ["Density             ", &
                                                     "Momentum            ", &
                                                     "Energy              ", &
                                                     "Velocity            ", &
@@ -4636,6 +4685,7 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "Timestep            ", &
                                                     "LocalTimestep       ", &
                                                     "Partition           ", &
+                                                    "CellSize            ", &
                                                     "ContraMetrics       ", &
                                                     "TimeMetrics         ", &
                                                     "dTdx_Breakdown      ", &
@@ -4776,6 +4826,11 @@ continue
   !
   if (output_local_timestep) then
     call add_sol_variable(variable_list,"LocalTimestep")
+  end if
+  !
+  if (output_grid_details) then
+    call add_sol_variable(variable_list,"Partition")
+    call add_sol_variable(variable_list,"CellSize")
   end if
   !
   ! Output the marker quantities if requested
