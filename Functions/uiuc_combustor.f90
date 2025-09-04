@@ -252,6 +252,9 @@ function get_uiuc_scramjet_location(xyz,wall_radius_sensitivity) &
   real(wp), parameter :: cavity_sponge_axial  = cavity_axial_min + 0.3_wp ! [mm]
   real(wp), parameter :: cavity_sponge_radius = cavity_radius - 0.045_wp  ! [mm]
   !
+  real(wp), parameter :: backstep_sponge_axial  = cavity_axial_min + 0.05_wp ! [mm]
+  real(wp), parameter :: backstep_sponge_radius = wall_radius + 2.3_wp  ! [mm]
+  !
 continue
   !
   np = size(xyz,dim=2)
@@ -337,19 +340,30 @@ continue
         return_value = 2
         !
         ! This next set of conditionals is a hack for the initial full-length
-        ! 90-degree sector grid created with GridPro. This is to add a few cells
-        ! cavity cells to the sponge filter. This should only catch one layer of
-        ! cells off the cavity outer wall that are adjacent and just downstream
-        ! of the cavity 'backstep' wall. This hack is attempting to prevent
-        ! these particular cells from causing simulations to crash, which they
-        ! have done quite regularly.
+        ! 90-degree sector grid created with GridPro. This is to add a few
+        ! cavity cells to the sponge filter. This should only catch 
+        !   1. one layer of cells off the cavity outer wall that are adjacent to
+        !      and just downstream of the cavity 'backstep' wall
+        !   2. one layer of cells along the upper 80% of the cavity 'backstep' wall
+        ! This hack is attempting to prevent these particular cells from causing
+        ! simulations to crash, which they have done quite regularly.
         !
         if (n_global_cell == 367344) then
+          ! Cells along wall of cavity outer radius near the backstep corner
           if (any(r(:) > cavity_sponge_radius)) then
             if (any(x(:) < cavity_sponge_axial)) then
               return_value = -2
+              exit one_pass_loop
             end if
           end if
+          ! Cells along upper 80% of cavity backstep wall (R > 19.75)
+          if (any(x(:) < backstep_sponge_axial)) then
+            if (any(r(:) > backstep_sponge_radius)) then
+              return_value = -2
+              exit one_pass_loop
+            end if
+          end if
+          !
         end if
         !
         exit one_pass_loop
