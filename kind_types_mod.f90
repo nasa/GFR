@@ -859,12 +859,15 @@ module module_kind_types
   integer, parameter :: IGN_EREF_SPARK = 2
   ! IGN_REACT_TEMP : specified temperature used to compute reaction rates
   integer, parameter :: IGN_REACT_TEMP = 3
+  ! IGN_REACT_PRES : react pressure used to scale species concentrations
+  integer, parameter :: IGN_REACT_PRES = 4
   !
   ! Valid choices for ignition method
-  integer, parameter :: Valid_IGN(1:4) = [IGN_OFF, &
+  integer, parameter :: Valid_IGN(1:5) = [IGN_OFF, &
                                           IGN_DELTA_TEMP, &
                                           IGN_EREF_SPARK, &
-                                          IGN_REACT_TEMP]
+                                          IGN_REACT_TEMP, &
+                                          IGN_REACT_PRES]
   !
   ! Equation Types
   integer, parameter :: Euler_Eqns = 1
