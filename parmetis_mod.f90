@@ -344,15 +344,6 @@ module parmetis_mod
   !
   integer(idx_t), parameter :: PARMETIS_DEBUG_VAL = 0_idx_t
   !
-  ! CREATE_TPWGTS: Logical constant determining whether or not tpwgts and ubvec
-  !                are explicitly allocated before sent as an argument to the
-  !                various parmetis functions. Leaving them deallocated should
-  !                be equivalent to passing a NULL argument which supposedly
-  !                tells parmetis to create equal partitions.
-  !
-  logical, parameter :: create_tpwgts = .false.
- !logical, parameter :: create_tpwgts = .true.
-  !
   ! Module Scalars
   !
   integer(int_mpi), public, protected, save :: my_pm_rank
@@ -755,37 +746,28 @@ subroutine create_partition_weights(nparts,ncon,tpwgts,ubvec)
   !
 continue
   !
-!#ifndef DEBUG_ON
-!  if (create_tpwgts) then
-!#endif
-    !
-    allocate ( tpwgts(1:ncon*nparts) )
-    !
-    tpwgts(:) = 1.0_real_t / real(nparts,kind=real_t)
-    tpwgts(:) = tpwgts(:) / sum(tpwgts(:))
-    !
-    allocate ( ubvec(1:ncon) )
-    !
-    ! The serial METIS manual (v 5.1.0; March 30, 2013; section 5.8 on page 26)
-    ! recommends the values
-    !         1.001   if ncon==1
-    !         1.01    otherwise
-   !ubvec(:) = merge( 1.001_real_t , 1.01_real_t , ncon==1 )
-    !
-    ! The ParMETIS manual (v 4.0; March 30, 2013; section 5.1 on page 16)
-    ! recommends quote:
-    !   "A value of 1.05 for each of the ncon weights is recommended."
-    !
-    if (mms_init > one) then
-      ubvec(:) = real(mms_init,kind=kind(ubvec))
-    else
-      ubvec(:) = 1.05_real_t
-    end if
-   !ubvec(:) = 1.001_real_t
-    !
-!#ifndef DEBUG_ON
-!  end if
-!#endif
+  allocate ( tpwgts(1:ncon*nparts) )
+  !
+  tpwgts(:) = 1.0_real_t / real(nparts,kind=real_t)
+  tpwgts(:) = tpwgts(:) / sum(tpwgts(:))
+  !
+  allocate ( ubvec(1:ncon) )
+  !
+  ! The serial METIS manual (v 5.1.0; March 30, 2013; section 5.8 on page 26)
+  ! recommends the values
+  !         1.001   if ncon==1
+  !         1.01    otherwise
+ !ubvec(:) = merge( 1.001_real_t , 1.01_real_t , ncon==1 )
+  !
+  ! The ParMETIS manual (v 4.0; March 30, 2013; section 5.1 on page 16)
+  ! recommends quote:
+  !   "A value of 1.05 for each of the ncon weights is recommended."
+  !
+  if (mms_init > one) then
+    ubvec(:) = real(mms_init,kind=kind(ubvec))
+  else
+    ubvec(:) = 1.05_real_t
+  end if
   !
 end subroutine create_partition_weights
 !
