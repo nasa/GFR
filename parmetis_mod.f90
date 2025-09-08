@@ -372,7 +372,7 @@ contains
 !
 !###############################################################################
 !
-subroutine ParMETIS_PartGraphKway(metis_option, &
+subroutine ParMETIS_PartGraphKway(metis_option,refine_count, &
                                   nparts,xadj,adjncy,eptr,eidx,vwgt,adjwgt, &
                                   xyz,edgecut,epart,comm)
   !
@@ -381,6 +381,7 @@ subroutine ParMETIS_PartGraphKway(metis_option, &
   !
   !.. Formal Arguments ..
   integer,                     intent(in) :: metis_option
+  integer,                     intent(in) :: refine_count
   integer(idx_t),              intent(in) :: nparts
   integer(idx_t),              intent(in) :: xadj(:)
   integer(idx_t),              intent(in) :: adjncy(:)
@@ -394,6 +395,7 @@ subroutine ParMETIS_PartGraphKway(metis_option, &
   _MPI_COMM_TYPE_,             intent(in) :: comm
   !
   !.. Local Scalars ..
+  integer        :: n
   integer(c_int) :: ierr
   integer(idx_t) :: numflag
   integer(idx_t) :: wgtflag
@@ -460,6 +462,21 @@ continue
                                             _MPI_TYPE_VAL_(comm))
     !
   end if
+  !
+  options = [ options(1:3) , PARMETIS_PSR_UNCOUPLED ] ! F2003 AUTO-REALLOC
+  !
+  do n = 1,refine_count
+    !
+    ierr = ParMETIS_V3_RefineKway_C_Interface(vtxdist, &
+                                              xadj,adjncy,vwgt,adjwgt, &
+                                              wgtflag,numflag, &
+                                              ncon,nparts,tpwgts,ubvec, &
+                                              options,edgecut,part, &
+                                              _MPI_TYPE_VAL_(comm))
+    !
+    part(:) = part(:) - 1_idx_t
+    !
+  end do
   !
   call recombine_global_epart(vtxdist,part,epart,comm)
   !

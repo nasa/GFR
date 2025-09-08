@@ -1114,7 +1114,7 @@ continue
   ! One-pass loop to allow for easy error handling if none of the
   ! partitioning methods produce a quality grid partitioning
   !
-  part_loop: do refine_count = 1,1
+  part_loop: do refine_count = 0,2
     !
     do n = 1,size(metis_option_hierarchy)
       !
@@ -1137,7 +1137,7 @@ continue
       ! Partition the grid using ParMETIS
       !
       call debug_timer(start_timer,timer_message)
-      call ParMETIS_PartGraphKway(metis_option, &
+      call ParMETIS_PartGraphKway(metis_option,refine_count, &
                                   nparts,xadj,adjncy,eptr,eidx,vwgt,adjwgt, &
                                   xyz_cc,edgecut,epart,part_comm)
       call debug_timer(stop_timer,timer_message)
