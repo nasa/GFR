@@ -1354,7 +1354,7 @@ subroutine predistribute_for_parmetis(glb_ncell,glb_xadj,glb_adjncy, &
   _MPI_COMM_TYPE_,              intent(in) :: part_comm
   !
   !.. Local Scalars ..
-  integer :: n,nc,i,i1,i2,ip
+  integer :: n,nc,i,ii,i1,i2,ip
   integer :: my_ncell,my_cell_beg,my_cell_end
   integer :: num_ranks,my_rank,ncells_per_rank
   !
@@ -1437,8 +1437,9 @@ continue
     ip = i2-i1+1
     !
     do i = i1,i2
+      ii = nodes_of_cell(i)
       my_xyz_cc(1:nr,nc) = my_xyz_cc(1:nr,nc) + &
-                           real(xyz_nodes(1:nr,i),kind=real_t)
+                           real(xyz_nodes(1:nr,ii),kind=real_t)
     end do
     my_xyz_cc(1:nr,nc) = my_xyz_cc(1:nr,nc)/real(ip,kind=real_t)
     !
