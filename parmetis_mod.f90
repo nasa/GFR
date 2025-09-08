@@ -372,16 +372,20 @@ contains
 !
 !###############################################################################
 !
-subroutine ParMETIS_PartGraphKway(nparts,xadj,adjncy,vwgt,adjwgt, &
+subroutine ParMETIS_PartGraphKway(metis_option, &
+                                  nparts,xadj,adjncy,eptr,eidx,vwgt,adjwgt, &
                                   edgecut,epart,comm,xyz)
   !
   !.. Use Statements ..
   use, intrinsic :: iso_c_binding, only : c_int
   !
   !.. Formal Arguments ..
+  integer,                     intent(in) :: metis_option
   integer(idx_t),              intent(in) :: nparts
   integer(idx_t),              intent(in) :: xadj(:)
   integer(idx_t),              intent(in) :: adjncy(:)
+  integer(idx_t),              intent(in) :: eptr(:)
+  integer(idx_t),              intent(in) :: eidx(:)
   integer(idx_t), allocatable, intent(in) :: vwgt(:)
   integer(idx_t), allocatable, intent(in) :: adjwgt(:)
   integer(idx_t),           intent(inout) :: edgecut
@@ -398,6 +402,7 @@ subroutine ParMETIS_PartGraphKway(nparts,xadj,adjncy,vwgt,adjwgt, &
   integer(idx_t) :: ncon
   integer(idx_t) :: ndims
   integer(idx_t) :: my_ncell
+  integer(idx_t) :: ncommonnodes
   !
   !.. Local Allocatable Arrays ..
   integer(idx_t), allocatable :: vtxdist(:)
@@ -424,7 +429,8 @@ continue
   !
   allocate ( part(1:my_ncell) , source=0_idx_t )
   !
-  if (present(xyz)) then
+  !
+  if (any(metis_option == [1,6])) then
     !
     ndims = size(xyz,dim=1,kind=idx_t)
     !
@@ -435,6 +441,17 @@ continue
                                                 options,edgecut,part, &
                                                 _MPI_TYPE_VAL_(comm))
     !
+  else if (any(metis_option == [2,5])) then
+    !
+    ncommonnodes = 3_idx_t
+   !ncommonnodes = 4_idx_t
+    !
+    ierr = ParMETIS_V3_PartMeshKway_C_Interface(vtxdist,eptr,eidx,vwgt, &
+                                                wgtflag,numflag,ncon, &
+                                                ncommonnodes,nparts, &
+                                                tpwgts,ubvec, &
+                                                options,edgecut,part, &
+                                                _MPI_TYPE_VAL_(comm))
   else
     !
     ierr = ParMETIS_V3_PartKway_C_Interface(vtxdist, &

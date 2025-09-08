@@ -1137,7 +1137,8 @@ continue
       ! Partition the grid using ParMETIS
       !
       call debug_timer(start_timer,timer_message)
-      call ParMETIS_PartGraphKway(nparts,xadj,adjncy,vwgt,adjwgt, &
+      call ParMETIS_PartGraphKway(metis_option, &
+                                  nparts,xadj,adjncy,eptr,eidx,vwgt,adjwgt, &
                                   edgecut,epart,part_comm,xyz_cc)
       call debug_timer(stop_timer,timer_message)
       !
