@@ -404,11 +404,18 @@ subroutine ParMETIS_PartGraphKway(metis_option,refine_count, &
   integer(idx_t) :: my_ncell
   integer(idx_t) :: ncommonnodes
   !
+  !.. Local Automatic Arrays ..
+  integer :: date(1:8)
+  !
   !.. Local Allocatable Arrays ..
   integer(idx_t), allocatable :: vtxdist(:)
   integer(idx_t), allocatable :: part(:)
   real(real_t),   allocatable :: tpwgts(:)
   real(real_t),   allocatable :: ubvec(:)
+  !
+  !.. Local Parameters ..
+ !logical, parameter :: modify_random_seed = .false.
+  logical, parameter :: modify_random_seed = .true.
   !
 continue
 #ifdef ENABLE_PARMETIS
@@ -420,6 +427,13 @@ continue
   wgtflag = get_weight_flag(vwgt,adjwgt)
   !
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL,0_idx_t] ! F03 AUTO-REALLOC
+  !
+  if (modify_random_seed) then
+    call date_and_time( values=date )
+    options(3) = int( date(8) , kind=idx_t )
+  end if
+  !
+  options(1) = merge(0_idx_t,1_idx_t,all(options(2:3)==0_idx_t))
   !
   my_ncell = size(xadj,kind=idx_t) - 1_idx_t
   !
@@ -472,6 +486,11 @@ continue
   options = [ options(1:3) , PARMETIS_PSR_UNCOUPLED ] ! F2003 AUTO-REALLOC
   !
   do n = 1,refine_count
+    !
+    if (modify_random_seed) then
+      call date_and_time( values=date )
+      options(3) = int( date(8) , kind=idx_t )
+    end if
     !
     ierr = ParMETIS_V3_RefineKway_C_Interface(vtxdist, &
                                               xadj,adjncy,vwgt,adjwgt, &
