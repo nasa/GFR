@@ -3,7 +3,7 @@ module ignition_mod
   !.. Use Statements ..
   use module_kind_types
   !
-  use eqn_idx_mod, only : nec,nee,ntemp,ncp
+  use eqn_idx_mod, only : nec,nee,npres,ntemp,ncp
   !
   implicit none
   !
@@ -755,6 +755,135 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_ignition_source_reactmb
+!
+!###############################################################################
+!
+subroutine compute_ignition_pressure_scaling(n1,n2,gp,sc_pscale)
+  !
+  !======================================================================
+  !
+  !   Ignition method based on scaling the species concentrations used
+  !   to compute the reaction source terms to achieve a specified reaction
+  !   pressure. The argument sc_pscale will returned the scaling value
+  !   needed for multiplying the species concentrations to implicitly
+  !   set the reaction pressure.
+  !
+  !======================================================================
+  !
+  !.. Use Statements ..
+  use eqn_idx_mod, only : NCD_Axial
+  use geomvar_mod, only : nr,xyz
+  use ovar,        only : pref_nd
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: gp(:,:)
+  real(wp), intent(inout) :: sc_pscale(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,n
+  real(wp) :: r,min_val_pscale,max_val_pscale
+  real(wp) :: min_lim_pscale,max_lim_pscale
+  !
+  logical(lk), save :: this_is_first_output = true
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_ignition_pressure_scaling"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Set limits on the scaling of the species concentrations
+  !
+  min_lim_pscale = one
+  max_lim_pscale = ign_src_mag/pref_nd
+  !
+  if (ign_src_loc(NCD_Axial,1) < -ten3) then
+    !
+    ! If the axial location of the source term is VERY negative,
+    ! apply the ignition to all points
+    !
+    do n = n1,n2
+      !
+      if (gp(n,npres) > zero) then
+        sc_pscale(n) = max( min_lim_pscale, &
+                            min(max_lim_pscale,ign_src_mag/gp(n,npres)) )
+      end if
+      !
+      ! If the current temperature is greater than or equal to the ignition max
+      ! temperature, mark that the ignition max temperature has been reached to
+      ! begin the countdown of the ignition duration.
+      !
+      if (gp(n,ntemp) >= ign_max_temp) then
+        ignition_reached_max_temp = true
+      end if
+      !
+    end do
+    !
+  else
+    !
+    ! If the axial location is not very negative, only apply the ignition
+    ! to points within the ignition source radius
+    !
+    do n = n1,n2
+      !
+      r = norm2(xyz(1:nr,n)-ign_src_loc(1:nr,1))
+      do i = 2,size(ign_src_loc,dim=2)
+        r = min( r , norm2(xyz(1:nr,n)-ign_src_loc(1:nr,i)) )
+      end do
+      !
+      if (r <= ign_src_radius) then
+        if (gp(n,npres) > zero) then
+          sc_pscale(n) = max( min_lim_pscale, &
+                              min(max_lim_pscale,ign_src_mag/gp(n,npres)) )
+        end if
+      end if
+      !
+      ! If the current temperature is greater than or equal to the ignition max
+      ! temperature, mark that the ignition max temperature has been reached to
+      ! begin the countdown of the ignition duration.
+      !
+      if (gp(n,ntemp) >= ign_max_temp) then
+        ignition_reached_max_temp = true
+      end if
+      !
+    end do
+    !
+  end if
+  !
+  if (this_is_first_output) then
+    !
+    this_is_first_output = fals
+    !
+    min_val_pscale = huge(zero)
+    max_val_pscale = -huge(zero)
+    !
+    do n = n1,n2
+      min_val_pscale = min( min_val_pscale , sc_pscale(n) )
+      max_val_pscale = max( max_val_pscale , sc_pscale(n) )
+    end do
+    !
+    call mpi_allreduce(MPI_IN_PLACE,min_val_pscale,1_int_mpi,mpi_flttyp, &
+                       MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call mpi_allreduce(MPI_IN_PLACE,max_val_pscale,1_int_mpi,mpi_flttyp, &
+                       MPI_MAX,MPI_COMM_WORLD,mpierr)
+    !
+    if (mypnum == glb_root) then
+      write (iout,1) "min_lim_pscale",min_lim_pscale, &
+                     "max_lim_pscale",max_lim_pscale, &
+                     "min_val_pscale",min_val_pscale, &
+                     "max_val_pscale",max_val_pscale
+      flush (iout)
+    end if
+    flush (iout)
+    !
+  end if
+  1 format (//,4(2x,a," = ",f16.8,/),/)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_ignition_pressure_scaling
 !
 !###############################################################################
 !
