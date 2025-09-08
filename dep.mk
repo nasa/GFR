@@ -618,6 +618,7 @@ $(OBJDIR)/parallel_mod.o : OTHERFPP += $(PARMETISFPP)
 
 $(OBJDIR)/parmetis_mod.o : parmetis_mod.f90 \
                  $(OBJDIR)/kind_types_mod.o \
+                 $(OBJDIR)/ovar_mod.o \
                  $(OBJDIR)/metis_mod.o
 $(OBJDIR)/parmetis_mod.o : OTHERFPP += $(PARMETISFPP)
 

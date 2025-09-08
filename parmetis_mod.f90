@@ -2,7 +2,7 @@ module parmetis_mod
   !
 #include <mpi_defs.h>
   !
-  use module_kind_types, only : INT_MPI
+  use module_kind_types, only : INT_MPI,one
   !
 #ifdef USE_MPI_F08
   use _MPI_MODULE_, only : MPI_COMM
@@ -744,6 +744,9 @@ end subroutine recombine_global_epart
 !
 subroutine create_partition_weights(nparts,ncon,tpwgts,ubvec) 
   !
+  !.. Use Statements ..
+  use ovar, only : mms_init
+  !
   !.. Formal Arguments ..
   integer(idx_t),             intent(in) :: nparts
   integer(idx_t),             intent(in) :: ncon
@@ -752,11 +755,14 @@ subroutine create_partition_weights(nparts,ncon,tpwgts,ubvec)
   !
 continue
   !
-  if (create_tpwgts) then
+!#ifndef DEBUG_ON
+!  if (create_tpwgts) then
+!#endif
     !
     allocate ( tpwgts(1:ncon*nparts) )
     !
     tpwgts(:) = 1.0_real_t / real(nparts,kind=real_t)
+    tpwgts(:) = tpwgts(:) / sum(tpwgts(:))
     !
     allocate ( ubvec(1:ncon) )
     !
@@ -769,9 +775,17 @@ continue
     ! The ParMETIS manual (v 4.0; March 30, 2013; section 5.1 on page 16)
     ! recommends quote:
     !   "A value of 1.05 for each of the ncon weights is recommended."
-    ubvec(:) = 1.05_real_t
     !
-  end if
+    if (mms_init > one) then
+      ubvec(:) = real(mms_init,kind=kind(ubvec))
+    else
+      ubvec(:) = 1.05_real_t
+    end if
+   !ubvec(:) = 1.001_real_t
+    !
+!#ifndef DEBUG_ON
+!  end if
+!#endif
   !
 end subroutine create_partition_weights
 !
