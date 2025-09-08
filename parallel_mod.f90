@@ -2589,11 +2589,11 @@ subroutine check_quality_of_partitioning(nparts,epart, &
                                          contiguity_setting,metis_option)
   !
   !.. Formal Arguments ..
-  integer,        intent(in) :: nparts
-  integer(idx_t), intent(in) :: epart(:)
-  logical(ldk),  intent(out) :: passes_inspection
-  integer,        intent(in) :: cells_surr_cell(:)
-  integer,        intent(in) :: cells_surr_cell_ptr(:)
+  integer,           intent(in) :: nparts
+  integer(idx_t), intent(inout) :: epart(:)
+  logical(ldk),     intent(out) :: passes_inspection
+  integer,           intent(in) :: cells_surr_cell(:)
+  integer,           intent(in) :: cells_surr_cell_ptr(:)
   !
   !.. Optional Arguments ..
   integer(idx_t), optional, intent(in) :: contiguity_setting
@@ -2601,6 +2601,7 @@ subroutine check_quality_of_partitioning(nparts,epart, &
   !
   !.. Local Scalars ..
   integer :: n,nc,l,lcell,ierr
+  integer :: emin,emax,ecnt,icnt
   !
   logical(lk) :: check_contiguity
   logical(lk) :: partitioned_using_parmetis
@@ -2609,70 +2610,163 @@ subroutine check_quality_of_partitioning(nparts,epart, &
   !
   !.. Local Allocatable Arrays ..
   logical(lk), allocatable :: msk(:)
+  integer,     allocatable :: ecounts(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_quality_of_partitioning"
+  !
+  ! NONCONTIGUOUS_LIMIT : gives the unacceptable limit for the percent of
+  !                       all partitions that are noncontinguous
+  real(wp), parameter :: noncontiguous_limit = half
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
   !
-#ifdef DEBUG_ON
-  check_contiguity = fals
-  partitioned_using_parmetis = fals
-#else
   check_contiguity = true
   partitioned_using_parmetis = fals
   if (present(contiguity_setting)) then
-    check_contiguity = (contiguity_setting < 1_idx_t)
+   !check_contiguity = (contiguity_setting < 1_idx_t)
     if (contiguity_setting < 0_idx_t) then
       partitioned_using_parmetis = true
     end if
+  end if
+  !
+#ifdef DEBUG_ON
+  ! Disable checking for contiguity if debugging and using serial METIS
+  if (.not. partitioned_using_parmetis) then
+    check_contiguity = fals
   end if
 #endif
   !
   passes_inspection = .true.
   !
-  ! Check that all processors got part of the global grid
+  ! Create a counter array to see how many total partitions were created
   !
-  do n = 1,nparts
-    if (any(epart == n)) cycle
-    if (mypnum == glb_root) then
-      write (iout,1) "ERROR! "
-      write (iout,100) n
-      write (iout,2)
-    end if
-    passes_inspection = .false.
-   !call stop_gfr(abort,pname,__LINE__,__FILE__)
+  emin = min( 1      , minval(epart,dim=1) )
+  emax = max( nparts , maxval(epart,dim=1) )
+  !
+  allocate ( ecounts(emin:emax) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ecounts",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Mark each partition with the value 1 if an element has been assigned to it
+  !
+  do nc = 1,size(epart)
+    ecounts(epart(nc)) = 1
   end do
-  if (mypnum == glb_root) then
-    if (.not. passes_inspection) then
-      if (present(metis_option)) then
-        write (fname,"('epart.',i0,'.dat')") metis_option
-      else
-        fname = "epart.dat"
+  !
+  ! Count the total number of partitions that were assigned at least one cell
+  !
+  ecnt = count(ecounts(:) == 1)
+  !
+  ! If the number of partitions that were assigned at least one cell is
+  ! not equal to the number of partitions requested, we need to identify
+  ! the partitions that were not assigned any cells and mark this partitioning
+  ! as failing the inspection.
+  !
+  if (ecnt /= nparts) then
+    !
+    ! Loop over all the partitions and write out an error statement for
+    ! any partitions that were not assigned any cells
+    !
+    do n = 1,nparts
+      if (any(epart == n)) cycle
+      if (mypnum == glb_root) then
+        write (iout,1) "ERROR! "
+        write (iout,100) n
+        write (iout,2)
       end if
-      open (newunit=n,file=fname,status="replace",action="write",iostat=ierr)
-      do nc = 1,size(epart)
-        write (n,982) nc,epart(nc)
-      end do
-      write (n,"(80('#'))")
-      do nc = 1,nparts
-        write (n,983) nc,count(epart==nc)
-      end do
-      close (n,iostat=ierr)
-      982 format (i8,4x,i6)
-      983 format (i6,4x,i8)
+      passes_inspection = .false.
+    end do
+    !
+    ! If any partitions were not assigned any cells, have the
+    ! global root process write out the partitioning to a file.
+    !
+    if (mypnum == glb_root) then
+      if (.not. passes_inspection) then
+        if (present(metis_option)) then
+          write (fname,"('epart.',i0,'.dat')") metis_option
+        else
+          fname = "epart.dat"
+        end if
+        open (newunit=n,file=fname, &
+                        status="replace",action="write",iostat=ierr)
+        do nc = 1,size(epart)
+          write (n,982) nc,epart(nc)
+        end do
+        write (n,"(80('#'))")
+        ecnt = 0
+        do nc = emin,emax
+          icnt = count(epart==nc)
+          if (icnt > 0) ecnt = ecnt + 1
+          write (n,983) nc,icnt
+        end do
+        write (n,984) ecnt
+        close (n,iostat=ierr)
+        982 format (i8,4x,i6)
+        983 format (i6,4x,i8)
+        984 format (/,80("-"),/,i6," partitions with 1 or more cells")
+      end if
     end if
+    !
+  else
+    !
+    ! Reshuffle the partition numbers in epart so they range from 1 to npart
+    !
+    ecnt = 0
+    do n = emin,emax
+      if (ecounts(n) > 0) then
+        ecnt = ecnt + 1
+        ecounts(n) = ecnt
+      end if
+    end do
+    !
+    do nc = 1,size(epart)
+      n = epart(nc)
+      epart(nc) = ecounts(n)
+    end do
+    !
+    ! Loop over the partitions to make sure each partition was assigned at
+    ! least one cell.
+    !
+    do n = 1,nparts
+      if (any(epart == n)) cycle
+      if (mypnum == glb_root) then
+        write (iout,1) "ERROR! "
+        write (iout,100) n
+        write (iout,2)
+      end if
+      passes_inspection = .false.
+    end do
+    if (mypnum == glb_root) then
+      if (.not. passes_inspection) then
+        if (present(metis_option)) then
+          write (fname,"('epart.',i0,'.dat')") metis_option+10
+        else
+          fname = "epart.dat"
+        end if
+        open (newunit=n,file=fname, &
+                        status="replace",action="write",iostat=ierr)
+        do nc = 1,size(epart)
+          write (n,982) nc,epart(nc)
+        end do
+        write (n,"(80('#'))")
+        ecnt = 0
+        do nc = emin,emax
+          icnt = count(epart==nc)
+          if (icnt > 0) ecnt = ecnt + 1
+          write (n,983) nc,icnt
+        end do
+        write (n,984) ecnt
+        close (n,iostat=ierr)
+      end if
+    end if
+    !
   end if
   !
   !############################################################################
   !###        Check to make sure that all partitions are contiguous.        ###
   !############################################################################
-  !
-  ! NOTE: METIS 5 ALLOWS FOR ENFORCING CONTIGUOUS PARTITIONS THROUGH ITS OPTIONS
-  !       INPUT ARGUMENT. CHECK_CONTIGUITY WILL ONLY BE FALSE IF USING METIS 5
-  !       AND THE OPTIONAL ARGUMENT CONTIGUITY_SETTING IS > 0.
   !
   if (passes_inspection .and. check_contiguity) then
     !
@@ -2681,6 +2775,10 @@ continue
     allocate ( msk(1:lcell) , source=true , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
     !
+    if (allocated(ecounts)) deallocate ( ecounts )
+    ecounts = init_array(nparts,0) ! F2003 AUTO-REALLOC
+    !
+    icnt = 0
     do n = 1,nparts
       !
       nc = 0
@@ -2709,23 +2807,33 @@ continue
       ! the case, the partition is not contiguous.
       !
       if (.not. all(msk(1:lcell))) then
-        if (partitioned_using_parmetis) then
-          if (mypnum == glb_root) then
-            write (iout,1) "WARNING!"
-            write (iout,102) n
-            write (iout,2)
-          end if
-        else
-          if (mypnum == glb_root) then
-            write (iout,1) "ERROR! "
-            write (iout,101) n
-            write (iout,2)
-          end if
-          passes_inspection = .false.
-        end if
+        icnt = icnt + 1
+        ecounts(icnt) = n
       end if
       !
     end do
+    !
+    ! If the percentage of non-contiguous paritions is greater than
+    ! noncontiguous_limit, write out an error message and mark this
+    ! partitioning as failing inspection. Otherwise, write out a
+    ! warning message with the total number of non-contiguous partitions
+    ! and list the partitions.
+    !
+    if (mypnum == glb_root) then
+      if (icnt > 0) then
+        if (real(icnt)/real(nparts) > noncontiguous_limit) then
+          write (iout,1) "ERROR!"
+          write (iout,102) icnt,ten2*noncontiguous_limit
+          passes_inspection = .false.
+        else
+          write (iout,1) "WARNING!"
+          write (iout,101) icnt,(ecounts(n),n=1,icnt)
+        end if
+        write (iout,2)
+      end if
+      flush (iout)
+    end if
+    flush (iout)
     !
     deallocate ( msk , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
@@ -2745,15 +2853,22 @@ continue
               ' of the elements. More than likely too many processors',/, &
               ' were used in the paritioning of this mesh.',/, &
               ' Please decrease number of processors and try again.')
-  101 format (' The partition created by METIS for processor ',i0, &
-              ' appears to not be contiguous. More than likely too many',/, &
-              ' processors were used in the paritioning of this mesh.  ',/, &
-              ' Please decrease number of processors and try again.')
-  102 format (' The partition created by ParMETIS for processor ',i0, &
-              ' appears to not be contiguous. More than likely too many',/, &
-              ' processors were used in the paritioning of this mesh.',/, &
-              ' This is only a WARNING since ParMETIS does not provide',/, &
-              ' the option to enforce contiguous partitions.')
+  101 format (8x,'The partitioning created by ParMETIS appears to contain',/, &
+              8x,'          ',i0,' non-contiguous partitions!',/, &
+              8x,'More than likely too many processors were used in the',/, &
+              8x,'paritioning of this mesh. This is only a WARNING since',/, &
+              8x,'since ParMETIS does not provide the option to enforce',/, &
+              8x,'contiguous partitions. Non-contiguous partitions are:',/, &
+              70("-"),/,1000(2x,6(i8,:,", "),/))
+  102 format (8x,'The partitioning created by ParMETIS appears to contain',/, &
+              8x,'          ',i0,' non-contiguous partitions!',/, &
+              8x,'More than likely too many processors were used in the',/, &
+              8x,'paritioning of this mesh and ParMETIS does not provide',/, &
+              8x,'the option to enforce contiguous partitions.',/, &
+              8x,'This is being treated as an ERROR since the number of',/, &
+              8x,'non-contiguous partitions is greater than ', &
+                  f4.1,'% of the',/, &
+              8x,'total number of partitions being created.')
   !
 end subroutine check_quality_of_partitioning
 !
