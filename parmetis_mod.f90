@@ -33,6 +33,8 @@ module parmetis_mod
   public :: ParMETIS_SerialNodeND
   public :: get_ParMETIS_comm_ranks
   !
+  public :: pm_mpi_inttyp
+  !
   interface
     !===========================================================================
     !===========================================================================
