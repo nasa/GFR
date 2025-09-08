@@ -424,7 +424,12 @@ continue
   !
   ncon = get_number_of_vertex_weights(xadj,vwgt)
   !
-  wgtflag = get_weight_flag(vwgt,adjwgt)
+  if (metis_option > 3) then
+    wgtflag = 2_idx_t
+  else
+    wgtflag = 0_idx_t
+  end if
+ !wgtflag = get_weight_flag(vwgt,adjwgt)
   !
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL,0_idx_t] ! F03 AUTO-REALLOC
   !
