@@ -600,6 +600,7 @@ $(OBJDIR)/parallel_mod.o : parallel_mod.f90 \
              $(OBJDIR)/kind_types_mod.o \
              $(OBJDIR)/eqn_idx_mod.o \
              $(OBJDIR)/metis_mod.o \
+             $(OBJDIR)/parmetis_mod.o \
              $(OBJDIR)/geomvar_mod.o \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/order_mod.o \
