@@ -499,6 +499,7 @@ continue
     call partition_using_parmetis(requested_metis_option,npart, &
                                   epart,cell_geom,cell_order, &
                                   cells_surr_cell,cells_surr_cell_ptr, &
+                                  nodes_of_cell,nodes_of_cell_ptr, &
                                   host_roots_comm)
 #endif
     !
@@ -1021,6 +1022,7 @@ end subroutine partition_into_quarters
 subroutine partition_using_parmetis(metis_option_requested,npart, &
                                     epart,cell_geom,cell_order, &
                                     cells_surr_cell,cells_surr_cell_ptr, &
+                                    nodes_of_cell,nodes_of_cell_ptr, &
                                     part_comm)
   !
   !.. Use Statements ..
@@ -1034,6 +1036,8 @@ subroutine partition_using_parmetis(metis_option_requested,npart, &
   integer,           intent(in) :: cell_order(:)
   integer,           intent(in) :: cells_surr_cell(:)
   integer,           intent(in) :: cells_surr_cell_ptr(:)
+  integer,           intent(in) :: nodes_of_cell(:)
+  integer,           intent(in) :: nodes_of_cell_ptr(:)
   _MPI_COMM_TYPE_,   intent(in) :: part_comm
   !
   !.. Local Scalars ..
