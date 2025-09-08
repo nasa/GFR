@@ -956,7 +956,8 @@ continue
     !
     sc_pscale = init_array(n_solpts,one) ! F2003 AUTO-REALLOC
     !
-    call compute_ignition_source_term(n1,n2,usp,gpsp,residual,react_temp, &
+    call compute_ignition_source_term(n1,n2,usp,gpsp,residual, &
+                                      react_temp,sc_pscale, &
                                       reactant_species_list, &
                                       product_species_list)
     !

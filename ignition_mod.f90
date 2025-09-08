@@ -37,7 +37,8 @@ contains
 !
 !###############################################################################
 !
-subroutine compute_ignition_source_term(n1,n2,cv,gp,residual,react_temp, &
+subroutine compute_ignition_source_term(n1,n2,cv,gp,residual, &
+                                        react_temp,sc_pscale, &
                                         reactant_species_list, &
                                         product_species_list)
   !
@@ -50,6 +51,7 @@ subroutine compute_ignition_source_term(n1,n2,cv,gp,residual,react_temp, &
   real(wp),    intent(in) :: gp(:,:)
   real(wp), intent(inout) :: residual(:,:)
   real(wp), intent(inout) :: react_temp(:)
+  real(wp), intent(inout) :: sc_pscale(:)
   integer,     intent(in) :: reactant_species_list(:)
   integer,     intent(in) :: product_species_list(:)
   !
@@ -71,6 +73,11 @@ continue
     react_temp(n) = gp(n,ntemp)
   end do
   !
+  ! Set the species concentration pressure scaling to one so by default
+  ! it doesnt do anything when multiplied to the species concentrations.
+  !
+  sc_pscale(:) = one
+  !
   ! Compute the ignition source term or reaction temperature
   !
   if (ignition_is_on) then
@@ -81,6 +88,8 @@ continue
       call compute_ignition_source_eref(n1,n2,gp,residual)
     else if (ignition_method == IGN_REACT_TEMP) then
       call compute_ignition_source_reactmb(n1,n2,gp,react_temp)
+    else if (ignition_method == IGN_REACT_PRES) then
+      call compute_ignition_pressure_scaling(n1,n2,gp,sc_pscale)
     end if
     !
     ! Check to see if any of the ignition success criteria have been met
