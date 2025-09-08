@@ -380,19 +380,19 @@ subroutine ParMETIS_PartGraphKway(metis_option,refine_count, &
   use, intrinsic :: iso_c_binding, only : c_int
   !
   !.. Formal Arguments ..
-  integer,                     intent(in) :: metis_option
-  integer,                     intent(in) :: refine_count
-  integer(idx_t),              intent(in) :: nparts
-  integer(idx_t),              intent(in) :: xadj(:)
-  integer(idx_t),              intent(in) :: adjncy(:)
-  integer(idx_t),              intent(in) :: eptr(:)
-  integer(idx_t),              intent(in) :: eidx(:)
-  integer(idx_t), allocatable, intent(in) :: vwgt(:)
-  integer(idx_t), allocatable, intent(in) :: adjwgt(:)
-  real(real_t),   allocatable, intent(in) :: xyz(:,:)
-  integer(idx_t),           intent(inout) :: edgecut
-  integer(idx_t),           intent(inout) :: epart(:)
-  _MPI_COMM_TYPE_,             intent(in) :: comm
+  integer,                        intent(in) :: metis_option
+  integer,                        intent(in) :: refine_count
+  integer(idx_t),                 intent(in) :: nparts
+  integer(idx_t),                 intent(in) :: xadj(:)
+  integer(idx_t),                 intent(in) :: adjncy(:)
+  integer(idx_t),                 intent(in) :: eptr(:)
+  integer(idx_t),                 intent(in) :: eidx(:)
+  integer(idx_t), allocatable, intent(inout) :: vwgt(:)
+  integer(idx_t), allocatable, intent(inout) :: adjwgt(:)
+  real(real_t),   allocatable,    intent(in) :: xyz(:,:)
+  integer(idx_t),              intent(inout) :: edgecut
+  integer(idx_t),              intent(inout) :: epart(:)
+  _MPI_COMM_TYPE_,                intent(in) :: comm
   !
   !.. Local Scalars ..
   integer        :: n
@@ -428,6 +428,12 @@ continue
   call create_partition_weights(nparts,ncon,tpwgts,ubvec)
   !
   allocate ( part(1:my_ncell) , source=0_idx_t )
+  if (.not. allocated(vwgt)) then
+    allocate ( vwgt(1:ncon*my_ncell) , source=1_idx_t )
+  end if
+  if (.not. allocated(adjwgt)) then
+    allocate ( adjwgt(1:size(adjncy)) , source=1_idx_t )
+  end if
   !
   !
   if (any(metis_option == [1,6])) then
