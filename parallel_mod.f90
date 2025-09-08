@@ -1063,7 +1063,7 @@ subroutine partition_using_parmetis(metis_option_requested,npart, &
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "partition_using_parmetis"
   !
-  integer, parameter :: metis_option_defaults(1:4) = [3,1,4,6]
+  integer, parameter :: metis_option_defaults(1:6) = [3,1,2,4,6,5]
   !
   !
 continue
