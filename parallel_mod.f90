@@ -422,7 +422,7 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   !
   !.. Local Scalars ..
   logical(lk) :: need_node, need_edge, need_exch_neusp, need_exch_mlp
-  integer :: lcell,ierr
+  integer :: lcell,ierr,requested_metis_option
   character(len=200) :: array_name
   !
   !.. Local Allocatable Arrays ..
@@ -457,6 +457,8 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  requested_metis_option = abs(metis_option_requested)
   !
   ! Get the size of the global grid
   !
@@ -500,7 +502,7 @@ continue
     ! is not available, this will return without modifying epart, in
     ! which case we will attempt to partition the grid with serial METIS.
     !
-    call partition_using_parmetis(metis_option_requested,npart, &
+    call partition_using_parmetis(requested_metis_option,npart, &
                                   xadj,adjncy,epart,cell_geom,cell_order, &
                                   cells_surr_cell,cells_surr_cell_ptr, &
                                   host_roots_comm)
@@ -516,7 +518,7 @@ continue
       if (mypnum == glb_root) then
         !
         call memory_pause("Before: calling partition_using_metis_5")
-        call partition_using_metis_5(metis_option_requested,npart, &
+        call partition_using_metis_5(requested_metis_option,npart, &
                                      xadj,adjncy,epart,cell_geom,cell_order, &
                                      cells_surr_cell,cells_surr_cell_ptr)
         !
@@ -603,11 +605,13 @@ continue
   !
   ! Output the partition grid to a tecplot file
   !
- !if (mypnum == glb_root) then
- !  call output_partitions(mypnum,nodes_of_cell,nodes_of_cell_ptr, &
- !                         xyz_nodes,epart)
- !end if
- !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"outputing partitions")
+  if (metis_option_requested < 0) then
+    if (mypnum == glb_root) then
+      call output_partitions(mypnum,nodes_of_cell,nodes_of_cell_ptr, &
+                             xyz_nodes,epart)
+    end if
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"outputing partitions")
+  end if
   !
   if (i_am_host_root) then
     !
