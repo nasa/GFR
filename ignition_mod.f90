@@ -273,6 +273,8 @@ continue
     x = ignition_source_location(NCD_Axial)*grid_scaling_factor
     r = ignition_source_location(NCD_Vert)*grid_scaling_factor
     !
+    if (x < zero) x = -one/eps8
+    !
     theta = 22.5_wp*degrees2radians
     ign_src_loc(NCD_Axial,1) = x
     ign_src_loc(NCD_Vert ,1) = r*cos(theta)
@@ -693,6 +695,7 @@ subroutine compute_ignition_source_reactmb(n1,n2,gp,react_temp)
   !======================================================================
   !
   !.. Use Statements ..
+  use eqn_idx_mod, only : NCD_Axial
   use geomvar_mod, only : nr,xyz
   !
   !.. Formal Arguments ..
@@ -711,46 +714,74 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  !
-  !
-  do n = n1,n2
+  if (ign_src_loc(NCD_Axial,1) < -ten3) then
     !
-    r = norm2(xyz(1:nr,n)-ign_src_loc(1:nr,1))
-    do i = 2,size(ign_src_loc,dim=2)
-      r = min( r , norm2(xyz(1:nr,n)-ign_src_loc(1:nr,i)) )
-    end do
+    ! If the axial location of the source term is VERY negative,
+    ! apply the ignition to all points
     !
-    if (gp(n,ntemp) >= ign_max_temp) then
+    do n = n1,n2
       !
-      ! Set the reaction temperature to the current temperature if the current
-      ! temperature is greater than or equal to the ignition max temperature.
-      ! Also, mark that the ignition max temperature has been reached to
+      ! Set the reaction temperatrure to the maximum between the current
+      ! temperature at this point and the reaction temperature specified
+      ! by the input ignition_source_magnitude.
+      !
+      react_temp(n) = max(gp(n,ntemp),ign_src_mag)
+      !
+      ! If the current temperature is greater than or equal to the ignition max
+      ! temperature, mark that the ignition max temperature has been reached to
       ! begin the countdown of the ignition duration.
       !
-      ignition_reached_max_temp = true
+      if (gp(n,ntemp) >= ign_max_temp) then
+        ignition_reached_max_temp = true
+      end if
       !
-      react_temp(n) = gp(n,ntemp)
+    end do
+    !
+  else
+    !
+    ! If the axial location is not very negative, only apply the ignition
+    ! to points within the ignition source radius
+    !
+    do n = n1,n2
       !
-    else
+      r = norm2(xyz(1:nr,n)-ign_src_loc(1:nr,1))
+      do i = 2,size(ign_src_loc,dim=2)
+        r = min( r , norm2(xyz(1:nr,n)-ign_src_loc(1:nr,i)) )
+      end do
       !
-      if (r <= ign_src_radius) then
+      if (gp(n,ntemp) >= ign_max_temp) then
         !
-        ! If this point is within ignition_source_radius from the input
-        ! ignition location, set the reaction temperatrure to the maximum
-        ! between the current temperature at this point and the reaction
-        ! temperature specified by the input ignition_source_magnitude.
+        ! Set the reaction temperature to the current temperature if the current
+        ! temperature is greater than or equal to the ignition max temperature.
+        ! Also, mark that the ignition max temperature has been reached to
+        ! begin the countdown of the ignition duration.
         !
-        react_temp(n) = max(gp(n,ntemp),ign_src_mag)
-        !
-      else
+        ignition_reached_max_temp = true
         !
         react_temp(n) = gp(n,ntemp)
         !
+      else
+        !
+        if (r <= ign_src_radius) then
+          !
+          ! If this point is within ignition_source_radius from the input
+          ! ignition location, set the reaction temperatrure to the maximum
+          ! between the current temperature at this point and the reaction
+          ! temperature specified by the input ignition_source_magnitude.
+          !
+          react_temp(n) = max(gp(n,ntemp),ign_src_mag)
+          !
+        else
+          !
+          react_temp(n) = gp(n,ntemp)
+          !
+        end if
+        !
       end if
       !
-    end if
+    end do
     !
-  end do
+  end if
   !
   call debug_timer(leaving_procedure,pname)
   !
