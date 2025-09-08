@@ -100,6 +100,7 @@ subroutine check_for_ignition()
   !.. Use Statements ..
   use geomvar_mod, only : nr
   use ovar,        only : itcur,grid_scaling_factor
+  use ovar,        only : rhoref,aref,tref,ignition_method
   !
   !.. Local Scalars ..
   integer :: i
@@ -121,6 +122,11 @@ continue
           write (iout,2) 1,(ign_src_loc(i,1)/grid_scaling_factor, i=1,nr)
           write (iout,2) 2,(ign_src_loc(i,2)/grid_scaling_factor, i=1,nr)
           write (iout,3) ign_src_radius/grid_scaling_factor
+          if (ignition_method == IGN_REACT_TEMP) then
+            write (iout,4) "temperature",ign_src_mag*tref,"K"
+          else if (ignition_method == IGN_REACT_PRES) then
+            write (iout,4) "pressure",ign_src_mag*rhoref*aref*aref,"Pa"
+          end if
           write (iout,*)
           write (iout,1) itcur
           flush (iout)
@@ -143,6 +149,7 @@ continue
                2x,80("#"),//)
   2 format ("Ignition source location ",i1," = ",3(f8.4,:,", "))
   3 format ("Ignition source radius          = ",f8.4)
+  4 format ("Ignition reaction ",a11,    "   = ",f10.2," [",a,"]")
   !
 end subroutine check_for_ignition
 !
