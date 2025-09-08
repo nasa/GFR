@@ -257,6 +257,8 @@ continue
     ign_src_mag = abs(ignition_source_magnitude)*cv_ref(nee)
   else if (ignition_method == IGN_REACT_TEMP) then
     ign_src_mag = ignition_source_magnitude / tref
+  else if (ignition_method == IGN_REACT_PRES) then
+    ign_src_mag = ignition_source_magnitude / (rhoref*aref*aref)
   end if
   !
   ign_max_temp = ignition_max_temperature / tref
