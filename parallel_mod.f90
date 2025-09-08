@@ -1209,6 +1209,10 @@ continue
   if (allocated(glb_adjncy)) deallocate ( glb_adjncy )
   if (allocated(glb_vwgt  )) deallocate ( glb_vwgt )
   if (allocated(glb_adjwgt)) deallocate ( glb_adjwgt )
+  if (allocated(xadj      )) deallocate ( xadj )
+  if (allocated(adjncy    )) deallocate ( adjncy )
+  if (allocated(vwgt      )) deallocate ( vwgt )
+  if (allocated(adjwgt    )) deallocate ( adjwgt )
   if (allocated(xyz_cc    )) deallocate ( xyz_cc )
   !
   call debug_timer(leaving_procedure,pname)
