@@ -1128,8 +1128,8 @@ continue
       !       entering the subroutine.
       !
       call predistribute_for_parmetis(lcell,glb_xadj,glb_adjncy, &
-                                      glb_vwgt,glb_adjwgt, &
-                                      xadj,adjncy,vwgt,adjwgt, &
+                                      glb_eptr,glb_eidx,glb_vwgt,glb_adjwgt, &
+                                      xadj,adjncy,eptr,eidx,vwgt,adjwgt, &
                                       xyz_cc,part_comm)
       !
       ! Partition the grid using ParMETIS
@@ -1327,9 +1327,9 @@ end subroutine report_parmetis_results
 !###############################################################################
 !
 subroutine predistribute_for_parmetis(glb_ncell,glb_xadj,glb_adjncy, &
-                                      glb_vwgt,glb_adjwgt, &
-                                      my_xadj,my_adjncy,my_vwgt,my_adjwgt, &
-                                      my_xyz_cc,part_comm)
+                                      glb_eptr,glb_eidx,glb_vwgt,glb_adjwgt, &
+                                      my_xadj,my_adjncy,my_eptr,my_eidx, &
+                                      my_vwgt,my_adjwgt,my_xyz_cc,part_comm)
   !
   !.. Use Statements ..
   use geomvar_mod,  only : nodes_of_cell_ptr,nodes_of_cell
@@ -1340,10 +1340,14 @@ subroutine predistribute_for_parmetis(glb_ncell,glb_xadj,glb_adjncy, &
   integer,                      intent(in) :: glb_ncell
   integer(idx_t),               intent(in) :: glb_xadj(:)
   integer(idx_t),               intent(in) :: glb_adjncy(:)
+  integer(idx_t),               intent(in) :: glb_eptr(:)
+  integer(idx_t),               intent(in) :: glb_eidx(:)
   integer(idx_t), allocatable,  intent(in) :: glb_vwgt(:)
   integer(idx_t), allocatable,  intent(in) :: glb_adjwgt(:)
   integer(idx_t), allocatable, intent(out) :: my_xadj(:)
   integer(idx_t), allocatable, intent(out) :: my_adjncy(:)
+  integer(idx_t), allocatable, intent(out) :: my_eptr(:)
+  integer(idx_t), allocatable, intent(out) :: my_eidx(:)
   integer(idx_t), allocatable, intent(out) :: my_vwgt(:)
   integer(idx_t), allocatable, intent(out) :: my_adjwgt(:)
   real(real_t),   allocatable, intent(out) :: my_xyz_cc(:,:)
@@ -1439,6 +1443,33 @@ continue
     my_xyz_cc(1:nr,nc) = my_xyz_cc(1:nr,nc)/real(ip,kind=real_t)
     !
   end do
+  !
+  ! Now do the same for eptr and eidx
+  !
+  i1 = glb_eptr(my_cell_beg)
+  i2 = glb_eptr(my_cell_end+1)-1
+  ip = i2 - i1 + 1
+  !
+  ! Allocate the localized eptr and eidx arrays
+  !
+  my_eptr = init_array(my_ncell+1,0_idx_t) ! F2003 AUTO-REALLOC
+  my_eidx = init_array(ip,0_idx_t) ! F2003 AUTO-REALLOC
+  !
+  ! Reset my_eptr to begin at 1.
+  !   glb_eptr(my_cell_beg+n) - glb_eptr(my_cell_beg)
+  ! takes care of shifting the offset array to get the localized offsets.
+  !   + glb_eptr(1)
+  ! takes care of shifting all of the offsets by either 0 or 1 depending on
+  ! what the starting offset is in glb_eptr
+  !
+  my_offset_adjustment = glb_eptr(1) - glb_eptr(my_cell_beg)
+  do n = 0,my_ncell
+    my_eptr(n+1) = glb_eptr(my_cell_beg+n) + my_offset_adjustment
+  end do
+  !
+  ! Copy the contents of glb_eidx straight into my_eidx
+  !
+  my_eidx(1:ip) = glb_eidx(i1:i2)
   !
   call debug_timer(leaving_procedure,pname)
   !
