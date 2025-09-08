@@ -1385,6 +1385,21 @@ continue
   !
   my_ncell = my_cell_end - my_cell_beg + 1
   !
+#ifdef DEBUG_ON
+  if (mypnum == glb_root) then
+    write (iout,2)
+    flush (iout)
+  end if
+ !                    mypnum12345glb_nc123nc/cpu12345my_beg123my_end12345my_nc
+ !CPU # 1234 of 1234 (123456) : 12345678  123456    12345678 12345678  12345678
+  write (iout,1) my_rank,num_ranks,mypnum, &
+                 glb_ncell,ncells_per_rank,my_cell_beg,my_cell_end,my_ncell
+  flush (iout)
+  1 format (2x,"CPU #",i5," of",i5," (",i6,") : ",i8,2x,i6,4x,i8,1x,i8,2x,i8)
+  2 format (/,22x,"mypnum",5x,"glb_nc",3x,"nc/cpu", &
+               5x,"my_beg",3x,"my_end",5x,"my_nc")
+#endif
+  !
   i1 = glb_xadj(my_cell_beg)
   i2 = glb_xadj(my_cell_end+1)-1
   ip = i2 - i1 + 1
