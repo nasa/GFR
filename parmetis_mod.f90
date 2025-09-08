@@ -327,9 +327,6 @@ module parmetis_mod
   ! PARMETIS_DEBUG_FLAG = 1
   ! PARMETIS_DEBUG_VAL = [any sum of the following DBGLVL parameters]
   !
-  integer(idx_t), parameter :: PARMETIS_DEBUG_FLAG = 0_idx_t
- !integer(idx_t), parameter :: PARMETIS_DEBUG_FLAG = 1_idx_t
-  !
   integer(idx_t), parameter :: PARMETIS_DBGLVL_TIME = 1_idx_t
   integer(idx_t), parameter :: PARMETIS_DBGLVL_INFO = 2_idx_t
   integer(idx_t), parameter :: PARMETIS_DBGLVL_PROGRESS = 4_idx_t
@@ -342,7 +339,23 @@ module parmetis_mod
   integer(idx_t), parameter :: PARMETIS_DBGLVL_FAST = 512_idx_t
   integer(idx_t), parameter :: PARMETIS_DBGLVL_ONDISK = 1024_idx_t
   !
-  integer(idx_t), parameter :: PARMETIS_DEBUG_VAL = 0_idx_t
+  integer(idx_t), parameter :: PARMETIS_DEBUG_VAL = &
+                                                  + PARMETIS_DBGLVL_TIME &
+                                                  + PARMETIS_DBGLVL_INFO &
+                                                  + PARMETIS_DBGLVL_PROGRESS &
+                                               !  + PARMETIS_DBGLVL_REFINEINFO &
+                                               !  + PARMETIS_DBGLVL_MATCHINFO &
+                                               !  + PARMETIS_DBGLVL_RMOVEINFO &
+                                               !  + PARMETIS_DBGLVL_REMAP &
+                                               !  + PARMETIS_DBGLVL_TWOHOP &
+                                               !  + PARMETIS_DBGLVL_DROPEDGES &
+                                               !  + PARMETIS_DBGLVL_FAST &
+                                               !  + PARMETIS_DBGLVL_ONDISK &
+                                                  + 0_idx_t
+  !
+  integer(idx_t), parameter :: PARMETIS_DEBUG_FLAG = &
+                              merge(0_idx_t,1_idx_t,PARMETIS_DEBUG_VAL==0_idx_t)
+ !integer(idx_t), parameter :: PARMETIS_DEBUG_FLAG = 1_idx_t
   !
   ! Module Scalars
   !
