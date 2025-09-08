@@ -2537,7 +2537,7 @@ end subroutine emergency_scale_bad_cells_nd
 !> *scale about the cell average
 !>
 !> Ref:
-!> https://stacks.stanford.edu/file/nk877ng0918/Abhishek_thesis_e_version2-augmented.pdf
+!> stacks.stanford.edu/file/nk877ng0918/Abhishek_thesis_e_version2-augmented.pdf
 !###############################################################################
 subroutine emergency_limit2_bad_cells(bad_cell,usp,gpsp)
   !
@@ -2627,7 +2627,7 @@ continue
         if (ncs > 0) then
           ! realculate species density
           do m = 1,ncs
-            usp(n,m) = usp(n,m) * (theta*(usp(n,nec)-rhoave) + rhoave) / usp(n,nec)
+            usp(n,m) = usp(n,m)*(theta*(usp(n,nec)-rhoave) + rhoave)/usp(n,nec)
           end do
         end if
         !

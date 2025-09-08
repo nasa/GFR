@@ -1108,15 +1108,19 @@ continue
   c_ubvec = c_loc(ubvec)
   c_vwgt = c_loc(vwgt)
   c_adjwgt = c_loc(adjwgt)
-  ierr = ParMETIS_V3_RefineKway_C_Interface(vtxdist,xadj,adjncy,c_vwgt,c_adjwgt, &
-                               wgtflag,numflag,ncon,nparts,c_tpwgts, &
-                               c_ubvec,options,edgecut,part, &
-                               _MPI_TYPE_VAL_(comm))
+  ierr = ParMETIS_V3_RefineKway_C_Interface(vtxdist, &
+                                            xadj,adjncy,c_vwgt,c_adjwgt, &
+                                            wgtflag,numflag, &
+                                            ncon,nparts,c_tpwgts,c_ubvec, &
+                                            options,edgecut,part, &
+                                            _MPI_TYPE_VAL_(comm))
 #else
-  ierr = ParMETIS_V3_RefineKway_C_Interface(vtxdist,xadj,adjncy,vwgt,adjwgt, &
-                               wgtflag,numflag,ncon,nparts,tpwgts, &
-                               ubvec,options,edgecut,part, &
-                               _MPI_TYPE_VAL_(comm))
+  ierr = ParMETIS_V3_RefineKway_C_Interface(vtxdist, &
+                                            xadj,adjncy,vwgt,adjwgt, &
+                                            wgtflag,numflag, &
+                                            ncon,nparts,tpwgts,ubvec, &
+                                            options,edgecut,part, &
+                                            _MPI_TYPE_VAL_(comm))
 #endif
   !
   if (allocated(options)) deallocate ( options )

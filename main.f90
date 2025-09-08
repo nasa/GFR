@@ -740,7 +740,8 @@ continue
                       "initial TGV KEDR evaluation")
     call check_for_bad_number(__LINE__)
     !
-    call update_thermo_properties(1,n_bnd_flxpts,faceusp,facegpsp,caller_name=pname)
+    call update_thermo_properties(1,n_bnd_flxpts,faceusp,facegpsp, &
+                                  caller_name=pname)
     call check_for_bad_number(__LINE__)
     call update_transport_properties(1,n_bnd_flxpts,faceusp,facegpsp)
     call check_for_bad_number(__LINE__)

@@ -252,7 +252,7 @@ function get_uiuc_scramjet_location(xyz,wall_radius_sensitivity) &
   real(wp), parameter :: cavity_sponge_axial  = cavity_axial_min + 0.3_wp ! [mm]
   real(wp), parameter :: cavity_sponge_radius = cavity_radius - 0.045_wp  ! [mm]
   !
-  real(wp), parameter :: backstep_sponge_axial  = cavity_axial_min + 0.05_wp ! [mm]
+  real(wp), parameter :: backstep_sponge_axial = cavity_axial_min+0.05_wp ! [mm]
   real(wp), parameter :: backstep_sponge_radius = wall_radius + 2.3_wp  ! [mm]
   !
 continue
@@ -344,7 +344,8 @@ continue
         ! cavity cells to the sponge filter. This should only catch 
         !   1. one layer of cells off the cavity outer wall that are adjacent to
         !      and just downstream of the cavity 'backstep' wall
-        !   2. one layer of cells along the upper 80% of the cavity 'backstep' wall
+        !   2. one layer of cells along the upper 80% of the cavity
+        !      'backstep' wall
         ! This hack is attempting to prevent these particular cells from causing
         ! simulations to crash, which they have done quite regularly.
         !

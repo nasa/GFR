@@ -3908,7 +3908,8 @@ continue
           wt = std_elem(face_geom,face_order)%wts(k)
           !
           !!! if (ji_gwt >= 0.99) then
-            !!!Determine if filtering would help this jump of not (i.e. if slope helps or hurts the jump)
+            !!!Determine if filtering would help this jump of not
+            ! (i.e. if slope helps or hurts the jump)
             !valave = cell_ave_p(nc)
             !if ( (vall-valave) * (valr-vall) >= zero) then
             !        numer = zero
@@ -3971,7 +3972,8 @@ continue
           wt = std_elem(face_geom,face_order)%wts(k)
           !
           !!! if (ji_gwt >= 0.99) then
-          !!!Determine if filtering would help this jump of not (i.e. if slope helps or hurts the jump)
+          !!!Determine if filtering would help this jump of not
+          ! (i.e. if slope helps or hurts the jump)
             !if ((vall-valave) * (valr-vall) >= zero) then
             !   numer = zero
             !endif
@@ -4032,7 +4034,8 @@ continue
           wt = std_elem(face_geom,face_order)%wts(k)
           !
           !!! if (ji_gwt >= 0.99) then
-            !!!Determine if filtering would help this jump of not (i.e. if slope helps or hurts the jump)
+            !!!Determine if filtering would help this jump of not
+            ! (i.e. if slope helps or hurts the jump)
             !if ((vall-valave) * (valr-vall) >= zero) then
             !        numer = zero
             !endif
@@ -4091,7 +4094,7 @@ subroutine ducros_indicator(nst,troubled_cell,update_gradients)
   !
   !> Compute the local marker using a modified ducros shock sensor.
   !>
-  !> Refs:                              ##### Reminder to find links for these #####
+  !> Refs:                          ##### Reminder to find links for these #####
   !>  - Caleb's or other paper
   !> See Also:
   !>  - OG Ducros and common mods
@@ -4122,7 +4125,7 @@ subroutine ducros_indicator_reactmb(nst,troubled_cell,update_gradients)
   !
   !> Compute the local marker using a modified ducross shock sensor.
   !>
-  !> Refs:                              ##### Reminder to find links for these #####
+  !> Refs:                          ##### Reminder to find links for these #####
   !>  - Caleb's or other paper
   !> See Also:
   !>  - OG Ducros and common mods
@@ -4304,7 +4307,8 @@ continue
        !f_duc = min( f_duc, one)
        f_duc = zero
        !
-       ! Calculate Sound Speed (modified to be tolerant to non-physical negative vals)
+       ! Calculate Sound Speed (modified to be tolerant
+       ! to non-physical negative values)
        asp = aref * sqrt(gpsp(n,ngamm)*max(gpsp(n,npres)/usp(n,nec), 1e-8_wp))
        !
        ! (don't) Calculate trm (requires wall distance: ydc)
@@ -4353,7 +4357,7 @@ subroutine ducros_indicator_classic(nst,troubled_cell,update_gradients)
   !
   !> Compute the local marker using a modified ducross shock sensor.
   !>
-  !> Refs:                              ##### Reminder to find links for these #####
+  !> Refs:                          ##### Reminder to find links for these #####
   !>  - Caleb's or other paper
   !> See Also:
   !>  - OG Ducros and common mods
@@ -4491,7 +4495,8 @@ continue
          f_duc = (divv*divv + eps_d) / (divv*divv + vortmag2 + eps_d)
          f_duc = min( f_duc, one)
          !
-         ! Calculate Sound Speed (modified to be tolerant to non-physical negative vals)
+         ! Calculate Sound Speed (modified to be tolerant to
+         ! to non-physical negative values)
          asp = ainf * sqrt(gpsp(n,ngamm)*max(gpsp(n,npres)/usp(n,nec), 1e-8_wp))
          !
          ! (don't) Calculate trm (requires wall distance: ydc)
@@ -4549,7 +4554,8 @@ continue
          f_duc = (divv*divv + eps_d) / (divv*divv + vortmag2 + eps_d)
          f_duc = min( f_duc, one)
          !
-         ! Calculate Sound Speed (modified to be tolerant to non-physical negative vals)
+         ! Calculate Sound Speed (modified to be tolerant
+         ! to non-physical negative values)
          asp = ainf * sqrt(gpsp(n,ngamm)*max(gpsp(n,npres)/usp(n,nec), 1e-8_wp))
          !
          ! (don't) Calculate trm (requires wall distance: ydc)
@@ -4608,7 +4614,8 @@ continue
          !
          f_duc = one
          !
-         ! Calculate Sound Speed (modified to be tolerant to non-physical negative vals)
+         ! Calculate Sound Speed (modified to be tolerant
+         ! to non-physical negative values)
          asp = ainf * sqrt(gpsp(n,ngamm)*max(gpsp(n,npres)/usp(n,nec), 1e-8_wp))
          !
          ! (don't) Calculate trm (requires wall distance: ydc)

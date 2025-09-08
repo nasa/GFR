@@ -1217,7 +1217,8 @@ continue
   31 format ("RUNGE-KUTTA ERROR: Requested Runge-Kutta scheme is invalid!")
   !
   41 format('ERROR: Density pulse test requres  pulse_test_form between 0:4.')
-  42 format('ERROR: Density pulse test requres  pulse_test_form_dim between 1:2.')
+  42 format('ERROR: Density pulse test requres  pulse_test_form_dim ', &
+            'between 1:2.')
   43 format('ERROR: Density pulse test requres  pulse_test_length >0.')
   44 format('ERROR: Density pulse test requres  pulse_test_width >0.')
   45 format('ERROR: Density pulse test requres  pulse_test_gap >=0.')

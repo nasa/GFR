@@ -945,7 +945,7 @@ continue
               8x,"jbc = bc_input(ibc)%periodic%matching_bc_idx = ",i0,//, &
               8x,"iname = bc_input(ibc)%name = ",a,/, &
               8x,"jname = bc_input(jbc)%name = ",a,//, &
-              8x,"match_jnam = bc_input(ibc)%periodic%matching_bc_name = ",a,/, &
+              8x,"match_jnam = bc_input(ibc)%periodic%matching_bc_name = ",a,/,&
               8x,"match_inam = bc_input(jbc)%periodic%matching_bc_name = ",a,//)
   103 format ("could not find matching periodic name")
   104 format ("neither match_jidx or match_jnam were specified and npbc > 2")

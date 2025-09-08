@@ -3491,7 +3491,8 @@ continue
         !
         ip(1:np) = nodes_of_cell(np1:np2)
         !
-        ! Loop through the edges of this cell to find the edge with the same nodes
+        ! Loop through the edges of this cell to
+        ! find the edge with the same nodes
         !
         one_pass: do l = 1,1
           !
@@ -3998,7 +3999,7 @@ continue
         do k = 1,nfp
           i = i + 1
           bc_grps(grp_idx)%periodic_list(i) = &
-                            pf1 + fp%geord(face_geom,face_order)%rot(irot)%pts(k)
+                           pf1 + fp%geord(face_geom,face_order)%rot(irot)%pts(k)
 #ifdef DEBUG_BC_GROUPS
           write (mypnum+600,4) &
                            k,fp%geord(face_geom,face_order)%rot(irot)%pts(k), &

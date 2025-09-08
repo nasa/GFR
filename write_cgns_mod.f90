@@ -3407,8 +3407,8 @@ continue
         !
       else
         !
-        ! NOTE: vartmp has been pre-loaded with the Mach number, and the auxiliary
-        !       variable in gp has already been switched to gamma
+        ! NOTE: vartmp has been pre-loaded with the Mach number, and the
+        !       auxiliary variable in gp has already been switched to gamma
         !
         do n = 1,npts
           mach = vartmp(n)
@@ -3694,8 +3694,10 @@ continue
         nv = nv + 1
         ivar_s = isvar_s(nv)
         !
-        i = (l+1) - ( (l+1)/4 )*3  ! [2-(2/4)*3,3-(3/4)*3,4-(4/4)*3] = [2-0*3,3-0*3,4-1*3] = [2,3,1]
-        j = (l+2) - ( (l+2)/4 )*3  ! [3-(3/4)*3,4-(4/4)*3,5-(5/4)*3] = [3-0*3,4-1*3,5-1*3] = [3,1,2]
+        ! [2-(2/4)*3,3-(3/4)*3,4-(4/4)*3] = [2-0*3,3-0*3,4-1*3] = [2,3,1]
+        i = (l+1) - ( (l+1)/4 )*3
+        ! [3-(3/4)*3,4-(4/4)*3,5-(5/4)*3] = [3-0*3,4-1*3,5-1*3] = [3,1,2]
+        j = (l+2) - ( (l+2)/4 )*3
         !
         nmi = nmb-1+i ! [y,z,x]
         nmj = nmb-1+j ! [z,x,y]
@@ -4428,7 +4430,7 @@ continue
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
-      call interpolate_for_output( dt_save(1:n_solpts) , vartmp , nondim=time_ref )
+      call interpolate_for_output( dt_save(1:n_solpts), vartmp, nondim=time_ref)
       !
       call cgns_write_field_data(flush_to_zero=fals)
       !
@@ -4438,7 +4440,7 @@ continue
       ivar_s = isvar_s(nv)
       !
       dt_save(:) = dt_save(:) / d_t
-      call interpolate_for_output( dt_save(1:n_solpts) , vartmp , nondim=time_ref )
+      call interpolate_for_output( dt_save(1:n_solpts), vartmp, nondim=time_ref)
       !
       call cgns_write_field_data
       !!}}}

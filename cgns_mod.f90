@@ -824,7 +824,9 @@ continue
     ! Read the descriptors for the current base
     !
     do id_g = 1,size(b%descriptor)
-      if (debug_cgns) write (iout,1) mypnum,"reading CGNS descriptor node #",id_g
+      if (debug_cgns) then
+        write (iout,1) mypnum,"reading CGNS descriptor node #",id_g
+      end if
       call read_cgns_descriptor( b%descriptor(id_g) )
     end do
     !
@@ -4251,7 +4253,8 @@ continue
       end do
       flush(iout)
       call mpi_barrier(host_roots_comm,mpierr)
-  714 format (2x,"CPU # ",i5," : size(ival) = ",i10,"  ; size(grid_elem) = ",i10)
+  714 format (2x,"CPU # ",i5," : size(ival) = ",i10, &
+                 "  ; size(grid_elem) = ",i10)
   715 format (2x,"CPU # ",i5," : mpierr = ",i0)
 #endif
       !
@@ -4321,7 +4324,8 @@ continue
           !       puts this array in heap memory fixing the stack issue.
          !val = init_array(np,zero) ! F2003 AUTO-REALLOC
           if (allocated(val)) deallocate ( val )
-          allocate ( val(1:np) , source=zero , stat=ierr , errmsg=error_message )
+          allocate ( val(1:np) , source=zero , &
+                     stat=ierr , errmsg=error_message )
           call alloc_error(pname,"val",1,__LINE__,__FILE__,ierr,error_message)
         end if
         !

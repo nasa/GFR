@@ -3540,7 +3540,8 @@ continue
         !
         cell_list(1:np) = cells_with_edge(n1:n2)
         !
-        ! Save the partitions numbers of the cells with this edge to a local array
+        ! Save the partitions numbers of the cells
+        ! with this edge to a local array
         !
         part_list(1:np) = epart( cell_list(1:np) )
         !

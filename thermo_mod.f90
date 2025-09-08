@@ -2553,9 +2553,9 @@ end subroutine compute_total_temp_tpg_sp
 !  end do
 !  !
 !end subroutine compute_total_temperature_sp
-!!
-!!###############################################################################
-!!
+!
+!###############################################################################
+!
 !#ifndef DISABLE_PURE
 !pure &
 !#endif
