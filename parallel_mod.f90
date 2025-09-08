@@ -482,12 +482,6 @@ continue
     !
     n_global_face = size(face)
     !
-    ! Create the dual graph for the global grid not including ghost cells
-    !
-    call memory_pause("Before: calling create_metis_dual_graph")
-    call create_metis_dual_graph(cells_surr_cell,cells_surr_cell_ptr, &
-                                 xadj,adjncy)
-    !
     ! Allocate the epart array to store the cell partition numbers
     !
     allocate ( epart(1:lcell) , source=0_idx_t , &
@@ -503,7 +497,7 @@ continue
     ! which case we will attempt to partition the grid with serial METIS.
     !
     call partition_using_parmetis(requested_metis_option,npart, &
-                                  xadj,adjncy,epart,cell_geom,cell_order, &
+                                  epart,cell_geom,cell_order, &
                                   cells_surr_cell,cells_surr_cell_ptr, &
                                   host_roots_comm)
 #endif
@@ -519,7 +513,7 @@ continue
         !
         call memory_pause("Before: calling partition_using_metis_5")
         call partition_using_metis_5(requested_metis_option,npart, &
-                                     xadj,adjncy,epart,cell_geom,cell_order, &
+                                     epart,cell_geom,cell_order, &
                                      cells_surr_cell,cells_surr_cell_ptr)
         !
       end if
@@ -584,18 +578,6 @@ continue
     deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"cells_surr_cell_ptr",2,__LINE__,__FILE__,ierr, &
                      error_message)
-  end if
-  !
-  ! Deallocate no longer needed METIS arrays
-  !
-  if (allocated(xadj)) then
-    deallocate ( xadj , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"xadj",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(adjncy)) then
-    deallocate ( adjncy , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"adjncy",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Distribute partitions across all processors
@@ -1037,8 +1019,7 @@ end subroutine partition_into_quarters
 !###############################################################################
 !
 subroutine partition_using_parmetis(metis_option_requested,npart, &
-                                    glb_xadj,glb_adjncy,epart, &
-                                    cell_geom,cell_order, &
+                                    epart,cell_geom,cell_order, &
                                     cells_surr_cell,cells_surr_cell_ptr, &
                                     part_comm)
   !
@@ -1048,8 +1029,6 @@ subroutine partition_using_parmetis(metis_option_requested,npart, &
   !.. Formal Arguments ..
   integer,           intent(in) :: metis_option_requested
   integer,           intent(in) :: npart
-  integer(idx_t),    intent(in) :: glb_xadj(:)
-  integer(idx_t),    intent(in) :: glb_adjncy(:)
   integer(idx_t), intent(inout) :: epart(:)
   integer,           intent(in) :: cell_geom(:)
   integer,           intent(in) :: cell_order(:)
@@ -1067,6 +1046,8 @@ subroutine partition_using_parmetis(metis_option_requested,npart, &
   integer, allocatable :: metis_option_hierarchy(:)
   !
   !.. Local Allocatable Arrays ..
+  integer(idx_t), allocatable :: glb_xadj(:)
+  integer(idx_t), allocatable :: glb_adjncy(:)
   integer(idx_t), allocatable :: glb_vwgt(:)
   integer(idx_t), allocatable :: glb_adjwgt(:)
   integer(idx_t), allocatable :: xadj(:)
@@ -1090,6 +1071,12 @@ continue
   ! Define other METIS variables
   !
   nparts = int(npart,kind=idx_t)
+  !
+  ! Create the dual graph for the global grid not including ghost cells
+  !
+  call memory_pause("Before: calling create_metis_dual_graph")
+  call create_metis_dual_graph(cells_surr_cell,cells_surr_cell_ptr, &
+                               glb_xadj,glb_adjncy)
   !
   ! Allocate the local arrays
   !
@@ -1213,6 +1200,8 @@ continue
   !
   ! Deallocate all the local arrays before leaving
   !
+  if (allocated(glb_xadj  )) deallocate ( glb_xadj )
+  if (allocated(glb_adjncy)) deallocate ( glb_adjncy )
   if (allocated(glb_vwgt  )) deallocate ( glb_vwgt )
   if (allocated(glb_adjwgt)) deallocate ( glb_adjwgt )
   if (allocated(xyz_cc    )) deallocate ( xyz_cc )
@@ -1430,14 +1419,12 @@ end subroutine predistribute_for_parmetis
 !> Partition the grid using the METIS 5 library.
 !###############################################################################
 subroutine partition_using_metis_5(metis_option_requested,npart, &
-                                   xadj,adjncy,epart,cell_geom,cell_order, &
+                                   epart,cell_geom,cell_order, &
                                    cells_surr_cell,cells_surr_cell_ptr)
   !
   !.. Formal Arguments ..
   integer,           intent(in) :: metis_option_requested
   integer,           intent(in) :: npart
-  integer(idx_t),    intent(in) :: xadj(:)
-  integer(idx_t),    intent(in) :: adjncy(:)
   integer(idx_t), intent(inout) :: epart(:)
   integer,           intent(in) :: cell_geom(:)
   integer,           intent(in) :: cell_order(:)
@@ -1457,6 +1444,8 @@ subroutine partition_using_metis_5(metis_option_requested,npart, &
   integer(idx_t) :: options(0:METIS_NOPTIONS-1)
   !
   !.. Local Allocatable Arrays ..
+  integer(idx_t), allocatable :: xadj(:)
+  integer(idx_t), allocatable :: adjncy(:)
   integer(idx_t), allocatable :: vwgt(:)
   integer(idx_t), allocatable :: vsize(:)
   integer(idx_t), allocatable :: adjwgt(:)
@@ -1474,6 +1463,12 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   lcell = size(epart)
+  !
+  ! Create the dual graph for the global grid not including ghost cells
+  !
+  call memory_pause("Before: calling create_metis_dual_graph")
+  call create_metis_dual_graph(cells_surr_cell,cells_surr_cell_ptr, &
+                               xadj,adjncy)
   !
   ! Set the default options for METIS
   !
@@ -1762,6 +1757,14 @@ continue
   !
   ! Deallocate all the local arrays before leaving
   !
+  if (allocated(xadj)) then
+    deallocate ( xadj , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xadj",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  if (allocated(adjncy)) then
+    deallocate ( adjncy , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"adjncy",2,__LINE__,__FILE__,ierr,error_message)
+  end if
   if (allocated(vwgt)) then
     deallocate ( vwgt , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"vwgt",2,__LINE__,__FILE__,ierr,error_message)
