@@ -1125,7 +1125,8 @@ continue
       !       predistribute_for_parmetis, so they will be deallocated upon
       !       entering the subroutine.
       !
-      call predistribute_for_parmetis(glb_xadj,glb_adjncy,glb_vwgt,glb_adjwgt, &
+      call predistribute_for_parmetis(lcell,glb_xadj,glb_adjncy, &
+                                      glb_vwgt,glb_adjwgt, &
                                       xadj,adjncy,vwgt,adjwgt, &
                                       xyz_cc,part_comm)
       !
@@ -1323,7 +1324,8 @@ end subroutine report_parmetis_results
 !
 !###############################################################################
 !
-subroutine predistribute_for_parmetis(glb_xadj,glb_adjncy,glb_vwgt,glb_adjwgt, &
+subroutine predistribute_for_parmetis(glb_ncell,glb_xadj,glb_adjncy, &
+                                      glb_vwgt,glb_adjwgt, &
                                       my_xadj,my_adjncy,my_vwgt,my_adjwgt, &
                                       my_xyz_cc,part_comm)
   !
@@ -1333,6 +1335,7 @@ subroutine predistribute_for_parmetis(glb_xadj,glb_adjncy,glb_vwgt,glb_adjwgt, &
   use parmetis_mod, only : get_ParMETIS_comm_ranks
   !
   !.. Formal Arguments ..
+  integer,                      intent(in) :: glb_ncell
   integer(idx_t),               intent(in) :: glb_xadj(:)
   integer(idx_t),               intent(in) :: glb_adjncy(:)
   integer(idx_t), allocatable,  intent(in) :: glb_vwgt(:)
@@ -1347,7 +1350,7 @@ subroutine predistribute_for_parmetis(glb_xadj,glb_adjncy,glb_vwgt,glb_adjwgt, &
   !.. Local Scalars ..
   integer :: n,nc,i,i1,i2,ip
   integer :: my_ncell,my_cell_beg,my_cell_end
-  integer :: glb_ncell,num_ranks,my_rank,ncells_per_rank
+  integer :: num_ranks,my_rank,ncells_per_rank
   !
   integer(idx_t) :: my_offset_adjustment
   !
@@ -1364,8 +1367,6 @@ continue
   ! in the partitioning process.
   !
   call get_ParMETIS_comm_ranks(part_comm,my_rank,num_ranks)
-  !
-  glb_ncell = size(nodes_of_cell_ptr)-1
   !
   ! Get the approximate number of cells per rank
   !
