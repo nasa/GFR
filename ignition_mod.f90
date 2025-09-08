@@ -806,17 +806,27 @@ continue
     !
     do n = n1,n2
       !
-      if (gp(n,npres) > zero) then
-        sc_pscale(n) = max( min_lim_pscale, &
-                            min(max_lim_pscale,ign_src_mag/gp(n,npres)) )
-      end if
-      !
-      ! If the current temperature is greater than or equal to the ignition max
-      ! temperature, mark that the ignition max temperature has been reached to
-      ! begin the countdown of the ignition duration.
-      !
-      if (gp(n,ntemp) >= ign_max_temp) then
+      if (gp(n,ntemp) < ign_max_temp) then
+        !
+        ! If the current temperature is less than the ignition max temperature,
+        ! compute the species concentration scaling needed to achieve the
+        ! specified reaction pressure.
+        !
+        if (gp(n,npres) > zero) then
+          sc_pscale(n) = max( min_lim_pscale, &
+                              min(max_lim_pscale,ign_src_mag/gp(n,npres)) )
+        end if
+        !
+      else
+        !
+        ! If the current temperature is greater than or equal to the ignition
+        ! max temperature, mark that the ignition max temperature has been
+        ! reached to begin the countdown of the ignition duration.
+        !
         ignition_reached_max_temp = true
+        !
+        sc_pscale(n) = one
+        !
       end if
       !
     end do
@@ -834,9 +844,11 @@ continue
       end do
       !
       if (r <= ign_src_radius) then
-        if (gp(n,npres) > zero) then
-          sc_pscale(n) = max( min_lim_pscale, &
-                              min(max_lim_pscale,ign_src_mag/gp(n,npres)) )
+        if (gp(n,ntemp) < ign_max_temp) then
+          if (gp(n,npres) > zero) then
+            sc_pscale(n) = max( min_lim_pscale, &
+                                min(max_lim_pscale,ign_src_mag/gp(n,npres)) )
+          end if
         end if
       end if
       !
