@@ -410,6 +410,8 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   use geomvar_mod, only : geo_edge_map => edge_map
   use geomvar_mod, only : geo_node_map => node_map
   !
+  use parmetis_mod, only : pm_mpi_inttyp
+  !
   !.. Formal Arguments ..
   integer,                                  intent(in) :: npart
   integer,                                  intent(in) :: metis_option_requested
@@ -549,7 +551,7 @@ continue
     ! Have the global root process broadcast
     ! the partitioning to all host roots
     !
-    call mpi_bcast(epart,int(lcell,kind=int_mpi),mpi_inttyp, &
+    call mpi_bcast(epart,int(lcell,kind=int_mpi),pm_mpi_inttyp, &
                    glb_root,host_roots_comm,mpierr)
     !
     if (continuous_output) then
