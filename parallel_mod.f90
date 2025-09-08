@@ -1084,12 +1084,6 @@ continue
   !
   ! Allocate the local arrays
   !
-#ifdef DEBUG_ON
-  ncon = 1_idx_t
-  glb_vwgt = init_array(ncon*lcell,1_idx_t) ! F2003 AUTO-REALLOC
-  !
-  glb_adjwgt = init_array(size(glb_adjncy),1_idx_t) ! F2003 AUTO-REALLOC
-#endif
   !
   ! Create the hierarchy of METIS algorithms to try
   !
@@ -1124,24 +1118,6 @@ continue
       call predistribute_for_parmetis(glb_xadj,glb_adjncy,glb_vwgt,glb_adjwgt, &
                                       xadj,adjncy,vwgt,adjwgt, &
                                       xyz_cc,part_comm)
-      !
-      ! Set up the weight flag for parmetis and deallocate the weight arrays
-      ! if the current metis option is a non-weighted option.
-      !
-      if (any(metis_option == [1,2,3])) then
-        if (allocated(vwgt)) deallocate ( vwgt )
-        if (allocated(adjwgt)) deallocate ( adjwgt )
-      end if
-      !
-      ! Deallocate the xyz_cc array if no using the ParMETIS_PartGeomKway
-      ! function.
-      !
-      if (all(metis_option /= [1,6])) then
-        if (allocated(xyz_cc)) deallocate ( xyz_cc )
-        write (timer_message,1) "Kway",metis_option
-      else
-        write (timer_message,1) "GeomKway",metis_option
-      end if
       !
       ! Partition the grid using ParMETIS
       !
