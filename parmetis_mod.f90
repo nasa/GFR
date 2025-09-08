@@ -52,12 +52,12 @@ module parmetis_mod
       integer(idx_t) :: adjncy(*)
       integer(idx_t) :: vwgt(*)
       integer(idx_t) :: adjwgt(*)
+      real(real_t)   :: tpwgts(*)
+      real(real_t)   :: ubvec(*)
       integer(idx_t) :: wgtflag
       integer(idx_t) :: numflag
       integer(idx_t) :: ncon
       integer(idx_t) :: nparts
-      real(real_t)   :: tpwgts(*)
-      real(real_t)   :: ubvec(*)
       integer(idx_t) :: options(*)
       integer(idx_t) :: edgecut
       integer(idx_t) :: part(*)
@@ -81,14 +81,14 @@ module parmetis_mod
       integer(idx_t) :: adjncy(*)
       integer(idx_t) :: vwgt(*)
       integer(idx_t) :: adjwgt(*)
+      real(real_t)   :: tpwgts(*)
+      real(real_t)   :: ubvec(*)
       integer(idx_t) :: wgtflag
       integer(idx_t) :: numflag
       integer(idx_t) :: ndims
       real(real_t)   :: xyz(*)
       integer(idx_t) :: ncon
       integer(idx_t) :: nparts
-      real(real_t)   :: tpwgts(*)
-      real(real_t)   :: ubvec(*)
       integer(idx_t) :: options(*)
       integer(idx_t) :: edgecut
       integer(idx_t) :: part(*)
@@ -126,12 +126,12 @@ module parmetis_mod
       integer(idx_t) :: adjncy(*)
       integer(idx_t) :: vwgt(*)
       integer(idx_t) :: adjwgt(*)
+      real(real_t)   :: tpwgts(*)
+      real(real_t)   :: ubvec(*)
       integer(idx_t) :: wgtflag
       integer(idx_t) :: numflag
       integer(idx_t) :: ncon
       integer(idx_t) :: nparts
-      real(real_t)   :: tpwgts(*)
-      real(real_t)   :: ubvec(*)
       integer(idx_t) :: options(*)
       integer(idx_t) :: edgecut
       integer(idx_t) :: part(*)
@@ -206,13 +206,13 @@ module parmetis_mod
       integer(idx_t) :: eptr(*)
       integer(idx_t) :: eind(*)
       integer(idx_t) :: elmwgt(*)
+      real(real_t)   :: tpwgts(*)
+      real(real_t)   :: ubvec(*)
       integer(idx_t) :: wgtflag
       integer(idx_t) :: numflag
       integer(idx_t) :: ncon
       integer(idx_t) :: ncommonnodes
       integer(idx_t) :: nparts
-      real(real_t)   :: tpwgts(*)
-      real(real_t)   :: ubvec(*)
       integer(idx_t) :: options(*)
       integer(idx_t) :: edgecut
       integer(idx_t) :: part(*)
