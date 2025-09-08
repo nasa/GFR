@@ -1052,10 +1052,14 @@ subroutine partition_using_parmetis(metis_option_requested,npart, &
   !.. Local Allocatable Arrays ..
   integer(idx_t), allocatable :: glb_xadj(:)
   integer(idx_t), allocatable :: glb_adjncy(:)
+  integer(idx_t), allocatable :: glb_eptr(:)
+  integer(idx_t), allocatable :: glb_eidx(:)
   integer(idx_t), allocatable :: glb_vwgt(:)
   integer(idx_t), allocatable :: glb_adjwgt(:)
   integer(idx_t), allocatable :: xadj(:)
   integer(idx_t), allocatable :: adjncy(:)
+  integer(idx_t), allocatable :: eptr(:)
+  integer(idx_t), allocatable :: eidx(:)
   integer(idx_t), allocatable :: vwgt(:)
   integer(idx_t), allocatable :: adjwgt(:)
   real(real_t),   allocatable :: xyz_cc(:,:)
@@ -1081,6 +1085,12 @@ continue
   call memory_pause("Before: calling create_metis_dual_graph")
   call create_metis_dual_graph(cells_surr_cell,cells_surr_cell_ptr, &
                                glb_xadj,glb_adjncy)
+  !
+  ! Create the dual graph for the global grid not including ghost cells
+  !
+  call memory_pause("Before: calling create_metis_elem_mesh")
+  call create_metis_elem_mesh(lcell,nodes_of_cell,nodes_of_cell_ptr, &
+                              glb_eptr,glb_eidx)
   !
   ! Allocate the local arrays
   !
@@ -1183,10 +1193,14 @@ continue
   !
   if (allocated(glb_xadj  )) deallocate ( glb_xadj )
   if (allocated(glb_adjncy)) deallocate ( glb_adjncy )
+  if (allocated(glb_eptr  )) deallocate ( glb_eptr )
+  if (allocated(glb_eidx  )) deallocate ( glb_eidx )
   if (allocated(glb_vwgt  )) deallocate ( glb_vwgt )
   if (allocated(glb_adjwgt)) deallocate ( glb_adjwgt )
   if (allocated(xadj      )) deallocate ( xadj )
   if (allocated(adjncy    )) deallocate ( adjncy )
+  if (allocated(eptr      )) deallocate ( eptr )
+  if (allocated(eidx      )) deallocate ( eidx )
   if (allocated(vwgt      )) deallocate ( vwgt )
   if (allocated(adjwgt    )) deallocate ( adjwgt )
   if (allocated(xyz_cc    )) deallocate ( xyz_cc )
