@@ -1041,7 +1041,7 @@ subroutine partition_using_parmetis(metis_option_requested,npart, &
   _MPI_COMM_TYPE_,   intent(in) :: part_comm
   !
   !.. Local Scalars ..
-  integer        :: n,ip,lcell,metis_option
+  integer        :: n,ip,lcell,metis_option,refine_count
   integer(idx_t) :: ncon,nparts,edgecut
   logical(ldk)   :: passes_inspection
   character(len=50) :: timer_message
@@ -1106,7 +1106,7 @@ continue
   ! One-pass loop to allow for easy error handling if none of the
   ! partitioning methods produce a quality grid partitioning
   !
-  part_loop: do ip = 1,1
+  part_loop: do refine_count = 1,1
     !
     do n = 1,size(metis_option_hierarchy)
       !
@@ -1169,12 +1169,13 @@ continue
       !       with a warning if it isnt contiguous.
       !
      !if (mypnum == 0) then
+        ip = metis_option + 100*refine_count
         call check_quality_of_partitioning(nparts,epart, &
                                            cells_surr_cell, &
                                            cells_surr_cell_ptr, &
                                            passes_inspection, &
                                            contiguity_setting=-99_idx_t, &
-                                           metis_option=metis_option)
+                                           metis_option=ip)
      !end if
       !
       ! Broadcast the logical passes_inspection to all processors so
@@ -1187,12 +1188,12 @@ continue
       ! output the results of the partitioning and exit from part_loop.
       !
       if (passes_inspection) then
-        call report_parmetis_results(nparts,metis_option,edgecut)
+        call report_parmetis_results(nparts,metis_option,refine_count,edgecut)
         exit part_loop
       end if
       !
       edgecut = -99_idx_t
-      call report_parmetis_results(nparts,metis_option,edgecut)
+      call report_parmetis_results(nparts,metis_option,refine_count,edgecut)
       !
     end do
     !
@@ -1222,7 +1223,7 @@ end subroutine partition_using_parmetis
 !
 !###############################################################################
 !
-subroutine report_parmetis_results(nparts,metis_option,edgecut)
+subroutine report_parmetis_results(nparts,metis_option,refine_count,edgecut)
   !
   !.. Use Statements ..
   use parmetis_mod, only : num_pm_ranks
@@ -1230,9 +1231,12 @@ subroutine report_parmetis_results(nparts,metis_option,edgecut)
   !.. Formal Arguments ..
   integer(idx_t), intent(in) :: nparts
   integer,        intent(in) :: metis_option
+  integer,        intent(in) :: refine_count
   integer(idx_t), intent(in) :: edgecut
   !
   character(len=12) :: weight
+  character(len=13) :: graph_type
+  character(len=6)  :: refine
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "report_parmetis_results"
@@ -1240,9 +1244,23 @@ subroutine report_parmetis_results(nparts,metis_option,edgecut)
 continue
   !
   if (any(metis_option == [1,2,3])) then
-    weight = "non-weighted"
+    weight = "NON-WEIGHTED"
   else
-    weight = "  weighted  "
+    weight = "  WEIGHTED  "
+  end if
+  !
+  if (any(metis_option == [2,5])) then
+    graph_type = "ELEMENT MESH"
+  else
+    graph_type = " DUAL GRAPH "
+  end if
+  !
+  if (refine_count == 0) then
+    graph_type = trim(graph_type) // "."
+  else if (refine_count == 1) then
+    refine = " PASS "
+  else
+    refine = "PASSES"
   end if
   !
   if (mypnum == glb_root) then
@@ -1256,7 +1274,11 @@ continue
       if (any(metis_option == [1,6])) then
         write (iout,3)
       end if
-      write (iout,4)
+      write (iout,4) graph_type
+      if (refine_count > 0) then
+        write (iout,5) refine_count,refine
+      end if
+      write (iout,6) metis_option
       write (iout,102) edgecut
       write (iout,100)
       !
@@ -1269,7 +1291,11 @@ continue
       if (any(metis_option == [1,6])) then
         write (iout,3)
       end if
-      write (iout,4)
+      write (iout,4) graph_type
+      if (refine_count > 0) then
+        write (iout,5) refine_count,refine
+      end if
+      write (iout,6) metis_option
       write (iout,210)
       !
     end if
@@ -1280,22 +1306,24 @@ continue
   !
   ! Format statements
   !
-  1   format (13x,'ParMETIS 4.0.x across ',i7,' processes')
-  2   format (14x,'into ',i7,1x,a12,' partitions')
-  3   format (3x,'using cell coordinates to pre-distribute the graph prior to')
-  4   format (9x,'using a multilevel k-way partitioning algorithm.')
+  1   format (16x,'ParMETIS 4.0.x across ',i7,' processes')
+  2   format (17x,'into ',i7,1x,a12,' partitions')
+  3   format (6x,'using cell coordinates to pre-distribute the graph prior to')
+  4   format (3x,'using a multilevel k-way algorithm to partition the ',a13)
+  5   format (7x,'and ',i2,'  REFINEMENT ',a6,' on the resulting partitioning.')
+  6   format (26x,'METIS_OPTION = ',i0)
   !
-  100 format (/,66('-'),/)
-  101 format (10x,'SUCCESSFULLY partitioned the grid in parallel')
-  102 format (14x,'The minimized edge cut was ',i0,'.')
+  100 format (/,72('-'),/)
+  101 format (13x,'SUCCESSFULLY partitioned the grid in parallel')
+  102 format (17x,'The minimized edge cut was ',i0,'.')
   !
-  200 format (///,66('#'),/, &
-                  15('#'),' !! PARTITIONING ATTEMPT FAILED !! ',16('#'),/, &
-                  66('#'),//)
-  201 format (6x,'FAILED to successfully partition the grid in parallel')
-  210 format (/,66('#'),/, &
-                15('#'),' !! PARTITIONING ATTEMPT FAILED !! ',16('#'),/, &
-                66('#'),///)
+  200 format (///,72('#'),/, &
+                  18('#'),' !! PARTITIONING ATTEMPT FAILED !! ',19('#'),/, &
+                  72('#'),//)
+  201 format (9x,'FAILED to successfully partition the grid in parallel')
+  210 format (/,72('#'),/, &
+                18('#'),' !! PARTITIONING ATTEMPT FAILED !! ',19('#'),/, &
+                72('#'),///)
   !
 end subroutine report_parmetis_results
 !
