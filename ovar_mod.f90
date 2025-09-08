@@ -351,6 +351,7 @@ module ovar
   !
   ! PARALLEL OPTIONS
   integer, public, save :: metis_option = 3 ! k-way part, min comm volume
+  integer, public, save :: use_parmetis = 0
   !
   ! METHOD OF MANUFACTURED SOLUTIONS (MMS) OPTIONS
   integer,     public, save :: mms_opt             = 0
@@ -2057,7 +2058,7 @@ module input_namelist_mod
   use ovar,      only : num_timesteps, Final_Time, constant_dt
   use ovar,      only : cfl, cfl_beg, cfl_end, cfl_cycles, cfl_start_iter
   use ovar,      only : Timestep_Type, minimum_timesteps
-  use ovar,      only : all_points, metis_option, use_old_restart_format
+  use ovar,      only : all_points, metis_option, use_parmetis
   use ovar,      only : mms_opt, mms_init, mms_output_solution
   use ovar,      only : itestcase, jet_init_func, governing_equations
   use ovar,      only : moving_ref_frame
@@ -2074,6 +2075,7 @@ module input_namelist_mod
   use ovar,      only : ignition_source_radius
   use ovar,      only : ignition_source_location
   use ovar,      only : load_restart_file, restart_interval, restart_file
+  use ovar,      only : use_old_restart_format
   use ovar,      only : restart_output_uses_host_roots
   use ovar,      only : CFL_reduction_for_NaN_restart
   use ovar,      only : num_saved_time_ave_restarts
@@ -2264,7 +2266,7 @@ module input_namelist_mod
   ! FORCE GLOBAL ORDER AND SOLUTION POINTS
   namelist / input / all_orders, all_points
   ! PARALLEL OPTIONS
-  namelist / input / metis_option
+  namelist / input / metis_option, use_parmetis
   ! METHOD OF MANUFACTURED SOLUTIONS (MMS) OPTIONS
   namelist / input / mms_opt, mms_init, mms_output_solution
   ! INITIALIZATION / TEST CASE
