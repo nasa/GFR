@@ -2372,6 +2372,94 @@ end subroutine create_metis_dual_graph
 !
 !###############################################################################
 !
+!
+!###############################################################################
+!> From the grid cells and nodes, create the element connectivity arrays
+!> required by METIS to partition the global element mesh.
+!###############################################################################
+subroutine create_metis_elem_mesh(lcell,nodes_of_cell,nodes_of_cell_ptr, &
+                                  eptr,eidx)
+  !
+  !.. Formal Arguments ..
+  integer,                        intent(in) :: lcell
+  integer,                        intent(in) :: nodes_of_cell(:)
+  integer,                        intent(in) :: nodes_of_cell_ptr(:)
+  integer(idx_t), allocatable, intent(inout) :: eptr(:)
+  integer(idx_t), allocatable, intent(inout) :: eidx(:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nf,n1,n2,ic,ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_metis_elem_mesh"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! METIS requires the two arrays eptr and eidx to define the element
+  ! connectivity when using it to partition the element mesh (instead of
+  ! partitioning the dual graph of the mesh). These two arrays, respectively,
+  ! are very similar to the already existing nodes_of_cell_ptr and nodes_of_cell
+  ! arrays. This subroutine essentially takes these two existing arrays and
+  ! creates eptr and eidx as required by METIS.
+  !
+  ! NOTE: THE FOLLOWING PARAGRAPH IS FROM THE DUAL GRAPH VERSION, BUT IT IS
+  !       ALSO TRUE FOR THE MESH CONNECTIVITY. I DONT KNOW IF IT ALSO APPLIES
+  !       TO THE ACTUAL CONTENTS OF NODES_OF_CELL_PTR AND NODES_OF_CELL, BUT
+  !       IT IS INCLUDED HERE (WITH NECESSARY MODIFICATIONS) JUST IN CASE.
+  !
+  ! We cannot send eidx containing values less than 1 to the METIS routines so
+  ! these need to be removed and the locations in eptr also have to be adjusted
+  ! accordingly. Additionally, have eptr to start the indexing for eidx at 1,
+  ! i.e., eptr(1)=1 (nodes_of_cell_ptr indexing for nodes_of_cell begins
+  ! at 0, i.e. nodes_of_cell_ptr(1)=0) since this is what METIS expects when
+  ! using Fortran array ordering.
+  !
+  ! Allocate the eptr and eidx arrays
+  !
+  allocate ( eptr(1:lcell+1) , source=0_idx_t , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"eptr",1,__LINE__,__FILE__,ierr,error_message)
+  eptr(1) = 1_idx_t
+  !
+  n1 = nodes_of_cell_ptr(1)+1
+  n2 = nodes_of_cell_ptr(lcell+1)
+  !
+  n = count( nodes_of_cell(n1:n2) > 0 )
+  !
+  allocate ( eidx(1:n) , source=0_idx_t , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"eidx",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Loop through the cells to copy only the greater than zero
+  ! locations of nodes_of_cell into the eidx array and
+  ! keep count of the number copied for each cell in eptr
+  !
+  ic = 0
+  do n = 1,lcell
+    n1 = nodes_of_cell_ptr(n)+1
+    n2 = nodes_of_cell_ptr(n+1)
+    do nf = n1,n2
+      if (nodes_of_cell(nf) > 0) then
+        eptr(n+1) = eptr(n+1) + 1_idx_t
+        ic = ic + 1
+        eidx(ic) = int( nodes_of_cell(nf) , kind=idx_t )
+      end if
+    end do
+  end do
+  !
+  ! Finally, reshuffle eptr
+  !
+  do n = 2,size(eptr)
+    eptr(n) = eptr(n) + eptr(n-1)
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine create_metis_elem_mesh
+!
+!###############################################################################
+!
 subroutine create_grid_weights(metis_option,ncon,n_dual_vertices,n_dual_edges, &
                                vwgt,adjwgt,vsize,wgtflag,cell_geom,cell_order)
   !
