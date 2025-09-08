@@ -374,7 +374,7 @@ contains
 !
 subroutine ParMETIS_PartGraphKway(metis_option, &
                                   nparts,xadj,adjncy,eptr,eidx,vwgt,adjwgt, &
-                                  edgecut,epart,comm,xyz)
+                                  xyz,edgecut,epart,comm)
   !
   !.. Use Statements ..
   use, intrinsic :: iso_c_binding, only : c_int
@@ -388,12 +388,10 @@ subroutine ParMETIS_PartGraphKway(metis_option, &
   integer(idx_t),              intent(in) :: eidx(:)
   integer(idx_t), allocatable, intent(in) :: vwgt(:)
   integer(idx_t), allocatable, intent(in) :: adjwgt(:)
+  real(real_t),   allocatable, intent(in) :: xyz(:,:)
   integer(idx_t),           intent(inout) :: edgecut
   integer(idx_t),           intent(inout) :: epart(:)
   _MPI_COMM_TYPE_,             intent(in) :: comm
-  !
-  !.. Optional Arguments ..
-  real(real_t), optional, intent(in) :: xyz(:,:)
   !
   !.. Local Scalars ..
   integer(c_int) :: ierr

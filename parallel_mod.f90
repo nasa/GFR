@@ -1139,7 +1139,7 @@ continue
       call debug_timer(start_timer,timer_message)
       call ParMETIS_PartGraphKway(metis_option, &
                                   nparts,xadj,adjncy,eptr,eidx,vwgt,adjwgt, &
-                                  edgecut,epart,part_comm,xyz_cc)
+                                  xyz_cc,edgecut,epart,part_comm)
       call debug_timer(stop_timer,timer_message)
       !
 !#define DUMP_PARMETIS_ARGUMENTS
