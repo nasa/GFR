@@ -966,20 +966,21 @@ continue
       if (itestcase > 0) then
         call compute_CH4_hardcoded_wdot(n1,n2,usp,react_temp,residual)
       else
-        call compute_H2_wdot(n1,n2,usp,gpsp,react_temp,residual)
+        call compute_H2_wdot(n1,n2,usp,gpsp,react_temp,sc_pscale,residual)
       end if
     else if (itestcase == H2_2D_Diffusion_Flame .or. &
              itestcase == Compression_Corner) then
       if (semi_implicit_chemistry == -1) then
-        call compute_H2_hardcoded_wdot(n1,n2,usp,react_temp,residual)
+        call compute_H2_hardcoded_wdot(n1,n2,usp,react_temp,sc_pscale,residual)
       else
-        call compute_H2_wdot(n1,n2,usp,gpsp,react_temp,residual)
+        call compute_H2_wdot(n1,n2,usp,gpsp,react_temp,sc_pscale,residual)
       end if
     else if (itestcase == UIUC_Scramjet) then
       if (semi_implicit_chemistry == -1) then
-        call compute_C2H4_hardcoded_wdot(n1,n2,usp,react_temp,residual)
+        call compute_C2H4_hardcoded_wdot(n1,n2,usp, &
+                                         react_temp,sc_pscale,residual)
       else
-        call compute_H2_wdot(n1,n2,usp,gpsp,react_temp,residual)
+        call compute_H2_wdot(n1,n2,usp,gpsp,react_temp,sc_pscale,residual)
       end if
     else
       call compute_generic_wdot(n1,n2,usp,gpsp,residual)
@@ -1268,7 +1269,7 @@ end subroutine compute_CH4_hardcoded_wdot
 #ifndef DISABLE_PURE
 pure &
 #endif
-subroutine compute_H2_hardcoded_wdot(n1,n2,cv,react_temp,residual)
+subroutine compute_H2_hardcoded_wdot(n1,n2,cv,react_temp,sc_pscale,residual)
   !
   ! Routine to compute the chemical source terms
   !
@@ -1281,6 +1282,7 @@ subroutine compute_H2_hardcoded_wdot(n1,n2,cv,react_temp,residual)
   ! N2         : ending    point
   ! CV         : conserved variables
   ! REACT_TEMP : temperature to use for reaction rates in not semi-implicit
+  ! SC_PSCALE  : species concentration scaling for reaction pressure ignition
   ! RESIDUAL   : RHS residual
   !
   !.. Use Statements ..
@@ -1293,12 +1295,13 @@ subroutine compute_H2_hardcoded_wdot(n1,n2,cv,react_temp,residual)
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: cv(:,:)
   real(wp),    intent(in) :: react_temp(:)
+  real(wp),    intent(in) :: sc_pscale(:)
   real(wp), intent(inout) :: residual(:,:)
   !
   ! .. Local Scalars ..
   integer  :: ir,m,n,np
   real(wp) :: val,log_a,expnt,tpwr,rulog,tactiv
-  real(wp) :: temp,logt,tbe
+  real(wp) :: temp,logt,tbe,pscale
   real(wp) :: qf,qb,dgibrt,prdctf,prdctb
   real(wp) :: scO2,scH2,scOH,scH2O,scO,scH,scN2
   real(wp) :: wdotO2,wdotH2,wdotOH,wdotH2O,wdotO,wdotH
@@ -1337,15 +1340,22 @@ continue
     temp = react_temp(n)*tref
     logt = log(temp)
     !
+    ! Extract the species concentration scaling from a specified reaction
+    ! pressure used for ignition.
+    ! NOTE: This will be equal to 1 if this type of ignition is not being used
+    !       or ignition is turned off.
+    !
+    pscale = sc_pscale(n)
+    !
     ! Compute the dimensional species concentrations in moles/cm^3
     !
-    scO2  = cv(n,nO2 ) * dens_si_to_cgs * rhoref / wtmol(nO2 )
-    scH2  = cv(n,nH2 ) * dens_si_to_cgs * rhoref / wtmol(nH2 )
-    scOH  = cv(n,nOH ) * dens_si_to_cgs * rhoref / wtmol(nOH )
-    scH2O = cv(n,nH2O) * dens_si_to_cgs * rhoref / wtmol(nH2O)
-    scO   = cv(n,nO  ) * dens_si_to_cgs * rhoref / wtmol(nO  )
-    scH   = cv(n,nH  ) * dens_si_to_cgs * rhoref / wtmol(nH  )
-    scN2  = cv(n,nN2 ) * dens_si_to_cgs * rhoref / wtmol(nN2 )
+    scO2  = cv(n,nO2 ) * pscale * dens_si_to_cgs * rhoref / wtmol(nO2 )
+    scH2  = cv(n,nH2 ) * pscale * dens_si_to_cgs * rhoref / wtmol(nH2 )
+    scOH  = cv(n,nOH ) * pscale * dens_si_to_cgs * rhoref / wtmol(nOH )
+    scH2O = cv(n,nH2O) * pscale * dens_si_to_cgs * rhoref / wtmol(nH2O)
+    scO   = cv(n,nO  ) * pscale * dens_si_to_cgs * rhoref / wtmol(nO  )
+    scH   = cv(n,nH  ) * pscale * dens_si_to_cgs * rhoref / wtmol(nH  )
+    scN2  = cv(n,nN2 ) * pscale * dens_si_to_cgs * rhoref / wtmol(nN2 )
     !
     ! Compute the third body efficiencies
     !
@@ -1609,7 +1619,7 @@ end subroutine compute_H2_hardcoded_wdot
 #ifndef DISABLE_PURE
 pure &
 #endif
-subroutine compute_C2H4_hardcoded_wdot(n1,n2,cv,react_temp,residual)
+subroutine compute_C2H4_hardcoded_wdot(n1,n2,cv,react_temp,sc_pscale,residual)
   !
   ! Routine to compute the chemical source terms
   !
@@ -1622,6 +1632,7 @@ subroutine compute_C2H4_hardcoded_wdot(n1,n2,cv,react_temp,residual)
   ! N2         : ending    point
   ! CV         : conserved variables
   ! REACT_TEMP : temperature to use for reaction rates in not semi-implicit
+  ! SC_PSCALE  : species concentration scaling for reaction pressure ignition
   ! RESIDUAL   : RHS residual
   !
   !.. Use Statements ..
@@ -1634,12 +1645,13 @@ subroutine compute_C2H4_hardcoded_wdot(n1,n2,cv,react_temp,residual)
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: cv(:,:)
   real(wp),    intent(in) :: react_temp(:)
+  real(wp),    intent(in) :: sc_pscale(:)
   real(wp), intent(inout) :: residual(:,:)
   !
   ! .. Local Scalars ..
   integer  :: ir,m,n,np
   real(wp) :: val,log_a,expnt,tpwr,rulog,tactiv
-  real(wp) :: temp,logt,tbe
+  real(wp) :: temp,logt,tbe,pscale
   real(wp) :: qf,qb,dgibrt,prdctf,prdctb
   real(wp) :: scO2,scH2,scCO,scH2O,scCO2,scC2H4,scN2
   real(wp) :: wdotO2,wdotH2,wdotCO,wdotH2O,wdotCO2,wdotC2H4
@@ -1678,15 +1690,22 @@ continue
     temp = react_temp(n)*tref
     logt = log(temp)
     !
+    ! Extract the species concentration scaling from a specified reaction
+    ! pressure used for ignition.
+    ! NOTE: This will be equal to 1 if this type of ignition is not being used
+    !       or ignition is turned off.
+    !
+    pscale = sc_pscale(n)
+    !
     ! Compute the dimensional species concentrations in moles/cm^3
     !
-    scH2   = cv(n,nH2  ) * dens_si_to_cgs * rhoref / wtmol(nH2  )
-    scO2   = cv(n,nO2  ) * dens_si_to_cgs * rhoref / wtmol(nO2  )
-    scH2O  = cv(n,nH2O ) * dens_si_to_cgs * rhoref / wtmol(nH2O )
-    scCO   = cv(n,nCO  ) * dens_si_to_cgs * rhoref / wtmol(nCO  )
-    scCO2  = cv(n,nCO2 ) * dens_si_to_cgs * rhoref / wtmol(nCO2 )
-    scC2H4 = cv(n,nC2H4) * dens_si_to_cgs * rhoref / wtmol(nC2H4)
-    scN2   = cv(n,nN2  ) * dens_si_to_cgs * rhoref / wtmol(nN2  )
+    scH2   = cv(n,nH2  ) * pscale * dens_si_to_cgs * rhoref / wtmol(nH2  )
+    scO2   = cv(n,nO2  ) * pscale * dens_si_to_cgs * rhoref / wtmol(nO2  )
+    scH2O  = cv(n,nH2O ) * pscale * dens_si_to_cgs * rhoref / wtmol(nH2O )
+    scCO   = cv(n,nCO  ) * pscale * dens_si_to_cgs * rhoref / wtmol(nCO  )
+    scCO2  = cv(n,nCO2 ) * pscale * dens_si_to_cgs * rhoref / wtmol(nCO2 )
+    scC2H4 = cv(n,nC2H4) * pscale * dens_si_to_cgs * rhoref / wtmol(nC2H4)
+    scN2   = cv(n,nN2  ) * pscale * dens_si_to_cgs * rhoref / wtmol(nN2  )
     !
     ! There are no third body efficiencies for this reaction mechanism
     !
@@ -1822,13 +1841,14 @@ end subroutine compute_C2H4_hardcoded_wdot
 #ifndef DISABLE_PURE
 pure &
 #endif
-subroutine compute_H2_wdot(n1,n2,cv,gp,react_temp,residual)
+subroutine compute_H2_wdot(n1,n2,cv,gp,react_temp,sc_pscale,residual)
   !
   ! N1         : beginning point
   ! N2         : ending    point
   ! CV         : conserved variables
   ! GP         : gas properties
   ! REACT_TEMP : temperature to use for reaction rates in not semi-implicit
+  ! SC_PSCALE  : species concentration scaling for reaction pressure ignition
   ! RESIDUAL   : RHS residual
   !
   !.. Use Statements ..
@@ -1840,6 +1860,7 @@ subroutine compute_H2_wdot(n1,n2,cv,gp,react_temp,residual)
   real(wp),    intent(in) :: cv(:,:)
   real(wp),    intent(in) :: gp(:,:)
   real(wp),    intent(in) :: react_temp(:)
+  real(wp),    intent(in) :: sc_pscale(:)
   real(wp), intent(inout) :: residual(:,:)
   !
   !.. Local Scalars ..
@@ -1870,8 +1891,8 @@ continue
     !
     ! Calculate the species source terms
     !
-    call compute_species_source_terms(n1,n2,cv,gp(:,ntemp),specon, &
-                                      frrate,brrate,wdot)
+    call compute_species_source_terms(n1,n2,cv,gp(:,ntemp),sc_pscale, &
+                                      specon,frrate,brrate,wdot)
     !
     if (semi_implicit_chemistry == 2) then
       wdotsv = wdot(1:np,1:ncs) ! F2003 AUTO-REALLOCATION
@@ -1926,8 +1947,8 @@ continue
     !
     ! Calculate the species source terms
     !
-    call compute_species_source_terms(n1,n2,cv,react_temp,specon, &
-                                      frrate,brrate,wdot)
+    call compute_species_source_terms(n1,n2,cv,react_temp,sc_pscale, &
+                                      specon,frrate,brrate,wdot)
     !
     do m = 1,ncs
       !
@@ -1957,7 +1978,8 @@ end subroutine compute_H2_wdot
 #ifndef DISABLE_PURE
 pure &
 #endif
-subroutine compute_species_source_terms(n1,n2,cv,t,specon,frrate,brrate,wdot)
+subroutine compute_species_source_terms(n1,n2,cv,t,sc_pscale, &
+                                        specon,frrate,brrate,wdot)
   !
   ! Routine to compute the chemical source terms
   !
@@ -1966,14 +1988,15 @@ subroutine compute_species_source_terms(n1,n2,cv,t,specon,frrate,brrate,wdot)
   !  2) The forward and backward reaction rate coefficients
   !  3) The species production rate
   !
-  ! N1     : beginning point
-  ! N2     : ending    point
-  ! CV     : conserved variables
-  ! T      : static temperature
-  ! SPECON : species concentrations
-  ! FRRATE : forward reaction rate coefficient
-  ! BRRATE : backward reaction rate coefficient
-  ! WDOT   : species source terms
+  ! N1        : beginning point
+  ! N2        : ending    point
+  ! CV        : conserved variables
+  ! T         : static temperature
+  ! SC_PSCALE : species concentration scaling for reaction pressure ignition
+  ! SPECON    : species concentrations
+  ! FRRATE    : forward reaction rate coefficient
+  ! BRRATE    : backward reaction rate coefficient
+  ! WDOT      : species source terms
   !
   !.. Use Statements ..
   use ovar,       only : rhoref
@@ -1983,6 +2006,7 @@ subroutine compute_species_source_terms(n1,n2,cv,t,specon,frrate,brrate,wdot)
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: cv(:,:)
   real(wp),    intent(in) :: t(:)
+  real(wp),    intent(in) :: sc_pscale(:)
   real(wp), intent(inout) :: frrate(:,:)
   real(wp), intent(inout) :: brrate(:,:)
   real(wp), intent(inout) :: wdot(:,:)
@@ -2004,7 +2028,7 @@ continue
   do m = 1,ncs
     val = dens_si_to_cgs * rhoref / wtmol(m)
     do n = n1,n2
-      specon(n,m) = cv(n,m) * val
+      specon(n,m) = cv(n,m) * val * sc_pscale(n)
     end do
   end do
   !
