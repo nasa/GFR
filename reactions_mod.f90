@@ -935,6 +935,7 @@ subroutine compute_wdot(iter)
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: react_temp(:)
+  real(wp), allocatable :: sc_pscale(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_wdot"
@@ -952,6 +953,8 @@ continue
     !
     react_temp = init_array(n_solpts,zero) ! F2003 AUTO-REALLOC
     react_temp(n1:n2) = gpsp(n1:n2,ntemp)
+    !
+    sc_pscale = init_array(n_solpts,one) ! F2003 AUTO-REALLOC
     !
     call compute_ignition_source_term(n1,n2,usp,gpsp,residual,react_temp, &
                                       reactant_species_list, &
@@ -982,6 +985,7 @@ continue
     end if
     !
     if (allocated(react_temp)) deallocate ( react_temp )
+    if (allocated(sc_pscale)) deallocate ( sc_pscale )
     !
   end if
   !
