@@ -405,7 +405,7 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   !
   !.. Use Statements ..
   use geomvar_mod, only : n_global_face
-  use ovar,        only : continuous_output, Limiter_Option
+  use ovar,        only : continuous_output, Limiter_Option, use_parmetis
   use geomvar_mod, only : geo_face_map => face_map
   use geomvar_mod, only : geo_edge_map => edge_map
   use geomvar_mod, only : geo_node_map => node_map
@@ -496,11 +496,13 @@ continue
     ! is not available, this will return without modifying epart, in
     ! which case we will attempt to partition the grid with serial METIS.
     !
-    call partition_using_parmetis(requested_metis_option,npart, &
-                                  epart,cell_geom,cell_order, &
-                                  cells_surr_cell,cells_surr_cell_ptr, &
-                                  nodes_of_cell,nodes_of_cell_ptr, &
-                                  host_roots_comm)
+    if (use_parmetis) then
+      call partition_using_parmetis(requested_metis_option,npart, &
+                                    epart,cell_geom,cell_order, &
+                                    cells_surr_cell,cells_surr_cell_ptr, &
+                                    nodes_of_cell,nodes_of_cell_ptr, &
+                                    host_roots_comm)
+    end if
 #endif
     !
     ! Use serial METIS if epart is still all 0.
