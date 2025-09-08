@@ -1167,8 +1167,8 @@ continue
       ! Broadcast the logical passes_inspection to all processors so
       ! that they all will know whether to exit part_loop.
       !
-     !call mpi_bcast(passes_inspection,1_int_mpi,MPI_LOGICAL, &
-     !               0_int_mpi,MPI_COMM_WORLD,mpierr)
+      call mpi_bcast(passes_inspection,1_int_mpi,MPI_LOGICAL, &
+                     glb_root,part_comm,mpierr)
       !
       ! If the partitioning passes inspection, have the root processor
       ! output the results of the partitioning and exit from part_loop.
