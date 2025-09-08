@@ -1370,7 +1370,7 @@ continue
   !
   ! Get the approximate number of cells per rank
   !
-  ncells_per_rank = glb_ncell/num_ranks
+  ncells_per_rank = ceiling(real(glb_ncell,kind=wp)/real(num_ranks,kind=wp))
   !
   my_cell_beg = my_rank*ncells_per_rank + 1
   my_cell_end = min( glb_ncell , my_cell_beg + ncells_per_rank-1 )
