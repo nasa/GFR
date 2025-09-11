@@ -3944,7 +3944,14 @@ continue
       if (  all(Limiter_Option /= [-1,1]) .or. &
                  marker_was_not_allocated .or. &
           scaled_marker_was_not_allocated ) then
-        call resolution_indicator(nst=1,apply_projection=fals)
+        ! NOTE: Passing orders_to_cutoff=0 ensures that only the highest mode
+        !       is cutoff to compute the resolution marker. We want it to use
+        !       the P order cutoff filter, and without this, it will instead
+        !       use the P-1 order cutoff filter. This was causing a crash when
+        !       P=1, since the cutoff filter isnt allocated with a P=0 cutoff
+        !       filter.
+        call resolution_indicator(nst=1,apply_projection=fals, &
+                                  orders_to_cutoff=0)
       end if
       !
       ! Actual resolution marker value
