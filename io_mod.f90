@@ -652,7 +652,7 @@ continue
 #if DUMP_MARKER_INPUTS == 2
   ! Dump marker inputs before they are processed.
   if (mypnum == glb_root) then
-    psi0 = -one*(marker_c1+marker_c2*log10(real(n_order,kind=wp)))
+    psi0 = -one*(marker_c1+marker_c2*log10(real(max(1,n_order),kind=wp)))
     write (iout,582) "BEFORE", &
                      Limiter_Marker_c1, &
                      Limiter_Marker_c2, &
@@ -691,7 +691,7 @@ continue
     Limiter_Marker_Max = Limiter_Marker_Min + two*marker_dpsi
   end if
   !
-  l10p = log10(real(n_order,kind=wp))
+  l10p = log10(real(max(1,n_order),kind=wp))
   !
   if (all([Limiter_Marker_Min,Limiter_Marker_Max] < zero)) then
     !
@@ -704,10 +704,14 @@ continue
     !      and marker_dpsi to compute a new marker_c1
     ! result in the SAME psi0, which makes them equivalent.
     !
-    if (marker_c1 /= Default_Marker_c1) then
-      marker_c2 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c1) / l10p
-    else
+    if (n_order == 1) then
       marker_c1 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c2*l10p)
+    else
+      if (marker_c1 /= Default_Marker_c1) then
+        marker_c2 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c1) / l10p
+      else
+        marker_c1 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c2*l10p)
+      end if
     end if
     !
   end if
@@ -725,7 +729,7 @@ continue
 #if DUMP_MARKER_INPUTS == 2
   ! Dump marker inputs after they are processed. Then stop.
   if (mypnum == glb_root) then
-    psi0 = -one*(marker_c1+marker_c2*log10(real(n_order,kind=wp)))
+    psi0 = -one*(marker_c1+marker_c2*log10(real(max(1,n_order),kind=wp)))
     write (iout,582) " AFTER", &
                      Limiter_Marker_c1, &
                      Limiter_Marker_c2, &
@@ -743,7 +747,7 @@ continue
   !
 #if DUMP_MARKER_INPUTS == 1
   if (mypnum == glb_root) then
-    psi0 = -one*(marker_c1 + marker_c2*log10(real(n_order,kind=wp)))
+    psi0 = -one*(marker_c1 + marker_c2*log10(real(max(1,n_order),kind=wp)))
     write (iout,30) marker_c1,marker_c2,marker_dpsi, &
                     psi0-marker_dpsi,psi0,psi0+marker_dpsi
   end if

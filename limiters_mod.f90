@@ -3009,7 +3009,7 @@ subroutine compute_scaled_marker(skip_cell,marker,scaled_marker)
   !
   !.. Local Scalars ..
   integer  :: nc
-  real(wp) :: l10_marker,psi0
+  real(wp) :: l10_marker,psi0,l10_order
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_scaled_marker"
@@ -3032,7 +3032,8 @@ continue
       !
       l10_marker = log10( max( marker(nc) , rndoff ) )
       !
-      psi0 = -one*(c1 + c2*log10(real(cell(nc)%order,kind=wp)))
+      l10_order = log10(real( max(1,cell(nc)%order) , kind=wp ))
+      psi0 = -one*(c1 + c2*l10_order)
       !
       if (l10_marker <= psi0-dpsi) then
         scaled_marker(nc) = zero
@@ -3552,7 +3553,7 @@ subroutine jump_indicator_original(nst,troubled_cell)
   real(wp) :: ds,rnx,rny,rnz,val,psi0
   real(wp) :: vall,valr,area
   real(wp) :: numer,denom,wt
-  real(wp) :: c1,c2
+  real(wp) :: c1,c2,l10_order
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "jump_indicator_original"
@@ -3745,7 +3746,8 @@ continue
   !$ACC PARALLEL LOOP PRESENT(cell,marker,scaled_marker)
   do nc = 1,ncell
     !
-    psi0 = -one*(c1 + c2*log10(real(cell(nc)%order,kind=wp)))
+    l10_order = log10(real( max(1,cell(nc)%order) , kind=wp ))
+    psi0 = -one*(c1 + c2*l10_order)
     !
     if      (marker(nc,imarker) <= psi0-dpsi) then
       scaled_marker(nc,imarker) = zero
@@ -3815,7 +3817,7 @@ subroutine jump_indicator_modified(nst,troubled_cell)
   real(wp) :: ds,rnx,rny,rnz,val,psi0
   real(wp) :: vall,valr,area,valave,pointmx
   real(wp) :: numer,denom,wt
-  real(wp) :: c1,c2
+  real(wp) :: c1,c2,l10_order
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "jump_indicator_modified"
@@ -4059,7 +4061,8 @@ continue
   !$ACC PARALLEL LOOP PRESENT(cell,marker,scaled_marker)
   do nc = 1,ncell
     !
-    psi0 = -one*(c1 + c2*log10(real(cell(nc)%order,kind=wp)))
+    l10_order = log10(real( max(1,cell(nc)%order) , kind=wp ))
+    psi0 = -one*(c1 + c2*l10_order)
     !
     if      (marker(nc,imarker) <= psi0-dpsi) then
       scaled_marker(nc,imarker) = zero
