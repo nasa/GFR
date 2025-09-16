@@ -1972,6 +1972,9 @@ subroutine check_ho_points_are_equal_distance()
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_ho_points_are_equal_distance"
   !
+#ifdef PBS_ENV
+#define DISABLE_FOR_PBS
+#endif
 continue
   !
   call debug_timer(entering_procedure,pname)
@@ -1999,7 +2002,9 @@ continue
         call check_ho_point_spacings_quad(this_order,xyz_pts,dsq,is_eq_dsq)
         if (.not. all(is_eq_dsq(:,:))) then
           ncount = ncount+1
-#ifndef PBS_ENV
+#ifdef DISABLE_FOR_PBS
+          if (ncount > 0) exit
+#else
 #ifdef DEBUG_ON
           write (iout,1) nc
 #endif
@@ -2010,10 +2015,9 @@ continue
                                           is_eq_dsh,nc,pts2)
         if (.not. all(is_eq_dsh(:,:,:))) then
           ncount = ncount+1
-#ifdef PBS_ENV
+#ifdef DISABLE_FOR_PBS
           if (ncount > 0) exit
-#endif
-#ifndef PBS_ENV
+#else
 #ifdef DEBUG_ON
           write (iout,2) nc
 #endif
@@ -2022,7 +2026,7 @@ continue
       end if
       !
     end do
-#ifdef PBS_ENV
+#ifdef DISABLE_FOR_PBS
     if (ncount > 0) write (iout,4)
 #else
     if (ncount > 0) write (iout,3) ncount
@@ -2196,11 +2200,11 @@ subroutine check_ho_point_spacings_hexa(p,xyz,dsh,is_eq_dsh,nc,pts)
   character(len=*), parameter :: pname = "check_ho_point_spacings_hexa"
   !
   logical(lk) :: debug_output_ho_point_spacings
-#ifdef PBS_ENV
+#ifdef DISABLE_FOR_PBS
   logical(lk), parameter :: turn_off_output_override = true
 #else
-  logical(lk), parameter :: turn_off_output_override = true
- !logical(lk), parameter :: turn_off_output_override = fals
+ !logical(lk), parameter :: turn_off_output_override = true
+  logical(lk), parameter :: turn_off_output_override = fals
 #endif
   !
 continue
@@ -2232,6 +2236,12 @@ continue
   if (xmin > -3.55_wp .and. xmax < -3.15_wp .and. &
       rmax < one .and. any(bface(2,:)==nc)) then
       debug_output_ho_point_spacings = true
+  end if
+  !
+  if (rmax <= 0.4_wp .or. &
+      (xmax <= -3.6_wp .and. rmax < 3.05_wp) .or. &
+      (xmax <= zero .and. rmax < -0.578_wp*xmin+one)) then
+    debug_output_ho_point_spacings = true
   end if
   !
   if (turn_off_output_override) then
