@@ -539,6 +539,8 @@ function initial_conditions(xyz,init_cond) result(return_value)
   integer  :: ibc,k,m,np,ierr
   real(wp) :: div,dl,r,r0,nozzle_len
   !
+  logical(lk) :: init_to_freestream
+  !
   character(len=32) :: bcnam
   !
   !.. Local Allocatable Arrays ..
@@ -676,7 +678,20 @@ continue
     !##### SUBSONIC JETS
     !###########################################################################
     !
-    if (init_cond /= 0) then
+    init_to_freestream = fals
+    !
+    if (jet_init_func == 0) init_to_freestream = true
+    if (init_cond == 0) init_to_freestream = true
+    if (init_cond < lbound(bc_in,dim=1)) init_to_freestream = true
+    if (init_cond > ubound(bc_in,dim=1)) init_to_freestream = true
+    !
+    if (init_to_freestream) then
+      !
+      do k = 1,np
+        return_value(k,:) = bc_in(0)%cv(:)
+      end do
+      !
+    else
       !
       do k = 1,np
         return_value(k,:) = subsonic_jet_profile_using_astar(xyz(:,k), &
@@ -684,12 +699,6 @@ continue
                                                          bc_in(init_cond)%pv(:))
        !return_value(k,:) = subsonic_jet_profile(xyz(:,k),bc_in(0)%pv(:), &
        !                                         bc_in(init_cond)%pv(:))
-      end do
-      !
-    else
-      !
-      do k = 1,np
-        return_value(k,:) = bc_in(init_cond)%cv(:)
       end do
       !
     end if
@@ -700,17 +709,24 @@ continue
     !##### SUPERSONIC JET
     !###########################################################################
     !
-    if (init_cond /= 0) then
+    init_to_freestream = fals
+    !
+    if (jet_init_func == 0) init_to_freestream = true
+    if (init_cond == 0) init_to_freestream = true
+    if (init_cond < lbound(bc_in,dim=1)) init_to_freestream = true
+    if (init_cond > ubound(bc_in,dim=1)) init_to_freestream = true
+    !
+    if (init_to_freestream) then
       !
       do k = 1,np
-        return_value(k,:) = ssjet_profile(xyz(:,k),bc_in(0)%pv(:), &
-                                          bc_in(init_cond)%pv(:))
+        return_value(k,:) = bc_in(0)%cv(:)
       end do
       !
     else
       !
       do k = 1,np
-        return_value(k,:) = bc_in(init_cond)%cv(:)
+        return_value(k,:) = ssjet_profile(xyz(:,k),bc_in(0)%pv(:), &
+                                          bc_in(init_cond)%pv(:))
       end do
       !
     end if
