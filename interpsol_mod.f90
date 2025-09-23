@@ -1039,7 +1039,7 @@ continue
   call debug_timer(report_accumulated_time, &
                    "outside boundary face",acc=4)
   write (iout,1001) mypnum,tid
-  1001 format ("CPU # ",i0," , Thread # ",i2," finished interpolation!")
+  1001 format ("CPU # ",i0," , Thread # ",i4," finished interpolation!")
   flush (iout)
   !$OMP END PARALLEL
   !
