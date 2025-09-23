@@ -844,6 +844,7 @@ subroutine assume_equidistant_mapping()
   !
   use ovar,             only : rhoref,aref
   use ovar,             only : interpto_input_mode
+  use ovar,             only : force_cgns_linear_grid_points
   !
   use flowvar_mod,      only : usp
   !
@@ -980,7 +981,7 @@ continue
     !
     if (check_grid_for_pts) then
       if (allocated(grid%elem(this_cell)%pts)) then
-        use_nodes_of_cell = fals
+        use_nodes_of_cell = force_cgns_linear_grid_points
       end if
     end if
     !

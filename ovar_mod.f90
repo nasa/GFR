@@ -661,6 +661,7 @@ module ovar
   !
   ! CGNS INPUT OPTIONS
   logical(lk), public, save :: correct_cgns_grid_points = fals
+  logical(lk), public, save :: force_cgns_linear_grid_points = fals
   !
   ! CONVERGENCE CRITERIA
   real(wp), public, save :: convergence_order_abs_res = real( -16 , kind=wp )
@@ -2121,7 +2122,7 @@ module input_namelist_mod
   use ovar,      only : output_plot3d_to_tecplot, output_bface_array
   use ovar,      only : interpolate_before_output_variable
   use ovar,      only : cgns_high_order_output,cgns_mixed_output
-  use ovar,      only : correct_cgns_grid_points
+  use ovar,      only : correct_cgns_grid_points, force_cgns_linear_grid_points
   use ovar,      only : convergence_order_abs_res, convergence_order_max_res
   use ovar,      only : dump_memory_usage,use_bc_conflicts
   use ovar,      only : dump_fluxes,check_flux_point_coordinates
@@ -2418,7 +2419,7 @@ module input_namelist_mod
                      convert_restart_to_cgns, completely_disable_cgns, &
                      delete_converted_restart_files
   ! CGNS INPUT OPTIONS
-  namelist / input / correct_cgns_grid_points
+  namelist / input / correct_cgns_grid_points, force_cgns_linear_grid_points
   ! CONVERGENCE CRITERIA
   namelist / input / convergence_order_abs_res, convergence_order_max_res
   ! PROFILE PARALLEL IO
