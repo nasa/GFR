@@ -1308,6 +1308,7 @@ subroutine link_cylindrical_coordinates(cgns_file,procedure_name, &
   !
   !.. Use Statements ..
   use ovar, only : profile_io_cgns_subs
+  use ovar, only : output_cylindrical_coordinates
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: cgns_file
@@ -1325,6 +1326,15 @@ subroutine link_cylindrical_coordinates(cgns_file,procedure_name, &
   character(len=*), parameter :: sub_pname = "link_cylindrical_coordinates"
   !
 continue
+  !
+  ! Return without doing anything if the cylindrical coordinates
+  ! were not written to the CGNS grid file.
+  !
+  if (.not. output_cylindrical_coordinates) then
+    return
+  end if
+  !
+  !
   !
   write (pname,1) sub_pname,trim(adjustl(procedure_name))
   !
@@ -5210,9 +5220,11 @@ end subroutine add_sol_variables
 subroutine write_parallel_cgns_time_ave_file()
   !
   !.. Use Statements ..
+  use geomvar_mod, only : nr
   use ovar,        only : profile_io_cgns,profile_io_cgns_subs
   use ovar,        only : max_wall_time => max_time_ave_cgns_wall_time
   use ovar,        only : cgns_dir,itcur,itrst,num_timesteps
+  use ovar,        only : time_ave_vel_is_axisymm
   use flowvar_mod, only : uavesp
   !
   !.. Local Scalars ..
@@ -5338,6 +5350,13 @@ continue
                                   cgns_sol_file,char_sname(l),n, &
                                   uavesp,vartmp,var)
   end do
+  !
+  ! Create a link to the grid coordinates in the grid file
+  !
+  if (time_ave_vel_is_axisymm .and. nr == 3) then
+    call link_cylindrical_coordinates(cgns_sol_file,pname, &
+                                      ifile_s,ibase_s,izone_s,isol_s)
+  end if
   !
   ! ################################################
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
@@ -6984,9 +7003,11 @@ end subroutine output_time_ave_variable
 subroutine write_parallel_cgns_timeave_data_file()
   !
   !.. Use Statements ..
-  use ovar,    only : profile_io_cgns,profile_io_cgns_subs
-  use ovar,    only : max_wall_time => max_time_ave_cgns_wall_time
-  use ovar,    only : cgns_dir,itcur,itrst,num_timesteps
+  use geomvar_mod, only : nr
+  use ovar,        only : profile_io_cgns,profile_io_cgns_subs
+  use ovar,        only : max_wall_time => max_time_ave_cgns_wall_time
+  use ovar,        only : cgns_dir,itcur,itrst,num_timesteps
+  use ovar,        only : time_ave_vel_is_axisymm
   use flowvar_mod, only : uavesp
   !
   !.. Local Scalars ..
@@ -7137,6 +7158,13 @@ continue
  !                                cgns_sol_file,char_sname(l),n, &
  !                                uavesp,vartmp,var)
  !end do
+  !
+  ! Create a link to the grid coordinates in the grid file
+  !
+  if (time_ave_vel_is_axisymm .and. nr == 3) then
+    call link_cylindrical_coordinates(cgns_sol_file,pname, &
+                                      ifile_s,ibase_s,izone_s,isol_s)
+  end if
   !
   ! ################################################
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
