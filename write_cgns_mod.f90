@@ -120,13 +120,6 @@ module write_cgns_mod
   !
   integer(CST), dimension(1:3) :: zone_size
   !
-  ! HARDWIRED CONSTANT TO ENABLE (DEFAULT IS DISABLED) WRITING
-  ! THE ACTUAL TIME AVERAGED DATA TO A CGNS SOLUTION FILE NAMED
-  !       solution.ta_data.[iteration #].cgns
-  !
- !logical(lk), parameter :: output_actual_time_ave_data = fals
-  logical(lk), parameter :: output_actual_time_ave_data = true
-  !
   ! Generic interface for interpolate_for_output
   !
   interface interpolate_for_output
@@ -388,6 +381,7 @@ subroutine write_parallel_cgns(iflag)
   use ovar, only : time_scaling_factor
   use ovar, only : disable_cgns_output
   use ovar, only : thermofix
+  use ovar, only : cgns_output_restart_time_ave_data
   use thermofix_mod, only : check_thermo_properties
   !
   !.. Formal Arguments ..
@@ -481,7 +475,7 @@ continue
   !
   if (output_time_averaging .and. iflag /= -3) then
     call write_parallel_cgns_time_ave_file
-    if (output_actual_time_ave_data) then
+    if (cgns_output_restart_time_ave_data) then
       call write_parallel_cgns_timeave_data_file
     end if
   end if

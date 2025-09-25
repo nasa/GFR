@@ -658,6 +658,7 @@ module ovar
   logical(lk), public, save :: interpolate_before_output_variable = true
   logical(lk), public, save :: cgns_high_order_output = fals
   logical(lk), public, save :: cgns_mixed_output = true
+  logical(lk), public, save :: cgns_output_restart_time_ave_data = fals
   !
   ! CGNS INPUT OPTIONS
   logical(lk), public, save :: correct_cgns_grid_points = fals
@@ -2122,6 +2123,7 @@ module input_namelist_mod
   use ovar,      only : output_plot3d_to_tecplot, output_bface_array
   use ovar,      only : interpolate_before_output_variable
   use ovar,      only : cgns_high_order_output,cgns_mixed_output
+  use ovar,      only : cgns_output_restart_time_ave_data
   use ovar,      only : correct_cgns_grid_points, force_cgns_linear_grid_points
   use ovar,      only : convergence_order_abs_res, convergence_order_max_res
   use ovar,      only : dump_memory_usage,use_bc_conflicts
@@ -2416,6 +2418,7 @@ module input_namelist_mod
   ! CGNS OUTPUT OPTIONS
   namelist / input / interpolate_before_output_variable, &
                      cgns_high_order_output, cgns_mixed_output, &
+                     cgns_output_restart_time_ave_data, &
                      convert_restart_to_cgns, completely_disable_cgns, &
                      delete_converted_restart_files
   ! CGNS INPUT OPTIONS
