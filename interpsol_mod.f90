@@ -738,7 +738,8 @@ continue
   call octtree_find_nearest_xyz(octtree,g2_xyz_pt, ixyz_pt,istat, &
                                 tid=tid,acc=1)
   !
-  !$OMP DO SCHEDULE(RUNTIME)
+  !$OMP DO
+ !!$OMP DO SCHEDULE(RUNTIME)
  !!$OMP DO SCHEDULE(GUIDED,chunk_size/10)
  !!$OMP DO SCHEDULE(STATIC,chunk_size)
   do k = 1,g2_n_solpts
@@ -747,7 +748,8 @@ continue
     !-DEBUG_CMT: Print percent complete status every 10%.
     if (mypnum == glb_root) then
       if (tid == glb_root) then
-        if (pts_completed > 0 .and. (g2_n_solpts-1)*10 > 100) then
+        if (pts_completed > 0 .and. &
+            (int(g2_n_solpts,kind=i8)-1_i8)*10_i8 > 100_i8) then
          !if (mod( k-1, ((g2_n_solpts-1)*10)/100 ) == 0) then
          !  write (iout,301) int( 100.0*(k-1.0)/(g2_n_solpts-1.0) + 0.5 )
          !  flush (iout)
