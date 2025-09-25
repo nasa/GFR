@@ -619,6 +619,11 @@ continue
       end if
     end if
     !
+    ! Write restart file of the interpolated solution.
+    !
+    if ( mypnum == glb_root ) write (iout,207)
+    call write_restart_file(itcur)
+    !
     ! Allocate the derivative array, which would normally be done
     ! during initialization.  This is only needed for meaningful
     ! derivative quantities in CGNS output, else they will be zero.
@@ -629,11 +634,6 @@ continue
       call alloc_error(pname,"dusp",1,__LINE__,__FILE__,ierr,error_message)
      !call initialize_dusp
     end if
-    !
-    ! Write restart file of the interpolated solution.
-    !
-    if ( mypnum == glb_root ) write (iout,207)
-    call write_restart_file(itcur)
     !
     ! Write CGNS file of the interpolated solution.
     !
