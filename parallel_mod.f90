@@ -1136,11 +1136,11 @@ continue
       !
       ! Partition the grid using ParMETIS
       !
-      call debug_timer(start_timer,timer_message)
+      call metis_timer(start_timer,metis_option,using_parmetis=true)
       call ParMETIS_PartGraphKway(metis_option,refine_count, &
                                   nparts,xadj,adjncy,eptr,eidx,vwgt,adjwgt, &
                                   xyz_cc,edgecut,epart,part_comm)
-      call debug_timer(stop_timer,timer_message)
+      call metis_timer(stop_timer,metis_option,using_parmetis=true)
       !
 !#define DUMP_PARMETIS_ARGUMENTS
 #ifdef DUMP_PARMETIS_ARGUMENTS
@@ -1623,13 +1623,11 @@ continue
         !
         ! Partition the grid using METIS
         !
-        call debug_timer(start_timer, &
-                         "calling metis_partgraphrecursive, metis_option=1")
+        call metis_timer(start_timer,metis_option)
         call metis_partgraphrecursive(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
                                       adjwgt,nparts,tpwgts,ubvec,options, &
                                       objval,epart)
-        call debug_timer(stop_timer, &
-                         "calling metis_partgraphrecursive, metis_option=1")
+        call metis_timer(stop_timer,metis_option)
         !
 !#define DUMP_METIS_ARGUMENTS
 #ifdef DUMP_METIS_ARGUMENTS
@@ -1652,13 +1650,11 @@ continue
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_CUT
         !
-        call debug_timer(start_timer, &
-                         "calling metis_partgraphkway, metis_option=2")
+        call metis_timer(start_timer,metis_option)
         call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
                                  adjwgt,nparts,tpwgts,ubvec,options, &
                                  objval,epart)
-        call debug_timer(stop_timer, &
-                         "calling metis_partgraphkway, metis_option=2")
+        call metis_timer(stop_timer,metis_option)
         !
 #ifdef DUMP_METIS_ARGUMENTS
         call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
@@ -1680,13 +1676,11 @@ continue
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_VOL
         !
-        call debug_timer(start_timer, &
-                         "calling metis_partgraphkway, metis_option=3")
+        call metis_timer(start_timer,metis_option)
         call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
                                  adjwgt,nparts,tpwgts,ubvec,options, &
                                  objval,epart)
-        call debug_timer(stop_timer, &
-                         "calling metis_partgraphkway, metis_option=3")
+        call metis_timer(stop_timer,metis_option)
         !
 #ifdef DUMP_METIS_ARGUMENTS
         call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
@@ -1712,13 +1706,11 @@ continue
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_VOL
         !
-        call debug_timer(start_timer, &
-                         "calling metis_partgraphkway, metis_option=4")
+        call metis_timer(start_timer,metis_option)
         call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
                                  adjwgt,nparts,tpwgts,ubvec,options, &
                                  objval,epart)
-        call debug_timer(stop_timer, &
-                         "calling metis_partgraphkway, metis_option=4")
+        call metis_timer(stop_timer,metis_option)
         !
 #ifdef DUMP_METIS_ARGUMENTS
         call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
@@ -1745,13 +1737,11 @@ continue
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_CUT
         !
-        call debug_timer(start_timer, &
-                         "calling metis_partgraphkway, metis_option=5")
+        call metis_timer(start_timer,metis_option)
         call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
                                  adjwgt,nparts,tpwgts,ubvec,options, &
                                  objval,epart)
-        call debug_timer(stop_timer, &
-                         "calling metis_partgraphkway, metis_option=5")
+        call metis_timer(stop_timer,metis_option)
         !
 #ifdef DUMP_METIS_ARGUMENTS
         call output_metis_arguments(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
@@ -1774,13 +1764,11 @@ continue
         !
         ! Partition the grid using METIS
         !
-        call debug_timer(start_timer, &
-                         "calling metis_partgraphrecursive, metis_option=1")
+        call metis_timer(start_timer,metis_option)
         call metis_partgraphrecursive(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
                                       adjwgt,nparts,tpwgts,ubvec,options, &
                                       objval,epart)
-        call debug_timer(stop_timer, &
-                         "calling metis_partgraphrecursive, metis_option=1")
+        call metis_timer(stop_timer,metis_option)
         !
 !#define DUMP_METIS_ARGUMENTS
 #ifdef DUMP_METIS_ARGUMENTS
@@ -1894,6 +1882,87 @@ continue
   5 format (" CPU # ",i0," : sum(tpwgts) = ",es14.6)
   !
 end subroutine partition_using_metis_5
+!
+!###############################################################################
+!
+subroutine metis_timer(time_flag,metis_opt,using_parmetis)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: time_flag
+  integer, intent(in) :: metis_opt
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: using_parmetis
+  !
+  !.. Local Scalars ..
+  logical(lk) :: partitioning_with_parmetis
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: metis_pname
+  !
+  !.. Local Saved Scalars ..
+  real(wp), save :: metis_beg_time
+  real(wp), save :: metis_end_time
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "metis_timer"
+  !
+continue
+  !
+  partitioning_with_parmetis = fals
+  if (present(using_parmetis)) then
+    partitioning_with_parmetis = using_parmetis
+  end if
+  !
+  if (partitioning_with_parmetis) then
+    if (any(metis_opt == [1,6])) then
+      metis_pname = "ParMETIS_V3_PartGeomKway" ! F2003 AUTO-REALLOC
+    else if (any(metis_opt == [2,5])) then
+      metis_pname = "ParMETIS_V3_PartMeshKway" ! F2003 AUTO-REALLOC
+    else
+      metis_pname = "ParMETIS_V3_PartKway" ! F2003 AUTO-REALLOC
+    end if
+  else
+    if (any(metis_opt == [1,6])) then
+      metis_pname = "METIS_PartGraphRecursive" ! F2003 AUTO-REALLOC
+    else
+      metis_pname = "METIS_PartGraphKway" ! F2003 AUTO-REALLOC
+    end if
+  end if
+  !
+  if (mypnum == glb_root) then
+    !
+    if (time_flag == start_timer) then
+      !
+      metis_beg_time = zero
+      metis_end_time = zero
+      !
+      write (iout,1) metis_pname, metis_opt
+      !
+      call gfr_timer(metis_beg_time)
+      !
+    else if (time_flag == stop_timer) then
+      !
+      call gfr_timer(metis_end_time)
+      !
+      write (iout,2) metis_pname, metis_opt, metis_end_time-metis_beg_time
+      !
+    end if
+    !
+    flush (iout)
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  1 format (/, &
+            2x,"Initiating     call to ",a," (metis_option=",i0, &
+               ") to partition the grid...")
+  2 format (2x,"Returning from call to ",a," (metis_option=",i0, &
+               ") to partition the grid",/, &
+            6x,"Wall time taken to partition the grid = ",f12.6,/)
+  !
+end subroutine metis_timer
 !
 !###############################################################################
 !
