@@ -5219,6 +5219,7 @@ subroutine write_parallel_cgns_time_ave_file()
   use ovar,        only : max_wall_time => max_time_ave_cgns_wall_time
   use ovar,        only : cgns_dir,itcur,itrst,num_timesteps
   use ovar,        only : time_ave_vel_is_axisymm
+  use ovar,        only : time,time_ref,time_scaling_factor,ave_start_time
   use flowvar_mod, only : uavesp
   !
   !.. Local Scalars ..
@@ -5228,11 +5229,15 @@ subroutine write_parallel_cgns_time_ave_file()
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
   real(wp) :: cgns_wall_time
+  real(wp) :: cur_ave_time
   !
   character(len=100) :: char_num
   character(len=170) :: cgns_sol_file
   !
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
+  !
+  real(sp)             :: sol_time(1)
+  character(len=CGLEN) :: sol_name(1)
   !
   !.. Local Allocatable Arrays ..
   integer(CBT), allocatable :: isvar_s(:)
@@ -5355,6 +5360,15 @@ continue
   ! ################################################
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
   ! ################################################
+  !
+  ! Add the time information to the solution file
+  !
+  cur_ave_time = (time - ave_start_time)*time_ref*time_scaling_factor
+  sol_time(1) = real(cur_ave_time,kind=kind(sol_time))
+  sol_name(1) = solname(size(solname))
+  call write_iterative_data_to_cgns_file(cgns_sol_file,pname, &
+                                         ifile_s,ibase_s,izone_s, &
+                                         sol_time,sol_name)
   !
   ! Close the CGNS FILE
   !
@@ -7002,6 +7016,7 @@ subroutine write_parallel_cgns_timeave_data_file()
   use ovar,        only : max_wall_time => max_time_ave_cgns_wall_time
   use ovar,        only : cgns_dir,itcur,itrst,num_timesteps
   use ovar,        only : time_ave_vel_is_axisymm
+  use ovar,        only : time,time_ref,time_scaling_factor,ave_start_time
   use flowvar_mod, only : uavesp
   !
   !.. Local Scalars ..
@@ -7011,6 +7026,7 @@ subroutine write_parallel_cgns_timeave_data_file()
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
   real(wp) :: cgns_wall_time
+  real(wp) :: cur_ave_time
   !
   character(len=100) :: char_num
   character(len=170) :: cgns_sol_file
@@ -7019,6 +7035,9 @@ subroutine write_parallel_cgns_timeave_data_file()
   !
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s,ivar_s
   integer(CBT) :: ifile,ibase,izone,isol
+  !
+  real(sp)             :: sol_time(1)
+  character(len=CGLEN) :: sol_name(1)
   !
   !.. Local Allocatable Arrays ..
   integer(CBT), allocatable :: isvar_s(:)
@@ -7163,6 +7182,15 @@ continue
   ! ################################################
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
   ! ################################################
+  !
+  ! Add the time information to the solution file
+  !
+  cur_ave_time = (time - ave_start_time)*time_ref*time_scaling_factor
+  sol_time(1) = real(cur_ave_time,kind=kind(sol_time))
+  sol_name(1) = solname(size(solname))
+  call write_iterative_data_to_cgns_file(cgns_sol_file,pname, &
+                                         ifile_s,ibase_s,izone_s, &
+                                         sol_time,sol_name)
   !
   ! Close the CGNS FILE
   !
