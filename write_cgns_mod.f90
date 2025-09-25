@@ -1504,6 +1504,34 @@ continue
     !       parallel IO mode is set to independent instead of the default
     !       collective. This is done in the call to open_cgns_file.
     !
+#ifdef DEBUG_ON
+    if (ncpu == 1) then
+      write (iout,3) "snam",trim(adjustl(snam))
+      write (iout,1) "ifil",ifil
+      write (iout,1) "ibas",ibas
+      write (iout,1) "izon",izon
+      write (iout,1) "n_total_pts",zone_size(1)
+      write (iout,1) "n_total_cells",zone_size(2)
+      write (iout,1) "isec",isec
+      write (iout,1) "glb1",glb1
+      write (iout,1) "glb2",glb2
+      write (iout,1) "loc1",loc1
+      write (iout,1) "loc2",loc2
+      write (iout,1) "ityp",ityp
+      write (iout,1) "mxoff",mxoff
+      write (iout,2) "allocated(s%ElemConn)",allocated(s%ElemConn)
+      if (allocated(s%ElemConn)) then
+        write (iout,1) "size(s%ElemConn)",size(s%ElemConn)
+        write (iout,1) "lbound(s%ElemConn)",lbound(s%ElemConn,dim=1)
+        write (iout,1) "ubound(s%ElemConn)",ubound(s%ElemConn,dim=1)
+      end if
+      flush (iout)
+      1 format (2x,a," = ",i0)
+      2 format (2x,a," = ",l1)
+      3 format (2x,a," = ",a)
+    end if
+    flush (iout)
+#endif
     call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_elements_write_data_f")
     if (allocated(s%ElemConn)) then
