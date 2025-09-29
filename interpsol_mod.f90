@@ -1490,7 +1490,6 @@ subroutine deallocate_solver_arrays()
   use flowvar_mod, only : residual,dtsp,uoldsp,rk_sum,rssprk
   use flowvar_mod, only : nodeusp_dt,nodedusp_dt
   use flowvar_mod, only : edgeusp_dt,edgedusp_dt,edgexyz_dt
-  use flowvar_mod, only : global_usp,global_var
   use metrics_mod, only : metrics_dt,geofa
   !
   !.. Local Scalars ..
@@ -1594,16 +1593,6 @@ continue
   if (allocated(edgexyz_dt)) then
     deallocate ( edgexyz_dt , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"edgexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(global_usp)) then
-    deallocate ( global_usp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"global_usp",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(global_var)) then
-    deallocate ( global_var , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"global_var",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(metrics_dt)) then

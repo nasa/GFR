@@ -8115,7 +8115,6 @@ subroutine deallocate_solver_arrays()
   use geomvar_mod, only : grid
   use flowvar_mod, only : faceflx,gpoldsp
   use flowvar_mod, only : residual,dtsp,uoldsp,rk_sum,rssprk
-  use flowvar_mod, only : global_usp,global_var
   use metrics_mod, only : metrics_dt,geofa,facenrm,metrics_array
   use metrics_mod, only : facejac,jac,wtdjac,time_metrics
   !
@@ -8167,16 +8166,6 @@ continue
   if (allocated(rssprk)) then
     deallocate ( rssprk , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"rssprk",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(global_usp)) then
-    deallocate ( global_usp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"global_usp",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(global_var)) then
-    deallocate ( global_var , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"global_var",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(time_metrics)) then

@@ -47,12 +47,6 @@ module flowvar_mod
   real(wp), public, save, allocatable, dimension(:,:) :: residual
   !$ACC DECLARE CREATE(residual)
   !
-  ! GLOBAL_USP : conservative variables @SP across all processors
-  ! GLOBAL_VAR : arbitrary    variable  @SP across all processors
-  !
-  real(wp), public, save, allocatable, dimension(:,:) :: global_usp
-  real(wp), public, save, allocatable, dimension(:)   :: global_var
-  !
   ! RK_SUM : auxilary array needed for SSP-RK4 method
   ! RSSPRK : auxilary array containing old residuals,
   !          needed for some RK methods
@@ -2117,24 +2111,6 @@ continue
     write (iou,2) array_name,array%get_units()
   else
     write (iou,7) "residual"
-  end if
-  if (allocated(global_usp)) then
-    call array%set( storage_size(global_usp,kind=inttype) , &
-                            size(global_usp,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "global_usp"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "global_usp"
-  end if
-  if (allocated(global_var)) then
-    call array%set( storage_size(global_var,kind=inttype) , &
-                            size(global_var,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "global_var"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "global_var"
   end if
   if (allocated(rk_sum)) then
     call array%set( storage_size(rk_sum,kind=inttype) , &
