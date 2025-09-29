@@ -30,7 +30,6 @@ module parallel_mod
   public :: create_serial_cell_map
   public :: partition_grid
  !public :: collect_global_solpts
-  public :: collect_global_solution
  !public :: collect_global_variable
   public :: wait_faceusp,wait_faceusp_dt
   public :: exchange_faceusp,exchange_faceusp_dt
@@ -64,10 +63,6 @@ module parallel_mod
   real(r8), save, allocatable, dimension(:) :: fdusp_recv_buffer
   !
   integer, save :: n_node_edge_pts
-  !
-  ! MPI datatype for collecting the global solution on all processors
-  !
-  _MPI_DATA_TYPE_, save, allocatable, dimension(:) :: recv_sol
   !
   !
   !
@@ -733,16 +728,6 @@ continue
   end if
   !
  !call parallel_memory_usage(iout)
-  !
-  ! Before we localize everything, we need to create MPI datatypes
-  ! to collectively receive localized data from each processor into
-  ! a shared global form.
-  ! NOTE: The root processor will be the only processor receiving this global
-  !       data so it is the only processor that needs to create these datatypes
-  !
-  if (mypnum == glb_root) then
-    call create_global_collective_datatypes(cell_map,cell_geom,cell_order)
-  end if
   !
   ! Before we start localizing everything, localize bc_conflict.
   ! Go through each bc conflict and get the partition to which the
@@ -7320,204 +7305,6 @@ end subroutine localize_bc_conflict
 !
 !###############################################################################
 !
-subroutine create_global_collective_datatypes(cell_map,global_geom,global_order)
-  !
-  !.. Use Statements ..
-  use order_mod, only : geom_solpts
-  use ovar,      only : use_old_restart_format
-  !
-  !.. Formal Arguments ..
-  integer,     intent(in) :: global_geom(:)
-  integer,     intent(in) :: global_order(:)
-  type(map_t), intent(in) :: cell_map(:)
-  !
-  !.. Local Scalars ..
-  integer :: loc_cell,gcell,ierr,np,this_part
-  integer :: glb_cell,glb_geom,glb_order
-  integer(int_mpi) :: np_int_mpi
-  !
-  !.. Local Allocatable Arrays ..
-  integer,          allocatable :: cell_offset(:)
-  integer,          allocatable :: recv_offset(:)
-  integer(int_mpi), allocatable :: recv_offset_int_mpi(:)
-  integer,          allocatable :: recv_blklen(:)
-  integer(int_mpi), allocatable :: recv_blklen_int_mpi(:)
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "create_global_collective_datatypes"
-  !
-continue
-  !
-  ! Only create the collective datatypes if the old restart format is being used
-  !
-  if (use_old_restart_format) then
-    !
-    ! We need to create collective receiving MPI datatypes to collect
-    ! localized data from each processor into a shared global form.
-    !
-    ! Before we start, find the total number of grid cells
-    !
-    gcell = sum_map_sizes(cell_map)
-    !
-    ! First, we need to create an array containing the
-    ! solution point offsets for every global cell
-    !
-    allocate ( cell_offset(1:gcell) , source=0 , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"cell_offset",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    do glb_cell = 1,gcell-1
-      !
-      glb_geom = global_geom(glb_cell)
-      glb_order = global_order(glb_cell)
-      !
-      cell_offset(glb_cell+1) = cell_offset(glb_cell) + &
-                                geom_solpts(glb_geom,glb_order)
-      !
-    end do
-    !
-    ! Find the maximum number of cells for a single partition
-    np = 0
-    do this_part = 1,size(cell_map)
-      np = max( np , size(cell_map(this_part)%loc_to_glb) )
-    end do
-    !
-    ! Allocate the local arrays needed for storing the offsets and block lengths
-    ! required as input into the MPI procedures for creating MPI datatypes
-    !
-    allocate ( recv_offset(1:np) , source=0 , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"recv_offset",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    allocate ( recv_offset_int_mpi(1:np) , source=0_int_mpi , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"recv_offset_int_mpi",1,__LINE__,__FILE__,ierr, &
-                     error_message)
-    !
-    allocate ( recv_blklen(1:np) , source=0 , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"recv_blklen",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    allocate ( recv_blklen_int_mpi(1:np) , source=0_int_mpi , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"recv_blklen_int_mpi",1,__LINE__,__FILE__,ierr, &
-                     error_message)
-    !
-    ! Allocate the module arrays that will contained
-    ! the collective receive MPI datatypes
-    !
-   !allocate ( recv_xyz(1:ncpu) , source=MPI_DATATYPE_NULL , &
-   !           stat=ierr , errmsg=error_message )
-   !call alloc_error(pname,"recv_xyz",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    allocate ( recv_sol(1:ncpu) , source=MPI_DATATYPE_NULL , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"recv_sol",1,__LINE__,__FILE__,ierr,error_message)
-    !
-   !allocate ( recv_var(1:ncpu) , source=MPI_DATATYPE_NULL , &
-   !           stat=ierr , errmsg=error_message )
-   !call alloc_error(pname,"recv_var",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    ! Loop over all the processors to create
-    ! the collective receive MPI datatypes
-    !
-    do this_part = 1,ncpu
-      !
-      np = size(cell_map(this_part)%loc_to_glb)
-      np_int_mpi = int( np , kind=int_mpi )
-      !
-      ! Get the offset and block length for each cell of this partition
-      !
-      do loc_cell = 1,np
-        !
-        glb_cell = cell_map(this_part)%loc_to_glb(loc_cell)
-        glb_geom = global_geom(glb_cell)
-        glb_order = global_order(glb_cell)
-        !
-        recv_offset(loc_cell) = cell_offset(glb_cell)
-        recv_blklen(loc_cell) = geom_solpts(glb_geom,glb_order)
-        !
-      end do
-     !!
-     !! Now create the receive MPI datatype for the local
-     !! solution point coordinates on the current processor
-     !!
-     !! adjust the offset for nr dimensions
-     !recv_offset(1:np) = recv_offset(1:np)*nr
-     !recv_blklen(1:np) = recv_blklen(1:np)*nr
-     !!
-     !recv_offset_int_mpi(1:np) = int( recv_offset(1:np) , kind=int_mpi )
-     !recv_blklen_int_mpi(1:np) = int( recv_blklen(1:np) , kind=int_mpi )
-     !!
-     !call mpi_type_indexed(np_int_mpi, &
-     !                      recv_blklen_int_mpi(1:np), &
-     !                      recv_offset_int_mpi(1:np), &
-     !                      mpi_flttyp,recv_xyz(this_part),mpierr)
-     !call mpi_type_commit(recv_xyz(this_part),mpierr)
-     !!
-     !! cancel out the nr adjustment above
-     !recv_offset(1:np) = recv_offset(1:np)/nr
-     !recv_blklen(1:np) = recv_blklen(1:np)/nr
-      !
-      ! Now create the receive MPI datatype for the local
-      ! solution at the solution points on the current processor
-      !
-      ! adjust the offset for nq flow equations
-      recv_offset(1:np) = recv_offset(1:np)*nq
-      recv_blklen(1:np) = recv_blklen(1:np)*nq
-      !
-      recv_offset_int_mpi(1:np) = int( recv_offset(1:np) , kind=int_mpi )
-      recv_blklen_int_mpi(1:np) = int( recv_blklen(1:np) , kind=int_mpi )
-      !
-      call mpi_type_indexed(np_int_mpi, &
-                            recv_blklen_int_mpi(1:np), &
-                            recv_offset_int_mpi(1:np), &
-                            mpi_flttyp,recv_sol(this_part),mpierr)
-      call mpi_type_commit(recv_sol(this_part),mpierr)
-      !
-      ! cancel out the nq adjustment above
-      recv_offset(1:np) = recv_offset(1:np)/nq
-      recv_blklen(1:np) = recv_blklen(1:np)/nq
-      !
-     !! Now create the receive MPI datatype for an arbitrary
-     !! variable at the solution points on the current processor
-     !!
-     !recv_offset_int_mpi(1:np) = int( recv_offset(1:np) , kind=int_mpi )
-     !recv_blklen_int_mpi(1:np) = int( recv_blklen(1:np) , kind=int_mpi )
-     !!
-     !call mpi_type_indexed(np_int_mpi, &
-     !                      recv_blklen_int_mpi(1:np), &
-     !                      recv_offset_int_mpi(1:np), &
-     !                      mpi_flttyp,recv_var(this_part),mpierr)
-     !call mpi_type_commit(recv_var(this_part),mpierr)
-     !!
-    end do
-    !
-    ! Deallocate the local arrays before leaving
-    !
-    deallocate ( cell_offset , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"cell_offset",2,__LINE__,__FILE__,ierr,error_message)
-    !
-    deallocate ( recv_offset , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"recv_offset",2,__LINE__,__FILE__,ierr,error_message)
-    !
-    deallocate ( recv_offset_int_mpi , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"recv_offset_int_mpi",2,__LINE__,__FILE__,ierr, &
-                     error_message)
-    !
-    deallocate ( recv_blklen , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"recv_blklen",2,__LINE__,__FILE__,ierr,error_message)
-    !
-    deallocate ( recv_blklen_int_mpi , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"recv_blklen_int_mpi",2,__LINE__,__FILE__,ierr, &
-                     error_message)
-    !
-  end if
-  !
-end subroutine create_global_collective_datatypes
-!
-!###############################################################################
-!
 subroutine create_face_nonblocking_datatypes(bface,face_map,flx,face_rotation)
 !subroutine create_face_nonblocking_datatypes(bface,face,face_map, &
 !                                             flx,face_rotation)
@@ -12247,95 +12034,6 @@ end subroutine exch_connectivity
 !
 !###############################################################################
 !
-subroutine collect_global_solution
-  !
-  !.. Use Statements ..
-  use geomvar_mod, only : n_solpts
-  use flowvar_mod, only : usp,global_usp
-  !
-  !.. Local Scalars ..
-  integer :: i,icpu,n,ierr
-  !
-  !.. Local Arrays ..
-  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
-  !
-  !.. Local Allocatable Arrays ..
-  real(r8), allocatable, dimension(:,:) :: sp_r8
-  real(r8), allocatable, dimension(:,:) :: global_r8
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "collect_global_solution"
-  !
-continue
-  !
-  if (ncpu > 1) then
-    !
-    sp_r8 = real( transpose(usp) , kind=r8 ) ! F2003 AUTO-REALLOCATION
-    !
-    ! Collect the global usp array on the root processor
-    !
-    n = size(sp_r8)
-    !
-    if (mypnum /= 0) then
-      !
-      ! Have all the non-root processors send their
-      ! local solutions to the root processor.
-      !
-      call mpi_send(sp_r8,n,mpi_flttyp,0_int_mpi, &
-                    mypnum,MPI_COMM_WORLD,mpierr)
-      !
-    else
-      !
-      ! Only collect the global solution on the root processor. It is the
-      ! only processor that will be writing the restart file so there is
-      ! no need for the other processors to also have a copy of the global
-      ! solution.
-      !
-      global_r8 = real( transpose(global_usp) , kind=r8 ) ! F2003 AUTO-REALLOC
-      !
-      ! Have the root processor send its own solution to itself so
-      ! it gets put in the right location within the global array.
-      !
-      call mpi_sendrecv(sp_r8,n,mpi_flttyp,0_int_mpi,n, &
-                        global_r8,1_int_mpi,recv_sol(1),0_int_mpi,n, &
-                        MPI_COMM_WORLD,istat(1),mpierr)
-      !
-      ! Now have the root processor receive the local
-      ! solutions from all the other processors.
-      !
-      do i = 2,ncpu
-        !
-        icpu = i-1
-        !
-        call mpi_recv(global_r8,1_int_mpi,recv_sol(i),icpu,icpu, &
-                      MPI_COMM_WORLD,istat(1),mpierr)
-        !
-      end do
-      !
-      ! Convert the global_r8 array to working precision
-      !
-      global_usp(:,:) = real( transpose(global_r8(:,:)) , kind=wp )
-      !
-      ! Deallocate the global_r8 array
-      !
-      deallocate ( global_r8 , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"global_r8",2,__LINE__,__FILE__,ierr,error_message)
-      !
-    end if
-    !
-    deallocate ( sp_r8 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"sp_r8",2,__LINE__,__FILE__,ierr,error_message)
-    !
-  else
-    !
-    global_usp(:,:) = usp(:,:)
-    !
-  end if
-  !
-end subroutine collect_global_solution
-!
-!###############################################################################
-!
 subroutine output_partitions(id,nodes_of_cell,nodes_of_cell_ptr,xyz_nodes,epart)
   !
   !.. Formal Arguments ..
@@ -12781,16 +12479,6 @@ continue
     write (iou,2) array_name,array%get_units()
   else
     write (iou,7) "fdusp_recv_buffer"
-  end if
-  !--------------------------------------------------------------------
-  if (allocated(recv_sol)) then
-    call array%set( storage_size(recv_sol,kind=inttype) , &
-                            size(recv_sol,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "recv_sol"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "recv_sol"
   end if
   !--------------------------------------------------------------------
   !

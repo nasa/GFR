@@ -261,7 +261,6 @@ subroutine read_restart_file(restart_fname,force_serial_read)
   use ovar,        only : restart_file,time_ave_file
   use ovar,        only : output_time_averaging
   use ovar,        only : read_time_ave_restart
-  use ovar,        only : use_old_restart_format
   use flowvar_mod, only : usp,uavesp,time_ave_variables
   !
   !.. Optional Arguments ..
@@ -293,90 +292,83 @@ continue
   fname = trim(adjustl(restart_file))
   if (present(restart_fname)) fname = trim(adjustl(restart_fname))
   !
-  if (use_old_restart_format) then
-    !
-    call read_restart_old_format(fname,usp,sol_is_transposed=true)
-    !
+  !
+  ! Read the restart solution file
+  ! NOTE: usp SHOULD BE ALLOCATED AT THIS POINT
+  !
+  if (ncpu == 1 .or. force_serial) then
+    call read_solution_file_serial(fname,int_header,real_header,usp, &
+                                   sol_is_transposed=true)
   else
+    call read_solution_file(fname,int_header,real_header,usp, &
+                            sol_is_transposed=true)
+  end if
+  !
+  ! Extract the required information from the header arrays
+  !
+  itrst = int( int_header(4) , kind=kind(itrst) )
+  !
+  tmrst = real( real_header(1) , kind=kind(tmrst) )
+  dtrst = real( real_header(2) , kind=kind(dtrst) )
+  !
+  if (size(real_header) >= 3) then
+    rl2mx = real( real_header(3) , kind=kind(rl2mx) )
+  end if
+  !
+  if (output_time_averaging) then
     !
-    ! Read the restart solution file
-    ! NOTE: usp SHOULD BE ALLOCATED AT THIS POINT
-    !
-    if (ncpu == 1 .or. force_serial) then
-      call read_solution_file_serial(fname,int_header,real_header,usp, &
-                                     sol_is_transposed=true)
-    else
-      call read_solution_file(fname,int_header,real_header,usp, &
-                              sol_is_transposed=true)
-    end if
-    !
-    ! Extract the required information from the header arrays
-    !
-    itrst = int( int_header(4) , kind=kind(itrst) )
-    !
-    tmrst = real( real_header(1) , kind=kind(tmrst) )
-    dtrst = real( real_header(2) , kind=kind(dtrst) )
-    !
-    if (size(real_header) >= 3) then
-      rl2mx = real( real_header(3) , kind=kind(rl2mx) )
-    end if
-    !
-    if (output_time_averaging) then
+    if (read_time_ave_restart) then
       !
-      if (read_time_ave_restart) then
-        !
-        fname = trim(adjustl(time_ave_file))
-        !
-        ! NOTE: uavesp SHOULD NOT BE ALLOCATED AT THIS POINT
-        !
-        if (ncpu == 1 .or. force_serial) then
-          call read_solution_file_serial(fname,int_header,real_header,uavesp, &
-                                         var_header,sol_is_transposed=true)
-        else
-          call read_solution_file(fname,int_header,real_header,uavesp, &
-                                  var_header,sol_is_transposed=true)
-        end if
-        !
-        prev_ave_time = real( real_header(2) , kind=kind(prev_ave_time) )
-        ave_start_time = real( real_header(3) , kind=kind(ave_start_time) )
-        !
-        if (size(real_header) >= 4) then
-          rl2mx = real( real_header(4) , kind=kind(rl2mx) )
-        end if
-        !
-        if (int_header(4) /= itrst) then
-          write (error_message,1) int_header(4),itrst
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-        end if
-        !
-        if (abs(real_header(1)-tmrst) > eps9) then
-          write (error_message,2) real_header(1),tmrst
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-        end if
-        !
-        if (allocated(time_ave_variables)) then
-          deallocate ( time_ave_variables , stat=ierr , errmsg=error_message )
-          call alloc_error(pname,"time_ave_variables",2,__LINE__,__FILE__, &
-                           ierr,error_message)
-        end if
-        !
-        allocate ( time_ave_variables(1:size(var_header)) , &
-                   stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"time_ave_variables",1,__LINE__,__FILE__, &
-                         ierr,error_message)
-        !
-        do n = 1,size(var_header)
-          time_ave_variables(n) = transfer(var_header(n),time_ave_variables(n))
-          time_ave_variables(n) = trim(adjustl(time_ave_variables(n)))
-        end do
-        !
+      fname = trim(adjustl(time_ave_file))
+      !
+      ! NOTE: uavesp SHOULD NOT BE ALLOCATED AT THIS POINT
+      !
+      if (ncpu == 1 .or. force_serial) then
+        call read_solution_file_serial(fname,int_header,real_header,uavesp, &
+                                       var_header,sol_is_transposed=true)
       else
-        !
-        ! Reset rl2mx since we are starting a new time averaging
-        !
-        rl2mx = -huge(zero)
-        !
+        call read_solution_file(fname,int_header,real_header,uavesp, &
+                                var_header,sol_is_transposed=true)
       end if
+      !
+      prev_ave_time = real( real_header(2) , kind=kind(prev_ave_time) )
+      ave_start_time = real( real_header(3) , kind=kind(ave_start_time) )
+      !
+      if (size(real_header) >= 4) then
+        rl2mx = real( real_header(4) , kind=kind(rl2mx) )
+      end if
+      !
+      if (int_header(4) /= itrst) then
+        write (error_message,1) int_header(4),itrst
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      end if
+      !
+      if (abs(real_header(1)-tmrst) > eps9) then
+        write (error_message,2) real_header(1),tmrst
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      end if
+      !
+      if (allocated(time_ave_variables)) then
+        deallocate ( time_ave_variables , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"time_ave_variables",2,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+      !
+      allocate ( time_ave_variables(1:size(var_header)) , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"time_ave_variables",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      do n = 1,size(var_header)
+        time_ave_variables(n) = transfer(var_header(n),time_ave_variables(n))
+        time_ave_variables(n) = trim(adjustl(time_ave_variables(n)))
+      end do
+      !
+    else
+      !
+      ! Reset rl2mx since we are starting a new time averaging
+      !
+      rl2mx = -huge(zero)
       !
     end if
     !
@@ -2192,98 +2184,6 @@ end subroutine read_sem_restart_serial
 !
 !###############################################################################
 !
-subroutine read_restart_old_format(file_name,solution,sol_is_transposed)
-  !
-  !.. Use Statements ..
-  use geomvar_mod, only : ncell,cell,cell_map
-  use geomvar_mod, only : n_global_totpts
-  use geomvar_mod, only : global_pinc_ptr
-  use ovar,        only : itrst,tmrst,dtrst
-  use flowvar_mod, only : global_usp
-  !
-  !.. Formal Arguments ..
-  character(len=*), intent(in) :: file_name
-  real(wp),      intent(inout) :: solution(:,:)
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: sol_is_transposed
-  !
-  !.. Local Scalars ..
-  integer :: iorst,n,m,g0,nc,np,n0,n1,n2,ierr
-  logical(lk) :: flip_sol_indices
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_restart_old_format"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  flip_sol_indices = fals
-  if (present(sol_is_transposed)) then
-    flip_sol_indices = sol_is_transposed
-  end if
-  !
-  allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"global_usp",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  open(newunit=iorst,file=file_name,status="old",action="read", &
-                     form="unformatted",iostat=ierr,iomsg=error_message)
-  call io_error(pname,file_name,1,__LINE__,__FILE__,ierr,error_message)
-  !
-  read (iorst) itrst, tmrst, dtrst
-  read (iorst) global_usp
-  !
-  close (iorst,iostat=ierr,iomsg=error_message)
-  call io_error(pname,file_name,2,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Copy the solution data from only those cells
-  ! that are local to this processor into solution
-  ! NOTE: For a serial job, cell_map(mypnum+1)%loc_to_glb = [1,ncell]
-  !
-  do nc = 1,ncell
-    !
-    ! Indices of the data for this cell in the solution array
-    !
-    n0 = cell(nc)%beg_sp - 1
-    np = cell(nc)%end_sp - n0
-   !n1 = cell(nc)%beg_sp
-   !n2 = cell(nc)%end_sp
-   !np = n2-n1+1
-    !
-    ! Starting point of the data for this cell in the global_usp array
-    !
-    g0 = global_pinc_ptr( cell_map(mypnum+1)%loc_to_glb(nc) )
-    !
-    ! Copy the solution data from the global_usp array for this cell
-    !
-    if (flip_sol_indices) then
-      do n = 1,np
-        do m = 1,nq
-          solution(n0+n,m) = global_usp(m,g0+n)
-        end do
-      end do
-    else
-      do n = 1,np
-        do m = 1,nq
-          solution(m,n0+n) = global_usp(m,g0+n)
-        end do
-      end do
-    end if
-   !solution(n1:n2,:) = global_usp(g0+1:g0+np,:)
-    !
-  end do
-  !
-  deallocate ( global_usp , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"global_usp",2,__LINE__,__FILE__,ierr,error_message)
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine read_restart_old_format
-!
-!###############################################################################
-!
 subroutine write_restart_file(itnum)
   !
   !.. Use Statements ..
@@ -2299,9 +2199,6 @@ subroutine write_restart_file(itnum)
   use synthetic_eddy_mod, only : dump_sem_data
   !.. Use Statements for old restart files ..
   use geomvar_mod,        only : n_global_totpts
-  use ovar,               only : use_old_restart_format
-  use flowvar_mod,        only : global_usp
-  use parallel_mod,       only : collect_global_solution
   !
   !.. Formal Arguments ..
   integer, intent(in) :: itnum
@@ -2343,215 +2240,165 @@ continue
   !
   sol_is_transposed = true
   !
-  if (use_old_restart_format) then
+  !
+  restart_is_good_data = true
+  !
+  ! Perform some initialization tasks if the restart module has not
+  ! been initialized yet.
+  !
+  if (restart_needs_initialization) then
     !
-    if (itnum > 0) then
-      write (fullname,'("out.",i0.8,".rst")') itcur
-    else if (itnum == 0) then
-      write (fullname,'("out.",i0.8,".init.rst")') itcur
-    else if (itnum == -2) then
-      write (fullname,'("out.",i0.8,".NaN.rst")') itcur-1
-    else
-      write (fullname,'("out.",i0.8,".done.rst")') itcur
+    ! For now, write the nodal solution to the restart file. At some point we
+    ! should switch so it writes the modal solution since that would give more
+    ! flexibility regarding changes in the solution order between runs.
+    !
+    if (loc_solution_pts == Legendre_Gauss) then
+      restart_solution_form = restart_gauss_nodal_solution
+    else if (loc_solution_pts == Legendre_Gauss_Lobatto) then
+      restart_solution_form = restart_lobatto_nodal_solution
     end if
     !
-    if (mypnum == glb_root) then
-      if (sol_is_transposed) then
-        allocate ( global_usp(1:n_global_totpts,1:nq) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"global_usp",1,__LINE__,__FILE__,ierr, &
-                         error_message)
-      else
-        allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"global_usp",1,__LINE__,__FILE__,ierr, &
-                         error_message)
-      end if
-    end if
-    !
-    ! Collect the global solution
-    !
-    call collect_global_solution
-    !
-    ! Only use the root partition to output the restart file
-    !
-    if (mypnum == glb_root) then
-      if (sol_is_transposed) then
-        global_usp = transpose(global_usp) ! F2003 AUTO-REALLOCATION
-      end if
-      call write_restart_old_format(fullname,global_usp)
-    end if
-    !
-    if (allocated(global_usp)) then
-      deallocate ( global_usp , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"global_usp",2,__LINE__,__FILE__,ierr, &
-                       error_message)
-    end if
-    !
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-    !
-  else
-    !
-    restart_is_good_data = true
-    !
-    ! Perform some initialization tasks if the restart module has not
-    ! been initialized yet.
-    !
-    if (restart_needs_initialization) then
-      !
-      ! For now, write the nodal solution to the restart file. At some point we
-      ! should switch so it writes the modal solution since that would give more
-      ! flexibility regarding changes in the solution order between runs.
-      !
-      if (loc_solution_pts == Legendre_Gauss) then
-        restart_solution_form = restart_gauss_nodal_solution
-      else if (loc_solution_pts == Legendre_Gauss_Lobatto) then
-        restart_solution_form = restart_lobatto_nodal_solution
-      end if
-      !
-      ! Get the MPI derived types required to read/write the restart file
-      !
-      if (restart_output_uses_host_roots) then
-        call get_host_output_mpi_datatypes
-      else
-        call get_output_mpi_datatypes
-      end if
-      !
-#ifdef DEBUG_ON
-      call mpi_barrier(MPI_COMM_WORLD,mpierr)
-      if (mypnum == glb_root) then
-        write (iout,*) "After get_output_mpi_datatypes"
-        flush (iout)
-      end if
-      call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
-      !
-      ! Unset the restart initialization flag since this has now been done
-      !
-      restart_needs_initialization = fals
-      !
-    end if
-    !
-    ! Get the name for the current restart file
-    !
-    if (itnum > 0) then
-      write (fname,rstfname_fmt) itcur,""
-      write (fullname,rstfile_fmt) itcur,""
-      write (command,lnkcmnd_fmt) itcur,""
-      write (statfile,statfile_fmt) itcur,""
-    else if (itnum == 0) then
-      write (fname,rstfname_fmt) itcur,".init"
-      write (fullname,rstfile_fmt) itcur,".init"
-      write (command,lnkcmnd_fmt) itcur,".init"
-      write (statfile,statfile_fmt) itcur,".init"
-    else if (itnum == -2) then
-      write (fname,rstfname_fmt) itcur-1,".NaN"
-      write (fullname,rstfile_fmt) itcur-1,".NaN"
-      write (command,lnkcmnd_fmt) itcur-1,".NaN"
-      write (statfile,statfile_fmt) itcur-1,".NaN"
-      restart_is_good_data = fals
-    else
-      write (fname,rstfname_fmt) itcur,".done"
-      write (fullname,rstfile_fmt) itcur,".done"
-      write (command,lnkcmnd_fmt) itcur,".done"
-      write (statfile,statfile_fmt) itcur,".done"
-    end if
-    !
-    ! Create the cell information to write to the restart file
+    ! Get the MPI derived types required to read/write the restart file
     !
     if (restart_output_uses_host_roots) then
-      involved_with_output = i_am_host_root
-      restart_comm = host_roots_comm
-      call collect_restart_arrays(current_sol=usp, &
-                                  output_sol=solution, &
-                                  ordered_geom=ordered_geom, &
-                                  sol_is_transposed=sol_is_transposed)
+      call get_host_output_mpi_datatypes
     else
-      involved_with_output = true
-      restart_comm = MPI_COMM_WORLD
-      call get_restart_arrays(current_sol=usp, &
-                              output_sol=solution, &
-                              ordered_geom=ordered_geom, &
-                              sol_is_transposed=sol_is_transposed)
+      call get_output_mpi_datatypes
     end if
     !
-    ! Store the size information for the simulation into the int_header array
-    !
-    int_header = [ int(nq,kind=wip) , &
-                   int(n_global_cell,kind=wip) , &
-                   int(restart_solution_form,kind=wip) , &
-                   int(itcur,kind=wip) , &
-                   size(sem_box,kind=wip) ]
-    !
-    ! Store the time data into the real_header array
-    !
-    real_header = [ time , d_t , rl2mx ]
-    !
-    ! Now write the actual restart file using all the
-    ! MPI processes actually involved with the I/O
-    !
-    if (involved_with_output) then
-      !
-      if (ncpu > 1) then
-        call write_solution_file(fullname,int_header,real_header,restart_comm, &
-                                 ordered_geom,ordered_geom_type, &
-                                 solution,solution_type,sol_block_type, &
-                                 max_restart_wall_time,statfile=statfile)
-      else
-        call write_solution_file_serial(fullname,int_header,real_header, &
-                                        ordered_geom,solution, &
-                                        max_restart_wall_time)
-      end if
-      !
+#ifdef DEBUG_ON
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      write (iout,*) "After get_output_mpi_datatypes"
+      flush (iout)
     end if
-    if (size(sem_box) > 0) then
-      call dump_sem_data("write")
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
+    !
+    ! Unset the restart initialization flag since this has now been done
+    !
+    restart_needs_initialization = fals
+    !
+  end if
+  !
+  ! Get the name for the current restart file
+  !
+  if (itnum > 0) then
+    write (fname,rstfname_fmt) itcur,""
+    write (fullname,rstfile_fmt) itcur,""
+    write (command,lnkcmnd_fmt) itcur,""
+    write (statfile,statfile_fmt) itcur,""
+  else if (itnum == 0) then
+    write (fname,rstfname_fmt) itcur,".init"
+    write (fullname,rstfile_fmt) itcur,".init"
+    write (command,lnkcmnd_fmt) itcur,".init"
+    write (statfile,statfile_fmt) itcur,".init"
+  else if (itnum == -2) then
+    write (fname,rstfname_fmt) itcur-1,".NaN"
+    write (fullname,rstfile_fmt) itcur-1,".NaN"
+    write (command,lnkcmnd_fmt) itcur-1,".NaN"
+    write (statfile,statfile_fmt) itcur-1,".NaN"
+    restart_is_good_data = fals
+  else
+    write (fname,rstfname_fmt) itcur,".done"
+    write (fullname,rstfile_fmt) itcur,".done"
+    write (command,lnkcmnd_fmt) itcur,".done"
+    write (statfile,statfile_fmt) itcur,".done"
+  end if
+  !
+  ! Create the cell information to write to the restart file
+  !
+  if (restart_output_uses_host_roots) then
+    involved_with_output = i_am_host_root
+    restart_comm = host_roots_comm
+    call collect_restart_arrays(current_sol=usp, &
+                                output_sol=solution, &
+                                ordered_geom=ordered_geom, &
+                                sol_is_transposed=sol_is_transposed)
+  else
+    involved_with_output = true
+    restart_comm = MPI_COMM_WORLD
+    call get_restart_arrays(current_sol=usp, &
+                            output_sol=solution, &
+                            ordered_geom=ordered_geom, &
+                            sol_is_transposed=sol_is_transposed)
+  end if
+  !
+  ! Store the size information for the simulation into the int_header array
+  !
+  int_header = [ int(nq,kind=wip) , &
+                 int(n_global_cell,kind=wip) , &
+                 int(restart_solution_form,kind=wip) , &
+                 int(itcur,kind=wip) , &
+                 size(sem_box,kind=wip) ]
+  !
+  ! Store the time data into the real_header array
+  !
+  real_header = [ time , d_t , rl2mx ]
+  !
+  ! Now write the actual restart file using all the
+  ! MPI processes actually involved with the I/O
+  !
+  if (involved_with_output) then
+    !
+    if (ncpu > 1) then
+      call write_solution_file(fullname,int_header,real_header,restart_comm, &
+                               ordered_geom,ordered_geom_type, &
+                               solution,solution_type,sol_block_type, &
+                               max_restart_wall_time,statfile=statfile)
+    else
+      call write_solution_file_serial(fullname,int_header,real_header, &
+                                      ordered_geom,solution, &
+                                      max_restart_wall_time)
     end if
+    !
+  end if
+  if (size(sem_box) > 0) then
+    call dump_sem_data("write")
+  end if
 !!!#ifdef DEBUG_ON
 #define USE_CREATE_SYMLINK
 !!!#endif
 #ifdef USE_CREATE_SYMLINK
-    !
-    ! Create a link to the most recent restart file for piggy-backing jobs
-    !
-    if (restart_is_good_data) then
-      if (mypnum == glb_root) then
-        call create_restart_link(fname)
-      end if
+  !
+  ! Create a link to the most recent restart file for piggy-backing jobs
+  !
+  if (restart_is_good_data) then
+    if (mypnum == glb_root) then
+      call create_restart_link(fname)
     end if
+  end if
 #else
-    !
-    ! Create a link to the most recent restart file for piggy-backing jobs
-    !
-    if (restart_is_good_data) then
-      call execute_command(command,wait_for_completion,exitstat, &
-                           cmndstat,cmndmsg,pname)
-    end if
+  !
+  ! Create a link to the most recent restart file for piggy-backing jobs
+  !
+  if (restart_is_good_data) then
+    call execute_command(command,wait_for_completion,exitstat, &
+                         cmndstat,cmndmsg,pname)
+  end if
 #endif
-    !
-    ! Deallocate the solution array since its no longer needed
-    !
-    if (allocated(solution)) then
-      deallocate ( solution , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"solution",2,__LINE__,__FILE__, &
-                       ierr,error_message)
-    end if
-    !
-    ! Write the time averaged solution if we are time averaging
-    !
-    if (output_time_averaging .and. restart_is_good_data) then
-      call write_time_averaged_solution(itnum,ordered_geom,int_header, &
-                                        sol_is_transposed=sol_is_transposed)
-    end if
-    !
-    ! Deallocate ordered_geom since it is no longer needed
-    !
-    if (allocated(ordered_geom)) then
-      deallocate ( ordered_geom , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__,ierr, &
-                       error_message)
-    end if
-    !
+  !
+  ! Deallocate the solution array since its no longer needed
+  !
+  if (allocated(solution)) then
+    deallocate ( solution , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"solution",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  ! Write the time averaged solution if we are time averaging
+  !
+  if (output_time_averaging .and. restart_is_good_data) then
+    call write_time_averaged_solution(itnum,ordered_geom,int_header, &
+                                      sol_is_transposed=sol_is_transposed)
+  end if
+  !
+  ! Deallocate ordered_geom since it is no longer needed
+  !
+  if (allocated(ordered_geom)) then
+    deallocate ( ordered_geom , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__,ierr, &
+                     error_message)
   end if
   !
   call _DEBUG_WRITE_TIMER_(leaving_procedure,pname)
@@ -3418,71 +3265,6 @@ continue
   end if
   !
 end subroutine write_sem_restart_serial
-!
-!###############################################################################
-!
-subroutine write_restart_old_format(file_name,solution)
-  !
-  !.. Use Statements ..
-  use ovar, only : itcur,time,d_t
-  use ovar, only : profile_io_restart
-  !
-  !.. Formal Arguments ..
-  character(len=*), intent(in) :: file_name
-  real(wp),         intent(in) :: solution(:,:)
-  !
-  !.. Local Scalars ..
-  integer  :: iorst,ierr
-  real(wp) :: beg_wall_time
-  real(wp) :: end_wall_time
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "write_restart_old_format"
-  !
-continue
-  !
-  call global_debug_timer(entering_procedure,pname)
-  !
-  write (iout,1)
-  flush (iout)
-  if (profile_io_restart) beg_wall_time = mpi_wtime()
-  !
-  open (newunit=iorst,file=trim(adjustl(file_name)),status="replace", &
-                      action="write",form='unformatted',iostat=ierr, &
-                      iomsg=error_message)
-  call io_error(pname,trim(adjustl(file_name)),1,__LINE__,__FILE__, &
-                ierr,error_message)
-  !
-  write (iorst) itcur, time, d_t
-  write (iorst) solution
-  !
-  close (iorst,iostat=ierr,iomsg=error_message)
-  call io_error(pname,trim(adjustl(file_name)),2,__LINE__,__FILE__, &
-                ierr,error_message)
-  !
-  ! Output the wall time taken to write the restart solution file if
-  ! the input parameter profile_io_restart is true
-  !
-  if (profile_io_restart) then
-    end_wall_time = mpi_wtime()
-    write (iout,2) trim(adjustl(file_name)), &
-                   end_wall_time - beg_wall_time
-  else
-    write (iout,2)
-  end if
-  flush (iout)
-  !
-  call global_debug_timer(leaving_procedure,pname)
-  !
-  ! Format Statements
-  !
-  1 format (/," Entering write_restart_old_format")
-  2 format (" Leaving write_restart_old_format",/,:, &
-          5x,"Wall time taken to write the file '",a, &
-             "' = ",f12.6," seconds",/, &
-         10x,"(USING GLOBAL ROOT FOR SERIAL I/O)",/)
-  !
-end subroutine write_restart_old_format
 !
 !###############################################################################
 !

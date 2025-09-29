@@ -738,7 +738,6 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/flowvar_mod.o \
                 $(OBJDIR)/random_mod.o \
-                $(OBJDIR)/parallel_mod.o \
                 $(OBJDIR)/thermo_mod.o \
                 $(OBJDIR)/synthetic_eddy_mod.o \
                 $(OBJDIR)/order_mod.o \

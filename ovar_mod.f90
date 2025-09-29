@@ -365,7 +365,6 @@ module ovar
   ! RESTART OPTIONS
   logical(lk),      public, save :: load_restart_file              = fals
   integer,          public, save :: restart_interval               = 0
-  logical(lk),      public, save :: use_old_restart_format         = fals
   character(len=:), public, save, allocatable :: restart_file
   logical(lk),      public, save :: restart_output_uses_host_roots = true
   real(wp),         public, save :: CFL_reduction_for_NaN_restart  = 2.0_wp
@@ -2077,7 +2076,6 @@ module input_namelist_mod
   use ovar,      only : ignition_source_radius
   use ovar,      only : ignition_source_location
   use ovar,      only : load_restart_file, restart_interval, restart_file
-  use ovar,      only : use_old_restart_format
   use ovar,      only : restart_output_uses_host_roots
   use ovar,      only : CFL_reduction_for_NaN_restart
   use ovar,      only : num_saved_time_ave_restarts
@@ -2276,7 +2274,7 @@ module input_namelist_mod
   namelist / input / itestcase, jet_init_func
   ! RESTART OPTIONS
   namelist / input / load_restart_file, restart_interval, &
-                     use_old_restart_format, restart_file, &
+                     restart_file, &
                      restart_output_uses_host_roots, &
                      CFL_reduction_for_NaN_restart, &
                      num_saved_time_ave_restarts, &
