@@ -82,7 +82,6 @@ subroutine get_faceusp_bc(exit_error)
   use bc_sup_out_mod,          only : get_bc_sup_outflow_solution
   use bc_wall_mod,             only : get_bc_wall_solution
   use bc_periodic_mod,         only : get_bc_periodic_solution
-  use bc_mms_mod,              only : get_bc_mms_dirichlet_solution
   !
   !.. Optional Arguments ..
   integer, optional, intent(out) :: exit_error
@@ -306,18 +305,6 @@ continue
         call get_bc_periodic_solution(n1,n2,faceusp, &
                                       bc_grps(grp_idx)%periodic_list, &
                                       bc_in(bc_idx)%pbc_rotation%mat)
-        !
-      case (bc_mms_dirichlet)
-        !
-        ! Dirichlet boundary condition for MMS
-        !
-        if (ncs > 0) then
-          write (error_message,3) &
-                     trim(adjustl(bc_integer_to_string(bc_characteristic)))
-          call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
-        end if
-        !
-        call get_bc_mms_dirichlet_solution(n1,n2,facenrm,facexyz,faceusp)
         !
       case (bc_cpu_bnd)
         !

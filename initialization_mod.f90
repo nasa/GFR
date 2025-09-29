@@ -407,7 +407,7 @@ continue
   end if
   !
   ! Create the facexyz and edgexyz arrays if
-  ! using the continuous output option or MMS
+  ! using the continuous output option
   !
   call get_face_and_edge_point_coordinates
   !
@@ -515,10 +515,8 @@ function initial_conditions(xyz,init_cond) result(return_value)
   use geomvar_mod, only : ncell
   use ovar, only : bc_in,bc_input
   use ovar, only : itestcase
-  use ovar, only : mms_opt,mms_init
   use ovar, only : postproc_debug_grid
   use ovar, only : jet_init_func
-  use mms_mod, only : mms_solution_at_xyz
   use channel_mod, only : channel_initialization
   use channel_mod, only : pipe_initialization
   use gpu_mod, only : vortex_solution_gpu
@@ -658,18 +656,6 @@ continue
     ! 
     do k = 1,np
       return_value(k,:) = freestream_taylor_couette_init( xyz(:,k) )
-    end do
-    !
-  else if (mms_opt /= 0) then
-    !
-    !###########################################################################
-    !##### METHOD OF MANUFACTURED SOLUTIONS
-    !###########################################################################
-    !
-    do k = 1,np
-      return_value(k,:) = mms_init * mms_solution_at_xyz( xyz(:,k) , &
-                                                          return_nondim=true, &
-                                                          return_cv=true )
     end do
     !
   else if (abs(itestcase) == Subsonic_Jet) then
@@ -2427,7 +2413,7 @@ continue
   end if
   !
   ! Only do this if facexyz is allocated which means that either
-  ! the continuous output option or MMS is being used
+  ! the continuous output option is being used
   !
   if (allocated(facexyz_dt)) then
     !

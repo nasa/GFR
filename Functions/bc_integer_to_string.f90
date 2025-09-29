@@ -47,8 +47,6 @@ continue
       return_value = "symmetry"
     case (bc_periodic)
       return_value = "periodic"
-    case (bc_mms_dirichlet)
-      return_value = "MMS_dirichlet"
     case (bc_cpu_bnd)
       return_value = "cpu_bnd"
     case (bc_unknown)

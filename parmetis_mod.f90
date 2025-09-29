@@ -934,7 +934,7 @@ end subroutine recombine_global_epart
 subroutine create_partition_weights(nparts,ncon,tpwgts,ubvec) 
   !
   !.. Use Statements ..
-  use ovar, only : mms_init
+  use ovar, only : ubvec_wt => schmidt_turb
   !
   !.. Formal Arguments ..
   integer(idx_t),             intent(in) :: nparts
@@ -961,8 +961,8 @@ continue
   ! recommends quote:
   !   "A value of 1.05 for each of the ncon weights is recommended."
   !
-  if (mms_init > one) then
-    ubvec(:) = real(mms_init,kind=kind(ubvec))
+  if (ubvec_wt > one) then
+    ubvec(:) = real(ubvec_wt,kind=kind(ubvec))
   else
     ubvec(:) = 1.05_real_t
   end if

@@ -134,8 +134,6 @@ continue
       !
     case ("SYMM","SYMMETRY","SYMMETRYPLANE")
       return_value = bc_symmetry
-    case ("MMS_DIRICHLET","MMSDIRICHLET")
-      return_value = bc_mms_dirichlet
       !
     case("NULL")
       return_value = bc_unsupported

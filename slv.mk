@@ -140,7 +140,6 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/connectivity_mod.o \
         $(OBJDIR)/limiters_mod.o \
         $(OBJDIR)/mlp_mod.o \
-        $(OBJDIR)/mms_mod.o \
         $(OBJDIR)/channel_mod.o \
         $(OBJDIR)/restart_mod.o \
         $(OBJDIR)/postproc_mod.o \
@@ -178,7 +177,6 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/bc_gen_free_mod.o \
         $(OBJDIR)/bc_gen_in_mod.o \
         $(OBJDIR)/bc_gen_out_mod.o \
-        $(OBJDIR)/bc_mms_mod.o \
         $(OBJDIR)/bc_periodic_mod.o \
         $(OBJDIR)/bc_relax_mod.o \
         $(OBJDIR)/bc_riemann_mod.o \

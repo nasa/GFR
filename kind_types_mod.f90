@@ -580,8 +580,6 @@ module module_kind_types
   integer, parameter :: bc_adiabatic_wall = 52
   integer, parameter :: bc_isothermal_wall = 53
   integer, parameter :: bc_default_wall = bc_adiabatic_wall
-  ! MMS BCs
-  integer, parameter :: bc_mms_dirichlet = 70
   ! Other BCs
   integer, parameter :: not_a_bc = 0
   integer, parameter :: bc_symmetry = 80
@@ -637,7 +635,6 @@ module module_kind_types
                                                bc_generic_outflow, &
                                                bc_characteristic, &
                                                bc_generic_freeflow ]
-  integer, parameter :: bc_mms(1:1) = [bc_mms_dirichlet]
   !
   ! Parameters defining workshop test cases
   !

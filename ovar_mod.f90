@@ -353,11 +353,6 @@ module ovar
   integer, public, save :: metis_option = 3 ! k-way part, min comm volume
   integer, public, save :: use_parmetis = 0
   !
-  ! METHOD OF MANUFACTURED SOLUTIONS (MMS) OPTIONS
-  integer,     public, save :: mms_opt             = 0
-  real(wp),    public, save :: mms_init            = 0.1_wp
-  logical(lk), public, save :: mms_output_solution = fals
-  !
   ! INITIALIZATION / TEST CASE
   integer, public, save :: itestcase     = 9
   integer, public, save :: jet_init_func = 2
@@ -2060,7 +2055,6 @@ module input_namelist_mod
   use ovar,      only : cfl, cfl_beg, cfl_end, cfl_cycles, cfl_start_iter
   use ovar,      only : Timestep_Type, minimum_timesteps
   use ovar,      only : all_points, metis_option, use_parmetis
-  use ovar,      only : mms_opt, mms_init, mms_output_solution
   use ovar,      only : itestcase, jet_init_func, governing_equations
   use ovar,      only : moving_ref_frame
   use ovar,      only : disable_chemical_reactions, semi_implicit_chemistry
@@ -2268,8 +2262,6 @@ module input_namelist_mod
   namelist / input / all_orders, all_points
   ! PARALLEL OPTIONS
   namelist / input / metis_option, use_parmetis
-  ! METHOD OF MANUFACTURED SOLUTIONS (MMS) OPTIONS
-  namelist / input / mms_opt, mms_init, mms_output_solution
   ! INITIALIZATION / TEST CASE
   namelist / input / itestcase, jet_init_func
   ! RESTART OPTIONS

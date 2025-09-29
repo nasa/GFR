@@ -741,10 +741,9 @@ subroutine get_uold_solpts_gpu(uold)
   !.. Use Statements ..
   use ovar,        only : prev_ave_time,saved_ave_time,ave_start_time
   use ovar,        only : output_time_averaging,read_time_ave_restart
-  use ovar,        only : itcur,itrst,bc_in,itestcase,mms_opt
+  use ovar,        only : itcur,itrst,bc_in,itestcase
   use flowvar_mod, only : usp,uoldsp,uavesp,gpoldsp
   use geomvar_mod, only : n_solpts,xyz
-  use mms_mod,     only : mms_solution_at_xyz_gpu
   use gpu_mod,     only : vortex_solution_gpu
   !
   !.. Formal Arguments ..
@@ -764,15 +763,7 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (mms_opt /= 0) then
-    !
-    ! Evaluate the exact analytical MMS solution at the error points
-    !
-    call mms_solution_at_xyz_gpu(1,n_solpts,xyz,uold, &
-                                 return_nondim=true, &
-                                 return_cv=true)
-    !
-  else if (any(itestcase == Transport_Problems)) then
+  if (any(itestcase == Transport_Problems)) then
     !
     ! Evaluate the exact analytical solution to the vortex transport problem
     !

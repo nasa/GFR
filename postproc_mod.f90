@@ -235,7 +235,7 @@ module postprocessor_mod
 !!"     NODE POINTS TO THE CORRECT LOCATIONS WITHIN THE ARRAY THAT WILL"
 !!"     STORE THE SOLUTION FOR THE CELL."
 !!!
-!!" NEED TO DEALLOCATE THE EDGEXYZ AND FACEXYZ (EXCEPT WHEN USING MMS)"
+!!" NEED TO DEALLOCATE THE EDGEXYZ AND FACEXYZ"
 !!" ARRAYS AFTER WRITING THE FIRST GRID CGNS FILE SINCE THEY WILL NO"
 !!" LONGER BE NEEDED."
 !!!
@@ -1617,7 +1617,6 @@ subroutine collect_coordinates_for_output(var)
   use geomvar_mod, only : xyz,xyz_nodes
   use flowvar_mod, only : edgexyz_dt,facexyz_dt
   use flowvar_mod, only : face_xyz
-  use ovar,        only : mms_opt
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(out) :: var
@@ -1787,28 +1786,10 @@ continue
   deallocate ( edgexyz_dt , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"edgexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Deallocate or shrink facexyz depending on if MMS is enabled
+  ! Deallocate facexyz since it is no longer needed
   !
-  if (mms_opt /= 0) then
-    !
-    ! MMS is enabled, so shrink facexyz to only the boundary faces because the
-    ! coordinates for the face points on the interior faces are no longer needed
-    !
-    allocate ( temp_facexyz(1:nfbnd) , source=facexyz_dt(1:nfbnd) , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"temp_facexyz",1,__LINE__,__FILE__,ierr, &
-                     error_message)
-    call move_alloc( from=temp_facexyz , to=facexyz_dt )
-    !
-  else
-    !
-    ! MMS is not enabled, so deallocate facexyz_dt
-    ! entirely since it is no longer needed
-    !
-    deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
-    !
-  end if
+  deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
   !
   call debug_timer(leaving_procedure,pname)
   !

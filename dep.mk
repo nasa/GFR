@@ -31,7 +31,6 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/rhs_mod.o \
          $(OBJDIR)/oerk_mod.o \
          $(OBJDIR)/eperk_mod.o \
-         $(OBJDIR)/mms_mod.o \
          $(OBJDIR)/channel_mod.o \
          $(OBJDIR)/limiters_mod.o \
          $(OBJDIR)/postproc_mod.o \
@@ -77,7 +76,6 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/bc_gen_free_mod.o \
            $(OBJDIR)/bc_gen_in_mod.o \
            $(OBJDIR)/bc_gen_out_mod.o \
-           $(OBJDIR)/bc_mms_mod.o \
            $(OBJDIR)/bc_periodic_mod.o \
            $(OBJDIR)/bc_riemann_mod.o \
            $(OBJDIR)/bc_sub_in_mod.o \
@@ -276,7 +274,6 @@ $(OBJDIR)/generic_mod.o : generic_mod.f90 \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/element_type_mod.o \
             $(OBJDIR)/gpu_mod.o \
-            $(OBJDIR)/mms_mod.o \
             $(OBJDIR)/thx_mod.o \
             $(OBJDIR)/bc_flow_stats_mod.o \
             $(OBJDIR)/timer_mod.o \
@@ -317,7 +314,6 @@ $(OBJDIR)/initialization_mod.o : initialization_mod.f90 \
                $(OBJDIR)/ovar_mod.o \
                $(OBJDIR)/order_mod.o \
                $(OBJDIR)/flowvar_mod.o \
-               $(OBJDIR)/mms_mod.o \
                $(OBJDIR)/channel_mod.o \
                $(OBJDIR)/metrics_mod.o \
                $(OBJDIR)/element_type_mod.o \
@@ -518,15 +514,6 @@ $(OBJDIR)/mlp_mod.o : mlp_mod.f90 \
             $(OBJDIR)/order_mod.o \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/parallel_mod.o
-
-$(OBJDIR)/mms_mod.o : mms_mod.f90 \
-            $(OBJDIR)/kind_types_mod.o \
-            $(OBJDIR)/eqn_idx_mod.o \
-            $(OBJDIR)/geomvar_mod.o \
-            $(OBJDIR)/ovar_mod.o \
-            $(OBJDIR)/flowvar_mod.o \
-            $(OBJDIR)/metrics_mod.o \
-            $(OBJDIR)/gpu_mod.o
 
 $(OBJDIR)/mrf_mod.o : mrf_mod.f90 \
             $(OBJDIR)/kind_types_mod.o \
@@ -932,12 +919,6 @@ $(OBJDIR)/bc_gen_out_mod.o : $(BCDIR)/bc_gen_out_mod.f90 \
                    $(OBJDIR)/eqn_idx_mod.o \
                    $(OBJDIR)/ovar_mod.o \
                    $(OBJDIR)/bc_relax_mod.o
-
-$(OBJDIR)/bc_mms_mod.o : $(BCDIR)/bc_mms_mod.f90 \
-               $(OBJDIR)/kind_types_mod.o \
-               $(OBJDIR)/eqn_idx_mod.o \
-               $(OBJDIR)/ovar_mod.o \
-               $(OBJDIR)/mms_mod.o
 
 $(OBJDIR)/bc_periodic_mod.o : $(BCDIR)/bc_periodic_mod.f90 \
                     $(OBJDIR)/kind_types_mod.o \

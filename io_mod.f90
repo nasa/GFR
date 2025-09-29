@@ -320,7 +320,7 @@ subroutine read_nml_input_file(input_fname,input_mode)
   !.. Local Scalars ..
   integer  :: i,it1,it2,ierr,ival,inpt
   integer  :: Period_Timesteps_X,Period_Timesteps_Y
-  logical(lk)  :: use_qdtr_face_pts,mms_error,pulse_test_error
+  logical(lk)  :: use_qdtr_face_pts,pulse_test_error
   real(wp) :: Period_Time_X,Period_Time_Y
   real(wp) :: real_Total_Periods
   real(wp) :: aoa_radians
@@ -834,39 +834,6 @@ continue
   !
   if (e_order > 0) e_order = max(e_order,n_order+0)
   !
-  ! Check that the Method of Manufactured Solutions (MMS) option is valid
-  !
-  if (mms_opt /= 0) then
-    !
-    mms_error = fals
-    if (any(mms_opt == [1,2]) .and. nr < 2) then ! 1 and 2 are for 2D or 3D
-      write (error_message,21)
-      mms_error = true
-    else if (mms_opt == 3 .and. nr > 2) then ! 3 is for 1D or 2D
-      write (error_message,22)
-      mms_error = true
-    else if (mms_opt == 4 .and. nr /= 2) then ! 4 is for 2D only
-      write (error_message,23)
-      mms_error = true
-    else if (all(mms_opt /= [1,2,3,4])) then
-      write (error_message,24)
-      mms_error = true
-    end if
-    if (mms_error) then
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-    end if
-    !
-    ! If mms_output_solution is true, set the MMS initialization factor
-    ! to one and set the number of time steps and final time to zero
-    !
-    if (mms_output_solution) then
-      mms_init = one
-      num_timesteps = 0
-      Final_Time = zero
-    end if
-    !
-  end if
-  !
  !if (itestcase == Channel_Flow) then
  !  call read_channel_init_file
  !  call check_for_bad_number(__LINE__,__FILE__)
@@ -1213,10 +1180,6 @@ continue
       "  RUSANOV SCHEMES. THE INVISCID FLUX SCHEME HAS BEEN RESET TO",/, &
       "  THE ROE SCHEME.",//, &
       " ************************** WARNING!!!! **************************",/)
-  21 format ("MMS ERROR: MMS solutions 1 and 2 are allowed for 2D and 3D only!")
-  22 format ("MMS ERROR: MMS solution 3 is allowed for 1D and 2D only!")
-  23 format ("MMS ERROR: MMS solution 4 is allowed for 2D only!")
-  24 format ("MMS ERROR: The MMS solution chosen is invalid!")
   !
   31 format ("RUNGE-KUTTA ERROR: Requested Runge-Kutta scheme is invalid!")
   !

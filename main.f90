@@ -31,7 +31,7 @@ program GFR_main
   use ovar, only : restart_interval,output_interval
   use ovar, only : is_at_output_frequency
   use ovar, only : is_at_restart_frequency
-  use ovar, only : dump_memory_usage,mms_opt
+  use ovar, only : dump_memory_usage
   use ovar, only : gfr_cpu_time,this_is_final_timestep
   use ovar, only : write_TaylorGreen_8s_solution
   use ovar, only : write_TaylorGreen_full_solution
@@ -145,8 +145,6 @@ program GFR_main
   use parallel_mod, only : wait_faceusp
   !
   use limiters_mod, only : initialize_limiters
-  !
-  use mms_mod, only : initialize_mms
   !
   use channel_mod, only : spatial_ave_channel_flow
   use channel_mod, only : spatial_ave_z_planes
@@ -536,10 +534,6 @@ continue
   if (dump_memory_usage) then
     call report_memory_usage(n=1,request_stop=fals)
   end if
-  !
-  ! Initialize the MMS module if it is being used.
-  !
-  if (mms_opt /= 0) call initialize_mms
   !
   ! Initialize the flow variables for all solution points or
   ! read in the restart values if restarting a simulation
@@ -1704,7 +1698,6 @@ subroutine compute_rhs(iter,nst,newton_failures)
   !.. Use Statements ..
   use ovar, only : governing_equations
   use ovar, only : visc_flux_method
-  use ovar, only : mms_opt
   use ovar, only : itestcase
   !
   use bc_mod, only : get_faceusp_bc
@@ -1714,8 +1707,6 @@ subroutine compute_rhs(iter,nst,newton_failures)
   use parallel_mod, only : wait_faceusp
   use parallel_mod, only : exchange_facedusp
   use parallel_mod, only : wait_facedusp
-  !
-  use mms_mod, only : mms_src
   !
   use channel_mod, only : channel_source
   !
@@ -1881,13 +1872,6 @@ continue
   !
   call mrf_src_cv
   call debugging_checks_for_bad_number(__LINE__)
-  !
-  ! Compute the source terms for method of manufactured solutions (MMS)
-  !
-  if (mms_opt /= 0) then
-    call mms_src
-    call debugging_checks_for_bad_number(__LINE__)
-  end if
   !
   ! Compute the source terms for the channel flow
   !

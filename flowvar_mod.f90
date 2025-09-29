@@ -548,7 +548,7 @@ subroutine find_facexyz_size(nf,nfpts)
   use eqn_idx_mod,       only : ncs
   use geomvar_mod,       only : nfbnd,nface,n_bnd_flxpts,n_flxpts
   use ovar,              only : bc_in,moving_ref_frame,aref
-  use ovar,              only : itestcase,continuous_output,mms_opt
+  use ovar,              only : itestcase,continuous_output
   !
   !.. Formal Arguments ..
   integer, intent(inout) :: nf,nfpts
@@ -584,13 +584,6 @@ continue
   !       assuming it isnt needed for another reason.
   !
   if (any(bc_in(:)%bc_type == bc_sem)) then
-    nf = max(nf,nfbnd)
-    nfpts = max(nfpts,n_bnd_flxpts)
-  end if
-  !
-  ! If using MMS, we need facexyz for at least the boundary face points.
-  !
-  if (mms_opt /= 0) then
     nf = max(nf,nfbnd)
     nfpts = max(nfpts,n_bnd_flxpts)
   end if

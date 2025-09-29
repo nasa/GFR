@@ -91,9 +91,7 @@ module synthetic_eddy_mod
     ! R : gives the radial coordinate for this SEM point
     ! T : gives the angular coordinate for this SEM point
     !     These components are to eliminate the need for storing the array
-    !     facexyz_dt or facexyz, because those are only really needed
-    !     for MMS [facexyz(1:nr,1:n_bnd_flxpts)] or for the continuous
-    !     output feature [facexyz(1:nr,1:n_flxpts)]. For SEM, we only
+    !     facexyz_dt or facexyz. For SEM, we only
     !     need the subset of (1:n_bnd_flxpts) that are the flux/face points
     !     for the SEM boundary conditions, so we dont want to waste memory
     !     for the flux/face points for which we will never require their xyz
