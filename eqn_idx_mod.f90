@@ -12,10 +12,6 @@ module eqn_idx_mod
   public :: create_equation_indices
   public :: get_species_indices
   public :: set_reference_coordinate_directions
-  public :: set_auxiliary_variable
-  public :: aux_var_is_not_gamma
-  public :: aux_var_is_not_enthalpy
-  public :: aux_var_is_not_cp
   !
   ! NCS : number of chemical species
   ! NCR : number of chemical reactions
@@ -212,16 +208,6 @@ module eqn_idx_mod
   !                    1 = point implicit
   !
   integer, public, protected, save, dimension(3,4) :: ngov
-  !
-  integer, private, save :: current_aux_variable = 0
-  !
-  type :: auxvar_t
-    character(len=10) :: name
-  end type auxvar_t
-  !
-  type(auxvar_t), public, parameter :: aux_gamma = auxvar_t("gamma")
-  type(auxvar_t), public, parameter :: aux_enthalpy = auxvar_t("enthalpy")
-  type(auxvar_t), public, parameter :: aux_cp = auxvar_t("Cp")
   !
 contains
 !
@@ -526,77 +512,6 @@ continue
   end if
   !
 end subroutine set_reference_coordinate_directions
-!
-!###############################################################################
-!
-subroutine set_auxiliary_variable(auxvar)
-  !
-  !.. Formal Arguments ..
-  type(auxvar_t), intent(in) :: auxvar
-  !
-continue
-  !
-  ! NOTE: For now we are keeping current_aux_variable to always be 0 so that
-  !       the code will never think that the desired auxiliary variable is
-  !       currently in the auxiliary variable slot. This is because this logic
-  !       works only if we have a single gas properties array, which is NOT the
-  !       case. We have gpsp, facegpsp, facegpsp_dt, edgegpsp_dt, nodegpsp_dt,
-  !       and possibly others. Therefore, we really need to have some way to
-  !       track the current auxiliary variable for each separate array. Again,
-  !       for now we are keeping current_aux_variable to always be 0 so that
-  !       the code will never think that the desired auxiliary variable is
-  !       currently in the auxiliary variable slot.
-  !
-  current_aux_variable = 0
- !if (ncs > 0) then
- !  current_aux_variable = 0
- !else
- !  if (auxvar%name = "gamma") then
- !    current_aux_variable = 1
- !  else if (auxvar%name = "enthalpy") then
- !    current_aux_variable = 2
- !  else if (auxvar%name = "Cp") then
- !    current_aux_variable = 3
- !  end if
- !end if
-  !
-end subroutine set_auxiliary_variable
-!
-!###############################################################################
-!
-pure function aux_var_is_not_gamma() result(return_value)
-  logical(ldk) :: return_value
-continue
-  if (ncs == 0) then
-    return_value = (current_aux_variable /= 1)
-  else
-    return_value = .true.
-  end if
-end function aux_var_is_not_gamma
-!
-!###############################################################################
-!
-pure function aux_var_is_not_enthalpy() result(return_value)
-  logical(ldk) :: return_value
-continue
-  if (ncs == 0) then
-    return_value = (current_aux_variable /= 2)
-  else
-    return_value = .true.
-  end if
-end function aux_var_is_not_enthalpy
-!
-!###############################################################################
-!
-pure function aux_var_is_not_cp() result(return_value)
-  logical(ldk) :: return_value
-continue
-  if (ncs == 0) then
-    return_value = (current_aux_variable /= 3)
-  else
-    return_value = .true.
-  end if
-end function aux_var_is_not_cp
 !
 !###############################################################################
 !
