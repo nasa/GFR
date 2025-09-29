@@ -587,6 +587,8 @@ $(OBJDIR)/oerk_mod.o : oerk_mod.f90 \
              $(OBJDIR)/timer_mod.o \
              $(OBJDIR)/rhs_mod.o
 
+$(OBJDIR)/openmp_mod.o : openmp_mod.f90
+
 $(OBJDIR)/order_mod.o : order_mod.f90 \
               $(OBJDIR)/kind_types_mod.o \
               $(OBJDIR)/geomvar_mod.o \

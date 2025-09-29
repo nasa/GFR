@@ -92,6 +92,7 @@ COBJS := $(OBJDIR)/mycpu.o \
 OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/main.o \
         $(OBJDIR)/random_mod.o \
+        $(OBJDIR)/openmp_mod.o \
         $(OBJDIR)/order_mod.o \
         $(OBJDIR)/element_type_mod.o \
         $(OBJDIR)/quadrature_mod.o \
