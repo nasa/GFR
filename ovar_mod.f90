@@ -696,6 +696,7 @@ module ovar
   ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
   logical(lk),      public, save :: time_average_restart_files = fals
   character(len=:), public, save, allocatable :: restart_list_file
+  logical(lk),      public, save :: modify_time_ave_restart_history = fals
   !
   ! MEMORY USAGE
   logical(lk), public, save :: dump_memory_usage = fals
@@ -2154,6 +2155,7 @@ module input_namelist_mod
   use ovar,      only : spatial_ave_restart_x_and_z_planes
   use ovar,      only : spatial_ave_restart_z_planes
   use ovar,      only : time_average_restart_files, restart_list_file
+  use ovar,      only : modify_time_ave_restart_history
   use ovar,      only : use_async_for_error
   use ovar,      only : ideal_total_temperature,limit_total_temperature
   use ovar,      only : output_limiter_statistics,output_filter_diagonals
@@ -2434,7 +2436,8 @@ module input_namelist_mod
   namelist / input / spatial_ave_restart_x_and_z_planes, &
                      spatial_ave_restart_z_planes
   ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
-  namelist / input / time_average_restart_files, restart_list_file
+  namelist / input / time_average_restart_files, restart_list_file, &
+                     modify_time_ave_restart_history
   ! MEMORY USAGE
   namelist / input / dump_memory_usage
   ! DUMP FLUX INFORMATION FOR DEBUGGING
