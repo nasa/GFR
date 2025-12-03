@@ -1,0 +1,134 @@
+##########################################################################################################
+##########################################################################################################
+##
+##    NOTE: Both types of restart files are written in C-binary format using
+##          Fortran for serial I/O with the file-open statement containing:
+##              open(...,form="unformatted",access="stream",...)
+##          of MPI for parallel I/O.
+##
+##########################################################################################################
+##########################################################################################################
+
+##########################################################################################################
+##########################################################################################################
+##########################################################################################################
+##                                                                                                      ##
+##                         Instantaneous Restart File Format (out.*.rst)                                ##
+##                                                                                                      ##
+##########################################################################################################
+##########################################################################################################
+##########################################################################################################
+
+int_header_ip  : 32-bit integer giving precision for integer part of restart header
+n_int_header   : 32-bit integer giving number of items in integer header
+int_header(1:n_int_header) : integer header data stored using int_header_ip precision
+      int_header(1) = nq              = number of flow variables saved at each solution point
+      int_header(2) = ncells          = number of grid cells contained in the restart file
+      int_header(3) = solution_format = format of the solution data saved in the restart file
+      int_header(4) = itcur           = iteration number for the restart file
+      int_header(5) = num_sem_boxes   = number of SEM boxes (only attempt to read this if n_int_header>=5)
+real_header_rp : 32-bit integer giving precision for real part of restart header
+n_real_header  : 32-bit integer giving number of items in real header
+real_header(1:n_real_header) : real header data stored using real_header_rp precision
+      real_header(1) = tmrst = total time elapsed across all restarted simulations
+      real_header(2) = dtrst = size of the previous time step
+      real_header(3) = rl2mx = Maximum value of the L2 norm of the density residual from all previous iterations.
+                               This is used to continue tracking the L2 norm convergence across multiple restarted
+                               simulations. (NOTE: only attempt to read this if n_real_header>=3)
+ordered_geom_ip : 32-bit integer giving integer precision for ordered_geom array
+ordered_geom(1:ncells) : "ordered_geom" array data. This contains a single integer value for each cell providing
+                         the cell order and cell geometry for each cell. This is needed to determine how many
+                         solution points worth of data were saved to the restart file for each cell. For cell i, 
+                         this integer value is encoded using the formula:
+                                 ordered_geom(i) = 100*cell_order(i) + cell_geom(i)
+                         and decoded using: (NOTE: this is integer math)
+                                 cell_order(i) = ordered_geom(i)/100
+                                 cell_geom(i)  = ordered_geom(i) - 100*cell_order(i)
+                         with the different geometry types represented with the following integer values;
+                                 0 = node/point (not really used)
+                                 1 = 1D edge/line
+                                 2 = 2D triangle
+                                 3 = 2D quadrilateral
+                                 4 = 3D tetrahedra
+                                 5 = 3D pyramid
+                                 6 = 3D prism
+                                 7 = unknown geometry (this should not be encountered here)
+                                 8 = 3D hexahedra
+solution_rp : 32-bit integer giving the real precision for the solution data                                 
+solution(1:nq,1:npts) : solution data for all cells
+# The following is only read if num_sem_boxes > 0
+sem_seed_ip : 32-bit integer giving the integer precision for the SEM random seed array
+n_sem_seed  : 32-bit integer giving number of items in the SEM random seed array
+sem_seed(1:n_sem_seed) : SEM random seed array data
+sem_box_ip : 32-bit integer giving the integer precision for the sem_box array
+sem_box(1:num_sem_boxes) : sem_box array data which gives the number of eddies in each SEM box
+                               num_eddies = sum(sem_box(:))
+eddy_data_rp : 32-bit integer giving the real precision for the eddy data
+eddy_data(1:num_eddies) : eddy data for all SEM boxes
+
+##########################################################################################################
+##########################################################################################################
+##########################################################################################################
+##                                                                                                      ##
+##                         Time-Averaged Restart File Format (out.*.ave)                                ##
+##                                                                                                      ##
+##########################################################################################################
+##########################################################################################################
+##########################################################################################################
+
+int_header_ip  : 32-bit integer giving precision for integer part of restart header
+n_int_header   : 32-bit integer giving number of items in integer header
+int_header(1:n_int_header) : integer header data stored using int_header_ip precision
+      int_header(1) = nqave           = number of time-averaged variables saved at each solution point
+      int_header(2) = ncells          = number of grid cells contained in the restart file
+      int_header(3) = solution_format = format of the solution data saved in the restart file
+      int_header(4) = itcur           = iteration number for the restart file
+      int_header(5) = num_sem_boxes   = number of SEM boxes (only attempt to read this if n_int_header>=5)
+real_header_rp : 32-bit integer giving precision for real part of restart header
+n_real_header  : 32-bit integer giving number of items in real header
+real_header(1:n_real_header) : real header data stored using real_header_rp precision
+      real_header(1) = tmrst = solution time at the end of the time step that created the restart file
+                               NOTE: This should be the same value as what is found in the instantaneous restart file
+      real_header(2) = prev_ave_time = solution time at the end of the time step prior to the one that created the restart file.
+                                       i.e., dtrst = tmrst - prev_ave_time
+      real_header(3) = ave_start_time = solution time when the time-averaging was started
+      real_header(4) = rl2mx = Maximum value of the L2 norm of the time-averaged density residual from all previous iterations.
+                               This is used to continue tracking the L2 norm convergence across multiple restarted
+                               simulations. (NOTE: only attempt to read this if n_real_header>=3)
+ordered_geom_ip : 32-bit integer giving integer precision for ordered_geom array
+ordered_geom(1:ncells) : "ordered_geom" array data. This contains a single integer value for each cell providing
+                         the cell order and cell geometry for each cell. This is needed to determine how many
+                         solution points worth of data were saved to the restart file for each cell. For cell i, 
+                         this integer value is encoded using the formula:
+                                 ordered_geom(i) = 100*cell_order(i) + cell_geom(i)
+                         and decoded using: (NOTE: this is integer math)
+                                 cell_order(i) = ordered_geom(i)/100
+                                 cell_geom(i)  = ordered_geom(i) - 100*cell_order(i)
+                         with the different geometry types represented with the following integer values;
+                                 0 = node/point (not really used)
+                                 1 = 1D edge/line
+                                 2 = 2D triangle
+                                 3 = 2D quadrilateral
+                                 4 = 3D tetrahedra
+                                 5 = 3D pyramid
+                                 6 = 3D prism
+                                 7 = unknown geometry (this should not be encountered here)
+                                 8 = 3D hexahedra
+var_header_ip : 32-bit integer giving the integer precision for the variable header array
+var_header(1:nqave) : variable header array data. Each component of this array contains an integer value for the respective
+                      time-averaged variable. This integer value has the same exact bits as a 4-character string that 
+                      specifies the quantity that is being time-averaged in this variable slot. The conversion from a 4-character
+                      string to an integer value (as well as the reverse conversion) is accomplished using the Fortran intrinsic
+                      transfer function.
+time_ave_sol_rp : 32-bit integer giving the real precision for the time-averaged data                                 
+time_ave_sol(1:nqave,1:npts) : time-averaged data for all cells
+# The following is only read if num_sem_boxes > 0 (NOTE: It appears this information is also written to the
+# time-averaged restart files, even though it probably is not needed.)
+sem_seed_ip : 32-bit integer giving the integer precision for the SEM random seed array
+n_sem_seed  : 32-bit integer giving number of items in the SEM random seed array
+sem_seed(1:n_sem_seed) : SEM random seed array data
+sem_box_ip : 32-bit integer giving the integer precision for the sem_box array
+sem_box(1:num_sem_boxes) : sem_box array data which gives the number of eddies in each SEM box
+                               num_eddies = sum(sem_box(:))
+eddy_data_rp : 32-bit integer giving the real precision for the eddy data
+eddy_data(1:num_eddies) : eddy data for all SEM boxes
