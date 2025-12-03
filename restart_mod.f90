@@ -300,8 +300,8 @@ continue
     call read_solution_file_serial(fname,int_header,real_header,usp, &
                                    sol_is_transposed=true)
   else
-    call read_solution_file(fname,int_header,real_header,usp, &
-                            sol_is_transposed=true)
+    call read_solution_file_mpi(fname,int_header,real_header,usp, &
+                                sol_is_transposed=true)
   end if
   !
   ! Extract the required information from the header arrays
@@ -327,8 +327,8 @@ continue
         call read_solution_file_serial(fname,int_header,real_header,uavesp, &
                                        var_header,sol_is_transposed=true)
       else
-        call read_solution_file(fname,int_header,real_header,uavesp, &
-                                var_header,sol_is_transposed=true)
+        call read_solution_file_mpi(fname,int_header,real_header,uavesp, &
+                                    var_header,sol_is_transposed=true)
       end if
       !
       prev_ave_time = real( real_header(2) , kind=kind(prev_ave_time) )
@@ -391,8 +391,8 @@ end subroutine read_restart_file
 !
 !###############################################################################
 !
-subroutine read_solution_file(file_name,int_header,real_header,solution, &
-                              var_header,sol_is_transposed)
+subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
+                                  var_header,sol_is_transposed)
   !
   !.. Use Statements ..
   use geomvar_mod, only : ncell,cell,n_solpts
@@ -447,7 +447,7 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
   real(wp),     allocatable :: rst_sol(:,:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_solution_file"
+  character(len=*), parameter :: pname = "read_solution_file_mpi"
   !
 continue
   !
@@ -1198,7 +1198,7 @@ continue
             ", current_nq=",i0, &
             ", inert_nq=",i0,".")
   !
-end subroutine read_solution_file
+end subroutine read_solution_file_mpi
 !
 !###############################################################################
 !
@@ -2342,10 +2342,11 @@ continue
   if (involved_with_output) then
     !
     if (ncpu > 1) then
-      call write_solution_file(fullname,int_header,real_header,restart_comm, &
-                               ordered_geom,ordered_geom_type, &
-                               solution,solution_type,sol_block_type, &
-                               max_restart_wall_time,statfile=statfile)
+      call write_solution_file_mpi(fullname,int_header,real_header, &
+                                   restart_comm, &
+                                   ordered_geom,ordered_geom_type, &
+                                   solution,solution_type,sol_block_type, &
+                                   max_restart_wall_time,statfile=statfile)
     else
       call write_solution_file_serial(fullname,int_header,real_header, &
                                       ordered_geom,solution, &
@@ -2407,9 +2408,9 @@ end subroutine write_restart_file
 !
 !###############################################################################
 !
-subroutine write_solution_file(file_name,int_header,real_header,file_comm, &
-                               ordered_geom,og_type,solution,sol_type, &
-                               sol_blktyp,max_wall_time,var_header,statfile)
+subroutine write_solution_file_mpi(file_name,int_header,real_header,file_comm, &
+                                   ordered_geom,og_type,solution,sol_type, &
+                                   sol_blktyp,max_wall_time,var_header,statfile)
   !
   !.. Use Statements ..
   use geomvar_mod, only : n_global_solpts
@@ -2455,7 +2456,7 @@ subroutine write_solution_file(file_name,int_header,real_header,file_comm, &
   _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "write_solution_file"
+  character(len=*), parameter :: pname = "write_solution_file_mpi"
   !
 continue
   !
@@ -2789,7 +2790,7 @@ continue
              "' = ",f12.6," seconds",/, &
          10x,"(USING ",a," FOR MPI-I/O)",/)
   !
-end subroutine write_solution_file
+end subroutine write_solution_file_mpi
 !
 !###############################################################################
 !
@@ -3424,11 +3425,12 @@ continue
   if (involved_with_output) then
     !
     if (ncpu > 1) then
-      call write_solution_file(fullname,int_header,real_header,timeave_comm, &
-                               ordered_geom,ordered_geom_type, &
-                               solution,averaging_type,ave_block_type, &
-                               max_time_ave_rst_wall_time, &
-                               var_header=var_header,statfile=statfile)
+      call write_solution_file_mpi(fullname,int_header,real_header, &
+                                   timeave_comm, &
+                                   ordered_geom,ordered_geom_type, &
+                                   solution,averaging_type,ave_block_type, &
+                                   max_time_ave_rst_wall_time, &
+                                   var_header=var_header,statfile=statfile)
     else
       call write_solution_file_serial(fullname,int_header,real_header, &
                                       ordered_geom,solution, &
