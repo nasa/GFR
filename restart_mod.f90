@@ -2472,7 +2472,7 @@ continue
   !
   call mpi_barrier(file_comm,mpierr)
   if (mypnum == glb_root) then
-    write (iout,1)
+    write (iout,1) pname
     flush (iout)
     beg_wall_time = mpi_wtime()
   end if
@@ -2768,13 +2768,13 @@ continue
     restart_wall_time = end_wall_time - beg_wall_time
     max_wall_time = max(max_wall_time,restart_wall_time)
     if (profile_io_restart) then
-      write (iout,2) trim(adjustl(file_name)), &
+      write (iout,2) pname,trim(adjustl(file_name)), &
                      restart_wall_time, &
                      trim(adjustl(merge("ONLY HOST ROOTS  ", &
                                         "ALL MPI PROCESSES", &
                                         restart_output_uses_host_roots)))
     else
-      write (iout,2)
+      write (iout,2) pname
     end if
     flush (iout)
   end if
@@ -2784,8 +2784,8 @@ continue
   !
   ! Format Statements
   !
-  1 format (/," Entering write_solution_file")
-  2 format (" Leaving write_solution_file",/,:, &
+  1 format (/," Entering ",a)
+  2 format (" Leaving ",a,/,:, &
           5x,"Wall time taken to write the file '",a, &
              "' = ",f12.6," seconds",/, &
          10x,"(USING ",a," FOR MPI-I/O)",/)
@@ -3005,7 +3005,7 @@ continue
     num_sem_boxes = int_header(5)
   end if
   !
-  write (iout,1)
+  write (iout,1) pname
   flush (iout)
   beg_wall_time = mpi_wtime()
   !
@@ -3093,9 +3093,9 @@ continue
   restart_wall_time = end_wall_time - beg_wall_time
   max_wall_time = max(max_wall_time,restart_wall_time)
   if (profile_io_restart) then
-    write (iout,2) trim(adjustl(file_name)), restart_wall_time
+    write (iout,2) pname,trim(adjustl(file_name)), restart_wall_time
   else
-    write (iout,2)
+    write (iout,2) pname
   end if
   flush (iout)
   !
@@ -3103,8 +3103,8 @@ continue
   !
   ! Format Statements
   !
-  1 format (/," Entering write_solution_file_serial")
-  2 format (" Leaving write_solution_file_serial",/,:, &
+  1 format (/," Entering ",a)
+  2 format (" Leaving ",a,/,:, &
           5x,"Wall time taken to write the file '",a, &
              "' = ",f12.6," seconds",/, &
          10x,"(USING SERIAL-I/O)",/)
