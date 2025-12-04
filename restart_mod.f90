@@ -6720,6 +6720,59 @@ end subroutine interp_restart_solution
 !###############################################################################
 !###############################################################################
 !
+subroutine save_ta_data(ta_data,int_header,real_header,var_header, &
+                        ordered_geom,solution)
+  !
+  !.. Formal Arguments ..
+  type(ta_data_t), allocatable, intent(out) :: ta_data
+  !
+  !.. Optional Arguments ..
+  integer(wip), optional, intent(in) :: int_header(:)
+  real(wp),     optional, intent(in) :: real_header(:)
+  integer(wip), optional, intent(in) :: var_header(:)
+  integer(wip), optional, intent(in) :: ordered_geom(:)
+  real(wp),     optional, intent(in) :: solution(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "save_ta_data"
+  !
+continue
+  !
+  allocate ( ta_data , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ta_data",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  if (present(solution)) then
+    ! F2003 AUTO-REALLOC
+    ta_data%sol = real( solution(:,:) , kind=kind(ta_data%sol) )
+  end if
+  !
+  if (present(ordered_geom)) then
+    ta_data%ordered_geom = int( ordered_geom(:) , & ! F2003 AUTO-REALLOC
+                                kind=kind(ta_data%ordered_geom))
+  end if
+  !
+  if (present(int_header)) then
+    ! F2003 AUTO-REALLOC
+    ta_data%int_header = int( int_header(:) , kind=kind(ta_data%int_header))
+  end if
+  !
+  if (present(real_header)) then
+    ! F2003 AUTO-REALLOC
+    ta_data%real_header = int( real_header(:) , kind=kind(ta_data%real_header))
+  end if
+  !
+  if (present(var_header)) then
+    ! F2003 AUTO-REALLOC
+    ta_data%var_header = int( var_header(:) , kind=kind(ta_data%var_header))
+  end if
+  !
+end subroutine save_ta_data
+!
+!###############################################################################
+!
 subroutine delete_file(file_name,procedure_name)
   !
   !###################################################################
