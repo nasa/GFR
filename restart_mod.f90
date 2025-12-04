@@ -3588,7 +3588,6 @@ subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom)
   !
   !.. Local Scalars ..
   integer :: nvar,ierr,lcell,lpts
-  logical(lk) :: flip_sol_indices
   !
   !.. LOcal Allocatable Arrays ..
   integer(i4), allocatable :: local_og(:)
@@ -3603,8 +3602,6 @@ subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom)
 continue
   !
   call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
-  !
-  flip_sol_indices = true
   !
   ! #######
   ! ## 1 ##
@@ -3649,11 +3646,7 @@ continue
   ! ## 2 ##
   ! #######
   !
-  if (flip_sol_indices) then
-    nvar = size(current_sol,dim=2)
-  else
-    nvar = size(current_sol,dim=1)
-  end if
+  nvar = size(current_sol,dim=2)
   !
   sol_counts = pts_counts * nvar ! F2003 AUTO-REALLOCATION
   sol_displs = pts_displs * nvar ! F2003 AUTO-REALLOCATION
@@ -3671,13 +3664,8 @@ continue
   ! data for each processor. We also have to copy over the solution data
   ! in the same order that is expected by the MPI derived datatype.
   !
-  if (flip_sol_indices) then
-    ! F2003 AUTO-REALLOCATION
-    local_sol = transpose(current_sol(1:n_solpts,1:nvar))
-  else
-    ! F2003 AUTO-REALLOCATION
-    local_sol = current_sol(1:nvar,1:n_solpts)
-  end if
+  ! F2003 AUTO-REALLOCATION
+  local_sol = transpose(current_sol(1:n_solpts,1:nvar))
   !
   call mpi_gatherv(local_sol,size(local_sol,kind=int_mpi),mpi_flttyp, &
                    output_sol,sol_counts,sol_displs,mpi_flttyp, &
