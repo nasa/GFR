@@ -408,7 +408,7 @@ subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
   integer(wip), optional, allocatable, intent(out) :: var_header(:)
   !
   !.. Local Scalars ..
-  integer :: l0,l1,l2,m,mbeg,mm,n,np,n0,n1,n2,ierr
+  integer :: l0,m,mbeg,mm,n,np,n0,ierr
   integer :: sol_nq,ncs_diff
   integer :: inert_nq,inert_ncs
   integer :: restart_ip,restart_rp
@@ -987,17 +987,8 @@ continue
       !
       inp_cell = cell_input_data(this_cell)%input_cell
       !
-      l1 = cell_input_data(this_cell)%input_beg_sp
-      l2 = cell_input_data(this_cell)%input_end_sp
-      l0 = l1-1
-      !
       inp_geom = cell_input_data(this_cell)%input_geom
       inp_order = cell_input_data(this_cell)%input_order
-      !
-      n1 = cell(this_cell)%beg_sp
-      n2 = cell(this_cell)%end_sp
-      n0 = n1-1
-      np = n2-n0
       !
       this_geom = cell(this_cell)%geom
       this_order = cell(this_cell)%order
@@ -1011,6 +1002,11 @@ continue
                                this_cell,this_geom,this_order
         solution_errors = solution_errors + 1
       end if
+      !
+      n0 = cell(this_cell)%beg_sp - 1
+      np = cell(this_cell)%end_sp - n0
+      !
+      l0 = cell_input_data(this_cell)%input_beg_sp - 1
       !
       ! Copy over the restart solutions for the continuity, momentum, and
       ! energy equations. Also copy over the restart solutions for the
@@ -1411,7 +1407,7 @@ subroutine read_solution_file_serial(file_name,int_header,real_header, &
   integer(wip), optional, allocatable, intent(out) :: var_header(:)
   !
   !.. Local Scalars ..
-  integer :: io,l0,l1,l2,m,mbeg,mm,n,np,n0,n1,n2,ierr
+  integer :: io,l0,l2,m,mbeg,mm,n,np,n0,ierr
   integer :: sol_nq,ncs_diff
   integer :: inert_nq,inert_ncs
   integer :: restart_ip,restart_rp
@@ -1743,15 +1739,6 @@ continue
       inp_order = ordered_geom(this_cell) / 100
       inp_geom = ordered_geom(this_cell) - 100*inp_order
       !
-      l1 = l2 + 1
-      l2 = l2 + Cell_Solpts(inp_geom,inp_order)
-      l0 = l1-1
-      !
-      n1 = cell(this_cell)%beg_sp
-      n2 = cell(this_cell)%end_sp
-      n0 = n1-1
-      np = n2-n0
-      !
       this_geom = cell(this_cell)%geom
       this_order = cell(this_cell)%order
       !
@@ -1764,6 +1751,18 @@ continue
                                this_cell,this_geom,this_order
         solution_errors = solution_errors + 1
       end if
+      !
+      n0 = cell(this_cell)%beg_sp - 1
+      np = cell(this_cell)%end_sp - n0
+      !
+      ! Just in case inp_geom/=this_geom or inp_order/=this_order, we will use
+      ! Cell_Solpts to compute the number of points for the input cell in order
+      ! to increment l2. On the off chance either of those do not match, this
+      ! will prevent any potential memory errors or segmentation faults that
+      ! might occur if we assume  Cell_Solpts(inp_geom,inp_order) == np.
+      !
+      l0 = l2
+      l2 = l2 + Cell_Solpts(inp_geom,inp_order)
       !
       ! Copy over the restart solutions for the continuity, momentum, and
       ! energy equations. Also copy over the restart solutions for the
@@ -3449,7 +3448,7 @@ subroutine get_restart_arrays(current_sol,output_sol,ordered_geom)
   integer(i4), optional, allocatable, intent(inout) :: ordered_geom(:)
   !
   !.. Local Scalars ..
-  integer :: k,l0,l1,l2,m,n,nc,np,nvar,n0,n1,n2,ierr
+  integer :: k,l0,l2,m,n,nc,np,nvar,n0,ierr
   integer :: this_geom,this_order
   !
   !.. Local Parameters ..
