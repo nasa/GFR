@@ -3272,7 +3272,6 @@ subroutine write_time_averaged_solution(itnum,ordered_geom,int_header)
   integer :: exitstat,cmndstat
   !
   logical(lk) :: involved_with_output
-  logical(lk) :: flip_sol_indices
   !
   character(len=100) :: fname
   character(len=200) :: fullname
@@ -3319,8 +3318,6 @@ continue
     time_ave_needs_initialization = fals
     !
   end if
-  !
-  flip_sol_indices = true
   !
   ! Get the name for the current time averaged solution file
   !
@@ -3372,11 +3369,7 @@ continue
   ! Store the size information specific to the time averaged solution
   ! into the respective location within the int_header array
   !
-  if (flip_sol_indices) then
-    int_header(1) = size(uavesp,dim=2)
-  else
-    int_header(1) = size(uavesp,dim=1)
-  end if
+  int_header(1) = size(uavesp,dim=2)
   !
   ! Store the time data specific to the time averaged solution
   ! into the respective location within the real_header array
