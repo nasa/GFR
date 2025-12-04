@@ -957,9 +957,9 @@ continue
   ! inflow turbulence generators
   !
   if (num_sem_boxes > 0) then
-    call debug_timer(start_timer,"calling read_sem_restart")
-    call read_sem_restart(num_sem_boxes,file_handle)
-    call debug_timer(stop_timer,"calling read_sem_restart")
+    call debug_timer(start_timer,"calling read_sem_restart_mpi")
+    call read_sem_restart_mpi(num_sem_boxes,file_handle)
+    call debug_timer(stop_timer,"calling read_sem_restart_mpi")
     !
     call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
                 stat_strng="after reading all sem data")
@@ -1167,7 +1167,7 @@ end subroutine read_solution_file_mpi
 !
 !###############################################################################
 !
-subroutine read_sem_restart(num_sem_boxes,file_handle)
+subroutine read_sem_restart_mpi(num_sem_boxes,file_handle)
   !
   !.. Use Statements
   use random_mod,         only : iseed
@@ -1190,7 +1190,7 @@ subroutine read_sem_restart(num_sem_boxes,file_handle)
   real(wp), allocatable :: eddy_data(:,:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_sem_restart"
+  character(len=*), parameter :: pname = "read_sem_restart_mpi"
   !
 continue
   !
@@ -1384,7 +1384,7 @@ continue
   !
   10 format ("sem_box(",i0,")%eddy")
   !
-end subroutine read_sem_restart
+end subroutine read_sem_restart_mpi
 !
 !###############################################################################
 !
@@ -2682,7 +2682,7 @@ continue
   ! Write the synthetic inflow turbulence generator data to the restart file
   !
   if (num_sem_boxes > 0) then
-    call write_sem_restart(file_handle)
+    call write_sem_restart_mpi(file_handle)
   end if
   !
   ! Finally close the restart file
@@ -2728,7 +2728,7 @@ end subroutine write_solution_file_mpi
 !
 !###############################################################################
 !
-subroutine write_sem_restart(file_handle)
+subroutine write_sem_restart_mpi(file_handle)
   !
   !.. Use Statements
   use random_mod,         only : get_random_seed,iseed
@@ -2748,7 +2748,7 @@ subroutine write_sem_restart(file_handle)
   real(wp), allocatable :: eddy_data(:,:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "write_sem_restart"
+  character(len=*), parameter :: pname = "write_sem_restart_mpi"
   !
 continue
   !
@@ -2894,7 +2894,7 @@ continue
     !
   end if
   !
-end subroutine write_sem_restart
+end subroutine write_sem_restart_mpi
 !
 !###############################################################################
 !
