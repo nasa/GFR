@@ -436,6 +436,49 @@ end subroutine read_restart_file
 !
 !###############################################################################
 !
+subroutine read_solution_file(file_name,int_header,real_header,solution, &
+                              ordered_geom,var_header,ignore_sem, &
+                              force_serial_read)
+  !
+  !.. Formal Arguments ..
+  character(len=*),          intent(in   ) :: file_name
+  integer(wip), allocatable, intent(  out) :: int_header(:)
+  real(wp),     allocatable, intent(  out) :: real_header(:)
+  real(wp),     allocatable, intent(inout) :: solution(:,:)
+  integer(wip), allocatable, intent(inout) :: ordered_geom(:)
+  !
+  !.. Optional Arguments ..
+  integer(wip), optional, allocatable, intent(  out) :: var_header(:)
+  logical(lk),  optional,              intent(in   ) :: ignore_sem
+  logical(lk),  optional,              intent(in   ) :: force_serial_read
+  !
+  !.. Local Scalars ..
+  logical(lk) :: force_serial
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_solution_file"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  force_serial = fals
+  if (present(force_serial_read)) force_serial = force_serial_read
+  !
+  if (ncpu == 1 .or. force_serial) then
+    call read_solution_file_serial(file_name,int_header,real_header,solution, &
+                                   ordered_geom,var_header,ignore_sem)
+  else
+    call read_solution_file_mpi(file_name,int_header,real_header,solution, &
+                                ordered_geom,var_header,ignore_sem)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_solution_file
+!
+!###############################################################################
+!
 subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
                                   ordered_geom,var_header,ignore_sem)
   !
