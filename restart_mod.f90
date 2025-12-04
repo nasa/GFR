@@ -3508,7 +3508,6 @@ subroutine get_restart_arrays(current_sol,output_sol,ordered_geom)
   !.. Local Scalars ..
   integer :: k,l0,l1,l2,m,n,nc,np,nvar,n0,n1,n2,ierr
   integer :: this_geom,this_order
-  logical(lk) :: flip_sol_indices
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_restart_arrays"
@@ -3516,8 +3515,6 @@ subroutine get_restart_arrays(current_sol,output_sol,ordered_geom)
 continue
   !
   call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
-  !
-  flip_sol_indices = true
   !
   if (present(ordered_geom)) then
     !
@@ -3543,11 +3540,7 @@ continue
   ! data for each processor. We also have to copy over the solution data
   ! in the same order that is expected by the MPI derived datatype.
   !
-  if (flip_sol_indices) then
-    nvar = size(current_sol,dim=2)
-  else
-    nvar = size(current_sol,dim=1)
-  end if
+  nvar = size(current_sol,dim=2)
   !
   allocate ( output_sol(1:nvar,1:n_solpts) , source=zero , &
              stat=ierr , errmsg=error_message )
@@ -3560,30 +3553,18 @@ continue
     !
     n0 = cell(nc)%beg_sp-1
     np = cell(nc)%end_sp-n0
-   !n1 = cell(nc)%beg_sp
-   !n2 = cell(nc)%end_sp
-   !n0 = n1-1
-   !np = n2-n0
     !
     l0 = l2
     l2 = l2 + np
-   !l1 = l2 + 1
-   !l2 = l2 + n2-n1+1
     !
-    if (flip_sol_indices) then
-      do k = 1,np
-        do m = 1,nvar
-          output_sol(m,l0+k) = current_sol(n0+k,m)
-        end do
+    ! We need to flip the indices between the two arrays to match what
+    ! is expected by the MPI derived datatype.
+    !
+    do k = 1,np
+      do m = 1,nvar
+        output_sol(m,l0+k) = current_sol(n0+k,m)
       end do
-    else
-      do k = 1,np
-        do m = 1,nvar
-          output_sol(m,l0+k) = current_sol(m,n0+k)
-        end do
-      end do
-    end if
-   !output_sol(1:np,l1:l2) = current_sol(1:np,n1:n2)
+    end do
     !
   end do
   !
