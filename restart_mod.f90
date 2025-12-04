@@ -6683,6 +6683,76 @@ end subroutine interp_restart_solution
 !###############################################################################
 !###############################################################################
 !
+subroutine delete_file(file_name,procedure_name)
+  !
+  !###################################################################
+  !###################################################################
+  ! NOTE: USING THIS SUBROUTINE IS PERMANENT, AND THE FILE CANNOT BE
+  !       RECOVERED IF THIS IS USED, SO MAKE SURE THIS IS ONLY CALLED
+  !       WHEN YOU ARE ABSOLUTELY SURE YOU WANT TO DELETE THE FILE.
+  !###################################################################
+  !###################################################################
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: file_name
+  character(len=*), intent(in) :: procedure_name
+  !
+  !.. Local Scalars ..
+  integer :: io,ierr
+  logical :: file_exists
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: fname
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "delete_file"
+  !
+continue
+  !
+  fname = trim(adjustl(file_name)) ! F2003 AUTO-REALLOC
+  !
+  if (mypnum == glb_root) then
+    !
+    ! First check to see if the file exists
+    !
+    inquire (file=fname,exist=file_exists)
+    !
+    ! If it exists, procede to delete the file
+    !
+    if (file_exists) then
+      !
+      ! Open the file as read-write
+      !
+      open (newunit=io,file=fname,status="old",action="readwrite", &
+                       access="stream",form="unformatted", &
+                       iostat=ierr,iomsg=error_message)
+      call io_error(procedure_name,fname,1,__LINE__,__FILE__, &
+                    ierr,error_message)
+      !
+      ! Close the file, using the delete status to delete it
+      !
+      !###################################################################
+      !###################################################################
+      ! NOTE: THIS IS PERMANENT, AND THE FILE CANNOT BE RECOVERED
+      !       IF THIS IS USED, SO MAKE SURE THIS IS ONLY CALLED WHEN
+      !       YOU ARE ABSOLUTELY SURE YOU WANT TO DELETE THE FILE.
+      !###################################################################
+      !###################################################################
+      !
+      close (io,status="delete",iostat=ierr,iomsg=error_message)
+      call io_error(procedure_name,fname,2,__LINE__,__FILE__, &
+                    ierr,error_message)
+      !
+    end if
+    !
+  end if
+  !
+end subroutine delete_file
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
 include "Functions/cell_solpts.f90"
 #include "Functions/sort.f90"
 !
