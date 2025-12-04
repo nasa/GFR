@@ -279,6 +279,7 @@ subroutine read_restart_file(restart_fname,force_serial_read)
   use ovar,        only : restart_file,time_ave_file
   use ovar,        only : output_time_averaging
   use ovar,        only : read_time_ave_restart
+  use ovar,        only : modify_time_ave_restart_history
   use flowvar_mod, only : usp,uavesp,time_ave_variables
   !
   !.. Optional Arguments ..
@@ -333,9 +334,9 @@ continue
     rl2mx = real( real_header(3) , kind=kind(rl2mx) )
   end if
   !
-  if (output_time_averaging) then
+  if (output_time_averaging .or. modify_time_ave_restart_history) then
     !
-    if (read_time_ave_restart) then
+    if (read_time_ave_restart .or. modify_time_ave_restart_history) then
       !
       fname = trim(adjustl(time_ave_file))
       !
@@ -381,6 +382,23 @@ continue
         time_ave_variables(n) = transfer(var_header(n),time_ave_variables(n))
         time_ave_variables(n) = trim(adjustl(time_ave_variables(n)))
       end do
+      !
+      if (modify_time_ave_restart_history) then
+        !
+        ! If running the utility to modify the history of a time-average
+        ! restart file, save all of the data from this time-average restart
+        ! file to the module derived type original_ta_data so it can be
+        ! used again later in the utility to write new modified
+        ! time-average restart files.
+        !
+        call save_ta_data(original_ta_data, &
+                          int_header=int_header, &
+                          real_header=real_header, &
+                          var_header=var_header, &
+                          ordered_geom=ordered_geom, &
+                          solution=uavesp)
+        !
+      end if
       !
     else
       !
