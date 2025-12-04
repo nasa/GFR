@@ -297,11 +297,9 @@ continue
   ! NOTE: usp SHOULD BE ALLOCATED AT THIS POINT
   !
   if (ncpu == 1 .or. force_serial) then
-    call read_solution_file_serial(fname,int_header,real_header,usp, &
-                                   sol_is_transposed=true)
+    call read_solution_file_serial(fname,int_header,real_header,usp)
   else
-    call read_solution_file_mpi(fname,int_header,real_header,usp, &
-                                sol_is_transposed=true)
+    call read_solution_file_mpi(fname,int_header,real_header,usp)
   end if
   !
   ! Extract the required information from the header arrays
@@ -325,10 +323,10 @@ continue
       !
       if (ncpu == 1 .or. force_serial) then
         call read_solution_file_serial(fname,int_header,real_header,uavesp, &
-                                       var_header,sol_is_transposed=true)
+                                       var_header)
       else
         call read_solution_file_mpi(fname,int_header,real_header,uavesp, &
-                                    var_header,sol_is_transposed=true)
+                                    var_header)
       end if
       !
       prev_ave_time = real( real_header(2) , kind=kind(prev_ave_time) )
@@ -392,7 +390,7 @@ end subroutine read_restart_file
 !###############################################################################
 !
 subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
-                                  var_header,sol_is_transposed)
+                                  var_header)
   !
   !.. Use Statements ..
   use geomvar_mod, only : ncell,cell,n_solpts
@@ -408,7 +406,6 @@ subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
   !
   !.. Optional Arguments ..
   integer(wip), optional, allocatable, intent(out) :: var_header(:)
-  logical(lk),  optional,               intent(in) :: sol_is_transposed
   !
   !.. Local Scalars ..
   integer :: l0,l1,l2,m,mbeg,mm,n,np,n0,n1,n2,ierr
@@ -453,10 +450,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  flip_sol_indices = fals
-  if (present(sol_is_transposed)) then
-    flip_sol_indices = sol_is_transposed
-  end if
+  flip_sol_indices = true
   !
   num_sem_boxes = 0
   !
@@ -1424,7 +1418,7 @@ end subroutine read_sem_restart
 !###############################################################################
 !
 subroutine read_solution_file_serial(file_name,int_header,real_header, &
-                                     solution,var_header,sol_is_transposed)
+                                     solution,var_header)
   !
   !.. Use Statements ..
   use geomvar_mod, only : ncell,cell,n_solpts
@@ -1440,7 +1434,6 @@ subroutine read_solution_file_serial(file_name,int_header,real_header, &
   !
   !.. Optional Arguments ..
   integer(wip), optional, allocatable, intent(out) :: var_header(:)
-  logical(lk),  optional,               intent(in) :: sol_is_transposed
   !
   !.. Local Scalars ..
   integer :: io,l0,l1,l2,m,mbeg,mm,n,np,n0,n1,n2,ierr
@@ -1469,10 +1462,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  flip_sol_indices = fals
-  if (present(sol_is_transposed)) then
-    flip_sol_indices = sol_is_transposed
-  end if
+  flip_sol_indices = true
   !
   num_sem_boxes = 0
   !
@@ -2209,7 +2199,6 @@ subroutine write_restart_file(itnum)
   !
   logical(lk) :: involved_with_output
   logical(lk) :: restart_is_good_data
-  logical(lk) :: sol_is_transposed
   !
   character(len=100) :: fname
   character(len=200) :: fullname
@@ -2238,7 +2227,6 @@ continue
   !
   call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
   !
-  sol_is_transposed = true
   !
   !
   restart_is_good_data = true
@@ -2313,15 +2301,13 @@ continue
     restart_comm = host_roots_comm
     call collect_restart_arrays(current_sol=usp, &
                                 output_sol=solution, &
-                                ordered_geom=ordered_geom, &
-                                sol_is_transposed=sol_is_transposed)
+                                ordered_geom=ordered_geom)
   else
     involved_with_output = true
     restart_comm = MPI_COMM_WORLD
     call get_restart_arrays(current_sol=usp, &
                             output_sol=solution, &
-                            ordered_geom=ordered_geom, &
-                            sol_is_transposed=sol_is_transposed)
+                            ordered_geom=ordered_geom)
   end if
   !
   ! Store the size information for the simulation into the int_header array
@@ -2390,8 +2376,7 @@ continue
   ! Write the time averaged solution if we are time averaging
   !
   if (output_time_averaging .and. restart_is_good_data) then
-    call write_time_averaged_solution(itnum,ordered_geom,int_header, &
-                                      sol_is_transposed=sol_is_transposed)
+    call write_time_averaged_solution(itnum,ordered_geom,int_header)
   end if
   !
   ! Deallocate ordered_geom since it is no longer needed
@@ -3269,8 +3254,7 @@ end subroutine write_sem_restart_serial
 !
 !###############################################################################
 !
-subroutine write_time_averaged_solution(itnum,ordered_geom,int_header, &
-                                        sol_is_transposed)
+subroutine write_time_averaged_solution(itnum,ordered_geom,int_header)
   !
   !.. Use Statements ..
   use ovar,        only : time,prev_ave_time,ave_start_time,itcur,rl2mx
@@ -3284,9 +3268,6 @@ subroutine write_time_averaged_solution(itnum,ordered_geom,int_header, &
   integer,         intent(in) :: itnum
   integer(i4),     intent(in) :: ordered_geom(:)
   integer(wip), intent(inout) :: int_header(:)
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: sol_is_transposed
   !
   !.. Local Scalars ..
   integer :: n,ierr
@@ -3341,10 +3322,7 @@ continue
     !
   end if
   !
-  flip_sol_indices = fals
-  if (present(sol_is_transposed)) then
-    flip_sol_indices = sol_is_transposed
-  end if
+  flip_sol_indices = true
   !
   ! Get the name for the current time averaged solution file
   !
@@ -3385,14 +3363,12 @@ continue
     involved_with_output = i_am_host_root
     timeave_comm = host_roots_comm
     call collect_restart_arrays(current_sol=uavesp, &
-                                output_sol=solution, &
-                                sol_is_transposed=flip_sol_indices)
+                                output_sol=solution)
   else
     involved_with_output = true
     timeave_comm = MPI_COMM_WORLD
     call get_restart_arrays(current_sol=uavesp, &
-                            output_sol=solution, &
-                            sol_is_transposed=flip_sol_indices)
+                            output_sol=solution)
   end if
   !
   ! Store the size information specific to the time averaged solution
@@ -3517,8 +3493,7 @@ end subroutine write_time_averaged_solution
 !
 !###############################################################################
 !
-subroutine get_restart_arrays(current_sol,output_sol,ordered_geom, &
-                              sol_is_transposed)
+subroutine get_restart_arrays(current_sol,output_sol,ordered_geom)
   !
   !.. Use Statements ..
   use geomvar_mod, only : ncell,cell,n_solpts
@@ -3529,7 +3504,6 @@ subroutine get_restart_arrays(current_sol,output_sol,ordered_geom, &
   !
   !.. Optional Arguments ..
   integer(i4), optional, allocatable, intent(inout) :: ordered_geom(:)
-  logical(lk), optional,                 intent(in) :: sol_is_transposed
   !
   !.. Local Scalars ..
   integer :: k,l0,l1,l2,m,n,nc,np,nvar,n0,n1,n2,ierr
@@ -3543,10 +3517,7 @@ continue
   !
   call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
   !
-  flip_sol_indices = fals
-  if (present(sol_is_transposed)) then
-    flip_sol_indices = sol_is_transposed
-  end if
+  flip_sol_indices = true
   !
   if (present(ordered_geom)) then
     !
@@ -3622,8 +3593,7 @@ end subroutine get_restart_arrays
 !
 !###############################################################################
 !
-subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom, &
-                                  sol_is_transposed)
+subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom)
   !
   !.. Use Statements ..
   use geomvar_mod, only : ncell,cell,n_solpts
@@ -3634,7 +3604,6 @@ subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom, &
   !
   !.. Optional Arguments ..
   integer(i4), optional, allocatable, intent(inout) :: ordered_geom(:)
-  logical(lk), optional,                 intent(in) :: sol_is_transposed
   !
   !.. Local Scalars ..
   integer :: nvar,ierr,lcell,lpts
@@ -3654,10 +3623,7 @@ continue
   !
   call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
   !
-  flip_sol_indices = fals
-  if (present(sol_is_transposed)) then
-    flip_sol_indices = sol_is_transposed
-  end if
+  flip_sol_indices = true
   !
   ! #######
   ! ## 1 ##
