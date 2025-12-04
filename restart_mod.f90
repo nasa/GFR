@@ -288,7 +288,6 @@ subroutine read_restart_file(restart_fname,force_serial_read)
   !
   !.. Local Scalars ..
   integer :: n,ierr
-  logical(lk) :: force_serial
   character(len=150) :: fname
   !
   !.. Local Allocatable Arrays ..
@@ -306,9 +305,6 @@ continue
   !
   restart_operation_is_read = true
   !
-  force_serial = fals
-  if (present(force_serial_read)) force_serial = force_serial_read
-  !
   fname = trim(adjustl(restart_file))
   if (present(restart_fname)) fname = trim(adjustl(restart_fname))
   !
@@ -316,12 +312,8 @@ continue
   ! Read the restart solution file
   ! NOTE: usp SHOULD BE ALLOCATED AT THIS POINT
   !
-  if (ncpu == 1 .or. force_serial) then
-    call read_solution_file_serial(fname,int_header,real_header, &
-                                   usp,ordered_geom)
-  else
-    call read_solution_file_mpi(fname,int_header,real_header,usp,ordered_geom)
-  end if
+  call read_solution_file(fname,int_header,real_header,usp,ordered_geom, &
+                          force_serial_read=force_serial_read)
   !
   ! Extract the required information from the header arrays
   !
@@ -342,13 +334,10 @@ continue
       !
       ! NOTE: uavesp SHOULD NOT BE ALLOCATED AT THIS POINT
       !
-      if (ncpu == 1 .or. force_serial) then
-        call read_solution_file_serial(fname,int_header,real_header,uavesp, &
-                                       ordered_geom,var_header)
-      else
-        call read_solution_file_mpi(fname,int_header,real_header,uavesp, &
-                                    ordered_geom,var_header)
-      end if
+      call read_solution_file(fname,int_header,real_header,uavesp, &
+                              ordered_geom, &
+                              var_header=var_header, &
+                              force_serial_read=force_serial_read)
       !
       prev_ave_time = real( real_header(2) , kind=kind(prev_ave_time) )
       ave_start_time = real( real_header(3) , kind=kind(ave_start_time) )
