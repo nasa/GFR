@@ -276,6 +276,7 @@ subroutine read_restart_file(restart_fname,force_serial_read)
   integer(wip), allocatable :: int_header(:)
   integer(wip), allocatable :: var_header(:)
   real(wp),     allocatable :: real_header(:)
+  integer(wip), allocatable :: ordered_geom(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_restart_file"
@@ -297,9 +298,10 @@ continue
   ! NOTE: usp SHOULD BE ALLOCATED AT THIS POINT
   !
   if (ncpu == 1 .or. force_serial) then
-    call read_solution_file_serial(fname,int_header,real_header,usp)
+    call read_solution_file_serial(fname,int_header,real_header, &
+                                   usp,ordered_geom)
   else
-    call read_solution_file_mpi(fname,int_header,real_header,usp)
+    call read_solution_file_mpi(fname,int_header,real_header,usp,ordered_geom)
   end if
   !
   ! Extract the required information from the header arrays
@@ -323,10 +325,10 @@ continue
       !
       if (ncpu == 1 .or. force_serial) then
         call read_solution_file_serial(fname,int_header,real_header,uavesp, &
-                                       var_header)
+                                       ordered_geom,var_header)
       else
         call read_solution_file_mpi(fname,int_header,real_header,uavesp, &
-                                    var_header)
+                                    ordered_geom,var_header)
       end if
       !
       prev_ave_time = real( real_header(2) , kind=kind(prev_ave_time) )
@@ -372,6 +374,15 @@ continue
     !
   end if
   !
+  ! Deallocate ordered_geom just to be sure it is done. The other local
+  ! allocatable arrays are small enough to not care.
+  !
+  if (allocated(ordered_geom)) then
+    deallocate ( ordered_geom , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__,ierr, &
+                     error_message)
+  end if
+  !
   restart_operation_is_read = fals
   !
   call debug_timer(leaving_procedure,pname)
@@ -390,7 +401,7 @@ end subroutine read_restart_file
 !###############################################################################
 !
 subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
-                                  var_header)
+                                  ordered_geom,var_header)
   !
   !.. Use Statements ..
   use geomvar_mod, only : ncell,cell,n_solpts
@@ -403,6 +414,7 @@ subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
   integer(wip), allocatable, intent(  out) :: int_header(:)
   real(wp),     allocatable, intent(  out) :: real_header(:)
   real(wp),     allocatable, intent(inout) :: solution(:,:)
+  integer(wip), allocatable, intent(inout) :: ordered_geom(:)
   !
   !.. Optional Arguments ..
   integer(wip), optional, allocatable, intent(out) :: var_header(:)
@@ -439,8 +451,7 @@ subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
   _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
   !
   !.. Local Allocatable Arrays ..
-  integer(wip), allocatable :: ordered_geom(:)
-  real(wp),     allocatable :: rst_sol(:,:)
+  real(wp), allocatable :: rst_sol(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_solution_file_mpi"
@@ -704,10 +715,12 @@ continue
                             mpistat=istat, &
                            stat_strng="after reading int type for ordered_geom")
   !
-  allocate ( ordered_geom(1:restart_ncells) , source=0_wip , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
-                   error_message)
+  if (.not. allocated(ordered_geom)) then
+    allocate ( ordered_geom(1:restart_ncells) , source=0_wip , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
+                     error_message)
+  end if
   !
   ! All processors have to read the ordered_geom data so that each
   ! processor can compute the data offsets for each of the cells
@@ -855,13 +868,6 @@ continue
   call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
                   stat_strng="after getting MPI datatype to read solution data")
   !
-  ! Deallocate ordered_geom since it is no longer needed
-  !
-  if (allocated(ordered_geom)) then
-    deallocate ( ordered_geom , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
 !%!
 !%! IF WE ARE TO MOVE THE POINT IN THE PRE-PROCESSING PHASE AT WHICH THE
 !%! RESTART FILE IS READ, WE NEED TO MAKE SURE THAT N_SOLPTS HAS BEEN
@@ -1389,7 +1395,7 @@ end subroutine read_sem_restart_mpi
 !###############################################################################
 !
 subroutine read_solution_file_serial(file_name,int_header,real_header, &
-                                     solution,var_header)
+                                     solution,ordered_geom,var_header)
   !
   !.. Use Statements ..
   use geomvar_mod, only : ncell,cell,n_solpts
@@ -1402,6 +1408,7 @@ subroutine read_solution_file_serial(file_name,int_header,real_header, &
   integer(wip),     allocatable, intent(  out) :: int_header(:)
   real(wp),         allocatable, intent(  out) :: real_header(:)
   real(wp),         allocatable, intent(inout) :: solution(:,:)
+  integer(wip),     allocatable, intent(inout) :: ordered_geom(:)
   !
   !.. Optional Arguments ..
   integer(wip), optional, allocatable, intent(out) :: var_header(:)
@@ -1422,8 +1429,7 @@ subroutine read_solution_file_serial(file_name,int_header,real_header, &
   integer :: this_cell,this_geom,this_order
   !
   !.. Local Allocatable Arrays ..
-  integer(wip), allocatable :: ordered_geom(:)
-  real(wp),     allocatable :: rst_sol(:,:)
+  real(wp), allocatable :: rst_sol(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_solution_file_serial"
@@ -1589,10 +1595,12 @@ continue
   !
   read (io,iostat=ierr) restart_ip
   !
-  allocate ( ordered_geom(1:restart_ncells) , source=0_wip , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
-                   error_message)
+  if (.not. allocated(ordered_geom)) then
+    allocate ( ordered_geom(1:restart_ncells) , source=0_wip , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
+                     error_message)
+  end if
   !
   ! Read the ordered_geom data so that each
   !
@@ -1822,14 +1830,6 @@ continue
     call interp_restart_solution(restart_solution_form,rst_sol,solution, &
                                  ordered_geom=ordered_geom)
     !
-  end if
-  !
-  ! Deallocate ordered_geom since it is no longer needed
-  !
-  if (allocated(ordered_geom)) then
-    deallocate ( ordered_geom , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__, &
-                     ierr,error_message)
   end if
   !
   ! Deallocate rst_sol since it is no longer needed
