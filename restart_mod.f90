@@ -3422,15 +3422,6 @@ continue
   !
   call _DEBUG_WRITE_TIMER_(leaving_procedure,pname)
   !
-  ! Format Statements
-  !
-  1 format (i0)
-  2 format (" Leaving write_time_averaged_solution",/,:, &
-            5x,"Wall time taken to write time averaged solution = ", &
-            f12.6," seconds")
-  3 format (10x,"(USING ",a," FOR MPI-I/O)",/)
-  4 format (/," Entering write_time_averaged_solution")
-  !
 end subroutine write_time_averaged_solution
 !
 !###############################################################################
