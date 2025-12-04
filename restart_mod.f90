@@ -412,7 +412,6 @@ subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
   integer :: sol_nq,ncs_diff
   integer :: inert_nq,inert_ncs
   integer :: restart_ip,restart_rp
-  logical(lk) :: flip_sol_indices
   logical(lk) :: rst_form_matches_sol_form
   !
   _MPI_FILE_TYPE_ :: file_handle
@@ -449,8 +448,6 @@ subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
 continue
   !
   call debug_timer(entering_procedure,pname)
-  !
-  flip_sol_indices = true
   !
   num_sem_boxes = 0
   !
@@ -578,11 +575,7 @@ continue
   !
   if (allocated(solution)) then
     !
-    if (flip_sol_indices) then
-      sol_nq = size(solution,dim=2)
-    else
-      sol_nq = size(solution,dim=1)
-    end if
+    sol_nq = size(solution,dim=2)
     !
     if (ncs > 0) then
       !
@@ -807,13 +800,8 @@ continue
                               stat_strng="after reading variable header")
     !
     if (.not. allocated(solution)) then
-      if (flip_sol_indices) then
-        allocate ( solution(1:n_solpts,1:restart_nq) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-      else
-        allocate ( solution(1:restart_nq,1:n_solpts) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-      end if
+      allocate ( solution(1:n_solpts,1:restart_nq) , source=zero , &
+                 stat=ierr , errmsg=error_message )
       call alloc_error(pname,"solution",1,__LINE__,__FILE__,ierr,error_message)
     end if
     !
@@ -1036,20 +1024,14 @@ continue
         mbeg = restart_ncs + 1
       end if
       !
-      if (flip_sol_indices) then
-        do n = 1,np
-          do m = mbeg,restart_nq
-            solution(n0+n,m+ncs_diff) = rst_sol(m,l0+n)
-          end do
+      ! We need to flip the indices between the two arrays to match how the
+      ! restart solution was read using the MPI derived datatype.
+      !
+      do n = 1,np
+        do m = mbeg,restart_nq
+          solution(n0+n,m+ncs_diff) = rst_sol(m,l0+n)
         end do
-      else
-        do n = 1,np
-          do m = mbeg,restart_nq
-            solution(m+ncs_diff,n0+n) = rst_sol(m,l0+n)
-          end do
-        end do
-      end if
-     !solution(:,n1:n2) = rst_sol(:,l1:l2)
+      end do
       !
       ! Copy over the restart solutions for the species equations if 
       ! the number of chemical species in the restart file does not
@@ -1059,21 +1041,15 @@ continue
         !
         if (restart_ncs == inert_ncs) then
           !
-          if (flip_sol_indices) then
-            do n = 1,np
-              do mm = 1,restart_ncs
-                m = inert_species_map(mm)
-                solution(n0+n,m) = rst_sol(mm,l0+n)
-              end do
+          ! We need to flip the indices between the two arrays to match how the
+          ! restart solution was read using the MPI derived datatype.
+          !
+          do n = 1,np
+            do mm = 1,restart_ncs
+              m = inert_species_map(mm)
+              solution(n0+n,m) = rst_sol(mm,l0+n)
             end do
-          else
-            do n = 1,np
-              do mm = 1,restart_ncs
-                m = inert_species_map(mm)
-                solution(m,n0+n) = rst_sol(mm,l0+n)
-              end do
-            end do
-          end if
+          end do
           !
         else
           !
