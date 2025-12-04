@@ -3513,6 +3513,114 @@ end subroutine write_time_averaged_solution
 !
 !###############################################################################
 !
+subroutine write_modified_time_averaged_solution(file_name,int_header, &
+                                                 real_header,var_header, &
+                                                 ordered_geom,solution)
+  !
+  !.. Use Statements ..
+  use ovar, only : restart_output_uses_host_roots
+  use ovar, only : max_time_ave_rst_wall_time
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: file_name
+  integer(wip),     intent(in) :: int_header(:)
+  real(wp),         intent(in) :: real_header(:)
+  integer,          intent(in) :: var_header(:)
+  integer(i4),      intent(in) :: ordered_geom(:)
+  real(wp),         intent(in) :: solution(:,:)
+  !
+  !.. Local Scalars ..
+  integer     :: ierr
+  logical(lk) :: involved_with_output
+  !
+  _MPI_COMM_TYPE_ :: timeave_comm
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: fullname,statfile
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: output_sol(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_modified_time_averaged_solution"
+  !
+continue
+  !
+  call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
+  !
+  if (time_ave_needs_initialization) then
+    !
+    ! Get the MPI derived types required to
+    ! read/write the time-averaging restart file
+    !
+    if (restart_output_uses_host_roots) then
+      call get_host_time_ave_mpi_datatypes
+    else
+      call get_time_ave_mpi_datatypes
+    end if
+    !
+    ! Unset the restart initialization flag since this has now been done
+    !
+    time_ave_needs_initialization = fals
+    !
+  end if
+  !
+  ! Get the name for the time
+  !
+  ! F2003 AUTO-REALLOC
+  fullname = trim(adjustl(restart_dir)) // trim(adjustl(file_name)) 
+  ! F2003 AUTO-REALLOC
+  statfile = trim(adjustl(fullname)) // ".stat"
+  !
+  ! Create the time averaged information to write to the averaging file
+  !
+  if (restart_output_uses_host_roots) then
+    involved_with_output = i_am_host_root
+    timeave_comm = host_roots_comm
+    call collect_restart_arrays(current_sol=solution, &
+                                output_sol=output_sol)
+  else
+    involved_with_output = true
+    timeave_comm = MPI_COMM_WORLD
+    call get_restart_arrays(current_sol=solution, &
+                            output_sol=output_sol)
+  end if
+  !
+  ! Now write the actual time averaged solution file using all the
+  ! MPI processes actually involved with the I/O
+  !
+  if (involved_with_output) then
+    !
+    if (ncpu > 1) then
+      call write_solution_file_mpi(fullname,int_header,real_header, &
+                                   timeave_comm, &
+                                   ordered_geom,ordered_geom_type, &
+                                   output_sol,averaging_type,ave_block_type, &
+                                   max_time_ave_rst_wall_time, &
+                                   var_header=var_header,statfile=statfile)
+    else
+      call write_solution_file_serial(fullname,int_header,real_header, &
+                                      ordered_geom,output_sol, &
+                                      max_time_ave_rst_wall_time, &
+                                      var_header=var_header)
+    end if
+    !
+  end if
+  !
+  ! Deallocate the output_sol array since its no longer needed
+  !
+  if (allocated(output_sol)) then
+    deallocate ( output_sol , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"output_sol",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  call _DEBUG_WRITE_TIMER_(leaving_procedure,pname)
+  !
+end subroutine write_modified_time_averaged_solution
+!
+!###############################################################################
+!
 subroutine get_restart_arrays(current_sol,output_sol,ordered_geom)
   !
   !.. Use Statements ..
