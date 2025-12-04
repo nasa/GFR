@@ -1091,8 +1091,7 @@ continue
     ! Interpolate/project the restart solution
     ! to the current solution points/order
     !
-    call interp_restart_solution(restart_solution_form,flip_sol_indices, &
-                                 rst_sol,solution)
+    call interp_restart_solution(restart_solution_form,rst_sol,solution)
     !
   end if
   !
@@ -1869,8 +1868,7 @@ continue
     ! Interpolate/project the restart solution
     ! to the current solution points/order
     !
-    call interp_restart_solution(restart_solution_form,flip_sol_indices, &
-                                 rst_sol,solution, &
+    call interp_restart_solution(restart_solution_form,rst_sol,solution, &
                                  ordered_geom=ordered_geom)
     !
   end if
@@ -6471,8 +6469,8 @@ end subroutine read_rstrt_file_serial_wp_rank2
 !
 !###############################################################################
 !
-subroutine interp_restart_solution(restart_solution_form,flip_sol_indices, &
-                                   rst_sol,usp,ordered_geom)
+subroutine interp_restart_solution(restart_solution_form,rst_sol,usp, &
+                                   ordered_geom)
   !
   !.. Use Statements ..
   use order_mod,         only : n_min_geom,n_min_order
@@ -6487,7 +6485,6 @@ subroutine interp_restart_solution(restart_solution_form,flip_sol_indices, &
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: restart_solution_form
-  logical(lk), intent(in) :: flip_sol_indices
   real(wp),    intent(in) :: rst_sol(:,:)
   real(wp), intent(inout) :: usp(:,:)
   !
@@ -6728,11 +6725,7 @@ continue
       !
       ! Finally, save the interpolated/projected restart solution into usp
       !
-      if (flip_sol_indices) then
-        usp(n0+n,1:nq) = val(1:nq)
-      else
-        usp(1:nq,n0+n) = val(1:nq)
-      end if
+      usp(n0+n,1:nq) = val(1:nq)
       !
     end do
     !
