@@ -419,7 +419,7 @@ end subroutine read_restart_file
 !###############################################################################
 !
 subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
-                                  ordered_geom,var_header)
+                                  ordered_geom,var_header,ignore_sem)
   !
   !.. Use Statements ..
   use geomvar_mod, only : ncell,cell,n_solpts
@@ -435,7 +435,8 @@ subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
   integer(wip), allocatable, intent(inout) :: ordered_geom(:)
   !
   !.. Optional Arguments ..
-  integer(wip), optional, allocatable, intent(out) :: var_header(:)
+  integer(wip), optional, allocatable, intent(  out) :: var_header(:)
+  logical(lk),  optional,              intent(in   ) :: ignore_sem
   !
   !.. Local Scalars ..
   integer :: l0,m,mbeg,mm,n,np,n0,ierr
@@ -443,6 +444,7 @@ subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
   integer :: inert_nq,inert_ncs
   integer :: restart_ip,restart_rp
   logical(lk) :: rst_form_matches_sol_form
+  logical(lk) :: skip_sem_restart_data
   !
   _MPI_FILE_TYPE_ :: file_handle
   _MPI_INFO_TYPE_ :: file_info
@@ -477,6 +479,11 @@ subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  skip_sem_restart_data = fals
+  if (present(ignore_sem)) then
+    skip_sem_restart_data = ignore_sem
+  end if
   !
   num_sem_boxes = 0
   !
@@ -980,13 +987,15 @@ continue
   ! Read in the restart information for the synthetic
   ! inflow turbulence generators
   !
-  if (num_sem_boxes > 0) then
-    call debug_timer(start_timer,"calling read_sem_restart_mpi")
-    call read_sem_restart_mpi(num_sem_boxes,file_handle)
-    call debug_timer(stop_timer,"calling read_sem_restart_mpi")
-    !
-    call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
-                stat_strng="after reading all sem data")
+  if (.not. skip_sem_restart_data) then
+    if (num_sem_boxes > 0) then
+      call debug_timer(start_timer,"calling read_sem_restart_mpi")
+      call read_sem_restart_mpi(num_sem_boxes,file_handle)
+      call debug_timer(stop_timer,"calling read_sem_restart_mpi")
+      !
+      call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                  stat_strng="after reading all sem data")
+    end if
   end if
   !
   ! Finally close the restart file
@@ -1413,7 +1422,8 @@ end subroutine read_sem_restart_mpi
 !###############################################################################
 !
 subroutine read_solution_file_serial(file_name,int_header,real_header, &
-                                     solution,ordered_geom,var_header)
+                                     solution,ordered_geom,var_header, &
+                                     ignore_sem)
   !
   !.. Use Statements ..
   use geomvar_mod, only : ncell,cell,n_solpts
@@ -1429,7 +1439,8 @@ subroutine read_solution_file_serial(file_name,int_header,real_header, &
   integer(wip),     allocatable, intent(inout) :: ordered_geom(:)
   !
   !.. Optional Arguments ..
-  integer(wip), optional, allocatable, intent(out) :: var_header(:)
+  integer(wip), optional, allocatable, intent(  out) :: var_header(:)
+  logical(lk),  optional,              intent(in   ) :: ignore_sem
   !
   !.. Local Scalars ..
   integer :: io,l0,l2,m,mbeg,mm,n,np,n0,ierr
@@ -1437,6 +1448,7 @@ subroutine read_solution_file_serial(file_name,int_header,real_header, &
   integer :: inert_nq,inert_ncs
   integer :: restart_ip,restart_rp
   logical(lk) :: rst_form_matches_sol_form
+  logical(lk) :: skip_sem_restart_data
   !
   integer :: solution_errors
   integer :: restart_nq,restart_ncs,restart_ncells
@@ -1455,6 +1467,11 @@ subroutine read_solution_file_serial(file_name,int_header,real_header, &
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  skip_sem_restart_data = fals
+  if (present(ignore_sem)) then
+    skip_sem_restart_data = ignore_sem
+  end if
   !
   num_sem_boxes = 0
   !
@@ -1742,8 +1759,10 @@ continue
   ! Read in the restart information for the synthetic
   ! inflow turbulence generators
   !
-  if (num_sem_boxes > 0) then
-    call read_sem_restart_serial(num_sem_boxes,io)
+  if (.not. skip_sem_restart_data) then
+    if (num_sem_boxes > 0) then
+      call read_sem_restart_serial(num_sem_boxes,io)
+    end if
   end if
   !
   ! Finally close the restart file
