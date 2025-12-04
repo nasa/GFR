@@ -121,6 +121,17 @@ module restart_mod
     type(backup_t)     :: backup
   end type backup_restart_t
   !
+  ! TA_DATA_T : Derived type to store all the data from a restart file.
+  !             Currently, this is only used by the utility to modify the
+  !             history of a time-average restart file.
+  type :: ta_data_t
+    real(wp),     allocatable :: sol(:,:)
+    integer(i4),  allocatable :: ordered_geom(:)
+    integer(wip), allocatable :: int_header(:)
+    real(wp),     allocatable :: real_header(:)
+    integer(wip), allocatable :: var_header(:)
+  end type ta_data_t
+  !
   !###################################
   !###  Module Allocatable Arrays  ###
   !###################################
@@ -141,6 +152,13 @@ module restart_mod
   type(rstrt_cell_t), save, allocatable :: cell_input_data(:)
   !
   type(backup_restart_t), save :: backup_restart
+  !
+  ! ORIGINAL_TA_DATA : This is used by the utility for modifying the history
+  !                    of a time-average restart file to store the original
+  !                    time-average data that is ultimately being modified,
+  !                    in case it will be modified by multiple other
+  !                    time-average restart files.
+  type(ta_data_t), allocatable :: original_ta_data
   !
   !############################################################################
   !###  Generic interfaces for subroutines to read REAL data using MPI I/O  ###
