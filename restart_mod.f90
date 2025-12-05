@@ -6931,6 +6931,283 @@ end subroutine save_ta_data
 !
 !###############################################################################
 !
+subroutine remove_time_average_history(original,remove,modified,return_error)
+  !
+  !.. Use Statements ..
+  use flowvar_mod, only : time_ave_variables
+  !
+  !.. Formal Arguments ..
+  type(ta_data_t),              intent(in   ) :: original
+  type(ta_data_t),              intent(in   ) :: remove
+  type(ta_data_t), allocatable, intent(  out) :: modified
+  integer,                      intent(inout) :: return_error
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,iii,ierr
+  real(wp) :: orig_final_time,orig_start_time,orig_tstar,orig_coef
+  real(wp) :: drop_final_time,drop_start_time,drop_tstar,drop_coef
+  !
+  character(len=len(time_ave_variables)) :: o_ta_var,s_ta_var
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "remove_time_average_history"
+  !
+ !logical(lk), parameter :: simple_F2003_allocation = fals
+  logical(lk), parameter :: simple_F2003_allocation = true
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  return_error = 1
+  !
+  single_pass_loop: &
+  do iii = 1,1
+    !
+    !===========================================================================
+    !
+    ! #####
+    ! # 1 #
+    ! #####
+    !
+    ! First check that the original restart data is compatible with the remove
+    ! restart data that will be used as the new starting point of the modified
+    ! time-average data. If they arent compatible, there is no point in doing
+    ! any of the rest of the stuff in this subroutine.
+    !
+    return_error = 1
+    !
+    ! Check that the number of time-averaged variables is the same
+    !
+    if (original%int_header(1) /= remove%int_header(1)) then
+      if (mypnum == glb_root) then
+        write (iout,100) "# of time-average variables"
+        write (iout,101) original%int_header(1), remove%int_header(1)
+      end if
+      exit single_pass_loop
+    end if
+    !
+    ! Check that the number of grid cells is the same
+    !
+    if (original%int_header(2) /= remove%int_header(2)) then
+      if (mypnum == glb_root) then
+        write (iout,100) "# of grid cells"
+        write (iout,101) original%int_header(2), remove%int_header(2)
+      end if
+      exit single_pass_loop
+    end if
+    !
+    ! Check that time averages were started at the same solution time. The
+    ! only way the math behind this modification works is if both sets of
+    ! time-average data were started at the same solution time.
+    !
+    if (abs(original%real_header(3)-remove%real_header(3)) > eps6) then
+      if (mypnum == glb_root) then
+        write (iout,100) "remove time of accumulating time-average data"
+        write (iout,101) original%real_header(3), remove%real_header(3)
+      end if
+      exit single_pass_loop
+    end if
+    !
+    ! Check that all the time-average variables are the same
+    !
+    ierr = 0
+    do i = 1,size(original%var_header)
+      if (original%var_header(i) /= remove%var_header(i)) then
+        ierr = ierr + 1
+        if (mypnum == glb_root) then
+          if (ierr == 1) then
+            write (iout,100) "actual variables being time averaged"
+          end if
+          o_ta_var = transfer(original%var_header(i),o_ta_var)
+          s_ta_var = transfer(remove%var_header(i),s_ta_var)
+          write (iout,102) ierr,trim(adjustl(o_ta_var)),trim(adjustl(s_ta_var))
+        end if
+      end if
+    end do
+    if (ierr > 0) then
+      if (mypnum == glb_root) write (iout,103) ierr
+      exit single_pass_loop
+    end if
+    !
+    ! Check that ordered_geom matches for all cells
+    !
+    ierr = 0
+    do i = 1,size(original%ordered_geom)
+      if (original%ordered_geom(i) /= remove%ordered_geom(i)) then
+        ierr = ierr + 1
+      end if
+    end do
+    if (ierr > 0) then
+      if (mypnum == glb_root) then
+        write (iout,100) "contents of ORDERED_GEOM array"
+        write (iout,103) ierr
+      end if
+      exit single_pass_loop
+    end if
+    !
+    !===========================================================================
+    !
+    ! #####
+    ! # 2 #
+    ! #####
+    !
+    return_error = 2
+    !
+    ! Allocate the input argument modified as a copy of the argument original
+    !
+    if (simple_F2003_allocation) then
+      !
+      ! Copy the contents of the original data into modified.
+      ! NOTE: This should automatically allocate modified, and for each component
+      !       of original, automatically allocate the respective component of
+      !       modified to the same size, and then copy the data from each
+      !       compenent of original to the respective component of modified.
+      !
+      modified = original ! F2003 AUTO-REALLOC
+      !
+    else
+      !
+      ! Allocate modified
+      ! NOTE: We dont need to check if modified is allocated already since
+      !       it has the intent(out) specification, which means Fortran will
+      !       automatically deallocate it upon entry into this subroutine.
+      !
+      allocate ( modified , stat=ierr , errmsg=cerr )
+      if (ierr /= 0) then
+        write (iout,200) "modified",ierr,trim(adjustl(cerr))
+        exit single_pass_loop
+      end if
+      !
+      ! Allocate the sol component of modified using the same component
+      ! of original as the source to copy the data over to modified.
+      !
+      allocate ( modified%sol , source=original%sol , stat=ierr , errmsg=cerr )
+      if (ierr /= 0) then
+        write (iout,200) "modified%sol",ierr,trim(adjustl(cerr))
+        exit single_pass_loop
+      end if
+      !
+      ! Allocate the ordered_geom component of modified using the same component
+      ! of original as the source to copy the data over to modified.
+      !
+      allocate ( modified%ordered_geom , source=original%ordered_geom , &
+                 stat=ierr , errmsg=cerr )
+      if (ierr /= 0) then
+        write (iout,200) "modified%ordered_geom",ierr,trim(adjustl(cerr))
+        exit single_pass_loop
+      end if
+      !
+      ! Allocate the int_header component of modified using the same component
+      ! of original as the source to copy the data over to modified.
+      !
+      allocate ( modified%int_header , source=original%int_header , &
+                 stat=ierr , errmsg=cerr )
+      if (ierr /= 0) then
+        write (iout,200) "modified%int_header",ierr,trim(adjustl(cerr))
+        exit single_pass_loop
+      end if
+      !
+      ! Allocate the real_header component of modified using the same component
+      ! of original as the source to copy the data over to modified.
+      !
+      allocate ( modified%real_header , source=original%real_header , &
+                 stat=ierr , errmsg=cerr )
+      if (ierr /= 0) then
+        write (iout,200) "modified%real_header",ierr,trim(adjustl(cerr))
+        exit single_pass_loop
+      end if
+      !
+      ! Allocate the var_header component of modified using the same component
+      ! of original as the source to copy the data over to modified.
+      !
+      allocate ( modified%var_header , source=original%var_header , &
+                 stat=ierr , errmsg=cerr )
+      if (ierr /= 0) then
+        write (iout,200) "modified%var_header",ierr,trim(adjustl(cerr))
+        exit single_pass_loop
+      end if
+      !
+    end if
+    !
+    !===========================================================================
+    !
+    ! #####
+    ! # 3 #
+    ! #####
+    !
+    ! Remove the averaging coefficient (i.e, denominator term) from the
+    ! original time-averaged data that was copied into modified and the data
+    ! in remove that will be subtracted from the original data to shift the
+    ! starting solution time of the modified time-average data.
+    !
+    orig_final_time = modified%real_header(1)
+    orig_start_time = modified%real_header(3)
+    !
+    drop_final_time = remove%real_header(1)
+    drop_start_time = remove%real_header(3) ! should be same as orig_start_time
+    !
+    orig_tstar = orig_final_time - orig_start_time
+    drop_tstar = drop_final_time - drop_start_time
+    !
+    orig_coef = orig_tstar / (orig_tstar - drop_tstar)
+    drop_coef = one - orig_coef ! = -drop_tstar / (orig_tstar - drop_tstar)
+    !
+    do j = 1,size(modified%sol,dim=2)
+      do i = 1,size(modified%sol,dim=1)
+        modified%sol(i,j) = orig_coef*modified%sol(i,j) + &
+                            drop_coef*remove%sol(i,j)
+      end do
+    end do
+    !
+    !===========================================================================
+    !
+    ! #####
+    ! # 4 #
+    ! #####
+    !
+    ! Update the starting solution time for the modified time-average data
+    ! in the real_header array
+    !
+    modified%real_header(3) = drop_final_time
+    !
+    !===========================================================================
+    !
+    ! If we have reached this point, there doesnt seem to be any errors with
+    ! modifying the time average history, so set the return error to 0.
+    !
+    return_error = 0
+    !
+  end do single_pass_loop
+  !
+  flush (iout)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  100 format (/,1x,80("*"),/, &
+                " ERROR: Incompatibility between original and remove data!", &
+                10x,"Mismatch between  '",a,"'")
+  101 format (14x,"Original = ",g0,/, &
+              14x,"  Remove = ",g0,/, &
+              1x,80("*"),/)
+  102 format (14x,"Variable mismatch # ",i0,/, &
+              18x,"Original = '",a,"'",/, &
+              18x,"  Remove = '",a,"'")
+  103 format (14x,"# of mismatches = ",i0, &
+              1x,80("*"),/)
+  !
+  200 format (/,1x,80("*"),/, &
+                " ERROR ALLOCATING : ",a,/, &
+                "      ERROR INDICATOR = ",i0,/, &
+                "      ERROR MESSAGE   = '",a,"'",/, &
+                1x,80("*"))
+  !
+end subroutine remove_time_average_history
+!
+!###############################################################################
+!
 subroutine delete_file(file_name,procedure_name)
   !
   !###################################################################
