@@ -1054,6 +1054,8 @@ module module_kind_types
   ! General character variable for storing error messages
   !
   character(len=1000), save :: error_message
+  character(len=1000), save :: emsg
+  character(len=1000), save :: cerr
   !
   ! OpenMP Public Scalars
   !
