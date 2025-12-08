@@ -42,6 +42,7 @@ program GFR_main
   use ovar, only : adjust_cfl_cycles
   use ovar, only : output_time_averaging,time_scaling_factor
   use ovar, only : time_average_restart_files,ave_start_time
+  use ovar, only : modify_time_ave_restart_history
   use ovar, only : Filtering_Interval,Limiting_Interval
   use ovar, only : move_bcin_to_device
   use ovar, only : channel_spatial_ave_restart
@@ -80,6 +81,7 @@ program GFR_main
   use write_cgns_mod, only : convert_restart_files_to_cgns
   !
   use restart_mod, only : write_restart_file
+  use restart_mod, only : modify_time_average_restart_history
   !
   use mappings_mod, only : get_solution_points
   !
@@ -639,6 +641,13 @@ continue
     write (error_message,210)
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     !
+  end if
+  !
+  ! Modify the time-average history of a restart file by subtracting out the
+  ! time-average history of one or more previous time-average restart files.
+  !
+  if (modify_time_ave_restart_history) then
+    call modify_time_average_restart_history
   end if
   !
   ! Time average the list of restart files
