@@ -5657,7 +5657,7 @@ subroutine read_rstrt_file_int8_data_i4(file_handle,int_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
-  integer(wip), intent(inout) :: int_data(:)
+  integer(i4),  intent(inout) :: int_data(:)
   !
   !.. Optional Arguments ..
   _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
@@ -5705,7 +5705,7 @@ subroutine read_rstrt_file_int16_data_i4(file_handle,int_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
-  integer(wip), intent(inout) :: int_data(:)
+  integer(i4),  intent(inout) :: int_data(:)
   !
   !.. Optional Arguments ..
   _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
@@ -5753,16 +5753,13 @@ subroutine read_rstrt_file_int32_data_i4(file_handle,int_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
-  integer(wip), intent(inout) :: int_data(:)
+  integer(i4),  intent(inout) :: int_data(:)
   !
   !.. Optional Arguments ..
   _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Scalars ..
-  integer :: np,ierr
-  !
-  !.. Local Allocatable Arrays ..
-  integer(int32), allocatable :: read_int(:)
+  integer :: np
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_int32_data_i4"
@@ -5773,19 +5770,13 @@ continue
   !
   np = size(int_data)
   !
-  allocate ( read_int(1:np) , stat=ierr )
-  !
   if (present(mpistat)) then
-    call mpi_file_read_all(file_handle,read_int,int(np,kind=int_mpi), &
+    call mpi_file_read_all(file_handle,int_data,int(np,kind=int_mpi), &
                            MPI_INTEGER4,mpistat(1),mpierr)
   else
-    call mpi_file_read_all(file_handle,read_int,int(np,kind=int_mpi), &
+    call mpi_file_read_all(file_handle,int_data,int(np,kind=int_mpi), &
                            MPI_INTEGER4,MPI_STATUS_IGNORE,mpierr)
   end if
-  !
-  int_data(:) = int( read_int(:) , kind=kind(int_data) )
-  !
-  deallocate ( read_int , stat=ierr )
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -5801,7 +5792,7 @@ subroutine read_rstrt_file_int64_data_i4(file_handle,int_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
-  integer(wip), intent(inout) :: int_data(:)
+  integer(i4),  intent(inout) :: int_data(:)
   !
   !.. Optional Arguments ..
   _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
@@ -6251,8 +6242,8 @@ end subroutine read_rstrt_file_wp_rank2
 subroutine read_rstrt_file_serial_int8_data_i4(io,int_data)
   !
   !.. Formal Arguments ..
-  integer,         intent(in) :: io
-  integer(wip), intent(inout) :: int_data(:)
+  integer,        intent(in) :: io
+  integer(i4), intent(inout) :: int_data(:)
   !
   !.. Local Scalars ..
   integer :: i,ierr,np
@@ -6292,8 +6283,8 @@ end subroutine read_rstrt_file_serial_int8_data_i4
 subroutine read_rstrt_file_serial_int16_data_i4(io,int_data)
   !
   !.. Formal Arguments ..
-  integer,         intent(in) :: io
-  integer(wip), intent(inout) :: int_data(:)
+  integer,        intent(in) :: io
+  integer(i4), intent(inout) :: int_data(:)
   !
   !.. Local Scalars ..
   integer :: i,ierr,np
@@ -6333,14 +6324,11 @@ end subroutine read_rstrt_file_serial_int16_data_i4
 subroutine read_rstrt_file_serial_int32_data_i4(io,int_data)
   !
   !.. Formal Arguments ..
-  integer,         intent(in) :: io
-  integer(wip), intent(inout) :: int_data(:)
+  integer,        intent(in) :: io
+  integer(i4), intent(inout) :: int_data(:)
   !
   !.. Local Scalars ..
   integer :: i,ierr,np
-  !
-  !.. Local Allocatable Arrays ..
-  integer(int32), allocatable :: read_int(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_serial_int32_data_i4"
@@ -6351,15 +6339,7 @@ continue
   !
   np = size(int_data)
   !
-  allocate ( read_int(1:np) , stat=ierr )
-  !
-  read (io,iostat=ierr) (read_int(i), i=1,np)
-  !
-  do i = 1,np
-    int_data(i) = int( read_int(i) , kind=kind(int_data) )
-  end do
-  !
-  deallocate ( read_int , stat=ierr )
+  read (io,iostat=ierr) (int_data(i), i=1,np)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -6374,8 +6354,8 @@ end subroutine read_rstrt_file_serial_int32_data_i4
 subroutine read_rstrt_file_serial_int64_data_i4(io,int_data)
   !
   !.. Formal Arguments ..
-  integer,         intent(in) :: io
-  integer(wip), intent(inout) :: int_data(:)
+  integer,        intent(in) :: io
+  integer(i4), intent(inout) :: int_data(:)
   !
   !.. Local Scalars ..
   integer :: i,ierr,np
