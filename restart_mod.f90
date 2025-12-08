@@ -165,19 +165,23 @@ module restart_mod
   !###########################################################################
   !
   interface read_rstrt_file_i1
-    module procedure read_rstrt_file_int8_data_i4
+    module procedure read_rstrt_file_int8_data_i4, &
+                     read_rstrt_file_int8_data_i8
   end interface read_rstrt_file_i1
   !
   interface read_rstrt_file_i2
-    module procedure read_rstrt_file_int16_data_i4
+    module procedure read_rstrt_file_int16_data_i4, &
+                     read_rstrt_file_int16_data_i8
   end interface read_rstrt_file_i2
   !
   interface read_rstrt_file_i4
-    module procedure read_rstrt_file_int32_data_i4
+    module procedure read_rstrt_file_int32_data_i4, &
+                     read_rstrt_file_int32_data_i8
   end interface read_rstrt_file_i4
   !
   interface read_rstrt_file_i8
-    module procedure read_rstrt_file_int64_data_i4
+    module procedure read_rstrt_file_int64_data_i4, &
+                     read_rstrt_file_int64_data_i8
   end interface read_rstrt_file_i8
   !
   !###########################################################################
@@ -185,19 +189,23 @@ module restart_mod
   !###########################################################################
   !
   interface read_rstrt_file_serial_i1
-    module procedure read_rstrt_file_serial_int8_data_i4
+    module procedure read_rstrt_file_serial_int8_data_i4, &
+                     read_rstrt_file_serial_int8_data_i8
   end interface read_rstrt_file_serial_i1
   !
   interface read_rstrt_file_serial_i2
-    module procedure read_rstrt_file_serial_int16_data_i4
+    module procedure read_rstrt_file_serial_int16_data_i4, &
+                     read_rstrt_file_serial_int16_data_i8
   end interface read_rstrt_file_serial_i2
   !
   interface read_rstrt_file_serial_i4
-    module procedure read_rstrt_file_serial_int32_data_i4
+    module procedure read_rstrt_file_serial_int32_data_i4, &
+                     read_rstrt_file_serial_int32_data_i8
   end interface read_rstrt_file_serial_i4
   !
   interface read_rstrt_file_serial_i8
-    module procedure read_rstrt_file_serial_int64_data_i4
+    module procedure read_rstrt_file_serial_int64_data_i4, &
+                     read_rstrt_file_serial_int64_data_i8
   end interface read_rstrt_file_serial_i8
   !
   !############################################################################
@@ -5649,7 +5657,7 @@ end subroutine check_restart_solution_form
 !
 !###############################################################################
 !###############################################################################
-! MPI read subroutine for 8-bit INTEGER data
+! MPI read subroutine for reading 8-bit INTEGER data into a 32-bit array.
 !###############################################################################
 !###############################################################################
 !
@@ -5697,7 +5705,7 @@ end subroutine read_rstrt_file_int8_data_i4
 !
 !###############################################################################
 !###############################################################################
-! MPI read subroutine for 16-bit INTEGER data
+! MPI read subroutine for reading 16-bit INTEGER data into a 32-bit array.
 !###############################################################################
 !###############################################################################
 !
@@ -5745,7 +5753,7 @@ end subroutine read_rstrt_file_int16_data_i4
 !
 !###############################################################################
 !###############################################################################
-! MPI read subroutine for 32-bit INTEGER data
+! MPI read subroutine for reading 32-bit INTEGER data into a 32-bit array.
 !###############################################################################
 !###############################################################################
 !
@@ -5784,7 +5792,7 @@ end subroutine read_rstrt_file_int32_data_i4
 !
 !###############################################################################
 !###############################################################################
-! MPI read subroutine for 64-bit INTEGER data
+! MPI read subroutine for reading 64-bit INTEGER data into a 32-bit array.
 !###############################################################################
 !###############################################################################
 !
@@ -5829,6 +5837,189 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_int64_data_i4
+!
+!###############################################################################
+!###############################################################################
+! MPI read subroutine for reading 8-bit INTEGER data into a 64-bit array.
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_int8_data_i8(file_handle,int_data,mpistat)
+  !
+  !.. Formal Arguments ..
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  integer(i8),  intent(inout) :: int_data(:)
+  !
+  !.. Optional Arguments ..
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
+  !
+  !.. Local Scalars ..
+  integer :: np,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  integer(int8), allocatable :: read_int(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_int8_data_i8"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  np = size(int_data)
+  !
+  allocate ( read_int(1:np) , stat=ierr )
+  !
+  if (present(mpistat)) then
+    call mpi_file_read_all(file_handle,read_int,int(np,kind=int_mpi), &
+                           MPI_INTEGER1,mpistat(1),mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_int,int(np,kind=int_mpi), &
+                           MPI_INTEGER1,MPI_STATUS_IGNORE,mpierr)
+  end if
+  !
+  int_data(:) = int( read_int(:) , kind=kind(int_data) )
+  !
+  deallocate ( read_int , stat=ierr )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_int8_data_i8
+!
+!###############################################################################
+!###############################################################################
+! MPI read subroutine for reading 16-bit INTEGER data into a 64-bit array.
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_int16_data_i8(file_handle,int_data,mpistat)
+  !
+  !.. Formal Arguments ..
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  integer(i8),  intent(inout) :: int_data(:)
+  !
+  !.. Optional Arguments ..
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
+  !
+  !.. Local Scalars ..
+  integer :: np,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  integer(int16), allocatable :: read_int(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_int16_data_i8"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  np = size(int_data)
+  !
+  allocate ( read_int(1:np) , stat=ierr )
+  !
+  if (present(mpistat)) then
+    call mpi_file_read_all(file_handle,read_int,int(np,kind=int_mpi), &
+                           MPI_INTEGER2,mpistat(1),mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_int,int(np,kind=int_mpi), &
+                           MPI_INTEGER2,MPI_STATUS_IGNORE,mpierr)
+  end if
+  !
+  int_data(:) = int( read_int(:) , kind=kind(int_data) )
+  !
+  deallocate ( read_int , stat=ierr )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_int16_data_i8
+!
+!###############################################################################
+!###############################################################################
+! MPI read subroutine for reading 32-bit INTEGER data into a 64-bit array.
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_int32_data_i8(file_handle,int_data,mpistat)
+  !
+  !.. Formal Arguments ..
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  integer(i8),  intent(inout) :: int_data(:)
+  !
+  !.. Optional Arguments ..
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
+  !
+  !.. Local Scalars ..
+  integer :: np,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  integer(int32), allocatable :: read_int(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_int32_data_i8"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  np = size(int_data)
+  !
+  allocate ( read_int(1:np) , stat=ierr )
+  !
+  if (present(mpistat)) then
+    call mpi_file_read_all(file_handle,read_int,int(np,kind=int_mpi), &
+                           MPI_INTEGER4,mpistat(1),mpierr)
+  else
+    call mpi_file_read_all(file_handle,read_int,int(np,kind=int_mpi), &
+                           MPI_INTEGER4,MPI_STATUS_IGNORE,mpierr)
+  end if
+  !
+  int_data(:) = int( read_int(:) , kind=kind(int_data) )
+  !
+  deallocate ( read_int , stat=ierr )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_int32_data_i8
+!
+!###############################################################################
+!###############################################################################
+! MPI read subroutine for reading 64-bit INTEGER data into a 64-bit array.
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_int64_data_i8(file_handle,int_data,mpistat)
+  !
+  !.. Formal Arguments ..
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  integer(i8),  intent(inout) :: int_data(:)
+  !
+  !.. Optional Arguments ..
+  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
+  !
+  !.. Local Scalars ..
+  integer :: np
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_int64_data_i8"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  np = size(int_data)
+  !
+  if (present(mpistat)) then
+    call mpi_file_read_all(file_handle,int_data,int(np,kind=int_mpi), &
+                           MPI_INTEGER8,mpistat(1),mpierr)
+  else
+    call mpi_file_read_all(file_handle,int_data,int(np,kind=int_mpi), &
+                           MPI_INTEGER8,MPI_STATUS_IGNORE,mpierr)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_int64_data_i8
 !
 !###############################################################################
 !###############################################################################
@@ -6235,7 +6426,7 @@ end subroutine read_rstrt_file_wp_rank2
 !
 !###############################################################################
 !###############################################################################
-! Serial read subroutine for 8-bit INTEGER data
+! Serial read subroutine for reading 8-bit INTEGER data into a 32-bit array.
 !###############################################################################
 !###############################################################################
 !
@@ -6276,7 +6467,7 @@ end subroutine read_rstrt_file_serial_int8_data_i4
 !
 !###############################################################################
 !###############################################################################
-! Serial read subroutine for 16-bit INTEGER data
+! Serial read subroutine for reading 16-bit INTEGER data into a 32-bit array.
 !###############################################################################
 !###############################################################################
 !
@@ -6317,7 +6508,7 @@ end subroutine read_rstrt_file_serial_int16_data_i4
 !
 !###############################################################################
 !###############################################################################
-! Serial read subroutine for 32-bit INTEGER data
+! Serial read subroutine for reading 32-bit INTEGER data into a 32-bit array.
 !###############################################################################
 !###############################################################################
 !
@@ -6347,7 +6538,7 @@ end subroutine read_rstrt_file_serial_int32_data_i4
 !
 !###############################################################################
 !###############################################################################
-! Serial read subroutine for 64-bit INTEGER data
+! Serial read subroutine for reading 64-bit INTEGER data into a 32-bit array.
 !###############################################################################
 !###############################################################################
 !
@@ -6385,6 +6576,159 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_serial_int64_data_i4
+!
+!###############################################################################
+!###############################################################################
+! Serial read subroutine for reading 8-bit INTEGER data into a 64-bit array.
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_serial_int8_data_i8(io,int_data)
+  !
+  !.. Formal Arguments ..
+  integer,        intent(in) :: io
+  integer(i8), intent(inout) :: int_data(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr,np
+  !
+  !.. Local Allocatable Arrays ..
+  integer(int8), allocatable :: read_int(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_int8_data_i8"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  np = size(int_data)
+  !
+  allocate ( read_int(1:np) , stat=ierr )
+  !
+  read (io,iostat=ierr) (read_int(i), i=1,np)
+  !
+  do i = 1,np
+    int_data(i) = int( read_int(i) , kind=kind(int_data) )
+  end do
+  !
+  deallocate ( read_int , stat=ierr )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_int8_data_i8
+!
+!###############################################################################
+!###############################################################################
+! Serial read subroutine for reading 16-bit INTEGER data into a 64-bit array.
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_serial_int16_data_i8(io,int_data)
+  !
+  !.. Formal Arguments ..
+  integer,        intent(in) :: io
+  integer(i8), intent(inout) :: int_data(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr,np
+  !
+  !.. Local Allocatable Arrays ..
+  integer(int16), allocatable :: read_int(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_int16_data_i8"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  np = size(int_data)
+  !
+  allocate ( read_int(1:np) , stat=ierr )
+  !
+  read (io,iostat=ierr) (read_int(i), i=1,np)
+  !
+  do i = 1,np
+    int_data(i) = int( read_int(i) , kind=kind(int_data) )
+  end do
+  !
+  deallocate ( read_int , stat=ierr )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_int16_data_i8
+!
+!###############################################################################
+!###############################################################################
+! Serial read subroutine for reading 32-bit INTEGER data into a 64-bit array.
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_serial_int32_data_i8(io,int_data)
+  !
+  !.. Formal Arguments ..
+  integer,        intent(in) :: io
+  integer(i8), intent(inout) :: int_data(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr,np
+  !
+  !.. Local Allocatable Arrays ..
+  integer(int32), allocatable :: read_int(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_int32_data_i8"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  np = size(int_data)
+  !
+  allocate ( read_int(1:np) , stat=ierr )
+  !
+  read (io,iostat=ierr) (read_int(i), i=1,np)
+  !
+  do i = 1,np
+    int_data(i) = int( read_int(i) , kind=kind(int_data) )
+  end do
+  !
+  deallocate ( read_int , stat=ierr )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_int32_data_i8
+!
+!###############################################################################
+!###############################################################################
+! Serial read subroutine for reading 64-bit INTEGER data into a 64-bit array.
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_serial_int64_data_i8(io,int_data)
+  !
+  !.. Formal Arguments ..
+  integer,        intent(in) :: io
+  integer(i8), intent(inout) :: int_data(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr,np
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_int64_data_i8"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  np = size(int_data)
+  !
+  read (io,iostat=ierr) (int_data(i), i=1,np)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_int64_data_i8
 !
 !###############################################################################
 !###############################################################################
