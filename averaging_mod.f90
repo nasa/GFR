@@ -617,6 +617,7 @@ subroutine average_restart_files()
   use ovar,           only : time,itcur,tmrst,itrst
   use flowvar_mod,    only : uavesp
   use restart_mod,    only : read_restart_file,write_restart_file
+  use restart_mod,    only : deallocate_solver_arrays
   use write_cgns_mod, only : write_parallel_cgns
   !
   !.. Local Scalars ..
@@ -754,127 +755,6 @@ continue
   8 format (/,4x,"Calling write_parallel_cgns from ",a)
   !
 end subroutine average_restart_files
-!
-!###############################################################################
-!
-subroutine deallocate_solver_arrays()
-  !
-  !.. Use Statements ..
-  use geomvar_mod, only : face,grid
-  use flowvar_mod, only : faceusp_dt,facedusp_dt,faceflx,facexyz_dt
-  use flowvar_mod, only : residual,dtsp,uoldsp,rk_sum,rssprk
-  use flowvar_mod, only : nodeusp_dt,nodedusp_dt
-  use flowvar_mod, only : edgeusp_dt,edgedusp_dt,edgexyz_dt
-  use metrics_mod, only : metrics_dt,geofa,facenrm
-  !
-  !.. Local Scalars ..
-  integer :: ierr
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "deallocate_solver_arrays"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  if (allocated(face)) then
-    deallocate ( face , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"face",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(grid)) then
-    deallocate ( grid , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(faceusp_dt)) then
-    deallocate ( faceusp_dt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceusp_dt",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(facedusp_dt)) then
-    deallocate ( facedusp_dt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facedusp_dt",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(faceflx)) then
-    deallocate ( faceflx , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceflx",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(facexyz_dt)) then
-    deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(residual)) then
-    deallocate ( residual , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"residual",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(dtsp)) then
-    deallocate ( dtsp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"dtsp",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(uoldsp)) then
-    deallocate ( uoldsp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"uoldsp",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(rk_sum)) then
-    deallocate ( rk_sum , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"rk_sum",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(rssprk)) then
-    deallocate ( rssprk , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"rssprk",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(nodeusp_dt)) then
-    deallocate ( nodeusp_dt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"nodeusp_dt",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(nodedusp_dt)) then
-    deallocate ( nodedusp_dt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"nodedusp_dt",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(edgeusp_dt)) then
-    deallocate ( edgeusp_dt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"edgeusp_dt",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(edgedusp_dt)) then
-    deallocate ( edgedusp_dt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"edgedusp_dt",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(edgexyz_dt)) then
-    deallocate ( edgexyz_dt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"edgexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(metrics_dt)) then
-    deallocate ( metrics_dt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"metrics_dt",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(geofa)) then
-    deallocate ( geofa , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"geofa",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(facenrm)) then
-    deallocate ( facenrm , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facenrm",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine deallocate_solver_arrays
 !
 !###############################################################################
 !

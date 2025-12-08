@@ -56,7 +56,6 @@ $(OBJDIR)/averaging_mod.o : averaging_mod.f90 \
                   $(OBJDIR)/flowvar_mod.o \
                   $(OBJDIR)/write_cgns_mod.o \
                   $(OBJDIR)/restart_mod.o \
-                  $(OBJDIR)/metrics_mod.o \
                   $(OBJDIR)/mrf_mod.o
 
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
@@ -724,6 +723,7 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/geomvar_mod.o \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/flowvar_mod.o \
+                $(OBJDIR)/metrics_mod.o \
                 $(OBJDIR)/random_mod.o \
                 $(OBJDIR)/thermo_mod.o \
                 $(OBJDIR)/synthetic_eddy_mod.o \
