@@ -29,6 +29,7 @@ module restart_mod
   public :: check_restart_dir
   public :: create_restart_fname_formats
   public :: deallocate_solver_arrays
+  public :: modify_time_average_restart_history
   !
   !###########################
   !###  Module Parameters  ###
@@ -7286,6 +7287,310 @@ continue
   end if
   !
 end subroutine save_ta_data
+!
+!###############################################################################
+!
+subroutine modify_time_average_restart_history()
+  !
+  !.. Use Statements ..
+  use ovar, only : restart_list_file
+  use ovar, only : time_ref,time_scaling_factor
+  use ovar, only : delete_converted_restart_files
+  !
+  !.. Local Scalars ..
+  integer  :: ierr,io,i,n
+  real(wp) :: out_time
+  !
+  logical(ldk) :: file_exists
+  !
+  character(len=150) :: text
+  character(len=300) :: fname
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: list_file_name
+  character(len=:), allocatable :: read_file_name
+  character(len=:), allocatable :: write_file_name
+  !
+  !.. Local Allocatable Arrays ..
+  character(len=300), allocatable :: list_of_restart_files(:)
+  character(len=300), allocatable :: temp_list(:)
+  !
+  !.. Local Allocatable Derived Types ..
+  type(ta_data_t), allocatable :: new_start
+  type(ta_data_t), allocatable :: modified_ta_data
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "modify_time_average_restart_history"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! First deallocate unnecessary arrays that were allocated for the solver but
+  ! wont be needed since execution will abort at the end of this subroutine
+  !
+  call deallocate_solver_arrays
+  !
+  ! ###########
+  ! ###########
+  ! ###  1  ###
+  ! ###########
+  ! ###########
+  !
+  ! Check to make sure the restart_list_file exists
+  !
+  list_file_name = trim(adjustl(restart_list_file)) ! F2003 AUTO-REALLOC
+  inquire (file=list_file_name,exist=file_exists)
+  !
+  if (.not. file_exists .or. len_trim(adjustl(restart_list_file)) == 0) then
+    write (error_message,100)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! ###########
+  ! ###########
+  ! ###  2  ###
+  ! ###########
+  ! ###########
+  !
+  ! Count the number of lines in the file restart_list_file
+  !
+  open (newunit=io,file=list_file_name,status="old",action="read", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,list_file_name,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Count the number of restart files given in the list of files
+  !
+  n = 0
+  count_file_lines_loop: &
+  do
+    read (io,1,iostat=ierr,iomsg=error_message) text
+    if (ierr < 0) then
+      ! There was an end-of-file (or possibly an end-of record) error,
+      ! so assume we have hit the end of the file and exit this loop.
+      exit count_file_lines_loop
+    else if (ierr > 0) then
+      ! There was some other kind of error reading from the file 
+      call io_error(pname,list_file_name,-1,__LINE__,__FILE__, &
+                    ierr,error_message)
+    else
+      n = n + 1
+    end if
+  end do count_file_lines_loop
+  !
+  rewind (io)
+  !
+  ! ###########
+  ! ###########
+  ! ###  3  ###
+  ! ###########
+  ! ###########
+  !
+  ! Read in the list of time-average restart files that will be used
+  ! to create new time-average restart files with modified histories.
+  !
+  ! Allocate the arrays for storing the file names from the list of files
+  !
+  allocate ( list_of_restart_files(1:n) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"list_of_restart_files",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  allocate ( temp_list(1:n) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_list",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  ! Read the file names from the list of files
+  !
+  do n = 1,size(list_of_restart_files)
+    read (io,1,iostat=ierr,iomsg=error_message) list_of_restart_files(n)
+    call io_error(pname,list_file_name,-1,__LINE__,__FILE__,ierr,error_message)
+  end do
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,list_file_name,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! ###########
+  ! ###########
+  ! ###  4  ###
+  ! ###########
+  ! ###########
+  !
+  ! Check the validity of the filenames in the restart file list.
+  !   1) Ignore any filenames that start with !
+  !   2) For those filenames not starting with !, use inquire to check whether
+  !      or not the file exists. If the file does exist, add the filename
+  !      to temp_list.
+  !
+  i = 0
+  do n = 1,size(list_of_restart_files)
+    ! F2003 AUTO-REALLOC
+    read_file_name = trim(adjustl(list_of_restart_files(n)))
+    if (mypnum == glb_root) write (iout,10) n,read_file_name
+    if (read_file_name(1:1) /= "!") then
+      if (mypnum == glb_root) write (iout,11) read_file_name
+      inquire (file=read_file_name,exist=file_exists)
+      if (file_exists) then
+        i = i + 1
+        if (mypnum == glb_root) write (iout,12) i
+        temp_list(i) = read_file_name
+      else
+        if (mypnum == glb_root) write (iout,13)
+      end if
+    else
+      if (mypnum == glb_root) write (iout,14)
+    end if
+  end do
+  flush (iout)
+  !
+  ! Use F2003 AUTO-REALLOCATION to cutoff the unused parts of temp_list
+  !
+  temp_list = temp_list(1:i) ! F2003 AUTO-REALLOC
+  !
+  ! Use move_alloc to over-write list_of_restart_files with temp_list
+  !
+  call move_alloc( from=temp_list , to=list_of_restart_files )
+  !
+  ! ###########
+  ! ###########
+  ! ###  5  ###
+  ! ###########
+  ! ###########
+  !
+  ! Loop over the list of files to read each restart
+  ! file and write out a CGNS solution file
+  !
+  loop_over_restart_files: &
+  do n = 1,size(list_of_restart_files)
+    !
+    ! F2003 AUTO-REALLOC
+    read_file_name = trim(adjustl(list_of_restart_files(n)))
+    !
+    if (mypnum == glb_root) then
+      write (iout,2) trim(adjustl(read_file_name)), &
+                     n, size(list_of_restart_files)
+    end if
+    !
+    if (allocated(new_start)) then
+      deallocate ( new_start , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"new_start",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    allocate ( new_start , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"new_start",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    call read_solution_file(read_file_name, &
+                            new_start%int_header, &
+                            new_start%real_header, &
+                            new_start%sol, &
+                            new_start%ordered_geom, &
+                            var_header=new_start%var_header, &
+                            ignore_sem=true)
+    !
+    ! Modify the time-average data from the original restart file using
+    ! this new time-average as the new starting point of the averaging.
+    !
+    call remove_time_average_history(original_ta_data,new_start, &
+                                     modified_ta_data,ierr)
+    !
+    if (ierr /= 0) then
+      cycle loop_over_restart_files
+    end if
+    !
+    if (mypnum == glb_root) then
+      out_time = (modified_ta_data%real_header(1) - &
+                  modified_ta_data%real_header(3) )*time_ref*time_scaling_factor
+      write (iout,3) new_start%real_header(1), &
+                     original_ta_data%real_header(1), &
+                     out_time
+      flush (iout)
+    end if
+   !!
+   !! Update the parts of the real header that need to altered with the
+   !! change in time-average history
+   !! NOTE: In actuality, real_header(4)=rl2mx could possibly need to be
+   !!       updated as well, but it is impossible to know for sure or even
+   !!       what the correct rl2mx would be since it is just the maximum
+   !!       l2 norm of the density residual over all the iterations since
+   !!       the time averaging began. We dont know what iteration rl2mx
+   !!       occurred, and we dont have a history of rl2mx to know what
+   !!       it should be from the new time-averaging interval. We will just
+   !!       leave it as is since it is really just used for the residual.dat
+   !!       file which is not all that useful for LES.
+   !!
+   !real_header(3) = new_ave_start_time
+    !
+    ! Get the file name for the new time-average restart file that will be
+    ! used to save the new modified time-average history to.
+    ! 
+    write (fname,20) original_ta_data%int_header(4), &
+                     new_start%int_header(4)
+    write_file_name = trim(adjustl(fname)) ! F2003 AUTO-REALLOC
+    !
+    ! Write the new time-average restart file
+    ! NOTE: We will just reuse the contents of the ordered_geom, int_header,
+    !       and var_header arrays since those remain the same as they were
+    !       before modifying the time-average history.
+    !
+    call write_modified_time_averaged_solution(write_file_name, &
+                                               modified_ta_data%int_header, &
+                                               modified_ta_data%real_header, &
+                                               modified_ta_data%var_header, &
+                                               modified_ta_data%ordered_geom, &
+                                               modified_ta_data%sol)
+    !
+    ! If requested, delete the time-average restart file that was just used to
+    ! modify the original time-average restart file.
+    !
+    if (delete_converted_restart_files) then
+      call delete_file(read_file_name,pname)
+    end if
+    !
+  end do loop_over_restart_files
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  write (error_message,4)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  !
+  ! Format Statements
+  !
+  1 format (a)
+  2 format (/,3(1x,100("#"),/),/, &
+              3x,"Working on time-average restart file '",a,"' ", &
+                 "(",i3," of ",i3,")",//, &
+              3(1x,100("#"),/),/, &
+              4x,"Reading the time-average restart file")
+  3 format (/,1x,71("-"),/, &
+              " -----  Creating new time-average history by ", &
+                                             "removing the initial  -----",/, &
+              " -----  ",f10.4," tstar of time-averaging read ", &
+                                                "in from this       -----",/, &
+              " -----  time-average restart file. The new ", &
+                                           "time-average will be    -----",/, &
+              " -----  reduced from ",f10.4," to ",f10.4," ", &
+                                              "tstar of averaging.  -----",/, &
+              1x,71("-"),/)
+  4 format ("STOPPING EXECUTION AFTER MODIFYING THE TIME-AVERAGE RESTART ", &
+            "HISTORY USING THE TIME-AVERAGE DATA FROM THE LIST OF ", &
+            "TIME-AVERAGE RESTART FILES!")
+  !
+  10 format (/,2x,"Filename # ",i0," from restart file list = '",a,"'")
+  11 format (4x,"Checking existance of time-average restart file '",a,"'")
+  12 format (4x,"Time-average restart file found! Saving to temp_list(",i0,")")
+  13 format (8x,"ERROR: TIME-AVERAGE RESTART FILE DOES NOT EXIST!",/, &
+             8x,"       IGNORING THIS LINE FROM THE RESTART FILE LIST!")
+  14 format (8x,"WARNING: IGNORING FILENAME BEGINNING WITH '!'...")
+  !
+  20 format ("out.",i0,"-",i0,".modified.ave")
+  !
+  100 format ("THE FILE SPECIFIED BY THE INPUT - RESTART_LIST_FILE - COULD ", &
+              "NOT BE FOUND! THIS FILE MUST PROVIDE A LIST OF ONE OR MORE ", &
+              "TIME-AVERAGE RESTART FILES FROM THE SAME LINEAGE AS THE ", &
+              "CURRENT TIME-AVERAGE RESTART FILE THAT WAS SPECIFIED BY THE ", &
+              "INPUT - TIME_AVE_FILE - IN ORDER TO MODIFY THE HISTORY OF ", &
+              "THE CURRENT TIME-AVERAGED DATA.")
+  !
+end subroutine modify_time_average_restart_history
 !
 !###############################################################################
 !
