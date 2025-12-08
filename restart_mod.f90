@@ -160,6 +160,46 @@ module restart_mod
   !                    time-average restart files.
   type(ta_data_t), allocatable :: original_ta_data
   !
+  !###########################################################################
+  !#  Generic interfaces for subroutines to read INTEGER data using MPI I/O  #
+  !###########################################################################
+  !
+  interface read_rstrt_file_i1
+    module procedure read_rstrt_file_int8_data_i4
+  end interface read_rstrt_file_i1
+  !
+  interface read_rstrt_file_i2
+    module procedure read_rstrt_file_int16_data_i4
+  end interface read_rstrt_file_i2
+  !
+  interface read_rstrt_file_i4
+    module procedure read_rstrt_file_int32_data_i4
+  end interface read_rstrt_file_i4
+  !
+  interface read_rstrt_file_i8
+    module procedure read_rstrt_file_int64_data_i4
+  end interface read_rstrt_file_i8
+  !
+  !###########################################################################
+  !# Generic interfaces for procedures to read INTEGER data using Serial I/O #
+  !###########################################################################
+  !
+  interface read_rstrt_file_serial_i1
+    module procedure read_rstrt_file_serial_int8_data_i4
+  end interface read_rstrt_file_serial_i1
+  !
+  interface read_rstrt_file_serial_i2
+    module procedure read_rstrt_file_serial_int16_data_i4
+  end interface read_rstrt_file_serial_i2
+  !
+  interface read_rstrt_file_serial_i4
+    module procedure read_rstrt_file_serial_int32_data_i4
+  end interface read_rstrt_file_serial_i4
+  !
+  interface read_rstrt_file_serial_i8
+    module procedure read_rstrt_file_serial_int64_data_i4
+  end interface read_rstrt_file_serial_i8
+  !
   !############################################################################
   !###  Generic interfaces for subroutines to read REAL data using MPI I/O  ###
   !############################################################################
@@ -5613,7 +5653,7 @@ end subroutine check_restart_solution_form
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_i1(file_handle,int_data,mpistat)
+subroutine read_rstrt_file_int8_data_i4(file_handle,int_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
@@ -5626,7 +5666,7 @@ subroutine read_rstrt_file_i1(file_handle,int_data,mpistat)
   integer(int8) :: read_int(1:size(int_data))
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_rstrt_file_i1"
+  character(len=*), parameter :: pname = "read_rstrt_file_int8_data_i4"
   !
 continue
   !
@@ -5646,7 +5686,7 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine read_rstrt_file_i1
+end subroutine read_rstrt_file_int8_data_i4
 !
 !###############################################################################
 !###############################################################################
@@ -5654,7 +5694,7 @@ end subroutine read_rstrt_file_i1
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_i2(file_handle,int_data,mpistat)
+subroutine read_rstrt_file_int16_data_i4(file_handle,int_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
@@ -5667,7 +5707,7 @@ subroutine read_rstrt_file_i2(file_handle,int_data,mpistat)
   integer(int16) :: read_int(1:size(int_data))
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_rstrt_file_i2"
+  character(len=*), parameter :: pname = "read_rstrt_file_int16_data_i4"
   !
 continue
   !
@@ -5687,7 +5727,7 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine read_rstrt_file_i2
+end subroutine read_rstrt_file_int16_data_i4
 !
 !###############################################################################
 !###############################################################################
@@ -5695,7 +5735,7 @@ end subroutine read_rstrt_file_i2
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_i4(file_handle,int_data,mpistat)
+subroutine read_rstrt_file_int32_data_i4(file_handle,int_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
@@ -5708,7 +5748,7 @@ subroutine read_rstrt_file_i4(file_handle,int_data,mpistat)
   integer(int32) :: read_int(1:size(int_data))
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_rstrt_file_i4"
+  character(len=*), parameter :: pname = "read_rstrt_file_int32_data_i4"
   !
 continue
   !
@@ -5728,7 +5768,7 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine read_rstrt_file_i4
+end subroutine read_rstrt_file_int32_data_i4
 !
 !###############################################################################
 !###############################################################################
@@ -5736,7 +5776,7 @@ end subroutine read_rstrt_file_i4
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_i8(file_handle,int_data,mpistat)
+subroutine read_rstrt_file_int64_data_i4(file_handle,int_data,mpistat)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
@@ -5749,7 +5789,7 @@ subroutine read_rstrt_file_i8(file_handle,int_data,mpistat)
   integer(int64) :: read_int(1:size(int_data))
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_rstrt_file_i8"
+  character(len=*), parameter :: pname = "read_rstrt_file_int64_data_i4"
   !
 continue
   !
@@ -5769,7 +5809,7 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine read_rstrt_file_i8
+end subroutine read_rstrt_file_int64_data_i4
 !
 !###############################################################################
 !###############################################################################
@@ -6180,7 +6220,7 @@ end subroutine read_rstrt_file_wp_rank2
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_serial_i1(io,int_data)
+subroutine read_rstrt_file_serial_int8_data_i4(io,int_data)
   !
   !.. Formal Arguments ..
   integer,         intent(in) :: io
@@ -6193,7 +6233,7 @@ subroutine read_rstrt_file_serial_i1(io,int_data)
   integer(int8) :: read_int(1:size(int_data))
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_rstrt_file_serial_i1"
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_int8_data_i4"
   !
 continue
   !
@@ -6207,7 +6247,7 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine read_rstrt_file_serial_i1
+end subroutine read_rstrt_file_serial_int8_data_i4
 !
 !###############################################################################
 !###############################################################################
@@ -6215,7 +6255,7 @@ end subroutine read_rstrt_file_serial_i1
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_serial_i2(io,int_data)
+subroutine read_rstrt_file_serial_int16_data_i4(io,int_data)
   !
   !.. Formal Arguments ..
   integer,         intent(in) :: io
@@ -6228,7 +6268,7 @@ subroutine read_rstrt_file_serial_i2(io,int_data)
   integer(int16) :: read_int(1:size(int_data))
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_rstrt_file_serial_i2"
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_int16_data_i4"
   !
 continue
   !
@@ -6242,7 +6282,7 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine read_rstrt_file_serial_i2
+end subroutine read_rstrt_file_serial_int16_data_i4
 !
 !###############################################################################
 !###############################################################################
@@ -6250,7 +6290,7 @@ end subroutine read_rstrt_file_serial_i2
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_serial_i4(io,int_data)
+subroutine read_rstrt_file_serial_int32_data_i4(io,int_data)
   !
   !.. Formal Arguments ..
   integer,         intent(in) :: io
@@ -6263,7 +6303,7 @@ subroutine read_rstrt_file_serial_i4(io,int_data)
   integer(int32) :: read_int(1:size(int_data))
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_rstrt_file_serial_i4"
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_int32_data_i4"
   !
 continue
   !
@@ -6277,7 +6317,7 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine read_rstrt_file_serial_i4
+end subroutine read_rstrt_file_serial_int32_data_i4
 !
 !###############################################################################
 !###############################################################################
@@ -6285,7 +6325,7 @@ end subroutine read_rstrt_file_serial_i4
 !###############################################################################
 !###############################################################################
 !
-subroutine read_rstrt_file_serial_i8(io,int_data)
+subroutine read_rstrt_file_serial_int64_data_i4(io,int_data)
   !
   !.. Formal Arguments ..
   integer,         intent(in) :: io
@@ -6298,7 +6338,7 @@ subroutine read_rstrt_file_serial_i8(io,int_data)
   integer(int64) :: read_int(1:size(int_data))
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_rstrt_file_serial_i8"
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_int64_data_i4"
   !
 continue
   !
@@ -6312,7 +6352,7 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine read_rstrt_file_serial_i8
+end subroutine read_rstrt_file_serial_int64_data_i4
 !
 !###############################################################################
 !###############################################################################
