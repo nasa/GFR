@@ -5767,7 +5767,10 @@ subroutine read_rstrt_file_int32_data_i4(file_handle,int_data,mpistat)
   _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Scalars ..
-  integer :: np
+  integer :: np,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  integer(int32), allocatable :: read_int(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_int32_data_i4"
@@ -5778,13 +5781,19 @@ continue
   !
   np = size(int_data)
   !
+  allocate ( read_int(1:np) , stat=ierr )
+  !
   if (present(mpistat)) then
-    call mpi_file_read_all(file_handle,int_data,int(np,kind=int_mpi), &
+    call mpi_file_read_all(file_handle,read_int,int(np,kind=int_mpi), &
                            MPI_INTEGER4,mpistat(1),mpierr)
   else
-    call mpi_file_read_all(file_handle,int_data,int(np,kind=int_mpi), &
+    call mpi_file_read_all(file_handle,read_int,int(np,kind=int_mpi), &
                            MPI_INTEGER4,MPI_STATUS_IGNORE,mpierr)
   end if
+  !
+  int_data(:) = int( read_int(:) , kind=kind(int_data) )
+  !
+  deallocate ( read_int , stat=ierr )
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -5998,7 +6007,10 @@ subroutine read_rstrt_file_int64_data_i8(file_handle,int_data,mpistat)
   _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
   !
   !.. Local Scalars ..
-  integer :: np
+  integer :: np,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  integer(int64), allocatable :: read_int(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_int64_data_i8"
@@ -6009,13 +6021,19 @@ continue
   !
   np = size(int_data)
   !
+  allocate ( read_int(1:np) , stat=ierr )
+  !
   if (present(mpistat)) then
-    call mpi_file_read_all(file_handle,int_data,int(np,kind=int_mpi), &
+    call mpi_file_read_all(file_handle,read_int,int(np,kind=int_mpi), &
                            MPI_INTEGER8,mpistat(1),mpierr)
   else
-    call mpi_file_read_all(file_handle,int_data,int(np,kind=int_mpi), &
+    call mpi_file_read_all(file_handle,read_int,int(np,kind=int_mpi), &
                            MPI_INTEGER8,MPI_STATUS_IGNORE,mpierr)
   end if
+  !
+  int_data(:) = int( read_int(:) , kind=kind(int_data) )
+  !
+  deallocate ( read_int , stat=ierr )
   !
   call debug_timer(leaving_procedure,pname)
   !
