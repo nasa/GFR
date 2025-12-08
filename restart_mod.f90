@@ -33,6 +33,9 @@ module restart_mod
   !###  Module Parameters  ###
   !###########################
   !
+  ! Integer type to use for the ordered_geom array
+  integer, parameter :: ogp = int32
+  !
   integer, parameter :: restart_gauss_nodal_solution   = -Legendre_Gauss
   integer, parameter :: restart_lobatto_nodal_solution = -Legendre_Gauss_Lobatto
   integer, parameter :: restart_legendre_modal_solution = Legendre_Gauss
@@ -126,7 +129,7 @@ module restart_mod
   !             history of a time-average restart file.
   type :: ta_data_t
     real(wp),     allocatable :: sol(:,:)
-    integer(i4),  allocatable :: ordered_geom(:)
+    integer(ogp), allocatable :: ordered_geom(:)
     integer(wip), allocatable :: int_header(:)
     real(wp),     allocatable :: real_header(:)
     integer(wip), allocatable :: var_header(:)
@@ -342,7 +345,7 @@ subroutine read_restart_file(restart_fname,force_serial_read)
   integer(wip), allocatable :: int_header(:)
   integer(wip), allocatable :: var_header(:)
   real(wp),     allocatable :: real_header(:)
-  integer(wip), allocatable :: ordered_geom(:)
+  integer(ogp), allocatable :: ordered_geom(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_restart_file"
@@ -482,7 +485,7 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
   integer(wip), allocatable, intent(  out) :: int_header(:)
   real(wp),     allocatable, intent(  out) :: real_header(:)
   real(wp),     allocatable, intent(inout) :: solution(:,:)
-  integer(wip), allocatable, intent(inout) :: ordered_geom(:)
+  integer(ogp), allocatable, intent(inout) :: ordered_geom(:)
   !
   !.. Optional Arguments ..
   integer(wip), optional, allocatable, intent(  out) :: var_header(:)
@@ -530,7 +533,7 @@ subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
   integer(wip), allocatable, intent(  out) :: int_header(:)
   real(wp),     allocatable, intent(  out) :: real_header(:)
   real(wp),     allocatable, intent(inout) :: solution(:,:)
-  integer(wip), allocatable, intent(inout) :: ordered_geom(:)
+  integer(ogp), allocatable, intent(inout) :: ordered_geom(:)
   !
   !.. Optional Arguments ..
   integer(wip), optional, allocatable, intent(  out) :: var_header(:)
@@ -835,7 +838,7 @@ continue
                            stat_strng="after reading int type for ordered_geom")
   !
   if (.not. allocated(ordered_geom)) then
-    allocate ( ordered_geom(1:restart_ncells) , source=0_wip , &
+    allocate ( ordered_geom(1:restart_ncells) , source=0_ogp , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
                      error_message)
@@ -1522,7 +1525,7 @@ subroutine read_solution_file_serial(file_name,int_header,real_header, &
   integer(wip),     allocatable, intent(  out) :: int_header(:)
   real(wp),         allocatable, intent(  out) :: real_header(:)
   real(wp),         allocatable, intent(inout) :: solution(:,:)
-  integer(wip),     allocatable, intent(inout) :: ordered_geom(:)
+  integer(ogp),     allocatable, intent(inout) :: ordered_geom(:)
   !
   !.. Optional Arguments ..
   integer(wip), optional, allocatable, intent(  out) :: var_header(:)
@@ -1530,7 +1533,7 @@ subroutine read_solution_file_serial(file_name,int_header,real_header, &
   !
   !.. Local Scalars ..
   integer :: io,l0,l2,m,mbeg,mm,n,np,n0,ierr
-  integer :: sol_nq,ncs_diff
+  integer :: sol_nq,ncs_diff,og
   integer :: inert_nq,inert_ncs
   integer :: restart_ip,restart_rp
   logical(lk) :: rst_form_matches_sol_form
@@ -1713,7 +1716,7 @@ continue
   read (io,iostat=ierr) restart_ip
   !
   if (.not. allocated(ordered_geom)) then
-    allocate ( ordered_geom(1:restart_ncells) , source=0_wip , &
+    allocate ( ordered_geom(1:restart_ncells) , source=0_ogp , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
                      error_message)
@@ -1790,8 +1793,10 @@ continue
   num_pts = 0
   do this_cell = 1,ncell
     !
-    inp_order = ordered_geom(this_cell) / 100
-    inp_geom = ordered_geom(this_cell) - 100*inp_order
+    og = int(ordered_geom(this_cell),kind=kind(og))
+    !
+    inp_order = og / 100
+    inp_geom = og - 100*inp_order
     !
     num_pts = num_pts + Cell_Solpts(inp_geom,inp_order)
     !
@@ -1855,8 +1860,10 @@ continue
     l2 = 0
     do this_cell = 1,ncell
       !
-      inp_order = ordered_geom(this_cell) / 100
-      inp_geom = ordered_geom(this_cell) - 100*inp_order
+      og = int(ordered_geom(this_cell),kind=kind(og))
+      !
+      inp_order = og / 100
+      inp_geom = og - 100*inp_order
       !
       this_geom = cell(this_cell)%geom
       this_order = cell(this_cell)%order
@@ -2273,8 +2280,8 @@ subroutine write_restart_file(itnum)
   real(wp)     :: real_header(1:3)
   !
   !.. Local Allocatable Arrays ..
-  integer(i4), allocatable :: ordered_geom(:)
-  real(wp),    allocatable :: solution(:,:)
+  integer(ogp), allocatable :: ordered_geom(:)
+  real(wp),     allocatable :: solution(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_restart_file"
@@ -2469,7 +2476,7 @@ subroutine write_solution_file_mpi(file_name,int_header,real_header,file_comm, &
   integer,          intent(in) :: int_header(:)
   real(wp),         intent(in) :: real_header(:)
   _MPI_COMM_TYPE_,  intent(in) :: file_comm
-  integer(i4),      intent(in) :: ordered_geom(:)
+  integer(ogp),     intent(in) :: ordered_geom(:)
   _MPI_DATA_TYPE_,  intent(in) :: og_type
   real(wp),         intent(in) :: solution(:,:)
   _MPI_DATA_TYPE_,  intent(in) :: sol_type
@@ -3020,7 +3027,7 @@ subroutine write_solution_file_serial(file_name,int_header,real_header, &
   character(len=*), intent(in) :: file_name
   integer,          intent(in) :: int_header(:)
   real(wp),         intent(in) :: real_header(:)
-  integer(i4),      intent(in) :: ordered_geom(:)
+  integer(ogp),     intent(in) :: ordered_geom(:)
   real(wp),         intent(in) :: solution(:,:)
   real(wp),      intent(inout) :: max_wall_time
   !
@@ -3326,7 +3333,7 @@ subroutine write_time_averaged_solution(itnum,ordered_geom,int_header)
   !
   !.. Formal Arguments ..
   integer,         intent(in) :: itnum
-  integer(i4),     intent(in) :: ordered_geom(:)
+  integer(ogp),    intent(in) :: ordered_geom(:)
   integer(wip), intent(inout) :: int_header(:)
   !
   !.. Local Scalars ..
@@ -3550,7 +3557,7 @@ subroutine write_modified_time_averaged_solution(file_name,int_header, &
   integer(wip),     intent(in) :: int_header(:)
   real(wp),         intent(in) :: real_header(:)
   integer,          intent(in) :: var_header(:)
-  integer(i4),      intent(in) :: ordered_geom(:)
+  integer(ogp),     intent(in) :: ordered_geom(:)
   real(wp),         intent(in) :: solution(:,:)
   !
   !.. Local Scalars ..
@@ -3655,7 +3662,7 @@ subroutine get_restart_arrays(current_sol,output_sol,ordered_geom)
   real(wp), allocatable, intent(inout) :: output_sol(:,:)
   !
   !.. Optional Arguments ..
-  integer(i4), optional, allocatable, intent(inout) :: ordered_geom(:)
+  integer(ogp), optional, allocatable, intent(inout) :: ordered_geom(:)
   !
   !.. Local Scalars ..
   integer :: k,l0,l2,m,n,nc,np,nvar,n0,ierr
@@ -3670,7 +3677,7 @@ continue
   !
   if (present(ordered_geom)) then
     !
-    allocate ( ordered_geom(1:ncell) , source=0_i4 , &
+    allocate ( ordered_geom(1:ncell) , source=0_ogp , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
                      error_message)
@@ -3682,7 +3689,7 @@ continue
       this_geom = cell(nc)%geom
       this_order = cell(nc)%order
       !
-      ordered_geom(n) = int( 100*this_order + this_geom , kind=i4 )
+      ordered_geom(n) = int( 100*this_order + this_geom , kind=ogp )
       !
     end do
     !
@@ -3736,14 +3743,16 @@ subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom)
   real(wp), allocatable, intent(inout) :: output_sol(:,:)
   !
   !.. Optional Arguments ..
-  integer(i4), optional, allocatable, intent(inout) :: ordered_geom(:)
+  integer(ogp), optional, allocatable, intent(inout) :: ordered_geom(:)
   !
   !.. Local Scalars ..
   integer :: nvar,ierr,lcell,lpts
   !
+  _MPI_DATA_TYPE_ :: og_mpi_type
+  !
   !.. LOcal Allocatable Arrays ..
-  integer(i4), allocatable :: local_og(:)
-  real(wp),    allocatable :: local_sol(:,:)
+  integer(ogp), allocatable :: local_og(:)
+  real(wp),     allocatable :: local_sol(:,:)
   !
   integer(INT_MPI), allocatable :: sol_counts(:)
   integer(INT_MPI), allocatable :: sol_displs(:)
@@ -3766,20 +3775,26 @@ continue
       lcell = sum(og_counts)
     end if
     !
-    allocate ( ordered_geom(1:lcell) , source=0_i4 , &
+    allocate ( ordered_geom(1:lcell) , source=0_ogp , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
                      error_message)
     !
     ! F2003 AUTO-REALLOCATION
 #ifdef SPECIAL_FOR_GCC
-    local_og = [ int( 100*cell(1:ncell)%order + cell(1:ncell)%geom , kind=i4 ) ]
+    local_og = [int( 100*cell(1:ncell)%order + cell(1:ncell)%geom , kind=ogp )]
 #else
-    local_og = int( 100*cell(1:ncell)%order + cell(1:ncell)%geom , kind=i4 )
+    local_og = int( 100*cell(1:ncell)%order + cell(1:ncell)%geom , kind=ogp )
 #endif
     !
-    call mpi_gatherv(local_og,int(ncell,kind=int_mpi),MPI_INTEGER, &
-                     ordered_geom,og_counts,og_displs,MPI_INTEGER, &
+    if (ogp == int64) then
+      og_mpi_type = MPI_INTEGER8
+    else
+      og_mpi_type = MPI_INTEGER
+    end if
+    !
+    call mpi_gatherv(local_og,int(ncell,kind=int_mpi),og_mpi_type, &
+                     ordered_geom,og_counts,og_displs,og_mpi_type, &
                      host_root,my_host_comm,mpierr)
     !
     deallocate ( local_og , stat=ierr , errmsg=error_message )
@@ -5241,11 +5256,11 @@ subroutine get_input_mpi_datatypes(restart_nq,restart_rp,real_type, &
   _MPI_DATA_TYPE_,               intent(inout) :: read_type
   integer(wip),                  intent(inout) :: num_pts
   integer(wip),                  intent(inout) :: num_global_pts
-  integer(wip),                     intent(in) :: ordered_geom(:)
+  integer(ogp),                     intent(in) :: ordered_geom(:)
   type(rstrt_cell_t), allocatable, intent(out) :: cell_input_data(:)
   !
   !.. Local Scalars ..
-  integer :: n,nc,n1,n2,ierr
+  integer :: n,nc,n1,n2,ierr,og
   integer :: local_cell,global_cell
   integer :: this_cell,this_geom,this_order
   integer :: inp_cell,inp_geom,inp_order
@@ -5300,8 +5315,9 @@ continue
   !
   do global_cell = 1,size(ordered_geom)
     !
-    this_order = ordered_geom(global_cell) / 100
-    this_geom = ordered_geom(global_cell) - 100*this_order
+    og = int(ordered_geom(global_cell),kind=kind(og))
+    this_order = og / 100
+    this_geom = og - 100*this_order
     !
     pinc_ptr(global_cell+1) = pinc_ptr(global_cell) + &
                               Cell_Solpts(this_geom,this_order)
@@ -5494,7 +5510,7 @@ subroutine check_restart_solution_form(restart_solution_form,ordered_geom, &
   !
   !.. Formal Arguments ..
   integer,        intent(in) :: restart_solution_form
-  integer(wip),   intent(in) :: ordered_geom(:)
+  integer(ogp),   intent(in) :: ordered_geom(:)
   logical(lk), intent(inout) :: rst_form_matches_sol_form
   !
   !.. Local Scalars ..
@@ -5530,8 +5546,8 @@ continue
   !
   do nc = 1,size(ordered_geom)
     !
-    rst_order = ordered_geom(nc) / 100
-    rst_geom = ordered_geom(nc) - 100*rst_order
+    rst_order = int(ordered_geom(nc),kind=kind(rst_order)) / 100
+    rst_geom = int(ordered_geom(nc),kind=kind(rst_geom)) - 100*rst_order
     !
     sol_order = global_cell_order(nc)
     sol_geom = global_cell_geom(nc)
@@ -6960,7 +6976,7 @@ subroutine interp_restart_solution(restart_solution_form,rst_sol,usp, &
   real(wp), intent(inout) :: usp(:,:)
   !
   !.. Optional Arguments ..
-  integer, optional, intent(in) :: ordered_geom(:)
+  integer(ogp), optional, intent(in) :: ordered_geom(:)
   !
   !.. Local Derived Types ..
   type :: rstrt_interp_t
@@ -7008,8 +7024,8 @@ continue
     l2 = 0
     do nc = 1,ncell
       !
-      rst_order = ordered_geom(nc) / 100
-      rst_geom = ordered_geom(nc) - 100*rst_order
+      rst_order = int(ordered_geom(nc),kind=kind(rst_order)) / 100
+      rst_geom = int(ordered_geom(nc),kind=kind(rst_geom)) - 100*rst_order
       !
       l1 = l2 + 1
       l2 = l2 + Cell_Solpts(rst_geom,rst_order)
@@ -7229,7 +7245,7 @@ subroutine save_ta_data(ta_data,int_header,real_header,var_header, &
   integer(wip), optional, intent(in) :: int_header(:)
   real(wp),     optional, intent(in) :: real_header(:)
   integer(wip), optional, intent(in) :: var_header(:)
-  integer(wip), optional, intent(in) :: ordered_geom(:)
+  integer(ogp), optional, intent(in) :: ordered_geom(:)
   real(wp),     optional, intent(in) :: solution(:,:)
   !
   !.. Local Scalars ..
@@ -7400,10 +7416,11 @@ continue
     if (simple_F2003_allocation) then
       !
       ! Copy the contents of the original data into modified.
-      ! NOTE: This should automatically allocate modified, and for each component
-      !       of original, automatically allocate the respective component of
-      !       modified to the same size, and then copy the data from each
-      !       compenent of original to the respective component of modified.
+      ! NOTE: This should automatically allocate modified, and for each
+      !       component of original, automatically allocate the respective
+      !       component of modified to the same size, and then copy the data
+      !       from each compenent of original to the respective component of
+      !       modified.
       !
       modified = original ! F2003 AUTO-REALLOC
       !
