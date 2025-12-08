@@ -677,23 +677,19 @@ continue
   ! Read the integer part of the restart header
   !
   call debug_timer(start_timer,"reading integer header")
-  if (restart_ip == wip) then
-    call read_rstrt_file_wip(file_handle,int_header,mpistat=istat)
-  else
-    select case (restart_ip)
-      case (int32) ; call read_rstrt_file_i4(file_handle,int_header, &
-                                             mpistat=istat)
-      case (int64) ; call read_rstrt_file_i8(file_handle,int_header, &
-                                             mpistat=istat)
-      case (int8)  ; call read_rstrt_file_i1(file_handle,int_header, &
-                                             mpistat=istat)
-      case (int16) ; call read_rstrt_file_i2(file_handle,int_header, &
-                                             mpistat=istat)
-      case default
-        write (error_message,20)
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-    end select
-  end if
+  select case (restart_ip)
+    case (int32) ; call read_rstrt_file_i4(file_handle,int_header, &
+                                           mpistat=istat)
+    case (int64) ; call read_rstrt_file_i8(file_handle,int_header, &
+                                           mpistat=istat)
+    case (int8)  ; call read_rstrt_file_i1(file_handle,int_header, &
+                                           mpistat=istat)
+    case (int16) ; call read_rstrt_file_i2(file_handle,int_header, &
+                                           mpistat=istat)
+    case default
+      write (error_message,20)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
   call debug_timer(stop_timer,"reading integer header")
   !
   call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
@@ -850,23 +846,19 @@ continue
   ! within its partition.
   !
   call debug_timer(start_timer,"reading ordered_geom")
-  if (restart_ip == wip) then
-    call read_rstrt_file_wip(file_handle,ordered_geom,mpistat=istat)
-  else
-    select case (restart_ip)
-      case (int32) ; call read_rstrt_file_i4(file_handle,ordered_geom, &
-                                             mpistat=istat)
-      case (int64) ; call read_rstrt_file_i8(file_handle,ordered_geom, &
-                                             mpistat=istat)
-      case (int8)  ; call read_rstrt_file_i1(file_handle,ordered_geom, &
-                                             mpistat=istat)
-      case (int16) ; call read_rstrt_file_i2(file_handle,ordered_geom, &
-                                             mpistat=istat)
-      case default
-        write (error_message,22)
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-    end select
-  end if
+  select case (restart_ip)
+    case (int32) ; call read_rstrt_file_i4(file_handle,ordered_geom, &
+                                           mpistat=istat)
+    case (int64) ; call read_rstrt_file_i8(file_handle,ordered_geom, &
+                                           mpistat=istat)
+    case (int8)  ; call read_rstrt_file_i1(file_handle,ordered_geom, &
+                                           mpistat=istat)
+    case (int16) ; call read_rstrt_file_i2(file_handle,ordered_geom, &
+                                           mpistat=istat)
+    case default
+      write (error_message,22)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
   call debug_timer(stop_timer,"reading ordered_geom")
   !
   call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
@@ -912,23 +904,19 @@ continue
     ! Read the variable header for the solution data
     !
     call debug_timer(start_timer,"reading variable header")
-    if (restart_ip == wip) then
-      call read_rstrt_file_wip(file_handle,var_header,mpistat=istat)
-    else
-      select case (restart_ip)
-        case (int32) ; call read_rstrt_file_i4(file_handle,var_header, &
-                                               mpistat=istat)
-        case (int64) ; call read_rstrt_file_i8(file_handle,var_header, &
-                                               mpistat=istat)
-        case (int8)  ; call read_rstrt_file_i1(file_handle,var_header, &
-                                               mpistat=istat)
-        case (int16) ; call read_rstrt_file_i2(file_handle,var_header, &
-                                               mpistat=istat)
-        case default
-          write (error_message,24)
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-      end select
-    end if
+    select case (restart_ip)
+      case (int32) ; call read_rstrt_file_i4(file_handle,var_header, &
+                                             mpistat=istat)
+      case (int64) ; call read_rstrt_file_i8(file_handle,var_header, &
+                                             mpistat=istat)
+      case (int8)  ; call read_rstrt_file_i1(file_handle,var_header, &
+                                             mpistat=istat)
+      case (int16) ; call read_rstrt_file_i2(file_handle,var_header, &
+                                             mpistat=istat)
+      case default
+        write (error_message,24)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end select
     call debug_timer(stop_timer,"reading variable header")
     !
     call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
@@ -1609,19 +1597,15 @@ continue
   !
   ! Read the integer part of the restart header
   !
-  if (restart_ip == wip) then
-    call read_rstrt_file_serial_wip(io,int_header)
-  else
-    select case (restart_ip)
-      case (int32) ; call read_rstrt_file_serial_i4(io,int_header)
-      case (int64) ; call read_rstrt_file_serial_i8(io,int_header)
-      case (int8)  ; call read_rstrt_file_serial_i1(io,int_header)
-      case (int16) ; call read_rstrt_file_serial_i2(io,int_header)
-      case default
-        write (error_message,20)
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-    end select
-  end if
+  select case (restart_ip)
+    case (int32) ; call read_rstrt_file_serial_i4(io,int_header)
+    case (int64) ; call read_rstrt_file_serial_i8(io,int_header)
+    case (int8)  ; call read_rstrt_file_serial_i1(io,int_header)
+    case (int16) ; call read_rstrt_file_serial_i2(io,int_header)
+    case default
+      write (error_message,20)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
   !
   ! Extract the information from the integer section of the header
   !
@@ -1737,19 +1721,15 @@ continue
   !
   ! Read the ordered_geom data so that each
   !
-  if (restart_ip == wip) then
-    call read_rstrt_file_serial_wip(io,ordered_geom)
-  else
-    select case (restart_ip)
-      case (int32) ; call read_rstrt_file_serial_i4(io,ordered_geom)
-      case (int64) ; call read_rstrt_file_serial_i8(io,ordered_geom)
-      case (int8)  ; call read_rstrt_file_serial_i1(io,ordered_geom)
-      case (int16) ; call read_rstrt_file_serial_i2(io,ordered_geom)
-      case default
-        write (error_message,22)
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-    end select
-  end if
+  select case (restart_ip)
+    case (int32) ; call read_rstrt_file_serial_i4(io,ordered_geom)
+    case (int64) ; call read_rstrt_file_serial_i8(io,ordered_geom)
+    case (int8)  ; call read_rstrt_file_serial_i1(io,ordered_geom)
+    case (int16) ; call read_rstrt_file_serial_i2(io,ordered_geom)
+    case default
+      write (error_message,22)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
   !
   ! Check to see if the form of the restart data matches the
   ! form of the solution data for the current simulation.
@@ -1779,19 +1759,15 @@ continue
     !
     ! Read the variable header for the solution data
     !
-    if (restart_ip == wip) then
-      call read_rstrt_file_serial_wip(io,var_header)
-    else
-      select case (restart_ip)
-        case (int32) ; call read_rstrt_file_serial_i4(io,var_header)
-        case (int64) ; call read_rstrt_file_serial_i8(io,var_header)
-        case (int8)  ; call read_rstrt_file_serial_i1(io,var_header)
-        case (int16) ; call read_rstrt_file_serial_i2(io,var_header)
-        case default
-          write (error_message,24)
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-      end select
-    end if
+    select case (restart_ip)
+      case (int32) ; call read_rstrt_file_serial_i4(io,var_header)
+      case (int64) ; call read_rstrt_file_serial_i8(io,var_header)
+      case (int8)  ; call read_rstrt_file_serial_i1(io,var_header)
+      case (int16) ; call read_rstrt_file_serial_i2(io,var_header)
+      case default
+        write (error_message,24)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end select
     !
     if (.not. allocated(solution)) then
       allocate ( solution(1:n_solpts,1:restart_nq) , source=zero , &
@@ -6041,47 +6017,6 @@ end subroutine read_rstrt_file_int64_data_i8
 !
 !###############################################################################
 !###############################################################################
-! MPI read subroutine for INTEGER data matching the working integer precision
-!###############################################################################
-!###############################################################################
-!
-subroutine read_rstrt_file_wip(file_handle,int_data,mpistat)
-  !
-  !.. Formal Arguments ..
-  _MPI_FILE_TYPE_, intent(in) :: file_handle
-  integer(wip), intent(inout) :: int_data(:)
-  !
-  !.. Optional Arguments ..
-  _MPI_STATUS_TYPE_, optional, intent(inout) :: mpistat(:)
-  !
-  !.. Local Arrays ..
-  integer(wip) :: read_int(1:size(int_data))
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_rstrt_file_wip"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  if (present(mpistat)) then
-    call mpi_file_read_all(file_handle,read_int, &
-                           size(int_data,kind=int_mpi), &
-                           mpi_inttyp,mpistat(1),mpierr)
-  else
-    call mpi_file_read_all(file_handle,read_int, &
-                           size(int_data,kind=int_mpi), &
-                           mpi_inttyp,MPI_STATUS_IGNORE,mpierr)
-  end if
-  !
-  int_data = read_int
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine read_rstrt_file_wip
-!
-!###############################################################################
-!###############################################################################
 ! MPI read subroutines for 32-bit REAL data
 !###############################################################################
 !###############################################################################
@@ -6747,34 +6682,6 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_serial_int64_data_i8
-!
-!###############################################################################
-!###############################################################################
-! Serial read subroutine for INTEGER data matching the working integer precision
-!###############################################################################
-!###############################################################################
-!
-subroutine read_rstrt_file_serial_wip(io,int_data)
-  !
-  !.. Formal Arguments ..
-  integer,         intent(in) :: io
-  integer(wip), intent(inout) :: int_data(:)
-  !
-  !.. Local Scalars ..
-  integer :: i,ierr
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_rstrt_file_serial_wip"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  read (io,iostat=ierr) (int_data(i), i=1,size(int_data))
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine read_rstrt_file_serial_wip
 !
 !###############################################################################
 !###############################################################################
