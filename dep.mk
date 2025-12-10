@@ -959,3 +959,14 @@ $(OBJDIR)/bc_sup_out_mod.o : $(BCDIR)/bc_sup_out_mod.f90 \
 
 $(OBJDIR)/tecio_mod.o : tecio_mod.f90
 
+####################################################################
+# ADD ANY OBJECT FILES TO THE VARIABLE CUSTOM_DEBUG_FILES THAT YOU #
+# WANT TO SEPARATELY COMPILE WITH DEBUG FLAGS (I.E., FULL BOUNDS   #
+# CHECKING, NO OPTIMIZATIONS, FLOATING-POINT EXCEPTIONS, ETC.)     #
+# WHEN COMPILING ANY OF THE OPTIMIZED BUILD TARGETS. ALL OTHER     #
+# OBJECT FILES WILL BE COMPILED AS USUAL WITH OPTIMIZATIONS.       #
+####################################################################
+#CUSTOM_DEBUG_FILES := $(OBJDIR)/restart_mod.o \
+#                      $(OBJDIR)/averaging_mod.o
+
+$(CUSTOM_DEBUG_FILES) : FCFLAG = $(FCBASE) $(DBGFLAG) $(ADDFLAGS)
