@@ -19,7 +19,9 @@ module cgns_types_mod
   ! integer and real types to something more specific that does not conflict
   ! with Fortran keywords.
   !
-  use cgns, cgns_real32 => REALSINGLE, &
+  use cgns, cgns_int32 => INTEGER, &
+            cgns_int64 => LONGINTEGER, &
+            cgns_real32 => REALSINGLE, &
             cgns_real64 => REALDOUBLE
   !
   implicit none
@@ -51,6 +53,18 @@ module cgns_types_mod
 #else
   integer(kind(CGNS_REAL32)), parameter :: &
       cgns_kind_real = merge(CGNS_REAL64,CGNS_REAL32,CRT == r8)
+#endif
+  !
+  ! CGNS integer type to use for writing data
+  !
+  integer, parameter :: CIT = i4       ! CGNS 32-bit precision integer data
+ !integer, parameter :: CIT = i8       ! CGNS 64-bit precision integer data
+#ifdef SPECIAL_FOR_PGI
+  integer(kind(CGNS_INT32)), parameter :: cgns_kind_int = CGNS_INT32
+ !integer(kind(CGNS_INT32)), parameter :: cgns_kind_int = CGNS_INT64
+#else
+  integer(kind(CGNS_INT32)), parameter :: &
+      cgns_kind_int = merge(CGNS_INT64,CGNS_INT32,CIT == i8)
 #endif
   !
   ! Last argument required for calls to cg_goto_f
