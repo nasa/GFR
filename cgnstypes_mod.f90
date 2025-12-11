@@ -15,7 +15,12 @@ module cgns_types_mod
   use module_kind_types, only : mypnum,glb_root,iout
   use module_kind_types, only : dbg_mpi_frmt
   !
-  use cgns
+  ! Load all of the CGNS module, but also rename the enumerated constants for
+  ! integer and real types to something more specific that does not conflict
+  ! with Fortran keywords.
+  !
+  use cgns, cgns_real32 => REALSINGLE, &
+            cgns_real64 => REALDOUBLE
   !
   implicit none
   !
@@ -36,18 +41,16 @@ module cgns_types_mod
   !
   integer, parameter :: CGLEN = 32     ! maximum length for a CGNS string
   !
+  ! CGNS real type to use for writing data
+  !
+  integer, parameter :: CRT = r4       ! CGNS 32-bit precision real data
+ !integer, parameter :: CRT = r8       ! CGNS 64-bit precision real data
 #ifdef SPECIAL_FOR_PGI
-  integer, parameter :: CRT = r4       ! CGNS data real type
-  integer(kind(REALSINGLE)), parameter :: cgns_kind_real = REALSINGLE
-  !
- !integer, parameter :: CRT = r8       ! CGNS data real type
- !integer(kind(REALSINGLE)), parameter :: cgns_kind_real = REALDOUBLE
+  integer(kind(CGNS_REAL32)), parameter :: cgns_kind_real = CGNS_REAL32
+ !integer(kind(CGNS_REAL32)), parameter :: cgns_kind_real = CGNS_REAL64
 #else
-  integer, parameter :: CRT = r4       ! CGNS data real type
- !integer, parameter :: CRT = r8       ! CGNS data real type
-  !
-  integer(kind(REALSINGLE)), parameter :: &
-      cgns_kind_real = merge(REALDOUBLE,REALSINGLE,CRT == r8)
+  integer(kind(CGNS_REAL32)), parameter :: &
+      cgns_kind_real = merge(CGNS_REAL64,CGNS_REAL32,CRT == r8)
 #endif
   !
   ! Last argument required for calls to cg_goto_f

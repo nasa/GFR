@@ -1329,7 +1329,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  read_datatype = merge(REALDOUBLE,REALSINGLE,wp==r8)
+  read_datatype = merge(CGNS_REAL64,CGNS_REAL32,wp==r8)
   !
   ! Read the coordinate info
   !
@@ -1340,7 +1340,7 @@ continue
   ! Set the maximum number of points to read at any time so
   ! that the total number of bits read is less than 2^31. 
   !
-  if (any([stored_datatype,read_datatype] == REALDOUBLE)) then
+  if (any([stored_datatype,read_datatype] == CGNS_REAL64)) then
     nmax_pts = 2000000000_CST/8_CST
   else
     nmax_pts = 2000000000_CST/4_CST
@@ -1442,7 +1442,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  read_datatype = merge(REALDOUBLE,REALSINGLE,wp==r8)
+  read_datatype = merge(CGNS_REAL64,CGNS_REAL32,wp==r8)
   !
   ! Read the coordinate info
   !
@@ -1696,7 +1696,7 @@ continue
     !
     ! Read the boundary condition data depending on the datatype of normal_list
     !
-    if (bc%normal_datatype == REALSINGLE) then
+    if (bc%normal_datatype == CGNS_REAL32) then
       !
       allocate ( normal_list_sp(1:np) , source=0.0_r4 , &
                  stat=ierr , errmsg=error_message )
@@ -1713,7 +1713,7 @@ continue
       call alloc_error(pname,"normal_list_sp",2,__LINE__,__FILE__,ierr, &
                        error_message)
       !
-    else if (bc%normal_datatype == REALDOUBLE) then
+    else if (bc%normal_datatype == CGNS_REAL64) then
       !
       allocate ( normal_list_dp(1:np) , source=0.0_r8 , &
                  stat=ierr , errmsg=error_message )
@@ -5730,7 +5730,7 @@ continue
     ! USING F2003 AUTO-REALLOCATION
     var = real( b%zone(1)%grid(1)%coord(n)%x(:) , kind(var) )
    !call cg_coord_write_f(if_n,ib_n,iz_n,CGNS_KIND_REAL, &
-    call cg_coord_write_f(if_n,ib_n,iz_n,RealDouble, &
+    call cg_coord_write_f(if_n,ib_n,iz_n,CGNS_REAL64, &
                           trim(adjustl(b%zone(1)%grid(1)%coord(n)%name)), &
                           var,ixyz_n(n),cgierr)
     call cgns_error(pname,cgns_grid_file,"cg_coord_write_f",cgierr, &
