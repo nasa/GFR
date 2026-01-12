@@ -802,7 +802,7 @@ continue
         tstar       = tdim/visc_coef(1,i);
         !
         collint     = 1.147_wp*(tstar)**(-0.145_wp) + (tstar + half)**(-two)
-        numerator   = five*sqrt((pi/(wt*avogadro)*kboltzmann*tdim))
+        numerator   = five*sqrt((pi*wt/(avogadro)*kboltzmann*tdim))
         denominator = (four*four*pi*sigd*sigd*collint*1e-16_wp)
         !
         rmui(n,i)   = viscref_inv * numerator / denominator
