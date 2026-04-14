@@ -612,7 +612,7 @@ subroutine mark_sponge_filter_cells()
   use geomvar_mod, only : ncell,cell,xyz
   !
   !.. Local Scalars ..
-  integer  :: nc,n1,n2,i
+  integer  :: n,nc,n1,n2,i
   integer  :: scramjet_location
   real(wp) :: xmax
   !
@@ -654,11 +654,42 @@ continue
       if (any(scramjet_location == [1,-2])) sponge_cell(nc) = .true.
       !
     end do
+  else if (itestcase == -Subsonic_Jet) then
+    if (Sponge_Beyond_X > eps2*huge(zero)) then
+      !
+      if (mypnum == glb_root) then
+        write (iout,1)
+        flush (iout)
+      end if
+      1 format (//,2x,"USING SPONGE FILTER FOR ARN2 EXTERNAL INFLOW",//)
+      !
+     !!$ACC PARALLEL LOOP GANG &
+     !!$ACC&              VECTOR_LENGTH(32) &
+     !!$ACC&              PRESENT(cell,xyz,sponge_cell)
+      ! NOT SURE HOW DO PARALLELIZE THIS. NOT SURE WE CAN JUST DO A PARALLEL
+      ! LOOP HERE, AND I THINK USING LOOP GANG + LOOP VECTOR IS A RACE CONDITION
+      ! FOR THE VECTOR LOOP
+      do nc = 1,ncell
+        !
+        n1 = cell(nc)%beg_sp
+        n2 = cell(nc)%end_sp
+        !
+       !!$ACC LOOP VECTOR
+        ! I THINK THIS IS A RACE CONDITION
+        do n = n1,n2
+          if ( point_is_in_arn2_ext_inflow(xyz(:,n)) ) then
+            sponge_cell(nc) = .true.
+          end if
+        end do
+        !
+      end do
+    end if
   end if
   !
 contains
 !
 #include "Functions/uiuc_combustor.f90"
+#include "Functions/arn2_interior_wall_radius.f90"
 !
 end subroutine mark_sponge_filter_cells
 !
