@@ -7754,6 +7754,8 @@ subroutine remove_time_average_history(original,remove,modified,return_error)
   real(wp) :: orig_final_time,orig_start_time,orig_tstar,orig_coef
   real(wp) :: drop_final_time,drop_start_time,drop_tstar,drop_coef
   !
+  character(len=1000) :: fname
+  !
   character(len=len(time_ave_variables)) :: o_ta_var,s_ta_var
   !
   !.. Local Parameters ..
@@ -7981,6 +7983,18 @@ continue
     !
     !===========================================================================
     !
+    ! #####
+    ! # 5 #
+    ! #####
+    !
+    ! Create the file name for the new modified time-average restart file
+    !
+    write (fname,300) original%int_header(4), remove%int_header(4)
+    !
+    modified%ta_filename = trim(adjustl(fname)) ! F2003 AUTO-REALLOC
+    !
+    !===========================================================================
+    !
     ! If we have reached this point, there doesnt seem to be any errors with
     ! modifying the time average history, so set the return error to 0.
     !
@@ -8011,6 +8025,8 @@ continue
                 "      ERROR INDICATOR = ",i0,/, &
                 "      ERROR MESSAGE   = '",a,"'",/, &
                 1x,80("*"))
+  !
+  300 format ("out.",i0,"-",i0,".modified.ave")
   !
 end subroutine remove_time_average_history
 !
