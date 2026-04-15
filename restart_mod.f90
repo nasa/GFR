@@ -8192,12 +8192,22 @@ subroutine deallocate_solver_arrays(keep_usp,keep_gpsp,keep_dusp, &
                                     keep_cgns_arrays)
   !
   !.. Use Statements ..
-  use geomvar_mod, only : face,grid
-  use flowvar_mod, only : faceusp_dt,facedusp_dt,faceflx,facexyz_dt
-  use flowvar_mod, only : residual,dtsp,uoldsp,rk_sum,rssprk
-  use flowvar_mod, only : nodeusp_dt,nodedusp_dt
-  use flowvar_mod, only : edgeusp_dt,edgedusp_dt,edgexyz_dt
-  use metrics_mod, only : metrics_dt,geofa,facenrm
+  use geomvar_mod, only : grid,edge,face,bface,xyz,xyz_nodes
+  use geomvar_mod, only : cell_order,cell_geom,nodes_of_cell,nodes_of_cell_ptr
+  use geomvar_mod, only : global_xyz_nodes,global_xyz
+  use geomvar_mod, only : global_nofc,global_nofc_ptr
+  use geomvar_mod, only : face_map,edge_map,node_map
+  !
+  use flowvar_mod, only : usp,gpsp,dusp,uoldsp,gpoldsp,residual,rk_sum,rssprk
+  use flowvar_mod, only : faceusp,facegpsp,facedusp,facexyz,faceflx
+  use flowvar_mod, only : dtsp,dt_save
+  use flowvar_mod, only : marker,scaled_marker,cell_diss,cell_num_marks
+  use flowvar_mod, only : faceusp_dt,facegpsp_dt,facedusp_dt,facexyz_dt
+  use flowvar_mod, only : nodeusp_dt,nodegpsp_dt,nodedusp_dt
+  use flowvar_mod, only : edgeusp_dt,edgegpsp_dt,edgedusp_dt,edgexyz_dt
+  !
+  use metrics_mod, only : metrics_array,wtdjac,jac,facenrm,facejac
+  use metrics_mod, only : metrics_dt,geofa,facenrm_qdtpts,time_metrics
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: keep_usp
@@ -8212,6 +8222,11 @@ subroutine deallocate_solver_arrays(keep_usp,keep_gpsp,keep_dusp, &
   logical(lk) :: deallocate_gpsp
   logical(lk) :: deallocate_dusp
   logical(lk) :: deallocate_cgns_arrays
+  !
+  real(wp) :: rmem
+  character(len=1) :: cmem
+  !
+  integer(int64) :: mem,total_mem
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "deallocate_solver_arrays"
@@ -8239,102 +8254,526 @@ continue
     end if
   end if
   !
-  if (allocated(face)) then
-    deallocate ( face , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"face",2,__LINE__,__FILE__,ierr,error_message)
+  mem = 0_int64
+  total_mem = 0_int64
+  !
+  !#############################################################################
+  ! Flowvar module
+  !#############################################################################
+  !
+  if (deallocate_usp) then
+    if (allocated(usp)) then
+      mem = mem + storage_size(usp,kind=int64)* &
+                          size(usp,kind=int64)
+      deallocate ( usp , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"usp",2,__LINE__,__FILE__,ierr,error_message)
+    end if
   end if
   !
-  if (allocated(grid)) then
-    deallocate ( grid , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
+  if (deallocate_gpsp) then
+    if (allocated(gpsp)) then
+      mem = mem + storage_size(gpsp,kind=int64)* &
+                          size(gpsp,kind=int64)
+      deallocate ( gpsp , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"gpsp",2,__LINE__,__FILE__,ierr,error_message)
+    end if
   end if
   !
-  if (allocated(faceusp_dt)) then
-    deallocate ( faceusp_dt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceusp_dt",2,__LINE__,__FILE__,ierr,error_message)
+  if (deallocate_dusp) then
+    if (allocated(dusp)) then
+      mem = mem + storage_size(dusp,kind=int64)* &
+                          size(dusp,kind=int64)
+      deallocate ( dusp , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"dusp",2,__LINE__,__FILE__,ierr,error_message)
+    end if
   end if
   !
-  if (allocated(facedusp_dt)) then
-    deallocate ( facedusp_dt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facedusp_dt",2,__LINE__,__FILE__,ierr,error_message)
+  call collect_mem("SP Solution Arrays",mem,total_mem)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(faceusp)) then
+    mem = mem + storage_size(faceusp,kind=int64)* &
+                        size(faceusp,kind=int64)
+    deallocate ( faceusp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"faceusp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(facegpsp)) then
+    mem = mem + storage_size(facegpsp,kind=int64)* &
+                        size(facegpsp,kind=int64)
+    deallocate ( facegpsp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facegpsp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(facedusp)) then
+    mem = mem + storage_size(facedusp,kind=int64)* &
+                        size(facedusp,kind=int64)
+    deallocate ( facedusp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facedusp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(facexyz)) then
+    mem = mem + storage_size(facexyz,kind=int64)* &
+                        size(facexyz,kind=int64)
+    deallocate ( facexyz , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facexyz",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(faceflx)) then
+    mem = mem + storage_size(faceflx,kind=int64)* &
+                        size(faceflx,kind=int64)
     deallocate ( faceflx , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"faceflx",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  call collect_mem("FP Solution Arrays",mem,total_mem)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(faceusp_dt)) then
+    mem = mem + storage_size(faceusp_dt,kind=int64)* &
+                        size(faceusp_dt,kind=int64)
+    deallocate ( faceusp_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"faceusp_dt",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(facegpsp_dt)) then
+    mem = mem + storage_size(facegpsp_dt,kind=int64)* &
+                        size(facegpsp_dt,kind=int64)
+    deallocate ( facegpsp_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facegpsp_dt",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(facedusp_dt)) then
+    mem = mem + storage_size(facedusp_dt,kind=int64)* &
+                        size(facedusp_dt,kind=int64)
+    deallocate ( facedusp_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facedusp_dt",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
   if (allocated(facexyz_dt)) then
+    mem = mem + storage_size(facexyz_dt,kind=int64)* &
+                        size(facexyz_dt,kind=int64)
     deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  call collect_mem("FP Derived-type Arrays",mem,total_mem)
+  !
+  !-----------------------------------------------------------------------------
+  !
   if (allocated(residual)) then
+    mem = mem + storage_size(residual,kind=int64)* &
+                        size(residual,kind=int64)
     deallocate ( residual , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"residual",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(dtsp)) then
-    deallocate ( dtsp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"dtsp",2,__LINE__,__FILE__,ierr,error_message)
+  if (deallocate_cgns_arrays) then
+    if (allocated(dtsp)) then
+      mem = mem + storage_size(dtsp,kind=int64)* &
+                          size(dtsp,kind=int64)
+      deallocate ( dtsp , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"dtsp",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+  end if
+  !
+  if (deallocate_cgns_arrays) then
+    if (allocated(dt_save)) then
+      mem = mem + storage_size(dt_save,kind=int64)* &
+                          size(dt_save,kind=int64)
+      deallocate ( dt_save , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"dt_save",2,__LINE__,__FILE__,ierr,error_message)
+    end if
   end if
   !
   if (allocated(uoldsp)) then
+    mem = mem + storage_size(uoldsp,kind=int64)* &
+                        size(uoldsp,kind=int64)
     deallocate ( uoldsp , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"uoldsp",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  if (allocated(gpoldsp)) then
+    mem = mem + storage_size(gpoldsp,kind=int64)* &
+                        size(gpoldsp,kind=int64)
+    deallocate ( gpoldsp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"gpoldsp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
   if (allocated(rk_sum)) then
+    mem = mem + storage_size(rk_sum,kind=int64)* &
+                        size(rk_sum,kind=int64)
     deallocate ( rk_sum , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"rk_sum",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(rssprk)) then
+    mem = mem + storage_size(rssprk,kind=int64)* &
+                        size(rssprk,kind=int64)
     deallocate ( rssprk , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"rssprk",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  call collect_mem("SP RK/Time Arrays",mem,total_mem)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (deallocate_cgns_arrays) then
+    if (allocated(marker)) then
+      mem = mem + storage_size(marker,kind=int64)* &
+                          size(marker,kind=int64)
+      deallocate ( marker , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"marker",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+  end if
+  !
+  if (deallocate_cgns_arrays) then
+    if (allocated(scaled_marker)) then
+      mem = mem + storage_size(scaled_marker,kind=int64)* &
+                          size(scaled_marker,kind=int64)
+      deallocate ( scaled_marker , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"scaled_marker",2,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
+  end if
+  !
+  if (deallocate_cgns_arrays) then
+    if (allocated(cell_diss)) then
+      mem = mem + storage_size(cell_diss,kind=int64)* &
+                          size(cell_diss,kind=int64)
+      deallocate ( cell_diss , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"cell_diss",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+  end if
+  !
+  if (deallocate_cgns_arrays) then
+    if (allocated(cell_num_marks)) then
+      mem = mem + storage_size(cell_num_marks,kind=int64)* &
+                          size(cell_num_marks,kind=int64)
+      deallocate ( cell_num_marks , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"cell_num_marks",2,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
+  end if
+  !
+  call collect_mem("Limiting/Marking Arrays",mem,total_mem)
+  !
+  !-----------------------------------------------------------------------------
+  !
   if (allocated(nodeusp_dt)) then
+    mem = mem + storage_size(nodeusp_dt,kind=int64)* &
+                        size(nodeusp_dt,kind=int64)
     deallocate ( nodeusp_dt , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"nodeusp_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  if (allocated(nodegpsp_dt)) then
+    mem = mem + storage_size(nodegpsp_dt,kind=int64)* &
+                        size(nodegpsp_dt,kind=int64)
+    deallocate ( nodegpsp_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"nodegpsp_dt",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
   if (allocated(nodedusp_dt)) then
+    mem = mem + storage_size(nodedusp_dt,kind=int64)* &
+                        size(nodedusp_dt,kind=int64)
     deallocate ( nodedusp_dt , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"nodedusp_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(edgeusp_dt)) then
+    mem = mem + storage_size(edgeusp_dt,kind=int64)* &
+                        size(edgeusp_dt,kind=int64)
     deallocate ( edgeusp_dt , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"edgeusp_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  if (allocated(edgegpsp_dt)) then
+    mem = mem + storage_size(edgegpsp_dt,kind=int64)* &
+                        size(edgegpsp_dt,kind=int64)
+    deallocate ( edgegpsp_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"edgegpsp_dt",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
   if (allocated(edgedusp_dt)) then
+    mem = mem + storage_size(edgedusp_dt,kind=int64)* &
+                        size(edgedusp_dt,kind=int64)
     deallocate ( edgedusp_dt , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"edgedusp_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(edgexyz_dt)) then
+    mem = mem + storage_size(edgexyz_dt,kind=int64)* &
+                        size(edgexyz_dt,kind=int64)
     deallocate ( edgexyz_dt , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"edgexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  call collect_mem("Edge/Node Derived-type Arrays",mem,total_mem)
+  !
+  !#############################################################################
+  ! Metrics module
+  !#############################################################################
+  !
+  if (deallocate_cgns_arrays) then
+    if (allocated(metrics_array)) then
+      mem = mem + storage_size(metrics_array,kind=int64)* &
+                          size(metrics_array,kind=int64)
+      deallocate ( metrics_array , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"metrics_array",2,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
+  end if
+  !
+  if (deallocate_cgns_arrays) then
+    if (allocated(wtdjac)) then
+      mem = mem + storage_size(wtdjac,kind=int64)* &
+                          size(wtdjac,kind=int64)
+      deallocate ( wtdjac , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"wtdjac",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+  end if
+  !
+  if (deallocate_cgns_arrays) then
+    if (allocated(jac)) then
+      mem = mem + storage_size(jac,kind=int64)* &
+                          size(jac,kind=int64)
+      deallocate ( jac , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"jac",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+  end if
+  !
+  call collect_mem("SP Metrics Arrays",mem,total_mem)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(facenrm)) then
+    mem = mem + storage_size(facenrm,kind=int64)* &
+                        size(facenrm,kind=int64)
+    deallocate ( facenrm , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facenrm",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(facejac)) then
+    mem = mem + storage_size(facejac,kind=int64)* &
+                        size(facejac,kind=int64)
+    deallocate ( facejac , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facejac",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call collect_mem("FP Metrics Arrays",mem,total_mem)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(facenrm_qdtpts)) then
+    mem = mem + storage_size(facenrm_qdtpts,kind=int64)* &
+                        size(facenrm_qdtpts,kind=int64)
+    deallocate ( facenrm_qdtpts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facenrm_qdtpts",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (deallocate_cgns_arrays) then
+    if (allocated(time_metrics)) then
+      mem = mem + storage_size(time_metrics,kind=int64)* &
+                          size(time_metrics,kind=int64)
+      deallocate ( time_metrics , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"time_metrics",2,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
+  end if
+  !
   if (allocated(metrics_dt)) then
+    mem = mem + storage_size(metrics_dt,kind=int64)* &
+                        size(metrics_dt,kind=int64)
     deallocate ( metrics_dt , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"metrics_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(geofa)) then
+    mem = mem + storage_size(geofa,kind=int64)* &
+                        size(geofa,kind=int64)
     deallocate ( geofa , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"geofa",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(facenrm)) then
-    deallocate ( facenrm , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facenrm",2,__LINE__,__FILE__,ierr,error_message)
+  call collect_mem("Old/Unused Metrics Arrays",mem,total_mem)
+  !
+  !#############################################################################
+  ! Geomvar module
+  !#############################################################################
+  !
+  if (allocated(grid)) then
+    mem = mem + storage_size(grid,kind=int64)
+    deallocate ( grid , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  call collect_mem("Grid Derived-type",mem,total_mem)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(edge)) then
+    mem = mem + storage_size(edge,kind=int64)* &
+                        size(edge,kind=int64)
+    deallocate ( edge , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"edge",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (deallocate_cgns_arrays) then
+    if (allocated(face)) then
+      mem = mem + storage_size(face,kind=int64)* &
+                          size(face,kind=int64)
+      deallocate ( face , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"face",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+  end if
+  !
+  call collect_mem("Face/Edge Connectivity Arrays",mem,total_mem)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(bface)) then
+    mem = mem + storage_size(bface,kind=int64)* &
+                        size(bface,kind=int64)
+    deallocate ( bface , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bface",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (deallocate_cgns_arrays) then
+    if (allocated(xyz)) then
+      mem = mem + storage_size(xyz,kind=int64)* &
+                          size(xyz,kind=int64)
+      deallocate ( xyz , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"xyz",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+  end if
+  !
+  if (deallocate_cgns_arrays) then
+    if (allocated(xyz_nodes)) then
+      mem = mem + storage_size(xyz_nodes,kind=int64)* &
+                          size(xyz_nodes,kind=int64)
+      deallocate ( xyz_nodes , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"xyz_nodes",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+  end if
+  !
+  if (deallocate_cgns_arrays) then
+    if (allocated(cell_order)) then
+      mem = mem + storage_size(cell_order,kind=int64)* &
+                          size(cell_order,kind=int64)
+      deallocate ( cell_order , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"cell_order",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+  end if
+  !
+  if (deallocate_cgns_arrays) then
+    if (allocated(cell_geom)) then
+      mem = mem + storage_size(cell_geom,kind=int64)* &
+                          size(cell_geom,kind=int64)
+      deallocate ( cell_geom , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"cell_geom",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+  end if
+  !
+  if (allocated(nodes_of_cell)) then
+    mem = mem + storage_size(nodes_of_cell,kind=int64)* &
+                        size(nodes_of_cell,kind=int64)
+    deallocate ( nodes_of_cell , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"nodes_of_cell",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(nodes_of_cell_ptr)) then
+    mem = mem + storage_size(nodes_of_cell_ptr,kind=int64)* &
+                        size(nodes_of_cell_ptr,kind=int64)
+    deallocate ( nodes_of_cell_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"nodes_of_cell_ptr",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  call collect_mem("Geometry/Grid Arrays",mem,total_mem)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(global_xyz_nodes)) then
+    mem = mem + storage_size(global_xyz_nodes,kind=int64)* &
+                        size(global_xyz_nodes,kind=int64)
+    deallocate ( global_xyz_nodes , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"global_xyz_nodes",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(global_xyz)) then
+    mem = mem + storage_size(global_xyz,kind=int64)* &
+                        size(global_xyz,kind=int64)
+    deallocate ( global_xyz , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"global_xyz",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(global_nofc)) then
+    mem = mem + storage_size(global_nofc,kind=int64)* &
+                        size(global_nofc,kind=int64)
+    deallocate ( global_nofc , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"global_nofc",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(global_nofc_ptr)) then
+    mem = mem + storage_size(global_nofc_ptr,kind=int64)* &
+                        size(global_nofc_ptr,kind=int64)
+    deallocate ( global_nofc_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"global_nofc_ptr",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  call collect_mem("Global Grid Arrays",mem,total_mem)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(face_map)) then
+    mem = mem + storage_size(face_map,kind=int64)* &
+                        size(face_map,kind=int64)
+    deallocate ( face_map , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"face_map",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(edge_map)) then
+    mem = mem + storage_size(edge_map,kind=int64)* &
+                        size(edge_map,kind=int64)
+    deallocate ( edge_map , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"edge_map",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(node_map)) then
+    mem = mem + storage_size(node_map,kind=int64)* &
+                        size(node_map,kind=int64)
+    deallocate ( node_map , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"node_map",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call collect_mem("Parallel Mapping Arrays",mem,total_mem)
+  !
+  !#############################################################################
+  !
+  call get_mem_scale(total_mem,rmem,cmem)
+  !
+  if (mypnum == glb_root) then
+    write (iout,1) pname,rmem,cmem
+  end if
+  flush (iout)
+  !
+  !#############################################################################
+  !
   call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (/,80("#"),/, &
+              "Total memory freed up by ",a," was ",f10.4, &
+              " ",a1,"Bytes of memory!",/, &
+              80("#"),/)
   !
 end subroutine deallocate_solver_arrays
 !
