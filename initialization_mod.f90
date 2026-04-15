@@ -119,11 +119,18 @@ continue
     call read_restart_file(solution_file)
    !call read_restart_file(solution_file,force_serial_read=true)
     !
-    if (itestcase == UIUC_Scramjet) then
-      if (n_global_cell == 367344) then
-        call fix_upstream_air_mixture
-      end if
-    end if
+   !if (itestcase == UIUC_Scramjet) then
+   !  if (n_global_cell == 367344) then
+   !    call fix_upstream_air_mixture
+   !  end if
+   !else if (itestcase == -Subsonic_Jet) then
+   !  if (n_global_cell == 2162160) then
+   !    if (jet_init_func == -1*(Subsonic_Jet*100+1)) then
+   !      ! jet_init_func == -1001
+   !      call modify_arn2_farfield_mach
+   !    end if
+   !  end if
+   !end if
     !
     ! Do not initialize the iteration counter, time step,
     ! and elapsed time to that in the restart file.
