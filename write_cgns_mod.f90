@@ -658,7 +658,7 @@ end subroutine write_parallel_cgns_time_file
 subroutine write_iterative_data_to_cgns_file(cgns_file,procedure_name, &
                                              ifile,ibase,izone, &
                                              sol_times,sol_iters,sol_names, &
-                                             not_parallel)
+                                             not_parallel,start_time_nd)
   !
   !.. Use Statements ..
   use ovar, only : profile_io_cgns_subs
@@ -675,6 +675,7 @@ subroutine write_iterative_data_to_cgns_file(cgns_file,procedure_name, &
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: not_parallel
+  real(wp),    optional, intent(in) :: start_time_nd ! nondim by time_ref
   !
   !.. Local Scalars ..
   integer(CBT) :: iiter_t
