@@ -3997,7 +3997,7 @@ end function reorder_host_solution
 !###############################################################################
 !
 subroutine write_restart_status(ios,file_comm,file_name,stat_strng, &
-                                close_file,open_file,mpistat)
+                                close_file,open_file,mpistat,mpi_error)
   !
   !.. Formal Arguments ..
   integer,       intent(inout) :: ios
@@ -4009,6 +4009,7 @@ subroutine write_restart_status(ios,file_comm,file_name,stat_strng, &
   logical(lk),       optional, intent(in) :: open_file
   logical(lk),       optional, intent(in) :: close_file
   _MPI_STATUS_TYPE_, optional, intent(in) :: mpistat(:)
+  integer(int_mpi),  optional, intent(in) :: mpi_error
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -4042,7 +4043,7 @@ continue
       end if
     end if
     !
-    if (present(stat_strng).or.present(mpistat)) then
+    if (present(stat_strng).or.present(mpistat).or.present(mpi_error)) then
       !
       if (mypnum == glb_root) then
         write (ios,2)
@@ -4060,6 +4061,7 @@ continue
           write (ios,3) mypnum,mpistat(1),mpistat(2),mpistat(3)
 #endif
         end if
+        if (present(mpi_error)) write (ios,4) mypnum,mpi_error
       end if
       call mpi_barrier(file_comm,mpierr)
       if (mypnum == glb_root) flush (ios)
@@ -4092,6 +4094,7 @@ continue
   3 format ("CPU # ",i5.5," : MPI_SOURCE = ",i0,/, &
                          14x,"   MPI_TAG = ",i0,/, &
                          14x," MPI_ERROR = ",i0)
+  4 format ("CPU # ",i5.5," Error code returned from MPI function (mpierr): ",i0)
   !
 #endif
   !
