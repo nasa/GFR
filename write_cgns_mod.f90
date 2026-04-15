@@ -693,6 +693,10 @@ continue
   !
   iiter_t = 1_CBT
   !
+  !=============================================================================
+  !
+  ! Create the BaseIterativeData_t node
+  !
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_biter_write_f",override_barrier=not_parallel)
   call cg_biter_write_f(ifile,ibase,'TimeIterValues', &
@@ -701,7 +705,10 @@ continue
                   cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
   call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_biter_write_f",override_barrier=not_parallel)
-  !
+   !
+   ! Go to the end of the BaseIterativeData_t node so we can write the
+   ! solution time values for each zone.
+   !
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_goto_f",override_barrier=not_parallel)
   call cg_goto_f(ifile,ibase,cgierr, &
@@ -712,6 +719,8 @@ continue
   call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_goto_f",override_barrier=not_parallel)
   !
+  ! Write the solution time values for each zone 
+  !
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_array_write_f",override_barrier=not_parallel)
   call cg_array_write_f("TimeValues",CGNS_KIND_REAL,1_CBT, &
@@ -721,7 +730,9 @@ continue
   call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_array_write_f",override_barrier=not_parallel)
   !
-  ! Update the zone iterative node
+  !=============================================================================
+  !
+  ! Create the ZoneIterativeData_t node
   !
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_ziter_write_f",override_barrier=not_parallel)
@@ -730,6 +741,10 @@ continue
                   cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
   call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_ziter_write_f",override_barrier=not_parallel)
+  !
+  ! Go to the end of the ZoneIterativeData_t node so we can write the
+  ! FlowSolutionPointers data to link each zone to their respective
+  ! data in the BaseIterativeData_t node.
   !
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_goto_f",override_barrier=not_parallel)
@@ -742,6 +757,8 @@ continue
   call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_goto_f",override_barrier=not_parallel)
   !
+  ! Write the FlowSolutionPointers data to the ZoneIterativeData_t node.
+  !
   idata(:) = int( [32,size(sol_names)] , kind=kind(idata) )
   call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_array_write_f",override_barrier=not_parallel)
@@ -751,6 +768,8 @@ continue
                   cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
   call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_array_write_f",override_barrier=not_parallel)
+  !
+  !=============================================================================
   !
   ! Identify the flow solution within the CGNS file as time dependent
   !
