@@ -144,6 +144,7 @@ subroutine convert_restart_files_to_cgns()
   use geomvar_mod,   only : n_solpts
   use flowvar_mod,   only : usp,gpsp
   use restart_mod,   only : read_restart_file
+  use restart_mod,   only : deallocate_solver_arrays
   use flux_mod,      only : discontinuous_gradient_at_solpts
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
@@ -169,6 +170,11 @@ subroutine convert_restart_files_to_cgns()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  ! First deallocate unnecessary arrays that were allocated for the solver but
+  ! wont be needed since execution will abort at the end of this subroutine
+  !
+  call deallocate_solver_arrays(keep_cgns_arrays=true)
   !
   ! Write out the CGNS grid file and first solution file using
   ! using the restart file provided in the input file
