@@ -7238,18 +7238,19 @@ end subroutine interp_restart_solution
 !###############################################################################
 !###############################################################################
 !
-subroutine save_ta_data(ta_data,int_header,real_header,var_header, &
+subroutine save_ta_data(ta_data,ta_filename,int_header,real_header,var_header, &
                         ordered_geom,solution)
   !
   !.. Formal Arguments ..
   type(ta_data_t), allocatable, intent(out) :: ta_data
   !
   !.. Optional Arguments ..
-  integer(wip), optional, intent(in) :: int_header(:)
-  real(wp),     optional, intent(in) :: real_header(:)
-  integer(wip), optional, intent(in) :: var_header(:)
-  integer(ogp), optional, intent(in) :: ordered_geom(:)
-  real(wp),     optional, intent(in) :: solution(:,:)
+  character(len=*), optional, intent(in) :: ta_filename
+  integer(wip),     optional, intent(in) :: int_header(:)
+  real(wp),         optional, intent(in) :: real_header(:)
+  integer(wip),     optional, intent(in) :: var_header(:)
+  integer(ogp),     optional, intent(in) :: ordered_geom(:)
+  real(wp),         optional, intent(in) :: solution(:,:)
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -7274,7 +7275,7 @@ continue
   !
   if (present(int_header)) then
     ! F2003 AUTO-REALLOC
-    ta_data%int_header = int( int_header(:) , kind=kind(ta_data%int_header))
+    ta_data%int_header = int(int_header(:) , kind=kind(ta_data%int_header))
   end if
   !
   if (present(real_header)) then
@@ -7284,7 +7285,11 @@ continue
   !
   if (present(var_header)) then
     ! F2003 AUTO-REALLOC
-    ta_data%var_header = int( var_header(:) , kind=kind(ta_data%var_header))
+    ta_data%var_header = int(var_header(:) , kind=kind(ta_data%var_header))
+  end if
+  !
+  if (present(ta_filename)) then
+    ta_data%ta_filename = trim(adjustl(ta_filename)) ! F2003 AUTO-REALLOC
   end if
   !
 end subroutine save_ta_data
