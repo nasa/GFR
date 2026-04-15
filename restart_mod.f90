@@ -7,6 +7,7 @@ module restart_mod
 !!!#define VERBOSE_RESTART
 #ifdef VERBOSE_RESTART
 #define ONLY_READ_RESTARTS_ARE_VERBOSE
+!!!#define ONLY_WRITE_RESTARTS_ARE_VERBOSE
 #endif
   !
   use module_kind_types, global_debug_timer =>      debug_timer, &
@@ -4023,6 +4024,12 @@ continue
   !
 #ifdef ONLY_READ_RESTARTS_ARE_VERBOSE
   if (.not. restart_operation_is_read) then
+    return
+  end if
+#endif
+  !
+#ifdef ONLY_WRITE_RESTARTS_ARE_VERBOSE
+  if (restart_operation_is_read) then
     return
   end if
 #endif
