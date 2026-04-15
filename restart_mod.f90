@@ -436,6 +436,7 @@ continue
         ! time-average restart files.
         !
         call save_ta_data(original_ta_data, &
+                          ta_filename=fname, &
                           int_header=int_header, &
                           real_header=real_header, &
                           var_header=var_header, &
