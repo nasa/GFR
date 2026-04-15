@@ -3836,17 +3836,16 @@ subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom)
   !
   !.. Local Scalars ..
   integer :: nvar,ierr,lcell,lpts
-  integer :: ii
+  integer :: ii,n,l
   !
   _MPI_DATA_TYPE_ :: og_mpi_type
+  _MPI_DATA_TYPE_ :: nvar_block_type
   _MPI_COMM_TYPE_ :: debug_barrier_comm
   !
   !.. LOcal Allocatable Arrays ..
   integer(ogp), allocatable :: local_og(:)
   real(wp),     allocatable :: local_sol(:,:)
-  !
-  integer(INT_MPI), allocatable :: sol_counts(:)
-  integer(INT_MPI), allocatable :: sol_displs(:)
+ !real(wp),     allocatable :: local_dup(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "collect_restart_arrays"
@@ -3907,10 +3906,18 @@ continue
   ! ## 2 ##
   ! #######
   !
+  ii = 0
+  !
   nvar = size(current_sol,dim=2)
   !
-  sol_counts = pts_counts * nvar ! F2003 AUTO-REALLOCATION
-  sol_displs = pts_displs * nvar ! F2003 AUTO-REALLOCATION
+  ! Create MPI datatype that combines all the time-average variables
+  ! for a solution point into a contiguous block of one element. This
+  ! is to prevent exceeding the 32-bit integer limit for count argument
+  ! (2nd argument) to mpi_gatherv.
+  !
+  call mpi_type_contiguous(int(nvar,kind=int_mpi),mpi_flttyp, &
+                           nvar_block_type,mpierr)
+  call mpi_type_commit(nvar_block_type,mpierr)
   !
   lpts = 1
   if (i_am_host_root) then
@@ -3928,12 +3935,42 @@ continue
   ! F2003 AUTO-REALLOCATION
   local_sol = transpose(current_sol(1:n_solpts,1:nvar))
   !
-  call mpi_gatherv(local_sol,size(local_sol,kind=int_mpi),mpi_flttyp, &
-                   output_sol,sol_counts,sol_displs,mpi_flttyp, &
+  call mpi_gatherv(local_sol,int(n_solpts,kind=int_mpi),nvar_block_type, &
+                   output_sol,pts_counts,pts_displs,nvar_block_type, &
                    host_root,my_host_comm,mpierr)
+  !
+ !allocate ( local_dup(1:nvar,1:n_solpts) , source=zero , &
+ !           stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"local_dup",1,__LINE__,__FILE__,ierr,error_message)
+ !!
+ !call debug_write("After allocating local_dup")
+ !!
+ !call mpi_scatterv(output_sol,pts_counts,pts_displs,nvar_block_type, &
+ !                  local_dup,int(n_solpts,kind=int_mpi),nvar_block_type, &
+ !                  host_root,my_host_comm,mpierr)
+ !!
+ !call debug_write("After mpi_scatterv to redistribute output_sol")
+ !!
+ !ierr = 0
+ !do n = 1,n_solpts
+ !  do l = 1,nvar
+ !    if (abs(local_sol(l,n)-local_dup(l,n)) > eps9) then
+ !      ierr = ierr + 1
+ !    end if
+ !  end do
+ !end do
+ !!
+ !call debug_write("Errors between local_sol and local_dup",ierr)
   !
   deallocate ( local_sol , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"local_sol",2,__LINE__,__FILE__,ierr,error_message)
+  !
+ !call debug_write("After deallocating local_sol")
+ !!
+ !deallocate ( local_dup , stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"local_dup",2,__LINE__,__FILE__,ierr,error_message)
+ !!
+ !call debug_write("After deallocating local_dup")
   !
   ! Reorder the solution array to match its MPI derived datatypes
   !
@@ -3942,6 +3979,10 @@ continue
    !output_sol(:,:) = reorder_host_solution( local_sol(:,:) )
     output_sol(:,:) = reorder_host_solution( output_sol(:,:) )
   end if
+  !
+  call mpi_type_free(nvar_block_type,mpierr)
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   call _DEBUG_WRITE_TIMER_(leaving_procedure,pname)
   !
