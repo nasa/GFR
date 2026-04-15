@@ -130,11 +130,12 @@ module restart_mod
   !             Currently, this is only used by the utility to modify the
   !             history of a time-average restart file.
   type :: ta_data_t
-    real(wp),     allocatable :: sol(:,:)
-    integer(ogp), allocatable :: ordered_geom(:)
-    integer(wip), allocatable :: int_header(:)
-    real(wp),     allocatable :: real_header(:)
-    integer(wip), allocatable :: var_header(:)
+    real(wp),         allocatable :: sol(:,:)
+    integer(ogp),     allocatable :: ordered_geom(:)
+    integer(wip),     allocatable :: int_header(:)
+    real(wp),         allocatable :: real_header(:)
+    integer(wip),     allocatable :: var_header(:)
+    character(len=:), allocatable :: ta_filename
   end type ta_data_t
   !
   !###################################
