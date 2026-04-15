@@ -640,7 +640,7 @@ continue
   ! First deallocate unnecessary arrays that were allocated for the solver but
   ! wont be needed since execution will abort at the end of this subroutine
   !
-  call deallocate_solver_arrays
+  call deallocate_solver_arrays(keep_usp=true,keep_gpsp=true)
   !
   ! Read in the list of restart files that will be averaged
   !
