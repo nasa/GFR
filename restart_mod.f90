@@ -7278,7 +7278,7 @@ continue
   !
   if (present(real_header)) then
     ! F2003 AUTO-REALLOC
-    ta_data%real_header = int( real_header(:) , kind=kind(ta_data%real_header))
+    ta_data%real_header = real(real_header(:) , kind=kind(ta_data%real_header))
   end if
   !
   if (present(var_header)) then
