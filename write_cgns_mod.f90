@@ -1847,7 +1847,8 @@ continue
   ! Add the time information to the solution file
   !
   sol_time(1) = soltime(size(soltime))
-  sol_name(1) = solname(size(solname))
+  sol_name(1) = tname
+ !sol_name(1) = solname(size(solname))
   sol_iter(1) = itcur
   call write_iterative_data_to_cgns_file(cgns_sol_file,pname, &
                                          ifile_s,ibase_s,izone_s, &
@@ -5409,7 +5410,8 @@ continue
   !
   cur_ave_time = (time - ave_start_time)*time_ref*time_scaling_factor
   sol_time(1) = real(cur_ave_time,kind=kind(sol_time))
-  sol_name(1) = solname(size(solname))
+  sol_name(1) = tname
+ !sol_name(1) = solname(size(solname))
   sol_iter(1) = itcur
   call write_iterative_data_to_cgns_file(cgns_sol_file,pname, &
                                          ifile_s,ibase_s,izone_s, &
@@ -7233,7 +7235,8 @@ continue
   !
   cur_ave_time = (time - ave_start_time)*time_ref*time_scaling_factor
   sol_time(1) = real(cur_ave_time,kind=kind(sol_time))
-  sol_name(1) = solname(size(solname))
+  sol_name(1) = tname
+ !sol_name(1) = solname(size(solname))
   sol_iter(1) = itcur
   call write_iterative_data_to_cgns_file(cgns_sol_file,pname, &
                                          ifile_s,ibase_s,izone_s, &
