@@ -7645,9 +7645,11 @@ continue
     !
     if (mypnum == glb_root) then
       out_time = (modified_ta_data%real_header(1) - &
-                  modified_ta_data%real_header(3) )*time_ref*time_scaling_factor
-      write (iout,3) new_start%real_header(1), &
-                     original_ta_data%real_header(1), &
+                  modified_ta_data%real_header(3) )*time_scale
+      write (iout,3) (new_start%real_header(1) - &
+                      new_start%real_header(3))*time_scale, &
+                     (original_ta_data%real_header(1) - &
+                      original_ta_data%real_header(3))*time_scale, &
                      out_time
       flush (iout)
     end if
