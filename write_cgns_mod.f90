@@ -5483,7 +5483,8 @@ continue
   sol_iter(1) = itcur
   call write_iterative_data_to_cgns_file(cgns_sol_file,pname, &
                                          ifile_s,ibase_s,izone_s, &
-                                         sol_time,sol_iter,sol_name)
+                                         sol_time,sol_iter,sol_name, &
+                                         start_time_nd=ave_start_time)
   !
   ! Close the CGNS FILE
   !
@@ -7308,7 +7309,8 @@ continue
   sol_iter(1) = itcur
   call write_iterative_data_to_cgns_file(cgns_sol_file,pname, &
                                          ifile_s,ibase_s,izone_s, &
-                                         sol_time,sol_iter,sol_name)
+                                         sol_time,sol_iter,sol_name, &
+                                         start_time_nd=ave_start_time)
   !
   ! Close the CGNS FILE
   !
