@@ -7995,7 +7995,7 @@ continue
   ! Format Statements
   !
   100 format (/,1x,80("*"),/, &
-                " ERROR: Incompatibility between original and remove data!", &
+                " ERROR: Incompatibility between original and remove data!",/, &
                 10x,"Mismatch between  '",a,"'")
   101 format (14x,"Original = ",g0,/, &
               14x,"  Remove = ",g0,/, &
