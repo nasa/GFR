@@ -7621,7 +7621,9 @@ continue
     allocate ( new_start , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"new_start",1,__LINE__,__FILE__,ierr,error_message)
     !
-    call read_solution_file(read_file_name, &
+    new_start%ta_filename = read_file_name ! F2003 AUTO-REALLOC
+    !
+    call read_solution_file(new_start%ta_filename, &
                             new_start%int_header, &
                             new_start%real_header, &
                             new_start%sol, &
