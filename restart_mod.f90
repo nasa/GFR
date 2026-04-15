@@ -8188,7 +8188,8 @@ end subroutine delete_file
 !###############################################################################
 !###############################################################################
 !
-subroutine deallocate_solver_arrays()
+subroutine deallocate_solver_arrays(keep_usp,keep_gpsp,keep_dusp, &
+                                    keep_cgns_arrays)
   !
   !.. Use Statements ..
   use geomvar_mod, only : face,grid
@@ -8198,8 +8199,19 @@ subroutine deallocate_solver_arrays()
   use flowvar_mod, only : edgeusp_dt,edgedusp_dt,edgexyz_dt
   use metrics_mod, only : metrics_dt,geofa,facenrm
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: keep_usp
+  logical(lk), optional, intent(in) :: keep_gpsp
+  logical(lk), optional, intent(in) :: keep_dusp
+  logical(lk), optional, intent(in) :: keep_cgns_arrays
+  !
   !.. Local Scalars ..
   integer :: ierr
+  !
+  logical(lk) :: deallocate_usp
+  logical(lk) :: deallocate_gpsp
+  logical(lk) :: deallocate_dusp
+  logical(lk) :: deallocate_cgns_arrays
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "deallocate_solver_arrays"
@@ -8207,6 +8219,25 @@ subroutine deallocate_solver_arrays()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  deallocate_usp = true
+  if (present(keep_usp)) deallocate_usp = (.not. keep_usp)
+  !
+  deallocate_gpsp = true
+  if (present(keep_gpsp)) deallocate_gpsp = (.not. keep_gpsp)
+  !
+  deallocate_dusp = true
+  if (present(keep_dusp)) deallocate_dusp = (.not. keep_dusp)
+  !
+  deallocate_cgns_arrays = true
+  if (present(keep_cgns_arrays)) then
+    if (keep_cgns_arrays) then
+      deallocate_cgns_arrays = fals
+      deallocate_usp = fals
+      deallocate_gpsp = fals
+      deallocate_dusp = fals
+    end if
+  end if
   !
   if (allocated(face)) then
     deallocate ( face , stat=ierr , errmsg=error_message )
