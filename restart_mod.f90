@@ -3864,6 +3864,43 @@ end subroutine collect_restart_arrays
 !
 !###############################################################################
 !
+subroutine debug_write_module(ii,string,ival,comm)
+  !
+  !.. Formal Arguments ..
+  integer, intent(inout) :: ii
+  character(len=*), intent(in) :: string
+  integer, intent(in) :: ival
+  _MPI_COMM_TYPE_, intent(in) :: comm
+  !
+  !.. Local Scalars ..
+  integer :: icpu
+  !
+continue
+  !
+  ii = ii + 1
+  !
+  flush (iout)
+  call mpi_barrier(comm,mpierr)
+  !
+  do icpu = 1,ncpu
+    if (mypnum == icpu-1) then
+      write (iout,1) ii,mypnum,string,ival
+      flush (iout)
+    end if
+    call mpi_barrier(comm,mpierr)
+    flush (iout)
+  end do
+  !
+  flush (iout)
+  call mpi_barrier(comm,mpierr)
+  flush (iout)
+  !
+  1 format (i2.2,1x,"CPU # ",i3.3,": ",a,:," = ",i0)
+  !
+end subroutine debug_write_module
+!
+!###############################################################################
+!
 pure function reorder_host_solution(solution) result(return_value)
   !
   !.. Formal Arguments ..
