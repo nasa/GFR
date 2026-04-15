@@ -1051,43 +1051,49 @@ continue
                             mpistat=istat, &
                             stat_strng="after reading solution data")
   !
-  ! Update the file displacement since we know the total number of
-  ! solution points, the number of variables per solution point, and
-  ! the byte-size of for each element of the solution array.
-  !
-  select case (restart_rp)
-    case (real32)  ; real_bytes = int(4,kind=MPI_OFFSET_KIND)
-    case (real64)  ; real_bytes = int(8,kind=MPI_OFFSET_KIND)
-    case (real128) ; real_bytes = int(16,kind=MPI_OFFSET_KIND)
-  end select
-  !
-  file_disp = file_disp + real_bytes * &
-                          int(int_header(1),kind=MPI_OFFSET_KIND) * &
-                          int(num_global_pts,kind=MPI_OFFSET_KIND)
-  !
-  ! Update the file view to after all the solution data
-  !
-  call debug_timer(start_timer,"setting file view to read sem data")
-  call mpi_file_set_view(file_handle,file_disp,MPI_INTEGER, &
-                         MPI_INTEGER, trim(adjustl(file_datarep)), &
-                         file_info, mpierr)
-  call debug_timer(stop_timer,"setting file view to read sem data")
-  !
-  call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
-              stat_strng="after setting file view before reading sem data")
-  !
   ! Read in the restart information for the synthetic
   ! inflow turbulence generators
   !
   if (.not. skip_sem_restart_data) then
+    !
     if (num_sem_boxes > 0) then
+      !
+      ! Update the file displacement since we know the total number of
+      ! solution points, the number of variables per solution point, and
+      ! the byte-size of for each element of the solution array.
+      !
+      select case (restart_rp)
+        case (real32)  ; real_bytes = int(4,kind=MPI_OFFSET_KIND)
+        case (real64)  ; real_bytes = int(8,kind=MPI_OFFSET_KIND)
+        case (real128) ; real_bytes = int(16,kind=MPI_OFFSET_KIND)
+      end select
+      !
+      file_disp = file_disp + real_bytes * &
+                              int(int_header(1),kind=MPI_OFFSET_KIND) * &
+                              int(num_global_pts,kind=MPI_OFFSET_KIND)
+      !
+      ! Update the file view to after all the solution data
+      !
+      call debug_timer(start_timer,"setting file view to read sem data")
+      call mpi_file_set_view(file_handle,file_disp,MPI_INTEGER, &
+                             MPI_INTEGER, trim(adjustl(file_datarep)), &
+                             file_info, mpierr)
+      call debug_timer(stop_timer,"setting file view to read sem data")
+      !
+      call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
+                  stat_strng="after setting file view before reading sem data")
+      !
+      ! Read in the SEM data from the restart file
+      !
       call debug_timer(start_timer,"calling read_sem_restart_mpi")
       call read_sem_restart_mpi(num_sem_boxes,file_handle)
       call debug_timer(stop_timer,"calling read_sem_restart_mpi")
       !
       call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
                   stat_strng="after reading all sem data")
+      !
     end if
+    !
   end if
   !
   ! Finally close the restart file
