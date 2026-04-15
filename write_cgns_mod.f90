@@ -1617,7 +1617,7 @@ continue
     !       parallel IO mode is set to independent instead of the default
     !       collective. This is done in the call to open_cgns_file.
     !
-#ifdef DEBUG_ON
+!#ifdef DEBUG_ON
     if (ncpu == 1) then
       write (iout,3) "snam",trim(adjustl(snam))
       write (iout,1) "ifil",ifil
@@ -1644,7 +1644,7 @@ continue
       3 format (2x,a," = ",a)
     end if
     flush (iout)
-#endif
+!#endif
     call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_elements_write_data_f")
     if (allocated(s%ElemConn)) then
