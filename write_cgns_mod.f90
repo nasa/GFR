@@ -608,7 +608,7 @@ continue
     !
     call write_iterative_data_to_cgns_file(cgns_time_file,pname, &
                                            ifile_t,ibase_t,izone_t, &
-                                           soltime,solname, &
+                                           soltime,soliter,solname, &
                                            not_parallel=true)
     !
     ! Close the CGNS FILE
@@ -657,7 +657,8 @@ end subroutine write_parallel_cgns_time_file
 !
 subroutine write_iterative_data_to_cgns_file(cgns_file,procedure_name, &
                                              ifile,ibase,izone, &
-                                             sol_times,sol_names,not_parallel)
+                                             sol_times,sol_iters,sol_names, &
+                                             not_parallel)
   !
   !.. Use Statements ..
   use ovar, only : profile_io_cgns_subs
@@ -669,6 +670,7 @@ subroutine write_iterative_data_to_cgns_file(cgns_file,procedure_name, &
   integer(CBT),         intent(in) :: ibase
   integer(CBT),         intent(in) :: izone
   real(sp),             intent(in) :: sol_times(:)
+  integer,              intent(in) :: sol_iters(:)
   character(len=CGLEN), intent(in) :: sol_names(:)
   !
   !.. Optional Arguments ..
@@ -730,6 +732,17 @@ continue
   call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_array_write_f",override_barrier=not_parallel)
   !
+  ! Write the solution iteration numbers for each zone 
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_array_write_f",override_barrier=not_parallel)
+  call cg_array_write_f("IterationValues",CGNS_KIND_INT,1_CBT, &
+                        size(sol_iters,kind=CST),sol_iters,cgierr)
+  call cgns_error(pname,cgns_file,"cg_array_write_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_array_write_f",override_barrier=not_parallel)
+   !
   !=============================================================================
   !
   ! Create the ZoneIterativeData_t node
@@ -1629,6 +1642,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
   !
   real(sp)             :: sol_time(1)
+  integer              :: sol_iter(1)
   character(len=CGLEN) :: sol_name(1)
   !
   !.. Local Allocatable Arrays ..
@@ -1834,9 +1848,10 @@ continue
   !
   sol_time(1) = soltime(size(soltime))
   sol_name(1) = solname(size(solname))
+  sol_iter(1) = itcur
   call write_iterative_data_to_cgns_file(cgns_sol_file,pname, &
                                          ifile_s,ibase_s,izone_s, &
-                                         sol_time,sol_name)
+                                         sol_time,sol_iter,sol_name)
   !
   ! Close the CGNS FILE
   !
@@ -5265,6 +5280,7 @@ subroutine write_parallel_cgns_time_ave_file()
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
   !
   real(sp)             :: sol_time(1)
+  integer              :: sol_iter(1)
   character(len=CGLEN) :: sol_name(1)
   !
   !.. Local Allocatable Arrays ..
@@ -5394,9 +5410,10 @@ continue
   cur_ave_time = (time - ave_start_time)*time_ref*time_scaling_factor
   sol_time(1) = real(cur_ave_time,kind=kind(sol_time))
   sol_name(1) = solname(size(solname))
+  sol_iter(1) = itcur
   call write_iterative_data_to_cgns_file(cgns_sol_file,pname, &
                                          ifile_s,ibase_s,izone_s, &
-                                         sol_time,sol_name)
+                                         sol_time,sol_iter,sol_name)
   !
   ! Close the CGNS FILE
   !
@@ -7065,6 +7082,7 @@ subroutine write_parallel_cgns_timeave_data_file()
   integer(CBT) :: ifile,ibase,izone,isol
   !
   real(sp)             :: sol_time(1)
+  integer              :: sol_iter(1)
   character(len=CGLEN) :: sol_name(1)
   !
   !.. Local Allocatable Arrays ..
@@ -7216,9 +7234,10 @@ continue
   cur_ave_time = (time - ave_start_time)*time_ref*time_scaling_factor
   sol_time(1) = real(cur_ave_time,kind=kind(sol_time))
   sol_name(1) = solname(size(solname))
+  sol_iter(1) = itcur
   call write_iterative_data_to_cgns_file(cgns_sol_file,pname, &
                                          ifile_s,ibase_s,izone_s, &
-                                         sol_time,sol_name)
+                                         sol_time,sol_iter,sol_name)
   !
   ! Close the CGNS FILE
   !
