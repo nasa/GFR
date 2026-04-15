@@ -511,6 +511,7 @@ subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name)
   use geomvar_mod,     only : n_solpts
   use flowvar_mod,     only : usp,gpsp
   use ovar,            only : Limiter_Option,Filter_Option
+  use ovar,            only : Filter_Alpha
   use ovar,            only : ideal_total_temperature
   use ovar,            only : use_sponge_filter
   use ovar,            only : thermofix
@@ -572,6 +573,24 @@ continue
     call check_total_temperature(n_solpts,usp,gpsp,nst)
   end if
   !
+  ! Apply the global/background exponential filter. This filter is applied
+  ! to every cell regardless of whether or not the solution in the cell
+  ! is stable/smooth/well-resolved.
+  ! NOTE: Apply this global filter before the local limiter filter only if
+  !       Filter_Alpha <= 1.0. This corresponds to a very weak filter that
+  !       will damp the highest mode by at most 64 percent (Alpha=1.0), which
+  !       should still allow the resolution marker to find troubled cells.
+  !
+  if (Filter_Option > 0 .and. Filter_Alpha <= one) then
+    if (Apply_Filter) then
+#ifdef PROFILE_ON
+      if (mypnum == glb_root) write (iout,1) nst
+#endif
+      call filter_usp
+      call check_for_bad_number(__LINE__,__FILE__)
+    end if
+  end if
+  !
   ! Apply the shock/troubled-cell limiter. The cells will first be checked
   ! to find any with signs of instability or shocks, and these cells will
   ! be marked as 'troubled'. The limiting method (filtering, projection, etc.)
@@ -598,8 +617,12 @@ continue
   ! Apply the global/background exponential filter. This filter is applied
   ! to every cell regardless of whether or not the solution in the cell
   ! is stable/smooth/well-resolved.
+  ! NOTE: Apply the global filter after the local limiter filter if
+  !       Filter_Alpha > 1, because this global filter will damp the
+  !       highest mode too much preventing the resolution marker from
+  !       finding any troubled cells.
   !
-  if (Filter_Option > 0) then
+  if (Filter_Option > 0 .and. Filter_Alpha > one) then
     if (Apply_Filter) then
 #ifdef PROFILE_ON
       if (mypnum == glb_root) write (iout,1) nst
