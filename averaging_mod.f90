@@ -130,6 +130,10 @@ continue
                              time_ave_variables(:) , v2 // "t" ]
       time_ave_variables = [ character(len=len(time_ave_variables)) :: &
                              time_ave_variables(:) , v3 // "t" ]
+      ! Random crash here for $arn72/p3/v7.72/1.run when reaching
+      ! START_AVERAGING_TSTAR. This was most likely a hardware-related crash,
+      ! but I wanted to mark this location in case it happens again, which
+      ! would start pointing to it being a software bug.
       time_ave_variables = [ character(len=len(time_ave_variables)) :: &
                              time_ave_variables(:) , "dt" ]
       !
