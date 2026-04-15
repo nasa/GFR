@@ -7443,7 +7443,7 @@ subroutine modify_time_average_restart_history()
   !
   !.. Local Scalars ..
   integer  :: ierr,io,i,n
-  real(wp) :: out_time
+  real(wp) :: out_time,time_scale
   !
   logical(ldk) :: file_exists
   !
@@ -7468,6 +7468,8 @@ subroutine modify_time_average_restart_history()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  time_scale = time_ref*time_scaling_factor
   !
   ! First deallocate unnecessary arrays that were allocated for the solver but
   ! wont be needed since execution will abort at the end of this subroutine
