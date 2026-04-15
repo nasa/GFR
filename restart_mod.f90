@@ -3593,6 +3593,7 @@ subroutine write_modified_time_averaged_solution(file_name,int_header, &
   !.. Use Statements ..
   use ovar, only : restart_output_uses_host_roots
   use ovar, only : max_time_ave_rst_wall_time
+  use ovar, only : loc_solution_pts
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: file_name
@@ -3620,6 +3621,51 @@ subroutine write_modified_time_averaged_solution(file_name,int_header, &
 continue
   !
   call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
+  !
+  ! Perform some initialization tasks if the restart module has not
+  ! been initialized yet.
+  ! NOTE: This is usually done to prepare for writing the instantaneous
+  !       restart file, but we need to do it here because a few module
+  !       arrays are created that will be needed to get the MPI datatypes
+  !       for writing the time-average restart files.
+  !
+  if (restart_needs_initialization) then
+    !
+    ! For now, write the nodal solution to the restart file. At some point we
+    ! should switch so it writes the modal solution since that would give more
+    ! flexibility regarding changes in the solution order between runs.
+    !
+    if (loc_solution_pts == Legendre_Gauss) then
+      restart_solution_form = restart_gauss_nodal_solution
+    else if (loc_solution_pts == Legendre_Gauss_Lobatto) then
+      restart_solution_form = restart_lobatto_nodal_solution
+    end if
+    !
+    ! Get the MPI derived types required to read/write the restart file
+    !
+    if (restart_output_uses_host_roots) then
+      call get_host_output_mpi_datatypes
+    else
+      call get_output_mpi_datatypes
+    end if
+    !
+#ifdef DEBUG_ON
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      write (iout,*) "After get_output_mpi_datatypes"
+      flush (iout)
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
+    !
+    ! Unset the restart initialization flag since this has now been done
+    !
+    restart_needs_initialization = fals
+    !
+  end if
+  !
+  ! Perform some initialization tasks to get the MPI datatypes needed to
+  ! write the time-average restart files
   !
   if (time_ave_needs_initialization) then
     !
