@@ -3756,8 +3756,10 @@ subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom)
   !
   !.. Local Scalars ..
   integer :: nvar,ierr,lcell,lpts
+  integer :: ii
   !
   _MPI_DATA_TYPE_ :: og_mpi_type
+  _MPI_COMM_TYPE_ :: debug_barrier_comm
   !
   !.. LOcal Allocatable Arrays ..
   integer(ogp), allocatable :: local_og(:)
@@ -3772,6 +3774,9 @@ subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom)
 continue
   !
   call _DEBUG_WRITE_TIMER_(entering_procedure,pname)
+  !
+ !debug_barrier_comm = MPI_COMM_WORLD
+  debug_barrier_comm = my_host_comm
   !
   ! #######
   ! ## 1 ##
@@ -3860,6 +3865,54 @@ continue
   !
   call _DEBUG_WRITE_TIMER_(leaving_procedure,pname)
   !
+contains
+!===============================================================================
+subroutine debug_write(string,ival)
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: string
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: ival
+  !
+  !.. Local Scalars ..
+  integer :: icpu
+  !
+continue
+  !
+  ii = ii + 1
+  !
+  if (mypnum == glb_root) then
+    write (iout,2)
+    flush (iout)
+  end if
+  call mpi_barrier(debug_barrier_comm,mpierr)
+  !
+  flush (iout)
+  call mpi_barrier(debug_barrier_comm,mpierr)
+  !
+  do icpu = 1,ncpu
+    if (mypnum == icpu-1) then
+      if (present(ival)) then
+        write (iout,1) ii,mypnum,string,ival
+      else
+        write (iout,1) ii,mypnum,string
+      end if
+      flush (iout)
+    end if
+    call mpi_barrier(debug_barrier_comm,mpierr)
+    flush (iout)
+  end do
+  !
+  flush (iout)
+  call mpi_barrier(debug_barrier_comm,mpierr)
+  flush (iout)
+  !
+  1 format (i2.2,1x,"CPU # ",i3.3,": ",a,:," = ",i0)
+  2 format (100("-"))
+  !
+end subroutine debug_write
+!===============================================================================
 end subroutine collect_restart_arrays
 !
 !###############################################################################
