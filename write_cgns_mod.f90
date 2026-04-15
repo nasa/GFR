@@ -38,6 +38,7 @@ module write_cgns_mod
   integer, save :: cgns_zone_counter
   !
   real(sp),             save, allocatable :: soltime(:)
+  integer,              save, allocatable :: soliter(:)
   character(len=CGLEN), save, allocatable :: solname(:)
   character(len=CGLEN), save, allocatable :: solfile(:)
   !
@@ -461,9 +462,11 @@ continue
   ! can concatenate this solution onto those arrays
   !
   call reallocate(soltime,cgns_zone_counter+1)
+  call reallocate(soliter,cgns_zone_counter+1)
   call reallocate(solname,cgns_zone_counter+1)
   call reallocate(solfile,cgns_zone_counter+1)
   soltime(size(soltime)) = real(time*time_ref*time_scaling_factor,kind(soltime))
+  soliter(size(soliter)) = itcur
   solname(size(solname)) = tname
   solfile(size(solfile)) = sol_file
   !
