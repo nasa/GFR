@@ -7453,7 +7453,6 @@ subroutine modify_time_average_restart_history()
   !.. Local Allocatable Scalars ..
   character(len=:), allocatable :: list_file_name
   character(len=:), allocatable :: read_file_name
-  character(len=:), allocatable :: write_file_name
   !
   !.. Local Allocatable Arrays ..
   character(len=300), allocatable :: list_of_restart_files(:)
@@ -7663,19 +7662,12 @@ continue
    !!
    !real_header(3) = new_ave_start_time
     !
-    ! Get the file name for the new time-average restart file that will be
-    ! used to save the new modified time-average history to.
-    ! 
-    write (fname,20) original_ta_data%int_header(4), &
-                     new_start%int_header(4)
-    write_file_name = trim(adjustl(fname)) ! F2003 AUTO-REALLOC
-    !
     ! Write the new time-average restart file
     ! NOTE: We will just reuse the contents of the ordered_geom, int_header,
     !       and var_header arrays since those remain the same as they were
     !       before modifying the time-average history.
     !
-    call write_modified_time_averaged_solution(write_file_name, &
+    call write_modified_time_averaged_solution(modified_ta_data%ta_filename, &
                                                modified_ta_data%int_header, &
                                                modified_ta_data%real_header, &
                                                modified_ta_data%var_header, &
