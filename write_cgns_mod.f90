@@ -662,6 +662,7 @@ subroutine write_iterative_data_to_cgns_file(cgns_file,procedure_name, &
   !
   !.. Use Statements ..
   use ovar, only : profile_io_cgns_subs
+  use ovar, only : time_ref,time_scaling_factor
   !
   !.. Formal Arguments ..
   character(len=*),     intent(in) :: cgns_file
@@ -684,6 +685,8 @@ subroutine write_iterative_data_to_cgns_file(cgns_file,procedure_name, &
   !
   !.. Local Arrays ..
   integer(CST) :: idata(1:2)
+  real(wp)     :: dim_exp(1:5)
+  real(wp)     :: time_conv(1:2)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: sub_pname = "write_iterative_data_to_cgns_file"
@@ -695,6 +698,12 @@ continue
   write (pname,1) sub_pname,trim(adjustl(procedure_name))
   !
   iiter_t = 1_CBT
+  !
+  time_conv(1) = one/time_scaling_factor
+  time_conv(2) = zero
+  if (present(start_time_nd)) then
+    time_conv(2) = start_time_nd*time_ref
+  end if
   !
   !=============================================================================
   !
@@ -743,7 +752,65 @@ continue
                   cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
   call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cg_array_write_f",override_barrier=not_parallel)
-   !
+  !
+  !=============================================================================
+  !
+  ! Go to the end of the solution time values so we can characterize the type
+  ! of time value that was just written to the BaseIterativeData_t node.
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_goto_f",override_barrier=not_parallel)
+  call cg_goto_f(ifile,ibase,cgierr, &
+                 "BaseIterativeData_t",iiter_t, &
+                 "TimeValues",0_CBT, &
+                 CGNS_GOTO_END)
+  call cgns_error(pname,cgns_file,"cg_goto_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_goto_f",override_barrier=not_parallel)
+  !
+  ! Mark the time value as being normalized-by-dimensional
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_dataclass_write_f",override_barrier=not_parallel)
+  call cg_dataclass_write_f(NORMALIZEDBYDIMENSIONAL,cgierr)
+  call cgns_error(pname,cgns_file,"cg_dataclass_write_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_dataclass_write_f",override_barrier=not_parallel)
+  !
+  ! Specify the units for the data in this CGNS node
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_units_write_f",override_barrier=not_parallel)
+  call cg_units_write_f(KILOGRAM,METER,SECOND,KELVIN,RADIAN,cgierr)
+  call cgns_error(pname,cgns_file,"cg_units_write_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_units_write_f",override_barrier=not_parallel)
+  !
+  ! Specify the unit exponents for the data in this CGNS node
+  !
+  dim_exp(:) = [zero,zero,one,zero,zero]
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_exponents_write_f",override_barrier=not_parallel)
+  call cg_exponents_write_f(CGNS_KIND_REAL,dim_exp,cgierr)
+  call cgns_error(pname,cgns_file,"cg_exponents_write_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_exponents_write_f",override_barrier=not_parallel)
+  !
+  ! Specify the scaling factor and offset for the time data
+  !
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_conversion_write_f",override_barrier=not_parallel)
+  call cg_conversion_write_f(CGNS_KIND_REAL,time_conv,cgierr)
+  call cgns_error(pname,cgns_file,"cg_conversion_write_f", &
+                  cgierr,__LINE__,__FILE__,not_parallel=not_parallel)
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_conversion_write_f",override_barrier=not_parallel)
+  !
   !=============================================================================
   !
   ! Create the ZoneIterativeData_t node
