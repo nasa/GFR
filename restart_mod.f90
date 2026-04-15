@@ -8062,6 +8062,90 @@ continue
 end subroutine deallocate_solver_arrays
 !
 !###############################################################################
+!
+subroutine collect_mem(string,mem,total_mem)
+  !
+  !.. Formal Arguments ..
+  character(len=*),  intent(in) :: string
+  integer(int64), intent(inout) :: mem
+  integer(int64), intent(inout) :: total_mem
+  !
+  !.. Local Scalars ..
+  real(wp) :: rmem
+  character(len=1) :: cmem
+  !
+continue
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,mem,1_int_mpi,MPI_INTEGER8, &
+                       MPI_SUM,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  call get_mem_scale(mem,rmem,cmem)
+  !
+  total_mem = total_mem + mem
+  !
+  if (mypnum == glb_root) then
+    write (iout,1) string,rmem,cmem
+  end if
+  flush (iout)
+  !
+  ! Reset mem for next set of arrays to deallocate
+  !
+  mem = 0_int64
+  !
+  ! Format Statements
+  !
+  1 format (2x,"Deallocating: ",a29," => Freed up ",f10.4, &
+               " ",a1,"Bytes of memory!")
+  !
+end subroutine collect_mem
+!
+!###############################################################################
+!
+subroutine get_mem_scale(mem,rmem,cmem)
+  !
+  !.. Formal Arguments ..
+  integer(int64),      intent(in) :: mem
+  real(wp),         intent(inout) :: rmem
+  character(len=1), intent(inout) :: cmem
+  !
+  !.. Local Scalars ..
+  integer :: n,mem_exp
+  integer(int64) :: lmem
+  !
+continue
+  !
+  lmem = mem/8_int64
+  !
+  mem_exp = 0
+  !
+  mem_scale_loop: &
+  do n = 0,4
+    lmem = lmem / 1024_int64
+    if (lmem == 0_int64) then
+      mem_exp = n
+      exit mem_scale_loop
+    end if
+  end do mem_scale_loop
+  !
+  if (mem_exp == 0) then
+    cmem = ""
+  else if (mem_exp == 1) then
+    cmem = "K"
+  else if (mem_exp == 2) then
+    cmem = "M"
+  else if (mem_exp == 3) then
+    cmem = "G"
+  else if (mem_exp == 4) then
+    cmem = "T"
+  end if
+  !
+  rmem = real(mem/8_int64,kind=wp) / (1024.0_wp**mem_exp)
+  !
+end subroutine get_mem_scale
+!
+!###############################################################################
 !###############################################################################
 !###############################################################################
 !
