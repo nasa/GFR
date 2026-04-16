@@ -254,10 +254,6 @@ $(COBJS):
 $(OBJS):
 	$(QUIET) $(Command-Beg) $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(Command-End)
 
-.PHONY: link-to-haswell
-link-to-haswell:
-	if [ -d $(EXEDIR) ] ; then /bin/ln -sf gfr_haswell $(EXEDIR)/gfr_broadwell ; fi
-
 .PHONY: clean
 clean:
 	/bin/rm -f $(OBJDIR)/*.o $(MODDIR)/*.mod $(EXECUTABLE)

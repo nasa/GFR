@@ -344,10 +344,6 @@ rebuild-opt-host:
 				     opt-host
 	@echo "-----------------------------------------------------"
 
-.PHONY: link-to-haswell
-link-to-haswell:
-	make -f slv.mk link-to-haswell
-
 .PHONY: deplist
 deplist:
 	make -f slv.mk "EXECUTABLE=debug_gfr" "BUILDDIR=debug" clean
@@ -390,5 +386,4 @@ clean:
 	               "BUILDDIR=optimize_rome" clean
 	make -f slv.mk "EXECUTABLE=gfr_gpu" \
 	               "BUILDDIR=gpu" clean
-	if [ -L gfr_broadwell ] ; then /bin/rm -f gfr_broadwell ; fi
 
