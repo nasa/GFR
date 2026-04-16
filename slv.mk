@@ -21,8 +21,6 @@ CSFXFLG = .c
 #CFLAG = -O3
 #CFLAG += -g
 
-#HDF5LIB  := -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -ldl -lz
-#HDF5LIB  := -lhdf5 -ldl -lz
 HDF5LIB  := -lhdf5 -ldl
 CGNSLIB  := -lcgns
 METISLIB := -lmetis
@@ -50,14 +48,6 @@ ifdef ENABLEOMP
 endif
 
 ifdef PBSFPP
- #PBSDIR := -L/u/scicon/tools/lib 
- #PBSLIB := -lpbs_time_left
- #ifneq "$(COMPFAMILY)" "intel"
- #  INTELVER := 2016.2.181
- #  INTELDIR := /nasa/intel/Compiler/$(INTELVER)
- # #PBSDIR += -L$(INTELDIR)/compilers_and_libraries/linux/lib/intel64_lin
- # #PBSLIB += -lirc
- #endif
   TARGET = $(AUTOTARGETARCH)
 endif
 
@@ -341,8 +331,6 @@ else ifeq "$(COMPFAMILY)" "gcc"
   OMPFLAG := -fopenmp
   ARCHFLAG := -march=
   ARCHFLAGROM := -march=
-  ######################################################
-  #### USE THESE ARCH FLAGS FOR GCC 4.9.4 OR NEWER
   WESARCH := westmere
   SANARCH := sandybridge
   IVYARCH := ivybridge
@@ -350,14 +338,6 @@ else ifeq "$(COMPFAMILY)" "gcc"
   BROARCH := broadwell
   SKYARCH := skylake-avx512 # ONLY WORKS FOR 6.1.0 or newer
   ROMARCH := znver2
-  #### USE THESE ARCH FLAGS FOR GCC 4.8.5 OR OLDER
- #WESARCH := corei7
- #SANARCH := corei7-avx
- #IVYARCH := corei7-avx-i
- #HASARCH := corei7-avx2
- #BROARCH := corei7-avx2
- #SKYARCH := corei7-avx2
-  #######################################################
   FPPFLAG := -cpp
   OPTFLAG := -O3
   DBGFLAG := -fcheck=all -Wall -Wextra -Wuninitialized
