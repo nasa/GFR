@@ -46,7 +46,6 @@ gfr: optimize
 
 gfr_rome: rome
 gfr_skylake: skylake
-gfr_haswell: haswell
 gfr_westmere: westmere
 gfr_gpu: gpu
 
@@ -103,33 +102,6 @@ sky: skylake
 rebuild-sky: rebuild-skylake
 .PHONY: clean-sky
 clean-sky: clean-skylake
-
-# HASWELL
-
-.PHONY: haswell
-haswell: BDIR := optimize_haswell
-haswell: EXEF := gfr_haswell
-haswell: TRGT := haswell
-haswell: build
-
-.PHONY: rebuild-haswell
-rebuild-haswell: BDIR := optimize_haswell
-rebuild-haswell: EXEF := gfr_haswell
-rebuild-haswell: TRGT := haswell
-rebuild-haswell: clean-build
-rebuild-haswell: haswell
-
-.PHONY: clean-haswell
-clean-haswell: BDIR := optimize_haswell
-clean-haswell: EXEF := gfr_haswell
-clean-haswell: clean-build
-
-.PHONY: has
-has: haswell
-.PHONY: rebuild-has
-rebuild-has: rebuild-haswell
-.PHONY: clean-has
-clean-has: clean-haswell
 
 # WESTMERE
 
@@ -236,10 +208,10 @@ warn-std90: std90
 #FCADD += -DTRACK_MEMORY_ALLOCATIONS
 #FCADD += -DMEMORY_TEST_PAUSE
 
-#gfr_haswell: $(call build-function, optimize_haswell, \
-                       gfr_haswell, $(FCADD), haswell)
-#rebuild-test: $(call rebuild-function, optimize_haswell, \
-                      gfr_haswell, $(FCADD), haswell)
+#gfr_rome: $(call build-function, optimize_rome, \
+                       gfr_rome, $(FCADD), rome)
+#rebuild-test: $(call rebuild-function, optimize_rome, \
+                      gfr_rome, $(FCADD), rome)
 define build-function
   $(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=$(1)" \
                                "BUILDDIR=$(2)" \
@@ -349,8 +321,6 @@ clean:
 	               "BUILDDIR=optimize" clean
 	make -f slv.mk "EXECUTABLE=gfr_westmere" \
 	               "BUILDDIR=optimize_westmere" clean
-	make -f slv.mk "EXECUTABLE=gfr_haswell" \
-	               "BUILDDIR=optimize_haswell" clean
 	make -f slv.mk "EXECUTABLE=gfr_skylake" \
 	               "BUILDDIR=optimize_skylake" clean
 	make -f slv.mk "EXECUTABLE=gfr_rome" \

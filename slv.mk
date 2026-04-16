@@ -194,10 +194,6 @@ rome: optimize
 skylake: OPTIM = $(OPTFLAG) $(SKYOPT)
 skylake: optimize
 
-.PHONY: haswell
-haswell: OPTIM = $(OPTFLAG) $(HASOPT)
-haswell: optimize
-
 .PHONY: westmere
 ifeq "$(COMPFAMILY)" "pgi"
 #westmere: ADDFLAGS += -pg
@@ -276,7 +272,6 @@ ifeq "$(COMPFAMILY)" "intel"
   ARCHFLAG := -x
   ARCHFLAGROM := -march=
   WESARCH := SSE4.2
-  HASARCH := CORE-AVX2
  #SKYARCH := CORE-AVX512
   SKYARCH := SKYLAKE
  #SKYARCH := SKYLAKE-AVX512
@@ -295,7 +290,7 @@ ifeq "$(COMPFAMILY)" "intel"
  #CMPFLAGS := -DSPECIAL_FOR_INTEL
   CMPFLAGS := -DSPECIAL_FOR_INTEL -DDISABLE_QP -qmkl=sequential -DOCTID
  #CPMFLAGS += -guide -parallel -qopt-report=5 -qopt-report-file=stderr
-  AUTOTARGETARCH := $(ARCHFLAG)$(WESARCH) -ax$(SKYARCH),$(HASARCH) $(ALIGN32)
+  AUTOTARGETARCH := $(ARCHFLAG)$(WESARCH) -ax$(SKYARCH) $(ALIGN32)
   HOSTARCH := $(ARCHFLAG)Host
 else ifeq "$(COMPFAMILY)" "gcc"
   # GCC flags
@@ -304,7 +299,6 @@ else ifeq "$(COMPFAMILY)" "gcc"
   ARCHFLAG := -march=
   ARCHFLAGROM := -march=
   WESARCH := westmere
-  HASARCH := haswell
   SKYARCH := skylake-avx512 # ONLY WORKS FOR 6.1.0 or newer
   ROMARCH := znver2
   FPPFLAG := -cpp
@@ -314,7 +308,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
   REALLOCFLAG := -frealloc-lhs
   CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC -DDISABLE_QP -DOCTID
   AUTOTARGETARCH := $(ARCHFLAG)$(WESARCH)
-  AUTOTARGETARCH += -mtune=$(HASARCH) -mtune=$(SKYARCH) -mtune=$(ROMARCH)
+  AUTOTARGETARCH += -mtune=$(SKYARCH) -mtune=$(ROMARCH)
   HOSTARCH := $(ARCHFLAG)native
 else ifeq "$(COMPFAMILY)" "pgi"
   # PGI flags
@@ -323,7 +317,6 @@ else ifeq "$(COMPFAMILY)" "pgi"
   ARCHFLAG := -tp=
   ARCHFLAGROM := -tp=
   WESARCH := nehalem
-  HASARCH := haswell
   SKYARCH := haswell
   ROMARCH := zen
   FPPFLAG := -Mpreprocess
@@ -332,12 +325,11 @@ else ifeq "$(COMPFAMILY)" "pgi"
   TRACEFLAG := #-traceback
   REALLOCFLAG := -Mallocatable=03
   CMPFLAGS := -DSPECIAL_FOR_PGI -DDISABLE_QP -DDISABLE_DTIO -Mbackslash
-  AUTOTARGETARCH := -tp=$(WESARCH),$(HASARCH)
+  AUTOTARGETARCH := -tp=$(WESARCH)
   HOSTARCH :=
 endif
 
 WESOPT  := $(ARCHFLAG)$(WESARCH) $(ALIGN32)
-HASOPT  := $(ARCHFLAG)$(HASARCH) $(ALIGN32)
 SKYOPT  := $(ARCHFLAG)$(SKYARCH) $(ALIGN64) -qopt-zmm-usage=high
 ROMOPT  := $(ARCHFLAGROM)$(ROMARCH)
 
