@@ -223,10 +223,6 @@ merope: OPTIM = $(OPTFLAG) $(WESOPT)
 #merope: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
 merope: optimize
 
-.PHONY: gpu-mm
-gpu-mm: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
-gpu-mm: optimize
-
 .PHONY: gpu
 gpu: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
 gpu: optimize

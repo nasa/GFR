@@ -56,7 +56,6 @@ gfr_ivybridge: ivybridge
 gfr_sandybridge: sandybridge
 gfr_westmere: westmere
 gfr_merope: merope
-gfr_gpu_mm: gpu-mm
 gfr_gpu: gpu
 
 # ROME
@@ -296,41 +295,6 @@ GPUFLAG = -acc -ta=tesla:cc35,ptxinfo -Minfo=accel
 #GPUADD += -Minfo=all
 GPUADD += -Minfo=ccff,ftn
 
-# GPU WITH MANAGED MEMORY
-
-.PHONY: gpu-mm
-gpu-mm: BDIR := gpu_mm
-gpu-mm: EXEF := gfr_gpu_mm
-gpu-mm: TRGT := gpu-mm
-gpu-mm: GPUADD += -ta=tesla:managed
-#gpu-mm: GPUADD += -ta=tesla:fma
-#gpu-mm: GPUADD += -ta=tesla:keepgpu
-#gpu-mm: GPUADD += -ta=tesla:deepcopy
-#gpu-mm: GPUADD += -ta=tesla:maxregcount:128
-#gpu-mm: GPUADD += -Mnoidiom
-#gpu-mm: GPUADD += -pg
-#gpu-mm: GPUADD += -g
-#gpu-mm: GPUADD += -Minfo=intensity
-#gpu-mm: GPUADD += -Mcuda=lineinfo
-#gpu-mm: GPUADD += -Mprof=ccff,dwarf
-#gpu-mm: GPUADD += -Minstrument=functions
-#gpu-mm: GPUADD += -Kieee
-gpu-mm: FCADD += $(GPUFLAG) $(GPUADD)
-gpu-mm: FCADD += -DDISABLE_FOR_GPU
-gpu-mm: build
-
-.PHONY: rebuild-gpu-mm
-rebuild-gpu-mm: BDIR := gpu_mm
-rebuild-gpu-mm: EXEF := gfr_gpu_mm
-rebuild-gpu-mm: TRGT := gpu-mm
-rebuild-gpu-mm: clean-build
-rebuild-gpu-mm: gpu-mm
-
-.PHONY: clean-gpu-mm
-clean-gpu-mm: BDIR := gpu_mm
-clean-gpu-mm: EXEF := gfr_gpu_mm
-clean-gpu-mm: clean-build
-
 # GPU
 
 .PHONY: gpu
@@ -530,8 +494,6 @@ clean:
 	               "BUILDDIR=optimize_skylake" clean
 	make -f slv.mk "EXECUTABLE=gfr_rome" \
 	               "BUILDDIR=optimize_rome" clean
-	make -f slv.mk "EXECUTABLE=gfr_gpu_mm" \
-	               "BUILDDIR=gpu_mm" clean
 	make -f slv.mk "EXECUTABLE=gfr_gpu" \
 	               "BUILDDIR=gpu" clean
 	if [ -L gfr_broadwell ] ; then /bin/rm -f gfr_broadwell ; fi
