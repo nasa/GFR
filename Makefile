@@ -28,7 +28,6 @@ all: gfr_westmere
 .PHONY: all-nodes
 all-nodes: debug_gfr
 all-nodes: gfr_westmere
-all-nodes: gfr_broadwell
 all-nodes: gfr_skylake
 all-nodes: gfr_rome
 all-nodes: gfr
@@ -47,7 +46,6 @@ gfr: optimize
 
 gfr_rome: rome
 gfr_skylake: skylake
-gfr_broadwell: broadwell
 gfr_haswell: haswell
 gfr_westmere: westmere
 gfr_gpu: gpu
@@ -105,33 +103,6 @@ sky: skylake
 rebuild-sky: rebuild-skylake
 .PHONY: clean-sky
 clean-sky: clean-skylake
-
-# BROADWELL (Essentially the same as Haswell)
-
-.PHONY: broadwell
-broadwell: BDIR := optimize_broadwell
-broadwell: EXEF := gfr_broadwell
-broadwell: TRGT := broadwell
-broadwell: build
-
-.PHONY: rebuild-broadwell
-rebuild-broadwell: BDIR := optimize_broadwell
-rebuild-broadwell: EXEF := gfr_broadwell
-rebuild-broadwell: TRGT := broadwell
-rebuild-broadwell: clean-build
-rebuild-broadwell: broadwell
-
-.PHONY: clean-broadwell
-clean-broadwell: BDIR := optimize_broadwell
-clean-broadwell: EXEF := gfr_broadwell
-clean-broadwell: clean-build
-
-.PHONY: bro
-bro: broadwell
-.PHONY: rebuild-bro
-rebuild-bro: rebuild-broadwell
-.PHONY: clean-bro
-clean-bro: clean-broadwell
 
 # HASWELL
 

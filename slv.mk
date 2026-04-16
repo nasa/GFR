@@ -194,10 +194,6 @@ rome: optimize
 skylake: OPTIM = $(OPTFLAG) $(SKYOPT)
 skylake: optimize
 
-.PHONY: broadwell
-broadwell: OPTIM = $(OPTFLAG) $(BROOPT)
-broadwell: optimize
-
 .PHONY: haswell
 haswell: OPTIM = $(OPTFLAG) $(HASOPT)
 haswell: optimize
@@ -281,7 +277,6 @@ ifeq "$(COMPFAMILY)" "intel"
   ARCHFLAGROM := -march=
   WESARCH := SSE4.2
   HASARCH := CORE-AVX2
-  BROARCH := CORE-AVX2
  #SKYARCH := CORE-AVX512
   SKYARCH := SKYLAKE
  #SKYARCH := SKYLAKE-AVX512
@@ -310,7 +305,6 @@ else ifeq "$(COMPFAMILY)" "gcc"
   ARCHFLAGROM := -march=
   WESARCH := westmere
   HASARCH := haswell
-  BROARCH := broadwell
   SKYARCH := skylake-avx512 # ONLY WORKS FOR 6.1.0 or newer
   ROMARCH := znver2
   FPPFLAG := -cpp
@@ -320,7 +314,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
   REALLOCFLAG := -frealloc-lhs
   CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC -DDISABLE_QP -DOCTID
   AUTOTARGETARCH := $(ARCHFLAG)$(WESARCH)
-  AUTOTARGETARCH += -mtune=$(HASARCH) -mtune=$(BROARCH) -mtune=$(SKYARCH) -mtune=$(ROMARCH)
+  AUTOTARGETARCH += -mtune=$(HASARCH) -mtune=$(SKYARCH) -mtune=$(ROMARCH)
   HOSTARCH := $(ARCHFLAG)native
 else ifeq "$(COMPFAMILY)" "pgi"
   # PGI flags
@@ -330,7 +324,6 @@ else ifeq "$(COMPFAMILY)" "pgi"
   ARCHFLAGROM := -tp=
   WESARCH := nehalem
   HASARCH := haswell
-  BROARCH := haswell
   SKYARCH := haswell
   ROMARCH := zen
   FPPFLAG := -Mpreprocess
@@ -345,7 +338,6 @@ endif
 
 WESOPT  := $(ARCHFLAG)$(WESARCH) $(ALIGN32)
 HASOPT  := $(ARCHFLAG)$(HASARCH) $(ALIGN32)
-BROOPT  := $(ARCHFLAG)$(WESARCH) -ax$(BROARCH) -fma $(ALIGN32)
 SKYOPT  := $(ARCHFLAG)$(SKYARCH) $(ALIGN64) -qopt-zmm-usage=high
 ROMOPT  := $(ARCHFLAGROM)$(ROMARCH)
 
