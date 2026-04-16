@@ -202,10 +202,6 @@ broadwell: optimize
 haswell: OPTIM = $(OPTFLAG) $(HASOPT)
 haswell: optimize
 
-.PHONY: ivybridge
-ivybridge: OPTIM = $(OPTFLAG) $(IVYOPT)
-ivybridge: optimize
-
 .PHONY: westmere
 ifeq "$(COMPFAMILY)" "pgi"
 #westmere: ADDFLAGS += -pg
@@ -288,7 +284,6 @@ ifeq "$(COMPFAMILY)" "intel"
   ARCHFLAG := -x
   ARCHFLAGROM := -march=
   WESARCH := SSE4.2
-  IVYARCH := CORE-AVX-I
   HASARCH := CORE-AVX2
   BROARCH := CORE-AVX2
  #SKYARCH := CORE-AVX512
@@ -309,7 +304,7 @@ ifeq "$(COMPFAMILY)" "intel"
  #CMPFLAGS := -DSPECIAL_FOR_INTEL
   CMPFLAGS := -DSPECIAL_FOR_INTEL -DDISABLE_QP -qmkl=sequential -DOCTID
  #CPMFLAGS += -guide -parallel -qopt-report=5 -qopt-report-file=stderr
-  AUTOTARGETARCH := $(ARCHFLAG)$(WESARCH) -ax$(SKYARCH),$(HASARCH),$(IVYARCH) $(ALIGN32)
+  AUTOTARGETARCH := $(ARCHFLAG)$(WESARCH) -ax$(SKYARCH),$(HASARCH) $(ALIGN32)
   HOSTARCH := $(ARCHFLAG)Host
 else ifeq "$(COMPFAMILY)" "gcc"
   # GCC flags
@@ -318,7 +313,6 @@ else ifeq "$(COMPFAMILY)" "gcc"
   ARCHFLAG := -march=
   ARCHFLAGROM := -march=
   WESARCH := westmere
-  IVYARCH := ivybridge
   HASARCH := haswell
   BROARCH := broadwell
   SKYARCH := skylake-avx512 # ONLY WORKS FOR 6.1.0 or newer
@@ -330,7 +324,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
   REALLOCFLAG := -frealloc-lhs
   CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC -DDISABLE_QP -DOCTID
   AUTOTARGETARCH := $(ARCHFLAG)$(WESARCH)
-  AUTOTARGETARCH += -mtune=$(IVYARCH) -mtune=$(HASARCH) -mtune=$(BROARCH) -mtune=$(SKYARCH) -mtune=$(ROMARCH)
+  AUTOTARGETARCH += -mtune=$(HASARCH) -mtune=$(BROARCH) -mtune=$(SKYARCH) -mtune=$(ROMARCH)
   HOSTARCH := $(ARCHFLAG)native
 else ifeq "$(COMPFAMILY)" "pgi"
   # PGI flags
@@ -339,7 +333,6 @@ else ifeq "$(COMPFAMILY)" "pgi"
   ARCHFLAG := -tp=
   ARCHFLAGROM := -tp=
   WESARCH := nehalem
-  IVYARCH := sandybridge
   HASARCH := haswell
   BROARCH := haswell
   SKYARCH := haswell
@@ -355,7 +348,6 @@ else ifeq "$(COMPFAMILY)" "pgi"
 endif
 
 WESOPT  := $(ARCHFLAG)$(WESARCH) $(ALIGN32)
-IVYOPT  := $(ARCHFLAG)$(IVYARCH) $(ALIGN32)
 HASOPT  := $(ARCHFLAG)$(HASARCH) $(ALIGN32)
 BROOPT  := $(ARCHFLAG)$(WESARCH) -ax$(BROARCH) -fma $(ALIGN32)
 SKYOPT  := $(ARCHFLAG)$(SKYARCH) $(ALIGN64) -qopt-zmm-usage=high
