@@ -23,17 +23,16 @@ FCADD += -DUSE_INTRINSIC_FINDLOC #-DPROFILE_ON
 
 .PHONY: all
 all: debug_gfr
-all: gfr_westmere
+all: gfr_rome
 #all: gfr
 .PHONY: all-nodes
 all-nodes: debug_gfr
-all-nodes: gfr_westmere
 all-nodes: gfr_rome
 all-nodes: gfr
 
 .PHONY: rebuild
 rebuild: rebuild-debug
-rebuild: rebuild-westmere
+rebuild: rebuild-rome
 
 .PHONY: optimize
 optimize: opt
@@ -44,7 +43,6 @@ debug_gfr: debug
 gfr: optimize
 
 gfr_rome: rome
-gfr_westmere: westmere
 gfr_gpu: gpu
 
 # ROME
@@ -73,33 +71,6 @@ rom: rome
 rebuild-rom: rebuild-rome
 .PHONY: clean-rom
 clean-rom: clean-rome
-
-# WESTMERE
-
-.PHONY: westmere
-westmere: BDIR := optimize_westmere
-westmere: EXEF := gfr_westmere
-westmere: TRGT := westmere
-westmere: build
-
-.PHONY: rebuild-westmere
-rebuild-westmere: BDIR := optimize_westmere
-rebuild-westmere: EXEF := gfr_westmere
-rebuild-westmere: TRGT := westmere
-rebuild-westmere: clean-build
-rebuild-westmere: westmere
-
-.PHONY: clean-westmere
-clean-westmere: BDIR := optimize_westmere
-clean-westmere: EXEF := gfr_westmere
-clean-westmere: clean-build
-
-.PHONY: wes
-wes: westmere
-.PHONY: rebuild-wes
-rebuild-wes: rebuild-westmere
-.PHONY: clean-wes
-clean-wes: clean-westmere
 
 # GPU COMMON FLAGS
 
@@ -290,8 +261,6 @@ clean:
 	               "BUILDDIR=debug" clean
 	make -f slv.mk "EXECUTABLE=gfr" \
 	               "BUILDDIR=optimize" clean
-	make -f slv.mk "EXECUTABLE=gfr_westmere" \
-	               "BUILDDIR=optimize_westmere" clean
 	make -f slv.mk "EXECUTABLE=gfr_rome" \
 	               "BUILDDIR=optimize_rome" clean
 	make -f slv.mk "EXECUTABLE=gfr_gpu" \

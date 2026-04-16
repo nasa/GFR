@@ -190,16 +190,8 @@ opt-host: optimize
 rome: OPTIM = $(OPTFLAG) $(ROMOPT)
 rome: optimize
 
-.PHONY: westmere
-ifeq "$(COMPFAMILY)" "pgi"
-#westmere: ADDFLAGS += -pg
-endif
-westmere: OPTIM = $(OPTFLAG) $(WESOPT)
-#westmere: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
-westmere: optimize
-
 .PHONY: gpu
-gpu: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
+gpu: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(ROMARCH)
 gpu: optimize
 
 .PHONY: optimize
@@ -265,9 +257,7 @@ ifeq "$(COMPFAMILY)" "intel"
  #FPEALL  := -fpe-all=0
   MODFLAG := -module
   OMPFLAG := -qopenmp
-  ARCHFLAG := -x
-  ARCHFLAGROM := -march=
-  WESARCH := SSE4.2
+  ARCHFLAG := -march=
   ROMARCH := core-avx2 -fma
   FPPFLAG := -fpp
   IPFLAG  := -ip
@@ -281,15 +271,13 @@ ifeq "$(COMPFAMILY)" "intel"
  #CMPFLAGS := -DSPECIAL_FOR_INTEL
   CMPFLAGS := -DSPECIAL_FOR_INTEL -DDISABLE_QP -qmkl=sequential -DOCTID
  #CPMFLAGS += -guide -parallel -qopt-report=5 -qopt-report-file=stderr
-  AUTOTARGETARCH := $(ARCHFLAG)$(WESARCH) $(ALIGN32)
-  HOSTARCH := $(ARCHFLAG)Host
+  AUTOTARGETARCH := -xHost
+  HOSTARCH := -xHost
 else ifeq "$(COMPFAMILY)" "gcc"
   # GCC flags
   MODFLAG := -J
   OMPFLAG := -fopenmp
   ARCHFLAG := -march=
-  ARCHFLAGROM := -march=
-  WESARCH := westmere
   ROMARCH := znver2
   FPPFLAG := -cpp
   OPTFLAG := -O3
@@ -297,7 +285,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
   TRACEFLAG := -fbacktrace
   REALLOCFLAG := -frealloc-lhs
   CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC -DDISABLE_QP -DOCTID
-  AUTOTARGETARCH := $(ARCHFLAG)$(WESARCH)
+  AUTOTARGETARCH := $(ARCHFLAG)native
   AUTOTARGETARCH += -mtune=$(ROMARCH)
   HOSTARCH := $(ARCHFLAG)native
 else ifeq "$(COMPFAMILY)" "pgi"
@@ -305,8 +293,6 @@ else ifeq "$(COMPFAMILY)" "pgi"
   MODFLAG := -module
   OMPFLAG := -mp
   ARCHFLAG := -tp=
-  ARCHFLAGROM := -tp=
-  WESARCH := nehalem
   ROMARCH := zen
   FPPFLAG := -Mpreprocess
   OPTFLAG := -O3
@@ -314,11 +300,10 @@ else ifeq "$(COMPFAMILY)" "pgi"
   TRACEFLAG := #-traceback
   REALLOCFLAG := -Mallocatable=03
   CMPFLAGS := -DSPECIAL_FOR_PGI -DDISABLE_QP -DDISABLE_DTIO -Mbackslash
-  AUTOTARGETARCH := -tp=$(WESARCH)
+  AUTOTARGETARCH := -tp=$(ROMARCH)
   HOSTARCH :=
 endif
 
-WESOPT  := $(ARCHFLAG)$(WESARCH) $(ALIGN32)
-ROMOPT  := $(ARCHFLAGROM)$(ROMARCH)
+ROMOPT  := $(ARCHFLAG)$(ROMARCH)
 
 include dep.mk
