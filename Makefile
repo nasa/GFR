@@ -28,7 +28,6 @@ all: gfr_westmere
 .PHONY: all-nodes
 all-nodes: debug_gfr
 all-nodes: gfr_westmere
-all-nodes: gfr_skylake
 all-nodes: gfr_rome
 all-nodes: gfr
 
@@ -45,7 +44,6 @@ debug_gfr: debug
 gfr: optimize
 
 gfr_rome: rome
-gfr_skylake: skylake
 gfr_westmere: westmere
 gfr_gpu: gpu
 
@@ -75,33 +73,6 @@ rom: rome
 rebuild-rom: rebuild-rome
 .PHONY: clean-rom
 clean-rom: clean-rome
-
-# SKYLAKE
-
-.PHONY: skylake
-skylake: BDIR := optimize_skylake
-skylake: EXEF := gfr_skylake
-skylake: TRGT := skylake
-skylake: build
-
-.PHONY: rebuild-skylake
-rebuild-skylake: BDIR := optimize_skylake
-rebuild-skylake: EXEF := gfr_skylake
-rebuild-skylake: TRGT := skylake
-rebuild-skylake: clean-build
-rebuild-skylake: skylake
-
-.PHONY: clean-skylake
-clean-skylake: BDIR := optimize_skylake
-clean-skylake: EXEF := gfr_skylake
-clean-skylake: clean-build
-
-.PHONY: sky
-sky: skylake
-.PHONY: rebuild-sky
-rebuild-sky: rebuild-skylake
-.PHONY: clean-sky
-clean-sky: clean-skylake
 
 # WESTMERE
 
@@ -321,8 +292,6 @@ clean:
 	               "BUILDDIR=optimize" clean
 	make -f slv.mk "EXECUTABLE=gfr_westmere" \
 	               "BUILDDIR=optimize_westmere" clean
-	make -f slv.mk "EXECUTABLE=gfr_skylake" \
-	               "BUILDDIR=optimize_skylake" clean
 	make -f slv.mk "EXECUTABLE=gfr_rome" \
 	               "BUILDDIR=optimize_rome" clean
 	make -f slv.mk "EXECUTABLE=gfr_gpu" \
