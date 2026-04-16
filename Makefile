@@ -28,7 +28,6 @@ all: gfr_westmere
 .PHONY: all-nodes
 all-nodes: debug_gfr
 all-nodes: gfr_westmere
-all-nodes: gfr_merope
 all-nodes: gfr_sandybridge
 all-nodes: gfr_ivybridge
 all-nodes: gfr_broadwell
@@ -55,7 +54,6 @@ gfr_haswell: haswell
 gfr_ivybridge: ivybridge
 gfr_sandybridge: sandybridge
 gfr_westmere: westmere
-gfr_merope: merope
 gfr_gpu: gpu
 
 # ROME
@@ -257,36 +255,6 @@ rebuild-wes: rebuild-westmere
 .PHONY: clean-wes
 clean-wes: clean-westmere
 
-# MEROPE
-
-.PHONY: merope
-merope: BDIR := optimize_merope
-merope: EXEF := gfr_merope
-merope: TRGT := merope
-merope: FCADD += -DDISABLE_CHECK_FOR_BAD_NUMBER
-merope: FCADD += -DPROFILE_ON
-#merope: FCADD += -pg
-merope: build
-
-.PHONY: rebuild-merope
-rebuild-merope: BDIR := optimize_merope
-rebuild-merope: EXEF := gfr_merope
-rebuild-merope: TRGT := merope
-rebuild-merope: clean-build
-rebuild-merope: merope
-
-.PHONY: clean-merope
-clean-merope: BDIR := optimize_merope
-clean-merope: EXEF := gfr_merope
-clean-merope: clean-build
-
-.PHONY: mer
-mer: merope
-.PHONY: rebuild-mer
-rebuild-mer: rebuild-merope
-.PHONY: clean-mer
-clean-mer: clean-merope
-
 # GPU COMMON FLAGS
 
 #FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo,cc35 -Minfo=accel
@@ -480,8 +448,6 @@ clean:
 	               "BUILDDIR=debug" clean
 	make -f slv.mk "EXECUTABLE=gfr" \
 	               "BUILDDIR=optimize" clean
-	make -f slv.mk "EXECUTABLE=gfr_merope" \
-	               "BUILDDIR=optimize_merope" clean
 	make -f slv.mk "EXECUTABLE=gfr_westmere" \
 	               "BUILDDIR=optimize_westmere" clean
 	make -f slv.mk "EXECUTABLE=gfr_sandybridge" \
