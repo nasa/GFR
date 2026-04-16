@@ -206,10 +206,6 @@ haswell: optimize
 ivybridge: OPTIM = $(OPTFLAG) $(IVYOPT)
 ivybridge: optimize
 
-.PHONY: sandybridge
-sandybridge: OPTIM = $(OPTFLAG) $(SANOPT)
-sandybridge: optimize
-
 .PHONY: westmere
 ifeq "$(COMPFAMILY)" "pgi"
 #westmere: ADDFLAGS += -pg
@@ -292,7 +288,6 @@ ifeq "$(COMPFAMILY)" "intel"
   ARCHFLAG := -x
   ARCHFLAGROM := -march=
   WESARCH := SSE4.2
-  SANARCH := AVX
   IVYARCH := CORE-AVX-I
   HASARCH := CORE-AVX2
   BROARCH := CORE-AVX2
@@ -314,7 +309,7 @@ ifeq "$(COMPFAMILY)" "intel"
  #CMPFLAGS := -DSPECIAL_FOR_INTEL
   CMPFLAGS := -DSPECIAL_FOR_INTEL -DDISABLE_QP -qmkl=sequential -DOCTID
  #CPMFLAGS += -guide -parallel -qopt-report=5 -qopt-report-file=stderr
-  AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH) -ax$(SKYARCH),$(HASARCH),$(IVYARCH) $(ALIGN32)
+  AUTOTARGETARCH := $(ARCHFLAG)$(WESARCH) -ax$(SKYARCH),$(HASARCH),$(IVYARCH) $(ALIGN32)
   HOSTARCH := $(ARCHFLAG)Host
 else ifeq "$(COMPFAMILY)" "gcc"
   # GCC flags
@@ -323,7 +318,6 @@ else ifeq "$(COMPFAMILY)" "gcc"
   ARCHFLAG := -march=
   ARCHFLAGROM := -march=
   WESARCH := westmere
-  SANARCH := sandybridge
   IVYARCH := ivybridge
   HASARCH := haswell
   BROARCH := broadwell
@@ -335,7 +329,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
   TRACEFLAG := -fbacktrace
   REALLOCFLAG := -frealloc-lhs
   CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC -DDISABLE_QP -DOCTID
-  AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH)
+  AUTOTARGETARCH := $(ARCHFLAG)$(WESARCH)
   AUTOTARGETARCH += -mtune=$(IVYARCH) -mtune=$(HASARCH) -mtune=$(BROARCH) -mtune=$(SKYARCH) -mtune=$(ROMARCH)
   HOSTARCH := $(ARCHFLAG)native
 else ifeq "$(COMPFAMILY)" "pgi"
@@ -345,7 +339,6 @@ else ifeq "$(COMPFAMILY)" "pgi"
   ARCHFLAG := -tp=
   ARCHFLAGROM := -tp=
   WESARCH := nehalem
-  SANARCH := sandybridge
   IVYARCH := sandybridge
   HASARCH := haswell
   BROARCH := haswell
@@ -357,12 +350,11 @@ else ifeq "$(COMPFAMILY)" "pgi"
   TRACEFLAG := #-traceback
   REALLOCFLAG := -Mallocatable=03
   CMPFLAGS := -DSPECIAL_FOR_PGI -DDISABLE_QP -DDISABLE_DTIO -Mbackslash
-  AUTOTARGETARCH := -tp=$(SANARCH),$(HASARCH)
+  AUTOTARGETARCH := -tp=$(WESARCH),$(HASARCH)
   HOSTARCH :=
 endif
 
 WESOPT  := $(ARCHFLAG)$(WESARCH) $(ALIGN32)
-SANOPT  := $(ARCHFLAG)$(SANARCH) $(ALIGN32)
 IVYOPT  := $(ARCHFLAG)$(IVYARCH) $(ALIGN32)
 HASOPT  := $(ARCHFLAG)$(HASARCH) $(ALIGN32)
 BROOPT  := $(ARCHFLAG)$(WESARCH) -ax$(BROARCH) -fma $(ALIGN32)

@@ -28,7 +28,6 @@ all: gfr_westmere
 .PHONY: all-nodes
 all-nodes: debug_gfr
 all-nodes: gfr_westmere
-all-nodes: gfr_sandybridge
 all-nodes: gfr_ivybridge
 all-nodes: gfr_broadwell
 all-nodes: gfr_skylake
@@ -52,7 +51,6 @@ gfr_skylake: skylake
 gfr_broadwell: broadwell
 gfr_haswell: haswell
 gfr_ivybridge: ivybridge
-gfr_sandybridge: sandybridge
 gfr_westmere: westmere
 gfr_gpu: gpu
 
@@ -195,38 +193,6 @@ ivy: ivybridge
 rebuild-ivy: rebuild-ivybridge
 .PHONY: clean-ivy
 clean-ivy: clean-ivybridge
-
-# SANDY BRIDGE
-
-.PHONY: sandy_bridge
-sandy_bridge: sandybridge
-.PHONY: sandy-bridge
-sandy-bridge: sandybridge
-
-.PHONY: sandybridge
-sandybridge: BDIR := optimize_sandybridge
-sandybridge: EXEF := gfr_sandybridge
-sandybridge: TRGT := sandybridge
-sandybridge: build
-
-.PHONY: rebuild-sandybridge
-rebuild-sandybridge: BDIR := optimize_sandybridge
-rebuild-sandybridge: EXEF := gfr_sandybridge
-rebuild-sandybridge: TRGT := sandybridge
-rebuild-sandybridge: clean-build
-rebuild-sandybridge: sandybridge
-
-.PHONY: clean-sandybridge
-clean-sandybridge: BDIR := optimize_sandybridge
-clean-sandybridge: EXEF := gfr_sandybridge
-clean-sandybridge: clean-build
-
-.PHONY: san
-san: sandybridge
-.PHONY: rebuild-san
-rebuild-san: rebuild-sandybridge
-.PHONY: clean-san
-clean-san: clean-sandybridge
 
 # WESTMERE
 
@@ -450,8 +416,6 @@ clean:
 	               "BUILDDIR=optimize" clean
 	make -f slv.mk "EXECUTABLE=gfr_westmere" \
 	               "BUILDDIR=optimize_westmere" clean
-	make -f slv.mk "EXECUTABLE=gfr_sandybridge" \
-	               "BUILDDIR=optimize_sandybridge" clean
 	make -f slv.mk "EXECUTABLE=gfr_ivybridge" \
 	               "BUILDDIR=optimize_ivybridge" clean
 	make -f slv.mk "EXECUTABLE=gfr_haswell" \
