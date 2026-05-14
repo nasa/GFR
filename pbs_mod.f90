@@ -64,7 +64,7 @@ continue
   current_wtl = 0_pbs_int
   current_wtime = zero
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     !
     if (pbs_mod_needs_initializing) then
       call initialize_pbs_mod(walltime_expiring)
