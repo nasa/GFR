@@ -172,7 +172,7 @@ subroutine spatial_ave_channel_flow()
   !
 continue
   !
-  call spatial_ave_z_planes(called_from_channel_mod=true)
+  call spatial_ave_z_planes_with_constant_y(called_from_channel_mod=true)
   !
   call spatial_ave_x_and_z_planes(called_from_channel_mod=true)
   !
@@ -477,7 +477,7 @@ end subroutine spatial_ave_x_and_z_planes
 !
 !###############################################################################
 !
-subroutine spatial_ave_z_planes(called_from_channel_mod)
+subroutine spatial_ave_z_planes_with_constant_y(called_from_channel_mod)
   !
   !.. Use Statements ..
   use geomvar_mod, only : n_solpts,xyz
@@ -526,7 +526,7 @@ subroutine spatial_ave_z_planes(called_from_channel_mod)
   real(wp), allocatable :: aux_sem_data(:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "spatial_ave_z_planes"
+  character(len=*), parameter :: pname = "spatial_ave_z_planes_with_constant_y"
   !
 continue
   !
@@ -1078,6 +1078,678 @@ continue
                           '"Cf_Bulk",',/, &
                           '"Cf_CL"',/, &
               'ZONE T="Axial Profile", I=',i0,', DATAPACKING=POINT')
+  !
+end subroutine spatial_ave_z_planes_with_constant_y
+!
+!###############################################################################
+!
+subroutine spatial_ave_z_planes()
+  !
+  !.. Use Statements ..
+  use geomvar_mod, only : n_solpts,xyz
+  use flowvar_mod, only : uavesp
+  use ovar,        only : itcur,time,time_ref,time_scaling_factor
+  use ovar,        only : ave_start_time,output_time_averaging
+  use ovar,        only : grid_scaling_factor
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,m,n,nj,ierr,io,ia1,ia2,ip
+  integer  :: nvar,ny,nx,nz,nix
+  real(wp) :: out_time,rnum,xmin,xmax,zmin,zmax
+  !
+  integer  :: nvx,nvxvx,nvy,nvyvy,nvz,nvzvz,nvxvy,nrho,nt
+  !
+  character(len=50)  :: varname
+  character(len=100) :: avefile
+  character(len=100) :: axialfile
+  character(len=100) :: axfullfile
+  character(len=100) :: proffile
+  character(len=100) :: auxfile
+  !
+  !.. Local Arrays ..
+  real(wp) :: x_vals(1:10000)
+  real(wp) :: z_vals(1:10000)
+  real(wp) :: var_dim(1:size(uavesp,dim=2))
+  !
+  character(len=50) :: varnames(1:size(uavesp,dim=2))
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: x_ptr(:)
+  integer,  allocatable :: y_ptr(:)
+  integer,  allocatable :: z_ptr(:)
+  integer,  allocatable :: ix_ptr(:)
+  integer,  allocatable :: xy_counts(:,:)
+  real(wp), allocatable :: j_vals(:)
+  real(wp), allocatable :: y_vals(:,:)
+  real(wp), allocatable :: xy_data(:,:,:)
+  real(wp), allocatable :: xy_prof(:,:,:)
+  real(wp), allocatable :: xy_dudy(:,:)
+  real(wp), allocatable :: dudy(:)
+  real(wp), allocatable :: aux_data(:,:)
+  real(wp), allocatable :: sem_profile(:,:)
+  real(wp), allocatable :: aux_sem_data(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "spatial_ave_z_planes"
+  !
+continue
+  !
+  nvar = size(uavesp,dim=2)
+  !
+  !#############################################################################
+  !
+  ! Get the variable names
+  !
+  call get_variable_names(varnames,var_dim,nvx,nvxvx,nvy,nvyvy, &
+                          nvz,nvzvz,nvxvy,nrho,nt)
+  !
+  !#############################################################################
+  !
+  ! Get du/dy
+  !
+  dudy = init_array(n_solpts,zero) ! F2003 AUTO-REALLOC
+  !
+  call get_dudy(uavesp(:,nvx),dudy)
+  !
+  !#############################################################################
+  !
+  ! Find the unique z coordinates
+  !
+  z_ptr = init_array(n_solpts,0) ! F2003 AUTO-REALLOC
+  !
+  z_vals(:) = zero
+  !
+  nz = 1
+  z_vals(1) = xyz(3,1)
+  z_ptr(1) = 1
+  !
+  find_unique_z_loc_loop: &
+  do n = 2,n_solpts
+    !
+    do k = 1,nz
+      if (abs(z_vals(k)-xyz(3,n)) <= match_tolerance) then
+        z_ptr(n) = k
+        cycle find_unique_z_loc_loop
+      end if
+    end do
+    !
+    nz = nz + 1
+    z_vals(nz) = xyz(3,n)
+    z_ptr(n) = nz
+    !
+  end do find_unique_z_loc_loop
+  !
+  zmin = minval(z_vals(1:nz))
+  zmax = maxval(z_vals(1:nz))
+  !
+  write (iout,300) "z",nz,"z",zmin,"z",zmax
+  !
+  !#############################################################################
+  !
+  ! Find the unique x coordinates
+  !
+  x_ptr = init_array(n_solpts,0) ! F2003 AUTO-REALLOC
+  !
+  x_vals(:) = zero
+  !
+  nx = 1
+  x_vals(1) = xyz(1,1)
+  x_ptr(1) = 1
+  !
+  find_unique_x_loc_loop: &
+  do n = 2,n_solpts
+    !
+    do i = 1,nx
+      if (abs(x_vals(i)-xyz(1,n)) <= match_tolerance) then
+        x_ptr(n) = i
+        cycle find_unique_x_loc_loop
+      end if
+    end do
+    !
+    nx = nx + 1
+    x_vals(nx) = xyz(1,n)
+    x_ptr(n) = nx
+    !
+  end do find_unique_x_loc_loop
+  !
+  xmin = minval(x_vals(1:nx))
+  xmax = maxval(x_vals(1:nx))
+  !
+  write (iout,300) "x",nx,"x",xmin,"x",xmax
+  !
+  !#############################################################################
+  !
+  ! Check to make sure this is a pure structured grid by seeing if the number
+  ! of solution points is evenly divisible by the number of unique x coordinates
+  ! and z coordinates
+  !
+  if (mod(n_solpts,nx*nz) > 0) then
+    write (iout,999) n_solpts, nx, nz
+    return
+  else
+    ny = n_solpts/(nx*nz)
+    write (iout,998) n_solpts,nx,ny,nz
+  end if
+  !
+  !#############################################################################
+  !
+  ! Find the y coordinates for each unique x coordinate
+  !
+  y_ptr = init_array(n_solpts,0)  ! F2003 AUTO-REALLOC
+  y_vals = init_array(ny,nx,zero) ! F2003 AUTO-REALLOC
+  j_vals = init_array(ny,zero)    ! F2003 AUTO-REALLOC
+  xy_counts = init_array(ny,nx,0)  ! F2003 AUTO-REALLOC
+  !
+  do i = 1,nx
+    !
+    nj = 0
+    j_vals(:) = zero
+    !
+    find_unique_y_loc_loop: &
+    do n = 1,n_solpts
+      !
+      if (x_ptr(n) /= i) cycle
+      !
+      if (nj == 0) then
+        !
+        nj = 1
+        y_ptr(n) = nj
+        j_vals(nj) = xyz(2,n)
+        y_vals(nj,i) = xyz(2,n)
+        xy_counts(nj,i) = xy_counts(nj,i) + 1
+        !
+      else
+        !
+        do j = 1,nj
+          if (abs(j_vals(j)-xyz(2,n)) <= match_tolerance) then
+            y_ptr(n) = j
+            xy_counts(j,i) = xy_counts(j,i) + 1
+            cycle find_unique_y_loc_loop
+          end if
+        end do
+        !
+        nj = nj + 1
+        y_ptr(n) = nj
+        j_vals(nj) = xyz(2,n)
+        y_vals(nj,i) = xyz(2,n)
+        xy_counts(nj,i) = xy_counts(nj,i) + 1
+        !
+      end if
+      !
+    end do find_unique_y_loc_loop
+    !
+  end do
+  !
+  write (iout,301) nz,minval(xy_counts),maxval(xy_counts)
+  !
+  !#############################################################################
+  !
+  ! Collect the averaged data into an x-y structured array
+  !
+  xy_data   = init_array(nvar,ny,nx,zero) ! F2003 AUTO-REALLOC
+  xy_counts = init_array(ny,nx,0)         ! F2003 AUTO-REALLOC
+  xy_dudy   = init_array(ny,nx,zero)      ! F2003 AUTO-REALLOC
+  xy_prof   = init_array(13,ny,nx,zero)   ! F2003 AUTO-REALLOC
+  aux_data  = init_array(17,nx,zero)      ! F2003 AUTO-REALLOC
+  !
+  do n = 1,n_solpts
+    !
+    i = x_ptr(n)
+    j = y_ptr(n)
+    !
+    xy_counts(j,i) = xy_counts(j,i) + 1
+    !
+    do m = 1,nvar
+      xy_data(m,j,i) = xy_data(m,j,i) + uavesp(n,m)
+    end do
+    xy_dudy(j,i) = xy_dudy(j,i) + dudy(n)
+    !
+  end do
+  !
+  write (iout,2) minval(xy_counts),maxval(xy_counts)
+  !
+  !#############################################################################
+  !
+  ! Average the data by dividing through by the number of averaged points
+  !
+  do i = 1,nx
+    do j = 1,ny
+      rnum = one / real(xy_counts(j,i),kind=wp)
+      do m = 1,nvar
+        xy_data(m,j,i) = xy_data(m,j,i) * rnum
+      end do
+      xy_dudy(j,i) = xy_dudy(j,i) * rnum
+    end do
+  end do
+  !
+  !#############################################################################
+  !
+  ! Get the spatially averaged profiles at axial locations
+  ! equal to integer multiples of the grid scaling factor
+  !
+  rnum = one/grid_scaling_factor
+  !
+  nix = nint( abs(xmax-xmin)*rnum ) + 1
+  !
+  ix_ptr = init_array(nix,0) ! F2003 AUTO-REALLOC
+  !
+  do n = 1,nix
+    ix_ptr(n) = minloc( abs(abs(x_vals(1:nx)-xmin)*rnum - real(n-1,kind=wp)) , &
+                        dim=1 )
+  end do
+  write (iout,*) "xmin = ",xmin
+  write (iout,*) "xmax = ",xmax
+  write (iout,*) "abs(xmax-xmin)*rnum = ",abs(xmax-xmin)*rnum
+  write (iout,*) "nint(abs(xmax-xmin)*rnum) = ",nint(abs(xmax-xmin)*rnum)
+  do n = 1,nix
+    write (iout,201) n,ix_ptr(n),x_vals(ix_ptr(n)),x_vals(ix_ptr(n))*rnum
+  end do
+  201 format (2x,i2,": x_vals(",i0,") = ",f10.5,2x,f10.5)
+  !
+  !#############################################################################
+  !
+  ! Get the normalized profiles
+  !
+  do i = 1,nx
+    call get_normalized_profile(y_vals(1:ny,i), &
+                                xy_data(nvx  ,1:ny,i), &
+                                xy_data(nvxvx,1:ny,i), &
+                                xy_data(nvy  ,1:ny,i), &
+                                xy_data(nvyvy,1:ny,i), &
+                                xy_data(nvz  ,1:ny,i), &
+                                xy_data(nvzvz,1:ny,i), &
+                                xy_data(nvxvy,1:ny,i), &
+                                xy_data(nrho ,1:ny,i), &
+                                xy_data(nt   ,1:ny,i), &
+                                xy_dudy(1:ny,i), &
+                                xy_prof(:,1:ny,i), &
+                                aux_data(:,i), &
+                                averaging_channel_flow=fals,ix=i)
+  end do
+  !
+  ! Get the SEM profile
+  !
+  call get_sem_profile(sem_profile,aux_sem_data,averaging_channel_flow=fals)
+  !
+  !#############################################################################
+  !
+  ! Output the spatially-averaged time-averaged solution
+  !
+  write (avefile,20) itcur
+  avefile = trim(adjustl(avefile))
+  !
+  open (newunit=io,file=avefile,status="replace",action="write", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,avefile,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  write (axialfile,30) "",itcur
+  axialfile = trim(adjustl(axialfile))
+  !
+  open (newunit=ia1,file=axialfile,status="replace",action="write", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,axialfile,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  write (axfullfile,30) "-full",itcur
+  axfullfile = trim(adjustl(axfullfile))
+  !
+  open (newunit=ia2,file=axfullfile,status="replace",action="write", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,axfullfile,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  write (proffile,40) itcur
+  proffile = trim(adjustl(proffile))
+  !
+  open (newunit=ip,file=proffile,status="replace",action="write", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,proffile,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  write (io,10)
+  write (ia1,31)
+  write (ia2,31)
+  write (ip,41)
+  !
+  do m = 1,nvar
+    !
+    varname = trim(adjustl(varnames(m)))
+    !
+    if (m == nvar) then
+      write (io,11) trim(adjustl(varname))
+      write (ia1,11) trim(adjustl(varname))
+      write (ia2,11) trim(adjustl(varname))
+    else
+      write (io,11) trim(adjustl(varname)),","
+      write (ia1,11) trim(adjustl(varname)),","
+      write (ia2,11) trim(adjustl(varname)),","
+    end if
+    !
+  end do
+  !
+  do i = 1,nx
+    do j = 1,ny
+      do m = 1,nvar
+        xy_data(m,j,i) = xy_data(m,j,i)*var_dim(m)
+      end do
+    end do
+  end do
+  !
+  ! Write the averaged x-y planes file
+  !
+  write (io,12) nx,ny
+  !
+  do j = 1,ny
+    do i = 1,nx
+      write (io,13) x_vals(i)*rnum, &
+                    y_vals(j,i)*rnum, &
+                    (xy_data(m,j,i), m=1,nvar)
+    end do
+  end do
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,avefile,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Write the averaged y-profiles at each axial location equal to
+  ! an integer interval of the channel height
+  !
+  do n = 1,nix
+    !
+    i = ix_ptr(n)
+    !
+    write (ia1,33) nint(x_vals(i)*rnum),ny
+    !
+    do j = 1,ny
+      write (ia1,13) y_vals(j,i)*rnum,(xy_data(m,j,i), m=1,nvar)
+    end do
+    !
+  end do
+  !
+  close (ia1,iostat=ierr,iomsg=error_message)
+  call io_error(pname,axialfile,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Write the averaged y-profiles at every axial location
+  !
+  do i = 1,nx
+    !
+    write (ia2,32) x_vals(i)*rnum,ny
+    !
+    do j = 1,ny
+      write (ia2,13) y_vals(j,i)*rnum,(xy_data(m,j,i), m=1,nvar)
+    end do
+    !
+  end do
+  !
+  close (ia2,iostat=ierr,iomsg=error_message)
+  call io_error(pname,axfullfile,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Write the normalized y-profile at each axial location equal to
+  ! an integer interval of the channel height
+  !
+  do n = 1,nix
+    !
+    i = ix_ptr(n)
+    !
+    write (ip,33) nint(x_vals(i)*rnum),ny
+    write (ip,51) "r_avg",         aux_data(1,i)
+    write (ip,52) "T_avg",         aux_data(2,i)
+    write (ip,53) "visc_avg",      aux_data(3,i)
+    write (ip,53) "dudy_wall",     aux_data(4,i)
+    write (ip,53) "tau_wall",      aux_data(5,i)
+    write (ip,52) "u_CL",          aux_data(6,i)
+    write (ip,52) "u_tau",         aux_data(7,i)
+    write (ip,52) "u_Bulk",        aux_data(8,i)
+    write (ip,53) "dstar",         aux_data(9,i)
+    write (ip,53) "theta",         aux_data(10,i)
+    write (ip,54) "Re_Bulk",  nint(aux_data(11,i))
+    write (ip,54) "Re_dstar", nint(aux_data(12,i))
+    write (ip,54) "Re_theta", nint(aux_data(13,i))
+    write (ip,54) "Re_CL",    nint(aux_data(14,i))
+    write (ip,54) "Re_tau",   nint(aux_data(15,i))
+    write (ip,53) "Cf_Bulk",       aux_data(16,i)
+    write (ip,53) "Cf_CL",         aux_data(17,i)
+    !
+    do j = 1,ny
+      write (ip,13) (xy_prof(m,j,i), m=1,size(xy_prof,dim=1))
+    end do
+    !
+  end do
+  !
+  if (allocated(sem_profile) .and. allocated(aux_sem_data)) then
+    !
+    ! Write the SEM profile
+    !
+    write (ip,34) size(sem_profile,dim=2)
+    write (ip,51) "r_avg",         aux_sem_data(1)
+    write (ip,52) "T_avg",         aux_sem_data(2)
+    write (ip,53) "visc_avg",      aux_sem_data(3)
+    write (ip,53) "dudy_wall",     aux_sem_data(4)
+    write (ip,53) "tau_wall",      aux_sem_data(5)
+    write (ip,52) "u_CL",          aux_sem_data(6)
+    write (ip,52) "u_tau",         aux_sem_data(7)
+    write (ip,52) "u_Bulk",        aux_sem_data(8)
+    write (ip,53) "dstar",         aux_sem_data(9)
+    write (ip,53) "theta",         aux_sem_data(10)
+    write (ip,54) "Re_Bulk",  nint(aux_sem_data(11))
+    write (ip,54) "Re_dstar", nint(aux_sem_data(12))
+    write (ip,54) "Re_theta", nint(aux_sem_data(13))
+    write (ip,54) "Re_CL",    nint(aux_sem_data(14))
+    write (ip,54) "Re_tau",   nint(aux_sem_data(15))
+    write (ip,53) "Cf_Bulk",       aux_sem_data(16)
+    write (ip,53) "Cf_CL",         aux_sem_data(17)
+    !
+    do j = 1,size(sem_profile,dim=2)
+      write (ip,13) (sem_profile(m,j), m=1,size(sem_profile,dim=1))
+    end do
+    !
+  end if
+  !
+  close (ip,iostat=ierr,iomsg=error_message)
+  call io_error(pname,proffile,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  !
+  write (auxfile,50) itcur
+  auxfile = trim(adjustl(auxfile))
+  !
+  open (newunit=io,file=auxfile,status="replace",action="write", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,auxfile,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  write (io,60) nx
+  !
+  do i = 1,nx
+    write (io,13) x_vals(i)*rnum,(aux_data(m,i), m=1,size(aux_data,dim=1))
+  end do
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,auxfile,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  if (size(xy_prof,dim=2) == size(sem_profile,dim=2)) then
+    x_vals(:) = x_vals(:)*rnum
+    call write_profile_errors_file(x_vals,ix_ptr,xy_prof,sem_profile, &
+                                   aux_data,aux_sem_data)
+  end if
+  !
+  !#############################################################################
+  !
+  ! Output the current iteration and how many
+  ! flow-through-times have been averaged
+  !
+  if (mypnum == glb_root) then
+    !
+    out_time = time*time_ref*time_scaling_factor
+    if (output_time_averaging) then
+      out_time = out_time - ave_start_time*time_ref*time_scaling_factor
+    end if
+    !
+    write (iout,21) itcur,out_time
+    !
+  end if
+  !
+  !#############################################################################
+  !
+  if (allocated(x_ptr)) then
+    deallocate ( x_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"x_ptr",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(y_ptr)) then
+    deallocate ( y_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"y_ptr",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(ix_ptr)) then
+    deallocate ( ix_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ix_ptr",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(xy_counts)) then
+    deallocate ( xy_counts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xy_counts",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(xy_data)) then
+    deallocate ( xy_data , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xy_data",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(xy_prof)) then
+    deallocate ( xy_prof , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xy_prof",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(xy_dudy)) then
+    deallocate ( xy_dudy , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xy_dudy",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(dudy)) then
+    deallocate ( dudy , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"dudy",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(aux_data)) then
+    deallocate ( aux_data , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"aux_data",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(sem_profile)) then
+    deallocate ( sem_profile , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sem_profile",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(aux_sem_data)) then
+    deallocate ( aux_sem_data , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"aux_sem_data",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  1 format ("After spatial averaging a channel flow restart file.")
+  2 format (/,"  Points used for averaging: Min = ",i0,/, &
+              "                             Max = ",i0,/)
+  !
+  10 format ('VARIABLES = "X","Y",')
+  11 format ('"',a,'"',:,a)
+  12 format ('ZONE T="Spatial Average", I=',i0,', J=',i0,', DATAPACKING=POINT')
+  13 format (100es14.6)
+  !
+  20 format ("spatial_ave.z-planes.",i0,".dat")
+  21 format (/,2x,"Number of iterations completed = ",i0,/, &
+               2x,"Number of flow-through-times averaged = ",f9.4,/)
+  !
+  30 format ("spatial_ave.axial-locations",a,".",i0,".dat")
+  31 format ('VARIABLES = "Y",')
+  32 format ('ZONE T="Spatial average profile at x =',f6.3, &
+             '", I=',i0,', DATAPACKING=POINT')
+  33 format ('ZONE T="Spatial average profile at x = ',i0, &
+             '", I=',i0,', DATAPACKING=POINT')
+  34 format ('ZONE T="SEM Inflow Profile", I=',i0,', DATAPACKING=POINT')
+  !
+  40 format ("spatial_ave.axial-profiles.",i0,".dat")
+  41 format ('VARIABLES = "y+",',/, &
+             '"y/<greek>d</greek>",',/, &
+             '"u/u<sub>cl</sub>",',/, &
+             '"u+",',/, &
+             '"u<sub>rms</sub>/u<sub><greek>t</greek></sub>",',/, &
+             '"v<sub>rms</sub>/u<sub><greek>t</greek></sub>",',/, &
+             '"w<sub>rms</sub>/u<sub><greek>t</greek></sub>",',/, &
+             '"u<math>\\034</math>v<math>\\034\</math>/', &
+             'u<sub><greek>t</greek></sub><sup>2</sup>",',/, &
+             '"<greek>t</greek><sub>xx</sub>",',/, &
+             '"<greek>t</greek><sub>yy</sub>",',/, &
+             '"<greek>t</greek><sub>zz</sub>",',/, &
+             '"<greek>t</greek><sub>xy</sub>",',/, &
+             '"u"')
+  !
+  50 format ("spatial_ave.aux-data.",i0,".dat")
+  51 format ('AUXDATA ',a,'="',f9.6,'"')
+  52 format ('AUXDATA ',a,'="',f8.3,'"')
+  53 format ('AUXDATA ',a,'="',es14.6,'"')
+  54 format ('AUXDATA ',a,'="',i0,'"')
+  !
+  60 format ('VARIABLES = "x",',/, &
+                         '"r_avg",',/, &
+                         '"T_avg",',/, &
+                         '"visc_avg",',/, &
+                         '"dudy_wall",',/, &
+                         '"tau_wall",',/, &
+                         '"u_CL",',/, &
+                         '"u_tau",',/, &
+                         '"u_Bulk",',/, &
+                         '"dstar",',/, &
+                         '"theta",',/, &
+                         '"Re_Bulk",',/, &
+                         '"Re_dstar",',/, &
+                         '"Re_theta",',/, &
+                         '"Re_CL",',/, &
+                         '"Re_tau",',/, &
+                         '"Cf_Bulk",',/, &
+                         '"Cf_CL"',/, &
+             'ZONE T="Axial Profile", I=',i0,', DATAPACKING=POINT')
+  !
+  132 format ('ZONE T="Spatial average profile at x =',f6.3, &
+              'H", I=',i0,', DATAPACKING=POINT')
+  133 format ('ZONE T="Spatial average profile at x = ',i0, &
+              ' H", I=',i0,', DATAPACKING=POINT')
+  160 format ('VARIABLES = "x/H",',/, &
+                          '"r_avg",',/, &
+                          '"T_avg",',/, &
+                          '"visc_avg",',/, &
+                          '"dudy_wall",',/, &
+                          '"tau_wall",',/, &
+                          '"u_CL",',/, &
+                          '"u_tau",',/, &
+                          '"u_Bulk",',/, &
+                          '"dstar",',/, &
+                          '"theta",',/, &
+                          '"Re_Bulk",',/, &
+                          '"Re_dstar",',/, &
+                          '"Re_theta",',/, &
+                          '"Re_CL",',/, &
+                          '"Re_tau",',/, &
+                          '"Cf_Bulk",',/, &
+                          '"Cf_CL"',/, &
+              'ZONE T="Axial Profile", I=',i0,', DATAPACKING=POINT')
+  !
+  300 format (/,2x,"Number of unique ",a1,"-coordinate locations = ",i0,/, &
+                36x,a1,"-min = ",es22.15,/, &
+                36x,a1,"-max = ",es22.15,/)
+  301 format (/,21x,"Actual number of z-planes = ",i0,/, &
+                2x,"Minimum # of z-planes found for any x-y pair = ",i0,/, &
+                2x,"Maximum # of z-planes found for any x-y pair = ",i0,/)
+  !
+  998 format (/,4x,"n_solpts = ",i0,/, &
+                4x,"      nx = ",i0,/, &
+                4x,"      ny = ",i0,/, &
+                4x,"      nz = ",i0,/)
+  !
+  999 format (/,80("#"),/, &
+              4x,"ERROR ATTEMPTING TO SPATIAL AVERAGE THE Z-PLANE DATA!",/, &
+              4x,"THE GRID DOES NOT APPEAR TO BE TRUE I-J STRUCTURED GRID.",/, &
+              4x,"BECAUSE THE NUMBER OF SOLUTION POINTS IS NOT EVENLY",/, &
+              4x,"DIVISIBLE BY THE NUMBER OF UNIQUE X-COORDINATES AND",/, &
+              4x,"Z-COORDINTES.",/, &
+              8x,"     NUMBER OF SOLUTION POINTS = ",i0,/, &
+              8x,"NUMBER OF UNIQUE X COORDINATES = ",i0,/, &
+              8x,"NUMBER OF UNIQUE Z COORDINATES = ",i0,/, &
+              80("#"),//)
   !
 end subroutine spatial_ave_z_planes
 !
