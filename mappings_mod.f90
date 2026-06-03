@@ -20,7 +20,7 @@ module mappings_mod
   ! ##################################
   !
   public :: get_solution_points
-  public :: mapping
+ !public :: mapping
   !
   type :: mapping_matrices_t
     integer :: min_order = 1
@@ -33,9 +33,6 @@ module mappings_mod
     type(matrix), allocatable :: EdgeDefOrder(:)
     type(matrix), allocatable :: FaceDefOrder(:)
   end type mapping_matrices_t
-  !
-  type(mapping_matrices_t), save, target, allocatable :: mapping(:,:)
-  !
   !
   !
  !logical(lk), parameter :: edge_defined_uses_endpts = fals
@@ -154,9 +151,6 @@ subroutine custom_equidistant_mapping()
   !
   type(geom_family_t) :: elem_family
   !
-  !.. Local Pointers ..
-  type(matrix), pointer :: this_map
-  !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: pts(:)
   real(wp), allocatable :: elem_xyz(:,:)
@@ -164,6 +158,8 @@ subroutine custom_equidistant_mapping()
   real(wp), allocatable :: elem_usp(:,:)
   real(wp), allocatable :: custom_map(:,:)
   real(wp), allocatable :: eqd_xyz(:,:)
+  !
+  type(mapping_matrices_t), allocatable :: mapping(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "custom_equidistant_mapping"
@@ -191,7 +187,7 @@ continue
   ! Allocate the mapping array and the component
   ! arrays MeshOrder, EdgeDefOrder, and FaceDefOrder
   !
-  call create_mapping_array(cell_geom,cell_order,grid)
+  call create_mapping_array(cell_geom,cell_order,grid,mapping)
   !
   ! Get the total number of interior solution points
   !
@@ -283,28 +279,18 @@ continue
     !
     elem_xyz = grid%xyz(1:nr,pts(:)) ! F2003 AUTO-REALLOC
     !
-    !
-    ! Assign a local pointer to the mapping
-    ! matrix as an alias to simplify the code
-    !
-    if (elem_family == Edge_Defined) then
-      this_map => mapping(this_geom,this_order)%EdgeDefOrder(mesh_order)
-    else if (elem_family == Face_Defined) then
-      this_map => mapping(this_geom,this_order)%FaceDefOrder(mesh_order)
-    else
-      this_map => mapping(this_geom,this_order)%MeshOrder(mesh_order)
-    end if
-    !
     ! Create the mapping matrix for this combination of cell geometry and
     ! cell order if the mat component of this_map has not been allocated yet
     ! NOTE: We dont need this now since we are doing a custom mapping, so this
     !       is only done just in case the mapping array is used somewhere
     !       later outside this module. 
     !
-    if (.not.allocated(this_map%mat)) then
+    if (.not.allocated(mapping(this_geom,this_order)% &
+                               MeshOrder(mesh_order)%mat)) then
       !
       ! F2003 AUTO-REALLOC
-      this_map%mat = map_general_mesh_elem_to_solpts(this_geom, &
+      mapping(this_geom,this_order)%MeshOrder(mesh_order)%mat = &
+                      map_general_mesh_elem_to_solpts(this_geom, &
                                                      this_order, &
                                                      mesh_order)
       !
@@ -334,7 +320,9 @@ block
      !if (xmin > -3.45_wp .and. xmax < -3.25_wp .and. &
      !    rmin > 0.88_wp .and. rmax < one) then
         write (36,725) this_cell
-        eqd_xyz = matmul( elem_xyz(:,:) , this_map%mat(:,:) ) ! F03 AUTO-REALLOC
+        eqd_xyz = matmul( elem_xyz(:,:) , &
+                          mapping(this_geom,this_order)% &
+                             MeshOrder(mesh_order)%mat(:,:) ) ! F03 AUTO-REALLOC
         do n = 1,size(eqd_xyz,dim=2)
           x = eqd_xyz(1,n)
           y = eqd_xyz(2,n)
@@ -439,8 +427,6 @@ end block
      !usp(n1:n2,1:nq) = transpose( elem_usp(:,:) )
       !
     end if
-    !
-    if (associated(this_map)) this_map => null()
     !
   end do
   !
@@ -775,10 +761,10 @@ continue
     call alloc_error(pname,"elem_usp",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(mapping)) then
-    deallocate ( mapping , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"mapping",2,__LINE__,__FILE__,ierr,error_message)
-  end if
+ !if (allocated(mapping)) then
+ !  deallocate ( mapping , stat=ierr , errmsg=error_message )
+ !  call alloc_error(pname,"mapping",2,__LINE__,__FILE__,ierr,error_message)
+ !end if
   !
   !$ACC UPDATE DEVICE(xyz)
   if (grid_sol_is_available) then
@@ -837,13 +823,12 @@ subroutine assume_equidistant_mapping()
   !
   type(geom_family_t) :: elem_family
   !
-  !.. Local Pointers ..
-  type(matrix), pointer :: this_map
-  !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: elem_xyz(:,:)
   real(wp), allocatable :: elem_sol(:,:)
   real(wp), allocatable :: elem_usp(:,:)
+  !
+  type(mapping_matrices_t), allocatable :: mapping(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "assume_equidistant_mapping"
@@ -871,7 +856,7 @@ continue
   ! Allocate the mapping array and the component
   ! arrays MeshOrder, EdgeDefOrder, and FaceDefOrder
   !
-  call create_mapping_array(cell_geom,cell_order,grid)
+  call create_mapping_array(cell_geom,cell_order,grid,mapping)
   !
   if (allocated(grid)) then
     check_grid_for_pts = (allocated(grid%elem) .and. allocated(grid%xyz))
@@ -982,30 +967,17 @@ continue
       !
     end if
     !
-    ! Assign a local pointer to the mapping
-    ! matrix as an alias to simplify the code
-    !
-    if (elem_family == Edge_Defined) then
-      write (iout,1) this_cell,"Edge"
-      call stop_gfr(abort,pname,__LINE__,__FILE__)
-      this_map => mapping(this_geom,this_order)%EdgeDefOrder(mesh_order)
-    else if (elem_family == Face_Defined) then
-      write (iout,1) this_cell,"Face"
-      call stop_gfr(abort,pname,__LINE__,__FILE__)
-      this_map => mapping(this_geom,this_order)%FaceDefOrder(mesh_order)
-    else
-      this_map => mapping(this_geom,this_order)%MeshOrder(mesh_order)
-    end if
-    !
     ! Create the mapping matrix for this combination of cell geometry and
     ! cell order if the mat component of this_map has not been allocated yet
     !
-    if (.not.allocated(this_map%mat)) then
+    if (.not.allocated(mapping(this_geom,this_order)% &
+                               MeshOrder(mesh_order)%mat)) then
       !
       ! F2003 AUTO-REALLOC
-      this_map%mat = map_general_mesh_elem_to_solpts(this_geom, &
-                                                     this_order, &
-                                                     mesh_order)
+      mapping(this_geom,this_order)%MeshOrder(mesh_order)%mat = &
+                                    map_general_mesh_elem_to_solpts(this_geom, &
+                                                                   this_order, &
+                                                                   mesh_order)
       !
     end if
     !
@@ -1013,7 +985,9 @@ continue
     ! element provided by the grid file to the coordinates of the solution
     ! points for the cell
     !
-    xyz(1:nr,n1:n2) = matmul( elem_xyz(:,:) , this_map%mat(:,:) )
+    xyz(1:nr,n1:n2) = matmul( elem_xyz(:,:) , &
+                              mapping(this_geom,this_order)% &
+                                      MeshOrder(mesh_order)%mat(:,:) )
     !
 #ifdef OUTPUT_GRID_MAPPINGS
     write (io,*)
@@ -1067,7 +1041,8 @@ continue
       ! USING F2003 AUTO-REALLOCATION
       elem_sol = grid%sol(1:nq, grid%elem(this_cell)%pts(:) )
       ! USING F2003 AUTO-REALLOCATION
-      elem_usp = matmul( elem_sol(:,:), this_map%mat(:,:) )
+      elem_usp = matmul( elem_sol(:,:), mapping(this_geom,this_order)% &
+                                                MeshOrder(mesh_order)%mat(:,:) )
       !
       ! Copy the transposed solution back into usp
       ! NOTE: elem_usp should be sized elem_usp(1:nq,1:np)
@@ -1084,8 +1059,6 @@ continue
      !usp(n1:n2,1:nq) = transpose( elem_usp(:,:) )
       !
     end if
-    !
-    if (associated(this_map)) this_map => null()
     !
   end do
   !
@@ -1258,7 +1231,7 @@ end subroutine exact_TCF_solution_points
 !
 !###############################################################################
 !
-subroutine create_mapping_array(cell_geom,cell_order,grid)
+subroutine create_mapping_array(cell_geom,cell_order,grid,map)
   !
   !.. Use Statements ..
   use geomvar_mod, only : grid_t
@@ -1267,6 +1240,7 @@ subroutine create_mapping_array(cell_geom,cell_order,grid)
   integer,                   intent(in) :: cell_geom(:)
   integer,                   intent(in) :: cell_order(:)
   type(grid_t), allocatable, intent(in) :: grid
+  type(mapping_matrices_t), allocatable, intent(out) :: map(:,:)
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax,ierr
@@ -1276,7 +1250,7 @@ subroutine create_mapping_array(cell_geom,cell_order,grid)
   character(len=200) :: array_name
   !
   !.. Local Pointers ..
-  type(mapping_matrices_t), pointer :: this_map
+! type(mapping_matrices_t), pointer :: this_map
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_mapping_array"
@@ -1287,7 +1261,7 @@ continue
   !
   ! Initialize the local pointers
   !
-  this_map => null()
+ !this_map => null()
   !
   ! Initialize the minimum and maximum cell geometries and orders
   !
@@ -1298,8 +1272,8 @@ continue
   !
   ! Allocate the mapping array
   !
-  allocate ( mapping(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"mapping",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( map(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"map",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Find the minimum and maximum order of the complete and
   ! incomplete (i.e. edge-defined and face-defined families) elements
@@ -1319,22 +1293,28 @@ continue
         ! Assign a local pointer to the mapping
         ! matrix as an alias to simplify the code
         !
-        this_map => mapping(this_geom,this_order)
+       !this_map => mapping(this_geom,this_order)
         !
         if (grid%elem(this_cell)%prop%family == Edge_Defined) then
-          this_map%min_edge_def = min( this_map%min_edge_def, elem_order )
-          this_map%max_edge_def = max( this_map%max_edge_def, elem_order )
+          map(this_geom,this_order)%min_edge_def = &
+                   min( map(this_geom,this_order)%min_edge_def, elem_order )
+          map(this_geom,this_order)%max_edge_def = &
+                   max( map(this_geom,this_order)%max_edge_def, elem_order )
         else if (grid%elem(this_cell)%prop%family == Face_Defined) then
-          this_map%min_face_def = min( this_map%min_face_def, elem_order )
-          this_map%max_face_def = max( this_map%max_face_def, elem_order )
+          map(this_geom,this_order)%min_face_def = &
+                   min( map(this_geom,this_order)%min_face_def, elem_order )
+          map(this_geom,this_order)%max_face_def = &
+                   max( map(this_geom,this_order)%max_face_def, elem_order )
         else
-          this_map%min_order = min( this_map%min_order, elem_order )
-          this_map%max_order = max( this_map%max_order, elem_order )
+          map(this_geom,this_order)%min_order = &
+                      min( map(this_geom,this_order)%min_order, elem_order )
+          map(this_geom,this_order)%max_order = &
+                      max( map(this_geom,this_order)%max_order, elem_order )
         end if
         !
         ! Remove the association of the local pointer before continuing
         !
-        if (associated(this_map)) this_map => null()
+       !if (associated(this_map)) this_map => null()
         !
       end do
       !
@@ -1345,41 +1325,41 @@ continue
   ! Allocate the MeshOrder, EdgeDefOrder, and FaceDefOrder components
   ! of the mapping array as needed
   !
-  do this_geom = lbound(mapping,dim=1),ubound(mapping,dim=1)
-    do this_order = lbound(mapping,dim=2),ubound(mapping,dim=2)
+  do this_geom = lbound(map,dim=1),ubound(map,dim=1)
+    do this_order = lbound(map,dim=2),ubound(map,dim=2)
       !
       ! Assign a local pointer to the mapping
       ! matrix as an alias to simplify the code
       !
-      this_map => mapping(this_geom,this_order)
+     !this_map => mapping(this_geom,this_order)
       !
-      omin = this_map%min_order
-      omax = this_map%max_order
+      omin = map(this_geom,this_order)%min_order
+      omax = map(this_geom,this_order)%max_order
       !
       if (all([omin,omax] > 0)) then
-        allocate ( this_map%MeshOrder(omin:omax) , &
+        allocate ( map(this_geom,this_order)%MeshOrder(omin:omax) , &
                    stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"MeshOrder"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message)
       end if
       !
-      omin = this_map%min_edge_def
-      omax = this_map%max_edge_def
+      omin = map(this_geom,this_order)%min_edge_def
+      omax = map(this_geom,this_order)%max_edge_def
       !
       if (all([omin,omax] > 0)) then
-        allocate ( this_map%EdgeDefOrder(omin:omax) , &
+        allocate ( map(this_geom,this_order)%EdgeDefOrder(omin:omax) , &
                    stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"EdgeDefOrder"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message)
       end if
       !
-      omin = this_map%min_face_def
-      omax = this_map%max_face_def
+      omin = map(this_geom,this_order)%min_face_def
+      omax = map(this_geom,this_order)%max_face_def
       !
       if (all([omin,omax] > 0)) then
-        allocate ( this_map%FaceDefOrder(omin:omax) , &
+        allocate ( map(this_geom,this_order)%FaceDefOrder(omin:omax) , &
                    stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"FaceDefOrder"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
@@ -1388,7 +1368,7 @@ continue
       !
       ! Remove the association of the local pointer before continuing
       !
-      if (associated(this_map)) this_map => null()
+     !if (associated(this_map)) this_map => null()
       !
     end do
   end do
@@ -1396,7 +1376,7 @@ continue
   ! Just to be sure, make sure to remove any association of
   ! the local pointer before leaving
   !
-  if (associated(this_map)) this_map => null()
+ !if (associated(this_map)) this_map => null()
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -3257,7 +3237,10 @@ end function get_solpts_hexa
 !
 !###############################################################################
 !
-subroutine move_mapping_to_device()
+subroutine move_mapping_to_device(mapping)
+  !
+  !.. Formal Arguments ..
+  type(mapping_matrices_t), allocatable, intent(inout) :: mapping(:,:)
   !
   !.. Local Scalars ..
   integer :: i,i1,i2,j,j1,j2,k,k1,k2,m1,m2,n1,n2
