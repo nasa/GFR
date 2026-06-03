@@ -7,6 +7,7 @@ module octtree_mod
   ! #ifdef compiler derectives:
   !
   ! OCTID             Store a unique id in each octnode (useful for debugging).
+  !                   OCTID IS NOW PERMANENT
   ! DEBUG_OCTDEALLOC  Print debug info while deallocating memory.
   ! DEBUG_OCTFILL     Print debug info while filling the octree.
   ! DEBUG_OCTFIND     Print debug info while finding a point from the octtree.
@@ -418,7 +419,6 @@ continue
 #endif
   !
 #ifdef DEBUG_OCTFIND
-#ifdef OCTID
   !-DEBUG_BEG:
   if (associated(containing_octnode)) then
     write (iout,10) "Containing",containing_octnode%octid
@@ -436,7 +436,6 @@ continue
     write (iout,13) "Best"
   end if
   !-DEBUG_END:
-#endif
 #endif
   !
   if (allocated(best_ixyz)) then
