@@ -19,8 +19,6 @@ ARCH = $(shell uname -m)
 debug: FCADD += -DPROFILE_ON
 rebuild-debug: FCADD += -DPROFILE_ON
 
-FCADD += -DUSE_INTRINSIC_FINDLOC #-DPROFILE_ON
-
 .PHONY: all
 all: debug_gfr
 all: gfr_rome

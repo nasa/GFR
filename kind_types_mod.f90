@@ -1475,23 +1475,6 @@ module module_kind_types
 #endif
   end interface random
   !
-  ! From Functions/findloc.f90
-  !
-#ifndef USE_INTRINSIC_FINDLOC
-  private :: findloc_i4,recursive_findloc_i4
-  private :: findloc_i8,recursive_findloc_i8
-  private :: findloc_r4,recursive_findloc_r4
-  private :: findloc_r8,recursive_findloc_r8
-  !
-  interface findloc
-    module procedure findloc_i4,recursive_findloc_i4, &
-                     findloc_i8,recursive_findloc_i8, &
-                     findloc_r4,recursive_findloc_r4, &
-                     findloc_r8,recursive_findloc_r8
-
-  end interface findloc
-#endif
-  !
   ! From Functions/matrix_ops.f90
   !
   private :: identity_matrix_dim_SP,identity_matrix_mat_SP
@@ -2599,9 +2582,6 @@ include "Functions/norms.f90"
 include "Functions/reciprocal.f90"
 #include "Functions/matrix_ops.f90"
 include "Functions/random.f90"
-#ifndef USE_INTRINSIC_FINDLOC
-include "Functions/findloc.f90"
-#endif
 include "Functions/face_normal.f90"
 include "Functions/jacobians.f90"
 include "Functions/reverse_metrics.f90"
