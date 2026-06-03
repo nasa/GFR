@@ -269,7 +269,7 @@ ifeq "$(COMPFAMILY)" "intel"
   TRACEFLAG := -traceback
   REALLOCFLAG := -assume realloc_lhs
  #CMPFLAGS := -DSPECIAL_FOR_INTEL
-  CMPFLAGS := -DSPECIAL_FOR_INTEL -DDISABLE_QP -qmkl=sequential -DOCTID
+  CMPFLAGS := -DSPECIAL_FOR_INTEL -DDISABLE_QP -qmkl=sequential
  #CPMFLAGS += -guide -parallel -qopt-report=5 -qopt-report-file=stderr
   AUTOTARGETARCH := -xHost
   HOSTARCH := -xHost
@@ -284,7 +284,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
   DBGFLAG := -fcheck=all -Wall -Wextra -Wuninitialized
   TRACEFLAG := -fbacktrace
   REALLOCFLAG := -frealloc-lhs
-  CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC -DDISABLE_QP -DOCTID
+  CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC -DDISABLE_QP
   AUTOTARGETARCH := $(ARCHFLAG)native
   AUTOTARGETARCH += -mtune=$(ROMARCH)
   HOSTARCH := $(ARCHFLAG)native

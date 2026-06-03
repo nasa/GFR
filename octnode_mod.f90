@@ -8,6 +8,7 @@ module octnode_mod
   ! #ifdef compiler derectives:
   !
   ! OCTID             Store a unique id in each octnode (useful for debugging).
+  !                   OCTID IS NOW PERMANENT
   ! DEBUG_OCTDEALLOC  Print debug info while deallocating memory.
   ! DEBUG_OCTFILL     Print debug info while filling the octree.
   ! DEBUG_OCTFIND     Print debug info while finding a point from the octtree.
@@ -45,9 +46,7 @@ module octnode_mod
   ! Note: child is a pointer because not all compilers support allocatable
   !       recursive components yet.
   type, public :: octnode_type
-#ifdef OCTID
     integer                         :: octid = -1
-#endif
     type(octnode_type), pointer     :: parent => null()
     type(octnode_type), pointer     :: child(:) => null()
     real(wp),           allocatable :: bbox(:,:)
@@ -117,10 +116,8 @@ continue
 #ifdef DEBUG_OCTDEALLOC
   write (iout,*) "DEBUG[octnode_dealloc] Deallocating octnode components."
   flush (iout)
-#ifdef OCTID
   write (iout,*) "DEBUG[octnode_dealloc] octid = ",octnode%octid
   flush (iout)
-#endif
 #endif
   !-DEBUG_END:
   !
@@ -196,11 +193,9 @@ continue
   !
   octroot%totoctnode = octroot%totoctnode + 1
   !
-#ifdef OCTID
-  ! If tracking octnode IDs then assign one.
+  ! Assign a new octnode ID for tracking
   !
   octnode%octid = octroot%totoctnode
-#endif
   !
   ! Associate the parent component to the parent arg or else null.
   !
@@ -262,11 +257,7 @@ continue
   !-DEBUG_BEG:
 #ifdef DEBUG_OCTFILL
   write (iout,10) associated(octnode%child), allocated(octnode%ixyzdata), &
-                  octnode%nxyzdata, octroot%maxoctdata
-#ifdef OCTID
-  write (iout,11) octnode%octid
-#endif
-  write (iout,12)
+                  octnode%nxyzdata, octroot%maxoctdata, octnode%octid
   flush (iout)
 #endif
   !-DEBUG_END:
@@ -302,10 +293,8 @@ continue
       !
       !-DEBUG_BEG:
 #ifdef DEBUG_OCTFILL
-#ifdef OCTID
       write (iout,14) octnode%octid, n, octnode%child(n)%octid
       flush (iout)
-#endif
 #endif
       !-DEBUG_END:
       !
@@ -343,10 +332,8 @@ continue
       !
       !-DEBUG_BEG:
 #ifdef DEBUG_OCTFILL
-#ifdef OCTID
       write (iout,15) octnode%octid
       flush (iout)
-#endif
 #endif
       !-DEBUG_END:
       !
@@ -375,9 +362,9 @@ continue
              " associated(octnode%child)     = ",l1,/, &
              "  allocated(octnode%ixyzdata)  = ",l1,/, &
              "            octnode%nxyzdata   = ",i0,/, &
-             "            octroot%maxoctdata = ",i0)
-  11 format ("            octnode%octid      = ",i0)
-  12 format ("DEBUG_END[octnode_addxyz]")
+             "            octroot%maxoctdata = ",i0,/, &
+             "            octnode%octid      = ",i0,/, &
+             "DEBUG_END[octnode_addxyz]")
   13 format ("DEBUG[octnode_addxyz]  Send xyz to each child octnode.")
   14 format (1x,"DEBUG[octnode_addxyz]  Send xyz from parent/to child ", &
                 i4,"(",i2,")/",i4)
@@ -828,11 +815,9 @@ continue
                    iostat=ierr,iomsg=error_message)
   call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
   !
-#ifdef OCTID
   ! Print octnode id.
   !
   write (io,10) octnode%octid
-#endif
   !
   ! Print parent id.
   ! write (io,*) "parent = ", ???   ! how to handle root node?
@@ -874,11 +859,9 @@ continue
   !
   if (associated(octnode%child)) then
     write (io,14)
-#ifdef OCTID
     do n = 1,size(octnode%child)
       write (io,15) octnode%child(n)%octid
     end do
-#endif
     write (io,*)
     do n = 1,size(octnode%child)
       call octnode_print(octnode%child(n),octedat,istat)
