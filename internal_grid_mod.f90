@@ -3068,7 +3068,7 @@ continue
   ! Create a default bc_input for the channel flow case
   !
   ! F2003 AUTO-REALLOC
-  tmp_bc_input = get_default_channel_grid_bc_input()
+  tmp_bc_input = channel_default_bc_input()
   !
   ! If bc_input is not allocated, use move_alloc to allocate
   ! bc_input to tmp_bc_input and return from the subroutine.
@@ -3207,7 +3207,7 @@ continue
   !
   contains
   !
-  pure function get_default_channel_grid_bc_input() result(return_value)
+  pure function channel_default_bc_input() result(return_value)
     !
     !.. Function Result ..
     type(bc_input_t) :: return_value(1:6)
@@ -3244,7 +3244,7 @@ continue
     return_value(6)%periodic%matching_bc_idx  = 5
     return_value(6)%periodic%translation(3)   = -lz
     !
-  end function get_default_channel_grid_bc_input
+  end function channel_default_bc_input
   !
 end subroutine reset_bc_input_for_channel_grid
 !
