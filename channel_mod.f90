@@ -1808,39 +1808,45 @@ continue
     vmult = ""
     varname = ""
     do l = 1,len_trim(time_ave_variables(m))
-      ta_char = uppercase( time_ave_variables(m)(l:l) )
+      ta_char = time_ave_variables(m)(l:l)
       select case (ta_char)
-        case ("D")
+        case ("d")
           varname = trim(adjustl(varname)) // trim(vmult) // "Rho"
           var_dim(m) = var_dim(m) * rhoref
-        case ("X")
+        case ("x")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vx"
           var_dim(m) = var_dim(m) * aref
-        case ("Y")
+        case ("y")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vy"
           var_dim(m) = var_dim(m) * aref
-        case ("Z")
+        case ("z")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vz"
           var_dim(m) = var_dim(m) * aref
-        case ("E")
+        case ("e")
           varname = trim(adjustl(varname)) // trim(vmult) // "E"
           var_dim(m) = var_dim(m) * rhoref * aref * aref
-        case ("P")
+        case ("p")
           varname = trim(adjustl(varname)) // trim(vmult) // "P"
           var_dim(m) = var_dim(m) * rhoref * aref * aref
-        case ("T")
+        case ("t")
           varname = trim(adjustl(varname)) // trim(vmult) // "T"
           var_dim(m) = var_dim(m) * tref
-        case ("R")
+        case ("P")
+          varname = trim(adjustl(varname)) // trim(vmult) // "P0"
+          var_dim(m) = var_dim(m) * rhoref * aref * aref
+        case ("T")
+          varname = trim(adjustl(varname)) // trim(vmult) // "T0"
+          var_dim(m) = var_dim(m) * tref
+        case ("r")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vr"
           var_dim(m) = var_dim(m) * aref
-        case ("F")
+        case ("f")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vf"
           var_dim(m) = var_dim(m) * aref
-        case ("K")
+        case ("k")
           varname = trim(adjustl(varname)) // trim(vmult) // "TKE"
           var_dim(m) = var_dim(m) * tkeref
-        case ("W")
+        case ("w")
           varname = trim(adjustl(varname)) // trim(vmult) // "TLS"
           var_dim(m) = var_dim(m) * tlsref
       end select
