@@ -378,6 +378,7 @@ module ovar
   real(wp),    public, save :: SEM_box_num_eddies_multiplier      = one
   logical(lk), public, save :: SEM_use_random_seed_from_restart   = fals
   logical(lk), public, save :: SEM_include_thermo_fluctuations    = fals
+  logical(lk), public, save :: SEM_use_restart_eddies             = true
   !
   ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
   logical(lk), public, save :: average_sem_inflow_plane = fals
@@ -2189,6 +2190,7 @@ module input_namelist_mod
   use ovar,      only : SEM_box_num_eddies_multiplier
   use ovar,      only : SEM_use_random_seed_from_restart
   use ovar,      only : SEM_include_thermo_fluctuations
+  use ovar,      only : SEM_use_restart_eddies
   use ovar,      only : average_sem_inflow_plane
   use ovar,      only : force_nd_subroutines, newton_rlx, conv_temp
   use ovar,      only : chemistry_sub_iterations
@@ -2282,7 +2284,8 @@ module input_namelist_mod
                      SEM_eddy_volume_is_spherical, &
                      SEM_box_num_eddies_multiplier, &
                      SEM_use_random_seed_from_restart, &
-                     SEM_include_thermo_fluctuations
+                     SEM_include_thermo_fluctuations, &
+                     SEM_use_restart_eddies
   ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
   namelist / input / average_sem_inflow_plane
   ! STATISTICAL OUTPUT OPTIONS

@@ -531,6 +531,7 @@ subroutine read_solution_file_mpi(file_name,int_header,real_header,solution, &
   use geomvar_mod, only : ncell,cell,n_solpts
   use geomvar_mod, only : n_global_cell,n_global_solpts
   use ovar,        only : time_average_restart_files
+  use ovar,        only : SEM_use_restart_eddies
   use thermo_mod,  only : inert_species_map
   !
   !.. Formal Arguments ..
@@ -1058,7 +1059,7 @@ continue
   !
   if (.not. skip_sem_restart_data) then
     !
-    if (num_sem_boxes > 0) then
+    if (num_sem_boxes > 0 .and. SEM_use_restart_eddies) then
       !
       ! Update the file displacement since we know the total number of
       ! solution points, the number of variables per solution point, and
@@ -1529,6 +1530,7 @@ subroutine read_solution_file_serial(file_name,int_header,real_header, &
   use geomvar_mod, only : ncell,cell,n_solpts
   use geomvar_mod, only : n_global_cell
   use ovar,        only : time_average_restart_files
+  use ovar,        only : SEM_use_restart_eddies
   use thermo_mod,  only : inert_species_map
   !
   !.. Formal Arguments ..
@@ -1850,7 +1852,7 @@ continue
   ! inflow turbulence generators
   !
   if (.not. skip_sem_restart_data) then
-    if (num_sem_boxes > 0) then
+    if (num_sem_boxes > 0 .and. SEM_use_restart_eddies) then
       call read_sem_restart_serial(num_sem_boxes,io)
     end if
   end if
