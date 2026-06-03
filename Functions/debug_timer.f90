@@ -29,18 +29,23 @@ subroutine debug_timer(time_flag,message,processor,part_num,acc,pid,return_time)
   !
   character(len=300) :: out_message
   !
-  !.. Local Arrays ..
-  real(wp), save :: beg_procedure_time(10)
-  real(wp), save :: accumulated_time(10)
-  real(wp), save :: accumulation_beg_time(10)
+  integer, parameter :: max_timers = 50
+  integer, parameter :: max_spot_timers = 100
   !
-  real(wp),           save :: spot_beg_wall_time(50)
-  character(len=200), save :: spot_messages(50)
+  !.. Local Arrays ..
+  real(wp), save :: beg_procedure_time(max_timers)
+  real(wp), save :: accumulated_time(max_timers)
+  real(wp), save :: accumulation_beg_time(max_timers)
+  !
+  real(wp),           save :: spot_beg_wall_time(max_spot_timers)
+  character(len=200), save :: spot_messages(max_spot_timers)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: leading_space = "                    "
+  character(len=200) :: leading_space
   !
 continue
+  !
+  write (leading_space,'(200(" "))')
   !
   report_time = zero
   output_cpu = glb_root
