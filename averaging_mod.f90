@@ -347,7 +347,7 @@ continue
     call update_time_ave_2d(time_val(1),time_val(2))
   end if
   !
-  call debug_timer(entering_procedure,pname)
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine update_time_ave
 !
