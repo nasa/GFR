@@ -283,30 +283,6 @@ continue
     !
     elem_xyz = grid%xyz(1:nr,pts(:)) ! F2003 AUTO-REALLOC
     !
-!#ifdef DEBUG_ON
-!block
-!    real(wp) :: x,y,z,r,t
-!    if (mypnum == glb_root) then
-!      if (this_cell == 1) then
-!        write (iout,'(///)')
-!        write (iout,184) "mesh_order = ",mesh_order
-!        write (iout,184) "cell_order = ",this_order
-!        do n = 1,size(elem_xyz,dim=2)
-!          x = elem_xyz(1,n)
-!          y = elem_xyz(2,n)
-!          z = elem_xyz(3,n)
-!          r = sqrt(y*y + z*z)
-!          t = atan2(z,y)
-!          if (t < zero) t = t + two*pi
-!          write (iout,185) n,x,y,z,x,r,t*radians2degrees
-!        end do
-!        write (iout,'(///)')
-!      end if
-!    end if
-!    184 format (a,i0)
-!    185 format (i6,2(3x,3f12.6))
-!end block
-!#endif
     !
     ! Assign a local pointer to the mapping
     ! matrix as an alias to simplify the code
@@ -1005,31 +981,6 @@ continue
       elem_xyz = grid%xyz(1:nr, grid%elem(this_cell)%pts(:) )
       !
     end if
-!#ifdef DEBUG_ON
-!block
-!    real(wp) :: x,y,z,r,t
-!    if (mypnum == glb_root) then
-!      if (this_cell == 1) then
-!        write (iout,'(///)')
-!        write (iout,184) "mesh_order = ",mesh_order
-!        write (iout,184) "cell_order = ",this_order
-!        do n = 1,size(elem_xyz,dim=2)
-!          x = elem_xyz(1,n)
-!          y = elem_xyz(2,n)
-!          z = elem_xyz(3,n)
-!          r = sqrt(y*y + z*z)
-!          t = atan2(z,y)
-!          if (t < zero) t = t + two*pi
-!          write (iout,185) n,x,y,z,x,r,t*radians2degrees
-!        end do
-!        write (iout,'(///)')
-!      end if
-!    end if
-!    184 format (a,i0)
-!    185 format (i6,2(3x,3f12.6))
-!end block
-!#endif
-    !
     !
     ! Assign a local pointer to the mapping
     ! matrix as an alias to simplify the code
@@ -1063,31 +1014,6 @@ continue
     ! points for the cell
     !
     xyz(1:nr,n1:n2) = matmul( elem_xyz(:,:) , this_map%mat(:,:) )
-!#ifdef DEBUG_ON
-!block
-!    real(wp) :: x,y,z,r,t
-!    if (mypnum == glb_root) then
-!      if (this_cell == 1) then
-!        write (iout,'(///)')
-!        write (iout,184) "mesh_order = ",mesh_order
-!        write (iout,184) "cell_order = ",this_order
-!        do n = n1,n2
-!          x = xyz(1,n)
-!          y = xyz(2,n)
-!          z = xyz(3,n)
-!          r = sqrt(y*y + z*z)
-!          t = atan2(z,y)
-!          if (t < zero) t = t + two*pi
-!          write (iout,185) n,x,y,z,x,r,t*radians2degrees
-!        end do
-!        write (iout,'(///)')
-!      end if
-!    end if
-!   !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
-!    184 format (a,i0)
-!    185 format (i6,2(3x,3f12.6))
-!end block
-!#endif
     !
 #ifdef OUTPUT_GRID_MAPPINGS
     write (io,*)
@@ -1127,15 +1053,6 @@ continue
     304 format ("{",f7.4,",",f7.4,",",f7.4,"},")
     305 format ("{",f7.4,",",f7.4,",",f7.4,"}")
     !
-   !write (io,100) this_cell
-   !write (io,*)
-   !do n = 1,size(elem_xyz,dim=2)
-   !  write (io,101) n,(elem_xyz(l,n),l=1,nr)
-   !end do
-   !write (io,*)
-   !do n = n1,n2
-   !  write (io,101) n,(xyz(l,n),l=1,nr)
-   !end do
     100 format (/," Cell # ",i0)
     101 format (i8,3x,3f10.4)
     !
@@ -1190,33 +1107,6 @@ block
   end if
 end block
   !
-!block
-!    real(wp) :: x,y,z,r,t
-!    if (mypnum == glb_root) then
-!      n2 = 0
-!      do this_cell = 1,ncell
-!        this_geom = cell_geom(this_cell)
-!        this_order = cell_order(this_cell)
-!        np = geom_solpts(this_geom,this_order) ! number of solution points
-!        n0 = n2
-!        n1 = n2 + 1
-!        n2 = n2 + np
-!        write (701,284) "this_cell = ",this_cell
-!        do n = n1,n2
-!          x = xyz(1,n)
-!          y = xyz(2,n)
-!          z = xyz(3,n)
-!          r = sqrt(y*y + z*z)
-!          t = atan2(z,y)
-!          if (t < zero) t = t + two*pi
-!          write (701,285) n,x,y,z,x,r,t*radians2degrees
-!        end do
-!      end do
-!    end if
-!    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
-!    284 format (a,i0)
-!    285 format (i6,3x,3f16.12,3x,2f16.12,f18.12)
-!end block
 #endif
 #endif
   !
