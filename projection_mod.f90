@@ -1124,11 +1124,7 @@ continue
   ! Get the inverse of bTxWxb
   ! bTxWxb = inverse( transpose(basis) x diag(weights) x basis )
   !
-#ifdef SPECIAL_FOR_INTEL
-  bTxWxb = invert_matrix_lapack95( bTxWxb )
-#else
   bTxWxb = invert_matrix( bTxWxb )
-#endif
   !
   ! Make sure all values in bTxWxb that are less than
   ! epsilon for working precision are set to zero
@@ -1346,11 +1342,7 @@ continue
   ! Get the inverse of bTxWxb
   ! bTxWxb = inverse( transpose(basis) x diag(weights) x basis )
   !
-#ifdef SPECIAL_FOR_INTEL
-  bTxWxb(:,:) = invert_matrix_lapack95( bTxWxb )
-#else
   bTxWxb(:,:) = invert_matrix( bTxWxb )
-#endif
   !
 !%#ifdef ENABLE_PROJECTION_OUTPUT
 !%  write (iu,2) "inverse(bTxWxb)", &

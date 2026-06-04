@@ -427,11 +427,7 @@ continue
   !
   ! Compute the inverse of the Vandermonde matrix
   !
-#ifdef SPECIAL_FOR_INTEL
-  vmat_inv(:,:) = invert_matrix_lapack95( vmat_inv )
-#else
-  vmat_inv(:,:) = invert_matrix90( vmat_inv )
-#endif
+  vmat_inv(:,:) = invert_matrix( vmat_inv )
   !
   ! Use the chop function to copy vmat_inv into return_value while also
   ! setting any values that are less than working machine epsilon to zero.

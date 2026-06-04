@@ -1,4 +1,4 @@
-pure function invert_matrix_lapack95_SP(a) result(return_value)
+pure function invert_matrix_SP(a) result(return_value)
   !
   !.. Use Statements ..
 #ifdef SPECIAL_FOR_INTEL
@@ -37,14 +37,14 @@ continue
   !
   call getri(return_value,ipiv,ierr)
 #else
-  return_value(:,:) = invert_matrix( return_value )
+  return_value(:,:) = invert_matrix_LU_factorization_SP( return_value )
 #endif
   !
-end function invert_matrix_lapack95_SP
+end function invert_matrix_SP
 !
 !###############################################################################
 !
-pure function invert_matrix_lapack95_DP(a) result(return_value)
+pure function invert_matrix_DP(a) result(return_value)
   !
   !.. Use Statements ..
 #ifdef SPECIAL_FOR_INTEL
@@ -83,14 +83,14 @@ continue
   !
   call getri(return_value,ipiv,ierr)
 #else
-  return_value(:,:) = invert_matrix( return_value )
+  return_value(:,:) = invert_matrix_LU_factorization_DP( return_value )
 #endif
   !
-end function invert_matrix_lapack95_DP
+end function invert_matrix_DP
 !
 !###############################################################################
 !
-pure function invert_matrix_lapack95_QP(a) result(return_value)
+pure function invert_matrix_QP(a) result(return_value)
   !
   !.. Use Statements ..
 #ifdef SPECIAL_FOR_INTEL
@@ -130,16 +130,16 @@ continue
   !
   call getri(mat_inv,ipiv,ierr)
 #else
-  mat_inv(:,:) = invert_matrix( mat_inv )
+  mat_inv(:,:) = invert_matrix_LU_factorization_QP( mat_inv )
 #endif
   !
   return_value(:,:) = real( mat_inv(:,:) , kind=lp )
   !
-end function invert_matrix_lapack95_QP
+end function invert_matrix_QP
 !
 !###############################################################################
 !
-pure function invert_matrix_SP(a) result(return_value)
+pure function invert_matrix_LU_factorization_SP(a) result(return_value)
   !
   integer, parameter :: lp = sp
   !
@@ -219,11 +219,11 @@ continue
     !
   end do
   !
-end function invert_matrix_SP
+end function invert_matrix_LU_factorization_SP
 !
 !###############################################################################
 !
-pure function invert_matrix_DP(a) result(return_value)
+pure function invert_matrix_LU_factorization_DP(a) result(return_value)
   !
   integer, parameter :: lp = dp
   !
@@ -303,11 +303,11 @@ continue
     !
   end do
   !
-end function invert_matrix_DP
+end function invert_matrix_LU_factorization_DP
 !
 !###############################################################################
 !
-pure function invert_matrix_QP(a) result(return_value)
+pure function invert_matrix_LU_factorization_QP(a) result(return_value)
   !
   integer, parameter :: lp = qp
   !
@@ -387,7 +387,7 @@ continue
     !
   end do
   !
-end function invert_matrix_QP
+end function invert_matrix_LU_factorization_QP
 !
 !###############################################################################
 !

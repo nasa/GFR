@@ -10,11 +10,7 @@ module triangle_mod
   use module_kind_types, only : Barycentric_Points
   use module_kind_types, only : Equi_Distant_Points
   use module_kind_types, only : init_array
-#ifdef SPECIAL_FOR_INTEL
-  use module_kind_types, only : invert_matrix_lapack95
-#else
   use module_kind_types, only : invert_matrix
-#endif
   use module_kind_types, only : tria_is_biunit
   !
   implicit none
@@ -349,11 +345,7 @@ continue
   ! Compute the Lagrange polynomials based on equidistant nodes
   ! solving the equation in the middle of page 47
   !
-#ifdef SPECIAL_FOR_INTEL
-  Lmat = matmul(invert_matrix_lapack95(V_EQD),Pmat)
-#else
   Lmat = matmul(invert_matrix(V_EQD),Pmat)
-#endif
   !
   ! Compute warp factor, Eq 6.7 on page 175
   !
@@ -506,11 +498,7 @@ continue
   !
   ! Now get the inverse of this matrix for use later
   !
-#ifdef SPECIAL_FOR_INTEL
-  V = invert_matrix_lapack95(V)
-#else
   V = invert_matrix(V)
-#endif
   !
   ! Get the Gauss quadrature points on the interval [-1,1] and
   ! the corresponding weights necessary to perform the integration
@@ -652,11 +640,7 @@ continue
   !
   ! Now get the inverse of this matrix for use later
   !
-#ifdef SPECIAL_FOR_INTEL
-  V = invert_matrix_lapack95(V)
-#else
   V = invert_matrix(V)
-#endif
   !
   ! Get the Gauss quadrature points on the interval [-1,1] and
   ! the corresponding weights necessary to perform the integration

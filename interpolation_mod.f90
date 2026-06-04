@@ -2639,11 +2639,7 @@ continue
   pmat = matmul( basisT , basis )
   pmat = chop( pmat , pmat )
   !
-#ifdef SPECIAL_FOR_INTEL
-  pmat = invert_matrix_lapack95( pmat )
-#else
   pmat = invert_matrix( pmat )
-#endif
   pmat = chop( pmat , pmat )
   !
   tmat = matmul( pmat , basisT )

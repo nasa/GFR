@@ -1390,20 +1390,6 @@ module module_kind_types
   !
   ! From Functions/matrix_ops.f90
   !
-  private :: invert_matrix_lapack95_SP
-  private :: invert_matrix_lapack95_DP
-  private :: invert_matrix_lapack95_QP
-  !
-  interface invert_matrix_lapack95
-    module procedure invert_matrix_lapack95_SP
-    module procedure invert_matrix_lapack95_DP
-#ifndef DISABLE_QP
-    module procedure invert_matrix_lapack95_QP
-#endif
-  end interface invert_matrix_lapack95
-  !
-  ! From Functions/matrix_ops.f90
-  !
   private :: invert_matrix_SP,invert_matrix_DP,invert_matrix_QP
   !
   interface invert_matrix
@@ -1413,18 +1399,6 @@ module module_kind_types
     module procedure invert_matrix_QP
 #endif
   end interface invert_matrix
-  !
-  ! From Functions/matrix_ops.f90
-  !
-  private :: invert_matrix90_SP,invert_matrix90_DP,invert_matrix90_QP
-  !
-  interface invert_matrix90
-    module procedure invert_matrix90_SP
-    module procedure invert_matrix90_DP
-#ifndef DISABLE_QP
-    module procedure invert_matrix90_QP
-#endif
-  end interface invert_matrix90
   !
   ! From Functions/matrix_ops.f90
   !

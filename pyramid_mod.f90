@@ -6,11 +6,7 @@ module pyramid_mod
   use module_kind_types, only : MP,LK,true,fals
   use module_kind_types, only : Legendre_Gauss_Lobatto
   use module_kind_types, only : Equi_Distant_Points
-#ifdef SPECIAL_FOR_INTEL
-  use module_kind_types, only : invert_matrix_lapack95
-#else
   use module_kind_types, only : invert_matrix
-#endif
   !
   implicit none
   !
@@ -220,11 +216,7 @@ continue
   !
   ! Now get the inverse of this matrix for use later
   !
-#ifdef SPECIAL_FOR_INTEL
-  V = invert_matrix_lapack95(V)
-#else
   V = invert_matrix(V)
-#endif
   !
   ! Get the Gauss quadrature points on the interval [-1,1] and
   ! the corresponding weights necessary to perform the integration

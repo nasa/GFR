@@ -264,13 +264,8 @@ continue
           call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                            error_message)
           !
-#ifdef SPECIAL_FOR_INTEL
-          outerp_inv(this_geom,this_order)%mat = &
-            invert_matrix_lapack95( outerp(this_geom,this_order)%init%mat )
-#else
           outerp_inv(this_geom,this_order)%mat = &
             invert_matrix( outerp(this_geom,this_order)%init%mat )
-#endif
           !
         end if
         !
