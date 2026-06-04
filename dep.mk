@@ -439,7 +439,6 @@ $(OBJDIR)/kind_types_mod.o : kind_types_mod.f90 \
                $(FUNDIR)/cross_product.f90 \
                $(FUNDIR)/deltafun.f90 \
                $(FUNDIR)/face_normal.f90 \
-               $(FUNDIR)/findloc.f90 \
                $(FUNDIR)/init_array.f90 \
                $(FUNDIR)/intseq.f90 \
                $(FUNDIR)/jacobians.f90 \
