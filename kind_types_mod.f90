@@ -406,7 +406,7 @@ module module_kind_types
   !.. Use Statements ..
   use base_kind_types
   use _MPI_MODULE_
-#ifdef USE_INTEL_MKL
+#ifdef USE_INTEL_MKL_BLAS
   use blas95, only : dot
 #else
   use rename_intrinsics, only : dot => dot_product

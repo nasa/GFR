@@ -490,7 +490,7 @@ end subroutine create_matrix_sparsity
 !
 pure function dot_sparse(this,idx,vector) result(return_value)
   !
-#ifdef USE_INTEL_MKL
+#ifdef USE_INTEL_MKL_BLAS
   use blas95, only : doti
 #endif
   !
@@ -512,7 +512,7 @@ continue
   n1 = this%row_ptr(idx)+1
   n2 = this%row_ptr(idx+1)
   !
-#ifdef USE_INTEL_MKL
+#ifdef USE_INTEL_MKL_BLAS
   return_value = doti( this%row_val(n1:n2) , this%row_idx(n1:n2) , vector )
 #else
   return_value = dot( this%row_val(n1:n2) , vector(this%row_idx(n1:n2)) )
@@ -926,7 +926,7 @@ end function dot_mat_intrinsic
 !
 pure function dot_mat_sparse(this,idx,array) result(return_value)
   !
-#ifdef USE_INTEL_MKL
+#ifdef USE_INTEL_MKL_BLAS
   use blas95, only : doti
 #endif
   !
@@ -949,7 +949,7 @@ continue
   n2 = this%row_ptr(idx+1)
   !
   do n = 1,size(array,dim=2)
-#ifdef USE_INTEL_MKL
+#ifdef USE_INTEL_MKL_BLAS
     return_value(n) = doti( this%row_val(n1:n2) , &
                             this%row_idx(n1:n2) , &
                             array(:,n) )
@@ -1347,7 +1347,7 @@ end function dot_mat2_intrinsic
 !
 pure function dot_mat2_sparse(this,idx,array) result(return_value)
   !
-#ifdef USE_INTEL_MKL
+#ifdef USE_INTEL_MKL_BLAS
   use blas95, only : doti
 #endif
   !
@@ -1371,7 +1371,7 @@ continue
   !
   do m = 1,size(array,dim=3)
     do n = 1,size(array,dim=2)
-#ifdef USE_INTEL_MKL
+#ifdef USE_INTEL_MKL_BLAS
       return_value(n,m) = doti( this%row_val(n1:n2) , &
                                 this%row_idx(n1:n2) , &
                                 array(:,n,m ) )
