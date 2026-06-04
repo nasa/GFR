@@ -1,7 +1,7 @@
 pure function invert_matrix_SP(a) result(return_value)
   !
   !.. Use Statements ..
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_LAPACK
   use lapack95, only : getrf,getri
 #endif
   !
@@ -29,7 +29,7 @@ continue
   ! getrf computes an LU factorization of a general M-by-N matrix a
   ! using partial pivoting with row interchanges.
   !
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_LAPACK
   call getrf(return_value,ipiv,ierr)
   !
   ! getri computes the inverse of a matrix using
@@ -47,7 +47,7 @@ end function invert_matrix_SP
 pure function invert_matrix_DP(a) result(return_value)
   !
   !.. Use Statements ..
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_LAPACK
   use lapack95, only : getrf,getri
 #endif
   !
@@ -75,7 +75,7 @@ continue
   ! getrf computes an LU factorization of a general M-by-N matrix a
   ! using partial pivoting with row interchanges.
   !
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_LAPACK
   call getrf(return_value,ipiv,ierr)
   !
   ! getri computes the inverse of a matrix using
@@ -93,7 +93,7 @@ end function invert_matrix_DP
 pure function invert_matrix_QP(a) result(return_value)
   !
   !.. Use Statements ..
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_LAPACK
   use lapack95, only : getrf,getri
 #endif
   !
@@ -122,7 +122,7 @@ continue
   ! getrf computes an LU factorization of a general M-by-N matrix a
   ! using partial pivoting with row interchanges.
   !
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_LAPACK
   call getrf(mat_inv,ipiv,ierr)
   !
   ! getri computes the inverse of a matrix using
