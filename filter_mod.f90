@@ -1326,14 +1326,14 @@ continue
   !
   nsp = size(filt_diag,dim=1)
   !
-#ifdef USE_INTEL_MKL_BLAS
-  !
   fmat = init_array(nsp,nsp,zero) ! F2003 AUTO-REALLOC
   return_value = init_array(nsp,nsp,zero) ! F2003 AUTO-REALLOC
   !
   ! Perform the matrix multiplication of (V x F) where F is the diagonal matrix
   ! with the filter coefficients on the diagonal.
   !
+ !! F2003 AUTO-REALLOC
+ !fmat = vand(geom,p)%modal2nodal%mat(:,:) * spread(filt_diag,dim=1,ncopies=nsp)
   do j = 1,nsp
     do i = 1,nsp
       fmat(i,j) = vand(geom,p)%modal2nodal%mat(i,j)*filt_diag(j)
@@ -1342,21 +1342,11 @@ continue
   !
   ! Finally, multiply (V x F) x V_inv
   !
+#ifdef USE_INTEL_MKL_BLAS
   call gemm(fmat,vand(geom,p)%nodal2modal%mat,return_value)
-  !
 #else
-  !
-  ! Perform the matrix multiplication of (V x F) where F is the diagonal matrix
-  ! with the filter coefficients on the diagonal.
-  !
-  ! F2003 AUTO-REALLOC
-  fmat = vand(geom,p)%modal2nodal%mat(:,:) * spread(filt_diag,dim=1,ncopies=nsp)
-  !
-  ! Finally, multiply (V x F) x V_inv
-  !
   ! F2003 AUTO-REALLOC
   return_value = matmul( fmat(:,:) , vand(geom,p)%nodal2modal%mat(:,:) )
-  !
 #endif
   !
 end function compute_filter_matrix
