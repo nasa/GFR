@@ -1038,7 +1038,7 @@ pure &
 #endif
 function Compute_Projection_Matrix(basis,weights,vand) result(return_value)
   !
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_BLAS
   !.. Use Statements ..
   use blas95, only : gemm
 #endif
@@ -1102,7 +1102,7 @@ continue
   !
   ! bTxWxb = transpose(basis) x diag(weights) x basis
   !
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_BLAS
   tmp_mat = init_array(size(bTxWxb,dim=1), & ! F2003 AUTO-REALLOC
                        size(bTxWxB,dim=2),zero)
   call gemm( real(bTxW,kind=wp) , real(bmat,kind=wp) , tmp_mat )
@@ -1147,7 +1147,7 @@ continue
                ((vand(i,j),i=1,size(vand,dim=1)),j=1,size(vand,dim=2))
 #endif
     !
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_BLAS
     tmp = init_array(size(bTxWxb,dim=1), & ! F2003 AUTO-REALLOC
                      size(bTxW,dim=2),zero)
     tmp_mat = init_array(size(vmat,dim=1), & ! F2003 AUTO-REALLOC
@@ -1165,7 +1165,7 @@ continue
     !
     ! pmat = basis x bTxWxb x bTxW
     !
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_BLAS
     tmp = init_array(size(bTxWxb,dim=1), & ! F2003 AUTO-REALLOC
                      size(bTxW,dim=2),zero)
     tmp_mat = init_array(size(bmat,dim=1), & ! F2003 AUTO-REALLOC
@@ -1221,7 +1221,7 @@ function compute_generic_projct_matrix(this_geom, &
                                        to_order,to_loc) &
                                 result(return_value)
   !
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_BLAS
   !.. Use Statements ..
   use blas95, only : gemm
 #endif
@@ -1328,7 +1328,7 @@ continue
   !
   ! bTxWxb = transpose(basis) x diag(weights) x basis
   !
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_BLAS
   call gemm( bTxW , from_basis , bTxWxb )
 #else
   bTxWxb(:,:) = matmul( bTxW , from_basis )
@@ -1359,7 +1359,7 @@ continue
 !%                              j=1,size(to_vand,dim=2))
 !%#endif
   !
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_BLAS
   ! F2003 AUTO-REALLOC
   tmp  = init_array(size(bTxWxB, dim=1),size(bTxW,dim=2),zero)
   ! F2003 AUTO-REALLOC

@@ -1304,7 +1304,7 @@ function compute_filter_matrix(geom,p,filt_diag) result(return_value)
   !
   !.. Use Statements ..
   use vandermonde_mod, only : vand
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_BLAS
   use blas95, only : gemm
 #endif
   !
@@ -1326,7 +1326,7 @@ continue
   !
   nsp = size(filt_diag,dim=1)
   !
-#ifdef SPECIAL_FOR_INTEL
+#ifdef USE_INTEL_MKL_BLAS
   !
   fmat = init_array(nsp,nsp,zero) ! F2003 AUTO-REALLOC
   return_value = init_array(nsp,nsp,zero) ! F2003 AUTO-REALLOC
