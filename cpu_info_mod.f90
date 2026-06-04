@@ -604,18 +604,18 @@ subroutine get_resource_list()
   character(len=*), parameter :: pname = "get_resource_list"
   !
   logical(ldk),     parameter :: wait_for_completion = .true.
-  character(len=*), parameter :: model_name(1:10) = ["local  ", &
+  character(len=*), parameter :: model_name(1:11) = ["local  ", &
                                                      "san    ","ivy    ", &
                                                      "has    ","bro    ", &
                                                      "bro_ele","sky_ele", &
                                                      "cas_ait","rom_ait", &
-                                                     "mil_ait"]
-  real(wp),         parameter :: sbu_rate(1:10) = [zero, &
+                                                     "mil_ait","tur_ath"]
+  real(wp),         parameter :: sbu_rate(1:11) = [zero, &
                                                    0.47_wp,0.66_wp, &
                                                    0.80_wp,one    , &
                                                    one    ,1.59_wp, &
                                                    1.64_wp,4.06_wp, &
-                                                   4.38_wp]
+                                                   4.38_wp,12.20_wp]
   !
 continue
   !
