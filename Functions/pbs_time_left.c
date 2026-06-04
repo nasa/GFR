@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,7 +59,7 @@ FILE *mypopen(const char *command, const char *type)
    return ret;
 }
 
-void pbs_time_left_(long *time_ret) {
+void pbs_time_left_(const char *command, long *time_ret) {
 
   FILE *fpo;
   char *jobid, *qstat_wait_time;
@@ -86,7 +87,8 @@ void pbs_time_left_(long *time_ret) {
     return;
   }
 
-  sprintf(cmd,"/PBS/bin/qstat -f %s\n",jobid);
+//sprintf(cmd,"/PBS/bin/qstat -f %s\n",jobid);
+  sprintf(cmd,"%s -f %s\n",command,jobid);
 
   if( fpo = (FILE *)mypopen(cmd,"r") ) {
     
@@ -123,6 +125,9 @@ void pbs_time_left_(long *time_ret) {
 
   }
   
+  printf("From pbs_time_left.c: \n");
+  printf("    Resource_List.walltime = %3d:%02d:%02d \n",ht,mt,st);
+  printf("   resources_used.walltime = %3d:%02d:%02d \n",hu,mu,su);
   *time_ret = (long)3600 * (long)(ht-hu) + (long)60 * (long)(mt-mu) + (long)(st-su);
   time_left = *time_ret;
   save_time = time(&save_time);

@@ -11,10 +11,17 @@ module pbs_mod
   !
 #ifdef PBS_ENV
   interface
-    subroutine pbs_time_left(seconds_left) bind(c,name="pbs_time_left_")
+   !subroutine pbs_time_left(seconds_left) bind(c,name="pbs_time_left_")
+   !  import :: pbs_int
+   !  integer(pbs_int) :: seconds_left
+   !end subroutine pbs_time_left
+    subroutine pbs_time_left_C_Interface(command,seconds_left) &
+                                                   bind(c,name="pbs_time_left_")
+      use, intrinsic :: iso_c_binding, only : c_char
       import :: pbs_int
-      integer(pbs_int) :: seconds_left
-    end subroutine pbs_time_left
+      character(len=1,kind=c_char), dimension(*), intent(in) :: command
+      integer(pbs_int), intent(inout) :: seconds_left
+    end subroutine pbs_time_left_C_Interface
   end interface
 #endif
   !
@@ -205,6 +212,31 @@ end subroutine pbs_remaining_walltime
 !
 !###############################################################################
 !
+subroutine pbs_time_left(cmd,wtl)
+  !
+  !.. Use Statements ..
+  use, intrinsic :: iso_c_binding, only : c_char,c_null_char
+  !
+  !.. Formal Arguments ..
+  character(len=*),    intent(in) :: cmd
+  integer(pbs_int), intent(inout) :: wtl
+  !
+  !.. Local Scalars ..
+  character(len=len_trim(cmd)+1, kind=c_char) :: command
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "pbs_time_left"
+  !
+continue
+  !
+  command = trim(cmd)//c_null_char
+  !
+  call pbs_time_left_C_Interface(command,wtl)
+  !
+end subroutine pbs_time_left
+!
+!###############################################################################
+!
 subroutine initialize_pbs_mod(walltime_expiring)
   !
   !.. Formal Arguments ..
@@ -213,6 +245,9 @@ subroutine initialize_pbs_mod(walltime_expiring)
   !.. Local Scalars ..
   integer(pbs_int) :: hours,minutes,seconds
   integer(pbs_int) :: current_wtl
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: cmd
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_pbs_mod"
@@ -223,8 +258,15 @@ continue
   pbs_mod_needs_initializing = fals
   !
 #ifdef PBS_ENV
-  call pbs_time_left(current_wtl)
- !current_wtl = real (8*3600,kind=wp)
+  !
+#ifdef ATHENA_PBS
+  cmd = "/opt/pbs/bin/qstat" ! F2003 AUTO-REALLOC
+#else
+  cmd = "/PBS/bin/qstat" ! F2003 AUTO-REALLOC
+#endif
+  !
+ !call pbs_time_left(current_wtl)
+  call pbs_time_left(cmd,current_wtl)
   !
   if (current_wtl < -300_pbs_int) then
     current_wtl = 7200_pbs_int
