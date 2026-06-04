@@ -1057,6 +1057,18 @@ module module_kind_types
   character(len=1000), save :: emsg
   character(len=1000), save :: cerr
   !
+  ! Variables for storing information about the HPC system
+  ! that are defined by GFR environent variables.
+  !
+  character(len=:), allocatable, protected, save :: GFR_PrgEnv
+  character(len=:), allocatable, protected, save :: GFR_Scheduler
+  character(len=:), allocatable, protected, save :: GFR_Scheduler_Path
+  character(len=:), allocatable, protected, save :: GFR_Scheduler_JobInfo_Cmnd
+  character(len=:), allocatable, protected, save :: GFR_Scheduler_JobInfo_Flags
+  integer,                       protected, save :: GFR_JobInfo_UsedTime
+  integer,                       protected, save :: GFR_JobInfo_MaxTime
+  character(len=:), allocatable, protected, save :: GFR_JobInfo_JobID
+  !
   ! OpenMP Public Scalars
   !
   integer, save :: tid = 0
@@ -1482,6 +1494,127 @@ module module_kind_types
   end interface intseq
   !
 contains
+!
+!###############################################################################
+!
+subroutine initialize_gfr_environment
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_gfr_environment"
+  !
+continue
+  !
+  ! Save the default IEEE floating point status
+  !
+  call get_default_ieee_status
+  !
+  ! Initialize the system and job information variables using the
+  ! GFR environment variables
+  !
+  call read_gfr_environment_variables
+  !
+  ! Initialize all the random geometry constants that
+  ! must be initialized at run time
+  !
+  call initialize_runtime_parameters
+  !
+  ! Initialize the MPI environment
+  !
+  call initialize_mpi_environment
+  !
+end subroutine initialize_gfr_environment
+!
+!###############################################################################
+!
+subroutine read_gfr_environment_variables
+  !
+  !.. Local Scalars ..
+  integer     :: n,ierr
+  logical(lk) :: file_exists
+  !
+  character(len=16)    :: tmpfile
+  character(len=10000) :: cvalue
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: cmd
+  character(len=:), allocatable :: command
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_gfr_environment_variables"
+  !
+continue
+  !
+  ! Get the programming/compiler environment used to build GFR
+  !
+  call get_environment_variable("GFR_PrgEnv",cvalue,n,status=ierr)
+  !
+  GFR_PrgEnv = trim(adjustl(cvalue)) ! F2003 AUTO-REALLOC
+  !
+  ! Get the name of the batch scheduling software (BSS) used
+  ! by the current system
+  !
+  call get_environment_variable("GFR_Scheduler",cvalue,n,status=ierr)
+  !
+  GFR_Scheduler = trim(adjustl(cvalue)) ! F2003 AUTO-REALLOC
+  !
+  ! Get the path to the BSS used by the current system
+  !
+  call get_environment_variable("GFR_Scheduler_Path",cvalue,n,status=ierr)
+  !
+  GFR_Scheduler_Path = trim(adjustl(cvalue)) ! F2003 AUTO-REALLOC
+  !
+  ! Set the name for the job-status command based on the BSS being used
+  !
+  select case ( uppercase(GFR_Scheduler) )
+    !
+    case ("PBS")
+      !
+      GFR_Scheduler_JobInfo_Cmnd  = "qstat" ! F2003 AUTO-REALLOC
+      GFR_Scheduler_JobInfo_Flags = "-f"    ! F2003 AUTO-REALLOC
+      !
+      ! Get the PBS job ID
+      call get_environment_variable("PBS_JOBID",cvalue,n,status=ierr)
+      GFR_JobInfo_JobID = trim(adjustl(cvalue)) ! F2003 AUTO-REALLOC
+      !
+    case ("SLURM")
+      !
+      GFR_Scheduler_JobInfo_Cmnd  = "squeue" ! F2003 AUTO-REALLOC
+      GFR_Scheduler_JobInfo_Flags = "-f"     ! F2003 AUTO-REALLOC
+      !
+      ! Get the Slurm job ID
+      call get_environment_variable("SLURM_JOB_ID",cvalue,n,status=ierr)
+      GFR_JobInfo_JobID = trim(adjustl(cvalue)) ! F2003 AUTO-REALLOC
+      !
+    case default
+      !
+      GFR_Scheduler = ""               ! F2003 AUTO-REALLOC
+      GFR_Scheduler_Path = ""          ! F2003 AUTO-REALLOC
+      GFR_Scheduler_JobInfo_Cmnd  = "" ! F2003 AUTO-REALLOC
+      GFR_Scheduler_JobInfo_Flags = "" ! F2003 AUTO-REALLOC
+      cmd = ""                         ! F2003 AUTO-REALLOC
+      !
+  end select
+  !
+  if (.not. allocated(cmd)) then
+    ! F2003 AUTO-REALLOC
+    cmd = GFR_Scheduler_Path // "/bin/" // GFR_Scheduler_JobInfo_Cmnd
+  end if
+  !
+  inquire (file=cmd,exist=file_exists)
+  !
+  write (tmpfile,'("tmp.",i8.8,".tmp")') random(99999999)
+  !
+  ! F2003 AUTO-REALLOC
+  command = cmd // &
+            " " // GFR_Scheduler_JobInfo_Flags // &
+            " " // GFR_JobInfo_JobID // &
+            " |& /usr/bin/sed -n -e '/walltime/p' >| " // tmpfile
+  !
+  if (.not. file_exists) then
+    GFR_Scheduler = ""
+  end if
+  !
+end subroutine read_gfr_environment_variables
 !
 !###############################################################################
 !
