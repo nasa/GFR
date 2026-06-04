@@ -596,6 +596,7 @@ subroutine get_resource_list()
   !
   !.. Local Allocatable Variables ..
   integer,          allocatable :: rl(:)
+  character(len=:), allocatable :: qstat_cmd
   character(len=:), allocatable :: jobid
   character(len=:), allocatable :: command
   character(len=:), allocatable :: job_nodes(:)
@@ -630,6 +631,11 @@ continue
     rl = init_array(2*num_resources,1) ! F2003 AUTO-REALLOC
     !
 #ifdef PBS_ENV
+#ifdef ATHENA_PBS
+    qstat_cmd = "/usr/local/bin/nas_qstat" ! F2003 AUTO-REALLOC
+#else
+    qstat_cmd = "/PBS/bin/qstat" ! F2003 AUTO-REALLOC
+#endif
     !
     ! Get a random integer to create a unique temporary file name
     !
@@ -646,7 +652,7 @@ continue
       ! Create the qstat command to get the model details for this job
       !
       ! F2003 AUTO-REALLOC
-      command = "/PBS/bin/qstat -W o=Model " // jobid // &
+      command = qstat_cmd // " -W o=Model " // jobid // &
                 " |& /usr/bin/tail -n 1 " // &
                 " |& /usr/bin/sed -e 's/:/ /g' -e 's/+/\n/g' >| " // tmpfile
       !
