@@ -2518,7 +2518,7 @@ continue
     !
     ! Initialize edgexyz to zero
     !
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
     call edgexyz_dt%zero_ne2d_t
 #else
     call edgexyz_dt%zero

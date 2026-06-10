@@ -112,7 +112,7 @@ module flowvar_mod
   type, public :: face_var
     real(wp), allocatable :: v(:,:,:)
   contains
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
     procedure :: zero_face_var
 #else
     procedure :: zero => zero_face_var
@@ -129,7 +129,7 @@ module flowvar_mod
   type, public :: face_vec
     real(wp), allocatable :: v(:,:,:,:)
   contains
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
     procedure :: zero_face_vec
 #else
     procedure :: zero => zero_face_vec
@@ -179,7 +179,7 @@ module flowvar_mod
   type, public :: ne1d_t
     real(wp), allocatable :: v(:)
   contains
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
     procedure :: zero_ne1d_t
 #else
     procedure :: zero => zero_ne1d_t
@@ -192,7 +192,7 @@ module flowvar_mod
   type, public :: ne2d_t
     real(wp), allocatable :: v(:,:)
   contains
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
     procedure :: zero_ne2d_t
 #else
     procedure :: zero => zero_ne2d_t
@@ -205,7 +205,7 @@ module flowvar_mod
   type, public :: ne3d_t
     real(wp), allocatable :: v(:,:,:)
   contains
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
     procedure :: zero_ne3d_t
 #else
     procedure :: zero => zero_ne3d_t

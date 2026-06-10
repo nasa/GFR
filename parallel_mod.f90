@@ -5310,7 +5310,7 @@ continue
       !
       i1 = i0 + 1
       i2 = i0 + np
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
      !flx(n)%pts = buffer(i1:i2) ! using F2003 auto-reallocation
       flx(n)%pts = buffer(i1-1 + intseq(1,np)) ! using F2003 auto-reallocation
 #else
@@ -5744,7 +5744,7 @@ continue
       np = grid%elem(nc)%prop%npts
       n1 = n + i + 1
       n2 = n + i + np
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
       grid%elem(nc)%pts = grid_elem(n1-1+intseq(1,np)) ! F2003 AUTO-REALLOC
 #else
       grid%elem(nc)%pts = grid_elem(n1:n2) ! using F2003 auto-reallocation
@@ -5758,7 +5758,7 @@ continue
     !
     n1 = n + i + 1
     n2 = n + i + ntags
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
     grid%elem(nc)%tags = grid_elem(n1-1+intseq(1,ntags)) ! F2003 AUTO-REALLOC
 #else
     grid%elem(nc)%tags = grid_elem(n1:n2) ! using F2003 auto-reallocation
@@ -5772,7 +5772,7 @@ continue
       nn = geom_nodes( grid%elem(nc)%prop%geom )
       n1 = n + i + 1
       n2 = n + i + nn
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
       grid%elem(nc)%nodes = grid_elem(n1-1+intseq(1,nn)) ! F2003 AUTO-REALLOC
 #else
       grid%elem(nc)%nodes = grid_elem(n1:n2) ! using F2003 auto-reallocation
@@ -8545,7 +8545,7 @@ continue
   ! with all other processors that have a higher rank
   !
   cpu_nums(:) = 0_int_mpi
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
   cpu_nums(my_part) = int( count( cpu_msk(my_part+1:ncpu) ) , kind=int_mpi )
 #else
   cpu_nums(my_part) = count( cpu_msk(my_part+1:ncpu) , kind=int_mpi )

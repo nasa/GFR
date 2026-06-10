@@ -4874,7 +4874,7 @@ continue
 #endif
   !
   ! F2003 AUTO-REALLOCATION
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
   allocate ( og_displs(1:size(og_counts)) , &
              source=eoshift( og_counts , shift=TO_END , boundary=0_int_mpi ) , &
              stat=ierr , errmsg=error_message )
@@ -4898,7 +4898,7 @@ continue
 #endif
   !
   ! F2003 AUTO-REALLOCATION
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
   allocate ( pts_displs(1:size(pts_counts)) , &
              source=eoshift( pts_counts , shift=TO_END , boundary=0_int_mpi ), &
              stat=ierr , errmsg=error_message )

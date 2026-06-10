@@ -579,7 +579,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-#ifndef SPECIAL_FOR_PGI
+#ifndef SPECIAL_FOR_NVIDIA
   !
   if (profile_io_cgns) then
 #ifdef VERBOSE_MPI
@@ -879,7 +879,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-#ifndef SPECIAL_FOR_PGI
+#ifndef SPECIAL_FOR_NVIDIA
   !
   if (profile_io_cgns) then
 #ifdef VERBOSE_MPI
@@ -4271,7 +4271,7 @@ continue
   !
   ! Zero out the component arrays in the face derived types
   !
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
   call faceusp_dt%zero_face_var
   call facegpsp_dt%zero_face_var
   call facedusp_dt%zero_face_vec
@@ -4626,7 +4626,7 @@ continue
   !
   ! Zero out the nodeusp, nodedusp, edgeusp, and edgedusp arrays
   !
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
   call nodeusp_dt%zero_ne1d_t
   call nodedusp_dt%zero_ne2d_t
   call edgeusp_dt%zero_ne2d_t
@@ -4954,7 +4954,7 @@ continue
   ! Zero the nodeusp, nodedusp, edgeusp, edgedusp, and faceusp array
   ! before we start storing point indices in these arrays
   !
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
   call nodeusp_dt%zero_ne1d_t
   call nodedusp_dt%zero_ne2d_t
   call edgeusp_dt%zero_ne2d_t

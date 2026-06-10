@@ -20,7 +20,7 @@ module compatibility_pgi_mod
   !
   implicit none
   !
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
   public
   !
   interface
@@ -256,7 +256,7 @@ module base_kind_types
   !
   ! KIND definitions for logical variables
   !
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
   integer, public, parameter :: l1k = logical_kinds(1)
 #else
 #ifdef SPECIAL_FOR_GCC
@@ -1317,7 +1317,7 @@ module module_kind_types
   !
   private :: rnorm2_SP,rnorm2_DP,rnorm2_QP
   !
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
   interface norm2
     module procedure rnorm2_SP
     module procedure rnorm2_DP
@@ -2217,11 +2217,11 @@ subroutine execute_command(command,wait_for_completion,exit_status, &
   !
 #define USE_EXECUTE_COMMAND_LINE
 #ifdef USE_EXECUTE_COMMAND_LINE
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
   use compatibility_pgi_mod, only : execute_command_line
 #endif
 #else
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
   use compatibility_pgi_mod, only : system,ierrno,gerror
 #else
 #ifdef SPECIAL_FOR_GCC

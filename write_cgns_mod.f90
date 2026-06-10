@@ -544,7 +544,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-#ifndef SPECIAL_FOR_PGI
+#ifndef SPECIAL_FOR_NVIDIA
   !
   if (profile_io_cgns) then
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -693,7 +693,7 @@ subroutine write_iterative_data_to_cgns_file(cgns_file,procedure_name, &
   !
 continue
   !
-#ifndef SPECIAL_FOR_PGI
+#ifndef SPECIAL_FOR_NVIDIA
   !
   write (pname,1) sub_pname,trim(adjustl(procedure_name))
   !
@@ -914,7 +914,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-#ifndef SPECIAL_FOR_PGI
+#ifndef SPECIAL_FOR_NVIDIA
   !
   if (profile_io_cgns) then
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -1730,7 +1730,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-#ifndef SPECIAL_FOR_PGI
+#ifndef SPECIAL_FOR_NVIDIA
   !
   if (profile_io_cgns) then
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -5376,7 +5376,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-#ifndef SPECIAL_FOR_PGI
+#ifndef SPECIAL_FOR_NVIDIA
   !
   if (profile_io_cgns) then
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -7181,7 +7181,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-#ifndef SPECIAL_FOR_PGI
+#ifndef SPECIAL_FOR_NVIDIA
   !
   if (profile_io_cgns) then
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -8916,7 +8916,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-#ifndef SPECIAL_FOR_PGI
+#ifndef SPECIAL_FOR_NVIDIA
   !
   if (profile_io_cgns) then
     call mpi_barrier(MPI_COMM_WORLD,mpierr)

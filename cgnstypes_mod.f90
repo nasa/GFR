@@ -47,7 +47,7 @@ module cgns_types_mod
   !
   integer, parameter :: CRT = r4       ! CGNS 32-bit precision real data
  !integer, parameter :: CRT = r8       ! CGNS 64-bit precision real data
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
   integer(kind(CGNS_REAL32)), parameter :: cgns_kind_real = CGNS_REAL32
  !integer(kind(CGNS_REAL32)), parameter :: cgns_kind_real = CGNS_REAL64
 #else
@@ -59,7 +59,7 @@ module cgns_types_mod
   !
   integer, parameter :: CIT = i4       ! CGNS 32-bit precision integer data
  !integer, parameter :: CIT = i8       ! CGNS 64-bit precision integer data
-#ifdef SPECIAL_FOR_PGI
+#ifdef SPECIAL_FOR_NVIDIA
   integer(kind(CGNS_INT32)), parameter :: cgns_kind_int = CGNS_INT32
  !integer(kind(CGNS_INT32)), parameter :: cgns_kind_int = CGNS_INT64
 #else
