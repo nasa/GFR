@@ -18,7 +18,7 @@ subroutine check_for_bad_number(line_num,file_name,ival)
 #else
   use mpi,     only : MPI_IN_PLACE
 #endif
-#ifndef SPECIAL_FOR_GCC
+#ifndef SPECIAL_FOR_GNU
   use, intrinsic :: ieee_exceptions, only : ieee_usual
   use, intrinsic :: ieee_exceptions, only : ieee_get_flag
 #endif
@@ -30,7 +30,7 @@ subroutine check_for_bad_number(line_num,file_name,ival)
   !.. Optional Arguments ..
   integer, optional, intent(in) :: ival
   !
-#ifndef SPECIAL_FOR_GCC
+#ifndef SPECIAL_FOR_GNU
   !
   !.. Local Scalars ..
   integer :: n,m

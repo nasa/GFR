@@ -109,7 +109,7 @@ module compatibility_gcc_mod
   !
   implicit none
   !
-#ifdef SPECIAL_FOR_GCC
+#ifdef SPECIAL_FOR_GNU
   private
   !
   public :: system
@@ -259,7 +259,7 @@ module base_kind_types
 #ifdef SPECIAL_FOR_NVIDIA
   integer, public, parameter :: l1k = logical_kinds(1)
 #else
-#ifdef SPECIAL_FOR_GCC
+#ifdef SPECIAL_FOR_GNU
   integer,         parameter :: lb_lk = lbound(logical_kinds,dim=1)
   integer,         parameter :: ub_lk = ubound(logical_kinds,dim=1)
   integer, public, parameter :: l1k = min(logical_kinds(min(lb_lk+0,ub_lk)), &
@@ -283,7 +283,7 @@ end module base_kind_types
 !
 module ieee_mod
   !
-#ifndef SPECIAL_FOR_GCC
+#ifndef SPECIAL_FOR_GNU
   !
   use, intrinsic :: ieee_arithmetic, only : is_nan => ieee_is_nan
   use, intrinsic :: ieee_arithmetic, only : is_finite => ieee_is_finite
@@ -297,7 +297,7 @@ module ieee_mod
   !
   public
   !
-#ifndef SPECIAL_FOR_GCC
+#ifndef SPECIAL_FOR_GNU
   !
   type(ieee_status_type) :: default_ieee_status
   !
@@ -350,7 +350,7 @@ contains
 subroutine get_default_ieee_status()
   ! This should only be called at code startup
 continue
-#ifndef SPECIAL_FOR_GCC
+#ifndef SPECIAL_FOR_GNU
   call ieee_get_status(default_ieee_status)
 #endif
 end subroutine get_default_ieee_status
@@ -359,7 +359,7 @@ end subroutine get_default_ieee_status
 !
 subroutine reset_ieee_status()
 continue
-#ifndef SPECIAL_FOR_GCC
+#ifndef SPECIAL_FOR_GNU
   call ieee_set_status(default_ieee_status)
 #endif
 end subroutine reset_ieee_status
@@ -383,7 +383,7 @@ continue
     reset_exceptions(n) = .false.
   end do
   !
-#ifndef SPECIAL_FOR_GCC
+#ifndef SPECIAL_FOR_GNU
   call ieee_set_flag(ieee_usual,reset_exceptions)
 #endif
   !
@@ -2224,7 +2224,7 @@ subroutine execute_command(command,wait_for_completion,exit_status, &
 #ifdef SPECIAL_FOR_NVIDIA
   use compatibility_pgi_mod, only : system,ierrno,gerror
 #else
-#ifdef SPECIAL_FOR_GCC
+#ifdef SPECIAL_FOR_GNU
   use compatibility_gcc_mod, only : system,ierrno,gerror
 #else
   use ifport, only : system,ierrno

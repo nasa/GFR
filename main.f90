@@ -1949,7 +1949,7 @@ subroutine check_for_bad_number(line_num,newton_failures,force_signaling)
   use eqn_idx_mod, only : nq
   use geomvar_mod, only : n_solpts
   use flowvar_mod, only : usp,uoldsp
-!#ifndef SPECIAL_FOR_GCC
+!#ifndef SPECIAL_FOR_GNU
 !  use, intrinsic :: ieee_exceptions, only : ieee_usual
 !  use, intrinsic :: ieee_exceptions, only : ieee_get_flag
 !#endif
@@ -1961,7 +1961,7 @@ subroutine check_for_bad_number(line_num,newton_failures,force_signaling)
   integer, optional, intent(in) :: newton_failures
   integer, optional, intent(in) :: force_signaling
   !
-#ifndef SPECIAL_FOR_GCC
+#ifndef SPECIAL_FOR_GNU
   !
   !.. Local Scalars ..
   integer  :: n,m,n_bad_pts,num_newton_failures
@@ -2130,7 +2130,7 @@ subroutine timed_check_for_bad_number(line_num,newton_failures,force_signaling)
   use eqn_idx_mod, only : nq
   use geomvar_mod, only : n_solpts
   use flowvar_mod, only : usp,uoldsp
-!#ifndef SPECIAL_FOR_GCC
+!#ifndef SPECIAL_FOR_GNU
 !  use, intrinsic :: ieee_exceptions, only : ieee_usual
 !  use, intrinsic :: ieee_exceptions, only : ieee_get_flag
 !#endif
@@ -2142,7 +2142,7 @@ subroutine timed_check_for_bad_number(line_num,newton_failures,force_signaling)
   integer, optional, intent(in) :: newton_failures
   integer, optional, intent(in) :: force_signaling
   !
-#ifndef SPECIAL_FOR_GCC
+#ifndef SPECIAL_FOR_GNU
   !
   !.. Local Scalars ..
   integer  :: n,m,n_bad_pts,num_newton_failures
@@ -2996,7 +2996,7 @@ end subroutine report_bad_pts
 !
 !subroutine reset_fp_exceptions
 !  !
-!#ifndef SPECIAL_FOR_GCC
+!#ifndef SPECIAL_FOR_GNU
 !  use, intrinsic :: ieee_exceptions, only : ieee_usual
 !  use, intrinsic :: ieee_exceptions, only : ieee_set_flag
 !  !

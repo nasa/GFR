@@ -3876,7 +3876,7 @@ continue
                      error_message)
     !
     ! F2003 AUTO-REALLOCATION
-#ifdef SPECIAL_FOR_GCC
+#ifdef SPECIAL_FOR_GNU
     local_og = [int( 100*cell(1:ncell)%order + cell(1:ncell)%geom , kind=ogp )]
 #else
     local_og = int( 100*cell(1:ncell)%order + cell(1:ncell)%geom , kind=ogp )
@@ -4867,7 +4867,7 @@ continue
   !       these are very small arrays and consume little to no memory.
   !
   ! F2003 AUTO-REALLOCATION
-#ifdef SPECIAL_FOR_GCC
+#ifdef SPECIAL_FOR_GNU
   og_counts = [ int(host_cells,kind=int_mpi) ]
 #else
   og_counts = int(host_cells,kind=int_mpi)
@@ -4891,7 +4891,7 @@ continue
   recvdispls = 2_int_mpi*og_displs ! F2003 AUTO-REALLOCATION
   !
   ! F2003 AUTO-REALLOCATION
-#ifdef SPECIAL_FOR_GCC
+#ifdef SPECIAL_FOR_GNU
   pts_counts = [ int(host_pts,kind=int_mpi) ]
 #else
   pts_counts = int(host_pts,kind=int_mpi)
