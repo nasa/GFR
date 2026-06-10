@@ -9,7 +9,7 @@ module pbs_mod
   !
   public :: pbs_remaining_walltime
   !
-#ifdef PBS_ENV
+!#ifdef PBS_ENV
   interface
    !subroutine pbs_time_left(seconds_left) bind(c,name="pbs_time_left_")
    !  import :: pbs_int
@@ -23,7 +23,7 @@ module pbs_mod
       integer(pbs_int), intent(inout) :: seconds_left
     end subroutine pbs_time_left_C_Interface
   end interface
-#endif
+!#endif
   !
   integer(pbs_int), save :: initial_wtl
   integer(pbs_int), save :: previous_wtl
