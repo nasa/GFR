@@ -312,7 +312,7 @@ module ieee_mod
   interface is_nan
     module procedure is_nan_SP
     module procedure is_nan_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure is_nan_QP
 #endif
   end interface is_nan
@@ -324,7 +324,7 @@ module ieee_mod
   interface is_finite
     module procedure is_finite_SP
     module procedure is_finite_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure is_finite_QP
 #endif
   end interface is_finite
@@ -336,7 +336,7 @@ module ieee_mod
   interface is_negative
     module procedure is_negative_SP
     module procedure is_negative_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure is_negative_QP
 #endif
   end interface is_negative
@@ -438,11 +438,12 @@ module module_kind_types
   integer, parameter :: SP = r4
   ! 'Double Precision' (64-bit/8-byte) real
   integer, parameter :: DP = r8
-  ! 'Quadruple Precision' (128-bit/16-byte) real (or DP if DISABLE_QP active)
-#ifdef DISABLE_QP
-  integer, parameter :: QP = r8
-#else
+  ! 'Quadruple Precision' (128-bit/16-byte) real
+  ! (or DP if ENABLE_QP is not active)
+#ifdef ENABLE_QP
   integer, parameter :: QP = r16
+#else
+  integer, parameter :: QP = r8
 #endif
   ! 'Working Precision' real: Used for most real scalars/arrays
   integer, parameter :: WP = r8
@@ -1238,7 +1239,7 @@ module module_kind_types
        init_array_s8_r8_rank1, init_array_s8_r8_rank2, init_array_s8_r8_rank3, &
        init_array_s8_lk_rank1, init_array_s8_lk_rank2, init_array_s8_lk_rank3, &
        init_array_s8_l4_rank1, init_array_s8_l4_rank2, init_array_s8_l4_rank3
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure &
     init_array_s4_r16_rank1, init_array_s4_r16_rank2, init_array_s4_r16_rank3, &
     init_array_s8_r16_rank1, init_array_s8_r16_rank2, init_array_s8_r16_rank3
@@ -1253,7 +1254,7 @@ module module_kind_types
   interface all_are_equal
     module procedure all_are_equal_i4, all_are_equal_i8, &
                      all_are_equal_r4, all_are_equal_r8
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure all_are_equal_r16
 #endif
   end interface all_are_equal
@@ -1266,7 +1267,7 @@ module module_kind_types
   interface all_not_equal
     module procedure all_not_equal_i4, all_not_equal_i8, &
                      all_not_equal_r4, all_not_equal_r8
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure all_not_equal_r16
 #endif
   end interface all_not_equal
@@ -1278,7 +1279,7 @@ module module_kind_types
   interface cross_product
     module procedure cross_product_SP
     module procedure cross_product_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure cross_product_QP
 #endif
   end interface cross_product
@@ -1308,7 +1309,7 @@ module module_kind_types
   interface selfdot
     module procedure selfdot_SP
     module procedure selfdot_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure selfdot_QP
 #endif
   end interface selfdot
@@ -1321,7 +1322,7 @@ module module_kind_types
   interface norm2
     module procedure rnorm2_SP
     module procedure rnorm2_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure rnorm2_QP
 #endif
   end interface norm2
@@ -1334,7 +1335,7 @@ module module_kind_types
   interface unit_vector
     module procedure unit_vector_SP
     module procedure unit_vector_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure unit_vector_QP
 #endif
   end interface unit_vector
@@ -1346,7 +1347,7 @@ module module_kind_types
   interface reciprocal
     module procedure reciprocal_SP
     module procedure reciprocal_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure reciprocal_QP
 #endif
   end interface reciprocal
@@ -1359,7 +1360,7 @@ module module_kind_types
     module procedure chop_WP
     module procedure chop_SP
     module procedure chop_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure chop_QP
 #endif
   end interface chop
@@ -1371,7 +1372,7 @@ module module_kind_types
   interface face_normal
     module procedure face_normal_SP
     module procedure face_normal_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure face_normal_QP
 #endif
   end interface face_normal
@@ -1383,7 +1384,7 @@ module module_kind_types
   interface compute_jacobian
     module procedure compute_jacobian_SP
     module procedure compute_jacobian_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure compute_jacobian_QP
 #endif
   end interface compute_jacobian
@@ -1395,7 +1396,7 @@ module module_kind_types
   interface reverse_metrics
     module procedure reverse_metrics_SP
     module procedure reverse_metrics_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure reverse_metrics_QP
 #endif
   end interface reverse_metrics
@@ -1407,7 +1408,7 @@ module module_kind_types
   interface invert_matrix
     module procedure invert_matrix_SP
     module procedure invert_matrix_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure invert_matrix_QP
 #endif
   end interface invert_matrix
@@ -1419,7 +1420,7 @@ module module_kind_types
   interface ludcmp
     module procedure ludcmp_SP
     module procedure ludcmp_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure ludcmp_QP
 #endif
   end interface ludcmp
@@ -1431,7 +1432,7 @@ module module_kind_types
   interface lubksb
     module procedure lubksb_SP
     module procedure lubksb_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure lubksb_QP
 #endif
   end interface lubksb
@@ -1443,7 +1444,7 @@ module module_kind_types
   interface determinant
     module procedure determinant_SP
     module procedure determinant_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure determinant_QP
 #endif
   end interface determinant
@@ -1456,7 +1457,7 @@ module module_kind_types
     module procedure random_i4
     module procedure random_sp
     module procedure random_dp
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure random_qp
 #endif
   end interface random
@@ -1472,7 +1473,7 @@ module module_kind_types
     module procedure identity_matrix_mat_SP
     module procedure identity_matrix_dim_DP
     module procedure identity_matrix_mat_DP
-#ifndef DISABLE_QP
+#ifdef ENABLE_QP
     module procedure identity_matrix_dim_QP
     module procedure identity_matrix_mat_QP
 #endif
