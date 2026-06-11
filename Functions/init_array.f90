@@ -384,8 +384,8 @@ end function init_array_s4_r8_rank3
 !
 pure function init_array_s4_r16_rank1(size1,val) result(return_value)
   !
-  use iso_fortran_env, only : lp => real128
   use iso_fortran_env, only : ip => int32
+  integer, parameter :: lp = QP
   !
   integer(ip),  intent(in) :: size1
   real(lp), intent(in) :: val
@@ -400,8 +400,8 @@ end function init_array_s4_r16_rank1
 !
 pure function init_array_s4_r16_rank2(size1,size2,val) result(return_value)
   !
-  use iso_fortran_env, only : lp => real128
   use iso_fortran_env, only : ip => int32
+  integer, parameter :: lp = QP
   !
   integer(ip),  intent(in) :: size1,size2
   real(lp), intent(in) :: val
@@ -420,8 +420,8 @@ end function init_array_s4_r16_rank2
 pure function init_array_s4_r16_rank3(size1,size2,size3,val) &
                                result(return_value)
   !
-  use iso_fortran_env, only : lp => real128
   use iso_fortran_env, only : ip => int32
+  integer, parameter :: lp = QP
   !
   integer(ip),  intent(in) :: size1,size2,size3
   real(lp), intent(in) :: val
@@ -953,8 +953,8 @@ end function init_array_s8_r8_rank3
 !
 pure function init_array_s8_r16_rank1(size1,val) result(return_value)
   !
-  use iso_fortran_env, only : lp => real128
   use iso_fortran_env, only : ip => int64
+  integer, parameter :: lp = QP
   !
   integer(ip),  intent(in) :: size1
   real(lp), intent(in) :: val
@@ -969,8 +969,8 @@ end function init_array_s8_r16_rank1
 !
 pure function init_array_s8_r16_rank2(size1,size2,val) result(return_value)
   !
-  use iso_fortran_env, only : lp => real128
   use iso_fortran_env, only : ip => int64
+  integer, parameter :: lp = QP
   !
   integer(ip),  intent(in) :: size1,size2
   real(lp), intent(in) :: val
@@ -989,8 +989,8 @@ end function init_array_s8_r16_rank2
 pure function init_array_s8_r16_rank3(size1,size2,size3,val) &
                                result(return_value)
   !
-  use iso_fortran_env, only : lp => real128
   use iso_fortran_env, only : ip => int64
+  integer, parameter :: lp = QP
   !
   integer(ip),  intent(in) :: size1,size2,size3
   real(lp), intent(in) :: val

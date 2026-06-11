@@ -31,7 +31,10 @@ module io_mod
   integer, save :: current_cell
   !
   interface g2c
-    module procedure g2c_i4, g2c_i8, g2c_r4, g2c_r8, g2c_r16
+    module procedure g2c_i4, g2c_i8, g2c_r4, g2c_r8
+#ifdef ENABLE_QP
+    module procedure g2c_r16
+#endif
   end interface g2c
   !
 contains
@@ -6829,7 +6832,7 @@ end function g2c_r8
 pure &
 function g2c_r16(val,width,digit,include_comma) result(cval)
   !
-  use, intrinsic :: iso_fortran_env, only : lp => real128
+  integer, parameter :: lp = QP
   !
   !.. Formal Arguments ..
   real(lp), intent(in) :: val
