@@ -230,6 +230,8 @@ $(OBJDIR)/filter_mod.o : filter_mod.f90 \
                $(OBJDIR)/transport_mod.o \
                $(FUNDIR)/solpts2order.f90 \
                $(FUNDIR)/debug_timer.f90
+$(OBJDIR)/filter_mod.o : OTHERFPP += $(MKLFPP)
+$(OBJDIR)/filter_mod.o : OTHERFLAGS += $(MKLFLAG)
 
 $(OBJDIR)/flowvar_mod.o : flowvar_mod.f90 \
                 $(OBJDIR)/kind_types_mod.o \
@@ -452,6 +454,8 @@ $(OBJDIR)/kind_types_mod.o : kind_types_mod.f90 \
                $(FUNDIR)/uppercase.f90 \
                $(FUNDIR)/debug_timer.f90 \
                          mpi_defs.h
+$(OBJDIR)/kind_types_mod.o : OTHERFPP += $(MKLFPP)
+$(OBJDIR)/kind_types_mod.o : OTHERFLAGS += $(MKLFLAG)
 
 $(OBJDIR)/limiters_mod.o : limiters_mod.f90 \
              $(OBJDIR)/kind_types_mod.o \
@@ -475,6 +479,8 @@ $(OBJDIR)/limiters_mod.o : limiters_mod.f90 \
 $(OBJDIR)/matrix_types_mod.o : matrix_types_mod.f90 \
                      $(OBJDIR)/kind_types_mod.o \
                      $(OBJDIR)/ovar_mod.o
+$(OBJDIR)/matrix_types_mod.o : OTHERFPP += $(MKLFPP)
+$(OBJDIR)/matrix_types_mod.o : OTHERFLAGS += $(MKLFLAG)
 
 $(OBJDIR)/mappings_mod.o : mappings_mod.f90 \
              $(OBJDIR)/kind_types_mod.o \
@@ -682,6 +688,8 @@ $(OBJDIR)/projection_mod.o : projection_mod.f90 \
                    $(OBJDIR)/thermo_mod.o \
                    $(OBJDIR)/transport_mod.o \
                    $(FUNDIR)/debug_timer.f90
+$(OBJDIR)/projection_mod.o : OTHERFPP += $(MKLFPP)
+$(OBJDIR)/projection_mod.o : OTHERFLAGS += $(MKLFLAG)
 
 $(OBJDIR)/pyramid_mod.o : pyramid_mod.f90 \
             $(OBJDIR)/kind_types_mod.o \
