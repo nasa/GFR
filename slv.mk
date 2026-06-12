@@ -14,14 +14,17 @@ vpath %.o $(OBJDIR)
 vpath %.f90 ./
 vpath %.mod $(MODDIR)
 
+ifeq "$(FC)" "ftn"
+  COMPILER = $(shell $(FC) -craype-verbose 2>/dev/null | awk '{print $$1}')
+endif
+
 MOD = $(MODFLAG) $(MODDIR)
 FSFXFLG = .f90
-
 CSFXFLG = .c
-#CFLAG = -O3
-#CFLAG += -g
 
-HDF5LIB  := -lhdf5 -ldl
+ifneq "$(FC)" "ftn"
+  HDF5LIB  := -lhdf5 -ldl
+endif
 CGNSLIB  := -lcgns
 METISLIB := -lmetis
 ifeq "$(PARMETISFPP)" "-DENABLE_PARMETIS"
@@ -31,50 +34,48 @@ ifdef TECDIR
   TECLIB  := -lteciompi -lstdc++
 endif
 
-ifdef SZIPDIR
-  SZIPLIB := -lsz
+ifeq "$(COMPFAMILY)" "intel"
+  ifdef MKLDIR
+    ifdef ENABLE_MKL_BLAS
+      MKLFPP += -DUSE_INTEL_MKL_BLAS
+      MKLLIB += -lmkl_blas95_lp64
+    endif
+    ifdef ENABLE_MKL_LAPACK
+      MKLFPP += -DUSE_INTEL_MKL_LAPACK
+      MKLLIB += -lmkl_lapack95_lp64
+    endif
+    ifdef MKLFPP
+      MKLFLAG := -qmkl=sequential
+    endif
+  endif
 endif
-
-ifdef MKLFPP
-  MKLFLAG := -qmkl=sequential
-  MKLINC  := -I$(MKLROOT)/include/intel64/lp64 -I$(MKLROOT)/include
-  MKLLIB  := -lmkl_blas95_lp64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential
-endif
-BLASLIB := $(MKLROOT)/lib/intel64/libmkl_blas95_lp64.a
-LAPACKLIB := $(MKLROOT)/lib/intel64/libmkl_lapack95_lp64.a
 
 ifdef ENABLEOMP
   OMPADD = $(OMPFLAG) -DENABLE_OPENMP
 endif
 
-ifdef PBSFPP
-  TARGET = $(AUTOTARGETARCH)
+ifdef HPCFPP
+  ifeq "$(FC)" "ftn"
+    HPCFPP += -DATHENA_PBS
+  endif
 endif
 
+FPP = $(strip $(FPPFLAG) $(HPCFPP) $(MPIFPP) $(OTHERFPP))
 
-TARGET ?= $(HOSTARCH)
-
-FPP = $(FPPFLAG) $(PBSFPP) $(MPIFPP) $(MKLFPP) $(OTHERFPP)
-
-ifeq "$(COMPFAMILY)" "gcc"
+ifeq "$(COMPFAMILY)" "gnu"
   INCDIR = $(sort $(CGNSDIR))
 else
  #INCDIR = $(sort $(CGNSDIR))
 endif
-LIBDIR = $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR) $(PARMETISDIR) $(TECDIR))
+LIBDIR = $(sort $(HDF5DIR) $(CGNSDIR) $(METISDIR) $(PARMETISDIR) $(TECDIR))
 
-FINC = $(foreach i,$(INCDIR),-I$(i)/include) -I./ $(MKLINC) $(OTHERINCDIR)
-FLIB = $(foreach i,$(LIBDIR),-L$(i)/lib) $(PBSDIR) $(OTHERLIBDIR)
-FLIB += $(MKLLIB) $(METISLIB) $(CGNSLIB) $(HDF5LIB) $(SZIPLIB) $(PBSLIB) $(TECLIB) $(OTHERLIB)
-ifeq "$(COMPFAMILY)" "intel"
-  FLIB += $(LAPACKLIB) $(BLASLIB)
-endif
+FINC = $(strip $(foreach i,$(INCDIR),-I$(i)/include) -I./ $(OTHERINCDIR))
+FLIB = $(strip $(foreach i,$(LIBDIR),-L$(i)/lib) $(OTHERLIBDIR))
+FLIB += $(strip $(MKLLIB) $(METISLIB) $(CGNSLIB) $(HDF5LIB) $(TECLIB) $(OTHERLIB))
 
-FCBASE = $(REALLOCFLAG)
-#FCBASE += $(TRACEFLAG)
-#FCBASE += -g
+FCBASE = $(strip $(REALLOCFLAG) $(TRACEFLAG))
 
-ADDFLAGS = $(MKLFLAG) $(MOD) $(FINC) $(OMPADD) $(FCADD) $(CMPFLAGS)
+ADDFLAGS = $(strip $(OTHERFLAGS) $(MOD) $(FINC) $(OMPADD) $(FCADD) $(CMPFLAGS))
 
 COBJS := $(OBJDIR)/mycpu.o \
          $(OBJDIR)/pbs_time_left.o
@@ -179,36 +180,30 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
 HighlightName := | /bin/grep -hi --color '[^ ]\+\.\(f[0-9]*\|c\)\>'
 
 .PHONY: opt
-opt: OPTIM = $(OPTFLAG) $(TARGET)
+opt: OPTIM = $(HOSTOPT)
 opt: optimize
 
-.PHONY: opt-host
-opt-host: OPTIM = $(OPTFLAG) $(HOSTARCH)
-opt-host: optimize
+.PHONY: aitken
+aitken: OPTIM = $(AITKENOPT)
+aitken: optimize
 
-.PHONY: rome
-rome: OPTIM = $(OPTFLAG) $(ROMOPT)
-rome: optimize
+.PHONY: athena
+athena: OPTIM = $(ATHENAOPT)
+athena: optimize
 
 .PHONY: gpu
-gpu: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(ROMARCH)
+gpu: OPTIM = $(AITKENOPT)
 gpu: optimize
 
 .PHONY: optimize
-optimize: FCFLAG = $(FCBASE) $(OPTIM) $(ADDFLAGS)
+optimize: FCFLAG = $(strip $(FCBASE) $(OPTIM) $(ADDFLAGS))
 optimize: CFLAG = -O3
 optimize: all
 
 .PHONY: debug
-debug: FPP += -DDEBUG_ON
-#debug: FPP += -DDEBUG_ON -DDISABLE_QP
-debug: FCFLAG = $(FCBASE) $(DBGFLAG) $(ADDFLAGS)
+debug: FCFLAG = $(strip $(FCBASE) $(DBGFLAG) $(ADDFLAGS))
 debug: CFLAG = -O0 -g
 debug: all
-
-.PHONY: deplist
-deplist: FCBASE += -gen-dep=deplist.mk
-deplist: debug
 
 .PHONY: all
 all: Command-Beg := echo
@@ -217,8 +212,8 @@ all: Command-Cend  = $(HighlightName); $(CC) $(CFLAG) -c -o $@ $<
 all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJS) $(COBJS)
-	$(FC) $(FPP) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(COBJS) $(EXTOBJS) $(FLIB)
-	if [ -d $(EXEDIR) ] ; then /bin/cp -f $(EXECUTABLE) $(EXEDIR)/$(EXECUTABLE) ; fi
+	$(FC) $(FPP) $(FCFLAG) $(MKLFLAG) -o $(EXECUTABLE) $(OBJS) $(COBJS) $(EXTOBJS) $(FLIB)
+	if [ -d $(EXEDIR) ] ; then $(CP) $(EXECUTABLE) $(EXEDIR)/$(EXECUTABLE) ; fi
 
 %.o:%$(FSFXFLG)
 	$(QUIET) echo $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(HighlightName);\
@@ -236,7 +231,9 @@ $(OBJS):
 
 .PHONY: clean
 clean:
-	/bin/rm -f $(OBJDIR)/*.o $(MODDIR)/*.mod $(EXECUTABLE)
+	$(RM) $(OBJDIR)/*.o $(MODDIR)/*.mod $(EXECUTABLE)
+	$(QUIET) if [ -f $(EXEDIR)/$(EXECUTABLE) ] ; then \
+		   $(RM) -v $(EXEDIR)/$(EXECUTABLE) ; fi
 
 .PHONY: dump-variables
 dump-variables:
@@ -244,66 +241,160 @@ dump-variables:
 	$(QUIET) echo "FPP = $(FPP)"
 	$(QUIET) echo "FCBASE = $(FCBASE)"
 	$(QUIET) echo "ADDFLAGS = $(ADDFLAGS)"
-	$(QUIET) echo "FCFLAG = $(FCFLAG)"
+	$(QUIET) echo "DBGFLAG = $(DBGFLAG)"
+	$(QUIET) echo "HOSTOPT = $(HOSTOPT)"
+	$(QUIET) echo "AITKENOPT = $(AITKENOPT)"
+	$(QUIET) echo "ATHENAOPT = $(ATHENAOPT)"
 	$(QUIET) echo "OBJDIR = $(OBJDIR)"
 	$(QUIET) echo "MODDIR = $(MODDIR)"
 	$(QUIET) echo "EXECUTABLE = $(EXECUTABLE)"
+	$(QUIET) echo "COMPFAMILY = '$(COMPFAMILY)'"
+	$(QUIET) echo "COMPILER = '$(COMPILER)'"
+	$(QUIET) echo "FINC = '$(FINC)'"
+	$(QUIET) echo "LIBDIR = '$(LIBDIR)'"
+	$(QUIET) echo "FLIB = '$(FLIB)'"
 
+################################################################################
 # Unique definitions for each compiler
+################################################################################
 ifeq "$(COMPFAMILY)" "intel"
-  # Intel flags
- #FPSTACK := -fp-stack-check
-  FPE     := -fpe0 -fpe-all=0 -fp-stack-check
- #FPEALL  := -fpe-all=0
-  MODFLAG := -module
-  OMPFLAG := -qopenmp
-  ARCHFLAG := -march=
-  ROMARCH := core-avx2 -fma
-  FPPFLAG := -fpp
-  IPFLAG  := -ip
-  IPOFLAG := -ipo
-  ALIGN32 := -align array32byte
-  ALIGN64 := -align array64byte
-  OPTFLAG := -traceback -g -O3 $(IPFLAG)
-  DBGFLAG := -check all -debug all -ftrapuv $(FPE) -g -traceback
-  TRACEFLAG := -traceback
-  REALLOCFLAG := -assume realloc_lhs
- #CMPFLAGS := -DSPECIAL_FOR_INTEL
-  CMPFLAGS := -DSPECIAL_FOR_INTEL -DDISABLE_QP -qmkl=sequential
- #CPMFLAGS += -guide -parallel -qopt-report=5 -qopt-report-file=stderr
-  AUTOTARGETARCH := -xHost
-  HOSTARCH := -xHost
-else ifeq "$(COMPFAMILY)" "gcc"
-  # GCC flags
-  MODFLAG := -J
-  OMPFLAG := -fopenmp
-  ARCHFLAG := -march=
-  ROMARCH := znver2
-  FPPFLAG := -cpp
-  OPTFLAG := -O3
-  DBGFLAG := -fcheck=all -Wall -Wextra -Wuninitialized
-  TRACEFLAG := -fbacktrace
-  REALLOCFLAG := -frealloc-lhs
-  CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC -DDISABLE_QP
-  AUTOTARGETARCH := $(ARCHFLAG)native
-  AUTOTARGETARCH += -mtune=$(ROMARCH)
-  HOSTARCH := $(ARCHFLAG)native
-else ifeq "$(COMPFAMILY)" "pgi"
-  # PGI flags
-  MODFLAG := -module
-  OMPFLAG := -mp
-  ARCHFLAG := -tp=
-  ROMARCH := zen
-  FPPFLAG := -Mpreprocess
-  OPTFLAG := -O3
-  DBGFLAG := -Mbounds -Mchkfpstk -Mchkptr -Mchkstk -Minform=inform -Ktrap=fp
-  TRACEFLAG := #-traceback
+  # Intel classic compiler (ifort) flags
+  #------------------------------------------------------------
+  FPPFLAG     := -fpp
+  MODFLAG     := -module
+  OMPFLAG     := -qopenmp
+  REALLOCFLAG := -assume realloc_lhs -assume fpe_summary
+  TRACEFLAG   := -traceback -g
+  CMPFLAGS    := -DSPECIAL_FOR_INTEL
+  #------------------------------------------------------------
+  DBGFLAG := -check all -debug all -ftrapuv \
+	     -fpe0 -fpe-all=0 -fp-stack-check \
+	     -diag-disable=10182
+  #------------------------------------------------------------
+  OPTFLAGS  := -O3 -ip -fma
+  AITKENOPT := $(OPTFLAGS) -march=core-avx2
+  ATHENAOPT := $(AITKENOPT) -diag-disable=10121 \
+	       -mavx512f -mavx512dq -mavx512bw -mavx512vl
+  HOSTOPT   := $(OPTFLAGS) -xHost
+#===============================================================================
+else ifeq "$(COMPFAMILY)" "oneapi"
+  # Intel OneAPI compiler (ifx) flags
+  #------------------------------------------------------------
+  FPPFLAG     := -fpp
+  MODFLAG     := -module
+  OMPFLAG     := -qopenmp
+  REALLOCFLAG := -assume realloc_lhs -assume fpe_summary
+  TRACEFLAG   := -traceback -g
+  CMPFLAGS    := -DSPECIAL_FOR_INTEL
+  #------------------------------------------------------------
+  DBGFLAG := -check all,nouninit -debug all -ftrapuv \
+	     -fpe0 -fpe-all=0 -diag-disable=10182
+  #------------------------------------------------------------
+  OPTFLAGS  := -O3 -fma
+  AITKENOPT := $(OPTFLAGS) -march=core-avx2
+  ATHENAOPT := $(AITKENOPT) -diag-disable=10121 \
+	       -mavx512f -mavx512dq -mavx512bw -mavx512vl
+  HOSTOPT   := $(OPTFLAGS) -xHost
+#===============================================================================
+else ifeq "$(COMPFAMILY)" "aocc"
+  # AOCC compiler (flang) flags
+  #------------------------------------------------------------
+  FPPFLAG     := -Mpreprocess
+  MODFLAG     := -module
+  OMPFLAG     := -mp
   REALLOCFLAG := -Mallocatable=03
-  CMPFLAGS := -DSPECIAL_FOR_PGI -DDISABLE_QP -DDISABLE_DTIO -Mbackslash
-  AUTOTARGETARCH := -tp=$(ROMARCH)
-  HOSTARCH :=
+  TRACEFLAG   := -fbacktrace -g
+  CMPFLAGS    := -DSPECIAL_FOR_AOCC -DDISABLE_DTIO -Mnobackslash
+## NOTE: The -Mnobackslash flag is equal to pgi/nvidia -Mbackslash
+##       -Mnobackslash causes \ in strings to be treated like a regular character
+##       -Mbackslash   causes \ in strings to be treated like a C-style escape character
+###------------------------------------------------------------
+  DBGFLAG := -fcheck=all -Wall -Wextra -Wuninitialized
+###------------------------------------------------------------
+  OPTFLAGS  :=-O3 -favoid-fpe-causing-opt
+  BROOPT    := broadwell
+  SKYOPT    := skylake
+  CASOPT    := cascadelake
+  ROMOPT    := znver2
+  MILOPT    := znver3
+  AITKENOPT := $(OPTFLAGS) -march=$(ROMOPT)
+  ATHENAOPT := $(OPTFLAGS) -march=znver5
+  HOSTOPT   := $(OPTFLAGS) -march=native -mtune=znver2
+#===============================================================================
+else ifeq "$(COMPFAMILY)" "cray"
+  # Cray compiler (crayftn) flags
+  #------------------------------------------------------------
+  FPPFLAG     := -eT
+  MODFLAG     := -ef -J
+  OMPFLAG     := -fopenmp
+  REALLOCFLAG := -ew
+  TRACEFLAG   := -fbacktrace -g
+  CMPFLAGS    := -DSPECIAL_FOR_CRAY -DDISABLE_DTIO
+###------------------------------------------------------------
+  DBGFLAG := -m0 -R abcdps -fsanitize=address -Ktrap=fp -G0
+###------------------------------------------------------------
+  OPTMESGS  := -hlist=dmioe
+  OPTFLAGS  := -O3 -Oipa5 -hfma #$(OPTMESGS)
+  BROOPT    := broadwell
+  SKYOPT    := x86-skylake
+  CASOPT    := x86-cascadelake
+  ROMOPT    := x86-rome
+  MILOPT    := x86-milan
+  AITKENOPT := $(OPTFLAGS) -hcpu=$(ROMOPT)
+  ATHENAOPT := $(OPTFLAGS) -hcpu=x86-turin
+  HOSTOPT   := $(OPTFLAGS)
+#===============================================================================
+else ifeq "$(COMPFAMILY)" "gnu"
+  # GNU compiler (gfortran) flags
+  #------------------------------------------------------------
+  FPPFLAG     := -cpp
+  MODFLAG     := -J
+  OMPFLAG     := -fopenmp
+  REALLOCFLAG := -frealloc-lhs
+  TRACEFLAG   := -fbacktrace -g
+  CMPFLAGS    := -DSPECIAL_FOR_GNU -DDISABLE_DTIO
+  #------------------------------------------------------------
+  DBGFLAG := -fcheck=all -Wall -Wextra -Wuninitialized
+  #------------------------------------------------------------
+  OPTFLAGS  := -O3
+  AITKENOPT := $(OPTFLAGS) -march=znver2
+  ATHENAOPT := $(OPTFLAGS) -march=znver5
+  HOSTOPT   := $(OPTFLAGS) -march=native -mtune=znver2
+#===============================================================================
+else ifeq "$(COMPFAMILY)" "nvidia"
+  # NVIDIA compiler flags
+  #------------------------------------------------------------
+  FPPFLAG     := -Mpreprocess
+  MODFLAG     := -module
+  OMPFLAG     := -mp
+  REALLOCFLAG := -Mallocatable=03
+  TRACEFLAG   := -traceback -g
+  CMPFLAGS    := -DSPECIAL_FOR_NVIDIA -DDISABLE_DTIO -Mbackslash
+## NOTE: The -Mbackslash flag is equal to AOCC -Mnobackslash
+##       -Mbackslash   causes \ in strings to be treated like a regular character
+##       -Mnobackslash causes \ in strings to be treated like a C-style escape character
+###------------------------------------------------------------
+  DBGFLAG := -Mbounds -Mchkptr -Mchkstk -Minform=inform -Ktrap=fp
+###------------------------------------------------------------
+  OPTFLAGS  :=-O3 -Mfma
+  BROOPT    := broadwell
+  SKYOPT    := skylake
+  CASOPT    := cascadelake
+  ROMOPT    := znver2
+  MILOPT    := znver3
+  AITKENOPT := $(OPTFLAGS) -tp=$(ROMOPT)
+  ATHENAOPT := $(OPTFLAGS) -tp=znver4
+  HOSTOPT   := $(OPTFLAGS) -tp=native
 endif
+#===============================================================================
 
-ROMOPT  := $(ARCHFLAG)$(ROMARCH)
+##############################################################
+###  Variable definitions for some common system commands  ###
+##############################################################
+
+RM := /bin/rm -f
+CP := /bin/cp -fp
+
+################################################################################
 
 include dep.mk
