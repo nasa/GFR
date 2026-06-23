@@ -24,7 +24,7 @@ module thx_mod
   !
   !.. Local Module Variables ..
   !
-  integer, save :: br_is_not_initialized = true
+  logical(lk), save :: br_is_not_initialized = true
   !
   !.. Local Module Arrays ..
   !

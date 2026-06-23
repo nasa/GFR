@@ -26,7 +26,7 @@ module bc_flow_stats_mod
   !
   !.. Local Module Variables ..
   !
-  integer, save :: bc_stats_are_not_initialized = true
+  logical(lk), save :: bc_stats_are_not_initialized = true
   !
   integer, save :: n_bc_stats = 0
   !
