@@ -18,6 +18,10 @@
 !###############################################################################
 !###############################################################################
 ! 32-BIT SIZE Functions with val input as 8-bit integer
+! NOTE: I left the code using the spread function to achieve the array
+!       initialization commented out in each of these init_array_s4_i4_rank*
+!       functions in case it is needed for future reference, but deleted it
+!       in all the the other init_array functions.
 !###############################################################################
 !###############################################################################
 !###############################################################################
@@ -33,9 +37,9 @@ pure function init_array_s4_i1_rank1(size1,val) result(return_value)
   integer(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
+ !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
 end function init_array_s4_i1_rank1
 !
 !###############################################################################
@@ -95,7 +99,6 @@ pure function init_array_s4_i2_rank1(size1,val) result(return_value)
   integer(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s4_i2_rank1
@@ -115,8 +118,6 @@ pure function init_array_s4_i2_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_i2_rank2
 !
 !###############################################################################
@@ -134,8 +135,6 @@ pure function init_array_s4_i2_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_i2_rank3
 !
 !###############################################################################
@@ -157,7 +156,6 @@ pure function init_array_s4_i4_rank1(size1,val) result(return_value)
   integer(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s4_i4_rank1
@@ -177,8 +175,6 @@ pure function init_array_s4_i4_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_i4_rank2
 !
 !###############################################################################
@@ -196,8 +192,6 @@ pure function init_array_s4_i4_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_i4_rank3
 !
 !###############################################################################
@@ -219,7 +213,6 @@ pure function init_array_s4_i8_rank1(size1,val) result(return_value)
   integer(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s4_i8_rank1
@@ -239,8 +232,6 @@ pure function init_array_s4_i8_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_i8_rank2
 !
 !###############################################################################
@@ -258,8 +249,6 @@ pure function init_array_s4_i8_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_i8_rank3
 !
 !###############################################################################
@@ -281,7 +270,6 @@ pure function init_array_s4_r4_rank1(size1,val) result(return_value)
   real(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s4_r4_rank1
@@ -301,8 +289,6 @@ pure function init_array_s4_r4_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_r4_rank2
 !
 !###############################################################################
@@ -320,8 +306,6 @@ pure function init_array_s4_r4_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_r4_rank3
 !
 !###############################################################################
@@ -343,7 +327,6 @@ pure function init_array_s4_r8_rank1(size1,val) result(return_value)
   real(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s4_r8_rank1
@@ -363,8 +346,6 @@ pure function init_array_s4_r8_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_r8_rank2
 !
 !###############################################################################
@@ -382,8 +363,6 @@ pure function init_array_s4_r8_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_r8_rank3
 !
 !###############################################################################
@@ -405,7 +384,6 @@ pure function init_array_s4_r16_rank1(size1,val) result(return_value)
   real(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s4_r16_rank1
@@ -425,8 +403,6 @@ pure function init_array_s4_r16_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_r16_rank2
 !
 !###############################################################################
@@ -445,8 +421,6 @@ pure function init_array_s4_r16_rank3(size1,size2,size3,val) &
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_r16_rank3
 !
 !###############################################################################
@@ -469,7 +443,6 @@ pure function init_array_s4_lk_rank1(size1,val) result(return_value)
   logical(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s4_lk_rank1
@@ -490,8 +463,6 @@ pure function init_array_s4_lk_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_lk_rank2
 !
 !###############################################################################
@@ -510,8 +481,6 @@ pure function init_array_s4_lk_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_lk_rank3
 !
 !###############################################################################
@@ -534,7 +503,6 @@ pure function init_array_s4_l4_rank1(size1,val) result(return_value)
   logical(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s4_l4_rank1
@@ -555,8 +523,6 @@ pure function init_array_s4_l4_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_l4_rank2
 !
 !###############################################################################
@@ -575,8 +541,6 @@ pure function init_array_s4_l4_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s4_l4_rank3
 !
 !
@@ -620,7 +584,6 @@ pure function init_array_s8_i1_rank1(size1,val) result(return_value)
   integer(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s8_i1_rank1
@@ -640,8 +603,6 @@ pure function init_array_s8_i1_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_i1_rank2
 !
 !###############################################################################
@@ -659,8 +620,6 @@ pure function init_array_s8_i1_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_i1_rank3
 !
 !###############################################################################
@@ -682,7 +641,6 @@ pure function init_array_s8_i2_rank1(size1,val) result(return_value)
   integer(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s8_i2_rank1
@@ -702,8 +660,6 @@ pure function init_array_s8_i2_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_i2_rank2
 !
 !###############################################################################
@@ -721,8 +677,6 @@ pure function init_array_s8_i2_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_i2_rank3
 !
 !###############################################################################
@@ -744,7 +698,6 @@ pure function init_array_s8_i4_rank1(size1,val) result(return_value)
   integer(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s8_i4_rank1
@@ -764,8 +717,6 @@ pure function init_array_s8_i4_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_i4_rank2
 !
 !###############################################################################
@@ -783,8 +734,6 @@ pure function init_array_s8_i4_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_i4_rank3
 !
 !###############################################################################
@@ -806,7 +755,6 @@ pure function init_array_s8_i8_rank1(size1,val) result(return_value)
   integer(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s8_i8_rank1
@@ -826,8 +774,6 @@ pure function init_array_s8_i8_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_i8_rank2
 !
 !###############################################################################
@@ -845,8 +791,6 @@ pure function init_array_s8_i8_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_i8_rank3
 !
 !###############################################################################
@@ -868,7 +812,6 @@ pure function init_array_s8_r4_rank1(size1,val) result(return_value)
   real(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s8_r4_rank1
@@ -888,8 +831,6 @@ pure function init_array_s8_r4_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_r4_rank2
 !
 !###############################################################################
@@ -907,8 +848,6 @@ pure function init_array_s8_r4_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_r4_rank3
 !
 !###############################################################################
@@ -930,7 +869,6 @@ pure function init_array_s8_r8_rank1(size1,val) result(return_value)
   real(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s8_r8_rank1
@@ -950,8 +888,6 @@ pure function init_array_s8_r8_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_r8_rank2
 !
 !###############################################################################
@@ -969,8 +905,6 @@ pure function init_array_s8_r8_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_r8_rank3
 !
 !###############################################################################
@@ -992,7 +926,6 @@ pure function init_array_s8_r16_rank1(size1,val) result(return_value)
   real(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s8_r16_rank1
@@ -1012,8 +945,6 @@ pure function init_array_s8_r16_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_r16_rank2
 !
 !###############################################################################
@@ -1032,8 +963,6 @@ pure function init_array_s8_r16_rank3(size1,size2,size3,val) &
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_r16_rank3
 !
 !###############################################################################
@@ -1056,7 +985,6 @@ pure function init_array_s8_lk_rank1(size1,val) result(return_value)
   logical(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s8_lk_rank1
@@ -1077,8 +1005,6 @@ pure function init_array_s8_lk_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_lk_rank2
 !
 !###############################################################################
@@ -1097,8 +1023,6 @@ pure function init_array_s8_lk_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_lk_rank3
 !
 !###############################################################################
@@ -1121,7 +1045,6 @@ pure function init_array_s8_l4_rank1(size1,val) result(return_value)
   logical(lp), allocatable :: return_value(:)
   !
 continue
- !return_value = spread(val,dim=1,ncopies=size1) ! F2003 AUTO-REALLOC
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1] , pad=[val] )
 end function init_array_s8_l4_rank1
@@ -1142,8 +1065,6 @@ pure function init_array_s8_l4_rank2(size1,size2,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2) , &
- !                        shape=[size1,size2] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_l4_rank2
 !
 !###############################################################################
@@ -1162,8 +1083,6 @@ pure function init_array_s8_l4_rank3(size1,size2,size3,val) result(return_value)
 continue
   ! F2003 AUTO-REALLOC
   return_value = reshape( [val] , shape=[size1,size2,size3] , pad=[val] )
- !return_value = reshape( spread(val,dim=1,ncopies=size1*size2*size3) , &
- !                        shape=[size1,size2,size3] )   ! F2003 AUTO-REALLOC
 end function init_array_s8_l4_rank3
 !
 !###############################################################################
