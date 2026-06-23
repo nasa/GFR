@@ -7,6 +7,7 @@ module prism_mod
   use module_kind_types, only : Legendre_Gauss_Lobatto
   use module_kind_types, only : Equi_Distant_Points
   use module_kind_types, only : invert_matrix
+  use module_kind_types, only : init_array
   !
   implicit none
   !
@@ -152,8 +153,8 @@ continue
   !
   nquad = 2*nfpts - 1 ! quadtrature order is 2*P
   !
-  xi = spread(zero,dim=1,ncopies=nquad) ! F2003 AUTO-REALLOC
-  wts = spread(zero,dim=1,ncopies=nquad) ! F2003 AUTO-REALLOC
+  xi = init_array(nquad,zero) ! F2003 AUTO-REALLOC
+  wts = init_array(nquad,zero) ! F2003 AUTO-REALLOC
   !
   ! Compute the coefficients of the Vandermonde matrix for
   ! the Lagrange polynomials using monomial basis functions

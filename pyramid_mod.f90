@@ -7,6 +7,7 @@ module pyramid_mod
   use module_kind_types, only : Legendre_Gauss_Lobatto
   use module_kind_types, only : Equi_Distant_Points
   use module_kind_types, only : invert_matrix
+  use module_kind_types, only : init_array
   !
   implicit none
   !
@@ -82,7 +83,7 @@ continue
   n = 0
   do k = 1,size(zeta)-1
     !
-    xi = spread(zero,dim=1,ncopies=p-k+2) ! F2003 AUTO-REALLOC
+    xi = init_array(p-k+2,zero) ! F2003 AUTO-REALLOC
     !
     if (location == Legendre_Gauss_Lobatto) then
       call nodes_legendre_gauss_lobatto(p-k+1,xi)
@@ -182,8 +183,8 @@ continue
     nquad = nquadrature
   end if
   !
-  xi = spread(zero,dim=1,ncopies=nquad) ! F2003 AUTO-REALLOC
-  wts = spread(zero,dim=1,ncopies=nquad) ! F2003 AUTO-REALLOC
+  xi = init_array(nquad,zero) ! F2003 AUTO-REALLOC
+  wts = init_array(nquad,zero) ! F2003 AUTO-REALLOC
   !
   ! Compute the coefficients of the Vandermonde matrix for
   ! the Lagrange polynomials using monomial basis functions
