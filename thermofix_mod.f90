@@ -393,8 +393,8 @@ continue
     !
     ! Write message
     !
-    if ( verbose == true ) then
-      num_bad_cell = count(bad_cell==true)
+    if ( verbose ) then
+      num_bad_cell = count(bad_cell)
       if (iter_mend == 1) write (iout,10) itcur, current_rk_stage
       write (iout,1) iter_mend, mypnum, num_bad_cell
 !-DEBUG_BEG:
