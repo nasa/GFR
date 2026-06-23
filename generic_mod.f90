@@ -396,11 +396,11 @@ subroutine compute_error_gpu(unew,uold,error,cv_pv_switch)
   character(len=*), parameter :: cvar(6,3) = &
       reshape( ["rho ","rhou","rhoE"," s  ","    ","    ", &
                 "rho ","rhou","rhov","rhoE"," s  ","    ", &
-                "rho ","rhou","rhov","rhow","rhoE"," s  "], shape(cvar) )
+                "rho ","rhou","rhov","rhow","rhoE"," s  "], [6,3] )
   character(len=*), parameter :: pvar(6,3) = &
       reshape( ["rho "," vx ","pres","vmag","    ","    ", &
                 "rho "," vx "," vy ","pres","vmag","    ", &
-                "rho "," vx "," vy "," vz ","pres","vmag"], shape(pvar) )
+                "rho "," vx "," vy "," vz ","pres","vmag"], [6,3] )
   !
 continue
   !

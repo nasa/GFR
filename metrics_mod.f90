@@ -553,7 +553,7 @@ subroutine old_get_metrics()
   !
   character(len=*), parameter :: cxyz(3,2) = reshape( ["X","Y","Z", &
                                                        "R","S","T"], &
-                                                      shape(cxyz) )
+                                                      [3,2] )
   !
 continue
   !
