@@ -1197,7 +1197,7 @@ module module_kind_types
   !
   ! From Functions/init_array.f90
   !
-  ! Versions of init_array with size inputs being 64-bit integers
+  ! Versions of init_array with size inputs being 32-bit integers
   private :: &
       init_array_s4_i1_rank1, init_array_s4_i1_rank2, init_array_s4_i1_rank3, &
       init_array_s4_i2_rank1, init_array_s4_i2_rank2, init_array_s4_i2_rank3, &
@@ -1245,6 +1245,35 @@ module module_kind_types
     init_array_s8_r16_rank1, init_array_s8_r16_rank2, init_array_s8_r16_rank3
 #endif
   end interface init_array
+  !
+  ! From Functions/spread.f90
+  !
+  private :: &
+      spread_i4_rank0, spread_i4_rank1, spread_i4_rank2, spread_i4_rank3, &
+      spread_i8_rank0, spread_i8_rank1, spread_i8_rank2, spread_i8_rank3, &
+      spread_r4_rank0, spread_r4_rank1, spread_r4_rank2, spread_r4_rank3, &
+      spread_r8_rank0, spread_r8_rank1, spread_r8_rank2, spread_r8_rank3, &
+      spread_r16_rank0,spread_r16_rank1,spread_r16_rank2,spread_r16_rank3,&
+      spread_lk_rank0, spread_lk_rank1, spread_lk_rank2, spread_lk_rank3, &
+      spread_l4_rank0, spread_l4_rank1, spread_l4_rank2, spread_l4_rank3
+  !
+#ifdef SPECIAL_FOR_CRAY
+  interface spread
+    module procedure &
+       spread_i4_rank0, spread_i4_rank1, spread_i4_rank2, spread_i4_rank3, &
+       spread_i8_rank0, spread_i8_rank1, spread_i8_rank2, spread_i8_rank3, &
+       spread_r4_rank0, spread_r4_rank1, spread_r4_rank2, spread_r4_rank3, &
+       spread_r8_rank0, spread_r8_rank1, spread_r8_rank2, spread_r8_rank3, &
+       spread_lk_rank0, spread_lk_rank1, spread_lk_rank2, spread_lk_rank3, &
+       spread_l4_rank0, spread_l4_rank1, spread_l4_rank2, spread_l4_rank3
+#ifdef ENABLE_QP
+    module procedure &
+       spread_r16_rank0, spread_r16_rank1, spread_r16_rank2, spread_r16_rank3
+#endif
+  end interface spread
+#else
+  intrinsic :: spread
+#endif
   !
   ! From Functions/all_are_equal.f90
   !
@@ -2684,6 +2713,7 @@ end function replace_char
 !
 #include "Functions/reallocate.f90"
 include "Functions/init_array.f90"
+include "Functions/spread.f90"
 include "Functions/cross_product.f90"
 include "Functions/deltafun.f90"
 include "Functions/norms.f90"
