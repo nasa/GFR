@@ -328,10 +328,11 @@ else ifeq "$(COMPFAMILY)" "cray"
   MODFLAG     := -ef -J
   OMPFLAG     := -fopenmp
   REALLOCFLAG := -ew
-  TRACEFLAG   := -fbacktrace -g
-  CMPFLAGS    := -DSPECIAL_FOR_CRAY -DDISABLE_DTIO
+  TRACEFLAG   := -g
+  CMPFLAGS    := -DSPECIAL_FOR_CRAY -DDISABLE_DTIO -hnoacc -xacc -M 7405,7206,7409,7418,296
 ###------------------------------------------------------------
-  DBGFLAG := -m0 -R abcdps -fsanitize=address -Ktrap=fp -G0
+  DBGFLAG := -O0 -m3 -R abcdps -Ktrap=fp
+ #DBGFLAG += -fsanitize=address
 ###------------------------------------------------------------
   OPTMESGS  := -hlist=dmioe
   OPTFLAGS  := -O3 -Oipa5 -hfma #$(OPTMESGS)
