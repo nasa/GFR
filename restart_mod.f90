@@ -6426,6 +6426,7 @@ continue
                              size(read_real,kind=int_mpi), &
                              MPI_REAL8,mpistat(1),mpierr)
     end if
+  else
     if (present(read_block_type)) then
       call mpi_file_read_all(file_handle,read_real, &
                              size(read_real,dim=2,kind=int_mpi), &
@@ -6516,6 +6517,7 @@ continue
                              size(read_real,kind=int_mpi), &
                              MPI_REAL16,mpistat(1),mpierr)
     end if
+  else
     if (present(read_block_type)) then
       call mpi_file_read_all(file_handle,read_real, &
                              size(read_real,dim=2,kind=int_mpi), &
