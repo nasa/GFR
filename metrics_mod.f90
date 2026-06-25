@@ -3440,6 +3440,7 @@ continue
   ! Sum the product of the Jacobian and quadrature weight for each point
   ! in this cell to compute the volume of the current cell
   !
+  return_value = zero
   do n = 1,size(this%v,dim=2)
     return_value = return_value + norm2(this%v(:,n)) * &
                                   std_elem(geom,order)%wts(n)
