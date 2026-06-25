@@ -3533,7 +3533,7 @@ continue
       usp(n,nec) = u0ec+k1ec+k6ec+k7ec+k8ec+k9ec+k10ec+k11ec+a12*k12ec
       usp(n,nmx) = u0mx+k1mx+k6mx+k7mx+k8mx+k9mx+k10mx+k11mx+a12*k12mx
       usp(n,nmy) = u0my+k1my+k6my+k7my+k8my+k9my+k10my+k11my+a12*k12my
-      usp(n,nee) = u0ee+k1ee+k6ee+k7ee+k8ee+k9ee+k10mz+k11ee+a12*k12ee
+      usp(n,nee) = u0ee+k1ee+k6ee+k7ee+k8ee+k9ee+k10ee+k11ee+a12*k12ee
       !
       rssprk(n,nec,12) = k12ec
       rssprk(n,nmx,12) = k12mx
