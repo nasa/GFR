@@ -239,7 +239,7 @@ continue
     !$ACC PARALLEL LOOP PRESENT(pv)
     do n = n1,n2
       rho = pv(n,nec)
-      rho = pv(n,nee)
+      rhoe = pv(n,nee)
       tke = pv(n,ntk)
       tls = pv(n,ntl)
       pv(n,nee) = rhoe + rho*tke
