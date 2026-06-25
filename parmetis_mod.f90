@@ -812,7 +812,9 @@ end subroutine get_ParMETIS_comm_ranks
 subroutine create_vtxdist(my_ncell,vtxdist,comm) 
   !
   !.. Use Statements .
+#ifdef USE_MPI_F08
   use _MPI_MODULE_, only : mpi_allgather
+#endif
   !
   !.. Formal Arguments ..
   integer(idx_t),               intent(in) :: my_ncell
@@ -861,7 +863,9 @@ subroutine recombine_global_epart(vtxdist,part,epart,comm)
   !.. Use Statements .
   use _MPI_MODULE_, only : MPI_INTEGER
   use _MPI_MODULE_, only : MPI_IN_PLACE
+#ifdef USE_MPI_F08
   use _MPI_MODULE_, only : mpi_allgather
+#endif
   !
   !.. Formal Arguments ..
   integer(idx_t),    intent(in) :: vtxdist(:)
