@@ -3637,6 +3637,16 @@ continue
     rr_inv = one/rr
     vxr = face_cv(n,nmx,2)*rr_inv
     vyr = face_cv(n,nmy,2)*rr_inv
+    q2r = vxr*vxr + vyr*vyr
+    presr = face_gp(n,npres,2)
+    h0r = half*q2r + gam/gm1 * presr/rr
+    vnr = vxr*unx + vyr*uny
+    ar = sqrt(max(gam*presr/rr,rndoff))
+    !
+    alr    = half*(al + ar)
+    rm2    = half*(q2l+q2r)/(alr*alr)
+    rmref2 = min( one , max( rm2 , max(eps4,one4*rm2) ) )
+    coef1  = half * (one+rmref2)
     coef2  = one - coef1
     prec_f = one - (one-sqrt(rmref2))**2
     alr    = prec_f*alr
