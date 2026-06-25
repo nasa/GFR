@@ -3661,7 +3661,7 @@ subroutine add_sol_variable(variable_list,new_variable)
   !
   !.. Formal Arguments ..
   character(len=*),                     intent(in) :: new_variable
-#ifdef SPECIAL_FOR_INTEL
+#if defined(SPECIAL_FOR_INTEL) || defined(SPECIAL_FOR_AOCC)
   character(len=:),     allocatable, intent(inout) :: variable_list(:)
 #else
   character(len=CGLEN), allocatable, intent(inout) :: variable_list(:)
@@ -3677,7 +3677,7 @@ continue
   !
   if (.not. allocated(variable_list)) then
     !
-#ifdef SPECIAL_FOR_INTEL
+#if defined(SPECIAL_FOR_INTEL) || defined(SPECIAL_FOR_AOCC)
     n = len_trim(adjustl(new_variable))
     ! USING F2003 AUTO-REALLOCATION
     variable_list = [ character(len=n) :: trim(adjustl(new_variable)) ]
@@ -3688,7 +3688,7 @@ continue
     !
   else
     !
-#ifdef SPECIAL_FOR_INTEL
+#if defined(SPECIAL_FOR_INTEL) || defined(SPECIAL_FOR_AOCC)
     n = max( len_trim(adjustl(new_variable)) , len(variable_list) )
     ! USING F2003 AUTO-REALLOCATION
     variable_list = [ character(len=n) :: variable_list , &
@@ -3708,7 +3708,7 @@ subroutine add_sol_variables(variable_list,new_variables)
   !
   !.. Formal Arguments ..
   character(len=*),                     intent(in) :: new_variables(:)
-#ifdef SPECIAL_FOR_INTEL
+#if defined(SPECIAL_FOR_INTEL) || defined(SPECIAL_FOR_AOCC)
   character(len=:),     allocatable, intent(inout) :: variable_list(:)
 #else
   character(len=CGLEN), allocatable, intent(inout) :: variable_list(:)
@@ -3724,7 +3724,7 @@ continue
   !
   if (.not. allocated(variable_list)) then
     !
-#ifdef SPECIAL_FOR_INTEL
+#if defined(SPECIAL_FOR_INTEL) || defined(SPECIAL_FOR_AOCC)
     n = len_trim(adjustl(new_variables(1)))
     ! USING F2003 AUTO-REALLOCATION
     variable_list = [ character(len=n) :: trim(adjustl(new_variables(1))) ]
@@ -3742,7 +3742,7 @@ continue
   end if
   !
   do i = ibeg,size(new_variables)
-#ifdef SPECIAL_FOR_INTEL
+#if defined(SPECIAL_FOR_INTEL) || defined(SPECIAL_FOR_AOCC)
     n = max( len_trim(adjustl(new_variables(i))) , len(variable_list) )
     ! USING F2003 AUTO-REALLOCATION
     variable_list = [ character(len=n) :: variable_list , &
