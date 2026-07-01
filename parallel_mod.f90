@@ -7313,7 +7313,7 @@ subroutine create_face_nonblocking_datatypes(bface,face_map,flx,face_rotation)
   integer :: loc_face,glb_face,my_part
   integer :: adj_face,adj_cpu
   integer :: left_rotation
-  integer(int_mpi) :: block_size,np
+  integer(int_mpi) :: block_size,np,tag_offset
   integer(int_mpi) :: this_flxpt
  !integer(int_mpi) :: tag_ub
   character(len=200) :: array_name
@@ -7619,43 +7619,35 @@ continue
   !
   !##########################################################
   !##########################################################
+  ! Count the total number of flux points on all boundary faces
+  !##########################################################
+  !##########################################################
+  !
+  nfp = 0
+  do loc_face = 1,lfbnd
+    glb_face = face_map(my_part)%loc_to_glb(loc_face)
+    left_rotation = face_rotation(1,glb_face)
+    nfp = nfp + size( flx(left_rotation)%pts )
+   !nfp = nfp + size( face(glb_face)%left%flxpts )
+  end do
+  !
+  !##########################################################
+  !##########################################################
   ! Create the MPI datatypes for exchanging
   ! solution data between adjacent partitions
   !##########################################################
   !##########################################################
   !
-  ! Set the block size for this MPI datatype
+  ! Set the block size and tag offset for this MPI datatype
   !
   block_size = int( nq , kind=int_mpi )
+  tag_offset = 0_int_mpi
   !
-  do i = 1,ncomm
-    !
-    ! Adjust comm_pts(i)%send and comm_pts(i)%recv for the solution arrays
-    !
-    comm_pts(i)%send(:) = comm_pts(i)%send(:) * block_size
-    comm_pts(i)%recv(:) = comm_pts(i)%recv(:) * block_size
-    !
-    np = size( comm_pts(i)%send , kind=int_mpi )
-    !
-    call mpi_type_create_indexed_block(np,block_size,comm_pts(i)%send, &
-                                       mpi_flttyp,exch_fusp(i)%send_datatype, &
-                                       mpierr)
-    call mpi_type_commit(exch_fusp(i)%send_datatype,mpierr)
-    !
-    np = size( comm_pts(i)%recv , kind=int_mpi )
-    !
-    call mpi_type_create_indexed_block(np,block_size,comm_pts(i)%recv, &
-                                       mpi_flttyp,exch_fusp(i)%recv_datatype, &
-                                       mpierr)
-    call mpi_type_commit(exch_fusp(i)%recv_datatype,mpierr)
-    !
-    ! Remove the solution array adjustment from
-    ! comm_pts(i)%send and comm_pts(i)%recv
-    !
-    comm_pts(i)%send(:) = comm_pts(i)%send(:) / block_size
-    comm_pts(i)%recv(:) = comm_pts(i)%recv(:) / block_size
-    !
-  end do
+  ! Create the MPI datatypes and allocate the arrays needed for communication
+  !
+  call create_mpi_exch_datatypes(nfp,block_size,tag_offset,comm_pts, &
+                                 exch_fusp,fusp_rqst,fusp_istat, &
+                                 fusp_send_buffer,fusp_recv_buffer)
   !
   !##########################################################
   !##########################################################
@@ -7664,38 +7656,16 @@ continue
   !##########################################################
   !##########################################################
   !
-  ! Set the block size for this MPI datatype
+  ! Set the block size and tag offset for this MPI datatype
   !
   block_size = int( nr*nq , kind=int_mpi )
+  tag_offset = ncpu
   !
-  do i = 1,ncomm
-    !
-    ! Adjust comm_pts(i)%send and comm_pts(i)%recv for the solution arrays
-    !
-    comm_pts(i)%send(:) = comm_pts(i)%send(:) * block_size
-    comm_pts(i)%recv(:) = comm_pts(i)%recv(:) * block_size
-    !
-    np = size( comm_pts(i)%send , kind=int_mpi )
-    !
-    call mpi_type_create_indexed_block(np,block_size,comm_pts(i)%send, &
-                                       mpi_flttyp,exch_fdusp(i)%send_datatype, &
-                                       mpierr)
-    call mpi_type_commit(exch_fdusp(i)%send_datatype,mpierr)
-    !
-    np = size( comm_pts(i)%recv , kind=int_mpi )
-    !
-    call mpi_type_create_indexed_block(np,block_size,comm_pts(i)%recv, &
-                                       mpi_flttyp,exch_fdusp(i)%recv_datatype, &
-                                       mpierr)
-    call mpi_type_commit(exch_fdusp(i)%recv_datatype,mpierr)
-    !
-    ! Remove the solution array adjustment from
-    ! comm_pts(i)%send and comm_pts(i)%recv
-    !
-    comm_pts(i)%send(:) = comm_pts(i)%send(:) / block_size
-    comm_pts(i)%recv(:) = comm_pts(i)%recv(:) / block_size
-    !
-  end do
+  ! Create the MPI datatypes and allocate the arrays needed for communication
+  !
+  call create_mpi_exch_datatypes(nfp,block_size,tag_offset,comm_pts, &
+                                 exch_fdusp,fdusp_rqst,fdusp_istat, &
+                                 fdusp_send_buffer,fdusp_recv_buffer)
   !
   !
   !##########################################################
@@ -7724,106 +7694,7 @@ continue
   deallocate ( comm_pts , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"comm_pts",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Set the tag values for MPI communication
-  !
-  ! Get the upper bound for tag from MPI
-  !
- !call mpi_comm_get_attr(MPI_COMM_WORLD,MPI_TAG_UB,tag_ub,flag,mpierr)
- !write (iout,*) mypnum,huge(tag_ub)
- !write (iout,*) mypnum,mpierr
- !write (iout,*) mypnum,flag
- !write (iout,*) mypnum,tag_ub
- !write (iout,*)
- !flush (iout)
- !call mpi_barrier(MPI_COMM_WORLD,mpierr)
- !!
- !! Divide the tag upper bound by two because it will be the starting
- !! value of tag for the gradient communications. This way the solution
- !! variable communication has the first half of valid tag values to work
- !! with and the gradient communication has the second half.
- !!
- !tag_ub = tag_ub / 2_int_mpi
- !!
- !write (iout,*) mypnum,tag_ub
- !flush (iout)
- !call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  !
-  do i = 1,ncomm
-    !
-    exch_fusp(i)%send_tag = exch_fusp(i)%adj_cpu
-    exch_fusp(i)%recv_tag = mypnum
-    !
-    exch_fdusp(i)%send_tag = exch_fdusp(i)%adj_cpu + ncpu!+ tag_ub
-    exch_fdusp(i)%recv_tag = mypnum + ncpu!+ tag_ub
-    !
-  end do
-  !
-  ! Count the total number of flux points on all boundary faces
-  !
-  nfp = 0
-  do loc_face = 1,lfbnd
-    glb_face = face_map(my_part)%loc_to_glb(loc_face)
-    left_rotation = face_rotation(1,glb_face)
-    nfp = nfp + size( flx(left_rotation)%pts )
-   !nfp = nfp + size( face(glb_face)%left%flxpts )
-  end do
-  !
-  ! Lets allocate the module arrays needed to
-  ! exchange face data between processors
-  !
-  ! Arrays for exchanging solution variables at face flux points
-  !
-  ! Receive buffer for communicating solution variables
-  !
-  allocate ( fusp_recv_buffer(1:nq*nfp) , source=0.0_r8 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fusp_recv_buffer",1,__LINE__,__FILE__,ierr, &
-                   error_message)
-  !
-  ! Send buffer for communicating solution variables
-  !
-  allocate ( fusp_send_buffer(1:nq*nfp) , source=0.0_r8 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fusp_send_buffer",1,__LINE__,__FILE__,ierr, &
-                   error_message)
-  !
-  ! MPI request objects for communicating solution variables
-  !
-  allocate ( fusp_rqst(1:2*ncomm) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fusp_rqst",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! MPI status objects returned after communicating solution variables
-  !
-  allocate ( fusp_istat(1:_MPI_STATUS_SIZE_,1:2*ncomm) , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fusp_istat",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Arrays for exchanging gradients of solution variables at face flux points
-  !
-  ! Receive buffer for communicating gradients
-  !
-  allocate ( fdusp_recv_buffer(1:nr*nq*nfp) , source=0.0_r8 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fdusp_recv_buffer",1,__LINE__,__FILE__,ierr, &
-                   error_message)
-  !
-  ! Send buffer for communicating gradients
-  !
-  allocate ( fdusp_send_buffer(1:nr*nq*nfp) , source=0.0_r8 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fdusp_send_buffer",1,__LINE__,__FILE__,ierr, &
-                   error_message)
-  !
-  ! MPI request objects for communicating gradients
-  !
-  allocate ( fdusp_rqst(1:2*ncomm) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fdusp_rqst",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! MPI status objects returned after communicating gradients
-  !
-  allocate ( fdusp_istat(1:_MPI_STATUS_SIZE_,1:2*ncomm) , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fdusp_istat",1,__LINE__,__FILE__,ierr,error_message)
+  !=============================================================================
   !
   call debug_timer(leaving_procedure,pname)
   !
