@@ -3849,7 +3849,7 @@ subroutine check_node_ordering()
   use geomvar_mod, only : xyz_nodes,nodes_of_cell,bface
   !
   !.. Local Scalars ..
-  integer  :: i,n,nf,np,n1,n2,ip2,ip4
+  integer  :: i,nc,nf,np,n1,n2,ip2,ip4
   real(wp) :: cell_vol
   !
   !.. Local Allocatable Arrays ..
@@ -3873,17 +3873,17 @@ continue
   call debug_timer(start_timer,"checking node order of boundary faces")
   do nf = 1,nfbnd
     !
-    n = bface(2,nf)
+    nc = bface(2,nf)
     !
-    n1 = nodes_of_cell_ptr(n)+1
-    n2 = nodes_of_cell_ptr(n+1)
+    n1 = nodes_of_cell_ptr(nc)+1
+    n2 = nodes_of_cell_ptr(nc+1)
     np = n2-n1+1
     !
     ! Compute the signed area/volume of the current host cell
     !
     cell_nodes = xyz_nodes(1:nr,nodes_of_cell(n1:n2)) ! F2003 AUTO-REALLOC
     !
-    select case (cell_geom(n))
+    select case (cell_geom(nc))
       case (Geom_Edge)
         cell_vol = length_edge( cell_nodes(:,:) )
       case (Geom_Quad)
@@ -3909,7 +3909,7 @@ continue
     !
     if (cell_vol < zero) then
       !
-      if (any(cell_geom(n) == Geom_2D)) then
+      if (any(cell_geom(nc) == Geom_2D)) then
         !
         ip2 = nodes_of_cell(n1+1)
         ip4 = nodes_of_cell(n2  ) ! for triangles, ip4 = ip3 because n2 = n1+2
@@ -3923,7 +3923,7 @@ continue
         ! For quad, faces need to go from 1,2,3,4 to 4,3,2,1 ordering.
         !                This is done using:  bface(4) = 5 - bface(4)
         !
-        bface(4,nf) = merge(4,5,cell_geom(n)==Geom_Tria) - bface(4,nf)
+        bface(4,nf) = merge(4,5,cell_geom(nc)==Geom_Tria) - bface(4,nf)
         !
         ! Now we have to loop through the remaining boundary faces
         ! and apply this correction to bface(4) for any other boundary
@@ -3933,8 +3933,8 @@ continue
         ! this cell_vol<zero conditional to apply a correction to bface(4).
         !
         do i = nf+1,nfbnd
-          if (bface(2,i) == n) then
-            bface(4,i) = merge(4,5,cell_geom(n)==Geom_Tria) - bface(4,i)
+          if (bface(2,i) == nc) then
+            bface(4,i) = merge(4,5,cell_geom(nc)==Geom_Tria) - bface(4,i)
           end if
         end do
         !
@@ -3960,10 +3960,10 @@ continue
   call debug_timer(start_timer,"checking node order of edge cells")
   if (any(cell_geom(:) == Geom_Edge)) then
     cn_xyz = init_array(nr,geom_nodes(Geom_Edge),zero) ! F2003 AUTO-REALLOC
-    do n = 1,ncell
-      if (cell_geom(n) == Geom_Edge) then
-        n1 = nodes_of_cell_ptr(n)+1
-        n2 = nodes_of_cell_ptr(n+1)
+    do nc = 1,ncell
+      if (cell_geom(nc) == Geom_Edge) then
+        n1 = nodes_of_cell_ptr(nc)+1
+        n2 = nodes_of_cell_ptr(nc+1)
         cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
         cell_vol = length_edge( cn_xyz(:,:) )
         if (cell_vol < zero) then
@@ -3980,10 +3980,10 @@ continue
   call debug_timer(start_timer,"checking node order of quad cells")
   if (any(cell_geom(:) == Geom_Quad)) then
     cn_xyz = init_array(nr,geom_nodes(Geom_Quad),zero) ! F2003 AUTO-REALLOC
-    do n = 1,ncell
-      if (cell_geom(n) == Geom_Quad) then
-        n1 = nodes_of_cell_ptr(n)+1
-        n2 = nodes_of_cell_ptr(n+1)
+    do nc = 1,ncell
+      if (cell_geom(nc) == Geom_Quad) then
+        n1 = nodes_of_cell_ptr(nc)+1
+        n2 = nodes_of_cell_ptr(nc+1)
         cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
         cell_vol = area_quad( cn_xyz(:,:) )
         if (cell_vol < zero) then
@@ -4002,10 +4002,10 @@ continue
   call debug_timer(start_timer,"checking node order of tria cells")
   if (any(cell_geom(:) == Geom_Tria)) then
     cn_xyz = init_array(nr,geom_nodes(Geom_Tria),zero) ! F2003 AUTO-REALLOC
-    do n = 1,ncell
-      if (cell_geom(n) == Geom_Tria) then
-        n1 = nodes_of_cell_ptr(n)+1
-        n2 = nodes_of_cell_ptr(n+1)
+    do nc = 1,ncell
+      if (cell_geom(nc) == Geom_Tria) then
+        n1 = nodes_of_cell_ptr(nc)+1
+        n2 = nodes_of_cell_ptr(nc+1)
         cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
         cell_vol = area_tria( cn_xyz(:,:) )
         if (cell_vol < zero) then
@@ -4024,10 +4024,10 @@ continue
   call debug_timer(start_timer,"checking node order of tetr cells")
   if (any(cell_geom(:) == Geom_Tetr)) then
     cn_xyz = init_array(nr,geom_nodes(Geom_Tetr),zero) ! F2003 AUTO-REALLOC
-    do n = 1,ncell
-      if (cell_geom(n) == Geom_Tetr) then
-        n1 = nodes_of_cell_ptr(n)+1
-        n2 = nodes_of_cell_ptr(n+1)
+    do nc = 1,ncell
+      if (cell_geom(nc) == Geom_Tetr) then
+        n1 = nodes_of_cell_ptr(nc)+1
+        n2 = nodes_of_cell_ptr(nc+1)
         cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
         cell_vol = vol_tet( cn_xyz(:,:) )
         if (cell_vol < zero) then
@@ -4044,10 +4044,10 @@ continue
   call debug_timer(start_timer,"checking node order of pyra cells")
   if (any(cell_geom(:) == Geom_Pyra)) then
     cn_xyz = init_array(nr,geom_nodes(Geom_Pyra),zero) ! F2003 AUTO-REALLOC
-    do n = 1,ncell
-      if (cell_geom(n) == Geom_Pyra) then
-        n1 = nodes_of_cell_ptr(n)+1
-        n2 = nodes_of_cell_ptr(n+1)
+    do nc = 1,ncell
+      if (cell_geom(nc) == Geom_Pyra) then
+        n1 = nodes_of_cell_ptr(nc)+1
+        n2 = nodes_of_cell_ptr(nc+1)
         cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
         cell_vol = vol_pyr( cn_xyz(:,:) )
         if (cell_vol < zero) then
@@ -4064,10 +4064,10 @@ continue
   call debug_timer(start_timer,"checking node order of pris cells")
   if (any(cell_geom(:) == Geom_Pris)) then
     cn_xyz = init_array(nr,geom_nodes(Geom_Pris),zero) ! F2003 AUTO-REALLOC
-    do n = 1,ncell
-      if (cell_geom(n) == Geom_Pris) then
-        n1 = nodes_of_cell_ptr(n)+1
-        n2 = nodes_of_cell_ptr(n+1)
+    do nc = 1,ncell
+      if (cell_geom(nc) == Geom_Pris) then
+        n1 = nodes_of_cell_ptr(nc)+1
+        n2 = nodes_of_cell_ptr(nc+1)
         cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
         cell_vol = vol_pri( cn_xyz(:,:) )
         if (cell_vol < zero) then
@@ -4084,10 +4084,10 @@ continue
   call debug_timer(start_timer,"checking node order of hexa cells")
   if (any(cell_geom(:) == Geom_Hexa)) then
     cn_xyz = init_array(nr,geom_nodes(Geom_Hexa),zero) ! F2003 AUTO-REALLOC
-    do n = 1,ncell
-      if (cell_geom(n) == Geom_Hexa) then
-        n1 = nodes_of_cell_ptr(n)+1
-        n2 = nodes_of_cell_ptr(n+1)
+    do nc = 1,ncell
+      if (cell_geom(nc) == Geom_Hexa) then
+        n1 = nodes_of_cell_ptr(nc)+1
+        n2 = nodes_of_cell_ptr(nc+1)
         cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
         cell_vol = vol_hex( cn_xyz(:,:) )
         if (cell_vol < zero) then
