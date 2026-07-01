@@ -394,6 +394,8 @@ module synthetic_eddy_mod
   !
   integer, parameter :: sem_walls(1:2) = [bc_adiabatic_wall,bc_isothermal_wall]
   !
+  real(wp), save :: wall_ymin = zero
+  !
 contains
 !
 !###############################################################################
@@ -1562,6 +1564,7 @@ subroutine init_from_sem_profile(prof,pvavg,xyz,cv)
   !
   !.. Use Statements ..
   use ovar, only : gam,rgasref_nd
+  use ovar, only : grid_scaling_factor
   !
   !.. Formal Arguments ..
   type(sem_profile_t), intent(in) :: prof
@@ -1590,7 +1593,7 @@ continue
   !
   do k = 1,size(xyz,dim=2)
     !
-    y = xyz(2,k)
+    y = (xyz(2,k)-wall_ymin)/grid_scaling_factor
     !
     n1 = 1
     n2 = 2
@@ -6551,11 +6554,20 @@ continue
     ! F2003 AUTO-REALLOC
     xyz_sem = xyz_nodes( 1:3 , sem2node(1:n_sem_pts) )
     !
+    ! Get the minimum y location across all the SEM and wall boundary points
+    wall_ymin = min(minval(xyz_sem(2,:)),minval(xyz_wall(2,:)))
+    !
     ! Compute the minimum wall distance for all
     ! the boundary nodes on SEM boundaries
     !
     call brute_force_wall_distance(xyz_wall,xyz_sem,wall)
     !
+  end if
+  !
+  ! Broadcast the minimum wall y-location
+  !
+  if (ncpu > 1) then
+    call mpi_bcast(wall_ymin,1_int_mpi,mpi_flttyp,host_root,my_host_comm,mpierr)
   end if
   !
   ! Deallocate msk, xyz_wall, sem2node, xyz_sem since they are no longer needed
