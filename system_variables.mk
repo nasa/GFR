@@ -97,3 +97,6 @@ ifneq "$(COMPFAMILY)" "intel"
 MPIFPP :=
 endif
 endif
+ifeq "$(COMPFAMILY)" "aocc"
+MPIFPP :=
+endif

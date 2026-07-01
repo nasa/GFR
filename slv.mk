@@ -26,6 +26,9 @@ ifneq "$(FC)" "ftn"
   HDF5LIB  := -lhdf5 -ldl
 endif
 CGNSLIB  := -lcgns
+ifeq "$(COMPFAMILY)" "aocc"
+  CGNSMOD := -I $(CGNSDIR)/include
+endif
 METISLIB := -lmetis
 ifeq "$(PARMETISFPP)" "-DENABLE_PARMETIS"
   METISLIB := -lparmetis $(METISLIB)
@@ -303,13 +306,15 @@ else ifeq "$(COMPFAMILY)" "aocc"
   MODFLAG     := -module
   OMPFLAG     := -mp
   REALLOCFLAG := -Mallocatable=03
-  TRACEFLAG   := -fbacktrace -g
+  TRACEFLAG   := -g
+ #TRACEFLAG   := -fbacktrace -g
   CMPFLAGS    := -DSPECIAL_FOR_AOCC -DDISABLE_DTIO -Mnobackslash
 ## NOTE: The -Mnobackslash flag is equal to pgi/nvidia -Mbackslash
 ##       -Mnobackslash causes \ in strings to be treated like a regular character
 ##       -Mbackslash   causes \ in strings to be treated like a C-style escape character
 ###------------------------------------------------------------
-  DBGFLAG := -fcheck=all -Wall -Wextra -Wuninitialized
+  DBGFLAG := -Wall -Wextra -Wuninitialized
+ #DBGFLAG := -fcheck=all -Wall -Wextra -Wuninitialized
 ###------------------------------------------------------------
   OPTFLAGS  :=-O3 -favoid-fpe-causing-opt
   BROOPT    := broadwell

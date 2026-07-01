@@ -126,9 +126,11 @@ $(OBJDIR)/cgns_mod.o : cgns_mod.f90 \
              $(FUNDIR)/smc000_interior_wall_radius.f90 \
              $(FUNDIR)/last.f90 \
              $(FUNDIR)/debug_timer.f90
+$(OBJDIR)/cgns_mod.o : OTHERFLAGS += $(CGNSMOD)
 
 $(OBJDIR)/cgnstypes_mod.o : cgnstypes_mod.f90 \
                   $(OBJDIR)/kind_types_mod.o
+$(OBJDIR)/cgnstypes_mod.o : OTHERFLAGS += $(CGNSMOD)
 #$(OBJDIR)/cgnstypes_mod.o : OTHERFPP += $(CGNSFPP)
 
 $(OBJDIR)/channel_mod.o : channel_mod.f90 \
@@ -346,6 +348,7 @@ $(OBJDIR)/internal_grid_mod.o : internal_grid_mod.f90 \
                       $(OBJDIR)/ovar_mod.o \
                       $(OBJDIR)/cgns_mod.o \
                       $(OBJDIR)/poly_mod.o
+$(OBJDIR)/internal_grid_mod.o : OTHERFLAGS += $(CGNSMOD)
 
 $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(OBJDIR)/kind_types_mod.o \
@@ -628,6 +631,7 @@ $(OBJDIR)/periodic_mod.o : periodic_mod.f90 \
                  $(OBJDIR)/ovar_mod.o \
                  $(OBJDIR)/cgnstypes_mod.o \
                  $(OBJDIR)/connectivity_mod.o
+$(OBJDIR)/periodic_mod.o : OTHERFLAGS += $(CGNSMOD)
 
 $(OBJDIR)/plot3d_mod.o : plot3d_mod.f90 \
                $(OBJDIR)/kind_types_mod.o \
@@ -670,6 +674,7 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(FUNDIR)/last.f90 \
                  $(FUNDIR)/debug_timer.f90 \
                  $(FUNDIR)/cell_solpts.f90
+$(OBJDIR)/postproc_mod.o : OTHERFLAGS += $(CGNSMOD)
 
 $(OBJDIR)/prism_mod.o : prism_mod.f90 \
           $(OBJDIR)/kind_types_mod.o \
@@ -892,6 +897,7 @@ $(OBJDIR)/write_cgns_mod.o : write_cgns_mod.f90 \
                    $(FUNDIR)/cgns_write_field_data.f90 \
                    $(FUNDIR)/cgns_write_field_header.f90 \
                              mpi_defs.h
+$(OBJDIR)/write_cgns_mod.o : OTHERFLAGS += $(CGNSMOD)
 
 $(OBJDIR)/bc_wall_mod.o : $(BCDIR)/bc_wall_mod.f90 \
                          $(OBJDIR)/kind_types_mod.o \
