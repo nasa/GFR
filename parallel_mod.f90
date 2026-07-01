@@ -8539,7 +8539,7 @@ continue
   ! with all other processors that have a higher rank
   !
   cpu_nums(:) = 0_int_mpi
-#ifdef SPECIAL_FOR_NVIDIA
+#if defined(SPECIAL_FOR_NVIDIA) || defined(SPECIAL_FOR_AOCC)
   cpu_nums(my_part) = int( count( cpu_msk(my_part+1:ncpu) ) , kind=int_mpi )
 #else
   cpu_nums(my_part) = count( cpu_msk(my_part+1:ncpu) , kind=int_mpi )
