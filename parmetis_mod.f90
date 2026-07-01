@@ -50,18 +50,10 @@ module parmetis_mod
       integer(idx_t) :: vtxdist(*)
       integer(idx_t) :: xadj(*)
       integer(idx_t) :: adjncy(*)
-#define USE_PARMETIS_C_PTR_ARGUMENTS
-#ifdef USE_PARMETIS_C_PTR_ARGUMENTS
       type(c_ptr), value :: vwgt
       type(c_ptr), value :: adjwgt
       type(c_ptr), value :: tpwgts
       type(c_ptr), value :: ubvec
-#else
-      integer(idx_t) :: vwgt(*)
-      integer(idx_t) :: adjwgt(*)
-      real(real_t)   :: tpwgts(*)
-      real(real_t)   :: ubvec(*)
-#endif
       integer(idx_t) :: wgtflag
       integer(idx_t) :: numflag
       integer(idx_t) :: ncon
@@ -87,17 +79,10 @@ module parmetis_mod
       integer(idx_t) :: vtxdist(*)
       integer(idx_t) :: xadj(*)
       integer(idx_t) :: adjncy(*)
-#ifdef USE_PARMETIS_C_PTR_ARGUMENTS
       type(c_ptr), value :: vwgt
       type(c_ptr), value :: adjwgt
       type(c_ptr), value :: tpwgts
       type(c_ptr), value :: ubvec
-#else
-      integer(idx_t) :: vwgt(*)
-      integer(idx_t) :: adjwgt(*)
-      real(real_t)   :: tpwgts(*)
-      real(real_t)   :: ubvec(*)
-#endif
       integer(idx_t) :: wgtflag
       integer(idx_t) :: numflag
       integer(idx_t) :: ndims
@@ -139,17 +124,10 @@ module parmetis_mod
       integer(idx_t) :: vtxdist(*)
       integer(idx_t) :: xadj(*)
       integer(idx_t) :: adjncy(*)
-#ifdef USE_PARMETIS_C_PTR_ARGUMENTS
       type(c_ptr), value :: vwgt
       type(c_ptr), value :: adjwgt
       type(c_ptr), value :: tpwgts
       type(c_ptr), value :: ubvec
-#else
-      integer(idx_t) :: vwgt(*)
-      integer(idx_t) :: adjwgt(*)
-      real(real_t)   :: tpwgts(*)
-      real(real_t)   :: ubvec(*)
-#endif
       integer(idx_t) :: wgtflag
       integer(idx_t) :: numflag
       integer(idx_t) :: ncon
@@ -227,15 +205,9 @@ module parmetis_mod
       integer(idx_t) :: elmdist(*)
       integer(idx_t) :: eptr(*)
       integer(idx_t) :: eind(*)
-#ifdef USE_PARMETIS_C_PTR_ARGUMENTS
       type(c_ptr), value :: elmwgt
       type(c_ptr), value :: tpwgts
       type(c_ptr), value :: ubvec
-#else
-      integer(idx_t) :: elmwgt(*)
-      real(real_t)   :: tpwgts(*)
-      real(real_t)   :: ubvec(*)
-#endif
       integer(idx_t) :: wgtflag
       integer(idx_t) :: numflag
       integer(idx_t) :: ncon
@@ -405,7 +377,8 @@ subroutine ParMETIS_PartGraphKway(metis_option,refine_count, &
                                   xyz,edgecut,epart,comm)
   !
   !.. Use Statements ..
-  use, intrinsic :: iso_c_binding, only : c_int,c_loc,c_ptr,c_null_ptr
+  use, intrinsic :: iso_c_binding, only : c_int,c_loc,c_ptr
+  use, intrinsic :: iso_c_binding, only : c_null_ptr
   !
   !.. Formal Arguments ..
   integer,                                intent(in) :: metis_option
@@ -480,87 +453,62 @@ continue
   call create_vtxdist(my_ncell,vtxdist,comm)
   !
   call create_partition_weights(nparts,ncon,tpwgts,ubvec)
+  !
+  ! Create C address pointers for the input arrays
+  !
   c_tpwgts = c_null_ptr
   c_ubvec = c_null_ptr
-  c_tpwgts = c_loc(tpwgts)
-  c_ubvec = c_loc(ubvec)
+  c_vwgt = c_null_ptr
+  c_adjwgt = c_null_ptr
+  if (allocated(tpwgts)) c_tpwgts = c_loc(tpwgts)
+  if (allocated(ubvec)) c_ubvec = c_loc(ubvec)
+  if (allocated(vwgt)) c_vwgt = c_loc(vwgt)
+  if (allocated(adjwgt)) c_adjwgt = c_loc(adjwgt)
+  !
+  ! Allocate the part array that ParMETIS will
+  ! return with the resulting partitioning
   !
   allocate ( part(1:my_ncell) , source=0_idx_t )
-  if (.not. allocated(vwgt)) then
-    allocate ( vwgt(1:ncon*my_ncell) , source=1_idx_t )
-    c_vwgt = c_null_ptr
-  else
-    c_vwgt = c_loc(vwgt)
-  end if
-  if (.not. allocated(adjwgt)) then
-    allocate ( adjwgt(1:size(adjncy)) , source=1_idx_t )
-    c_adjwgt = c_null_ptr
-  else
-    c_adjwgt = c_loc(adjwgt)
-  end if
   !
+  ! Call one of the ParMETIS partitioning functions
+  ! based on the value of the input metis_option
   !
   if (any(metis_option == [1,6])) then
     !
     ndims = size(xyz,dim=1,kind=idx_t)
     !
-#ifdef USE_PARMETIS_C_PTR_ARGUMENTS
     ierr = ParMETIS_V3_PartGeomKway_C_Interface(vtxdist, &
                                                 xadj,adjncy,c_vwgt,c_adjwgt, &
                                                 wgtflag,numflag,ndims,xyz, &
                                                 ncon,nparts,c_tpwgts,c_ubvec, &
                                                 options,edgecut,part, &
                                                 _MPI_TYPE_VAL_(comm))
-#else
-    ierr = ParMETIS_V3_PartGeomKway_C_Interface(vtxdist, &
-                                                xadj,adjncy,vwgt,adjwgt, &
-                                                wgtflag,numflag,ndims,xyz, &
-                                                ncon,nparts,tpwgts,ubvec, &
-                                                options,edgecut,part, &
-                                                _MPI_TYPE_VAL_(comm))
-#endif
     !
   else if (any(metis_option == [2,5])) then
     !
     ncommonnodes = 3_idx_t
    !ncommonnodes = 4_idx_t
     !
-#ifdef USE_PARMETIS_C_PTR_ARGUMENTS
     ierr = ParMETIS_V3_PartMeshKway_C_Interface(vtxdist,eptr,eidx,c_vwgt, &
                                                 wgtflag,numflag,ncon, &
                                                 ncommonnodes,nparts, &
                                                 c_tpwgts,c_ubvec, &
                                                 options,edgecut,part, &
                                                 _MPI_TYPE_VAL_(comm))
-#else
-    ierr = ParMETIS_V3_PartMeshKway_C_Interface(vtxdist,eptr,eidx,vwgt, &
-                                                wgtflag,numflag,ncon, &
-                                                ncommonnodes,nparts, &
-                                                tpwgts,ubvec, &
-                                                options,edgecut,part, &
-                                                _MPI_TYPE_VAL_(comm))
-#endif
   else
     !
-#ifdef USE_PARMETIS_C_PTR_ARGUMENTS
     ierr = ParMETIS_V3_PartKway_C_Interface(vtxdist, &
                                             xadj,adjncy,c_vwgt,c_adjwgt, &
                                             wgtflag,numflag, &
                                             ncon,nparts,c_tpwgts,c_ubvec, &
                                             options,edgecut,part, &
                                             _MPI_TYPE_VAL_(comm))
-#else
-    ierr = ParMETIS_V3_PartKway_C_Interface(vtxdist, &
-                                            xadj,adjncy,vwgt,adjwgt, &
-                                            wgtflag,numflag, &
-                                            ncon,nparts,tpwgts,ubvec, &
-                                            options,edgecut,part, &
-                                            _MPI_TYPE_VAL_(comm))
-#endif
     !
   end if
   !
   options = [ options(1:3) , PARMETIS_PSR_UNCOUPLED ] ! F2003 AUTO-REALLOC
+  !
+  ! Use ParMETIS to refine the partitioning
   !
   do n = 1,refine_count
     !
@@ -569,27 +517,30 @@ continue
       options(3) = int( date(8) , kind=idx_t )
     end if
     !
-#ifdef USE_PARMETIS_C_PTR_ARGUMENTS
     ierr = ParMETIS_V3_RefineKway_C_Interface(vtxdist, &
                                               xadj,adjncy,c_vwgt,c_adjwgt, &
                                               wgtflag,numflag, &
                                               ncon,nparts,c_tpwgts,c_ubvec, &
                                               options,edgecut,part, &
                                               _MPI_TYPE_VAL_(comm))
-#else
-    ierr = ParMETIS_V3_RefineKway_C_Interface(vtxdist, &
-                                              xadj,adjncy,vwgt,adjwgt, &
-                                              wgtflag,numflag, &
-                                              ncon,nparts,tpwgts,ubvec, &
-                                              options,edgecut,part, &
-                                              _MPI_TYPE_VAL_(comm))
-#endif
     !
     part(:) = part(:) - 1_idx_t
     !
   end do
   !
+  ! Recombine the distributed partitioning arrays
+  ! into the global partitioning array epart
+  !
   call recombine_global_epart(vtxdist,part,epart,comm)
+  !
+  ! Reset the C address pointers to null
+  !
+  c_tpwgts = c_null_ptr
+  c_ubvec  = c_null_ptr
+  c_vwgt   = c_null_ptr
+  c_adjwgt = c_null_ptr
+  !
+  ! Deallocate the local arrays
   !
   if (allocated(part   )) deallocate ( part )
   if (allocated(ubvec  )) deallocate ( ubvec )
@@ -605,7 +556,8 @@ end subroutine ParMETIS_PartGraphKway
 subroutine ParMETIS_PartKway(nparts,xadj,adjncy,vwgt,adjwgt,edgecut,epart,comm)
   !
   !.. Use Statements ..
-  use, intrinsic :: iso_c_binding, only : c_int,c_ptr,c_loc,c_null_ptr
+  use, intrinsic :: iso_c_binding, only : c_int,c_ptr,c_loc
+  use, intrinsic :: iso_c_binding, only : c_null_ptr
   !
   !.. Formal Arguments ..
   integer(idx_t),                     intent(in) :: nparts
@@ -633,8 +585,9 @@ subroutine ParMETIS_PartKway(nparts,xadj,adjncy,vwgt,adjwgt,edgecut,epart,comm)
   !.. Local Allocatable Arrays ..
   integer(idx_t), allocatable :: vtxdist(:)
   integer(idx_t), allocatable :: part(:)
-  real(real_t),   allocatable :: tpwgts(:)
-  real(real_t),   allocatable :: ubvec(:)
+  !
+  real(real_t), allocatable, target :: tpwgts(:)
+  real(real_t), allocatable, target :: ubvec(:)
   !
 continue
 #ifdef ENABLE_PARMETIS
@@ -652,32 +605,45 @@ continue
   call create_vtxdist(my_ncell,vtxdist,comm)
   !
   call create_partition_weights(nparts,ncon,tpwgts,ubvec)
+  !
+  ! Create C address pointers for the input arrays
+  !
   c_vwgt = c_null_ptr
   c_adjwgt = c_null_ptr
   c_tpwgts = c_null_ptr
   c_ubvec = c_null_ptr
+  if (allocated(tpwgts)) c_tpwgts = c_loc(tpwgts)
+  if (allocated(ubvec)) c_ubvec = c_loc(ubvec)
   if (allocated(vwgt)) c_vwgt = c_loc(vwgt)
   if (allocated(adjwgt)) c_adjwgt = c_loc(adjwgt)
   !
+  ! Allocate the part array that ParMETIS will
+  ! return with the resulting partitioning
+  !
   allocate ( part(1:my_ncell) , source=0_idx_t )
   !
-#ifdef USE_PARMETIS_C_PTR_ARGUMENTS
+  ! Use ParMETIS to partition the mesh
+  !
   ierr = ParMETIS_V3_PartKway_C_Interface(vtxdist, &
                                           xadj,adjncy,c_vwgt,c_adjwgt, &
                                           wgtflag,numflag, &
                                           ncon,nparts,c_tpwgts,c_ubvec, &
                                           options,edgecut,part, &
                                           _MPI_TYPE_VAL_(comm))
-#else
-  ierr = ParMETIS_V3_PartKway_C_Interface(vtxdist, &
-                                          xadj,adjncy,vwgt,adjwgt, &
-                                          wgtflag,numflag, &
-                                          ncon,nparts,tpwgts,ubvec, &
-                                          options,edgecut,part, &
-                                          _MPI_TYPE_VAL_(comm))
-#endif
+  !
+  ! Recombine the distributed partitioning arrays
+  ! into the global partitioning array epart
   !
   call recombine_global_epart(vtxdist,part,epart,comm)
+  !
+  ! Reset the C address pointers to null
+  !
+  c_tpwgts = c_null_ptr
+  c_ubvec  = c_null_ptr
+  c_vwgt   = c_null_ptr
+  c_adjwgt = c_null_ptr
+  !
+  ! Deallocate the local arrays
   !
   if (allocated(part   )) deallocate ( part )
   if (allocated(ubvec  )) deallocate ( ubvec )
@@ -694,7 +660,8 @@ subroutine ParMETIS_PartGeomKway(nparts,xadj,adjncy,vwgt,adjwgt, &
                                  xyz,edgecut,epart,comm)
   !
   !.. Use Statements ..
-  use, intrinsic :: iso_c_binding, only : c_int,c_ptr,c_loc,c_null_ptr
+  use, intrinsic :: iso_c_binding, only : c_int,c_ptr,c_loc
+  use, intrinsic :: iso_c_binding, only : c_null_ptr
   !
   !.. Formal Arguments ..
   integer(idx_t),                     intent(in) :: nparts
@@ -724,8 +691,9 @@ subroutine ParMETIS_PartGeomKway(nparts,xadj,adjncy,vwgt,adjwgt, &
   !.. Local Allocatable Arrays ..
   integer(idx_t), allocatable :: vtxdist(:)
   integer(idx_t), allocatable :: part(:)
-  real(real_t),   allocatable :: tpwgts(:)
-  real(real_t),   allocatable :: ubvec(:)
+  !
+  real(real_t), allocatable, target :: tpwgts(:)
+  real(real_t), allocatable, target :: ubvec(:)
   !
 continue
 #ifdef ENABLE_PARMETIS
@@ -745,32 +713,45 @@ continue
   call create_vtxdist(my_ncell,vtxdist,comm)
   !
   call create_partition_weights(nparts,ncon,tpwgts,ubvec)
+  !
+  ! Create C address pointers for the input arrays
+  !
   c_vwgt = c_null_ptr
   c_adjwgt = c_null_ptr
   c_tpwgts = c_null_ptr
   c_ubvec = c_null_ptr
+  if (allocated(tpwgts)) c_tpwgts = c_loc(tpwgts)
+  if (allocated(ubvec)) c_ubvec = c_loc(ubvec)
   if (allocated(vwgt)) c_vwgt = c_loc(vwgt)
   if (allocated(adjwgt)) c_adjwgt = c_loc(adjwgt)
   !
+  ! Allocate the part array that ParMETIS will
+  ! return with the resulting partitioning
+  !
   allocate ( part(1:my_ncell) , source=0_idx_t )
   !
-#ifdef USE_PARMETIS_C_PTR_ARGUMENTS
+  ! Use ParMETIS to partition the mesh
+  !
   ierr = ParMETIS_V3_PartGeomKway_C_Interface(vtxdist, &
                                               xadj,adjncy,c_vwgt,c_adjwgt, &
                                               wgtflag,numflag,ndims,xyz, &
                                               ncon,nparts,c_tpwgts,c_ubvec, &
                                               options,edgecut,part, &
                                               _MPI_TYPE_VAL_(comm))
-#else
-  ierr = ParMETIS_V3_PartGeomKway_C_Interface(vtxdist, &
-                                              xadj,adjncy,vwgt,adjwgt, &
-                                              wgtflag,numflag,ndims,xyz, &
-                                              ncon,nparts,tpwgts,ubvec, &
-                                              options,edgecut,part, &
-                                              _MPI_TYPE_VAL_(comm))
-#endif
+  !
+  ! Recombine the distributed partitioning arrays
+  ! into the global partitioning array epart
   !
   call recombine_global_epart(vtxdist,part,epart,comm)
+  !
+  ! Reset the C address pointers to null
+  !
+  c_tpwgts = c_null_ptr
+  c_ubvec  = c_null_ptr
+  c_vwgt   = c_null_ptr
+  c_adjwgt = c_null_ptr
+  !
+  ! Deallocate the local arrays
   !
   if (allocated(part   )) deallocate ( part )
   if (allocated(ubvec  )) deallocate ( ubvec )
@@ -1075,6 +1056,7 @@ subroutine ParMETIS_RefineKway(vtxdist,xadj,adjncy,vwgt,adjwgt, &
   !
   !.. Use Statements ..
   use, intrinsic :: iso_c_binding, only : c_int,c_ptr,c_loc
+  use, intrinsic :: iso_c_binding, only : c_null_ptr
   !
   !.. Formal Arguments ..
   integer(idx_t),         intent(in) :: vtxdist(:)
@@ -1107,25 +1089,26 @@ continue
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL, & ! F2003 AUTO-REALLOC
              0_idx_t,0_idx_t]
   !
-#ifdef USE_PARMETIS_C_PTR_ARGUMENTS
+  ! Create C address pointers for the input arrays
+  !
   c_tpwgts = c_loc(tpwgts)
   c_ubvec = c_loc(ubvec)
   c_vwgt = c_loc(vwgt)
   c_adjwgt = c_loc(adjwgt)
+  !
   ierr = ParMETIS_V3_RefineKway_C_Interface(vtxdist, &
                                             xadj,adjncy,c_vwgt,c_adjwgt, &
                                             wgtflag,numflag, &
                                             ncon,nparts,c_tpwgts,c_ubvec, &
                                             options,edgecut,part, &
                                             _MPI_TYPE_VAL_(comm))
-#else
-  ierr = ParMETIS_V3_RefineKway_C_Interface(vtxdist, &
-                                            xadj,adjncy,vwgt,adjwgt, &
-                                            wgtflag,numflag, &
-                                            ncon,nparts,tpwgts,ubvec, &
-                                            options,edgecut,part, &
-                                            _MPI_TYPE_VAL_(comm))
-#endif
+  !
+  ! Reset the C address pointers to null
+  !
+  c_tpwgts = c_null_ptr
+  c_ubvec  = c_null_ptr
+  c_vwgt   = c_null_ptr
+  c_adjwgt = c_null_ptr
   !
   if (allocated(options)) deallocate ( options )
   !
@@ -1256,6 +1239,7 @@ subroutine ParMETIS_PartMeshKway(elmdist,eptr,eind,elmwgt, &
   !
   !.. Use Statements ..
   use, intrinsic :: iso_c_binding, only : c_int,c_ptr,c_loc
+  use, intrinsic :: iso_c_binding, only : c_null_ptr
   !
   !.. Formal Arguments ..
   integer(idx_t),         intent(in) :: elmdist(:)
@@ -1286,24 +1270,24 @@ continue
   !
   options = [PARMETIS_DEBUG_FLAG,PARMETIS_DEBUG_VAL,0_idx_t] ! F03 AUTO-REALLOC
   !
-#ifdef USE_PARMETIS_C_PTR_ARGUMENTS
+  ! Create C address pointers for the input arrays
+  !
   c_elmwgt = c_loc(elmwgt)
   c_tpwgts = c_loc(tpwgts)
   c_ubvec = c_loc(ubvec)
+  !
   ierr = ParMETIS_V3_PartMeshKway_C_Interface(elmdist,eptr,eind,c_elmwgt, &
                                               wgtflag,numflag,ncon, &
                                               ncommonnodes,nparts, &
                                               c_tpwgts,c_ubvec,options, &
                                               edgecut,part, &
                                               _MPI_TYPE_VAL_(comm))
-#else
-  ierr = ParMETIS_V3_PartMeshKway_C_Interface(elmdist,eptr,eind,elmwgt, &
-                                              wgtflag,numflag,ncon, &
-                                              ncommonnodes,nparts, &
-                                              tpwgts,ubvec,options, &
-                                              edgecut,part, &
-                                              _MPI_TYPE_VAL_(comm))
-#endif
+  !
+  ! Reset the C address pointers to null
+  !
+  c_elmwgt = c_null_ptr
+  c_tpwgts = c_null_ptr
+  c_ubvec  = c_null_ptr
   !
   if (allocated(options)) deallocate ( options )
   !
