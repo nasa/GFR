@@ -4383,8 +4383,8 @@ continue
   ! Output the node array.
   !
   if (present(node)) then
+    io = mypnum+140
     if (allocated(node)) then
-      io = mypnum+140
       do n = 1,size(node)
         write (io,10) n
         write (io,11) node(n)%is_on_boundary
@@ -4415,8 +4415,8 @@ continue
   ! Output the node_map array.
   !
   if (present(node_map)) then
+    io = mypnum+150
     if (allocated(node_map)) then
-      io = mypnum+150
       do n = 1,size(node_map)
         if (allocated(node_map(n)%loc_to_glb)) then
           write (io,20) n
@@ -4441,8 +4441,8 @@ continue
   ! Output the bnd_nodes array.
   !
   if (present(bnd_nodes)) then
+    io = mypnum+160
     if (allocated(bnd_nodes)) then
-      io = mypnum+160
       do n = 1,size(bnd_nodes)
         write (io,30) n
         write (io,31) bnd_nodes(n)%idx
