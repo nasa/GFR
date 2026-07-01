@@ -35,6 +35,7 @@ module parallel_mod
   public :: exchange_faceusp,exchange_faceusp_dt
   public :: wait_facedusp,wait_facedusp_dt
   public :: exchange_facedusp,exchange_facedusp_dt
+  public :: exchange_face_variable,wait_face_variable
   public :: exch_edge_and_node_solutions
   public :: exch_mlp_data
   public :: parallel_memory_usage
@@ -49,14 +50,18 @@ module parallel_mod
   !
   ! Request and status arrays for non-blocking exchanges
   !
+  _MPI_REQUEST_TYPE_, save, allocatable :: fvar_rqst(:)
   _MPI_REQUEST_TYPE_, save, allocatable :: fusp_rqst(:)
   _MPI_REQUEST_TYPE_, save, allocatable :: fdusp_rqst(:)
   !
+  _MPI_STATUS_TYPE_, save, allocatable :: fvar_istat(:,:)
   _MPI_STATUS_TYPE_, save, allocatable :: fusp_istat(:,:)
   _MPI_STATUS_TYPE_, save, allocatable :: fdusp_istat(:,:)
   !
   ! Exchange buffer
   !
+  real(r8), save, allocatable, dimension(:) :: fvar_send_buffer
+  real(r8), save, allocatable, dimension(:) :: fvar_recv_buffer
   real(r8), save, allocatable, dimension(:) :: fusp_send_buffer
   real(r8), save, allocatable, dimension(:) :: fusp_recv_buffer
   real(r8), save, allocatable, dimension(:) :: fdusp_send_buffer
@@ -226,6 +231,12 @@ module parallel_mod
     _MPI_DATA_TYPE_ :: recv_datatype = MPI_DATATYPE_NULL
 #endif
   end type exch_data_t
+  !
+  ! EXCH_FVAR : Array containing all the information needed to communicate
+  !             a single variable at the face flux points between adjacent
+  !             processes.
+  !
+  type(exch_data_t), save, allocatable :: exch_fvar(:)
   !
   ! EXCH_FUSP : Array containing all the information needed to communicate the
   !             face flux point solution variables between adjacent processes.
@@ -7431,13 +7442,17 @@ continue
   call alloc_error(pname,"exch_fusp",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( exch_fdusp(1:ncomm) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"exch_fusp",1,__LINE__,__FILE__,ierr,error_message)
+  call alloc_error(pname,"exch_fdusp",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( exch_fvar(1:ncomm) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"exch_fvar",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Copy the process IDs that the current process needs to communicate
   ! with into these arrays.
   !
   exch_fusp(1:ncomm)%adj_cpu = int(pack( cpu_id , cpu_id >= 0 ),kind=int_mpi)
   exch_fdusp(1:ncomm)%adj_cpu = exch_fusp(1:ncomm)%adj_cpu
+  exch_fvar(1:ncomm)%adj_cpu = exch_fusp(1:ncomm)%adj_cpu
   !
   ! Find the range of face indices that this process will be
   ! receiving from all of its adjacent partitions
@@ -7666,6 +7681,24 @@ continue
   call create_mpi_exch_datatypes(nfp,block_size,tag_offset,comm_pts, &
                                  exch_fdusp,fdusp_rqst,fdusp_istat, &
                                  fdusp_send_buffer,fdusp_recv_buffer)
+  !
+  !##########################################################
+  !##########################################################
+  ! Create the MPI datatypes for exchanging
+  ! a single variable between adjacent partitions
+  !##########################################################
+  !##########################################################
+  !
+  ! Set the block size and tag offset for this MPI datatype
+  !
+  block_size = 1_int_mpi
+  tag_offset = ncpu * 2_int_mpi
+  !
+  ! Create the MPI datatypes and allocate the arrays needed for communication
+  !
+  call create_mpi_exch_datatypes(nfp,block_size,tag_offset,comm_pts, &
+                                 exch_fvar,fvar_rqst,fvar_istat, &
+                                 fvar_send_buffer,fvar_recv_buffer)
   !
   !
   !##########################################################
@@ -9333,6 +9366,177 @@ continue
   call solver_timer(leaving_procedure,pname,idx)
   !
 end subroutine wait_faceusp
+!
+!###############################################################################
+!
+subroutine exchange_face_variable(facevar,wait_for_completion)
+  !
+  !.. Use Statements ..
+  use geomvar_mod, only : bface,face
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: facevar(:,:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: wait_for_completion
+  !
+  !.. Local Scalars..
+  integer :: k,n,nf,nfp,f0,ibeg
+  !
+  integer(int_mpi) :: send_cpu
+  integer(int_mpi) :: recv_cpu
+  integer(int_mpi) :: mesg_tag
+  _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
+  !
+  logical(lk) :: complete_exchange_now
+  !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "exchange_face_variable"
+  !
+continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
+  !
+#ifdef DEBUG_ON
+  call debug_timer(entering_procedure,pname)
+#endif
+  !
+  complete_exchange_now = true
+  if (present(wait_for_completion)) then
+    complete_exchange_now = wait_for_completion
+  end if
+  !
+  ibeg = 0
+  do nf = 1,size(bface,dim=2)
+    !
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    do k = 1,nfp
+      fvar_send_buffer(ibeg+k) = real( facevar(f0+k,1) , kind=r8 )
+    end do
+    !
+    ibeg = ibeg + nfp
+    !
+  end do
+  !
+  ! Initialize all the receives so each process
+  ! is ready once the send is posted
+  !
+  do n = 1,ncomm
+    !
+    ! Process sending this message
+    send_cpu   = exch_fvar(n)%adj_cpu
+    ! Message tag
+    mesg_tag   = exch_fvar(n)%recv_tag
+    ! MPI user-defined datatype for receive
+    recv_dtype = exch_fvar(n)%recv_datatype
+    !
+    call mpi_irecv(fvar_recv_buffer,1_int_mpi,recv_dtype,send_cpu,mesg_tag, &
+                   MPI_COMM_WORLD,fvar_rqst(n),mpierr)
+    !
+  end do
+  !
+  ! Send out the face flux point solution variables to the adjacent processes
+  !
+  do n = 1,ncomm
+    !
+    ! Process receiving this message
+    recv_cpu   = exch_fvar(n)%adj_cpu
+    ! Message tag
+    mesg_tag   = exch_fvar(n)%send_tag
+    ! MPI user-defined datatype for send
+    send_dtype = exch_fvar(n)%send_datatype
+    !
+    call mpi_isend(fvar_send_buffer,1_int_mpi,send_dtype,recv_cpu,mesg_tag, &
+                   MPI_COMM_WORLD,fvar_rqst(n+ncomm),mpierr)
+    !
+  end do
+  !
+  ! Wait for the communication exchange to complete before leaving this
+  ! subroutine unless the optional argument wait_for_completion is false.
+  !
+  if (complete_exchange_now) then
+    call wait_face_variable(facevar)
+  end if
+  !
+#ifdef DEBUG_ON
+  call debug_timer(leaving_procedure,pname)
+#endif
+  !
+  call solver_timer(leaving_procedure,pname,idx)
+  !
+end subroutine exchange_face_variable
+!
+!###############################################################################
+!
+subroutine wait_face_variable(facevar)
+  !
+  !.. Use Statements ..
+  use geomvar_mod, only : bface,face
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: facevar(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: k,nf,nfp,f0,ibeg
+  !
+  !.. Local Allocatable Arrays ..
+  _MPI_STATUS_TYPE_, allocatable :: fstat(:)
+  !
+  !. Local Saved Scalars ..
+  integer, save :: idx = -1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "wait_face_variable"
+  !
+continue
+  !
+  call solver_timer(entering_procedure,pname,idx)
+  !
+#ifdef DEBUG_ON
+  call debug_timer(entering_procedure,pname)
+#endif
+  !
+  ! Wait for all facevar sends and receives to complete
+  !
+  fstat = reshape(fvar_istat,[size(fvar_istat)]) ! F2003 AUTO-REALLOCATION
+  call mpi_waitall(size(fvar_rqst,kind=int_mpi),fvar_rqst,fstat,mpierr)
+  !
+  deallocate ( fstat )
+  !
+ !call mpi_f_sync_reg(fvar_recv_buffer)
+  !
+  ! Update the right states for only the communication boundary faces
+  !
+  ibeg = 0
+  do nf = 1,size(bface,dim=2)
+    !
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    do k = 1,nfp
+      facevar(f0+k,2) = real( fvar_recv_buffer(ibeg+k) , kind=wp )
+    end do
+    !
+    ibeg = ibeg + nfp
+    !
+  end do
+  !
+#ifdef DEBUG_ON
+  call debug_timer(leaving_procedure,pname)
+#endif
+  !
+  call solver_timer(leaving_procedure,pname,idx)
+  !
+end subroutine wait_face_variable
 !
 !###############################################################################
 !
