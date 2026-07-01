@@ -4125,6 +4125,118 @@ end subroutine check_node_ordering
 !
 !###############################################################################
 !
+subroutine report_bad_node_orderings(nbad,bad_cells,location)
+  !
+  !.. Use Statements ..
+  use geomvar_mod, only : nr,nodes_of_cell_ptr,cell_geom
+  use geomvar_mod, only : xyz_nodes,nodes_of_cell
+  !
+  !.. Formal Arguments ..
+  integer,          intent(in) :: nbad
+  integer,          intent(in) :: bad_cells(:)
+  character(len=*), intent(in) :: location
+  !!
+  !.. Local Scalars ..
+  integer  :: i,l,io,n,nc,nn,n1,n2
+  integer  :: this_geom,ierr
+  real(wp) :: cell_vol
+  character(len=100) :: fname
+  !
+  !.. Local Arrays ..
+  integer  :: cell_nodes(1:8)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: cn_xyz(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "report_bad_node_orderings"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  write (fname,1) trim(adjustl(location))
+  !
+  open (newunit=io,file=trim(adjustl(fname)),status="replace",action="write", &
+                   form="formatted",position="rewind", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do n = 1,nbad
+    !
+    nc = bad_cells(n)
+    !
+    this_geom = cell_geom(nc)
+    !
+    n1 = nodes_of_cell_ptr(nc)+1
+    n2 = nodes_of_cell_ptr(nc+1)
+    nn = n2-n1+1
+    !
+    cell_nodes(1:nn) = nodes_of_cell(n1:n2)
+    !
+    cn_xyz = xyz_nodes(1:nr,cell_nodes(1:nn)) ! F2003 AUTO-REALLOC
+    !
+    select case (this_geom)
+      case (Geom_Edge)
+        cell_vol = length_edge( cn_xyz )
+      case (Geom_Quad)
+        cell_vol = area_quad( cn_xyz )
+      case (Geom_Tria)
+        cell_vol = area_tria( cn_xyz )
+      case (Geom_Tetr)
+        cell_vol = vol_tet( cn_xyz )
+      case (Geom_Pyra)
+        cell_vol = vol_pyr( cn_xyz )
+      case (Geom_Pris)
+        cell_vol = vol_pri( cn_xyz )
+      case (Geom_Hexa)
+        cell_vol = vol_hex( cn_xyz )
+      case default
+        cell_vol = -huge(zero)
+    end select
+    !
+    if (any(this_geom == Geom_1D)) then
+      write (io,10) nc,"length",Geom_Full_Name(this_geom)
+      do i = 1,nn
+        write (io,11) i,cell_nodes(i),(cn_xyz(l,i),l=1,nr)
+      end do
+      write (io,14) "length",cell_vol
+    else if (any(this_geom == Geom_2D)) then
+      write (io,10) nc,"area",Geom_Full_Name(this_geom)
+      do i = 1,nn
+        write (io,12) i,cell_nodes(i),(cn_xyz(l,i),l=1,nr)
+      end do
+      write (io,14) "area",cell_vol
+    else
+      write (io,10) nc,"volume",Geom_Full_Name(this_geom)
+      do i = 1,nn
+        write (io,13) i,cell_nodes(i),(cn_xyz(l,i),l=1,nr)
+      end do
+      write (io,14) "volume",cell_vol
+    end if
+    !
+    !
+  end do
+  flush (io)
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1  format("bad_",a,"_cells.dat")
+  10 format("Cell ",i8," has a negative ",a,"  : Geometry = ",a)
+  11 format(4x,i1,4x,i8,",  [x]=[",es14.6,"]")
+  12 format(4x,i1,4x,i8,",  [x,y]=[",es14.6,",",es14.6,"]")
+  13 format(4x,i1,4x,i8,",  [x,y,z]=[",es14.6,2(",",es14.6),"]")
+  14 format(4x,a," = ",es18.10,/,80("-"))
+  !
+end subroutine report_bad_node_orderings
+!
+!###############################################################################
+!
 subroutine adjust_for_ghost_cells()
   !
   ! Routine to make some adjustments to the data from the grid file
