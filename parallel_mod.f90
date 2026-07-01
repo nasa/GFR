@@ -1903,6 +1903,8 @@ subroutine metis_timer(time_flag,metis_opt,using_parmetis)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   partitioning_with_parmetis = fals
   if (present(using_parmetis)) then
     partitioning_with_parmetis = using_parmetis
@@ -1946,6 +1948,8 @@ continue
     flush (iout)
     !
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
