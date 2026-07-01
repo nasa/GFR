@@ -248,6 +248,15 @@ module parallel_mod
   !
   type(exch_data_t), save, allocatable :: exch_mlp(:)
   !
+  ! COMM_PTS_T : derived type to store the indices for all the face points
+  !              that need to be sent and received from adjacent partitions
+  !
+  type :: comm_pts_t
+    integer(int_mpi), allocatable :: send(:)
+    integer(int_mpi), allocatable :: recv(:)
+  end type comm_pts_t
+  !             
+  !
   !
   ! #########################################
   ! #####   MODULE GENERIC INTERFACES   #####
@@ -7304,12 +7313,6 @@ subroutine create_face_nonblocking_datatypes(bface,face_map,flx,face_rotation)
   integer(int_mpi) :: this_flxpt
  !integer(int_mpi) :: tag_ub
   character(len=200) :: array_name
-  !
-  !.. Local Derived Data Types
-  type :: comm_pts_t
-    integer(int_mpi), allocatable :: send(:)
-    integer(int_mpi), allocatable :: recv(:)
-  end type
   !
   !.. Local Arrays ..
   integer, dimension(1:ncpu) :: cpu_id
