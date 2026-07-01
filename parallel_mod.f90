@@ -7845,6 +7845,89 @@ end subroutine create_face_nonblocking_datatypes
 !
 !###############################################################################
 !
+subroutine create_mpi_exch_datatypes(nfp,block_size,tag_offset,comm_pts, &
+                                     exch,rqst,istat,send_buffer,recv_buffer)
+  !
+  !.. Formal Arguments ..
+  integer(int_mpi),                   intent(in) :: nfp
+  integer(int_mpi),                   intent(in) :: block_size
+  integer(int_mpi),                   intent(in) :: tag_offset
+  type(comm_pts_t),                   intent(in) :: comm_pts(:)
+  type(exch_data_t),               intent(inout) :: exch(:)
+  _MPI_REQUEST_TYPE_, allocatable,   intent(out) :: rqst(:)
+  _MPI_STATUS_TYPE_,  allocatable,   intent(out) :: istat(:,:)
+  real(r8),           allocatable,   intent(out) :: send_buffer(:)
+  real(r8),           allocatable,   intent(out) :: recv_buffer(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr
+  integer(int_mpi) :: nps,npr
+  !
+  !.. Local Allocatable Arrays ..
+  integer(int_mpi), allocatable :: send(:)
+  integer(int_mpi), allocatable :: recv(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_mpi_exch_datatypes"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Loop through the communication pairs and create the MPI datatypes
+  ! that will be used to exchange data between adjacent partitions
+  !
+  do i = 1,ncomm
+    !
+    nps = size( comm_pts(i)%send , kind=int_mpi )
+    npr = size( comm_pts(i)%recv , kind=int_mpi )
+    !
+    ! Adjust comm_pts(i)%send and comm_pts(i)%recv based on the block size
+    !
+    send = comm_pts(i)%send(:) * block_size ! F2003 AUTO-REALLOC
+    recv = comm_pts(i)%recv(:) * block_size ! F2003 AUTO-REALLOC
+    !
+    ! Create the send MPI datatype
+    !
+    call mpi_type_create_indexed_block(nps,block_size,send,mpi_flttyp, &
+                                       exch(i)%send_datatype,mpierr)
+    call mpi_type_commit(exch(i)%send_datatype,mpierr)
+    !
+    ! Create the receive MPI datatype
+    !
+    call mpi_type_create_indexed_block(npr,block_size,recv,mpi_flttyp, &
+                                       exch(i)%recv_datatype,mpierr)
+    call mpi_type_commit(exch(i)%recv_datatype,mpierr)
+    !
+    ! Set the tag values for MPI communication
+    !
+    exch(i)%send_tag = tag_offset + exch(i)%adj_cpu
+    exch(i)%recv_tag = tag_offset + mypnum
+    !
+  end do
+  !
+  ! Allocate the send and receive buffer arrays
+  !
+  send_buffer = init_array(block_size*nfp,0.0_r8) ! F2003 AUTO-REALLOC
+  recv_buffer = init_array(block_size*nfp,0.0_r8) ! F2003 AUTO-REALLOC
+  !
+  ! Allocate the array for the MPI request objects
+  !
+  allocate ( rqst(1:2*ncomm) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"rqst",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Allocate the array for the MPI status objects
+  !
+  allocate ( istat(1:_MPI_STATUS_SIZE_,1:2*ncomm) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"istat",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine create_mpi_exch_datatypes
+!
+!###############################################################################
+!
 subroutine bcast_node_and_edge_arrays(node,edge)
   !
   !.. Formal Arguments ..
