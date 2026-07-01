@@ -3850,11 +3850,13 @@ subroutine check_node_ordering()
   !
   !.. Local Scalars ..
   integer  :: i,nc,nf,np,n1,n2,ip2,ip4
+  integer  :: nfbad,ncbad
   real(wp) :: cell_vol
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: cn_xyz(:,:)
   real(wp), allocatable :: cell_nodes(:,:)
+  integer,  allocatable :: bad_cells(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_node_ordering"
@@ -3862,6 +3864,9 @@ subroutine check_node_ordering()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  nfbad = 0
+  bad_cells = init_array(ncell,0) ! F2003 AUTO-REALLOC
   !
   ! Lets do a quick test on the nodes defining each cell to
   ! make sure they are all in counter-clockwise order. If they
@@ -3909,6 +3914,9 @@ continue
     !
     if (cell_vol < zero) then
       !
+      nfbad = nfbad + 1
+      bad_cells(nfbad) = nc
+      !
       if (any(cell_geom(nc) == Geom_2D)) then
         !
         ip2 = nodes_of_cell(n1+1)
@@ -3940,8 +3948,8 @@ continue
         !
       else
         !
-        write (iout,2)
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+       !write (iout,2)
+       !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
         !
       end if
       !
@@ -3950,10 +3958,19 @@ continue
   end do
   call debug_timer(stop_timer,"checking node order of boundary faces")
   !
+  if (nfbad > 0) then
+    if (mypnum == glb_root) then
+      call report_bad_node_orderings(nfbad,bad_cells,"boundary")
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  !
   ! Now lets do it over all the cells in the grid. This includes checking
   ! the cells on the grid boundaries a second time but they shouldnt be
   ! adjusted this time and the additional cost shouldnt hurt too much.
   !
+  ncbad = 0
+  bad_cells(:) = 0
   !
   ! Edge cells
   !
@@ -3967,6 +3984,8 @@ continue
         cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
         cell_vol = length_edge( cn_xyz(:,:) )
         if (cell_vol < zero) then
+          ncbad = ncbad + 1
+          bad_cells(ncbad) = nc
           write (iout,3) geom_name(Geom_Edge)
           call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
         end if
@@ -3987,10 +4006,18 @@ continue
         cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
         cell_vol = area_quad( cn_xyz(:,:) )
         if (cell_vol < zero) then
+          ! Try reordering the cell nodes to correct the negative cell area
           ip2 = nodes_of_cell(n1+1)
           ip4 = nodes_of_cell(n2  )
           nodes_of_cell(n1+1) = ip4
           nodes_of_cell(n2  ) = ip2
+          ! Double check the node reordering worked
+          cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
+          cell_vol = area_quad( cn_xyz(:,:) )
+          if (cell_vol < zero) then
+            ncbad = ncbad + 1
+            bad_cells(ncbad) = nc
+          end if
         end if
       end if
     end do
@@ -4009,10 +4036,18 @@ continue
         cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
         cell_vol = area_tria( cn_xyz(:,:) )
         if (cell_vol < zero) then
+          ! Try reordering the cell nodes to correct the negative cell area
           ip2 = nodes_of_cell(n1+1)
           ip4 = nodes_of_cell(n2  )
           nodes_of_cell(n1+1) = ip4
           nodes_of_cell(n2  ) = ip2
+          ! Double check the node reordering worked
+          cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
+          cell_vol = area_tria( cn_xyz(:,:) )
+          if (cell_vol < zero) then
+            ncbad = ncbad + 1
+            bad_cells(ncbad) = nc
+          end if
         end if
       end if
     end do
@@ -4031,8 +4066,10 @@ continue
         cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
         cell_vol = vol_tet( cn_xyz(:,:) )
         if (cell_vol < zero) then
-          write (iout,3) geom_name(Geom_Tetr)
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+          ncbad = ncbad + 1
+          bad_cells(ncbad) = nc
+         !write (iout,3) geom_name(Geom_Tetr)
+         !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
         end if
       end if
     end do
@@ -4051,8 +4088,10 @@ continue
         cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
         cell_vol = vol_pyr( cn_xyz(:,:) )
         if (cell_vol < zero) then
-          write (iout,3) geom_name(Geom_Pyra)
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+          ncbad = ncbad + 1
+          bad_cells(ncbad) = nc
+         !write (iout,3) geom_name(Geom_Pyra)
+         !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
         end if
       end if
     end do
@@ -4071,8 +4110,10 @@ continue
         cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
         cell_vol = vol_pri( cn_xyz(:,:) )
         if (cell_vol < zero) then
-          write (iout,3) geom_name(Geom_Pris)
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+          ncbad = ncbad + 1
+          bad_cells(ncbad) = nc
+         !write (iout,3) geom_name(Geom_Pris)
+         !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
         end if
       end if
     end do
@@ -4091,15 +4132,33 @@ continue
         cn_xyz(:,:) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
         cell_vol = vol_hex( cn_xyz(:,:) )
         if (cell_vol < zero) then
-          write (iout,3) geom_name(Geom_Hexa)
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+          ncbad = ncbad + 1
+          bad_cells(ncbad) = nc
+         !write (iout,3) geom_name(Geom_Hexa)
+         !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
         end if
       end if
     end do
   end if
   call debug_timer(stop_timer,"checking node order of hexa cells")
   !
+  if (ncbad > 0) then
+    if (mypnum == glb_root) then
+      call report_bad_node_orderings(ncbad,bad_cells,"interior")
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  !
   call debug_timer(leaving_procedure,pname)
+  !
+  if (any([nfbad,ncbad] > 0)) then
+    if (mypnum == glb_root) then
+      write (iout,2)
+      flush (iout)
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  end if
   !
   ! Format Statements
   !
