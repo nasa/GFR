@@ -3829,16 +3829,24 @@ end subroutine collect_sem_fp_coordinates
 !
 !###############################################################################
 !
-subroutine brute_force_wall_distance(xyz_wall,xyz_pts,wall)
+subroutine brute_force_wall_distance(xyz_wall,xyz_pts,wall,activate_debug)
   !
   !.. Formal Arguments ..
   real(wp),                   intent(in) :: xyz_wall(:,:)
   real(wp),                   intent(in) :: xyz_pts(:,:)
   type(wall_t), allocatable, intent(out) :: wall(:)
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: activate_debug
+  !
   !.. Local Scalars ..
-  integer  :: i,ierr,n,nfp,nwp
+  integer  :: i,ierr,n,nfp,nwp,j
   real(wp) :: xf,yf,zf,dx,dy,dz,dw2,dw2_min
+  real(wp) :: unx,uny,unz
+  logical(lk) :: debug_output_active
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: wall_nrm(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "brute_force_wall_distance"
@@ -3847,8 +3855,18 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  debug_output_active = fals
+  if (present(activate_debug)) then
+    debug_output_active = activate_debug
+  end if
+  !
   nwp = size(xyz_wall,dim=2)
   nfp = size(xyz_pts,dim=2)
+  !
+  wall_nrm = init_array(3,nwp,one) ! F2003 AUTO-REALLOC
+  if (size(xyz_wall,dim=1) >= 6) then
+    wall_nrm(1:3,1:nwp) = xyz_wall(4:6,1:nwp)
+  end if
   !
   allocate ( wall(1:nfp) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"wall",1,__LINE__,__FILE__,ierr,error_message)
@@ -3865,6 +3883,7 @@ continue
     zf = xyz_pts(3,n)
     !
     dw2_min = huge(dw2_min)
+    j = 1
     !
     do i = 1,nwp
       !
@@ -3872,19 +3891,20 @@ continue
       dy = yf - xyz_wall(2,i)
       dz = zf - xyz_wall(3,i)
       !
-      dw2 = dx*dx + dy*dy + dz*dz
+      ! Wall unit normal at wall point
+      ! NOTE: These will all equal 1 if the wall normals were not included
+      !       in the xyz_wall array, which shouldnt affect the rest of
+      !       this loop.
+      !
+      unx = wall_nrm(1,i)
+      uny = wall_nrm(2,i)
+      unz = wall_nrm(3,i)
+      !
+      dw2 = dx*dx*unx*unx + dy*dy*uny*uny + dz*dz*unz*unz
       !
       if (dw2 < dw2_min) then
         !
-        wall(n)%x = xyz_wall(1,i)
-        wall(n)%y = xyz_wall(2,i)
-        wall(n)%z = xyz_wall(3,i)
-        !
-        if (size(xyz_wall,dim=1) >= 6) then
-          wall(n)%xnrm = xyz_wall(4,i)
-          wall(n)%ynrm = xyz_wall(5,i)
-          wall(n)%znrm = xyz_wall(6,i)
-        end if
+        j = i
         !
         dw2_min = dw2
         !
@@ -3892,7 +3912,26 @@ continue
       !
     end do
     !
+    wall(n)%x = xyz_wall(1,j)
+    wall(n)%y = xyz_wall(2,j)
+    wall(n)%z = xyz_wall(3,j)
+    !
+    if (size(xyz_wall,dim=1) >= 6) then
+      wall(n)%xnrm = xyz_wall(4,j)
+      wall(n)%ynrm = xyz_wall(5,j)
+      wall(n)%znrm = xyz_wall(6,j)
+    end if
+    !
     wall(n)%distance = sqrt( dw2_min )
+    !
+#ifdef DEBUG_WALL_NORMALS
+    if (debug_output_active) then
+      write (202,10) n,wall(n)%distance, &
+                     xf,yf,zf,wall(n)%x,wall(n)%y,wall(n)%z, &
+                     xyz_wall(4,j),xyz_wall(5,j),xyz_wall(6,j)
+    end if
+#endif
+  10 format (i6,2x,f22.18,2("  : ",3f22.18),"  : ",3es17.8)
     !
     if (ncpu == 1) then
       if (mypnum == glb_root) then
