@@ -3974,7 +3974,7 @@ subroutine interpolate_profile_data_to_fp(this,prof,sem_idx,fp_idx)
   !.. Local Scalars ..
   integer  :: n,n1,n2,np
   real(wp) :: unx,uny,unz,unx2,uny2,unz2
-  real(wp) :: c1,c2,c1i,c2i
+  real(wp) :: c1,c2,c3,c1i,c2i
   real(wp) :: uu,vv,ww,y,y1,y2
   real(wp) :: s11,s22,s33,s21,s31,s32
   real(wp) :: v11,v12,v13
@@ -3989,7 +3989,7 @@ subroutine interpolate_profile_data_to_fp(this,prof,sem_idx,fp_idx)
   !
 #ifdef EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
   real(wp) :: radius,theta,aref2
-  integer  :: io,ierr
+  integer  :: io,ierr,io1,io2
   logical(lk) :: output_profile
   integer, save :: nti = 0 ! top    (   0 < theta <  11.25 ) inside
   integer, save :: nto = 0 ! top    (   0 < theta <  11.25 ) outside
@@ -4232,9 +4232,9 @@ continue
   ! Find the indices of the profile data that
   ! bound the wall distance of this face point.
   !
-  n1 = 1
-  n2 = 2
-  do n = 2,np
+  n1 = 0
+  n2 = 1
+  do n = 1,np
     if (prof%y(n) > y) exit
     n1 = n
     n2 = n+1
@@ -4243,7 +4243,29 @@ continue
   ! Compute the profile data at this face point depending on whether or not
   ! the index of the upper bound is greater than the sizes of the profile data.
   !
-  if (n2 > np) then
+  if (n1 == 0) then
+    !
+    ! The wall distance is less than the first point in the profile data,
+    ! so interpolate the velocity and stress profile data between 0 and the
+    ! first profile point, and copy the gas properties from the first data point
+    !
+    n1 = 1
+    y2 = one ! make sure y2 is initialized to a non-zero value
+    do n = 1,np
+      ! loop through the y profile values to find
+      ! the first value larger than eps10
+      if (prof%y(n) > eps10) then
+        y2 = prof%y(n)
+        n2 = n
+        exit
+      end if
+    end do
+    !
+    c1 = zero
+    c2 = y/y2
+    c3 = one ! used for gas properties
+    !
+  else if (n2 > np) then
     !
     ! The index of the upper bound IS GREATER THAN the size of
     ! the profile data, so just set the profile data for the
@@ -4257,6 +4279,7 @@ continue
     !
     c1 = zero
     c2 = one
+    c3 = c2 ! used for gas properties
     !
   else
     !
@@ -4269,14 +4292,15 @@ continue
     !
     c1 = (y-y2)/(y2-y1)
     c2 = (y-y1)/(y2-y1)
+    c3 = c2 ! used for gas properties
     !
   end if
   !
-  this%ravg = c2*r(n2) - c1*r(n1)
+  this%ravg = c3*r(n2) - c1*r(n1)
   this%uavg = c2*u(n2) - c1*u(n1)
   this%vavg = c2*v(n2) - c1*v(n1)
   this%wavg = c2*w(n2) - c1*w(n1)
-  this%tavg = c2*t(n2) - c1*t(n1)
+  this%tavg = c3*t(n2) - c1*t(n1)
   !
   this%r11 = c2*r11(n2) - c1*r11(n1)
   this%r21 = c2*r21(n2) - c1*r21(n1)
