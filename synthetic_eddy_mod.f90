@@ -3706,7 +3706,8 @@ continue
 #ifdef DEBUG_WALL_NORMALS
   if (mypnum == glb_root) then
     do n = 1,size(xyz_wall,dim=2)
-      write (200,10) xyz_wall(4,n),xyz_wall(5,n),xyz_wall(6,n)
+      write (201,10) xyz_wall(4,n),xyz_wall(5,n),xyz_wall(6,n)
+      write (200,10) xyz_wall(1,n),xyz_wall(2,n),xyz_wall(3,n)
     end do
   end if
   10 format (3f15.10)
@@ -4027,6 +4028,9 @@ continue
     ni2 = ni2 + 1
     io = 20000 + ni2
   end if
+  io1 = 1111
+  io2 = 2222
+  !
  !if (theta < 11.25_wp) then
  !  if (sem_idx == 1) then
  !    nti = nti + 1
@@ -4118,6 +4122,8 @@ continue
 #ifdef EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
   if (output_profile) then
     !
+    io = io1
+    write (io,999) fp_idx,sem_idx
     write (io,1) "    y",this%y
     write (io,1) "    z",this%z
     write (io,4) "    r",radius,ten2*(radius-0.0125_wp)/(0.045_wp-0.0125_wp)
@@ -4149,6 +4155,9 @@ continue
   2 format (2x,"Vector transformation matrix",/,3(4x,3f18.13,/))
   3 format (2x,"Tensor transformation matrix",/,6(4x,6f18.13,/))
   4 format (2x,a," = ",f18.13," ( ",f7.3," %)",:,/,a)
+  999 format (3(80("#"),/), &
+              2x,"FP_IDX = ",i0," (SEM_BOX = ",i0,")",/, &
+              80("="))
 #endif
   !
   ! First, initialize all the local allocatable arrays
@@ -4319,6 +4328,7 @@ continue
 #ifdef EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
   if (output_profile) then
     !
+    io = io1
     write (io,*)
     write (io,30) "n1",n1
     write (io,30) "n2",n2,""
@@ -4354,8 +4364,44 @@ continue
     write (io,31) "  A21 + A22      ",(this%a21+this%a22)*aref
     write (io,31) "  A31 + A32 + A33",(this%a31+this%a32+this%a33)*aref,""
     !
-!#define SUPER_EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
+#define SUPER_EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
 #ifdef SUPER_EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
+    !
+    io = io2
+    write (io,999) fp_idx,sem_idx
+    write (io,1) "    y",this%y
+    write (io,1) "    z",this%z
+    write (io,4) "    r",radius,ten2*(radius-0.0125_wp)/(0.045_wp-0.0125_wp)
+   !write (io,1) "    r",radius
+    write (io,1) "theta",theta,""
+    write (io,1) "wall_distance",y,""
+    write (io,1) "unx",unx
+    write (io,1) "uny",uny
+    write (io,1) "unz",unz,""
+    write (io,1) "unx2",unx2
+    write (io,1) "uny2",uny2
+    write (io,1) "unz2",unz2,""
+    write (io,1) "c1",c1
+    write (io,1) "c2",c2
+    write (io,1) "c1i",c1i
+    write (io,1) "c2i",c2i,""
+    !
+    write (io,*)
+    write (io,30) "n1",n1
+    write (io,30) "n2",n2,""
+    !
+    write (io,31) "y1",y1
+    write (io,31) "y2",y2,""
+    !
+    write (io,31) "c1",c1
+    write (io,31) "c2",c2,""
+    !
+    write (io,32)
+    write (io,31) "  U",this%uavg*aref
+    write (io,31) "  V",this%vavg*aref
+    write (io,31) "  W",this%wavg*aref,""
+    !
+    write (io,*)
     write (io,11) "Original"
     do n = 1,np
       write (io,21) n,prof%uavg(n)*aref,prof%vavg(n)*aref,prof%wavg(n)*aref
@@ -4417,7 +4463,7 @@ continue
   34 format (2x,"Interpolated Transformed Cholesky Decomposition ", &
                 "of Reynolds Stress Tensor Profile")
   !
-  close (unit=io,iostat=ierr)
+ !close (unit=io,iostat=ierr)
 #endif
   !
 end subroutine interpolate_profile_data_to_fp
