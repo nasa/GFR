@@ -3548,7 +3548,7 @@ continue
   !
   ! Now, do a search for the minimum wall distance of each SEM face point
   !
-  call brute_force_wall_distance(xyz_wall,xyz_sem,wall)
+  call brute_force_wall_distance(xyz_wall,xyz_sem,wall,activate_debug=true)
   !
   ! Deallocate xyz_wall and xyz_sem since they are no longer needed
   !
