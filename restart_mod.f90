@@ -28,6 +28,7 @@ module restart_mod
   public :: read_restart_file
   public :: write_restart_file
   public :: check_restart_dir
+  public :: check_restart_inputs
   public :: create_restart_fname_formats
   public :: deallocate_solver_arrays
   public :: modify_time_average_restart_history
@@ -4228,6 +4229,116 @@ continue
 #endif
   !
 end subroutine write_restart_status
+!
+!###############################################################################
+!
+subroutine check_restart_inputs(restart_output_dir)
+  !
+  !.. Use Statements ..
+  use ovar, only : itrst
+  use ovar, only : load_restart_file,restart_file
+  use ovar, only : output_time_averaging
+  use ovar, only : time_ave_file,read_time_ave_restart
+  use ovar, only : restart_output_uses_host_roots
+  use ovar, only : matrix_output_unit
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: restart_output_dir
+  !
+  !.. Local Scalars ..
+  logical(ldk) :: file_exists
+  character(len=150) :: fname
+  !
+  !.. Local Arrays ..
+  logical(ldk) :: restart_logicals(1:2)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_restart_inputs"
+  !
+continue
+  !
+  if (matrix_output_unit /= iout) return
+  !
+  call global_debug_timer(entering_procedure,pname)
+  !
+  restart_dir = trim(adjustl(restart_output_dir))
+  !
+  ! Initialize exitstat, cmndmsg, and restart_logicals
+  !
+  restart_logicals(:) = .false.
+  !
+  ! First, if a restart was requested, make
+  ! sure that the input restart file exists
+  !
+  if (mypnum == glb_root) then
+    !
+    if (load_restart_file) then
+      !
+      fname = trim(adjustl(restart_file))
+      !
+      inquire (file=fname,exist=file_exists)
+      !
+      if (.not. file_exists) then
+        write (iout,100) trim(adjustl(fname))
+        flush (iout)
+        load_restart_file = fals
+       !call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+      end if
+      !
+    end if
+    !
+    read_time_ave_restart = .false.
+    if (load_restart_file) then
+      !
+      if (output_time_averaging) then
+        !
+        fname = trim(adjustl(time_ave_file))
+        !
+        inquire (file=fname,exist=read_time_ave_restart)
+        !
+      end if
+      !
+    end if
+    !
+    restart_logicals(:) = [ logical(load_restart_file,kind=ldk) , &
+                            read_time_ave_restart ]
+    !
+  end if
+  !
+  call mpi_bcast(restart_logicals,size(restart_logicals,kind=int_mpi), &
+                 MPI_LOGICAL,glb_root,MPI_COMM_WORLD,mpierr)
+  !
+  load_restart_file = logical( restart_logicals(1) , kind=lk )
+  read_time_ave_restart = restart_logicals(2)
+  !
+  ! Create the various format strings needed for reading/writing restart files
+  !
+  call create_restart_fname_formats(itrst)
+  !
+  ! Make sure restart_output_uses_host_roots is
+  ! false if only one processor is being used.
+  !
+  if (ncpu <= 1) then
+    restart_output_uses_host_roots = fals
+  end if
+  !
+  call global_debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  3  format ("lfs setstripe -c ",i0," -S ",a,1x,a)
+  4  format ("Lustre striping command = '",a,"'")
+  !
+  100 format (/,1x,"A simulation restart was requested but", &
+                1x,"the restart file given in the input file",/, &
+                10x,"'",a,"'",/, &
+                1x,"does not exist!!!",/, &
+                1x,"NOTE: The file 'out.rst' is the default", &
+                1x,"if no file name is explicitly given in",/, &
+                1x,"the input file. The simulation will proceed", &
+                1x,"as if a restart was not requested.")
+  !
+end subroutine check_restart_inputs
 !
 !###############################################################################
 !
