@@ -21,6 +21,8 @@ module write_cgns_mod
   public :: write_parallel_cgns
   public :: TaylorGreen_8s_vorticity_solution
   public :: convert_restart_files_to_cgns
+  public :: get_cgns_time_ave_variables
+  public :: count_output_variables
   !
   ! ################################
   ! ###  Module Local Variables  ###
