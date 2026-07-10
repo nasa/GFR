@@ -21,6 +21,7 @@ module io_mod
   public :: check_face_flux_point_orderings
   public :: check_cell_flux_point_orderings
   public :: test_communication
+  public :: create_results_dir
   !
   ! ################################
   ! ###  Module Local Variables  ###
@@ -1582,6 +1583,197 @@ continue
   2 format ("ERROR CREATING THE DIRECTORY: ",a)
   !
 end subroutine check_output_dir
+!
+!###############################################################################
+!
+subroutine create_results_dir(dir_name_in,dir_name_out,skip_lustre)
+  !
+  !.. Use Statements ..
+  use ovar, only : output_dir
+  use ovar, only : lustre_stripe_count
+  use ovar, only : lustre_stripe_size
+  use ovar, only : matrix_output_unit
+  !
+  !.. Formal Arguments ..
+  character(len=*),  intent(in) :: dir_name_in
+  character(len=*), intent(out) :: dir_name_out
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: skip_lustre
+  !
+  !.. Local Scalars ..
+  integer :: i,n,clen,ierr,iodir
+  integer :: exitstat,cmndstat
+  logical(lk) :: dir_name_in_exists
+  logical(lk) :: adjust_lustre_striping
+  character(len=300) :: command
+  character(len=300) :: cmndmsg
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: tmp_dir
+  character(len=:), allocatable :: test_dir
+  character(len=:), allocatable :: test_file
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_results_dir"
+  !
+  logical(ldk), parameter :: wait_for_completion = .true.
+  !
+continue
+  !
+  ! Set default values for some variables
+  !
+  dir_name_in_exists = fals
+  dir_name_out = trim(output_dir)
+  !
+  adjust_lustre_striping = true
+  if (present(skip_lustre)) then
+    adjust_lustre_striping = (.not. skip_lustre)
+  end if
+  !
+  ! Skip creating this directory if we are just
+  ! writing out all the matrix operators
+  !
+  if (matrix_output_unit /= iout) return
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Initialize exitstat and cmndmsg
+  !
+  exitstat = 0
+  cmndmsg = ""
+  !
+  ! Create a temporary copy of dir_name_in to manipulate
+  !
+  tmp_dir = trim(adjustl(dir_name_in)) ! F2003 AUTO-REALLOC
+  !
+  ! Remove any trailing forward-slashes from dir_name_in
+  !
+  n = len(tmp_dir)
+  do i = len(tmp_dir),1,-1
+    if (tmp_dir(i:i) /= "/") exit
+    n = n-1
+  end do
+  !
+  ! Append the manipulated copy of dir_name_in with trailing forward-slashes
+  ! removed on the value of output_dir, add on a single forward-slash to
+  ! the end, and then save that to test_dir
+  !
+  test_dir = trim(output_dir) // tmp_dir(1:n) // "/" ! F2003 AUTO-REALLOC
+  !
+  ! Create a test file name to see if we can successfully open a file
+  ! in the directory test_dir
+  !
+  test_file = test_dir // "test_dir.test_file.dat"   ! F2003 AUTO-REALLOC
+  !
+  ! Only perform the following tests using the root processor
+  ! to minimize contention and prevent each MPI process from
+  ! executing the same command.
+  !
+  if (mypnum == glb_root) then
+    !
+    ! Try to open the test_file in the directory named dir_name_in
+    !
+    open (newunit=iodir,file=test_file,status="replace", &
+                        action="write",iostat=ierr)
+    !
+    if (ierr == 0) then
+      !
+      ! The open was successful, so close and delete the test file
+      !
+      close (iodir,status="delete",iostat=ierr)
+      !
+      ! Set the logical saying that the directory dir_name_in DOES exist,
+      ! and save the string in test_dir to dir_name_out.
+      !
+      dir_name_in_exists = true
+      dir_name_out = trim(test_dir)
+      !
+    else
+      !
+      ! The open failed, so more than likely the directory dir_name_in
+      ! doesnt exist. Try to use the intrinsic execute_command_line
+      ! to create the directory.
+      !
+      command = "mkdir -p "//trim(test_dir)
+      !
+      call execute_command(command,wait_for_completion,exitstat, &
+                           cmndstat,cmndmsg,pname)
+     !call execute_command_line( trim(command) , wait_for_completion , &
+     !                           exitstat , cmndstat , cmndmsg )
+     !call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
+      !
+      if (exitstat /= 0 .or. cmndstat /= 0) then
+        !
+        ! Set the logical saying that the directory dir_name_in does NOT exist,
+        ! and save the output_dir string in dir_name_out so that all files
+        ! that were intended to be written to the separate directory dir_name_in
+        ! will instead be written to the main output directory.
+        !
+        dir_name_in_exists = fals
+        dir_name_out = trim(output_dir)
+        !
+      else
+        !
+        ! Set the logical saying that the directory dir_name_in DOES exist,
+        ! and save the string in test_dir to dir_name_out.
+        !
+        dir_name_in_exists = true
+        dir_name_out = trim(test_dir)
+        !
+      end if
+      !
+    end if
+    !
+#ifdef PBS_ENV
+    !
+    ! If we are using a separate output directory and we are running
+    ! this through PBS on NAS, try to modify the lfs striping for
+    ! the this directory for better I/O performance.
+    !
+    if (adjust_lustre_striping) then
+      if (dir_name_in_exists) then
+        !
+       !command = "lfs setstripe -c 64 -s 4m "//trim(dir_name_out)
+        write (command,1) max(0,lustre_stripe_count), &
+                          trim(adjustl(lustre_stripe_size)), &
+                          trim(adjustl(dir_name_out))
+        write (iout,2) trim(adjustl(command))
+        !
+        call execute_command(command,wait_for_completion,exitstat, &
+                             cmndstat,cmndmsg,pname)
+       !call execute_command_line( trim(command) , wait_for_completion , &
+       !                           exitstat , cmndstat , cmndmsg )
+       !call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
+        !
+        ! We arent going to test the status of executing this command because
+        ! it worked or it didnt. Either way, we will continue on and output
+        ! the files intended for the directory dir_name_in to that directory.
+        !
+      end if
+    end if
+    !
+#endif
+    !
+  end if
+  !
+  ! Broadcast the value of dir_name_out to all the non-root MPI processes
+  !
+  if (ncpu > 1) then
+    clen = len_trim(dir_name_out)
+    call mpi_bcast(clen,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+    call mpi_bcast(dir_name_out(1:clen),int(clen,kind=int_mpi),MPI_CHARACTER, &
+                   0_int_mpi,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("lfs setstripe -c ",i0," -S ",a,1x,a)
+  2 format ("Lustre striping command = '",a,"'")
+  !
+end subroutine create_results_dir
 !
 !###############################################################################
 !
