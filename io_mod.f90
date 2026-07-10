@@ -302,7 +302,7 @@ subroutine read_nml_input_file(input_fname,input_mode)
   use ovar,   only : Default_Marker_c1,Default_Marker_c1_JI
   use ovar,   only : Default_Marker_c2,Default_Marker_c2_JI
   use ovar,   only : ji_gwt,ji_uwt,ji_gvar,ji_uvar
-  use ovar,   only : disable_cgns_output
+  use ovar,   only : disable_cgns_output,cgns_dir
   use ovar,   only : output_KEDR
   use ovar,   only : thermofix
   !
@@ -311,7 +311,7 @@ subroutine read_nml_input_file(input_fname,input_mode)
   use quadrature_mod, only : init_geom_quadrature_rules
   use quadrature_mod, only : init_face_quadrature_rules
   !
-  use restart_mod, only : check_restart_dir
+  use restart_mod, only : check_restart_inputs
   !
   use oerk_mod,  only : init_optimized_erk_coefficients
   !
@@ -330,6 +330,7 @@ subroutine read_nml_input_file(input_fname,input_mode)
   real(wp) :: aoa_radians
   real(wp) :: cfl_sum,cfl_time
   real(wp) :: xmin,xmax,psi0,l10p
+  character(len=300) :: dir_result
   !
   !.. Local Arrays ..
   character(len=80), dimension(12) :: input_text
@@ -416,13 +417,14 @@ continue
   !       do this if continuous_output is false.
   !
   if (.not. continuous_output) then
-    call check_cgns_dir
+    call create_results_dir("CGNS_files",cgns_dir)
     call check_for_bad_number(__LINE__,__FILE__)
   end if
   !
   ! Check the restart output directory
   !
-  call check_restart_dir
+  call create_results_dir("Restart_files",dir_result)
+  call check_restart_inputs(dir_result)
   call check_for_bad_number(__LINE__,__FILE__)
   !
   call debug_timer(start_timer,"read_nml_input_file pre read_grid_file")
