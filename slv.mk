@@ -160,6 +160,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/ignition_mod.o \
         $(OBJDIR)/mrf_mod.o \
         $(OBJDIR)/timer_mod.o \
+        $(OBJDIR)/spatial_ave_mod.o \
         $(OBJDIR)/synthetic_eddy_mod.o \
         $(OBJDIR)/thx_mod.o \
         $(OBJDIR)/taylor_couette_mod.o \

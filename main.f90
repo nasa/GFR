@@ -148,9 +148,9 @@ program GFR_main
   !
   use limiters_mod, only : initialize_limiters
   !
-  use channel_mod, only : spatial_ave_channel_flow
-  use channel_mod, only : spatial_ave_z_planes
-  use channel_mod, only : spatial_ave_x_and_z_planes
+  use spatial_ave_mod, only : spatial_ave_channel_flow
+  use spatial_ave_mod, only : spatial_ave_z_planes
+  use spatial_ave_mod, only : spatial_ave_x_and_z_planes
   !
   use bnd_profiles_mod, only : init_bnd_profile_structures
   use bnd_profiles_mod, only : compute_bnd_profiles

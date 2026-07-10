@@ -41,6 +41,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/averaging_mod.o \
          $(OBJDIR)/reactions_mod.o \
          $(OBJDIR)/mrf_mod.o \
+         $(OBJDIR)/spatial_ave_mod.o \
          $(OBJDIR)/synthetic_eddy_mod.o \
          $(OBJDIR)/cpu_info_mod.o \
          $(OBJDIR)/interpsol_mod.o \
@@ -136,15 +137,10 @@ $(OBJDIR)/cgnstypes_mod.o : OTHERFLAGS += $(CGNSMOD)
 $(OBJDIR)/channel_mod.o : channel_mod.f90 \
                 $(OBJDIR)/kind_types_mod.o \
                 $(OBJDIR)/eqn_idx_mod.o \
-                $(OBJDIR)/order_mod.o \
                 $(OBJDIR)/geomvar_mod.o \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/flowvar_mod.o \
-                $(OBJDIR)/element_type_mod.o \
-                $(OBJDIR)/metrics_mod.o \
-                $(OBJDIR)/derivatives_mod.o \
-                $(OBJDIR)/transport_mod.o \
-                $(OBJDIR)/synthetic_eddy_mod.o
+                $(OBJDIR)/metrics_mod.o
 
 $(OBJDIR)/connectivity_mod.o : connectivity_mod.f90 \
                  $(OBJDIR)/kind_types_mod.o \
@@ -591,8 +587,7 @@ $(OBJDIR)/order_mod.o : order_mod.f90 \
               $(FUNDIR)/cell_solpts.f90
 
 $(OBJDIR)/ovar_mod.o : ovar_mod.f90 \
-             $(OBJDIR)/kind_types_mod.o \
-             $(OBJDIR)/cgnstypes_mod.o
+             $(OBJDIR)/kind_types_mod.o
 
 $(OBJDIR)/parallel_mod.o : parallel_mod.f90 \
              $(OBJDIR)/kind_types_mod.o \
@@ -775,6 +770,21 @@ $(OBJDIR)/shu_osher_mod.o : shu_osher_mod.f90 \
                 $(OBJDIR)/kind_types_mod.o \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/thermo_mod.o
+
+$(OBJDIR)/spatial_ave_mod.o : spatial_ave_mod.f90 \
+                    $(OBJDIR)/kind_types_mod.o \
+                    $(OBJDIR)/cgnstypes_mod.o \
+                    $(OBJDIR)/order_mod.o \
+                    $(OBJDIR)/geomvar_mod.o \
+                    $(OBJDIR)/ovar_mod.o \
+                    $(OBJDIR)/flowvar_mod.o \
+                    $(OBJDIR)/element_type_mod.o \
+                    $(OBJDIR)/metrics_mod.o \
+                    $(OBJDIR)/derivatives_mod.o \
+                    $(OBJDIR)/transport_mod.o \
+                    $(OBJDIR)/synthetic_eddy_mod.o \
+                    $(OBJDIR)/write_cgns_mod.o
+$(OBJDIR)/spatial_ave_mod.o : OTHERFLAGS += $(CGNSMOD)
 
 $(OBJDIR)/taylor_couette_mod.o : taylor_couette_mod.f90 \
                        $(OBJDIR)/kind_types_mod.o \
