@@ -783,6 +783,7 @@ $(OBJDIR)/spatial_ave_mod.o : spatial_ave_mod.f90 \
                     $(OBJDIR)/derivatives_mod.o \
                     $(OBJDIR)/transport_mod.o \
                     $(OBJDIR)/synthetic_eddy_mod.o \
+                    $(OBJDIR)/io_mod.o \
                     $(OBJDIR)/write_cgns_mod.o
 $(OBJDIR)/spatial_ave_mod.o : OTHERFLAGS += $(CGNSMOD)
 
