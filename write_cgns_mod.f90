@@ -3977,6 +3977,9 @@ continue
       !
       vartmp_at_sp = vartmp(:) ! F2003 AUTO-REALLOC
       !
+!#define UNIT_NORMALIZE_QCRITERION
+#ifdef UNIT_NORMALIZE_QCRITERION
+      !
       ! Get the min/max values of the Q-criterion on this partition
       !
       qmin = minval(vartmp(:))
@@ -4010,7 +4013,7 @@ continue
         vartmp(:) = vartmp(:) - qmin
       end if
       !
-#define STDDEV_NORMALIZED_QCRITERION
+!#define STDDEV_NORMALIZED_QCRITERION
 #ifdef STDDEV_NORMALIZED_QCRITERION
       !
       ! Compute the average of the normalized Q-criterion
@@ -4046,6 +4049,7 @@ continue
       else
         vartmp(:) = vartmp(:) - qave
       end if
+#endif
 #endif
       !
       call cgns_write_field_data
