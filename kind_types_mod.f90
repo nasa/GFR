@@ -1125,6 +1125,7 @@ module module_kind_types
   !
   ! working real precision
   _MPI_DATA_TYPE_, protected, save :: mpi_flttyp
+  _MPI_DATA_TYPE_, protected, save :: mpi_2flttyp
   ! half working real precision
   _MPI_DATA_TYPE_, protected, save :: mpi_hlftyp
   ! double working real precision
@@ -2454,8 +2455,10 @@ continue
   end if
   if (WP < R8) then
     mpi_flttyp = MPI_REAL
+    mpi_2flttyp = MPI_2REAL
   else
     mpi_flttyp = MPI_DOUBLE_PRECISION
+    mpi_2flttyp = MPI_2DOUBLE_PRECISION
   end if
   !
   ! MPI datatype for working real precision
