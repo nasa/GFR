@@ -297,6 +297,9 @@ module ieee_mod
   !
   public
   !
+  character(len=100), save :: src_file_with_bad_number = ""
+  integer,            save :: line_num_with_bad_number = 0
+  !
 #ifndef SPECIAL_FOR_GNU
   !
   type(ieee_status_type) :: default_ieee_status
@@ -362,6 +365,8 @@ continue
 #ifndef SPECIAL_FOR_GNU
   call ieee_set_status(default_ieee_status)
 #endif
+  src_file_with_bad_number = ""
+  line_num_with_bad_number = 0
 end subroutine reset_ieee_status
 !
 !###############################################################################
@@ -386,6 +391,9 @@ continue
 #ifndef SPECIAL_FOR_GNU
   call ieee_set_flag(ieee_usual,reset_exceptions)
 #endif
+  !
+  src_file_with_bad_number = ""
+  line_num_with_bad_number = 0
   !
 end subroutine reset_fp_exceptions
 !
@@ -1139,9 +1147,6 @@ module module_kind_types
                               '("CPU-",i0," : ",a," at line ",i0," in file ",a)'
   !
   logical(lk), private, save :: random_is_initialized = fals
-  !
-  character(len=100), save :: src_file_with_bad_number = ""
-  integer,            save :: line_num_with_bad_number = 0
   !
   ! Definition of 1 Work Unit using TauBench Benchmark Test
   ! Using Intel 2013 compilers
