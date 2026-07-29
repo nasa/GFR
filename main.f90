@@ -1994,7 +1994,7 @@ subroutine check_for_bad_number(line_num,newton_failures,force_signaling)
   integer      :: bad_number_found(1:size(ieee_usual))
   logical(ldk) :: signaling_exceptions(1:size(ieee_usual))
   !
-  character(len=*), parameter :: pname = "check_for_bad_number"
+  character(len=*), parameter :: pname = "check_for_bad_number(main)"
   !
   logical(lk), parameter :: report_fpe_after_bad_point_confirmation = true
  !logical(lk), parameter :: report_fpe_after_bad_point_confirmation = fals
