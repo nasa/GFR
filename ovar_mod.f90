@@ -245,6 +245,18 @@ module ovar
     real(wp)    :: min_density     =  0.001_wp  ! [kg/m3]
   end type thermofix_t
   !
+  ! probe_t : derived type containing point probe location
+  !
+  type, public :: probe_t
+    !> probe location in user grid units,
+    !> must multiply by grid_scaling_units to get meters.
+    real(wp) :: xyz(3) = [-999.0_wp,-999.0_wp,-999.0_wp]
+  contains
+    procedure :: is_not_default => is_not_default_probe
+  end type probe_t
+  !
+  ! geom_wts_t :
+  !> Derived type to store geometry weights used for parallel load balancing.
   type, public :: geom_wts_t
     integer :: tria = 1
     integer :: quad = 1
@@ -682,6 +694,12 @@ module ovar
   ! OPENACC INPUT OPTIONS
   logical(lk), public, save :: use_async_for_error = fals
   !
+  ! POINT PROBES
+  !> probes sampling interval in iterations
+  integer, public :: probes_interval = 0
+  !> list of probes
+  type(probe_t), public, allocatable :: probes(:)
+  !
   ! TIME AVERAGING
   logical(lk),      public, save :: output_time_averaging    = fals
   character(len=:), public, save, allocatable :: time_ave_file
@@ -898,7 +916,8 @@ module ovar
     module procedure bc_input_t_equals, &
                      relaxation_t_equals, &
                      sem_bc_t_equals, &
-                     periodic_bc_t_equals
+                     periodic_bc_t_equals, &
+                     probe_t_equals
   end interface
   !
   ! Interface to check if two boundary condition input derived types are equal
@@ -907,7 +926,8 @@ module ovar
     module procedure bc_input_t_not_equal, &
                      relaxation_t_not_equal, &
                      sem_bc_t_not_equal, &
-                     periodic_bc_t_not_equal
+                     periodic_bc_t_not_equal, &
+                     probe_t_not_equal
   end interface
   !
   !$ACC DECLARE CREATE(walls_are_exact,sub_inflow_method, &
@@ -1495,6 +1515,89 @@ end function periodic_bc_t_not_equal
 !
 !###############################################################################
 !
+!
+!###############################################################################
+!> Check if a probe derived type is not set to default values.
+!###############################################################################
+pure function is_not_default_probe(this) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(probe_t), intent(in) :: this
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+  !.. Local Allocatable Scalars ..
+  type(probe_t), allocatable :: probe_default
+  !
+continue
+  !
+  ! Create a variable of type probe_t with default values
+  !
+  allocate ( probe_default )
+  !
+  ! Compare the input argument to the default values
+  !
+  return_value = ( this /= probe_default )
+  !
+end function is_not_default_probe
+!
+!###############################################################################
+!> Check if two probe derived type variables are equal.
+!###############################################################################
+elemental function probe_t_equals(a,b) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(probe_t), intent(in) :: a
+  type(probe_t), intent(in) :: b
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  ! Initialize the function result to false
+  !
+  return_value = fals
+  !
+  ! If any of the following conditionals are true, then the subcomponents
+  ! of the are not equal, so immediately return with a function result of
+  ! false indicating they are not equal.
+  !
+  do n = 1, size(a%xyz)
+    if (abs(a%xyz(n) - b%xyz(n)) > eps6) return
+  end do
+  !
+  ! Passed all checks, a and b are equal.
+  !
+  return_value = true
+  !
+end function probe_t_equals
+!###############################################################################
+!> Check if two probe derived type variables are not equal.
+!###############################################################################
+elemental function probe_t_not_equal(a,b) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(probe_t), intent(in) :: a
+  type(probe_t), intent(in) :: b
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+continue
+  !
+  return_value = .not. (a == b)
+  !
+end function probe_t_not_equal
+!
+!###############################################################################
+!> Check if a moving reference frame (MRF) derived type variable specifies
+!> an active moving reference frame.
+!###############################################################################
 pure function mrf_is_active(this) result(return_value)
   !
   !.. Use Statements ..
@@ -2149,6 +2252,7 @@ module input_namelist_mod
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
   use ovar,      only : bc_input!,bc_input_t
   use ovar,      only : geom_wts!,geom_wts_t
+  use ovar,      only : probes_interval, probes
   use ovar,      only : output_time_averaging, time_ave_file
   use ovar,      only : start_averaging_timestep, start_averaging_tstar
   use ovar,      only : time_ave_vel_is_axisymm
@@ -2431,6 +2535,8 @@ module input_namelist_mod
   namelist / input / lustre_stripe_count, lustre_stripe_size
   ! OPENACC INPUT OPTIONS
   namelist / input / use_async_for_error
+  ! POINT PROBE(S)
+  namelist / input / probes_interval, probes
   ! TIME AVERAGING
   namelist / input / output_time_averaging, time_ave_file, &
                      time_scaling_factor, time_ave_vel_is_axisymm, &
@@ -2478,7 +2584,7 @@ contains
 !###############################################################################
 !
 subroutine allocate_namelist_variables(opt_n_bc_input,opt_char_len, &
-                                       opt_n_species)
+                                       opt_n_species,opt_n_probes)
   !
   !.. Use Statements ..
   use module_kind_types, only : zero,alloc_error,error_message
@@ -2490,10 +2596,11 @@ subroutine allocate_namelist_variables(opt_n_bc_input,opt_char_len, &
   integer, optional, intent(in) :: opt_n_bc_input
   integer, optional, intent(in) :: opt_char_len
   integer, optional, intent(in) :: opt_n_species
+  integer, optional, intent(in) :: opt_n_probes
   !
   !.. Local Scalars ..
   integer :: n,ierr
-  integer :: default_len,n_species,n_bc_input
+  integer :: default_len,n_species,n_bc_input,n_probes
   character(len=20) :: blanks
   character(len=50) :: array_name
   !
@@ -2502,15 +2609,18 @@ subroutine allocate_namelist_variables(opt_n_bc_input,opt_char_len, &
   integer, parameter :: max_default_len = 150
   integer, parameter :: max_n_species = 7
   integer, parameter :: max_n_bc_input = 20
+  integer, parameter :: max_n_probes = 200
   !
 continue
   !
   n_bc_input = max_n_bc_input
   n_species = max_n_species
+  n_probes = max_n_probes
   default_len = max_default_len
   !
   if (present(opt_n_bc_input)) n_bc_input = opt_n_bc_input
   if (present(opt_n_species)) n_species = opt_n_species
+  if (present(opt_n_probes)) n_probes = opt_n_probes
   if (present(opt_char_len)) default_len = opt_char_len
   !
   call debug_timer(entering_procedure,pname)
@@ -2520,6 +2630,11 @@ continue
   if (allocated(bc_input)) then
     deallocate ( bc_input , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"bc_input",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(probes)) then
+    deallocate ( probes , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"probes",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(gridfile)) then
@@ -2618,6 +2733,11 @@ continue
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
   end do
 #endif
+  !
+  ! Allocate probes before reading the namelist
+  !
+  allocate ( probes(1:n_probes) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"probes",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Allocate all the character input variables
   !
@@ -2743,13 +2863,14 @@ subroutine resize_namelist_allocatables
   use module_kind_types, only : debug_timer
   use module_kind_types, only : entering_procedure
   use module_kind_types, only : leaving_procedure
-  use ovar,              only : bc_input_t
+  use ovar,              only : bc_input_t, probe_t
   !
   !.. Local Scalars ..
   integer :: i,n,ierr
   !
   !.. Local Allocatable Arrays ..
   type(bc_input_t), allocatable :: tmp_bc_input(:)
+  type(probe_t),    allocatable :: tmp_probes(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "resize_namelist_allocatables"
@@ -2783,6 +2904,26 @@ continue
   do n = 1,size(bc_input)
     bc_input(n)%sem%profile_file = trim(adjustl(bc_input(n)%sem%profile_file))
   end do
+  !
+  !Reallocate probes to the actual size neede for the inputs
+  !
+  n = 0
+  do i = 1, size(probes)
+    if ( probes(i)%is_not_default() ) n = n + 1
+  end do
+  !
+  allocate( tmp_probes(1:n) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_probes",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  n = 0
+  do i = 1, size(probes)
+    if (probes(i)%is_not_default()) then
+      n = n + 1
+      tmp_probes(n) = probes(i)
+    end if
+  end do
+  !
+  call move_alloc( from=tmp_probes , to=probes )
   !
   ! Following are F2003 AUTO REALLOCATIONS
   !

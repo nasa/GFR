@@ -34,6 +34,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/channel_mod.o \
          $(OBJDIR)/limiters_mod.o \
          $(OBJDIR)/postproc_mod.o \
+         $(OBJDIR)/probes_mod.o \
          $(OBJDIR)/restart_mod.o \
          $(OBJDIR)/plot3d_mod.o \
          $(OBJDIR)/gmsh_mod.o \
@@ -670,6 +671,12 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(FUNDIR)/debug_timer.f90 \
                  $(FUNDIR)/cell_solpts.f90
 $(OBJDIR)/postproc_mod.o : OTHERFLAGS += $(CGNSMOD)
+
+$(OBJDIR)/probes_mod.o : probes_mod.f90 \
+               $(OBJDIR)/kind_types_mod.o \
+               $(OBJDIR)/geomvar_mod.o \
+               $(OBJDIR)/ovar_mod.o \
+               $(OBJDIR)/io_mod.o
 
 $(OBJDIR)/prism_mod.o : prism_mod.f90 \
           $(OBJDIR)/kind_types_mod.o \

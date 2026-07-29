@@ -1226,7 +1226,8 @@ continue
   !
   call allocate_namelist_variables(opt_n_bc_input=4, &
                                    opt_n_species=3, &
-                                   opt_char_len=0)
+                                   opt_char_len=0, &
+                                   opt_n_probes=2)
   !
   if (mypnum == glb_root) then
     open (newunit=ionml,file=output_fname,status="new",action="write", &

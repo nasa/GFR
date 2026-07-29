@@ -137,6 +137,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/channel_mod.o \
         $(OBJDIR)/restart_mod.o \
         $(OBJDIR)/postproc_mod.o \
+        $(OBJDIR)/probes_mod.o \
         $(OBJDIR)/pbs_mod.o \
         $(OBJDIR)/cpu_info_mod.o \
         $(OBJDIR)/averaging_mod.o \

@@ -40,6 +40,7 @@ program GFR_main
   use ovar, only : check_flux_point_coordinates
   use ovar, only : cfl,cfl_beg,cfl_end,cfl_cycles,cfl_start_iter
   use ovar, only : adjust_cfl_cycles
+  use ovar, only : probes_interval
   use ovar, only : output_time_averaging,time_scaling_factor
   use ovar, only : time_average_restart_files,ave_start_time
   use ovar, only : modify_time_ave_restart_history
@@ -161,6 +162,8 @@ program GFR_main
   use pbs_mod, only : pbs_remaining_walltime
   !
   use cpu_info_mod, only : get_cpu_locality
+  !
+  use probes_mod, only : local_probes_write, local_probes_finalize
   !
   use averaging_mod, only : initialize_time_ave
   use averaging_mod, only : update_time_ave
@@ -1060,6 +1063,15 @@ continue
         !
       end if
       !
+      ! Output the point probes at the specified interval
+      !
+      if (probes_interval > 0) then
+        if (mod(itcur,probes_interval) == 0) then
+          ! Each partition with a probe point writes to that probe file.
+          call local_probes_write(itcur,time,usp)
+        end if
+      end if
+      !
       call debugging_checks_for_bad_number(__LINE__)
       !
       ! Initialize time averaging if start_averaging_timestep
@@ -1582,6 +1594,8 @@ continue
   call reset_ieee_status
   !
   call output_sem_averages()
+  !
+  call local_probes_finalize()
   !
   if (.not. ignore_errors) then
     !
