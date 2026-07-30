@@ -245,15 +245,30 @@ module ovar
     real(wp)    :: min_density     =  0.001_wp  ! [kg/m3]
   end type thermofix_t
   !
-  ! probe_t : derived type containing point probe location
+  ! point_probe_t : derived type containing point probe location
   !
-  type, public :: probe_t
-    !> probe location in user grid units,
+  type, public :: point_probe_t
+    !> point probe location in user grid units,
     !> must multiply by grid_scaling_units to get meters.
     real(wp) :: xyz(3) = [-999.0_wp,-999.0_wp,-999.0_wp]
   contains
-    procedure :: is_not_default => is_not_default_probe
-  end type probe_t
+    procedure :: is_not_default => is_not_default_point_probe
+  end type point_probe_t
+  !
+  ! rake_probe_t : derived type containing rake probe location
+  !
+  type, public :: rake_probe_t
+    !> number of probes in this rake
+    integer  :: num_probes = 0
+    !> start location of rake rake probes in user grid units,
+    !> must multiply by grid_scaling_units to get meters.
+    real(wp) :: xyz_beg(3) = [-999.0_wp,-999.0_wp,-999.0_wp]
+    !> end   location of rake rake probes in user grid units,
+    !> must multiply by grid_scaling_units to get meters.
+    real(wp) :: xyz_end(3) = [-999.0_wp,-999.0_wp,-999.0_wp]
+  contains
+    procedure :: is_not_default => is_not_default_rake_probe
+  end type rake_probe_t
   !
   ! geom_wts_t :
   !> Derived type to store geometry weights used for parallel load balancing.
@@ -696,9 +711,11 @@ module ovar
   !
   ! POINT PROBES
   !> probes sampling interval in iterations
-  integer, public :: probes_interval = 0
+  integer, public :: probes_collection_interval = 0
+  integer, public :: probes_write_interval = 100
   !> list of probes
-  type(probe_t), public, allocatable :: probes(:)
+  type(point_probe_t), public, allocatable :: point_probes(:)
+  type(rake_probe_t), public, allocatable :: rake_probes(:)
   !
   ! TIME AVERAGING
   logical(lk),      public, save :: output_time_averaging    = fals
@@ -917,7 +934,8 @@ module ovar
                      relaxation_t_equals, &
                      sem_bc_t_equals, &
                      periodic_bc_t_equals, &
-                     probe_t_equals
+                     point_probe_t_equals, &
+                     rake_probe_t_equals
   end interface
   !
   ! Interface to check if two boundary condition input derived types are equal
@@ -927,7 +945,8 @@ module ovar
                      relaxation_t_not_equal, &
                      sem_bc_t_not_equal, &
                      periodic_bc_t_not_equal, &
-                     probe_t_not_equal
+                     point_probe_t_not_equal, &
+                     rake_probe_t_not_equal
   end interface
   !
   !$ACC DECLARE CREATE(walls_are_exact,sub_inflow_method, &
@@ -983,6 +1002,10 @@ continue
   !
 end subroutine move_bcin_to_device
 !
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !###############################################################################
 !
 pure function is_not_default_bc_input(this) result(return_value)
@@ -1265,6 +1288,10 @@ continue
 end function bc_input_t_not_equal
 !
 !###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !
 pure function is_not_default_relax(this) result(return_value)
   !
@@ -1338,6 +1365,10 @@ continue
   !
 end function relaxation_t_not_equal
 !
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !###############################################################################
 !
 pure function is_not_default_sem(this) result(return_value)
@@ -1419,6 +1450,10 @@ continue
   !
 end function sem_bc_t_not_equal
 !
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !###############################################################################
 !
 pure function is_not_default_periodic(this) result(return_value)
@@ -1514,42 +1549,46 @@ continue
 end function periodic_bc_t_not_equal
 !
 !###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !
 !
 !###############################################################################
-!> Check if a probe derived type is not set to default values.
+!> Check if a point probe derived type is not set to default values.
 !###############################################################################
-pure function is_not_default_probe(this) result(return_value)
+pure function is_not_default_point_probe(this) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
-  class(probe_t), intent(in) :: this
+  class(point_probe_t), intent(in) :: this
   !
   !.. Function Result ..
   logical(lk) :: return_value
   !
   !.. Local Allocatable Scalars ..
-  type(probe_t), allocatable :: probe_default
+  type(point_probe_t), allocatable :: point_probe_default
   !
 continue
   !
-  ! Create a variable of type probe_t with default values
+  ! Create a variable of type point_probe_t with default values
   !
-  allocate ( probe_default )
+  allocate ( point_probe_default )
   !
   ! Compare the input argument to the default values
   !
-  return_value = ( this /= probe_default )
+  return_value = ( this /= point_probe_default )
   !
-end function is_not_default_probe
+end function is_not_default_point_probe
 !
 !###############################################################################
-!> Check if two probe derived type variables are equal.
+!> Check if two point probe derived type variables are equal.
 !###############################################################################
-elemental function probe_t_equals(a,b) result(return_value)
+elemental function point_probe_t_equals(a,b) result(return_value)
   !
   !.. Formal Arguments ..
-  type(probe_t), intent(in) :: a
-  type(probe_t), intent(in) :: b
+  type(point_probe_t), intent(in) :: a
+  type(point_probe_t), intent(in) :: b
   !
   !.. Function Result ..
   logical(lk) :: return_value
@@ -1575,15 +1614,15 @@ continue
   !
   return_value = true
   !
-end function probe_t_equals
+end function point_probe_t_equals
 !###############################################################################
-!> Check if two probe derived type variables are not equal.
+!> Check if two point probe derived type variables are not equal.
 !###############################################################################
-elemental function probe_t_not_equal(a,b) result(return_value)
+elemental function point_probe_t_not_equal(a,b) result(return_value)
   !
   !.. Formal Arguments ..
-  type(probe_t), intent(in) :: a
-  type(probe_t), intent(in) :: b
+  type(point_probe_t), intent(in) :: a
+  type(point_probe_t), intent(in) :: b
   !
   !.. Function Result ..
   logical(lk) :: return_value
@@ -1592,7 +1631,133 @@ continue
   !
   return_value = .not. (a == b)
   !
-end function probe_t_not_equal
+end function point_probe_t_not_equal
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+!
+!###############################################################################
+!> Check if a rake probe derived type is not set to default values.
+!###############################################################################
+pure function is_not_default_rake_probe(this) result(return_value)
+  !
+  !.. Use Statements ..
+  use module_kind_types, only : rake_eps => eps4
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(rake_probe_t), intent(in) :: this
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+  !.. Local Allocatable Scalars ..
+  type(rake_probe_t), allocatable :: rake_probe_default
+  !
+continue
+  !
+  ! Create a variable of type rake_probe_t with default values
+  !
+  allocate ( rake_probe_default )
+  !
+  ! Compare the input argument to the default values
+  !
+  return_value = ( this /= rake_probe_default )
+  !
+  ! If this does not contain default values, make sure the values for this
+  ! rake are valid, i.e., the distance between the rake beginning and end
+  ! is reasonable, and 1 or more probes were requested for the rake.
+  ! NOTE: If only one probe is requested for the rake, ignore the distance
+  !       between the beginning and end of the rake since those will just
+  !       get averaged to get the probe location.
+  !
+  ! If the values for this rake are invalid, make the return_value from this
+  ! function indicate this rake has default values so this invalid rake
+  ! gets deleted from the list of valid rakes.
+  !
+  if (return_value) then
+    !
+    if (this%num_probes <= 0) then
+      !
+      return_value = fals
+      !
+    else if (this%num_probes > 1 .and. &
+             norm2( this%xyz_beg - this%xyz_end ) < rake_eps) then
+      !
+      return_value = fals
+      !
+    end if
+    !
+  end if
+  !
+end function is_not_default_rake_probe
+!
+!###############################################################################
+!> Check if two rake probe derived type variables are equal.
+!###############################################################################
+elemental function rake_probe_t_equals(a,b) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(rake_probe_t), intent(in) :: a
+  type(rake_probe_t), intent(in) :: b
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  ! Initialize the function result to false
+  !
+  return_value = fals
+  !
+  ! If any of the following conditionals are true, then the subcomponents
+  ! of the input arguments are not equal, so immediately return with a
+  ! function result of false indicating they are not equal.
+  !
+  if (a%num_probes /= b%num_probes) return
+  !
+  do n = 1, size(a%xyz_beg)
+    if (abs(a%xyz_beg(n) - b%xyz_beg(n)) > eps6) return
+  end do
+  do n = 1, size(a%xyz_end)
+    if (abs(a%xyz_end(n) - b%xyz_end(n)) > eps6) return
+  end do
+  !
+  ! Passed all checks, a and b are equal.
+  !
+  return_value = true
+  !
+end function rake_probe_t_equals
+!###############################################################################
+!> Check if two rake probe derived type variables are not equal.
+!###############################################################################
+elemental function rake_probe_t_not_equal(a,b) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(rake_probe_t), intent(in) :: a
+  type(rake_probe_t), intent(in) :: b
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+continue
+  !
+  return_value = .not. (a == b)
+  !
+end function rake_probe_t_not_equal
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
 !
 !###############################################################################
 !> Check if a moving reference frame (MRF) derived type variable specifies
@@ -1746,6 +1911,13 @@ continue
   z_r = spinup_ratio * this%rotation(3)
   !
 end subroutine get_mrf_rotation
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
 !
 !###############################################################################
 !
@@ -2252,7 +2424,8 @@ module input_namelist_mod
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
   use ovar,      only : bc_input!,bc_input_t
   use ovar,      only : geom_wts!,geom_wts_t
-  use ovar,      only : probes_interval, probes
+  use ovar,      only : probes_collection_interval, probes_write_interval
+  use ovar,      only : point_probes, rake_probes
   use ovar,      only : output_time_averaging, time_ave_file
   use ovar,      only : start_averaging_timestep, start_averaging_tstar
   use ovar,      only : time_ave_vel_is_axisymm
@@ -2536,7 +2709,8 @@ module input_namelist_mod
   ! OPENACC INPUT OPTIONS
   namelist / input / use_async_for_error
   ! POINT PROBE(S)
-  namelist / input / probes_interval, probes
+  namelist / input / probes_collection_interval, probes_write_interval, &
+                     point_probes, rake_probes
   ! TIME AVERAGING
   namelist / input / output_time_averaging, time_ave_file, &
                      time_scaling_factor, time_ave_vel_is_axisymm, &
@@ -2584,7 +2758,8 @@ contains
 !###############################################################################
 !
 subroutine allocate_namelist_variables(opt_n_bc_input,opt_char_len, &
-                                       opt_n_species,opt_n_probes)
+                                       opt_n_species,opt_n_point_probes, &
+                                       opt_n_rake_probes)
   !
   !.. Use Statements ..
   use module_kind_types, only : zero,alloc_error,error_message
@@ -2596,11 +2771,13 @@ subroutine allocate_namelist_variables(opt_n_bc_input,opt_char_len, &
   integer, optional, intent(in) :: opt_n_bc_input
   integer, optional, intent(in) :: opt_char_len
   integer, optional, intent(in) :: opt_n_species
-  integer, optional, intent(in) :: opt_n_probes
+  integer, optional, intent(in) :: opt_n_point_probes
+  integer, optional, intent(in) :: opt_n_rake_probes
   !
   !.. Local Scalars ..
   integer :: n,ierr
-  integer :: default_len,n_species,n_bc_input,n_probes
+  integer :: default_len,n_species,n_bc_input
+  integer :: n_point_probes,n_rake_probes
   character(len=20) :: blanks
   character(len=50) :: array_name
   !
@@ -2609,18 +2786,21 @@ subroutine allocate_namelist_variables(opt_n_bc_input,opt_char_len, &
   integer, parameter :: max_default_len = 150
   integer, parameter :: max_n_species = 7
   integer, parameter :: max_n_bc_input = 20
-  integer, parameter :: max_n_probes = 200
+  integer, parameter :: max_n_point_probes = 200
+  integer, parameter :: max_n_rake_probes = 5
   !
 continue
   !
   n_bc_input = max_n_bc_input
   n_species = max_n_species
-  n_probes = max_n_probes
+  n_point_probes = max_n_point_probes
+  n_rake_probes = max_n_rake_probes
   default_len = max_default_len
   !
   if (present(opt_n_bc_input)) n_bc_input = opt_n_bc_input
   if (present(opt_n_species)) n_species = opt_n_species
-  if (present(opt_n_probes)) n_probes = opt_n_probes
+  if (present(opt_n_point_probes)) n_point_probes = opt_n_point_probes
+  if (present(opt_n_rake_probes)) n_rake_probes = opt_n_rake_probes
   if (present(opt_char_len)) default_len = opt_char_len
   !
   call debug_timer(entering_procedure,pname)
@@ -2632,9 +2812,16 @@ continue
     call alloc_error(pname,"bc_input",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(probes)) then
-    deallocate ( probes , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"probes",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(point_probes)) then
+    deallocate ( point_probes , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"point_probes",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(rake_probes)) then
+    deallocate ( rake_probes , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"rake_probes",2,__LINE__,__FILE__, &
+                     ierr,error_message)
   end if
   !
   if (allocated(gridfile)) then
@@ -2734,10 +2921,15 @@ continue
   end do
 #endif
   !
-  ! Allocate probes before reading the namelist
+  ! Allocate point_probes before reading the namelist
   !
-  allocate ( probes(1:n_probes) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"probes",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( point_probes(1:n_point_probes) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"point_probes",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Allocate rake_probes before reading the namelist
+  !
+  allocate ( rake_probes(1:n_rake_probes) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"rake_probes",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Allocate all the character input variables
   !
@@ -2863,14 +3055,15 @@ subroutine resize_namelist_allocatables
   use module_kind_types, only : debug_timer
   use module_kind_types, only : entering_procedure
   use module_kind_types, only : leaving_procedure
-  use ovar,              only : bc_input_t, probe_t
+  use ovar,              only : bc_input_t, point_probe_t, rake_probe_t
   !
   !.. Local Scalars ..
   integer :: i,n,ierr
   !
   !.. Local Allocatable Arrays ..
-  type(bc_input_t), allocatable :: tmp_bc_input(:)
-  type(probe_t),    allocatable :: tmp_probes(:)
+  type(bc_input_t),    allocatable :: tmp_bc_input(:)
+  type(point_probe_t), allocatable :: tmp_point_probes(:)
+  type(rake_probe_t),  allocatable :: tmp_rake_probes(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "resize_namelist_allocatables"
@@ -2878,6 +3071,8 @@ subroutine resize_namelist_allocatables
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  !#############################################################################
   !
   ! Reallocate bc_input to the actual size needed for the inputs
   !
@@ -2905,25 +3100,53 @@ continue
     bc_input(n)%sem%profile_file = trim(adjustl(bc_input(n)%sem%profile_file))
   end do
   !
-  !Reallocate probes to the actual size neede for the inputs
+  !#############################################################################
+  !
+  ! Reallocate point_probes to the actual size neede for the inputs
   !
   n = 0
-  do i = 1, size(probes)
-    if ( probes(i)%is_not_default() ) n = n + 1
+  do i = 1, size(point_probes)
+    if ( point_probes(i)%is_not_default() ) n = n + 1
   end do
   !
-  allocate( tmp_probes(1:n) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"tmp_probes",1,__LINE__,__FILE__,ierr,error_message)
+  allocate( tmp_point_probes(1:n) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_point_probes",1,__LINE__,__FILE__, &
+                   ierr,error_message)
   !
   n = 0
-  do i = 1, size(probes)
-    if (probes(i)%is_not_default()) then
+  do i = 1, size(point_probes)
+    if (point_probes(i)%is_not_default()) then
       n = n + 1
-      tmp_probes(n) = probes(i)
+      tmp_point_probes(n) = point_probes(i)
     end if
   end do
   !
-  call move_alloc( from=tmp_probes , to=probes )
+  call move_alloc( from=tmp_point_probes , to=point_probes )
+  !
+  !#############################################################################
+  !
+  ! Reallocate rake_probes to the actual size neede for the inputs
+  !
+  n = 0
+  do i = 1, size(rake_probes)
+    if ( rake_probes(i)%is_not_default() ) n = n + 1
+  end do
+  !
+  allocate( tmp_rake_probes(1:n) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_rake_probes",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  n = 0
+  do i = 1, size(rake_probes)
+    if (rake_probes(i)%is_not_default()) then
+      n = n + 1
+      tmp_rake_probes(n) = rake_probes(i)
+    end if
+  end do
+  !
+  call move_alloc( from=tmp_rake_probes , to=rake_probes )
+  !
+  !#############################################################################
   !
   ! Following are F2003 AUTO REALLOCATIONS
   !
