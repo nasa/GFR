@@ -1236,7 +1236,22 @@ continue
     end if
     !
   end do
-  if (ic == 1) call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+  !
+  ! Check all MPI processes for errors with the direction of the face normal
+  !
+  if (creating_local_face) then
+    if (ncpu > 1) then
+      call mpi_allreduce(MPI_IN_PLACE,ic,1_int_mpi,mpi_inttyp, &
+                         MPI_SUM,MPI_COMM_WORLD,mpierr)
+    end if
+    if (ic == 1) then
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+    end if
+  else
+    if (ic == 1) then
+      call stop_gfr(abort,pname,__LINE__,__FILE__)
+    end if
+  end if
   !
   call debug_timer(stop_timer,"section 4")
   ! ###########
