@@ -2004,7 +2004,7 @@ subroutine get_output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   integer  :: this_order,limit_order
   integer  :: imarker
   real(wp) :: freestream_ref,rhoa,rhoa2,time_ref_inv
-  real(wp) :: cp_dim,cond_dim,dim_val
+  real(wp) :: cp_dim,cond_dim,dim_val,val
   real(wp) :: rho_inv,vx,vy,vz,a2,q2,s
   real(wp) :: gamm,gm1,gam_over_gm1,mach,pres,temp
   real(wp) :: mi,mj,drhodi,drhodj,dmjdi,dmidj
@@ -2846,8 +2846,16 @@ continue
         nv = nv + 1
         ivar_s = isvar_s(nv)
         !
+        ! [2-(2/4)*3,3-(3/4)*3,4-(4/4)*3] = [2-0*3,3-0*3,4-1*3] = [2,3,1]
         i = (l+1) - ( (l+1)/4 )*3
+        ! [3-(3/4)*3,4-(4/4)*3,5-(5/4)*3] = [3-0*3,4-1*3,5-1*3] = [3,1,2]
         j = (l+2) - ( (l+2)/4 )*3
+        !
+        ! Special indices for non-3D vorticity
+        if (nr < 3) then
+          i = 1
+          j = nr
+        end if
         !
         nmi = nmb-1+i
         nmj = nmb-1+j
@@ -3000,7 +3008,12 @@ continue
       ivar_s = isvar_s(nv)
       !
       do n = 1,npts
-        vartmp(n) = (dpvdx(n,1,nmx) + dpvdx(n,2,nmy) + dpvdx(n,3,nmz)) * aref
+        val = zero
+        do l = 1,nr
+          val = val + dpvdx(n,l,nmb-1+l)
+        end do
+        vartmp(n) = val * aref
+       !vartmp(n) = (dpvdx(n,1,nmx) + dpvdx(n,2,nmy) + dpvdx(n,3,nmz)) * aref
       end do
       !
       call cgns_write_field_data
