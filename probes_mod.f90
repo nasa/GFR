@@ -424,6 +424,8 @@ subroutine local_probes_finalize()
   !
 continue
   !
+  if (num_total_probes < 1) return
+  !
   call debug_timer(entering_procedure,pname)
   !
   if (current_save_idx > 0) then
