@@ -1954,6 +1954,7 @@ subroutine transfer_cgns_data_to_grid_dt
   integer :: xmin_idx,xmax_idx
   integer :: ymin_idx,ymax_idx
   integer :: zmin_idx,zmax_idx
+  integer :: max_dim
   integer(CET) :: sect_type,elem_type
   !
   character(len=9)     :: wall_type
@@ -2010,6 +2011,10 @@ continue
   call debug_timer(stop_timer,"finding size for grid%xyz")
   call debug_timer(start_timer,"creating grid%xyz")
   !
+  ! Save the maximum physical dimension specified in the grid file
+  !
+  max_dim = n1
+  !
   allocate ( grid%xyz(1:n1,1:n2) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"grid%xyz",1,__LINE__,__FILE__,ierr,error_message)
@@ -2046,12 +2051,25 @@ continue
          !call debug_timer(stop_timer,"creating grid%xyz, crazy order")
           !
          !call debug_timer(start_timer,"creating grid%xyz, old order")
+          array_data_loop: &
           do ix = 1,n2
             n = n + 1
+            dim_loop: &
             do ic = 1,n1
+              !
+              ! Skip this coordinate if the GFR coordinate index is larger than
+              ! the first dimension of grid%xyz. This check is needed for cases
+              ! where the grid file might contain data for coordinate directions
+              ! that shouldnt exist for the physical dimension specified in the
+              ! base of the CGNS grid file. For example, the grid file contains
+              ! X, Y, and Z data, but the grid file says it is 2D.
+              !
+              if (idx(ic) > max_dim) cycle dim_loop
+              !
               grid%xyz(idx(ic),n) = base(ib)%zone(iz)%grid(ig)%coord(ic)%x(ix)
-            end do
-          end do
+              !
+            end do dim_loop
+          end do array_data_loop
          !call debug_timer(stop_timer,"creating grid%xyz, old order")
           !
         end if
