@@ -2622,6 +2622,13 @@ continue
           write (iout,5) trim(adjustl(output_message))
         write (iout,6)
       end if
+#ifdef ATHENA_PBS
+      !
+      ! If on NAS Athena (Turin) nodes, reset the FP exceptions before
+      ! finalizing MPI
+      !
+      call reset_fp_exceptions
+#endif
       !
       ! Stop all MPI processes
       !
