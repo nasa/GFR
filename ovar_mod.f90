@@ -715,7 +715,8 @@ module ovar
   integer, public :: probes_write_interval = 100
   !> list of probes
   type(point_probe_t), public, allocatable :: point_probes(:)
-  type(rake_probe_t), public, allocatable :: rake_probes(:)
+  type(rake_probe_t),  public, allocatable :: rake_probes(:)
+  type(point_probe_t), public, allocatable :: cell_probes(:)
   !
   ! TIME AVERAGING
   logical(lk),      public, save :: output_time_averaging    = fals
@@ -2425,7 +2426,7 @@ module input_namelist_mod
   use ovar,      only : bc_input!,bc_input_t
   use ovar,      only : geom_wts!,geom_wts_t
   use ovar,      only : probes_collection_interval, probes_write_interval
-  use ovar,      only : point_probes, rake_probes
+  use ovar,      only : point_probes, rake_probes, cell_probes
   use ovar,      only : output_time_averaging, time_ave_file
   use ovar,      only : start_averaging_timestep, start_averaging_tstar
   use ovar,      only : time_ave_vel_is_axisymm
@@ -2710,7 +2711,7 @@ module input_namelist_mod
   namelist / input / use_async_for_error
   ! POINT PROBE(S)
   namelist / input / probes_collection_interval, probes_write_interval, &
-                     point_probes, rake_probes
+                     point_probes, rake_probes, cell_probes
   ! TIME AVERAGING
   namelist / input / output_time_averaging, time_ave_file, &
                      time_scaling_factor, time_ave_vel_is_axisymm, &
@@ -2759,7 +2760,7 @@ contains
 !
 subroutine allocate_namelist_variables(opt_n_bc_input,opt_char_len, &
                                        opt_n_species,opt_n_point_probes, &
-                                       opt_n_rake_probes)
+                                       opt_n_rake_probes,opt_n_cell_probes)
   !
   !.. Use Statements ..
   use module_kind_types, only : zero,alloc_error,error_message
@@ -2773,11 +2774,12 @@ subroutine allocate_namelist_variables(opt_n_bc_input,opt_char_len, &
   integer, optional, intent(in) :: opt_n_species
   integer, optional, intent(in) :: opt_n_point_probes
   integer, optional, intent(in) :: opt_n_rake_probes
+  integer, optional, intent(in) :: opt_n_cell_probes
   !
   !.. Local Scalars ..
   integer :: n,ierr
   integer :: default_len,n_species,n_bc_input
-  integer :: n_point_probes,n_rake_probes
+  integer :: n_point_probes,n_rake_probes,n_cell_probes
   character(len=20) :: blanks
   character(len=50) :: array_name
   !
@@ -2787,7 +2789,8 @@ subroutine allocate_namelist_variables(opt_n_bc_input,opt_char_len, &
   integer, parameter :: max_n_species = 7
   integer, parameter :: max_n_bc_input = 20
   integer, parameter :: max_n_point_probes = 200
-  integer, parameter :: max_n_rake_probes = 5
+  integer, parameter :: max_n_rake_probes = 10
+  integer, parameter :: max_n_cell_probes = 10
   !
 continue
   !
@@ -2795,12 +2798,14 @@ continue
   n_species = max_n_species
   n_point_probes = max_n_point_probes
   n_rake_probes = max_n_rake_probes
+  n_cell_probes = max_n_cell_probes
   default_len = max_default_len
   !
   if (present(opt_n_bc_input)) n_bc_input = opt_n_bc_input
   if (present(opt_n_species)) n_species = opt_n_species
   if (present(opt_n_point_probes)) n_point_probes = opt_n_point_probes
   if (present(opt_n_rake_probes)) n_rake_probes = opt_n_rake_probes
+  if (present(opt_n_cell_probes)) n_cell_probes = opt_n_cell_probes
   if (present(opt_char_len)) default_len = opt_char_len
   !
   call debug_timer(entering_procedure,pname)
@@ -2821,6 +2826,12 @@ continue
   if (allocated(rake_probes)) then
     deallocate ( rake_probes , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"rake_probes",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(cell_probes)) then
+    deallocate ( cell_probes , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cell_probes",2,__LINE__,__FILE__, &
                      ierr,error_message)
   end if
   !
@@ -2930,6 +2941,11 @@ continue
   !
   allocate ( rake_probes(1:n_rake_probes) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"rake_probes",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Allocate cell_probes before reading the namelist
+  !
+  allocate ( cell_probes(1:n_cell_probes) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_probes",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Allocate all the character input variables
   !
@@ -3064,6 +3080,7 @@ subroutine resize_namelist_allocatables
   type(bc_input_t),    allocatable :: tmp_bc_input(:)
   type(point_probe_t), allocatable :: tmp_point_probes(:)
   type(rake_probe_t),  allocatable :: tmp_rake_probes(:)
+  type(point_probe_t), allocatable :: tmp_cell_probes(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "resize_namelist_allocatables"
@@ -3145,6 +3162,29 @@ continue
   end do
   !
   call move_alloc( from=tmp_rake_probes , to=rake_probes )
+  !
+  !#############################################################################
+  !
+  ! Reallocate cell_probes to the actual size neede for the inputs
+  !
+  n = 0
+  do i = 1, size(cell_probes)
+    if ( cell_probes(i)%is_not_default() ) n = n + 1
+  end do
+  !
+  allocate( tmp_cell_probes(1:n) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_cell_probes",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  n = 0
+  do i = 1, size(cell_probes)
+    if (cell_probes(i)%is_not_default()) then
+      n = n + 1
+      tmp_cell_probes(n) = cell_probes(i)
+    end if
+  end do
+  !
+  call move_alloc( from=tmp_cell_probes , to=cell_probes )
   !
   !#############################################################################
   !

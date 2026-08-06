@@ -1228,7 +1228,8 @@ continue
                                    opt_n_species=3, &
                                    opt_char_len=0, &
                                    opt_n_point_probes=2, &
-                                   opt_n_rake_probes=1)
+                                   opt_n_rake_probes=1, &
+                                   opt_n_cell_probes=1)
   !
   if (mypnum == glb_root) then
     open (newunit=ionml,file=output_fname,status="new",action="write", &

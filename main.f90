@@ -163,7 +163,9 @@ program GFR_main
   !
   use cpu_info_mod, only : get_cpu_locality
   !
-  use probes_mod, only : local_probes_write, local_probes_finalize
+  use probes_mod, only : initialize_probes
+  use probes_mod, only : collect_probe_data
+  use probes_mod, only : finalize_probes
   !
   use averaging_mod, only : initialize_time_ave
   use averaging_mod, only : update_time_ave
@@ -842,6 +844,12 @@ continue
   call memory_pause("writing initial CGNS file","main iteration loop")
  !call check_for_bad_number(__LINE__)
   !
+  ! Initialize probe collection
+  !
+  if (probes_collection_interval > 0) then
+    call initialize_probes
+  end if
+  !
   ! Reset the IEEE floating point status to the default values
   !
   call reset_ieee_status
@@ -1067,8 +1075,10 @@ continue
       !
       if (probes_collection_interval > 0) then
         if (mod(itcur,probes_collection_interval) == 0) then
-          ! Each partition with a probe point writes to that probe file.
-          call local_probes_write(itcur,time,usp)
+          ! Each process collects probe data for any probes within its
+          ! partition, with collected data written to the respective
+          ! probe files based on the input probes_write_interval.
+          call collect_probe_data(itcur,time,usp)
         end if
       end if
       !
@@ -1595,7 +1605,7 @@ continue
   !
   call output_sem_averages()
   !
-  call local_probes_finalize()
+  call finalize_probes()
   !
   if (.not. ignore_errors) then
     !
