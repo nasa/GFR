@@ -2226,6 +2226,12 @@ continue
         varname = "EnergyGradient"//char_xyz(l)
         call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       end do
+    else if (trim(variable_names(k)) == "GradPresure") then
+      do l = 1,nr
+        n = n + 1
+        varname = "PresureGradient"//char_xyz(l)
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
     else if (trim(variable_names(k)) == "GradTemperature") then
       do l = 1,nr
         n = n + 1
@@ -2744,6 +2750,14 @@ continue
       !
       call grad_cv_to_grad_pv_gpu(1,npts,cv,gp,dcvdx,dpvdx)
       !
+    case ("GradPressure","GradPresMagnitude")
+      !
+      allocate ( dpvdx(1:npts,1:nr,1:nq) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"dpvdx",1,__LINE__,__FILE__,ierr,error_message)
+      !
+      call grad_cv_to_grad_pv_gpu(1,npts,cv,gp,dcvdx,dpvdx)
+      !
     case ("dTdx_Breakdown")
       !
       if (ncs > 0) then
@@ -2989,7 +3003,7 @@ continue
         !
       end do
       !!}}}
-    case ("GradDensityMagnitude") ! Magnitude of density gradient
+    case ("GradDensityMagnitude","Schlieren") ! Magnitude of density gradient
       !!{{{
       !
       nv = nv + 1
@@ -2997,6 +3011,20 @@ continue
       !
       do n = 1,npts
         vartmp(n) = norm2( dcvdx(n,1:nr,nec) ) * rhoref
+      end do
+      !
+      call cgns_write_field_data
+      !
+      !!}}}
+    case ("ModifiedSchlieren") ! Log10 scaled magnitude of density gradient
+      !!{{{
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        val = norm2( dcvdx(n,1:nr,nec) ) * rhoref
+        vartmp(n) = log10( one + val )
       end do
       !
       call cgns_write_field_data
@@ -3067,6 +3095,34 @@ continue
           !
         end do
       end do
+      !!}}}
+    case ("GradPressure") ! Pressure gradient
+      !!{{{
+      do l = 1,nr
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,npts
+          vartmp(n) = dpvdx(n,l,nee) * rhoa2
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !!}}}
+    case ("GradPresMagnitude") ! Magnitude of pressure gradient
+      !!{{{
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,npts
+        vartmp(n) = norm2( dpvdx(n,1:nr,nee) ) * rhoa2
+      end do
+      !
+      call cgns_write_field_data
+      !
       !!}}}
     case ("GradTemperature") ! Temperature gradient
       !!{{{
@@ -4761,6 +4817,14 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,        only : output_temperature
   use ovar,        only : output_thermo_variables
   use ovar,        only : output_gradients
+  use ovar,        only : output_density_gradient
+  use ovar,        only : output_density_gradient_magnitude
+  use ovar,        only : output_pressure_gradient
+  use ovar,        only : output_pressure_gradient_magnitude
+  use ovar,        only : output_temperature_gradient
+  use ovar,        only : output_temperature_gradient_magnitude
+  use ovar,        only : output_schlieren
+  use ovar,        only : output_modified_schlieren
   use ovar,        only : output_transport_variables
   use ovar,        only : output_stagnation_temperature
   use ovar,        only : output_stagnation_pressure
@@ -4809,7 +4873,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:59) = ["Density             ", &
+  character(len=*), parameter :: var_order(1:63) = ["Density             ", &
                                                     "Momentum            ", &
                                                     "Energy              ", &
                                                     "Velocity            ", &
@@ -4847,6 +4911,7 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "RelativeVelocity    ", &
                                                     "RCylindricalVelocity", &
                                                     "RelativeMach        ", &
+                                                    "GradPressure        ", &
                                                     "GradTemperature     ", &
                                                     "ResolutionMarker    ", &
                                                     "JumpMarker          ", &
@@ -4861,8 +4926,11 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "dTdx_Breakdown      ", &
                                                     "DmatTemperature     ", &
                                                     "CoMetrics           ", &
+                                                    "GradPresMagnitude   ", &
                                                     "GradTempMagnitude   ", &
                                                     "GradDensityMagnitude", &
+                                                    "Schlieren           ", &
+                                                    "ModifiedSchlieren   ", &
                                                     "VorticityMagnitude  ", &
                                                     "StrainRateMagnitude ", &
                                                     "QCriterion          ", &
@@ -4870,15 +4938,19 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "FilterDissipation   "]
   !
   !.. Variables requiring dusp for output
-  character(len=*), parameter :: grad_vars(1:17) = ["GradSpeciesDensities", &
+  character(len=*), parameter :: grad_vars(1:21) = ["GradSpeciesDensities", &
                                                     "GradDensity         ", &
                                                     "GradDensityMagnitude", &
                                                     "GradMomentum        ", &
                                                     "GradEnergy          ", &
                                                     "GradMassFractions   ", &
                                                     "GradVelocity        ", &
+                                                    "GradPressure        ", &
+                                                    "GradPresMagnitude   ", &
                                                     "GradTemperature     ", &
                                                     "GradTempMagnitude   ", &
+                                                    "Schlieren           ", &
+                                                    "ModifiedSchlieren   ", &
                                                     "dTdx_Breakdown      ", &
                                                     "DmatTemperature     ", &
                                                     "Vorticity           ", &
@@ -4992,6 +5064,38 @@ continue
     call add_sol_variable(variable_list,"P0")
     call add_sol_variable(variable_list,"T0")
     call add_sol_variable(variable_list,"H0")
+  end if
+  !
+  if (output_density_gradient) then
+    call add_sol_variable(variable_list,"GradDensity")
+  end if
+  !
+  if (output_density_gradient_magnitude) then
+    call add_sol_variable(variable_list,"GradDensityMagnitude")
+  end if
+  !
+  if (output_pressure_gradient) then
+    call add_sol_variable(variable_list,"GradPressure")
+  end if
+  !
+  if (output_pressure_gradient_magnitude) then
+    call add_sol_variable(variable_list,"GradPresMagnitude")
+  end if
+  !
+  if (output_temperature_gradient) then
+    call add_sol_variable(variable_list,"GradTemperature")
+  end if
+  !
+  if (output_temperature_gradient_magnitude) then
+    call add_sol_variable(variable_list,"GradTempMagnitude")
+  end if
+  !
+  if (output_schlieren) then
+    call add_sol_variable(variable_list,"Schlieren")
+  end if
+  !
+  if (output_modified_schlieren) then
+    call add_sol_variable(variable_list,"ModifiedSchlieren")
   end if
   !
   if (output_local_timestep) then

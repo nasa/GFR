@@ -430,30 +430,38 @@ module ovar
   integer,          public, save :: loc_output_pts    = Equi_Distant_Points
   !
   ! SELECTION OF OUTPUT VARIABLES IN THE CGNS SOLUTION FILES
-  logical(lk), public, save :: output_vorticity               = fals
-  logical(lk), public, save :: output_cylindrical_coordinates = fals
-  logical(lk), public, save :: output_cylindrical_velocity    = fals
-  logical(lk), public, save :: output_relative_velocity       = fals
-  logical(lk), public, save :: output_relative_conditions     = fals
-  logical(lk), public, save :: output_qcriterion              = fals
-  logical(lk), public, save :: output_conserved_variables     = fals
-  logical(lk), public, save :: output_momentum                = fals
-  logical(lk), public, save :: output_temperature             = fals
-  logical(lk), public, save :: output_thermo_variables        = fals
-  logical(lk), public, save :: output_gradients               = fals
-  logical(lk), public, save :: output_transport_variables     = fals
-  logical(lk), public, save :: output_stagnation_temperature  = fals
-  logical(lk), public, save :: output_stagnation_pressure     = fals
-  logical(lk), public, save :: output_stagnation_variables    = fals
-  logical(lk), public, save :: output_marker_variables        = fals
-  logical(lk), public, save :: output_grid_details            = fals
-  logical(lk), public, save :: output_local_timestep          = fals
-  logical(lk), public, save :: output_species_density         = fals
-  logical(lk), public, save :: output_species_mass_fractions  = true
-  logical(lk), public, save :: output_species_mole_fractions  = fals
-  logical(lk), public, save :: output_extra_species_variables = fals
-  logical(lk), public, save :: output_debug_species_variables = fals
-  logical(lk), public, save :: output_grdnt_species_variables = fals
+  logical(lk), public, save :: output_vorticity                      = fals
+  logical(lk), public, save :: output_cylindrical_coordinates        = fals
+  logical(lk), public, save :: output_cylindrical_velocity           = fals
+  logical(lk), public, save :: output_relative_velocity              = fals
+  logical(lk), public, save :: output_relative_conditions            = fals
+  logical(lk), public, save :: output_qcriterion                     = fals
+  logical(lk), public, save :: output_conserved_variables            = fals
+  logical(lk), public, save :: output_momentum                       = fals
+  logical(lk), public, save :: output_temperature                    = fals
+  logical(lk), public, save :: output_thermo_variables               = fals
+  logical(lk), public, save :: output_gradients                      = fals
+  logical(lk), public, save :: output_density_gradient               = fals
+  logical(lk), public, save :: output_density_gradient_magnitude     = fals
+  logical(lk), public, save :: output_pressure_gradient              = fals
+  logical(lk), public, save :: output_pressure_gradient_magnitude    = fals
+  logical(lk), public, save :: output_temperature_gradient           = fals
+  logical(lk), public, save :: output_temperature_gradient_magnitude = fals
+  logical(lk), public, save :: output_schlieren                      = fals
+  logical(lk), public, save :: output_modified_schlieren             = fals
+  logical(lk), public, save :: output_transport_variables            = fals
+  logical(lk), public, save :: output_stagnation_temperature         = fals
+  logical(lk), public, save :: output_stagnation_pressure            = fals
+  logical(lk), public, save :: output_stagnation_variables           = fals
+  logical(lk), public, save :: output_marker_variables               = fals
+  logical(lk), public, save :: output_grid_details                   = fals
+  logical(lk), public, save :: output_local_timestep                 = fals
+  logical(lk), public, save :: output_species_density                = fals
+  logical(lk), public, save :: output_species_mass_fractions         = true
+  logical(lk), public, save :: output_species_mole_fractions         = fals
+  logical(lk), public, save :: output_extra_species_variables        = fals
+  logical(lk), public, save :: output_debug_species_variables        = fals
+  logical(lk), public, save :: output_grdnt_species_variables        = fals
   !
   ! GOVERNING EQUATIONS
   integer, public, save :: governing_equations = NavierStokes_Eqns
@@ -2449,6 +2457,13 @@ module input_namelist_mod
   use ovar,      only : output_temperature
   use ovar,      only : output_thermo_variables
   use ovar,      only : output_gradients
+  use ovar,      only : output_density_gradient
+  use ovar,      only : output_density_gradient_magnitude
+  use ovar,      only : output_pressure_gradient
+  use ovar,      only : output_pressure_gradient_magnitude
+  use ovar,      only : output_temperature_gradient
+  use ovar,      only : output_temperature_gradient_magnitude
+  use ovar,      only : output_schlieren, output_modified_schlieren
   use ovar,      only : output_transport_variables
   use ovar,      only : output_stagnation_temperature
   use ovar,      only : output_stagnation_pressure
@@ -2579,6 +2594,13 @@ module input_namelist_mod
                      output_relative_velocity, output_relative_conditions, &
                      output_temperature, output_thermo_variables, &
                      output_gradients, output_transport_variables, &
+                     output_density_gradient, &
+                     output_density_gradient_magnitude, &
+                     output_pressure_gradient, &
+                     output_pressure_gradient_magnitude, &
+                     output_temperature_gradient, &
+                     output_temperature_gradient_magnitude, &
+                     output_schlieren, output_modified_schlieren, &
                      output_stagnation_temperature, &
                      output_stagnation_pressure, &
                      output_stagnation_variables, output_marker_variables, &
