@@ -2033,6 +2033,12 @@ continue
       n = n + nr*nr
     else if (trim(variable_names(l)) == "GradEnergy") then
       n = n + nr
+    else if (trim(variable_names(l)) == "GradPressure") then
+      n = n + nr
+      if (ncs > 0) n = n + nr
+    else if (trim(variable_names(l)) == "GradPresMagnitude") then
+      n = n + 1
+      if (ncs > 0) n = n + 1
     else if (trim(variable_names(l)) == "GradTemperature") then
       n = n + nr
     else if (trim(variable_names(l)) == "DmatTemperature") then
@@ -5803,12 +5809,13 @@ subroutine get_cgns_time_ave_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:33) = ["Density            ", &
+  character(len=*), parameter :: var_order(1:34) = ["Density            ", &
                                                     "Momentum           ", &
                                                     "Velocity           ", &
                                                     "CylindricalVelocity", &
                                                     "Pressure           ", &
                                                     "Temperature        ", &
+                                                    "SpeciesDensities   ", &
                                                     "P0                 ", &
                                                     "T0                 ", &
                                                     "uu                 ", &
@@ -5847,6 +5854,12 @@ continue
     call add_sol_variables(variable_list,axi_list)
   else
     call add_sol_variables(variable_list,default_list)
+  end if
+  !
+  ! Add species densities if using a gas mixture
+  !
+  if (ncs > 0) then
+    call add_sol_variable(variable_list,"SpeciesDensities")
   end if
  !!
  !! Add total temperature and pressure if in a moving reference frame
@@ -5964,6 +5977,7 @@ subroutine output_time_ave_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   integer(CBT) :: ivar_s
   !
   character(len=1) :: char_axi
+  character(len=8) :: tmp_var
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: vartmp_at_sp(:)
@@ -5972,6 +5986,7 @@ subroutine output_time_ave_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   real(wp), allocatable :: v1v2(:)
   !
   character(len=:), allocatable :: ta_var
+  character(len=:), allocatable :: species_var
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "output_time_ave_variable"
@@ -6106,6 +6121,39 @@ continue
         call cgns_write_field_data
         !
         idx1 = 0
+        !
+      end do
+      !!}}}
+    case ("SpeciesDensities") ! species densities
+      !!{{{
+      do m = 1,ncs
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        write (tmp_var,'("$",i0)') m
+        species_var = trim(adjustl(tmp_var)) ! F2003 AUTO-REALLOC
+        !
+        time_ave_variable_loop: &
+        do l = 1,size(time_ave_variables)
+          ! F2003 AUTO-REALLOC
+          ta_var = trim(adjustl( time_ave_variables(l) ))
+          !
+          if (species_var == ta_var) then
+            !
+            call interpolate_for_output( uavesp(:,l) , vartmp )
+            !
+            do n = 1,npts
+              vartmp(n) = vartmp(n) * rhoref
+            end do
+            !
+            exit time_ave_variable_loop
+            !
+          end if
+          !
+        end do time_ave_variable_loop
+        !
+        call cgns_write_field_data
         !
       end do
       !!}}}
@@ -7575,8 +7623,9 @@ end subroutine write_parallel_cgns_timeave_data_file
 subroutine create_time_ave_data_names(variable_list,variable_ref)
   !
   !.. Use Statements ..
-  use ovar,    only : rhoref,aref,tref
+  use ovar,        only : rhoref,aref,tref
   use flowvar_mod, only : time_ave_variables
+  use thermo_mod,  only : species_name
   !
   !.. Formal Arguments ..
 #ifdef SPECIAL_FOR_INTEL
@@ -7587,13 +7636,14 @@ subroutine create_time_ave_data_names(variable_list,variable_ref)
   real(wp), allocatable, intent(out) :: variable_ref(:)
   !
   !.. Local Scalars ..
-  integer  :: l,n,nl,nvar
+  integer  :: l,n,m,nl,nvar
   real(wp) :: ta_ref
   !
   character(len=CGLEN) :: ta_var
   !
   !.. Local Allocatable Scalars ..
   character(len=:), allocatable :: tmp_var
+  character(len=:), allocatable :: species_var
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_time_ave_data_names"
@@ -7614,51 +7664,66 @@ continue
     ta_var = "ave("
     !
     tmp_var = trim(adjustl(time_ave_variables(n))) ! F2003 AUTO-REALLOC
-    nl = len_trim(tmp_var)
     !
-    do l = 1,nl
+    if (tmp_var(1:1) == "$") then
       !
-      select case ( tmp_var(l:l) )
+      species_var = trim(adjustl(tmp_var(2:)))
+      read (species_var,'(i)') m
+      !
+      ta_var = trim(adjustl(ta_var)) // &
+               "rho_" // trim(adjustl(species_name(m))) // &
+               ")"
+      ta_ref = ta_ref * rhoref
+      !
+    else
+      !
+      nl = len_trim(tmp_var)
+      !
+      do l = 1,nl
         !
-        case ("d")
-          ta_var = trim(adjustl(ta_var)) // "rho"
-          ta_ref = ta_ref * rhoref
-        case ("e")
-          ta_var = trim(adjustl(ta_var)) // "rho*e0"
-          ta_ref = ta_ref * rhoref*aref*aref
-        case ("p")
-          ta_var = trim(adjustl(ta_var)) // "P"
-          ta_ref = ta_ref * rhoref*aref*aref
-        case ("P")
-          ta_var = trim(adjustl(ta_var)) // "P0"
-          ta_ref = ta_ref * rhoref*aref*aref
-        case ("t")
-          ta_var = trim(adjustl(ta_var)) // "T"
-          ta_ref = ta_ref * tref
-        case ("T")
-          ta_var = trim(adjustl(ta_var)) // "T0"
-          ta_ref = ta_ref * tref
-        case ("x")
-          ta_var = trim(adjustl(ta_var)) // "vx"
-          ta_ref = ta_ref * aref
-        case ("y")
-          ta_var = trim(adjustl(ta_var)) // "vy"
-          ta_ref = ta_ref * aref
-        case ("z")
-          ta_var = trim(adjustl(ta_var)) // "vz"
-          ta_ref = ta_ref * aref
-        case ("r")
-          ta_var = trim(adjustl(ta_var)) // "vr"
-          ta_ref = ta_ref * aref
-        case ("f")
-          ta_var = trim(adjustl(ta_var)) // "vt"
-          ta_ref = ta_ref * aref
+        select case ( tmp_var(l:l) )
           !
-      end select
+          case ("d")
+            ta_var = trim(adjustl(ta_var)) // "rho"
+            ta_ref = ta_ref * rhoref
+          case ("e")
+            ta_var = trim(adjustl(ta_var)) // "rho*e0"
+            ta_ref = ta_ref * rhoref*aref*aref
+          case ("p")
+            ta_var = trim(adjustl(ta_var)) // "P"
+            ta_ref = ta_ref * rhoref*aref*aref
+          case ("P")
+            ta_var = trim(adjustl(ta_var)) // "P0"
+            ta_ref = ta_ref * rhoref*aref*aref
+          case ("t")
+            ta_var = trim(adjustl(ta_var)) // "T"
+            ta_ref = ta_ref * tref
+          case ("T")
+            ta_var = trim(adjustl(ta_var)) // "T0"
+            ta_ref = ta_ref * tref
+          case ("x")
+            ta_var = trim(adjustl(ta_var)) // "vx"
+            ta_ref = ta_ref * aref
+          case ("y")
+            ta_var = trim(adjustl(ta_var)) // "vy"
+            ta_ref = ta_ref * aref
+          case ("z")
+            ta_var = trim(adjustl(ta_var)) // "vz"
+            ta_ref = ta_ref * aref
+          case ("r")
+            ta_var = trim(adjustl(ta_var)) // "vr"
+            ta_ref = ta_ref * aref
+          case ("f")
+            ta_var = trim(adjustl(ta_var)) // "vt"
+            ta_ref = ta_ref * aref
+            !
+        end select
+        !
+        ta_var = trim(adjustl(ta_var)) // merge(")","*",l==nl)
+        !
+      end do
       !
-      ta_var = trim(adjustl(ta_var)) // merge(")","*",l==nl)
-      !
-    end do
+    end if
     !
     ! Save the final nondimensionalization value
     ! for this time-averaged variable to variable_ref

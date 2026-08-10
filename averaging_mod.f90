@@ -2,6 +2,7 @@ module averaging_mod
   !
   use module_kind_types
   use eqn_idx_mod, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ntk,ntl
+  use eqn_idx_mod, only : ncs
   use eqn_idx_mod, only : npres,ntemp
   !
   implicit none
@@ -38,8 +39,9 @@ subroutine initialize_time_ave()
   use mrf_mod,     only : is_in_mrf
   !
   !.. Local Scalars ..
-  integer :: l,m,nv,nvar,ierr
+  integer :: i,l,m,nv,nvar,ierr
   character(len=1)  :: ta_char,v1,v2,v3
+  character(len=4)  :: species_char
   character(len=30) :: array_name
   !
   !.. Local Parameters ..
@@ -203,6 +205,17 @@ continue
       !
    !end if
     !
+    ! Add the species densities to the list of time averaged variables
+    !
+    if (ncs > 0) then
+      do m = 1,ncs
+        write (species_char,'("$",i0)') m
+        time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                               time_ave_variables(:), &
+                               trim(adjustl(species_char)) ]
+      end do
+    end if
+    !
     nvar = size(time_ave_variables)
     !
   else
@@ -224,49 +237,65 @@ continue
     !
     time_ave_variables(m) = trim(adjustl(time_ave_variables(m)))
     !
-    nv = len_trim(time_ave_variables(m))
-    !
-    allocate ( time_ave_var(m)%idx(1:nv) , source=0 , &
-               stat=ierr , errmsg=error_message )
-    write (array_name,1) m
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-    !
-    do l = 1,nv
+    if (time_ave_variables(m)(1:1) == "$") then
       !
-      ta_char = time_ave_variables(m)(l:l)
+      if (ncs < 1) then
+        write (error_message,99)
+        call stop_gfr(STOP_MPI,pname,__LINE__,__FILE__,error_message)
+      end if
       !
-      select case (ta_char)
-        case ("d") ! density
-          time_ave_var(m)%idx(l) = nec
-        case ("x") ! axial velocity
-          time_ave_var(m)%idx(l) = nmx
-        case ("y") ! y velocity
-          time_ave_var(m)%idx(l) = nmy
-        case ("z") ! spanwise velocity
-          time_ave_var(m)%idx(l) = nmz
-        case ("e") ! total energy
-          time_ave_var(m)%idx(l) = nee
-        case ("p") ! static pressure
-          time_ave_var(m)%idx(l) = nee
-        case ("t") ! static temperature
-          time_ave_var(m)%idx(l) = nq+1
-        case ("r") ! radial velocity
-          time_ave_var(m)%idx(l) = nq+2
-        case ("f") ! theta velocity
-          time_ave_var(m)%idx(l) = nq+3
-        case ("P") ! total pressure
-          time_ave_var(m)%idx(l) = nq+4
-        case ("T") ! total temperature
-          time_ave_var(m)%idx(l) = nq+5
-        case ("k") ! turbulent kinetic energy
-          time_ave_var(m)%idx(l) = ntk
-        case ("w") ! turbulence frequency/dissipation
-          time_ave_var(m)%idx(l) = ntl
-        case default
-          ! ??? Should probably produce an error message and abort
-          time_ave_var(m)%idx(l) = nec
-      end select
-    end do
+      nv = 1
+      time_ave_var(m)%idx = init_array(nv,0)
+      species_char = trim(adjustl(time_ave_variables(m)(2:)))
+      read (species_char,'(i)') time_ave_var(m)%idx(nv)
+      !
+    else
+      !
+      nv = len_trim(time_ave_variables(m))
+      !
+      allocate ( time_ave_var(m)%idx(1:nv) , source=0 , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) m
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      !
+      do l = 1,nv
+        !
+        ta_char = time_ave_variables(m)(l:l)
+        !
+        select case (ta_char)
+          case ("d") ! density
+            time_ave_var(m)%idx(l) = nec
+          case ("x") ! axial velocity
+            time_ave_var(m)%idx(l) = nmx
+          case ("y") ! y velocity
+            time_ave_var(m)%idx(l) = nmy
+          case ("z") ! spanwise velocity
+            time_ave_var(m)%idx(l) = nmz
+          case ("e") ! total energy
+            time_ave_var(m)%idx(l) = nee
+          case ("p") ! static pressure
+            time_ave_var(m)%idx(l) = nee
+          case ("t") ! static temperature
+            time_ave_var(m)%idx(l) = nq+1
+          case ("r") ! radial velocity
+            time_ave_var(m)%idx(l) = nq+2
+          case ("f") ! theta velocity
+            time_ave_var(m)%idx(l) = nq+3
+          case ("P") ! total pressure
+            time_ave_var(m)%idx(l) = nq+4
+          case ("T") ! total temperature
+            time_ave_var(m)%idx(l) = nq+5
+          case ("k") ! turbulent kinetic energy
+            time_ave_var(m)%idx(l) = ntk
+          case ("w") ! turbulence frequency/dissipation
+            time_ave_var(m)%idx(l) = ntl
+          case default
+            ! ??? Should probably produce an error message and abort
+            time_ave_var(m)%idx(l) = nec
+        end select
+      end do
+    end if
+    !
   end do
   !
   ! Allocate the local module array used for computing
@@ -302,6 +331,10 @@ continue
   ! Format Statements
   !
   1 format ("time_ave_var(",i0,")%idx")
+  !
+  99 format ("ONE OF THE TIME AVERAGED VARIABLES STARTS WITH '$' WHICH ", &
+             "INDICATES A SPECIES DENSITY VARIABLE, BUT IT APPEARS THE ", &
+             "CURRENT SIMULATION IS NOT FOR A GAS MIXTURE (NCS < 1)!")
   !
 end subroutine initialize_time_ave
 !
@@ -441,6 +474,10 @@ continue
     vy = vy - vy_r
     vz = vz - vz_r
     !
+    if (ncs > 0) then
+      ave_var(1:ncs) = usp(n,1:ncs)
+    end if
+    !
     ! Primitive variables
     ave_var(nec) = r
     ave_var(nmx) = vx
@@ -560,6 +597,10 @@ continue
     m2 = q2/a2
     !
     total_cond = one + half*gm1*m2
+    !
+    if (ncs > 0) then
+      ave_var(1:ncs) = usp(n,1:ncs)
+    end if
     !
     ! Primitive variables
     ave_var(nec) = r

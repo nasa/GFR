@@ -1146,12 +1146,16 @@ continue
       ! energy equations. Also copy over the restart solutions for the
       ! species equations if the number of chemical species in the restart
       ! file matches the number of chemical species in the current simulation.
+      ! NOTE: If var_header is present, this is for the time-average restart
+      !       file so leave ncs_diff and mbeg with their default values.
       !
       ncs_diff = 0
       mbeg = 1
-      if (ncs > 0 .and. restart_ncs /= ncs) then
-        ncs_diff = ncs - restart_ncs
-        mbeg = restart_ncs + 1
+      if (.not.present(var_header)) then
+        if (ncs > 0 .and. restart_ncs /= ncs) then
+          ncs_diff = ncs - restart_ncs
+          mbeg = restart_ncs + 1
+        end if
       end if
       !
       ! We need to flip the indices between the two arrays to match how the
@@ -1166,28 +1170,32 @@ continue
       ! Copy over the restart solutions for the species equations if 
       ! the number of chemical species in the restart file does not
       ! match the number of chemical species in the current simulation.
+      ! NOTE: If var_header is present, this is for the time-average restart
+      !       file so ignore this part
       !
-      if (ncs > 0 .and. restart_ncs /= ncs) then
-        !
-        if (restart_ncs == inert_ncs) then
+      if (.not.present(var_header)) then
+        if (ncs > 0 .and. restart_ncs /= ncs) then
           !
-          ! We need to flip the indices between the two arrays to match how the
-          ! restart solution was read using the MPI derived datatype.
-          !
-          do n = 1,np
-            do mm = 1,restart_ncs
-              m = inert_species_map(mm)
-              solution(n0+n,m) = rst_sol(mm,l0+n)
+          if (restart_ncs == inert_ncs) then
+            !
+            ! We need to flip the indices between the two arrays to match how the
+            ! restart solution was read using the MPI derived datatype.
+            !
+            do n = 1,np
+              do mm = 1,restart_ncs
+                m = inert_species_map(mm)
+                solution(n0+n,m) = rst_sol(mm,l0+n)
+              end do
             end do
-          end do
-          !
-        else
-          !
-          write (error_message,50) restart_ncs,ncs,inert_ncs
-          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+            !
+          else
+            !
+            write (error_message,50) restart_ncs,ncs,inert_ncs
+            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+            !
+          end if
           !
         end if
-        !
       end if
       !
     end do
