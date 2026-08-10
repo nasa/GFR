@@ -2226,12 +2226,38 @@ continue
         varname = "EnergyGradient"//char_xyz(l)
         call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       end do
-    else if (trim(variable_names(k)) == "GradPresure") then
-      do l = 1,nr
+    else if (trim(variable_names(k)) == "GradPressure") then
+      if (ncs > 0) then
+        do l = 1,nr
+          n = n + 1
+          varname = "PressureGradient"//char_xyz(l)//"Method1"
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+        do l = 1,nr
+          n = n + 1
+          varname = "PressureGradient"//char_xyz(l)//"Method2"
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      else
+        do l = 1,nr
+          n = n + 1
+          varname = "PressureGradient"//char_xyz(l)
+          call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+        end do
+      end if
+    else if (trim(variable_names(k)) == "GradPresMagnitude") then
+      if (ncs > 0) then
         n = n + 1
-        varname = "PresureGradient"//char_xyz(l)
+        varname = "GradPresMagnitudeMethod1"
         call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
-      end do
+        n = n + 1
+        varname = "GradPresMagnitudeMethod2"
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      else
+        n = n + 1
+        varname = "GradPresMagnitude"
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end if
     else if (trim(variable_names(k)) == "GradTemperature") then
       do l = 1,nr
         n = n + 1
@@ -2626,6 +2652,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use transport_mod, only : compute_mole_fractions
   !
   use gpu_mod, only : grad_cv_to_grad_pv_gpu
+  use gpu_mod, only : compute_pressure_gradient
   !
   use taylor_couette_mod, only : remove_freestream_tcf_init
   !
@@ -2674,6 +2701,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   real(wp), allocatable :: spcvar(:,:)
   real(wp), allocatable :: dtdx(:,:)
   real(wp), allocatable :: dpvdx(:,:,:)
+  real(wp), allocatable :: dpdx(:,:)
   real(wp), allocatable :: other_variables(:,:)
   !
   !.. Local Parameters ..
@@ -2756,7 +2784,13 @@ continue
                  stat=ierr , errmsg=error_message )
       call alloc_error(pname,"dpvdx",1,__LINE__,__FILE__,ierr,error_message)
       !
-      call grad_cv_to_grad_pv_gpu(1,npts,cv,gp,dcvdx,dpvdx)
+      allocate ( dpdx(1:npts,1:nr) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"dpdx",1,__LINE__,__FILE__,ierr,error_message)
+      !
+      if (ncs > 0) then
+        call grad_cv_to_grad_pv_gpu(1,npts,cv,gp,dcvdx,dpvdx)
+      end if
       !
     case ("dTdx_Breakdown")
       !
@@ -2834,8 +2868,6 @@ continue
     ! ---------------------
     ! pitot pressure
     ! strain rate
-    ! pressure gradient
-    ! magnitude of pressure gradient
     !
     case ("Density") ! Density
       !!{{{
@@ -3098,30 +3130,75 @@ continue
       !!}}}
     case ("GradPressure") ! Pressure gradient
       !!{{{
+      !
+      call compute_pressure_gradient(1,npts,cv,gp,dcvdx,dpvdx,dpdx, &
+                                     dpvdx_was_already_evaluated=true)
+      !
       do l = 1,nr
         !
         nv = nv + 1
         ivar_s = isvar_s(nv)
         !
         do n = 1,npts
-          vartmp(n) = dpvdx(n,l,nee) * rhoa2
+          vartmp(n) = dpdx(n,l) * rhoa2
         end do
         !
         call cgns_write_field_data
         !
       end do
+      !
+      if (ncs > 0) then
+        !
+        call compute_pressure_gradient(1,npts,cv,gp,dcvdx,dpvdx,dpdx, &
+                                       dpvdx_was_already_evaluated=true, &
+                                       dpdx_option=2)
+        !
+        do l = 1,nr
+          !
+          nv = nv + 1
+          ivar_s = isvar_s(nv)
+          !
+          do n = 1,npts
+            vartmp(n) = dpdx(n,l) * rhoa2
+          end do
+          !
+          call cgns_write_field_data
+          !
+        end do
+        !
+      end if
       !!}}}
     case ("GradPresMagnitude") ! Magnitude of pressure gradient
       !!{{{
+      !
+      call compute_pressure_gradient(1,npts,cv,gp,dcvdx,dpvdx,dpdx, &
+                                     dpvdx_was_already_evaluated=true)
       !
       nv = nv + 1
       ivar_s = isvar_s(nv)
       !
       do n = 1,npts
-        vartmp(n) = norm2( dpvdx(n,1:nr,nee) ) * rhoa2
+        vartmp(n) = norm2( dpdx(n,1:nr) ) * rhoa2
       end do
       !
       call cgns_write_field_data
+      !
+      if (ncs > 0) then
+        !
+        call compute_pressure_gradient(1,npts,cv,gp,dcvdx,dpvdx,dpdx, &
+                                       dpvdx_was_already_evaluated=true, &
+                                       dpdx_option=2)
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,npts
+          vartmp(n) = norm2( dpdx(n,1:nr) ) * rhoa2
+        end do
+        !
+        call cgns_write_field_data
+        !
+      end if
       !
       !!}}}
     case ("GradTemperature") ! Temperature gradient
