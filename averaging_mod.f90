@@ -247,7 +247,7 @@ continue
       nv = 1
       time_ave_var(m)%idx = init_array(nv,0)
       species_char = trim(adjustl(time_ave_variables(m)(2:)))
-      read (species_char,'(i)') time_ave_var(m)%idx(nv)
+      read (species_char,'(i3)') time_ave_var(m)%idx(nv)
       !
     else
       !
@@ -500,23 +500,33 @@ continue
     !
     ! First, update the time-averaged conservative variables
     !
-    do m = 1,nq
-      uavesp(n,m) = a*uavesp(n,m) + b*usp(n,m)
-    end do
-    !
-    ! Next, update the time-averaged primitive variables
-    ! (with temperature instead of density)
-    !
-    uavesp(n,nq+1) = a*uavesp(n,nq+1) + b*ave_var(nq+1)
-    do m = 2,nq
-      uavesp(n,nq+m) = a*uavesp(n,nq+m) + b*ave_var(m)
-    end do
-    !
-    ! Update the remaining time-averaged variables
-    !
-    do m = 2*nq+1,nvar
-      uavesp(n,m) = a*uavesp(n,m) + b*product( ave_var(time_ave_var(m)%idx) )
-    end do
+    if (ncs > 0) then
+      !
+      do m = 1,nvar
+        uavesp(n,m) = a*uavesp(n,m) + b*product( ave_var(time_ave_var(m)%idx) )
+      end do
+      !
+    else
+      !
+      do m = 1,nq
+        uavesp(n,m) = a*uavesp(n,m) + b*usp(n,m)
+      end do
+      !
+      ! Next, update the time-averaged primitive variables
+      ! (with temperature instead of density)
+      !
+      uavesp(n,nq+1) = a*uavesp(n,nq+1) + b*ave_var(nq+1)
+      do m = 2,nq
+        uavesp(n,nq+m) = a*uavesp(n,nq+m) + b*ave_var(m)
+      end do
+      !
+      ! Update the remaining time-averaged variables
+      !
+      do m = 2*nq+1,nvar
+        uavesp(n,m) = a*uavesp(n,m) + b*product( ave_var(time_ave_var(m)%idx) )
+      end do
+      !
+    end if
     !
   end do
   !
@@ -621,25 +631,35 @@ continue
     ! Total pressure
     ave_var(nq+5) = p*(total_cond**gam_over_gm1)
     !
-    ! First, update the time-averaged conservative variables
-    !
-    do m = 1,nq
-      uavesp(n,m) = a*uavesp(n,m) + b*usp(n,m)
-    end do
-    !
-    ! Next, update the time-averaged primitive variables
-    ! (with temperature instead of density)
-    !
-    uavesp(n,nq+1) = a*uavesp(n,nq+1) + b*ave_var(nq+1)
-    do m = 2,nq
-      uavesp(n,nq+m) = a*uavesp(n,nq+m) + b*ave_var(m)
-    end do
-    !
-    ! Update the remaining time-averaged variables
-    !
-    do m = 2*nq+1,nvar
-      uavesp(n,m) = a*uavesp(n,m) + b*product( ave_var(time_ave_var(m)%idx) )
-    end do
+    if (ncs > 0) then
+      !
+      do m = 1,nvar
+        uavesp(n,m) = a*uavesp(n,m) + b*product( ave_var(time_ave_var(m)%idx) )
+      end do
+      !
+    else
+      !
+      ! First, update the time-averaged conservative variables
+      !
+      do m = 1,nq
+        uavesp(n,m) = a*uavesp(n,m) + b*usp(n,m)
+      end do
+      !
+      ! Next, update the time-averaged primitive variables
+      ! (with temperature instead of density)
+      !
+      uavesp(n,nq+1) = a*uavesp(n,nq+1) + b*ave_var(nq+1)
+      do m = 2,nq
+        uavesp(n,nq+m) = a*uavesp(n,nq+m) + b*ave_var(m)
+      end do
+      !
+      ! Update the remaining time-averaged variables
+      !
+      do m = 2*nq+1,nvar
+        uavesp(n,m) = a*uavesp(n,m) + b*product( ave_var(time_ave_var(m)%idx) )
+      end do
+      !
+    end if
     !
   end do
   !
