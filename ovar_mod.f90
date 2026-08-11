@@ -445,8 +445,10 @@ module ovar
   logical(lk), public, save :: output_density_gradient_magnitude     = fals
   logical(lk), public, save :: output_pressure_gradient              = fals
   logical(lk), public, save :: output_pressure_gradient_magnitude    = fals
+  logical(lk), public, save :: output_pressure_dmat_gradient         = fals
   logical(lk), public, save :: output_temperature_gradient           = fals
   logical(lk), public, save :: output_temperature_gradient_magnitude = fals
+  logical(lk), public, save :: output_temperature_dmat_gradient      = fals
   logical(lk), public, save :: output_schlieren                      = fals
   logical(lk), public, save :: output_modified_schlieren             = fals
   logical(lk), public, save :: output_transport_variables            = fals
@@ -2461,8 +2463,10 @@ module input_namelist_mod
   use ovar,      only : output_density_gradient_magnitude
   use ovar,      only : output_pressure_gradient
   use ovar,      only : output_pressure_gradient_magnitude
+  use ovar,      only : output_pressure_dmat_gradient
   use ovar,      only : output_temperature_gradient
   use ovar,      only : output_temperature_gradient_magnitude
+  use ovar,      only : output_temperature_dmat_gradient
   use ovar,      only : output_schlieren, output_modified_schlieren
   use ovar,      only : output_transport_variables
   use ovar,      only : output_stagnation_temperature
@@ -2598,8 +2602,10 @@ module input_namelist_mod
                      output_density_gradient_magnitude, &
                      output_pressure_gradient, &
                      output_pressure_gradient_magnitude, &
+                     output_pressure_dmat_gradient, &
                      output_temperature_gradient, &
                      output_temperature_gradient_magnitude, &
+                     output_temperature_dmat_gradient, &
                      output_schlieren, output_modified_schlieren, &
                      output_stagnation_temperature, &
                      output_stagnation_pressure, &
