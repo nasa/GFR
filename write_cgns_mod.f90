@@ -2039,10 +2039,14 @@ continue
     else if (trim(variable_names(l)) == "GradPresMagnitude") then
       n = n + 1
       if (ncs > 0) n = n + 1
+    else if (trim(variable_names(l)) == "DmatPressure") then
+      n = n + nr + 1
     else if (trim(variable_names(l)) == "GradTemperature") then
       n = n + nr
+    else if (trim(variable_names(l)) == "GradTempMagnitude") then
+      n = n + 1
     else if (trim(variable_names(l)) == "DmatTemperature") then
-      n = n + nr
+      n = n + nr + 1
     else if (trim(variable_names(l)) == "GradMassFractions") then
       n = n + ncs*nr
     else if (trim(variable_names(l)) == "GradSpeciesDensities") then
@@ -2264,6 +2268,15 @@ continue
         varname = "GradPresMagnitude"
         call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       end if
+    else if (trim(variable_names(k)) == "DmatPressure") then
+      do l = 1,nr
+        n = n + 1
+        varname = "PressureDMatrix"//char_xyz(l)
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+      n = n + 1
+      varname = "PressureDMatrixMagnitude"
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
     else if (trim(variable_names(k)) == "GradTemperature") then
       do l = 1,nr
         n = n + 1
@@ -2276,6 +2289,9 @@ continue
         varname = "TemperatureDMatrix"//char_xyz(l)
         call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       end do
+      n = n + 1
+      varname = "TemperatureDMatrixMagnitude"
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
     else if (trim(variable_names(k)) == "GradMassFractions") then
       do m = 1,ncs
         do l = 1,nr
@@ -3287,7 +3303,7 @@ continue
                  stat=ierr , errmsg=error_message )
       call alloc_error(pname,"dtdx",1,__LINE__,__FILE__,ierr,error_message)
       !
-      call compute_dmatrix_grad_temperature(dtdx)
+      call compute_dmatrix_grad_gpsp_var(ntemp,dtdx)
       !
       if (.not. allocated(vartmp_at_sp)) then
         allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
@@ -3295,6 +3311,8 @@ continue
         call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
                          ierr,error_message)
       end if
+      !
+      ! Output the individual temperature gradient vector components
       !
       do l = 1,nr
         !
@@ -3311,9 +3329,76 @@ continue
         !
       end do
       !
+      ! Output the magnitude of the temperature gradient
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,n_solpts
+        vartmp_at_sp(n) = norm2( dtdx(n,1:nr) ) * tref
+      end do
+      !
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      call cgns_write_field_data
+      !
       if (allocated(dtdx)) then
         deallocate ( dtdx , stat=ierr , errmsg=error_message )
         call alloc_error(pname,"dtdx",2,__LINE__,__FILE__,ierr,error_message)
+      end if
+      !
+      !!}}}
+    case ("DmatPressure") ! Pressure gradient using derivative matrices
+      !!{{{
+      !
+      if (.not. allocated(dpdx)) then
+        allocate ( dpdx(1:n_solpts,1:nr) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"dtdx",1,__LINE__,__FILE__,ierr,error_message)
+      end if
+      !
+      call compute_dmatrix_grad_gpsp_var(npres,dpdx)
+      !
+      if (.not. allocated(vartmp_at_sp)) then
+        allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+      !
+      ! Output the individual pressure gradient vector components
+      !
+      do l = 1,nr
+        !
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do n = 1,n_solpts
+          vartmp_at_sp(n) = dpdx(n,l) * rhoa2
+        end do
+        !
+        call interpolate_for_output( vartmp_at_sp , vartmp )
+        !
+        call cgns_write_field_data
+        !
+      end do
+      !
+      ! Output the magnitude of the pressure gradient
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do n = 1,n_solpts
+        vartmp_at_sp(n) = norm2( dpdx(n,1:nr) ) * rhoa2
+      end do
+      !
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      call cgns_write_field_data
+      !
+      if (allocated(dpdx)) then
+        deallocate ( dpdx , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"dpdx",2,__LINE__,__FILE__,ierr,error_message)
       end if
       !
       !!}}}
@@ -4904,8 +4989,10 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,        only : output_density_gradient_magnitude
   use ovar,        only : output_pressure_gradient
   use ovar,        only : output_pressure_gradient_magnitude
+  use ovar,        only : output_pressure_dmat_gradient
   use ovar,        only : output_temperature_gradient
   use ovar,        only : output_temperature_gradient_magnitude
+  use ovar,        only : output_temperature_dmat_gradient
   use ovar,        only : output_schlieren
   use ovar,        only : output_modified_schlieren
   use ovar,        only : output_transport_variables
@@ -4956,7 +5043,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:63) = ["Density             ", &
+  character(len=*), parameter :: var_order(1:64) = ["Density             ", &
                                                     "Momentum            ", &
                                                     "Energy              ", &
                                                     "Velocity            ", &
@@ -5008,6 +5095,7 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "TimeMetrics         ", &
                                                     "dTdx_Breakdown      ", &
                                                     "DmatTemperature     ", &
+                                                    "DmatPressure        ", &
                                                     "CoMetrics           ", &
                                                     "GradPresMagnitude   ", &
                                                     "GradTempMagnitude   ", &
@@ -5021,7 +5109,7 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "FilterDissipation   "]
   !
   !.. Variables requiring dusp for output
-  character(len=*), parameter :: grad_vars(1:21) = ["GradSpeciesDensities", &
+  character(len=*), parameter :: grad_vars(1:20) = ["GradSpeciesDensities", &
                                                     "GradDensity         ", &
                                                     "GradDensityMagnitude", &
                                                     "GradMomentum        ", &
@@ -5035,7 +5123,6 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "Schlieren           ", &
                                                     "ModifiedSchlieren   ", &
                                                     "dTdx_Breakdown      ", &
-                                                    "DmatTemperature     ", &
                                                     "Vorticity           ", &
                                                     "VorticityMagnitude  ", &
                                                     "StrainRateMagnitude ", &
@@ -5165,12 +5252,20 @@ continue
     call add_sol_variable(variable_list,"GradPresMagnitude")
   end if
   !
+  if (output_pressure_dmat_gradient) then
+    call add_sol_variable(variable_list,"DmatPressure")
+  end if
+  !
   if (output_temperature_gradient) then
     call add_sol_variable(variable_list,"GradTemperature")
   end if
   !
   if (output_temperature_gradient_magnitude) then
     call add_sol_variable(variable_list,"GradTempMagnitude")
+  end if
+  !
+  if (output_temperature_dmat_gradient) then
+    call add_sol_variable(variable_list,"DmatTemperature")
   end if
   !
   if (output_schlieren) then
@@ -7668,7 +7763,7 @@ continue
     if (tmp_var(1:1) == "$") then
       !
       species_var = trim(adjustl(tmp_var(2:)))
-      read (species_var,'(i)') m
+      read (species_var,'(i3)') m
       !
       ta_var = trim(adjustl(ta_var)) // &
                "rho_" // trim(adjustl(species_name(m))) // &
@@ -10461,7 +10556,7 @@ end subroutine interpolate_for_output_3d
 !
 !###############################################################################
 !
-subroutine compute_dmatrix_grad_temperature(dtdx)
+subroutine compute_dmatrix_grad_gpsp_var(nidx,dgpdx)
   !
   !.. Use Statements
   use geomvar_mod,       only : nr,n_solpts,ncell,cell
@@ -10471,38 +10566,41 @@ subroutine compute_dmatrix_grad_temperature(dtdx)
   use derivatives_mod,   only : deriv
   use projection_mod,    only : projct
   use flowvar_mod,       only : usp,gpsp
+  use ovar,              only : governing_equations
   !
-  use thermo_mod, only : update_thermo_properties
+  use thermo_mod,    only : update_thermo_properties
+  use transport_mod, only : update_transport_properties
   !
   !.. Formal Arguments ..
-  real(wp), intent(inout) :: dtdx(:,:)
+  integer,     intent(in) :: nidx
+  real(wp), intent(inout) :: dgpdx(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,j,l,m,n,nc,np,n0
   integer  :: this_geom,this_order
   integer  :: nqp,num_qpts,q0,ierr
-  real(wp) :: a,t,val
+  real(wp) :: a,val
   !
   !.. Local Arrays ..
-  real(wp) :: dtdi(1:3)
+  real(wp) :: dgpdi(1:3)
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: cv_qp(:,:)
   real(wp), allocatable :: gp_qp(:,:)
-  real(wp), allocatable :: temp(:)
+  real(wp), allocatable :: var(:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "compute_dmatrix_grad_temperature"
+  character(len=*), parameter :: pname = "compute_dmatrix_grad_gpsp_var"
   !
 continue
   !
-  allocate ( temp(1:n_solpts) , source=zero , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"temp",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( var(1:n_solpts) , source=zero , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
   !
   if (t_order <= n_order) then
     !
     do n = 1,n_solpts
-      temp(n) = gpsp(n,ntemp)
+      var(n) = gpsp(n,nidx)
     end do
     !
   else
@@ -10562,13 +10660,19 @@ continue
     !
     call update_thermo_properties(1,num_qpts,cv_qp,gp_qp,caller_name=pname)
     !
+    if (governing_equations == NavierStokes_Eqns) then
+      if (any(nidx == [nvisc,ncond])) then
+        call update_transport_properties(1,num_qpts,cv_qp,gp_qp)
+      end if
+    end if
+    !
     if (allocated(cv_qp)) then
       deallocate ( cv_qp , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"cv_qp",2,__LINE__,__FILE__,ierr,error_message)
     end if
     !
-    ! 2. Project temperature at quadrature points to solution order polynomial
-    !    at solution points
+    ! 2. Project the gas-property of interest at the quadrature points
+    !    to the solution order polynomial order at the solution points
     !
     q0 = 0
     !
@@ -10580,12 +10684,12 @@ continue
       this_geom = cell(nc)%geom   ! geometry type of this cell
       this_order = cell(nc)%order ! solution order of this cell
       !
-      ! Now interpolate the derivatives of the conserved variables
-      ! from the solution points to the quadrature points
+      ! Now project the gas-property variable of interest from the
+      ! quadrature points to the solution points
       !
       do n = 1,np
         !
-        t = zero
+        val = zero
         !
         do i = projct(this_geom,this_order)%CellOI(t_order)%row_ptr(n)+1, &
                projct(this_geom,this_order)%CellOI(t_order)%row_ptr(n+1)
@@ -10593,11 +10697,11 @@ continue
           j = projct(this_geom,this_order)%CellOI(t_order)%row_idx(i)
           a = projct(this_geom,this_order)%CellOI(t_order)%row_val(i)
           !
-          t = t + a * gp_qp(q0+j,ntemp)
+          val = val + a * gp_qp(q0+j,nidx)
           !
         end do
         !
-        temp(n0+n) = t
+        var(n0+n) = val
         !
       end do
       !
@@ -10612,8 +10716,17 @@ continue
     !
   end if
   !
-  ! 4. Use derivative matrices to compute gradient of temperature 
-  !    in computation space
+  ! 4. Use the derivative matrices to compute the gradient of the gas-property
+  !    of interest at the solution points.
+  !    NOTE: None of the gas properties are linear combinations of the
+  !          conserved variables, i.e., none of these variables are
+  !          actually in the solution polynomial space. Therefore, using
+  !          the derivative matrices to compute the gradient of any of
+  !          these variables will result in an approximated gradient with
+  !          a reasonable likelyhood of some kind of polynomial aliasing
+  !          being present. Using t_order > n_order to evaluate the
+  !          variable at quadrature points and then project it back down
+  !          to the solution polynomial space can help reduce aliasing.
   !
   do nc = 1,ncell
     !
@@ -10623,13 +10736,18 @@ continue
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
     !
-    ! Compute the gradient of the conservative variables at each solution point
+    ! Compute the gradient of the gas-property variable of interest
+    ! at each solution point of this cell
     !
     do n = 1,np
       !
+      ! For the current solution point, use the derivative matrices
+      ! to compute the gradient of the gas-property variable of
+      ! interest in computational space
+      !
       do l = 1,nr
         !
-        dtdi(l) = zero
+        dgpdi(l) = zero
         !
         do i = deriv(this_geom,this_order)%d(l)%row_ptr(n)+1, &
                deriv(this_geom,this_order)%d(l)%row_ptr(n+1)
@@ -10637,26 +10755,29 @@ continue
           j = deriv(this_geom,this_order)%d(l)%row_idx(i)
           a = deriv(this_geom,this_order)%d(l)%row_val(i)
           !
-          dtdi(l) = dtdi(l) + a * temp(n0+j)
+          dgpdi(l) = dgpdi(l) + a * var(n0+j)
           !
         end do
         !
       end do
       !
+      ! Use the solution point metrics to convert the gradient from
+      ! computational space to physical space
+      !
       do l = 1,nr
-        dtdx(n0+n,l) = dot( dtdi(1:nr) , metrics_array(n0+n,1:nr,l) )
+        dgpdx(n0+n,l) = dot( dgpdi(1:nr) , metrics_array(n0+n,1:nr,l) )
       end do
       !
     end do
     !
   end do
   !
-  if (allocated(temp)) then
-    deallocate ( temp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"temp",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(var)) then
+    deallocate ( var , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"var",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-end subroutine compute_dmatrix_grad_temperature
+end subroutine compute_dmatrix_grad_gpsp_var
 !
 !###############################################################################
 !
