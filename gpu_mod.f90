@@ -2291,8 +2291,7 @@ subroutine pressure_gradient_tpg_v1_3d(n1,n2,usp,gpsp,dpvdx,return_value)
   !
   !.. Use Statements ..
   use ovar,       only : gam
-  use thermo_mod, only : compute_species_cp
-  use thermo_mod, only : compute_mixture_dcpdt
+  use thermo_mod, only : rspec
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -2302,51 +2301,18 @@ subroutine pressure_gradient_tpg_v1_3d(n1,n2,usp,gpsp,dpvdx,return_value)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,m,np
+  integer  :: n,m
   real(wp) :: gm1_cpg,dpdx_cpg,dpdy_cpg,dpdz_cpg
-  real(wp) :: rho,t,cp,valx,valy,valz
+  real(wp) :: rho,h,cp,rmix,valx,valy,valz
   real(wp) :: decdx,decdy,decdz
   real(wp) :: dtdx,dtdy,dtdz
   real(wp) :: dpdx,dpdy,dpdz
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: dcpdt(:)
-  real(wp), allocatable :: cpi(:,:)
   !
 continue
   !
   gm1_cpg = gam - one
   !
-  np = size(usp,dim=1)
-  !
-  allocate ( cpi(1:np,1:ncs) )
-  allocate ( dcpdt(1:np) )
-  !$ACC DATA CREATE(cpi,dcpdt)
-  !
-  ! 1. Compute the species mass fractions which will be needed to compute
-  !    d(Cp)/dT.
-  !    NOTE: Temporarily store the species mass fractions in cpi
-  !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,cpi)
-  do m = 1,ncs
-    do n = n1,n2
-      cpi(n,m) = usp(n,m)/usp(n,nec)
-    end do
-  end do
-  !
-  ! 2. Compute the derivative of the mixture Cp w-r-t temperature: d(Cp)/dT.
-  !    NOTE: The species mass fractions are temporarily being stored in cpi.
-  !
-  call compute_mixture_dcpdt(n1,n2,cpi,gpsp(:,ntemp),dcpdt)
-  !
-  ! 3. Compute the species Cp.
-  ! NOTE: cpi currently contains the species mass fractions. These are not
-  !       needed in compute_species_cp, so the species mass fractions in
-  !       cpi will simply be overwritten by the species Cp.
-  !
-  call compute_species_cp(n1,n2,gpsp(:,ntemp),cpi)
-  !
-  !$ACC PARALLEL LOOP PRESENT(usp,gpsp,dpvdx,cpi,dcpdt,return_value)
+  !$ACC PARALLEL LOOP PRESENT(usp,gpsp,dpvdx,return_value)
   do n = n1,n2
     !
     ! Extract the previously computed CPG dP/dx and divide that by the
@@ -2357,7 +2323,7 @@ continue
     dpdz_cpg = return_value(n,3)/gm1_cpg
     !
     rho = usp(n,nec)
-    t   = gpsp(n,ntemp)
+    h   = gpsp(n,nenth)
     cp  = gpsp(n,ncp)
     !
     decdx = dpvdx(n,1,nec)
@@ -2373,32 +2339,28 @@ continue
     ! Compute the contribution to the pressure gradient from the species
     ! mass fractions gradients
     !
+    rmix = zero
     valx = zero
     valy = zero
     valz = zero
     !
-    !$ACC LOOP SEQ REDUCTION(+:valx,valy,valz)
+    !$ACC LOOP SEQ REDUCTION(+:valx,valy,valz,rmix)
     do m = 1,ncs
-      valx = valx + cpi(n,m)*dpvdx(n,1,m)
-      valy = valy + cpi(n,m)*dpvdx(n,2,m)
-      valz = valz + cpi(n,m)*dpvdx(n,3,m)
+      rmix = rmix + rspec(m)*usp(n,m)/rho
+      valx = valx + rspec(m)*dpvdx(n,1,m)
+      valy = valy + rspec(m)*dpvdx(n,2,m)
+      valz = valz + rspec(m)*dpvdx(n,3,m)
     end do
     !
-    ! Compute the TPG dP/dx and save to return_value
-    !
-    dpdx = cp*t*decdx + rho*t*valx + rho*(t*dcpdt(n) + cp)*dtdx - dpdx_cpg
-    dpdy = cp*t*decdy + rho*t*valy + rho*(t*dcpdt(n) + cp)*dtdy - dpdy_cpg
-    dpdz = cp*t*decdz + rho*t*valz + rho*(t*dcpdt(n) + cp)*dtdz - dpdz_cpg
+    dpdx = h*decdx + rho*h*valx/rmix + rho*cp*dtdx - dpdx_cpg
+    dpdy = h*decdy + rho*h*valy/rmix + rho*cp*dtdy - dpdy_cpg
+    dpdz = h*decdz + rho*h*valz/rmix + rho*cp*dtdz - dpdz_cpg
     !
     return_value(n,1) = dpdx
     return_value(n,2) = dpdy
     return_value(n,3) = dpdz
     !
   end do
-  !
-  !$ACC END DATA
-  deallocate ( dcpdt )
-  deallocate ( cpi )
   !
 end subroutine pressure_gradient_tpg_v1_3d
 !
@@ -2411,8 +2373,7 @@ subroutine pressure_gradient_tpg_v1_2d(n1,n2,usp,gpsp,dpvdx,return_value)
   !
   !.. Use Statements ..
   use ovar,       only : gam
-  use thermo_mod, only : compute_species_cp
-  use thermo_mod, only : compute_mixture_dcpdt
+  use thermo_mod, only : rspec
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -2422,51 +2383,18 @@ subroutine pressure_gradient_tpg_v1_2d(n1,n2,usp,gpsp,dpvdx,return_value)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,m,np
+  integer  :: n,m
   real(wp) :: gm1_cpg,dpdx_cpg,dpdy_cpg
-  real(wp) :: rho,t,cp,valx,valy
+  real(wp) :: rho,h,cp,rmix,valx,valy
   real(wp) :: decdx,decdy
   real(wp) :: dtdx,dtdy
   real(wp) :: dpdx,dpdy
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: dcpdt(:)
-  real(wp), allocatable :: cpi(:,:)
   !
 continue
   !
   gm1_cpg = gam - one
   !
-  np = size(usp,dim=1)
-  !
-  allocate ( cpi(1:np,1:ncs) )
-  allocate ( dcpdt(1:np) )
-  !$ACC DATA CREATE(cpi,dcpdt)
-  !
-  ! 1. Compute the species mass fractions which will be needed to compute
-  !    d(Cp)/dT.
-  !    NOTE: Temporarily store the species mass fractions in cpi
-  !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,cpi)
-  do m = 1,ncs
-    do n = n1,n2
-      cpi(n,m) = usp(n,m)/usp(n,nec)
-    end do
-  end do
-  !
-  ! 2. Compute the derivative of the mixture Cp w-r-t temperature: d(Cp)/dT.
-  !    NOTE: The species mass fractions are temporarily being stored in cpi.
-  !
-  call compute_mixture_dcpdt(n1,n2,cpi,gpsp(:,ntemp),dcpdt)
-  !
-  ! 3. Compute the species Cp.
-  ! NOTE: cpi currently contains the species mass fractions. These are not
-  !       needed in compute_species_cp, so the species mass fractions in
-  !       cpi will simply be overwritten by the species Cp.
-  !
-  call compute_species_cp(n1,n2,gpsp(:,ntemp),cpi)
-  !
-  !$ACC PARALLEL LOOP PRESENT(usp,gpsp,dpvdx,cpi,dcpdt,return_value)
+  !$ACC PARALLEL LOOP PRESENT(usp,gpsp,dpvdx,return_value)
   do n = n1,n2
     !
     ! Extract the previously computed CPG dP/dx and divide that by the
@@ -2476,7 +2404,7 @@ continue
     dpdy_cpg = return_value(n,2)/gm1_cpg
     !
     rho = usp(n,nec)
-    t   = gpsp(n,ntemp)
+    h   = gpsp(n,nenth)
     cp  = gpsp(n,ncp)
     !
     decdx = dpvdx(n,1,nec)
@@ -2490,28 +2418,24 @@ continue
     ! Compute the contribution to the pressure gradient from the species
     ! mass fractions gradients
     !
+    rmix = zero
     valx = zero
     valy = zero
     !
-    !$ACC LOOP SEQ REDUCTION(+:valx,valy)
+    !$ACC LOOP SEQ REDUCTION(+:valx,valy,rmix)
     do m = 1,ncs
-      valx = valx + cpi(n,m)*dpvdx(n,1,m)
-      valy = valy + cpi(n,m)*dpvdx(n,2,m)
+      rmix = rmix + rspec(m)*usp(n,m)/rho
+      valx = valx + rspec(m)*dpvdx(n,1,m)
+      valy = valy + rspec(m)*dpvdx(n,2,m)
     end do
     !
-    ! Compute the TPG dP/dx and save to return_value
-    !
-    dpdx = cp*t*decdx + rho*t*valx + rho*(t*dcpdt(n) + cp)*dtdx - dpdx_cpg
-    dpdy = cp*t*decdy + rho*t*valy + rho*(t*dcpdt(n) + cp)*dtdy - dpdy_cpg
+    dpdx = h*decdx + rho*h*valx/rmix + rho*cp*dtdx - dpdx_cpg
+    dpdy = h*decdy + rho*h*valy/rmix + rho*cp*dtdy - dpdy_cpg
     !
     return_value(n,1) = dpdx
     return_value(n,2) = dpdy
     !
   end do
-  !
-  !$ACC END DATA
-  deallocate ( dcpdt )
-  deallocate ( cpi )
   !
 end subroutine pressure_gradient_tpg_v1_2d
 !
@@ -2524,8 +2448,7 @@ subroutine pressure_gradient_tpg_v1_1d(n1,n2,usp,gpsp,dpvdx,return_value)
   !
   !.. Use Statements ..
   use ovar,       only : gam
-  use thermo_mod, only : compute_species_cp
-  use thermo_mod, only : compute_mixture_dcpdt
+  use thermo_mod, only : rspec
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -2535,51 +2458,18 @@ subroutine pressure_gradient_tpg_v1_1d(n1,n2,usp,gpsp,dpvdx,return_value)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,m,np
+  integer  :: n,m
   real(wp) :: gm1_cpg,dpdx_cpg
-  real(wp) :: rho,t,cp,valx
+  real(wp) :: rho,h,cp,rmix,valx
   real(wp) :: decdx
   real(wp) :: dtdx
   real(wp) :: dpdx
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: dcpdt(:)
-  real(wp), allocatable :: cpi(:,:)
   !
 continue
   !
   gm1_cpg = gam - one
   !
-  np = size(usp,dim=1)
-  !
-  allocate ( cpi(1:np,1:ncs) )
-  allocate ( dcpdt(1:np) )
-  !$ACC DATA CREATE(cpi,dcpdt)
-  !
-  ! 1. Compute the species mass fractions which will be needed to compute
-  !    d(Cp)/dT.
-  !    NOTE: Temporarily store the species mass fractions in cpi
-  !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,cpi)
-  do m = 1,ncs
-    do n = n1,n2
-      cpi(n,m) = usp(n,m)/usp(n,nec)
-    end do
-  end do
-  !
-  ! 2. Compute the derivative of the mixture Cp w-r-t temperature: d(Cp)/dT.
-  !    NOTE: The species mass fractions are temporarily being stored in cpi.
-  !
-  call compute_mixture_dcpdt(n1,n2,cpi,gpsp(:,ntemp),dcpdt)
-  !
-  ! 3. Compute the species Cp.
-  ! NOTE: cpi currently contains the species mass fractions. These are not
-  !       needed in compute_species_cp, so the species mass fractions in
-  !       cpi will simply be overwritten by the species Cp.
-  !
-  call compute_species_cp(n1,n2,gpsp(:,ntemp),cpi)
-  !
-  !$ACC PARALLEL LOOP PRESENT(usp,gpsp,dpvdx,cpi,dcpdt,return_value)
+  !$ACC PARALLEL LOOP PRESENT(usp,gpsp,dpvdx,return_value)
   do n = n1,n2
     !
     ! Extract the previously computed CPG dP/dx and divide that by the
@@ -2588,7 +2478,7 @@ continue
     dpdx_cpg = return_value(n,1)/gm1_cpg
     !
     rho = usp(n,nec)
-    t   = gpsp(n,ntemp)
+    h   = gpsp(n,nenth)
     cp  = gpsp(n,ncp)
     !
     decdx = dpvdx(n,1,nec)
@@ -2600,24 +2490,20 @@ continue
     ! Compute the contribution to the pressure gradient from the species
     ! mass fractions gradients
     !
+    rmix = zero
     valx = zero
     !
-    !$ACC LOOP SEQ REDUCTION(+:valx)
+    !$ACC LOOP SEQ REDUCTION(+:valx,rmix)
     do m = 1,ncs
-      valx = valx + cpi(n,m)*dpvdx(n,1,m)
+      rmix = rmix + rspec(m)*usp(n,m)/rho
+      valx = valx + rspec(m)*dpvdx(n,1,m)
     end do
     !
-    ! Compute the TPG dP/dx and save to return_value
-    !
-    dpdx = cp*t*decdx + rho*t*valx + rho*(t*dcpdt(n) + cp)*dtdx - dpdx_cpg
+    dpdx = h*decdx + rho*h*valx/rmix + rho*cp*dtdx - dpdx_cpg
     !
     return_value(n,1) = dpdx
     !
   end do
-  !
-  !$ACC END DATA
-  deallocate ( dcpdt )
-  deallocate ( cpi )
   !
 end subroutine pressure_gradient_tpg_v1_1d
 !
