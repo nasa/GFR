@@ -2578,12 +2578,12 @@ module input_namelist_mod
   !
   public
   !
-  public  :: allocate_namelist_variables
-  public  :: resize_namelist_allocatables
-  public  ::  read_nml_input_data
-  public  :: write_nml_input_data
-  public  ::  read_nml_input_file
-  public  :: write_nml_input_file
+  public  :: alloc_nml_data
+  public  :: resiz_nml_data
+  public  ::  read_nml_data
+  public  :: write_nml_data
+  public  ::  read_nml_file
+  public  :: write_nml_file
   !
   ! ########################
   ! ###  Input Namelist  ###
@@ -2859,9 +2859,9 @@ contains
 !###############################################################################
 !> Allocate namelist variables that are array of character.
 !###############################################################################
-subroutine allocate_namelist_variables(opt_n_bc_input,opt_char_len, &
-                                       opt_n_species,opt_n_point_probes, &
-                                       opt_n_rake_probes,opt_n_cell_probes)
+subroutine alloc_nml_data(opt_n_bc_input,opt_char_len, &
+                          opt_n_species,opt_n_point_probes, &
+                          opt_n_rake_probes,opt_n_cell_probes)
   !
   !.. Use Statements ..
   use module_kind_types, only : zero,alloc_error,error_message
@@ -2885,7 +2885,7 @@ subroutine allocate_namelist_variables(opt_n_bc_input,opt_char_len, &
   character(len=50) :: array_name
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "allocate_namelist_variables"
+  character(len=*), parameter :: pname = "alloc_nml_data"
   integer, parameter :: max_default_len = 150
   integer, parameter :: max_n_species = 7
   integer, parameter :: max_n_bc_input = 20
@@ -3165,12 +3165,12 @@ continue
   1 format ('(',i0,'x)')
   2 format ("bc_input(",i0,")%",a)
   !
-end subroutine allocate_namelist_variables
+end subroutine alloc_nml_data
 !
 !###############################################################################
 !> Resize namelist allocatables to minimally necessary size for content.
 !###############################################################################
-subroutine resize_namelist_allocatables
+subroutine resiz_nml_data
   !
   !.. Use Statements ..
   use module_kind_types, only : alloc_error,error_message
@@ -3189,7 +3189,7 @@ subroutine resize_namelist_allocatables
   type(point_probe_t), allocatable :: tmp_cell_probes(:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "resize_namelist_allocatables"
+  character(len=*), parameter :: pname = "resiz_nml_data"
   !
 continue
   !
@@ -3322,12 +3322,12 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine resize_namelist_allocatables
+end subroutine resiz_nml_data
 !
 !###############################################################################
 !> Read the namelist input data from the specified input unit.
 !###############################################################################
-subroutine read_nml_input_data(io)
+subroutine read_nml_data(io)
   !
   !.. Use Statements ..
   use module_kind_types
@@ -3339,12 +3339,12 @@ continue
   !
   read (io,nml=input)
   !
-end subroutine read_nml_input_data
+end subroutine read_nml_data
 !
 !###############################################################################
 !> Write the namelist input data to the specified output unit.
 !###############################################################################
-subroutine write_nml_input_data(io,banner)
+subroutine write_nml_data(io,banner)
   !
   !.. Use Statements ..
   use module_kind_types
@@ -3374,11 +3374,11 @@ continue
                 "#####   END OF INPUT PARAMETERS   #####",/, &
                 "#######################################",/)
   !
-end subroutine write_nml_input_data
+end subroutine write_nml_data
 !
 !###############################################################################
 !
-subroutine read_nml_input_file(input_fname,input_mode)
+subroutine read_nml_file(input_fname,input_mode)
   !
   !.. Use Statements ..
   use module_kind_types
@@ -3388,7 +3388,7 @@ subroutine read_nml_input_file(input_fname,input_mode)
   integer,          intent(in) :: input_mode
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_nml_input_file"
+  character(len=*), parameter :: pname = "read_nml_file"
   !
   !.. Local Scalars ..
   integer :: inpt,ierr
@@ -3400,7 +3400,7 @@ continue
   ! Allocate all the variables within the input namelist
   ! to their default sizes and values
   !
-  call allocate_namelist_variables
+  call alloc_nml_data
   !
   ! Open the input file
   !
@@ -3411,7 +3411,7 @@ continue
   !
   ! Read in the input file using the input namelist
   !
-  call read_nml_input_data(inpt)
+  call read_nml_data(inpt)
   !
   ! Close the input file now that we are finished reading it
   !
@@ -3422,15 +3422,15 @@ continue
   ! Resize all the allocatable variables within the input
   ! namelist to sizes more appropriate to their input values
   !
-  call resize_namelist_allocatables
+  call resiz_nml_data
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine read_nml_input_file
+end subroutine read_nml_file
 !
 !###############################################################################
 !
-subroutine write_nml_input_file(output_fname)
+subroutine write_nml_file(output_fname)
   !
   !.. Use Statements ..
   use module_kind_types
@@ -3442,16 +3442,19 @@ subroutine write_nml_input_file(output_fname)
   integer ionml,ierr
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "write_nml_input_file"
+  character(len=*), parameter :: pname = "write_nml_file"
   !
 continue
   !
   ! Allocate all the variables within the input namelist
   ! to their default sizes and values
   !
-  call allocate_namelist_variables(opt_n_bc_input=4, &
-                                   opt_n_species=3, &
-                                   opt_char_len=0)
+  call alloc_nml_data(opt_n_bc_input=4, &
+                      opt_n_species=3, &
+                      opt_char_len=0, &
+                      opt_n_point_probes=2, &
+                      opt_n_rake_probes=1, &
+                      opt_n_cell_probes=1)
   !
   if (mypnum == glb_root) then
     open (newunit=ionml,file=output_fname,status="new",action="write", &
@@ -3459,14 +3462,14 @@ continue
                         position="rewind",iostat=ierr,iomsg=error_message)
     call io_error(pname,trim(adjustl(output_fname)),1,__LINE__,__FILE__, &
                   ierr,error_message)
-    call write_nml_input_data(ionml,banner=fals)
+    call write_nml_data(ionml,banner=fals)
     write (iout,101) trim(output_fname)
     close(ionml)
   end if
   !
   101 format(/,"Default namelist input file written to:  ",A)
   !
-end subroutine write_nml_input_file
+end subroutine write_nml_file
 !
 !###############################################################################
 !
