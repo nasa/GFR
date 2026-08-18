@@ -1107,9 +1107,7 @@ continue
     !
     if (input_mode == 2 .or. len_trim(adjustl(interpto_gridfile)) == 0) then
       !
-      write (iout,104)
-      write (iout,nml=input,delim='apostrophe')
-      write (iout,105)
+      call write_nml_input_data(iout,banner=true)
       !
     end if
     !
@@ -1160,12 +1158,6 @@ continue
      "  EXACT END OF A PERIOD FOR THE VORTEX PROBLEM. THE",/, &
      "  FINAL TIME CORRESPONDS TO",f12.5," TOTAL PERIODS.",/, &
      " ********************* WARNING!!! *********************",/)
-  104 format (/,"#######################################",/, &
-                "#####      INPUT PARAMETERS       #####",/, &
-                "#######################################",/)
-  105 format (/,"#######################################",/, &
-                "#####   END OF INPUT PARAMETERS   #####",/, &
-                "#######################################",/)
   106 format ("Lobatto solutions points are not yet compatible with the ", &
               "option to correct the output solution so that it is continuous!")
   107 format ("Interpolation cannot be done in parallel.")
@@ -1237,7 +1229,7 @@ continue
                         position="rewind",iostat=ierr,iomsg=error_message)
     call io_error(pname,trim(adjustl(gridfile)),1,__LINE__,__FILE__, &
                   ierr,error_message)
-    write (ionml,nml=input,delim='apostrophe')
+    call write_nml_input_data(ionml,banner=fals)
     write (iout,101) trim(output_fname)
     close(ionml)
   end if
@@ -1867,7 +1859,13 @@ end block
   !
   ! Match periodic faces specified using bc_input
   !
-  call write_namelist
+#ifdef DEBUG_ON
+!#define DUMP_NAMELIST_BEFORE_PERIODIC
+#ifdef DUMP_NAMELIST_BEFORE_PERIODIC
+  call write_namelist_data(iout,banner=true)
+#endif
+#endif
+  !
   call match_periodic_faces
   call output_bface(strng="after.match_periodic.",only_glb_root=true)
   !
@@ -1953,18 +1951,20 @@ end block
 end subroutine read_grid_file
 !
 !###############################################################################
-!
-subroutine write_namelist()
+!> Write the namelist input data to the specified output unit.
+!###############################################################################
+subroutine write_nml_input_data(io,banner)
   use input_namelist_mod
-#ifdef DEBUG_ON
-!#define DUMP_NAMELIST_BEFORE_PERIODIC
-#ifdef DUMP_NAMELIST_BEFORE_PERIODIC
+  !
+  integer,     intent(in) :: io
+  logical(lk), intent(in) :: banner
+  !
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   if (mypnum == glb_root) then
-    write (iout,104)
-    write (iout,nml=input,delim='apostrophe')
-    write (iout,105)
-    flush (iout)
+    if (banner) write (io,104)
+    write (io,nml=input,delim='apostrophe')
+    if (banner) write (io,105)
+    flush (io)
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -1974,9 +1974,7 @@ subroutine write_namelist()
   105 format (/,"#######################################",/, &
                 "#####   END OF INPUT PARAMETERS   #####",/, &
                 "#######################################",/)
-#endif
-#endif
-end subroutine write_namelist
+end subroutine write_nml_input_data
 !
 !###############################################################################
 !
