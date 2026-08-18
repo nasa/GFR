@@ -240,8 +240,72 @@ subroutine read_nml_input_file(input_fname,input_mode)
   !
   use geomvar_mod, only : nr,using_quadrature,xyz_nodes
   !
-  use input_namelist_mod ! use all the variables in the input namelist
+  use input_namelist_mod, only : allocate_namelist_variables
+  use input_namelist_mod, only : resize_namelist_allocatables
+  use input_namelist_mod, only : read_nml_input_data
+  use input_namelist_mod, only : write_nml_input_data
   !
+  ! Input variables
+  use ovar,   only : grid_format, gridfile, plot3d_all_strides
+  use ovar,   only : plot3d_i_stride, plot3d_j_stride, plot3d_k_stride
+  use ovar,   only : plot3d_agglomerate_order
+  use ovar,   only : plot3d_cutfile, plot3d_bcsfile, grid_scaling_factor
+  use ovar,   only : interpto_grid_format, interpto_gridfile
+  use ovar,   only : interpto_plot3d_all_strides, interpto_plot3d_i_stride
+  use ovar,   only : interpto_plot3d_j_stride, interpto_plot3d_k_stride
+  use ovar,   only : interpto_plot3d_agglomerate_order
+  use ovar,   only : interpto_plot3d_cutfile, interpto_plot3d_bcsfile
+  use ovar,   only : interpto_grid_scaling_factor
+  use ovar,   only : solution_format, solution_file
+  use ovar,   only : time_scaling_factor
+  use ovar,   only : output_dir, output_interval, output_frequency
+  use ovar,   only : iter_out_interval, results_interval
+  use ovar,   only : continuous_output
+  use ovar,   only : convert_restart_to_cgns
+  use ovar,   only : profile_io_all, profile_io_restart
+  use ovar,   only : profile_io_cgns
+  use ovar,   only : all_points
+  use ovar,   only : loc_solution_pts, loc_flux_pts
+  use ovar,   only : loc_quadrature_pts
+  use ovar,   only : invs_flux_method, visc_flux_method
+  use ovar,   only : Runge_Kutta_Scheme, num_rk_stages
+  use ovar,   only : num_timesteps, Final_Time, constant_dt
+  use ovar,   only : Timestep_Type
+  use ovar,   only : cfl, cfl_beg, cfl_end, cfl_cycles
+  use ovar,   only : use_bc_conflicts
+  use ovar,   only : machref
+  use ovar,   only : Limiter_Filter_Option
+  use ovar,   only : Track_Limiter_Filter_Dissipation
+  use ovar,   only : Limiter_Option
+  use ovar,   only : Resolution_Marker_Variable
+  use ovar,   only : Jump_Marker_Variable
+  use ovar,   only : MLP_Marker_Variable
+  use ovar,   only : Limiter_Marker_Min, Limiter_Marker_Max
+  use ovar,   only : Limiter_Marker_dpsi
+  use ovar,   only : Limiter_Marker_c1, Limiter_Marker_c2
+  use ovar,   only : loc_init_pts, loc_error_pts
+  use ovar,   only : moving_ref_frame
+  use ovar,   only : itestcase
+  use ovar,   only : mms_opt, mms_init, mms_output_solution
+  use ovar,   only : pulse_test_form, pulse_test_form_dim
+  use ovar,   only : pulse_test_length
+  use ovar,   only : pulse_test_width, pulse_test_gap, pulse_test_repeat
+  use ovar,   only : all_orders
+  use ovar,   only : solution_order
+  use ovar,   only : projection_order
+  use ovar,   only : quadrature_order
+  use ovar,   only : output_order
+  use ovar,   only : error_order
+  use ovar,   only : interpto_all_orders
+  use ovar,   only : interpto_solution_order
+  use ovar,   only : interpto_projection_order
+  use ovar,   only : interpto_quadrature_order
+  use ovar,   only : interpto_output_order
+  use ovar,   only : interpto_error_order
+  use ovar,   only : dmat_grad_temp_order
+  use ovar,   only : thermofix
+  !
+  ! Internal variables
   use ovar,   only : Total_Periods,dflux_opt
   use ovar,   only : velref,aref,uref,Lref,time_ref
   use ovar,   only : Period_Timesteps,Period_Time
@@ -253,7 +317,6 @@ subroutine read_nml_input_file(input_fname,input_mode)
   use ovar,   only : ji_gwt,ji_uwt,ji_gvar,ji_uvar
   use ovar,   only : disable_cgns_output,cgns_dir
   use ovar,   only : output_KEDR
-  use ovar,   only : thermofix
   !
   use flowvar_mod, only : get_marker_index, nmarker
   !
