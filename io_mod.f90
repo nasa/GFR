@@ -120,7 +120,15 @@ continue
 end subroutine read_input_file
 !
 !###############################################################################
-!
+!> Check if input file is a valid namelist file.
+!>
+!> - File exists.
+!> - File is readable.
+!> - File contains namelist block.
+!> - File contains only blank or comment lines before namelist block.
+!>
+!> No attempt is made to read the namelist block.
+!###############################################################################
 subroutine check_input_file(input_fname,input_status)
   !
   !.. Formal Arguments ..
@@ -154,9 +162,11 @@ continue
   stop_flag    = stop_mpi
 #endif
   !
-  ! Inquire whether the input file name exists
+  ! Test the input file
   !
   if (do_read_file) then
+    !
+    ! Inquire whether the input file name exists
     !
     inquire (file=input_fname,exist=file_exists)
     !
@@ -168,22 +178,31 @@ continue
                          form="formatted",iostat=ierr,iomsg=error_message)
       call io_error(pname,input_fname,1,__LINE__,__FILE__,ierr,error_message)
       !
-      ! Read the first line of the input file
+      ! Read lines of input file until namelist block found
       !
-      read (inpt,*,iostat=ierr,err=100,end=100) text
+      line_loop: &
+      do
+        !
+        read (inpt,*,iostat=ierr,err=100,end=100) text
+        text = trim(adjustl(text))
+        text = uppercase( text )
+        !
+        if ( text      == ""  ) cycle line_loop  ! skip blank   lines
+        if ( text(1:1) == "!" ) cycle line_loop  ! skip comment lines
+        !
+        ! Check the line for namelist block begin.
+        ! Change input_status to 0 if namelist block found.
+        !
+        if (text(1:6) == "&INPUT") input_status = 0
+        !
+        ! Done reading lines. Either found namelist block or failed.
+        !
+        exit line_loop
+        !
+      end do line_loop
       !
       close (inpt,iostat=ierr,iomsg=error_message)
       call io_error(pname,input_fname,2,__LINE__,__FILE__,ierr,error_message)
-      !
-      ! Check the first line for neccessary string
-      !
-      text = trim(adjustl(text))
-      text = uppercase( text )
-      !
-      ! Change input_status to 0 if the first line
-      ! matches the required namelist value
-      !
-      if (text(1:6) == "&INPUT") input_status = 0
       !
     end if
     !
