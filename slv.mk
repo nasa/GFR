@@ -8,7 +8,8 @@ include system_variables.mk
 OBJDIR = objects/$(BUILDDIR)
 MODDIR = modules/$(BUILDDIR)
 FUNDIR = Functions
-BCDIR = BC_Modules
+BCDIR  = BC_Modules
+INTDIR = SolInterp_Modules
 
 vpath %.o $(OBJDIR)
 vpath %.f90 ./

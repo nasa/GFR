@@ -362,42 +362,6 @@ $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(FUNDIR)/solpts2order.f90 \
                       $(FUNDIR)/cell_solpts.f90
 
-$(OBJDIR)/interpsol_mod.o : interpsol_mod.f90 \
-                  $(OBJDIR)/kind_types_mod.o \
-                  $(OBJDIR)/eqn_idx_mod.o \
-                  $(OBJDIR)/geomvar_mod.o \
-                  $(OBJDIR)/ovar_mod.o \
-                  $(OBJDIR)/order_mod.o \
-                  $(OBJDIR)/flowvar_mod.o \
-                  $(OBJDIR)/flux_mod.o \
-                  $(OBJDIR)/element_type_mod.o \
-                  $(OBJDIR)/vandermonde_mod.o \
-                  $(OBJDIR)/derivatives_mod.o \
-                  $(OBJDIR)/correction_mod.o \
-                  $(OBJDIR)/interpolation_mod.o \
-                  $(OBJDIR)/projection_mod.o \
-                  $(OBJDIR)/filter_mod.o \
-                  $(OBJDIR)/interpsolvar_mod.o \
-                  $(OBJDIR)/metrics_mod.o \
-                  $(OBJDIR)/octedat_facexyz_mod.o \
-                  $(OBJDIR)/octstat_mod.o \
-                  $(OBJDIR)/octtree_mod.o \
-                  $(OBJDIR)/interpsol_query_mod.o \
-                  $(FUNDIR)/debug_timer.f90
-
-$(OBJDIR)/interpsolvar_mod.o : interpsolvar_mod.f90 \
-                     $(OBJDIR)/kind_types_mod.o \
-                     $(OBJDIR)/geomvar_mod.o \
-                     $(OBJDIR)/flowvar_mod.o \
-                     $(OBJDIR)/matrix_types_mod.o \
-                     $(OBJDIR)/element_type_mod.o \
-                     $(OBJDIR)/vandermonde_mod.o \
-                     $(OBJDIR)/derivatives_mod.o \
-                     $(OBJDIR)/correction_mod.o \
-                     $(OBJDIR)/interpolation_mod.o \
-                     $(OBJDIR)/projection_mod.o \
-                     $(OBJDIR)/filter_mod.o
-
 $(OBJDIR)/invs_flux_mod.o : invs_flux_mod.f90 \
                   $(OBJDIR)/kind_types_mod.o \
                   $(OBJDIR)/eqn_idx_mod.o \
@@ -531,45 +495,6 @@ $(OBJDIR)/mrf_mod.o : mrf_mod.f90 \
             $(OBJDIR)/metrics_mod.o
 
 $(OBJDIR)/mycpu.o : $(FUNDIR)/mycpu.c
-
-$(OBJDIR)/interpsol_query_mod.o : interpsol_query_mod.f90 \
-                        $(OBJDIR)/kind_types_mod.o \
-                        $(OBJDIR)/eqn_idx_mod.o \
-                        $(OBJDIR)/geomvar_mod.o \
-                        $(OBJDIR)/flowvar_mod.o \
-                        $(OBJDIR)/interpsolvar_mod.o
-
-$(OBJDIR)/octedat_facexyz_mod.o : octedat_facexyz_mod.f90 \
-                        $(OBJDIR)/kind_types_mod.o \
-                        $(OBJDIR)/geomvar_mod.o \
-                        $(OBJDIR)/flowvar_mod.o \
-                        $(OBJDIR)/octedat_mod.o \
-                        $(OBJDIR)/octstat_mod.o
-
-$(OBJDIR)/octedat_mod.o : octedat_mod.f90 \
-                $(OBJDIR)/kind_types_mod.o \
-                $(OBJDIR)/octstat_mod.o
-
-$(OBJDIR)/octnode_mod.o : octnode_mod.f90 \
-                $(OBJDIR)/kind_types_mod.o \
-                $(OBJDIR)/geomvar_mod.o \
-                $(OBJDIR)/octedat_mod.o \
-                $(OBJDIR)/octroot_mod.o \
-                $(OBJDIR)/octstat_mod.o
-
-$(OBJDIR)/octroot_mod.o : octroot_mod.f90 \
-                $(OBJDIR)/octstat_mod.o
-
-$(OBJDIR)/octstat_mod.o : octstat_mod.f90
-
-$(OBJDIR)/octtree_mod.o : octtree_mod.f90 \
-                $(OBJDIR)/kind_types_mod.o \
-                $(OBJDIR)/geomvar_mod.o \
-                $(OBJDIR)/octedat_mod.o \
-                $(OBJDIR)/octnode_mod.o \
-                $(OBJDIR)/octroot_mod.o \
-                $(OBJDIR)/octstat_mod.o \
-                $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/oerk_mod.o : oerk_mod.f90 \
              $(OBJDIR)/kind_types_mod.o \
@@ -852,6 +777,8 @@ $(OBJDIR)/synthetic_eddy_mod.o : synthetic_eddy_mod.f90 \
                        $(OBJDIR)/transport_mod.o \
                        $(FUNDIR)/check_for_bad_number.f90
 
+$(OBJDIR)/tecio_mod.o : tecio_mod.f90
+
 $(OBJDIR)/thx_mod.o : thx_mod.f90 \
             $(OBJDIR)/kind_types_mod.o \
             $(OBJDIR)/eqn_idx_mod.o \
@@ -917,6 +844,7 @@ $(OBJDIR)/write_cgns_mod.o : write_cgns_mod.f90 \
                              mpi_defs.h
 $(OBJDIR)/write_cgns_mod.o : OTHERFLAGS += $(CGNSMOD)
 
+# Source files in BC_Modules
 $(OBJDIR)/bc_wall_mod.o : $(BCDIR)/bc_wall_mod.f90 \
                          $(OBJDIR)/kind_types_mod.o \
                          $(OBJDIR)/eqn_idx_mod.o \
@@ -990,7 +918,81 @@ $(OBJDIR)/bc_sup_out_mod.o : $(BCDIR)/bc_sup_out_mod.f90 \
                    $(OBJDIR)/kind_types_mod.o \
                    $(OBJDIR)/eqn_idx_mod.o
 
-$(OBJDIR)/tecio_mod.o : tecio_mod.f90
+# Source files in SolInterp_Modules
+$(OBJDIR)/interpsol_mod.o : $(INTDIR)/interpsol_mod.f90 \
+                  $(OBJDIR)/kind_types_mod.o \
+                  $(OBJDIR)/eqn_idx_mod.o \
+                  $(OBJDIR)/geomvar_mod.o \
+                  $(OBJDIR)/ovar_mod.o \
+                  $(OBJDIR)/order_mod.o \
+                  $(OBJDIR)/flowvar_mod.o \
+                  $(OBJDIR)/flux_mod.o \
+                  $(OBJDIR)/element_type_mod.o \
+                  $(OBJDIR)/vandermonde_mod.o \
+                  $(OBJDIR)/derivatives_mod.o \
+                  $(OBJDIR)/correction_mod.o \
+                  $(OBJDIR)/interpolation_mod.o \
+                  $(OBJDIR)/projection_mod.o \
+                  $(OBJDIR)/filter_mod.o \
+                  $(OBJDIR)/interpsolvar_mod.o \
+                  $(OBJDIR)/metrics_mod.o \
+                  $(OBJDIR)/octedat_facexyz_mod.o \
+                  $(OBJDIR)/octstat_mod.o \
+                  $(OBJDIR)/octtree_mod.o \
+                  $(OBJDIR)/interpsol_query_mod.o \
+                  $(FUNDIR)/debug_timer.f90
+
+$(OBJDIR)/interpsolvar_mod.o : $(INTDIR)/interpsolvar_mod.f90 \
+                     $(OBJDIR)/kind_types_mod.o \
+                     $(OBJDIR)/geomvar_mod.o \
+                     $(OBJDIR)/flowvar_mod.o \
+                     $(OBJDIR)/matrix_types_mod.o \
+                     $(OBJDIR)/element_type_mod.o \
+                     $(OBJDIR)/vandermonde_mod.o \
+                     $(OBJDIR)/derivatives_mod.o \
+                     $(OBJDIR)/correction_mod.o \
+                     $(OBJDIR)/interpolation_mod.o \
+                     $(OBJDIR)/projection_mod.o \
+                     $(OBJDIR)/filter_mod.o
+
+$(OBJDIR)/interpsol_query_mod.o : $(INTDIR)/interpsol_query_mod.f90 \
+                        $(OBJDIR)/kind_types_mod.o \
+                        $(OBJDIR)/eqn_idx_mod.o \
+                        $(OBJDIR)/geomvar_mod.o \
+                        $(OBJDIR)/flowvar_mod.o \
+                        $(OBJDIR)/interpsolvar_mod.o
+
+$(OBJDIR)/octedat_facexyz_mod.o : $(INTDIR)/octedat_facexyz_mod.f90 \
+                        $(OBJDIR)/kind_types_mod.o \
+                        $(OBJDIR)/geomvar_mod.o \
+                        $(OBJDIR)/flowvar_mod.o \
+                        $(OBJDIR)/octedat_mod.o \
+                        $(OBJDIR)/octstat_mod.o
+
+$(OBJDIR)/octedat_mod.o : $(INTDIR)/octedat_mod.f90 \
+                $(OBJDIR)/kind_types_mod.o \
+                $(OBJDIR)/octstat_mod.o
+
+$(OBJDIR)/octnode_mod.o : $(INTDIR)/octnode_mod.f90 \
+                $(OBJDIR)/kind_types_mod.o \
+                $(OBJDIR)/geomvar_mod.o \
+                $(OBJDIR)/octedat_mod.o \
+                $(OBJDIR)/octroot_mod.o \
+                $(OBJDIR)/octstat_mod.o
+
+$(OBJDIR)/octroot_mod.o : $(INTDIR)/octroot_mod.f90 \
+                $(OBJDIR)/octstat_mod.o
+
+$(OBJDIR)/octstat_mod.o : $(INTDIR)/octstat_mod.f90
+
+$(OBJDIR)/octtree_mod.o : $(INTDIR)/octtree_mod.f90 \
+                $(OBJDIR)/kind_types_mod.o \
+                $(OBJDIR)/geomvar_mod.o \
+                $(OBJDIR)/octedat_mod.o \
+                $(OBJDIR)/octnode_mod.o \
+                $(OBJDIR)/octroot_mod.o \
+                $(OBJDIR)/octstat_mod.o \
+                $(FUNDIR)/debug_timer.f90
 
 ####################################################################
 # ADD ANY OBJECT FILES TO THE VARIABLE CUSTOM_DEBUG_FILES THAT YOU #
