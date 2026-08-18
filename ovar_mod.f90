@@ -784,6 +784,35 @@ module ovar
   ! INPUT BOUNDARY CONDITIONS
   type(bc_input_t), public, allocatable :: bc_input(:)
   !
+  ! ###################################
+  ! ####   Input Alias Variables   ####
+  ! ###################################
+  !
+  ! Note:
+  ! - Alias variables are only to make user input easier.
+  ! - They should only be used by the namelist routines and
+  !   during the post-input check to set other internal variables.
+  ! - Never access these variables directly in the main code.
+  !   Instead use the internal variable denoted in the trailing
+  !   comments below.
+  !
+  ! POLYNOMIAL ORDER
+  integer, public, save :: all_orders = -3                  ! sets [npq]_order
+  integer, public, save :: solution_order = 3               ! sets n_order
+  integer, public, save :: projection_order = -3            ! sets p_order
+  integer, public, save :: quadrature_order = -3            ! sets q_order
+  integer, public, save :: output_order = -3                ! sets o_order
+  integer, public, save :: error_order = -3                 ! sets e_order
+  !
+  integer, public, save :: interpto_all_orders = -3         ! sets [npq]_order
+  integer, public, save :: interpto_solution_order = 3      ! sets n_order
+  integer, public, save :: interpto_projection_order = -3   ! sets p_order
+  integer, public, save :: interpto_quadrature_order = -3   ! sets q_order
+  integer, public, save :: interpto_output_order = -3       ! sets o_order
+  integer, public, save :: interpto_error_order = -3        ! sets e_order
+  !
+  integer, public, save :: dmat_grad_temp_order = -1        ! sets t_order
+  !
   !
   ! #################################
   ! ####   Non-Input Variables   ####
@@ -2529,6 +2558,19 @@ module input_namelist_mod
   use ovar,      only : force_nd_subroutines, newton_rlx, conv_temp
   use ovar,      only : chemistry_sub_iterations
   use ovar,      only : ignore_thermo_newton_warnings
+  use ovar,      only : all_orders
+  use ovar,      only : solution_order
+  use ovar,      only : projection_order
+  use ovar,      only : quadrature_order
+  use ovar,      only : output_order
+  use ovar,      only : error_order
+  use ovar,      only : interpto_all_orders
+  use ovar,      only : interpto_solution_order
+  use ovar,      only : interpto_projection_order
+  use ovar,      only : interpto_quadrature_order
+  use ovar,      only : interpto_output_order
+  use ovar,      only : interpto_error_order
+  use ovar,      only : dmat_grad_temp_order
   !
   implicit none
   !
@@ -2540,22 +2582,6 @@ module input_namelist_mod
   public  :: resize_namelist_allocatables
   public  :: read_nml_input_data
   public  :: write_nml_input_data
-  !
-  integer, save :: all_orders = -3
-  integer, save :: solution_order = 3
-  integer, save :: projection_order = -3
-  integer, save :: quadrature_order = -3
-  integer, save :: output_order = -3
-  integer, save :: error_order = -3
-  !
-  integer, save :: interpto_all_orders = -3
-  integer, save :: interpto_solution_order = 3
-  integer, save :: interpto_projection_order = -3
-  integer, save :: interpto_quadrature_order = -3
-  integer, save :: interpto_output_order = -3
-  integer, save :: interpto_error_order = -3
-  !
-  integer, save :: dmat_grad_temp_order = -1
   !
   ! ########################
   ! ###  Input Namelist  ###
