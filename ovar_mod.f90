@@ -1,3 +1,6 @@
+!###############################################################################
+!> Module for user inputs (direct and indirect).
+!###############################################################################
 module ovar
   !
   use module_kind_types, only : wp,lk,ldk,fals,true
@@ -41,9 +44,9 @@ module ovar
   ! ###  Module Derived Types  ###
   ! ##############################
   !
-  ! relaxation_t : derived type that provides relaxation parameters
-  !                that can be used for certain boundary conditions
-  !
+  !  relaxation_t :
+  !> Derived type that provides relaxation parameters
+  !> that can be used for certain boundary conditions.
   type, public :: relaxation_t
     real(wp) :: value = one
     real(wp) :: time  = zero
@@ -52,84 +55,90 @@ module ovar
     procedure :: is_not_default => is_not_default_relax
   end type relaxation_t
   !
-  ! sem_bc_t : derived type to provide information to use the
-  !            synthetic eddy method (SEM) to generate an
-  !            unsteady turbulent inflow boundary condition
-  !
+  !  sem_bc_t :
+  !> Derived type to provide information to use the
+  !> synthetic eddy method (SEM) to generate an
+  !> unsteady turbulent inflow boundary condition.
   type, public :: sem_bc_t
-    logical(lk) :: is_cylindrical = fals
-    real(wp) :: length_scale = zero
-    real(wp) :: convective_velocity = zero
-    real(wp) :: profile_height = zero
-    character(len=150) :: profile_file = ""
-    integer  :: sub_in_bc_grp = 0
-    integer  :: sub_in_bc_idx = 0
+    logical(lk)        :: is_cylindrical      = fals
+    real(wp)           :: length_scale        = zero
+    real(wp)           :: convective_velocity = zero
+    real(wp)           :: profile_height      = zero
+    character(len=150) :: profile_file        = ""
+    integer            :: sub_in_bc_grp       = 0
+    integer            :: sub_in_bc_idx       = 0
   contains
     procedure :: is_not_default => is_not_default_sem
   end type sem_bc_t
   !
-  ! periodic_bc_t : derived type to provide information about a periodic
-  !                 boundary condition to allow it to be matched to another
-  !                 periodic boundary condition
-  !
+  !  periodic_bc_t :
+  !> Derived type to provide information about a periodic
+  !> boundary condition to allow it to be matched to another
+  !> periodic boundary condition.
+  !>
+  !> Note:
+  !> * At least one of matching_bc_name or matching_bc_idx needs to have
+  !>   a non-default value. If both have been given non-default values,
+  !>   the bc_input_t entity that they point to needs to be the same.
+  !> * The rotation arrays define the geometrical transformation required
+  !>   to find the matching faces from the connecting periodic boundary.
+  !>   These are based off the implementation of periodic interfaces
+  !>   within the CGNS standard. For more insight, see the
+  !>   Periodic_t data structure in the CGNS SIDS.
   type, public :: periodic_bc_t
     !
-    ! NOTE: At least one of matching_bc_name or matching_bc_idx needs to have
-    !       a non-default value. If both have been given non-default values,
-    !       the bc_input_t entity that they point to needs to be the same.
-    !
-    ! matching_bc_name : gives a character string that should match the value
-    !                    of one of the other boundary condition names (that is
-    !                    not itself), i.e.,
-    !                       matching_bc_name == bc_input(i)%name
-    !                       matching_bc_idx = i
+    !  matching_bc_name :
+    !> Name of the matching periodic boundary, i.e.:
+    !> * matching_bc_name == bc_input(i)%name
+    !> * matching_bc_idx = i
     character(len=32) :: matching_bc_name = ""
-    ! matching_bc_idx  : gives the index of bc_input(:) to find the matching
-    !                    periodic boundary interface, i.e.,
-    !                       i = matching_bc_idx
-    !                       matching_bc_name = bc_input(i)%name
+    !
+    !  matching_bc_idx :
+    !> Index of the matching periodic boundary interface, i.e.:
+    !> * i = matching_bc_idx
+    !> * matching_bc_name = bc_input(i)%name
     integer :: matching_bc_idx = 0
     !
-    ! The following three arrays define the geometrical transformation required
-    ! to find the matching faces from the connecting periodic boundary.
-    ! NOTE: These are based off the implementation of periodic interfaces
-    !       within the CGNS standard. For more insight, see the
-    !       Periodic_t data structure in the CGNS SIDS.
-    !
-    ! RotationCenter : the origin for defining the rotation angle
-    !                  between the periodic interfaces
+    !  RotationCeter :
+    !> The origin for defining the rotation angle between the periodic
+    !> interfaces,
     real(wp) :: RotationCenter(1:3) = [zero,zero,zero]
-    ! RotationAngle  : defines the axis-rotation angle from the current periodic
-    !                  boundary interface to the connecting periodic boundary
-    !                  interface. If rotating about more than one axis, the
-    !                  rotation is performed first about the x-axis, then the
-    !                  y-axis, then the z-axis.
-    !                  NOTE: EITHER RotationAngle OR RotationAxis can be used
-    !                        to define rotated periodic boundary conditions,
-    !                        but not both. If both are specified, RotationAxis
-    !                        will be ignored and RotationAngle will be used.
+    !
+    !  RotationAngle :
+    !> The axis-rotation angle from the current periodic
+    !> interface. If rotating about more than one axis, the
+    !> rotation is performed first about the x-axis, then the
+    !> y-axis, then the z-axis.
+    !>
+    !> NOTE: EITHER RotationAngle OR RotationAxis can be used
+    !>       to define rotated periodic boundary conditions,
+    !>       but not both. If both are specified, RotationAxis
+    !>       will be ignored and RotationAngle will be used.
     real(wp) :: RotationAngle(1:3)  = [zero,zero,zero]
-    ! RotationAxis   : defines the axis of rotation as a vector and rotation
-    !                  angle about this axis
-    !                     RotationAxis(1:3) = vector providing axis of rotation
-    !                     RotationAxis(4) = rotation angle about this axis
-    !                  NOTE: EITHER RotationAngle OR RotationAxis can be used
-    !                        to define rotated periodic boundary conditions,
-    !                        but not both. If both are specified, RotationAxis
-    !                        will be ignored and RotationAngle will be used.
+    !
+    !  RotationAxis :
+    !> The axis of rotation as a vector and rotation angle about this axis
+    !> * RotationAxis(1:3) = vector providing axis of rotation
+    !> * RotationAxis(4)   = rotation angle about this axis
+    !>
+    !> NOTE: EITHER RotationAngle OR RotationAxis can be used
+    !>       to define rotated periodic boundary conditions,
+    !>       but not both. If both are specified, RotationAxis
+    !>       will be ignored and RotationAngle will be used.
     real(wp) :: RotationAxis(1:4)  = [zero,zero,zero,zero]
-    ! Translation    : defines the translation from the current periodic
-    !                  boundary interface to the connecting periodic boundary
-    !                  interface.
+    !
+    !  Translation :
+    !> The translation from the current periodic boundary interface to the
+    !> connecting periodic boundary interface.
     real(wp) :: Translation(1:3)    = [zero,zero,zero]
     !
   contains
     procedure :: is_not_default => is_not_default_periodic
   end type periodic_bc_t
   !
-  ! bc_input_t : derived type used in the input namelist to specify
-  !              the flow parameters for each boundary condition
-  !
+  !  bc_input_t :
+  !> Derived type used in the input namelist to specify
+  !> the flow parameters for each boundary condition.
   type, public :: bc_input_t
     !
     character(len=32) :: name = ""
@@ -149,6 +158,7 @@ module ovar
     real(wp) :: alpha_aoa  = zero
     real(wp) :: beta_aoa   = zero
     real(wp) :: wall_temp  = -one
+    !
     ! NOTE: WE NEED TO MAKE SURE WE ADD LOGIC THAT SETS ROTATION_RATE(1)
     !       TO THE ROTATION FOR 2D. TECHNICALLY, ROTATION_RATE(3) SHOULD
     !       SPECIFY THE ROTATION FOR 2D AND YOU USE THE 3D CROSS PRODUCT
@@ -192,10 +202,10 @@ module ovar
     real(wp), allocatable :: mat(:,:)
   end type pbc_rotation_t
   !
-  ! bc_in_t : derived type that contains the boundary condition flow parameters
-  !           used by the solver. This is a consolidated version of what is
-  !           specified in the input namelist using bc_input_t.
-  !
+  !  bc_in_t :
+  !> Derived type that contains the boundary condition flow parameters
+  !> used by the solver. This is a consolidated version of what is
+  !> specified in the input namelist using bc_input_t.
   type, public :: bc_in_t
     real(wp), allocatable :: cv(:)
     real(wp), allocatable :: pv(:)
@@ -209,7 +219,8 @@ module ovar
     integer :: bc_type = bc_unknown
   end type bc_in_t
   !
-  !
+  !  mrf_spinup_t :
+  !> Derived type for moving reference frame (MRF) spinup information.
   type, public :: mrf_spinup_t
     integer  :: iter = 0
     real(wp) :: tstar = zero
@@ -217,6 +228,8 @@ module ovar
     procedure :: get_spinup_ratio => get_mrf_spinup_ratio
   end type mrf_spinup_t
   !
+  !  mrf_t :
+  !> Derived type for moving reference frame (MRF) information.
   type, public :: mrf_t
     real(wp) :: rotation(1:3) = [zero,zero,zero]
     real(wp) :: translation(1:3) = [zero,zero,zero]
@@ -228,10 +241,9 @@ module ovar
     procedure :: get_rotation => get_mrf_rotation
   end type mrf_t
   !
-  ! thermofix_t : derived type to provide information to use the
-  !               check/fix of bad thermo properties
-  !               (pressure,temperature,density)
-  !
+  !  thermofix_t
+  !> Derived type to provide information to use the check/fix
+  !> of bad thermo properties (pressure,temperature,density).
   type, public :: thermofix_t
     integer     :: method          = TFM_OFF
     integer     :: iterations      = 10
@@ -270,7 +282,7 @@ module ovar
     procedure :: is_not_default => is_not_default_rake_probe
   end type rake_probe_t
   !
-  ! geom_wts_t :
+  !  geom_wts_t :
   !> Derived type to store geometry weights used for parallel load balancing.
   type, public :: geom_wts_t
     integer :: tria = 1
@@ -282,6 +294,7 @@ module ovar
     integer :: face_tria = 1
     integer :: face_quad = 1
   end type geom_wts_t
+  !
   !
   ! ################################
   ! ###  Module Local Variables  ###
@@ -330,11 +343,11 @@ module ovar
   integer, public, save :: interpto_plot3d_all_strides       = -1
   integer, public, save :: interpto_plot3d_agglomerate_order = -1
   !
-  ! BASE FR OPTIONS
+  ! BASE FLUX RECONSTRUCTION (FR) OPTIONS
   integer, public, save :: flux_divergence     = LagrangePolynomial
   integer, public, save :: correction_function = Correction_gDG
   !
-  ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS
+  ! LOCATION OF SOLUTION, FLUX, TRIANGLE, AND TETRAHEDRA POINTS
   integer, public, save :: loc_solution_pts   = Legendre_Gauss
   integer, public, save :: loc_flux_pts       = Legendre_Gauss
   integer, public, save :: loc_triangle_pts   = WilliamsShunn_TriPoints
@@ -347,7 +360,7 @@ module ovar
   integer, public, save :: Runge_Kutta_Scheme = TVD3_RK
   integer, public, save :: num_rk_stages      = 3
   !
-  ! COMMON FLUX OPTIONS
+  ! COMMON-FLUX OPTIONS
   integer, public, save :: invs_flux_method      = invs_flux_ROE
   integer, public, save :: visc_flux_method      = visc_flux_BR2
   integer, public, save :: visc_variables_to_ave = visc_interface_fluxes
@@ -414,12 +427,13 @@ module ovar
   integer,     public, save :: iter_out_interval       = 1
   integer,     public, save :: results_interval        = 0
   logical(lk), public, save :: output_eperk_cfl        = true
-  !     disable_header_rewrites : 
-  !        The column headers for the iteration statistics are written to stdout
-  !        before the first iteration, and by default are rewritten about once
-  !        every 100 iter_out_intervals. This allows the user to disable the
-  !        header from being rewritten after the first time it is written.
+  !
+  !  disable_header_rewrites :
+  !> Disables rewrites of the column headers for iteration statistics
+  !> that are normally written to stdout every 100 iter_out_intervals.
+  !> Does not affect the header written at the beginning of the run.
   logical(lk), public, save :: disable_header_rewrites = fals
+  !
   logical(lk), public, save :: output_summary_file = fals
   !
   ! SOLUTION OUTPUT OPTIONS
@@ -922,9 +936,9 @@ module ovar
   !
   integer, public, save :: interpto_input_mode = 1
   !
-  ! Turn quadrature/matrix output on by setting matrix_output_unit to anything
-  ! besides iout (which is a parameter variable set to the iso_fortran_env
-  ! constant output_unit, which historically has the value 6)
+  !> Turn quadrature/matrix output on by setting matrix_output_unit to anything
+  !> besides iout (which is a parameter variable set to the iso_fortran_env
+  !> constant output_unit, which historically has the value 6).
   integer, public, save :: matrix_output_unit = iout
  !integer, public, save :: matrix_output_unit = 9203
   !
@@ -938,8 +952,7 @@ module ovar
   !
   type(resource_list_t), public, save, allocatable :: resource_list(:)
   !
-  ! Interface to check if two boundary condition input derived types are equal
-  !
+  !> Interface to check if two boundary condition input derived types are equal.
   interface operator(==)
     module procedure bc_input_t_equals, &
                      relaxation_t_equals, &
@@ -949,8 +962,8 @@ module ovar
                      rake_probe_t_equals
   end interface
   !
-  ! Interface to check if two boundary condition input derived types are equal
-  !
+  !> Interface to check if two boundary condition input derived types are not
+  !> equal.
   interface operator(/=)
     module procedure bc_input_t_not_equal, &
                      relaxation_t_not_equal, &
@@ -972,14 +985,15 @@ module ovar
 contains
 !
 !###############################################################################
-!
+!> Move the bc_in derived type to GPU.
+!###############################################################################
 subroutine move_bcin_to_device
   !
   !.. Local Scalars ..
   integer :: i,i1,i2,m1,m2
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "move_bcin_to_deviec"
+  character(len=*), parameter :: pname = "move_bcin_to_device"
   !
 continue
   !
@@ -1018,7 +1032,8 @@ end subroutine move_bcin_to_device
 !###############################################################################
 !###############################################################################
 !###############################################################################
-!
+!> Check if a bc_input derived type is not set to default values.
+!###############################################################################
 pure function is_not_default_bc_input(this) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
@@ -1043,7 +1058,9 @@ continue
 end function is_not_default_bc_input
 !
 !###############################################################################
-!
+!> Check if the flow condition components of a bc_input derived type
+!> have default values (within some tolerance).
+!###############################################################################
 pure function has_default_flow_conditions(this) result(return_value)
   !
   ! This function is slightly different than is_not_default_bc_input. This
@@ -1190,7 +1207,8 @@ continue
 end subroutine copy_nonflow_conditions
 !
 !###############################################################################
-!
+!> Check if two bc_input derived type variables are equal.
+!###############################################################################
 pure function bc_input_t_equals(a,b) result(return_value)
   !
   !.. Formal Arguments ..
@@ -1282,7 +1300,8 @@ continue
 end function bc_input_t_equals
 !
 !###############################################################################
-!
+!> Check if two bc_input derived type variables are not equal.
+!###############################################################################
 pure function bc_input_t_not_equal(a,b) result(return_value)
   !
   !.. Formal Arguments ..
@@ -1303,7 +1322,8 @@ end function bc_input_t_not_equal
 !###############################################################################
 !###############################################################################
 !###############################################################################
-!
+!> Check if a relaxation derived type variable has non-default values.
+!###############################################################################
 pure function is_not_default_relax(this) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
@@ -1328,7 +1348,8 @@ continue
 end function is_not_default_relax
 !
 !###############################################################################
-!
+!> Check if two relaxation derived type variables are equal.
+!###############################################################################
 elemental function relaxation_t_equals(a,b) result(return_value)
   !
   !.. Formal Arguments ..
@@ -1360,7 +1381,8 @@ continue
 end function relaxation_t_equals
 !
 !###############################################################################
-!
+!> Check if two relaxation derived type variables are not equal.
+!###############################################################################
 elemental function relaxation_t_not_equal(a,b) result(return_value)
   !
   !.. Formal Arguments ..
@@ -1381,7 +1403,8 @@ end function relaxation_t_not_equal
 !###############################################################################
 !###############################################################################
 !###############################################################################
-!
+!> Check if a sem_bc derived type variable has non-default values.
+!###############################################################################
 pure function is_not_default_sem(this) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
@@ -1406,7 +1429,8 @@ continue
 end function is_not_default_sem
 !
 !###############################################################################
-!
+!> Check if two sem_bc derived type variables are equal.
+!###############################################################################
 elemental function sem_bc_t_equals(a,b) result(return_value)
   !
   !.. Formal Arguments ..
@@ -1445,7 +1469,8 @@ continue
 end function sem_bc_t_equals
 !
 !###############################################################################
-!
+!> Check if two sem_bc derived type variables are not equal.
+!###############################################################################
 elemental function sem_bc_t_not_equal(a,b) result(return_value)
   !
   !.. Formal Arguments ..
@@ -1466,7 +1491,8 @@ end function sem_bc_t_not_equal
 !###############################################################################
 !###############################################################################
 !###############################################################################
-!
+!> Check if a periodic_bc derived type variable has non-default values.
+!###############################################################################
 pure function is_not_default_periodic(this) result(return_value)
   !
   !.. Passed Argument from Invoking Object ..
@@ -1491,7 +1517,8 @@ continue
 end function is_not_default_periodic
 !
 !###############################################################################
-!
+!> Check if two periodic_bc derived type variables are equal.
+!###############################################################################
 elemental function periodic_bc_t_equals(a,b) result(return_value)
   !
   !.. Formal Arguments ..
@@ -1543,7 +1570,8 @@ continue
 end function periodic_bc_t_equals
 !
 !###############################################################################
-!
+!> Check if two periodic_bc derived type variables are not equal.
+!###############################################################################
 elemental function periodic_bc_t_not_equal(a,b) result(return_value)
   !
   !.. Formal Arguments ..
@@ -1799,15 +1827,17 @@ continue
     rrf_dim = one
   end if
   !
-  in_rrf = any(abs(this%rotation) >= one*rrf_dim)
-  in_trf = any(abs(this%translation) >= one*trf_dim)
+  in_rrf = any(abs(this%rotation   ) >= one*rrf_dim)  ! is in rotation
+  in_trf = any(abs(this%translation) >= one*trf_dim)  ! is in translation
   !
-  return_value = (in_rrf .or. in_trf)
+  return_value = (in_rrf .or. in_trf)  ! active if rotating or translating
   !
 end function mrf_is_active
 !
 !###############################################################################
-!
+!> Check if a moving reference frame (MRF) derived type variable specifies
+!> an non-active moving reference frame.
+!###############################################################################
 pure function mrf_is_not_active(this) result(return_value)
   !.. Passed Argument from Invoking Object ..
   class(mrf_t), intent(in) :: this
@@ -1818,7 +1848,9 @@ continue
 end function mrf_is_not_active
 !
 !###############################################################################
-!
+!> Nondimensionalize the information in the moving reference frame (MRF)
+!> derived type, if not already nondimensional.
+!###############################################################################
 subroutine nondimensionalize_mrf(this)
   !
   !.. Use Statements ..
@@ -1883,7 +1915,8 @@ continue
 end function get_mrf_spinup_ratio
 !
 !###############################################################################
-!
+!> Get the moving reference frame (MRF) rotation speeds.
+!###############################################################################
 pure &
 subroutine get_mrf_rotation(this,x_r,y_r,z_r,full_speed)
   !
@@ -1931,7 +1964,9 @@ end subroutine get_mrf_rotation
 !
 !
 !###############################################################################
-!
+!> Write the data from a bc_input derived type variable to the specified
+!> output unit number.
+!###############################################################################
 !!subroutine write_bc_input_t(dtv,iunit,iotype,vlist,my_iostat,my_iomsg)
 !!  !
 !!  !.. Passed Argument from Invoking Object ..
@@ -1996,7 +2031,9 @@ end subroutine get_mrf_rotation
 !!end subroutine write_bc_input_t
 !
 !###############################################################################
-!
+!> Read the data into a bc_input derived type variable from the specified
+!> input unit number.
+!###############################################################################
 !!subroutine read_bc_input_t(dtv,iunit,iotype,vlist,my_iostat,my_iomsg)
 !!  !
 !!  !.. Passed Argument from Invoking Object ..
@@ -2043,11 +2080,10 @@ end subroutine get_mrf_rotation
 !!end subroutine read_bc_input_t
 !
 !###############################################################################
-!
+!> Function to determine whether code will interpolate onto new grid.
+!###############################################################################
 pure &
 function if_interpto_newgrid() result(return_value)
-  !
-  ! Function to determine whether code will interpolate onto new grid.
   !
   !.. Function Result ..
   logical(lk) :: return_value
@@ -2234,7 +2270,8 @@ continue
 end function get_sbu_cost
 !
 !###############################################################################
-!
+!> Output memory requirement for ovar.
+!###############################################################################
 subroutine ovar_memory_usage(iunit)
   !
   !.. Use Statements ..
@@ -2785,7 +2822,8 @@ module input_namelist_mod
 contains
 !
 !###############################################################################
-!
+!> Allocate namelist variables that are array of character.
+!###############################################################################
 subroutine allocate_namelist_variables(opt_n_bc_input,opt_char_len, &
                                        opt_n_species,opt_n_point_probes, &
                                        opt_n_rake_probes,opt_n_cell_probes)
@@ -2944,8 +2982,8 @@ continue
   allocate ( bc_input(1:n_bc_input) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bc_input",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Allocate the mass_frac and species_name components
-  ! of bc_input before reading the namelist.
+  ! Allocate bc_input component arrays before reading the namelist:
+  !   bcinput(:)%mass_frac(:), bcinput(:)%species_name(:)
   !
 #ifdef ALLOCATABLE_MASS_FRAC
   do n = 1,size(bc_input)
@@ -3037,27 +3075,31 @@ continue
   call alloc_error(pname,"restart_list_file",1,__LINE__,__FILE__, &
                    ierr,error_message)
   !
-  ! Set all the character input variables to their default values
+  ! Set character input variables to empty string of specified length.
   !
   if (default_len > 0) then
     !
     write (blanks,1) default_len
     !
-    write (gridfile,blanks)
-    write (plot3d_cutfile,blanks)
-    write (plot3d_bcsfile,blanks)
-    write (interpto_gridfile,blanks)
-    write (interpto_plot3d_cutfile,blanks)
-    write (interpto_plot3d_bcsfile,blanks)
-    write (restart_file,blanks)
-    write (solution_file,blanks)
-    write (output_dir,blanks)
-    write (channel_init_file,blanks)
-    write (lustre_stripe_size,blanks)
-    write (time_ave_file,blanks)
-    write (restart_list_file,blanks)
+    write (gridfile                , blanks)
+    write (plot3d_cutfile          , blanks)
+    write (plot3d_bcsfile          , blanks)
+    write (interpto_gridfile       , blanks)
+    write (interpto_plot3d_cutfile , blanks)
+    write (interpto_plot3d_bcsfile , blanks)
+    write (restart_file            , blanks)
+    write (solution_file           , blanks)
+    write (output_dir              , blanks)
+    write (channel_init_file       , blanks)
+    write (lustre_stripe_size      , blanks)
+    write (time_ave_file           , blanks)
+    write (restart_list_file       , blanks)
     !
   end if
+  !
+  ! Set all the character input variables to their default values.
+  ! For long  strings, preserve trailing blanks.
+  ! For short strings, resize to minimal length for content.
   !
   if (len(restart_file) >= 7) then
     restart_file(1:7) = "out.rst"
@@ -3091,7 +3133,8 @@ continue
 end subroutine allocate_namelist_variables
 !
 !###############################################################################
-!
+!> Resize namelist allocatables to minimally necessary size for content.
+!###############################################################################
 subroutine resize_namelist_allocatables
   !
   !.. Use Statements ..
@@ -3117,10 +3160,11 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  !#############################################################################
-  !
+  ! ------------------------------------------------------------
   ! Reallocate bc_input to the actual size needed for the inputs
+  ! ------------------------------------------------------------
   !
+  ! Count how many of bc_input(:) are not default values.
   n = 0
   do i = 1,size(bc_input)
     if (bc_input(i)%is_not_default()) then
@@ -3128,9 +3172,12 @@ continue
     end if
   end do
   !
+  ! Allocate a new bc_input(:) to hold this minimal content.
   allocate ( tmp_bc_input(1:n) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"tmp_bc_input",1,__LINE__,__FILE__,ierr,error_message)
   !
+  ! Copy the non-default bc_input(:) into the new array.
+  ! Note the non-default bc_input(:) might be scattered within bc_input(:).
   n = 0
   do i = 1,size(bc_input)
     if (bc_input(i)%is_not_default()) then
@@ -3139,7 +3186,13 @@ continue
     end if
   end do
   !
+  ! Replace bc_input(:) with the new array.
   call move_alloc( from=tmp_bc_input , to=bc_input )
+  !
+  !
+  ! ----------------------
+  ! Trim character strings
+  ! ----------------------
   !
   do n = 1,size(bc_input)
     bc_input(n)%sem%profile_file = trim(adjustl(bc_input(n)%sem%profile_file))
@@ -3218,19 +3271,19 @@ continue
   !
   ! Following are F2003 AUTO REALLOCATIONS
   !
-  gridfile = trim(adjustl(gridfile))
-  plot3d_cutfile = trim(adjustl(plot3d_cutfile))
-  plot3d_bcsfile = trim(adjustl(plot3d_bcsfile))
-  interpto_gridfile = trim(adjustl(interpto_gridfile))
-  interpto_plot3d_cutfile = trim(adjustl(interpto_plot3d_cutfile))
-  interpto_plot3d_bcsfile = trim(adjustl(interpto_plot3d_bcsfile))
-  restart_file = trim(adjustl(restart_file))
-  solution_file = trim(adjustl(solution_file))
-  output_dir = trim(adjustl(output_dir))
-  channel_init_file = trim(adjustl(channel_init_file))
-  lustre_stripe_size = trim(adjustl(lustre_stripe_size))
-  time_ave_file = trim(adjustl(time_ave_file))
-  restart_list_file = trim(adjustl(restart_list_file))
+  gridfile                = trim(adjustl( gridfile                ))
+  plot3d_cutfile          = trim(adjustl( plot3d_cutfile          ))
+  plot3d_bcsfile          = trim(adjustl( plot3d_bcsfile          ))
+  interpto_gridfile       = trim(adjustl( interpto_gridfile       ))
+  interpto_plot3d_cutfile = trim(adjustl( interpto_plot3d_cutfile ))
+  interpto_plot3d_bcsfile = trim(adjustl( interpto_plot3d_bcsfile ))
+  restart_file            = trim(adjustl( restart_file            ))
+  solution_file           = trim(adjustl( solution_file           ))
+  output_dir              = trim(adjustl( output_dir              ))
+  channel_init_file       = trim(adjustl( channel_init_file       ))
+  lustre_stripe_size      = trim(adjustl( lustre_stripe_size      ))
+  time_ave_file           = trim(adjustl( time_ave_file           ))
+  restart_list_file       = trim(adjustl( restart_list_file       ))
   !
   call debug_timer(leaving_procedure,pname)
   !
