@@ -179,8 +179,8 @@ program GFR_main
   use interpsol_mod, only : mv_grid2_to_global
   use interpsol_mod, only : interpsol
 !-DEBUG_BEG:
-  use interpsol_mod, only : interpsol_debug
-  use mydebug_mod,   only : mydebug
+  use interpsol_mod,       only : interpsol_debug
+  use interpsol_query_mod, only : interpsol_query_vars
 !-DEBUG_END:
   !
   use cgns_mod, only : root_broadcasts_grid_dt
@@ -372,7 +372,7 @@ continue
     ! Get the coordinates of the solution points within each grid cell
     !
 !-DEBUG_BEG:
-!!!!call mydebug(pname,__LINE__,__FILE__)
+!!!!call interpsol_query_vars(pname,__LINE__,__FILE__)
 !!!!write(iout,*) 'DEBUG[Euler]:  Calling get_solution_points next.'
 !!!!flush(iout)
 !-DEBUG_END:
@@ -380,7 +380,7 @@ continue
 !-DEBUG_BEG:
 !!!!write(iout,*) 'DEBUG[Euler]:  Back from get_solution_points.'
 !!!!flush(iout)
-!!!!call mydebug(pname,__LINE__,__FILE__)
+!!!!call interpsol_query_vars(pname,__LINE__,__FILE__)
 !-DEBUG_END:
     call memory_pause("getting the solution points","getting grid connectivity")
     call check_for_bad_number(__LINE__)
@@ -480,7 +480,7 @@ continue
         if (mypnum == glb_root) then
           write(iout,*) 'Data has been moved to the g2_* variables.'
         end if
-        call mydebug(pname,__LINE__,__FILE__)
+        call interpsol_query_vars(pname,__LINE__,__FILE__)
 !-DEBUG_END:
         call memory_pause("initializing metrics", &
                           "rereading input and grid files")

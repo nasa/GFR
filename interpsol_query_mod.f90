@@ -1,4 +1,4 @@
-module mydebug_mod
+module interpsol_query_mod
   !
   ! Module to help with debugging.
   !
@@ -8,14 +8,14 @@ module mydebug_mod
   !
   private
   !
-  public :: mydebug
-  public :: mydebug_g2
+  public :: interpsol_query_vars
+  public :: interpsol_query_g2_vars
   !
 contains
 !
 !###############################################################################
 !
-subroutine mydebug(caller_name,line_num,file_nam,query)
+subroutine interpsol_query_vars(caller_name,line_num,file_nam,query)
   !
   ! Debug the global solution variables.
   !
@@ -57,7 +57,7 @@ continue
     !
     if (present(query)) local_query = query
     !
-    write (iout,*) 'DEBUG_BEG:[mydebug]'
+    write (iout,*) 'DEBUG_BEG:[interpsol_query_vars]'
     write (iout,6) trim(adjustl(caller_name)), line_num, trim(adjustl(file_nam))
     !
     ! Print info about nnode.
@@ -262,14 +262,14 @@ continue
       end if
     end if
     !
-    write (iout,*) 'DEBUG_END:[mydebug]'
+    write (iout,*) 'DEBUG_END:[interpsol_query_vars]'
     flush (iout)
     !
   end if
   !
   ! Print same info for g2_* variables.
   !
-  call mydebug_g2(caller_name,line_num,file_nam,local_query)
+  call interpsol_query_g2_vars(caller_name,line_num,file_nam,local_query)
   !
   ! Format Statements
   !
@@ -281,11 +281,11 @@ continue
   6 format (2x,"Called from subroutine ",a,", line ",i0," in file ",a)
   7 format (2x,i2,2(2x,es14.6))
   !
-end subroutine mydebug
+end subroutine interpsol_query_vars
 !
 !###############################################################################
 !
-subroutine mydebug_g2(caller_name,line_num,file_nam,query)
+subroutine interpsol_query_g2_vars(caller_name,line_num,file_nam,query)
   !
   ! Debug the global solution variables for g2 grid.
   !
@@ -328,7 +328,7 @@ continue
     !
     if (present(query)) local_query = query
     !
-    write (iout,*) 'DEBUG_BEG:[mydebug_g2]'
+    write (iout,*) 'DEBUG_BEG:[interpsol_query_g2_vars]'
     write (iout,6) trim(adjustl(caller_name)), line_num, trim(adjustl(file_nam))
     !
     ! Print info about nnode.
@@ -533,7 +533,7 @@ continue
       end if
     end if
     !
-    write (iout,*) 'DEBUG_END:[mydebug_g2]'
+    write (iout,*) 'DEBUG_END:[interpsol_query_g2_vars]'
     flush (iout)
     !
   end if
@@ -548,8 +548,8 @@ continue
   6 format (2x,"Called from subroutine ",a,", line ",i0," in file ",a)
   7 format (2x,i3,2(2x,es14.6))
   !
-end subroutine mydebug_g2
+end subroutine interpsol_query_g2_vars
 !
 !###############################################################################
 !
-end module mydebug_mod
+end module interpsol_query_mod

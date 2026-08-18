@@ -47,7 +47,7 @@ $(OBJDIR)/main.o : main.f90 \
          $(OBJDIR)/cpu_info_mod.o \
          $(OBJDIR)/interpsol_mod.o \
          $(OBJDIR)/timer_mod.o \
-         $(OBJDIR)/mydebug_mod.o \
+         $(OBJDIR)/interpsol_query_mod.o \
          $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/averaging_mod.o : averaging_mod.f90 \
@@ -382,7 +382,7 @@ $(OBJDIR)/interpsol_mod.o : interpsol_mod.f90 \
                   $(OBJDIR)/octedat_facexyz_mod.o \
                   $(OBJDIR)/octstat_mod.o \
                   $(OBJDIR)/octtree_mod.o \
-                  $(OBJDIR)/mydebug_mod.o \
+                  $(OBJDIR)/interpsol_query_mod.o \
                   $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/interpsolvar_mod.o : interpsolvar_mod.f90 \
@@ -532,12 +532,12 @@ $(OBJDIR)/mrf_mod.o : mrf_mod.f90 \
 
 $(OBJDIR)/mycpu.o : $(FUNDIR)/mycpu.c
 
-$(OBJDIR)/mydebug_mod.o : mydebug_mod.f90 \
-                $(OBJDIR)/kind_types_mod.o \
-                $(OBJDIR)/eqn_idx_mod.o \
-                $(OBJDIR)/geomvar_mod.o \
-                $(OBJDIR)/flowvar_mod.o \
-                $(OBJDIR)/interpsolvar_mod.o
+$(OBJDIR)/interpsol_query_mod.o : interpsol_query_mod.f90 \
+                        $(OBJDIR)/kind_types_mod.o \
+                        $(OBJDIR)/eqn_idx_mod.o \
+                        $(OBJDIR)/geomvar_mod.o \
+                        $(OBJDIR)/flowvar_mod.o \
+                        $(OBJDIR)/interpsolvar_mod.o
 
 $(OBJDIR)/octedat_facexyz_mod.o : octedat_facexyz_mod.f90 \
                         $(OBJDIR)/kind_types_mod.o \

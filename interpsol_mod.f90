@@ -417,7 +417,7 @@ subroutine interpsol()
   use interpolation_mod, only : init_ref_vectors
   !-DEBUG_BEG:
  !use ifport,            only : sleep
-  use mydebug_mod
+  use interpsol_query_mod
   !-DEBUG_END:
 #ifdef ENABLE_OPENMP
   use omp_lib, only : omp_get_thread_num
@@ -474,7 +474,7 @@ continue
   ! Need faceusp for debug output.  Must compute it first.
   call interp_cv_to_flxpts()
   ! Print global array info for debugging.
-  call mydebug(pname,__LINE__,__FILE__)
+  call interpsol_query_vars(pname,__LINE__,__FILE__)
   !-DEBUG_END:
   !
   ! Size the bounding box to contain the dst grid volume points.
@@ -996,7 +996,7 @@ subroutine interpsol_debug()
   use octstat_mod
   use interpolation_mod, only : interp_cell_sol_to_xyz, interp
   !-DEBUG_BEG:
-  use mydebug_mod
+  use interpsol_query_mod
   !-DEBUG_END:
   !
   !.. Local Scalars ..
@@ -1044,7 +1044,7 @@ continue
   ! Need faceusp for debug output.  Must compute it first.
   call interp_cv_to_flxpts()
   ! Print global array info for debugging.
-  call mydebug(pname,__LINE__,__FILE__)
+  call interpsol_query_vars(pname,__LINE__,__FILE__)
   !-DEBUG_END:
   !
   ! Size the bounding box to contain the dst grid volume points.
