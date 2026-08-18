@@ -2536,6 +2536,11 @@ module input_namelist_mod
   !
   public
   !
+  public  :: allocate_namelist_variables
+  public  :: resize_namelist_allocatables
+  public  :: read_nml_input_data
+  public  :: write_nml_input_data
+  !
   integer, save :: all_orders = -3
   integer, save :: solution_order = 3
   integer, save :: projection_order = -3
@@ -2555,6 +2560,8 @@ module input_namelist_mod
   ! ########################
   ! ###  Input Namelist  ###
   ! ########################
+  !
+  private :: input
   !
   ! GRID INFORMATION
   namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile, &
@@ -3288,6 +3295,58 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine resize_namelist_allocatables
+!
+!###############################################################################
+!> Read the namelist input data from the specified input unit.
+!###############################################################################
+subroutine read_nml_input_data(io)
+  !
+  !.. Use Statements ..
+  use module_kind_types
+  !
+  !.. Arguments ..
+  integer, intent(in) :: io  !< File unit number.
+  !
+continue
+  !
+  read (io,nml=input)
+  !
+end subroutine read_nml_input_data
+!
+!###############################################################################
+!> Write the namelist input data to the specified output unit.
+!###############################################################################
+subroutine write_nml_input_data(io,banner)
+  !
+  !.. Use Statements ..
+  use module_kind_types
+  !
+  !.. Arguments ..
+  integer,     intent(in) :: io      !< File unit number.
+  logical(lk), intent(in) :: banner  !< Flag to write banner.
+  !
+continue
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  if (mypnum == glb_root) then
+    if (banner) write (io,104)
+    write (io,nml=input,delim='apostrophe')
+    if (banner) write (io,105)
+    flush (io)
+  end if
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  104 format (/,"#######################################",/, &
+                "#####      INPUT PARAMETERS       #####",/, &
+                "#######################################",/)
+  105 format (/,"#######################################",/, &
+                "#####   END OF INPUT PARAMETERS   #####",/, &
+                "#######################################",/)
+  !
+end subroutine write_nml_input_data
 !
 !###############################################################################
 !

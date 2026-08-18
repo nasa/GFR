@@ -286,7 +286,7 @@ continue
   !
   ! Read in the input file using the input namelist
   !
-  read (inpt,nml=input)
+  call read_nml_input_data(inpt)
   !
   ! Close the input file now that we are finished reading it
   !
@@ -298,6 +298,10 @@ continue
   ! namelist to sizes more appropriate to their input values
   !
   call resize_namelist_allocatables
+  !
+  ! -----------------
+  ! Post-input checks
+  ! -----------------
   !
   ! For interpolation pass, shuffle some variables around to trick
   ! the lower level readers to read interpto_gridfile which will be
@@ -1879,32 +1883,6 @@ end block
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_grid_file
-!
-!###############################################################################
-!> Write the namelist input data to the specified output unit.
-!###############################################################################
-subroutine write_nml_input_data(io,banner)
-  use input_namelist_mod
-  !
-  integer,     intent(in) :: io
-  logical(lk), intent(in) :: banner
-  !
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  if (mypnum == glb_root) then
-    if (banner) write (io,104)
-    write (io,nml=input,delim='apostrophe')
-    if (banner) write (io,105)
-    flush (io)
-  end if
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  104 format (/,"#######################################",/, &
-                "#####      INPUT PARAMETERS       #####",/, &
-                "#######################################",/)
-  105 format (/,"#######################################",/, &
-                "#####   END OF INPUT PARAMETERS   #####",/, &
-                "#######################################",/)
-end subroutine write_nml_input_data
 !
 !###############################################################################
 !
