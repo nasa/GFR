@@ -61,7 +61,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  ! Check for additional command line arguments
+  ! Get input file name from command line and check if it is a namelist file.
   !
   command_count = command_argument_count()
   !
@@ -108,7 +108,14 @@ continue
   end do one_pass_loop
   call check_for_bad_number(__LINE__,__FILE__)
   !
+  ! Read the input file.
+  !
   call read_nml_input_file(input_fname,input_mode)
+  call check_for_bad_number(__LINE__,__FILE__)
+  !
+  ! Post-input checks and set internal variables.
+  !
+  call check_nml_input_data(input_mode)
   call check_for_bad_number(__LINE__,__FILE__)
   !
   call debug_timer(leaving_procedure,pname)
@@ -235,14 +242,66 @@ end subroutine check_input_file
 subroutine read_nml_input_file(input_fname,input_mode)
   !
   !.. Use Statements ..
+  use input_namelist_mod, only : allocate_namelist_variables
+  use input_namelist_mod, only : resize_namelist_allocatables
+  use input_namelist_mod, only : read_nml_input_data
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: input_fname
+  integer,          intent(in) :: input_mode
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_nml_input_file"
+  !
+  !.. Local Scalars ..
+  integer :: inpt,ierr
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Allocate all the variables within the input namelist
+  ! to their default sizes and values
+  !
+  call allocate_namelist_variables
+  !
+  ! Open the input file
+  !
+  call debug_timer(start_timer,"actually reading the input file")
+  open (newunit=inpt,file=input_fname,status="old",action="read", &
+                     form="formatted",iostat=ierr,iomsg=error_message)
+  call io_error(pname,input_fname,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Read in the input file using the input namelist
+  !
+  call read_nml_input_data(inpt)
+  !
+  ! Close the input file now that we are finished reading it
+  !
+  close (inpt,iostat=ierr,iomsg=error_message)
+  call io_error(pname,input_fname,2,__LINE__,__FILE__,ierr,error_message)
+  call debug_timer(stop_timer,"actually reading the input file")
+  !
+  ! Resize all the allocatable variables within the input
+  ! namelist to sizes more appropriate to their input values
+  !
+  call resize_namelist_allocatables
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_nml_input_file
+!
+!###############################################################################
+!> Check the namelist input data and set internal variables.
+!###############################################################################
+subroutine check_nml_input_data(input_mode)
+  !
+  !.. Use Statements ..
   use order_mod, only : initialize_geom_solpts
   use order_mod, only : n_order,p_order,q_order,o_order,e_order,t_order
   !
   use geomvar_mod, only : nr,using_quadrature,xyz_nodes
   !
-  use input_namelist_mod, only : allocate_namelist_variables
-  use input_namelist_mod, only : resize_namelist_allocatables
-  use input_namelist_mod, only : read_nml_input_data
   use input_namelist_mod, only : write_nml_input_data
   !
   ! Input variables
@@ -286,7 +345,6 @@ subroutine read_nml_input_file(input_fname,input_mode)
   use ovar,   only : loc_init_pts, loc_error_pts
   use ovar,   only : moving_ref_frame
   use ovar,   only : itestcase
-  use ovar,   only : mms_opt, mms_init, mms_output_solution
   use ovar,   only : pulse_test_form, pulse_test_form_dim
   use ovar,   only : pulse_test_length
   use ovar,   only : pulse_test_width, pulse_test_gap, pulse_test_repeat
@@ -330,8 +388,7 @@ subroutine read_nml_input_file(input_fname,input_mode)
   use eperk_mod,  only : init_eperk_coefficients
   !
   !.. Formal Arguments ..
-  character(len=*), intent(in) :: input_fname
-  integer,          intent(in) :: input_mode
+  integer, intent(in) :: input_mode
   !
   !.. Local Scalars ..
   integer  :: i,it1,it2,ierr,ival,inpt
@@ -348,38 +405,11 @@ subroutine read_nml_input_file(input_fname,input_mode)
   character(len=80), dimension(12) :: input_text
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_nml_input_file"
+  character(len=*), parameter :: pname = "check_nml_input_data"
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
-  !
-  ! Allocate all the variables within the input namelist
-  ! to their default sizes and values
-  !
-  call allocate_namelist_variables
-  !
-  ! Open the input file
-  !
-  call debug_timer(start_timer,"actually reading the input file")
-  open (newunit=inpt,file=input_fname,status="old",action="read", &
-                     form="formatted",iostat=ierr,iomsg=error_message)
-  call io_error(pname,input_fname,1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Read in the input file using the input namelist
-  !
-  call read_nml_input_data(inpt)
-  !
-  ! Close the input file now that we are finished reading it
-  !
-  close (inpt,iostat=ierr,iomsg=error_message)
-  call io_error(pname,input_fname,2,__LINE__,__FILE__,ierr,error_message)
-  call debug_timer(stop_timer,"actually reading the input file")
-  !
-  ! Resize all the allocatable variables within the input
-  ! namelist to sizes more appropriate to their input values
-  !
-  call resize_namelist_allocatables
   !
   ! -----------------
   ! Post-input checks
@@ -443,7 +473,7 @@ continue
   call check_restart_inputs(dir_result)
   call check_for_bad_number(__LINE__,__FILE__)
   !
-  call debug_timer(start_timer,"read_nml_input_file pre read_grid_file")
+  call debug_timer(start_timer,"check_nml_input_data pre read_grid_file")
   !
   ! Adjust the name of the grid and solution files
   !
@@ -555,7 +585,7 @@ continue
   ! This includes quadrature and face values
   !
   use_qdtr_face_pts = using_quadrature .and. dflux_opt==project_derivatives
-  call debug_timer(stop_timer,"read_nml_input_file pre read_grid_file")
+  call debug_timer(stop_timer,"check_nml_input_data pre read_grid_file")
   !
   call initialize_geom_solpts(use_qdtr_face_pts)
   call check_for_bad_number(__LINE__,__FILE__)
@@ -571,7 +601,7 @@ continue
   call init_geom_quadrature_rules
   call check_for_bad_number(__LINE__,__FILE__)
   !
-  call debug_timer(start_timer,"read_nml_input_file post read_grid_file")
+  call debug_timer(start_timer,"check_nml_input_data post read_grid_file")
   !
   ! If using a gas mixture and the requested upwind method isnt
   ! compatible, change the upwind method to the Roe solver.
@@ -1148,7 +1178,7 @@ continue
   !
   flush (iout)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  call debug_timer(stop_timer,"read_nml_input_file post read_grid_file")
+  call debug_timer(stop_timer,"check_nml_input_date post read_grid_file")
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
@@ -1209,7 +1239,7 @@ continue
   62 format('THERMOFIX ERROR:  Thermofix iterations must be positive.')
   63 format('THERMOFIX ERROR:  Thermofix scaling factor must be within [0:1].')
   !
-end subroutine read_nml_input_file
+end subroutine check_nml_input_data
 !
 !###############################################################################
 !
