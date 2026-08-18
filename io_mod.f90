@@ -71,12 +71,7 @@ continue
       !
       call get_command_argument(1,input_fname,command_length,ierr)
       !
-#define ONLY_ROOT_CHECKS_INPUT_FILE
-#ifdef ONLY_ROOT_CHECKS_INPUT_FILE
-      call check_input_file_root_only(input_fname,input_status)
-#else
       call check_input_file(input_fname,input_status)
-#endif
       !
       if (input_status == 0) exit one_pass_loop
       !
@@ -90,11 +85,7 @@ continue
           !
           call get_command_argument(j+1,input_fname,command_length,ierr)
           !
-#ifdef ONLY_ROOT_CHECKS_INPUT_FILE
-          call check_input_file_root_only(input_fname,input_status)
-#else
           call check_input_file(input_fname,input_status)
-#endif
           !
           if (input_status == 0) exit one_pass_loop
           !
@@ -106,11 +97,7 @@ continue
     !
     input_fname = default_fname
     !
-#ifdef ONLY_ROOT_CHECKS_INPUT_FILE
-    call check_input_file_root_only(input_fname,input_status)
-#else
     call check_input_file(input_fname,input_status)
-#endif
     !
     if (input_status /= 0) then
       call write_nml_input_file('gfr.in.default')
@@ -143,6 +130,8 @@ subroutine check_input_file(input_fname,input_status)
   !.. Local Scalars ..
   integer :: ierr,inpt
   logical(ldk) :: file_exists
+  logical(lk)  :: do_read_file, do_bcast
+  integer(int_mpi) :: stop_flag
   character(len=80) :: text
   !
   !.. Local Parameters ..
@@ -154,79 +143,20 @@ continue
   !
   input_status = -1
   !
-  ! Inquire whether the input file name exists
-  !
-  inquire (file=input_fname,exist=file_exists)
-  !
-  if (file_exists) then
-    !
-    ! Try opening the input file name
-    !
-    open (newunit=inpt,file=input_fname,status="old",action="read", &
-                       form="formatted",iostat=ierr,iomsg=error_message)
-    call io_error(pname,input_fname,1,__LINE__,__FILE__,ierr,error_message)
-    !
-    ! Read the first line of the input file
-    !
-    read (inpt,*,iostat=ierr,err=100,end=100) text
-    !
-    close (inpt,iostat=ierr,iomsg=error_message)
-    call io_error(pname,input_fname,2,__LINE__,__FILE__,ierr,error_message)
-    !
-    ! Check the first line for neccessary string
-    !
-    text = trim(adjustl(text))
-    text = uppercase( text )
-    !
-    ! Change input_status to 0 if the first line
-    ! matches the required namelist value
-    !
-    if (text(1:6) == "&INPUT") input_status = 0
-    !
-  end if
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-  return
-  !
-  ! Read error continuation statements
-  !
-  100 continue
-  write (error_message,10) trim(adjustl(input_fname)), ierr
-  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-  !
-  ! Format statements
-  !
-  10 format (" Error checking the format of the input file '",a,"'!", &
-             " IO Error = ",i0)
-  !
-end subroutine check_input_file
-!
-!###############################################################################
-!
-subroutine check_input_file_root_only(input_fname,input_status)
-  !
-  !.. Formal Arguments ..
-  character(len=*),  intent(in) :: input_fname
-  integer,          intent(out) :: input_status
-  !
-  !.. Local Scalars ..
-  integer :: ierr,inpt
-  logical(ldk) :: file_exists
-  character(len=80) :: text
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "check_input_file_root_only"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  input_status = -1
+#define ONLY_ROOT_CHECKS_INPUT_FILE
+#ifdef ONLY_ROOT_CHECKS_INPUT_FILE
+  do_read_file = (mypnum == glb_root)
+  do_bcast     = (ncpu > 1)
+  stop_flag    = abort
+#else
+  do_read_file = true
+  do_bcast     = fals
+  stop_flag    = stop_mpi
+#endif
   !
   ! Inquire whether the input file name exists
   !
-  if (mypnum == glb_root) then
+  if (do_read_file) then
     !
     inquire (file=input_fname,exist=file_exists)
     !
@@ -259,7 +189,7 @@ continue
     !
   end if
   !
-  if (ncpu > 1) then
+  if (do_bcast) then
     call mpi_bcast(input_status,1_int_mpi,mpi_inttyp, &
                    glb_root,MPI_COMM_WORLD,mpierr)
   end if
@@ -272,14 +202,14 @@ continue
   !
   100 continue
   write (error_message,10) trim(adjustl(input_fname)), ierr
-  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+  call stop_gfr(stop_flag,pname,__LINE__,__FILE__,error_message)
   !
   ! Format statements
   !
   10 format (" Error checking the format of the input file '",a,"'!", &
              " IO Error = ",i0)
   !
-end subroutine check_input_file_root_only
+end subroutine check_input_file
 !
 !###############################################################################
 !
