@@ -1,3 +1,19 @@
+pure function intseq_no_beg_i1(seq_end) result(return_value)
+  !
+  use iso_fortran_env, only : lp => int8
+  !
+  integer(lp), intent(in) :: seq_end
+  !
+  integer(lp) :: return_value(1:seq_end)
+  !
+  integer(lp) :: n
+  !
+continue
+  return_value = [(n,n=1,seq_end)]
+end function intseq_no_beg_i1
+!
+!###############################################################################
+!
 pure function intseq_no_interval_i1(seq_beg,seq_end) result(return_value)
   !
   use iso_fortran_env, only : lp => int8
@@ -57,6 +73,22 @@ continue
     return_value = [(n,n=1,seq_end)]
   end if
 end function intseq_rev_dir_i1
+!
+!###############################################################################
+!
+pure function intseq_no_beg_i2(seq_end) result(return_value)
+  !
+  use iso_fortran_env, only : lp => int16
+  !
+  integer(lp), intent(in) :: seq_end
+  !
+  integer(lp) :: return_value(1:seq_end)
+  !
+  integer(lp) :: n
+  !
+continue
+  return_value = [(n,n=1,seq_end)]
+end function intseq_no_beg_i2
 !
 !###############################################################################
 !
@@ -122,6 +154,22 @@ end function intseq_rev_dir_i2
 !
 !###############################################################################
 !
+pure function intseq_no_beg_i4(seq_end) result(return_value)
+  !
+  use iso_fortran_env, only : lp => int32
+  !
+  integer(lp), intent(in) :: seq_end
+  !
+  integer(lp) :: return_value(1:seq_end)
+  !
+  integer(lp) :: n
+  !
+continue
+  return_value = [(n,n=1,seq_end)]
+end function intseq_no_beg_i4
+!
+!###############################################################################
+!
 pure function intseq_no_interval_i4(seq_beg,seq_end) result(return_value)
   !
   use iso_fortran_env, only : lp => int32
@@ -181,6 +229,22 @@ continue
     return_value = [(n,n=1,seq_end)]
   end if
 end function intseq_rev_dir_i4
+!
+!###############################################################################
+!
+pure function intseq_no_beg_i8(seq_end) result(return_value)
+  !
+  use iso_fortran_env, only : lp => int64
+  !
+  integer(lp), intent(in) :: seq_end
+  !
+  integer(lp) :: return_value(1:seq_end)
+  !
+  integer(lp) :: n
+  !
+continue
+  return_value = [(n,n=1,seq_end)]
+end function intseq_no_beg_i8
 !
 !###############################################################################
 !

@@ -1516,17 +1516,25 @@ module module_kind_types
   !
   ! From Functions/intseq.f90
   !
-  private :: intseq_no_interval_i1,intseq_with_interval_i1
-  private :: intseq_no_interval_i2,intseq_with_interval_i2
-  private :: intseq_no_interval_i4,intseq_with_interval_i4
-  private :: intseq_no_interval_i8,intseq_with_interval_i8
+  private :: intseq_no_beg_i1, intseq_no_interval_i1
+  private :: intseq_rev_dir_i1,intseq_with_interval_i1
+  private :: intseq_no_beg_i2, intseq_no_interval_i2
+  private :: intseq_rev_dir_i2,intseq_with_interval_i2
+  private :: intseq_no_beg_i4, intseq_no_interval_i4
+  private :: intseq_rev_dir_i4,intseq_with_interval_i4
+  private :: intseq_no_beg_i8, intseq_no_interval_i8
+  private :: intseq_rev_dir_i8,intseq_with_interval_i8
   !
   interface intseq
     module procedure &
-      intseq_no_interval_i1,intseq_with_interval_i1,intseq_rev_dir_i1, &
-      intseq_no_interval_i2,intseq_with_interval_i2,intseq_rev_dir_i2, &
-      intseq_no_interval_i4,intseq_with_interval_i4,intseq_rev_dir_i4, &
-      intseq_no_interval_i8,intseq_with_interval_i8,intseq_rev_dir_i8
+      intseq_no_beg_i1, intseq_no_interval_i1,   &
+      intseq_rev_dir_i1,intseq_with_interval_i1, &
+      intseq_no_beg_i2, intseq_no_interval_i2,   &
+      intseq_rev_dir_i2,intseq_with_interval_i2, &
+      intseq_no_beg_i4, intseq_no_interval_i4,   &
+      intseq_rev_dir_i4,intseq_with_interval_i4, &
+      intseq_no_beg_i8, intseq_no_interval_i8,   &
+      intseq_rev_dir_i8,intseq_with_interval_i8
   end interface intseq
   !
 contains
