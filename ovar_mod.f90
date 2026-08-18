@@ -2580,8 +2580,10 @@ module input_namelist_mod
   !
   public  :: allocate_namelist_variables
   public  :: resize_namelist_allocatables
-  public  :: read_nml_input_data
+  public  ::  read_nml_input_data
   public  :: write_nml_input_data
+  public  ::  read_nml_input_file
+  public  :: write_nml_input_file
   !
   ! ########################
   ! ###  Input Namelist  ###
@@ -3373,6 +3375,98 @@ continue
                 "#######################################",/)
   !
 end subroutine write_nml_input_data
+!
+!###############################################################################
+!
+subroutine read_nml_input_file(input_fname,input_mode)
+  !
+  !.. Use Statements ..
+  use module_kind_types
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: input_fname
+  integer,          intent(in) :: input_mode
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_nml_input_file"
+  !
+  !.. Local Scalars ..
+  integer :: inpt,ierr
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Allocate all the variables within the input namelist
+  ! to their default sizes and values
+  !
+  call allocate_namelist_variables
+  !
+  ! Open the input file
+  !
+  call debug_timer(start_timer,"actually reading the input file")
+  open (newunit=inpt,file=input_fname,status="old",action="read", &
+                     form="formatted",iostat=ierr,iomsg=error_message)
+  call io_error(pname,input_fname,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Read in the input file using the input namelist
+  !
+  call read_nml_input_data(inpt)
+  !
+  ! Close the input file now that we are finished reading it
+  !
+  close (inpt,iostat=ierr,iomsg=error_message)
+  call io_error(pname,input_fname,2,__LINE__,__FILE__,ierr,error_message)
+  call debug_timer(stop_timer,"actually reading the input file")
+  !
+  ! Resize all the allocatable variables within the input
+  ! namelist to sizes more appropriate to their input values
+  !
+  call resize_namelist_allocatables
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_nml_input_file
+!
+!###############################################################################
+!
+subroutine write_nml_input_file(output_fname)
+  !
+  !.. Use Statements ..
+  use module_kind_types
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: output_fname
+  !
+  !.. Local Scalars ..
+  integer ionml,ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_nml_input_file"
+  !
+continue
+  !
+  ! Allocate all the variables within the input namelist
+  ! to their default sizes and values
+  !
+  call allocate_namelist_variables(opt_n_bc_input=4, &
+                                   opt_n_species=3, &
+                                   opt_char_len=0)
+  !
+  if (mypnum == glb_root) then
+    open (newunit=ionml,file=output_fname,status="new",action="write", &
+                        delim='apostrophe', &
+                        position="rewind",iostat=ierr,iomsg=error_message)
+    call io_error(pname,trim(adjustl(output_fname)),1,__LINE__,__FILE__, &
+                  ierr,error_message)
+    call write_nml_input_data(ionml,banner=fals)
+    write (iout,101) trim(output_fname)
+    close(ionml)
+  end if
+  !
+  101 format(/,"Default namelist input file written to:  ",A)
+  !
+end subroutine write_nml_input_file
 !
 !###############################################################################
 !
