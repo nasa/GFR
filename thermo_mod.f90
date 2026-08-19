@@ -1422,7 +1422,7 @@ subroutine newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
   !
   !.. Use Statements ..
   use ovar, only : tref,tmin,tmax
-  use ovar, only : newton_rlx,conv_temp
+  use ovar, only : conv_temp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
@@ -1556,7 +1556,7 @@ subroutine impure_newton_solve_for_temperature(n1,n2,cv,rmix,p,t,h,cp, &
   !
   !.. Use Statements ..
   use ovar, only : tref,tmin,tmax
-  use ovar, only : newton_rlx,conv_temp
+  use ovar, only : conv_temp
   use ovar, only : traceback_unconverged_newton_temps
   use ovar, only : ignore_thermo_newton_warnings
 #ifdef SPECIAL_FOR_INTEL
