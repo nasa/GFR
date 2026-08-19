@@ -251,10 +251,10 @@ module ovar
     logical(lk) :: check_faces     = true
     logical(lk) :: check_nodes     = true
     logical(lk) :: verbose         = true
-    real(wp)    :: scale_factor    = 0.5_wp     ! between [0,1]
-    real(wp)    :: min_pressure    = 10000._wp  ! [Pa]
-    real(wp)    :: min_temperature =   100._wp  ! [K]
-    real(wp)    :: min_density     =  0.001_wp  ! [kg/m3]
+    real(wp)    :: scale_factor    = 0.5_wp     !< between [0,1]
+    real(wp)    :: min_pressure    = 10000._wp  !< [Pa]
+    real(wp)    :: min_temperature =   100._wp  !< [K]
+    real(wp)    :: min_density     =  0.001_wp  !< [kg/m3]
   end type thermofix_t
   !
   ! point_probe_t : derived type containing point probe location
