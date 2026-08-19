@@ -10,6 +10,8 @@ MODDIR = modules/$(BUILDDIR)
 FUNDIR = Functions
 BCDIR  = BC_Modules
 INTDIR = SolInterp_Modules
+NMLDIR = Nml_Modules
+TSTDIR = Testcase_Modules
 
 vpath %.o $(OBJDIR)
 vpath %.f90 ./
