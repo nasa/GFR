@@ -135,14 +135,6 @@ $(OBJDIR)/cgnstypes_mod.o : cgnstypes_mod.f90 \
 $(OBJDIR)/cgnstypes_mod.o : OTHERFLAGS += $(CGNSMOD)
 #$(OBJDIR)/cgnstypes_mod.o : OTHERFPP += $(CGNSFPP)
 
-$(OBJDIR)/channel_mod.o : channel_mod.f90 \
-                $(OBJDIR)/kind_types_mod.o \
-                $(OBJDIR)/eqn_idx_mod.o \
-                $(OBJDIR)/geomvar_mod.o \
-                $(OBJDIR)/ovar_mod.o \
-                $(OBJDIR)/flowvar_mod.o \
-                $(OBJDIR)/metrics_mod.o
-
 $(OBJDIR)/connectivity_mod.o : connectivity_mod.f90 \
                  $(OBJDIR)/kind_types_mod.o \
                  $(OBJDIR)/geomvar_mod.o \
@@ -705,11 +697,6 @@ $(OBJDIR)/rhs_mod.o : rhs_mod.f90 \
             $(OBJDIR)/timer_mod.o \
             $(FUNDIR)/debug_timer.f90
 
-$(OBJDIR)/shu_osher_mod.o : shu_osher_mod.f90 \
-                $(OBJDIR)/kind_types_mod.o \
-                $(OBJDIR)/ovar_mod.o \
-                $(OBJDIR)/thermo_mod.o
-
 $(OBJDIR)/spatial_ave_mod.o : spatial_ave_mod.f90 \
                     $(OBJDIR)/kind_types_mod.o \
                     $(OBJDIR)/cgnstypes_mod.o \
@@ -725,13 +712,6 @@ $(OBJDIR)/spatial_ave_mod.o : spatial_ave_mod.f90 \
                     $(OBJDIR)/io_mod.o \
                     $(OBJDIR)/write_cgns_mod.o
 $(OBJDIR)/spatial_ave_mod.o : OTHERFLAGS += $(CGNSMOD)
-
-$(OBJDIR)/taylor_couette_mod.o : taylor_couette_mod.f90 \
-                       $(OBJDIR)/kind_types_mod.o \
-                       $(OBJDIR)/eqn_idx_mod.o \
-                       $(OBJDIR)/geomvar_mod.o \
-                       $(OBJDIR)/ovar_mod.o \
-                       $(OBJDIR)/thermo_mod.o
 
 $(OBJDIR)/tetrahedra_mod.o : tetrahedra_mod.f90 \
                $(OBJDIR)/kind_types_mod.o \
@@ -785,16 +765,6 @@ $(OBJDIR)/synthetic_eddy_mod.o : synthetic_eddy_mod.f90 \
                        $(FUNDIR)/check_for_bad_number.f90
 
 $(OBJDIR)/tecio_mod.o : tecio_mod.f90
-
-$(OBJDIR)/thx_mod.o : thx_mod.f90 \
-            $(OBJDIR)/kind_types_mod.o \
-            $(OBJDIR)/eqn_idx_mod.o \
-            $(OBJDIR)/geomvar_mod.o \
-            $(OBJDIR)/ovar_mod.o \
-            $(OBJDIR)/flowvar_mod.o \
-            $(OBJDIR)/metrics_mod.o \
-            $(OBJDIR)/element_type_mod.o \
-            $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/upwind_flux_mod.o : upwind_flux_mod.f90 \
          $(OBJDIR)/kind_types_mod.o \
@@ -1019,12 +989,43 @@ $(OBJDIR)/advection_js_mod.o : $(TSTDIR)/advection_js_mod.f90 \
                      $(OBJDIR)/ovar_mod.o \
                      $(OBJDIR)/thermo_mod.o
 
+$(OBJDIR)/channel_mod.o : $(TSTDIR)/channel_mod.f90 \
+                $(OBJDIR)/kind_types_mod.o \
+                $(OBJDIR)/eqn_idx_mod.o \
+                $(OBJDIR)/geomvar_mod.o \
+                $(OBJDIR)/ovar_mod.o \
+                $(OBJDIR)/flowvar_mod.o \
+                $(OBJDIR)/metrics_mod.o
+
+$(OBJDIR)/shu_osher_mod.o : $(TSTDIR)/shu_osher_mod.f90 \
+                  $(OBJDIR)/kind_types_mod.o \
+                  $(OBJDIR)/eqn_idx_mod.o \
+                  $(OBJDIR)/ovar_mod.o \
+                  $(OBJDIR)/thermo_mod.o
+
 $(OBJDIR)/sod_shock_tube_mod.o : $(TSTDIR)/sod_shock_tube_mod.f90 \
                        $(OBJDIR)/kind_types_mod.o \
                        $(OBJDIR)/geomvar_mod.o \
                        $(OBJDIR)/eqn_idx_mod.o \
                        $(OBJDIR)/ovar_mod.o \
                        $(OBJDIR)/thermo_mod.o
+
+$(OBJDIR)/taylor_couette_mod.o : $(TSTDIR)/taylor_couette_mod.f90 \
+                       $(OBJDIR)/kind_types_mod.o \
+                       $(OBJDIR)/eqn_idx_mod.o \
+                       $(OBJDIR)/geomvar_mod.o \
+                       $(OBJDIR)/ovar_mod.o \
+                       $(OBJDIR)/thermo_mod.o
+
+$(OBJDIR)/thx_mod.o : $(TSTDIR)/thx_mod.f90 \
+            $(OBJDIR)/kind_types_mod.o \
+            $(OBJDIR)/eqn_idx_mod.o \
+            $(OBJDIR)/geomvar_mod.o \
+            $(OBJDIR)/ovar_mod.o \
+            $(OBJDIR)/flowvar_mod.o \
+            $(OBJDIR)/metrics_mod.o \
+            $(OBJDIR)/element_type_mod.o \
+            $(FUNDIR)/debug_timer.f90
 
 ####################################################################
 # ADD ANY OBJECT FILES TO THE VARIABLE CUSTOM_DEBUG_FILES THAT YOU #
