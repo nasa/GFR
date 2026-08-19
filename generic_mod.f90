@@ -1792,7 +1792,6 @@ subroutine compute_KEDR(iter,dtmin)
   use geomvar_mod,      only : n_global_cell,global_cell_geom
   use ovar,             only : muref_nd,total_volume
   use ovar,             only : time,time_ref,machref
-  use ovar,             only : VortexGrid_DOF
   use ovar,             only : iter_out_interval,itrst
   use ovar,             only : itestcase
   use flowvar_mod,      only : usp,dusp,gpsp
