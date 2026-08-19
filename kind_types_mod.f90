@@ -674,6 +674,7 @@ module module_kind_types
   integer, parameter :: Density_Pulse_Test      = 24
   integer, parameter :: Pipe_Channel_Flow       = 25
   integer, parameter :: Shu_Osher_Test          = 26
+  integer, parameter :: Advection_JiangShu      = 27
   integer, parameter :: UIUC_Scramjet           = 70
   integer, parameter :: C2H4_Flame_Speed_Test    = 71
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
@@ -847,6 +848,113 @@ module module_kind_types
                                                   OERK, EPERK, &
                                                   OERK_Schemes(:), &
                                                   EPERK_Schemes(:)]
+  !
+  ! =========================
+  ! Choices for Filter_Option
+  ! =========================
+  !
+  !> Turns the global filter off.
+  integer, parameter :: Filter_Option__Off = 0
+  !
+  !> Turns the global filter on, but filters quad/hex cells
+  !> independently in each direction.
+  !> If the 1d filter for P=3 provides values of [1,a,b,c]
+  !> for modes [0:P] with 1>=a>=b>=c>=0, then for a quad
+  !> the 2d filter is the tensor product of the 1d filters.
+  !>         | 1   | a   | b   | c
+  !>         | x^0 | x^1 | x^2 | x^3
+  !>   -----------------------------
+  !>   1 y^0 | 1*1 | a*1 | b*1 | c*1
+  !>   a y^1 | 1*a | a*a | b*a | c*a
+  !>   b y^2 | 1*b | a*b | b*b | c*b
+  !>   c y^3 | 1*c | a*c | b*c | c*c
+  integer, parameter :: Filter_Option__TensProd = 1
+  !
+  !> Turns the global filter on, but filters quad/hex cells
+  !> by the sum of the modal exponents rather than cell order.
+  !> If the 1d filter for P=3 provides values of [1,a,b,c,d,e,f]
+  !> for modes [0:2P] with 1>=a>=b>=c>d>=e>f>==0, then for a quad
+  !> the 2d filter varies along the diagonal based on the sum of the
+  !> modal exponent (m+n) of x^m*y^n.
+  !>         | 1   | a   | b   | c
+  !>         | x^0 | x^1 | x^2 | x^3
+  !>   -----------------------------
+  !>   1 y^0 | 1   | a   | b   | c  
+  !>   a y^1 | a   | b   | c   | d  
+  !>   b y^2 | b   | c   | d   | e  
+  !>   c y^3 | c   | d   | e   | f  
+  !> This option is hidden from the user documentation.
+  integer, parameter :: Filter_Option__ModalSum = 2
+  !
+  ! =================================
+  ! Choices for Pyramid_Filter_Option
+  ! =================================
+  !
+  !> Keep the cutoff order (Pc) the same and let the cutoff fraction (etac)
+  !> vary for all pyramid levels (i=0:P). Local order, P_i=i.
+  !>   Pc = etac*real(P).
+  !>   etac_i = etac * real(P)/real(max(1,i)) = Pc / real(max(1,i)).
+  !>   Pc_i = etac_i * real(P_i).
+  !> Must use min(etac_i,1.0) to stay in valid range [0:1] for small i.
+  !> For order P=4, etac=0.5:
+  !>   i | P_i | Pc_i | etac_i
+  !>   -------------------------------
+  !>   4 | 4   | 2.0  | 2/4 = 1/2
+  !>   3 | 3   | 2.0  | 2/3 = 2/3
+  !>   2 | 2   | 2.0  | 2/2 = 1
+  !>   1 | 1   | 2.0  | 2/1 = min(1,2)
+  !>   0 | 0   | 2.0  | 2/1 = min(1,2)
+  !> The base mode is not filtered to preserve the cell average value.
+  integer, parameter :: Pyramid_Filter_Option__1 = 1
+  !
+  !> Keep the cutoff fraction (etac) the same and let the cutoff order (Pc)
+  !> vary for all pyramid levels (i=0:P). Local order, P_i=i.
+  !>   Pc = etac*real(i).
+  !>   etac_i = etac.
+  !>   Pc_i = etac_i * real(P_i).
+  !> For order P=4, etac=0.5:
+  !>   i | P_i | Pc_i | etac_i
+  !>   -----------------------
+  !>   4 | 4   | 2.0  | 0.5
+  !>   3 | 3   | 1.5  | 0.5
+  !>   2 | 2   | 1.0  | 0.5
+  !>   1 | 1   | 0.5  | 0.5
+  !>   0 | 0   | 0.0  | 0.5
+  !> This results in a stronger filter compared to Pyramid_Filter_Option=1
+  !> because it affects more modes.
+  !> The base mode is not filtered to preserve the cell average value.
+  integer, parameter :: Pyramid_Filter_Option__2 = 2
+  !
+  !> Apply the standard tensor product filter to pyramid cells.
+  !> The base mode is not filtered to preserve the cell average value.
+  integer, parameter :: Pyramid_Filter_Option__3 = 3
+  !
+  ! ============================
+  ! Choices for Limiter_Option
+  integer, parameter :: Limiter_Option__Off                 = 0
+  integer, parameter :: Limiter_Option__Filter              = 1
+  integer, parameter :: Limiter_Option__FilterScaled        = 2
+  integer, parameter :: Limiter_Option__MLP                 = 3
+  integer, parameter :: Limiter_Option__ProjectionRecursive = 9001
+  integer, parameter :: Limiter_Option__ProjectionScaled    = 9002
+  !
+  ! Choices for Marker_Option
+  integer, parameter :: Marker_Option__Off        = 0
+  integer, parameter :: Marker_Option__Resolution = 1
+  integer, parameter :: Marker_Option__Jump       = 2
+  integer, parameter :: Marker_Option__MLP        = 3
+  integer, parameter :: Marker_Option__Ducros     = 4
+  !
+  ! Choices for Marker_Variable
+  integer, parameter :: Marker_Variable__Off    =  0
+  integer, parameter :: Marker_Variable__Ducros = -2
+  integer, parameter :: Marker_Variable__npres  = -1
+  integer, parameter :: Marker_Variable__nec    =  1
+  integer, parameter :: Marker_Variable__nmx    =  2
+  integer, parameter :: Marker_Variable__nmy    =  3
+  integer, parameter :: Marker_Variable__nmz    =  4
+  integer, parameter :: Marker_Variable__nee    =  5
+  integer, parameter :: Marker_Variable__all    =  6 ! nec,nmx,nmy,nmz,nee
   !
   ! Choices for thermofix%method
   integer, parameter :: TFM_OFF   = 0  !< No check/fix.
