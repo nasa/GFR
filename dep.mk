@@ -522,10 +522,6 @@ $(OBJDIR)/order_mod.o : order_mod.f90 \
 $(OBJDIR)/ovar_mod.o : ovar_mod.f90 \
              $(OBJDIR)/kind_types_mod.o
 
-$(OBJDIR)/nml_0001_mod.o : nml_0001_mod.f90 \
-             $(OBJDIR)/kind_types_mod.o \
-             $(OBJDIR)/ovar_mod.o
-
 $(OBJDIR)/parallel_mod.o : parallel_mod.f90 \
              $(OBJDIR)/kind_types_mod.o \
              $(OBJDIR)/eqn_idx_mod.o \
@@ -934,6 +930,10 @@ $(OBJDIR)/bc_sup_out_mod.o : $(BCDIR)/bc_sup_out_mod.f90 \
 # Source files in Nml_Modules
 $(OBJDIR)/nml_base_mod.o : $(NMLDIR)/nml_base_mod.f90 \
                  $(OBJDIR)/kind_types_mod.o
+
+$(OBJDIR)/nml_0001_mod.o : $(NMLDIR)/nml_0001_mod.f90 \
+                 $(OBJDIR)/kind_types_mod.o \
+                 $(OBJDIR)/ovar_mod.o
 
 # Source files in SolInterp_Modules
 $(OBJDIR)/interpsol_mod.o : $(INTDIR)/interpsol_mod.f90 \
