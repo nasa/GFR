@@ -3024,8 +3024,8 @@ continue
       sem_box(sem_idx)%length_scale = lturb
       sem_box(sem_idx)%convective_velocity = uconv
       !
-      sem_box(sem_idx)%aoa_alpha = bc_input( bc_input_idx )%alpha_aoa
-      sem_box(sem_idx)%aoa_beta  = bc_input( bc_input_idx )%beta_aoa
+      sem_box(sem_idx)%aoa_alpha = bc_input( bc_input_idx )%aoa_alpha
+      sem_box(sem_idx)%aoa_beta  = bc_input( bc_input_idx )%aoa_beta
       !
       if (mypnum == glb_root) then
         n = merge(1,0,bc_in(bc_idx)%sem%is_cylindrical)

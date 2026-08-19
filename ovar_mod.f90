@@ -155,8 +155,8 @@ module ovar
     real(wp) :: t_total    = -one
     real(wp) :: p_total    = -one
     real(wp) :: rho_total  = -one
-    real(wp) :: alpha_aoa  = zero
-    real(wp) :: beta_aoa   = zero
+    real(wp) :: aoa_alpha  = zero
+    real(wp) :: aoa_beta   = zero
     real(wp) :: wall_temp  = -one
     !
     ! NOTE: WE NEED TO MAKE SURE WE ADD LOGIC THAT SETS ROTATION_RATE(1)
@@ -1138,8 +1138,8 @@ continue
   if (abs(this%t_total    - dflt%t_total   ) > eps6) return
   if (abs(this%p_total    - dflt%p_total   ) > eps6) return
   if (abs(this%rho_total  - dflt%rho_total ) > eps6) return
-  if (abs(this%alpha_aoa  - dflt%alpha_aoa ) > eps6) return
-  if (abs(this%beta_aoa   - dflt%beta_aoa  ) > eps6) return
+  if (abs(this%aoa_alpha  - dflt%aoa_alpha ) > eps6) return
+  if (abs(this%aoa_beta   - dflt%aoa_beta  ) > eps6) return
   if (abs(this%wall_temp  - dflt%wall_temp ) > eps6) return
   !
   do n = 1,size(this%rotation_rate)
@@ -1274,8 +1274,8 @@ continue
   if (abs(a%t_total    - b%t_total   ) > eps6) return
   if (abs(a%p_total    - b%p_total   ) > eps6) return
   if (abs(a%rho_total  - b%rho_total ) > eps6) return
-  if (abs(a%alpha_aoa  - b%alpha_aoa ) > eps6) return
-  if (abs(a%beta_aoa   - b%beta_aoa  ) > eps6) return
+  if (abs(a%aoa_alpha  - b%aoa_alpha ) > eps6) return
+  if (abs(a%aoa_beta   - b%aoa_beta  ) > eps6) return
   if (abs(a%wall_temp  - b%wall_temp ) > eps6) return
   !
   do n = 1,size(a%rotation_rate)
@@ -2021,8 +2021,8 @@ end subroutine get_mrf_rotation
 !!    dtv%t_total, &
 !!    dtv%p_total, &
 !!    dtv%rho_total, &
-!!    dtv%alpha_aoa, &
-!!    dtv%beta_aoa, &
+!!    dtv%aoa_alpha, &
+!!    dtv%aoa_beta, &
 !!    dtv%wall_temp, &
 !!    (dtv%rotation_rate(m),m=1,3), &
 !!    dtv%relax%value, &
@@ -2048,8 +2048,8 @@ end subroutine get_mrf_rotation
 !!            "t_total     = ",es14.6,/, &
 !!            "p_total     = ",es14.6,/, &
 !!            "rho_total     = ",es14.6,/, &
-!!            "alpha_aoa     = ",es14.6,/, &
-!!            "beta_aoa     = ",es14.6,/, &
+!!            "aoa_alpha     = ",es14.6,/, &
+!!            "aoa_beta     = ",es14.6,/, &
 !!            "wall_temp     = ",es14.6,/, &
 !!            "rotation_rate = [",es14.6,2(",",es14.6),"]",/, &
 !!            "relax%value     = ",es14.6,/, &
@@ -2091,8 +2091,8 @@ end subroutine get_mrf_rotation
 !!    dtv%t_total, &
 !!    dtv%p_total, &
 !!    dtv%rho_total, &
-!!    dtv%alpha_aoa, &
-!!    dtv%beta_aoa, &
+!!    dtv%aoa_alpha, &
+!!    dtv%aoa_beta, &
 !!    dtv%wall_temp, &
 !!    (dtv%rotation_rate(m),m=1,3), &
 !!    dtv%relax%value, &

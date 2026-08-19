@@ -3435,8 +3435,8 @@ continue
         t0 = bc_input(n)%t_total
         !
         mach  = bc_input(n)%mach
-        alpha = bc_input(n)%alpha_aoa
-        beta  = bc_input(n)%beta_aoa
+        alpha = bc_input(n)%aoa_alpha
+        beta  = bc_input(n)%aoa_beta
         !
         if (ncs > 0) then
           call compute_mixture_rgas(mass_frac,rgas,dimensional=true)
@@ -4652,11 +4652,11 @@ continue
   !
   ! Check alpha angle of attack
   !
-  if (bc%alpha_aoa /= zero) then
-    if (abs(bc%alpha_aoa - alpha) > err_tol) then
+  if (bc%aoa_alpha /= zero) then
+    if (abs(bc%aoa_alpha - alpha) > err_tol) then
       if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
-        write (iout,8) bc%alpha_aoa,alpha
+        write (iout,8) bc%aoa_alpha,alpha
       end if
       errors_found = true
     end if
@@ -4664,11 +4664,11 @@ continue
   !
   ! Check beta angle of attack
   !
-  if (bc%beta_aoa /= zero) then
-    if (abs(bc%beta_aoa - beta) > err_tol) then
+  if (bc%aoa_beta /= zero) then
+    if (abs(bc%aoa_beta - beta) > err_tol) then
       if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
-        write (iout,9) bc%beta_aoa,beta
+        write (iout,9) bc%aoa_beta,beta
       end if
       errors_found = true
     end if
