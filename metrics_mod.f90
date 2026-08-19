@@ -1877,7 +1877,7 @@ subroutine compute_face_normals_3d(fnrm,fxyz)
   use geomvar_mod,       only : nfbnd,ncell,cell,fp,face
   use geomvar_mod,       only : xyz,xyz_nodes
   use geomvar_mod,       only : nodes_of_cell,nodes_of_cell_ptr
-  use ovar,              only : alpha_aoaref,beta_aoaref
+  use ovar,              only : aoa_alpharef,aoa_betaref
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   !
@@ -2189,10 +2189,10 @@ continue
           z = xyz_face(kf,3)
          !r = sqrt(y*y + z*z)
          !theta = atan2(z,y)
-          if (abs(beta_aoaref-nine*ten) < eps6) then
+          if (abs(aoa_betaref-nine*ten) < eps6) then
             v2 = x
             v3 = y
-          else if (abs(alpha_aoaref-nine*ten) < eps6) then
+          else if (abs(aoa_alpharef-nine*ten) < eps6) then
             v2 = z
             v3 = x
           else

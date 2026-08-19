@@ -39,7 +39,7 @@ subroutine initialize_shu_osher_problem()
   !.. Use Statements ..
   use ovar,       only : bc_input_t,bc_input
   use ovar,       only : rgasref,gam
-  use ovar,       only : alpha_aoaref,beta_aoaref
+  use ovar,       only : aoa_alpharef,aoa_betaref
   use ovar,       only : rhoref,pref,tref,uref,aref,machref,reyref
   use thermo_mod, only : rgas_cpg
   !
@@ -59,8 +59,8 @@ continue
   if (gam <= zero) gam = 1.4_wp
   if (rgasref <= zero) rgasref = rgas_cpg
   !
-  alpha_aoaref = zero
-  beta_aoaref  = zero
+  aoa_alpharef = zero
+  aoa_betaref  = zero
   rhoref       = default_rho
   pref         = default_pres
   tref         = pref / (rhoref*rgasref)

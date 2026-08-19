@@ -57,7 +57,7 @@ module nml_0001_mod
   use ovar,      only : schmidt_lam, schmidt_turb
   use ovar,      only : rhoref, tref, pref, rgasref
   use ovar,      only : turbulence_model, tinref, tvrref
-  use ovar,      only : alpha_aoaref, beta_aoaref
+  use ovar,      only : aoa_alpharef, aoa_betaref
   use ovar,      only : profile_io_all,profile_io_restart
   use ovar,      only : profile_io_cgns,profile_io_cgns_subs
   use ovar,      only : suth_muref, suth_Tref, suth_Sref
@@ -333,7 +333,7 @@ module nml_0001_mod
   ! REFERENCE TURBULENCE CONDITIONS
   namelist / input / tinref, tvrref
   ! REFERENCE ANGLES OF ATTACK
-  namelist / input / alpha_aoaref, beta_aoaref
+  namelist / input / aoa_alpharef, aoa_betaref
   ! LAMINAR AND TURBULENT PRANDTL NUMBERS
   namelist / input / Pr, Prt
   ! LAMINAR AND TURBULENT SCHMIDT NUMBERS

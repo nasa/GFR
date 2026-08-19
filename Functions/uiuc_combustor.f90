@@ -9,7 +9,7 @@ function uiuc_scramjet_combustor_init(xyz,bc,ref) result(return_value)
   use eqn_idx_mod, only : NCD_Vert,NCD_Span
   use eqn_idx_mod, only : NM_Axial,NM_Vert,NM_Span
   use ovar,        only : bc_in_t
-  use ovar,        only : alpha_aoaref,beta_aoaref
+  use ovar,        only : aoa_alpharef,aoa_betaref
   !
   use thermo_mod,  only : compute_mixture_enthalpy
   use thermo_mod,  only : compute_total_temperature

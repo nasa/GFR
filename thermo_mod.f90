@@ -158,7 +158,7 @@ subroutine init_thermo_mod(cv,pv,gp)
   use ovar, only : itestcase
   use ovar, only : rgasref,gam,rhoref,pref,tref,cpref
   use ovar, only : aref,uref,machref,velref,velref_nd
-  use ovar, only : alpha_aoaref,beta_aoaref
+  use ovar, only : aoa_alpharef,aoa_betaref
   use ovar, only : pref_nd,rgasref_nd,cpref_nd
   use ovar, only : bc_input,disable_chemical_reactions
   !
@@ -536,11 +536,11 @@ continue
   aref = sqrt( max( gam*rgasref*tref , rndoff ) )
   !
   uref = machref * aref
-  velref(1) = uref * cos(beta_aoaref  * degrees2radians) * &
-                     cos(alpha_aoaref * degrees2radians)
-  velref(2) = uref * cos(beta_aoaref  * degrees2radians) * &
-                     sin(alpha_aoaref * degrees2radians)
-  velref(3) = uref * sin(beta_aoaref  * degrees2radians)
+  velref(1) = uref * cos(aoa_betaref  * degrees2radians) * &
+                     cos(aoa_alpharef * degrees2radians)
+  velref(2) = uref * cos(aoa_betaref  * degrees2radians) * &
+                     sin(aoa_alpharef * degrees2radians)
+  velref(3) = uref * sin(aoa_betaref  * degrees2radians)
   !
   ! Get the nondimensional reference conditions
   !

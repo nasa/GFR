@@ -534,8 +534,8 @@ module ovar
   real(wp), public, save :: tvrref = 1.0e-6_wp
   !
   ! REFERENCE ANGLES OF ATTACK
-  real(wp), public, save :: alpha_aoaref = 0.0_wp
-  real(wp), public, save :: beta_aoaref  = 0.0_wp
+  real(wp), public, save :: aoa_alpharef = 0.0_wp
+  real(wp), public, save :: aoa_betaref  = 0.0_wp
   !
   ! LAMINAR AND TURBULENT PRANDTL NUMBERS
   real(wp), public, save :: Pr  = 0.72_wp

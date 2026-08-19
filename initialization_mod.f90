@@ -431,7 +431,7 @@ subroutine old_output_freestream_conditions
   use ovar,   only : rhoref,aref
   use ovar,   only : pref,tref,gam,rgasref,cpref
   use ovar,   only : machref,velref,uref,muref,reyref
-  use ovar,   only : alpha_aoaref,beta_aoaref
+  use ovar,   only : aoa_alpharef,aoa_betaref
   use ovar,   only : pref_nd,velref_nd,muref_nd
   use ovar,   only : rgasref_nd,cpref_nd
   !
@@ -443,7 +443,7 @@ continue
       write (iout,10) rhoref,pref,tref,machref,aref,velref(1)
       if (nr >= 2) write (iout,11) velref(2)
       if (nr == 3) write (iout,12) velref(3)
-      write (iout,13) alpha_aoaref,beta_aoaref,gam,rgasref,cpref,muref,reyref
+      write (iout,13) aoa_alpharef,aoa_betaref,gam,rgasref,cpref,muref,reyref
       !
       write (iout,20) rhoref/rhoref,pref_nd,tref/tref,aref/aref,velref_nd(1)
       if (nr >= 2) write (iout,21) velref_nd(2)
@@ -453,7 +453,7 @@ continue
     else
       !
       write (iout,30) rhoref,pref,tref,machref,uref/machref, &
-                      velref(1),velref(2),alpha_aoaref,beta_aoaref,gam, &
+                      velref(1),velref(2),aoa_alpharef,aoa_betaref,gam, &
                       rgasref,muref,reyref
       !
     end if
@@ -2622,7 +2622,7 @@ subroutine initialize_reference
   use ovar, only : rgasref_nd,cpref_nd
   use ovar, only : cv_ref,pv_ref,gp_ref
   use ovar, only : suth_Sref,suth_Tref
-  use ovar, only : alpha_aoaref,beta_aoaref
+  use ovar, only : aoa_alpharef,aoa_betaref
   use ovar, only : itestcase,Lref
   use ovar, only : ideal_total_temperature
   use ovar, only : limit_total_temperature
@@ -2694,7 +2694,7 @@ continue
     ! versions of the isentropic Euler vortex problem
     ! NOTE: This also sets the values of the following variables in ovar:
     !             rgasref, gam, rhoref, pref, tref, cpref, aref,
-    !             uref, machref, velref, alpha_aoaref, beta_aoaref,
+    !             uref, machref, velref, aoa_alpharef, aoa_betaref,
     !             velref_nd, pref_nd, rgasref_nd, and cpref_nd
     !
     call initialize_vortex_problem(cv_ref,pv_ref,gp_ref)
@@ -2714,8 +2714,8 @@ continue
       !
       ! Set up the base reference conditions for the Taylor-Green Vortex problem
       !
-      alpha_aoaref = zero
-      beta_aoaref = zero
+      aoa_alpharef = zero
+      aoa_betaref = zero
       !
       tref = 300.0_wp ! (K)
       pref = 101325.0_wp ! (Pa)
@@ -2770,7 +2770,7 @@ continue
     !
   end if
   !
-  ! Now that alpha_aoaref and beta_aoaref should be set, assign values to the
+  ! Now that aoa_alpharef and aoa_betaref should be set, assign values to the
   ! indices used to specify the axial, vertical, and spanwise coordinate
   ! directions and momentum equations.
   !
@@ -2852,7 +2852,7 @@ subroutine initialize_vortex_problem(cv,pv,gp)
   use ovar, only : pref,pref_nd,machref
   use ovar, only : rgasref,rgasref_nd
   use ovar, only : cpref,cpref_nd
-  use ovar, only : alpha_aoaref,beta_aoaref
+  use ovar, only : aoa_alpharef,aoa_betaref
   use ovar, only : itestcase
   use ovar, only : tmin,tmax
   !
@@ -2876,14 +2876,14 @@ continue
   !
   ! Set some reference conditions common to all of these vortex problems
   !
-  beta_aoaref = zero
+  aoa_betaref = zero
   velref(:) = zero
   !
   if (any(itestcase == [-Shu_Vortex,-Shu_MultiVortex])) then
     !
     ! Stationary vortex problem
     !
-    alpha_aoaref = 90.0_wp
+    aoa_alpharef = 90.0_wp
     itestcase = abs(itestcase)
     !
   else if (itestcase == -Vortex_Transport) then
@@ -2891,7 +2891,7 @@ continue
     ! Alteration to make the Shu case propagate in the
     ! y-direction only instead of in both x and y directions
     !
-    alpha_aoaref = 90.0_wp
+    aoa_alpharef = 90.0_wp
     velref(2) = one
     itestcase = Shu_Vortex
     !
@@ -2899,7 +2899,7 @@ continue
     !
     ! Original Shu vortex problem with diagonal propagation
     !
-    alpha_aoaref = 45.0_wp
+    aoa_alpharef = 45.0_wp
     velref(1) = one
     velref(2) = one
     !
@@ -4347,7 +4347,7 @@ subroutine write_linear_advec_ref_conditions
   !
   !.. Use Statements ..
   use ovar, only : bc_in
-  use ovar, only : gam,rgasref,alpha_aoaref
+  use ovar, only : gam,rgasref,aoa_alpharef
   !
   !.. Local Scalars ..
   real(wp) :: r,p,t,mach,aspd,alpha
@@ -4370,7 +4370,7 @@ continue
   aspd = sqrt(gam*p/r)
   mach = norm2(vel)/aspd
   !
-  alpha = alpha_aoaref
+  alpha = aoa_alpharef
   !
   if (mypnum == glb_root) then
     !
