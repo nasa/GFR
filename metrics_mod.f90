@@ -2551,8 +2551,7 @@ end subroutine compute_face_normals_2d
 subroutine compute_face_normals_1d(fnrm)
   !
   !.. Use Statements ..
-  use geomvar_mod, only : ncell,cell,face
-  use geomvar_mod, only : bface,nfbnd
+  use geomvar_mod, only : ncell,nfbnd,cell,face
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: fnrm(:,:)
