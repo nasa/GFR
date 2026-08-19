@@ -328,6 +328,7 @@ $(OBJDIR)/initialization_mod.o : initialization_mod.f90 \
                $(OBJDIR)/periodic_mod.o \
                $(OBJDIR)/gpu_mod.o \
                $(OBJDIR)/shu_osher_mod.o \
+               $(OBJDIR)/sod_shock_tube_mod.o \
                $(OBJDIR)/taylor_couette_mod.o \
                $(FUNDIR)/taylor_green.f90 \
                $(FUNDIR)/smc000_interior_wall_radius.f90 \
@@ -344,7 +345,8 @@ $(OBJDIR)/internal_grid_mod.o : internal_grid_mod.f90 \
                       $(OBJDIR)/geomvar_mod.o \
                       $(OBJDIR)/ovar_mod.o \
                       $(OBJDIR)/cgns_mod.o \
-                      $(OBJDIR)/poly_mod.o
+                      $(OBJDIR)/poly_mod.o \
+                      $(OBJDIR)/sod_shock_tube_mod.o
 $(OBJDIR)/internal_grid_mod.o : OTHERFLAGS += $(CGNSMOD)
 
 $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
@@ -837,6 +839,7 @@ $(OBJDIR)/write_cgns_mod.o : write_cgns_mod.f90 \
                    $(OBJDIR)/projection_mod.o \
                    $(OBJDIR)/limiters_mod.o \
                    $(OBJDIR)/mlp_mod.o \
+                   $(OBJDIR)/sod_shock_tube_mod.o \
                    $(OBJDIR)/thermofix_mod.o \
                    $(OBJDIR)/thermo_mod.o \
                    $(OBJDIR)/transport_mod.o \
@@ -999,6 +1002,14 @@ $(OBJDIR)/octtree_mod.o : $(INTDIR)/octtree_mod.f90 \
                 $(OBJDIR)/octroot_mod.o \
                 $(OBJDIR)/octstat_mod.o \
                 $(FUNDIR)/debug_timer.f90
+
+# Source files in Testcase_Modules
+$(OBJDIR)/sod_shock_tube_mod.o : $(TSTDIR)/sod_shock_tube_mod.f90 \
+                       $(OBJDIR)/kind_types_mod.o \
+                       $(OBJDIR)/geomvar_mod.o \
+                       $(OBJDIR)/eqn_idx_mod.o \
+                       $(OBJDIR)/ovar_mod.o \
+                       $(OBJDIR)/thermo_mod.o
 
 ####################################################################
 # ADD ANY OBJECT FILES TO THE VARIABLE CUSTOM_DEBUG_FILES THAT YOU #
