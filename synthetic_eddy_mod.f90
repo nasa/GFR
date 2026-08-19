@@ -275,10 +275,10 @@ module synthetic_eddy_mod
     real(wp) :: boxmax(1:5)
     ! BOX_VOLUME : volume of this SEM box
     real(wp) :: box_volume
-    ! ALPHA_AOA : alpha angle of attack for the SEM inflow boundary
-    real(wp) :: alpha_aoa = zero
-    ! BETA_AOA : beta angle of attack for the SEM inflow boundary
-    real(wp) :: beta_aoa = zero
+    ! AOA_ALPHA : alpha angle of attack for the SEM inflow boundary
+    real(wp) :: aoa_alpha = zero
+    ! AOA_BETA : beta angle of attack for the SEM inflow boundary
+    real(wp) :: aoa_beta = zero
     ! IS_CYLINDRICAL : logical flag indicating if the box extents are
     !                  best defined in cylindrical coordinates
     logical(lk) :: is_cylindrical = fals
@@ -1799,8 +1799,8 @@ continue
     time_scale = sem_box(sem_idx)%length_scale / &
                  sem_box(sem_idx)%convective_velocity
     !
-    aoa = sem_box(sem_idx)%alpha_aoa * degrees2radians
-    boa = sem_box(sem_idx)%beta_aoa  * degrees2radians
+    aoa = sem_box(sem_idx)%aoa_alpha * degrees2radians
+    boa = sem_box(sem_idx)%aoa_beta  * degrees2radians
     !
     ! Pre-compute the parts of the normalization constant and
     ! shape/tent function that can be factored out of the summation
@@ -3024,8 +3024,8 @@ continue
       sem_box(sem_idx)%length_scale = lturb
       sem_box(sem_idx)%convective_velocity = uconv
       !
-      sem_box(sem_idx)%alpha_aoa = bc_input( bc_input_idx )%alpha_aoa
-      sem_box(sem_idx)%beta_aoa  = bc_input( bc_input_idx )%beta_aoa
+      sem_box(sem_idx)%aoa_alpha = bc_input( bc_input_idx )%alpha_aoa
+      sem_box(sem_idx)%aoa_beta  = bc_input( bc_input_idx )%beta_aoa
       !
       if (mypnum == glb_root) then
         n = merge(1,0,bc_in(bc_idx)%sem%is_cylindrical)
@@ -4805,8 +4805,8 @@ continue
       aoa = atan2(uny,unx)
       boa = atan2(unz,sqrt(unx*unx+uny*uny))
       !
-      sem_box(sem_idx)%alpha_aoa = aoa
-      sem_box(sem_idx)%beta_aoa  = boa
+      sem_box(sem_idx)%aoa_alpha = aoa
+      sem_box(sem_idx)%aoa_beta  = boa
       !
     end if
     !
