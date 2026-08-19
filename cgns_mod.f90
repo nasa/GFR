@@ -2150,11 +2150,12 @@ continue
     end if
     !
   end if
-  5001 format ("The CGNS grid file for appears to be invalid for the ", &
+  5001 format ("The CGNS grid file appears to be invalid for the ", &
                "THX Phase 3 test case because it is not symmetrical in Z!")
-  5002 format ("The CGNS grid file appears to be invalid for the THX Phase ", &
-               "3 test case because the max Y coordinate value is less than ", &
-               "0.3556 meters and it should be around 0.3716651 meters")
+  5002 format ("The CGNS grid file appears to be invalid for the ", &
+               "THX Phase 3 test case because the max Y coordinate value ", &
+               "is less than 0.3556 meters and it should be around ", &
+               "0.3716651 meters.")
   !
   ! Get the size needed for the grid%elem array
   !
