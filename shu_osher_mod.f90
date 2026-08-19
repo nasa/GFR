@@ -71,11 +71,9 @@ continue
   machref      = uref / aref
   reyref       = -one
   !
-  ! Return if bc_input is not allocated
+  ! If bc_input is not allocated, then no bc_input to update.
   !
-  if (.not. allocated(bc_input)) then
-    return
-  end if
+  if ( .not. allocated(bc_input) ) return
   !
   ! Find the index in bc_input for the supersonic inflow.
   ! If missing, find the first empty name.
@@ -83,7 +81,7 @@ continue
   bc_idx = 0
   find_sup_inflow_bc: &
   do n = 1,size(bc_input)
-    if (trim(adjustl(uppercase(bc_input(n)%name))) == "INFLOW") then
+    if (trim(adjustl(uppercase(bc_input(n)%name))) == "SUP_INFLOW") then
       bc_idx = n
       exit find_sup_inflow_bc
     else if (trim(adjustl(uppercase(bc_input(n)%name))) == "" .and. &
@@ -141,18 +139,19 @@ end subroutine initialize_shu_osher_problem
 pure function shu_osher_init(xyz) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : aref,uref,Lref
-  use ovar, only : gam,rhoref,tref,pref
-  use ovar, only : rgasref
+  use geomvar_mod, only : nr
+  use eqn_idx_mod, only : nec,nmx,nmy,nmz,nee,nq,nmb,nme
+  use ovar,        only : gam,rhoref,tref,aref,pref
+  use ovar,        only : rgasref
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: xyz
   !
   !.. Function Return Value ..
-  real(wp), dimension(1:2+size(xyz)) :: return_value
+  !> Conserved solution variables at the solution point.
+  real(wp), dimension(1:nq) :: return_value
   !
   !.. Local Scalars ..
-  integer  :: nc,mb,me,ne,nx
   real(wp) :: gm1,rhoa,rhoa2
   real(wp) :: rho,pres
   !
@@ -161,12 +160,9 @@ pure function shu_osher_init(xyz) result(return_value)
   !
 continue
   !
-  nc = 1
-  mb = nc + 1
-  me = nc + size(xyz)
-  ne = me + 1
-  !
-  ! Some needed constants
+  ! ---------
+  ! Constants
+  ! ---------
   !
   gm1 = gam - one
   rhoa = rhoref * aref
@@ -189,7 +185,6 @@ continue
   ! -------------------------------------------
   !
   if ( xyz(1) >= -4.0_wp ) then
- !if ( xyz(1) >= -3.0_wp ) then
     rho    = one + 0.2_wp * sin( five * xyz(1) )  ! [kg/m3]
     vel(1) = zero  ! [m/s]
     vel(2) = zero  ! [m/s]
@@ -197,17 +192,17 @@ continue
     pres   = one   ! [Pa]
   end if
   !
-  ! Evaluate the dimensional initial conditions using conserved variables
+  ! Evaluate the dimensional conserved variables
   !
-  return_value(nc)    = rho
-  return_value(mb:me) = rho*vel(1:size(xyz))
-  return_value(ne)    = pres/gm1 + half*rho*selfdot(vel)
+  return_value(nec)     = rho
+  return_value(nmb:nme) = rho*vel(1:nr)
+  return_value(nee)     = pres/gm1 + half*rho*selfdot(vel(1:nr))
   !
-  ! Non-dimensionalize the initial conditions
+  ! Non-dimensionalize the conserved variables
   !
-  return_value(nc)    = return_value(nc)    / rhoref
-  return_value(mb:me) = return_value(mb:me) / rhoa
-  return_value(ne)    = return_value(ne)    / rhoa2
+  return_value(nec)     = return_value(nec)     / rhoref
+  return_value(nmb:nme) = return_value(nmb:nme) / rhoa
+  return_value(nee)     = return_value(nee)     / rhoa2
   !
 end function shu_osher_init
 !
