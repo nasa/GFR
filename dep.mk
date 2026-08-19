@@ -376,6 +376,7 @@ $(OBJDIR)/io_mod.o : io_mod.f90 \
        $(OBJDIR)/order_mod.o \
        $(OBJDIR)/geomvar_mod.o \
        $(OBJDIR)/ovar_mod.o \
+       $(OBJDIR)/nml_0001_mod.o \
        $(OBJDIR)/flowvar_mod.o \
        $(OBJDIR)/gmsh_mod.o \
        $(OBJDIR)/plot3d_mod.o \
@@ -514,6 +515,10 @@ $(OBJDIR)/order_mod.o : order_mod.f90 \
 
 $(OBJDIR)/ovar_mod.o : ovar_mod.f90 \
              $(OBJDIR)/kind_types_mod.o
+
+$(OBJDIR)/nml_0001_mod.o : nml_0001_mod.f90 \
+             $(OBJDIR)/kind_types_mod.o \
+             $(OBJDIR)/ovar_mod.o
 
 $(OBJDIR)/parallel_mod.o : parallel_mod.f90 \
              $(OBJDIR)/kind_types_mod.o \

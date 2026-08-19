@@ -45,7 +45,7 @@ contains
 subroutine read_input_file(input_mode)
   !
   !.. Use Statements ..
-  use input_namelist_mod, only : read_nml_file, write_nml_file
+  use nml_0001_mod, only : read_nml_file, write_nml_file
   !
   !.. Formal Arguments ..
   integer, intent(in) :: input_mode
@@ -251,7 +251,7 @@ subroutine check_nml_input_data(input_mode)
   !
   use geomvar_mod, only : nr,using_quadrature,xyz_nodes
   !
-  use input_namelist_mod, only : write_nml_data
+  use nml_0001_mod, only : write_nml_data
   !
   ! Input variables
   use ovar,   only : grid_format, gridfile, plot3d_all_strides
