@@ -116,7 +116,7 @@ subroutine allocate_mlp
   ! Initialize values
   !
   ! Set the marker variable.
-  nmk = MLP_Marker_Variable
+  nmk = MLP_Marker_Variable + ncs ! offset by number of species equations
   !
   ! Indicate initialization has been done.
   mlp_is_allocated = true
