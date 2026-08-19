@@ -505,7 +505,8 @@ end subroutine check_total_temperature
 !
 !###############################################################################
 !
-subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name)
+subroutine stabilize_usp(nst,Apply_Filter,Apply_Sponge,Apply_Limiter, &
+                         caller_name)
   !
   !.. Use Statements ..
   use geomvar_mod,     only : n_solpts
@@ -531,10 +532,11 @@ subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name)
   use transport_mod,   only : update_transport_properties
   !
   !.. Formal Arguments ..
-  integer,          intent(in) :: nst
-  logical(lk),      intent(in) :: Apply_Filter
-  logical(lk),      intent(in) :: Apply_Limiter
-  character(len=*), intent(in) :: caller_name
+  integer,          intent(in) :: nst           !< Current Runge-Kutta stage.
+  logical(lk),      intent(in) :: Apply_Filter  !< Apply filter  this stage.
+  logical(lk),      intent(in) :: Apply_Sponge  !< Apply sponge  this stage.
+  logical(lk),      intent(in) :: Apply_Limiter !< Apply limiter this stage.
+  character(len=*), intent(in) :: caller_name   !< Name of calling routine.
   !
   !. Local Saved Scalars ..
   integer, save :: idx = -1
@@ -560,9 +562,15 @@ continue
   !
   ! Apply the sponge filter to cells in sponge regions
   !
-  if (use_sponge_filter) then
-    call apply_sponge_filter(usp)
-    call check_for_bad_number(__LINE__,__FILE__)
+  if (use_sponge_filter) then ! The sponge filter is active.
+    if (Apply_Sponge) then  ! Apply sponge filter during this stage.
+#ifdef PROFILE_ON
+      if (mypnum == glb_root) write (iout,1) nst
+      1 format (8x,"Applying Sponge Filter : RK Stage = ",i0)
+#endif
+      call apply_sponge_filter(usp)
+      call check_for_bad_number(__LINE__,__FILE__)
+    end if
   end if
   !
   ! Apply realizable total temperature limiter
@@ -625,8 +633,8 @@ continue
   if (Filter_Option > 0 .and. Filter_Alpha > one) then
     if (Apply_Filter) then
 #ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,1) nst
-      1 format (8x,"Applying Standard Filter : RK Stage = ",i0)
+      if (mypnum == glb_root) write (iout,3) nst
+      3 format (8x,"Applying Standard Filter : RK Stage = ",i0)
 #endif
       call filter_usp
       call check_for_bad_number(__LINE__,__FILE__)

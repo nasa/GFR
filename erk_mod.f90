@@ -24,7 +24,7 @@ contains
 !
 !###############################################################################
 !
-subroutine update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
+subroutine update_CK_RK4(nst,Apply_Filter,Apply_Sponge,Apply_Limiter)
   !
   !.. Use Statements ..
   use geomvar_mod, only : n_solpts
@@ -34,6 +34,7 @@ subroutine update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
   logical(lk), intent(in) :: Apply_Filter
+  logical(lk), intent(in) :: Apply_Sponge
   logical(lk), intent(in) :: Apply_Limiter
   !
   !. Local Saved Scalars ..
@@ -63,7 +64,8 @@ continue
   ! Apply filtering or limiting to stabilize the solution, and then update
   ! the thermodynamic and transport properties at the solution points
   !
-  call stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name=pname)
+  call stabilize_usp(nst,Apply_Filter,Apply_Sponge,Apply_Limiter, &
+                     caller_name=pname)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -497,7 +499,7 @@ end subroutine update_CK_RK4_S5
 !
 !###############################################################################
 !
-subroutine update_TVD_RK2(nst,Apply_Filter,Apply_Limiter)
+subroutine update_TVD_RK2(nst,Apply_Filter,Apply_Sponge,Apply_Limiter)
   !
   !.. Use Statements ..
   use geomvar_mod, only : n_solpts
@@ -507,6 +509,7 @@ subroutine update_TVD_RK2(nst,Apply_Filter,Apply_Limiter)
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
   logical(lk), intent(in) :: Apply_Filter
+  logical(lk), intent(in) :: Apply_Sponge
   logical(lk), intent(in) :: Apply_Limiter
   !
   !. Local Saved Scalars ..
@@ -530,7 +533,8 @@ continue
   ! Apply filtering or limiting to stabilize the solution, and then update
   ! the thermodynamic and transport properties at the solution points
   !
-  call stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name=pname)
+  call stabilize_usp(nst,Apply_Filter,Apply_Sponge,Apply_Limiter, &
+                     caller_name=pname)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -639,7 +643,7 @@ end subroutine update_TVD_RK2_S2
 !
 !###############################################################################
 !
-subroutine update_TVD_RK3(nst,Apply_Filter,Apply_Limiter,iter)
+subroutine update_TVD_RK3(nst,Apply_Filter,Apply_Sponge,Apply_Limiter,iter)
   !
   !.. Use Statements ..
   use geomvar_mod, only : n_solpts
@@ -649,6 +653,7 @@ subroutine update_TVD_RK3(nst,Apply_Filter,Apply_Limiter,iter)
   !.. Formal Arguments ..
   integer,     intent(in) :: nst,iter
   logical(lk), intent(in) :: Apply_Filter
+  logical(lk), intent(in) :: Apply_Sponge
   logical(lk), intent(in) :: Apply_Limiter
   !
   !.. Local Scalars ..
@@ -677,7 +682,8 @@ continue
   ! Apply filtering or limiting to stabilize the solution, and then update
   ! the thermodynamic and transport properties at the solution points
   !
-  call stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name=pname)
+  call stabilize_usp(nst,Apply_Filter,Apply_Sponge,Apply_Limiter, &
+                     caller_name=pname)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -839,7 +845,7 @@ end subroutine update_TVD_RK3_S3
 !
 !###############################################################################
 !
-subroutine update_TVD_RK4(nst,Apply_Filter,Apply_Limiter)
+subroutine update_TVD_RK4(nst,Apply_Filter,Apply_Sponge,Apply_Limiter)
   !
   !.. Use Statements ..
   use geomvar_mod, only : n_solpts
@@ -849,6 +855,7 @@ subroutine update_TVD_RK4(nst,Apply_Filter,Apply_Limiter)
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
   logical(lk), intent(in) :: Apply_Filter
+  logical(lk), intent(in) :: Apply_Sponge
   logical(lk), intent(in) :: Apply_Limiter
   !
   !. Local Saved Scalars ..
@@ -878,7 +885,8 @@ continue
   ! Apply filtering or limiting to stabilize the solution, and then update
   ! the thermodynamic and transport properties at the solution points
   !
-  call stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name=pname)
+  call stabilize_usp(nst,Apply_Filter,Apply_Sponge,Apply_Limiter, &
+                     caller_name=pname)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1222,7 +1230,7 @@ end subroutine update_TVD_RK4_S5
 !
 !###############################################################################
 !
-subroutine update_Classic_RK(nst,Apply_Filter,Apply_Limiter)
+subroutine update_Classic_RK(nst,Apply_Filter,Apply_Sponge,Apply_Limiter)
   !
   ! First, store d(utd)/dt for runge kutta time
   ! stepping then update usp
@@ -1236,6 +1244,7 @@ subroutine update_Classic_RK(nst,Apply_Filter,Apply_Limiter)
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
   logical(lk), intent(in) :: Apply_Filter
+  logical(lk), intent(in) :: Apply_Sponge
   logical(lk), intent(in) :: Apply_Limiter
   !
   !.. Local Scalars ..
@@ -1316,7 +1325,8 @@ continue
   ! Apply filtering or limiting to stabilize the solution, and then update
   ! the thermodynamic and transport properties at the solution points
   !
-  call stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name=pname)
+  call stabilize_usp(nst,Apply_Filter,Apply_Sponge,Apply_Limiter, &
+                     caller_name=pname)
   !
   call debug_timer(leaving_procedure,pname)
   !

@@ -1037,7 +1037,7 @@ end subroutine init_optimized_erk_coefficients
 !
 !###############################################################################
 !
-subroutine update_OERK(nst,Apply_Filter,Apply_Limiter)
+subroutine update_OERK(nst,Apply_Filter,Apply_Sponge,Apply_Limiter)
   !
   !.. Use Statements ..
   use geomvar_mod, only : n_solpts
@@ -1048,6 +1048,7 @@ subroutine update_OERK(nst,Apply_Filter,Apply_Limiter)
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
   logical(lk), intent(in) :: Apply_Filter
+  logical(lk), intent(in) :: Apply_Sponge
   logical(lk), intent(in) :: Apply_Limiter
   !
   !.. Local Scalars ..
@@ -1162,7 +1163,8 @@ continue
   ! Apply filtering or limiting to stabilize the solution, and then update
   ! the thermodynamic and transport properties at the solution points
   !
-  call stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name=pname)
+  call stabilize_usp(nst,Apply_Filter,Apply_Sponge,Apply_Limiter, &
+                     caller_name=pname)
   !
   call debug_timer(leaving_procedure,pname)
   !

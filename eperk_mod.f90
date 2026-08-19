@@ -57,7 +57,7 @@ contains
 !
 !###############################################################################
 !
-subroutine update_EPERK(nst,iter,Apply_Filter,Apply_Limiter)!, &
+subroutine update_EPERK(nst,iter,Apply_Filter,Apply_Sponge,Apply_Limiter)!, &
                        !dtmin,final_timestep_from_stop_request)
   !
   !.. Use Statements ..
@@ -70,6 +70,7 @@ subroutine update_EPERK(nst,iter,Apply_Filter,Apply_Limiter)!, &
   integer,     intent(in) :: nst
   integer,     intent(in) :: iter
   logical(lk), intent(in) :: Apply_Filter
+  logical(lk), intent(in) :: Apply_Sponge
   logical(lk), intent(in) :: Apply_Limiter
  !real(wp),   intent(out) :: dtmin
  !integer,     intent(in) :: final_timestep_from_stop_request
@@ -177,7 +178,8 @@ continue
   ! Apply filtering or limiting to stabilize the solution, and then update
   ! the thermodynamic and transport properties at the solution points
   !
-  call stabilize_usp(nst,Apply_Filter,Apply_Limiter,caller_name=pname)
+  call stabilize_usp(nst,Apply_Filter,Apply_Sponge,Apply_Limiter, &
+                     caller_name=pname)
   !
   call debug_timer(leaving_procedure,pname)
   !

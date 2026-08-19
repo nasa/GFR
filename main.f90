@@ -44,7 +44,9 @@ program GFR_main
   use ovar, only : output_time_averaging,time_scaling_factor
   use ovar, only : time_average_restart_files,ave_start_time
   use ovar, only : modify_time_ave_restart_history
-  use ovar, only : Filtering_Interval,Limiting_Interval
+  use ovar, only : Filtering_Interval
+  use ovar, only : use_sponge_filter
+  use ovar, only : Limiting_Interval
   use ovar, only : move_bcin_to_device
   use ovar, only : channel_spatial_ave_restart
   use ovar, only : if_interpto_newgrid
@@ -232,6 +234,7 @@ program GFR_main
   integer :: request_array(1:7)
   !
   logical(lk)  :: Apply_Filter
+  logical(lk)  :: Apply_Sponge
   logical(lk)  :: Apply_Limiter
   !
  !logical(lk), parameter :: ignore_errors = true
@@ -900,8 +903,14 @@ continue
         !
         current_rk_stage = nst
         !
-        Apply_Filter = (Filtering_Interval <= 0)
+        ! Test whether to apply filter, sponge, or limiter after each RK stage.
+        !
+        Apply_Filter  = (Filtering_Interval <= 0)
+        Apply_Sponge  = use_sponge_filter
         Apply_Limiter = (Limiting_Interval <= 0)
+        !
+        ! Test whether to apply filter, sponge, or limiter after last RK stage.
+        !
         if (nst == num_rk_stages) then
           if (Filtering_Interval > 0) then
             Apply_Filter = (mod(iter,Filtering_Interval) == 0)
@@ -950,20 +959,27 @@ continue
         ! Store residual in rssprk(:,:,nst) and update the solutions in usp
         !
         if (Runge_Kutta_Scheme == Classic_RK) then
-          call update_Classic_RK(nst,Apply_Filter,Apply_Limiter)
+          call update_Classic_RK(nst,Apply_Filter,Apply_Sponge,Apply_Limiter)
+          !
         else if (Runge_Kutta_Scheme == TVD2_RK) then
-          call update_TVD_RK2(nst,Apply_Filter,Apply_Limiter)
+          call update_TVD_RK2(nst,Apply_Filter,Apply_Sponge,Apply_Limiter)
+          !
         else if (Runge_Kutta_Scheme == TVD3_RK) then
-          call update_TVD_RK3(nst,Apply_Filter,Apply_Limiter,iter)
+          call update_TVD_RK3(nst,Apply_Filter,Apply_Sponge,Apply_Limiter,iter)
+          !
         else if (Runge_Kutta_Scheme == TVD4_RK) then
-          call update_TVD_RK4(nst,Apply_Filter,Apply_Limiter)
+          call update_TVD_RK4(nst,Apply_Filter,Apply_Sponge,Apply_Limiter)
+          !
         else if (Runge_Kutta_Scheme == CK4_RK) then
-          call update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
+          call update_CK_RK4(nst,Apply_Filter,Apply_Sponge,Apply_Limiter)
+          !
         else if (Runge_Kutta_Scheme == OERK) then
-          call update_OERK(nst,Apply_Filter,Apply_Limiter)
+          call update_OERK(nst,Apply_Filter,Apply_Sponge,Apply_Limiter)
+          !
         else if (abs(Runge_Kutta_Scheme) == EPERK) then
-          call update_EPERK(nst,iter,Apply_Filter,Apply_Limiter)!, &
+          call update_EPERK(nst,iter,Apply_Filter,Apply_Sponge,Apply_Limiter)!,&
                            !dtmin,final_timestep_from_stop_request)
+          !
         end if
         call check_for_bad_number(__LINE__)
         !
