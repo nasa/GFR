@@ -321,7 +321,7 @@ subroutine check_thermo_properties(check_cells,check_faces,check_nodes, &
   use geomvar_mod,  only : ncell
   use cell_ave_mod, only : allocate_cell_ave, deallocate_cell_ave, &
                            compute_cell_ave_sol
-  use ovar,         only : thermofix
+  use ovar,         only : thermofix,rhoref,tref,aref
 !-DEBUG_BEG:
   use geomvar_mod,  only : cell, xyz_nodes
   use flowvar_mod,  only : usp,gpsp
@@ -420,14 +420,14 @@ continue
             write(iout,2) mypnum,nc, &
                           bad_cell_found,bad_face_found,bad_node_found
             write(iout,3) xyz_ctr(1:3)
-            write(iout,4) minval(  usp(n1:n2,nec  ) ), &
-                          minval( gpsp(n1:n2,npres) ), &
-                          minval( gpsp(n1:n2,ntemp) )
+            write(iout,4) minval(  usp(n1:n2,nec  ) ) * rhoref, &
+                          minval( gpsp(n1:n2,npres) ) * rhoref*aref*aref, &
+                          minval( gpsp(n1:n2,ntemp) ) * tref
             write(iout,5) cell_ave_sol(nec,nc)
-2           format(10x,'part,cell,bad_cell,bad_face,bad_node =',i6,i8,3l2)
-3           format(10x,'Cell x,y,z =',3es13.5)
-4           format(10x,'Cell r,p,t =',3es13.5)
-5           format(10x,'Ave  r     =',3es13.5)
+2           format(2x,'part,cell,bad_cell,bad_face,bad_node =',i6,i8,3l2)
+3           format(2x,'Cell Ctr x,y,z [Lgrid] =',3es13.5)
+4           format(2x,'Cell Min r,p,t [SI]    =',3es13.5)
+5           format(2x,'Cell Ave r     [SI]    =',3es13.5)
             exit  ! exit cell loop
           end if
         end do
