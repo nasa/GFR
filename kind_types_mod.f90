@@ -2751,6 +2751,7 @@ include "Functions/intseq.f90"
 !
 ! Include statements for functions that DO NOT have a generic interface
 !
+include "Functions/lowercase.f90"
 include "Functions/uppercase.f90"
 include "Functions/bc_integer_to_string.f90"
 include "Functions/all_are_equal.f90"

@@ -410,6 +410,7 @@ $(OBJDIR)/kind_types_mod.o : kind_types_mod.f90 \
                $(FUNDIR)/spread.f90 \
                $(FUNDIR)/intseq.f90 \
                $(FUNDIR)/jacobians.f90 \
+               $(FUNDIR)/lowercase.f90 \
                $(FUNDIR)/matrix_ops.f90 \
                $(FUNDIR)/norms.f90 \
                $(FUNDIR)/random.f90 \
