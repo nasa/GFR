@@ -5,6 +5,7 @@
 !>   "Efficient implementation of essentially non-oscillatory
 !>    shock-capturing schemes, II," J Comput Phys 1989; 83(1):32–78.
 !>    http://dx.doi.org/10.1016/0021-9991(89)90222-2
+!>    Flow conditions are from Example 8, p.65.
 !###############################################################################
 module shu_osher_mod
   !
@@ -20,11 +21,12 @@ module shu_osher_mod
   ! Module constants needed for the initialization functions.
   ! Flow conditions for the supersonic inflow and left domain initialization.
   !
-  real(wp), parameter :: default_rho  = 3.857143_wp    ! [kg/m3]
-  real(wp), parameter :: default_vx   = 2.629369_wp    ! [m/s]
-  real(wp), parameter :: default_vy   = zero           ! [m/s]
-  real(wp), parameter :: default_vz   = zero           ! [m/s]
-  real(wp), parameter :: default_pres = 10.333333_wp   ! [Pa]
+  real(wp), parameter :: default_density   = 3.857143_wp    ! [kg/m3]
+  real(wp), parameter :: default_velocityx = 2.629369_wp    ! [m/s]
+  real(wp), parameter :: default_velocityy = zero           ! [m/s]
+  real(wp), parameter :: default_velocityz = zero           ! [m/s]
+  real(wp), parameter :: default_pressure  = 10.333333_wp   ! [Pa]
+  !
 contains
 !
 !###############################################################################
@@ -61,10 +63,10 @@ continue
   !
   aoa_alpharef = zero
   aoa_betaref  = zero
-  rhoref       = default_rho
-  pref         = default_pres
+  rhoref       = default_density
+  pref         = default_pressure
   tref         = pref / (rhoref*rgasref)
-  uref         = default_vx
+  uref         = default_velocityx
   aref         = sqrt( max( gam*rgasref*tref , rndoff ) )
   machref      = uref / aref
   reyref       = -one
@@ -112,11 +114,11 @@ continue
   !
   ! Set the inflow conditions for the Shu-Osher problem
   !
-  tmp_bc_input%rho_static = default_rho
-  tmp_bc_input%vx         = default_vx
-  tmp_bc_input%vy         = default_vy
-  tmp_bc_input%vz         = default_vz
-  tmp_bc_input%p_static   = default_pres
+  tmp_bc_input%density   = default_density
+  tmp_bc_input%velocityx = default_velocityx
+  tmp_bc_input%velocityy = default_velocityy
+  tmp_bc_input%velocityz = default_velocityz
+  tmp_bc_input%pressure  = default_pressure
   !
   ! Copy tmp_bc_input into bc_input(bc_idx)
   !
@@ -175,11 +177,11 @@ continue
   ! Dimensional flow properties on left state.
   ! ------------------------------------------
   !
-  rho    = default_rho
-  vel(1) = default_vx
-  vel(2) = default_vy
-  vel(3) = default_vz
-  pres   = default_pres
+  rho    = default_density
+  vel(1) = default_velocityx
+  vel(2) = default_velocityy
+  vel(3) = default_velocityz
+  pres   = default_pressure
   !
   !
   ! -------------------------------------------

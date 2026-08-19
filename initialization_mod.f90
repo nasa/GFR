@@ -3426,13 +3426,13 @@ continue
         !
         if (ncs > 0) mass_frac(1:ncs) = bc_input(n)%mass_frac(1:ncs)
         !
-        r = bc_input(n)%rho_static
-        p = bc_input(n)%p_static
-        t = bc_input(n)%t_static
+        r = bc_input(n)%density
+        p = bc_input(n)%pressure
+        t = bc_input(n)%temperature
         !
-        r0 = bc_input(n)%rho_total
-        p0 = bc_input(n)%p_total
-        t0 = bc_input(n)%t_total
+        r0 = bc_input(n)%total_density
+        p0 = bc_input(n)%total_pressure
+        t0 = bc_input(n)%total_temperature
         !
         mach  = bc_input(n)%mach
         alpha = bc_input(n)%aoa_alpha
@@ -3842,9 +3842,9 @@ continue
   ! Get the nondimensionalization coefficients depending on if the
   ! optional argument dimensional is present with the value true.
   ! NOTE: This logic makes a nondimensional result the default, and it is
-  !       assumed that the values in bc%vx, bc%vy, and bc%vz are
-  !       dimensional, and the values in moving_ref_frame%translation
-  !       are nondimensional.
+  !       assumed that the values in bc%velocityx, bc%velocityy, and
+  !       bc%velocityz are dimensional, and the values in
+  !       moving_ref_frame%translation are nondimensional.
   !
   bc_nondim = one/aref
   mrf_nondim = one
@@ -3855,9 +3855,10 @@ continue
     end if
   end if
   !
-  ! Copy the values in bc%vx, bc%vy, and bc%vz to return_value.
+  ! Copy the values in bc%velocityx, bc%velocityy, and
+  ! bc%velocityz to return_value.
   !
-  vel(1:3) = [ bc%vx , bc%vy , bc%vz ]
+  vel(1:3) = [ bc%velocityx , bc%velocityy , bc%velocityz ]
   !
   return_value(1:nr) = vel(1:nr) * bc_nondim
   !
@@ -4568,11 +4569,11 @@ continue
   !
   ! Check static temperature
   !
-  if (bc%t_static > zero) then
-    if (abs(bc%t_static - t) > err_tol) then
+  if (bc%temperature > zero) then
+    if (abs(bc%temperature - t) > err_tol) then
       if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
-        write (iout,1) bc%t_static,t
+        write (iout,1) bc%temperature,t
       end if
       errors_found = true
     end if
@@ -4580,11 +4581,11 @@ continue
   !
   ! Check static pressure
   !
-  if (bc%p_static > zero) then
-    if (abs(bc%p_static - p) > err_tol) then
+  if (bc%pressure > zero) then
+    if (abs(bc%pressure - p) > err_tol) then
       if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
-        write (iout,2) bc%p_static,p
+        write (iout,2) bc%pressure,p
       end if
       errors_found = true
     end if
@@ -4592,11 +4593,11 @@ continue
   !
   ! Check static density
   !
-  if (bc%rho_static > zero) then
-    if (abs(bc%rho_static - r) > err_tol) then
+  if (bc%density > zero) then
+    if (abs(bc%density - r) > err_tol) then
       if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
-        write (iout,3) bc%rho_static,r
+        write (iout,3) bc%density,r
       end if
       errors_found = true
     end if
@@ -4604,11 +4605,11 @@ continue
   !
   ! Check total temperature
   !
-  if (bc%t_total > zero) then
-    if (abs(bc%t_total - t0) > err_tol) then
+  if (bc%total_temperature > zero) then
+    if (abs(bc%total_temperature - t0) > err_tol) then
       if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
-        write (iout,4) bc%t_total,t0
+        write (iout,4) bc%total_temperature,t0
       end if
       errors_found = true
     end if
@@ -4616,11 +4617,11 @@ continue
   !
   ! Check total pressure
   !
-  if (bc%p_total > zero) then
-    if (abs(bc%p_total - p0) > err_tol) then
+  if (bc%total_pressure > zero) then
+    if (abs(bc%total_pressure - p0) > err_tol) then
       if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
-        write (iout,5) bc%p_total,p0
+        write (iout,5) bc%total_pressure,p0
       end if
       errors_found = true
     end if
@@ -4628,11 +4629,11 @@ continue
   !
   ! Check total density
   !
-  if (bc%rho_total > zero) then
-    if (abs(bc%rho_total - r0) > err_tol) then
+  if (bc%total_density > zero) then
+    if (abs(bc%total_density - r0) > err_tol) then
       if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
-        write (iout,6) bc%rho_total,r0
+        write (iout,6) bc%total_density,r0
       end if
       errors_found = true
     end if
@@ -4676,7 +4677,7 @@ continue
   !
   ! Check velocity
   !
-  bc_vel = norm2( [ bc%vx , bc%vy , bc%vz ] )
+  bc_vel = norm2( [ bc%velocityx , bc%velocityy , bc%velocityz ] )
   !
   if (bc_vel > zero) then
     if (abs(bc_vel - vmag) > err_tol) then
@@ -4686,27 +4687,27 @@ continue
       end if
       errors_found = true
     end if
-    if (abs(bc%vx - vel(1)) > err_tol) then
+    if (abs(bc%velocityx - vel(1)) > err_tol) then
       if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
-        write (iout,11) bc%vx,vel(1)
+        write (iout,11) bc%velocityx,vel(1)
       end if
       errors_found = true
     end if
     if (size(vel) >= 2) then
-      if (abs(bc%vy - vel(2)) > err_tol) then
+      if (abs(bc%velocityy - vel(2)) > err_tol) then
         if (mypnum == glb_root) then
           if (.not.errors_found) write (iout,100) n
-          write (iout,12) bc%vy,vel(2)
+          write (iout,12) bc%velocityy,vel(2)
         end if
         errors_found = true
       end if
     end if
     if (size(vel) == 3) then
-      if (abs(bc%vz - vel(3)) > err_tol) then
+      if (abs(bc%velocityz - vel(3)) > err_tol) then
         if (mypnum == glb_root) then
           if (.not.errors_found) write (iout,100) n
-          write (iout,13) bc%vz,vel(3)
+          write (iout,13) bc%velocityz,vel(3)
         end if
         errors_found = true
       end if

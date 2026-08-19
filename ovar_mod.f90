@@ -145,19 +145,19 @@ module ovar
     !
     integer :: set_bc_value = bc_unknown
     !
-    real(wp) :: t_static   = -one
-    real(wp) :: p_static   = -one
-    real(wp) :: rho_static = -one
-    real(wp) :: mach       = -one
-    real(wp) :: vx         = zero
-    real(wp) :: vy         = zero
-    real(wp) :: vz         = zero
-    real(wp) :: t_total    = -one
-    real(wp) :: p_total    = -one
-    real(wp) :: rho_total  = -one
-    real(wp) :: aoa_alpha  = zero
-    real(wp) :: aoa_beta   = zero
-    real(wp) :: wall_temp  = -one
+    real(wp) :: temperature       = -one
+    real(wp) :: pressure          = -one
+    real(wp) :: density           = -one
+    real(wp) :: mach              = -one
+    real(wp) :: velocityx         = zero
+    real(wp) :: velocityy         = zero
+    real(wp) :: velocityz         = zero
+    real(wp) :: total_temperature = -one
+    real(wp) :: total_pressure    = -one
+    real(wp) :: total_density     = -one
+    real(wp) :: aoa_alpha         = zero
+    real(wp) :: aoa_beta          = zero
+    real(wp) :: wall_temp         = -one
     !
     ! NOTE: WE NEED TO MAKE SURE WE ADD LOGIC THAT SETS ROTATION_RATE(1)
     !       TO THE ROTATION FOR 2D. TECHNICALLY, ROTATION_RATE(3) SHOULD
@@ -1128,19 +1128,19 @@ continue
   ! of the input argument are not equal to the default values, so immediately
   ! return with a function result of false indicating they are not equal.
   !
-  if (abs(this%t_static   - dflt%t_static  ) > eps6) return
-  if (abs(this%p_static   - dflt%p_static  ) > eps6) return
-  if (abs(this%rho_static - dflt%rho_static) > eps6) return
-  if (abs(this%mach       - dflt%mach      ) > eps6) return
-  if (abs(this%vx         - dflt%vx        ) > eps6) return
-  if (abs(this%vy         - dflt%vy        ) > eps6) return
-  if (abs(this%vz         - dflt%vz        ) > eps6) return
-  if (abs(this%t_total    - dflt%t_total   ) > eps6) return
-  if (abs(this%p_total    - dflt%p_total   ) > eps6) return
-  if (abs(this%rho_total  - dflt%rho_total ) > eps6) return
-  if (abs(this%aoa_alpha  - dflt%aoa_alpha ) > eps6) return
-  if (abs(this%aoa_beta   - dflt%aoa_beta  ) > eps6) return
-  if (abs(this%wall_temp  - dflt%wall_temp ) > eps6) return
+  if (abs(this%temperature       - dflt%temperature       ) > eps6) return
+  if (abs(this%pressure          - dflt%pressure          ) > eps6) return
+  if (abs(this%density           - dflt%density           ) > eps6) return
+  if (abs(this%mach              - dflt%mach              ) > eps6) return
+  if (abs(this%velocityx         - dflt%velocityx         ) > eps6) return
+  if (abs(this%velocityy         - dflt%velocityy         ) > eps6) return
+  if (abs(this%velocityz         - dflt%velocityz         ) > eps6) return
+  if (abs(this%total_temperature - dflt%total_temperature ) > eps6) return
+  if (abs(this%total_pressure    - dflt%total_pressure    ) > eps6) return
+  if (abs(this%total_density     - dflt%total_density     ) > eps6) return
+  if (abs(this%aoa_alpha         - dflt%aoa_alpha         ) > eps6) return
+  if (abs(this%aoa_beta          - dflt%aoa_beta          ) > eps6) return
+  if (abs(this%wall_temp         - dflt%wall_temp         ) > eps6) return
   !
   do n = 1,size(this%rotation_rate)
     if (abs(this%rotation_rate(n) - dflt%rotation_rate(n)) > eps6) return
@@ -1264,19 +1264,19 @@ continue
   !
   if (a%set_bc_value /= b%set_bc_value) return
   !
-  if (abs(a%t_static   - b%t_static  ) > eps6) return
-  if (abs(a%p_static   - b%p_static  ) > eps6) return
-  if (abs(a%rho_static - b%rho_static) > eps6) return
-  if (abs(a%mach       - b%mach      ) > eps6) return
-  if (abs(a%vx         - b%vx        ) > eps6) return
-  if (abs(a%vy         - b%vy        ) > eps6) return
-  if (abs(a%vz         - b%vz        ) > eps6) return
-  if (abs(a%t_total    - b%t_total   ) > eps6) return
-  if (abs(a%p_total    - b%p_total   ) > eps6) return
-  if (abs(a%rho_total  - b%rho_total ) > eps6) return
-  if (abs(a%aoa_alpha  - b%aoa_alpha ) > eps6) return
-  if (abs(a%aoa_beta   - b%aoa_beta  ) > eps6) return
-  if (abs(a%wall_temp  - b%wall_temp ) > eps6) return
+  if (abs(a%temperature       - b%temperature       ) > eps6) return
+  if (abs(a%pressure          - b%pressure          ) > eps6) return
+  if (abs(a%density           - b%density           ) > eps6) return
+  if (abs(a%mach              - b%mach              ) > eps6) return
+  if (abs(a%velocityx         - b%velocityx         ) > eps6) return
+  if (abs(a%velocityy         - b%velocityy         ) > eps6) return
+  if (abs(a%velocityz         - b%velocityz         ) > eps6) return
+  if (abs(a%total_temperature - b%total_temperature ) > eps6) return
+  if (abs(a%total_pressure    - b%total_pressure    ) > eps6) return
+  if (abs(a%total_density     - b%total_density     ) > eps6) return
+  if (abs(a%aoa_alpha         - b%aoa_alpha         ) > eps6) return
+  if (abs(a%aoa_beta          - b%aoa_beta          ) > eps6) return
+  if (abs(a%wall_temp         - b%wall_temp         ) > eps6) return
   !
   do n = 1,size(a%rotation_rate)
     if (abs(a%rotation_rate(n) - b%rotation_rate(n)) > eps6) return
@@ -1999,28 +1999,28 @@ end subroutine get_mrf_rotation
 !!subroutine write_bc_input_t(dtv,iunit,iotype,vlist,my_iostat,my_iomsg)
 !!  !
 !!  !.. Passed Argument from Invoking Object ..
-!!  class(bc_input_t), intent(in) :: dtv
-!!  integer, intent(in) :: iunit
-!!  character(len=*), intent(in) :: iotype
-!!  integer, intent(in) :: vlist(:)
-!!  integer, intent(out) :: my_iostat
-!!  character(len=*), intent(inout) :: my_iomsg
+!!  class(bc_input_t), intent(in   ) :: dtv
+!!  integer,           intent(in   ) :: iunit
+!!  character(len=*),  intent(in   ) :: iotype
+!!  integer,           intent(in   ) :: vlist(:)
+!!  integer,           intent(  out) :: my_iostat
+!!  character(len=*),  intent(inout) :: my_iomsg
 !!  !
 !!  integer :: m
 !!  !
 !!continue
 !!  !
 !!  write (iunit,1,iostat=my_iostat,iomsg=my_iomsg) &
-!!    dtv%t_static, &
-!!    dtv%p_static, &
-!!    dtv%rho_static, &
+!!    dtv%temperature, &
+!!    dtv%pressure, &
+!!    dtv%density, &
 !!    dtv%mach, &
-!!    dtv%vx, &
-!!    dtv%vy, &
-!!    dtv%vz, &
-!!    dtv%t_total, &
-!!    dtv%p_total, &
-!!    dtv%rho_total, &
+!!    dtv%velocityx, &
+!!    dtv%velocityy, &
+!!    dtv%velocityz, &
+!!    dtv%total_temperature, &
+!!    dtv%total_pressure, &
+!!    dtv%total_density, &
 !!    dtv%aoa_alpha, &
 !!    dtv%aoa_beta, &
 !!    dtv%wall_temp, &
@@ -2038,23 +2038,23 @@ end subroutine get_mrf_rotation
 !!    (m,dtv%mass_frac(m), m=1,size(dtv%mass_frac))
 !!#endif
 !!  !
-!!  1 format ("t_static     = ",es14.6,/, &
-!!            "p_static     = ",es14.6,/, &
-!!            "rho_static     = ",es14.6,/, &
-!!            "mach     = ",es14.6,/, &
-!!            "vx     = ",es14.6,/, &
-!!            "vy     = ",es14.6,/, &
-!!            "vz     = ",es14.6,/, &
-!!            "t_total     = ",es14.6,/, &
-!!            "p_total     = ",es14.6,/, &
-!!            "rho_total     = ",es14.6,/, &
-!!            "aoa_alpha     = ",es14.6,/, &
-!!            "aoa_beta     = ",es14.6,/, &
-!!            "wall_temp     = ",es14.6,/, &
-!!            "rotation_rate = [",es14.6,2(",",es14.6),"]",/, &
-!!            "relax%value     = ",es14.6,/, &
-!!            "relax%time     = ",es14.6,/, &
-!!            "relax%iter     = ",es14.6,/)
+!!  1 format ("temperature       = ",es14.6,/, &
+!!            "pressure          = ",es14.6,/, &
+!!            "density           = ",es14.6,/, &
+!!            "mach              = ",es14.6,/, &
+!!            "velocityx         = ",es14.6,/, &
+!!            "velocityy         = ",es14.6,/, &
+!!            "velocityz         = ",es14.6,/, &
+!!            "total_temperature = ",es14.6,/, &
+!!            "total_pressure    = ",es14.6,/, &
+!!            "total_density     = ",es14.6,/, &
+!!            "aoa_alpha         = ",es14.6,/, &
+!!            "aoa_beta          = ",es14.6,/, &
+!!            "wall_temp         = ",es14.6,/, &
+!!            "rotation_rate     = [",es14.6,2(",",es14.6),"]",/, &
+!!            "relax%value       = ",es14.6,/, &
+!!            "relax%time        = ",es14.6,/, &
+!!            "relax%iter        = ",es14.6,/)
 !!  2 format (100("mass_frac(",i0,") = ",es14.6,:,/))
 !!  !
 !!end subroutine write_bc_input_t
@@ -2067,11 +2067,11 @@ end subroutine get_mrf_rotation
 !!  !
 !!  !.. Passed Argument from Invoking Object ..
 !!  class(bc_input_t), intent(inout) :: dtv
-!!  integer, intent(in) :: iunit
-!!  character(len=*), intent(in) :: iotype
-!!  integer, intent(in) :: vlist(:)
-!!  integer, intent(out) :: my_iostat
-!!  character(len=*), intent(inout) :: my_iomsg
+!!  integer,           intent(in   ) :: iunit
+!!  character(len=*),  intent(in   ) :: iotype
+!!  integer,           intent(in   ) :: vlist(:)
+!!  integer,           intent(  out) :: my_iostat
+!!  character(len=*),  intent(inout) :: my_iomsg
 !!  !
 !!  integer :: m,ierr
 !!  !
@@ -2081,16 +2081,16 @@ end subroutine get_mrf_rotation
 !!continue
 !!  !
 !!  read (iunit,*,iostat=my_iostat,iomsg=my_iomsg) &
-!!    dtv%t_static, &
-!!    dtv%p_static, &
-!!    dtv%rho_static, &
+!!    dtv%temperature, &
+!!    dtv%pressure, &
+!!    dtv%density, &
 !!    dtv%mach, &
-!!    dtv%vx, &
-!!    dtv%vy, &
-!!    dtv%vz, &
-!!    dtv%t_total, &
-!!    dtv%p_total, &
-!!    dtv%rho_total, &
+!!    dtv%velocityx, &
+!!    dtv%velocityy, &
+!!    dtv%velocityz, &
+!!    dtv%total_temperature, &
+!!    dtv%total_pressure, &
+!!    dtv%total_density, &
 !!    dtv%aoa_alpha, &
 !!    dtv%aoa_beta, &
 !!    dtv%wall_temp, &
