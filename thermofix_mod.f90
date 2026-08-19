@@ -2392,7 +2392,7 @@ subroutine emergency_scale_bad_cells_2d(bad_cell,usp)
   !.. Local Scalars ..
   integer  :: n,nc,n0,np
   real(wp) :: f1  ! solution scaling factor
-  real(wp) :: f2  ! f2=1-f1
+  real(wp) :: f2  ! one-f1
   !
 continue
   !
@@ -2444,7 +2444,7 @@ subroutine emergency_scale_bad_cells_1d(bad_cell,usp)
   !.. Local Scalars ..
   integer  :: n,nc,n0,np
   real(wp) :: f1  ! solution scaling factor
-  real(wp) :: f2  ! f2=1-f1
+  real(wp) :: f2  ! one-f1
   !
 continue
   !
@@ -2496,7 +2496,7 @@ subroutine emergency_scale_bad_cells_nd(mbeg,mend,bad_cell,usp)
   !.. Local Scalars ..
   integer  :: m,n,nc,n0,np
   real(wp) :: f1  ! solution scaling factor
-  real(wp) :: f2  ! f2=1-f1
+  real(wp) :: f2  ! one-f1
   !
 continue
   !
