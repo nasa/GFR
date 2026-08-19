@@ -169,6 +169,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/synthetic_eddy_mod.o \
         $(OBJDIR)/thx_mod.o \
         $(OBJDIR)/taylor_couette_mod.o \
+        $(OBJDIR)/advection_js_mod.o \
         $(OBJDIR)/sod_shock_tube_mod.o \
         $(OBJDIR)/shu_osher_mod.o \
         $(OBJDIR)/interpsol_query_mod.o \
