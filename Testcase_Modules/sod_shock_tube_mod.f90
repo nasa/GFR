@@ -33,9 +33,9 @@ module sod_shock_tube_mod
   !
   private
   !
-  public  :: testcase_sod_init_problem
-  public  :: testcase_sod_init_flow
-  public  :: testcase_sod_exact_solution
+  public  :: sod_shock_tube_init_problem
+  public  :: sod_shock_tube_init_flow
+  public  :: sod_shock_tube_exact_solution
   private :: get_p2p1
   !
   ! Grid Domain
@@ -66,7 +66,7 @@ contains
 !> Sets the correct inflow boundary condition inputs for bc_input.
 !> Does not initialize the solution field.
 !###############################################################################
-subroutine testcase_sod_init_problem()
+subroutine sod_shock_tube_init_problem()
   !
   !.. Use Statements ..
   use ovar, only : rgasref,gam
@@ -252,11 +252,11 @@ continue
     write (*,*) '    '
   end if
 
-end subroutine testcase_sod_init_problem
+end subroutine sod_shock_tube_init_problem
 !###############################################################################
 !> Solution initialization at a point for the Sod shock tube problem.
 !###############################################################################
-pure function testcase_sod_init_flow(xyz) result(return_value)
+pure function sod_shock_tube_init_flow(xyz) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: xyz  !< Solution point [m].
@@ -267,13 +267,13 @@ pure function testcase_sod_init_flow(xyz) result(return_value)
   !
 continue
   !
-  return_value = testcase_sod_exact_solution(xyz,time=zero,nondim=true)
+  return_value = sod_shock_tube_exact_solution(xyz,time=zero,nondim=true)
   !
-end function testcase_sod_init_flow
+end function sod_shock_tube_init_flow
 !###############################################################################
 !> Exact solution at a point for the Sod shock tube problem.
 !###############################################################################
-pure function testcase_sod_exact_solution(xyz,time,nondim) result(return_value)
+pure function sod_shock_tube_exact_solution(xyz,time,nondim) result(return_value)
   !
   !.. Use Statements ..
   use geomvar_mod, only : nr
@@ -361,7 +361,7 @@ continue
     return_value(nee)     = return_value(nee)     / rhoa2
   end if
   !
-end function testcase_sod_exact_solution
+end function sod_shock_tube_exact_solution
 !###############################################################################
 !> Newton-Raphson method for iterating on p2/p1.  Eq.5.39.
 !###############################################################################
