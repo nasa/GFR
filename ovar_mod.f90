@@ -8,7 +8,7 @@ module ovar
   use module_kind_types, only : Internally_Generated_Grid,Unknown_Format
   use module_kind_types, only : Generic_MeanFlow
   use module_kind_types, only : Legendre_Gauss,Equi_Distant_Points
-  use module_kind_types, only : TVD3_RK
+  use module_kind_types, only : OERK_11Stage_3rdOrder
   use module_kind_types, only : invs_flux_ROE
   use module_kind_types, only : visc_flux_BR2
   use module_kind_types, only : visc_interface_fluxes
@@ -360,7 +360,7 @@ module ovar
   integer, public, save :: loc_init_pts = 0 ! uses same as solution points
   !
   ! RUNGE-KUTTA OPTIONS
-  integer, public, save :: Runge_Kutta_Scheme = TVD3_RK
+  integer, public, save :: Runge_Kutta_Scheme = OERK_11Stage_3rdOrder
   integer, public, save :: num_rk_stages      = 3
   !
   ! COMMON-FLUX OPTIONS
