@@ -618,7 +618,7 @@ continue
     if (p_order < n_order) then
       call project_to_porder(usp,update_gpsp=true)
     else
-      if (Filter_Option > 0) then
+      if (Filter_Option /= Filter_Option__Off) then
         call filter_usp(update_gpsp=true)
       end if
     end if

@@ -589,7 +589,7 @@ continue
   !       will damp the highest mode by at most 64 percent (Alpha=1.0), which
   !       should still allow the resolution marker to find troubled cells.
   !
-  if (Filter_Option > 0 .and. Filter_Alpha <= one) then
+  if (Filter_Option /= Filter_Option__Off .and. Filter_Alpha <= one) then
     if (Apply_Filter) then
 #ifdef PROFILE_ON
       if (mypnum == glb_root) write (iout,1) nst
@@ -630,7 +630,7 @@ continue
   !       highest mode too much preventing the resolution marker from
   !       finding any troubled cells.
   !
-  if (Filter_Option > 0 .and. Filter_Alpha > one) then
+  if (Filter_Option /= Filter_Option__Off .and. Filter_Alpha > one) then
     if (Apply_Filter) then
 #ifdef PROFILE_ON
       if (mypnum == glb_root) write (iout,3) nst

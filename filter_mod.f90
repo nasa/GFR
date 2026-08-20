@@ -135,7 +135,7 @@ continue
       ! #####  1. Exponential Filter  #####
       ! ###################################
       !
-      if (Filter_Option > 0 .or. output_filter_diagonals) then
+      if (Filter_Option /= Filter_Option__Off .or. output_filter_diagonals) then
         !
         write (timer_message,200) trim(adjustl(Geom_Name(this_geom))),this_order
         200 format ("Exponential filter: Geometry = ",a,"  ;  Order = ",i0)
@@ -259,7 +259,8 @@ continue
       ! Compute the exponential sponge filter matrix
       !
       call create_exp_filter_matrix(this_geom,this_order, &
-                 1,Sponge_Filter_etac,Sponge_Filter_Order,Sponge_Filter_alpha, &
+                 Filter_Option__TensProd,Sponge_Filter_etac, &
+                 Sponge_Filter_Order,Sponge_Filter_alpha, &
                  sponge_filt,filter(this_geom,this_order)%sponge%mat)
       !
 #ifdef SPECIAL_OUTPUT_SPARSITY
@@ -1022,7 +1023,7 @@ continue
     !
   end if
   !
-  if (geom == Geom_Quad .and. loc_filt_option == 2) then
+  if (geom == Geom_Quad .and. loc_filt_option == Filter_Option__ModalSum) then
     !
     ! Special case of filter for quad element based on the sum of the modal
     ! exponents, i.e., for [0:2*P] instead of [0:P]
@@ -1040,7 +1041,8 @@ continue
     !
     filt_diag = filt(2*p)%coef(:) ! F2003 AUTO-REALLOC
     !
-  else if (geom == Geom_Hexa .and. loc_filt_option == 2) then
+  else if (geom == Geom_Hexa .and. &
+           loc_filt_option == Filter_Option__ModalSum) then
     !
     ! Special case of filter for hex element based on the sum of the modal
     ! exponents, i.e., for [0:3*P] instead of [0:P]
@@ -1058,14 +1060,26 @@ continue
     !
     filt_diag = filt(3*p)%coef(:) ! F2003 AUTO-REALLOC
     !
-  else if (geom == Geom_Pyra .and. Pyramid_Filter_Option /= 3) then
+  else if (geom == Geom_Pyra .and. &
+           any(Pyramid_Filter_Option == [Pyramid_Filter_Option__1, &
+                                         Pyramid_Filter_Option__2]) ) then
     !
     ! Special case of pyramid elements where the tensor products for k/=0
     ! layers use P-k 1D filter coefficients for the tensor product.
     !
     do i = 0,p-1
       if (.not. allocated(filt(i)%coef)) then
-        if (Pyramid_Filter_Option == 1) then
+        if (Pyramid_Filter_Option == Pyramid_Filter_Option__1) then
+          !
+          ! Keep the cutoff order (Pc) the same and let the cutoff fraction
+          ! (etac) vary for all pyramid levels (i=0:P).
+          !   Pc = loc_filt_etac*real(P)
+          !   Pc_i = Pc
+          !   etac_i = loc_filt_etac * real(p)/real(max(1,i))
+          !
+          ! Must keep etac_i in valid range [0:1], especially for small i.
+          ! Must use max(1,i) to prevent divide by zero when i=0, but etac_i
+          ! value unimportant for i=0 since it doesn't affect the filter coef.
           !
           ! This option keeps the cutoff order Pc relative to P for all i,
           ! where Pc = loc_filt_etac*real(P). To do this, we need to compute
@@ -1085,7 +1099,12 @@ continue
           ! F2003 AUTO-REALLOC
           filt(i)%coef = get_1D_exp_filter_coef(i,alpha,etac,s)
           !
-        else if (Pyramid_Filter_Option == 2) then
+        else if (Pyramid_Filter_Option == Pyramid_Filter_Option__2) then
+          !
+          ! Keep the cutoff fraction (etac) the same and let the cutoff order
+          ! (Pc) vary for all pyramid levels (i=0:P).
+          !   Pc_i = etac*real(i)
+          !   etac_i = etac
           !
           ! This option keeps etac at the same value loc_filt_etac for all i.
           ! This has the effect that the cutoff order Pc changes with each i.
@@ -1109,6 +1128,9 @@ continue
     filt_diag = get_pyra_diag(filt(0:p)) ! F2003 AUTO-REALLOC
     !
   else
+    !
+    ! Apply standard 1-d tensor product for remaining cell types.
+    ! (ie, Filter_Option__TensProd for quad/hexa)
     !
     filt_diag = get_filt_diag(geom,filt(p)%coef) ! F2003 AUTO-REALLOC
     !
@@ -1585,7 +1607,7 @@ continue
         ! Write out the actual filter matrix
         !
         write (io,300)
-        if (Filter_Option == 0) write (io,302)
+        if (Filter_Option == Filter_Option__Off) write (io,302)
         do j = size(fmat,dim=2),1,-1
           write (io,301) (fmat(i,j), i=1,size(fmat,dim=1))
         end do

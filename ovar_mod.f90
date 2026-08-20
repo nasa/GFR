@@ -27,6 +27,8 @@ module ovar
   use module_kind_types, only : debug_timer
   use module_kind_types, only : entering_procedure
   use module_kind_types, only : leaving_procedure
+  use module_kind_types, only : Filter_Option__Off
+  use module_kind_types, only : Pyramid_Filter_Option__1
   !
   implicit none
   !
@@ -551,16 +553,16 @@ module ovar
   real(wp), public, save :: suth_Sref  = 110.4_wp
   !
   ! FILTER OPTIONS
-  integer,  public, save :: Filter_Option = 0
+  integer,  public, save :: Filter_Option = Filter_Option__Off
   real(wp), public, save :: Filter_etac   = 0.0_wp
   integer,  public, save :: Filter_Order  = 16
   real(wp), public, save :: Filter_Alpha  = 36.0_wp
   real(wp), public, save :: Filter_eps    = 0.0_wp
   !
-  integer,  public, save :: Pyramid_Filter_Option = 1
+  integer,  public, save :: Pyramid_Filter_Option = Pyramid_Filter_Option__1
   !
   ! LIMITER FILTER OPTIONS
-  integer,  public, save :: Limiter_Filter_Option = 0
+  integer,  public, save :: Limiter_Filter_Option = Filter_Option__Off
   real(wp), public, save :: Limiter_Filter_etac   = 0.0_wp
   integer,  public, save :: Limiter_Filter_Order  = 16
   real(wp), public, save :: Limiter_Filter_Alpha  = 36.0_wp
