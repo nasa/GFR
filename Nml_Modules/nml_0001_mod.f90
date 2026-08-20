@@ -4,31 +4,57 @@
 module nml_0001_mod
   !
   !.. Use Statements ..
-  use ovar,      only : grid_format, gridfile, plot3d_all_strides
-  use ovar,      only : plot3d_i_stride, plot3d_j_stride, plot3d_k_stride
-  use ovar,      only : plot3d_agglomerate_order,parametric_agglomeration
-  use ovar,      only : plot3d_cutfile, plot3d_bcsfile, grid_scaling_factor
+  use ovar,      only : grid_format
+  use ovar,      only : gridfile
+  use ovar,      only : plot3d_all_strides
+  use ovar,      only : plot3d_i_stride
+  use ovar,      only : plot3d_j_stride
+  use ovar,      only : plot3d_k_stride
+  use ovar,      only : plot3d_agglomerate_order
+  use ovar,      only : parametric_agglomeration
+  use ovar,      only : plot3d_cutfile
+  use ovar,      only : plot3d_bcsfile
+  use ovar,      only : grid_scaling_factor
   use ovar,      only : internal_grid_order
-  use ovar,      only : interpto_grid_format, interpto_gridfile
-  use ovar,      only : interpto_plot3d_all_strides, interpto_plot3d_i_stride
-  use ovar,      only : interpto_plot3d_j_stride, interpto_plot3d_k_stride
+  use ovar,      only : interpto_grid_format
+  use ovar,      only : interpto_gridfile
+  use ovar,      only : interpto_plot3d_all_strides
+  use ovar,      only : interpto_plot3d_i_stride
+  use ovar,      only : interpto_plot3d_j_stride
+  use ovar,      only : interpto_plot3d_k_stride
   use ovar,      only : interpto_plot3d_agglomerate_order
-  use ovar,      only : interpto_plot3d_cutfile, interpto_plot3d_bcsfile
+  use ovar,      only : interpto_plot3d_cutfile
+  use ovar,      only : interpto_plot3d_bcsfile
   use ovar,      only : interpto_grid_scaling_factor
-  use ovar,      only : solution_format, solution_file
-  use ovar,      only : loc_solution_pts, loc_flux_pts
-  use ovar,      only : loc_triangle_pts, loc_tetrahedra_pts
+  use ovar,      only : solution_format
+  use ovar,      only : solution_file
+  use ovar,      only : loc_solution_pts
+  use ovar,      only : loc_flux_pts
+  use ovar,      only : loc_triangle_pts
+  use ovar,      only : loc_tetrahedra_pts
   use ovar,      only : loc_quadrature_pts
   use ovar,      only : combine_common_flux_projections
-  use ovar,      only : flux_divergence, correction_function
-  use ovar,      only : Runge_Kutta_Scheme, num_rk_stages
-  use ovar,      only : invs_flux_method, visc_flux_method
-  use ovar,      only : visc_variables_to_ave, walls_are_exact
-  use ovar,      only : num_timesteps, Final_Time, constant_dt
-  use ovar,      only : cfl, cfl_beg, cfl_end, cfl_cycles, cfl_start_iter
+  use ovar,      only : flux_divergence
+  use ovar,      only : correction_function
+  use ovar,      only : Runge_Kutta_Scheme
+  use ovar,      only : num_rk_stages
+  use ovar,      only : invs_flux_method
+  use ovar,      only : visc_flux_method
+  use ovar,      only : visc_variables_to_ave
+  use ovar,      only : walls_are_exact
+  use ovar,      only : num_timesteps
+  use ovar,      only : Final_Time
+  use ovar,      only : constant_dt
+  use ovar,      only : cfl
+  use ovar,      only : cfl_beg
+  use ovar,      only : cfl_end
+  use ovar,      only : cfl_cycles
+  use ovar,      only : cfl_start_iter
   use ovar,      only : Timestep_Type, minimum_timesteps
   use ovar,      only : all_points, metis_option, use_parmetis
-  use ovar,      only : itestcase, jet_init_func, governing_equations
+  use ovar,      only : itestcase
+  use ovar,      only : jet_init_func
+  use ovar,      only : governing_equations
   use ovar,      only : moving_ref_frame
   use ovar,      only : disable_chemical_reactions, semi_implicit_chemistry
   use ovar,      only : traceback_unconverged_newton_temps
@@ -46,26 +72,43 @@ module nml_0001_mod
   use ovar,      only : CFL_reduction_for_NaN_restart
   use ovar,      only : num_saved_time_ave_restarts
   use ovar,      only : restart_frequency, completely_disable_restart_output
-  use ovar,      only : iter_out_interval, results_interval
+  use ovar,      only : iter_out_interval
+  use ovar,      only : results_interval
   use ovar,      only : output_eperk_cfl, disable_header_rewrites
   use ovar,      only : output_summary_file
   use ovar,      only : output_dir, output_interval, output_frequency
   use ovar,      only : continuous_output
   use ovar,      only : postproc_debug_grid
   use ovar,      only : output_bnd_profiles,sub_inflow_method
-  use ovar,      only : machref, reyref, gam, Pr, Prt
-  use ovar,      only : schmidt_lam, schmidt_turb
-  use ovar,      only : rhoref, tref, pref, rgasref
-  use ovar,      only : turbulence_model, tinref, tvrref
-  use ovar,      only : aoa_alpharef, aoa_betaref
+  use ovar,      only : machref
+  use ovar,      only : reyref
+  use ovar,      only : gam
+  use ovar,      only : Pr
+  use ovar,      only : Prt
+  use ovar,      only : schmidt_lam
+  use ovar,      only : schmidt_turb
+  use ovar,      only : rhoref
+  use ovar,      only : tref
+  use ovar,      only : pref
+  use ovar,      only : rgasref
+  use ovar,      only : turbulence_model
+  use ovar,      only : tinref
+  use ovar,      only : tvrref
+  use ovar,      only : alpha_aoaref => aoa_alpharef
+  use ovar,      only : beta_aoaref  => aoa_betaref
   use ovar,      only : profile_io_all,profile_io_restart
   use ovar,      only : profile_io_cgns,profile_io_cgns_subs
   use ovar,      only : suth_muref, suth_Tref, suth_Sref
-  use ovar,      only : Filter_Option, Limiter_Filter_Option
-  use ovar,      only : Filter_etac,   Limiter_Filter_etac
-  use ovar,      only : Filter_Order,  Limiter_Filter_Order
-  use ovar,      only : Filter_Alpha,  Limiter_Filter_Alpha
-  use ovar,      only : Filter_eps,    Limiter_Filter_eps
+  use ovar,      only : Filter_Option
+  use ovar,      only : Limiter_Filter_Option
+  use ovar,      only : Filter_etac
+  use ovar,      only : Limiter_Filter_etac
+  use ovar,      only : Filter_Order
+  use ovar,      only : Limiter_Filter_Order
+  use ovar,      only : Filter_Alpha
+  use ovar,      only : Limiter_Filter_Alpha
+  use ovar,      only : Filter_eps
+  use ovar,      only : Limiter_Filter_eps
   use ovar,      only : Limiter_Use_Dynamic_Filter
   use ovar,      only : Track_Limiter_Filter_Dissipation
   use ovar,      only : Pyramid_Filter_Option
@@ -74,8 +117,10 @@ module nml_0001_mod
   use ovar,      only : Sponge_Filter_Order
   use ovar,      only : Sponge_Filter_Alpha
   use ovar,      only : Sponge_Beyond_X
-  use ovar,      only : Limiter_Option, Resolution_Marker_Variable
-  use ovar,      only : Jump_Marker_Variable, MLP_Marker_Variable
+  use ovar,      only : Limiter_Option
+  use ovar,      only : Resolution_Marker_Variable
+  use ovar,      only : Jump_Marker_Variable
+  use ovar,      only : MLP_Marker_Variable
   use ovar,      only : Limiter_Marker_Min, Limiter_Marker_Max
   use ovar,      only : Limiter_Marker_dpsi
   use ovar,      only : Limiter_Marker_c1, Limiter_Marker_c2
@@ -90,12 +135,14 @@ module nml_0001_mod
   use ovar,      only : interpolate_before_output_variable
   use ovar,      only : cgns_high_order_output,cgns_mixed_output
   use ovar,      only : cgns_output_restart_time_ave_data
-  use ovar,      only : correct_cgns_grid_points, force_cgns_linear_grid_points
+  use ovar,      only : correct_cgns_grid_points
+  use ovar,      only : force_cgns_linear_grid_points
   use ovar,      only : convergence_order_abs_res, convergence_order_max_res
   use ovar,      only : dump_memory_usage,use_bc_conflicts
   use ovar,      only : dump_fluxes,check_flux_point_coordinates
   use ovar,      only : use_unrolled_dot_products
-  use ovar,      only : VortexGrid_DOF,VortexGrid_random_perturb
+  use ovar,      only : VortexGrid_DOF
+  use ovar,      only : VortexGrid_random_perturb
   use ovar,      only : VortexGrid_perturb_percent,VortexGrid_Lref
   use ovar,      only : VortexGrid_Hex_to_Pyramids,VortexGrid_is_3D
   use ovar,      only : TCF_Inner_Radius,TCF_Inner_Wall_Spacing
@@ -104,9 +151,11 @@ module nml_0001_mod
   use ovar,      only : TCF_Radial_Cells,TCF_Azimuthal_Cells
   use ovar,      only : TCF_Theta_Shift, TCF_Periodic_Sectors
   use ovar,      only : flame_speed_test_dof
-  use ovar,      only : sod_test_dof, sod_test_right_vector
+  use ovar,      only : sod_test_dof
+  use ovar,      only : sod_test_right_vector
   use ovar,      only : pulse_test_form, pulse_test_form_dim
-  use ovar,      only : pulse_test_dof, pulse_test_length, pulse_test_center
+  use ovar,      only : pulse_test_dof
+  use ovar,      only : pulse_test_length, pulse_test_center
   use ovar,      only : pulse_test_width, pulse_test_gap, pulse_test_repeat
   use ovar,      only : shu_osher_test_dof
   use ovar,      only : channel_body_force,channel_init_file
@@ -123,7 +172,8 @@ module nml_0001_mod
   use ovar,      only : geom_wts!,geom_wts_t
   use ovar,      only : probes_collection_interval, probes_write_interval
   use ovar,      only : point_probes, rake_probes, cell_probes
-  use ovar,      only : output_time_averaging, time_ave_file
+  use ovar,      only : output_time_averaging
+  use ovar,      only : time_ave_file
   use ovar,      only : start_averaging_timestep, start_averaging_tstar
   use ovar,      only : time_ave_vel_is_axisymm
   use ovar,      only : time_scaling_factor
@@ -133,7 +183,8 @@ module nml_0001_mod
   use ovar,      only : modify_time_ave_restart_history
   use ovar,      only : use_async_for_error
   use ovar,      only : ideal_total_temperature,limit_total_temperature
-  use ovar,      only : output_limiter_statistics,output_filter_diagonals
+  use ovar,      only : output_limiter_statistics
+  use ovar,      only : output_filter_diagonals
   use ovar,      only : output_vorticity
   use ovar,      only : output_cylindrical_coordinates
   use ovar,      only : output_cylindrical_velocity
@@ -153,7 +204,8 @@ module nml_0001_mod
   use ovar,      only : output_temperature_gradient
   use ovar,      only : output_temperature_gradient_magnitude
   use ovar,      only : output_temperature_dmat_gradient
-  use ovar,      only : output_schlieren, output_modified_schlieren
+  use ovar,      only : output_schlieren
+  use ovar,      only : output_modified_schlieren
   use ovar,      only : output_transport_variables
   use ovar,      only : output_stagnation_temperature
   use ovar,      only : output_stagnation_pressure
@@ -178,7 +230,9 @@ module nml_0001_mod
   use ovar,      only : SEM_include_thermo_fluctuations
   use ovar,      only : SEM_use_restart_eddies
   use ovar,      only : average_sem_inflow_plane
-  use ovar,      only : force_nd_subroutines, newton_rlx, conv_temp
+  use ovar,      only : force_nd_subroutines
+  use ovar,      only : newton_rlx
+  use ovar,      only : conv_temp
   use ovar,      only : chemistry_sub_iterations
   use ovar,      only : ignore_thermo_newton_warnings
   use ovar,      only : all_orders
@@ -341,7 +395,7 @@ module nml_0001_mod
   ! REFERENCE TURBULENCE CONDITIONS
   namelist / input / tinref, tvrref
   ! REFERENCE ANGLES OF ATTACK
-  namelist / input / aoa_alpharef, aoa_betaref
+  namelist / input / alpha_aoaref, beta_aoaref
   ! LAMINAR AND TURBULENT PRANDTL NUMBERS
   namelist / input / Pr, Prt
   ! LAMINAR AND TURBULENT SCHMIDT NUMBERS
