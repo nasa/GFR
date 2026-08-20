@@ -281,11 +281,11 @@ ifeq "$(COMPFAMILY)" "intel"
   #------------------------------------------------------------
   DBGFLAG := -check all -debug all -ftrapuv \
 	     -fpe0 -fpe-all=0 -fp-stack-check \
-	     -diag-disable=10182
+	     -diag-disable=10182,10448
   #------------------------------------------------------------
   OPTFLAGS  := -O3 -ip -fma
   AITKENOPT := $(OPTFLAGS) -march=core-avx2
-  ATHENAOPT := $(AITKENOPT) -diag-disable=10121 \
+  ATHENAOPT := $(AITKENOPT) -diag-disable=10121,10448 \
 	       -mavx512f -mavx512dq -mavx512bw -mavx512vl
   HOSTOPT   := $(OPTFLAGS) -xHost
 #===============================================================================
