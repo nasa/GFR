@@ -515,18 +515,20 @@ function initial_conditions(xyz,init_cond) result(return_value)
   !
   !.. Use Statements ..
   use geomvar_mod, only : ncell
-  use ovar, only : bc_in,bc_input
-  use ovar, only : itestcase
-  use ovar, only : postproc_debug_grid
-  use ovar, only : jet_init_func
+  use ovar,        only : bc_in,bc_input
+  use ovar,        only : itestcase
+  use ovar,        only : postproc_debug_grid
+  use ovar,        only : jet_init_func
   use channel_mod, only : channel_initialization
   use channel_mod, only : pipe_initialization
-  use gpu_mod, only : vortex_solution_gpu
+  use gpu_mod,     only : vortex_solution_gpu
   !
+  use advection_js_mod,   only : advection_js_init_flow
   use shu_osher_mod,      only : shu_osher_init
   use taylor_couette_mod, only : laminar_taylor_couette_init
   use taylor_couette_mod, only : turbulent_taylor_couette_init
   use taylor_couette_mod, only : freestream_taylor_couette_init
+  use sod_shock_tube_mod, only : sod_shock_tube_init_flow
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: xyz(:,:)
@@ -599,7 +601,8 @@ continue
     !###########################################################################
     !
     do k = 1,np
-      return_value(k,:) = sod_init( xyz(:,k) )
+!     return_value(k,:) = sod_init( xyz(:,k) )
+      return_value(k,:) = sod_shock_tube_init_flow( xyz(:,k) )
     end do
     !
   else if (abs(itestcase) == Density_Pulse_Test ) then
@@ -620,6 +623,16 @@ continue
     !
     do k = 1,np
       return_value(k,:) = shu_osher_init( xyz(:,k) )
+    end do
+    !
+  else if (abs(itestcase) == Advection_JiangShu ) then
+    !
+    !###########################################################################
+    !##### 1D JIANG-SHU ADVECTION PROBLEM
+    !###########################################################################
+    !
+    do k = 1,np
+      return_value(k,:) = advection_js_init_flow( xyz(:,k) )
     end do
     !
   else if (abs(itestcase) == Taylor_Couette_Flow) then
@@ -2634,6 +2647,8 @@ subroutine initialize_reference
   !
   use shu_osher_mod,      only : initialize_shu_osher_problem
   use taylor_couette_mod, only : initialize_taylor_couette_problem
+  use advection_js_mod,   only : advection_js_init_problem
+  use sod_shock_tube_mod, only : sod_shock_tube_init_problem
   !
   !.. Local Scalars ..
   integer  :: ierr
@@ -2744,11 +2759,23 @@ continue
       !
       call initialize_taylor_couette_problem(ref_length)
       !
+    else if (abs(itestcase) == Sod_Shock_Tube) then
+      !
+      ! Set the reference conditions for the Shu-Osher test problem
+      !
+      call sod_shock_tube_init_problem()
+      !
     else if (abs(itestcase) == Shu_Osher_Test) then
       !
       ! Set the reference conditions for the Shu-Osher test problem
       !
       call initialize_shu_osher_problem()
+      !
+    else if (abs(itestcase) == Advection_JiangShu) then
+      !
+      ! Set the reference conditions for the Shu-Osher test problem
+      !
+      call advection_js_init_problem()
       !
     end if
     !
