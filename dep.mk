@@ -1000,6 +1000,7 @@ $(OBJDIR)/channel_mod.o : $(TSTDIR)/channel_mod.f90 \
 $(OBJDIR)/shu_osher_mod.o : $(TSTDIR)/shu_osher_mod.f90 \
                   $(OBJDIR)/kind_types_mod.o \
                   $(OBJDIR)/eqn_idx_mod.o \
+                  $(OBJDIR)/geomvar_mod.o \
                   $(OBJDIR)/ovar_mod.o \
                   $(OBJDIR)/thermo_mod.o
 
