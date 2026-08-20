@@ -376,9 +376,9 @@ module ovar
   integer,  public, save :: minimum_timesteps = 100
   !
   ! CFL CONTROL VARIABLES
-  real(wp), public, save :: cfl            = 0.1_wp
+  real(wp), public, save :: cfl            = 1.0_wp
   real(wp), public, save :: cfl_beg        = 0.1_wp
-  real(wp), public, save :: cfl_end        = 0.1_wp
+  real(wp), public, save :: cfl_end        = 1.0_wp
   integer,  public, save :: cfl_cycles     = 1
   integer,  public, save :: cfl_start_iter = 0
   !
