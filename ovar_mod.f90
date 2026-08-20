@@ -557,15 +557,19 @@ module ovar
   real(wp), public, save :: suth_Sref  = 110.4_wp
   !
   ! FILTER OPTIONS
+  !> Option for how the global filter is applied to cells.
   integer,  public, save :: Filter_Option = Filter_Option__Off
   real(wp), public, save :: Filter_etac   = 0.0_wp
   integer,  public, save :: Filter_Order  = 16
   real(wp), public, save :: Filter_Alpha  = 36.0_wp
   real(wp), public, save :: Filter_eps    = 0.0_wp
   !
+  !> Option for how the filter is applied to pyramid cells.
   integer,  public, save :: Pyramid_Filter_Option = Pyramid_Filter_Option__1
   !
   ! LIMITER FILTER OPTIONS
+  !> Option for how the local filter is applied to cells.
+  !> Supports the same options as Filter_Option.
   integer,  public, save :: Limiter_Filter_Option = Filter_Option__Off
   real(wp), public, save :: Limiter_Filter_etac   = 0.0_wp
   integer,  public, save :: Limiter_Filter_Order  = 16
@@ -575,6 +579,9 @@ module ovar
   logical(lk), public, save :: Track_Limiter_Filter_Dissipation = fals
   !
   ! SPONGE FILTER OPTIONS
+  !> Option for how the sponge filter is applied to cells:
+  !>   0 = off,
+  !>   1 = on.
   logical(lk), public, save :: use_sponge_filter    = fals
   real(wp),    public, save :: Sponge_Filter_etac   = 0.0_wp
   integer,     public, save :: Sponge_Filter_Order  = 8
@@ -602,7 +609,7 @@ module ovar
   !< frequency to store limiter marker and scaled marker data:
   !<   =0  store each Runge-Kutta stage,
   !<   >0  store last Runge-Kutta stage,
-  !<   <0  mimic the frequency of Limiting_Interval.
+  !<   <0  mimic the frequency of Limiter_Interval.
   !< Storing markers each stage increases memory and file size.
   !
   ! OUTPUT THE STATISTICS OF THE LIMITER
@@ -645,7 +652,7 @@ module ovar
     !<   (<0) user specified number of cells,
     !<   (=0) 512 degrees of freedom,
     !<   (>0) user specified degrees of freedom.
-  real(wp), public, save :: sod_test_right_vector(3) = [1.,0.,0.]
+  real(wp), public, save :: sod_test_right_vector(3) = [one,zero,zero]
     !< Sod shock tube diaphram right side normal vector.
   !
   ! DENSITY PULSE CONVECTION TEST PARAMETERS
@@ -665,13 +672,13 @@ module ovar
     !<   (<0) user specified number of cells,
     !<   (=0) 512 degrees of freedom,
     !<   (>0) user specified degrees of freedom.
-  real(wp), public, save :: pulse_test_length = 1.0
+  real(wp), public, save :: pulse_test_length = 1.0_wp
     !< 1d domain length for density pulse test internal grid.
-  real(wp), public, save :: pulse_test_center(3) = [0.5,0.0,0.0]
+  real(wp), public, save :: pulse_test_center(3) = [half,zero,zero]
     !< xyz at center of first density pulse.
-  real(wp), public, save :: pulse_test_width  = 0.2
+  real(wp), public, save :: pulse_test_width  = 0.2_wp
     !< Width of density pulse.
-  real(wp), public, save :: pulse_test_gap    = 0.2
+  real(wp), public, save :: pulse_test_gap    = 0.2_wp
     !< Gap between density pulses.
   integer,  public, save :: pulse_test_repeat = 0
     !< Number of repeat density pulses.
