@@ -403,12 +403,19 @@ module nml_0001_mod
   ! SUTHERLANDS LAW COEFFICIENTS
   namelist / input / suth_muref, suth_Tref, suth_Sref
   ! FILTER OPTIONS
-  namelist / input / Filter_Option, Filter_etac, Filter_Order, &
-                     Filter_Alpha, Filter_eps, Pyramid_Filter_Option
+  namelist / input / Filter_Option , &
+                     Filter_etac   , &
+                     Filter_Order  , &
+                     Filter_Alpha  , &
+                     Filter_eps    , &
+                     Pyramid_Filter_Option
   ! LIMITER FILTER OPTIONS
-  namelist / input / Limiter_Filter_Option, Limiter_Filter_etac, &
-                     Limiter_Filter_Order, Limiter_Filter_Alpha, &
-                     Limiter_Filter_eps, Limiter_Use_Dynamic_Filter, &
+  namelist / input / Limiter_Filter_Option      , &
+                     Limiter_Filter_etac        , &
+                     Limiter_Filter_Order       , &
+                     Limiter_Filter_Alpha       , &
+                     Limiter_Filter_eps         , &
+                     Limiter_Use_Dynamic_Filter , &
                      Track_Limiter_Filter_Dissipation
   ! SPONGE FILTER OPTIONS
   namelist / input / use_sponge_filter, &
