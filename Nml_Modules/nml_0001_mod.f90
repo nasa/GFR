@@ -167,6 +167,9 @@ module nml_0001_mod
   use ovar,      only : output_extra_species_variables
   use ovar,      only : output_debug_species_variables
   use ovar,      only : output_grdnt_species_variables
+  use ovar,      only : output_cellave_density
+  use ovar,      only : output_exact_density
+  use ovar,      only : output_exact_pressure
   use ovar,      only : use_improved_SEM_normalization
   use ovar,      only : use_SEM_profile_for_initialization
   use ovar,      only : SEM_eddy_volume_is_spherical
@@ -307,7 +310,10 @@ module nml_0001_mod
                      output_species_mole_fractions, &
                      output_extra_species_variables, &
                      output_debug_species_variables, &
-                     output_grdnt_species_variables
+                     output_grdnt_species_variables, &
+                     output_cellave_density, &
+                     output_exact_density, &
+                     output_exact_pressure
   ! GOVERNING EQUATIONS
   namelist / input / governing_equations, turbulence_model
   ! MOVING REFERENCE FRAME

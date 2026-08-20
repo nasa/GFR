@@ -481,6 +481,9 @@ module ovar
   logical(lk), public, save :: output_extra_species_variables        = fals
   logical(lk), public, save :: output_debug_species_variables        = fals
   logical(lk), public, save :: output_grdnt_species_variables        = fals
+  logical(lk), public, save :: output_cellave_density                = fals
+  logical(lk), public, save :: output_exact_density                  = fals
+  logical(lk), public, save :: output_exact_pressure                 = fals
   !
   ! GOVERNING EQUATIONS
   integer, public, save :: governing_equations = NavierStokes_Eqns
