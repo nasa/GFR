@@ -686,7 +686,8 @@ continue
     io = my_probes(i)%io_unit
     !
     np = size(my_saved_data(i)%sol,dim=1)
-    ni = size(my_saved_data(i)%sol,dim=2)
+   !ni = size(my_saved_data(i)%sol,dim=2)
+    ni = current_save_idx
     !
     write_probe_data: &
     do j = 1,ni
