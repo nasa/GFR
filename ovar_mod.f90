@@ -6,6 +6,7 @@ module ovar
   use module_kind_types, only : wp,lk,ldk,fals,true
   use module_kind_types, only : NavierStokes_Eqns
   use module_kind_types, only : Internally_Generated_Grid,Unknown_Format
+  use module_kind_types, only : Generic_MeanFlow
   use module_kind_types, only : Legendre_Gauss,Equi_Distant_Points
   use module_kind_types, only : TVD3_RK
   use module_kind_types, only : invs_flux_ROE
@@ -396,7 +397,7 @@ module ovar
   integer, public, save :: use_parmetis = 0
   !
   ! INITIALIZATION / TEST CASE
-  integer, public, save :: itestcase     = 9
+  integer, public, save :: itestcase     = Generic_MeanFlow
   integer, public, save :: jet_init_func = 2
   !
   ! RESTART OPTIONS
