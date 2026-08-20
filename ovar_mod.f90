@@ -590,6 +590,7 @@ module ovar
   !
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
   integer, public, save :: Filtering_Interval        = 0
+  integer, public, save :: Sponge_Filter_Interval    = 0
   integer, public, save :: Limiting_Interval         = 0
   integer, public, save :: Limiting_Interval_Output  = 1
   !< frequency to store limiter marker and scaled marker data:

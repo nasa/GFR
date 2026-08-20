@@ -79,7 +79,9 @@ module nml_0001_mod
   use ovar,      only : Limiter_Marker_Min, Limiter_Marker_Max
   use ovar,      only : Limiter_Marker_dpsi
   use ovar,      only : Limiter_Marker_c1, Limiter_Marker_c2
-  use ovar,      only : Filtering_Interval, Limiting_Interval
+  use ovar,      only : Filtering_Interval
+  use ovar,      only : Sponge_Filter_Interval
+  use ovar,      only : Limiting_Interval
   use ovar,      only : Limiting_Interval_Output
   use ovar,      only : thermofix
   use ovar,      only : loc_output_pts, loc_init_pts, loc_error_pts
@@ -362,8 +364,8 @@ module nml_0001_mod
                      Limiter_Marker_c1, Limiter_Marker_c2, &
                      Limiter_Marker_dpsi
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
-  namelist / input / Filtering_Interval, Limiting_Interval, &
-                     Limiting_Interval_Output
+  namelist / input / Filtering_Interval, Sponge_Filter_Interval, &
+                     Limiting_Interval, Limiting_Interval_Output
   ! CHECK/FIX BAD THERMO PROPERTIES (PRES,TEMP,DENS)
   namelist / input / thermofix
   ! OUTPUT THE STATISTICS OF THE LIMITER
