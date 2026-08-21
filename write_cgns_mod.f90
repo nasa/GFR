@@ -2651,11 +2651,17 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use ovar,        only : profile_io_cgns_subs
   use ovar,        only : Limiter_Option
   use ovar,        only : moving_ref_frame
+  use ovar,        only : time
   use flowvar_mod, only : dtsp,dt_save,cell_diss,cell_num_marks
   !
   use metrics_mod, only : time_metrics,metrics_array,jac,wtdjac
   !
   use flowvar_mod,  only : marker,scaled_marker,nmarker
+  !
+  use cell_ave_mod,       only : compute_cell_ave_var
+  use advection_js_mod,   only : advection_js_exact_solution
+  use sod_shock_tube_mod, only : sod_shock_tube_exact_solution
+  !
   use limiters_mod, only : resolution_indicator
   use limiters_mod, only : jump_indicator
   use limiters_mod, only : ducros_indicator
@@ -2700,7 +2706,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   integer  :: imarker
   real(wp) :: freestream_ref,rhoa,rhoa2,time_ref_inv
   real(wp) :: cp_dim,cond_dim,dim_val,val,eps
-  real(wp) :: rho_inv,vx,vy,vz,a2,q2,s,fval
+  real(wp) :: rho,rho_inv,vx,vy,vz,a2,q2,s,fval
   real(wp) :: x1,x2,v1,v2,theta,vr,vt
   real(wp) :: gamm,gm1,gam_over_gm1,mach,pres,temp
   real(wp) :: mi,mj,drhodi,drhodj,dmjdi,dmidj
@@ -2711,13 +2717,19 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   real(wp) :: dwdx,dwdy,dwdz
   real(wp) :: qmin,qmax,qave,qpts,qsum,qstddev
   real(wp) :: x_r,y_r,z_r,vel_r,r1,r2,vx_r,vy_r,vz_r
+  real(wp) :: time_sec
   !
   integer(CBT) :: ivar_s
   !
   logical(lk) :: marker_was_not_allocated
   logical(lk) :: scaled_marker_was_not_allocated
   !
+  !.. Local Arrays ..
+  real(wp) :: xyzpt(1:3)
+  real(wp) :: vel(1:3)
+  !
   !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: cell_ave_var(:)
   real(wp), allocatable :: vartmp_at_sp(:)
   real(wp), allocatable :: xyztmp(:,:)
   real(wp), allocatable :: spcvar(:,:)
@@ -2725,6 +2737,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   real(wp), allocatable :: dpvdx(:,:,:)
   real(wp), allocatable :: dpdx(:,:)
   real(wp), allocatable :: other_variables(:,:)
+  real(wp), allocatable :: exact_sol(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "output_variable"
@@ -3721,6 +3734,133 @@ continue
       !
       if (abs(itestcase) == Freestream_TCF) then
         call remove_freestream_tcf_init(-nee,xyztmp,vartmp)
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("CellAveDensity") ! Cell-Average Density
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      if (.not. allocated(vartmp_at_sp)) then
+        allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+      !
+      if (.not. allocated(cell_ave_var)) then
+        cell_ave_var = init_array(ncell,zero) ! F2003 AUTO-REALLOC
+      end if
+      !
+      ! Compute the cell ave value.
+      call compute_cell_ave_var(nec,cell_ave_var)
+      !
+      ! Copy cell ave value to the cell solution points.
+      do nc = 1,ncell
+        n0 = cell(nc)%beg_sp - 1
+        np = cell(nc)%end_sp - n0
+        do n = 1, np
+          vartmp_at_sp(n0+n) = cell_ave_var(nc)
+        end do
+      end do
+      !
+      ! Interpolate from solution points to output points.
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      ! Convert to dimensional units.
+      do n = 1,npts
+        vartmp(n) = vartmp(n) * rhoref
+      end do
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("ExactDensity") ! Exact Density
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      ! Get the coordinates for the output points
+      !
+      if (.not. allocated(xyztmp)) then
+        xyztmp = init_array(npts,nr,zero) ! F2003 AUTO-REALLOC
+        do m = 1,nr
+          call interpolate_for_output( xyz(m,1:n_solpts) , xyztmp(1:npts,m) )
+        end do
+      end if
+      xyzpt(:) = zero  ! reset all components
+      !
+      ! Get the exact solution on the output points. Grid=[m], time=[s].
+      !
+      time_sec = time * time_ref
+      if ( itestcase == Sod_Shock_Tube ) then
+        do n = 1,npts
+          xyzpt(1:nr) = xyztmp(n,1:nr)
+          exact_sol = sod_shock_tube_exact_solution( &
+                        xyzpt, time_sec, nondim=fals ) ! F2003 AUTO-REALLOC
+          vartmp(n) = exact_sol(nec)
+        end do
+      else if ( itestcase == Advection_JiangShu ) then
+        do n = 1,npts
+          xyzpt(1:nr) = xyztmp(n,1:nr)
+          exact_sol = advection_js_exact_solution( &
+                        xyzpt, time_sec, nondim=fals ) ! F2003 AUTO-REALLOC
+          vartmp(n) = exact_sol(nec)
+        end do
+      else
+        ! No exact solution, so use reference value instead.
+        do n = 1,npts
+          vartmp(n) = rhoref
+        end do
+      end if
+      !
+      call cgns_write_field_data
+      !!}}}
+    case ("ExactPressure") ! Exact Pressure
+      !!{{{
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      ! Get the coordinates for the output points
+      !
+      if (.not. allocated(xyztmp)) then
+        xyztmp = init_array(npts,nr,zero) ! F2003 AUTO-REALLOC
+        do m = 1,nr
+          call interpolate_for_output( xyz(m,1:n_solpts) , xyztmp(1:npts,m) )
+        end do
+      end if
+      xyzpt(:) = zero  ! reset all components
+      !
+      ! Get the exact solution on the output points. Grid=[m], time=[s].
+      !
+      time_sec = time * time_ref
+      gm1 = gam - one
+      if ( itestcase == Sod_Shock_Tube ) then
+        do n = 1,npts
+          xyzpt(1:nr) = xyztmp(n,1:nr)
+          exact_sol = sod_shock_tube_exact_solution( &
+                        xyzpt, time_sec, nondim=fals ) ! F2003 AUTO-REALLOC
+          rho       = exact_sol(nec)
+          vel(1:nr) = exact_sol(nmb:nme) / rho
+          pres      = gm1 * ( exact_sol(nee) - half*rho*selfdot(vel(1:nr)) )
+          vartmp(n) = pres
+        end do
+      else if ( itestcase == Advection_JiangShu ) then
+        do n = 1,npts
+          xyzpt(1:nr) = xyztmp(n,1:nr)
+          exact_sol = advection_js_exact_solution( &
+                        xyzpt, time_sec, nondim=fals ) ! F2003 AUTO-REALLOC
+          rho       = exact_sol(nec)
+          vel(1:nr) = exact_sol(nmb:nme) / rho
+          pres      = gm1 * ( exact_sol(nee) - half*rho*selfdot(vel(1:nr)) )
+          vartmp(n) = pres
+        end do
+      else
+        ! No exact solution, so use reference value instead.
+        do n = 1,npts
+          vartmp(n) = pref
+        end do
       end if
       !
       call cgns_write_field_data
@@ -4934,6 +5074,12 @@ continue
       !!}}}
   end select variable_select
   !
+  if (allocated(cell_ave_var)) then
+    deallocate ( cell_ave_var , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cell_ave_var",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
   if (allocated(vartmp_at_sp)) then
     deallocate ( vartmp_at_sp , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"vartmp_at_sp",2,__LINE__,__FILE__, &
@@ -5011,6 +5157,9 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,        only : output_extra_species_variables
   use ovar,        only : output_debug_species_variables
   use ovar,        only : output_grdnt_species_variables
+  use ovar,        only : output_cellave_density
+  use ovar,        only : output_exact_density
+  use ovar,        only : output_exact_pressure
   use ovar,        only : Track_Limiter_Filter_Dissipation
   !
   !.. Formal Arguments ..
@@ -5043,7 +5192,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:64) = ["Density             ", &
+  character(len=*), parameter :: var_order(1:67) = ["Density             ", &
                                                     "Momentum            ", &
                                                     "Energy              ", &
                                                     "Velocity            ", &
@@ -5081,6 +5230,7 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "RelativeVelocity    ", &
                                                     "RCylindricalVelocity", &
                                                     "RelativeMach        ", &
+                                                    "CellAveDensity      ", &
                                                     "GradPressure        ", &
                                                     "GradTemperature     ", &
                                                     "ResolutionMarker    ", &
@@ -5106,7 +5256,9 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "StrainRateMagnitude ", &
                                                     "QCriterion          ", &
                                                     "DivergenceOfVelocity", &
-                                                    "FilterDissipation   "]
+                                                    "FilterDissipation   ", &
+                                                    "ExactDensity        ", &
+                                                    "ExactPressure       "]
   !
   !.. Variables requiring dusp for output
   character(len=*), parameter :: grad_vars(1:20) = ["GradSpeciesDensities", &
@@ -5182,6 +5334,12 @@ continue
     call add_sol_variable(variable_list,"RelativeVelocity")
     call add_sol_variable(variable_list,"RelativeMomentum")
     call add_sol_variable(variable_list,"RelativeMach")
+  end if
+  !
+  ! Output the cell-average density
+  !
+  if (output_cellave_density) then
+    call add_sol_variable(variable_list,"CellAveDensity")
   end if
   !
   ! Output Q-criterion without all the other vorticity variables
@@ -5349,6 +5507,14 @@ continue
   !
   if (Track_Limiter_Filter_Dissipation) then
     call add_sol_variable(variable_list,"FilterDissipation")
+  end if
+  !
+  if (output_exact_density) then
+    call add_sol_variable(variable_list,"ExactDensity")
+  end if
+  !
+  if (output_exact_pressure) then
+    call add_sol_variable(variable_list,"ExactPressure")
   end if
   !
   ! Add species mass fractions to the variable list if using a gas mixture.
