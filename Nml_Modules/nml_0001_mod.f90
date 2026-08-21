@@ -15,6 +15,7 @@ module nml_0001_mod
   use ovar,      only : plot3d_cutfile
   use ovar,      only : plot3d_bcsfile
   use ovar,      only : grid_scaling_factor
+  use ovar,      only : internal_grid_dof
   use ovar,      only : internal_grid_order
   use ovar,      only : interpto_grid_format
   use ovar,      only : interpto_gridfile
@@ -139,7 +140,6 @@ module nml_0001_mod
   use ovar,      only : dump_memory_usage,use_bc_conflicts
   use ovar,      only : dump_fluxes,check_flux_point_coordinates
   use ovar,      only : use_unrolled_dot_products
-  use ovar,      only : VortexGrid_DOF
   use ovar,      only : VortexGrid_random_perturb
   use ovar,      only : VortexGrid_perturb_percent,VortexGrid_Lref
   use ovar,      only : VortexGrid_Hex_to_Pyramids,VortexGrid_is_3D
@@ -148,14 +148,10 @@ module nml_0001_mod
   use ovar,      only : TCF_Aspect_Ratio,TCF_Axial_Cells
   use ovar,      only : TCF_Radial_Cells,TCF_Azimuthal_Cells
   use ovar,      only : TCF_Theta_Shift, TCF_Periodic_Sectors
-  use ovar,      only : flame_speed_test_dof
-  use ovar,      only : sod_test_dof
   use ovar,      only : sod_test_right_vector
   use ovar,      only : pulse_test_form, pulse_test_form_dim
-  use ovar,      only : pulse_test_dof
   use ovar,      only : pulse_test_length, pulse_test_center
   use ovar,      only : pulse_test_width, pulse_test_gap, pulse_test_repeat
-  use ovar,      only : shu_osher_test_dof
   use ovar,      only : channel_body_force,channel_init_file
   use ovar,      only : channel_spatial_ave_restart
   use ovar,      only : channel_nondim_output_coord
@@ -258,6 +254,15 @@ module nml_0001_mod
   public  ::  read_nml_file
   public  :: write_nml_file
   !
+  !.. Local Scalars ..
+  ! Obsolete inputs defined locally in order to include in old namelist read.
+  ! Explicitly save these, so their values will be retained.
+  integer,     save :: VortexGrid_DOF       = 48
+  integer,     save :: flame_speed_test_DOF = 0
+  integer,     save :: sod_test_DOF         = 0
+  integer,     save :: pulse_test_DOF       = 0
+  integer,     save :: shu_osher_test_DOF   = 0
+  !
   ! ########################
   ! ###  Input Namelist  ###
   ! ########################
@@ -266,7 +271,7 @@ module nml_0001_mod
   !
   ! GRID INFORMATION
   namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile, &
-                     grid_scaling_factor, internal_grid_order
+                     grid_scaling_factor, internal_grid_dof, internal_grid_order
   ! PLOT3D COARSENING OPTIONS
   namelist / input / plot3d_i_stride, plot3d_j_stride, plot3d_k_stride, &
                      plot3d_all_strides, plot3d_agglomerate_order, &
@@ -1002,9 +1007,28 @@ subroutine read_nml_data(io)
   !.. Arguments ..
   integer, intent(in) :: io  !< File unit number.
   !
+  !.. Local Scalars ..
+
+  !
 continue
   !
   read (io,nml=input)
+  !
+  ! Convert Dof inputs for specific testcases to generic internal_grid_dof
+  !
+  if (any(abs(itestcase) == Transport_Problems) .or. &
+              itestcase  == Taylor_Green_Vortex) then
+    internal_grid_dof = VortexGrid_DOF
+  else
+    select case (abs(itestcase))
+      case (CH4_Flame_Speed_Test) ; internal_grid_dof = flame_speed_test_dof
+      case (Sod_Shock_Tube      ) ; internal_grid_dof = sod_test_dof
+      case (Density_Pulse_Test  ) ; internal_grid_dof = pulse_test_dof
+      case (Shu_Osher_Test      ) ; internal_grid_dof = shu_osher_test_dof
+      case default
+        ! use internal_grid_dof
+    end select
+  end if
   !
 end subroutine read_nml_data
 !

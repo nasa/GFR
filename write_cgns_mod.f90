@@ -9512,7 +9512,7 @@ subroutine get_data_for_8s_vorticity_solution(my_vort_pts, &
                                               ipelem)
   !
   !.. Use Statements ..
-  use ovar,        only : Lref,VortexGrid_DOF
+  use ovar,        only : Lref,internal_grid_dof
   use geomvar_mod, only : nfbnd,face
   use geomvar_mod, only : xyz_nodes,pst_geom
   use order_mod,   only : geom_solpts,n_order
@@ -9560,8 +9560,14 @@ continue
   ! percentage of the cell height to use a limit to identify boundary
   ! faces within the grid region of interest
   !
-  cell_dx = two * LPI / anint( real(VortexGrid_DOF,kind=wp) / &
-                               real(n_order+1,kind=wp) , kind=wp )
+  if ( internal_grid_dof > 0 ) then
+    ! Convert dof to ncells.
+    nc = nint( real(internal_grid_dof,kind=wp) / real(n_order+1,kind=wp) )
+  else
+    ! Directly specify number of cells.
+    nc = abs(internal_grid_dof)
+  endif
+  cell_dx = two * LPI / real(nc,kind=wp)
   dx_eps = cell_dx * eps3 / ten
   !
   ! Initialize the variables giving the total number of vorticity points

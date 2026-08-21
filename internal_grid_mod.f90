@@ -99,9 +99,8 @@ subroutine create_internal_grid()
   use advection_js_mod, only : advection_js_xmin => xmin, &
                                advection_js_xmax => xmax
   use ovar, only : itestcase,postproc_debug_grid
+  use ovar, only : internal_grid_dof
   use ovar, only : VortexGrid_is_3D,VortexGrid_Hex_to_Pyramids
-  use ovar, only : flame_speed_test_dof, sod_test_dof, pulse_test_dof, &
-                   shu_osher_test_dof
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_internal_grid"
@@ -141,25 +140,25 @@ continue
     !
   else if (abs(itestcase) == CH4_Flame_Speed_Test) then
     !
-    if (flame_speed_test_dof == 0) flame_speed_test_dof = 512
+    if (internal_grid_dof == 0) internal_grid_dof = 512
     !
     call create_flame_speed_test_grid
     !
   else if (abs(itestcase) == Sod_Shock_Tube) then
     !
-    if (sod_test_dof == 0) sod_test_dof = 512
+    if (internal_grid_dof == 0) internal_grid_dof = 512
     !
     call create_sod_test_grid
     !
   else if (abs(itestcase) == Density_Pulse_Test) then
     !
-    if (pulse_test_dof == 0) pulse_test_dof = 512
+    if (internal_grid_dof == 0) internal_grid_dof = 512
     !
     call create_pulse_test_grid
     !
   else if (abs(itestcase) == Shu_Osher_Test) then
     !
-    if (shu_osher_test_dof == 0) shu_osher_test_dof = 512
+    if (internal_grid_dof == 0) internal_grid_dof = 512
     !
     call create_shu_osher_test_grid
     !
@@ -169,11 +168,11 @@ continue
     !
   else if (abs(itestcase) == Advection_JiangShu) then
     !
-    if (pulse_test_dof == 0) pulse_test_dof = 512
+    if (internal_grid_dof == 0) internal_grid_dof = 512
     !
     call create_1d_periodic_grid(advection_js_xmin, &
                                  advection_js_xmax, &
-                                 pulse_test_dof, ncells_even=0)
+                                 internal_grid_dof, ncells_even=0)
     !
   else
     !
@@ -1602,8 +1601,7 @@ subroutine create_periodic_square_quad_grid()
   !.. Use Statements ..
   use order_mod,   only : n_order
   use ovar,        only : Lref
-  use ovar,        only : internal_grid_dof => VortexGrid_DOF
-  use ovar,        only : VortexGrid_Lref
+  use ovar,        only : internal_grid_dof,VortexGrid_Lref
   use ovar,        only : VortexGrid_random_perturb
   use ovar,        only : VortexGrid_perturb_percent
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
@@ -1871,8 +1869,7 @@ subroutine create_periodic_cube_hex_grid()
   !
   !.. Use Statements ..
   use order_mod,   only : n_order
-  use ovar,        only : internal_grid_dof => VortexGrid_DOF
-  use ovar,        only : Lref
+  use ovar,        only : internal_grid_dof,Lref
   use ovar,        only : VortexGrid_random_perturb
   use ovar,        only : VortexGrid_perturb_percent
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
@@ -2509,8 +2506,7 @@ subroutine create_periodic_cube_pyramid_grid()
   !
   !.. Use Statements ..
   use order_mod,   only : n_order,geom_solpts
-  use ovar,        only : internal_grid_dof => VortexGrid_DOF
-  use ovar,        only : Lref
+  use ovar,        only : internal_grid_dof,Lref
   use ovar,        only : VortexGrid_random_perturb
   use ovar,        only : VortexGrid_perturb_percent
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
@@ -5027,7 +5023,7 @@ subroutine create_flame_speed_test_grid()
   !.. Use Statements ..
   use order_mod,   only : n_order
   use ovar,        only : Lref
-  use ovar,        only : internal_grid_dof => flame_speed_test_dof
+  use ovar,        only : internal_grid_dof
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geomvar_mod, only : cell_geom,cell_order
@@ -5199,7 +5195,7 @@ subroutine create_sod_test_grid()
   !.. Use Statements ..
   use order_mod,   only : n_order
   use ovar,        only : Lref
-  use ovar,        only : internal_grid_dof => sod_test_dof
+  use ovar,        only : internal_grid_dof
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geomvar_mod, only : cell_geom,cell_order
@@ -5407,8 +5403,7 @@ subroutine create_pulse_test_grid()
   !.. Use Statements ..
   use order_mod,   only : n_order
   use ovar,        only : Lref
-  use ovar,        only : internal_grid_dof => pulse_test_dof
-  use ovar,        only : pulse_test_length
+  use ovar,        only : internal_grid_dof, pulse_test_length
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geomvar_mod, only : cell_geom,cell_order
@@ -5568,7 +5563,7 @@ subroutine create_shu_osher_test_grid()
   !.. Use Statements ..
   use order_mod,   only : n_order
   use ovar,        only : Lref
-  use ovar,        only : internal_grid_dof => shu_osher_test_dof
+  use ovar,        only : internal_grid_dof
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geomvar_mod, only : cell_geom,cell_order

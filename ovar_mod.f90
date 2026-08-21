@@ -319,7 +319,18 @@ module ovar
   character(len=:), public, save, allocatable :: plot3d_cutfile
   character(len=:), public, save, allocatable :: plot3d_bcsfile
   real(wp),         public, save :: grid_scaling_factor = 1.0_wp
-  integer,          public, save :: internal_grid_order = -1
+  !
+  ! INTERNAL GRID PARAMETERS
+  !> Resolution for 1d internal grid:
+  !>   (<0) user specified number of cells,
+  !>   (=0) 512 degrees of freedom,
+  !>   (>0) user specified degrees of freedom.
+  integer, public, save :: internal_grid_dof = 0
+  !> ( >0) Order used to generate high-order curved grid
+  !> (<=0) Use solution order
+  !> Only applicable to cases using a curved grid,
+  !> e.g., Taylor-Couette, pipe-channel flow
+  integer, public, save :: internal_grid_order = -1
   !
   ! PLOT3D COARSENING OPTIONS
   integer, public, save :: plot3d_i_stride          = -1
@@ -622,7 +633,6 @@ module ovar
   real(wp), public, save :: VortexGrid_Lref = 10.0_wp
   !
   ! TAYLOR-GREEN VORTEX CONSTANTS
-  integer,     public, save :: VortexGrid_DOF             = 48
   logical(lk), public, save :: VortexGrid_random_perturb  = fals
   integer,     public, save :: VortexGrid_perturb_percent = 30
   logical(lk), public, save :: VortexGrid_Hex_to_Pyramids = fals
@@ -641,15 +651,7 @@ module ovar
   integer,  public, save :: TCF_Periodic_Sectors   = 1
   ! TCF_Periodic_Sectors : periodic rotation angle = 360/TCF_Periodic_Sectors
   !
-  ! FLAME SPEED TEST PARAMETERS
-  integer, public, save :: flame_speed_test_dof = 0
-  !
   ! SOD SHOCK TUBE TEST PARAMETERS
-  integer,  public, save :: sod_test_dof = 0
-    !< Sod shock tube resolution for 1d internal grid:
-    !<   (<0) user specified number of cells,
-    !<   (=0) 512 degrees of freedom,
-    !<   (>0) user specified degrees of freedom.
   real(wp), public, save :: sod_test_right_vector(3) = [one,zero,zero]
     !< Sod shock tube diaphram right side normal vector.
   !
@@ -665,11 +667,6 @@ module ovar
     !< Dimension of the density test shape:
     !<   1 = 1d,
     !<   2 = 2d.
-  integer,  public, save :: pulse_test_dof = 0
-    !< Resolution for density pulse test internal grid:
-    !<   (<0) user specified number of cells,
-    !<   (=0) 512 degrees of freedom,
-    !<   (>0) user specified degrees of freedom.
   real(wp), public, save :: pulse_test_length = 1.0_wp
     !< 1d domain length for density pulse test internal grid.
   real(wp), public, save :: pulse_test_center(3) = [half,zero,zero]
@@ -680,13 +677,6 @@ module ovar
     !< Gap between density pulses.
   integer,  public, save :: pulse_test_repeat = 0
     !< Number of repeat density pulses.
-  !
-  ! SHU-OSHER SHOCK TUBE TEST PARAMETERS
-  integer,  public, save :: shu_osher_test_dof = 0
-    !< Shu-Osher shock tube resolution for 1d internal grid:
-    !<   (<0) user specified number of cells,
-    !<   (=0) 512 degrees of freedom,
-    !<   (>0) user specified degrees of freedom.
   !
   ! CHANNEL FLOW PARAMETERS
   real(wp),         public, save :: channel_body_force          = 0.0_wp
