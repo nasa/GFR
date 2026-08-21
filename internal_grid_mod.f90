@@ -96,6 +96,8 @@ contains
 subroutine create_internal_grid()
   !
   !.. Use Statements ..
+  use advection_js_mod, only : advection_js_xmin => xmin, &
+                               advection_js_xmax => xmax
   use ovar, only : itestcase,postproc_debug_grid
   use ovar, only : VortexGrid_is_3D,VortexGrid_Hex_to_Pyramids
   use ovar, only : flame_speed_test_dof, sod_test_dof, pulse_test_dof, &
@@ -166,6 +168,14 @@ continue
   else if (abs(itestcase) == Channel_Flow) then
     !
     call create_channel_flow_grid
+    !
+  else if (abs(itestcase) == Advection_JiangShu) then
+    !
+    if (pulse_test_dof == 0) pulse_test_dof = 512
+    !
+    call create_1d_periodic_grid(advection_js_xmin, &
+                                 advection_js_xmax, &
+                                 pulse_test_dof, ncells_even=0)
     !
   else
     !
@@ -5902,6 +5912,184 @@ continue
   end function get_default_1d_bc_input
   !
 end subroutine reset_bc_input_for_1d_grid
+!
+!###############################################################################
+!
+subroutine create_1d_periodic_grid(xmin,xmax,dof,ncells_even)
+  !
+  !.. Use Statements ..
+  use order_mod,   only : n_order
+  use ovar,        only : Lref
+  use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geomvar_mod, only : cell_geom,cell_order
+  use ovar,        only : grid_format,bc_names
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: xmin         !< Grid min bound.
+  real(wp), intent(in) :: xmax         !< Grid max bound.
+  integer,  intent(in) :: dof          !< If (<0) total number of cells.
+                                       !< If (>0) total degrees of freedom.
+  integer,  intent(in) :: ncells_even  !< Force even number of cells
+                                       !< If (0) don't care.
+                                       !< If (1) force odd cells.
+                                       !< If (2) force even cells.
+  !
+  !.. Local Scalars ..
+  integer  :: n,nc,nf,np,ierr
+  real(wp) :: dl
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_1d_periodic_grid"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Reset the grid format input parameter to identify
+  ! the grid as internally generated
+  !
+  grid_format = Internally_Generated_Grid
+  !
+  ! Make the reference length one meter for this test case
+  !
+  Lref = one
+  !
+  ! Set the grid dimensionality, (1,2,3)=(1d,2d,3d)
+  !
+  nr = 1
+  !
+  ! Reset bc_input for this fully periodic grid so that the subroutine
+  ! match_periodic_faces can correctly match all the periodic faces.
+  !
+  call reset_bc_input_for_internal_grid( Lref_x = xmax-xmin )
+  !
+  ! Estimate the number of cells required to get the requested DOF
+  !
+  if ( dof > 0 ) then
+    nc = nint( real(dof,kind=wp) / real(n_order+1,kind=wp) )
+  else
+    nc = abs(dof)  ! directly specify number of cells
+  endif
+  !
+  if ( mod(nc,2) == 0 ) then  ! even number of cells
+    if ( ncells_even == 1 ) nc = nc + 1  ! force odd
+  else                        ! odd  number of cells
+    if ( ncells_even == 2 ) nc = nc + 1  ! force even
+  end if
+  !
+  np = nc + 1   ! number of grid nodes in each direction
+  !
+  ncell = nc    ! total number of grid cells
+  nnode = np    ! total number of grid nodes
+  nfbnd = 2     ! total number of boundary faces
+  !
+  ! Allocate all the arrays needed to define the grid
+  !
+  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xyz_nodes",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell_ptr",1,__LINE__,__FILE__,ierr, &
+                   error_message)
+  !
+  allocate ( nodes_of_cell(1:geom_nodes(Geom_Edge)*ncell) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bface",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( cell_geom(1:ncell) , source=Geom_Edge , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_geom",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( cell_order(1:ncell) , source=n_order , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! #######
+  ! #######
+  ! ## 1 ##
+  ! #######
+  ! #######
+  !
+  ! Create the nodes_of_cell_ptr array
+  !
+  nodes_of_cell_ptr(1) = 0
+  do n = 2,size(nodes_of_cell_ptr)
+    nodes_of_cell_ptr(n) = nodes_of_cell_ptr(n-1) + geom_nodes(Geom_Edge)
+  end do
+  !
+  ! Create the nodes_of_cell array
+  !
+  do n = 1,ncell
+    nodes_of_cell( nodes_of_cell_ptr(n)+1 ) = n
+    nodes_of_cell( nodes_of_cell_ptr(n)+2 ) = n+1
+  end do
+  !
+  ! #######
+  ! #######
+  ! ## 2 ##
+  ! #######
+  ! #######
+  !
+  ! Compute the cell size for a Cartesian/uniform grid of total length
+  !
+  dl = (xmax-xmin) / real(ncell,kind=wp)
+  !
+  ! Create the grid node coordinates as a uniform 1D grid from xmin:xmax.
+  ! Use linear interpolation to force exact match at xmin,xmax.
+  !
+  do n = 1,nnode
+!   xyz_nodes(1,n) = xmin + dl*real(n-1,kind=wp)
+    xyz_nodes(1,n) = xmin + (xmax-xmin) * real(n    -1,kind=wp) &
+                                        / real(nnode-1,kind=wp)
+  end do
+  !
+  ! #######
+  ! #######
+  ! ## 3 ##
+  ! #######
+  ! #######
+  !
+  ! Create the bface array
+  !
+  ! Since this is a 1D grid, there are only 2 boundary faces: i-min and i-max
+  ! NOTE: The subroutine match_periodic_faces will set the values of
+  !       bface([5,6,8,9],:), so we dont need to do that here.
+  !
+  !
+  ! Create the i-min boundary face
+  !
+  nf = 1
+  !
+  bface( 1,nf) = bc_periodic
+  bface( 2,nf) = 1      ! host cell index
+  bface( 3,nf) = Geom_Edge
+  bface( 4,nf) = 1      ! x-min face
+! bface( 5,nf) = 1      ! this face belongs to boundary group 1
+  bface( 6,nf) = 1      ! index of array bc_input(:) to get BC flow conditions
+  bface(10,nf) = ncell + nf ! index of ghost cell/face
+  !
+  ! Create the i-max boundary face
+  !
+  nf = 2
+  !
+  bface( 1,nf) = bc_periodic
+  bface( 2,nf) = ncell  ! host cell index
+  bface( 3,nf) = Geom_Edge
+  bface( 4,nf) = 2      ! x-max face
+! bface( 5,nf) = 2      ! this face belongs to boundary group 2
+  bface( 6,nf) = 2      ! index of array bc_input(:) to get BC flow conditions
+  bface(10,nf) = ncell + nf ! index of ghost cell/face
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine create_1d_periodic_grid
 !
 !###############################################################################
 !
