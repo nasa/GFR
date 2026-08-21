@@ -4494,6 +4494,8 @@ subroutine create_pipe_channel_grid()
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_pipe_channel_grid"
   !
+  !> Specify if lz will be used as the inner arclength of the annulus.
+  !> Otherwise, lz will be used as the outer arclength of the annulus.
  !logical(lk), parameter :: lz_is_inner_wall = true
   logical(lk), parameter :: lz_is_inner_wall = fals
   !
