@@ -1601,7 +1601,7 @@ subroutine create_periodic_square_quad_grid()
   !
   !.. Use Statements ..
   use order_mod,   only : n_order
-  use ovar,        only : Lref,itestcase
+  use ovar,        only : Lref
   use ovar,        only : internal_grid_dof => VortexGrid_DOF
   use ovar,        only : VortexGrid_Lref
   use ovar,        only : VortexGrid_random_perturb
@@ -5026,7 +5026,7 @@ subroutine create_flame_speed_test_grid()
   !
   !.. Use Statements ..
   use order_mod,   only : n_order
-  use ovar,        only : Lref,itestcase
+  use ovar,        only : Lref
   use ovar,        only : internal_grid_dof => flame_speed_test_dof
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
@@ -5198,7 +5198,7 @@ subroutine create_sod_test_grid()
   !
   !.. Use Statements ..
   use order_mod,   only : n_order
-  use ovar,        only : Lref,itestcase
+  use ovar,        only : Lref
   use ovar,        only : internal_grid_dof => sod_test_dof
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
@@ -5402,7 +5402,7 @@ subroutine create_pulse_test_grid()
   !
   !.. Use Statements ..
   use order_mod,   only : n_order
-  use ovar,        only : Lref,itestcase
+  use ovar,        only : Lref
   use ovar,        only : internal_grid_dof => pulse_test_dof
   use ovar,        only : pulse_test_length
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
@@ -5563,7 +5563,7 @@ subroutine create_shu_osher_test_grid()
   !
   !.. Use Statements ..
   use order_mod,   only : n_order
-  use ovar,        only : Lref,itestcase
+  use ovar,        only : Lref
   use ovar,        only : internal_grid_dof => shu_osher_test_dof
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
