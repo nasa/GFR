@@ -107,8 +107,6 @@ module nml_0001_mod
   use ovar,      only : Limiter_Filter_Order
   use ovar,      only : Filter_Alpha
   use ovar,      only : Limiter_Filter_Alpha
-  use ovar,      only : Filter_eps
-  use ovar,      only : Limiter_Filter_eps
   use ovar,      only : Limiter_Use_Dynamic_Filter
   use ovar,      only : Track_Limiter_Filter_Dissipation
   use ovar,      only : Pyramid_Filter_Option
@@ -407,14 +405,12 @@ module nml_0001_mod
                      Filter_etac   , &
                      Filter_Order  , &
                      Filter_Alpha  , &
-                     Filter_eps    , &
                      Pyramid_Filter_Option
   ! LIMITER FILTER OPTIONS
   namelist / input / Limiter_Filter_Option      , &
                      Limiter_Filter_etac        , &
                      Limiter_Filter_Order       , &
                      Limiter_Filter_Alpha       , &
-                     Limiter_Filter_eps         , &
                      Limiter_Use_Dynamic_Filter , &
                      Track_Limiter_Filter_Dissipation
   ! SPONGE FILTER OPTIONS

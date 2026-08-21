@@ -559,10 +559,9 @@ module ovar
   ! FILTER OPTIONS
   !> Option for how the global filter is applied to cells.
   integer,  public, save :: Filter_Option = Filter_Option__Off
-  real(wp), public, save :: Filter_etac   = 0.0_wp
   integer,  public, save :: Filter_Order  = 16
   real(wp), public, save :: Filter_Alpha  = 36.0_wp
-  real(wp), public, save :: Filter_eps    = 0.0_wp
+  real(wp), public, save :: Filter_etac   = 0.0_wp
   !
   !> Option for how the filter is applied to pyramid cells.
   integer,  public, save :: Pyramid_Filter_Option = Pyramid_Filter_Option__1
@@ -571,10 +570,9 @@ module ovar
   !> Option for how the local filter is applied to cells.
   !> Supports the same options as Filter_Option.
   integer,  public, save :: Limiter_Filter_Option = Filter_Option__Off
-  real(wp), public, save :: Limiter_Filter_etac   = 0.0_wp
   integer,  public, save :: Limiter_Filter_Order  = 16
   real(wp), public, save :: Limiter_Filter_Alpha  = 36.0_wp
-  real(wp), public, save :: Limiter_Filter_eps    = 0.0_wp
+  real(wp), public, save :: Limiter_Filter_etac   = 0.0_wp
   logical(lk), public, save :: Limiter_Use_Dynamic_Filter = fals
   logical(lk), public, save :: Track_Limiter_Filter_Dissipation = fals
   !
@@ -583,9 +581,9 @@ module ovar
   !>   0 = off,
   !>   1 = on.
   logical(lk), public, save :: use_sponge_filter    = fals
-  real(wp),    public, save :: Sponge_Filter_etac   = 0.0_wp
   integer,     public, save :: Sponge_Filter_Order  = 8
   real(wp),    public, save :: Sponge_Filter_Alpha  = 36.0_wp
+  real(wp),    public, save :: Sponge_Filter_etac   = 0.0_wp
   real(wp),    public, save :: Sponge_Beyond_X      = huge(zero)
   !
   ! LIMITER OPTIONS
