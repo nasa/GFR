@@ -4,6 +4,8 @@
 module nml_0001_mod
   !
   !.. Use Statements ..
+  use module_kind_types
+  !
   use ovar,      only : grid_format
   use ovar,      only : gridfile
   use ovar,      only : plot3d_all_strides
@@ -535,12 +537,6 @@ subroutine alloc_nml_data(opt_n_bc_input,opt_char_len, &
                           opt_n_species,opt_n_point_probes, &
                           opt_n_rake_probes,opt_n_cell_probes)
   !
-  !.. Use Statements ..
-  use module_kind_types, only : zero,alloc_error,error_message
-  use module_kind_types, only : debug_timer
-  use module_kind_types, only : entering_procedure
-  use module_kind_types, only : leaving_procedure
-  !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: opt_n_bc_input
   integer, optional, intent(in) :: opt_char_len
@@ -845,10 +841,6 @@ end subroutine alloc_nml_data
 subroutine resiz_nml_data
   !
   !.. Use Statements ..
-  use module_kind_types, only : alloc_error,error_message
-  use module_kind_types, only : debug_timer
-  use module_kind_types, only : entering_procedure
-  use module_kind_types, only : leaving_procedure
   use ovar,              only : bc_input_t, point_probe_t, rake_probe_t
   !
   !.. Local Scalars ..
@@ -1001,14 +993,8 @@ end subroutine resiz_nml_data
 !###############################################################################
 subroutine read_nml_data(io)
   !
-  !.. Use Statements ..
-  use module_kind_types
-  !
   !.. Arguments ..
   integer, intent(in) :: io  !< File unit number.
-  !
-  !.. Local Scalars ..
-
   !
 continue
   !
@@ -1036,9 +1022,6 @@ end subroutine read_nml_data
 !> Write the namelist input data to the specified output unit.
 !###############################################################################
 subroutine write_nml_data(io,banner)
-  !
-  !.. Use Statements ..
-  use module_kind_types
   !
   !.. Arguments ..
   integer,     intent(in) :: io      !< File unit number.
@@ -1070,9 +1053,6 @@ end subroutine write_nml_data
 !###############################################################################
 !
 subroutine read_nml_file(input_fname,input_mode)
-  !
-  !.. Use Statements ..
-  use module_kind_types
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: input_fname
@@ -1122,9 +1102,6 @@ end subroutine read_nml_file
 !###############################################################################
 !
 subroutine write_nml_file(output_fname)
-  !
-  !.. Use Statements ..
-  use module_kind_types
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: output_fname
