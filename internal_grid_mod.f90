@@ -2574,7 +2574,7 @@ continue
   ! Get the number of cells in each direction
   !
   if ( internal_grid_dof > 0 ) then
-    nc = nint( real(internal_grid_dof,kind=wp) / real(n_order+1,kind=wp) )
+    nc = nint(real(internal_grid_dof,kind=wp) / real(npyr_dof_per_hex,kind=wp))
   else
     nc = abs(internal_grid_dof)  ! directly specify number of cells
   end if
