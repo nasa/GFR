@@ -113,7 +113,7 @@ module nml_0001_mod
   use ovar,      only : Limiter_Use_Dynamic_Filter
   use ovar,      only : Track_Limiter_Filter_Dissipation
   use ovar,      only : Pyramid_Filter_Option
-  use ovar,      only : use_sponge_filter
+  use ovar,      only : Sponge_Filter_Option
   use ovar,      only : Sponge_Filter_etac
   use ovar,      only : Sponge_Filter_Order
   use ovar,      only : Sponge_Filter_Alpha
@@ -259,6 +259,7 @@ module nml_0001_mod
   !.. Local Scalars ..
   ! Obsolete inputs defined locally in order to include in old namelist read.
   ! Explicitly save these, so their values will be retained.
+  logical(lk), save :: Use_Sponge_Filter    = fals
   integer,     save :: VortexGrid_DOF       = 48
   integer,     save :: flame_speed_test_DOF = 0
   integer,     save :: sod_test_DOF         = 0
@@ -1015,6 +1016,10 @@ continue
         ! use internal_grid_dof
     end select
   end if
+  !
+  ! Set the sponge filter option
+  !
+  Sponge_Filter_Option = merge(1,0,Use_Sponge_Filter) ! logical to int
   !
 end subroutine read_nml_data
 !

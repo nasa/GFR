@@ -591,7 +591,7 @@ module ovar
   !> Option for how the sponge filter is applied to cells:
   !>   0 = off,
   !>   1 = on.
-  logical(lk), public, save :: use_sponge_filter    = fals
+  integer,     public, save :: Sponge_Filter_Option = 0
   integer,     public, save :: Sponge_Filter_Order  = 8
   real(wp),    public, save :: Sponge_Filter_Alpha  = 36.0_wp
   real(wp),    public, save :: Sponge_Filter_etac   = 0.0_wp

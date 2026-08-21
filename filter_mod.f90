@@ -1505,7 +1505,7 @@ end function create_cutoff_filter
 subroutine output_all_filters()
   !
   !.. Use Statements ..
-  use ovar, only : use_sponge_filter
+  use ovar, only : Sponge_Filter_Option
   use ovar, only : Filter_Option
   use ovar, only : Limiter_Filter_Option
   !
@@ -1693,7 +1693,7 @@ continue
         ! Write out the actual filter matrix
         !
         write (io,300)
-        if (.not. use_sponge_filter) write (io,302)
+        if (Sponge_Filter_Option == 0) write (io,302)
         do j = size(fmat,dim=2),1,-1
           write (io,301) (fmat(i,j), i=1,size(fmat,dim=1))
         end do

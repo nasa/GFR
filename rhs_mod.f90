@@ -514,7 +514,7 @@ subroutine stabilize_usp(nst,Apply_Filter,Apply_Sponge,Apply_Limiter, &
   use ovar,            only : Limiter_Option,Filter_Option
   use ovar,            only : Filter_Alpha
   use ovar,            only : ideal_total_temperature
-  use ovar,            only : use_sponge_filter
+  use ovar,            only : Sponge_Filter_Option
   use ovar,            only : thermofix
   use ovar,            only : governing_equations
   use filter_mod,      only : filter_usp
@@ -562,7 +562,7 @@ continue
   !
   ! Apply the sponge filter to cells in sponge regions
   !
-  if (use_sponge_filter) then ! The sponge filter is active.
+  if (Sponge_Filter_Option == 1) then ! The sponge filter is active.
     if (Apply_Sponge) then  ! Apply sponge filter during this stage.
 #ifdef PROFILE_ON
       if (mypnum == glb_root) write (iout,1) nst
@@ -590,7 +590,8 @@ continue
   !       should still allow the resolution marker to find troubled cells.
   !
   if (Filter_Option /= Filter_Option__Off .and. Filter_Alpha <= one) then
-    if (Apply_Filter) then
+    ! A weak global filter is active
+    if (Apply_Filter) then ! Apply the global filter during this stage
 #ifdef PROFILE_ON
       if (mypnum == glb_root) write (iout,1) nst
 #endif
@@ -631,7 +632,8 @@ continue
   !       finding any troubled cells.
   !
   if (Filter_Option /= Filter_Option__Off .and. Filter_Alpha > one) then
-    if (Apply_Filter) then
+    ! A strong global filter is active
+    if (Apply_Filter) then ! Apply the global filter during this stage
 #ifdef PROFILE_ON
       if (mypnum == glb_root) write (iout,3) nst
       3 format (8x,"Applying Standard Filter : RK Stage = ",i0)
