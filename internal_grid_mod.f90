@@ -141,9 +141,7 @@ continue
     !
   else if (abs(itestcase) == CH4_Flame_Speed_Test) then
     !
-    if (flame_speed_test_dof <= 0) then
-      flame_speed_test_dof = 512
-    end if
+    if (flame_speed_test_dof == 0) flame_speed_test_dof = 512
     !
     call create_flame_speed_test_grid
     !
@@ -1604,7 +1602,8 @@ subroutine create_periodic_square_quad_grid()
   !.. Use Statements ..
   use order_mod,   only : n_order
   use ovar,        only : Lref,itestcase
-  use ovar,        only : VortexGrid_DOF,VortexGrid_Lref
+  use ovar,        only : internal_grid_dof => VortexGrid_DOF
+  use ovar,        only : VortexGrid_Lref
   use ovar,        only : VortexGrid_random_perturb
   use ovar,        only : VortexGrid_perturb_percent
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
@@ -1648,10 +1647,10 @@ continue
   !
   ! Estimate the number of cells required to get the requested DOF
   !
-  if ( VortexGrid_DOF > 0 ) then
-    nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
+  if ( internal_grid_dof > 0 ) then
+    nc = nint( real(internal_grid_dof,kind=wp) / real(n_order+1,kind=wp) )
   else
-    nc = abs(VortexGrid_DOF)  ! directly specify number of cells
+    nc = abs(internal_grid_dof)  ! directly specify number of cells
   end if
   !
   np = nc + 1 ! number of grid nodes in each direction
@@ -1872,7 +1871,8 @@ subroutine create_periodic_cube_hex_grid()
   !
   !.. Use Statements ..
   use order_mod,   only : n_order
-  use ovar,        only : VortexGrid_DOF,Lref
+  use ovar,        only : internal_grid_dof => VortexGrid_DOF
+  use ovar,        only : Lref
   use ovar,        only : VortexGrid_random_perturb
   use ovar,        only : VortexGrid_perturb_percent
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
@@ -1927,10 +1927,10 @@ continue
   !
   ! Estimate the number of cells required to get the requested DOF
   !
-  if ( VortexGrid_DOF > 0 ) then
-    nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
+  if ( internal_grid_dof > 0 ) then
+    nc = nint( real(internal_grid_dof,kind=wp) / real(n_order+1,kind=wp) )
   else
-    nc = abs(VortexGrid_DOF)  ! directly specify number of cells
+    nc = abs(internal_grid_dof)  ! directly specify number of cells
   end if
   !
   np = nc + 1 ! number of grid nodes in each direction
@@ -2509,7 +2509,8 @@ subroutine create_periodic_cube_pyramid_grid()
   !
   !.. Use Statements ..
   use order_mod,   only : n_order,geom_solpts
-  use ovar,        only : VortexGrid_DOF,Lref
+  use ovar,        only : internal_grid_dof => VortexGrid_DOF
+  use ovar,        only : Lref
   use ovar,        only : VortexGrid_random_perturb
   use ovar,        only : VortexGrid_perturb_percent
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
@@ -2572,10 +2573,10 @@ continue
   !
   ! Get the number of cells in each direction
   !
-  if ( VortexGrid_DOF > 0 ) then
-    nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
+  if ( internal_grid_dof > 0 ) then
+    nc = nint( real(internal_grid_dof,kind=wp) / real(n_order+1,kind=wp) )
   else
-    nc = abs(VortexGrid_DOF)  ! directly specify number of cells
+    nc = abs(internal_grid_dof)  ! directly specify number of cells
   end if
   !
   np = nc + 1 ! number of grid nodes in each direction
@@ -5024,7 +5025,7 @@ subroutine create_flame_speed_test_grid()
   !.. Use Statements ..
   use order_mod,   only : n_order
   use ovar,        only : Lref,itestcase
-  use ovar,        only : flame_speed_test_dof
+  use ovar,        only : internal_grid_dof => flame_speed_test_dof
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geomvar_mod, only : cell_geom,cell_order
@@ -5056,10 +5057,10 @@ continue
   !
   ! Estimate the number of cells required to get the requested DOF
   !
-  if ( flame_speed_test_dof > 0 ) then
-    nc = nint( real(flame_speed_test_dof,kind=wp) / real(n_order+1,kind=wp) )
+  if ( internal_grid_dof > 0 ) then
+    nc = nint( real(internal_grid_dof,kind=wp) / real(n_order+1,kind=wp) )
   else
-    nc = abs(flame_speed_test_dof)  ! directly specify number of cells
+    nc = abs(internal_grid_dof)  ! directly specify number of cells
   endif
   !
   np = nc + 1 ! number of grid nodes in each direction
@@ -5196,7 +5197,7 @@ subroutine create_sod_test_grid()
   !.. Use Statements ..
   use order_mod,   only : n_order
   use ovar,        only : Lref,itestcase
-  use ovar,        only : sod_test_dof
+  use ovar,        only : internal_grid_dof => sod_test_dof
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geomvar_mod, only : cell_geom,cell_order
@@ -5263,10 +5264,10 @@ continue
   !
   ! Estimate the number of cells required to get the requested DOF
   !
-  if ( sod_test_dof > 0 ) then
-    nc = nint( real(sod_test_dof,kind=wp) / real(n_order+1,kind=wp) )
+  if ( internal_grid_dof > 0 ) then
+    nc = nint( real(internal_grid_dof,kind=wp) / real(n_order+1,kind=wp) )
   else
-    nc = abs(sod_test_dof)  ! directly specify number of cells
+    nc = abs(internal_grid_dof)  ! directly specify number of cells
   endif
   !
   np = nc + 1 ! number of grid nodes in each direction
@@ -5400,7 +5401,8 @@ subroutine create_pulse_test_grid()
   !.. Use Statements ..
   use order_mod,   only : n_order
   use ovar,        only : Lref,itestcase
-  use ovar,        only : pulse_test_dof, pulse_test_length
+  use ovar,        only : internal_grid_dof => pulse_test_dof
+  use ovar,        only : pulse_test_length
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geomvar_mod, only : cell_geom,cell_order
@@ -5437,10 +5439,10 @@ continue
   !
   ! Estimate the number of cells required to get the requested DOF
   !
-  if ( pulse_test_dof > 0 ) then
-    nc = nint( real(pulse_test_dof,kind=wp) / real(n_order+1,kind=wp) )
+  if ( internal_grid_dof > 0 ) then
+    nc = nint( real(internal_grid_dof,kind=wp) / real(n_order+1,kind=wp) )
   else
-    nc = abs(pulse_test_dof)  ! directly specify number of cells
+    nc = abs(internal_grid_dof)  ! directly specify number of cells
   endif
   !
   np = nc + 1 ! number of grid nodes in each direction
@@ -5560,7 +5562,7 @@ subroutine create_shu_osher_test_grid()
   !.. Use Statements ..
   use order_mod,   only : n_order
   use ovar,        only : Lref,itestcase
-  use ovar,        only : shu_osher_test_dof
+  use ovar,        only : internal_grid_dof => shu_osher_test_dof
   use geomvar_mod, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geomvar_mod, only : cell_geom,cell_order
@@ -5627,10 +5629,10 @@ continue
   !
   ! Estimate the number of cells required to get the requested DOF
   !
-  if ( shu_osher_test_dof > 0 ) then
-    nc = nint( real(shu_osher_test_dof,kind=wp) / real(n_order+1,kind=wp) )
+  if ( internal_grid_dof > 0 ) then
+    nc = nint( real(internal_grid_dof,kind=wp) / real(n_order+1,kind=wp) )
   else
-    nc = abs(shu_osher_test_dof)  ! directly specify number of cells
+    nc = abs(internal_grid_dof)  ! directly specify number of cells
   endif
   !
   np = nc + 1 ! number of grid nodes in each direction
