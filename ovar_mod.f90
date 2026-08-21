@@ -778,7 +778,6 @@ module ovar
   logical(lk), public, save :: output_bface_array = fals
   !
   logical(lk), public, save :: force_nd_subroutines = fals
-  real(wp),    public, save :: newton_rlx = 1.0_wp
   real(wp),    public, save :: conv_temp = eps12
   integer,     public, save :: chemistry_sub_iterations = -1
   logical(lk), public, save :: ignore_thermo_newton_warnings = fals

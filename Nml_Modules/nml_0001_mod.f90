@@ -227,7 +227,6 @@ module nml_0001_mod
   use ovar,      only : SEM_use_restart_eddies
   use ovar,      only : average_sem_inflow_plane
   use ovar,      only : force_nd_subroutines
-  use ovar,      only : newton_rlx
   use ovar,      only : conv_temp
   use ovar,      only : chemistry_sub_iterations
   use ovar,      only : ignore_thermo_newton_warnings
@@ -259,6 +258,7 @@ module nml_0001_mod
   !.. Local Scalars ..
   ! Obsolete inputs defined locally in order to include in old namelist read.
   ! Explicitly save these, so their values will be retained.
+  real(wp),    save :: newton_rlx           = one
   logical(lk), save :: Use_Sponge_Filter    = fals
   integer,     save :: VortexGrid_DOF       = 48
   integer,     save :: flame_speed_test_DOF = 0
