@@ -5204,6 +5204,7 @@ subroutine create_sod_test_grid()
   use geomvar_mod, only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geomvar_mod, only : cell_geom,cell_order
   use ovar,        only : grid_format,bc_names
+  use sod_shock_tube_mod, only : xmin,xmax
   !
   !.. Local Scalars ..
   integer  :: n,nc,nf,np,ierr
@@ -5333,12 +5334,15 @@ continue
   !
   ! Compute the cell size for a Cartesian/uniform grid of total length Lref
   !
-  dl = Lref / real(ncell,kind=wp)
+  dl = (xmax-xmin) / real(ncell,kind=wp)
   !
-  ! Create the grid node coordinates as a uniform 1D grid from -Lref/2 to Lref/2
+  ! Create the grid node coordinates as a uniform 1D grid from xmin:xmax.
+  ! Use linear interpolation to force exact match at xmin,xmax.
   !
   do n = 1,nnode
-    xyz_nodes(1,n) = -half*Lref + dl*real(n-1,kind=wp)
+!   xyz_nodes(1,n) = -half*(xmax-xmin) + dl*real(n-1,kind=wp)
+    xyz_nodes(1,n) = xmin + (xmax-xmin) * real(n    -1,kind=wp) &
+                                        / real(nnode-1,kind=wp)
   end do
   !
   ! #######
