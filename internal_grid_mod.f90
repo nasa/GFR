@@ -1648,7 +1648,11 @@ continue
   !
   ! Estimate the number of cells required to get the requested DOF
   !
-  nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
+  if ( VortexGrid_DOF > 0 ) then
+    nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
+  else
+    nc = abs(VortexGrid_DOF)  ! directly specify number of cells
+  end if
   !
   np = nc + 1 ! number of grid nodes in each direction
   !
@@ -1923,7 +1927,11 @@ continue
   !
   ! Estimate the number of cells required to get the requested DOF
   !
-  nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
+  if ( VortexGrid_DOF > 0 ) then
+    nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
+  else
+    nc = abs(VortexGrid_DOF)  ! directly specify number of cells
+  end if
   !
   np = nc + 1 ! number of grid nodes in each direction
   !
@@ -2564,7 +2572,11 @@ continue
   !
   ! Get the number of cells in each direction
   !
-  nc = nint( real(VortexGrid_DOF,kind=wp) / real(npyr_dof_per_hex,kind=wp) )
+  if ( VortexGrid_DOF > 0 ) then
+    nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
+  else
+    nc = abs(VortexGrid_DOF)  ! directly specify number of cells
+  end if
   !
   np = nc + 1 ! number of grid nodes in each direction
   !
@@ -5044,7 +5056,11 @@ continue
   !
   ! Estimate the number of cells required to get the requested DOF
   !
-  nc = nint( real(flame_speed_test_dof,kind=wp) / real(n_order+1,kind=wp) )
+  if ( flame_speed_test_dof > 0 ) then
+    nc = nint( real(flame_speed_test_dof,kind=wp) / real(n_order+1,kind=wp) )
+  else
+    nc = abs(flame_speed_test_dof)  ! directly specify number of cells
+  endif
   !
   np = nc + 1 ! number of grid nodes in each direction
   !
