@@ -7,10 +7,10 @@ module bc_input_0001_mod
   use module_kind_types, only : zero,one,eps6
   use module_kind_types, only : bc_unknown
   !
-  use ovar, only : relaxation_t, &
-                   sem_bc_t, &
-                   periodic_bc_t, &
-                   ovar_bc_input_t => bc_input_t
+  use ovar, only : relaxation_t
+  use ovar, only : sem_bc_t
+  use ovar, only : periodic_bc_t
+  use ovar, only : ovar_bc_input_t => bc_input_t
   !
   implicit none
   !
@@ -28,23 +28,6 @@ module bc_input_0001_mod
   private :: bc_input_t_not_equal
   private :: bc_input_t_copyin
   private :: bc_input_t_copyout
-  !
-  !
-  !
-  ! ####################################
-  ! ###  Module Interface Operators  ###
-  ! ####################################
-  !
- !!> Interface to check if two boundary condition input derived types are equal.
- !interface operator(==)
- !  module procedure bc_input_t_equals
- !end interface
- !!
- !!> Interface to check if two boundary condition input derived types are not
- !!> equal.
- !interface operator(/=)
- !  module procedure bc_input_t_not_equal
- !end interface
   !
   !
   ! ##############################
