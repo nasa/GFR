@@ -96,6 +96,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/geomvar_mod.o \
         $(OBJDIR)/flowvar_mod.o \
         $(OBJDIR)/ovar_mod.o \
+        $(OBJDIR)/bc_input_0001_mod.o \
         $(OBJDIR)/nml_base_mod.o \
         $(OBJDIR)/nml_0001_mod.o \
         $(OBJDIR)/gmsh_mod.o \

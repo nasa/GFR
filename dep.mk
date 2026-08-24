@@ -898,11 +898,16 @@ $(OBJDIR)/bc_sup_out_mod.o : $(BCDIR)/bc_sup_out_mod.f90 \
                    $(OBJDIR)/eqn_idx_mod.o
 
 # Source files in Nml_Modules
+$(OBJDIR)/bc_input_0001_mod.o : $(NMLDIR)/bc_input_0001_mod.f90 \
+                      $(OBJDIR)/kind_types_mod.o \
+                      $(OBJDIR)/ovar_mod.o
+
 $(OBJDIR)/nml_base_mod.o : $(NMLDIR)/nml_base_mod.f90 \
                  $(OBJDIR)/kind_types_mod.o
 
 $(OBJDIR)/nml_0001_mod.o : $(NMLDIR)/nml_0001_mod.f90 \
                  $(OBJDIR)/kind_types_mod.o \
+                 $(OBJDIR)/bc_input_0001_mod.o \
                  $(OBJDIR)/ovar_mod.o
 
 # Source files in SolInterp_Modules
