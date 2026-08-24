@@ -100,8 +100,8 @@ module bc_input_0001_mod
     !
   contains
     !
+    procedure,          pass(this) :: copyout => bc_input_t_copyout
     procedure, private, pass(this) :: copyin  => bc_input_t_copyin
-    procedure, private, pass(this) :: copyout => bc_input_t_copyout
     procedure, private, pass(a)    :: equals    => bc_input_t_equals
     procedure, private, pass(a)    :: not_equal => bc_input_t_not_equal
     procedure :: is_not_default => is_not_default_bc_input
