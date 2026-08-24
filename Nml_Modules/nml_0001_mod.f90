@@ -129,7 +129,7 @@ module nml_0001_mod
   use ovar,      only : Limiter_Marker_Min, Limiter_Marker_Max
   use ovar,      only : Limiter_Marker_dpsi
   use ovar,      only : Limiter_Marker_c1, Limiter_Marker_c2
-  use ovar,      only : Filtering_Interval
+  use ovar,      only : Filtering_Interval => Global_Filter_Interval
   use ovar,      only : Sponge_Filter_Interval
   use ovar,      only : Limiting_Interval
   use ovar,      only : Limiting_Interval_Output

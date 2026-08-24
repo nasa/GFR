@@ -44,7 +44,7 @@ program GFR_main
   use ovar, only : output_time_averaging,time_scaling_factor
   use ovar, only : time_average_restart_files,ave_start_time
   use ovar, only : modify_time_ave_restart_history
-  use ovar, only : Filtering_Interval
+  use ovar, only : Global_Filter_Interval
   use ovar, only : Sponge_Filter_Interval
   use ovar, only : Limiting_Interval
   use ovar, only : move_bcin_to_device
@@ -905,15 +905,15 @@ continue
         !
         ! Test whether to apply filter, sponge, or limiter after each RK stage.
         !
-        Apply_Filter  = (Filtering_Interval <= 0)
+        Apply_Filter  = (Global_Filter_Interval <= 0)
         Apply_Sponge  = (Sponge_Filter_Interval <= 0)
         Apply_Limiter = (Limiting_Interval <= 0)
         !
         ! Test whether to apply filter, sponge, or limiter after last RK stage.
         !
         if (nst == num_rk_stages) then
-          if (Filtering_Interval > 0) then
-            Apply_Filter = (mod(iter,Filtering_Interval) == 0)
+          if (Global_Filter_Interval > 0) then
+            Apply_Filter = (mod(iter,Global_Filter_Interval) == 0)
           end if
           if (Sponge_Filter_Interval > 0) then
             Apply_Sponge = (mod(iter,Sponge_Filter_Interval) == 0)

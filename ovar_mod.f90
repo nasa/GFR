@@ -636,7 +636,7 @@ module ovar
   real(wp), public, save :: Limiter_Marker_dpsi = -1.0_wp
   !
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
-  integer, public, save :: Filtering_Interval        = 0
+  integer, public, save :: Global_Filter_Interval    = 0
   integer, public, save :: Sponge_Filter_Interval    = 0
   integer, public, save :: Limiting_Interval         = 0
   integer, public, save :: Limiting_Interval_Output  = 1
