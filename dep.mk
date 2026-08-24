@@ -374,6 +374,7 @@ $(OBJDIR)/io_mod.o : io_mod.f90 \
        $(OBJDIR)/ovar_mod.o \
        $(OBJDIR)/nml_base_mod.o \
        $(OBJDIR)/nml_0001_mod.o \
+       $(OBJDIR)/nml_9999_mod.o \
        $(OBJDIR)/flowvar_mod.o \
        $(OBJDIR)/gmsh_mod.o \
        $(OBJDIR)/plot3d_mod.o \
@@ -803,6 +804,7 @@ $(OBJDIR)/write_cgns_mod.o : write_cgns_mod.f90 \
                    $(OBJDIR)/ovar_mod.o \
                    $(OBJDIR)/metrics_mod.o \
                    $(OBJDIR)/flowvar_mod.o \
+                   $(OBJDIR)/cell_ave_mod.o \
                    $(OBJDIR)/interpolation_mod.o \
                    $(OBJDIR)/derivatives_mod.o \
                    $(OBJDIR)/projection_mod.o \
@@ -908,6 +910,7 @@ $(OBJDIR)/nml_base_mod.o : $(NMLDIR)/nml_base_mod.f90 \
 $(OBJDIR)/nml_0001_mod.o : $(NMLDIR)/nml_0001_mod.f90 \
                  $(OBJDIR)/kind_types_mod.o \
                  $(OBJDIR)/bc_input_0001_mod.o \
+                 $(OBJDIR)/nml_base_mod.o \
                  $(OBJDIR)/ovar_mod.o
 
 $(OBJDIR)/nml_9999_mod.o : $(NMLDIR)/nml_9999_mod.f90 \
