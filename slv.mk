@@ -99,6 +99,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/bc_input_0001_mod.o \
         $(OBJDIR)/nml_base_mod.o \
         $(OBJDIR)/nml_0001_mod.o \
+        $(OBJDIR)/nml_9999_mod.o \
         $(OBJDIR)/gmsh_mod.o \
         $(OBJDIR)/plot3d_mod.o \
         $(OBJDIR)/cgnstypes_mod.o \

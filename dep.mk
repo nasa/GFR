@@ -910,6 +910,9 @@ $(OBJDIR)/nml_0001_mod.o : $(NMLDIR)/nml_0001_mod.f90 \
                  $(OBJDIR)/bc_input_0001_mod.o \
                  $(OBJDIR)/ovar_mod.o
 
+$(OBJDIR)/nml_9999_mod.o : $(NMLDIR)/nml_9999_mod.f90 \
+                 $(OBJDIR)/nml_base_mod.o
+
 # Source files in SolInterp_Modules
 $(OBJDIR)/interpsol_mod.o : $(INTDIR)/interpsol_mod.f90 \
                   $(OBJDIR)/kind_types_mod.o \
