@@ -8,6 +8,8 @@ module nml_0001_mod
   !
   use bc_input_0001_mod, only : bc_input,bc_input_t
   !
+  use nml_base_mod, only : namelist_procedures_t
+  !
   use ovar,      only : grid_format
   use ovar,      only : gridfile
   use ovar,      only : plot3d_all_strides
@@ -251,6 +253,11 @@ module nml_0001_mod
   !
   private
   !
+  !
+  ! ###########################
+  ! ###  MODULE PROCEDURES  ###
+  ! ###########################
+  !
   public  :: alloc_nml_data
   public  :: resiz_nml_data
   public  ::  read_nml_data
@@ -258,7 +265,25 @@ module nml_0001_mod
   public  ::  read_nml_file
   public  :: write_nml_file
   !
-  !.. Local Scalars ..
+  !
+  ! ###########################
+  ! ###  MODULE PARAMETERS  ###
+  ! ###########################
+  !
+  integer, public, parameter :: namelist_version = 0001
+  !
+  !
+  ! #################################
+  ! ###  MODULE PUBLIC VARIABLES  ###
+  ! #################################
+  !
+  type(namelist_procedures_t), public, save :: nml_ver_0001
+  !
+  !
+  ! ################################
+  ! ###  MODULE LOCAL VARIABLES  ###
+  ! ################################
+  !
   ! Obsolete inputs defined locally in order to include in old namelist read.
   ! Explicitly save these, so their values will be retained.
   real(wp),    save :: newton_rlx           = one
