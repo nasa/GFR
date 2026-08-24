@@ -56,6 +56,10 @@ module ovar
     integer  :: iter  = 0
   contains
     procedure :: is_not_default => is_not_default_relax
+    procedure, private, pass(a) :: equals    => relaxation_t_equals
+    procedure, private, pass(a) :: not_equal => relaxation_t_not_equal
+    generic :: operator(==) => equals
+    generic :: operator(/=) => not_equal
   end type relaxation_t
   !
   !  sem_bc_t :
@@ -72,6 +76,10 @@ module ovar
     integer            :: sub_in_bc_idx       = 0
   contains
     procedure :: is_not_default => is_not_default_sem
+    procedure, private, pass(a) :: equals    => sem_bc_t_equals
+    procedure, private, pass(a) :: not_equal => sem_bc_t_not_equal
+    generic :: operator(==) => equals
+    generic :: operator(/=) => not_equal
   end type sem_bc_t
   !
   !  periodic_bc_t :
@@ -137,6 +145,10 @@ module ovar
     !
   contains
     procedure :: is_not_default => is_not_default_periodic
+    procedure, private, pass(a) :: equals    => periodic_bc_t_equals
+    procedure, private, pass(a) :: not_equal => periodic_bc_t_not_equal
+    generic :: operator(==) => equals
+    generic :: operator(/=) => not_equal
   end type periodic_bc_t
   !
   !  bc_input_t :
@@ -193,6 +205,11 @@ module ovar
     procedure :: copy_nonflow_conditions
   !!procedure, private :: write_bc_input_t
   !!procedure, private :: read_bc_input_t
+    !
+    procedure, private, pass(a) :: equals    => bc_input_t_equals
+    procedure, private, pass(a) :: not_equal => bc_input_t_not_equal
+    generic :: operator(==) => equals
+    generic :: operator(/=) => not_equal
     !
 #ifndef DISABLE_DTIO
   !!generic :: write(formatted) => write_bc_input_t
@@ -268,6 +285,10 @@ module ovar
     real(wp) :: xyz(3) = [-999.0_wp,-999.0_wp,-999.0_wp]
   contains
     procedure :: is_not_default => is_not_default_point_probe
+    procedure, private, pass(a) :: equals    => point_probe_t_equals
+    procedure, private, pass(a) :: not_equal => point_probe_t_not_equal
+    generic :: operator(==) => equals
+    generic :: operator(/=) => not_equal
   end type point_probe_t
   !
   ! rake_probe_t : derived type containing rake probe location
@@ -283,6 +304,10 @@ module ovar
     real(wp) :: xyz_end(3) = [-999.0_wp,-999.0_wp,-999.0_wp]
   contains
     procedure :: is_not_default => is_not_default_rake_probe
+    procedure, private, pass(a) :: equals    => rake_probe_t_equals
+    procedure, private, pass(a) :: not_equal => rake_probe_t_not_equal
+    generic :: operator(==) => equals
+    generic :: operator(/=) => not_equal
   end type rake_probe_t
   !
   !  geom_wts_t :
@@ -982,26 +1007,6 @@ module ovar
   !
   type(resource_list_t), public, save, allocatable :: resource_list(:)
   !
-  !> Interface to check if two boundary condition input derived types are equal.
-  interface operator(==)
-    module procedure bc_input_t_equals, &
-                     relaxation_t_equals, &
-                     sem_bc_t_equals, &
-                     periodic_bc_t_equals, &
-                     point_probe_t_equals, &
-                     rake_probe_t_equals
-  end interface
-  !
-  !> Interface to check if two boundary condition input derived types are not
-  !> equal.
-  interface operator(/=)
-    module procedure bc_input_t_not_equal, &
-                     relaxation_t_not_equal, &
-                     sem_bc_t_not_equal, &
-                     periodic_bc_t_not_equal, &
-                     point_probe_t_not_equal, &
-                     rake_probe_t_not_equal
-  end interface
   !
   !$ACC DECLARE CREATE(walls_are_exact,sub_inflow_method, &
   !$ACC&               turb_is_on,include_tke_in_energy, &
@@ -1242,8 +1247,8 @@ end subroutine copy_nonflow_conditions
 pure function bc_input_t_equals(a,b) result(return_value)
   !
   !.. Formal Arguments ..
-  type(bc_input_t), intent(in) :: a
-  type(bc_input_t), intent(in) :: b
+  class(bc_input_t), intent(in) :: a
+  class(bc_input_t), intent(in) :: b
   !
   !.. Function Result ..
   logical(lk) :: return_value
@@ -1335,8 +1340,8 @@ end function bc_input_t_equals
 pure function bc_input_t_not_equal(a,b) result(return_value)
   !
   !.. Formal Arguments ..
-  type(bc_input_t), intent(in) :: a
-  type(bc_input_t), intent(in) :: b
+  class(bc_input_t), intent(in) :: a
+  class(bc_input_t), intent(in) :: b
   !
   !.. Function Result ..
   logical(lk) :: return_value
@@ -1383,8 +1388,8 @@ end function is_not_default_relax
 elemental function relaxation_t_equals(a,b) result(return_value)
   !
   !.. Formal Arguments ..
-  type(relaxation_t), intent(in) :: a
-  type(relaxation_t), intent(in) :: b
+  class(relaxation_t), intent(in) :: a
+  class(relaxation_t), intent(in) :: b
   !
   !.. Function Result ..
   logical(lk) :: return_value
@@ -1416,8 +1421,8 @@ end function relaxation_t_equals
 elemental function relaxation_t_not_equal(a,b) result(return_value)
   !
   !.. Formal Arguments ..
-  type(relaxation_t), intent(in) :: a
-  type(relaxation_t), intent(in) :: b
+  class(relaxation_t), intent(in) :: a
+  class(relaxation_t), intent(in) :: b
   !
   !.. Function Result ..
   logical(lk) :: return_value
@@ -1464,8 +1469,8 @@ end function is_not_default_sem
 elemental function sem_bc_t_equals(a,b) result(return_value)
   !
   !.. Formal Arguments ..
-  type(sem_bc_t), intent(in) :: a
-  type(sem_bc_t), intent(in) :: b
+  class(sem_bc_t), intent(in) :: a
+  class(sem_bc_t), intent(in) :: b
   !
   !.. Function Result ..
   logical(lk) :: return_value
@@ -1504,8 +1509,8 @@ end function sem_bc_t_equals
 elemental function sem_bc_t_not_equal(a,b) result(return_value)
   !
   !.. Formal Arguments ..
-  type(sem_bc_t), intent(in) :: a
-  type(sem_bc_t), intent(in) :: b
+  class(sem_bc_t), intent(in) :: a
+  class(sem_bc_t), intent(in) :: b
   !
   !.. Function Result ..
   logical(lk) :: return_value
@@ -1552,8 +1557,8 @@ end function is_not_default_periodic
 elemental function periodic_bc_t_equals(a,b) result(return_value)
   !
   !.. Formal Arguments ..
-  type(periodic_bc_t), intent(in) :: a
-  type(periodic_bc_t), intent(in) :: b
+  class(periodic_bc_t), intent(in) :: a
+  class(periodic_bc_t), intent(in) :: b
   !
   !.. Function Result ..
   logical(lk) :: return_value
@@ -1605,8 +1610,8 @@ end function periodic_bc_t_equals
 elemental function periodic_bc_t_not_equal(a,b) result(return_value)
   !
   !.. Formal Arguments ..
-  type(periodic_bc_t), intent(in) :: a
-  type(periodic_bc_t), intent(in) :: b
+  class(periodic_bc_t), intent(in) :: a
+  class(periodic_bc_t), intent(in) :: b
   !
   !.. Function Result ..
   logical(lk) :: return_value
@@ -1656,8 +1661,8 @@ end function is_not_default_point_probe
 elemental function point_probe_t_equals(a,b) result(return_value)
   !
   !.. Formal Arguments ..
-  type(point_probe_t), intent(in) :: a
-  type(point_probe_t), intent(in) :: b
+  class(point_probe_t), intent(in) :: a
+  class(point_probe_t), intent(in) :: b
   !
   !.. Function Result ..
   logical(lk) :: return_value
@@ -1690,8 +1695,8 @@ end function point_probe_t_equals
 elemental function point_probe_t_not_equal(a,b) result(return_value)
   !
   !.. Formal Arguments ..
-  type(point_probe_t), intent(in) :: a
-  type(point_probe_t), intent(in) :: b
+  class(point_probe_t), intent(in) :: a
+  class(point_probe_t), intent(in) :: b
   !
   !.. Function Result ..
   logical(lk) :: return_value
@@ -1770,8 +1775,8 @@ end function is_not_default_rake_probe
 elemental function rake_probe_t_equals(a,b) result(return_value)
   !
   !.. Formal Arguments ..
-  type(rake_probe_t), intent(in) :: a
-  type(rake_probe_t), intent(in) :: b
+  class(rake_probe_t), intent(in) :: a
+  class(rake_probe_t), intent(in) :: b
   !
   !.. Function Result ..
   logical(lk) :: return_value
@@ -1809,8 +1814,8 @@ end function rake_probe_t_equals
 elemental function rake_probe_t_not_equal(a,b) result(return_value)
   !
   !.. Formal Arguments ..
-  type(rake_probe_t), intent(in) :: a
-  type(rake_probe_t), intent(in) :: b
+  class(rake_probe_t), intent(in) :: a
+  class(rake_probe_t), intent(in) :: b
   !
   !.. Function Result ..
   logical(lk) :: return_value
