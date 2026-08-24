@@ -260,6 +260,7 @@ module nml_0001_mod
   !
   public  :: alloc_nml_data
   public  :: resiz_nml_data
+  public  ::   set_nml_data
   public  ::  read_nml_data
   public  :: write_nml_data
   public  ::  read_nml_file
@@ -1024,6 +1025,33 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine resiz_nml_data
+!
+!###############################################################################
+!> Set variables for all blocks of namelist input.
+!> Optionally echo values to unit number.
+!###############################################################################
+subroutine set_nml_data(action,io)
+  !
+  !.. Use Statements ..
+  use nml_base_mod, only : setverbose
+  !
+  !.. Formal Arguments ..
+  integer,           intent(in) :: action  !< An NMLaction.
+  integer, optional, intent(in) :: io      !< Unit number to echo values.
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "set_nml_data"
+  !
+continue
+  !
+  setverbose = fals
+  if ( present(io) ) then
+    setverbose = true
+  end if
+  !
+  setverbose = fals
+  !
+end subroutine set_nml_data
 !
 !###############################################################################
 !> Read the namelist input data from the specified input unit.
