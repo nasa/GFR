@@ -100,6 +100,27 @@ module nml_base_mod
   !> Namelist buffer.
   character(len=:), allocatable, public, protected :: buffer
   !
+  ! ####################################
+  ! #####   MODULE DERIVED TYPES   #####
+  ! ####################################
+  !
+  !> Derived type that contains procedure pointers for the base set of
+  !> procedures needed to process a version of the input namelist(s).
+  !> It also contains the subroutine set_nml_procedures which assigns
+  !> the pointers to the respective procedures for a namelist version
+  !> which are sent in as arguments.
+  type, public :: namelist_procedures_t
+    procedure(alloc_namelist_data), pointer, nopass :: alloc_data => null()
+    procedure(resiz_namelist_data), pointer, nopass :: resiz_data => null()
+    procedure(  set_namelist_data), pointer, nopass ::   set_data => null()
+    procedure( read_namelist_data), pointer, nopass ::  read_data => null()
+    procedure(write_namelist_data), pointer, nopass :: write_data => null()
+    procedure( read_namelist_file), pointer, nopass ::  read_file => null()
+    procedure(write_namelist_file), pointer, nopass :: write_file => null()
+  contains
+    procedure :: set_nml_procedures
+  end type namelist_procedures_t
+  !
   ! #########################################
   ! #####   MODULE GENERIC INTERFACES   #####
   ! #########################################
@@ -127,6 +148,80 @@ module nml_base_mod
                      iow_value_rarr, &  ! sub(nam,lvar) real    array
                      iow_value_carr     ! sub(nam,lvar) char    array
   end interface iow_value
+  !
+  !> Abstract interfaces for the procedure pointer components of the
+  !> derived type namelist_procedures_t.
+  abstract interface
+    !
+    !> Abstract interface for a subroutine to allocate all namelist
+    !> variables and arrays before actually trying to read the namelist.
+    subroutine alloc_namelist_data(opt_n_bc_input,opt_char_len, &
+                                   opt_n_species,opt_n_point_probes, &
+                                   opt_n_rake_probes,opt_n_cell_probes)
+      !.. Optional Arguments ..
+      integer, optional, intent(in) :: opt_n_bc_input
+      integer, optional, intent(in) :: opt_char_len
+      integer, optional, intent(in) :: opt_n_species
+      integer, optional, intent(in) :: opt_n_point_probes
+      integer, optional, intent(in) :: opt_n_rake_probes
+      integer, optional, intent(in) :: opt_n_cell_probes
+    end subroutine alloc_namelist_data
+    !
+    !> Abstract interface for a subroutine to resize all allocatable namelist
+    !> variables and arrays to the minimum size needed based on the information
+    !> read in from the namelist.
+    subroutine resiz_namelist_data()
+    end subroutine resiz_namelist_data
+    !
+    !> Subroutine to set the namelist variables based on the input action
+    subroutine set_namelist_data(action,io)
+      !.. Formal Arguments ..
+      integer,           intent(in) :: action  !< An NMLaction.
+      integer, optional, intent(in) :: io      !< Unit number to echo values.
+    end subroutine set_namelist_data
+    !
+    !> Subroutine to read in the namelist data from an open file
+    subroutine read_namelist_data(io)
+      !.. Formal Arguments ..
+      integer, intent(in) :: io      !< Unit number for input.
+    end subroutine read_namelist_data
+    !
+    !> Subroutine to write the namelist data to an open file
+    subroutine write_namelist_data(action,io,banner)
+      import :: lk
+      !.. Formal Arguments ..
+      integer,     intent(in) :: action  !< An NMLaction.
+      integer,     intent(in) :: io      !< Unit number for output.
+      logical(lk), intent(in) :: banner  !< Flag to write banner.
+    end subroutine write_namelist_data
+    !
+    !> Subroutine to perform all steps of reading data from a namelist file:
+    !>   1. Allocate namelist variables,
+    !>   2. initialize to default values,
+    !>   3. open the namelist file,
+    !>   4. read the namelist data from the file including any conversions if
+    !>      the version of the namelist file is older than the latest version,
+    !>   5. close the namelist file, and
+    !>   6. resize all allocatable namelist variables.
+    subroutine read_namelist_file(input_fname)
+      !.. Formal Arguments ..
+      character(len=*), intent(in) :: input_fname
+    end subroutine read_namelist_file
+    !
+    !> Subroutine to perform all steps of writing the namelist data to a file:
+    !>   1. Allocate namelist variables,
+    !>   2. initialize to default values,
+    !>   3. open the namelist file,
+    !>   4. write the namelist data from the file including any conversions if
+    !>      the version of the namelist file is older than the latest version,
+    !>   5. close the namelist file.
+    subroutine write_namelist_file(output_fname,action)
+      !.. Formal Arguments ..
+      character(len=*), intent(in) :: output_fname
+      integer,          intent(in) :: action        !< An NMLaction.
+    end subroutine write_namelist_file
+    !
+  end interface
   !
 contains
 !
@@ -235,6 +330,41 @@ continue
   rewind(io)
   !
 end function io_has_nml_block
+!
+!###############################################################################
+!> Subroutine that assigns the procedure pointers of a namelist_procedures_t
+!> entity to the respective procedures passed in as arguments.
+!###############################################################################
+subroutine set_nml_procedures(this, &
+                              alloc_data_proc,resiz_data_proc,set_data_proc, &
+                               read_data_proc,write_data_proc, &
+                               read_file_proc,write_file_proc)
+  !
+  !.. Formal Arguments ..
+  class(namelist_procedures_t), intent(inout) :: this
+  !
+  procedure(alloc_namelist_data) :: alloc_data_proc
+  procedure(resiz_namelist_data) :: resiz_data_proc
+  procedure(  set_namelist_data) ::   set_data_proc
+  procedure( read_namelist_data) ::  read_data_proc
+  procedure(write_namelist_data) :: write_data_proc
+  procedure( read_namelist_file) ::  read_file_proc
+  procedure(write_namelist_file) :: write_file_proc
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "set_nml_procedures"
+  !
+continue
+  !
+  this%alloc_data => alloc_data_proc
+  this%resiz_data => resiz_data_proc
+  this%  set_data =>   set_data_proc
+  this% read_data =>  read_data_proc
+  this%write_data => write_data_proc
+  this% read_file =>  read_file_proc
+  this%write_file => write_file_proc
+  !
+end subroutine set_nml_procedures
 !
 !###############################################################################
 !> Sets the module variable NMLaction.
