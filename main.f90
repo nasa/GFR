@@ -46,7 +46,7 @@ program GFR_main
   use ovar, only : modify_time_ave_restart_history
   use ovar, only : Global_Filter_Interval
   use ovar, only : Sponge_Filter_Interval
-  use ovar, only : Limiting_Interval
+  use ovar, only : Limiter_Interval
   use ovar, only : move_bcin_to_device
   use ovar, only : channel_spatial_ave_restart
   use ovar, only : if_interpto_newgrid
@@ -907,7 +907,7 @@ continue
         !
         Apply_Filter  = (Global_Filter_Interval <= 0)
         Apply_Sponge  = (Sponge_Filter_Interval <= 0)
-        Apply_Limiter = (Limiting_Interval <= 0)
+        Apply_Limiter = (      Limiter_Interval <= 0)
         !
         ! Test whether to apply filter, sponge, or limiter after last RK stage.
         !
@@ -918,8 +918,8 @@ continue
           if (Sponge_Filter_Interval > 0) then
             Apply_Sponge = (mod(iter,Sponge_Filter_Interval) == 0)
           end if
-          if (Limiting_Interval > 0) then
-            Apply_Limiter = (mod(iter,Limiting_Interval) == 0)
+          if (Limiter_Interval > 0) then
+            Apply_Limiter = (mod(iter,Limiter_Interval) == 0)
           end if
         end if
         !

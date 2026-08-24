@@ -131,7 +131,7 @@ module nml_0001_mod
   use ovar,      only : Limiter_Marker_c1, Limiter_Marker_c2
   use ovar,      only : Filtering_Interval => Global_Filter_Interval
   use ovar,      only : Sponge_Filter_Interval
-  use ovar,      only : Limiting_Interval
+  use ovar,      only : Limiting_Interval  => Limiter_Interval
   use ovar,      only : Limiting_Interval_Output
   use ovar,      only : thermofix
   use ovar,      only : loc_output_pts, loc_init_pts, loc_error_pts

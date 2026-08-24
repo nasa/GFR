@@ -638,7 +638,7 @@ module ovar
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
   integer, public, save :: Global_Filter_Interval    = 0
   integer, public, save :: Sponge_Filter_Interval    = 0
-  integer, public, save :: Limiting_Interval         = 0
+  integer, public, save :: Limiter_Interval          = 0
   integer, public, save :: Limiting_Interval_Output  = 1
   !< frequency to store limiter marker and scaled marker data:
   !<   =0  store each Runge-Kutta stage,
