@@ -1062,9 +1062,10 @@ end subroutine read_nml_data
 !###############################################################################
 !> Write the namelist input data to the specified output unit.
 !###############################################################################
-subroutine write_nml_data(io,banner)
+subroutine write_nml_data(action,io,banner)
   !
   !.. Arguments ..
+  integer,     intent(in) :: action  !< An NMLaction
   integer,     intent(in) :: io      !< File unit number.
   logical(lk), intent(in) :: banner  !< Flag to write banner.
   !
@@ -1093,11 +1094,10 @@ end subroutine write_nml_data
 !
 !###############################################################################
 !
-subroutine read_nml_file(input_fname,input_mode)
+subroutine read_nml_file(input_fname)
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: input_fname
-  integer,          intent(in) :: input_mode
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_nml_file"
@@ -1142,10 +1142,11 @@ end subroutine read_nml_file
 !
 !###############################################################################
 !
-subroutine write_nml_file(output_fname)
+subroutine write_nml_file(output_fname,action)
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: output_fname
+  integer,          intent(in) :: action        !< An NMLaction
   !
   !.. Local Scalars ..
   integer ionml,ierr
@@ -1171,7 +1172,7 @@ continue
                         position="rewind",iostat=ierr,iomsg=error_message)
     call io_error(pname,trim(adjustl(output_fname)),1,__LINE__,__FILE__, &
                   ierr,error_message)
-    call write_nml_data(ionml,banner=fals)
+    call write_nml_data(0,ionml,banner=fals)
     write (iout,101) trim(output_fname)
     close(ionml)
   end if

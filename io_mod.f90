@@ -103,7 +103,7 @@ continue
     call check_input_file(input_fname,input_status)
     !
     if (input_status /= 0) then
-      call write_nml_file('gfr.in.default')
+      call write_nml_file('gfr.in.default',0)
       write (error_message,11)
       call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
@@ -113,7 +113,7 @@ continue
   !
   ! Read the input file.
   !
-  call read_nml_file(input_fname,input_mode)
+  call read_nml_file(input_fname)
   call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Post-input checks and set internal variables.
@@ -1102,7 +1102,7 @@ continue
     !
     if (input_mode == 2 .or. len_trim(adjustl(interpto_gridfile)) == 0) then
       !
-      call write_nml_data(iout,banner=true)
+      call write_nml_data(0,iout,banner=true)
       !
     end if
     !
