@@ -6,6 +6,8 @@ module nml_0001_mod
   !.. Use Statements ..
   use module_kind_types
   !
+  use bc_input_0001_mod, only : bc_input,bc_input_t
+  !
   use ovar,      only : grid_format
   use ovar,      only : gridfile
   use ovar,      only : plot3d_all_strides
@@ -164,7 +166,8 @@ module nml_0001_mod
   use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
   use ovar,      only : delete_converted_restart_files
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
-  use ovar,      only : bc_input!,bc_input_t
+  use ovar,      only : ovar_bc_input => bc_input
+ !use ovar,      only : ovar_bc_input_t => bc_input_t
   use ovar,      only : geom_wts!,geom_wts_t
   use ovar,      only : probes_collection_interval, probes_write_interval
   use ovar,      only : point_probes, rake_probes, cell_probes
@@ -702,6 +705,10 @@ continue
   end do
 #endif
   !
+  ! Copy bc_input into ovar_bc_input
+  !
+  ovar_bc_input = bc_input(:)%copyout() ! F2003 AUTO-REALLOC
+  !
   ! Allocate point_probes before reading the namelist
   !
   allocate ( point_probes(1:n_point_probes) , stat=ierr , errmsg=error_message )
@@ -842,7 +849,7 @@ end subroutine alloc_nml_data
 subroutine resiz_nml_data
   !
   !.. Use Statements ..
-  use ovar,              only : bc_input_t, point_probe_t, rake_probe_t
+  use ovar, only : point_probe_t, rake_probe_t
   !
   !.. Local Scalars ..
   integer :: i,n,ierr
@@ -897,6 +904,10 @@ continue
   do n = 1,size(bc_input)
     bc_input(n)%sem%profile_file = trim(adjustl(bc_input(n)%sem%profile_file))
   end do
+  !
+  ! Copy bc_input into ovar_bc_input
+  !
+  ovar_bc_input = bc_input(:)%copyout() ! F2003 AUTO-REALLOC
   !
   !#############################################################################
   !
