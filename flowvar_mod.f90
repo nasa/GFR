@@ -648,7 +648,7 @@ end subroutine find_facexyz_size
 !
 pure function get_marker_index(nst) result(return_value)
 
-  use ovar, only : Limiter_Interval, Limiting_Interval_Output
+  use ovar, only : Limiter_Interval, Marker_Stored_Interval
 
   integer                       :: return_value
   integer, optional, intent(in) :: nst           !< Runge-Kutta stage
@@ -658,10 +658,10 @@ pure function get_marker_index(nst) result(return_value)
   return_value = 1  ! only one stage is stored (default)
 
   if ( present(nst) ) then
-    if ( Limiting_Interval_Output == -1 ) then
-      interval = Limiter_Interval         ! mimic limiter interval
+    if ( Marker_Stored_Interval == -1 ) then
+      interval = Limiter_Interval        ! mimic limiter interval
     else
-      interval = Limiting_Interval_Output  ! follow user interval
+      interval = Marker_Stored_Interval  ! follow user interval
     end if
     !
     ! Can save the marker each stage only if the limiter is applied each stage.
