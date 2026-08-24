@@ -109,7 +109,7 @@ module nml_base_mod
   !> It also contains the subroutine set_nml_procedures which assigns
   !> the pointers to the respective procedures for a namelist version
   !> which are sent in as arguments.
-  type, public :: namelist_procedures_t
+  type, abstract, public :: namelist_procedures_t
     procedure(alloc_namelist_data), pointer, nopass :: alloc_data => null()
     procedure(resiz_namelist_data), pointer, nopass :: resiz_data => null()
     procedure(  set_namelist_data), pointer, nopass ::   set_data => null()
@@ -119,6 +119,7 @@ module nml_base_mod
     procedure(write_namelist_file), pointer, nopass :: write_file => null()
   contains
     procedure :: set_nml_procedures
+    procedure(blank_sub), deferred, nopass :: init
   end type namelist_procedures_t
   !
   ! #########################################
@@ -220,6 +221,9 @@ module nml_base_mod
       character(len=*), intent(in) :: output_fname
       integer,          intent(in) :: action        !< An NMLaction.
     end subroutine write_namelist_file
+    !
+    subroutine blank_sub()
+    end subroutine blank_sub
     !
   end interface
   !

@@ -274,11 +274,22 @@ module nml_0001_mod
   integer, public, parameter :: namelist_version = 0001
   !
   !
+  ! ##############################
+  ! ###  MODULE DERIVED TYPES  ###
+  ! ##############################
+  !
+  type, public, extends(namelist_procedures_t) :: nml_0001_procedures_t
+  contains
+    procedure, nopass :: init => init_nml0001_procedures
+   !procedure :: convert => convert_nml0001_file
+  end type nml_0001_procedures_t
+  !
+  !
   ! #################################
   ! ###  MODULE PUBLIC VARIABLES  ###
   ! #################################
   !
-  type(namelist_procedures_t), public, save :: nml_ver_0001
+  type(nml_0001_procedures_t), public, save :: nml_ver_0001
   !
   !
   ! ################################
@@ -559,6 +570,30 @@ module nml_0001_mod
   namelist / input / geom_wts
   !
 contains
+!
+!###############################################################################
+!
+subroutine init_nml0001_procedures()
+  !
+  !.. Use Statements ..
+  use nml_9999_mod, only : set_current_nml_version
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "init_nml0001_procedures"
+  !
+continue
+  !
+  nml_ver_0001%alloc_data => alloc_nml_data
+  nml_ver_0001%resiz_data => resiz_nml_data
+  nml_ver_0001%  set_data =>   set_nml_data
+  nml_ver_0001% read_data =>  read_nml_data
+  nml_ver_0001%write_data => write_nml_data
+  nml_ver_0001% read_file =>  read_nml_file
+  nml_ver_0001%write_file => write_nml_file
+  !
+  call set_current_nml_version(namelist_version,nml_ver_0001)
+  !
+end subroutine init_nml0001_procedures
 !
 !###############################################################################
 !> Allocate namelist variables that are array of character.

@@ -13,7 +13,11 @@ module nml_9999_mod
   !
   public :: set_current_nml_version
   !
-  type(namelist_procedures_t), public :: nml_ver_9999
+  type, public, extends(namelist_procedures_t) :: nml_9999_procedures_t
+  contains
+    procedure, nopass :: init => dummy_init
+  end type nml_9999_procedures_t
+  type(nml_9999_procedures_t), public :: nml_ver_9999
   !
 contains
 !
@@ -50,6 +54,17 @@ continue
   end if
   !
 end subroutine set_current_nml_version
+!
+!###############################################################################
+!
+subroutine dummy_init()
+  !
+  ! Blank subroutine to satisfy the deferred procedure init when
+  ! extending derived type namelist_procedures_t
+  !
+continue
+  !
+end subroutine dummy_init
 !
 !###############################################################################
 !
