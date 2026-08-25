@@ -631,8 +631,8 @@ module ovar
   integer, public, save ::        MLP_Marker_Variable = Marker_Variable__Off
   !
   ! LIMITER MARKER SENSITIVITY OPTIONS
-  real(wp), public, save :: Limiter_Marker_Min  =  1.0_wp
-  real(wp), public, save :: Limiter_Marker_Max  =  1.0_wp
+  real(wp), public, save :: Limiter_Marker_Min  =  5.0_wp
+  real(wp), public, save :: Limiter_Marker_Max  =  5.0_wp
   real(wp), public, save :: Limiter_Marker_c1   = -1.0_wp
   real(wp), public, save :: Limiter_Marker_c2   = -1.0_wp
   real(wp), public, save :: Limiter_Marker_dpsi = -1.0_wp
