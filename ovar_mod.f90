@@ -30,6 +30,8 @@ module ovar
   use module_kind_types, only : leaving_procedure
   use module_kind_types, only : Filter_Option__Off
   use module_kind_types, only : Pyramid_Filter_Option__1
+  use module_kind_types, only : Limiter_Option__Off
+  use module_kind_types, only : Marker_Variable__Off
   !
   implicit none
   !
@@ -623,10 +625,10 @@ module ovar
   real(wp),    public, save :: Sponge_Beyond_X      = huge(zero)
   !
   ! LIMITER OPTIONS
-  integer, public, save :: Limiter_Option             = 0
-  integer, public, save :: Resolution_Marker_Variable = 0
-  integer, public, save ::       Jump_Marker_Variable = 0
-  integer, public, save ::        MLP_Marker_Variable = 0
+  integer, public, save :: Limiter_Option             = Limiter_Option__Off
+  integer, public, save :: Resolution_Marker_Variable = Marker_Variable__Off
+  integer, public, save ::       Jump_Marker_Variable = Marker_Variable__Off
+  integer, public, save ::        MLP_Marker_Variable = Marker_Variable__Off
   !
   ! LIMITER MARKER SENSITIVITY OPTIONS
   real(wp), public, save :: Limiter_Marker_Min  =  1.0_wp
