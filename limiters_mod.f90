@@ -3663,10 +3663,10 @@ continue
           rnz = facenrm(3,f0+k)*face_sign(sl)
           ds = sqrt(rnx*rnx + rny*rny + rnz*rnz)
           !
-          vall = ji_gwt *      facegpsp(f0+k,ji_gvar,sl) &
-               + ji_uwt * faceusp(f0+k,ji_uvar,sl)
-          valr = ji_gwt *      facegpsp(f0+k,ji_gvar,sr) &
-               + ji_uwt * faceusp(f0+k,ji_uvar,sr)
+          vall = ji_gwt * facegpsp(f0+k,ji_gvar,sl) &
+               + ji_uwt *  faceusp(f0+k,ji_uvar,sl)
+          valr = ji_gwt * facegpsp(f0+k,ji_gvar,sr) &
+               + ji_uwt *  faceusp(f0+k,ji_uvar,sr)
           !
           numer = abs( vall - valr ) * ds
           denom =    ( vall + valr ) * half
@@ -3711,10 +3711,10 @@ continue
           rny = facenrm(2,f0+k)*face_sign(sl)
           ds = sqrt(rnx*rnx + rny*rny)
           !
-          vall = ji_gwt *      facegpsp(f0+k,ji_gvar,sl) &
-               + ji_uwt * faceusp(f0+k,ji_uvar,sl)
-          valr = ji_gwt *      facegpsp(f0+k,ji_gvar,sr) &
-               + ji_uwt * faceusp(f0+k,ji_uvar,sr)
+          vall = ji_gwt * facegpsp(f0+k,ji_gvar,sl) &
+               + ji_uwt *  faceusp(f0+k,ji_uvar,sl)
+          valr = ji_gwt * facegpsp(f0+k,ji_gvar,sr) &
+               + ji_uwt *  faceusp(f0+k,ji_uvar,sr)
           !
           numer = abs( vall - valr ) * ds
           denom =    ( vall + valr ) * half
@@ -3758,10 +3758,10 @@ continue
           rnx = facenrm(1,f0+k)*face_sign(sl)
           ds = sqrt(rnx*rnx)
           !
-          vall = ji_gwt *      facegpsp(f0+k,ji_gvar,sl) &
-               + ji_uwt * faceusp(f0+k,ji_uvar,sl)
-          valr = ji_gwt *      facegpsp(f0+k,ji_gvar,sr) &
-               + ji_uwt * faceusp(f0+k,ji_uvar,sr)
+          vall = ji_gwt * facegpsp(f0+k,ji_gvar,sl) &
+               + ji_uwt *  faceusp(f0+k,ji_uvar,sl)
+          valr = ji_gwt * facegpsp(f0+k,ji_gvar,sr) &
+               + ji_uwt *  faceusp(f0+k,ji_uvar,sr)
           !
           numer = abs( vall - valr ) * ds
           denom =    ( vall + valr ) * half
