@@ -2249,41 +2249,48 @@ continue
     marker(nc) = -huge(zero)
   end do
   !
-  if (Resolution_Marker_Variable > 0) then
-    nvar = Resolution_Marker_Variable
-  else
-    nvar = 0
-  end if
-  !
-  if (nvar == 0) then
+  select case (Resolution_Marker_Variable)
     !
-    if (force_nd_subroutines) then
+    case (Marker_Variable__all)
       !
-      call compute_resolution_marker_nd(1,nq,usp,skip_cell,cutoff_order,marker)
+      ! Residual marker based on all of the conserved N-S variables
       !
-    else
-      !
-      if (nr == 3) then
-        call compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
-      else if (nr == 2) then
-        call compute_resolution_marker_2d(usp,skip_cell,cutoff_order,marker)
-      else
-        call compute_resolution_marker_1d(usp,skip_cell,cutoff_order,marker)
-      end if
-      !
-      if (ncs > 0) then
-        call compute_resolution_marker_nd(1,ncs,usp,skip_cell, &
+      if (force_nd_subroutines) then
+        !
+        call compute_resolution_marker_nd(1,nq,usp,skip_cell, &
                                           cutoff_order,marker)
+        !
+      else
+        !
+        if (nr == 3) then
+          call compute_resolution_marker_3d(usp,skip_cell,cutoff_order,marker)
+        else if (nr == 2) then
+          call compute_resolution_marker_2d(usp,skip_cell,cutoff_order,marker)
+        else
+          call compute_resolution_marker_1d(usp,skip_cell,cutoff_order,marker)
+        end if
+        !
+        if (ncs > 0) then
+          call compute_resolution_marker_nd(1,ncs,usp,skip_cell, &
+                                            cutoff_order,marker)
+        end if
+        !
       end if
       !
-    end if
-    !
-  else
-    !
-    call compute_resolution_marker_1var(usp(:,nvar),skip_cell, &
-                                        cutoff_order,marker)
-    !
-  end if
+    case (Marker_Variable__nec, Marker_Variable__nmx, Marker_Variable__nmy, &
+          Marker_Variable__nmz, Marker_Variable__nee)
+      !
+      ! Residual marker based on any one of the conserved N-S variables
+      !
+      ! usp index is offset by number of species equations (if using TPG)
+      nvar = Resolution_Marker_Variable + ncs
+      !
+      call compute_resolution_marker_1var(usp(:,nvar),skip_cell, &
+                                          cutoff_order,marker)
+      !
+    case default
+      ! Do nothing. Input checker should prevent getting here.
+  end select
   !
   ! Compute the scaled resolution marker
   !
