@@ -4466,9 +4466,9 @@ continue
       marker_was_not_allocated        = ( .not. allocated(marker) )
       scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
       !
-      if (  all(Limiter_Option /= [-1,1]) .or. &
-                 marker_was_not_allocated .or. &
-          scaled_marker_was_not_allocated ) then
+      if (  abs(Limiter_Option) /= Marker_Option__Resolution .or. &
+                 marker_was_not_allocated            .or. &
+          scaled_marker_was_not_allocated            ) then
         ! NOTE: Passing orders_to_cutoff=0 ensures that only the highest mode
         !       is cutoff to compute the resolution marker. We want it to use
         !       the P order cutoff filter, and without this, it will instead
@@ -4506,6 +4506,10 @@ continue
         ivar_s = isvar_s(nv)
         !
         if (Limiter_Option <= -1 .and. Limiter_Option /= -2) then
+          !
+          ! Replace scaled marker by the scaled projection order computed
+          ! at each cell. Integer value between [1:this_order].
+          !
           do nc = 1,ncell
             n0 = cell(nc)%beg_sp - 1
             np = cell(nc)%end_sp - n0
@@ -4557,9 +4561,9 @@ continue
       marker_was_not_allocated        = ( .not. allocated(marker) )
       scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
       !
-      if (       abs(Limiter_Option) /= 2 .or. &
-                 marker_was_not_allocated .or. &
-          scaled_marker_was_not_allocated ) then
+      if ( abs(Limiter_Option) /= Marker_Option__Jump .or. &
+                  marker_was_not_allocated      .or. &
+           scaled_marker_was_not_allocated      ) then
         call jump_indicator(nst=1)
       end if
       !
