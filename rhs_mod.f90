@@ -606,8 +606,8 @@ continue
   ! will then be applied to only the troubled cells and all other cells
   ! will remain unchanged.
   !
-  if (Limiter_Option /= 0) then
-    if (Apply_Limiter) then
+  if (Limiter_Option /= Limiter_Option__Off) then  ! The limiter is active.
+    if (Apply_Limiter) then  ! Apply limiter during this stage.
 #ifdef PROFILE_ON
       if (mypnum == glb_root) write (iout,2) nst
       2 format (8x,"Applying Limiter : RK Stage = ",i0)
