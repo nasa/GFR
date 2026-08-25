@@ -1115,6 +1115,8 @@ continue
     end if
   end if
   !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
   ! Now write out a copy of the input file to standard output
   !
   if (mypnum == glb_root) then
@@ -1125,10 +1127,14 @@ continue
     if (input_mode == 2 .or. len_trim(adjustl(interpto_gridfile)) == 0) then
       !
       call nml_ver_9999%write_data(0,iout,banner=true)
+      flush(iout)
       !
     end if
     !
   end if
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   !$ACC UPDATE DEVICE(nr,pr,walls_are_exact,sub_inflow_method, &
   !$ACC&              LDG_beta,LDG_tau,visc_variables_to_ave, &
