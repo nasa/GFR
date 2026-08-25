@@ -1895,14 +1895,14 @@ continue
   !
   ! Compute the troubled marker
   !
-  if (Limiter_Option == 1) then
+  if (Limiter_Option == Marker_Option__Resolution) then
    !orders_to_cutoff = proj_order+1
     orders_to_cutoff = proj_order
     call resolution_indicator(nst=nst,troubled_cell=troubled_cell, &
                               orders_to_cutoff=orders_to_cutoff)
-  else if (abs(Limiter_Option) == 2) then
+  else if (abs(Limiter_Option) == Marker_Option__Jump) then
     call jump_indicator(nst=nst,troubled_cell=troubled_cell)
-  else if (abs(Limiter_Option) == 4) then
+  else if (abs(Limiter_Option) == Marker_Option__Ducros) then
    !orders_to_cutoff = proj_order
    !call resolution_indicator(nst=nst,troubled_cell=troubled_cell, &
    !                          orders_to_cutoff=orders_to_cutoff)
