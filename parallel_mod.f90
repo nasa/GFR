@@ -619,7 +619,7 @@ continue
     !
     ! Create the node and edge arrays
     !
-    need_node = (continuous_output .or. Limiter_Option == 3)
+    need_node = (continuous_output .or. Limiter_Option == Marker_Option__MLP)
     need_edge = (continuous_output)
     ! ToDo:
     ! subroutine create_node_and_edge_datatypes still relies on
@@ -788,7 +788,7 @@ continue
  !                                  node_map,edge_map,face_map)
   !
   need_exch_neusp = ( continuous_output )
-  need_exch_mlp   = ( Limiter_Option == 3 )
+  need_exch_mlp   = ( Limiter_Option == Marker_Option__MLP )
   if ( need_exch_neusp .or. need_exch_mlp ) then
     call create_node_and_edge_datatypes(node,node_map,edge,edge_map, &
                                         need_exch_neusp,need_exch_mlp)

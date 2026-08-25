@@ -3326,7 +3326,8 @@ continue
   !
   need_cell_face =   true
   need_cell_edge =   continuous_output
-  need_cell_node = ( continuous_output .or. Limiter_Option == 3 .or. &
+  need_cell_node = ( continuous_output .or. &
+                     Limiter_Option == Marker_Option__MLP .or. &
                      thermofix%method /= TFM_OFF )
   !
   iend = 0

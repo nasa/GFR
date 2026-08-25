@@ -4784,9 +4784,9 @@ continue
       marker_was_not_allocated        = ( .not. allocated(marker) )
       scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
       !
-      if (            Limiter_Option /= 3 .or. &
-                 marker_was_not_allocated .or. &
-          scaled_marker_was_not_allocated ) then
+      if ( Limiter_Option /= Marker_Option__MLP .or. &
+                  marker_was_not_allocated      .or. &
+           scaled_marker_was_not_allocated      ) then
         ! Use relax=0 so solution is not updated with limited values.
         call limit_by_mlp(nst=1,relax=zero)
       end if
