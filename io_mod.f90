@@ -287,10 +287,12 @@ subroutine check_nml_input_data(input_mode)
   use ovar,   only : machref
   use ovar,   only : Limiter_Filter_Option
   use ovar,   only : Track_Limiter_Filter_Dissipation
+  use ovar,   only : Filter_Option
   use ovar,   only : Limiter_Option
   use ovar,   only : Resolution_Marker_Variable
   use ovar,   only : Jump_Marker_Variable
   use ovar,   only : MLP_Marker_Variable
+  use ovar,   only : Sponge_Filter_Option
   use ovar,   only : Limiter_Marker_Min, Limiter_Marker_Max
   use ovar,   only : Limiter_Marker_dpsi
   use ovar,   only : Limiter_Marker_c1, Limiter_Marker_c2
@@ -800,6 +802,15 @@ continue
     call init_eperk_coefficients
   end if
   !
+  ! EPERK methods cannot be used with limiting/filtering
+  if ( any(Runge_Kutta_Scheme == EPERK_Schemes(:)) .and. &
+       ( Filter_Option /= Filter_Option__Off .or. &
+         Limiter_Option /= Limiter_Option__Off .or. &
+         Sponge_Filter_Option /= 0 ) ) then
+    write(error_message,32)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
   ! Check thermofix inputs.
   !
   if (.not. any(thermofix%method == Valid_TFM(:)) .and. &
@@ -1178,6 +1189,8 @@ continue
       " ************************** WARNING!!!! **************************",/)
   !
   31 format ("RUNGE-KUTTA ERROR: Requested Runge-Kutta scheme is invalid!")
+  32 format ("RUNGE-KUTTA ERROR: Requested Runge-Kutta scheme cannot be",//, &
+             "used with limiting/filtering!")
   !
   41 format('ERROR: Density pulse test requres  pulse_test_form between 0:4.')
   42 format('ERROR: Density pulse test requres  pulse_test_form_dim ', &
