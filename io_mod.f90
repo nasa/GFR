@@ -1513,11 +1513,10 @@ continue
     !
     output_dir = trim(adjustl(test_dir))
     !
-    ! Create the flux directory if the dump_flux flag was given
-    ! in the input file
-    !
-    if (dump_fluxes) then
-      if (mypnum == glb_root) then
+    if (mypnum == glb_root) then
+      if (dump_fluxes) then
+        !
+        ! Create the flux directory if needed.
         !
         command = "mkdir -p "//trim(output_dir)//"flux_files"
         !
@@ -1533,7 +1532,7 @@ continue
         end if
         !
       end if
-    end if
+    end if  ! global root
     !
   end if
   !
