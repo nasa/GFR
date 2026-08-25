@@ -71,7 +71,7 @@ subroutine allocate_mlp
   !
   !.. Use Statements ..
   use geomvar_mod,  only : ncell,nnode
-  use ovar,         only : output_marker_variables,MLP_Marker_Variable
+  use ovar,         only : output_marker_variables,Marker_Variable
   use flowvar_mod,  only : marker,scaled_marker,nmarker
   !
   !.. Local Scalars ..
@@ -116,7 +116,7 @@ subroutine allocate_mlp
   ! Initialize values
   !
   ! Set the marker variable.
-  nmk = MLP_Marker_Variable + ncs ! offset by number of species equations
+  nmk = Marker_Variable + ncs ! offset by number of species equations
   !
   ! Indicate initialization has been done.
   mlp_is_allocated = true

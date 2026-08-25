@@ -3240,7 +3240,8 @@ subroutine create_cell_derived_type(nodes_of_cell,nodes_of_cell_ptr, &
   use geomvar_mod, only : cell_geom
   use geomvar_mod, only : cell_order
   use order_mod,   only : geom_solpts,q_order
-  use ovar,        only : continuous_output, Limiter_Option
+  use ovar,        only : continuous_output
+  use ovar,        only : Marker_Option
   use ovar,        only : thermofix
   !
   !.. Formal Arguments ..
@@ -3327,7 +3328,7 @@ continue
   need_cell_face =   true
   need_cell_edge =   continuous_output
   need_cell_node = ( continuous_output .or. &
-                     Limiter_Option == Marker_Option__MLP .or. &
+                     Marker_Option == Marker_Option__MLP .or. &
                      thermofix%method /= TFM_OFF )
   !
   iend = 0

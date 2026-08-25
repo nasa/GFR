@@ -396,14 +396,18 @@ continue
       ! Get the minimum and maximum over-integration projection
       ! order for this combination of cell geometry and cell order
       !
-      lmtr_omin = 0
-      if (Limiter_Option == 0) then
-        lmtr_omin = elem_order-1
-      else if (Limiter_Option >= 1 .or. any(abs(Limiter_Option) == [2,4])) then
-        if (Limiter_Filter_Option /= 0) then
-          lmtr_omin = elem_order-1
-        end if
-      end if
+      select case (Limiter_Option)
+        case ( Limiter_Option__Off           , &
+               Limiter_Option__Filter        , &
+               Limiter_Option__FilterScaled  , &
+               Limiter_Option__MLP           )
+          lmtr_omin = elem_order - 1
+        case ( Limiter_Option__ProjectionRecursive , &
+               Limiter_Option__ProjectionScaled    )
+          lmtr_omin = 0
+        case default
+          lmtr_omin = 0
+      end select
       lmtr_omin = max( 0 , min(lmtr_omin,p_order) )
       !
       lmtr_omax = elem_order-1

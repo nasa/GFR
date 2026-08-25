@@ -1833,7 +1833,7 @@ subroutine identify_troubled_cells(nst,troubled_cell,dropped_orders, &
   !
   !.. Use Statements ..
   use geomvar_mod, only : ncell,cell
-  use ovar,        only : Limiter_Option
+  use ovar,        only : Marker_Option
   use ovar,        only : Track_Limiter_Filter_Dissipation
   use order_mod,   only : p_order,n_order
   use flowvar_mod, only : cell_num_marks
@@ -1895,21 +1895,21 @@ continue
   !
   ! Compute the troubled marker
   !
-  if (Limiter_Option == Marker_Option__Resolution) then
+  if (Marker_Option == Marker_Option__Resolution) then
    !orders_to_cutoff = proj_order+1
     orders_to_cutoff = proj_order
     call resolution_indicator(nst=nst,troubled_cell=troubled_cell, &
                               orders_to_cutoff=orders_to_cutoff)
-  else if (abs(Limiter_Option) == Marker_Option__Jump) then
+  else if (abs(Marker_Option) == Marker_Option__Jump) then
     call jump_indicator(nst=nst,troubled_cell=troubled_cell)
-  else if (abs(Limiter_Option) == Marker_Option__Ducros) then
+  else if (abs(Marker_Option) == Marker_Option__Ducros) then
    !orders_to_cutoff = proj_order
    !call resolution_indicator(nst=nst,troubled_cell=troubled_cell, &
    !                          orders_to_cutoff=orders_to_cutoff)
     call ducros_indicator(nst=nst,troubled_cell=troubled_cell)
   else
-    ! Other values of Limiter_Option should never reach this routine.
-    write (error_message,100) Limiter_Option
+    ! Other values of Marker_Option should never reach this routine.
+    write (error_message,100) Marker_Option
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
@@ -1972,7 +1972,7 @@ continue
   there_are_no_troubles = (nc == 1)
 #endif
   !
-100 format( "Unexpected value, Limiter_Option = ", i0 )
+100 format( "Unexpected value, Marker_Option = ", i0 )
   !
 end subroutine identify_troubled_cells
 !
@@ -2225,7 +2225,7 @@ subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
                                      marker,scaled_marker)
   !
   !.. Use Statements ..
-  use ovar, only : Resolution_Marker_Variable
+  use ovar, only : Marker_Variable
   !
   !.. Formal Arguments ..
   real(wp),     intent(in) :: usp(:,:)
@@ -2249,7 +2249,7 @@ continue
     marker(nc) = -huge(zero)
   end do
   !
-  select case (Resolution_Marker_Variable)
+  select case (Marker_Variable)
     !
     case (Marker_Variable__all)
       !
@@ -2283,7 +2283,7 @@ continue
       ! Residual marker based on any one of the conserved N-S variables
       !
       ! usp index is offset by number of species equations (if using TPG)
-      nvar = Resolution_Marker_Variable + ncs
+      nvar = Marker_Variable + ncs
       !
       call compute_resolution_marker_1var(usp(:,nvar),skip_cell, &
                                           cutoff_order,marker)

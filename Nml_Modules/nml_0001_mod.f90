@@ -123,9 +123,8 @@ module nml_0001_mod
   use ovar,      only : Sponge_Filter_Alpha
   use ovar,      only : Sponge_Beyond_X
   use ovar,      only : Limiter_Option
-  use ovar,      only : Resolution_Marker_Variable
-  use ovar,      only : Jump_Marker_Variable
-  use ovar,      only : MLP_Marker_Variable
+  use ovar,      only : Marker_Option
+  use ovar,      only : Marker_Variable
   use ovar,      only : Limiter_Marker_Min, Limiter_Marker_Max
   use ovar,      only : Limiter_Marker_dpsi
   use ovar,      only : Limiter_Marker_c1, Limiter_Marker_c2
@@ -298,13 +297,16 @@ module nml_0001_mod
   !
   ! Obsolete inputs defined locally in order to include in old namelist read.
   ! Explicitly save these, so their values will be retained.
-  real(wp),    save :: newton_rlx           = one
-  logical(lk), save :: Use_Sponge_Filter    = fals
-  integer,     save :: VortexGrid_DOF       = 48
-  integer,     save :: flame_speed_test_DOF = 0
-  integer,     save :: sod_test_DOF         = 0
-  integer,     save :: pulse_test_DOF       = 0
-  integer,     save :: shu_osher_test_DOF   = 0
+  integer,     save :: Resolution_Marker_Variable = 0
+  integer,     save :: Jump_Marker_Variable       = 0
+  integer,     save :: MLP_Marker_Variable        = 0
+  real(wp),    save :: newton_rlx                 = one
+  logical(lk), save :: Use_Sponge_Filter          = fals
+  integer,     save :: VortexGrid_DOF             = 48
+  integer,     save :: flame_speed_test_DOF       = 0
+  integer,     save :: sod_test_DOF               = 0
+  integer,     save :: pulse_test_DOF             = 0
+  integer,     save :: shu_osher_test_DOF         = 0
   !
   ! ########################
   ! ###  Input Namelist  ###
@@ -1096,29 +1098,17 @@ subroutine read_nml_data(io)
   !.. Arguments ..
   integer, intent(in) :: io  !< File unit number.
   !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
 continue
   !
   read (io,nml=input)
   !
-  ! Convert Dof inputs for specific testcases to generic internal_grid_dof
+  ! Process the version 0001 namelist inputs to get the equivalent
+  ! settings using the current GFR variables
   !
-  if (any(abs(itestcase) == Transport_Problems) .or. &
-              itestcase  == Taylor_Green_Vortex) then
-    internal_grid_dof = VortexGrid_DOF
-  else
-    select case (abs(itestcase))
-      case (CH4_Flame_Speed_Test) ; internal_grid_dof = flame_speed_test_dof
-      case (Sod_Shock_Tube      ) ; internal_grid_dof = sod_test_dof
-      case (Density_Pulse_Test  ) ; internal_grid_dof = pulse_test_dof
-      case (Shu_Osher_Test      ) ; internal_grid_dof = shu_osher_test_dof
-      case default
-        ! use internal_grid_dof
-    end select
-  end if
-  !
-  ! Set the sponge filter option
-  !
-  Sponge_Filter_Option = merge(1,0,Use_Sponge_Filter) ! logical to int
+  call process_nml_data(ierr)
   !
 end subroutine read_nml_data
 !
@@ -1243,6 +1233,847 @@ continue
   101 format(/,"Default namelist input file written to:  ",A)
   !
 end subroutine write_nml_file
+!
+!  Note: subroutine ionml_input "contains":
+!    subroutine convert_old_to_new
+!    subroutine convert_new_to_old
+!  in order to share scope with the following variables:
+!    Limiter_Filter_Option
+!    Limiter_Option
+!    Limiter_Use_Dynamic_Filter
+!    Resolution_Marker_Variable
+!    Jump_Marker_Variable
+!    MLP_Marker_Variable
+!    Marker_Option
+!    Marker_Variable
+!
+!###############################################################################
+!> Convert:
+!>   Old_Limiter_Filter_Option          =>  New_Limiter_Filter_Option
+!>   Old_Limiter_Option                     New_Limiter_Option
+!>   Old_Limiter_Use_Dynamic_Filter
+!>   Old_Resolution_Marker_Variable     =>  New_Marker_Option
+!>         Old_Jump_Marker_Variable         New_Marker_Variable
+!>          Old_MLP_Marker_Variable
+!> May encounter dummy values as old file is read twice with different defaults.
+!>
+!> The following old->new conversions should work.
+!> Old variables               ->  New variables
+!> LFO  LO  DF  Res  Jmp  MLP      LFO   LO  MO   MV
+!> ---  -2  --  ---  0:5  ---        1 9002   2  0:5
+!> ---  -1  --  0:5  ---  ---        1 9002   1  1:6
+!> ---   0  --  0:5  ---  ---        1    0   1  1:6
+!> ---   3  --  ---  ---  0:5        1    3   3  0:5
+!>   0   1  --  0:5  ---  ---        1 9001   1  1:6
+!>   0   2  --  ---  0:5  ---        1 9001   2  0:5
+!> 1:2   1   0  0:5  ---  ---      1:2    1   1  1:6
+!> 1:2   1   1  0:5  ---  ---      1:2    2   1  1:6
+!> 1:2   2   0  ---  0:5  ---      1:2    1   2  0:5
+!> 1:2   2   1  ---  0:5  ---      1:2    2   2  0:5
+!
+!###############################################################################
+subroutine process_nml_data(error)
+  !
+  !.. Use Statements ..
+  use ovar, only : marker_c1
+  use ovar, only : marker_c2
+  use ovar, only : marker_dpsi
+  use ovar, only : Default_Marker_c1
+  use ovar, only : Default_Marker_c1_JI
+  use ovar, only : Default_Marker_c1_RI
+  use ovar, only : Default_Marker_c2
+  use ovar, only : Default_Marker_c2_JI
+  use ovar, only : Default_Marker_c2_RI
+  !
+  !.. Formal Arguments ..
+  integer, intent(out) :: error
+  !
+  !.. Local Scalars ..
+  integer  :: n_order
+  real(wp) :: l10p,max_marker_value
+  !
+  ! Old variables
+  integer :: Old_Limiter_Filter_Option
+  integer :: Old_Limiter_Option
+  logical :: Old_Limiter_Use_Dynamic_Filter
+  integer :: Old_Resolution_Marker_Variable
+  integer :: Old_Jump_Marker_Variable
+  integer :: Old_MLP_Marker_Variable
+  !
+  ! New variables
+  integer :: New_Limiter_Filter_Option
+  integer :: New_Limiter_Option
+  integer :: New_Marker_Option
+  integer :: New_Marker_Variable
+  !
+continue
+  !
+  error = 0  ! ok
+  !#############################################################################
+  !#############################################################################
+  !#############################################################################
+  !
+  ! Import old variables
+  Old_Limiter_Filter_Option      = Limiter_Filter_Option
+  Old_Limiter_Option             = Limiter_Option
+  Old_Limiter_Use_Dynamic_Filter = Limiter_Use_Dynamic_Filter
+  Old_Resolution_Marker_Variable = Resolution_Marker_Variable
+  Old_Jump_Marker_Variable       = Jump_Marker_Variable
+  Old_MLP_Marker_Variable        = MLP_Marker_Variable
+  !
+  ! Convert:  Old_Limiter_Filter_Option -> New_Limiter_Filter_Option
+  ! Note:     New_Limiter_Filter_Option = 0  not allowed, use 1 instead
+  !
+  New_Limiter_Filter_Option = Old_Limiter_Filter_Option
+  if ( Old_Limiter_Filter_Option == 0 ) New_Limiter_Filter_Option = 1
+  !
+  ! Convert:  Old_Limiter_Filter_Option + Old_Limiter_Option,
+  !           Old_Resolution_Marker_Variable, Old_Jump_Marker_Variable,
+  !           Old_MLP_Marker_Variable
+  !      ->   New_Limiter_Option, New_Marker_Option, New_Marker_Variable
+  !
+  select case (Old_Limiter_Option)
+    case ( 0)  ! None
+      New_Limiter_Option = Limiter_Option__Off
+      New_Marker_Option  = Marker_Option__Resolution
+      !
+    case (-2)  ! Jump Marker + Scaled Projection
+      New_Limiter_Option = Limiter_Option__ProjectionScaled
+      New_Marker_Option  = Marker_Option__Jump
+      !
+    case (-1)  ! Res. Marker + Scaled Projection
+      New_Limiter_Option = Limiter_Option__ProjectionScaled
+      New_Marker_Option  = Marker_Option__Resolution
+      !
+    case ( 1)  ! Res. Marker + Limiter_Filter_Option
+      if ( Old_Limiter_Filter_Option == 0 ) then
+        New_Limiter_Option = Limiter_Option__ProjectionRecursive
+      else if ( Old_Limiter_Use_Dynamic_Filter ) then
+        New_Limiter_Option = Limiter_Option__FilterScaled
+      else
+        New_Limiter_Option = Limiter_Option__Filter
+      end if
+      New_Marker_Option = Marker_Option__Resolution
+      !
+    case ( 2)  ! Jump Marker + Limiter_Filter_Option
+      if ( Old_Limiter_Filter_Option == 0 ) then
+        New_Limiter_Option = Limiter_Option__ProjectionRecursive
+      else if ( Old_Limiter_Use_Dynamic_Filter ) then
+        New_Limiter_Option = Limiter_Option__FilterScaled
+      else
+        New_Limiter_Option = Limiter_Option__Filter
+      end if
+      New_Marker_Option = Marker_Option__Jump
+      !
+    case ( 3)  ! MLP  Marker + MLP Limiter
+      New_Limiter_Option = Limiter_Option__MLP
+      New_Marker_Option  = Marker_Option__MLP
+      !
+    case ( 4)  ! Ducros/divergence Marker + Limiter_Filter_Option
+      if ( Old_Limiter_Filter_Option == 0 ) then
+        New_Limiter_Option = Limiter_Option__ProjectionRecursive
+      else if ( Old_Limiter_Use_Dynamic_Filter ) then
+        New_Limiter_Option = Limiter_Option__FilterScaled
+      else
+        New_Limiter_Option = Limiter_Option__Filter
+      end if
+      New_Marker_Option = Marker_Option__Ducros
+      !
+    case default
+      ! Invalid value for Old_Limiter_Option.
+      ! Unable to convert from old input.  Set values to off.
+      New_Limiter_Option = Limiter_Option__Off
+      New_Marker_Option  = Marker_Option__Off
+      error = 1  ! fail
+      !
+  end select
+  !
+  ! Set:  New_Marker_Variable, adjust from old value to new.
+  !
+  select case (New_Marker_Option)
+    case (Marker_Option__Off)
+      New_Marker_Variable = Marker_Variable__Off
+    case (Marker_Option__Resolution)
+      if ( Old_Resolution_Marker_Variable == 0 ) then
+        New_Marker_Variable = Marker_Variable__all
+      else
+        New_Marker_Variable = Old_Resolution_Marker_Variable
+      end if
+    case (Marker_Option__Jump)
+      if ( Old_Jump_Marker_Variable == 0 ) then
+        New_Marker_Variable = Marker_Variable__npres
+      else
+        New_Marker_Variable = Old_Jump_Marker_Variable
+      end if
+    case (Marker_Option__MLP)
+      New_Marker_Variable = Old_MLP_Marker_Variable
+    case (Marker_Option__Ducros)
+      ! no variable option for Ducros/divergence marker
+    case default
+  end select
+  !
+  ! Export new variables
+  Limiter_Filter_Option = New_Limiter_Filter_Option
+  Limiter_Option        = New_Limiter_Option
+  Marker_Option         = New_Marker_Option
+  Marker_Variable       = New_Marker_Variable
+  !
+  !#############################################################################
+  !#############################################################################
+  !#############################################################################
+  !
+  ! Complete the marker coefficients that will be used to scale the raw
+  ! marker values to the scaled_marker on the interval [0,1]
+  !
+  n_order = abs(solution_order)
+  if ( all_orders >= 0 ) n_order = all_orders
+  !
+  if ( Marker_Option == Marker_Option__Jump ) then  ! Filter with jump marker.
+    Default_Marker_c1 = Default_Marker_c1_JI
+    Default_Marker_c2 = Default_Marker_c2_JI
+    max_marker_value = log10(two)
+  else ! resolution and Ducros/divergence markers
+    Default_Marker_c1 = Default_Marker_c1_RI
+    Default_Marker_c2 = Default_Marker_c2_RI
+    max_marker_value = zero
+  end if
+  marker_c1 = Default_Marker_c1
+  marker_c2 = Default_Marker_c2
+  !
+  ! DEBUG: Verbosely write out input marker coefficients before processing them
+  call write_marker_inputs(1,n_order)
+  !
+  if (Limiter_Marker_c1   > zero) marker_c1   = Limiter_Marker_c1
+  if (Limiter_Marker_c2   > zero) marker_c2   = Limiter_Marker_c2
+  if (Limiter_Marker_dpsi > zero) marker_dpsi = Limiter_Marker_dpsi
+  !
+  ! Check if only one of Limiter_Marker_Min and Limiter_Marker_Max was
+  ! set, and if so, compute the other using marker_dpsi
+  !
+  if (Limiter_Marker_Max <= max_marker_value .and. &
+      Limiter_Marker_Min >= Limiter_Marker_Max) then
+    Limiter_Marker_Min = Limiter_Marker_Max - two*marker_dpsi
+  else if (Limiter_Marker_Min <= max_marker_value .and. &
+           Limiter_Marker_Max >  max_marker_value) then
+    Limiter_Marker_Max = min(max_marker_value, &
+                             Limiter_Marker_Min + two*marker_dpsi)
+  end if
+  !
+  l10p = log10(real(max(1,n_order),kind=wp))
+  !
+  ! If Limiter_Marker_Min and Limiter_Marker_Max are both less than the
+  ! maximum possible value, recompute c1, c2, and dpsi.
+  !
+  if (all([Limiter_Marker_Min,Limiter_Marker_Max] <= max_marker_value)) then
+    !
+    marker_dpsi = half*abs(Limiter_Marker_Min-Limiter_Marker_Max)
+    !
+    ! Confirmed via Mathematica that the following options:
+    !   1) holding marker_c1 constant and using it plus Limiter_Marker_min
+    !      and marker_dpsi to compute a new marker_c2
+    !   2) holding marker_c2 constant and using it plus Limiter_Marker_min
+    !      and marker_dpsi to compute a new marker_c1
+    ! result in the SAME psi0, which makes them equivalent.
+    !
+    if (n_order <= 1) then
+      ! We have to compute marker_c1 for P<=1 because l10p will be zero
+      marker_c1 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c2*l10p)
+    else
+      if (marker_c1 /= Default_Marker_c1) then
+        marker_c2 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c1) / l10p
+      else
+        marker_c1 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c2*l10p)
+      end if
+    end if
+    !
+  end if
+  !
+  ! Copy the computed values back into the input parameters.
+  !
+  Limiter_Marker_c1   = marker_c1
+  Limiter_Marker_c2   = marker_c2
+  Limiter_Marker_dpsi = marker_dpsi
+  Limiter_Marker_Min  = -one*(marker_c1 + marker_c2*l10p) - marker_dpsi
+  Limiter_Marker_Max  = -one*(marker_c1 + marker_c2*l10p) + marker_dpsi
+  !
+  ! DEBUG: Verbosely write out input marker coefficients after processing them
+  call write_marker_inputs(2,n_order)
+  !
+  ! DEBUG: Write out the marker coefficients after processing them
+  call write_marker_inputs(3,n_order)
+  !
+  !#############################################################################
+  !#############################################################################
+  !#############################################################################
+  !
+  ! Get the sponge filter option
+  !
+  Sponge_Filter_Option = merge(1,0,Use_Sponge_Filter)  ! logical to int
+  !
+  !#############################################################################
+  !#############################################################################
+  !#############################################################################
+  !
+  ! Convert Dof inputs for specific testcases to generic internal_grid_dof
+  !
+  if (any(abs(itestcase) == Transport_Problems) .or. &
+              itestcase  == Taylor_Green_Vortex) then
+    internal_grid_dof = VortexGrid_DOF
+  else
+    select case (itestcase)
+      case (CH4_Flame_Speed_Test) ; internal_grid_dof = flame_speed_test_dof
+      case (Sod_Shock_Tube      ) ; internal_grid_dof = sod_test_dof
+      case (Density_Pulse_Test  ) ; internal_grid_dof = pulse_test_dof
+      case (Shu_Osher_Test      ) ; internal_grid_dof = shu_osher_test_dof
+      case default
+        ! use internal_grid_dof
+    end select
+  end if
+  !
+  !#############################################################################
+  !#############################################################################
+  !#############################################################################
+  !
+  ! Convert the bc_input structure from this version 1 reader to current.
+  !   Old: bc_input (ver.1)  =>  New: bc_input (ovar_mod)
+  !
+  ovar_bc_input = bc_input(:)%copyout() ! F2003 AUTO-REALLOC
+  !
+end subroutine process_nml_data
+!
+!###############################################################################
+!
+subroutine write_marker_inputs(flag,p)
+  !
+  !.. Use Statements ..
+  use ovar, only : marker_c1
+  use ovar, only : marker_c2
+  use ovar, only : marker_dpsi
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: flag
+  integer, intent(in) :: p
+  !
+  !.. Local Scalars ..
+  real(wp) :: psi0
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: text
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_marker_inputs"
+  !
+continue
+#ifdef DUMP_MARKER_INPUTS
+  !
+  psi0 = -one*(marker_c1 + marker_c2*log10(real(max(1,p),kind=wp)))
+  !
+#if DUMP_MARKER_INPUTS == 1
+  if (mypnum == glb_root) then
+    if (flag == 3) then
+      write (iout,1) marker_c1,marker_c2,marker_dpsi, &
+                     psi0-marker_dpsi,psi0,psi0+marker_dpsi
+      flush (iout)
+    end if
+  end if
+#endif
+#if DUMP_MARKER_INPUTS == 2
+  if (mypnum == glb_root) then
+    if (any(flag == [1,2])) then
+      if (flag == 1) then
+        text = "BEFORE" ! F2003 AUTO-REALLOC
+      else
+        text = "AFTER"  ! F2003 AUTO-REALLOC
+      end if
+      write (iout,2) text, &
+                     Limiter_Marker_c1, &
+                     Limiter_Marker_c2, &
+                     Limiter_Marker_dpsi, &
+                     Limiter_Marker_Min, &
+                     Limiter_Marker_Max, &
+                     marker_c1, &
+                     marker_c2, &
+                     marker_dpsi, &
+                     psi0, &
+                     psi0-marker_dpsi, &
+                     psi0+marker_dpsi
+      flush (iout)
+    end if
+  end if
+#endif
+#ifdef DUMP_MARKER_INPUTS_THEN_STOP
+  flush (iout)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"Dumping marker parameters!")
+#endif
+  !
+  1 format (/,2x,"marker_c1   = ",f11.6,/, &
+              2x,"marker_c2   = ",f11.6,/, &
+              2x,"marker_dpsi = ",f11.6,//, &
+              2x,"psi0 - dpsi = ",f11.6,/, &
+              2x,"psi0        = ",f11.6,/, &
+              2x,"psi0 + dpsi = ",f11.6,/)
+  !
+  2 format (//,2x,a," modifying marker parameters:",//, &
+               4x,"Limiter_Marker_c1   = ",f10.6,/, &
+               4x,"Limiter_Marker_c2   = ",f10.6,/, &
+               4x,"Limiter_Marker_dpsi = ",f10.6,/, &
+               4x,"Limiter_Marker_Min  = ",f10.6,/, &
+               4x,"Limiter_Marker_Max  = ",f10.6,//, &
+               4x,"        marker_c1   = ",f10.6,/, &
+               4x,"        marker_c2   = ",f10.6,/, &
+               4x,"        marker_dpsi = ",f10.6,/, &
+               4x,"        marker_psi0 = ",f10.6,/, &
+               4x,"        marker_min  = ",f10.6,/, &
+               4x,"        marker_max  = ",f10.6,//)
+  !
+#endif
+end subroutine write_marker_inputs
+!
+!###############################################################################
+!
+!  Note: subroutine ionml_input "contains":
+!    subroutine convert_old_to_new
+!    subroutine convert_new_to_old
+!  in order to share scope with the following variables:
+!    Limiter_Filter_Option
+!    Limiter_Option
+!    Limiter_Use_Dynamic_Filter
+!    Resolution_Marker_Variable
+!    Jump_Marker_Variable
+!    MLP_Marker_Variable
+!    Marker_Option
+!    Marker_Variable
+!
+!###############################################################################
+!> Convert:
+!>   Old_Limiter_Filter_Option          =>  New_Limiter_Filter_Option
+!>   Old_Limiter_Option                     New_Limiter_Option
+!>   Old_Limiter_Use_Dynamic_Filter
+!>   Old_Resolution_Marker_Variable     =>  New_Marker_Option
+!>         Old_Jump_Marker_Variable         New_Marker_Variable
+!>          Old_MLP_Marker_Variable
+!> May encounter dummy values as old file is read twice with different defaults.
+!>
+!> The following old->new conversions should work.
+!> Old variables               ->  New variables
+!> LFO  LO  DF  Res  Jmp  MLP      LFO   LO  MO   MV
+!> ---  -2  --  ---  0:5  ---        1 9002   2  0:5
+!> ---  -1  --  0:5  ---  ---        1 9002   1  1:6
+!> ---   0  --  0:5  ---  ---        1    0   1  1:6
+!> ---   3  --  ---  ---  0:5        1    3   3  0:5
+!>   0   1  --  0:5  ---  ---        1 9001   1  1:6
+!>   0   2  --  ---  0:5  ---        1 9001   2  0:5
+!> 1:2   1   0  0:5  ---  ---      1:2    1   1  1:6
+!> 1:2   1   1  0:5  ---  ---      1:2    2   1  1:6
+!> 1:2   2   0  ---  0:5  ---      1:2    1   2  0:5
+!> 1:2   2   1  ---  0:5  ---      1:2    2   2  0:5
+!
+!###############################################################################
+subroutine convert_old_to_new(error)
+  !
+  !.. Use Statements ..
+  use nml_base_mod, only : idum0,idum1
+  !
+  !.. Formal Arguments ..
+  integer, intent(out) :: error
+  !
+  !.. Local Scalars ..
+  ! Old variables
+  integer :: Old_Limiter_Filter_Option
+  integer :: Old_Limiter_Option
+  logical :: Old_Limiter_Use_Dynamic_Filter
+  integer :: Old_Resolution_Marker_Variable
+  integer :: Old_Jump_Marker_Variable
+  integer :: Old_MLP_Marker_Variable
+  !
+  ! New variables
+  integer :: New_Limiter_Filter_Option
+  integer :: New_Limiter_Option
+  integer :: New_Marker_Option
+  integer :: New_Marker_Variable
+  !
+continue
+  !
+  error = 0  ! ok
+  !
+  ! Import old variables
+  Old_Limiter_Filter_Option      = Limiter_Filter_Option
+  Old_Limiter_Option             = Limiter_Option
+  Old_Limiter_Use_Dynamic_Filter = Limiter_Use_Dynamic_Filter
+  Old_Resolution_Marker_Variable = Resolution_Marker_Variable
+  Old_Jump_Marker_Variable       = Jump_Marker_Variable
+  Old_MLP_Marker_Variable        = MLP_Marker_Variable
+  !
+  ! Convert:  Old_Limiter_Filter_Option -> New_Limiter_Filter_Option
+  ! Note:     New_Limiter_Filter_Option = 0  not allowed, use 1 instead
+  !
+  New_Limiter_Filter_Option = Old_Limiter_Filter_Option
+  if ( Old_Limiter_Filter_Option == 0 ) New_Limiter_Filter_Option = 1
+  !
+  ! Convert:  Old_Limiter_Filter_Option + Old_Limiter_Option,
+  !           Old_Resolution_Marker_Variable, Old_Jump_Marker_Variable,
+  !           Old_MLP_Marker_Variable
+  !      ->   New_Limiter_Option, New_Marker_Option, New_Marker_Variable
+  !
+  select case (Old_Limiter_Option)
+    case ( idum0, idum1)  ! None
+      !
+      ! Limiter_Option is not present, but has default=0 (None/Off).
+      ! Treat marker as default=resolution, or not present?
+      !
+      New_Limiter_Option = Old_Limiter_Option  ! dummy value
+!     New_Marker_Option  = Old_Limiter_Option  ! dummy value
+      New_Marker_Option  = Marker_Option__Resolution
+      !
+    case ( 0)  ! None
+      New_Limiter_Option = Limiter_Option__Off
+      New_Marker_Option  = Marker_Option__Resolution
+      !
+    case (-2)  ! Jump Marker + Scaled Projection
+      New_Limiter_Option = Limiter_Option__ProjectionScaled
+      New_Marker_Option  = Marker_Option__Jump
+      !
+    case (-1)  ! Res. Marker + Scaled Projection
+      New_Limiter_Option = Limiter_Option__ProjectionScaled
+      New_Marker_Option  = Marker_Option__Resolution
+      !
+    case ( 1)  ! Res. Marker + Limiter_Filter_Option
+      if ( Old_Limiter_Filter_Option == 0 ) then
+        New_Limiter_Option = Limiter_Option__ProjectionRecursive
+      else if ( Old_Limiter_Use_Dynamic_Filter ) then
+        New_Limiter_Option = Limiter_Option__FilterScaled
+      else
+        New_Limiter_Option = Limiter_Option__Filter
+      end if
+      New_Marker_Option = Marker_Option__Resolution
+      !
+    case ( 2)  ! Jump Marker + Limiter_Filter_Option
+      if ( Old_Limiter_Filter_Option == 0 ) then
+        New_Limiter_Option = Limiter_Option__ProjectionRecursive
+      else if ( Old_Limiter_Use_Dynamic_Filter ) then
+        New_Limiter_Option = Limiter_Option__FilterScaled
+      else
+        New_Limiter_Option = Limiter_Option__Filter
+      end if
+      New_Marker_Option = Marker_Option__Jump
+      !
+    case ( 3)  ! MLP  Marker + MLP Limiter
+      New_Limiter_Option = Limiter_Option__MLP
+      New_Marker_Option  = Marker_Option__MLP
+      !
+    case default
+      ! Invalid value for Old_Limiter_Option.
+      ! Unable to convert from old input.  Set values to off.
+      New_Limiter_Option = Limiter_Option__Off
+      New_Marker_Option  = Marker_Option__Off
+      error = 1  ! fail
+      !
+  end select
+  !
+  ! Set:  New_Marker_Variable, adjust from old value to new.
+  !
+  select case (New_Marker_Option)
+    case (idum0,idum1)
+      New_Marker_Variable = New_Marker_Option  ! idum0,idum1
+    case (Marker_Option__Off)
+      New_Marker_Variable = Marker_Variable__Off
+    case (Marker_Option__Resolution)
+      if ( Old_Resolution_Marker_Variable == 0 ) then
+        New_Marker_Variable = Marker_Variable__all
+      else
+        New_Marker_Variable = Old_Resolution_Marker_Variable
+      end if
+    case (Marker_Option__Jump)
+      if ( Old_Jump_Marker_Variable == 0 ) then
+        New_Marker_Variable = Marker_Variable__npres
+      else
+        New_Marker_Variable = Old_Jump_Marker_Variable
+      end if
+    case (Marker_Option__MLP)
+      New_Marker_Variable = Old_MLP_Marker_Variable
+    case default
+  end select
+  !
+  ! Export new variables
+  Limiter_Filter_Option = New_Limiter_Filter_Option
+  Limiter_Option        = New_Limiter_Option
+  Marker_Option         = New_Marker_Option
+  Marker_Variable       = New_Marker_Variable
+  !
+  ! Convert Dof inputs for specific testcases to generic internal_grid_dof
+  !
+  if (any(abs(itestcase) == Transport_Problems) .or. &
+              itestcase  == Taylor_Green_Vortex) then
+    internal_grid_dof = VortexGrid_DOF
+  else
+    select case (itestcase)
+      case (CH4_Flame_Speed_Test) ; internal_grid_dof = flame_speed_test_dof
+      case (Sod_Shock_Tube      ) ; internal_grid_dof = sod_test_dof
+      case (Density_Pulse_Test  ) ; internal_grid_dof = pulse_test_dof
+      case (Shu_Osher_Test      ) ; internal_grid_dof = shu_osher_test_dof
+      case default
+        ! use internal_grid_dof
+    end select
+  end if
+  !
+end subroutine convert_old_to_new
+!==========================================================================
+! Convert:
+!   New_Limiter_Filter_Option  => Old_Limiter_Filter_Option
+!   New_Limiter_Option            Old_Limiter_Option
+!                                 Old_Limiter_Use_Dynamic_Filter
+!   New_Marker_Option          => Old_Resolution_Marker_Variable
+!   New_Marker_Variable                 Old_Jump_Marker_Variable
+!                                        Old_MLP_Marker_Variable
+!
+! The following new->old conversion should work, unless marked "not supported".
+! Some start/end with invalid new/old modes.
+! New Variables       ->  Old variables
+! LFO   LO  MO    MV      LFO   LO  DF  Res  Jmp  MLP
+! --- 9001   1   1:6        0    1   0  0:5  ---  ---
+! --- 9001   2   0:5        0    2   0  ---  0:5  ---
+! --- 9002   1   1:6        1   -1   0  0:5  ---  ---
+! --- 9002   2   0:5        1   -2   0  ---  0:5  ---
+! 0:2    0   1   1:6      0:2    0   0  0:5  ---  ---
+! 0:2    0   2  -1:5      0:2    0   0  ---  0:5  ---  Invalid Old.
+! 0:2    0   3   0:5      0:2    0   0  ---  ---  0:5  Invalid Old.
+! 0:2    0   4* -2,0      0:2    0   0  ---  --- -2,0  Not supported.
+! 0:2    3   3   0:5      0:2    3   0  ---  ---  0:5
+!   0*   1   1   1:6        1    1   0  0:5  ---  ---  Invalid New.
+!   0*   1   2   0:5        1    2   0  ---  0:5  ---  Invalid New.
+!   0*   2   1   1:6        1    1   1  0:5  ---  ---  Invalid New.
+!   0*   2   2   0:5        1    2   1  ---  0:5  ---  Invalid New.
+! 1:2    1   1   1:6      1:2    1   0  0:5  ---  ---
+! 1:2    1   2   0:5      1:2    2   0  ---  0:5  ---
+! 1:2    2   1   1:6      1:2    1   1  0:5  ---  ---
+! 1:2    2   2   0:5      1:2    2   1  ---  0:5  ---
+!
+!==========================================================================
+subroutine convert_new_to_old(error)
+  !
+  !.. Use Statements ..
+  use nml_base_mod, only : idum0,idum1
+  !
+  !.. Formal Arguments ..
+  integer, intent(out) :: error
+  !
+  !.. Local Scalars ..
+  integer :: Default_Marker_Option, tmp_Marker_Option
+  integer :: Default_Marker_Variable, tmp_Marker_Variable
+  integer :: Old_Marker_Variable
+  !
+  ! Old variables
+  integer :: Old_Limiter_Filter_Option
+  integer :: Old_Limiter_Option
+  logical :: Old_Limiter_Use_Dynamic_Filter
+  integer :: Old_Resolution_Marker_Variable
+  integer :: Old_Jump_Marker_Variable
+  integer :: Old_MLP_Marker_Variable
+  !
+  ! New variables
+  integer :: New_Limiter_Filter_Option
+  integer :: New_Limiter_Option
+  integer :: New_Marker_Option
+  integer :: New_Marker_Variable
+  !
+continue
+  !
+  error = 0  ! ok
+  !
+  ! Import new variables
+  New_Limiter_Filter_Option = Limiter_Filter_Option
+  New_Limiter_Option        = Limiter_Option
+  New_Marker_Option         = Marker_Option
+  New_Marker_Variable       = Marker_Variable
+  !
+  ! Determine Default_Marker_Option from Limiter_Option.
+  !
+  select case (New_Limiter_Option)
+    case (Limiter_Option__MLP)
+      Default_Marker_Option = Marker_Option__MLP
+    case default
+      Default_Marker_Option = Marker_Option__Resolution
+  end select
+  !
+  ! If Marker_Option==Off, use Default_Marker_Option instead.
+  !
+  tmp_Marker_Option = New_Marker_Option
+  if ( New_Marker_Option == Marker_Option__Off ) then
+    tmp_Marker_Option = Default_Marker_Option
+  end if
+  !
+  ! Determine Default_Marker_Variable from Marker_Option.
+  !
+  select case (tmp_Marker_Option)
+    case (Marker_Option__Resolution)
+      Default_Marker_Variable = Marker_Variable__nec
+    case (Marker_Option__Jump)
+      Default_Marker_Variable = Marker_Variable__npres
+    case (Marker_Option__MLP)
+      Default_Marker_Variable = Marker_Variable__nec
+    case (Marker_Option__Ducros)
+      Default_Marker_Variable = Marker_Variable__Ducros
+    case default
+      Default_Marker_Variable = Marker_Variable__nec
+  end select
+  !
+  ! If Marker_Variable==Off, use Default_Marker_Variable instead.
+  !
+  tmp_Marker_Variable = New_Marker_Variable
+  if ( New_Marker_Variable == Marker_Variable__Off ) then
+    tmp_Marker_Variable = Default_Marker_Variable
+  end if
+  !
+  ! -----------------------------------
+  ! Set Old_Resolution_Marker_Variable,
+  !     Old_Jump_Marker_Variable,
+  !     Old_MLP_Marker_Variable
+  ! -----------------------------------
+  !
+  ! Determine the old value of the Marker_Variable.
+  select case (tmp_Marker_Variable)
+    case (idum0                 ) ; Old_Marker_Variable = idum0
+    case (idum1                 ) ; Old_Marker_Variable = idum1
+    case (Marker_Variable__off  ) ! Off or default
+      select case (tmp_Marker_Option)
+        case (Marker_Option__Resolution) ; Old_Marker_Variable =  1
+        case (Marker_Option__Jump      ) ; Old_Marker_Variable =  0
+        case (Marker_Option__MLP       ) ; Old_Marker_Variable =  1
+        case default
+          ! Cannot convert Marker_Variable to old code, so set to default value.
+          error = 1  ! fail
+      end select
+    case (Marker_Variable__npres) ; Old_Marker_Variable = 0
+    case (Marker_Variable__all  ) ; Old_Marker_Variable = 0
+    case (Marker_Variable__nec  ) ; Old_Marker_Variable = 1
+    case (Marker_Variable__nmx  ) ; Old_Marker_Variable = 2
+    case (Marker_Variable__nmy  ) ; Old_Marker_Variable = 3
+    case (Marker_Variable__nmz  ) ; Old_Marker_Variable = 4
+    case (Marker_Variable__nee  ) ; Old_Marker_Variable = 5
+    case default                  ; Old_Marker_Variable = 0
+      ! Usupported Marker_Variable.
+      ! Cannot convert Marker_Variable to old input, so set to default value.
+      error = 2  ! fail
+  end select
+  !
+  ! Set default for Old_*_Marker_Variable.
+  Old_Resolution_Marker_Variable = 0  ! default, meaning all conserved
+        Old_Jump_Marker_Variable = 0  ! default, meaning pressure
+         Old_MLP_Marker_Variable = 0  ! default, meaning density
+  !
+  ! Determine which old Marker_Variable to assign the value to.
+  ! NOTE: No compatibility check between Marker_Variable and Marker_Option.
+  !
+  ! If Marker_Option has dummy value, set all *_Marker_Variable to same dummy.
+  ! Otherwise set individual *_Marker_Variable to current value.
+  !
+  if ( any(New_Marker_Option == [idum0,idum1]) ) then
+    ! Set to the same dummy value idum0,idum1.
+    Old_Resolution_Marker_Variable = New_Marker_Option
+          Old_Jump_Marker_Variable = New_Marker_Option
+           Old_MLP_Marker_Variable = New_Marker_Option
+    !
+  else if ( tmp_Marker_Option == Marker_Option__Resolution ) then
+    Old_Resolution_Marker_Variable = Old_Marker_Variable
+    !
+  else if ( tmp_Marker_Option == Marker_Option__Jump ) then
+    Old_Jump_Marker_Variable       = Old_Marker_Variable
+    !
+  else if ( tmp_Marker_Option == Marker_Option__MLP ) then
+    Old_MLP_Marker_Variable        = Old_Marker_Variable
+    !
+  else
+    ! Unsupported Marker_Option.
+    ! Cannot convert Marker_Option to old input.
+    error = 3  ! fail
+  end if
+  !
+  ! Set default for Old_Limiter_Filter_Option.  Adjusted below.
+  ! For most cases, except limit by projection noted below.
+  !
+  Old_Limiter_Filter_Option = New_Limiter_Filter_Option
+  !
+  ! Set default for Old_Limiter_Use_Dynamic_Filter.  Adjusted below.
+  !
+  Old_Limiter_Use_Dynamic_Filter = .false.
+  !
+  !
+  ! Set:    Old_Limiter_Option
+  ! Adjust: Old_Limiter_Filter_Option, Old_Limiter_Use_Dynamic_Filter.
+  ! These are the known combinations that can be back-ported.
+  !
+  Old_Limiter_Option = 0  ! default
+  if      ( New_Limiter_Option == idum0 ) then
+    Old_Limiter_Option = idum0  ! dummy value
+    !
+  else if ( New_Limiter_Option == idum1 ) then
+    Old_Limiter_Option = idum1  ! dummy value
+    !
+  else if ( New_Limiter_Option == Limiter_Option__Off ) then
+    Old_Limiter_Option =  0  ! Off
+    !
+  else if ( New_Limiter_Option == Limiter_Option__ProjectionScaled &
+    .and.   tmp_Marker_Option  ==  Marker_Option__Jump ) then
+    Old_Limiter_Option = -2 ! Jump Marker + Scaled Projection
+    Old_Limiter_Filter_Option = 0
+    !
+  else if ( New_Limiter_Option == Limiter_Option__ProjectionScaled &
+    .and.   tmp_Marker_Option  ==  Marker_Option__Resolution ) then
+    Old_Limiter_Option = -1 ! Resolution Marker + Scaled Projection
+    Old_Limiter_Filter_Option = 0
+    !
+  else if ( New_Limiter_Option == Limiter_Option__ProjectionRecursive &
+    .and.   tmp_Marker_Option  ==  Marker_Option__Resolution ) then
+    Old_Limiter_Option =  1 ! Resolution Marker + Recursive Projection
+    Old_Limiter_Filter_Option = 0
+    !
+  else if ( New_Limiter_Option == Limiter_Option__ProjectionRecursive &
+    .and.   tmp_Marker_Option  ==  Marker_Option__Jump ) then
+    Old_Limiter_Option =  2 ! Jump Marker + Recursive Projection
+    Old_Limiter_Filter_Option = 0
+    !
+  else if ( New_Limiter_Option == Limiter_Option__Filter .and. &
+            tmp_Marker_Option  ==  Marker_Option__Resolution ) then
+    Old_Limiter_Option =  1 ! Resolution Marker + Filter
+    Old_Limiter_Use_Dynamic_Filter = fals
+    !
+  else if ( New_Limiter_Option == Limiter_Option__FilterScaled .and. &
+            tmp_Marker_Option  ==  Marker_Option__Resolution ) then
+    Old_Limiter_Option =  1 ! Resolution Marker + Filter
+    Old_Limiter_Use_Dynamic_Filter = true
+    !
+  else if ( New_Limiter_Option == Limiter_Option__Filter .and. &
+            tmp_Marker_Option  ==  Marker_Option__Jump ) then
+    Old_Limiter_Option =  2 ! Jump Marker + Filter
+    Old_Limiter_Use_Dynamic_Filter = fals
+    !
+  else if ( New_Limiter_Option == Limiter_Option__FilterScaled .and. &
+            tmp_Marker_Option  ==  Marker_Option__Jump ) then
+    Old_Limiter_Option =  2 ! Jump Marker + Scaled Filter
+    Old_Limiter_Use_Dynamic_Filter = true
+    !
+  else if ( New_Limiter_Option == Limiter_Option__MLP .and. &
+            tmp_Marker_Option  ==  Marker_Option__MLP ) then
+    Old_Limiter_Option =  3 ! MLP Marker + MLP Limiter
+    !
+  else
+    ! This combination of options is not supported in the old input format.
+    ! Cannot convert Limiter_Option to old input.
+    error = 4  ! fail
+  end if
+  !
+  ! Export old variables
+  Limiter_Filter_Option      = Old_Limiter_Filter_Option
+  Limiter_Option             = Old_Limiter_Option
+  Limiter_Use_Dynamic_Filter = Old_Limiter_Use_Dynamic_Filter
+  Resolution_Marker_Variable = Old_Resolution_Marker_Variable
+  Jump_Marker_Variable       = Old_Jump_Marker_Variable
+  MLP_Marker_Variable        = Old_MLP_Marker_Variable
+  !
+end subroutine convert_new_to_old
+!
+!###############################################################################
+!
 !
 !###############################################################################
 !

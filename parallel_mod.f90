@@ -420,7 +420,8 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   !
   !.. Use Statements ..
   use geomvar_mod, only : n_global_face
-  use ovar,        only : continuous_output, Limiter_Option, use_parmetis
+  use ovar,        only : continuous_output, use_parmetis
+  use ovar,        only : Marker_Option
   use geomvar_mod, only : geo_face_map => face_map
   use geomvar_mod, only : geo_edge_map => edge_map
   use geomvar_mod, only : geo_node_map => node_map
@@ -619,7 +620,7 @@ continue
     !
     ! Create the node and edge arrays
     !
-    need_node = (continuous_output .or. Limiter_Option == Marker_Option__MLP)
+    need_node = (continuous_output .or. Marker_Option == Marker_Option__MLP)
     need_edge = (continuous_output)
     ! ToDo:
     ! subroutine create_node_and_edge_datatypes still relies on
@@ -788,7 +789,7 @@ continue
  !                                  node_map,edge_map,face_map)
   !
   need_exch_neusp = ( continuous_output )
-  need_exch_mlp   = ( Limiter_Option == Marker_Option__MLP )
+  need_exch_mlp   = ( Marker_Option == Marker_Option__MLP )
   if ( need_exch_neusp .or. need_exch_mlp ) then
     call create_node_and_edge_datatypes(node,node_map,edge,edge_map, &
                                         need_exch_neusp,need_exch_mlp)

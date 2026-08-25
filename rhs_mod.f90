@@ -612,13 +612,18 @@ continue
       if (mypnum == glb_root) write (iout,2) nst
       2 format (8x,"Applying Limiter : RK Stage = ",i0)
 #endif
-      if (Limiter_Option <= -1 .and. all(abs(Limiter_Option) /= [2,4])) then
-        call resolution_indicator(nst=nst,apply_projection=true)
-      else if (Limiter_Option == 1 .or. any(abs(Limiter_Option) == [2,4])) then
-        call limit_by_projecting(nst=nst)
-      else if (Limiter_Option == 3) then
-        call limit_by_mlp(nst=nst,relax=one)
-      end if
+      select case (Limiter_Option)
+        case (Limiter_Option__ProjectionScaled)
+          call resolution_indicator(nst=nst,apply_projection=true)
+        case (Limiter_Option__Filter, &
+              Limiter_Option__FilterScaled, &
+              Limiter_Option__ProjectionRecursive)
+          call limit_by_projecting(nst=nst)
+        case (Limiter_Option__MLP)
+          call limit_by_mlp(nst=nst,relax=one)
+        case default
+          ! Should not get here.
+      end select
       call check_for_bad_number(__LINE__,__FILE__)
     end if
   end if

@@ -31,6 +31,7 @@ module ovar
   use module_kind_types, only : Filter_Option__Off
   use module_kind_types, only : Pyramid_Filter_Option__1
   use module_kind_types, only : Limiter_Option__Off
+  use module_kind_types, only : Marker_Option__Off
   use module_kind_types, only : Marker_Variable__Off
   !
   implicit none
@@ -625,10 +626,9 @@ module ovar
   real(wp),    public, save :: Sponge_Beyond_X      = huge(zero)
   !
   ! LIMITER OPTIONS
-  integer, public, save :: Limiter_Option             = Limiter_Option__Off
-  integer, public, save :: Resolution_Marker_Variable = Marker_Variable__Off
-  integer, public, save ::       Jump_Marker_Variable = Marker_Variable__Off
-  integer, public, save ::        MLP_Marker_Variable = Marker_Variable__Off
+  integer, public, save :: Limiter_Option  = Limiter_Option__Off
+  integer, public, save :: Marker_Option   = Marker_Option__Off
+  integer, public, save :: Marker_Variable = Marker_Variable__Off
   !
   ! LIMITER MARKER SENSITIVITY OPTIONS
   real(wp), public, save :: Limiter_Marker_Min  =  5.0_wp
@@ -1017,8 +1017,7 @@ module ovar
   !$ACC&               suth_Tref,suth_Sref,suth_muref,suth_c1, &
   !$ACC&               LDG_beta,LDG_tau,visc_variables_to_ave, &
   !$ACC&               ideal_total_temperature,limit_total_temperature, &
-  !$ACC&               invs_flux_method,Resolution_Marker_Variable, &
-  !$ACC&               Jump_Marker_Variable,MLP_Marker_Variable)
+  !$ACC&               invs_flux_method,Marker_Option,Marker_Variable)
 contains
 !
 !###############################################################################

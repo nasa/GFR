@@ -1964,6 +1964,7 @@ subroutine get_output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use ovar,        only : itestcase,governing_equations
   use ovar,        only : profile_io_cgns_subs
   use ovar,        only : Limiter_Option
+  use ovar,        only : Marker_Option
   use flowvar_mod, only : dtsp
   !
   use metrics_mod, only : time_metrics,metrics_array,jac
@@ -3031,7 +3032,7 @@ continue
   !   !
   !   marker_was_not_allocated        = ( .not. allocated(marker) )
   !   scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
-  !   if ( Limiter_Option /= Marker_Option__Resolution .or. &
+  !   if ( Marker_Option /= Marker_Option__Resolution .or. &
   !        marker_was_not_allocated                   .or. &
   !        scaled_marker_was_not_allocated            ) then
   !     call resolution_indicator(nst=1,apply_projection=fals)
@@ -3115,8 +3116,8 @@ continue
   !   !
   !   marker_was_not_allocated        = ( .not. allocated(marker) )
   !   scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
-  !   if ( Limiter_Option /= Marker_Option__Jump .or. &
-  !        marker_was_not_allocated              .or. &
+  !   if ( Marker_Option /= Marker_Option__Jump .or. &
+  !        marker_was_not_allocated             .or. &
   !        scaled_marker_was_not_allocated      ) then
   !     call jump_indicator(nst=1)
   !   end if
@@ -3348,7 +3349,7 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,   only : output_stagnation_pressure
   use ovar,   only : output_stagnation_variables
   use ovar,   only : output_marker_variables
-  use ovar,   only : Resolution_Marker_Variable
+  use ovar,   only : Marker_Variable
   use ovar,   only : output_species_mass_fractions
   use ovar,   only : output_species_mole_fractions
   use ovar,   only : output_extra_species_variables
@@ -3519,7 +3520,7 @@ continue
   ! Output other marker-related quantities if requested
   !
   if (output_marker_variables) then
-    select case (Resolution_Marker_Variable)
+    select case (Marker_Variable)
       case (Marker_Variable__all)
         call add_sol_variables(variable_list,consv_var)
       case (Marker_Variable__nec)

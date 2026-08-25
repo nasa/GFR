@@ -289,9 +289,8 @@ subroutine check_nml_input_data(input_mode)
   use ovar,   only : Track_Limiter_Filter_Dissipation
   use ovar,   only : Filter_Option
   use ovar,   only : Limiter_Option
-  use ovar,   only : Resolution_Marker_Variable
-  use ovar,   only : Jump_Marker_Variable
-  use ovar,   only : MLP_Marker_Variable
+  use ovar,   only : Marker_Option
+  use ovar,   only : Marker_Variable
   use ovar,   only : Sponge_Filter_Option
   use ovar,   only : Limiter_Marker_Min, Limiter_Marker_Max
   use ovar,   only : Limiter_Marker_dpsi
@@ -347,7 +346,9 @@ subroutine check_nml_input_data(input_mode)
   !.. Local Scalars ..
   integer  :: i,it1,it2,ierr,ival,inpt
   integer  :: Period_Timesteps_X,Period_Timesteps_Y
-  logical(lk)  :: use_qdtr_face_pts,pulse_test_error
+  integer  :: Default_Marker_Option, Default_Marker_Variable
+  logical(lk) :: is_valid
+  logical(lk) :: use_qdtr_face_pts,pulse_test_error
   real(wp) :: Period_Time_X,Period_Time_Y
   real(wp) :: real_Total_Periods
   real(wp) :: aoa_radians
@@ -587,105 +588,187 @@ continue
     end if
   end if
   !
-  ! Make sure the variable index for the resolution marker is valid
+  ! Make sure the Filter_Option is valid.
   !
-  ! Make sure it is non-negative
-  Resolution_Marker_Variable = max(0,Resolution_Marker_Variable)
-  ! Make sure it is one of the mean flow variables if greater than 0
-  if (Resolution_Marker_Variable > 0) then
-    if (Resolution_Marker_Variable > nr+2) then
-      ! If it is greater than the energy equation (nr+2), reset it to density
-      Resolution_Marker_Variable = nec
-    else
-      ! Otherwise, offset the variable by the number of species equations
-      Resolution_Marker_Variable = Resolution_Marker_Variable + ncs
-    end if
+  select case (Filter_Option)
+    case (Filter_Option__Off)
+    case (Filter_Option__TensProd)
+    case (Filter_Option__ModalSum)
+    case default
+      ! Invalid Limiter_Option
+      write (error_message,70) 'Filter_Option', Filter_Option
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
+  !
+  ! Make sure the Sponge_Filter_Option is valid.
+  !
+  select case (Sponge_Filter_Option)
+    case (0)  ! Off
+    case (1)  ! On
+    case default
+      ! Invalid Limiter_Option
+      write (error_message,70) 'Sponge_Filter_Option', Sponge_Filter_Option
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
+  !
+  ! Make sure the Limiter_Option is valid.
+  ! Set Default_Marker_Option based on Limiter_Option.
+  !
+  Default_Marker_Option = Marker_Option__Resolution
+  select case (Limiter_Option)
+    case (Limiter_Option__Off)
+    case (Limiter_Option__Filter)
+    case (Limiter_Option__FilterScaled)
+    case (Limiter_Option__MLP)
+      Default_Marker_Option = Marker_Option__MLP
+    case (Limiter_Option__ProjectionRecursive)
+    case (Limiter_Option__ProjectionScaled)
+    case default
+      ! Invalid Limiter_Option
+      write (error_message,70) 'Limiter_Option', Limiter_Option
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
+  !
+  ! Replace Marker_Option__Off with Default_Marker_Option
+  ! for the given Limiter_Option.
+  !
+  if ( Marker_Option == Marker_Option__Off ) then
+    Marker_Option = Default_Marker_Option
   end if
   !
-  ! Make sure the jump marker variable is valid
+  ! Make sure the Marker_Option is valid.
+  ! Set Default_Marker_Variable based on Marker_Option.
   !
-  if (Jump_Marker_Variable > nr+2 .or. Jump_Marker_Variable < -(nr+2)) then
-    ! If it is greater than the energy equation (nr+2), reset it to density
-    Jump_Marker_Variable = nec
-  else if ( Jump_Marker_Variable > 0) then
-    ! Otherwise, offset the variable by the number of species equations
-    Jump_Marker_Variable = Jump_Marker_Variable + ncs
-  else
-    ! Make sure it is non-negative                              #####
-    !Jump_Marker_Variable = max(0,Jump_Marker_Variable)
+  Default_Marker_Variable = Marker_Variable__nec
+  select case (Marker_Option)
+!   case (Marker_Option__Off)
+!     Marker_Option__Off was reset to Default_Marker_Option above.
+    case (Marker_Option__Resolution)
+    case (Marker_Option__Jump)
+      Default_Marker_Variable = Marker_Variable__npres
+    case (Marker_Option__MLP)
+      Default_Marker_Variable = Marker_Variable__nec
+!   case (Marker_Option__Ducros)
+!     Default_Marker_Variable = Marker_Variable__Ducros
+    case default
+      ! Invalid Marker_Option
+      write (error_message,70) 'Marker_Option', Marker_Option
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
+  !
+  ! Make sure the Marker_Option is compatible with Limiter_Option.
+  !
+  is_valid = true
+  if ( Limiter_Option == Limiter_Option__MLP .and. &
+        Marker_Option /=  Marker_Option__MLP ) then
+    is_valid = fals
+  end if
+  if ( .not. is_valid ) then
+    write (error_message,71) &
+      'Marker_Option is incompatible with Limiter_Option.'
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Replace Marker_Variable__Off with Default_Marker_Variable
+  ! for the given Marker_Option.
+  !
+  if ( Marker_Variable == Marker_Variable__Off ) then
+    Marker_Variable = Default_Marker_Variable
+  end if
+  !
+  ! Make sure the Marker_Variable is valid.
+  !
+  is_valid = true
+  select case (Marker_Variable)
+!   case (Marker_Variable__Off)
+!     Marker_Variable__Off was reset to Default_Marker_Variable above.
+    case (Marker_Variable__Ducros)
+    case (Marker_Variable__npres)
+    case (Marker_Variable__nec)
+    case (Marker_Variable__nmx)
+    case (Marker_Variable__nmy)    ; if ( nr < 2 ) is_valid = fals
+    case (Marker_Variable__nmz)    ; if ( nr < 3 ) is_valid = fals
+    case (Marker_Variable__nee)
+    case (Marker_Variable__all)
+    case default
+      is_valid = fals
+  end select
+  if ( .not. is_valid ) then
+    ! Invalid Marker_Variable
+    write (error_message,70) 'Marker_Variable',Marker_Variable
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Make sure the Marker_Variable is compatible with Marker_Option.
+  ! - To keep this short, only include case values that conflict.
+  ! - Possible values for Marker_Option:
+  !   - Marker_Option__Off
+  !   - Marker_Option__Resolution
+  !   - Marker_Option__Jump
+  !   - Marker_Option__MLP
+  !   - Marker_Option__Ducros
+  ! - Possible values for Marker_Variable
+  !   - Marker_Variable__Off
+  !   - Marker_Variable__Ducros
+  !   - Marker_Variable__npres
+  !   - Marker_Variable__nec
+  !   - Marker_Variable__nmx
+  !   - Marker_Variable__nmy
+  !   - Marker_Variable__nmz
+  !   - Marker_Variable__nee
+  !   - Marker_Variable__all    ! all = nec,nmx,nmy,nmz,nee
+  is_valid = true
+  select case (Marker_Option)
+    case (Marker_Option__Resolution)
+      select case (Marker_Variable)
+        case (Marker_Variable__off   ) ; is_valid = fals
+        case (Marker_Variable__Ducros) ; is_valid = fals
+        case (Marker_Variable__npres ) ; is_valid = fals
+      end select
+    case (Marker_Option__Jump)
+      select case (Marker_Variable)
+        case (Marker_Variable__off   ) ; is_valid = fals
+        case (Marker_Variable__Ducros) ; is_valid = fals
+        case (Marker_Variable__all   ) ; is_valid = fals
+      end select
+    case (Marker_Option__MLP)
+      select case (Marker_Variable)
+        case (Marker_Variable__off   ) ; is_valid = fals
+        case (Marker_Variable__Ducros) ; is_valid = fals
+        case (Marker_Variable__npres ) ; is_valid = fals
+        case (Marker_Variable__all   ) ; is_valid = fals
+      end select
+  end select
+  if ( .not. is_valid ) then
+    write (error_message,71) &
+      'Marker_Variable is incompatible with Marker_Option.'
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Set the jump marker parameters.
-  ! Linear weighting between conserved variable and pressure.
   !
-  if ( Jump_Marker_Variable /= 0 ) then  ! conserved variable   #####
-          if (Jump_Marker_Variable < 0) then
-                ji_uwt = half
-                ji_uvar = -Jump_Marker_Variable - ncs 
-          else
-                ji_uwt = one
-                ji_uvar = Jump_Marker_Variable
-          endif !                                               ######
-  else                                  ! pressure
-    ji_uwt = zero
-    ji_uvar = nec
+  if ( Marker_Option == Marker_Option__Jump ) then
+    !
+    ! Linear weighting between conserved variable and pressure,
+    ! used as an on-off toggle between the two.
+    !
+    ! First, set the weight and variable for the conserved variable.
+    if ( Marker_Variable == default_Marker_Variable .or. &
+         Marker_Variable == Marker_Variable__npres ) then  ! use pressure
+      ! set conserved variable to density with weight of 0.
+      ji_uwt = zero
+      ji_uvar = nec + ncs              ! offset by num species equations
+    else ! use conserved variable
+      ! set user-specified conserved variable with weight of 1.
+      ji_uwt = one
+      ji_uvar = Marker_Variable + ncs  ! offset by num species equations
+    end if
+    !
+    ! Next, set the weight and variable for the pressure variable.
+    ji_gwt = one - ji_uwt
+    ji_gvar = npres
+    !
   end if
-  ji_gwt = one - ji_uwt
-  ji_gvar = npres
-  !
-  ! Make sure the multidim limiting process (MLP) marker variable is valid
-  !
-  if (MLP_Marker_Variable > nr+2) then
-    ! If it is greater than the energy equation (nr+2), reset it to density
-    MLP_Marker_Variable = nec
-  else if ( MLP_Marker_Variable > 0) then
-    ! Otherwise, offset the variable by the number of species equations
-    MLP_Marker_Variable = MLP_Marker_Variable + ncs
-  else
-    ! Default to density
-    MLP_Marker_Variable = nec
-  end if
-  !
-  ! Reset default marker controls when using jump indicator.
-  !
-  if (any(abs(Limiter_Option) == [2,4])) then
-    Default_Marker_c1 = Default_Marker_c1_JI
-    Default_Marker_c2 = Default_Marker_c2_JI
-    marker_c1 = Default_Marker_c1
-    marker_c2 = Default_Marker_c2
-  end if
-  !
-#if DUMP_MARKER_INPUTS == 2
-  ! Dump marker inputs before they are processed.
-  if (mypnum == glb_root) then
-    psi0 = -one*(marker_c1+marker_c2*log10(real(max(1,n_order),kind=wp)))
-    write (iout,582) "BEFORE", &
-                     Limiter_Marker_c1, &
-                     Limiter_Marker_c2, &
-                     Limiter_Marker_dpsi, &
-                     Limiter_Marker_Min, &
-                     Limiter_Marker_Max, &
-                     marker_c1, &
-                     marker_c2, &
-                     marker_dpsi, &
-                     psi0, &
-                     psi0-marker_dpsi, &
-                     psi0+marker_dpsi
-  end if
-  flush (iout)
-  582 format (//,2x,a," modifying marker parameters:",//, &
-                 4x,"Limiter_Marker_c1   = ",f10.6,/, &
-                 4x,"Limiter_Marker_c2   = ",f10.6,/, &
-                 4x,"Limiter_Marker_dpsi = ",f10.6,/, &
-                 4x,"Limiter_Marker_Min  = ",f10.6,/, &
-                 4x,"Limiter_Marker_Max  = ",f10.6,//, &
-                 4x,"        marker_c1   = ",f10.6,/, &
-                 4x,"        marker_c2   = ",f10.6,/, &
-                 4x,"        marker_dpsi = ",f10.6,/, &
-                 4x,"        marker_psi0 = ",f10.6,/, &
-                 4x,"        marker_min  = ",f10.6,/, &
-                 4x,"        marker_max  = ",f10.6,//)
-#endif
   !
   if (Limiter_Marker_c1   > zero) marker_c1   = Limiter_Marker_c1
   if (Limiter_Marker_c2   > zero) marker_c2   = Limiter_Marker_c2
@@ -731,57 +814,16 @@ continue
   !
   Limiter_Marker_Min = -one*(marker_c1 + marker_c2*l10p) - marker_dpsi
   Limiter_Marker_Max = -one*(marker_c1 + marker_c2*l10p) + marker_dpsi
- !!
-#if DUMP_MARKER_INPUTS == 2
-  ! Dump marker inputs after they are processed. Then stop.
-  if (mypnum == glb_root) then
-    psi0 = -one*(marker_c1+marker_c2*log10(real(max(1,n_order),kind=wp)))
-    write (iout,582) " AFTER", &
-                     Limiter_Marker_c1, &
-                     Limiter_Marker_c2, &
-                     Limiter_Marker_dpsi, &
-                     Limiter_Marker_Min, &
-                     Limiter_Marker_Max, &
-                     marker_c1, &
-                     marker_c2, &
-                     marker_dpsi, &
-                     psi0, &
-                     psi0-marker_dpsi, &
-                     psi0+marker_dpsi
-  end if
-#endif
   !
-#if DUMP_MARKER_INPUTS == 1
-  if (mypnum == glb_root) then
-    psi0 = -one*(marker_c1 + marker_c2*log10(real(max(1,n_order),kind=wp)))
-    write (iout,30) marker_c1,marker_c2,marker_dpsi, &
-                    psi0-marker_dpsi,psi0,psi0+marker_dpsi
-  end if
-  30 format (/,2x,"marker_c1   = ",f11.6,/, &
-               2x,"marker_c2   = ",f11.6,/, &
-               2x,"marker_dpsi = ",f11.6,//, &
-               2x,"psi0 - dpsi = ",f11.6,/, &
-               2x,"psi0        = ",f11.6,/, &
-               2x,"psi0 + dpsi = ",f11.6,/)
-#endif
+  ! Only allow Track_Limiter_Filter_Dissipation to be active if
+  ! the limiter option is using filtering.
   !
-#if DUMP_MARKER_INPUTS && DUMP_MARKER_INPUTS_THEN_STOP
-  flush (iout)
-  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"Dumping marker parameters!")
-#endif
-  !
-  ! Only allow Track_Limiter_Filter_Dissipation to be active if using the
-  ! limiter filter.
-  !
-  if (Track_Limiter_Filter_Dissipation) then
-    if (Limiter_Option /= 0) then
-      if (Limiter_Filter_Option == 0) then
-        Track_Limiter_Filter_Dissipation = fals
-      end if
-    else
+  select case (Limiter_Option)
+    case (Limiter_Option__Filter, Limiter_Option__FilterScaled)
+      ! Use Track_Limiter_Filter_Dissipation that user specified.
+    case default
       Track_Limiter_Filter_Dissipation = fals
-    end if
-  end if
+  end select
   !
   ! Make sure the number of RK stages is correct for some RK types,
   ! and reset the Runge_Kutta_Scheme value to the family specific
@@ -1138,7 +1180,7 @@ continue
   !
   !$ACC UPDATE DEVICE(nr,pr,walls_are_exact,sub_inflow_method, &
   !$ACC&              LDG_beta,LDG_tau,visc_variables_to_ave, &
-  !$ACC&              invs_flux_method,Resolution_Marker_Variable)
+  !$ACC&              invs_flux_method,Marker_Option,Marker_Variable)
   !
   flush (iout)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -1204,6 +1246,9 @@ continue
   61 format('THERMOFIX ERROR:  Requested thermofix method is invalid!')
   62 format('THERMOFIX ERROR:  Thermofix iterations must be positive.')
   63 format('THERMOFIX ERROR:  Thermofix scaling factor must be within [0:1].')
+  !
+  70 format('ERROR: Invalid value, ',a,' = ',i0)
+  71 format('ERROR: ',a,' is incompatible with ',a)
   !
 end subroutine check_nml_input_data
 !

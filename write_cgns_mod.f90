@@ -2650,6 +2650,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use ovar,        only : itestcase,governing_equations
   use ovar,        only : profile_io_cgns_subs
   use ovar,        only : Limiter_Option
+  use ovar,        only : Marker_Option
   use ovar,        only : moving_ref_frame
   use ovar,        only : time
   use flowvar_mod, only : dtsp,dt_save,cell_diss,cell_num_marks
@@ -4466,7 +4467,7 @@ continue
       marker_was_not_allocated        = ( .not. allocated(marker) )
       scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
       !
-      if (  abs(Limiter_Option) /= Marker_Option__Resolution .or. &
+      if (Marker_Option /= Marker_Option__Resolution .or. &
                  marker_was_not_allocated            .or. &
           scaled_marker_was_not_allocated            ) then
         ! NOTE: Passing orders_to_cutoff=0 ensures that only the highest mode
@@ -4505,7 +4506,8 @@ continue
         nv = nv + 1
         ivar_s = isvar_s(nv)
         !
-        if (Limiter_Option <= -1 .and. Limiter_Option /= -2) then
+        if (Limiter_Option == Limiter_Option__ProjectionRecursive .or. &
+            Limiter_Option == Limiter_Option__ProjectionScaled) then
           !
           ! Replace scaled marker by the scaled projection order computed
           ! at each cell. Integer value between [1:this_order].
@@ -4561,9 +4563,9 @@ continue
       marker_was_not_allocated        = ( .not. allocated(marker) )
       scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
       !
-      if ( abs(Limiter_Option) /= Marker_Option__Jump .or. &
-                  marker_was_not_allocated      .or. &
-           scaled_marker_was_not_allocated      ) then
+      if ( abs(Marker_Option) /= Marker_Option__Jump .or. &
+                  marker_was_not_allocated           .or. &
+           scaled_marker_was_not_allocated           ) then
         call jump_indicator(nst=1)
       end if
       !
@@ -4629,7 +4631,7 @@ continue
       marker_was_not_allocated        = ( .not. allocated(marker) )
       scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
       !
-      if (       abs(Limiter_Option) /= 4 .or. &
+      if (abs(Marker_Option) /= Marker_Option__Ducros .or. &
                  marker_was_not_allocated .or. &
           scaled_marker_was_not_allocated ) then
         call ducros_indicator(nst=1,update_gradients=fals)
@@ -4788,9 +4790,9 @@ continue
       marker_was_not_allocated        = ( .not. allocated(marker) )
       scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
       !
-      if ( Limiter_Option /= Marker_Option__MLP .or. &
-                  marker_was_not_allocated      .or. &
-           scaled_marker_was_not_allocated      ) then
+      if ( Marker_Option /= Marker_Option__MLP .or. &
+                  marker_was_not_allocated     .or. &
+           scaled_marker_was_not_allocated     ) then
         ! Use relax=0 so solution is not updated with limited values.
         call limit_by_mlp(nst=1,relax=zero)
       end if
@@ -5123,7 +5125,6 @@ subroutine get_cgns_sol_variables(variable_list)
   !.. Use Statements ..
   use geomvar_mod, only : nr
   use ovar,        only : itestcase,governing_equations
-  use ovar,        only : limiter_option
   use ovar,        only : output_vorticity
   use ovar,        only : output_cylindrical_coordinates
   use ovar,        only : output_cylindrical_velocity
@@ -5152,9 +5153,8 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,        only : output_marker_variables
   use ovar,        only : output_grid_details
   use ovar,        only : output_local_timestep
-  use ovar,        only : Resolution_Marker_Variable
-  use ovar,        only : Jump_Marker_Variable
-  use ovar,        only : MLP_Marker_Variable
+  use ovar,        only : Marker_Option
+  use ovar,        only : Marker_Variable
   use ovar,        only : output_species_density
   use ovar,        only : output_species_mass_fractions
   use ovar,        only : output_species_mole_fractions
@@ -5450,63 +5450,39 @@ continue
   ! Output the marker quantities if requested
   !
   if (output_marker_variables) then
-    if ( limiter_option == 3 ) then
-      call add_sol_variable(variable_list,"MLPMarker")
-      if (MLP_Marker_Variable > 0) then
-        if (MLP_Marker_Variable == nec .or. ncs > 1) then
-          m = 1
-        else if (MLP_Marker_Variable == nee) then
-          m = 3
-        else
-          m = 2
-        end if
-        call add_sol_variable(variable_list,trim(consv_var(m)))
-      else
+    ! 
+    ! Determine the output name for the marker.
+    ! 
+    select case (Marker_Option)
+      case (Marker_Option__Resolution)
+        call add_sol_variable(variable_list,"ResolutionMarker")
+      case (Marker_Option__Jump)
+        call add_sol_variable(variable_list,"JumpMarker")
+      case (Marker_Option__MLP)
+        call add_sol_variable(variable_list,"MLPMarker")
+      case (Marker_Option__Ducros)
+        call add_sol_variable(variable_list,"DucrosMarker")
+      case default
+        ! Output nothing.
+    end select
+    !
+    ! Determine other marker-related variables to output.
+    !
+    select case (Marker_Variable)
+      case (Marker_Variable__all)
         call add_sol_variables(variable_list,consv_var)
-      end if
-    else if ( abs(limiter_option) == 2 ) then
-      call add_sol_variable(variable_list,"JumpMarker")
-      if (Jump_Marker_Variable > 0) then
-        if (Jump_Marker_Variable == nec .or. ncs > 1) then
-          m = 1
-        else if (Jump_Marker_Variable == nee) then
-          m = 3
-        else
-          m = 2
-        end if
-        call add_sol_variable(variable_list,trim(consv_var(m)))
-      else
+      case (Marker_Variable__nec)
+        call add_sol_variable(variable_list,trim(consv_var(1)))  ! density
+      case (Marker_Variable__nmx, Marker_Variable__nmy, Marker_Variable__nmz)
+        call add_sol_variable(variable_list,trim(consv_var(2)))  ! momentums
+      case (Marker_Variable__nee)
+        call add_sol_variable(variable_list,trim(consv_var(3)))  ! energy
+      case (Marker_Variable__npres)
         call add_sol_variable(variable_list,'Pressure')
-      end if
-    else if ( abs(limiter_option) == 4 ) then
-      call add_sol_variable(variable_list,"DucrosMarker")
-      if (Jump_Marker_Variable > 0) then
-        if (Jump_Marker_Variable == nec .or. ncs > 1) then
-          m = 1
-        else if (Jump_Marker_Variable == nee) then
-          m = 3
-        else
-          m = 2
-        end if
-        call add_sol_variable(variable_list,trim(consv_var(m)))
-      else
-        call add_sol_variable(variable_list,'Pressure')
-      end if
-    else
-      call add_sol_variable(variable_list,"ResolutionMarker")
-      if (Resolution_Marker_Variable > 0) then
-        if (Resolution_Marker_Variable == nec .or. ncs > 1) then
-          m = 1
-        else if (Resolution_Marker_Variable == nee) then
-          m = 3
-        else
-          m = 2
-        end if
-        call add_sol_variable(variable_list,trim(consv_var(m)))
-      else
-        call add_sol_variables(variable_list,consv_var)
-      end if
-    end if
+      case default
+        ! Output nothing.
+    end select
+    !
   end if
   !
   if (Track_Limiter_Filter_Dissipation) then
