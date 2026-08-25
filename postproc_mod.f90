@@ -3029,11 +3029,11 @@ continue
   !   !
   !   ! Compute the resolution marker if it has yet to be computed
   !   !
-  !   marker_was_not_allocated = fals
-  !   scaled_marker_was_not_allocated = fals
-  !   if (.not. allocated(marker) .or. .not. allocated(scaled_marker)) then
-  !     marker_was_not_allocated = ( .not. allocated(marker) )
-  !     scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
+  !   marker_was_not_allocated        = ( .not. allocated(marker) )
+  !   scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
+  !   if ( Limiter_Option /= Marker_Option__Resolution .or. &
+  !        marker_was_not_allocated                   .or. &
+  !        scaled_marker_was_not_allocated            ) then
   !     call resolution_indicator(nst=1,apply_projection=fals)
   !   end if
   !   !
@@ -3063,7 +3063,8 @@ continue
   !     nv = nv + 1
   !     ivar_s = isvar_s(nv)
   !     !
-  !     if (Limiter_Option <= -1) then
+  !     if (Limiter_Option == Limiter_Option__Projection_Recursive .or. &
+  !         Limiter_Option == Limiter_Option__Projection_Scaled) then
   !       do nc = 1,ncell
   !         n0 = cell(nc)%beg_sp - 1
   !         np = cell(nc)%end_sp - n0
@@ -3112,9 +3113,11 @@ continue
   !   !
   !   ! Compute the pressure jump marker if it has yet to be computed
   !   !
-  !   if (Limiter_Option <= 1 .or. &
-  !       .not. allocated(marker) .or. &
-  !       .not. allocated(scaled_marker)) then
+  !   marker_was_not_allocated        = ( .not. allocated(marker) )
+  !   scaled_marker_was_not_allocated = ( .not. allocated(scaled_marker) )
+  !   if ( Limiter_Option /= Marker_Option__Jump .or. &
+  !        marker_was_not_allocated              .or. &
+  !        scaled_marker_was_not_allocated      ) then
   !     call jump_indicator(nst=1)
   !   end if
   !   !
@@ -3157,6 +3160,18 @@ continue
   !     call cgns_write_field_data
   !     !
   !   end do
+  !   !
+  !   ! Deallocate marker and/or scaled_marker if they were not originally
+  !   ! allocated when this case construct was entered.
+  !   !
+  !   if (marker_was_not_allocated) then
+  !     call deallocate_marker(pname)
+  !   end if
+  !   !
+  !   if (scaled_marker_was_not_allocated) then
+  !     call deallocate_scaled_marker(pname)
+  !   end if
+  !   !
   !   !!}}}
   ! case ("Partition")
   !   !!{{{
@@ -3501,22 +3516,23 @@ continue
     call add_sol_variable(variable_list,"H0")
   end if
   !
-  ! Output the marker quantities if requested
+  ! Output other marker-related quantities if requested
   !
   if (output_marker_variables) then
-  ! call add_sol_variable(variable_list,"ResolutionMarker")
-    if (Resolution_Marker_Variable > 0) then
-      if (Resolution_Marker_Variable == nec .or. ncs > 1) then
-        m = 1
-      else if (Resolution_Marker_Variable == nee) then
-        m = 3
-      else
-        m = 2
-      end if
-      call add_sol_variable(variable_list,trim(consv_var(m)))
-    else
-      call add_sol_variables(variable_list,consv_var)
-    end if
+    select case (Resolution_Marker_Variable)
+      case (Marker_Variable__all)
+        call add_sol_variables(variable_list,consv_var)
+      case (Marker_Variable__nec)
+        call add_sol_variable(variable_list,trim(consv_var(1)))  ! density
+      case (Marker_Variable__nmx, Marker_Variable__nmy, Marker_Variable__nmz)
+        call add_sol_variable(variable_list,trim(consv_var(2)))  ! momentums
+      case (Marker_Variable__nee)
+        call add_sol_variable(variable_list,trim(consv_var(3)))  ! energy
+      case (Marker_Variable__npres)
+        call add_sol_variable(variable_list,'Pressure')
+      case default
+        ! Output nothing.
+    end select
   end if
   !
   ! Add species mass fractions to the variable list if using a gas mixture.
