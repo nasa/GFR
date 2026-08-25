@@ -2052,20 +2052,40 @@ continue
     end do
   end if
   !
-  ! Set the cutoff order for each cell
+  ! Set the cutoff order "lmtr_order" for each cell.
+  ! - Specify either an absolute or relative order via:
+  !     lmtr_order = ord_mlt * cell(nc)%order + ord_add
+  ! This should cutoff modes at and above this cutoff order.
   !
   if (p_order < n_order) then
+    ! If using projection_order, the solution in usp has already been
+    ! projected down to p_order, but is still stored at the n_order points.
+    ! Thus, we must filter down from p_order not n_order.
+    ! Cutoff is an absolute order of p_order.
     ord_mlt = 0
     ord_add = p_order
   else
+    ! Cutoff is a relative order of -1.
     ord_mlt = 1
    !ord_add = 0
     ord_add = -1
   end if
   !
+  ! Q: Should this next if be moved inside the else branch above?
+  !    ie, what would happen if ord_mlt = ord_add = 0?
+  ! Q: Why test if apply_projection is present but not its value?
+  !    Further below, we do test the value.
+!-DEBUG_BEG:
+!-DEBUG_CMT: This debug block switches between version 1/2 code.
+  if ( 0 == 1 ) then ! DEBUG
+!-OLD_BEG:
+!-OLD_CMT: This code block is from version 1.
   if (present(apply_projection)) then
    !if (apply_projection) then
       if (Limiter_Option < -2 .and. Limiter_Option /= -4) then
+        ! This may have been a debugging option to adjust the relative order
+        ! from -1 to 0, because it was unclear whether the filter cuts all
+        ! modes ABOVE or AT_OR_ABOVE lmtr_order.
         ord_add = 0
       end if
    !end if
@@ -2075,6 +2095,45 @@ continue
       end if
     end if
   end if
+!-OLD_END:
+  else ! DEBUG
+!-NEW_BEG:
+!-NEW_CMT: This code block is from version 2.
+  if (present(apply_projection)) then
+   !if (apply_projection) then
+!
+!-DEBUG_CMT: This was (Limiter_Option == -2), but the new form below
+!-DEBUG_CMT: also catches (Limiter_Option == -1) which was not in
+!-DEBUG_CMT: the original block above.
+!-DEBUG_CMT: Just remove this block?
+!
+! The version 1 source code had two modes for
+! Resolution Marker + Recursive Projection. As best we know:
+!   Limiter_Option = -1  limit to p1 (or p0 if solution_order==1)
+!   Limiter_Option = -2  limit to p0
+! This second mode was rarely used and is not supported by the current inputs,
+! so it is currently commented out here.
+! Setting this to (Limiter_Option == ProjectionScaled) would also
+! catch the old (Limiter_Option == -1) case, and is not intended.
+!
+!     if (Limiter_Option == -2) then
+!       ! This may have been a debugging option to adjust the relative order
+!       ! from -1 to 0, because it was unclear whether the filter cuts all
+!       ! modes ABOVE or AT_OR_ABOVE lmtr_order.
+!       ord_add = 0
+!     end if
+   !end if
+    if (Limiter_Option == Limiter_Option__Filter             .or. &
+        Limiter_Option == Limiter_Option__FilterScaled       .or. &
+        Limiter_Option == Limiter_Option__ProjectionRecursive) then
+      if (.not. present(orders_to_cutoff)) then
+        ord_add = 0
+      end if
+    end if
+  end if
+  end if ! DEBUG
+!-NEW_END:
+!-DEBUG_END:
   !
   !$ACC PARALLEL LOOP PRESENT(cell,lmtr_order)
   do nc = 1,ncell
@@ -2158,7 +2217,7 @@ continue
           limit_order = int( real(this_order,kind=wp) &
                            * (one-scaled_marker(nc,imarker)) )
           if (this_order <= 1 .or. &
-              (Limiter_Option < -2 .and. Limiter_Option /= -4)) then
+              Limiter_Option == Limiter_Option__ProjectionScaled) then
             lmtr_order(nc) = max(0,min(this_order,limit_order))
           else
             lmtr_order(nc) = max(1,min(this_order,limit_order))
