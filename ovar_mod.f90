@@ -338,6 +338,9 @@ module ovar
   ! ####   Input Variables   ####
   ! #############################
   !
+  ! NAMELIST VERSION
+  integer, public, save :: namelist_version
+  !
   ! GEOMETRY WEIGHTS FOR METIS PARTITIONING
   type(geom_wts_t), public, save :: geom_wts(1:5)
   !
