@@ -118,6 +118,9 @@ continue
     !
     if (itestcase == Taylor_Green_Vortex .or. VortexGrid_is_3D) then
       !
+      ! 60 DoF will divide evenly by P1-P5
+      if (internal_grid_dof == 0) internal_grid_dof = 60
+      !
       if (VortexGrid_Hex_to_Pyramids) then
         call create_periodic_cube_pyramid_grid
       else
