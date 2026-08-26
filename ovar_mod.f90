@@ -634,10 +634,10 @@ module ovar
   real(wp), public, save :: Limiter_Marker_dpsi = -1.0_wp
   !
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
-  integer, public, save :: Global_Filter_Interval = 0
-  integer, public, save :: Sponge_Filter_Interval = 0
-  integer, public, save :: Limiter_Interval       = 0
-  integer, public, save :: Marker_Stored_Interval = 1
+  integer, public, save :: Global_Filter_Interval    = 0
+  integer, public, save :: Sponge_Filter_Interval    = 0
+  integer, public, save ::       Limiter_Interval    = 0
+  integer, public, save :: Marker_Stored_Interval    = 1
   !< frequency to store limiter marker and scaled marker data:
   !<   =0  store each Runge-Kutta stage,
   !<   >0  store last Runge-Kutta stage,
