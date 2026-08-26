@@ -450,7 +450,7 @@ module ovar
   character(len=:), public, save, allocatable :: solution_file
   !
   ! OPTIONS FOR SEM
-  logical(lk), public, save :: use_improved_SEM_normalization     = fals
+  logical(lk), public, save :: use_improved_SEM_normalization     = true
   logical(lk), public, save :: use_SEM_profile_for_initialization = fals
   logical(lk), public, save :: SEM_eddy_volume_is_spherical       = fals
   real(wp),    public, save :: SEM_box_num_eddies_multiplier      = one
