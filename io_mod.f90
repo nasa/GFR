@@ -45,8 +45,8 @@ contains
 subroutine read_input_file(input_mode)
   !
   !.. Use Statements ..
-  use nml_0001_mod, only : nml_ver_0001
-  use nml_9999_mod, only : nml_ver_9999
+  use nml_mod, only : initialize_namelist_versions
+  use nml_mod, only : nml_ver_9999
   !
   !.. Formal Arguments ..
   integer, intent(in) :: input_mode
@@ -65,7 +65,10 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call nml_ver_0001%init
+  ! Initialize all the procedure pointers for each namelist version,
+  ! and link in the latest namelist version into nml_ver_9999.
+  !
+  call initialize_namelist_versions
   !
   ! Get input file name from command line and check if it is a namelist file.
   !
@@ -254,7 +257,7 @@ subroutine check_nml_input_data(input_mode)
   !
   use geomvar_mod, only : nr,using_quadrature,xyz_nodes
   !
-  use nml_9999_mod, only : nml_ver_9999
+  use nml_mod, only : nml_ver_9999
   !
   ! Input variables
   use ovar,   only : grid_format, gridfile, plot3d_all_strides
