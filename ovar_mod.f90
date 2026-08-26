@@ -206,18 +206,11 @@ module ovar
     procedure :: is_not_default => is_not_default_bc_input
     procedure :: has_default_flow_conditions
     procedure :: copy_nonflow_conditions
-  !!procedure, private :: write_bc_input_t
-  !!procedure, private :: read_bc_input_t
     !
     procedure, private, pass(a) :: equals    => bc_input_t_equals
     procedure, private, pass(a) :: not_equal => bc_input_t_not_equal
     generic :: operator(==) => equals
     generic :: operator(/=) => not_equal
-    !
-#ifndef DISABLE_DTIO
-  !!generic :: write(formatted) => write_bc_input_t
-  !!generic :: read(formatted) => read_bc_input_t
-#endif
     !
   end type bc_input_t
   !
@@ -2000,123 +1993,6 @@ end subroutine get_mrf_rotation
 !###############################################################################
 !###############################################################################
 !###############################################################################
-!
-!
-!###############################################################################
-!> Write the data from a bc_input derived type variable to the specified
-!> output unit number.
-!###############################################################################
-!!subroutine write_bc_input_t(dtv,iunit,iotype,vlist,my_iostat,my_iomsg)
-!!  !
-!!  !.. Passed Argument from Invoking Object ..
-!!  class(bc_input_t), intent(in   ) :: dtv
-!!  integer,           intent(in   ) :: iunit
-!!  character(len=*),  intent(in   ) :: iotype
-!!  integer,           intent(in   ) :: vlist(:)
-!!  integer,           intent(  out) :: my_iostat
-!!  character(len=*),  intent(inout) :: my_iomsg
-!!  !
-!!  integer :: m
-!!  !
-!!continue
-!!  !
-!!  write (iunit,1,iostat=my_iostat,iomsg=my_iomsg) &
-!!    dtv%temperature, &
-!!    dtv%pressure, &
-!!    dtv%density, &
-!!    dtv%mach, &
-!!    dtv%velocityx, &
-!!    dtv%velocityy, &
-!!    dtv%velocityz, &
-!!    dtv%total_temperature, &
-!!    dtv%total_pressure, &
-!!    dtv%total_density, &
-!!    dtv%aoa_alpha, &
-!!    dtv%aoa_beta, &
-!!    dtv%wall_temp, &
-!!    (dtv%rotation_rate(m),m=1,3), &
-!!    dtv%relax%value, &
-!!    dtv%relax%time, &
-!!    dtv%relax%iter
-!!#ifdef ALLOCATABLE_MASS_FRAC
-!!  if (allocated(dtv%mass_frac)) then
-!!    write (iunit,2,iostat=my_iostat,iomsg=my_iomsg) &
-!!      (m,dtv%mass_frac(m), m=1,size(dtv%mass_frac))
-!!  end if
-!!#else
-!!  write (iunit,2,iostat=my_iostat,iomsg=my_iomsg) &
-!!    (m,dtv%mass_frac(m), m=1,size(dtv%mass_frac))
-!!#endif
-!!  !
-!!  1 format ("temperature       = ",es14.6,/, &
-!!            "pressure          = ",es14.6,/, &
-!!            "density           = ",es14.6,/, &
-!!            "mach              = ",es14.6,/, &
-!!            "velocityx         = ",es14.6,/, &
-!!            "velocityy         = ",es14.6,/, &
-!!            "velocityz         = ",es14.6,/, &
-!!            "total_temperature = ",es14.6,/, &
-!!            "total_pressure    = ",es14.6,/, &
-!!            "total_density     = ",es14.6,/, &
-!!            "aoa_alpha         = ",es14.6,/, &
-!!            "aoa_beta          = ",es14.6,/, &
-!!            "wall_temp         = ",es14.6,/, &
-!!            "rotation_rate     = [",es14.6,2(",",es14.6),"]",/, &
-!!            "relax%value       = ",es14.6,/, &
-!!            "relax%time        = ",es14.6,/, &
-!!            "relax%iter        = ",es14.6,/)
-!!  2 format (100("mass_frac(",i0,") = ",es14.6,:,/))
-!!  !
-!!end subroutine write_bc_input_t
-!
-!###############################################################################
-!> Read the data into a bc_input derived type variable from the specified
-!> input unit number.
-!###############################################################################
-!!subroutine read_bc_input_t(dtv,iunit,iotype,vlist,my_iostat,my_iomsg)
-!!  !
-!!  !.. Passed Argument from Invoking Object ..
-!!  class(bc_input_t), intent(inout) :: dtv
-!!  integer,           intent(in   ) :: iunit
-!!  character(len=*),  intent(in   ) :: iotype
-!!  integer,           intent(in   ) :: vlist(:)
-!!  integer,           intent(  out) :: my_iostat
-!!  character(len=*),  intent(inout) :: my_iomsg
-!!  !
-!!  integer :: m,ierr
-!!  !
-!!  !.. Local Parameters ..
-!!  integer, parameter :: max_ncs = 7
-!!  !
-!!continue
-!!  !
-!!  read (iunit,*,iostat=my_iostat,iomsg=my_iomsg) &
-!!    dtv%temperature, &
-!!    dtv%pressure, &
-!!    dtv%density, &
-!!    dtv%mach, &
-!!    dtv%velocityx, &
-!!    dtv%velocityy, &
-!!    dtv%velocityz, &
-!!    dtv%total_temperature, &
-!!    dtv%total_pressure, &
-!!    dtv%total_density, &
-!!    dtv%aoa_alpha, &
-!!    dtv%aoa_beta, &
-!!    dtv%wall_temp, &
-!!    (dtv%rotation_rate(m),m=1,3), &
-!!    dtv%relax%value, &
-!!    dtv%relax%time, &
-!!    dtv%relax%iter
-!!#ifdef ALLOCATABLE_MASS_FRAC
-!!  if (.not.allocated(dtv%mass_frac)) then
-!!    allocate ( dtv%mass_frac(1:max_ncs) , source=zero )
-!!  end if
-!!#endif
-!!  read (iunit,*,iostat=my_iostat,iomsg=my_iomsg) &
-!!                                  (dtv%mass_frac(m), m=1,size(dtv%mass_frac))
-!!  !
-!!end subroutine read_bc_input_t
 !
 !###############################################################################
 !> Function to determine whether code will interpolate onto new grid.
