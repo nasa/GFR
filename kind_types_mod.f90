@@ -486,8 +486,6 @@ module module_kind_types
   real(wp), parameter :: zero    = 0.0_wp
   real(wp), parameter :: half    = 0.5_wp
   real(wp), parameter :: one     = 1.0_wp
-  real(wp), parameter :: s1      = 1.2_wp
-  real(wp), parameter :: s2      = 0.8_wp
   real(wp), parameter :: two     = 2.0_wp
   real(wp), parameter :: three   = 3.0_wp
   real(wp), parameter :: four    = 4.0_wp
