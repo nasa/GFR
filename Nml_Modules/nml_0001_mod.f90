@@ -259,13 +259,13 @@ module nml_0001_mod
   ! ###  MODULE PROCEDURES  ###
   ! ###########################
   !
-  public  :: alloc_nml_data
-  public  :: resiz_nml_data
-  public  ::   set_nml_data
-  public  ::  read_nml_data
-  public  :: write_nml_data
-  public  ::  read_nml_file
-  public  :: write_nml_file
+  private :: alloc_nml_data
+  private :: resiz_nml_data
+  private ::   set_nml_data
+  private ::  read_nml_data
+  private :: write_nml_data
+  private ::  read_nml_file
+  private :: write_nml_file
   !
   !
   ! ###########################
