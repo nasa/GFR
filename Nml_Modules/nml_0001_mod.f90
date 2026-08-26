@@ -290,7 +290,7 @@ module nml_0001_mod
   ! ###  MODULE PUBLIC VARIABLES  ###
   ! #################################
   !
-  type(nml_0001_procedures_t), public, save :: nml_ver_0001
+  type(nml_0001_procedures_t), public, protected, save :: nml_ver_0001
   !
   !
   ! ################################

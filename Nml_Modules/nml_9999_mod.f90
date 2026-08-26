@@ -17,7 +17,8 @@ module nml_9999_mod
   contains
     procedure, nopass :: init => dummy_init
   end type nml_9999_procedures_t
-  type(nml_9999_procedures_t), public :: nml_ver_9999
+  !
+  type(nml_9999_procedures_t), public, protected, save :: nml_ver_9999
   !
 contains
 !
