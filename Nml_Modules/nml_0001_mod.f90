@@ -8,6 +8,13 @@ module nml_0001_mod
   !
   use bc_input_0001_mod, only : bc_input,bc_input_t
   !
+  use nml_base_mod, only : io_has_nml_block
+  use nml_base_mod, only : set_ior, ior
+  use nml_base_mod, only : set_iow, iow
+  use nml_base_mod, only : set_NMLaction
+  use nml_base_mod, only : NMLaction_Read
+  use nml_base_mod, only : NMLaction_Write
+  use nml_base_mod, only : NMLaction
   use nml_base_mod, only : namelist_procedures_t
   !
   !{{{ ovar use statements
@@ -267,6 +274,9 @@ module nml_0001_mod
   private ::  read_nml_file
   private :: write_nml_file
   !
+  private :: ionml
+  private :: ionml_input
+  !
   !
   ! ###########################
   ! ###  MODULE PARAMETERS  ###
@@ -309,271 +319,6 @@ module nml_0001_mod
   integer,     save :: sod_test_DOF               = 0
   integer,     save :: pulse_test_DOF             = 0
   integer,     save :: shu_osher_test_DOF         = 0
-  !
-  ! ########################
-  ! ###  Input Namelist  ###
-  ! ########################
-  !
-  private :: input
-  !
-  !{{{ input namelist definition
-  ! GRID INFORMATION
-  namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile, &
-                     grid_scaling_factor, internal_grid_dof, internal_grid_order
-  ! PLOT3D COARSENING OPTIONS
-  namelist / input / plot3d_i_stride, plot3d_j_stride, plot3d_k_stride, &
-                     plot3d_all_strides, plot3d_agglomerate_order, &
-                     parametric_agglomeration
-  ! INTERPOLATION UTILITY GRID INFORMATION
-  namelist / input / interpto_grid_format, interpto_gridfile, &
-                     interpto_plot3d_cutfile, interpto_plot3d_bcsfile, &
-                     interpto_grid_scaling_factor
-  ! INTERPOLATION UTILITY PLOT3D COARSENING OPTIONS
-  namelist / input / interpto_plot3d_i_stride, interpto_plot3d_j_stride, &
-                     interpto_plot3d_k_stride, interpto_plot3d_all_strides, &
-                     interpto_plot3d_agglomerate_order
-  ! INTERPOLATION UTILITY SOLUTION ORDER
-  namelist / input / interpto_solution_order, interpto_all_orders, &
-                     interpto_projection_order, interpto_quadrature_order, &
-                     interpto_output_order, interpto_error_order
-  ! BASE FR OPTIONS
-  namelist / input / solution_order, flux_divergence, correction_function
-  ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS
-  namelist / input / loc_solution_pts, loc_flux_pts, loc_triangle_pts, &
-                     loc_tetrahedra_pts
-  ! LOCATION OF INITIALIZATION POINTS
-  namelist / input / loc_init_pts
-  ! RUNGE-KUTTA OPTIONS
-  namelist / input / Runge_Kutta_Scheme, num_rk_stages
-  ! COMMON FLUX OPTIONS
-  namelist / input / invs_flux_method, visc_flux_method, visc_variables_to_ave
-  ! TIME STEPPING INFORMATION
-  namelist / input / num_timesteps, Final_Time, constant_dt, &
-                     Timestep_Type, minimum_timesteps
-  ! CFL CONTROL VARIABLES
-  namelist / input / cfl, cfl_beg, cfl_end, cfl_cycles, cfl_start_iter
-  ! OVER-INTEGRATION OPTIONS
-  namelist / input / projection_order, quadrature_order, loc_quadrature_pts, &
-                     combine_common_flux_projections
-  ! ERROR-INTEGRATION OPTIONS
-  namelist / input / error_order, loc_error_pts
-  ! FORCE GLOBAL ORDER AND SOLUTION POINTS
-  namelist / input / all_orders, all_points
-  ! PARALLEL OPTIONS
-  namelist / input / metis_option, use_parmetis
-  ! INITIALIZATION / TEST CASE
-  namelist / input / itestcase, jet_init_func
-  ! RESTART OPTIONS
-  namelist / input / load_restart_file, restart_interval, &
-                     restart_file, &
-                     restart_output_uses_host_roots, &
-                     CFL_reduction_for_NaN_restart, &
-                     num_saved_time_ave_restarts, &
-                     restart_frequency, &
-                     completely_disable_restart_output
-  ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
-  namelist / input / solution_format, solution_file
-  ! OPTIONS FOR SEM
-  namelist / input / use_improved_SEM_normalization, &
-                     use_SEM_profile_for_initialization, &
-                     SEM_eddy_volume_is_spherical, &
-                     SEM_box_num_eddies_multiplier, &
-                     SEM_use_random_seed_from_restart, &
-                     SEM_include_thermo_fluctuations, &
-                     SEM_use_restart_eddies
-  ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
-  namelist / input / average_sem_inflow_plane
-  ! STATISTICAL OUTPUT OPTIONS
-  namelist / input / iter_out_interval, results_interval, output_eperk_cfl, &
-                     disable_header_rewrites, output_summary_file
-  ! SOLUTION OUTPUT OPTIONS
-  namelist / input / output_dir, output_interval, continuous_output, &
-                     output_order, loc_output_pts, output_frequency
-  ! SELECTION OF OUTPUT VARIABLES IN THE CGNS SOLUTION FILES
-  namelist / input / output_vorticity, output_conserved_variables, &
-                     output_momentum, output_cylindrical_coordinates, &
-                     output_cylindrical_velocity, &
-                     output_relative_velocity, output_relative_conditions, &
-                     output_temperature, output_thermo_variables, &
-                     output_gradients, output_transport_variables, &
-                     output_density_gradient, &
-                     output_density_gradient_magnitude, &
-                     output_pressure_gradient, &
-                     output_pressure_gradient_magnitude, &
-                     output_pressure_dmat_gradient, &
-                     output_temperature_gradient, &
-                     output_temperature_gradient_magnitude, &
-                     output_temperature_dmat_gradient, &
-                     output_schlieren, output_modified_schlieren, &
-                     output_stagnation_temperature, &
-                     output_stagnation_pressure, &
-                     output_stagnation_variables, output_marker_variables, &
-                     output_grid_details, &
-                     output_local_timestep, output_qcriterion, &
-                     output_species_density, &
-                     output_species_mass_fractions, &
-                     output_species_mole_fractions, &
-                     output_extra_species_variables, &
-                     output_debug_species_variables, &
-                     output_grdnt_species_variables, &
-                     output_cellave_density, &
-                     output_exact_density, &
-                     output_exact_pressure
-  ! GOVERNING EQUATIONS
-  namelist / input / governing_equations, turbulence_model
-  ! MOVING REFERENCE FRAME
-  namelist / input / moving_ref_frame
-  ! CHEMICAL REACTION SOURCE TERMS
-  namelist / input / disable_chemical_reactions, semi_implicit_chemistry, &
-                     traceback_unconverged_newton_temps
-  !
-  ! IGNITION CONTROL SOURCE TERMS
-  namelist / input / ignition_method, &
-                     ignition_start_timestep, &
-                     ignition_duration, &
-                     ignition_prod2reac_L2_ratio_goal, &
-                     ignition_max_temperature, &
-                     ignition_spark_cap, &
-                     ignition_source_magnitude, &
-                     ignition_source_radius, &
-                     ignition_source_location
-  ! NONDIMENSIONAL REFERENCE CONDITIONS
-  namelist / input / machref, reyref, gam
-  ! REALIZABLE TOTAL TEMPERATURE LIMITER
-  namelist / input / ideal_total_temperature, limit_total_temperature
-  ! REFERENCE CONDITIONS
-  namelist / input / rhoref, tref, pref, rgasref
-  ! REFERENCE TURBULENCE CONDITIONS
-  namelist / input / tinref, tvrref
-  ! REFERENCE ANGLES OF ATTACK
-  namelist / input / alpha_aoaref, beta_aoaref
-  ! LAMINAR AND TURBULENT PRANDTL NUMBERS
-  namelist / input / Pr, Prt
-  ! LAMINAR AND TURBULENT SCHMIDT NUMBERS
-  namelist / input / schmidt_lam, schmidt_turb
-  ! SUTHERLANDS LAW COEFFICIENTS
-  namelist / input / suth_muref, suth_Tref, suth_Sref
-  ! FILTER OPTIONS
-  namelist / input / Filter_Option , &
-                     Filter_etac   , &
-                     Filter_Order  , &
-                     Filter_Alpha  , &
-                     Pyramid_Filter_Option
-  ! LIMITER FILTER OPTIONS
-  namelist / input / Limiter_Filter_Option      , &
-                     Limiter_Filter_etac        , &
-                     Limiter_Filter_Order       , &
-                     Limiter_Filter_Alpha       , &
-                     Limiter_Use_Dynamic_Filter , &
-                     Track_Limiter_Filter_Dissipation
-  ! SPONGE FILTER OPTIONS
-  namelist / input / use_sponge_filter, &
-                     Sponge_Filter_etac, &
-                     Sponge_Filter_Order, &
-                     Sponge_Filter_Alpha, &
-                     Sponge_Beyond_X
-  ! LIMITER OPTIONS
-  namelist / input / Limiter_Option, Resolution_Marker_Variable, &
-                     Jump_Marker_Variable, MLP_Marker_Variable
-  ! LIMITER MARKER SENSITIVITY OPTIONS
-  namelist / input / Limiter_Marker_Min, Limiter_Marker_Max, &
-                     Limiter_Marker_c1, Limiter_Marker_c2, &
-                     Limiter_Marker_dpsi
-  ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
-  namelist / input / Filtering_Interval, Sponge_Filter_Interval, &
-                     Limiting_Interval, Limiting_Interval_Output
-  ! CHECK/FIX BAD THERMO PROPERTIES (PRES,TEMP,DENS)
-  namelist / input / thermofix
-  ! OUTPUT THE STATISTICS OF THE LIMITER
-  namelist / input / output_limiter_statistics
-  ! OPTION TO OUTPUT FILTER DIAGONALS TO FILE
-  namelist / input / output_filter_diagonals
-  ! ISENTROPIC VORTEX CONSTANTS
-  namelist / input / vortex_bigR, vortex_bigGam, VortexGrid_Lref
-  ! TAYLOR-GREEN VORTEX CONSTANTS
-  namelist / input / VortexGrid_DOF, VortexGrid_random_perturb, &
-                     VortexGrid_perturb_percent, VortexGrid_Hex_to_Pyramids, &
-                     VortexGrid_is_3D
-  ! TAYLOR-COUETTE FLOW CONSTANTS
-  namelist / input / TCF_Inner_Radius, TCF_Inner_Wall_Spacing, &
-                     TCF_Outer_Radius, TCF_Outer_Wall_Spacing, &
-                     TCF_Aspect_Ratio, TCF_Axial_Cells, &
-                     TCF_Radial_Cells, TCF_Azimuthal_Cells, &
-                     TCF_Theta_Shift,  TCF_Periodic_Sectors
-  ! FLAME SPEED TEST PARAMETERS
-  namelist / input / flame_speed_test_dof
-  ! SOD SHOCK TUBE TEST PARAMETERS
-  namelist / input / sod_test_dof, sod_test_right_vector
-  ! DENSITY PULSE CONVECTION TEST PARAMETERS
-  namelist / input / pulse_test_form, pulse_test_form_dim, &
-                     pulse_test_dof, pulse_test_length, pulse_test_center, &
-                     pulse_test_width, pulse_test_gap, pulse_test_repeat
-  ! SHU-OSHER SHOCK TUBE TEST PARAMETERS
-  namelist / input / shu_osher_test_dof
-  ! CHANNEL FLOW PARAMETERS
-  namelist / input / channel_body_force, channel_init_file, &
-                     channel_spatial_ave_restart, channel_nondim_output_coord, &
-                     channel_grid_ave_xplus, channel_grid_ave_zplus, &
-                     channel_grid_ave_yplus, channel_grid_yplus_wall, &
-                     channel_yplus_of_one, channel_rake_save_interval
-  ! PIPE CHANNEL FLOW PARAMETERS
-  namelist / input / pipe_channel_angle
-  ! OPTIONS FOR MODIFYING BC ALGORITHMS
-  namelist / input / walls_are_exact, sub_inflow_method, use_bc_conflicts
-  ! CGNS OUTPUT OPTIONS
-  namelist / input / interpolate_before_output_variable, &
-                     cgns_high_order_output, cgns_mixed_output, &
-                     cgns_output_restart_time_ave_data, &
-                     convert_restart_to_cgns, completely_disable_cgns, &
-                     delete_converted_restart_files
-  ! CGNS INPUT OPTIONS
-  namelist / input / correct_cgns_grid_points, force_cgns_linear_grid_points
-  ! CONVERGENCE CRITERIA
-  namelist / input / convergence_order_abs_res, convergence_order_max_res
-  ! PROFILE PARALLEL IO
-  namelist / input / profile_io_all, profile_io_restart, &
-                     profile_io_cgns, profile_io_cgns_subs
-  ! OPTIONS TO OUTPUT BOUNDARY PROFILE
-  namelist / input / output_bnd_profiles
-  ! CONTROL DOT_PRODUCT PROCEDURES BOUND TO MATRIX DERIVED-TYPE
-  namelist / input / use_unrolled_dot_products
-  ! LUSTRE FILE SYSTEM STRIPING PARAMETERS
-  namelist / input / lustre_stripe_count, lustre_stripe_size
-  ! OPENACC INPUT OPTIONS
-  namelist / input / use_async_for_error
-  ! POINT PROBE(S)
-  namelist / input / probes_collection_interval, probes_write_interval, &
-                     point_probes, rake_probes, cell_probes
-  ! TIME AVERAGING
-  namelist / input / output_time_averaging, time_ave_file, &
-                     time_scaling_factor, time_ave_vel_is_axisymm, &
-                     start_averaging_timestep, start_averaging_tstar
-  ! SPATIAL AVERAGE RESTART FILES
-  namelist / input / spatial_ave_restart_x_and_z_planes, &
-                     spatial_ave_restart_z_planes
-  ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
-  namelist / input / time_average_restart_files, restart_list_file, &
-                     modify_time_ave_restart_history
-  ! MEMORY USAGE
-  namelist / input / dump_memory_usage
-  ! DUMP FLUX INFORMATION FOR DEBUGGING
-  namelist / input / dump_fluxes, check_flux_point_coordinates
-  ! ACTIVATE SPECIAL GRID FOR DEBUGGING THE POSTPROCESSOR
-  namelist / input / postproc_debug_grid
-  ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
-  namelist / input / output_plot3d_to_tecplot
-  ! OPTION TO OUTPUT CONTENTS OF BFACE ARRAY
-  namelist / input / output_bface_array
-  !
-  namelist / input / force_nd_subroutines, dmat_grad_temp_order, &
-                     newton_rlx, conv_temp, &
-                     chemistry_sub_iterations, ignore_thermo_newton_warnings
-  ! INPUT BOUNDARY CONDITIONS
-  namelist / input / bc_input
-  !
-  ! GEOMETRY WEIGHTS FOR METIS PARTITIONING
-  namelist / input / geom_wts
-  !}}}
   !
 contains
 !
@@ -1109,17 +854,12 @@ subroutine read_nml_data(io)
   !.. Arguments ..
   integer, intent(in) :: io  !< File unit number.
   !
-  !.. Local Scalars ..
-  integer :: ierr
-  !
 continue
   !
-  read (io,nml=input)
-  !
-  ! Process the version 0001 namelist inputs to get the equivalent
-  ! settings using the current GFR variables
-  !
-  call process_nml_data(ierr)
+  rewind (io)
+  call set_ior(io)
+  call set_NMLaction(NMLaction_Read)
+  call ionml()
   !
 end subroutine read_nml_data
 !
@@ -1133,19 +873,29 @@ subroutine write_nml_data(action,io,banner)
   integer,     intent(in) :: io      !< File unit number.
   logical(lk), intent(in) :: banner  !< Flag to write banner.
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_nml_data"
+  !
 continue
   !
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  !
   if (mypnum == glb_root) then
-    if (banner) write (io,104)
-    write (io,nml=input,delim='apostrophe')
-    if (banner) write (io,105)
-    flush (io)
+   !select case (action)
+   !  case (NMLaction_Write, NMLaction_WritePretty)
+        !
+        if (banner) write (io,104)
+        call set_iow(io)
+        call set_NMLaction(NMLaction_Write)
+        call ionml()
+        if (banner) write (io,105) 
+        flush (io)
+   !    !
+   !  case default
+   !    !
+   !    write (error_message,106) action
+   !    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+   !    !
+   !end select
   end if
-  !
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   104 format (/,"#######################################",/, &
                 "#####      INPUT PARAMETERS       #####",/, &
@@ -1153,6 +903,7 @@ continue
   105 format (/,"#######################################",/, &
                 "#####   END OF INPUT PARAMETERS   #####",/, &
                 "#######################################",/)
+  106 format("Coding Error:  Invalid arg, action = ",i0)
   !
 end subroutine write_nml_data
 !
@@ -1244,6 +995,314 @@ continue
   101 format(/,"Default namelist input file written to:  ",A)
   !
 end subroutine write_nml_file
+!
+!###############################################################################
+!> Workhorse routine to set/read/write variables for all namelist blocks.
+!>
+!> - Requires that allocatable namelist variables are already allocated and
+!>   values are set for NMLaction, ior, iow, setverbose.
+!> - Do not call directly, but rather through the set/read/write subroutines
+!>   so that these prerequisites are met.
+!###############################################################################
+subroutine ionml()
+  !
+continue
+  !
+  call ionml_input()
+  !
+end subroutine ionml
+!
+!###############################################################################
+!> I/O for namelist block 'input'.
+!###############################################################################
+subroutine ionml_input()
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "ionml_input"
+  !
+  ! ########################
+  ! ###  Input Namelist  ###
+  ! ########################
+  !
+  !{{{ input namelist definition
+  ! GRID INFORMATION
+  namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile, &
+                     grid_scaling_factor, internal_grid_dof, internal_grid_order
+  ! PLOT3D COARSENING OPTIONS
+  namelist / input / plot3d_i_stride, plot3d_j_stride, plot3d_k_stride, &
+                     plot3d_all_strides, plot3d_agglomerate_order, &
+                     parametric_agglomeration
+  ! INTERPOLATION UTILITY GRID INFORMATION
+  namelist / input / interpto_grid_format, interpto_gridfile, &
+                     interpto_plot3d_cutfile, interpto_plot3d_bcsfile, &
+                     interpto_grid_scaling_factor
+  ! INTERPOLATION UTILITY PLOT3D COARSENING OPTIONS
+  namelist / input / interpto_plot3d_i_stride, interpto_plot3d_j_stride, &
+                     interpto_plot3d_k_stride, interpto_plot3d_all_strides, &
+                     interpto_plot3d_agglomerate_order
+  ! INTERPOLATION UTILITY SOLUTION ORDER
+  namelist / input / interpto_solution_order, interpto_all_orders, &
+                     interpto_projection_order, interpto_quadrature_order, &
+                     interpto_output_order, interpto_error_order
+  ! BASE FR OPTIONS
+  namelist / input / solution_order, flux_divergence, correction_function
+  ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS
+  namelist / input / loc_solution_pts, loc_flux_pts, loc_triangle_pts, &
+                     loc_tetrahedra_pts
+  ! LOCATION OF INITIALIZATION POINTS
+  namelist / input / loc_init_pts
+  ! RUNGE-KUTTA OPTIONS
+  namelist / input / Runge_Kutta_Scheme, num_rk_stages
+  ! COMMON FLUX OPTIONS
+  namelist / input / invs_flux_method, visc_flux_method, visc_variables_to_ave
+  ! TIME STEPPING INFORMATION
+  namelist / input / num_timesteps, Final_Time, constant_dt, &
+                     Timestep_Type, minimum_timesteps
+  ! CFL CONTROL VARIABLES
+  namelist / input / cfl, cfl_beg, cfl_end, cfl_cycles, cfl_start_iter
+  ! OVER-INTEGRATION OPTIONS
+  namelist / input / projection_order, quadrature_order, loc_quadrature_pts, &
+                     combine_common_flux_projections
+  ! ERROR-INTEGRATION OPTIONS
+  namelist / input / error_order, loc_error_pts
+  ! FORCE GLOBAL ORDER AND SOLUTION POINTS
+  namelist / input / all_orders, all_points
+  ! PARALLEL OPTIONS
+  namelist / input / metis_option, use_parmetis
+  ! INITIALIZATION / TEST CASE
+  namelist / input / itestcase, jet_init_func
+  ! RESTART OPTIONS
+  namelist / input / load_restart_file, restart_interval, &
+                     restart_file, &
+                     restart_output_uses_host_roots, &
+                     CFL_reduction_for_NaN_restart, &
+                     num_saved_time_ave_restarts, &
+                     restart_frequency, &
+                     completely_disable_restart_output
+  ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
+  namelist / input / solution_format, solution_file
+  ! OPTIONS FOR SEM
+  namelist / input / use_improved_SEM_normalization, &
+                     use_SEM_profile_for_initialization, &
+                     SEM_eddy_volume_is_spherical, &
+                     SEM_box_num_eddies_multiplier, &
+                     SEM_use_random_seed_from_restart, &
+                     SEM_include_thermo_fluctuations, &
+                     SEM_use_restart_eddies
+  ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
+  namelist / input / average_sem_inflow_plane
+  ! STATISTICAL OUTPUT OPTIONS
+  namelist / input / iter_out_interval, results_interval, output_eperk_cfl, &
+                     disable_header_rewrites, output_summary_file
+  ! SOLUTION OUTPUT OPTIONS
+  namelist / input / output_dir, output_interval, continuous_output, &
+                     output_order, loc_output_pts, output_frequency
+  ! SELECTION OF OUTPUT VARIABLES IN THE CGNS SOLUTION FILES
+  namelist / input / output_vorticity, output_conserved_variables, &
+                     output_momentum, output_cylindrical_coordinates, &
+                     output_cylindrical_velocity, &
+                     output_relative_velocity, output_relative_conditions, &
+                     output_temperature, output_thermo_variables, &
+                     output_gradients, output_transport_variables, &
+                     output_density_gradient, &
+                     output_density_gradient_magnitude, &
+                     output_pressure_gradient, &
+                     output_pressure_gradient_magnitude, &
+                     output_pressure_dmat_gradient, &
+                     output_temperature_gradient, &
+                     output_temperature_gradient_magnitude, &
+                     output_temperature_dmat_gradient, &
+                     output_schlieren, output_modified_schlieren, &
+                     output_stagnation_temperature, &
+                     output_stagnation_pressure, &
+                     output_stagnation_variables, output_marker_variables, &
+                     output_grid_details, &
+                     output_local_timestep, output_qcriterion, &
+                     output_species_density, &
+                     output_species_mass_fractions, &
+                     output_species_mole_fractions, &
+                     output_extra_species_variables, &
+                     output_debug_species_variables, &
+                     output_grdnt_species_variables, &
+                     output_cellave_density, &
+                     output_exact_density, &
+                     output_exact_pressure
+  ! GOVERNING EQUATIONS
+  namelist / input / governing_equations, turbulence_model
+  ! MOVING REFERENCE FRAME
+  namelist / input / moving_ref_frame
+  ! CHEMICAL REACTION SOURCE TERMS
+  namelist / input / disable_chemical_reactions, semi_implicit_chemistry, &
+                     traceback_unconverged_newton_temps
+  !
+  ! IGNITION CONTROL SOURCE TERMS
+  namelist / input / ignition_method, &
+                     ignition_start_timestep, &
+                     ignition_duration, &
+                     ignition_prod2reac_L2_ratio_goal, &
+                     ignition_max_temperature, &
+                     ignition_spark_cap, &
+                     ignition_source_magnitude, &
+                     ignition_source_radius, &
+                     ignition_source_location
+  ! NONDIMENSIONAL REFERENCE CONDITIONS
+  namelist / input / machref, reyref, gam
+  ! REALIZABLE TOTAL TEMPERATURE LIMITER
+  namelist / input / ideal_total_temperature, limit_total_temperature
+  ! REFERENCE CONDITIONS
+  namelist / input / rhoref, tref, pref, rgasref
+  ! REFERENCE TURBULENCE CONDITIONS
+  namelist / input / tinref, tvrref
+  ! REFERENCE ANGLES OF ATTACK
+  namelist / input / alpha_aoaref, beta_aoaref
+  ! LAMINAR AND TURBULENT PRANDTL NUMBERS
+  namelist / input / Pr, Prt
+  ! LAMINAR AND TURBULENT SCHMIDT NUMBERS
+  namelist / input / schmidt_lam, schmidt_turb
+  ! SUTHERLANDS LAW COEFFICIENTS
+  namelist / input / suth_muref, suth_Tref, suth_Sref
+  ! FILTER OPTIONS
+  namelist / input / Filter_Option , &
+                     Filter_etac   , &
+                     Filter_Order  , &
+                     Filter_Alpha  , &
+                     Pyramid_Filter_Option
+  ! LIMITER FILTER OPTIONS
+  namelist / input / Limiter_Filter_Option      , &
+                     Limiter_Filter_etac        , &
+                     Limiter_Filter_Order       , &
+                     Limiter_Filter_Alpha       , &
+                     Limiter_Use_Dynamic_Filter , &
+                     Track_Limiter_Filter_Dissipation
+  ! SPONGE FILTER OPTIONS
+  namelist / input / use_sponge_filter, &
+                     Sponge_Filter_etac, &
+                     Sponge_Filter_Order, &
+                     Sponge_Filter_Alpha, &
+                     Sponge_Beyond_X
+  ! LIMITER OPTIONS
+  namelist / input / Limiter_Option, Resolution_Marker_Variable, &
+                     Jump_Marker_Variable, MLP_Marker_Variable
+  ! LIMITER MARKER SENSITIVITY OPTIONS
+  namelist / input / Limiter_Marker_Min, Limiter_Marker_Max, &
+                     Limiter_Marker_c1, Limiter_Marker_c2, &
+                     Limiter_Marker_dpsi
+  ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
+  namelist / input / Filtering_Interval, Sponge_Filter_Interval, &
+                     Limiting_Interval, Limiting_Interval_Output
+  ! CHECK/FIX BAD THERMO PROPERTIES (PRES,TEMP,DENS)
+  namelist / input / thermofix
+  ! OUTPUT THE STATISTICS OF THE LIMITER
+  namelist / input / output_limiter_statistics
+  ! OPTION TO OUTPUT FILTER DIAGONALS TO FILE
+  namelist / input / output_filter_diagonals
+  ! ISENTROPIC VORTEX CONSTANTS
+  namelist / input / vortex_bigR, vortex_bigGam, VortexGrid_Lref
+  ! TAYLOR-GREEN VORTEX CONSTANTS
+  namelist / input / VortexGrid_DOF, VortexGrid_random_perturb, &
+                     VortexGrid_perturb_percent, VortexGrid_Hex_to_Pyramids, &
+                     VortexGrid_is_3D
+  ! TAYLOR-COUETTE FLOW CONSTANTS
+  namelist / input / TCF_Inner_Radius, TCF_Inner_Wall_Spacing, &
+                     TCF_Outer_Radius, TCF_Outer_Wall_Spacing, &
+                     TCF_Aspect_Ratio, TCF_Axial_Cells, &
+                     TCF_Radial_Cells, TCF_Azimuthal_Cells, &
+                     TCF_Theta_Shift,  TCF_Periodic_Sectors
+  ! FLAME SPEED TEST PARAMETERS
+  namelist / input / flame_speed_test_dof
+  ! SOD SHOCK TUBE TEST PARAMETERS
+  namelist / input / sod_test_dof, sod_test_right_vector
+  ! DENSITY PULSE CONVECTION TEST PARAMETERS
+  namelist / input / pulse_test_form, pulse_test_form_dim, &
+                     pulse_test_dof, pulse_test_length, pulse_test_center, &
+                     pulse_test_width, pulse_test_gap, pulse_test_repeat
+  ! SHU-OSHER SHOCK TUBE TEST PARAMETERS
+  namelist / input / shu_osher_test_dof
+  ! CHANNEL FLOW PARAMETERS
+  namelist / input / channel_body_force, channel_init_file, &
+                     channel_spatial_ave_restart, channel_nondim_output_coord, &
+                     channel_grid_ave_xplus, channel_grid_ave_zplus, &
+                     channel_grid_ave_yplus, channel_grid_yplus_wall, &
+                     channel_yplus_of_one, channel_rake_save_interval
+  ! PIPE CHANNEL FLOW PARAMETERS
+  namelist / input / pipe_channel_angle
+  ! OPTIONS FOR MODIFYING BC ALGORITHMS
+  namelist / input / walls_are_exact, sub_inflow_method, use_bc_conflicts
+  ! CGNS OUTPUT OPTIONS
+  namelist / input / interpolate_before_output_variable, &
+                     cgns_high_order_output, cgns_mixed_output, &
+                     cgns_output_restart_time_ave_data, &
+                     convert_restart_to_cgns, completely_disable_cgns, &
+                     delete_converted_restart_files
+  ! CGNS INPUT OPTIONS
+  namelist / input / correct_cgns_grid_points, force_cgns_linear_grid_points
+  ! CONVERGENCE CRITERIA
+  namelist / input / convergence_order_abs_res, convergence_order_max_res
+  ! PROFILE PARALLEL IO
+  namelist / input / profile_io_all, profile_io_restart, &
+                     profile_io_cgns, profile_io_cgns_subs
+  ! OPTIONS TO OUTPUT BOUNDARY PROFILE
+  namelist / input / output_bnd_profiles
+  ! CONTROL DOT_PRODUCT PROCEDURES BOUND TO MATRIX DERIVED-TYPE
+  namelist / input / use_unrolled_dot_products
+  ! LUSTRE FILE SYSTEM STRIPING PARAMETERS
+  namelist / input / lustre_stripe_count, lustre_stripe_size
+  ! OPENACC INPUT OPTIONS
+  namelist / input / use_async_for_error
+  ! POINT PROBE(S)
+  namelist / input / probes_collection_interval, probes_write_interval, &
+                     point_probes, rake_probes, cell_probes
+  ! TIME AVERAGING
+  namelist / input / output_time_averaging, time_ave_file, &
+                     time_scaling_factor, time_ave_vel_is_axisymm, &
+                     start_averaging_timestep, start_averaging_tstar
+  ! SPATIAL AVERAGE RESTART FILES
+  namelist / input / spatial_ave_restart_x_and_z_planes, &
+                     spatial_ave_restart_z_planes
+  ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
+  namelist / input / time_average_restart_files, restart_list_file, &
+                     modify_time_ave_restart_history
+  ! MEMORY USAGE
+  namelist / input / dump_memory_usage
+  ! DUMP FLUX INFORMATION FOR DEBUGGING
+  namelist / input / dump_fluxes, check_flux_point_coordinates
+  ! ACTIVATE SPECIAL GRID FOR DEBUGGING THE POSTPROCESSOR
+  namelist / input / postproc_debug_grid
+  ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
+  namelist / input / output_plot3d_to_tecplot
+  ! OPTION TO OUTPUT CONTENTS OF BFACE ARRAY
+  namelist / input / output_bface_array
+  !
+  namelist / input / force_nd_subroutines, dmat_grad_temp_order, &
+                     newton_rlx, conv_temp, &
+                     chemistry_sub_iterations, ignore_thermo_newton_warnings
+  ! INPUT BOUNDARY CONDITIONS
+  namelist / input / bc_input
+  !
+  ! GEOMETRY WEIGHTS FOR METIS PARTITIONING
+  namelist / input / geom_wts
+  !}}}
+  !
+continue
+  !
+  select case (NMLaction)
+    case ( NMLaction_Read )
+      if ( io_has_nml_block(ior,'&input') ) then
+        read (ior,nml=input)
+      end if
+    case ( NMLaction_Write )
+      write (iow,nml=input)
+  end select
+  !
+  ! Process the version 0001 namelist inputs to get the equivalent
+  ! settings using the current GFR variables
+  !
+  call process_nml_data(ierr)
+  !
+end subroutine ionml_input
 !
 !  Note: subroutine ionml_input "contains":
 !    subroutine convert_old_to_new
