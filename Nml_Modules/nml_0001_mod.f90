@@ -885,19 +885,31 @@ end subroutine read_nml_data
 !###############################################################################
 subroutine write_nml_data(action,io,banner)
   !
+  !.. Use Modules ..
+  use ovar, only : namelist_version
+  !
   !.. Arguments ..
   integer,     intent(in) :: action  !< An NMLaction
   integer,     intent(in) :: io      !< File unit number.
   logical(lk), intent(in) :: banner  !< Flag to write banner.
+  !
+  !.. Local Scalars ..
+  integer :: ovar_namelist_version
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_nml_data"
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   if (mypnum == glb_root) then
     select case (action)
       case (NMLaction_Write, NMLaction_WritePretty)
+        !
+        ! Set namelist_version to reflect this module
+        ovar_namelist_version = namelist_version
+        namelist_version = module_namelist_version
         !
         if (banner) write (io,104)
         call set_iow(io)
@@ -906,6 +918,9 @@ continue
         if (banner) write (io,105) 
         flush (io)
         !
+        ! Restore namelist_version
+        namelist_version = ovar_namelist_version
+        !
       case default
         !
         write (error_message,106) action
@@ -913,6 +928,8 @@ continue
         !
     end select
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   104 format (/,"#######################################",/, &
                 "#####      INPUT PARAMETERS       #####",/, &
