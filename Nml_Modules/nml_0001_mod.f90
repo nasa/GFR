@@ -1213,7 +1213,7 @@ subroutine write_nml_file(output_fname,action)
   integer,          intent(in) :: action        !< An NMLaction
   !
   !.. Local Scalars ..
-  integer ionml,ierr
+  integer io,ierr
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_nml_file"
@@ -1231,14 +1231,14 @@ continue
                       opt_n_cell_probes=1)
   !
   if (mypnum == glb_root) then
-    open (newunit=ionml,file=output_fname,status="new",action="write", &
+    open (newunit=io,file=output_fname,status="new",action="write", &
                         delim='apostrophe', &
                         position="rewind",iostat=ierr,iomsg=error_message)
     call io_error(pname,trim(adjustl(output_fname)),1,__LINE__,__FILE__, &
                   ierr,error_message)
-    call write_nml_data(0,ionml,banner=fals)
+    call write_nml_data(0,io,banner=fals)
     write (iout,101) trim(output_fname)
-    close(ionml)
+    close(io)
   end if
   !
   101 format(/,"Default namelist input file written to:  ",A)
