@@ -981,15 +981,24 @@ subroutine write_nml_file(output_fname,action)
   integer,          intent(in) :: action        !< An NMLaction
   !
   !.. Local Scalars ..
-  integer io,ierr
+  integer :: io,ierr
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: delim
+  character(len=:), allocatable :: fname
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_nml_file"
   !
 continue
   !
+!-DEBUG_BEG:
+!-DEBUG_CMT: Initializing the namelist should be done outside this routine.
   ! Allocate all the variables within the input namelist
   ! to their default sizes and values
+  ! NOTE: This should not be used for writing out the final processed
+  !       namelist to stdout before starting the solver. Use write_nml_data
+  !       to do that with iout as the unit argument.
   !
   call alloc_nml_data(opt_n_bc_input=4, &
                       opt_n_species=3, &
@@ -997,19 +1006,37 @@ continue
                       opt_n_point_probes=2, &
                       opt_n_rake_probes=1, &
                       opt_n_cell_probes=1)
+!-DEBUG_END:
   !
   if (mypnum == glb_root) then
-    open (newunit=io,file=output_fname,status="new",action="write", &
-                        delim='apostrophe', &
-                        position="rewind",iostat=ierr,iomsg=error_message)
-    call io_error(pname,trim(adjustl(output_fname)),1,__LINE__,__FILE__, &
-                  ierr,error_message)
+    !
+    select case (action)
+     !case (NMLaction_Read)        ; delim = 'NONE'       ! F2003 AUTO-REALLOC
+      case (NMLaction_Write)       ; delim = 'APOSTROPHE' ! F2003 AUTO-REALLOC
+      case (NMLaction_WritePretty) ; delim = 'NONE'       ! F2003 AUTO-REALLOC
+      case default
+        write (error_message,101) action
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+    end select
+    !
+    fname = trim(adjustl(output_fname)) ! F2003 AUTO-REALLOC
+    !
+    open (newunit=io,file=fname,status="new",action="write", &
+                     delim=delim,recl=5000,position="rewind", &
+                     iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+    !
     call write_nml_data(action,io,banner=fals)
-    write (iout,101) trim(output_fname)
-    close(io)
+    !
+    close (io,iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+    !
+    write (iout,201) fname
+    !
   end if
   !
-  101 format(/,"Default namelist input file written to:  ",A)
+  101 format("Coding Error:  Invalid arg, action = ",i0)
+  201 format(/,"Default namelist input file written to:  ",A)
   !
 end subroutine write_nml_file
 !
