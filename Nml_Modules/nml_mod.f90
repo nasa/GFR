@@ -6,7 +6,7 @@ module nml_mod
   !
   !.. Use Statements ..
   use nml_0001_mod, only : nml_ver_0001
- !use nml_0002_mod, only : nml_ver_0002
+  use nml_0002_mod, only : nml_ver_0002
   use nml_9999_mod, only : nml_ver_9999
   !
   implicit none
@@ -27,8 +27,8 @@ continue
   ! Initialize the procedure pointers for namelist version 0001
   call nml_ver_0001%init
   !
- !! Initialize the procedure pointers for namelist version 0002
- !call nml_ver_0002%init
+  ! Initialize the procedure pointers for namelist version 0002
+  call nml_ver_0002%init
   !
   ! We do not need to initialize the procedure pointers for namelist
   ! version 9999 (latest version) because the above initializations will
