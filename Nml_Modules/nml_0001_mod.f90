@@ -14,6 +14,9 @@ module nml_0001_mod
   use nml_base_mod, only : set_NMLaction
   use nml_base_mod, only : iow_header
   use nml_base_mod, only : iow_footer
+  use nml_base_mod, only : NMLaction_SetDummy0
+  use nml_base_mod, only : NMLaction_SetDummy1
+  use nml_base_mod, only : NMLaction_SetValue
   use nml_base_mod, only : NMLaction_Read
   use nml_base_mod, only : NMLaction_Write
   use nml_base_mod, only : NMLaction_WritePretty
@@ -845,7 +848,18 @@ continue
     setverbose = true
   end if
   !
+  select case (action)
+    case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue )
+      call set_NMLaction(action)
+      call ionml()
+    case default
+      write (error_message,101) action
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+  end select
+  !
   setverbose = fals
+  !
+  101 format("Coding Error:  Invalue arg, action = ",i0)
   !
 end subroutine set_nml_data
 !
