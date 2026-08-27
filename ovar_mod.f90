@@ -2009,8 +2009,12 @@ subroutine process_marker_coefficients()
   use module_kind_types, only : Marker_Option__Jump
   !
   !.. Local Scalars ..
-  integer  :: p,errval
+  integer  :: p
   real(wp) :: l10p,psi0,max_marker_value,val
+  real(wp) :: Input_Limiter_Marker_Min
+  real(wp) :: Input_Limiter_Marker_Max
+  !
+  logical(lk) :: modified_marker_minmax
   !
   !.. Local Allocatable Scalars ..
   character(len=:), allocatable :: text
@@ -2019,6 +2023,11 @@ subroutine process_marker_coefficients()
   character(len=*), parameter :: pname = "process_marker_coefficients"
   !
 continue
+  !
+  modified_marker_minmax = fals
+  !
+  Input_Limiter_Marker_Min = Limiter_Marker_Min
+  Input_Limiter_Marker_Max = Limiter_Marker_Max
   !
   ! Complete the marker coefficients that will be used to scale the raw
   ! marker values to the scaled_marker on the interval [0,1]
@@ -2046,10 +2055,12 @@ continue
   !
   if (Limiter_Marker_Min > max_marker_value) then
     Limiter_Marker_Min = Marker_MinMax_Default
+    modified_marker_minmax = true
     call marker_minmax_warning( nint(-Marker_MinMax_Default) )
   end if
   if (Limiter_Marker_Max > max_marker_value) then
     Limiter_Marker_Max = Marker_MinMax_Default
+    modified_marker_minmax = true
     call marker_minmax_warning( nint(Marker_MinMax_Default) )
   end if
   !
@@ -2071,6 +2082,7 @@ continue
     ! Check to see if Min == Max, and reset Max to the default value if so
     if (abs(Limiter_Marker_Min - Limiter_Marker_Max) < eps6 ) then
       Limiter_Marker_Max = Marker_MinMax_Default
+      modified_marker_minmax = true
       call marker_minmax_warning(0)
     ! Check to see if Min >= Max (common mistake since they are negative values)
     else if (Limiter_Marker_Min > Limiter_Marker_Max) then
@@ -2079,10 +2091,12 @@ continue
         val = Limiter_Marker_Min
         Limiter_Marker_Min = Limiter_Marker_Max
         Limiter_Marker_Max = val
+        modified_marker_minmax = true
         call marker_minmax_warning(Limiter_Option__FilterScaled)
       else if (Limiter_Option == Limiter_Option__Filter) then
         ! If using the standard local filter, leave the values as is,
         ! but write out a warning message indicating that Min > Max
+        modified_marker_minmax = true
         call marker_minmax_warning(Limiter_Option__Filter)
       end if
     end if
@@ -2137,6 +2151,11 @@ continue
   Limiter_Marker_dpsi = marker_dpsi
   Limiter_Marker_Min  = -one*(marker_c1 + marker_c2*l10p) - marker_dpsi
   Limiter_Marker_Max  = -one*(marker_c1 + marker_c2*l10p) + marker_dpsi
+  !
+  ! If either of Limiter_Marker_Min and Limiter_Marker_Max were modified,
+  ! report a warning with the before and after values
+  !
+  if (modified_marker_minmax) call marker_minmax_warning(999)
   !
   ! DEBUG: Verbosely write out input marker coefficients after processing them
   call write_marker_inputs(2)
@@ -2243,6 +2262,11 @@ continue
       ! Min > Max, using local standard filter, so Min/Max left as is.
       ! This will result in Max = Min + abs(Min-Max)
       write (iout,4)
+    else if (flag == 999) then
+      ! Min and/or Max were modified while getting the marker coefficients
+      ! so report the before and after values
+      write (iout,5) Input_Limiter_Marker_Min, Input_Limiter_Marker_Max, &
+                           Limiter_Marker_Min,       Limiter_Marker_Max
     end if
     write (iout,10)
     write (iout,*)
@@ -2272,6 +2296,13 @@ continue
              4x,"After processing the marker coefficients has finished,",/, &
              4x,"this will result in Limiter_Marker_Max taking the value",/, &
             12x,"Max = Min + abs(Min-Max).")
+  5  format (4x,"Limiter_Marker_Min and/or Limiter_Marker_Max was",/, &
+             4x,"modified while processing the marker coefficients.",/, &
+             4x,"Their values before and after processing:",//, &
+            12x,"   Input:    Limiter_Marker_Min = ",f10.5,/, &
+            12x,"   Input:    Limiter_Marker_Max = ",f10.5,//, &
+            12x,"Modified:    Limiter_Marker_Min = ",f10.5,/, &
+            12x,"Modified:    Limiter_Marker_Max = ",f10.5,/)
   !
   10 format (80("#"),/, &
               5("#"),32x,"WARNING",31x,5("#"),/, &
