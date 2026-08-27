@@ -45,8 +45,9 @@ contains
 subroutine read_input_file(input_mode)
   !
   !.. Use Statements ..
-  use nml_mod, only : initialize_namelist_versions
-  use nml_mod, only : nml_ver_9999
+  use nml_mod,      only : initialize_namelist_versions
+  use nml_mod,      only : nml_ver_9999
+  use nml_base_mod, only : NMLaction_Write
   !
   !.. Formal Arguments ..
   integer, intent(in) :: input_mode
@@ -109,7 +110,7 @@ continue
     call check_input_file(input_fname,input_status)
     !
     if (input_status /= 0) then
-      call nml_ver_9999%write_file('gfr.in.default',0)
+      call nml_ver_9999%write_file('gfr.in.default',NMLaction_Write)
       write (error_message,11)
       call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
@@ -257,7 +258,8 @@ subroutine check_nml_input_data(input_mode)
   !
   use geomvar_mod, only : nr,using_quadrature,xyz_nodes
   !
-  use nml_mod, only : nml_ver_9999
+  use nml_mod,      only : nml_ver_9999
+  use nml_base_mod, only : NMLaction_Write
   !
   ! Input variables
   use ovar,   only : grid_format, gridfile, plot3d_all_strides
@@ -1133,7 +1135,7 @@ continue
     !
     if (input_mode == 2 .or. len_trim(adjustl(interpto_gridfile)) == 0) then
       !
-      call nml_ver_9999%write_data(0,iout,banner=true)
+      call nml_ver_9999%write_data(NMLaction_Write,iout,banner=true)
       flush(iout)
       !
     end if

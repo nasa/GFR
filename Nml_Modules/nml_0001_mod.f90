@@ -12,8 +12,11 @@ module nml_0001_mod
   use nml_base_mod, only : set_ior, ior
   use nml_base_mod, only : set_iow, iow
   use nml_base_mod, only : set_NMLaction
+  use nml_base_mod, only : iow_header
+  use nml_base_mod, only : iow_footer
   use nml_base_mod, only : NMLaction_Read
   use nml_base_mod, only : NMLaction_Write
+  use nml_base_mod, only : NMLaction_WritePretty
   use nml_base_mod, only : NMLaction
   use nml_base_mod, only : namelist_procedures_t
   !
@@ -879,22 +882,22 @@ subroutine write_nml_data(action,io,banner)
 continue
   !
   if (mypnum == glb_root) then
-   !select case (action)
-   !  case (NMLaction_Write, NMLaction_WritePretty)
+    select case (action)
+      case (NMLaction_Write, NMLaction_WritePretty)
         !
         if (banner) write (io,104)
         call set_iow(io)
-        call set_NMLaction(NMLaction_Write)
+        call set_NMLaction(action)
         call ionml()
         if (banner) write (io,105) 
         flush (io)
-   !    !
-   !  case default
-   !    !
-   !    write (error_message,106) action
-   !    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
-   !    !
-   !end select
+        !
+      case default
+        !
+        write (error_message,106) action
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+        !
+    end select
   end if
   !
   104 format (/,"#######################################",/, &
@@ -987,7 +990,7 @@ continue
                         position="rewind",iostat=ierr,iomsg=error_message)
     call io_error(pname,trim(adjustl(output_fname)),1,__LINE__,__FILE__, &
                   ierr,error_message)
-    call write_nml_data(0,io,banner=fals)
+    call write_nml_data(action,io,banner=fals)
     write (iout,101) trim(output_fname)
     close(io)
   end if
@@ -1289,6 +1292,9 @@ subroutine ionml_input()
 continue
   !
   select case (NMLaction)
+    case ( NMLaction_WritePretty )
+      call iow_header('&input')
+      call iow_footer()
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&input') ) then
         read (ior,nml=input)
