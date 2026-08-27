@@ -671,7 +671,7 @@ end subroutine alloc_nml_data
 !###############################################################################
 !> Resize namelist allocatables to minimally necessary size for content.
 !###############################################################################
-subroutine resiz_nml_data
+subroutine resiz_nml_data()
   !
   !.. Use Statements ..
   use ovar, only : point_probe_t, rake_probe_t
@@ -865,12 +865,12 @@ continue
 end subroutine set_nml_data
 !
 !###############################################################################
-!> Read the namelist input data from the specified input unit.
+!> Read variables for all blocks of namelist input from unit number.
 !###############################################################################
 subroutine read_nml_data(io)
   !
-  !.. Arguments ..
-  integer, intent(in) :: io  !< File unit number.
+  !.. Formal Arguments ..
+  integer, intent(in) :: io  !< Unit number for input.
   !
 continue
   !
@@ -882,16 +882,16 @@ continue
 end subroutine read_nml_data
 !
 !###############################################################################
-!> Write the namelist input data to the specified output unit.
+!> Write variables for all blocks of namelist input to unit number.
 !###############################################################################
 subroutine write_nml_data(action,io,banner)
   !
   !.. Use Modules ..
   use ovar, only : namelist_version
   !
-  !.. Arguments ..
-  integer,     intent(in) :: action  !< An NMLaction
-  integer,     intent(in) :: io      !< File unit number.
+  !.. Formal Arguments ..
+  integer,     intent(in) :: action  !< An NMLaction.
+  integer,     intent(in) :: io      !< Unit number for output.
   logical(lk), intent(in) :: banner  !< Flag to write banner.
   !
   !.. Local Scalars ..
@@ -916,7 +916,7 @@ continue
         call set_iow(io)
         call set_NMLaction(action)
         call ionml()
-        if (banner) write (io,105) 
+        if (banner) write (io,105)
         flush (io)
         !
         ! Restore namelist_version
@@ -943,7 +943,8 @@ continue
 end subroutine write_nml_data
 !
 !###############################################################################
-!
+!> Initialize and read all blocks of namelist input from unit number.
+!###############################################################################
 subroutine read_nml_file(input_fname)
   !
   !.. Use Statements ..
@@ -989,7 +990,8 @@ continue
   !
   ! Read in the input file using the input namelist
   !
-  call read_nml_data(inpt)
+  call nml_ver_0001%read_data(inpt)
+  !< Same as call read_nml_data
   !
   ! Close the input file now that we are finished reading it
   !
@@ -1007,12 +1009,13 @@ continue
 end subroutine read_nml_file
 !
 !###############################################################################
-!
+!> Write all blocks of namelist input file.
+!###############################################################################
 subroutine write_nml_file(output_fname,action)
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: output_fname
-  integer,          intent(in) :: action        !< An NMLaction
+  integer,          intent(in) :: action        !< An NMLaction.
   !
   !.. Local Scalars ..
   integer :: io,ierr
