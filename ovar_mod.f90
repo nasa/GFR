@@ -33,6 +33,8 @@ module ovar
   use module_kind_types, only : Limiter_Option__Off
   use module_kind_types, only : Marker_Option__Off
   use module_kind_types, only : Marker_Variable__Off
+  !> The value this points to just needs to be greater than 2
+  use module_kind_types, only : Marker_MinMax_Default => ten2
   !
   implicit none
   !
@@ -628,8 +630,8 @@ module ovar
   integer, public, save :: Marker_Variable = Marker_Variable__Off
   !
   ! LIMITER MARKER SENSITIVITY OPTIONS
-  real(wp), public, save :: Limiter_Marker_Min  =  5.0_wp
-  real(wp), public, save :: Limiter_Marker_Max  =  5.0_wp
+  real(wp), public, save :: Limiter_Marker_Min  =  Marker_MinMax_Default
+  real(wp), public, save :: Limiter_Marker_Max  =  Marker_MinMax_Default
   real(wp), public, save :: Limiter_Marker_c1   = -1.0_wp
   real(wp), public, save :: Limiter_Marker_c2   = -1.0_wp
   real(wp), public, save :: Limiter_Marker_dpsi = -1.0_wp
@@ -2002,11 +2004,13 @@ subroutine process_marker_coefficients()
   !
   !.. Use Statements ..
   use module_kind_types, only : mypnum,glb_root,stop_gfr,stop_mpi
+  use module_kind_types, only : Limiter_Option__Filter
+  use module_kind_types, only : Limiter_Option__FilterScaled
   use module_kind_types, only : Marker_Option__Jump
   !
   !.. Local Scalars ..
-  integer  :: p
-  real(wp) :: l10p,psi0,max_marker_value
+  integer  :: p,errval
+  real(wp) :: l10p,psi0,max_marker_value,val
   !
   !.. Local Allocatable Scalars ..
   character(len=:), allocatable :: text
@@ -2037,9 +2041,53 @@ continue
   ! DEBUG: Verbosely write out input marker coefficients before processing them
   call write_marker_inputs(1)
   !
+  ! If Limiter_Marker_Min or Limiter_Marker_Max are larger than the maximum
+  ! marker value, reset them back to the default value
+  !
+  if (Limiter_Marker_Min > max_marker_value) then
+    Limiter_Marker_Min = Marker_MinMax_Default
+    call marker_minmax_warning( nint(-Marker_MinMax_Default) )
+  end if
+  if (Limiter_Marker_Max > max_marker_value) then
+    Limiter_Marker_Max = Marker_MinMax_Default
+    call marker_minmax_warning( nint(Marker_MinMax_Default) )
+  end if
+  !
+  ! Set the c1, c2, and/or dpsi values if the respective inputs have been set.
+  !
   if (Limiter_Marker_c1   > zero) marker_c1   = Limiter_Marker_c1
   if (Limiter_Marker_c2   > zero) marker_c2   = Limiter_Marker_c2
   if (Limiter_Marker_dpsi > zero) marker_dpsi = Limiter_Marker_dpsi
+  !
+  ! Perform some checks on the values of Limiter_Marker_Min and 
+  ! Limiter_Marker_Max if both have been set (no longer the default values).
+  !
+  if (abs(Limiter_Marker_Min-Marker_MinMax_Default) > eps6 .and. &
+      abs(Limiter_Marker_Max-Marker_MinMax_Default) > eps6) then
+    !
+    ! Both Limiter_Marker_Min and Limiter_Marker_Max are no longer set
+    ! to default values.
+    !
+    ! Check to see if Min == Max, and reset Max to the default value if so
+    if (abs(Limiter_Marker_Min - Limiter_Marker_Max) < eps6 ) then
+      Limiter_Marker_Max = Marker_MinMax_Default
+      call marker_minmax_warning(0)
+    ! Check to see if Min >= Max (common mistake since they are negative values)
+    else if (Limiter_Marker_Min > Limiter_Marker_Max) then
+      if (Limiter_Option == Limiter_Option__FilterScaled) then
+        ! If using the local dynamic/scaled filter, switch the min and max
+        val = Limiter_Marker_Min
+        Limiter_Marker_Min = Limiter_Marker_Max
+        Limiter_Marker_Max = val
+        call marker_minmax_warning(Limiter_Option__FilterScaled)
+      else if (Limiter_Option == Limiter_Option__Filter) then
+        ! If using the standard local filter, leave the values as is,
+        ! but write out a warning message indicating that Min > Max
+        call marker_minmax_warning(Limiter_Option__Filter)
+      end if
+    end if
+    !
+  end if
   !
   ! Check if only one of Limiter_Marker_Min and Limiter_Marker_Max was
   ! set, and if so, compute the other using marker_dpsi
@@ -2165,8 +2213,78 @@ continue
 #endif
 end subroutine write_marker_inputs
 !===============================================================================
+subroutine marker_minmax_warning(flag)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: flag
+  !
+continue
+  !
+  if (mypnum == glb_root) then
+    !
+    write (iout,*)
+    write (iout,10)
+    if (flag == nint(-Marker_MinMax_Default)) then
+      ! Min > maximum possible value, so it was reset
+      write (iout,1) "Min"
+      write (iout,20) "Min"
+    else if (flag == nint(Marker_MinMax_Default)) then
+      ! Max > maximum possible value, so it was reset
+      write (iout,1) "Max"
+      write (iout,20) "Max"
+    else if (flag == 0) then
+      ! Min == Max, so Max was reset
+      write (iout,2)
+      write (iout,20) "Max"
+    else if (flag == Limiter_Option__FilterScaled) then
+      ! Min > Max, using local dynamic/scaled filter, so Min/Max were switched
+      write (iout,3)
+    else if (flag == Limiter_Option__Filter) then
+      ! Min > Max, using local standard filter, so Min/Max left as is.
+      ! This will result in Max = Min + abs(Min-Max)
+      write (iout,4)
+    end if
+    write (iout,10)
+    write (iout,*)
+    !
+    flush (iout)
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  1  format (4x,"The value of Limiter_Marker_",a3," was greater than the",/, &
+             4x,"maximum allowable value of ",f4.1,".")
+  2  format (4x,"Limiter_Marker_Min and Limiter_Marker_Max appear to have ", &
+                "the same value.")
+  3  format (4x,"Limiter_Marker_Min is greater than Limiter_Marker_Max.",/, &
+             4x,"Because the local dynamic/scaled filter is being used,",/, &
+             4x,"it has been assumed this was accidental and the intent",/, &
+             4x,"was for these values to be switched with each other.",/, &
+             4x,"Note, this is a common accidental mistake.",/, &
+             4x,"The values of Limiter_Marker_Min and Limiter_Marker_Max",/, &
+             4x,"have been swapped under this assumption, and processing",/, &
+             4x,"of the marker coefficients will continue.")
+  4  format (4x,"Limiter_Marker_Min is greater than Limiter_Marker_Max.",/, &
+             4x,"Because the standard local filter is being used, it has",/, &
+             4x,"been assumed that Limiter_Marker_Min is the only input",/, &
+             4x,"of importance, and both values will remain the same.",/, &
+             4x,"After processing the marker coefficients has finished,",/, &
+             4x,"this will result in Limiter_Marker_Max taking the value",/, &
+            12x,"Max = Min + abs(Min-Max).")
+  !
+  10 format (80("#"),/, &
+              5("#"),32x,"WARNING",31x,5("#"),/, &
+             80("#"))
+  !
+  20 format (4x,"Limiter_Marker_",a3," has been reset to the default value.")
+  !
+end subroutine marker_minmax_warning
+!===============================================================================
 end subroutine process_marker_coefficients
 !
+!###############################################################################
+!#####                               WARNING                               #####
 !###############################################################################
 !> Function to determine whether code will interpolate onto new grid.
 !###############################################################################
