@@ -89,7 +89,7 @@ contains
 subroutine init_nml0002_procedures()
   !
   !.. Use Statements ..
-  use nml_9999_mod, only : set_current_nml_version
+  use nml_9999_mod, only : set_latest_nml_version
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_nml0002_procedures"
@@ -104,7 +104,14 @@ continue
   nml_ver_0002% read_file =>  read_nml_file
   nml_ver_0002%write_file => write_nml_file
   !
-  call set_current_nml_version(namelist_version,nml_ver_0002)
+  ! Send this namelist version into the subroutine set_latest_nml_version
+  ! to set up the nml_ver_9999 procedure pointers.
+  ! NOTE: This will only set the nml_ver_9999 procedure pointers
+  !       to the respective procedures from this module if the
+  !       namelist version of this module matches the value of
+  !       latest_namelist_version from the module nml_base_mod.
+  !
+  call set_latest_nml_version(namelist_version,nml_ver_0002)
   !
 end subroutine init_nml0002_procedures
 !
