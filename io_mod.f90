@@ -331,6 +331,7 @@ subroutine check_nml_input_data(input_mode)
   use ovar,   only : ji_gwt,ji_uwt,ji_gvar,ji_uvar
   use ovar,   only : disable_cgns_output,cgns_dir
   use ovar,   only : output_KEDR
+  use ovar,   only : process_marker_coefficients
   !
   use flowvar_mod, only : get_marker_index, nmarker
   !
@@ -773,50 +774,11 @@ continue
     !
   end if
   !
-  if (Limiter_Marker_c1   > zero) marker_c1   = Limiter_Marker_c1
-  if (Limiter_Marker_c2   > zero) marker_c2   = Limiter_Marker_c2
-  if (Limiter_Marker_dpsi > zero) marker_dpsi = Limiter_Marker_dpsi
+  ! Process the marker inputs to get the final marker
+  ! coefficients that will be used to scale the raw marker
+  ! values to the scaled_marker on the interval [0,1].
   !
-  if (Limiter_Marker_Max < zero .and. Limiter_Marker_Min > zero) then
-    Limiter_Marker_Min = Limiter_Marker_Max - two*marker_dpsi
-  else if (Limiter_Marker_Min < zero .and. Limiter_Marker_Max > zero) then
-    Limiter_Marker_Max = Limiter_Marker_Min + two*marker_dpsi
-  end if
-  !
-  l10p = log10(real(max(1,n_order),kind=wp))
-  !
-  if (all([Limiter_Marker_Min,Limiter_Marker_Max] < zero)) then
-    !
-    marker_dpsi = half*abs(Limiter_Marker_Min-Limiter_Marker_Max)
-    !
-    ! Confirmed via Mathematica that the following options:
-    !   1) holding marker_c1 constant and using it plus Limiter_Marker_min
-    !      and marker_dpsi to compute a new marker_c2
-    !   2) holding marker_c2 constant and using it plus Limiter_Marker_min
-    !      and marker_dpsi to compute a new marker_c1
-    ! result in the SAME psi0, which makes them equivalent.
-    !
-    if (n_order == 1) then
-      marker_c1 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c2*l10p)
-    else
-      if (marker_c1 /= Default_Marker_c1) then
-        marker_c2 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c1) / l10p
-      else
-        marker_c1 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c2*l10p)
-      end if
-    end if
-    !
-  end if
-  !
-  ! Copy the computed values back into the input parameters,
-  ! so that the echoed user inputs reflect what the code really uses.
-  !
-  Limiter_Marker_c1 = marker_c1
-  Limiter_Marker_c2 = marker_c2
-  Limiter_Marker_dpsi = marker_dpsi
-  !
-  Limiter_Marker_Min = -one*(marker_c1 + marker_c2*l10p) - marker_dpsi
-  Limiter_Marker_Max = -one*(marker_c1 + marker_c2*l10p) + marker_dpsi
+  call process_marker_coefficients
   !
   ! Only allow Track_Limiter_Filter_Dissipation to be active if
   ! the limiter option is using filtering.
