@@ -907,11 +907,17 @@ $(OBJDIR)/nml_base_mod.o : $(NMLDIR)/nml_base_mod.f90 \
 
 $(OBJDIR)/nml_mod.o : $(NMLDIR)/nml_mod.f90 \
             $(OBJDIR)/nml_0001_mod.o \
+            $(OBJDIR)/nml_0002_mod.o \
             $(OBJDIR)/nml_9999_mod.o
 
 $(OBJDIR)/nml_0001_mod.o : $(NMLDIR)/nml_0001_mod.f90 \
                  $(OBJDIR)/kind_types_mod.o \
                  $(OBJDIR)/bc_input_0001_mod.o \
+                 $(OBJDIR)/nml_base_mod.o \
+                 $(OBJDIR)/ovar_mod.o
+
+$(OBJDIR)/nml_0002_mod.o : $(NMLDIR)/nml_0002_mod.f90 \
+                 $(OBJDIR)/kind_types_mod.o \
                  $(OBJDIR)/nml_base_mod.o \
                  $(OBJDIR)/ovar_mod.o
 
