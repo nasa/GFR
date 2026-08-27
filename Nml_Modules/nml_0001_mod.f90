@@ -360,7 +360,7 @@ continue
 end subroutine init_nml0001_procedures
 !
 !###############################################################################
-!> Allocate namelist variables that are array of character.
+!> Allocate namelist variables that are allocatable arrays or character scalars.
 !###############################################################################
 subroutine alloc_nml_data(opt_n_bc_input,opt_char_len, &
                           opt_n_species,opt_n_point_probes, &
@@ -669,7 +669,7 @@ continue
 end subroutine alloc_nml_data
 !
 !###############################################################################
-!> Resize namelist allocatables to minimally necessary size for content.
+!> Resize allocatable namelist variables to minimal size for content.
 !###############################################################################
 subroutine resiz_nml_data()
   !
