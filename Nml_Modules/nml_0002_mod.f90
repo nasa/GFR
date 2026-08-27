@@ -62,7 +62,7 @@ module nml_0002_mod
   ! ###  MODULE PARAMETERS  ###
   ! ###########################
   !
-  integer, public, parameter :: namelist_version = 0002
+  integer, public, parameter :: module_namelist_version = 0002
   !
   !
   ! ##############################
@@ -111,7 +111,7 @@ continue
   !       namelist version of this module matches the value of
   !       latest_namelist_version from the module nml_base_mod.
   !
-  call set_latest_nml_version(namelist_version,nml_ver_0002)
+  call set_latest_nml_version(module_namelist_version,nml_ver_0002)
   !
 end subroutine init_nml0002_procedures
 !
