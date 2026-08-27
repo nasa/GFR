@@ -845,6 +845,7 @@ continue
   !
   setverbose = fals
   if ( present(io) ) then
+    call set_iow(io)
     setverbose = true
   end if
   !
