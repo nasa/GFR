@@ -43,6 +43,7 @@ module ovar
   public :: adjust_cfl_cycles
   public :: if_interpto_newgrid
   public :: move_bcin_to_device
+  public :: process_marker_coefficients
   !
   !
   !
@@ -1993,6 +1994,178 @@ end subroutine get_mrf_rotation
 !###############################################################################
 !###############################################################################
 !###############################################################################
+!
+!###############################################################################
+!> Subroutine to process the marker inputs to set up the marker coefficients
+!###############################################################################
+subroutine process_marker_coefficients()
+  !
+  !.. Use Statements ..
+  use module_kind_types, only : mypnum,glb_root,stop_gfr,stop_mpi
+  use module_kind_types, only : Marker_Option__Jump
+  !
+  !.. Local Scalars ..
+  integer  :: p
+  real(wp) :: l10p,psi0,max_marker_value
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: text
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "process_marker_coefficients"
+  !
+continue
+  !
+  ! Complete the marker coefficients that will be used to scale the raw
+  ! marker values to the scaled_marker on the interval [0,1]
+  !
+  p = abs(solution_order)
+  if ( all_orders >= 0 ) p = all_orders
+  !
+  if ( Marker_Option == Marker_Option__Jump ) then  ! Filter with jump marker.
+    Default_Marker_c1 = Default_Marker_c1_JI
+    Default_Marker_c2 = Default_Marker_c2_JI
+    max_marker_value = log10(two)
+  else ! resolution and Ducros/divergence markers
+    Default_Marker_c1 = Default_Marker_c1_RI
+    Default_Marker_c2 = Default_Marker_c2_RI
+    max_marker_value = zero
+  end if
+  marker_c1 = Default_Marker_c1
+  marker_c2 = Default_Marker_c2
+  !
+  ! DEBUG: Verbosely write out input marker coefficients before processing them
+  call write_marker_inputs(1)
+  !
+  if (Limiter_Marker_c1   > zero) marker_c1   = Limiter_Marker_c1
+  if (Limiter_Marker_c2   > zero) marker_c2   = Limiter_Marker_c2
+  if (Limiter_Marker_dpsi > zero) marker_dpsi = Limiter_Marker_dpsi
+  !
+  ! Check if only one of Limiter_Marker_Min and Limiter_Marker_Max was
+  ! set, and if so, compute the other using marker_dpsi
+  !
+  if (Limiter_Marker_Max <= max_marker_value .and. &
+      Limiter_Marker_Min >= Limiter_Marker_Max) then
+    Limiter_Marker_Min = Limiter_Marker_Max - two*marker_dpsi
+  else if (Limiter_Marker_Min <= max_marker_value .and. &
+           Limiter_Marker_Max >  max_marker_value) then
+    Limiter_Marker_Max = min(max_marker_value, &
+                             Limiter_Marker_Min + two*marker_dpsi)
+  end if
+  !
+  l10p = log10(real(max(1,p),kind=wp))
+  !
+  ! If Limiter_Marker_Min and Limiter_Marker_Max are both less than the
+  ! maximum possible value, recompute c1, c2, and dpsi.
+  !
+  if (all([Limiter_Marker_Min,Limiter_Marker_Max] <= max_marker_value)) then
+    !
+    marker_dpsi = half*abs(Limiter_Marker_Min-Limiter_Marker_Max)
+    !
+    ! Confirmed via Mathematica that the following options:
+    !   1) holding marker_c1 constant and using it plus Limiter_Marker_min
+    !      and marker_dpsi to compute a new marker_c2
+    !   2) holding marker_c2 constant and using it plus Limiter_Marker_min
+    !      and marker_dpsi to compute a new marker_c1
+    ! result in the SAME psi0, which makes them equivalent.
+    !
+    if (p <= 1) then
+      ! We have to compute marker_c1 for P<=1 because l10p will be zero
+      marker_c1 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c2*l10p)
+    else
+      if (marker_c1 /= Default_Marker_c1) then
+        marker_c2 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c1) / l10p
+      else
+        marker_c1 = -one*(Limiter_Marker_Min + marker_dpsi + marker_c2*l10p)
+      end if
+    end if
+    !
+  end if
+  !
+  ! Copy the computed values back into the input parameters.
+  !
+  Limiter_Marker_c1   = marker_c1
+  Limiter_Marker_c2   = marker_c2
+  Limiter_Marker_dpsi = marker_dpsi
+  Limiter_Marker_Min  = -one*(marker_c1 + marker_c2*l10p) - marker_dpsi
+  Limiter_Marker_Max  = -one*(marker_c1 + marker_c2*l10p) + marker_dpsi
+  !
+  ! DEBUG: Verbosely write out input marker coefficients after processing them
+  call write_marker_inputs(2)
+  !
+  ! DEBUG: Write out the marker coefficients after processing them
+  call write_marker_inputs(3)
+  !
+contains
+!===============================================================================
+subroutine write_marker_inputs(flag)
+  !.. Formal Arguments ..
+  integer, intent(in) :: flag
+continue
+#ifdef DUMP_MARKER_INPUTS
+  psi0 = -one*(marker_c1 + marker_c2*log10(real(max(1,p),kind=wp)))
+#if DUMP_MARKER_INPUTS == 1
+  if (mypnum == glb_root) then
+    if (flag == 3) then
+      write (iout,1) marker_c1,marker_c2,marker_dpsi, &
+                     psi0-marker_dpsi,psi0,psi0+marker_dpsi
+      flush (iout)
+    end if
+  end if
+#endif
+#if DUMP_MARKER_INPUTS == 2
+  if (mypnum == glb_root) then
+    if (any(flag == [1,2])) then
+      if (flag == 1) then
+        text = "BEFORE" ! F2003 AUTO-REALLOC
+      else
+        text = "AFTER"  ! F2003 AUTO-REALLOC
+      end if
+      write (iout,2) text, &
+                     Limiter_Marker_c1, &
+                     Limiter_Marker_c2, &
+                     Limiter_Marker_dpsi, &
+                     Limiter_Marker_Min, &
+                     Limiter_Marker_Max, &
+                     marker_c1, &
+                     marker_c2, &
+                     marker_dpsi, &
+                     psi0, &
+                     psi0-marker_dpsi, &
+                     psi0+marker_dpsi
+      flush (iout)
+    end if
+  end if
+#endif
+#ifdef DUMP_MARKER_INPUTS_THEN_STOP
+  flush (iout)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"Dumping marker parameters!")
+#endif
+  !
+  1 format (/,2x,"marker_c1   = ",f11.6,/, &
+              2x,"marker_c2   = ",f11.6,/, &
+              2x,"marker_dpsi = ",f11.6,//, &
+              2x,"psi0 - dpsi = ",f11.6,/, &
+              2x,"psi0        = ",f11.6,/, &
+              2x,"psi0 + dpsi = ",f11.6,/)
+  !
+  2 format (//,2x,a," modifying marker parameters:",//, &
+               4x,"Limiter_Marker_c1   = ",f10.6,/, &
+               4x,"Limiter_Marker_c2   = ",f10.6,/, &
+               4x,"Limiter_Marker_dpsi = ",f10.6,/, &
+               4x,"Limiter_Marker_Min  = ",f10.6,/, &
+               4x,"Limiter_Marker_Max  = ",f10.6,//, &
+               4x,"        marker_c1   = ",f10.6,/, &
+               4x,"        marker_c2   = ",f10.6,/, &
+               4x,"        marker_dpsi = ",f10.6,/, &
+               4x,"        marker_psi0 = ",f10.6,/, &
+               4x,"        marker_min  = ",f10.6,/, &
+               4x,"        marker_max  = ",f10.6,//)
+  !
+#endif
+end subroutine write_marker_inputs
+!===============================================================================
+end subroutine process_marker_coefficients
 !
 !###############################################################################
 !> Function to determine whether code will interpolate onto new grid.
