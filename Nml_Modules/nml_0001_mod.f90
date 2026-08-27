@@ -408,8 +408,14 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  ! -----------------------------------------
   ! Make sure everything is deallocated first
+  ! -----------------------------------------
   !
+  ! Next line deallocates bc_input and component arrays.
+  !   bc_input(:)
+  !   bc_input(:)%mass_frac(:)
+  !   bc_input(:)%species_name(:)
   if (allocated(bc_input)) then
     deallocate ( bc_input , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"bc_input",2,__LINE__,__FILE__,ierr,error_message)
@@ -509,13 +515,16 @@ continue
                      ierr,error_message)
   end if
   !
-  ! Allocate bc_input before reading the namelist
+  ! ------------------------------------
+  ! Allocate bc_input array: bc_input(:)
+  ! ------------------------------------
   !
   allocate ( bc_input(1:n_bc_input) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bc_input",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Allocate bc_input component arrays before reading the namelist:
-  !   bcinput(:)%mass_frac(:), bcinput(:)%species_name(:)
+  ! Allocate bc_input component arrays:
+  !   bcinput(:)%mass_frac(:)
+  !   bcinput(:)%species_name(:)
   !
 #ifdef ALLOCATABLE_MASS_FRAC
   do n = 1,size(bc_input)
@@ -534,7 +543,9 @@ continue
   !
   ovar_bc_input = bc_input(:)%copyout() ! F2003 AUTO-REALLOC
   !
-  ! Allocate point_probes before reading the namelist
+  ! ---------------------------------------------------
+  ! Allocate point_probes, rake_probes, and cell_probes
+  ! ---------------------------------------------------
   !
   allocate ( point_probes(1:n_point_probes) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"point_probes",1,__LINE__,__FILE__,ierr,error_message)
@@ -549,7 +560,9 @@ continue
   allocate ( cell_probes(1:n_cell_probes) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cell_probes",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Allocate all the character input variables
+  ! ------------------------------------------------------------------------
+  ! Set allocatable character variables to their default values and lengths.
+  ! ------------------------------------------------------------------------
   !
   allocate ( character(len=default_len) :: gridfile , &
              stat=ierr , errmsg=error_message )
@@ -692,16 +705,14 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  ! ------------------------------------------------------------
+  ! ============================================================
   ! Reallocate bc_input to the actual size needed for the inputs
-  ! ------------------------------------------------------------
+  ! ============================================================
   !
   ! Count how many of bc_input(:) are not default values.
   n = 0
   do i = 1,size(bc_input)
-    if (bc_input(i)%is_not_default()) then
-      n = n + 1
-    end if
+    if (bc_input(i)%is_not_default()) n = n + 1
   end do
   !
   ! Allocate a new bc_input(:) to hold this minimal content.
@@ -722,9 +733,9 @@ continue
   call move_alloc( from=tmp_bc_input , to=bc_input )
   !
   !
-  ! ----------------------
+  ! ======================
   ! Trim character strings
-  ! ----------------------
+  ! ======================
   !
   do n = 1,size(bc_input)
     bc_input(n)%sem%profile_file = trim(adjustl(bc_input(n)%sem%profile_file))
