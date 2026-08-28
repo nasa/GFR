@@ -2137,7 +2137,7 @@ continue
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
            NMLaction_WritePretty )
       call iow_header('&nml_testcase_sod')
-      call set('Right_Vector',right_vector, real([1.,0.,0.],wp)  )
+      call set('Right_Vector',right_vector, [one,zero,zero]  )
       call iow_footer()
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_testcase_sod') ) then
@@ -2311,7 +2311,7 @@ continue
                 bc_input(n)%Total_Density           ,-one  )
       call set( text //   '%AoA_Alpha              ', &
                 bc_input(n)%aoa_alpha               , zero )
-      call set( text //   '%AOA_Beta               ', &
+      call set( text //   '%AoA_Beta               ', &
                 bc_input(n)%aoa_beta                , zero )
       call set( text //   '%Wall_Temp              ', &
                 bc_input(n)%wall_temp               ,-one  )
