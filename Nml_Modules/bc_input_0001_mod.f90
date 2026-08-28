@@ -26,8 +26,9 @@ module bc_input_0001_mod
   private :: has_default_flow_conditions
   private :: bc_input_t_equals
   private :: bc_input_t_not_equal
-  private :: bc_input_t_copyin
-  private :: bc_input_t_copyout
+  !
+  public :: bc_input_v0001_to_ovar
+  public :: bc_input_ovar_to_v0001
   !
   !
   ! ##############################
@@ -83,13 +84,10 @@ module bc_input_0001_mod
     !
   contains
     !
-    procedure,          pass(this) :: copyout => bc_input_t_copyout
-    procedure, private, pass(this) :: copyin  => bc_input_t_copyin
     procedure, private, pass(a)    :: equals    => bc_input_t_equals
     procedure, private, pass(a)    :: not_equal => bc_input_t_not_equal
     procedure :: is_not_default => is_not_default_bc_input
     procedure :: has_default_flow_conditions
-    generic :: assignment(=) => copyin
     generic :: operator(==)  => equals
     generic :: operator(/=)  => not_equal
     !
@@ -364,104 +362,124 @@ end function bc_input_t_not_equal
 !>
 !> Converts the new bc_input structure from ovar
 !> into the old version 1 namelist structure.
-!> This has been made a generic type-bound assignment which can be used as:
-!>    bc_input = ovar_bc_input(:)
 !###############################################################################
-elemental &
-subroutine bc_input_t_copyin(this,from)
+pure &
+function bc_input_ovar_to_v0001(ovar_bc) result(return_value)
   !
   !.. Formal Arguments ..
-  class(     bc_input_t), intent(inout) :: this
-  type(ovar_bc_input_t),  intent(in   ) :: from
+  type(ovar_bc_input_t), allocatable, intent(in) :: ovar_bc(:)
+  !
+  !.. Function Result ..
+  type(bc_input_t), allocatable :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nbc
   !
 continue
   !
-  this%name                = from%name
+  nbc = 0
+  if (allocated(ovar_bc)) nbc = size(ovar_bc)
   !
-  this%set_bc_value        = from%set_bc_value
+  allocate ( return_value(1:nbc) )
   !
-  this%t_static            = from%temperature
-  this%p_static            = from%pressure
-  this%rho_static          = from%density
-  this%mach                = from%mach
-  this%vx                  = from%velocityx
-  this%vy                  = from%velocityy
-  this%vz                  = from%velocityz
-  this%t_total             = from%total_temperature
-  this%p_total             = from%total_pressure
-  this%rho_total           = from%total_density
-  this%alpha_aoa           = from%aoa_alpha
-  this%beta_aoa            = from%aoa_beta
-  this%wall_temp           = from%wall_temp
+  do n = 1,nbc
+    !
+    return_value(n)%name                = ovar_bc(n)%name
+    !
+    return_value(n)%set_bc_value        = ovar_bc(n)%set_bc_value
+    !
+    return_value(n)%t_static            = ovar_bc(n)%temperature
+    return_value(n)%p_static            = ovar_bc(n)%pressure
+    return_value(n)%rho_static          = ovar_bc(n)%density
+    return_value(n)%mach                = ovar_bc(n)%mach
+    return_value(n)%vx                  = ovar_bc(n)%velocityx
+    return_value(n)%vy                  = ovar_bc(n)%velocityy
+    return_value(n)%vz                  = ovar_bc(n)%velocityz
+    return_value(n)%t_total             = ovar_bc(n)%total_temperature
+    return_value(n)%p_total             = ovar_bc(n)%total_pressure
+    return_value(n)%rho_total           = ovar_bc(n)%total_density
+    return_value(n)%alpha_aoa           = ovar_bc(n)%aoa_alpha
+    return_value(n)%beta_aoa            = ovar_bc(n)%aoa_beta
+    return_value(n)%wall_temp           = ovar_bc(n)%wall_temp
+    !
+    return_value(n)%rotation_rate       = ovar_bc(n)%rotation_rate
+    !
+    return_value(n)%is_specified_in_mrf = ovar_bc(n)%is_specified_in_mrf
+    !
+    return_value(n)%mass_frac           = ovar_bc(n)%mass_frac
+    return_value(n)%species_name        = ovar_bc(n)%species_name
+    !
+    return_value(n)%relax               = ovar_bc(n)%relax
+    !
+    return_value(n)%sem                 = ovar_bc(n)%sem
+    !
+    return_value(n)%periodic            = ovar_bc(n)%periodic
+    !
+  end do
   !
-  this%rotation_rate       = from%rotation_rate
-  !
-  this%is_specified_in_mrf = from%is_specified_in_mrf
-  !
-  this%mass_frac           = from%mass_frac
-  this%species_name        = from%species_name
-  !
-  this%relax               = from%relax
-  !
-  this%sem                 = from%sem
-  !
-  this%periodic            = from%periodic
-  !
-end subroutine bc_input_t_copyin
+end function bc_input_ovar_to_v0001
 !
 !###############################################################################
 !> Copy bc_input_t from local to ovar.
 !>
 !> Converts the old version 1 namelist structure
 !> into the new bc_input structure from ovar.
-!> This cant be made a generic type-bound assignment like copyin because
-!> an assignment must be made to the bound derived type. Therefore, this
-!> has been bound as a simple function that can be used as:
-!>    ovar_bc_input = bc_input(:)%copyout
 !###############################################################################
-elemental &
-function bc_input_t_copyout(this) result(return_value)
+pure &
+function bc_input_v0001_to_ovar(bc_v1) result(return_value)
   !
   !.. Formal Arguments ..
-  class(bc_input_t), intent(in) :: this
+  type(bc_input_t), allocatable, intent(in) :: bc_v1(:)
   !
   !.. Function Result ..
-  type(ovar_bc_input_t) :: return_value
+  type(ovar_bc_input_t), allocatable :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nbc
   !
 continue
   !
-  return_value%name                = this%name
+  nbc = 0
+  if (allocated(bc_v1)) nbc = size(bc_v1)
   !
-  return_value%set_bc_value        = this%set_bc_value
+  allocate ( return_value(1:nbc) )
   !
-  return_value%temperature         = this%t_static
-  return_value%pressure            = this%p_static
-  return_value%density             = this%rho_static
-  return_value%mach                = this%mach
-  return_value%velocityx           = this%vx
-  return_value%velocityy           = this%vy
-  return_value%velocityz           = this%vz
-  return_value%total_temperature   = this%t_total
-  return_value%total_pressure      = this%p_total
-  return_value%total_density       = this%rho_total
-  return_value%aoa_alpha           = this%alpha_aoa
-  return_value%aoa_beta            = this%beta_aoa
-  return_value%wall_temp           = this%wall_temp
+  do n = 1,nbc
+    !
+    return_value(n)%name                = bc_v1(n)%name
+    !
+    return_value(n)%set_bc_value        = bc_v1(n)%set_bc_value
+    !
+    return_value(n)%temperature         = bc_v1(n)%t_static
+    return_value(n)%pressure            = bc_v1(n)%p_static
+    return_value(n)%density             = bc_v1(n)%rho_static
+    return_value(n)%mach                = bc_v1(n)%mach
+    return_value(n)%velocityx           = bc_v1(n)%vx
+    return_value(n)%velocityy           = bc_v1(n)%vy
+    return_value(n)%velocityz           = bc_v1(n)%vz
+    return_value(n)%total_temperature   = bc_v1(n)%t_total
+    return_value(n)%total_pressure      = bc_v1(n)%p_total
+    return_value(n)%total_density       = bc_v1(n)%rho_total
+    return_value(n)%aoa_alpha           = bc_v1(n)%alpha_aoa
+    return_value(n)%aoa_beta            = bc_v1(n)%beta_aoa
+    return_value(n)%wall_temp           = bc_v1(n)%wall_temp
+    !
+    return_value(n)%rotation_rate       = bc_v1(n)%rotation_rate
+    !
+    return_value(n)%is_specified_in_mrf = bc_v1(n)%is_specified_in_mrf
+    !
+    return_value(n)%mass_frac           = bc_v1(n)%mass_frac
+    return_value(n)%species_name        = bc_v1(n)%species_name
+    !
+    return_value(n)%relax               = bc_v1(n)%relax
+    !
+    return_value(n)%sem                 = bc_v1(n)%sem
+    !
+    return_value(n)%periodic            = bc_v1(n)%periodic
+    !
+  end do
   !
-  return_value%rotation_rate       = this%rotation_rate
-  !
-  return_value%is_specified_in_mrf = this%is_specified_in_mrf
-  !
-  return_value%mass_frac           = this%mass_frac
-  return_value%species_name        = this%species_name
-  !
-  return_value%relax               = this%relax
-  !
-  return_value%sem                 = this%sem
-  !
-  return_value%periodic            = this%periodic
-  !
-end function bc_input_t_copyout
+end function bc_input_v0001_to_ovar
 !
 !###############################################################################
 !

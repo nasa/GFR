@@ -7,6 +7,8 @@ module nml_0001_mod
   use module_kind_types
   !
   use bc_input_0001_mod, only : bc_input,bc_input_t
+  use bc_input_0001_mod, only : bc_input_v0001_to_ovar
+  use bc_input_0001_mod, only : bc_input_ovar_to_v0001
   !
   use nml_base_mod, only : io_has_nml_block
   use nml_base_mod, only : set_ior, ior
@@ -541,7 +543,7 @@ continue
   !
   ! Copy bc_input into ovar_bc_input
   !
-  ovar_bc_input = bc_input(:)%copyout() ! F2003 AUTO-REALLOC
+  ovar_bc_input = bc_input_v0001_to_ovar( bc_input ) ! F2003 AUTO-REALLOC
   !
   ! ---------------------------------------------------
   ! Allocate point_probes, rake_probes, and cell_probes
@@ -743,7 +745,7 @@ continue
   !
   ! Copy bc_input into ovar_bc_input
   !
-  ovar_bc_input = bc_input(:)%copyout() ! F2003 AUTO-REALLOC
+  ovar_bc_input = bc_input_v0001_to_ovar( bc_input ) ! F2003 AUTO-REALLOC
   !
   !#############################################################################
   !
@@ -1781,7 +1783,7 @@ continue
   ! Convert the bc_input structure from this version 1 reader to current.
   !   Old: bc_input (ver.1)  =>  New: bc_input (ovar_mod)
   !
-  ovar_bc_input = bc_input(:)%copyout() ! F2003 AUTO-REALLOC
+  ovar_bc_input = bc_input_v0001_to_ovar( bc_input ) ! F2003 AUTO-REALLOC
   !
 end subroutine process_nml_data
 !
