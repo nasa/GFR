@@ -1150,7 +1150,6 @@ subroutine ionml_initialization()
   use ovar, only : restart_file
   use ovar, only : solution_format
   use ovar, only : solution_file
-  use ovar, only : postproc_debug_grid
   !
   ! INITIALIZATION / TEST CASE
   namelist / nml_initialization / &
@@ -1164,8 +1163,6 @@ subroutine ionml_initialization()
   namelist / nml_initialization / &
              solution_file      , &
              solution_format
-  ! ACTIVATE SPECIAL GRID FOR DEBUGGING THE POSTPROCESSOR
-  namelist / nml_initialization / postproc_debug_grid
   !
 continue
   !
@@ -1185,8 +1182,6 @@ continue
                 solution_file                     , ''                    )
       call set('Solution_Format                  ',                       &
                 solution_format                   , Unknown_Format        )
-      call set('Postproc_Debug_Grid              ',                       &
-                postproc_debug_grid               , fals                  )
       call iow_footer()
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_initialization') ) then
@@ -2615,6 +2610,7 @@ subroutine ionml_removed()
   use ovar, only : average_sem_inflow_plane
   use ovar, only : time_average_restart_files
   use ovar, only : channel_init_file
+  use ovar, only : postproc_debug_grid
   use ovar, only : dump_memory_usage
   use ovar, only : dump_fluxes
   use ovar, only : disable_header_rewrites
@@ -2682,6 +2678,8 @@ subroutine ionml_removed()
   namelist / nml_removed / channel_init_file
   ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
   namelist / nml_removed / time_average_restart_files
+  ! ACTIVATE SPECIAL GRID FOR DEBUGGING THE POSTPROCESSOR
+  namelist / nml_removed / postproc_debug_grid
   ! MEMORY USAGE
   namelist / nml_removed / dump_memory_usage
   ! MISC
@@ -2787,6 +2785,8 @@ continue
       call set('Time_Average_Restart_Files       ',                         &
                 time_average_restart_files        , fals                    )
       ! Debugging
+      call set('Postproc_Debug_Grid              ',                       &
+                postproc_debug_grid               , fals                  )
       call set('Dump_Memory_Usage                ',                         &
                 dump_memory_usage                 , fals                    )
       call set('Dump_Fluxes                      ',                         &
