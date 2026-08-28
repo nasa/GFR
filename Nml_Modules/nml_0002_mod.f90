@@ -1837,7 +1837,7 @@ continue
       call set('Local_Filter_Etac               ',                          &
                 Local_Filter_Etac                , 0.0_wp                   )
       call set('Marker_Stored_Interval          ',                          &
-                Marker_Stored_Interval           , 0                        )
+                Marker_Stored_Interval           , 1                        )
       call set('Marker_Option                   ',                          &
                 Marker_Option                    , 0                        )
       call set('Marker_Variable                 ',                          &
