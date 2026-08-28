@@ -715,7 +715,6 @@ module ovar
   real(wp), public, save :: channel_grid_ave_yplus     = -15.0_wp
   real(wp), public, save :: channel_grid_ave_zplus     = -15.0_wp
   real(wp), public, save :: channel_grid_yplus_wall    = 2.0_wp
-  integer,  public, save :: channel_rake_save_interval = 100
   !
   ! PIPE CHANNEL FLOW PARAMETERS
   real(wp), public, save :: pipe_channel_angle = five

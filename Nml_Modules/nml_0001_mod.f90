@@ -174,7 +174,7 @@ module nml_0001_mod
   use ovar, only : channel_body_force,channel_init_file
   use ovar, only : channel_spatial_ave_restart
   use ovar, only : channel_nondim_output_coord
-  use ovar, only : channel_yplus_of_one, channel_rake_save_interval
+  use ovar, only : channel_yplus_of_one
   use ovar, only : channel_grid_ave_xplus, channel_grid_ave_zplus
   use ovar, only : channel_grid_ave_yplus, channel_grid_yplus_wall
   use ovar, only : pipe_channel_angle
@@ -1480,7 +1480,7 @@ subroutine ionml_input()
                      channel_spatial_ave_restart, channel_nondim_output_coord, &
                      channel_grid_ave_xplus, channel_grid_ave_zplus, &
                      channel_grid_ave_yplus, channel_grid_yplus_wall, &
-                     channel_yplus_of_one, channel_rake_save_interval
+                     channel_yplus_of_one
   ! PIPE CHANNEL FLOW PARAMETERS
   namelist / input / pipe_channel_angle
   ! OPTIONS FOR MODIFYING BC ALGORITHMS

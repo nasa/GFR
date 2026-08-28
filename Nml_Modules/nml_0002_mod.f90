@@ -2206,8 +2206,7 @@ subroutine ionml_testcase_channel()
                    grid_ave_yplus      => channel_grid_ave_yplus      , &
                    grid_ave_zplus      => channel_grid_ave_zplus      , &
                    grid_yplus_wall     => channel_grid_yplus_wall     , &
-                   grid_yplus_of_one   => channel_yplus_of_one        , &
-                   rake_save_interval  => channel_rake_save_interval
+                   grid_yplus_of_one   => channel_yplus_of_one
   !
   ! CHANNEL FLOW PARAMETERS
   namelist / nml_testcase_channel / &
@@ -2218,8 +2217,7 @@ subroutine ionml_testcase_channel()
     grid_yplus_wall, &
     grid_yplus_of_one, &
     body_force, &
-    nondim_output_coord, &
-    rake_save_interval
+    nondim_output_coord
   !
 continue
   !
@@ -2235,7 +2233,6 @@ continue
       call set('Grid_Yplus_Of_One  ',grid_yplus_of_one  , 8.42134e-6_wp     )
       call set('Body_Force         ',body_force         , 0.0_wp            )
       call set('Nondim_Output_Coord',nondim_output_coord, fals              )
-      call set('Rake_Save_Interval ',rake_save_interval , 100               )
       call iow_footer()
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_testcase_channel') ) then
