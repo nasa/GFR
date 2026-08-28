@@ -1748,7 +1748,8 @@ subroutine ionml_limiter()
       Marker_Min                       => Limiter_Marker_Min    , &
       Marker_Max                       => Limiter_Marker_Max    , &
       Marker_dpsi                      => Limiter_Marker_dpsi   , &
-      thermofix
+      thermofix                        , &
+      Marker_MinMax_Default
   !
   ! FILTER OPTIONS
   namelist / nml_limiter / Global_Filter_Interval
@@ -1842,9 +1843,9 @@ continue
       call set('Marker_Variable                 ',                          &
                 Marker_Variable                  , 0                        )
       call set('Marker_Min                      ',                          &
-                Marker_Min                       , 5.0_wp                   )
+                Marker_Min                       , Marker_MinMax_Default    )
       call set('Marker_Max                      ',                          &
-                Marker_Max                       , 5.0_wp                   )
+                Marker_Max                       , Marker_MinMax_Default    )
       call set('Marker_Dpsi                     ',                          &
                 Marker_dpsi                      ,-1.0_wp                   )
       call set('Thermofix%Method                ',                          &
