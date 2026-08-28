@@ -14,7 +14,7 @@ module ovar
   use module_kind_types, only : visc_interface_fluxes
   use module_kind_types, only : laminar_flow
   use module_kind_types, only : one_work_unit
-  use module_kind_types, only : iout,zero,one,half,two,five,pi,eps6,eps12
+  use module_kind_types, only : iout,zero,one,half,two,five,ten2,pi,eps6,eps12
   use module_kind_types, only : mpi_wtime
   use module_kind_types, only : Correction_gDG
   use module_kind_types, only : TFM_OFF,IGN_OFF
@@ -33,8 +33,6 @@ module ovar
   use module_kind_types, only : Limiter_Option__Off
   use module_kind_types, only : Marker_Option__Off
   use module_kind_types, only : Marker_Variable__Off
-  !> The value this points to just needs to be greater than 2
-  use module_kind_types, only : Marker_MinMax_Default => ten2
   !
   implicit none
   !
@@ -326,6 +324,8 @@ module ovar
   ! ################################
   ! ###  Module Local Variables  ###
   ! ################################
+  !
+  real(wp), public, parameter :: Marker_MinMax_Default = ten2
   !
   ! NOTE: Input defaults are set to run P3 48**3 DoF Taylor-Green vortex
   !       using gDG, Ga-LP, SSP-RK3, and Roe flux with entropy fix.
