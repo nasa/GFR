@@ -46,14 +46,22 @@ subroutine read_input_file(input_mode)
   !
   !.. Use Statements ..
   use nml_mod,      only : initialize_namelist_versions
+  use nml_mod,      only : convert_nml_file
   use nml_mod,      only : nml_ver_9999
-  use nml_base_mod, only : NMLaction_Write
+  use nml_mod,      only : nml_ver_0001
+  use nml_mod,      only : nml_ver_0002
+  use nml_base_mod, only : NMLaction_Write,NMLaction_WritePretty
+  use nml_base_mod, only : new_nml_file3
+  use nml_base_mod, only : latest_namelist_version
+  use nml_base_mod, only : get_namelist_version_from_file
+  use nml_base_mod, only : set_NML_textcase
   !
   !.. Formal Arguments ..
   integer, intent(in) :: input_mode
   !
   !.. Local Scalars ..
   integer :: i,j,ierr,input_status
+  integer :: namelist_version
   integer :: command_count,command_length
   character(len=1000) :: command_value
   character(len=1000) :: input_fname
@@ -79,6 +87,8 @@ continue
     !
     if (command_count == 1) then
       !
+      ! One command line arg:  nml_file
+      !
       call get_command_argument(1,input_fname,command_length,ierr)
       !
       call check_input_file(input_fname,input_status)
@@ -86,6 +96,8 @@ continue
       if (input_status == 0) exit one_pass_loop
       !
     else if (command_count > 1) then
+      !
+      ! Multiple command line args. Search for:  -f nml_file
       !
       do j = 1,command_count
         !
@@ -110,17 +122,66 @@ continue
     call check_input_file(input_fname,input_status)
     !
     if (input_status /= 0) then
+      !
+      ! Input file not found. Write default input file(s). Stop with error.
+      !
+      call set_NML_textcase(0)  ! 0 = titlecase
       call nml_ver_9999%write_file('gfr.in.default',NMLaction_Write)
-      write (error_message,11)
+      call nml_ver_9999%write_file('gfr.in.default.pretty', &
+                                   NMLaction_WritePretty)
+      write (error_message,11) 'gfr.in.default', 'gfr.in.default.pretty'
       call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      !
     end if
     !
   end do one_pass_loop
   call check_for_bad_number(__LINE__,__FILE__)
   !
-  ! Read the input file.
+  ! Get the namelist version number from the file.
   !
-  call nml_ver_9999%read_file(input_fname)
+  namelist_version = get_namelist_version_from_file(input_fname)
+  if (mypnum == glb_root) then
+    write (iout,21) namelist_version, trim(input_fname)
+  end if
+  !
+  !
+  ! Read or convert the input file.
+  !
+  if ( namelist_version == latest_namelist_version ) then
+    !
+    ! Read input file.
+    ! Process current input file using current default values.
+    ! This takes care of:
+    !   alloc data, set data, read data, resize data
+    !
+    call nml_ver_9999%read_file(input_fname)
+    !
+  else
+    !
+    ! Convert input file.
+    ! Convert the old input file using the old default values.
+    ! This takes care of:
+    !   alloc data, set data, read data, resize data, write data
+    !
+    if ( mypnum == glb_root) then
+      !
+      select case (namelist_version)
+        case (1)
+          call convert_nml_file(input_fname,nml_ver_0001)
+        case (2)
+          call convert_nml_file(input_fname,nml_ver_0002)
+        case default
+          ! Invalid namelist_version.
+          write(error_message,31) namelist_version
+          call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+      end select
+      !
+      ! Stop after converting.
+      write (error_message,41) trim(new_nml_file3)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+      !
+    end if
+  end if
   call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Post-input checks and set internal variables.
@@ -132,7 +193,22 @@ continue
   !
   ! Format statements
   !
-  11 format ("ERROR FINDING A VALID INPUT FILE!")
+  11 format (                                      "$", &
+             "************* ERROR! **************","$", &
+             "  ERROR FINDING A VALID INPUT FILE!","$", &
+             "  Default input file written to:"   ,"$", &
+             "    ",a                             ,"$", &
+             "    ",a                             ,"$", &
+             "************* ERROR! **************","$")
+  21 format ("Version ",i0," namelist file ",a)
+  31 format ("Invalid value, namelist_version=",i0)
+  41 format (                                                    "$", &
+             "******************** ERROR! *********************","$", &
+             "  Aborting because the input file is obsolete.   ","$", &
+             "  An attempt at converting it to the current     ","$", &
+             "  format was written to: ",a                      ,"$", &
+             "  Check the new file for accuracy and try again. ","$", &
+             "******************** ERROR! *********************","$")
   !
 end subroutine read_input_file
 !
@@ -150,7 +226,7 @@ subroutine check_input_file(input_fname,input_status)
   !
   !.. Formal Arguments ..
   character(len=*),  intent(in) :: input_fname
-  integer,          intent(out) :: input_status
+  integer,          intent(out) :: input_status !< (0,-1)=(ok,fail)
   !
   !.. Local Scalars ..
   integer :: ierr,inpt
@@ -207,10 +283,11 @@ continue
         if ( text      == ""  ) cycle line_loop  ! skip blank   lines
         if ( text(1:1) == "!" ) cycle line_loop  ! skip comment lines
         !
-        ! Check the line for namelist block begin.
-        ! Change input_status to 0 if namelist block found.
+        ! Check the line for any namelist block begin.
+        ! Change input_status to 0 if any namelist block found.
         !
-        if (text(1:6) == "&INPUT") input_status = 0
+!       if (text(1:6) == "&INPUT") input_status = 0
+        if (text(1:1) == "&") input_status = 0
         !
         ! Done reading lines. Either found namelist block or failed.
         !
