@@ -706,7 +706,6 @@ module ovar
   !
   ! CHANNEL FLOW PARAMETERS
   real(wp),         public, save :: channel_body_force          = 0.0_wp
-  character(len=:), public, save, allocatable :: channel_init_file
   logical(lk),      public, save :: channel_spatial_ave_restart = fals
   logical(lk),      public, save :: channel_nondim_output_coord = fals
   !

@@ -174,7 +174,7 @@ module nml_0001_mod
   use ovar, only : pulse_test_form, pulse_test_form_dim
   use ovar, only : pulse_test_length, pulse_test_center
   use ovar, only : pulse_test_width, pulse_test_gap, pulse_test_repeat
-  use ovar, only : channel_body_force,channel_init_file
+  use ovar, only : channel_body_force
   use ovar, only : channel_spatial_ave_restart
   use ovar, only : channel_nondim_output_coord
   use ovar, only : channel_yplus_of_one
@@ -509,8 +509,6 @@ continue
             solution_file           , ''        , default_len )
   call set('output_dir             ',                         &
             output_dir              , '.'       , default_len )
-  call set('channel_init_file      ',                         &
-            channel_init_file       , ''        , default_len )
   call set('lustre_stripe_size     ',                         &
             lustre_stripe_size      , '4m'      , default_len )
   call set('time_ave_file          ',                         &
@@ -670,7 +668,6 @@ continue
   restart_file            = trim(adjustl( restart_file            ))
   solution_file           = trim(adjustl( solution_file           ))
   output_dir              = trim(adjustl( output_dir              ))
-  channel_init_file       = trim(adjustl( channel_init_file       ))
   lustre_stripe_size      = trim(adjustl( lustre_stripe_size      ))
   time_ave_file           = trim(adjustl( time_ave_file           ))
   restart_list_file       = trim(adjustl( restart_list_file       ))
@@ -1316,7 +1313,7 @@ subroutine ionml_input()
   ! SHU-OSHER SHOCK TUBE TEST PARAMETERS
   namelist / input / shu_osher_test_dof
   ! CHANNEL FLOW PARAMETERS
-  namelist / input / channel_body_force, channel_init_file, &
+  namelist / input / channel_body_force, &
                      channel_spatial_ave_restart, channel_nondim_output_coord, &
                      channel_grid_ave_xplus, channel_grid_ave_zplus, &
                      channel_grid_ave_yplus, channel_grid_yplus_wall, &
@@ -2001,8 +1998,6 @@ continue
 !{{{  ! CHANNEL FLOW PARAMETERS
       call set('channel_body_force               ',                         &
                 channel_body_force                , 0.0_wp                  )
-      call set('channel_init_file                ',                         &
-                channel_init_file                 , ''                      )
       call set('channel_spatial_ave_restart      ',                         &
                 channel_spatial_ave_restart       , fals                    )
       call set('channel_nondim_output_coord      ',                         &

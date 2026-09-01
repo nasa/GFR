@@ -11,7 +11,6 @@ module channel_mod
   private
   !
   !.. Public procedures
-  public :: read_channel_init_file
   public :: channel_initialization
   public :: pipe_initialization
   public :: channel_source
@@ -20,20 +19,6 @@ module channel_mod
   real(wp), allocatable, save :: init_sol(:,:)
   !
 contains
-!
-!###############################################################################
-!
-subroutine read_channel_init_file()
-  !
-  !.. Use Statements ..
-  use ovar, only : channel_init_file
-  !
-  !.. Local Parameters..
-  character(len=*), parameter :: pname = "read_channel_init_file"
-  !
-continue
-  !
-end subroutine read_channel_init_file
 !
 !###############################################################################
 !

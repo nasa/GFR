@@ -866,11 +866,6 @@ continue
   !
   if (e_order > 0) e_order = max(e_order,n_order+0)
   !
- !if (itestcase == Channel_Flow) then
- !  call read_channel_init_file
- !  call check_for_bad_number(__LINE__,__FILE__)
- !end if
-  !
   ! Check that input for density pulse test case is valid.
   !
   if (itestcase == Density_Pulse_Test) then

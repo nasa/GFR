@@ -136,7 +136,6 @@ subroutine alloc_nml_data( opt_n_bc_input,opt_char_len, &
   use ovar, only : restart_file
   use ovar, only : solution_file
   use ovar, only : output_dir
-  use ovar, only : channel_init_file
   use ovar, only : lustre_stripe_size
   use ovar, only : time_ave_file
   use ovar, only : restart_list_file
@@ -279,8 +278,6 @@ continue
             solution_file           , ''        , default_len )
   call set('Output_Dir             ', &
             output_dir              , '.'       , default_len )
-  call set('Channel_Init_File      ', &
-            channel_init_file       , ''        , default_len )
   call set('Lustre_Stripe_Size     ', &
             lustre_stripe_size      , '4m'      , default_len )
   call set('Time_Ave_File          ', &
@@ -316,7 +313,6 @@ subroutine resiz_nml_data()
   use ovar, only : restart_file
   use ovar, only : solution_file
   use ovar, only : output_dir
-  use ovar, only : channel_init_file
   use ovar, only : lustre_stripe_size
   use ovar, only : time_ave_file
   use ovar, only : restart_list_file
@@ -455,7 +451,6 @@ continue
   restart_file            = trim(adjustl( restart_file            ))
   solution_file           = trim(adjustl( solution_file           ))
   output_dir              = trim(adjustl( output_dir              ))
-  channel_init_file       = trim(adjustl( channel_init_file       ))
   lustre_stripe_size      = trim(adjustl( lustre_stripe_size      ))
   time_ave_file           = trim(adjustl( time_ave_file           ))
   restart_list_file       = trim(adjustl( restart_list_file       ))
@@ -2607,7 +2602,6 @@ subroutine ionml_removed()
   use ovar, only : use_improved_SEM_normalization
   use ovar, only : average_sem_inflow_plane
   use ovar, only : time_average_restart_files
-  use ovar, only : channel_init_file
   use ovar, only : postproc_debug_grid
   use ovar, only : dump_memory_usage
   use ovar, only : dump_fluxes
@@ -2672,8 +2666,6 @@ subroutine ionml_removed()
   namelist / nml_removed / disable_header_rewrites
   ! OPENACC INPUT OPTIONS
   namelist / nml_removed / use_async_for_error
-  ! TESTCASE CHANNEL FLOW
-  namelist / nml_removed / channel_init_file
   ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
   namelist / nml_removed / time_average_restart_files
   ! ACTIVATE SPECIAL GRID FOR DEBUGGING THE POSTPROCESSOR
@@ -2776,9 +2768,6 @@ continue
                 disable_header_rewrites           , fals                    )
       call set('Use_Async_For_Error              ',                         &
                 use_async_for_error               , fals                    )
-      ! Testcase
-      call set('Channel_Init_File                ',                         &
-                channel_init_file                 , ''                      )
       ! Utility
       call set('Time_Average_Restart_Files       ',                         &
                 time_average_restart_files        , fals                    )
