@@ -1450,8 +1450,6 @@ subroutine process_nml_data(error)
   !.. Formal Arguments ..
   integer, intent(out) :: error
   !
-  !.. Local Scalars ..
-  !
   ! Old variables
   integer :: Old_Limiter_Filter_Option
   integer :: Old_Limiter_Option
