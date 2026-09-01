@@ -16,6 +16,7 @@ module nml_0001_mod
   use nml_base_mod, only : set_NMLaction
   use nml_base_mod, only : iow_header
   use nml_base_mod, only : iow_footer
+  use nml_base_mod, only : set => set_value
   use nml_base_mod, only : NMLaction_SetDummy0
   use nml_base_mod, only : NMLaction_SetDummy1
   use nml_base_mod, only : NMLaction_SetValue
@@ -380,7 +381,6 @@ subroutine alloc_nml_data(opt_n_bc_input,opt_char_len, &
   integer :: n,ierr
   integer :: default_len,n_species,n_bc_input
   integer :: n_point_probes,n_rake_probes,n_cell_probes
-  character(len=20) :: blanks
   character(len=50) :: array_name
   !
   !.. Local Parameters ..
@@ -441,82 +441,6 @@ continue
                      ierr,error_message)
   end if
   !
-  if (allocated(gridfile)) then
-    deallocate ( gridfile , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"gridfile",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(plot3d_cutfile)) then
-    deallocate ( plot3d_cutfile , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"plot3d_cutfile",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
-  if (allocated(plot3d_bcsfile)) then
-    deallocate ( plot3d_bcsfile , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"plot3d_bcsfile",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
-  if (allocated(interpto_gridfile)) then
-    deallocate ( interpto_gridfile , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interpto_gridfile",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
-  if (allocated(interpto_plot3d_cutfile)) then
-    deallocate ( interpto_plot3d_cutfile , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interpto_plot3d_cutfile",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
-  if (allocated(interpto_plot3d_bcsfile)) then
-    deallocate ( interpto_plot3d_bcsfile , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interpto_plot3d_bcsfile",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
-  if (allocated(restart_file)) then
-    deallocate ( restart_file , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"restart_file",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
-  if (allocated(solution_file)) then
-    deallocate ( solution_file , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"solution_file",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
-  if (allocated(output_dir)) then
-    deallocate ( output_dir , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"output_dir",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(channel_init_file)) then
-    deallocate ( channel_init_file , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"channel_init_file",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
-  if (allocated(lustre_stripe_size)) then
-    deallocate ( lustre_stripe_size , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"lustre_stripe_size",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
-  if (allocated(time_ave_file)) then
-    deallocate ( time_ave_file , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"time_ave_file",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
-  if (allocated(restart_list_file)) then
-    deallocate ( restart_list_file , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"restart_list_file",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
   ! ------------------------------------
   ! Allocate bc_input array: bc_input(:)
   ! ------------------------------------
@@ -566,115 +490,32 @@ continue
   ! Set allocatable character variables to their default values and lengths.
   ! ------------------------------------------------------------------------
   !
-  allocate ( character(len=default_len) :: gridfile , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"gridfile",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( character(len=default_len) :: plot3d_cutfile , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"plot3d_cutfile",1,__LINE__,__FILE__, &
-                   ierr,error_message)
-  !
-  allocate ( character(len=default_len) :: plot3d_bcsfile , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"plot3d_bcsfile",1,__LINE__,__FILE__, &
-                   ierr,error_message)
-  !
-  allocate ( character(len=default_len) :: interpto_gridfile , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"interpto_gridfile",1,__LINE__,__FILE__, &
-                   ierr,error_message)
-  !
-  allocate ( character(len=default_len) :: interpto_plot3d_cutfile , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"interpto_plot3d_cutfile",1,__LINE__,__FILE__, &
-                   ierr,error_message)
-  !
-  allocate ( character(len=default_len) :: interpto_plot3d_bcsfile , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"interpto_plot3d_bcsfile",1,__LINE__,__FILE__, &
-                   ierr,error_message)
-  !
-  allocate ( character(len=default_len) :: restart_file , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"restart_file",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( character(len=default_len) :: solution_file , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"solution_file",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( character(len=default_len) :: output_dir , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"output_dir",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( character(len=default_len) :: channel_init_file , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"channel_init_file",1,__LINE__,__FILE__, &
-                   ierr,error_message)
-  !
-  allocate ( character(len=default_len) :: lustre_stripe_size , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"lustre_stripe_size",1,__LINE__,__FILE__, &
-                   ierr,error_message)
-  !
-  allocate ( character(len=default_len) :: time_ave_file , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"time_ave_file",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( character(len=default_len) :: restart_list_file , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"restart_list_file",1,__LINE__,__FILE__, &
-                   ierr,error_message)
-  !
-  ! Set character input variables to empty string of specified length.
-  !
-  if (default_len > 0) then
-    !
-    write (blanks,1) default_len
-    !
-    write (gridfile                , blanks)
-    write (plot3d_cutfile          , blanks)
-    write (plot3d_bcsfile          , blanks)
-    write (interpto_gridfile       , blanks)
-    write (interpto_plot3d_cutfile , blanks)
-    write (interpto_plot3d_bcsfile , blanks)
-    write (restart_file            , blanks)
-    write (solution_file           , blanks)
-    write (output_dir              , blanks)
-    write (channel_init_file       , blanks)
-    write (lustre_stripe_size      , blanks)
-    write (time_ave_file           , blanks)
-    write (restart_list_file       , blanks)
-    !
-  end if
-  !
-  ! Set all the character input variables to their default values.
-  ! For long  strings, preserve trailing blanks.
-  ! For short strings, resize to minimal length for content.
-  !
-  if (len(restart_file) >= 7) then
-    restart_file(1:7) = "out.rst"
-  else
-    restart_file = "out.rst" ! F2003 AUTO-REALLOC
-  end if
-  !
-  if (len(output_dir) >= 1) then
-    output_dir(1:1) = "."
-  else
-    output_dir = "." ! F2003 AUTO-REALLOC
-  end if
-  !
-  if (len(lustre_stripe_size) >= 2) then
-    lustre_stripe_size(1:2) = "4m"
-  else
-    lustre_stripe_size = "4m" ! F2003 AUTO-REALLOC
-  end if
-  !
-  if (len(time_ave_file) >= 7) then
-    time_ave_file(1:7) = "out.ave"
-  else
-    time_ave_file = "out.ave" ! F2003 AUTO-REALLOC
-  end if
+  call set('gridfile               ',                         &
+            gridfile                , ''        , default_len )
+  call set('plot3d_cutfile         ',                         &
+            plot3d_cutfile          , ''        , default_len )
+  call set('plot3d_bcsfile         ',                         &
+            plot3d_bcsfile          , ''        , default_len )
+  call set('interpto_gridfile      ',                         &
+            interpto_gridfile       , ''        , default_len )
+  call set('interpto_plot3d_cutfile',                         &
+            interpto_plot3d_cutfile , ''        , default_len )
+  call set('interpto_plot3d_bcsfile',                         &
+            interpto_plot3d_bcsfile , ''        , default_len )
+  call set('restart_file           ',                         &
+            restart_file            , 'out.rst' , default_len )
+  call set('solution_file          ',                         &
+            solution_file           , ''        , default_len )
+  call set('output_dir             ',                         &
+            output_dir              , '.'       , default_len )
+  call set('channel_init_file      ',                         &
+            channel_init_file       , ''        , default_len )
+  call set('lustre_stripe_size     ',                         &
+            lustre_stripe_size      , '4m'      , default_len )
+  call set('time_ave_file          ',                         &
+            time_ave_file           , 'out.ave' , default_len )
+  call set('restart_list_file      ',                         &
+            restart_list_file       , ''        , default_len )
   !
   call debug_timer(leaving_procedure,pname)
   !
