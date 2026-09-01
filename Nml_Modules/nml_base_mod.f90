@@ -757,10 +757,12 @@ continue
   ! Fill with value.
   !
   if ( default_len >= len(val) ) then
-    ! Preserve var length.
+    ! Preserve any traililng blanks if default_len is
+    ! longer than the length of the input val.
     var(1:len(val)) = val
   else
-    ! Shrink var length to minimum required.
+    ! Increase the length of var to the length of the input val
+    ! so the entire contents of val can be copied into var.
     var = val  ! F2003 AUTO-REALLOC
   end if
   !
