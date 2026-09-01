@@ -61,6 +61,8 @@ continue
   !
   if (nml_ver == latest_namelist_version) then
     !
+    nml_ver_9999%version = nml_procedures%version
+    !
     nml_ver_9999%alloc_data => nml_procedures%alloc_data
     nml_ver_9999%resiz_data => nml_procedures%resiz_data
     nml_ver_9999%  set_data => nml_procedures%  set_data

@@ -110,6 +110,7 @@ module nml_base_mod
   !> the pointers to the respective procedures for a namelist version
   !> which are sent in as arguments.
   type, abstract, public :: namelist_procedures_t
+    integer :: version = 0 ! namelist version # for these procedures
     procedure(alloc_namelist_data), pointer, nopass :: alloc_data => null()
     procedure(resiz_namelist_data), pointer, nopass :: resiz_data => null()
     procedure(  set_namelist_data), pointer, nopass ::   set_data => null()

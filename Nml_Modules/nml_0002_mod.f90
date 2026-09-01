@@ -96,6 +96,8 @@ subroutine init_nml0002_procedures()
   !
 continue
   !
+  nml_ver_0002%version = module_namelist_version
+  !
   nml_ver_0002%alloc_data => alloc_nml_data
   nml_ver_0002%resiz_data => resiz_nml_data
   nml_ver_0002%  set_data =>   set_nml_data
