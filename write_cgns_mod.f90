@@ -2063,6 +2063,8 @@ continue
       n = n + 2*nmarker + 3
     else if (trim(variable_names(l)) == "MLPMarker") then
       n = n + 2*nmarker
+    else if (trim(variable_names(l)) == "PositivityTheta") then
+      n = n + nmarker
     else if (trim(variable_names(l)) == "TimeMetrics") then
       if (allocated(time_metrics)) then
         n = n + nr + 1
@@ -2393,6 +2395,15 @@ continue
         call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       end do
       !
+    else if (trim(variable_names(k)) == "PositivityTheta") then
+      !
+      do imarker = 1, nmarker
+        n = n + 1
+        varname = trim(variable_names(k))
+        if ( imarker > 1 ) write(varname,'(a,i2.2)') trim(varname),imarker
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+      !
     else if (trim(variable_names(k)) == "FilterDissipation") then
       !
       n = n + 1
@@ -2657,19 +2668,20 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
   use metrics_mod, only : time_metrics,metrics_array,jac,wtdjac
   !
-  use flowvar_mod,  only : marker,scaled_marker,nmarker
+  use flowvar_mod,         only : marker,scaled_marker,nmarker
+  use flowvar_mod,         only : positivity_limiter_theta
   !
   use cell_ave_mod,       only : compute_cell_ave_var
   use advection_js_mod,   only : advection_js_exact_solution
   use sod_shock_tube_mod, only : sod_shock_tube_exact_solution
   !
-  use limiters_mod, only : resolution_indicator
-  use limiters_mod, only : jump_indicator
-  use limiters_mod, only : ducros_indicator
-  use limiters_mod, only : cell_lengths
-  use flowvar_mod,  only : deallocate_marker
-  use flowvar_mod,  only : deallocate_scaled_marker
-  use mlp_mod,      only : limit_by_mlp
+  use limiters_mod,        only : resolution_indicator
+  use limiters_mod,        only : jump_indicator
+  use limiters_mod,        only : ducros_indicator
+  use limiters_mod,        only : cell_lengths
+  use flowvar_mod,         only : deallocate_marker
+  use flowvar_mod,         only : deallocate_scaled_marker
+  use mlp_mod,             only : limit_by_mlp
   !
   use thermo_mod, only : rspec
   use thermo_mod, only : compute_mixture_rgas
@@ -2722,6 +2734,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
   integer(CBT) :: ivar_s
   !
+  logical(lk) :: array_was_not_allocated
   logical(lk) :: marker_was_not_allocated
   logical(lk) :: scaled_marker_was_not_allocated
   !
@@ -2747,6 +2760,8 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   real(wp), parameter :: qcriterion_ref_vel = zero
   !
 continue
+  !
+  array_was_not_allocated = fals
   !
   npts = size(vartmp)
   !
@@ -4848,6 +4863,52 @@ continue
         call deallocate_scaled_marker(pname)
       end if
       !!}}}
+    case ("PositivityTheta")
+      !!{{{
+      allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      ! Compute the positivity limiter scaling factor
+      ! if it has yet to be computed
+      !
+      if (.not. allocated(positivity_limiter_theta)) then
+        allocate ( positivity_limiter_theta(1:ncell,1:nmarker) , source=one , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"positivity_limiter_theta",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+        array_was_not_allocated = true
+      end if
+      !
+      do imarker = 1, nmarker
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do nc = 1,ncell
+          n0 = cell(nc)%beg_sp - 1
+          np = cell(nc)%end_sp - n0
+          do n = 1,np
+            vartmp_at_sp(n0+n) = positivity_limiter_theta(nc,imarker)
+          end do
+        end do
+        !
+        call interpolate_for_output( vartmp_at_sp , vartmp )
+        !
+        call cgns_write_field_data
+      end do
+      !
+      ! Deallocate positivity_limiter_theta if it was not originally
+      ! allocated when this case construct was entered.
+      !
+      if (array_was_not_allocated) then
+        deallocate ( positivity_limiter_theta , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"positivity_limiter_theta",2,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+      !
+      !!}}}
     case ("FilterDissipation")
       !!{{{
       !
@@ -5155,6 +5216,7 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,        only : output_local_timestep
   use ovar,        only : Marker_Option
   use ovar,        only : Marker_Variable
+  use ovar,        only : positivity
   use ovar,        only : output_species_density
   use ovar,        only : output_species_mass_fractions
   use ovar,        only : output_species_mole_fractions
@@ -5196,7 +5258,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:67) = ["Density             ", &
+  character(len=*), parameter :: var_order(1:68) = ["Density             ", &
                                                     "Momentum            ", &
                                                     "Energy              ", &
                                                     "Velocity            ", &
@@ -5241,6 +5303,7 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "JumpMarker          ", &
                                                     "DucrosMarker        ", &
                                                     "MLPMarker           ", &
+                                                    "PositivityTheta        ", &
                                                     "Timestep            ", &
                                                     "LocalTimestep       ", &
                                                     "Partition           ", &
@@ -5482,6 +5545,10 @@ continue
       case default
         ! Output nothing.
     end select
+    !
+    if ( positivity%Option /= Positivity_Lim_Option__OFF ) then
+        call add_sol_variable(variable_list, "PositivityTheta") 
+    endif
     !
   end if
   !
