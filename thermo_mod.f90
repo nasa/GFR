@@ -30,6 +30,7 @@ module thermo_mod
   public :: compute_gibbs_free_energy
   public :: compute_dgbdt
   public :: compute_internal_energy
+  public :: compute_minimum_internal_energy
   !
   !
   ! RUNIVL : Universal gas constant
@@ -2038,6 +2039,57 @@ continue
   end if
   !
 end subroutine compute_internal_energy
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine compute_minimum_internal_energy(n1,n2,cv,e)
+  !
+  use ovar, only : tref
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1
+  integer,     intent(in) :: n2
+  real(wp), intent(inout) :: cv(:,:)
+  real(wp), intent(inout) :: e(:)
+  !
+  !.. Local Scalars / Arrays ..
+  integer  :: n,nr
+  real(wp) :: rho_inv,velx,vely,velz,q2,tmin
+  real(wp), dimension(:), allocatable :: rmix,h,t
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_minimum_internal_energy"
+  !
+continue
+  !
+  tmin = eps1 / tref
+  rmix = cv(:,1) ! 2003 Fortan reallocation -> initialize it
+  h    = cv(:,1) ! 2003 Fortan reallocation -> initialize it
+  t    = init_array(SIZE(cv,dim=1),tmin)  ! fortran 2003
+  !
+  do n = n1,n2
+    cv(n,1:ncs) = cv(n,1:ncs)/cv(n,nec)
+  end do
+  !
+  call compute_mixture_rgas(n1,n2,cv(:,1:ncs),rmix)
+  call compute_mixture_enthalpy(n1,n2,cv(:,1:ncs),t,h)
+  !
+  do n = n1,n2
+      e(n) = h(n) - rmix(n)*tmin
+  end do
+  !
+  do n = n1,n2
+    cv(n,1:ncs) = cv(n,1:ncs)*cv(n,nec)
+  end do
+  !
+  deallocate(rmix)
+  deallocate(t)
+  deallocate(h)
+  !
+end subroutine compute_minimum_internal_energy
 !
 !###############################################################################
 !
