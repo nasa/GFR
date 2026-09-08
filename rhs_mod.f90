@@ -509,27 +509,32 @@ subroutine stabilize_usp(nst,Apply_Filter,Apply_Sponge,Apply_Limiter, &
                          caller_name)
   !
   !.. Use Statements ..
-  use geomvar_mod,     only : n_solpts
-  use flowvar_mod,     only : usp,gpsp
-  use ovar,            only : Limiter_Option,Filter_Option
-  use ovar,            only : Filter_Alpha
-  use ovar,            only : ideal_total_temperature
-  use ovar,            only : Sponge_Filter_Option
-  use ovar,            only : thermofix
-  use ovar,            only : governing_equations
-  use filter_mod,      only : filter_usp
-  use limiters_mod,    only : resolution_indicator
-  use limiters_mod,    only : limit_by_projecting
-  use limiters_mod,    only : apply_sponge_filter
-  use mlp_mod,         only : limit_by_mlp
-  use flux_mod,        only : interp_cv_to_flxpts
-  use flux_mod,        only : discontinuous_gradient_at_solpts
+  use geomvar_mod,         only : n_solpts,n_flxpts
+  use flowvar_mod,         only : usp,gpsp,faceusp,facegpsp
+  use ovar,                only : Limiter_Option,Filter_Option
+  use ovar,                only : Filter_Alpha
+  use ovar,                only : ideal_total_temperature
+  use ovar,                only : Sponge_Filter_Option
+  use ovar,                only : thermofix
+  use ovar,                only : governing_equations
+  use ovar,                only : positivity, entropy_limiter
+  use filter_mod,          only : filter_usp
+  use limiters_mod,        only : resolution_indicator
+  use limiters_mod,        only : limit_by_projecting
+  use limiters_mod,        only : apply_sponge_filter
+  use entropy_limiter_mod, only : perform_entropy_limiting
+  use entropy_limiter_mod, only : update_parallel_entropy_bounds
+  use mlp_mod,             only : limit_by_mlp
+  use flux_mod,            only : interp_cv_to_flxpts
+  use flux_mod,            only : discontinuous_gradient_at_solpts
   !
-  use thermofix_mod,   only : check_thermo_properties
-  use thermofix_mod,   only : check_cell_thermo_properties
-  use thermo_mod,      only : update_mixture_density
-  use thermo_mod,      only : update_thermo_properties
-  use transport_mod,   only : update_transport_properties
+  use thermofix_mod,       only : check_thermo_properties
+  use thermofix_mod,       only : check_cell_thermo_properties
+  use thermo_mod,          only : update_mixture_density
+  use thermo_mod,          only : update_thermo_properties
+  use transport_mod,       only : update_transport_properties
+  !
+  use positivity_mod,      only : positivity_preserving_limiter
   !
   !.. Formal Arguments ..
   integer,          intent(in) :: nst           !< Current Runge-Kutta stage.
@@ -573,14 +578,6 @@ continue
     end if
   end if
   !
-  ! Apply realizable total temperature limiter
-  !
-  if (ideal_total_temperature > zero) then
-    call update_thermo_properties(1,n_solpts,usp,gpsp, &
-                                  loc="cell",caller_name=caller_name)
-    call check_total_temperature(n_solpts,usp,gpsp,nst)
-  end if
-  !
   ! Apply the global/background exponential filter. This filter is applied
   ! to every cell regardless of whether or not the solution in the cell
   ! is stable/smooth/well-resolved.
@@ -598,6 +595,26 @@ continue
       call filter_usp
       call check_for_bad_number(__LINE__,__FILE__)
     end if
+  end if
+  !
+  ! Ensures the positivity of density and pressure
+  if (Positivity%Option /= Positivity_Lim_Option__OFF) then
+    call positivity_preserving_limiter(nst)
+  end if
+  !
+  if (entropy_limiter%Option /= Entropy_Lim_Option__OFF) then
+    call update_parallel_entropy_bounds()
+    call perform_entropy_limiting(nst)
+  end if
+  !
+  ! Apply realizable total temperature limiter
+  !
+  if (ideal_total_temperature > zero) then
+    call update_thermo_properties(1,n_solpts,usp,gpsp, &
+                                  loc="cell",caller_name=caller_name)
+    call check_total_temperature(n_solpts,usp,gpsp,nst)
+    !
+    call update_thermo_properties(1,n_flxpts,faceusp,facegpsp,"stabilize_usp")
   end if
   !
   ! Apply the shock/troubled-cell limiter. The cells will first be checked
