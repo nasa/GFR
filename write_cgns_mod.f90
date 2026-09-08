@@ -2065,6 +2065,8 @@ continue
       n = n + 2*nmarker
     else if (trim(variable_names(l)) == "PositivityTheta") then
       n = n + nmarker
+    else if (trim(variable_names(l)) == "EntropyLimiterStrength") then
+      n = n + nmarker
     else if (trim(variable_names(l)) == "TimeMetrics") then
       if (allocated(time_metrics)) then
         n = n + nr + 1
@@ -2404,6 +2406,15 @@ continue
         call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       end do
       !
+    else if (trim(variable_names(k)) == "EntropyLimiterStrength") then
+      !
+      do imarker = 1, nmarker
+        n = n + 1
+        varname = trim(variable_names(k))
+        if ( imarker > 1 ) write(varname,'(a,i2.2)') trim(varname),imarker
+        call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      end do
+      !
     else if (trim(variable_names(k)) == "FilterDissipation") then
       !
       n = n + 1
@@ -2670,6 +2681,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   !
   use flowvar_mod,         only : marker,scaled_marker,nmarker
   use flowvar_mod,         only : positivity_limiter_theta
+  use flowvar_mod,         only : entropy_limiter_strength
   !
   use cell_ave_mod,       only : compute_cell_ave_var
   use advection_js_mod,   only : advection_js_exact_solution
@@ -4909,6 +4921,51 @@ continue
       end if
       !
       !!}}}
+    case ("EntropyLimiterStrength")
+      !!{{{
+      allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      ! Compute the strength of the entropy limiter if it has yet to be computed
+      !
+      if (.not. allocated(entropy_limiter_strength)) then
+        allocate ( entropy_limiter_strength(1:ncell,1:nmarker) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"entropy_limiter_strength",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+        array_was_not_allocated = true
+      end if
+      !
+      do imarker = 1, nmarker
+        nv = nv + 1
+        ivar_s = isvar_s(nv)
+        !
+        do nc = 1,ncell
+          n0 = cell(nc)%beg_sp - 1
+          np = cell(nc)%end_sp - n0
+          do n = 1,np
+            vartmp_at_sp(n0+n) = entropy_limiter_strength(nc,imarker)
+          end do
+        end do
+        !
+        call interpolate_for_output( vartmp_at_sp , vartmp )
+        !
+        call cgns_write_field_data
+      end do
+      !
+      ! Deallocate entropy_limiter_strength if it was not originally
+      ! allocated when this case construct was entered.
+      !
+      if (array_was_not_allocated) then
+        deallocate ( entropy_limiter_strength , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"entropy_limiter_strength",2,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+      !
+      !!}}}
     case ("FilterDissipation")
       !!{{{
       !
@@ -5217,6 +5274,7 @@ subroutine get_cgns_sol_variables(variable_list)
   use ovar,        only : Marker_Option
   use ovar,        only : Marker_Variable
   use ovar,        only : positivity
+  use ovar,        only : entropy_limiter
   use ovar,        only : output_species_density
   use ovar,        only : output_species_mass_fractions
   use ovar,        only : output_species_mole_fractions
@@ -5258,74 +5316,75 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:68) = ["Density             ", &
-                                                    "Momentum            ", &
-                                                    "Energy              ", &
-                                                    "Velocity            ", &
-                                                    "Pressure            ", &
-                                                    "Temperature         ", &
-                                                    "Mach                ", &
-                                                    "MassFractions       ", &
-                                                    "MoleFractions       ", &
-                                                    "SpeciesDensities    ", &
-                                                    "Enthalpy            ", &
-                                                    "Cp                  ", &
-                                                    "Entropy             ", &
-                                                    "P0                  ", &
-                                                    "T0                  ", &
-                                                    "H0                  ", &
-                                                    "Viscosity           ", &
-                                                    "Conductivity        ", &
-                                                    "Prandtl             ", &
-                                                    "Gamma               ", &
-                                                    "Rgas                ", &
-                                                    "SpeciesEnthalpy     ", &
-                                                    "SpeciesCp           ", &
-                                                    "cpi/R               ", &
-                                                    "hi/RT               ", &
-                                                    "hi/R                ", &
-                                                    "GradSpeciesDensities", &
-                                                    "GradDensity         ", &
-                                                    "GradMomentum        ", &
-                                                    "GradEnergy          ", &
-                                                    "GradMassFractions   ", &
-                                                    "GradVelocity        ", &
-                                                    "Vorticity           ", &
-                                                    "CylindricalVelocity ", &
-                                                    "RelativeMomentum    ", &
-                                                    "RelativeVelocity    ", &
-                                                    "RCylindricalVelocity", &
-                                                    "RelativeMach        ", &
-                                                    "CellAveDensity      ", &
-                                                    "GradPressure        ", &
-                                                    "GradTemperature     ", &
-                                                    "ResolutionMarker    ", &
-                                                    "JumpMarker          ", &
-                                                    "DucrosMarker        ", &
-                                                    "MLPMarker           ", &
-                                                    "PositivityTheta        ", &
-                                                    "Timestep            ", &
-                                                    "LocalTimestep       ", &
-                                                    "Partition           ", &
-                                                    "CellSize            ", &
-                                                    "ContraMetrics       ", &
-                                                    "TimeMetrics         ", &
-                                                    "dTdx_Breakdown      ", &
-                                                    "DmatTemperature     ", &
-                                                    "DmatPressure        ", &
-                                                    "CoMetrics           ", &
-                                                    "GradPresMagnitude   ", &
-                                                    "GradTempMagnitude   ", &
-                                                    "GradDensityMagnitude", &
-                                                    "Schlieren           ", &
-                                                    "ModifiedSchlieren   ", &
-                                                    "VorticityMagnitude  ", &
-                                                    "StrainRateMagnitude ", &
-                                                    "QCriterion          ", &
-                                                    "DivergenceOfVelocity", &
-                                                    "FilterDissipation   ", &
-                                                    "ExactDensity        ", &
-                                                    "ExactPressure       "]
+  character(len=*), parameter :: var_order(1:69) = ["Density               ", &
+                                                    "Momentum              ", &
+                                                    "Energy                ", &
+                                                    "Velocity              ", &
+                                                    "Pressure              ", &
+                                                    "Temperature           ", &
+                                                    "Mach                  ", &
+                                                    "MassFractions         ", &
+                                                    "MoleFractions         ", &
+                                                    "SpeciesDensities      ", &
+                                                    "Enthalpy              ", &
+                                                    "Cp                    ", &
+                                                    "Entropy               ", &
+                                                    "P0                    ", &
+                                                    "T0                    ", &
+                                                    "H0                    ", &
+                                                    "Viscosity             ", &
+                                                    "Conductivity          ", &
+                                                    "Prandtl               ", &
+                                                    "Gamma                 ", &
+                                                    "Rgas                  ", &
+                                                    "SpeciesEnthalpy       ", &
+                                                    "SpeciesCp             ", &
+                                                    "cpi/R                 ", &
+                                                    "hi/RT                 ", &
+                                                    "hi/R                  ", &
+                                                    "GradSpeciesDensities  ", &
+                                                    "GradDensity           ", &
+                                                    "GradMomentum          ", &
+                                                    "GradEnergy            ", &
+                                                    "GradMassFractions     ", &
+                                                    "GradVelocity          ", &
+                                                    "Vorticity             ", &
+                                                    "CylindricalVelocity   ", &
+                                                    "RelativeMomentum      ", &
+                                                    "RelativeVelocity      ", &
+                                                    "RCylindricalVelocity  ", &
+                                                    "RelativeMach          ", &
+                                                    "CellAveDensity        ", &
+                                                    "GradPressure          ", &
+                                                    "GradTemperature       ", &
+                                                    "ResolutionMarker      ", &
+                                                    "JumpMarker            ", &
+                                                    "DucrosMarker          ", &
+                                                    "MLPMarker             ", &
+                                                    "PositivityTheta       ", &
+                                                    "EntropyLimiterStrength", &
+                                                    "Timestep              ", &
+                                                    "LocalTimestep         ", &
+                                                    "Partition             ", &
+                                                    "CellSize              ", &
+                                                    "ContraMetrics         ", &
+                                                    "TimeMetrics           ", &
+                                                    "dTdx_Breakdown        ", &
+                                                    "DmatTemperature       ", &
+                                                    "DmatPressure          ", &
+                                                    "CoMetrics             ", &
+                                                    "GradPresMagnitude     ", &
+                                                    "GradTempMagnitude     ", &
+                                                    "GradDensityMagnitude  ", &
+                                                    "Schlieren             ", &
+                                                    "ModifiedSchlieren     ", &
+                                                    "VorticityMagnitude    ", &
+                                                    "StrainRateMagnitude   ", &
+                                                    "QCriterion            ", &
+                                                    "DivergenceOfVelocity  ", &
+                                                    "FilterDissipation     ", &
+                                                    "ExactDensity          ", &
+                                                    "ExactPressure         "]
   !
   !.. Variables requiring dusp for output
   character(len=*), parameter :: grad_vars(1:20) = ["GradSpeciesDensities", &
@@ -5550,6 +5609,9 @@ continue
         call add_sol_variable(variable_list, "PositivityTheta") 
     endif
     !
+    if ( entropy_limiter%Option /= Entropy_Lim_Option__OFF ) then
+        call add_sol_variable(variable_list, "EntropyLimiterStrength") 
+    endif
   end if
   !
   if (Track_Limiter_Filter_Dissipation) then
