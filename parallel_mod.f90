@@ -344,6 +344,10 @@ module parallel_mod
   !#############################################################################
   !#############################################################################
   !
+  ! Putting this here to resolve circular dependancy
+  ! --array supporting communication of minimum entropy for boundedness_mod
+  real(wp), public, save, allocatable, dimension(:,:) :: entropy_comm
+  !
 contains
 !
 !###############################################################################
@@ -7060,6 +7064,8 @@ subroutine create_face_nonblocking_datatypes(bface,face_map,flx,face_rotation)
 !subroutine create_face_nonblocking_datatypes(bface,face,face_map, &
 !                                             flx,face_rotation)
   !
+  use ovar,   only : entropy_limiter
+  !
   !.. Formal Arguments ..
   integer,       intent(inout) :: bface(:,:)
  !type(face_t),     intent(in) :: face(:)
@@ -7074,6 +7080,7 @@ subroutine create_face_nonblocking_datatypes(bface,face_map,flx,face_rotation)
   integer :: loc_face,glb_face,my_part
   integer :: adj_face,adj_cpu
   integer :: left_rotation
+  integer :: nq_fuspbuff
   integer(int_mpi) :: block_size,np,tag_offset
   integer(int_mpi) :: this_flxpt
  !integer(int_mpi) :: tag_ub
@@ -7405,7 +7412,12 @@ continue
   !
   ! Set the block size and tag offset for this MPI datatype
   !
-  block_size = int( nq , kind=int_mpi )
+  ! NOTE:EAF - added one for entropy mins
+  if (entropy_limiter%Option /= Entropy_Lim_Option__OFF) then
+    block_size = int( nq+1 , kind=int_mpi )
+  else 
+    block_size = int( nq , kind=int_mpi )
+  end if
   tag_offset = 0_int_mpi
   !
   ! Create the MPI datatypes and allocate the arrays needed for communication
@@ -8953,9 +8965,12 @@ subroutine exchange_faceusp()
   !.. Use Statements ..
   use geomvar_mod, only : bface,face
   use flowvar_mod, only : faceusp
+  use ovar,        only : entropy_limiter
   !
   !.. Local Scalars..
-  integer :: i,k,m,n,nf,nfp,f0,ibeg,nvar
+  integer :: i,k,m,n,nf,nfp,f0,ibeg,ncv,nvar
+  !
+  logical(lk) :: using_entropy_limiter
   !
   integer(int_mpi) :: send_cpu
   integer(int_mpi) :: recv_cpu
@@ -8976,7 +8991,10 @@ continue
   call debug_timer(entering_procedure,pname)
 #endif
   !
-  nvar = size(faceusp,dim=2)
+  using_entropy_limiter = (entropy_limiter%Option /= Entropy_Lim_Option__OFF)
+  !
+  ncv = size(faceusp,dim=2)
+  nvar = ncv + merge(1,0,using_entropy_limiter)
   !
   ibeg = 0
   do nf = 1,size(bface,dim=2)
@@ -8988,10 +9006,15 @@ continue
     !
     i = ibeg
     do k = 1,nfp
-      do m = 1,nvar
+      do m = 1,ncv
         i = i + 1
         fusp_send_buffer(i) = real( faceusp(f0+k,m,1) , kind=r8 )
       end do
+      !
+      if (using_entropy_limiter) then   ! EAF
+        i = i + 1
+        fusp_send_buffer(i) = real( entropy_comm(f0+k,1) , kind=r8 )
+      end if
     end do
     !
     ibeg = ibeg + nfp*nvar
@@ -9046,9 +9069,12 @@ subroutine wait_faceusp()
   !.. Use Statements ..
   use geomvar_mod, only : bface,face
   use flowvar_mod, only : faceusp
+  use ovar,        only : entropy_limiter
   !
   !.. Local Scalars ..
-  integer :: i,k,m,nf,nfp,f0,ibeg,nvar
+  integer :: i,k,m,nf,nfp,f0,ibeg,ncv,nvar
+  !
+  logical(lk) :: using_entropy_limiter
   !
   !.. Local Allocatable Arrays ..
   _MPI_STATUS_TYPE_, allocatable :: fstat(:)
@@ -9067,7 +9093,10 @@ continue
   call debug_timer(entering_procedure,pname)
 #endif
   !
-  nvar = size(faceusp,dim=2)
+  using_entropy_limiter = (entropy_limiter%Option /= Entropy_Lim_Option__OFF)
+  !
+  ncv = size(faceusp,dim=2)
+  nvar = ncv + merge(1,0,using_entropy_limiter)
   !
   ! Wait for all faceusp sends and receives to complete
   !
@@ -9090,10 +9119,16 @@ continue
     !
     i = ibeg
     do k = 1,nfp
-      do m = 1,nvar
+      do m = 1,ncv
         i = i + 1
         faceusp(f0+k,m,2) = real( fusp_recv_buffer(i) , kind=wp )
       end do
+      !
+      if (using_entropy_limiter) then   ! EAF
+        i = i + 1
+        entropy_comm(f0+k,2) = real( fusp_recv_buffer(i) , kind=wp )
+      end if
+      !
     end do
     !
     ibeg = ibeg + nfp*nvar
