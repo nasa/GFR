@@ -32,6 +32,7 @@ module limiters_mod
   public :: ducros_indicator
   public :: cell_length_scale_max_box
   public :: apply_sponge_filter
+  public :: apply_filter_limiter_to_usp
   !
   !
   !.. Module Local Allocatable Arrays ..
