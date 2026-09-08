@@ -45,6 +45,10 @@ module cell_ave_mod
   !> Dim (1:nq,1:ncell).
   real(wp), public, protected, allocatable :: cell_ave_sol(:,:)
   !
+  !> Gas properties cell average solution values for each cell.
+  !> Dim (1:ncell,1:ng)
+  real(wp), public, protected, allocatable :: cell_ave_gp(:,:)
+  !
   !.. Module Local Arrays ..
   !
   !> Cell averaging coefficient for various geometries.
@@ -87,6 +91,19 @@ continue
     !
   end if
   !
+  if (.not. allocated(cell_ave_gp)) then
+    !
+    ! Initialize to one, so that the Newton solver to compute the temperature
+    ! for thermally perfect gas mixtures has a better chance of succeeding.
+    ! This will no affect on computing the temperature when using
+    ! a calorically perfect gas.
+    ! 
+    allocate( cell_ave_gp(1:ncell,1:ng), source=one, &
+              stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cell_ave_gp",1,__LINE__,__FILE__,ierr, &
+                     error_message)
+  end if
+  !
   cell_ave_is_allocated = max(cell_ave_is_allocated + 1, 1)
   !
 end subroutine allocate_cell_ave
@@ -124,6 +141,12 @@ subroutine deallocate_cell_ave(force_dealloc)
                        ierr,error_message)
     end if
     !
+    if ( allocated(cell_ave_gp) ) then
+      deallocate( cell_ave_gp , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"cell_ave_gp",2,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
+    !
   end if
   !
 end subroutine deallocate_cell_ave
@@ -148,13 +171,17 @@ end subroutine set_cell_ave_coef
 subroutine compute_cell_ave_sol
   !
   !.. Use Statements ..
-  use ovar,      only : force_nd_subroutines
+  use ovar,       only : force_nd_subroutines
+  use thermo_mod, only : update_thermo_properties
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_cell_ave_sol"
   !
   !.. Local Scalars ..
-  integer :: nr
+  integer :: nr,lcell
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: transpose_ca_sol(:,:)
   !
 continue
   !
@@ -192,6 +219,21 @@ continue
       ! are consistent.
      !call update_cell_ave_density
     end if
+    !
+  end if
+  !
+  ! Update the cell average gas properties if
+  ! the cell_ave_gp array has been allocated
+  !
+  if (allocated(cell_ave_gp)) then
+    !
+    transpose_ca_sol = transpose(cell_ave_sol(:,:)) ! F2003 AUTO-REALLOC
+    !
+    lcell = size(cell_ave_gp,dim=1)
+    call update_thermo_properties(1,lcell,transpose_ca_sol,cell_ave_gp, &
+                                  "ave",pname)
+    !
+    if (allocated(transpose_ca_sol)) deallocate ( transpose_ca_sol )
     !
   end if
   !
@@ -690,6 +732,16 @@ continue
     write (iou,2) array_name,array%get_units()
   else
     write (iou,7) "cell_ave_sol"
+  end if
+  !
+  if (allocated(cell_ave_gp)) then
+    call array%set( storage_size(cell_ave_gp,kind=inttype) , &
+                            size(cell_ave_gp,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "cell_ave_gp"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "cell_ave_gp"
   end if
   !
   total = total%get_units()
