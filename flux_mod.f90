@@ -55,7 +55,7 @@ contains
 !
 !###############################################################################
 !
-subroutine interp_cv_to_flxpts(iter,nst)
+subroutine interp_cv_to_flxpts(iter,nst,cv_only)
   !
   !.. Use Statements ..
   use geomvar_mod,     only : nr,n_bnd_flxpts,n_phys_bnd_flxpts,n_flxpts
@@ -69,6 +69,7 @@ subroutine interp_cv_to_flxpts(iter,nst)
   !
   !.. Optional Arguments ..
   integer, optional, intent(in) :: iter,nst
+  logical(lk), optional, intent(in) :: cv_only
   !
   !.. Local Scalars ..
   integer :: n1,n2
@@ -104,6 +105,24 @@ continue
     end if
     !
   end if
+  !
+  ! If requested, only get the face conserved variables and do 
+  !                               not update thermo properties
+  if (present(cv_only)) then
+    if (cv_only) then
+      ! -> Need to make sure all face mixture densities are correct
+      n1 = 1
+      n2 = n_flxpts
+      !
+      call update_mixture_density(n1,n2,faceusp(:,:,1))
+      call update_mixture_density(n1,n2,faceusp(:,:,2))
+      !
+      call debug_timer(leaving_procedure,pname)
+      call solver_timer(leaving_procedure,pname,idx)
+      return
+    end if
+  end if
+  !
   !
   ! Update the thermodynamic and transport gas properties
   ! at all the flux points of the interior faces
