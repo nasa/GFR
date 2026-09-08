@@ -2067,6 +2067,8 @@ continue
       n = n + nmarker
     else if (trim(variable_names(l)) == "EntropyLimiterStrength") then
       n = n + nmarker
+    else if (trim(variable_names(l)) == "EntropyLimit") then
+      n = n + nmarker
     else if (trim(variable_names(l)) == "TimeMetrics") then
       if (allocated(time_metrics)) then
         n = n + nr + 1
@@ -2415,6 +2417,12 @@ continue
         call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
       end do
       !
+    else if (trim(variable_names(k)) == "EntropyLimit") then
+      !
+      n = n + 1
+      varname = "LocalMinimumEntropyLimit_ND"
+      call cgns_write_field_header(n,varname,ifld(n),__LINE__,__FILE__)
+      !
     else if (trim(variable_names(k)) == "FilterDissipation") then
       !
       n = n + 1
@@ -2691,6 +2699,7 @@ subroutine output_variable(ifile_s,ibase_s,izone_s,isol_s,isvar_s, &
   use limiters_mod,        only : jump_indicator
   use limiters_mod,        only : ducros_indicator
   use limiters_mod,        only : cell_lengths
+  use entropy_limiter_mod, only : entropy_minimum
   use flowvar_mod,         only : deallocate_marker
   use flowvar_mod,         only : deallocate_scaled_marker
   use mlp_mod,             only : limit_by_mlp
@@ -4966,6 +4975,48 @@ continue
       end if
       !
       !!}}}
+    case ("EntropyLimit")
+      !!{{{
+      allocate ( vartmp_at_sp(1:n_solpts) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"vartmp_at_sp",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      ! Compute the minimum entropy of each cell if it has yet to be computed
+      !
+      if (.not. allocated(entropy_minimum)) then
+        allocate ( entropy_minimum(1:ncell) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"entropy_minimum",1,__LINE__,__FILE__, &
+                         ierr,error_message)
+        array_was_not_allocated = true
+      end if
+      !
+      nv = nv + 1
+      ivar_s = isvar_s(nv)
+      !
+      do nc = 1,ncell
+        n0 = cell(nc)%beg_sp - 1
+        np = cell(nc)%end_sp - n0
+        do n = 1,np
+          vartmp_at_sp(n0+n) = entropy_minimum(nc)
+        end do
+      end do
+      !
+      call interpolate_for_output( vartmp_at_sp , vartmp )
+      !
+      call cgns_write_field_data
+      !
+      ! Deallocate entropy_minimum if it was not originally
+      ! allocated when this case construct was entered.
+      !
+      if (array_was_not_allocated) then
+        deallocate ( entropy_minimum , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"entropy_minimum",2,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+      !
+      !!}}}
     case ("FilterDissipation")
       !!{{{
       !
@@ -5316,7 +5367,7 @@ subroutine get_cgns_sol_variables(variable_list)
   !
   ! AVAILABLE QUANTITIES TO OUTPUT AND ORDER IN WHICH THEY WILL BE OUTPUT
   !
-  character(len=*), parameter :: var_order(1:69) = ["Density               ", &
+  character(len=*), parameter :: var_order(1:70) = ["Density               ", &
                                                     "Momentum              ", &
                                                     "Energy                ", &
                                                     "Velocity              ", &
@@ -5363,6 +5414,7 @@ subroutine get_cgns_sol_variables(variable_list)
                                                     "MLPMarker             ", &
                                                     "PositivityTheta       ", &
                                                     "EntropyLimiterStrength", &
+                                                    "EntropyLimit          ", &
                                                     "Timestep              ", &
                                                     "LocalTimestep         ", &
                                                     "Partition             ", &
@@ -5611,6 +5663,7 @@ continue
     !
     if ( entropy_limiter%Option /= Entropy_Lim_Option__OFF ) then
         call add_sol_variable(variable_list, "EntropyLimiterStrength") 
+        call add_sol_variable(variable_list, "EntropyLimit") 
     endif
   end if
   !
