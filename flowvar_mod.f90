@@ -84,6 +84,10 @@ module flowvar_mod
   real(wp), save, public, allocatable :: marker(:,:)
   real(wp), save, public, allocatable :: scaled_marker(:,:)
   !
+  ! AMOUNT OF H-O MODES PRESERVED BY LIMITER 1=good, 0=P0
+  real(wp), save, public, allocatable :: positivity_limiter_theta(:,:)
+  real(wp), save, public, allocatable :: entropy_limiter_strength(:,:)
+  !
   ! CELL_DISS : array to keep track of the dissipation added to each
   !             cell by the limiter filter
   ! CELL_NUM_MARKS : number of times each cell has been marked
