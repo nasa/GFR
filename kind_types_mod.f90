@@ -963,6 +963,18 @@ module module_kind_types
   !> Valid choices for thermofix%method.
   integer, parameter :: Valid_TFM(1:4) = [TFM_OFF,TFM_LIMIT,TFM_SCALE,TFM_LIMI2]
   !
+  !> Choices for type of filter to use with entropy limiter
+  integer, parameter :: Entropy_Lim_Filter__Flat   = 0
+  integer, parameter :: Entropy_Lim_Filter__Scaled = 1
+  !
+  !> Choices for type of interpolant function to use to compute
+  !> the damping ratio (badness) needed for the entropy limiter
+  integer, parameter :: Entropy_Lim_Intrplnt__LinearLvIhme    = 0
+  integer, parameter :: Entropy_Lim_Intrplnt__Linear          = 1
+  integer, parameter :: Entropy_Lim_Intrplnt__DensityWeighted = 2
+  integer, parameter :: Entropy_Lim_Intrplnt__LogScaled       = 3
+  integer, parameter :: Entropy_Lim_Intrplnt__LogScaledPade   = 4
+  !
   ! Choices for ignition method
   integer, parameter :: IGN_OFF        = 0  ! No ignition source term
   ! IGN_DELTA_TEMP : delta temperature based source term added to energy eqn
