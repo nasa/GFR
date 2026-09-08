@@ -184,6 +184,18 @@ $(OBJDIR)/dt_mod.o : dt_mod.f90 \
 $(OBJDIR)/element_type_mod.o : element_type_mod.f90 \
                      $(OBJDIR)/kind_types_mod.o
 
+$(OBJDIR)/entropy_limiter_mod.o : entropy_limiter_mod.f90 \
+                        $(OBJDIR)/kind_types_mod.o \
+                        $(OBJDIR)/geomvar_mod.o \
+                        $(OBJDIR)/eqn_idx_mod.o \
+                        $(OBJDIR)/cell_ave_mod.o \
+                        $(OBJDIR)/ovar_mod.o \
+                        $(OBJDIR)/limiters_mod.o \
+                        $(OBJDIR)/flowvar_mod.o \
+                        $(OBJDIR)/thermo_mod.o \
+                        $(OBJDIR)/transport_mod.o \
+                        $(OBJDIR)/parallel_mod.o 
+
 $(OBJDIR)/eperk_mod.o : eperk_mod.f90 \
               $(OBJDIR)/kind_types_mod.o \
               $(OBJDIR)/eqn_idx_mod.o \
@@ -687,6 +699,7 @@ $(OBJDIR)/rhs_mod.o : rhs_mod.f90 \
             $(OBJDIR)/metrics_mod.o \
             $(OBJDIR)/filter_mod.o \
             $(OBJDIR)/limiters_mod.o \
+            $(OBJDIR)/entropy_limiter_mod.o \
             $(OBJDIR)/mlp_mod.o \
             $(OBJDIR)/parallel_mod.o \
             $(OBJDIR)/projection_mod.o \
@@ -807,6 +820,7 @@ $(OBJDIR)/write_cgns_mod.o : write_cgns_mod.f90 \
                    $(OBJDIR)/derivatives_mod.o \
                    $(OBJDIR)/projection_mod.o \
                    $(OBJDIR)/limiters_mod.o \
+                   $(OBJDIR)/entropy_limiter_mod.o \
                    $(OBJDIR)/mlp_mod.o \
                    $(OBJDIR)/advection_js_mod.o \
                    $(OBJDIR)/sod_shock_tube_mod.o \
