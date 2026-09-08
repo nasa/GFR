@@ -29,6 +29,7 @@ module thermo_mod
   public :: compute_cp_over_temp_integral
   public :: compute_gibbs_free_energy
   public :: compute_dgbdt
+  public :: compute_internal_energy
   !
   !
   ! RUNIVL : Universal gas constant
