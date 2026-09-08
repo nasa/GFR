@@ -191,7 +191,7 @@ continue
     n2 = cell(ic)%end_sp ! ending    solution point index for this cell
     !
     ! Find scaling factor based on mixture density
-    averho = cell_ave_sol(nec,ic)
+    averho = cell_ave_sol(ic,nec)
     minrho = minval(usp(n1:n2,nec))
     !
     if (limit_flxpts .and. present(faceusp)) then
@@ -215,8 +215,8 @@ continue
     ! >> Perform the Limiting <<
     !
     ! Scale the solution density
-    usp(n1:n2,nec) = cell_ave_sol(nec,ic) + &
-                             theta*(usp(n1:n2,nec)-cell_ave_sol(nec,ic))
+    usp(n1:n2,nec) = cell_ave_sol(ic,nec) + &
+                             theta*(usp(n1:n2,nec)-cell_ave_sol(ic,nec))
     !
     ! Update the output marker
     plt(ic) = min(plt(ic),theta)
@@ -229,8 +229,8 @@ continue
         sf  = cell(ic)%face(ncf)%side ! side of face that cell nc is on
         f1  = face(nf)%beg_fp
         f2  = face(nf)%end_fp
-        faceusp(f1:f2,nec,sf) = cell_ave_sol(nec,ic) + &
-                           theta*(faceusp(f1:f2,nec,sf)-cell_ave_sol(nec,ic))
+        faceusp(f1:f2,nec,sf) = cell_ave_sol(ic,nec) + &
+                           theta*(faceusp(f1:f2,nec,sf)-cell_ave_sol(ic,nec))
       end do
     end if
     !
@@ -291,7 +291,7 @@ continue
     !
     !
     ! >> Find minimum density on set of points of interest
-    averho = cell_ave_sol(nec,ic)
+    averho = cell_ave_sol(ic,nec)
     minrho = minval(usp(n1:n2,nec))
     !
     if (limit_flxpts .and. present(faceusp)) then
@@ -327,8 +327,8 @@ continue
     !
     ! Scale the individual species
     do m=1,nec
-      usp(n1:n2,m) = cell_ave_sol(m,ic) + &
-                                     theta*(usp(n1:n2,m)-cell_ave_sol(m,ic))
+      usp(n1:n2,m) = cell_ave_sol(ic,m) + &
+                                     theta*(usp(n1:n2,m)-cell_ave_sol(ic,m))
     end do
     !
     if (limit_flxpts .and. present(faceusp)) then
@@ -338,8 +338,8 @@ continue
         sf  = cell(ic)%face(ncf)%side ! side of face that cell nc is on
         f1  = face(nf)%beg_fp
         f2  = face(nf)%end_fp
-        faceusp(f1:f2,m,sf) = cell_ave_sol(m,ic) + &
-                           theta*(faceusp(f1:f2,m,sf)-cell_ave_sol(m,ic))
+        faceusp(f1:f2,m,sf) = cell_ave_sol(ic,m) + &
+                           theta*(faceusp(f1:f2,m,sf)-cell_ave_sol(ic,m))
       end do
       end do
     end if
@@ -408,7 +408,7 @@ continue
     !
     ! >> Find minimum species density on set of points of interest
     !
-    averho = cell_ave_sol(m,ic)
+    averho = cell_ave_sol(ic,m)
     minrho = minval(usp(n1:n2,m))
     !
     if (lim_flxpts .and. present(faceusp)) then
@@ -450,8 +450,8 @@ continue
     ! >> Perform the Limiting <<
     !
     ! Scale the individual species
-    usp(n1:n2,m) = cell_ave_sol(m,ic) + &
-                              theta*(usp(n1:n2,m)-cell_ave_sol(m,ic))
+    usp(n1:n2,m) = cell_ave_sol(ic,m) + &
+                              theta*(usp(n1:n2,m)-cell_ave_sol(ic,m))
     usp(n1:n2,m) = max(usp(n1:n2,m), zero)
     !
     if (lim_flxpts .and. present(faceusp)) then
@@ -460,8 +460,8 @@ continue
         sf  = cell(ic)%face(ncf)%side ! side of face that cell nc is on
         f1  = face(nf)%beg_fp
         f2  = face(nf)%end_fp
-        faceusp(f1:f2,m,sf) = cell_ave_sol(m,ic) + &
-                           theta*(faceusp(f1:f2,m,sf)-cell_ave_sol(m,ic))
+        faceusp(f1:f2,m,sf) = cell_ave_sol(ic,m) + &
+                           theta*(faceusp(f1:f2,m,sf)-cell_ave_sol(ic,m))
         faceusp(f1:f2,m,sf) = max(faceusp(f1:f2,m,sf), zero)
       end do
     end if
@@ -599,8 +599,8 @@ continue
     !
     ! Scale all CV
     do m=1,nq
-    usp(n1:n2,m) = cell_ave_sol(m,ic) + &
-                              theta*(usp(n1:n2,m)-cell_ave_sol(m,ic))
+    usp(n1:n2,m) = cell_ave_sol(ic,m) + &
+                              theta*(usp(n1:n2,m)-cell_ave_sol(ic,m))
     end do
     !
     call update_thermo_properties(n1,n2,usp,gpsp)
@@ -613,8 +613,8 @@ continue
         f2  = face(nf)%end_fp
         !
         do m=1,nq
-          faceusp(f1:f2,m,sf) = cell_ave_sol(m,ic) + &
-                             theta*(faceusp(f1:f2,m,sf)-cell_ave_sol(m,ic))
+          faceusp(f1:f2,m,sf) = cell_ave_sol(ic,m) + &
+                             theta*(faceusp(f1:f2,m,sf)-cell_ave_sol(ic,m))
         end do
         !
         call update_thermo_properties(f1,f2,faceusp(:,:,sf),&
@@ -682,7 +682,6 @@ subroutine limit_internal_energy(usp,cell_ave_sol,Ulim,lim_flxpts,faceusp,&
   integer  :: ic,n,n1,n2,ncf,nf,sf,f1,f2,m,nface
   integer  :: numbad, irank, ierr
   logical(lk), allocatable :: bad_cel_loc(:)
-  real(wp), allocatable :: cell_ave_transpose(:,:)
   real(wp), dimension(:), allocatable :: e,eface,Uthermominimum,Utm_ave
   real(wp) :: aveU,minU,theta,Uminface_approx
   !
@@ -693,15 +692,12 @@ continue
   Uthermominimum = init_array(n_solpts,zero) ! F2003 AR
   Utm_ave = init_array(ncell,zero) ! F2003 AR
   !
-  allocate(cell_ave_transpose(ncell,nq), source = zero)
-  !
   !
   !
   ! Find minimum internal energy to help TPG limit properly
   if (ncs > 0) then
     call compute_minimum_internal_energy(1,n_solpts,usp,Uthermominimum)
-    cell_ave_transpose = TRANSPOSE(cell_ave_sol)
-    call compute_minimum_internal_energy(1,ncell,cell_ave_transpose,Utm_ave) 
+    call compute_minimum_internal_energy(1,ncell,cell_ave_sol,Utm_ave) 
   else
     Uthermominimum(:) = zero
     Utm_ave(:) = zero
@@ -720,9 +716,9 @@ continue
     ! >> Find the minimum internal energy on points of interest <<
     !
     ! Find scaling factor based on mixture density
-    aveU = cell_ave_sol(nee,ic) - &
-            half*DOT_PRODUCT(cell_ave_sol(nmx:nmz,ic),cell_ave_sol(nmx:nmz,ic))/cell_ave_sol(nec,ic)
-    aveU = aveU - Utm_ave(ic)*cell_ave_sol(nec,ic)
+    aveU = cell_ave_sol(ic,nee) - &
+            half*DOT_PRODUCT(cell_ave_sol(ic,nmx:nmz),cell_ave_sol(ic,nmx:nmz))/cell_ave_sol(ic,nec)
+    aveU = aveU - Utm_ave(ic)*cell_ave_sol(ic,nec)
     minU = minval(e(n1:n2))
     !
     Uminface_approx = minval(Uthermominimum(n1:n2))
@@ -761,8 +757,8 @@ continue
     !
     ! Scale the individual species
     do m=1,nq
-      usp(n1:n2,m) = cell_ave_sol(m,ic) + &
-                              theta*(usp(n1:n2,m)-cell_ave_sol(m,ic))
+      usp(n1:n2,m) = cell_ave_sol(ic,m) + &
+                              theta*(usp(n1:n2,m)-cell_ave_sol(ic,m))
     end do
     !
     !
@@ -774,8 +770,8 @@ continue
         f2  = face(nf)%end_fp
         nface = f2-f1+1
         do m=1,nq
-        faceusp(f1:f2,m,sf) = cell_ave_sol(m,ic) + &
-                           theta*(faceusp(f1:f2,m,sf)-cell_ave_sol(m,ic))
+        faceusp(f1:f2,m,sf) = cell_ave_sol(ic,m) + &
+                           theta*(faceusp(f1:f2,m,sf)-cell_ave_sol(ic,m))
         end do
         !
       end do
@@ -784,7 +780,6 @@ continue
   end do
   !end do outer_loop
   !
-  deallocate(cell_ave_transpose)
   deallocate(e)
   deallocate(Uthermominimum)
   deallocate(Utm_ave)

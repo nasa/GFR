@@ -225,7 +225,7 @@ continue!
   do ic=1,ncell
     if (.not. bad_cell(ic)) cycle
       ! entropycalculation
-      cell_ave_entropy(ic) = (cell_ave_gp(ic,npres)*(cell_ave_sol(nec,ic)**(-cell_ave_gp(ic,ngamm))))
+      cell_ave_entropy(ic) = (cell_ave_gp(ic,npres)*(cell_ave_sol(ic,nec)**(-cell_ave_gp(ic,ngamm))))
       !
   end do
   !
@@ -319,7 +319,7 @@ continue!
             !
           case (Entropy_Lim_Function__DensityWeighted)
             ! Density weighted interpolant
-            s_delta  = cell_ave_sol(nec,ic)*(s_ave - entropy_minimum(ic))
+            s_delta  = cell_ave_sol(ic,nec)*(s_ave - entropy_minimum(ic))
             badsp = s_delta/(s_delta-usp(n,nec)*(entropy_sp(n)-entropy_minimum(ic)))
             !
           case (Entropy_Lim_Function__LogScaled)
@@ -337,7 +337,7 @@ continue!
           case (Entropy_Lim_Function__LinearLvIhme)
             ! entropy bounded dg scheme for euler eqns - Lv, Ihme - plus some algebra
             s_delta =          (entropy_sp(n) - entropy_minimum(ic))
-            rrat    = (cell_ave_sol(nec,ic) / usp(n,nec))**gpsp(n,ngamm)
+            rrat    = (cell_ave_sol(ic,nec) / usp(n,nec))**gpsp(n,ngamm)
             denom   = (s_delta - rrat*(s_ave-entropy_minimum(ic)))
             denom   = denom + sign(eps12, denom)
             badsp = s_delta / denom 
@@ -433,7 +433,7 @@ continue!
             !
           case (Entropy_Lim_Function__DensityWeighted)
             ! Density weighted interpolant
-            s_delta  = cell_ave_sol(nec,ic)*(s_ave - entropy_minimum(ic))
+            s_delta  = cell_ave_sol(ic,nec)*(s_ave - entropy_minimum(ic))
             badsp = s_delta/(s_delta-faceusp(nfp,nec,sf)*(entropy_fp(nfp)-entropy_minimum(ic)))
             !
           case (Entropy_Lim_Function__LogScaled)
@@ -454,7 +454,7 @@ continue!
             ! if rrat == 1, it should reproduce Entropy_Lim_Function__Linear
             ! if rrat <  1, it will add more dissipation
             s_delta =          (entropy_fp(nfp) - entropy_minimum(ic))
-            rrat    = (cell_ave_sol(nec,ic) / faceusp(nfp,nec,sf))**facegpsp(nfp,ngamm,sf)
+            rrat    = (cell_ave_sol(ic,nec) / faceusp(nfp,nec,sf))**facegpsp(nfp,ngamm,sf)
             denom   = (s_delta - rrat*(s_ave-entropy_minimum(ic)))
             denom   = denom + sign(eps12, denom)
             badsp = s_delta / denom 
@@ -523,8 +523,8 @@ continue!
       !
       !write(iout,*) "fs: ", filter_strength
       do n=n1,n2
-        usp(n,:) = filter_strength * (usp(n,:) - cell_ave_sol(:,ic))&
-                                               + cell_ave_sol(:,ic)
+        usp(n,:) = filter_strength * (usp(n,:) - cell_ave_sol(ic,:))&
+                                               + cell_ave_sol(ic,:)
       end do
       !
       entropy_limiter_strength(ic,imarker) = one - filter_strength
@@ -541,7 +541,7 @@ continue!
       else   ! 1 < fs < 2
         do n=n1,n2
           usp(n,:) = (two-filter_strength)* & 
-                (usp_filtered(n,:) - cell_ave_sol(:,ic)) + cell_ave_sol(:,ic)
+                (usp_filtered(n,:) - cell_ave_sol(ic,:)) + cell_ave_sol(ic,:)
         end do
       end if
       !

@@ -161,7 +161,7 @@ subroutine compute_mlp_node_data(cell_ave_sol)
   !
   !.. Arguments ..
   !> Cell averaged solution variables for all cells.
-  real(wp), intent(in) :: cell_ave_sol(:,:)  ! (1:nq,1:ncell)
+  real(wp), intent(in) :: cell_ave_sol(:,:)  ! (1:ncell,1:nq)
   !
   !.. Local Scalars ..
   integer  :: nc,n,nn
@@ -182,7 +182,7 @@ continue
     do n = 1,size(cell(nc)%node)
       nn = cell(nc)%node(n)%idx  ! index in nodeusp array
       !
-      var = cell_ave_sol(nmk,nc)
+      var = cell_ave_sol(nc,nmk)
       mlp_node_data(1,nn) = min( mlp_node_data(1,nn), var )
       mlp_node_data(2,nn) = max( mlp_node_data(2,nn), var )
     end do ! loop n
@@ -1106,7 +1106,7 @@ subroutine limit_by_mlp(nst,relax)
     num_cell_faces = size(cell(nc)%face)
     num_cell_nodes = size(cell(nc)%node)
     !
-    qave = cell_ave_sol(nmk,nc)  ! cell ave value for marker variable
+    qave = cell_ave_sol(nc,nmk)  ! cell ave value for marker variable
     !
     ! cell_usp_pm(1:np,1:nq) is Pm projection of usp for this cell.
     ! Pm=Pn to start, so copy.
@@ -1247,7 +1247,7 @@ subroutine limit_by_mlp(nst,relax)
       ! Reconstruct the Pm solution from the average and limited p1 mode.
       ! q(x) = qave + cell_limiter * p1mode(x)
       do m = 1,nq  ! solution variables
-        qave = cell_ave_sol(m,nc)
+        qave = cell_ave_sol(nc,m)
         do n = 1,np  ! solution points
           p1mode =  cell_usp_p1(n,m) - qave  ! P1 mode at solution point.
           cell_usp_pm(n,m) = qave + cell_limiter * p1mode

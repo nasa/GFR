@@ -42,7 +42,7 @@ module cell_ave_mod
   !.. Module Public Allocatable Arrays ..
   !
   !> Conserved variables cell average solution values for each cell.
-  !> Dim (1:nq,1:ncell).
+  !> Dim (1:ncell,1:nq).
   real(wp), public, protected, allocatable :: cell_ave_sol(:,:)
   !
   !> Gas properties cell average solution values for each cell.
@@ -81,7 +81,7 @@ continue
   ! Allocate array for storing the cell averaged solution
   !
   if (.not. allocated(cell_ave_sol)) then
-    allocate( cell_ave_sol(1:nq,1:ncell), source=zero, &
+    allocate( cell_ave_sol(1:ncell,1:nq), source=zero, &
               stat=ierr , errmsg=error_message )
     call alloc_error(pname,"cell_ave_sol",1,__LINE__,__FILE__,ierr, &
                      error_message)
@@ -180,9 +180,6 @@ subroutine compute_cell_ave_sol
   !.. Local Scalars ..
   integer :: nr,lcell
   !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: transpose_ca_sol(:,:)
-  !
 continue
   !
   nr = nme-nmb+1
@@ -226,15 +223,8 @@ continue
   ! the cell_ave_gp array has been allocated
   !
   if (allocated(cell_ave_gp)) then
-    !
-    transpose_ca_sol = transpose(cell_ave_sol(:,:)) ! F2003 AUTO-REALLOC
-    !
     lcell = size(cell_ave_gp,dim=1)
-    call update_thermo_properties(1,lcell,transpose_ca_sol,cell_ave_gp, &
-                                  "ave",pname)
-    !
-    if (allocated(transpose_ca_sol)) deallocate ( transpose_ca_sol )
-    !
+    call update_thermo_properties(1,lcell,cell_ave_sol,cell_ave_gp,"ave",pname)
   end if
   !
 end subroutine compute_cell_ave_sol
@@ -287,11 +277,11 @@ continue
     end do ! loop n
     !
     ! Fill the module valiable.
-    cell_ave_sol(nec,nc) = val_ec * cell_ave_coef(this_geom)
-    cell_ave_sol(nmx,nc) = val_mx * cell_ave_coef(this_geom)
-    cell_ave_sol(nmy,nc) = val_my * cell_ave_coef(this_geom)
-    cell_ave_sol(nmz,nc) = val_mz * cell_ave_coef(this_geom)
-    cell_ave_sol(nee,nc) = val_ee * cell_ave_coef(this_geom)
+    cell_ave_sol(nc,nec) = val_ec * cell_ave_coef(this_geom)
+    cell_ave_sol(nc,nmx) = val_mx * cell_ave_coef(this_geom)
+    cell_ave_sol(nc,nmy) = val_my * cell_ave_coef(this_geom)
+    cell_ave_sol(nc,nmz) = val_mz * cell_ave_coef(this_geom)
+    cell_ave_sol(nc,nee) = val_ee * cell_ave_coef(this_geom)
     !
   end do ! loop nc
   !
@@ -343,10 +333,10 @@ continue
     end do ! loop n
     !
     ! Fill the module valiable.
-    cell_ave_sol(nec,nc) = val_ec * cell_ave_coef(this_geom)
-    cell_ave_sol(nmx,nc) = val_mx * cell_ave_coef(this_geom)
-    cell_ave_sol(nmy,nc) = val_my * cell_ave_coef(this_geom)
-    cell_ave_sol(nee,nc) = val_ee * cell_ave_coef(this_geom)
+    cell_ave_sol(nc,nec) = val_ec * cell_ave_coef(this_geom)
+    cell_ave_sol(nc,nmx) = val_mx * cell_ave_coef(this_geom)
+    cell_ave_sol(nc,nmy) = val_my * cell_ave_coef(this_geom)
+    cell_ave_sol(nc,nee) = val_ee * cell_ave_coef(this_geom)
     !
   end do ! loop nc
   !
@@ -396,9 +386,9 @@ continue
     end do ! loop n
     !
     ! Fill the module valiable.
-    cell_ave_sol(nec,nc) = val_ec * cell_ave_coef(this_geom)
-    cell_ave_sol(nmx,nc) = val_mx * cell_ave_coef(this_geom)
-    cell_ave_sol(nee,nc) = val_ee * cell_ave_coef(this_geom)
+    cell_ave_sol(nc,nec) = val_ec * cell_ave_coef(this_geom)
+    cell_ave_sol(nc,nmx) = val_mx * cell_ave_coef(this_geom)
+    cell_ave_sol(nc,nee) = val_ee * cell_ave_coef(this_geom)
     !
   end do ! loop nc
   !
@@ -448,7 +438,7 @@ continue
       end do ! loop n
       !
       ! Fill the module variable.
-      cell_ave_sol(m,nc) = val * cell_ave_coef(this_geom)
+      cell_ave_sol(nc,m) = val * cell_ave_coef(this_geom)
       !
     end do ! loop m
     !
@@ -473,7 +463,7 @@ subroutine update_cell_ave_density
 continue
   !
   do nc = 1,ncell
-    cell_ave_sol(nec,nc) = sum(cell_ave_sol(1:ncs,nc))
+    cell_ave_sol(nc,nec) = sum(cell_ave_sol(nc,1:ncs))
   end do
   !
 end subroutine update_cell_ave_density

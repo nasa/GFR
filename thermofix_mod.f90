@@ -423,7 +423,7 @@ continue
             write(iout,4) minval(  usp(n1:n2,nec  ) ) * rhoref, &
                           minval( gpsp(n1:n2,npres) ) * rhoref*aref*aref, &
                           minval( gpsp(n1:n2,ntemp) ) * tref
-            write(iout,5) cell_ave_sol(nec,nc)
+            write(iout,5) cell_ave_sol(nc,nec)
 2           format(2x,'part,cell,bad_cell,bad_face,bad_node =',i6,i8,3l2)
 3           format(2x,'Cell Ctr x,y,z [Lgrid] =',3es13.5)
 4           format(2x,'Cell Min r,p,t [SI]    =',3es13.5)
@@ -2354,11 +2354,11 @@ continue
       n0 = cell(nc)%beg_sp - 1    ! offset index for sol-pts in this cell
       np = cell(nc)%end_sp - n0   ! number of sol-pts in this cell
       do n = 1,np  ! loop solution points
-        usp(n0+n,nec) = f1*usp(n0+n,nec) + f2*cell_ave_sol(nec,nc)
-        usp(n0+n,nmx) = f1*usp(n0+n,nmx) + f2*cell_ave_sol(nmx,nc)
-        usp(n0+n,nmy) = f1*usp(n0+n,nmy) + f2*cell_ave_sol(nmy,nc)
-        usp(n0+n,nmz) = f1*usp(n0+n,nmz) + f2*cell_ave_sol(nmz,nc)
-        usp(n0+n,nee) = f1*usp(n0+n,nee) + f2*cell_ave_sol(nee,nc)
+        usp(n0+n,nec) = f1*usp(n0+n,nec) + f2*cell_ave_sol(nc,nec)
+        usp(n0+n,nmx) = f1*usp(n0+n,nmx) + f2*cell_ave_sol(nc,nmx)
+        usp(n0+n,nmy) = f1*usp(n0+n,nmy) + f2*cell_ave_sol(nc,nmy)
+        usp(n0+n,nmz) = f1*usp(n0+n,nmz) + f2*cell_ave_sol(nc,nmz)
+        usp(n0+n,nee) = f1*usp(n0+n,nee) + f2*cell_ave_sol(nc,nee)
       end do ! n
     end if
   end do loop_cells
@@ -2407,10 +2407,10 @@ continue
       n0 = cell(nc)%beg_sp - 1    ! offset index for sol-pts in this cell
       np = cell(nc)%end_sp - n0   ! number of sol-pts in this cell
       do n = 1,np  ! loop solution points
-        usp(n0+n,nec) = f1*usp(n0+n,nec) + f2*cell_ave_sol(nec,nc)
-        usp(n0+n,nmx) = f1*usp(n0+n,nmx) + f2*cell_ave_sol(nmx,nc)
-        usp(n0+n,nmy) = f1*usp(n0+n,nmy) + f2*cell_ave_sol(nmy,nc)
-        usp(n0+n,nee) = f1*usp(n0+n,nee) + f2*cell_ave_sol(nee,nc)
+        usp(n0+n,nec) = f1*usp(n0+n,nec) + f2*cell_ave_sol(nc,nec)
+        usp(n0+n,nmx) = f1*usp(n0+n,nmx) + f2*cell_ave_sol(nc,nmx)
+        usp(n0+n,nmy) = f1*usp(n0+n,nmy) + f2*cell_ave_sol(nc,nmy)
+        usp(n0+n,nee) = f1*usp(n0+n,nee) + f2*cell_ave_sol(nc,nee)
       end do ! n
     end if
   end do loop_cells
@@ -2459,9 +2459,9 @@ continue
       n0 = cell(nc)%beg_sp - 1    ! offset index for sol-pts in this cell
       np = cell(nc)%end_sp - n0   ! number of sol-pts in this cell
       do n = 1,np  ! loop solution points
-        usp(n0+n,nec) = f1*usp(n0+n,nec) + f2*cell_ave_sol(nec,nc)
-        usp(n0+n,nmx) = f1*usp(n0+n,nmx) + f2*cell_ave_sol(nmx,nc)
-        usp(n0+n,nee) = f1*usp(n0+n,nee) + f2*cell_ave_sol(nee,nc)
+        usp(n0+n,nec) = f1*usp(n0+n,nec) + f2*cell_ave_sol(nc,nec)
+        usp(n0+n,nmx) = f1*usp(n0+n,nmx) + f2*cell_ave_sol(nc,nmx)
+        usp(n0+n,nee) = f1*usp(n0+n,nee) + f2*cell_ave_sol(nc,nee)
       end do ! n
     end if
   end do loop_cells
@@ -2512,7 +2512,7 @@ continue
       np = cell(nc)%end_sp - n0   ! number of sol-pts in this cell
       do m = mbeg,mend  ! loop solution variables
         do n = 1,np  ! loop solution points
-          usp(n0+n,m) = f1*usp(n0+n,m) + f2*cell_ave_sol(m,nc)
+          usp(n0+n,m) = f1*usp(n0+n,m) + f2*cell_ave_sol(nc,m)
         end do ! n
       end do ! m
     end if
@@ -2599,7 +2599,7 @@ continue
       !
       ! Extract the cell average density
       !
-      rhoave = max(rholimit,cell_ave_sol(nec,nc))
+      rhoave = max(rholimit,cell_ave_sol(nc,nec))
       !
       ! Find the theta_1 scaling parameter
       theta = min(one, (rhoave - rholimit) / (rhoave - rhomin))
@@ -2678,7 +2678,7 @@ continue
       ! scale solution
       do n = n1,n2  ! loop solution points
         do m = 1,nq  ! loop solution variables
-          usp(n,m) = usp(n,m) + theta*(cell_ave_sol(m,nc) - usp(n,m))
+          usp(n,m) = usp(n,m) + theta*(cell_ave_sol(nc,m) - usp(n,m))
         end do ! m
       end do ! n
       !
