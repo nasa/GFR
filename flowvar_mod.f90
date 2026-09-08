@@ -643,6 +643,7 @@ end subroutine find_facexyz_size
 !#####    NOTE: THIS IS TEMPORARY UNTIL THE MARKING/LIMITING CODE          #####
 !#####          CAN BE CLEANED UP WHEN THIS SHOULD BE MOVED TO A           #####
 !#####          NEW MODULE NAMED MARKER_MOD.                               #####
+!#####    NOTE2: The positivity&entropy limiter outputs are using this too #####
 !###############################################################################
 !###############################################################################
 !
