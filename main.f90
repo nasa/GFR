@@ -60,6 +60,7 @@ program GFR_main
   use ovar, only : spatial_ave_restart_x_and_z_planes
   use ovar, only : CFL_reduction_for_NaN_restart
   use ovar, only : matrix_output_unit
+  use ovar, only : entropy_limiter
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
@@ -150,6 +151,8 @@ program GFR_main
   use parallel_mod, only : wait_faceusp
   !
   use limiters_mod, only : initialize_limiters
+  !
+  use entropy_limiter_mod, only : calculate_entropy_bounds
   !
   use spatial_ave_mod, only : spatial_ave_channel_flow
   use spatial_ave_mod, only : spatial_ave_z_planes
@@ -714,6 +717,9 @@ continue
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !
   call initialize_limiters
+  if (entropy_limiter%Option /= Entropy_Lim_Option__OFF) then
+    call calculate_entropy_bounds(true)
+  end if
   call check_for_bad_number(__LINE__)
   !
   ! Initialize the wall time
@@ -902,6 +908,10 @@ continue
       do nst = 1,num_rk_stages
         !
         current_rk_stage = nst
+        !
+        if (entropy_limiter%Option /= Entropy_Lim_Option__OFF) then
+          call calculate_entropy_bounds(iter==1)
+        end if
         !
         ! Test whether to apply filter, sponge, or limiter after each RK stage.
         !
