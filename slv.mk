@@ -144,6 +144,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/limiters_mod.o \
         $(OBJDIR)/entropy_limiter_mod.o \
         $(OBJDIR)/mlp_mod.o \
+        $(OBJDIR)/positivity_mod.o \
         $(OBJDIR)/channel_mod.o \
         $(OBJDIR)/restart_mod.o \
         $(OBJDIR)/postproc_mod.o \

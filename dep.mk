@@ -581,6 +581,14 @@ $(OBJDIR)/poly_mod.o : poly_mod.f90 \
          $(OBJDIR)/kind_types_mod.o \
          $(FUNDIR)/check_for_bad_number.f90
 
+$(OBJDIR)/positivity_mod.o : positivity_mod.f90 \
+                   $(OBJDIR)/kind_types_mod.o \
+                   $(OBJDIR)/geomvar_mod.o \
+                   $(OBJDIR)/cell_ave_mod.o \
+                   $(OBJDIR)/flux_mod.o \
+                   $(OBJDIR)/eqn_idx_mod.o \
+                   $(OBJDIR)/thermo_mod.o
+
 $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(OBJDIR)/kind_types_mod.o \
                  $(OBJDIR)/cgnstypes_mod.o \
@@ -700,6 +708,7 @@ $(OBJDIR)/rhs_mod.o : rhs_mod.f90 \
             $(OBJDIR)/filter_mod.o \
             $(OBJDIR)/limiters_mod.o \
             $(OBJDIR)/entropy_limiter_mod.o \
+            $(OBJDIR)/positivity_mod.o \
             $(OBJDIR)/mlp_mod.o \
             $(OBJDIR)/parallel_mod.o \
             $(OBJDIR)/projection_mod.o \
