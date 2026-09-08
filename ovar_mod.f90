@@ -14,7 +14,8 @@ module ovar
   use module_kind_types, only : visc_interface_fluxes
   use module_kind_types, only : laminar_flow
   use module_kind_types, only : one_work_unit
-  use module_kind_types, only : iout,zero,one,half,two,five,ten2,pi,eps6,eps12
+  use module_kind_types, only : iout,zero,one,half,two,five,ten2,pi
+  use module_kind_types, only : eps3,eps6,eps12
   use module_kind_types, only : mpi_wtime
   use module_kind_types, only : Correction_gDG
   use module_kind_types, only : TFM_OFF,IGN_OFF
@@ -33,6 +34,9 @@ module ovar
   use module_kind_types, only : Limiter_Option__Off
   use module_kind_types, only : Marker_Option__Off
   use module_kind_types, only : Marker_Variable__Off
+  use module_kind_types, only : Entropy_Lim_Option__Off
+  use module_kind_types, only : Entropy_Lim_Function__LinearLvIhme
+  use module_kind_types, only : Positivity_Lim_Option__Off
   !
   implicit none
   !
@@ -273,6 +277,25 @@ module ovar
     real(wp)    :: min_temperature =   100._wp  !< [K]
     real(wp)    :: min_density     =  0.001_wp  !< [kg/m3]
   end type thermofix_t
+  !
+  ! entropy_limiter_t
+  !> Derived type to provide options and settings to use the entropy limiter
+  type, public :: entropy_limiter_t
+    integer     :: Option       = Entropy_Lim_Option__Off
+    integer     :: Interpolant  = Entropy_Lim_Function__LinearLvIhme
+    integer     :: Tolerance    = eps3
+    logical(lk) :: Check_Faces  = fals
+    logical(lk) :: Check_Nodes  = fals
+    logical(lk) :: Check_Global = fals
+  end type entropy_limiter_t
+  !
+  ! positivity_t
+  !> Derived type to provide options and settings to use the positivity limiter
+  type, public :: positivity_t
+    integer  :: Option         = Positivity_Lim_Option__Off
+    real(wp) :: Density_Limit  = eps6
+    real(wp) :: Pressure_Limit = eps6
+  end type positivity_t
   !
   ! point_probe_t : derived type containing point probe location
   !
@@ -532,6 +555,12 @@ module ovar
   !
   ! CHECK/FIX BAD THERMO PROPERTIES (PRES,TEMP,DENS)
   type(thermofix_t), public :: thermofix
+  !
+  ! ENTROPY LIMITER OPTIONS AND SETTINGS
+  type(entropy_limiter_t), public :: entropy_limiter
+  !
+  ! POSITIVITY LIMITER OPTIONS AND SETTINGS
+  type(positivity_t), public :: positivity
   !
   ! CHEMICAL REACTION SOURCE TERMS
   logical(lk), public, save :: disable_chemical_reactions         = fals
