@@ -334,7 +334,7 @@ continue!
             badsp   = s_delta *(s_ave + entropy_sp(n))        / (s_ave + entropy_minimum(ic)) 
             badsp = min(max(badsp,zero),one)
             !
-          case (Entropy_Lim_Function__LinearLvIhme)
+          case default ! (ENTLIM_FUN__LinearLvIhme)
             ! entropy bounded dg scheme for euler eqns - Lv, Ihme - plus some algebra
             s_delta =          (entropy_sp(n) - entropy_minimum(ic))
             rrat    = (cell_ave_sol(ic,nec) / usp(n,nec))**gpsp(n,ngamm)
@@ -449,7 +449,7 @@ continue!
             badsp   = s_delta *(s_ave + entropy_fp(nfp))        / (s_ave + entropy_minimum(ic)) 
             badsp = min(max(badsp,zero),one)
             !
-          case (Entropy_Lim_Function__LinearLvIhme)
+          case default ! (ENTLIM_FUN__LinearLvIhme)
             ! entropy bounded dg scheme for euler eqns - Lv, Ihme - plus some algebra
             ! if rrat == 1, it should reproduce Entropy_Lim_Function__Linear
             ! if rrat <  1, it will add more dissipation
