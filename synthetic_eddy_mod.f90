@@ -619,7 +619,7 @@ continue
 end subroutine initialize_from_sem_profile
 !
 !###############################################################################
-!
+!{{{ PROCEDURES FOR USING SEM TO INITIALIZE THX
 subroutine thx_sem_plenum_initialization(prof,pvavg,bc_idx_prof,xyz,cv)
   !
   !.. Use Statements ..
@@ -1557,7 +1557,7 @@ continue
   end if
   !
 end function thx_pipe_centerline_x
-!
+!}}}
 !###############################################################################
 !
 subroutine init_from_sem_profile(prof,pvavg,xyz,cv)
