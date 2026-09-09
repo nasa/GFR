@@ -283,7 +283,7 @@ module ovar
   type, public :: entropy_limiter_t
     integer     :: Option       = Entropy_Lim_Option__Off
     integer     :: Interpolant  = Entropy_Lim_Function__LinearLvIhme
-    integer     :: Tolerance    = eps3
+    real(wp)    :: Tolerance    = eps3
     logical(lk) :: Check_Faces  = fals
     logical(lk) :: Check_Nodes  = fals
     logical(lk) :: Check_Global = fals
