@@ -528,8 +528,8 @@ subroutine stabilize_usp(nst,Apply_Filter,Apply_Sponge,Apply_Limiter, &
   use flux_mod,            only : interp_cv_to_flxpts
   use flux_mod,            only : discontinuous_gradient_at_solpts
   !
-  use thermofix_mod,       only : check_thermo_properties
-  use thermofix_mod,       only : check_cell_thermo_properties
+  use check_gp_mod,        only : check_thermo_properties
+  use check_gp_mod,        only : check_cell_thermo_properties
   use thermo_mod,          only : update_mixture_density
   use thermo_mod,          only : update_thermo_properties
   use transport_mod,       only : update_transport_properties
@@ -718,7 +718,7 @@ subroutine update_gp_face_dusp_arrays(caller_name,skip_thermo_check)
   use flux_mod,        only : interp_cv_to_flxpts
   use flux_mod,        only : discontinuous_gradient_at_solpts
   !
-  use thermofix_mod,   only : check_thermo_properties
+  use check_gp_mod,    only : check_thermo_properties
   use thermo_mod,      only : update_mixture_density
   use thermo_mod,      only : update_thermo_properties
   use transport_mod,   only : update_transport_properties

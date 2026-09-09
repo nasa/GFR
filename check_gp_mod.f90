@@ -2,7 +2,7 @@
 !> Module for finding and limiting cells with bad thermo properties
 !> (pressure, temperature, density) in either the volume, face, or node points.
 !###############################################################################
-module thermofix_mod
+module check_gp_mod
   !
   !.. Use Statements ..
   use module_kind_types, global_debug_timer =>      debug_timer, &
@@ -2745,4 +2745,4 @@ end subroutine bad_cell_update_properties_sp
 !
 !###############################################################################
 !
-end module thermofix_mod
+end module check_gp_mod

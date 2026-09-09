@@ -419,7 +419,7 @@ subroutine new_write_parallel_cgns(iflag)
   use ovar, only : output_time_averaging
   use ovar, only : time_scaling_factor
   use ovar, only : thermofix
-  use thermofix_mod, only : check_thermo_properties
+  use check_gp_mod,  only : check_thermo_properties
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag

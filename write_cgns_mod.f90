@@ -391,7 +391,7 @@ subroutine write_parallel_cgns(iflag)
   use ovar, only : disable_cgns_output
   use ovar, only : thermofix
   use ovar, only : cgns_output_restart_time_ave_data
-  use thermofix_mod, only : check_thermo_properties
+  use check_gp_mod,  only : check_thermo_properties
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
