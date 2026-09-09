@@ -165,7 +165,7 @@ OBJS := $(OBJDIR)/kind_types_mod.o \
         $(OBJDIR)/octedat_facexyz_mod.o \
         $(OBJDIR)/interpsolvar_mod.o \
         $(OBJDIR)/interpsol_mod.o \
-        $(OBJDIR)/thermofix_mod.o \
+        $(OBJDIR)/check_gp_mod.o \
         $(OBJDIR)/thermo_mod.o \
         $(OBJDIR)/transport_mod.o \
         $(OBJDIR)/reactions_mod.o \
