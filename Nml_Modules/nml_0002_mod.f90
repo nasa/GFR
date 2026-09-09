@@ -1746,6 +1746,8 @@ subroutine ionml_limiter()
       Marker_Max                       => Limiter_Marker_Max    , &
       Marker_dpsi                      => Limiter_Marker_dpsi   , &
       thermofix                        , &
+      Positivity                       , &
+      Entropy_Limiter                  , &
       Marker_MinMax_Default
   !
   ! FILTER OPTIONS
@@ -1780,6 +1782,10 @@ subroutine ionml_limiter()
                            Marker_dpsi
   ! CHECK/FIX BAD THERMO PROPERTIES (PRES,TEMP,DENS)
   namelist / nml_limiter / thermofix
+  ! POSITIVITY PRESERVING LIMITER OPTIONS AND SETTINGS
+  namelist / nml_limiter / positivity
+  ! ENTROPY LIMITER OPTIONS AND SETTINGS
+  namelist / nml_limiter / entropy_limiter
   !
 continue
   !
@@ -1845,6 +1851,7 @@ continue
                 Marker_Max                       , Marker_MinMax_Default    )
       call set('Marker_Dpsi                     ',                          &
                 Marker_dpsi                      ,-1.0_wp                   )
+      !
       call set('Thermofix%Method                ',                          &
                 thermofix%method                 , TFM_OFF                  )
       call set('Thermofix%Iterations            ',                          &
@@ -1865,6 +1872,27 @@ continue
                 thermofix%min_temperature        ,   100._wp                )
       call set('Thermofix%Min_Density           ',                          &
                 thermofix%min_density            ,  0.001_wp                )
+      !
+      call set('Positivity%Option               ',                          &
+                Positivity%Option                , POSLIM_OPT__OFF          )
+      call set('Positivity%Density_Limit        ',                          &
+                Positivity%density_Limit         , eps6                     )
+      call set('Positivity%Pressure_Limit       ',                          &
+                Positivity%pressure_Limit        , eps6                     )
+      !
+      call set('Entropy_Limiter%Option          ',                          &
+                Entropy_Limiter%Option           , ENTLIM_OPT__OFF          )
+      call set('Entropy_Limiter%Interpolant     ',                          &
+                Entropy_Limiter%Interpolant      , ENTLIM_FUN__LinearLvIhme )
+      call set('Entropy_Limiter%Tolerance       ',                          &
+                Entropy_Limiter%Tolerance        , eps3                     )
+      call set('Entropy_Limiter%Check_Faces     ',                          &
+                Entropy_Limiter%Check_Faces      , fals                     )
+      call set('Entropy_Limiter%Check_Nodes     ',                          &
+                Entropy_Limiter%Check_Nodes      , fals                     )
+      call set('Entropy_Limiter%Check_Global    ',                          &
+                Entropy_Limiter%Check_Global     , fals                     )
+      !
       call iow_footer()
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_limiter') ) then
