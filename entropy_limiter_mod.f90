@@ -149,7 +149,7 @@ continue!
     !$ACC UPDATE DEVICE(scaled_marker)
   end if
   !
-  if (positivity%Option == Positivity_Lim_Option__OFF) then
+  if (positivity%Option == POSLIM_OPT__OFF) then
     ! If we are not using the positivity preservation limiter,
     ! we need to compute the cell average solution
     ! NOTE: This also updates cell_ave_gp
@@ -232,7 +232,7 @@ continue!
   ! -------------------------------
   ! >>> GET FILTERED QUANTITIES <<<
   ! -------------------------------
-  if (entropy_filter_type == Entropy_Lim_Option__ScaledFilter) then
+  if (entropy_filter_type == ENTLIM_OPT__ScaledFilter) then
     !
     ! Compute the reference filtered solution if using it
     usp_filtered = usp            ! F2003 Auto-Reallocation
@@ -276,9 +276,9 @@ continue!
     ! >>> badness = point local damping ratio needed to meet limit
     !       closer to zero => more bad...
     !
-    if (entropy_filter_type == Entropy_Lim_Option__ScaledFilter) then
+    if (entropy_filter_type == ENTLIM_OPT__ScaledFilter) then
       filter_strength = zero   ! weakest = no filter applied
-    else ! entropy_filter_type = Entropy_Lim_Option__Flat
+    else ! entropy_filter_type = ENTLIM_OPT__Flat
       filter_strength = one    ! weakest = no damping of H-O modes
     end if
     !
@@ -312,23 +312,23 @@ continue!
         !
         !
         select case (entropy_limiter%Interpolant)
-          case (Entropy_Lim_Function__Linear)
+          case (ENTLIM_FUN__Linear)
             ! standard linear interpolant
             s_delta  = (s_ave - entropy_minimum(ic))
             badsp = s_delta/(entropy_sp(n)-entropy_minimum(ic))
             !
-          case (Entropy_Lim_Function__DensityWeighted)
+          case (ENTLIM_FUN__DensityWeighted)
             ! Density weighted interpolant
             s_delta  = cell_ave_sol(ic,nec)*(s_ave - entropy_minimum(ic))
             badsp = s_delta/(s_delta-usp(n,nec)*(entropy_sp(n)-entropy_minimum(ic)))
             !
-          case (Entropy_Lim_Function__LogScaled)
+          case (ENTLIM_FUN__LogScaled)
             ! Totally obvious formula which adds some extra concavity to the interpolant fxn 
             !     NOTE: these equations probably merit some kind of explanation either here or in docs
             s_delta  = log(s_ave/entropy_minimum(ic))
             badsp = s_delta/(log(s_ave/entropy_sp(n)))
             !
-          case (Entropy_Lim_Function__LogScaledPade)
+          case (ENTLIM_FUN__LogScaledPade)
             ! Pade approx
             s_delta =          (s_ave - entropy_minimum(ic)) / max(eps12, s_ave - entropy_sp(n))
             badsp   = s_delta *(s_ave + entropy_sp(n))        / (s_ave + entropy_minimum(ic)) 
@@ -355,11 +355,11 @@ continue!
       ! > Now we have the badness of the point and it's delta 
       !     from the solution average. Need to translate that from the
       !     Zhang & Shu theta (badness), to a filter strength
-      if (entropy_filter_type == Entropy_Lim_Option__Flat) then
+      if (entropy_filter_type == ENTLIM_OPT__Flat) then
         ! If we're doing scaling that is equiv to zhang and shu
         filter_strength = min(filter_strength,badness)
         !
-      else if (entropy_filter_type == Entropy_Lim_Option__ScaledFilter) then
+      else if (entropy_filter_type == ENTLIM_OPT__ScaledFilter) then
         !
         sol_ave_jump = entropy_sp(n) - cell_ave_entropy(ic)
         !
@@ -426,24 +426,24 @@ continue!
         !
         !
         select case (entropy_limiter%Interpolant)
-          case (Entropy_Lim_Function__Linear)
+          case (ENTLIM_FUN__Linear)
             ! standard linear interpolant
             s_delta  = (s_ave - entropy_minimum(ic))
             badsp = s_delta/(entropy_fp(nfp)-entropy_minimum(ic))
             !
-          case (Entropy_Lim_Function__DensityWeighted)
+          case (ENTLIM_FUN__DensityWeighted)
             ! Density weighted interpolant
             s_delta  = cell_ave_sol(ic,nec)*(s_ave - entropy_minimum(ic))
             badsp = s_delta/(s_delta-faceusp(nfp,nec,sf)*(entropy_fp(nfp)-entropy_minimum(ic)))
             !
-          case (Entropy_Lim_Function__LogScaled)
+          case (ENTLIM_FUN__LogScaled)
             ! Totally obvious formula which adds some extra concavity to the interpolant fxn 
             !     NOTE: these equations probably merit some kind of explanation either here or in docs
             s_delta  = log(s_ave/entropy_minimum(ic))
             ! SETH: ADD PROTECTION ON LOG IN DENOMINATOR
             badsp = s_delta/(log(s_ave/entropy_fp(nfp)))
             !
-          case (Entropy_Lim_Function__LogScaledPade)
+          case (ENTLIM_FUN__LogScaledPade)
             ! Pade approx (log scaled using an approximation for the log function)
             s_delta =          (s_ave - entropy_minimum(ic)) / max(eps12, s_ave - entropy_fp(nfp))
             badsp   = s_delta *(s_ave + entropy_fp(nfp))        / (s_ave + entropy_minimum(ic)) 
@@ -451,7 +451,7 @@ continue!
             !
           case default ! (ENTLIM_FUN__LinearLvIhme)
             ! entropy bounded dg scheme for euler eqns - Lv, Ihme - plus some algebra
-            ! if rrat == 1, it should reproduce Entropy_Lim_Function__Linear
+            ! if rrat == 1, it should reproduce ENTLIM_FUN__Linear
             ! if rrat <  1, it will add more dissipation
             s_delta =          (entropy_fp(nfp) - entropy_minimum(ic))
             rrat    = (cell_ave_sol(ic,nec) / faceusp(nfp,nec,sf))**facegpsp(nfp,ngamm,sf)
@@ -471,11 +471,11 @@ continue!
         ! > Now we have the badness of the point and it's delta 
         !     from the solution average. Need to translate that from the
         !     Zhang & Shu theta (badness), to a filter strength
-        if (entropy_filter_type == Entropy_Lim_Option__Flat) then
+        if (entropy_filter_type == ENTLIM_OPT__Flat) then
           ! If we're doing scaling that is equiv to zhang and shu
           filter_strength = min(filter_strength,badness)
           !
-        else if (entropy_filter_type == Entropy_Lim_Option__ScaledFilter) then
+        else if (entropy_filter_type == ENTLIM_OPT__ScaledFilter) then
           !
           sol_ave_jump = entropy_fp(nfp) - cell_ave_entropy(ic)
           !
@@ -518,7 +518,7 @@ continue!
     ! >>> APPLY FILTER WITH COMPUTED STRENGTH <<<
     ! -------------------------------------------
     !
-    if (entropy_filter_type == Entropy_Lim_Option__Flat) then
+    if (entropy_filter_type == ENTLIM_OPT__Flat) then
       filter_strength = min(max(zero,filter_strength),one)
       !
       !write(iout,*) "fs: ", filter_strength
@@ -529,7 +529,7 @@ continue!
       !
       entropy_limiter_strength(ic,imarker) = one - filter_strength
       !
-    else ! filter == Entropy_Lim_Option__ScaledFilter
+    else ! filter == ENTLIM_OPT__ScaledFilter
       filter_strength = max(min(two,filter_strength),zero)
       !
       if (filter_strength <= one) then

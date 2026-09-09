@@ -34,9 +34,9 @@ module ovar
   use module_kind_types, only : Limiter_Option__Off
   use module_kind_types, only : Marker_Option__Off
   use module_kind_types, only : Marker_Variable__Off
-  use module_kind_types, only : Entropy_Lim_Option__Off
-  use module_kind_types, only : Entropy_Lim_Function__LinearLvIhme
-  use module_kind_types, only : Positivity_Lim_Option__Off
+  use module_kind_types, only : ENTLIM_OPT__OFF
+  use module_kind_types, only : ENTLIM_FUN__LinearLvIhme
+  use module_kind_types, only : POSLIM_OPT__OFF
   !
   implicit none
   !
@@ -281,8 +281,8 @@ module ovar
   ! entropy_limiter_t
   !> Derived type to provide options and settings to use the entropy limiter
   type, public :: entropy_limiter_t
-    integer     :: Option       = Entropy_Lim_Option__Off
-    integer     :: Interpolant  = Entropy_Lim_Function__LinearLvIhme
+    integer     :: Option       = ENTLIM_OPT__OFF
+    integer     :: Interpolant  = ENTLIM_FUN__LinearLvIhme
     real(wp)    :: Tolerance    = eps3
     logical(lk) :: Check_Faces  = fals
     logical(lk) :: Check_Nodes  = fals
@@ -292,7 +292,7 @@ module ovar
   ! positivity_t
   !> Derived type to provide options and settings to use the positivity limiter
   type, public :: positivity_t
-    integer  :: Option         = Positivity_Lim_Option__Off
+    integer  :: Option         = POSLIM_OPT__OFF
     real(wp) :: Density_Limit  = eps6
     real(wp) :: Pressure_Limit = eps6
   end type positivity_t

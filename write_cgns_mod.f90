@@ -5657,11 +5657,11 @@ continue
         ! Output nothing.
     end select
     !
-    if ( positivity%Option /= Positivity_Lim_Option__OFF ) then
+    if ( positivity%Option /= POSLIM_OPT__OFF ) then
         call add_sol_variable(variable_list, "PositivityTheta") 
     endif
     !
-    if ( entropy_limiter%Option /= Entropy_Lim_Option__OFF ) then
+    if ( entropy_limiter%Option /= ENTLIM_OPT__OFF ) then
         call add_sol_variable(variable_list, "EntropyLimiterStrength") 
         call add_sol_variable(variable_list, "EntropyLimit") 
     endif

@@ -7413,7 +7413,7 @@ continue
   ! Set the block size and tag offset for this MPI datatype
   !
   ! NOTE:EAF - added one for entropy mins
-  if (entropy_limiter%Option /= Entropy_Lim_Option__OFF) then
+  if (entropy_limiter%Option /= ENTLIM_OPT__OFF) then
     block_size = int( nq+1 , kind=int_mpi )
   else 
     block_size = int( nq , kind=int_mpi )
@@ -8991,7 +8991,7 @@ continue
   call debug_timer(entering_procedure,pname)
 #endif
   !
-  using_entropy_limiter = (entropy_limiter%Option /= Entropy_Lim_Option__OFF)
+  using_entropy_limiter = (entropy_limiter%Option /= ENTLIM_OPT__OFF)
   !
   ncv = size(faceusp,dim=2)
   nvar = ncv + merge(1,0,using_entropy_limiter)
@@ -9093,7 +9093,7 @@ continue
   call debug_timer(entering_procedure,pname)
 #endif
   !
-  using_entropy_limiter = (entropy_limiter%Option /= Entropy_Lim_Option__OFF)
+  using_entropy_limiter = (entropy_limiter%Option /= ENTLIM_OPT__OFF)
   !
   ncv = size(faceusp,dim=2)
   nvar = ncv + merge(1,0,using_entropy_limiter)

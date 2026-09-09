@@ -717,7 +717,7 @@ continue
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !
   call initialize_limiters
-  if (entropy_limiter%Option /= Entropy_Lim_Option__OFF) then
+  if (entropy_limiter%Option /= ENTLIM_OPT__OFF) then
     call calculate_entropy_bounds(true)
   end if
   call check_for_bad_number(__LINE__)
@@ -909,7 +909,7 @@ continue
         !
         current_rk_stage = nst
         !
-        if (entropy_limiter%Option /= Entropy_Lim_Option__OFF) then
+        if (entropy_limiter%Option /= ENTLIM_OPT__OFF) then
           call calculate_entropy_bounds(iter==1)
         end if
         !

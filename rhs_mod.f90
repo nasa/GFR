@@ -598,11 +598,11 @@ continue
   end if
   !
   ! Ensures the positivity of density and pressure
-  if (Positivity%Option /= Positivity_Lim_Option__OFF) then
+  if (Positivity%Option /= POSLIM_OPT__OFF) then
     call positivity_preserving_limiter(nst)
   end if
   !
-  if (entropy_limiter%Option /= Entropy_Lim_Option__OFF) then
+  if (entropy_limiter%Option /= ENTLIM_OPT__OFF) then
     call update_parallel_entropy_bounds()
     call perform_entropy_limiting(nst)
   end if

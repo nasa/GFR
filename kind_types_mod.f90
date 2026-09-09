@@ -965,21 +965,21 @@ module module_kind_types
   !
   !> Choices for type of method to modify the
   !> solution using with entropy limiter
-  integer, parameter :: Entropy_Lim_Option__Off          = 0
-  integer, parameter :: Entropy_Lim_Option__Flat         = 1
-  integer, parameter :: Entropy_Lim_Option__ScaledFilter = 2
+  integer, parameter :: ENTLIM_OPT__OFF          = 0
+  integer, parameter :: ENTLIM_OPT__Flat         = 1
+  integer, parameter :: ENTLIM_OPT__ScaledFilter = 2
   !
   !> Choices for type of interpolant function to use to compute
   !> the damping ratio (badness) needed for the entropy limiter
-  integer, parameter :: Entropy_Lim_Function__LinearLvIhme    = 0
-  integer, parameter :: Entropy_Lim_Function__Linear          = 1
-  integer, parameter :: Entropy_Lim_Function__DensityWeighted = 2
-  integer, parameter :: Entropy_Lim_Function__LogScaled       = 3
-  integer, parameter :: Entropy_Lim_Function__LogScaledPade   = 4
+  integer, parameter :: ENTLIM_FUN__LinearLvIhme    = 0
+  integer, parameter :: ENTLIM_FUN__Linear          = 1
+  integer, parameter :: ENTLIM_FUN__DensityWeighted = 2
+  integer, parameter :: ENTLIM_FUN__LogScaled       = 3
+  integer, parameter :: ENTLIM_FUN__LogScaledPade   = 4
   !
   !> Choices for positivity limiter options
-  integer, parameter :: Positivity_Lim_Option__Off = 0
-  integer, parameter :: Positivity_Lim_Option__On  = 1
+  integer, parameter :: POSLIM_OPT__OFF = 0
+  integer, parameter :: POSLIM_OPT__ON  = 1
   !
   ! Choices for ignition method
   integer, parameter :: IGN_OFF        = 0  ! No ignition source term
