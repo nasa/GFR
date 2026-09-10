@@ -491,7 +491,9 @@ continue
       call ionml()
     case default
       write (error_message,101) action
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      ! This is called from convert_nml_file within an 'if (mypnum == glb_root)'
+      ! block, so this needs to use abort instead of stop_mpi.
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end select
   !
   setverbose = fals
@@ -557,7 +559,9 @@ continue
         namelist_version = ovar_namelist_version
       case default
         write(error_message,106) action
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        ! This is within an 'if (mypnum == glb_root)' block,
+        ! so it needs to use abort instead of stop_mpi.
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     end select
   end if
   !
@@ -675,7 +679,9 @@ continue
       case (NMLaction_WritePretty) ; delim = 'NONE'
       case default
         write(error_message,101) action
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        ! This is within an 'if (mypnum == glb_root)' block,
+        ! so it needs to use abort instead of stop_mpi.
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     end select
     !
     open(newunit=io,file=trim(output_fname),status="new",action="write", &

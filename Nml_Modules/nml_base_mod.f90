@@ -390,7 +390,10 @@ continue
     NMLaction = val
   else
     if (mypnum == glb_root) write(iout,101) val
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+    ! This is called from multiple places including some spots within
+    ! a 'if (mypnum == glb_root)' block, so this needs to use abort
+    ! instead of stop_mpi.
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
   end if
   !
   101 format(/,"CODING ERROR: Invalid argument, val = ",i0)
@@ -445,6 +448,8 @@ continue
     case (2) ; NML_textcase = val  ! use uppercase
     case default
       if (mypnum == glb_root) write(iout,101) val
+      ! Currently this is only called from sub read_input_file and all
+      ! MPI processes call it, so using stop_mpi is correct
       call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end select
   !
@@ -1137,17 +1142,17 @@ continue
       else if ( ioerr1 < 0 .or. ioerr2 < 0 ) then
         ! One file ended.
         write(error_message,111) trim(new_nml_file1), trim(new_nml_file2)
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       end if
       !
       ! Check for read error.
       if ( ioerr1 > 0 ) then
         write(error_message,121) line_num, trim(new_nml_file1)
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       end if
       if ( ioerr2 > 0 ) then
         write(error_message,121) line_num, trim(new_nml_file2)
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       end if
       !
       ! Check for namelist block begin.
@@ -1177,7 +1182,7 @@ continue
       if ( block1 /= block2 ) then
         write(error_message,131) line_num, new_nml_file1, &
                                  line_num, new_nml_file2
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       end if
       !
       ! Skip to next line if namelist block begin.
@@ -1194,7 +1199,7 @@ continue
       if ( vname1 /= vname2 ) then
         write(error_message,141) line_num, new_nml_file1, &
                                  line_num, new_nml_file2
-        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       end if
       !
       ! If lines match, write to output file.
