@@ -6053,6 +6053,21 @@ end subroutine nondimensionalize_sem_profile
 !
 !###############################################################################
 !
+pure &
+function multiple_values(array) result(return_value)
+  !.. Formal Arguments ..
+  real(wp), allocatable, intent(in) :: array(:)
+  !.. Function Result ..
+  logical(lk) :: return_value
+continue
+  return_value = fals
+  if (allocated(array)) then
+    return_value = all_not_equal( array , acceptable_error=eps6 )
+  end if
+end function multiple_values
+!
+!###############################################################################
+!
 subroutine identify_profile_variables(text,variable_names)
   !
   ! Routine to parse a character string to extract a list variable names
