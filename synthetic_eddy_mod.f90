@@ -282,6 +282,9 @@ module synthetic_eddy_mod
     ! IS_CYLINDRICAL : logical flag indicating if the box extents are
     !                  best defined in cylindrical coordinates
     logical(lk) :: is_cylindrical = fals
+    ! IS_FREESTREAM_SEM : logical flag indicating that this SEM box will be
+    !                     used for adding freestream turbulence
+    logical(lk) :: is_freestream_sem = fals
     ! CENTER : coordinates for the center of this SEM box
     type(coord_t) :: center
     ! RNRM : collective inward facing normal for the inflow plane associated
