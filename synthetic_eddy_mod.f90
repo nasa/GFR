@@ -3521,6 +3521,65 @@ end subroutine initialize_sem_avg
 !
 !###############################################################################
 !
+subroutine wall_hack_for_fs_sem(only_reset_freestream_boxes)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: only_reset_freestream_boxes
+  !
+  !.. Local Scalars ..
+  integer  :: n,npts,sem_idx
+  real(wp) :: ymax
+  !
+  logical(lk) :: reset_freestream_boxes_only
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "wall_hack_for_fs_sem"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! By default, reset the wall derived type for all SEM boxes
+  reset_freestream_boxes_only = fals
+  if (present(only_reset_freestream_boxes)) then
+    reset_freestream_boxes_only = only_reset_freestream_boxes
+  end if
+  !
+  sem_box_loop: &
+  do sem_idx = 1,num_sem_boxes
+    !
+    ! If only resetting the wall derived type for freestream SEM boxes,
+    ! check to see if this SEM box is a freestream turbulence SEM before
+    ! moving on to reset the wall derived type for each SEM FP in this box.
+    !
+    if (reset_freestream_boxes_only) then
+      ! If this SEM box is not a freestream turbulence SEM, do not modify
+      ! the wall derived type for any of the SEM FP in this box, and skip
+      ! to the next SEM box.
+      if (.not. sem_box(sem_idx)%is_freestream_sem) cycle sem_box_loop
+    end if
+    !
+    npts = sem_box(sem_idx)%profile%npts
+    ymax = sem_box(sem_idx)%profile%y(npts)
+    !
+    do n = 1,my_sem_pts(sem_idx)%num_fp
+      my_sem_pts(sem_idx)%sem_fp(n)%wall%x        = zero
+      my_sem_pts(sem_idx)%sem_fp(n)%wall%y        = zero
+      my_sem_pts(sem_idx)%sem_fp(n)%wall%z        = zero
+      my_sem_pts(sem_idx)%sem_fp(n)%wall%xnrm     = zero
+      my_sem_pts(sem_idx)%sem_fp(n)%wall%ynrm     = one
+      my_sem_pts(sem_idx)%sem_fp(n)%wall%znrm     = zero
+      my_sem_pts(sem_idx)%sem_fp(n)%wall%distance = ymax - eps14
+    end do
+    !
+  end do sem_box_loop
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine wall_hack_for_fs_sem
+!
+!###############################################################################
+!
 subroutine compute_sem_fp_wall_distance()
   !
   !.. Local Scalars ..
