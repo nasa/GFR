@@ -6610,7 +6610,8 @@ subroutine separate_sem_boundary_faces()
   real(wp),     allocatable :: xyz_sem(:,:)
   type(wall_t), allocatable :: wall(:)
   !
-  logical(lk), allocatable :: msk(:)
+  logical(lk), allocatable :: wall_msk(:)
+  logical(lk), allocatable :: sem_msk(:)
   !
   integer, allocatable :: sem2node(:)
   integer, allocatable :: node2sem(:)
@@ -6640,33 +6641,50 @@ continue
   !
   if (i_am_host_root) then
     !
-    msk = init_array(nnode,fals) ! F2003 AUTO-REALLOC
+    ! Create a mask array for all linear grid nodes of boundary faces
+    ! that have a wall boundary condition that matters to the SEM
+    !
+    wall_msk = init_array(nnode,fals) ! F2003 AUTO-REALLOC
     !
     do nf = 1,nfbnd
       if (any(bface(1,nf) == sem_walls)) then
-        msk( grid%elem(ncell+nf)%nodes(:) ) = true
+        wall_msk( grid%elem(ncell+nf)%nodes(:) ) = true
       end if
     end do
     !
     ! F2003 AUTO-REALLOC
-    xyz_wall = xyz_nodes( 1:3 , pack(intseq(1,nnode),mask=msk(1:nnode)) )
+    xyz_wall = xyz_nodes( 1:3 , pack(intseq(1,nnode),mask=wall_msk(1:nnode)) )
     !
+    ! Create a mask array for all linear grid nodes on SEM boundary faces
     !
-    ! Reinitialize the msk array to false
-    !
-    msk = init_array(nnode,fals) ! F2003 AUTO-REALLOC
+    sem_msk = init_array(nnode,fals) ! F2003 AUTO-REALLOC
     !
     do nf = 1,nfbnd
       if (bface(1,nf) == bc_sem) then
-        msk( grid%elem(ncell+nf)%nodes(:) ) = true
+        sem_msk( grid%elem(ncell+nf)%nodes(:) ) = true
       end if
     end do
     !
-    n_sem_pts = count( msk(1:nnode) )
+    ! Create mapping arrays to switch between the index of an SEM linear
+    ! grid node and the corresponding global node index of said node.
     !
-    sem2node = pack( intseq(1,nnode) , mask=msk(1:nnode) ) ! F2003 AUTO-REALLOC
+    n_sem_pts = count( sem_msk(1:nnode) )
+    !
+    ! Convert SEM node index to global node index using:
+    !    sem2node(1:n_sem_pts),    where
+    !             sem2node([SEM node index]) = [global node index]
+    !
+    sem2node = pack(intseq(1,nnode),mask=sem_msk(1:nnode)) ! F2003 AUTO-REALLOC
+    !
+    ! Convert global node index to SEM node index using:
+    !    node2sem(1:nnode),    where
+    !       if [global node index] is on an SEM boundary face
+    !           node2sem([global node index]) = [SEM node index]
+    !       otherwise
+    !           node2sem([global node index]) = 0
+    !
     node2sem = unpack( intseq(1,n_sem_pts) , &             ! F2003 AUTO-REALLOC
-                       mask=msk(1:nnode) , field=0 )
+                       mask=sem_msk(1:nnode) , field=0 )
     !
     ! F2003 AUTO-REALLOC
     xyz_sem = xyz_nodes( 1:3 , sem2node(1:n_sem_pts) )
@@ -6687,11 +6705,17 @@ continue
     call mpi_bcast(wall_ymin,1_int_mpi,mpi_flttyp,host_root,my_host_comm,mpierr)
   end if
   !
-  ! Deallocate msk, xyz_wall, sem2node, xyz_sem since they are no longer needed
+  ! Deallocate wall_msk, sem_msk, xyz_wall, sem2node, xyz_sem
+  ! since they are no longer needed
   !
-  if (allocated(msk)) then
-    deallocate ( msk , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(wall_msk)) then
+    deallocate ( wall_msk , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"wall_msk",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(sem_msk)) then
+    deallocate ( sem_msk , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sem_msk",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(xyz_wall)) then
