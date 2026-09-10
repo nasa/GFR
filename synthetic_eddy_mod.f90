@@ -4014,6 +4014,7 @@ continue
   !
   y = this%wall%distance
   !
+  !{{{ DEBUG EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
 #ifdef EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
   call yz_to_rt(this%y,this%z,radius,theta, &
                 yc=sem_box(sem_idx)%center%y, &
@@ -4052,6 +4053,7 @@ continue
   !
   aref2 = aref*aref
 #endif
+  !}}}
   !
   unx = this%wall%xnrm
   uny = this%wall%ynrm
@@ -4119,6 +4121,7 @@ continue
  !t66 = (uny2 - unz2)*c1i
   t66 = uny2*c1i - unz2*c1i
   !
+  !{{{ DEBUG EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
 #ifdef EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
   if (output_profile) then
     !
@@ -4159,6 +4162,7 @@ continue
               2x,"FP_IDX = ",i0," (SEM_BOX = ",i0,")",/, &
               80("="))
 #endif
+  !}}}
   !
   ! First, initialize all the local allocatable arrays
   !
@@ -4325,6 +4329,7 @@ continue
   this%a32 = c2*a32(n2) - c1*a32(n1)
   this%a33 = c2*a33(n2) - c1*a33(n1)
   !
+  !{{{ DEBUG EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
 #ifdef EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
   if (output_profile) then
     !
@@ -4364,6 +4369,7 @@ continue
     write (io,31) "  A21 + A22      ",(this%a21+this%a22)*aref
     write (io,31) "  A31 + A32 + A33",(this%a31+this%a32+this%a33)*aref,""
     !
+    !{{{ DEBUG SUPER_EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
 #define SUPER_EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
 #ifdef SUPER_EXTREME_TROUBLESHOOT_PROFILE_INTERPOLATION
     !
@@ -4440,6 +4446,7 @@ continue
                       a21(n)*aref,a31(n)*aref,a32(n)*aref
     end do
 #endif
+    !}}}
     !
   end if
   !
@@ -4465,6 +4472,7 @@ continue
   !
  !close (unit=io,iostat=ierr)
 #endif
+  !}}}
   !
 end subroutine interpolate_profile_data_to_fp
 !
