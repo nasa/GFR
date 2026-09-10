@@ -3235,9 +3235,28 @@ continue
   !
   call initialize_eddy_lists()
   !
-  ! Compute the distance to the nearest wall for each of the SEM face points
+  ! Set the wall_t component for each sem_fp
   !
-  call compute_sem_fp_wall_distance()
+  if (all(sem_box(:)%is_freestream_sem)) then
+    !
+    ! If all sem boxes are for freestream turbulence, hack the wall details
+    ! for the face point to make sure the profile data gets copied into
+    ! the face point without performing any kind of transformation.
+    ! NOTE: This will also get called in compute_sem_fp_wall_distance but
+    !       that will only hack the wall details for freestream SEM boxes.
+    !       Calling this here when all SEM boxes are for freestream turbulence
+    !       prevents it from having to compute wall distances for each SEM
+    !       FP since we know that isnt needed for freestream SEM boxes.
+    !
+    call wall_hack_for_fs_sem()
+    !
+  else
+    !
+    ! Compute the distance to the nearest wall for each of the SEM face points
+    !
+    call compute_sem_fp_wall_distance()
+    !
+  end if
   !
   ! Finally, interpolate the profile data to the location of each face point
   !
@@ -3636,6 +3655,10 @@ continue
   !
   deallocate ( wall , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"wall",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Reset the wall derived type for any freestream SEM boxes
+  !
+  call wall_hack_for_fs_sem(only_reset_freestream_boxes=true)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -5748,6 +5771,12 @@ continue
     !
     call read_sem_profile(sem_box(sem_idx)%profile, &
                           is_cylindrical=sem_box(sem_idx)%is_cylindrical)
+    !
+    ! Check to see if this SEM box has a profile that looks like it is
+    ! intended to be used as an SEM for adding freestream turbulence.
+    !
+    sem_box(sem_idx)%is_freestream_sem = &
+                              check_sem_for_fs_profile(sem_box(sem_idx)%profile)
     !
     npts = sem_box(sem_idx)%profile%npts
     !
