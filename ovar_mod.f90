@@ -2080,15 +2080,19 @@ continue
   ! If Limiter_Marker_Min or Limiter_Marker_Max are larger than the maximum
   ! marker value, reset them back to the default value
   !
-  if (Limiter_Marker_Min > max_marker_value) then
-    Limiter_Marker_Min = Marker_MinMax_Default
-    modified_marker_minmax = true
-    call marker_minmax_warning( nint(-Marker_MinMax_Default) )
+  if (abs(Limiter_Marker_Min-Marker_MinMax_Default) > eps6) then
+    if (Limiter_Marker_Min > max_marker_value) then
+      Limiter_Marker_Min = Marker_MinMax_Default
+      modified_marker_minmax = true
+      call marker_minmax_warning( nint(-Marker_MinMax_Default) )
+    end if
   end if
-  if (Limiter_Marker_Max > max_marker_value) then
-    Limiter_Marker_Max = Marker_MinMax_Default
-    modified_marker_minmax = true
-    call marker_minmax_warning( nint(Marker_MinMax_Default) )
+  if (abs(Limiter_Marker_Max-Marker_MinMax_Default) > eps6) then
+    if (Limiter_Marker_Max > max_marker_value) then
+      Limiter_Marker_Max = Marker_MinMax_Default
+      modified_marker_minmax = true
+      call marker_minmax_warning( nint(Marker_MinMax_Default) )
+    end if
   end if
   !
   ! Set the c1, c2, and/or dpsi values if the respective inputs have been set.
