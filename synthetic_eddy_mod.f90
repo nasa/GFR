@@ -6054,6 +6054,85 @@ end subroutine nondimensionalize_sem_profile
 !###############################################################################
 !
 pure &
+function check_sem_for_fs_profile(prof) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(sem_profile_t), intent(in) :: prof
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+  !.. Local Scalars ..
+  integer  :: n,npts,one_pass
+  real(wp) :: val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_sem_for_fs_profile"
+  !
+continue
+  !
+  return_value = fals
+  !
+  one_pass_loop: &
+  do one_pass = 1,1
+    !
+    npts = prof%npts
+    !
+    ! If the profile only consists of a single data point, automatically
+    ! assume this is a single flow state to use for creating a uniform
+    ! inflow profile plus freestream turbulence fluctuations.
+    ! NOTE: Not sure about if npts=0, there should probably be error checking
+    !       on that prior to this function being called.
+    !
+    if (npts <= 1) then
+      ! Return the value true indicating this SEM box is being used for
+      ! generating freestream turbulence, and exit the loop to return.
+      return_value = true
+      exit one_pass_loop
+    end if
+    !
+    ! Check each profile variable to see if all values within each variable
+    ! array contain the same value. If there are any differences larger than
+    ! small roundoff values, immediately exit this loop which will immediately
+    ! return from this function leaving the returned value set to false.
+    !
+   !if (allocated(prof%ravg)) then
+   ! !if ( sum( abs(prof%ravg(1)-prof%ravg(2:)) ) > eps6) exit one_pass
+   !  if (any( abs(prof%ravg(1)-prof%ravg(2:)) > eps6 )) exit one_pass_loop
+   ! !val = prof%ravg(1)
+   ! !do n = 2,npts
+   ! !  if (abs(val - prof%ravg(n)) > eps6) exit one_pass
+   ! !end do
+   !end if
+    !
+    if ( multiple_values( prof%ravg ) ) exit one_pass_loop
+    if ( multiple_values( prof%uavg ) ) exit one_pass_loop
+    if ( multiple_values( prof%vavg ) ) exit one_pass_loop
+    if ( multiple_values( prof%wavg ) ) exit one_pass_loop
+    if ( multiple_values( prof%tavg ) ) exit one_pass_loop
+    !
+    if ( multiple_values( prof%tau11 ) ) exit one_pass_loop
+    if ( multiple_values( prof%tau21 ) ) exit one_pass_loop
+    if ( multiple_values( prof%tau22 ) ) exit one_pass_loop
+    if ( multiple_values( prof%tau31 ) ) exit one_pass_loop
+    if ( multiple_values( prof%tau32 ) ) exit one_pass_loop
+    if ( multiple_values( prof%tau33 ) ) exit one_pass_loop
+    !
+    ! If we have made it here, it appears all profile data points are identical
+    ! with all of the profile variable each containing only a single value in
+    ! their respective arrays. Because of this, we will assume this profile
+    ! is intended to be used for generating freestream turbulence, so set
+    ! the value returned by this function to true.
+    !
+    return_value = true
+    !
+  end do one_pass_loop
+  !
+end function check_sem_for_fs_profile
+!
+!###############################################################################
+!
+pure &
 function multiple_values(array) result(return_value)
   !.. Formal Arguments ..
   real(wp), allocatable, intent(in) :: array(:)
