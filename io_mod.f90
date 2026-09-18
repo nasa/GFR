@@ -573,10 +573,12 @@ continue
   ! loc_solution_pts, loc_flux_pts, and loc_quadrature_pts all the same value
   ! without having to explicitly specify each one individually.
   !
-  if ( any(all_points == [1,2]) ) then
+  if ( any(all_points == Legendre_Nodes) ) then
     loc_solution_pts = all_points
     loc_flux_pts = all_points
     loc_quadrature_pts = all_points
+    loc_triangle_pts = all_points   ! W.S. for Gauss, Barycentric for Lobatto
+    loc_tetrahedra_pts = all_points ! S.H. for Gauss, Barycentric for Lobatto
   end if
   !
   ! Make sure loc_triangle_pts is valid.
