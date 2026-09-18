@@ -897,12 +897,26 @@ continue
   !       namelist to stdout before starting the solver. Use write_nml_data
   !       to do that with iout as the unit argument.
   !
-  call alloc_nml_data(opt_n_bc_input=4, &
+  ! NOTE: Changed the default number of the different opt_n_* arguments to
+  !       at least 2, because otherwise if any of the resulting arrays are
+  !       allocated to only 1 element, the compiler (at least Intel does this)  
+  !       will write out the array without array indices when directly writing
+  !       the namelist variables using its native format. For example, it
+  !       writes 
+  !          BC_INPUT%... = ...,
+  !       instead of
+  !          BC_INPUT(1)%... = ...,
+  !       which could be confusing to someone just looking at the contents of
+  !       the written namelist file, or worse trying to use the contents of
+  !       the file to create a new input file without knowing they need to
+  !       add the array indices.
+  !
+  call alloc_nml_data(opt_n_bc_input=2, &
                       opt_n_species=3, &
                       opt_char_len=0, &
                       opt_n_point_probes=2, &
-                      opt_n_rake_probes=1, &
-                      opt_n_cell_probes=1)
+                      opt_n_rake_probes=2, &
+                      opt_n_cell_probes=2)
 !-DEBUG_END:
   !
   if (mypnum == glb_root) then
