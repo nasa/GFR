@@ -611,8 +611,8 @@ continue
   ! of the solution and flux points do not match
   !
   if (loc_solution_pts /= loc_flux_pts) then
-    if (mypnum == glb_root) write (iout,101)
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+    write (error_message,101)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Write out an error and abort if using the continuous_output post-processor
