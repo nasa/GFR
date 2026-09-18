@@ -54,9 +54,10 @@ module nml_base_mod
   integer, public, parameter :: nml_recl = 5000
   !
   ! File names for temporary namelist files during old to new conversion.
-  character(len=18), public, parameter :: new_nml_file1 = 'new_nml_dummy0.nml'
-  character(len=18), public, parameter :: new_nml_file2 = 'new_nml_dummy1.nml'
-  character(len=17), public, parameter :: new_nml_file3 = 'new_nml_input.nml'
+  character(len=*), public, parameter :: new_nml_file1 = 'new_nml_dummy0.nml'
+  character(len=*), public, parameter :: new_nml_file2 = 'new_nml_dummy1.nml'
+  character(len=*), public, parameter :: new_nml_file3 = 'new_nml_input.nml'
+  character(len=*), public, parameter :: new_nml_file4 = 'new_nml_trimmed.nml'
   !
   ! Dummy default values for 2-pass namelist reads.
   integer,          public, parameter :: idum0 =  -9990  , idum1 =  -9991
