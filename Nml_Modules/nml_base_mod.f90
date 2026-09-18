@@ -75,6 +75,8 @@ module nml_base_mod
   integer, public, parameter :: NMLaction_Read        = 3 !< Standard nml read.
   integer, public, parameter :: NMLaction_Write       = 4 !< Standard nml write.
   integer, public, parameter :: NMLaction_WritePretty = 5 !< Pretty nml write.
+  !> Check if namelist block is used
+  integer, public, parameter :: NMLaction_BlockCheck  = 6
   !> Controls the function of the set_value* subroutines.
   integer, public, protected :: NMLaction = NMLaction_SetValue
   !
