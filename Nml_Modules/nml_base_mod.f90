@@ -1077,8 +1077,14 @@ subroutine iow_value_i(nam,var,val)
 continue
   !
   if (mypnum == glb_root) then
-    call iow_name(nam)
-    write(iow,*) var
+    if (NMLmode /= NMLmode_TrimDefaults) then
+      call iow_name(nam)
+      write(iow,*) var
+    else if (var /= val ) then ! NMLmode == NMLmode_TrimDefaults
+      nml_block_is_used = true
+      call iow_name(nam)
+      write(iow,*) var
+    end if
   end if
   !
 end subroutine iow_value_i
@@ -1096,8 +1102,14 @@ subroutine iow_value_r(nam,var,val)
 continue
   !
   if (mypnum == glb_root) then
-    call iow_name(nam)
-    write(iow,*) var
+    if (NMLmode /= NMLmode_TrimDefaults) then
+      call iow_name(nam)
+      write(iow,*) var
+    else if (abs(var-val) > eps9) then
+      nml_block_is_used = true
+      call iow_name(nam)
+      write(iow,*) var
+    end if
   end if
   !
 end subroutine iow_value_r
@@ -1112,11 +1124,24 @@ subroutine iow_value_c(nam,var,val)
   character(len=*), intent(in) :: var
   character(len=*), intent(in) :: val
   !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: cvar
+  character(len=:), allocatable :: cval
+  !
 continue
   !
+  cvar = trim(adjustl(var)) ! F2003 AUTO-REALLOC
+  cval = trim(adjustl(val)) ! F2003 AUTO-REALLOC
+  !
   if (mypnum == glb_root) then
-    call iow_name(nam)
-    write(iow,*) "'" // trim(var) // "'"
+    if (NMLmode /= NMLmode_TrimDefaults) then
+      call iow_name(nam)
+      write(iow,*) "'" // cvar // "'"
+    else if (cvar /= cval) then
+      nml_block_is_used = true
+      call iow_name(nam)
+      write(iow,*) "'" // cvar // "'"
+    end if
   end if
   !
 end subroutine iow_value_c
@@ -1134,8 +1159,14 @@ subroutine iow_value_l(nam,var,val)
 continue
   !
   if (mypnum == glb_root) then
-    call iow_name(nam)
-    write(iow,*) var
+    if (NMLmode /= NMLmode_TrimDefaults) then
+      call iow_name(nam)
+      write(iow,*) var
+    else if (var /= val) then
+      nml_block_is_used = true
+      call iow_name(nam)
+      write(iow,*) var
+    end if
   end if
   !
 end subroutine iow_value_l
@@ -1153,8 +1184,14 @@ subroutine iow_value_lk(nam,var,val)
 continue
   !
   if (mypnum == glb_root) then
-    call iow_name(nam)
-    write(iow,*) var
+    if (NMLmode /= NMLmode_TrimDefaults) then
+      call iow_name(nam)
+      write(iow,*) var
+    else if (var /= val) then
+      nml_block_is_used = true
+      call iow_name(nam)
+      write(iow,*) var
+    end if
   end if
   !
 end subroutine iow_value_lk
