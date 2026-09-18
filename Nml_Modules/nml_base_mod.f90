@@ -127,6 +127,9 @@ module nml_base_mod
   !> Namelist buffer.
   character(len=:), allocatable, public, protected :: buffer
   !
+  !> Flag to indicate if a namelist block is being used
+  logical(lk), public, protected :: nml_block_is_used = fals
+  !
   ! ####################################
   ! #####   MODULE DERIVED TYPES   #####
   ! ####################################
