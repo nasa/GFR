@@ -607,10 +607,16 @@ continue
       call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end select
   !
+  ! Write out an error and abort if the location
+  ! of the solution and flux points do not match
+  !
   if (loc_solution_pts /= loc_flux_pts) then
     if (mypnum == glb_root) write (iout,101)
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
+  !
+  ! Write out an error and abort if using the continuous_output post-processor
+  ! and the location of the solution points is set to Gauss-Lobatto points.
   !
   if (loc_solution_pts == Legendre_Gauss_Lobatto) then
     if (continuous_output) then
