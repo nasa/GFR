@@ -1312,13 +1312,15 @@ continue
       action_SetLimiter = NMLaction
   end select
   !
-  !#############################################################################
-  !#############################################################################
-  ! Run vim command to fix input string camel case
-  !s/\%(\%(call\s\+set\s*(\|write\s*(\s*text\s*,\s*101\s*)\)[^']*'%\=\%(\w*_\)\=\)\@<=\(\w\)/\u\1/g
-  !#############################################################################
-  !#############################################################################
+  ! Perform an action on all of the &input namelist variables
+  ! depending on the current value of NMLaction
+  !
   select case (NMLaction)
+    !
+    ! If NMLaction is WritePretty, write out the namelist contents to a
+    ! "pretty"-formatted file; otherwise, set the value for each variable
+    ! to the default or dummy values.
+    !
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
            NMLaction_WritePretty )
       call iow_header('&input')
@@ -2211,10 +2213,16 @@ continue
       !}}}
       call iow_footer()
     case ( NMLaction_Read )
+      !
+      ! Read in the namelist from the connected input file
+      !
       if ( io_has_nml_block(ior,'&input') ) then
         read (ior,nml=input)
       end if
     case ( NMLaction_Write )
+      !
+      ! Have the compiler write out the namelist in the compilers default format
+      !
       write (iow,nml=input)
   end select
   !

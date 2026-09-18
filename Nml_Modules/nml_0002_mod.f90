@@ -890,19 +890,18 @@ continue
       call set('Use_Parmetis                 ',                           &
                 use_parmetis                  , 0                         )
       do n = 1, size(geom_wts)
-      ! Must set text large enough to write into.
-      text = '                               '
-      write(text,101) 'Geom_Wts(',n,')'
-101   format(a,i0,a)
-      text = trim(text)
-      call set( text //   '%Tria         ',geom_wts(n)%tria       , 1 )
-      call set( text //   '%Quad         ',geom_wts(n)%quad       , 1 )
-      call set( text //   '%Tetr         ',geom_wts(n)%tetr       , 1 )
-      call set( text //   '%Pyra         ',geom_wts(n)%pyra       , 1 )
-      call set( text //   '%Pris         ',geom_wts(n)%pris       , 1 )
-      call set( text //   '%Hexa         ',geom_wts(n)%hexa       , 1 )
-      call set( text //   '%Face_Tria    ',geom_wts(n)%face_tria  , 1 )
-      call set( text //   '%Face_Quad    ',geom_wts(n)%face_quad  , 1 )
+        ! Must set text large enough to write into.
+        text = '                               '
+        write(text,101) 'Geom_Wts(',n,')'
+        text = trim(text)
+        call set( text //   '%Tria         ',geom_wts(n)%tria       , 1 )
+        call set( text //   '%Quad         ',geom_wts(n)%quad       , 1 )
+        call set( text //   '%Tetr         ',geom_wts(n)%tetr       , 1 )
+        call set( text //   '%Pyra         ',geom_wts(n)%pyra       , 1 )
+        call set( text //   '%Pris         ',geom_wts(n)%pris       , 1 )
+        call set( text //   '%Hexa         ',geom_wts(n)%hexa       , 1 )
+        call set( text //   '%Face_Tria    ',geom_wts(n)%face_tria  , 1 )
+        call set( text //   '%Face_Quad    ',geom_wts(n)%face_quad  , 1 )
       end do
       call iow_footer()
     case ( NMLaction_Read )
@@ -912,6 +911,10 @@ continue
     case ( NMLaction_Write )
       write(iow,nml=nml_grid)
   end select
+  !
+  ! Format Statements
+  !
+  101 format(a,i0,a)
   !
 end subroutine ionml_grid
 !}}}
@@ -1400,40 +1403,38 @@ continue
       call set('CGNS_Output_Disabled              ',                       &
                 cgns_output_disabled               , fals                  )
       !
-      call set('Probes_Collection_Interval        ',                        &
-                probes_collection_interval         , 0                      )
-      call set('Probes_Write_Interval             ',                        &
-                probes_write_interval              , 100                    )
+      call set('Probes_Collection_Interval        ',                       &
+                probes_collection_interval         , 0                     )
+      call set('Probes_Write_Interval             ',                       &
+                probes_write_interval              , 100                   )
       !
       do n = 1, size(point_probes)
-      text = '                               '
-      write(text,101) 'Point_Probes(',n,')'
-      text = trim(text)   ! F2003 realloc
-      call set( text //   '%XYZ                    ',                       &
-                point_probes(n)%xyz                 , probes_xyz_default    )
+        text = '                               '
+        write(text,101) 'Point_Probes(',n,')'
+        text = trim(text)   ! F2003 realloc
+        call set( text //   '%XYZ                 ',                       &
+                  point_probes(n)%xyz              , probes_xyz_default    )
       end do
       !
       do n = 1, size(rake_probes)
-      text = '                               '
-      write(text,101) 'Rake_Probes(',n,')'
-      text = trim(text)   ! F2003 realloc
-      call set( text //   '%Num_Probes             ',                       &
-                rake_probes(n)%num_probes           , 0                     )
-      call set( text //   '%XYZ_Beg                ',                       &
-                rake_probes(n)%xyz_beg              , probes_xyz_default    )
-      call set( text //   '%XYZ_End                ',                       &
-                rake_probes(n)%xyz_end              , probes_xyz_default    )
+        text = '                               '
+        write(text,101) 'Rake_Probes(',n,')'
+        text = trim(text)   ! F2003 realloc
+        call set( text //   '%Num_Probes          ',                       &
+                  rake_probes(n)%num_probes        , 0                     )
+        call set( text //   '%XYZ_Beg             ',                       &
+                  rake_probes(n)%xyz_beg           , probes_xyz_default    )
+        call set( text //   '%XYZ_End             ',                       &
+                  rake_probes(n)%xyz_end           , probes_xyz_default    )
       end do
       !
       do n = 1, size(cell_probes)
-      text = '                               '
-      write(text,101) 'Cell_Probes(',n,')'
-      text = trim(text)   ! F2003 realloc
-      call set( text //   '%XYZ                    ',                       &
-                cell_probes(n)%xyz                  , probes_xyz_default    )
+        text = '                               '
+        write(text,101) 'Cell_Probes(',n,')'
+        text = trim(text)   ! F2003 realloc
+        call set( text //   '%XYZ                 ',                       &
+                  cell_probes(n)%xyz               , probes_xyz_default    )
       end do
-      !
-101   format(a,i0,a)
       !
       call set('Profile_IO_All                    ',                       &
                 profile_io_all                     , fals                  )
@@ -1455,6 +1456,10 @@ continue
     case ( NMLaction_Write )
       write(iow,nml=nml_output)
   end select
+  !
+  ! Format Statements
+  !
+  101 format(a,i0,a)
   !
 end subroutine ionml_output
 !}}}
