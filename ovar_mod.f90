@@ -2041,8 +2041,8 @@ subroutine process_marker_coefficients(opt_sol_order)
   !.. Local Scalars ..
   integer  :: p
   real(wp) :: l10p,psi0,max_marker_value,val
-  real(wp) :: Input_Limiter_Marker_Min
-  real(wp) :: Input_Limiter_Marker_Max
+  real(wp) :: Input_Marker_Min
+  real(wp) :: Input_Marker_Max
   !
   logical(lk) :: modified_marker_minmax
   !
@@ -2056,8 +2056,8 @@ continue
   !
   modified_marker_minmax = fals
   !
-  Input_Limiter_Marker_Min = Limiter_Marker_Min
-  Input_Limiter_Marker_Max = Limiter_Marker_Max
+  Input_Marker_Min  = Limiter_Marker_Min
+  Input_Marker_Max  = Limiter_Marker_Max
   !
   ! Complete the marker coefficients that will be used to scale the raw
   ! marker values to the scaled_marker on the interval [0,1]
@@ -2308,8 +2308,8 @@ continue
     else if (flag == 999) then
       ! Min and/or Max were modified while getting the marker coefficients
       ! so report the before and after values
-      write (iout,5) Input_Limiter_Marker_Min, Input_Limiter_Marker_Max, &
-                           Limiter_Marker_Min,       Limiter_Marker_Max
+      write (iout,5)   Input_Marker_Min,   Input_Marker_Max, &
+                     Limiter_Marker_Min, Limiter_Marker_Max
     end if
     write (iout,10)
     write (iout,*)
