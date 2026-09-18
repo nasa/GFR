@@ -492,29 +492,29 @@ continue
   ! Set allocatable character variables to their default values and lengths.
   ! ------------------------------------------------------------------------
   !
-  call set('gridfile               ',                         &
+  call set('Gridfile               ',                         &
             gridfile                , ''        , default_len )
-  call set('plot3d_cutfile         ',                         &
+  call set('Plot3d_Cutfile         ',                         &
             plot3d_cutfile          , ''        , default_len )
-  call set('plot3d_bcsfile         ',                         &
+  call set('Plot3d_BCSfile         ',                         &
             plot3d_bcsfile          , ''        , default_len )
-  call set('interpto_gridfile      ',                         &
+  call set('Interpto_Gridfile      ',                         &
             interpto_gridfile       , ''        , default_len )
-  call set('interpto_plot3d_cutfile',                         &
+  call set('Interpto_Plot3d_Cutfile',                         &
             interpto_plot3d_cutfile , ''        , default_len )
-  call set('interpto_plot3d_bcsfile',                         &
+  call set('Interpto_Plot3d_BCSfile',                         &
             interpto_plot3d_bcsfile , ''        , default_len )
-  call set('restart_file           ',                         &
+  call set('Restart_File           ',                         &
             restart_file            , 'out.rst' , default_len )
-  call set('solution_file          ',                         &
+  call set('Solution_File          ',                         &
             solution_file           , ''        , default_len )
-  call set('output_dir             ',                         &
+  call set('Output_Dir             ',                         &
             output_dir              , '.'       , default_len )
-  call set('lustre_stripe_size     ',                         &
+  call set('Lustre_Stripe_Size     ',                         &
             lustre_stripe_size      , '4m'      , default_len )
-  call set('time_ave_file          ',                         &
+  call set('Time_Ave_File          ',                         &
             time_ave_file           , 'out.ave' , default_len )
-  call set('restart_list_file      ',                         &
+  call set('Restart_List_File      ',                         &
             restart_list_file       , ''        , default_len )
   !
   call debug_timer(leaving_procedure,pname)
@@ -1290,399 +1290,399 @@ continue
       call iow_header('&input')
       !
 !{{{  ! GRID INFORMATION
-      call set('grid_format                      ',                          &
+      call set('Grid_Format                      ',                          &
                 grid_format                       ,Internally_Generated_Grid )
-      call set('gridfile                         ',                          &
+      call set('Gridfile                         ',                          &
                 gridfile                          , ''                       )
-      call set('plot3d_cutfile                   ',                          &
+      call set('Plot3d_Cutfile                   ',                          &
                 plot3d_cutfile                    , ''                       )
-      call set('plot3d_bcsfile                   ',                          &
+      call set('Plot3d_BCSfile                   ',                          &
                 plot3d_bcsfile                    , ''                       )
-      call set('grid_scaling_factor              ',                          &
+      call set('Grid_Scaling_Factor              ',                          &
                 grid_scaling_factor               , 1.0_wp                   )
-      call set('internal_grid_dof                ',                          &
+      call set('Internal_Grid_DoF                ',                          &
                 internal_grid_dof                 , 0                        )
-      call set('internal_grid_order              ',                          &
+      call set('Internal_Grid_Order              ',                          &
                 internal_grid_order               ,-1                        )
       !}}}
 !{{{  ! PLOT3D COARSENING OPTIONS
-      call set('plot3d_i_stride         ',plot3d_i_stride         ,-1      )
-      call set('plot3d_j_stride         ',plot3d_j_stride         ,-1      )
-      call set('plot3d_k_stride         ',plot3d_k_stride         ,-1      )
-      call set('plot3d_all_strides      ',plot3d_all_strides      ,-1      )
-      call set('plot3d_agglomerate_order',plot3d_agglomerate_order,-1      )
-      call set('parametric_agglomeration',parametric_agglomeration,-1      )
+      call set('Plot3d_I_Stride         ',plot3d_i_stride         ,-1      )
+      call set('Plot3d_J_Stride         ',plot3d_j_stride         ,-1      )
+      call set('Plot3d_K_Stride         ',plot3d_k_stride         ,-1      )
+      call set('Plot3d_All_Strides      ',plot3d_all_strides      ,-1      )
+      call set('Plot3d_Agglomerate_Order',plot3d_agglomerate_order,-1      )
+      call set('Parametric_Agglomeration',parametric_agglomeration,-1      )
       !}}}
 !{{{  ! INTERPOLATION UTILITY GRID INFORMATION
-      call set('interpto_grid_format             ',                &
+      call set('Interpto_Grid_Format             ',                &
                 interpto_grid_format              , Unknown_Format )
-      call set('interpto_gridfile                ',                &
+      call set('Interpto_Gridfile                ',                &
                 interpto_gridfile                 , ''             )
-      call set('interpto_plot3d_cutfile          ',                &
+      call set('Interpto_Plot3d_Cutfile          ',                &
                 interpto_plot3d_cutfile           , ''             )
-      call set('interpto_plot3d_bcsfile          ',                &
+      call set('Interpto_Plot3d_BCSfile          ',                &
                 interpto_plot3d_bcsfile           , ''             )
-      call set('interpto_grid_scaling_factor     ',                &
+      call set('Interpto_Grid_Scaling_Factor     ',                &
                 interpto_grid_scaling_factor      , 1.0_wp         )
       !}}}
 !{{{  ! INTERPOLATION UTILITY PLOT3D COARSENING OPTIONS
-      call set('interpto_plot3d_i_stride         ',                &
+      call set('Interpto_Plot3d_I_Stride         ',                &
                 interpto_plot3d_i_stride          ,-1              )
-      call set('interpto_plot3d_j_stride         ',                &
+      call set('Interpto_Plot3d_J_Stride         ',                &
                 interpto_plot3d_j_stride          ,-1              )
-      call set('interpto_plot3d_k_stride         ',                &
+      call set('Interpto_Plot3d_K_Stride         ',                &
                 interpto_plot3d_k_stride          ,-1              )
-      call set('interpto_plot3d_all_strides      ',                &
+      call set('Interpto_Plot3d_All_Strides      ',                &
                 interpto_plot3d_all_strides       ,-1              )
-      call set('interpto_plot3d_agglomerate_order',                &
+      call set('Interpto_Plot3d_Agglomerate_Order',                &
                 interpto_plot3d_agglomerate_order ,-1              )
       !}}}
 !{{{  ! INTERPOLATION UTILITY SOLUTION ORDER
-      call set('interpto_solution_order          ',                &
+      call set('Interpto_Solution_Order          ',                &
                 interpto_solution_order           ,-3              )
-      call set('interpto_all_orders              ',                &
+      call set('Interpto_All_Orders              ',                &
                 interpto_all_orders               ,-3              )
-      call set('interpto_projection_order        ',                &
+      call set('Interpto_Projection_Order        ',                &
                 interpto_projection_order         ,-3              )
-      call set('interpto_quadrature_order        ',                &
+      call set('Interpto_Quadrature_Order        ',                &
                 interpto_quadrature_order         ,-3              )
-      call set('interpto_output_order            ',                &
+      call set('Interpto_Output_Order            ',                &
                 interpto_output_order             ,-3              )
-      call set('interpto_error_order             ',                &
+      call set('Interpto_Error_Order             ',                &
                 interpto_error_order              ,-3              )
       !}}}
 !{{{  ! BASE FR OPTIONS
-      call set('solution_order                   ',                         &
+      call set('Solution_Order                   ',                         &
                 solution_order                    ,-3                      ,&
                 action_SetLimiter)
-      call set('flux_divergence                  ',                         &
+      call set('Flux_Divergence                  ',                         &
                 flux_divergence                   , LagrangePolynomial      )
-      call set('correction_function              ',                         &
+      call set('Correction_Function              ',                         &
                 correction_function               , Correction_gDG          )
       !}}}
 !{{{  ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS
-      call set('loc_solution_pts                 ',                         &
+      call set('Loc_Solution_Pts                 ',                         &
                 loc_solution_pts                  , Legendre_Gauss          )
-      call set('loc_flux_pts                     ',                         &
+      call set('Loc_Flux_Pts                     ',                         &
                 loc_flux_pts                      , Legendre_Gauss          )
-      call set('loc_triangle_pts                 ',                         &
+      call set('Loc_Triangle_Pts                 ',                         &
                 loc_triangle_pts                  , WilliamsShunn_TriPoints )
-      call set('loc_tetrahedra_pts               ',                         &
+      call set('Loc_Tetrahedra_Pts               ',                         &
                 loc_tetrahedra_pts                , ShunnHam_TetPoints      )
       !}}}
 !{{{  ! LOCATION OF INITIALIZATION POINTS
-      call set('loc_init_pts                     ',                         &
+      call set('Loc_Init_Pts                     ',                         &
                 loc_init_pts                      , 0                       )
       !}}}
 !{{{  ! RUNGE-KUTTA OPTIONS
-      call set('runge_kutta_scheme               ',                         &
+      call set('Runge_Kutta_Scheme               ',                         &
                 Runge_Kutta_Scheme                , OERK_11Stage_3rdOrder   )
               ! action_NewDefault, was TVD3_RK, now OERK_11Stage_3rdOrder
-      call set('num_rk_stages                    ',                         &
+      call set('Num_RK_Stages                    ',                         &
                 num_rk_stages                     , 3                       )
       !}}}
 !{{{  ! COMMON FLUX OPTIONS
-      call set('invs_flux_method                 ',                         &
+      call set('Invs_Flux_Method                 ',                         &
                 invs_flux_method                  , invs_flux_ROE           )
-      call set('visc_flux_method                 ',                         &
+      call set('Visc_Flux_Method                 ',                         &
                 visc_flux_method                  , visc_flux_BR2           )
-      call set('visc_variables_to_ave            ',                         &
+      call set('Visc_Variables_To_Ave            ',                         &
                 visc_variables_to_ave             , visc_interface_fluxes   )
       !}}}
 !{{{  ! TIME STEPPING INFORMATION
-      call set('num_timesteps                    ',                         &
+      call set('Num_Timesteps                    ',                         &
                 num_timesteps                     , 25000                   )
       call set('Final_Time                       ',                         &
                 Final_Time                        ,-10.0_wp                 )
-      call set('constant_dt                      ',                         &
+      call set('Constant_Dt                      ',                         &
                 constant_dt                       , 1.0e-6_wp               )
       call set('Timestep_Type                    ',                         &
                 Timestep_Type                     , Global_Cell_Timestep    )
-      call set('minimum_timesteps                ',                         &
+      call set('Minimum_Timesteps                ',                         &
                 minimum_timesteps                 , 100                     )
       !}}}
 !{{{  ! CFL CONTROL VARIABLES
       !   cfl     has new ver2 default.
       !   cfl_end has new ver2 default, so also force:  cfl_beg, cfl_cycles
-      call set('cfl                              ',                         &
+      call set('CFL                              ',                         &
                 cfl                               , 1.0_wp                  )
               ! action_NewDefault, was 0.1, now 1.0
-      call set('cfl_beg                          ',                         &
+      call set('CFL_Beg                          ',                         &
                 cfl_beg                           , 0.1_wp                  )
-      call set('cfl_end                          ',                         &
+      call set('CFL_End                          ',                         &
                 cfl_end                           , 1.0_wp                  )
               ! action_NewDefault, was 0.1, now 1.0
-      call set('cfl_cycles                       ',                         &
+      call set('CFL_Cycles                       ',                         &
                 cfl_cycles                        , 1                       )
-      call set('cfl_start_iter                   ',                         &
+      call set('CFL_Start_Iter                   ',                         &
                 cfl_start_iter                    , 0                       )
       !}}}
 !{{{  ! OVER-INTEGRATION OPTIONS
-      call set('projection_order                 ',                         &
+      call set('Projection_Order                 ',                         &
                 projection_order                  ,-3                       )
-      call set('quadrature_order                 ',                         &
+      call set('Quadrature_Order                 ',                         &
                 quadrature_order                  ,-3                       )
-      call set('loc_quadrature_pts               ',                         &
+      call set('Loc_Quadrature_Pts               ',                         &
                 loc_quadrature_pts                , Legendre_Gauss          )
-      call set('combine_common_flux_projections  ',                         &
+      call set('Combine_Common_Flux_Projections  ',                         &
                 combine_common_flux_projections   , 0                       )
       !}}}
 !{{{  ! ERROR-INTEGRATION OPTIONS
-      call set('error_order                      ',                         &
+      call set('Error_Order                      ',                         &
                 error_order                       ,-3                       )
-      call set('loc_error_pts                    ',                         &
+      call set('Loc_Error_Pts                    ',                         &
                 loc_error_pts                     , Legendre_Gauss          )
       !}}}
 !{{{  ! FORCE GLOBAL ORDER AND SOLUTION POINTS
-      call set('all_orders                       ',                         &
+      call set('All_Orders                       ',                         &
                 all_orders                        ,-3                      ,&
                 action_SetLimiter)
-      call set('all_points                       ',                         &
+      call set('All_Points                       ',                         &
                 all_points                        ,-1                       )
       !}}}
 !{{{  ! PARALLEL OPTIONS
 !     !> METIS_OPTION = 3  ! k-way part, min comm volume
-      call set('metis_option                     ',                         &
+      call set('Metis_Option                     ',                         &
                 metis_option                      , 3                       )
-      call set('use_parmetis                     ',                         &
+      call set('Use_Parmetis                     ',                         &
                 use_parmetis                      , 0                       )
       !}}}
 !{{{  ! INITIALIZATION / TEST CASE
-      call set('itestcase                        ',                         &
+      call set('Itestcase                        ',                         &
                 itestcase                         , Generic_MeanFlow        )
               ! action_NewDefault, was Taylor_Green_Vortex, now Generic_Meanflow
-      call set('jet_init_func                    ',                         &
+      call set('Jet_Init_Func                    ',                         &
                 jet_init_func                     , 2                       )
       !}}}
 !{{{  ! RESTART OPTIONS
-      call set('load_restart_file                ',                         &
+      call set('Load_Restart_File                ',                         &
                 load_restart_file                 , fals                    )
-      call set('restart_interval                 ',                         &
+      call set('Restart_Interval                 ',                         &
                 restart_interval                  , 0                       )
-      call set('restart_file                     ',                         &
+      call set('Restart_File                     ',                         &
                 restart_file                      , 'out.rst'               )
-      call set('restart_output_uses_host_roots   ',                         &
+      call set('Restart_Output_Uses_Host_Roots   ',                         &
                 restart_output_uses_host_roots    , true                    ) 
-      call set('CFL_reduction_for_NaN_restart    ',                         &
+      call set('CFL_Reduction_For_NaN_Restart    ',                         &
                 CFL_reduction_for_NaN_restart     , 2.0_wp                  ) 
-      call set('num_saved_time_ave_restarts      ',                         &
+      call set('Num_Saved_Time_Ave_Restarts      ',                         &
                 num_saved_time_ave_restarts       , 2                       )
-      call set('restart_frequency                ',                         &
+      call set('Restart_Frequency                ',                         &
                 restart_frequency                 ,-one                     )
-      call set('completely_disable_restart_output',                         &
+      call set('Completely_Disable_Restart_Output',                         &
                 completely_disable_restart_output , fals                    )
       !}}}
 !{{{  ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
-      call set('solution_format                   ',                        &
+      call set('Solution_Format                   ',                        &
                 solution_format                    , Unknown_Format         )
-      call set('solution_file                     ',                        &
+      call set('Solution_File                     ',                        &
                 solution_file                      , ''                     )
       !}}}
 !{{{  ! OPTIONS FOR SEM
-      call set('use_improved_sem_normalization    ',                        &
+      call set('Use_Improved_SEM_Normalization    ',                        &
                 use_improved_sem_normalization     , true                   )
               ! action_NewDefault, was false, now true
-      call set('use_sem_profile_for_initialization',                        &
+      call set('Use_SEM_Profile_For_Initialization',                        &
                 use_sem_profile_for_initialization , fals                   )
-      call set('sem_eddy_volume_is_spherical      ',                        &
+      call set('SEM_Eddy_Volume_Is_Spherical      ',                        &
                 sem_eddy_volume_is_spherical       , fals                   )
-      call set('sem_box_num_eddies_multiplier     ',                        &
+      call set('SEM_Box_Num_Eddies_Multiplier     ',                        &
                 sem_box_num_eddies_multiplier      , one                    )
-      call set('sem_use_random_seed_from_restart  ',                        &
+      call set('SEM_Use_Random_Seed_From_Restart  ',                        &
                 sem_use_random_seed_from_restart   , fals                   )
-      call set('sem_include_thermo_fluctuations   ',                        &
+      call set('SEM_Include_Thermo_Fluctuations   ',                        &
                 sem_include_thermo_fluctuations    , fals                   )
-      call set('sem_use_restart_eddies            ',                        &
+      call set('SEM_Use_Restart_Eddies            ',                        &
                 sem_use_restart_eddies             , true                   )
       !}}}
 !{{{  ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
-      call set('average_sem_inflow_plane          ',                        &
+      call set('Average_SEM_Inflow_Plane          ',                        &
                 average_sem_inflow_plane           , fals                   )
       !}}}
 !{{{  ! STATISTICAL OUTPUT OPTIONS
-      call set('iter_out_interval                 ',                        &
+      call set('Iter_Out_Interval                 ',                        &
                 iter_out_interval                  , 1                      )
-      call set('results_interval                  ',                        &
+      call set('Results_Interval                  ',                        &
                 results_interval                   , 0                      )
-      call set('output_eperk_cfl                  ',                        &
+      call set('Output_EPERK_CFL                  ',                        &
                 output_eperk_cfl                   , true                   )
-      call set('disable_header_rewrites           ',                        &
+      call set('Disable_Header_Rewrites           ',                        &
                 disable_header_rewrites            , fals                   )
-      call set('output_summary_file               ',                        &
+      call set('Output_Summary_File               ',                        &
                 output_summary_file                , fals                   )
       !}}}
 !{{{  ! SOLUTION OUTPUT OPTIONS
-      call set('output_dir                        ',                        &
+      call set('Output_Dir                        ',                        &
                 output_dir                         , '.'                    )
-      call set('output_interval                   ',                        &
+      call set('Output_Interval                   ',                        &
                 output_interval                    ,-5                      )
-      call set('continuous_output                 ',                        &
+      call set('Continuous_Output                 ',                        &
                 continuous_output                  , fals                   )
-      call set('output_order                      ',                        &
+      call set('Output_Order                      ',                        &
                 output_order                       ,-3                      )
-      call set('loc_output_pts                    ',                        &
+      call set('Loc_Output_Pts                    ',                        &
                 loc_output_pts                     , Equi_Distant_Points    )
-      call set('output_frequency                  ',                        &
+      call set('Output_Frequency                  ',                        &
                 output_frequency                   ,-1.0_wp                 )
       !}}}
 !{{{  ! SELECTION OF OUTPUT VARIABLES IN THE CGNS SOLUTION FILES
-      call set('output_vorticity                     ',          &
+      call set('Output_Vorticity                     ',          &
                 output_vorticity                      , fals     )
-      call set('output_conserved_variables           ',          &
+      call set('Output_Conserved_Variables           ',          &
                 output_conserved_variables            , fals     )
-      call set('output_momentum                      ',          &
+      call set('Output_Momentum                      ',          &
                 output_momentum                       , fals     )
-      call set('output_cylindrical_coordinates       ',          &
+      call set('Output_Cylindrical_Coordinates       ',          &
                 output_cylindrical_coordinates        , fals     )
-      call set('output_cylindrical_velocity          ',          &
+      call set('Output_Cylindrical_Velocity          ',          &
                 output_cylindrical_velocity           , fals     )
-      call set('output_relative_velocity             ',          &
+      call set('Output_Relative_Velocity             ',          &
                 output_relative_velocity              , fals     )
-      call set('output_relative_conditions           ',          &
+      call set('Output_Relative_Conditions           ',          &
                 output_relative_conditions            , fals     )
-      call set('output_temperature                   ',          &
+      call set('Output_Temperature                   ',          &
                 output_temperature                    , fals     )
-      call set('output_thermo_variables              ',          &
+      call set('Output_Thermo_Variables              ',          &
                 output_thermo_variables               , fals     )
-      call set('output_gradients                     ',          &
+      call set('Output_Gradients                     ',          &
                 output_gradients                      , fals     )
-      call set('output_density_gradient              ',          &
+      call set('Output_Density_Gradient              ',          &
                 output_density_gradient               , fals     )
-      call set('output_density_gradient_magnitude    ',          &
+      call set('Output_Density_Gradient_Magnitude    ',          &
                 output_density_gradient_magnitude     , fals     )
-      call set('output_pressure_gradient             ',          &
+      call set('Output_Pressure_Gradient             ',          &
                 output_pressure_gradient              , fals     )
-      call set('output_pressure_gradient_magnitude   ',          &
+      call set('Output_Pressure_Gradient_Magnitude   ',          &
                 output_pressure_gradient_magnitude    , fals     )
-      call set('output_pressure_dmat_gradient        ',          &
+      call set('Output_Pressure_Dmat_Gradient        ',          &
                 output_pressure_dmat_gradient         , fals     )
-      call set('output_temperature_gradient          ',          &
+      call set('Output_Temperature_Gradient          ',          &
                 output_temperature_gradient           , fals     )
-      call set('output_temperature_gradient_magnitude',          &
+      call set('Output_Temperature_Gradient_Magnitude',          &
                 output_temperature_gradient_magnitude , fals     )
-      call set('output_temperature_dmat_gradient     ',          &
+      call set('Output_Temperature_Dmat_Gradient     ',          &
                 output_temperature_dmat_gradient      , fals     )
-      call set('output_schlieren                     ',          &
+      call set('Output_Schlieren                     ',          &
                 output_schlieren                      , fals     )
-      call set('output_modified_schlieren            ',          &
+      call set('Output_Modified_Schlieren            ',          &
                 output_modified_schlieren             , fals     )
-      call set('output_transport_variables           ',          &
+      call set('Output_Transport_Variables           ',          &
                 output_transport_variables            , fals     )
-      call set('output_stagnation_temperature        ',          &
+      call set('Output_Stagnation_Temperature        ',          &
                 output_stagnation_temperature         , fals     )
-      call set('output_stagnation_pressure           ',          &
+      call set('Output_Stagnation_Pressure           ',          &
                 output_stagnation_pressure            , fals     )
-      call set('output_stagnation_variables          ',          &
+      call set('Output_Stagnation_Variables          ',          &
                 output_stagnation_variables           , fals     )
-      call set('output_marker_variables              ',          &
+      call set('Output_Marker_Variables              ',          &
                 output_marker_variables               , fals     )
-      call set('output_qcriterion                    ',          &
+      call set('Output_Qcriterion                    ',          &
                 output_qcriterion                     , fals     )
-      call set('output_grid_details                  ',          &
+      call set('Output_Grid_Details                  ',          &
                 output_grid_details                   , fals     )
-      call set('output_local_timestep                ',          &
+      call set('Output_Local_Timestep                ',          &
                 output_local_timestep                 , fals     )
-      call set('output_species_density               ',          &
+      call set('Output_Species_Density               ',          &
                 output_species_density                , fals     )
-      call set('output_species_mass_fractions        ',          &
+      call set('Output_Species_Mass_Fractions        ',          &
                 output_species_mass_fractions         , true     )
               ! action_NewDefault, was false, now true
-      call set('output_species_mole_fractions        ',          &
+      call set('Output_Species_Mole_Fractions        ',          &
                 output_species_mole_fractions         , fals     )
-      call set('output_extra_species_variables       ',          &
+      call set('Output_Extra_Species_Variables       ',          &
                 output_extra_species_variables        , fals     )
-      call set('output_debug_species_variables       ',          &
+      call set('Output_Debug_Species_Variables       ',          &
                 output_debug_species_variables        , fals     )
-      call set('output_grdnt_species_variables       ',          &
+      call set('Output_Grdnt_Species_Variables       ',          &
                 output_grdnt_species_variables        , fals     )
-      call set('output_cellave_density               ',          &
+      call set('Output_CellAve_Density               ',          &
                 output_cellave_density                , fals     )
-      call set('output_exact_density                 ',          &
+      call set('Output_Exact_Density                 ',          &
                 output_exact_density                  , fals     )
-      call set('output_exact_pressure                ',          &
+      call set('Output_Exact_Pressure                ',          &
                 output_exact_pressure                 , fals     )
       !}}}
 !{{{  ! GOVERNING EQUATIONS
-      call set('governing_equations               ',                        &
+      call set('Governing_Equations               ',                        &
                 governing_equations                , NavierStokes_Eqns      )
-      call set('turbulence_model                  ',                        &
+      call set('Turbulence_Model                  ',                        &
                 turbulence_model                   , laminar_flow           )
       !}}}
 !{{{  ! MOVING REFERENCE FRAME
-      call set('moving_ref_frame%rotation         ',                        &
+      call set('Moving_Ref_Frame%Rotation         ',                        &
                 moving_ref_frame%rotation          , [zero,zero,zero]       )
-      call set('moving_ref_frame%translation      ',                        &
+      call set('Moving_Ref_Frame%Translation      ',                        &
                 moving_ref_frame%translation       , [zero,zero,zero]       )
-      call set('moving_ref_frame%spinup%iter      ',                        &
+      call set('Moving_Ref_Frame%Spinup%Iter      ',                        &
                 moving_ref_frame%spinup%iter       , 0                      )
-      call set('moving_ref_frame%spinup%tstar     ',                        &
+      call set('Moving_Ref_Frame%Spinup%Tstar     ',                        &
                 moving_ref_frame%spinup%tstar      , zero                   )
       !}}}
 !{{{  ! CHEMICAL REACTION SOURCE TERMS
-      call set('disable_chemical_reactions        ',                        &
+      call set('Disable_Chemical_Reactions        ',                        &
                 disable_chemical_reactions         , fals                   )
-      call set('semi_implicit_chemistry           ',                        &
+      call set('Semi_Implicit_Chemistry           ',                        &
                 semi_implicit_chemistry            , 0                      )
-      call set('traceback_unconverged_newton_temps',                        &
+      call set('Traceback_Unconverged_Newton_Temps',                        &
                 traceback_unconverged_newton_temps , fals                   )
       !}}}
 !{{{  ! IGNITION CONTROL SOURCE TERMS
-      call set('ignition_method                   ',                        &
+      call set('Ignition_Method                   ',                        &
                 ignition_method                    , IGN_OFF                )
-      call set('ignition_start_timestep           ',                        &
+      call set('Ignition_Start_Timestep           ',                        &
                 ignition_start_timestep            , 0                      )
-      call set('ignition_duration                 ',                        &
+      call set('Ignition_Duration                 ',                        &
                 ignition_duration                  , 1                      )
-      call set('ignition_prod2reac_L2_ratio_goal  ',                        &
+      call set('Ignition_Prod2Reac_L2_Ratio_Goal  ',                        &
                 ignition_prod2reac_L2_ratio_goal   ,-1.0_wp                 )
-      call set('ignition_max_temperature          ',                        &
+      call set('Ignition_Max_Temperature          ',                        &
                 ignition_max_temperature           , 1600.0_wp              )
-      call set('ignition_spark_cap                ',                        &
+      call set('Ignition_Spark_Cap                ',                        &
                 ignition_spark_cap                 , 1.0e+12_wp             )
-      call set('ignition_source_magnitude         ',                        &
+      call set('Ignition_Source_Magnitude         ',                        &
                 ignition_source_magnitude          , 20.0_wp                )
-      call set('ignition_source_radius            ',                        &
+      call set('Ignition_Source_Radius            ',                        &
                 ignition_source_radius             , zero                   )
-      call set('ignition_source_location          ',                        &
+      call set('Ignition_Source_Location          ',                        &
                 ignition_source_location           , [zero,zero,zero]       )
       !}}}
 !{{{  ! NONDIMENSIONAL REFERENCE CONDITIONS
-      call set('machref        ',machref           , 0.4_wp                 )
-      call set('reyref         ',reyref            ,-1.0_wp                 )
-      call set('gam            ',gam               , 1.4_wp                 )
+      call set('Machref        ',machref           , 0.4_wp                 )
+      call set('Reyref         ',reyref            ,-1.0_wp                 )
+      call set('Gam            ',gam               , 1.4_wp                 )
       !}}}
 !{{{  ! REALIZABLE TOTAL TEMPERATURE LIMITER
-      call set('ideal_total_temperature           ',                        &
+      call set('Ideal_Total_Temperature           ',                        &
                 ideal_total_temperature            ,-1.0_wp                 )
-      call set('limit_total_temperature           ',                        &
+      call set('Limit_Total_Temperature           ',                        &
                 limit_total_temperature            , 0.2_wp                 )
       !}}}
 !{{{  ! REFERENCE CONDITIONS
-      call set('rhoref         ',rhoref            ,-1.0_wp                 )
-      call set('tref           ',tref              , 300.0_wp               )
-      call set('pref           ',pref              , 100000.0_wp            )
-      call set('rgasref        ',rgasref           ,-1.0_wp                 )
+      call set('Rhoref         ',rhoref            ,-1.0_wp                 )
+      call set('Tref           ',tref              , 300.0_wp               )
+      call set('Pref           ',pref              , 100000.0_wp            )
+      call set('Rgasref        ',rgasref           ,-1.0_wp                 )
       !}}}
 !{{{  ! REFERENCE TURBULENCE CONDITIONS
-      call set('tinref         ',tinref            , 0.0_wp                 )
-      call set('tvrref         ',tvrref            , 1.0e-6_wp              )
+      call set('Tinref         ',tinref            , 0.0_wp                 )
+      call set('Tvrref         ',tvrref            , 1.0e-6_wp              )
       !}}}
 !{{{  ! REFERENCE ANGLES OF ATTACK
-      call set('alpha_aoaref   ',alpha_aoaref      , 0.0_wp                 )
-      call set('beta_aoaref    ',beta_aoaref       , 0.0_wp                 )
+      call set('Alpha_AoAref   ',alpha_aoaref      , 0.0_wp                 )
+      call set('Beta_AoAref    ',beta_aoaref       , 0.0_wp                 )
       ! }}}
  !{{{  ! LAMINAR AND TURBULENT PRANDTL NUMBERS
-      call set('pr             ',pr                , 0.72_wp                )
-      call set('prt            ',prt               , 0.72_wp                )
+      call set('Pr             ',pr                , 0.72_wp                )
+      call set('Prt            ',prt               , 0.72_wp                )
       ! }}}
  !{{{  ! LAMINAR AND TURBULENT SCHMIDT NUMBERS
-      call set('schmidt_lam    ',schmidt_lam       , 0.72_wp                )
-      call set('schmidt_turb   ',schmidt_turb      , 0.72_wp                )
+      call set('Schmidt_Lam    ',schmidt_lam       , 0.72_wp                )
+      call set('Schmidt_Turb   ',schmidt_turb      , 0.72_wp                )
       ! }}}
  !{{{  ! SUTHERLANDS LAW COEFFICIENTS
-      call set('suth_muref     ',suth_muref        , 1.716e-5_wp            )
-      call set('suth_Tref      ',suth_Tref         , 273.0_wp               )
-      call set('suth_Sref      ',suth_Sref         , 110.4_wp               )
+      call set('Suth_Muref     ',suth_muref        , 1.716e-5_wp            )
+      call set('Suth_Tref      ',suth_Tref         , 273.0_wp               )
+      call set('Suth_Sref      ',suth_Sref         , 110.4_wp               )
       !}}}
 !{{{  ! FILTER OPTIONS
       call set('Filter_Option                     ',                        &
@@ -1745,13 +1745,13 @@ continue
       call set('Limiter_Marker_Max                ',                        &
                 Limiter_Marker_Max                 , Marker_MinMax_Default ,&
                 action_SetLimiter)
-      call set('Limiter_Marker_c1                 ',                        &
+      call set('Limiter_Marker_C1                 ',                        &
                 Limiter_Marker_c1                  ,-1.0_wp                ,&
                 action_SetLimiter)
-      call set('Limiter_Marker_c2                 ',                        &
+      call set('Limiter_Marker_C2                 ',                        &
                 Limiter_Marker_c2                  ,-1.0_wp                ,&
                 action_SetLimiter)
-      call set('Limiter_Marker_dpsi               ',                        &
+      call set('Limiter_Marker_Dpsi               ',                        &
                 Limiter_Marker_dpsi                ,-1.0_wp                ,&
                 action_SetLimiter)
       !}}}
@@ -1766,46 +1766,46 @@ continue
                 Limiting_Interval_Output           , 1                      )
       !}}}
 !{{{  ! CHECK/FIX BAD THERMO PROPERTIES (PRES,TEMP,DENS)
-      call set('thermofix%method                  ',                        &
+      call set('Thermofix%Method                  ',                        &
                 thermofix%method                   , TFM_OFF                )
-      call set('thermofix%iterations              ',                        &
+      call set('Thermofix%Iterations              ',                        &
                 thermofix%iterations               , 10                     )
-      call set('thermofix%check_cells             ',                        &
+      call set('Thermofix%Check_Cells             ',                        &
                 thermofix%check_cells              , true                   )
-      call set('thermofix%check_faces             ',                        &
+      call set('Thermofix%Check_Faces             ',                        &
                 thermofix%check_faces              , true                   )
-      call set('thermofix%check_nodes             ',                        &
+      call set('Thermofix%Check_Nodes             ',                        &
                 thermofix%check_nodes              , true                   )
-      call set('thermofix%verbose                 ',                        &
+      call set('Thermofix%Verbose                 ',                        &
                 thermofix%verbose                  , true                   )
-      call set('thermofix%scale_factor            ',                        &
+      call set('Thermofix%Scale_Factor            ',                        &
                 thermofix%scale_factor             , 0.5_wp                 )
-      call set('thermofix%min_pressure            ',                        &
+      call set('Thermofix%Min_Pressure            ',                        &
                 thermofix%min_pressure             , 10000._wp              )
-      call set('thermofix%min_temperature         ',                        &
+      call set('Thermofix%Min_Temperature         ',                        &
                 thermofix%min_temperature          ,   100._wp              )
-      call set('thermofix%min_density             ',                        &
+      call set('Thermofix%Min_Density             ',                        &
                 thermofix%min_density              ,  0.001_wp              )
       !}}}
 !{{{  ! OUTPUT THE STATISTICS OF THE LIMITER
-      call set('output_limiter_statistics         ',                        &
+      call set('Output_Limiter_Statistics         ',                        &
                 output_limiter_statistics          , fals                   )
       !}}}
 !{{{  ! OPTION TO OUTPUT FILTER DIAGONALS TO FILE
-      call set('output_filter_diagonals           ',                        &
+      call set('Output_Filter_Diagonals           ',                        &
                 output_filter_diagonals            , fals                   )
       !}}}
 !{{{  ! ISENTROPIC VORTEX CONSTANTS
-      call set('Vortex_bigR               ',vortex_bigR               , 1.0_wp )
-      call set('Vortex_bigGam             ',vortex_bigGam             , 5.0_wp )
+      call set('Vortex_BigR               ',vortex_bigR               , 1.0_wp )
+      call set('Vortex_BigGam             ',vortex_bigGam             , 5.0_wp )
       call set('VortexGrid_Lref           ',VortexGrid_Lref           ,10.0_wp )
       !}}}
 !{{{  ! TAYLOR-GREEN VORTEX CONSTANTS
-      call set('VortexGrid_DOF            ',VortexGrid_DOF            , 48     )
-      call set('VortexGrid_random_perturb ',VortexGrid_random_perturb , fals   )
-      call set('VortexGrid_perturb_percent',VortexGrid_perturb_percent, 30     )
-      call set('VortexGrid_Hex_to_Pyramids',VortexGrid_Hex_to_Pyramids, fals   )
-      call set('VortexGrid_is_3D          ',VortexGrid_is_3D          , fals   )
+      call set('VortexGrid_DoF            ',VortexGrid_DOF            , 48     )
+      call set('VortexGrid_Random_Perturb ',VortexGrid_random_perturb , fals   )
+      call set('VortexGrid_Perturb_Percent',VortexGrid_perturb_percent, 30     )
+      call set('VortexGrid_Hex_To_Pyramids',VortexGrid_Hex_to_Pyramids, fals   )
+      call set('VortexGrid_Is_3D          ',VortexGrid_is_3D          , fals   )
       !}}}
 !{{{  ! TAYLOR-COUETTE FLOW CONSTANTS
       call set('TCF_Inner_Radius          ',TCF_Inner_Radius      , half       )
@@ -1820,110 +1820,110 @@ continue
       call set('TCF_Periodic_Sectors      ',TCF_Periodic_Sectors  , 1          )
       !}}}
 !{{{  ! FLAME SPEED TEST PARAMETERS
-      call set('flame_speed_test_dof      ',flame_speed_test_dof  , 0 )
+      call set('Flame_Speed_Test_DoF      ',flame_speed_test_dof  , 0 )
       !}}}
 !{{{  ! SOD SHOCK TUBE TEST PARAMETERS
-      call set('sod_test_dof              ',sod_test_dof          , 0 )
-      call set('sod_test_right_vector     ',                          &
+      call set('Sod_Test_DoF              ',sod_test_dof          , 0 )
+      call set('Sod_Test_Right_Vector     ',                          &
                 sod_test_right_vector      , [one,zero,zero]          )
       !}}}
 !{{{  ! DENSITY PULSE CONVECTION TEST PARAMETERS
-      call set('pulse_test_form    ',pulse_test_form    , 0                 )
-      call set('pulse_test_form_dim',pulse_test_form_dim, 1                 )
-      call set('pulse_test_dof     ',pulse_test_dof     , 0                 )
-      call set('pulse_test_length  ',pulse_test_length  , 1.0_wp            )
-      call set('pulse_test_center  ',pulse_test_center  , [half,zero,zero]  )
-      call set('pulse_test_width   ',pulse_test_width   , 0.2_wp            )
-      call set('pulse_test_gap     ',pulse_test_gap     , 0.2_wp            )
-      call set('pulse_test_repeat  ',pulse_test_repeat  , 0                 )
+      call set('Pulse_Test_Form    ',pulse_test_form    , 0                 )
+      call set('Pulse_Test_Form_Dim',pulse_test_form_dim, 1                 )
+      call set('Pulse_Test_DoF     ',pulse_test_dof     , 0                 )
+      call set('Pulse_Test_Length  ',pulse_test_length  , 1.0_wp            )
+      call set('Pulse_Test_Center  ',pulse_test_center  , [half,zero,zero]  )
+      call set('Pulse_Test_Width   ',pulse_test_width   , 0.2_wp            )
+      call set('Pulse_Test_Gap     ',pulse_test_gap     , 0.2_wp            )
+      call set('Pulse_Test_Repeat  ',pulse_test_repeat  , 0                 )
       !}}}
 !{{{  ! SHU-OSHER SHOCK TUBE TEST PARAMETERS
-      call set('shu_osher_test_dof ',shu_osher_test_dof , 0 )
+      call set('Shu_Osher_Test_DoF ',shu_osher_test_dof , 0 )
       !}}}
 !{{{  ! CHANNEL FLOW PARAMETERS
-      call set('channel_body_force               ',                         &
+      call set('Channel_Body_Force               ',                         &
                 channel_body_force                , 0.0_wp                  )
-      call set('channel_spatial_ave_restart      ',                         &
+      call set('Channel_Spatial_Ave_Restart      ',                         &
                 channel_spatial_ave_restart       , fals                    )
-      call set('channel_nondim_output_coord      ',                         &
+      call set('Channel_Nondim_Output_Coord      ',                         &
                 channel_nondim_output_coord       , fals                    )
-      call set('channel_grid_ave_xplus           ',                         &
+      call set('Channel_Grid_Ave_Xplus           ',                         &
                 channel_grid_ave_xplus            ,-30.0_wp                 )
-      call set('channel_grid_ave_zplus           ',                         &
+      call set('Channel_Grid_Ave_Zplus           ',                         &
                 channel_grid_ave_zplus            ,-15.0_wp                 )
-      call set('channel_grid_ave_yplus           ',                         &
+      call set('Channel_Grid_Ave_Yplus           ',                         &
                 channel_grid_ave_yplus            ,-15.0_wp                 )
-      call set('channel_yplus_of_one             ',                         &
+      call set('Channel_Yplus_Of_One             ',                         &
                 channel_yplus_of_one              , 8.42134e-6_wp           )
-      call set('channel_grid_yplus_wall          ',                         &
+      call set('Channel_Grid_Yplus_Wall          ',                         &
                 channel_grid_yplus_wall           ,  2.0_wp                 )
       !}}}
 !{{{  ! PIPE CHANNEL FLOW PARAMETERS
-      call set('pipe_channel_angle               ',                         &
+      call set('Pipe_Channel_Angle               ',                         &
                 pipe_channel_angle                , five                    )
       !}}}
 !{{{  ! OPTIONS FOR MODIFYING BC ALGORITHMS
-      call set('walls_are_exact                   ',                        &
+      call set('Walls_Are_Exact                   ',                        &
                 walls_are_exact                    , true                   )
-      call set('sub_inflow_method                 ',                        &
+      call set('Sub_Inflow_Method                 ',                        &
                 sub_inflow_method                  , 4                      )
-      call set('use_bc_conflicts                  ',                        &
+      call set('Use_BC_Conflicts                  ',                        &
                 use_bc_conflicts                   , fals                   )
       !}}}
 !{{{  ! CGNS OUTPUT OPTIONS
-      call set('interpolate_before_output_variable',                        &
+      call set('Interpolate_Before_Output_Variable',                        &
                 interpolate_before_output_variable , true                   )
-      call set('cgns_high_order_output            ',                        &
+      call set('CGNS_High_Order_Output            ',                        &
                 cgns_high_order_output             , fals                   )
-      call set('cgns_mixed_output                 ',                        &
+      call set('CGNS_Mixed_Output                 ',                        &
                 cgns_mixed_output                  , true                   )
-      call set('cgns_output_restart_time_ave_data ',                        &
+      call set('CGNS_Output_Restart_Time_Ave_Data ',                        &
                 cgns_output_restart_time_ave_data  , true                   )
-      call set('convert_restart_to_cgns           ',                        &
+      call set('Convert_Restart_To_CGNS           ',                        &
                 convert_restart_to_cgns            , fals                   )
-      call set('completely_disable_cgns           ',                        &
+      call set('Completely_Disable_CGNS           ',                        &
                 completely_disable_cgns            , fals                   )
-      call set('delete_converted_restart_files    ',                        &
+      call set('Delete_Converted_Restart_Files    ',                        &
                 delete_converted_restart_files     , fals                   )
       !}}}
 !{{{  ! CGNS INPUT OPTIONS
-      call set('correct_cgns_grid_points          ',                        &
+      call set('Correct_CGNS_Grid_Points          ',                        &
                 correct_cgns_grid_points           , fals                   )
-      call set('force_cgns_linear_grid_points     ',                        &
+      call set('Force_CGNS_Linear_Grid_Points     ',                        &
                 force_cgns_linear_grid_points      , fals                   )
       !}}}
 !{{{  ! CONVERGENCE CRITERIA
-      call set('convergence_order_abs_res         ',                        &
+      call set('Convergence_Order_Abs_Res         ',                        &
                 convergence_order_abs_res          ,-16._wp                 )
-      call set('convergence_order_max_res         ',                        &
+      call set('Convergence_Order_Max_Res         ',                        &
                 convergence_order_max_res          ,-16._wp                 )
       !}}}
 !{{{  ! PROFILE PARALLEL IO
-      call set('profile_io_all                    ',                        &
+      call set('Profile_IO_All                    ',                        &
                 profile_io_all                     , fals                   )
-      call set('profile_io_restart                ',                        &
+      call set('Profile_IO_Restart                ',                        &
                 profile_io_restart                 , fals                   )
-      call set('profile_io_cgns                   ',                        &
+      call set('Profile_IO_CGNS                   ',                        &
                 profile_io_cgns                    , fals                   )
-      call set('profile_io_cgns_subs              ',                        &
+      call set('Profile_IO_CGNS_Subs              ',                        &
                 profile_io_cgns_subs               , fals                   )
       !}}}
 !{{{  ! OPTIONS TO OUTPUT BOUNDARY PROFILE
-      call set('output_bnd_profiles               ',                        &
+      call set('Output_Bnd_Profiles               ',                        &
                 output_bnd_profiles                , fals                   )
       !}}}
 !{{{  ! CONTROL DOT_PRODUCT PROCEDURES BOUND TO MATRIX DERIVED-TYPE
-      call set('use_unrolled_dot_products         ',                        &
+      call set('Use_Unrolled_Dot_Products         ',                        &
                 use_unrolled_dot_products          , true                   )
       !}}}
 !{{{  ! LUSTRE FILE SYSTEM STRIPING PARAMETERS
-      call set('lustre_stripe_count               ',                        &
+      call set('Lustre_Stripe_Count               ',                        &
                 lustre_stripe_count                , 64                     )
-      call set('lustre_stripe_size                ',                        &
+      call set('Lustre_Stripe_Size                ',                        &
                 lustre_stripe_size                 , '4m'                   )
       !}}}
 !{{{  ! OPENACC INPUT OPTIONS
-      call set('use_async_for_error               ',                        &
+      call set('Use_Async_For_Error               ',                        &
                 use_async_for_error                , fals                   )
       !}}}
 !{{{  ! PROBES
@@ -1933,95 +1933,95 @@ continue
                 Probes_Write_Interval              , 100                    )
       !
       do n = 1, size(point_probes)
-      text = '                               '
-      write (text,101) 'point_probes(',n,')'
-      text = trim(text)   ! F2003 realloc
-      call set( text //       '%xyz               ',                       &
-                point_probes(n)%xyz                , probes_xyz_default    )
+        text = '                               '
+        write (text,101) 'Point_Probes(',n,')'
+        text = trim(text)   ! F2003 realloc
+        call set( text //       '%XYZ             ',                        &
+                  point_probes(n)%xyz              , probes_xyz_default     )
       end do
       !
       do n = 1, size(rake_probes)
-      text = '                               '
-      write (text,101) 'rake_probes(',n,')'
-      text = trim(text)   ! F2003 realloc
-      call set( text //      '%num_probes         ',                       &
-                rake_probes(n)%num_probes          , 0                     )
-      call set( text //      '%xyz_beg            ',                       &
-                rake_probes(n)%xyz_beg             , probes_xyz_default    )
-      call set( text //      '%xyz_end            ',                       &
-                rake_probes(n)%xyz_end             , probes_xyz_default    )
+        text = '                               '
+        write (text,101) 'Rake_Probes(',n,')'
+        text = trim(text)   ! F2003 realloc
+        call set( text //      '%Num_Probes       ',                        &
+                  rake_probes(n)%num_probes        , 0                      )
+        call set( text //      '%XYZ_Beg          ',                        &
+                  rake_probes(n)%xyz_beg           , probes_xyz_default     )
+        call set( text //      '%XYZ_End          ',                        &
+                  rake_probes(n)%xyz_end           , probes_xyz_default     )
       end do
       !
       do n = 1, size(cell_probes)
-      text = '                               '
-      write (text,101) 'cell_probes(',n,')'
-      text = trim(text)   ! F2003 realloc
-      call set( text //      '%xyz                ',                       &
-                cell_probes(n)%xyz                 , probes_xyz_default    )
+        text = '                               '
+        write (text,101) 'Cell_Probes(',n,')'
+        text = trim(text)   ! F2003 realloc
+        call set( text //      '%XYZ              ',                        &
+                  cell_probes(n)%xyz               , probes_xyz_default     )
       end do
       !}}}
 !{{{  ! TIME AVERAGING
-      call set('output_time_averaging             ',                        &
+      call set('Output_Time_Averaging             ',                        &
                 output_time_averaging              , fals                   )
-      call set('time_ave_file                     ',                        &
+      call set('Time_Ave_File                     ',                        &
                 time_ave_file                      , 'out.ave'              )
-      call set('time_scaling_factor               ',                        &
+      call set('Time_Scaling_Factor               ',                        &
                 time_scaling_factor                , 1.0_wp                 )
-      call set('time_ave_vel_is_axisymm           ',                        &
+      call set('Time_Ave_Vel_Is_Axisymm           ',                        &
                 time_ave_vel_is_axisymm            , fals                   )
-      call set('start_averaging_timestep          ',                        &
+      call set('Start_Averaging_Timestep          ',                        &
                 start_averaging_timestep           ,-1                      )
-      call set('start_averaging_tstar             ',                        &
+      call set('Start_Averaging_Tstar             ',                        &
                 start_averaging_tstar              ,-one                    )
       !}}}
 !{{{  ! SPATIAL AVERAGE RESTART FILES
-      call set('spatial_ave_restart_x_and_z_planes',                        &
+      call set('Spatial_Ave_Restart_X_And_Z_Planes',                        &
                 spatial_ave_restart_x_and_z_planes , fals                   )
-      call set('spatial_ave_restart_z_planes      ',                        &
+      call set('Spatial_Ave_Restart_Z_Planes      ',                        &
                 spatial_ave_restart_z_planes       , fals                   )
       !}}}
 !{{{  ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
-      call set('time_average_restart_files        ',                        &
+      call set('Time_Average_Restart_Files        ',                        &
                 time_average_restart_files         , fals                   )
-      call set('restart_list_file                 ',                        &
+      call set('Restart_List_File                 ',                        &
                 restart_list_file                  , ''                     )
-      call set('modify_time_ave_restart_history   ',                        &
+      call set('Modify_Time_Ave_Restart_History   ',                        &
                 modify_time_ave_restart_history    , fals                   )
       !}}}
 !{{{  ! MEMORY USAGE
-      call set('dump_memory_usage                 ',                        &
+      call set('Dump_Memory_Usage                 ',                        &
                 dump_memory_usage                  , fals                   )
       !}}}
 !{{{  ! DUMP FLUX INFORMATION FOR DEBUGGING
-      call set('dump_fluxes                       ',                        &
+      call set('Dump_Fluxes                       ',                        &
                 dump_fluxes                        , fals                   )
-      call set('check_flux_point_coordinates      ',                        &
+      call set('Check_Flux_Point_Coordinates      ',                        &
                 check_flux_point_coordinates       , fals                   )
       !}}}
 !{{{  ! ACTIVATE SPECIAL GRID FOR DEBUGGING THE POSTPROCESSOR
-      call set('postproc_debug_grid               ',                        &
+      call set('Postproc_Debug_Grid               ',                        &
                 postproc_debug_grid                , fals                   )
       !}}}
 !{{{  ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
-      call set('output_plot3d_to_tecplot          ',                        &
+      call set('Output_Plot3d_To_Tecplot          ',                        &
                 output_plot3d_to_tecplot           , fals                   )
       !}}}
 !{{{  ! OPTION TO OUTPUT CONTENTS OF BFACE ARRAY
-      call set('output_bface_array                ',                        &
+      call set('Output_Bface_Array                ',                        &
                 output_bface_array                 , fals                   )
       !}}}
 !{{{  ! MISC
-      call set('force_nd_subroutines              ',                        &
+      call set('Force_Nd_Subroutines              ',                        &
                 force_nd_subroutines               , fals                   )
-      call set('dmat_grad_temp_order              ',                        &
+      call set('Dmat_Grad_Temp_Order              ',                        &
                 dmat_grad_temp_order               ,-1                      )
-      call set('newton_rlx                        ',                        &
+      call set('Newton_Rlx                        ',                        &
                 newton_rlx                         , 1.0_wp                 )
-      call set('conv_temp                         ',                        &
+      call set('Conv_Temp                         ',                        &
                 conv_temp                          , eps12                  )
-      call set('chemistry_sub_iterations          ',                        &
+      call set('Chemistry_Sub_Iterations          ',                        &
                 chemistry_sub_iterations           ,-1                      )
-      call set('ignore_thermo_newton_warnings     ',                        &
+      call set('Ignore_Thermo_Newton_Warnings     ',                        &
                 ignore_thermo_newton_warnings      , fals                   )
       !}}}
 !{{{  ! INPUT BOUNDARY CONDITIONS
@@ -2029,118 +2029,118 @@ continue
       !
       loop_bc_input : &
       do n = 1, size(bc_input)
-      ! Must set text large enough to write into.
-      text = '                               '
-      write(text,101) 'bc_input(',n,')'
-      text = trim(text)   ! F2003 realloc
-      call set( text //   '%name                   ',                       &
-                bc_input(n)%name                    , ''                    )
-      call set( text //   '%set_bc_value           ',                       &
-                bc_input(n)%set_bc_value            , bc_unknown            )
-      call set( text //   '%t_static               ',                       &
-                bc_input(n)%t_static                ,-one                   )
-      call set( text //   '%p_static               ',                       &
-                bc_input(n)%p_static                ,-one                   )
-      call set( text //   '%rho_static             ',                       &
-                bc_input(n)%rho_static              ,-one                   )
-      call set( text //   '%mach                   ',                       &
-                bc_input(n)%mach                    ,-one                   )
-      call set( text //   '%vx                     ',                       &
-                bc_input(n)%vx                      , zero                  )
-      call set( text //   '%vy                     ',                       &
-                bc_input(n)%vy                      , zero                  )
-      call set( text //   '%vz                     ',                       &
-                bc_input(n)%vz                      , zero                  )
-      call set( text //   '%t_total                ',                       &
-                bc_input(n)%t_total                 ,-one                   )
-      call set( text //   '%p_total                ',                       &
-                bc_input(n)%p_total                 ,-one                   )
-      call set( text //   '%rho_total              ',                       &
-                bc_input(n)%rho_total               ,-one                   )
-      call set( text //   '%alpha_aoa              ',                       &
-                bc_input(n)%alpha_aoa               , zero                  )
-      call set( text //   '%beta_aoa               ',                       &
-                bc_input(n)%beta_aoa                , zero                  )
-      call set( text //   '%wall_temp              ',                       &
-                bc_input(n)%wall_temp               ,-one                   )
-      ! Was this once rotation_speed ?
-      call set( text //   '%rotation_rate          ',                       &
-                bc_input(n)%rotation_rate           , [zero,zero,zero]      )
-      ! Next item must have default logical type.
-      call set( text //   '%is_specified_in_mrf'    ,                       &
-                bc_input(n)%is_specified_in_mrf     , .false.               )
-      !
-      loop_mass_frac : &
-      do i = 1, size(bc_input(n)%mass_frac)
-      text2 = '                                '
-      write(text2,101) text // 'mass_frac(',i,')'
-      text2 = trim(text2)   ! F2003 realloc
-      call set( text2 //                   '        ',                      &
-                bc_input(n)%mass_frac(i)             , zero                 )
-      end do loop_mass_frac
-      !
-      loop_species_name : &
-      do i = 1, size(bc_input(n)%species_name)
-      text2 = '                                '
-      write(text2,101) text // 'species_name(',i,')'
-      text2 = trim(text2)   ! F2003 realloc
-      call set( text2 //                      '     ',                      &
-                bc_input(n)%species_name(i)          , ''                   )
-      end do loop_species_name
-      !
-      call set( text //   '%relax%value             ',                      &
-                bc_input(n)%relax%value              , one                  )
-      call set( text //   '%relax%time              ',                      &
-                bc_input(n)%relax%time               , zero                 )
-      call set( text //   '%relax%iter              ',                      &
-                bc_input(n)%relax%iter               , 0                    )
-      !
-      call set( text //   '%sem%is_cylindrical      ',                      &
-                bc_input(n)%sem%is_cylindrical       , fals                 )
-      call set( text //   '%sem%length_scale        ',                      &
-                bc_input(n)%sem%length_scale         , zero                 )
-      call set( text //   '%sem%convective_velocity ',                      &
-                bc_input(n)%sem%convective_velocity  , zero                 )
-      call set( text //   '%sem%profile_height      ',                      &
-                bc_input(n)%sem%profile_height       , zero                 )
-      call set( text //   '%sem%profile_file        ',                      &
-                bc_input(n)%sem%profile_file         , ''                   )
-      call set( text //   '%sem%sub_in_bc_grp       ',                      &
-                bc_input(n)%sem%sub_in_bc_grp        , 0                    )
-      call set( text //   '%sem%sub_in_bc_idx       ',                      &
-                bc_input(n)%sem%sub_in_bc_idx        , 0                    )
-      !
-      call set( text //   '%periodic%matching_bc_name',                      &
-                bc_input(n)%periodic%matching_bc_name , ''                   )
-      call set( text //   '%periodic%matching_bc_idx',                      &
-                bc_input(n)%periodic%matching_bc_idx , 0                    )
-      call set( text //   '%periodic%rotationcenter ',                      &
-                bc_input(n)%periodic%rotationcenter  , [zero,zero,zero]     )
-      call set( text //   '%periodic%rotationangle  ',                      &
-                bc_input(n)%periodic%rotationangle   , [zero,zero,zero]     )
-      call set( text //   '%periodic%rotationaxis   ',                      &
-                bc_input(n)%periodic%rotationaxis    , [zero,zero,zero,zero])
-      call set( text //   '%periodic%translation    ',                      &
-                bc_input(n)%periodic%translation     , [zero,zero,zero]     )
-      !
+        ! Must set text large enough to write into.
+        text = '                               '
+        write(text,101) 'BC_Input(',n,')'
+        text = trim(text)   ! F2003 realloc
+        call set( text //   '%Name                   ',                       &
+                  bc_input(n)%name                    , ''                    )
+        call set( text //   '%Set_BC_Value           ',                       &
+                  bc_input(n)%set_bc_value            , bc_unknown            )
+        call set( text //   '%T_Static               ',                       &
+                  bc_input(n)%t_static                ,-one                   )
+        call set( text //   '%P_Static               ',                       &
+                  bc_input(n)%p_static                ,-one                   )
+        call set( text //   '%Rho_Static             ',                       &
+                  bc_input(n)%rho_static              ,-one                   )
+        call set( text //   '%Mach                   ',                       &
+                  bc_input(n)%mach                    ,-one                   )
+        call set( text //   '%Vx                     ',                       &
+                  bc_input(n)%vx                      , zero                  )
+        call set( text //   '%Vy                     ',                       &
+                  bc_input(n)%vy                      , zero                  )
+        call set( text //   '%Vz                     ',                       &
+                  bc_input(n)%vz                      , zero                  )
+        call set( text //   '%T_Total                ',                       &
+                  bc_input(n)%t_total                 ,-one                   )
+        call set( text //   '%P_Total                ',                       &
+                  bc_input(n)%p_total                 ,-one                   )
+        call set( text //   '%Rho_Total              ',                       &
+                  bc_input(n)%rho_total               ,-one                   )
+        call set( text //   '%Alpha_AoA              ',                       &
+                  bc_input(n)%alpha_aoa               , zero                  )
+        call set( text //   '%Beta_AoA               ',                       &
+                  bc_input(n)%beta_aoa                , zero                  )
+        call set( text //   '%Wall_Temp              ',                       &
+                  bc_input(n)%wall_temp               ,-one                   )
+        ! Was this once rotation_speed ?
+        call set( text //   '%Rotation_Rate          ',                       &
+                  bc_input(n)%rotation_rate           , [zero,zero,zero]      )
+        ! Next item must have default logical type.
+        call set( text //   '%Is_Specified_In_MRF'    ,                       &
+                  bc_input(n)%is_specified_in_mrf     , .false.               )
+        !
+        loop_mass_frac : &
+        do i = 1, size(bc_input(n)%mass_frac)
+          text2 = '                                '
+          write(text2,101) text // '%Mass_Frac(',i,')'
+          text2 = trim(text2)   ! F2003 realloc
+          call set( text2 //                   '      ',                      &
+                    bc_input(n)%mass_frac(i)           , zero                 )
+        end do loop_mass_frac
+        !
+        loop_species_name : &
+        do i = 1, size(bc_input(n)%species_name)
+          text2 = '                                '
+          write(text2,101) text // '%Species_Name(',i,')'
+          text2 = trim(text2)   ! F2003 realloc
+          call set( text2 //                      '   ',                      &
+                    bc_input(n)%species_name(i)        , ''                   )
+        end do loop_species_name
+        !
+        call set( text //   '%Relax%Value             ',                      &
+                  bc_input(n)%relax%value              , one                  )
+        call set( text //   '%Relax%Time              ',                      &
+                  bc_input(n)%relax%time               , zero                 )
+        call set( text //   '%Relax%Iter              ',                      &
+                  bc_input(n)%relax%iter               , 0                    )
+        !
+        call set( text //   '%SEM%Is_Cylindrical      ',                      &
+                  bc_input(n)%sem%is_cylindrical       , fals                 )
+        call set( text //   '%SEM%Length_Scale        ',                      &
+                  bc_input(n)%sem%length_scale         , zero                 )
+        call set( text //   '%SEM%Convective_Velocity ',                      &
+                  bc_input(n)%sem%convective_velocity  , zero                 )
+        call set( text //   '%SEM%Profile_Height      ',                      &
+                  bc_input(n)%sem%profile_height       , zero                 )
+        call set( text //   '%SEM%Profile_file        ',                      &
+                  bc_input(n)%sem%profile_file         , ''                   )
+        call set( text //   '%SEM%Sub_In_BC_Grp       ',                      &
+                  bc_input(n)%sem%sub_in_bc_grp        , 0                    )
+        call set( text //   '%SEM%Sub_In_BC_Idx       ',                      &
+                  bc_input(n)%sem%sub_in_bc_idx        , 0                    )
+        !
+        call set( text //   '%Periodic%Matching_BC_Name',                     &
+                  bc_input(n)%periodic%matching_bc_name , ''                  )
+        call set( text //   '%Periodic%Matching_BC_Idx',                      &
+                  bc_input(n)%periodic%matching_bc_idx , 0                    )
+        call set( text //   '%Periodic%Rotationcenter ',                      &
+                  bc_input(n)%periodic%rotationcenter  , [zero,zero,zero]     )
+        call set( text //   '%Periodic%Rotationangle  ',                      &
+                  bc_input(n)%periodic%rotationangle   , [zero,zero,zero]     )
+        call set( text //   '%Periodic%Rotationaxis   ',                      &
+                  bc_input(n)%periodic%rotationaxis    , [zero,zero,zero,zero])
+        call set( text //   '%Periodic%Translation    ',                      &
+                  bc_input(n)%periodic%translation     , [zero,zero,zero]     )
+        !
       end do loop_bc_input  ! n = 1, size(bc_input)
       !}}}
 !{{{  ! GEOMETRY WEIGHTS FOR METIS PARTITIONING
       !   geom_wts(*) derived-type array
       !
       do n = 1, size(geom_wts)
-      ! Must set text large enough to write into.
-      text = '                               '
-      write(text,101) 'geom_wts(',n,')'
-      text = trim(text)
-      call set( text //   '%tria          ',geom_wts(n)%tria       , 1 )
-      call set( text //   '%quad          ',geom_wts(n)%quad       , 1 )
-      call set( text //   '%tetr          ',geom_wts(n)%tetr       , 1 )
-      call set( text //   '%pyra          ',geom_wts(n)%pyra       , 1 )
-      call set( text //   '%pris          ',geom_wts(n)%pris       , 1 )
-      call set( text //   '%hexa          ',geom_wts(n)%hexa       , 1 )
-      call set( text //   '%face_tria     ',geom_wts(n)%face_tria  , 1 )
-      call set( text //   '%face_quad     ',geom_wts(n)%face_quad  , 1 )
+        ! Must set text large enough to write into.
+        text = '                               '
+        write(text,101) 'Geom_Wts(',n,')'
+        text = trim(text)
+        call set( text //   '%Tria          ',geom_wts(n)%tria       , 1 )
+        call set( text //   '%Quad          ',geom_wts(n)%quad       , 1 )
+        call set( text //   '%Tetr          ',geom_wts(n)%tetr       , 1 )
+        call set( text //   '%Pyra          ',geom_wts(n)%pyra       , 1 )
+        call set( text //   '%Pris          ',geom_wts(n)%pris       , 1 )
+        call set( text //   '%Hexa          ',geom_wts(n)%hexa       , 1 )
+        call set( text //   '%Face_Tria     ',geom_wts(n)%face_tria  , 1 )
+        call set( text //   '%Face_Quad     ',geom_wts(n)%face_quad  , 1 )
       end do
       !}}}
       call iow_footer()
