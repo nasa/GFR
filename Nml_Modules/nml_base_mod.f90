@@ -481,14 +481,15 @@ continue
       NMLaction_LatestDummy = val
     end if
   else
-    if (mypnum == glb_root) write(iout,101) val
+    write (error_message,101) val
     ! This is called from multiple places including some spots within
     ! a 'if (mypnum == glb_root)' block, so this needs to use abort
     ! instead of stop_mpi.
-    call stop_gfr(abort,pname,__LINE__,__FILE__)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
-  101 format(/,"CODING ERROR: Invalid argument, val = ",i0)
+  101 format("CODING ERROR: Invalid argument for setting ", &
+             "the NML Action, val = ",i0)
 end subroutine set_NMLaction
 !
 !###############################################################################
