@@ -87,6 +87,23 @@ module nml_base_mod
   !
   integer, public, protected :: NMLaction_LatestDummy = NMLaction_SetDummy0
   !
+  ! Permissible actions for NML_mode.
+  !> Standard mode for running the solver.
+  integer, public, parameter :: NMLmode_RunSolver      = 0
+  !> Mode to convert one version of the namelist to another, with minimal
+  !> modifications to the input variables after reading, with the converted
+  !> input file that is written only containing modifications to correct
+  !> for invalid inputs.
+  integer, public, parameter :: NMLmode_InputConverter = 1
+  !> Mode for writing out the default namelist(s)
+  !> when a valid input file cannot be found.
+  integer, public, parameter :: NMLmode_WriteDefaults  = 2
+  !> Mode for writing out the current contents of any 
+  !> namelist variable that is different from the default value.
+  integer, public, parameter :: NMLmode_TrimDefaults  = 3
+  !> Controls how to process the namelist variables for the input file
+  integer, public, protected :: NMLmode = NMLmode_RunSolver
+  !
   !> Minimum column width for namelist varables.
   integer, private :: NML_varname_width = 40
   !
