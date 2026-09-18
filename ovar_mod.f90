@@ -349,6 +349,7 @@ module ovar
   ! ################################
   !
   real(wp), public, parameter :: Marker_MinMax_Default = ten2
+  real(wp), public, parameter :: Marker_Coeff_Default  = -one
   !
   ! NOTE: Input defaults are set to run P3 48**3 DoF Taylor-Green vortex
   !       using gDG, Ga-LP, SSP-RK3, and Roe flux with entropy fix.
@@ -659,11 +660,11 @@ module ovar
   integer, public, save :: Marker_Variable = Marker_Variable__Off
   !
   ! LIMITER MARKER SENSITIVITY OPTIONS
-  real(wp), public, save :: Limiter_Marker_Min  =  Marker_MinMax_Default
-  real(wp), public, save :: Limiter_Marker_Max  =  Marker_MinMax_Default
-  real(wp), public, save :: Limiter_Marker_c1   = -1.0_wp
-  real(wp), public, save :: Limiter_Marker_c2   = -1.0_wp
-  real(wp), public, save :: Limiter_Marker_dpsi = -1.0_wp
+  real(wp), public, save :: Limiter_Marker_Min  = Marker_MinMax_Default
+  real(wp), public, save :: Limiter_Marker_Max  = Marker_MinMax_Default
+  real(wp), public, save :: Limiter_Marker_c1   = Marker_Coeff_Default
+  real(wp), public, save :: Limiter_Marker_c2   = Marker_Coeff_Default
+  real(wp), public, save :: Limiter_Marker_dpsi = Marker_Coeff_Default
   !
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
   integer, public, save :: Global_Filter_Interval    = 0
