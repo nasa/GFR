@@ -907,9 +907,7 @@ continue
       Track_Limiter_Filter_Dissipation = fals
   end select
   !
-  ! Make sure the number of RK stages is correct for some RK types,
-  ! and reset the Runge_Kutta_Scheme value to the family specific
-  ! value if using one of the OERK or EPERK schemes.
+  ! Make sure the number of RK stages is correct for some RK types.
   !
   if (.not. any(abs(Runge_Kutta_Scheme) == Valid_RK_Schemes(:))) then
     write (error_message,31)
@@ -924,14 +922,8 @@ continue
     num_rk_stages = 5
   else if (any(abs(Runge_Kutta_Scheme) == OERK_Schemes)) then
     call init_optimized_erk_coefficients
-    Runge_Kutta_Scheme = OERK
   else if (any(abs(Runge_Kutta_Scheme) == EPERK_Schemes)) then
     call init_eperk_coefficients
-    if (any(abs(Runge_Kutta_Scheme) == OEPERK_Schemes)) then
-      Runge_Kutta_Scheme = EPERK
-    else
-      Runge_Kutta_Scheme = -EPERK
-    end if
   end if
   !
   ! EPERK methods cannot be used with limiting/filtering
@@ -1254,6 +1246,22 @@ continue
   !
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  ! Reset the Runge_Kutta_Scheme value to the family specific
+  ! value if using one of the OERK or EPERK schemes.
+  ! NOTE: This must be done AFTER writing out the namelist to iout because
+  !       these family specific values are not valid inputs for
+  !       Runge_Kutta_Scheme which would make the written namelist invalid.
+  !
+  if (any(abs(Runge_Kutta_Scheme) == OERK_Schemes)) then
+    Runge_Kutta_Scheme = OERK
+  else if (any(abs(Runge_Kutta_Scheme) == EPERK_Schemes)) then
+    if (any(abs(Runge_Kutta_Scheme) == OEPERK_Schemes)) then
+      Runge_Kutta_Scheme = EPERK
+    else
+      Runge_Kutta_Scheme = -EPERK
+    end if
+  end if
   !
   !$ACC UPDATE DEVICE(nr,pr,walls_are_exact,sub_inflow_method, &
   !$ACC&              LDG_beta,LDG_tau,visc_variables_to_ave, &
