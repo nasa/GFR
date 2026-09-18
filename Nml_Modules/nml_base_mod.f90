@@ -27,6 +27,7 @@ module nml_base_mod
   public  :: iow_header            ! sub(text,lvar)
   public  :: iow_footer            ! sub(lvar)
   public  :: merge_nml_files       ! sub()
+  public  :: set_latest_namelist_version
   public  :: reset_block_check
   !
   private :: set_value_i           ! sub(nam,var,val,act)
@@ -370,6 +371,47 @@ continue
   rewind(io)
   !
 end function io_has_nml_block
+!
+!###############################################################################
+!> Subroutine to set the module variable latest_namelist_version with some
+!> checks to make sure the set version is greater than 0 and less than or
+!> equal to the current maximum version. This can also be called multiple
+!> times with it keeping the largest version across the different calls.
+!###############################################################################
+subroutine set_latest_namelist_version(version)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: version
+  !
+  !.. Local Saved Scalars ..
+  integer, save :: max_requested_version = 0
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "set_latest_namelist_version"
+  !
+continue
+  !
+  if (version > 0 .and. version <= max_namelist_version) then
+    latest_namelist_version = max(version,max_requested_version)
+    max_requested_version = latest_namelist_version
+    if (mypnum == glb_root) then
+      write (iout,1) latest_namelist_version
+      flush (iout)
+    end if
+  end if
+  !
+  ! Format Statements
+  !
+  1 format (/,80("#"),/, &
+              32("#"),"   WARNING!!!   ",32("#"),/, &
+              80("#"),//, &
+              2x,"A COMMANDLINE ARGUMENT IS SETTING THE ", &
+                 "INPUT NAMELIST READER TO VERSION ",i4.4,"!",//, &
+              80("#"),/, &
+              32("#"),"   WARNING!!!   ",32("#"),/, &
+              80("#"),/)
+  !
+end subroutine set_latest_namelist_version
 !
 !###############################################################################
 !> Subroutine that assigns the procedure pointers of a namelist_procedures_t
