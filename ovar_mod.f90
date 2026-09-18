@@ -2045,8 +2045,19 @@ subroutine process_marker_coefficients(opt_sol_order)
   real(wp) :: l10p,psi0,max_marker_value,val
   real(wp) :: Input_Marker_Min
   real(wp) :: Input_Marker_Max
+  real(wp) :: Input_Marker_dpsi
+  real(wp) :: Input_Marker_c1
+  real(wp) :: Input_Marker_c2
   !
+  logical(lk) :: reset_marker_min
+  logical(lk) :: reset_marker_max
+  logical(lk) :: reset_marker_dpsi
+  logical(lk) :: reset_marker_c1
+  logical(lk) :: reset_marker_c2
+  !
+  logical(lk) :: only_check_validity_of_inputs
   logical(lk) :: modified_marker_minmax
+  logical(lk) :: swapped_marker_minmax
   !
   !.. Local Allocatable Scalars ..
   character(len=:), allocatable :: text
@@ -2060,6 +2071,15 @@ continue
   !
   Input_Marker_Min  = Limiter_Marker_Min
   Input_Marker_Max  = Limiter_Marker_Max
+  Input_Marker_dpsi = Limiter_Marker_dpsi
+  Input_Marker_c1   = Limiter_Marker_c1
+  Input_Marker_c2   = Limiter_Marker_c2
+  !
+  reset_marker_min  = (abs(Input_Marker_Min  - Marker_MinMax_Default) < eps6)
+  reset_marker_max  = (abs(Input_Marker_Max  - Marker_MinMax_Default) < eps6)
+  reset_marker_dpsi = (abs(Input_Marker_dpsi - Marker_Coeff_Default ) < eps6)
+  reset_marker_c1   = (abs(Input_Marker_c1   - Marker_Coeff_Default ) < eps6)
+  reset_marker_c2   = (abs(Input_Marker_c2   - Marker_Coeff_Default ) < eps6)
   !
   ! Complete the marker coefficients that will be used to scale the raw
   ! marker values to the scaled_marker on the interval [0,1]
@@ -2097,6 +2117,7 @@ continue
   if (abs(Limiter_Marker_Min-Marker_MinMax_Default) > eps6) then
     if (Limiter_Marker_Min > max_marker_value) then
       Limiter_Marker_Min = Marker_MinMax_Default
+      reset_marker_min = true
       modified_marker_minmax = true
       call marker_minmax_warning( nint(-Marker_MinMax_Default) )
     end if
@@ -2104,6 +2125,7 @@ continue
   if (abs(Limiter_Marker_Max-Marker_MinMax_Default) > eps6) then
     if (Limiter_Marker_Max > max_marker_value) then
       Limiter_Marker_Max = Marker_MinMax_Default
+      reset_marker_max = true
       modified_marker_minmax = true
       call marker_minmax_warning( nint(Marker_MinMax_Default) )
     end if
@@ -2127,6 +2149,7 @@ continue
     ! Check to see if Min == Max, and reset Max to the default value if so
     if (abs(Limiter_Marker_Min - Limiter_Marker_Max) < eps6 ) then
       Limiter_Marker_Max = Marker_MinMax_Default
+      reset_marker_max = true
       modified_marker_minmax = true
       call marker_minmax_warning(0)
     ! Check to see if Min >= Max (common mistake since they are negative values)
@@ -2136,6 +2159,7 @@ continue
         val = Limiter_Marker_Min
         Limiter_Marker_Min = Limiter_Marker_Max
         Limiter_Marker_Max = val
+        swapped_marker_minmax = true
         modified_marker_minmax = true
         call marker_minmax_warning(Limiter_Option__FilterScaled)
       else if (Limiter_Option == Limiter_Option__Filter) then
