@@ -2029,7 +2029,7 @@ end subroutine get_mrf_rotation
 !###############################################################################
 !> Subroutine to process the marker inputs to set up the marker coefficients
 !###############################################################################
-subroutine process_marker_coefficients(opt_sol_order)
+subroutine process_marker_coefficients(validity_checks_only,opt_sol_order)
   !
   !.. Use Statements ..
   use module_kind_types, only : mypnum,glb_root,stop_gfr,stop_mpi
@@ -2038,6 +2038,7 @@ subroutine process_marker_coefficients(opt_sol_order)
   use module_kind_types, only : Marker_Option__Jump
   !
   !.. Optional Arguments ..
+  logical(lk), optional,              intent(in) :: validity_checks_only
   integer,     optional, allocatable, intent(in) :: opt_sol_order
   !
   !.. Local Scalars ..
@@ -2067,6 +2068,12 @@ subroutine process_marker_coefficients(opt_sol_order)
   !
 continue
   !
+  only_check_validity_of_inputs = true
+  if (present(validity_checks_only)) then
+    only_check_validity_of_inputs = validity_checks_only
+  end if
+  !
+  swapped_marker_minmax = fals
   modified_marker_minmax = fals
   !
   Input_Marker_Min  = Limiter_Marker_Min
@@ -2231,6 +2238,42 @@ continue
   !
   ! DEBUG: Write out the marker coefficients after processing them
   call write_marker_inputs(3)
+  !
+  ! If only checking the validity of the marker coefficients, discard the
+  ! processed coefficients and copy the input values back into the input
+  ! variables except where an input value was reset due to validity issues.
+  !
+  if (only_check_validity_of_inputs) then
+    !
+    ! Copy the input values back into the input variables
+    !
+    Limiter_Marker_c1   = Input_Marker_c1
+    Limiter_Marker_c2   = Input_Marker_c2
+    Limiter_Marker_dpsi = Input_Marker_dpsi
+    Limiter_Marker_Min  = Input_Marker_Min
+    Limiter_Marker_Max  = Input_Marker_Max
+    !
+    ! Reset any of the input variables back to the defaults if
+    ! they entered this subroutine with the default value or they were
+    ! reset somewhere within this subroutine.
+    !
+    if (reset_marker_c1  ) Limiter_Marker_c1   = Marker_Coeff_Default
+    if (reset_marker_c2  ) Limiter_Marker_c2   = Marker_Coeff_Default
+    if (reset_marker_dpsi) Limiter_Marker_dpsi = Marker_Coeff_Default
+    if (reset_marker_min ) Limiter_Marker_Min  = Marker_MinMax_Default
+    if (reset_marker_max ) Limiter_Marker_Max  = Marker_MinMax_Default
+    !
+    ! Swap the min/max input values if they were swapped above
+    !
+    if (swapped_marker_minmax) then
+      Limiter_Marker_Min  = Input_Marker_Max
+      Limiter_Marker_Max  = Input_Marker_Min
+    end if
+    !
+    ! DEBUG: Verbosely write out input marker coefficients after processing them
+    call write_marker_inputs(4)
+    !
+  end if
   !
 contains
 !===============================================================================
