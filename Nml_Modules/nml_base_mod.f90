@@ -49,8 +49,12 @@ module nml_base_mod
   ! #####  MODULE PARAMETERS  #####
   ! ###############################
   !
+  integer, parameter :: max_namelist_version = 0001
+  !
   ! Latest namelist format.
-  integer, public, parameter :: latest_namelist_version = 0001
+ !integer, public, parameter :: latest_namelist_version = 0001
+ !integer, public, parameter :: latest_namelist_version = 0002
+  integer, public, protected :: latest_namelist_version = max_namelist_version
   !
   ! Record length for temporary namelist files during old to new conversion.
   integer, public, parameter :: nml_recl = 5000
