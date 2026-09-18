@@ -20,6 +20,7 @@ module nml_base_mod
   public  :: set_ior               ! sub(io)
   public  :: set_iow               ! sub(io)
   public  :: set_NMLaction         ! sub(action)
+  public  :: set_NML_mode          ! sub(mode)
   public  :: set_NML_textcase      ! sub(mode)
   public  :: set_value             ! sub(nam,var,val)    generic interface
   public  :: iow_value             ! sub(nam,var)        generic interface
@@ -428,6 +429,34 @@ continue
   !
   101 format(/,"CODING ERROR: Invalid argument, val = ",i0)
 end subroutine set_NMLaction
+!
+!###############################################################################
+!> Sets the module variable NMLmode.
+!###############################################################################
+subroutine set_NML_mode(val)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "set_NML_mode"
+  !
+continue
+  !
+  if ( any( val == [ NMLmode_RunSolver, NMLmode_InputConverter,  &
+                     NMLmode_WriteDefaults, NMLmode_TrimDefaults ] ) ) then
+    NMLmode = val
+  else
+    ! This is called from multiple places including some spots within
+    ! a 'if (mypnum == glb_root)' block, so this needs to use abort
+    ! instead of stop_mpi.
+    write (error_message,101) val
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  101 format("CODING ERROR: Invalid argument for setting ", &
+             "the NML Mode, val = ",i0)
+end subroutine set_NML_mode
 !
 !###############################################################################
 !> Sets the io for namelist read. Assumes the unit is already open.
