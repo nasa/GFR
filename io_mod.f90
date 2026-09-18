@@ -633,6 +633,9 @@ continue
     if (any(loc_flux_pts       == Gauss_Lobatto)) exit one_pass
     if (any(loc_quadrature_pts == Gauss_Lobatto)) exit one_pass
     !
+    if (any(loc_triangle_pts   == TriTet_Lobatto)) exit one_pass
+    if (any(loc_tetrahedra_pts == TriTet_Lobatto)) exit one_pass
+    !
     use_bc_conflicts = fals
     !
   end do one_pass
