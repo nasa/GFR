@@ -96,9 +96,9 @@ continue
     !
     if (grid_format == Plot3D_Format .and. &
         plot3d_agglomerate_order > 0 .and. &
-        parametric_agglomeration /= 0) then
+        any(parametric_agglomeration == PmetAgglom__ON)) then
       !
-      if (parametric_agglomeration == Axisymmetric_Parameterization) then
+      if (parametric_agglomeration == PmetAgglom__Axisymmetric) then
         write (error_message,1)
         call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
@@ -2586,7 +2586,7 @@ continue
   !
   xi_qp(:) = real(xi(:),kind=kind(xi_qp))
   !
-  if (parametric_agglomeration == Cartesian_Parameterization) then
+  if (parametric_agglomeration == PmetAgglom__Cartesian) then
     !
     gp_qp(:) = real(elem_xyz(1,:),kind=kind(gp_qp))
     !
@@ -2600,7 +2600,7 @@ continue
     !
     gp_qp(:) = qtwo*gp_qp(:) - qone
     !
-  else if (parametric_agglomeration == Axisymmetric_Parameterization) then
+  else if (parametric_agglomeration == PmetAgglom__Axisymmetric) then
     !
   end if
   !
@@ -2658,7 +2658,7 @@ continue
   !
   xi_qp(:) = real(xi(:),kind=kind(xi_qp))
   !
-  if (parametric_agglomeration == Cartesian_Parameterization) then
+  if (parametric_agglomeration == PmetAgglom__Cartesian) then
     !
     do mj = 1,gpts
       do mi = 1,gpts
@@ -2700,7 +2700,7 @@ continue
       end do
     end do
     !
-  else if (parametric_agglomeration == Axisymmetric_Parameterization) then
+  else if (parametric_agglomeration == PmetAgglom__Axisymmetric) then
     !
   end if
   !
@@ -2795,7 +2795,7 @@ continue
   call debug_timer(stop_accumulation,"parametric initialization",acc=1)
 #endif
   !
-  if (parametric_agglomeration == Cartesian_Parameterization) then
+  if (parametric_agglomeration == PmetAgglom__Cartesian) then
     !
 #ifdef TIME_PARAMETRIC_MAPPING
     call debug_timer(start_accumulation,"create comp_coord",acc=2)
@@ -2854,7 +2854,7 @@ continue
     call debug_timer(stop_accumulation,"rescale comp_coord",acc=3)
 #endif
     !
-  else if (parametric_agglomeration == Axisymmetric_Parameterization) then
+  else if (parametric_agglomeration == PmetAgglom__Axisymmetric) then
     !
   end if
   !

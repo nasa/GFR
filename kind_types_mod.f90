@@ -1021,14 +1021,16 @@ module module_kind_types
   integer, parameter :: CGNS_Format = 4
   !
   ! Parameterizations for Plot3D Agglomeration
-  integer, parameter :: Cartesian_Parameterization = 1
-  integer, parameter :: Axisymmetric_Parameterization = 2
+  integer, parameter :: PmetAgglom__OFF          = 0
+  integer, parameter :: PmetAgglom__Cartesian    = 1
+  integer, parameter :: PmetAgglom__Axisymmetric = 2
   ! ANOTHER POSSIBLE SET OF AGGLOMERATION PARAMETERS TO ALLOW
   ! FOR AXISYMMETRIC GRIDS TO HAVE DIFFERENT AXES OF SYMMETRY
- !integer, parameter :: Cartesian_Parameterization = -1
- !integer, parameter :: Axisymmetric_X_Parameterization = 1
- !integer, parameter :: Axisymmetric_Y_Parameterization = 2
- !integer, parameter :: Axisymmetric_Z_Parameterization = 3
+ !integer, parameter :: PmetAgglom__AxisymmX = 3
+ !integer, parameter :: PmetAgglom__AxisymmY = 4
+ !integer, parameter :: PmetAgglom__AxisymmZ = 5
+  integer, parameter :: PmetAgglom__ON(1:2) = [PmetAgglom__Cartesian, &
+                                               PmetAgglom__Axisymmetric]
   !
   ! CGNS constants
   integer, parameter :: reopen_CGNS = 2
