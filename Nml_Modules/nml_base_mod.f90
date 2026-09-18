@@ -172,7 +172,8 @@ module nml_base_mod
                      set_value_l,    &  ! sub(nam,lvar,lval)     logical
                      set_value_lk,   &  ! sub(lnam,var,lval)     logical kind
                      set_value_iarr, &  ! sub(nam,ivar,ival)     integer array
-                     set_value_rarr     ! sub(nam,rvar,rval)     real    array
+                     set_value_rarr, &  ! sub(nam,rvar,rval)     real    array
+                     set_comment        ! sub(cvar) char(:)
   end interface set_value
   !
   !> Generic interface to Write a variable to unit iow.
@@ -677,6 +678,32 @@ continue
   end if
   !
 end subroutine set_value_c
+!
+!###############################################################################
+!> Write a comment or empty line when using NMLaction_WritePretty
+!###############################################################################
+subroutine set_comment(text)
+  !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: text !< text string for comment
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: comment
+  !
+continue
+  !
+  if (NMLaction == NMLaction_WritePretty) then
+    if (present(text)) then
+      comment = "  ! " // trim(adjustl(text)) ! F2003 AUTO-REALLOC
+      write (iow,'(a)') comment
+    else
+      if (nml_block_is_used .or. NMLmode == NMLmode_InputConverter) then
+        write (iow,*)
+      end if
+    end if
+  end if
+  !
+end subroutine set_comment
 !
 !###############################################################################
 !> Set a allocatable character string value and length.
