@@ -80,6 +80,8 @@ module nml_base_mod
   !> Controls the function of the set_value* subroutines.
   integer, public, protected :: NMLaction = NMLaction_SetValue
   !
+  integer, public, protected :: NMLaction_LatestDummy = NMLaction_SetDummy0
+  !
   !> Minimum column width for namelist varables.
   integer, private :: NML_varname_width = 40
   !
@@ -390,6 +392,10 @@ continue
                      NMLaction_SetValue,  NMLaction_Read,      &
                      NMLaction_Write,     NMLaction_WritePretty ] ) ) then
     NMLaction = val
+    ! If setting a dummy action, save this as the latest dummy action
+    if (any(val == [NMLaction_SetDummy0,NMLaction_SetDummy1])) then
+      NMLaction_LatestDummy = val
+    end if
   else
     if (mypnum == glb_root) write(iout,101) val
     ! This is called from multiple places including some spots within
