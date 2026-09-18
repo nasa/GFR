@@ -58,7 +58,7 @@ subroutine convert_nml_file(fname,nml_ver_prev,mode)
   !.. Use Statements ..
   use module_kind_types, only : debug_timer,start_timer
   use module_kind_types, only : io_error,error_message
-  use module_kind_types, only : fals
+  use module_kind_types, only : lk,fals,true
   !
   use nml_base_mod, only : new_nml_file1
   use nml_base_mod, only : new_nml_file2
@@ -93,6 +93,9 @@ subroutine convert_nml_file(fname,nml_ver_prev,mode)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "convert_nml_file"
+  !
+  logical(lk), parameter :: debug_merge_files = fals
+ !logical(lk), parameter :: debug_merge_files = true
   !
 continue
   !
@@ -157,7 +160,7 @@ continue
     ! Merge the shared values of the two new namelist files into one file.
     ! This file will have the minimal content that the user specified.
     !
-    call merge_nml_files()
+    call merge_nml_files(save_temp_files=debug_merge_files)
     !
   else if ( int_mode == 1 ) then  ! full mode
     !

@@ -1228,7 +1228,10 @@ end subroutine iow_value_carr
 !> - No comments.
 !> - No blank lines.
 !###############################################################################
-subroutine merge_nml_files()
+subroutine merge_nml_files(save_temp_files)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: save_temp_files
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "merge_nml_files"
@@ -1238,10 +1241,19 @@ subroutine merge_nml_files()
   integer :: n1,n2
   integer :: block_used
   integer :: line_num
+  !
+  !.. Local Allocatable Scalars ..
   character(len=nml_recl), allocatable :: line1, block1, vname1
   character(len=nml_recl), allocatable :: line2, block2, vname2
   !
+  character(len=:), allocatable :: tmpfile_action
+  !
 continue
+  !
+  tmpfile_action = "delete" ! F2003 AUTO-REALLOC
+  if (present(save_temp_files)) then
+    if (save_temp_files) tmpfile_action = "keep" ! F2003 AUTO-REALLOC
+  end if
   !
   if (mypnum == glb_root) then
     open(newunit=io1,file=new_nml_file1,form='formatted',      &
@@ -1361,9 +1373,9 @@ continue
       !
     end do line_loop
     !
-    close(io1,status='delete',iostat=ierr,iomsg=error_message)
+    close(io1,status=tmpfile_action,iostat=ierr,iomsg=error_message)
     call io_error(pname,new_nml_file1,2,__LINE__,__FILE__,ierr,error_message)
-    close(io2,status='delete',iostat=ierr,iomsg=error_message)
+    close(io2,status=tmpfile_action,iostat=ierr,iomsg=error_message)
     call io_error(pname,new_nml_file2,2,__LINE__,__FILE__,ierr,error_message)
     close(io3,status='keep'  ,iostat=ierr,iomsg=error_message)
     call io_error(pname,new_nml_file3,2,__LINE__,__FILE__,ierr,error_message)
