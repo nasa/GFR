@@ -61,9 +61,13 @@ module nml_base_mod
   !
   ! Dummy default values for 2-pass namelist reads.
   integer,          public, parameter :: idum0 =  -9990  , idum1 =  -9991
-  real,             public, parameter :: rdum0 =  -9990. , rdum1 =  -9991.
   character(len=5), public, parameter :: cdum0 = '-9990' , cdum1 = '-9991'
-  logical,          public, parameter :: ldum0 =   fals  , ldum1 =   true
+  !
+  real(wp),    public, parameter :: rdum0 = real(idum0,kind=wp)
+  real(wp),    public, parameter :: rdum1 = real(idum1,kind=wp)
+  !
+  logical,     public, parameter :: ldum0  = .false. , ldum1  = .true.
+  logical(lk), public, parameter :: lkdum0 =  fals   , lkdum1 =  true
   !
   ! ###############################
   ! #####   MODULE VARIABLES  #####
@@ -651,8 +655,8 @@ continue
   if ( present(act) ) loc_action = act
   !
   select case (loc_action)
-    case (NMLaction_SetDummy0)  ; var = ldum0
-    case (NMLaction_SetDummy1)  ; var = ldum1
+    case (NMLaction_SetDummy0)  ; var = lkdum0
+    case (NMLaction_SetDummy1)  ; var = lkdum1
     case (NMLaction_SetValue )  ; var = val
     case default                ; ! do nothing
   end select
