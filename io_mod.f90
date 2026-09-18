@@ -1073,7 +1073,12 @@ continue
     end if
    !if (mypnum == glb_root) write (*,*) Period_Time,Total_Periods,Final_Time
     !
+#ifndef DEBUG_ON
+    ! If we are running in debug mode, we dont want the number of timesteps
+    ! reset based on the final time since num_timesteps will likely be less
+    ! than 1000, whereas this reset will likely make num_timesteps O(10k)+.
     num_timesteps = nint( Final_Time / constant_dt )
+#endif
     !
   else if (any(itestcase == Taylor_Problems)) then
     !
