@@ -2191,6 +2191,9 @@ continue
                              Limiter_Marker_Min + two*marker_dpsi)
   end if
   !
+  ! DEBUG: Verbosely write out input marker coefficients before processing them
+  call write_marker_inputs(2)
+  !
   l10p = log10(real(max(1,p),kind=wp))
   !
   ! If Limiter_Marker_Min and Limiter_Marker_Max are both less than the
@@ -2234,9 +2237,6 @@ continue
   if (modified_marker_minmax) call marker_minmax_warning(999)
   !
   ! DEBUG: Verbosely write out input marker coefficients after processing them
-  call write_marker_inputs(2)
-  !
-  ! DEBUG: Write out the marker coefficients after processing them
   call write_marker_inputs(3)
   !
   ! If only checking the validity of the marker coefficients, discard the
@@ -2275,17 +2275,21 @@ continue
     !
   end if
   !
+  ! DEBUG: Write out the marker coefficients after processing them
+  call write_marker_inputs(5)
+  !
 contains
 !===============================================================================
 subroutine write_marker_inputs(flag)
   !.. Formal Arguments ..
   integer, intent(in) :: flag
 continue
+!#define DUMP_MARKER_INPUTS 2
 #ifdef DUMP_MARKER_INPUTS
   psi0 = -one*(marker_c1 + marker_c2*log10(real(max(1,p),kind=wp)))
 #if DUMP_MARKER_INPUTS == 1
   if (mypnum == glb_root) then
-    if (flag == 3) then
+    if (flag == 5) then
       write (iout,1) marker_c1,marker_c2,marker_dpsi, &
                      psi0-marker_dpsi,psi0,psi0+marker_dpsi
       flush (iout)
@@ -2294,13 +2298,25 @@ continue
 #endif
 #if DUMP_MARKER_INPUTS == 2
   if (mypnum == glb_root) then
-    if (any(flag == [1,2])) then
+    if (any(flag == [1,2,3,4])) then
       if (flag == 1) then
-        text = "BEFORE" ! F2003 AUTO-REALLOC
+        text = "INITIALIZATION" ! F2003 AUTO-REALLOC
+      else if (flag == 2) then
+        text = "AFTER MIN/MAX VALIDITY CHECKS"  ! F2003 AUTO-REALLOC
+      else if (flag == 3) then
+        text = "FINAL COMPUTED COEFFICIENTS"  ! F2003 AUTO-REALLOC
       else
-        text = "AFTER"  ! F2003 AUTO-REALLOC
+        text = "AFTER RESETTING FROM ONLY CHECKING VALIDITY" ! F03 AUTO-REALLOC
       end if
       write (iout,2) text, &
+                     p, &
+                     solution_order, &
+                     all_orders, &
+                     Input_Marker_c1, &
+                     Input_Marker_c2, &
+                     Input_Marker_dpsi, &
+                     Input_Marker_Min, &
+                     Input_Marker_Max, &
                      Limiter_Marker_c1, &
                      Limiter_Marker_c2, &
                      Limiter_Marker_dpsi, &
@@ -2321,25 +2337,33 @@ continue
   call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"Dumping marker parameters!")
 #endif
   !
-  1 format (/,2x,"marker_c1   = ",f11.6,/, &
-              2x,"marker_c2   = ",f11.6,/, &
-              2x,"marker_dpsi = ",f11.6,//, &
-              2x,"psi0 - dpsi = ",f11.6,/, &
-              2x,"psi0        = ",f11.6,/, &
-              2x,"psi0 + dpsi = ",f11.6,/)
+  1 format (/,2x,"marker_c1   = ",g13.6,/, &
+              2x,"marker_c2   = ",g13.6,/, &
+              2x,"marker_dpsi = ",g13.6,//, &
+              2x,"psi0 - dpsi = ",g13.6,/, &
+              2x,"psi0        = ",g13.6,/, &
+              2x,"psi0 + dpsi = ",g13.6,/)
   !
-  2 format (//,2x,a," modifying marker parameters:",//, &
-               4x,"Limiter_Marker_c1   = ",f10.6,/, &
-               4x,"Limiter_Marker_c2   = ",f10.6,/, &
-               4x,"Limiter_Marker_dpsi = ",f10.6,/, &
-               4x,"Limiter_Marker_Min  = ",f10.6,/, &
-               4x,"Limiter_Marker_Max  = ",f10.6,//, &
-               4x,"        marker_c1   = ",f10.6,/, &
-               4x,"        marker_c2   = ",f10.6,/, &
-               4x,"        marker_dpsi = ",f10.6,/, &
-               4x,"        marker_psi0 = ",f10.6,/, &
-               4x,"        marker_min  = ",f10.6,/, &
-               4x,"        marker_max  = ",f10.6,//)
+  2 format (//,2x,"CURRENT MARKER PARAMETERS:  ",a,//, &
+               4x,"                  p = ",i0,/, &
+               4x,"     solution_order = ",i0,/, &
+               4x,"         all_orders = ",i0,/, &
+               4x,"  Input_Marker_c1   = ",g13.6,/, &
+               4x,"  Input_Marker_c2   = ",g13.6,/, &
+               4x,"  Input_Marker_dpsi = ",g13.6,/, &
+               4x,"  Input_Marker_Min  = ",g13.6,/, &
+               4x,"  Input_Marker_Max  = ",g13.6,//, &
+               4x,"Limiter_Marker_c1   = ",g13.6,/, &
+               4x,"Limiter_Marker_c2   = ",g13.6,/, &
+               4x,"Limiter_Marker_dpsi = ",g13.6,/, &
+               4x,"Limiter_Marker_Min  = ",g13.6,/, &
+               4x,"Limiter_Marker_Max  = ",g13.6,//, &
+               4x,"        marker_c1   = ",g13.6,/, &
+               4x,"        marker_c2   = ",g13.6,/, &
+               4x,"        marker_dpsi = ",g13.6,/, &
+               4x,"        marker_psi0 = ",g13.6,/, &
+               4x,"        marker_min  = ",g13.6,/, &
+               4x,"        marker_max  = ",g13.6,//)
   !
 #endif
 end subroutine write_marker_inputs
@@ -2411,10 +2435,10 @@ continue
   5  format (4x,"Limiter_Marker_Min and/or Limiter_Marker_Max was",/, &
              4x,"modified while processing the marker coefficients.",/, &
              4x,"Their values before and after processing:",//, &
-            12x,"   Input:    Limiter_Marker_Min = ",f10.5,/, &
-            12x,"   Input:    Limiter_Marker_Max = ",f10.5,//, &
-            12x,"Modified:    Limiter_Marker_Min = ",f10.5,/, &
-            12x,"Modified:    Limiter_Marker_Max = ",f10.5,/)
+            12x,"   Input:    Limiter_Marker_Min = ",g12.5,/, &
+            12x,"   Input:    Limiter_Marker_Max = ",g12.5,//, &
+            12x,"Modified:    Limiter_Marker_Min = ",g12.5,/, &
+            12x,"Modified:    Limiter_Marker_Max = ",g12.5,/)
   !
   10 format (80("#"),/, &
               5("#"),32x,"WARNING",31x,5("#"),/, &
