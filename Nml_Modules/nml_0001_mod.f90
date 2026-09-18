@@ -2471,6 +2471,171 @@ continue
 end subroutine process_nml_data
 !
 !###############################################################################
+!> This subroutine preprocesses the marker coefficients before they are
+!> actually processed for the solver when the NML action is to set dummy values,
+!> because the dummy values will cause problems with the logic that computes
+!> the final marker coefficients used by the solver.
+!###############################################################################
+subroutine preprocess_marker_coeff(p)
+  !
+  !.. Use Statements ..
+  use ovar, only : Limiter_Marker_Min
+  use ovar, only : Limiter_Marker_Max
+  use ovar, only : Limiter_Marker_dpsi
+  use ovar, only : Limiter_Marker_c1
+  use ovar, only : Limiter_Marker_c2
+  use ovar, only : Marker_MinMax_Default
+  use ovar, only : Marker_Coeff_Default
+  !
+  use nml_base_mod, only : idum0,idum1
+  use nml_base_mod, only : NMLaction_LatestDummy
+  use nml_base_mod, only : NMLmode
+  use nml_base_mod, only : NMLmode_InputConverter
+  !
+  !.. Formal Arguments ..
+  integer,  allocatable, intent(out) :: p
+  !
+  !.. Local Scalars ..
+  integer :: idummy_val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "preprocess_marker_coeff"
+  !
+continue
+  !
+  ! Only preprocess the marker coefficients if the current NML mode is running
+  ! the input namelist converter. Otherwise return without doing anything
+  !
+  if (NMLmode /= NMLmode_InputConverter) return
+  !
+  select case (NMLaction)
+    case (NMLaction_SetDummy0) ; idummy_val = idum0
+    case (NMLaction_SetDummy1) ; idummy_val = idum1
+    case (NMLaction_Read)
+      if (NMLaction_LatestDummy == NMLaction_SetDummy1) then
+        idummy_val = idum1
+      else
+        idummy_val = idum0
+      end if
+    case default
+      ! Return without doing anything for all other NML actions:
+      !   - Dont care about Write or WritePretty here.
+      !   - I dont think BlockCheck will get here.
+      !   - The SetValue action will be setting default values for the
+      !     coefficients, so we can just return without doing anything
+      !     since the defaults are compatible with the logic that
+      !     processes the marker coefficients.
+      return
+  end select
+  !
+  ! Reset any of the marker coefficients that are set to the current dummy
+  ! value back to their default value.
+  !
+  if (nint(Limiter_Marker_Min ) == idummy_val) then
+    Limiter_Marker_Min = Marker_MinMax_Default
+  end if
+  if (nint(Limiter_Marker_Max ) == idummy_val) then
+    Limiter_Marker_Max = Marker_MinMax_Default
+  end if
+  if (nint(Limiter_Marker_dpsi) == idummy_val) then
+    Limiter_Marker_dpsi = Marker_Coeff_Default
+  end if
+  if (nint(Limiter_Marker_c1  ) == idummy_val) then
+    Limiter_Marker_c1 = Marker_Coeff_Default
+  end if
+  if (nint(Limiter_Marker_c2  ) == idummy_val) then
+    Limiter_Marker_c2 = Marker_Coeff_Default
+  end if
+  !
+  ! Dont forget about the solution order. These will also cause problems when
+  ! processing the marker coefficients if they are both set to the dummy value.
+  ! If these are both the dummy value, allocate the scalar subroutine argument
+  ! to the value 3 which is the default value for solution_order. This
+  ! allocatable will be passed in as an optional argument to subroutine
+  ! process_marker_coefficients, which will only be used in replace of
+  ! solution_order and all_orders if it is present and allocated. It will not
+  ! actually modify the value of either of those input variables.
+  !
+  if (all([solution_order,all_orders] == idummy_val)) then
+    p = 3 ! F2003 AUTO-REALLOC
+  end if
+  !
+end subroutine preprocess_marker_coeff
+!
+!###############################################################################
+!> This subroutine postprocesses the marker coefficients after they are
+!> actually processed for the solver when the NML action is to set dummy values.
+!> This undoes any preprocessing done before the coefficients were processed
+!> for the solver.
+!###############################################################################
+subroutine postprocess_marker_coeff()
+  !
+  !.. Use Statements ..
+  use ovar, only : Limiter_Marker_Min
+  use ovar, only : Limiter_Marker_Max
+  use ovar, only : Limiter_Marker_dpsi
+  use ovar, only : Limiter_Marker_c1
+  use ovar, only : Limiter_Marker_c2
+  use ovar, only : Marker_MinMax_Default
+  use ovar, only : Marker_Coeff_Default
+  !
+  use nml_base_mod, only : rdum0,rdum1
+  use nml_base_mod, only : NMLaction_LatestDummy
+  use nml_base_mod, only : NMLmode
+  use nml_base_mod, only : NMLmode_InputConverter
+  !
+  !.. Local Scalars ..
+  real(wp) :: rdummy_val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "postprocess_marker_coeff"
+  !
+continue
+  !
+  ! Only postprocess the marker coefficients if the current NML mode is running
+  ! the input namelist converter. Otherwise return without doing anything
+  !
+  if (NMLmode /= NMLmode_InputConverter) return
+  !
+  select case (NMLaction)
+    case (NMLaction_SetDummy0) ; rdummy_val = rdum0
+    case (NMLaction_SetDummy1) ; rdummy_val = rdum1
+    case (NMLaction_Read)
+      if (NMLaction_LatestDummy == NMLaction_SetDummy1) then
+        rdummy_val = rdum1
+      else
+        rdummy_val = rdum0
+      end if
+    case default
+      ! Return without doing anything for all other NML actions:
+      !   - Dont care about Write or WritePretty here.
+      !   - I dont think BlockCheck will get here.
+      !   - The SetValue action will be setting default values for the
+      !     coefficients, so we can just return without doing anything
+      !     since the defaults are compatible with the logic that
+      !     processes the marker coefficients.
+      return
+  end select
+  !
+  if (abs(Limiter_Marker_Min - Marker_MinMax_Default) < eps9) then
+    Limiter_Marker_Min = rdummy_val
+  end if
+  if (abs(Limiter_Marker_Max - Marker_MinMax_Default) < eps9) then
+    Limiter_Marker_Max = rdummy_val
+  end if
+  if (abs(Limiter_Marker_dpsi - Marker_Coeff_Default) < eps9) then
+    Limiter_Marker_dpsi = rdummy_val
+  end if
+  if (abs(Limiter_Marker_c1 - Marker_Coeff_Default) < eps9) then
+    Limiter_Marker_c1   = rdummy_val
+  end if
+  if (abs(Limiter_Marker_c2 - Marker_Coeff_Default) < eps9) then
+    Limiter_Marker_c2   = rdummy_val
+  end if
+  !
+end subroutine postprocess_marker_coeff
+!
+!###############################################################################
 !
 !  Note: subroutine ionml_input "contains":
 !    subroutine convert_old_to_new
