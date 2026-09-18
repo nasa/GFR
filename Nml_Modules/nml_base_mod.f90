@@ -27,6 +27,7 @@ module nml_base_mod
   public  :: iow_header            ! sub(text,lvar)
   public  :: iow_footer            ! sub(lvar)
   public  :: merge_nml_files       ! sub()
+  public  :: reset_block_check
   !
   private :: set_value_i           ! sub(nam,var,val,act)
   private :: set_value_r           ! sub(nam,var,val,act)
@@ -400,6 +401,16 @@ continue
   this%write_file => write_file_proc
   !
 end subroutine set_nml_procedures
+!
+!###############################################################################
+!> Resets the flag to tell if a namelist block is being used
+!###############################################################################
+subroutine reset_block_check()
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "reset_block_check"
+continue
+  nml_block_is_used = fals
+end subroutine reset_block_check
 !
 !###############################################################################
 !> Sets the module variable NMLaction.
