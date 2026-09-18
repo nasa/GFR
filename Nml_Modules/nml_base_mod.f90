@@ -611,6 +611,7 @@ continue
     case (NMLaction_SetDummy0)  ; var = idum0
     case (NMLaction_SetDummy1)  ; var = idum1
     case (NMLaction_SetValue )  ; var = val
+    case (NMLaction_BlockCheck) ; if (var /= val) nml_block_is_used = true
     case default                ; ! do nothing
   end select
   !
@@ -642,6 +643,8 @@ continue
     case (NMLaction_SetDummy0)  ; var = rdum0
     case (NMLaction_SetDummy1)  ; var = rdum1
     case (NMLaction_SetValue )  ; var = val
+    case (NMLaction_BlockCheck)
+      if (abs(var-val) > eps9) nml_block_is_used = true
     case default                ; ! do nothing
   end select
   !
@@ -675,6 +678,8 @@ continue
     case (NMLaction_SetDummy0)  ; var = cdum0
     case (NMLaction_SetDummy1)  ; var = cdum1
     case (NMLaction_SetValue )  ; var = val
+    case (NMLaction_BlockCheck)
+      if (trim(adjustl(var)) /= trim(adjustl(val))) nml_block_is_used = true
     case default                ; ! do nothing
   end select
   !
@@ -767,6 +772,7 @@ continue
     case (NMLaction_SetDummy0)  ; var = ldum0
     case (NMLaction_SetDummy1)  ; var = ldum1
     case (NMLaction_SetValue )  ; var = val
+    case (NMLaction_BlockCheck) ; if (var /= val) nml_block_is_used = true
     case default                ; ! do nothing
   end select
   !
@@ -798,6 +804,7 @@ continue
     case (NMLaction_SetDummy0)  ; var = lkdum0
     case (NMLaction_SetDummy1)  ; var = lkdum1
     case (NMLaction_SetValue )  ; var = val
+    case (NMLaction_BlockCheck) ; if (var /= val) nml_block_is_used = true
     case default                ; ! do nothing
   end select
   !
@@ -829,6 +836,8 @@ continue
     case (NMLaction_SetDummy0)  ; var = idum0
     case (NMLaction_SetDummy1)  ; var = idum1
     case (NMLaction_SetValue )  ; var = val
+    case (NMLaction_BlockCheck)
+      if ( any(var(:) /= val(:)) ) nml_block_is_used = true
     case default                ; ! do nothing
   end select
   !
@@ -860,6 +869,8 @@ continue
     case (NMLaction_SetDummy0)  ; var = rdum0
     case (NMLaction_SetDummy1)  ; var = rdum1
     case (NMLaction_SetValue )  ; var = val
+    case (NMLaction_BlockCheck)
+      if ( any( abs(var(:)-val(:)) > eps9 ) ) nml_block_is_used = true
     case default                ; ! do nothing
   end select
   !
