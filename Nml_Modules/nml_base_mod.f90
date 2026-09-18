@@ -471,9 +471,10 @@ subroutine set_NMLaction(val)
   !
 continue
   !
-  if ( any( val == [ NMLaction_SetDummy0, NMLaction_SetDummy1, &
-                     NMLaction_SetValue,  NMLaction_Read,      &
-                     NMLaction_Write,     NMLaction_WritePretty ] ) ) then
+  if ( any( val == [ NMLaction_SetDummy0, NMLaction_SetDummy1,   &
+                     NMLaction_SetValue,  NMLaction_Read,        &
+                     NMLaction_Write,     NMLaction_WritePretty, &
+                     NMLaction_BlockCheck                        ] ) ) then
     NMLaction = val
     ! If setting a dummy action, save this as the latest dummy action
     if (any(val == [NMLaction_SetDummy0,NMLaction_SetDummy1])) then
