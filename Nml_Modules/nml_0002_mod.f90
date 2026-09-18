@@ -643,11 +643,15 @@ end subroutine read_nml_file
 !###############################################################################
 !> Write all blocks of namelist input file.
 !###############################################################################
-subroutine write_nml_file(output_fname,action)
+subroutine write_nml_file(output_fname,action,requires_allocations,print_banner)
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: output_fname
   integer,          intent(in) :: action        !< An NMLaction.
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: requires_allocations
+  logical(lk), optional, intent(in) :: print_banner
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_nml_file"

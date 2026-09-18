@@ -254,10 +254,15 @@ module nml_base_mod
     !>   4. write the namelist data from the file including any conversions if
     !>      the version of the namelist file is older than the latest version,
     !>   5. close the namelist file.
-    subroutine write_namelist_file(output_fname,action)
+    subroutine write_namelist_file(output_fname,action, &
+                                   requires_allocations,print_banner)
+      import :: lk
       !.. Formal Arguments ..
       character(len=*), intent(in) :: output_fname
       integer,          intent(in) :: action        !< An NMLaction.
+      !.. Optional Arguments ..
+      logical(lk), optional, intent(in) :: requires_allocations
+      logical(lk), optional, intent(in) :: print_banner
     end subroutine write_namelist_file
     !
     subroutine blank_sub()
