@@ -616,7 +616,7 @@ continue
   end select
   !
   if ( setverbose .or. loc_action == NMLaction_WritePretty ) then
-    call iow_value(nam,var)
+    call iow_value(nam,var,val)
   end if
   !
 end subroutine set_value_i
@@ -649,7 +649,7 @@ continue
   end select
   !
   if ( setverbose .or. loc_action == NMLaction_WritePretty ) then
-    call iow_value(nam,var)
+    call iow_value(nam,var,val)
   end if
   !
 end subroutine set_value_r
@@ -684,7 +684,7 @@ continue
   end select
   !
   if ( setverbose .or. loc_action == NMLaction_WritePretty ) then
-    call iow_value(nam,var)
+    call iow_value(nam,var,val)
   end if
   !
 end subroutine set_value_c
@@ -745,7 +745,7 @@ continue
   end select
   !
   if ( setverbose .or. loc_action == NMLaction_WritePretty ) then
-    call iow_value(nam,var)
+    call iow_value(nam,var,val)
   end if
   !
 end subroutine set_value_s
@@ -777,7 +777,7 @@ continue
   end select
   !
   if ( setverbose .or. NMLaction == NMLaction_WritePretty ) then
-    call iow_value(nam,var)
+    call iow_value(nam,var,val)
   end if
   !
 end subroutine set_value_l
@@ -809,7 +809,7 @@ continue
   end select
   !
   if ( setverbose .or. loc_action == NMLaction_WritePretty ) then
-    call iow_value(nam,var)
+    call iow_value(nam,var,val)
   end if
   !
 end subroutine set_value_lk
@@ -842,7 +842,7 @@ continue
   end select
   !
   if ( setverbose .or. loc_action == NMLaction_WritePretty ) then
-    call iow_value(nam,var)
+    call iow_value(nam,var,val)
   end if
   !
 end subroutine set_value_iarr
@@ -875,7 +875,7 @@ continue
   end select
   !
   if ( setverbose .or. loc_action == NMLaction_WritePretty ) then
-    call iow_value(nam,var)
+    call iow_value(nam,var,val)
   end if
   !
 end subroutine set_value_rarr
@@ -1067,11 +1067,12 @@ end subroutine iow_name
 !###############################################################################
 !> Write variable to unit iow. Scalar integer.
 !###############################################################################
-subroutine iow_value_i(nam,var)
+subroutine iow_value_i(nam,var,val)
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: nam
   integer         , intent(in) :: var
+  integer         , intent(in) :: val
   !
 continue
   !
@@ -1085,11 +1086,12 @@ end subroutine iow_value_i
 !###############################################################################
 !> Write variable to unit iow. Scalar real.
 !###############################################################################
-subroutine iow_value_r(nam,var)
+subroutine iow_value_r(nam,var,val)
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: nam
   real(wp)        , intent(in) :: var
+  real(wp)        , intent(in) :: val
   !
 continue
   !
@@ -1103,11 +1105,12 @@ end subroutine iow_value_r
 !###############################################################################
 !> Write variable to unit iow. Scalar character.
 !###############################################################################
-subroutine iow_value_c(nam,var)
+subroutine iow_value_c(nam,var,val)
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: nam
   character(len=*), intent(in) :: var
+  character(len=*), intent(in) :: val
   !
 continue
   !
@@ -1121,11 +1124,12 @@ end subroutine iow_value_c
 !###############################################################################
 !> Write variable to unit iow. Scalar logical.
 !###############################################################################
-subroutine iow_value_l(nam,var)
+subroutine iow_value_l(nam,var,val)
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: nam
   logical,          intent(in) :: var
+  logical,          intent(in) :: val
   !
 continue
   !
@@ -1139,11 +1143,12 @@ end subroutine iow_value_l
 !###############################################################################
 !> Write variable to unit iow. Scalar logical kind.
 !###############################################################################
-subroutine iow_value_lk(nam,var)
+subroutine iow_value_lk(nam,var,val)
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: nam
   logical(lk),      intent(in) :: var
+  logical(lk),      intent(in) :: val
   !
 continue
   !
@@ -1157,11 +1162,12 @@ end subroutine iow_value_lk
 !###############################################################################
 !> Write variable to unit iow. Integer array.
 !###############################################################################
-subroutine iow_value_iarr(nam,var)
+subroutine iow_value_iarr(nam,var,val)
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: nam
   integer         , intent(in) :: var(:)
+  integer         , intent(in) :: val(:)
   !
   !.. Local Scalars ..
   integer                      :: n
@@ -1172,7 +1178,7 @@ continue
   if (mypnum == glb_root) then
     do n = 1, size(var)
       write(text,1) trim(nam),n
-      call iow_value_i(trim(text),var(n))
+      call iow_value_i(trim(text),var(n),val(n))
     end do
   end if
   !
@@ -1183,11 +1189,12 @@ end subroutine iow_value_iarr
 !###############################################################################
 !> Write variable to unit iow. Real array.
 !###############################################################################
-subroutine iow_value_rarr(nam,var)
+subroutine iow_value_rarr(nam,var,val)
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: nam
   real(wp)        , intent(in) :: var(:)
+  real(wp)        , intent(in) :: val(:)
   !
   !.. Local Scalars ..
   integer                      :: n
@@ -1198,7 +1205,7 @@ continue
   if (mypnum == glb_root) then
     do n = 1, size(var)
       write(text,1) trim(nam),n
-      call iow_value_r(trim(text),var(n))
+      call iow_value_r(trim(text),var(n),val(n))
     end do
   end if
   !
@@ -1209,11 +1216,12 @@ end subroutine iow_value_rarr
 !###############################################################################
 !> Write variable to unit iow. Character array.
 !###############################################################################
-subroutine iow_value_carr(nam,var)
+subroutine iow_value_carr(nam,var,val)
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: nam
   character(len=*), intent(in) :: var(:)
+  character(len=*), intent(in) :: val(:)
   !
   !.. Local Scalars ..
   integer                      :: n
@@ -1224,7 +1232,7 @@ continue
   if (mypnum == glb_root) then
     do n = 1, size(var)
       write(text,1) trim(nam),n
-      call iow_value_c(trim(text),var(n))
+      call iow_value_c(trim(text),var(n),val(n))
     end do
   end if
   !
