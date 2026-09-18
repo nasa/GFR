@@ -2027,13 +2027,16 @@ end subroutine get_mrf_rotation
 !###############################################################################
 !> Subroutine to process the marker inputs to set up the marker coefficients
 !###############################################################################
-subroutine process_marker_coefficients()
+subroutine process_marker_coefficients(opt_sol_order)
   !
   !.. Use Statements ..
   use module_kind_types, only : mypnum,glb_root,stop_gfr,stop_mpi
   use module_kind_types, only : Limiter_Option__Filter
   use module_kind_types, only : Limiter_Option__FilterScaled
   use module_kind_types, only : Marker_Option__Jump
+  !
+  !.. Optional Arguments ..
+  integer,     optional, allocatable, intent(in) :: opt_sol_order
   !
   !.. Local Scalars ..
   integer  :: p
@@ -2061,6 +2064,15 @@ continue
   !
   p = abs(solution_order)
   if ( all_orders >= 0 ) p = all_orders
+  !
+  ! Overwrite p with the contents of argument opt_sol_order
+  ! if it is present and allocated.
+  !
+  if (present(opt_sol_order)) then
+    if (allocated(opt_sol_order)) then
+      p = opt_sol_order
+    end if
+  end if
   !
   if ( Marker_Option == Marker_Option__Jump ) then  ! Filter with jump marker.
     Default_Marker_c1 = Default_Marker_c1_JI
