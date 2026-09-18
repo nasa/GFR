@@ -37,6 +37,7 @@ module ovar
   use module_kind_types, only : ENTLIM_OPT__OFF
   use module_kind_types, only : ENTLIM_FUN__LinearLvIhme
   use module_kind_types, only : POSLIM_OPT__OFF
+  use module_kind_types, only : PmetAgglom__OFF
   !
   implicit none
   !
@@ -389,7 +390,7 @@ module ovar
   integer, public, save :: plot3d_k_stride          = -1
   integer, public, save :: plot3d_all_strides       = -1
   integer, public, save :: plot3d_agglomerate_order = -1
-  integer, public, save :: parametric_agglomeration =  0
+  integer, public, save :: parametric_agglomeration = PmetAgglom__OFF
   !
   ! These interp_* variables store inputs for the grid that
   ! will be interpolated onto.
