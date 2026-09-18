@@ -50,13 +50,15 @@ end subroutine initialize_namelist_versions
 !
 !###############################################################################
 !> Convert all blocks of namelist input file to latest format.
+!> NOTE: This should only be called by the global root
+!>        MPI process if running in parallel.
 !###############################################################################
 subroutine convert_nml_file(fname,nml_ver_prev,mode)
   !
   !.. Use Statements ..
   use module_kind_types, only : debug_timer,start_timer
-  use module_kind_types, only : mypnum,glb_root,io_error
-  use module_kind_types, only : error_message,fals
+  use module_kind_types, only : io_error,error_message
+  use module_kind_types, only : fals
   !
   use nml_base_mod, only : new_nml_file1
   use nml_base_mod, only : new_nml_file2
@@ -94,76 +96,34 @@ subroutine convert_nml_file(fname,nml_ver_prev,mode)
   !
 continue
   !
-  if (mypnum == glb_root) then
+  ! Open the input file
+  !
+  call debug_timer(start_timer,"actually reading the input file")
+  open (newunit=io,file=trim(fname),status="old", &
+                   action="read",form="formatted", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(fname),1,__LINE__,__FILE__,ierr,error_message)
+  !
+  int_mode = 0  ! set default mode
+  if ( present(mode) ) then
+    if ( mode == 'short' ) int_mode = 0  ! short mode
+    if ( mode == 'full'  ) int_mode = 1  ! full  mode
+  end if
+  !
+  if ( int_mode == 0 ) then  ! short mode
     !
-    ! Open the input file
+    ! Process the input file twice using different dummy default values.
+    ! If we get the same input value, then user explicitly specified it.
     !
-    call debug_timer(start_timer,"actually reading the input file")
-    open (newunit=io,file=trim(fname),status="old", &
-                     action="read",form="formatted", &
-                     iostat=ierr,iomsg=error_message)
-    call io_error(pname,trim(fname),1,__LINE__,__FILE__,ierr,error_message)
-    !
-    int_mode = 0  ! set default mode
-    if ( present(mode) ) then
-      if ( mode == 'short' ) int_mode = 0  ! short mode
-      if ( mode == 'full'  ) int_mode = 1  ! full  mode
-    end if
-    !
-    if ( int_mode == 0 ) then  ! short mode
-      !
-      ! Process the input file twice using different dummy default values.
-      ! If we get the same input value, then user explicitly specified it.
-      !
-      do n = 1, 2
-        ! Set namelist output file and action.
-        if ( n == 1 ) then
-          new_nml_file = trim(new_nml_file1)  ! F2003 realloc
-          action = NMLaction_SetDummy0
-        else
-          new_nml_file = trim(new_nml_file2)  ! F2003 realloc
-          action = NMLaction_SetDummy1
-        end if
-        call set_NMLaction(action)
-        !
-        ! Allocate namelist variables to default sizes.
-        call nml_ver_9999%alloc_data()  ! alloc new arrays
-        call nml_ver_prev%alloc_data()  ! alloc old arrays
-        !
-        ! Set namelist values.
-        call nml_ver_9999%set_data(action)  ! set new arrays
-        call nml_ver_prev%set_data(action)  ! set old arrays
-        !
-        ! Read namelist values.
-        call nml_ver_prev%read_data(io)  ! read old vars
-        !
-        ! Resize namelist allocatables to their actual content.
-        call nml_ver_9999%resiz_data()  ! resize new arrays
-        !
-        ! Write namelist values in new format.
-        open (newunit=io1,file=new_nml_file,status='unknown', &
-                          action='write',form='formatted', &
-                          position="rewind",recl=nml_recl, &
-                          iostat=ierr,iomsg=error_message)
-        call io_error(pname,new_nml_file,1,__LINE__,__FILE__, &
-                      ierr,error_message)
-        ! write new vars
-        call nml_ver_9999%write_data(NMLaction_WritePretty,io1,banner=fals)
-        close (unit=io1,iostat=ierr,iomsg=error_message)
-        call io_error(pname,new_nml_file,2,__LINE__,__FILE__, &
-                      ierr,error_message)
-      end do ! n
-      !
-      ! Merge the shared values of the two new namelist files into one file.
-      ! This file will have the minimal content that the user specified.
-      !
-      call merge_nml_files()
-      !
-    else if ( int_mode == 1 ) then  ! full mode
-      !
-      ! Process the input file once using actual default values.
-      !
-      action = NMLaction_SetValue
+    do n = 1, 2
+      ! Set namelist output file and action.
+      if ( n == 1 ) then
+        new_nml_file = trim(new_nml_file1)  ! F2003 realloc
+        action = NMLaction_SetDummy0
+      else
+        new_nml_file = trim(new_nml_file2)  ! F2003 realloc
+        action = NMLaction_SetDummy1
+      end if
       call set_NMLaction(action)
       !
       ! Allocate namelist variables to default sizes.
@@ -181,7 +141,6 @@ continue
       call nml_ver_9999%resiz_data()  ! resize new arrays
       !
       ! Write namelist values in new format.
-      new_nml_file = new_nml_file3
       open (newunit=io1,file=new_nml_file,status='unknown', &
                         action='write',form='formatted', &
                         position="rewind",recl=nml_recl, &
@@ -193,13 +152,52 @@ continue
       close (unit=io1,iostat=ierr,iomsg=error_message)
       call io_error(pname,new_nml_file,2,__LINE__,__FILE__, &
                     ierr,error_message)
-      !
-    end if
+    end do ! n
     !
-    close (unit=io,iostat=ierr,iomsg=error_message)
-    call io_error(pname,trim(fname),2,__LINE__,__FILE__,ierr,error_message)
+    ! Merge the shared values of the two new namelist files into one file.
+    ! This file will have the minimal content that the user specified.
+    !
+    call merge_nml_files()
+    !
+  else if ( int_mode == 1 ) then  ! full mode
+    !
+    ! Process the input file once using actual default values.
+    !
+    action = NMLaction_SetValue
+    call set_NMLaction(action)
+    !
+    ! Allocate namelist variables to default sizes.
+    call nml_ver_9999%alloc_data()  ! alloc new arrays
+    call nml_ver_prev%alloc_data()  ! alloc old arrays
+    !
+    ! Set namelist values.
+    call nml_ver_9999%set_data(action)  ! set new arrays
+    call nml_ver_prev%set_data(action)  ! set old arrays
+    !
+    ! Read namelist values.
+    call nml_ver_prev%read_data(io)  ! read old vars
+    !
+    ! Resize namelist allocatables to their actual content.
+    call nml_ver_9999%resiz_data()  ! resize new arrays
+    !
+    ! Write namelist values in new format.
+    new_nml_file = new_nml_file3
+    open (newunit=io1,file=new_nml_file,status='unknown', &
+                      action='write',form='formatted', &
+                      position="rewind",recl=nml_recl, &
+                      iostat=ierr,iomsg=error_message)
+    call io_error(pname,new_nml_file,1,__LINE__,__FILE__, &
+                  ierr,error_message)
+    ! write new vars
+    call nml_ver_9999%write_data(NMLaction_WritePretty,io1,banner=fals)
+    close (unit=io1,iostat=ierr,iomsg=error_message)
+    call io_error(pname,new_nml_file,2,__LINE__,__FILE__, &
+                  ierr,error_message)
     !
   end if
+  !
+  close (unit=io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(fname),2,__LINE__,__FILE__,ierr,error_message)
   !
 end subroutine convert_nml_file
 !
