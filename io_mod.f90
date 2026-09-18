@@ -360,6 +360,7 @@ subroutine check_nml_input_data(input_mode)
   use ovar,   only : all_points
   use ovar,   only : loc_solution_pts, loc_flux_pts
   use ovar,   only : loc_quadrature_pts
+  use ovar,   only : loc_triangle_pts, loc_tetrahedra_pts
   use ovar,   only : invs_flux_method, visc_flux_method
   use ovar,   only : Runge_Kutta_Scheme, num_rk_stages
   use ovar,   only : num_timesteps, Final_Time, constant_dt
@@ -577,6 +578,32 @@ continue
     loc_flux_pts = all_points
     loc_quadrature_pts = all_points
   end if
+  !
+  ! Make sure loc_triangle_pts is valid.
+  !
+  select case (loc_triangle_pts)
+    case (Equi_Distant_Points)
+    case (WilliamsShunn_TriPoints)
+    case (Barycentric_Points)
+    case (AlphaOptimized_Points)
+    case default
+      ! Invalid loc_triangle_pts
+      write (error_message,70) 'loc_triangle_pts', loc_triangle_pts
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
+  !
+  ! Make sure loc_tetrahedra_pts is valid.
+  !
+  select case (loc_tetrahedra_pts)
+    case (Equi_Distant_Points)
+    case (ShunnHam_TetPoints)
+    case (Barycentric_Points)
+    case (AlphaOptimized_Points)
+    case default
+      ! Invalid loc_tetrahedra_pts
+      write (error_message,70) 'loc_tetrahedra_pts', loc_tetrahedra_pts
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end select
   !
   if (loc_solution_pts /= loc_flux_pts) then
     if (mypnum == glb_root) write (iout,101)
