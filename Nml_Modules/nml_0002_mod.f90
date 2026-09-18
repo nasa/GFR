@@ -1409,7 +1409,7 @@ continue
       text = '                               '
       write(text,101) 'Point_Probes(',n,')'
       text = trim(text)   ! F2003 realloc
-      call set( text //   '%xyz                    ',                       &
+      call set( text //   '%XYZ                    ',                       &
                 point_probes(n)%xyz                 , probes_xyz_default    )
       end do
       !
@@ -1417,11 +1417,11 @@ continue
       text = '                               '
       write(text,101) 'Rake_Probes(',n,')'
       text = trim(text)   ! F2003 realloc
-      call set( text //   '%num_probes             ',                       &
+      call set( text //   '%Num_Probes             ',                       &
                 rake_probes(n)%num_probes           , 0                     )
-      call set( text //   '%xyz_beg                ',                       &
+      call set( text //   '%XYZ_Beg                ',                       &
                 rake_probes(n)%xyz_beg              , probes_xyz_default    )
-      call set( text //   '%xyz_end                ',                       &
+      call set( text //   '%XYZ_End                ',                       &
                 rake_probes(n)%xyz_end              , probes_xyz_default    )
       end do
       !
@@ -1429,7 +1429,7 @@ continue
       text = '                               '
       write(text,101) 'Cell_Probes(',n,')'
       text = trim(text)   ! F2003 realloc
-      call set( text //   '%xyz                    ',                       &
+      call set( text //   '%XYZ                    ',                       &
                 cell_probes(n)%xyz                  , probes_xyz_default    )
       end do
       !
@@ -1732,7 +1732,7 @@ continue
                 ignition_start_timestep            , 0                    )
       call set('Ignition_Duration                 ',                      &
                 ignition_duration                  , 1                    )
-      call set('Ignition_Prod2reac_L2_Ratio_Goal  ',                      &
+      call set('Ignition_Prod2Reac_L2_Ratio_Goal  ',                      &
                 ignition_prod2reac_L2_ratio_goal   ,-1.0_wp               )
       call set('Ignition_Max_Temperature          ',                      &
                 ignition_max_temperature           , 1600.0_wp            )
@@ -2409,19 +2409,19 @@ continue
       call set( text //   '%Relax%Iter             ', &
                 bc_input(n)%relax%iter              , 0 )
       !
-      call set( text //   '%Sem%Is_Cylindrical     ', &
+      call set( text //   '%SEM%Is_Cylindrical     ', &
                 bc_input(n)%sem%is_cylindrical      , fals )
-      call set( text //   '%Sem%Length_Scale       ', &
+      call set( text //   '%SEM%Length_Scale       ', &
                 bc_input(n)%sem%length_scale        , zero )
-      call set( text //   '%Sem%Convective_Velocity', &
+      call set( text //   '%SEM%Convective_Velocity', &
                 bc_input(n)%sem%convective_velocity , zero)
-      call set( text //   '%Sem%Profile_Height     ', &
+      call set( text //   '%SEM%Profile_Height     ', &
                 bc_input(n)%sem%profile_height      , zero )
-      call set( text //   '%Sem%Profile_File       ', &
+      call set( text //   '%SEM%Profile_File       ', &
                 bc_input(n)%sem%profile_file        , '' )
-      call set( text //   '%Sem%Sub_In_BC_Grp      ', &
+      call set( text //   '%SEM%Sub_In_BC_Grp      ', &
                 bc_input(n)%sem%sub_in_bc_grp       , 0 )
-      call set( text //   '%Sem%Sub_In_BC_Idx      ', &
+      call set( text //   '%SEM%Sub_In_BC_Idx      ', &
                 bc_input(n)%sem%sub_in_bc_idx       , 0 )
       !
       call set( text //   '%Periodic%Matching_BC_Name', &
@@ -2766,13 +2766,13 @@ continue
       ! Grid
       call set('Parametric_Agglomeration         ',                         &
                 parametric_agglomeration          ,-1                       )
-      call set('Flame_Speed_Test_Dof             ',                         &
+      call set('Flame_Speed_Test_DoF             ',                         &
                 flame_speed_test_dof              , 0                       )
-      call set('Sod_Test_Dof                     ',                         &
+      call set('Sod_Test_DoF                     ',                         &
                 sod_test_dof                      , 0                       )
-      call set('Pulse_Test_Dof                   ',                         &
+      call set('Pulse_Test_DoF                   ',                         &
                 pulse_test_dof                    , 0                       )
-      call set('Shu_Osher_Test_Dof               ',                         &
+      call set('Shu_Osher_Test_DoF               ',                         &
                 shu_osher_test_dof                , 0                       )
       call set('VortexGrid_DoF                   ',                         &
                 VortexGrid_DOF                    , 48                      )
@@ -2831,7 +2831,7 @@ continue
       call set('Limiter_Marker_C2                ',                         &
                 Limiter_Marker_c2                 ,-1.0_wp                  )
       ! Output
-      call set('Output_Eperk_CFL                 ',                         &
+      call set('Output_EPERK_CFL                 ',                         &
                 output_eperk_cfl                  , true                    )
       call set('Output_Bnd_Profiles              ',                         &
                 output_bnd_profiles               , fals                    )
