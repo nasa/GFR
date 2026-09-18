@@ -163,24 +163,39 @@ continue
     ! This takes care of:
     !   alloc data, set data, read data, resize data, write data
     !
-    if ( mypnum == glb_root) then
-      !
-      select case (namelist_version)
-        case (1)
+    select case (namelist_version)
+      case (1)
+        !
+        ! Have the global root convert the version 1 namelist
+        ! to the latest version of the namelist.
+        !
+        if (mypnum == glb_root) then
           call convert_nml_file(input_fname,nml_ver_0001)
-        case (2)
+        end if
+        !
+      case (2)
+        !
+        ! Have the global root convert the version 2 namelist to whatever
+        ! version of the namelist is set to the lastest version.
+        ! NOTE: The latest version could be larger or smaller than 2,
+        !       it is just not version 2.
+        !
+        if (mypnum == glb_root) then
           call convert_nml_file(input_fname,nml_ver_0002)
-        case default
-          ! Invalid namelist_version.
-          write(error_message,31) namelist_version
-          call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
-      end select
-      !
-      ! Stop after converting.
-      write (error_message,41) trim(new_nml_file3)
-      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
-      !
-    end if
+        end if
+        !
+      case default
+        !
+        ! Invalid namelist_version.
+        write (error_message,31) namelist_version
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        !
+    end select
+    !
+    ! Stop after converting.
+    write (error_message,41) trim(new_nml_file3)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    !
   end if
   call check_for_bad_number(__LINE__,__FILE__)
   !
