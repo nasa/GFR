@@ -878,7 +878,9 @@ subroutine write_nml_file(output_fname,action,requires_allocations,print_banner)
   logical(lk), optional, intent(in) :: print_banner
   !
   !.. Local Scalars ..
-  integer :: io,ierr
+  integer     :: io,ierr
+  logical(lk) :: banner
+  logical(lk) :: allocations_required
   !
   !.. Local Allocatable Scalars ..
   character(len=:), allocatable :: delim
@@ -889,12 +891,19 @@ subroutine write_nml_file(output_fname,action,requires_allocations,print_banner)
   !
 continue
   !
+  banner = fals
+  if (present(print_banner)) banner = print_banner
+  !
+  allocations_required = fals
+  if (present(requires_allocations)) allocations_required = requires_allocations
+  !
 !-DEBUG_BEG:
 !-DEBUG_CMT: Initializing the namelist should be done outside this routine.
   ! Allocate all the variables within the input namelist
   ! to their default sizes and values
-  ! NOTE: This should not be used for writing out the final processed
-  !       namelist to stdout before starting the solver. Use write_nml_data
+  !
+  ! NOTE: THIS SHOULD NOT BE USED FOR WRITING OUT THE FINAL PROCESSED
+  !       NAMELIST TO STDOUT BEFORE STARTING THE SOLVER. Use write_nml_data
   !       to do that with iout as the unit argument.
   !
   ! NOTE: Changed the default number of the different opt_n_* arguments to
@@ -911,12 +920,14 @@ continue
   !       the file to create a new input file without knowing they need to
   !       add the array indices.
   !
-  call alloc_nml_data(opt_n_bc_input=2, &
-                      opt_n_species=3, &
-                      opt_char_len=0, &
-                      opt_n_point_probes=2, &
-                      opt_n_rake_probes=2, &
-                      opt_n_cell_probes=2)
+  if (allocations_required) then
+    call alloc_nml_data(opt_n_bc_input=2, &
+                        opt_n_species=3, &
+                        opt_char_len=0, &
+                        opt_n_point_probes=2, &
+                        opt_n_rake_probes=2, &
+                        opt_n_cell_probes=2)
+  end if
 !-DEBUG_END:
   !
   if (mypnum == glb_root) then
@@ -924,6 +935,10 @@ continue
     select case (action)
      !case (NMLaction_Read)        ; delim = 'NONE'       ! F2003 AUTO-REALLOC
       case (NMLaction_Write)       ; delim = 'APOSTROPHE' ! F2003 AUTO-REALLOC
+      !> delim is set to 'none' for WritePretty because the subroutine that
+      !> writes a character string to the file will add its own apostrophe,
+      !> so this prevents it from writing double apostrophes before and after
+      !> the character string.
       case (NMLaction_WritePretty) ; delim = 'NONE'       ! F2003 AUTO-REALLOC
       case default
         write (error_message,101) action
@@ -934,12 +949,13 @@ continue
     !
     fname = trim(adjustl(output_fname)) ! F2003 AUTO-REALLOC
     !
-    open (newunit=io,file=fname,status="new",action="write", &
-                     delim=delim,recl=5000,position="rewind", &
+    open (newunit=io,file=fname,status="replace", &
+                     action="write",position="rewind", &
+                     delim=delim,recl=5000, &
                      iostat=ierr,iomsg=error_message)
     call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
     !
-    call write_nml_data(action,io,banner=fals)
+    call write_nml_data(action,io,banner)
     !
     close (io,iostat=ierr,iomsg=error_message)
     call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)

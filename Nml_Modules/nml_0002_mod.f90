@@ -659,9 +659,16 @@ subroutine write_nml_file(output_fname,action,requires_allocations,print_banner)
   !
   !.. Local Scalars ..
   integer     :: io, ierr
-  logical(lk) :: banner = fals
+  logical(lk) :: banner
+  logical(lk) :: allocations_required
   !
 continue
+  !
+  banner = fals
+  if (present(print_banner)) banner = print_banner
+  !
+  allocations_required = fals
+  if (present(requires_allocations)) allocations_required = requires_allocations
   !
 !-DEBUG_BEG:
 !-DEBUG_CMT: Initializing the namelist should be done outside this routine.
@@ -682,18 +689,25 @@ continue
   !       the file to create a new input file without knowing they need to
   !       add the array indices.
   !
-  call alloc_nml_data(opt_n_bc_input=2, &
-                      opt_n_species=3,  &
-                      opt_char_len=0, &
-                      opt_n_point_probes=2, &
-                      opt_n_rake_probes=2, &
-                      opt_n_cell_probes=2)
+  if (allocations_required) then
+    call alloc_nml_data(opt_n_bc_input=2, &
+                        opt_n_species=3,  &
+                        opt_char_len=0, &
+                        opt_n_point_probes=2, &
+                        opt_n_rake_probes=2, &
+                        opt_n_cell_probes=2)
+  end if
 !-DEBUG_END:
   !
   if (mypnum == glb_root) then
+    !
     select case (action)
 !     case (NMLaction_Read)        ; delim = 'NONE'
       case (NMLaction_Write)       ; delim = 'APOSTROPHE'
+      !> delim is set to 'none' for WritePretty because the subroutine that
+      !> writes a character string to the file will add its own apostrophes,
+      !> so this prevents it from writing double apostrophes before and after
+      !> the character string.
       case (NMLaction_WritePretty) ; delim = 'NONE'
       case default
         write(error_message,101) action
@@ -702,12 +716,15 @@ continue
         call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     end select
     !
-    open(newunit=io,file=trim(output_fname),status="new",action="write", &
+    open(newunit=io,file=trim(output_fname),status="replace", &
+                    action="write", position="rewind", &
                     delim=delim, recl=5000, &
-                    position="rewind",iostat=ierr,iomsg=error_message)
+                    iostat=ierr,iomsg=error_message)
     call io_error(pname,trim(adjustl(output_fname)),1,__LINE__,__FILE__, &
                   ierr,error_message)
+    !
     call write_nml_data(action,io,banner)
+    !
     close(io,iostat=ierr,iomsg=error_message)
     call io_error(pname,trim(output_fname),2,__LINE__,__FILE__, &
                   ierr,error_message)
@@ -717,7 +734,7 @@ continue
   end if
   !
   101 format("Coding Error:  Invalid arg, action = ",i0)
-  201 format(/,"Default namelist input file written to:  ",A)
+  201 format(/,2x,"Namelist input file written to:  ",A)
   !
 end subroutine write_nml_file
 !
