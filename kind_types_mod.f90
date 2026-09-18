@@ -723,6 +723,8 @@ module module_kind_types
                                                Legendre_Gauss_Lobatto]
   integer, parameter :: Gauss_Lobatto(1:2) = [Legendre_Gauss_Lobatto, &
                                               Chebyshev_Gauss_Lobatto]
+  integer, parameter :: TriTet_Lobatto(1:2) = [Barycentric_Points, &
+                                               AlphaOptimized_Points]
 !!!
 !!! Location of 1D solution points
 !!integer, parameter :: Equi_Distant_Points     = 0
