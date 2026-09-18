@@ -1242,6 +1242,8 @@ subroutine merge_nml_files(save_temp_files)
   integer :: block_used
   integer :: line_num
   !
+  logical(lk) :: last_line_was_blank
+  !
   !.. Local Allocatable Scalars ..
   character(len=nml_recl), allocatable :: line1, block1, vname1
   character(len=nml_recl), allocatable :: line2, block2, vname2
@@ -1249,6 +1251,8 @@ subroutine merge_nml_files(save_temp_files)
   character(len=:), allocatable :: tmpfile_action
   !
 continue
+  !
+  last_line_was_blank = fals
   !
   tmpfile_action = "delete" ! F2003 AUTO-REALLOC
   if (present(save_temp_files)) then
@@ -1362,13 +1366,32 @@ continue
         call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       end if
       !
+      if (block_used == 0 .and. len_trim(line1) == 0) cycle line_loop
+      !
       ! If lines match, write to output file.
       if ( line1 == line2 ) then
-        ! Write namelist block name on first use.
-        if ( block_used == 0 ) write(io3,101) trim(block1)
+        ! Write namelist block name on first use,
+        ! and reset flag that the last line was blank
+        if ( block_used == 0 ) then
+          write(io3,101) trim(block1)
+          last_line_was_blank = fals
+        end if
         block_used = 1
         ! Write namelist variable and value.
-        write(io3,101) trim(line1)
+        if (len_trim(line1) > 0) then
+          ! This line is not blank, so write it and reset flag
+          ! to indicate this line was not blank
+          write(io3,101) trim(line1)
+          last_line_was_blank = fals
+        else
+          ! This line is blank, only write a blank line
+          ! if the previous line was not blank, and set flag
+          ! indicating this line was blank
+          if (.not. last_line_was_blank) then
+            write (io3,101) trim(line1)
+            last_line_was_blank = true
+          end if
+        end if
       end if
       !
     end do line_loop
