@@ -22,6 +22,7 @@ module nml_0002_mod
   use nml_base_mod, only : NMLaction
   use nml_base_mod, only : namelist_procedures_t
   use nml_base_mod, only : NMLmode
+  use nml_base_mod, only : NMLmode_InputConverter
   use nml_base_mod, only : NMLmode_WriteDefaults
   !
   implicit none
@@ -919,6 +920,11 @@ continue
         call set( text //   '%Hexa         ',geom_wts(n)%hexa       , 1 )
         call set( text //   '%Face_Tria    ',geom_wts(n)%face_tria  , 1 )
         call set( text //   '%Face_Quad    ',geom_wts(n)%face_quad  , 1 )
+        !> Write an empty line when NMLaction == NMLaction_WritePretty
+        !> but this will only happen if nml_block_is_used is tripped
+        !> since the reset at the start of this loop.
+        if (n /= size(geom_wts) .and. &
+            NMLmode /= NMLmode_InputConverter) call set()
       end do
       call iow_footer()
     case ( NMLaction_Read )
@@ -2490,6 +2496,11 @@ continue
           call set( text2 //                      '    ', &
                     bc_input(n)%Periodic%Translation(i), zero  )
         end do loop_translation
+        !
+        !> Write an empty line when NMLaction == NMLaction_WritePretty
+        !> but this will only happen if nml_block_is_used is tripped
+        !> since the reset at the start of this loop.
+        if (n /= size(bc_input)) call set()
         !
       end do loop_bc_input  ! n = 1, size(bc_input)
       call iow_footer()

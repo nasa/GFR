@@ -2197,6 +2197,9 @@ continue
                     bc_input(n)%Periodic%Translation(i)   , zero            )
         end do loop_translation
         !
+        !> Write an empty line when NMLaction == NMLaction_WritePretty
+        if (n /= size(bc_input)) call set()
+        !
       end do loop_bc_input  ! n = 1, size(bc_input)
       !}}}
 !{{{  ! GEOMETRY WEIGHTS FOR METIS PARTITIONING
@@ -2215,6 +2218,8 @@ continue
         call set( text //   '%Hexa          ',geom_wts(n)%hexa       , 1 )
         call set( text //   '%Face_Tria     ',geom_wts(n)%face_tria  , 1 )
         call set( text //   '%Face_Quad     ',geom_wts(n)%face_quad  , 1 )
+        !> Write an empty line when NMLaction == NMLaction_WritePretty
+        if (n /= size(geom_wts)) call set()
       end do
       !}}}
       call iow_footer()
