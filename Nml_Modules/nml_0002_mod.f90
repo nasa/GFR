@@ -19,9 +19,11 @@ module nml_0002_mod
   use nml_base_mod, only : NMLaction_Read
   use nml_base_mod, only : NMLaction_Write
   use nml_base_mod, only : NMLaction_WritePretty
+  use nml_base_mod, only : NMLaction_BlockCheck
   use nml_base_mod, only : NMLaction
   use nml_base_mod, only : namelist_procedures_t
   use nml_base_mod, only : reset_block_check
+  use nml_base_mod, only : nml_block_is_used
   use nml_base_mod, only : NMLmode
   use nml_base_mod, only : NMLmode_RunSolver
   use nml_base_mod, only : NMLmode_InputConverter
@@ -769,10 +771,10 @@ continue
   !
   call ionml_version          ()
   call ionml_grid             ()
-  call ionml_interpolation    ()
+  call ionml_interpolation    () ! uses NMLactioon_BlockCheck
   call ionml_reference        ()
   call ionml_physics          ()
-  call ionml_chemistry        ()
+  call ionml_chemistry        () ! uses NMLactioon_BlockCheck
   call ionml_sem              ()
   call ionml_initialization   ()
   call ionml_timestep         ()
@@ -781,12 +783,12 @@ continue
   call ionml_time_ave         ()
   call ionml_output           ()
   call ionml_output_variables ()
-  call ionml_utility          ()
-  call ionml_testcase_vortex  ()
-  call ionml_testcase_tcf     ()
-  call ionml_testcase_sod     ()
-  call ionml_testcase_pulse   ()
-  call ionml_testcase_channel ()
+  call ionml_utility          () ! uses NMLactioon_BlockCheck
+  call ionml_testcase_vortex  () ! uses NMLactioon_BlockCheck
+  call ionml_testcase_tcf     () ! uses NMLactioon_BlockCheck
+  call ionml_testcase_sod     () ! uses NMLactioon_BlockCheck
+  call ionml_testcase_pulse   () ! uses NMLactioon_BlockCheck
+  call ionml_testcase_channel () ! uses NMLactioon_BlockCheck
   !
   if (process_special_namelists) &
   call ionml_debug            () ! uses NMLactioon_BlockCheck
@@ -986,6 +988,9 @@ subroutine ionml_interpolation()
   use ovar, only : interpto_plot3d_agglomerate_order
   use ovar, only : interpto_solution_order
   !
+  !.. Local Scalars ..
+  integer :: loc_action
+  !
   ! INTERPOLATION UTILITY GRID INFORMATION
   namelist / nml_interpolation / &
                      interpto_grid_scaling_factor, &
@@ -1002,10 +1007,23 @@ subroutine ionml_interpolation()
   !
 continue
   !
-  select case (NMLaction)
+  loc_action = NMLaction
+  !
+  select case (loc_action)
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
-           NMLaction_WritePretty )
-      call iow_header('&nml_interpolation')
+           NMLaction_Write, NMLaction_WritePretty )
+      !
+      if (loc_action == NMLaction_Write) then
+        ! If the current action is Write, reset the flag indicating if a
+        ! namelist block is being used, and then set the action to BlockCheck
+        ! so that the following calls to the set subroutines will trip the
+        ! flag if any of these inputs are different from their default value.
+        call reset_block_check
+        call set_NMLaction(NMLaction_BlockCheck)
+      else
+        call iow_header('&nml_interpolation')
+      end if
+      !
       call set('Interpto_Grid_Scaling_Factor     ',                &
                 interpto_grid_scaling_factor      , 1.0_wp         )
       call set('Interpto_Grid_Format             ',                &
@@ -1028,13 +1046,26 @@ continue
                 interpto_plot3d_agglomerate_order ,-1              )
       call set('Interpto_Solution_Order          ',                &
                 interpto_solution_order           , 3              )
-      call iow_footer()
+      !
+      if (loc_action == NMLaction_Write) then
+        ! Set the NMLaction back to Write
+        call set_NMLaction(loc_action)
+        ! Write out the full namelist if any of the namelist variables
+        ! were different from their default value
+        if (nml_block_is_used .or. NMLmode == NMLmode_WriteDefaults) then
+          write (iow,nml=nml_interpolation,delim='APOSTROPHE')
+        end if
+        call reset_block_check
+      else
+        call iow_footer()
+      end if
+      !
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_interpolation') ) then
         read(ior,nml=nml_interpolation)
       end if
-    case ( NMLaction_Write )
-      write(iow,nml=nml_interpolation,delim='APOSTROPHE')
+   !case ( NMLaction_Write )
+   !  write(iow,nml=nml_interpolation,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_interpolation
@@ -1753,6 +1784,9 @@ subroutine ionml_chemistry()
                              ignition_source_radius             , &
                              ignition_source_location
   !
+  !.. Local Scalars ..
+  integer :: loc_action
+  !
   ! CHEMICAL REACTION SOURCE TERMS
   namelist / nml_chemistry / disable_chemical_reactions         , &
                              semi_implicit_chemistry
@@ -1771,10 +1805,23 @@ subroutine ionml_chemistry()
   !
 continue
   !
-  select case (NMLaction)
+  loc_action = NMLaction
+  !
+  select case (loc_action)
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
-           NMLaction_WritePretty )
-      call iow_header('&nml_chemistry')
+           NMLaction_Write, NMLaction_WritePretty )
+      !
+      if (loc_action == NMLaction_Write) then
+        ! If the current action is Write, reset the flag indicating if a
+        ! namelist block is being used, and then set the action to BlockCheck
+        ! so that the following calls to the set subroutines will trip the
+        ! flag if any of these inputs are different from their default value.
+        call reset_block_check
+        call set_NMLaction(NMLaction_BlockCheck)
+      else
+        call iow_header('&nml_chemistry')
+      end if
+      !
       call set('Disable_Chemical_Reactions        ',                      &
                 disable_chemical_reactions         , fals                 )
       call set('Semi_Implicit_Chemistry           ',                      &
@@ -1797,13 +1844,26 @@ continue
                 ignition_source_radius             , zero                 )
       call set('Ignition_Source_Location          ',                      &
                 ignition_source_location           , [zero,zero,zero]     )
-      call iow_footer()
+      !
+      if (loc_action == NMLaction_Write) then
+        ! Set the NMLaction back to Write
+        call set_NMLaction(loc_action)
+        ! Write out the full namelist if any of the namelist variables
+        ! were different from their default value
+        if (nml_block_is_used .or. NMLmode == NMLmode_WriteDefaults) then
+          write (iow,nml=nml_chemistry,delim='APOSTROPHE')
+        end if
+        call reset_block_check
+      else
+        call iow_footer()
+      end if
+      !
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_chemistry') ) then
         read(ior,nml=nml_chemistry)
       end if
-    case ( NMLaction_Write )  
-      write(iow,nml=nml_chemistry,delim='APOSTROPHE')
+   !case ( NMLaction_Write )  
+   !  write(iow,nml=nml_chemistry,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_chemistry
@@ -2093,6 +2153,9 @@ subroutine ionml_debug()
       chemistry_sub_iterations      , &
       ignore_thermo_newton_warnings
   !
+  !.. Local Scalars ..
+  integer :: loc_action
+  !
   ! OUTPUT THE STATISTICS OF THE LIMITER
   namelist / nml_debug / output_limiter_statistics
   ! OPTION TO OUTPUT FILTER DIAGONALS TO FILE
@@ -2111,10 +2174,23 @@ subroutine ionml_debug()
   !
 continue
   !
-  select case (NMLaction)
+  loc_action = NMLaction
+  !
+  select case (loc_action)
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
-           NMLaction_WritePretty )
-      call iow_header('&nml_debug')
+           NMLaction_Write, NMLaction_WritePretty )
+      !
+      if (loc_action == NMLaction_Write) then
+        ! If the current action is Write, reset the flag indicating if a
+        ! namelist block is being used, and then set the action to BlockCheck
+        ! so that the following calls to the set subroutines will trip the
+        ! flag if any of these inputs are different from their default value.
+        call reset_block_check
+        call set_NMLaction(NMLaction_BlockCheck)
+      else
+        call iow_header('&nml_debug')
+      end if
+      !
       call set('Output_Limiter_Statistics    ',                             &
                 output_limiter_statistics     , fals                        )
       call set('Output_Filter_Diagonals      ',                             &
@@ -2133,13 +2209,26 @@ continue
                 chemistry_sub_iterations      ,-1                           )
       call set('Ignore_Thermo_Newton_Warnings',                             &
                 ignore_thermo_newton_warnings , fals                        )
-      call iow_footer()
+      !
+      if (loc_action == NMLaction_Write) then
+        ! Set the NMLaction back to Write
+        call set_NMLaction(loc_action)
+        ! Write out the full namelist if any of the namelist variables
+        ! were different from their default value
+        if (nml_block_is_used) then
+          write (iow,nml=nml_debug,delim='APOSTROPHE')
+        end if
+        call reset_block_check
+      else
+        call iow_footer()
+      end if
+      !
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_debug') ) then
         read(ior,nml=nml_debug)
       end if
-    case ( NMLaction_Write )
-      write(iow,nml=nml_debug,delim='APOSTROPHE')
+   !case ( NMLaction_Write )
+   !  write(iow,nml=nml_debug,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_debug
@@ -2160,6 +2249,9 @@ subroutine ionml_testcase_vortex()
              Grid_Hex_to_Pyramids => VortexGrid_Hex_to_Pyramids , &
              Grid_is_3D           => VortexGrid_is_3D
   !
+  !.. Local Scalars ..
+  integer :: loc_action
+  !
   ! ISENTROPIC VORTEX CONSTANTS
   namelist / nml_testcase_vortex /  &
              vortex_bigR          , &
@@ -2174,10 +2266,23 @@ subroutine ionml_testcase_vortex()
   !
 continue
   !
-  select case (NMLaction)
+  loc_action = NMLaction
+  !
+  select case (loc_action)
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
-           NMLaction_WritePretty )
-      call iow_header('&nml_testcase_vortex')
+           NMLaction_Write, NMLaction_WritePretty )
+      !
+      if (loc_action == NMLaction_Write) then
+        ! If the current action is Write, reset the flag indicating if a
+        ! namelist block is being used, and then set the action to BlockCheck
+        ! so that the following calls to the set subroutines will trip the
+        ! flag if any of these inputs are different from their default value.
+        call reset_block_check
+        call set_NMLaction(NMLaction_BlockCheck)
+      else
+        call iow_header('&nml_testcase_vortex')
+      end if
+      !
       call set('Vortex_BigR               ',vortex_bigR         , 1.0_wp )
       call set('Vortex_BigGam             ',vortex_bigGam       , 5.0_wp )
       call set('Grid_Lref                 ',Grid_Lref           ,10.0_wp )
@@ -2185,13 +2290,26 @@ continue
       call set('Grid_Perturb_Percent      ',Grid_Perturb_Percent, 30     )
       call set('Grid_Hex_To_Pyramids      ',Grid_Hex_to_Pyramids, fals   )
       call set('Grid_Is_3D                ',Grid_is_3D          , fals   )
-      call iow_footer()
+      !
+      if (loc_action == NMLaction_Write) then
+        ! Set the NMLaction back to Write
+        call set_NMLaction(loc_action)
+        ! Write out the full namelist if any of the namelist variables
+        ! were different from their default value
+        if (nml_block_is_used) then
+          write (iow,nml=nml_testcase_vortex,delim='APOSTROPHE')
+        end if
+        call reset_block_check
+      else
+        call iow_footer()
+      end if
+      !
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_testcase_vortex') ) then
         read(ior,nml=nml_testcase_vortex)
       end if
-    case ( NMLaction_Write )
-      write(iow,nml=nml_testcase_vortex,delim='APOSTROPHE')
+   !case ( NMLaction_Write )
+   !  write(iow,nml=nml_testcase_vortex,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_testcase_vortex
@@ -2215,6 +2333,9 @@ subroutine ionml_testcase_tcf()
              Theta_Shift        => TCF_Theta_Shift        , &
              Periodic_Sectors   => TCF_Periodic_Sectors
   !
+  !.. Local Scalars ..
+  integer :: loc_action
+  !
   ! TAYLOR-COUETTE FLOW CONSTANTS
   namelist / nml_testcase_tcf / &
              Inner_Radius, Inner_Wall_Spacing, &
@@ -2225,10 +2346,23 @@ subroutine ionml_testcase_tcf()
   !
 continue
   !
-  select case (NMLaction)
+  loc_action = NMLaction
+  !
+  select case (loc_action)
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
-           NMLaction_WritePretty )
-      call iow_header('&nml_testcase_tcf')
+           NMLaction_Write, NMLaction_WritePretty )
+      !
+      if (loc_action == NMLaction_Write) then
+        ! If the current action is Write, reset the flag indicating if a
+        ! namelist block is being used, and then set the action to BlockCheck
+        ! so that the following calls to the set subroutines will trip the
+        ! flag if any of these inputs are different from their default value.
+        call reset_block_check
+        call set_NMLaction(NMLaction_BlockCheck)
+      else
+        call iow_header('&nml_testcase_tcf')
+      end if
+      !
       call set('Inner_Radius      ',Inner_Radius      , half       )
       call set('Inner_Wall_Spacing',Inner_Wall_Spacing, 0.002_wp   )
       call set('Outer_Radius      ',Outer_Radius      , one        )
@@ -2239,13 +2373,26 @@ continue
       call set('Azimuthal_Cells   ',Azimuthal_Cells   , 48         )
       call set('Theta_Shift       ',Theta_Shift       , zero       )
       call set('Periodic_Sectors  ',Periodic_Sectors  , 1          )
-      call iow_footer()
+      !
+      if (loc_action == NMLaction_Write) then
+        ! Set the NMLaction back to Write
+        call set_NMLaction(loc_action)
+        ! Write out the full namelist if any of the namelist variables
+        ! were different from their default value
+        if (nml_block_is_used) then
+          write (iow,nml=nml_testcase_tcf,delim='APOSTROPHE')
+        end if
+        call reset_block_check
+      else
+        call iow_footer()
+      end if
+      !
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_testcase_tcf') ) then
         read(ior,nml=nml_testcase_tcf)
       end if
-    case ( NMLaction_Write )
-      write(iow,nml=nml_testcase_tcf,delim='APOSTROPHE')
+   !case ( NMLaction_Write )
+   !  write(iow,nml=nml_testcase_tcf,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_testcase_tcf
@@ -2259,23 +2406,52 @@ subroutine ionml_testcase_sod()
   !.. Use Statements ..
   use ovar, only : right_vector => sod_test_right_vector
   !
+  !.. Local Scalars ..
+  integer :: loc_action
+  !
   ! SOD SHOCK TUBE TEST PARAMETERS
   namelist / nml_testcase_sod / right_vector
   !
 continue
   !
-  select case (NMLaction)
+  loc_action = NMLaction
+  !
+  select case (loc_action)
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
-           NMLaction_WritePretty )
-      call iow_header('&nml_testcase_sod')
+           NMLaction_Write, NMLaction_WritePretty )
+      !
+      if (loc_action == NMLaction_Write) then
+        ! If the current action is Write, reset the flag indicating if a
+        ! namelist block is being used, and then set the action to BlockCheck
+        ! so that the following calls to the set subroutines will trip the
+        ! flag if any of these inputs are different from their default value.
+        call reset_block_check
+        call set_NMLaction(NMLaction_BlockCheck)
+      else
+        call iow_header('&nml_testcase_sod')
+      end if
+      !
       call set('Right_Vector',right_vector, [one,zero,zero]  )
-      call iow_footer()
+      !
+      if (loc_action == NMLaction_Write) then
+        ! Set the NMLaction back to Write
+        call set_NMLaction(loc_action)
+        ! Write out the full namelist if any of the namelist variables
+        ! were different from their default value
+        if (nml_block_is_used) then
+          write (iow,nml=nml_testcase_sod,delim='APOSTROPHE')
+        end if
+        call reset_block_check
+      else
+        call iow_footer()
+      end if
+      !
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_testcase_sod') ) then
         read(ior,nml=nml_testcase_sod)
       end if
-    case ( NMLaction_Write )
-      write(iow,nml=nml_testcase_sod,delim='APOSTROPHE')
+   !case ( NMLaction_Write )
+   !  write(iow,nml=nml_testcase_sod,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_testcase_sod
@@ -2295,16 +2471,32 @@ subroutine ionml_testcase_pulse()
                       gap      => pulse_test_gap       , &
                       repeat   => pulse_test_repeat
   !
+  !.. Local Scalars ..
+  integer :: loc_action
+  !
   ! DENSITY PULSE CONVECTION TEST PARAMETERS
   namelist / nml_testcase_pulse / form, form_dim, length, center, width, &
                                   gap, repeat
   !
 continue
   !
-  select case (NMLaction)
+  loc_action = NMLaction
+  !
+  select case (loc_action)
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
-           NMLaction_WritePretty )
-      call iow_header('&nml_testcase_pulse')
+           NMLaction_Write, NMLaction_WritePretty )
+      !
+      if (loc_action == NMLaction_Write) then
+        ! If the current action is Write, reset the flag indicating if a
+        ! namelist block is being used, and then set the action to BlockCheck
+        ! so that the following calls to the set subroutines will trip the
+        ! flag if any of these inputs are different from their default value.
+        call reset_block_check
+        call set_NMLaction(NMLaction_BlockCheck)
+      else
+        call iow_header('&nml_testcase_pulse')
+      end if
+      !
       call set('Form        ',form        , 0                )
       call set('Form_Dim    ',form_dim    , 1                )
       call set('Length      ',length      , 1.0_wp           )
@@ -2312,13 +2504,26 @@ continue
       call set('Width       ',width       , 0.2_wp           )
       call set('Gap         ',gap         , 0.2_wp           )
       call set('Repeat      ',repeat      , 0                )
-      call iow_footer()
+      !
+      if (loc_action == NMLaction_Write) then
+        ! Set the NMLaction back to Write
+        call set_NMLaction(loc_action)
+        ! Write out the full namelist if any of the namelist variables
+        ! were different from their default value
+        if (nml_block_is_used) then
+          write (iow,nml=nml_testcase_pulse,delim='APOSTROPHE')
+        end if
+        call reset_block_check
+      else
+        call iow_footer()
+      end if
+      !
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_testcase_pulse') ) then
         read(ior,nml=nml_testcase_pulse)
       end if
-    case ( NMLaction_Write )
-      write(iow,nml=nml_testcase_pulse,delim='APOSTROPHE')
+   !case ( NMLaction_Write )
+   !  write(iow,nml=nml_testcase_pulse,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_testcase_pulse
@@ -2339,6 +2544,9 @@ subroutine ionml_testcase_channel()
                    grid_yplus_wall     => channel_grid_yplus_wall     , &
                    grid_yplus_of_one   => channel_yplus_of_one
   !
+  !.. Local Scalars ..
+  integer :: loc_action
+  !
   ! CHANNEL FLOW PARAMETERS
   namelist / nml_testcase_channel / &
     annulus_angle, &
@@ -2352,10 +2560,23 @@ subroutine ionml_testcase_channel()
   !
 continue
   !
-  select case (NMLaction)
+  loc_action = NMLaction
+  !
+  select case (loc_action)
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
-           NMLaction_WritePretty )
-      call iow_header('&nml_testcase_channel')
+           NMLaction_Write, NMLaction_WritePretty )
+      !
+      if (loc_action == NMLaction_Write) then
+        ! If the current action is Write, reset the flag indicating if a
+        ! namelist block is being used, and then set the action to BlockCheck
+        ! so that the following calls to the set subroutines will trip the
+        ! flag if any of these inputs are different from their default value.
+        call reset_block_check
+        call set_NMLaction(NMLaction_BlockCheck)
+      else
+        call iow_header('&nml_testcase_channel')
+      end if
+      !
       call set('Annulus_Angle      ',annulus_angle      , five              )
       call set('Grid_Ave_Xplus     ',grid_ave_xplus     ,-30.0_wp           )
       call set('Grid_Ave_Yplus     ',grid_ave_yplus     ,-15.0_wp           )
@@ -2364,13 +2585,26 @@ continue
       call set('Grid_Yplus_Of_One  ',grid_yplus_of_one  , 8.42134e-6_wp     )
       call set('Body_Force         ',body_force         , 0.0_wp            )
       call set('Nondim_Output_Coord',nondim_output_coord, fals              )
-      call iow_footer()
+      !
+      if (loc_action == NMLaction_Write) then
+        ! Set the NMLaction back to Write
+        call set_NMLaction(loc_action)
+        ! Write out the full namelist if any of the namelist variables
+        ! were different from their default value
+        if (nml_block_is_used) then
+          write (iow,nml=nml_testcase_channel,delim='APOSTROPHE')
+        end if
+        call reset_block_check
+      else
+        call iow_footer()
+      end if
+      !
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_testcase_channel') ) then
         read(ior,nml=nml_testcase_channel)
       end if
-    case ( NMLaction_Write )
-      write(iow,nml=nml_testcase_channel,delim='APOSTROPHE')
+   !case ( NMLaction_Write )
+   !  write(iow,nml=nml_testcase_channel,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_testcase_channel
@@ -2629,6 +2863,9 @@ subroutine ionml_utility()
   use ovar, only : spatial_ave_restart_x_and_z_planes
   use ovar, only : spatial_ave_restart_z_planes
   use ovar, only : modify_time_ave_restart_history
+  !
+  !.. Local Scalars ..
+  integer :: loc_action
   ! UTILITY TO PROCESS EXISTING RESTART FILES
   namelist / nml_utility / &
     convert_restart_to_cgns, &
@@ -2641,10 +2878,23 @@ subroutine ionml_utility()
   !
 continue
   !
-    select case (NMLaction)
+  loc_action = NMLaction
+  !
+  select case (loc_action)
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
-           NMLaction_WritePretty )
-      call iow_header('&nml_utility')
+           NMLaction_Write, NMLaction_WritePretty )
+      !
+      if (loc_action == NMLaction_Write) then
+        ! If the current action is Write, reset the flag indicating if a
+        ! namelist block is being used, and then set the action to BlockCheck
+        ! so that the following calls to the set subroutines will trip the
+        ! flag if any of these inputs are different from their default value.
+        call reset_block_check
+        call set_NMLaction(NMLaction_BlockCheck)
+      else
+        call iow_header('&nml_utility')
+      end if
+      !
       call set('Convert_Restart_To_CGNS           ',                        &
                 convert_restart_to_cgns            , fals                   )
       call set('Delete_Converted_Restart_Files    ',                        &
@@ -2659,13 +2909,26 @@ continue
                 spatial_ave_restart_z_planes       , fals                   )
       call set('Modify_Time_Ave_Restart_History   ',                        &
                 modify_time_ave_restart_history    , fals                   )
-      call iow_footer()
+      !
+      if (loc_action == NMLaction_Write) then
+        ! Set the NMLaction back to Write
+        call set_NMLaction(loc_action)
+        ! Write out the full namelist if any of the namelist variables
+        ! were different from their default value
+        if (nml_block_is_used .or. NMLmode == NMLmode_WriteDefaults) then
+          write (iow,nml=nml_utility,delim='APOSTROPHE')
+        end if
+        call reset_block_check
+      else
+        call iow_footer()
+      end if
+      !
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_utility') ) then
         read(ior,nml=nml_utility)
       end if
-    case ( NMLaction_Write )
-      write(iow,nml=nml_utility,delim='APOSTROPHE')
+   !case ( NMLaction_Write )
+   !  write(iow,nml=nml_utility,delim='APOSTROPHE')
   end select
 !
 end subroutine ionml_utility
@@ -2759,6 +3022,9 @@ subroutine ionml_removed()
   use ovar, only : dump_fluxes
   use ovar, only : disable_header_rewrites
   !
+  !.. Local Scalars ..
+  integer :: loc_action
+  !
   ! These inputs are no longer used by the main code, so define them here.
   ! Must save them for init/read/write/convert passes to work properly if
   ! nml_removed is included in the namelist output.
@@ -2840,10 +3106,23 @@ continue
 ! if ( NMLaction == NMLaction_Write .or. &
 !      NMLaction == NMLaction_WritePretty ) return
   !
-  select case (NMLaction)
+  loc_action = NMLaction
+  !
+  select case (loc_action)
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
-           NMLaction_WritePretty )
-      call iow_header('&nml_removed')
+           NMLaction_Write, NMLaction_WritePretty )
+      !
+      if (loc_action == NMLaction_Write) then
+        ! If the current action is Write, reset the flag indicating if a
+        ! namelist block is being used, and then set the action to BlockCheck
+        ! so that the following calls to the set subroutines will trip the
+        ! flag if any of these inputs are different from their default value.
+        call reset_block_check
+        call set_NMLaction(NMLaction_BlockCheck)
+      else
+        call iow_header('&nml_removed')
+      end if
+      !
       ! Grid
       call set('Parametric_Agglomeration         ',                         &
                 parametric_agglomeration          , PmetAgglom__OFF         )
@@ -2933,13 +3212,26 @@ continue
       ! Misc
       call set('Newton_Rlx                       ',                         &
                 newton_rlx                        , 1.0_wp                  )
-      call iow_footer()
+      !
+      if (loc_action == NMLaction_Write) then
+        ! Set the NMLaction back to Write
+        call set_NMLaction(loc_action)
+        ! Write out the full namelist if any of the namelist variables
+        ! were different from their default value
+        if (nml_block_is_used) then
+          write (iow,nml=nml_removed,delim='APOSTROPHE')
+        end if
+        call reset_block_check
+      else
+        call iow_footer()
+      end if
+      !
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_removed') ) then
         read(ior,nml=nml_removed)
       end if
-    case ( NMLaction_Write )
-      write(iow,nml=nml_removed,delim='APOSTROPHE')
+   !case ( NMLaction_Write )
+   !  write(iow,nml=nml_removed,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_removed
