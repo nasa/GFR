@@ -23,8 +23,11 @@ module nml_0002_mod
   use nml_base_mod, only : namelist_procedures_t
   use nml_base_mod, only : reset_block_check
   use nml_base_mod, only : NMLmode
+  use nml_base_mod, only : NMLmode_RunSolver
   use nml_base_mod, only : NMLmode_InputConverter
   use nml_base_mod, only : NMLmode_WriteDefaults
+  use nml_base_mod, only : NMLmode_TrimDefaults
+  use nml_base_mod, only : set_NML_mode
   !
   implicit none
   !
@@ -806,14 +809,27 @@ subroutine ionml_version()
   !
   namelist / nml_version / namelist_version
   !
+  !.. Local Scalars ..
+  integer :: loc_mode
+  !
 continue
+  !
+  loc_mode = NMLmode
   !
   select case (NMLaction)
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
            NMLaction_WritePretty )
+      if (NMLmode == NMLmode_TrimDefaults) then
+        ! Reset the NML mode to the solver so that this namelist
+        ! always gets written out when trimming a converted namelist
+        call set_NML_mode(NMLmode_RunSolver)
+      end if
       call iow_header('&nml_version')
       call set('Namelist_Version',namelist_version, 2 )
       call iow_footer()
+      ! Set the NML mode back to what it was at the start of this subroutine.
+      ! This should only do something if it was changed above.
+      call set_NML_mode(loc_mode)
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_version') ) then
         read(ior,nml=nml_version)
