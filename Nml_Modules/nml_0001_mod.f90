@@ -1342,12 +1342,18 @@ continue
                 internal_grid_order               ,-1                        )
       !}}}
 !{{{  ! PLOT3D COARSENING OPTIONS
-      call set('Plot3d_I_Stride         ',plot3d_i_stride         ,-1      )
-      call set('Plot3d_J_Stride         ',plot3d_j_stride         ,-1      )
-      call set('Plot3d_K_Stride         ',plot3d_k_stride         ,-1      )
-      call set('Plot3d_All_Strides      ',plot3d_all_strides      ,-1      )
-      call set('Plot3d_Agglomerate_Order',plot3d_agglomerate_order,-1      )
-      call set('Parametric_Agglomeration',parametric_agglomeration,-1      )
+      call set('Plot3d_I_Stride                  ',                          &
+                plot3d_i_stride                   ,-1                        )
+      call set('Plot3d_J_Stride                  ',                          &
+                plot3d_j_stride                   ,-1                        )
+      call set('Plot3d_K_Stride                  ',                          &
+                plot3d_k_stride                   ,-1                        )
+      call set('Plot3d_All_Strides               ',                          &
+                plot3d_all_strides                ,-1                        )
+      call set('Plot3d_Agglomerate_Order         ',                          &
+                plot3d_agglomerate_order          ,-1                        )
+      call set('Parametric_Agglomeration         ',                          &
+                parametric_agglomeration          , PmetAgglom__OFF          )
       !}}}
 !{{{  ! INTERPOLATION UTILITY GRID INFORMATION
       call set('Interpto_Grid_Format             ',                &

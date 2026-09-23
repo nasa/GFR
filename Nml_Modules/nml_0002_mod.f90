@@ -2789,7 +2789,7 @@ continue
       call iow_header('&nml_removed')
       ! Grid
       call set('Parametric_Agglomeration         ',                         &
-                parametric_agglomeration          ,-1                       )
+                parametric_agglomeration          , PmetAgglom__OFF         )
       call set('Flame_Speed_Test_DoF             ',                         &
                 flame_speed_test_dof              , 0                       )
       call set('Sod_Test_DoF                     ',                         &
