@@ -1917,10 +1917,13 @@ continue
                 Marker_Variable                  , 0                        )
       call set('Marker_Min                      ',                          &
                 Marker_Min                       , Marker_MinMax_Default    )
+               !action_SetMarker)
       call set('Marker_Max                      ',                          &
                 Marker_Max                       , Marker_MinMax_Default    )
+               !action_SetMarker)
       call set('Marker_Dpsi                     ',                          &
                 Marker_dpsi                      , Marker_Coeff_Default     )
+               !action_SetMarker)
       !
       call set('Thermofix%Method                ',                          &
                 thermofix%method                 , TFM_OFF                  )
@@ -1967,10 +1970,18 @@ continue
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_limiter') ) then
         read(ior,nml=nml_limiter)
+        !
+        ! Process the marker inputs to get the final marker
+        ! coefficents that will be used to scale the raw marker
+        ! values to the scaled_marker on the interval [0,1].
+        !
       end if
     case ( NMLaction_Write )
       write(iow,nml=nml_limiter,delim='APOSTROPHE')
   end select
+  !
+ !validity_checks_only = (NMLmode /= NMLmode_RunSolver)
+ !call process_marker_coefficients(validity_checks_only)
   !
 end subroutine ionml_limiter
 !}}}
