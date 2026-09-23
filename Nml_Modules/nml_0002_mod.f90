@@ -547,7 +547,7 @@ continue
       case (NMLaction_Write, NMLaction_WritePretty)
         ! Set namelist_version to reflect this writer.
         ovar_namelist_version = namelist_version
-        namelist_version = 2
+        namelist_version = module_namelist_version
         !
         if (banner) write (io,104)
         call set_iow(io)
