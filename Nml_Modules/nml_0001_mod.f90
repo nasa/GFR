@@ -1395,8 +1395,7 @@ continue
       !}}}
 !{{{  ! BASE FR OPTIONS
       call set('Solution_Order                   ',                         &
-                solution_order                    , 3                      ,&
-                action_SetLimiter)
+                solution_order                    , 3                       )
       call set('Flux_Divergence                  ',                         &
                 flux_divergence                   , LagrangePolynomial      )
       call set('Correction_Function              ',                         &
@@ -1477,8 +1476,7 @@ continue
       !}}}
 !{{{  ! FORCE GLOBAL ORDER AND SOLUTION POINTS
       call set('All_Orders                       ',                         &
-                all_orders                        ,-3                      ,&
-                action_SetLimiter)
+                all_orders                        ,-3                       )
       call set('All_Points                       ',                         &
                 all_points                        ,-1                       )
       !}}}
@@ -1740,8 +1738,8 @@ continue
       !}}}
 !{{{  ! LIMITER FILTER OPTIONS
       call set('Limiter_Filter_Option             ',                        &
-                Limiter_Filter_Option              , 0                     ,&
-                action_SetLimiter)
+                Limiter_Filter_Option              , 0                      )
+               !action_SetLimiter)
       call set('Limiter_Filter_Etac               ',                        &
                 Limiter_Filter_Etac                , 0.0_wp                 )
       call set('Limiter_Filter_Order              ',                        &
@@ -1768,34 +1766,34 @@ continue
       !}}}
 !{{{  ! LIMITER OPTIONS
       call set('Limiter_Option                    ',                        &
-                Limiter_Option                     , 0                     ,&
-                action_SetLimiter)
+                Limiter_Option                     , 0                      )
+               !action_SetLimiter)
       call set('Resolution_Marker_Variable        ',                        &
-                Resolution_Marker_Variable         , 0                     ,&
-                action_SetLimiter)
+                Resolution_Marker_Variable         , 0                      )
+               !action_SetLimiter)
       call set('Jump_Marker_Variable              ',                        &
-                Jump_Marker_Variable               , 0                     ,&
-                action_SetLimiter)
+                Jump_Marker_Variable               , 0                      )
+               !action_SetLimiter)
       call set('MLP_Marker_Variable               ',                        &
-                MLP_Marker_Variable                , 0                     ,&
-                action_SetLimiter)
+                MLP_Marker_Variable                , 0                      )
+               !action_SetLimiter)
       !}}}
 !{{{  ! LIMITER MARKER SENSITIVITY OPTIONS
       call set('Limiter_Marker_Min                ',                        &
-                Limiter_Marker_Min                 , Marker_MinMax_Default ,&
-                action_SetLimiter)
+                Limiter_Marker_Min                 , Marker_MinMax_Default  )
+               !action_SetLimiter)
       call set('Limiter_Marker_Max                ',                        &
-                Limiter_Marker_Max                 , Marker_MinMax_Default ,&
-                action_SetLimiter)
+                Limiter_Marker_Max                 , Marker_MinMax_Default  )
+               !action_SetLimiter)
       call set('Limiter_Marker_C1                 ',                        &
-                Limiter_Marker_c1                  , Marker_Coeff_Default  ,&
-                action_SetLimiter)
+                Limiter_Marker_c1                  , Marker_Coeff_Default   )
+               !action_SetLimiter)
       call set('Limiter_Marker_C2                 ',                        &
-                Limiter_Marker_c2                  , Marker_Coeff_Default  ,&
-                action_SetLimiter)
+                Limiter_Marker_c2                  , Marker_Coeff_Default   )
+               !action_SetLimiter)
       call set('Limiter_Marker_Dpsi               ',                        &
-                Limiter_Marker_dpsi                , Marker_Coeff_Default  ,&
-                action_SetLimiter)
+                Limiter_Marker_dpsi                , Marker_Coeff_Default   )
+               !action_SetLimiter)
       !}}}
 !{{{  ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
       call set('Filtering_Interval                ',                        &
@@ -2246,7 +2244,12 @@ continue
       !
       ! Have the compiler write out the namelist in the compilers default format
       !
-      write (iow,nml=input,delim='APOSTROPHE')
+      if (iow == iout) then
+        write (iow,nml=input,delim='APOSTROPHE')
+      else
+        write (iow,nml=input)
+      end if
+      !
   end select
   !
   ! Convert the old variables to the new.
@@ -2303,8 +2306,9 @@ end subroutine ionml_input
 subroutine process_nml_data(error)
   !
   !.. Use Statements ..
-  use ovar, only : process_marker_coefficients
+  use ovar,         only : process_marker_coefficients
   use nml_base_mod, only : idum0,idum1
+  use nml_base_mod, only : NMLmode,NMLmode_RunSolver
   !
   !.. Formal Arguments ..
   integer, intent(out) :: error
@@ -2322,6 +2326,12 @@ subroutine process_nml_data(error)
   integer :: New_Limiter_Option
   integer :: New_Marker_Option
   integer :: New_Marker_Variable
+  !
+  !.. Local Scalars ..
+  logical(lk) :: validity_checks_only
+  !
+  !.. Local Allocatable Scalars ..
+  integer, allocatable :: p
   !
 continue
   !
@@ -2342,7 +2352,7 @@ continue
   ! Note:     New_Limiter_Filter_Option = 0  not allowed, use 1 instead
   !
   New_Limiter_Filter_Option = Old_Limiter_Filter_Option
-  if ( Old_Limiter_Filter_Option == 0 ) New_Limiter_Filter_Option = 1
+ !if ( Old_Limiter_Filter_Option == 0 ) New_Limiter_Filter_Option = 1
   !
   ! Convert:  Old_Limiter_Filter_Option + Old_Limiter_Option,
   !           Old_Resolution_Marker_Variable, Old_Jump_Marker_Variable,
@@ -2356,12 +2366,12 @@ continue
       ! Treat marker as default=resolution, or not present?
       !
       New_Limiter_Option = Old_Limiter_Option  ! dummy value
-!     New_Marker_Option  = Old_Limiter_Option  ! dummy value
-      New_Marker_Option  = Marker_Option__Resolution
+      New_Marker_Option  = Old_Limiter_Option  ! dummy value
+     !New_Marker_Option  = Marker_Option__Resolution
       !
     case ( 0)  ! None
       New_Limiter_Option = Limiter_Option__Off
-      New_Marker_Option  = Marker_Option__Resolution
+      New_Marker_Option  = Marker_Option__Off
       !
     case (-2)  ! Jump Marker + Scaled Projection
       New_Limiter_Option = Limiter_Option__ProjectionScaled
@@ -2422,11 +2432,12 @@ continue
     case (Marker_Option__Off)
       New_Marker_Variable = Marker_Variable__Off
     case (Marker_Option__Resolution)
-      if ( Old_Resolution_Marker_Variable == 0 ) then
-        New_Marker_Variable = Marker_Variable__all
-      else
-        New_Marker_Variable = Old_Resolution_Marker_Variable
-      end if
+      select case (Old_Resolution_Marker_Variable)
+        case ( idum0, idum1, 0)
+          New_Marker_Variable = Marker_Variable__all
+        case default
+          New_Marker_Variable = Old_Resolution_Marker_Variable
+      end select
     case (Marker_Option__Jump)
       if ( Old_Jump_Marker_Variable == 0 ) then
         New_Marker_Variable = Marker_Variable__npres
@@ -2454,8 +2465,12 @@ continue
   ! coefficients that will be used to scale the raw marker
   ! values to the scaled_marker on the interval [0,1].
   !
-  call process_marker_coefficients
+  call preprocess_marker_coeff(p)
   !
+  validity_checks_only = (NMLmode /= NMLmode_RunSolver)
+  call process_marker_coefficients(validity_checks_only,opt_sol_order=p)
+  !
+  call postprocess_marker_coeff
   !
   !#############################################################################
   !#############################################################################
