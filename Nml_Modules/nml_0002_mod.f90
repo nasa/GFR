@@ -996,7 +996,7 @@ continue
       call set('Interpto_Plot3d_Agglomerate_Order',                &
                 interpto_plot3d_agglomerate_order ,-1              )
       call set('Interpto_Solution_Order          ',                &
-                interpto_solution_order           ,-3              )
+                interpto_solution_order           , 3              )
       call iow_footer()
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_interpolation') ) then
@@ -1070,7 +1070,7 @@ continue
       call set('All_Orders                     ',                         &
                 all_orders                      ,-3                       )
       call set('Solution_Order                 ',                         &
-                solution_order                  ,-3                       )
+                solution_order                  , 3                       )
       call set('Projection_Order               ',                         &
                 projection_order                ,-3                       )
       call set('Quadrature_Order               ',                         &

@@ -1381,7 +1381,7 @@ continue
       !}}}
 !{{{  ! INTERPOLATION UTILITY SOLUTION ORDER
       call set('Interpto_Solution_Order          ',                &
-                interpto_solution_order           ,-3              )
+                interpto_solution_order           , 3              )
       call set('Interpto_All_Orders              ',                &
                 interpto_all_orders               ,-3              )
       call set('Interpto_Projection_Order        ',                &
@@ -1395,7 +1395,7 @@ continue
       !}}}
 !{{{  ! BASE FR OPTIONS
       call set('Solution_Order                   ',                         &
-                solution_order                    ,-3                      ,&
+                solution_order                    , 3                      ,&
                 action_SetLimiter)
       call set('Flux_Divergence                  ',                         &
                 flux_divergence                   , LagrangePolynomial      )
