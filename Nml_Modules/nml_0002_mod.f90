@@ -817,7 +817,7 @@ continue
         read(ior,nml=nml_version)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_version)
+      write(iow,nml=nml_version,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_version
@@ -926,7 +926,7 @@ continue
         read(ior,nml=nml_grid)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_grid)
+      write(iow,nml=nml_grid,delim='APOSTROPHE')
   end select
   !
   ! Format Statements
@@ -1003,7 +1003,7 @@ continue
         read(ior,nml=nml_interpolation)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_interpolation)
+      write(iow,nml=nml_interpolation,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_interpolation
@@ -1110,7 +1110,7 @@ continue
         read(ior,nml=nml_numerics)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_numerics)
+      write(iow,nml=nml_numerics,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_numerics
@@ -1190,7 +1190,7 @@ continue
         read(ior,nml=nml_timestep)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_timestep)
+      write(iow,nml=nml_timestep,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_timestep
@@ -1246,7 +1246,7 @@ continue
         read(ior,nml=nml_initialization)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_initialization)
+      write(iow,nml=nml_initialization,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_initialization
@@ -1298,7 +1298,7 @@ continue
         read(ior,nml=nml_sem)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_sem)
+      write(iow,nml=nml_sem,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_sem
@@ -1471,7 +1471,7 @@ continue
         read(ior,nml=nml_output)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_output)
+      write(iow,nml=nml_output,delim='APOSTROPHE')
   end select
   !
   ! Format Statements
@@ -1657,7 +1657,7 @@ continue
         read(ior,nml=nml_output_variables)
       end if
     case ( NMLaction_Write )   
-      write(iow,nml=nml_output_variables)
+      write(iow,nml=nml_output_variables,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_output_variables
@@ -1698,7 +1698,7 @@ continue
         read(ior,nml=nml_physics)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_physics)
+      write(iow,nml=nml_physics,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_physics
@@ -1772,7 +1772,7 @@ continue
         read(ior,nml=nml_chemistry)
       end if
     case ( NMLaction_Write )  
-      write(iow,nml=nml_chemistry)
+      write(iow,nml=nml_chemistry,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_chemistry
@@ -1962,7 +1962,7 @@ continue
         read(ior,nml=nml_limiter)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_limiter)
+      write(iow,nml=nml_limiter,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_limiter
@@ -2027,7 +2027,7 @@ continue
         read(ior,nml=nml_reference)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_reference)
+      write(iow,nml=nml_reference,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_reference
@@ -2096,7 +2096,7 @@ continue
         read(ior,nml=nml_debug)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_debug)
+      write(iow,nml=nml_debug,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_debug
@@ -2148,7 +2148,7 @@ continue
         read(ior,nml=nml_testcase_vortex)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_testcase_vortex)
+      write(iow,nml=nml_testcase_vortex,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_testcase_vortex
@@ -2202,7 +2202,7 @@ continue
         read(ior,nml=nml_testcase_tcf)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_testcase_tcf)
+      write(iow,nml=nml_testcase_tcf,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_testcase_tcf
@@ -2232,7 +2232,7 @@ continue
         read(ior,nml=nml_testcase_sod)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_testcase_sod)
+      write(iow,nml=nml_testcase_sod,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_testcase_sod
@@ -2275,7 +2275,7 @@ continue
         read(ior,nml=nml_testcase_pulse)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_testcase_pulse)
+      write(iow,nml=nml_testcase_pulse,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_testcase_pulse
@@ -2327,7 +2327,7 @@ continue
         read(ior,nml=nml_testcase_channel)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_testcase_channel)
+      write(iow,nml=nml_testcase_channel,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_testcase_channel
@@ -2498,7 +2498,7 @@ continue
         read(ior,nml=nml_bc)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_bc)
+      write(iow,nml=nml_bc,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_bc
@@ -2552,7 +2552,7 @@ continue
         read(ior,nml=nml_time_ave)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_time_ave)
+      write(iow,nml=nml_time_ave,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_time_ave
@@ -2607,7 +2607,7 @@ continue
         read(ior,nml=nml_utility)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_utility)
+      write(iow,nml=nml_utility,delim='APOSTROPHE')
   end select
 !
 end subroutine ionml_utility
@@ -2639,7 +2639,7 @@ continue
         read(ior,nml=nml_restart_interupt)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_restart_interupt)
+      write(iow,nml=nml_restart_interupt,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_restart_interupt
@@ -2880,7 +2880,7 @@ continue
         read(ior,nml=nml_removed)
       end if
     case ( NMLaction_Write )
-      write(iow,nml=nml_removed)
+      write(iow,nml=nml_removed,delim='APOSTROPHE')
   end select
   !
 end subroutine ionml_removed

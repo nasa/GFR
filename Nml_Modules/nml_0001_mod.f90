@@ -2223,7 +2223,7 @@ continue
       !
       ! Have the compiler write out the namelist in the compilers default format
       !
-      write (iow,nml=input)
+      write (iow,nml=input,delim='APOSTROPHE')
   end select
   !
   ! Process the version 0001 namelist inputs to get the equivalent
