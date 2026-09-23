@@ -53,18 +53,27 @@ subroutine read_input_file(input_mode)
   use nml_base_mod, only : NMLaction_Write,NMLaction_WritePretty
   use nml_base_mod, only : new_nml_file3
   use nml_base_mod, only : latest_namelist_version
+  use nml_base_mod, only : set_latest_namelist_version
   use nml_base_mod, only : get_namelist_version_from_file
   use nml_base_mod, only : set_NML_textcase
+  use nml_base_mod, only : set_NML_mode,NMLmode_WriteDefaults
   !
   !.. Formal Arguments ..
   integer, intent(in) :: input_mode
   !
   !.. Local Scalars ..
   integer :: i,j,ierr,input_status
+  integer :: one_pass
   integer :: namelist_version
   integer :: command_count,command_length
-  character(len=1000) :: command_value
-  character(len=1000) :: input_fname
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: test_fname
+  character(len=:), allocatable :: input_fname
+  character(len=:), allocatable :: command_value
+  !
+  !.. Local Allocatable Arrays ..
+  character(len=:), allocatable :: command_values(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_input_file"
@@ -74,50 +83,158 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  ! Initialize all the procedure pointers for each namelist version,
-  ! and link in the latest namelist version into nml_ver_9999.
-  !
-  call initialize_namelist_versions
-  !
   ! Get input file name from command line and check if it is a namelist file.
   !
   command_count = command_argument_count()
   !
-  one_pass_loop: do i = 1,1
+  ! Allocate the array to read in all the command line arguments
+  !
+  allocate ( character(len=1000) :: command_values(1:command_count) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"command_values",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  ! Read in all the command line arguments
+  !
+  do j = 1,command_count
+    call get_command_argument(j,command_values(j),command_length,ierr)
+  end do
+  !
+  ! Loop through the command line arguments and check for any special arguments
+  ! that need to be processed before any other checks on the arguments.
+  !
+  high_priority_arg_checks: &
+  do i = 1,command_count
     !
-    if (command_count == 1) then
+    command_value = trim(adjustl(command_values(i))) ! F2003 AUTO-REALLOC
+    ! 
+    ! Check the current command line argument for any valid flags or values
+    ! that are high priority, which are arguments that require performing a
+    ! task or modifying some settings which needs to be done before doing
+    ! any of the other processing of the input arguments.
+    !
+    if (uppercase(command_value) == "-V2") then
+      ! This argument is requesting to use the V2 namelists
+      ! NOTE: This will prevent supercede any previous or upcoming
+      !       requests to use the V1 nameslists.
+      call set_latest_namelist_version(2)
+      cycle high_priority_arg_checks
+    end if
+    !
+    if (uppercase(command_value) == "-V1") then
+      ! This argument is requesting to use the V1 namelists
+      ! NOTE: If a previous argument requested V2 namelists, this subroutine
+      !       has logic to ignore this request and keep the V2 namelists.
+      call set_latest_namelist_version(1)
+      cycle high_priority_arg_checks
+    end if
+    !
+    !#########################################################################
+    !#########################################################################
+    !#########################################################################
+    ! Add any checks for higher priority flags here
+    !#########################################################################
+    !#########################################################################
+    !#########################################################################
+    !
+  end do high_priority_arg_checks
+  !
+  ! Initialize all the procedure pointers for each namelist version,
+  ! and link in the latest namelist version into nml_ver_9999.
+  ! NOTE: This needs to be called after calls to set_latest_namelist_version
+  !
+  call initialize_namelist_versions
+  !
+  ! Loop through the command line arguments a second time to process
+  ! all the lower priority flags or values.
+  !
+  ! Certain command line arguments require processing the following argument,
+  ! so we need a separate counter, j, to keep track of the processed command
+  ! line arguments instead of using i from the do loop.
+  !
+  j = 0
+  !
+  loop_over_cmdline_args: &
+  do i = 1,command_count
+    !
+    j = j + 1
+    !
+    command_value = trim(adjustl(command_values(j))) ! F2003 AUTO-REALLOC
+    !
+    one_pass_loop: &
+    do one_pass = 1,1
       !
-      ! One command line arg:  nml_file
+      ! If input_fname isnt allocated, a valid input file has yet to be found
+      ! so do some checks to see if this argument is specifying the input file.
+      ! Otherwise if it is allocated, skip checking for an input file and
+      ! check for any other valid arguments.
       !
-      call get_command_argument(1,input_fname,command_length,ierr)
-      !
-      call check_input_file(input_fname,input_status)
-      !
-      if (input_status == 0) exit one_pass_loop
-      !
-    else if (command_count > 1) then
-      !
-      ! Multiple command line args. Search for:  -f nml_file
-      !
-      do j = 1,command_count
+      if (.not. allocated(input_fname)) then
         !
-        call get_command_argument(j,command_value,command_length,ierr)
+        ! If this is the first or last argument, check to see if this is
+        ! a valid input file that was specified without the "-f" flag.
         !
-        if (trim(adjustl(command_value)) == "-f") then
+        if (any(j == [1,command_count])) then
           !
-          call get_command_argument(j+1,input_fname,command_length,ierr)
+          call check_input_file(command_value,input_status)
           !
-          call check_input_file(input_fname,input_status)
-          !
-          if (input_status == 0) exit one_pass_loop
+          if (input_status == 0) then
+            ! This argument was a valid input file, so allocate input_fname
+            ! and copy in the filename so we know an input file has been found.
+            input_fname = command_value ! F2003 AUTO-REALLOC
+            exit one_pass_loop
+          end if
           !
         end if
         !
-      end do
+        ! If the current argument is the -f flag, check
+        ! the following argument for a valid input file.
+        !
+        if (command_value == "-f" .and. j < command_count) then
+          !
+          test_fname = trim(adjustl(command_values(j+1))) ! F2003 AUTO-REALLOC
+          call check_input_file(test_fname,input_status)
+          !
+          if (input_status == 0) then
+            ! The argument following "-f" was a valid input file, so allocate
+            ! input_fname and copy in the filename so we know an input file
+            ! has been found.
+            input_fname = test_fname ! F2003 AUTO-REALLOC
+            ! Increment j by 1 so the next command line argument containing
+            ! the file name is skipped the next time through this loop.
+            j = j + 1
+            exit one_pass_loop
+          end if
+          !
+        end if
+        !
+      end if
       !
-    end if
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      ! Add any checks for lower priority flags here
+      !#########################################################################
+      !#########################################################################
+      !#########################################################################
+      !
+    end do one_pass_loop
     !
-    input_fname = default_fname
+    ! Exit this loop if we have processed all the command line arguments
+    ! NOTE: j should be >= i, so this check is required in case one pass
+    !       through this loop processed two arguments,
+    !       e.g. "-f" and "filename" that follows -f.
+    !
+    if (j == command_count) exit loop_over_cmdline_args
+    !
+  end do loop_over_cmdline_args
+  !
+  ! If input_fname is still not allocated, check to see if the
+  ! default input file name gfr.in exists and is a valid input file.
+  !
+  if (.not. allocated(input_fname)) then
+    !
+    input_fname = default_fname ! F2003 AUTO-REALLOC
     !
     call check_input_file(input_fname,input_status)
     !
@@ -125,16 +242,20 @@ continue
       !
       ! Input file not found. Write default input file(s). Stop with error.
       !
+      call set_NML_mode(NMLmode_WriteDefaults)
       call set_NML_textcase(0)  ! 0 = titlecase
-      call nml_ver_9999%write_file('gfr.in.default',NMLaction_Write)
+      call nml_ver_9999%write_file('gfr.in.default',NMLaction_Write, &
+                                   requires_allocations=true)
       call nml_ver_9999%write_file('gfr.in.default.pretty', &
-                                   NMLaction_WritePretty)
+                                   NMLaction_WritePretty, &
+                                   requires_allocations=true)
       write (error_message,11) 'gfr.in.default', 'gfr.in.default.pretty'
       call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       !
     end if
     !
-  end do one_pass_loop
+  end if
+  !
   call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Get the namelist version number from the file.
