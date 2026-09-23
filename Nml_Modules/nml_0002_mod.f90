@@ -21,6 +21,8 @@ module nml_0002_mod
   use nml_base_mod, only : NMLaction_WritePretty
   use nml_base_mod, only : NMLaction
   use nml_base_mod, only : namelist_procedures_t
+  use nml_base_mod, only : NMLmode
+  use nml_base_mod, only : NMLmode_WriteDefaults
   !
   implicit none
   !
@@ -748,7 +750,17 @@ end subroutine write_nml_file
 !###############################################################################
 subroutine ionml()
   !
+  !.. Local Scalars ..
+  logical(lk) :: process_special_namelists
+  !
 continue
+  !
+  process_special_namelists = true
+  if (NMLmode == NMLmode_WriteDefaults) then
+    if (NMLaction == NMLaction_WritePretty) then
+      process_special_namelists = fals
+    end if
+  end if
   !
   call ionml_version          ()
   call ionml_grid             ()
@@ -770,9 +782,14 @@ continue
   call ionml_testcase_sod     ()
   call ionml_testcase_pulse   ()
   call ionml_testcase_channel ()
-  call ionml_debug            ()
+  !
+  if (process_special_namelists) &
+  call ionml_debug            () ! uses NMLactioon_BlockCheck
+  !
   call ionml_bc               ()
-  call ionml_removed          ()
+  !
+  if (process_special_namelists) &
+  call ionml_removed          () ! uses NMLactioon_BlockCheck
   !
 end subroutine ionml
 !
