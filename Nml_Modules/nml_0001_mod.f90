@@ -991,7 +991,7 @@ end subroutine ionml
 subroutine ionml_input()
   !
   !.. Use Statements ..
-  use ovar, only : Marker_MinMax_Default
+  use ovar, only : Marker_MinMax_Default, Marker_Coeff_Default
   !
   ! ########################
   ! ###  Input Namelist  ###
@@ -1782,13 +1782,13 @@ continue
                 Limiter_Marker_Max                 , Marker_MinMax_Default ,&
                 action_SetLimiter)
       call set('Limiter_Marker_C1                 ',                        &
-                Limiter_Marker_c1                  ,-1.0_wp                ,&
+                Limiter_Marker_c1                  , Marker_Coeff_Default  ,&
                 action_SetLimiter)
       call set('Limiter_Marker_C2                 ',                        &
-                Limiter_Marker_c2                  ,-1.0_wp                ,&
+                Limiter_Marker_c2                  , Marker_Coeff_Default  ,&
                 action_SetLimiter)
       call set('Limiter_Marker_Dpsi               ',                        &
-                Limiter_Marker_dpsi                ,-1.0_wp                ,&
+                Limiter_Marker_dpsi                , Marker_Coeff_Default  ,&
                 action_SetLimiter)
       !}}}
 !{{{  ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING

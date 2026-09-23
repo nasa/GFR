@@ -1811,7 +1811,8 @@ subroutine ionml_limiter()
       thermofix                        , &
       Positivity                       , &
       Entropy_Limiter                  , &
-      Marker_MinMax_Default
+      Marker_MinMax_Default            , &
+      Marker_Coeff_Default
   !
   ! FILTER OPTIONS
   namelist / nml_limiter / Global_Filter_Interval
@@ -1913,7 +1914,7 @@ continue
       call set('Marker_Max                      ',                          &
                 Marker_Max                       , Marker_MinMax_Default    )
       call set('Marker_Dpsi                     ',                          &
-                Marker_dpsi                      ,-1.0_wp                   )
+                Marker_dpsi                      , Marker_Coeff_Default     )
       !
       call set('Thermofix%Method                ',                          &
                 thermofix%method                 , TFM_OFF                  )
@@ -2674,6 +2675,7 @@ subroutine ionml_removed()
   use ovar, only : Pyramid_Filter_Option
   use ovar, only : Limiter_Marker_c1
   use ovar, only : Limiter_Marker_c2
+  use ovar, only : Marker_Coeff_Default
   use ovar, only : flux_divergence
   use ovar, only : restart_output_uses_host_roots
   use ovar, only : use_async_for_error
@@ -2849,9 +2851,9 @@ continue
       call set('Pyramid_Filter_Option            ',                         &
                 Pyramid_Filter_Option             , 1                       )
       call set('Limiter_Marker_C1                ',                         &
-                Limiter_Marker_c1                 ,-1.0_wp                  )
+                Limiter_Marker_c1                 , Marker_Coeff_Default    )
       call set('Limiter_Marker_C2                ',                         &
-                Limiter_Marker_c2                 ,-1.0_wp                  )
+                Limiter_Marker_c2                 , Marker_Coeff_Default    )
       ! Output
       call set('Output_EPERK_CFL                 ',                         &
                 output_eperk_cfl                  , true                    )
