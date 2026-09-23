@@ -50,7 +50,7 @@ module nml_base_mod
   ! #####  MODULE PARAMETERS  #####
   ! ###############################
   !
-  integer, parameter :: max_namelist_version = 0001
+  integer, parameter :: max_namelist_version = 0002
   !
   ! Latest namelist format.
  !integer, public, parameter :: latest_namelist_version = 0001
