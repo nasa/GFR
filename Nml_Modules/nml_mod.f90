@@ -144,17 +144,19 @@ continue
       call nml_ver_9999%resiz_data()  ! resize new arrays
       !
       ! Write namelist values in new format.
-      open (newunit=io1,file=new_nml_file,status='unknown', &
-                        action='write',form='formatted', &
-                        position="rewind",recl=nml_recl, &
-                        iostat=ierr,iomsg=error_message)
-      call io_error(pname,new_nml_file,1,__LINE__,__FILE__, &
-                    ierr,error_message)
-      ! write new vars
-      call nml_ver_9999%write_data(NMLaction_WritePretty,io1,banner=fals)
-      close (unit=io1,iostat=ierr,iomsg=error_message)
-      call io_error(pname,new_nml_file,2,__LINE__,__FILE__, &
-                    ierr,error_message)
+     !call nml_ver_prev%write_file("old."//new_nml_file,NMLaction_WritePretty)
+      call nml_ver_9999%write_file(new_nml_file,NMLaction_WritePretty)
+     !open (newunit=io1,file=new_nml_file,status='replace', &
+     !                  action='write',form='formatted', &
+     !                  position="rewind",recl=nml_recl, &
+     !                  iostat=ierr,iomsg=error_message)
+     !call io_error(pname,new_nml_file,1,__LINE__,__FILE__, &
+     !              ierr,error_message)
+     !! write new vars
+     !call nml_ver_9999%write_data(NMLaction_WritePretty,io1,banner=fals)
+     !close (unit=io1,iostat=ierr,iomsg=error_message)
+     !call io_error(pname,new_nml_file,2,__LINE__,__FILE__, &
+     !              ierr,error_message)
     end do ! n
     !
     ! Merge the shared values of the two new namelist files into one file.
@@ -184,18 +186,19 @@ continue
     call nml_ver_9999%resiz_data()  ! resize new arrays
     !
     ! Write namelist values in new format.
-    new_nml_file = new_nml_file3
-    open (newunit=io1,file=new_nml_file,status='unknown', &
-                      action='write',form='formatted', &
-                      position="rewind",recl=nml_recl, &
-                      iostat=ierr,iomsg=error_message)
-    call io_error(pname,new_nml_file,1,__LINE__,__FILE__, &
-                  ierr,error_message)
-    ! write new vars
-    call nml_ver_9999%write_data(NMLaction_WritePretty,io1,banner=fals)
-    close (unit=io1,iostat=ierr,iomsg=error_message)
-    call io_error(pname,new_nml_file,2,__LINE__,__FILE__, &
-                  ierr,error_message)
+    call nml_ver_9999%write_file(new_nml_file3,NMLaction_WritePretty)
+   !new_nml_file = new_nml_file3
+   !open (newunit=io1,file=new_nml_file,status='unknown', &
+   !                  action='write',form='formatted', &
+   !                  position="rewind",recl=nml_recl, &
+   !                  iostat=ierr,iomsg=error_message)
+   !call io_error(pname,new_nml_file,1,__LINE__,__FILE__, &
+   !              ierr,error_message)
+   !! write new vars
+   !call nml_ver_9999%write_data(NMLaction_WritePretty,io1,banner=fals)
+   !close (unit=io1,iostat=ierr,iomsg=error_message)
+   !call io_error(pname,new_nml_file,2,__LINE__,__FILE__, &
+   !              ierr,error_message)
     !
   end if
   !
