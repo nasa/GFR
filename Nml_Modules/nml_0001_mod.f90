@@ -1920,7 +1920,7 @@ continue
       call set('CGNS_Mixed_Output                 ',                        &
                 cgns_mixed_output                  , true                   )
       call set('CGNS_Output_Restart_Time_Ave_Data ',                        &
-                cgns_output_restart_time_ave_data  , true                   )
+                cgns_output_restart_time_ave_data  , fals                   )
       call set('Convert_Restart_To_CGNS           ',                        &
                 convert_restart_to_cgns            , fals                   )
       call set('Completely_Disable_CGNS           ',                        &
