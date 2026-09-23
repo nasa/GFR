@@ -63,12 +63,16 @@ subroutine convert_nml_file(fname,nml_ver_prev,mode)
   use nml_base_mod, only : new_nml_file1
   use nml_base_mod, only : new_nml_file2
   use nml_base_mod, only : new_nml_file3
+  use nml_base_mod, only : new_nml_file4
   use nml_base_mod, only : nml_recl
   use nml_base_mod, only : merge_nml_files
   use nml_base_mod, only : namelist_procedures_t
   use nml_base_mod, only : set_NMLaction
   use nml_base_mod, only : NMLaction_SetDummy0,NMLaction_SetDummy1
   use nml_base_mod, only : NMLaction_SetValue,NMLaction_WritePretty
+  use nml_base_mod, only : set_NML_mode
+  use nml_base_mod, only : NMLmode_InputConverter
+  use nml_base_mod, only : NMLmode_TrimDefaults
   !
   !.. Formal Arguments ..
   !> Name of the input file to convert.
@@ -98,6 +102,16 @@ subroutine convert_nml_file(fname,nml_ver_prev,mode)
  !logical(lk), parameter :: debug_merge_files = true
   !
 continue
+  !
+  ! NOTE: This should only be called by the global root
+  !       MPI process if running in parallel.
+  !
+  ! Set the NML mode so the input variables are processed with with minimal
+  ! modifications, and the only modifications that are kept when writing out the
+  ! out the converted input file are those that are needed to correct for
+  ! invalid input.
+  !
+  call set_NML_mode(NMLmode_InputConverter)
   !
   ! Open the input file
   !
@@ -163,6 +177,34 @@ continue
     ! This file will have the minimal content that the user specified.
     !
     call merge_nml_files(save_temp_files=debug_merge_files)
+    !
+    ! Finally, set the NML mode to trim the defaults out of the merged file.
+    !
+    call set_NML_mode(NMLmode_TrimDefaults)
+    !
+    ! Set the NML Action to set the default values
+    !
+    call set_NMLaction(NMLaction_SetValue)
+    !
+    ! Read the merged namelist file
+    !
+    call nml_ver_9999%read_file(new_nml_file3)
+    !
+    ! Write out the merged namelist file but with NML mode set to TrimDefaults,
+    ! this will trim out any variables set to their default values 
+    !
+    call nml_ver_9999%write_file(new_nml_file4,NMLaction_WritePretty)
+   !open (newunit=io1,file=new_nml_file4,status='replace', &
+   !                  action='write',form='formatted', &
+   !                  position="rewind",recl=nml_recl, &
+   !                  iostat=ierr,iomsg=error_message)
+   !call io_error(pname,new_nml_file4,1,__LINE__,__FILE__, &
+   !              ierr,error_message)
+   !! write new vars
+   !call nml_ver_9999%write_data(NMLaction_WritePretty,io1,banner=fals)
+   !close (unit=io1,iostat=ierr,iomsg=error_message)
+   !call io_error(pname,new_nml_file4,2,__LINE__,__FILE__, &
+   !              ierr,error_message)
     !
   else if ( int_mode == 1 ) then  ! full mode
     !
