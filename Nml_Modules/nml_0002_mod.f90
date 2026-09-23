@@ -2366,132 +2366,131 @@ continue
                 use_bc_conflicts             , fals )
       loop_bc_input : &
       do n = 1, size(bc_input)
-      ! Must set text large enough to write into.
-      text = '                               '
-      write(text,101) 'BC_Input(',n,')'
-      text = trim(text)   ! F2003 realloc
-101   format(a,i0,a)
-      call set( text //   '%Name                   ', &
-                bc_Input(n)%name                    , '' )
-      call set( text //   '%Set_BC_Value           ', &
-                bc_input(n)%set_bc_value            , bc_unknown )
-      call set( text //   '%Temperature            ', &
-                bc_input(n)%Temperature             ,-one  )
-      call set( text //   '%Pressure               ', &
-                bc_input(n)%Pressure                ,-one  )
-      call set( text //   '%Density                ', &
-                bc_input(n)%Density                 ,-one  )
-      call set( text //   '%Mach                   ', &
-                bc_input(n)%mach                    ,-one  )
-      call set( text //   '%VelocityX              ', &
-                bc_input(n)%VelocityX               , zero )
-      call set( text //   '%VelocityY              ', &
-                bc_input(n)%VelocityY               , zero )
-      call set( text //   '%VelocityZ              ', &
-                bc_input(n)%VelocityZ               , zero )
-      call set( text //   '%Total_Temperature      ', &
-                bc_input(n)%Total_Temperature       ,-one  )
-      call set( text //   '%Total_Pressure         ', &
-                bc_input(n)%Total_Pressure          ,-one  )
-      call set( text //   '%Total_Density          ', &
-                bc_input(n)%Total_Density           ,-one  )
-      call set( text //   '%AoA_Alpha              ', &
-                bc_input(n)%aoa_alpha               , zero )
-      call set( text //   '%AoA_Beta               ', &
-                bc_input(n)%aoa_beta                , zero )
-      call set( text //   '%Wall_Temp              ', &
-                bc_input(n)%wall_temp               ,-one  )
-      call set( text //   '%Rotation_Rate          ', &
-                bc_input(n)%rotation_rate           , [zero,zero,zero] )
-      ! Next item must have default logical type.
-      call set( text //   '%Is_Specified_In_MRF'    , &
-                bc_input(n)%is_specified_in_mrf     , .false. )
-      !
-      loop_mass_frac : &
-      do i = 1, size(bc_input(n)%mass_frac)
-        text2 = '                                '
-        write(text2,101) text // '%Mass_Frac(',i,')'
-        text2 = trim(text2)   ! F2003 realloc
-        call set( text2 //                   '       ', &
-                  bc_input(n)%mass_frac(i)            , zero  )
-      end do loop_mass_frac
-      !
-      loop_species_name : &
-      do i = 1, size(bc_input(n)%species_name)
-        text2 = '                                '
-        write(text2,101) text // '%Species_Name(',i,')'
-        text2 = trim(text2)   ! F2003 realloc
-        call set( text2 //                      '    ', &
-                  bc_input(n)%species_name(i)         , '' )
-      end do loop_species_name
-      !
-      call set( text //   '%Relax%Value            ', &
-                bc_input(n)%relax%value             , one )
-      call set( text //   '%Relax%Time             ', &
-                bc_input(n)%relax%time              , zero )
-      call set( text //   '%Relax%Iter             ', &
-                bc_input(n)%relax%iter              , 0 )
-      !
-      call set( text //   '%SEM%Is_Cylindrical     ', &
-                bc_input(n)%sem%is_cylindrical      , fals )
-      call set( text //   '%SEM%Length_Scale       ', &
-                bc_input(n)%sem%length_scale        , zero )
-      call set( text //   '%SEM%Convective_Velocity', &
-                bc_input(n)%sem%convective_velocity , zero)
-      call set( text //   '%SEM%Profile_Height     ', &
-                bc_input(n)%sem%profile_height      , zero )
-      call set( text //   '%SEM%Profile_File       ', &
-                bc_input(n)%sem%profile_file        , '' )
-      call set( text //   '%SEM%Sub_In_BC_Grp      ', &
-                bc_input(n)%sem%sub_in_bc_grp       , 0 )
-      call set( text //   '%SEM%Sub_In_BC_Idx      ', &
-                bc_input(n)%sem%sub_in_bc_idx       , 0 )
-      !
-      call set( text //   '%Periodic%Matching_BC_Name', &
-                bc_input(n)%Periodic%Matching_BC_Name , '' )
-      call set( text //   '%Periodic%Matching_BC_Idx ', &
-                bc_input(n)%Periodic%Matching_BC_Idx  , 0 )
-      !
-      loop_rotation_center : &
-      do i = 1, size(bc_input(n)%Periodic%RotationCenter)
-        text2 = '          '
-        write(text2,101) '(',i,')'
-        text2 = text // '%Periodic%RotationCenter' // text2
-        text2 = trim(text2)   ! F2003 realloc
-        call set( text2 //                         ' ', &
-                  bc_input(n)%Periodic%RotationCenter(i), zero  )
-      end do loop_rotation_center
-      !
-      loop_rotation_angle : &
-      do i = 1, size(bc_input(n)%Periodic%RotationAngle)
-        text2 = '          '
-        write(text2,101) '(',i,')'
-        text2 = text // '%Periodic%RotationAngle' // text2
-        text2 = trim(text2)   ! F2003 realloc
-        call set( text2 //                        '  ', &
-                  bc_input(n)%Periodic%RotationAngle(i), zero  )
-      end do loop_rotation_angle
-      !
-      loop_rotation_axis : &
-      do i = 1, size(bc_input(n)%Periodic%RotationAxis)
-        text2 = '          '      
-        write(text2,101) '(',i,')'
-        text2 = text // '%Periodic%RotationAxis' // text2
-        text2 = trim(text2)   ! F2003 realloc
-        call set( text2 //                       '   ', &
-                  bc_input(n)%Periodic%RotationAxis(i), zero  )
-      end do loop_rotation_axis
-      !
-      loop_translation : &
-      do i = 1, size(bc_input(n)%Periodic%Translation)
-        text2 = '          '
-        write(text2,101) '(',i,')'
-        text2 = text // '%Periodic%Translation' // text2
-        text2 = trim(text2)   ! F2003 realloc
-        call set( text2 //                      '    ', &
-                  bc_input(n)%Periodic%Translation(i), zero  )
-      end do loop_translation
-      !
+        ! Must set text large enough to write into.
+        text = '                               '
+        write(text,101) 'BC_Input(',n,')'
+        text = trim(text)   ! F2003 realloc
+        call set( text //   '%Name                   ', &
+                  bc_Input(n)%name                    , '' )
+        call set( text //   '%Set_BC_Value           ', &
+                  bc_input(n)%set_bc_value            , bc_unknown )
+        call set( text //   '%Temperature            ', &
+                  bc_input(n)%Temperature             ,-one  )
+        call set( text //   '%Pressure               ', &
+                  bc_input(n)%Pressure                ,-one  )
+        call set( text //   '%Density                ', &
+                  bc_input(n)%Density                 ,-one  )
+        call set( text //   '%Mach                   ', &
+                  bc_input(n)%mach                    ,-one  )
+        call set( text //   '%VelocityX              ', &
+                  bc_input(n)%VelocityX               , zero )
+        call set( text //   '%VelocityY              ', &
+                  bc_input(n)%VelocityY               , zero )
+        call set( text //   '%VelocityZ              ', &
+                  bc_input(n)%VelocityZ               , zero )
+        call set( text //   '%Total_Temperature      ', &
+                  bc_input(n)%Total_Temperature       ,-one  )
+        call set( text //   '%Total_Pressure         ', &
+                  bc_input(n)%Total_Pressure          ,-one  )
+        call set( text //   '%Total_Density          ', &
+                  bc_input(n)%Total_Density           ,-one  )
+        call set( text //   '%AoA_Alpha              ', &
+                  bc_input(n)%aoa_alpha               , zero )
+        call set( text //   '%AoA_Beta               ', &
+                  bc_input(n)%aoa_beta                , zero )
+        call set( text //   '%Wall_Temp              ', &
+                  bc_input(n)%wall_temp               ,-one  )
+        call set( text //   '%Rotation_Rate          ', &
+                  bc_input(n)%rotation_rate           , [zero,zero,zero] )
+        ! Next item must have default logical type.
+        call set( text //   '%Is_Specified_In_MRF'    , &
+                  bc_input(n)%is_specified_in_mrf     , .false. )
+        !
+        loop_mass_frac : &
+        do i = 1, size(bc_input(n)%mass_frac)
+          text2 = '                                '
+          write(text2,101) text // '%Mass_Frac(',i,')'
+          text2 = trim(text2)   ! F2003 realloc
+          call set( text2 //                   '       ', &
+                    bc_input(n)%mass_frac(i)            , zero  )
+        end do loop_mass_frac
+        !
+        loop_species_name : &
+        do i = 1, size(bc_input(n)%species_name)
+          text2 = '                                '
+          write(text2,101) text // '%Species_Name(',i,')'
+          text2 = trim(text2)   ! F2003 realloc
+          call set( text2 //                      '    ', &
+                    bc_input(n)%species_name(i)         , '' )
+        end do loop_species_name
+        !
+        call set( text //   '%Relax%Value            ', &
+                  bc_input(n)%relax%value             , one )
+        call set( text //   '%Relax%Time             ', &
+                  bc_input(n)%relax%time              , zero )
+        call set( text //   '%Relax%Iter             ', &
+                  bc_input(n)%relax%iter              , 0 )
+        !
+        call set( text //   '%SEM%Is_Cylindrical     ', &
+                  bc_input(n)%sem%is_cylindrical      , fals )
+        call set( text //   '%SEM%Length_Scale       ', &
+                  bc_input(n)%sem%length_scale        , zero )
+        call set( text //   '%SEM%Convective_Velocity', &
+                  bc_input(n)%sem%convective_velocity , zero)
+        call set( text //   '%SEM%Profile_Height     ', &
+                  bc_input(n)%sem%profile_height      , zero )
+        call set( text //   '%SEM%Profile_File       ', &
+                  bc_input(n)%sem%profile_file        , '' )
+        call set( text //   '%SEM%Sub_In_BC_Grp      ', &
+                  bc_input(n)%sem%sub_in_bc_grp       , 0 )
+        call set( text //   '%SEM%Sub_In_BC_Idx      ', &
+                  bc_input(n)%sem%sub_in_bc_idx       , 0 )
+        !
+        call set( text //   '%Periodic%Matching_BC_Name', &
+                  bc_input(n)%Periodic%Matching_BC_Name , '' )
+        call set( text //   '%Periodic%Matching_BC_Idx ', &
+                  bc_input(n)%Periodic%Matching_BC_Idx  , 0 )
+        !
+        loop_rotation_center : &
+        do i = 1, size(bc_input(n)%Periodic%RotationCenter)
+          text2 = '          '
+          write(text2,101) '(',i,')'
+          text2 = text // '%Periodic%RotationCenter' // text2
+          text2 = trim(text2)   ! F2003 realloc
+          call set( text2 //                         ' ', &
+                    bc_input(n)%Periodic%RotationCenter(i), zero  )
+        end do loop_rotation_center
+        !
+        loop_rotation_angle : &
+        do i = 1, size(bc_input(n)%Periodic%RotationAngle)
+          text2 = '          '
+          write(text2,101) '(',i,')'
+          text2 = text // '%Periodic%RotationAngle' // text2
+          text2 = trim(text2)   ! F2003 realloc
+          call set( text2 //                        '  ', &
+                    bc_input(n)%Periodic%RotationAngle(i), zero  )
+        end do loop_rotation_angle
+        !
+        loop_rotation_axis : &
+        do i = 1, size(bc_input(n)%Periodic%RotationAxis)
+          text2 = '          '      
+          write(text2,101) '(',i,')'
+          text2 = text // '%Periodic%RotationAxis' // text2
+          text2 = trim(text2)   ! F2003 realloc
+          call set( text2 //                       '   ', &
+                    bc_input(n)%Periodic%RotationAxis(i), zero  )
+        end do loop_rotation_axis
+        !
+        loop_translation : &
+        do i = 1, size(bc_input(n)%Periodic%Translation)
+          text2 = '          '
+          write(text2,101) '(',i,')'
+          text2 = text // '%Periodic%Translation' // text2
+          text2 = trim(text2)   ! F2003 realloc
+          call set( text2 //                      '    ', &
+                    bc_input(n)%Periodic%Translation(i), zero  )
+        end do loop_translation
+        !
       end do loop_bc_input  ! n = 1, size(bc_input)
       call iow_footer()
     case ( NMLaction_Read )
@@ -2501,6 +2500,10 @@ continue
     case ( NMLaction_Write )
       write(iow,nml=nml_bc,delim='APOSTROPHE')
   end select
+  !
+  ! Format Statements
+  !
+  101 format(a,i0,a)
   !
 end subroutine ionml_bc
 !}}}
