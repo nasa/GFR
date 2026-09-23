@@ -21,6 +21,7 @@ module nml_0002_mod
   use nml_base_mod, only : NMLaction_WritePretty
   use nml_base_mod, only : NMLaction
   use nml_base_mod, only : namelist_procedures_t
+  use nml_base_mod, only : reset_block_check
   use nml_base_mod, only : NMLmode
   use nml_base_mod, only : NMLmode_InputConverter
   use nml_base_mod, only : NMLmode_WriteDefaults
@@ -907,7 +908,12 @@ continue
                 metis_option                  , 3                         )
       call set('Use_Parmetis                 ',                           &
                 use_parmetis                  , 0                         )
+      !
       do n = 1, size(geom_wts)
+        ! Reset the flag nml_block_is_used so that the call to set()
+        ! only writes out a blank line if one of the components of
+        ! geom_wts is not set to its default value.
+        call reset_block_check
         ! Must set text large enough to write into.
         text = '                               '
         write(text,101) 'Geom_Wts(',n,')'
@@ -926,6 +932,9 @@ continue
         if (n /= size(geom_wts) .and. &
             NMLmode /= NMLmode_InputConverter) call set()
       end do
+      ! Reset the flag nml_block_is_used just in case an attempt is made to
+      ! use it later before first resetting it to false.
+      call reset_block_check
       call iow_footer()
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_grid') ) then
@@ -2383,6 +2392,10 @@ continue
                 use_bc_conflicts             , fals )
       loop_bc_input : &
       do n = 1, size(bc_input)
+        ! Reset the flag nml_block_is_used so that the call to set()
+        ! only writes out a blank line if one of the components of
+        ! geom_wts is not set to its default value.
+        call reset_block_check
         ! Must set text large enough to write into.
         text = '                               '
         write(text,101) 'BC_Input(',n,')'
@@ -2514,6 +2527,9 @@ continue
         if (n /= size(bc_input)) call set()
         !
       end do loop_bc_input  ! n = 1, size(bc_input)
+      ! Reset the flag nml_block_is_used just in case an attempt is made to
+      ! use it later before first resetting it to false.
+      call reset_block_check
       call iow_footer()
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_bc') ) then
