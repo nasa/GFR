@@ -1904,6 +1904,7 @@ subroutine ionml_limiter()
       Entropy_Limiter                  , &
       Marker_MinMax_Default            , &
       Marker_Coeff_Default
+     !process_marker_coefficients
   !
   ! FILTER OPTIONS
   namelist / nml_limiter / Global_Filter_Interval
@@ -1941,8 +1942,26 @@ subroutine ionml_limiter()
   namelist / nml_limiter / positivity
   ! ENTROPY LIMITER OPTIONS AND SETTINGS
   namelist / nml_limiter / entropy_limiter
+ !!
+ !!.. Local Scalars ..
+ !logical(lk) :: validity_checks_only
+ !integer     :: action_SetMarker
   !
 continue
+ !!
+ !! Some variables cannot have dummy values, so we impose NMLaction_SetValue.
+ !! The reasons differ, so we define separate constants here:
+ !!   NewDefault  Default value changed.
+ !!   SetLimiter  Certain limiter/marker options need explicit values
+ !!               for subroutine convert_old_to_new() to work properly,
+ !!               because dummy values don't translate well.
+ !!
+ !select case (NMLaction)
+ !  case ( NMLaction_SetDummy0, NMLaction_SetDummy1 )
+ !    action_SetMarker = NMLaction_SetValue
+ !  case default
+ !    action_SetMarker = NMLaction
+ !end select
   !
   select case (NMLaction)
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
