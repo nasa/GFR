@@ -2218,6 +2218,12 @@ continue
       end do
       !}}}
       call iow_footer()
+      !
+      ! Process the version 0001 namelist inputs to get the equivalent
+      ! settings using the current GFR variables
+      !
+      call process_nml_data(error2)
+      !
     case ( NMLaction_Read )
       !
       ! Read in the namelist from the connected input file
@@ -2225,17 +2231,18 @@ continue
       if ( io_has_nml_block(ior,'&input') ) then
         read (ior,nml=input)
       end if
+      !
+      ! Process the version 0001 namelist inputs to get the equivalent
+      ! settings using the current GFR variables
+      !
+      call process_nml_data(error2)
+      !
     case ( NMLaction_Write )
       !
       ! Have the compiler write out the namelist in the compilers default format
       !
       write (iow,nml=input,delim='APOSTROPHE')
   end select
-  !
-  ! Process the version 0001 namelist inputs to get the equivalent
-  ! settings using the current GFR variables
-  !
-  call process_nml_data(ierr)
   !
   ! Convert the old variables to the new.
   !   Old: Limiter_Filter_Option          =>  New: Limiter_Filter_Option
@@ -2244,7 +2251,7 @@ continue
   !   Old: Resolution_Marker_Variable     =>  New: Marker_Option
   !   Old:      Jump_Marker_Variable          New: Marker_Variable
   !   Old:       MLP_Marker_Variable
-  call convert_old_to_new(error2)
+ !call convert_old_to_new(error2)
   !
   101 format(a,i0,a)
   !
