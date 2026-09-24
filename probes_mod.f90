@@ -187,7 +187,7 @@ continue
   ! Create directory to write all the probe data
   !
   probes_dir = "" ! F2003 AUTO-REALLOC
-  if (size(point_probes) > 0) then
+  if (num_total_probes > 0) then
     call create_results_dir("Probe_files",temp_dir,skip_lustre=true)
     probes_dir = trim(adjustl(temp_dir)) ! F2003 AUTO-REALLOC
   end if
