@@ -2065,10 +2065,10 @@ continue
                 Entropy_Limiter%Tolerance        , eps3                     )
       call set('Entropy_Limiter%Check_Faces     ',                          &
                 Entropy_Limiter%Check_Faces      , fals                     )
-      call set('Entropy_Limiter%Check_Nodes     ',                          &
-                Entropy_Limiter%Check_Nodes      , fals                     )
-      call set('Entropy_Limiter%Check_Global    ',                          &
-                Entropy_Limiter%Check_Global     , fals                     )
+     !call set('Entropy_Limiter%Check_Nodes     ',                          &
+     !          Entropy_Limiter%Check_Nodes      , fals                     )
+     !call set('Entropy_Limiter%Check_Global    ',                          &
+     !          Entropy_Limiter%Check_Global     , fals                     )
       !
       call iow_footer()
     case ( NMLaction_Read )

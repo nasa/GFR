@@ -286,8 +286,8 @@ module ovar
     integer     :: Interpolant  = ENTLIM_FUN__LinearLvIhme
     real(wp)    :: Tolerance    = eps3
     logical(lk) :: Check_Faces  = fals
-    logical(lk) :: Check_Nodes  = fals
-    logical(lk) :: Check_Global = fals
+   !logical(lk) :: Check_Nodes  = fals
+   !logical(lk) :: Check_Global = fals
   end type entropy_limiter_t
   !
   ! positivity_t
