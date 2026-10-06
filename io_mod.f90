@@ -905,8 +905,8 @@ continue
       Default_Marker_Variable = Marker_Variable__npres
     case (Marker_Option__MLP)
       Default_Marker_Variable = Marker_Variable__nec
-!   case (Marker_Option__Ducros)
-!     Default_Marker_Variable = Marker_Variable__Ducros
+    case (Marker_Option__Ducros)
+      Default_Marker_Variable = Marker_Variable__Ducros
     case default
       ! Invalid Marker_Option
       write (error_message,70) 'Marker_Option', Marker_Option
