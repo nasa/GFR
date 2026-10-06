@@ -3880,6 +3880,10 @@ subroutine jump_indicator_modified(nst,troubled_cell)
   !
   !> Compute the local marker using the jump indicator across adjacent cells.
   !> This is a modified version of the jump indicator.
+  !> The modifications look to be:
+  !>    1. The jump is ignored for all physical wall boundary faces
+  !>    2. The marker value is the maximum jump value across all face points
+  !>       of a cell instead of the integral of all the jumps.
   !>
   !> Refs:
   !>  -(2008) Barter,      PhD MIT,        http://hdl.handle.net/1721.1/57606
